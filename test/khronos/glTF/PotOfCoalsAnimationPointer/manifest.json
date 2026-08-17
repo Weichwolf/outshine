@@ -1,0 +1,587 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/animation/pot-of-coals-animation-pointer",
+  "title": "Burnt copper pot with a clearcoat, containing emissive hot coals, and animated heat refraction -- five frames across its own declared span",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:PotOfCoalsAnimationPointer",
+    "board:1312"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "Burnt copper pot with a clearcoat, containing emissive hot coals, and animated heat refraction.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction over a subject that MOVES, so the comparison is taken at every frame of the declared grid rather than at one pose. Nothing here is analytic: what is compared is which pixels each side covers at each sampled time and what colour each body wears there."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "pot-of-coals-animation-pointer",
+      "kind": "gltf",
+      "name": "PotOfCoalsAnimationPointer",
+      "entry": "scene.gltf",
+      "attributes": [
+        "NORMAL",
+        "POSITION",
+        "TEXCOORD_0"
+      ],
+      "notes": "Attributes NORMAL, POSITION, TEXCOORD_0. 1 animation over a declared span of 4 s. The file's own images are not read by this case: the material below declares its colours, so what is compared is where the geometry is at each frame and which body wears which row.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "PotOfCoalsAnimationPointer",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/glTF/PotOfCoalsAnimationPointer.gltf",
+          "sha256": "df07d17e8fe37dac417e6d53b2ebba0bafbeefcb1ab97d6ed6049dc23c297448",
+          "bytes": 11480,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/glTF/PotOfCoalsAnimationPointer.bin",
+          "sha256": "417f5128f70cb26281a15768c99a7daa1e3a8168c054a72691c17cdbb6dee8c8",
+          "bytes": 1977628,
+          "as": "PotOfCoalsAnimationPointer.bin",
+          "role": "buffer",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/glTF/HotCoals_basecolor.jpg",
+          "sha256": "c8d45b0be454da3cfcc96bb96318f49b344599eee0935a61de1059f421fd3c5a",
+          "bytes": 394656,
+          "as": "HotCoals_basecolor.jpg",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/glTF/HotCoals_normal.jpg",
+          "sha256": "03a3b2d5257c74159898139d637c88effd4378f15e919c6a73fedea17bbe7a62",
+          "bytes": 1920405,
+          "as": "HotCoals_normal.jpg",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/glTF/HotCoals_emissive.jpg",
+          "sha256": "508bd69aa8d26f4188bd711bf85fcd02de58add34cb531a3794364607fd572ce",
+          "bytes": 71716,
+          "as": "HotCoals_emissive.jpg",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/glTF/HotCoals_occlusion.jpg",
+          "sha256": "3311f2705fdaebae52d695c6db5fbb2d8d5d9133add54883108cb39472a78ef0",
+          "bytes": 16660,
+          "as": "HotCoals_occlusion.jpg",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/glTF/CopperPot_basecolor.jpg",
+          "sha256": "4518ba2b83b8fc10599bdcc544908a0f0d927cb3c4a92cc1e00052e593867a69",
+          "bytes": 661109,
+          "as": "CopperPot_basecolor.jpg",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/glTF/CopperPot_normal.png",
+          "sha256": "0f5797e7e7e8aa8ea5f1243417298b8f2968f01552015b25662e178fa2fb3094",
+          "bytes": 486703,
+          "as": "CopperPot_normal.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/glTF/CopperPot_orm.jpg",
+          "sha256": "8ae56804ae57be363f2a39a9b1a7c256c3301555f696cd1203f65f4ebcc6cfb9",
+          "bytes": 726290,
+          "as": "CopperPot_orm.jpg",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/glTF/CopperPot_clearcoat.jpg",
+          "sha256": "4686ca5fa9d04adecf963ca8d7f7268b711a40cb6e37bc61e1ba147d17d8e83c",
+          "bytes": 43972,
+          "as": "CopperPot_clearcoat.jpg",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/glTF/Heatdome_normal.jpg",
+          "sha256": "973547e2bc305917f996d53b331322f71c08546bf1dae2f302f0ddc65b344b1c",
+          "bytes": 17052,
+          "as": "Heatdome_normal.jpg",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/glTF/Heatdome_thickness.jpg",
+          "sha256": "02c6ad80dcf5d77ac620b75f22a700780bfbff971b9fc2f69cdd2d1fbca01254",
+          "bytes": 3460,
+          "as": "Heatdome_thickness.jpg",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+          "sha256": "515f0c4989697a7bcccff09d674c576c127612810530dcee69533c4366363cf7",
+          "bytes": 1689,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PotOfCoalsAnimationPointer/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        0.33970909350519474,
+        0.17653143118518397,
+        0.23786686807072446
+      ],
+      "lookAtM": [
+        0.0,
+        0.025589979952201247,
+        0.0
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 0.37952752927271793,
+      "clipEndM": 0.5031190292912759,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-0.03999999910593033, 0.0007160003297030926, -0.03999999910593033] to [0.03999999910593033, 0.0504639595746994, 0.03999999910593033], so centre = [0.0, 0.025589979952201247, 0.0] and radius = 0.06179575000927902 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 0.44132327928199694, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "CopperPot": [
+          0.85,
+          0.15,
+          0.15
+        ],
+        "HeatDome": [
+          0.15,
+          0.3542572472504414,
+          0.85
+        ],
+        "HotCoals": [
+          0.5585144945008829,
+          0.85,
+          0.15
+        ]
+      },
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it. A material a primitive does not name is keyed by `<default>`, which is the format's own word for the material an undefined `material` selects."
+    },
+    "animation": {
+      "animations": [
+        0
+      ],
+      "fps": {
+        "value": 1,
+        "unit": "frames per second",
+        "origin": "SET",
+        "note": "ONE FRAME PER SECOND, AND THE RATE IS AN INTEGER BECAUSE THE HARNESS REQUIRES ONE: a frame is `index / fps` seconds and Blender's own rate is whole. A rate below one -- which is what sampling a 60 s span in five steps would need -- has no spelling, so the grid is a second apart and the note below says what it therefore covers."
+      },
+      "frames": {
+        "value": 5,
+        "unit": "frames",
+        "origin": "derived",
+        "derivation": "min(5, ceil(4 s) + 1) = 5, so the grid runs 0..4 s.",
+        "note": "WHAT THIS GRID COVERS, STATED RATHER THAN IMPLIED. The file's declared span is 4 s and this case samples its first 4 s. Where the span is shorter than that, glTF clamps past the last keyframe and the tail frames state the end pose rather than an extrapolation. Where it is LONGER -- and it is for the long ones -- this case exercises the OPENING of the motion and says so: it decides that the animation is read, applied and posed, not that the whole of it is right. A case that needed the whole span would declare a grid for it and pay for the frames."
+      }
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "A coverage case over a moving subject. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet."
+}

@@ -199,8 +199,22 @@ def _to_blender(road, value, rooted):
         vector = Vector(value[:3])
         return tuple(_CONVERSION @ vector) if rooted else tuple(vector)
     if road == "rotation":
-        quaternion = Quaternion((value[3], value[0], value[1], value[2]))
-        return tuple(_CONVERSION.to_quaternion() @ quaternion) if rooted else tuple(quaternion)
+        # A ROOT'S ROTATION CURVE IS *NOT* CONVERTED, AND THAT IS MEASURED RATHER THAN REASONED
+        # (board:1375). The conversion is per PATH and not per node:
+        #
+        #   `BoxAnimated` node 0 is a root animated on TRANSLATION. Its file keys run along glTF's +Y
+        #   -- (0, 2.52, 0) -- and the importer's curve runs along Blender's +Z, axis 2. The root
+        #   translation branch is therefore right, and this is the first time it was checked against a
+        #   value the conversion could move: its FIRST key is the zero vector, invariant under any
+        #   rotation, so every earlier run exercised the branch without being able to refute it.
+        #
+        #   `AnimatedCube` node 0 is a root animated on ROTATION. Its first file key is (0, 0, 0, 1) --
+        #   identity -- and the importer writes (1, 0, 0, 0), identity in Blender's own order. No
+        #   conversion. Applying one derived (0.7071, 0.7071, 0, 0) and the witness refused it.
+        #
+        # `_agrees` still re-derives the importer's first key on every channel of every case, so this
+        # rule is restated per case rather than trusted -- which is what caught the old one.
+        return tuple(Quaternion((value[3], value[0], value[1], value[2])))
     return tuple(value)
 
 
@@ -357,7 +371,12 @@ def _between(at, keys, frame, wide, how, spherical):
 def _imported_name(document, index):
     """WHAT THE IMPORTER CALLED THIS glTF NODE. [MEASURED] Blender 5.2.0 on `BoxAnimated`, whose four
     nodes are all unnamed: a node carrying a mesh takes the MESH's name -- `inner_box`, `outer_box` --
-    and one carrying none becomes an empty called `Node_<index>`.
+    and one carrying none becomes an empty called `Node_<index>`. An unnamed MESH then falls to
+    `Mesh_<meshIndex>`, measured on `AnimatedTriangle`.
+
+    ONE HAZARD IS KNOWN AND NOT HANDLED HERE: a mesh bound by two nodes arrives as two datablocks,
+    `Mesh_0` and `Mesh_0.001`, and resolving by name would send both channels to the first object.
+    `board:1362` carries that, and it is why no such subject has a case yet.
 
     glTF does not require a node to have a name, so this cannot be skipped and it cannot be guessed at
     the point of use. It is a hypothesis about one importer version, which is why the caller checks the
@@ -370,6 +389,14 @@ def _imported_name(document, index):
             named = document.get(table, [])[node[kind]].get("name")
             if named:
                 return named
+    # AN UNNAMED MESH GIVES `Mesh_<meshIndex>` AND NOT THE NODE'S INDEX (board:1375). [MEASURED] on
+    # `AnimatedTriangle`, whose single node and single mesh are both unnamed: the importer builds one
+    # object called `Mesh_0`. The old fallback looked for `Node_0`, found nothing, and refused -- which
+    # is the guard working, and it is why this is a measurement rather than a silently dropped channel.
+    # `BoxAnimated` keeps the other branch honest: its `Node_0` and `Node_1` carry no mesh and ARE named
+    # by node index.
+    if "mesh" in node:
+        return "Mesh_" + str(node["mesh"])
     return "Node_" + str(index)
 
 
@@ -1188,6 +1215,12 @@ def emission_material(name, colour):
     return material
 
 
+# THE RESERVED NAME FOR THE MATERIAL glTF SELECTS WHEN A PRIMITIVE NAMES NONE. Angle brackets because a
+# glTF material name is an arbitrary string and this must not collide with one a file could state; the
+# same spelling is what `Parity.cpp` keys the same primitive by.
+DEFAULT_MATERIAL_NAME = "<default>"
+
+
 def apply_emission_per_material(imported, colours):
     """One emitter per glTF MATERIAL, which is the key a multi-material asset has.
 
@@ -1213,9 +1246,30 @@ def apply_emission_per_material(imported, colours):
     """
     assigned = {}
     subject = []
+    # THE FORMAT'S OWN DEFAULT MATERIAL, GIVEN A DATABLOCK SO IT CAN CARRY A COLOUR (board:1373).
+    # glTF 2.0: "When [material] is undefined, the primitive is rendered with the default material."
+    # Blender expresses that as an EMPTY slot -- or as no slot at all -- and an empty slot cannot hold
+    # an emitter, so one is created here and keyed by the reserved name our side uses for the same
+    # primitive. It is created only where a subject actually has one, so a manifest that declared
+    # `<default>` for a subject without one is still refused by the unmatched-colour check below.
+    default_material = None
     for obj in imported:
         if obj.type != "MESH":
             continue
+        # THE MANIFEST DECIDES WHETHER THIS SUBJECT HAS ONE, NOT BLENDER'S SLOT COUNT. Filling every
+        # empty slot unconditionally created a `<default>` on `RiggedSimple`, whose file names a
+        # material for every primitive -- a case that was green went red. The manifest states what the
+        # subject carries and our side derives the same from the file's own primitives, so the two
+        # agree by construction; an empty slot with no `<default>` declared is left exactly as the old
+        # code left it.
+        empty = [slot for slot in obj.material_slots if slot.material is None]
+        if DEFAULT_MATERIAL_NAME in colours and (not obj.material_slots or empty):
+            if default_material is None:
+                default_material = bpy.data.materials.new(DEFAULT_MATERIAL_NAME)
+            if not obj.material_slots:
+                obj.data.materials.append(default_material)
+            for slot in empty:
+                slot.material = default_material
         for slot in obj.material_slots:
             if slot.material is not None and slot.material not in subject:
                 subject.append(slot.material)

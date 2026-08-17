@@ -1,0 +1,230 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/animation/rigged-figure",
+  "title": "Animations. Skins -- five frames across its own declared span",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:RiggedFigure",
+    "board:1315"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "Animations. Skins.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/RiggedFigure/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction over a subject that MOVES, so the comparison is taken at every frame of the declared grid rather than at one pose. Nothing here is analytic: what is compared is which pixels each side covers at each sampled time and what colour each body wears there."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "rigged-figure",
+      "kind": "gltf",
+      "name": "RiggedFigure",
+      "entry": "scene.gltf",
+      "attributes": [
+        "JOINTS_0",
+        "NORMAL",
+        "POSITION",
+        "WEIGHTS_0"
+      ],
+      "notes": "Attributes JOINTS_0, NORMAL, POSITION, WEIGHTS_0. 1 animation over a declared span of 1.25 s, and 1 skin. The file's own images are not read by this case: the material below declares its colours, so what is compared is where the geometry is at each frame and which body wears which row.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "RiggedFigure",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/RiggedFigure/glTF/RiggedFigure.gltf",
+          "sha256": "ca84ebbf6084d755ff7ac81b3b7c8bc388da68c8aa4b2cf236503b07d3858cc6",
+          "bytes": 70302,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Cesium",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/RiggedFigure/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/RiggedFigure/glTF/RiggedFigure0.bin",
+          "sha256": "28baa193dbc2f8bfad9cb8c13ae16191c592725ea3b2b22b7f05ab701618ce27",
+          "bytes": 22184,
+          "as": "RiggedFigure0.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Cesium",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/RiggedFigure/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/RiggedFigure/metadata.json",
+          "sha256": "9e9cbebf504a18941601c5bb63351ca50d774dde19311e803a1584179294d6e3",
+          "bytes": 686,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Cesium",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/RiggedFigure/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        5.213978069289804,
+        3.0416639716273415,
+        3.682896399282233
+      ],
+      "lookAtM": [
+        0.0,
+        0.7249599695205688,
+        0.0320296511054039
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 5.825125827223214,
+      "clipEndM": 7.722052883247217,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-0.5894609689712524, 0.0, -0.13091780245304108] to [0.5894609689712524, 1.4499199390411377, 0.19497710466384888], so centre = [0.0, 0.7249599695205688, 0.0320296511054039] and radius = 0.9484635280120018 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 6.773589355235216, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "Default-effect": [
+          0.85,
+          0.15,
+          0.15
+        ]
+      },
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it. A material a primitive does not name is keyed by `<default>`, which is the format's own word for the material an undefined `material` selects."
+    },
+    "animation": {
+      "animations": [
+        0
+      ],
+      "fps": {
+        "value": 1,
+        "unit": "frames per second",
+        "origin": "SET",
+        "note": "ONE FRAME PER SECOND, AND THE RATE IS AN INTEGER BECAUSE THE HARNESS REQUIRES ONE: a frame is `index / fps` seconds and Blender's own rate is whole. A rate below one -- which is what sampling a 60 s span in five steps would need -- has no spelling, so the grid is a second apart and the note below says what it therefore covers."
+      },
+      "frames": {
+        "value": 3,
+        "unit": "frames",
+        "origin": "derived",
+        "derivation": "min(5, ceil(1.25 s) + 1) = 3, so the grid runs 0..2 s.",
+        "note": "WHAT THIS GRID COVERS, STATED RATHER THAN IMPLIED. The file's declared span is 1.25 s and this case samples its first 2 s. Where the span is shorter than that, glTF clamps past the last keyframe and the tail frames state the end pose rather than an extrapolation. Where it is LONGER -- and it is for the long ones -- this case exercises the OPENING of the motion and says so: it decides that the animation is read, applied and posed, not that the whole of it is right. A case that needed the whole span would declare a grid for it and pay for the frames."
+      }
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "A coverage case over a moving subject. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet."
+}

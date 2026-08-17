@@ -53,3 +53,52 @@ measured before the rule is rewritten.
 **Twenty cases wait on this** -- every animated or skinned model without one -- and they are **withheld
 rather than committed unprepared**: a case that cannot prepare reports nothing and would make the suite's
 red set harder to read, which is the opposite of what a case is for.
+
+## MEASURED: the conversion is per PATH, and the root branch had never been refutable
+
+**The importer converts a root's TRANSLATION curve and does not convert its ROTATION curve.** Both halves
+are measured on files already in the corpus:
+
+| | file says | importer writes | |
+|---|---|---|---|
+| `BoxAnimated` node 0, a root, `translation` | keys along glTF's **+Y**: `(0, 2.52, 0)` | keys along Blender's **+Z**, axis 2 | **converted** |
+| `AnimatedCube` node 0, a root, `rotation` | first key `(0, 0, 0, 1)` — identity | `(1, 0, 0, 0)` — identity in Blender's order | **not converted** |
+
+**And here is why nothing caught it for so long.** `BoxAnimated` is the only case that ever exercised the
+root branch, and it animates a root on `translation` **whose first key is the zero vector** — invariant
+under any rotation. Its ROTATION channel is on node 2, a **child**, where no conversion is applied. *So
+the root branch ran on every animated case and could not be refuted by any of them: the one value it saw
+was the one value the conversion cannot move.* `AnimatedCube` is the first subject with a rotation on a
+root, and it refuted it on the first attempt.
+
+**`BoxAnimated` still passes after the change**, which is what says the translation branch was not broken
+in passing.
+
+## Two more measurements the same push forced
+
+**An unnamed MESH gives `Mesh_<meshIndex>`, not the node's index.** [MEASURED] `AnimatedTriangle`: one
+node, one mesh, neither named, and the importer builds `Mesh_0`. The baker looked for `Node_0`, found
+nothing, and **refused rather than dropping the channel** — the guard working again. `BoxAnimated` keeps
+the other branch honest: its `Node_0` and `Node_1` carry no mesh and are named by node index.
+
+**The oracle now gives the format's default material a datablock**, because an empty Blender slot cannot
+hold an emitter — **and the manifest decides whether there is one.** Filling every empty slot
+unconditionally created a `<default>` on `RiggedSimple`, whose file names a material for every primitive,
+and **turned a green case red**. The manifest states what the subject carries and our side derives the
+same from the file's own primitives, so the two agree by construction rather than by Blender's slot
+count.
+
+## Eleven of the twenty animated cases came in; nine wait on two named classes
+
+**After the three measurements above**: `criteria 98 met of 104 · 76 within` became
+**`criteria 104 met of 110 · 81 within`**, and the animated refusals fell from twenty to nine.
+
+**What the nine wait on, measured rather than guessed:**
+
+| | |
+|---|---|
+| **skinned animation** — `BrainStem`, `CesiumMilkTruck`, `RiggedFigure` and their kind | `the glTF names an animated node 'Node_2' and no imported object carries that name`. Their animated nodes are **joints inside an armature**, not objects, so an object lookup by name cannot reach them. `_bone_curves` exists for exactly this and the dispatch does not take it here |
+| **a mesh bound by several nodes** — `InterpolationTest` and its kind | `Cube.001 is animated by the file and carries no channelbag to write into`. Nine cubes share one mesh, so Blender builds `Cube`, `Cube.001`, … and a name lookup sends every channel to the first. **This is `board:1362` in its animated form** |
+
+**The nine are withheld rather than committed unprepared**, for the reason the earlier twenty were: a
+case that cannot prepare reports nothing and makes the red set harder to read.

@@ -616,9 +616,14 @@
           0.85,
           0.15,
           0.36295298329282416
+        ],
+        "<default>": [
+          0.85,
+          0.55,
+          0.15
         ]
       },
-      "note": "NINETY-EIGHT DISTINCT COLOURS, ONE PER GLTF MATERIAL, on a golden-angle hue sweep so no two neighbours in the grid share a value. The asset's own point is metallic and roughness, which this case does NOT decide -- what it decides is that 98 material rows reached 98 bodies, which no other subject in the corpus can ask."
+      "note": "NINETY-EIGHT DISTINCT COLOURS, ONE PER GLTF MATERIAL, on a golden-angle hue sweep so no two neighbours in the grid share a value. The asset's own point is metallic and roughness, which this case does NOT decide -- what it decides is that 98 material rows reached 98 bodies, which no other subject in the corpus can ask. A PRIMITIVE OF THIS SUBJECT NAMES NO MATERIAL, and glTF renders such a primitive with the format's default. `<default>` is the reserved key both sides use for it -- angle brackets because a glTF material name is an arbitrary string."
     }
   },
   "renders": {
