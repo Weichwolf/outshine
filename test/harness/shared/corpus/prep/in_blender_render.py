@@ -212,6 +212,67 @@ def _agrees(road, ours, theirs):
     return min(straight, max(abs(ours[c] + theirs[c]) for c in range(len(ours))))
 
 
+def _shape_key_curves(name, targets):
+    """The mesh's shape-key f-curves for a glTF node's morph targets, in the FILE's target order.
+
+    THE JOIN IS POSITIONAL AND NOT BY NAME. `key_blocks[0]` is `Basis` -- the unmorphed mesh -- and
+    target *i* is `key_blocks[i + 1]`. Blender names those blocks itself, and a file need declare no
+    `extras.targetNames` at all, so a name-based join would be a join on the importer's invention.
+
+    A missing curve is not a gap: a file may animate one target and leave another at its rest weight,
+    so the entry is None and the rest weight stands, which is what the importer's own action states."""
+    obj = bpy.data.objects.get(name)
+    if obj is None or obj.type != "MESH" or obj.data.shape_keys is None:
+        return None, None
+    keys = obj.data.shape_keys
+    if len(keys.key_blocks) != targets + 1:
+        fail(name + " carries " + str(len(keys.key_blocks)) + " shape keys and the file declares " +
+             str(targets) + " morph targets, so the positional join between them is not one to one")
+    animation = keys.animation_data
+    if animation is None or animation.action is None:
+        fail(name + " carries shape keys and no action to drive them, so a weights channel would "
+             "reach nothing")
+    curves = [None] * targets
+    for layer in animation.action.layers:
+        for strip in layer.strips:
+            for bag in strip.channelbags:
+                for fcurve in bag.fcurves:
+                    for target in range(targets):
+                        wanted = 'key_blocks["' + keys.key_blocks[target + 1].name + '"].value'
+                        if fcurve.data_path == wanted:
+                            curves[target] = fcurve
+    return keys, curves
+
+
+def _write_shape_keys(name, curves, taken, checkAt):
+    """The evaluated weights, onto the shape keys as one exact key per rendered frame.
+
+    THIS ARM EVALUATES THE FILE, unlike the bone arm beside it, and the difference is not a
+    preference: a morph weight is a SCALAR the importer stores unchanged -- no axis conversion, no
+    rest-relative basis, no bone space -- so the file's own number IS the value Blender wants, and all
+    three of glTF's interpolations are reachable here including CUBICSPLINE."""
+    written = 0
+    for target, curve in enumerate(curves):
+        if curve is None:
+            continue
+        points = curve.keyframe_points
+        if points:
+            theirs = points[0].co[1]
+            if abs(theirs - checkAt[target]) > 1e-4:
+                fail(name + "'s morph target " + str(target) + " has the importer's first key at " +
+                     repr(theirs) + " and the same key derived from the file is " +
+                     repr(checkAt[target]) + ", so the positional join between the file's targets " +
+                     "and Blender's shape keys is not the one assumed here")
+        points.clear()
+        points.add(len(taken))
+        for index, (frame, value) in enumerate(taken):
+            points[index].co = (float(frame), value[target])
+            points[index].interpolation = "LINEAR"
+        curve.update()
+        written += 1
+    return written
+
+
 def _bone_curves(name, road):
     """The armature and the f-curves driving one JOINT's channel, or (None, None) if no bone owns it.
 
@@ -399,7 +460,34 @@ def baked_channels(scene, paths, fps, declared):
                 if node is None:
                     continue
                 if road == "weights":
-                    left.append({"animation": index, "node": node, "why": "morph weights"})
+                    # THE THIRD ARM (board:1203): the curves are on the MESH's shape-key datablock,
+                    # not on the object and not on a pose bone, so neither of the two dispatches
+                    # below can reach them.
+                    sampler = animation["samplers"][channel["sampler"]]
+                    how = sampler.get("interpolation", "LINEAR")
+                    times = _accessor(document, buffers, sampler["input"])
+                    values = _accessor(document, buffers, sampler["output"])
+                    targets = len(values) // len(times) if how != "CUBICSPLINE" \
+                        else len(values) // (3 * len(times))
+                    flat = [v[0] for v in values]
+                    wide = targets
+                    keyed = [tuple(flat[k * wide:(k + 1) * wide]) for k in range(len(flat) // wide)]
+                    name = _imported_name(document, node)
+                    keys, curves = _shape_key_curves(name, targets)
+                    if keys is None:
+                        fail("the glTF animates the morph weights of node " + repr(name) +
+                             " and no imported mesh of that name carries shape keys")
+                    taken = []
+                    for frame in range(scene.frame_start, scene.frame_end + 1):
+                        taken.append((frame, _sampled(times, keyed, how, wide,
+                                                      frame / float(fps), False)))
+                    written = _write_shape_keys(name, curves,
+                                                taken, _sampled(times, keyed, how, wide,
+                                                                times[0][0], False))
+                    baked.append({"animation": index, "node": node, "name": name,
+                                  "carriedBy": "shapeKeys", "path": road, "interpolation": how,
+                                  "keyframes": len(times), "frames": len(taken),
+                                  "curves": written})
                     continue
                 sampler = animation["samplers"][channel["sampler"]]
                 how = sampler.get("interpolation", "LINEAR")
