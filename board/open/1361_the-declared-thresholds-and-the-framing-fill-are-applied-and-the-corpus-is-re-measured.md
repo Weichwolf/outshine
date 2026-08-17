@@ -11,7 +11,7 @@ before-and-after that mixed them with anything else would attribute nothing.
 | change | where | decided in |
 |---|---|---|
 | a **perceptual floor of 1.0 code** under every case's derived bound | the picture bound's derivation | `board:1359` |
-| the verdict on **p99.99** of the channel difference, the **maximum still reported** | the render harness's scoring | `board:1359` |
+| the verdict on **p99** of the channel difference, the **maximum still reported** | the render harness's scoring | `board:1359`, revised to **p99** by `board:1367` |
 | **`kFramingFill` 0.6 -> 0.9**, every non-`exact` camera re-derived | `src/gltf/Framing.h` and every manifest | `board:1360` |
 
 ## The order matters and it is not the order they were decided in

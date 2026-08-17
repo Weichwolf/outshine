@@ -90,6 +90,13 @@ struct Placement {
  *
  * EXACTLY ONE NODE MUST REFERENCE IT. A camera instanced twice has two placements and no way to
  * choose between them, and none is invented here: the sentence in `error` names the count. */
+/* THE FRAMING RULE OVER AN ARBITRARY BOX (board:1366). `Subject::Frame` is this called with the
+ * subject's own bounds; a caller that knows an animation's frame grid unions the poses and calls it
+ * with the union, because a camera derived from ONE pose frames a shape an animated subject leaves --
+ * `AnimatedTriangle` spins 360 degrees about the origin and reaches 2.12 from a centre the rest-pose
+ * rule covers to 1.178. Refuses a degenerate box for the same reason `Frame` does. */
+[[nodiscard]] bool FramingFor(const double minM[3], const double maxM[3], Placement &out);
+
 [[nodiscard]] bool DeclaredPlacement(const Document &document, int cameraIndex, Placement &out,
                                      std::string &error);
 

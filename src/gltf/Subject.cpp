@@ -976,11 +976,19 @@ void Subject::CentreM(double out[3]) const {
   for (int axis = 0; axis < 3; ++axis) { out[axis] = 0.5 * (Min_[axis] + Max_[axis]); }
 }
 
-bool Subject::Frame(Placement &out) const {
-  const double radius = RadiusM();
+bool Subject::Frame(Placement &out) const { return FramingFor(Min_, Max_, out); }
+
+/* THE RULE OVER BOUNDS THAT NEED NOT BE ONE POSE'S (board:1366). An animated subject's stored pose is
+ * one frame of its motion, and a camera derived from that pose frames a shape the subject leaves:
+ * measured on `AnimatedTriangle`, which spins 360 degrees about the origin, reaching 2.12 from a centre
+ * this rule covers to 1.178. The caller that knows the frame grid unions the poses and hands the union
+ * here, and `Frame` above is this called with the subject's own box. */
+bool FramingFor(const double minM[3], const double maxM[3], Placement &out) {
+  const double span[3] = {maxM[0] - minM[0], maxM[1] - minM[1], maxM[2] - minM[2]};
+  const double radius = 0.5 * Length(span);
   if (!(radius > 0)) { return false; }
   double centre[3];
-  CentreM(centre);
+  for (int axis = 0; axis < 3; ++axis) { centre[axis] = 0.5 * (minM[axis] + maxM[axis]); }
 
   const double azimuth = kFramingAzimuthDeg * kPi / 180.0;
   const double elevation = kFramingElevationDeg * kPi / 180.0;
