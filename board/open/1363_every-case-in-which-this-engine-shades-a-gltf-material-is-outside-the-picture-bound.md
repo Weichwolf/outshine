@@ -93,3 +93,53 @@ light means towards grazing incidence or towards the terminator.
 - [ ] **The next measurement is the residual against `n·l` and against `n·v`**, taken from the case's
   own shading-normal pass. *Named rather than run, because it is the first question that can now be
   asked of a subject with nothing else in it.*
+
+## Binned, and the residual is a monotone function of `n·v` and of nothing else
+
+The shaded sphere's two renders were binned against the normal of the **exact** sphere, reconstructed by
+intersecting each pixel's ray with it -- **not** against our own shading-normal pass, which read as
+unusable here and is its own finding below.
+
+| `n·v` | px | p50 abs | p95 abs | ours mean | oracle mean |
+|---|---|---|---|---|---|
+| [0.00, 0.15) | 658 | 0.009417 | 0.050947 | **0.113749** | **0.095794** |
+| [0.15, 0.30) | 3196 | 0.011774 | 0.041062 | 0.148932 | 0.133703 |
+| [0.30, 0.50) | 7496 | 0.008821 | 0.024597 | 0.195258 | 0.185828 |
+| [0.50, 0.70) | 11116 | 0.003810 | 0.010715 | 0.262592 | 0.258240 |
+| [0.70, 0.85) | 10832 | 0.000816 | 0.002769 | 0.329403 | 0.328383 |
+| [0.85, 1.01) | 12836 | 0.000830 | 0.002269 | 0.403979 | 0.404913 |
+
+**At normal incidence the two agree to 0.0008 -- essentially exact. At grazing view ours is 18.7 %
+brighter.** The sign is consistent: `ours - oracle = +0.003871` mean over 46 134 covered pixels.
+
+**And `n·h` shows nothing.** In the highlight, `n·h` in [0.999, 1.01], the two agree to 0.0024 and their
+means are 0.552460 against 0.554597. Binned by `n·h` at all, every bin above 0.90 sits at p95 ~0.002 to
+0.003 while the bin BELOW 0.90 -- everything outside the highlight -- carries p95 0.0236. **So it is
+neither the shape nor the placement of the GGX lobe.**
+
+## What that leaves, and it is an inference rather than a second measurement
+
+**The specular path agrees where it dominates**, and `MetalRoughBrdf.h` carries the height-correlated
+Smith visibility in its standard form with the microfacet denominator folded in. **The residual lives
+where specular does NOT dominate and grows monotonically as the view goes grazing** -- which points at
+the DIFFUSE term's view dependence, not at the lobe.
+
+**Named candidates, none of them asserted:**
+
+- [ ] **Cycles' Principled diffuse is not Lambert at roughness 0.5.** Blender's Principled v2 carries a
+  roughness-dependent diffuse; ours is `rho/pi * n.l` and has no view dependence at all. This is the
+  candidate the data fits most directly, and it is a question about the ORACLE's closure that
+  `board:1204`'s method answers: exercise it, do not read about it
+- [ ] **Diffuse is not scaled by `1 - F`.** It would make ours brighter where Fresnel is large -- but F
+  at normal incidence is already 0.04, so this predicts a 4 % disagreement at `n.v -> 1` and **the
+  measurement there is 0.08 %**. *Stated because it is the obvious guess and the numbers refute it.*
+- [ ] **A multi-scatter term on one side.** Cycles' GGX is multi-scattering by default, which ADDS
+  energy at high roughness; here the oracle is DARKER, so this points the wrong way
+
+## The shading-normal pass read as unusable on this case, and that is a second finding
+
+The first binning used `outshine.normal.raw` and put **57 % of covered pixels facing away from the
+light** -- impossible when the light is 34 degrees off the view direction, and the geometric
+reconstruction puts the lit fraction at **94.1 %**. The arithmetic over that pass also raised
+divide-by-zero and overflow. *Not chased here, because the finding above does not depend on it -- but a
+pass this suite writes and no case reads is exactly the shape `CLAUDE.md` forbids.*
