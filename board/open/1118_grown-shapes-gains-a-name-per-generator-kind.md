@@ -4,7 +4,7 @@ Tags: oracle, khronos
 
 **`grown.SHAPES` gains a name per generator kind**
 
-`test/harness/outshine/render/grown.py` already builds the library and runs `test/harness/outshine/render/GrowPart.cpp` over it, the
+`test/harness/outshine/render/prepare/grown.py` already builds the library and runs `test/harness/outshine/render/prepare/GrowPart.cpp` over it, the
 same door the preparer uses for Blender — so **a part the engine grew can already be a corpus case.**
 What it holds is one name: `SHAPES = ("grown-tree",)`.
 

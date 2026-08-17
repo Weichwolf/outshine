@@ -51,7 +51,8 @@ def beside(anchor, name):
 
 def step(case_directory, name):
     """The named step of the harness serving this case, or None where that harness declares none."""
-    path = os.path.join(harness_of(case_directory), name + ".py")
+    # the runner directory holds the runner; how the corpus is obtained sits under prepare/ 
+    path = os.path.join(harness_of(case_directory), "prepare", name + ".py")
     return at(path) if os.path.isfile(path) else None
 
 

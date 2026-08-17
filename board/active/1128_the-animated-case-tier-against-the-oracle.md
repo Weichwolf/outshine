@@ -67,3 +67,19 @@ the **still** corpus sweep in the generator items and are unrelated, and `board:
 (6, 13 and the skinning rows) carry criteria columns only, with no render count to go stale. `board:1129`
 itself is internally consistent: its options were priced before the decision and its own decision
 paragraph restates the cost in the post-decision shape.
+
+## Comments
+
+**2026-08-17** — **`InterpolationTest` is the next case and it decides three rows at once.** It is the only
+asset in the corpus carrying `LINEAR`, `STEP` and `CUBICSPLINE` side by side on one subject, so the tier's
+second case covers the whole sampler question rather than a third of it. It is **not fetched** — one of the
+53 `core` models with no case.
+
+**The oracle's half of this tier is now a rule rather than a case-by-case judgement** (`board:1175`): the
+oracle renders poses and does not interpolate, every declared frame is baked to an exact key, and the pose
+is computed in the preparer from the file's own accessor bytes against the specification — never from this
+engine's sampler, so an engine whose sampler is wrong still disagrees.
+
+**Two of `Pose`'s arms remain unexercised by anything** — `STEP` and scale channels — and `board:1169` said
+so at the time rather than letting them pass as covered. `InterpolationTest` carries the first. **Morph
+weights stay a named refusal**, which is a different statement from unexercised and must not be read as one.

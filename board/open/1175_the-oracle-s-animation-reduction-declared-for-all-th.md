@@ -49,3 +49,39 @@ of ours. Residual **1.55e-05°**, which is Blender's f32 f-curve storage and is 
 **Done when** each of `LINEAR`, `STEP` and `CUBICSPLINE` carries either a measured reduction with its
 residual and its independence argument, or a measurement showing none is needed; and an animated case
 publishes which of the three stood in its path.
+
+## DECIDED by the owner: the oracle renders poses, it does not interpolate
+
+*"We must match the oracle"* and *"use what the oracle can do"*, taken together with `CLAUDE.md`'s ladder —
+**fix the engine · reduce the oracle · patch the asset · disqualify**, in that order.
+
+**The rule this settles, and it generalises the reduction that already exists:** Blender is asked only for
+what it does well — path-tracing a stated pose — and is never asked to reproduce a glTF sampler, because it
+demonstrably converts them on import: component-wise on a `LINEAR` quaternion, Bézier on a `CUBICSPLINE`.
+**Every declared frame is baked to an exact key and Blender interpolates nothing.**
+
+**The independence argument survives that, and it is the reason the shape is admissible.** The pose handed
+to Blender is computed **in the preparer, from the file's own accessor bytes, against the specification** —
+never from this engine's sampler. Two implementations of one published formula, in different languages, on
+different code paths. **An engine whose sampler is wrong still disagrees with the oracle**, which is the
+whole property a reduction can destroy and this one does not.
+
+*The slerp reduction already had this shape and was read as a special case; it is the rule.*
+
+## What `CUBICSPLINE` needs, and where it can go wrong quietly
+
+**glTF's cubic Hermite over the in-tangent · value · out-tangent triples, with the tangents scaled by the
+segment duration.** That scaling is what makes it a different function from a Bézier carrying the same
+handles, and it is the likeliest place for an implementation that looks right and is not.
+
+**Our side is already built** — `src/gltf/Track.h` states *glTF's Hermite basis with its tangents scaled*
+and `src/core/Keyframes.h` reads the triples. **The open half is the oracle's**, and it is open because
+nobody has yet measured whether Blender's Bézier conversion reproduces the Hermite or departs from it.
+**That measurement comes before the rung is chosen**, per the ladder: if it reproduces it, there is nothing
+to reduce.
+
+**`InterpolationTest` is the case**, and it is not fetched. It is the only asset carrying `LINEAR`, `STEP`
+and `CUBICSPLINE` side by side on one subject, so it decides all three in one case rather than three — and
+**the three modes must be shown to differ at the sampled frames by more than the picture bound before it is
+scored**, or the case cannot distinguish a sampler that ignores the declared mode entirely. **`STEP` is the
+one that would pass by accident.**

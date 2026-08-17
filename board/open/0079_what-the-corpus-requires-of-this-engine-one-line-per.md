@@ -53,7 +53,7 @@ by parsing every `.gltf` in it, so the counts below are the corpus's own and not
 | `KHR_node_visibility` | `CubeVisibility` — 2 | both | required · trivial |
 | `KHR_texture_basisu` | 1 | both ship block-compressed textures; ASTC and BC are native on this device | required |
 | `KHR_animation_pointer` | `AnimatedColorsCube` — 5 | animated emissive and uv in GTA 5 | required · `clients/Animation.h` is the mechanism, the glTF spelling is later |
-| `LINEAR` · `STEP` · `CUBICSPLINE` | `InterpolationTest` — the only asset with all three | both | required · `core/Keyframes.h` and `core/CatmullRom.h` already carry them |
+| `LINEAR` · `STEP` · `CUBICSPLINE` | `InterpolationTest` — the only asset with all three, **not fetched** | both | required · **our side is built** (`src/gltf/Track.h` carries glTF's Hermite with its tangents scaled, `src/core/Keyframes.h` reads the triples) · **`LINEAR` delivered** with its oracle reduction (`board:1169`) · **`STEP` and `CUBICSPLINE` unexercised by any picture**, and the oracle's half of both is `board:1175` |
 | `KHR_materials_iridescence` | 10 | neither — no thin-film anywhere in either | **REFUSED** |
 | `KHR_materials_dispersion` | 4 | neither | **REFUSED** |
 | `KHR_materials_unlit` | 5 | the effect is emissive-only, which `Material::Emission` already spells | **REFUSED** · no second material model |

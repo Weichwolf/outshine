@@ -267,6 +267,7 @@ NotTheHarnesses() {
     harness/shared/render) printf '%s' "the render scoring instrument, compiled into each corpus's own harness" ;;
     outshine/host) printf '%s' "host implementations of what the library declares, compiled into the library" ;;
     outshine/unit/compile | outshine/unit/compile/*) printf '%s' "a compile subject, judged by the layer's own refusal test, never linked" ;;
+    harness/khronos/glTF/prepare | harness/outshine/render/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;
     harness/shared/corpus | harness/shared/corpus/*) printf '%s' "the offline preparer's own, compiled and run by test/harness/shared/corpus/prepare.py" ;;
     *) return 1 ;;
   esac

@@ -23,7 +23,7 @@ weakening either rule**; it is the measurement that says the corpus is not suffi
 and that has to be written down where the claim is counted.
 
 **What a generated fixture would cost, because that is the alternative and nobody has priced it.**
-`test/harness/outshine/render/fixtures.py` generates subjects through two families — declared shapes, and
+`test/harness/outshine/render/prepare/fixtures.py` generates subjects through two families — declared shapes, and
 `grown.SHAPES` where the engine itself is the producer. **Neither produces a material or an image today**:
 every textured case in the tree gets its texture from a fetched asset. So the fixture this claim needs —
 one mesh, one material, several sockets, distinct transforms, distinguishable images — requires
