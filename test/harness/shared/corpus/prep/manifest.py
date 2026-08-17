@@ -247,12 +247,22 @@ class _Scene:
         # default (board:1188). It is a NAME, so the oracle resolves it against the file it imported
         # rather than against a position in a list this declaration would have to keep in step with.
         self.material_variant = field.get("materialVariant")
-        if self.animation is not None and self.animation["index"] != 0:
-            raise Refusal("manifest.scene.animation.index", expected="0",
-                          observed=repr(self.animation["index"]),
-                          why="Blender's importer makes the file's FIRST animation the active one, "
-                              "and selecting another needs an NLA arm no case declares yet -- a "
-                              "second index would render animation 0 and report the other")
+        # THE REFUSAL THAT USED TO LIVE HERE IS GONE BECAUSE ITS CAUSE IS (board:1198). It read
+        # `index` must be 0, because Blender's importer makes the file's first animation the active
+        # one and a second index would have rendered animation 0 while reporting the other. That was
+        # a fact about the IMPORTED ACTION, and no imported action reaches the render any more: the
+        # preparer writes an exact key at every rendered frame for every channel of every DECLARED
+        # animation, from the file's own accessor bytes. What survives is the narrower claim below --
+        # a set that names one animation twice is a declaration that cannot be honoured, because the
+        # two copies drive the same node's same path and the format states no result for that.
+        if self.animation is not None:
+            seen = self.animation["animations"]
+            if len(set(seen)) != len(seen):
+                raise Refusal("manifest.scene.animation.animations",
+                              expected="each animation named once", observed=repr(seen),
+                              why="one animation named twice drives every node it touches twice, "
+                                  "and glTF states no result when two channels target one node's "
+                                  "one path")
         if self.animation is not None and self.animation["frames"]["value"] < 2:
             raise Refusal("manifest.scene.animation.frames",
                           expected="at least 2", observed=repr(self.animation["frames"]["value"]),

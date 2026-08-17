@@ -1,7 +1,7 @@
 {
   "schema": "outshine/render-oracle-manifest",
   "schemaVersion": 1,
-  "note": "WHAT A RENDER MANIFEST MAY CONTAIN, DECLARED ONCE. The preparer (test/corpus/prep/manifest.py) and the runner (test/render/Parity.cpp) both read this file and neither restates it: a key that exists here exists for both, and a key that does not exists for neither. Two closed sets over one declaration is what this file replaces -- they disagreed on eight of twenty-six manifests and nothing failed. Cross-field POLICY is not here: which Cycles settings are refused belongs to the preparer, which thresholds may be overridden and which lights the studio can build belong to the runner. This file declares only what a key IS.",
+  "note": "WHAT A RENDER MANIFEST MAY CONTAIN, DECLARED ONCE. The preparer (test/harness/shared/corpus/prep/manifest.py) and the runner (test/harness/shared/render/Parity.cpp) both read this file and neither restates it: a key that exists here exists for both, and a key that does not exists for neither. Two closed sets over one declaration is what this file replaces -- they disagreed on eight of twenty-six manifests and nothing failed. Cross-field POLICY is not here: which Cycles settings are refused belongs to the preparer, which thresholds may be overridden and which lights the studio can build belong to the runner. This file declares only what a key IS.",
   "types": {
     "text": "a non-empty string",
     "string": "a string, possibly empty",
@@ -852,7 +852,9 @@
     },
     "animation": {
       "required": {
-        "index": "index",
+        "animations": {
+          "array": "index"
+        },
         "fps": {
           "quantity": "integer"
         },
@@ -860,7 +862,7 @@
           "quantity": "integer"
         }
       },
-      "note": "THE FRAME IS THE CURRENCY AND SECONDS ARE DERIVED (board:1129): frame n is n/fps seconds into the file's own animation, so a run delivers the same N poses whatever the wall clock does. `frames` is how many of them the case declares, counted from 0. `index` names one of the file's animations."
+      "note": "THE FRAME IS THE CURRENCY AND SECONDS ARE DERIVED (board:1129): frame n is n/fps seconds into the file's own animation, so a run delivers the same N poses whatever the wall clock does. `frames` is how many of them the case declares, counted from 0. `animations` names WHICH OF THE FILE'S ANIMATIONS PLAY, and it is a set because the format says animations are independent and a client may play any subset (board:1198). A case that wants one declares one; there is no spelling for 'all', because 'all' is a fact about the file and the picture must be a function of the declaration."
     }
   }
 }

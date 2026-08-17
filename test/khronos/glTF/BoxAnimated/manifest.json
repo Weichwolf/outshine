@@ -90,7 +90,9 @@
   "scene": {
     "frame": "gltf",
     "animation": {
-      "index": 0,
+      "animations": [
+        0
+      ],
       "fps": {
         "value": 8,
         "unit": "frames per second",

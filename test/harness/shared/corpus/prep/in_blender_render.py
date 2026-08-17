@@ -13,7 +13,7 @@ import time
 
 import bpy
 import numpy
-from mathutils import Matrix, Vector
+from mathutils import Matrix, Quaternion, Vector
 
 # THE SCRIPT IS HANDED TO BLENDER BY PATH, so its own directory is not on the import path and the
 # reader beside it has no spelling without this line.
@@ -178,8 +178,60 @@ def document_buffers(path, document):
 
 _CURVE_OF = {"translation": "location", "rotation": "rotation_quaternion", "scale": "scale"}
 
+# glTF IS Y-UP AND BLENDER IS Z-UP, AND THE IMPORTER PUTS THAT CONVERSION ON THE ROOT OBJECTS ONLY
+# (MEASURED, Blender 5.2.0). A root node translating (0, 2.52, 0) in the file arrives as
+# (0, 0, 2.52); a child's channel arrives unconverted, because its parent already carries the
+# conversion. Writing the file's own numbers into a root's curves would therefore move it along the
+# wrong axis -- a picture, not a crash. `_agrees` re-derives the importer's first key from the file
+# on every channel, so this hypothesis is checked per case rather than trusted.
+_CONVERSION = Matrix.Rotation(math.radians(90.0), 4, "X")
 
-def _write_frames(name, road, taken, wide):
+
+def _to_blender(road, value, rooted):
+    """One sampled glTF value in the slots Blender keys it in.
+
+    THE QUATERNION IS REORDERED AND NOT REINTERPRETED: glTF stores (x, y, z, w) and Blender (w, x, y,
+    z), so a component-for-component write is a different rotation. Scale crosses unchanged even at a
+    root, because C.T.R.S decomposes as T(C.t).(C.R).S and the scale factors are in the node's own
+    frame either way."""
+    if road == "translation":
+        vector = Vector(value[:3])
+        return tuple(_CONVERSION @ vector) if rooted else tuple(vector)
+    if road == "rotation":
+        quaternion = Quaternion((value[3], value[0], value[1], value[2]))
+        return tuple(_CONVERSION.to_quaternion() @ quaternion) if rooted else tuple(quaternion)
+    return tuple(value)
+
+
+def _agrees(road, ours, theirs):
+    """A quaternion and its negation name one rotation, and the importer negates keys to keep a curve
+    continuous -- so a rotation is compared up to sign and everything else is not."""
+    straight = max(abs(ours[c] - theirs[c]) for c in range(len(ours)))
+    if road != "rotation":
+        return straight
+    return min(straight, max(abs(ours[c] + theirs[c]) for c in range(len(ours))))
+
+
+def _imported_name(document, index):
+    """WHAT THE IMPORTER CALLED THIS glTF NODE. [MEASURED] Blender 5.2.0 on `BoxAnimated`, whose four
+    nodes are all unnamed: a node carrying a mesh takes the MESH's name -- `inner_box`, `outer_box` --
+    and one carrying none becomes an empty called `Node_<index>`.
+
+    glTF does not require a node to have a name, so this cannot be skipped and it cannot be guessed at
+    the point of use. It is a hypothesis about one importer version, which is why the caller checks the
+    object it reaches against the file's own first key rather than trusting the name it arrived by."""
+    node = document["nodes"][index]
+    if node.get("name"):
+        return node["name"]
+    for kind, table in (("mesh", "meshes"), ("camera", "cameras")):
+        if kind in node:
+            named = document.get(table, [])[node[kind]].get("name")
+            if named:
+                return named
+    return "Node_" + str(index)
+
+
+def _write_frames(name, road, taken, wide, checkAt):
     """The evaluated poses, onto this object's own curves as one exact key per frame.
 
     THE OBJECT IS FOUND BY THE NODE'S NAME AND A MISS IS A REFUSAL. A channel silently dropped leaves
@@ -202,17 +254,33 @@ def _write_frames(name, road, taken, wide):
     if len(curves) != wide:
         fail(obj.name + "'s " + road_name + " is " + str(len(curves)) + " curves and the file's " +
              road + " carries " + str(wide) + " components")
+    rooted = obj.parent is None
+    # THE CONVERSION IS CHECKED BEFORE IT IS RELIED ON, ON EVERY CHANNEL OF EVERY CASE. The importer
+    # has already placed this channel's first key in Blender's own space; deriving that same key from
+    # the file and comparing is what turns `roots are converted, children are not` from a fact about
+    # one Blender version into a claim this preparer restates every time it runs. A wrong axis or a
+    # component-for-component quaternion is an O(1) disagreement here and a plausible picture later.
+    if all(len(curves[c].keyframe_points) for c in range(wide)):
+        theirs = tuple(curves[c].keyframe_points[0].co[1] for c in range(wide))
+        ours = _to_blender(road, checkAt, rooted)
+        apart = _agrees(road, ours, theirs)
+        if apart > 1e-4:
+            fail(obj.name + "'s " + road + " at the importer's first key is " + repr(theirs) +
+                 " and the same key derived from the file is " + repr(ours) + ", apart by " +
+                 repr(apart) + " -- so the axis convention assumed here is not the one the importer "
+                 "used, and every baked key would be in the wrong space")
+    written = [(frame, _to_blender(road, value, rooted)) for frame, value in taken]
     for component in range(wide):
         points = curves[component].keyframe_points
         points.clear()
-        points.add(len(taken))
-        for at, (frame, value) in enumerate(taken):
+        points.add(len(written))
+        for at, (frame, value) in enumerate(written):
             points[at].co = (float(frame), value[component])
             points[at].interpolation = "LINEAR"
         curves[component].update()
     return wide
 
-def baked_channels(scene, paths, fps):
+def baked_channels(scene, paths, fps, declared):
     """EVERY ANIMATED CHANNEL, WRITTEN TO THE FRAME GRID AS EXACT KEYS (board:1198, board:1175).
 
     THE GRID IS BLENDER FRAMES AND THE SAMPLER IS IN SECONDS. `scene.frame_start` is 0 and `fps_base`
@@ -233,9 +301,17 @@ def baked_channels(scene, paths, fps):
         document = document_json(path)
         if not document.get("animations"):
             continue
+        # THE DECLARED SUBSET AND NOT THE FILE'S WHOLE LIST. glTF states animations are independent
+        # and a client plays any subset, so which of them play is the case's declaration -- and a
+        # baker that played all of them would make the picture a function of the FILE rather than of
+        # the manifest, which is the one property this engine does not trade.
+        for which in declared:
+            if which < 0 or which >= len(document["animations"]):
+                fail(path + " carries " + str(len(document["animations"])) +
+                     " animations and the case declares index " + str(which))
         buffers = document_buffers(path, document)
-        nodes = document.get("nodes", [])
-        for index, animation in enumerate(document["animations"]):
+        for index in declared:
+            animation = document["animations"][index]
             for channel in animation.get("channels", []):
                 target = channel.get("target", {})
                 node = target.get("node")
@@ -253,8 +329,15 @@ def baked_channels(scene, paths, fps):
                 taken = []
                 for frame in range(scene.frame_start, scene.frame_end + 1):
                     taken.append((frame, _sampled(times, values, how, wide, frame / float(fps), road == "rotation")))
-                written = _write_frames(nodes[node].get("name"), road, taken, wide)
-                baked.append({"animation": index, "node": node, "name": nodes[node].get("name"),
+                # THE IMPORTER'S OWN FIRST KEY IS THE WITNESS, so the value compared against it is
+                # this sampler at the file's first key time -- which is the stored key for STEP and
+                # LINEAR and the middle of the triple for CUBICSPLINE, exactly what the importer put
+                # there.
+                written = _write_frames(_imported_name(document, node), road, taken, wide,
+                                        _sampled(times, values, how, wide, times[0][0],
+                                                 road == "rotation"))
+                baked.append({"animation": index, "node": node,
+                              "name": _imported_name(document, node),
                               "path": road, "interpolation": how, "keyframes": len(times),
                               "frames": len(taken), "curves": written})
     return {"baked": baked, "leftAlone": left}
@@ -1300,7 +1383,8 @@ def main():
     channels = None
     if animation is not None:
         channels = baked_channels(scene, job["gltfPaths"],
-                                  scene.render.fps / scene.render.fps_base)
+                                  scene.render.fps / scene.render.fps_base,
+                                  animation["animations"])
         scene.frame_set(int(job["frame"]))
     quantity_work = tempfile.mkdtemp(prefix="outshine-quantities-")
     quantities = ask_for_quantities(scene, job["quantityPasses"], quantity_work, job["recipe"])

@@ -206,7 +206,11 @@ struct Case {
    * animation, DERIVED and never accumulated, which is the currency board:1129 decided in. */
   int Frames = 1;
   double Fps = 0;
-  int AnimationIndex = 0;
+  /* WHICH OF THE FILE'S ANIMATIONS PLAY, declared and never assumed (board:1198). The format states
+   * animations are independent and a client may play any subset, so `all of them` is a declaration
+   * like any other and has no shorthand -- a shorthand would make the picture a function of the file
+   * rather than of the case. */
+  std::vector<int> Animations;
   outshine::Gltf::Pose Animation;
   /* One local transform per node of the file, rewritten at every frame -- the caller's buffer, so a
    * sweep over the grid allocates once. */
@@ -593,7 +597,8 @@ public:
    * reader does not have to. */
   const Json::Ref animation = root["scene"]["animation"];
   if (animation.Valid()) {
-    subject.AnimationIndex = (int)animation["index"].Num(0.0);
+    const Json::Ref which = animation["animations"];
+    for (size_t at = 0; at < which.Size(); ++at) { subject.Animations.push_back(which[at].Int(0)); }
     double fps = 0, frames = 0;
     if (!ReadDeclaredNumber(animation["fps"], "scene.animation.fps", fps, error)) { return false; }
     if (!ReadDeclaredNumber(animation["frames"], "scene.animation.frames", frames, error)) {
@@ -1173,7 +1178,10 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
     return false;
   }
   if (subject.Animated() &&
-      !outshine::Gltf::Pose::Build(subject.File, subject.AnimationIndex, subject.Animation, error)) {
+      !outshine::Gltf::Pose::Build(subject.File,
+                                   outshine::Span<const int>(subject.Animations.data(),
+                                                             subject.Animations.size()),
+                                   subject.Animation, error)) {
     return false;
   }
   if (!PoseGeometry(subject, 0, error)) { return false; }
