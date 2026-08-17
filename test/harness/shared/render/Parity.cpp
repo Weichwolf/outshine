@@ -2565,19 +2565,27 @@ void ScoreVelocity(const Case &subject, const Picture &picture, const Mask &ours
  * side could resolve: half the box filter's width, already declared in the recipe and already the
  * floor every near-tie in this suite is judged against. A displacement under it is a frame the
  * oracle cannot tell from the last one. */
-[[nodiscard]] bool ScoreMotion(const Case &subject, int frame) {
+/* WHAT ONE FRAME CONTRIBUTES TO THE MOTION CLAIM, AND THE CLAIM ITSELF IS NOT ITS TO MAKE.
+ * `Measurable` is false only where the frame could not be measured at all; `MovedPx` is what it
+ * moved. The verdict is taken over the GRID by the caller, for the reason in `ScoreMotion`. */
+struct Motion {
+  bool Measurable = false;
+  double MovedPx = 0;
+};
+
+[[nodiscard]] Motion ScoreMotion(const Case &subject, int frame) {
   using namespace outshine::Test;
-  if (frame == 0) { return true; }
+  if (frame == 0) { return Motion{true, 0}; }
   Transform clip;
   if (!subject.Eye.Clip(subject.Frame.Aspect(), clip)) {
     CHECK(false, "the resolved camera yields a projection, so the motion is measurable in pixels");
-    return false;
+    return Motion{false, 0};
   }
   const std::vector<double> &now = subject.Geometry.PositionsM();
   const std::vector<double> &rest = subject.RestPositions;
   if (now.size() != rest.size() || now.empty()) {
     CHECK(false, "the posed subject carries the same vertices at every frame of the grid");
-    return false;
+    return Motion{false, 0};
   }
   double furthestM = 0, furthestPx = 0;
   for (size_t vertex = 0; vertex * 3 + 2 < now.size(); ++vertex) {
@@ -2601,9 +2609,7 @@ void ScoreVelocity(const Case &subject, const Picture &picture, const Mask &ours
   Note("subject motion from frame 0, furthest vertex projected", furthestPx, "px");
   Note("the floor it is held against, the oracle's own sub-pixel resolution",
        subject.OracleFloorPx, "px");
-  const bool moved = furthestPx > subject.OracleFloorPx;
-  CHECK(moved, "the drawn subject at this frame is not the drawn subject at frame 0");
-  return moved;
+  return Motion{true, furthestPx};
 }
 
 /* THE FRAME'S ARTEFACTS ON DISK, AND THE VERDICT'S OWN BUFFER BACK. It runs before anything is
@@ -2942,6 +2948,8 @@ int ScoreRenderCase(int argc, char **argv) {
    * the one that failed or the last one that passed. */
   std::string why;
   int compared = 0;
+  double furthestMovedPx = 0;
+  int framesThatMoved = 0;
   int stoppedAt = -1;
   for (int frame = 0; frame < subject.Frames; ++frame) {
     if (subject.Animated()) {
@@ -2956,10 +2964,13 @@ int ScoreRenderCase(int argc, char **argv) {
         stoppedAt = frame;
         break;
       }
-      if (!ScoreMotion(subject, frame)) {
+      const Motion motion = ScoreMotion(subject, frame);
+      if (!motion.Measurable) {
         stoppedAt = frame;
         break;
       }
+      furthestMovedPx = std::fmax(furthestMovedPx, motion.MovedPx);
+      if (motion.MovedPx > subject.OracleFloorPx) { ++framesThatMoved; }
     }
     const FrameVerdict verdict = ScoreFrame(subject, renderer, frame);
     if (!verdict.Compared) {
@@ -2971,6 +2982,32 @@ int ScoreRenderCase(int argc, char **argv) {
       stoppedAt = frame;
       break;
     }
+  }
+  /* THE MOTION CLAIM IS TAKEN OVER THE GRID AND NOT PER FRAME (board:1169, board:1200).
+   *
+   * It used to be per frame -- every frame's drawn geometry had to differ from frame 0's -- and that
+   * rule forbids a picture the format states is correct. `RiggedSimple` LOOPS: its bend returns to
+   * the rest pose, so the last frame of a grid covering the whole declared duration IS frame 0's
+   * picture, measured here at exactly 0 m, and demanding otherwise forbids an animation from ending
+   * where it began.
+   *
+   * A HOLD IS NOT THE SAME CASE AND WAS NEVER CAUGHT BY THE OLD RULE, which is worth saying because
+   * it looks like it would be: `BoxAnimated` carries the same translation at two keyframes and is
+   * stationary between them, but the comparison is against FRAME 0 rather than against the previous
+   * frame, and it never returns there. So the rule that had to change is the one about RETURNING,
+   * not the one about STANDING STILL.
+   *
+   * WHAT THE CLAUSE IS ACTUALLY FOR SURVIVES INTACT: a case whose subject never moves is a still
+   * rendered N times, and it agrees with the oracle by construction rather than by being right. That
+   * is a statement about the SEQUENCE, and it is now made where it is true. The count of frames that
+   * moved is published beside the maximum, so a grid where one frame carries all the motion is
+   * visible rather than merely passing. */
+  Note("the furthest the drawn subject moved from frame 0 over the grid", furthestMovedPx, "px");
+  Note("frames whose drawn subject differs from frame 0", (double)framesThatMoved, "frames");
+  if (subject.Animated()) {
+    CHECK(furthestMovedPx > subject.OracleFloorPx,
+          "the drawn subject moves over the declared grid, so the sequence is not a still rendered "
+          "once per frame and agreeing with the oracle by construction");
   }
   Note("frames compared", (double)compared, "frames");
   Note("frames declared", (double)subject.Frames, "frames");

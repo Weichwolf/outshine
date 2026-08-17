@@ -72,9 +72,13 @@ stop rather than as a rest-pose armature rendered beside a moving one.
   apply the node transform to a skinned vertex by reaching for the obvious variable. Positions, normals
   and tangents all route through it
 - [ ] The baker poses bones, with the rest-relative conversion checked against the importer
-- [ ] **`RiggedSimple` is a render case, frame by frame**, and it is the proof — a unit test standing in
-  for a picture is what `board:0079`'s closing line forbids
-- [ ] A deliberately dropped joint weight is shown red, so the case is known to be able to fail
+- [x] **`RiggedSimple` is a render case, frame by frame, and all three arms are green.** 18 frames at
+  8 fps, **worst geometric disagreement 0.00074717091 px against the 0.005 px instrument floor**, 458
+  checks and no failures — with `BoxAnimated` re-scored beside it in the same run so the change to the
+  shared instrument is not a claim about one case
+- [x] **Shown to be able to fail**: posing the subject at frame 0 for every frame takes it red on the
+  motion clause **by name** and on `worst_disagreement_px`, because a frozen subject disagrees with a
+  moving oracle in both directions
 
 ## Comments
 
@@ -101,3 +105,21 @@ rather than an unusual one.
 **The matrices are blended and then applied, not applied and then blended.** They are the same number —
 the transform is affine and the blend is linear — so the order is chosen for cost: four matrix adds per
 vertex against four point transforms per attribute.
+
+## The acceptance clause this case had to narrow, and what it was actually wrong about
+
+**`board:1169` demanded that every frame's drawn subject differ from FRAME 0's**, and `RiggedSimple`
+**loops** — its bend returns to the rest pose, so at frame 17 the motion from frame 0 is **exactly 0 m**
+and the picture is correct. The old clause therefore forbade an animation from ending where it began.
+
+**The verdict moved from the frame to the GRID**, and what the clause exists for survives intact: a case
+whose subject never moves is a still rendered N times and agrees with the oracle by construction rather
+than by being right. That is a statement about the sequence and it is now made where it is true, with
+**the count of frames that moved published beside the maximum** — 16 of 18 here — so a grid where one
+frame carries all the motion is visible rather than merely passing.
+
+**A hold is a different case and was never caught by the old rule, which is worth recording because it
+looks like it would be.** `BoxAnimated` carries the same translation at two keyframes and is stationary
+between them, but the comparison was against frame 0 rather than the previous frame, and it never returns
+there. *The rule that had to change is the one about RETURNING, not the one about STANDING STILL* — and
+the first draft of this comment claimed otherwise.

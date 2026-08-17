@@ -1,0 +1,232 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/animation/rigged-simple",
+  "title": "Rung 7 -- skinning: one cylinder bent by two joints, frame by frame against Cycles",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "I.26.15"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "Animations. Skins. Start with this to test skinning.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/RiggedSimple/metadata.json",
+    "note": "The asset states no number, so the criterion is the suite's own: our picture against Cycles' picture at every frame of a declared grid. What the ASSET decides is which mechanism is under test -- LINEAR BLEND SKINNING and nothing else: one mesh, one material, two joints, no morph, no texture, no light. A disagreement therefore has one candidate cause, and it is the one this case exists for -- the vertices ride their joints, and glTF states the skinned node's own transform is IGNORED."
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction -- azimuth 35 deg, elevation 20 deg -- puts every silhouette edge of a 160-vertex cylinder at an irrational raster slope, and a skinned silhouette moves continuously with the joint rather than landing on any placement a roll could make exact. The bend also brings the deformed end of the cylinder across its own body over the grid, which is a self-occlusion no placement argument survives."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "rigged-simple",
+      "kind": "gltf",
+      "name": "RiggedSimple",
+      "entry": "scene.gltf",
+      "attributes": [
+        "POSITION",
+        "NORMAL",
+        "JOINTS_0",
+        "WEIGHTS_0"
+      ],
+      "notes": "One mesh of 160 vertices bound to two joints, and one animation of three channels -- node 4's translation, rotation and scale, all LINEAR over 50 keyframes spanning 0.04166661947965622 to 2.083333015441895 s. Node 2 carries the mesh and the skin; the joints are nodes 3 and 4, and node 4 is a child of node 3, so the two joint matrices compose and a skin that dropped the parent would still place the child. Measured here over 160 vertices at 18 frames: the worst |sum(weights) - 1| is 2.980e-08, so this asset's weights are normalised to float32 and the reader's decision to use them as declared costs nothing on this subject.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "RiggedSimple",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the same pin every other Khronos subject in this tree carries"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/RiggedSimple/glTF/RiggedSimple.gltf",
+          "sha256": "18cd3e4d50ecadc93f6b6a720a4ee0d5154443c2fa331bc0dd3bef7499c02eb0",
+          "bytes": 10567,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Cesium",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/RiggedSimple/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/RiggedSimple/glTF/RiggedSimple0.bin",
+          "sha256": "b18e39089acca03219a7a3aa4dd3f00eaedebf438bc3bd58fdcda855f64eafe6",
+          "bytes": 11136,
+          "as": "RiggedSimple0.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Cesium",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/RiggedSimple/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/RiggedSimple/metadata.json",
+          "sha256": "c96fb91bcddf758575d82f1c5795b01d133dd6ab98468b2f66f6138fd804ae29",
+          "bytes": 720,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Cesium",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/RiggedSimple/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "animation": {
+      "animations": [
+        0
+      ],
+      "fps": {
+        "value": 8,
+        "unit": "frames per second",
+        "origin": "SET",
+        "note": "The grid is the case's and not the file's. The asset keys at about 24 fps -- 50 keys over 2.0417 s -- and sampling at 8 fps deliberately lands BETWEEN its keyframes, which is where an interpolation error lives and where a grid aligned to the keys would see nothing. 18 renders per recipe rather than 50."
+      },
+      "frames": {
+        "value": 18,
+        "unit": "frames",
+        "origin": "derived",
+        "derivation": "ceil(2.083333015441895 s * 8 fps) + 1 = 18, so frame 17 at 2.125 s is the first past the file's last keyframe and the grid covers the whole declared duration. Outside it glTF clamps to the last keyframe, so that frame states the end pose rather than an extrapolation."
+      }
+    },
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        28.84559525168973,
+        12.414392668114989,
+        19.54443619825344
+      ],
+      "lookAtM": [
+        0.9332473543207435,
+        0.012221576735761186,
+        -2.0861626381929455e-07
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 31.184047281109954,
+      "clipEndM": 41.33899753599009,
+      "derivation": "The framing rule of board:0083 applied to the union of the SKINNED subject's bounds over the declared grid, which is what an animated case's bounds are and which for this subject cannot be read off the accessors: every vertex is a blend of two joint matrices at every frame. Evaluated over 160 vertices at 18 frames: min (-1.0000000000000246, -4.575077056884766, -1.0000000000000142), max (2.8664947086415116, 4.599520210356288, 0.9999995827674866), centre (0.9332473543207435, 0.012221576735761186, -2.0861626381929455e-07), radius 5.077475127440069 m. Direction azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6, yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, znear = distance - r and zfar = distance + r. Roll 0: this silhouette is irrational at every roll and moves with the joint, so no roll buys exactness.",
+      "note": "THE CAMERA IS THE CASE'S AND NOT THE FRAME'S. The rule frames the bounds it is given and a skinned subject has a different bounds at every frame, so a camera re-derived per frame would follow the bend and a disagreement between two frames could be the pose or the viewpoint with nothing to separate them."
+    },
+    "light": {
+      "kind": "none",
+      "note": "An emission case gathers nothing, so there is nothing for a light to add. The only illumination left is Blender's factory world and it reaches no surface of this subject."
+    },
+    "world": {
+      "kind": "factory",
+      "note": "Configured by not being configured. The observed colour and strength go into provenance.json, so a Blender that changed them is visible without any machinery that refuses."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "Material_001-effect": [
+          0.5,
+          0.25,
+          0.125
+        ]
+      },
+      "note": "Emission, one colour per glTF material, and the geometry is untouched (board:0087). The subject is ONE body wearing ONE material, so the two-colour argument BoxAnimated needed does not arise: there is no second body for a flat emitter to fuse this one with. An emitter at strength 1 gathers nothing, which removes the world as a light, the sun's disk, a light's radius and visibility at once -- and that is what leaves the skin as the only mechanism a disagreement can be attributed to."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 320,
+      "resolutionY": 180,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. THE FRAME IS 320x180 AND THAT IS A COST DECISION WITH A MEASURED NUMBER BEHIND IT: an animated case multiplies every product by its frame count, and a quantity's raw at 1280x720 is 14.75 MB, so this grid's five raws would be 2.29 GB against a corpus already measured at 19.9 GB. At one quarter the linear size, the same 16:9 and the same lens, it is 143 MB, and the subject still covers 11.7 % of the frame -- about 6 700 pixels -- which is the population the picture bound is taken over."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 320,
+      "resolutionY": 180,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe at another seed, and the whole of the emission case's acceptance. A Monte-Carlo estimator's answer depends on its seed; an emitter has no estimator, so the two dumps must agree bit for bit and any difference NAMES the integral that survived. It is rendered at every frame of the grid for the same reason the picture is: what is visible is a function of the pose."
+    }
+  },
+  "notes": "THE ORACLE POSES BONES HERE AND NOT OBJECTS (board:1200). Blender's importer builds an ARMATURE from the joint hierarchy, so glTF node 4 arrives as pose bone Bone.001 and not as an object -- and a pose bone is rest-relative in the bone's own axes, neither of which glTF states. So this case takes the NARROWER of the preparer's two arms: the importer's conversion is reused and only its interpolation is replaced, which is exact for the LINEAR channels this asset declares and is REFUSED for CUBICSPLINE. Every channel publishes which arm carried it under bakedChannels. MEASURED, Blender 5.2.0: the importer also creates an Icosphere as the bone display shape, in a glTF_not_exported collection with hide_render true -- the depsgraph evaluates only Cylinder, so it reaches no pixel.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.039400068,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the sum over the subject's 188 triangles of the magnitude of the projected signed area at FRAME 0, over 320*180 at the declared camera, recomputed by the runner from the posed vertices -- and for this subject \"posed\" means SKINNED, so the number is a statement about the blend as much as about the camera. It is stated at frame 0 and enforced there: the projected area of a bending body is a function of the frame by construction, so one declared number over the whole grid would be a demand that the joint not move. The camera it checks is the same at every frame.",
+      "note": "What the boundary bound is applied UNDER: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's size, so a camera that framed the subject smaller would tighten the bound without saying so."
+    }
+  }
+}
