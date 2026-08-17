@@ -76,7 +76,7 @@
           "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenChair/glTF/./chair_fabric_normal.png",
           "sha256": "38d8f40054c43370aeb85ae286efcdaf34d15b58af3eb4ef71c579cf9cef34ad",
           "bytes": 1744462,
-          "as": "./chair_fabric_normal.png",
+          "as": "chair_fabric_normal.png",
           "role": "image",
           "licence": {
             "spdx": "CC0-1.0",
@@ -90,7 +90,7 @@
           "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenChair/glTF/./chair_occlusion.png",
           "sha256": "0623123fbc212728589129fdacd5db5f36a162099a7ba8388e99a4948192e0be",
           "bytes": 109972,
-          "as": "./chair_occlusion.png",
+          "as": "chair_occlusion.png",
           "role": "image",
           "licence": {
             "spdx": "CC0-1.0",
@@ -104,7 +104,7 @@
           "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenChair/glTF/./chair_fabric_albedo.png",
           "sha256": "f70cffab27db1c53211d3882354adf25752096e17e4f02dced5fc48c4b042b28",
           "bytes": 133702,
-          "as": "./chair_fabric_albedo.png",
+          "as": "chair_fabric_albedo.png",
           "role": "image",
           "licence": {
             "spdx": "CC0-1.0",
@@ -118,7 +118,7 @@
           "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenChair/glTF/./chair_wood_albedo.png",
           "sha256": "b090fa7da19eb6553c70dd7e355a198961740f81d834135b70f51f0589e0f133",
           "bytes": 181170,
-          "as": "./chair_wood_albedo.png",
+          "as": "chair_wood_albedo.png",
           "role": "image",
           "licence": {
             "spdx": "CC0-1.0",
@@ -132,7 +132,7 @@
           "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenChair/glTF/./chair_woodbrown_roughnessmetallic.png",
           "sha256": "ee96adac2b6da29ee778b9b61fa9e4ff74ad6a72d67d92754abe39d488c3911f",
           "bytes": 146100,
-          "as": "./chair_woodbrown_roughnessmetallic.png",
+          "as": "chair_woodbrown_roughnessmetallic.png",
           "role": "image",
           "licence": {
             "spdx": "CC0-1.0",
@@ -146,7 +146,7 @@
           "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenChair/glTF/./chair_label.png",
           "sha256": "23ee1533678d2460e993286ff81d40d3148386e5f512d85e0b4a3cd4b0d013e1",
           "bytes": 567793,
-          "as": "./chair_label.png",
+          "as": "chair_label.png",
           "role": "image",
           "licence": {
             "spdx": "CC0-1.0",
@@ -160,7 +160,7 @@
           "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenChair/glTF/./chair_woodblack_roughnessmetallic.png",
           "sha256": "ae9fdb308858ddec38803b23c57a425b557c8cc106df339adee30c6ea6334bbb",
           "bytes": 96313,
-          "as": "./chair_woodblack_roughnessmetallic.png",
+          "as": "chair_woodblack_roughnessmetallic.png",
           "role": "image",
           "licence": {
             "spdx": "CC0-1.0",

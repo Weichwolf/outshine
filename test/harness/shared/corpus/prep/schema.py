@@ -12,7 +12,14 @@ import re
 from .refusal import Refusal
 
 _PATTERNS = {
-    "filename": ("a plain file name in the case directory", r"^[^./][^/]*$"),
+    # A RELATIVE PATH INSIDE THE CASE DIRECTORY, AND NOT MERELY A PLAIN NAME (board:1374). A glTF
+    # references its buffers and images by RELATIVE URI, and seven models in the pinned index put theirs
+    # in a subdirectory -- `EnvironmentTest_images/roughness_metallic_0.png`,
+    # `MODEL_ROUNDED_CUBE_PART_1/positions.bin`. Flattening the name would break the file's own
+    # reference, so the rule keeps what it was for -- nothing may escape the case directory -- and stops
+    # forbidding what glTF requires. No leading slash, no segment that is `.` or `..`, no empty segment.
+    "filename": ("a relative path inside the case directory",
+                 r"^(?!/)(?!.*(^|/)\.\.?(/|$))(?!.*//)[^/].*[^/]$|^[^/.][^/]*$"),
     "sha256": ("64 lowercase hex digits", r"^[0-9a-f]{64}$"),
     "sha1": ("40 lowercase hex digits", r"^[0-9a-f]{40}$"),
     "release": ("a release version, e.g. 5.2.0", r"^\d+\.\d+(\.\d+)?$"),
