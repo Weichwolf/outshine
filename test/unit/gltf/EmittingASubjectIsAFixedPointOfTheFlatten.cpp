@@ -48,6 +48,13 @@ constexpr float kNormal[3][3] = {{0.f, 0.f, 1.f}, {0.f, 0.f, 1.f}, {0.f, 0.f, 1.
 constexpr float kUv[3][2] = {{0.f, 0.f}, {1.f, 0.f}, {0.f, 1.f}};
 constexpr float kTangent[3][4] = {{1.f, 0.f, 0.f, 1.f}, {1.f, 0.f, 0.f, 1.f}, {1.f, 0.f, 0.f, 1.f}};
 constexpr uint16_t kIndex[3] = {0, 1, 2};
+/* AND A `COLOR_0` ON THE FIRST PRIMITIVE ONLY (board:1193), so the emitted file states the semantic
+ * on one primitive and not the other. The values are dyadic and inside [0, 1], which is what a
+ * fixed point over an f32 attribute needs: a colour the narrowing moved would be measuring the
+ * conversion instead of the round trip, and one outside the range is a file the reader refuses. */
+constexpr float kColour[3][4] = {{0.f, 0.5f, 1.f, 1.f},
+                                 {0.25f, 1.f, 0.f, 0.5f},
+                                 {1.f, 0.f, 0.75f, 0.25f}};
 
 std::vector<uint8_t> Binary() {
   std::vector<uint8_t> bytes;
@@ -64,6 +71,12 @@ std::vector<uint8_t> Binary() {
     for (const float axis : tangent) { Append(bytes, axis); }
   }
   for (const uint16_t index : kIndex) { Append(bytes, index); }
+  /* Two bytes of padding, so the colour accessor starts on a multiple of its own component size --
+   * the six unsigned-short indices before it leave the run at 186. */
+  Append(bytes, uint16_t{0});
+  for (const auto &colour : kColour) {
+    for (const float channel : colour) { Append(bytes, channel); }
+  }
   return bytes;
 }
 
@@ -89,13 +102,14 @@ std::string Fixture(Placed how) {
   "scene": 0,
   "scenes": [ { "nodes": [0] } ],
   "nodes": [)") + nodes + R"(],
-  "buffers": [ { "byteLength": 186 } ],
+  "buffers": [ { "byteLength": 236 } ],
   "bufferViews": [
     { "buffer": 0, "byteOffset": 0,   "byteLength": 72 },
     { "buffer": 0, "byteOffset": 72,  "byteLength": 36 },
     { "buffer": 0, "byteOffset": 108, "byteLength": 24 },
     { "buffer": 0, "byteOffset": 132, "byteLength": 48 },
-    { "buffer": 0, "byteOffset": 180, "byteLength": 6 }
+    { "buffer": 0, "byteOffset": 180, "byteLength": 6 },
+    { "buffer": 0, "byteOffset": 188, "byteLength": 48 }
   ],
   "accessors": [
     { "bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3",
@@ -105,7 +119,8 @@ std::string Fixture(Placed how) {
     { "bufferView": 1, "componentType": 5126, "count": 3, "type": "VEC3" },
     { "bufferView": 2, "componentType": 5126, "count": 3, "type": "VEC2" },
     { "bufferView": 3, "componentType": 5126, "count": 3, "type": "VEC4" },
-    { "bufferView": 4, "componentType": 5123, "count": 3, "type": "SCALAR" }
+    { "bufferView": 4, "componentType": 5123, "count": 3, "type": "SCALAR" },
+    { "bufferView": 5, "componentType": 5126, "count": 3, "type": "VEC4" }
   ],
   "materials": [
     { "name": "matte", "pbrMetallicRoughness": {
@@ -118,7 +133,7 @@ std::string Fixture(Placed how) {
   ],
   "meshes": [
     { "primitives": [ { "attributes": { "POSITION": 0, "NORMAL": 2, "TEXCOORD_0": 3,
-                                        "TANGENT": 4 },
+                                        "TANGENT": 4, "COLOR_0": 6 },
                         "indices": 5, "material": 0 } ] },
     { "primitives": [ { "attributes": { "POSITION": 1 }, "indices": 5, "material": 1 } ] }
   ]
@@ -136,6 +151,7 @@ std::string Fixture(Placed how) {
   if (left.Normals() != right.Normals()) { return say("the normals"); }
   if (left.Uv() != right.Uv()) { return say("the uvs"); }
   if (left.Tangents() != right.Tangents()) { return say("the tangents"); }
+  if (left.Colours() != right.Colours()) { return say("the vertex colours"); }
   if (left.Indices() != right.Indices()) { return say("the indices"); }
   if (left.Parts().size() != right.Parts().size()) { return say("the part count"); }
   for (size_t at = 0; at < left.Parts().size(); ++at) {
@@ -145,6 +161,7 @@ std::string Fixture(Placed how) {
     if (was.Material != is.Material) { return say("a part's material"); }
     if (was.HasUv != is.HasUv) { return say("a part's uv declaration"); }
     if (was.HasNormal != is.HasNormal) { return say("a part's normal declaration"); }
+    if (was.HasColour != is.HasColour) { return say("a part's vertex colour declaration"); }
     if (was.Tangent != is.Tangent) { return say("a part's tangent provenance"); }
     if (was.FirstVertex != is.FirstVertex || was.VertexCount != is.VertexCount) {
       return say("a part's vertex run");
@@ -219,7 +236,7 @@ int main() {
   using namespace outshine::Test;
 
   const std::vector<uint8_t> binary = Binary();
-  CHECK(binary.size() == 186, "the fixture's binary chunk is the length its buffer declares");
+  CHECK(binary.size() == 236, "the fixture's binary chunk is the length its buffer declares");
 
   /* THE SECTION'S OWN ACCEPTANCE, ON THE ARM WHERE IT IS EXACT AT ZERO APPLICATIONS: nodes at the
    * identity, so every number the flatten produced is the f32 the file carried. */

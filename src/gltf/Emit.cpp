@@ -238,7 +238,12 @@ private:
         {"NORMAL", 3, drawn.HasNormal ? &Subject_.Normals() : nullptr},
         {"TEXCOORD_0", 2, drawn.HasUv ? &Subject_.Uv() : nullptr},
         {"TEXCOORD_1", 2, drawn.HasUv1 ? &Subject_.Uv1() : nullptr},
-        {"TANGENT", 4, drawn.Tangent == TangentSource::Supplied ? &Subject_.Tangents() : nullptr}};
+        {"TANGENT", 4, drawn.Tangent == TangentSource::Supplied ? &Subject_.Tangents() : nullptr},
+        /* WRITTEN AS FLOAT VEC4, which is one of the format's six spellings and the only one this
+         * writer needs (board:1193): the run is already four wide and already linear, so the reader
+         * gives back what went in and the fixed point holds at zero applications. A normalized
+         * integer would be the same colours through a quantisation nobody asked for. */
+        {"COLOR_0", 4, drawn.HasColour ? &Subject_.Colours() : nullptr}};
     std::string json;
     for (const Attribute &attribute : declared) {
       if (attribute.From == nullptr) { continue; }

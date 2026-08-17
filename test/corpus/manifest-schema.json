@@ -667,7 +667,8 @@
                 "carriedBy": {
                   "enum": [
                     "texture",
-                    "factor"
+                    "factor",
+                    "vertex-colour"
                   ]
                 }
               },
@@ -680,7 +681,8 @@
                 "carriedBy": {
                   "enum": [
                     "texture",
-                    "factor"
+                    "factor",
+                    "vertex-colour"
                   ]
                 }
               },
@@ -709,7 +711,7 @@
           }
         }
       },
-      "note": "WHICH SURFACE THE COMPARISON IS OVER, and the (source, kind) pairs below are the whole set. \"gltf\" hands the format its own metal-rough row entire; a `diffuse` arm over it would silently discard two of the three inputs. \"gltf-base-colour\" LOWERS THE ORACLE RATHER THAN THE TOLERANCE (board:0087): the imported Principled BSDF carries a specular lobe at IOR 1.5 whatever the metallic factor, so a textured asset rendered with it has an integral left and no closed form to be judged against -- this arm keeps the file's own image, uv set and sampler and replaces the closure. \"gltf-emissive\" is the same arm over the other socket, and it has ONE closure: glTF's emission is a radiance the surface leaves, not a reflectance an environment multiplies into."
+      "note": "WHICH SURFACE THE COMPARISON IS OVER, and the (source, kind) pairs below are the whole set. \"gltf\" hands the format its own metal-rough row entire; a `diffuse` arm over it would silently discard two of the three inputs. \"gltf-base-colour\" LOWERS THE ORACLE RATHER THAN THE TOLERANCE (board:0087): the imported Principled BSDF carries a specular lobe at IOR 1.5 whatever the metallic factor, so a textured asset rendered with it has an integral left and no closed form to be judged against -- this arm keeps the file's own image, uv set and sampler and replaces the closure. \"gltf-emissive\" is the same arm over the other socket, and it has ONE closure: glTF's emission is a radiance the surface leaves, not a reflectance an environment multiplies into. `carriedBy` names WHICH OPERAND of that socket carries the picture, and it has three values because the socket has three: the image, the factor, and the primitive's own `COLOR_0` (board:1193). The runner owes each of them a check in both directions -- a `texture` case with no image and a `vertex-colour` case with no `COLOR_0` are both a flat colour scored under the name of something else."
     },
     "recipe": {
       "required": {

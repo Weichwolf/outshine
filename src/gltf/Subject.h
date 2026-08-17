@@ -2,9 +2,9 @@
  * hierarchy into one run of world-space positions, plus the eye that looks at them.
  *
  * WHAT THE FILE CARRIES AND NOTHING MORE: positions, and where the primitive states them the first
- * uv set, the normal and the tangent. Nothing below DERIVES an attribute -- a primitive with no
- * NORMAL keeps none and says so per part, because deriving one silently is what makes a subject not
- * the declared one (board:0073).
+ * uv set, the normal, the tangent and the vertex colour. Nothing below DERIVES an attribute -- a
+ * primitive with no NORMAL keeps none and says so per part, because deriving one silently is what
+ * makes a subject not the declared one (board:0073).
  *
  * THE TANGENT IS THE ONE EXCEPTION AND THE FORMAT IS WHAT MAKES IT ONE. "When tangents are not
  * specified, client implementations SHOULD calculate tangents using default MikkTSpace algorithms"
@@ -117,6 +117,7 @@ struct Part {
   bool HasUv = false;     /* whether TEXCOORD_0 was carried, per primitive and never per subject */
   bool HasUv1 = false;    /* whether TEXCOORD_1 was carried, per primitive and never per subject */
   bool HasNormal = false; /* whether NORMAL was carried, per primitive and never per subject */
+  bool HasColour = false; /* whether COLOR_0 was carried, per primitive and never per subject */
   TangentSource Tangent = TangentSource::None;
   size_t FirstVertex = 0;
   size_t VertexCount = 0;
@@ -155,6 +156,11 @@ struct Piece {
   Span<const float> Uv;         /* 2 per vertex, or empty */
   Span<const float> Uv1;        /* 2 per vertex, or empty; the second set, never a copy of the first */
   Span<const float> Tangents;   /* 4 per vertex, or empty; a supplied basis, never a generated one */
+  /* 4 per vertex -- linear RGBA -- or empty. FOUR AND NOT THREE even where the producer means an
+   * opaque colour, because the format's VEC3 arm is "assume alpha 1.0" and a producer that stated
+   * three would be handing over a run whose width depends on what it meant. Every component is
+   * checked against [0, 1] at the handover, on the same terms a file's is. */
+  Span<const float> Colours;
   Span<const uint32_t> Indices; /* triangles, three each */
 };
 
@@ -231,6 +237,23 @@ public:
    * restatement the winding gets, one attribute along. */
   const std::vector<double> &Tangents() const { return Tangents_; }
   bool HasTangent() const { return !Tangents_.empty(); }
+  /* 4 doubles per vertex, `COLOR_0` in LINEAR RGBA -- glTF's "additional linear multiplier to base
+   * color" (`Specification.adoc:2088`), so no transfer function is applied here or anywhere
+   * (board:1193). A `VEC3` accessor fills the fourth with the 1.0 the format states; a normalized
+   * unsigned byte or short arrives divided by its own maximum, which is `Document::ReadElements`'s
+   * doing, so all six spellings the format permits land in this one run.
+   *
+   * IT IS FOUR WIDE WHATEVER THE FILE SAID, because the alpha multiplies base colour's alpha and
+   * therefore reaches `alphaMode` -- a three-wide run would make "VEC3 or VEC4" a question every
+   * consumer had to re-ask, and a consumer that got it wrong would cut a MASK surface at the wrong
+   * coverage.
+   *
+   * EMPTY WHEN NO PART CARRIED ONE; otherwise it covers every vertex and the vertices of a part that
+   * carried none hold zero. THAT ZERO IS NEVER MULTIPLIED IN: `Part::HasColour` selects a layout
+   * with no colour slot at all, so a part with no COLOR_0 is drawn through a pipeline whose vertex
+   * arm writes the multiplicative identity -- black would be the whole body missing. */
+  const std::vector<double> &Colours() const { return Colours_; }
+  bool HasColour() const { return !Colours_.empty(); }
   /* Every light the default scene places, in the order the walk met them. Empty where the file
    * declares none, which is every asset outside `KHR_lights_punctual`. */
   const std::vector<PlacedLight> &Lights() const { return Lights_; }
@@ -285,6 +308,7 @@ private:
   std::vector<double> Uv1_;
   std::vector<double> Normals_;
   std::vector<double> Tangents_;
+  std::vector<double> Colours_;
   std::vector<uint32_t> Indices_;
   std::vector<Part> Parts_;
   std::vector<PlacedLight> Lights_;

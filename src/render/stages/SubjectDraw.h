@@ -36,6 +36,20 @@
  * surface whose reference names it over a mesh that carries no run for it is a refusal in `SetMesh`,
  * and reading the first set in its place would be a plausible picture of the wrong thing.
  *
+ * THE VERTEX COLOUR IS A MULTIPLIER ON BASE COLOUR AND REACHES BOTH ARMS (board:1193). glTF's
+ * `COLOR_0` is "an additional linear multiplier to base color", so it enters the lit arm where the
+ * albedo enters the BRDF -- multiplying a shaded result by it would tint a dielectric's specular
+ * lobe, which is a metal's behaviour -- and the emitted arm where the declared radiance is, which is
+ * what that arm's base colour is. ITS ALPHA MULTIPLIES BASE COLOUR'S, so it reaches `alphaMode` too:
+ * a `MASK` surface cuts on the product and a `BLEND` one composites with it.
+ *
+ * A LAYOUT WITHOUT THE RUN IS NOT A SECOND SET OF FRAGMENT ARMS. Its vertex arm writes the
+ * multiplicative identity, which is the same statement as the one white texel a surface with no
+ * image binds. THAT IS A TRADE AND NOT A FREE ONE: every fragment then interpolates and multiplies a
+ * varying, including the ones drawing a subject that declares no vertex colour at all, and the
+ * alternative -- a second set of eighteen fragment entry points that do not read it -- is what
+ * buying it back would cost. `test/frame/` prices it per arm on every run.
+ *
  * THE WINDING IS TRUSTED, because the format defines one, and WHETHER BACK FACES ARE CULLED IS THE
  * MATERIAL'S: glTF states `doubleSided` per material and an asset uses it to hide one polygon
  * behind another. With culling off entirely, reversing every triangle of a subject moved no pixel of
@@ -232,6 +246,16 @@ struct SubjectMesh {
    * derived and a run that carried it would be a second answer to the same question that a mirrored
    * body puts out of step with the first. */
   const float *Tangents = nullptr;
+  /* glTF's `COLOR_0`, 4 floats per vertex in LINEAR RGBA, or null (board:1193). It multiplies base
+   * colour -- the rgb into whatever the arm shades with and the alpha into the coverage the surface
+   * row declares -- so it reaches `alphaMode` as well as the colour, which is why it is four wide
+   * and not three.
+   *
+   * A DRAW WHOSE LAYOUT CARRIES NO COLOUR RUN IS NOT DEGRADED, IT IS THE ORDINARY CASE: the vertex
+   * arm of such a pipeline writes the multiplicative identity, exactly as a surface that declares no
+   * image binds one white texel, so "no vertex colour" and "the factors alone" are one statement
+   * rather than two fragment arms. */
+  const float *Colours = nullptr;
   const float *Emitted = nullptr;    /* 3 floats per vertex */
   /* WHERE THE SAME VERTICES WERE AT THE PREVIOUS FRAME (board:1169), 3 floats each, offsets from
    * `PrevAnchor`. It is what makes `SceneVelocity` a motion and not a sentinel: the pose is baked
@@ -407,10 +431,17 @@ private:
    * encoder rebinds only where the batch's slot changes. */
   std::vector<SurfaceSlot> Slots;
   std::vector<DrawBatch> Batches;
+  /* WHICH LAYOUT EACH BATCH IS ACTUALLY DRAWN THROUGH, decided in `SetMesh` and read in `Encode`
+   * (board:1193). The draw's own layout is the ceiling and the mesh is the floor -- a list built
+   * against one subject and a mesh set from another must not bind a slot with no buffer behind it --
+   * and the degradation lands where a refusal can be spelled: `Encode` returns void, so a
+   * combination the table does not carry had nowhere to be reported from there. It is also one fewer
+   * derivation per batch per frame. */
+  std::vector<VertexLayout> BatchLayout;
   /* The colour targets the scene pass attaches, as the compiled plan resolved them: the pipelines
    * and the fragment's output set are both built from this (board:1121). */
   std::vector<Resource> Colours;
-  OwnedBuffer Vtx, Uv, Uv1, Nrm, Tan, Emit, Idx, Prev;
+  OwnedBuffer Vtx, Uv, Uv1, Nrm, Tan, Col, Emit, Idx, Prev;
   /* THE SUBJECT'S OWN GEOMETRY AS THE VISIBILITY TERM READS IT (`core/TriangleBvh.h`): the
    * acceleration structure's nodes and the triangles its leaves name, in the same anchor-relative
    * metres `Vtx` holds. They are built at `SetMesh` and not per frame, because nothing in them
@@ -425,6 +456,7 @@ private:
   bool HasUv1 = false;
   bool HasNormal = false;
   bool HasTangent = false;
+  bool HasColour = false;
   bool FiltersFloat32 = false;
   double Anchor[3] = {0, 0, 0};
   double PrevAnchor[3] = {0, 0, 0};

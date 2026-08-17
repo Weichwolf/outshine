@@ -106,14 +106,17 @@ struct SurfaceTable {
  * that could only read base colour would render its two spheres black and score that. */
 enum class FileColour { Declared, BaseColour, Emissive, Row };
 
-/* WHERE THE NAMED SOCKET'S VALUE COMES FROM IN THAT FILE, and the case says which because the two
+/* WHERE THE NAMED SOCKET'S VALUE COMES FROM IN THAT FILE, and the case says which because the three
  * are different subjects. `Texture` is the arm the socket arms were built for -- the picture IS the
  * image, and a case that declared it and found no image would be scoring a flat factor while
  * claiming to score a texture. `Factor` is the arm `EmissiveStrengthTest` needs: five cubes whose
  * whole appearance is `emissiveFactor` times `KHR_materials_emissive_strength`, with no image
- * anywhere in the file. Neither is a default, so the mismatch in either direction is a refusal
- * naming the file rather than a picture nobody looks at. */
-enum class FileColourCarrier { Texture, Factor };
+ * anywhere in the file. `VertexColour` is the arm `BoxVertexColors` needs (board:1193): the picture
+ * is the primitive's own `COLOR_0` multiplied into base colour, so a case declaring `factor` there
+ * would be naming the wrong operand in the one field that says where the appearance comes from.
+ * None is a default, so the mismatch in any direction is a refusal naming the file rather than a
+ * picture nobody looks at. */
+enum class FileColourCarrier { Texture, Factor, VertexColour };
 
 /* WHETHER THE FILE'S OWN LIGHTS CROSS THE glTF BOUNDARY, and it is a per-case declaration because
  * the answer is not the same for every case (board:0085). For OUR OWN generated
@@ -287,6 +290,10 @@ bool Reduced(const Case &subject) {
   }
   if (declared.StrEquals("factor")) {
     out = FileColourCarrier::Factor;
+    return true;
+  }
+  if (declared.StrEquals("vertex-colour")) {
+    out = FileColourCarrier::VertexColour;
     return true;
   }
   error = "scene.material.carriedBy is '" + declared.Str("") + "', and this runner has no arm for it";
@@ -708,7 +715,13 @@ outshine::Render::SubjectWrap WrapOf(outshine::Gltf::Wrap wrap) {
 /* THE SURFACE TABLE THE SUBJECT DRAWS WITH: one slot per material any drawn primitive names, in the
  * order the parts first name them. Two primitives of one material get one slot, which is what lets
  * the compiled draw list merge them into one call, and a primitive that names no material gets a
- * slot of the engine's declared default -- which is a surface, not an absence. */
+ * slot of glTF's OWN default material -- which is a surface, not an absence.
+ *
+ * THE FORMAT'S DEFAULT AND NOT THE ENGINE'S (board:1193, `Gltf::DefaultMaterial`). This runner used
+ * `outshine::Material{}` here, a mid-grey dielectric, which is what this engine draws for a surface
+ * nobody described; the FORMAT says a primitive with no material wears `baseColorFactor [1,1,1,1]`.
+ * `BoxVertexColors` declares no material at all, so the difference was a factor of two on every
+ * channel of its whole body -- and it would have read as our COLOR_0 being wrong. */
 void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceTable &out) {
   out.Slots.clear();
   out.Material.clear();
@@ -725,6 +738,7 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
     }
     if (slot == out.Material.size()) {
       outshine::Render::SubjectMaterial surface;
+      surface.Row = outshine::Gltf::DefaultMaterial();
       if (material >= 0 && (size_t)material < file.Materials().size()) {
         /* THE WHOLE ROW AND NOT A CHANNEL OF IT. The coverage factor is then `baseColorFactor.a` by
          * construction whatever the colour channel is, which is glTF's own rule: alpha comes from
@@ -931,10 +945,19 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
             " and no material of it declares one";
     return false;
   }
-  if (carrier == FileColourCarrier::Factor && textured > 0) {
-    error = std::string("the manifest says the appearance is the ") + socket +
-            " FACTOR and " + std::to_string(textured) + " material(s) of the file declare an image "
-            "on that socket, which this case would then be sampling instead";
+  if (carrier != FileColourCarrier::Texture && textured > 0) {
+    error = std::string("the manifest says the appearance is not the ") + socket + " IMAGE and " +
+            std::to_string(textured) + " material(s) of the file declare an image on that socket, "
+            "which this case would then be sampling instead";
+    return false;
+  }
+  /* THE VERTEX-COLOUR ARM OWES THE ATTRIBUTE IT IS NAMED AFTER (board:1193). A case that declared it
+   * over a subject carrying no `COLOR_0` would render the factor alone and score a flat colour under
+   * the name of a multiplier -- which is the same silent success the two arms above are guarded
+   * against in both directions. */
+  if (carrier == FileColourCarrier::VertexColour && !geometry.HasColour()) {
+    error = "the manifest says the appearance is carried by COLOR_0 and no primitive of the subject "
+            "declares one";
     return false;
   }
   if (textured > 0 && !geometry.HasUv()) {
@@ -997,9 +1020,13 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
     const bool emits = subject.MaterialKind == "emission";
     for (size_t part = 0; part < parts; ++part) {
       const int index = geometry.Parts()[part].Material;
+      /* THE FORMAT'S DEFAULT MATERIAL WHERE THE PRIMITIVE NAMES NONE (board:1193), which for a
+       * base-colour case is a `baseColorFactor` of [1,1,1,1]: the emitted radiance is then the
+       * identity every other operand multiplies into, and `BoxVertexColors`'s picture IS its
+       * `COLOR_0`. The engine's own default would put 0.5 there and halve the body. */
       const outshine::Material surface = index >= 0 && (size_t)index < file.Materials().size()
                                              ? file.Materials()[(size_t)index].Surface
-                                             : outshine::Material{};
+                                             : outshine::Gltf::DefaultMaterial();
       for (size_t channel = 0; channel < 3; ++channel) {
         const double factor = subject.Colour == FileColour::Emissive
                                   ? (double)surface.Emission[channel]

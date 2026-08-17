@@ -54,6 +54,36 @@ size_t TightElementBytes(ElementType element, ComponentType component) {
   return columns * column;
 }
 
+outshine::Material DefaultMaterial() {
+  outshine::Material surface;
+  for (float &channel : surface.BaseColour) { channel = 1.0f; }
+  surface.Metalness = 1.0f;
+  surface.Roughness = 1.0f;
+  return surface;
+}
+
+bool VertexColourComponents(const Accessor &accessor, size_t &components, std::string &why) {
+  const bool normalizedInteger =
+      accessor.Normalized && (accessor.Component == ComponentType::UInt8 ||
+                              accessor.Component == ComponentType::UInt16);
+  if (accessor.Component != ComponentType::Float32 && !normalizedInteger) {
+    why = "carries componentType " + std::to_string((size_t)accessor.Component) +
+          (accessor.Normalized ? " normalized" : " unnormalized") +
+          ", and a vertex colour is float, unsigned byte normalized or unsigned short normalized";
+    return false;
+  }
+  if (accessor.Element != ElementType::Vec3 && accessor.Element != ElementType::Vec4) {
+    /* Rows and columns rather than a component count, because a MAT2 has four components and would
+     * otherwise read as a VEC4 in its own refusal. */
+    why = "carries an element of " + std::to_string(ElementRows(accessor.Element)) + " rows and " +
+          std::to_string(ElementColumns(accessor.Element)) +
+          " columns, and a vertex colour is VEC3 or VEC4";
+    return false;
+  }
+  components = ElementComponents(accessor.Element);
+  return true;
+}
+
 std::string MissingSemantics(const Primitive &primitive,
                              std::initializer_list<const char *> required) {
   std::string missing;

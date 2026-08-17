@@ -1,0 +1,253 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/materials/box-vertex-colors",
+  "title": "Khronos BoxVertexColors -- COLOR_0 as an additional linear multiplier on base colour, over a primitive that declares no material at all",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:BoxVertexColors",
+    "board:1193"
+  ],
+  "criterion": {
+    "kind": "self-describing",
+    "oracleRole": "reference",
+    "says": "The color of each vertex is given by the RGB colors that are defined by the vertex coordinates. So the vertex at (0,0,0) is black, the vertex at (1,0,0) is red, the vertex at (1,1,0) is yellow, ..., and the vertex at (1,1,1) is white.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoxVertexColors/README.md",
+    "note": "SELF-DESCRIBING, AND THE ASSET'S SENTENCE IS CHECKABLE AGAINST ITS OWN BUFFER: read at the pin, COLOR_0 equals POSITION at all 24 vertices exactly, so the cube is the RGB colour cube and the corner at (1,1,1) is white. THE MUTATION IS LOUD HERE, which is why this is the first COLOR_0 case: the file declares NO material, so an engine that ignores COLOR_0 draws glTF's default baseColorFactor of [1,1,1,1] and renders a WHITE BOX -- invisible against the reference's own white composite. MEASURED, with the vertex arm writing the multiplicative identity in place of the run and nothing else changed: `picture_max_delta_code` 254.972972 codes at (472, 307) channel 0, ours 255 against 0.027, over the same 97 467 covered pixels, and every one of the 292 401 compared linear channels differing. With the multiplication in place: 0.064038844 codes. A factor of 3 982 between the two, on one line of shader.",
+    "oracleLimitation": "THE ORACLE'S OWN COLOUR MANAGEMENT SCALES THE VERTEX COLOUR, and it is a REFERENCE all the same: the deviation is 2.4e-4 relative, four orders below the mutation this case exists to catch, and it is one-sided and measured rather than assumed. Blender's importer stores COLOR_0 as a BYTE_COLOR attribute -- 8-bit, sRGB-encoded -- and the conversion back to scene linear is not the identity: fitted from the render itself over 5 464 samples of one triangle, Cycles interpolates corner values of (1.000159, 0.999979, 0.999758) where the file states (1, 1, 1), while 0 stays 0 within 3e-6. It is a per-channel scale and not a positional offset: a single sub-pixel sample offset fitted to the residual makes it WORSE at p50 (3.73e-5 -> 4.45e-5 linear), which refutes that reading rather than leaving it open.",
+    "oracleLimitationMeasured": [
+      {
+        "of": "the oracle's white, red channel, fitted from the render",
+        "value": 1.000159,
+        "unit": "linear",
+        "origin": "measured",
+        "note": "least squares over the barycentric basis of one triangle, 5 464 samples, against a declared 1.0"
+      },
+      {
+        "of": "the oracle's white, green channel, fitted from the render",
+        "value": 0.999979,
+        "unit": "linear",
+        "origin": "measured"
+      },
+      {
+        "of": "the oracle's white, blue channel, fitted from the render",
+        "value": 0.999758,
+        "unit": "linear",
+        "origin": "measured"
+      },
+      {
+        "of": "the oracle's departure from an exact analytic interpolation of the file's own colours, p50 relative",
+        "value": 0.0001583,
+        "unit": "dimensionless",
+        "origin": "measured",
+        "note": "over 8 433 sampled channels; ours over the same population is 5.0e-6"
+      },
+      {
+        "of": "what the same scale is worth in the display-code tail this case is gated on",
+        "value": 0.000597,
+        "unit": "codes",
+        "origin": "measured",
+        "derivation": "the worst appearance delta against an oracle re-rendered with the colour attribute converted to FLOAT_COLOR (0.063442 codes) subtracted from the worst against the committed one (0.064039)",
+        "note": "so removing the transform would not bring this case inside the bound: the tail is decided by a near-black pixel where the scale is worth 4e-7 linear."
+      }
+    ]
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (`board/`). The subject is a closed cube seen from a general direction, so E is 12 against 3 and no roll makes its edges rational together; and the camera is the framing rule's, which spends the freedoms before this case sees them."
+  },
+  "subjects": [
+    {
+      "id": "box-vertex-colors",
+      "kind": "gltf",
+      "name": "BoxVertexColors",
+      "entry": "scene.gltf",
+      "attributes": [
+        "POSITION",
+        "NORMAL",
+        "COLOR_0"
+      ],
+      "notes": "ONE PRIMITIVE, ONE OF SIX CELLS. `COLOR_0` is permitted as VEC3 or VEC4 times float, unsigned byte normalized or unsigned short normalized -- six cells -- and accessor 3 of this file is `componentType 5126, type VEC3, count 24, not normalized`, which is one of them. The two normalized integer forms and both VEC4 forms are IMPLEMENTED and are not proven by any picture; they are proven at the reader by `test/unit/gltf/AVertexColourMultipliesBaseColourAfterTheDecode.cpp`, which spells all six as accessors and reads them back. MEASURED from the buffer before this case was scored: COLOR_0 equals POSITION at every one of the 24 vertices, bit for bit, so the eight corners carry the eight binary RGB corners and every face is a bilinear ramp between four of them. THE FILE DECLARES NO MATERIAL, so this case exercises glTF's default material at the same time -- see `notes` below for what that costs.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "BoxVertexColors",
+        "pinnedOn": "2026-08-16",
+        "pinReason": "the same pin every other Khronos subject in this tree carries"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoxVertexColors/glTF/BoxVertexColors.gltf",
+          "sha256": "53d15f2357d410d0cc9e798065709054474db25ba52274f012bb7fb96a2eaddf",
+          "bytes": 1643,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Marco Hutter (https://github.com/javagl/)",
+              "year": "2023",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoxVertexColors/metadata.json",
+              "covers": "Everything"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoxVertexColors/glTF/buffer.bin",
+          "sha256": "b508427bea091cc29cbe68d8b08e75db27e33559f72104a37343c7e808e72d26",
+          "bytes": 936,
+          "as": "buffer.bin",
+          "role": "buffer",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Marco Hutter (https://github.com/javagl/)",
+              "year": "2023",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoxVertexColors/metadata.json",
+              "covers": "Everything"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoxVertexColors/metadata.json",
+          "sha256": "64072adbc91263214621f544cb784b5f399203ff7f26818636ca57a5af16e485",
+          "bytes": 800,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Marco Hutter (https://github.com/javagl/)",
+              "year": "2023",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoxVertexColors/metadata.json",
+              "covers": "Everything"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        5.260791880152056,
+        2.6153417707888442,
+        3.8335423623300464
+      ],
+      "lookAtM": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 5.3188201734967615,
+      "clipEndM": 7.050870981065638,
+      "derivation": "The framing rule of board:0083 applied to this subject's own bounds, evaluated rather than chosen: the file carries no camera, so `Gltf::Subject::Frame` is what a viewer of this asset gets and these are its numbers. Bounds are the unit cube, centre (0.5, 0.5, 0.5) and radius ||max-min||/2 = sqrt(3)/2 = 0.8660254037844386 m; direction azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame; distance r / sin(yfov/2) / 0.6 = 6.1848455772812 m; yfov = 2*atan(12/50) = 0.47108996144172666 rad, Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL; znear = distance - r and zfar = distance + r. THE ROLL IS THE RULE'S OWN ZERO and is not chosen against the raster: the subject is a closed cube whose silhouette is a hexagon of six edges at this direction, and no roll makes six lines rational together, so a roll would buy a different draw of the same lottery rather than exactness -- which is what this case's acceptance class says.",
+      "note": "Declared here because the schema's camera has two arms and the framing rule is neither; the numbers ARE the framing rule's, so the oracle builds the camera a viewer of this file would get."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The only illumination is Blender's factory world, and it is left where it is because configuring it would be a second thing to keep honest. Under the emission arm below nothing gathers from it in any case."
+    },
+    "world": {
+      "kind": "factory",
+      "note": "Configured by not being configured. The observed colour and strength go into provenance.json, so a Blender that changed them is visible without any machinery that refuses."
+    },
+    "material": {
+      "source": "gltf-base-colour",
+      "carriedBy": "vertex-colour",
+      "kind": "emission",
+      "note": "THE PICTURE IS CARRIED BY NEITHER A TEXTURE NOR A FACTOR, and saying `factor` here would be false in the one field that says where the appearance comes from. `vertex-colour` is refused unless the subject carries COLOR_0 and no material of it declares a baseColorTexture, so the declaration has teeth on both sides. THE ORACLE IS LOWERED, NOT THE TOLERANCE (board:0087): the arm MOVES whatever the importer wired into Base Color onto an Emission node, and for this file that subtree is the importer's own Color Attribute node -- so Cycles reads the vertex colours through ITS OWN import of the accessor and is an independent answer to what those colours are. MEASURED at Blender 5.2.0: the importer creates one material named `DefaultMaterial` for the material-less primitive and links `Color Attribute.Color` straight into `Base Color`, and the colour attribute it imports is `Color`, CORNER domain, BYTE_COLOR. WHAT THAT STORAGE COSTS IS MEASURED AND DECLARED under `criterion.oracleLimitation` rather than assumed away: the byte round trip is not the identity, and the file's 1.0 reaches Cycles as (1.000159, 0.999979, 0.999758). THE CLOSURE IS AN EMITTER AND NOT A DIFFUSE BSDF because the subject is a closed cube whose faces see one another: at one sample per pixel a Diffuse BSDF there takes ONE cosine-weighted direction that either escapes or meets another face, so every pixel would be a Bernoulli draw on the visible sky fraction and the case would be scoring an ambient-occlusion estimator."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe at another seed, and the whole of the emission arm's acceptance. A Monte-Carlo estimator's answer depends on its seed; an emitter has no estimator, so the two dumps must agree bit for bit and any difference NAMES the integral that survived."
+    }
+  },
+  "notes": "WHAT THIS CASE DECIDES AND WHAT IT DOES NOT. It decides that a primitive's `COLOR_0` reaches the picture as an additional LINEAR multiplier on base colour: the box comes out as the RGB colour cube rather than white, and the multiplication happens where base colour is already linear rather than on the encoded side of the transfer. It covers ONE of the six cells the specification permits -- float VEC3 -- and the other five are implemented and proven at the reader rather than by a picture, because no asset in the corpus spells them: `test/unit/gltf/AVertexColourMultipliesBaseColourAfterTheDecode.cpp` spells all six as accessors, and the float VEC4 cell is also proven through the emitter by `test/unit/gltf/EmittingASubjectIsAFixedPointOfTheFlatten.cpp`. IT ALSO EXERCISES glTF's DEFAULT MATERIAL, and that is not separable here: the file declares no material at all, so the multiplier's other operand is the default `baseColorFactor` of [1,1,1,1], and a residual over the whole body has two candidate causes. The two are separable in FORM and not by this case's verdict -- a wrong default is one uniform factor over every pixel of the body and a wrong COLOR_0 varies with position -- and the default is stated directly by the same unit test. Only the default material's baseColorFactor is in this picture at all: the arm below replaces the closure, so `metallicFactor` and `roughnessFactor` reach nothing here. NOTHING HERE DECIDES THE CLAMP: the specification requires every COLOR_0 component to lie in [0, 1] and this file's do, so the refusal the reader raises for a file whose do not has no spelling in any picture and is held by that unit test as well. THIS CASE IS OUTSIDE THE PICTURE BOUND AND THE EXCESS IS NOT THE VERTEX COLOUR'S: 0.064038844 codes against a bound of 0.000668135, whose only term is f32 arithmetic order. MEASURED against a third reference -- an exact ray-triangle interpolation of the file's own colours, in double, which agrees with a perspective-correct screen-space formulation of the same quantity to 2.5e-15 -- OUR render is exactly right at 942 of 3 819 sampled channels, p50 deviation 1.1e-16 and worst 2.07e-5 linear, which is the GPU's varying interpolator and not this engine's arithmetic. The worst pixel is 0.17 px from the edge where the blue channel reaches zero, where the display transfer's slope is 12.92 and a 1e-5 linear difference becomes 0.03 codes on each side. THE BOUND HAS NO TERM FOR A PER-VERTEX QUANTITY INTERPOLATED ACROSS A TRIANGLE, which is a mechanism no case in the corpus had until this one -- a flat case has no gradient and a textured case's sampler term dominates -- and the derived width of one would be 255 * 12.92 * 2.07e-5 = 0.068 codes, above the 0.064 measured. Widening the bound is the architect's (board:0089), so it is reported here and not taken.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.211519958,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the sum over the subject's 12 triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the fetched vertices",
+      "note": "What the boundary bound is applied UNDER: a camera that framed the subject smaller would tighten the bound without saying so. Every triangle is counted by the magnitude of its signed area, so the closed cube counts its far side too and this is an AREA, not a coverage."
+    }
+  }
+}

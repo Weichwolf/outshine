@@ -181,39 +181,43 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
      * a subject nothing lights takes the emitted arm however many normals its file carries, because
      * there is no direction for a cosine to be measured against and the declaration's own radiance
      * is the whole answer. */
-    const bool textured = where.HasUv && studio.Surfaces[slot].Colour.Rgba;
-    const bool lit = Lit(studio, subject, part);
+    Render::VertexRunsCarried carried;
+    carried.Uv = where.HasUv && studio.Surfaces[slot].Colour.Rgba;
+    carried.Normal = Lit(studio, subject, part);
     /* THE NORMAL-MAPPED LAYOUT NEEDS BOTH HALVES TOO, and the second half is the SURFACE: a part
      * that carries a tangent basis under a surface with no normal map would sample the one white
      * texel that only exists to complete the bind group, and white decodes to the tangent-space
      * direction (1, 1, 1), which is a tilt no file asked for. */
-    const bool mapped = lit && textured && where.HasTangent() && studio.Surfaces[slot].Normal.Rgba;
+    carried.Tangent = carried.Normal && carried.Uv && where.HasTangent() &&
+                      studio.Surfaces[slot].Normal.Rgba;
     /* THE SECOND UV SET NEEDS BOTH HALVES TOO, and they are the part's attribute and the SURFACE's
      * declaration (board:1182): a part that carries `TEXCOORD_1` under a surface no socket of which
      * reads it would bind a run nothing samples, and a surface that reads it over a part carrying
      * none is refused in `SetSubjectMesh` rather than drawn from the first set. */
-    const bool secondUv = textured && where.HasUv1 && studio.Surfaces[slot].ReadsSecondUv();
-    item.Layout =
-        mapped ? (secondUv ? Render::VertexLayout::PositionNormalUvUv1Tangent
-                           : Render::VertexLayout::PositionNormalUvTangent)
-               : (lit ? (textured ? (secondUv ? Render::VertexLayout::PositionNormalUvUv1
-                                              : Render::VertexLayout::PositionNormalUv)
-                                  : Render::VertexLayout::PositionNormal)
-                      : (textured ? (secondUv ? Render::VertexLayout::PositionUvUv1
-                                              : Render::VertexLayout::PositionUv)
-                                  : Render::VertexLayout::Position));
+    carried.Uv1 = carried.Uv && where.HasUv1 && studio.Surfaces[slot].ReadsSecondUv();
+    /* THE VERTEX COLOUR HAS NO SECOND HALF AND THE ASYMMETRY IS THE POINT (board:1193): the three
+     * above are runs that only exist to address a texture, so a surface declaring none leaves them
+     * addressing a stand-in. `COLOR_0` multiplies BASE COLOUR, and every surface has one -- there is
+     * no socket for it to be missing, so the part's own attribute is the whole condition. */
+    carried.Colour = where.HasColour;
+    if (!Render::LayoutOf(carried, item.Layout)) {
+      error = "part " + std::to_string(part) + " of node '" + where.NodeName +
+              "' names a set of vertex runs that is not one of this engine's layouts";
+      return false;
+    }
     if (!list.Add(item, error)) { return false; }
   }
   list.Compile();
   return true;
 }
 
-/* WHERE THE FOUR VERTEX RUNS START inside the one buffer the caller reuses. */
+/* WHERE EACH VERTEX RUN STARTS inside the one buffer the caller reuses. */
 struct VertexRuns {
   size_t UvAt = 0;
   size_t Uv1At = 0;
   size_t NormalAt = 0;
   size_t TangentAt = 0;
+  size_t ColourAt = 0;
   size_t EmittedAt = 0;
   size_t PreviousAt = 0;
 };
@@ -225,7 +229,8 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
                         std::vector<float> &vertices) {
   vertices.clear();
   vertices.reserve(subject.PositionsM().size() + subject.Uv().size() + subject.Uv1().size() +
-                   subject.Normals().size() + subject.Tangents().size() + subject.VertexCount() * 3);
+                   subject.Normals().size() + subject.Tangents().size() + subject.Colours().size() +
+                   subject.VertexCount() * 3);
   for (size_t vertex = 0; vertex < subject.VertexCount(); ++vertex) {
     double ecef[3];
     EcefFromGltf(&subject.PositionsM()[vertex * 3], ecef);
@@ -257,6 +262,12 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
     for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
     vertices.push_back((float)subject.Tangents()[vertex * 4 + 3]);
   }
+  /* THE VERTEX COLOUR CROSSES UNPERMUTED AND UNDECODED (board:1193). It is not a direction, so the
+   * frame map has nothing to do to it, and it is already the LINEAR multiplier glTF says it is -- a
+   * transfer function applied on this side would be the plausible wrong picture the case exists to
+   * catch. Narrowing to f32 is the same narrowing every other run takes. */
+  runs.ColourAt = vertices.size();
+  for (const double component : subject.Colours()) { vertices.push_back((float)component); }
   runs.PreviousAt = vertices.size();
   if (studio.Previous) {
     for (size_t vertex = 0; vertex < studio.Previous->VertexCount(); ++vertex) {
@@ -373,6 +384,7 @@ bool Show(Render::Renderer &renderer, const Studio &studio, StudioScratch &scrat
   mesh.Uv1 = subject.HasUv1() ? scratch.Vertices.data() + runs.Uv1At : nullptr;
   mesh.Normals = subject.HasNormal() ? scratch.Vertices.data() + runs.NormalAt : nullptr;
   mesh.Tangents = subject.HasTangent() ? scratch.Vertices.data() + runs.TangentAt : nullptr;
+  mesh.Colours = subject.HasColour() ? scratch.Vertices.data() + runs.ColourAt : nullptr;
   mesh.Emitted = scratch.Vertices.data() + runs.EmittedAt;
   mesh.PrevVerts = studio.Previous ? scratch.Vertices.data() + runs.PreviousAt : nullptr;
   mesh.VertexCount = (uint32_t)subject.VertexCount();

@@ -57,7 +57,17 @@ namespace outshine::Render {
  * WHAT THE MULTIPLICATION COSTS IS PAID DOWN INSTEAD, and that is the part board:1156 is right
  * about: five membership lists over eight values would be forty hand-written terms to keep in step.
  * The table below states each layout's attributes ONCE, by name, and every predicate, the pipeline
- * count and the build loop read it -- so a ninth value is one row and nothing to remember. */
+ * count and the build loop read it -- so a ninth value is one row and nothing to remember.
+ *
+ * THE VERTEX COLOUR IS THE FIFTH ATTRIBUTE AND IT DOUBLES THE TABLE RATHER THAN EXTENDING IT
+ * (board:1193). glTF's `COLOR_0` is an additional linear multiplier on base colour, so it depends on
+ * NOTHING: every one of the eight above is a layout with it and a layout without it, and the second
+ * eight below are the first eight with the run added. That is what makes it a doubling where the
+ * second uv set was one row -- the other four attributes constrain each other and this one does not.
+ *
+ * WHAT THE DOUBLING COSTS WAS MEASURED BEFORE IT WAS SPENT (board:1187): every subject pipeline is
+ * built in `Configure`, which runs only from `Renderer::Init`, so 48 pipelines became 96 at about
+ * 6.9 ms each on a cold init and nothing this tree's frame instrument can resolve inside a frame. */
 enum class VertexLayout : uint8_t {
   Position,
   PositionUv,
@@ -66,7 +76,15 @@ enum class VertexLayout : uint8_t {
   PositionNormalUv,
   PositionNormalUvUv1,
   PositionNormalUvTangent,
-  PositionNormalUvUv1Tangent
+  PositionNormalUvUv1Tangent,
+  PositionColour,
+  PositionUvColour,
+  PositionUvUv1Colour,
+  PositionNormalColour,
+  PositionNormalUvColour,
+  PositionNormalUvUv1Colour,
+  PositionNormalUvTangentColour,
+  PositionNormalUvUv1TangentColour
 };
 
 /* THE ATTRIBUTES ONE ROW OF THE TABLE NAMES. They are flags and not four `bool` members on purpose:
@@ -78,7 +96,8 @@ enum class VertexAttribute : uint8_t {
   Uv = 1u << 0,
   Uv1 = 1u << 1,
   Normal = 1u << 2,
-  Tangent = 1u << 3
+  Tangent = 1u << 3,
+  Colour = 1u << 4
 };
 
 [[nodiscard]] constexpr VertexAttribute operator|(VertexAttribute a, VertexAttribute b) {
@@ -108,7 +127,25 @@ inline constexpr std::array kVertexLayouts = {
                     VertexAttribute::Uv | VertexAttribute::Normal | VertexAttribute::Tangent},
     VertexLayoutRow{VertexLayout::PositionNormalUvUv1Tangent,
                     VertexAttribute::Uv | VertexAttribute::Uv1 | VertexAttribute::Normal |
-                        VertexAttribute::Tangent}};
+                        VertexAttribute::Tangent},
+    VertexLayoutRow{VertexLayout::PositionColour, VertexAttribute::Colour},
+    VertexLayoutRow{VertexLayout::PositionUvColour,
+                    VertexAttribute::Uv | VertexAttribute::Colour},
+    VertexLayoutRow{VertexLayout::PositionUvUv1Colour,
+                    VertexAttribute::Uv | VertexAttribute::Uv1 | VertexAttribute::Colour},
+    VertexLayoutRow{VertexLayout::PositionNormalColour,
+                    VertexAttribute::Normal | VertexAttribute::Colour},
+    VertexLayoutRow{VertexLayout::PositionNormalUvColour,
+                    VertexAttribute::Uv | VertexAttribute::Normal | VertexAttribute::Colour},
+    VertexLayoutRow{VertexLayout::PositionNormalUvUv1Colour,
+                    VertexAttribute::Uv | VertexAttribute::Uv1 | VertexAttribute::Normal |
+                        VertexAttribute::Colour},
+    VertexLayoutRow{VertexLayout::PositionNormalUvTangentColour,
+                    VertexAttribute::Uv | VertexAttribute::Normal | VertexAttribute::Tangent |
+                        VertexAttribute::Colour},
+    VertexLayoutRow{VertexLayout::PositionNormalUvUv1TangentColour,
+                    VertexAttribute::Uv | VertexAttribute::Uv1 | VertexAttribute::Normal |
+                        VertexAttribute::Tangent | VertexAttribute::Colour}};
 
 [[nodiscard]] constexpr bool VertexLayoutsIndexThemselves() {
   for (size_t at = 0; at < kVertexLayouts.size(); ++at) {
@@ -123,9 +160,10 @@ static_assert(VertexLayoutsIndexThemselves(),
   return kVertexLayouts[static_cast<size_t>(layout)].Carries;
 }
 
-/* Whether a layout carries the first uv set, the second one, the normal that makes it lit, and the
- * tangent that makes it normal-mapped. Stated once, in the table above, so the encoder and the
- * pipeline table cannot disagree about what a layout is. */
+/* Whether a layout carries the first uv set, the second one, the normal that makes it lit, the
+ * tangent that makes it normal-mapped, and the vertex colour that multiplies its base colour. Stated
+ * once, in the table above, so the encoder and the pipeline table cannot disagree about what a
+ * layout is. */
 [[nodiscard]] constexpr bool CarriesUv(VertexLayout layout) {
   return Holds(AttributesOf(layout), VertexAttribute::Uv);
 }
@@ -137,6 +175,45 @@ static_assert(VertexLayoutsIndexThemselves(),
 }
 [[nodiscard]] constexpr bool CarriesTangent(VertexLayout layout) {
   return Holds(AttributesOf(layout), VertexAttribute::Tangent);
+}
+[[nodiscard]] constexpr bool CarriesColour(VertexLayout layout) {
+  return Holds(AttributesOf(layout), VertexAttribute::Colour);
+}
+
+/* WHICH RUNS A DRAW ACTUALLY HAS TO DRAW WITH, as a named record rather than five positional
+ * booleans (`I.23`, `I.24`): every one of them is a `bool` and a call that swapped two of them would
+ * compile and draw a normal-mapped surface through the uv slot. */
+struct VertexRunsCarried {
+  bool Uv = false;
+  bool Uv1 = false;
+  bool Normal = false;
+  bool Tangent = false;
+  bool Colour = false;
+};
+
+/* THE LAYOUT A SET OF RUNS NAMES, LOOKED UP IN THE TABLE ABOVE (board:1193). It exists because the
+ * answer had TWO spellings -- a nested conditional in the compositor that builds the list and
+ * another in the encoder that checks it against the mesh -- and the vertex colour turns each of them
+ * into a sixteen-way expression that the other can drift away from.
+ *
+ * A COMBINATION THE TABLE DOES NOT CARRY IS A REFUSAL AND NOT THE NEAREST ROW. A tangent with no
+ * normal is not a layout, and answering one anyway is exactly the silent substitution the
+ * enumeration exists to prevent; both callers derive their flags by conjunction -- a tangent only
+ * where the normal and the first uv set are there -- so what this returns false for is a caller that
+ * stopped doing that. */
+[[nodiscard]] constexpr bool LayoutOf(const VertexRunsCarried &carried, VertexLayout &out) {
+  VertexAttribute wanted = VertexAttribute::None;
+  if (carried.Uv) { wanted = wanted | VertexAttribute::Uv; }
+  if (carried.Uv1) { wanted = wanted | VertexAttribute::Uv1; }
+  if (carried.Normal) { wanted = wanted | VertexAttribute::Normal; }
+  if (carried.Tangent) { wanted = wanted | VertexAttribute::Tangent; }
+  if (carried.Colour) { wanted = wanted | VertexAttribute::Colour; }
+  for (const VertexLayoutRow &row : kVertexLayouts) {
+    if (row.Carries != wanted) { continue; }
+    out = row.Layout;
+    return true;
+  }
+  return false;
 }
 
 /* ONE DRAW: where its triangles are in the consumer's own index run, what surface it wears, and

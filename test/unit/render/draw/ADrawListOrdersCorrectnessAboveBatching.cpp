@@ -141,6 +141,53 @@ int main() {
     CHECK(list.Batches().size() == 2, "two vertex layouts are two calls whatever the slot says");
   }
 
+  /* THE LAYOUT TABLE IS THE VALID SET, AND A SET OF RUNS THAT IS NOT IN IT IS A REFUSAL
+   * (board:1193). The vertex colour doubles the table because it depends on nothing -- every layout
+   * has one with it and one without -- while the other four constrain each other, and it is exactly
+   * those constraints that leave combinations with no row: a tangent with no normal, a second uv set
+   * with no first. `LayoutOf` answers the row or says there is none; the nearest row is never an
+   * answer, because a draw bound through a layout it did not ask for is the silent substitution the
+   * enumeration exists to prevent. */
+  {
+    using outshine::Render::CarriesColour;
+    using outshine::Render::kVertexLayouts;
+    using outshine::Render::LayoutOf;
+    using outshine::Render::VertexRunsCarried;
+    CHECK(kVertexLayouts.size() == 16,
+          "sixteen layouts: eight without a vertex colour run and the same eight with one");
+    size_t tinted = 0;
+    for (const auto &row : kVertexLayouts) { tinted += CarriesColour(row.Layout) ? 1u : 0u; }
+    CHECK(tinted == 8, "and exactly half of them carry it, which is what a free axis looks like");
+
+    VertexLayout layout = VertexLayout::Position;
+    VertexRunsCarried bare;
+    CHECK(LayoutOf(bare, layout) && layout == VertexLayout::Position,
+          "no run at all is the position-only layout");
+    VertexRunsCarried tintedOnly;
+    tintedOnly.Colour = true;
+    CHECK(LayoutOf(tintedOnly, layout) && layout == VertexLayout::PositionColour,
+          "a vertex colour needs nothing else, so position plus colour is a layout");
+    VertexRunsCarried whole;
+    whole.Uv = whole.Uv1 = whole.Normal = whole.Tangent = whole.Colour = true;
+    CHECK(LayoutOf(whole, layout) && layout == VertexLayout::PositionNormalUvUv1TangentColour,
+          "and every run at once is the widest one");
+    VertexRunsCarried tangentWithoutNormal;
+    tangentWithoutNormal.Uv = true;
+    tangentWithoutNormal.Tangent = true;
+    CHECK(!LayoutOf(tangentWithoutNormal, layout),
+          "a tangent with no normal is not a layout, with or without a colour, and the nearest row "
+          "is not an answer");
+    tangentWithoutNormal.Colour = true;
+    CHECK(!LayoutOf(tangentWithoutNormal, layout),
+          "and the colour axis does not make one of it");
+    VertexRunsCarried secondWithoutFirst;
+    secondWithoutFirst.Uv1 = true;
+    CHECK(!LayoutOf(secondWithoutFirst, layout),
+          "and neither is a second uv set with no first");
+  }
+
+  Covers("board:1193 the vertex colour is a free axis over the layout table: sixteen rows, and a "
+         "set of runs the table does not carry is refused rather than rounded to the nearest one");
   Covers("I.27 the draw list is the pass's, not the stage's: it carries the sort key, the batching "
          "and the material state, and the sort key is per draw with Ericson's field order -- "
          "viewport, viewport layer, translucency type, depth, material");

@@ -286,6 +286,40 @@ struct Animation {
   std::vector<AnimationChannel> Channels;
 };
 
+/* glTF's OWN DEFAULT MATERIAL, WHICH A PRIMITIVE THAT NAMES NONE WEARS (board:1193). The format
+ * states it in one sentence -- "the default material ... all default values" -- so it is
+ * `baseColorFactor [1,1,1,1]`, `metallicFactor 1`, `roughnessFactor 1`, `OPAQUE`, single-sided.
+ *
+ * IT IS NOT `outshine::Material{}` AND THE DIFFERENCE IS THE PICTURE. This engine's own default is a
+ * mid-grey dielectric, because a surface nobody described is not a metal; the format's is white and
+ * fully metallic. `BoxVertexColors` declares no material at all, so under the engine's default its
+ * `COLOR_0` would be multiplied by 0.5 and the whole body would come out at half the radiance the
+ * file asks for -- a picture that looks authored rather than wrong.
+ *
+ * IT LIVES IN THIS LAYER BECAUSE IT IS A FACT ABOUT THE FORMAT, not about whoever met a -1. A
+ * consumer substituting its own default is how a file's declared appearance quietly becomes an
+ * engine preference nobody wrote down. */
+outshine::Material DefaultMaterial();
+
+/* HOW MANY COMPONENTS A `COLOR_0` ACCESSOR CARRIES, AND THE REFUSAL THAT IS THE OTHER HALF OF THE
+ * QUESTION (board:1193). The specification permits SIX cells and no others -- `VEC3` or `VEC4`,
+ * times float, unsigned byte normalized or unsigned short normalized (`Specification.adoc:1339`) --
+ * so this answers 3 or 4 and names what it refused.
+ *
+ * THE READER ALREADY TURNS ALL SIX INTO ONE THING: `Document::ReadElements` divides a normalized
+ * integer by its own maximum, so an unsigned byte 255 and a float 1.0 arrive as the same double and
+ * every consumer downstream sees one alphabet. What is left for this to decide is which spellings
+ * are legal at all, and a signed or unsigned INTEGER that is not normalized is the trap it exists
+ * for: those bytes decode to 0..255 rather than 0..1, so a viewer that let them through would
+ * multiply base colour by 255 and publish it as a colour.
+ *
+ * `VEC3` IS ALPHA 1.0 AND THAT IS THE FORMAT'S SENTENCE, not a convenience: "When a `COLOR_n`
+ * attribute uses an accessor of `"VEC3"` type, its alpha component MUST be assumed to have a value
+ * of `1.0`" (`Specification.adoc:1354`). It is applied where the run is filled, so nothing
+ * downstream carries two widths of vertex colour. */
+[[nodiscard]] bool VertexColourComponents(const Accessor &accessor, size_t &components,
+                                          std::string &why);
+
 /* WHAT A SUBJECT DOES NOT CARRY, NAMED. The empty string means it carries all of them; anything else
  * is the refusal a case prints and stops on. There is no arm that derives a missing semantic --
  * board:0073 forbids it, and the Khronos `Triangle` having no NORMAL is a property of

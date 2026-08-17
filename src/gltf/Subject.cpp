@@ -227,6 +227,15 @@ bool Subject::BuildTangentsFor(const Document &document, const Primitive &primit
       Uv1_[(size_t)made * 2] = Uv1_[vertex * 2];
       Uv1_[(size_t)made * 2 + 1] = Uv1_[vertex * 2 + 1];
     }
+    /* AND THE VERTEX COLOUR FOLLOWS IT FOR THE SAME REASON (board:1193): the copy is the same point
+     * of the surface, so a run left short would leave it multiplying base colour by zero -- a black
+     * wedge along a seam, which reads as shading rather than as a missing run. */
+    if (!Colours_.empty()) {
+      Colours_.resize((size_t)made * 4 + 4, 0.0);
+      for (size_t channel = 0; channel < 4; ++channel) {
+        Colours_[(size_t)made * 4 + channel] = Colours_[vertex * 4 + channel];
+      }
+    }
     Normals_.resize((size_t)made * 3 + 3, 0.0);
     for (size_t axis = 0; axis < 3; ++axis) {
       Normals_[(size_t)made * 3 + axis] = Normals_[vertex * 3 + axis];
@@ -300,6 +309,7 @@ bool Subject::Refuse(const std::string &why) {
   Uv1_.clear();
   Normals_.clear();
   Tangents_.clear();
+  Colours_.clear();
   Indices_.clear();
   Parts_.clear();
   return false;
@@ -335,6 +345,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose,
   Uv1_.clear();
   Normals_.clear();
   Tangents_.clear();
+  Colours_.clear();
   Indices_.clear();
   Parts_.clear();
   Lights_.clear();
@@ -342,6 +353,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose,
   bool anyUv1 = false;
   bool anyNormal = false;
   bool anyTangent = false;
+  bool anyColour = false;
 
   const int sceneIndex = document.DefaultScene();
   if (sceneIndex < 0 || (size_t)sceneIndex >= document.Scenes().size()) {
@@ -485,6 +497,57 @@ bool Subject::Flatten(const Document &document, const Transform *pose,
                   set.Into->begin() + static_cast<std::ptrdiff_t>(part.FirstVertex * 2));
       }
 
+      /* THE VERTEX COLOUR, PER PRIMITIVE, WIDENED TO RGBA AND OTHERWISE UNTOUCHED (board:1193). It
+       * is glTF's "additional linear multiplier to base color", so no transfer function is applied
+       * to it -- here or at the sampler -- and the widening is the format's own sentence about VEC3
+       * rather than a convenience: alpha 1.0 is the multiplicative identity of base colour's alpha.
+       *
+       * OUT OF RANGE IS A REFUSAL AND NOT A CLAMP (board:1193), and the decision is written here
+       * because all three answers are defensible and only one can be tested. The format says every
+       * component MUST lie in [0, 1] (`Specification.adoc:1356`), so a file outside it is malformed;
+       * CLAMPING would repair somebody else's asset inside a comparison whose subject IS that asset,
+       * and TRUSTING would multiply base colour past one and publish a brighter body that reads as
+       * authored. The refusal names the vertex, the channel and the value. IT IS SPELLABLE ON TWO OF
+       * THE SIX CELLS ONLY: a normalized unsigned byte or short cannot leave [0, 1], so on four of
+       * them the range is carried by the type and this arm is unreachable. */
+      const int colour = primitive.Find("COLOR_0");
+      part.HasColour = colour >= 0;
+      anyColour = anyColour || part.HasColour;
+      Colours_.resize((Positions_.size() / 3) * 4, 0.0);
+      if (colour >= 0) {
+        if ((size_t)colour >= document.Accessors().size()) {
+          return Refuse(document.Path() + ": COLOR_0 names accessor " + std::to_string(colour) +
+                        ", which the file does not carry");
+        }
+        size_t components = 0;
+        std::string why;
+        if (!VertexColourComponents(document.Accessors()[(size_t)colour], components, why)) {
+          return Refuse(document.Path() + ": COLOR_0 " + why);
+        }
+        std::vector<double> tints;
+        if (!document.ReadElements(colour, tints)) {
+          return Refuse(document.Path() + ": COLOR_0 does not decode: " + document.Error());
+        }
+        if (tints.size() != vertices * components) {
+          return Refuse(document.Path() + ": COLOR_0 decodes to " +
+                        std::to_string(tints.size() / components) + " colours over " +
+                        std::to_string(vertices) + " vertices");
+        }
+        for (size_t vertex = 0; vertex < vertices; ++vertex) {
+          for (size_t channel = 0; channel < 4; ++channel) {
+            const double value =
+                channel < components ? tints[vertex * components + channel] : 1.0;
+            if (!(value >= 0.0) || !(value <= 1.0)) {
+              return Refuse(document.Path() + ": COLOR_0 of vertex " + std::to_string(vertex) +
+                            " carries " + std::to_string(value) + " in channel " +
+                            std::to_string(channel) +
+                            ", and the format requires every component in [0, 1]");
+            }
+            Colours_[(part.FirstVertex + vertex) * 4 + channel] = value;
+          }
+        }
+      }
+
       /* THE NORMAL, PER PRIMITIVE, ROTATED BY THE INVERSE TRANSPOSE and normalised here so that no
        * consumer has to know whether the node scaled it. The run stays as long as the vertex run
        * whatever the mix is; a primitive that carried none contributes zeros and is drawn by a
@@ -559,6 +622,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose,
   if (!anyUv1) { Uv1_.clear(); }
   if (!anyNormal) { Normals_.clear(); }
   if (!anyTangent) { Tangents_.clear(); }
+  if (!anyColour) { Colours_.clear(); }
   if (Indices_.empty()) {
     return Refuse(document.Path() + ": the default scene draws no triangle over " +
                   std::to_string(primitives) + " primitive(s), so there is nothing to render");
@@ -588,6 +652,7 @@ bool Subject::Assemble(const Assembly &what) {
   Uv1_.clear();
   Normals_.clear();
   Tangents_.clear();
+  Colours_.clear();
   Indices_.clear();
   Parts_.clear();
   Lights_.clear();
@@ -599,6 +664,7 @@ bool Subject::Assemble(const Assembly &what) {
   bool anyUv1 = false;
   bool anyNormal = false;
   bool anyTangent = false;
+  bool anyColour = false;
   for (size_t index = 0; index < what.Pieces.Size(); ++index) {
     const Piece &piece = what.Pieces[index];
     const std::string where = "assembled piece " + std::to_string(index);
@@ -620,8 +686,18 @@ bool Subject::Assemble(const Assembly &what) {
         !RunIsStatable(piece.Normals, vertices, 3, "normals", where, why) ||
         !RunIsStatable(piece.Uv, vertices, 2, "uv pairs", where, why) ||
         !RunIsStatable(piece.Uv1, vertices, 2, "second-set uv pairs", where, why) ||
-        !RunIsStatable(piece.Tangents, vertices, 4, "tangents", where, why)) {
+        !RunIsStatable(piece.Tangents, vertices, 4, "tangents", where, why) ||
+        !RunIsStatable(piece.Colours, vertices, 4, "vertex colours", where, why)) {
       return Refuse(why);
+    }
+    /* THE RANGE IS CHECKED ON A PRODUCED RUN TOO (board:1193), on the same terms a file's is: the
+     * format's [0, 1] is a property of the QUANTITY and not of where it came from, and a generator
+     * that multiplied base colour past one would be publishing a brighter body nobody declared. */
+    for (size_t at = 0; at < piece.Colours.Size(); ++at) {
+      if (piece.Colours[at] >= 0.0f && piece.Colours[at] <= 1.0f) { continue; }
+      return Refuse(where + " states a vertex colour component of " +
+                    std::to_string(piece.Colours[at]) + " at " + std::to_string(at) +
+                    ", and the format requires every component in [0, 1]");
     }
 
     Part part;
@@ -634,6 +710,7 @@ bool Subject::Assemble(const Assembly &what) {
     part.HasUv = !piece.Uv.Empty();
     part.HasUv1 = !piece.Uv1.Empty();
     part.HasNormal = !piece.Normals.Empty();
+    part.HasColour = !piece.Colours.Empty();
     /* A PRODUCER'S BASIS IS A SUPPLIED ONE. `Generated` is what the reader records when it ran
      * MikkTSpace over a file that stated none, and a generator claiming that word would be saying
      * its basis came from an algorithm this subject can re-run. */
@@ -642,6 +719,7 @@ bool Subject::Assemble(const Assembly &what) {
     anyUv1 = anyUv1 || part.HasUv1;
     anyNormal = anyNormal || part.HasNormal;
     anyTangent = anyTangent || part.HasTangent();
+    anyColour = anyColour || part.HasColour;
 
     for (const float component : piece.PositionsM) { Positions_.push_back((double)component); }
     /* The three optional runs stay as long as the vertex run whatever the mix is, exactly as the
@@ -651,6 +729,7 @@ bool Subject::Assemble(const Assembly &what) {
     Uv1_.resize((Positions_.size() / 3) * 2, 0.0);
     Normals_.resize(Positions_.size(), 0.0);
     Tangents_.resize((Positions_.size() / 3) * 4, 0.0);
+    Colours_.resize((Positions_.size() / 3) * 4, 0.0);
     for (size_t at = 0; at < piece.Uv.Size(); ++at) {
       Uv_[part.FirstVertex * 2 + at] = (double)piece.Uv[at];
     }
@@ -662,6 +741,9 @@ bool Subject::Assemble(const Assembly &what) {
     }
     for (size_t at = 0; at < piece.Tangents.Size(); ++at) {
       Tangents_[part.FirstVertex * 4 + at] = (double)piece.Tangents[at];
+    }
+    for (size_t at = 0; at < piece.Colours.Size(); ++at) {
+      Colours_[part.FirstVertex * 4 + at] = (double)piece.Colours[at];
     }
 
     for (const uint32_t local : piece.Indices) {
@@ -678,6 +760,7 @@ bool Subject::Assemble(const Assembly &what) {
   if (!anyUv1) { Uv1_.clear(); }
   if (!anyNormal) { Normals_.clear(); }
   if (!anyTangent) { Tangents_.clear(); }
+  if (!anyColour) { Colours_.clear(); }
   Bound();
   return true;
 }
