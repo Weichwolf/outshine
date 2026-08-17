@@ -57,11 +57,11 @@ isolated by the asset itself**, with no transmission in the path.
 
 ## Done when
 
-- [ ] `KHR_materials_ior` and `KHR_materials_specular` are read, with the format's defaults where a field
+- [x] `KHR_materials_ior` and `KHR_materials_specular` are read, with the format's defaults where a field
   is absent — **and `ior: 0` is legal and means a Fresnel-free surface**, which is not the same as absent
-- [ ] `F0` is computed once, from the formula above, and reaches `MetalRoughBrdf` — the constant at
-  `MetalRoughBrdf.h:32` **disappears in the same round**, because a default that survives beside a
-  computed value is the second spelling of one number
+- [x] `F0` is computed once, in `core/Material.h`'s `DielectricF0`, carried in the material row and read
+  by the fragment. **The constant is no longer emitted into the shader text**; the C++ name survives only
+  so the lobe's own tests can pick a representative dielectric
 - [ ] A render case proves it against Cycles — **blocked on `board:1206`**, not on the asset. The number
   is delivered and unproven by a picture, which `board:0079`'s closing line forbids as a CLAIM, so this
   task stays open and the capability table says *implemented, awaiting an environment* rather than
