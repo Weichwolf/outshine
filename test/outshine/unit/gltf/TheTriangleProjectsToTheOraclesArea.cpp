@@ -29,6 +29,8 @@
 
 #include "Check.h"
 
+#include "PreparedRoot.h"
+
 #include "Document.h"
 #include "Json.h"
 #include "Subject.h"
@@ -41,7 +43,13 @@ using outshine::Gltf::Viewport;
 
 namespace {
 
-const char *const kCase = "test/khronos/glTF/Triangle/";
+/* THE PREPARED ROOT AND NOT THE TREE (board:1364). A case directory carries its manifest and nothing
+ * else; every product is under the system temp root, so a subject is addressed through `PreparedRoot()`
+ * and the flattened leaf its path becomes. Spelled once there, because a copy of the mapping would
+ * drift the moment one side moved. */
+
+
+const std::string kCase = outshine::Test::PreparedRoot() + "/test-khronos-glTF-Triangle/";
 
 std::string Slurp(const std::string &path) {
   std::ifstream file(path, std::ios::binary);

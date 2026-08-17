@@ -4,7 +4,9 @@
 import argparse
 import json
 import os
+import shutil
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -14,12 +16,29 @@ from prep.refusal import Refusal  # noqa: E402
 from prep.store import ContentStore  # noqa: E402
 
 
+PREPARED_LEAF = "outshine-prepared"
+
+
+def prepared_directory(manifest_path):
+    """Where a case's fetched, generated, converted and rendered files go, and it is NOT the tree.
+
+    `CLAUDE.md`: every artefact goes to the system temp directory, never into the tree -- a repository
+    is what is declared and what is built from it. The leaf is the case's own path with its separators
+    flattened, so two cases cannot collide and the mapping is derivable from either end without a
+    table."""
+    case = os.path.dirname(os.path.abspath(manifest_path))
+    root = os.path.abspath(os.curdir)
+    leaf = os.path.relpath(case, root) if case.startswith(root + os.sep) else os.path.basename(case)
+    return os.path.join(tempfile.gettempdir(), PREPARED_LEAF, leaf.replace(os.sep, "-"))
+
+
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("job", choices=("fetch", "generate", "patch", "convert", "render", "all",
                                         "dry-run"))
     parser.add_argument("--manifest", required=True)
-    parser.add_argument("--dest", default=None, help="default: the manifest's own directory")
+    parser.add_argument("--dest", default=None,
+                        help="default: this case's directory under the system temp root")
     parser.add_argument("--store", default=None, help="default: the library's content store")
     parser.add_argument("--blender", default=None)
     parser.add_argument("--recipe", action="append", default=None, help="render only this recipe; repeatable")
@@ -28,8 +47,13 @@ def main(argv):
     arguments = parser.parse_args(argv)
 
     declared = manifest_module.load(arguments.manifest)
-    destination = arguments.dest or declared.directory
+    destination = arguments.dest or prepared_directory(arguments.manifest)
     os.makedirs(destination, exist_ok=True)
+    # THE RUNNER IS GIVEN ONE DIRECTORY AND READS THE DECLARATION FROM IT, so the manifest is copied
+    # beside what it produced. The copy is rewritten on every preparation and nothing ever edits it,
+    # which is what keeps the tracked file the only authority.
+    if os.path.abspath(destination) != os.path.abspath(declared.directory):
+        shutil.copyfile(arguments.manifest, os.path.join(destination, "manifest.json"))
     store = ContentStore(arguments.store, enabled=not arguments.no_cache)
 
     if arguments.job == "dry-run":

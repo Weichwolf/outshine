@@ -29,6 +29,10 @@ def harness_root(start):
     return os.path.join(_repository(start), "test", "harness")
 
 
+# THE LOOKUP STARTS AT THE MANIFEST AND NEVER AT THE DESTINATION. A case's prepared files live under
+# the system temp root now (`CLAUDE.md`: every artefact goes there, never into the tree), so a walk up
+# from the destination leaves the repository entirely and finds no harness. The manifest is the tracked
+# file and it is the one thing about a case that is always inside the tree.
 def harness_of(case_directory):
     """The harness directory serving the corpus this case belongs to."""
     root = _repository(case_directory)

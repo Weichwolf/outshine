@@ -27,6 +27,8 @@
 
 #include "Check.h"
 
+#include "PreparedRoot.h"
+
 #include "Document.h"
 #include "Subject.h"
 #include "Tangents.h"
@@ -37,11 +39,17 @@ using outshine::Gltf::TangentSource;
 
 namespace {
 
-const char *const kMirror = "test/khronos/glTF/NormalTangentMirrorTest/";
-const char *const kGenerated = "test/khronos/glTF/NormalTangentTest/";
+/* THE PREPARED ROOT AND NOT THE TREE (board:1364). A case directory carries its manifest and nothing
+ * else; every product is under the system temp root, so a subject is addressed through `PreparedRoot()`
+ * and the flattened leaf its path becomes. Spelled once there, because a copy of the mapping would
+ * drift the moment one side moved. */
+
+
+const std::string kMirror = outshine::Test::PreparedRoot() + "/test-khronos-glTF-NormalTangentMirrorTest/";
+const std::string kGenerated = outshine::Test::PreparedRoot() + "/test-khronos-glTF-NormalTangentTest/";
 /* A subject with a base-colour image and no normal map, so that "generated only where it would be
  * read" has a case that must come back with nothing. */
-const char *const kUnmapped = "test/khronos/glTF/SimpleTexture/simple-texture/";
+const std::string kUnmapped = outshine::Test::PreparedRoot() + "/test-khronos-glTF-SimpleTexture-simple-texture/";
 
 /* [SET] 0.01 degrees, AND IT IS A REGRESSION GUARD RATHER THAN A DERIVED TOLERANCE. The residual it
  * bounds is the difference between one construction run in binary64 here and in binary32 in

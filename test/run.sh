@@ -40,6 +40,12 @@ cd "$ROOT" || exit 2
 # a decision about.
 BUILD=${TMPDIR:-/tmp}
 BUILD=${BUILD%/}/outshine-tests
+# WHERE A CASE'S PREPARED FILES LIVE, AND IT IS NOT THE TREE. `CLAUDE.md`: every artefact goes to the
+# system temp directory, never into the tree. The leaf is the case's own path with its separators
+# flattened, which is the SAME rule `prepare.py` derives -- two spellings of one mapping, and each is
+# derivable from the other end without a table.
+PREPARED=${TMPDIR:-/tmp}
+PREPARED=${PREPARED%/}/outshine-prepared
 CXX=${CXX:-c++}
 CXXSTD=-std=c++17
 WARN="-Wall -Wextra -Wpedantic -Werror -Wno-unused-parameter"
@@ -526,9 +532,11 @@ stayedFiles=0
 
 # WHAT THE SUITE COSTS ON DISK RIGHT NOW. One process per sample: a per-file walk would be a thousand
 # more of them for a number this is quoted in megabytes.
+PreparedCase() { printf '%s/%s' "$PREPARED" "$(printf '%s' "$1" | tr / -)"; }
+
 SuiteKib() {
   # shellcheck disable=SC2046
-  set -- $(du -sk test/khronos test/outshine/render 2>/dev/null)
+  set -- $(du -sk "$PREPARED" 2>/dev/null)
   printf '%s' "${1:-0}"
 }
 
@@ -546,8 +554,9 @@ SampleSuite() {
 # the proof that refused and the command that brings the file back.
 PruneCase() {
   pruneCase=$1
+  prunePrepared=$2
   pruneLog=$BUILD/log/$(printf '%s' "${pruneCase#test/}" | tr / -)-prune.log
-  if ! pruneSummary=$("$BUILD/prune" "$pruneCase" "$PRUNE_MARKER" 2>"$pruneLog"); then
+  if ! pruneSummary=$("$BUILD/prune" "$prunePrepared" "$PRUNE_MARKER" 2>"$pruneLog"); then
     printf 'run.sh: %s was not pruned -- %s\n' "${pruneCase#test/}" "$pruneLog" >&2
     return 0
   fi
@@ -858,9 +867,10 @@ for testSource in $TESTS; do
     # THE MARKER IS WHAT "THIS RUN WROTE IT" IS MEASURED AGAINST, and it lives outside the case
     # directory: a marker inside one would be a file the prune then had to have an opinion about.
     : >"$PRUNE_MARKER"
-    JudgeArms "${oneCase#test/}" "$oneCase"
+    preparedCase=$(PreparedCase "$oneCase")
+    JudgeArms "${oneCase#test/}" "$preparedCase"
     SampleSuite
-    PruneCase "$oneCase"
+    PruneCase "$oneCase" "$preparedCase"
   done
 done
 endKib=$(SuiteKib)

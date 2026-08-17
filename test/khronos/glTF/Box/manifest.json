@@ -206,5 +206,14 @@
       "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise and not a disagreement with us -- which is what makes this the instrument floor rather than an assumption about it."
     }
   },
-  "notes": "The first case authored for a model that had none, and it is deliberately the smallest solid in the index rather than the most interesting one: it establishes that a case can be added from the pin, the framing rule and the schema alone, with no engine work and no new instrument. What it proves is narrow and it is stated narrowly -- indexed triangles, one material bound to one mesh, and a node matrix that is a rotation."
+  "notes": "The first case authored for a model that had none, and it is deliberately the smallest solid in the index rather than the most interesting one: it establishes that a case can be added from the pin, the framing rule and the schema alone, with no engine work and no new instrument. What it proves is narrow and it is stated narrowly -- indexed triangles, one material bound to one mesh, and a node matrix that is a rotation.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.21151995766466197,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the projected area of the subject's triangles over the declared raster at the declared camera, recomputed by the runner from the subject's own vertices. It is quoted here because the boundary bound is applied UNDER it: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's apparent size, so a camera that framed the subject smaller would tighten the bound without saying so.",
+      "note": "The framing rule of src/gltf/Framing.h fixes the camera, so this number is a consequence of the rule and the subject rather than a choice. The runner refuses a mismatch."
+    }
+  }
 }

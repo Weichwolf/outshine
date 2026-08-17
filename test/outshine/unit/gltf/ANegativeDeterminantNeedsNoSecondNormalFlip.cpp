@@ -34,6 +34,8 @@
 
 #include "Check.h"
 
+#include "PreparedRoot.h"
+
 #include "Document.h"
 #include "Subject.h"
 #include "Transform.h"
@@ -45,7 +47,13 @@ using outshine::Gltf::Transform;
 
 namespace {
 
-const char *const kAsset = "test/khronos/glTF/NegativeScaleTest/scene.gltf";
+/* THE PREPARED ROOT AND NOT THE TREE (board:1364). A case directory carries its manifest and nothing
+ * else; every product is under the system temp root, so a subject is addressed through `PreparedRoot()`
+ * and the flattened leaf its path becomes. Spelled once there, because a copy of the mapping would
+ * drift the moment one side moved. */
+
+
+const std::string kAsset = outshine::Test::PreparedRoot() + "/test-khronos-glTF-NegativeScaleTest/scene.gltf";
 
 /* The two spheres Khronos's normals paragraph is about: one mesh, two instances, one of them
  * inside-out. Both name the `Not So Shiny` material and both are `doubleSided`. */
@@ -162,13 +170,13 @@ void Publish(const char *what, const Facing &facing) {
 int main() {
   using namespace outshine::Test;
 
-  if (Slurp(kAsset).empty()) {
-    Unprepared(kAsset);
+  if (Slurp(kAsset.c_str()).empty()) {
+    Unprepared(kAsset.c_str());
     return Report();
   }
 
   Document document;
-  const bool read = document.ReadFile(kAsset);
+  const bool read = document.ReadFile(kAsset.c_str());
   CHECK(read, "Khronos's NegativeScaleTest reads as a .gltf with its buffer beside it");
   if (!read) {
     std::printf("       %s\n", document.Error().c_str());

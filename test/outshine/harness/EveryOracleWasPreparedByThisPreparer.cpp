@@ -30,6 +30,8 @@
 
 #include "Check.h"
 
+#include "PreparedRoot.h"
+
 #include "Sha256.h"
 
 namespace {
@@ -95,30 +97,26 @@ bool RecordedDigest(const std::string &document, std::string &out) {
   return true;
 }
 
+/* THE PREPARED ROOT AND NOT THE TREE (board:1364). A case's products live under the system temp root,
+ * so the two-level walk of `test/khronos/glTF/` this replaces now finds manifests and nothing else --
+ * which reports as an EMPTY population rather than as a failure, and an empty population is a green
+ * test about nothing. The root is flat and spelled once in `PreparedRoot.h`, so one level is the whole
+ * walk and BOTH corpora arrive rather than only the fetched one. */
 std::vector<std::string> PreparedCases() {
   std::vector<std::string> cases;
-  const std::string root = "test/khronos/glTF/";
-  DIR *features = opendir(root.c_str());
-  if (!features) { return cases; }
-  for (dirent *feature = readdir(features); feature; feature = readdir(features)) {
-    const std::string name = feature->d_name;
+  const std::string root = outshine::Test::PreparedRoot() + "/";
+  DIR *prepared = opendir(root.c_str());
+  if (!prepared) { return cases; }
+  for (dirent *one = readdir(prepared); one; one = readdir(prepared)) {
+    const std::string name = one->d_name;
     if (name == "." || name == "..") { continue; }
-    const std::string featurePath = root + name;
-    if (!IsDirectory(featurePath)) { continue; }
-    DIR *members = opendir(featurePath.c_str());
-    if (!members) { continue; }
-    for (dirent *member = readdir(members); member; member = readdir(members)) {
-      const std::string leaf = member->d_name;
-      if (leaf == "." || leaf == "..") { continue; }
-      const std::string directory = featurePath + "/" + leaf + "/";
-      std::string document;
-      if (IsDirectory(directory) && Slurp(directory + "provenance.json", document)) {
-        cases.push_back(directory);
-      }
+    const std::string directory = root + name + "/";
+    std::string document;
+    if (IsDirectory(directory) && Slurp(directory + "provenance.json", document)) {
+      cases.push_back(directory);
     }
-    closedir(members);
   }
-  closedir(features);
+  closedir(prepared);
   return cases;
 }
 

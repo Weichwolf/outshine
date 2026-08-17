@@ -62,3 +62,34 @@ less than that there is one at all**.
   it — and it is a subject this tree GENERATES rather than fetches, so it costs no pin and no licence.
   *`test/outshine/render/sphere` already exists and declares `manifest emission`; the question is what it
   reports when it is asked to shade instead.*
+
+## The measurement this item asked for: the arm is wrong in its LOBE
+
+**`test/outshine/render/shaded-sphere` was built and run.** One uv-sphere, ONE material, no texture
+anywhere in the path, one delta light against a black world, and the material row is the file's own —
+evaluated by this engine's BRDF. `test/harness/outshine/render/prepare/fixtures.py` gained a declared
+metallic-roughness row so a GENERATED subject could take this arm at all; before it, every subject that
+carried a material also carried textures, several materials and a light.
+
+```
+worst_disagreement_px            0            px      at most 0.005            PASS
+picture_max_delta_code          48.275985     codes   at most 0.0006681348     FAIL
+linear_channels_differing       129702        channels                         FAIL
+linear_p50_relative              0.0057494845 dimensionless
+linear_p95_relative              0.093481424  dimensionless
+```
+
+**The geometry is exact — 0 px — and the shading is 48 codes out.** Everything the nine fetched cases
+confound is *absent here*: no image, no second material, no second body, no environment, no mip chain,
+no uv discontinuity. **What is left is the lobe and the light that reaches it, and they disagree by
+0.57 % at the median and 9.3 % at p95.**
+
+**So the question this item posed is answered.** It is not *what reaches the lobe* — nothing reaches it
+here but one declared irradiance from one declared direction. **It is the lobe.** And the shape of the
+residual says where: a median under 1 % against a p95 near 10 % is not a uniform scale error, it is a
+disagreement that grows towards one end of the distribution — which on a sphere under a single delta
+light means towards grazing incidence or towards the terminator.
+
+- [ ] **The next measurement is the residual against `n·l` and against `n·v`**, taken from the case's
+  own shading-normal pass. *Named rather than run, because it is the first question that can now be
+  asked of a subject with nothing else in it.*

@@ -18,6 +18,8 @@
 
 #include "Check.h"
 
+#include "PreparedRoot.h"
+
 #include "Document.h"
 #include "Subject.h"
 
@@ -26,7 +28,13 @@ using outshine::Gltf::Subject;
 
 namespace {
 
-const char *const kThreeCubes = "test/outshine/render/trs-hierarchy/scene.glb";
+/* THE PREPARED ROOT AND NOT THE TREE (board:1364). A case directory carries its manifest and nothing
+ * else; every product is under the system temp root, so a subject is addressed through `PreparedRoot()`
+ * and the flattened leaf its path becomes. Spelled once there, because a copy of the mapping would
+ * drift the moment one side moved. */
+
+
+const std::string kThreeCubes = outshine::Test::PreparedRoot() + "/test-outshine-render-trs-hierarchy/scene.glb";
 
 bool Present(const char *path) {
   std::ifstream file(path, std::ios::binary);
@@ -38,13 +46,13 @@ bool Present(const char *path) {
 int main() {
   using namespace outshine::Test;
 
-  if (!Present(kThreeCubes)) {
-    Unprepared(kThreeCubes);
+  if (!Present(kThreeCubes.c_str())) {
+    Unprepared(kThreeCubes.c_str());
     return Report();
   }
 
   Document document;
-  const bool read = document.ReadFile(kThreeCubes);
+  const bool read = document.ReadFile(kThreeCubes.c_str());
   CHECK(read, "the three-cube chain reads as a .glb");
   if (!read) {
     std::printf("       %s\n", document.Error().c_str());

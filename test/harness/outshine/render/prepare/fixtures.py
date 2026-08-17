@@ -42,7 +42,8 @@ def generate(where, recipe):
     if recipe.get("shape") in grown.SHAPES:
         field = _fields(where, recipe, ("shape", "parameters"))
         return grown.build(where, field["shape"], field["parameters"])
-    field = _fields(where, recipe, ("shape", "parameters"), ("mode", "indexComponent", "camera"))
+    field = _fields(where, recipe, ("shape", "parameters"),
+                    ("mode", "indexComponent", "camera", "material"))
     shape = field["shape"]
     if shape not in _SHAPES:
         raise Refusal(where + ".shape",
@@ -53,7 +54,36 @@ def generate(where, recipe):
                         sorted(COMPONENT_TYPES))
     parts = _SHAPES[shape](where + ".parameters", field["parameters"], mode)
     camera = _camera(where + ".camera", field["camera"]) if "camera" in field else None
-    return _write_glb(parts, mode, component, camera), {}
+    material = _material(where + ".material", field["material"]) if "material" in field else None
+    return _write_glb(parts, mode, component, camera, material), {}
+
+
+# ---------------------------------------------------------------- the material
+
+def _material(where, declared):
+    """A metallic-roughness row, so a GENERATED subject can be the one the engine's own BRDF shades.
+
+    Every fetched subject that carries a material carries textures, several materials and a light, so a
+    disagreement there has more causes than the comparison can separate. This exists so the smallest
+    possible shaded subject is one we own: one primitive, one material, three declared numbers, and no
+    image anywhere in the path. Nothing here defaults -- a roughness that arrived by omission would be
+    the one number in the case nobody declared."""
+    if not isinstance(declared, dict):
+        raise Refusal(where, expected="an object", observed=type(declared).__name__)
+    field = _fields(where, declared, ("baseColourFactorRgba", "metallicFactor", "roughnessFactor"),
+                    ("note",))
+    return {"pbrMetallicRoughness": {
+        "baseColorFactor": _vector(where + ".baseColourFactorRgba", field["baseColourFactorRgba"], 4),
+        "metallicFactor": _unit(where + ".metallicFactor", field["metallicFactor"]),
+        "roughnessFactor": _unit(where + ".roughnessFactor", field["roughnessFactor"])}}
+
+
+def _unit(where, value):
+    number = _number(where, value)
+    if not 0.0 <= number <= 1.0:
+        raise Refusal(where, expected="a number in [0, 1], which is what the format allows",
+                      observed=repr(number))
+    return number
 
 
 # ---------------------------------------------------------------- the shapes
@@ -236,7 +266,7 @@ def _look_at(where, position, aim, roll):
 
 # ---------------------------------------------------------------- the container
 
-def _write_glb(parts, mode, component, camera):
+def _write_glb(parts, mode, component, camera, material=None):
     document = {"asset": {"version": "2.0", "generator": "outshine test/harness/shared/corpus"},
                 "scene": 0, "scenes": [{"nodes": []}], "nodes": [], "meshes": [],
                 "accessors": [], "bufferViews": [], "buffers": []}
@@ -254,9 +284,11 @@ def _write_glb(parts, mode, component, camera):
                               observed=str(index), why="an index width is a declaration about the mesh it carries")
         indices = _accessor(document, binary, struct.pack("<%d%s" % (len(part.run), pack), *part.run),
                             code, "SCALAR", len(part.run), target=34963)
-        document["meshes"].append({"primitives": [
-            {"attributes": {"POSITION": position, "NORMAL": normal}, "indices": indices,
-             "mode": MODES[mode]}]})
+        primitive = {"attributes": {"POSITION": position, "NORMAL": normal}, "indices": indices,
+                     "mode": MODES[mode]}
+        if material is not None:
+            primitive["material"] = 0
+        document["meshes"].append({"primitives": [primitive]})
         node = dict(part.node)
         node["name"] = part.name
         node["mesh"] = len(document["meshes"]) - 1
@@ -266,6 +298,9 @@ def _write_glb(parts, mode, component, camera):
     for at in range(len(parts) - 1):
         document["nodes"][at]["children"] = [at + 1]
     document["scenes"][0]["nodes"] = [0] if parts else []
+
+    if material is not None:
+        document["materials"] = [dict(material, name="fixture")]
 
     if camera is not None:
         document["cameras"] = [camera["camera"]]

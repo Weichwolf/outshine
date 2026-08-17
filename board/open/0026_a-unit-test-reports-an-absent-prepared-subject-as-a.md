@@ -4,9 +4,9 @@ Tags: oracle, khronos, instrument
 
 **A unit test reports an absent prepared subject as a reader defect**
 
-`test/outshine/unit/gltf/TheTriangleProjectsToTheOraclesArea.cpp:104-109`. The subject is
-`test/outshine/render/triangle/scene.glb`, which § I.26.10 rules **untracked by design** — `manifest.json`
-is the only tracked file in a case directory. Run against a tree carrying only tracked files (measured
+`test/outshine/unit/gltf/TheTriangleProjectsToTheOraclesArea.cpp:104-109`. The subject is the triangle case's prepared *scene.glb* -- named in prose rather than backticked,
+because § I.26.10 rules it **untracked by design** and it now lives under the system temp root
+(board:1364); `manifest.json` is the only tracked file in a case directory. Run against a tree carrying only tracked files (measured
 2026-08-12, the manifest copied alone into an empty tree):
 
 ```

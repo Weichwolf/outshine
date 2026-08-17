@@ -30,6 +30,8 @@
 
 #include "Check.h"
 
+#include "PreparedRoot.h"
+
 #include "Json.h"
 
 namespace {
@@ -61,8 +63,12 @@ std::vector<std::filesystem::path> PreparedCases() {
    * nothing wrong. A recursive search over both corpora cannot be wrong about a depth it never asks. */
   std::vector<std::filesystem::path> cases;
   std::error_code failed;
-  for (const char *const corpus : {"test/khronos/glTF", "test/outshine/render"}) {
-    if (!std::filesystem::is_directory(corpus, failed)) { continue; }
+  /* THE PREPARED ROOT AND NOT THE TREE (board:1364). A case's products live under the system temp
+   * root, so a walk of the case trees now finds manifests and nothing else -- which reported as an
+   * EMPTY POPULATION rather than as a failure, and an empty population is a green test about nothing.
+   * The root is spelled once, in `PreparedRoot.h`, because a second copy of it would drift. */
+  const std::string corpus = outshine::Test::PreparedRoot();
+  if (std::filesystem::is_directory(corpus, failed)) {
     for (const std::filesystem::directory_entry &one :
          std::filesystem::recursive_directory_iterator(corpus, failed)) {
       if (one.is_directory() && std::filesystem::is_regular_file(one.path() / "provenance.json")) {

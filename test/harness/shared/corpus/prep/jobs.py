@@ -89,7 +89,7 @@ def generate_subjects(manifest, destination):
             continue
         for file in subject.files:
             where = "manifest subject %s file %s generator" % (subject.id, file["as"])
-            produced, said = vendor.step(destination, "fixtures").generate(where, file["generator"])
+            produced, said = vendor.step(manifest.directory, "fixtures").generate(where, file["generator"])
             path = os.path.join(destination, file["as"])
             with open(path, "wb") as out:
                 out.write(produced)
@@ -112,7 +112,7 @@ def fetch_subjects(manifest, store, destination, force=False):
         if subject.kind == "generated":
             continue
         for file in subject.files:
-            how, size = vendor.step(destination, "fetch").download_to_store(
+            how, size = vendor.step(manifest.directory, "fetch").download_to_store(
                 file["url"],
                 file["sha256"],
                 store,

@@ -164,5 +164,14 @@
       "note": "The binary mask and the shaded colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. NO SEED-SHIFT RECIPE, and the preparer is what said so: that recipe proves an EMITTER has no estimator left, and a diffuse surface under a world still has one, so a moved seed would move the picture and the arm would be measuring the integrator instead of the instrument floor."
     }
   },
-  "notes": "Box's twin, and it is in the corpus for exactly one reason: to separate a reader that handles byteStride from one that happens to work when the stride equals the element size. Its picture must be indistinguishable from Box's."
+  "notes": "Box's twin, and it is in the corpus for exactly one reason: to separate a reader that handles byteStride from one that happens to work when the stride equals the element size. Its picture must be indistinguishable from Box's.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.21151995766466197,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the projected area of the subject's triangles over the declared raster at the declared camera, recomputed by the runner from the subject's own vertices. It is quoted here because the boundary bound is applied UNDER it: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's apparent size, so a camera that framed the subject smaller would tighten the bound without saying so.",
+      "note": "The framing rule of src/gltf/Framing.h fixes the camera, so this number is a consequence of the rule and the subject rather than a choice. The runner refuses a mismatch."
+    }
+  }
 }

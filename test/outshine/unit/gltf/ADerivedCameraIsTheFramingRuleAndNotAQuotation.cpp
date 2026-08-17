@@ -44,6 +44,8 @@
 
 #include "Check.h"
 
+#include "PreparedRoot.h"
+
 #include "Document.h"
 #include "Json.h"
 #include "Subject.h"
@@ -57,7 +59,11 @@ using outshine::Gltf::Viewport;
 
 namespace {
 
-const char *const kSuite = "test/khronos/glTF";
+/* THE PREPARED ROOT AND NOT THE TREE (board:1364). Every case's products live under the system temp
+ * root, so a walk of `test/khronos/glTF` now finds manifests without subjects and reports ZERO cases --
+ * a green test about nothing. The root is flat, so `recursive_directory_iterator` still walks it and the
+ * two corpora are told apart by the leaf's prefix rather than by depth. */
+const std::string kSuite = outshine::Test::PreparedRoot();
 /* What `subjects[].source.kind` says when the subject is one this tree produced. Anything else is
  * upstream's, and then whether the freedoms are ours turns on who placed the camera. */
 const char *const kGenerated = "outshine-generated";
