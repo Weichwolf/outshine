@@ -661,7 +661,7 @@ Record() {
     BUILD) unbuilt=$((unbuilt + 1)) ;;
     UNPREP)
       unprepared=$((unprepared + 1))
-      printf 'run.sh: %s has no prepared input -- run test/corpus/prepare.py\n' "$recordId" >&2
+      printf 'run.sh: %s has no prepared input -- run test/harness/shared/corpus/prepare.py\n' "$recordId" >&2
       ;;
     SKIP)
       skipped=$((skipped + 1))
