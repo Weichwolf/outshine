@@ -32,10 +32,10 @@
 namespace {
 
 /* Every document this repository writes about itself. `CLAUDE.md` is the vision and the board's
- * usage, `board/` is the work, `.claude/agents/` is the law each role operates by and
- * `src/assets/tables/` is declared data; all four cite files, and a citation is a citation whoever
- * wrote it. The agent definitions count because the law moved into them: 755 lines with live
- * citations are exactly as able to name a file that is gone. */
+ * usage, `board/` is the work and `src/assets/tables/` is declared data; all three cite files, and a
+ * citation is a citation whoever wrote it. The agent definitions were a fourth tree until the law they
+ * carried was folded into CLAUDE.md and they were deleted; the loop below skips a tree that is not
+ * there, so a later split back out costs one line rather than a discovery. */
 std::vector<std::filesystem::path> Documents() {
   std::vector<std::filesystem::path> found;
   if (std::filesystem::exists("CLAUDE.md")) { found.emplace_back("CLAUDE.md"); }
@@ -176,6 +176,6 @@ int main() {
         "names its file is a claim with something under it");
 
   Covers("I.20 a document that cites a file names one that is in the tree: every backticked path in "
-         "CLAUDE.md, board/, .claude/agents/ and src/assets/tables/ resolves, or the run is red");
+         "CLAUDE.md, board/ and src/assets/tables/ resolves, or the run is red");
   return Report();
 }
