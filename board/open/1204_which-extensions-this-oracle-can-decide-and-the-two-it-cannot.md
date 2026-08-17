@@ -53,9 +53,11 @@ mentioned under the importer's own import tree, which is not the same as the nam
   material output's Volume socket**. Principled carries `Transmission Weight` 1.0 and `IOR` 1.5. So the
   largest row of tier 2 is not blocked
 
-- [ ] **`KHR_materials_ior` at 17 is NOT yet exercised.** `AttenuationTest` shows Principled `IOR` at
-  **1.5, which is the default**, so that reading proves nothing about whether the extension is read.
-  `IORTestGrid` declares it and is fetched; the check is one import and a comparison across its grid
+- [x] **`KHR_materials_ior` at impact 17 is HONOURED EXACTLY.** [MEASURED] Blender 5.2.0 on
+  `IORTestGrid`: **16 of 23 materials declare it**, over four distinct values — 1.0, 1.33, 1.76, 2.42 —
+  and Blender's Principled `IOR` carries each of them to the digit. *The earlier reading of 1.5 on
+  `AttenuationTest` was the default and proved nothing, which is why this row needed its own asset
+  rather than a second look at the first one.*
 
 ## What the volume measurement found that is NOT an exclusion, and matters more
 
