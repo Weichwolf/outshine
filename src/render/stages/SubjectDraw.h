@@ -99,6 +99,20 @@ struct SubjectLight {
   double PositionEcefM[3] = {0, 0, 0};
 };
 
+/* THE ENVIRONMENT A SUBJECT SITS IN: a constant radiance arriving from every direction, in the same
+ * scene-referred units the punctual lights are in (board:1206).
+ *
+ * ZERO IS THE DEFAULT AND IT IS THE HONEST ONE. A subject nobody placed in an environment gathers
+ * nothing from one, which is what every case in the corpus that gathers at all already declares --
+ * `world: uniform` at strength 0. So this arriving changes no picture that exists, and a case that
+ * wants an environment says what it IS rather than inheriting a renderer's idea of one.
+ *
+ * IT IS NOT THE ATMOSPHERE'S IRRADIANCE. `Resource::IrradianceBuffer` is derived from the sky chain
+ * and is a world scene's answer; this is a declaration, and the two never become one field. */
+struct SubjectEnvironment {
+  double RadianceLinear[3] = {0, 0, 0};
+};
+
 /* HOW MANY LIGHTS ONE SUBJECT MAY BE LIT BY. [SET] 16: the corpus's own most-lit asset declares
  * eight (`PointLightIntensityTest`), and the list is a uniform buffer whose size is fixed at
  * pipeline creation. A seventeenth is a refusal that names the count, never a light silently
@@ -304,6 +318,8 @@ public:
    * what every case outside `KHR_lights_punctual` declares; more than `kMaxSubjectLights` is a
    * refusal naming both counts. */
   [[nodiscard]] bool SetLights(const std::vector<SubjectLight> &lights, std::string &error);
+  /* The environment this subject gathers, declared and never discovered. */
+  void SetEnvironment(const SubjectEnvironment &environment) { Environment = environment; }
 
   void Encode(const FrameContext &ctx, const PassRecording &into);
 
@@ -360,7 +376,11 @@ private:
    * `float4` -- colour times intensity with the kind, the camera-relative position with the
    * reciprocal of the range, the beam, and the cone's two precomputed numbers. */
   static constexpr int kLightVec4s = 4;
-  static constexpr int kLightFloats = 4 + 4 * kLightVec4s * (int)kMaxSubjectLights;
+  /* count(4) + the environment radiance(4) + the list. THE ENVIRONMENT IS PART OF THE LIGHT UNIFORM
+   * AND NOT A SECOND ONE (board:1206): it IS a light -- an area source covering every direction --
+   * and a surface gathers it in the same loop it gathers the others, so a binding of its own would
+   * be a second place for a light to come from. */
+  static constexpr int kLightFloats = 8 + 4 * kLightVec4s * (int)kMaxSubjectLights;
   /* EVERYTHING ONE SURFACE SLOT OWNS ON THE DEVICE, in one object rather than in five vectors that
    * have to be pushed in step (`C.1`). The five parallel runs were `Binds`, `Images`, `Views`,
    * `Samplers` and a `std::vector<bool>` of cull modes: a slot appended to four of them was a
@@ -451,6 +471,7 @@ private:
    * structure's root box (`stages/ShadowRay.h`), in the subject's own metres. */
   float ShadowNearM_ = 0.0f;
   std::vector<SubjectLight> Placed;
+  SubjectEnvironment Environment;
   uint32_t NVerts = 0, NIdx = 0;
   bool HasUv = false;
   bool HasUv1 = false;

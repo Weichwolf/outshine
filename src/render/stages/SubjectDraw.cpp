@@ -187,7 +187,10 @@ struct Light { float4 tint; float4 place; float4 beam; float4 cone; };
 /* `count.x` is how many lights are declared; `count.y` is the distance a shadow ray starts at, in
  * the subject's own metres, and it travels with the light list because it is the one number the
  * lighting loop needs that is a property of the subject rather than of a light. */
-struct Lights { float4 count; Light items[16]; };
+/* `environment` IS A CONSTANT RADIANCE FROM EVERY DIRECTION (board:1206), in the same scene-referred
+ * units as a light's tint, and zero where the declaration named none. It sits inside this uniform
+ * because it IS a light -- the one whose solid angle is the whole sphere. */
+struct Lights { float4 count; float4 environment; Light items[16]; };
 
 #define SUBJECT_SURFACE constant M &surface [[buffer(0)]], constant Lights &lights [[buffer(1)]], \
     device const BvhNode *bvhNodes [[buffer(2)]], device const BvhTri *bvhTris [[buffer(3)]], \
@@ -576,6 +579,33 @@ static inline float3 shadeRow(constant Lights &lights, Occluders occluders, floa
                                     max(dot(n, h), 0.0), max(dot(v, h), 0.0));
     sum = sum + (reflected.diffuse + reflected.specular) * nl * attenuation * light.tint.rgb;
   }
+  /* THE ENVIRONMENT, GATHERED ANALYTICALLY BECAUSE IT IS CONSTANT (board:1206).
+   *
+   * THE DIFFUSE HALF IS EXACT AND NOT AN APPROXIMATION. A uniform radiance L from every direction
+   * leaves a Lambert surface as `albedo * L`: the cosine-weighted integral of a constant over the
+   * hemisphere is pi and the Lambert BRDF is albedo/pi, so the two cancel.
+   *
+   * THE SPECULAR HALF IS SCHLICK'S FRESNEL AT THE VIEW ANGLE, WHICH IS EXACT FOR A MIRROR AND AN
+   * OVER-ESTIMATE FOR A ROUGH SURFACE -- and the direction of the error is stated because the
+   * alternative was worse. Under a constant environment a perfect mirror returns `F(nv) * L`, since
+   * every direction carries the same L; that is the roughness-0 limit, and `SpecularTest` and
+   * `IORTestGrid` are roughness-0 panels, so the row the corpus measures is the row this gets right
+   * with no approximation in it.
+   *
+   * KARIS'S TWO-TERM ENVIRONMENT-BRDF FIT WAS TRIED AND REJECTED, WITH THE NUMBER. At `roughness = 0`
+   * and `nv = 1` it returns `F0 * 0.9941 + 0.00588`, which for a dielectric's `F0 = 0.04` is 0.0457
+   * against an exact 0.04 -- **14 % high, on exactly the panels this term exists to make decidable**,
+   * and it would have read as this engine's F0 being wrong.
+   *
+   * WHAT IS OWED, AND IT IS OWED RATHER THAN HIDDEN: a rough surface's directional albedo is below
+   * `F(nv)` because a GGX lobe loses energy to masking, so a rough dielectric under an environment is
+   * drawn too bright here. No corpus case measures that today; the first one that does is what pays
+   * for the split-sum. */
+  const float nvClamped = clamp(nv, 0.0, 1.0);
+  const float grazing = 1.0 - nvClamped;
+  const float fresnel = grazing * grazing * grazing * grazing * grazing;
+  const float3 specularEnvironment = f0 + (1.0 - f0) * fresnel;
+  sum = sum + lights.environment.rgb * (diffuseColour + specularEnvironment);
   return sum + emitted;
 }
 
@@ -1474,9 +1504,12 @@ std::array<float, SubjectDraw::kLightFloats> SubjectDraw::PackedLights(
   std::array<float, kLightFloats> packed{};
   packed[0] = (float)Placed.size();
   packed[1] = ShadowNearM_;
+  for (int channel = 0; channel < 3; ++channel) {
+    packed[4 + channel] = (float)Environment.RadianceLinear[channel];
+  }
   for (size_t at = 0; at < Placed.size(); ++at) {
     const PunctualLight &light = Placed[at].Light;
-    float *entry = packed.data() + 4 + at * 4u * (size_t)kLightVec4s;
+    float *entry = packed.data() + 8 + at * 4u * (size_t)kLightVec4s;
     for (int channel = 0; channel < 3; ++channel) {
       entry[channel] = light.Colour[channel] * light.Intensity;
     }
