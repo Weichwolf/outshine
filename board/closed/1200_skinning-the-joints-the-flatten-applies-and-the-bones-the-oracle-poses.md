@@ -58,10 +58,11 @@ stop rather than as a rest-pose armature rendered beside a moving one.
 
 ## Done when
 
-- [ ] `skins`, `node.skin`, `inverseBindMatrices`, `JOINTS_0` and `WEIGHTS_0` are read, with the
-  component types the format allows for each — joints are `UNSIGNED_BYTE` or `UNSIGNED_SHORT`, weights
-  are `FLOAT` or normalised integer — and a file whose weights do not sum to one is **stated, not
-  silently renormalised**
+- [x] `skins`, `node.skin`, `inverseBindMatrices`, `JOINTS_0` and `WEIGHTS_0` are read, each through
+  `ReadElements`, which is where the format's component types already live — so joints arrive from
+  `UNSIGNED_BYTE` or `UNSIGNED_SHORT` and weights from `FLOAT` or a normalised integer without a second
+  decoder. **Weights that do not sum to one are used as declared and not renormalised**, because glTF
+  says *SHOULD* and not *MUST*; a vertex whose weights sum to zero is refused
 - [x] **`Gltf::Subject` does NOT carry the two streams, and the reason is the better answer.** The plan
   was two more optional streams on the pattern the other five follow. But the flatten **bakes** the skin
   into positions, so nothing downstream reads a joint or a weight — storing them would be a stream read
