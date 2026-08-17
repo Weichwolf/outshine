@@ -54,17 +54,17 @@ by parsing every `.gltf` in it, so the counts below are the corpus's own and not
 | `KHR_texture_basisu` | 1 | both ship block-compressed textures; ASTC and BC are native on this device | required |
 | `KHR_animation_pointer` | `AnimatedColorsCube` — 5 | animated emissive and uv in GTA 5 | required · `clients/Animation.h` is the mechanism, the glTF spelling is later |
 | `LINEAR` · `STEP` · `CUBICSPLINE` | `InterpolationTest` — the only asset with all three, **not fetched** | both | required · **our side is built** (`src/gltf/Track.h` carries glTF's Hermite with its tangents scaled, `src/core/Keyframes.h` reads the triples) · **`LINEAR` delivered** with its oracle reduction (`board:1169`) · **`STEP` and `CUBICSPLINE` unexercised by any picture**, and the oracle's half of both is `board:1175` |
-| `KHR_materials_iridescence` | 10 | neither — no thin-film anywhere in either | **REFUSED** |
-| `KHR_materials_dispersion` | 4 | neither | **REFUSED** |
-| `KHR_materials_unlit` | 5 | the effect is emissive-only, which `Material::Emission` already spells | **REFUSED** · no second material model |
+| `KHR_materials_iridescence` | 10 | neither — no thin-film anywhere in either | **REFUSED — OVERTURNED by the 148 ruling, see the foot of this file** |
+| `KHR_materials_dispersion` | 4 | neither | **REFUSED — OVERTURNED by the 148 ruling, see the foot of this file** |
+| `KHR_materials_unlit` | 5 | the effect is emissive-only, which `Material::Emission` already spells | **REFUSED — OVERTURNED by the 148 ruling, see the foot of this file** · no second material model |
 | sparse accessors | `SimpleSparseAccessor` — 1 | a file compaction, no runtime capability | **BUILT, and outside the 39** — the `REFUSED` verdict is overturned by the ruling below the table |
-| `POINTS`/`LINES`/`STRIP`/`FAN` | `MeshPrimitiveModes` — 2 of each at most | debug drawing only; the picture is triangles | **REFUSED** — we draw none of them. The reader carries `mode` all the same; the refusal is the consumer's (§ I.26) |
-| multiple scenes | `MultipleScenes` — 1 | neither | **REFUSED**, overturned by the owner's scope ruling and **DELIVERED** — the case passes on all three arms. The reader reports the whole `scenes` array and the file's default; choosing one is the consumer's (§ I.26) |
-| `KHR_draco_mesh_compression` | 1 | neither ships Draco; both use their own formats | **REFUSED** — a large vendored decoder for no picture |
-| `EXT_meshopt_compression` | 1 | as above | **REFUSED** |
-| `EXT_texture_webp` | 1 | neither | **REFUSED** — a second image decoder buys no comparison |
-| `KHR_xmp_json_ld` | 2 | metadata, not rendering | **REFUSED** |
-| `KHR_materials_pbrSpecularGlossiness` | 1 | archived by Khronos | **REFUSED** |
+| `POINTS`/`LINES`/`STRIP`/`FAN` | `MeshPrimitiveModes` — 2 of each at most | debug drawing only; the picture is triangles | **REFUSED — OVERTURNED by the 148 ruling, see the foot of this file** — we draw none of them. The reader carries `mode` all the same; the refusal is the consumer's (§ I.26) |
+| multiple scenes | `MultipleScenes` — 1 | neither | **REFUSED — OVERTURNED by the 148 ruling, see the foot of this file**, overturned by the owner's scope ruling and **DELIVERED** — the case passes on all three arms. The reader reports the whole `scenes` array and the file's default; choosing one is the consumer's (§ I.26) |
+| `KHR_draco_mesh_compression` | 1 | neither ships Draco; both use their own formats | **REFUSED — OVERTURNED by the 148 ruling, see the foot of this file** — a large vendored decoder for no picture |
+| `EXT_meshopt_compression` | 1 | as above | **REFUSED — OVERTURNED by the 148 ruling, see the foot of this file** |
+| `EXT_texture_webp` | 1 | neither | **REFUSED — OVERTURNED by the 148 ruling, see the foot of this file** — a second image decoder buys no comparison |
+| `KHR_xmp_json_ld` | 2 | metadata, not rendering | **REFUSED — OVERTURNED by the 148 ruling, see the foot of this file** |
+| `KHR_materials_pbrSpecularGlossiness` | 1 | archived by Khronos | **REFUSED — OVERTURNED by the 148 ruling, see the foot of this file** |
 
 - [ ] **The denominator is the required rows of the table above and the percentage is read against it** — *features the references use* — never against every glTF extension that exists. *Recounted 2026-08-12 against the table's own rows: **39 required and 11 refused**, 50 rows in all. The line read 40 and 11, which is one more required row than the table has ever carried; the refusal count is right. Every percentage in this section is therefore read against 39, and the two lines below are the first to say so.* The sparse-accessor row is **outside** the denominator in both directions — it is not a picture capability, so it enters no numerator either
 - [ ] **The sparse-accessor `REFUSED` is overturned, and the reason it was refused is the part worth keeping.** *"A file compaction, no runtime capability"* is **true and was the wrong test**: nothing in this section's own rule — *does KCD or GTA 5 use it* — can answer a question about a file's encoding, because neither ships glTF at all. What decides it is the cost of the two answers: refusing means refusing `SimpleSparseAccessor` **whole**, and § I.26.6's closing line requires every capability to be proven by a named corpus asset, so a refusal here deletes an asset from the corpus rather than a feature from the picture. Implementing it cost **37 lines** (`src/gltf/Document.cpp` `ApplySparse`) and **cannot produce a wrong picture** — it either resolves the overrides or refuses the file. Built and ticked under § I.26 above
@@ -431,3 +431,35 @@ has no way to notice.**
   ordering by impact, and **`board:1187` is exactly the instrument that would price it** — so the honest
   sequence is that the frame-cost baseline exists before a row that adds 48 pipelines is dispatched, or
   the cost is accepted as unmeasured and said so
+
+## The 148 ruling overturns every REFUSED row, and that is arithmetic rather than opinion
+
+**The owner set the finish line at all 148 models green on BOTH counts** (`board:1171`). A model is green
+only if its case is inside the picture bound; a case cannot be inside the bound if the engine refuses a
+feature the file needs to be drawn at all. **So a refusal and a green model are mutually exclusive, and
+the ruling picks the model.** Ten rows carried `REFUSED` and every one of them is now required:
+
+| row | models it gates | why it was refused | why that no longer decides |
+|---|---|---|---|
+| `KHR_materials_iridescence` | 10 | no thin-film in either reference | the reference decided *ambition*; the ruling decides *scope*, and 10 models cannot go green without it |
+| `KHR_materials_dispersion` | 4 | as above | as above |
+| `KHR_materials_unlit` | 5 | the effect is emissive-only | **the effect is not the claim** — a case is decided against Cycles, and Cycles draws what the extension says, not what an equivalent would look like |
+| `POINTS` · `LINES` · `STRIP` · `FAN` | `MeshPrimitiveModes` | debug drawing only, the picture is triangles | a model whose primitives we do not draw renders empty, which is the furthest a case can be from the bound |
+| `KHR_draco_mesh_compression` | 1 | a large vendored decoder for no picture | **the cost argument survives and the conclusion does not.** `CLAUDE.md` allows no vendored tree, so this is *ours or a package the host provides* — a real cost, and now a required one |
+| `EXT_meshopt_compression` | 1 | as above | as above |
+| `EXT_texture_webp` | 1 | a second image decoder buys no comparison | it buys the only comparison that model can have |
+| `KHR_xmp_json_ld` | 2 | metadata, not rendering | **the cheapest of the ten**: read and carried changes no pixel, and the model then renders on its core content |
+| `KHR_materials_pbrSpecularGlossiness` | 1 | archived by Khronos | archived is a statement about the SPECIFICATION's future, never about whether a pinned asset renders |
+
+**What does NOT change: the two oracle refusals.** `KHR_node_visibility` and diffuse transmission are not
+refused by this engine — **the ORACLE cannot decide them** (`board:1204`), measured rather than asserted:
+Blender 5.2.0 refuses `CubeVisibility` outright, and drops the diffuse-transmission extension so
+completely that 20 of 29 declaring materials leave all 32 Principled sockets identical between
+`Factor 0.0` and `Factor 1.0`. **Those two are the reduction ladder's own territory** and the ruling
+does not reach them, because no amount of engine work makes an oracle answer a question it does not
+carry. *That is a rung above disqualification and it is where they sit.*
+
+**The honest total.** These ten rows are not a tail — they are a **second body of work roughly the size
+of the extension tier already sequenced**, and one of them (Draco) is a decoder this tree must own. The
+sequencing rule below is unchanged and now has more to sequence: **impact orders within a tier, and the
+tier is what can be finished before the next thing starts.**
