@@ -277,3 +277,36 @@ the measurement that named which variable each side is really using.
   and the reduction is a statement about what this oracle can decide rather than a graph to be wired.
   *Named here rather than attempted, because the attempt is what would produce a graph that looks like
   the specification and is not.*
+
+## Our side is Appendix B verbatim, so the oracle is the wrong side here
+
+Read from `src/render/stages/MetalRoughBrdf.h` rather than assumed:
+
+```
+const std::array<double, 3> fresnel = BrdfFresnel(f0, at.Vh);          // the HALF-VECTOR
+terms.Diffuse[channel]  = (1.0 - fresnel[channel]) * diffuseColour[channel] * (1.0 / kBrdfPi);
+terms.Specular[channel] = fresnel[channel] * lobe;
+```
+
+That is `f_diffuse = (1 - F(v.h)) * baseColor / pi` and `f_specular = F(v.h) * D * V` -- glTF 2.0
+Appendix B, term for term, with the Fresnel on the half-vector in both halves. **The engine implements
+the specification the corpus is a corpus for; Cycles implements Blender's material model.**
+
+**So this is `board:1204`'s shape for the third time, and it is the largest instance of it yet**: nine
+cases, and the whole shading half of the remaining corpus. *The reduction is declared with its
+measurement rather than the engine bent to match.*
+
+## But "the oracle cannot" is a claim about stock nodes, and one route is not closed
+
+- [ ] **OSL.** Blender supports Open Shading Language closures on CPU, and an OSL shader can compute the
+  half-vector because it is a program rather than a node graph. **Appendix B is twenty lines of it.** The
+  cost is real and it is CPU rendering -- this corpus renders on Metal today -- so it is a trade to be
+  priced and not an obvious yes.
+- [ ] **What it would buy is not a smaller number, it is a DECIDABLE arm.** Without it, `board:1171`'s
+  finish line cannot be reached by measurement for any model whose criterion is a shaded surface: those
+  models can only ever carry a declared reduction, and the owner's ruling struck a declared reduction as
+  an end state. **That tension is real and it is the owner's, so it is named here rather than resolved.**
+
+**What must be re-measured before any of this**: the specular-only residual of **-0.000143**, largest at
+NORMAL incidence and opposite in sign to the diffuse one. It is two orders under the diffuse term and it
+is not explained, and a round that fixed the diffuse and declared the arm green would be resting on it.
