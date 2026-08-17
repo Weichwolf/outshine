@@ -246,19 +246,9 @@
           0.85,
           0.15,
           0.7627717417513241
-        ],
-        "fabric Mystere Peacock Velvet": [
-          0.15,
-          0.85,
-          0.7329710109982343
-        ],
-        "wood Black": [
-          0.85,
-          0.528713763747793,
-          0.15
         ]
       },
-      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it, on a golden-angle hue sweep so no two are close. A material row that reached the wrong body is a whole body of the wrong hue rather than a sub-pixel offset."
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it, on a golden-angle hue sweep so no two are close. A material row that reached the wrong body is a whole body of the wrong hue rather than a sub-pixel offset. ONLY THE MATERIALS A PRIMITIVE ACTUALLY BINDS ARE KEYED: SheenChair declares 'fabric Mystere Peacock Velvet', 'wood Black' that no primitive names, and the oracle walks the material SLOTS rather than the array, so a colour for an unbound material is a colour the scene carries nowhere."
     }
   },
   "renders": {

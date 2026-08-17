@@ -433,34 +433,9 @@
           0.17980073075308986,
           0.85,
           0.15
-        ],
-        "grill_off": [
-          0.85,
-          0.15,
-          0.38405797800353125
-        ],
-        "hardware_off": [
-          0.15,
-          0.5883152252539726,
-          0.85
-        ],
-        "base_off": [
-          0.792572472504414,
-          0.85,
-          0.15
-        ],
-        "stainedglass_off": [
-          0.7031702802451444,
-          0.15,
-          0.85
-        ],
-        "bulbs_off": [
-          0.15,
-          0.85,
-          0.4989130329947031
         ]
       },
-      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it, on a golden-angle hue sweep so no two are close. A material row that reached the wrong body is a whole body of the wrong hue rather than a sub-pixel offset."
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it, on a golden-angle hue sweep so no two are close. A material row that reached the wrong body is a whole body of the wrong hue rather than a sub-pixel offset. ONLY THE MATERIALS A PRIMITIVE ACTUALLY BINDS ARE KEYED: StainedGlassLamp declares 'base_off', 'bulbs_off', 'grill_off', 'hardware_off', 'stainedglass_off' that no primitive names, and the oracle walks the material SLOTS rather than the array, so a colour for an unbound material is a colour the scene carries nowhere."
     }
   },
   "renders": {

@@ -166,33 +166,13 @@
           0.3542572472504414,
           0.85
         ],
-        "GlamVelvetSofa_fabric_champagne": [
-          0.5585144945008829,
-          0.85,
-          0.15
-        ],
         "GlamVelvetSofa_fabric_navy": [
           0.85,
           0.15,
           0.7627717417513241
-        ],
-        "GlamVelvetSofa_fabric_gray": [
-          0.15,
-          0.85,
-          0.7329710109982343
-        ],
-        "GlamVelvetSofa_fabric_black": [
-          0.85,
-          0.528713763747793,
-          0.15
-        ],
-        "GlamVelvetSofa_fabric_palepink": [
-          0.3244565164973515,
-          0.15,
-          0.85
         ]
       },
-      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it, on a golden-angle hue sweep so no two are close. A material row that reached the wrong body is a whole body of the wrong hue rather than a sub-pixel offset."
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it, on a golden-angle hue sweep so no two are close. A material row that reached the wrong body is a whole body of the wrong hue rather than a sub-pixel offset. ONLY THE MATERIALS A PRIMITIVE ACTUALLY BINDS ARE KEYED: GlamVelvetSofa declares 'GlamVelvetSofa_fabric_black', 'GlamVelvetSofa_fabric_champagne', 'GlamVelvetSofa_fabric_gray', 'GlamVelvetSofa_fabric_palepink' that no primitive names, and the oracle walks the material SLOTS rather than the array, so a colour for an unbound material is a colour the scene carries nowhere."
     }
   },
   "renders": {

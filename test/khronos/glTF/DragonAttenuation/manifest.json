@@ -245,14 +245,9 @@
           0.15,
           0.3542572472504414,
           0.85
-        ],
-        "Dragon with Surface Coloring Only": [
-          0.5585144945008829,
-          0.85,
-          0.15
         ]
       },
-      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it, on a golden-angle hue sweep so no two are close. A material row that reached the wrong body is a whole body of the wrong hue rather than a sub-pixel offset."
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it, on a golden-angle hue sweep so no two are close. A material row that reached the wrong body is a whole body of the wrong hue rather than a sub-pixel offset. ONLY THE MATERIALS A PRIMITIVE ACTUALLY BINDS ARE KEYED: DragonAttenuation declares 'Dragon with Surface Coloring Only' that no primitive names, and the oracle walks the material SLOTS rather than the array, so a colour for an unbound material is a colour the scene carries nowhere."
     }
   },
   "renders": {

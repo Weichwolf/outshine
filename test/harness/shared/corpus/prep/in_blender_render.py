@@ -4,6 +4,7 @@ import base64
 import urllib.parse
 import json
 import math
+import re
 import os
 import shutil
 import struct
@@ -1218,8 +1219,19 @@ def apply_emission_per_material(imported, colours):
         for slot in obj.material_slots:
             if slot.material is not None and slot.material not in subject:
                 subject.append(slot.material)
+    # BLENDER'S DUPLICATE-DATABLOCK SUFFIX IS READ BACK, NEVER PREDICTED (board:1373). A glTF material
+    # bound by more than one mesh arrives as more than one datablock, and Blender disambiguates with a
+    # `.001` suffix -- MEASURED on `CompareBaseColor`, whose three meshes name materials [0, 1, 1] and
+    # whose scene then carries `baseColor texture dielectric` and `baseColor texture dielectric.001`.
+    # A manifest that had to state the second would be stating a count of Blender's copies; stripping
+    # the suffix maps it back to the name the FILE gives, which is the key both sides share.
     for material in subject:
-        if material.name not in colours:
+        wanted = material.name
+        if wanted not in colours:
+            stripped = re.sub(r"\.\d{3}$", "", wanted)
+            if stripped in colours:
+                wanted = stripped
+        if wanted not in colours:
             fail("the scene carries the material %r and the manifest declares colours for %s"
                  % (material.name, ", ".join(sorted(colours))))
         material.use_nodes = True
@@ -1227,12 +1239,12 @@ def apply_emission_per_material(imported, colours):
         tree.nodes.clear()
         output = tree.nodes.new("ShaderNodeOutputMaterial")
         shader = tree.nodes.new("ShaderNodeEmission")
-        shader.inputs["Color"].default_value = tuple(colours[material.name]) + (1.0,)
+        shader.inputs["Color"].default_value = tuple(colours[wanted]) + (1.0,)
         shader.inputs["Strength"].default_value = 1.0
         culled = cull_back_faces(tree, shader) if material.use_backface_culling else None
         tree.links.new((culled or shader).outputs[0], output.inputs["Surface"])
-        assigned[material.name] = {"material": material.name,
-                                   "backFaceCulled": material.use_backface_culling}
+        assigned[wanted] = {"material": material.name,
+                            "backFaceCulled": material.use_backface_culling}
     for name in sorted(colours):
         if name not in assigned:
             fail("the manifest declares a colour for material %r and the scene carries no such "

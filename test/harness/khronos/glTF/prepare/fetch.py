@@ -5,6 +5,7 @@ import re
 import struct
 import tempfile
 import urllib.error
+import urllib.parse
 import urllib.request
 import zlib
 
@@ -73,7 +74,17 @@ _OPENER = urllib.request.build_opener(_RefuseOffListRedirect())
 def _request(url, headers=None):
     fields = {"User-Agent": USER_AGENT}
     fields.update(headers or {})
-    return urllib.request.Request(url, headers=fields)
+    # A URL IS ASCII ON THE WIRE AND A MODEL NAME NEED NOT BE (board:1373). `Unicode❤♻Test` is in the
+    # pinned index, and `http.client` encodes the request line as ASCII: an unescaped name raises
+    # `UnicodeEncodeError` before a byte is sent. The PATH is percent-encoded and the scheme, host and
+    # any already-escaped triplet are left alone, so the digest still pins the same bytes.
+    parts = urllib.parse.urlsplit(url)
+    on_the_wire = urllib.parse.urlunsplit((
+        parts.scheme, parts.netloc,
+        urllib.parse.quote(parts.path, safe="/%"),
+        urllib.parse.quote(parts.query, safe="=&%"),
+        parts.fragment))
+    return urllib.request.Request(on_the_wire, headers=fields)
 
 
 def _open(url, headers=None):
