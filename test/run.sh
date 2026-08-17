@@ -667,6 +667,34 @@ CountTheTwo() {
 # the case-less arm used to return early and a sanitiser such a layer declared was never applied to
 # anything.
 #   $1 the id stem   $2 the argument, or empty
+# WHETHER A TEST BINARY IS ALREADY THE ONE THIS COMMAND WOULD PRODUCE (board:1371).
+#
+# EVERY TEST SOURCE WAS COMPILED AND LINKED ON EVERY RUN, THREE ARMS EACH. [MEASURED] on the shader
+# suite: 24 tests summing 7.7 s of their own time inside a 21.7 s warm run -- 14 s, nearly two thirds,
+# spent rebuilding what had not changed. Metal is NOT the cost and that was measured too: a device plus
+# eight shader variants is 0.13 s, warm-cached by macOS, and a test with no device starts in 0.00 s.
+#
+# TWO THINGS DECIDE IT AND BOTH ARE NECESSARY. The `.d` file `-MMD` writes lists every header the
+# compile actually read, which is the same mechanism the library objects already use; and the COMMAND
+# is written beside the binary, because `$compileDefine` splices a layer's own include set into the
+# binary and a changed include set must rebuild even when no file moved.
+#   $1 the binary   $2 the exact command that would produce it
+Fresh() {
+  freshBinary=$1
+  freshCommand=$2
+  [ -f "$freshBinary" ] || return 1
+  [ -f "$freshBinary.cmd" ] || return 1
+  [ "$(cat "$freshBinary.cmd")" = "$freshCommand" ] || return 1
+  [ -f "$freshBinary.d" ] || return 1
+  # Every prerequisite the compiler recorded, minus the make syntax around them.
+  for freshNeed in $(tr '\\' ' ' <"$freshBinary.d" | tr ':' ' ' | tr -s ' \n' ' '); do
+    case "$freshNeed" in *.o|*.cpp|*.h|*.hpp) ;; *) continue ;; esac
+    [ -f "$freshNeed" ] || return 1
+    [ "$freshNeed" -nt "$freshBinary" ] && return 1
+  done
+  return 0
+}
+
 JudgeArms() {
   armStem=$1
   armArgument=$2
@@ -777,7 +805,10 @@ for testSource in $TESTS; do
   compileDefine="-DOUTSHINE_COMPILE=\"$CXX $CXXSTD $WARN $includes\""
   if [ "$built" = yes ]; then
     # shellcheck disable=SC2086
-    $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN -Itest/harness/shared -Itest/harness/shared/render $includes "$compileDefine" $linkage -o "$plainBinary" >>"$log" 2>&1 || built=no
+    buildCommand="$CXX $testSource $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $includes $compileDefine $linkage"
+    if Fresh "$plainBinary" "$buildCommand"; then :; else
+      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN -Itest/harness/shared -Itest/harness/shared/render $includes "$compileDefine" $linkage -MMD -MP -MF "$plainBinary.d" -o "$plainBinary" >>"$log" 2>&1 && printf '%s' "$buildCommand" >"$plainBinary.cmd" || built=no
+    fi
   fi
 
   # A BUILD FAILURE IS JUDGED BEFORE ANY TRAILER, because a binary that does not exist cannot print
@@ -808,7 +839,10 @@ for testSource in $TESTS; do
     sanitisedBinary=$plainBinary.sanitised
     if [ "$built" = yes ]; then
       # shellcheck disable=SC2086
-      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $SAN -Itest/harness/shared -Itest/harness/shared/render $includes "$compileDefine" $linkage -o "$sanitisedBinary" >>"$sanitisedLog" 2>&1 || built=no
+      buildCommand="$CXX $testSource $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $SAN $includes $compileDefine $linkage"
+    if Fresh "$sanitisedBinary" "$buildCommand"; then :; else
+      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $SAN -Itest/harness/shared -Itest/harness/shared/render $includes "$compileDefine" $linkage -MMD -MP -MF "$sanitisedBinary.d" -o "$sanitisedBinary" >>"$sanitisedLog" 2>&1 && printf '%s' "$buildCommand" >"$sanitisedBinary.cmd" || built=no
+    fi
     fi
     OBJDIR=$BUILD/obj
     SAN=""
@@ -840,7 +874,10 @@ for testSource in $TESTS; do
     validatedBinary=$BUILD/$(printf '%s' "$id" | tr / -).validated
     if [ "$built" = yes ]; then
       # shellcheck disable=SC2086
-      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $validation -Itest/harness/shared -Itest/harness/shared/render $includes "$compileDefine" $linkage -o "$validatedBinary" >>"$validatedLog" 2>&1 || built=no
+      buildCommand="$CXX $testSource $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $validation $includes $compileDefine $linkage"
+    if Fresh "$validatedBinary" "$buildCommand"; then :; else
+      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $validation -Itest/harness/shared -Itest/harness/shared/render $includes "$compileDefine" $linkage -MMD -MP -MF "$validatedBinary.d" -o "$validatedBinary" >>"$validatedLog" 2>&1 && printf '%s' "$buildCommand" >"$validatedBinary.cmd" || built=no
+    fi
     fi
     OBJDIR=$BUILD/obj
     EXTRA_DEFINES=""
