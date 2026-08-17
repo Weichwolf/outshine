@@ -47,22 +47,44 @@ by one client. **Dead is a deletion; client vocabulary in `core/` is a move.** N
 
 ## The shape
 
+**Owner's correction, and it is the better shape: the content modules nest under `src/generators/`.**
+The first level of the path stays the engine's decomposition and the second is the content noun, so a
+directory reads *layer, then subsystem* rather than flattening one into the other. It also puts the whole
+vertical slice of one content kind in one place — the field it reads, the compositor that places it and
+the generator that shapes a part of it — which is what makes a subsystem a module rather than a label.
+
 | | |
 |---|---|
 | *src/base/* | the only universally-includable directory — `Span` `Json` `Sha256` `Mat4` `Units` `Capacity` `io/` `CatmullRom` `ClusterDag` `TriangleBvh`. **Named `base` and not `core`**: *core* is an invitation and this tree accepted it |
+| *src/earth/* | frames, time and the sun — `Geodesy` `Mercator` `CivilTime` `Ephemeris`. Providers and generators both need it and neither owns it |
+| *src/providers/* | today's `src/data`, under the name `CLAUDE.md` already uses for the layer, plus the weather provider family and `VersatilesVector` |
 | *src/scene/* | the representation (`board:1201`) and its vocabulary |
-| `src/gltf/` | the format alone, a serialisation of `scene` |
-| *src/providers/* | today's `src/data`, under the name `CLAUDE.md` already uses for the layer |
-| *src/earth/* · *src/weather/* | frames and sun · the provider family |
-| *src/terrain/* · *src/vegetation/* · *src/buildings/* · *src/streets/* · *src/water/* · *src/osm/* | what `src/world` and `src/generators` share today |
+| `src/gltf/` | the format alone, a serialisation of *scene* |
+| `src/generators/` | **one directory per content module** — *terrain* · *vegetation* · *buildings* · *streets* · *water*. `src/world` dissolves into them, and so does `src/generators/draw` |
 | `src/render/` · `src/scenario/` · `src/clients/` | unchanged |
+
+**What each content module holds is the vertical slice**, and the examples are the ones that are wrong
+today: *vegetation* takes `Forest`, `TreeSpecies`, `GrowthForm`, `TreePrototype`, `VegetationTemplates`
+and — from `src/core/` — `TreeLook` and `AlpineLimit`; *buildings* takes `Buildings`, `BuildingField`,
+`BuildingMesh`, `BuildingShape`, `ClassBuilder`, `ClassField` and — from `src/core/` — `ClassStructure`,
+`StructureMesher` and `FacadeUv`.
 
 **The layer is then the allowed include set per subsystem**, declared once in the `Makefile` and
 `test/run.sh` — the same mechanism at a granularity that can be true.
 
+**And the honest cost of nesting, said here rather than discovered:** a content module holds both a
+compositor and a part generator, so **the generator/compositor edge stops being a directory boundary
+inside that module**. That is not a loss, because it is not one today either — the layer table already
+lists `src/generators` under two layers — but it means *a generator never calls a generator* and *a
+compositor never calls a renderer* are enforced BETWEEN modules and not within one. **The within-module
+edge needs its own answer**, and the candidate is a `draw/` directory per content module, which is what
+`src/generators/draw` already is with the nouns mixed together.
+
 ## Done when
 
 - [ ] `src/core/` and `src/world/` do not exist
+- [ ] The content modules are directories under `src/generators/`, one per module, and the within-module
+  generator/compositor edge has a stated answer rather than an accident
 - [ ] Every directory under `src/` is one subsystem, and **`CLAUDE.md`'s layer table names each of them
   exactly once** — the check that the current table fails
 - [ ] One compile group per subsystem with its own include set, in the `Makefile` and `test/run.sh`

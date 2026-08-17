@@ -108,6 +108,18 @@ struct Placement {
  * has, and `NormalTangentMirrorTest` is the asset that fails an engine which cannot. */
 enum class TangentSource { None, Supplied, Generated };
 
+/* WHERE ONE VERTEX GOES, and it is one question the format answers two ways. An unskinned primitive
+ * rides its node's transform, every vertex the same. A SKINNED ONE IGNORES THAT TRANSFORM ENTIRELY --
+ * glTF states the skinned mesh node's own transform MUST be ignored -- and rides a blend of its
+ * joints instead. `At` is the only place that choice is spelled, so no later reader can apply the
+ * node transform to a skinned vertex by reaching for the obvious variable. */
+struct VertexPlacement {
+  const Transform &Node;
+  const Transform *Skinned = nullptr; /* one per vertex, or null where the node carries no skin */
+
+  const Transform &At(size_t vertex) const { return Skinned ? Skinned[vertex] : Node; }
+};
+
 struct Part {
   std::string NodeName;   /* the file's own; empty where the node carries none */
   /* The document's material index, or -1 where the primitive names none. It is the material the
@@ -299,8 +311,14 @@ private:
    * the file supplies none, and nothing otherwise. Splits a vertex whose corners came out with
    * different generated bases, which is why it runs after the part's indices exist and why it may
    * lengthen every run. */
+  /* One joint's contribution: `world(joint) * inverseBind`, the format's own product, with the empty
+   * `InverseBind` meaning identity as the format states rather than as a special case here. */
+  [[nodiscard]] static Transform JointMatrix(const Skin &skin, size_t joint, const Transform &world);
+  [[nodiscard]] bool BlendSkinFor(const Document &document, const Skin &skin,
+                                  const std::vector<Transform> &joints, const Primitive &primitive,
+                                  size_t vertices, std::vector<Transform> &out);
   [[nodiscard]] bool BuildTangentsFor(const Document &document, const Primitive &primitive,
-                                      const Transform &world, Part &part, size_t vertices);
+                                      const VertexPlacement &place, Part &part, size_t vertices);
 
   std::string Error_;
   std::vector<double> Positions_;

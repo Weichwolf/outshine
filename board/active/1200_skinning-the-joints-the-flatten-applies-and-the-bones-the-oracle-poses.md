@@ -51,9 +51,15 @@ stop rather than as a rest-pose armature rendered beside a moving one.
   component types the format allows for each — joints are `UNSIGNED_BYTE` or `UNSIGNED_SHORT`, weights
   are `FLOAT` or normalised integer — and a file whose weights do not sum to one is **stated, not
   silently renormalised**
-- [ ] `Gltf::Subject` carries the two streams and `HasSkin()`, on the pattern the other five follow
-- [ ] The flatten applies linear blend skinning: `Σ w_i · (globalOf(joint_i) · inverseBind_i) · v`, with
-  the skinned node's own transform handled by the format's rule rather than by ours
+- [x] **`Gltf::Subject` does NOT carry the two streams, and the reason is the better answer.** The plan
+  was two more optional streams on the pattern the other five follow. But the flatten **bakes** the skin
+  into positions, so nothing downstream reads a joint or a weight — storing them would be a stream read
+  and thrown away, which is exactly the defect `board:0079`'s occlusion row was just filed over. They are
+  consumed where they are decoded and go no further
+- [x] **The flatten applies linear blend skinning**, and the skinned node's own transform is ignored as
+  the format states. The choice has **one spelling** — `VertexPlacement::At` — so no later reader can
+  apply the node transform to a skinned vertex by reaching for the obvious variable. Positions, normals
+  and tangents all route through it
 - [ ] The baker poses bones, with the rest-relative conversion checked against the importer
 - [ ] **`RiggedSimple` is a render case, frame by frame**, and it is the proof — a unit test standing in
   for a picture is what `board:0079`'s closing line forbids
@@ -66,3 +72,21 @@ records it as open — *a fifth layout per capability is the wrong answer, and s
 `Subject` answered it in the meantime by carrying each semantic as its own optional stream and packing
 at the draw. **The open question was about the GPU layout and the flatten never had one**, which is why
 the answer arrived without anybody deciding it.
+
+## What the flatten decided that the format left open
+
+**The winding rule has no input for a skinned primitive.** glTF states the triangle winding is reversed
+when *the node's global transform* has a negative determinant — and a skinned primitive ignores that
+transform, so the rule as written names nothing. The sign is therefore taken from the blended matrices
+themselves, and **a primitive whose vertices do not agree on it is refused**: one primitive cannot carry
+two windings, and picking either would flip half its triangles.
+
+**The weights are used exactly as the file declares them.** glTF says a float weight set *SHOULD* sum to
+one; it does not say *MUST*. Renormalising would repair somebody else's asset inside a comparison whose
+subject IS that asset — the same argument `COLOR_0`'s range refusal turns the other way, because there
+the format says MUST. **What is refused is a vertex whose weights sum to zero**, which names no position
+rather than an unusual one.
+
+**The matrices are blended and then applied, not applied and then blended.** They are the same number —
+the transform is affine and the blend is linear — so the order is chosen for cost: four matrix adds per
+vertex against four point transforms per attribute.

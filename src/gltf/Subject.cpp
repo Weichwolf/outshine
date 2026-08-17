@@ -137,8 +137,79 @@ BasisKey KeyOf(const double basis[4]) {
 
 } // namespace
 
+/* THE JOINT MATRICES OF ONE SKIN, one per joint and in the skin's own order. Each takes a vertex out
+ * of the joint's bind pose and into the scene: `world(joint) * inverseBind`, which is the format's
+ * own product and the order matters -- the inverse bind acts first. An absent `inverseBindMatrices`
+ * is the identity by the format's rule, which is why the empty vector needs no second arm. */
+Transform Subject::JointMatrix(const Skin &skin, size_t joint, const Transform &world) {
+  if (skin.InverseBind.empty()) { return world; }
+  return world * Transform::FromColumnMajor(&skin.InverseBind[joint * 16]);
+}
+
+/* ONE BLENDED TRANSFORM PER VERTEX, from JOINTS_0 and WEIGHTS_0.
+ *
+ * THE MATRICES ARE BLENDED AND THEN APPLIED, not applied and then blended, and the two are the same
+ * number: the transform is affine and the blend is linear, so the order is chosen for cost -- four
+ * matrix adds per vertex against four point transforms per attribute.
+ *
+ * THE WEIGHTS ARE USED AS THE FILE DECLARES THEM. glTF says a float weight set SHOULD sum to one; it
+ * does not say MUST, so renormalising would repair somebody else's asset inside a comparison whose
+ * subject IS that asset -- the same argument COLOR_0's range refusal turns the other way, because
+ * there the format says MUST. What IS refused is a vertex whose weights sum to zero, which names no
+ * position at all rather than an unusual one. */
+bool Subject::BlendSkinFor(const Document &document, const Skin &skin,
+                           const std::vector<Transform> &joints, const Primitive &primitive,
+                           size_t vertices, std::vector<Transform> &out) {
+  const int bones = primitive.Find("JOINTS_0");
+  const int weights = primitive.Find("WEIGHTS_0");
+  if (bones < 0 || weights < 0) {
+    return Refuse(document.Path() + ": a primitive on a skinned node carries " +
+                  std::string(bones < 0 ? "no JOINTS_0" : "JOINTS_0") + " and " +
+                  std::string(weights < 0 ? "no WEIGHTS_0" : "WEIGHTS_0") +
+                  ", and a skin without both binds no vertex to any joint");
+  }
+  std::vector<double> index;
+  std::vector<double> weight;
+  if (!document.ReadElements(bones, index)) {
+    return Refuse(document.Path() + ": JOINTS_0 does not decode: " + document.Error());
+  }
+  if (!document.ReadElements(weights, weight)) {
+    return Refuse(document.Path() + ": WEIGHTS_0 does not decode: " + document.Error());
+  }
+  if (index.size() != vertices * 4 || weight.size() != vertices * 4) {
+    return Refuse(document.Path() + ": JOINTS_0 decodes to " + std::to_string(index.size() / 4) +
+                  " and WEIGHTS_0 to " + std::to_string(weight.size() / 4) + " sets over " +
+                  std::to_string(vertices) + " vertices, and glTF states both are VEC4");
+  }
+  out.assign(vertices, Transform());
+  for (size_t vertex = 0; vertex < vertices; ++vertex) {
+    double blended[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    double sum = 0;
+    for (size_t slot = 0; slot < 4; ++slot) {
+      const double share = weight[vertex * 4 + slot];
+      if (share == 0.0) { continue; }
+      const double named = index[vertex * 4 + slot];
+      if (!(named >= 0.0) || (size_t)named >= joints.size()) {
+        return Refuse(document.Path() + ": JOINTS_0 of vertex " + std::to_string(vertex) +
+                      " names joint " + std::to_string((long long)named) + " and the skin declares " +
+                      std::to_string(joints.size()));
+      }
+      sum += share;
+      const Transform &matrix = joints[(size_t)named];
+      for (int at = 0; at < 16; ++at) { blended[at] += share * matrix.M[at]; }
+    }
+    if (sum == 0.0) {
+      return Refuse(document.Path() + ": WEIGHTS_0 of vertex " + std::to_string(vertex) +
+                    " sums to zero, so the vertex is bound to no joint and names no position");
+    }
+    for (int at = 0; at < 16; ++at) { out[vertex].M[at] = blended[at]; }
+  }
+  (void)skin;
+  return true;
+}
+
 bool Subject::BuildTangentsFor(const Document &document, const Primitive &primitive,
-                               const Transform &world, Part &part, size_t vertices) {
+                               const VertexPlacement &place, Part &part, size_t vertices) {
   Tangents_.resize((Positions_.size() / 3) * 4, 0.0);
 
   const int supplied = primitive.Find("TANGENT");
@@ -154,12 +225,13 @@ bool Subject::BuildTangentsFor(const Document &document, const Primitive &primit
     /* A TANGENT TRANSFORMS LIKE A DIRECTION IN THE SURFACE and not like the normal: it lies IN the
      * tangent plane, so the node's linear part carries it and the inverse transpose would tilt it
      * out of the plane on any non-uniform scale. */
-    const double mirrored = world.LinearDeterminant() < 0 ? -1.0 : 1.0;
     for (size_t vertex = 0; vertex < vertices; ++vertex) {
+      const Transform &placed = place.At(vertex);
+      const double mirrored = placed.LinearDeterminant() < 0 ? -1.0 : 1.0;
       const double local[3] = {elements[vertex * 4], elements[vertex * 4 + 1],
                                elements[vertex * 4 + 2]};
       double global[3];
-      world.Direction(local, global);
+      placed.Direction(local, global);
       (void)Normalise(global);
       for (int axis = 0; axis < 3; ++axis) {
         Tangents_[(part.FirstVertex + vertex) * 4 + (size_t)axis] = global[axis];
@@ -428,6 +500,21 @@ bool Subject::Flatten(const Document &document, const Transform *pose,
       return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
                     " has no world transform: " + document.Error());
     }
+    /* THE SKIN'S JOINT MATRICES, ONCE PER NODE AND NOT PER PRIMITIVE: they are a property of the
+     * skin and the pose, and every primitive of the mesh rides the same ones. */
+    std::vector<Transform> jointMatrices;
+    if (node.Skin >= 0) {
+      const Skin &skin = document.Skins()[(size_t)node.Skin];
+      jointMatrices.assign(skin.Joints.size(), Transform());
+      for (size_t joint = 0; joint < skin.Joints.size(); ++joint) {
+        Transform placed;
+        if (!placementOf(skin.Joints[joint], placed)) {
+          return Refuse(document.Path() + ": joint node " + std::to_string(skin.Joints[joint]) +
+                        " has no world transform: " + document.Error());
+        }
+        jointMatrices[joint] = JointMatrix(skin, joint, placed);
+      }
+    }
     for (const Primitive &primitive : document.Meshes()[(size_t)node.Mesh].Primitives) {
       ++primitives;
       Part part;
@@ -455,11 +542,18 @@ bool Subject::Flatten(const Document &document, const Transform *pose,
       }
       const uint32_t base = (uint32_t)(Positions_.size() / 3);
       const size_t vertices = elements.size() / 3;
+      std::vector<Transform> skinned;
+      if (node.Skin >= 0 &&
+          !BlendSkinFor(document, document.Skins()[(size_t)node.Skin], jointMatrices, primitive,
+                        vertices, skinned)) {
+        return false;
+      }
+      const VertexPlacement place{world, skinned.empty() ? nullptr : skinned.data()};
       for (size_t vertex = 0; vertex < vertices; ++vertex) {
         double local[3] = {elements[vertex * 3], elements[vertex * 3 + 1],
                            elements[vertex * 3 + 2]};
         double global[3];
-        world.Point(local, global);
+        place.At(vertex).Point(local, global);
         for (int axis = 0; axis < 3; ++axis) { Positions_.push_back(global[axis]); }
       }
 
@@ -570,7 +664,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose,
           double local[3] = {directions[vertex * 3], directions[vertex * 3 + 1],
                              directions[vertex * 3 + 2]};
           double global[3];
-          if (!world.Normal(local, global)) {
+          if (!place.At(vertex).Normal(local, global)) {
             return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
                           " carries a NORMAL and a transform with no inverse, so the surface it is "
                           "perpendicular to has collapsed");
@@ -598,9 +692,25 @@ bool Subject::Flatten(const Document &document, const Transform *pose,
         return Refuse(document.Path() + ": " + std::to_string(run.size()) +
                       " indices do not make a whole run of " + ModeName(primitive.Mode));
       }
-      Triangulate(primitive.Mode,
-                  world.LinearDeterminant() < 0 ? Handedness::Reversed : Handedness::Preserved, run,
-                  indices);
+      /* THE WINDING RULE IS STATED FOR THE NODE'S TRANSFORM, AND A SKINNED PRIMITIVE IGNORES THAT
+       * TRANSFORM -- so for a skin the sign is taken from the vertices themselves, and a primitive
+       * whose blended matrices do not agree on it is refused rather than drawn with a guess: one
+       * primitive cannot carry two windings, and picking either would flip half its triangles. */
+      Handedness handedness = Handedness::Preserved;
+      if (skinned.empty()) {
+        handedness = world.LinearDeterminant() < 0 ? Handedness::Reversed : Handedness::Preserved;
+      } else {
+        const bool mirrored = skinned[0].LinearDeterminant() < 0;
+        for (size_t vertex = 1; vertex < skinned.size(); ++vertex) {
+          if ((skinned[vertex].LinearDeterminant() < 0) != mirrored) {
+            return Refuse(document.Path() + ": vertex " + std::to_string(vertex) +
+                          " of a skinned primitive blends to a transform whose determinant has the "
+                          "opposite sign to vertex 0's, so the primitive would need two windings");
+          }
+        }
+        handedness = mirrored ? Handedness::Reversed : Handedness::Preserved;
+      }
+      Triangulate(primitive.Mode, handedness, run, indices);
       for (uint32_t index : indices) {
         if (index >= vertices) {
           return Refuse(document.Path() + ": index " + std::to_string(index) + " addresses past the " +
@@ -609,7 +719,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose,
         Indices_.push_back(base + index);
       }
       part.IndexCount = Indices_.size() - part.FirstIndex;
-      if (!BuildTangentsFor(document, primitive, world, part, vertices)) { return false; }
+      if (!BuildTangentsFor(document, primitive, place, part, vertices)) { return false; }
       anyTangent = anyTangent || part.HasTangent();
       part.VertexCount = VertexCount() - part.FirstVertex;
       /* A primitive that yielded no triangle is not a part: it is a name a per-part declaration
