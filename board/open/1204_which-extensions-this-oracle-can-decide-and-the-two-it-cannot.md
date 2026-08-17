@@ -46,10 +46,31 @@ mentioned under the importer's own import tree, which is not the same as the nam
   `KHR_texture_basisu` are both required rows and neither is in the list — but quantization may be
   handled in the accessor decode without ever being named, which is exactly the case the grep cannot
   answer. Each needs an import and a comparison, the way these two got one
-- [ ] **The rows the list DOES name are not thereby proven either.** `KHR_materials_volume` at impact 25
-  and `KHR_materials_ior` at 17 are the two largest of tier 2, and *the importer mentions them* is not
-  *the importer maps them onto something Cycles renders*. They are cheap to check now and expensive to
-  discover later
+- [x] **`KHR_materials_volume` at impact 25 is HONOURED, and exercised rather than assumed.**
+  [MEASURED] Blender 5.2.0 on `AttenuationTest`: 11 of 18 materials declare it, and each arrives with a
+  `VOLUME_ABSORPTION` node whose `Color` is the file's `attenuationColor` **exactly** — `(0.1, 0.5,
+  0.9)` — whose `Density` is 1.0 from an `attenuationDistance` of 1, and which is **linked into the
+  material output's Volume socket**. Principled carries `Transmission Weight` 1.0 and `IOR` 1.5. So the
+  largest row of tier 2 is not blocked
+
+- [ ] **`KHR_materials_ior` at 17 is NOT yet exercised.** `AttenuationTest` shows Principled `IOR` at
+  **1.5, which is the default**, so that reading proves nothing about whether the extension is read.
+  `IORTestGrid` declares it and is fetched; the check is one import and a comparison across its grid
+
+## What the volume measurement found that is NOT an exclusion, and matters more
+
+**The three materials `R2_and_R4_ThicknessFac_1.0`, `R2_ThicknessFac_1.5` and `R2_ThicknessFac_2.0`
+differ in the file only by `thicknessFactor` — and their `VOLUME_ABSORPTION` inputs are IDENTICAL.**
+
+That is Cycles being right rather than the importer being lazy. **glTF's `thicknessFactor` is a
+rasteriser's stand-in for a path length it cannot measure**; a path tracer knows the real distance the ray
+travelled and needs no stand-in. So the extension is honoured and the *approximation inside it* is not.
+
+**Which means the volume row will disagree with this oracle exactly where glTF's thickness model departs
+from true path length, and that disagreement is neither our defect nor Blender's.** It is a **reduction
+question** — rung 2 of the ladder, with a measurement — and not an exclusion like the two rows above.
+*Naming it now is the point: it is the caveat that would otherwise be sought after a red case rather than
+before one, and `CLAUDE.md` asks for it in that order.*
 
 ## What this changes in the sequence
 
