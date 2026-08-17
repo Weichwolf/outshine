@@ -1,0 +1,167 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/coverage/simple-sparse-accessor",
+  "title": "A sparse accessor's substitutions reach the picture, or the mesh is visibly the base one",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:SimpleSparseAccessor",
+    "board:1328"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "A simple mesh that uses sparse accessors",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleSparseAccessor/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "A grid of triangles under the framing rule's general position. What decides this case is not an edge's placement but WHICH vertices moved: the sparse accessor substitutes a subset of the base positions, so a reader that ignored the sparse block would draw a different, flatter shape and its silhouette would differ over most of the boundary rather than at a sub-pixel offset."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "simple-sparse-accessor",
+      "kind": "gltf",
+      "name": "SimpleSparseAccessor",
+      "entry": "scene.gltf",
+      "attributes": [
+        "POSITION"
+      ],
+      "notes": "POSITION comes from an accessor with a `sparse` block: a base buffer view plus indices and values that override some of it. This is the one core model whose picture is wrong in a LARGE way if the feature is missing, which is what makes a coverage comparison a sufficient instrument for it.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "SimpleSparseAccessor",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleSparseAccessor/glTF/SimpleSparseAccessor.gltf",
+          "sha256": "852cea1ab8665caca6bee912422ed246feb42819c9905ba17a542937e058825a",
+          "bytes": 1756,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleSparseAccessor/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleSparseAccessor/glTF/SimpleSparseAccessor.bin",
+          "sha256": "8b01fde2d485b480626115ff804f972edb4ef87f23d2600054bcc859cee38f92",
+          "bytes": 284,
+          "as": "SimpleSparseAccessor.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleSparseAccessor/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleSparseAccessor/metadata.json",
+          "sha256": "e58b276bae166a24cba3fc4e4e6aeafc532840ae9597f1c2423a862758b96401",
+          "bytes": 760,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleSparseAccessor/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        22.82075717489396,
+        10.806870083003236,
+        13.878643586884937
+      ],
+      "lookAtM": [
+        3.0,
+        2.0,
+        0.0
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 22.14401422488553,
+      "clipEndM": 29.355116775813507,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [0.0, 0.0, 0.0] to [6.0, 4.0, 0.0], so centre = [3.0, 2.0, 0.0] and radius = 3.605551275463989 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 25.74956550034952, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material below emits, so nothing has to arrive for the picture to exist. A light here would add a lobe neither side is being asked about."
+    },
+    "world": {
+      "kind": "factory",
+      "note": "Configured by not being configured, exactly as Triangle declares it. The observed colour and strength go into provenance.json, so a Blender that changed them is visible without any machinery that refuses. It is the illumination here because the material below is DIFFUSE and something has to arrive for it to be seen."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "diffuse",
+      "colourLinear": [
+        0.2,
+        0.6,
+        0.8
+      ],
+      "note": "DIFFUSE AND NOT EMISSION, AND THE REASON IS A MEASURED ASYMMETRY. A per-node colour is keyed by Blender's synthesised object name on the oracle side and by the FILE's node name on ours -- and this file names no node, so our side refuses with `the subject's part 0 carries no node name` while Blender happily answers to `Mesh_0`. Diffuse needs no key at all: one colour, and the illumination is the factory world, which is the arrangement Triangle already runs green. Roughness is pinned by the preparer to a Diffuse BSDF rather than Principled, so no specular lobe enters at IOR 1.5."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the shaded colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. NO SEED-SHIFT RECIPE, and the preparer is what said so: that recipe proves an EMITTER has no estimator left, and a diffuse surface under a world still has one, so a moved seed would move the picture and the arm would be measuring the integrator instead of the instrument floor."
+    }
+  },
+  "notes": "board:0079 records sparse accessors as BUILT and outside the extension count; this is the case that turns that into a picture."
+}

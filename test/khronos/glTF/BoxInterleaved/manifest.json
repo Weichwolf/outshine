@@ -1,0 +1,168 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/coverage/box-interleaved",
+  "title": "Interleaved POSITION and NORMAL in one buffer view -- the same cube as Box, addressed differently",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:BoxInterleaved",
+    "board:1230"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "Box example with interleaved position and normal attributes.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoxInterleaved/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction -- azimuth 35 deg, elevation 20 deg -- puts no silhouette edge of an axis-aligned cube on a raster row, column or diagonal. Nothing here is spent on an analytic edge placement because nothing here turns on one: the claim is that a strided accessor reaches the same vertices a tightly packed one does, and the instrument for that is whether the two pictures agree."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "box-interleaved",
+      "kind": "gltf",
+      "name": "BoxInterleaved",
+      "entry": "scene.gltf",
+      "attributes": [
+        "NORMAL",
+        "POSITION"
+      ],
+      "notes": "The same twelve triangles as Box over the same 24 vertices, with POSITION and NORMAL INTERLEAVED in one buffer view at a stride rather than laid out one after the other. The world bounds are therefore identical to Box's and so is the framing camera -- which is the point: a reader that mishandled byteStride would move a vertex, and a moved vertex moves this picture while Box's stays where it is.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "BoxInterleaved",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoxInterleaved/glTF/BoxInterleaved.gltf",
+          "sha256": "b69bec5fa3a8f0331743ae5591af14fe5ab41ebc657c7447cfbb996a8b4aa325",
+          "bytes": 2877,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Cesium",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoxInterleaved/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoxInterleaved/glTF/BoxInterleaved.bin",
+          "sha256": "e4e58932bd0772677b557b9aa06ba84ce0b41efdd853645c140ea69f0aece9ed",
+          "bytes": 648,
+          "as": "BoxInterleaved.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Cesium",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoxInterleaved/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoxInterleaved/metadata.json",
+          "sha256": "5203f012a9708b0612cf789321dd243fdd65e26ec3655bc3f6446ff7e6708b44",
+          "bytes": 768,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Cesium",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoxInterleaved/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        4.760791880152056,
+        2.1153417707888442,
+        3.3335423623300464
+      ],
+      "lookAtM": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 5.3188201734967615,
+      "clipEndM": 7.050870981065638,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-0.5, -0.5, -0.5] to [0.5, 0.5, 0.5], so centre = [0.0, 0.0, 0.0] and radius = 0.8660254037844386 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 6.1848455772812, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material below emits, so nothing has to arrive for the picture to exist. A light here would add a lobe neither side is being asked about."
+    },
+    "world": {
+      "kind": "factory",
+      "note": "Configured by not being configured, exactly as Triangle declares it. The observed colour and strength go into provenance.json, so a Blender that changed them is visible without any machinery that refuses. It is the illumination here because the material below is DIFFUSE and something has to arrive for it to be seen."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "diffuse",
+      "colourLinear": [
+        0.800000011920929,
+        0.0,
+        0.0
+      ],
+      "note": "DIFFUSE AND NOT EMISSION, AND THE REASON IS A MEASURED ASYMMETRY. A per-node colour is keyed by Blender's synthesised object name on the oracle side and by the FILE's node name on ours -- and this file names no node, so our side refuses with `the subject's part 0 carries no node name` while Blender happily answers to `Mesh_0`. Diffuse needs no key at all: one colour, and the illumination is the factory world, which is the arrangement Triangle already runs green. Roughness is pinned by the preparer to a Diffuse BSDF rather than Principled, so no specular lobe enters at IOR 1.5."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the shaded colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. NO SEED-SHIFT RECIPE, and the preparer is what said so: that recipe proves an EMITTER has no estimator left, and a diffuse surface under a world still has one, so a moved seed would move the picture and the arm would be measuring the integrator instead of the instrument floor."
+    }
+  },
+  "notes": "Box's twin, and it is in the corpus for exactly one reason: to separate a reader that handles byteStride from one that happens to work when the stride equals the element size. Its picture must be indistinguishable from Box's."
+}

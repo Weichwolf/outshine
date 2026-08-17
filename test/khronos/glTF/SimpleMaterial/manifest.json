@@ -1,0 +1,167 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/materials/simple-material",
+  "title": "One material on one triangle -- the smallest asset in the index that declares a material at all",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:SimpleMaterial",
+    "board:1324"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "A simple glTF asset with a material",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleMaterial/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "A single triangle in the framing rule's general position: azimuth 35 deg and elevation 20 deg put its three edges at raster slopes that are none of 0, 1 or infinity, so no edge lies along a pixel row, column or diagonal. It is not an exact construction and does not claim to be -- Triangle already spends its camera on the lattice condition, and a second case doing the same would measure the same thing twice."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "simple-material",
+      "kind": "gltf",
+      "name": "SimpleMaterial",
+      "entry": "scene.gltf",
+      "attributes": [
+        "POSITION"
+      ],
+      "notes": "POSITION and nothing else -- no NORMAL, no TEXCOORD. The material carries a baseColorFactor and no texture, which is the whole of what this model declares. The node, the mesh and the material are all unnamed, so every key here is Blender's synthesised name and not the file's.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "SimpleMaterial",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleMaterial/glTF/SimpleMaterial.gltf",
+          "sha256": "04cc42f6cf30728a29bcc7aaf29df50ea70742f36961de35c76e413a3621592d",
+          "bytes": 1254,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleMaterial/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleMaterial/glTF/SimpleMaterial.bin",
+          "sha256": "898ed7f560dca9907a80c98be57fbbc0f3a092d2e3683b964ffcfa75c549ac62",
+          "bytes": 44,
+          "as": "SimpleMaterial.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleMaterial/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleMaterial/metadata.json",
+          "sha256": "13b07ba13f8b16415c389a93b8ed206f07481ecc5f5ab3d12ef995986a65cb58",
+          "bytes": 755,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleMaterial/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        4.387170292652634,
+        2.227169323342693,
+        2.7218259412202177
+      ],
+      "lookAtM": [
+        0.5,
+        0.5,
+        0.0
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 4.34279848622952,
+      "clipEndM": 5.757012048602616,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [0.0, 0.0, 0.0] to [1.0, 1.0, 0.0], so centre = [0.5, 0.5, 0.0] and radius = 0.7071067811865476 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 5.049905267416068, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material below emits, so nothing has to arrive for the picture to exist. A light here would add a lobe neither side is being asked about."
+    },
+    "world": {
+      "kind": "factory",
+      "note": "Configured by not being configured, exactly as Triangle declares it. The observed colour and strength go into provenance.json, so a Blender that changed them is visible without any machinery that refuses. It is the illumination here because the material below is DIFFUSE and something has to arrive for it to be seen."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "diffuse",
+      "colourLinear": [
+        1.0,
+        0.766,
+        0.336
+      ],
+      "note": "DIFFUSE AND NOT EMISSION, AND THE REASON IS A MEASURED ASYMMETRY. A per-node colour is keyed by Blender's synthesised object name on the oracle side and by the FILE's node name on ours -- and this file names no node, so our side refuses with `the subject's part 0 carries no node name` while Blender happily answers to `Mesh_0`. Diffuse needs no key at all: one colour, and the illumination is the factory world, which is the arrangement Triangle already runs green. Roughness is pinned by the preparer to a Diffuse BSDF rather than Principled, so no specular lobe enters at IOR 1.5."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the shaded colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. NO SEED-SHIFT RECIPE, and the preparer is what said so: that recipe proves an EMITTER has no estimator left, and a diffuse surface under a world still has one, so a moved seed would move the picture and the arm would be measuring the integrator instead of the instrument floor."
+    }
+  },
+  "notes": "The material half is declared rather than read: what is compared is a constant, declared identically on both sides, over the geometry the file supplies. That the FILE's material reaches our BRDF is a different claim needing a lit arm, and it is not made here."
+}
