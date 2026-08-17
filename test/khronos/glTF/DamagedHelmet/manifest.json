@@ -17,7 +17,7 @@
   "subjectClass": "opaque-min-1px",
   "acceptanceClass": {
     "is": "general-position",
-    "because": "The framing rule's own direction -- azimuth 35 degrees, elevation 20 degrees -- and nothing here is analytic: the silhouette of a modelled body turns continuously, so every boundary pixel carries its own sub-pixel offset and the instrument is the whole boundary rather than any one edge."
+    "because": "The framing rule's own direction -- azimuth 35 degrees, elevation 20 degrees. Nothing here is analytic: a modelled body's silhouette turns continuously, so the instrument is the whole boundary rather than any one edge."
   },
   "blender": {
     "version": "5.2.0",
@@ -34,7 +34,7 @@
         "POSITION",
         "TEXCOORD_0"
       ],
-      "notes": "A fetched, modelled subject with 1 named material. The file's own images are NOT read by this case: the material below declares its colours, so what is compared is where the geometry is and which body wears which material row.",
+      "notes": "A fetched, modelled subject with 1 named material. Its images are NOT read by this case. **It carries TWO licence grants and the manifest states both**: the preparer compares the declared set against upstream's and refuses a mismatch, which is what caught this manifest naming only the first.",
       "source": {
         "kind": "khronos-sample-assets",
         "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
@@ -49,13 +49,22 @@
           "bytes": 4537,
           "as": "scene.gltf",
           "role": "gltf",
-          "licence": {
-            "spdx": "CC-BY-4.0",
-            "holder": "ctxwing",
-            "year": "2018",
-            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
-            "covers": "Rebuild and conversion to glTF"
-          }
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "ctxwing",
+              "year": "2018",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
+              "covers": "Rebuild and conversion to glTF"
+            },
+            {
+              "spdx": "CC-BY-NC-4.0",
+              "holder": "theblueturtle_",
+              "year": "2016",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
+              "covers": "Earlier version of model"
+            }
+          ]
         },
         {
           "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/glTF/DamagedHelmet.bin",
@@ -63,13 +72,22 @@
           "bytes": 558504,
           "as": "DamagedHelmet.bin",
           "role": "buffer",
-          "licence": {
-            "spdx": "CC-BY-4.0",
-            "holder": "ctxwing",
-            "year": "2018",
-            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
-            "covers": "Rebuild and conversion to glTF"
-          }
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "ctxwing",
+              "year": "2018",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
+              "covers": "Rebuild and conversion to glTF"
+            },
+            {
+              "spdx": "CC-BY-NC-4.0",
+              "holder": "theblueturtle_",
+              "year": "2016",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
+              "covers": "Earlier version of model"
+            }
+          ]
         },
         {
           "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/glTF/Default_albedo.jpg",
@@ -77,13 +95,22 @@
           "bytes": 935629,
           "as": "Default_albedo.jpg",
           "role": "image",
-          "licence": {
-            "spdx": "CC-BY-4.0",
-            "holder": "ctxwing",
-            "year": "2018",
-            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
-            "covers": "Rebuild and conversion to glTF"
-          }
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "ctxwing",
+              "year": "2018",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
+              "covers": "Rebuild and conversion to glTF"
+            },
+            {
+              "spdx": "CC-BY-NC-4.0",
+              "holder": "theblueturtle_",
+              "year": "2016",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
+              "covers": "Earlier version of model"
+            }
+          ]
         },
         {
           "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/glTF/Default_metalRoughness.jpg",
@@ -91,13 +118,22 @@
           "bytes": 1300661,
           "as": "Default_metalRoughness.jpg",
           "role": "image",
-          "licence": {
-            "spdx": "CC-BY-4.0",
-            "holder": "ctxwing",
-            "year": "2018",
-            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
-            "covers": "Rebuild and conversion to glTF"
-          }
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "ctxwing",
+              "year": "2018",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
+              "covers": "Rebuild and conversion to glTF"
+            },
+            {
+              "spdx": "CC-BY-NC-4.0",
+              "holder": "theblueturtle_",
+              "year": "2016",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
+              "covers": "Earlier version of model"
+            }
+          ]
         },
         {
           "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/glTF/Default_emissive.jpg",
@@ -105,13 +141,22 @@
           "bytes": 97499,
           "as": "Default_emissive.jpg",
           "role": "image",
-          "licence": {
-            "spdx": "CC-BY-4.0",
-            "holder": "ctxwing",
-            "year": "2018",
-            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
-            "covers": "Rebuild and conversion to glTF"
-          }
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "ctxwing",
+              "year": "2018",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
+              "covers": "Rebuild and conversion to glTF"
+            },
+            {
+              "spdx": "CC-BY-NC-4.0",
+              "holder": "theblueturtle_",
+              "year": "2016",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
+              "covers": "Earlier version of model"
+            }
+          ]
         },
         {
           "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/glTF/Default_AO.jpg",
@@ -119,13 +164,22 @@
           "bytes": 361678,
           "as": "Default_AO.jpg",
           "role": "image",
-          "licence": {
-            "spdx": "CC-BY-4.0",
-            "holder": "ctxwing",
-            "year": "2018",
-            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
-            "covers": "Rebuild and conversion to glTF"
-          }
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "ctxwing",
+              "year": "2018",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
+              "covers": "Rebuild and conversion to glTF"
+            },
+            {
+              "spdx": "CC-BY-NC-4.0",
+              "holder": "theblueturtle_",
+              "year": "2016",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
+              "covers": "Earlier version of model"
+            }
+          ]
         },
         {
           "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/glTF/Default_normal.jpg",
@@ -133,13 +187,22 @@
           "bytes": 517757,
           "as": "Default_normal.jpg",
           "role": "image",
-          "licence": {
-            "spdx": "CC-BY-4.0",
-            "holder": "ctxwing",
-            "year": "2018",
-            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
-            "covers": "Rebuild and conversion to glTF"
-          }
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "ctxwing",
+              "year": "2018",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
+              "covers": "Rebuild and conversion to glTF"
+            },
+            {
+              "spdx": "CC-BY-NC-4.0",
+              "holder": "theblueturtle_",
+              "year": "2016",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
+              "covers": "Earlier version of model"
+            }
+          ]
         },
         {
           "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
@@ -147,13 +210,22 @@
           "bytes": 1204,
           "as": "metadata.json",
           "role": "metadata",
-          "licence": {
-            "spdx": "CC-BY-4.0",
-            "holder": "ctxwing",
-            "year": "2018",
-            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
-            "covers": "Rebuild and conversion to glTF"
-          }
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "ctxwing",
+              "year": "2018",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
+              "covers": "Rebuild and conversion to glTF"
+            },
+            {
+              "spdx": "CC-BY-NC-4.0",
+              "holder": "theblueturtle_",
+              "year": "2016",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DamagedHelmet/metadata.json",
+              "covers": "Earlier version of model"
+            }
+          ]
         }
       ]
     }
@@ -204,7 +276,7 @@
           0.15
         ]
       },
-      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it, on a golden-angle hue sweep so no two are close. A material row that reached the wrong body is a whole body of the wrong hue rather than a sub-pixel offset."
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it."
     }
   },
   "renders": {
@@ -277,5 +349,14 @@
       "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
     }
   },
-  "notes": "A coverage case. The model's textures and its metallic-roughness row are NOT what this decides -- that is the shading arm's, and board:1363 records why no case takes it yet."
+  "notes": "A coverage case. The model's textures and its metallic-roughness row are not what this decides -- board:1363 records why no case takes the shading arm yet.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.1605020505166655,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the projected area of the subject's triangles over the declared raster at the declared camera, recomputed by the runner from the subject's own vertices. Quoted because the boundary bound is applied UNDER it: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's apparent size, so a camera framing the subject smaller would tighten the bound without saying so.",
+      "note": "A consequence of the framing rule and the subject, not a choice. The runner refuses a mismatch."
+    }
+  }
 }
