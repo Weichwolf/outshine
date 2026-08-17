@@ -1,0 +1,210 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/materials/box",
+  "title": "One mesh and one material -- the smallest core model that is a solid, and the first of the 118 that had no case",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:Box",
+    "board:1227"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "One mesh and one material. Start with this.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction -- azimuth 35 deg, elevation 20 deg -- is the whole placement, and it is chosen here for exactly the reason it exists: NEITHER angle is a multiple of 45 deg, so no silhouette edge of an axis-aligned cube lands on a raster row, column or diagonal, and no edge constant sits on a lattice step. An exact construction would have to spend the camera on the lattice condition, and this case has nothing to spend it on -- it is a solid with six coplanar faces and its interest is that both sides agree about which pixels are inside, not that any edge is analytically placed."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "box",
+      "kind": "gltf",
+      "name": "Box",
+      "entry": "scene.gltf",
+      "attributes": [
+        "POSITION",
+        "NORMAL"
+      ],
+      "notes": "Twelve triangles over 24 vertices -- the cube's corners are split because each carries its own face NORMAL. The root node's matrix is a 90 deg rotation about X, which maps the cube onto itself, so the world bounds are the accessor's own [-0.5, 0.5] cube: that is the one thing here worth checking rather than assuming, because a framing camera derived from untransformed bounds would agree with one derived from transformed bounds ONLY for this subject.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "Box",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box/glTF/Box.gltf",
+          "sha256": "4a0d69eecfce0672a50b71dc218cbacec6c53fe2445040c235c6314b1b2c41b9",
+          "bytes": 2898,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Cesium",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box/glTF/Box0.bin",
+          "sha256": "3266a8e39b9f425b3341cbe5eec7849f44310256bfa651e6b8b40c85ce0ccafb",
+          "bytes": 648,
+          "as": "Box0.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Cesium",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box/metadata.json",
+          "sha256": "9b6140d34119810f3dca5e5786fa8e0b0c9cb1dc417e33917853f9ae4896ca3f",
+          "bytes": 692,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Cesium",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        4.760791880152056,
+        2.1153417707888442,
+        3.3335423623300464
+      ],
+      "lookAtM": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 5.3188201734967615,
+      "clipEndM": 7.050870981065638,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-0.5, 0.5] on every axis, so centre = 0 and radius = 0.5*|(1,1,1)| = 0.8660254037844386 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 5.318820173496762 + 0.8660254037844386 back off the centre, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart = distance - radius and clipEnd = distance + radius, the near floor of radius*0.001 not being reached.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: this case buys nothing from a rolled raster, and a roll chosen here and nowhere else would make the subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material below emits, so nothing has to arrive for the picture to exist. A light here would add a lobe neither side is being asked about."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest and not of a Blender default. At zero bounces an emission shader returns its emission alone, so this changes no covered pixel -- it removes the background from the DECLARATION rather than from the render."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "Red": [
+          0.800000011920929,
+          0.0,
+          0.0
+        ]
+      },
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it -- so the case states that the single material reached the single mesh, which is precisely the criterion Khronos wrote for this model. The value is the file's own baseColorFactor to the digit, which makes the render legible beside the asset without the comparison depending on our base-colour path: what is compared is a declared constant, identically declared on both sides."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise and not a disagreement with us -- which is what makes this the instrument floor rather than an assumption about it."
+    }
+  },
+  "notes": "The first case authored for a model that had none, and it is deliberately the smallest solid in the index rather than the most interesting one: it establishes that a case can be added from the pin, the framing rule and the schema alone, with no engine work and no new instrument. What it proves is narrow and it is stated narrowly -- indexed triangles, one material bound to one mesh, and a node matrix that is a rotation."
+}

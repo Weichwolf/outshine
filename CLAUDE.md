@@ -568,11 +568,11 @@ commit**, because the index already holds what somebody else staged — and a re
 committing only the new one leaves the item under both directories at once.
 
 
-**The session's task list is a mirror of `board/active/` and nothing else.** One entry per active
-item, its subject the item's **`NNNN` and title verbatim**: a task list entry with no file under
-`board/active/` *is* a second ordering. It is **derived, never authored**: an item is activated by
-`git mv` and the entry follows; an item closes the same way and the entry is marked done. **If the two
-disagree, the directory is right** — `ls board/active/` is the state, and a list is a view of it.
+**The session's task list is not used, and `board/active/` is the only ordering.** A mirror was tried
+and it was a second register that had to be kept true by hand: every entry was a copy of a file, the
+copy could drift, and nothing read it. **`ls board/active/` is the state** — the transition is a
+`git mv`, it travels with the work, and it is visible in the diff. *A view that no instrument consumes
+is not a view; it is a duplicate, and duplication is a defect exactly when the copies can drift.*
 
 
 **Seven invariants, and one query that must never become a test.** Six are read from the board:
