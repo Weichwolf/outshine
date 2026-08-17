@@ -1280,10 +1280,18 @@ SubjectDraw::BoundImage SubjectDraw::Upload(const SubjectTexture &texture, Trans
    * separated by 4.53x. A filtered normal is flatter and the geometry it imitates does not flatten, so
    * the metric is reporting exactly what it was built to report.
    *
-   * SO THE MISSING TERM IS TOKSVIG'S, and `TexelChain.h` already names it as deliberately not taken.
-   * Turning five derived metrics red to reach a picture bound that does not move is not the trade;
-   * carrying the shortfall as roughness is, and that is one measurement away -- whether the ORACLE's own
-   * two cells agree under ITS filtering, which nothing here has ever asked it. */
+   * TOKSVIG'S TERM WAS THE NAMED BLOCKER AND IT IS LIVE -- this paragraph used to say it was
+   * "deliberately not taken", which stopped being true at `board:1131` and was not re-read for several
+   * rounds. `TexelChain.h` accumulates the resultant length into alpha and `roughenedBy` consumes it.
+   * SO THE FLAG WAS FLIPPED AND THE CORPUS RUN TWICE, over one prepared population of 27 cases:
+   * criteria met 23 -> 21, within the picture bound 11 -> 10, and FOUR cases worse with none better.
+   * `NormalTangentTest` goes 5 failing metrics to 16 and both tangent cases saturate at 255 codes.
+   *
+   * AND THE FAILURE IS NOT FLATTENING, which is why the conclusion outlived its reason. A region whose
+   * reference is BLACK -- 0 on ours and 0 on the oracle, an exact agreement -- comes back at 0.18065128
+   * while its partner region stays at exactly 0. Flattening moves a value toward the geometric normal's
+   * answer; it cannot light up a region that is black by construction. The candidate is a normal that
+   * changed DIRECTION, and the paths read so far all bound magnitude and none bounds orientation. */
   /* THE LOD CLAMP IS LEFT OPEN, AND THAT IS A CORRECTION RATHER THAN A RELAXATION (board:1134).
    * `max_lod = 0` reads as "no mipmaps" and is not: lambda is clamped to `[min_lod, max_lod]` BEFORE
    * the magnification test, so `lambda <= 0` became true everywhere and the MAGNIFICATION filter was

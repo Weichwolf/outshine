@@ -157,3 +157,29 @@ thirteen*, but the thing that decides whether any textured case beyond the curre
 at all. The revised order within phase 1 is therefore **`1169` · the plain 13 · `1150` · `1151` · the
 prune · then the extension families in `board:0078`'s order**, and the extension families are gated by
 implementation rather than by corpus work.
+
+## The owner set the finish line, and it is stricter than what stood here
+
+**Every one of the 148 models green, on BOTH published counts** — *criteria met* AND *within the picture
+bound*. Not one of them, not either of them: both, for all.
+
+**What that strikes.** The phase-1 statement allowed *inside the bound OR carrying a declared reduction*
+as an end state. **It does not any more.** A declared reduction is now an OPEN case with a named cause,
+never a finished one — the reduction ladder keeps its place as the route a round takes, and loses its
+place as a place to stop.
+
+**Licence is not a filter.** `board:0074` measured 13 further SPDX identifiers at the pin, nine of them
+restrictive, and asked whether those models are in scope. **They are: the models are fetched and
+rendered, never redistributed**, so the allow-list is an audit of what we consume and not a gate on what
+we must prove.
+
+**148 is models and the case count is larger.** Three directories in this tree already show why —
+`Cameras`, `SimpleTexture` and `MaterialsVariantsShoe` each declare two cases over one model. The target
+is **at least 148 cases over exactly 148 models**, and a model with two cases needs both green.
+
+**What the finish line does NOT claim, stated here so it is not read into it later.** The corpus is
+**one subject, one camera, a still**. Green over all 148 is a complete statement about `src/gltf` and
+very nearly one about `src/render` — and it is nearly silent about the compositor, whose work is
+culling, budget quantisation, the ladder, streaming, residency and eviction, none of which a still can
+turn red. It says nothing at all about 720p60, which is the `frame` suite's distribution over a moving
+camera. *The fourth constraint stays the least measured of the four whatever this count reaches.*
