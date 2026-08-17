@@ -1,0 +1,300 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/coverage/diffuse-transmission-teacup",
+  "title": "DiffuseTransmissionTeacup model using Diffuse Transmission extension -- and this case decides its geometry and its material binding",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:DiffuseTransmissionTeacup",
+    "board:1267"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "DiffuseTransmissionTeacup model using Diffuse Transmission extension.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionTeacup/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction -- azimuth 35 degrees, elevation 20 degrees -- over a modelled body. Nothing here is analytic and nothing claims to be: what is compared is which pixels the two sides cover and what colour each body wears, over the whole boundary rather than any one edge."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "diffuse-transmission-teacup",
+      "kind": "gltf",
+      "name": "DiffuseTransmissionTeacup",
+      "entry": "scene.gltf",
+      "attributes": [
+        "NORMAL",
+        "POSITION",
+        "TEXCOORD_0"
+      ],
+      "notes": "Attributes NORMAL, POSITION, TEXCOORD_0. World bounds [-0.0743, -0.0007, -0.0794] to [0.0743, 0.0697, 0.0743]. It carries 2 named materials, and the file's own images are NOT read by this case: the material below declares its own colours, so what is compared is where the geometry is and which body wears which row. The file declares KHR_materials_diffuse_transmission, which this case does not exercise.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "DiffuseTransmissionTeacup",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionTeacup/glTF/DiffuseTransmissionTeacup.gltf",
+          "sha256": "d02f72a696ca7426baef4c2be356d9c5283645c16528b3504f8ee2c02887120a",
+          "bytes": 6726,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public domain",
+            "year": "2023",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionTeacup/metadata.json",
+            "covers": "Models and Textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionTeacup/glTF/DiffuseTransmissionTeacup.bin",
+          "sha256": "eaad05ab8e951a97eefbbea0c18a9e0af9a30b9172c491461fde33f7c0e32460",
+          "bytes": 3043872,
+          "as": "DiffuseTransmissionTeacup.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public domain",
+            "year": "2023",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionTeacup/metadata.json",
+            "covers": "Models and Textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionTeacup/glTF/teasaucer_basecolor.jpg",
+          "sha256": "cd6c9f11753c15954e909982a4b4ce3b8343a0abb3f0b930fabad1aaa116aef7",
+          "bytes": 128411,
+          "as": "teasaucer_basecolor.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public domain",
+            "year": "2023",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionTeacup/metadata.json",
+            "covers": "Models and Textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionTeacup/glTF/teasaucer_normal.png",
+          "sha256": "081ef1996a42da8ba77b94f8db5b3b33e1685c8cee81ef051c22365ca7e496c8",
+          "bytes": 138857,
+          "as": "teasaucer_normal.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public domain",
+            "year": "2023",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionTeacup/metadata.json",
+            "covers": "Models and Textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionTeacup/glTF/teasaucer_ormt.png",
+          "sha256": "ec883929bfe80bf9f49cc446c10939db9d8629013a07c43056f39a568d43e3c6",
+          "bytes": 407064,
+          "as": "teasaucer_ormt.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public domain",
+            "year": "2023",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionTeacup/metadata.json",
+            "covers": "Models and Textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionTeacup/glTF/teacup_basecolor.jpg",
+          "sha256": "a51a92cf1515fdeead62130a6c83b2955ae0cb60265690d553fcb2c330bf93f1",
+          "bytes": 189957,
+          "as": "teacup_basecolor.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public domain",
+            "year": "2023",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionTeacup/metadata.json",
+            "covers": "Models and Textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionTeacup/glTF/teacup_normal.png",
+          "sha256": "3bd6e6fb45ad0100b6625f1eb08acaf32de9f09aedb5b63f6ac3f8ec573b0516",
+          "bytes": 238666,
+          "as": "teacup_normal.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public domain",
+            "year": "2023",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionTeacup/metadata.json",
+            "covers": "Models and Textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionTeacup/glTF/teacup_ormt.png",
+          "sha256": "b659874811873a81135e8cbc374b7feb03fa057853d030a1c0f16a70ccd19d16",
+          "bytes": 643938,
+          "as": "teacup_ormt.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public domain",
+            "year": "2023",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionTeacup/metadata.json",
+            "covers": "Models and Textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionTeacup/metadata.json",
+          "sha256": "b07f030b2f3058677bfadab911d46ac8c0717d282fa55d0f726387b8593ab62c",
+          "bytes": 812,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public domain",
+            "year": "2023",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionTeacup/metadata.json",
+            "covers": "Models and Textures"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        0.6187583751966509,
+        0.3094404649302033,
+        0.43070390019868304
+      ],
+      "lookAtM": [
+        8.416827768087387e-06,
+        0.03451401034850202,
+        -0.0025494849181527043
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 0.6912757044984672,
+      "clipEndM": 0.9163866507559633,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-0.07430074224248528, -0.0006779458957560034, -0.07941566490135676] to [0.07431757589802146, 0.06970596659276004, 0.07431669506505136], so centre = [8.416827768087387e-06, 0.03451401034850202, -0.0025494849181527043] and radius = 0.11255547312874799 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 0.8038311776272152, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest and not of a Blender default. At zero bounces an emission returns its emission alone, so this changes no covered pixel."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "tea_saucer": [
+          0.85,
+          0.15,
+          0.15
+        ],
+        "tea_cup": [
+          0.15,
+          0.3542572472504414,
+          0.85
+        ]
+      },
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it, on a golden-angle hue sweep so no two are close. A material row that reached the wrong body is a whole body of the wrong hue rather than a sub-pixel offset."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "A coverage case. Its subject's own shading -- textures, metallic-roughness, and any extension it declares -- is NOT what this decides; `board:1363` records why no case takes the shading arm yet. What it does decide is that the file reads, the geometry lands where the oracle puts it, and each material row reaches its own body."
+}

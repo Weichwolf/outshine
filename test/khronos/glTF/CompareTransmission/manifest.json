@@ -1,0 +1,345 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/coverage/compare-transmission",
+  "title": "This model compares transmission methods -- and this case decides its geometry and its material binding",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:CompareTransmission",
+    "board:1260"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "This model compares transmission methods.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CompareTransmission/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction -- azimuth 35 degrees, elevation 20 degrees -- over a modelled body. Nothing here is analytic and nothing claims to be: what is compared is which pixels the two sides cover and what colour each body wears, over the whole boundary rather than any one edge."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "compare-transmission",
+      "kind": "gltf",
+      "name": "CompareTransmission",
+      "entry": "scene.gltf",
+      "attributes": [
+        "NORMAL",
+        "POSITION",
+        "TEXCOORD_0"
+      ],
+      "notes": "Attributes NORMAL, POSITION, TEXCOORD_0. World bounds [-1.5, -0.758, -0.8153] to [1.5, 0.7449, 0.5]. It carries 4 named materials, and the file's own images are NOT read by this case: the material below declares its own colours, so what is compared is where the geometry is and which body wears which row. The file declares KHR_materials_transmission, which this case does not exercise.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "CompareTransmission",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CompareTransmission/glTF/CompareTransmission.gltf",
+          "sha256": "794ce95802a1d15fca94f7388addcb127c80f0a1b1b931e749afe2ea0985e88b",
+          "bytes": 12205,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": [
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CompareTransmission/metadata.json",
+              "covers": "glTF logo"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CompareTransmission/metadata.json",
+              "covers": "Everything"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CompareTransmission/glTF/CompareTransmission.bin",
+          "sha256": "733308602f434c182a7795e77f0c76cc50f5b04ec48b937fcbe3902dca3c024c",
+          "bytes": 270668,
+          "as": "CompareTransmission.bin",
+          "role": "buffer",
+          "licence": [
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CompareTransmission/metadata.json",
+              "covers": "glTF logo"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CompareTransmission/metadata.json",
+              "covers": "Everything"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CompareTransmission/glTF/Compare_Transmission_img0.jpg",
+          "sha256": "584ed6f682e657406d7a36a830bcaeca18bd965cdef6877e1e3325a20f350494",
+          "bytes": 32730,
+          "as": "Compare_Transmission_img0.jpg",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CompareTransmission/metadata.json",
+              "covers": "glTF logo"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CompareTransmission/metadata.json",
+              "covers": "Everything"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CompareTransmission/glTF/Compare_Transmission_img1.png",
+          "sha256": "abc0da74c2bdfe88954bafb1992d367e963e1315be06027490a46fba3517441e",
+          "bytes": 30802,
+          "as": "Compare_Transmission_img1.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CompareTransmission/metadata.json",
+              "covers": "glTF logo"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CompareTransmission/metadata.json",
+              "covers": "Everything"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CompareTransmission/glTF/Compare_Transmission_img2.png",
+          "sha256": "ea58fe2331675ece5e2597ae332921996e05531b9b2439e0dca0203c8be97b70",
+          "bytes": 97,
+          "as": "Compare_Transmission_img2.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CompareTransmission/metadata.json",
+              "covers": "glTF logo"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CompareTransmission/metadata.json",
+              "covers": "Everything"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CompareTransmission/glTF/Compare_Transmission_img3.jpg",
+          "sha256": "116e33c6bfc2d560d15cb2d2470ddc2d37ffca6bcdd384021e0c1283fa4f8fd0",
+          "bytes": 15884,
+          "as": "Compare_Transmission_img3.jpg",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CompareTransmission/metadata.json",
+              "covers": "glTF logo"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CompareTransmission/metadata.json",
+              "covers": "Everything"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CompareTransmission/metadata.json",
+          "sha256": "07840c8235258ec517fe0719c3d950a7a2d055218ed96c19bf2d3388777301af",
+          "bytes": 1180,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": [
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CompareTransmission/metadata.json",
+              "covers": "glTF logo"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CompareTransmission/metadata.json",
+              "covers": "Everything"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        9.906094226454643,
+        4.395008092659016,
+        6.778671497914226
+      ],
+      "lookAtM": [
+        0.0,
+        -0.006523297518122806,
+        -0.1576503536649983
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 11.067220567210326,
+      "clipEndM": 14.671213124901412,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-1.5, -0.7579796178039296, -0.8153007073299966] to [1.5, 0.744933022767684, 0.5], so centre = [0.0, -0.006523297518122806, -0.1576503536649983] and radius = 1.8019962788455426 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 12.869216846055869, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest and not of a Blender default. At zero bounces an emission returns its emission alone, so this changes no covered pixel."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "checker": [
+          0.85,
+          0.15,
+          0.15
+        ],
+        "glTF Alpha": [
+          0.15,
+          0.3542572472504414,
+          0.85
+        ],
+        "gold": [
+          0.5585144945008829,
+          0.85,
+          0.15
+        ],
+        "glTF Transmission": [
+          0.85,
+          0.15,
+          0.7627717417513241
+        ]
+      },
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it, on a golden-angle hue sweep so no two are close. A material row that reached the wrong body is a whole body of the wrong hue rather than a sub-pixel offset."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "A coverage case. Its subject's own shading -- textures, metallic-roughness, and any extension it declares -- is NOT what this decides; `board:1363` records why no case takes the shading arm yet. What it does decide is that the file reads, the geometry lands where the oracle puts it, and each material row reaches its own body."
+}

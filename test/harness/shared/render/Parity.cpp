@@ -1067,16 +1067,26 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
     std::vector<std::string> matched;
     for (size_t part = 0; part < parts; ++part) {
       const int index = geometry.Parts()[part].Material;
-      if (index < 0 || (size_t)index >= file.Materials().size()) {
-        error = "part " + std::to_string(part) +
-                " names no material, so a per-material colour has nothing to key on";
+      /* A PRIMITIVE THAT NAMES NO MATERIAL IS NOT AN ERROR AND THE FORMAT SAYS SO (board:1373). glTF
+       * 2.0: "When [material] is undefined, the primitive is rendered with the default material" --
+       * metallic 1, roughness 1, base colour white. Nine models in the index have one, and refusing
+       * them cost nine cases that could not run at all. The reserved key is the format's own word for
+       * that material, in angle brackets so it cannot be confused with a name a file could state. */
+      static const std::string kDefaultMaterial = "<default>";
+      if (index >= (int)file.Materials().size()) {
+        error = "part " + std::to_string(part) + " names material " + std::to_string(index) +
+                " and the file declares " + std::to_string(file.Materials().size());
         return false;
       }
-      const std::string &name = file.Materials()[(size_t)index].Name;
+      const std::string &name =
+          index < 0 ? kDefaultMaterial : file.Materials()[(size_t)index].Name;
       const Json::Ref colour = declared[name.c_str()];
       if (colour.Size() != 3) {
         error = "scene.material.colourLinearPerMaterial declares no colour for material '" + name +
-                "'";
+                "'" + (name == kDefaultMaterial
+                           ? " -- a primitive of this subject names none, and the format's default "
+                             "material is keyed by that reserved name"
+                           : "");
         return false;
       }
       for (size_t channel = 0; channel < 3; ++channel) {

@@ -108,21 +108,21 @@
     "camera": {
       "source": "manifest",
       "positionM": [
-        9.521585347235005,
-        4.23068424669173,
-        6.6670863358410655
+        9.521585273719333,
+        4.230684214026835,
+        6.667086261201997
       ],
       "lookAtM": [
         0.0,
         0.0,
-        4.999999999588667e-07
+        4.76837158203125e-07
       ],
       "rollRad": 0.0,
       "yfovRad": 0.47108996144172666,
       "sensorHeightMm": 24.0,
-      "clipStartM": 10.637642119933878,
-      "clipEndM": 14.101744312421998,
-      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-1.0, -1.0, -1.0] to [1.0, 1.0, 1.000001], so centre = [0.0, 0.0, 4.999999999588667e-07] and radius = 1.73205109624406 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 12.369693216177938, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "clipStartM": 10.63764203780119,
+      "clipEndM": 14.101744203543156,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-1.0, -1.0, -1.0] to [1.0, 1.0, 1.000001], so centre = [0.0, 0.0, 4.999999999588667e-07] and radius = 1.73205109624406 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 12.369693216177938, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius. QUOTED FROM THE RULE'S OWN OUTPUT, not recomputed beside it: the bounds are the AABB of the TRANSFORMED VERTICES, and an authoring helper that transformed the eight corners of the local AABB produced a looser box wherever a node rotates -- 7.464e-08 m of eye, five orders past the runner's tolerance.",
       "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
     },
     "light": {

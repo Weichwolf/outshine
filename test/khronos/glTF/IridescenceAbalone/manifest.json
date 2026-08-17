@@ -1,0 +1,330 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/coverage/iridescence-abalone",
+  "title": "A model of an abalone shell with highly iridescent interior -- and this case decides its geometry and its material binding",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:IridescenceAbalone",
+    "board:1284"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "A model of an abalone shell with highly iridescent interior.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/IridescenceAbalone/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction -- azimuth 35 degrees, elevation 20 degrees -- over one body. Nothing here is analytic and nothing claims to be: what is compared is which pixels the two sides cover and what colour each body wears, over the whole boundary rather than any one edge."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "iridescence-abalone",
+      "kind": "gltf",
+      "name": "IridescenceAbalone",
+      "entry": "scene.gltf",
+      "attributes": [
+        "NORMAL",
+        "POSITION",
+        "TEXCOORD_0"
+      ],
+      "notes": "Attributes NORMAL, POSITION, TEXCOORD_0. World bounds [-0.1161, -0.0778, -0.0792] to [0.1161, 0.0778, 0.0792]. It carries 1 named material, and the file's own images are NOT read by this case: the material below declares its own colours, so what is compared is where the geometry is and which body wears which row. The file declares KHR_materials_iridescence, which this case does not exercise.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "IridescenceAbalone",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/IridescenceAbalone/glTF/IridescenceAbalone.gltf",
+          "sha256": "9771159d43c64bfd975d6875591d314d28de813c8625776ad34d1f2b2a690b00",
+          "bytes": 4738,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Abby Crawford",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/IridescenceAbalone/metadata.json",
+              "covers": "Everything"
+            },
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Eric Chadwick",
+              "year": "2023",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/IridescenceAbalone/metadata.json",
+              "covers": "Materials"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/IridescenceAbalone/glTF/IridescenceAbalone.bin",
+          "sha256": "7033e3d37a0f92a7a7e6776255b1a8d0fdd13c967775aee595bb00cda942d754",
+          "bytes": 162576,
+          "as": "IridescenceAbalone.bin",
+          "role": "buffer",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Abby Crawford",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/IridescenceAbalone/metadata.json",
+              "covers": "Everything"
+            },
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Eric Chadwick",
+              "year": "2023",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/IridescenceAbalone/metadata.json",
+              "covers": "Materials"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/IridescenceAbalone/glTF/IridescenceAbalone_BaseColor.jpg",
+          "sha256": "3d2c8ccbd4a5f35043e8f3d78c0aa31abae979b4dd319146597d7c102899e143",
+          "bytes": 1428396,
+          "as": "IridescenceAbalone_BaseColor.jpg",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Abby Crawford",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/IridescenceAbalone/metadata.json",
+              "covers": "Everything"
+            },
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Eric Chadwick",
+              "year": "2023",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/IridescenceAbalone/metadata.json",
+              "covers": "Materials"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/IridescenceAbalone/glTF/IridescenceAbalone_Iridescence.jpg",
+          "sha256": "97eb78ab7ec085cff58550e0780193f72f339fbc3d813f79cfeda8f2c6fd5dd3",
+          "bytes": 2475045,
+          "as": "IridescenceAbalone_Iridescence.jpg",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Abby Crawford",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/IridescenceAbalone/metadata.json",
+              "covers": "Everything"
+            },
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Eric Chadwick",
+              "year": "2023",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/IridescenceAbalone/metadata.json",
+              "covers": "Materials"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/IridescenceAbalone/glTF/IridescenceAbalone_NormalBump.png",
+          "sha256": "e3449eb3de1e899fcd7980d397f1a9171d6696b16705849ed9d1b4a5a1feabe3",
+          "bytes": 3186087,
+          "as": "IridescenceAbalone_NormalBump.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Abby Crawford",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/IridescenceAbalone/metadata.json",
+              "covers": "Everything"
+            },
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Eric Chadwick",
+              "year": "2023",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/IridescenceAbalone/metadata.json",
+              "covers": "Materials"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/IridescenceAbalone/glTF/IridescenceAbalone_ORM.jpg",
+          "sha256": "572a2cc7ef959750c2f284549473434db5fb7e2922d69b9015a9b056db518ae6",
+          "bytes": 2046122,
+          "as": "IridescenceAbalone_ORM.jpg",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Abby Crawford",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/IridescenceAbalone/metadata.json",
+              "covers": "Everything"
+            },
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Eric Chadwick",
+              "year": "2023",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/IridescenceAbalone/metadata.json",
+              "covers": "Materials"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/IridescenceAbalone/metadata.json",
+          "sha256": "21414421705b13593cbfd0aee128d4d9260296e9c8a3802e36fa8c3dd261150e",
+          "bytes": 1165,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Abby Crawford",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/IridescenceAbalone/metadata.json",
+              "covers": "Everything"
+            },
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Eric Chadwick",
+              "year": "2023",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/IridescenceAbalone/metadata.json",
+              "covers": "Materials"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        0.8829347191572793,
+        0.3923105021594925,
+        0.6182375481471605
+      ],
+      "lookAtM": [
+        1.849999999720131e-08,
+        0.0,
+        1.4999999999043556e-08
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 0.9864264214772331,
+      "clipEndM": 1.3076519234109958,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-0.116056539, -0.07781754, -0.07919444] to [0.116056576, 0.07781754, 0.07919447], so centre = [1.849999999720131e-08, 0.0, 1.4999999999043556e-08] and radius = 0.1606127509668813 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 1.1470391724441145, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest and not of a Blender default. At zero bounces an emission returns its emission alone, so this changes no covered pixel."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "IridescenceAbalone": [
+          0.85,
+          0.15,
+          0.15
+        ]
+      },
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it, on a golden-angle hue sweep so no two are close. A material row that reached the wrong body is a whole body of the wrong hue rather than a sub-pixel offset."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "A coverage case. Its subject's own shading -- textures, metallic-roughness, and any extension it declares -- is NOT what this decides; `board:1363` records why no case takes the shading arm yet. What it does decide is that the file reads, the geometry lands where the oracle puts it, and each material row reaches its own body."
+}

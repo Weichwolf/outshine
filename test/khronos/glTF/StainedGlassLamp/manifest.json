@@ -1,0 +1,537 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/coverage/stained-glass-lamp",
+  "title": "A real product, a Tiffany-style stained glass table lamp sold on the Wayfair website -- and this case decides its geometry and its material binding",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:StainedGlassLamp",
+    "board:1334"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "A real product, a Tiffany-style stained glass table lamp sold on the Wayfair website.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction -- azimuth 35 degrees, elevation 20 degrees -- over a modelled body. Nothing here is analytic and nothing claims to be: what is compared is which pixels the two sides cover and what colour each body wears, over the whole boundary rather than any one edge."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "stained-glass-lamp",
+      "kind": "gltf",
+      "name": "StainedGlassLamp",
+      "entry": "scene.gltf",
+      "attributes": [
+        "NORMAL",
+        "POSITION",
+        "TEXCOORD_0"
+      ],
+      "notes": "Attributes NORMAL, POSITION, TEXCOORD_0. World bounds [-0.22, -0.0, -0.22] to [0.22, 0.6889, 0.22]. It carries 13 named materials, and the file's own images are NOT read by this case: the material below declares its own colours, so what is compared is where the geometry is and which body wears which row. The file declares KHR_materials_transmission, KHR_materials_clearcoat, KHR_materials_variants, KHR_materials_ior, KHR_materials_volume, which this case does not exercise.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "StainedGlassLamp",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/glTF/StainedGlassLamp.gltf",
+          "sha256": "333ca209284d02d40862e058f4e5b52c4a6ace75ac42debd69714b700e1a2938",
+          "bytes": 29827,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Wayfair",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/glTF/StainedGlassLamp.bin",
+          "sha256": "7873a6f30835589b3b6fc3b0d749b8fe80f1ea29f4f170fba6d8ac11083d9397",
+          "bytes": 1847592,
+          "as": "StainedGlassLamp.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Wayfair",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/glTF/StainedGlassLamp_grill_normal.png",
+          "sha256": "fd0d28aa717c5fe73d868eec86435f12758f0678621d5f0be24f1cd75d8f3173",
+          "bytes": 2416452,
+          "as": "StainedGlassLamp_grill_normal.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Wayfair",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/glTF/StainedGlassLamp_grill_occlusion-rough-metal.png",
+          "sha256": "f98364ba920f42b4c4bfd7806344681d88eaadfe9459ffdc986159998aa4ada7",
+          "bytes": 1912373,
+          "as": "StainedGlassLamp_grill_occlusion-rough-metal.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Wayfair",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/glTF/StainedGlassLamp_grill_emissive.png",
+          "sha256": "489c479d59a46d75160429faab6061dad8227f486bd3db2d866681be3207ab4e",
+          "bytes": 909172,
+          "as": "StainedGlassLamp_grill_emissive.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Wayfair",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/glTF/StainedGlassLamp_grill_basecolor-alpha.png",
+          "sha256": "34ebdd2045586dae22edce1f5947414785a93cb3c7ac3e475435a6b8f4b2a0dc",
+          "bytes": 1908644,
+          "as": "StainedGlassLamp_grill_basecolor-alpha.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Wayfair",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/glTF/StainedGlassLamp_steel_occlusion.png",
+          "sha256": "f179328a54bda12e97860dbadb7abc4d1c55514ab364467fa8ca3bca94f41532",
+          "bytes": 28783,
+          "as": "StainedGlassLamp_steel_occlusion.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Wayfair",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/glTF/StainedGlassLamp_hardware_normal.png",
+          "sha256": "27b9c1cc187a6b492e8598eac98443847c7f91397b5f2554df21a7955de64680",
+          "bytes": 2134787,
+          "as": "StainedGlassLamp_hardware_normal.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Wayfair",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/glTF/StainedGlassLamp_hardware_occlusion-rough-metal.png",
+          "sha256": "1675a23fbebd5bd49d41965cdb7e67d7341aec68fa25e89c5f93c2320e282d81",
+          "bytes": 2296132,
+          "as": "StainedGlassLamp_hardware_occlusion-rough-metal.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Wayfair",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/glTF/StainedGlassLamp_hardware_emissive.png",
+          "sha256": "edf2f87f088a60692c30fcf4e3e58e377dde34fbf7fed1995d94cd1fb83d9aea",
+          "bytes": 2755570,
+          "as": "StainedGlassLamp_hardware_emissive.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Wayfair",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/glTF/StainedGlassLamp_hardware_basecolor.png",
+          "sha256": "9ec70581d5101c84ede44ed49bed5a7a91651e9df4c0b84ca03df6b28db2f7f4",
+          "bytes": 462877,
+          "as": "StainedGlassLamp_hardware_basecolor.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Wayfair",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/glTF/StainedGlassLamp_base_normal.png",
+          "sha256": "5cc524fe2cb56446b38b50537b3a48b22a965b2f5630b238783d625ffad9a3ba",
+          "bytes": 1540173,
+          "as": "StainedGlassLamp_base_normal.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Wayfair",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/glTF/StainedGlassLamp_base_occlusion-rough-metal.png",
+          "sha256": "fc9c61af6a3908925f46758434e70f5e8086a02019eba4cf3a585950de4ee75b",
+          "bytes": 3608281,
+          "as": "StainedGlassLamp_base_occlusion-rough-metal.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Wayfair",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/glTF/StainedGlassLamp_base_emissive.png",
+          "sha256": "0fab04b357696b5a85477f87b3bbf6f9c0bd6b5726e0b78a5adf32120b8990d3",
+          "bytes": 2363300,
+          "as": "StainedGlassLamp_base_emissive.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Wayfair",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/glTF/StainedGlassLamp_base_basecolor.png",
+          "sha256": "a1dd9943830b09195b333411bcf1690f6330fa477e5afd40f5e0c06e74f4ae85",
+          "bytes": 1389634,
+          "as": "StainedGlassLamp_base_basecolor.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Wayfair",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/glTF/StainedGlassLamp_bulbs_occlusion.png",
+          "sha256": "45a55bffc5c025c4c397fdd83ebf723b6bb22e53a4e1bda9ffb6aa27b17d13d7",
+          "bytes": 28535,
+          "as": "StainedGlassLamp_bulbs_occlusion.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Wayfair",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/glTF/StainedGlassLamp_glass_normal.png",
+          "sha256": "304fdcdbf9ab92bce5ac3c152b27a760be0f03ef9bb830b013ee096ca604eb57",
+          "bytes": 1920736,
+          "as": "StainedGlassLamp_glass_normal.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Wayfair",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/glTF/StainedGlassLamp_glass_occlusion-rough-metal.png",
+          "sha256": "d565c51c13e8a18e644f998998ab2b15c735011a1cc4828e6da90cd2cbd2e941",
+          "bytes": 1852778,
+          "as": "StainedGlassLamp_glass_occlusion-rough-metal.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Wayfair",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/glTF/StainedGlassLamp_glass_emissive.png",
+          "sha256": "d467bf4675fcbf65b887dba4769711d764659253e005bf09c75402c5d7200ca4",
+          "bytes": 1986007,
+          "as": "StainedGlassLamp_glass_emissive.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Wayfair",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/glTF/StainedGlassLamp_glass_basecolor-alpha.png",
+          "sha256": "8b2ce87d7a7eda447f29595e2ccac3e27e097f845d8f8263ef09cd2574abc2a1",
+          "bytes": 2433976,
+          "as": "StainedGlassLamp_glass_basecolor-alpha.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Wayfair",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/glTF/StainedGlassLamp_glass_transmission-clearcoat.png",
+          "sha256": "9599538f90d21b4b332f0800ce81c3a5c0e328bc27b81ea8b9ecfeae5a00a63d",
+          "bytes": 1300181,
+          "as": "StainedGlassLamp_glass_transmission-clearcoat.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Wayfair",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+          "sha256": "f278a5e2222eeca157e224bd8fc336eddfc4911da698905983f859faee6f7f7f",
+          "bytes": 776,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Wayfair",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/StainedGlassLamp/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        2.551452736502905,
+        1.4781230985677625,
+        1.786547514744415
+      ],
+      "lookAtM": [
+        6.780000000039532e-07,
+        0.344447598486042,
+        1.550000000002938e-06
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 2.8505162632821603,
+      "clipEndM": 3.7787745677098856,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-0.219966859, -3.027916e-09, -0.219966635] to [0.219968215, 0.6888952, 0.219969735], so centre = [6.780000000039532e-07, 0.344447598486042, 1.550000000002938e-06] and radius = 0.46412915221386275 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 3.314645415496023, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest and not of a Blender default. At zero bounces an emission returns its emission alone, so this changes no covered pixel."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "grill": [
+          0.85,
+          0.15,
+          0.15
+        ],
+        "steel": [
+          0.15,
+          0.3542572472504414,
+          0.85
+        ],
+        "amberbeads": [
+          0.5585144945008829,
+          0.85,
+          0.15
+        ],
+        "redgems": [
+          0.85,
+          0.15,
+          0.7627717417513241
+        ],
+        "hardware": [
+          0.15,
+          0.85,
+          0.7329710109982343
+        ],
+        "base": [
+          0.85,
+          0.528713763747793,
+          0.15
+        ],
+        "stainedglass": [
+          0.3244565164973515,
+          0.15,
+          0.85
+        ],
+        "bulbs": [
+          0.17980073075308986,
+          0.85,
+          0.15
+        ],
+        "grill_off": [
+          0.85,
+          0.15,
+          0.38405797800353125
+        ],
+        "hardware_off": [
+          0.15,
+          0.5883152252539726,
+          0.85
+        ],
+        "base_off": [
+          0.792572472504414,
+          0.85,
+          0.15
+        ],
+        "stainedglass_off": [
+          0.7031702802451444,
+          0.15,
+          0.85
+        ],
+        "bulbs_off": [
+          0.15,
+          0.85,
+          0.4989130329947031
+        ]
+      },
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it, on a golden-angle hue sweep so no two are close. A material row that reached the wrong body is a whole body of the wrong hue rather than a sub-pixel offset."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "A coverage case. Its subject's own shading -- textures, metallic-roughness, and any extension it declares -- is NOT what this decides; `board:1363` records why no case takes the shading arm yet. What it does decide is that the file reads, the geometry lands where the oracle puts it, and each material row reaches its own body."
+}

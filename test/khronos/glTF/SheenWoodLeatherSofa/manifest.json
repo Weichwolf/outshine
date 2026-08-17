@@ -1,0 +1,564 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/coverage/sheen-wood-leather-sofa",
+  "title": "Sofa asset using sheen, specular, and high-quality tiling textures -- and this case decides its geometry and its material binding",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:SheenWoodLeatherSofa",
+    "board:1322"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "Sofa asset using sheen, specular, and high-quality tiling textures.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction -- azimuth 35 degrees, elevation 20 degrees -- over a modelled body. Nothing here is analytic and nothing claims to be: what is compared is which pixels the two sides cover and what colour each body wears, over the whole boundary rather than any one edge."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "sheen-wood-leather-sofa",
+      "kind": "gltf",
+      "name": "SheenWoodLeatherSofa",
+      "entry": "scene.gltf",
+      "attributes": [
+        "COLOR_0",
+        "NORMAL",
+        "POSITION",
+        "TEXCOORD_0",
+        "TEXCOORD_1"
+      ],
+      "notes": "Attributes COLOR_0, NORMAL, POSITION, TEXCOORD_0, TEXCOORD_1. World bounds [-1.3629, 0.0006, -0.4627] to [1.3629, 1.1179, 0.4605]. It carries 6 named materials, and the file's own images are NOT read by this case: the material below declares its own colours, so what is compared is where the geometry is and which body wears which row. The file declares KHR_materials_specular, KHR_materials_sheen, KHR_texture_transform, EXT_texture_webp, which this case does not exercise.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "SheenWoodLeatherSofa",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/glTF/SheenWoodLeatherSofa.gltf",
+          "sha256": "58e102e52ce2c66a20b028d518f74e665b7d47d435e0f15be2bdeb643d14b830",
+          "bytes": 23047,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Improvements"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/glTF/SheenWoodLeatherSofa.bin",
+          "sha256": "785f3dff5c368fd5b58a1155299a0e32b535032900f943ee0b5932a6a17b6d22",
+          "bytes": 6533376,
+          "as": "SheenWoodLeatherSofa.bin",
+          "role": "buffer",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Improvements"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/glTF/Brown_BaseColor.webp",
+          "sha256": "e9855a9b76665791d5621b3dc92ae1d6cfe11617bb7c7b65074669c68654f6c2",
+          "bytes": 35826,
+          "as": "Brown_BaseColor.webp",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Improvements"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/glTF/Brown_Normal.webp",
+          "sha256": "e125b18bb4659ef896042bf1f77b372332fd8f16bcba47171191dc2d3bbbb744",
+          "bytes": 127894,
+          "as": "Brown_Normal.webp",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Improvements"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/glTF/Cushions_Occlusion.webp",
+          "sha256": "a5f5ad45806f88c951d93e12fed07831ac3f75429276c739632b0341fcb6b5b7",
+          "bytes": 13818,
+          "as": "Cushions_Occlusion.webp",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Improvements"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/glTF/Paisley_BaseColor.webp",
+          "sha256": "b1faf966c2382d01248dafe3638672189371c5f08b89a07bdd5e2b748c25ffa2",
+          "bytes": 463824,
+          "as": "Paisley_BaseColor.webp",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Improvements"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/glTF/Paisley_Normal.webp",
+          "sha256": "044c24c24c8ad550010f72e808814d5a6e48b426bcde90ff99550b38aaf6b09b",
+          "bytes": 760918,
+          "as": "Paisley_Normal.webp",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Improvements"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/glTF/Striped_BaseColor.webp",
+          "sha256": "b6089cb31022255dbb1c47299c5f3d4e4b867b5a53fa97cda24cd3a9530a19e1",
+          "bytes": 19890,
+          "as": "Striped_BaseColor.webp",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Improvements"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/glTF/Striped_Normal.webp",
+          "sha256": "c676fe1c014520b17a50ee6946ca948eaf3df8d334b26a5260d32a7b69d96267",
+          "bytes": 14144,
+          "as": "Striped_Normal.webp",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Improvements"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/glTF/Fringe_BaseColor.webp",
+          "sha256": "bee5f5e46764f239e1cbd6b53f549e498066584d8af60e3a6a5e5d29d710b310",
+          "bytes": 102468,
+          "as": "Fringe_BaseColor.webp",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Improvements"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/glTF/Fringe_Normal.webp",
+          "sha256": "2ea3999ff3776023342aeac9f4ad64e28e3aca4d86050f10fec39b852d291fe8",
+          "bytes": 16420,
+          "as": "Fringe_Normal.webp",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Improvements"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/glTF/Fringe_Occlusion.webp",
+          "sha256": "11e92e42b48be5f9e6fc28e728a2fc116594556206c7c4c8d63ffb124dd670eb",
+          "bytes": 3166,
+          "as": "Fringe_Occlusion.webp",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Improvements"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/glTF/Frame_BaseColor.webp",
+          "sha256": "776f5cdaf7fe59594736c078473f90c61c218a81a8bcd998b83bbec44a615df7",
+          "bytes": 179030,
+          "as": "Frame_BaseColor.webp",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Improvements"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/glTF/Frame_Normal.webp",
+          "sha256": "0f14705ad8ecde49c5b8dd08ec61e4dc6ec501471fd5e49f25d1b777cb29745d",
+          "bytes": 1806934,
+          "as": "Frame_Normal.webp",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Improvements"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/glTF/Frame_ORM.webp",
+          "sha256": "79eee3ed267eea0a1a79cd7f2fcc3b3d9ba1ab0374e131dcda61181b021e307d",
+          "bytes": 17024,
+          "as": "Frame_ORM.webp",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Improvements"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+          "sha256": "faaa6ee4f2af681cf9879a0590793f3c42ce02ad2e6ac8ce6e9b7d65471c42c3",
+          "bytes": 1216,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Improvements"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SheenWoodLeatherSofa/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        8.485544794794265,
+        4.329625322609862,
+        5.940536108718822
+      ],
+      "lookAtM": [
+        0.0,
+        0.5592804295340376,
+        -0.0011063224122863924
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 9.480163799183059,
+      "clipEndM": 12.567338177831987,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-1.362902283668518, 0.0006283966126179096, -0.46269778932919453] to [1.362902283668518, 1.1179324624554572, 0.46048514450462175], so centre = [0.0, 0.5592804295340376, -0.0011063224122863924] and radius = 1.5435871893244644 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 11.023750988507523, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest and not of a Blender default. At zero bounces an emission returns its emission alone, so this changes no covered pixel."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "Brown": [
+          0.85,
+          0.15,
+          0.15
+        ],
+        "Paisley": [
+          0.15,
+          0.3542572472504414,
+          0.85
+        ],
+        "Striped": [
+          0.5585144945008829,
+          0.85,
+          0.15
+        ],
+        "Fringe": [
+          0.85,
+          0.15,
+          0.7627717417513241
+        ],
+        "Frame": [
+          0.15,
+          0.85,
+          0.7329710109982343
+        ],
+        "Frame_Fabric": [
+          0.85,
+          0.528713763747793,
+          0.15
+        ]
+      },
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it, on a golden-angle hue sweep so no two are close. A material row that reached the wrong body is a whole body of the wrong hue rather than a sub-pixel offset."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "A coverage case. Its subject's own shading -- textures, metallic-roughness, and any extension it declares -- is NOT what this decides; `board:1363` records why no case takes the shading arm yet. What it does decide is that the file reads, the geometry lands where the oracle puts it, and each material row reaches its own body."
+}

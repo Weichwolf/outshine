@@ -1,0 +1,432 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/coverage/toy-car",
+  "title": "Toy car example using transmission, clearcoat, and sheen -- and this case decides its geometry and its material binding",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:ToyCar",
+    "board:1343"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "Toy car example using transmission, clearcoat, and sheen.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction -- azimuth 35 degrees, elevation 20 degrees -- over a modelled body. Nothing here is analytic and nothing claims to be: what is compared is which pixels the two sides cover and what colour each body wears, over the whole boundary rather than any one edge."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "toy-car",
+      "kind": "gltf",
+      "name": "ToyCar",
+      "entry": "scene.gltf",
+      "attributes": [
+        "NORMAL",
+        "POSITION",
+        "TEXCOORD_0"
+      ],
+      "notes": "Attributes NORMAL, POSITION, TEXCOORD_0. World bounds [-0.035, -0.0162, -0.037] to [0.0384, 0.0126, 0.037]. It carries 3 named materials, and the file's own images are NOT read by this case: the material below declares its own colours, so what is compared is where the geometry is and which body wears which row. The file declares KHR_texture_transform, KHR_materials_clearcoat, KHR_materials_transmission, KHR_materials_sheen, which this case does not exercise.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "ToyCar",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/glTF/ToyCar.gltf",
+          "sha256": "8e7341dfb0429663d0e93455757ea151cfd4fc5e4a7bc9e55d577bb5b498beb5",
+          "bytes": 17626,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2020",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+              "covers": "Initial car model"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2020",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+              "covers": "Extensions and scene composition"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/glTF/ToyCar.bin",
+          "sha256": "2f264fe41cedb20914817b891a9f02438f2e5049e17f0983b13245f93aeb9ceb",
+          "bytes": 3664368,
+          "as": "ToyCar.bin",
+          "role": "buffer",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2020",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+              "covers": "Initial car model"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2020",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+              "covers": "Extensions and scene composition"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/glTF/ToyCar_normal.png",
+          "sha256": "f3af8fd862a8a1ed13b6cf508d4edc3df6a484c43ed32bc5927a03b452515833",
+          "bytes": 98429,
+          "as": "ToyCar_normal.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2020",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+              "covers": "Initial car model"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2020",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+              "covers": "Extensions and scene composition"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/glTF/ToyCar_emissive.png",
+          "sha256": "f35fdda6764b6b6521296326143a654f6cae13c082fd6021e766677c422cf7e6",
+          "bytes": 83739,
+          "as": "ToyCar_emissive.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2020",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+              "covers": "Initial car model"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2020",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+              "covers": "Extensions and scene composition"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/glTF/ToyCar_basecolor.png",
+          "sha256": "7d51b5df33344f00dbc248f9a6043a7eaa6864b9f7ece1fb90f884a425423ed7",
+          "bytes": 196648,
+          "as": "ToyCar_basecolor.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2020",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+              "covers": "Initial car model"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2020",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+              "covers": "Extensions and scene composition"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/glTF/ToyCar_occlusion_roughness_metallic.png",
+          "sha256": "22911f36dc5e9a3b2acc6dfb8f7946f4c963b5296ab10e8dc6cce260140ce8a3",
+          "bytes": 457137,
+          "as": "ToyCar_occlusion_roughness_metallic.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2020",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+              "covers": "Initial car model"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2020",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+              "covers": "Extensions and scene composition"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/glTF/Fabric_normal.png",
+          "sha256": "24aee901f99facf761329b374b46a83d83060fecac88aa290e2cb92c2f6b90c2",
+          "bytes": 294759,
+          "as": "Fabric_normal.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2020",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+              "covers": "Initial car model"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2020",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+              "covers": "Extensions and scene composition"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/glTF/Fabric_occlusion.png",
+          "sha256": "b9e421842b576be7cf98a8fb8103ebf371b1d3d13eb226379ec4b5d8b8db3fcd",
+          "bytes": 191518,
+          "as": "Fabric_occlusion.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2020",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+              "covers": "Initial car model"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2020",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+              "covers": "Extensions and scene composition"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/glTF/Fabric_baseColor.png",
+          "sha256": "2d37e6edee4d5249c7076847cd47a732596c0385ce596d8a8d92746b4b902ef7",
+          "bytes": 412812,
+          "as": "Fabric_baseColor.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2020",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+              "covers": "Initial car model"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2020",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+              "covers": "Extensions and scene composition"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/glTF/ToyCar_clearcoat.png",
+          "sha256": "0dee4964f011c50bb1942cdc4f373f7e85277a3bbd75ae9f45261b763618f0ec",
+          "bytes": 15362,
+          "as": "ToyCar_clearcoat.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2020",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+              "covers": "Initial car model"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2020",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+              "covers": "Extensions and scene composition"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+          "sha256": "c2bfa3b25310161c82b6b79729a3a7508e66c2d0ac44539aeada817214f4814f",
+          "bytes": 1181,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2020",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+              "covers": "Initial car model"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2020",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/metadata.json",
+              "covers": "Extensions and scene composition"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        0.298974730859833,
+        0.13028023480440706,
+        0.20813554055558992
+      ],
+      "lookAtM": [
+        0.0017263685500000028,
+        -0.0017948260093168921,
+        -3.4542460662645436e-09
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 0.33208983416891513,
+      "clipEndM": 0.4402334537490318,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-0.03499509, -0.016206276438321066, -0.036981149900310116] to [0.038447827100000005, 0.012616624419687281, 0.036981142991817983], so centre = [0.0017263685500000028, -0.0017948260093168921, -3.4542460662645436e-09] and radius = 0.054071809790058344 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 0.38616164395897346, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest and not of a Blender default. At zero bounces an emission returns its emission alone, so this changes no covered pixel."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "ToyCar": [
+          0.85,
+          0.15,
+          0.15
+        ],
+        "Fabric": [
+          0.15,
+          0.3542572472504414,
+          0.85
+        ],
+        "Glass": [
+          0.5585144945008829,
+          0.85,
+          0.15
+        ]
+      },
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it, on a golden-angle hue sweep so no two are close. A material row that reached the wrong body is a whole body of the wrong hue rather than a sub-pixel offset."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "A coverage case. Its subject's own shading -- textures, metallic-roughness, and any extension it declares -- is NOT what this decides; `board:1363` records why no case takes the shading arm yet. What it does decide is that the file reads, the geometry lands where the oracle puts it, and each material row reaches its own body."
+}

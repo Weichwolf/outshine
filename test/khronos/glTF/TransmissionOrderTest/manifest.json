@@ -1,0 +1,332 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/coverage/transmission-order-test",
+  "title": "This model tests the interactions between blend modes and transmission -- and this case decides its geometry and its material binding",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:TransmissionOrderTest",
+    "board:1344"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "This model tests the interactions between blend modes and transmission.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TransmissionOrderTest/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction -- azimuth 35 degrees, elevation 20 degrees -- over a modelled body. Nothing here is analytic and nothing claims to be: what is compared is which pixels the two sides cover and what colour each body wears, over the whole boundary rather than any one edge."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "transmission-order-test",
+      "kind": "gltf",
+      "name": "TransmissionOrderTest",
+      "entry": "scene.gltf",
+      "attributes": [
+        "NORMAL",
+        "POSITION",
+        "TEXCOORD_0"
+      ],
+      "notes": "Attributes NORMAL, POSITION, TEXCOORD_0. World bounds [-3.6686, -0.8916, -1.6978] to [3.9024, 3.3947, 6.2361]. It carries 6 named materials, and the file's own images are NOT read by this case: the material below declares its own colours, so what is compared is where the geometry is and which body wears which row. The file declares KHR_materials_transmission, KHR_materials_volume, which this case does not exercise.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "TransmissionOrderTest",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TransmissionOrderTest/glTF/TransmissionOrderTest.gltf",
+          "sha256": "27708183486e5c7be387b7208e35bbb79422f1c9628b8775bfec437cfed312d6",
+          "bytes": 13876,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2025",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TransmissionOrderTest/metadata.json",
+              "covers": "Everything but the cloth backdrop"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TransmissionOrderTest/metadata.json",
+              "covers": "Cloth backdrop"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TransmissionOrderTest/glTF/TransmissionOrderTest.bin",
+          "sha256": "3fbd400db7e66f519d12877d9a5c78accf92fec77b0332be82e9c61bd4cf8a8d",
+          "bytes": 2291932,
+          "as": "TransmissionOrderTest.bin",
+          "role": "buffer",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2025",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TransmissionOrderTest/metadata.json",
+              "covers": "Everything but the cloth backdrop"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TransmissionOrderTest/metadata.json",
+              "covers": "Cloth backdrop"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TransmissionOrderTest/glTF/checkerboard.png",
+          "sha256": "ee566e345e32b918faefa66ca81d2fbb8352640afa60a5b4109a87afe49c9983",
+          "bytes": 2484,
+          "as": "checkerboard.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2025",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TransmissionOrderTest/metadata.json",
+              "covers": "Everything but the cloth backdrop"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TransmissionOrderTest/metadata.json",
+              "covers": "Cloth backdrop"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TransmissionOrderTest/glTF/alphaInACircle.png",
+          "sha256": "982ec33e05b1708edb35d7f87b45351eca156cc22c91e5f1f9af07892ebed504",
+          "bytes": 4937,
+          "as": "alphaInACircle.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2025",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TransmissionOrderTest/metadata.json",
+              "covers": "Everything but the cloth backdrop"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TransmissionOrderTest/metadata.json",
+              "covers": "Cloth backdrop"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TransmissionOrderTest/glTF/BlendMaskOpaqueLabels.png",
+          "sha256": "bae2f9ad60d94665b83e37c6ef725c2613ea2f9a07c8b0036cb7d95ca6aab110",
+          "bytes": 3300,
+          "as": "BlendMaskOpaqueLabels.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2025",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TransmissionOrderTest/metadata.json",
+              "covers": "Everything but the cloth backdrop"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TransmissionOrderTest/metadata.json",
+              "covers": "Cloth backdrop"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TransmissionOrderTest/metadata.json",
+          "sha256": "270d2a0dc5bf55b33fdb6df7aefb3efd419ead870672c09e5cf527ccd1d9aeb3",
+          "bytes": 1193,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2025",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TransmissionOrderTest/metadata.json",
+              "covers": "Everything but the cloth backdrop"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TransmissionOrderTest/metadata.json",
+              "covers": "Cloth backdrop"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        32.480665152521595,
+        15.631654626991658,
+        24.930528807739808
+      ],
+      "lookAtM": [
+        0.11687451601028442,
+        1.2515935115516186,
+        2.2691586390137672
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 36.15725846911082,
+      "clipEndM": 47.931713458764584,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-3.6686076521873474, -0.891552247107029, -1.6977669447660446] to [3.9023566842079163, 3.394739270210266, 6.236084222793579], so centre = [0.11687451601028442, 1.2515935115516186, 2.2691586390137672] and radius = 5.887227494826881 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 42.0444859639377, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest and not of a Blender default. At zero bounces an emission returns its emission alone, so this changes no covered pixel."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "Cloth Backdrop": [
+          0.85,
+          0.15,
+          0.15
+        ],
+        "Alpha Blend Material": [
+          0.15,
+          0.3542572472504414,
+          0.85
+        ],
+        "Blue Glass Material": [
+          0.5585144945008829,
+          0.85,
+          0.15
+        ],
+        "Alpha Mask Material": [
+          0.85,
+          0.15,
+          0.7627717417513241
+        ],
+        "Label Material": [
+          0.15,
+          0.85,
+          0.7329710109982343
+        ],
+        "Opaque Material": [
+          0.85,
+          0.528713763747793,
+          0.15
+        ]
+      },
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it, on a golden-angle hue sweep so no two are close. A material row that reached the wrong body is a whole body of the wrong hue rather than a sub-pixel offset."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "A coverage case. Its subject's own shading -- textures, metallic-roughness, and any extension it declares -- is NOT what this decides; `board:1363` records why no case takes the shading arm yet. What it does decide is that the file reads, the geometry lands where the oracle puts it, and each material row reaches its own body."
+}

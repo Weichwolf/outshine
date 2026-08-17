@@ -1,0 +1,386 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/coverage/clear-coat-test",
+  "title": "Tests if the KHR_materials_clearcoat extension is supported properly -- and this case decides its geometry and its material binding",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:ClearCoatTest",
+    "board:1243"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "Tests if the KHR_materials_clearcoat extension is supported properly.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ClearCoatTest/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction -- azimuth 35 degrees, elevation 20 degrees -- over a modelled body. Nothing here is analytic and nothing claims to be: what is compared is which pixels the two sides cover and what colour each body wears, over the whole boundary rather than any one edge."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "clear-coat-test",
+      "kind": "gltf",
+      "name": "ClearCoatTest",
+      "entry": "scene.gltf",
+      "attributes": [
+        "NORMAL",
+        "POSITION",
+        "TANGENT",
+        "TEXCOORD_0"
+      ],
+      "notes": "Attributes NORMAL, POSITION, TANGENT, TEXCOORD_0. World bounds [-7.3578, -6.25, -0.06] to [3.1, 6.8545, 1.05]. It carries 19 named materials, and the file's own images are NOT read by this case: the material below declares its own colours, so what is compared is where the geometry is and which body wears which row. The file declares KHR_materials_clearcoat, which this case does not exercise.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "ClearCoatTest",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ClearCoatTest/glTF/ClearCoatTest.gltf",
+          "sha256": "c171d3fcac0a9567e9e46c0312408755737bc6450968c0c5fc320cf08ea2bd01",
+          "bytes": 31068,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2020",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ClearCoatTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ClearCoatTest/glTF/ClearCoatTest.bin",
+          "sha256": "b08f3e07f8050fd117b4b3bb3fa0bb93fd7a3f8dbe509d48e330daf8b754c840",
+          "bytes": 69288,
+          "as": "ClearCoatTest.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2020",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ClearCoatTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ClearCoatTest/glTF/PartialCoating.png",
+          "sha256": "c0af343c4d9c1e10498acd5d36ab1ca8ed20fe66628af3a69ec42a645555d405",
+          "bytes": 5077,
+          "as": "PartialCoating.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2020",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ClearCoatTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ClearCoatTest/glTF/PartialCoating_Alpha.png",
+          "sha256": "1f1623143d44a08978ddc9ec00a6fe33fb34fc292fc5c46b5ddb0c056c2c316a",
+          "bytes": 5065,
+          "as": "PartialCoating_Alpha.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2020",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ClearCoatTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ClearCoatTest/glTF/RoughnessStripes.png",
+          "sha256": "4cfe60f6d25acdf6fa6396da652783582cad25eb73372f72af3d5ece5a5ea2a8",
+          "bytes": 5033,
+          "as": "RoughnessStripes.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2020",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ClearCoatTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ClearCoatTest/glTF/RibsNormal.png",
+          "sha256": "2d8c08bcd0b260a17ad973c4ee1353c48a317302c153aa3b7bb356a6b3689ca3",
+          "bytes": 1605,
+          "as": "RibsNormal.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2020",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ClearCoatTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ClearCoatTest/glTF/PlasticWrap_normals.jpg",
+          "sha256": "1bd5ce83066aae7ee8af324ada1492dadad0eba9dac15eb629f2be78684a5ce0",
+          "bytes": 144210,
+          "as": "PlasticWrap_normals.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2020",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ClearCoatTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ClearCoatTest/glTF/ClearCoatLabels.png",
+          "sha256": "b8b006dd13229d51f25a7162e6fd249cd2255c97f3d0fac7f604c61de9ff45d8",
+          "bytes": 10270,
+          "as": "ClearCoatLabels.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2020",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ClearCoatTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ClearCoatTest/metadata.json",
+          "sha256": "b55a824fa1ad071b70cb7770ec345cb63805b1a21499fdcbe238588711bbaf1b",
+          "bytes": 780,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2020",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ClearCoatTest/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        44.05536919600029,
+        20.823112920308652,
+        32.83357461337652
+      ],
+      "lookAtM": [
+        -2.128901720046997,
+        0.3022584319114685,
+        0.4949999712407589
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 51.59768333302281,
+      "clipEndM": 68.40024596354145,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-7.3578033447265625, -6.25, -0.06000000983476639] to [3.0999999046325684, 6.854516863822937, 1.0499999523162842], so centre = [-2.128901720046997, 0.3022584319114685, 0.4949999712407589] and radius = 8.40128131525932 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 59.998964648282126, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest and not of a Blender default. At zero bounces an emission returns its emission alone, so this changes no covered pixel."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "Simple_Base": [
+          0.85,
+          0.15,
+          0.15
+        ],
+        "Simple_Coated": [
+          0.15,
+          0.3542572472504414,
+          0.85
+        ],
+        "Simple_Coating": [
+          0.5585144945008829,
+          0.85,
+          0.15
+        ],
+        "Partial_Base": [
+          0.85,
+          0.15,
+          0.7627717417513241
+        ],
+        "Partial_Coated": [
+          0.15,
+          0.85,
+          0.7329710109982343
+        ],
+        "Partial_Coating": [
+          0.85,
+          0.528713763747793,
+          0.15
+        ],
+        "RoughVariations_Base": [
+          0.3244565164973515,
+          0.15,
+          0.85
+        ],
+        "RoughVariations_Coated": [
+          0.17980073075308986,
+          0.85,
+          0.15
+        ],
+        "RoughVariations_Coating": [
+          0.85,
+          0.15,
+          0.38405797800353125
+        ],
+        "BaseNorm_Base": [
+          0.15,
+          0.5883152252539726,
+          0.85
+        ],
+        "BaseNorm_Coated": [
+          0.792572472504414,
+          0.85,
+          0.15
+        ],
+        "BaseNorm_Coating": [
+          0.7031702802451444,
+          0.15,
+          0.85
+        ],
+        "CoatNorm_Base": [
+          0.15,
+          0.85,
+          0.4989130329947031
+        ],
+        "CoatNorm_Coated": [
+          0.85,
+          0.29465578574426166,
+          0.15
+        ],
+        "CoatNorm_Coating": [
+          0.15,
+          0.20960146150617973,
+          0.85
+        ],
+        "SharedNorm_Base": [
+          0.4138587087566211,
+          0.85,
+          0.15
+        ],
+        "SharedNorm_Coated": [
+          0.85,
+          0.15,
+          0.6181159560070625
+        ],
+        "SharedNorm_Coating": [
+          0.15,
+          0.8223732032575038,
+          0.85
+        ],
+        "LabelMaterial": [
+          0.85,
+          0.6733695494920545,
+          0.15
+        ]
+      },
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it, on a golden-angle hue sweep so no two are close. A material row that reached the wrong body is a whole body of the wrong hue rather than a sub-pixel offset."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "A coverage case. Its subject's own shading -- textures, metallic-roughness, and any extension it declares -- is NOT what this decides; `board:1363` records why no case takes the shading arm yet. What it does decide is that the file reads, the geometry lands where the oracle puts it, and each material row reaches its own body."
+}

@@ -136,21 +136,21 @@
     "camera": {
       "source": "manifest",
       "positionM": [
-        1.9781158123523264,
-        1.0207405818930213,
-        1.3796009385599657
+        1.97811583096514,
+        1.0207405931167453,
+        1.3796009495210517
       ],
       "lookAtM": [
-        0.002389829599999997,
-        0.1428749233725,
-        -0.003817288000000002
+        0.002389829605817795,
+        0.14287492632865906,
+        -0.0038172900676727295
       ],
       "rollRad": 0.0,
       "yfovRad": 0.47108996144172666,
       "sensorHeightMm": 24.0,
-      "clipStartM": 2.2073074141668116,
-      "clipEndM": 2.9261075361019215,
-      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-0.0690619648, -0.000878453255, -0.3253729] to [0.073841624, 0.2866283, 0.317738324], so centre = [0.002389829599999997, 0.1428749233725, -0.003817288000000002] and radius = 0.3594000609675551 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 2.5667074751343666, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "clipStartM": 2.2073074349547954,
+      "clipEndM": 2.9261075636594227,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-0.0690619648, -0.000878453255, -0.3253729] to [0.073841624, 0.2866283, 0.317738324], so centre = [0.002389829599999997, 0.1428749233725, -0.003817288000000002] and radius = 0.3594000609675551 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 2.5667074751343666, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius. QUOTED FROM THE RULE'S OWN OUTPUT, not recomputed beside it: the bounds are the AABB of the TRANSFORMED VERTICES, and an authoring helper that transformed the eight corners of the local AABB produced a looser box wherever a node rotates -- 1.861e-08 m of eye, five orders past the runner's tolerance.",
       "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
     },
     "light": {
