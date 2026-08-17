@@ -173,6 +173,26 @@ corpus — **61 declarations across 36 cases — `bounces.max` is 0 in every one
 bounces carries no indirect light, so **even with an ambient term on our side there would be nothing to
 compare against.**
 
+**A THIRD GATE, AND IT IS THE ONE THIS TREE CANNOT OPEN BY CHANGING ITS OWN DECLARATIONS.** The two above
+are ours — an ambient edge we could add, a bounce count we could raise. This one is not. [MEASURED] on
+Blender 5.2.0 against `AlphaBlendModeTest`, whose material 0 declares an `occlusionTexture`: the importer
+builds a `glTF Material Output` group, links the occlusion image **into** it, and **links its outputs to
+nothing** — `outputs linked downstream = False`, against `Material Output surface linked = True` for the
+shader that actually renders. **The map is imported and feeds no BSDF**, so Cycles never applies it.
+
+**That is not an importer defect and it should not be reduced away.** A path tracer computes indirect
+light by tracing it; a baked occlusion map is an *approximation of the quantity Cycles evaluates exactly*,
+and connecting it would make the reference darker than the light transport it is the authority on. **So
+raising `bounces.max` does not open this gate either** — it gives Cycles true indirect light and still no
+occlusion factor, and our spec-correct multiply would then be a disagreement in the direction of the
+approximation.
+
+**Which leaves the honest statement: `occlusionTexture` is a capability no render case against this oracle
+can decide, and the ladder ends at a declared disqualification per `(case, metric)` rather than at a
+reduction.** It is filed here and not as a task because **the sequence's own criterion already excludes
+it** — *only where a render can actually prove it* — so this is that criterion applied to a measurement,
+not a new decision. **The row keeps its impact of 46 and loses its place at number 2.**
+
 | | |
 |---|---|
 | implement it correctly today | **changes zero pixels** — nothing to multiply, on either side |
