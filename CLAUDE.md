@@ -117,6 +117,53 @@ never about.
 oracle · patch the asset · disqualify. Disqualification is per `(case, metric)`, never per test, and it
 is the last rung.
 
+**The caveat first, every time.** Before a defect is reported the harmless explanation is actively sought
+and named, with why it is ruled out. *"No directional light"* was a scene at −3.6° sun elevation; *"aerial
+perspective fails"* was a missing rock class in the near field. **A confounded finding costs a whole round.**
+
+**Measure before you reach.** A suspected cause is measured before it is repaired, and **when the
+measurement refutes the guess, the refutation is the round's result** and carries its number.
+
+**Look it up, do not recall it.** A domain claim without a source is a defect rather than a finding — a
+beech leaf is 6–10 cm, and a number wrong by a factor of ten is only found by looking. **And check the
+source rather than citing it**: Microsoft Flight Simulator supports no claim about run-time generation,
+because everything there was generated ahead of time in the cloud.
+
+**Three measuring cautions, each of which has cost a round.** A **run-wide average is not a zero point**
+when the quantity drifts across the run — take the neighbourhood and say which. **A reference photograph
+is not a photometer beyond about 2 EV**: it puts clear sky at 1.74× the sunlit limestone of the same frame
+where physics demands 0.23…0.36×, so ground against ground is usable and an absolute value is not. And
+**freeze the masks** — a colour-keyed population moves with the light, so it is built once on the
+reference frame and the same one is used on both sides.
+
+**A measurement pins its subject by a source digest and never by an archive's hash** (`board:1157`): `ar`
+embeds mtimes and `liboutshine.a` is not what the suites link, so that hash identifies a build event and
+not a state of the code. **An instrument in the path — a sanitiser, a proxy, a substituted table — is its
+own field**, never folded into the number.
+
+**Look at every image produced and report what is seen**, not what is expected. **The still is the
+comparison resolution and not the acceptance**: the most expensive defects are exactly the ones one frame
+cannot show — popping at an LOD change, a scatter that ends at a radius, ghosting in the temporal filter,
+a hitch on stream-in, shading that jumps at a mesh change. **On a picture judgement the answer is yes or
+no**, compared at **320×180**, where light, colour and silhouette decide and detail no longer speaks — so
+**the answer to a bad comparison is never more detail**.
+
+**What is replaced disappears in the same round.** A fallback is a dead path, and a dead path that can
+still fire is worse than one line too many. Diagnostics are not dead paths.
+
+**Every statement has exactly one place.** An argument standing in both a header and `board/` will drift
+the moment one side is measured.
+
+**Warnings are errors.** A pre-existing red is neither worsened nor repaired unasked — it is named.
+
+**Half-built is worse than not built.** *I cannot solve this as stated*, with the measurement that shows
+it, beats something that explodes later. **Resistance is information**: when a thing is hard, that does
+not mean make it easier, it means there is something here you do not understand.
+
+**Every artefact goes to the system temp directory, never into the tree** — a repository is what is
+declared and what is built from it, and a file nobody committed on purpose is a file the next round has
+to decide about.
+
 ## The engine
 
 The owner's decomposition, and it is one line: **generator (tile, tree, house, car, …) → compositor
@@ -409,6 +456,17 @@ implementation. **Seven fields and no others — an eighth needs a decision:**
 | `Regresses:` | **the tree changed** — the closure was true and the tree stopped satisfying it |
 | `Supersedes:` | **our understanding changed** — the claim was correct as stated and too narrow, or wrong |
 
+**A defect found becomes a work item in the same round it is found.** A finding that lives only in a
+report is lost at the next context boundary.
+
+**The board may be extended and may not be shortened.** Adding what is true costs a round nothing;
+**removing what looks false can cost a capability nobody notices is gone**, so a deleted line is scope
+given up and that is the owner's alone.
+
+**Feature or bug is decided by one question: does the code claim to do it?** An unticked requirement has
+never worked; a bug worked, or looks like it works. **Nothing is ticked that was not checked in the tree
+that round.**
+
 **A commit that changes a work item names it the same way** — `board:0042` in the message, the same
 marker the source uses. One id then has three views and each is read from a different tree: the
 **file** is its state, the **code** is what implements and proves it, the **log** is what was done to
@@ -517,15 +575,7 @@ commit**, because the index already holds what somebody else staged — and a re
 committing only the new one leaves the item under both directories at once.
 
 
-**The session that runs is the ORCHESTRATOR: it maintains the backlog and delegates the work.**
-`engine-architect` designs, judges and writes what an item **says**; `engine-developer` builds it and
-**measures** it. The orchestrator does neither — it grooms, activates, closes, derives the next id,
-decides who works what, and commits. **Its split with the architect's ownership of `board/` is state
-against content**: which directory an item sits in and who holds it are the orchestrator's; what the
-item claims is the architect's. *An orchestrator that reached into `src/` would be the one agent in the
-round that proves nothing, making the change somebody else then has to measure.*
-
-**The orchestrator's task list is a mirror of `board/active/` and nothing else.** One entry per active
+**The session's task list is a mirror of `board/active/` and nothing else.** One entry per active
 item, its subject the item's **`NNNN` and title verbatim**: a task list entry with no file under
 `board/active/` *is* a second ordering. It is **derived, never authored**: an item is activated by
 `git mv` and the entry follows; an item closes the same way and the entry is marked done. **If the two
@@ -553,137 +603,6 @@ defect facing the other way, and the citation test already holds it.
 Query: **what is ready to start** — open tasks whose every `Depends:` is closed. **A board with nothing
 ready is a legitimate state**, so it may not go red, and a later round must not helpfully make it a test.
 
-
-## The roles
-
-**Three roles, and they were three agent definitions until the definitions were folded in here.** The
-split survives the files: it is about *what a round is allowed to write*, and that is a property of the
-work rather than of a tool.
-
-| | writes | never writes |
-|---|---|---|
-| **orchestrator** | the task list, the commits, `board/`'s **state** — the `git mv` that activates or closes | `src/`, `test/` |
-| **architect** | `board/` — the item's **content**: what must be true, what is wrong, what was decided | code, `CLAUDE.md`, anything else |
-| **developer** | `src/`, `test/`, the scenarios | `board/`, and it does not commit |
-
-**The orchestrator owns state, the architect owns content.** Which directory an item sits in and who is
-working it is the first; what the item claims is the second. *An orchestrator that reached into `src/`
-would be the one participant in the round that proves nothing, making the change somebody else then has
-to measure.*
-
-**There is exactly one builder in the tree at a time.** Development is serial: two concurrent builds
-share `build/obj`, and an interleaved write to one object is a phantom measurement that survives into a
-report. Separating files prevents overwriting, not interference.
-
-**The builder does not commit.** It reports; the orchestrator re-measures and commits. **"Built but not
-accepted" does not exist**, and a number that reaches a commit unverified is a number nobody checked.
-
-### What the architect owes
-
-**Design and judgement, never repair.** A defect found becomes a work item **in the same round it is
-found** — a finding that lives only in a report is lost at the next context boundary.
-
-**It may extend the board and may not shorten it.** Adding what is true costs a round nothing; **removing
-what looks false can cost a capability nobody notices is gone**, so a deleted line is scope given up and
-that is the owner's alone. The same asymmetry runs through everything it writes.
-
-**Feature or bug is decided by one question: does the code claim to do it?** An unticked requirement has
-never worked; a bug worked, or looks like it works.
-
-**Nothing is ticked that was not checked in the tree that round.**
-
-**The caveat first, every time.** Before a defect is reported, the harmless explanation is actively sought
-and named, with why it is ruled out. *"No directional light"* was a scene at −3.6° sun elevation; *"aerial
-perspective fails"* was a missing rock class in the near field. **A confounded finding costs a whole
-round.**
-
-**Judge the shape, not only the absence of defects.** A round can meet its acceptance and leave a design
-nobody would want to build in. The criterion is not taste: **how much of what is forbidden is now
-unspellable rather than merely forbidden?** Name, per round, which constraints moved from the first kind
-to the second — and an architect who only ever subtracts is as useless as one who only ever approves.
-
-**On a picture judgement: yes or no.** No *getting closer*. Comparison happens at **320×180**, because
-there light, colour and silhouette decide and detail no longer speaks — **so the answer to a bad
-comparison is never more detail.**
-
-**An architect who planned something finds his plan good.** When judgement runs in the same session as the
-design, the report says so and looks deliberately for what argues against it. A genuinely adversarial
-check is a **fresh** instance that does not know the design was its own.
-
-**Look it up, do not recall it.** A domain claim without a source is a defect in the report, not a
-finding. **And check the source rather than citing it**: Microsoft Flight Simulator does not support a
-claim about run-time generation — everything there was generated ahead of time in the cloud; for a world
-that comes into being while you walk, Guerrilla's *Horizon Zero Dawn* is the evidence.
-
-| Field | What a claim is measured against |
-|---|---|
-| **botany** | real references for the region — growth form, height/diameter ratio, leaf dimensions, LAI, stand density, species mix by elevation. A beech leaf is 6–10 cm, and a number wrong by a factor of ten is only found by looking |
-| **vegetation picture** | Kingdom Come: Deliverance first, then SpeedTree practice: silhouette, foliage density, LOD transitions, impostor credibility, crown self-shadowing |
-| **structures** | real proportions and materiality — storey height, roof form, window rhythm, scale against a human |
-| **performance** | the instancing and LOD practice of the references, not a feeling about triangles |
-
-**Three measuring cautions that cost rounds here.** A **run-wide average is not a zero point** when the
-quantity drifts across the run — take the neighbourhood and say which. **The reference photograph is not
-a photometer beyond about 2 EV** — it puts clear sky at 1.74× the sunlit limestone of the same frame where
-physics demands 0.23…0.36×, so ground against ground is usable and an absolute value is not. And **freeze
-the masks**: a colour-keyed population moves with the light, so it is built once on the reference frame
-and the same one is used on both sides.
-
-### What the developer owes
-
-**Measure before you reach.** When a cause is suspected, it is measured before it is repaired — and
-**when the measurement refutes the guess, the refutation is the round's result** and goes into the report
-with its number.
-
-**Every measurement pins its subject**, and an instrument in the path — a sanitiser, a proxy, a
-substituted table — is its own field, never folded into the number. *A sanitised run that entered the
-archive looking like a shipping run cost eight files of a corrupted series.* **The subject is pinned by a
-source digest and never by the archive's hash** (`board:1157`): `ar` embeds mtimes, and `liboutshine.a`
-is not what the suites link, so that hash identifies a build event and not a state of the code.
-
-**Look at every image you produce and report what you see**, not what you expect. A number that improves
-while the picture worsens is a wrong measurement.
-
-**The still is the comparison resolution, not the acceptance.** The most expensive defects are exactly
-the ones a single frame cannot show — popping at an LOD change, a scatter that ends at a radius, ghosting
-and smear in the temporal filter, a hitch on stream-in, shading that jumps at a mesh change.
-
-**What is replaced disappears in the same round.** A fallback is a dead path, and a dead path that can
-still fire is worse than one line too many. Diagnostics are not dead paths.
-
-**Every statement has exactly one place.** An argument standing in both a header and `board/` will drift
-the moment one side is measured.
-
-**Appearance is generated, never authored — and textures are normal.** Bark, leaf, façade and ground
-detail are produced by a generator here, cached and sampled. Forbidden is a file somebody painted, because
-nothing can recompute it; measured raster data is admissible for the mirror reason. **The test is: can
-this be recomputed from something we own?** *Texture-free was never the rule and the word did damage* —
-spatial constancy is not a virtue, and when a function is not enough the missing structure is **geometry**.
-
-**Warnings are errors, and a pre-existing red is neither worsened nor repaired unasked — it is named.**
-
-**Half-built is worse than not built.** *I cannot solve this as stated*, with the measurement that shows
-it, beats something that explodes later. **Resistance is information**: when a thing is hard, that does
-not mean make it easier, it means there is something here you do not understand.
-
-**If you are going in circles, do it the way the established ones do.** Everything here has been solved
-several times over — search, read the source, name it in one line at the decision point, and deviate only
-with the reason standing beside the deviation.
-
-### What a report carries
-
-**For a reader who does not see the transcript.** No step-by-step logs, no summary of procedure.
-
-1. the acceptance numbers **before and after** — and where one is missed, the number reached with its
-   derivation. **The goal is never moved**
-2. what was **seen** in the images, with paths
-3. the Core Guidelines rules cut against, and **the violations left standing**, with file and rule number
-4. the toolchain, the source digest, and any instrument in the path
-5. **what could not be verified, and why** — never a substitution presented as a verification
-
-**Every artefact goes to the system temp directory, never into the tree.** Stills, dumps, scratch scripts:
-a repository is what is declared and what is built from it, and a file nobody committed on purpose is a
-file the next round has to decide about.
 
 ## References
 
