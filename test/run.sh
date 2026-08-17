@@ -503,6 +503,11 @@ criterionRed=0
 pictureWithin=0
 pictureOutside=0
 pictureUnenforced=0
+grownCriterionMet=0
+grownCriterionRed=0
+grownPictureWithin=0
+grownPictureOutside=0
+grownPictureUnenforced=0
 failed=0
 timedout=0
 signalled=0
@@ -611,14 +616,35 @@ Judge() {
 CountTheTwo() {
   case "$1" in *'~'*) return 0 ;; esac
   [ -f "$2" ] || return 0
-  case "$(sed -n 's/^KHRONOS-CRITERION //p' "$2" | head -1)" in
-    met) criterionMet=$((criterionMet + 1)) ;;
-    red) criterionRed=$((criterionRed + 1)) ;;
-  esac
-  case "$(sed -n 's/^PICTURE-BOUND //p' "$2" | head -1)" in
-    within) pictureWithin=$((pictureWithin + 1)) ;;
-    outside) pictureOutside=$((pictureOutside + 1)) ;;
-    not-enforced) pictureUnenforced=$((pictureUnenforced + 1)) ;;
+  # THE CORPUS IS PART OF THE POPULATION AND THE LABEL SAYS SO. The first version of this counter
+  # summed both corpora under the word `khronos` and published `38 met of 44` -- 33 Khronos cases and
+  # 11 this engine grows itself, under a name that claimed only the first. A count whose label names a
+  # narrower population than it draws from is board:0089's own warning arriving in the reporter.
+  criterion=$(sed -n 's/^KHRONOS-CRITERION //p' "$2" | head -1)
+  picture=$(sed -n 's/^PICTURE-BOUND //p' "$2" | head -1)
+  case "$1" in
+    khronos/*)
+      case "$criterion" in
+        met) criterionMet=$((criterionMet + 1)) ;;
+        red) criterionRed=$((criterionRed + 1)) ;;
+      esac
+      case "$picture" in
+        within) pictureWithin=$((pictureWithin + 1)) ;;
+        outside) pictureOutside=$((pictureOutside + 1)) ;;
+        not-enforced) pictureUnenforced=$((pictureUnenforced + 1)) ;;
+      esac
+      ;;
+    *)
+      case "$criterion" in
+        met) grownCriterionMet=$((grownCriterionMet + 1)) ;;
+        red) grownCriterionRed=$((grownCriterionRed + 1)) ;;
+      esac
+      case "$picture" in
+        within) grownPictureWithin=$((grownPictureWithin + 1)) ;;
+        outside) grownPictureOutside=$((grownPictureOutside + 1)) ;;
+        not-enforced) grownPictureUnenforced=$((grownPictureUnenforced + 1)) ;;
+      esac
+      ;;
   esac
 }
 
@@ -849,10 +875,15 @@ printf '%s tests: %s PASS  %s FAIL  %s TIMEOUT  %s SIGNAL  %s BUILD  %s SKIP  %s
 # count either way would otherwise be counted as a pass. Printed only where a case reported one, so a
 # run of the unit tree says nothing about a corpus it never touched.
 [ $((criterionMet + criterionRed)) -gt 0 ] &&
-  printf 'khronos criteria: %s met of %s   picture bound: %s within, %s outside, %s not-enforced of %s\n' \
+  printf 'khronos: criteria %s met of %s   picture bound %s within, %s outside, %s not-enforced of %s\n' \
     "$criterionMet" "$((criterionMet + criterionRed))" \
     "$pictureWithin" "$pictureOutside" "$pictureUnenforced" \
     "$((pictureWithin + pictureOutside + pictureUnenforced))"
+[ $((grownCriterionMet + grownCriterionRed)) -gt 0 ] &&
+  printf 'grown:   criteria %s met of %s   picture bound %s within, %s outside, %s not-enforced of %s\n' \
+    "$grownCriterionMet" "$((grownCriterionMet + grownCriterionRed))" \
+    "$grownPictureWithin" "$grownPictureOutside" "$grownPictureUnenforced" \
+    "$((grownPictureWithin + grownPictureOutside + grownPictureUnenforced))"
 # WHAT THE API-CONTRACT ARM DOES NOT COVER, printed where its results are, because a green
 # validation arm is not a correctness claim and a later round must not read it as one (board:1123).
 [ "$validatedRan" = yes ] && printf '%s\n' \
