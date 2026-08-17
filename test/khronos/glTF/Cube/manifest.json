@@ -1,0 +1,226 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/coverage/cube",
+  "title": "A cube with per-face normals -- and this case decides its silhouette, not its faceting",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:Cube",
+    "board:1263"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "A cube with non-smoothed faces.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Cube/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's azimuth 35 and elevation 20 put no silhouette edge of an axis-aligned cube on a raster row, column or diagonal. The subject's own point -- unsmoothed faces -- is NOT what this decides, and the acceptance says so rather than letting a green read as a claim about normals."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "cube",
+      "kind": "gltf",
+      "name": "Cube",
+      "entry": "scene.gltf",
+      "attributes": [
+        "NORMAL",
+        "POSITION",
+        "TANGENT",
+        "TEXCOORD_0"
+      ],
+      "notes": "POSITION, NORMAL, TANGENT and TEXCOORD_0, with the corners split so each carries its face's normal. The file's baseColour texture is not read by this case.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "Cube",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Cube/glTF/Cube.gltf",
+          "sha256": "9580ff77ad6a1a601fb570aaad6148f8e4067244d2430337a43edbb4d627e85d",
+          "bytes": 3531,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "UX3D",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Cube/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Cube/glTF/Cube.bin",
+          "sha256": "ece1e675655d75762aaa7e920d93167442d3b9672324694716528ed4e018e4b3",
+          "bytes": 1800,
+          "as": "Cube.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "UX3D",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Cube/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Cube/glTF/Cube_BaseColor.png",
+          "sha256": "0750d5a03c1bebc640571e309f66c6e88efbff2ef4c120619466a7014551bb9a",
+          "bytes": 565730,
+          "as": "Cube_BaseColor.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "UX3D",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Cube/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Cube/metadata.json",
+          "sha256": "2e9299cd9543a80f9ef315d2098fb5df6a3d460e7338e325bb66445d5a30bab7",
+          "bytes": 682,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "UX3D",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Cube/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        9.521585347235005,
+        4.23068424669173,
+        6.6670863358410655
+      ],
+      "lookAtM": [
+        0.0,
+        0.0,
+        4.999999999588667e-07
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 10.637642119933878,
+      "clipEndM": 14.101744312421998,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-1.0, -1.0, -1.0] to [1.0, 1.0, 1.000001], so centre = [0.0, 0.0, 4.999999999588667e-07] and radius = 1.73205109624406 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 12.369693216177938, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material below emits, so nothing has to arrive for the picture to exist. A light here would add a lobe neither side is being asked about."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest and not of a Blender default. At zero bounces an emission shader returns its emission alone, so this changes no covered pixel -- it removes the background from the DECLARATION rather than from the render."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "Cube": [
+          0.85,
+          0.15,
+          0.15
+        ]
+      },
+      "note": "Emission, one colour per glTF material. UNDER A UNIFORM ENVIRONMENT AN UNOCCLUDED DIFFUSE FACE RETURNS rho*L INDEPENDENT OF ITS NORMAL, so a lit arm would render every face of a convex body the same colour and the faceting would be invisible by construction -- which is why this case does not pretend to decide it."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "A coverage case for a solid. The model's criterion is faceting and it needs a shading arm that can separate two faces; that is board:1363's territory and it is not claimed here."
+}

@@ -1,0 +1,246 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/coverage/vertex-color-test",
+  "title": "Two bodies, two named materials -- the binding, while COLOR_0 itself waits on board:1193",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:VertexColorTest",
+    "board:1354"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "Tests if vertex colors are supported.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VertexColorTest/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "Two separated bodies under the framing rule's general position, given DIFFERENT colours so a body drawn at the wrong place cannot hide inside the union of the two silhouettes."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "vertex-color-test",
+      "kind": "gltf",
+      "name": "VertexColorTest",
+      "entry": "scene.gltf",
+      "attributes": [
+        "COLOR_0",
+        "NORMAL",
+        "POSITION",
+        "TANGENT",
+        "TEXCOORD_0"
+      ],
+      "notes": "Two mesh-bearing nodes, both named, and two named materials. The file's point is COLOR_0, a per-vertex colour that an emission arm does not read.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "VertexColorTest",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VertexColorTest/glTF/VertexColorTest.gltf",
+          "sha256": "cfa41dcbf220eee5cde1a83e5cedf6e5e962f8947e80f7d95ada589a829f78c4",
+          "bytes": 8660,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VertexColorTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VertexColorTest/glTF/VertexColorTest.bin",
+          "sha256": "6db785f1fb513441354b543619bc6fc72798b6f4295034a45a41480662f625a9",
+          "bytes": 4332,
+          "as": "VertexColorTest.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VertexColorTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VertexColorTest/glTF/VertexColorTestLabels.png",
+          "sha256": "f2446c642ff49c1a1377ca6a955dbe3e0f4d1bb01035739e7f122e8a9ff74852",
+          "bytes": 9674,
+          "as": "VertexColorTestLabels.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VertexColorTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VertexColorTest/glTF/VertexColorChecks.png",
+          "sha256": "51911f1787fa12bf373828804df0cf8f4279a8c1b5e0f6046f5f4b425ad5337a",
+          "bytes": 8658,
+          "as": "VertexColorChecks.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VertexColorTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VertexColorTest/metadata.json",
+          "sha256": "d26903983e1a3ab7cfded1175361334cad560a7ce446708e85b3a9189c326220",
+          "bytes": 734,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VertexColorTest/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        7.777010310996593,
+        3.455524847706009,
+        5.4698337988658805
+      ],
+      "lookAtM": [
+        5.960464477539063e-08,
+        0.0,
+        0.02431259610704939
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 8.68857955901098,
+      "clipEndM": 11.517977950180443,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-1.0000003576278687, -1.0, -0.012741142204795608] to [1.0000004768371582, 1.0, 0.061366334418894386], so centre = [5.960464477539063e-08, 0.0, 0.02431259610704939] and radius = 1.4146991955847306 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 10.103278754595712, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material below emits, so nothing has to arrive for the picture to exist. A light here would add a lobe neither side is being asked about."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest and not of a Blender default. At zero bounces an emission shader returns its emission alone, so this changes no covered pixel -- it removes the background from the DECLARATION rather than from the render."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "Label_Mat": [
+          0.85,
+          0.15,
+          0.15
+        ],
+        "VC_Checks_Mat": [
+          0.15,
+          0.3542572472504414,
+          0.85
+        ]
+      },
+      "note": "Emission, one colour per glTF material. COLOR_0 is not read here and is not claimed."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "The model gets a case; its feature is board:1193's and arrives when the vertex-colour arm does."
+}

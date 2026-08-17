@@ -1,0 +1,254 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/coverage/two-sided-plane",
+  "title": "A doubleSided plane, seen from the side that does not exercise doubleSided",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:TwoSidedPlane",
+    "board:1350"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "A plane having the two sided material parameter enabled.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TwoSidedPlane/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "A flat quad in the framing rule's general position. It is a coverage case and a deliberately narrow one: the framing rule places the eye at elevation +20 degrees, so the camera sees the plane's FRONT and the two-sided flag never decides a pixel."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "two-sided-plane",
+      "kind": "gltf",
+      "name": "TwoSidedPlane",
+      "entry": "scene.gltf",
+      "attributes": [
+        "NORMAL",
+        "POSITION",
+        "TANGENT",
+        "TEXCOORD_0"
+      ],
+      "notes": "One quad in the y = 0 plane with POSITION, NORMAL, TANGENT and TEXCOORD_0. Its material declares `doubleSided`, which is the model's own point and which this framing does not reach.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "TwoSidedPlane",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TwoSidedPlane/glTF/TwoSidedPlane.gltf",
+          "sha256": "0aafbfd9713131f7e477739a98e643f16a61248aa06ed7212db34516c7309d12",
+          "bytes": 3927,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "UX3D",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TwoSidedPlane/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TwoSidedPlane/glTF/TwoSidedPlane.bin",
+          "sha256": "b5773c232084d848db9087978e97ca1ea4ffc1e955bd39c5bfc523c3fa577bc9",
+          "bytes": 300,
+          "as": "TwoSidedPlane.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "UX3D",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TwoSidedPlane/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TwoSidedPlane/glTF/TwoSidedPlane_BaseColor.png",
+          "sha256": "7587c655a189fc1078fb19e05703cf9e44000d5181f592d958be23600eff36bc",
+          "bytes": 44455,
+          "as": "TwoSidedPlane_BaseColor.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "UX3D",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TwoSidedPlane/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TwoSidedPlane/glTF/TwoSidedPlane_MetallicRoughness.png",
+          "sha256": "66b22936f67e0dfa53bca026f191a5cd2d1a585341d481b88104d0010dd4e3ae",
+          "bytes": 16360,
+          "as": "TwoSidedPlane_MetallicRoughness.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "UX3D",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TwoSidedPlane/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TwoSidedPlane/glTF/TwoSidedPlane_Normal.png",
+          "sha256": "8cdd7cd63dbfb2834b72e2420cfa47f6f4c84039635ef9abe3d1a1cb58fa5e51",
+          "bytes": 22653,
+          "as": "TwoSidedPlane_Normal.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "UX3D",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TwoSidedPlane/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TwoSidedPlane/metadata.json",
+          "sha256": "851bc6e347945590d02f2989aa5a5c35f8f6a7ec7963b00a4e0bf862dbcea28d",
+          "bytes": 708,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "UX3D",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TwoSidedPlane/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        7.774340585305269,
+        3.4543386466853856,
+        5.443651882440435
+      ],
+      "lookAtM": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 8.68559697245904,
+      "clipEndM": 11.514024097205231,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-1.0, 0.0, -1.0] to [1.0, 0.0, 1.0], so centre = [0.0, 0.0, 0.0] and radius = 1.4142135623730951 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 10.099810534832136, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material below emits, so nothing has to arrive for the picture to exist. A light here would add a lobe neither side is being asked about."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest and not of a Blender default. At zero bounces an emission shader returns its emission alone, so this changes no covered pixel -- it removes the background from the DECLARATION rather than from the render."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "TwoSidedPlane": [
+          0.85,
+          0.15,
+          0.15
+        ]
+      },
+      "note": "Emission, one colour per glTF material, so what is compared is where the quad is and not what it reflects."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "NAMED SO IT CANNOT BE MISREAD: this case does NOT prove doubleSided. Proving it needs the eye below the plane, which the framing rule does not produce, so it wants a declared camera and its own case. The model gets a case today and the feature gets one later."
+}

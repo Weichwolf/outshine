@@ -1,10 +1,11 @@
 # Outshine
 
-> **A CryEngine-class game engine: an OSM-based global open world, LLM-driven intelligence and an RPG
-> above it, every piece of content from a generator behind one interface, external data behind another,
-> and declarative scenarios that declare interactive or non-interactive worlds — with or without a
-> world at all. Kingdom Come: Deliverance is the world and its vegetation, GTA 5 the built world and
-> the verbs — walk, drive, fly.**
+> **THIS IS A GAME ENGINE.** An OSM-based global open world, LLM-driven intelligence and an RPG above
+> it; every piece of content from a **generator** behind one interface, external data behind a
+> **provider** interface, actors that **think**, and declarative scenarios that declare interactive or
+> non-interactive worlds — with or without a world at all. **SDL3, SDL_GPU and glTF are its backbone.
+> 720p60 on this device is its target, and that target is the whole of its ambition** — a budget is
+> falsifiable where a named game is only evocative.
 
 The world is **loaded, not modelled**. **One physics system** carries walking, driving, flying and
 swimming; an **epoch and decay dial** dresses the same geometry; the actors **think**; the setting is
@@ -34,8 +35,8 @@ such script and it is named in the setup below.
 
 ## Stance
 
-**The owner's comments outrank everything.** The bar is CryEngine's level out of upstream data alone,
-and **the way is the goal** — a round that learned something is a good round.
+**The owner's comments outrank everything.** The bar is a world that holds 720p60 out of upstream data
+alone, and **the way is the goal** — a round that learned something is a good round.
 
 **The run is months long and the vision is its destination, not its direction.** Every clause of the
 first page is reachable from this tree by this session, and the board is its decomposition. **Over that
@@ -54,7 +55,7 @@ carries does not compile.
 calls nothing else; a kernel supplies it. Everything that runs it is a test.
 
 **Testability is a design property, not an afterthought.** If a thing cannot be tested, that is a fact
-about its shape. **Very high coverage is part of the CryEngine-class claim**, not an extra: requirement
+about its shape. **Very high coverage is part of the claim and not an extra**: requirement
 coverage is the target, line and branch coverage the instrument. Every commit is covered.
 
 **Something missing is a task, not a limit.** "That number does not exist" ends with "so the tool gets
@@ -155,6 +156,120 @@ not mean make it easier, it means there is something here you do not understand.
 
 **Every artefact goes to the system temp directory, never into the tree** — a repository is what is
 declared and what is built from it.
+
+
+## This is a game engine, and every one of these outranks a smaller number
+
+**These come before the C++ rules and before the measurement rules, because they decide WHICH number is
+worth measuring.** Every one of them was paid for: each is a round this repository spent going the other
+way.
+
+### What is being built
+
+**The unit of delivery is a FRAME, not a picture.** A picture that is right and late is wrong. Every
+decision is finally about whether 16.67 ms holds on this device.
+
+**720p60 on this device is the falsifiable target, and it needs no other reference.** A named game dates;
+a budget does not. *If a thing cannot be traced to that budget, ask what it is for before building it.*
+
+**An engine is a mechanism and content is data.** The engine spells verbs — place, cull, quantise, draw;
+content spells nouns. A noun appearing in the mechanism is the defect this decomposition exists to
+prevent.
+
+**SDL3, SDL_GPU and glTF are the backbone and not implementation details.** The host surface, the device
+surface and the content surface are each one interface, and each one is the whole of what the engine may
+assume about the world outside it.
+
+**The three ideas ARE the vision and nothing else has to be**: content from a **generator** behind one
+interface, external data behind a **provider** interface, and actors that **think**. Everything in this
+file serves one of those or the budget above.
+
+### What good means here
+
+**Right to the eye at 60 Hz is right.** Nobody is harmed by a pixel that is a code off. A residual worth
+chasing is one that is visible, or one that is the largest thing between here and a frame.
+
+**COVERAGE BEFORE PRECISION.** A case that exists and is red says more than a case that does not exist,
+because a missing case reports nothing about anything. *This rule cost a round: the third decimal of one
+pixel was worked while a hundred models had no case at all.*
+
+**Breadth first, depth on demand.** Reach every feature shallowly before any feature deeply — the shallow
+pass is what tells you which depth is worth buying.
+
+**A known, named, measured defect is a finished piece of work.** Understanding beats a green light: an
+engine whose every error is named and bounded is in a better state than one whose errors are merely
+absent from a report.
+
+**Perfect is a direction and never a destination.** There is no last decimal. Stop when the next one buys
+no frame and no picture.
+
+### What must never happen
+
+**A STALL IS WORSE THAN A WRONG PIXEL.** A frame that misses is seen by everyone; a code of error is seen
+by nobody. Every trade between the two goes the same way.
+
+**A hole is worse than a coarse tree.** Absence is the one failure a viewer always notices. Degrade on
+detail; refuse only on existence, and refuse loudly.
+
+**Nothing on the frame path allocates, blocks, takes a lock it might wait on, or touches a disk.** The
+frame path is a budget, and every one of those is an unbounded term inside it.
+
+**Nothing on the frame path spells a string, a path, a URL or a name.** A key is a trivially-hashable
+value. A name is a thing the frame path looks up, never a thing it carries.
+
+**No unbounded loop, no unbounded queue, no unbounded growth.** Everything that can grow states what
+bounds it, and the bound is a number somebody chose on purpose.
+
+**No global mutable state, and no singleton.** Two frames in flight is the normal case, and a global is
+the one thing that cannot be two.
+
+### How it degrades, because it will
+
+**Every capability answers what it achieved, in both directions.** Short of what was asked and past it
+are both facts the caller needs; only one of them is usually reported.
+
+**Cost is answerable before the thing is made.** A part whose visibility can only be known by making it
+has already spent what the cull exists to save.
+
+**One key serves a million instances.** Anything keyed by instance is a design that has not met scale
+yet.
+
+**A budget is quantised before it becomes a key.** A continuous number in a cache key fragments the cache
+by construction, and it does it silently.
+
+**A worker signals readiness; it never asks a question.** Anything that has to ask has coupled the frame
+to something that is not in it.
+
+**Latency is a feature and it is the one nobody declares.** Input to photon is the number a player feels;
+throughput is the number a benchmark shows.
+
+### Working on it
+
+**The corpus is a driver, not a certificate.** It exists to make the engine good, not to produce a score.
+A green count that bought no capability is a number about a number.
+
+**Fix the class, not the case.** A repair that helps one asset and no other is a patch; the same round
+usually affords the rule underneath it.
+
+**Build the thing that unblocks ten things before the thing that unblocks one.** Ranking by impact is
+cheap and it is almost never done.
+
+**A tool that makes the next twenty items mechanical beats finishing the twenty-first by hand.** Ask, at
+every item, whether it is the last of its kind — and if it is not, build the thing that ends the kind.
+
+**Prefer the shape that makes a mistake unspellable.** A rule a checker counts can be broken and then
+reported; a rule the type system carries does not compile.
+
+**A dead path is worse than a missing one.** Anything that can still fire and should not is a bug waiting
+for a frame that takes it.
+
+**Delete on the same day you replace.** Two ways to do one thing is one way and one trap.
+
+**When two designs are defensible, take the one a stranger could not misuse.** The reader of this code is
+tired, and so are you.
+
+**Ship the vertical slice.** One feature working end to end, from provider to pixel, is worth more than
+five features working in the middle.
 
 
 ## The engine
@@ -612,16 +727,15 @@ rule rather than recalling it** — `ES.9` is *avoid ALL_CAPS names*, not the en
 | **C++** | Meyers, *Effective Modern C++* · Pikus, *The Art of Writing Efficient Programs* |
 | **Physics** | Ericson, *Real-Time Collision Detection* · Bridson, *Fluid Simulation* |
 
-### Achieved results — the targets, and they are not arguable
+### The target, and it is a number rather than a name
 
-A target is a picture **demonstrated on a known budget**. It is cited for *what was reached*, never for
-*how*, so no measurement here can be overruled by one.
+**720p60 on this device.** An Apple A18 Pro — 2 performance and 4 efficiency cores, 5 GPU cores, 8 GB,
+Metal 4 — carrying **55.3 Mpx/s** inside **16.67 ms**, over a moving camera, at p50, p95 and p99.
 
-| | |
-|---|---|
-| **Kingdom Come: Deliverance** | the world and its **vegetation**. Base PS4 — a 1.84 TFLOP GPU — at **900p under a ~31 fps cap** (Digital Foundry's console analysis; the Pro reaches native 1080p). **720p60 here is 55.3 Mpx/s against 43.2 Mpx/s there — 1.28×, the same order.** Its landscape is built on a **real region of Bohemia**, so it faced our data situation rather than an invented one. It is a **vegetation and terrain** picture, which is what we are building |
-| **GTA 5** | the **built world** and the verbs — walk, drive, fly. Density, street rhythm, the transitions between the three |
-| **CryEngine** | the **class of engine** and the level to match out of upstream data alone. That is its whole remaining role here — see below |
+**A named game is not a target and this file no longer carries any.** A shipped title dates, its budget
+is somebody else's hardware, and *"as good as that one"* cannot be measured on a Tuesday. **A frame time
+can.** Where a claim needs evidence that something is reachable, the evidence is a technique with a
+published mechanism — the table below — and never a screenshot.
 
 ### Technique — cited for a principle, never as authority over a measurement
 
@@ -631,12 +745,12 @@ A target is a picture **demonstrated on a known budget**. It is cited for *what 
 | **Decima** (Guerrilla) | vegetation and terrain **at scale, assembled while the player walks through it** — compute shaders placing a dense world from artist-declared rules (van Muijden, *GPU-Based Run-Time Procedural Placement in Horizon: Zero Dawn*, GDC 2017). When a claim needs evidence about a world that comes into being at run time, **this** is the evidence — Microsoft Flight Simulator is not, because everything there was generated ahead of time in the cloud |
 | **id Tech 7** | a **hard frame floor**, held by scaling what costs pixels rather than by dropping frames — every console version of *Doom Eternal* holds its 60 fps target under dynamic resolution |
 | **Frostbite FrameGraph** | the **declared stage plan**: every pass and resource as a graph, compiled, with lifetime, transitions and allocation falling out of it rather than being hand-ordered (O'Donnell, *FrameGraph: Extensible Rendering Architecture in Frostbite*, GDC 2017) |
-| **SpeedTree** | the production answer to a **discrete ladder**, and we need it: geometry that reduces smoothly plus an **alpha-to-coverage cross-fade** into the billboard, leaf instances shrunk away while the survivors scale up, the billboard picked from an array by azimuth (SpeedTree SDK documentation, *Level of Detail*). A transition, not a wider spacing. *Which tool authored KCD's trees is not established here and is not claimed* |
+| **SpeedTree** | the production answer to a **discrete ladder**, and we need it: geometry that reduces smoothly plus an **alpha-to-coverage cross-fade** into the billboard, leaf instances shrunk away while the survivors scale up, the billboard picked from an array by azimuth (SpeedTree SDK documentation, *Level of Detail*). A transition, not a wider spacing |
 
-**CryEngine holds no technique authority here.** It selects vegetation by **distance ratio**
-(`LodDistRatio`, `MaxViewDistRatio`) — a defensible engine choice, and precisely the thing this engine's
-one-currency rule makes unspellable and the dolly-zoom control is built to catch. It keeps its place as
-an **achieved result** above.
+**Selection by DISTANCE RATIO is the technique this engine refuses**, wherever it is found: a per-object
+distance multiplier is a second currency beside projected error, and two currencies mean no comparison
+across terrain, trunk, façade and crown. The one-currency rule makes it unspellable and the dolly-zoom
+control is built to catch it.
 
 ### The oracle is not a reference
 

@@ -1,0 +1,695 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/materials/metal-rough-spheres-no-textures",
+  "title": "Ninety-eight named materials over a hundred and two bodies -- material binding at a scale nothing else in the corpus reaches",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:MetalRoughSpheresNoTextures",
+    "board:1298"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "Tests various metal and roughness values (textureless).",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MetalRoughSpheresNoTextures/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "A grid of spheres under the framing rule's general position. What decides it is not an edge but WHICH body wears WHICH material: every one of the 98 materials is given a distinct colour, so a binding that reached the wrong sphere is a whole sphere of the wrong hue and not a sub-pixel offset."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "metal-rough-spheres-no-textures",
+      "kind": "gltf",
+      "name": "MetalRoughSpheresNoTextures",
+      "entry": "scene.gltf",
+      "attributes": [
+        "NORMAL",
+        "POSITION"
+      ],
+      "notes": "102 mesh-bearing nodes, 119 nodes in all, EVERY ONE NAMED, and 98 named materials. That is why this case can key by material at all -- and it is the largest such subject in the index by an order.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "MetalRoughSpheresNoTextures",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MetalRoughSpheresNoTextures/glTF/MetalRoughSpheresNoTextures.gltf",
+          "sha256": "fc5d59f4dcd674ef3de98bbe8d3f8cad569394aa07481c803c4449f8834bcada",
+          "bytes": 128886,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2019",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MetalRoughSpheresNoTextures/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MetalRoughSpheresNoTextures/glTF/MetalRoughSpheresNoTextures.bin",
+          "sha256": "1ce2d45aa5e99ec1a9d0018aa6cbd9cb3156f4fa9452c668525ddc63e9b31a66",
+          "bytes": 241588,
+          "as": "MetalRoughSpheresNoTextures.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2019",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MetalRoughSpheresNoTextures/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MetalRoughSpheresNoTextures/metadata.json",
+          "sha256": "54ba463206c5e1850e5117fa1ebd54edd300c89e8ef04aea05f5274f9147c883",
+          "bytes": 1233,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2019",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MetalRoughSpheresNoTextures/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        0.033480094520587735,
+        0.016384382237427088,
+        0.019999152278869545
+      ],
+      "lookAtM": [
+        0.002776123046875,
+        0.0027418212890625003,
+        -0.0015
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 0.03430288636680258,
+      "clipEndM": 0.04547347309384038,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-0.00092431640625, -0.0010104980468749998, -0.0033499592999506234] to [0.0064765625000000005, 0.006494140625, 0.0003499592999506232], so centre = [0.002776123046875, 0.0027418212890625003, -0.0015] and radius = 0.005585293363518902 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 0.03988817973032148, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material below emits, so nothing has to arrive for the picture to exist. A light here would add a lobe neither side is being asked about."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest and not of a Blender default. At zero bounces an emission shader returns its emission alone, so this changes no covered pixel -- it removes the background from the DECLARATION rather than from the render."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "mat_0": [
+          0.85,
+          0.15,
+          0.15
+        ],
+        "mat_1": [
+          0.15,
+          0.3542572472504414,
+          0.85
+        ],
+        "mat_2": [
+          0.5585144945008829,
+          0.85,
+          0.15
+        ],
+        "mat_3": [
+          0.85,
+          0.15,
+          0.7627717417513241
+        ],
+        "mat_4": [
+          0.15,
+          0.85,
+          0.7329710109982343
+        ],
+        "mat_5": [
+          0.85,
+          0.528713763747793,
+          0.15
+        ],
+        "mat_6": [
+          0.3244565164973515,
+          0.15,
+          0.85
+        ],
+        "mat_7": [
+          0.17980073075308986,
+          0.85,
+          0.15
+        ],
+        "mat_8": [
+          0.85,
+          0.15,
+          0.38405797800353125
+        ],
+        "mat_9": [
+          0.15,
+          0.5883152252539726,
+          0.85
+        ],
+        "mat_10": [
+          0.792572472504414,
+          0.85,
+          0.15
+        ],
+        "mat_11": [
+          0.7031702802451444,
+          0.15,
+          0.85
+        ],
+        "mat_12": [
+          0.15,
+          0.85,
+          0.4989130329947031
+        ],
+        "mat_13": [
+          0.85,
+          0.29465578574426166,
+          0.15
+        ],
+        "mat_14": [
+          0.15,
+          0.20960146150617973,
+          0.85
+        ],
+        "mat_15": [
+          0.4138587087566211,
+          0.85,
+          0.15
+        ],
+        "mat_16": [
+          0.85,
+          0.15,
+          0.6181159560070625
+        ],
+        "mat_17": [
+          0.15,
+          0.8223732032575038,
+          0.85
+        ],
+        "mat_18": [
+          0.85,
+          0.6733695494920545,
+          0.15
+        ],
+        "mat_19": [
+          0.4691123022416132,
+          0.15,
+          0.85
+        ],
+        "mat_20": [
+          0.15,
+          0.85,
+          0.2648550549911718
+        ],
+        "mat_21": [
+          0.85,
+          0.15,
+          0.2394021922592696
+        ],
+        "mat_22": [
+          0.15,
+          0.443659439509711,
+          0.85
+        ],
+        "mat_23": [
+          0.6479166867601523,
+          0.85,
+          0.15
+        ],
+        "mat_24": [
+          0.8478260659894062,
+          0.15,
+          0.85
+        ],
+        "mat_25": [
+          0.15,
+          0.85,
+          0.6435688187389647
+        ],
+        "mat_26": [
+          0.85,
+          0.43931157148852334,
+          0.15
+        ],
+        "mat_27": [
+          0.2350543242380894,
+          0.15,
+          0.85
+        ],
+        "mat_28": [
+          0.2692029230123595,
+          0.85,
+          0.15
+        ],
+        "mat_29": [
+          0.85,
+          0.15,
+          0.4734601702628083
+        ],
+        "mat_30": [
+          0.15,
+          0.6777174175132422,
+          0.85
+        ],
+        "mat_31": [
+          0.85,
+          0.8180253352363237,
+          0.15
+        ],
+        "mat_32": [
+          0.6137680879858748,
+          0.15,
+          0.85
+        ],
+        "mat_33": [
+          0.15,
+          0.85,
+          0.409510840735426
+        ],
+        "mat_34": [
+          0.85,
+          0.20525359348499206,
+          0.15
+        ],
+        "mat_35": [
+          0.15,
+          0.29900365376544186,
+          0.85
+        ],
+        "mat_36": [
+          0.5032609010158907,
+          0.85,
+          0.15
+        ],
+        "mat_37": [
+          0.85,
+          0.15,
+          0.7075181482663396
+        ],
+        "mat_38": [
+          0.15,
+          0.85,
+          0.7882246044832265
+        ],
+        "mat_39": [
+          0.85,
+          0.5839673572327925,
+          0.15
+        ],
+        "mat_40": [
+          0.3797101099823436,
+          0.15,
+          0.85
+        ],
+        "mat_41": [
+          0.15,
+          0.85,
+          0.17545286273189473
+        ],
+        "mat_42": [
+          0.85,
+          0.15,
+          0.3288043845185392
+        ],
+        "mat_43": [
+          0.15,
+          0.5330616317689731,
+          0.85
+        ],
+        "mat_44": [
+          0.737318879019422,
+          0.85,
+          0.15
+        ],
+        "mat_45": [
+          0.7584238737301291,
+          0.15,
+          0.85
+        ],
+        "mat_46": [
+          0.15,
+          0.85,
+          0.5541666264796952
+        ],
+        "mat_47": [
+          0.85,
+          0.34990937922926124,
+          0.15
+        ],
+        "mat_48": [
+          0.15,
+          0.15434786802118763,
+          0.85
+        ],
+        "mat_49": [
+          0.3586051152716365,
+          0.85,
+          0.15
+        ],
+        "mat_50": [
+          0.85,
+          0.15,
+          0.5628623625220704
+        ],
+        "mat_51": [
+          0.15,
+          0.7671196097725045,
+          0.85
+        ],
+        "mat_52": [
+          0.85,
+          0.7286231429770468,
+          0.15
+        ],
+        "mat_53": [
+          0.5243658957265979,
+          0.15,
+          0.85
+        ],
+        "mat_54": [
+          0.15,
+          0.85,
+          0.3201086484761788
+        ],
+        "mat_55": [
+          0.85,
+          0.15,
+          0.18414859877427006
+        ],
+        "mat_56": [
+          0.15,
+          0.38840584602471895,
+          0.85
+        ],
+        "mat_57": [
+          0.5926630932751679,
+          0.85,
+          0.15
+        ],
+        "mat_58": [
+          0.85,
+          0.15,
+          0.7969203405256166
+        ],
+        "mat_59": [
+          0.15,
+          0.85,
+          0.6988224122239642
+        ],
+        "mat_60": [
+          0.85,
+          0.49456516497351544,
+          0.15
+        ],
+        "mat_61": [
+          0.2903079177230665,
+          0.15,
+          0.85
+        ],
+        "mat_62": [
+          0.21394932952735246,
+          0.85,
+          0.15
+        ],
+        "mat_63": [
+          0.85,
+          0.15,
+          0.4182065767778013
+        ],
+        "mat_64": [
+          0.15,
+          0.6224638240282502,
+          0.85
+        ],
+        "mat_65": [
+          0.8267210712786991,
+          0.85,
+          0.15
+        ],
+        "mat_66": [
+          0.669021681470852,
+          0.15,
+          0.85
+        ],
+        "mat_67": [
+          0.15,
+          0.85,
+          0.464764434220433
+        ],
+        "mat_68": [
+          0.85,
+          0.26050718696998415,
+          0.15
+        ],
+        "mat_69": [
+          0.15,
+          0.2437500602804647,
+          0.85
+        ],
+        "mat_70": [
+          0.4480073075308837,
+          0.85,
+          0.15
+        ],
+        "mat_71": [
+          0.85,
+          0.15,
+          0.6522645547813325
+        ],
+        "mat_72": [
+          0.15,
+          0.85,
+          0.8434781979682185
+        ],
+        "mat_73": [
+          0.85,
+          0.6392209507177696,
+          0.15
+        ],
+        "mat_74": [
+          0.4349637034673208,
+          0.15,
+          0.85
+        ],
+        "mat_75": [
+          0.15,
+          0.85,
+          0.23070645621690175
+        ],
+        "mat_76": [
+          0.85,
+          0.15,
+          0.27355079103354707
+        ],
+        "mat_77": [
+          0.15,
+          0.477808038283996,
+          0.85
+        ],
+        "mat_78": [
+          0.682065285534415,
+          0.85,
+          0.15
+        ],
+        "mat_79": [
+          0.813677467215136,
+          0.15,
+          0.85
+        ],
+        "mat_80": [
+          0.15,
+          0.85,
+          0.6094202199646873
+        ],
+        "mat_81": [
+          0.85,
+          0.4051629727142384,
+          0.15
+        ],
+        "mat_82": [
+          0.20090572546378951,
+          0.15,
+          0.85
+        ],
+        "mat_83": [
+          0.3033515217866295,
+          0.85,
+          0.15
+        ],
+        "mat_84": [
+          0.85,
+          0.15,
+          0.5076087690370784
+        ],
+        "mat_85": [
+          0.15,
+          0.7118660162875273,
+          0.85
+        ],
+        "mat_86": [
+          0.85,
+          0.7838767364620537,
+          0.15
+        ],
+        "mat_87": [
+          0.5796194892116048,
+          0.15,
+          0.85
+        ],
+        "mat_88": [
+          0.15,
+          0.85,
+          0.375362241961156
+        ],
+        "mat_89": [
+          0.85,
+          0.1711049947107071,
+          0.15
+        ],
+        "mat_90": [
+          0.15,
+          0.3331522525397418,
+          0.85
+        ],
+        "mat_91": [
+          0.5374094997901608,
+          0.85,
+          0.15
+        ],
+        "mat_92": [
+          0.85,
+          0.15,
+          0.7416667470406096
+        ],
+        "mat_93": [
+          0.15,
+          0.85,
+          0.7540760057089414
+        ],
+        "mat_94": [
+          0.85,
+          0.5498187584585225,
+          0.15
+        ],
+        "mat_95": [
+          0.34556151120807355,
+          0.15,
+          0.85
+        ],
+        "mat_96": [
+          0.15869573604237527,
+          0.85,
+          0.15
+        ],
+        "mat_97": [
+          0.85,
+          0.15,
+          0.36295298329282416
+        ]
+      },
+      "note": "NINETY-EIGHT DISTINCT COLOURS, ONE PER GLTF MATERIAL, on a golden-angle hue sweep so no two neighbours in the grid share a value. The asset's own point is metallic and roughness, which this case does NOT decide -- what it decides is that 98 material rows reached 98 bodies, which no other subject in the corpus can ask."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "The corpus's stress case for material binding. Its own criterion -- metal and roughness values -- needs the shading arm (board:1363) and is not claimed here."
+}
