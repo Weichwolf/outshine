@@ -52,3 +52,34 @@ with the other about a string.
 twice. **Its case was written, refused, and withdrawn rather than committed as a red that cannot run**:
 half-built is worse than not built, and a `NOTHING-TO-COMPARE` in the corpus is a case that reports on
 nothing while counting as one.
+
+## The design, and the one measurement it turns on
+
+**Our side is easy and it was checked rather than assumed.** `Part` carries `NodeName` and no index;
+adding `int Node` is safe, because `Emit` writes **one node per part in part order**
+(`{"mesh": <part>}`) and `EmittingASubjectIsAFixedPointOfTheFlatten` compares the fields it NAMES rather
+than the struct, so a new member neither breaks the round trip nor is silently ignored by it. The key
+rule is then one sentence: **the file's node name where it has one, the decimal node index where it does
+not** -- and both are facts about the file.
+
+**The oracle side is the whole difficulty and it reduces to one question.** Blender's importer gives an
+object no glTF node index; it gives it a name derived from the MESH. The preparer already parses the
+glTF, so it can walk the scene and pair mesh-bearing nodes with imported objects -- **but pairing by
+order is a claim, not a given**.
+
+- [ ] **MEASURE: does Blender 5.2.0 create objects in glTF node traversal order?** It logs
+  `Blender create Mesh node 0`, which suggests it, and *suggests* is what this tree does not build on.
+  **The witness is free**: on every case whose file DOES name its nodes, the paired object's name must
+  carry that name. If the pairing holds wherever it is checkable, it is used where it is not; if it
+  fails anywhere, the whole approach goes and the index cannot be recovered on that side at all.
+
+**That measurement is the next step and it is small.** Until it is made, the design above is a plan and
+not a repair, which is why nothing was written into the tree for it this round.
+
+## What it costs to leave open, stated so the choice is visible
+
+**Only files that are BOTH multi-body AND name nothing.** [MEASURED] over the batch examined this
+session: `Suzanne`, `Cube`, `TwoSidedPlane` are single-body; `MetalRoughSpheresNoTextures` has 102
+bodies and names all 119 of its nodes; `VertexColorTest` names both of its. **`SimpleMeshes` was the
+unlucky one**, and the class is narrower than it first looked -- which is why the corpus can go on
+being populated with this open.
