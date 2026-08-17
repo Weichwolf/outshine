@@ -16,7 +16,7 @@ by parsing every `.gltf` in it, so the counts below are the corpus's own and not
 | Capability | Proven by | KCD / GTA 5 | Verdict |
 |---|---|---|---|
 | indexed `TRIANGLES` | `Box` — 144 of 146 | both | required |
-| non-indexed | `TriangleWithoutIndices` — 3 of 146 | both | required |
+| non-indexed | `TriangleWithoutIndices` — 3 of 146 | both | required · **DELIVERED** — the case passes on all three arms, so the row the recount called *untested* is proven by a picture |
 | `NORMAL` | 133 of 146 | both | required |
 | `TANGENT` as an attribute | `SciFiHelmet` — 34 of 146 | normal mapping in both | required |
 | `TEXCOORD_0` | 118 of 146 | both | required |
@@ -49,8 +49,8 @@ by parsing every `.gltf` in it, so the counts below are the corpus's own and not
 | `KHR_materials_sheen` | `SheenCloth` — 10 | **CryEngine's Cloth shader has a fuzzy layer with its own gloss** — the effect, by another means | required |
 | `KHR_materials_anisotropy` | 7 | **CryEngine's Hair shader has had anisotropic highlights with directionality maps since 3.6**; brushed metal and rims in GTA 5 | required |
 | `KHR_materials_variants` | `MaterialsVariantsShoe` — 7 | GTA 5 vehicle liveries and modkits | required · cheap, a material-row swap |
-| diffuse transmission | `DiffuseTransmissionTest` — 6 | **CryEngine's Vegetation shader's headline feature is translucency (light transmittance)** | required as a **material model**, and `Material::Transmission` is half of it. Proven by the extension's flat test asset as format conformance — **never by a foliage comparison**, which Band III owns |
-| `KHR_node_visibility` | `CubeVisibility` — 2 | both | required · trivial |
+| diffuse transmission | `DiffuseTransmissionTest` — 6 | **CryEngine's Vegetation shader's headline feature is translucency (light transmittance)** | required as a **material model**, and `Material::Transmission` is half of it. **THIS ORACLE CANNOT DECIDE IT (`board:1204`)** — Blender 5.2.0 imports the asset and DROPS the extension: 20 of its 29 materials declare it and not one of the 32 Principled sockets differs between `Factor 0.0` and `Factor 1.0`. *The plan was to prove it by the extension's flat test asset as format conformance, and that asset renders identically with and without the feature* |
+| `KHR_node_visibility` | `CubeVisibility` — 2 | both | required · **THIS ORACLE CANNOT DECIDE IT (`board:1204`)** — the asset marks it `extensionsRequired` and Blender 5.2.0 refuses the whole file. *Trivial to implement and impossible to prove here* |
 | `KHR_texture_basisu` | 1 | both ship block-compressed textures; ASTC and BC are native on this device | required |
 | `KHR_animation_pointer` | `AnimatedColorsCube` — 5 | animated emissive and uv in GTA 5 | required · `clients/Animation.h` is the mechanism, the glTF spelling is later |
 | `LINEAR` · `STEP` · `CUBICSPLINE` | `InterpolationTest` — the only asset with all three, **not fetched** | both | required · **our side is built** (`src/gltf/Track.h` carries glTF's Hermite with its tangents scaled, `src/core/Keyframes.h` reads the triples) · **`LINEAR` delivered** with its oracle reduction (`board:1169`) · **`STEP` and `CUBICSPLINE` unexercised by any picture**, and the oracle's half of both is `board:1175` |
@@ -59,7 +59,7 @@ by parsing every `.gltf` in it, so the counts below are the corpus's own and not
 | `KHR_materials_unlit` | 5 | the effect is emissive-only, which `Material::Emission` already spells | **REFUSED** · no second material model |
 | sparse accessors | `SimpleSparseAccessor` — 1 | a file compaction, no runtime capability | **BUILT, and outside the 39** — the `REFUSED` verdict is overturned by the ruling below the table |
 | `POINTS`/`LINES`/`STRIP`/`FAN` | `MeshPrimitiveModes` — 2 of each at most | debug drawing only; the picture is triangles | **REFUSED** — we draw none of them. The reader carries `mode` all the same; the refusal is the consumer's (§ I.26) |
-| multiple scenes | `MultipleScenes` — 1 | neither | **REFUSED** — we render one. The reader reports the whole `scenes` array and the file's default; choosing one is the consumer's (§ I.26) |
+| multiple scenes | `MultipleScenes` — 1 | neither | **REFUSED**, overturned by the owner's scope ruling and **DELIVERED** — the case passes on all three arms. The reader reports the whole `scenes` array and the file's default; choosing one is the consumer's (§ I.26) |
 | `KHR_draco_mesh_compression` | 1 | neither ships Draco; both use their own formats | **REFUSED** — a large vendored decoder for no picture |
 | `EXT_meshopt_compression` | 1 | as above | **REFUSED** |
 | `EXT_texture_webp` | 1 | neither | **REFUSED** — a second image decoder buys no comparison |
@@ -152,10 +152,17 @@ the first row whose oracle half needed a second mechanism rather than a second m
 **Morph targets followed at impact 4 and are delivered (`board:1203`)** — the refusal in `Pose` and the
 `leftAlone` entry in `baked_channels` are both gone, turned into the capability they described.
 
-**So the next unstarted tier-1 rows are `non-indexed` at 3 and `KHR_node_visibility` at 2**, and both are
-smaller than anything done this round. *The tier is nearly exhausted, which is the point of working it to
-the bottom: what is left after it is tier 2, where `volume` at 25 and `ior` at 17 are new-resource rows
-that cannot be finished in one dispatch.*
+**And then tier 1 emptied without another dispatch.** `non-indexed` at 3 turned out to be **already
+proven** — `TriangleWithoutIndices` passes on all three arms, so the recount's *untested* was stale — and
+`KHR_node_visibility` at 2 **left the sequence** on the criterion this section already states, because
+Blender refuses `CubeVisibility` outright (`board:1204`). `MultipleScenes` is likewise passing.
+
+**So the sequence is now at tier 2, and `board:1204` is what orders it.** `volume` at 25 and `ior` at 17
+are the two largest rows and both are new-resource work that cannot be finished in one dispatch — which
+is what the tier boundary was drawn to say. **Before either is started, the box on `board:1204` asking
+whether this oracle honours them is cheap to answer and expensive to discover late**: diffuse transmission
+at impact 6 was going to be reached and defended, and it is a row where the oracle renders a confident
+picture of the wrong thing.
 
 **Behind those, in tier 1 by impact**: `KHR_texture_transform` 15 · `COLOR_0` 7 · skinning 6 · morph
 targets 4 · non-indexed 3 · `KHR_node_visibility` 2 · **`POINTS`/`LINES`/`STRIP`/`FAN` 2** and **multiple
