@@ -72,3 +72,43 @@ nothing is redistributed. **The same reasoning covers this**, and CC-BY would be
 **This issue is filed and worked around, never waited on.** Phase one has 53 core models with no case at
 all and ten rows this ruling just moved out of `REFUSED` (`board:0079`), so nothing here blocks and the
 board cannot run out of ready work while it stands open.
+
+## The owner sharpened it: a still at time X, and that makes it TWO members rather than one
+
+**The proposal as refined**: Cycles on the `.blend` as the reference, this engine on the exported glTF,
+**comparing single images at one declared time**. That is the relationship this tree already runs — a
+case is a directory, the oracle is cached by a key over the whole declared scene — with a subject two
+orders of magnitude larger. **The machinery does not change; the scale does, and the scale is the
+point.**
+
+**It is the `render` suite, and saying so keeps a later reader honest.** A still at time X decides
+*wrong pixels*. The frame floor, determinism, residency and memory decide over a **moving** camera, which
+is a different instrument on the same subject. **Both are wanted and neither substitutes for the other** —
+a green still at film scale is not a compositor proof, and this item exists because the scenario suite
+has no members.
+
+## Three images, not two, and the third is what makes any of it decidable
+
+```
+A   Cycles on the ORIGINAL .blend        at time X
+B   Cycles on the EXPORTED glTF          at time X
+C   outshine on that same glTF           at time X
+```
+
+| difference | what it measures |
+|---|---|
+| **B − C** | **our error.** One scene, one declaration, two renderers — the relationship every case in this tree already uses, and the only one permitted to judge the engine |
+| **A − B** | **the export loss, as a number.** Volumetrics, particles, hair, Cycles node graphs — everything glTF cannot carry lands here and nowhere else |
+| A − C | the sum. **Ambition, never a verdict**, because it folds two causes into one figure |
+
+**Without `A − B` every disagreement is ambiguous, and its obvious reading — *our renderer is wrong* — is
+the wrong one.** With it the export loss becomes a measured term instead of a caveat, and it answers the
+selection question in advance: **a `.blend` with no volumetrics, no particles, no hair and Principled-BSDF
+materials exports very nearly losslessly**, because Blender's exporter maps Principled onto glTF's
+metal-rough almost one to one. *So the approach does not fail in principle — it fails per shot, and that
+is checkable before a frame is rendered.*
+
+**This is the same shape as `board:1204`.** There the question was whether the oracle honours what the
+file declares, asked before a row was built rather than discovered after. Here it is whether the EXPORT
+preserves what the oracle will be shown — the same question one step earlier in the same chain, and
+`A − B` is the instrument for it.
