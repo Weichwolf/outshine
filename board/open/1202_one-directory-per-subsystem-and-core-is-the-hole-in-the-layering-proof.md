@@ -4,8 +4,8 @@ Tags: scope, instrument
 
 **One directory per subsystem, and `core/` is the hole in the layering proof**
 
-Owner's ruling: *one `src/(subsystem)/` folder for each Outshine module, no generic things like `world`,
-and there is a lot of old stuff.* `board:1201` is the same instruction applied to one directory; this is
+Owner's ruling: *one folder per subsystem under src/ for each Outshine module, no generic things like
+`world`, and there is a lot of old stuff.* `board:1201` is the same instruction applied to one directory; this is
 the whole tree, and `1201` becomes a step of it rather than a separate answer.
 
 ## The argument is `CLAUDE.md`'s own, and it condemns the current shape twice
@@ -49,12 +49,12 @@ by one client. **Dead is a deletion; client vocabulary in `core/` is a move.** N
 
 | | |
 |---|---|
-| `src/base/` | the only universally-includable directory — `Span` `Json` `Sha256` `Mat4` `Units` `Capacity` `io/` `CatmullRom` `ClusterDag` `TriangleBvh`. **Named `base` and not `core`**: *core* is an invitation and this tree accepted it |
-| `src/scene/` | the representation (`board:1201`) and its vocabulary |
+| *src/base/* | the only universally-includable directory — `Span` `Json` `Sha256` `Mat4` `Units` `Capacity` `io/` `CatmullRom` `ClusterDag` `TriangleBvh`. **Named `base` and not `core`**: *core* is an invitation and this tree accepted it |
+| *src/scene/* | the representation (`board:1201`) and its vocabulary |
 | `src/gltf/` | the format alone, a serialisation of `scene` |
-| `src/providers/` | today's `src/data`, under the name `CLAUDE.md` already uses for the layer |
-| `src/earth/` · `src/weather/` | frames and sun · the provider family |
-| `src/terrain/` · `src/vegetation/` · `src/buildings/` · `src/streets/` · `src/water/` · `src/osm/` | what `src/world` and `src/generators` share today |
+| *src/providers/* | today's `src/data`, under the name `CLAUDE.md` already uses for the layer |
+| *src/earth/* · *src/weather/* | frames and sun · the provider family |
+| *src/terrain/* · *src/vegetation/* · *src/buildings/* · *src/streets/* · *src/water/* · *src/osm/* | what `src/world` and `src/generators` share today |
 | `src/render/` · `src/scenario/` · `src/clients/` | unchanged |
 
 **The layer is then the allowed include set per subsystem**, declared once in the `Makefile` and

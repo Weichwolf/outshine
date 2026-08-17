@@ -11,7 +11,7 @@ like a dedicated folder for it.* It lives in `src/gltf/`, mixed with the file fo
 what makes `board:1197`'s ruling a convention rather than a compile error.
 
 **`board:1202` is this instruction applied to the whole tree**, and it subsumes the shape question: the
-representation gets `src/scene/` there for the same reason every other subsystem gets its own. This item
+representation gets *src/scene/* there for the same reason every other subsystem gets its own. This item
 stays because the **dependency inversion below is specific to these two directories** and is the only
 part of the move that is not a rename.
 
@@ -50,17 +50,17 @@ its input**, which points the dependency the wrong way. It moves to the format s
 
 | | depends on | and therefore cannot spell |
 |---|---|---|
-| `src/scene/` | `src/core/` | anything about a file — JSON, accessors, buffer views, extensions |
-| `src/gltf/` | `src/scene/` · `src/core/` | — it is the serialisation, in both directions |
-| a generator | `src/scene/` | `Document` |
+| *src/scene/* | `src/core/` | anything about a file — JSON, accessors, buffer views, extensions |
+| `src/gltf/` | *src/scene/* · `src/core/` | — it is the serialisation, in both directions |
+| a generator | *src/scene/* | `Document` |
 
 **That is `board:1197` made structural**: *a generator replies a `Subject`, and glTF is a serialisation of
 it where something outside this engine has to read it.* Today that sentence is true and nothing holds it.
 
 ## Done when
 
-- [ ] `src/scene/` exists and holds the record; `src/gltf/` holds the format and depends on it
-- [ ] The flatten is `Gltf`'s, not `Subject`'s, so `src/scene/` names nothing about a file
+- [ ] *src/scene/* exists and holds the record; `src/gltf/` holds the format and depends on it
+- [ ] The flatten is `Gltf`'s, not `Subject`'s, so *src/scene/* names nothing about a file
 - [ ] `CLAUDE.md`'s layer table carries the row, and `Area: scene` joins the board vocabulary — **that
   vocabulary is the tree's own layering, so adding one means adding a directory**, which is what this is
 - [ ] One compile group per layer in the `Makefile` and the same sets in `test/run.sh`, and
