@@ -78,12 +78,25 @@ what the file said, here it renders something the engine has no term for.*
   environment away at strength 0. **`SpecularTest` needs an arm this runner has never had** — the
   file's metal-rough material, shaded by the ENGINE, under a declared environment
 
-- [ ] **AND `bounces.max` IS 0 IN ALL 56 DECLARED RECIPES, which has to be re-examined before that arm
-  is believed.** A path tracer at zero bounces carries no indirect light — that is the second gate on
-  the occlusion row, stated there and true here for the same reason. **An environment reaching a
-  surface is not an indirect bounce**, so the two may be independent, but *whether Cycles at
-  `bounces.max = 0` renders a world-lit specular panel at all is a question with a measurement and not
-  an argument*, and it is cheap: one render of one panel
+- [x] **`bounces.max` IS 0 IN ALL 56 DECLARED RECIPES AND IT IS NOT A GATE.** [MEASURED] with one
+  render of one panel — a black, roughness-0 dielectric under a uniform world of 0.25, at Cycles'
+  factory Principled defaults:
+
+  ```
+  bounces = 0   centre pixel = 0.009973
+  bounces = 4   centre pixel = 0.009973      identical
+  ```
+
+  **The oracle renders the world-lit specular reflection at zero bounces**, and raising the budget
+  changes nothing for this configuration. *An environment reaching a surface is not an indirect
+  bounce, and the measurement says so rather than the argument.*
+
+- [x] **AND THE SAME RENDER VALIDATES THE FORM THIS ENGINE CHOSE, INDEPENDENTLY.** `F0 · L` for a
+  dielectric at normal incidence is `0.04 × 0.25 = 0.01` exactly; Cycles returns **0.009973**, apart
+  by **0.3 %** at 16 samples. So the specular environment term is `F(nv)·L` on the oracle's own
+  evidence — **and Karis's two-term fit, which would have returned 0.0457 × 0.25 / 0.04 ≈ 0.0114 here,
+  is 14 % away from a number Cycles has now stated.** *The rejection was made on the arithmetic before
+  this render existed; the render is what turns it from a judgement into a measurement.*
 
 - [ ] **The runner's diffuse BAKE is then a separate question with its own blast radius.** `Parity.cpp` carries `kFactoryWorldRadiance = 0.05087608844041824` and multiplies it into
   each part's colour, handing the renderer an EMISSION — a Lambert surface under uniform radiance
