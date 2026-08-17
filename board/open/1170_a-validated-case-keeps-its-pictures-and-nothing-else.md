@@ -113,7 +113,7 @@ the store holds them. Two classes, two proofs, one rule — and a file in neithe
 **The named step, so a diagnosis does not begin with *how do I see the pixels again*:**
 
 ```sh
-python3 test/outshine/corpus/prepare.py all --manifest test/khronos/glTF/<area>/<case>/manifest.json
+python3 test/harness/shared/corpus/prepare.py all --manifest test/khronos/glTF/<area>/<case>/manifest.json
 ```
 
 idempotent, independently invocable, and it re-places every oracle product from the store without

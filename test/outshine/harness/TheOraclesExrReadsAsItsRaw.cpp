@@ -90,7 +90,7 @@ int main() {
   /* A DECODER PROVED OVER ZERO FILES IS THE VACUOUS GATE. `Unprepared` is the harness's own verdict
    * for "this needs an input nobody prepared", and it is not a pass. */
   if (cases.empty()) {
-    Unprepared("test/outshine/corpus/prepare.py has produced no oracle.exr/oracle.raw pair to decode");
+    Unprepared("test/harness/shared/corpus/prepare.py has produced no oracle.exr/oracle.raw pair to decode");
     return Report();
   }
 

@@ -1438,7 +1438,7 @@ enum class Prepared { Yes, No };
   /* THE ORACLE STATES ITS OWN RESIDUAL BEFORE IT JUDGES OURS, and for an emission case that residual
    * must be nothing at all: two seeds, the same bits, or the case fails on the ORACLE and not on us.
    * Why an emitter owes exactly this, and why the second recipe may differ in the seed alone, is
-   * declared where the manifest is read (test/outshine/corpus/prep/manifest.py) and derived in
+   * declared where the manifest is read (test/harness/shared/corpus/prep/manifest.py) and derived in
    * `board/` */
   seedApart = 0;
   if (!Reduced(subject)) { return true; }

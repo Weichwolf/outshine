@@ -1,4 +1,4 @@
-/* A SCANLINE OpenEXR READER IN C++ (board:1119), and `test/outshine/corpus/prep/exr.py` is its specification.
+/* A SCANLINE OpenEXR READER IN C++ (board:1119), and `test/harness/shared/corpus/prep/exr.py` is its specification.
  *
  * WHY IT EXISTS. `oracle.raw` exists only because C++ could not read an EXR: it is a flat f32 dump of
  * what `oracle.exr` already holds, 265 MB against 16 MB per case, a 16x DECOMPRESSED CACHE of a file

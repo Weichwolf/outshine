@@ -5,7 +5,7 @@ Tags: oracle, instrument
 **The oracle key does not cover the preparer's own code**
 
 The key covers Blender, the subject pins, the whole declared scene and the recipe. It does **not** cover
-`test/outshine/corpus/prep/in_blender_render.py`, which decides which passes are enabled, how materials are
+`test/harness/shared/corpus/prep/in_blender_render.py`, which decides which passes are enabled, how materials are
 built, and where lights and cameras sit — all of which change what Cycles renders while the declaration
 is untouched.
 

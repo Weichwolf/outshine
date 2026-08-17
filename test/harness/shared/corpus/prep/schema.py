@@ -1,6 +1,6 @@
 """The one declaration of what a render manifest may contain, read.
 
-The declaration is `test/outshine/corpus/manifest-schema.json` and the runner reads the same file. Nothing
+The declaration is `test/harness/shared/corpus/manifest-schema.json` and the runner reads the same file. Nothing
 here states a key, a type or an allowed value: this module is the reader, and a fact it knows that
 the file does not is the defect it exists to remove.
 """

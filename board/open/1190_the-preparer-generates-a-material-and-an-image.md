@@ -8,7 +8,7 @@ Tags: oracle, khronos, instrument
 as a side effect of whichever row reached it first. **Building it once, deliberately, is the whole point
 of this item.**
 
-[MEASURED] `test/outshine/corpus/prep/fixtures.py` generates subjects through two families — declared shapes, and
+[MEASURED] `test/harness/outshine/render/fixtures.py` generates subjects through two families — declared shapes, and
 `grown.SHAPES` where the engine itself is the producer. **Neither produces a material or an image.** Every
 textured case in the tree gets its texture from a **fetched** asset, so every claim that needs a texture
 also needs somebody upstream to have authored one.

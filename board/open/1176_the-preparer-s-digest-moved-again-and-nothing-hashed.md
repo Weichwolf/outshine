@@ -81,7 +81,7 @@ change under its own name.
 [MEASURED] on the acceptance run for `board:1181`: **94 minutes**, because the digest moved and most
 renders missed.
 
-**It recurs on every edit under `test/outshine/corpus/prep/`** — and `board:1181`, `board:1154` and this item all
+**It recurs on every edit under `test/harness/shared/corpus/prep/`** — and `board:1181`, `board:1154` and this item all
 touch that directory, so three of the last four corpus rounds paid it.
 
 **The coarseness is deliberate and is not overturned here.** `board:1120` chose the whole directory over a

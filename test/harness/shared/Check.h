@@ -83,7 +83,7 @@ inline void Covers(const char *requirement) { std::printf("COVERS %s\n", require
  * a clean run. */
 inline void Unprepared(const char *what) {
   ++Unprepareds;
-  std::printf("UNPREPARED %s -- run test/outshine/corpus/prepare.py\n", what);
+  std::printf("UNPREPARED %s -- run test/harness/shared/corpus/prepare.py\n", what);
 }
 
 /* A SKIP IS SPELLED HERE OR NOWHERE. It used to be an exit status the harness recognised, which made

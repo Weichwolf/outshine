@@ -405,10 +405,10 @@ amber state**: the repair is that the red names its cause.
 | | |
 |---|---|
 | `src/` | the library **entire** — its C++ and, in `src/assets/`, the declared data the engine is made of. No entry point, no build file, no host implementation, no test fixture |
-| `test/` | the suites above, plus `test/outshine/host/` (host implementations of what the library declares), `test/outshine/mods/` (declared worlds), `test/outshine/corpus/` (the oracle's subjects, fetched and built, never committed) and `test/outshine/harness/` (the harness's own claims, including that every path this file cites resolves) |
+| `test/` | the suites above, plus `test/outshine/host/` (host implementations of what the library declares), `test/outshine/mods/` (declared worlds), `test/harness/shared/corpus/` (the oracle's subjects, fetched and built, never committed) and `test/outshine/harness/` (the harness's own claims, including that every path this file cites resolves) |
 | `test/run.sh` | the harness, and the only runner. One process per test, a real verdict per test, non-zero on any failure or undeclared skip. **macOS has no `timeout(1)`** — it brings its own |
 | `Makefile` | **three targets and no others**: build the library, run the tests, clean. No gate target, no verify target — everything a gate decided is a test, and two runners means two verdicts |
-| `test/outshine/corpus/prepare.py` | **the one offline script the constraints allow.** Fetch · generate · patch · convert · render, each idempotent and independently invocable. It compares, scores and decides **nothing** — that is C++, in the test |
+| `test/harness/shared/corpus/prepare.py` | **the one offline script the constraints allow.** Fetch · generate · patch · convert · render, each idempotent and independently invocable. It compares, scores and decides **nothing** — that is C++, in the test |
 | `board/` | **the only documentation tree**, and the working system — see *The board* below |
 | this file | the vision, the constraints, the stance, the architecture, the setup, **the roles** and the rule index. As short as the content allows, and no shorter |
 

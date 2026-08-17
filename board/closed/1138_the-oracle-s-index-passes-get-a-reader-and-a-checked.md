@@ -7,7 +7,7 @@ Tags: oracle, instrument
 
 `materialIndex` and `objectIndex` are rendered, stored and placed beside every case — 14 745 644 B each,
 per case, per recipe — and **nothing reads them**: `git grep -l materialIndex -- src/ test/` returns
-`test/outshine/corpus/prep/manifest.py` alone, which is the file that declares them. That file's own rule is *a
+`test/harness/shared/corpus/prep/manifest.py` alone, which is the file that declares them. That file's own rule is *a
 channel arrives when a test reads it*, and two channels are held against it.
 
 Their stated purpose is exactly this feature's first question: *the picture bound asks `is this pixel

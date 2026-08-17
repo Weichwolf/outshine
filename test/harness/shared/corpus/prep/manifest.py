@@ -1,6 +1,6 @@
 """The manifest, read strictly: an unknown key is a refusal, not a shrug.
 
-WHAT A MANIFEST MAY CONTAIN IS NOT HERE. It is `test/outshine/corpus/manifest-schema.json`, which the render
+WHAT A MANIFEST MAY CONTAIN IS NOT HERE. It is `test/harness/shared/corpus/manifest-schema.json`, which the render
 runner reads too, so a key exists once. What is here is the POLICY this preparer owns: which Cycles
 settings make an oracle render meaningless, which acceptance a reduced scene owes, and which names
 belong to the test that reads the case directory.

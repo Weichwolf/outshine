@@ -38,7 +38,7 @@ const char *Because(const Examination &examination) {
 /* THE RECOVERY STEP, IN THE RUNNER'S OWN OUTPUT, so a diagnosis does not begin with "how do I see
  * the pixels again". Two producers, two commands, and neither rebuilds anything on a warm store. */
 void NameTheRecovery(const std::string &directory) {
-  std::fprintf(stderr, "  the oracle half comes back with: python3 test/outshine/corpus/prepare.py all "
+  std::fprintf(stderr, "  the oracle half comes back with: python3 test/harness/shared/corpus/prepare.py all "
                        "--manifest %smanifest.json\n",
                directory.c_str());
   std::fprintf(stderr, "  our own dumps come back by re-running this case: sh test/run.sh\n");

@@ -2,7 +2,7 @@
  * before Blender ever opens; a generated part's bytes therefore have to exist offline, and the only
  * thing that may produce them is the engine's own C++ -- a second implementation in the preparer's
  * Python would score a tree this repository does not draw. So the preparer builds this and runs it,
- * exactly as it locates and runs Blender (test/outshine/corpus/README.md).
+ * exactly as it locates and runs Blender (test/harness/shared/corpus/README.md).
  *
  * IT IS NOT A TEST AND CARRIES NO VERDICT. It grows, writes and reports; what the part is worth is
  * decided by the render case, and what the emit path guarantees is held by

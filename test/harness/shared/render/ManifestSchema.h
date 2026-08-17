@@ -1,6 +1,6 @@
 /* THE ONE DECLARATION OF WHAT A MANIFEST MAY CONTAIN, READ BY THE SIDE THAT SCORES.
  *
- * `test/outshine/corpus/manifest-schema.json` is the declaration and the preparer reads the same file. This
+ * `test/harness/shared/corpus/manifest-schema.json` is the declaration and the preparer reads the same file. This
  * header is a reader and states no key, no type and no allowed value of its own: a fact it knew that
  * the file did not would be the second closed set this file exists to remove -- the preparer's set
  * and the runner's disagreed on eight of twenty-six manifests and nothing failed, because a key the
@@ -310,7 +310,7 @@ private:
    * the models they carry immediately produced -- resolved to a path that does not exist. A depth the
    * schema does not know cannot be got wrong. */
   (void)caseDirectory;
-  return "test/outshine/corpus/manifest-schema.json";
+  return "test/harness/shared/corpus/manifest-schema.json";
 }
 
 }  // namespace outshine::Render::Parity

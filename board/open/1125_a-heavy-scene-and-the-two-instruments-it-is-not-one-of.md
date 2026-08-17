@@ -33,7 +33,7 @@ showcase — one hard material each · **Sponza**, interior with many materials 
 world this engine is aimed at · **San Miguel**, heavy alpha-tested vegetation. Licences must be checked
 per asset, and `board:0022` is already open about the fetch allow-list.
 
-**And the field is wider than glTF**: `test/outshine/corpus/prepare.py` already converts through Blender, so any
+**And the field is wider than glTF**: `test/harness/shared/corpus/prepare.py` already converts through Blender, so any
 `.blend` is a candidate source — Blender's demo files and the CC-BY Open Movies among them.
 
 **Not before the showcase tier is attributed.** Five of the six heaviest cases we already run are outside

@@ -18,8 +18,10 @@ import json
 import math
 import struct
 
-from . import grown
-from .refusal import Refusal
+from prep import vendor
+
+grown = vendor.beside(__file__, "grown")
+from prep.refusal import Refusal
 
 GLB_MAGIC = 0x46546C67
 GLB_VERSION = 2
@@ -235,7 +237,7 @@ def _look_at(where, position, aim, roll):
 # ---------------------------------------------------------------- the container
 
 def _write_glb(parts, mode, component, camera):
-    document = {"asset": {"version": "2.0", "generator": "outshine test/outshine/corpus"},
+    document = {"asset": {"version": "2.0", "generator": "outshine test/harness/shared/corpus"},
                 "scene": 0, "scenes": [{"nodes": []}], "nodes": [], "meshes": [],
                 "accessors": [], "bufferViews": [], "buffers": []}
     binary = bytearray()

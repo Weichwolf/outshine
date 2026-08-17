@@ -1,7 +1,7 @@
 """The parts the ENGINE grows, produced by running the engine.
 
 A generator is C++ and a `.glb` has to exist before Blender opens, so the preparer builds the
-library and runs `test/outshine/corpus/GrowPart.cpp` over it -- exactly as it locates and runs Blender. It is
+library and runs `test/harness/outshine/render/GrowPart.cpp` over it -- exactly as it locates and runs Blender. It is
 the same door `CLAUDE.md` opens for this script and the only reading of it that keeps the constraint:
 growing a tree in Python here would be a second implementation of the generator, and the number the
 render case then published would be about that implementation and not about the engine's.
@@ -17,7 +17,7 @@ import os
 import subprocess
 import tempfile
 
-from .refusal import Refusal
+from prep.refusal import Refusal
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 # THE ROOT IS FOUND BY WHAT IS IN IT, NOT BY COUNTING DIRECTORIES UP (board:1196). Walking a fixed
@@ -34,7 +34,7 @@ def _repository(start):
 
 
 REPOSITORY = _repository(_HERE)
-SOURCE = os.path.join(os.path.dirname(_HERE), "GrowPart.cpp")
+SOURCE = os.path.join(_HERE, "GrowPart.cpp")  # beside this file: the grower and its program are one step
 SPECIES_DIRECTORY = os.path.join(REPOSITORY, "src", "assets", "world", "species")
 LIBRARY = os.path.join(REPOSITORY, "build", "liboutshine.a")
 

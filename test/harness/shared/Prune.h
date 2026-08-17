@@ -52,7 +52,7 @@ namespace outshine::Prune {
 enum class Verdict : uint8_t { Kept, Prunable, Stays };
 
 /* WHY A FILE MAY GO, and the two are not interchangeable: the first is recovered by
- * `test/outshine/corpus/prepare.py`, the second by re-running the case. */
+ * `test/harness/shared/corpus/prepare.py`, the second by re-running the case. */
 enum class Proof : uint8_t { Untaken, StoreHoldsTheseBytes, ThisRunWroteIt };
 
 struct CaseUnderPrune;

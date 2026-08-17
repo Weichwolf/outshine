@@ -4,7 +4,7 @@ Tags: oracle
 
 **The fetch allow-list refuses two assets the requirements already name**
 
-`test/outshine/corpus/prep/fetch.py:19-25` lists four subdirectories of `download.blender.org/demo/` —
+`test/harness/khronos/glTF/fetch.py:19-25` lists four subdirectories of `download.blender.org/demo/` —
 `cycles/`, `eevee/`, `bbb/`, `asset-bundles/`. Two assets `board/` § I.26 already requires
 are outside all four and are therefore unfetchable today:
 

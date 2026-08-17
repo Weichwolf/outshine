@@ -1,6 +1,6 @@
 /* WHAT THE PREPARER CALLED THE FILE, COMPOSED ONCE ON THIS SIDE OF THE BOUNDARY.
  *
- * `test/outshine/corpus/prep/manifest.py:output_names_for` is the declaration and this is the reader's copy
+ * `test/harness/shared/corpus/prep/manifest.py:output_names_for` is the declaration and this is the reader's copy
  * of the same rule. The copy exists because the two sides are two languages; what it must not be is
  * four copies, and it was: `oracle.exr` was spelled in the missing-input check and in the oracle
  * read, `oracle.seed-shift.exr` in a third place and `oracle.normal.raw` in a fourth. A frame index

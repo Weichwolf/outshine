@@ -13,7 +13,7 @@ Tags: oracle, perf, instrument
 | `.exr` files carrying the same pixels: 200 files | **0.06 GB** |
 | ratio | **79.5×** |
 
-**The reason the `.raw` exists is gone.** `test/outshine/corpus/README.md` states it plainly — *C++ has no EXR
+**The reason the `.raw` exists is gone.** `test/harness/shared/corpus/README.md` states it plainly — *C++ has no EXR
 reader, SDL3 provides none* — and `board:1119` built one. `test/outshine/harness/TheOraclesExrReadsAsItsRaw.cpp`
 holds the two to **bit-exactness**: *reading `oracle.exr` and stacking `R,G,B,A` must reproduce
 `oracle.raw` sample for sample*. **So the tree already proves the larger file carries nothing the smaller

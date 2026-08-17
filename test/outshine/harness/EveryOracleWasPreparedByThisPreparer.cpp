@@ -38,7 +38,10 @@ namespace {
  * the one `jobs.py` keeps, and the two drifted the first time a file was added to one of them -- this
  * test went red naming 34 cases, which was the divergence and not a stale corpus. Both sides now derive
  * the set the same way, so there is nothing to keep in step. */
-const char *const kPreparerDirectory = "test/outshine/corpus/prep";
+/* EVERY HARNESS SOURCE, NOT ONE DIRECTORY (board:1196): the preparer is split by vendor, so
+ * `fetch.py` and `grown.py` sit beside the corpus they serve while still deciding what lands on
+ * disk. The preparer digests this same tree, recursively, in sorted path order. */
+const char *const kPreparerDirectory = "test/harness";
 
 bool Slurp(const std::string &path, std::string &into) {
   std::FILE *file = std::fopen(path.c_str(), "rb");
@@ -65,7 +68,7 @@ std::string PreparerDigest(bool &complete) {
   std::vector<std::string> sources;
   if (std::filesystem::is_directory(kPreparerDirectory)) {
     for (const std::filesystem::directory_entry &entry :
-         std::filesystem::directory_iterator(kPreparerDirectory)) {
+         std::filesystem::recursive_directory_iterator(kPreparerDirectory)) {
       if (entry.is_regular_file() && entry.path().extension() == ".py") {
         sources.push_back(entry.path().string());
       }
@@ -132,7 +135,7 @@ int main() {
   const std::vector<std::string> cases = PreparedCases();
   Note("prepared cases carrying a provenance document", (double)cases.size(), "cases");
   if (cases.empty()) {
-    Unprepared("test/outshine/corpus/prepare.py has produced no provenance.json to check a digest against");
+    Unprepared("test/harness/shared/corpus/prepare.py has produced no provenance.json to check a digest against");
     return Report();
   }
 

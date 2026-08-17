@@ -141,7 +141,7 @@ int main() {
   const std::vector<std::filesystem::path> cases = PreparedCases();
   Note("prepared cases carrying a provenance document", (double)cases.size(), "cases");
   if (cases.empty()) {
-    Unprepared("test/outshine/corpus/prepare.py has produced no provenance.json to read a mapping out of");
+    Unprepared("test/harness/shared/corpus/prepare.py has produced no provenance.json to read a mapping out of");
     return Report();
   }
 

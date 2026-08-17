@@ -263,11 +263,11 @@ LayerCases() {
 # guarantees is held by a test that does run: outshine/unit/gltf/AProducedSubjectIsTheOneItStated.
 NotTheHarnesses() {
   case "$1" in
-    harness/shared) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
+    harness/shared | harness/khronos/glTF | harness/outshine/render) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
     harness/shared/render) printf '%s' "the render scoring instrument, compiled into each corpus's own harness" ;;
     outshine/host) printf '%s' "host implementations of what the library declares, compiled into the library" ;;
     outshine/unit/compile | outshine/unit/compile/*) printf '%s' "a compile subject, judged by the layer's own refusal test, never linked" ;;
-    outshine/corpus | outshine/corpus/*) printf '%s' "the offline preparer's own, compiled and run by test/outshine/corpus/prepare.py" ;;
+    harness/shared/corpus | harness/shared/corpus/*) printf '%s' "the offline preparer's own, compiled and run by test/harness/shared/corpus/prepare.py" ;;
     *) return 1 ;;
   esac
 }

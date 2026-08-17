@@ -29,7 +29,7 @@ is *a channel arrives when a test reads it* — a per-**test** statement enforce
 
 **So the quantities become part of the recipe, per case.** The recipe is already in the oracle key, so a
 case that adds a pass invalidates **that case** rather than the corpus. The one-time cost is honest and
-must be published rather than estimated: changing any file under `test/outshine/corpus/prep/` moves
+must be published rather than estimated: changing any file under `test/harness/shared/corpus/prep/` moves
 `render_code_digest()`, which is in every product's key, so **installing the mechanism re-renders
 everything once** — that is `board:1120`'s design working as intended, and the round that does it
 publishes the measured wall time rather than a guess.

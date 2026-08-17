@@ -8,8 +8,8 @@ import urllib.error
 import urllib.request
 import zlib
 
-from .refusal import Refusal
-from .store import sha256_hex, sha256_of_file
+from prep.refusal import Refusal
+from prep.store import sha256_hex, sha256_of_file
 
 KHRONOS_HOST = "raw.githubusercontent.com"
 KHRONOS_REPO = "KhronosGroup/glTF-Sample-Assets"

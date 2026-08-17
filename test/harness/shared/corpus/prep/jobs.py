@@ -6,7 +6,7 @@ import os
 import tempfile
 
 from . import blender as blender_module
-from . import fetch, fixtures, licence, manifest as manifest_module, patch as patch_module
+from . import licence, manifest as manifest_module, patch as patch_module, vendor
 from .refusal import Refusal
 from .store import canonical_json, derived_key, sha256_hex, sha256_of_file
 
@@ -32,7 +32,14 @@ CONVERT_SCRIPT = os.path.join(HERE, "in_blender_convert.py")
 # changed the bytes and not the product name, and the key did not move. A list also has to agree with
 # the one the harness holds, and it did not. Anything under this directory can change what lands on
 # disk, so everything under it is digested and there is nothing to keep in step.
-RENDER_CODE = tuple(sorted(glob.glob(os.path.join(HERE, "*.py"))))
+# THE POPULATION IS test/harness/ ENTIRE, AND THAT IS WHAT THE PARAGRAPH ABOVE MEANS NOW (board:1196).
+# Splitting the preparer by vendor moved `fetch.py` and `grown.py` OUT of this directory while leaving
+# them able to decide what lands on disk -- `grown.py` produces the subject's own bytes -- so a glob of
+# this directory alone silently stopped covering them and a change there would not have missed the
+# cache. Every harness source is digested, which is the same rule as before applied to where the
+# sources actually are.
+RENDER_CODE = tuple(sorted(
+    glob.glob(os.path.join(vendor.harness_root(HERE), "**", "*.py"), recursive=True)))
 
 PROVENANCE_NAME = "provenance.json"
 # THE BEAUTY PAIR PLUS ONE PAIR PER QUANTITY (manifest.QUANTITY_PASSES). The beauty products keep the
@@ -82,7 +89,7 @@ def generate_subjects(manifest, destination):
             continue
         for file in subject.files:
             where = "manifest subject %s file %s generator" % (subject.id, file["as"])
-            produced, said = fixtures.generate(where, file["generator"])
+            produced, said = vendor.step(destination, "fixtures").generate(where, file["generator"])
             path = os.path.join(destination, file["as"])
             with open(path, "wb") as out:
                 out.write(produced)
@@ -105,7 +112,7 @@ def fetch_subjects(manifest, store, destination, force=False):
         if subject.kind == "generated":
             continue
         for file in subject.files:
-            how, size = fetch.download_to_store(
+            how, size = vendor.step(destination, "fetch").download_to_store(
                 file["url"],
                 file["sha256"],
                 store,

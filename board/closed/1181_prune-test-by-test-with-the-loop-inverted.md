@@ -29,7 +29,7 @@ makes the eventual conversion larger.
   it carries the preparer digest and the product keys, and `board:1176` now depends on it surviving
 - [ ] **The recovery step is named in the item and in the runner's own output**, so a diagnosis does not
   begin with *how do I see the pixels again*:
-  `python3 test/outshine/corpus/prepare.py all --manifest test/khronos/glTF/<area>/<case>/manifest.json` for the oracle
+  `python3 test/harness/shared/corpus/prepare.py all --manifest test/khronos/glTF/<area>/<case>/manifest.json` for the oracle
   half, re-running the case for ours
 - [ ] **The high-water mark is published as a number**, because *size doesn't grow* is only checkable
   against one. **Acceptance: the peak under `test/khronos/glTF/` never exceeds one materialised case plus the
