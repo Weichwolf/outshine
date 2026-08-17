@@ -39,12 +39,36 @@ able to quote them: the numbers are in 33 log files and in no total.
 
 ## Done when
 
-- [ ] **`test/run.sh` sums both across a run and prints them in the trailer, beside the test count and
-  never instead of it.** Three numbers, none quotable as another
-- [ ] **`not-enforced` is counted as its own column and not folded into either**, which is the same
-  refusal `SayBothVerdicts` already makes one level down
-- [ ] **A partial run cannot report a total.** The trailer is what says a run happened; a count of
-  criteria drawn from whatever logs survive the last run is the `board:1181` hazard in a new place
+- [x] **`test/run.sh` sums both across a run and prints them in the trailer**, beside the test count and
+  never instead of it — three numbers, none quotable as another. **One case votes once**, not once per
+  arm: `~sanitised` and `~validated` are instruments about the same picture rather than two more
+  pictures
+- [x] **`not-enforced` is its own column**, the same refusal `SayBothVerdicts` makes one level down
+- [x] **A partial run cannot report a total it did not measure.** The counts accumulate from THIS run's
+  logs as each case finishes and are never scanned off disk, and the line prints only where a case
+  reported one — so a run of the unit tree says nothing about a corpus it never touched, and a run of
+  two cases says *of 2* rather than *of 33*
+- [x] **The label names its own population.** The first number this instrument ever printed was
+  `khronos criteria: 38 met of 44` — 44 being 33 Khronos cases **plus 11 grown ones**, under a word
+  that claimed only the first. Split into two lines and caught by reading the number rather than
+  quoting it
+
+## What the tree says, the first time it has been able to say it
+
+```
+214 tests: 147 PASS  66 FAIL  0 TIMEOUT  0 SIGNAL  0 BUILD  0 SKIP  1 UNPREPARED
+khronos: criteria 27 met of 33   picture bound 14 within, 18 outside, 1 not-enforced of 33
+grown:   criteria 11 met of 11   picture bound 11 within, 0 outside, 0 not-enforced of 11
+```
+
+**And the two counts are visibly different instruments, which is the whole reason for the shape**: 27
+criteria met against 14 pictures within the bound. *Criteria count features and do not fall because our
+picture is not the reference's; the picture bound counts pictures.* A single number would have hidden
+thirteen cases that implement what Khronos asks and do not yet draw it to the bound.
+
+**The prose this run has been quoting is replaced by measurement.** It said *30 criteria met of 35* and
+*20 render cases failing*; the tree says **27 of 33** and **18 outside plus 1 not-enforced**. Neither the
+numerator nor the denominator was right, and now both are derived from the population that ran.
 
 ## Comments
 
