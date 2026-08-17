@@ -55,9 +55,41 @@ is not.
   path, from the accessors alone. A case that cannot distinguish the modes reports green about them —
   **`STEP` is the one that would pass by accident**, because between keys it agrees with nothing and at
   keys it agrees with everything
-- [ ] **The subject moves**, per `board:1169`'s clause: the drawn transform at frame *n* differs from frame
-  0 by more than the instrument's floor, published. Nine nodes, so it is nine statements and not one
+- [x] **The subject moves**, per `board:1169`'s clause — nine statements and not one. Worst departure from
+  the frame-0 pose over the 17-frame grid, per channel: **rotation 1.0000 and scale 1.0000 in all three
+  modes, translation 4.0000 in all three**. No channel is static, so no node can pass by standing still
 - [ ] **The frame grid and duration are declared**, and every frame is its own cached product
+
+## The oracle's half, built
+
+**`baked_channels` replaces `spherical_rotation_curves` and the old path is deleted**, so there is one
+mechanism rather than a rule beside a special case. Every channel is evaluated from the file's accessors
+and written as an exact key at every rendered frame; Blender interpolates nothing. Checked against the
+pinned asset with a stubbed object model, because none of it needs a renderer:
+
+| | |
+|---|---|
+| decode | buffers reach the declared **1628 B**; **9 channels, 3 modes × 3 paths**, none left alone |
+| write | **30 curves**, 17 keys each, one `update()` each, every key `LINEAR` over frames 0..16 |
+| refusals | a node the importer did not name back · a component-count mismatch — **both fire** |
+| slerp | constant angular velocity to **7.206e-07 rad**, span ends reproduced to **7.855e-13** |
+| unit | every sampled rotation unit to **2.853e-08**, which is the file's float32 and not the sampler |
+
+**Two defects were found in the writing, and both would have rendered a plausible wrong picture rather
+than failing.** The grid is Blender **frames** and the sampler is in **seconds** — `frame_start` is 0 and
+`fps_base` is 1, so frame *f* is *f/fps*, and the first draft was off by one frame. And `_sampled`
+interpolated `LINEAR` **component-wise for every path**, which for `rotation` is precisely the defect the
+deleted function existed to remove: the generalisation had reintroduced it one layer down.
+
+## What remains
+
+- [ ] **The case manifest**, which needs `scene.animation` to accept a **set** rather than a single
+  `index` — schema and `Parity.cpp`. `Gltf::Pose::Build` already takes a set; the declaration cannot yet
+  say so
+- [ ] **The separation carried into codes.** The table below is in each channel's own units. Translation
+  at 6.8 m is obviously a picture; **0.0828 of a quaternion component is not yet a claim about pixels**,
+  and until it is, the mode clause is met in the wrong currency
+- [ ] **A deliberately wrong interpolation mode shown red, then green**
 
 **Done when** `InterpolationTest` is in the tree and compared frame by frame; `STEP`, `LINEAR` and
 `CUBICSPLINE` are each decided over scale, rotation and translation; the pose applies a declared set of
@@ -83,3 +115,16 @@ is therefore sensitive exactly where it must be rather than only where it is eas
 translation figure is 6.8 m and obviously visible; the rotation figure is 0.0828 of a quaternion component
 and **must be carried through to a picture difference before the case is scored**, or the clause is met in
 the wrong currency.
+
+## Comments
+
+The oracle's half cost two defects and neither was a crash. Both had the same shape — **an arithmetic that
+runs, produces numbers of the right magnitude, and describes a different pose** — and neither would have
+been caught by the case going red, because a wrong oracle and a wrong engine disagree in the same direction
+as a wrong engine alone. What caught them was checking the sampler against properties it must hold
+regardless of how it is written: constant angular velocity, unit length, exact reproduction at the keys.
+
+**One of those readings was itself wrong before it was right.** Span-end agreement first measured
+2.389e-04 rad and that was the metric, not the sampler: `acos` is ill-conditioned near 1, the stored keys
+are float32, and `sqrt(2 × 2.853e-08)` reproduces the figure exactly. Componentwise the agreement is
+7.855e-13. *An instrument reading near its own singularity reports the singularity.*

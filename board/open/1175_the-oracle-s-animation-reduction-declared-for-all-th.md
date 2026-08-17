@@ -21,22 +21,38 @@ is the signature of component-wise against slerp and not of a sampling error.
 1889** covered pixels, **every colour channel agreeing to the last bit**. Geometry displaced, shading
 identical — a pose disagreement and nothing else.
 
-**glTF states slerp, so the reduction is the oracle's and not ours.** The imported keyframes are resampled
-onto the declared grid with **Blender's own `mathutils.Quaternion.slerp`** in
-`test/harness/shared/corpus/prep/in_blender_render.py`. **The independence is the load-bearing property**: an engine with
-a wrong slerp still disagrees with it, because the reduction uses Blender's implementation and not a copy
-of ours. Residual **1.55e-05°**, which is Blender's f32 f-curve storage and is the instrument's floor.
+**glTF states slerp, so the reduction is the oracle's and not ours.** **SUPERSEDED IN FORM, NOT IN
+FINDING — the measurements above stand and the mechanism below them has been replaced.** The reduction
+was Blender's own `mathutils.Quaternion.slerp` resampling the importer's keys; it is now `baked_channels`
+in `test/harness/shared/corpus/prep/in_blender_render.py`, which evaluates every channel from the file's
+accessor bytes and writes one exact key per rendered frame. **The old residual 1.55e-05° measured the old
+path and is not a statement about the current instrument.**
+
+**AND THE GENERALISATION COST SOMETHING, WHICH IS SAID HERE RATHER THAN LEFT TO BE NOTICED.** The
+`LINEAR`-quaternion reduction's independence used to be the strongest available: it ran **Blender's**
+slerp, so an engine with a wrong slerp still disagreed with it. It now runs a slerp **we wrote**, from the
+specification's formula, in Python against our C++. That is two implementations on two code paths in two
+languages — the argument §*the oracle renders poses* rests on — but it is **weaker than borrowing a third
+party's**, and it is weaker **only for `LINEAR` rotations**, the one channel where a third party's was
+available. *A shared misreading of the specification would now survive on both sides for that channel,
+which the old shape excluded.*
+
+- [ ] **Buy that independence back for `LINEAR` rotations, or declare the weaker argument accepted.** The
+  cheap form is a property nothing about our reading can fake: a slerp holds **constant angular velocity**
+  and unit length. Measured on `InterpolationTest` at **7.206e-07 rad** and **2.853e-08** — but a property
+  check is not a second implementation, and the difference between the two is exactly what this box is for
 
 **Rung 2 of the ladder — `reduce the oracle` — taken with its measurement**, as `board:0087` requires and
 `board:0085` frames.
 
 ## `CUBICSPLINE` and `STEP`: open, and the next case inherits them
 
-- [ ] **`CUBICSPLINE` imports as BEZIER and was deliberately left alone**, counted in the case's
-  provenance under `rotationCurves.leftAlone`. **A Bézier f-curve and glTF's cubic Hermite with in- and
-  out-tangents are not the same function**, and `InterpolationTest` — the next animated case — is exactly
-  where that difference is the subject. **Its residual must be measured before the case is scored**, or
-  the case reports our sampler and the importer's together
+- [x] **`CUBICSPLINE` imports as BEZIER and was deliberately left alone** — and **the question it raised is
+  now moot rather than answered.** A Bézier f-curve and glTF's cubic Hermite are not the same function,
+  and the plan was to measure the departure and then choose a rung. Under *the oracle renders poses* the
+  importer's curve is **overwritten at every rendered frame**, so there is no Bézier left in the path and
+  nothing to measure. **The provenance key is `bakedChannels`, and `leftAlone` now carries only morph
+  weights** — the one path `baked_channels` does not write, because `Pose` refuses it too
 - [ ] **`STEP` is unmeasured and is the one most likely to be free**: a constant between keyframes has no
   interpolation to disagree about, so the expectation is an exact match. **State it as a measurement
   rather than as an expectation** — a residual of zero that nobody took is not evidence
@@ -75,10 +91,12 @@ segment duration.** That scaling is what makes it a different function from a B�
 handles, and it is the likeliest place for an implementation that looks right and is not.
 
 **Our side is already built** — `src/gltf/Track.h` states *glTF's Hermite basis with its tangents scaled*
-and `src/core/Keyframes.h` reads the triples. **The open half is the oracle's**, and it is open because
-nobody has yet measured whether Blender's Bézier conversion reproduces the Hermite or departs from it.
-**That measurement comes before the rung is chosen**, per the ladder: if it reproduces it, there is nothing
-to reduce.
+and `src/core/Keyframes.h` reads the triples. **The oracle's half is now built too**, and it did not need
+the measurement this paragraph used to demand: asking whether Blender's Bézier reproduces the Hermite only
+matters if Blender interpolates, and it no longer does. `_sampled` evaluates the Hermite with the tangents
+scaled by the segment duration, verified against a hand evaluation at every span midpoint at **0.000e+00**,
+and a `CUBICSPLINE` rotation is **normalised afterwards** because the cubic does not preserve unit length —
+which is a clause of the specification and not a tidy-up.
 
 **`InterpolationTest` is the case**, and it is not fetched. It is the only asset carrying `LINEAR`, `STEP`
 and `CUBICSPLINE` side by side on one subject, so it decides all three in one case rather than three — and
