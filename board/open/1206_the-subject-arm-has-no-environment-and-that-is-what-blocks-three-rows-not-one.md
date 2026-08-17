@@ -68,8 +68,24 @@ what the file said, here it renders something the engine has no term for.*
   what every corpus case that gathers already declares (`world: uniform` at strength 0), so this
   arriving moved no picture: 55 of 55 in the unit tree and `Triangle` green on three arms
 
-- [ ] **THE RUNNER STILL BAKES THE DIFFUSE HALF AND THAT IS THE NEXT DISPATCH, WITH ITS BLAST RADIUS
-  NAMED.** `Parity.cpp` carries `kFactoryWorldRadiance = 0.05087608844041824` and multiplies it into
+- [ ] **A LIT-UNDER-ENVIRONMENT MATERIAL ARM DOES NOT EXIST, and that — not the bake — is what the next
+  dispatch must build.** [MEASURED] over the runner's whole material vocabulary: `emission`,
+  `emission-per-material`, `diffuse`, and the file's own colours. **Every one of them computes a
+  RADIANCE in the runner and hands it to an unlit draw.** `diffuse` is literally the closed form
+  `rho·L` and refuses a multi-part subject *because the closed form holds only where no surface can
+  see another*. So the engine's new environment term reaches no picture through any arm that exists:
+  the lit shader runs only under a punctual light, and every case that has one declares the
+  environment away at strength 0. **`SpecularTest` needs an arm this runner has never had** — the
+  file's metal-rough material, shaded by the ENGINE, under a declared environment
+
+- [ ] **AND `bounces.max` IS 0 IN ALL 56 DECLARED RECIPES, which has to be re-examined before that arm
+  is believed.** A path tracer at zero bounces carries no indirect light — that is the second gate on
+  the occlusion row, stated there and true here for the same reason. **An environment reaching a
+  surface is not an indirect bounce**, so the two may be independent, but *whether Cycles at
+  `bounces.max = 0` renders a world-lit specular panel at all is a question with a measurement and not
+  an argument*, and it is cheap: one render of one panel
+
+- [ ] **The runner's diffuse BAKE is then a separate question with its own blast radius.** `Parity.cpp` carries `kFactoryWorldRadiance = 0.05087608844041824` and multiplies it into
   each part's colour, handing the renderer an EMISSION — a Lambert surface under uniform radiance
   leaves `rho·L`, so the bake is exact for diffuse and silently absent for specular, which is the half
   `SpecularTest` measures. **Replacing the bake with `SetEnvironment` changes how 24 cases are drawn**,
