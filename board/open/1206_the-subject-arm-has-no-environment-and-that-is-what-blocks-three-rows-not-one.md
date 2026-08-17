@@ -44,8 +44,20 @@ what the file said, here it renders something the engine has no term for.*
 
 ## What must become true
 
-- [ ] **The subject arm consumes an irradiance term**, the way the other four geometry units already do.
-  The plan already produces it; what is missing is the edge and the shading that reads it
+- [ ] ~~**The subject arm consumes an irradiance term**, the way the other four geometry units already
+  do.~~ **WRONG, AND CORRECTED BEFORE IT COST A ROUND.** [MEASURED] in the catalogue: `Stage::Irradiance`
+  reads `SkyViewLut`, `TransmittanceLut`, `LutSampler` and `AtmosphereUniform` — **`IrradianceBuffer` is
+  the SKY's irradiance and it pulls the whole atmosphere chain behind it**. Giving `Stage::Subjects` that
+  edge would make every corpus case's plan include Transmittance, MultiScatter, SkyView and Irradiance,
+  and its picture a function of **our atmosphere model**, which Cycles is not running. The corpus would
+  then be comparing our sky against Blender's world — a different disagreement wearing this one's name.
+  *The resource's name suggested a general environment and the diagram was read instead of the row.*
+
+- [ ] **What is wanted is a DECLARED UNIFORM ENVIRONMENT**, which is what the oracle already has: Blender's
+  world is a Background colour times a strength, and that is a constant radiance from every direction.
+  It costs no chain, it is a function of the declaration rather than of a model, and it is exactly the
+  quantity `SpecularTest`'s mirrors reflect and glTF's occlusion map attenuates. **The atmosphere's
+  irradiance stays what it is** — a world scene's sky — and the two do not become one field
 - [ ] **A case can declare an environment**, as a fourth `light` variant or as a `world` that is a light
   rather than a backdrop — and the declaration says what the environment IS, so the picture stays a
   function of the declaration and not of Blender's default grey
@@ -57,6 +69,12 @@ what the file said, here it renders something the engine has no term for.*
   becomes decidable is a question this feature makes askable rather than one it answers
 
 ## Comments
+
+**The correction above is the item's own lesson arriving early.** This entry was filed after three rows
+stopped on one sentence, and its first line then named a resource by what its name suggested rather than
+by what its row says. **One `grep` of the catalogue was the difference between a design and a round spent
+discovering that every case's picture had moved.** *`CLAUDE.md`'s rule is that a number carries its
+origin; a RESOURCE carries one too, and `IrradianceBuffer`'s is the sky.*
 
 **The order this was found in is the lesson.** Occlusion looked like a row about a texture; specular
 looked like a row about a factor; ior looked like a row about a number. Each was measured on its own and
