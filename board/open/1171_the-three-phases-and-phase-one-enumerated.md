@@ -183,3 +183,22 @@ very nearly one about `src/render` — and it is nearly silent about the composi
 culling, budget quantisation, the ladder, streaming, residency and eviction, none of which a still can
 turn red. It says nothing at all about 720p60, which is the `frame` suite's distribution over a moving
 camera. *The fourth constraint stays the least measured of the four whatever this count reaches.*
+
+## The licence ruling reached the preparer, and eleven models came with it
+
+**The ruling above was recorded and not implemented.** `prep/licence.py` still refused: an allow-list of
+`CC0-1.0` and `CC-BY-4.0` plus a `LicenseRef-LegalMark-*` prefix, and **eleven models refused by name** --
+`Sponza`, `BrainStem`, `DamagedHelmet`, `BoxTextured`, `BoxTexturedNonPowerOfTwo`, `AntiqueCamera`,
+`CesiumMan`, `CesiumMilkTruck`, `PrimitiveModeNormalsTest`, `RecursiveSkeletons`, `Duck`.
+
+**A refusal became a note.** The licence is still read at the pin, still carried, and now printed once
+per run as *recorded, not refused* -- the same shape the preparer already uses for a Blender version it
+did not expect.
+
+**The knowledge was kept and not deleted.** `REFUSED_SUBJECTS` became `NOTED_SUBJECTS` with every entry
+and every reason intact, because each was established on evidence and **a deleted line is scope given
+up**. If anything is ever published out of this corpus, that list is what says which models may not go.
+
+**What it unblocked immediately**: `Duck` prepared on the first attempt after the gate came down -- and
+in doing so uncovered `board:1370`, a stale object reference in the preparer that no reachable subject
+had ever triggered. *A gate does not only block what it names; it hides everything behind it.*

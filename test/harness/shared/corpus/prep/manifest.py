@@ -7,6 +7,7 @@ belong to the test that reads the case directory.
 """
 
 import json
+import sys
 import os
 import re
 
@@ -200,7 +201,10 @@ class _Subject:
         self.id = field["id"]
         self.kind = field["kind"]
         self.name = field["name"]
-        licence.check_subject_name(self.name)
+        note = licence.check_subject_name(self.name)
+        if note:
+            print("notice: subject " + self.name + " -- " + note + " -- recorded, not refused",
+                  file=sys.stderr)
         self.source = field["source"]
         self.files = field["files"]
         self.entry = field["entry"]
@@ -214,7 +218,11 @@ class _Subject:
             spelling = "%s.files[%d]" % (where, position)
             if "licence" in file:
                 for grant in licence.declared_grants(file["licence"]):
-                    licence.check_spdx(grant["spdx"], spelling + ".licence")
+                    grantNote = licence.check_spdx(grant["spdx"], spelling + ".licence")
+
+                    if grantNote:
+
+                        print("notice: " + grantNote + " -- recorded, not refused", file=sys.stderr)
             if (file["role"] == "archive-member") != ("member" in file):
                 raise Refusal(
                     spelling + ".member",

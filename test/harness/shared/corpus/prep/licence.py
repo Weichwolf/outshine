@@ -1,4 +1,12 @@
-"""What may enter the corpus, decided per file."""
+"""What the corpus consumes, RECORDED per file rather than gated (board:1171).
+
+THE OWNER'S RULING: licence does not gate this corpus, because the models are fetched and rendered and
+never redistributed. What was a refusal is now a note -- read at the pin, carried into provenance, and
+printed once so a run says what it consumed.
+
+THE KNOWLEDGE BELOW IS KEPT AND NOT DELETED. Each entry was established on evidence and a deleted line
+is scope given up; what changed is what the tree DOES with it. If anything is ever published from this
+corpus, this list is the thing that says which models may not go."""
 
 import json
 
@@ -10,9 +18,9 @@ ALLOWED_SPDX = frozenset(["CC0-1.0", "CC-BY-4.0"])
 # obligation, so they are allowed by prefix rather than enumerated as they appear.
 ALLOWED_SPDX_PREFIXES = ("LicenseRef-LegalMark-",)
 
-# Refused once, on evidence, and refused again the next time somebody declares them. Standing here
-# rather than in a reviewer's memory is the difference between a rule and a habit.
-REFUSED_SUBJECTS = {
+# Established once, on evidence. NOT a gate any more (board:1171) and still the record: standing here
+# rather than in a reviewer's memory is the difference between a fact and a habit.
+NOTED_SUBJECTS = {
     "Sponza": "Crytek Cryengine Limited License Agreement -- a proprietary EULA, not a free licence",
     "BrainStem": "Smith Micro Poser EULA",
     "DamagedHelmet": "textures are CC BY-NC 4.0 (theblueturtle_, 2016) -- non-commercial",
@@ -28,9 +36,8 @@ REFUSED_SUBJECTS = {
 
 
 def check_subject_name(name):
-    reason = REFUSED_SUBJECTS.get(name)
-    if reason:
-        raise Refusal("subject " + name, why=reason)
+    """The note this subject carries, or None. It is RECORDED and never refused (board:1171)."""
+    return NOTED_SUBJECTS.get(name)
 
 
 def declared_grants(field):
@@ -44,16 +51,17 @@ def declared_grants(field):
 
 
 def check_spdx(spdx, where):
+    """The note this grant carries, or None. RECORDED and never refused (board:1171).
+
+    `ALLOWED_SPDX` keeps its name and its meaning -- these are the grants that carry no obligation this
+    tree would have to meet if it ever published anything. Everything else is consumed and said aloud.
+    """
     if spdx in ALLOWED_SPDX:
-        return
+        return None
     for prefix in ALLOWED_SPDX_PREFIXES:
         if spdx.startswith(prefix):
-            return
-    raise Refusal(
-        "licence of " + where,
-        expected="one of " + ", ".join(sorted(ALLOWED_SPDX)) + " or a LicenseRef-LegalMark-* mark",
-        observed=spdx,
-    )
+            return None
+    return "%s is %s, which is outside %s" % (where, spdx, ", ".join(sorted(ALLOWED_SPDX)))
 
 
 def spdx_from_khronos_metadata(metadata_bytes, where):

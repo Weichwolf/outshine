@@ -1565,9 +1565,15 @@ def main():
         set_frame_grid(scene, animation, job["frame"])
     imported, defaultScenes = import_gltf(job["gltfPaths"],
                                           job["scene"]["light"].get("lightingMode", "RAW"))
+    # THE SURVIVORS ARE NAMED BEFORE THE REMOVAL AND NOT ASKED AFTERWARDS (board:1370). `obj.name` on an
+    # object Blender has already freed raises `StructRNA of type Object has been removed`, so the filter
+    # that was meant to drop the removed ones was itself reading them. It never fired until a subject
+    # arrived whose import `strip_crossings` actually deletes from -- `Duck` is the first, and it was
+    # only reached at all once the licence stopped gating the corpus.
+    names = [obj.name for obj in imported]
     removed = strip_crossings(imported, job["scene"]["camera"]["source"],
                               job["scene"]["light"]["kind"] == "gltf")
-    imported = [obj for obj in imported if obj.name in bpy.data.objects]
+    imported = [bpy.data.objects[name] for name in names if name in bpy.data.objects]
     if job["scene"]["camera"]["source"] == "manifest":
         camera = build_camera(scene, job["scene"]["camera"])
     else:

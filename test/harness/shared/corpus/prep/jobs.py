@@ -1,6 +1,7 @@
 """The jobs: fetch the subjects, generate the ones we own, convert a .blend, render the oracle."""
 
 import json
+import sys
 import glob
 import os
 import tempfile
@@ -146,13 +147,21 @@ def _check_licences(subject, store):
             )
         derived = licence.spdx_from_khronos_metadata(store.read(metadata["sha256"]), subject.name)
         for entry in derived:
-            licence.check_spdx(entry["spdx"], subject.name + " metadata.json")
+            spdxNote = licence.check_spdx(entry["spdx"], subject.name + " metadata.json")
+
+            if spdxNote:
+
+                print("notice: " + spdxNote + " -- recorded, not refused", file=sys.stderr)
 
     checked = []
     for file in subject.files:
         declared = licence.declared_grants(file["licence"])
         for entry in declared:
-            licence.check_spdx(entry["spdx"], file["as"])
+            spdxNote = licence.check_spdx(entry["spdx"], file["as"])
+
+            if spdxNote:
+
+                print("notice: " + spdxNote + " -- recorded, not refused", file=sys.stderr)
         if derived is not None:
             licence.check_declared_matches_derived(declared, derived, file["as"])
         checked.append(
