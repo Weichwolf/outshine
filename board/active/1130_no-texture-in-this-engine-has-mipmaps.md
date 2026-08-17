@@ -407,3 +407,36 @@ case at `63.750005` codes with the chain off and `37.412079` with it on, read as
 `63.750005` came from a scratch binary still carrying a diagnostic that zeroed every level above 0 — it
 measured the probe. The real single-level figure against the point-sampling oracle is `0.190`, and
 against the integrating one `37.864`.
+
+## The proxy may be the artefact, and this entry does NOT claim it is
+
+`board:1205` reached this item from the other end — `SpecularTest` disagrees with the oracle at a label
+plate's glyph edge, and that asset's one sampler declares **`minFilter: 9987`, `LINEAR_MIPMAP_LINEAR`**,
+which this engine does not implement. Five other causes were eliminated by measurement before arriving
+here.
+
+**And reading this item's own instrument raises a question it half-flags itself.** The LOD distribution
+above — 288 807 pixels at ≈1.25 against 6 069 above 8 — was computed as a **per-pixel finite difference
+over Cycles' uv**. The item says so: *it is a proxy*. But a per-pixel difference between NEIGHBOURING
+PIXELS crosses from one triangle to another wherever a uv island ends, which is exactly where the
+saturation was found.
+
+**A GPU is widely understood not to compute derivatives that way** — fragment shading runs on 2×2 quads
+and pixels outside the primitive are helper invocations carrying the SAME primitive's extrapolated
+attributes, so the derivative at a triangle's edge is taken from that triangle's own plane rather than
+from its neighbour's. **If that is right, the GPU's LOD cannot saturate at a uv seam the way the proxy
+did, and the leading hypothesis on this item is about the instrument rather than about the engine.**
+
+**IT IS WRITTEN HERE AS A HYPOTHESIS AND NOT AS A FINDING, AND THE REASON IS THIS TREE'S OWN RULE.**
+*Look it up, do not recall it* — and the Metal specification was **not reachable from this machine when
+this was written**, so the paragraph above is recollection. It must be checked against the source before
+any repair rests on it.
+
+- [ ] **The empirical instrument needs no specification at all**, which is why it is the one to build: a
+  shader case rendering a quad across a deliberate uv discontinuity and reporting the device's own
+  `calculate_unclamped_lod`. **No asset, no camera, no oracle, no corpus** — the shape
+  `test/outshine/shader/EverySubjectShaderTheUnitEmitsCompiles.cpp` already established, and it answers
+  the question this item has now spent three hypotheses on
+- [ ] **Whichever way it answers, the ladder question changes.** If the GPU does not saturate, *clamp the
+  selection* is a repair for a defect that is not there and `max_lod` can be set on its own merits; if it
+  does, the choice between clamping and padding the islands is the one this item already frames
