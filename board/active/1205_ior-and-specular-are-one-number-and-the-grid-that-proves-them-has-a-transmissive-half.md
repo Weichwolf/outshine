@@ -120,3 +120,26 @@ asking about the colour image alone. **Four measurements came back identical to 
 cause was found**, and each one was a real elimination rather than a wasted round: the mirror ray, the
 grazing Fresnel, minification by resolution, and the wrong shading arm. *The chain broke on a predicate
 that had been correct for as long as every image was a colour image.*
+
+## The 141-code peak is not this task's, and five measurements say so
+
+**It is on a LABEL PLATE, not on a specular panel.** Cropped and magnified around (551, 380) at 10x,
+the pixel sits at the leading edge of the plate reading *yello[w]* — `LabelMat`, the one material in the
+file with a `baseColorTexture` and the only one this extension does not touch.
+
+| eliminated | how |
+|---|---|
+| environment visibility | mirror ray through the existing BVH — identical to the digit, reverted |
+| grazing Fresnel | measured against Cycles at six view angles; it TRACKS Schlick, 0.997–1.21 |
+| minification | 141.523705 at 1280×720 against 141.533904 at 320×180 — unchanged |
+| the extension's textures | now live and moving 8320 channels, and the peak did not move |
+| **a geometric offset** | **the first covered column is IDENTICAL in both pictures at rows 360, 370, 380, 390 and 400 — delta 0 everywhere.** Both sides cover the pixel |
+
+**So both draw the plate in the same place and disagree about its TEXEL**: the reference is 0 and ours
+is 142 at a pixel one column inside the plate's leading edge. That is a texture-sampling difference at
+the image's own edge — a wrap or edge-handling question on `LeftLabels.png` — and it belongs to
+`board:1130`'s neighbourhood rather than to `KHR_materials_specular`.
+
+**The case therefore cannot be scored on this task's work alone**, and saying so is the point: `1205`'s
+number and its textures are both delivered and both exercised, and the case stays red for a cause that
+five measurements have now placed outside it.
