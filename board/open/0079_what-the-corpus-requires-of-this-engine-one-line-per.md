@@ -23,7 +23,7 @@ by parsing every `.gltf` in it, so the counts below are the corpus's own and not
 | `TEXCOORD_1` | `MultiUVTest` — 9 of 146 | second parameterisation for occlusion and decals | required · `UNSURE` on which reference uses it for what |
 | `COLOR_0` | `BoxVertexColors` — 7 of 146 | CryEngine vegetation bending and terrain blending | required |
 | skinning (`JOINTS_0`/`WEIGHTS_0`/`skins`) | `RiggedSimple` — 6 of 146 | both, every character | required · **DELIVERED `board:1200`** — reader, flatten and a render case green on three arms at **0.00074717091 px** worst geometric disagreement over 18 frames |
-| morph targets | `AnimatedMorphCube` — 4 of 146 | facial animation; CryEngine's Facial Editor is morph-target based | required |
+| morph targets | `AnimatedMorphCube` — 4 of 146 | facial animation; CryEngine's Facial Editor is morph-target based | required · **DELIVERED `board:1203`** — reader, `Pose`, flatten and a render case green on three arms at **0.00099526122 px** worst geometric disagreement over 18 frames |
 | node hierarchy, TRS and `matrix` | all | both | required |
 | GPU instancing | `SimpleInstancing` (`EXT_mesh_gpu_instancing`) | vegetation in both; GTA 5 instances transparent geometry in 11 draw calls | required |
 | vertex quantization | `KHR_mesh_quantization` | both ship quantized vertex streams; our 32 B vertex is already a budget | required |
@@ -149,11 +149,13 @@ Blender's, so no render against this oracle can decide it. Row 3, `TEXCOORD_1`, 
 (`board:1182`). **Skinning was therefore next and is delivered (`board:1200`)** — impact 6, and it is
 the first row whose oracle half needed a second mechanism rather than a second measurement.
 
-**So the next unstarted tier-1 row by impact is morph targets at 4**, with `AnimatedMorphCube` as its
-asset — and it is the sibling of skinning in the reader (`targets` and `mesh.weights`, neither parsed)
-and in `Pose`, where **morph weights are already a named refusal** and `baked_channels` already counts
-them under `leftAlone`. *That refusal is the one thing on the board that a delivered row is supposed to
-turn into a capability.*
+**Morph targets followed at impact 4 and are delivered (`board:1203`)** — the refusal in `Pose` and the
+`leftAlone` entry in `baked_channels` are both gone, turned into the capability they described.
+
+**So the next unstarted tier-1 rows are `non-indexed` at 3 and `KHR_node_visibility` at 2**, and both are
+smaller than anything done this round. *The tier is nearly exhausted, which is the point of working it to
+the bottom: what is left after it is tier 2, where `volume` at 25 and `ior` at 17 are new-resource rows
+that cannot be finished in one dispatch.*
 
 **Behind those, in tier 1 by impact**: `KHR_texture_transform` 15 · `COLOR_0` 7 · skinning 6 · morph
 targets 4 · non-indexed 3 · `KHR_node_visibility` 2 · **`POINTS`/`LINES`/`STRIP`/`FAN` 2** and **multiple
