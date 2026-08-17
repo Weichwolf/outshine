@@ -62,3 +62,44 @@ clipped, and the coverage comparison would then be measuring the frame instead o
 **Filed and not applied, because the number is the owner's and the sweep is a round of its own.** *What
 it must not become is a constant edited in a round about something else, with 34 cameras re-derived
 underneath a diff nobody reads.*
+
+## DECIDED: the fill goes to 0.9, and the animated grid trades frames for pixels
+
+**The owner delegated it: be reasonable, and it must be achievable.**
+
+### `kFramingFill` 0.6 -> 0.9
+
+[DERIVED] the rule frames the **bounding sphere**, which contains every vertex by construction, so a
+fill of `f` guarantees a margin of `1 - f` of the half-height on every side **whatever the subject's
+shape**. At 0.9 that is a true 10 % margin: no silhouette can touch the frame edge, so the coverage
+comparison never measures the frame instead of the model. **The subject's image area grows by
+`(0.9/0.6)^2 = 2.25x`**, and every population this suite takes a number over grows with it.
+
+**Why not 1.0**: a subject inscribed in the frame has its boundary clipped at four points, and a clipped
+silhouette is a coverage disagreement neither renderer is responsible for. **Why not 0.95**: the margin
+would be 36 px of 720, which is under the framing rule's own bounding-sphere slack for an elongated
+subject and buys 11 % of area for the risk. *0.9 is the largest value whose margin is still legible as a
+margin.*
+
+### The animated grid: 320x180 stays, and the frame count is what gets spent
+
+**Not raised, and the reason is that the constraint is real**: five raws over an 18-frame grid at
+1280x720 is 2.29 GB against a corpus already at 19.9 GB. **What is traded instead is the grid** — an
+interpolation claim needs frames a person can look at more than it needs eighteen of them.
+
+- [ ] **Priced rather than assumed**: frames x resolution per animated case, against what its claim
+  needs. *A case proving `STEP` needs the frames either side of a step and not a sweep.*
+
+### What this costs, and it is why it happens now rather than later
+
+Every quoted camera is re-derived, `ADerivedCameraIsTheFramingRuleAndNotAQuotation` goes red until they
+all are, and **every oracle product is re-rendered** because the cache key covers the declared scene.
+**34 cases today, 148 later** — and `board:1227` has just shown a case costs no engine work, so the
+population only grows. *The cost of this change never goes down.*
+
+- [ ] **The `exact` cases are exempt and that is not a loophole.** `Triangle` spends its camera on a
+  lattice-offset condition rather than on the rule, and the tree already knows these are two
+  determinations of one quantity. **An exempt case is one whose `acceptanceClass` is `exact`**, which is
+  a declaration already in its manifest and not a list somebody maintains
+
+**Closed on its own answer.** The sweep is `board:1361`.

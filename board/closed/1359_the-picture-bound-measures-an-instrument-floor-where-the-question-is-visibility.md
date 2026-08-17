@@ -57,3 +57,61 @@ not, and nothing here makes one easier to meet.
 threshold from a declaration instead of a constant, and re-running the corpus — is a task once the number
 exists. *What must not happen is this arriving as a quiet edit to a constant in a round that was about
 something else.*
+
+## DECIDED, and the first thing the measurement did was refute this item's own headline
+
+**The owner delegated the number: be reasonable, and it must be achievable.** So the population was
+measured before anything was chosen, and it settled two of the three questions without an opinion.
+
+### The geometric bound is NOT too strict, and naming it was a mistake
+
+[MEASURED] `worst_disagreement_px` over all 44 cases:
+
+| | |
+|---|---|
+| exactly 0 | **25 cases** |
+| 4.03e-05 … 0.00198 px | **17 cases** — every one inside the 0.005 px bound with 2.5x to spare |
+| **the gap** | **87x** |
+| above it | **2 cases**: `SpecularTest` 0.17261918, `PointLightIntensityTest` **0.61810204** |
+
+**42 of 44 meet it comfortably and the two that do not are over half a pixel out.** 0.618 px is a
+silhouette a person can see move. *This item nominated that bound on the strength of one case's number
+and no distribution; the distribution says the bound is right and those two cases are wrong.*
+
+### There is no single perceptual threshold either, because the bound is PER CASE
+
+[MEASURED]: `SpecularTest`'s `picture_max_delta_code` bound is **6.4354338** codes and
+`BoxVertexColors`'s is **0.000668135** — four orders apart, because each is derived from the terms that
+case's own picture carries. **"Too strict" cannot be answered by moving a number; it is a question about
+the derivation.** And `board:1195` has already found one term genuinely missing.
+
+### So the decision is about SHAPE, and it is two changes
+
+**1 · A PERCEPTUAL FLOOR OF 1.0 CODE on every case's bound.** [DERIVED] the comparison is expressed in
+codes of the case's declared 8-bit transfer, and one code is that transfer's quantisation step. **Below
+its own quantum, "the two pictures differ" is not a representable claim** — no display the picture is
+judged on can show it. So the bound becomes `max(the derived terms, 1.0 code)`. *Not 2, which would be a
+comfort margin, and comfort is exactly what a derivation may not contain.*
+
+**2 · THE VERDICT MOVES FROM THE MAXIMUM TO THE 99.99th PERCENTILE, and the maximum keeps being
+reported.** [DERIVED] the metric today is a max over 1280 x 720 x 3 = **2 764 800 channels**, so it is a
+claim about the single worst channel while the finish line is a claim about a *picture*.
+`board:1136` measured the consequence directly: **four cases exceed their bound on fewer than ten
+channels in 2.6 million.** At 1e-4 the disagreeing set is under 0.01 % of the frame. **The maximum stays
+on the report** — a case agreeing to one code and a case agreeing to 200 on nine channels are different
+facts, and a rule that hid the difference would conceal a regression inside its own tolerance.
+
+### What does NOT move
+
+**The Khronos criteria** — a feature is implemented or it is not, and no tolerance touches that. **The
+geometric bound**, refuted above. **The ladder** — disqualification stays the last rung, per
+`(case, metric)`.
+
+### The condition this decision carries
+
+- [ ] **It is declared here, BEFORE the corpus is re-run**, and whatever the re-run says it says. **A
+  percentile chosen while watching which cases would flip is a fit in a derivation's clothes**, so the
+  count it buys is a measurement owed rather than a benefit claimed. *This item does not predict it.*
+
+**Closed on its own answer, which is what an issue does.** The implementation and its before-and-after
+are `board:1361`.
