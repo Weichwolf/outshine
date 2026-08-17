@@ -197,12 +197,16 @@ bool KnownWrap(int raw, Wrap &out) {
  * variants are a thing, and no fragment arm, pipeline or interpolant is added by it. */
 constexpr const char *const kHonouredExtensions[] = {"KHR_lights_punctual",
                                                      "KHR_materials_emissive_strength",
+                                                     "KHR_materials_ior",
+                                                     "KHR_materials_specular",
                                                      "KHR_materials_unlit",
                                                      "KHR_materials_variants",
                                                      "KHR_texture_transform", nullptr};
 
 constexpr const char *kLightsPunctual = "KHR_lights_punctual";
 constexpr const char *kEmissiveStrength = "KHR_materials_emissive_strength";
+constexpr const char *kIor = "KHR_materials_ior";
+constexpr const char *kSpecular = "KHR_materials_specular";
 constexpr const char *kUnlit = "KHR_materials_unlit";
 constexpr const char *kMaterialsVariants = "KHR_materials_variants";
 constexpr const char *kTextureTransform = "KHR_texture_transform";
@@ -1130,6 +1134,38 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
    * is what leaves this reader: `emissiveFactor` is capped at 1 by the core format, so the extension
    * is the only way a glTF says "brighter than white" and a consumer that kept the two apart would
    * have to remember to multiply them at every site that reads emission. */
+  /* KHR_materials_ior AND KHR_materials_specular SET ONE QUANTITY BETWEEN THEM, and `DielectricF0`
+   * in `core/Material.h` is where they meet -- so both are read into the row here and neither is
+   * combined with the other until the one place that does it.
+   *
+   * `ior = 0` IS LEGAL AND IS NOT "ABSENT". The extension states it means a surface with no Fresnel,
+   * so the default 1.5 may not stand in for it and the check below is on validity rather than on
+   * being non-zero. */
+  const Json::Ref ior = declaration["extensions"][kIor]["ior"];
+  if (ior.Valid()) {
+    if (ior.GetKind() != Json::Kind::Number) {
+      return Refuse("material " + Number(index) + " declares an ior that is not a number");
+    }
+    if (!(ior.Num() >= 0.0)) {
+      return Refuse("material " + Number(index) + " declares a negative ior");
+    }
+    material.Surface.Ior = static_cast<float>(ior.Num());
+  }
+  const Json::Ref specular = declaration["extensions"][kSpecular];
+  if (specular.Valid()) {
+    const Json::Ref factor = specular["specularFactor"];
+    if (factor.Valid()) {
+      if (factor.GetKind() != Json::Kind::Number || !(factor.Num() >= 0.0)) {
+        return Refuse("material " + Number(index) +
+                      " declares a specularFactor that is not a number at or above zero");
+      }
+      material.Surface.SpecularFactor = static_cast<float>(factor.Num());
+    }
+    const Json::Ref tint = specular["specularColorFactor"];
+    for (size_t k = 0; k < 3 && k < tint.Size(); ++k) {
+      material.Surface.SpecularColour[k] = static_cast<float>(tint[k].Num(1.0));
+    }
+  }
   const Json::Ref strength =
       declaration["extensions"][kEmissiveStrength]["emissiveStrength"];
   if (strength.Valid()) {

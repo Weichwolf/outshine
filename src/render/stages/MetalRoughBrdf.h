@@ -29,7 +29,12 @@
 
 namespace outshine::Render {
 
-/* glTF's dielectric normal-incidence reflectance at its default IOR of 1.5. */
+/* glTF's dielectric normal-incidence reflectance at its default IOR of 1.5, which is what
+ * `core/Material.h`'s `DielectricF0` returns for a material declaring neither `KHR_materials_ior` nor
+ * `KHR_materials_specular`. IT IS NO LONGER EMITTED INTO THE SHADER (board:1205): the row carries the
+ * computed F0 now, so a constant in the shader text would be a second answer to the same question and
+ * the fragment reads the one it was handed. What is left here is a NAME for the default, used by the
+ * lobe's own tests to pick a representative dielectric. */
 constexpr double kDielectricF0 = 0.04;
 constexpr double kBrdfPi = 3.141592653589793;
 
@@ -135,8 +140,7 @@ struct BrdfGeometry {
 [[nodiscard]] inline std::string MetalRoughBrdfMsl(void) {
   char constants[256];
   std::snprintf(constants, sizeof constants,
-                "constant float kPi = %.17g;\nconstant float kDielectricF0 = %.17g;\n", kBrdfPi,
-                kDielectricF0);
+                "constant float kPi = %.17g;\n", kBrdfPi);
   return std::string(constants) + R"(
 struct Brdf { float3 diffuse; float3 specular; };
 

@@ -50,7 +50,45 @@ struct Material {
    * moves no pipeline state, because what changes is which radiance a part declares and not how the
    * fragment is composited. */
   bool Unlit = false;
+  /* `KHR_materials_specular`: the two factors that scale a dielectric's normal-incidence
+   * reflectance. Both are the extension's own defaults, which are the identity -- so a file that
+   * declares neither reaches `DielectricF0` with the same number it would have had.
+   *
+   * THEY SIT AT THE END AND THE POSITION IS THE POINT (board:1205). This row is brace-initialised
+   * positionally in places, so a field inserted in the middle silently reassigns every initialiser
+   * after it -- one of them changed arity and failed to compile, which is the lucky case and not the
+   * general one. Appending cannot repurpose an existing element. */
+  float SpecularFactor = 1.0f;
+  float SpecularColour[3] = {1.0f, 1.0f, 1.0f};
 };
+
+/* THE DIELECTRIC'S NORMAL-INCIDENCE REFLECTANCE, AND THIS IS THE ONLY PLACE IT IS COMPUTED
+ * (board:1205). `KHR_materials_ior` and `KHR_materials_specular` do not set two quantities -- they set
+ * ONE, and the renderer needs it as one number:
+ *
+ *     F0 = specularColour * min( ((ior - 1)/(ior + 1))^2 * specularFactor , 1 )
+ *
+ * IT LIVES BESIDE THE ROW AND NOT IN THE SHADER because the shader has a C++ twin and the twin would
+ * be a second spelling of this arithmetic -- the failure this engine has already paid for once, when a
+ * constant 0.04 stood in the shader and the material carried an `Ior` nothing read.
+ *
+ * THE `min` IS THE FORMAT'S AND NOT A CLAMP ADDED HERE: `KHR_materials_specular` states the product is
+ * capped at 1 before the colour tints it, so a specular factor above unity brightens nothing and a
+ * tint is still free to darken. `ior = 0` is legal and means a surface with no Fresnel at all, which
+ * this expression gives for free -- ((0-1)/(0+1))^2 = 1 would be wrong, so the format's own reading is
+ * that ior 0 disables the term, and it is spelled rather than derived. */
+inline void DielectricF0(const Material &material, float out[3]) {
+  if (material.Ior == 0.0f) {
+    out[0] = out[1] = out[2] = 0.0f;
+    return;
+  }
+  const float edge = (material.Ior - 1.0f) / (material.Ior + 1.0f);
+  const float scaled = edge * edge * material.SpecularFactor;
+  const float capped = scaled < 1.0f ? scaled : 1.0f;
+  for (int channel = 0; channel < 3; ++channel) {
+    out[channel] = material.SpecularColour[channel] * capped;
+  }
+}
 
 /* A MATERIAL AS THE PICTURE TAKES IT: a row of numbers, and nothing in it can switch a pipeline
  * state (the deleted architecture document). Its field meanings live in the shader that reads the row and are

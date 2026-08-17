@@ -167,6 +167,9 @@ struct S { float4x4 mvp; float4 anc; float4x4 prevMvp; float4 prevAnc; };
  * bytes from where it was written. */
 struct M { float factor; float cut; float metalness; float roughness;
            float4 base; packed_float3 emissive; float normalScale; float identity;
+           /* The dielectric normal-incidence reflectance, already combined from the file's ior and
+            * specular factors by `core/Material.h` (board:1205). The shader recomputes nothing. */
+           packed_float3 f0;
            packed_float3 colourUvU; packed_float3 colourUvV;
            packed_float3 normalUvU; packed_float3 normalUvV;
            packed_float3 metalRoughUvU; packed_float3 metalRoughUvV;
@@ -522,12 +525,12 @@ SUBJECT_LIT_ARM(vsLitTexturedTwoTinted,
  * lights a second time. */
 static inline float3 shadeRow(constant Lights &lights, Occluders occluders, float3 localM, float3 n,
                               float3 p, float3 albedo, float metalness, float roughness,
-                              float3 emitted) {
+                              float3 dielectricF0, float3 emitted) {
   float3 v = normalize(-p);
   float a = roughness * roughness;
   float a2 = a * a;
   float3 diffuseColour = albedo * (1.0 - metalness);
-  float3 f0 = mix(float3(kDielectricF0), albedo, metalness);
+  float3 f0 = mix(dielectricF0, albedo, metalness);
   float nv = max(dot(n, v), 1.0e-6);
   /* THE RAY LEAVES FROM THE SURFACE AND NOT FROM INSIDE IT. Offsetting along the shading normal as
    * well as starting at `count.y` is what keeps a facet whose normal map tilts it towards the light
@@ -582,7 +585,7 @@ static inline float3 shadeRow(constant Lights &lights, Occluders occluders, floa
 static inline float3 shade(constant M &surface, constant Lights &lights, Occluders occluders,
                            float3 localM, float3 n, float3 p, float3 albedo) {
   return shadeRow(lights, occluders, localM, n, p, albedo, surface.metalness, surface.roughness,
-                  surface.emissive);
+                  float3(surface.f0), surface.emissive);
 }
 
 /* A DOUBLE-SIDED FACET HIT FROM BEHIND IS LIT BY ITS OTHER FACE, which is what the flip is: the
@@ -647,7 +650,7 @@ fragment SFrag fsLitTextured(LOut in [[stage_in]], bool front [[front_facing]], 
   SFrag o;
   o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb * in.colour.rgb,
-                          surface.metalness, surface.roughness,
+                          surface.metalness, surface.roughness, float3(surface.f0),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in))), 1.0);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
@@ -663,7 +666,7 @@ fragment SFrag fsLitMaskedTextured(LOut in [[stage_in]], bool front [[front_faci
   SFrag o;
   o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb * in.colour.rgb,
-                          surface.metalness, surface.roughness,
+                          surface.metalness, surface.roughness, float3(surface.f0),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in))), 1.0);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
@@ -760,7 +763,7 @@ static inline Shaded mappedShade(constant M &surface, constant Lights &lights, O
   const float meanResultantLength = SUBJECT_NORMAL_TAP(SUBJECT_UVS(in)).w;
   return Shaded{shadeRow(lights, occluders, in.lp, shadingNormal, in.p, albedo,
                   surface.metalness * orm.b,
-                  roughenedBy(surface.roughness * orm.g, meanResultantLength),
+                  roughenedBy(surface.roughness * orm.g, meanResultantLength), float3(surface.f0),
                   emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in))),
                 shadingNormal};
 }
@@ -1236,11 +1239,16 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
   /* THE SLOT'S IDENTITY IS ITS POSITION IN THIS TABLE, taken before the push (board:1138), so it is
    * the same number `DrawBatch::MaterialSlot` names and cannot be assigned a second time anywhere. */
   const float identity = (float)(Slots.size() + 1u);
+  /* THE DIELECTRIC F0 IS COMPUTED WHERE IT IS DEFINED AND CARRIED HERE AS A NUMBER (board:1205).
+   * `KHR_materials_ior` and `KHR_materials_specular` are two spellings of one quantity, so the row
+   * holds the quantity and the shader holds no arithmetic that could disagree with `Material.h`'s. */
+  float f0[3];
+  DielectricF0(row, f0);
   slot.Row = {material.Coverage(), material.State().CoverageCut(),
               row.Metalness,       row.Roughness,
               row.BaseColour[0],   row.BaseColour[1], row.BaseColour[2], row.BaseColour[3],
               row.Emission[0],     row.Emission[1],   row.Emission[2],   material.NormalScale,
-              identity};
+              identity,            f0[0],             f0[1],             f0[2]};
   /* THE FOUR uv MATRICES, IN THE ORDER THE FOUR IMAGES ARE BOUND (board:1177), narrowed to f32 here
    * and nowhere earlier -- the reader composes in its own width and the device is the boundary. The
    * table is walked rather than written out four times so that the row's order and the sampler's
