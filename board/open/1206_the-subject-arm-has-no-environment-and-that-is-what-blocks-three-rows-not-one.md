@@ -124,6 +124,33 @@ what the file said, here it renders something the engine has no term for.*
   does not open — but the FIRST two are ours, and this is the work that opens them. Whether the row then
   becomes decidable is a question this feature makes askable rather than one it answers
 
+## The first guess at `SpecularTest`'s residual was WRONG, and the measurement is what says so
+
+**The hypothesis, stated after looking at the pictures:** the worst disagreement is *ours 141.5 codes
+against the oracle's 0* at scattered pixels, 141.5 codes decodes to ≈0.267 linear — the declared
+environment radiance of 0.25 arriving whole, which is what Schlick's Fresnel returns as `nv → 0` — so at
+those pixels the mirror direction must point along the panel grid into a neighbour, Cycles traces it and
+gets black, and this engine has no visibility for the environment.
+
+**It was implemented and the measurement came back IDENTICAL.** A mirror-direction occlusion query
+through the BVH the subject already builds — the same `bvhOccludes` the punctual loop uses — left
+`picture_max_delta_code` at **141.533904 codes at (137, 94)**, to every digit. *`CLAUDE.md` states what
+that means: a repair whose measurement is identical never reached what it was aimed at.*
+
+**And the routing rules out the other easy explanation.** The case reports **12 pixels routed to
+coverage** — those are the silhouette disagreements behind `worst_disagreement_px = 0.031047153` — and
+**(137, 94) is not one of them**. Both sides cover it. So the oracle genuinely returns black at a pixel
+where this engine returns the whole environment, and neither *the mirror is blocked* nor *the pixel is a
+silhouette* accounts for it.
+
+**The visibility term was REVERTED rather than kept.** It is defensible physics and it is unexercised by
+any measurement in this tree, which is the shape *no green resting on an instrument nobody exercised*
+forbids — and its justification was a hypothesis this round refuted. **What is owed now is the cause, and
+it is not yet known.** The candidates not yet separated: a back-facing panel this engine shades and Cycles
+does not; a normal that disagrees, which the case could not check because *no covered pixel carries a
+shading normal on both sides*; or a term in Cycles' Principled that zeroes the specular where ours does
+not.
+
 ## Comments
 
 **The correction above is the item's own lesson arriving early.** This entry was filed after three rows
