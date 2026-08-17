@@ -215,6 +215,10 @@ struct Case {
   /* One local transform per node of the file, rewritten at every frame -- the caller's buffer, so a
    * sweep over the grid allocates once. */
   std::vector<Transform> Locals;
+  /* THE MORPH WEIGHTS OF EVERY NODE AT THIS FRAME, flat and sliced by `Pose::WeightsFirst`, taken in
+   * the same call as the transforms so a body cannot be posed at one instant and shaped at another
+   * (board:1203). */
+  std::vector<double> Weights;
   /* THE DRAWN VERTICES AT FRAME 0, kept so that the motion at every later frame is measured against
    * what was actually handed to the renderer and not against what the tracks say (board:1169). */
   std::vector<double> RestPositions;
@@ -1159,7 +1163,7 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
     error = subject.Geometry.Error();
     return false;
   }
-  subject.Animation.At((double)frame / subject.Fps, subject.Locals);
+  subject.Animation.At((double)frame / subject.Fps, subject.Locals, subject.Weights);
   if (subject.Geometry.Build(subject.File,
                              outshine::Span<const Transform>(subject.Locals.data(),
                                                              subject.Locals.size()),

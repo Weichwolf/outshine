@@ -499,6 +499,8 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     const Json::Ref declaration = meshes[i];
     Mesh mesh;
     mesh.Name = declaration["name"].Str("");
+    const Json::Ref weights = declaration["weights"];
+    for (size_t w = 0; w < weights.Size(); ++w) { mesh.Weights.push_back(weights[w].Num(0.0)); }
     const Json::Ref primitives = declaration["primitives"];
     for (size_t p = 0; p < primitives.Size(); ++p) {
       const Json::Ref declared = primitives[p];
@@ -519,6 +521,46 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
         }
         primitive.Attributes.push_back(std::move(attribute));
       }
+      /* THE MORPH TARGETS, and every semantic in one is checked against the base attribute it
+       * displaces. glTF allows POSITION, NORMAL and TANGENT in a target and nothing else, and a
+       * target that names a semantic the primitive does not carry displaces nothing -- both are
+       * refused here rather than left for a flatten to skip silently. */
+      const Json::Ref targets = declared["targets"];
+      for (size_t t = 0; t < targets.Size(); ++t) {
+        MorphTarget target;
+        const Json::Ref declaredTarget = targets[t];
+        for (size_t a = 0; a < declaredTarget.Size(); ++a) {
+          Attribute attribute;
+          attribute.Semantic = declaredTarget.Key(a);
+          attribute.Accessor = declaredTarget[a].Int(-1);
+          if (attribute.Semantic != "POSITION" && attribute.Semantic != "NORMAL" &&
+              attribute.Semantic != "TANGENT") {
+            return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " morph target " +
+                          Number(t) + " displaces " + attribute.Semantic +
+                          ", and glTF 2.0 states a target carries POSITION, NORMAL or TANGENT");
+          }
+          if (attribute.Accessor < 0 || static_cast<size_t>(attribute.Accessor) >= Accessors_.size()) {
+            return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " morph target " +
+                          Number(t) + " names an accessor the file does not carry for " +
+                          attribute.Semantic);
+          }
+          const int base = primitive.Find(attribute.Semantic.c_str());
+          if (base < 0) {
+            return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " morph target " +
+                          Number(t) + " displaces " + attribute.Semantic +
+                          " and the primitive carries none, so the delta has nothing to displace");
+          }
+          if (Accessors_[(size_t)base].Count != Accessors_[(size_t)attribute.Accessor].Count) {
+            return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " morph target " +
+                          Number(t) + " carries " +
+                          Number(Accessors_[(size_t)attribute.Accessor].Count) + " " +
+                          attribute.Semantic + " deltas over " +
+                          Number(Accessors_[(size_t)base].Count) + " vertices");
+          }
+          target.Attributes.push_back(std::move(attribute));
+        }
+        primitive.Targets.push_back(std::move(target));
+      }
       if (primitive.Indices >= 0 && static_cast<size_t>(primitive.Indices) >= Accessors_.size()) {
         return Refuse("mesh " + Number(i) + " primitive " + Number(p) +
                       " names an index accessor the file does not carry");
@@ -530,7 +572,22 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
       }
       const Json::Ref variants = declared["extensions"][kMaterialsVariants];
       if (variants.Valid() && !ReadVariantMappings(variants, i, p, primitive)) { return false; }
+      /* EVERY PRIMITIVE OF A MESH MORPHS TOGETHER, which is why glTF puts the weights on the mesh
+       * and not on the primitive -- so two primitives declaring different target counts have no
+       * single weight run to drive them and the file cannot mean anything. */
+      if (!mesh.Primitives.empty() &&
+          mesh.Primitives[0].Targets.size() != primitive.Targets.size()) {
+        return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " declares " +
+                      Number(primitive.Targets.size()) + " morph targets and primitive 0 declares " +
+                      Number(mesh.Primitives[0].Targets.size()) +
+                      ", and one weight run drives every primitive of a mesh");
+      }
       mesh.Primitives.push_back(std::move(primitive));
+    }
+    if (!mesh.Weights.empty() && !mesh.Primitives.empty() &&
+        mesh.Weights.size() != mesh.Primitives[0].Targets.size()) {
+      return Refuse("mesh " + Number(i) + " declares " + Number(mesh.Weights.size()) +
+                    " weights over " + Number(mesh.Primitives[0].Targets.size()) + " morph targets");
     }
     Meshes_.push_back(std::move(mesh));
   }
@@ -643,6 +700,16 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
   if (DefaultScene_ >= 0 && static_cast<size_t>(DefaultScene_) >= Scenes_.size()) {
     return Refuse("names default scene " + Number(static_cast<size_t>(DefaultScene_)) + " of " +
                   Number(Scenes_.size()));
+  }
+  /* THE MORPH LAYOUT, DERIVED ONCE AND HERE, after the meshes and the nodes are both complete. */
+  MorphAt_.assign(Nodes_.size() + 1, 0);
+  for (size_t node = 0; node < Nodes_.size(); ++node) {
+    size_t count = 0;
+    const int mesh = Nodes_[node].Mesh;
+    if (mesh >= 0 && (size_t)mesh < Meshes_.size() && !Meshes_[(size_t)mesh].Primitives.empty()) {
+      count = Meshes_[(size_t)mesh].Primitives[0].Targets.size();
+    }
+    MorphAt_[node + 1] = MorphAt_[node] + count;
   }
   if (!ReadSkins(root)) { return false; }
   if (!ReadAnimations(json)) { return false; }

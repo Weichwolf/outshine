@@ -176,7 +176,8 @@ int main() {
    * angle, and the closed form below is the spherical one glTF states. */
   const double when = 0.25;
   std::vector<Transform> locals;
-  pose.At(when, locals);
+  std::vector<double> weights;
+  pose.At(when, locals, weights);
   CHECK(locals.size() == file.Nodes().size(), "a pose writes one local transform per node");
 
   Subject posed;
@@ -206,7 +207,7 @@ int main() {
    * compares anything (board:1169): the drawn vertex at this time is not the drawn vertex at the
    * start of the grid. */
   std::vector<Transform> atStart;
-  pose.At(0.0, atStart);
+  pose.At(0.0, atStart, weights);
   Subject rest;
   CHECK(rest.Build(file, Span<const Transform>(atStart.data(), atStart.size())),
         "the document flattens at the start of the grid too");

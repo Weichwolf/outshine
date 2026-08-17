@@ -131,6 +131,13 @@ bool UvSetOf(const TextureRef &reference, CarriedUvSets carried, const char *soc
   return true;
 }
 
+int MorphTarget::Find(const char *semantic) const {
+  for (const Attribute &attribute : Attributes) {
+    if (attribute.Semantic == semantic) { return attribute.Accessor; }
+  }
+  return -1;
+}
+
 int Primitive::Find(const char *semantic) const {
   for (const Attribute &attribute : Attributes) {
     if (attribute.Semantic == semantic) { return attribute.Accessor; }

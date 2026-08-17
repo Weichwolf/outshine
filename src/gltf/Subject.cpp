@@ -141,6 +141,41 @@ BasisKey KeyOf(const double basis[4]) {
  * of the joint's bind pose and into the scene: `world(joint) * inverseBind`, which is the format's
  * own product and the order matters -- the inverse bind acts first. An absent `inverseBindMatrices`
  * is the identity by the format's rule, which is why the empty vector needs no second arm. */
+/* ONE SEMANTIC'S BLENDED MORPH DELTAS FOR ONE PRIMITIVE, or an empty run where nothing displaces it.
+ *
+ * glTF states a morphed attribute is `base + SUM(w_i * delta_i)`, and every delta accessor has
+ * already been refused at read time unless its count matches the base's -- so this loop needs no
+ * bound of its own and a target that leaves this semantic alone simply contributes nothing.
+ *
+ * THE WEIGHTS ARE NOT NORMALISED AND MUST NOT BE. Unlike a skin's, a morph weight set has no
+ * constraint at all in the format: weights outside [0, 1] and sets summing to anything are legal and
+ * are how a file states an exaggeration or an inversion. */
+bool Subject::MorphDeltasFor(const Document &document, const Primitive &primitive,
+                             const char *semantic, const double *weights, size_t count,
+                             size_t components, size_t vertices, std::vector<double> &out) {
+  out.clear();
+  if (count == 0 || primitive.Targets.empty()) { return true; }
+  std::vector<double> delta;
+  for (size_t target = 0; target < count && target < primitive.Targets.size(); ++target) {
+    const double share = weights[target];
+    if (share == 0.0) { continue; }
+    const int accessor = primitive.Targets[target].Find(semantic);
+    if (accessor < 0) { continue; }
+    if (!document.ReadElements(accessor, delta)) {
+      return Refuse(document.Path() + ": morph target " + std::to_string(target) + "'s " + semantic +
+                    " does not decode: " + document.Error());
+    }
+    if (delta.size() != vertices * components) {
+      return Refuse(document.Path() + ": morph target " + std::to_string(target) + "'s " + semantic +
+                    " decodes to " + std::to_string(delta.size()) + " components over " +
+                    std::to_string(vertices) + " vertices of " + std::to_string(components));
+    }
+    if (out.empty()) { out.assign(vertices * components, 0.0); }
+    for (size_t at = 0; at < delta.size(); ++at) { out[at] += share * delta[at]; }
+  }
+  return true;
+}
+
 Transform Subject::JointMatrix(const Skin &skin, size_t joint, const Transform &world) {
   if (skin.InverseBind.empty()) { return world; }
   return world * Transform::FromColumnMajor(&skin.InverseBind[joint * 16]);
@@ -209,7 +244,8 @@ bool Subject::BlendSkinFor(const Document &document, const Skin &skin,
 }
 
 bool Subject::BuildTangentsFor(const Document &document, const Primitive &primitive,
-                               const VertexPlacement &place, Part &part, size_t vertices) {
+                               const VertexPlacement &place, Span<const double> morphWeights,
+                               Part &part, size_t vertices) {
   Tangents_.resize((Positions_.size() / 3) * 4, 0.0);
 
   const int supplied = primitive.Find("TANGENT");
@@ -222,6 +258,21 @@ bool Subject::BuildTangentsFor(const Document &document, const Primitive &primit
       return Refuse(document.Path() + ": TANGENT decodes to " + std::to_string(elements.size() / 4) +
                     " vectors over " + std::to_string(vertices) + " vertices");
     }
+    /* A MORPH TARGET'S TANGENT DELTA IS VEC3 AND THE BASE TANGENT IS VEC4, which the format states
+     * and which is not a quirk: `w` is the bitangent's SIGN, a handedness and not a direction, so
+     * there is nothing for a delta to add to it. Blending it would produce a fourth component
+     * between -1 and 1 that names no handedness at all. */
+    std::vector<double> morphedTangents;
+    if (!MorphDeltasFor(document, primitive, "TANGENT", morphWeights.Data(), morphWeights.Size(), 3,
+                        vertices, morphedTangents)) {
+      return false;
+    }
+    for (size_t vertex = 0; vertex < vertices && !morphedTangents.empty(); ++vertex) {
+      for (size_t axis = 0; axis < 3; ++axis) {
+        elements[vertex * 4 + axis] += morphedTangents[vertex * 3 + axis];
+      }
+    }
+
     /* A TANGENT TRANSFORMS LIKE A DIRECTION IN THE SURFACE and not like the normal: it lies IN the
      * tangent plane, so the node's linear part carries it and the inverse transpose would tilt it
      * out of the plane on any non-uniform scale. */
@@ -388,20 +439,34 @@ bool Subject::Refuse(const std::string &why) {
 }
 
 bool Subject::Build(const Document &document, const VariantSelection &variant) {
-  return Flatten(document, nullptr, variant);
+  return Flatten(document, nullptr, nullptr, variant);
 }
 
 bool Subject::Build(const Document &document, Span<const Transform> pose,
                     const VariantSelection &variant) {
+  return Build(document, pose, Span<const double>(), variant);
+}
+
+bool Subject::Build(const Document &document, Span<const Transform> pose,
+                    Span<const double> weights, const VariantSelection &variant) {
   if (pose.Size() != document.Nodes().size()) {
     return Refuse(document.Path() + ": the pose states " + std::to_string(pose.Size()) +
                   " local transforms and the file carries " +
                   std::to_string(document.Nodes().size()) + " nodes");
   }
-  return Flatten(document, pose.Data(), variant);
+  /* AN EMPTY WEIGHT RUN IS "THE FILE'S OWN", not "no morph", which is why it is not refused against
+   * a document that declares targets: a caller posing a file with no animation on its weights has
+   * nothing to say about them and the mesh's own values stand. A run of the WRONG length is a
+   * different statement and is refused. */
+  if (weights.Size() != 0 && weights.Size() != document.MorphWeightsTotal()) {
+    return Refuse(document.Path() + ": the pose states " + std::to_string(weights.Size()) +
+                  " morph weights and the file's nodes carry " +
+                  std::to_string(document.MorphWeightsTotal()));
+  }
+  return Flatten(document, pose.Data(), weights.Size() ? weights.Data() : nullptr, variant);
 }
 
-bool Subject::Flatten(const Document &document, const Transform *pose,
+bool Subject::Flatten(const Document &document, const Transform *pose, const double *weights,
                       const VariantSelection &variant) {
   /* THE ONE PLACE THE TWO SPELLINGS MEET, so the walk below asks for a placement once however this
    * was entered. The posed overload states the run's length and the unposed one has no run, and
@@ -500,6 +565,19 @@ bool Subject::Flatten(const Document &document, const Transform *pose,
       return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
                     " has no world transform: " + document.Error());
     }
+    /* THE WEIGHTS THIS NODE MORPHS BY: the pose's where one was given, and the mesh's own where it
+     * was not -- which is the same rule `pose` itself follows one field up, so "the file's own" has
+     * one meaning for both halves of a pose. */
+    const size_t morphCount = document.MorphWeightsCount(nodeIndex);
+    std::vector<double> nodeWeights;
+    if (morphCount > 0) {
+      const std::vector<double> &declared = document.Meshes()[(size_t)node.Mesh].Weights;
+      for (size_t at = 0; at < morphCount; ++at) {
+        nodeWeights.push_back(weights ? weights[document.MorphWeightsFirst(nodeIndex) + at]
+                                      : (at < declared.size() ? declared[at] : 0.0));
+      }
+    }
+
     /* THE SKIN'S JOINT MATRICES, ONCE PER NODE AND NOT PER PRIMITIVE: they are a property of the
      * skin and the pose, and every primitive of the mesh rides the same ones. */
     std::vector<Transform> jointMatrices;
@@ -542,6 +620,16 @@ bool Subject::Flatten(const Document &document, const Transform *pose,
       }
       const uint32_t base = (uint32_t)(Positions_.size() / 3);
       const size_t vertices = elements.size() / 3;
+      /* THE MORPH IS APPLIED FIRST, BEFORE THE SKIN AND BEFORE THE NODE, which is the order glTF
+       * states: the targets displace the mesh in its own space, the skin then binds that displaced
+       * vertex to its joints, and only an unskinned node's transform places it. Any other order
+       * puts the deltas through a matrix they were never expressed in. */
+      std::vector<double> morphedPositions;
+      if (!MorphDeltasFor(document, primitive, "POSITION", nodeWeights.data(), morphCount, 3,
+                          vertices, morphedPositions)) {
+        return false;
+      }
+      for (size_t at = 0; at < morphedPositions.size(); ++at) { elements[at] += morphedPositions[at]; }
       std::vector<Transform> skinned;
       if (node.Skin >= 0 &&
           !BlendSkinFor(document, document.Skins()[(size_t)node.Skin], jointMatrices, primitive,
@@ -660,6 +748,12 @@ bool Subject::Flatten(const Document &document, const Transform *pose,
                         std::to_string(directions.size() / 3) + " vectors over " +
                         std::to_string(vertices) + " vertices");
         }
+        std::vector<double> morphedNormals;
+        if (!MorphDeltasFor(document, primitive, "NORMAL", nodeWeights.data(), morphCount, 3,
+                            vertices, morphedNormals)) {
+          return false;
+        }
+        for (size_t at = 0; at < morphedNormals.size(); ++at) { directions[at] += morphedNormals[at]; }
         for (size_t vertex = 0; vertex < vertices; ++vertex) {
           double local[3] = {directions[vertex * 3], directions[vertex * 3 + 1],
                              directions[vertex * 3 + 2]};
@@ -719,7 +813,10 @@ bool Subject::Flatten(const Document &document, const Transform *pose,
         Indices_.push_back(base + index);
       }
       part.IndexCount = Indices_.size() - part.FirstIndex;
-      if (!BuildTangentsFor(document, primitive, place, part, vertices)) { return false; }
+      if (!BuildTangentsFor(document, primitive, place,
+                            Span<const double>(nodeWeights.data(), morphCount), part, vertices)) {
+        return false;
+      }
       anyTangent = anyTangent || part.HasTangent();
       part.VertexCount = VertexCount() - part.FirstVertex;
       /* A primitive that yielded no triangle is not a part: it is a name a per-part declaration

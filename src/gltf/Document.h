@@ -52,6 +52,14 @@ public:
   const std::vector<Camera> &Cameras() const { return Cameras_; }
   const std::vector<Scene> &Scenes() const { return Scenes_; }
   const std::vector<Skin> &Skins() const { return Skins_; }
+
+  /* WHERE ONE NODE'S MORPH WEIGHTS SIT IN A FLAT RUN OVER EVERY NODE, and this is the ONLY statement
+   * of that layout (board:1203). A pose writes such a run and a flatten reads it, and two derivations
+   * of "which slice is node 7's" would agree until a mesh changed. `Count` is zero for a node with no
+   * mesh or whose mesh declares no target, which is most of them. */
+  size_t MorphWeightsFirst(size_t node) const { return MorphAt_[node]; }
+  size_t MorphWeightsCount(size_t node) const { return MorphAt_[node + 1] - MorphAt_[node]; }
+  size_t MorphWeightsTotal() const { return MorphAt_.empty() ? 0 : MorphAt_.back(); }
   const std::vector<MaterialRef> &Materials() const { return Materials_; }
   const std::vector<Texture> &Textures() const { return Textures_; }
   const std::vector<Image> &Images() const { return Images_; }
@@ -128,6 +136,8 @@ private:
   std::vector<Camera> Cameras_;
   std::vector<Scene> Scenes_;
   std::vector<Skin> Skins_;
+  /* `Nodes_.size() + 1` prefix sums, so a slice is a subtraction and the last entry is the total. */
+  std::vector<size_t> MorphAt_;
   std::vector<MaterialRef> Materials_;
   std::vector<Texture> Textures_;
   std::vector<Image> Images_;

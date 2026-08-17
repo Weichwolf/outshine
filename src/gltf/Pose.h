@@ -66,9 +66,23 @@ public:
   size_t ChannelCount() const { return Channels_.size(); }
   size_t NodeCount() const { return Nodes_.size(); }
 
-  /* Writes `NodeCount()` local transforms, the caller's buffer so a sweep over a frame grid
-   * allocates once -- the hot-loop exception `F.20` states for itself. */
-  void At(double seconds, std::vector<Transform> &locals) const;
+  /* Writes `NodeCount()` local transforms AND the morph weights of every node, both into the
+   * caller's buffers so a sweep over a frame grid allocates once -- the hot-loop exception `F.20`
+   * states for itself.
+   *
+   * ONE CALL AND NOT TWO, BECAUSE A POSE IS BOTH (board:1203). glTF drives a node's placement and
+   * its mesh's morph weights through channels of one animation over one time grid, so a caller that
+   * could take the transforms without the weights could draw a body posed at one instant and shaped
+   * at another. `weights` is FLAT and indexed by `WeightsOf`, because a node with no morph target
+   * contributes a run of length zero and a vector of vectors would allocate one per node per
+   * frame. */
+  void At(double seconds, std::vector<Transform> &locals, std::vector<double> &weights) const;
+
+  /* Where one node's weights sit in the flat run `At` writes: `{first, count}`, and `count` is zero
+   * for a node whose mesh has no morph target -- which is most of them. */
+  [[nodiscard]] size_t WeightsFirst(size_t node) const { return Nodes_[node].WeightFirst; }
+  [[nodiscard]] size_t WeightsCount(size_t node) const { return Nodes_[node].WeightCount; }
+  [[nodiscard]] size_t WeightCount() const { return RestWeights_.size(); }
 
 private:
   /* THE FILE'S OWN PLACEMENT OF ONE NODE, which is what an undriven component keeps. A driven node
@@ -80,6 +94,9 @@ private:
     double Scale[3] = {1, 1, 1};
     bool HasMatrix = false;
     double Matrix[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+    /* This node's slice of `RestWeights_`, and of the run `At` writes. */
+    size_t WeightFirst = 0;
+    size_t WeightCount = 0;
   };
 
   /* ONE DRIVEN PROPERTY: the decoded runs the file carries and the curve over them. The curve is a
@@ -94,6 +111,10 @@ private:
 
   std::vector<std::unique_ptr<Channel>> Channels_;
   std::vector<Placement> Nodes_;
+  /* THE FILE'S OWN WEIGHTS, which is what an undriven target keeps -- `mesh.weights` where the file
+   * declares them and the format's zeros where it does not. Flat over every node, sliced by
+   * `Placement::WeightFirst`. */
+  std::vector<double> RestWeights_;
   double StartS_ = 0, EndS_ = 0;
 };
 

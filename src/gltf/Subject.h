@@ -198,6 +198,13 @@ public:
    * a drawable is a drawable. Refuses a run that is not one transform per node. */
   [[nodiscard]] bool Build(const Document &document, Span<const Transform> pose,
                            const VariantSelection &variant = {});
+  /* THE POSE WITH ITS MORPH WEIGHTS, which is what `Gltf::Pose::At` writes in one call (board:1203).
+   * `weights` is the flat run laid out by `Document::MorphWeightsFirst`, and passing it separately
+   * from the transforms is not an invitation to pass one without the other -- the overload above
+   * exists for a file with no morph target at all, where the run is empty and the two calls are the
+   * same call. */
+  [[nodiscard]] bool Build(const Document &document, Span<const Transform> pose,
+                           Span<const double> weights, const VariantSelection &variant = {});
 
   /* THE OTHER WAY IN, AND IT IS THE EDGE A GENERATOR STANDS ON (board:0105): the same
    * drawable, produced rather than read. Nothing is derived here -- no normal, no tangent basis, no
@@ -303,7 +310,7 @@ private:
   /* The one walk both `Build` overloads are: `pose` is null for the file's own placements and
    * otherwise points at one local transform per node. */
   [[nodiscard]] bool Flatten(const Document &document, const Transform *pose,
-                             const VariantSelection &variant);
+                             const double *weights, const VariantSelection &variant);
   /* The world-space AABB over the position run, whichever of the two ways in filled it. */
   void Bound();
   /* One part's tangent run, appended in step with the runs above: the file's own where the
@@ -313,12 +320,18 @@ private:
    * lengthen every run. */
   /* One joint's contribution: `world(joint) * inverseBind`, the format's own product, with the empty
    * `InverseBind` meaning identity as the format states rather than as a special case here. */
+  /* One semantic's blended deltas for one primitive, or an empty run where nothing displaces it. */
+  [[nodiscard]] bool MorphDeltasFor(const Document &document, const Primitive &primitive,
+                                    const char *semantic, const double *weights, size_t count,
+                                    size_t components, size_t vertices, std::vector<double> &out);
   [[nodiscard]] static Transform JointMatrix(const Skin &skin, size_t joint, const Transform &world);
   [[nodiscard]] bool BlendSkinFor(const Document &document, const Skin &skin,
                                   const std::vector<Transform> &joints, const Primitive &primitive,
                                   size_t vertices, std::vector<Transform> &out);
   [[nodiscard]] bool BuildTangentsFor(const Document &document, const Primitive &primitive,
-                                      const VertexPlacement &place, Part &part, size_t vertices);
+                                      const VertexPlacement &place,
+                                       Span<const double> morphWeights, Part &part,
+                                       size_t vertices);
 
   std::string Error_;
   std::vector<double> Positions_;

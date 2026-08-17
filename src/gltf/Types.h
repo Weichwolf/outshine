@@ -94,8 +94,23 @@ struct Attribute {
   int Accessor = -1;
 };
 
+/* ONE MORPH TARGET: the same shape as a primitive's attribute list, and deliberately so. glTF states
+ * a target carries DELTAS against the base attribute of the same name, over the same vertex run, so
+ * the record that answers *which accessor holds this semantic* is the record that answers it here
+ * too -- `Find` is the same question and gets the same spelling. */
+struct MorphTarget {
+  std::vector<Attribute> Attributes;
+
+  /* -1 for "this target does not displace that semantic", which is legal: a target may move positions
+   * and leave normals alone. */
+  int Find(const char *semantic) const;
+};
+
 struct Primitive {
   std::vector<Attribute> Attributes;
+  /* THE MORPH TARGETS, IN THE FILE'S OWN ORDER, because the order IS the join: a weights keyframe
+   * carries one value per target and pairs with them by position, and `mesh.weights` does too. */
+  std::vector<MorphTarget> Targets;
   int Indices = -1;
   int Material = -1;
   PrimitiveMode Mode = PrimitiveMode::Triangles;
@@ -128,6 +143,12 @@ struct Primitive {
 struct Mesh {
   std::string Name;
   std::vector<Primitive> Primitives;
+  /* THE REST WEIGHTS, one per morph target, or empty where the file declares none -- in which case
+   * the format states every weight is zero. Empty is left empty for the reason an absent
+   * `inverseBindMatrices` is: a reader that materialised the zeros would erase the difference
+   * between a file that declared them and one that did not. IT IS THE MESH'S AND NOT THE
+   * PRIMITIVE'S, because glTF puts it there: every primitive of a mesh morphs together. */
+  std::vector<double> Weights;
 };
 
 /* ONE ENTRY OF `KHR_lights_punctual`'s document-level table. The shading half is

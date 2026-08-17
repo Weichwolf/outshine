@@ -51,6 +51,17 @@ bool Pose::Build(const Document &document, Span<const int> animations, Pose &out
     }
     for (size_t at = 0; at < 4; ++at) { held.Rotation[at] = source.Rotation[at]; }
     for (size_t at = 0; at < 16; ++at) { held.Matrix[at] = source.Matrix[at]; }
+    /* THE NODE'S MORPH WEIGHTS AND THEIR REST VALUES (board:1203). The count is the mesh's, because
+     * glTF puts the targets on the primitive and the weights on the mesh, and the reader has already
+     * refused a mesh whose primitives disagree about the count. An absent `mesh.weights` is the
+     * format's zeros, which is what an empty `Weights` means and why the resize below states it once
+     * rather than at every reader of the run. */
+    held.WeightFirst = document.MorphWeightsFirst(node);
+    held.WeightCount = document.MorphWeightsCount(node);
+    for (size_t at = 0; at < held.WeightCount; ++at) {
+      const std::vector<double> &declared = document.Meshes()[(size_t)source.Mesh].Weights;
+      out.RestWeights_.push_back(at < declared.size() ? declared[at] : 0.0);
+    }
   }
 
   bool first = true;
@@ -72,9 +83,14 @@ bool Pose::Build(const Document &document, Span<const int> animations, Pose &out
               std::to_string(channel.Node) + ", which the file does not carry";
       return false;
     }
-    if (channel.Path == AnimationPath::Weights) {
+    /* THE REFUSAL THAT STOOD HERE IS GONE WITH ITS CAUSE (board:1203). It read *a pose writes node
+     * transforms only*, which was true of a pose that carried none. What survives is narrower and
+     * is about the FILE: a weights channel driving a node whose mesh has no morph target drives
+     * nothing, and the format gives its keyframes no length. */
+    if (channel.Path == AnimationPath::Weights &&
+        out.Nodes_[(size_t)channel.Node].WeightCount == 0) {
       error = document.Path() + ": animation channel targets the morph weights of node " +
-              std::to_string(channel.Node) + ", and a pose writes node transforms only";
+              std::to_string(channel.Node) + ", whose mesh declares no morph target";
       return false;
     }
     if (out.Nodes_[(size_t)channel.Node].HasMatrix) {
@@ -111,6 +127,18 @@ bool Pose::Build(const Document &document, Span<const int> animations, Pose &out
               " values, which do not describe a curve";
       return false;
     }
+    /* THE CURVE'S WIDTH IS THE MESH'S TARGET COUNT, and `Track` derived it from the run rather than
+     * from the path, which cannot answer it. A file whose weights run divides to a different number
+     * is refused HERE, where the mesh is in scope: 127 keyframes and 254 values is two targets, and
+     * a mesh with three would be a keyframe run that silently drives the wrong ones. */
+    if (channel.Path == AnimationPath::Weights &&
+        held->Curve.Components() != out.Nodes_[(size_t)channel.Node].WeightCount) {
+      error = document.Path() + ": the weights channel of node " + std::to_string(channel.Node) +
+              " carries " + std::to_string(held->Curve.Components()) +
+              " values per keyframe and its mesh declares " +
+              std::to_string(out.Nodes_[(size_t)channel.Node].WeightCount) + " morph targets";
+      return false;
+    }
     for (const double when : held->Times) {
       out.StartS_ = first ? when : (when < out.StartS_ ? when : out.StartS_);
       out.EndS_ = first ? when : (when > out.EndS_ ? when : out.EndS_);
@@ -137,8 +165,9 @@ bool Pose::Build(const Document &document, Span<const int> animations, Pose &out
   return true;
 }
 
-void Pose::At(double seconds, std::vector<Transform> &locals) const {
+void Pose::At(double seconds, std::vector<Transform> &locals, std::vector<double> &weights) const {
   locals.resize(Nodes_.size());
+  weights = RestWeights_;
   for (size_t node = 0; node < Nodes_.size(); ++node) {
     Placement posed = Nodes_[node];
     for (const std::unique_ptr<Channel> &channel : Channels_) {
@@ -147,7 +176,11 @@ void Pose::At(double seconds, std::vector<Transform> &locals) const {
         case AnimationPath::Translation: channel->Curve.At(seconds, posed.Translation); break;
         case AnimationPath::Rotation: channel->Curve.At(seconds, posed.Rotation); break;
         case AnimationPath::Scale: channel->Curve.At(seconds, posed.Scale); break;
-        case AnimationPath::Weights: break;
+        /* `Build` has already refused a width that disagrees with the mesh, so this writes exactly
+         * the node's own slice and no bound needs re-checking on the frame path. */
+        case AnimationPath::Weights:
+          channel->Curve.At(seconds, &weights[posed.WeightFirst]);
+          break;
       }
     }
     locals[node] = posed.HasMatrix
