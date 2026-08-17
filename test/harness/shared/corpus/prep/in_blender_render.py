@@ -1,5 +1,7 @@
 """Runs inside Blender: the oracle render, from a job the preparer wrote."""
 
+import base64
+import urllib.parse
 import json
 import math
 import os
@@ -11,7 +13,7 @@ import time
 
 import bpy
 import numpy
-from mathutils import Matrix, Quaternion, Vector
+from mathutils import Matrix, Vector
 
 # THE SCRIPT IS HANDED TO BLENDER BY PATH, so its own directory is not on the import path and the
 # reader beside it has no spelling without this line.
@@ -66,85 +68,6 @@ def _channelbag_of(obj):
     return None
 
 
-def spherical_rotation_curves(scene, imported):
-    """THE ORACLE IS REDUCED HERE, AND WHAT IS REDUCED IS ITS INTERPOLATION (board:1169).
-
-    glTF states that a `LINEAR` rotation sampler is interpolated on the SPHERE. Blender's importer
-    builds four independent f-curves over the quaternion's components and evaluates them
-    component-wise, which is a different rotation everywhere except at the keyframes and at the exact
-    midpoint of a span -- so the oracle would be rendering a pose the file does not describe, and a
-    correct engine would be red against it.
-
-    THE REDUCTION IS BLENDER'S OWN SLERP, NOT OURS, AND THAT IS WHAT KEEPS THE COMPARISON HONEST.
-    What is read is the imported keyframes -- the file's own quaternions at the file's own times --
-    and what is written is `mathutils.Quaternion.slerp` between them at every frame of the declared
-    grid. It is a second, independent implementation of the same specified operation: an engine whose
-    slerp were wrong would still disagree with the picture this produces.
-
-    ONLY `LINEAR` CURVES ARE TOUCHED. A `STEP` sampler imports as CONSTANT and returns a keyframe
-    whichever way it is read; a `CUBICSPLINE` one imports as BEZIER and is a different question with
-    its own asset. A curve whose keyframes are not all LINEAR is left alone and counted.
-    """
-    resampled, left = [], []
-    for obj in imported:
-        bag = _channelbag_of(obj)
-        if bag is None:
-            continue
-        curves = {fc.array_index: fc for fc in bag.fcurves if fc.data_path == "rotation_quaternion"}
-        if len(curves) != 4:
-            continue
-        if any(k.interpolation != "LINEAR" for fc in curves.values() for k in fc.keyframe_points):
-            left.append({"object": obj.name, "why": "the curve is not LINEAR"})
-            continue
-        times = [k.co[0] for k in curves[0].keyframe_points]
-        if any([k.co[0] for k in curves[i].keyframe_points] != times for i in range(4)):
-            fail("the four components of " + obj.name + "'s rotation carry different keyframe times")
-        keys = [Quaternion([curves[i].keyframe_points[at].co[1] for i in range(4)])
-                for at in range(len(times))]
-        taken = []
-        for frame in range(scene.frame_start, scene.frame_end + 1):
-            taken.append((frame, _slerped(times, keys, frame)))
-        for index in range(4):
-            points = curves[index].keyframe_points
-            points.clear()
-            points.add(len(taken))
-            for at, (frame, value) in enumerate(taken):
-                points[at].co = (float(frame), value[index])
-                points[at].interpolation = "LINEAR"
-            curves[index].update()
-        resampled.append({"object": obj.name, "keyframes": len(times), "frames": len(taken)})
-    return {"resampled": resampled, "leftAlone": left}
-
-
-def _slerped(times, keys, frame):
-    if frame <= times[0]:
-        return keys[0]
-    if frame >= times[-1]:
-        return keys[-1]
-    for at in range(len(times) - 1):
-        if times[at] <= frame <= times[at + 1]:
-            span = times[at + 1] - times[at]
-            return keys[at].slerp(keys[at + 1], (frame - times[at]) / span)
-    return keys[-1]
-
-
-
-# THE SAMPLER IS EVALUATED FROM THE FILE, NOT FROM WHAT THE IMPORTER MADE OF IT (board:1198).
-#
-# `spherical_rotation_curves` above reduces one mechanism -- a LINEAR quaternion read component-wise --
-# by resampling Blender's own imported keyframes. That works because the importer keeps LINEAR keys
-# exactly. It does NOT generalise: a CUBICSPLINE sampler is imported as BEZIER f-curves, and glTF's
-# cubic Hermite with tangents scaled by the segment duration is a different function from a Bezier
-# carrying the same handles -- so there is nothing in the imported curve to resample faithfully.
-#
-# SO THE SOURCE IS THE SOURCE. Times, values and tangents are decoded from the glTF's own accessors and
-# the pose is evaluated here, in Python, against the specification -- then written to the frame grid as
-# exact keys. Blender interpolates nothing, which is board:1175's rule: the oracle renders poses.
-#
-# THE INDEPENDENCE IS THE POINT AND IT SURVIVES. This is a second implementation of a published formula,
-# in another language, on another code path -- never this engine's sampler. An engine whose Hermite is
-# wrong still disagrees with an oracle posed from here.
-
 _COMPONENT = {5126: ("f", 4), 5123: ("H", 2), 5125: ("I", 4), 5122: ("h", 2), 5121: ("B", 1), 5120: ("b", 1)}
 _COUNT = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}
 
@@ -160,8 +83,38 @@ def _accessor(document, buffers, index):
             for at in range(accessor["count"])]
 
 
-def _sampled(times, values, how, wide, at):
-    """glTF's three interpolations, from the specification and not from a library."""
+def _slerp(first, second, unit):
+    """glTF's LINEAR interpolation OF A ROTATION, written from the specification's own formula.
+
+    A quaternion read component-wise is a different rotation everywhere except at the keys and at the
+    exact midpoint of a span. Blender's importer reads them component-wise, which is why the oracle
+    had to be corrected here at all -- so a sampler that treated `rotation` like `translation` would
+    put that same defect back, on the side that is supposed to BE the specification."""
+    dot = sum(first[c] * second[c] for c in range(4))
+    sign = -1.0 if dot < 0.0 else 1.0
+    angle = math.acos(min(1.0, abs(dot)))
+    if math.sin(angle) < 1e-6:
+        mixed = tuple(first[c] + (sign * second[c] - first[c]) * unit for c in range(4))
+    else:
+        near, far = math.sin(angle * (1.0 - unit)) / math.sin(angle), math.sin(angle * unit) / math.sin(angle)
+        mixed = tuple(near * first[c] + sign * far * second[c] for c in range(4))
+    return _unit(mixed)
+
+
+def _unit(q):
+    length = math.sqrt(sum(c * c for c in q))
+    if length == 0.0:
+        fail("a rotation sampled to a zero-length quaternion, which names no rotation")
+    return tuple(c / length for c in q)
+
+
+def _sampled(times, values, how, wide, at, spherical=False):
+    """glTF's three interpolations, from the specification and not from a library.
+
+    `spherical` is set for a `rotation` channel and it changes two of the three: LINEAR becomes a slerp,
+    and CUBICSPLINE is normalised after the Hermite because the specification requires the result to be
+    a unit quaternion and the cubic does not preserve length. STEP returns a stored key and needs
+    neither."""
     if at <= times[0][0]:
         return values[1] if how == "CUBICSPLINE" else values[0]
     if at >= times[-1][0]:
@@ -175,15 +128,136 @@ def _sampled(times, values, how, wide, at):
     if how == "STEP":
         return values[key]
     if how == "LINEAR":
+        if spherical:
+            return _slerp(values[key], values[key + 1], unit)
         return tuple(values[key][c] + (values[key + 1][c] - values[key][c]) * unit for c in range(wide))
     # CUBIC HERMITE over the in-tangent, value, out-tangent triples. THE TANGENTS ARE SCALED BY THE
     # SEGMENT DURATION -- that scaling is the whole difference from a Bezier with the same handles.
     value, out = values[3 * key + 1], values[3 * key + 2]
     into, next_value = values[3 * (key + 1)], values[3 * (key + 1) + 1]
     square, cube = unit * unit, unit * unit * unit
-    return tuple((2 * cube - 3 * square + 1) * value[c] + (cube - 2 * square + unit) * span * out[c] +
-                 (-2 * cube + 3 * square) * next_value[c] + (cube - square) * span * into[c]
-                 for c in range(wide))
+    hermite = tuple((2 * cube - 3 * square + 1) * value[c] + (cube - 2 * square + unit) * span * out[c] +
+                    (-2 * cube + 3 * square) * next_value[c] + (cube - square) * span * into[c]
+                    for c in range(wide))
+    return _unit(hermite) if spherical else hermite
+
+
+def document_buffers(path, document):
+    """The subject's own buffers, whichever container carries them: a GLB's BIN chunk, a `.bin` beside
+    the JSON, or a data URI. Refuses anything else by name rather than returning a short buffer that
+    would decode as plausible numbers."""
+    with open(path, "rb") as f:
+        payload = f.read()
+    inline = None
+    if payload[:4] == b"glTF":
+        at = 12
+        while at + 8 <= len(payload):
+            length, kind = struct.unpack_from("<II", payload, at)
+            if kind == 0x004E4942:
+                inline = payload[at + 8:at + 8 + length]
+                break
+            at += 8 + length + (-length % 4)
+    out = []
+    for buffer in document.get("buffers", []):
+        uri = buffer.get("uri")
+        if uri is None:
+            if inline is None:
+                fail(path + ": a buffer names no uri and the container carries no BIN chunk")
+            out.append(inline)
+        elif uri.startswith("data:"):
+            out.append(base64.b64decode(uri.split(",", 1)[1]))
+        else:
+            beside = os.path.join(os.path.dirname(path), urllib.parse.unquote(uri))
+            if not os.path.isfile(beside):
+                fail(path + ": buffer " + uri + " is not beside the document")
+            with open(beside, "rb") as b:
+                out.append(b.read())
+    return out
+
+
+
+_CURVE_OF = {"translation": "location", "rotation": "rotation_quaternion", "scale": "scale"}
+
+
+def _write_frames(name, road, taken, wide):
+    """The evaluated poses, onto this object's own curves as one exact key per frame.
+
+    THE OBJECT IS FOUND BY THE NODE'S NAME AND A MISS IS A REFUSAL. A channel silently dropped leaves
+    that node at its rest pose on the oracle's side while ours moves, which reads as a shading or a
+    raster disagreement and is neither -- so the name that did not resolve is said out loud.
+
+    EVERY WRITTEN KEY IS `CONSTANT`-FREE AND `LINEAR` BETWEEN IDENTICAL NEIGHBOURS: there is a key at
+    every frame the render visits, so what lies between two of them is never sampled. The interpolation
+    written here therefore states nothing and cannot reintroduce the conversion this function exists to
+    remove."""
+    obj = bpy.data.objects.get(name) if name else None
+    if obj is None:
+        fail("the glTF names an animated node " + repr(name) +
+             " and no imported object carries that name, so its channel would be silently dropped")
+    bag = _channelbag_of(obj)
+    if bag is None:
+        fail(obj.name + " is animated by the file and carries no channelbag to write into")
+    road_name = _CURVE_OF[road]
+    curves = {fc.array_index: fc for fc in bag.fcurves if fc.data_path == road_name}
+    if len(curves) != wide:
+        fail(obj.name + "'s " + road_name + " is " + str(len(curves)) + " curves and the file's " +
+             road + " carries " + str(wide) + " components")
+    for component in range(wide):
+        points = curves[component].keyframe_points
+        points.clear()
+        points.add(len(taken))
+        for at, (frame, value) in enumerate(taken):
+            points[at].co = (float(frame), value[component])
+            points[at].interpolation = "LINEAR"
+        curves[component].update()
+    return wide
+
+def baked_channels(scene, paths, fps):
+    """EVERY ANIMATED CHANNEL, WRITTEN TO THE FRAME GRID AS EXACT KEYS (board:1198, board:1175).
+
+    THE GRID IS BLENDER FRAMES AND THE SAMPLER IS IN SECONDS. `scene.frame_start` is 0 and `fps_base`
+    is pinned to 1, so frame *f* is the instant *f/fps* -- and that conversion is the whole reason this
+    function takes `fps` rather than reading times off the imported curves the way the slerp reduction
+    it replaces did.
+
+    The pose at each frame is evaluated from the file's own accessors against the specification, so the
+    oracle is asked only to render a stated pose and never to reproduce a sampler it converted on
+    import. This subsumes the LINEAR-quaternion reduction above: slerp is what the specification says a
+    LINEAR rotation is, and it is evaluated here for the same reason CUBICSPLINE is.
+
+    A NODE THE IMPORTER DID NOT NAME BACK IS A REFUSAL, not a skip: a channel silently dropped would
+    leave that node at its rest pose on the oracle's side and moving on ours, which reads as a shading
+    or raster disagreement and is neither."""
+    baked, left = [], []
+    for path in paths:
+        document = document_json(path)
+        if not document.get("animations"):
+            continue
+        buffers = document_buffers(path, document)
+        nodes = document.get("nodes", [])
+        for index, animation in enumerate(document["animations"]):
+            for channel in animation.get("channels", []):
+                target = channel.get("target", {})
+                node = target.get("node")
+                road = target.get("path")
+                if node is None:
+                    continue
+                if road == "weights":
+                    left.append({"animation": index, "node": node, "why": "morph weights"})
+                    continue
+                sampler = animation["samplers"][channel["sampler"]]
+                how = sampler.get("interpolation", "LINEAR")
+                times = _accessor(document, buffers, sampler["input"])
+                values = _accessor(document, buffers, sampler["output"])
+                wide = len(values[0])
+                taken = []
+                for frame in range(scene.frame_start, scene.frame_end + 1):
+                    taken.append((frame, _sampled(times, values, how, wide, frame / float(fps), road == "rotation")))
+                written = _write_frames(nodes[node].get("name"), road, taken, wide)
+                baked.append({"animation": index, "node": node, "name": nodes[node].get("name"),
+                              "path": road, "interpolation": how, "keyframes": len(times),
+                              "frames": len(taken), "curves": written})
+    return {"baked": baked, "leftAlone": left}
 
 def evaluated_pose(imported):
     """Where the oracle actually put each object at this frame, in Blender's own +Z-up metres.
@@ -1212,7 +1286,6 @@ def main():
     removed = strip_crossings(imported, job["scene"]["camera"]["source"],
                               job["scene"]["light"]["kind"] == "gltf")
     imported = [obj for obj in imported if obj.name in bpy.data.objects]
-    imported = [obj for obj in imported if obj.name in bpy.data.objects]
     if job["scene"]["camera"]["source"] == "manifest":
         camera = build_camera(scene, job["scene"]["camera"])
     else:
@@ -1224,9 +1297,10 @@ def main():
     variant = select_material_variant(imported, job["scene"].get("materialVariant"))
     material = apply_material(imported, job["scene"]["material"])
     devices = apply_recipe(scene, job["recipe"])
-    rotations = None
+    channels = None
     if animation is not None:
-        rotations = spherical_rotation_curves(scene, imported)
+        channels = baked_channels(scene, job["gltfPaths"],
+                                  scene.render.fps / scene.render.fps_base)
         scene.frame_set(int(job["frame"]))
     quantity_work = tempfile.mkdtemp(prefix="outshine-quantities-")
     quantities = ask_for_quantities(scene, job["quantityPasses"], quantity_work, job["recipe"])
@@ -1253,7 +1327,7 @@ def main():
         "camera": camera,
         "frame": job["frame"],
         "fps": scene.render.fps / scene.render.fps_base,
-        "rotationCurves": rotations,
+        "bakedChannels": channels,
         "pose": evaluated_pose(imported),
         "light": light,
         "materialVariant": variant,
