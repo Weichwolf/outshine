@@ -51,3 +51,52 @@ floor is the general rule and the term is the right answer for that case.*
 **The percentile should take in `board:1136`'s four cases**, which exceed their bounds on fewer than ten
 channels in 2.6 million. **It should take in nothing else**, and a case that goes green whose histogram
 is broad is evidence the percentile is too generous rather than evidence of progress.
+
+## The thresholds are in, and the measurement they owed is here
+
+**Both were declared before this run** (`board:1359`, revised to p99 by `board:1367`), which is what makes
+the numbers below a measurement rather than a fit.
+
+| | before | after |
+|---|---|---|
+| within the picture bound | **81 of 114** | **98 of 114** |
+| outside | 32 | **15** |
+| criteria met | 108 of 114 | 108 of 114, unchanged |
+
+**What the change IS, stated so it is not read as a widened bound.** The metric was a MAXIMUM over
+3 686 400 channels -- a claim about the single worst one. It is now the **99th percentile**, a claim about
+the picture, and **the maximum keeps its own row on every report**.
+
+**`WaterBottle` is the case that made it visible, and it was found by LOOKING.** Its two renders are
+indistinguishable by eye -- bottle, cap, logo, label plate and highlight all in the same place in the same
+colour -- and it scored **149.26747 codes** and counted as outside. Its p99 is **1 code**.
+
+## The condition this item set itself, and it is met
+
+*A case that goes green whose histogram is broad is evidence the percentile is too generous rather than
+evidence of progress.* [MEASURED] over the cases that flipped:
+
+| case | p99 | bound | max | channels differing at all |
+|---|---|---|---|---|
+| `CompareBaseColor` | **0** | 1 | 237.39 | 34 500 of 3 686 400 |
+| `WaterBottle` | **1** | 6.435 | 149.27 | 139 017 |
+| `NormalTangentTest` | **6** | 6.435 | 229.33 | **596 196 -- 16.2 %** |
+
+**`NormalTangentTest` is the one to watch and it is named rather than waved through**: it passes at 93 %
+of its bound with a sixth of the picture differing. **So it was looked at.** Side by side the two are the
+same picture -- same layout, same spheres, same highlights; the only difference the eye finds is that the
+small arrow glyphs in each tile's corner are thinner on our side. The 16 % is `linear_channels_differing`,
+a bit-exactness count in linear radiance, which is a far stricter claim than *looks alike*.
+
+**The verdict stands because the rule was declared first.** *Moving a threshold after seeing which cases
+it admits is the defect this whole shape exists to prevent, and that includes moving it back.*
+
+## Two defects of my own, both caught by the full run
+
+**The percentile counted the wrong population** and put **every** case outside -- 0 within, 113 out. The
+histogram is of the TAIL: channels the two sides agree about exactly are never bucketed, so the walk never
+reached 99 % and fell off the end. They are counted in at zero now.
+
+**And its first placement did not compile**, because it was written above the `kCodeBuckets` it reads.
+*Both were found in the round that introduced them, by running the suite rather than by reading the
+diff.*

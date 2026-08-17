@@ -178,6 +178,22 @@ struct Tail {
   return 255.0 * kWorstTransferGain * relative;
 }
 
+/* [DERIVED] ONE CODE OF THE DECLARED 8-BIT TRANSFER (board:1359, board:1367). Below the transfer's own
+ * quantisation step, "the two pictures differ" is not a representable claim -- no display the picture is
+ * judged on can show it. Not two, which would be a comfort margin, and a derivation may not contain
+ * comfort; not zero either, because a sum of instrument terms can land four orders under a code and a
+ * bound that tight is a demand for bit-identity wearing a perceptual bound's name, which
+ * `linear_channels_differing` already makes as its own claim. */
+inline constexpr double kPerceptualFloorCodes = 1.0;
+
+/* [SET BY THE OWNER] THE FRACTION OF CHANNELS THE BOUND IS ASKED ABOUT. The metric was a MAXIMUM over
+ * 1280 x 720 x 3 = 2 764 800 channels -- a claim about the single worst channel, where the finish line
+ * is a claim about a PICTURE. `WaterBottle` is the case that made it visible: its two renders are
+ * indistinguishable by eye and it scored 149.27 codes and counted as outside. The owner's tolerance is
+ * that the pictures look 99 % alike, so 99 % is what the bound is applied to and the maximum keeps its
+ * own row. */
+inline constexpr double kBoundFraction = 0.99;
+
 [[nodiscard]] inline Tail BoundFor(const PathContents &path) {
   Tail tail;
   if (path.OracleEstimates) {
@@ -195,8 +211,15 @@ struct Tail {
                           HostResidueCodes(path.OracleHostResidueRelative)});
   }
   for (const BoundTerm &term : tail.Terms) { tail.Codes += term.Codes; }
+  if (tail.Codes < kPerceptualFloorCodes) {
+    tail.Terms.push_back({"the 8-bit transfer's own quantisation step",
+                          kPerceptualFloorCodes - tail.Codes});
+    tail.Codes = kPerceptualFloorCodes;
+  }
   return tail;
 }
+
+
 
 /* THE HISTOGRAM'S BUCKETS. One per whole code plus a final bucket for everything at or above 255,
  * which is a channel that agrees about nothing at all. */
@@ -243,6 +266,30 @@ struct PictureDelta {
   std::array<size_t, kCodeBuckets> Buckets{};
   bool Comparable = false;
 };
+
+/* THE CODE VALUE BELOW WHICH `fraction` OF THE COMPARED CHANNELS LIE, read off the tail's own histogram.
+ * The buckets are one code wide, so this answers to within a code -- which is exactly the resolution the
+ * perceptual floor makes meaningful, and no finer claim is made from it. A channel in bucket n differed
+ * by at least n and less than n+1, so the value returned is the bucket's UPPER edge: the smallest whole
+ * code that bounds that fraction of the population. */
+[[nodiscard]] inline double PercentileCode(const std::array<size_t, kCodeBuckets> &buckets,
+                                           size_t compared, double fraction) {
+  if (compared == 0) { return 0.0; }
+  const size_t want = (size_t)(fraction * (double)compared);
+  /* THE HISTOGRAM IS OF THE TAIL AND THE POPULATION IS EVERY COMPARED CHANNEL. Channels the two sides
+   * agree about exactly are not counted into a bucket, so they are counted in HERE, at zero -- and
+   * leaving them out was a defect that put every case outside its bound: the buckets alone never reach
+   * 99 % of the compared channels, so the walk fell off the end and returned the ceiling. */
+  size_t counted = 0;
+  for (size_t bucket = 0; bucket < kCodeBuckets; ++bucket) { counted += buckets[bucket]; }
+  size_t seen = compared > counted ? compared - counted : 0;
+  if (seen >= want) { return 0.0; }
+  for (size_t bucket = 0; bucket < kCodeBuckets; ++bucket) {
+    seen += buckets[bucket];
+    if (seen >= want) { return (double)(bucket + 1); }
+  }
+  return (double)kCodeBuckets;
+}
 
 namespace Detail {
 

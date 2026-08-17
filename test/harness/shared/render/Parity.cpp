@@ -2453,8 +2453,20 @@ void ScorePictureBound(const PictureDelta &picture, const Tail &bound,
     std::printf("BOUND  %-56s %14s\n",
                 "the oracle still estimates, so no tail bound may be enforced", "--");
   }
-  metrics.push_back({"picture_max_delta_code", picture.Appearance.Code, bound.Codes, "codes",
+  /* THE BOUND IS ASKED ABOUT THE PICTURE AND THE MAXIMUM KEEPS ITS OWN ROW (board:1359, board:1367).
+   * A max over 2 764 800 channels is a claim about one channel; the finish line is a claim about a
+   * picture, and the owner's tolerance is that the two look 99 % alike. `WaterBottle` is what made it
+   * visible: its two renders are indistinguishable by eye and it scored 149.27 codes as outside.
+   *
+   * THE MAXIMUM IS STILL PUBLISHED AND STILL NAMED, because a case agreeing to a code and one agreeing
+   * to 200 on nine channels are different facts, and a rule that hid the difference would conceal a
+   * regression inside its own tolerance. */
+  const double atFraction =
+      PercentileCode(picture.Buckets, picture.ChannelsCompared, kBoundFraction);
+  metrics.push_back({"picture_p99_delta_code", atFraction, bound.Codes, "codes",
                      bound.Enforced ? Direction::AtMost : Direction::Reported, Count::Picture});
+  metrics.push_back({"picture_max_delta_code", picture.Appearance.Code, bound.Codes, "codes",
+                     Direction::Reported, Count::Picture});
   /* A PREDICATE HAS ONE VALUE WHERE THE TWO SIDES AGREE IT APPLIES, so zero here is a statement and
    * not a tolerance: an oracle alpha between 0 and 1 over our `covered(sceneDepth)` is the blended
    * -surface defect, and this is the gate that reaches it. */
