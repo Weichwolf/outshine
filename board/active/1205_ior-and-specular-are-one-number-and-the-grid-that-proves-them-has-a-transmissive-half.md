@@ -66,6 +66,13 @@ isolated by the asset itself**, with no transmission in the path.
   is delivered and unproven by a picture, which `board:0079`'s closing line forbids as a CLAIM, so this
   task stays open and the capability table says *implemented, awaiting an environment* rather than
   *delivered*
+- [ ] **`specularTexture` AND `specularColorTexture` ARE UNIMPLEMENTED, AND THAT IS WHY THE CASE IS
+  RED.** The extension has a texture half and this task delivered only its factors. [MEASURED] in
+  `SpecularTest`: **three materials carry one** — `M2_SpecTex` a `specularTexture`, `M4_whiteTex` and
+  `M6_yellowTex` a `specularColorTexture` — and the asset names its own rows *specular texture*,
+  *white color texture* and *yellow color texture*. Our side draws them at the factor alone while
+  Cycles modulates by the image, and the reference picture carries small marks at the left edge of
+  those rows that ours does not.
 - [ ] A deliberately wrong `F0` is shown red
 
 ## The caveat named before the measurement

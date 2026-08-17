@@ -188,8 +188,8 @@
     "default": {
       "engine": "CYCLES",
       "device": "METAL",
-      "resolutionX": 320,
-      "resolutionY": 180,
+      "resolutionX": 1280,
+      "resolutionY": 720,
       "samples": 1,
       "adaptiveSampling": false,
       "denoise": false,

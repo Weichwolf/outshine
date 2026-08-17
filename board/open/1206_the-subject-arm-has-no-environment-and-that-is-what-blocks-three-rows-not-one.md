@@ -143,6 +143,31 @@ coverage** — those are the silhouette disagreements behind `worst_disagreement
 where this engine returns the whole environment, and neither *the mirror is blocked* nor *the pixel is a
 silhouette* accounts for it.
 
+**THE SECOND GUESS WAS WRONG TOO, AND THE THIRD IS MEASURED.** After the mirror ray changed nothing,
+the next hypothesis was that Cycles zeroes a specular lobe at grazing where Schlick does not. [MEASURED]
+against Cycles itself, a black roughness-0 dielectric under a uniform world of 0.25, at six view angles:
+
+```
+  nv        cycles        Schlick F(nv)*L   ratio
+  1.0000    0.00997342    0.01000000        0.997
+  0.7071    0.01275470    0.01051732        1.213
+  0.3420    0.04490051    0.03959881        1.134
+  0.1736    0.10273630    0.10247752        1.003
+  0.0872    0.16295110    0.16212293        1.005
+  0.0349    0.21843779    0.21094350        1.036
+```
+
+**Cycles TRACKS Schlick at grazing** — it does not fall to zero — so that hypothesis is refuted as well.
+And minification was refuted by resolution: at 1280×720 the worst delta is **141.523705** against
+**141.533904** at 320×180, unchanged where an aliasing artefact would have moved.
+
+**THE CAUSE IS `board:1205`'S OWN MISSING HALF.** `KHR_materials_specular` carries `specularTexture` and
+`specularColorTexture`, and that task delivered only its factors. Three of `SpecularTest`'s materials
+declare one, the asset names those rows *specular texture*, *white color texture* and *yellow color
+texture*, and the reference picture carries marks at the left edge of exactly those rows that ours does
+not. **So the residual belongs to the extension and not to the environment**, which is what this item
+needed to know before owing anything further.
+
 **The visibility term was REVERTED rather than kept.** It is defensible physics and it is unexercised by
 any measurement in this tree, which is the shape *no green resting on an instrument nobody exercised*
 forbids — and its justification was a hypothesis this round refuted. **What is owed now is the cause, and
