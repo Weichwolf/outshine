@@ -513,3 +513,55 @@ fetched another level's fill, exactly reversed, with the middle one exact — a 
 uploaded set, which is the signature of a reader convention rather than of corrupt memory. Clip
 `y = -1` is the bottom of the screen and row 0 of the read image is the top. *Garbage does not come
 back as a permutation of what you put in.*
+
+## The chain was TURNED ON and measured, and the answer is no
+
+**The comment holding it off was stale in its reason and right in its conclusion.** `SubjectDraw.cpp`
+said *the missing term is Toksvig's, and `TexelChain.h` names it as deliberately not taken*. That has
+not been true since `board:1131`: the resultant length is accumulated into alpha, `roughenedBy` consumes
+it in both the C++ twin and the shader text, and the path from `SUBJECT_NORMAL_TAP(...).w` to the lobe
+is unbroken. **The precondition the comment was waiting on had already been met and nobody re-read it.**
+
+So `kChainIsReadable` was flipped and the corpus run twice. **Same tree, same corpus preparation, same
+27 prepared cases on both sides** — a population stated because four other cases read `0 FAIL` in the
+chain-on run only because they were UNPREPARED there, and *never ran* is not *passed*.
+
+| | chain OFF | chain ON |
+|---|---|---|
+| **khronos criteria met** | **23** of 27 | **21** of 27 |
+| **within the picture bound** | **11** | **10** |
+| test arms failing | 51 of 99 | 54 of 99 |
+| `NormalTangentTest` failing metrics | 5 | **16** |
+| `NormalTangentMirrorTest` | 1 | **11** |
+| `ABeautifulGame` | 1 | 2 |
+| `MultiUVTest` | 0 | 1 |
+
+**Four cases worse, none better, and both published counts fall.** Toksvig was the named blocker; it is
+live and it does not carry this.
+
+## And the failure has a new shape, which is the round's actual finding
+
+**A region whose reference is BLACK lights up.** `NormalTangentTest`'s `pairN` and
+`NormalTangentMirrorTest`'s `right` regions read **exactly 0** with the chain off — on ours AND on the
+oracle, `p95_relative` 0 on both sides, an exact agreement. With the chain on they read **exactly 1**,
+the metric's ceiling, and the two means say why:
+
+```
+row1_right_geometry_matches_normalmap_from_mean          0          linear, scene-referred
+row1_right_geometry_matches_normalmap_to_mean            0.18065128 linear, scene-referred
+oracle_row1_right_geometry_matches_normalmap_to_mean     0          linear, scene-referred
+```
+
+**The `from` half stays black and the `to` half — the normal-mapped one — becomes 0.18.** That is the
+`ours 255 against 0` symptom localised for the first time: not a bright pixel somewhere in a picture,
+but *one specific region, black by construction, that the chain lights up*. `picture_max_delta_code`
+goes 229.33018 → **255** and 184.35696 → **255**, both fully saturated.
+
+**A flattened normal cannot do this.** Flattening moves a shaded value toward the geometric normal's
+answer; it does not take a region from exactly 0 to 0.18 while its partner region stays at exactly 0.
+**The candidate is a normal that changed DIRECTION rather than sharpness** — and the four arithmetic
+paths this item read by inspection all bound magnitude, none of them bounds orientation.
+
+- [ ] **The next measurement is named and it is not another proxy**: keep the two renders, look at the
+  region, and decode the chain's own texels for the texture those pairs sample. *An image was produced
+  and not looked at this round, because the corpus prunes on pass and both runs pruned.*
