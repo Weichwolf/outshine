@@ -212,6 +212,86 @@ def _agrees(road, ours, theirs):
     return min(straight, max(abs(ours[c] + theirs[c]) for c in range(len(ours))))
 
 
+def _bone_curves(name, road):
+    """The armature and the f-curves driving one JOINT's channel, or (None, None) if no bone owns it.
+
+    A joint arrives as a pose bone inside an armature, never as an object, so the curve's data path is
+    `pose.bones["<name>"].<slot>` and the object that carries the action is the armature."""
+    for obj in bpy.data.objects:
+        if obj.type != "ARMATURE" or name not in obj.pose.bones:
+            continue
+        bag = _channelbag_of(obj)
+        if bag is None:
+            continue
+        path = 'pose.bones["' + name + '"].' + _CURVE_OF[road]
+        curves = {fc.array_index: fc for fc in bag.fcurves if fc.data_path == path}
+        if curves:
+            return obj, curves
+    return None, None
+
+
+def _resample_bone(name, road, how, curves, frames, wide):
+    """A JOINT'S CHANNEL, RE-INTERPOLATED IN THE SPACE THE IMPORTER PUT IT IN (board:1200).
+
+    A pose bone's transform is relative to its REST pose and expressed in the bone's own axes, and
+    glTF states neither -- the importer computed both. So the file's accessor values cannot be written
+    onto a bone the way they are written onto an object. What is reused here is the importer's
+    CONVERSION and what is replaced is its INTERPOLATION.
+
+    THIS ARM IS STRICTLY NARROWER THAN THE OBJECT ARM AND SAYS SO. Re-interpolating the importer's own
+    keys is exact only where the importer stored them exactly, which holds for STEP and for LINEAR and
+    fails for CUBICSPLINE -- imported as BEZIER, whose handles are a different function from glTF's
+    Hermite with duration-scaled tangents. A CUBICSPLINE channel on a joint is REFUSED rather than
+    resampled, so a future asset that needs it stops here instead of rendering a Bezier.
+    """
+    if how == "CUBICSPLINE":
+        fail("joint " + name + "'s " + road + " is CUBICSPLINE, and a joint's keys reach this "
+             "preparer already converted into bone space, where a Bezier handle cannot be turned "
+             "back into glTF's Hermite -- so this channel is refused rather than approximated")
+    if len(curves) != wide:
+        fail("joint " + name + "'s " + road + " is " + str(len(curves)) + " curves and the file's " +
+             road + " carries " + str(wide) + " components")
+    at = [key.co[0] for key in curves[0].keyframe_points]
+    if not at:
+        fail("joint " + name + "'s " + road + " carries no keyframe to resample")
+    for component in range(wide):
+        if [key.co[0] for key in curves[component].keyframe_points] != at:
+            fail("the components of joint " + name + "'s " + road + " carry different keyframe times")
+    keys = [tuple(curves[c].keyframe_points[k].co[1] for c in range(wide)) for k in range(len(at))]
+    taken = []
+    for frame in frames:
+        taken.append((frame, _between(at, keys, float(frame), wide, how, road == "rotation")))
+    for component in range(wide):
+        points = curves[component].keyframe_points
+        points.clear()
+        points.add(len(taken))
+        for index, (frame, value) in enumerate(taken):
+            points[index].co = (float(frame), value[component])
+            points[index].interpolation = "LINEAR"
+        curves[component].update()
+    return wide
+
+
+def _between(at, keys, frame, wide, how, spherical):
+    """STEP and LINEAR over keys already in the target's own space, clamped at both ends as glTF
+    states. A rotation is interpolated on the sphere here for the same reason it is everywhere else --
+    conjugating a quaternion into bone space is a rotation of quaternion space and slerp is unchanged
+    by it, so the specification's rule survives the conversion the importer applied."""
+    if frame <= at[0]:
+        return keys[0]
+    if frame >= at[-1]:
+        return keys[-1]
+    key = 0
+    while key + 1 < len(at) and at[key + 1] <= frame:
+        key += 1
+    if how == "STEP":
+        return keys[key]
+    unit = (frame - at[key]) / (at[key + 1] - at[key])
+    if spherical:
+        return _slerp(keys[key], keys[key + 1], unit)
+    return tuple(keys[key][c] + (keys[key + 1][c] - keys[key][c]) * unit for c in range(wide))
+
+
 def _imported_name(document, index):
     """WHAT THE IMPORTER CALLED THIS glTF NODE. [MEASURED] Blender 5.2.0 on `BoxAnimated`, whose four
     nodes are all unnamed: a node carrying a mesh takes the MESH's name -- `inner_box`, `outer_box` --
@@ -326,20 +406,33 @@ def baked_channels(scene, paths, fps, declared):
                 times = _accessor(document, buffers, sampler["input"])
                 values = _accessor(document, buffers, sampler["output"])
                 wide = len(values[0])
-                taken = []
-                for frame in range(scene.frame_start, scene.frame_end + 1):
-                    taken.append((frame, _sampled(times, values, how, wide, frame / float(fps), road == "rotation")))
-                # THE IMPORTER'S OWN FIRST KEY IS THE WITNESS, so the value compared against it is
-                # this sampler at the file's first key time -- which is the stored key for STEP and
-                # LINEAR and the middle of the triple for CUBICSPLINE, exactly what the importer put
-                # there.
-                written = _write_frames(_imported_name(document, node), road, taken, wide,
-                                        _sampled(times, values, how, wide, times[0][0],
-                                                 road == "rotation"))
-                baked.append({"animation": index, "node": node,
-                              "name": _imported_name(document, node),
+                name = _imported_name(document, node)
+                grid = list(range(scene.frame_start, scene.frame_end + 1))
+                # A JOINT IS A POSE BONE AND NOT AN OBJECT, so the arms are dispatched on which of
+                # them owns the name -- and they are NOT the same mechanism. The object arm evaluates
+                # the FILE; the bone arm re-interpolates the IMPORTER'S keys, because a bone's
+                # transform is rest-relative in axes glTF never states. Which arm ran is published
+                # per channel rather than left to be inferred from the asset.
+                armature, curves = _bone_curves(name, road)
+                if armature is not None:
+                    written = _resample_bone(name, road, how, curves, grid, wide)
+                    carried = "bone:" + armature.name
+                else:
+                    taken = []
+                    for frame in grid:
+                        taken.append((frame, _sampled(times, values, how, wide, frame / float(fps),
+                                                      road == "rotation")))
+                    # THE IMPORTER'S OWN FIRST KEY IS THE WITNESS: the value compared against it is
+                    # this sampler at the file's first key time -- the stored key for STEP and
+                    # LINEAR, the middle of the triple for CUBICSPLINE, which is what the importer
+                    # put there.
+                    written = _write_frames(name, road, taken, wide,
+                                            _sampled(times, values, how, wide, times[0][0],
+                                                     road == "rotation"))
+                    carried = "object"
+                baked.append({"animation": index, "node": node, "name": name, "carriedBy": carried,
                               "path": road, "interpolation": how, "keyframes": len(times),
-                              "frames": len(taken), "curves": written})
+                              "frames": len(grid), "curves": written})
     return {"baked": baked, "leftAlone": left}
 
 def evaluated_pose(imported):

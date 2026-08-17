@@ -38,12 +38,23 @@ to `bpy.data.objects[name]`, and `Bone.001` is not there. **That is the refusal 
 *the glTF names an animated node and no imported object carries that name* — so this arrives as a loud
 stop rather than as a rest-pose armature rendered beside a moving one.
 
-- [ ] **The baker learns pose bones**, and the conversion is its own claim: a pose bone's `matrix_basis`
-  is **relative to its rest pose**, not the node-local transform glTF states, so the value written is
-  `rest⁻¹ · local` and not `local`. **It is checked the same way the axis conversion is** — against the
-  importer's own first key, up to sign for a quaternion — so a wrong hypothesis refuses instead of
-  rendering a plausible wrong pose. *Three such conversions have already been wrong this round and none
-  of them crashed*
+- [x] **The baker learns pose bones, and it does NOT do what this box first said.** The plan was to write
+  `rest⁻¹ · local` onto the bone — deriving Blender's bone conventions ourselves and checking them. The
+  built answer inverts that: **the importer's CONVERSION is reused and only its INTERPOLATION is
+  replaced**, because a pose bone is rest-relative *in the bone's own axes* and glTF states neither, so
+  there is no conversion to check that Blender has not already computed.
+
+  **That makes the bone arm strictly narrower than the object arm, and it says so per channel.** The
+  object arm evaluates the file and covers all three modes. The bone arm re-interpolates the importer's
+  own keys, which is exact only where the importer stored them exactly — `STEP` and `LINEAR` — and
+  **`CUBICSPLINE` on a joint is a named refusal**, because a Bézier handle cannot be turned back into
+  glTF's Hermite. Every channel publishes which arm carried it under `carriedBy`, so a green animated
+  case cannot hide that a joint took the narrower road.
+
+  [MEASURED] on `RiggedSimple`, Blender 5.2.0: all three channels resolve to pose bone `Bone.001` on
+  armature `Armature`, 50 keys resample onto a 17-frame grid, and the resampled quaternion is unit to
+  **0.999999993** — so slerp survives conjugation into bone space, which is the one algebraic claim the
+  arm rests on. The `CUBICSPLINE` refusal fires.
 
 ## Done when
 
