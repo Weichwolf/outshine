@@ -234,3 +234,46 @@ this corpus is a corpus for.**
 **The residual that survives is small and real**: with the diffuse gone, `ours - oracle` is
 **-0.000143** and largest at NORMAL incidence, which is the opposite end and the opposite sign from the
 diffuse one. It is a second finding and it is not this one.
+
+## The roughness-0 prediction was WRONG, and the refutation locates the term more sharply
+
+**The reasoning, written down before the render**: on a smooth surface the microfacet half-vector is the
+normal, so `v.h` becomes `n.v`, glTF's `1 - F(v.h)` and Blender's `1 - E(n.v)` become the same
+expression, and the residual should collapse.
+
+**It quadrupled.** `test/outshine/render/shaded-sphere-smooth` is `shaded-sphere` with roughness 0 and
+nothing else changed. Away from the highlight -- `n.h < 0.98`, the same 44 253 pixels on both --
+
+| `n.v` | roughness 0.5, signed | **roughness 0, signed** |
+|---|---|---|
+| [0.00, 0.15) | +0.017954 | **+0.074129** |
+| [0.15, 0.30) | +0.015229 | +0.044686 |
+| [0.30, 0.50) | +0.009430 | +0.019429 |
+| [0.50, 0.70) | +0.004352 | +0.006903 |
+| [0.70, 0.85) | +0.001019 | +0.001896 |
+| [0.85, 1.01) | -0.000779 | +0.000263 |
+
+**And that is exactly what the mechanism predicts once it is stated correctly.** At roughness 0 the
+specular layer's directional albedo IS the Fresnel, `E(n.v) = F(n.v)`, and `F(n.v) -> 1` at the limb --
+so Blender's diffuse attenuation `1 - F(n.v)` goes to **zero** there and its diffuse term vanishes at the
+silhouette. glTF's `1 - F(v.h)` does not: with a fixed light direction, `v.h` at the limb is nothing like
+grazing. **The two do not coincide at roughness 0 -- they diverge hardest there.**
+
+## So the term is the ARGUMENT of the Fresnel, not the roughness coupling
+
+| | attenuates the diffuse by |
+|---|---|
+| **this engine** | `1 - F(v.h)` -- the half-vector, which glTF Appendix B's `f_diffuse = (1 - F) * baseColor / pi` shares with its specular term |
+| **Cycles' Principled** | `1 - E(n.v)` -- the VIEW angle, through the specular layer's directional albedo |
+
+**Both are one function of one angle and they are different angles.** That is a smaller and much more
+specific statement than *the diffuse disagrees*, and it was reached by a prediction being wrong: the
+roughness-0 case was built to make the two agree and it made them disagree four times harder, which is
+the measurement that named which variable each side is really using.
+
+- [ ] **What the reduction has to express is now known and it is NOT expressible with stock nodes.**
+  Blender's `Fresnel` and `Layer Weight` nodes are functions of `n.v`; nothing in the node vocabulary
+  reaches the microfacet half-vector. **So a node-graph oracle cannot evaluate Appendix B's diffuse**,
+  and the reduction is a statement about what this oracle can decide rather than a graph to be wired.
+  *Named here rather than attempted, because the attempt is what would produce a graph that looks like
+  the specification and is not.*
