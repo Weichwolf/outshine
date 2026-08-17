@@ -12,6 +12,6 @@ Tags: scope
 - [x] Civil time with a declared instant per scene
 - [ ] Calendar with a day-of-year that anything seasonal reads
 - [x] Keyframe evaluator that knows none of its consumers (`core/Keyframes.h`)
-- [x] Determinism: seed derived from the region key, so placement is a property of place (`test/unit/generators/SameRegionSamePlacement.cpp`)
+- [x] Determinism: seed derived from the region key, so placement is a property of place (`test/outshine/unit/generators/SameRegionSamePlacement.cpp`)
 - [ ] Determinism across tile arrival order — a pinned binary does not reproduce its still today
 - [ ] `FB_TAU` read from the environment removed — the picture must not depend on an undeclared variable

@@ -11,7 +11,7 @@ the renderer.*** `GpuTimer` was deleted for having no consumer — correctly, by
 rule — but the consumer was what was missing, not the instrument. **This is `not yet measured`, never
 `not measurable`: it is effort, and the effort is named below.**
 
-- [x] **The three things that must exist together, and TWO of them now exist.** `test/frame/TheVisibilityTermIsPricedPerRay` takes **p50/p95/p99 over a full orbit at 720p, 240 timed frames per arm** — so the **camera path** is declared, deterministic and moving, and the **per-frame clock** is beside it. *The instrument is no longer missing; the section's own sentence can now name which of the three is.* **It is the scene.** Nothing in the tree draws a landscape, so what the clock times is a subject on a card
+- [x] **The three things that must exist together, and TWO of them now exist.** `test/outshine/frame/TheVisibilityTermIsPricedPerRay` takes **p50/p95/p99 over a full orbit at 720p, 240 timed frames per arm** — so the **camera path** is declared, deterministic and moving, and the **per-frame clock** is beside it. *The instrument is no longer missing; the section's own sentence can now name which of the three is.* **It is the scene.** Nothing in the tree draws a landscape, so what the clock times is a subject on a card
 - [x] **The frame test runs without a sanitiser and the reason is on the line rather than in a habit: a duration cannot be measured through a bounds checker.** *This is a declared deviation from the tree's default and it is the right one — an ASan build measures ASan. What it costs is that the timed arm is not the memory-checked arm, so the same declared run must exist twice or the timing is trusted code nothing checked; that is the next line, not this one*
 - [ ] **The one that is still missing is the SUBJECT**, and it is the same absence § I.26.9's scenario suite has carried since it was defined: a declared world scene with terrain, vegetation and buildings, at 720p, over the orbit that already exists. **Until then the fourth constraint is priced per ray and not per frame** — 10.0 % of budget for one light on a 23 358-triangle subject is a real number about a real cost and is not a statement about 720p60
 - [ ] **The suite it belongs to already exists and has no members: `scenario` (§ I.26.9).** Its placement rule already sends load time and frame time there, and `NodePerformanceTest` is already assigned to it. **A suite with a definition and zero cases is a claim, not an instrument** — and it has been that since § I.26.9 was written
@@ -59,7 +59,7 @@ is the standard answer and this document already asks for it** — the ABBA line
 reason.
 
 **And one limitation of the measurement that produced these numbers, recorded with them.** The
-cross-commit comparison ran two `git worktree`s with today's `test/frame/` copied in and one line
+cross-commit comparison ran two `git worktree`s with today's `test/outshine/frame/` copied in and one line
 stripped, so **the instrument was identical everywhere that touches a duration**. But the **published
 pipeline count is absent from the two historical runs**, and the *30* they are compared against was
 **read from the vertex-layout table rather than measured**. The durations are sound; **the pipeline count

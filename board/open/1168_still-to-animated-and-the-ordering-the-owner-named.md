@@ -21,7 +21,7 @@ by `Supersedes:` alone.*
 | | measured |
 |---|---|
 | `src/scenario/` | **1 046 lines**, 8 headers, 3 units — `Mod` `Scene` `Animation` `Fields` `Stage` `Standpoint` `Studio` |
-| the loader **loads** | **proven** — `test/unit/scenario/EveryCommittedScenarioLoads.cpp` loads every mod under `test/mods` and walks its scenes |
+| the loader **loads** | **proven** — `test/outshine/unit/scenario/EveryCommittedScenarioLoads.cpp` loads every mod under `test/outshine/mods` and walks its scenes |
 | the animation sampler | **exists at four layers** — `core/Keyframes` · `core/CatmullRom` · `gltf/Track` · `scenario/Animation`, unit-tested at the sampler |
 | `Animation::At(Target, double frame)` | **already frame-indexed**, which is the currency `board:1129` decided in |
 | **anything that drives a draw from a time** | **NOTHING.** `git grep Animation -- src/clients/ src/render/` returns one *comment* in `EyeTelemetry.h` |
@@ -39,7 +39,7 @@ updates a draw list.** That is a smaller and much better-defined gap than *nothi
 2. **The frame joins the oracle cache key**, which `board:1128` already carries as arithmetic: every frame
    is its own product, or the early exit is not affordable.
 3. **The scenario loader drives that clock** — the mod declares a duration and a frame grid, and the same
-   consumer step 1 built is what a declared scene uses. `test/mods/demo` declares a `walk` scene and 30
+   consumer step 1 built is what a declared scene uses. `test/outshine/mods/demo` declares a `walk` scene and 30
    others; none has ever been rendered.
 4. **Velocity, and only here.** `SceneVelocity` is contributed by every geometry stage and the temporal
    resolve reads it; **with nothing moving, no case has ever produced a non-zero one.** An animated case

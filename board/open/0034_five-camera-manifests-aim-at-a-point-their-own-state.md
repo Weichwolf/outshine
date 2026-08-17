@@ -4,7 +4,7 @@ Tags: oracle, perf, instrument
 
 **Five camera manifests aim at a point their own stated derivation does not produce — **Band 2****
 
-`test/render/coverage/{cube,index-widths,sphere,matrix-node,trs-hierarchy}/manifest.json`,
+`test/outshine/render/{cube,index-widths,sphere,matrix-node,trs-hierarchy}/manifest.json`,
 `scene.camera.lookAtM`. Each states its derivation as *"the framing rule of `board/`
 I.26.10 applied to this subject's own bounds"*, and § I.26.10 aims at the bounds' centre. The declared
 aim is not that point.

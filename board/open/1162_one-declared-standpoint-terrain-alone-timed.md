@@ -20,7 +20,7 @@ world that has never run once is not that it fits.
 
 **But the answer is not two scenes, because a second scene is a second unknown.** It is **one scene, one
 camera path, one binary, and the DECLARED CONTENT SET as the independent variable** — which is exactly the
-design `test/frame/TheVisibilityTermIsPricedPerRay` already uses, where the independent variable is the
+design `test/outshine/frame/TheVisibilityTermIsPricedPerRay` already uses, where the independent variable is the
 light count and everything else is held. The engine already makes it declarable: `CLAUDE.md` states the
 five geometry units are *independently declarable, one shared LOD cut, so a coverage case can ask for
 subjects alone.* **Terrain alone is the first rung; vegetation and buildings are further declarations of
@@ -28,7 +28,7 @@ this same case, in later tasks, and each arrives as a difference against a measu
 
 ## The subject
 
-**`test/mods/demo`'s horizon-facing `run` scene** is the candidate: `fovDeg 60`, `pitchDeg 0`,
+**`test/outshine/mods/demo`'s horizon-facing `run` scene** is the candidate: `fovDeg 60`, `pitchDeg 0`,
 `eyeM 1.7` — a person standing on the ground looking out, which is the picture this engine is judged on.
 The other three mods (`ardeche`, `badwater`, `preikestolen`) declare `pitchDeg -90` at 256×256; those are
 height probes and not pictures. **The scene is read from the declaration, never built in the test** — the

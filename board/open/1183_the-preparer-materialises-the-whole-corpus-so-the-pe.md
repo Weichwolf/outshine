@@ -5,7 +5,7 @@ Tags: perf, oracle, instrument
 **The preparer materialises the whole corpus, so the peak is unbounded by the runner's prune**
 
 **The owner's rule is *so size doesn't grow*, and growth is about the PEAK.** `board:1181` bounds the
-**end state** — [MEASURED] `test/render/` **4821 MB → 139 MB**, 893 files declined per run — and it cannot
+**end state** — [MEASURED] `test/khronos/glTF/` **4821 MB → 139 MB**, 893 files declined per run — and it cannot
 bound the peak, because **`prepare.py` materialises every case before the runner reaches the first one.**
 **The measured peak of that same run was 3212 MB.**
 

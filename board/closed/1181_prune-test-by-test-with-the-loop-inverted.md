@@ -29,10 +29,10 @@ makes the eventual conversion larger.
   it carries the preparer digest and the product keys, and `board:1176` now depends on it surviving
 - [ ] **The recovery step is named in the item and in the runner's own output**, so a diagnosis does not
   begin with *how do I see the pixels again*:
-  `python3 test/corpus/prepare.py all --manifest test/render/<area>/<case>/manifest.json` for the oracle
+  `python3 test/outshine/corpus/prepare.py all --manifest test/khronos/glTF/<area>/<case>/manifest.json` for the oracle
   half, re-running the case for ours
 - [ ] **The high-water mark is published as a number**, because *size doesn't grow* is only checkable
-  against one. **Acceptance: the peak under `test/render/` never exceeds one materialised case plus the
+  against one. **Acceptance: the peak under `test/khronos/glTF/` never exceeds one materialised case plus the
   accumulated pictures — 162 MB (`scifi-helmet`) plus ~0.1 MB a finished case, ≈180 MB across the whole
   in-scope corpus**, against 4.4 GB today over 37 cases
 
@@ -45,14 +45,14 @@ unprovable file stays and says so, and the runner publishes a high-water mark th
 ## Comments
 
 **THE PEAK ACCEPTANCE WAS WRONG ARITHMETIC AND IT IS CORRECTED HERE RATHER THAN LEFT IN A CLOSED ITEM.**
-This item asked for *the peak under `test/render/` never exceeds one materialised case plus the
+This item asked for *the peak under `test/khronos/glTF/` never exceeds one materialised case plus the
 accumulated pictures — 162 MB plus ~0.1 MB a finished case, ≈180 MB*. **Both numbers were wrong and the
 shape of the claim was wrong with them.**
 
 | | this item said | measured |
 |---|---|---|
 | residue a finished case | ~0.1 MB | **≈2.6 MB** — pictures 3.4 MB over 74 files, **subjects 93.8 MB**, manifests 0.5, provenance 0.4 |
-| what the runner bounds | the **peak** | **the END STATE.** `test/render/` fell 4821 MB → **139 MB**, and the run's peak was **3212 MB** |
+| what the runner bounds | the **peak** | **the END STATE.** `test/khronos/glTF/` fell 4821 MB → **139 MB**, and the run's peak was **3212 MB** |
 | projected at 147 cases | ≈180 MB | **≈0.4 GB accumulated plus one live case**, against 19 GB unpruned |
 
 **The residue was under-counted because I forgot the subject.** A pruned case keeps its `scene.glb` or

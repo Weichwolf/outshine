@@ -44,7 +44,7 @@ revisited is a stale population wearing a different hat.
 | the capability, its specification reference, **the asset that WOULD prove it** | whether that asset has a case · whether a test cites the row · **impact** over the current uncovered set · **tier** against today's layout and pipeline counts · **provable** |
 
 **`Proven by` is split rather than renamed**: *would be proven by* is a declarative choice and belongs in
-the table; *is proven* is a query against `test/render/` and `git grep`. **A field's name is part of its
+the table; *is proven* is a query against `test/khronos/glTF/` and `git grep`. **A field's name is part of its
 claim** (`board:1157`), and this column's name asserted the second while holding the first.
 
 - [ ] **The derived columns are computed by the harness and printed beside the table, never written into

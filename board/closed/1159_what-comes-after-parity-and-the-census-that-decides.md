@@ -42,7 +42,7 @@ not *nothing greps them*; it is *they cannot be named*.
   fields — **carries one unit test, and that test asserts an include set** (`AGeneratorHasNoSpellingInTheStreamer`).
   **No test loads a tile, meshes a terrain, reads an OSM field or streams anything in.**
 - `src/generators` — 68 files, **3 unit tests**, two of which execute (determinism, closed bark mesh).
-- Four declared worlds exist — `test/mods/{ardeche,badwater,demo,preikestolen}/mod.json`, with lat/lon,
+- Four declared worlds exist — `test/outshine/mods/{ardeche,badwater,demo,preikestolen}/mod.json`, with lat/lon,
   eye height, UTC, wind, cloud and jitter — and **`git grep 'mods/'` finds no runner in `test/run.sh` or
   the `Makefile`.** The reader is unit-tested; **no declared world has ever been run.**
 

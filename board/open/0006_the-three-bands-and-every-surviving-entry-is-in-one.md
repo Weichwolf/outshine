@@ -37,10 +37,10 @@ that entry is deleted below.
 | `core/Mat4.h` is dead and its defending comment names a test that never existed | 2 files |
 | `FacadeUv.h` has **0** `static_assert`s against 11 enumerators and a stride of 16 | 1 file |
 | The language standard has two values — `-std=c++17` at `Makefile:24` and `test/run.sh:44`, `-std=c++20` on every shipping line | 4 sites |
-| The unit-height check accepts 168 ulps where it measures 1 | `test/unit/generators/draw/GrownBarkIsAClosedMesh.cpp:225` |
+| The unit-height check accepts 168 ulps where it measures 1 | `test/outshine/unit/generators/draw/GrownBarkIsAClosedMesh.cpp:225` |
 | The harness's build cache is keyed by path and not by root | `test/run.sh:41-42` |
 | `BenchGround` is a catalogue row named for a deleted harness, no implementation | its own section |
-| Five camera manifests aim 0.4357 px off their stated derivation, origin unknown | `test/render/coverage/*/manifest.json` |
+| Five camera manifests aim 0.4357 px off their stated derivation, origin unknown | `test/khronos/glTF/coverage/*/manifest.json` |
 | Six environment variables change the picture and ride no column | `FB_TAU` · `FB_TAA` · `FB_GEOM` · `FB_TILEWORKERS` · `FB_GROUND_CLASS_VIZ` · `FB_DAGLOG` — `FB_MOON_SCALE` and `FB_TONE_PROBE` are gone |
 
 **Band 3 — waits for the round that needs it, and the round is named.** *"Later" is a named event here

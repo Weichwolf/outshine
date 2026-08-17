@@ -30,7 +30,7 @@ is refused by name. Same field, same reader, two different stances on the same q
 | `KnownMinFilter` | all six values, both halves, and anything else refused by name |
 | absence | linear base, linear levels — exactly what the sampler did unconditionally before, so **only a declaration moves a picture** |
 
-Held by `test/unit/gltf/ASamplerCrossesWithBothHalvesOfItsMinFilter.cpp`, which tables all six values
+Held by `test/outshine/unit/gltf/ASamplerCrossesWithBothHalvesOfItsMinFilter.cpp`, which tables all six values
 because **the defect was a rule and not a slip**: a test of one or two values would have been written by
 whoever believed the rule and would have agreed with it.
 

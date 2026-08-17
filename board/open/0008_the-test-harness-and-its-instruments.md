@@ -4,13 +4,13 @@ Tags: perf, instrument
 
 **The test harness and its instruments**
 
-*Six entries deleted 2026-08-12 as fixed or as naming deleted sites: `verify-data` (the target, the deleted HTTP client and every `curl_` symbol are gone — `grep -rl curl src/` is empty); `verify-walk-asan` cannot see a stack lifetime error (`test/run.sh:573` sets `detect_stack_use_after_return=1`); an interrupted instrument leaves something bound (`test/run.sh` carries the group kill and the eleven `verify-*` recipes are gone — the Makefile has three targets); two tests hold each other's claim (`OutsideIsNeverAsked.cpp` is now `test/unit/data/UncoveredIsUndeclared.cpp` and the false `CountingTransport` comment is gone); a directory declared as the Makefile's is trusted (the Makefile owns no test source now, and a compile subject is driven by `-DOUTSHINE_COMPILE` at `test/run.sh:517` rather than being unrun).*
+*Six entries deleted 2026-08-12 as fixed or as naming deleted sites: `verify-data` (the target, the deleted HTTP client and every `curl_` symbol are gone — `grep -rl curl src/` is empty); `verify-walk-asan` cannot see a stack lifetime error (`test/run.sh:573` sets `detect_stack_use_after_return=1`); an interrupted instrument leaves something bound (`test/run.sh` carries the group kill and the eleven `verify-*` recipes are gone — the Makefile has three targets); two tests hold each other's claim (`OutsideIsNeverAsked.cpp` is now `test/outshine/unit/data/UncoveredIsUndeclared.cpp` and the false `CountingTransport` comment is gone); a directory declared as the Makefile's is trusted (the Makefile owns no test source now, and a compile subject is driven by `-DOUTSHINE_COMPILE` at `test/run.sh:517` rather than being unrun).*
 
 - **The registry's and the store's counters have no reader.** `Data::SourceSet::Ledger`
   (`data/SourceSet.h:76`) publishes nine — `Asked`, `Delivered`, `HandedOver`, `Vacant`, `Undeclared`,
   `Refused`, `Retried`, `FromStore`, `DeliveredBytes` — and `Data::ContentStore::Ledger`
   (`data/ContentStore.h:52`) six. **Verified at `9f4ba9e`**: `Counters()` is called from
-  `test/unit/data/AbsenceHandsOver.cpp:136`, `TheStoreNamesBytesByTheirKey.cpp:78,113` and **nowhere
+  `test/outshine/unit/data/AbsenceHandsOver.cpp:136`, `TheStoreNamesBytesByTheirKey.cpp:78,113` and **nowhere
   else in the tree** — no telemetry row, no close-out line. The store's hit rate is the one number
   that decides whether the store is doing anything, and nothing prints it. `Per.6`, and § I.23's
   zero-consumer rule applies to a counter as much as to a constant. **Band 3** — waits for the round
@@ -55,7 +55,7 @@ Tags: perf, instrument
   refuse a source under those directories that includes `Check.h`.
 
 - **The unit-height check accepts 168× the worst deviation it measures, and it bypasses the reporter's
-  own rule about tolerances.** `test/unit/generators/draw/GrownBarkIsAClosedMesh.cpp:225` judges with
+  own rule about tolerances.** `test/outshine/unit/generators/draw/GrownBarkIsAClosedMesh.cpp:225` judges with
   a raw `std::fabs(v.DeclaredExtent - 1.0) > 1e-5` rather than `CHECK_NEAR`, so the number that
   decides an acceptance carries no origin and no frame of reference — the thing `Check.h:52-54` was
   written to forbid. Measured over all 31 declarations: the worst deviation is **5.96046448e-08 in

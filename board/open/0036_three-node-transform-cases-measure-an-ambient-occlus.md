@@ -4,7 +4,7 @@ Tags: oracle, perf, instrument
 
 **Three node-transform cases measure an ambient-occlusion estimator at one sample and report the answer as a placement**
 
-`test/render/coverage/trs-hierarchy/manifest.json`, `matrix-node/`, `sphere/` — the material block,
+`test/outshine/render/trs-hierarchy/manifest.json`, `matrix-node/`, `sphere/` — the material block,
 `"kind": "diffuse"`, with `samples: 1` and `bounces.diffuse: 0`. Measured at `124504a`:
 **`trs-hierarchy` vs `matrix-node` differ by 5 899 px, of which 5 896 are colour-only**, in the contact
 regions where their three cubes touch; `sphere` differs by 62, of which **60** are the same thing from

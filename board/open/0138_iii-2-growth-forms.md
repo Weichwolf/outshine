@@ -8,7 +8,7 @@ Depends: 1118, 1119
 *One line per form. `[x]` means the grower can produce that shape today, not that a species using it is
 declared.*
 
-**Acceptance, shared by every child**: done = a render case exists in `test/render/` for this type, cites its `board:NNNN`, and is within the picture bound (`CLAUDE.md`).
+**Acceptance, shared by every child**: done = a render case exists in `test/khronos/glTF/` for this type, cites its `board:NNNN`, and is within the picture bound (`CLAUDE.md`).
 
 **Cost of the full sweep**: about 858 x 8.17 s of Blender, roughly two hours, so the corpus is built once and cached rather than re-rendered.
 

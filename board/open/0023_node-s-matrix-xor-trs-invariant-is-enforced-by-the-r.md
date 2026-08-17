@@ -24,7 +24,7 @@ the origin.
 `Node` has exactly one branch on `HasMatrix` and one test assertion, both inside `src/gltf/`. The bridge
 from the reader to `core/ChunkVtx.h` is the next round (`board/` § I.26) and is a second
 consumer; materials, skins and animations bring more. The edit costs a type, a `Transform Local() const`,
-and one line of `test/unit/gltf/AMatrixNodeAndItsTrsAgree`, and it never costs less than it does now. It
+and one line of `test/outshine/unit/gltf/AMatrixNodeAndItsTrsAgree`, and it never costs less than it does now. It
 also shrinks the record from 26 doubles (208 B) to a variant of 136 B (`Per.16`, `Per.18`).
 
 **The caveat, sought and answered.** Is the invariant really exclusive? A node carrying neither is legal

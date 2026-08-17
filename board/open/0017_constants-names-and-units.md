@@ -15,13 +15,13 @@ the tree more than once, or under a name that says the wrong unit.*
   64 bits is 2³² ≈ 4 × 10⁹, three orders below the stated load. The conclusion the number supports is
   unaffected and the derivation beneath it is false, which is the one thing `CLAUDE.md`'s *every
   number carries its origin* forbids. Right: the number, or the sentence goes. The six digests
-  themselves are correct — all six vectors in `test/unit/core/Sha256MatchesTheStandard.cpp` reproduce
+  themselves are correct — all six vectors in `test/outshine/unit/core/Sha256MatchesTheStandard.cpp` reproduce
   against an independent SHA-256 (checked 2026-08-12).
 - **`TilePool` holds a worker thread for up to 30 s where it held one for 3 s, asleep in a 1 ms
   loop.** `world/TilePool.cpp` `kPollMs = 1`, `kPollAttempts = 30000`. The previous shape blocked the
   worker inside one synchronous transfer for 60 × 50 ms; the new one sleeps a millisecond at a time
   and re-takes `CurlTransport::Mutex_` on every wake, against the transport's own 8 threads
-  (`test/host/CurlTransport.cpp:14 kDefaultThreads = 8`) — up to 14 threads on 2 performance and 4
+  (`test/outshine/host/CurlTransport.cpp:14 kDefaultThreads = 8`) — up to 14 threads on 2 performance and 4
   efficiency cores (`CP.40`, `CP.41`). **Not attributable and the reason is stated**: the only
   comparison available is `verify-still` at 110–119 s against 103 s for the proxy version *in front
   of a warm container*, which is not a baseline — different upstreams, different cache state. The

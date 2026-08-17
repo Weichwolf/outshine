@@ -23,7 +23,7 @@ identical — a pose disagreement and nothing else.
 
 **glTF states slerp, so the reduction is the oracle's and not ours.** The imported keyframes are resampled
 onto the declared grid with **Blender's own `mathutils.Quaternion.slerp`** in
-`test/corpus/prep/in_blender_render.py`. **The independence is the load-bearing property**: an engine with
+`test/outshine/corpus/prep/in_blender_render.py`. **The independence is the load-bearing property**: an engine with
 a wrong slerp still disagrees with it, because the reduction uses Blender's implementation and not a copy
 of ours. Residual **1.55e-05°**, which is Blender's f32 f-curve storage and is the instrument's floor.
 

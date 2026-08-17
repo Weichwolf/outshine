@@ -13,7 +13,7 @@ own `handling.meta` division — mass and aero, drivetrain, brakes and steering,
 damage — because it is the published enumeration of what a driveable body needs. **Nothing in this band
 exists.** It depends on I.12 in full.*
 
-**Acceptance, shared by every child**: done = a render case exists in `test/render/` for this type, cites its `board:NNNN`, and is within the picture bound (`CLAUDE.md`).
+**Acceptance, shared by every child**: done = a render case exists in `test/khronos/glTF/` for this type, cites its `board:NNNN`, and is within the picture bound (`CLAUDE.md`).
 
 **Cost of the full sweep**: about 858 x 8.17 s of Blender, roughly two hours, so the corpus is built once and cached rather than re-rendered.
 

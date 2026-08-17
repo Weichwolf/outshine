@@ -6,7 +6,7 @@ Tags: oracle, khronos, instrument
 
 **34 render cases and not one is animated.** The reader parses `animations` — 21 sites in
 `src/gltf/Document.cpp` — `src/core/Keyframes.h` and `src/core/CatmullRom.h` exist, and
-`test/unit/gltf/ASamplerIsWhatTheFileSaysBetweenItsKeyframes.cpp` holds the sampler against what the
+`test/outshine/unit/gltf/ASamplerIsWhatTheFileSaysBetweenItsKeyframes.cpp` holds the sampler against what the
 file states between its keyframes. **So animation is built and unit-tested and has never been compared
 to Cycles.** A sampler that is right about its own arithmetic and wrong about the picture is exactly the
 gap the render suite exists to close.

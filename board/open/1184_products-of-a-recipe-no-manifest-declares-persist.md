@@ -4,7 +4,7 @@ Tags: oracle, instrument
 
 **Products of a recipe no manifest declares persist, and only the prune's guard noticed**
 
-`test/render/lighting/point-light-intensity/` holds `oracle.seed-shift.exr` and `oracle.seed-shift.raw` —
+`test/khronos/glTF/PointLightIntensityTest/` holds `oracle.seed-shift.exr` and `oracle.seed-shift.raw` —
 **17.5 MB of products of a recipe its manifest no longer declares.** No key was ever recorded for them, so
 `board:1181`'s prune could not prove them recoverable, **left them standing, and said so**. That is the
 guard behaving exactly as designed, and it surfaced a defect that predates it.

@@ -4,10 +4,10 @@ Tags: khronos
 
 **The preparer and the runner hold two closed sets over one declaration, and they disagree on eight of twenty-six manifests — **Band 1****
 
-`test/corpus/prep/manifest.py:495` — `_fields("manifest.scene.material", value, ("source", "kind"),
-("note",))` — is a **closed** field set that does not know `carriedBy`. `test/render/Parity.cpp:433`
+`test/outshine/corpus/prep/manifest.py:495` — `_fields("manifest.scene.material", value, ("source", "kind"),
+("note",))` — is a **closed** field set that does not know `carriedBy`. `test/shared/render/Parity.cpp:433`
 **reads** `material["carriedBy"]` and refuses by name when it is wrong (`:254`). Eight manifests carry
-the key. So `python3 test/corpus/prepare.py dry-run` refuses **8 of 26** on
+the key. So `python3 test/outshine/corpus/prepare.py dry-run` refuses **8 of 26** on
 `manifest.scene.material.carriedBy`, while the runner requires it.
 
 **Pre-existing, verified by stashing** — unrelated to the `acceptanceClass` key added at `8f0ecce`.

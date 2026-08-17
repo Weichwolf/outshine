@@ -111,7 +111,7 @@ instruments have gone wrong three times today.
   which is what glTF requires. Colour and emissive are `Srgb`. The slot decides, and correctly.
 
 **The cause is downstream of the tangent source, and that follows from what the tree already tests.**
-`test/unit/gltf/AGeneratedBasisIsTheOneTheExporterWrote.cpp` establishes that the two assets differ in
+`test/outshine/unit/gltf/AGeneratedBasisIsTheOneTheExporterWrote.cpp` establishes that the two assets differ in
 exactly one thing: **`NormalTangentMirrorTest` supplies `TANGENT` and is taken verbatim;
 `NormalTangentTest` supplies none and is generated.** Khronos ships both to catch an engine that always
 regenerates, and `Part::TangentSource` makes which one readable.

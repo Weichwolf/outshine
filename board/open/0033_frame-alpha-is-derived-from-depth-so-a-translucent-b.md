@@ -22,7 +22,7 @@ surface's own alpha, the pixel is present on one side and absent on the other.
 it is green on a property of the **asset**: its manifest records the measurement —
 *"behind all of them stands the OPAQUE Bed, a box spanning x [-4.3, 4.3], y [-0.1, 2.3], z [-0.75, 0.55]
 — MEASURED from the node transforms — so every blended pixel of this subject has an opaque surface
-behind it"* (`test/render/materials/alpha-blend-mode/manifest.json:31`). The predicate is well defined
+behind it"* (`test/khronos/glTF/AlphaBlendModeTest/manifest.json:31`). The predicate is well defined
 **there** and undefined in general, and nothing in the engine says so.
 
 **The harmless explanations, sought.** *No case fails today* — true, and it is the reason this is a

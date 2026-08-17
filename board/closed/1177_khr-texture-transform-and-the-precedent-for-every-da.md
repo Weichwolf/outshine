@@ -63,7 +63,7 @@ field**; `TEXCOORD_1` owns **the second vertex stream and the layout that carrie
 ## Which case proves it, and it is a new case rather than a new field alone
 
 **Neither model is in the tree** — no `TextureTransformTest`, no `TextureTransformMultiTest` under
-`test/render/` and neither fetched. Both are in the pinned index tagged `testing, extension`. **So this
+`test/khronos/glTF/` and neither fetched. Both are in the pinned index tagged `testing, extension`. **So this
 task is a material field, a reader path, a shader term AND a corpus case**, which is a different size from
 the row's tier-1 label and is stated here rather than discovered.
 

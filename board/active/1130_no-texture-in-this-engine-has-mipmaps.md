@@ -265,7 +265,7 @@ small enough to make with a reference and a measurement rather than a preference
 most two distinct values**, and those are snapped to a value the four sources contain instead of
 averaged. The predicate needs no threshold — 2 against 85 and 180 has no midpoint — and it is derived
 from the texture rather than read off the slot, so it says something about the next format too.
-`test/unit/render/stages/AnIndexChannelKeepsOnlyItsOwnValues.cpp` holds both halves: that a three-valued
+`test/outshine/unit/render/stages/AnIndexChannelKeepsOnlyItsOwnValues.cpp` holds both halves: that a three-valued
 channel is still a quantity, and that the plain mean of a two-valued one is a value it never takes.
 
 **It did not bring the tail down, and a sweep says why.**

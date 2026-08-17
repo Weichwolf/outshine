@@ -36,7 +36,7 @@ round is actually in.
   a property of the checker, not of the invariant**, so it is fixed once
 - [ ] **The `git grep` hazard is the same defect and is already documented rather than checked.**
   Confirmed live this round: a recursive grep for `board:1188` **silently omitted `Parity.cpp`'s 3 hits**
-  because `test/render/.gitignore` opens with `*`. `CLAUDE.md` warns of it in prose; **nothing enforces
+  because `test/khronos/glTF/.gitignore` opens with `*`. `CLAUDE.md` warns of it in prose; **nothing enforces
   it**, and the enforcement is the same one line — read the tracked population
 
 **Why it is worth an item rather than a habit.** A convention that has to be remembered at the moment of

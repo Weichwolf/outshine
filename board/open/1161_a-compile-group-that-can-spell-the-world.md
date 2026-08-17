@@ -23,7 +23,7 @@ accident, and it will be the boundary every scenario case inherits.
   clients, the renderer and core — the set `Clients::Sim` and a declared mod actually require, and
   nothing beyond it
 - [ ] **What it must still NOT name is the point of the exercise.** A scenario declares and measures; it
-  is not a second engine. The negative directions already proven by `test/unit/compile/*/…IsNotReachable`
+  is not a second engine. The negative directions already proven by `test/outshine/unit/compile/*/…IsNotReachable`
   must survive unchanged, and the new group must not become the one place where everything is reachable
   because it was easier
 - [ ] **No sanitiser on the timed path**, for the reason `board:0058` already states on the frame suite: a

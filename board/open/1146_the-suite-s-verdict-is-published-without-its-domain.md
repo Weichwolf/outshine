@@ -12,7 +12,7 @@ stated without its domain decides nothing; this is that rule broken by the suite
 
 ## The enumeration, exhaustive, by two instruments that agree
 
-**Instrument A — the declaration.** Every `manifest.json` under `test/render/*/*/` read for
+**Instrument A — the declaration.** Every `manifest.json` under `test/khronos/glTF/*/*/` read for
 `scene.light.kind` and `scene.material.kind`. **Instrument B — the measurement.** `outshine.normal.raw`
 in every case directory, counting fragments with a non-zero shading normal; the emitted arms write a
 declared zero vector, so the count is the number of fragments that entered `shadeRow`. **35 of 35 case

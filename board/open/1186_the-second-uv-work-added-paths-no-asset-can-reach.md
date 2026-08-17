@@ -20,8 +20,8 @@ another not** is the only thing that reaches the draw-level branch, and no asset
 that way. Its refusing branch is exercised by nothing.
 
 **And closing it is a harness decision rather than a code one**, which is why it has sat: a refusing
-render case **renders nothing and is red by construction**, `test/unit/render/stages` links no device, and
-`test/shader` links one file by a deliberate harness decision. **Three suites, and the branch falls
+render case **renders nothing and is red by construction**, `test/outshine/unit/render/stages` links no device, and
+`test/outshine/shader` links one file by a deliberate harness decision. **Three suites, and the branch falls
 between all of them.**
 
 - [ ] **One generated fixture reaches both**: a subject of two parts, one with `TEXCOORD_1` and one

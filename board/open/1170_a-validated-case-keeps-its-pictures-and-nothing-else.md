@@ -6,7 +6,7 @@ Tags: oracle, perf, instrument
 
 **The owner:** *the test folders only need to keep the png files after validation.*
 
-[MEASURED] over `test/render/`: **4.4 GB total**, of which `.raw` is **305 files ≈ 4.24 GB — 96.5 %**,
+[MEASURED] over `test/khronos/glTF/`: **4.4 GB total**, of which `.raw` is **305 files ≈ 4.24 GB — 96.5 %**,
 `.exr` 55 MB, **`.png` 34 MB**. A suite pruned to its pictures is **~75 MB, about 58× smaller.**
 
 ## The three things this rests on, each measured rather than assumed
@@ -15,7 +15,7 @@ Tags: oracle, perf, instrument
   nothing.** Verified by content, not by reading the code: `materials/scifi-helmet/oracle.raw` has a
   **byte-identical object in the content store**, and the store holds **1 070 objects at exactly
   14 745 644 B** — every raw product of every case and recipe. The store is **15 GB over 2 637 objects**
-- [ ] **NOTHING PRUNED IS TRACKED.** `git ls-files test/render` is **35 `.json` · 14 `.h` · 1 `.cpp` ·
+- [ ] **NOTHING PRUNED IS TRACKED.** `git ls-files test/khronos/glTF` is **35 `.json` · 14 `.h` · 1 `.cpp` ·
   1 `.gitignore` and nothing else** — no PNG, no EXR, no RAW. A clone is unaffected, and the PNGs that
   survive survive as working-tree artefacts for a person to look at, not as committed evidence
 - [ ] **A RED CASE IS NEVER PRUNED, and "after validation" means "on a pass".** The first thing anyone
@@ -113,7 +113,7 @@ the store holds them. Two classes, two proofs, one rule — and a file in neithe
 **The named step, so a diagnosis does not begin with *how do I see the pixels again*:**
 
 ```sh
-python3 test/corpus/prepare.py all --manifest test/render/<area>/<case>/manifest.json
+python3 test/outshine/corpus/prepare.py all --manifest test/khronos/glTF/<area>/<case>/manifest.json
 ```
 
 idempotent, independently invocable, and it re-places every oracle product from the store without
@@ -144,13 +144,13 @@ the third arm reaches it, and pruning inside an arm would delete what the next a
 | **peak over the whole in-scope corpus (~147 cases)** | **≈ 180 MB** — one live case plus every finished case's pictures |
 | against | **4.4 GB today over 35 cases**, ~19 GB projected for 147 |
 
-**That is the acceptance: the suite's high-water mark under `test/render/` never exceeds one case plus the
+**That is the acceptance: the suite's high-water mark under `test/khronos/glTF/` never exceeds one case plus the
 accumulated pictures**, published by the runner as a number so the claim is checkable rather than
 asserted.
 
 ## The numbers this feature carried are corrected, and one half of the ruling is unmet
 
-**`board:1181` landed and measured what this item estimated.** `test/render/` **4821 MB → 139 MB**, 893
+**`board:1181` landed and measured what this item estimated.** `test/khronos/glTF/` **4821 MB → 139 MB**, 893
 files declined per run totalling 4570 MB, **2 left standing with the proof that refused them**. The
 projection here — *≈180 MB across the whole in-scope corpus* — was built on **~0.1 MB a finished case**;
 it is **≈2.6 MB**, because a pruned case keeps its **subject** (93.8 MB of the 139), which is an input and

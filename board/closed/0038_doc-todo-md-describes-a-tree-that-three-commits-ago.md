@@ -14,7 +14,7 @@ future work. Measured against the tree in this round:
 | *"The tree ends with three directories … `tiles/` 58, `tools/` 4, `mods/` 4, `assets/` 34"* | none of the four exists; the tree is `doc/ src/ test/ build/` |
 | *"**450 lines, 16 targets** — `help walk walk-asan world treebench` and eight `verify-*`"* | `Makefile` is **114 lines, 3 targets** — `all`, `test`, `clean` |
 | *"**Emscripten gone** — 20 conditionals and 6 includes"* | `grep -rl emscripten src/ test/` returns nothing |
-| *"No Python in the engine or the tests … `verify_clients.py` remains"* | no Python outside `test/corpus/`, which is the offline preparation `CLAUDE.md` permits |
+| *"No Python in the engine or the tests … `verify_clients.py` remains"* | no Python outside `test/outshine/corpus/`, which is the offline preparation `CLAUDE.md` permits |
 | *"**Blocked:** the harness — four demonstrated defects"* | the harness runs: 106 tests, 88 PASS / 18 FAIL, one verdict per test |
 
 **Why it is a defect and not merely out of date.** `CLAUDE.md` makes `board/active/` the answer to *what

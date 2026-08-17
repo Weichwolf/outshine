@@ -25,7 +25,7 @@ state, and `[[nodiscard]]` on the function is satisfied by an assignment. `Try(T
   by something much weaker — a single-producer invariant in **another directory**. Every `Structure`
   and `Water` feature that reaches a generator is minted at `clients/Sim.cpp:218` and `:226`, and both
   set `f.Top`. Nothing in `generators/` can see that rule, no type carries it, and
-  `test/unit/generators/SameRegionSamePlacement.cpp:410` already constructs a `Structure` with
+  `test/outshine/unit/generators/SameRegionSamePlacement.cpp:410` already constructs a `Structure` with
   `FeatureLevel::None()` — so the rule is one ingest site away from being false. If it ever is: a
   top-less feature enters the `highest`/`deepest` comparison at 0.0 m ASL, beating every declared top
   below sea level and losing to every one above, and at `Water.cpp:53` becoming a water level whose

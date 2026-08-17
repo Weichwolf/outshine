@@ -10,7 +10,7 @@ Tags: khronos, perf, instrument
   the sum against plumb runs was the deleted surface-budget tool, deleted with `tools/` on 2026-08-12. The
   number is unchanged and may well be right; what is gone is any way to recompute it, so it is a
   measured value with no reproducible origin — against `CLAUDE.md`'s *every number carries its
-  origin*. Right: a test under `test/unit/world/` that reconstructs the seven terms and asserts the
+  origin*. Right: a test under `test/outshine/unit/world/` that reconstructs the seven terms and asserts the
   constant bounds them, which is the same arithmetic in the language the tree is written in.
 
 - **The browser is gone from the code and still in the prose, 30 times — Band 2.** The same grep over
@@ -83,8 +83,8 @@ Tags: khronos, perf, instrument
   forbidden header (`#include "Rendererr.h"`) is a green gate that proves nothing, and so is one whose
   body stops compiling for an unrelated reason while the include still resolves. Four fixtures ride
   this: `RendererIsNotReachable`, `WorldIsNotReachable`, `LogIsNotReachable`, `DrawIsNotReachable`,
-  plus `test/unit/compile/world/GeneratorIsNotReachable`. The three `-Werror` negatives under
-  `test/unit/compile/core/` are
+  plus `test/outshine/unit/compile/world/GeneratorIsNotReachable`. The three `-Werror` negatives under
+  `test/outshine/unit/compile/core/` are
   weaker still — `verify-types` checks only the exit status and matches no diagnostic at all, so any
   error in `HeightIsNotReachableWithoutItsState.cpp`, `AnswerIsNotIgnorable.cpp` or
   `DepthIsNeverNegative.cpp` passes it. Right, and it costs nothing: demand the **exact** expected
@@ -92,14 +92,14 @@ Tags: khronos, perf, instrument
   function declared with 'nodiscard' attribute`) **and** that it is the *only* error the compiler
   emitted, which is what makes a typo elsewhere in the fixture fail the gate instead of satisfying it.
 
-- **`test/unit/generators/SameRegionSamePlacement.cpp` is 689 lines behind one `main`** (`F.3`), carrying on
+- **`test/outshine/unit/generators/SameRegionSamePlacement.cpp` is 689 lines behind one `main`** (`F.3`), carrying on
   the order of thirty distinct claims — determinism of placement, the class lattice, water depth,
   way half-widths, `sizeof(Body)`, an allocation count — in one process. Three consequences: the
   first hard failure (it dereferences `std::optional` results directly, e.g. `ways.MadeAt(...)->WidthM`)
   hides every claim after it; the run reports `verify-generators: N failed` without a machine-readable
   name per claim; and no claim in it can be run alone. It also holds the tree's only `malloc` outside
   `world/terrain` (`:315`; `clients/SimHost.cpp`'s went with the file in `b83285f`). Right: one translation unit per claim under
-  `test/unit/generators/`, each with its own `main`, which is what the suite this file's requirements
+  `test/outshine/unit/generators/`, each with its own `main`, which is what the suite this file's requirements
   now describe is for.
 
 
@@ -139,7 +139,7 @@ Tags: khronos, perf, instrument
   `data/ContentStore.cpp` opens, writes, renames and sweeps with `<cstdio>` and `<filesystem>`, and
   `data/StarBands.cpp` reads its four band files the same way. `board/` § I.24 rules that
   the library tier is read through a declared host seam and never `fopen`; the transport half of that
-  seam exists now (`data/Transport.h`, implemented in `test/host/`) and the storage half does not.
+  seam exists now (`data/Transport.h`, implemented in `test/outshine/host/`) and the storage half does not.
   Three further `fopen` sites in `clients/` and `world/` predate this and are the same line. Right:
   `Host::Storage` beside `Host::Transport`, declared by the library and implemented by the host, and
   the content store becomes a policy over it rather than a user of a libc call.

@@ -4,14 +4,14 @@ Tags: oracle, khronos, instrument
 
 **A unit test reports an absent prepared subject as a reader defect**
 
-`test/unit/gltf/TheTriangleProjectsToTheOraclesArea.cpp:104-109`. The subject is
-`test/render/coverage/triangle/scene.glb`, which § I.26.10 rules **untracked by design** — `manifest.json`
+`test/outshine/unit/gltf/TheTriangleProjectsToTheOraclesArea.cpp:104-109`. The subject is
+`test/outshine/render/triangle/scene.glb`, which § I.26.10 rules **untracked by design** — `manifest.json`
 is the only tracked file in a case directory. Run against a tree carrying only tracked files (measured
 2026-08-12, the manifest copied alone into an empty tree):
 
 ```
-FAIL test/unit/gltf/TheTriangleProjectsToTheOraclesArea.cpp:105  the Khronos Triangle reads as a .gltf with its buffer beside it
-       test/render/coverage/triangle/scene.gltf: cannot be opened
+FAIL test/outshine/unit/gltf/TheTriangleProjectsToTheOraclesArea.cpp:105  the Khronos Triangle reads as a .gltf with its buffer beside it
+       test/outshine/render/triangle/scene.gltf: cannot be opened
 ```
 
 **The harmless reading is real and does not cover it:** the preparer is meant to have run, and the

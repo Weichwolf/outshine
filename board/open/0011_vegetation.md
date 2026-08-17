@@ -13,7 +13,7 @@ Tags: perf, instrument
   Re-measured 2026-08-13 over all 31 declarations under `assets/world/species/`, native, at full
   detail, after the growth was separated from the budget; the figures this replaces were taken while
   a vertex ceiling still coarsened the "full detail" mesh, so they understated it. The figures are
-  bark only and the first is what `test/unit/generators/draw/GrownBarkIsAClosedMesh.cpp` prints.
+  bark only and the first is what `test/outshine/unit/generators/draw/GrownBarkIsAClosedMesh.cpp` prints.
   *The leaf-point figures this entry once carried came from a probe that is not in the tree and stay
   withdrawn until something measures them.* Nothing downstream lifts the mesh:
   `TreePrototype.cpp:115` copies `BoxMin.Y` into `Crown_.Bottom`, which only bounds the in-crown query

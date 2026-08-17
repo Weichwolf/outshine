@@ -49,7 +49,7 @@ Tags: oracle, perf, instrument
   moved-from `Query` keeps the ticket value, so `Abandon` on either end cancels the other's transfer
   (`C.64`: a move must leave the source valid); a `Query` dropped without `Abandon` leaves a
   `CurlTransport::Transfer` — url, status and the whole body — in `Transfers_` for the life of the
-  transport, because `test/host/CurlTransport.cpp:70-78,80-100` erase only on collect or cancel.
+  transport, because `test/outshine/host/CurlTransport.cpp:70-78,80-100` erase only on collect or cancel.
   Nothing leaks today: the one caller calls `Abandon` on the one path that needs it. The rule is
   written down and not carried — `R.1`, `C.30`, `C.31`. Right: the ticket is an owning handle that
   cancels in its own destructor, so a dropped query cannot leave a transfer running.
@@ -64,7 +64,7 @@ Tags: oracle, perf, instrument
   nothing. `ContentStore.h:37` says so in its own words. A long session grows the directory without
   bound — the same failure as the 7 GB store this replaces, moved from *no cap* to *a cap checked
   before anything is in it*; and the test that says *"the store is capped"*
-  (`test/unit/data/TheStoreNamesBytesByTheirKey.cpp:94-115`) only ever reopens a full directory, so it
+  (`test/outshine/unit/data/TheStoreNamesBytesByTheirKey.cpp:94-115`) only ever reopens a full directory, so it
   cannot see the difference. Right: a running byte total, and the sweep amortised over `Keep`.
 - **The DEM path answers for a place the caller did not ask about, because the projection clamps.**
   `world/tiles/TileMath.h` `GeoToTileClamped` clamps the latitude into the Mercator band and then projects, so a
@@ -122,7 +122,7 @@ Tags: oracle, perf, instrument
   line is written when the reason for a given tile CHANGES, not when it recurs.
 
 - **An imposed arrival order and the content store cannot be exercised in the same run.** The order
-  instrument is a decorator over the host transport (`test/host/DelayedTransport.h`), and the store is
+  instrument is a decorator over the host transport (`test/outshine/host/DelayedTransport.h`), and the store is
   consulted inside `Data::SourceSet::Collect` **before** the source is begun — so a store hit answers
   without a ticket ever existing and no delay can apply to it. `verify-still` therefore declares
   `OUTSHINE_NO_CONTENT_STORE=1` and pays four cold scene loads over the real upstreams (110 s measured
@@ -135,7 +135,7 @@ Tags: oracle, perf, instrument
 
 - **`Delivery::At` is exercised only by a test, never by a run.** A request above a source's last
   native zoom is answered from the ancestor and says so (`data/WebTileSource.cpp` `Serves`,
-  `test/unit/data/TheAnswerNamesItsAddress.cpp`), and the whole path is carried through the byte cache
+  `test/outshine/unit/data/TheAnswerNamesItsAddress.cpp`), and the whole path is carried through the byte cache
   (`world/TilePool.h` `Landing`) because a crop computed from the requested address over an ancestor's
   pixels is a wrong picture drawn silently. **No run reaches it**: `world/World.cpp` `kMaxZ = 14`, the
   stitch asks at the same zoom, and the only elevation upstream declares `MaxZoom = 15`, so the

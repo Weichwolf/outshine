@@ -4,7 +4,7 @@ Tags: perf, instrument
 
 **A maximum is not a standpoint**
 
-`test/frame/TheVisibilityTermIsPricedPerRay` **searches for the coverage maximum** along its camera path
+`test/outshine/frame/TheVisibilityTermIsPricedPerRay` **searches for the coverage maximum** along its camera path
 and reports a distribution over what it finds. [MEASURED]: at the scale it lands on, **the cheapest frame
 of the path costs 0.389 ms against a p50 of 2.031 ms — a factor of five inside one arm.**
 

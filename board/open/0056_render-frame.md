@@ -12,5 +12,5 @@ Tags: perf
 - [x] No pipeline creation while playing
 - [ ] A title's own entity shader compiled during loading
 - [x] Shadow pass, ambient-occlusion pass, exposure pass, temporal pass, present pass
-- [x] The tone-mapping slot in the pass enumeration is empty since the fold — a dead slot is where a pass hides. **Closed by deleting the enumeration**: there is no fixed pass list to be empty in, only `kMaxPasses = kStageCount` as a bound (`render/GpuTimer.h:28`) over the passes the compiler derived (`render/plan/RenderPlan.cpp:206-232`, `test/unit/render/plan/APlanIsPulledFromWhatItRequests.cpp` — the coverage declaration compiles to two)
-- [x] `GpuTimer::Pass::Cloud` is a dead slot — `GpuTimer::Pass` no longer exists (`render/GpuTimer.h`), so a dead slot has no spelling (`test/unit/render/plan/APlanIsPulledFromWhatItRequests.cpp`)
+- [x] The tone-mapping slot in the pass enumeration is empty since the fold — a dead slot is where a pass hides. **Closed by deleting the enumeration**: there is no fixed pass list to be empty in, only `kMaxPasses = kStageCount` as a bound (`render/GpuTimer.h:28`) over the passes the compiler derived (`render/plan/RenderPlan.cpp:206-232`, `test/outshine/unit/render/plan/APlanIsPulledFromWhatItRequests.cpp` — the coverage declaration compiles to two)
+- [x] `GpuTimer::Pass::Cloud` is a dead slot — `GpuTimer::Pass` no longer exists (`render/GpuTimer.h`), so a dead slot has no spelling (`test/outshine/unit/render/plan/APlanIsPulledFromWhatItRequests.cpp`)

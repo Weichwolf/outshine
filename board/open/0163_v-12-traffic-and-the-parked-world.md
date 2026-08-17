@@ -49,15 +49,15 @@ land templates — and every one of the sixteen rides the single growth form the
 engine's own machinery accounts for most of the rest. Nothing in bands IV and V beyond the footprint
 prism, the way widths and their point queries is ticked, and Band V is entirely unticked.
 wound, unit-normal and in-range bark invariants over every declared species
-(`test/unit/generators/draw/GrownBarkIsAClosedMesh.cpp`), the planar geodesy's round trip and its priced
-approximation (`test/unit/core/PlanarGeodesyHoldsToItsScope.cpp`), and the harness's own red
-(`test/harness/ExpectFail.cpp`). The twelve gates beside them are structural. § I.21 carries the
+(`test/outshine/unit/generators/draw/GrownBarkIsAClosedMesh.cpp`), the planar geodesy's round trip and its priced
+approximation (`test/outshine/unit/core/PlanarGeodesyHoldsToItsScope.cpp`), and the harness's own red
+(`test/outshine/harness/ExpectFail.cpp`). The twelve gates beside them are structural. § I.21 carries the
 classification that says how many lines ever can be tested — **537 with what is in the tree, 707 more
 once each band's reference table is written down, 124 behind a device, 62 behind motion, 6 behind a
 sense we cannot instrument** — and that reading was taken over 1436 lines, which is the population it
 must be retaken over when § I.21's own line is worked.
 
-**Acceptance, shared by every child**: done = a render case exists in `test/render/` for this type, cites its `board:NNNN`, and is within the picture bound (`CLAUDE.md`).
+**Acceptance, shared by every child**: done = a render case exists in `test/khronos/glTF/` for this type, cites its `board:NNNN`, and is within the picture bound (`CLAUDE.md`).
 
 **Cost of the full sweep**: about 858 x 8.17 s of Blender, roughly two hours, so the corpus is built once and cached rather than re-rendered.
 

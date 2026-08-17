@@ -10,7 +10,7 @@ species items exist and **not one carries an acceptance**; their entire body is 
 name. Before 330 tasks are rewritten, the shape they are rewritten INTO has to exist and be proven — or
 330 items get 330 different ideas of what proof means.
 
-**It already exists once.** `test/render/foliage/beech/` is a case whose subject is **grown by our own
+**It already exists once.** `test/outshine/render/beech/` is a case whose subject is **grown by our own
 generator** from a species row — `"generator": {"shape": "grown-tree", "parameters": {"species":
 "beech", …}}` — emitted as glTF, rendered by Cycles and decided by the picture bound. **The machinery is
 not hypothetical; it is one case old.** This task derives the pattern from it and proves the pattern
@@ -37,7 +37,7 @@ generalises by landing a second species through it.
 
 | | |
 |---|---|
-| `test/render/foliage/beech/` on disk | **141 MB** |
+| `test/outshine/render/beech/` on disk | **141 MB** |
 | the whole render corpus, 35 cases | **4.4 GB** |
 | 330 species at the beech case's product set | **≈ 46 GB** — against a 50 GB disk that already holds 19.9 GB of store |
 
@@ -63,7 +63,7 @@ and the four declared mods:
 | species a template names with **no row** | **22** |
 
 **The caveat this table was written to check has fired.** Six of the ten rows that looked unreferenced are
-read by `test/mods/demo/mod.json` through a **second selector** the first query could not see — exactly
+read by `test/outshine/mods/demo/mod.json` through a **second selector** the first query could not see — exactly
 the *this row is unreferenced* against *this selector is invisible to my query* distinction. **Four
 survive it and are read by nothing**, and under the owner's rule they are the clearest case on the board:
 a datum with no proof and no reader. **They are not deleted here** — each is either given the three-part

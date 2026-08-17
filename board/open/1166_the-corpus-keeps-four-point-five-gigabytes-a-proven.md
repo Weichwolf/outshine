@@ -4,7 +4,7 @@ Tags: oracle, perf, instrument
 
 **The corpus keeps 4.45 GB that a proven reader makes redundant**
 
-[MEASURED] over `test/render/`:
+[MEASURED] over `test/khronos/glTF/`:
 
 | | |
 |---|---|
@@ -13,8 +13,8 @@ Tags: oracle, perf, instrument
 | `.exr` files carrying the same pixels: 200 files | **0.06 GB** |
 | ratio | **79.5×** |
 
-**The reason the `.raw` exists is gone.** `test/corpus/README.md` states it plainly — *C++ has no EXR
-reader, SDL3 provides none* — and `board:1119` built one. `test/harness/TheOraclesExrReadsAsItsRaw.cpp`
+**The reason the `.raw` exists is gone.** `test/outshine/corpus/README.md` states it plainly — *C++ has no EXR
+reader, SDL3 provides none* — and `board:1119` built one. `test/outshine/harness/TheOraclesExrReadsAsItsRaw.cpp`
 holds the two to **bit-exactness**: *reading `oracle.exr` and stacking `R,G,B,A` must reproduce
 `oracle.raw` sample for sample*. **So the tree already proves the larger file carries nothing the smaller
 one does not**, and keeps both.

@@ -340,10 +340,10 @@ The split is by **instrument**, not by shape, and the placement rule is one ques
 ```mermaid
 flowchart TD
   q{"what would fail this test?"}
-  q -->|"wrong computation"| u["UNIT · test/unit"]
-  q -->|"wrong pixels"| r["RENDER · test/render"]
-  q -->|"wrong on the device"| s["SHADER · test/shader"]
-  q -->|"cost moved"| f["FRAME · test/frame"]
+  q -->|"wrong computation"| u["UNIT · test/outshine/unit"]
+  q -->|"wrong pixels"| r["RENDER · test/khronos/glTF"]
+  q -->|"wrong on the device"| s["SHADER · test/outshine/shader"]
+  q -->|"cost moved"| f["FRAME · test/outshine/frame"]
   q -->|"floor broke, run drifted"| c["SCENARIO"]
 ```
 
@@ -405,23 +405,23 @@ amber state**: the repair is that the red names its cause.
 | | |
 |---|---|
 | `src/` | the library **entire** — its C++ and, in `src/assets/`, the declared data the engine is made of. No entry point, no build file, no host implementation, no test fixture |
-| `test/` | the suites above, plus `test/host/` (host implementations of what the library declares), `test/mods/` (declared worlds), `test/corpus/` (the oracle's subjects, fetched and built, never committed) and `test/harness/` (the harness's own claims, including that every path this file cites resolves) |
+| `test/` | the suites above, plus `test/outshine/host/` (host implementations of what the library declares), `test/outshine/mods/` (declared worlds), `test/outshine/corpus/` (the oracle's subjects, fetched and built, never committed) and `test/outshine/harness/` (the harness's own claims, including that every path this file cites resolves) |
 | `test/run.sh` | the harness, and the only runner. One process per test, a real verdict per test, non-zero on any failure or undeclared skip. **macOS has no `timeout(1)`** — it brings its own |
 | `Makefile` | **three targets and no others**: build the library, run the tests, clean. No gate target, no verify target — everything a gate decided is a test, and two runners means two verdicts |
-| `test/corpus/prepare.py` | **the one offline script the constraints allow.** Fetch · generate · patch · convert · render, each idempotent and independently invocable. It compares, scores and decides **nothing** — that is C++, in the test |
+| `test/outshine/corpus/prepare.py` | **the one offline script the constraints allow.** Fetch · generate · patch · convert · render, each idempotent and independently invocable. It compares, scores and decides **nothing** — that is C++, in the test |
 | `board/` | **the only documentation tree**, and the working system — see *The board* below |
 | this file | the vision, the constraints, the stance, the architecture, the setup, **the roles** and the rule index. As short as the content allows, and no shorter |
 
 **Layering is the build, never a checker.** Each directory compiles with its own include set — one
 compile group per layer in the `Makefile`, the same sets in `test/run.sh` — so a name a layer must not
-reach has **no spelling** in it, and a breach is a compile error rather than a report. `test/unit/`
+reach has **no spelling** in it, and a breach is a compile error rather than a report. `test/outshine/unit/`
 mirrors `src/`, so every unit test is a continuous proof that its layer's include set is exactly what it
 claims. There is no vendored third-party tree: a dependency is a package the host provides, or it is
 ours.
 
 **A backticked path is a citation and must resolve**; something to be built is named in prose instead —
 a *host layer*, a *shader directory*. Written in one syntax, a reader cannot tell evidence from
-intention and neither can a checker. `test/harness/EveryPathCitedInADocumentResolves.cpp` reads this
+intention and neither can a checker. `test/outshine/harness/EveryPathCitedInADocumentResolves.cpp` reads this
 file.
 
 **Only correct work is committed**, and `git log` is what was — no journal.
@@ -554,7 +554,7 @@ before it is still on disk, saying nothing about it. **Read the trailer first**:
 is what says a run happened at all, and a count quoted without it may be a measurement of the past.
 
 **`git grep`, never `grep -r`, for the marker queries — and stage a new file before querying it.**
-`test/render/.gitignore` opens with `*` and re-includes `/*.cpp`, so **git honours the negation and some
+`test/khronos/glTF/.gitignore` opens with `*` and re-includes `/*.cpp`, so **git honours the negation and some
 greps do not** and a recursive grep silently skips `Parity.cpp`, the largest test file in the tree.
 `git grep` searches **tracked** files, which is the population the question means — and which is why a
 work item proven only by a test not yet added reads as unproven too. Both failures point the dangerous

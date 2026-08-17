@@ -48,7 +48,7 @@ and the next round has no way to know it held*. A corpus case was the only falsi
 written. The shader tie is a better one on all three axes that matter here:
 
 - **It is the suite the placement rule names.** *What would fail this test?* — the shader is wrong on a
-  real device. No asset, no camera, no oracle. `test/render` answers *wrong pixels*; this is not that, and
+  real device. No asset, no camera, no oracle. `test/khronos/glTF` answers *wrong pixels*; this is not that, and
   a case that seems to fit two is testing two things.
 - **Its mutant is the defect itself, not an invented one** — the two-axis frame this item was opened
   about, measured at **158.286753°** over **480 of 800** back-facing samples and **0** front-facing, so

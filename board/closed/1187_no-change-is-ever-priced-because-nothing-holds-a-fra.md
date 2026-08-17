@@ -5,7 +5,7 @@ Tags: perf, instrument
 **No change is ever priced, because nothing holds a frame-cost baseline**
 
 `board:1182` took the pipeline count from **30 to 48**, added two interpolants and one `mix` per texture
-tap, and **no p50/p95/p99 was taken before or after.** `test/frame/TheVisibilityTermIsPricedPerRay` is
+tap, and **no p50/p95/p99 was taken before or after.** `test/outshine/frame/TheVisibilityTermIsPricedPerRay` is
 green — and it is a **pass/fail against its own declared bound**, not a comparison across a change.
 
 **So the suite produces a distribution and keeps no baseline, which means no change in this engine has

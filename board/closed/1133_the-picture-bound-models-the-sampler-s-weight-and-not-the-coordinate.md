@@ -35,7 +35,7 @@ The arithmetic closes exactly:
 ## Why the term cannot be widened by arguing about the weight
 
 The device's sub-texel precision is not assumed, it is measured by
-`test/shader/TheSamplerSnapsSubTexelWeightsToTheDeclaredCount`: **8 bits, 257 distinct weights, uniform
+`test/outshine/shader/TheSamplerSnapsSubTexelWeightsToTheDeclaredCount`: **8 bits, 257 distinct weights, uniform
 step `0.00390625`, endpoints 0 and 1, at both 2 and 512 texels.** 257 levels spanning `0..1` is
 round-to-nearest, whose error is bounded by half a quantum — which is exactly what the bound already
 carries. **So weight snapping alone cannot produce what is observed, and the term is right about the
