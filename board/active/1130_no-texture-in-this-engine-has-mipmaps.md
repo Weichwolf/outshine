@@ -482,3 +482,34 @@ them closes it.
 remains unexamined is the part no reading can settle: **what the sampler actually returns at the pixel
 that saturated**, which is a device question and now has a shape to ask it in — the probe above needs
 only a different fragment and the same scaffolding.
+
+## The upload is eliminated, and this one IS a measurement
+
+**`test/outshine/shader/EveryLevelOfAnUploadedChainReadsBackAsItself.cpp`.** Seven levels, 64×64 down to
+1×1, each filled with a distinct constant, each fetched by an explicitly named `level()` — no derivative
+and no selection between the declaration and the texel.
+
+```
+level 0 fetched 0.100000001, uploaded 0.100000001, apart 0.000e+00
+level 1 fetched 0.200000003, uploaded 0.200000003, apart 0.000e+00
+...
+level 6 fetched 0.699999988, uploaded 0.699999988, apart 0.000e+00
+levels whose fetch disagrees with what was uploaded   0 levels
+worst disagreement over the chain                     0 linear
+```
+
+**The probe uploads the way `SubjectDraw` uploads**, and that is checked rather than assumed: same
+`R32G32B32A32_FLOAT`, same one transfer buffer and one copy pass per level, same
+`pixels_per_row = levelWidth`, same `rows_per_layer`. So *a row pitch an API rounds up at the small
+levels* — the specific suspicion, and the one a chain held at one level could never show — **is dead.**
+
+**The domain, because it is narrower than the claim would be without it:** the map is SQUARE, so this
+says nothing about a chain whose levels reach 1 in one dimension while the other keeps halving. Reading
+`HalveInPlace` says that case clamps both extents at 1 and cannot produce a zero-sized level — *and
+reading is the weaker evidence this item has already been careful to label as such.*
+
+**The probe was red on its first run and the values are why it was believed afterwards.** Every level
+fetched another level's fill, exactly reversed, with the middle one exact — a permutation of the
+uploaded set, which is the signature of a reader convention rather than of corrupt memory. Clip
+`y = -1` is the bottom of the screen and row 0 of the read image is the top. *Garbage does not come
+back as a permutation of what you put in.*
