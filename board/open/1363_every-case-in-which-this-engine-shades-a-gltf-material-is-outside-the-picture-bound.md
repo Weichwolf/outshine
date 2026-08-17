@@ -184,3 +184,53 @@ the factor is being applied on our side, and whatever differs does so only as th
   the Lambert closed form. **Two outcomes and they lead opposite ways** -- if Cycles is Lambert, the
   defect is ours and it is in how `(1 - F)` is applied; if it is not, glTF's own appendix says the oracle
   is the wrong side here and the case carries a declared reduction.
+
+## Cycles' diffuse is not Lambert, and the two ends of the curve name the mechanism
+
+The oracle's own diffuse term needs no new render: it is `oracle(grey) - oracle(black)`, and the
+subtraction is exact because `F0` at `metallic 0` does not depend on the base colour. Lambert's
+prediction is `rho * E/pi * n.l` = `0.5 * n.l`, the irradiance being pi W/m2 for exactly this reason.
+
+| `n.v` | Lambert | **ours** / Lambert | **oracle** / Lambert |
+|---|---|---|---|
+| [0.00, 0.15) | 0.230531 | 0.899 | **0.755** |
+| [0.15, 0.30) | 0.251406 | 0.973 | 0.872 |
+| [0.30, 0.50) | 0.269630 | 0.992 | 0.943 |
+| [0.50, 0.70) | 0.276792 | 1.001 | 0.984 |
+| [0.70, 0.85) | 0.336078 | 0.970 | 0.967 |
+| [0.85, 1.01) | 0.390039 | 0.962 | **0.964** |
+
+**We are Lambert; the oracle is not.** Its diffuse loses up to 25 % against Lambert, monotonically as the
+view goes grazing -- and the two ends of the curve name the mechanism rather than leaving it to be
+guessed:
+
+| | |
+|---|---|
+| at `n.v -> 1` the oracle attenuates by **0.964** | which is `1 - 0.04`, the directional albedo of a dielectric's specular layer at normal incidence |
+| at `n.v -> 0` it attenuates by **0.755** | and that albedo rises to about 0.25 at grazing |
+
+**So Cycles couples its diffuse to the specular layer by `1 - E(n.v)`, the layer's own directional
+albedo.** glTF 2.0 Appendix B specifies `f_diffuse = (1 - F) * baseColor / pi` -- Lambert, with `F` on
+the HALF-VECTOR and no view dependence at all. **Both are defensible and only one is the specification
+this corpus is a corpus for.**
+
+## So the ladder's second rung is the answer, and it is buildable
+
+*Fix the engine, reduce the oracle, patch the asset, disqualify.*
+
+- [ ] **The engine is NOT the rung.** Implementing Cycles' coupling would make this tree render something
+  glTF does not specify, to make a number smaller. That is the shape `CLAUDE.md` refuses, and it would
+  quietly change every one of the nine cases toward one renderer's private model
+- [ ] **THE ORACLE REDUCES, and the preparer already knows how.** The `diffuse` material arm builds a
+  **Diffuse BSDF** rather than Principled, precisely because *"Principled at metallic 0 still carries a
+  specular lobe at IOR 1.5"*. The same reasoning applies one level up: a `metal-rough` recipe assembled
+  from a Diffuse BSDF and a Glossy BSDF, mixed by Appendix B's own `(1 - F)`, evaluates the glTF BRDF
+  instead of Blender's material model. **The reduction is declared with this measurement beside it.**
+- [ ] **What must be re-measured after it, not predicted:** whether the nine cases move, and by how much.
+  *This item has already been wrong once by reasoning past a measurement -- it nominated a common cause
+  for the nine before the partition was measured -- and the specular residual it just found at 1e-4 is
+  itself a term nobody has explained.*
+
+**The residual that survives is small and real**: with the diffuse gone, `ours - oracle` is
+**-0.000143** and largest at NORMAL incidence, which is the opposite end and the opposite sign from the
+diffuse one. It is a second finding and it is not this one.
