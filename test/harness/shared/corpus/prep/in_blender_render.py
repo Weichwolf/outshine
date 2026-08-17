@@ -188,33 +188,31 @@ _CURVE_OF = {"translation": "location", "rotation": "rotation_quaternion", "scal
 _CONVERSION = Matrix.Rotation(math.radians(90.0), 4, "X")
 
 
-def _to_blender(road, value, rooted):
+def _to_blender(road, value, converted):
     """One sampled glTF value in the slots Blender keys it in.
 
     THE QUATERNION IS REORDERED AND NOT REINTERPRETED: glTF stores (x, y, z, w) and Blender (w, x, y,
-    z), so a component-for-component write is a different rotation. Scale crosses unchanged even at a
-    root, because C.T.R.S decomposes as T(C.t).(C.R).S and the scale factors are in the node's own
-    frame either way."""
+    z), so a component-for-component write is a different rotation. Scale crosses unchanged either
+    way, because C.T.R.S decomposes as T(C.t).(C.R).S and the scale factors are in the node's own
+    frame regardless. WHETHER to convert is not decided here -- see `_convention`."""
     if road == "translation":
         vector = Vector(value[:3])
-        return tuple(_CONVERSION @ vector) if rooted else tuple(vector)
+        return tuple(_CONVERSION @ vector) if converted else tuple(vector)
     if road == "rotation":
-        # A ROOT'S ROTATION CURVE IS *NOT* CONVERTED, AND THAT IS MEASURED RATHER THAN REASONED
-        # (board:1375). The conversion is per PATH and not per node:
-        #
-        #   `BoxAnimated` node 0 is a root animated on TRANSLATION. Its file keys run along glTF's +Y
-        #   -- (0, 2.52, 0) -- and the importer's curve runs along Blender's +Z, axis 2. The root
-        #   translation branch is therefore right, and this is the first time it was checked against a
-        #   value the conversion could move: its FIRST key is the zero vector, invariant under any
-        #   rotation, so every earlier run exercised the branch without being able to refute it.
-        #
-        #   `AnimatedCube` node 0 is a root animated on ROTATION. Its first file key is (0, 0, 0, 1) --
-        #   identity -- and the importer writes (1, 0, 0, 0), identity in Blender's own order. No
-        #   conversion. Applying one derived (0.7071, 0.7071, 0, 0) and the witness refused it.
-        #
-        # `_agrees` still re-derives the importer's first key on every channel of every case, so this
-        # rule is restated per case rather than trusted -- which is what caught the old one.
-        return tuple(Quaternion((value[3], value[0], value[1], value[2])))
+        quaternion = Quaternion((value[3], value[0], value[1], value[2]))
+        if converted == "composed":
+            return tuple(_CONVERSION.to_quaternion() @ quaternion)
+        if converted == "conjugated":
+            # A ROTATION EXPRESSED IN CONVERTED AXES IS CONJUGATED, NOT COMPOSED, and the two are
+            # different claims about what the conversion IS. `C @ q` is the rotation that results from
+            # turning the whole node by C -- correct where the conversion sits in a PARENT. `C q C-1`
+            # is the same rotation written in a basis C has turned -- correct where the node's own
+            # FRAME is converted. [MEASURED] on `CesiumMilkTruck`: `Wheels` turns about glTF's -Y and
+            # the importer writes a turn about Blender's -Z, which conjugation gives exactly and
+            # composition does not.
+            turn = _CONVERSION.to_quaternion()
+            return tuple(turn @ quaternion @ turn.inverted())
+        return tuple(quaternion)
     return tuple(value)
 
 
@@ -225,6 +223,46 @@ def _agrees(road, ours, theirs):
     if road != "rotation":
         return straight
     return min(straight, max(abs(ours[c] + theirs[c]) for c in range(len(ours))))
+
+
+def _convention(road, checkAt, theirs, where):
+    """WHICH FRAME THIS CHANNEL IS IN, READ OFF THE IMPORTER'S OWN FIRST KEY (board:1375).
+
+    THE RULE WAS PREDICTED THREE TIMES AND REFUTED THREE TIMES. `obj.parent is None` was a proxy for
+    it; so was *roots are converted, children are not*; so was *translation converts and rotation does
+    not*. Each held on the cases that existed and fell on the next one, because the importer has more
+    than one behaviour: [MEASURED] `CesiumMilkTruck` arrives under a `Yup2Zup` empty the importer
+    created and its CHILD `Wheels` still carries a converted curve, while `BoxAnimated` and
+    `AnimatedCube` have no such node and their root curves do not.
+
+    So the convention is DERIVED rather than asserted. Both candidates are computed and compared with
+    the key the importer already wrote; exactly one normally matches, and that one is the frame this
+    channel is in. **Neither matching is still a refusal** -- that is the case where something is
+    genuinely wrong, and it is what the guard this replaces was right to stop.
+
+    AMBIGUITY IS POSSIBLE AND IS PUBLISHED RATHER THAN HIDDEN: a value the conversion cannot move -- a
+    zero translation, or a rotation it happens to fix -- matches both. The converted branch is taken
+    there and the choice is recorded, so a later disagreement has somewhere to start.
+    """
+    candidates = [(False, "asIs")]
+    if road == "rotation":
+        candidates += [("composed", "composed"), ("conjugated", "conjugated")]
+    elif road == "translation":
+        candidates += [(True, "converted")]
+    fits = [(how, label, _to_blender(road, checkAt, how)) for how, label in candidates]
+    matched = [(how, label, got) for how, label, got in fits if _agrees(road, got, theirs) <= 1e-4]
+    if len(matched) == 1:
+        return matched[0][0], matched[0][1]
+    if matched:
+        # A value the conversion cannot move matches more than one. The first non-identity candidate
+        # is taken -- it is the one the majority of channels are in -- and the choice is recorded.
+        pick = [m for m in matched if m[0] is not False] or matched
+        return pick[0][0], "ambiguous:" + "+".join(m[1] for m in matched)
+    fail(where + "'s " + road + " at the importer's first key is " + repr(theirs) +
+         ", and no convention this preparer knows derives it from the file: " +
+         "; ".join("%s gives %r" % (label, got) for _, label, got in fits) +
+         " -- so this channel is in a frame this preparer does not know, and every baked key would be "
+         "in the wrong space")
 
 
 def _shape_key_curves(name, targets):
@@ -423,7 +461,7 @@ def _write_frames(name, road, taken, wide, checkAt):
     if len(curves) != wide:
         fail(obj.name + "'s " + road_name + " is " + str(len(curves)) + " curves and the file's " +
              road + " carries " + str(wide) + " components")
-    rooted = obj.parent is None
+    converted, convention = True, "unchecked"
     # THE CONVERSION IS CHECKED BEFORE IT IS RELIED ON, ON EVERY CHANNEL OF EVERY CASE. The importer
     # has already placed this channel's first key in Blender's own space; deriving that same key from
     # the file and comparing is what turns `roots are converted, children are not` from a fact about
@@ -431,14 +469,8 @@ def _write_frames(name, road, taken, wide, checkAt):
     # component-for-component quaternion is an O(1) disagreement here and a plausible picture later.
     if all(len(curves[c].keyframe_points) for c in range(wide)):
         theirs = tuple(curves[c].keyframe_points[0].co[1] for c in range(wide))
-        ours = _to_blender(road, checkAt, rooted)
-        apart = _agrees(road, ours, theirs)
-        if apart > 1e-4:
-            fail(obj.name + "'s " + road + " at the importer's first key is " + repr(theirs) +
-                 " and the same key derived from the file is " + repr(ours) + ", apart by " +
-                 repr(apart) + " -- so the axis convention assumed here is not the one the importer "
-                 "used, and every baked key would be in the wrong space")
-    written = [(frame, _to_blender(road, value, rooted)) for frame, value in taken]
+        converted, convention = _convention(road, checkAt, theirs, obj.name)
+    written = [(frame, _to_blender(road, value, converted)) for frame, value in taken]
     for component in range(wide):
         points = curves[component].keyframe_points
         points.clear()
@@ -523,6 +555,20 @@ def baked_channels(scene, paths, fps, declared):
                 values = _accessor(document, buffers, sampler["output"])
                 wide = len(values[0])
                 name = _imported_name(document, node)
+                # A SKIN'S `skeleton` NODE IS THE ARMATURE OBJECT AND NEITHER A BONE NOR A MESH
+                # (board:1375). [MEASURED] on `BrainStem`: 19 channels, 18 on nodes the skin lists as
+                # joints -- which arrive as pose bones named `Node_<index>`, the convention above --
+                # and ONE on node 2, the skin's declared `skeleton`. The importer builds that node as
+                # the armature OBJECT under a name taken from elsewhere in the file, so no
+                # `Node_<index>` lookup reaches it and the channel would be dropped. More than one
+                # armature makes the mapping ambiguous and is refused rather than guessed.
+                if node in {skin.get("skeleton") for skin in document.get("skins", [])}:
+                    armatures = [obj for obj in bpy.data.objects if obj.type == "ARMATURE"]
+                    if len(armatures) != 1:
+                        fail("the glTF animates node " + str(node) + ", which a skin declares as its "
+                             "skeleton, and the scene carries " + str(len(armatures)) +
+                             " armatures -- so which object carries that channel is ambiguous")
+                    name = armatures[0].name
                 grid = list(range(scene.frame_start, scene.frame_end + 1))
                 # A JOINT IS A POSE BONE AND NOT AN OBJECT, so the arms are dispatched on which of
                 # them owns the name -- and they are NOT the same mechanism. The object arm evaluates

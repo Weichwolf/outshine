@@ -1,0 +1,427 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/animation/diffuse-transmission-plant",
+  "title": "Potted plant asset using Diffuse Transmission extension -- five frames across its own declared span",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:DiffuseTransmissionPlant",
+    "board:1266"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "Potted plant asset using Diffuse Transmission extension.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction over a subject that MOVES, so the comparison is taken at every frame of the declared grid rather than at one pose. Nothing here is analytic: what is compared is which pixels each side covers at each sampled time and what colour each body wears there."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "diffuse-transmission-plant",
+      "kind": "gltf",
+      "name": "DiffuseTransmissionPlant",
+      "entry": "scene.gltf",
+      "attributes": [
+        "NORMAL",
+        "POSITION",
+        "TEXCOORD_0"
+      ],
+      "notes": "Attributes NORMAL, POSITION, TEXCOORD_0. 1 animation over a declared span of 16.6667 s. The file's own images are not read by this case: the material below declares its colours, so what is compared is where the geometry is at each frame and which body wears which row.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "DiffuseTransmissionPlant",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/glTF/DiffuseTransmissionPlant.gltf",
+          "sha256": "486a1b129873cb0d58d226fe8da6fa68a2b5a735a798a86b3230efa92f608751",
+          "bytes": 50434,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/metadata.json",
+              "covers": "Materials and animation"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/glTF/DiffuseTransmissionPlant.bin",
+          "sha256": "6957a4dbd0f155dcb0e352df38f8ab1cd2f3e056e6de3ad38e544fa6b928fe03",
+          "bytes": 2156988,
+          "as": "DiffuseTransmissionPlant.bin",
+          "role": "buffer",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/metadata.json",
+              "covers": "Materials and animation"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/glTF/img0.png",
+          "sha256": "2663e6b59b46c60d9fed9b3f7759694b9d8999e13d691252c60d288e5a156a9f",
+          "bytes": 1292460,
+          "as": "img0.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/metadata.json",
+              "covers": "Materials and animation"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/glTF/img1.jpg",
+          "sha256": "d4babb1aa8683fc7135455007a1562f289e8cf40cda8f976ec8f483be555b05d",
+          "bytes": 288543,
+          "as": "img1.jpg",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/metadata.json",
+              "covers": "Materials and animation"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/glTF/img2.jpg",
+          "sha256": "04dc0665a72259347467732e9291cccfe1eb8ff7369e15ee84ce9ff6f0aaf0df",
+          "bytes": 555674,
+          "as": "img2.jpg",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/metadata.json",
+              "covers": "Materials and animation"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/glTF/img3.jpg",
+          "sha256": "867ee46176146763759edbbd7a3842f675f7ce610ee127be4313712f28d5b5ed",
+          "bytes": 840918,
+          "as": "img3.jpg",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/metadata.json",
+              "covers": "Materials and animation"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/glTF/img4.jpg",
+          "sha256": "15ff79f30f375eea89036d06666c14da1e71eeb23ca9945c9e2b6813a8756453",
+          "bytes": 1992,
+          "as": "img4.jpg",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/metadata.json",
+              "covers": "Materials and animation"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/glTF/img5.jpg",
+          "sha256": "3b23899ae156a4c4267b5dac7b4c52b46079077f28940d9a57b587082a3e4bdb",
+          "bytes": 80446,
+          "as": "img5.jpg",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/metadata.json",
+              "covers": "Materials and animation"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/glTF/img6.jpg",
+          "sha256": "58aabdd82140b32cfac43e4cc74c497eb740375307ee366706c6eac3760b8e1c",
+          "bytes": 513213,
+          "as": "img6.jpg",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/metadata.json",
+              "covers": "Materials and animation"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/metadata.json",
+          "sha256": "9223d6b4d185ddd5cea9e86695ad081f90c4967b32afcd4fda9e8edcd6db1ab6",
+          "bytes": 1223,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/metadata.json",
+              "covers": "Materials and animation"
+            },
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Public domain",
+              "year": "2021",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DiffuseTransmissionPlant/metadata.json",
+              "covers": "Original asset"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        3.464616536963827,
+        1.980535405735582,
+        2.366597935832132
+      ],
+      "lookAtM": [
+        -0.04608152247965336,
+        0.42064233821276037,
+        -0.09161930976839258
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 3.922198687044375,
+      "clipEndM": 5.199445742169868,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-0.3966600392013788, 5.295426485208095e-05, -0.4203126070535665] to [0.3044969942420721, 0.8412317221606687, 0.23707398751678133], so centre = [-0.04608152247965336, 0.42064233821276037, -0.09161930976839258] and radius = 0.6386235275627463 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 4.560822214607121, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "base": [
+          0.85,
+          0.15,
+          0.15
+        ],
+        "leaves": [
+          0.15,
+          0.3542572472504414,
+          0.85
+        ],
+        "wings": [
+          0.5585144945008829,
+          0.85,
+          0.15
+        ]
+      },
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it. A material a primitive does not name is keyed by `<default>`, which is the format's own word for the material an undefined `material` selects."
+    },
+    "animation": {
+      "animations": [
+        0
+      ],
+      "fps": {
+        "value": 1,
+        "unit": "frames per second",
+        "origin": "SET",
+        "note": "ONE FRAME PER SECOND, AND THE RATE IS AN INTEGER BECAUSE THE HARNESS REQUIRES ONE: a frame is `index / fps` seconds and Blender's own rate is whole. A rate below one -- which is what sampling a 60 s span in five steps would need -- has no spelling, so the grid is a second apart and the note below says what it therefore covers."
+      },
+      "frames": {
+        "value": 5,
+        "unit": "frames",
+        "origin": "derived",
+        "derivation": "min(5, ceil(16.666666 s) + 1) = 5, so the grid runs 0..4 s.",
+        "note": "WHAT THIS GRID COVERS, STATED RATHER THAN IMPLIED. The file's declared span is 16.666666 s and this case samples its first 4 s. Where the span is shorter than that, glTF clamps past the last keyframe and the tail frames state the end pose rather than an extrapolation. Where it is LONGER -- and it is for the long ones -- this case exercises the OPENING of the motion and says so: it decides that the animation is read, applied and posed, not that the whole of it is right. A case that needed the whole span would declare a grid for it and pay for the frames."
+      }
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "A coverage case over a moving subject. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet."
+}

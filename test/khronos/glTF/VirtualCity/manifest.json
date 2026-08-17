@@ -1,0 +1,669 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/animation/virtual-city",
+  "title": "The 'Virtual City' model was graciously contributed by the folks at 3DRT -- five frames across its own declared span",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:VirtualCity",
+    "board:1355"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "The 'Virtual City' model was graciously contributed by the folks at 3DRT.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction over a subject that MOVES, so the comparison is taken at every frame of the declared grid rather than at one pose. Nothing here is analytic: what is compared is which pixels each side covers at each sampled time and what colour each body wears there."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "virtual-city",
+      "kind": "gltf",
+      "name": "VirtualCity",
+      "entry": "scene.gltf",
+      "attributes": [
+        "NORMAL",
+        "POSITION",
+        "TEXCOORD_0"
+      ],
+      "notes": "Attributes NORMAL, POSITION, TEXCOORD_0. 1 animation over a declared span of 30 s. The file's own images are not read by this case: the material below declares its colours, so what is compared is where the geometry is at each frame and which body wears which row.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "VirtualCity",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/glTF/VirtualCity.gltf",
+          "sha256": "7173393542a3aa2ece16713cfcc823b20bf88a5dcdaf2f3923b2af903e9735a9",
+          "bytes": 590960,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/glTF/VC0.bin",
+          "sha256": "0324ba861a2cb1019b8177b4958b982b2ae3e8b8c1052bdc583c851d581b7e68",
+          "bytes": 1967226,
+          "as": "VC0.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/glTF/001.jpg",
+          "sha256": "3e7db139ef50bc305182ab4332173a46f6d1248ef1507b16560b7979eb76bfa5",
+          "bytes": 60967,
+          "as": "001.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/glTF/cockpit-map.jpg",
+          "sha256": "df4482710ee1acc175d2c1bf4cb8d71f394506c4d720b9f76e3d68978c6b6297",
+          "bytes": 63992,
+          "as": "cockpit-map.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/glTF/s_08.jpg",
+          "sha256": "33b2ea493f285f4c28bb1f67daf9ed3b61ca484488fd149c61df019983c65f9c",
+          "bytes": 18950,
+          "as": "s_08.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/glTF/s_06.jpg",
+          "sha256": "2599aca266152de16f78c3b0b96690db878e92b958336c15c3c6f059aa162cdc",
+          "bytes": 21265,
+          "as": "s_06.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/glTF/s_04.jpg",
+          "sha256": "6f451ddaf0a09d09b7220f82ba9ceee817b8b71a68dcce3be76ff776a1667488",
+          "bytes": 16998,
+          "as": "s_04.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/glTF/s_02.jpg",
+          "sha256": "d967b9faa0519bec8a25a7160ccf41ae632c0661e2bde60a25acf373ff2932a6",
+          "bytes": 20323,
+          "as": "s_02.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/glTF/s_07.jpg",
+          "sha256": "03f07b4f0af01c424326a6cf351b835c811c1df8bb5333779aa095c5430dde81",
+          "bytes": 21483,
+          "as": "s_07.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/glTF/s_03.jpg",
+          "sha256": "18fec3b75dc14fb298078191e92ecf7be07300cc7e9f933dab3df11a7afe32ac",
+          "bytes": 20182,
+          "as": "s_03.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/glTF/s_05.jpg",
+          "sha256": "2fa10e9ec38ba6b5d9ae828abc45429ab317ff5dda5da9c04cbec764e40d8646",
+          "bytes": 22899,
+          "as": "s_05.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/glTF/s_01.jpg",
+          "sha256": "e3da3889edd8ec4410bf9ea95a7ba5da22924970f78a22531f27c997b78ac53e",
+          "bytes": 20053,
+          "as": "s_01.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/glTF/002.jpg",
+          "sha256": "8012a5708ed779e3864deb679b6ae6659bc12b6b4d84a07f5eef2b3b89235a81",
+          "bytes": 37442,
+          "as": "002.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/glTF/11.jpg",
+          "sha256": "04e971f89d48f61f386376c22592cb6062854fec30fab0a104a8d7ee7ee1698e",
+          "bytes": 32523,
+          "as": "11.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/glTF/machine.jpg",
+          "sha256": "2341a774ccddf2a57568d4e451bd67da424d3740ff3ec894b46e023a24a27f55",
+          "bytes": 57559,
+          "as": "machine.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/glTF/prop128.png",
+          "sha256": "fcc65d2b20e75553acb50be5f861a323ec96b50c85b6352014736d51ec3010f0",
+          "bytes": 4213,
+          "as": "prop128.png",
+          "role": "image",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/glTF/scrapsurf03-red.jpg",
+          "sha256": "366326597fc3cce3ecf04f29da46eb47fbcfd4466780c3dc60d1078d6f810710",
+          "bytes": 24026,
+          "as": "scrapsurf03-red.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/glTF/f22.jpg",
+          "sha256": "4fe72a5e8cfbc418ca4760bb340380bfd24216009a06f93a59b4f7d27da7802e",
+          "bytes": 143381,
+          "as": "f22.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/glTF/heli.jpg",
+          "sha256": "aa750080df21d337cd9f67b4a8c46fc809bbb1b6f66c630cdf9d82bd779912e3",
+          "bytes": 206056,
+          "as": "heli.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/glTF/O21.jpg",
+          "sha256": "cd42edbc24968c0f4322237c6db06eea2373d3d9bf14d4890beb408a6f7e438a",
+          "bytes": 35913,
+          "as": "O21.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/glTF/5.jpg",
+          "sha256": "9db3d217161f4f2a3a069b4ccd8d021f59dda606878901cd0b15111c0b537d92",
+          "bytes": 31216,
+          "as": "5.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/glTF/surface01.jpg",
+          "sha256": "6bca4d77be79f4b7e05a47561a60c75e11cd73225d6aa355d3e0d5308fe96a06",
+          "bytes": 22231,
+          "as": "surface01.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+          "sha256": "bdfbe91a6826e6dcb48d8f209178d9fa8fc8a90feb875ac11c3a3469b91eec94",
+          "bytes": 727,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "LicenseRef-3DRT-Testing",
+            "holder": "3DRT",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/VirtualCity/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        705.5880952510347,
+        361.3542667389277,
+        495.48509229186766
+      ],
+      "lookAtM": [
+        0.0,
+        47.84340375027289,
+        1.426989126062523
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 788.292429006683,
+      "clipEndM": 1044.9964524036284,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-83.13869739320711, -1.2569075148323452, -83.13869739320711] to [83.13869739320711, 96.94371501537813, 85.99267564533216], so centre = [0.0, 47.84340375027289, 1.426989126062523] and radius = 128.35201169847267 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 916.6444407051557, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "ColorEffectR57G8B136": [
+          0.85,
+          0.15,
+          0.15
+        ],
+        "Material__10512": [
+          0.15,
+          0.3542572472504414,
+          0.85
+        ],
+        "Material__10539": [
+          0.5585144945008829,
+          0.85,
+          0.15
+        ],
+        "Material__75": [
+          0.85,
+          0.15,
+          0.7627717417513241
+        ],
+        "Material__76": [
+          0.15,
+          0.85,
+          0.7329710109982343
+        ],
+        "Scrape04": [
+          0.85,
+          0.528713763747793,
+          0.15
+        ],
+        "VMtl01": [
+          0.3244565164973515,
+          0.15,
+          0.85
+        ],
+        "VMtl02": [
+          0.17980073075308986,
+          0.85,
+          0.15
+        ],
+        "VMtl03": [
+          0.85,
+          0.15,
+          0.38405797800353125
+        ],
+        "VMtl04": [
+          0.15,
+          0.5883152252539726,
+          0.85
+        ],
+        "VMtl05": [
+          0.792572472504414,
+          0.85,
+          0.15
+        ],
+        "VMtl06": [
+          0.7031702802451444,
+          0.15,
+          0.85
+        ],
+        "VMtl08": [
+          0.15,
+          0.85,
+          0.4989130329947031
+        ],
+        "_1111": [
+          0.85,
+          0.29465578574426166,
+          0.15
+        ],
+        "_1111111": [
+          0.15,
+          0.20960146150617973,
+          0.85
+        ],
+        "_1_-_Default": [
+          0.4138587087566211,
+          0.85,
+          0.15
+        ],
+        "_22jyj": [
+          0.85,
+          0.15,
+          0.6181159560070625
+        ],
+        "_3_-_Default": [
+          0.15,
+          0.8223732032575038,
+          0.85
+        ],
+        "_4_-_Default_1": [
+          0.85,
+          0.6733695494920545,
+          0.15
+        ],
+        "_5_-_Default": [
+          0.4691123022416132,
+          0.15,
+          0.85
+        ],
+        "_6_-_Default": [
+          0.15,
+          0.85,
+          0.2648550549911718
+        ],
+        "_7_-_Default": [
+          0.85,
+          0.15,
+          0.2394021922592696
+        ],
+        "_8_-_Default": [
+          0.15,
+          0.443659439509711,
+          0.85
+        ],
+        "__-_Default": [
+          0.6479166867601523,
+          0.85,
+          0.15
+        ],
+        "__-_Default_1": [
+          0.8478260659894062,
+          0.15,
+          0.85
+        ],
+        "__-_Default_2": [
+          0.15,
+          0.85,
+          0.6435688187389647
+        ],
+        "__-_Defaultww": [
+          0.85,
+          0.43931157148852334,
+          0.15
+        ],
+        "_y4y4y4": [
+          0.2350543242380894,
+          0.15,
+          0.85
+        ],
+        "efefefefef": [
+          0.2692029230123595,
+          0.85,
+          0.15
+        ],
+        "eref": [
+          0.85,
+          0.15,
+          0.4734601702628083
+        ],
+        "glass": [
+          0.15,
+          0.6777174175132422,
+          0.85
+        ],
+        "l__l": [
+          0.85,
+          0.8180253352363237,
+          0.15
+        ],
+        "light": [
+          0.6137680879858748,
+          0.15,
+          0.85
+        ]
+      },
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it. A material a primitive does not name is keyed by `<default>`, which is the format's own word for the material an undefined `material` selects."
+    },
+    "animation": {
+      "animations": [
+        0
+      ],
+      "fps": {
+        "value": 1,
+        "unit": "frames per second",
+        "origin": "SET",
+        "note": "ONE FRAME PER SECOND, AND THE RATE IS AN INTEGER BECAUSE THE HARNESS REQUIRES ONE: a frame is `index / fps` seconds and Blender's own rate is whole. A rate below one -- which is what sampling a 60 s span in five steps would need -- has no spelling, so the grid is a second apart and the note below says what it therefore covers."
+      },
+      "frames": {
+        "value": 5,
+        "unit": "frames",
+        "origin": "derived",
+        "derivation": "min(5, ceil(30 s) + 1) = 5, so the grid runs 0..4 s.",
+        "note": "WHAT THIS GRID COVERS, STATED RATHER THAN IMPLIED. The file's declared span is 30 s and this case samples its first 4 s. Where the span is shorter than that, glTF clamps past the last keyframe and the tail frames state the end pose rather than an extrapolation. Where it is LONGER -- and it is for the long ones -- this case exercises the OPENING of the motion and says so: it decides that the animation is read, applied and posed, not that the whole of it is right. A case that needed the whole span would declare a grid for it and pay for the frames."
+      }
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "A coverage case over a moving subject. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet."
+}

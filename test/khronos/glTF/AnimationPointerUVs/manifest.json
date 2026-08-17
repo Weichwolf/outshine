@@ -1,0 +1,811 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/animation/animation-pointer-u-vs",
+  "title": "This model tests UV transform animations with KHR_animation_pointer -- five frames across its own declared span",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:AnimationPointerUVs",
+    "board:1216"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "This model tests UV transform animations with KHR_animation_pointer.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction over a subject that MOVES, so the comparison is taken at every frame of the declared grid rather than at one pose. Nothing here is analytic: what is compared is which pixels each side covers at each sampled time and what colour each body wears there."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "animation-pointer-u-vs",
+      "kind": "gltf",
+      "name": "AnimationPointerUVs",
+      "entry": "scene.gltf",
+      "attributes": [
+        "NORMAL",
+        "POSITION",
+        "TEXCOORD_0"
+      ],
+      "notes": "Attributes NORMAL, POSITION, TEXCOORD_0. 1 animation over a declared span of 6 s. The file's own images are not read by this case: the material below declares its colours, so what is compared is where the geometry is at each frame and which body wears which row.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "AnimationPointerUVs",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/glTF/AnimationPointerUVs.gltf",
+          "sha256": "3fe92b05f5d9456c645692773df1bd9991fd95c90a97d1de9d0191c68aa61805",
+          "bytes": 385565,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Darmstadt Graphics Group GmbH",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/metadata.json",
+            "covers": "3D asset and textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/glTF/AnimationPointerUVs.bin",
+          "sha256": "778d37467d4f0db480bead3b8e449e083999ce8344acc609910e4ba506cf751b",
+          "bytes": 5329724,
+          "as": "AnimationPointerUVs.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Darmstadt Graphics Group GmbH",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/metadata.json",
+            "covers": "3D asset and textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/glTF/AnimationPointerUVs_BaseColor.png",
+          "sha256": "ef4fabe76569d7c398e89ac2b1d1390e4c327f29bcb092285382fe85193352f1",
+          "bytes": 59655,
+          "as": "AnimationPointerUVs_BaseColor.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Darmstadt Graphics Group GmbH",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/metadata.json",
+            "covers": "3D asset and textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/glTF/AnimationPointerUVs_DiffuseTransmission.png",
+          "sha256": "e265142efb5f1eb8013036ed149121b1f3334033034a8695e1bdfa1240b5614c",
+          "bytes": 344954,
+          "as": "AnimationPointerUVs_DiffuseTransmission.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Darmstadt Graphics Group GmbH",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/metadata.json",
+            "covers": "3D asset and textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/glTF/AnimationPointerUVs_Orm.png",
+          "sha256": "ea1d39549516d4a690c94a63f8f8fc6047b263c51935a2231f40dad80f0e3601",
+          "bytes": 142256,
+          "as": "AnimationPointerUVs_Orm.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Darmstadt Graphics Group GmbH",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/metadata.json",
+            "covers": "3D asset and textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/glTF/AnimationPointerUVs_Emissive.png",
+          "sha256": "f595c38b0805562ee401c6ca4752234091e3fd604684f6e1050e5802c15a39bb",
+          "bytes": 252458,
+          "as": "AnimationPointerUVs_Emissive.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Darmstadt Graphics Group GmbH",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/metadata.json",
+            "covers": "3D asset and textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/glTF/AnimationPointerUVs_NormalFlat.png",
+          "sha256": "962ef816bd2e27a85bf59470da4bb44b89747ab093ad91395837587faa2a7b6d",
+          "bytes": 72,
+          "as": "AnimationPointerUVs_NormalFlat.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Darmstadt Graphics Group GmbH",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/metadata.json",
+            "covers": "3D asset and textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/glTF/AnimationPointerUVs_Clearcoat.png",
+          "sha256": "a247f4be0c363f49e66eda92def7ed2846d447e084e739c954b4c938651edeca",
+          "bytes": 253446,
+          "as": "AnimationPointerUVs_Clearcoat.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Darmstadt Graphics Group GmbH",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/metadata.json",
+            "covers": "3D asset and textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/glTF/AnimationPointerUVs_Normal.png",
+          "sha256": "2bd6f7cfe118577b8dae7b6cf03fe799d2cf1f72c48561ecc603fff6b8d8236b",
+          "bytes": 16531,
+          "as": "AnimationPointerUVs_Normal.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Darmstadt Graphics Group GmbH",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/metadata.json",
+            "covers": "3D asset and textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/glTF/AnimationPointerUVs_Anisotropy.png",
+          "sha256": "5a608e67a8d1533c1f04f62836021e07a66316817b025998957eaf54958a0d51",
+          "bytes": 40406,
+          "as": "AnimationPointerUVs_Anisotropy.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Darmstadt Graphics Group GmbH",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/metadata.json",
+            "covers": "3D asset and textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/glTF/AnimationPointerUVs_ClearcoatNormal.png",
+          "sha256": "7ab95d9ebb6e3d2ff674a3d207f9ecc2b50ec626a45d58d86d3e829d07f5d8f9",
+          "bytes": 207194,
+          "as": "AnimationPointerUVs_ClearcoatNormal.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Darmstadt Graphics Group GmbH",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/metadata.json",
+            "covers": "3D asset and textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/glTF/AnimationPointerUVs_Iridescence.png",
+          "sha256": "2bda03709d1eb682637cecabe8078411deb274e84ffbeaf8e8bc6b05a655c4d3",
+          "bytes": 217901,
+          "as": "AnimationPointerUVs_Iridescence.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Darmstadt Graphics Group GmbH",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/metadata.json",
+            "covers": "3D asset and textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/glTF/AnimationPointerUVs_Sheen.png",
+          "sha256": "3cb4848520e1067ab25df9eeab7b34de42235d17183986d6c35bbf0289a42354",
+          "bytes": 503577,
+          "as": "AnimationPointerUVs_Sheen.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Darmstadt Graphics Group GmbH",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/metadata.json",
+            "covers": "3D asset and textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/glTF/AnimationPointerUVs_Specular.png",
+          "sha256": "570fa1a08bbdfbb5dce448c6c37f6a3bb178c5b54b40f68d20bd0541a73d6f93",
+          "bytes": 314624,
+          "as": "AnimationPointerUVs_Specular.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Darmstadt Graphics Group GmbH",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/metadata.json",
+            "covers": "3D asset and textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/glTF/AnimationPointerUVs_TransmissionVolume.png",
+          "sha256": "c3912b80e28ce7eaa7e96b02207f3cb741306117ae3bc5193af2866b38154b5e",
+          "bytes": 96997,
+          "as": "AnimationPointerUVs_TransmissionVolume.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Darmstadt Graphics Group GmbH",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/metadata.json",
+            "covers": "3D asset and textures"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/metadata.json",
+          "sha256": "2baeb86e637d02207eadef31a9bc862080e8d970220b6105515c37f8bae00636",
+          "bytes": 795,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Darmstadt Graphics Group GmbH",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimationPointerUVs/metadata.json",
+            "covers": "3D asset and textures"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        57.78966699832839,
+        26.164384922530246,
+        40.354936963850825
+      ],
+      "lookAtM": [
+        0.11300504207611084,
+        0.5371667396947739,
+        -0.03069651669019996
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 64.43713585376678,
+      "clipEndM": 85.42081072006091,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-9.165282249450684, -4.332165718078613, -0.5613932993759952] to [9.391292333602905, 5.406499197468161, 0.5000002659955953], so centre = [0.11300504207611084, 0.5371667396947739, -0.03069651669019996] and radius = 10.491837433147069 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 74.92897328691384, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "Material #118": [
+          0.85,
+          0.15,
+          0.15
+        ],
+        "Material #119": [
+          0.15,
+          0.3542572472504414,
+          0.85
+        ],
+        "Material #120": [
+          0.5585144945008829,
+          0.85,
+          0.15
+        ],
+        "Material #123": [
+          0.85,
+          0.15,
+          0.7627717417513241
+        ],
+        "Material #124": [
+          0.15,
+          0.85,
+          0.7329710109982343
+        ],
+        "Material #125": [
+          0.85,
+          0.528713763747793,
+          0.15
+        ],
+        "Material #126": [
+          0.3244565164973515,
+          0.15,
+          0.85
+        ],
+        "Material #127": [
+          0.17980073075308986,
+          0.85,
+          0.15
+        ],
+        "Material #128": [
+          0.85,
+          0.15,
+          0.38405797800353125
+        ],
+        "Material #129": [
+          0.15,
+          0.5883152252539726,
+          0.85
+        ],
+        "Material #130": [
+          0.792572472504414,
+          0.85,
+          0.15
+        ],
+        "Material #131": [
+          0.7031702802451444,
+          0.15,
+          0.85
+        ],
+        "Material #132": [
+          0.15,
+          0.85,
+          0.4989130329947031
+        ],
+        "Material #133": [
+          0.85,
+          0.29465578574426166,
+          0.15
+        ],
+        "Material #134": [
+          0.15,
+          0.20960146150617973,
+          0.85
+        ],
+        "Material #135": [
+          0.4138587087566211,
+          0.85,
+          0.15
+        ],
+        "Material #136": [
+          0.85,
+          0.15,
+          0.6181159560070625
+        ],
+        "Material #137": [
+          0.15,
+          0.8223732032575038,
+          0.85
+        ],
+        "Material #138": [
+          0.85,
+          0.6733695494920545,
+          0.15
+        ],
+        "Material #139": [
+          0.4691123022416132,
+          0.15,
+          0.85
+        ],
+        "Material #140": [
+          0.15,
+          0.85,
+          0.2648550549911718
+        ],
+        "Material #141": [
+          0.85,
+          0.15,
+          0.2394021922592696
+        ],
+        "Material #142": [
+          0.15,
+          0.443659439509711,
+          0.85
+        ],
+        "Material #143": [
+          0.6479166867601523,
+          0.85,
+          0.15
+        ],
+        "Material #144": [
+          0.8478260659894062,
+          0.15,
+          0.85
+        ],
+        "Material #145": [
+          0.15,
+          0.85,
+          0.6435688187389647
+        ],
+        "Material #146": [
+          0.85,
+          0.43931157148852334,
+          0.15
+        ],
+        "Material #147": [
+          0.2350543242380894,
+          0.15,
+          0.85
+        ],
+        "Material #148": [
+          0.2692029230123595,
+          0.85,
+          0.15
+        ],
+        "Material #149": [
+          0.85,
+          0.15,
+          0.4734601702628083
+        ],
+        "Material #150": [
+          0.15,
+          0.6777174175132422,
+          0.85
+        ],
+        "Material #151": [
+          0.85,
+          0.8180253352363237,
+          0.15
+        ],
+        "Material #152": [
+          0.6137680879858748,
+          0.15,
+          0.85
+        ],
+        "Material #153": [
+          0.15,
+          0.85,
+          0.409510840735426
+        ],
+        "Material #154": [
+          0.85,
+          0.20525359348499206,
+          0.15
+        ],
+        "Material #155": [
+          0.15,
+          0.29900365376544186,
+          0.85
+        ],
+        "Material #156": [
+          0.5032609010158907,
+          0.85,
+          0.15
+        ],
+        "Material #157": [
+          0.85,
+          0.15,
+          0.7075181482663396
+        ],
+        "Material #158": [
+          0.15,
+          0.85,
+          0.7882246044832265
+        ],
+        "Material #159": [
+          0.85,
+          0.5839673572327925,
+          0.15
+        ],
+        "Material #160": [
+          0.3797101099823436,
+          0.15,
+          0.85
+        ],
+        "Material #161": [
+          0.15,
+          0.85,
+          0.17545286273189473
+        ],
+        "Material #162": [
+          0.85,
+          0.15,
+          0.3288043845185392
+        ],
+        "Material #163": [
+          0.15,
+          0.5330616317689731,
+          0.85
+        ],
+        "Material #164": [
+          0.737318879019422,
+          0.85,
+          0.15
+        ],
+        "Material #165": [
+          0.7584238737301291,
+          0.15,
+          0.85
+        ],
+        "Material #166": [
+          0.15,
+          0.85,
+          0.5541666264796952
+        ],
+        "Material #167": [
+          0.85,
+          0.34990937922926124,
+          0.15
+        ],
+        "Material #168": [
+          0.15,
+          0.15434786802118763,
+          0.85
+        ],
+        "Material #169": [
+          0.3586051152716365,
+          0.85,
+          0.15
+        ],
+        "Material #170": [
+          0.85,
+          0.15,
+          0.5628623625220704
+        ],
+        "Material #171": [
+          0.15,
+          0.7671196097725045,
+          0.85
+        ],
+        "Material #172": [
+          0.85,
+          0.7286231429770468,
+          0.15
+        ],
+        "Material #173": [
+          0.5243658957265979,
+          0.15,
+          0.85
+        ],
+        "Material #174": [
+          0.15,
+          0.85,
+          0.3201086484761788
+        ],
+        "Material #175": [
+          0.85,
+          0.15,
+          0.18414859877427006
+        ],
+        "Material #176": [
+          0.15,
+          0.38840584602471895,
+          0.85
+        ],
+        "Material #177": [
+          0.5926630932751679,
+          0.85,
+          0.15
+        ],
+        "Material #178": [
+          0.85,
+          0.15,
+          0.7969203405256166
+        ],
+        "Material #51": [
+          0.15,
+          0.85,
+          0.6988224122239642
+        ],
+        "Material #52": [
+          0.85,
+          0.49456516497351544,
+          0.15
+        ],
+        "Material #53": [
+          0.2903079177230665,
+          0.15,
+          0.85
+        ],
+        "Material #57": [
+          0.21394932952735246,
+          0.85,
+          0.15
+        ],
+        "Material #58": [
+          0.85,
+          0.15,
+          0.4182065767778013
+        ],
+        "Material #59": [
+          0.15,
+          0.6224638240282502,
+          0.85
+        ],
+        "Material #60": [
+          0.8267210712786991,
+          0.85,
+          0.15
+        ],
+        "Material #61": [
+          0.669021681470852,
+          0.15,
+          0.85
+        ],
+        "Material #62": [
+          0.15,
+          0.85,
+          0.464764434220433
+        ],
+        "Material #88": [
+          0.85,
+          0.26050718696998415,
+          0.15
+        ],
+        "Material #89": [
+          0.15,
+          0.2437500602804647,
+          0.85
+        ],
+        "Material #90": [
+          0.4480073075308837,
+          0.85,
+          0.15
+        ],
+        "Material #91": [
+          0.85,
+          0.15,
+          0.6522645547813325
+        ],
+        "Material #92": [
+          0.15,
+          0.85,
+          0.8434781979682185
+        ],
+        "Material #93": [
+          0.85,
+          0.6392209507177696,
+          0.15
+        ],
+        "Material #94": [
+          0.4349637034673208,
+          0.15,
+          0.85
+        ],
+        "Material #95": [
+          0.15,
+          0.85,
+          0.23070645621690175
+        ],
+        "Material #96": [
+          0.85,
+          0.15,
+          0.27355079103354707
+        ],
+        "Material #99": [
+          0.15,
+          0.477808038283996,
+          0.85
+        ],
+        "plane_VolumeAttenuation": [
+          0.682065285534415,
+          0.85,
+          0.15
+        ],
+        "text_black": [
+          0.813677467215136,
+          0.15,
+          0.85
+        ],
+        "text_green": [
+          0.15,
+          0.85,
+          0.6094202199646873
+        ]
+      },
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it. A material a primitive does not name is keyed by `<default>`, which is the format's own word for the material an undefined `material` selects."
+    },
+    "animation": {
+      "animations": [
+        0
+      ],
+      "fps": {
+        "value": 1,
+        "unit": "frames per second",
+        "origin": "SET",
+        "note": "ONE FRAME PER SECOND, AND THE RATE IS AN INTEGER BECAUSE THE HARNESS REQUIRES ONE: a frame is `index / fps` seconds and Blender's own rate is whole. A rate below one -- which is what sampling a 60 s span in five steps would need -- has no spelling, so the grid is a second apart and the note below says what it therefore covers."
+      },
+      "frames": {
+        "value": 5,
+        "unit": "frames",
+        "origin": "derived",
+        "derivation": "min(5, ceil(6 s) + 1) = 5, so the grid runs 0..4 s.",
+        "note": "WHAT THIS GRID COVERS, STATED RATHER THAN IMPLIED. The file's declared span is 6 s and this case samples its first 4 s. Where the span is shorter than that, glTF clamps past the last keyframe and the tail frames state the end pose rather than an extrapolation. Where it is LONGER -- and it is for the long ones -- this case exercises the OPENING of the motion and says so: it decides that the animation is read, applied and posed, not that the whole of it is right. A case that needed the whole span would declare a grid for it and pay for the frames."
+      }
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "A coverage case over a moving subject. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet."
+}

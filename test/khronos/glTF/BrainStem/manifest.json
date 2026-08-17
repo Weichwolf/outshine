@@ -1,0 +1,520 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/animation/brain-stem",
+  "title": "Animations. Skins -- five frames across its own declared span",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:BrainStem",
+    "board:1234"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "Animations. Skins.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BrainStem/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction over a subject that MOVES, so the comparison is taken at every frame of the declared grid rather than at one pose. Nothing here is analytic: what is compared is which pixels each side covers at each sampled time and what colour each body wears there."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "brain-stem",
+      "kind": "gltf",
+      "name": "BrainStem",
+      "entry": "scene.gltf",
+      "attributes": [
+        "JOINTS_0",
+        "NORMAL",
+        "POSITION",
+        "WEIGHTS_0"
+      ],
+      "notes": "Attributes JOINTS_0, NORMAL, POSITION, WEIGHTS_0. 1 animation over a declared span of 34.88 s, and 1 skin. The file's own images are not read by this case: the material below declares its colours, so what is compared is where the geometry is at each frame and which body wears which row.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "BrainStem",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BrainStem/glTF/BrainStem.gltf",
+          "sha256": "8fc99ed74161aa79573236f9a457e238b0649993dfb41234fd7f6eafad696b75",
+          "bytes": 232477,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "LicenseRef-Poser-EULA",
+            "holder": "Smith Micro Software, Inc.",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BrainStem/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BrainStem/glTF/BrainStem0.bin",
+          "sha256": "1418d04d972655b9b1907d3d51438cd150e19016716e107bb949cd4379ac5cdb",
+          "bytes": 3105104,
+          "as": "BrainStem0.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "LicenseRef-Poser-EULA",
+            "holder": "Smith Micro Software, Inc.",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BrainStem/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BrainStem/metadata.json",
+          "sha256": "f43e873b9d7d7b9582050ab8c4df0a42f245b966015b27b0779e97c65bc8a90b",
+          "bytes": 717,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "LicenseRef-Poser-EULA",
+            "holder": "Smith Micro Software, Inc.",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BrainStem/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        8.451116946496235,
+        4.691865887565031,
+        5.906077617118115
+      ],
+      "lookAtM": [
+        -0.044809043407440186,
+        0.916908363607945,
+        -0.04283380508422854
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 9.49176180879216,
+      "clipEndM": 12.582713029156801,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-1.2521400451660156, -0.0005402960232459009, -0.3413881063461304] to [1.1625219583511353, 1.834357023239136, 0.25572049617767334], so centre = [-0.044809043407440186, 0.916908363607945, -0.04283380508422854] and radius = 1.5454756101823208 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 11.037237418974481, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "Stem-effect": [
+          0.85,
+          0.15,
+          0.15
+        ],
+        "TubeStem-effect": [
+          0.15,
+          0.3542572472504414,
+          0.85
+        ],
+        "ankleBracketStem-effect": [
+          0.5585144945008829,
+          0.85,
+          0.15
+        ],
+        "ankleStem-effect": [
+          0.85,
+          0.15,
+          0.7627717417513241
+        ],
+        "armBoltStem-effect": [
+          0.15,
+          0.85,
+          0.7329710109982343
+        ],
+        "armFilletStem-effect": [
+          0.85,
+          0.528713763747793,
+          0.15
+        ],
+        "armPlateStem-effect": [
+          0.3244565164973515,
+          0.15,
+          0.85
+        ],
+        "armTrussStem-effect": [
+          0.17980073075308986,
+          0.85,
+          0.15
+        ],
+        "bStem-effect": [
+          0.85,
+          0.15,
+          0.38405797800353125
+        ],
+        "barStem-effect": [
+          0.15,
+          0.5883152252539726,
+          0.85
+        ],
+        "barrel1Stem-effect": [
+          0.792572472504414,
+          0.85,
+          0.15
+        ],
+        "barrel2Stem-effect": [
+          0.7031702802451444,
+          0.15,
+          0.85
+        ],
+        "bayonetStem-effect": [
+          0.15,
+          0.85,
+          0.4989130329947031
+        ],
+        "boltStem-effect": [
+          0.85,
+          0.29465578574426166,
+          0.15
+        ],
+        "bracketStem-effect": [
+          0.15,
+          0.20960146150617973,
+          0.85
+        ],
+        "calfCoverStem-effect": [
+          0.4138587087566211,
+          0.85,
+          0.15
+        ],
+        "calfStem-effect": [
+          0.85,
+          0.15,
+          0.6181159560070625
+        ],
+        "canInnerStem-effect": [
+          0.15,
+          0.8223732032575038,
+          0.85
+        ],
+        "canisterInStem-effect": [
+          0.85,
+          0.6733695494920545,
+          0.15
+        ],
+        "canisterOutStem-effect": [
+          0.4691123022416132,
+          0.15,
+          0.85
+        ],
+        "componentStem-effect": [
+          0.15,
+          0.85,
+          0.2648550549911718
+        ],
+        "componentsStem-effect": [
+          0.85,
+          0.15,
+          0.2394021922592696
+        ],
+        "coverStem-effect": [
+          0.15,
+          0.443659439509711,
+          0.85
+        ],
+        "discInStem-effect": [
+          0.6479166867601523,
+          0.85,
+          0.15
+        ],
+        "discStem-effect": [
+          0.8478260659894062,
+          0.15,
+          0.85
+        ],
+        "exhaustGunStem-effect": [
+          0.15,
+          0.85,
+          0.6435688187389647
+        ],
+        "eyeRimStem-effect": [
+          0.85,
+          0.43931157148852334,
+          0.15
+        ],
+        "eyeStem-effect": [
+          0.2350543242380894,
+          0.15,
+          0.85
+        ],
+        "filletStem-effect": [
+          0.2692029230123595,
+          0.85,
+          0.15
+        ],
+        "filterInStem-effect": [
+          0.85,
+          0.15,
+          0.4734601702628083
+        ],
+        "filterOutStem-effect": [
+          0.15,
+          0.6777174175132422,
+          0.85
+        ],
+        "footFlangeStem-effect": [
+          0.85,
+          0.8180253352363237,
+          0.15
+        ],
+        "footStem-effect": [
+          0.6137680879858748,
+          0.15,
+          0.85
+        ],
+        "frameInStem-effect": [
+          0.15,
+          0.85,
+          0.409510840735426
+        ],
+        "headCaseStem-effect": [
+          0.85,
+          0.20525359348499206,
+          0.15
+        ],
+        "headFilletStem-effect": [
+          0.15,
+          0.29900365376544186,
+          0.85
+        ],
+        "headGrillStem-effect": [
+          0.5032609010158907,
+          0.85,
+          0.15
+        ],
+        "headHornStem-effect": [
+          0.85,
+          0.15,
+          0.7075181482663396
+        ],
+        "hexStem-effect": [
+          0.15,
+          0.85,
+          0.7882246044832265
+        ],
+        "hipSphereStem-effect": [
+          0.85,
+          0.5839673572327925,
+          0.15
+        ],
+        "intestineInStem-effect": [
+          0.3797101099823436,
+          0.15,
+          0.85
+        ],
+        "intestineOutStem-effect": [
+          0.15,
+          0.85,
+          0.17545286273189473
+        ],
+        "knee2Stem-effect": [
+          0.85,
+          0.15,
+          0.3288043845185392
+        ],
+        "kneeGuardStem-effect": [
+          0.15,
+          0.5330616317689731,
+          0.85
+        ],
+        "kneeStem-effect": [
+          0.737318879019422,
+          0.85,
+          0.15
+        ],
+        "neckSinkStem-effect": [
+          0.7584238737301291,
+          0.15,
+          0.85
+        ],
+        "off-effect": [
+          0.15,
+          0.85,
+          0.5541666264796952
+        ],
+        "pinStem-effect": [
+          0.85,
+          0.34990937922926124,
+          0.15
+        ],
+        "pipeStem-effect": [
+          0.15,
+          0.15434786802118763,
+          0.85
+        ],
+        "plugStem-effect": [
+          0.3586051152716365,
+          0.85,
+          0.15
+        ],
+        "radiatorStem-effect": [
+          0.85,
+          0.15,
+          0.5628623625220704
+        ],
+        "rpgStem-effect": [
+          0.15,
+          0.7671196097725045,
+          0.85
+        ],
+        "shockInStem-effect": [
+          0.85,
+          0.7286231429770468,
+          0.15
+        ],
+        "shockOutStem-effect": [
+          0.5243658957265979,
+          0.15,
+          0.85
+        ],
+        "shoulderBStem-effect": [
+          0.15,
+          0.85,
+          0.3201086484761788
+        ],
+        "shoulderPodStem-effect": [
+          0.85,
+          0.15,
+          0.18414859877427006
+        ],
+        "skeletonStem-effect": [
+          0.15,
+          0.38840584602471895,
+          0.85
+        ],
+        "thighPadStem-effect": [
+          0.5926630932751679,
+          0.85,
+          0.15
+        ],
+        "thighStem-effect": [
+          0.85,
+          0.15,
+          0.7969203405256166
+        ]
+      },
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it. A material a primitive does not name is keyed by `<default>`, which is the format's own word for the material an undefined `material` selects."
+    },
+    "animation": {
+      "animations": [
+        0
+      ],
+      "fps": {
+        "value": 1,
+        "unit": "frames per second",
+        "origin": "SET",
+        "note": "ONE FRAME PER SECOND, AND THE RATE IS AN INTEGER BECAUSE THE HARNESS REQUIRES ONE: a frame is `index / fps` seconds and Blender's own rate is whole. A rate below one -- which is what sampling a 60 s span in five steps would need -- has no spelling, so the grid is a second apart and the note below says what it therefore covers."
+      },
+      "frames": {
+        "value": 5,
+        "unit": "frames",
+        "origin": "derived",
+        "derivation": "min(5, ceil(34.8800011 s) + 1) = 5, so the grid runs 0..4 s.",
+        "note": "WHAT THIS GRID COVERS, STATED RATHER THAN IMPLIED. The file's declared span is 34.8800011 s and this case samples its first 4 s. Where the span is shorter than that, glTF clamps past the last keyframe and the tail frames state the end pose rather than an extrapolation. Where it is LONGER -- and it is for the long ones -- this case exercises the OPENING of the motion and says so: it decides that the animation is read, applied and posed, not that the whole of it is right. A case that needed the whole span would declare a grid for it and pay for the frames."
+      }
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "A coverage case over a moving subject. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet."
+}
