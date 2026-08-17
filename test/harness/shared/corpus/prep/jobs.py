@@ -329,8 +329,16 @@ def _render_one(manifest, store, blender, destination, gltf_paths, subject_pin, 
     # READ BACK FROM THE STORE ON BOTH PATHS, never handed over from the run that happened to produce
     # it: one route from the bytes to the report is one route that can be wrong, and a fresh run
     # cannot then pass over what a cached one would have refused.
+    account = _stored_provenance(store, provenance_key, manifest)
+    # THE RENDER IS NOT KEPT (board:1369). It has been copied out and its account has been read, so the
+    # store entry is spent -- and a Cycles render is CPU this machine has, where 54 GB of cache was disk
+    # it did not. The FETCH cache is untouched: upstream bytes cost the network and the network
+    # rate-limits.
+    for key in keys.values():
+        store.forget(key)
+    store.forget(provenance_key)
     return dict(row, cache="miss" if rendered else "hit", products=_sizes(targets),
-                provenance=_stored_provenance(store, provenance_key, manifest))
+                provenance=account)
 
 
 def _stored_provenance(store, key, manifest):

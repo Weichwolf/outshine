@@ -39,7 +39,7 @@ path — so adding a vendor adds a directory and there is no list it could be mi
 | two harness tests walking `<root>/<theme>/<case>` | recursively, **by what a case carries** |
 
 **The third would have corrupted a measurement rather than breaking a path.** Those walks did not error on
-the new layout — **they found nothing and reported no problem.** `ACachedRenderStillNamesItsIndices` exists
+the new layout — **they found nothing and reported no problem.** `EveryRenderNamesItsIndices` exists
 to catch a corpus-wide loss of index mappings, and a two-level walk would have made it green over an empty
 population.
 

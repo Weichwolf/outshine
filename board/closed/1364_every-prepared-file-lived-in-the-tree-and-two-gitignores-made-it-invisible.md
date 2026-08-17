@@ -42,7 +42,7 @@ live and touches no declaration, so an unchanged picture is the evidence that it
 ## Three things it broke, each of which was the point
 
 **Six tests walked the case trees for products** and reported an **empty population** rather than a
-failure — `EveryOracleWasPreparedByThisPreparer`, `ACachedRenderStillNamesItsIndices`,
+failure — `EveryOracleWasPreparedByThisPreparer`, `EveryRenderNamesItsIndices`,
 `TheOraclesExrReadsAsItsRaw`, `ADerivedCameraIsTheFramingRuleAndNotAQuotation`,
 `AGeneratedBasisIsTheOneTheExporterWrote`, `TheTriangleProjectsToTheOraclesArea`. *A green test over
 nothing is the shape this repository keeps finding, and the relocation surfaced six of them at once.*

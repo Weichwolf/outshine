@@ -41,3 +41,32 @@ heuristic over timestamps.
 | **keep it** | 54 GB and growing by roughly the size of a case's products on every manifest edit. The disk is at **26 GiB free** |
 | **delete it entire** | frees ~53 GB and costs **a full re-render of every oracle** -- 56 cases, several recipes each, some over a 31-frame grid. Hours of Cycles, and the only thing lost is time |
 | **build the collector** | bounded work, and it is the only option that does not have to be taken again next month |
+
+## Closed by a ruling rather than by a collector: a Cycles render is not cached
+
+**The owner: this machine has more CPU than disk.** So the render cache goes, and the collector this
+item was going to ask for is never needed — there is nothing to collect when nothing is kept.
+
+**The two halves are separated and only one of them goes**, because they cost different things:
+
+| | what a miss costs |
+|---|---|
+| **fetched upstream bytes** | the **network**, and `raw.githubusercontent.com` rate-limits by IP — measured this session at HTTP 429 through both `urllib` and `curl`. **Kept** |
+| **Cycles renders** | the **CPU**, which is what this machine has. **Not kept**: `_render_one` copies its products out, reads its account back, and calls `store.forget` on every key it wrote |
+
+**[MEASURED] the effect, before and after:**
+
+| | before | after |
+|---|---|---|
+| store size | **54 GB** | **165 MB** |
+| store entries | **18 655** | **233**, which is exactly the fetch digests the manifests name |
+| free disk | 26 GiB | **80 GiB** |
+| a case prepared after the change | — | 14 writes, and the store still holds **233** entries |
+
+**What was deleted and why it was safe to.** Everything whose name is not a `sha256` a manifest states —
+53.4 GB. Renders are not cached going forward, so their liveness stopped mattering; the fetch entries
+are named by the tracked manifests and were kept by that rule rather than by a timestamp.
+
+**The bound this now has, which is what the item was about.** The store holds one entry per file the
+corpus declares, and it grows only when a case declares a new file. *That is a bound somebody chose,
+which is what `CLAUDE.md`'s no-unbounded-growth rule asks for and what the store did not have.*

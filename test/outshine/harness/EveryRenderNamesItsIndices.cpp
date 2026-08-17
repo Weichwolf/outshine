@@ -1,5 +1,11 @@
 /* THE INDEX PASSES ON DISK CARRY THE MAPPING THAT MAKES THEM READABLE (board:1154).
  *
+ * IT WAS `ACachedRenderStillNamesItsIndices` AND THE CACHE IT GUARDED NO LONGER EXISTS (board:1369).
+ * A Cycles render is produced, delivered and forgotten -- the owner's ruling, because this machine has
+ * more CPU than disk -- so there is no cache hit to check and the `Cached > 0` claim was struck rather
+ * than left to pass vacuously. **The defect below is unchanged and so is everything else here**: the
+ * mapping has to be on every render row, and the population is every prepared case.
+ *
  * THE DEFECT THIS EXISTS FOR. Cycles' index passes carry `material.pass_index`, which the preparer
  * assigns inside Blender in name order over `bpy.data.materials` -- the factory startup file's own
  * materials included -- so index n is never material n and the numbering cannot be reconstructed from
@@ -179,9 +185,11 @@ int main() {
   /* A RUN WHERE NOTHING WAS CACHED WOULD PASS THIS WITHOUT EXERCISING THE PATH THAT WAS BROKEN, so
    * the population is a claim of its own rather than a note. It is the whole difference between "the
    * mapping is written" and "the mapping survives a cache hit". */
-  CHECK(all.Cached > 0,
-        "at least one render row was served from the store, so the cached path is the one these "
-        "counts are about");
+  /* A CACHE-HIT CLAIM STOOD HERE AND IT WAS STRUCK, not weakened (board:1369). Renders are no longer
+   * kept, so `Cached` is zero on every run by construction; a check on it would assert a path this tree
+   * does not have, and a check that cannot pass is worse than one that is absent. `Cached` is still
+   * COUNTED and still published below, because a number that reports zero is how a reader sees that the
+   * cache is gone rather than broken. */
   CHECK(all.WithAnIndexPass > 0,
         "the corpus places index passes at all, so a green count here is not a count over nothing");
 

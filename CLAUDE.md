@@ -507,7 +507,7 @@ flowchart TD
 |---|---|
 | **the declaration** | the `.gltf` is the case; the manifest is a **delta over declared defaults**, so adding a case is not a writing task |
 | **patch** | a declarative list of **named** corrections, each carrying the measurement it answers — and **applied identically to both sides**, or it is a repair of one side and not a patch |
-| **oracle** | Cycles, cached by a key covering the host, the subject's bytes, the whole declared scene and the recipe. **There is no second cache** |
+| **oracle** | Cycles. **Its renders are NOT cached and that is the owner's ruling** — this machine has more CPU than disk, and the store had reached 54 GB over 18 655 entries with no way to tell a live entry from a dead one. A render is produced, delivered and forgotten. **The FETCH cache stays**, because upstream bytes cost the network and the network rate-limits; **there is no second cache** of either kind |
 | **compare** | a pixel both sides agree is covered → the **perceptual tail** on the case's declared transfer. A pixel they disagree about → the **geometric bound**, stricter, against a **0.005 px instrument floor**. The pixel is routed, never discarded |
 
 **Two counts, published side by side, and they are not interchangeable.** *Criteria met* counts features

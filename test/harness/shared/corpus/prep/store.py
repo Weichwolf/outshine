@@ -107,6 +107,26 @@ class ContentStore:
                 os.remove(temp)
             raise
 
+    def forget(self, key):
+        """DROP AN ENTRY THAT HAS BEEN COPIED OUT AND WILL NOT BE ASKED FOR AGAIN (board:1369).
+
+        The owner's ruling: a Cycles render is not worth caching, because this machine has more CPU
+        than disk. The store held 54 GB over 18 655 entries and could not tell a live entry from a
+        dead one -- an access time this filesystem does not maintain, a modification time a cache hit
+        never touches -- so it grew by a case's whole output on every manifest edit.
+
+        THE FETCH CACHE IS NOT THIS AND MUST NOT BECOME IT. Upstream bytes cost the NETWORK, and the
+        network rate-limits; a render costs the CPU, and the CPU is what this machine has.
+        """
+        if not self.enabled:
+            return False
+        here = self.path(key)
+        try:
+            os.remove(here)
+            return True
+        except OSError:
+            return False
+
     def copy_out(self, key, destination_path):
         if not os.path.isfile(self.path(key)):
             raise Refusal(
