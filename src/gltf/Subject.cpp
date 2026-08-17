@@ -443,11 +443,6 @@ bool Subject::Build(const Document &document, const VariantSelection &variant) {
 }
 
 bool Subject::Build(const Document &document, Span<const Transform> pose,
-                    const VariantSelection &variant) {
-  return Build(document, pose, Span<const double>(), variant);
-}
-
-bool Subject::Build(const Document &document, Span<const Transform> pose,
                     Span<const double> weights, const VariantSelection &variant) {
   if (pose.Size() != document.Nodes().size()) {
     return Refuse(document.Path() + ": the pose states " + std::to_string(pose.Size()) +

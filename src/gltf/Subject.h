@@ -196,13 +196,13 @@ public:
    * what `Gltf::Pose::At` writes at a time. The pose is baked into the world positions here exactly
    * as the file's own placements are, so nothing downstream learns that the subject was animated --
    * a drawable is a drawable. Refuses a run that is not one transform per node. */
-  [[nodiscard]] bool Build(const Document &document, Span<const Transform> pose,
-                           const VariantSelection &variant = {});
-  /* THE POSE WITH ITS MORPH WEIGHTS, which is what `Gltf::Pose::At` writes in one call (board:1203).
-   * `weights` is the flat run laid out by `Document::MorphWeightsFirst`, and passing it separately
-   * from the transforms is not an invitation to pass one without the other -- the overload above
-   * exists for a file with no morph target at all, where the run is empty and the two calls are the
-   * same call. */
+  /* THE POSE IS ITS TRANSFORMS AND ITS MORPH WEIGHTS, AND THERE IS NO OVERLOAD THAT TAKES ONE
+   * (board:1203). `Gltf::Pose::At` writes both in one call, and a `Build` that could be handed the
+   * transforms alone WAS handed them alone the first time this was built: every frame of
+   * `AnimatedMorphCube` reached the flatten with the mesh's rest weights, our subject stood still
+   * against an oracle that morphed, and nothing failed to compile. The empty run is still legal --
+   * it means "the file's own weights", which is what a caller posing an unmorphed file has to say --
+   * but it has to be SAID. */
   [[nodiscard]] bool Build(const Document &document, Span<const Transform> pose,
                            Span<const double> weights, const VariantSelection &variant = {});
 

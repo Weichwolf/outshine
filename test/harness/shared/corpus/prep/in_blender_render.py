@@ -540,8 +540,26 @@ def evaluated_pose(imported):
 
 
 def clear_objects():
+    """THE SCENE BEFORE THE SUBJECT, and removing the objects is not enough (board:1203).
+
+    Blender's factory startup carries a mesh, a material and a light DATABLOCK, and removing the
+    objects that use them leaves the datablocks behind. The glTF importer then finds a material named
+    `Material` already present and imports the file's own as `Material.001` -- so a manifest naming
+    the FILE's material stops matching the scene, and every asset in the corpus whose material is
+    called `Material` is affected. It is a rename and not an error, which is why it surfaced as a
+    refusal about a colour rather than about a collision.
+
+    THE PURGE IS BY NAME OF THE COLLECTION AND NOT BY WHAT IS UNUSED, because `orphans_purge` walks
+    users and a datablock the factory scene still references would survive it."""
     for obj in list(bpy.data.objects):
         bpy.data.objects.remove(obj, do_unlink=True)
+    for held in (bpy.data.materials, bpy.data.meshes, bpy.data.armatures, bpy.data.lights,
+                 bpy.data.cameras, bpy.data.images, bpy.data.actions, bpy.data.shape_keys):
+        for datablock in list(held):
+            try:
+                held.remove(datablock, do_unlink=True)
+            except (RuntimeError, ReferenceError, TypeError):
+                pass
 
 
 def observed_world(scene):

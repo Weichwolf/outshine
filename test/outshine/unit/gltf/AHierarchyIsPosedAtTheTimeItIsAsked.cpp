@@ -181,7 +181,8 @@ int main() {
   CHECK(locals.size() == file.Nodes().size(), "a pose writes one local transform per node");
 
   Subject posed;
-  CHECK(posed.Build(file, Span<const Transform>(locals.data(), locals.size())),
+  CHECK(posed.Build(file, Span<const Transform>(locals.data(), locals.size()),
+                    Span<const double>(weights.data(), weights.size())),
         "the document flattens at the pose");
   if (!posed.Error().empty()) { std::printf("NOTE %s\n", posed.Error().c_str()); }
   CHECK(posed.VertexCount() == 3, "the posed flatten carries the fixture's three vertices");
@@ -209,7 +210,8 @@ int main() {
   std::vector<Transform> atStart;
   pose.At(0.0, atStart, weights);
   Subject rest;
-  CHECK(rest.Build(file, Span<const Transform>(atStart.data(), atStart.size())),
+  CHECK(rest.Build(file, Span<const Transform>(atStart.data(), atStart.size()),
+                   Span<const double>(weights.data(), weights.size())),
         "the document flattens at the start of the grid too");
   double moved = 0;
   for (size_t vertex = 0; vertex < rest.VertexCount(); ++vertex) {
@@ -237,7 +239,8 @@ int main() {
              "the pose at the first keyframe is the file's own placement, bit for bit");
 
   Subject wrongLength;
-  CHECK(!wrongLength.Build(file, Span<const Transform>(locals.data(), locals.size() - 1)),
+  CHECK(!wrongLength.Build(file, Span<const Transform>(locals.data(), locals.size() - 1),
+                          Span<const double>(weights.data(), weights.size())),
         "a pose one node short is refused rather than applied to the nodes it does cover");
   std::printf("NOTE %s\n", wrongLength.Error().c_str());
 

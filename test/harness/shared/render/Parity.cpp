@@ -1167,6 +1167,8 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
   if (subject.Geometry.Build(subject.File,
                              outshine::Span<const Transform>(subject.Locals.data(),
                                                              subject.Locals.size()),
+                             outshine::Span<const double>(subject.Weights.data(),
+                                                          subject.Weights.size()),
                              subject.Variant)) {
     return true;
   }

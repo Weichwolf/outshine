@@ -815,16 +815,24 @@ bool Document::ReadAnimations(const Json &json) {
         return Refuse("animation " + Number(i) + " sampler " + Number(s) +
                       " has a time grid that is not SCALAR");
       }
-      /* THE ONE SHAPE RULE THE FORMAT PUTS ON A SAMPLER, and it is what makes `CUBICSPLINE` a
-       * different DECODE and not a different formula: three elements per keyframe against one. A
-       * file that got this wrong would otherwise be read as an animation a third as long. */
+      /* THE SHAPE RULE THE FORMAT PUTS ON A SAMPLER, and it is what makes `CUBICSPLINE` a different
+       * DECODE and not a different formula: three elements per keyframe against one. A file that got
+       * this wrong would otherwise be read as an animation a third as long.
+       *
+       * IT IS A MULTIPLE AND NOT AN EQUALITY, BECAUSE A SAMPLER DOES NOT KNOW ITS PATH (board:1203).
+       * A `weights` output is SCALAR and carries one value PER TARGET per keyframe -- 127 keyframes
+       * and two targets is 254 -- so an equality here refuses every morph animation in the corpus.
+       * Which multiple is right is a question about the mesh the CHANNEL names, and `Pose::Build`
+       * refuses a width that disagrees with it, where the mesh is in scope. What is checked here is
+       * what a sampler alone can decide: that the run divides. */
       const size_t perKeyframe = (sampler.How == Interpolation::CubicSpline) ? 3u : 1u;
       const Accessor &values = Accessors_[static_cast<size_t>(sampler.Output)];
-      if (values.Count != times.Count * perKeyframe) {
+      const size_t wanted = times.Count * perKeyframe;
+      if (wanted == 0 || values.Count == 0 || values.Count % wanted != 0) {
         return Refuse("animation " + Number(i) + " sampler " + Number(s) + " states " +
                       Number(times.Count) + " keyframes and " + Number(values.Count) +
-                      " output elements, and this interpolation wants " +
-                      Number(times.Count * perKeyframe));
+                      " output elements, which is not a whole number of values per keyframe of " +
+                      Number(wanted));
       }
       if (sampler.How == Interpolation::CubicSpline && times.Count < 2) {
         return Refuse("animation " + Number(i) + " sampler " + Number(s) +
