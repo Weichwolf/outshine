@@ -1,7 +1,7 @@
 #!/bin/sh
 # THE HARNESS. One process per test, one verdict per test, non-zero on anything that is not a pass.
 # POSIX shell, and the whole dependency set is the shell, the compiler and the clock the compiler
-# builds (test/shared/Millis.cpp) -- a harness that needs a language runtime to say "the build is broken" is
+# builds (test/harness/shared/Millis.cpp) -- a harness that needs a language runtime to say "the build is broken" is
 # one more thing that can be broken.
 #
 #   sh test/run.sh [--timeout SECONDS] [--allow-skip LAYER/NAME]...
@@ -132,7 +132,7 @@ LayerIncludes() {
     outshine/unit/render/stages) printf '%s' "-Isrc/core -Isrc/render/stages" ;;
     outshine/unit/clients) printf '%s' "-Isrc/clients" ;;
     outshine/harness) printf '%s' "-Isrc/core" ;;
-    khronos/glTF/harness | outshine/render/harness) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
+    harness/khronos/glTF | harness/outshine/render) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
     outshine/frame) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
     outshine/shader) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render -Isrc/render/stages" ;;
     *) return 1 ;;
@@ -150,7 +150,7 @@ LayerIncludes() {
 # boundary.
 LayerToolchain() {
   case "$1" in
-    khronos/glTF/harness | outshine/render/harness | outshine/frame) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    harness/khronos/glTF | harness/outshine/render | outshine/frame) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     outshine/shader) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3)" ;;
     outshine/unit/clients) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
@@ -165,7 +165,7 @@ LayerToolchain() {
 # test's own id so a sanitised run can never be read as a shipping one.
 LayerSanitiser() {
   case "$1" in
-    khronos/glTF/harness | outshine/render/harness | outshine/shader) printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
+    harness/khronos/glTF | harness/outshine/render | outshine/shader) printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -181,7 +181,7 @@ LayerSanitiser() {
 # `SubjectDraw` still declared two colour outputs into a pass with one attachment.
 LayerValidation() {
   case "$1" in
-    khronos/glTF/harness | outshine/render/harness | outshine/shader) printf '%s' "-DOUTSHINE_GPU_VALIDATION=1" ;;
+    harness/khronos/glTF | harness/outshine/render | outshine/shader) printf '%s' "-DOUTSHINE_GPU_VALIDATION=1" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -190,7 +190,7 @@ LayerLink() {
   case "$1" in
     # zlib, for the oracle's EXR (board:1119). It is already in these processes through SDL3_image ->
     # libpng, so naming it links what the host already provides rather than adding a dependency.
-    khronos/glTF/harness | outshine/render/harness | outshine/frame) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz" ;;
+    harness/khronos/glTF | harness/outshine/render | outshine/frame) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz" ;;
     outshine/harness) printf '%s' "-lz" ;;
     outshine/shader) printf '%s' "$(pkg-config --libs sdl3)" ;;
     outshine/unit/clients) printf '%s' "$(pkg-config --libs sdl3-image)" ;;
@@ -233,7 +233,7 @@ LayerGroups() {
     outshine/unit/render/stages) printf '%s' "" ;;
     outshine/unit/clients) printf '%s' "src/clients/Image.cpp" ;;
     outshine/harness) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
-    khronos/glTF/harness | outshine/render/harness | outshine/frame) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/clients/GltfStudio.cpp src/clients/Image.cpp" ;;
+    harness/khronos/glTF | harness/outshine/render | outshine/frame) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/clients/GltfStudio.cpp src/clients/Image.cpp" ;;
     outshine/shader) printf '%s' "src/core src/core/io src/render/Readback.cpp" ;;
     *) return 1 ;;
   esac
@@ -246,8 +246,8 @@ LayerGroups() {
 # 137 and nothing else.
 LayerCases() {
   case "$1" in
-    khronos/glTF/harness) find test/khronos/glTF -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
-    outshine/render/harness) find test/outshine/render -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
+    harness/khronos/glTF) find test/khronos/glTF -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
+    harness/outshine/render) find test/outshine/render -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -263,8 +263,8 @@ LayerCases() {
 # guarantees is held by a test that does run: outshine/unit/gltf/AProducedSubjectIsTheOneItStated.
 NotTheHarnesses() {
   case "$1" in
-    shared) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
-    shared/render) printf '%s' "the render scoring instrument, compiled into each corpus's own harness" ;;
+    harness/shared) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
+    harness/shared/render) printf '%s' "the render scoring instrument, compiled into each corpus's own harness" ;;
     outshine/host) printf '%s' "host implementations of what the library declares, compiled into the library" ;;
     outshine/unit/compile | outshine/unit/compile/*) printf '%s' "a compile subject, judged by the layer's own refusal test, never linked" ;;
     outshine/corpus | outshine/corpus/*) printf '%s' "the offline preparer's own, compiled and run by test/outshine/corpus/prepare.py" ;;
@@ -277,7 +277,7 @@ NotTheHarnesses() {
 # asset. So the scorer is one file compiled into each harness rather than one binary behind a flag.
 LayerExtraSources() {
   case "$1" in
-    khronos/glTF/harness | outshine/render/harness) printf '%s' "test/shared/render/Parity.cpp" ;;
+    harness/khronos/glTF | harness/outshine/render) printf '%s' "test/harness/shared/render/Parity.cpp" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -442,7 +442,7 @@ SkipAllowed() {
 
 mkdir -p "$BUILD/obj" "$BUILD/obj-sanitised" "$BUILD/obj-validated" "$BUILD/log" || Die "cannot write under $BUILD"
 SAN=""
-$CXX test/shared/Millis.cpp $CXXSTD $OPT $WARN -o "$BUILD/millis" || Die "the clock did not build"
+$CXX test/harness/shared/Millis.cpp $CXXSTD $OPT $WARN -o "$BUILD/millis" || Die "the clock did not build"
 Now() { "$BUILD/millis"; }
 
 # THE PRUNE, BESIDE THE CLOCK AND FOR THE SAME REASON (board:1181): the runner owns a case's
@@ -452,7 +452,7 @@ Now() { "$BUILD/millis"; }
 OBJECTS=""
 BuildGroup src/core/Json.cpp || Die "the prune's reader did not build"
 # shellcheck disable=SC2086
-$CXX test/shared/Prune.cpp $OBJECTS $CXXSTD $OPT $WARN -Itest/shared -Itest/shared/render -Isrc/core -o "$BUILD/prune" ||
+$CXX test/harness/shared/Prune.cpp $OBJECTS $CXXSTD $OPT $WARN -Itest/harness/shared -Itest/harness/shared/render -Isrc/core -o "$BUILD/prune" ||
   Die "the prune did not build"
 PRUNE_MARKER=$BUILD/prune.marker
 
@@ -707,7 +707,7 @@ for testSource in $TESTS; do
   compileDefine="-DOUTSHINE_COMPILE=\"$CXX $CXXSTD $WARN $includes\""
   if [ "$built" = yes ]; then
     # shellcheck disable=SC2086
-    $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN -Itest/shared -Itest/shared/render $includes "$compileDefine" $linkage -o "$plainBinary" >>"$log" 2>&1 || built=no
+    $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN -Itest/harness/shared -Itest/harness/shared/render $includes "$compileDefine" $linkage -o "$plainBinary" >>"$log" 2>&1 || built=no
   fi
 
   # A BUILD FAILURE IS JUDGED BEFORE ANY TRAILER, because a binary that does not exist cannot print
@@ -738,7 +738,7 @@ for testSource in $TESTS; do
     sanitisedBinary=$plainBinary.sanitised
     if [ "$built" = yes ]; then
       # shellcheck disable=SC2086
-      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $SAN -Itest/shared -Itest/shared/render $includes "$compileDefine" $linkage -o "$sanitisedBinary" >>"$sanitisedLog" 2>&1 || built=no
+      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $SAN -Itest/harness/shared -Itest/harness/shared/render $includes "$compileDefine" $linkage -o "$sanitisedBinary" >>"$sanitisedLog" 2>&1 || built=no
     fi
     OBJDIR=$BUILD/obj
     SAN=""
@@ -770,7 +770,7 @@ for testSource in $TESTS; do
     validatedBinary=$BUILD/$(printf '%s' "$id" | tr / -).validated
     if [ "$built" = yes ]; then
       # shellcheck disable=SC2086
-      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $validation -Itest/shared -Itest/shared/render $includes "$compileDefine" $linkage -o "$validatedBinary" >>"$validatedLog" 2>&1 || built=no
+      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $validation -Itest/harness/shared -Itest/harness/shared/render $includes "$compileDefine" $linkage -o "$validatedBinary" >>"$validatedLog" 2>&1 || built=no
     fi
     OBJDIR=$BUILD/obj
     EXTRA_DEFINES=""

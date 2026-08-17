@@ -1,9 +1,7 @@
-# A case directory's only tracked file is its manifest; everything else in one is derived and the
-# runner prunes it. The anchored lines are this corpus's own harness, which is source: without them a
-# new .cpp under harness/ would be ignored, and the anchor is what stops a case directory carrying one.
+# A CASE DIRECTORY CARRIES ONLY ITS DECLARATION. Everything else in one is derived and the runner
+# prunes it; the harness that scores this corpus lives under test/harness/ and no source sits among
+# the cases, so this file needs no anchor carving one out.
 *
 !*/
 !.gitignore
 !manifest.json
-!/harness/*.cpp
-!/harness/*.h

@@ -10,7 +10,7 @@ sampled different texels* is unspeakable and every disagreement about a textured
 disagreement about colour.
 
 **OUR UV IS DERIVED ON THE HOST AND NOT PUBLISHED FROM THE DEVICE**, and that is the one place this
-feature does not reach for an attachment. `RasteriseDeclaredNormals` in `test/shared/render/Parity.cpp` already
+feature does not reach for an attachment. `RasteriseDeclaredNormals` in `test/harness/shared/render/Parity.cpp` already
 walks the parts, projects each triangle through the case's own `clip`, keeps the nearest by this
 projection's own convention and interpolates a **per-vertex attribute** barycentrically. A uv is that
 routine with a different attribute and a different width. Writing a second rasteriser instead would be

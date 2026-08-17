@@ -8,7 +8,7 @@ Tags: oracle, instrument, khronos
 `board:1133` is decided: **derive the term first and let the number land where it lands.** The deliverable
 is a derivation, not a code change — the code change is one constant and is worthless without it.
 
-**Parented to `board:0089` because that feature owns the bound** (`test/shared/render/PictureBound.h` cites it,
+**Parented to `board:0089` because that feature owns the bound** (`test/harness/shared/render/PictureBound.h` cites it,
 and the scorer's own words are *the bound is the sum of the terms this case's own path puts in it*). A
 term of the bound is a child of the feature that states the bound, and inventing a feature to hold one
 derivation would be a headline over a paragraph.

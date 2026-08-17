@@ -24,7 +24,7 @@ the truth is neither: `RenderPlan::Compile` **accepts** the plan, and the refusa
 device bring-up, on a machine with a GPU. The word *largely* is carrying this entire class.
 
 **And the reason the refusal has never fired is the part worth having.** All **34** render cases declare
-the same single content stage — `test/shared/render/Parity.cpp:1322`, `Content = {Stage::Subjects}` — so **no
+the same single content stage — `test/harness/shared/render/Parity.cpp:1322`, `Content = {Stage::Subjects}` — so **no
 run in this tree has ever named one of the eighteen.** The mechanism is not weak; **its population is
 empty.** A refusal that cannot fire is not evidence that the thing it refuses does not happen.
 
