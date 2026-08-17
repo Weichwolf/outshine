@@ -432,11 +432,35 @@ did, and the leading hypothesis on this item is about the instrument rather than
 this was written**, so the paragraph above is recollection. It must be checked against the source before
 any repair rests on it.
 
-- [ ] **The empirical instrument needs no specification at all**, which is why it is the one to build: a
-  shader case rendering a quad across a deliberate uv discontinuity and reporting the device's own
-  `calculate_unclamped_lod`. **No asset, no camera, no oracle, no corpus** — the shape
-  `test/outshine/shader/EverySubjectShaderTheUnitEmitsCompiles.cpp` already established, and it answers
-  the question this item has now spent three hypotheses on
-- [ ] **Whichever way it answers, the ladder question changes.** If the GPU does not saturate, *clamp the
-  selection* is a repair for a defect that is not there and `max_lod` can be set on its own merits; if it
-  does, the choice between clamping and padding the islands is the one this item already frames
+- [x] **BUILT, AND THE DEVICE ANSWERED.** `test/outshine/shader/TheDeviceSelectsALodAcrossAUvDiscontinuity.cpp`
+  renders two triangles meeting on the viewport's centre line, their uv islands **half the map apart**,
+  and reports `calculate_unclamped_lod` — the level before any clamp, which is the quantity this item is
+  about, since `max_lod = 0` would answer 0 whatever the hardware chose:
+
+  ```
+  covered away from the seam                     32259 px
+  covered within one column of the seam            509 px
+  mean selected LOD away from the seam               2 levels
+  worst selected LOD away from the seam              2 levels
+  worst selected LOD BESIDE the seam                 2 levels
+  pixels selecting the top two levels of the chain   0 px
+  ```
+
+  **The seam selects exactly what the interior selects, and nothing reaches the top of an 11-level
+  chain.** The number is also right rather than merely stable: each triangle spans 1024 texels
+  vertically over 256 pixels, four texels per pixel, `log2(4) = 2`.
+
+## So the proxy was the artefact, and this item can stop pursuing the seam
+
+**THE DEVICE'S DERIVATIVE DOES NOT CROSS A uv DISCONTINUITY.** The bimodal distribution above — 288 807
+pixels at ≈1.25 against **6 069 above level 8** — was a per-pixel finite difference over **Cycles'** uv,
+and such a difference steps from one triangle to another wherever an island ends. The hardware does not.
+
+**What this retires**: *LOD selection at a discontinuity saturates* was the leading hypothesis for three
+rounds, and the ladder question it framed — **clamp the selection, or pad the UV islands** — is a choice
+between two repairs for a defect the device does not have.
+
+**What it leaves open, and it is now the whole of the item**: setting `min_lod`/`max_lod` made six tails
+saturate, and that measurement stands. **The cause is not seam LOD**, so it is unexplained again — and
+the next hypothesis must be tested against the device the way this one was, rather than against another
+renderer's uv.
