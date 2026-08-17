@@ -128,6 +128,63 @@ def _slerped(times, keys, frame):
     return keys[-1]
 
 
+
+# THE SAMPLER IS EVALUATED FROM THE FILE, NOT FROM WHAT THE IMPORTER MADE OF IT (board:1198).
+#
+# `spherical_rotation_curves` above reduces one mechanism -- a LINEAR quaternion read component-wise --
+# by resampling Blender's own imported keyframes. That works because the importer keeps LINEAR keys
+# exactly. It does NOT generalise: a CUBICSPLINE sampler is imported as BEZIER f-curves, and glTF's
+# cubic Hermite with tangents scaled by the segment duration is a different function from a Bezier
+# carrying the same handles -- so there is nothing in the imported curve to resample faithfully.
+#
+# SO THE SOURCE IS THE SOURCE. Times, values and tangents are decoded from the glTF's own accessors and
+# the pose is evaluated here, in Python, against the specification -- then written to the frame grid as
+# exact keys. Blender interpolates nothing, which is board:1175's rule: the oracle renders poses.
+#
+# THE INDEPENDENCE IS THE POINT AND IT SURVIVES. This is a second implementation of a published formula,
+# in another language, on another code path -- never this engine's sampler. An engine whose Hermite is
+# wrong still disagrees with an oracle posed from here.
+
+_COMPONENT = {5126: ("f", 4), 5123: ("H", 2), 5125: ("I", 4), 5122: ("h", 2), 5121: ("B", 1), 5120: ("b", 1)}
+_COUNT = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}
+
+
+def _accessor(document, buffers, index):
+    accessor = document["accessors"][index]
+    view = document["bufferViews"][accessor["bufferView"]]
+    letter, size = _COMPONENT[accessor["componentType"]]
+    wide = _COUNT[accessor["type"]]
+    blob = buffers[view.get("buffer", 0)]
+    start = view.get("byteOffset", 0) + accessor.get("byteOffset", 0)
+    return [struct.unpack_from("<" + letter * wide, blob, start + at * wide * size)
+            for at in range(accessor["count"])]
+
+
+def _sampled(times, values, how, wide, at):
+    """glTF's three interpolations, from the specification and not from a library."""
+    if at <= times[0][0]:
+        return values[1] if how == "CUBICSPLINE" else values[0]
+    if at >= times[-1][0]:
+        return values[-2] if how == "CUBICSPLINE" else values[-1]
+    key = 0
+    while key + 1 < len(times) and times[key + 1][0] <= at:
+        key += 1
+    first, second = times[key][0], times[key + 1][0]
+    span = second - first
+    unit = (at - first) / span
+    if how == "STEP":
+        return values[key]
+    if how == "LINEAR":
+        return tuple(values[key][c] + (values[key + 1][c] - values[key][c]) * unit for c in range(wide))
+    # CUBIC HERMITE over the in-tangent, value, out-tangent triples. THE TANGENTS ARE SCALED BY THE
+    # SEGMENT DURATION -- that scaling is the whole difference from a Bezier with the same handles.
+    value, out = values[3 * key + 1], values[3 * key + 2]
+    into, next_value = values[3 * (key + 1)], values[3 * (key + 1) + 1]
+    square, cube = unit * unit, unit * unit * unit
+    return tuple((2 * cube - 3 * square + 1) * value[c] + (cube - 2 * square + unit) * span * out[c] +
+                 (-2 * cube + 3 * square) * next_value[c] + (cube - square) * span * into[c]
+                 for c in range(wide))
+
 def evaluated_pose(imported):
     """Where the oracle actually put each object at this frame, in Blender's own +Z-up metres.
 
