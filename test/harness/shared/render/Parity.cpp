@@ -1808,6 +1808,18 @@ outshine::Clients::Studio MakeStudio(const Case &subject) {
     }
   }
   if (subject.Lights == SceneLights::DeclaredSun) { studio.Lights.push_back(subject.Sun); }
+  /* THE DECLARED ENVIRONMENT, AND ONLY IN THE ARM THAT DOES NOT ALREADY CARRY IT (board:1206).
+   *
+   * Every other arm PRE-MULTIPLIES the world into a per-part radiance and hands it over as an
+   * emission -- `rho*L` closed form for a Lambert surface, exact and already correct -- so passing
+   * the environment there as well would count it twice and darken nothing while brightening
+   * everything. `ShadedByLights` is the one arm where the surface's own row is evaluated and the
+   * declared radiance is zero everywhere, which is exactly the arm that had no environment at all. */
+  if (subject.ShadedByLights()) {
+    for (int channel = 0; channel < 3; ++channel) {
+      studio.Environment.RadianceLinear[channel] = subject.WorldRadiance[channel];
+    }
+  }
   return studio;
 }
 

@@ -68,8 +68,25 @@ what the file said, here it renders something the engine has no term for.*
   what every corpus case that gathers already declares (`world: uniform` at strength 0), so this
   arriving moved no picture: 55 of 55 in the unit tree and `Triangle` green on three arms
 
-- [ ] **A LIT-UNDER-ENVIRONMENT MATERIAL ARM DOES NOT EXIST, and that — not the bake — is what the next
-  dispatch must build.** [MEASURED] over the runner's whole material vocabulary: `emission`,
+- [x] **THE LIT ARM EXISTED AND NOW GATHERS THE ENVIRONMENT.** The previous line said this arm had to be
+  built; it did not — `ShadedByLights()` keys on `scene.material.source: gltf`, **not** on the light, so
+  the arm where the surface's own row is evaluated has been there all along. What was missing was one
+  call. `Studio::Environment` carries the declared radiance and `Show` hands it to the unit.
+
+  **IT IS SUPPLIED IN THAT ARM ALONE, AND THE REASON IS ARITHMETIC.** Every other arm PRE-MULTIPLIES the
+  world into a per-part radiance and draws it unlit — `rho·L`, the exact closed form for a Lambert
+  surface — so passing the environment there as well would count it twice.
+
+  **Verified over the exact population rather than argued**: all 8 cases declaring `source: gltf` also
+  declare `world: uniform`, and every `uniform` in the tree is strength 0 — so the radiance passed is
+  zero for the whole existing corpus. **211 tests, 147 PASS, 63 FAIL, and the failing set diffs to
+  nothing against the previous run, id by id.**
+
+- [ ] **What remains is a case that declares a NON-ZERO environment**, which is now a manifest and not an
+  engine change: `SpecularTest`, `light: none`, `material.source: gltf` with `kind: metal-rough`, and a
+  `world: uniform` whose strength is not zero. *Every mechanism it needs is in the tree and measured.*
+
+- [ ] ~~**A LIT-UNDER-ENVIRONMENT MATERIAL ARM DOES NOT EXIST.**~~ Superseded by the line above. [MEASURED] over the runner's whole material vocabulary: `emission`,
   `emission-per-material`, `diffuse`, and the file's own colours. **Every one of them computes a
   RADIANCE in the runner and hands it to an unlit draw.** `diffuse` is literally the closed form
   `rho·L` and refuses a multi-part subject *because the closed form holds only where no surface can

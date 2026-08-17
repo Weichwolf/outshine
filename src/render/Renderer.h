@@ -104,6 +104,10 @@ public:
   [[nodiscard]] bool SetSubjectLights(const std::vector<SubjectLight> &lights, std::string &error) {
     return Subjects_.SetLights(lights, error);
   }
+  /* THE ENVIRONMENT THE SUBJECT SITS IN (board:1206), declared and zero where none was declared. */
+  void SetSubjectEnvironment(const SubjectEnvironment &environment) {
+    Subjects_.SetEnvironment(environment);
+  }
   [[nodiscard]] uint32_t SubjectBatchCount(void) const { return Subjects_.BatchCount(); }
   [[nodiscard]] uint32_t SubjectDrawCount(void) const { return Subjects_.DrawCount(); }
   /* HOW MANY SUBJECT PIPELINES `Init` BUILT (board:1187). It is readable because a frame instrument

@@ -80,6 +80,11 @@ struct Studio {
    * ordinary state and it is not "unlit by default": it says the declaration lights nothing, so
    * every part draws the radiance the declaration gave it and no cosine is evaluated anywhere. */
   std::vector<outshine::PunctualLight> Lights;
+  /* THE ENVIRONMENT THIS SUBJECT GATHERS: a constant radiance from every direction, scene-referred,
+   * and ZERO unless the consumer declares one (board:1206). It sits beside the light list because it
+   * is a light -- the one whose solid angle is the whole sphere -- and a consumer that states an
+   * environment and a consumer that states none write the same call. */
+  Render::SubjectEnvironment Environment;
 };
 
 /* THE CALLER'S WORKSPACE, so a loop over many cases reuses one set of buffers -- the hot-loop

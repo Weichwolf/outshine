@@ -378,6 +378,7 @@ bool Show(Render::Renderer &renderer, const Studio &studio, StudioScratch &scrat
   if (!renderer.SetSubjectMaterials(studio.Surfaces, error)) { return false; }
   if (!PlaceLights(studio, scratch.Lights, error)) { return false; }
   if (!renderer.SetSubjectLights(scratch.Lights, error)) { return false; }
+  renderer.SetSubjectEnvironment(studio.Environment);
   Render::SubjectMesh mesh;
   mesh.Verts = scratch.Vertices.data();
   mesh.Uv = subject.HasUv() ? scratch.Vertices.data() + runs.UvAt : nullptr;
