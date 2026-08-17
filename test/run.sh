@@ -493,6 +493,16 @@ fi
 
 started=$(Now)
 passed=0
+# THE TWO COUNTS THE FINISH LINE NAMES, SUMMED HERE AND NOWHERE ELSE (board:1208). Every render case
+# already prints `KHRONOS-CRITERION` and `PICTURE-BOUND` -- the partition is a field of the metric so
+# that no reporter has to match names -- and they lived in one log per case and in no total. They are
+# accumulated FROM THIS RUN's logs as each case finishes, never scanned off disk afterwards: a count
+# gathered from whatever survived the last run is board:1181's hazard in a new place.
+criterionMet=0
+criterionRed=0
+pictureWithin=0
+pictureOutside=0
+pictureUnenforced=0
 failed=0
 timedout=0
 signalled=0
@@ -591,7 +601,25 @@ Judge() {
       verdict=PASS
     fi
   fi
+  CountTheTwo "$judgeId" "$log"
   Record "$judgeId" "$(( $(Now) - before ))"
+}
+
+# ONE CASE CONTRIBUTES ONE VOTE, NOT THREE (board:1208). A case runs plain, sanitised and validated,
+# and the two counts are about the PICTURE -- so only the arm with no `~` in its id votes, and the
+# other two are instruments about that same picture rather than two more pictures.
+CountTheTwo() {
+  case "$1" in *'~'*) return 0 ;; esac
+  [ -f "$2" ] || return 0
+  case "$(sed -n 's/^KHRONOS-CRITERION //p' "$2" | head -1)" in
+    met) criterionMet=$((criterionMet + 1)) ;;
+    red) criterionRed=$((criterionRed + 1)) ;;
+  esac
+  case "$(sed -n 's/^PICTURE-BOUND //p' "$2" | head -1)" in
+    within) pictureWithin=$((pictureWithin + 1)) ;;
+    outside) pictureOutside=$((pictureOutside + 1)) ;;
+    not-enforced) pictureUnenforced=$((pictureUnenforced + 1)) ;;
+  esac
 }
 
 # EVERY ARM OF ONE INVOCATION, BACK TO BACK. The loop is CASE-OUTER and ARM-INNER (board:1181): a
@@ -815,6 +843,16 @@ total=$((passed + failed + timedout + signalled + unbuilt + skipped + unprepared
 printf '%s tests: %s PASS  %s FAIL  %s TIMEOUT  %s SIGNAL  %s BUILD  %s SKIP  %s UNPREPARED  in %s ms\n' \
   "$total" "$passed" "$failed" "$timedout" "$signalled" "$unbuilt" "$skipped" "$unprepared" \
   "$(( $(Now) - started ))"
+# THE TWO COUNTS, SIDE BY SIDE AND NEITHER QUOTABLE AS THE OTHER (board:1208). `criteria met` counts
+# FEATURES and does not fall because our picture is not the reference's; the picture bound counts
+# PICTURES. `not-enforced` is its own column rather than folded into either, because a case nobody can
+# count either way would otherwise be counted as a pass. Printed only where a case reported one, so a
+# run of the unit tree says nothing about a corpus it never touched.
+[ $((criterionMet + criterionRed)) -gt 0 ] &&
+  printf 'khronos criteria: %s met of %s   picture bound: %s within, %s outside, %s not-enforced of %s\n' \
+    "$criterionMet" "$((criterionMet + criterionRed))" \
+    "$pictureWithin" "$pictureOutside" "$pictureUnenforced" \
+    "$((pictureWithin + pictureOutside + pictureUnenforced))"
 # WHAT THE API-CONTRACT ARM DOES NOT COVER, printed where its results are, because a green
 # validation arm is not a correctness claim and a later round must not read it as one (board:1123).
 [ "$validatedRan" = yes ] && printf '%s\n' \
