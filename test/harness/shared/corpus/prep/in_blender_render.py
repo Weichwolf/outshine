@@ -1370,6 +1370,12 @@ def enable_devices(recipe):
         return {"device": "CPU", "backend": "NONE", "names": []}
     preferences = bpy.context.preferences.addons["cycles"].preferences
     preferences.compute_device_type = "METAL"
+    # HOW MUCH CYCLES SPECIALISES ITS KERNELS, and it is declared here rather than left at Blender's
+    # default (board:1372). `FULL` re-specialises per SCENE FEATURE SET, so a corpus of many small,
+    # differently-featured cases pays a fresh Metal compile for almost every one.
+    level = os.environ.get("OUTSHINE_CYCLES_KERNELS", "OFF")
+    if hasattr(preferences, "kernel_optimization_level"):
+        preferences.kernel_optimization_level = level
     preferences.get_devices()
     names = []
     for device in preferences.devices:
