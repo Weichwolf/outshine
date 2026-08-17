@@ -83,9 +83,10 @@ deleted function existed to remove: the generalisation had reintroduced it one l
 
 ## What remains
 
-- [ ] **The case manifest**, which needs `scene.animation` to accept a **set** rather than a single
-  `index` — schema and `Parity.cpp`. `Gltf::Pose::Build` already takes a set; the declaration cannot yet
-  say so
+- [x] **The case manifest's animation set** — `scene.animation.index` is now `scene.animation.animations`,
+  in the schema, the preparer, the runner and `BoxAnimated`'s own declaration. **There is no spelling for
+  *all*:** *all* is a fact about the file, and the picture is a function of the declaration
+- [ ] **The `InterpolationTest` case directory itself** — manifest, camera, grid, and the fetch entry
 - [ ] **The separation carried into codes.** The table below is in each channel's own units. Translation
   at 6.8 m is obviously a picture; **0.0828 of a quaternion component is not yet a claim about pixels**,
   and until it is, the mode clause is met in the wrong currency
@@ -124,7 +125,25 @@ been caught by the case going red, because a wrong oracle and a wrong engine dis
 as a wrong engine alone. What caught them was checking the sampler against properties it must hold
 regardless of how it is written: constant angular velocity, unit length, exact reproduction at the keys.
 
+**Crossing into Blender's space cost three more of exactly the same kind, and none of them crashed.** The
+baker played every animation in the file and ignored the declaration; it wrote glTF's `(x, y, z, w)`
+quaternion into Blender's `(w, x, y, z)` slots; and it wrote raw glTF translations into a **root** object,
+which the importer converts from Y-up to Z-up and a child's it does not. Each renders a plausible picture
+of a different pose. **The conversion is therefore checked and not trusted**: on every channel of every
+case, the importer's own first key is compared against that key re-derived from the file, up to sign for a
+quaternion, and a disagreement over 1e-4 refuses. *A hypothesis about one Blender version becomes a claim
+the preparer restates every time it runs.*
+
+**And node names cannot be assumed.** `BoxAnimated`'s four nodes are **all unnamed** — glTF does not
+require a name — so the first version of the baker refused the case outright, which was the right failure
+and not the right behaviour. [MEASURED] Blender 5.2.0: a node carrying a mesh takes the **mesh's** name,
+one carrying none becomes `Node_<index>`.
+
 **One of those readings was itself wrong before it was right.** Span-end agreement first measured
 2.389e-04 rad and that was the metric, not the sampler: `acos` is ill-conditioned near 1, the stored keys
 are float32, and `sqrt(2 × 2.853e-08)` reproduces the figure exactly. Componentwise the agreement is
 7.855e-13. *An instrument reading near its own singularity reports the singularity.*
+
+**`BoxAnimated` is the regression witness and it holds**: 31 frames, three arms green, worst geometric
+disagreement **0.00017894704 px** against the 0.005 px instrument floor, 812 checks and no failures —
+with the oracle's poses now evaluated from the file rather than interpolated by Blender.
