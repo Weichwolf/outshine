@@ -123,7 +123,7 @@ constexpr size_t kMaxSubjectLights = 16;
  * the binding contract every fragment declares, the samplers the encoder binds and the uv matrices
  * the row holds (board:1177) are three readings of the same four sockets, and a fifth socket that
  * reached two of the three would be a slot bound with nothing to sample it by. */
-constexpr uint32_t kSubjectImages = 4;
+constexpr uint32_t kSubjectImages = 6;
 
 /* HOW A BASE-COLOUR TEXTURE IS ADDRESSED, glTF's own two questions and nothing else. The wrap mode
  * and the filter are the FILE's -- `TextureSettingsTest` renders one cell per wrap mode and an
@@ -197,6 +197,15 @@ struct SubjectMaterial {
    * coverage factor kept as its own float was already a second copy of `BaseColour[3]`. */
   Material Row;
   SubjectTexture Colour;
+  /* `KHR_materials_specular`'s TWO IMAGES (board:1205), named for the same reason the three below
+   * are: a table would spell binding the tint where the strength goes.
+   *
+   * `SpecularStrength` IS A SCALAR IN THE ALPHA CHANNEL, which the extension states outright, and it
+   * multiplies `specularFactor`. `SpecularTint` IS sRGB-ENCODED and multiplies `specularColorFactor`
+   * -- so the transfer differs between the two and that is exactly why they are separate fields
+   * rather than one array with a flag. */
+  SubjectTexture SpecularStrength;
+  SubjectTexture SpecularTint;
   /* THE OTHER THREE IMAGES glTF PUTS ON ONE SURFACE, named rather than indexed: the mistake a table
    * of four would spell is binding the normal map where the colour goes, and a name cannot spell it.
    *
@@ -400,6 +409,9 @@ private:
     BoundImage Normal;
     BoundImage MetalRough;
     BoundImage Emissive;
+    /* `KHR_materials_specular`'s two, in the order the sampler table binds them (board:1205). */
+    BoundImage SpecularStrength;
+    BoundImage SpecularTint;
     /* The slot's own surface row, as the numbers rather than as a buffer: SDL_GPU pushes uniform
      * data onto the command buffer, so a per-slot buffer would be a second copy of these twelve
      * floats with nothing reading it. Per SLOT because glTF states all of them per material, and

@@ -89,6 +89,9 @@ struct SurfaceRasters {
   outshine::Clients::Raster Normal;
   outshine::Clients::Raster MetalRough;
   outshine::Clients::Raster Emissive;
+  /* `KHR_materials_specular`'s two (board:1205), decoded per slot like the rest. */
+  outshine::Clients::Raster SpecularStrength;
+  outshine::Clients::Raster SpecularTint;
 };
 
 struct SurfaceTable {
@@ -935,6 +938,10 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
            table.Slots[slot].MetalRough},
           {material.Emissive, "emissiveTexture", table.Decoded[slot].Emissive,
            table.Slots[slot].Emissive},
+          {material.SpecularStrength, "specularTexture", table.Decoded[slot].SpecularStrength,
+           table.Slots[slot].SpecularStrength},
+          {material.SpecularTint, "specularColorTexture", table.Decoded[slot].SpecularTint,
+           table.Slots[slot].SpecularTint},
       };
       for (const auto &map : maps) {
         if (!ReadSocketImage(file, material, map.Declared, map.Socket, carried, map.Into, map.Bound,
@@ -1144,7 +1151,8 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
            image.Magnify == outshine::Render::SubjectFilter::Linear;
   };
   for (const outshine::Render::SubjectMaterial &slot : surfaces.Slots) {
-    if (interpolates(slot.Colour) || interpolates(slot.Normal) || interpolates(slot.MetalRough) ||
+    if (interpolates(slot.SpecularStrength) || interpolates(slot.SpecularTint) ||
+        interpolates(slot.Colour) || interpolates(slot.Normal) || interpolates(slot.MetalRough) ||
         interpolates(slot.Emissive)) {
       return true;
     }

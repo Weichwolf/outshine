@@ -66,8 +66,21 @@ isolated by the asset itself**, with no transmission in the path.
   is delivered and unproven by a picture, which `board:0079`'s closing line forbids as a CLAIM, so this
   task stays open and the capability table says *implemented, awaiting an environment* rather than
   *delivered*
-- [ ] **`specularTexture` AND `specularColorTexture` ARE UNIMPLEMENTED, AND THAT IS WHY THE CASE IS
-  RED.** The extension has a texture half and this task delivered only its factors. [MEASURED] in
+- [x] **`specularTexture` AND `specularColorTexture` ARE IMPLEMENTED** — read into `MaterialRef`, bound
+  as two more images (the contract goes 4 → 6), and folded into `F0` by one macro every shading arm
+  uses. The strength image is LINEAR and read from ALPHA; the tint image is sRGB and read from RGB.
+  **One corner differs from the format and is named**: the row's `F0` is already capped, so these
+  multiply a capped product, which departs from the extension only where the uncapped product exceeds
+  1 — needing `specularFactor` above 25 for a dielectric, since the base term is below 1 for every
+  `ior`. `SpecularTest`'s largest factor is 1.
+
+- [ ] **AND IT IS NOT YET SHOWN TO CHANGE ANY PICTURE, WHICH IS THE OPEN BOX.** After the change
+  `SpecularTest`'s histogram is **identical to the digit** — 23134 channels in `[0, 1)`, peak
+  141.523705 at (551, 380). **Not one channel moved.** The next measurement is named rather than
+  guessed: *do the three images decode to anything other than the identity?* `specularTexture` is read
+  from **alpha**, and a PNG carrying no alpha samples `1` — which is the identity — so
+  `specularTextureGrid.png` at 242 bytes and `WhiteGrid.png` at 205 may be white-and-opaque and change
+  nothing by construction. `YellowGrid.png` is the one that must move a pixel if the path is live The extension has a texture half and this task delivered only its factors. [MEASURED] in
   `SpecularTest`: **three materials carry one** — `M2_SpecTex` a `specularTexture`, `M4_whiteTex` and
   `M6_yellowTex` a `specularColorTexture` — and the asset names its own rows *specular texture*,
   *white color texture* and *yellow color texture*. Our side draws them at the factor alone while
@@ -81,3 +94,12 @@ isolated by the asset itself**, with no transmission in the path.
 importer mentions `KHR_materials_specular`* is a grep result, not a capability, and `board:1204` is
 explicit that the two are different claims. **The row is exercised the way ior was — a grid whose
 declared values differ, compared against what the importer produced — before any of it is believed.**
+
+## Comments
+
+**The wrong-arm mistake was found by forcing the number to zero, not by reading the code.** The
+modulation went into `mappedShade` first, which is the arm for a surface carrying a colour or normal
+image. Forcing that arm's `F0` to **zero** left the picture identical to every digit — so the case never
+enters it, and the extension's own textured materials declare no base-colour image either. *A capability
+put in the arm the asset does not take is indistinguishable from one that is absent, and only the
+mutation says which.*

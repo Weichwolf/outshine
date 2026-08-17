@@ -1207,19 +1207,25 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
   }
   material.Surface.CoverageCut = static_cast<float>(declaration["alphaCutoff"].Num(0.5));
 
+  /* WHICH OBJECT A SOCKET SITS IN, CARRIED AS THE OBJECT AND NOT AS A FLAG (board:1205, `Enum.2`).
+   * It was a `bool UnderPbr` while there were two places a texture could be declared; there are now
+   * three -- glTF puts two under `pbrMetallicRoughness`, three at the material's root and two inside
+   * `KHR_materials_specular` -- and a boolean cannot name a third. */
   const struct {
-    bool UnderPbr;
+    Json::Ref Under;
     const char *Slot;
     TextureRef *Into;
   } slots[] = {
-      {true, "baseColorTexture", &material.BaseColour},
-      {true, "metallicRoughnessTexture", &material.MetallicRoughness},
-      {false, "normalTexture", &material.Normal},
-      {false, "occlusionTexture", &material.Occlusion},
-      {false, "emissiveTexture", &material.Emissive},
+      {pbr, "baseColorTexture", &material.BaseColour},
+      {pbr, "metallicRoughnessTexture", &material.MetallicRoughness},
+      {declaration, "normalTexture", &material.Normal},
+      {declaration, "occlusionTexture", &material.Occlusion},
+      {declaration, "emissiveTexture", &material.Emissive},
+      {specular, "specularTexture", &material.SpecularStrength},
+      {specular, "specularColorTexture", &material.SpecularTint},
   };
   for (const auto &slot : slots) {
-    const Json::Ref declared = slot.UnderPbr ? pbr[slot.Slot] : declaration[slot.Slot];
+    const Json::Ref declared = slot.Under[slot.Slot];
     if (!declared.Valid()) { continue; }
     slot.Into->Texture = declared["index"].Int(-1);
     slot.Into->TexCoord = declared["texCoord"].Int(0);

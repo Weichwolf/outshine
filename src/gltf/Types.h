@@ -280,6 +280,10 @@ struct MaterialRef {
   TextureRef Normal;
   TextureRef Occlusion;
   TextureRef Emissive;
+  /* `KHR_materials_specular`'s two images (board:1205). `SpecularStrength` carries a scalar in ALPHA
+   * and multiplies `SpecularFactor`; `SpecularTint` is sRGB and multiplies `SpecularColour`. */
+  TextureRef SpecularStrength;
+  TextureRef SpecularTint;
   double NormalScale = 1.0;
   double OcclusionStrength = 1.0;
 };

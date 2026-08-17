@@ -174,8 +174,11 @@ struct M { float factor; float cut; float metalness; float roughness;
            packed_float3 normalUvU; packed_float3 normalUvV;
            packed_float3 metalRoughUvU; packed_float3 metalRoughUvV;
            packed_float3 emissiveUvU; packed_float3 emissiveUvV;
+           packed_float3 specularStrengthUvU; packed_float3 specularStrengthUvV;
+           packed_float3 specularTintUvU; packed_float3 specularTintUvV;
            float colourUvSecond; float normalUvSecond;
-           float metalRoughUvSecond; float emissiveUvSecond; };
+           float metalRoughUvSecond; float emissiveUvSecond;
+           float specularStrengthUvSecond; float specularTintUvSecond; };
 /* `tint` is colour times intensity with the kind in `w` -- 0 directional, 1 point, 2 spot -- so the
  * multiplier and the shape travel together and a light cannot be half-declared. `place` is the
  * camera-relative position with the RECIPROCAL of the declared range in `w` -- zero where the file
@@ -197,7 +200,9 @@ struct Lights { float4 count; float4 environment; Light items[16]; };
     texture2d<float> colourMap [[texture(0)]], sampler colourSampler [[sampler(0)]], \
     texture2d<float> normalMap [[texture(1)]], sampler normalSampler [[sampler(1)]], \
     texture2d<float> metalRoughMap [[texture(2)]], sampler metalRoughSampler [[sampler(2)]], \
-    texture2d<float> emissiveMap [[texture(3)]], sampler emissiveSampler [[sampler(3)]]
+    texture2d<float> emissiveMap [[texture(3)]], sampler emissiveSampler [[sampler(3)]], \
+    texture2d<float> specularStrengthMap [[texture(4)]], sampler specularStrengthSampler [[sampler(4)]], \
+    texture2d<float> specularTintMap [[texture(5)]], sampler specularTintSampler [[sampler(5)]]
 
 /* THE TWO STORAGE BUFFERS AS ONE ARGUMENT, so a shading function takes the subject's own geometry
  * rather than two pointers that could be handed over out of step (`I.23`). */
@@ -233,6 +238,27 @@ static inline float2 uvBy(packed_float3 u, packed_float3 v, Uvs uv, float second
 #define SUBJECT_METALROUGH_TAP(uv) \
   metalRoughMap.sample(metalRoughSampler, uvBy(surface.metalRoughUvU, surface.metalRoughUvV, (uv), \
                                                surface.metalRoughUvSecond))
+#define SUBJECT_SPECULAR_STRENGTH_TAP(uv) \
+  specularStrengthMap.sample(specularStrengthSampler, \
+                             uvBy(surface.specularStrengthUvU, surface.specularStrengthUvV, (uv), \
+                                  surface.specularStrengthUvSecond))
+#define SUBJECT_SPECULAR_TINT_TAP(uv) \
+  specularTintMap.sample(specularTintSampler, \
+                         uvBy(surface.specularTintUvU, surface.specularTintUvV, (uv), \
+                              surface.specularTintUvSecond))
+/* THE ROW'S F0 MODULATED BY `KHR_materials_specular`'s TWO IMAGES, AND IT IS A MACRO SO THAT EVERY
+ * ARM USES IT (board:1205). Putting this in the mapped arm alone was a measured mistake: forcing the
+ * mapped arm's F0 to zero left `SpecularTest`'s picture IDENTICAL to every digit, because a panel with
+ * no colour or normal map never enters that arm -- and the extension's own textured materials declare
+ * no base-colour image either. A white texel is the multiplicative identity, so a surface declaring
+ * neither image reaches the same number it would have had. */
+#define SUBJECT_SPECULAR_F0(uv) \
+  (float3(surface.f0) * specularStrengthMap.sample(specularStrengthSampler, \
+                            uvBy(surface.specularStrengthUvU, surface.specularStrengthUvV, (uv), \
+                                 surface.specularStrengthUvSecond)).a \
+                      * specularTintMap.sample(specularTintSampler, \
+                            uvBy(surface.specularTintUvU, surface.specularTintUvV, (uv), \
+                                 surface.specularTintUvSecond)).rgb)
 #define SUBJECT_EMISSIVE_TAP(uv) \
   emissiveMap.sample(emissiveSampler, \
                      uvBy(surface.emissiveUvU, surface.emissiveUvV, (uv), surface.emissiveUvSecond))
@@ -680,7 +706,7 @@ fragment SFrag fsLitTextured(LOut in [[stage_in]], bool front [[front_facing]], 
   SFrag o;
   o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb * in.colour.rgb,
-                          surface.metalness, surface.roughness, float3(surface.f0),
+                          surface.metalness, surface.roughness, SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in))), 1.0);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
@@ -696,7 +722,7 @@ fragment SFrag fsLitMaskedTextured(LOut in [[stage_in]], bool front [[front_faci
   SFrag o;
   o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb * in.colour.rgb,
-                          surface.metalness, surface.roughness, float3(surface.f0),
+                          surface.metalness, surface.roughness, SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in))), 1.0);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
@@ -711,7 +737,7 @@ fragment SFrag fsLitBlendedTextured(LOut in [[stage_in]], bool front [[front_fac
   SFrag o;
   o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb * in.colour.rgb,
-                          surface.metalness, surface.roughness, float3(surface.f0),
+                          surface.metalness, surface.roughness, SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in))),
                  surface.factor * tap.a * in.colour.a);
   SUBJECT_SET_VELOCITY(o, in);
@@ -782,8 +808,22 @@ static inline Shaded mappedShade(constant M &surface, constant Lights &lights, O
                                  texture2d<float> normalMap, sampler normalSampler,
                                  texture2d<float> metalRoughMap, sampler metalRoughSampler,
                                  texture2d<float> emissiveMap, sampler emissiveSampler,
+                                 texture2d<float> specularStrengthMap,
+                                 sampler specularStrengthSampler,
+                                 texture2d<float> specularTintMap, sampler specularTintSampler,
                                  MOut in, bool front) {
   float4 orm = SUBJECT_METALROUGH_TAP(SUBJECT_UVS(in));
+  /* `KHR_materials_specular`'s TEXTURES MODULATE THE ROW'S F0 (board:1205). The strength image
+   * carries a scalar in ALPHA and multiplies the specular factor; the tint image is sRGB and
+   * multiplies the colour factor.
+   *
+   * THE ROW'S F0 IS ALREADY CAPPED AND THESE MULTIPLY AFTER IT, WHICH DIFFERS FROM THE FORMAT IN ONE
+   * CORNER AND THE CORNER IS NAMED. The extension caps `((ior-1)/(ior+1))^2 * specularFactor *
+   * strength` at 1 BEFORE the tint; this multiplies a capped product. The two differ only where the
+   * uncapped product exceeds 1, which needs `specularFactor > 1 / ((ior-1)/(ior+1))^2` -- above 25
+   * for a dielectric -- since the base term is below 1 for every ior. No asset in the corpus reaches
+   * it: `SpecularTest`'s largest factor is 1. */
+  const float3 specularF0 = SUBJECT_SPECULAR_F0(SUBJECT_UVS(in));
   float3 albedo = surface.base.rgb * SUBJECT_COLOUR_TAP(SUBJECT_UVS(in)).rgb * in.colour.rgb;
   const float3 shadingNormal = mappedNormal(surface, normalMap, normalSampler, in, front);
   /* THE SAME TAP THE NORMAL CAME FROM, FOR ITS LENGTH. Sampled here rather than returned from
@@ -793,14 +833,15 @@ static inline Shaded mappedShade(constant M &surface, constant Lights &lights, O
   const float meanResultantLength = SUBJECT_NORMAL_TAP(SUBJECT_UVS(in)).w;
   return Shaded{shadeRow(lights, occluders, in.lp, shadingNormal, in.p, albedo,
                   surface.metalness * orm.b,
-                  roughenedBy(surface.roughness * orm.g, meanResultantLength), float3(surface.f0),
+                  roughenedBy(surface.roughness * orm.g, meanResultantLength), specularF0,
                   emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in))),
                 shadingNormal};
 }
 
 #define SUBJECT_MAPPED_SHADE mappedShade(surface, lights, SUBJECT_OCCLUDERS, colourMap, \
     colourSampler, normalMap, normalSampler, metalRoughMap, metalRoughSampler, emissiveMap, \
-    emissiveSampler, in, front)
+    emissiveSampler, specularStrengthMap, specularStrengthSampler, specularTintMap, \
+    specularTintSampler, in, front)
 
 fragment SFrag fsMapped(MOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   const Shaded shaded = SUBJECT_MAPPED_SHADE;
@@ -1264,6 +1305,11 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
   slot.Normal = Upload(material.Normal, Transfer::Linear, TexelKind::Direction);
   slot.MetalRough = Upload(material.MetalRough, Transfer::Linear, TexelKind::Value);
   slot.Emissive = Upload(material.Emissive, Transfer::Srgb, TexelKind::Value);
+  /* THE TRANSFER IS THE EXTENSION'S OWN AND THE TWO DIFFER (board:1205): the strength image carries a
+   * scalar factor in alpha and is LINEAR, the tint image carries an F0 colour and is sRGB-ENCODED.
+   * Uploading either through the other's transfer is a picture and not an error. */
+  slot.SpecularStrength = Upload(material.SpecularStrength, Transfer::Linear, TexelKind::Value);
+  slot.SpecularTint = Upload(material.SpecularTint, Transfer::Srgb, TexelKind::Value);
 
   const Material &row = material.Row;
   /* THE SLOT'S IDENTITY IS ITS POSITION IN THIS TABLE, taken before the push (board:1138), so it is
@@ -1284,7 +1330,9 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
    * table is walked rather than written out four times so that the row's order and the sampler's
    * order are one statement: a socket appended to one and not the other has no spelling. */
   const SubjectTexture *const images[kSubjectImages] = {&material.Colour, &material.Normal,
-                                                        &material.MetalRough, &material.Emissive};
+                                                        &material.MetalRough, &material.Emissive,
+                                                        &material.SpecularStrength,
+                                                        &material.SpecularTint};
   size_t at = (size_t)kSurfaceScalars;
   for (const SubjectTexture *image : images) {
     for (const double element : image->Uv.M) { slot.Row[at++] = (float)element; }
@@ -1609,7 +1657,9 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
           {surface.Colour.Image.Get(), surface.Colour.Sample.Get()},
           {surface.Normal.Image.Get(), surface.Normal.Sample.Get()},
           {surface.MetalRough.Image.Get(), surface.MetalRough.Sample.Get()},
-          {surface.Emissive.Image.Get(), surface.Emissive.Sample.Get()}};
+          {surface.Emissive.Image.Get(), surface.Emissive.Sample.Get()},
+          {surface.SpecularStrength.Image.Get(), surface.SpecularStrength.Sample.Get()},
+          {surface.SpecularTint.Image.Get(), surface.SpecularTint.Sample.Get()}};
       SDL_BindGPUFragmentSamplers(into.Pass, 0, images, kSubjectImages);
       SDL_PushGPUFragmentUniformData(into.Commands, 0, surface.Row.data(),
                                      (uint32_t)(surface.Row.size() * sizeof(float)));
