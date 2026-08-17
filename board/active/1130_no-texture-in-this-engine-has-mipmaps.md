@@ -464,3 +464,21 @@ between two repairs for a defect the device does not have.
 saturate, and that measurement stands. **The cause is not seam LOD**, so it is unexplained again — and
 the next hypothesis must be tested against the device the way this one was, rather than against another
 renderer's uv.
+
+## Four more candidates narrowed, BY INSPECTION and not by measurement
+
+**The evidential weight is stated first because it is lower than everything above.** Reading a guard says
+the code HAS one; it does not say what the value was at run time. These narrow the search and none of
+them closes it.
+
+| candidate | what the code says |
+|---|---|
+| the chain's levels are uninitialised memory | **no** — every level is built by `HalveInPlace` and uploaded in its own copy pass, deliberately on the host because a device generator cannot be told a texel is a direction |
+| `HalveInPlace` produces out-of-range texels | **no** for a value: the mean of four in-range samples is in range. **No** for a direction either: it renormalises, so the encoding lands in `[0, 1]` whatever the inputs were |
+| a near-zero mean direction divides by nothing | **guarded** — `if (length <= 0.0f) { continue; }`, and a near-zero-but-positive length still divides to a UNIT vector, so the encoded texel stays in range |
+| Toksvig blows up as the resultant length falls | **no** — `toksvigA2` carries `denominator > 0.0 ? … : 1.0`, and at `l → 0` it evaluates to `2·2(1−a²) / 4(1−a²) = 1`, so the roughness saturates at 1 rather than diverging |
+
+**So the four arithmetic paths between a reachable chain and a bright pixel all carry a bound.** What
+remains unexamined is the part no reading can settle: **what the sampler actually returns at the pixel
+that saturated**, which is a device question and now has a shape to ask it in — the probe above needs
+only a different fragment and the same scaffolding.
