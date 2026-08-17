@@ -131,7 +131,7 @@ file with a `baseColorTexture` and the only one this extension does not touch.
 |---|---|
 | environment visibility | mirror ray through the existing BVH — identical to the digit, reverted |
 | grazing Fresnel | measured against Cycles at six view angles; it TRACKS Schlick, 0.997–1.21 |
-| minification | 141.523705 at 1280×720 against 141.533904 at 320×180 — unchanged |
+| ~~minification~~ | **THIS ELIMINATION WAS OVER-CLAIMED AND IS WITHDRAWN — see below** |
 | the extension's textures | now live and moving 8320 channels, and the peak did not move |
 | **a geometric offset** | **the first covered column is IDENTICAL in both pictures at rows 360, 370, 380, 390 and 400 — delta 0 everywhere.** Both sides cover the pixel |
 
@@ -143,3 +143,27 @@ the image's own edge — a wrap or edge-handling question on `LeftLabels.png` �
 **The case therefore cannot be scored on this task's work alone**, and saying so is the point: `1205`'s
 number and its textures are both delivered and both exercised, and the case stays red for a cause that
 five measurements have now placed outside it.
+
+## The minification elimination was wrong, and the error is in the inference and not the number
+
+**What was measured is true**: 141.523705 at 1280×720 against 141.533904 at 320×180 — the peak does not
+move with resolution. **What was concluded from it does not follow.**
+
+**A peak between a black texel and a white one is SATURATED BY CONSTRUCTION.** `LeftLabels.png` is text:
+its contrast is the maximum the format can carry, so any pixel straddling a glyph edge yields the same
+maximum delta at any resolution. Quadrupling the raster reduces how MANY pixels straddle an edge; it
+cannot reduce how far apart the two sides are at one that does. *The instrument I read was insensitive
+to the hypothesis I was testing.*
+
+**And the file asks for exactly what this engine does not have.** [MEASURED] `SpecularTest`'s one sampler
+declares `minFilter: 9987` — `LINEAR_MIPMAP_LINEAR` — and `board:1130` states that **no texture in this
+engine has mipmaps**. A 512×512 label strip minified onto a plate a hundred pixels wide is where that
+absence shows first, and Cycles filters it with a mip chain while this engine point-samples one level.
+
+- [ ] **The right test is the COUNT above the bound, normalised by covered pixels, at two resolutions**
+  — a peak saturated by contrast cannot fall, but the population straddling an edge must. *Named rather
+  than run, because it belongs to `board:1130` and not to this task.*
+
+**So the fifth elimination stands and the third is withdrawn**: the peak is on a label plate, both sides
+cover it, they draw it in the same place, and they disagree about its texel under a `minFilter` this
+engine does not implement.
