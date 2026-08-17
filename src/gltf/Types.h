@@ -155,6 +155,28 @@ struct Node {
   double Translation[3] = {0, 0, 0};
   double Rotation[4] = {0, 0, 0, 1}; /* xyzw, the format's order */
   double Scale[3] = {1, 1, 1};
+  /* Into `Document::Skins()`, or -1. glTF puts the reference on the NODE that carries the mesh, so a
+   * skin is a property of an instance and not of the geometry -- two nodes may share one mesh and
+   * name different skins, and the flatten must therefore skin per node rather than per primitive. */
+  int Skin = -1;
+};
+
+/* A SKIN IS A JOINT LIST PLUS ONE MATRIX PER JOINT, and both are positional: `Joints[i]` is a node
+ * index and `InverseBind[i]` is the matrix that takes a vertex out of that joint's bind pose. The
+ * pairing is the whole record, which is why they are two vectors of one length rather than a table
+ * with a key.
+ *
+ * `Skeleton` is the common root the format lets a file name and which nothing here needs: glTF states
+ * that a joint's transform is read from the scene graph, so the skinning matrix is already absolute
+ * and the skeleton node adds nothing to it. It is carried because a file may declare it and a reader
+ * that dropped it could not round-trip. */
+struct Skin {
+  std::string Name;
+  std::vector<int> Joints;
+  int Skeleton = -1;
+  /* 16 doubles per joint, column-major as the format states, or empty where the file declares none --
+   * in which case every inverse bind matrix is the identity, which the format says explicitly. */
+  std::vector<double> InverseBind;
 };
 
 struct Scene {

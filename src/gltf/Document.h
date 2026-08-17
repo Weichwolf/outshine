@@ -51,6 +51,7 @@ public:
   const std::vector<Node> &Nodes() const { return Nodes_; }
   const std::vector<Camera> &Cameras() const { return Cameras_; }
   const std::vector<Scene> &Scenes() const { return Scenes_; }
+  const std::vector<Skin> &Skins() const { return Skins_; }
   const std::vector<MaterialRef> &Materials() const { return Materials_; }
   const std::vector<Texture> &Textures() const { return Textures_; }
   const std::vector<Image> &Images() const { return Images_; }
@@ -110,6 +111,7 @@ private:
   /* One primitive's `KHR_materials_variants` mappings, against the table `ReadVariants` filled. */
   [[nodiscard]] bool ReadVariantMappings(const Json::Ref &declared, size_t mesh, size_t primitive,
                                          Primitive &into);
+  [[nodiscard]] bool ReadSkins(const Json::Ref &root);
   [[nodiscard]] bool ReadAnimations(const Json &json);
   [[nodiscard]] bool ReadMaterial(const Json::Ref &declaration, size_t index);
   [[nodiscard]] bool ElementBytes(const Accessor &accessor, size_t &stride, size_t &element) const;
@@ -125,6 +127,7 @@ private:
   std::vector<Node> Nodes_;
   std::vector<Camera> Cameras_;
   std::vector<Scene> Scenes_;
+  std::vector<Skin> Skins_;
   std::vector<MaterialRef> Materials_;
   std::vector<Texture> Textures_;
   std::vector<Image> Images_;

@@ -568,6 +568,7 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     node.Name = declaration["name"].Str("");
     node.Mesh = declaration["mesh"].Valid() ? declaration["mesh"].Int(-1) : -1;
     node.Camera = declaration["camera"].Valid() ? declaration["camera"].Int(-1) : -1;
+    node.Skin = declaration["skin"].Valid() ? declaration["skin"].Int(-1) : -1;
     const Json::Ref lit = declaration["extensions"][kLightsPunctual]["light"];
     node.Light = lit.Valid() ? lit.Int(-1) : -1;
     const Json::Ref matrix = declaration["matrix"];
@@ -643,7 +644,61 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     return Refuse("names default scene " + Number(static_cast<size_t>(DefaultScene_)) + " of " +
                   Number(Scenes_.size()));
   }
+  if (!ReadSkins(root)) { return false; }
   if (!ReadAnimations(json)) { return false; }
+  return true;
+}
+
+/* THE SKINS, READ AFTER THE NODES because every joint is a node index and the table has to be
+ * complete before one can be refused for naming a node the file does not carry.
+ *
+ * AN ABSENT `inverseBindMatrices` IS NOT AN OMISSION, it is the format stating that every matrix is
+ * the identity -- so the vector is left empty and the consumer reads the absence, rather than this
+ * reader materialising N identities that would then have to be told apart from declared ones. */
+bool Document::ReadSkins(const Json::Ref &root) {
+  const Json::Ref skins = root["skins"];
+  for (size_t i = 0; i < skins.Size(); ++i) {
+    const Json::Ref declaration = skins[i];
+    Skin skin;
+    skin.Name = declaration["name"].Str("");
+    skin.Skeleton = declaration["skeleton"].Valid() ? declaration["skeleton"].Int(-1) : -1;
+    const Json::Ref joints = declaration["joints"];
+    if (joints.Size() == 0) {
+      return Refuse("skin " + Number(i) + " names no joint, and a skin with no joint deforms nothing");
+    }
+    for (size_t k = 0; k < joints.Size(); ++k) {
+      const int node = joints[k].Int(-1);
+      if (node < 0 || static_cast<size_t>(node) >= Nodes_.size()) {
+        return Refuse("skin " + Number(i) + " names joint node " + Number(k) +
+                      " which the file does not carry");
+      }
+      skin.Joints.push_back(node);
+    }
+    if (skin.Skeleton >= 0 && static_cast<size_t>(skin.Skeleton) >= Nodes_.size()) {
+      return Refuse("skin " + Number(i) + " names a skeleton node the file does not carry");
+    }
+    const Json::Ref bind = declaration["inverseBindMatrices"];
+    if (bind.Valid()) {
+      if (!ReadElements(bind.Int(-1), skin.InverseBind)) { return false; }
+      if (skin.InverseBind.size() != skin.Joints.size() * 16) {
+        return Refuse("skin " + Number(i) + " names " + Number(skin.Joints.size()) +
+                      " joints and an inverseBindMatrices accessor holding " +
+                      Number(skin.InverseBind.size() / 16) + " matrices");
+      }
+    }
+    Skins_.push_back(std::move(skin));
+  }
+  for (size_t i = 0; i < Nodes_.size(); ++i) {
+    const int skin = Nodes_[i].Skin;
+    if (skin >= 0 && static_cast<size_t>(skin) >= Skins_.size()) {
+      return Refuse("node " + Number(i) + " names skin " + Number(static_cast<size_t>(skin)) +
+                    " and the file declares " + Number(Skins_.size()));
+    }
+    if (skin >= 0 && Nodes_[i].Mesh < 0) {
+      return Refuse("node " + Number(i) + " names a skin and carries no mesh, and glTF states a "
+                    "skin is only meaningful on the node that instantiates the geometry");
+    }
+  }
   return true;
 }
 
