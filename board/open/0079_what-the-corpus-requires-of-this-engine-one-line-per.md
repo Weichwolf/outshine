@@ -157,6 +157,14 @@ proven** — `TriangleWithoutIndices` passes on all three arms, so the recount's
 `KHR_node_visibility` at 2 **left the sequence** on the criterion this section already states, because
 Blender refuses `CubeVisibility` outright (`board:1204`). `MultipleScenes` is likewise passing.
 
+**AND THE SEQUENCE'S OWN ORDERING KEY CANNOT SEE WHAT NOW BLOCKS IT.** *Models blocked solely by that
+feature* is measured per feature, and `board:1206` is one missing term — an environment the subject arm
+does not consume — that blocks **three** rows at once: occlusion at 46, `KHR_materials_ior` at 17 and
+`KHR_materials_specular` at 9. **72 models' worth**, which is more than any single row left and more
+than the two largest of tier 2 together. It was found three times, once per row, before it was one
+thing. *A ranking by sole-blocker is blind to a shared blocker by construction, and that is a property
+of the criterion rather than a mistake in applying it.*
+
 **So the sequence is now at tier 2, and `board:1204` is what orders it.** `volume` at 25 and `ior` at 17
 are the two largest rows and both are new-resource work that cannot be finished in one dispatch — which
 is what the tier boundary was drawn to say. **Before either is started, the box on `board:1204` asking

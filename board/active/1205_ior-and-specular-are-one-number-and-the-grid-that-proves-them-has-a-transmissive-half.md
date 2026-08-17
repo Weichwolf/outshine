@@ -1,5 +1,6 @@
 Type: task
 Parent: 0079
+Depends: 1206
 Area: gltf
 Tags: khronos, oracle, instrument
 
@@ -41,12 +42,18 @@ IOR1.33_White_R0_M0_T1_S1       transmissionFactor 1
 thing varying across its five materials is the IOR feeding `F0`. **So the quantity this task delivers is
 isolated by the asset itself**, with no transmission in the path.
 
-- [ ] **But a case renders the file as declared, and the file also carries the `White … T1` half.** The
-  case cannot be authored until transmission is drawn or until the declaration can say which part of the
-  grid it is about — and **overriding the materials would erase the thing under test**, so
-  `emission-per-material` is not the answer here the way it was for the animated tier. **This is the
-  open question of the task and it is named before the work starts**: either a smaller asset carries the
-  same claim, or `IORTestGrid` waits for `volume`/`transmission` and this dispatch proves itself on one
+- [x] **A smaller asset does carry the specular half**: `SpecularTest` declares
+  `KHR_materials_specular` **and nothing else** — no transmission, no volume, no ior — over 23 of its 24
+  materials. So the transmissive half of `IORTestGrid` is not what blocks this task.
+
+- [ ] **What blocks it is `board:1206`, and it is a bigger finding than this task.** Both assets are
+  **black panels at roughness 0**, which is a mirror whose only visible content is what it reflects —
+  they are built for image-based lighting, and this suite's `light` vocabulary is `none | gltf | sun`,
+  the schema's whole enumeration. Under a sun a roughness-0 lobe is nearly a delta, so `F0` would decide
+  the brightness of a point; meanwhile **Cycles renders the factory world**, a uniform grey that IS a
+  light, and our subject arm consumes no environment at all. **A case authored today would be red for a
+  reason that is neither our arithmetic nor Blender's**, and its natural reading — *our specular is
+  wrong* — is the one that costs the round
 
 ## Done when
 
@@ -55,7 +62,10 @@ isolated by the asset itself**, with no transmission in the path.
 - [ ] `F0` is computed once, from the formula above, and reaches `MetalRoughBrdf` — the constant at
   `MetalRoughBrdf.h:32` **disappears in the same round**, because a default that survives beside a
   computed value is the second spelling of one number
-- [ ] A render case proves it against Cycles, on an asset whose IOR varies and whose transmission does not
+- [ ] A render case proves it against Cycles — **blocked on `board:1206`**, not on the asset. The number
+  is delivered and unproven by a picture, which `board:0079`'s closing line forbids as a CLAIM, so this
+  task stays open and the capability table says *implemented, awaiting an environment* rather than
+  *delivered*
 - [ ] A deliberately wrong `F0` is shown red
 
 ## The caveat named before the measurement
