@@ -1,0 +1,234 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/material/specular-test",
+  "title": "Rung 9 -- KHR_materials_specular: 23 mirrors under a declared environment, and the first case in this tree the engine SHADES rather than is handed",
+  "covers": [
+    "I.26",
+    "I.26.6"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "Tests the specular extension, which allows the specular reflection of a material to be altered.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SpecularTest/metadata.json",
+    "note": "The asset states no number, so the criterion is the suite's own: our picture against Cycles'. What the ASSET decides is which mechanism is under test, and it isolates it harder than any case in this tree: 23 of its 24 materials are baseColorFactor BLACK at metallic 0 and roughness 0, so there is no diffuse term and no rough lobe -- the only thing any panel can show is F0 times the environment, and the only thing that varies between panels is specularFactor. A disagreement therefore has one candidate cause."
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction -- azimuth 35 deg, elevation 20 deg -- puts every silhouette edge of the panel grid at an irrational raster slope, and the grid is 23 bodies whose edges cannot all be made exact by one roll.",
+    "note": "AND THE CASE IS RED FOR A REASON THAT IS NEITHER SIDE'S ARITHMETIC, MEASURED AND NAMED HERE RATHER THAN AFTER THE FACT (board:1206). The worst disagreements are ours 141.5 codes against the oracle's 0, at scattered pixels such as (137, 94), (144, 87) and (151, 102). 141.5 codes decodes to about 0.267 linear, which is the declared environment radiance of 0.25 arriving whole -- and that is exactly what Schlick's Fresnel returns as the view angle goes grazing. At those pixels the mirror direction points ALONG the grid into a neighbouring panel: Cycles traces it and returns black, and this engine gathers the environment with no visibility term at all. It is the same argument the runner's `diffuse` material kind already uses to REFUSE a multi-part subject -- the closed form holds only where no surface can see another -- arriving on the specular side. The reduction this case needs is therefore about VISIBILITY and not about F0, and it is owed before the case can be scored."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "specular-test",
+      "kind": "gltf",
+      "name": "SpecularTest",
+      "entry": "scene.gltf",
+      "attributes": [
+        "POSITION",
+        "NORMAL",
+        "TEXCOORD_0"
+      ],
+      "notes": "24 meshes over 25 nodes; 20 primitives carry POSITION and NORMAL only and 4 also carry TEXCOORD_0, which are the label plates. KHR_materials_specular is the ONLY extension the file uses and it is not required, so a reader without it draws a defensible picture and the wrong one. 23 of 24 materials declare it, over five specularFactor values measured here -- 0, 0.051269, 0.212231, 0.520996, 1 -- on panels that are baseColorFactor [0,0,0,1], metallicFactor 0 and roughnessFactor 0.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "SpecularTest",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the same pin every other Khronos subject in this tree carries"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SpecularTest/glTF/SpecularTest.gltf",
+          "sha256": "e9e582c705a2fdfa342c9e2c796bbb459e67c4f19518f754364f72ada8791a18",
+          "bytes": 32846,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SpecularTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SpecularTest/glTF/SpecularTest.bin",
+          "sha256": "c0f38c6c39c65f0d00213ff3cdd37328e9ce6bfaf12af563ff28d50d30659355",
+          "bytes": 180088,
+          "as": "SpecularTest.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SpecularTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SpecularTest/glTF/LeftLabels.png",
+          "sha256": "491def53d2f2fe82aa2d9babad922475661f54c416abc17bc0dbd52e4565de11",
+          "bytes": 30517,
+          "as": "LeftLabels.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SpecularTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SpecularTest/glTF/WhiteGrid.png",
+          "sha256": "237e82e386d84ab705a69d3b78d1f7c2854422c8c83bd2b824fc2cbd1a907353",
+          "bytes": 205,
+          "as": "WhiteGrid.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SpecularTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SpecularTest/glTF/YellowGrid.png",
+          "sha256": "b0b2c99b097f4a55ed587a58c32a254cc5ff76c0aa028825af0018c65ccdff85",
+          "bytes": 204,
+          "as": "YellowGrid.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SpecularTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SpecularTest/glTF/specularTextureGrid.png",
+          "sha256": "3232a9a310f6057359bd03a863ea33576406b26df0f951d614e7fee424cf0ae9",
+          "bytes": 242,
+          "as": "specularTextureGrid.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SpecularTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SpecularTest/metadata.json",
+          "sha256": "f35d08efe9723f6db5d56965e884bb15696cdb590bf5cf65449b7ea892d109f1",
+          "bytes": 780,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SpecularTest/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        3.555817376716261,
+        1.6634398163098822,
+        2.621395356263225
+      ],
+      "lookAtM": [
+        -0.18792317621409893,
+        0.0,
+        0.0
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 4.182556868381303,
+      "clipEndM": 5.54458844028532,
+      "derivation": "The framing rule of board:0083 applied to the subject's own bounds: min (-0.750846341252327, -0.3800000138580799, -0.05000000447034836), max (0.3749999888241291, 0.3800000138580799, 0.05000000447034836), centre (-0.18792317621409893, 0, 0), radius 0.6810157859520085 m -- which agrees with the radius the engine itself reports for this subject, 0.681015786. Direction azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6, yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, znear = distance - r and zfar = distance + r. Roll 0: the grid's edges are irrational at every roll, so no roll buys exactness."
+    },
+    "light": {
+      "kind": "none",
+      "note": "NO PUNCTUAL LIGHT, AND THAT IS THE CASE (board:1206). Under a delta light a roughness-0 lobe is a point and F0 would decide the brightness of something too small to compare. The environment below is the whole illumination, which is what the asset was built for and what makes every panel a mirror of one known radiance."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.25,
+      "note": "A DECLARED environment rather than Blender's factory grey, so the picture is a function of this manifest and not of a default. 0.25 is [SET]: it puts a dielectric's F0 of 0.04 at 0.01 scene-referred, which is above the recipe's own quantisation and far below any clipping, and the five specularFactor values then land at 0, 0.000513, 0.002122, 0.005210 and 0.01 -- five separations the display transfer resolves."
+    },
+    "material": {
+      "source": "gltf",
+      "kind": "metal-rough",
+      "note": "THE ENGINE SHADES THIS ONE. Every other case in this tree hands the renderer a radiance the runner computed -- rho*L in closed form, or an emission -- and scores the raster. This case declares no radiance at all: the picture is the file's own material row evaluated against the environment by this engine's BRDF, which is what makes it the first case whose verdict is about SHADING (board:1206)."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 320,
+      "resolutionY": 180,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does. ONE SAMPLE IS EXACT HERE AND THAT IS A PROPERTY OF THIS ASSET, NOT AN ASSUMPTION: an environment is an area source and would ordinarily leave Cycles an estimator, which is why this suite declares world strength 0 everywhere else. But every panel is roughnessFactor 0, so the specular direction is DETERMINED rather than sampled, and the environment is UNIFORM, so every direction carries the same radiance. The integrand is therefore constant and its one-sample estimate has zero variance. That is also why the case declares no seed-shift recipe: it is not reduced in the runner's sense -- neither an emitter nor a delta light -- and the reduction it does have is the asset's own geometry rather than a declaration this manifest could make."
+    }
+  },
+  "notes": "WHAT THIS CASE IS FOR, AND WHAT IT CANNOT DECIDE. It proves KHR_materials_specular and the F0 that KHR_materials_ior shares with it (board:1205), because F0 is the only quantity a black roughness-0 panel under a uniform environment can show. It does NOT decide the rough end of the same term: this engine gathers a constant environment with Schlick's Fresnel at the view angle, which is EXACT for a mirror and an over-estimate as roughness grows, and no panel here is rough. That limitation is stated in src/render/stages/SubjectDraw.cpp and is owed to a later case rather than hidden by this one.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.096891186,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the sum over the subject's 44828 triangles of the magnitude of the projected signed area under the framing rule's own camera, over 1280*720, recomputed by the runner from the subject's vertices and printed by ADerivedCameraIsTheFramingRuleAndNotAQuotation, which holds it at 5e-07. This subject does not move, so one number covers the whole case.",
+      "note": "What the boundary bound is applied UNDER: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's size, so a camera that framed the subject smaller would tighten the bound without saying so."
+    }
+  }
+}

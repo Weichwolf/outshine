@@ -109,8 +109,19 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
  * base colour, which is what the caller declares per part. Two spellings of this predicate, one
  * deciding the refusal below and one deciding the pipeline, is the disagreement that would draw an
  * unlit caption black. */
+/* WHETHER THIS SCENE HAS ANYTHING TO GATHER, and it is ONE predicate because the comment above says
+ * why (board:1206). A punctual list is not the only source: a declared environment is a light --
+ * the one whose solid angle is the whole sphere -- and a scene lit by it alone was drawing every
+ * part through the emitted arm, whose declared radiance in that arm is zero. `SpecularTest` came
+ * back entirely black against an oracle that showed its label plates bright, which is what a picture
+ * looks like when the pipeline choice and the light list disagree about what a light is. */
+[[nodiscard]] bool Gathers(const Studio &studio) {
+  return !studio.Lights.empty() || studio.Environment.RadianceLinear[0] > 0.0 ||
+         studio.Environment.RadianceLinear[1] > 0.0 || studio.Environment.RadianceLinear[2] > 0.0;
+}
+
 [[nodiscard]] bool Lit(const Studio &studio, const Gltf::Subject &subject, size_t part) {
-  return subject.Parts()[part].HasNormal && !studio.Lights.empty() &&
+  return subject.Parts()[part].HasNormal && Gathers(studio) &&
          !studio.Surfaces[studio.PartSurface[part]].Row.Unlit;
 }
 
@@ -144,10 +155,10 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
      * every other body is lit -- which reads as a shading bug rather than as the missing attribute
      * it is. glTF says a client MUST compute flat normals for such a primitive; until something
      * does, this is what says so. */
-    if (!studio.Lights.empty() && !subject.Parts()[part].HasNormal &&
+    if (Gathers(studio) && !subject.Parts()[part].HasNormal &&
         !studio.Surfaces[studio.PartSurface[part]].Row.Unlit) {
       error = "the studio declares " + std::to_string(studio.Lights.size()) +
-              " punctual lights and part " + std::to_string(part) + " of node '" +
+              " punctual lights and an environment, and part " + std::to_string(part) + " of node '" +
               subject.Parts()[part].NodeName +
               "' carries no NORMAL, so there is no direction for the cosine -- and nothing here "
               "derives the flat normal the format asks for";
