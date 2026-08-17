@@ -118,41 +118,34 @@ oracle · patch the asset · disqualify. Disqualification is per `(case, metric)
 is the last rung.
 
 **The caveat first, every time.** Before a defect is reported the harmless explanation is actively sought
-and named, with why it is ruled out. *"No directional light"* was a scene at −3.6° sun elevation; *"aerial
-perspective fails"* was a missing rock class in the near field. **A confounded finding costs a whole round.**
+and named, with why it is ruled out. **A confounded finding costs a whole round.**
 
 **Measure before you reach.** A suspected cause is measured before it is repaired, and **when the
-measurement refutes the guess, the refutation is the round's result** and carries its number.
+measurement refutes the guess, the refutation is the round's result.**
 
-**Look it up, do not recall it.** A domain claim without a source is a defect rather than a finding — a
-beech leaf is 6–10 cm, and a number wrong by a factor of ten is only found by looking. **And check the
-source rather than citing it**: Microsoft Flight Simulator supports no claim about run-time generation,
-because everything there was generated ahead of time in the cloud.
+**Look it up, do not recall it, and check the source rather than citing it.** A domain claim without a
+source is a defect rather than a finding, and a source that does not support what it is cited for is the
+same defect one step later.
 
-**Three measuring cautions, each of which has cost a round.** A **run-wide average is not a zero point**
-when the quantity drifts across the run — take the neighbourhood and say which. **A reference photograph
-is not a photometer beyond about 2 EV**: it puts clear sky at 1.74× the sunlit limestone of the same frame
-where physics demands 0.23…0.36×, so ground against ground is usable and an absolute value is not. And
-**freeze the masks** — a colour-keyed population moves with the light, so it is built once on the
-reference frame and the same one is used on both sides.
+**A run-wide average is not a zero point** when the quantity drifts across the run — take the
+neighbourhood and say which. **A photograph is not a photometer** beyond a couple of stops. **A
+colour-keyed population is built once on the reference and used on both sides**, or the mask moves with
+the light and is not a ruler.
 
-**A measurement pins its subject by a source digest and never by an archive's hash** (`board:1157`): `ar`
-embeds mtimes and `liboutshine.a` is not what the suites link, so that hash identifies a build event and
-not a state of the code. **An instrument in the path — a sanitiser, a proxy, a substituted table — is its
-own field**, never folded into the number.
+**A measurement pins its subject by a digest of the source, never by a build archive's hash** — an
+archive identifies a build event and not a state of the code. **An instrument in the path is its own
+field**, never folded into the number.
 
 **Look at every image produced and report what is seen**, not what is expected. **The still is the
-comparison resolution and not the acceptance**: the most expensive defects are exactly the ones one frame
-cannot show — popping at an LOD change, a scatter that ends at a radius, ghosting in the temporal filter,
-a hitch on stream-in, shading that jumps at a mesh change. **On a picture judgement the answer is yes or
-no**, compared at **320×180**, where light, colour and silhouette decide and detail no longer speaks — so
-**the answer to a bad comparison is never more detail**.
+comparison resolution and not the acceptance**: the most expensive defects are the ones a single frame
+cannot show, and they are decided in motion or not at all. **On a picture judgement the answer is yes or
+no** — and the answer to a bad comparison is never more detail.
 
 **What is replaced disappears in the same round.** A fallback is a dead path, and a dead path that can
 still fire is worse than one line too many. Diagnostics are not dead paths.
 
-**Every statement has exactly one place.** An argument standing in both a header and `board/` will drift
-the moment one side is measured.
+**Every statement has exactly one place.** An argument standing in two places will drift the moment one
+side is measured.
 
 **Warnings are errors.** A pre-existing red is neither worsened nor repaired unasked — it is named.
 
@@ -161,8 +154,8 @@ it, beats something that explodes later. **Resistance is information**: when a t
 not mean make it easier, it means there is something here you do not understand.
 
 **Every artefact goes to the system temp directory, never into the tree** — a repository is what is
-declared and what is built from it, and a file nobody committed on purpose is a file the next round has
-to decide about.
+declared and what is built from it.
+
 
 ## The engine
 
