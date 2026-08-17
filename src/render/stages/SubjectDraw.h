@@ -240,7 +240,19 @@ struct SubjectMaterial {
    * reads. It walks the four named sockets rather than a table, for the reason they are named. */
   [[nodiscard]] bool ReadsSecondUv() const {
     return Colour.Set == outshine::UvSet::Second || Normal.Set == outshine::UvSet::Second ||
-           MetalRough.Set == outshine::UvSet::Second || Emissive.Set == outshine::UvSet::Second;
+           MetalRough.Set == outshine::UvSet::Second || Emissive.Set == outshine::UvSet::Second ||
+           SpecularStrength.Set == outshine::UvSet::Second ||
+           SpecularTint.Set == outshine::UvSet::Second;
+  }
+  /* WHETHER ANY SOCKET OF THIS SURFACE NEEDS A uv AT ALL (board:1205). The consumer decides whether
+   * to carry the uv run, and it used to ask only whether the COLOUR image existed -- so a material
+   * whose only image is `KHR_materials_specular`'s took the layout with no uv, entered the arm that
+   * cannot sample, and its two textures changed nothing. **`SpecularTest`'s picture was identical to
+   * the digit through three separate repairs because of this one predicate.** Asking every socket is
+   * what stops the seventh image repeating it. */
+  [[nodiscard]] bool ReadsAnyImage() const {
+    return Colour.Rgba || Normal.Rgba || MetalRough.Rgba || Emissive.Rgba ||
+           SpecularStrength.Rgba || SpecularTint.Rgba;
   }
 };
 

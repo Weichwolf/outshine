@@ -74,7 +74,17 @@ isolated by the asset itself**, with no transmission in the path.
   1 — needing `specularFactor` above 25 for a dielectric, since the base term is below 1 for every
   `ior`. `SpecularTest`'s largest factor is 1.
 
-- [ ] **AND IT IS NOT YET SHOWN TO CHANGE ANY PICTURE, WHICH IS THE OPEN BOX.** After the change
+- [x] **AND IT IS NOW SHOWN TO CHANGE THE PICTURE, BY ONE PREDICATE.** The consumer carried the uv run
+  only where the **colour** image existed — `carried.Uv = where.HasUv && Surfaces[slot].Colour.Rgba` —
+  so a material whose only image is this extension's took the layout with **no uv**, entered the arm
+  that cannot sample, and its two textures changed nothing. `SpecularTest`'s three textured materials
+  each carry `TEXCOORD_0`, so the attribute was there and the layout threw it away.
+
+  **`ReadsAnyImage()` asks every socket**, and the measurement moved for the first time in four
+  attempts: channels agreeing to within one code went **23134 → 31454**, so **8320 channels** came
+  into agreement. *The peak is untouched at 141.523705 and belongs to something else.*
+
+- [ ] ~~**AND IT IS NOT YET SHOWN TO CHANGE ANY PICTURE.**~~ Superseded by the line above. After the change
   `SpecularTest`'s histogram is **identical to the digit** — 23134 channels in `[0, 1)`, peak
   141.523705 at (551, 380). **Not one channel moved.** The next measurement is named rather than
   guessed: *do the three images decode to anything other than the identity?* `specularTexture` is read
@@ -103,3 +113,10 @@ image. Forcing that arm's `F0` to **zero** left the picture identical to every d
 enters it, and the extension's own textured materials declare no base-colour image either. *A capability
 put in the arm the asset does not take is indistinguishable from one that is absent, and only the
 mutation says which.*
+
+**And the arm was only the first of two gates.** After the modulation reached every arm the picture was
+STILL identical, because the layout feeding those arms had already dropped the uv run — one predicate
+asking about the colour image alone. **Four measurements came back identical to the digit before the
+cause was found**, and each one was a real elimination rather than a wasted round: the mirror ray, the
+grazing Fresnel, minification by resolution, and the wrong shading arm. *The chain broke on a predicate
+that had been correct for as long as every image was a colour image.*

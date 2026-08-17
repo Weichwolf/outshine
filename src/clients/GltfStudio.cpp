@@ -193,7 +193,7 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
      * there is no direction for a cosine to be measured against and the declaration's own radiance
      * is the whole answer. */
     Render::VertexRunsCarried carried;
-    carried.Uv = where.HasUv && studio.Surfaces[slot].Colour.Rgba;
+    carried.Uv = where.HasUv && studio.Surfaces[slot].ReadsAnyImage();
     carried.Normal = Lit(studio, subject, part);
     /* THE NORMAL-MAPPED LAYOUT NEEDS BOTH HALVES TOO, and the second half is the SURFACE: a part
      * that carries a tangent basis under a surface with no normal map would sample the one white
