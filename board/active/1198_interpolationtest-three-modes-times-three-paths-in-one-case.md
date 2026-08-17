@@ -86,7 +86,14 @@ deleted function existed to remove: the generalisation had reintroduced it one l
 - [x] **The case manifest's animation set** — `scene.animation.index` is now `scene.animation.animations`,
   in the schema, the preparer, the runner and `BoxAnimated`'s own declaration. **There is no spelling for
   *all*:** *all* is a fact about the file, and the picture is a function of the declaration
-- [ ] **The `InterpolationTest` case directory itself** — manifest, camera, grid, and the fetch entry
+- [ ] **The `InterpolationTest` case directory itself** — manifest, camera, grid, and the fetch entry.
+  **BLOCKED ON `board:1199`**: all nine cubes share one glTF material, they cover 2428 pixels two-deep
+  over the grid, and `emission-per-material` would give them one colour and fuse those silhouettes.
+  The camera is already derived by `board:0083`'s rule over the union of the posed bounds across the
+  grid — centre `(0, 4.820268829959309, 0.0018373973194001358)`, radius `8.537972842741919` m, eye
+  `(46.935703739242754, 25.67500416819452, 32.86657096671483)`, `yfov = 2*atan(12/50)`, znear
+  `52.43719410342683`, zfar `69.51313978891066` — and the grid is 8 fps × 17 frames, which is
+  `ceil(2.0 s * 8) + 1` and puts frame 16 exactly on the file's last keyframe
 - [ ] **The separation carried into codes.** The table below is in each channel's own units. Translation
   at 6.8 m is obviously a picture; **0.0828 of a quaternion component is not yet a claim about pixels**,
   and until it is, the mode clause is met in the wrong currency
