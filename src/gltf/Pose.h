@@ -30,6 +30,7 @@
 #include <vector>
 
 #include "Track.h"
+#include "Span.h"
 #include "Transform.h"
 #include "Types.h"
 
@@ -43,6 +44,18 @@ public:
    * refusal naming the count -- "the first animation found" would render one animation and report
    * another. */
   [[nodiscard]] static bool Build(const Document &document, int animation, Pose &out,
+                                  std::string &error);
+
+  /* A DECLARED SET, BECAUSE A FILE'S ANIMATIONS ARE INDEPENDENT AND A CLIENT PLAYS ANY SUBSET
+   * (board:1198). `InterpolationTest` states nine of them, one per node -- three interpolations over
+   * three paths -- and its picture is all nine at once, so a pose built from one index would render
+   * eight still cubes beside one moving one and report the asset's claim as met.
+   *
+   * WHICH SUBSET IS THE CALLER'S DECLARATION AND NEVER A DEFAULT: "all of them" is a declaration like
+   * any other, and "the first one found" is the shape the single-index refusal below already refuses.
+   * TWO ANIMATIONS DRIVING ONE NODE'S SAME PATH IS A REFUSAL naming both -- the format leaves the
+   * result undefined, and a pose that silently kept the last would decide it here. */
+  [[nodiscard]] static bool Build(const Document &document, Span<const int> animations, Pose &out,
                                   std::string &error);
 
   [[nodiscard]] bool Valid() const { return !Nodes_.empty(); }

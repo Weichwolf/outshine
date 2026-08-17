@@ -254,6 +254,32 @@ int main() {
         "an animation index the file does not carry is refused rather than defaulted to the first");
   std::printf("NOTE %s\n", why.c_str());
 
+  /* A POSE IS BUILT FROM A DECLARED SET, AND THE SET IS NOT AN INDEX (board:1198). A file's animations
+   * are independent and a client plays any subset, so the subset is the caller's declaration -- and the
+   * three statements below are the three ways that declaration can be wrong. */
+  const int justTheFirst[1] = {0};
+  Pose asASet;
+  CHECK(Pose::Build(file, Span<const int>(justTheFirst, 1), asASet, why),
+        "a set naming one animation resolves");
+  CHECK(asASet.ChannelCount() == pose.ChannelCount() && asASet.NodeCount() == pose.NodeCount() &&
+            asASet.StartS() == pose.StartS() && asASet.EndS() == pose.EndS(),
+        "the set of one and the single index build the same pose, so the overload is one spelling of "
+        "one operation and not two operations");
+
+  Pose empty;
+  CHECK(!Pose::Build(file, Span<const int>(justTheFirst, 0), empty, why),
+        "an empty set is refused, and that is a different statement from a file carrying none");
+  std::printf("NOTE %s\n", why.c_str());
+
+  /* THE SAME ANIMATION TWICE IS THE CONFLICT, EXACTLY: both entries claim the same node's same path,
+   * which is what two animations driving one property would do and what the format leaves undefined. */
+  const int twice[2] = {0, 0};
+  Pose contested;
+  CHECK(!Pose::Build(file, Span<const int>(twice, 2), contested, why),
+        "two animations driving one node's same path are refused naming both, rather than the last "
+        "one silently winning");
+  std::printf("NOTE %s\n", why.c_str());
+
   Covers("I.26 animations: samplers, channels and the node hierarchy they drive");
   return Report();
 }
