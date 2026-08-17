@@ -48,6 +48,7 @@
 
 #include "Document.h"
 #include "Json.h"
+#include "Pose.h"
 #include "Subject.h"
 
 using outshine::Json;
@@ -309,11 +310,50 @@ Answer Judge(const Case &subjectCase) {
     return answer;
   }
 
+  /* THE RULE OVER THE MOTION AND NOT OVER THE STORED POSE (board:1366). A camera derived from the pose
+   * the file happens to hold frames a shape an animated subject LEAVES -- `AnimatedTriangle` spins 360
+   * degrees about the origin and reaches 2.12 from a centre the rest-pose rule covers to 1.178. So the
+   * bounds are the union over the case's own declared frame grid; for a still that union IS the pose,
+   * which is why not one of the still cases moves. */
+  double sweptMin[3] = {subject.MinM()[0], subject.MinM()[1], subject.MinM()[2]};
+  double sweptMax[3] = {subject.MaxM()[0], subject.MaxM()[1], subject.MaxM()[2]};
+  const Json::Ref animation = root["scene"]["animation"];
+  const int frameCount = (int)animation["frames"]["value"].Num(1.0);
+  const double fps = animation["fps"]["value"].Num(0.0);
+  if (frameCount > 1 && fps > 0.0) {
+    std::vector<int> declaredAnimations;
+    for (size_t at = 0; at < animation["animations"].Size(); ++at) {
+      declaredAnimations.push_back((int)animation["animations"][at].Num(0.0));
+    }
+    outshine::Gltf::Pose pose;
+    std::string poseError;
+    std::vector<outshine::Gltf::Transform> locals;
+    std::vector<double> weights;
+    if (outshine::Gltf::Pose::Build(document,
+                                    outshine::Span<const int>(declaredAnimations.data(),
+                                                              declaredAnimations.size()),
+                                    pose, poseError)) {
+      for (int frame = 1; frame < frameCount; ++frame) {
+        pose.At((double)frame / fps, locals, weights);
+        Subject posed;
+        if (!posed.Build(document,
+                         outshine::Span<const outshine::Gltf::Transform>(locals.data(), locals.size()),
+                         outshine::Span<const double>(weights.data(), weights.size()))) {
+          continue;
+        }
+        for (int axis = 0; axis < 3; ++axis) {
+          sweptMin[axis] = std::min(sweptMin[axis], posed.MinM()[axis]);
+          sweptMax[axis] = std::max(sweptMax[axis], posed.MaxM()[axis]);
+        }
+      }
+    }
+  }
+
   double centre[3] = {0, 0, 0};
-  subject.CentreM(centre);
+  for (int axis = 0; axis < 3; ++axis) { centre[axis] = 0.5 * (sweptMin[axis] + sweptMax[axis]); }
   Placement framed;
-  const bool frames = subject.Frame(framed);
-  CHECK(frames, "the framing rule resolves a camera from the subject's own bounds");
+  const bool frames = outshine::Gltf::FramingFor(sweptMin, sweptMax, framed);
+  CHECK(frames, "the framing rule resolves a camera from the subject's bounds over its own frame grid");
   if (!frames) { return answer; }
   answer.Judged = true;
 

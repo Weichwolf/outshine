@@ -71,3 +71,27 @@ cases green on every frame either way.
 - [ ] **That test is the change, and it is small**: for a case declaring an animation, pose over the grid
   and union before calling `FramingFor`. *For a still the union is the pose, so nothing about the 34
   existing still cases moves.*
+
+## Closed: the rule sweeps, and the blast radius was one camera and 4.8e-07 m
+
+`ADerivedCameraIsTheFramingRuleAndNotAQuotation` now poses the subject over the case's own declared
+frame grid and unions the bounds before calling `FramingFor`. **For a still the union IS the pose**,
+which is why not one of the 34 still cases moved.
+
+**One case moved and it is the one that should have.** `AnimatedMorphCube` MORPHS, so its swept box is
+`[-1.0000003501772881, 1.0000004433095455]` on X against the rest pose's `[-1, 1]`, and its quoted eye
+was stale by **4.81649513e-07 m** -- five orders above the test's 1e-12 relative tolerance and invisible
+in any picture. **The camera was re-derived, its oracle re-rendered, and the corpus is unchanged**:
+`criteria 31 met of 37, picture bound 18 within` before and after, `AnimatedMorphCube` green on every
+frame either way.
+
+**The number being tiny is not the point and the item says so plainly.** `AnimatedTriangle` spins 360
+degrees about the origin: its swept radius is **twice** what the rest-pose rule frames, so it leaves the
+picture entirely. The rule now covers both, and the ten animated core models behind it can be authored
+with a camera that frames what they do rather than where they start.
+
+**What is NOT in this repair, and it was tried and removed**: a sweep inside `Parity.cpp`'s framing
+branch. That branch is unreachable for any manifest the schema admits -- the camera discriminator has
+exactly two variants and both are handled above it -- so the sweep cost every animated case a pose per
+frame at load and could not fire. **The camera is authored, so the sweep belongs where the number is
+written down.**
