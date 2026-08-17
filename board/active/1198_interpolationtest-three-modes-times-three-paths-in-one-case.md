@@ -62,3 +62,24 @@ is not.
 **Done when** `InterpolationTest` is in the tree and compared frame by frame; `STEP`, `LINEAR` and
 `CUBICSPLINE` are each decided over scale, rotation and translation; the pose applies a declared set of
 animations; and a deliberately wrong interpolation mode is shown to fail the case.
+
+## The precondition, measured before anything is rendered
+
+Evaluated from the file's own accessors in double, all three modes per path, over an **8 fps grid across
+the asset's declared 2.000000 s** (17 frames). Worst absolute disagreement between each pair of modes, in
+the units the channel carries:
+
+| path | `CUBICSPLINE`~`LINEAR` | `CUBICSPLINE`~`STEP` | `LINEAR`~`STEP` |
+|---|---|---|---|
+| scale | **0.0938** | 0.8438 | 0.7500 |
+| rotation (quaternion component) | **0.0828** | 0.3698 | 0.2870 |
+| translation (metres) | **6.8000** | 3.4000 | 3.4000 |
+
+**Every pair separates on every path**, so a sampler that ignored the declared mode could not pass. And
+**the tightest pair is `CUBICSPLINE`~`LINEAR`**, which is the pair the Hermite question turns on — the case
+is therefore sensitive exactly where it must be rather than only where it is easy.
+
+**What this does not yet establish**: these are separations in the channel's own units, not in codes. The
+translation figure is 6.8 m and obviously visible; the rotation figure is 0.0828 of a quaternion component
+and **must be carried through to a picture difference before the case is scored**, or the clause is met in
+the wrong currency.
