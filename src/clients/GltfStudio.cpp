@@ -20,21 +20,29 @@ void Anchored(const double gltf[3], double out[3]) {
   for (int axis = 0; axis < 3; ++axis) { out[axis] += kStudioAnchorEcefM[axis]; }
 }
 
-/* THE ENGINE'S NEAR PLANE IS FIXED and the declaration's own clip range does not reach it. That
- * costs nothing where the picture is decided by coverage or by depth -- x and y do not depend on it
- * and the far plane is infinite -- but a subject nearer than it would be silently cropped, so it is
- * a refusal that names both numbers. */
+/* A SUBJECT NEARER THAN THE NEAR PLANE WOULD BE SILENTLY CROPPED, so it is a refusal that names both
+ * numbers.
+ *
+ * THE PLANE IS THE PLACEMENT'S OWN AND NO LONGER A CONSTANT (board:1420). It was
+ * `Renderer::kNearM`, fixed at 0.05 m, while the placement beside it declared `ZNearM` -- two
+ * determinations of one quantity, and the constant won. [MEASURED] `MetalRoughSpheresNoTextures` is
+ * 5.6 mm in radius and framed at 40 mm, so every vertex of it lay in front of the fixed plane and the
+ * whole picture was this refusal. **A subject smaller than a matchbox could not be rendered at all.**
+ *
+ * A PLACEMENT THAT DECLARES NO NEAR PLANE FALLS BACK TO THE CONSTANT, which is what the renderer does
+ * with the same number, so the two cannot disagree about which plane was used. */
 [[nodiscard]] bool ClearsNearPlane(const Gltf::Subject &subject, const Gltf::Placement &eye,
                                    std::string &error) {
+  const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : (double)Render::Renderer::kNearM;
   for (size_t vertex = 0; vertex < subject.VertexCount(); ++vertex) {
     double along = 0;
     for (int axis = 0; axis < 3; ++axis) {
       along += (subject.PositionsM()[vertex * 3 + (size_t)axis] - eye.EyeM[axis]) * eye.Forward[axis];
     }
-    if (along <= (double)Render::Renderer::kNearM) {
+    if (along <= plane) {
       error = "vertex " + std::to_string(vertex) + " sits " + std::to_string(along) +
-              " m along the view axis, inside the engine's fixed near plane of " +
-              std::to_string((double)Render::Renderer::kNearM) + " m";
+              " m along the view axis, inside the near plane of " + std::to_string(plane) +
+              " m this placement declares";
       return false;
     }
   }
@@ -71,6 +79,13 @@ constexpr double kMagnificationAgreement = 1e-12; /* [SET] */
     return false;
   }
   renderer.SetFovDeg(eye.YfovRad * 180.0 / 3.14159265358979323846);
+  /* THE PLACEMENT'S OWN NEAR PLANE, BECAUSE IT DECLARES ONE (board:1420). A `Placement` carries
+   * `ZNearM` and the renderer used to carry a constant, which is two determinations of one quantity
+   * -- and the constant won, so a subject framed nearer than 5 cm was cut away entirely.
+   *
+   * A PLACEMENT THAT DECLARES NOTHING KEEPS THE RENDERER'S DEFAULT, which `SetNearM` states by
+   * refusing a value that is not above zero. */
+  renderer.SetNearM(eye.ZNearM);
   return true;
 }
 

@@ -131,6 +131,24 @@ public:
    * It enters the projection and nothing else, so there is never a second copy to drift from. */
   void SetFovDeg(double deg) { FovDeg = deg > 0.0 ? (float)deg : FovDeg; }
   void SetOrthoM(double m) { OrthoM = (float)m; }
+  /* HOW NEAR THIS CONSUMER DRAWS, DECLARED RATHER THAN FIXED (board:1420).
+   *
+   * A CONSTANT HERE IS A SIZE OF WORLD THIS ENGINE CANNOT SHOW. `kNearM` was 0.05 m and nothing could
+   * override it, so a subject smaller than a matchbox lay entirely in front of the near plane and
+   * nothing was drawn at all -- [MEASURED] `MetalRoughSpheresNoTextures` has a radius of 5.6 mm and is
+   * framed at 40 mm, so *vertex 0 sits 0.042035 m along the view axis, inside the engine's fixed near
+   * plane of 0.050000 m* and the whole picture was a refusal. **A game engine draws a coin in a hand,
+   * an inventory item and a scope reticle**, and every one of those is inside 5 cm.
+   *
+   * IT COSTS NOTHING TO MOVE, AND THAT IS THE PROJECTION'S DOING. The matrix is a reversed-Z infinite
+   * one, where depth precision follows 1/z and is nearly uniform in floating point -- which is the
+   * whole reason that projection was chosen, and it is why the near plane can be declared by whoever
+   * knows how near their world is instead of being a compromise nobody can move.
+   *
+   * `kNearM` REMAINS THE DEFAULT AND NOT A LIMIT: a consumer that declares nothing renders exactly
+   * what it rendered before. */
+  void SetNearM(double m) { NearM = m > 0.0 ? (float)m : NearM; }
+  [[nodiscard]] float NearMetres(void) const { return NearM; }
 
   /* WHERE A TEMPORAL SEQUENCE BEGINS, DECLARED BY THE CONSUMER AND NEVER GUESSED (board:1413).
    * Accumulation across frames is only correct while the frames belong to ONE continuous view: a
@@ -230,6 +248,7 @@ private:
   double Fwd[3] = {0, 0, 0}, Right[3] = {0, 0, 0}, Up[3] = {0, 0, 0};
   float FovDeg = 60.0f;                   /* [SET] until a scene declares one */
   float OrthoM = 0.0f;                    /* > 0: parallel projection covering this many metres */
+  float NearM = kNearM;                   /* the declared near plane, defaulting to the constant */
   /* WHERE THE EYE WAS WHEN THE LAST FRAME WAS SUBMITTED, which is the other half of a screen-space
    * motion vector (board:1169). It is written at the END of RenderFrame, so every stage of one
    * frame sees the same previous camera whatever order the passes were compiled into. Before the

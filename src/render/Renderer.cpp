@@ -34,9 +34,9 @@ namespace {
  * what an entry multiplying `z_eye` does. A parallel projection has `w = 1` and the same offset
  * belongs in the translation instead, which is why the two branches spell it differently. */
 void MvpCamRel(float *m, const double R[3], const double Uc[3], const double F[3], int w, int h,
-               float fovDeg, float orthoM, float jitterX, float jitterY) {
+               float fovDeg, float orthoM, float jitterX, float jitterY, float nearM) {
   const float fov = fovDeg * 3.14159265f / 180.0f, asp = (float)w / (float)h;
-  const float zn = Renderer::kNearM;
+  const float zn = nearM;
   const float f = 1.0f / std::tan(fov / 2.0f);
   const float v[16] = {(float)R[0], (float)Uc[0], -(float)F[0], 0,
                        (float)R[1], (float)Uc[1], -(float)F[1], 0,
@@ -433,7 +433,7 @@ bool Renderer::Configure(Stage stage, std::string &error) {
 void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
   FrameContext ctx{};
   for (int axis = 0; axis < 3; axis++) { ctx.Eye[axis] = Eye[axis]; }
-  MvpCamRel(ctx.Mvp16, Right, Up, Fwd, Width, Height, FovDeg, OrthoM, Jitter_[0], Jitter_[1]);
+  MvpCamRel(ctx.Mvp16, Right, Up, Fwd, Width, Height, FovDeg, OrthoM, Jitter_[0], Jitter_[1], NearM);
   for (int axis = 0; axis < 3; axis++) {
     ctx.PrevEye[axis] = Submitted ? PrevEye[axis] : ctx.Eye[axis];
   }
@@ -573,7 +573,7 @@ void Renderer::RenderFrame(void) {
   for (int axis = 0; axis < 3; axis++) { PrevEye[axis] = Eye[axis]; }
   /* THE SAME OFFSET THIS FRAME RASTERISED WITH, because this is what the NEXT frame's velocity is
    * measured against -- and the resolve subtracts the difference of the two. */
-  MvpCamRel(PrevMvp16, Right, Up, Fwd, Width, Height, FovDeg, OrthoM, Jitter_[0], Jitter_[1]);
+  MvpCamRel(PrevMvp16, Right, Up, Fwd, Width, Height, FovDeg, OrthoM, Jitter_[0], Jitter_[1], NearM);
   Submitted = true;
 }
 
