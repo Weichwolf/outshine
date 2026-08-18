@@ -522,37 +522,47 @@ def _write_frames(name, road, taken, wide, checkAt):
     return wide
 
 def _bind_declared_animations(document, declared, where):
-    """EVERY DECLARED ANIMATION IS ASSIGNED TO ITS OBJECT, because the importer assigns ONE.
+    """EVERY DECLARED ANIMATION IS ASSIGNED TO ITS OBJECT, AND THIS IS A REPAIR RATHER THAN A STEP.
 
     [MEASURED] `InterpolationTest` carries nine animations, each driving one distinct node, and its
     case declares all nine -- legitimately, since no two share a target. Blender imports all nine as
     ACTIONS and assigns exactly one: `Cube` gets `Step Scale` and the other eight objects have no
     animation data at all, while the actions `Linear Scale`, `CubicSpline Rotation` and their kind sit
-    unassigned with slots named after the very objects that are missing them.
+    unassigned with slots named after the very objects that are missing them. So the data is present
+    and the BINDING is not, and the preparer needs a channelbag to write its evaluated poses into.
 
-    So the data is present and the BINDING is not, and the preparer needs a channelbag to write its
-    evaluated poses into. `Fox` never showed this because the one animation Blender happened to
-    activate was the one its case declared.
+    IT RUNS ONLY WHERE SOMETHING IS MISSING, AND THAT IS THE CORRECTION THIS FUNCTION ALREADY OWED
+    ONCE. Written as a precondition -- resolve an action for every declared animation, refuse without
+    one -- it refused **twelve cases that had been preparing for months**: `Fox`, `BrainStem`,
+    `CesiumMan`, `RiggedFigure`, `BoxAnimated` and their kind name their animations nothing, and never
+    needed a lookup because Blender had already bound the one animation they declare. *One case was
+    tested and the class was not.*
 
-    THE MAPPING IS BY THE ANIMATION'S OWN NAME AND THE SLOT IS ITS WITNESS. An action is found by the
-    name the FILE gives the animation; the action's slot names an object, and that object must be one
-    the animation actually drives, or the mapping is refused rather than guessed. A file that names an
-    animation nothing is refused here too -- there is no second key to fall back to that is not an
-    assumption about the importer's ordering.
-    """
+    THE MAPPING IS BY THE ANIMATION'S OWN NAME AND THE SLOT IS ITS WITNESS, and a name is required
+    only where a binding is actually absent -- matching by order would be an assumption about the
+    importer, and a file that needs the repair and gives no name stops rather than guesses."""
     for index in declared:
         animation = document["animations"][index]
+        drives = {}
+        for channel in animation.get("channels", []):
+            node = channel.get("target", {}).get("node")
+            if node is None:
+                continue
+            drives[_imported_name(document, node)] = node
+        missing = [n for n in drives
+                   if bpy.data.objects.get(n) is not None and _channelbag_of(bpy.data.objects[n]) is None]
+        if not missing:
+            continue
         name = animation.get("name")
         if not name:
-            fail(where + " animation " + str(index) + " carries no name, and an action can only be "
-                 "found by the name the file gives it -- matching by order would be an assumption "
+            fail(where + " animation " + str(index) + " drives " + ", ".join(sorted(missing)) +
+                 ", which carry no curves, and the animation has no name -- an action can only be "
+                 "found by the name the file gives it, and matching by order would be an assumption "
                  "about the importer this preparer does not make")
         action = bpy.data.actions.get(name)
         if action is None:
-            fail(where + " animation " + repr(name) + " has no action of that name in the scene, so "
-                 "the importer either renamed it or did not create it")
-        drives = {document["nodes"][c["target"]["node"]].get("name")
-                  for c in animation.get("channels", []) if c.get("target", {}).get("node") is not None}
+            fail(where + " animation " + repr(name) + " drives " + ", ".join(sorted(missing)) +
+                 ", which carry no curves, and the scene holds no action of that name")
         for slot in action.slots:
             obj = bpy.data.objects.get(slot.name_display)
             if obj is None:
@@ -560,11 +570,11 @@ def _bind_declared_animations(document, declared, where):
             if slot.name_display not in drives:
                 fail(where + " action " + repr(name) + " carries a slot named " +
                      repr(slot.name_display) + " and that animation drives " +
-                     ", ".join(sorted(n for n in drives if n)) +
+                     ", ".join(sorted(drives)) +
                      " -- so the action this preparer found is not the animation it was looking for")
             if obj.animation_data is None:
                 obj.animation_data_create()
-            if obj.animation_data.action is action and obj.animation_data.action_slot is not None:
+            if _channelbag_of(obj) is not None:
                 continue
             obj.animation_data.action = action
             obj.animation_data.action_slot = slot

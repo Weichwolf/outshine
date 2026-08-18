@@ -159,3 +159,12 @@ nothing -- again luck rather than a property.
 
 **`MeshoptCubeTest` is green at 83 checks and within the bound at every frame**, carrying
 `KHR_mesh_quantization`, `COLOR_0` and this animation together.
+
+**A correction I owed within the hour: the animation binding was written as a precondition and it
+refused twelve cases that had been preparing for months.** `Fox`, `BrainStem`, `CesiumMan`,
+`RiggedFigure`, `BoxAnimated`, `SimpleMorph` and their kind name their animations NOTHING, and never
+needed an action lookup at all -- Blender had already bound the one animation each of them declares.
+
+**I tested `InterpolationTest` and shipped the class.** The full re-preparation is what caught it, 18
+cases refusing where 4 had before. The binding is now a REPAIR: it runs only where an object the
+animation drives carries no curves, and a name is required only there.
