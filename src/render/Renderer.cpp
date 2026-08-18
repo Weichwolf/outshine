@@ -181,11 +181,27 @@ void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> pla
    * from the compiled plan rather than from the catalogue rows, because the prune is exactly the
    * difference between the two: a row says what a stage draws into, the plan says what this picture
    * attaches. The pass is found by the depth target, which is what makes a pass a GEOMETRY pass. */
+  /* AND IT IS THE STAGE'S OWN PASS, NOT THE FIRST GEOMETRY ONE (board:1386). With a transmissive
+   * pass in the plan there are TWO geometry passes and they attach different sets -- the opaque one
+   * carries the shading normal and the surface identity, the transmissive one carries neither -- so
+   * handing every stage the first pass's set builds pipelines that declare a colour attachment the
+   * pass does not set. [MEASURED] Metal's own validation says exactly that: *for color attachment 2,
+   * the renderPipelineState pixelFormat must be MTLPixelFormatInvalid, as no texture is set*, and it
+   * aborted 30 arms. It is `board:1121`'s defect in a new place, which is why its rule -- the set
+   * comes from the compiled plan and never from the catalogue row -- is applied per stage here. */
   for (const RenderPlan::Pass &pass : Plan_->Passes()) {
     if (pass.Kind == PassKind::Compute || pass.Depth == kNoEdge) { continue; }
     Handles.SceneColours = pass.Colours;
     break;
   }
+  const auto coloursOfPassWith = [this](Stage wanted) {
+    for (const RenderPlan::Pass &pass : Plan_->Passes()) {
+      for (size_t at = pass.First; at < pass.First + pass.Count; ++at) {
+        if (Plan_->Order()[at] == wanted) { return pass.Colours; }
+      }
+    }
+    return Handles.SceneColours;
+  };
   Handles.FiltersFloat32 =
       SDL_GPUTextureSupportsFormat(device, SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT,
                                    SDL_GPU_TEXTURETYPE_2D, SDL_GPU_TEXTUREUSAGE_SAMPLER);
@@ -197,8 +213,15 @@ void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> pla
     const Resource id = static_cast<Resource>(r);
     if (Plan_->Holds(id)) { Create(id); }
   }
+  /* WHETHER THE PLAN PULLED THE TRANSMISSIVE PASS, ANSWERED BEFORE ANY SUBJECT IS SET (board:1386):
+   * a subject arrives before a stage is configured, so a unit the plan never asked for must not be
+   * handed one. */
+  for (const Stage stage : Plan_->Order()) {
+    if (stage == Stage::SubjectsTransmissive) { DrawsGlass_ = true; }
+  }
   for (const Stage stage : Plan_->Order()) {
     std::string why;
+    Handles.SceneColours = coloursOfPassWith(stage);
     if (Configure(stage, why)) { continue; }
     Log::Error("render", "stage_not_configured", {{"stage", Row(stage).Name}, {"msg", why}});
     return;
@@ -327,7 +350,9 @@ SDL_GPUTexture *Renderer::LinearSource(void) const {
 
 bool Renderer::Configure(Stage stage, std::string &error) {
   switch (stage) {
-    case Stage::Subjects: return Subjects_.Configure(Handles, error);
+    case Stage::Subjects:
+      if (DrawsGlass_) { Subjects_.GlassIsDrawnElsewhere(); }
+      return Subjects_.Configure(Handles, error);
     case Stage::SubjectsTransmissive:
       /* THE BACKGROUND IS GIVEN BEFORE `Configure` BECAUSE IT DECIDES WHICH PIPELINES ARE BUILT
        * (board:1386): without it the unit builds no transmissive pipeline and refuses a

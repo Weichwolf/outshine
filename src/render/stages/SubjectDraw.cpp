@@ -1473,11 +1473,12 @@ bool SubjectDraw::SetMaterials(const std::vector<SubjectMaterial> &materials, st
      * that scene. On the opaque pass there is none, and the message names what is missing rather
      * than what cannot be done. */
     if ((kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive) &&
-        Behind == nullptr) {
+        Behind == nullptr && !GlassDrawnElsewhere_) {
       error = "surface slot " + std::to_string(slot) + " is " + KindName(kind) +
-              ", and this pass was given no scene behind it -- what is transmitted through a sheet "
-              "or refracted by a volume is that scene, so a transmissive slot belongs to the "
-              "transmissive pass and not to this one";
+              ", and no pass of this plan draws it -- what is transmitted through a sheet or "
+              "refracted by a volume is the scene behind it, so a subject carrying one needs the "
+              "transmissive pass declared, and drawing it opaque instead would be a picture nobody "
+              "asked for";
       Slots.clear();
       return false;
     }

@@ -93,22 +93,22 @@ public:
   /* THE DECLARED SUBJECT OF A STUDIO (stages/SubjectDraw.h): one indexed mesh and the DRAW LIST over
    * it -- many primitives, each with its own surface slot and vertex layout. */
   [[nodiscard]] bool SetSubjectMesh(const SubjectMesh &mesh, std::string &error) {
-    return Subjects_.SetMesh(mesh, error) && Glass_.SetMesh(mesh, error);
+    return Subjects_.SetMesh(mesh, error) && (!DrawsGlass_ || Glass_.SetMesh(mesh, error));
   }
   /* THE SUBJECT'S SURFACES, one per slot a draw key can name: the file says which image and how it
    * is addressed, the consumer decodes it, and this holds it. */
   [[nodiscard]] bool SetSubjectMaterials(const std::vector<SubjectMaterial> &materials,
                                          std::string &error) {
-    return Subjects_.SetMaterials(materials, error) && Glass_.SetMaterials(materials, error);
+    return Subjects_.SetMaterials(materials, error) && (!DrawsGlass_ || Glass_.SetMaterials(materials, error));
   }
   /* THE LIGHTS THE SUBJECT IS LIT BY, as a list. */
   [[nodiscard]] bool SetSubjectLights(const std::vector<SubjectLight> &lights, std::string &error) {
-    return Subjects_.SetLights(lights, error) && Glass_.SetLights(lights, error);
+    return Subjects_.SetLights(lights, error) && (!DrawsGlass_ || Glass_.SetLights(lights, error));
   }
   /* THE ENVIRONMENT THE SUBJECT SITS IN (board:1206), declared and zero where none was declared. */
   void SetSubjectEnvironment(const SubjectEnvironment &environment) {
     Subjects_.SetEnvironment(environment);
-    Glass_.SetEnvironment(environment);
+    if (DrawsGlass_) { Glass_.SetEnvironment(environment); }
   }
   [[nodiscard]] uint32_t SubjectBatchCount(void) const { return Subjects_.BatchCount(); }
   [[nodiscard]] uint32_t SubjectDrawCount(void) const { return Subjects_.DrawCount(); }
@@ -175,6 +175,12 @@ private:
    * bound as what stands behind it. It is the same unit over the same draw list -- the split is
    * stated once, inside the encode loop -- so a subject with no glass encodes nothing here. */
   SubjectDraw Glass_;
+  /* WHETHER THE COMPILED PLAN ASKED FOR THE TRANSMISSIVE PASS AT ALL (board:1386). A subject is
+   * declared before any stage is configured, so mirroring it into a unit the plan never pulled
+   * reaches a unit with no device -- and its refusal, *the subject unit has no device*, then travels
+   * out as the SUBJECT's refusal. [MEASURED] that mistake failed every one of the corpus's 444 arms
+   * at once, which is the shape of a guard put on the wrong side of a question. */
+  bool DrawsGlass_ = false;
   CompositeTransmissionStage CompositeTransmission_;
   TonemapStage Tonemap_;
 

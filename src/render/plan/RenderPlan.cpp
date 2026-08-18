@@ -187,6 +187,24 @@ bool RenderPlan::Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan>
     plan->Bound_[r] = pull.Bound[r];
     plan->Format_[r] = kResources[r].Format;
   }
+  /* AN ALIAS MAY POINT AT AN ALIAS, AND A READER BINDS WHAT IS AT THE END OF THE CHAIN (board:1386).
+   * `Want` already recurses, so a resource two aliases away is PULLED correctly -- but `Bound` was
+   * left at the first hop, and a reader given it bound a resource the plan does not hold.
+   * `SceneLinear -> SceneComposited -> SceneHdr` is the chain that made it visible: a picture with no
+   * temporal resolve and no glass has both aliases and must reach the scene target itself.
+   *
+   * THE WALK IS BOUNDED BY THE RESOURCE COUNT, which is what makes a cycle in the catalogue a
+   * refusal here rather than a hang -- and the catalogue's own `static_assert`s already forbid one,
+   * so this bound is the belt beside that brace. */
+  for (size_t r = 0; r < kResourceCount; ++r) {
+    Resource at = plan->Bound_[r];
+    for (size_t step = 0; step < kResourceCount; ++step) {
+      const Resource next = pull.Bound[static_cast<size_t>(at)];
+      if (next == at) { break; }
+      at = next;
+    }
+    plan->Bound_[r] = at;
+  }
   plan->Aliases_ = pull.Aliases;
 
   /* THE DECLARED PRECISION, APPLIED WHERE THE SCENE-REFERRED CHAIN IS STORED and nowhere else: the

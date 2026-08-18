@@ -112,3 +112,45 @@ single-target shapes left are `dst * srcColour` (the tint, losing the reflection
 **So the background texture is the answer, and the detour is worth writing down because it was ruled
 out with evidence rather than by taste**: it serves both the volumetric majority and the tint in one
 draw, and it is the same resource refraction needs.
+
+## Built, measured, and WITHDRAWN -- I could not finish it
+
+**The renderer's half is in the tree and the reader that switches it on is not.** With the two
+extensions read, the corpus went from 357 PASS to 279, **26 models red**, and the driver's own
+validation **aborted 30 arms**. `CLAUDE.md`: *half-built is worse than not built*. The reader was
+REMOVED rather than neutered -- a version behind a name that never matches is a dead path -- and
+neither extension is in `kHonouredExtensions`, so a file that REQUIRES one is still refused by name.
+
+[MEASURED] after the withdrawal the corpus is byte-identical to before it: 357 PASS, 0 SIGNAL,
+criteria 132 of 138, 124 within the bound, the same 29 red.
+
+## What is in the tree and is correct
+
+The plan's two stages and two resources · the composite (premultiplied `over`, aliasing away with no
+glass) · the material row carrying thickness and the Beer-Lambert pair · `SurfaceState` routing on
+THICKNESS as the format requires · three transmissive fragment arms, one per vertex-layout family ·
+the seventh texture slot and its pass-level binding · a second unit drawing the transmissive half of
+the same draw list.
+
+## The six layers, in the order they appeared, so the next round does not rediscover them
+
+| # | what broke | what it really was |
+|---|---|---|
+| 1 | **444 of 444 arms failed at once** | the subject was mirrored into the second unit before the plan had pulled it, so a unit with no device refused -- *a guard on the wrong side of a question* |
+| 2 | 26 models refused | the plan never ASKED for the transmissive pass; it is `Content` and must be declared |
+| 3 | the composite was pruned | *nothing this plan requests reads what it draws into* -- with no temporal resolve, `SceneLinear` aliased past it |
+| 4 | the alias did not reach | **the plan compiler did not chain aliases**: `SceneLinear -> SceneComposited -> SceneHdr` stopped at the first hop and a reader bound a resource the plan does not hold |
+| 5 | 26 models still refused | the refusal was on BINDING a slot, not on drawing it. The opaque unit is handed the glass too and skips it; **refusing belongs to the case where NOBODY draws it**, which is a fact about the plan |
+| 6 | **30 arms aborted** | the renderer handed every stage the FIRST geometry pass's attachment set. With two geometry passes the glass unit built pipelines declaring a colour attachment its pass does not set -- `board:1121`'s defect in a new place |
+
+**Four, five and six were pre-existing and none of them could fire before.** Every one was an
+assumption that held exactly as long as there was one subject pass, and a second instance of the same
+unit is the first thing that tests them all at once. *Those three repairs stay in the tree; they are
+right independently of transmission.*
+
+## What is still unknown, and it is the whole of what remains
+
+**After layer six the 30 aborts did not move.** Same count, same arms, same numbers. So there is at
+least a seventh cause and I did not find it. *The next round starts by finding what the validated arm
+aborts on -- with the reader restored on a single case rather than on the corpus, which is what I
+should have done at layer one.*

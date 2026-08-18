@@ -338,6 +338,9 @@ public:
     Behind = behind;
     BehindSampler = exact;
   }
+  /* Told to the OPAQUE unit when the compiled plan pulled a transmissive pass, so that a glass slot
+   * it will skip is not a refusal. */
+  void GlassIsDrawnElsewhere() { GlassDrawnElsewhere_ = true; }
 
   [[nodiscard]] bool SetMaterials(const std::vector<SubjectMaterial> &materials,
                                   std::string &error);
@@ -457,6 +460,12 @@ private:
    * whether the two transmissive pipelines are built at all. */
   SDL_GPUTexture *Behind = nullptr;
   SDL_GPUSampler *BehindSampler = nullptr;
+  /* WHETHER A SIBLING PASS DRAWS THE SLOTS THIS ONE SKIPS (board:1386). The opaque unit is handed
+   * every surface the subject declares, including its glass, and skips the transmissive batches at
+   * encode. Refusing them at BIND time instead would refuse the whole subject -- so the refusal
+   * belongs to the case where NOBODY draws them, which is a fact about the compiled plan and not
+   * about this unit. */
+  bool GlassDrawnElsewhere_ = false;
 
   /* One slot's four images and its surface row, appended to the table. */
   void BindSurface(const SubjectMaterial &material);

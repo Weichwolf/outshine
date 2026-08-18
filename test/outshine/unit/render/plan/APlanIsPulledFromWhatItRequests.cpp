@@ -63,7 +63,13 @@ int main() {
       CHECK(plan->Bound(Resource::SceneLinear) == Resource::SceneHdr,
             "with no temporal resolve declared, a reader of the linear resolve binds the scene "
             "target it falls back to");
-      CHECK(plan->Aliases().size() == 1u, "the plan publishes the one alias it applied");
+      /* TWO ALIASES, AND THE SECOND ARRIVED WITH THE TRANSMISSIVE PASS (board:1386). A picture with
+       * neither a temporal resolve nor any glass falls back twice -- `SceneLinear` to
+       * `SceneComposited` and that to `SceneHdr` -- and a reader binds what is at the END of the
+       * chain, which the line above is what checks. **The count is the claim that every alias is
+       * PUBLISHED**, not that there is only ever one, and a chain whose hops were not each announced
+       * would be a rebinding nobody could read out of the plan. */
+      CHECK(plan->Aliases().size() == 2u, "the plan publishes every alias it applied");
       CHECK(plan->SettleFrames() == 1,
             "a plan with no temporal history needs no settle frames beyond the one the device needs "
             "to have submitted something to copy");

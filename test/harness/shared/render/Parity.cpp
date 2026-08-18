@@ -1624,6 +1624,25 @@ Prepared Prepare(Case &subject, outshine::Render::Renderer &renderer) {
     declaration.Outputs.push_back(outshine::Render::Resource::SceneVelocity);
   }
   declaration.Content = {outshine::Render::Stage::Subjects};
+  /* THE TRANSMISSIVE PASS IS REQUESTED BY A SUBJECT THAT CARRIES GLASS AND BY NOTHING ELSE
+   * (board:1386). What passes through a surface is the scene behind it, which is a second pass over
+   * the same draw list with the opaque scene bound -- and `SceneComposited` aliases straight to
+   * `SceneHdr` when neither is asked for, so a case with no transmissive material has exactly the
+   * pipelines, targets and passes it had before this existed.
+   *
+   * IT IS ASKED FOR FROM THE FILE'S OWN MATERIALS rather than from a manifest field: whether a
+   * subject carries glass is a fact about the subject, and a declaration that could disagree with it
+   * would be a second answer to a question the file already settles. */
+  bool carriesGlass = false;
+  for (const outshine::Gltf::MaterialRef &material : subject.File.Materials()) {
+    const outshine::SurfaceKind kind = outshine::StateOf(material.Surface).Kind();
+    carriesGlass = carriesGlass || kind == outshine::SurfaceKind::ThinTransmissive ||
+                   kind == outshine::SurfaceKind::Refractive;
+  }
+  if (carriesGlass) {
+    declaration.Content.push_back(outshine::Render::Stage::SubjectsTransmissive);
+    declaration.Content.push_back(outshine::Render::Stage::CompositeTransmission);
+  }
   declaration.Display =
       outshine::Render::Declared<outshine::Render::Transfer>(outshine::Render::Transfer::Linear);
   declaration.Exposure = outshine::Render::Declared<float>(1.0f);

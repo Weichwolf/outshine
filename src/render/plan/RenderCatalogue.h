@@ -236,7 +236,7 @@ inline constexpr ResourceRow kResources[] = {
     /* Resolved linear radiance BEFORE the occlusion composite and BEFORE the metered exposure. A
      * picture plan without the temporal resolve reaches the tonemap through the alias rather than
      * through a full-screen blit that exists only to copy. */
-    {Resource::SceneLinear, ResourceKind::Derived, FallbackKind::Alias, Resource::SceneHdr,
+    {Resource::SceneLinear, ResourceKind::Derived, FallbackKind::Alias, Resource::SceneComposited,
      TexelFormat::Rgba16Float, "sceneLinear"},
     {Resource::FrameTex, ResourceKind::Attachment, FallbackKind::None, kNoEdge,
      TexelFormat::Rgba8UnormSrgb, "frameTex"},
