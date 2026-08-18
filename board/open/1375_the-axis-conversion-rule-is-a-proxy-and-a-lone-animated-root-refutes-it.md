@@ -126,3 +126,17 @@ itself a joint.
 **`CesiumMan` prepares.** The five other cases that refused with the same Blender exit status are
 re-prepared in the same round to find out how many shared the cause rather than the symptom -- *the
 caveat first*: identical exit statuses are not evidence of an identical cause.
+
+**One case still refuses here and it is a THIRD shape, not the two above.** `MeshoptCubeTest`:
+
+```
+Cube_4_animated_rotation's rotation at the importer's first key is (1.0, 0.0, 0.0, 0.0),
+and no convention this preparer knows derives it from the file
+```
+
+**The importer's first key is the identity quaternion**, which every candidate conversion should
+reproduce -- an identity is fixed by all of them -- so *none matching* is the one outcome the
+derivation should not be able to reach. Either the key being compared is not the key the file's first
+sample describes (a rest pose, or a frame the importer inserted), or `_agrees` is comparing a
+quaternion against something in a different order. **It is not the axis question this item was opened
+about**, and it is written down here rather than folded into it.
