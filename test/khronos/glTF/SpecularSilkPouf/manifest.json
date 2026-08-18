@@ -7,7 +7,8 @@
     "I.26",
     "I.26.10",
     "khronos:SpecularSilkPouf",
-    "board:1331"
+    "board:1331",
+    "board:1385"
   ],
   "criterion": {
     "kind": "numeric",
