@@ -173,6 +173,13 @@ struct Case {
    * declaration and from nothing else. */
   std::vector<std::array<float, 3>> Emitted;
   std::string MaterialKind;
+  /* HOW MANY TRANSMISSION BOUNCES THE ORACLE'S OWN RECIPE ALLOWED (board:1386). Zero is the corpus's
+   * default and it means the oracle CANNOT show anything through a surface -- so a case declaring it
+   * has an opaque picture on the reference side whatever its materials say, and asking this engine
+   * for a transmissive pass there compares two different scenes rather than one disagreement.
+   *
+   * IT IS READ FROM THE `default` RECIPE, which is the one the picture bound is taken on. */
+  int TransmissionBounces = 0;
   /* Which channel of the file's own materials the appearance comes from, or `Declared` where the
    * manifest states it. The decoded images are held in `Surfaces` because the renderer copies them
    * and the studio only points at them. */
@@ -538,6 +545,10 @@ public:
     return false;
   }
   if (!ReadExactnessClass(root, subject.Placement, error)) { return false; }
+  /* Absent is zero, which is the corpus's own default and the conservative reading: a recipe that
+   * does not say it allowed a transmission bounce did not allow one. */
+  subject.TransmissionBounces =
+      root["renders"]["default"]["bounces"]["transmission"].Int(0);
   const Json::Ref filterWidth = root["renders"]["default"]["pixelFilter"]["widthPx"];
   if (filterWidth.GetKind() != Json::Kind::Number || filterWidth.Num() <= 0.0) {
     error = "renders.default.pixelFilter.widthPx is absent or not positive, and half of it is the "
@@ -739,17 +750,23 @@ outshine::Render::SubjectWrap WrapOf(outshine::Gltf::Wrap wrap) {
  * nobody described; the FORMAT says a primitive with no material wears `baseColorFactor [1,1,1,1]`.
  * `BoxVertexColors` declares no material at all, so the difference was a factor of two on every
  * channel of its whole body -- and it would have read as our COLOR_0 being wrong. */
-/* `fileMaterials` IS WHETHER THIS CASE IS COMPARING THE FILE'S OWN SURFACES (board:1386). Where it is
- * false the manifest has replaced every surface with a flat colour and the oracle renders at ZERO
- * transmission bounces -- so the oracle's glass is an opaque emitting body, by the case's own
- * declaration. Handing this engine the FILE's transmissive row there asks it to see through a surface
- * the other side does not, and the renderer is right to refuse a refracting volume no pass draws.
+/* `oracleTransmits` IS WHETHER THE CASE'S OWN RECIPE ALLOWED A TRANSMISSION BOUNCE (board:1386). At
+ * zero -- which is the corpus's default -- the oracle CANNOT show anything through a surface, so its
+ * glass is an opaque body whatever the file says. Handing this engine the FILE's transmissive row
+ * there asks it to see through a surface the other side does not, and the renderer is right to refuse
+ * a refracting volume no pass draws.
+ *
+ * IT IS THE RECIPE AND NOT WHERE THE COLOUR CAME FROM, and that distinction was measured: the first
+ * condition asked whether the materials were the file's, and `ABeautifulGame` takes its colour from
+ * the file's own base-colour images through an EMITTER at zero bounces -- so it passed that test,
+ * drew its glass, and entered the red set at 19.542392 px where it had never been. **The question was
+ * always what the oracle was allowed to do.**
  *
  * SO THE ARM OWNS THE CLOSURE AND NOT ONLY THE COLOUR. A coverage case already overrides what a
  * surface emits; what it did not override is what KIND of surface it is, and those are one statement.
  * The transmissive fields are cleared and nothing else is touched: the geometry, the alpha mode and
  * every texture reference stay the file's, because those are what a coverage case IS about. */
-void ResolveSurfaceTable(const Document &file, const Subject &geometry, bool fileMaterials,
+void ResolveSurfaceTable(const Document &file, const Subject &geometry, bool oracleTransmits,
                          SurfaceTable &out) {
   out.Slots.clear();
   out.Material.clear();
@@ -772,7 +789,7 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, bool fil
          * construction whatever the colour channel is, which is glTF's own rule: alpha comes from
          * the base colour and from nowhere else, even where the picture is stated in emissive. */
         surface.Row = file.Materials()[(size_t)material].Surface;
-        if (!fileMaterials) {
+        if (!oracleTransmits) {
           surface.Row.Transmission = 0.0f;
           surface.Row.Thickness = 0.0f;
         }
@@ -1289,7 +1306,8 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, bool fil
   }
   if (!PoseGeometry(subject, 0, error)) { return false; }
   subject.RestPositions = subject.Geometry.PositionsM();
-  ResolveSurfaceTable(subject.File, subject.Geometry, subject.MaterialFromFile(), subject.Surfaces);
+  ResolveSurfaceTable(subject.File, subject.Geometry, subject.TransmissionBounces > 0,
+                      subject.Surfaces);
   if (subject.MaterialFromFile() &&
       !ResolveFileSurface(subject.File, subject.Geometry, subject.Colour, subject.Carrier,
                           subject.Surfaces,
@@ -1664,7 +1682,7 @@ Prepared Prepare(Case &subject, outshine::Render::Renderer &renderer) {
     carriesGlass = carriesGlass || kind == outshine::SurfaceKind::ThinTransmissive ||
                    kind == outshine::SurfaceKind::Refractive;
   }
-  carriesGlass = carriesGlass && subject.MaterialFromFile();
+  carriesGlass = carriesGlass && subject.TransmissionBounces > 0;
   if (carriesGlass) {
     declaration.Content.push_back(outshine::Render::Stage::SubjectsTransmissive);
     declaration.Content.push_back(outshine::Render::Stage::CompositeTransmission);
@@ -1830,7 +1848,7 @@ void ScoreAlternateSpellings(const Case &subject, const outshine::Clients::Studi
        * entry's. The two spell one surface, so their names agree -- and if they ever did not,
        * copying by position would colour the wrong body while the count still matched. */
       SurfaceTable surfaces;
-      ResolveSurfaceTable(alternate, spelling, subject.MaterialFromFile(), surfaces);
+      ResolveSurfaceTable(alternate, spelling, subject.TransmissionBounces > 0, surfaces);
       built = (!subject.MaterialFromFile() ||
                ResolveFileSurface(alternate, spelling, subject.Colour, subject.Carrier, surfaces,
                                   trouble)) &&

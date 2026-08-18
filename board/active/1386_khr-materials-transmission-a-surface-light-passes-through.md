@@ -206,3 +206,28 @@ surface*. So the identity attachment is right to be empty there and the CHECK do
 - [ ] **The coverage a transmissive draw claims**, which is the whole of the 60 px
 - [ ] **The identity check learns that a transmissive pixel names no slot**, which the catalogue
   already states and the harness does not read
+
+## The eighth cause, and the first condition for it was wrong
+
+**The runner asked for the transmissive pass on a case that declares it is not about transmission.** A
+coverage case replaces every surface with a flat emission and renders the oracle at zero transmission
+bounces, so the oracle's glass is an opaque emitting body -- and this engine saw through it.
+
+**The first repair asked whether the materials were the FILE'S, and that was the wrong question.**
+[MEASURED] `ABeautifulGame` takes its colour from the file's own base-colour images through an
+EMITTER at zero bounces, so it passed that test, drew its glass, and **entered the red set at
+19.542392 px where it had never been** -- caught by diffing the red set case by case against the
+previous run, which is the whole reason that diff is the rule.
+
+**The question was always what the ORACLE was allowed to do**, and the case declares it:
+`renders.default.bounces.transmission`. At zero the reference picture cannot show anything through a
+surface, whatever the file's materials say. One condition now, read from the recipe, and it replaces
+both the surface-table clearing and the pass request.
+
+| | before the reader | with it, wrong condition | with it, right condition |
+|---|---|---|---|
+| `TransmissionOrderTest` `worst_disagreement_px` | 2.5249835 | 60.154229 | **2.5249835** |
+| its `iou` | -- | 0.14126761 | **0.99814226** |
+| its criterion | red | red | **met** |
+| `ABeautifulGame` | green | **red, 19.542392 px** | **green** |
+| `CommercialRefrigerator` | refused outright | green | **green** |
