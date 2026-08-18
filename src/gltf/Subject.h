@@ -287,6 +287,18 @@ public:
    * once. Several parts may name one node, one mesh or one material; that is what a multi-material
    * asset is. */
   const std::vector<Part> &Parts() const { return Parts_; }
+
+  /* WHAT WAS NOT DRAWN AND WHY, because every capability answers what it achieved in BOTH directions
+   * (board:1399). All seven of glTF's primitive modes are legal and this renderer rasterises the
+   * three that bound a surface; the other four are skipped rather than fatal, and a caller that
+   * cannot tell a subject which drew everything from one which drew most of it has been handed a
+   * hole. `ByMode` is indexed by `PrimitiveMode`, so a reader can say WHICH kinds were dropped and
+   * not merely how many. A subject with no surface primitive at all is still a refusal. */
+  struct Undrawn {
+    size_t Primitives = 0;
+    size_t ByMode[7] = {0, 0, 0, 0, 0, 0, 0};
+  };
+  const Undrawn &NotDrawn() const { return Undrawn_; }
   /* Triangles, three indices each, wound counter-clockwise about the front face -- glTF's own rule,
    * with a mirroring node's order already restated, so the run is uniform however the file spelt it
    * and a consumer may cull back faces on it. */
@@ -349,6 +361,7 @@ private:
   std::vector<double> Colours_;
   std::vector<uint32_t> Indices_;
   std::vector<Part> Parts_;
+  Undrawn Undrawn_;
   std::vector<PlacedLight> Lights_;
   double Min_[3] = {0, 0, 0}, Max_[3] = {0, 0, 0};
 };

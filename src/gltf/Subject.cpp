@@ -481,6 +481,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
   Indices_.clear();
   Parts_.clear();
   Lights_.clear();
+  Undrawn_ = Undrawn();
   bool anyUv = false;
   bool anyUv1 = false;
   bool anyNormal = false;
@@ -606,11 +607,20 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
       part.Material = primitive.MaterialUnder(activeVariant);
       part.FirstVertex = VertexCount();
       part.FirstIndex = Indices_.size();
+      /* A MODE THIS RASTERISER HAS NO PASS FOR IS SKIPPED AND COUNTED, NEVER FATAL (board:1399).
+       * All seven modes are glTF 2.0 and a file is entitled to all of them; refusing the whole
+       * subject over one point cloud lost twelve drawable primitives across two of the 148 models --
+       * `MeshPrimitiveModes`, whose entire purpose is that TRIANGLE_STRIP and TRIANGLE_FAN
+       * triangulate to the same surface, never reached that question. **Degrade on detail; refuse
+       * only on existence.** A subject with no surface primitive at all is still a refusal, and that
+       * one is below: `Indices_` stays empty and nothing is drawn. */
       if (!DrawsASurface(primitive.Mode)) {
-        return Refuse(document.Path() + ": primitive of mesh " + std::to_string(node.Mesh) +
-                      " is " + ModeName(primitive.Mode) +
-                      ", and this subject draws surfaces only -- TRIANGLES, TRIANGLE_STRIP or "
-                      "TRIANGLE_FAN");
+        ++Undrawn_.Primitives;
+        const size_t mode = (size_t)primitive.Mode;
+        if (mode < 7) { ++Undrawn_.ByMode[mode]; }
+        /* `part` is still local here -- it is pushed at the foot of this body -- so the skip drops
+         * it by not reaching that line, and nothing already in `Parts_` is touched. */
+        continue;
       }
       const int position = primitive.Find("POSITION");
       if (position < 0) {
