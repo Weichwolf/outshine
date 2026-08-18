@@ -101,6 +101,20 @@ size_t PathComponents(AnimationPath path) {
     case AnimationPath::Scale: return 3;
     case AnimationPath::Rotation: return 4;
     case AnimationPath::Weights: return 0;
+    /* NOT ANSWERABLE FROM THE PATH ALONE, the same statement `Weights` makes: which numbers a
+     * material factor carries is the factor's, and `FactorComponents` is where that is asked. */
+    case AnimationPath::MaterialFactor: return 0;
+  }
+  return 0;
+}
+
+size_t FactorComponents(MaterialFactor factor) {
+  switch (factor) {
+    /* Four, because `baseColorFactor` carries alpha and the format animates it with the rest. */
+    case MaterialFactor::BaseColour: return 4;
+    case MaterialFactor::Metalness:
+    case MaterialFactor::Roughness: return 1;
+    case MaterialFactor::Emissive: return 3;
   }
   return 0;
 }

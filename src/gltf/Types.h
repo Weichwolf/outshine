@@ -308,7 +308,22 @@ using Interpolation = outshine::Keyframes::Interpolation;
 /* WHAT A CHANNEL DRIVES. `Weights` is carried because the format has it and a file that uses it must
  * not read as something else; nothing in this tree consumes it yet, and that is a fact about the
  * consumer rather than about the reader. */
-enum class AnimationPath : uint8_t { Translation, Rotation, Scale, Weights };
+enum class AnimationPath : uint8_t { Translation, Rotation, Scale, Weights, MaterialFactor };
+
+/* WHICH NUMBER OF A MATERIAL A POINTER CHANNEL DRIVES (board:1392).
+ *
+ * `KHR_animation_pointer` TARGETS A JSON POINTER INTO THE WHOLE ASSET, and the asset object model is
+ * every mutable property the format has. **This enumeration is the subset this reader RESOLVES, and a
+ * pointer outside it is a refusal that quotes the pointer** -- which is the only honest shape: a
+ * grammar that silently accepted an unknown path would read an animation and drive nothing.
+ *
+ * THESE FOUR ARE ONE PARSE AND NOT A CHOICE. `/materials/<i>/pbrMetallicRoughness/baseColorFactor`
+ * is what a corpus asset needs; `metallicFactor`, `roughnessFactor` and `/emissiveFactor` sit on the
+ * same two-segment walk and cost nothing beyond naming them. */
+enum class MaterialFactor : uint8_t { BaseColour, Metalness, Roughness, Emissive };
+
+/* How many numbers one keyframe of a material factor carries. */
+size_t FactorComponents(MaterialFactor factor);
 
 /* THE COMPONENTS ONE KEYFRAME OF A PATH CARRIES: 3 for a translation or a scale, 4 for a rotation
  * quaternion. `Weights` is as many as the mesh has morph targets and is therefore not answerable
@@ -330,6 +345,11 @@ struct AnimationChannel {
   int Sampler = -1;
   int Node = -1;
   AnimationPath Path = AnimationPath::Translation;
+  /* SET ONLY WHERE `Path` IS `MaterialFactor`, and then both are: which material and which of its
+   * numbers. A pointer channel names no node -- the format says the channel's `node` **MUST NOT** be
+   * set -- so `Node` stays -1 and these two carry the target instead. */
+  int Material = -1;
+  MaterialFactor Factor = MaterialFactor::BaseColour;
 };
 
 struct Animation {

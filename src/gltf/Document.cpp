@@ -198,6 +198,7 @@ bool KnownWrap(int raw, Wrap &out) {
 constexpr const char *const kHonouredExtensions[] = {"KHR_lights_punctual",
                                                      "KHR_materials_anisotropy",
                                                      "KHR_materials_iridescence",
+                                                     "KHR_animation_pointer",
                                                      "KHR_materials_clearcoat",
                                                      "KHR_materials_sheen",
                                                      "KHR_mesh_quantization",
@@ -217,6 +218,7 @@ constexpr const char *kSheen = "KHR_materials_sheen";
 constexpr const char *kClearcoat = "KHR_materials_clearcoat";
 constexpr const char *kAnisotropy = "KHR_materials_anisotropy";
 constexpr const char *kIridescence = "KHR_materials_iridescence";
+constexpr const char *kAnimationPointer = "KHR_animation_pointer";
 constexpr const char *kUnlit = "KHR_materials_unlit";
 constexpr const char *kMaterialsVariants = "KHR_materials_variants";
 constexpr const char *kTextureTransform = "KHR_texture_transform";
@@ -225,6 +227,47 @@ constexpr const char *kTextureTransform = "KHR_texture_transform";
  * default for a string, an object and a null alike, so a present-but-wrong value would otherwise be
  * read as the extension's default and ship as a picture nobody could trace back to the file -- the
  * same silent success `emissiveStrength` refuses one function above. */
+/* A JSON POINTER INTO A MATERIAL'S FACTORS, RESOLVED BY WALKING IT RATHER THAN BY MATCHING STRINGS
+ * (board:1392). The grammar is exactly two shapes and the walk is what says so:
+ *
+ *     /materials/<i>/pbrMetallicRoughness/{baseColorFactor,metallicFactor,roughnessFactor}
+ *     /materials/<i>/emissiveFactor
+ *
+ * THE INDEX IS NOT VALIDATED HERE and that is deliberate: this answers whether the POINTER is one
+ * this reader understands, and whether the material exists is the caller's question, asked against
+ * the materials it has actually read. Splitting them keeps a file with a good pointer to a missing
+ * material from reading as a file with a pointer nobody understands.
+ *
+ * A LEADING EMPTY SEGMENT IS THE POINTER'S OWN SYNTAX -- RFC 6901 pointers begin with `/` -- so the
+ * split produces it and it is stepped over rather than special-cased away. */
+bool ResolveMaterialPointer(const std::string &pointer, AnimationChannel &channel) {
+  std::vector<std::string> segments;
+  size_t at = 0;
+  while (at <= pointer.size()) {
+    const size_t slash = pointer.find('/', at);
+    segments.push_back(pointer.substr(at, slash == std::string::npos ? std::string::npos
+                                                                     : slash - at));
+    if (slash == std::string::npos) { break; }
+    at = slash + 1;
+  }
+  if (segments.size() < 4 || !segments.front().empty() || segments[1] != "materials") {
+    return false;
+  }
+  const std::string &index = segments[2];
+  if (index.empty() || index.find_first_not_of("0123456789") != std::string::npos) { return false; }
+  channel.Path = AnimationPath::MaterialFactor;
+  channel.Material = std::atoi(index.c_str());
+  if (segments.size() == 4 && segments[3] == "emissiveFactor") {
+    channel.Factor = MaterialFactor::Emissive;
+    return true;
+  }
+  if (segments.size() != 5 || segments[3] != "pbrMetallicRoughness") { return false; }
+  if (segments[4] == "baseColorFactor") { channel.Factor = MaterialFactor::BaseColour; return true; }
+  if (segments[4] == "metallicFactor") { channel.Factor = MaterialFactor::Metalness; return true; }
+  if (segments[4] == "roughnessFactor") { channel.Factor = MaterialFactor::Roughness; return true; }
+  return false;
+}
+
 bool ReadUvPair(const Json::Ref &declared, const char *property, double out[2], std::string &why) {
   if (!declared.Valid()) { return true; }
   if (declared.GetKind() != Json::Kind::Array || declared.Size() != 2) {
@@ -964,9 +1007,22 @@ bool Document::ReadAnimations(const Json &json) {
         channel.Path = AnimationPath::Scale;
       } else if (path == "weights") {
         channel.Path = AnimationPath::Weights;
+      } else if (path == "pointer") {
+        /* `KHR_animation_pointer`: the target is a JSON pointer into the asset and the channel names
+         * no node -- *the animation channel `node` property **MUST NOT** be set*. What this reader
+         * resolves is the material factors and nothing else, and a pointer outside that quotes
+         * itself in the refusal rather than being read and driven nowhere (board:1392). */
+        const std::string pointer =
+            target["extensions"][kAnimationPointer]["pointer"].Str("");
+        if (!ResolveMaterialPointer(pointer, channel)) {
+          return Refuse("animation " + Number(i) + " channel " + Number(c) +
+                        " drives the pointer '" + pointer +
+                        "', which this reader resolves for a material's baseColorFactor, "
+                        "metallicFactor, roughnessFactor or emissiveFactor and for nothing else");
+        }
       } else {
         return Refuse("animation " + Number(i) + " channel " + Number(c) + " drives '" + path +
-                      "', which is none of translation, rotation, scale or weights");
+                      "', which is none of translation, rotation, scale, weights or pointer");
       }
       const size_t components = PathComponents(channel.Path);
       const Accessor &values =

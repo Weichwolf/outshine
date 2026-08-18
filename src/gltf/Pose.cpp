@@ -12,6 +12,7 @@ const char *PathName(AnimationPath path) {
     case AnimationPath::Rotation: return "rotation";
     case AnimationPath::Scale: return "scale";
     case AnimationPath::Weights: return "weights";
+    case AnimationPath::MaterialFactor: return "a material factor";
   }
   return "unknown";
 }
@@ -178,6 +179,11 @@ void Pose::At(double seconds, std::vector<Transform> &locals, std::vector<double
         case AnimationPath::Scale: channel->Curve.At(seconds, posed.Scale); break;
         /* `Build` has already refused a width that disagrees with the mesh, so this writes exactly
          * the node's own slice and no bound needs re-checking on the frame path. */
+        /* A MATERIAL FACTOR IS NOT A POSE AND REACHES NO NODE (board:1392). A pointer channel names
+         * no node at all -- the format forbids it -- so this arm is unreachable through the `Node`
+         * test above and exists to say the enumeration was ANSWERED rather than defaulted. What a
+         * consumer does with an animated material row is its own question and not this pose's. */
+        case AnimationPath::MaterialFactor: break;
         case AnimationPath::Weights:
           channel->Curve.At(seconds, &weights[posed.WeightFirst]);
           break;
