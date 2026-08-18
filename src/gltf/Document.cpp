@@ -199,6 +199,7 @@ constexpr const char *const kHonouredExtensions[] = {"KHR_lights_punctual",
                                                      "KHR_materials_anisotropy",
                                                      "KHR_materials_iridescence",
                                                      "KHR_animation_pointer",
+                                                     "EXT_mesh_gpu_instancing",
                                                      "EXT_texture_webp",
                                                      "KHR_materials_transmission",
                                                      "KHR_materials_volume",
@@ -222,6 +223,7 @@ constexpr const char *kClearcoat = "KHR_materials_clearcoat";
 constexpr const char *kAnisotropy = "KHR_materials_anisotropy";
 constexpr const char *kIridescence = "KHR_materials_iridescence";
 constexpr const char *kAnimationPointer = "KHR_animation_pointer";
+constexpr const char *kMeshGpuInstancing = "EXT_mesh_gpu_instancing";
 constexpr const char *kTextureWebp = "EXT_texture_webp";
 constexpr const char *kTransmission = "KHR_materials_transmission";
 constexpr const char *kVolume = "KHR_materials_volume";
@@ -795,6 +797,34 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
         node.Rotation[k] = rotation[k].Num(0.0);
       }
       for (size_t k = 0; k < 3 && k < scale.Size(); ++k) { node.Scale[k] = scale[k].Num(1.0); }
+    }
+    /* `EXT_mesh_gpu_instancing`. The attributes name accessors like any other run, so the counts are
+     * checked where every accessor index in this file is checked and nothing is decoded here. */
+    const Json::Ref instancing = declaration["extensions"][kMeshGpuInstancing]["attributes"];
+    if (instancing.Valid()) {
+      node.InstanceTranslation =
+          instancing["TRANSLATION"].Valid() ? instancing["TRANSLATION"].Int(-1) : -1;
+      node.InstanceRotation = instancing["ROTATION"].Valid() ? instancing["ROTATION"].Int(-1) : -1;
+      node.InstanceScale = instancing["SCALE"].Valid() ? instancing["SCALE"].Int(-1) : -1;
+      const int named[3] = {node.InstanceTranslation, node.InstanceRotation, node.InstanceScale};
+      size_t count = 0;
+      for (const int accessor : named) {
+        if (accessor < 0) { continue; }
+        if (static_cast<size_t>(accessor) >= Accessors_.size()) {
+          return Refuse("node " + Number(i) + " instances on accessor " + Number((size_t)accessor) +
+                        " of " + Number(Accessors_.size()));
+        }
+        const size_t here = Accessors_[(size_t)accessor].Count;
+        /* THE EXTENSION'S OWN RULE AND IT IS WHAT MAKES THE COUNT ANSWERABLE: *all attributes MUST
+         * have the same count*, so a file that disagrees with itself has no instance count and is
+         * refused rather than drawn at whichever number happened to be read first. */
+        if (count != 0 && here != count) {
+          return Refuse("node " + Number(i) +
+                        " instances on accessors of different lengths, and the extension requires "
+                        "one count");
+        }
+        count = here;
+      }
     }
     const Json::Ref children = declaration["children"];
     for (size_t k = 0; k < children.Size(); ++k) { node.Children.push_back(children[k].Int(-1)); }

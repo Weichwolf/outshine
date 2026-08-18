@@ -92,22 +92,22 @@
     "camera": {
       "source": "manifest",
       "positionM": [
-        5.260791880152056,
-        2.6153417707888442,
-        3.8335423623300464
+        74.08018227438447,
+        35.9900022444475,
+        53.53010994867082
       ],
       "lookAtM": [
-        0.5,
-        0.5,
-        0.5
+        5.532520325203252,
+        5.532520325203252,
+        5.532520325203252
       ],
       "rollRad": 0.0,
       "yfovRad": 0.47108996144172666,
       "sensorHeightMm": 24.0,
-      "clipStartM": 5.3188201734967615,
-      "clipEndM": 7.050870981065638,
+      "clipStartM": 76.58236201026637,
+      "clipEndM": 101.52107729648165,
       "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [0, 0, 0] to [1, 1, 1], so centre = [0.5, 0.5, 0.5] and radius = 0.8660254037844386 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 6.1848455772812, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
-      "note": "THE ENGINE'S OWN ANSWER, QUOTED (board:1398). Every number here is read from the framing rule's output for this subject -- eye, aim, yfov and both clip planes -- rather than recomputed by the authoring helper, which bounded each primitive by the eight transformed corners of its local AABB and therefore always at least as loosely as the engine bounds the transformed vertices. A looser radius moves the eye back, and 93 cases declared a camera the rule does not derive. `ADerivedCameraIsTheFramingRuleAndNotAQuotation` recomputes all of it and refuses a mismatch, so what this declaration does is PIN the viewpoint, never choose it."
+      "note": "RE-DERIVED FROM THE FRAMING RULE OVER THE SUBJECT'S REAL BOUNDS (board:1416). The camera this replaced framed ONE body, because that is all this engine drew: `EXT_mesh_gpu_instancing` was unread, so the node's mesh was placed once where the file says it stands 125 times. With the instances expanded the subject is 12.47 m in radius instead of 0.87, and the old eye put 124 of them behind the near plane -- [MEASURED] *vertex 220 sits -0.964029 m along the view axis, inside the engine's fixed near plane of 0.050000 m*. Nothing here was chosen: every number is the rule's own output over the new bounds."
     },
     "light": {
       "kind": "none",
@@ -209,10 +209,10 @@
   "notes": "A coverage case. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet. The framing camera is derived from the file's own node bounds, which do NOT include the extension's instances, so the instanced copies may fall outside the frame on both sides.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.211519958,
+      "value": 0.260319741,
       "unit": "dimensionless",
       "origin": "measured",
-      "note": "The fraction of the frame the subject's projected area covers at frame 0. RECOMPUTED BY THE RUNNER ON EVERY RUN and refused on mismatch, so what this line does is pin it. It is seeded from that recomputation, which makes it a DRIFT DETECTOR rather than a present-error check -- honest only because the camera is independently proven to be the framing rule's."
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, recomputed by the runner on every run and refused on mismatch. HARVESTED once the subject was drawn at its true extent: `EXT_mesh_gpu_instancing` places this mesh 125 times and the engine drew it once, so the placeholder this replaced was declared [SET] and said so (board:1377, board:1416)."
     }
   }
 }

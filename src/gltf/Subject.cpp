@@ -461,6 +461,56 @@ bool Subject::Build(const Document &document, Span<const Transform> pose,
   return Flatten(document, pose.Data(), weights.Size() ? weights.Data() : nullptr, variant);
 }
 
+/* EVERY WORLD TRANSFORM ONE MESH NODE DRAWS AT (board:1416). Without `EXT_mesh_gpu_instancing` that is
+ * the node's own and nothing else, which is the one-element vector below; with it, the node's world
+ * transform composed with each declared instance, in the extension's own order.
+ *
+ * A MISSING ATTRIBUTE IS ITS IDENTITY AND NOT AN ERROR: the three are independently optional, so a
+ * file giving translations alone instances at the rest rotation and scale, which is what the format
+ * means by leaving one out.
+ *
+ * THE COUNT IS ALREADY AGREED. The reader refused a node whose attributes have different lengths, so
+ * the first non-empty run's length is the instance count and no second opinion is formed here. */
+bool InstanceTransforms(const Document &document, const Node &node, const Transform &world,
+                        std::vector<Transform> &out) {
+  out.clear();
+  const int named[3] = {node.InstanceTranslation, node.InstanceRotation, node.InstanceScale};
+  bool any = false;
+  for (const int accessor : named) { any = any || accessor >= 0; }
+  if (!any) {
+    out.push_back(world);
+    return true;
+  }
+  std::vector<double> translation, rotation, scale;
+  if (node.InstanceTranslation >= 0 &&
+      !document.ReadElements(node.InstanceTranslation, translation)) {
+    return false;
+  }
+  if (node.InstanceRotation >= 0 && !document.ReadElements(node.InstanceRotation, rotation)) {
+    return false;
+  }
+  if (node.InstanceScale >= 0 && !document.ReadElements(node.InstanceScale, scale)) { return false; }
+  size_t count = 0;
+  if (!translation.empty()) { count = translation.size() / 3; }
+  else if (!rotation.empty()) { count = rotation.size() / 4; }
+  else if (!scale.empty()) { count = scale.size() / 3; }
+  out.reserve(count);
+  for (size_t at = 0; at < count; ++at) {
+    const double t[3] = {translation.empty() ? 0.0 : translation[at * 3 + 0],
+                         translation.empty() ? 0.0 : translation[at * 3 + 1],
+                         translation.empty() ? 0.0 : translation[at * 3 + 2]};
+    const double r[4] = {rotation.empty() ? 0.0 : rotation[at * 4 + 0],
+                         rotation.empty() ? 0.0 : rotation[at * 4 + 1],
+                         rotation.empty() ? 0.0 : rotation[at * 4 + 2],
+                         rotation.empty() ? 1.0 : rotation[at * 4 + 3]};
+    const double sc[3] = {scale.empty() ? 1.0 : scale[at * 3 + 0],
+                          scale.empty() ? 1.0 : scale[at * 3 + 1],
+                          scale.empty() ? 1.0 : scale[at * 3 + 2]};
+    out.push_back(world * Transform::FromTrs(t, r, sc));
+  }
+  return true;
+}
+
 bool Subject::Flatten(const Document &document, const Transform *pose, const double *weights,
                       const VariantSelection &variant) {
   /* THE ONE PLACE THE TWO SPELLINGS MEET, so the walk below asks for a placement once however this
@@ -600,245 +650,267 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
         jointMatrices[joint] = JointMatrix(skin, joint, placed);
       }
     }
-    for (const Primitive &primitive : document.Meshes()[(size_t)node.Mesh].Primitives) {
-      ++primitives;
-      Part part;
-      part.NodeName = node.Name;
-      part.Material = primitive.MaterialUnder(activeVariant);
-      part.FirstVertex = VertexCount();
-      part.FirstIndex = Indices_.size();
-      /* A MODE THIS RASTERISER HAS NO PASS FOR IS SKIPPED AND COUNTED, NEVER FATAL (board:1399).
-       * All seven modes are glTF 2.0 and a file is entitled to all of them; refusing the whole
-       * subject over one point cloud lost twelve drawable primitives across two of the 148 models --
-       * `MeshPrimitiveModes`, whose entire purpose is that TRIANGLE_STRIP and TRIANGLE_FAN
-       * triangulate to the same surface, never reached that question. **Degrade on detail; refuse
-       * only on existence.** A subject with no surface primitive at all is still a refusal, and that
-       * one is below: `Indices_` stays empty and nothing is drawn. */
-      if (!DrawsASurface(primitive.Mode)) {
-        ++Undrawn_.Primitives;
-        const size_t mode = (size_t)primitive.Mode;
-        if (mode < 7) { ++Undrawn_.ByMode[mode]; }
-        /* `part` is still local here -- it is pushed at the foot of this body -- so the skip drops
-         * it by not reaching that line, and nothing already in `Parts_` is touched. */
-        continue;
-      }
-      const int position = primitive.Find("POSITION");
-      if (position < 0) {
-        return Refuse(document.Path() + ": primitive of mesh " + std::to_string(node.Mesh) +
-                      " carries no POSITION, and nothing here invents one");
-      }
-      if (!document.ReadElements(position, elements)) {
-        return Refuse(document.Path() + ": POSITION does not decode: " + document.Error());
-      }
-      if (elements.size() % 3 != 0) {
-        return Refuse(document.Path() + ": POSITION decodes to " + std::to_string(elements.size()) +
-                      " components, which is not a whole number of points");
-      }
-      const uint32_t base = (uint32_t)(Positions_.size() / 3);
-      const size_t vertices = elements.size() / 3;
-      /* THE MORPH IS APPLIED FIRST, BEFORE THE SKIN AND BEFORE THE NODE, which is the order glTF
-       * states: the targets displace the mesh in its own space, the skin then binds that displaced
-       * vertex to its joints, and only an unskinned node's transform places it. Any other order
-       * puts the deltas through a matrix they were never expressed in. */
-      std::vector<double> morphedPositions;
-      if (!MorphDeltasFor(document, primitive, "POSITION", nodeWeights.data(), morphCount, 3,
-                          vertices, morphedPositions)) {
-        return false;
-      }
-      for (size_t at = 0; at < morphedPositions.size(); ++at) { elements[at] += morphedPositions[at]; }
-      std::vector<Transform> skinned;
-      if (node.Skin >= 0 &&
-          !BlendSkinFor(document, document.Skins()[(size_t)node.Skin], jointMatrices, primitive,
-                        vertices, skinned)) {
-        return false;
-      }
-      const VertexPlacement place{world, skinned.empty() ? nullptr : skinned.data()};
-      for (size_t vertex = 0; vertex < vertices; ++vertex) {
-        double local[3] = {elements[vertex * 3], elements[vertex * 3 + 1],
-                           elements[vertex * 3 + 2]};
-        double global[3];
-        place.At(vertex).Point(local, global);
-        for (int axis = 0; axis < 3; ++axis) { Positions_.push_back(global[axis]); }
-      }
-
-      /* THE TWO UV SETS, PER PRIMITIVE. Each run stays as long as the vertex run whatever the mix
-       * is: a primitive that carried none contributes zeros there and is drawn by a pipeline with
-       * no slot for it, so those zeros are unread rather than sampled at the image's corner.
-       *
-       * THE SECOND SET IS READ HERE AND NOT DERIVED FROM THE FIRST (board:1182), which is the whole
-       * of what `MultiUVTest` separates: its two accessors sit in two buffer views 192 bytes apart
-       * and place the same face 0.25 uv units -- 256 texels of a 1024 image -- from each other. */
-      const struct {
-        const char *Semantic;
-        bool Part::*Carried;
-        bool *Any;
-        std::vector<double> *Into;
-      } sets[kUvSets] = {{"TEXCOORD_0", &Part::HasUv, &anyUv, &Uv_},
-                         {"TEXCOORD_1", &Part::HasUv1, &anyUv1, &Uv1_}};
-      for (const auto &set : sets) {
-        const int uv = primitive.Find(set.Semantic);
-        part.*set.Carried = uv >= 0;
-        *set.Any = *set.Any || part.*set.Carried;
-        set.Into->resize((Positions_.size() / 3) * 2, 0.0);
-        if (uv < 0) { continue; }
-        std::vector<double> coordinates;
-        if (!document.ReadElements(uv, coordinates)) {
-          return Refuse(document.Path() + ": " + set.Semantic + " does not decode: " +
-                        document.Error());
+    /* `EXT_mesh_gpu_instancing`: ONE BODY PER INSTANCE, and the extension's own composition --
+     * *an object space transform that should be multiplied by the node's world transform*. A node
+     * with no instancing has exactly one, which is its world transform, so the loop below is the
+     * un-instanced path unchanged and costs it nothing.
+     *
+     * THE CHILDREN ARE NOT INSTANCED. The extension says instancing applies to a node's MESH and is
+     * silent about a subtree; the conservative reading is that a child follows its parent once, and
+     * a reading that multiplied a subtree would be inventing a behaviour the format does not define.
+     *
+     * IT IS AN EXPANSION AND NOT GPU INSTANCING, WHICH IS SAID HERE BECAUSE THE NAMES COLLIDE. What
+     * this produces is N parts sharing one mesh's vertices through their own transforms; a draw list
+     * that batches them into one call is the compositor's business and the extension's own note says
+     * so -- *GPU instancing and other optimizations are possible, and encouraged, even without this
+     * extension*. */
+    std::vector<Transform> instances;
+    if (!InstanceTransforms(document, node, world, instances)) {
+      return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
+                    " instances on an accessor this reader cannot decode: " + document.Error());
+    }
+    for (const Transform &world : instances) {
+      for (const Primitive &primitive : document.Meshes()[(size_t)node.Mesh].Primitives) {
+        ++primitives;
+        Part part;
+        part.NodeName = node.Name;
+        part.Material = primitive.MaterialUnder(activeVariant);
+        part.FirstVertex = VertexCount();
+        part.FirstIndex = Indices_.size();
+        /* A MODE THIS RASTERISER HAS NO PASS FOR IS SKIPPED AND COUNTED, NEVER FATAL (board:1399).
+         * All seven modes are glTF 2.0 and a file is entitled to all of them; refusing the whole
+         * subject over one point cloud lost twelve drawable primitives across two of the 148 models --
+         * `MeshPrimitiveModes`, whose entire purpose is that TRIANGLE_STRIP and TRIANGLE_FAN
+         * triangulate to the same surface, never reached that question. **Degrade on detail; refuse
+         * only on existence.** A subject with no surface primitive at all is still a refusal, and that
+         * one is below: `Indices_` stays empty and nothing is drawn. */
+        if (!DrawsASurface(primitive.Mode)) {
+          ++Undrawn_.Primitives;
+          const size_t mode = (size_t)primitive.Mode;
+          if (mode < 7) { ++Undrawn_.ByMode[mode]; }
+          /* `part` is still local here -- it is pushed at the foot of this body -- so the skip drops
+           * it by not reaching that line, and nothing already in `Parts_` is touched. */
+          continue;
         }
-        if (coordinates.size() != vertices * 2) {
-          return Refuse(document.Path() + ": " + set.Semantic + " decodes to " +
-                        std::to_string(coordinates.size() / 2) + " pairs over " +
-                        std::to_string(vertices) + " vertices");
+        const int position = primitive.Find("POSITION");
+        if (position < 0) {
+          return Refuse(document.Path() + ": primitive of mesh " + std::to_string(node.Mesh) +
+                        " carries no POSITION, and nothing here invents one");
         }
-        std::copy(coordinates.begin(), coordinates.end(),
-                  set.Into->begin() + static_cast<std::ptrdiff_t>(part.FirstVertex * 2));
-      }
-
-      /* THE VERTEX COLOUR, PER PRIMITIVE, WIDENED TO RGBA AND OTHERWISE UNTOUCHED (board:1193). It
-       * is glTF's "additional linear multiplier to base color", so no transfer function is applied
-       * to it -- here or at the sampler -- and the widening is the format's own sentence about VEC3
-       * rather than a convenience: alpha 1.0 is the multiplicative identity of base colour's alpha.
-       *
-       * OUT OF RANGE IS A REFUSAL AND NOT A CLAMP (board:1193), and the decision is written here
-       * because all three answers are defensible and only one can be tested. The format says every
-       * component MUST lie in [0, 1] (`Specification.adoc:1356`), so a file outside it is malformed;
-       * CLAMPING would repair somebody else's asset inside a comparison whose subject IS that asset,
-       * and TRUSTING would multiply base colour past one and publish a brighter body that reads as
-       * authored. The refusal names the vertex, the channel and the value. IT IS SPELLABLE ON TWO OF
-       * THE SIX CELLS ONLY: a normalized unsigned byte or short cannot leave [0, 1], so on four of
-       * them the range is carried by the type and this arm is unreachable. */
-      const int colour = primitive.Find("COLOR_0");
-      part.HasColour = colour >= 0;
-      anyColour = anyColour || part.HasColour;
-      Colours_.resize((Positions_.size() / 3) * 4, 0.0);
-      if (colour >= 0) {
-        if ((size_t)colour >= document.Accessors().size()) {
-          return Refuse(document.Path() + ": COLOR_0 names accessor " + std::to_string(colour) +
-                        ", which the file does not carry");
+        if (!document.ReadElements(position, elements)) {
+          return Refuse(document.Path() + ": POSITION does not decode: " + document.Error());
         }
-        size_t components = 0;
-        std::string why;
-        if (!VertexColourComponents(document.Accessors()[(size_t)colour], components, why)) {
-          return Refuse(document.Path() + ": COLOR_0 " + why);
+        if (elements.size() % 3 != 0) {
+          return Refuse(document.Path() + ": POSITION decodes to " + std::to_string(elements.size()) +
+                        " components, which is not a whole number of points");
         }
-        std::vector<double> tints;
-        if (!document.ReadElements(colour, tints)) {
-          return Refuse(document.Path() + ": COLOR_0 does not decode: " + document.Error());
-        }
-        if (tints.size() != vertices * components) {
-          return Refuse(document.Path() + ": COLOR_0 decodes to " +
-                        std::to_string(tints.size() / components) + " colours over " +
-                        std::to_string(vertices) + " vertices");
-        }
-        for (size_t vertex = 0; vertex < vertices; ++vertex) {
-          for (size_t channel = 0; channel < 4; ++channel) {
-            const double value =
-                channel < components ? tints[vertex * components + channel] : 1.0;
-            if (!(value >= 0.0) || !(value <= 1.0)) {
-              return Refuse(document.Path() + ": COLOR_0 of vertex " + std::to_string(vertex) +
-                            " carries " + std::to_string(value) + " in channel " +
-                            std::to_string(channel) +
-                            ", and the format requires every component in [0, 1]");
-            }
-            Colours_[(part.FirstVertex + vertex) * 4 + channel] = value;
-          }
-        }
-      }
-
-      /* THE NORMAL, PER PRIMITIVE, ROTATED BY THE INVERSE TRANSPOSE and normalised here so that no
-       * consumer has to know whether the node scaled it. The run stays as long as the vertex run
-       * whatever the mix is; a primitive that carried none contributes zeros and is drawn by a
-       * pipeline with no normal slot, so those zeros are unread rather than shaded as a direction. */
-      const int normal = primitive.Find("NORMAL");
-      part.HasNormal = normal >= 0;
-      anyNormal = anyNormal || part.HasNormal;
-      Normals_.resize(Positions_.size(), 0.0);
-      if (normal >= 0) {
-        std::vector<double> directions;
-        if (!document.ReadElements(normal, directions)) {
-          return Refuse(document.Path() + ": NORMAL does not decode: " + document.Error());
-        }
-        if (directions.size() != vertices * 3) {
-          return Refuse(document.Path() + ": NORMAL decodes to " +
-                        std::to_string(directions.size() / 3) + " vectors over " +
-                        std::to_string(vertices) + " vertices");
-        }
-        std::vector<double> morphedNormals;
-        if (!MorphDeltasFor(document, primitive, "NORMAL", nodeWeights.data(), morphCount, 3,
-                            vertices, morphedNormals)) {
+        const uint32_t base = (uint32_t)(Positions_.size() / 3);
+        const size_t vertices = elements.size() / 3;
+        /* THE MORPH IS APPLIED FIRST, BEFORE THE SKIN AND BEFORE THE NODE, which is the order glTF
+         * states: the targets displace the mesh in its own space, the skin then binds that displaced
+         * vertex to its joints, and only an unskinned node's transform places it. Any other order
+         * puts the deltas through a matrix they were never expressed in. */
+        std::vector<double> morphedPositions;
+        if (!MorphDeltasFor(document, primitive, "POSITION", nodeWeights.data(), morphCount, 3,
+                            vertices, morphedPositions)) {
           return false;
         }
-        for (size_t at = 0; at < morphedNormals.size(); ++at) { directions[at] += morphedNormals[at]; }
+        for (size_t at = 0; at < morphedPositions.size(); ++at) { elements[at] += morphedPositions[at]; }
+        std::vector<Transform> skinned;
+        if (node.Skin >= 0 &&
+            !BlendSkinFor(document, document.Skins()[(size_t)node.Skin], jointMatrices, primitive,
+                          vertices, skinned)) {
+          return false;
+        }
+        const VertexPlacement place{world, skinned.empty() ? nullptr : skinned.data()};
         for (size_t vertex = 0; vertex < vertices; ++vertex) {
-          double local[3] = {directions[vertex * 3], directions[vertex * 3 + 1],
-                             directions[vertex * 3 + 2]};
+          double local[3] = {elements[vertex * 3], elements[vertex * 3 + 1],
+                             elements[vertex * 3 + 2]};
           double global[3];
-          if (!place.At(vertex).Normal(local, global)) {
-            return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
-                          " carries a NORMAL and a transform with no inverse, so the surface it is "
-                          "perpendicular to has collapsed");
-          }
-          /* A ZERO-LENGTH NORMAL IS THE FILE'S AND IS CARRIED AS IT ARRIVED. Substituting one here
-           * would make a malformed vertex look shaded; the consumer sees a zero and the picture
-           * shows it. */
-          (void)Normalise(global);
-          for (int axis = 0; axis < 3; ++axis) {
-            Normals_[(part.FirstVertex + vertex) * 3 + (size_t)axis] = global[axis];
-          }
+          place.At(vertex).Point(local, global);
+          for (int axis = 0; axis < 3; ++axis) { Positions_.push_back(global[axis]); }
         }
-      }
 
-      if (primitive.Indices >= 0) {
-        if (!document.ReadIndices(primitive.Indices, run)) {
-          return Refuse(document.Path() + ": the index accessor does not decode: " +
-                        document.Error());
+        /* THE TWO UV SETS, PER PRIMITIVE. Each run stays as long as the vertex run whatever the mix
+         * is: a primitive that carried none contributes zeros there and is drawn by a pipeline with
+         * no slot for it, so those zeros are unread rather than sampled at the image's corner.
+         *
+         * THE SECOND SET IS READ HERE AND NOT DERIVED FROM THE FIRST (board:1182), which is the whole
+         * of what `MultiUVTest` separates: its two accessors sit in two buffer views 192 bytes apart
+         * and place the same face 0.25 uv units -- 256 texels of a 1024 image -- from each other. */
+        const struct {
+          const char *Semantic;
+          bool Part::*Carried;
+          bool *Any;
+          std::vector<double> *Into;
+        } sets[kUvSets] = {{"TEXCOORD_0", &Part::HasUv, &anyUv, &Uv_},
+                           {"TEXCOORD_1", &Part::HasUv1, &anyUv1, &Uv1_}};
+        for (const auto &set : sets) {
+          const int uv = primitive.Find(set.Semantic);
+          part.*set.Carried = uv >= 0;
+          *set.Any = *set.Any || part.*set.Carried;
+          set.Into->resize((Positions_.size() / 3) * 2, 0.0);
+          if (uv < 0) { continue; }
+          std::vector<double> coordinates;
+          if (!document.ReadElements(uv, coordinates)) {
+            return Refuse(document.Path() + ": " + set.Semantic + " does not decode: " +
+                          document.Error());
+          }
+          if (coordinates.size() != vertices * 2) {
+            return Refuse(document.Path() + ": " + set.Semantic + " decodes to " +
+                          std::to_string(coordinates.size() / 2) + " pairs over " +
+                          std::to_string(vertices) + " vertices");
+          }
+          std::copy(coordinates.begin(), coordinates.end(),
+                    set.Into->begin() + static_cast<std::ptrdiff_t>(part.FirstVertex * 2));
         }
-      } else {
-        run.resize(vertices);
-        for (size_t vertex = 0; vertex < vertices; ++vertex) { run[vertex] = (uint32_t)vertex; }
-      }
-      if (!RunIsWhole(primitive.Mode, run.size())) {
-        return Refuse(document.Path() + ": " + std::to_string(run.size()) +
-                      " indices do not make a whole run of " + ModeName(primitive.Mode));
-      }
-      /* THE WINDING RULE IS STATED FOR THE NODE'S TRANSFORM, AND A SKINNED PRIMITIVE IGNORES THAT
-       * TRANSFORM -- so for a skin the sign is taken from the vertices themselves, and a primitive
-       * whose blended matrices do not agree on it is refused rather than drawn with a guess: one
-       * primitive cannot carry two windings, and picking either would flip half its triangles. */
-      Handedness handedness = Handedness::Preserved;
-      if (skinned.empty()) {
-        handedness = world.LinearDeterminant() < 0 ? Handedness::Reversed : Handedness::Preserved;
-      } else {
-        const bool mirrored = skinned[0].LinearDeterminant() < 0;
-        for (size_t vertex = 1; vertex < skinned.size(); ++vertex) {
-          if ((skinned[vertex].LinearDeterminant() < 0) != mirrored) {
-            return Refuse(document.Path() + ": vertex " + std::to_string(vertex) +
-                          " of a skinned primitive blends to a transform whose determinant has the "
-                          "opposite sign to vertex 0's, so the primitive would need two windings");
+
+        /* THE VERTEX COLOUR, PER PRIMITIVE, WIDENED TO RGBA AND OTHERWISE UNTOUCHED (board:1193). It
+         * is glTF's "additional linear multiplier to base color", so no transfer function is applied
+         * to it -- here or at the sampler -- and the widening is the format's own sentence about VEC3
+         * rather than a convenience: alpha 1.0 is the multiplicative identity of base colour's alpha.
+         *
+         * OUT OF RANGE IS A REFUSAL AND NOT A CLAMP (board:1193), and the decision is written here
+         * because all three answers are defensible and only one can be tested. The format says every
+         * component MUST lie in [0, 1] (`Specification.adoc:1356`), so a file outside it is malformed;
+         * CLAMPING would repair somebody else's asset inside a comparison whose subject IS that asset,
+         * and TRUSTING would multiply base colour past one and publish a brighter body that reads as
+         * authored. The refusal names the vertex, the channel and the value. IT IS SPELLABLE ON TWO OF
+         * THE SIX CELLS ONLY: a normalized unsigned byte or short cannot leave [0, 1], so on four of
+         * them the range is carried by the type and this arm is unreachable. */
+        const int colour = primitive.Find("COLOR_0");
+        part.HasColour = colour >= 0;
+        anyColour = anyColour || part.HasColour;
+        Colours_.resize((Positions_.size() / 3) * 4, 0.0);
+        if (colour >= 0) {
+          if ((size_t)colour >= document.Accessors().size()) {
+            return Refuse(document.Path() + ": COLOR_0 names accessor " + std::to_string(colour) +
+                          ", which the file does not carry");
+          }
+          size_t components = 0;
+          std::string why;
+          if (!VertexColourComponents(document.Accessors()[(size_t)colour], components, why)) {
+            return Refuse(document.Path() + ": COLOR_0 " + why);
+          }
+          std::vector<double> tints;
+          if (!document.ReadElements(colour, tints)) {
+            return Refuse(document.Path() + ": COLOR_0 does not decode: " + document.Error());
+          }
+          if (tints.size() != vertices * components) {
+            return Refuse(document.Path() + ": COLOR_0 decodes to " +
+                          std::to_string(tints.size() / components) + " colours over " +
+                          std::to_string(vertices) + " vertices");
+          }
+          for (size_t vertex = 0; vertex < vertices; ++vertex) {
+            for (size_t channel = 0; channel < 4; ++channel) {
+              const double value =
+                  channel < components ? tints[vertex * components + channel] : 1.0;
+              if (!(value >= 0.0) || !(value <= 1.0)) {
+                return Refuse(document.Path() + ": COLOR_0 of vertex " + std::to_string(vertex) +
+                              " carries " + std::to_string(value) + " in channel " +
+                              std::to_string(channel) +
+                              ", and the format requires every component in [0, 1]");
+              }
+              Colours_[(part.FirstVertex + vertex) * 4 + channel] = value;
+            }
           }
         }
-        handedness = mirrored ? Handedness::Reversed : Handedness::Preserved;
-      }
-      Triangulate(primitive.Mode, handedness, run, indices);
-      for (uint32_t index : indices) {
-        if (index >= vertices) {
-          return Refuse(document.Path() + ": index " + std::to_string(index) + " addresses past the " +
-                        std::to_string(vertices) + " vertices of its own primitive");
+
+        /* THE NORMAL, PER PRIMITIVE, ROTATED BY THE INVERSE TRANSPOSE and normalised here so that no
+         * consumer has to know whether the node scaled it. The run stays as long as the vertex run
+         * whatever the mix is; a primitive that carried none contributes zeros and is drawn by a
+         * pipeline with no normal slot, so those zeros are unread rather than shaded as a direction. */
+        const int normal = primitive.Find("NORMAL");
+        part.HasNormal = normal >= 0;
+        anyNormal = anyNormal || part.HasNormal;
+        Normals_.resize(Positions_.size(), 0.0);
+        if (normal >= 0) {
+          std::vector<double> directions;
+          if (!document.ReadElements(normal, directions)) {
+            return Refuse(document.Path() + ": NORMAL does not decode: " + document.Error());
+          }
+          if (directions.size() != vertices * 3) {
+            return Refuse(document.Path() + ": NORMAL decodes to " +
+                          std::to_string(directions.size() / 3) + " vectors over " +
+                          std::to_string(vertices) + " vertices");
+          }
+          std::vector<double> morphedNormals;
+          if (!MorphDeltasFor(document, primitive, "NORMAL", nodeWeights.data(), morphCount, 3,
+                              vertices, morphedNormals)) {
+            return false;
+          }
+          for (size_t at = 0; at < morphedNormals.size(); ++at) { directions[at] += morphedNormals[at]; }
+          for (size_t vertex = 0; vertex < vertices; ++vertex) {
+            double local[3] = {directions[vertex * 3], directions[vertex * 3 + 1],
+                               directions[vertex * 3 + 2]};
+            double global[3];
+            if (!place.At(vertex).Normal(local, global)) {
+              return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
+                            " carries a NORMAL and a transform with no inverse, so the surface it is "
+                            "perpendicular to has collapsed");
+            }
+            /* A ZERO-LENGTH NORMAL IS THE FILE'S AND IS CARRIED AS IT ARRIVED. Substituting one here
+             * would make a malformed vertex look shaded; the consumer sees a zero and the picture
+             * shows it. */
+            (void)Normalise(global);
+            for (int axis = 0; axis < 3; ++axis) {
+              Normals_[(part.FirstVertex + vertex) * 3 + (size_t)axis] = global[axis];
+            }
+          }
         }
-        Indices_.push_back(base + index);
+
+        if (primitive.Indices >= 0) {
+          if (!document.ReadIndices(primitive.Indices, run)) {
+            return Refuse(document.Path() + ": the index accessor does not decode: " +
+                          document.Error());
+          }
+        } else {
+          run.resize(vertices);
+          for (size_t vertex = 0; vertex < vertices; ++vertex) { run[vertex] = (uint32_t)vertex; }
+        }
+        if (!RunIsWhole(primitive.Mode, run.size())) {
+          return Refuse(document.Path() + ": " + std::to_string(run.size()) +
+                        " indices do not make a whole run of " + ModeName(primitive.Mode));
+        }
+        /* THE WINDING RULE IS STATED FOR THE NODE'S TRANSFORM, AND A SKINNED PRIMITIVE IGNORES THAT
+         * TRANSFORM -- so for a skin the sign is taken from the vertices themselves, and a primitive
+         * whose blended matrices do not agree on it is refused rather than drawn with a guess: one
+         * primitive cannot carry two windings, and picking either would flip half its triangles. */
+        Handedness handedness = Handedness::Preserved;
+        if (skinned.empty()) {
+          handedness = world.LinearDeterminant() < 0 ? Handedness::Reversed : Handedness::Preserved;
+        } else {
+          const bool mirrored = skinned[0].LinearDeterminant() < 0;
+          for (size_t vertex = 1; vertex < skinned.size(); ++vertex) {
+            if ((skinned[vertex].LinearDeterminant() < 0) != mirrored) {
+              return Refuse(document.Path() + ": vertex " + std::to_string(vertex) +
+                            " of a skinned primitive blends to a transform whose determinant has the "
+                            "opposite sign to vertex 0's, so the primitive would need two windings");
+            }
+          }
+          handedness = mirrored ? Handedness::Reversed : Handedness::Preserved;
+        }
+        Triangulate(primitive.Mode, handedness, run, indices);
+        for (uint32_t index : indices) {
+          if (index >= vertices) {
+            return Refuse(document.Path() + ": index " + std::to_string(index) + " addresses past the " +
+                          std::to_string(vertices) + " vertices of its own primitive");
+          }
+          Indices_.push_back(base + index);
+        }
+        part.IndexCount = Indices_.size() - part.FirstIndex;
+        if (!BuildTangentsFor(document, primitive, place,
+                              Span<const double>(nodeWeights.data(), morphCount), part, vertices)) {
+          return false;
+        }
+        anyTangent = anyTangent || part.HasTangent();
+        part.VertexCount = VertexCount() - part.FirstVertex;
+        /* A primitive that yielded no triangle is not a part: it is a name a per-part declaration
+         * would have to answer for while nothing of it is drawn. */
+        if (part.IndexCount > 0) { Parts_.push_back(part); }
       }
-      part.IndexCount = Indices_.size() - part.FirstIndex;
-      if (!BuildTangentsFor(document, primitive, place,
-                            Span<const double>(nodeWeights.data(), morphCount), part, vertices)) {
-        return false;
-      }
-      anyTangent = anyTangent || part.HasTangent();
-      part.VertexCount = VertexCount() - part.FirstVertex;
-      /* A primitive that yielded no triangle is not a part: it is a name a per-part declaration
-       * would have to answer for while nothing of it is drawn. */
-      if (part.IndexCount > 0) { Parts_.push_back(part); }
     }
+
   }
 
   if (!anyUv) { Uv_.clear(); }

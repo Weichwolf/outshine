@@ -176,6 +176,16 @@ struct Node {
   double Translation[3] = {0, 0, 0};
   double Rotation[4] = {0, 0, 0, 1}; /* xyzw, the format's order */
   double Scale[3] = {1, 1, 1};
+  /* `EXT_mesh_gpu_instancing`: accessor indices for one transform per instance, or -1 (board:1416).
+   * The three are independent -- a file may give translations and no rotations -- and the extension
+   * requires every one it gives to have the same count, which is the instance count.
+   *
+   * A NODE WITH INSTANCES DRAWS ITS MESH ONCE PER INSTANCE and not once. The extension is optional in
+   * the sense that a client may ignore it, and ignoring it draws ONE body where the file says there
+   * are many -- which is a wrong picture rather than a plainer one, so it is read. */
+  int InstanceTranslation = -1;
+  int InstanceRotation = -1;
+  int InstanceScale = -1;
   /* `KHR_node_visibility`. The extension's own rule: *a node is visible if and only if its own
    * visible property is true and all its parents are visible*, so THIS FIELD IS THE NODE'S OWN
    * ANSWER and the inherited one is the walk's. Default true, which is the format's, so a file
