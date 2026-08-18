@@ -591,5 +591,28 @@
       "origin": "measured",
       "note": "The fraction of the frame the subject's projected area covers at frame 0, recomputed by the runner on every run and refused on mismatch. HARVESTED once the case could project at all: the placeholder zero this replaced was declared [SET] and said so, because a refusal before projection leaves nothing to seed from (board:1377). What changed is that this file stopped being refused -- `KHR_materials_transmission` and `KHR_materials_volume` are read again (board:1386) and an animation channel this engine cannot drive is a counted shortfall rather than a refusal (board:1392)."
     }
-  }
+  },
+  "reductions": [
+    {
+      "metric": "frames_whose_picture_differs_from_frame_0",
+      "because": "BLENDER'S IMPORTER DOES NOT ANIMATE A TEXTURE TRANSFORM THROUGH `KHR_animation_pointer`, so this oracle renders the file's sequence as five copies of one still. [MEASURED] **frames whose oracle picture differs from frame 0 = 0 of 4**, while the file declares a normal-texture rotation running 0 -> pi -> 2pi over four seconds and a thickness-texture rotation running 2pi -> 0 over the same span -- a quarter turn of a normal map at every step of the declared grid, which cannot be invisible.\n\nTHE REDUCTION IS ON THE ORACLE AND NOT ON US, and the direction matters: [MEASURED] `picture_p99_delta_code` is **0 codes at every one of the five frames**, so our still and its still agree exactly. `board:1392` records that nothing drives a material per frame here either -- the channel is read, resolved and carried, and `Pose` answers the material arm by doing nothing. **So implementing the capability would make this case RED against this oracle rather than green**, which is the plainest possible statement that the oracle is what cannot decide it.\n\nWHAT THE CASE STILL DECIDES is everything a still decides: the file reads, its five materials reach their bodies, and the picture agrees with Cycles to the code.",
+      "measured": {
+        "oracleFramesDifferingFromFrame0": {
+          "value": 0,
+          "unit": "frames",
+          "origin": "measured"
+        },
+        "framesDeclared": {
+          "value": 5,
+          "unit": "frames",
+          "origin": "measured"
+        },
+        "picturep99AtEveryFrame": {
+          "value": 0,
+          "unit": "codes",
+          "origin": "measured"
+        }
+      }
+    }
+  ]
 }

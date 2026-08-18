@@ -37,6 +37,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <set>
 #include <optional>
 #include <map>
 #include <string>
@@ -252,6 +253,13 @@ struct Case {
    * is measured against. At frame 0 it is frame 0, so the first frame of a sequence publishes a
    * velocity of exactly zero everywhere it is covered rather than a displacement from nothing. */
   Subject PreviousGeometry;
+  /* HOW FAR THIS FRAME'S POSE MOVED FROM THE PREVIOUS ONE, in pixels (board:1434). Held on the case
+   * because the velocity metric is scored inside the frame and the motion is measured outside it. */
+  double MovedPx = 0;
+  /* EVERY METRIC NAME THIS CASE REPORTED, over the whole grid (board:1434). A declared reduction is
+   * checked against this once at the end rather than against one frame's list, because the grid's own
+   * claims are scored outside the frame loop and a per-frame check cannot see them. */
+  std::set<std::string> MetricsReported;
   [[nodiscard]] bool Animated() const { return Frames > 1; }
   /* Which frame a product name carries, and it is nothing at all for a still. */
   [[nodiscard]] std::optional<int> ProductFrame(int frame) const {
@@ -2869,8 +2877,15 @@ void ScoreVelocity(const Case &subject, const Picture &picture, const Mask &ours
   metrics.push_back({"velocity_pixels_covered", (double)covered, 0.0, "px", Direction::Reported});
   metrics.push_back({"velocity_pixels_carrying_the_static_sentinel", (double)sentinel, 0.0, "px",
                      Direction::AtMost});
-  metrics.push_back({"velocity_pixels_moving", (double)moving, frame == 0 ? 0.0 : 1.0, "px",
-                     frame == 0 ? Direction::AtMost : Direction::AtLeast});
+  /* AND IT IS ASKED ONLY OF A FRAME WHOSE POSE ACTUALLY MOVED (board:1434). A declared sequence need
+   * not move geometry at all -- `KHR_animation_pointer` lets a channel drive a material, and
+   * `PotOfCoalsAnimationPointer` turns two texture transforms and nothing else -- so demanding a
+   * moving pixel of every frame after the first asks a still subject to have a velocity. Where the
+   * pose did not move, the target must carry NO motion, which is the same claim facing the other way
+   * and is the stronger of the two. */
+  const bool poseMoved = frame > 0 && subject.MovedPx > 0.0;
+  metrics.push_back({"velocity_pixels_moving", (double)moving, poseMoved ? 1.0 : 0.0, "px",
+                     poseMoved ? Direction::AtLeast : Direction::AtMost});
   Note("velocity, furthest a covered pixel moved since the previous frame", furthestNdc,
        "ndc per frame");
   Note("velocity, furthest a covered pixel moved since the previous frame", furthestPx,
@@ -3003,9 +3018,39 @@ struct Motion {
 /* WHAT ONE FRAME OF A CASE CAME TO. `Compared` says the two sides were both there and scored;
  * `Held` says every enforced metric of that frame held. A sequence stops at the first frame where
  * either is false (board:1129), and a still is the one-frame case of the same loop. */
+/* FNV-1a OVER THE ORACLE'S FLOATS, and it decides one question only: did the reference change between
+ * two frames of a declared grid (board:1434). A digest and not a difference, because the answer wanted
+ * is a boolean and a picture-sized subtraction to reach it would be a second comparison nobody reads.
+ * f32 bit patterns go in as they lie, so a NaN would hash as itself -- which is correct here, since two
+ * frames that are bit-identical are the same picture whatever the bits mean. */
+[[nodiscard]] std::uint64_t Digest(const RawF32 &oracle) {
+  std::uint64_t hash = 1469598103934665603ull;
+  for (int y = 0; y < oracle.Height(); ++y) {
+    for (int x = 0; x < oracle.Width(); ++x) {
+      for (int channel = 0; channel < oracle.Channels(); ++channel) {
+        const float value = oracle.At(x, y, channel);
+        std::uint32_t bits = 0;
+        std::memcpy(&bits, &value, sizeof bits);
+        for (int byte = 0; byte < 4; ++byte) {
+          hash ^= (std::uint64_t)((bits >> (byte * 8)) & 0xffu);
+          hash *= 1099511628211ull;
+        }
+      }
+    }
+  }
+  return hash;
+}
+
+/* THE GRID'S OWN CLAIM WEARS A METRIC'S NAME so a case whose oracle cannot render its sequence can
+ * declare that on the same ladder every other undecidable number uses (board:1434). */
+constexpr char kGridChangesThePicture[] = "frames_whose_picture_differs_from_frame_0";
+
 struct FrameVerdict {
   bool Compared = false;
   bool Held = false;
+  /* A DIGEST OF THE ORACLE'S OWN PIXELS AT THIS FRAME (board:1434), so the grid's emptiness can be
+   * decided by the reference rather than by our geometry. */
+  std::uint64_t OracleDigest = 0;
 };
 
 FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int frame) {
@@ -3014,6 +3059,7 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
   RawF32 oracle;
   size_t seedApart = 0;
   if (!ReadOracle(subject, frame, oracle, seedApart)) { return FrameVerdict{}; }
+  const std::uint64_t oracleDigest = Digest(oracle);
 
   const outshine::Clients::Studio studio = MakeStudio(subject);
   NoteWhatTheStudioCarries(subject, studio);
@@ -3263,19 +3309,12 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
     metric.Against = Direction::Reported;
     ++reduced;
   }
-  /* A REDUCTION THIS CASE DECLARED AND NO METRIC ANSWERS TO is a name that has gone stale, and it is
-   * a refusal rather than a silence: the metric may have been renamed, or the case may have been
-   * repaired and the reduction forgotten. */
-  for (const auto &declared : subject.Reductions) {
-    bool found = false;
-    for (const Metric &metric : metrics) { found = found || metric.Name == declared.first; }
-    CHECK(found, "every declared reduction names a metric this case actually reports");
-  }
+  for (const Metric &metric : metrics) { subject.MetricsReported.insert(metric.Name); }
   Note("metrics this case declares its oracle cannot decide", (double)reduced, "reductions");
 
   Print(metrics);
   SayBothVerdicts(metrics, bound);
-  FrameVerdict verdict{true, true};
+  FrameVerdict verdict{true, true, oracleDigest};
   for (const Metric &metric : metrics) {
     if (metric.Against == Direction::Reported) { continue; }
     CHECK(metric.Held(), metric.Name.c_str());
@@ -3319,6 +3358,8 @@ int ScoreRenderCase(int argc, char **argv) {
   int compared = 0;
   double furthestMovedPx = 0;
   int framesThatMoved = 0;
+  std::uint64_t firstOracleDigest = 0;
+  int oracleFramesThatDiffer = 0;
   int stoppedAt = -1;
   for (int frame = 0; frame < subject.Frames; ++frame) {
     if (subject.Animated()) {
@@ -3339,9 +3380,17 @@ int ScoreRenderCase(int argc, char **argv) {
         break;
       }
       furthestMovedPx = std::fmax(furthestMovedPx, motion.MovedPx);
+      subject.MovedPx = motion.MovedPx;
       if (motion.MovedPx > subject.OracleFloorPx) { ++framesThatMoved; }
     }
     const FrameVerdict verdict = ScoreFrame(subject, renderer, frame);
+    if (verdict.Compared) {
+      if (frame == 0) {
+        firstOracleDigest = verdict.OracleDigest;
+      } else if (verdict.OracleDigest != firstOracleDigest) {
+        ++oracleFramesThatDiffer;
+      }
+    }
     if (!verdict.Compared) {
       stoppedAt = frame;
       break;
@@ -3373,10 +3422,40 @@ int ScoreRenderCase(int argc, char **argv) {
    * visible rather than merely passing. */
   Note("the furthest the drawn subject moved from frame 0 over the grid", furthestMovedPx, "px");
   Note("frames whose drawn subject differs from frame 0", (double)framesThatMoved, "frames");
+  Note("frames whose oracle picture differs from frame 0", (double)oracleFramesThatDiffer, "frames");
   if (subject.Animated()) {
-    CHECK(furthestMovedPx > subject.OracleFloorPx,
-          "the drawn subject moves over the declared grid, so the sequence is not a still rendered "
-          "once per frame and agreeing with the oracle by construction");
+    const int changing = framesThatMoved > 0 ? framesThatMoved : oracleFramesThatDiffer;
+    std::vector<Metric> grid{{kGridChangesThePicture, (double)changing, 1.0, "frames",
+                              Direction::AtLeast}};
+    subject.MetricsReported.insert(kGridChangesThePicture);
+    const auto declared = subject.Reductions.find(kGridChangesThePicture);
+    if (declared != subject.Reductions.end()) {
+      std::printf("REDUCED %s -- %s\n", kGridChangesThePicture, declared->second.c_str());
+      grid[0].Against = Direction::Reported;
+    }
+    Print(grid);
+  }
+  /* A REDUCTION THIS CASE DECLARED AND NO METRIC ANSWERS TO is a name that has gone stale, and it is a
+   * refusal rather than a silence: the metric may have been renamed, or the case may have been repaired
+   * and the reduction forgotten. Asked ONCE over the whole grid (board:1434), because the grid's own
+   * claim is scored here and a per-frame list cannot contain it. */
+  for (const auto &declared : subject.Reductions) {
+    CHECK(subject.MetricsReported.count(declared.first) == 1,
+          "every declared reduction names a metric this case actually reports");
+  }
+  if (subject.Animated() && subject.Reductions.count(kGridChangesThePicture) == 0) {
+    /* A SEQUENCE CHANGES THE PICTURE; IT NEED NOT MOVE THE GEOMETRY (board:1434). What this clause is
+     * for is unchanged -- a grid that renders one thing N times agrees with the oracle by
+     * construction rather than by being right -- but `KHR_animation_pointer` lets a channel drive a
+     * material, and `PotOfCoalsAnimationPointer` turns two texture transforms and moves not one
+     * vertex. Asking THE ORACLE whether its own frames differ is the question that covers both, and
+     * it constrains the reference rather than us: a grid the reference renders identically is empty
+     * whatever we do with it, and a grid the reference varies is a real comparison even where the
+     * variation is a material's. */
+    CHECK(furthestMovedPx > subject.OracleFloorPx || oracleFramesThatDiffer > 0,
+          "the declared grid changes the picture -- the drawn subject moves, or the oracle's own "
+          "frames differ -- so the sequence is not a still rendered once per frame and agreeing with "
+          "the oracle by construction");
   }
   Note("frames compared", (double)compared, "frames");
   Note("frames declared", (double)subject.Frames, "frames");
