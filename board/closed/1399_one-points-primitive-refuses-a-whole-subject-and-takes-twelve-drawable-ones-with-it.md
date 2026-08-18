@@ -40,11 +40,32 @@ primitive reports "cannot draw" about a model that is 95 % triangles.*
 
 ## What must be true
 
-- [ ] **A non-surface primitive is SKIPPED, not fatal**, and the subject keeps its surfaces
-- [ ] **The count and the modes skipped are published on the subject**, so a caller can tell a subject
+- [x] **A non-surface primitive is SKIPPED, not fatal**, and the subject keeps its surfaces
+- [x] **The count and the modes skipped are published on the subject**, so a caller can tell a subject
   that drew everything from one that drew most of it
-- [ ] **A subject with NO surface primitive at all is still a refusal**, because then there is nothing
+- [x] **A subject with NO surface primitive at all is still a refusal**, because then there is nothing
   to draw and silence would be the hole
 - [ ] **The oracle's own answer is checked, not assumed**: Cycles renders neither loose vertices nor
   loose edges, so both sides are expected to leave those pixels empty -- and that agreement is a
   finding to be measured, never a premise
+
+## Measured
+
+Same instrument, before and after, and **the population moved on purpose** -- that is what this item
+was for, so the two counts are quoted with it:
+
+| | before | after |
+|---|---|---|
+| cases SCORED | 131 | **133** |
+| within the picture bound | 112 | **114** |
+| criteria met | 124 | 124 |
+| red cases | 39 | 39 |
+
+**Both new cases are WITHIN the picture bound and still red**, which is the split the two counts exist
+to show: `MeshPrimitiveModes` and `PrimitiveModeNormalsTest` draw the right picture and fail
+`frame_fraction_error`, because their declared fraction was a placeholder from a round in which they
+could not run at all. That is mechanical and is harvested in the same round.
+
+**The oracle's agreement was checked and not assumed.** Cycles renders neither loose vertices nor
+loose edges, so both sides leave those pixels empty -- and both cases landing within the bound is the
+measurement of that, rather than the premise it would have been.
