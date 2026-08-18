@@ -1,0 +1,218 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/instancing/simple-instancing",
+  "title": "One mesh placed at several transforms by EXT_mesh_gpu_instancing -- a capability this engine does not yet have, so the case is expected red and says which pixels are missing",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:SimpleInstancing",
+    "board:1323"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "A simple example for the EXT_mesh_gpu_instancing extension.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleInstancing/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction over a single static body that the EXTENSION multiplies. The caveat is named first and it is not a defect of the comparison: `git grep EXT_mesh_gpu_instancing -- src/` is empty, so we draw the node once where the oracle draws it several times, and the disagreement is a COUNT of bodies rather than a shade. This case exists to make that hole a number instead of an absence."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "simple-instancing",
+      "kind": "gltf",
+      "name": "SimpleInstancing",
+      "entry": "scene.gltf",
+      "attributes": [
+        "NORMAL",
+        "POSITION"
+      ],
+      "notes": "Attributes NORMAL, POSITION. EXT_mesh_gpu_instancing carries per-instance TRANSLATION, ROTATION and SCALE on the node. Whether Blender's importer reads the extension is itself a question this case answers, and if it does not, both sides draw one body and the case is green for the wrong reason -- which is why the render is LOOKED AT rather than only scored.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "SimpleInstancing",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleInstancing/glTF/SimpleInstancing.gltf",
+          "sha256": "a01695630e6459c945826c7ff8dde74784de8279f60b9b62604980dc7486340e",
+          "bytes": 3013,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2023",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleInstancing/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleInstancing/glTF/SimpleInstancing.bin",
+          "sha256": "29d38705c2a619f30374e80413be61f2e855dd9ec59c499201000aa53715a73c",
+          "bytes": 5720,
+          "as": "SimpleInstancing.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2023",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleInstancing/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleInstancing/metadata.json",
+          "sha256": "903fcd332ad6e87cf6e3d4eacb9ed251eb3cf9ad46f125c4b9c74a933ee34d9f",
+          "bytes": 785,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2023",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleInstancing/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        5.260791880152056,
+        2.6153417707888442,
+        3.8335423623300464
+      ],
+      "lookAtM": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 5.3188201734967615,
+      "clipEndM": 7.050870981065638,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [0, 0, 0] to [1, 1, 1], so centre = [0.5, 0.5, 0.5] and radius = 0.8660254037844386 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 6.1848455772812, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest and not of a Blender default."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "<default>": [
+          0.85,
+          0.55,
+          0.2
+        ]
+      },
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it. A material a primitive does not name is keyed by `<default>`, which is the format's own word for the material an undefined `material` selects."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "A coverage case. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet. The framing camera is derived from the file's own node bounds, which do NOT include the extension's instances, so the instanced copies may fall outside the frame on both sides.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.211519958,
+      "unit": "dimensionless",
+      "origin": "MEASURED",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0. RECOMPUTED BY THE RUNNER ON EVERY RUN and refused on mismatch, so what this line does is pin it. It is seeded from that recomputation, which makes it a DRIFT DETECTOR rather than a present-error check -- honest only because the camera is independently proven to be the framing rule's."
+    }
+  }
+}

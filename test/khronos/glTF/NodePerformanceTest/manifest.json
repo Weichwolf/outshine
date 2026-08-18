@@ -1,0 +1,1612 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/scene/node-performance-test",
+  "title": "Ten thousand nodes, ten thousand meshes and ten thousand named materials",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:NodePerformanceTest",
+    "board:1305"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "Node, mesh, primitive and texture count performance test",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction over a static subject. What is compared is which pixels each side covers and which material's colour each wears there."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "node-performance-test",
+      "kind": "gltf",
+      "name": "NodePerformanceTest",
+      "entry": "scene.gltf",
+      "attributes": [
+        "NORMAL",
+        "POSITION",
+        "TEXCOORD_0"
+      ],
+      "notes": "Attributes NORMAL, POSITION. KHR_lights_punctual. Ten thousand materials, every one of them named.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "NodePerformanceTest",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest.gltf",
+          "sha256": "341eb87c0edf875d7768535e4c9d7591ca7ac483f642cb836ad43d7f1596c080",
+          "bytes": 25307360,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_data.bin",
+          "sha256": "c3d2baa82ea604baab73e65cab959f5e2ef28b92300d13273e46a161051cf7da",
+          "bytes": 25030252,
+          "as": "NodePerformanceTest_data.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img00.png",
+          "sha256": "02ba0b9857a99d59f7ef4072fe107dc6f964ba1b7a8e58b00e8b87317e725b43",
+          "bytes": 5694,
+          "as": "NodePerformanceTest_img00.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img01.png",
+          "sha256": "125529bf9094b66f9eef814231bdfe91919732316e9b9ada1171011a725d5fc9",
+          "bytes": 5603,
+          "as": "NodePerformanceTest_img01.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img02.png",
+          "sha256": "a012d31fc3bf1382dd8d890c5a3fbdad97c8af52b8644d6278cea4b349e78e50",
+          "bytes": 5848,
+          "as": "NodePerformanceTest_img02.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img03.png",
+          "sha256": "55097b9683b4951a2f51002d0c85dbf747ee80e86f50811de5e7e5fac6edbee1",
+          "bytes": 6016,
+          "as": "NodePerformanceTest_img03.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img04.png",
+          "sha256": "503554ec371c4cd902764dfd6dc0ae92ec6effbc55be081e9b1eb5df7055cbae",
+          "bytes": 6058,
+          "as": "NodePerformanceTest_img04.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img05.png",
+          "sha256": "a4a9def672e1c85cd58f78031b5c47dc92f3705fa9812c41c20f127a9369c226",
+          "bytes": 6043,
+          "as": "NodePerformanceTest_img05.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img06.png",
+          "sha256": "888af48eefe032abcf986e90dc288039ee6a5db91652f9ec5e4e9c0949c5de02",
+          "bytes": 6046,
+          "as": "NodePerformanceTest_img06.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img07.png",
+          "sha256": "abb53184177c28254c859100d1e7e1c36b1001e587c9efe875017cb081dc1d62",
+          "bytes": 5676,
+          "as": "NodePerformanceTest_img07.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img08.png",
+          "sha256": "a9d791617184342968b151d0580737ef0522dec5defd62285f5307918deb168f",
+          "bytes": 5606,
+          "as": "NodePerformanceTest_img08.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img09.png",
+          "sha256": "4d7d421f56dfef30f201359416b7ea30b0cc883598288c829707147925fa7e95",
+          "bytes": 5713,
+          "as": "NodePerformanceTest_img09.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img10.png",
+          "sha256": "28b70bdba2f04e4f89dc1c867b592e23e6f89a2494ce41aa39389079e100165c",
+          "bytes": 5695,
+          "as": "NodePerformanceTest_img10.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img11.png",
+          "sha256": "44c6df4cb49483f5c80d88133bbd8900ec3d204a03aa2ffdc5b173f84b5c2e1f",
+          "bytes": 5620,
+          "as": "NodePerformanceTest_img11.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img12.png",
+          "sha256": "0fa93abafa16ff886fee6e4d4467b9275bfe2f2f0610e438fd1c06147ed962ee",
+          "bytes": 6038,
+          "as": "NodePerformanceTest_img12.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img13.png",
+          "sha256": "71fc6fe86e00b372179719d3872af60a156a3c39c8b3bad8c368da026bb89b1e",
+          "bytes": 5535,
+          "as": "NodePerformanceTest_img13.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img14.png",
+          "sha256": "a6929b5347d5813709c82b4fcd59e159564ae15f91cd8f368c5838786f20ae10",
+          "bytes": 6068,
+          "as": "NodePerformanceTest_img14.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img15.png",
+          "sha256": "a9d016f0ffe221b86ac420eb456d1e667e1451fe180f0f7122818a1d66ef6104",
+          "bytes": 5625,
+          "as": "NodePerformanceTest_img15.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img16.png",
+          "sha256": "42ad6bb4353a22cd04237bc1d9a6d4810b87f1338db2cde579ba0d7917dbaea5",
+          "bytes": 6162,
+          "as": "NodePerformanceTest_img16.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img17.png",
+          "sha256": "552386da98128d0d9084a3fdbdf92ffc035912c855a32ec03d62b17d2f0e225e",
+          "bytes": 5960,
+          "as": "NodePerformanceTest_img17.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img18.png",
+          "sha256": "05e766b098de713384ea015a4d690370fe773ecb5c57a27e32ebd65239403362",
+          "bytes": 5960,
+          "as": "NodePerformanceTest_img18.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img19.png",
+          "sha256": "c2b600103391f7c4c54ad4dbecf606c0c80757d6fcdbb31829d19d5f3eb31128",
+          "bytes": 5718,
+          "as": "NodePerformanceTest_img19.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img20.png",
+          "sha256": "1489a9ff421c78fca4d3aa29fdacd36a00ed7221006d0d8bbdc458a9e8f4e420",
+          "bytes": 5782,
+          "as": "NodePerformanceTest_img20.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img21.png",
+          "sha256": "3d3b5be3080a792a9a6dd3ccf12ae7219e4653a34d0cbaf756c12ef23969d5c9",
+          "bytes": 5973,
+          "as": "NodePerformanceTest_img21.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img22.png",
+          "sha256": "a4880f840d615407d32c14ffdc9a0414a9bfe58c5bdf56f98a7c033f9dbf790f",
+          "bytes": 5731,
+          "as": "NodePerformanceTest_img22.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img23.png",
+          "sha256": "c4cf94845e89491130c2f7b63e9e48fbe4022985e1d1430b7f302cca472f2bbf",
+          "bytes": 5700,
+          "as": "NodePerformanceTest_img23.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img24.png",
+          "sha256": "9128dd03876c635ed79504a1a5314e1fb315225ef56264c8f9ff4d83e9a32ff4",
+          "bytes": 6137,
+          "as": "NodePerformanceTest_img24.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img25.png",
+          "sha256": "8cbb46b00080ec72487c623b9ed1a21f68372b04f42504d46a746e0d62fcf102",
+          "bytes": 5777,
+          "as": "NodePerformanceTest_img25.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img26.png",
+          "sha256": "2de860bd206944a7f3de7ea4de7ab13bf19c32763c46b769e0d3e3b6e4fd45ab",
+          "bytes": 6038,
+          "as": "NodePerformanceTest_img26.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img27.png",
+          "sha256": "877a18d0787189bf80f60ff91bd224b4f52e494320819ec619736c2074908686",
+          "bytes": 6066,
+          "as": "NodePerformanceTest_img27.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img28.png",
+          "sha256": "23032945242ee60d35906ebedda7944e0418622cdbacb2b8961306c114bf3533",
+          "bytes": 5904,
+          "as": "NodePerformanceTest_img28.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img29.png",
+          "sha256": "240015127c207bdf9c9f8ea38232059a7965a94eecb7e9b3b46e3390b9d96b9b",
+          "bytes": 5760,
+          "as": "NodePerformanceTest_img29.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img30.png",
+          "sha256": "c990149cd858d08a5463e83d7cf1f46be21b9c3915dc2c7fdd443e56471d0a13",
+          "bytes": 6001,
+          "as": "NodePerformanceTest_img30.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img31.png",
+          "sha256": "10fd96d8ff2f6a8a78654d832754be3fcb3749cc9afbad1cdfa1e35deafaebde",
+          "bytes": 6004,
+          "as": "NodePerformanceTest_img31.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img32.png",
+          "sha256": "ebe00d52865229cf27253fd1bd824e5a2326c8826aab43f4b63b2d814dba87fe",
+          "bytes": 6064,
+          "as": "NodePerformanceTest_img32.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img33.png",
+          "sha256": "fae8bfb7728d61a6c22fe895f8b73c016a0c4459517d6231206e7c261faf0d11",
+          "bytes": 5573,
+          "as": "NodePerformanceTest_img33.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img34.png",
+          "sha256": "6e08d8ed60f41c571250d5a075cf071162ea17c2f806b3fcdafd13bc4a08a7ef",
+          "bytes": 5708,
+          "as": "NodePerformanceTest_img34.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img35.png",
+          "sha256": "da6c42de6bfda0937d58c2d01d5fa4a18d710e3a4229ae198105016c82ccea91",
+          "bytes": 6071,
+          "as": "NodePerformanceTest_img35.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img36.png",
+          "sha256": "f650fde891af4fd1f320e7792bbdc5183691feb4fef5654b88aa09f657665831",
+          "bytes": 5687,
+          "as": "NodePerformanceTest_img36.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img37.png",
+          "sha256": "a4c6aa8b5266ee793ab5b25c9731ea8d1b13e235357c56d7a101a37bf6027eb3",
+          "bytes": 6007,
+          "as": "NodePerformanceTest_img37.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img38.png",
+          "sha256": "40987a85d34a3be7e6517e28d2e14291786ebceba31c211e22a7280d61b9eca1",
+          "bytes": 6011,
+          "as": "NodePerformanceTest_img38.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img39.png",
+          "sha256": "e95b29bb516f857fd2b304d8c56857f2a43ea6b3474963cb3f34672d8ed2eb13",
+          "bytes": 5644,
+          "as": "NodePerformanceTest_img39.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img40.png",
+          "sha256": "a6f5f0c2abc92e8f7969907f55dce2d58810bbb67458da28c1893711420e073a",
+          "bytes": 5753,
+          "as": "NodePerformanceTest_img40.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img41.png",
+          "sha256": "53f58e4a50bfbb553831af137707ad50df8389692665fc96af39ec9344d32d96",
+          "bytes": 6022,
+          "as": "NodePerformanceTest_img41.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img42.png",
+          "sha256": "8a8945c4c9998e8917c4bf523f89116a859ffa40e3513d7fb0e1d9d806d779f5",
+          "bytes": 6003,
+          "as": "NodePerformanceTest_img42.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img43.png",
+          "sha256": "ca0de9c1ec8f99c8ac1ec0fe2b5b5140c381ee09f7a8b7e8cdd1e35505ecf0fe",
+          "bytes": 5983,
+          "as": "NodePerformanceTest_img43.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img44.png",
+          "sha256": "56a42ef2928e4410c4395be81f5a6d27b7a1956aabbe231a74c72cd723dee379",
+          "bytes": 5990,
+          "as": "NodePerformanceTest_img44.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img45.png",
+          "sha256": "f85922ee39fa39c18f2e48cef1825930152ff3f31431d269fcdd8d790593a121",
+          "bytes": 6108,
+          "as": "NodePerformanceTest_img45.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img46.png",
+          "sha256": "c0d1c9f1bacca616aab1085604ae204a87fc5d491377bd630f01808d476accc2",
+          "bytes": 6079,
+          "as": "NodePerformanceTest_img46.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img47.png",
+          "sha256": "f008c7c6776032f24b417ce83dbb461fc5ad761424dc4f2cce0315abf3951592",
+          "bytes": 5983,
+          "as": "NodePerformanceTest_img47.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img48.png",
+          "sha256": "0fc55d8f09e6b4ed8d4b30cccf3fa7072791ad4c55cb623aadd7fb269959e691",
+          "bytes": 5916,
+          "as": "NodePerformanceTest_img48.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img49.png",
+          "sha256": "f506b1744592b7461cbf9ed7d361a36a8d985fb57c25b15c8b96316309ecb938",
+          "bytes": 5631,
+          "as": "NodePerformanceTest_img49.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img50.png",
+          "sha256": "282e01d0f1f086a49e03027acf78ef9a8c9c28cee8ecb14c3c882a87b12a915c",
+          "bytes": 5761,
+          "as": "NodePerformanceTest_img50.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img51.png",
+          "sha256": "9031e82bfec926051485f797d2279e97b45cf16cb86ece4a5c52af0361814d22",
+          "bytes": 5653,
+          "as": "NodePerformanceTest_img51.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img52.png",
+          "sha256": "e91a29a730de17a235e793152ecfd7484c92f1703fcaf8b6597a6a8331bf1dde",
+          "bytes": 5620,
+          "as": "NodePerformanceTest_img52.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img53.png",
+          "sha256": "c5c78e3d30f118cb161afbc3d36fb5b94485a170238ccd7360c3bbcadaad2a89",
+          "bytes": 5599,
+          "as": "NodePerformanceTest_img53.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img54.png",
+          "sha256": "8ac0c2b5cdf9fc9669a1e5891f04bc7f5bd19ee091902b520f15058c94dc5dd7",
+          "bytes": 5620,
+          "as": "NodePerformanceTest_img54.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img55.png",
+          "sha256": "33915b2c4c0140ff733de747c6807e49ad2652eb1af965cc0335a89227cfa428",
+          "bytes": 6076,
+          "as": "NodePerformanceTest_img55.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img56.png",
+          "sha256": "ade64a5df8bbd05641560c2dbe7852363f5c51d5105edb8ca271939cab578f9c",
+          "bytes": 5760,
+          "as": "NodePerformanceTest_img56.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img57.png",
+          "sha256": "ea0aabf6e923a9d54618be313922ec8d326fccdbeca35574da748ea3564bab6c",
+          "bytes": 6001,
+          "as": "NodePerformanceTest_img57.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img58.png",
+          "sha256": "7f2c5580a91994fb28e20eb472da9c62d2867fc9535bd3ad522285dc85a779c0",
+          "bytes": 5774,
+          "as": "NodePerformanceTest_img58.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img59.png",
+          "sha256": "3452415742e51a597a7a5d7b22e9c88b5eb0cc07864685037874f57080ba3ff3",
+          "bytes": 5924,
+          "as": "NodePerformanceTest_img59.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img60.png",
+          "sha256": "a32caf1fb0548b7523b03b376b833e7324523aa97da54caa55f9a2866e655fa3",
+          "bytes": 6106,
+          "as": "NodePerformanceTest_img60.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img61.png",
+          "sha256": "ac123428e1525359bbd785af135e4c2753799f943c608738684c6465348f4ffa",
+          "bytes": 5807,
+          "as": "NodePerformanceTest_img61.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img62.png",
+          "sha256": "3be509c425b40b083d1a885bac459faf92b3bffe7953f52c7423923e22e4ba03",
+          "bytes": 5746,
+          "as": "NodePerformanceTest_img62.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img63.png",
+          "sha256": "64a00c752bd6a6be229be7a05aec863c805362e18f536214893d2554647e16e0",
+          "bytes": 5985,
+          "as": "NodePerformanceTest_img63.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img64.png",
+          "sha256": "59a35c9b46c0706a39919bf3fec5e987fff907c0eb3bdfa4ed778c3dd54898b3",
+          "bytes": 5774,
+          "as": "NodePerformanceTest_img64.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img65.png",
+          "sha256": "1403d0f1566a187a58ab196944b37efc0c1ad0c3762e4ce2ea4de229df327b8b",
+          "bytes": 6087,
+          "as": "NodePerformanceTest_img65.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img66.png",
+          "sha256": "5c5cb84cd679ae90a86ad5c098c7f3fe9402231779e853cf96099cf694cde5bb",
+          "bytes": 5811,
+          "as": "NodePerformanceTest_img66.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img67.png",
+          "sha256": "e4a34578f8064480959d42490bc754fc21adb4a9537a8dc0b1843219db01b003",
+          "bytes": 5872,
+          "as": "NodePerformanceTest_img67.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img68.png",
+          "sha256": "99ab35d37e681dff35bdc38ea2f1f47f23189eb0956b254a6e2ac2d5e4036279",
+          "bytes": 5653,
+          "as": "NodePerformanceTest_img68.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img69.png",
+          "sha256": "615b927e3ca2f0e8b3df91c0ef097646b01377f583d8ba78fb507cbdd133a17e",
+          "bytes": 5764,
+          "as": "NodePerformanceTest_img69.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img70.png",
+          "sha256": "7802692e6b0e41065da6cc2250e42422e4e0db899bc274fa4b653ef69340f4ec",
+          "bytes": 6029,
+          "as": "NodePerformanceTest_img70.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img71.png",
+          "sha256": "0db2492489dd100c96289e3dd1bfaf599d2a0837720559a6ce670b0b4f42a6f7",
+          "bytes": 5760,
+          "as": "NodePerformanceTest_img71.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img72.png",
+          "sha256": "878ab427e3b61457157cc978db3f2ccc9c1ccfd8b29e7496ac367700f781d6f3",
+          "bytes": 5799,
+          "as": "NodePerformanceTest_img72.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img73.png",
+          "sha256": "69ac6069b5d438a978ab56135e40503ff99a31fd0cd9e96a511f8f1fac125a8a",
+          "bytes": 6053,
+          "as": "NodePerformanceTest_img73.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img74.png",
+          "sha256": "5f9655eb42df0cb3c1acb33438e18c146f3313ce5272f5d18f03e5b0a9d36d96",
+          "bytes": 6003,
+          "as": "NodePerformanceTest_img74.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img75.png",
+          "sha256": "b690b95aa7d40d3476d667f21f7879a02989fce3ad87d28ede07606c5562df14",
+          "bytes": 6011,
+          "as": "NodePerformanceTest_img75.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img76.png",
+          "sha256": "59c23d04ffac035c34f252b5049be1703381b4c6de8da0ed12f79b185ab8a6eb",
+          "bytes": 5930,
+          "as": "NodePerformanceTest_img76.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img77.png",
+          "sha256": "e3cdf424b7f049724696513b3c8836c58dde249ac4f6cd1aa117f900544ebb4d",
+          "bytes": 5747,
+          "as": "NodePerformanceTest_img77.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img78.png",
+          "sha256": "ab6225c9ed2eaedc97ba9437ba737bd86dd1591449930288fcb6c3dac60e9209",
+          "bytes": 5847,
+          "as": "NodePerformanceTest_img78.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img79.png",
+          "sha256": "2fc379d476ede43843443aa0393bf3ae34275bca50fcb74c6420c876e78745bc",
+          "bytes": 5753,
+          "as": "NodePerformanceTest_img79.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img80.png",
+          "sha256": "774cdf5d1bf691f7c854f3e5b543b5c3f8ac38431780e6c84fcece67b4eb8bce",
+          "bytes": 5627,
+          "as": "NodePerformanceTest_img80.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img81.png",
+          "sha256": "ea9d1da69dbf97dc1671d8aa19ac249aa3f2d8e4d37724ae3f556d94f1dd001d",
+          "bytes": 6078,
+          "as": "NodePerformanceTest_img81.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img82.png",
+          "sha256": "057b35eb659d8f55293438f25943372f4998c5ffd7904ababae117ff6f051a6d",
+          "bytes": 5989,
+          "as": "NodePerformanceTest_img82.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img83.png",
+          "sha256": "a8186b5f4cffc81372d5eab6ffdf8e18db6103956e72c58edb6bdeca9c181345",
+          "bytes": 5648,
+          "as": "NodePerformanceTest_img83.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img84.png",
+          "sha256": "ff0975060fc93c00edf4003431a628b4783d712a5b8b36eecafc976b7ca9f77f",
+          "bytes": 6011,
+          "as": "NodePerformanceTest_img84.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img85.png",
+          "sha256": "e6b192a5fb8de15e97883ec4abf2b49439499b2c8b1012a26dc575c7b467751c",
+          "bytes": 5998,
+          "as": "NodePerformanceTest_img85.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img86.png",
+          "sha256": "64f519d536cb4bc1abe069c240df96736246dfbf68405102536f3c220a690be7",
+          "bytes": 5653,
+          "as": "NodePerformanceTest_img86.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img87.png",
+          "sha256": "7b89bbba1fc39159e2ff86e9f65d590f17ff7dc023ffa76fbe3deac501cb09a9",
+          "bytes": 6055,
+          "as": "NodePerformanceTest_img87.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img88.png",
+          "sha256": "d88fa4ea407b7bc90364def1cc158fb4eb3cd2d60ececa5c667a09d8952b9006",
+          "bytes": 5557,
+          "as": "NodePerformanceTest_img88.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img89.png",
+          "sha256": "6b3052c15634aaa9fd3eff9655e1571319d0f3410f165b246f770b3f935f45c5",
+          "bytes": 6014,
+          "as": "NodePerformanceTest_img89.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img90.png",
+          "sha256": "c370c67fbc658a80dc5c2a369fa31899d0b8ee8521cdc0a2848b381c499b86dd",
+          "bytes": 5874,
+          "as": "NodePerformanceTest_img90.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img91.png",
+          "sha256": "703718dd65381f6a4b726956ea9b20b83b1d68b678bf394d19e09613d757a538",
+          "bytes": 6130,
+          "as": "NodePerformanceTest_img91.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img92.png",
+          "sha256": "48fa52e3cf472d28660b3a23a899019a14d250fa745f734c851ed3d43c6820f3",
+          "bytes": 6011,
+          "as": "NodePerformanceTest_img92.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img93.png",
+          "sha256": "e7f7e9ef8bee39521c27a5d653106666f63ca9997ea1773532470c728d7b0f11",
+          "bytes": 5976,
+          "as": "NodePerformanceTest_img93.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img94.png",
+          "sha256": "d6b82d8dd43a505af1a566ba70321d4b8b0be167f00426cef382e2e1b22790f4",
+          "bytes": 5980,
+          "as": "NodePerformanceTest_img94.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img95.png",
+          "sha256": "ba843e6fb794ab7778730da4560a2f5c8a8183f3f632f7ceed3c76b030368695",
+          "bytes": 6054,
+          "as": "NodePerformanceTest_img95.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img96.png",
+          "sha256": "c5fbe126b87797dbe9ecbcbf329ae8791cabdf4018638acfb842fb73de45d4bb",
+          "bytes": 5989,
+          "as": "NodePerformanceTest_img96.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img97.png",
+          "sha256": "59b2e252f919c18fccf1923e1e0e8d56270fc28e463fc1648a9a0ab7e8d018b3",
+          "bytes": 5767,
+          "as": "NodePerformanceTest_img97.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img98.png",
+          "sha256": "3efe882f3bef0ed737d5137241173bc6605b3ba7d7dfa7976abc3fe46815bc92",
+          "bytes": 6046,
+          "as": "NodePerformanceTest_img98.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/glTF/NodePerformanceTest_img99.png",
+          "sha256": "1600f774ac562bd05ce997ece9ba707222aa10c0cf6802cfb969415bd0188d66",
+          "bytes": 6106,
+          "as": "NodePerformanceTest_img99.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+          "sha256": "d9b54b4619fc25514f6c8836e0837f52abd11fd32d5b924254bc1156f155bd14",
+          "bytes": 757,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2024",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NodePerformanceTest/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        1140.6427038259026,
+        506.6104120149598,
+        799.3751190462887
+      ],
+      "lookAtM": [
+        -0.6473962106657751,
+        -0.49401136051091576,
+        0.2351877165698255
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 1275.0645188238632,
+      "clipEndM": 1690.28376999087,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-146.9078816003247, -17.37695625682049, -146.1362344263198] to [145.61308917899316, 16.388933535798657, 146.60660985945944], so centre = [-0.6473962106657751, -0.49401136051091576, 0.2351877165698255] and radius = 207.60962558350337 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 1482.6741444073666, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest and not of a Blender default."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-by-material-index",
+      "note": "Emission, one colour per glTF material, from a RULE with no free parameter rather than from a table: colour[c] = 0.15 + 0.70 * frac(index * step[c]). A table names materials and is right while a subject draws a handful; past that it is a transcription of the file. The rule takes no parameter, so a manifest cannot tune a colour to make a case pass (board:1362)."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "A coverage case. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet. IT IS A COST CASE UPSTREAM OF BEING A PICTURE CASE, and what it first decides is that ten thousand nodes resolve and draw at all. A colour table for it would be ten thousand declared triples, which is the argument for the rule made at its limit.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.0,
+      "unit": "dimensionless",
+      "origin": "SET",
+      "note": "PLACEHOLDER, and said to be one: no run has recomputed a fraction for this case yet, so there was nothing to seed it from (board:1377)."
+    }
+  }
+}

@@ -1,0 +1,338 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/texture/texture-encoding-test",
+  "title": "Fourteen plates, fourteen materials, and the file names none of them",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:TextureEncodingTest",
+    "board:1338"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "This asset tests that textures are sampled with correct transfer functions.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction over a static subject. What is compared is which pixels each side covers and which material's colour each wears there."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "texture-encoding-test",
+      "kind": "gltf",
+      "name": "TextureEncodingTest",
+      "entry": "scene.gltf",
+      "attributes": [
+        "NORMAL",
+        "POSITION",
+        "TEXCOORD_0"
+      ],
+      "notes": "Attributes NORMAL, POSITION, TEXCOORD_0. Fourteen materials, none named; the importer publishes them as `Material_0` .. `Material_13`. What the file is FOR -- how each plate's texture is encoded -- is the shading arm and is not decided here.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "TextureEncodingTest",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/glTF/TextureEncodingTest.gltf",
+          "sha256": "7985fb99097900fc8df7ef5e90d750e329db51ecd4174a2b01dc5d727489570c",
+          "bytes": 14686,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/glTF/Sphere.bin",
+          "sha256": "92bfff23a1cff625d3c012b4a2db0cfb2c30c92775195ee261247fec602f26f4",
+          "bytes": 8480,
+          "as": "Sphere.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/glTF/Plane.bin",
+          "sha256": "68eb0aaba58264604648e828ba7536b3c52333659445200f56d90b23b05a2f36",
+          "bytes": 92,
+          "as": "Plane.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/glTF/0_136_0.png",
+          "sha256": "7310c0157395b5732c24711abbbc644ae273587de38077045470c9c7ea129bdb",
+          "bytes": 69,
+          "as": "0_136_0.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/glTF/0_136_0_gamma.png",
+          "sha256": "ec86d9a12c304702f5f6fc21a03d425bdf8608d8a70a8b0eca5f4ff5521afdff",
+          "bytes": 85,
+          "as": "0_136_0_gamma.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/glTF/0_136_0_icc.png",
+          "sha256": "c50df4c3a6c536e27bec21132dcafa2eb0b3c6a5570fe88e7f60aebaa296e8dd",
+          "bytes": 433,
+          "as": "0_136_0_icc.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/glTF/0_136_255.png",
+          "sha256": "0fa99fc5d9a46991a583302bb176867463bc03f13d40ca72ca4ffdbf5f6aa3f9",
+          "bytes": 69,
+          "as": "0_136_255.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/glTF/0_136_255_gamma.png",
+          "sha256": "f581f51829831a1435e2b1c4e8e1e060c2c91a17fb0403c1c1ae98ebedd9fc5d",
+          "bytes": 85,
+          "as": "0_136_255_gamma.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/glTF/0_136_255_icc.png",
+          "sha256": "00681909c34b627cc7ef05da0112f0f384318813ce0726e148d3647a160f619e",
+          "bytes": 433,
+          "as": "0_136_255_icc.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/glTF/TestLabels.png",
+          "sha256": "8d963c30e101bee83df3db342b80d2905b52b076220b2aed76ce9908a15500b6",
+          "bytes": 3177,
+          "as": "TestLabels.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/glTF/SlotLabels.png",
+          "sha256": "4a4f3a1ecc2bf5085962db72f1b81d7523aa364484fe7049b3c196955cee9cf6",
+          "bytes": 3519,
+          "as": "SlotLabels.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/metadata.json",
+          "sha256": "eaeef6c229e1466717f1c6d7ef23cbdeeaad695d2a5e1f1a40967ac2e9496f76",
+          "bytes": 757,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureEncodingTest/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        54.157951044943665,
+        24.06356352049262,
+        37.92148835184484
+      ],
+      "lookAtM": [
+        0.00045300000000025875,
+        0.0,
+        -2.9802322387695312e-08
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 60.50547900412684,
+      "clipEndM": 80.20882680551372,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-7.7490939999999995, -6.0, -1.0] to [7.75, 6.0, 0.9999999403953552], so centre = [0.00045300000000025875, 0.0, -2.9802322387695312e-08] and radius = 9.851673900693443 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 70.35715290482028, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest and not of a Blender default."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-by-material-index",
+      "note": "Emission, one colour per glTF material, from a RULE with no free parameter rather than from a table: colour[c] = 0.15 + 0.70 * frac(index * step[c]). A table names materials and is right while a subject draws a handful; past that it is a transcription of the file. The rule takes no parameter, so a manifest cannot tune a colour to make a case pass (board:1362)."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "A coverage case. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet. Fourteen distinct index colours make a plate that landed in the wrong place visible as a colour and not only as an edge -- which is exactly what a name-keyed table could not do for this file.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.0,
+      "unit": "dimensionless",
+      "origin": "SET",
+      "note": "PLACEHOLDER, and said to be one: no run has recomputed a fraction for this case yet, so there was nothing to seed it from (board:1377)."
+    }
+  }
+}

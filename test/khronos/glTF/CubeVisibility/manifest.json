@@ -1,0 +1,211 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/scene/cube-visibility",
+  "title": "Five nodes over three meshes at their REST state -- the visibility animation is withheld and says so",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:CubeVisibility",
+    "board:1264"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "This model demonstrates the `KHR_node_visibility` extension and its interaction with `KHR_animation_pointer`.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CubeVisibility/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction over a static subject. What is compared is which pixels each side covers and which material's colour each wears there."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "cube-visibility",
+      "kind": "gltf",
+      "name": "CubeVisibility",
+      "entry": "scene.gltf",
+      "attributes": [
+        "NORMAL",
+        "POSITION"
+      ],
+      "notes": "Attributes NORMAL, POSITION. KHR_animation_pointer and KHR_node_visibility; three materials, none named; two of the five nodes bind a mesh a third also binds.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "CubeVisibility",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CubeVisibility/glTF/CubeVisibility.gltf",
+          "sha256": "6b5f8600baae5f221fd366918c96ab89003fe11f701424b2096578b960e7f699",
+          "bytes": 3299,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Khronos Group",
+            "year": "2025",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CubeVisibility/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CubeVisibility/glTF/CubeVisibility0.bin",
+          "sha256": "8aa1968d17d5dfa1da04a7f93ebf3415922aa0dcf613cf551b4db67ccc43b52c",
+          "bytes": 667,
+          "as": "CubeVisibility0.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Khronos Group",
+            "year": "2025",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CubeVisibility/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CubeVisibility/metadata.json",
+          "sha256": "efac66b8f1459a97df2e3dbdbcd4d3bea2f3a5999dd9f371b9e57fa41de79536",
+          "bytes": 781,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Khronos Group",
+            "year": "2025",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CubeVisibility/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        15.789760371435003,
+        8.515794957072572,
+        11.056109238603735
+      ],
+      "lookAtM": [
+        0.0,
+        1.5,
+        0.0
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 17.640530842861768,
+      "clipEndM": 23.385093489399797,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-2.0, -0.5, -0.5] to [2.0, 3.5, 0.5], so centre = [0.0, 1.5, 0.0] and radius = 2.8722813232690143 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 20.512812166130782, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest and not of a Blender default."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-by-material-index",
+      "note": "Emission, one colour per glTF material, from a RULE with no free parameter rather than from a table: colour[c] = 0.15 + 0.70 * frac(index * step[c]). A table names materials and is right while a subject draws a handful; past that it is a transcription of the file. The rule takes no parameter, so a manifest cannot tune a colour to make a case pass (board:1362)."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "A coverage case. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet. The file animates node visibility through KHR_animation_pointer, which our reader refuses by name; that refusal is a capability statement and is where board:1128 continues. THE REST STATE IS NOT A LESSER CASE: two nodes share a mesh, which is the multi-body arrangement that a name-keyed colour could never separate.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.0,
+      "unit": "dimensionless",
+      "origin": "SET",
+      "note": "PLACEHOLDER, and said to be one: no run has recomputed a fraction for this case yet, so there was nothing to seed it from (board:1377)."
+    }
+  }
+}

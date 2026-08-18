@@ -263,6 +263,7 @@ void Refused(const std::string &why) { std::printf("REFUSED %s\n", why.c_str());
  * there too, and any difference names the source that still has an area. */
 bool Reduced(const Case &subject) {
   return subject.MaterialKind == "emission" || subject.MaterialKind == "emission-per-material" ||
+         subject.MaterialKind == "emission-by-material-index" ||
          subject.DeltaLit;
 }
 
@@ -1078,8 +1079,33 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
                 " and the file declares " + std::to_string(file.Materials().size());
         return false;
       }
-      const std::string &name =
-          index < 0 ? kDefaultMaterial : file.Materials()[(size_t)index].Name;
+      /* AN UNNAMED MATERIAL IS KEYED BY THE NAME THE IMPORTER PUBLISHES FOR IT (board:1362), and
+       * that name was MEASURED rather than chosen: Blender's glTF importer calls material `i` of a
+       * file that names none `Material_<i>` -- [MEASURED] `MetalRoughSpheres` (one unnamed material)
+       * arrives as `Material_0`, `TextureEncodingTest` (fourteen) as `Material_0` .. `Material_13`.
+       * The glTF index is therefore already IN the string, so two unnamed materials can never
+       * collide and the `.001` duplicate suffix -- which is right for one material bound twice and
+       * would be wrong here -- never enters. It is the same convention `Mesh_<index>` and
+       * `Node_<index>` already carry in this harness, read from the importer and not predicted. */
+      std::string name;
+      if (index < 0) {
+        name = kDefaultMaterial;
+      } else if (!file.Materials()[(size_t)index].Name.empty()) {
+        name = file.Materials()[(size_t)index].Name;
+      } else {
+        name = "Material_" + std::to_string(index);
+        /* THE ONE WAY THAT KEY CAN LIE, REFUSED RATHER THAN DOCUMENTED. A file carrying both an
+         * unnamed material and a named one spelled `Material_<n>` would put two materials under one
+         * key and paint one of them the other's colour, silently. */
+        for (size_t other = 0; other < file.Materials().size(); ++other) {
+          if (file.Materials()[other].Name == name) {
+            error = "material " + std::to_string(index) + " names itself nothing and material " +
+                    std::to_string(other) + " is spelled '" + name +
+                    "', which is the key the importer gives the first";
+            return false;
+          }
+        }
+      }
       const Json::Ref colour = declared[name.c_str()];
       if (colour.Size() != 3) {
         error = "scene.material.colourLinearPerMaterial declares no colour for material '" + name +
@@ -1105,6 +1131,40 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
     return true;
   }
 
+  /* A COLOUR PER MATERIAL FROM A RULE RATHER THAN A TABLE (board:1362). A table names materials, and
+   * that is the right declaration while a subject has a handful: `IridescenceMetallicSpheres` draws
+   * 344 and `NodePerformanceTest` 10 000, where a table stops being a declaration and becomes a
+   * transcription of the file. THE RULE IS THE DECLARATION HERE and it takes no parameters, so a
+   * manifest cannot tune a colour to make a case pass.
+   *
+   * colour[c] = 0.15 + 0.70 * frac(slot * step[c]), slot = the glTF material index, and the format's
+   * default material takes the slot one past the last so it can never collide with a declared one.
+   * The three steps are irrational and mutually incommensurable, so the walks never resynchronise and
+   * two adjacent materials are far apart in all three channels. The range is [0.15, 0.85], which is
+   * the range every hand-written table in this tree already uses.
+   *
+   * THIS ARITHMETIC IS SPELLED TWICE, HERE AND IN in_blender_render.py, BECAUSE THE TWO SIDES ARE TWO
+   * LANGUAGES -- and nothing has to police the copies, because a drift between them IS a colour
+   * disagreement and a colour disagreement is precisely what these cases measure. The instrument for
+   * this duplication is the case itself. */
+  if (subject.MaterialKind == "emission-by-material-index") {
+    static const double kStep[3] = {0.6180339887498949, 0.4142135623730951, 0.3027756377319946};
+    for (size_t part = 0; part < parts; ++part) {
+      const int index = geometry.Parts()[part].Material;
+      if (index >= (int)file.Materials().size()) {
+        error = "part " + std::to_string(part) + " names material " + std::to_string(index) +
+                " and the file declares " + std::to_string(file.Materials().size());
+        return false;
+      }
+      const double slot = index < 0 ? (double)file.Materials().size() : (double)index;
+      for (size_t channel = 0; channel < 3; ++channel) {
+        const double walked = slot * kStep[channel];
+        out[part][channel] = (float)(0.15 + 0.70 * (walked - std::floor(walked)));
+      }
+    }
+    return true;
+  }
+
   if (subject.MaterialKind == "diffuse") {
     if (parts != 1) {
       error = "scene.material.kind is 'diffuse' over a subject of " + std::to_string(parts) +
@@ -1121,7 +1181,7 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
 
   if (subject.MaterialKind != "emission") {
     error = "scene.material.kind is '" + subject.MaterialKind +
-            "', and this runner knows 'diffuse', 'emission' and 'emission-per-material'";
+            "', and this runner knows 'diffuse', 'emission', 'emission-per-material' and 'emission-by-material-index'";
     return false;
   }
 

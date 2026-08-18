@@ -235,5 +235,13 @@
       "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
     }
   },
-  "notes": "A coverage case. Its subject's own shading -- textures, metallic-roughness, and any extension it declares -- is NOT what this decides; `board:1363` records why no case takes the shading arm yet. What it does decide is that the file reads, the geometry lands where the oracle puts it, and each material row reaches its own body."
+  "notes": "A coverage case. Its subject's own shading -- textures, metallic-roughness, and any extension it declares -- is NOT what this decides; `board:1363` records why no case takes the shading arm yet. What it does decide is that the file reads, the geometry lands where the oracle puts it, and each material row reaches its own body.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.0,
+      "unit": "dimensionless",
+      "origin": "SET",
+      "note": "NO VALUE COULD BE HARVESTED: this case refuses before it projects anything, so the runner never recomputed a fraction to seed this from. The zero is a placeholder and is SAID TO BE ONE rather than left to read as a measurement -- once the refusal above it is repaired the value is harvested like every other (board:1377)."
+    }
+  }
 }

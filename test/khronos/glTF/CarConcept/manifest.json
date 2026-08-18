@@ -1,0 +1,682 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/scene/car-concept",
+  "title": "Ninety-seven bodies and twenty-nine materials, twenty-eight of which the file names and one of which it does not",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:CarConcept",
+    "board:1236"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "Concept car with Khronos logos and material variants",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction over a static subject. What is compared is which pixels each side covers and which material's colour each wears there."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "car-concept",
+      "kind": "gltf",
+      "name": "CarConcept",
+      "entry": "scene.gltf",
+      "attributes": [
+        "NORMAL",
+        "POSITION",
+        "TANGENT",
+        "TEXCOORD_0",
+        "TEXCOORD_1"
+      ],
+      "notes": "Attributes NORMAL, POSITION, TANGENT, TEXCOORD_0. KHR_materials_clearcoat and KHR_materials_emissive_strength among others.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "CarConcept",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/glTF/CarConcept.gltf",
+          "sha256": "1a2395a86bdef0a1e9b3d3875bb056f688c624c19cf27c867b6d5cde6f37722f",
+          "bytes": 333111,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "3D Commerce logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/glTF/CarConcept.data.bin",
+          "sha256": "5cd6ceb6a502dc3c79863c2f11c06f6aa7474e53367bb212b3e3c3f1e7611d20",
+          "bytes": 8670516,
+          "as": "CarConcept.data.bin",
+          "role": "buffer",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "3D Commerce logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/glTF/Mechanical_N.png",
+          "sha256": "bc5865f15bffc94e5248cf0a4bb1beaec06150a640b5ca65ad6de3d58d394ca9",
+          "bytes": 251901,
+          "as": "Mechanical_N.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "3D Commerce logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/glTF/Mechanical_ORM.png",
+          "sha256": "1e026202e92d8b701550d1a6803cb3597f1c0d89adce256b0e360a0f547e4da9",
+          "bytes": 69809,
+          "as": "Mechanical_ORM.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "3D Commerce logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/glTF/Occlusion.png",
+          "sha256": "766c01462c9b344871711c6af66bcd1f75371fc25f7c392a0185f6b62b2dd4f8",
+          "bytes": 1411879,
+          "as": "Occlusion.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "3D Commerce logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/glTF/Khronos_C.png",
+          "sha256": "50f16c5a514079b8ea27ba4eb03046b63cd0a9c29686423a2940a8fb2898f1b5",
+          "bytes": 7087,
+          "as": "Khronos_C.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "3D Commerce logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/glTF/Hex_N.png",
+          "sha256": "738427eb37d929a8a9dff41783cea37a10fd2dc98f53d6d320d9aa5c648beea7",
+          "bytes": 3331,
+          "as": "Hex_N.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "3D Commerce logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/glTF/Rib_N.png",
+          "sha256": "516aada2d1c574c59352e1221aaf75cc8fa48104aafe05716f02f30b7349c59f",
+          "bytes": 143,
+          "as": "Rib_N.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "3D Commerce logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/glTF/Dash_E.png",
+          "sha256": "23c7ee30e1bf5e2c243330d4d5be7624f96befca8a224a8eec0b9438a64b09a4",
+          "bytes": 27423,
+          "as": "Dash_E.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "3D Commerce logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/glTF/Powdercoat_N.png",
+          "sha256": "3f1bf8d127374684c89b0d1963ca57d36a8ea59de96bef752b62daebc6362eeb",
+          "bytes": 41240,
+          "as": "Powdercoat_N.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "3D Commerce logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/glTF/Dot_C.png",
+          "sha256": "ac7ca6bf9ee840b78e4a27c82c3c529a1063bba16b9eea120c981a041d922a40",
+          "bytes": 321,
+          "as": "Dot_C.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "3D Commerce logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/glTF/Dot_N.png",
+          "sha256": "ca9ef95997b387a597738e2f3e9dfa6e9f140c38d2f0baa7aadf226ce05c3635",
+          "bytes": 7969,
+          "as": "Dot_N.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "3D Commerce logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/glTF/Tireside_C.png",
+          "sha256": "871509e74cc44ca8fa3b664e59460e62f0edf30007b035bb9f21ad957d6336c1",
+          "bytes": 8094,
+          "as": "Tireside_C.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "3D Commerce logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/glTF/Tireside_N.png",
+          "sha256": "a7335b72bf59441a4e1856c819c1e1655a5bb6c72661429f70cf5857eb26f1c2",
+          "bytes": 396724,
+          "as": "Tireside_N.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "3D Commerce logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/glTF/Tiretread_N.png",
+          "sha256": "cc8dd22a4b78dfcebdca12270e3db8a9c381d9b1b40b00d7a0043373abd0f72f",
+          "bytes": 49131,
+          "as": "Tiretread_N.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "3D Commerce logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/glTF/Thickness.png",
+          "sha256": "09d0606c1f90caf3cc5d578d1f695e908df1c10288c9918971890d2d98dc5eae",
+          "bytes": 137601,
+          "as": "Thickness.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "3D Commerce logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+          "sha256": "06ddb3c3627d9a2ef710fff287ab232b3500fc886e53641753a0365920c3dd21",
+          "bytes": 1618,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Darmstadt Graphics Group GmbH",
+              "year": "2024",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Model and textures"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2015",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "Khronos logo"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/CarConcept/metadata.json",
+              "covers": "3D Commerce logo"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        14.558728019175998,
+        6.965811785437597,
+        10.436245846909744
+      ],
+      "lookAtM": [
+        -0.005216951360037303,
+        0.49467800786507254,
+        0.23846179246902466
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 16.27103353077254,
+      "clipEndM": 21.569625295048517,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-1.36329630006263, -0.1592990412232851, -1.940231204032898] to [1.3528623973425553, 1.1486550569534302, 2.4171547889709473], so centre = [-0.005216951360037303, 0.49467800786507254, 0.23846179246902466] and radius = 2.6492958821379884 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 18.92032941291053, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest and not of a Blender default."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-by-material-index",
+      "note": "Emission, one colour per glTF material, from a RULE with no free parameter rather than from a table: colour[c] = 0.15 + 0.70 * frac(index * step[c]). A table names materials and is right while a subject draws a handful; past that it is a transcription of the file. The rule takes no parameter, so a manifest cannot tune a colour to make a case pass (board:1362)."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "A coverage case. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet. A MIXED file is the one that proves the key: twenty-eight materials resolve by the name the file gives and the twenty-ninth by the name the importer gives it, under one rule and with no special case.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.0,
+      "unit": "dimensionless",
+      "origin": "SET",
+      "note": "PLACEHOLDER, and said to be one: no run has recomputed a fraction for this case yet, so there was nothing to seed it from (board:1377)."
+    }
+  }
+}

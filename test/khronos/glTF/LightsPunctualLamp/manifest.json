@@ -1,0 +1,311 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/scene/lights-punctual-lamp",
+  "title": "A lamp declaring KHR_lights_punctual and KHR_materials_transmission -- lit by neither, because the material emits",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:LightsPunctualLamp",
+    "board:1292"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "Lamp using punctual lights.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/LightsPunctualLamp/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction over a static subject. What is compared is which pixels each side covers and which material's colour each wears there."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "lights-punctual-lamp",
+      "kind": "gltf",
+      "name": "LightsPunctualLamp",
+      "entry": "scene.gltf",
+      "attributes": [
+        "NORMAL",
+        "POSITION",
+        "TANGENT",
+        "TEXCOORD_0"
+      ],
+      "notes": "Attributes NORMAL, POSITION, TEXCOORD_0. Three materials, none named. KHR_lights_punctual, KHR_materials_transmission.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "LightsPunctualLamp",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/LightsPunctualLamp/glTF/LightsPunctualLamp.gltf",
+          "sha256": "282d05dfaf47e80b9bff502a45527d380a979cde9ecf3ffb2bc459342456423c",
+          "bytes": 13375,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "DGG",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/LightsPunctualLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/LightsPunctualLamp/glTF/LightsPunctualLamp.data.bin",
+          "sha256": "817275cb2c1e2efa74432ef64b5f05313f8a28c1132a6d2a96fb6cb8f344fca9",
+          "bytes": 254640,
+          "as": "LightsPunctualLamp.data.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "DGG",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/LightsPunctualLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/LightsPunctualLamp/glTF/material0_basecolor.jpeg",
+          "sha256": "ab3fb0fefa6892b6c040f0399b7603e69a2703c42f85968bb053c96e666fecce",
+          "bytes": 505404,
+          "as": "material0_basecolor.jpeg",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "DGG",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/LightsPunctualLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/LightsPunctualLamp/glTF/material0_normal.png",
+          "sha256": "3da4ac573bd4701a199906428dd01230786e99b0abfd044553985cd3d7e134dd",
+          "bytes": 3028145,
+          "as": "material0_normal.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "DGG",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/LightsPunctualLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/LightsPunctualLamp/glTF/material0_emissive.jpeg",
+          "sha256": "d9b74e2dfb8999e3dff0b552b678347bec22bd5d936e1ce24d0545921774c0f8",
+          "bytes": 128060,
+          "as": "material0_emissive.jpeg",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "DGG",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/LightsPunctualLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/LightsPunctualLamp/glTF/material0_metallic_roughness.jpeg",
+          "sha256": "6078c0286d7e7f9e6c749c4e386cc61313b7740d1333af3f284cfe1de6c2df92",
+          "bytes": 184485,
+          "as": "material0_metallic_roughness.jpeg",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "DGG",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/LightsPunctualLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/LightsPunctualLamp/glTF/material1_basecolor.png",
+          "sha256": "cb2f264bd18cea43607016bf979d9e2051c46cd24cb48eed8812212b75825210",
+          "bytes": 55574,
+          "as": "material1_basecolor.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "DGG",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/LightsPunctualLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/LightsPunctualLamp/glTF/material1_normal.png",
+          "sha256": "9b831eecebcf3e71b4c4b2dfee99fe231e1d02661eeae2c61bdfdc693f1ec1f6",
+          "bytes": 126,
+          "as": "material1_normal.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "DGG",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/LightsPunctualLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/LightsPunctualLamp/glTF/material2_transmission.jpeg",
+          "sha256": "bce8b14403e58446a8d1cd3fb8a881a51f211494f923241f8533919e5578e14b",
+          "bytes": 177035,
+          "as": "material2_transmission.jpeg",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "DGG",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/LightsPunctualLamp/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/LightsPunctualLamp/metadata.json",
+          "sha256": "31bd5e68063b5a3c6efddf6b797484b45e716f1e74da91074cc58f79a0ef0354",
+          "bytes": 712,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "DGG",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/LightsPunctualLamp/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        6.557618904015809,
+        3.7448205345606924,
+        4.4144874153390035
+      ],
+      "lookAtM": [
+        0.25148482620716095,
+        0.9428436444140971,
+        -0.0011152029037475586
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 7.045297083802107,
+      "clipEndM": 9.339567637329692,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-0.3120085895061493, 0.0110623212531209, -0.3619171977043152] to [0.8149782419204712, 1.8746249675750732, 0.35968679189682007], so centre = [0.25148482620716095, 0.9428436444140971, -0.0011152029037475586] and radius = 1.1471352767637921 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 8.192432360565899, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest and not of a Blender default."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-by-material-index",
+      "note": "Emission, one colour per glTF material, from a RULE with no free parameter rather than from a table: colour[c] = 0.15 + 0.70 * frac(index * step[c]). A table names materials and is right while a subject draws a handful; past that it is a transcription of the file. The rule takes no parameter, so a manifest cannot tune a colour to make a case pass (board:1362)."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "A coverage case. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet. THE LIGHTS THE FILE DECLARES ARE NOT READ BY THIS CASE and that is stated rather than implied: the manifest declares no light and the material emits, so what is decided is where the three bodies are. The lamp's own illumination is a shading question.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.0,
+      "unit": "dimensionless",
+      "origin": "SET",
+      "note": "PLACEHOLDER, and said to be one: no run has recomputed a fraction for this case yet, so there was nothing to seed it from (board:1377)."
+    }
+  }
+}

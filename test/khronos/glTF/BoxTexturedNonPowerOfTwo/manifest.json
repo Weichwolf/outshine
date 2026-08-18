@@ -257,5 +257,13 @@
       "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
     }
   },
-  "notes": "A coverage case. Its subject's own shading -- textures, metallic-roughness, and any extension it declares -- is NOT what this decides; `board:1363` records why no case takes the shading arm yet. What it does decide is that the file reads, the geometry lands where the oracle puts it, and each material row reaches its own body."
+  "notes": "A coverage case. Its subject's own shading -- textures, metallic-roughness, and any extension it declares -- is NOT what this decides; `board:1363` records why no case takes the shading arm yet. What it does decide is that the file reads, the geometry lands where the oracle puts it, and each material row reaches its own body.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.211519958,
+      "unit": "dimensionless",
+      "origin": "MEASURED",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0. RECOMPUTED BY THE RUNNER ON EVERY RUN and refused on mismatch, so what this line does is pin it: a camera that later framed the subject smaller would tighten the boundary bound without saying so. IT IS SEEDED FROM THE RUNNER'S OWN RECOMPUTATION, which makes the check tautological on the round it was seeded and a DRIFT DETECTOR from then on -- honest only because the camera is independently proven to be the framing rule's rather than a quotation of it."
+    }
+  }
 }

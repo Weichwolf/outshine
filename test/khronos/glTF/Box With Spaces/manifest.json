@@ -1,0 +1,315 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/uri/box-with-spaces",
+  "title": "A file whose buffer, images and own name carry spaces -- and whose image URIs are percent-encoded while its buffer URI is not",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:Box With Spaces",
+    "board:1228"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "Box with URI-encoded spaces in the texture names used by a simple PBR material.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box With Spaces/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction over a single static body. What this decides is whether the file RESOLVES: every referenced byte has to be found before a pixel exists, so a reader that hands `Box%20With%20Spaces.png` to the filesystem draws nothing and a reader that hands the raw `Box With Spaces.bin` to a URI parser draws nothing either."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "box-with-spaces",
+      "kind": "gltf",
+      "name": "Box With Spaces",
+      "entry": "scene.gltf",
+      "attributes": [
+        "NORMAL",
+        "POSITION",
+        "TEXCOORD_0"
+      ],
+      "notes": "Attributes NORMAL, POSITION, TEXCOORD_0, TANGENT. The file MIXES the two spellings deliberately -- `Box With Spaces.bin` carries a raw space and `Normal%20Map.png`, `glTF%20Logo%20With%20Spaces.png` and `Roughness%20Metallic.png` are percent-encoded -- so decoding is a reader's obligation (`Specification.adoc:550`) and `unquote` of an unencoded name is the identity that makes one rule serve both. src/gltf/Document.cpp:122 is where we do it; until this case there was no test that exercised it.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "Box With Spaces",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the corpus-wide pin every manifest in this tree already cites"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box With Spaces/glTF/Box With Spaces.gltf",
+          "sha256": "193aebb6f10813c0f04d809e446ed9b9bf3434366090b504f6fffdd07d528d57",
+          "bytes": 3395,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Analytical Graphics, Inc.",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box With Spaces/metadata.json",
+              "covers": "Everything"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box With Spaces/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box With Spaces/glTF/Box With Spaces.bin",
+          "sha256": "679113188ed21fed63ca4337efde0d2dc2b062b82b8cd9336152e35cd988e532",
+          "bytes": 840,
+          "as": "Box With Spaces.bin",
+          "role": "buffer",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Analytical Graphics, Inc.",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box With Spaces/metadata.json",
+              "covers": "Everything"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box With Spaces/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box With Spaces/glTF/Normal%20Map.png",
+          "sha256": "bd5b7e8a2a04259917b172fbd669eb3e8331de9fc383219434b74e344398b6ee",
+          "bytes": 45248,
+          "as": "Normal Map.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Analytical Graphics, Inc.",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box With Spaces/metadata.json",
+              "covers": "Everything"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box With Spaces/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box With Spaces/glTF/glTF%20Logo%20With%20Spaces.png",
+          "sha256": "5f2aed0c20db10d798a9e1b6088a91d9683d98760daaa723a1d84f918ddfcc43",
+          "bytes": 20640,
+          "as": "glTF Logo With Spaces.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Analytical Graphics, Inc.",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box With Spaces/metadata.json",
+              "covers": "Everything"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box With Spaces/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box With Spaces/glTF/Roughness%20Metallic.png",
+          "sha256": "4a1ba1116ddba08cd8d3a9b77e8340a704dff348f7b432165346372fd099380b",
+          "bytes": 18434,
+          "as": "Roughness Metallic.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Analytical Graphics, Inc.",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box With Spaces/metadata.json",
+              "covers": "Everything"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box With Spaces/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box With Spaces/metadata.json",
+          "sha256": "558a944db3be42d1b2142d3223459ff6b7f6d039d818d9db742ae0d8fac91032",
+          "bytes": 1192,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": [
+            {
+              "spdx": "CC0-1.0",
+              "holder": "Analytical Graphics, Inc.",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box With Spaces/metadata.json",
+              "covers": "Everything"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Khronos Group",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Box With Spaces/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        9.521583760304113,
+        4.2306835415776884,
+        6.667084724660093
+      ],
+      "lookAtM": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 10.637640346993523,
+      "clipEndM": 14.101741962131277,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-1, -1, -1] to [1, 1, 1], so centre = [0.0, 0.0, 0.0] and radius = 1.7320508075688772 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 12.3696911545624, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest and not of a Blender default."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "Material": [
+          0.85,
+          0.42,
+          0.15
+        ]
+      },
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it. A material a primitive does not name is keyed by `<default>`, which is the format's own word for the material an undefined `material` selects."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
+    }
+  },
+  "notes": "A coverage case. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet. Its own three images are not read here: what this case decides is that the BYTES resolve, which is upstream of what is done with them.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.0,
+      "unit": "dimensionless",
+      "origin": "SET",
+      "note": "PLACEHOLDER, and said to be one: no run has recomputed a fraction for this case yet, so there was nothing to seed it from (board:1377)."
+    }
+  }
+}

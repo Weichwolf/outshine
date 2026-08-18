@@ -1352,6 +1352,82 @@ def apply_emission_per_material(imported, colours):
     return {"source": "manifest", "kind": "emission-per-material", "assigned": assigned}
 
 
+def apply_emission_by_material_index(imported, path):
+    """One emitter per glTF MATERIAL, coloured by a RULE rather than by a table (board:1362).
+
+    A table names materials and is the right declaration while a subject draws a handful.
+    `IridescenceMetallicSpheres` draws 344 and `NodePerformanceTest` 10 000, where a table stops
+    being a declaration and becomes a transcription of the file.
+
+    colour[c] = 0.15 + 0.70 * frac(slot * step[c]), slot = the glTF material index, and the format's
+    default material takes the slot one past the last so it can never collide with a declared one.
+    THE SAME ARITHMETIC IS SPELLED IN test/harness/shared/render/Parity.cpp, which is where its
+    derivation is stated; it lives twice because the two sides are two languages, and nothing
+    polices the copies because a drift between them IS a colour disagreement -- which is exactly
+    what these cases measure.
+
+    THE SLOT IS READ OFF THE IMPORTER'S OWN NAME, NOT GUESSED FROM SLOT ORDER (board:1362).
+    [MEASURED] Blender's glTF importer calls material `i` of a file that names none `Material_<i>`:
+    `MetalRoughSpheres` (one unnamed material) arrives as `Material_0` and `TextureEncodingTest`
+    (fourteen) as `Material_0` .. `Material_13`. Where the file DOES name a material the index comes
+    from the file itself, matched on that name.
+    """
+    STEP = (0.6180339887498949, 0.4142135623730951, 0.3027756377319946)
+    with open(path) as handle:
+        document = json.load(handle)
+    declared_names = [m.get("name") for m in document.get("materials", [])]
+    default_slot = len(declared_names)
+    by_name = {}
+    for at, name in enumerate(declared_names):
+        by_name[name if name else "Material_%d" % at] = at
+
+    def colour_of(slot):
+        return tuple(0.15 + 0.70 * math.fmod(slot * step, 1.0) for step in STEP)
+
+    assigned = {}
+    default_material = None
+    subject = []
+    for obj in imported:
+        if obj.type != "MESH":
+            continue
+        empty = [slot for slot in obj.material_slots if slot.material is None]
+        if empty or not obj.material_slots:
+            if default_material is None:
+                default_material = bpy.data.materials.new(DEFAULT_MATERIAL_NAME)
+            if not obj.material_slots:
+                obj.data.materials.append(default_material)
+            for slot in empty:
+                slot.material = default_material
+        for slot in obj.material_slots:
+            if slot.material is not None and slot.material not in subject:
+                subject.append(slot.material)
+    for material in subject:
+        wanted = material.name
+        if wanted == DEFAULT_MATERIAL_NAME:
+            slot = default_slot
+        else:
+            if wanted not in by_name:
+                stripped = re.sub(r"\.\d{3}$", "", wanted)
+                if stripped in by_name:
+                    wanted = stripped
+            if wanted not in by_name:
+                fail("the scene carries the material %r and the file declares %d materials, none "
+                     "spelled that" % (material.name, len(declared_names)))
+            slot = by_name[wanted]
+        material.use_nodes = True
+        tree = material.node_tree
+        tree.nodes.clear()
+        output = tree.nodes.new("ShaderNodeOutputMaterial")
+        shader = tree.nodes.new("ShaderNodeEmission")
+        shader.inputs["Color"].default_value = colour_of(slot) + (1.0,)
+        shader.inputs["Strength"].default_value = 1.0
+        culled = cull_back_faces(tree, shader) if material.use_backface_culling else None
+        tree.links.new((culled or shader).outputs[0], output.inputs["Surface"])
+        assigned[str(slot)] = {"material": material.name,
+                               "backFaceCulled": material.use_backface_culling}
+    return {"source": "manifest", "kind": "emission-by-material-index", "assigned": assigned}
+
+
 def keep_file_materials(imported):
     """THE FILE'S OWN MATERIALS, UNTOUCHED, AND WHAT THAT COSTS RECORDED RATHER THAN HIDDEN.
 
@@ -1456,6 +1532,8 @@ def apply_material(imported, declared):
 
     if declared["kind"] == "emission-per-material":
         return apply_emission_per_material(imported, declared["colourLinearPerMaterial"])
+    if declared["kind"] == "emission-by-material-index":
+        return apply_emission_by_material_index(imported, path)
 
     # ONE MATERIAL PER OBJECT, KEYED BY THE glTF NODE'S OWN NAME, which the importer carries into the
     # object's name. A single colour over touching bodies fuses their silhouettes and hides a

@@ -277,5 +277,13 @@
       "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
     }
   },
-  "notes": "A coverage case over a moving subject. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet."
+  "notes": "A coverage case over a moving subject. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.0440586463,
+      "unit": "dimensionless",
+      "origin": "MEASURED",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0. RECOMPUTED BY THE RUNNER ON EVERY RUN and refused on mismatch, so what this line does is pin it. It is seeded from that recomputation, which makes it a DRIFT DETECTOR rather than a present-error check -- honest only because the camera is independently proven to be the framing rule's."
+    }
+  }
 }
