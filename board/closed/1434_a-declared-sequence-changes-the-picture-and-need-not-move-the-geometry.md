@@ -41,8 +41,8 @@ by doing nothing. This edit only stops the case failing for a reason that was ne
 
 ## What must be true
 
-- [ ] a case whose oracle renders one picture at every frame of its grid is still refused
-- [ ] a case whose subject moves still owes a moving velocity pixel at every frame that moved
+- [x] a case whose oracle renders one picture at every frame of its grid is still refused -- `PotOfCoalsAnimationPointer` is, and it closes on a declared reduction naming the oracle's limit rather than on a widened bound
+- [x] a case whose subject moves still owes a moving velocity pixel at every frame that moved -- [MEASURED] `Fox` carries 21 410, 21 522, 20 225 and 20 489 of them across its four moving frames
 
 ## The first gate used the wrong distance, and the full run said so
 
