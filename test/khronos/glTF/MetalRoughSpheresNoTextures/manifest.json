@@ -7,7 +7,8 @@
     "I.26",
     "I.26.10",
     "khronos:MetalRoughSpheresNoTextures",
-    "board:1298"
+    "board:1298",
+    "board:1420"
   ],
   "criterion": {
     "kind": "numeric",
@@ -696,7 +697,7 @@
       "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
     }
   },
-  "notes": "The corpus's stress case for material binding. Its own criterion -- metal and roughness values -- needs the shading arm (board:1363) and is not claimed here.",
+  "notes": "The corpus's stress case for material binding. Its own criterion -- metal and roughness values -- needs the shading arm (board:1363) and is not claimed here. THIS CASE IS WHAT FOUND A FIXED NEAR PLANE (board:1420): its subject is 5.6 mm in radius and the framing rule puts the eye 40 mm away, so every vertex lay in front of the engine's then-fixed 0.05 m plane and NOTHING was drawn. The renderer now takes the near plane the placement declares and keeps the constant as a default, so a subject smaller than a matchbox renders at all.",
   "expected": {
     "subjectFrameFraction": {
       "value": 0.11852037442507703,
