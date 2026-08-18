@@ -42,3 +42,18 @@ change into a safe one.*
 
 *Neither was adjusted to go green: the first file became legal, and the second now names an extension
 this reader genuinely does not honour.*
+
+## Measured, and the corpus did not move -- which is what the pre-measurement predicted
+
+Trailer before and after: **327 PASS, 108 FAIL, criteria 126 of 133, 115 within the bound, 36 red.**
+Byte-identical, no case either way. **That is confirmation rather than a mystery**, because the census
+taken BEFORE the code said the enforcement refuses none of the 148 models. *An identical result is a
+finding when it was not predicted; here it was the prediction.*
+
+**The one model that requires the extension is `MeshoptCubeTest`, and it is still not scored.** The
+reader now reads it; its PREPARATION refuses, on the identity-quaternion shape recorded under
+`board:1375`. **So this item unblocked the reader and not the model**, and saying otherwise would
+claim a case this did not buy.
+
+*It also carries `KHR_meshopt_compression`, which it declares as USED and not required -- so that is
+not what stops it either.*
