@@ -48,7 +48,7 @@ inline outshine::Gltf::Placement OrbitAt(const outshine::Gltf::Subject &subject,
                                     std::sin(tilt) * up[axis]);
   }
   outshine::Gltf::Placement placed = framed;
-  /* THE DEPTH WINDOW FOLLOWS THE EYE, and it is the same rule `board:1433` took for the far plane one
+  /* THE DEPTH WINDOW FOLLOWS THE EYE (board:1436), and it is the same rule `board:1433` took for the far plane one
    * suite over: **a clip range is a depth window and never a crop**, so a placement that moves the
    * camera to a quarter of its framing distance and leaves the near plane where the full distance put
    * it declares a subject in front of its own near plane. [MEASURED] `SciFiHelmet` at `scale` 0.25 has
