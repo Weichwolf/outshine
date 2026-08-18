@@ -73,6 +73,12 @@ struct Material {
    * medium that absorbs nothing however far light travels in it. Infinity rather than a large number,
    * because `exp(-d/inf)` is exactly 1 and any finite stand-in would tint a clear volume by an amount
    * nobody chose. */
+  /* `KHR_materials_sheen`: a retroreflective lobe layered over the metal-rough base, for cloth. The
+   * extension's own defaults are BLACK and ZERO, and black is what disables it -- *if
+   * sheenColorFactor is zero, the whole sheen layer is disabled* -- so a file that declares nothing
+   * reaches the shader with a layer that contributes nothing and costs no branch of its own. */
+  float SheenColour[3] = {0.0f, 0.0f, 0.0f};
+  float SheenRoughness = 0.0f;
   float Thickness = 0.0f;
   float AttenuationDistance = std::numeric_limits<float>::infinity();
   float AttenuationColour[3] = {1.0f, 1.0f, 1.0f};

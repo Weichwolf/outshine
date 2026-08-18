@@ -387,7 +387,7 @@ private:
    * thing already bound per slot -- a second per-slot uniform would be a second binding to keep in
    * step with the first. It is written one higher than the slot so the identity attachment's clear
    * is distinguishable from the first slot. */
-  static constexpr int kSurfaceScalars = 22; /* factor, cut, metalness, roughness, base4, emissive3,
+  static constexpr int kSurfaceScalars = 26; /* factor, cut, metalness, roughness, base4, emissive3,
                                               * normal scale, slot + 1, f0 3 (board:1205) */
   /* AND ONE uv MATRIX PER IMAGE (board:1177). `KHR_texture_transform` is stated inside each
    * `textureInfo`, so four references means four matrices and there is no per-material transform to

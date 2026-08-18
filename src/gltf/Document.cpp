@@ -196,6 +196,7 @@ bool KnownWrap(int raw, Wrap &out) {
  * is flattened, and is therefore gone before a draw list exists: the render path never learns that
  * variants are a thing, and no fragment arm, pipeline or interpolant is added by it. */
 constexpr const char *const kHonouredExtensions[] = {"KHR_lights_punctual",
+                                                     "KHR_materials_sheen",
                                                      "KHR_mesh_quantization",
                                                      "KHR_node_visibility",
                                                      "KHR_materials_emissive_strength",
@@ -209,6 +210,7 @@ constexpr const char *kLightsPunctual = "KHR_lights_punctual";
 constexpr const char *kEmissiveStrength = "KHR_materials_emissive_strength";
 constexpr const char *kIor = "KHR_materials_ior";
 constexpr const char *kSpecular = "KHR_materials_specular";
+constexpr const char *kSheen = "KHR_materials_sheen";
 constexpr const char *kUnlit = "KHR_materials_unlit";
 constexpr const char *kMaterialsVariants = "KHR_materials_variants";
 constexpr const char *kTextureTransform = "KHR_texture_transform";
@@ -1266,6 +1268,31 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
    * **Half-built is worse than not built**, so the reader that switches the capability on is not
    * here until the round that finishes it. Neither extension is in `kHonouredExtensions`, so a file
    * that REQUIRES one is refused by name and nothing is drawn wrongly in silence. */
+  /* `KHR_materials_sheen`, read into the row the way every DATA extension is (board:1177): the
+   * values are composed here and the defaults are the identity of what the consumer does with them,
+   * so absence and presence-with-defaults are one computation with no branch. The extension's own
+   * defaults are a BLACK colour and a zero roughness, and black is what turns the layer off. */
+  const Json::Ref sheen = declaration["extensions"][kSheen];
+  if (sheen.Valid()) {
+    const Json::Ref colour = sheen["sheenColorFactor"];
+    for (size_t k = 0; k < 3 && k < colour.Size(); ++k) {
+      const Json::Ref channel = colour[k];
+      if (channel.GetKind() != Json::Kind::Number || !(channel.Num() >= 0.0)) {
+        return Refuse("material " + Number(index) +
+                      " declares a sheenColorFactor channel that is not a number at or above zero");
+      }
+      material.Surface.SheenColour[k] = static_cast<float>(channel.Num());
+    }
+    const Json::Ref roughness = sheen["sheenRoughnessFactor"];
+    if (roughness.Valid()) {
+      if (roughness.GetKind() != Json::Kind::Number || !(roughness.Num() >= 0.0) ||
+          roughness.Num() > 1.0) {
+        return Refuse("material " + Number(index) +
+                      " declares a sheenRoughnessFactor outside [0, 1]");
+      }
+      material.Surface.SheenRoughness = static_cast<float>(roughness.Num());
+    }
+  }
   const Json::Ref strength =
       declaration["extensions"][kEmissiveStrength]["emissiveStrength"];
   if (strength.Valid()) {
