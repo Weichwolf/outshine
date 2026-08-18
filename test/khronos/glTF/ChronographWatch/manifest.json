@@ -655,5 +655,33 @@
       "origin": "measured",
       "note": "The fraction of the frame the subject's projected area covers at frame 0. RECOMPUTED BY THE RUNNER ON EVERY RUN and refused on mismatch, so what this line does is pin it. It is seeded from that recomputation, which makes it a DRIFT DETECTOR rather than a present-error check -- honest only because the camera is independently proven to be the framing rule's."
     }
-  }
+  },
+  "reductions": [
+    {
+      "metric": "velocity_pixels_moving",
+      "because": "THE ONLY THING THAT MOVES IN THIS SUBJECT IS BEHIND GLASS, AND THIS CASE RENDERS GLASS OPAQUE ON BOTH SIDES. One node is animated -- the hands, on `Hand Plastic` and `Hand Metal` -- and they sit under `Glass Face`, which carries `KHR_materials_transmission`. This case's own recipe declares `renders.default.bounces.transmission` = 0, so the reference cannot show anything through a surface (board:1386) and this engine matches it by rendering the crystal opaque. **The hands are therefore occluded on both sides and no COVERED pixel can carry motion**, which is what this metric counts. [MEASURED] the subject's furthest vertex still moves 0.109221333 m and 3.14329219 px over the grid, and the harness reports both -- so the motion is measured and published, it is simply not visible. THE PICTURE IS WITHIN THE BOUND. A case that could decide this metric needs a recipe that lets the oracle transmit, which `board:1386` states and prices.",
+      "measured": {
+        "furthestVertexMotionM": {
+          "value": 0.109221333,
+          "unit": "m",
+          "origin": "measured"
+        },
+        "furthestVertexMotionPx": {
+          "value": 3.14329219,
+          "unit": "px",
+          "origin": "measured"
+        },
+        "animatedNodes": {
+          "value": 1,
+          "unit": "nodes",
+          "origin": "measured"
+        },
+        "transmissionBounces": {
+          "value": 0,
+          "unit": "bounces",
+          "origin": "measured"
+        }
+      }
+    }
+  ]
 }
