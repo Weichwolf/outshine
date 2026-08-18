@@ -22,22 +22,36 @@ work is the good part.
 It is the **vision**, the **constraints**, the **stance**, the **architecture** and the **setup** — read
 first, by everyone, and binding.
 
+**IT SAYS WHAT WE WANT AND WHAT WE CAN, and that is a rule about its grammar and not only its mood.** A
+rule written as a prohibition is satisfied by doing nothing — every *never* in a document is obeyed
+perfectly by an empty afternoon — so a file written only in prohibitions makes STOPPING the cheapest
+correct action. **Every rule here that can be phrased as something the engine does, is.** Where one
+genuinely cannot be — a refusal, a thing that would be silently wrong — it is written as the narrowest
+possible *no* with the reason beside it, and never as a general caution.
+
+*So a line that reads as forbidding something is either load-bearing exactly as written, or it is a
+line waiting to be turned around. Turning it around is welcome and needs no permission.*
+
 It is **not the scope**: one line per feature, with a box and a stable id, lives in `board/` and nowhere
 else. **If a sentence would need a checkbox, it belongs there.** The room here is permission to say a
 thing **completely**, never to say **more things**.
 
 The diagrams are Mermaid because they render, and because ASCII rots at the first edit.
 
-## The constraints, and there are no others
+## What this is built ON, and it is a short list on purpose
 
-**SDL3** · **SDL_GPU** · **modern C++, and only C++ in the engine** · **this device at 720p60** — an
-Apple A18 Pro, 2 performance and 4 efficiency cores, 5 GPU cores, 8 GB, Metal 4. It is the development
-platform *and* the budget, so no machine stands between the work and the target. There is no wasm, no
-browser, no container and no second device.
+**SDL3** · **SDL_GPU** · **modern C++** · **this device at 720p60** — an Apple A18 Pro, 2 performance
+and 4 efficiency cores, 5 GPU cores, 8 GB, Metal 4.
 
-*Only C++ in the engine* leaves **one door**: a script may **prepare data offline**, committed beside
-what it produces — never a test, a gate, a build step, or anything at run time. There is exactly one
-such script and it is named in the setup below.
+**The development platform IS the budget, and that is a luxury rather than a limit**: the machine the
+work happens on is the machine the target is measured on, so every number is real the moment it is
+taken and no port, no emulator and no second device stands between a change and its verdict. **A
+one-device target is the shortest possible path from an idea to whether it holds.**
+
+**The engine is C++ and nothing else**, which is what keeps one language between a thought and a frame.
+There is **one door** beside it: a script may **prepare data offline**, committed beside what it
+produces — that door is for the corpus, and there is exactly one such script, named in the setup below.
+Everything at run time, in a test, in a gate or in the build is the engine's own language.
 
 ## Stance
 
@@ -218,32 +232,41 @@ pass is what tells you which depth is worth buying.
 engine whose every error is named and bounded is in a better state than one whose errors are merely
 absent from a report.
 
-**Perfect is a direction and never a destination.** There is no last decimal. Stop when the next one buys
-no frame and no picture.
+**Perfect is a direction and never a destination.** There is no last decimal — so **move on when the
+next one buys no frame and no picture**, and spend what it would have cost on the next capability
+instead. *Finishing is choosing where the effort goes, not choosing to stop.*
 
-### What must never happen — and these are the four that buy everything else
+### The six the frame path keeps, and they are what make the rest safe to attempt
 
-*Four rules, and each one is what makes the rest of the engine free to be ambitious: a frame that
-always lands, a world with no holes in it, a frame path with no surprises in it, and no global anyone
-has to reason around. Hold these and almost nothing else is dangerous.*
+*A rule written as a prohibition is satisfied by doing nothing; a rule written as a requirement is not.
+These six are therefore stated as what the engine DOES, because each one is a thing to build and not a
+thing to avoid — a frame that always lands, a world with nothing missing from it, a frame path made
+only of bounded terms, and state that two frames in flight can both own. Hold these and almost
+everything else is free.*
 
-**A STALL IS WORSE THAN A WRONG PIXEL.** A frame that misses is seen by everyone; a code of error is seen
-by nobody. Every trade between the two goes the same way.
+**THE FRAME LANDS.** A frame that misses is seen by everyone; a code of error is seen by nobody, so
+every trade between the two goes to the frame — and that is what makes an expensive-looking idea worth
+trying: the budget is where it gets decided, not the argument beforehand.
 
-**A hole is worse than a coarse tree.** Absence is the one failure a viewer always notices. Degrade on
-detail; refuse only on existence, and refuse loudly.
+**SOMETHING IS ALWAYS DRAWN.** Absence is the one failure a viewer always notices, so detail degrades
+and only existence refuses — loudly. **A coarse tree is a picture; a hole is not**, which is why a
+generator may always answer with less rather than wait until it can answer with everything.
 
-**Nothing on the frame path allocates, blocks, takes a lock it might wait on, or touches a disk.** The
-frame path is a budget, and every one of those is an unbounded term inside it.
+**THE FRAME PATH IS MADE OF BOUNDED TERMS.** Every step in it costs a number somebody can name, which
+is exactly what an allocation, a block, a lock that might wait and a disk touch are not — so those four
+live at load, and everything they produce is ready before the frame asks.
 
-**Nothing on the frame path spells a string, a path, a URL or a name.** A key is a trivially-hashable
-value. A name is a thing the frame path looks up, never a thing it carries.
+**THE FRAME PATH CARRIES VALUES, NOT NAMES.** A key is a trivially-hashable value; a name is something
+looked up before the frame begins. **This is what lets one key serve a million instances**, and it is
+the reason scale is a design decision here rather than a later crisis.
 
-**No unbounded loop, no unbounded queue, no unbounded growth.** Everything that can grow states what
-bounds it, and the bound is a number somebody chose on purpose.
+**EVERYTHING THAT GROWS STATES ITS BOUND**, and the bound is a number somebody chose on purpose. A
+loop, a queue and a cache each say how far they go, so growth is a declared quantity and a run of any
+length is a thing you can reason about.
 
-**No global mutable state, and no singleton.** Two frames in flight is the normal case, and a global is
-the one thing that cannot be two.
+**STATE BELONGS TO A FRAME.** Two frames in flight is the normal case, so every piece of state is owned
+by one of them — which is what makes the second frame free rather than frightening, and why neither a
+global nor a singleton has a place to live.
 
 ### How it degrades, because it will
 
@@ -493,9 +516,13 @@ flowchart TD
 | **scenario** | the floor broke, the run was not deterministic, memory grew | organised by declared run, not by source file | p50/p95/p99 · determinism · residency · memory |
 
 **A case that seems to fit two is testing two things and is split.** A suite that borrowed another's
-verdict shape would be reporting a number that does not decide it. The scenario suite is the one drawn
-here without a directory: it is declared and it has no members yet, which is why the fourth constraint
-is the least measured of the four.
+verdict shape would be reporting a number that does not decide it.
+
+**THE SCENARIO SUITE IS THE NEXT INSTRUMENT TO BUILD**, and it is drawn on this diagram already because
+its shape is known: p50/p95/p99 over a moving camera, determinism across two runs, residency and memory
+across a long one. It is the one that turns *720p60 on this device* from a claim into a distribution —
+so the fourth constraint is not the least defended, it is **the one whose measurement is still ahead of
+us**, and building it is how the frame budget starts deciding things instead of being quoted.
 
 **The declarative suites must never be restored to that mirror.** A render case links half the library
 by construction, so a mirror over it would dilute the layering proof into a convention, invisibly.
