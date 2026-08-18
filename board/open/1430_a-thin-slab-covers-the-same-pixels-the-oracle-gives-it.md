@@ -90,3 +90,25 @@ picture and are separated by rendering, not by reading: a viewport transform off
 texel, a sub-pixel offset in the vertex path taken only by the textured fragment entry, and the driver's
 own fixed-point edge quantisation. Mesh 0 is **the only textured primitive in this file**, which is the
 one structural difference between it and the 23 spheres that are pixel-exact in the same frame.
+
+## The textured-path candidate is dead, and so is the rim
+
+[MEASURED] over the fresh run, every other case that samples a texture sits at the same scale as the
+untextured ones -- `multi-uv-test` 0.0016, `texture-transform-test` 0.0012, `texture-linear-interpolation`
+0.00085, `a-beautiful-game` 0.0010, `scifi-helmet` 0.00028 px. **`SpecularTest` at 0.1353173 is alone by
+two orders**, so being the only textured primitive in its own file is a coincidence and not the term.
+
+**The slab's rim is not it either.** A 2 mm slab's true silhouette is the outer edge of its rim rather
+than of its front face, which would explain a small outward difference -- but [MEASURED] the oracle's
+shading normal at 227 of the 228 is `(0, -1, 0)`, the FRONT face's own normal and identical to the
+interior's. A rim face of a plate lying in the XY plane carries a normal perpendicular to that.
+
+**And the healthy population's scale is itself informative**: 0.001 to 0.002 px is about what a
+rasteriser's fixed-point subpixel grid displaces an edge by, and f32 projection error at this distance is
+1.5e-4 px. Neither reaches 0.075.
+
+## What would actually decide it
+
+**Re-render the same case with the camera displaced by half a pixel.** If the 228 stay on the same
+object-space edges, the cause is geometric; if they move with the sampling grid, it is the edge rule.
+That needs a knob the scenario suite will have and the render suite does not, which is where this waits.
