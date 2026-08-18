@@ -70,3 +70,17 @@ before it: two viewpoint changes measured separately would cost two passes to le
 
 **This is what the test is FOR and it took a corpus of 151 cases to make it audible.** With twenty
 cases the same defect was five reds that read as noise; at scale it is a ranked list with one cause.
+
+## A second defect of mine, in the repair rather than in the finding
+
+**The harvest wrote `yfovRad` into an ORTHOGRAPHIC camera.** `NormalTangentTest` declares
+`projection: orthographic` with a `yMagM`, and the bulk edit -- which assumed every derivable camera
+is the framing rule's perspective one -- left it carrying both. The preparer refused it at
+`manifest.scene.camera.yfovRad`, so the case that had been scoring stopped preparing at all.
+
+[MEASURED] **4 orthographic cameras in the corpus, 1 of them reached by the harvest and broken.** The
+other three were not in the harvest's population, which is luck rather than design.
+
+**An orthographic camera is not a case the framing rule can answer**, so it belongs with the `exact`
+exemption and not with the derivable set. It was restored from before the edit; the rule the harvest
+must carry is that it writes only where the declared projection is the one it derives.
