@@ -177,22 +177,22 @@
     "camera": {
       "source": "manifest",
       "positionM": [
-        0.6187583751966509,
-        0.3094404649302033,
-        0.43070390019868304
+        0.6187583679258796,
+        0.3094404622273118,
+        0.4307038962194905
       ],
       "lookAtM": [
         8.416827768087387e-06,
-        0.03451401034850202,
-        -0.0025494849181527043
+        0.0345140108762005,
+        -0.002549483806296368
       ],
       "rollRad": 0.0,
       "yfovRad": 0.47108996144172666,
       "sensorHeightMm": 24.0,
-      "clipStartM": 0.6912757044984672,
-      "clipEndM": 0.9163866507559633,
+      "clipStartM": 0.6912756963754645,
+      "clipEndM": 0.9163866399877398,
       "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-0.07430074224248528, -0.0006779458957560034, -0.07941566490135676] to [0.07431757589802146, 0.06970596659276004, 0.07431669506505136], so centre = [8.416827768087387e-06, 0.03451401034850202, -0.0025494849181527043] and radius = 0.11255547312874799 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 0.8038311776272152, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
-      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule. RE-STATED AT THE RULE'S OWN PRECISION (board:1361). The declared camera sat within a nanometre of the framing rule's and outside the rule's own tolerance, which is a manifest written with fewer digits than the rule produces and NOT a different camera: `ADerivedCameraIsTheFramingRuleAndNotAQuotation` is what says the declaration is the rule's output rather than a quotation of it, and a rounded quotation is exactly what it exists to catch."
     },
     "light": {
       "kind": "none",

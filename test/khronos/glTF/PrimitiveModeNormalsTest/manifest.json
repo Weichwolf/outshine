@@ -164,22 +164,22 @@
     "camera": {
       "source": "manifest",
       "positionM": [
-        67.60771477749083,
-        30.039839315941034,
-        47.33943152833106
+        67.60771475750867,
+        30.03983930706245,
+        47.33943148453709
       ],
       "lookAtM": [
         0.0,
         0.0,
-        0.0
+        -2.9802322387695312e-08
       ],
       "rollRad": 0.0,
       "yfovRad": 0.47108996144172666,
       "sensorHeightMm": 24.0,
-      "clipStartM": 75.53224049589166,
-      "clipEndM": 100.12898824838935,
+      "clipStartM": 75.53224047356733,
+      "clipEndM": 100.1289882187952,
       "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-10.0, -7.0, -1.5] to [10.0, 7.0, 1.5], so centre = [0.0, 0.0, 0.0] and radius = 12.298373876248844 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 87.8306143721405, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
-      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule. RE-STATED AT THE RULE'S OWN PRECISION (board:1361). The declared camera sat within a nanometre of the framing rule's and outside the rule's own tolerance, which is a manifest written with fewer digits than the rule produces and NOT a different camera: `ADerivedCameraIsTheFramingRuleAndNotAQuotation` is what says the declaration is the rule's output rather than a quotation of it, and a rounded quotation is exactly what it exists to catch."
     },
     "light": {
       "kind": "none",

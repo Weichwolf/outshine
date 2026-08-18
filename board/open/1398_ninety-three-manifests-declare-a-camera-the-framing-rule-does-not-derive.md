@@ -95,3 +95,29 @@ alone while its picture is inside the bound.
 *[MEASURED] `Fox` and `MorphStressTest` came back at 133 checks against the 32 they ran before: with a
 fraction that matches, the frame loop runs the whole declared grid instead of stopping at the first.
 So the correction bought four times the comparison, and for one run it looked like a loss.*
+
+## Seventy of the eighty-two internal failures were a rounded quotation, and they are gone
+
+**The cameras were re-derived once and WRITTEN BACK WITH FEWER DIGITS THAN THE RULE PRODUCES.**
+[MEASURED] fourteen cases declared an eye within a nanometre of the framing rule's and outside the
+rule's own tolerance -- `AnimatedColorsCube` at 4.35253998e-07 m against 2.65069674e-11 m,
+`USDShaderBallForGltf` at 8.28691782e-09 m. **That is not a different camera; it is the same camera
+quoted short**, which is precisely what this test's name says it exists to catch.
+
+Re-stated from the rule's own output, at its own precision, over all fourteen: **82 internal failures
+to 12.**
+
+## What the twelve are, and eight of them are THIS item's own finding
+
+| | count | what |
+|---|---|---|
+| the frame fraction under the rule | **8** | `AnimationPointerUVs`, `BrainStem`, `CesiumMan`, `DiffuseTransmissionPlant`, `Fox`, `LightVisibility`, `RiggedFigure`, `SimpleMorph` |
+| the camera is fitted NEAR the rule | 3 | not investigated this round |
+| the case's subject reads | 1 | `AnimationPointerUVs`, which does not prepare |
+
+**THE EIGHT WERE NOT OVERWRITTEN AND THAT IS DELIBERATE.** Six of them are animated or skinned, and
+this item already measured why the two numbers differ: *the pose is not the rest pose* -- the runner
+harvests the fraction from the DRAWN pose at frame 0 and this test computes it from the rule over
+REST-pose bounds. **Two numbers, two questions**, and copying one into the other would have made the
+unit test green by breaking the runner's own refusal. *The rounded quotations were a defect; these are
+the finding this item was filed for.*

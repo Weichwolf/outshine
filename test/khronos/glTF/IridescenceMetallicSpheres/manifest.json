@@ -107,22 +107,22 @@
     "camera": {
       "source": "manifest",
       "positionM": [
-        126.53471149934771,
-        57.4726126771021,
-        88.60055924829842
+        126.53470861735711,
+        57.47261214301391,
+        88.60055713622776
       ],
       "lookAtM": [
-        -5.873463377881194e-07,
-        1.2499991560979042,
+        -4.5298741735422254e-07,
+        1.2499999622510645,
         0.0
       ],
       "rollRad": 0.0,
       "yfovRad": 0.47108996144172666,
       "sensorHeightMm": 24.0,
-      "clipStartM": 141.3662676791528,
-      "clipEndM": 187.4015819236087,
+      "clipStartM": 141.3662643092469,
+      "clipEndM": 187.4015774563075,
       "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-14.500001174692676, -12.000001687804192, -12.0] to [14.5, 14.5, 12.0], so centre = [-5.873463377881194e-07, 1.2499991560979042, 0.0] and radius = 23.017657122227938 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 164.38392480138074, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
-      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule. RE-STATED AT THE RULE'S OWN PRECISION (board:1361). The declared camera sat within a nanometre of the framing rule's and outside the rule's own tolerance, which is a manifest written with fewer digits than the rule produces and NOT a different camera: `ADerivedCameraIsTheFramingRuleAndNotAQuotation` is what says the declaration is the rule's output rather than a quotation of it, and a rounded quotation is exactly what it exists to catch."
     },
     "light": {
       "kind": "none",

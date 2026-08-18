@@ -108,22 +108,22 @@
     "camera": {
       "source": "manifest",
       "positionM": [
-        4.73025593934239,
-        2.601773832668295,
-        3.312160866388793
+        4.730256009819296,
+        2.6017738567795057,
+        3.3121609157372536
       ],
       "lookAtM": [
         0.0,
-        0.4999999625,
+        0.4999999552965164,
         0.0
       ],
       "rollRad": 0.0,
       "yfovRad": 0.47108996144172666,
       "sensorHeightMm": 24.0,
-      "clipStartM": 5.284705013228515,
-      "clipEndM": 7.00564636626321,
+      "clipStartM": 5.284705091966254,
+      "clipEndM": 7.005646470641553,
       "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-0.5000792, 0.009845525000000022, -0.5000792] to [0.5000792, 0.9901544, 0.5000792], so centre = [0.0, 0.4999999625, 0.0] and radius = 0.8604706765173472 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 6.145175689745862, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
-      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule. RE-STATED AT THE RULE'S OWN PRECISION (board:1361). The declared camera sat within a nanometre of the framing rule's and outside the rule's own tolerance, which is a manifest written with fewer digits than the rule produces and NOT a different camera: `ADerivedCameraIsTheFramingRuleAndNotAQuotation` is what says the declaration is the rule's output rather than a quotation of it, and a rounded quotation is exactly what it exists to catch."
     },
     "light": {
       "kind": "none",
