@@ -140,3 +140,22 @@ derivation should not be able to reach. Either the key being compared is not the
 sample describes (a rest pose, or a frame the importer inserted), or `_agrees` is comparing a
 quaternion against something in a different order. **It is not the axis question this item was opened
 about**, and it is written down here rather than folded into it.
+
+**The identity quaternion was an undone division, and the shape of the finding is the point.**
+`MeshoptCubeTest` stores its rotation channel as `short normalized`. `_accessor` returned the RAW
+integers, so the importer's `(1, 0, 0, 0)` was held against a file value of `(32767, 0, 0, 0)` and no
+axis convention could derive one from the other -- **the message said *a frame this preparer does not
+know* and the cause was arithmetic that had not run.**
+
+**It was silent everywhere else.** Any sampler whose output is a normalised integer accessor was baked
+at 127, 255, 32767 or 65535 times its value; only a quaternion is absurd enough at that scale to
+refuse rather than to render a wrong pose. [MEASURED] exactly one model at the pin is affected, so no
+other oracle moves -- which is luck about the corpus and not a property of the code.
+
+**`byteStride` was wrong in the same loop and is fixed in the same round**: a view interleaving several
+attributes states the step between elements, and stepping by the element's own width reads the next
+attribute's bytes as this one's. No case that reached this function was interleaved, so it cost
+nothing -- again luck rather than a property.
+
+**`MeshoptCubeTest` is green at 83 checks and within the bound at every frame**, carrying
+`KHR_mesh_quantization`, `COLOR_0` and this animation together.

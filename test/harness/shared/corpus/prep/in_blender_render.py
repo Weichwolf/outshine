@@ -73,15 +73,55 @@ _COMPONENT = {5126: ("f", 4), 5123: ("H", 2), 5125: ("I", 4), 5122: ("h", 2), 51
 _COUNT = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}
 
 
+# THE FORMAT'S OWN DEQUANTISATION, quoted from `Specification.adoc` rather than recalled:
+#
+#   signed byte     f = max(c / 127.0, -1.0)
+#   unsigned byte   f = c / 255.0
+#   signed short    f = max(c / 32767.0, -1.0)
+#   unsigned short  f = c / 65535.0
+#
+# THE `max` IS NOT A CLAMP ADDED HERE. A signed byte reaches -128 and a signed short -32768, one step
+# past what the scale maps to -1, so the format pins both to -1 rather than letting a single code
+# describe a value outside the range every consumer assumes.
+_NORMALISE = {5120: 127.0, 5121: 255.0, 5122: 32767.0, 5123: 65535.0}
+_SIGNED = {5120, 5122}
+
+
 def _accessor(document, buffers, index):
+    """ONE ACCESSOR AS FLOATING-POINT ELEMENTS, WITH `normalized` AND `byteStride` HONOURED.
+
+    NEITHER WAS, AND THE FIRST WAS FOUND BY A REFUSAL RATHER THAN BY A WRONG PICTURE (board:1375).
+    `MeshoptCubeTest` stores a rotation channel as `short normalized`; this function returned the raw
+    integers, so the importer's identity quaternion `(1, 0, 0, 0)` was held against a file value of
+    `(32767, 0, 0, 0)` and no axis convention could derive one from the other. **The message read as
+    an unknown frame and the cause was an undone division.**
+
+    It is a silent defect everywhere else: any sampler whose output is a normalised integer accessor
+    was baked at 127, 255, 32767 or 65535 times its value, and only a quaternion is absurd enough at
+    that scale to stop rather than to render.
+
+    `byteStride` IS HONOURED IN THE SAME ROUND because the same loop was wrong about it: a view that
+    interleaves several attributes states the step between elements, and stepping by the element's own
+    width reads the next attribute's bytes as this one's. It cost nothing here only because no case
+    that reached this function was interleaved -- which is luck, not a property."""
     accessor = document["accessors"][index]
     view = document["bufferViews"][accessor["bufferView"]]
     letter, size = _COMPONENT[accessor["componentType"]]
     wide = _COUNT[accessor["type"]]
     blob = buffers[view.get("buffer", 0)]
     start = view.get("byteOffset", 0) + accessor.get("byteOffset", 0)
-    return [struct.unpack_from("<" + letter * wide, blob, start + at * wide * size)
-            for at in range(accessor["count"])]
+    step = view.get("byteStride") or (wide * size)
+    raw = [struct.unpack_from("<" + letter * wide, blob, start + at * step)
+           for at in range(accessor["count"])]
+    if not accessor.get("normalized", False):
+        return raw
+    scale = _NORMALISE.get(accessor["componentType"])
+    if scale is None:
+        fail("accessor " + str(index) + " is normalized and its component type is float or unsigned "
+             "int, which the format does not define a dequantisation for")
+    if accessor["componentType"] in _SIGNED:
+        return [tuple(max(c / scale, -1.0) for c in element) for element in raw]
+    return [tuple(c / scale for c in element) for element in raw]
 
 
 def _slerp(first, second, unit):
