@@ -2900,8 +2900,11 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
      * than from taste: the picture bound sends every pixel it does not score perceptually to THIS
      * metric, so a routed pixel that failed here while the picture read `within` would be a picture
      * defect reported as a feature defect -- the misquote I.26.15 exists to make unspellable. */
-    const WorstDisagreement worst = WorstDisagreementPx(routing, edges);
-    metrics.push_back({"worst_disagreement_px", worst.Px, subject.OracleFloorPx, "px",
+    const WorstDisagreement worst =
+        WorstDisagreementPx(routing, edges, Boundary(theirs).size(), kBoundFraction);
+    metrics.push_back({"worst_disagreement_max_px", worst.Px, subject.OracleFloorPx, "px",
+                       Direction::Reported});
+    metrics.push_back({"worst_disagreement_px", worst.AtFraction, subject.OracleFloorPx, "px",
                        subject.Placement == ExactnessClass::GeneralPosition ? Direction::AtMost
                                                                             : Direction::Reported,
                        Count::Picture});

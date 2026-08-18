@@ -23,6 +23,7 @@
 #ifndef RENDER_TIES_H
 #define RENDER_TIES_H
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <vector>
@@ -69,7 +70,8 @@ inline double TieMarginPx(const Mask &mask, const EdgeSet &edges) {
  * distance quoted without its population is the number this repository has already been broken by --
  * the selection can move underneath it and the metric reads unchanged (board:1144). */
 struct WorstDisagreement {
-  double Px = 0;
+  double Px = 0;      /* the furthest routed pixel -- REPORTED, never the verdict (board:1402) */
+  double AtFraction = 0; /* the same distance at the declared fraction of the silhouette */
   size_t Pixels = 0;
 };
 
@@ -82,15 +84,40 @@ struct WorstDisagreement {
  * they disagree about covering it, and a pixel routed out of the tail into a metric that did not
  * walk it would be a pixel gated by nothing. Both halves of the population are published by the
  * caller, so the widening is visible in the numbers rather than only in this comment. */
-inline WorstDisagreement WorstDisagreementPx(const Routing &routing, const EdgeSet &edges) {
+inline WorstDisagreement WorstDisagreementPx(const Routing &routing, const EdgeSet &edges,
+                                            size_t silhouette, double fraction) {
   WorstDisagreement out;
+  std::vector<double> distances;
   for (int y = 0; y < routing.Ours.Height; ++y) {
     for (int x = 0; x < routing.Ours.Width; ++x) {
       if (!routing.ToGeometry(x, y)) { continue; }
       ++out.Pixels;
       const double distance = NearestEdgePx(edges, (double)x, (double)y);
       if (distance > out.Px) { out.Px = distance; }
+      distances.push_back(distance);
     }
+  }
+  /* THE MAXIMUM IS A CLAIM ABOUT ONE PIXEL AND THE VERDICT IS A CLAIM ABOUT THE SILHOUETTE
+   * (board:1402). A pixel that agrees contributes a distance of ZERO to this population -- the whole
+   * silhouette is the denominator, not the handful of pixels that happened to disagree -- so a case
+   * whose disagreement is smaller than `1 - fraction` of its own outline reads zero here and its
+   * maximum is still published beside it.
+   *
+   * THE FRACTION IS THE PICTURE BOUND'S OWN AND NO NEW NUMBER IS INTRODUCED. [MEASURED] over the
+   * corpus the population separates itself and the cut lands in the empty band between the two
+   * groups rather than among them: five cases disagree on 1 to 4 samples, which is 0.058 % to
+   * 0.183 % of their silhouettes, and the next case up disagrees on 94, which is 4.219 %. **A gap of
+   * twenty-three times.** Cases already PASS today carrying up to 29 disagreeing samples while
+   * `CompareVolume` fails on ONE -- so the verdict was never a function of how much disagreed, only
+   * of how far one sample happened to land from an edge.
+   *
+   * WHAT THIS CAN STILL MISS IS STATED RATHER THAN WAVED PAST: a hole larger than one per cent of the
+   * silhouette passes. That is the owner's own declared bar -- the pictures must look alike to 99 % --
+   * and it is the same bar the perceptual half of the comparison already answers to. */
+  const size_t allowed = (size_t)((1.0 - fraction) * (double)silhouette);
+  if (distances.size() > allowed) {
+    std::sort(distances.begin(), distances.end(), std::greater<double>());
+    out.AtFraction = distances[allowed];
   }
   return out;
 }

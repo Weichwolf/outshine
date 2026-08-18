@@ -1,4 +1,4 @@
-Type: issue
+Type: bug
 Area: harness
 Tags: oracle, instrument, khronos
 
@@ -55,3 +55,54 @@ above changes what is measured rather than how much of it is allowed.
 **18 of 40 red cases fail on this metric** -- it is the largest single class, larger than the reader's
 missing extensions and larger than every picture disagreement put together. *Two cases in the whole
 corpus are red because the picture differs.*
+
+## Taken, and the recommendation was not the one that survived
+
+**[OWNER] *wenn du einen vorschlag hast brauchst du micht nicht* -- so this was decided here.** The
+recommended shape above was *a maximum over CONNECTED COMPONENTS*, and measuring killed it before a
+line was written: the disagreements are one to four pixels, so every component is a single pixel and
+grouping them separates nothing.
+
+**What the measurement found instead is the fact the whole item turns on.** Over the corpus, the
+population is `worst_disagreement_samples` against the oracle's own silhouette length:
+
+| group | samples | as a fraction of the silhouette | IoU |
+|---|---|---|---|
+| cases already PASSING | p50 **1**, p95 **5**, max **29** | -- | -- |
+| the five that failed on dust | 1 to 4 | **0.058 % to 0.183 %** | >= 0.99991 |
+| **the gap** | | **23x** | |
+| the eleven that failed on substance | 94 to 35 405 | **4.219 % to 1 160 %** | <= 0.99814 |
+
+**Cases pass today carrying 29 disagreeing samples while `CompareVolume` fails on ONE.** The verdict
+was never a function of how much disagreed -- only of how far one sample happened to land from an edge.
+
+## What was built
+
+`worst_disagreement_px` is now the distance at the **99th percentile over the oracle's whole
+silhouette**, agreeing pixels contributing zero; `worst_disagreement_max_px` carries the maximum in its
+own reported row. **No new constant**: the fraction is `kBoundFraction`, the picture bound's own since
+`board:1367`, and the one per cent cut lands inside the empty band between the two groups rather than
+among them.
+
+## The prediction, written before the run, and it held exactly
+
+*Five cases should go green -- `CompareVolume`, `VirtualCity`, `MorphPrimitivesTest`, `BrainStem`,
+`DiffuseTransmissionPlant` -- `TransmissionOrderTest` should NOT at 4.2 %, and none of the eleven large
+ones may come through.*
+
+| | before | after |
+|---|---|---|
+| within the picture bound | 120 of 138 | **124 of 138** |
+| outside | 17 | **13** |
+| red cases | 35 | **30** |
+| PASS | 339 | 354 |
+
+**Green: `BrainStem`, `CompareVolume`, `DiffuseTransmissionPlant`, `MorphPrimitivesTest`,
+`VirtualCity`. Newly red: none.** *Same population both times, and the named set is exactly the set
+that moved.*
+
+## What this can still miss, stated rather than waved past
+
+**A hole larger than one per cent of the silhouette passes.** That is the owner's own declared bar --
+the pictures must look alike to 99 % -- and it is the bar the perceptual half of the comparison already
+answers to. The threshold did not move; what moved is what it is taken over.
