@@ -1655,6 +1655,30 @@ Prepared Prepare(Case &subject, outshine::Render::Renderer &renderer) {
   }
 
   const bool loaded = BuildSubject(subject, why);
+  /* A `limits-probe` EXPECTS THE REFUSAL AND THE REFUSAL IS ITS VERDICT (board:1424).
+   *
+   * The kind has been in this harness's vocabulary since it was written -- *the asset states it is not
+   * expected to render correctly everywhere* -- and nothing consumed it, so a case whose whole subject
+   * is an extension this engine declines had no way to pass except by the engine changing its mind.
+   *
+   * `SpecGlossVsMetalRough` is that case. Its criterion is *tests if the
+   * KHR_materials_pbrSpecularGlossiness extension is supported properly*, that extension is ARCHIVED
+   * by Khronos, and this engine does not implement obsolete extensions -- so the file names it in
+   * `extensionsRequired` and a conforming reader MUST refuse it. **The refusal is the correct
+   * behaviour and this is where it is scored as such.**
+   *
+   * IT IS NOT A PASS FOR ANY REFUSAL. The refusal has to NAME the thing the case is about, or a case
+   * could go green because the file was corrupt, the camera was missing or a buffer was short. */
+  if (!loaded && subject.Criterion == CriterionKind::LimitsProbe) {
+    const std::string names = subject.Manifest.Root()["criterion"]["declines"].Str("");
+    const bool named = !names.empty() && why.find(names) != std::string::npos;
+    CHECK(named,
+          "the limits probe's refusal names what the case says this engine declines, so it cannot "
+          "pass on a refusal about something else");
+    if (named) { std::printf("DECLINED %s -- %s\n", names.c_str(), why.c_str()); }
+    Refused(why);
+    return Prepared::No;
+  }
   CHECK(loaded, "the case's subject and its camera both resolve");
   if (!loaded) {
     Refused(why);

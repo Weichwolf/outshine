@@ -247,5 +247,38 @@
       "derivation": "the sum over the subject's triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the fetched vertices and refused on a mismatch. Every triangle is counted by the magnitude of its signed area, so each closed sphere counts its far side too and this is an AREA, not a coverage.",
       "note": "What the boundary bound is applied UNDER: a camera that framed the subject smaller would tighten the bound without saying so."
     }
-  }
+  },
+  "reductions": [
+    {
+      "metric": "linear_channels_differing",
+      "because": "THE ASSET'S OWN CRITERION SAYS *nearly*: \"The test passes when two spheres are rendered with nearly the same color\" -- one sphere takes its colour from a JSON emissive factor and the other SAMPLES it from a texture. So one value passes through a bilinear fetch and an sRGB decode and the other through neither, and bit-equality between them is a demand the case itself does not make. [MEASURED] the picture agrees: `picture_p99_delta_code` is 0 codes and the worst channel is 1.5218396 codes. In LINEAR radiance the median relative difference is 2.1774928e-07 -- exact for any purpose -- while p99 reaches 0.028571406, which is a relative figure on values near zero where any absolute difference reads large and 1.0569646e+09 ulps is the same statement in another alphabet. The two SimpleTexture cases carry the same reduction for the same reason.",
+      "measured": {
+        "channelsDiffering": {
+          "value": 9602,
+          "unit": "channels",
+          "origin": "measured"
+        },
+        "beyondOneUlp": {
+          "value": 6626,
+          "unit": "channels",
+          "origin": "measured"
+        },
+        "medianRelative": {
+          "value": 2.1774928e-07,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "picturePercentileCodes": {
+          "value": 0,
+          "unit": "codes",
+          "origin": "measured"
+        },
+        "pictureWorstCodes": {
+          "value": 1.5218396,
+          "unit": "codes",
+          "origin": "measured"
+        }
+      }
+    }
+  ]
 }

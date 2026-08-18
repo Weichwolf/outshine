@@ -175,9 +175,11 @@
           }
         },
         "limits-probe": {
+          "note": "A CASE WHOSE VERDICT IS THAT THIS ENGINE DECLINES ITS SUBJECT (board:1424). `declines` names what -- an extension, a feature -- and the runner requires the engine's refusal to CONTAIN that name, so the case cannot pass on a refusal about something else: a corrupt file, a missing camera or a short buffer would all refuse, and none of them is what the case is about.",
           "required": {
             "says": "text",
-            "statedAt": "text"
+            "statedAt": "text",
+            "declines": "text"
           },
           "optional": {
             "note": "string"

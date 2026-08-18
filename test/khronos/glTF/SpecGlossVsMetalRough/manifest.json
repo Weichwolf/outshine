@@ -10,9 +10,10 @@
     "board:1330"
   ],
   "criterion": {
-    "kind": "numeric",
-    "says": "Tests if the KHR_materials_pbrSpecularGlossiness extension is supported properly.",
-    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SpecGlossVsMetalRough/README.md"
+    "kind": "limits-probe",
+    "says": "Tests if the KHR_materials_pbrSpecularGlossiness extension is supported properly. -- AND THIS ENGINE DECLINES IT, WHICH IS WHAT THIS CASE NOW DECIDES. Khronos ARCHIVED `KHR_materials_pbrSpecularGlossiness`, and an obsolete extension is one this engine does not implement by the owner's own ruling. The file names it in `extensionsRequired`, so a conforming reader MUST refuse it -- and the refusal names the extension, which is the whole of what a `limits-probe` asks.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SpecGlossVsMetalRough/README.md",
+    "declines": "KHR_materials_pbrSpecularGlossiness"
   },
   "subjectClass": "opaque-min-1px",
   "acceptanceClass": {
