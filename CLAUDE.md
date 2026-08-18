@@ -586,6 +586,15 @@ implementation. **Seven fields and no others — an eighth needs a decision:**
 | `Regresses:` | **the tree changed** — the closure was true and the tree stopped satisfying it |
 | `Supersedes:` | **our understanding changed** — the claim was correct as stated and too narrow, or wrong |
 
+**BOTH KINDS ARE GOOD NEWS AND THE WORDS ALREADY SAY SO.** A `feature` is a thing to look forward to
+— nobody writes one about something they dread — and **a `bug` is not a wound, it is a discovery: we
+have found something we can make better, and we found it before a player did.** An engine whose bug
+list is long is an engine that is being LOOKED at; the frightening tree is the one with no findings in
+it, because that one is not being measured.
+
+*This is why the board may be extended and may not be shortened: every line on it is either something
+to build or something we now know. Neither is a debt.*
+
 **AN ITEM SAYS WHAT WILL BE TRUE, not what is broken.** A title is the capability the tree gains, and
 the body is how to get there — *the oracle multiplies the vertex colour*, never *the oracle is wrong
 about vertex colour*. It costs nothing to write and it changes what a reader does with it: a defect
