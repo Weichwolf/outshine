@@ -83,3 +83,25 @@ session: `Suzanne`, `Cube`, `TwoSidedPlane` are single-body; `MetalRoughSpheresN
 bodies and names all 119 of its nodes; `VertexColorTest` names both of its. **`SimpleMeshes` was the
 unlucky one**, and the class is narrower than it first looked -- which is why the corpus can go on
 being populated with this open.
+
+## Comments
+
+**The design this item assumed was refuted by measuring, and the measurement made it small.** The plan
+was to key colours by the glTF material INDEX and resolve index to Blender slot by walking the file's
+node hierarchy, with the named materials as a witness against the ordering assumption. None of that is
+needed. [MEASURED], Blender 5.2's glTF importer names an unnamed material **`Material_<glTF index>`**:
+`MetalRoughSpheres` (one unnamed material) arrives as `Material_0`, `TextureEncodingTest` (fourteen) as
+`Material_0` .. `Material_13`. **The index is already in the string**, so both sides can key on one name
+with no hierarchy walk and no ordering assumption at all.
+
+**The hazard I filed this against does not exist either, and the reason is the same fact.** Two distinct
+unnamed materials cannot collide under the `.001` duplicate-suffix stripping -- which would have painted
+one of them the other's colour silently -- because they never share a stem.
+
+**One way the key can still lie, and it is refused rather than documented**: a file carrying both an
+unnamed material and a named one spelled `Material_<n>`. Our side names that collision and refuses.
+
+**A table stops being a declaration somewhere between 14 and 344 materials.** `IridescenceMetallicSpheres`
+draws 344 and `NodePerformanceTest` 10 000, where a colour table is a transcription of the file rather
+than a statement about the case -- so `emission-by-material-index` takes a RULE with no free parameter
+instead, and a manifest cannot tune a colour to make a case pass.

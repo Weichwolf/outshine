@@ -645,6 +645,13 @@
                 "note": "string"
               },
               "note": "THE MATERIAL IS THE KEY A MULTI-MATERIAL ASSET HAS: a mesh whose primitives name different materials is one Blender object with several slots, so a per-object colour could reach only one of them."
+            },
+            "emission-by-material-index": {
+              "required": {},
+              "optional": {
+                "note": "string"
+              },
+              "note": "THE SAME KEY, COLOURED BY A RULE INSTEAD OF A TABLE (board:1362). colour[c] = 0.15 + 0.70 * frac(index * step[c]) over the glTF material index, with the format's default material one slot past the last. A table is the right declaration while a subject draws a handful of materials; IridescenceMetallicSpheres draws 344 and NodePerformanceTest 10000, where a table is a transcription of the file rather than a statement about the case. THE RULE TAKES NO PARAMETER, so a manifest cannot tune a colour to make a case pass -- which is why this variant declares no field at all."
             }
           }
         },
