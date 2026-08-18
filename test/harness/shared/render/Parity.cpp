@@ -3200,7 +3200,12 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
     }
     Note("disagreeing pixels no node's geometry projects onto", (double)table.Unattributed, "px");
     Note("triangles outside the depth range, unattributed", (double)table.Unprojectable,
-         "triangles");
+         "triangles");   /* the verdict is the metric below; this row says how many were left unattributed */
+  }
+  if (projects) {
+    metrics.push_back({"triangles_outside_the_depth_range",
+                       (double)TrianglesOutsideTheDepthRange(subject.Geometry, clip), 0.0,
+                       "triangles", Direction::AtMost});
   }
   ScoreDepthProbes(subject, studio, picture.Depth, metrics);
 

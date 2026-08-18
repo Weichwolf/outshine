@@ -62,3 +62,19 @@ fail, and the conversion cannot be wrong for two subjects and right for six.**
   ZERO extent in one axis, and after a half turn about the normal it occupies the quadrant opposite the
   one the camera was framed on. Whether a degenerate bound, a cull or a clip explains a tenfold
   coverage difference is the next question, and it is asked of a subject that has no thickness
+
+## The population was swept, and the last question above is answered
+
+[MEASURED] **24 manifests declare an animation.** Twenty-three derive `ceil(duration * fps) + 1` and land
+on three frames or more, where the interior samples differ and the endpoint costs nothing. **Exactly one
+derives two**, and it is this case, and it is repaired. *So the general defect's population is zero
+today* -- and the sequence check is what keeps it that way, because a grid that does not move is refused
+rather than reported.
+
+**The tenfold coverage was a CLIP, and `board:1433` carries it**: the declared far plane was derived from
+the rest bounds and cut two of the triangle's three vertices at the half turn, so the oracle rendered a
+1431 px sliver of a 14405 px triangle. Neither a degenerate bound nor a cull -- the third candidate this
+item named. `AnimatedTriangle` is green on both frames at `iou` 1 and 0 pixels disagreeing.
+
+**The remaining scope is unchanged and still unticked**: a grid that excludes the endpoint by
+construction, priced across all 24.

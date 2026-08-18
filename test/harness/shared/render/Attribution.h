@@ -120,6 +120,33 @@ inline void Span(const double corner[3][2], int limit, int axis, int &low, int &
 
 }  // namespace Detail
 
+/* HOW MUCH OF THE SUBJECT THE DECLARED DEPTH WINDOW CUTS, ASKED OF EVERY CASE AND NOT ONLY OF ONE THAT
+ * ALREADY DISAGREES (board:1433). The clip range is derived as `distance +- radius` about the framing
+ * centre, so it contains the whole subject by construction and a triangle outside it is a DECLARATION
+ * defect rather than a picture one -- the oracle honours the far plane and this engine's reversed-Z
+ * projection is infinite, so the two sides stop rendering the same subject and the count is the only
+ * place that says so. It used to be a NOTE inside the attribution table, which is reached only when
+ * pixels already disagree; a case whose clipped part happened to land where both sides were empty
+ * printed nothing at all. */
+[[nodiscard]] inline size_t TrianglesOutsideTheDepthRange(const outshine::Gltf::Subject &geometry,
+                                                         const outshine::Gltf::Transform &clip) {
+  size_t outside = 0;
+  for (const outshine::Gltf::Part &part : geometry.Parts()) {
+    for (size_t triangle = 0; triangle * 3u + 2u < part.IndexCount; ++triangle) {
+      for (int which = 0; which < 3; ++which) {
+        const size_t vertex = geometry.Indices()[part.FirstIndex + triangle * 3u + (size_t)which];
+        const double point[3] = {geometry.PositionsM()[vertex * 3],
+                                 geometry.PositionsM()[vertex * 3 + 1],
+                                 geometry.PositionsM()[vertex * 3 + 2]};
+        double ndc[3];
+        clip.Point(point, ndc);
+        if (!(ndc[2] >= -1.0 && ndc[2] <= 1.0)) { ++outside; break; }
+      }
+    }
+  }
+  return outside;
+}
+
 inline Attribution AttributeDisagreement(const outshine::Gltf::Subject &geometry,
                                          const outshine::Gltf::Transform &clip,
                                          const outshine::Gltf::Viewport &viewport, const Mask &ours,
