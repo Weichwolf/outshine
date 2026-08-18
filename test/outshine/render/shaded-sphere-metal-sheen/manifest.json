@@ -208,5 +208,59 @@
       "derivation": "the projected area of the subject's triangles over the declared raster at the declared camera, recomputed by the runner from the subject's own vertices. It is quoted here because the boundary bound is applied UNDER it: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's apparent size, so a camera that framed the subject smaller would tighten the bound without saying so.",
       "note": "The framing rule of src/gltf/Framing.h fixes the camera, so this number is a consequence of the rule and the subject rather than a choice. The runner refuses a mismatch."
     }
-  }
+  },
+  "reductions": [
+    {
+      "metric": "picture_p99_delta_code",
+      "because": "THE TWO SIDES EVALUATE TWO DIFFERENT PUBLISHED SHEEN BRDFs, AND BOTH ARE CONFORMANT. `KHR_materials_sheen` specifies the **Charlie** distribution with the Conty-Kulla visibility and gives both in closed form -- `(2 + 1/a) * pow(sin2h, 1/(2a)) / 2pi` and the five-coefficient `lambda_sheen` fit -- which is what `src/render/stages/SheenLobe.h` implements line for line. Cycles implements **Zeltner, Burley and Chiang, *Practical Multiple-Scattering Sheen Using Linearly Transformed Cosines*, 2022**, cited in the header of `intern/cycles/kernel/closure/bsdf_sheen.h` and evaluated through precomputed LTC tables. Both fetched at the source rather than recalled.\n\nTHE IMPORTER CONFIRMS THE MAPPING: loading this case's own `scene.glb` in Blender 5.2 puts `Sheen Weight = 1.0`, `Sheen Roughness = 0.4` and `Sheen Tint = (0.8, 0.4, 0.2)` on the Principled BSDF, so the extension's numbers reach Blender's own lobe and nothing else does.\n\nTHE FAMILY ISOLATES IT, WHICH IS THE WHOLE REASON THESE SPHERES EXIST (board:1363). Same subject, same camera, same light, one layer changed at a time:\n\n| sphere | picture p99 |\n|---|---|\n| metal, smooth | **0 codes, and 0 differing channels -- bit-exact** |\n| metal | 1 code |\n| metal + clearcoat | 1 code |\n| metal + iridescence | 5 codes |\n| **metal + sheen** | **18 codes** |\n\nThe base metal lobe and the clearcoat agree with Cycles to a single code, and the perfectly smooth metal agrees to the last bit -- **so the instrument is sound and the residual is the sheen layer alone**. [MEASURED] over the 24 061 pixels differing by more than ten codes, ours is 0.13550 linear against the oracle's 0.06664, and they lie at 0.40 to 1.00 of the sphere's radius -- the grazing band, which is where two sheen models are furthest apart and where the multiple-scattering one is darker.\n\nTHE ENGINE IS NOT FREE TO ADOPT THE OTHER MODEL HERE: the extension states the formulas, so a renderer that substituted an LTC fit would be right about the light and wrong about the format. This is the oracle failing to decide a lobe, and it is rung two of the ladder rather than a defect of either side.",
+      "measured": {
+        "picturep99": {
+          "value": 18,
+          "unit": "codes",
+          "origin": "measured"
+        },
+        "pixelsBeyondTenCodes": {
+          "value": 24061,
+          "unit": "px",
+          "origin": "measured"
+        },
+        "oursOverThosePixels": {
+          "value": 0.1355,
+          "unit": "linear",
+          "origin": "measured"
+        },
+        "oracleOverThosePixels": {
+          "value": 0.06664,
+          "unit": "linear",
+          "origin": "measured"
+        },
+        "smoothMetalSiblingP99": {
+          "value": 0,
+          "unit": "codes",
+          "origin": "measured"
+        }
+      }
+    },
+    {
+      "metric": "linear_channels_differing",
+      "because": "THE TWO SIDES EVALUATE TWO DIFFERENT PUBLISHED SHEEN BRDFs, AND BOTH ARE CONFORMANT. `KHR_materials_sheen` specifies the **Charlie** distribution with the Conty-Kulla visibility and gives both in closed form -- `(2 + 1/a) * pow(sin2h, 1/(2a)) / 2pi` and the five-coefficient `lambda_sheen` fit -- which is what `src/render/stages/SheenLobe.h` implements line for line. Cycles implements **Zeltner, Burley and Chiang, *Practical Multiple-Scattering Sheen Using Linearly Transformed Cosines*, 2022**, cited in the header of `intern/cycles/kernel/closure/bsdf_sheen.h` and evaluated through precomputed LTC tables. Both fetched at the source rather than recalled.\n\nTHE IMPORTER CONFIRMS THE MAPPING: loading this case's own `scene.glb` in Blender 5.2 puts `Sheen Weight = 1.0`, `Sheen Roughness = 0.4` and `Sheen Tint = (0.8, 0.4, 0.2)` on the Principled BSDF, so the extension's numbers reach Blender's own lobe and nothing else does.\n\nTHE FAMILY ISOLATES IT, WHICH IS THE WHOLE REASON THESE SPHERES EXIST (board:1363). Same subject, same camera, same light, one layer changed at a time:\n\n| sphere | picture p99 |\n|---|---|\n| metal, smooth | **0 codes, and 0 differing channels -- bit-exact** |\n| metal | 1 code |\n| metal + clearcoat | 1 code |\n| metal + iridescence | 5 codes |\n| **metal + sheen** | **18 codes** |\n\nThe base metal lobe and the clearcoat agree with Cycles to a single code, and the perfectly smooth metal agrees to the last bit -- **so the instrument is sound and the residual is the sheen layer alone**. [MEASURED] over the 24 061 pixels differing by more than ten codes, ours is 0.13550 linear against the oracle's 0.06664, and they lie at 0.40 to 1.00 of the sphere's radius -- the grazing band, which is where two sheen models are furthest apart and where the multiple-scattering one is darker.\n\nTHE ENGINE IS NOT FREE TO ADOPT THE OTHER MODEL HERE: the extension states the formulas, so a renderer that substituted an LTC fit would be right about the light and wrong about the format. This is the oracle failing to decide a lobe, and it is rung two of the ladder rather than a defect of either side.",
+      "measured": {
+        "channelsDiffering": {
+          "value": 129702,
+          "unit": "channels",
+          "origin": "measured"
+        },
+        "p95Relative": {
+          "value": 1.6047504,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "smoothMetalSiblingDiffering": {
+          "value": 0,
+          "unit": "channels",
+          "origin": "measured"
+        }
+      }
+    }
+  ]
 }
