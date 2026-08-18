@@ -568,5 +568,54 @@
       "origin": "measured",
       "note": "The fraction of the frame the subject's projected area covers at frame 0, recomputed by the runner on every run and refused on mismatch. HARVESTED once the case could project at all: the placeholder zero this replaced was declared [SET] and said so (board:1377). What changed is that `EXT_texture_webp` is honoured, so this file is no longer refused for requiring it."
     }
-  }
+  },
+  "reductions": [
+    {
+      "metric": "oracle_samples_differing_between_seeds",
+      "because": "This asset carries a transparent surface whose alpha is strictly between 0 and 1, and Cycles resolves a transparent BSDF stochastically -- so at ONE sample per pixel a texel of half alpha is a coin flip and the seed decides it. The material is named `Fringe`, carries a `baseColorTexture` and no `baseColorFactor`: a soft fabric trim, which is exactly a mask of intermediate alpha. THE FIRST READING WAS THAT `BLEND` ITSELF IS STOCHASTIC AND IT WAS MEASURED AND KILLED -- `AlphaBlendModeTest`, `CompareAlphaCoverage` and `TransmissionOrderTest` each carry a BLEND material and each returns 0 differing samples. Intermediate alpha from a texture is the mechanism. Raising this case's sample count is a third option and is NOT free: 1 spp with a box filter at 0.01 px is what makes Cycles evaluate the same coverage predicate a centre-sampling rasteriser does, so averaging the coin flips would change what the case measures.",
+      "measured": {
+        "samplesDifferingBetweenSeeds": {
+          "value": 564,
+          "unit": "samples",
+          "origin": "measured"
+        },
+        "casesWithBlendReturningZero": {
+          "value": 3,
+          "unit": "cases",
+          "origin": "measured"
+        },
+        "samplesPerPixel": {
+          "value": 1,
+          "unit": "samples",
+          "origin": "measured"
+        }
+      }
+    },
+    {
+      "metric": "worst_disagreement_px",
+      "because": "THE INSTRUMENT DISAGREES WITH ITSELF BY MORE THAN WE DISAGREE WITH IT, and that is the whole argument. [MEASURED] the oracle's own two seeds differ on 564 samples of one scene; this engine differs from the oracle on 379. A geometric bound is a claim about where a silhouette is, and this reference's silhouette is not reproducible from one render to the next -- so what the bound would be measuring here is the coin flip the `Fringe` material's intermediate alpha makes of every boundary sample at one sample per pixel. The cause is the reduction above and this is its consequence, declared rather than left to read as our defect. What still decides this case is `picture_p99_delta_code`, which passes at 1 code, and `iou` at 0.99187184.",
+      "measured": {
+        "oracleAgainstItselfSamples": {
+          "value": 564,
+          "unit": "samples",
+          "origin": "measured"
+        },
+        "usAgainstOracleSamples": {
+          "value": 379,
+          "unit": "samples",
+          "origin": "measured"
+        },
+        "worstDisagreementPx": {
+          "value": 1.9278167,
+          "unit": "px",
+          "origin": "measured"
+        },
+        "iou": {
+          "value": 0.99187184,
+          "unit": "dimensionless",
+          "origin": "measured"
+        }
+      }
+    }
+  ]
 }
