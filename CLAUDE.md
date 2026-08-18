@@ -11,6 +11,12 @@ The world is **loaded, not modelled**. **One physics system** carries walking, d
 swimming; an **epoch and decay dial** dresses the same geometry; the actors **think**; the setting is
 post-scarcity. **The repository speaks one language: English** — code, comments, documents, commits.
 
+**AND IT IS REACHABLE.** Not one piece of this is unsolved in principle: worlds this size are streamed
+today, geometry reduces to a pixel of error today, a hard frame floor is held on weaker hardware than
+this today. What is new here is the COMBINATION and the discipline under it — so the honest posture is
+neither hope nor doubt but **appetite**. The pieces exist; assembling them well is the work, and the
+work is the good part.
+
 ## What this file is, and what it is not
 
 It is the **vision**, the **constraints**, the **stance**, the **architecture** and the **setup** — read
@@ -37,6 +43,18 @@ such script and it is named in the setup below.
 
 **The owner's comments outrank everything.** The bar is a world that holds 720p60 out of upstream data
 alone, and **the way is the goal** — a round that learned something is a good round.
+
+**Build as though it will work, and measure as though it will not.** Those are not in tension: the
+first decides what is attempted and the second decides what is believed, and a project that swaps them
+either ships nothing or ships nonsense. **Every rule below that reads as a prohibition is there to make
+the ambitious thing SAFE to attempt**, never to talk anyone out of attempting it. A tree whose defects
+are named and bounded is a tree you can be bold in.
+
+**Difficulty is information and not a verdict.** *Resistance is information* appears further down as a
+warning against improvising; read it the other way too — a thing that pushes back is a thing worth
+understanding, and the round that understands it has bought something. **A refutation is a result, a
+withdrawal is a result, and a capability nobody could reach yet is a measurement of where the edge
+is** — none of the three is a bad day.
 
 **The run is months long and the vision is its destination, not its direction.** Every clause of the
 first page is reachable from this tree by this session, and the board is its decomposition. **Over that
@@ -203,7 +221,11 @@ absent from a report.
 **Perfect is a direction and never a destination.** There is no last decimal. Stop when the next one buys
 no frame and no picture.
 
-### What must never happen
+### What must never happen — and these are the four that buy everything else
+
+*Four rules, and each one is what makes the rest of the engine free to be ambitious: a frame that
+always lands, a world with no holes in it, a frame path with no surprises in it, and no global anyone
+has to reason around. Hold these and almost nothing else is dangerous.*
 
 **A STALL IS WORSE THAN A WRONG PIXEL.** A frame that misses is seen by everyone; a code of error is seen
 by nobody. Every trade between the two goes the same way.
@@ -564,6 +586,17 @@ implementation. **Seven fields and no others — an eighth needs a decision:**
 | `Regresses:` | **the tree changed** — the closure was true and the tree stopped satisfying it |
 | `Supersedes:` | **our understanding changed** — the claim was correct as stated and too narrow, or wrong |
 
+**AN ITEM SAYS WHAT WILL BE TRUE, not what is broken.** A title is the capability the tree gains, and
+the body is how to get there — *the oracle multiplies the vertex colour*, never *the oracle is wrong
+about vertex colour*. It costs nothing to write and it changes what a reader does with it: a defect
+reads as a complaint and closes with relief, **a capability reads as a plan and closes with something
+gained**. The measurement that motivated it belongs in the body, in full, with its number.
+
+**A closed item is a thing the engine can now do.** The board's real product is not a shrinking count
+of faults; it is the growing list of sentences that begin *this engine can*. Read `board/closed/` that
+way and the run's shape is visible: sixty of them and every one is a capability nobody has to build
+again.
+
 **A defect found becomes a work item in the same round it is found.** A finding that lives only in a
 report is lost at the next context boundary.
 
@@ -736,6 +769,14 @@ Metal 4 — carrying **55.3 Mpx/s** inside **16.67 ms**, over a moving camera, a
 is somebody else's hardware, and *"as good as that one"* cannot be measured on a Tuesday. **A frame time
 can.** Where a claim needs evidence that something is reachable, the evidence is a technique with a
 published mechanism — the table below — and never a screenshot.
+
+**That the target is a number does not make it a small one, and the number is not what this is FOR.**
+16.67 ms is the discipline; what it buys is a world loaded from the real one, actors that think in it,
+and a game above both — walked into at sixty frames a second on a machine that fits in a bag. **Every
+one of the techniques below is somebody's shipped answer to a piece of that**, which is exactly why
+they are cited: not to borrow a look, but because they are the evidence that the pieces are real. The
+combination is the new part, and a combination is a thing you assemble rather than a thing you hope
+for.
 
 ### Technique — cited for a principle, never as authority over a measurement
 
