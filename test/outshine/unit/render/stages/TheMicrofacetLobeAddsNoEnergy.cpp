@@ -136,7 +136,7 @@ DirectionalAlbedo Integrate(double roughness, double nv, double metalness, uint3
       const double density = VisibleNormalDensity(alpha, nv, std::fmax(half.Z, 0.0));
       if (light.Z > 0.0 && vh > 0.0 && density > 0.0) {
         const BrdfGeometry geometry{light.Z, nv, std::fmax(half.Z, 0.0), vh};
-        const BrdfTerms terms = MetalRoughBrdf(diffuseColour, f0, alphaSquared, geometry);
+        const BrdfTerms terms = MetalRoughBrdf(diffuseColour, f0, 1.0, alphaSquared, geometry);
         albedo.Specular += terms.Specular[0] * light.Z / density;
       }
     }
@@ -149,7 +149,7 @@ DirectionalAlbedo Integrate(double roughness, double nv, double metalness, uint3
     const Vector half = Normalised({light.X + view.X, light.Y + view.Y, light.Z + view.Z});
     const BrdfGeometry geometry{light.Z, nv, std::fmax(half.Z, 0.0),
                                 std::fmax(Dot(view, half), 0.0)};
-    const BrdfTerms terms = MetalRoughBrdf(diffuseColour, f0, alphaSquared, geometry);
+    const BrdfTerms terms = MetalRoughBrdf(diffuseColour, f0, 1.0, alphaSquared, geometry);
     albedo.Diffuse += terms.Diffuse[0] * kBrdfPi;
   }
   albedo.Specular /= samples;

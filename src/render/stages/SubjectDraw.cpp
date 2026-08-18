@@ -175,6 +175,10 @@ struct M { float factor; float cut; float metalness; float roughness;
            /* The dielectric normal-incidence reflectance, already combined from the file's ior and
             * specular factors by `core/Material.h` (board:1205). The shader recomputes nothing. */
            packed_float3 f0;
+           /* The same extension's grazing half (board:1428). Carried as its own number because the
+            * strength image modulates it exactly as it modulates F0, so a fragment that samples one
+            * has already paid for the other. */
+           float specularWeight;
            /* `KHR_materials_transmission` AND `KHR_materials_volume` (board:1386). `transmission` is
             * the fraction that passes through; `thickness` is what makes a volume a volume, and the
             * format says so outright -- *if the value is 0 the material is thin-walled*. The
@@ -285,6 +289,13 @@ static inline float2 uvBy(packed_float3 u, packed_float3 v, Uvs uv, float second
                       * specularTintMap.sample(specularTintSampler, \
                             uvBy(surface.specularTintUvU, surface.specularTintUvV, (uv), \
                                  surface.specularTintUvSecond)).rgb)
+/* F90's TAP IS F0's, MINUS THE TINT. `dielectric_f90 = specular` is a SCALAR in the extension, so the
+ * strength image's alpha reaches it and the sRGB tint image does not -- a tinted F90 would colour the
+ * rim of a surface whose reflection the format says is white there. */
+#define SUBJECT_SPECULAR_F90(uv) \
+  (surface.specularWeight * specularStrengthMap.sample(specularStrengthSampler, \
+                                uvBy(surface.specularStrengthUvU, surface.specularStrengthUvV, (uv), \
+                                     surface.specularStrengthUvSecond)).a)
 #define SUBJECT_EMISSIVE_TAP(uv) \
   emissiveMap.sample(emissiveSampler, \
                      uvBy(surface.emissiveUvU, surface.emissiveUvV, (uv), surface.emissiveUvSecond))
@@ -621,8 +632,8 @@ SUBJECT_LIT_ARM(vsLitTexturedTwoTinted,
  * lights a second time. */
 static inline float3 shadeRow(constant M &surface, constant Lights &lights, Occluders occluders,
                               float3 localM, float3 n, float3 p, float3 albedo, float metalness,
-                              float roughness, float3 dielectricF0, float3 emitted,
-                              float3 tangentDir) {
+                              float roughness, float3 dielectricF0, float dielectricF90,
+                              float3 emitted, float3 tangentDir) {
   float3 sheenColour = float3(surface.sheenColour);
   float sheenRoughness = surface.sheenRoughness;
   float clearcoat = surface.clearcoat;
@@ -643,6 +654,10 @@ static inline float3 shadeRow(constant M &surface, constant Lights &lights, Occl
   float a2 = a * a;
   float3 diffuseColour = albedo * (1.0 - metalness);
   float3 f0 = mix(dielectricF0, albedo, metalness);
+  /* A CONDUCTOR'S GRAZING REFLECTANCE IS UNITY AND THE EXTENSION SAYS SO BY NAMING ITS OWN `f90`
+   * *dielectric* (board:1428). The same blend the F0 pair takes, so a half-metallic row crosses
+   * between the two the way every other quantity in this shader does. */
+  float f90 = mix(dielectricF90, 1.0, metalness);
   float nv = max(dot(n, v), 1.0e-6);
   /* THE ENERGY THE SINGLE BOUNCE LOST, PUT BACK (board:1408). glTF's Appendix B traces one bounce off
    * the microfacets and drops everything that would have left after two; the core specification says
@@ -740,9 +755,9 @@ static inline float3 shadeRow(constant M &surface, constant Lights &lights, Occl
        * curve and the film's, which is what `iridescence_strength` means in both of its pseudocode
        * blocks, and the base is then weighted by `1 - max(F)` rather than channelwise. */
       float3 filmed = iridescenceFresnel(vh, iridescenceThickness, surface.iridescenceIor, f0);
-      reflected = brdfRgbMix(diffuseColour, mix(brdfFresnel(f0, vh), filmed, iridescence), lobe);
+      reflected = brdfRgbMix(diffuseColour, mix(brdfFresnel(f0, f90, vh), filmed, iridescence), lobe);
     } else {
-      reflected = brdfCombine(diffuseColour, brdfFresnel(f0, vh), lobe);
+      reflected = brdfCombine(diffuseColour, brdfFresnel(f0, f90, vh), lobe);
     }
     reflected.specular *= energyScale;
     /* `KHR_materials_sheen` LAYERED OVER THE BASE, and the base SCALED so the two together send out
@@ -795,9 +810,16 @@ static inline float3 shadeRow(constant M &surface, constant Lights &lights, Occl
    * drawn too bright here. No corpus case measures that today; the first one that does is what pays
    * for the split-sum. */
   const float nvClamped = clamp(nv, 0.0, 1.0);
-  const float grazing = 1.0 - nvClamped;
-  const float fresnel = grazing * grazing * grazing * grazing * grazing;
-  const float3 specularEnvironment = f0 + (1.0 - f0) * fresnel;
+  /* THE SAME FRESNEL THE LOBE USES, AND IT USED TO BE A SECOND SPELLING OF IT (board:1428). Written
+   * out here, this term carried a grazing reflectance of one no matter what the file declared, so a
+   * panel asking for NO specular reflection still wore the environment as a rim -- and every reading
+   * of it came out identical because the row's own number never reached this line. [MEASURED] on
+   * `SpecularTest`'s `specularFactor = 0` panel, whose oracle is exactly zero: 0.01059 linear as a
+   * mean, a rim peaking at 0.242 against a black, smooth, non-metallic body.
+   *
+   * `nv` AND NOT `vh` IS THIS TERM'S OWN ANGLE and that has not changed: the mirror direction under a
+   * constant environment is the view's own reflection, so the half-vector is the normal. */
+  const float3 specularEnvironment = brdfFresnel(f0, f90, nvClamped);
   sum = sum + lights.environment.rgb * (diffuseColour + specularEnvironment);
   return sum + emitted;
 }
@@ -808,7 +830,8 @@ static inline float3 shadeRow(constant M &surface, constant Lights &lights, Occl
 static inline float3 shade(constant M &surface, constant Lights &lights, Occluders occluders,
                            float3 localM, float3 n, float3 p, float3 albedo) {
   return shadeRow(surface, lights, occluders, localM, n, p, albedo, surface.metalness,
-                  surface.roughness, float3(surface.f0), surface.emissive, float3(0.0));
+                  surface.roughness, float3(surface.f0), surface.specularWeight,
+                  surface.emissive, float3(0.0));
 }
 
 /* A DOUBLE-SIDED FACET HIT FROM BEHIND IS LIT BY ITS OTHER FACE, which is what the flip is: the
@@ -887,6 +910,7 @@ fragment SFrag fsLitTextured(LOut in [[stage_in]], bool front [[front_facing]], 
   o.col = float4(shadeRow(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb * in.colour.rgb,
                           surface.metalness, surface.roughness, SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
+                          SUBJECT_SPECULAR_F90(SUBJECT_UVS(in)),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
                           float3(0.0)), 1.0);
   SUBJECT_SET_VELOCITY(o, in);
@@ -904,6 +928,7 @@ fragment SFrag fsLitMaskedTextured(LOut in [[stage_in]], bool front [[front_faci
   o.col = float4(shadeRow(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb * in.colour.rgb,
                           surface.metalness, surface.roughness, SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
+                          SUBJECT_SPECULAR_F90(SUBJECT_UVS(in)),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
                           float3(0.0)), 1.0);
   SUBJECT_SET_VELOCITY(o, in);
@@ -920,6 +945,7 @@ fragment SFrag fsLitBlendedTextured(LOut in [[stage_in]], bool front [[front_fac
   o.col = float4(shadeRow(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb * in.colour.rgb,
                           surface.metalness, surface.roughness, SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
+                          SUBJECT_SPECULAR_F90(SUBJECT_UVS(in)),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
                           float3(0.0)),
                  surface.factor * tap.a * in.colour.a);
@@ -1017,6 +1043,7 @@ static inline Shaded mappedShade(constant M &surface, constant Lights &lights, O
   return Shaded{shadeRow(surface, lights, occluders, in.lp, shadingNormal, in.p, albedo,
                          surface.metalness * orm.b,
                          roughenedBy(surface.roughness * orm.g, meanResultantLength), specularF0,
+                         SUBJECT_SPECULAR_F90(SUBJECT_UVS(in)),
                          emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
                          in.t.xyz),
                 shadingNormal};
@@ -1551,6 +1578,7 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
               row.BaseColour[0],   row.BaseColour[1], row.BaseColour[2], row.BaseColour[3],
               row.Emission[0],     row.Emission[1],   row.Emission[2],   material.NormalScale,
               identity,            f0[0],             f0[1],             f0[2],
+              DielectricF90(row),
               row.Transmission,    row.Thickness,     row.AttenuationDistance,
               row.AttenuationColour[0], row.AttenuationColour[1], row.AttenuationColour[2],
               row.SheenColour[0], row.SheenColour[1], row.SheenColour[2], row.SheenRoughness,

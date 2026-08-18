@@ -134,6 +134,28 @@ inline void DielectricF0(const Material &material, float out[3]) {
   }
 }
 
+/* THE DIELECTRIC'S GRAZING REFLECTANCE, AND IT IS THE SAME EXTENSION'S SECOND HALF (board:1428).
+ * `KHR_materials_specular` states the pair together --
+ *
+ *     dielectric_f0  = min(0.04 * specularColor, 1) * specular
+ *     dielectric_f90 = specular
+ *
+ * -- so a reading that carries the factor into F0 and leaves F90 at unity keeps the whole grazing rim
+ * of a surface the file asked to have none. [MEASURED] on `SpecularTest`, whose first row declares
+ * `specularFactor = 0` on a black, smooth, non-metallic panel: the oracle renders it EXACTLY zero and
+ * we rendered 0.01059 linear, which is the size of the rim every other panel in that row also carries.
+ *
+ * IT IS THE FACTOR ITSELF AND NOT A CAPPED ONE, because the cap the extension states is on the F0
+ * product alone; and `ior = 0` disables this term for the reason it disables F0 -- a surface with no
+ * dielectric interface has no reflection at any angle, grazing included.
+ *
+ * WHY THE PAIR TOGETHER IS EXACTLY THE FORMAT'S `weight * fresnel`: with `f0' = s*f0` and `f90' = s`,
+ * Schlick reads `s*f0 + (s - s*f0)*(1-vh)^5 = s * (f0 + (1-f0)*(1-vh)^5)`, so the layer weight and the
+ * base's `1 - weight * max(fresnel)` both fall out of these two numbers and neither needs a third. */
+inline float DielectricF90(const Material &material) {
+  return material.Ior == 0.0f ? 0.0f : material.SpecularFactor;
+}
+
 /* A MATERIAL AS THE PICTURE TAKES IT: a row of numbers, and nothing in it can switch a pipeline
  * state (the deleted architecture document). Its field meanings live in the shader that reads the row and are
  * written down nowhere else, which is what keeps a content taxonomy out of the engine. */

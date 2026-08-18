@@ -71,14 +71,17 @@ bool Refused(const void *made, const char *what) {
 struct SamplePoint {
   std::array<double, 3> DiffuseColour{};
   std::array<double, 3> F0{};
+  /* `KHR_materials_specular`'s grazing half (board:1428). Swept like every other input, because a
+   * parameter the twins share but no sample varies is a parameter neither half is compared on. */
+  double F90 = 1.0;
   double A2 = 0;
   BrdfGeometry At{};
 };
 
-/* THE UPLOAD LAYOUT, ELEVEN FLOATS PER SAMPLE, and the shader reads the stride from this constant
+/* THE UPLOAD LAYOUT, TWELVE FLOATS PER SAMPLE, and the shader reads the stride from this constant
  * rather than from a second spelling of the number -- the same rule the model's own constants follow
  * (`MetalRoughBrdf.h`). */
-constexpr uint32_t kInputFloats = 11;
+constexpr uint32_t kInputFloats = 12;
 constexpr uint32_t kOutputFloats = 6;   /* diffuse rgb, then specular rgb */
 
 constexpr double kFloatEpsilon = 5.9604644775390625e-08;   /* 2^-24, half an ulp at 1.0 */
@@ -137,13 +140,18 @@ Vector CosineDirection(uint32_t index, uint32_t count) {
 struct Material {
   std::array<double, 3> DiffuseColour;
   std::array<double, 3> F0;
+  /* `KHR_materials_specular`'s `dielectric_f90 = specular` (board:1428). Unity is every material that
+   * declares no such factor; the two rows below it are the extension's weakened rim and its absence,
+   * and a row whose F0 is already one has a flat Fresnel whatever this is. */
+  double F90;
 };
 
 const Material kMaterials[] = {
-    {{0.8, 0.8, 0.8}, {0.04, 0.04, 0.04}},
-    {{0.2, 0.5, 0.9}, {0.04, 0.04, 0.04}},
-    {{0.0, 0.0, 0.0}, {0.955, 0.638, 0.538}},
-    {{0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}},
+    {{0.8, 0.8, 0.8}, {0.04, 0.04, 0.04}, 1.0},
+    {{0.2, 0.5, 0.9}, {0.04, 0.04, 0.04}, 0.5},
+    {{0.8, 0.8, 0.8}, {0.0, 0.0, 0.0}, 0.0},
+    {{0.0, 0.0, 0.0}, {0.955, 0.638, 0.538}, 1.0},
+    {{0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}, 1.0},
 };
 /* Both ends included: 0 is the delta-lobe arm the model states for itself, 1 is glTF's maximum. */
 constexpr double kRoughnessSweep[] = {0.0, 0.05, 0.15, 0.3, 0.5, 0.75, 1.0};
@@ -165,6 +173,7 @@ std::vector<SamplePoint> SampleSet(void) {
             point.DiffuseColour[channel] = AsFloat(material.DiffuseColour[channel]);
             point.F0[channel] = AsFloat(material.F0[channel]);
           }
+          point.F90 = AsFloat(material.F90);
           const double alpha = roughness * roughness;
           point.A2 = AsFloat(alpha * alpha);
           point.At.Nl = AsFloat(light.Z);
@@ -185,6 +194,7 @@ std::vector<float> Uploaded(const std::vector<SamplePoint> &points) {
   for (const SamplePoint &point : points) {
     for (const double channel : point.DiffuseColour) { floats.push_back((float)channel); }
     for (const double channel : point.F0) { floats.push_back((float)channel); }
+    floats.push_back((float)point.F90);
     floats.push_back((float)point.A2);
     floats.push_back((float)point.At.Nl);
     floats.push_back((float)point.At.Nv);
@@ -215,7 +225,8 @@ kernel void tie(uint3 id [[thread_position_in_grid]],
   float3 diffuseColour = float3(samples[base], samples[base + 1u], samples[base + 2u]);
   float3 f0 = float3(samples[base + 3u], samples[base + 4u], samples[base + 5u]);
   Brdf terms = metalRoughBrdf(diffuseColour, f0, samples[base + 6u], samples[base + 7u],
-                              samples[base + 8u], samples[base + 9u], samples[base + 10u]);
+                              samples[base + 8u], samples[base + 9u], samples[base + 10u],
+                              samples[base + 11u]);
   uint slot = id.x * kOut;
   results[slot] = terms.diffuse.x;
   results[slot + 1u] = terms.diffuse.y;
@@ -371,7 +382,7 @@ Agreement Compare(const std::vector<SamplePoint> &points, const std::vector<floa
   Agreement found;
   for (size_t at = 0; at < points.size(); ++at) {
     const SamplePoint &point = points[at];
-    const BrdfTerms host = MetalRoughBrdf(point.DiffuseColour, point.F0, point.A2, point.At);
+    const BrdfTerms host = MetalRoughBrdf(point.DiffuseColour, point.F0, point.F90, point.A2, point.At);
     const double allowedRelative = AllowedRelative(point.A2, point.At.Nh);
     if (allowedRelative > 0.01) { ++found.LooseSamples; }
     const size_t slot = at * kOutputFloats;

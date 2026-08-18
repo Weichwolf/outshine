@@ -58,12 +58,13 @@ constexpr double kBrdfPi = 3.141592653589793;
  * as `pow(x, 5)` so that the two halves perform the SAME four multiplications: a device `pow` is
  * `exp2(5 * log2(x))` under a relaxed-precision compiler and its error is thousands of ulps, which
  * would put a transcendental's accuracy inside the tie that compares the halves. */
-[[nodiscard]] inline std::array<double, 3> BrdfFresnel(const std::array<double, 3> &f0, double vh) {
+[[nodiscard]] inline std::array<double, 3> BrdfFresnel(const std::array<double, 3> &f0, double f90,
+                                                      double vh) {
   const double grazing = 1.0 - vh;
   const double squared = grazing * grazing;
   const double weight = squared * squared * grazing;
-  return {f0[0] + (1.0 - f0[0]) * weight, f0[1] + (1.0 - f0[1]) * weight,
-          f0[2] + (1.0 - f0[2]) * weight};
+  return {f0[0] + (f90 - f0[0]) * weight, f0[1] + (f90 - f0[1]) * weight,
+          f0[2] + (f90 - f0[2]) * weight};
 }
 
 /* THE PERTURBATION A MIP CHAIN AVERAGED AWAY, RETURNED AS ROUGHNESS (board:1130). `l` is the mean
@@ -190,9 +191,9 @@ struct BrdfGeometry {
 }
 
 [[nodiscard]] inline BrdfTerms MetalRoughBrdf(const std::array<double, 3> &diffuseColour,
-                                              const std::array<double, 3> &f0, double a2,
+                                              const std::array<double, 3> &f0, double f90, double a2,
                                               const BrdfGeometry &at) {
-  return BrdfCombine(diffuseColour, BrdfFresnel(f0, at.Vh), BrdfLobe(a2, at));
+  return BrdfCombine(diffuseColour, BrdfFresnel(f0, f90, at.Vh), BrdfLobe(a2, at));
 }
 
 /* The device half. A textual splice, like the emitters beside it -- never compiled alone. */
@@ -245,10 +246,10 @@ static inline float roughenedBy(float roughness, float meanResultantLength) {
   return sqrt(sqrt(toksvigA2(alpha * alpha, meanResultantLength)));
 }
 
-static inline float3 brdfFresnel(float3 f0, float vh) {
+static inline float3 brdfFresnel(float3 f0, float f90, float vh) {
   float grazing = 1.0 - vh;
   float squared = grazing * grazing;
-  return f0 + (float3(1.0) - f0) * (squared * squared * grazing);
+  return f0 + (float3(f90) - f0) * (squared * squared * grazing);
 }
 
 static inline float brdfLobe(float a2, float nl, float nv, float nh) {
@@ -270,9 +271,9 @@ static inline Brdf brdfRgbMix(float3 diffuseColour, float3 fresnel, float lobe) 
   return terms;
 }
 
-static inline Brdf metalRoughBrdf(float3 diffuseColour, float3 f0, float a2,
+static inline Brdf metalRoughBrdf(float3 diffuseColour, float3 f0, float f90, float a2,
                                   float nl, float nv, float nh, float vh) {
-  return brdfCombine(diffuseColour, brdfFresnel(f0, vh), brdfLobe(a2, nl, nv, nh));
+  return brdfCombine(diffuseColour, brdfFresnel(f0, f90, vh), brdfLobe(a2, nl, nv, nh));
 }
 )";
 }

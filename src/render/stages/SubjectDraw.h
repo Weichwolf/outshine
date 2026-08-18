@@ -391,7 +391,7 @@ private:
    * image, in the order the shader's own struct declares them. The list is NOT enumerated here: it
    * drifted twice while it was, and `SubjectDraw.cpp` now deduces the length from the assignment and
    * `static_assert`s it against this, so the two cannot disagree. */
-  static constexpr int kSurfaceScalars = 34;
+  static constexpr int kSurfaceScalars = 35;
   /* AND ONE uv MATRIX PER IMAGE (board:1177). `KHR_texture_transform` is stated inside each
    * `textureInfo`, so four references means four matrices and there is no per-material transform to
    * spell: an engine carrying one would have to choose which reference's it kept. Six floats each
