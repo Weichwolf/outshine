@@ -128,6 +128,11 @@ private:
 
   std::string Path_, Error_, Version_, MinVersion_;
   std::vector<std::string> Required_;
+  /* `KHR_mesh_quantization` WIDENS THE ATTRIBUTE TABLE AND IS NEVER OPTIONAL, so this is read from
+   * `extensionsRequired` alone (board:1384). The extension's own reason: a file cannot offer both a
+   * float and a quantised version of the same data, so a reader that ignored it would draw the wrong
+   * geometry rather than a plainer one. */
+  bool Quantised_ = false;
   std::vector<std::vector<uint8_t>> Buffers_;
   std::vector<BufferView> Views_;
   std::vector<Accessor> Accessors_;

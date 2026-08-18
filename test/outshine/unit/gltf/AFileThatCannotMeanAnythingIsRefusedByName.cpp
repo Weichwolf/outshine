@@ -113,10 +113,16 @@ int main() {
          R"({"asset":{"version":"2.0"},
              "extensionsRequired":["KHR_draco_mesh_compression"]})"});
   Holds({"and so is a required extension named beside one that is merely used",
-         "requires extension 'KHR_mesh_quantization'",
+         "requires extension 'KHR_materials_sheen'",
          R"({"asset":{"version":"2.0"},
-             "extensionsUsed":["KHR_texture_transform","KHR_mesh_quantization"],
-             "extensionsRequired":["KHR_mesh_quantization"]})"});
+             "extensionsUsed":["KHR_texture_transform","KHR_materials_sheen"],
+             "extensionsRequired":["KHR_materials_sheen"]})"});
+  /* THE EXAMPLE MUST BE AN EXTENSION THIS READER GENUINELY DOES NOT HONOUR, and it was
+   * `KHR_mesh_quantization` until that one was built (board:1384). **The test did not become wrong --
+   * its SUBJECT moved**, which is the one legitimate reason to edit a specification: the file it
+   * described is no longer a file this reader refuses. `KHR_materials_sheen` is unbuilt today and is
+   * itself a task under `board:1382`, so this line is expected to move again and that is the point of
+   * saying so here. */
 
   /* THE APPEARANCE TABLES REFUSE BY NAME TOO, on the same rule: a dangling index that read as -1
    * would draw an untextured surface and look like a material somebody authored that way. */

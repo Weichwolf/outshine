@@ -196,6 +196,7 @@ bool KnownWrap(int raw, Wrap &out) {
  * is flattened, and is therefore gone before a draw list exists: the render path never learns that
  * variants are a thing, and no fragment arm, pipeline or interpolant is added by it. */
 constexpr const char *const kHonouredExtensions[] = {"KHR_lights_punctual",
+                                                     "KHR_mesh_quantization",
                                                      "KHR_node_visibility",
                                                      "KHR_materials_emissive_strength",
                                                      "KHR_materials_ior",
@@ -280,6 +281,72 @@ bool KnownAlphaMode(const std::string &raw, AlphaMode &out) {
 }
 
 } // namespace
+
+/* WHICH ACCESSOR AN ATTRIBUTE MAY BE, and it is the format's own table rather than this reader's
+ * taste (`Specification.adoc`, mesh primitive attribute semantics). Base glTF 2.0 permits:
+ *
+ *   POSITION   VEC3  float
+ *   NORMAL     VEC3  float
+ *   TANGENT    VEC4  float
+ *   TEXCOORD_n VEC2  float | unsigned byte normalized | unsigned short normalized
+ *   COLOR_n    VEC3 or VEC4  float | unsigned byte normalized | unsigned short normalized
+ *   JOINTS_n   VEC4  unsigned byte | unsigned short
+ *   WEIGHTS_n  VEC4  float | unsigned byte normalized | unsigned short normalized
+ *
+ * `KHR_mesh_quantization` WIDENS EXACTLY FOUR OF THOSE ROWS and nothing else. Its own words: *because
+ * the extension does not provide a way to specify both FLOAT and quantized versions of the data,
+ * files that use the extension must specify it in extensionsRequired* -- so it is never optional and
+ * the widened set is gated on the file declaring it.
+ *
+ * WHY THE TABLE IS ENFORCED AT ALL. Until now every combination decoded, which made honouring the
+ * extension mean nothing: a reader that already accepted a quantised POSITION was not implementing
+ * the extension, it was failing to check. The check IS the behaviour here (board:1384), and
+ * [MEASURED] over the 148 models at the pin it refuses none of them -- one declares the extension and
+ * uses it, and no model uses a non-base combination without declaring it. */
+struct AttributeShape {
+  ElementType Element;
+  ComponentType Component;
+  bool Normalized;
+};
+
+bool ShapeAllowed(const std::string &semantic, const AttributeShape &shape, bool quantised) {
+  const bool f32 = shape.Component == ComponentType::Float32;
+  const bool u8 = shape.Component == ComponentType::UInt8;
+  const bool u16 = shape.Component == ComponentType::UInt16;
+  const bool i8 = shape.Component == ComponentType::Int8;
+  const bool i16 = shape.Component == ComponentType::Int16;
+  const bool vec2 = shape.Element == ElementType::Vec2;
+  const bool vec3 = shape.Element == ElementType::Vec3;
+  const bool vec4 = shape.Element == ElementType::Vec4;
+  const bool norm = shape.Normalized;
+
+  if (semantic == "POSITION") {
+    if (vec3 && f32 && !norm) { return true; }
+    return quantised && vec3 && (i8 || u8 || i16 || u16);
+  }
+  if (semantic == "NORMAL") {
+    if (vec3 && f32 && !norm) { return true; }
+    return quantised && vec3 && norm && (i8 || i16);
+  }
+  if (semantic == "TANGENT") {
+    if (vec4 && f32 && !norm) { return true; }
+    return quantised && vec4 && norm && (i8 || i16);
+  }
+  if (semantic.rfind("TEXCOORD_", 0) == 0) {
+    if (vec2 && ((f32 && !norm) || ((u8 || u16) && norm))) { return true; }
+    return quantised && vec2 && (i8 || (u8 && !norm) || i16 || (u16 && !norm));
+  }
+  if (semantic.rfind("COLOR_", 0) == 0) {
+    return (vec3 || vec4) && ((f32 && !norm) || ((u8 || u16) && norm));
+  }
+  if (semantic.rfind("JOINTS_", 0) == 0) { return vec4 && (u8 || u16) && !norm; }
+  if (semantic.rfind("WEIGHTS_", 0) == 0) {
+    return vec4 && ((f32 && !norm) || ((u8 || u16) && norm));
+  }
+  /* AN APPLICATION-SPECIFIC SEMANTIC IS THE FILE'S BUSINESS AND NOT THIS TABLE'S: the format reserves
+   * every name it defines and leaves `_`-prefixed ones to the writer. */
+  return true;
+}
 
 bool Document::Honours(const std::string &extension) {
   for (const char *const known : kHonouredExtensions) {
@@ -414,6 +481,7 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     Required_.push_back(required[i].Str(""));
   }
   for (const std::string &extension : Required_) {
+    if (extension == "KHR_mesh_quantization") { Quantised_ = true; }
     if (!Honours(extension)) {
       return Refuse("requires extension '" + extension + "', which this reader does not implement");
     }
@@ -523,6 +591,15 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
         if (attribute.Accessor < 0 || static_cast<size_t>(attribute.Accessor) >= Accessors_.size()) {
           return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " attribute " +
                         attribute.Semantic + " names an accessor the file does not carry");
+        }
+        const Accessor &carried = Accessors_[static_cast<size_t>(attribute.Accessor)];
+        const AttributeShape shape{carried.Element, carried.Component, carried.Normalized};
+        if (!ShapeAllowed(attribute.Semantic, shape, Quantised_)) {
+          return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " attribute " +
+                        attribute.Semantic + " is an accessor shape glTF 2.0 does not permit for it" +
+                        (Quantised_ ? ", even with KHR_mesh_quantization"
+                                    : " -- KHR_mesh_quantization widens this and the file does not "
+                                      "require it"));
         }
         primitive.Attributes.push_back(std::move(attribute));
       }

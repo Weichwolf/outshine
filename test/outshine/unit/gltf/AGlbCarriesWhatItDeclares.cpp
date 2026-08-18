@@ -52,6 +52,8 @@ std::vector<uint8_t> Binary() {
 
 const char *const kJson = R"({
   "asset": { "version": "2.0" },
+  "extensionsUsed": [ "KHR_mesh_quantization" ],
+  "extensionsRequired": [ "KHR_mesh_quantization" ],
   "scene": 0,
   "scenes": [ { "nodes": [0] } ],
   "nodes": [ { "mesh": 0 } ],
