@@ -35,6 +35,8 @@
 
 #include "Check.h"
 
+#include "PreparedRoot.h"
+
 #include "Orbit.h"
 #include "SourceDigest.h"
 #include "WhatIsDrawn.h"
@@ -44,6 +46,8 @@
 #include "RenderPlan.h"
 #include "Renderer.h"
 #include "Subject.h"
+
+using outshine::Test::PreparedRoot;
 
 namespace {
 
@@ -78,14 +82,18 @@ struct Subject {
   const char *Path;
 };
 
-/* THE CORPUS'S OWN ASSETS, in the order of their triangle counts. Every one of them is already in
- * the tree as a render case's subject; nothing is fetched and nothing is generated for this. */
+/* THE CORPUS'S OWN ASSETS, in the order of their triangle counts, NAMED BY THEIR LEAF UNDER THE
+ * PREPARED ROOT (board:1364). Every one is a render case's subject and none of them is in the tree:
+ * a case directory carries its manifest and nothing else, so the path is the prepared root plus the
+ * case's own flattened directory -- and these two tests were still naming the tree when the products
+ * moved out of it. The table stays `constexpr` and the root is prepended where it is read, because
+ * the root is a runtime answer about this machine's temp directory. */
 constexpr Subject kSubjects[] = {
-    {"water-bottle", "test/khronos/glTF/WaterBottle/scene.glb"},
-    {"normal-tangent-mirror", "test/khronos/glTF/NormalTangentMirrorTest/NormalTangentMirrorTest.gltf"},
-    {"normal-tangent", "test/khronos/glTF/NormalTangentTest/NormalTangentTest.gltf"},
-    {"scifi-helmet", "test/khronos/glTF/SciFiHelmet/scene.gltf"},
-    {"a-beautiful-game", "test/khronos/glTF/ABeautifulGame/scene.gltf"},
+    {"water-bottle", "/test-khronos-glTF-WaterBottle/scene.glb"},
+    {"normal-tangent-mirror", "/test-khronos-glTF-NormalTangentMirrorTest/NormalTangentMirrorTest.gltf"},
+    {"normal-tangent", "/test-khronos-glTF-NormalTangentTest/NormalTangentTest.gltf"},
+    {"scifi-helmet", "/test-khronos-glTF-SciFiHelmet/scene.gltf"},
+    {"a-beautiful-game", "/test-khronos-glTF-ABeautifulGame/scene.gltf"},
 };
 
 /* ONE ARM'S FRAME TIMES, SORTED, and the order statistics read off them. A mean is not among them
@@ -260,7 +268,7 @@ int main(void) {
 
   for (const Subject &which : kSubjects) {
     outshine::Gltf::Document document;
-    if (!document.ReadFile(which.Path)) {
+    if (!document.ReadFile(PreparedRoot() + which.Path)) {
       std::printf("SUBJECT %s unread: %s\n", which.Id, document.Error().c_str());
       CHECK(false, "every declared subject of the frame instrument is in the tree");
       continue;

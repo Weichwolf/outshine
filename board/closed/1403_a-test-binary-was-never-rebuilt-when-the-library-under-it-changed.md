@@ -40,3 +40,22 @@ prerequisite. [MEASURED] after it, a change to `src/gltf/Document.cpp` rebuilds 
 **This is the most dangerous class of defect an instrument can have and it was invisible by
 construction**: it makes a test greener than the truth, never redder, so nothing in a run's output
 points at it. It was found only because a change that HAD to alter a result did not.
+
+## What it had been hiding, found in the first run after the repair
+
+**A `static_assert` that contradicted the format.**
+`test/outshine/unit/generators/SameRegionSamePlacement.cpp` asserted that a pane with transmission 0.9
+and ior 1.5 is `Refractive`. `KHR_materials_volume` says a material with no thickness is thin-walled
+whatever its index of refraction, and `GlassBrokenWindow` at the pin declares exactly that pane. The
+assertion encoded the rule the engine used to have; it now states the format's, and a second material
+given a thickness carries the volume case.
+
+**Two frame tests reading paths that stopped holding products.**
+`TheFrameCostIsPublishedAgainstItsOwnFloor` and `TheVisibilityTermIsPricedPerRay` still named
+`test/khronos/glTF/<case>/scene.gltf` -- the tree -- although `board:1364` moved every product to the
+prepared root. **They would have said so on the day of the move.** Their binaries were never rebuilt,
+so they went on reporting whatever they had last been built to report.
+
+*Both are pre-existing and neither is large. What matters is that the first honest run surfaced both
+at once, which is the shape a hidden instrument defect always has: it does not cause failures, it
+banks them.*

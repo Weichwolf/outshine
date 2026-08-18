@@ -48,6 +48,8 @@
 
 #include "Check.h"
 
+#include "PreparedRoot.h"
+
 #include "Orbit.h"
 #include "SourceDigest.h"
 #include "WhatIsDrawn.h"
@@ -58,6 +60,8 @@
 #include "RenderPlan.h"
 #include "Renderer.h"
 #include "Subject.h"
+
+using outshine::Test::PreparedRoot;
 
 namespace {
 
@@ -122,13 +126,13 @@ struct Arm {
  * THE TWO SUBJECTS ARE THE CORPUS'S OWN, not a stand-in: traversal and fill both depend on how the
  * triangles are distributed and not only on how many there are. */
 constexpr Arm kArms[] = {
-    {"geometry", "a-beautiful-game", "test/khronos/glTF/ABeautifulGame/scene.gltf", 1.00, 0,
+    {"geometry", "a-beautiful-game", "/test-khronos-glTF-ABeautifulGame/scene.gltf", 1.00, 0,
      Appearance::Flat},
-    {"fill", "scifi-helmet", "test/khronos/glTF/SciFiHelmet/scene.gltf", 0.25, 1,
+    {"fill", "scifi-helmet", "/test-khronos-glTF-SciFiHelmet/scene.gltf", 0.25, 1,
      Appearance::Flat},
-    {"fill-twice-lit", "scifi-helmet", "test/khronos/glTF/SciFiHelmet/scene.gltf", 0.25, 2,
+    {"fill-twice-lit", "scifi-helmet", "/test-khronos-glTF-SciFiHelmet/scene.gltf", 0.25, 2,
      Appearance::Flat},
-    {"texture", "scifi-helmet", "test/khronos/glTF/SciFiHelmet/scene.gltf", 0.25, 1,
+    {"texture", "scifi-helmet", "/test-khronos-glTF-SciFiHelmet/scene.gltf", 0.25, 1,
      Appearance::Textured},
 };
 
@@ -446,7 +450,7 @@ struct Standing {
   out.Framings.resize(kArmCount);
   bool everyArmStands = true;
   for (size_t at = 0; at < kArmCount; ++at) {
-    if (!out.Documents[at].ReadFile(kArms[at].Path)) {
+    if (!out.Documents[at].ReadFile(PreparedRoot() + kArms[at].Path)) {
       std::printf("ARM %s unread: %s\n", kArms[at].Id, out.Documents[at].Error().c_str());
       everyArmStands = false;
       continue;

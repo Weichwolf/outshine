@@ -591,8 +591,21 @@ int main() {
   constexpr Material bark{};
   static_assert(StateOf(leaf).Kind() == SurfaceKind::ThinTransmissive, "leaf");
   static_assert(!StateOf(leaf).CullsBack() && StateOf(leaf).WritesDepth(), "leaf state");
-  static_assert(StateOf(glass).Kind() == SurfaceKind::Refractive, "glass");
-  static_assert(StateOf(glass).Blends() && !StateOf(glass).WritesDepth(), "glass state");
+  /* A PANE WITH NO THICKNESS IS THIN-WALLED HOWEVER STRONGLY IT REFRACTS, and this assertion used to
+   * say otherwise (board:1386). `KHR_materials_volume`: *if the value is 0 the material is
+   * thin-walled, otherwise the material is a volume boundary*, and *it is still necessary to check
+   * the thicknessFactor to determine whether the object is thin-walled or volumetric*. An index of
+   * refraction states how strongly light bends at an interface and says nothing about whether a
+   * medium lies behind it -- so this material, transmission 0.9 and ior 1.5 with no volume, is the
+   * ordinary window and not a solid. `GlassBrokenWindow` at the pin declares exactly that. */
+  static_assert(StateOf(glass).Kind() == SurfaceKind::ThinTransmissive, "a pane with no volume");
+  static_assert(!StateOf(glass).CullsBack(), "a thin wall is seen from both sides");
+  constexpr Material solid = [](Material made) {
+    made.Thickness = 0.01f;
+    return made;
+  }(glass);
+  static_assert(StateOf(solid).Kind() == SurfaceKind::Refractive, "the same pane given a volume");
+  static_assert(StateOf(solid).Blends() && !StateOf(solid).WritesDepth(), "a volume's state");
   static_assert(StateOf(bark).Kind() == SurfaceKind::Opaque, "bark");
 
   /* THE TWO OUTLINE GENERATORS, on the two synthetic outlines. What they answer is a point query,
