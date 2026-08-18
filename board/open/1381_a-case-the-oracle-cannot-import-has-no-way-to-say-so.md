@@ -67,3 +67,22 @@ question it answers, and no green anywhere else may rest on it.
 these two models can be decided by the oracle, and our reader does not implement `KHR_node_visibility`
 either -- so the sequence is to build the extension and then decide what the oracle can still be held
 against. A reduction declared before the engine rung was tried would be the ladder skipped.
+
+## Three oracle limits now, not one, and they are named
+
+[MEASURED] six cases never prepared at all. Two were ours and are fixed (`board:1375`). **The other
+four break inside Blender, and three of them are the oracle rather than us:**
+
+| case | what Blender does | kind |
+|---|---|---|
+| `CubeVisibility` | *Error: Extension KHR_node_visibility is not available on this addon version* | a refusal |
+| `LightVisibility` | the same | a refusal |
+| `AnimationPointerUVs` | **`KeyError: 'animations'` inside `io_scene_gltf2`** | **a crash** |
+| `MeshoptCubeTest` | prepares as far as an identity quaternion no convention derives | ours (`board:1375`) |
+
+**A crash is a worse shape than a refusal and is worth separating.** A refusal names a capability the
+oracle does not have; an unhandled `KeyError` names one it thinks it has. Both end this case, and only
+the first can be trusted to end it for the reason it states.
+
+**All three are `KHR_`-extension files whose engine side is either built or listed as a task**, so the
+reduction this item asks for is what stands between them and a number -- not any work on the engine.
