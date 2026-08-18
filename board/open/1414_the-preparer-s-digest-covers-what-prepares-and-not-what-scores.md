@@ -8,34 +8,42 @@ Every case's `provenance.json` records the digest of the preparer that made it, 
 `EveryOracleWasPreparedByThisPreparer` holds the two against each other -- which is right and is how a
 stale oracle is caught. **The population it digests is `test/harness` entire.**
 
-**So changing how a case is SCORED invalidates every oracle that was RENDERED.** `Parity.cpp` decides
-verdicts and lands nothing on disk; `Check.h` is a test harness; `Ties.h`, `PictureBound.h` and
-`Acceptance.h` are all scoring. None of them can change a byte the preparer writes, and a change to any
-of them makes 171 prepared cases read as prepared by somebody else.
+**CORRECTION -- THAT SENTENCE WAS WRONG AND IT WAS THE WHOLE OF THIS ITEM'S FIRST CLAIM.** It read that
+a change to `Parity.cpp` invalidates every oracle. It does not: BOTH sides digest `**/*.py` and nothing
+else -- `jobs.py` globs it, `EveryOracleWasPreparedByThisPreparer.cpp` filters
+`entry.path().extension() == ".py"`, and the two say so in each other's words. **The scorer is not in
+the population at all**, so a verdict change costs no re-render. *Filed on a reading of the directory
+name instead of the glob, and corrected by reading both.*
 
-**[MEASURED] this round it cost a full re-preparation of the corpus** -- a change to
-`test/harness/outshine/render/prepare/fixtures.py`, which builds grown fixtures and is never read while
-preparing a Khronos case, turned 163 cases red on the invariant. And the next scoring change will do it
-again.
+## What survives the correction, and it is narrower and still true
 
-**This is `CLAUDE.md`'s named failure in its own words: the INPUT SET TOO WIDE.** *The number was right
-and about something else.* The digest answers "did the same code produce this" over a population that
-includes code which could not have produced it.
+**A change to ONE VENDOR'S fixture generator invalidates every OTHER vendor's oracles.** [MEASURED]
+this round: `test/harness/outshine/render/prepare/fixtures.py` builds grown subjects and is never read
+while preparing a Khronos case, and editing it turned **163 of 171** prepared cases red and cost a full
+re-preparation of the corpus.
+
+**And the file argues for exactly that conservatism, in its own words**: *a named list is a second copy
+of a fact* -- it drifted once already, and `board:1196` widened the population after splitting the
+preparer by vendor precisely because a narrower glob silently stopped covering `grown.py`. **So this is
+a cost that was chosen, not one that was overlooked**, and the question is whether a PER-VENDOR digest
+keeps the property without the cost.
 
 ## What must be true
 
-- [ ] **The digest's population is what the preparation RUNS** -- `test/harness/shared/corpus/` and the
-  per-vendor `prepare/` directories -- and it is derived the same way on both sides, which is the
-  property `board:1196` established and which must survive this narrowing
-- [ ] **The scorer is out of it**, and a scoring change costs no re-render
-- [ ] **A file that lands bytes on disk is IN it**, however it is spelled: the test is whether the file
-  can change what a prepared case contains, not which directory it sits in
-- [ ] **The narrowing itself costs one last full re-preparation**, and that is stated rather than
-  discovered
+- [ ] **A case's digest covers the shared preparer plus its OWN vendor's sources**, derived the same
+  way on both sides -- never a named list, which is the trap `board:1196` was filed about
+- [ ] **A file that lands bytes on disk is in the population of the cases it can reach**, and the test
+  is what it can change rather than which directory it sits in
+- [ ] **The narrowing itself costs one last full re-preparation**, stated rather than discovered
+- [ ] **It is priced before it is built.** 163 cases is one re-preparation about every time a fixture
+  moves; if that is twice a year the change is not worth its own risk, and this item closes as declined
+  with the number beside it
 
 ## Why this is a bug and not a feature
 
-**The code claims to do it.** The invariant's own comment says it exists so a stale oracle is caught,
-and it names the divergence it was built for; what it does not say is that it also fires when nothing
-about the oracle could have changed. **A test that goes red for a reason outside its own claim teaches
-a reader to ignore it**, which is the one thing an invariant cannot survive.
+**The code claims to do it** -- the invariant exists so a stale oracle is caught -- and it fires when
+nothing about THAT oracle could have changed. **A test that goes red for a reason outside its own claim
+teaches a reader to ignore it**, which is the one thing an invariant cannot survive.
+
+*Kept as a bug and not closed, because the residual is real; narrowed to what the measurement supports,
+because the first reading was not.*
