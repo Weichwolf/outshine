@@ -24,15 +24,15 @@ before-and-afters, each with one cause.
 
 - [ ] **The floor and the percentile are read from a declaration, not written as constants** in the
   scorer. A threshold spelled in code is a threshold nobody can see in a manifest diff
-- [ ] **The maximum keeps its own row on every report.** It stops being the verdict and does not stop
+- [x] **The maximum keeps its own row on every report.** It stops being the verdict and does not stop
   being a number
-- [ ] **The before-and-after quotes the same population both times.** 44 cases, and the count of cases
+- [x] **The before-and-after quotes the same population both times.** 44 cases, and the count of cases
   that changed verdict is named per id — *`CLAUDE.md`'s own rule that a number can be broken by moving
   the population underneath it applies hardest to a change that is about a population*
-- [ ] **Every non-`exact` camera is re-derived from the rule** and
+- [x] **Every non-`exact` camera is re-derived from the rule** and
   `test/outshine/unit/gltf/ADerivedCameraIsTheFramingRuleAndNotAQuotation.cpp` is green again, which is
   what says the re-derivation was the rule's and not a hand edit
-- [ ] **`exact` cases keep their cameras**, and the exemption is read from `acceptanceClass` rather than
+- [x] **`exact` cases keep their cameras**, and the exemption is read from `acceptanceClass` rather than
   from a list
 
 ## What this item may NOT do
@@ -100,3 +100,11 @@ reached 99 % and fell off the end. They are counted in at zero now.
 **And its first placement did not compile**, because it was written above the `kCodeBuckets` it reads.
 *Both were found in the round that introduced them, by running the suite rather than by reading the
 diff.*
+
+## The dispatch's last line closed, and one half of its first is still open
+
+**`board:1437` took the camera line**, and it took it by fixing the rule rather than by re-harvesting what was declared: the rule now frames the pose at FRAME 0 of the case's own grid instead of the pose the accessors hold. [MEASURED] the test went from **12 failures to 0**, four cameras moved between 0.0885 m and 0.4639 m onto the rule's answer, all four re-rendered and all four are still within their bounds.
+
+**The `exact` exemption needed no list and no rule**: the test holds nothing about an `exact` case's camera at all, which is stronger than reading an exemption from `acceptanceClass` and is what the file says in its own head comment.
+
+**Half of the first line is still open, and it is the percentile.** `subject.OracleFloorPx` is read from the manifest's declared filter width -- `0.5 * filterWidth` -- so the floor IS a declaration. `kBoundFraction = 0.99` is a `constexpr` in `PictureBound.h`, so **the percentile is still a threshold spelled in code that nobody can see in a manifest diff**, which is exactly what this line was written against.
