@@ -217,9 +217,7 @@
     },
     "animation": {
       "animations": [
-        0,
-        1,
-        2
+        0
       ],
       "fps": {
         "value": 1,
@@ -233,7 +231,8 @@
         "origin": "derived",
         "derivation": "min(5, ceil(3.41666675 s) + 1) = 5, so the grid runs 0..4 s.",
         "note": "WHAT THIS GRID COVERS, STATED RATHER THAN IMPLIED. The file's declared span is 3.41666675 s and this case samples its first 4 s. Where the span is shorter than that, glTF clamps past the last keyframe and the tail frames state the end pose rather than an extrapolation. Where it is LONGER -- and it is for the long ones -- this case exercises the OPENING of the motion and says so: it decides that the animation is read, applied and posed, not that the whole of it is right. A case that needed the whole span would declare a grid for it and pay for the frames."
-      }
+      },
+      "note": "ONE ANIMATION, BECAUSE THE FILE'S ARE ALTERNATIVES AND NOT LAYERS. This asset carries three, and they drive the same node paths -- glTF says only that within ONE animation a target must not be used twice, and leaves two animations on one property undefined. A viewer plays one. Declaring all three asked the poser to apply them at once, which it refuses by name rather than resolving by order, and the case could not run at all. The other two are a case each when someone wants them; this one decides the first."
     }
   },
   "renders": {
@@ -309,10 +308,10 @@
   "notes": "A coverage case over a moving subject. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.0,
+      "value": 0.0524137252,
       "unit": "dimensionless",
-      "origin": "SET",
-      "note": "PLACEHOLDER, and said to be one: no run has recomputed a fraction for this case yet, so there was nothing to seed it from (board:1377)."
+      "origin": "measured",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, recomputed by the runner on every run and refused on mismatch; seeded from that recomputation, so it pins the framing and detects drift."
     }
   }
 }

@@ -869,7 +869,10 @@
           "quantity": "integer"
         }
       },
-      "note": "THE FRAME IS THE CURRENCY AND SECONDS ARE DERIVED (board:1129): frame n is n/fps seconds into the file's own animation, so a run delivers the same N poses whatever the wall clock does. `frames` is how many of them the case declares, counted from 0. `animations` names WHICH OF THE FILE'S ANIMATIONS PLAY, and it is a set because the format says animations are independent and a client may play any subset (board:1198). A case that wants one declares one; there is no spelling for 'all', because 'all' is a fact about the file and the picture must be a function of the declaration."
+      "note": "WHICH animations, and a place to say WHY. A file may carry several that drive the same node paths -- glTF forbids a repeated target only WITHIN one animation and leaves two animations on one property undefined -- so a case that declares more than one is asking the poser for a result the format does not define. The choice is the case's and the reason for it belongs beside the choice.",
+      "optional": {
+        "note": "string"
+      }
     }
   }
 }
