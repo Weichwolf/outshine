@@ -41,6 +41,28 @@ orders under the floor, so the threshold is not what makes this red.
 | **a projection scale error** | the flip rate is flat against image radius: 0.087, 0.104, 0.041, 0.074, 0.052 from centre outward |
 | **the oracle's filter** | box at 0.01 px, so its sample sits within 0.005 px of the centre |
 
+## A third instrument settled which side is wrong, and it is OURS
+
+**Rasterised on the CPU in f64 from the file's own POSITION accessor, the node's own translation and the
+manifest's own camera, mesh 0 covers 225 of the 228 pixels.** So the oracle is right and this engine
+drops them: our own declared geometry reaches those pixels and our renderer does not draw them.
+
+*The same instrument that settled `board:1432` and `board:1433`.* It is worth naming as a habit: **a
+disagreement between two renderers is decided by a third thing that is neither of them**, and for a
+silhouette that third thing is a projection anyone can write in twenty lines.
+
+## What is ruled out by that, and what is left
+
+The analytic mask is built with `>= 0` barycentrics, so it INCLUDES a pixel centre lying exactly on an
+edge where a top-left fill rule would drop it on two of four sides -- but a pixel centre landing exactly
+on an edge is measure-zero at an irrational slope, and 228 of 3052 boundary pixels is not measure-zero.
+**So the fill rule is not the term.**
+
+What is left is a sub-pixel offset of about 0.075 px between our rasterised edge and our own geometry's
+projected edge, on this mesh and not on the spheres in the same frame. **A viewport scale off by 0.06 %
+would have exactly this size** -- 0.075 px over the plate's 123 px extent -- and that is the first thing
+to measure, against the fact that the spheres in the same picture are pixel-exact.
+
 ## What must be true
 
 - [ ] the two masks agree on the label plates as exactly as they already agree on the spheres, or the
