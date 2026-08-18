@@ -840,13 +840,20 @@ when it must be reduced, the reduction stands on the ladder above disqualificati
 as it gets on five GPU cores"* is unfalsifiable.
 # The C++ Core Guidelines, one line per rule
 
-**511 citable rule numbers.** This index exists so a rule number and its content are never apart: cite
-from here and the number is right. Where the rule's *content* decides a question, the full text in
-the C++ Core Guidelines (fetched, not in the tree) is what settles it — this is an index, not the standard.
+**511 rules, one line each, and they are here TO BE READ WHILE WRITING CODE.** [OWNER] this is a
+prompt for the thing itself — a list to skim when a shape is being chosen, so that the established
+answer is in reach before an invented one is. **It is not a citation apparatus** and the numbers are
+incidental to its purpose: they are here because the rules have them, and because a rule you can name
+is a rule you can look up.
 
-Its own reason: `ES.9` stood in two agent definitions as "use an enumeration rather than boolean flags"
-for a long time. `ES.9` is *avoid ALL_CAPS names*. The enumeration rule is `Enum.2`. A round was spent
-finding that, and the correction had to be checked.
+**Where the content decides a question, fetch the rule.** The full text is not in the tree — 23 157
+lines nobody loads is a cost paid on every clone — so this line is the reminder and the standard is the
+answer.
+
+*Why the numbers still have to be right even though citing is not the point:* `ES.9` stood in two agent
+definitions as "use an enumeration rather than boolean flags" for a long time. `ES.9` is *avoid
+ALL_CAPS names*; the enumeration rule is `Enum.2`. **A memory aid that misremembers is worse than
+none**, which is the whole argument for keeping the list beside the work rather than in a head.
 
 # C++ Core Guidelines — rule index
 
