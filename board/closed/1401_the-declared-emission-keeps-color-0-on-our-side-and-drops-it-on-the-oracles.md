@@ -40,11 +40,11 @@ identity and nothing changes.
 
 ## What must be true
 
-- [ ] **The preparer's emission shader multiplies the colour attribute**, and does so in the same space
+- [x] **The preparer's emission shader multiplies the colour attribute**, and does so in the same space
   our shader does -- `COLOR_0` is LINEAR in glTF and Blender's colour attributes are too, so a decode
   step here would be a second one
-- [ ] **A subject with no `COLOR_0` is bit-identical to today**, and that is checked rather than argued
-- [ ] **The eight cases are named before and after.** `CompareBaseColor` is green today at p99 0, so a
+- [x] **A subject with no `COLOR_0` is bit-identical to today**, and that is checked rather than argued
+- [x] **The eight cases are named before and after.** `CompareBaseColor` is green today at p99 0, so a
   change that moves it is a change that reached further than this
 - [ ] **`VEC3` and `VEC4` both work**, because the format permits both and the alpha of a `VEC4`
   multiplies base colour's alpha
@@ -114,3 +114,34 @@ numbers and there is no error term to derive, name or carry.**
 
 *A term that can be removed is better than a term that is measured: `CLAUDE.md` prefers the shape that
 makes a mistake unspellable over the bound that merely accounts for it.*
+
+## Measured, and the headline number is one the verdict counts cannot show
+
+| case | before | after |
+|---|---|---|
+| `VertexColorTest` | p99 **63 codes**, outside the bound | p99 **1 code**, within it |
+| `CompareBaseColor` | p99 0 with **34 500 linear channels differing** (`board:1361`) | p99 0 with **0 channels differing** -- bit-identical |
+
+**The corpus trailer is byte-identical across the change**: 327 PASS, 108 FAIL, criteria 126 of 133,
+115 within the bound, 36 red, and not one case moved either way except `VertexColorTest`, which had
+already been re-prepared in the run before. *`CLAUDE.md` calls an identical measurement a finding
+rather than a null result, so it was chased rather than reported.*
+
+**What it means here**: the seven other `COLOR_0` cases were already GREEN, and the change moved them
+from *nearly identical* to *bit-identical*. A verdict count cannot express that, and
+`linear_channels_differing_between_renders` can.
+
+**The vertex colours are not neutral, which is what the chase had to rule out first**:
+`CompareBaseColor` spans 0..1 and `SheenWoodLeatherSofa` 0.137..0.942, so a multiply by them is not the
+identity and the oracles genuinely re-rendered -- confirmed by their write times as well as by the
+channel count above.
+
+**No bound term was needed.** The derivation said an 8-bit sRGB round trip costs half a display code
+because the attribute is encoded in the same curve the picture is compared in; the measurement agrees
+-- `VertexColorTest` lands at p99 1 against a bound of 1, and `CompareBaseColor` at exactly zero.
+
+## Comments
+
+**`BoxVertexColors` is the one `COLOR_0` case this did not touch**, because it declares
+`material.kind: "emission"` -- a third arm the change does not reach. It scores a maximum of 0.064
+codes, so nothing is hiding there; it is named so the population is not read as eight when it is seven.
