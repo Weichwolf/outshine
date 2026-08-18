@@ -181,6 +181,9 @@ struct M { float factor; float cut; float metalness; float roughness;
            /* `KHR_materials_sheen`: a retroreflective layer over the base. Black disables it, which
             * is the extension's own default and its own rule. */
            packed_float3 sheenColour; float sheenRoughness;
+           /* `KHR_materials_clearcoat`: a thin dielectric layer over everything below. Zero weight
+            * disables it, which is the extension's own default. */
+           float clearcoat; float clearcoatRoughness;
            packed_float3 colourUvU; packed_float3 colourUvV;
            packed_float3 normalUvU; packed_float3 normalUvV;
            packed_float3 metalRoughUvU; packed_float3 metalRoughUvV;
@@ -609,7 +612,7 @@ SUBJECT_LIT_ARM(vsLitTexturedTwoTinted,
 static inline float3 shadeRow(constant Lights &lights, Occluders occluders, float3 localM, float3 n,
                               float3 p, float3 albedo, float metalness, float roughness,
                               float3 dielectricF0, float3 emitted, float3 sheenColour,
-                              float sheenRoughness) {
+                              float sheenRoughness, float clearcoat, float clearcoatRoughness) {
   float3 v = normalize(-p);
   float a = roughness * roughness;
   float a2 = a * a;
@@ -665,8 +668,27 @@ static inline float3 shadeRow(constant Lights &lights, Occluders occluders, floa
     float3 sheen = sheenColour * sheenDistribution(max(dot(n, h), 0.0), sheenRoughness) *
                    sheenVisibility(nl, nv, sheenRoughness);
     float keep = sheenAlbedoScaling(sheenColour, nv, sheenRoughness);
-    sum = sum + ((reflected.diffuse + reflected.specular) * keep + sheen) * nl * attenuation *
-                    light.tint.rgb;
+    float3 layered = (reflected.diffuse + reflected.specular) * keep + sheen;
+    /* `KHR_materials_clearcoat` LAYERED OVER EVERYTHING BELOW IT, and the extension's own operator:
+     * *the layer is weighted with weight * fresnel(ior). The base is weighted with 1 - (weight *
+     * fresnel(ior))*, at a fixed ior of 1.5 -- an F0 of 0.04. **The coat reuses the metal-rough
+     * SPECULAR lobe rather than introducing one**, which the extension states outright, so what
+     * varies is its roughness and nothing else.
+     *
+     * ITS NORMAL IS THE GEOMETRIC ONE BY THE FORMAT'S RULE, not by omission: *if
+     * clearcoatNormalTexture is not given, no normal mapping is applied to the clear coat layer, even
+     * if normal mapping is applied to the base material*. */
+    if (clearcoat > 0.0) {
+      float coatA = clearcoatRoughness * clearcoatRoughness;
+      float coatA2 = coatA * coatA;
+      float coatF = 0.04 + 0.96 * pow(1.0 - max(dot(v, h), 0.0), 5.0);
+      float coatLobe = coatA2 > 0.0 ? brdfDistribution(max(dot(n, h), 0.0), coatA2) *
+                                          brdfVisibility(nl, nv, coatA2)
+                                    : 0.0;
+      float weight = clearcoat * coatF;
+      layered = layered * (1.0 - weight) + float3(weight * coatLobe);
+    }
+    sum = sum + layered * nl * attenuation * light.tint.rgb;
   }
   /* THE ENVIRONMENT, GATHERED ANALYTICALLY BECAUSE IT IS CONSTANT (board:1206).
    *
@@ -705,7 +727,7 @@ static inline float3 shade(constant M &surface, constant Lights &lights, Occlude
                            float3 localM, float3 n, float3 p, float3 albedo) {
   return shadeRow(lights, occluders, localM, n, p, albedo, surface.metalness, surface.roughness,
                   float3(surface.f0), surface.emissive, float3(surface.sheenColour),
-                  surface.sheenRoughness);
+                  surface.sheenRoughness, surface.clearcoat, surface.clearcoatRoughness);
 }
 
 /* A DOUBLE-SIDED FACET HIT FROM BEHIND IS LIT BY ITS OTHER FACE, which is what the flip is: the
@@ -785,7 +807,8 @@ fragment SFrag fsLitTextured(LOut in [[stage_in]], bool front [[front_facing]], 
                           surface.base.rgb * tap.rgb * in.colour.rgb,
                           surface.metalness, surface.roughness, SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
-                          float3(surface.sheenColour), surface.sheenRoughness), 1.0);
+                          float3(surface.sheenColour), surface.sheenRoughness,
+                          surface.clearcoat, surface.clearcoatRoughness), 1.0);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
@@ -802,7 +825,8 @@ fragment SFrag fsLitMaskedTextured(LOut in [[stage_in]], bool front [[front_faci
                           surface.base.rgb * tap.rgb * in.colour.rgb,
                           surface.metalness, surface.roughness, SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
-                          float3(surface.sheenColour), surface.sheenRoughness), 1.0);
+                          float3(surface.sheenColour), surface.sheenRoughness,
+                          surface.clearcoat, surface.clearcoatRoughness), 1.0);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
@@ -818,7 +842,8 @@ fragment SFrag fsLitBlendedTextured(LOut in [[stage_in]], bool front [[front_fac
                           surface.base.rgb * tap.rgb * in.colour.rgb,
                           surface.metalness, surface.roughness, SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
-                          float3(surface.sheenColour), surface.sheenRoughness),
+                          float3(surface.sheenColour), surface.sheenRoughness,
+                          surface.clearcoat, surface.clearcoatRoughness),
                  surface.factor * tap.a * in.colour.a);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
@@ -915,7 +940,8 @@ static inline Shaded mappedShade(constant M &surface, constant Lights &lights, O
                   surface.metalness * orm.b,
                   roughenedBy(surface.roughness * orm.g, meanResultantLength), specularF0,
                   emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
-                  float3(surface.sheenColour), surface.sheenRoughness),
+                  float3(surface.sheenColour), surface.sheenRoughness,
+                  surface.clearcoat, surface.clearcoatRoughness),
                 shadingNormal};
 }
 
@@ -1444,7 +1470,8 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
               identity,            f0[0],             f0[1],             f0[2],
               row.Transmission,    row.Thickness,     row.AttenuationDistance,
               row.AttenuationColour[0], row.AttenuationColour[1], row.AttenuationColour[2],
-              row.SheenColour[0], row.SheenColour[1], row.SheenColour[2], row.SheenRoughness};
+              row.SheenColour[0], row.SheenColour[1], row.SheenColour[2], row.SheenRoughness,
+              row.Clearcoat,      row.ClearcoatRoughness};
   /* THE FOUR uv MATRICES, IN THE ORDER THE FOUR IMAGES ARE BOUND (board:1177), narrowed to f32 here
    * and nowhere earlier -- the reader composes in its own width and the device is the boundary. The
    * table is walked rather than written out four times so that the row's order and the sampler's

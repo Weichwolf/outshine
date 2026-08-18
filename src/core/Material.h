@@ -79,6 +79,13 @@ struct Material {
    * reaches the shader with a layer that contributes nothing and costs no branch of its own. */
   float SheenColour[3] = {0.0f, 0.0f, 0.0f};
   float SheenRoughness = 0.0f;
+  /* `KHR_materials_clearcoat`: a thin dielectric layer over everything below it, and the extension's
+   * own default of zero disables the whole layer. It reuses the metal-rough SPECULAR lobe rather than
+   * introducing one -- *the specular BRDF for the clearcoat layer is computed using the specular term
+   * from the glTF 2.0 Metallic-Roughness material* -- with its own roughness and a fixed ior of 1.5,
+   * which is an F0 of 0.04. */
+  float Clearcoat = 0.0f;
+  float ClearcoatRoughness = 0.0f;
   float Thickness = 0.0f;
   float AttenuationDistance = std::numeric_limits<float>::infinity();
   float AttenuationColour[3] = {1.0f, 1.0f, 1.0f};

@@ -196,6 +196,7 @@ bool KnownWrap(int raw, Wrap &out) {
  * is flattened, and is therefore gone before a draw list exists: the render path never learns that
  * variants are a thing, and no fragment arm, pipeline or interpolant is added by it. */
 constexpr const char *const kHonouredExtensions[] = {"KHR_lights_punctual",
+                                                     "KHR_materials_clearcoat",
                                                      "KHR_materials_sheen",
                                                      "KHR_mesh_quantization",
                                                      "KHR_node_visibility",
@@ -211,6 +212,7 @@ constexpr const char *kEmissiveStrength = "KHR_materials_emissive_strength";
 constexpr const char *kIor = "KHR_materials_ior";
 constexpr const char *kSpecular = "KHR_materials_specular";
 constexpr const char *kSheen = "KHR_materials_sheen";
+constexpr const char *kClearcoat = "KHR_materials_clearcoat";
 constexpr const char *kUnlit = "KHR_materials_unlit";
 constexpr const char *kMaterialsVariants = "KHR_materials_variants";
 constexpr const char *kTextureTransform = "KHR_texture_transform";
@@ -1298,6 +1300,34 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
                       " declares a sheenRoughnessFactor outside [0, 1]");
       }
       material.Surface.SheenRoughness = static_cast<float>(roughness.Num());
+    }
+  }
+  /* `KHR_materials_clearcoat`, and its THREE textures are not read -- `clearcoatTexture` (red),
+   * `clearcoatRoughnessTexture` (green) and `clearcoatNormalTexture`. A material declaring one is
+   * coated by its factor across the whole surface, which is the plainer picture rather than a wrong
+   * one; [MEASURED] 18, 16 and 13 of the 40 clearcoat materials at the pin declare each. **The one
+   * model that REQUIRES the extension, `ClearCoatCarPaint`, declares none**, so what is built here is
+   * enough to decide it honestly and `board:1388` carries the rest.
+   *
+   * A COAT WITH NO NORMAL MAP IS THE FORMAT'S OWN ANSWER AND NOT A GAP: *if clearcoatNormalTexture is
+   * not given, no normal mapping is applied to the clear coat layer, even if normal mapping is applied
+   * to the base material* -- so the coat uses the geometric normal by the extension's rule. */
+  const Json::Ref clearcoat = declaration["extensions"][kClearcoat];
+  if (clearcoat.Valid()) {
+    const Json::Ref factor = clearcoat["clearcoatFactor"];
+    if (factor.Valid()) {
+      if (factor.GetKind() != Json::Kind::Number || !(factor.Num() >= 0.0) || factor.Num() > 1.0) {
+        return Refuse("material " + Number(index) + " declares a clearcoatFactor outside [0, 1]");
+      }
+      material.Surface.Clearcoat = static_cast<float>(factor.Num());
+    }
+    const Json::Ref rough = clearcoat["clearcoatRoughnessFactor"];
+    if (rough.Valid()) {
+      if (rough.GetKind() != Json::Kind::Number || !(rough.Num() >= 0.0) || rough.Num() > 1.0) {
+        return Refuse("material " + Number(index) +
+                      " declares a clearcoatRoughnessFactor outside [0, 1]");
+      }
+      material.Surface.ClearcoatRoughness = static_cast<float>(rough.Num());
     }
   }
   const Json::Ref strength =
