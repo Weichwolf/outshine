@@ -1350,7 +1350,13 @@ def apply_emission_per_material(imported, colours):
         tree.nodes.clear()
         output = tree.nodes.new("ShaderNodeOutputMaterial")
         shader = tree.nodes.new("ShaderNodeEmission")
-        shader.inputs["Color"].default_value = tuple(colours[wanted]) + (1.0,)
+        users = [obj for obj in imported
+                 if obj.type == "MESH" and material in [s.material for s in obj.material_slots]]
+        tinted = multiply_vertex_colour(tree, colours[wanted], users)
+        if tinted is colours[wanted]:
+            shader.inputs["Color"].default_value = tuple(colours[wanted]) + (1.0,)
+        else:
+            tree.links.new(tinted.outputs[2], shader.inputs["Color"])
         shader.inputs["Strength"].default_value = 1.0
         culled = cull_back_faces(tree, shader) if material.use_backface_culling else None
         tree.links.new((culled or shader).outputs[0], output.inputs["Surface"])
@@ -1445,13 +1451,67 @@ def apply_emission_by_material_index(imported, path):
         tree.nodes.clear()
         output = tree.nodes.new("ShaderNodeOutputMaterial")
         shader = tree.nodes.new("ShaderNodeEmission")
-        shader.inputs["Color"].default_value = colour_of(slot) + (1.0,)
+        users = [obj for obj in imported
+                 if obj.type == "MESH" and material in [s.material for s in obj.material_slots]]
+        base = colour_of(slot)
+        tinted = multiply_vertex_colour(tree, base, users)
+        if tinted is base:
+            shader.inputs["Color"].default_value = base + (1.0,)
+        else:
+            tree.links.new(tinted.outputs[2], shader.inputs["Color"])
         shader.inputs["Strength"].default_value = 1.0
         culled = cull_back_faces(tree, shader) if material.use_backface_culling else None
         tree.links.new((culled or shader).outputs[0], output.inputs["Surface"])
         assigned[str(slot)] = {"material": material.name,
                                "backFaceCulled": material.use_backface_culling}
     return {"source": "manifest", "kind": "emission-by-material-index", "assigned": assigned}
+
+
+def multiply_vertex_colour(tree, colour, users):
+    """`COLOR_0` MULTIPLIES THE DECLARED COLOUR, BECAUSE THE FORMAT SAYS SO (board:1401).
+
+    glTF 2.0: *if a primitive specifies a vertex color using the attribute semantic property
+    `COLOR_0`, then this value acts as an additional linear multiplier to base color*. Our renderer
+    does that and this shader did not, so `VertexColorTest` scored p99 63 codes with the two pictures
+    disagreeing about six whole quads -- ours coloured, the oracle's flat. **Looking at the two
+    renders is what said so; the metric called it a shading residual.**
+
+    THE ATTRIBUTE IS `Color` AND THAT NAME WAS MEASURED, not chosen: Blender's glTF importer stores
+    `COLOR_0` as a `BYTE_COLOR` attribute named `Color` on the CORNER domain, and leaves a mesh whose
+    primitives declare none without one at all.
+
+    IT IS INSERTED ONLY WHERE EVERY USER OF THE MATERIAL CARRIES THE ATTRIBUTE. A Blender Attribute
+    node that names a layer a mesh does not have reads as black, which would silently extinguish a
+    subject rather than leave it alone -- so a material used by one mesh with vertex colours and one
+    without is REFUSED here instead of guessed at. No asset at the pin does that; the day one does,
+    it stops loudly.
+
+    EIGHT BITS ARE WHAT THE IMPORTER GIVES AND THE LOSS IS NAMED RATHER THAN HIDDEN. [MEASURED] the
+    file's 0.501961 comes back as 0.502886 -- an sRGB-domain byte round trip, not a wrong curve
+    (0.2140 is what a wrong curve would give). Because the display transfer the picture is compared
+    in IS that same curve, the round trip costs half a display code and no more.
+    """
+    coloured = [obj for obj in users if obj.type == "MESH" and obj.data.color_attributes]
+    if not coloured:
+        return colour
+    if len(coloured) != len([obj for obj in users if obj.type == "MESH"]):
+        fail("a material is worn both by a mesh carrying COLOR_0 and by one that does not, and a "
+             "Blender attribute node reading a layer a mesh has not got returns black -- so this "
+             "subject would be extinguished rather than left alone")
+    names = {obj.data.color_attributes[0].name for obj in coloured}
+    if len(names) != 1:
+        fail("the meshes wearing this material carry colour attributes under %s, and one shader "
+             "cannot read two names" % ", ".join(sorted(names)))
+    attribute = tree.nodes.new("ShaderNodeAttribute")
+    attribute.attribute_type = "GEOMETRY"
+    attribute.attribute_name = names.pop()
+    product = tree.nodes.new("ShaderNodeMix")
+    product.data_type = "RGBA"
+    product.blend_type = "MULTIPLY"
+    product.inputs["Factor"].default_value = 1.0
+    product.inputs[6].default_value = tuple(colour) + (1.0,)
+    tree.links.new(attribute.outputs["Color"], product.inputs[7])
+    return product
 
 
 def keep_file_materials(imported):
