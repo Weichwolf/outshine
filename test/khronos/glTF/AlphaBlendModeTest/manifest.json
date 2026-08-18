@@ -152,22 +152,22 @@
     "camera": {
       "source": "manifest",
       "positionM": [
-        0.0,
-        1.1,
-        11.0
+        24.799989134746372,
+        12.119037047778885,
+        17.26513934562877
       ],
       "lookAtM": [
         0.0,
-        1.1,
-        0.0
+        1.0997666716575623,
+        -0.09999999403953552
       ],
       "rollRad": 0.0,
       "yfovRad": 0.47108996144172666,
       "sensorHeightMm": 24.0,
-      "clipStartM": 0.1,
-      "clipEndM": 100.0,
+      "clipStartM": 27.70687856831425,
+      "clipEndM": 36.72950385626632,
       "derivation": "HEAD ON, DOWN THE SUBJECT'S OWN AXIS, because five columns have to be legible side by side and any off-axis angle foreshortens the outer two against the inner three. yfov = 2*atan((24/2)/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, so tan(yfov/2) = 0.24 exactly -- the same lens every other case in this tree is framed with. The subject spans x [-4.3,4.3] and y [-0.1,2.3], so its centre is (0,1.1) and the eye sits on the +Z axis through it. At 11 m the frame's half-height at the test quads' plane is 0.24*11 = 2.64 m against the subject's 1.2 and its half-width is 2.64*16/9 = 4.6933 m against 4.3, so nothing is cropped and the tighter of the two margins is the horizontal one. The roll is zero and stated: the five columns and the label strip are axis-aligned and a rolled frame would buy nothing.",
-      "note": "The glTF carries no camera, so this case's camera is declared here and the oracle builds the same one from these numbers."
+      "note": "THE ENGINE'S OWN ANSWER, QUOTED (board:1398). Every number here is read from the framing rule's output for this subject -- eye, aim, yfov and both clip planes -- rather than recomputed by the authoring helper, which bounded each primitive by the eight transformed corners of its local AABB and therefore always at least as loosely as the engine bounds the transformed vertices. A looser radius moves the eye back, and 93 cases declared a camera the rule does not derive. `ADerivedCameraIsTheFramingRuleAndNotAQuotation` recomputes all of it and refuses a mismatch, so what this declaration does is PIN the viewpoint, never choose it."
     },
     "light": {
       "kind": "none",

@@ -121,22 +121,22 @@
     "camera": {
       "source": "manifest",
       "positionM": [
-        38.390486630054184,
-        16.807688067174954,
-        25.324981356760464
+        38.39048663005418,
+        16.80768806717495,
+        25.32498135676046
       ],
       "lookAtM": [
         -0.06237182617187509,
-        -0.27790184020996067,
+        -0.2779018402099611,
         -1.6
       ],
       "rollRad": 0.0,
       "yfovRad": 0.47108996144172666,
       "sensorHeightMm": 24.0,
       "clipStartM": 42.96004623479956,
-      "clipEndM": 56.94979966638853,
+      "clipEndM": 56.949799666388515,
       "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-4.874635696411133, -4.943779754638673, -3.6] to [4.749892044067383, 4.387976074218751, 0.4], so centre = [-0.06237182617187509, -0.27790184020996067, -1.6] and radius = 6.994876715794479 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 49.954922950594046, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
-      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+      "note": "THE ENGINE'S OWN ANSWER, QUOTED (board:1398). Every number here is read from the framing rule's output for this subject -- eye, aim, yfov and both clip planes -- rather than recomputed by the authoring helper, which bounded each primitive by the eight transformed corners of its local AABB and therefore always at least as loosely as the engine bounds the transformed vertices. A looser radius moves the eye back, and 93 cases declared a camera the rule does not derive. `ADerivedCameraIsTheFramingRuleAndNotAQuotation` recomputes all of it and refuses a mismatch, so what this declaration does is PIN the viewpoint, never choose it."
     },
     "light": {
       "kind": "none",

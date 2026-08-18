@@ -105,22 +105,22 @@
     "camera": {
       "source": "manifest",
       "positionM": [
-        3.573077944431402,
-        1.6154472416336836,
-        2.1517923421968668
+        9.299956024373984,
+        5.160045855411069,
+        6.1617955441806105
       ],
       "lookAtM": [
         0.5,
-        0.25,
+        1.25,
         0.0
       ],
       "rollRad": 0.0,
       "yfovRad": 0.47108996144172666,
       "sensorHeightMm": 24.0,
-      "clipStartM": 3.433283658904167,
-      "clipEndM": 4.551317647654062,
+      "clipStartM": 9.831428217532116,
+      "clipEndM": 13.03299033624854,
       "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [0.0, 0.0, 0.0] to [1.0, 0.5, 0.0], so centre = [0.5, 0.25, 0.0] and radius = 0.5590169943749475 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 3.9923006532791145, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
-      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+      "note": "THE ENGINE'S OWN ANSWER, QUOTED (board:1398). Every number here is read from the framing rule's output for this subject -- eye, aim, yfov and both clip planes -- rather than recomputed by the authoring helper, which bounded each primitive by the eight transformed corners of its local AABB and therefore always at least as loosely as the engine bounds the transformed vertices. A looser radius moves the eye back, and 93 cases declared a camera the rule does not derive. `ADerivedCameraIsTheFramingRuleAndNotAQuotation` recomputes all of it and refuses a mismatch, so what this declaration does is PIN the viewpoint, never choose it."
     },
     "light": {
       "kind": "none",

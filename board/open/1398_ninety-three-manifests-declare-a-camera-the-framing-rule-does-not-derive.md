@@ -15,14 +15,40 @@ its viewpoint. [MEASURED] over the corpus as it now stands, it reports:
 | the declared frame fraction is the rule's | 16 |
 | the declared camera is the rule's answer or a metre away, never fitted near it | 12 |
 
-## The cause is named and it is mine
+## CORRECTION -- the cause I filed is one of at least three, and it is the smallest
 
-The helper that authored these manifests computes a subject's bounds from **the eight corners of each
-primitive's local AABB, transformed** -- which is a bound on the bound, and always at least as loose as
-the AABB of the transformed vertices the engine itself computes. A looser radius moves the camera back,
-so the declared eye sits behind the rule's by a hair. *It is a small number and it is the wrong kind of
-small: the camera is what the picture is a function of, and a declaration that no rule derives is a
-second determination of the viewpoint.*
+**What this item first said was that the authoring helper bounds each primitive by the eight
+transformed corners of its local AABB, which is always at least as loose as the engine's bound on the
+transformed vertices, so the eye sits behind the rule's by a hair. That is true, it is measurable, and
+it explains almost none of this.** Replacing all 100 derivable cameras with the rule's own output and
+measuring what moved:
+
+| | |
+|---|---|
+| cases whose camera moved at all | **37 of 147** |
+| relative move, p50 over those that moved | **0.00 %** |
+| relative move, p95 | **228.6 %** |
+| largest absolute move | **653.4 m**, `RecursiveSkeletons` |
+
+**A hair does not move a camera by twice its own distance from the subject.** The named causes,
+each measured as engine radius against helper radius:
+
+| cause | evidence | size |
+|---|---|---|
+| **the pose is not the rest pose** | `RecursiveSkeletons` 45.552 -> 75.581 m (+66 %), `SimpleMorph` 0.559 -> 0.901 m (+61 %) | dominant |
+| **the eight-corner bound** | `NodePerformanceTest` helper 207.610 against engine 206.628 m (+0.47 %, and the helper is the LARGER one, as predicted) | small |
+| **something that is not the radius at all** | `BrainStem` -- radii agree to six decimals and the camera still moved 1.103 m (9.7 %) | not yet named |
+| **manifests the helper never wrote** | `AlphaBlendModeTest` (252 %), `NormalTangentTest` (187 %) have no facts file, so they were hand-authored in an earlier round | not yet named |
+
+**The first is the one that matters and it is a real defect, not an approximation.** The helper reads a
+POSITION accessor's declared `min`/`max`; the engine bounds the subject it actually DRAWS, after
+skinning and after morphing. A skinned figure's vertices ride its joints far outside the accessor's
+extent, so the two are not a loose bound and a tight one -- **they are bounds on two different sets of
+points**, and no amount of tightening the helper would have closed it.
+
+*The correction is the round's result. The repair -- quoting the engine's own answer instead of
+computing a second one -- is right for all four causes at once, which is why it was not undone when the
+cause turned out to be wrong.*
 
 ## Why it cannot be repaired by editing the manifests alone
 
@@ -32,9 +58,9 @@ before it: two viewpoint changes measured separately would cost two passes to le
 
 ## What must be true
 
-- [ ] **Every non-`exact` camera is HARVESTED from the rule's own output**, the way the frame fraction
+- [x] **Every non-`exact` camera is HARVESTED from the rule's own output** -- 100 replaced, 4 `exact` exempt, 47 with no harvest yet because their case does not prepare, the way the frame fraction
   now is, and never recomputed by a second implementation
-- [ ] **The authoring helper stops computing bounds at all** -- a helper that can disagree with the
+- [x] **The authoring helper stops computing bounds at all** -- what it writes is now a starting camera the harvest replaces, and the manifest note says which -- a helper that can disagree with the
   engine about a subject's extent is a second implementation of the thing under test
 - [ ] **`kFramingFill` 0.6 -> 0.9 lands in the same pass** (`board:1360`), because both move every camera
 - [ ] **`exact` cases keep their cameras**, read from `acceptanceClass` rather than from a list

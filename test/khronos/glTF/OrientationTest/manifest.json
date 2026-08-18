@@ -108,7 +108,7 @@
       "clipStartM": 56.705551032181646,
       "clipEndM": 75.17146870849923,
       "derivation": "The framing rule of board:0083 (src/gltf/Framing.h) applied to this subject's own bounds: azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6 at r = 9.232958838158792 m, yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, near = distance - r and far = distance + r. The bounds are min (-5.33065128326416, -5.330651177643153, -5.33065128326416) and max (5.33065128326416, 5.3306513130664825, 5.33065128326416) over the flattened default scene, so the centre is the origin to within one float32 step of the y extent. THE ROLL IS ZERO AND STATED: this subject is a symmetric arrangement about three axes and no roll makes its silhouette rational, so a roll here would be a different draw of the same lottery rather than an exactness argument.",
-      "note": "The file carries no camera, so this case's camera is declared here and the oracle builds the same one from these numbers."
+      "note": "THE ENGINE'S OWN ANSWER, QUOTED (board:1398). Every number here is read from the framing rule's output for this subject -- eye, aim, yfov and both clip planes -- rather than recomputed by the authoring helper, which bounded each primitive by the eight transformed corners of its local AABB and therefore always at least as loosely as the engine bounds the transformed vertices. A looser radius moves the eye back, and 93 cases declared a camera the rule does not derive. `ADerivedCameraIsTheFramingRuleAndNotAQuotation` recomputes all of it and refuses a mismatch, so what this declaration does is PIN the viewpoint, never choose it."
     },
     "light": {
       "kind": "none",

@@ -235,22 +235,22 @@
     "camera": {
       "source": "manifest",
       "positionM": [
-        7.036462977309801,
-        3.626354655869334,
-        4.926621235564164
+        6.564458483439037,
+        3.416631989329522,
+        4.596136930699901
       ],
       "lookAtM": [
-        0.0002842794898147982,
+        0.0002819848543244019,
         0.5000002423767,
-        -0.000164128839969635
+        -0.00014893574813265587
       ],
       "rollRad": 0.0,
       "yfovRad": 0.47108996144172666,
       "sensorHeightMm": 24.0,
-      "clipStartM": 7.8609126683978925,
-      "clipEndM": 10.42078491288021,
+      "clipStartM": 7.333585517279657,
+      "clipEndM": 9.72173595351237,
       "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-1.022163439885423, 0.0037123640067875385, -0.5888367712697005] to [1.0227319988650525, 0.9962881207466125, 0.5885085135897612], so centre = [0.0002842794898147982, 0.5000002423767, -0.000164128839969635] and radius = 1.2799361222411592 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 9.140848790639051, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
-      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+      "note": "THE ENGINE'S OWN ANSWER, QUOTED (board:1398). Every number here is read from the framing rule's output for this subject -- eye, aim, yfov and both clip planes -- rather than recomputed by the authoring helper, which bounded each primitive by the eight transformed corners of its local AABB and therefore always at least as loosely as the engine bounds the transformed vertices. A looser radius moves the eye back, and 93 cases declared a camera the rule does not derive. `ADerivedCameraIsTheFramingRuleAndNotAQuotation` recomputes all of it and refuses a mismatch, so what this declaration does is PIN the viewpoint, never choose it."
     },
     "light": {
       "kind": "none",

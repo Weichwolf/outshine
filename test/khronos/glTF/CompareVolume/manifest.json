@@ -212,9 +212,9 @@
     "camera": {
       "source": "manifest",
       "positionM": [
-        9.906094226454643,
-        4.395008092659016,
-        6.778671497914226
+        9.906094226454599,
+        4.395008092658996,
+        6.778671497914194
       ],
       "lookAtM": [
         0.0,
@@ -224,10 +224,10 @@
       "rollRad": 0.0,
       "yfovRad": 0.47108996144172666,
       "sensorHeightMm": 24.0,
-      "clipStartM": 11.067220567210326,
-      "clipEndM": 14.671213124901412,
+      "clipStartM": 11.067220567210276,
+      "clipEndM": 14.671213124901344,
       "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-1.5, -0.7579796178039296, -0.8153007073299966] to [1.5, 0.744933022767684, 0.5], so centre = [0.0, -0.006523297518122806, -0.1576503536649983] and radius = 1.8019962788455426 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 12.869216846055869, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
-      "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
+      "note": "THE ENGINE'S OWN ANSWER, QUOTED (board:1398). Every number here is read from the framing rule's output for this subject -- eye, aim, yfov and both clip planes -- rather than recomputed by the authoring helper, which bounded each primitive by the eight transformed corners of its local AABB and therefore always at least as loosely as the engine bounds the transformed vertices. A looser radius moves the eye back, and 93 cases declared a camera the rule does not derive. `ADerivedCameraIsTheFramingRuleAndNotAQuotation` recomputes all of it and refuses a mismatch, so what this declaration does is PIN the viewpoint, never choose it."
     },
     "light": {
       "kind": "none",

@@ -84,7 +84,7 @@
       "source": "manifest",
       "positionM": [
         0.21954437902924256,
-        0.12646995242621673,
+        0.1264699524262167,
         0.15372662711777596
       ],
       "lookAtM": [
@@ -98,7 +98,7 @@
       "clipStartM": 0.2452779016250622,
       "clipEndM": 0.3251515904753452,
       "derivation": "The framing rule of board:0083 (src/gltf/Framing.h) applied to this subject's own bounds and to nothing else: azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6 about the AABB's centre, yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, near = distance - r and far = distance + r. THE ROLL IS ZERO AND STATED: this subject's silhouette is not rational at any roll, so a roll would be a different draw of the same lottery rather than an exactness argument.",
-      "note": "The file carries no camera, so this case's camera is declared here and the oracle builds the same one from these numbers."
+      "note": "THE ENGINE'S OWN ANSWER, QUOTED (board:1398). Every number here is read from the framing rule's output for this subject -- eye, aim, yfov and both clip planes -- rather than recomputed by the authoring helper, which bounded each primitive by the eight transformed corners of its local AABB and therefore always at least as loosely as the engine bounds the transformed vertices. A looser radius moves the eye back, and 93 cases declared a camera the rule does not derive. `ADerivedCameraIsTheFramingRuleAndNotAQuotation` recomputes all of it and refuses a mismatch, so what this declaration does is PIN the viewpoint, never choose it."
     },
     "light": {
       "kind": "sun",

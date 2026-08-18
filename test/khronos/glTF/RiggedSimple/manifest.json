@@ -112,7 +112,7 @@
       "source": "manifest",
       "positionM": [
         28.84559525168973,
-        12.414392668114989,
+        12.414392668114987,
         19.54443619825344
       ],
       "lookAtM": [
@@ -126,7 +126,7 @@
       "clipStartM": 31.184047281109954,
       "clipEndM": 41.33899753599009,
       "derivation": "The framing rule of board:0083 applied to the union of the SKINNED subject's bounds over the declared grid, which is what an animated case's bounds are and which for this subject cannot be read off the accessors: every vertex is a blend of two joint matrices at every frame. Evaluated over 160 vertices at 18 frames: min (-1.0000000000000246, -4.575077056884766, -1.0000000000000142), max (2.8664947086415116, 4.599520210356288, 0.9999995827674866), centre (0.9332473543207435, 0.012221576735761186, -2.0861626381929455e-07), radius 5.077475127440069 m. Direction azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6, yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, znear = distance - r and zfar = distance + r. Roll 0: this silhouette is irrational at every roll and moves with the joint, so no roll buys exactness.",
-      "note": "THE CAMERA IS THE CASE'S AND NOT THE FRAME'S. The rule frames the bounds it is given and a skinned subject has a different bounds at every frame, so a camera re-derived per frame would follow the bend and a disagreement between two frames could be the pose or the viewpoint with nothing to separate them."
+      "note": "THE ENGINE'S OWN ANSWER, QUOTED (board:1398). Every number here is read from the framing rule's output for this subject -- eye, aim, yfov and both clip planes -- rather than recomputed by the authoring helper, which bounded each primitive by the eight transformed corners of its local AABB and therefore always at least as loosely as the engine bounds the transformed vertices. A looser radius moves the eye back, and 93 cases declared a camera the rule does not derive. `ADerivedCameraIsTheFramingRuleAndNotAQuotation` recomputes all of it and refuses a mismatch, so what this declaration does is PIN the viewpoint, never choose it."
     },
     "light": {
       "kind": "none",

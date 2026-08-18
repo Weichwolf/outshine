@@ -122,7 +122,7 @@
       "clipStartM": 4.34279848622952,
       "clipEndM": 5.757012048602616,
       "derivation": "The framing rule of board:0083 (src/gltf/Framing.h) applied to THE DEFAULT SCENE's own bounds, which is the point of the case: the square spans (0,0,0)..(1,1,0), so r = |max-min|/2 = 0.70710678118654757 m and the centre is (0.5, 0.5, 0). Azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6, yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, near = distance - r and far = distance + r. THE TRIANGLE OF SCENE 0 SPANS THE SAME BOX, so this camera does not by itself decide which scene is drawn -- it frames either one -- and the verdict rests on the silhouette rather than on the framing. The roll is zero and stated: a rolled axis-aligned square would be a different draw of the same lottery rather than an exactness argument.",
-      "note": "The file carries no camera, so this case's camera is declared here and the oracle builds the same one from these numbers."
+      "note": "THE ENGINE'S OWN ANSWER, QUOTED (board:1398). Every number here is read from the framing rule's output for this subject -- eye, aim, yfov and both clip planes -- rather than recomputed by the authoring helper, which bounded each primitive by the eight transformed corners of its local AABB and therefore always at least as loosely as the engine bounds the transformed vertices. A looser radius moves the eye back, and 93 cases declared a camera the rule does not derive. `ADerivedCameraIsTheFramingRuleAndNotAQuotation` recomputes all of it and refuses a mismatch, so what this declaration does is PIN the viewpoint, never choose it."
     },
     "light": {
       "kind": "none",
