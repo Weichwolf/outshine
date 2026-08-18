@@ -564,6 +564,15 @@ def _bind_declared_animations(document, declared, where):
             fail(where + " animation " + repr(name) + " drives " + ", ".join(sorted(missing)) +
                  ", which carry no curves, and the scene holds no action of that name")
         for slot in action.slots:
+            # A SLOT NAMES THE KIND OF DATABLOCK IT DRIVES AND ONLY `OBJECT` BELONGS HERE. Morph
+            # weights live on the mesh's shape-key datablock, whose slot reports `KEY` and whose
+            # identifier carries the `KE` prefix -- [MEASURED] `AnimatedMorphCube` publishes exactly
+            # one slot, `KEAnimatedMorphCube`, target_id_type `KEY`. Assigning it to an object is
+            # refused by Blender itself with *this slot is not suitable*, and the weights arm below
+            # reaches those curves through the shape keys rather than through this binding
+            # (board:1203).
+            if getattr(slot, "target_id_type", "OBJECT") != "OBJECT":
+                continue
             obj = bpy.data.objects.get(slot.name_display)
             if obj is None:
                 continue
