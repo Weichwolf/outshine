@@ -481,7 +481,56 @@ def _write_frames(name, road, taken, wide, checkAt):
         curves[component].update()
     return wide
 
-def baked_channels(scene, paths, fps, declared):
+def _bind_declared_animations(document, declared, where):
+    """EVERY DECLARED ANIMATION IS ASSIGNED TO ITS OBJECT, because the importer assigns ONE.
+
+    [MEASURED] `InterpolationTest` carries nine animations, each driving one distinct node, and its
+    case declares all nine -- legitimately, since no two share a target. Blender imports all nine as
+    ACTIONS and assigns exactly one: `Cube` gets `Step Scale` and the other eight objects have no
+    animation data at all, while the actions `Linear Scale`, `CubicSpline Rotation` and their kind sit
+    unassigned with slots named after the very objects that are missing them.
+
+    So the data is present and the BINDING is not, and the preparer needs a channelbag to write its
+    evaluated poses into. `Fox` never showed this because the one animation Blender happened to
+    activate was the one its case declared.
+
+    THE MAPPING IS BY THE ANIMATION'S OWN NAME AND THE SLOT IS ITS WITNESS. An action is found by the
+    name the FILE gives the animation; the action's slot names an object, and that object must be one
+    the animation actually drives, or the mapping is refused rather than guessed. A file that names an
+    animation nothing is refused here too -- there is no second key to fall back to that is not an
+    assumption about the importer's ordering.
+    """
+    for index in declared:
+        animation = document["animations"][index]
+        name = animation.get("name")
+        if not name:
+            fail(where + " animation " + str(index) + " carries no name, and an action can only be "
+                 "found by the name the file gives it -- matching by order would be an assumption "
+                 "about the importer this preparer does not make")
+        action = bpy.data.actions.get(name)
+        if action is None:
+            fail(where + " animation " + repr(name) + " has no action of that name in the scene, so "
+                 "the importer either renamed it or did not create it")
+        drives = {document["nodes"][c["target"]["node"]].get("name")
+                  for c in animation.get("channels", []) if c.get("target", {}).get("node") is not None}
+        for slot in action.slots:
+            obj = bpy.data.objects.get(slot.name_display)
+            if obj is None:
+                continue
+            if slot.name_display not in drives:
+                fail(where + " action " + repr(name) + " carries a slot named " +
+                     repr(slot.name_display) + " and that animation drives " +
+                     ", ".join(sorted(n for n in drives if n)) +
+                     " -- so the action this preparer found is not the animation it was looking for")
+            if obj.animation_data is None:
+                obj.animation_data_create()
+            if obj.animation_data.action is action and obj.animation_data.action_slot is not None:
+                continue
+            obj.animation_data.action = action
+            obj.animation_data.action_slot = slot
+
+
+def baked_channels(scene, paths, fps, declared, lightsFromFile=False, cameraFromFile=False):
     """EVERY ANIMATED CHANNEL, WRITTEN TO THE FRAME GRID AS EXACT KEYS (board:1198, board:1175).
 
     THE GRID IS BLENDER FRAMES AND THE SAMPLER IS IN SECONDS. `scene.frame_start` is 0 and `fps_base`
@@ -497,6 +546,7 @@ def baked_channels(scene, paths, fps, declared):
     A NODE THE IMPORTER DID NOT NAME BACK IS A REFUSAL, not a skip: a channel silently dropped would
     leave that node at its rest pose on the oracle's side and moving on ours, which reads as a shading
     or raster disagreement and is neither."""
+    skippedLightChannels = []
     baked, left = [], []
     for path in paths:
         document = document_json(path)
@@ -510,6 +560,7 @@ def baked_channels(scene, paths, fps, declared):
             if which < 0 or which >= len(document["animations"]):
                 fail(path + " carries " + str(len(document["animations"])) +
                      " animations and the case declares index " + str(which))
+        _bind_declared_animations(document, declared, path)
         buffers = document_buffers(path, document)
         for index in declared:
             animation = document["animations"][index]
@@ -571,6 +622,26 @@ def baked_channels(scene, paths, fps, declared):
                 #
                 # THE JOINT WINS, because a joint is where the importer put the curves. More than one
                 # armature makes the object mapping ambiguous and is refused rather than guessed.
+                # A CHANNEL DRIVING A NODE THE SCENE DELIBERATELY DOES NOT CARRY IS SKIPPED AND
+                # SAID SO. A case that declares `light.kind` other than `gltf` imports none of the
+                # file's lights, so a channel targeting a light node targets a thing that is not in
+                # the scene -- and refusing there reads as a defect in the asset when it is a
+                # consequence of the case's own declaration. [MEASURED] `DiffuseTransmissionPlant`
+                # animates `pointlight_firefly1`, which Blender WOULD import as a LIGHT object and
+                # which this case asked it not to -- and `chase_firefly1`, a CAMERA node, for the
+                # same reason one line further on: a case declaring its own camera does not carry
+                # the file's.
+                #
+                # THE EXEMPTION IS EXACTLY THIS AND NOT A WIDER ONE: a miss on any other node stays a
+                # refusal, because a channel silently dropped leaves that node at rest on the
+                # oracle's side while ours moves, which reads as a shading disagreement and is not.
+                carried = document["nodes"][node]
+                itsLight = "KHR_lights_punctual" in carried.get("extensions", {})
+                itsCamera = "camera" in carried
+                if (itsLight and not lightsFromFile) or (itsCamera and not cameraFromFile):
+                    skippedLightChannels.append((carried.get("name") or str(node)) +
+                                                (" (light)" if itsLight else " (camera)"))
+                    continue
                 joints = {j for skin in document.get("skins", []) for j in skin.get("joints", [])}
                 if node in {skin.get("skeleton") for skin in document.get("skins", [])} \
                         and node not in joints:
@@ -606,7 +677,10 @@ def baked_channels(scene, paths, fps, declared):
                 baked.append({"animation": index, "node": node, "name": name, "carriedBy": carried,
                               "path": road, "interpolation": how, "keyframes": len(times),
                               "frames": len(grid), "curves": written})
-    return {"baked": baked, "leftAlone": left}
+    # PUBLISHED, NEVER SILENT: a channel this preparer chose not to write is a fact the runner
+    # and a reader of the provenance need, because the alternative is a node at rest on one side
+    # only and no record of why.
+    return {"baked": baked, "leftAlone": left, "skippedLightChannels": skippedLightChannels}
 
 def evaluated_pose(imported):
     """Where the oracle actually put each object at this frame, in Blender's own +Z-up metres.
@@ -1876,7 +1950,9 @@ def main():
     if animation is not None:
         channels = baked_channels(scene, job["gltfPaths"],
                                   scene.render.fps / scene.render.fps_base,
-                                  animation["animations"])
+                                  animation["animations"],
+                                  job["scene"]["light"]["kind"] == "gltf",
+                                  job["scene"]["camera"]["source"] == "gltf")
         scene.frame_set(int(job["frame"]))
     quantity_work = tempfile.mkdtemp(prefix="outshine-quantities-")
     quantities = ask_for_quantities(scene, job["quantityPasses"], quantity_work, job["recipe"])
