@@ -83,3 +83,33 @@ engine's sampler, so an engine whose sampler is wrong still disagrees.
 **Two of `Pose`'s arms remain unexercised by anything** — `STEP` and scale channels — and `board:1169` said
 so at the time rather than letting them pass as covered. `InterpolationTest` carries the first. **Morph
 weights stay a named refusal**, which is a different statement from unexercised and must not be read as one.
+
+**Two cases were blocked by their own manifests, not by the engine, and the message read the other
+way.** `Fox` and `MorphStressTest` each declared all three of their file's animations at once:
+
+```
+animations 0 and 1 both drive the rotation of node 8, and the format states no result for that
+```
+
+That reads as a reader refusing a legal file, and I was one edit away from loosening the uniqueness
+rule to "let it through". **The specification settles it in one sentence** (`Specification.adoc:2571`):
+
+> Within one animation, each target (a combination of a node and a path) **MUST NOT** be used more
+> than once.
+
+**Within ONE.** Across animations the format defines nothing -- and the refusal is not in the reader
+at all, it is in the POSER, which is handed a SET of animations to apply together. `Fox` carries
+`Survey`, `Walk` and `Run`; a viewer plays one. **The engine was right and the declaration was wrong.**
+
+Both now declare one animation, both prepare, and **both land within the picture bound**.
+
+## What is left on them, and it is this feature's actual subject
+
+```
+the drawn subject moves over the declared grid, so the sequence is not a still rendered once
+per frame and agreeing with the oracle by construction
+```
+
+fails on both -- meaning **our drawn subject does NOT move across the frame grid**. The oracle's does.
+So the animation is read, the case prepares, the picture matches at frame 0, and the pose is not being
+applied per frame on our side. *That is a real finding and it is what this feature is for.*
