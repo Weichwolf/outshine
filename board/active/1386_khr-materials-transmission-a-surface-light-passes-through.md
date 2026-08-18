@@ -231,3 +231,29 @@ both the surface-table clearing and the pass request.
 | its criterion | red | red | **met** |
 | `ABeautifulGame` | green | **red, 19.542392 px** | **green** |
 | `CommercialRefrigerator` | refused outright | green | **green** |
+
+## The reader is back and NOTHING CAN SEE IT, and that is measured rather than assumed
+
+[MEASURED] **0 of 145 cases declare `renders.default.bounces.transmission` above zero.** The corpus
+renders at zero bounces throughout, because that is what makes Cycles evaluate the same coverage
+predicate a centre-sampling rasteriser does -- so the transmissive pass is never requested and the
+restored reader reaches no picture at all.
+
+**So this is `board:1407`'s shape a second time**: the capability is built and correct, no case can see
+it, and what is missing is a case configuration in which the ORACLE can decide it. The measurement that
+matters is not another repair; it is finding that configuration.
+
+**What such a case needs, and each is a real cost:**
+
+- [ ] **At least one transmission bounce**, or the reference cannot show anything through a surface
+- [ ] **More than one sample per pixel**, because a path tracer at 1 spp through glass is noise -- and
+  the corpus's 1 spp is what makes its coverage predicate exact, so this case is a DIFFERENT recipe
+  rather than a changed one
+- [ ] **A subject small enough to afford it.** `board:1363`'s route was a generated sphere for exactly
+  this reason, and a generated pane of glass in front of a generated body is the same move
+- [ ] **The four cases that carry glass keep their present recipe** and stay coverage cases: what they
+  decide is where the geometry is, and they decide it correctly today
+
+**Until then the reader is a shortfall that is named rather than a claim**: it reads what the format
+declares, no case draws it, and the four extensions' worth of picture below it is `board:1407`'s
+generated-subject route waiting to be walked a second time.
