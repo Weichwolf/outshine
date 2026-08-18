@@ -114,6 +114,8 @@ bool Renderer::Executable(Stage stage) {
     case Stage::Subjects:
     case Stage::Tonemap:
       return true;
+    case Stage::SubjectsTransmissive:
+    case Stage::CompositeTransmission:
     case Stage::MediumTransmittance:
     case Stage::MediumMultiScatter:
     case Stage::MediumRadiance:
@@ -250,6 +252,8 @@ void Renderer::Create(Resource resource) {
       return;
     }
     case Resource::SceneHdr: HdrTex = target(resource, colour); return;
+    case Resource::SceneTransmissive: TransmissiveTex = target(resource, colour); return;
+    case Resource::SceneComposited: CompositedTex = target(resource, colour); return;
     case Resource::SceneVelocity: VelTex = target(resource, colour); return;
     case Resource::SceneShadingNormal: ShadingNormalTex = target(resource, colour); return;
     case Resource::SceneSurfaceIdentity: SurfaceIdentityTex = target(resource, colour); return;
@@ -281,6 +285,8 @@ void Renderer::Create(Resource resource) {
 SDL_GPUTexture *Renderer::Target(Resource resource) const {
   switch (resource) {
     case Resource::SceneHdr: return HdrTex.Get();
+    case Resource::SceneTransmissive: return TransmissiveTex.Get();
+    case Resource::SceneComposited: return CompositedTex.Get();
     case Resource::SceneVelocity: return VelTex.Get();
     case Resource::SceneShadingNormal: return ShadingNormalTex.Get();
     case Resource::SceneSurfaceIdentity: return SurfaceIdentityTex.Get();
@@ -324,6 +330,8 @@ bool Renderer::Configure(Stage stage, std::string &error) {
     case Stage::Tonemap:
       return Tonemap_.Configure(Handles, LinearSource(), DepthTex.Get(), Samp.Get(), Display(),
                                 error);
+    case Stage::SubjectsTransmissive:
+    case Stage::CompositeTransmission:
     case Stage::MediumTransmittance:
     case Stage::MediumMultiScatter:
     case Stage::MediumRadiance:
@@ -362,6 +370,8 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
   switch (stage) {
     case Stage::Subjects: Subjects_.Encode(ctx, into); return;
     case Stage::Tonemap: Tonemap_.Encode(ctx, into); return;
+    case Stage::SubjectsTransmissive:
+    case Stage::CompositeTransmission:
     case Stage::MediumTransmittance:
     case Stage::MediumMultiScatter:
     case Stage::MediumRadiance:

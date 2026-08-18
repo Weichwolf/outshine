@@ -157,6 +157,12 @@ private:
   std::shared_ptr<const RenderPlan> Plan_;
   Gpu Handles;
   OwnedTexture HdrTex, VelTex, DepthTex, FrameTex, OffscreenTex;
+  /* `KHR_materials_transmission` (board:1386): where a transmissive draw puts its radiance, and the
+   * two put together. Kept apart from `HdrTex` because the pass that reads what stands behind it
+   * must not also be writing that -- the plan's own topological invariant refuses the shape where it
+   * would be, and that refusal is what chose this layout. Both stay unbound on a plan that declares
+   * no glass, where `SceneComposited` aliases straight to `SceneHdr`. */
+  OwnedTexture TransmissiveTex, CompositedTex;
   /* The normal the BRDF received, allocated only where a plan reads it (board:1122). */
   OwnedTexture ShadingNormalTex;
   /* Which surface slot the fragment wore, allocated only where a plan reads it (board:1138). */

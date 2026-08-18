@@ -34,6 +34,8 @@ enum class Resource {
   SceneDepth,
   SceneShadingNormal,
   SceneSurfaceIdentity,
+  SceneTransmissive,
+  SceneComposited,
   AoBuffer,
   SceneLinear,
   FrameTex,
@@ -57,6 +59,8 @@ enum class Stage {
   Water,
   Models,
   Subjects,
+  SubjectsTransmissive,
+  CompositeTransmission,
   AmbientOcclusion,
   TemporalResolve,
   Tonemap,
@@ -215,6 +219,18 @@ inline constexpr ResourceRow kResources[] = {
      * was rounded" is unspellable rather than bounded by a count nobody checks. */
     {Resource::SceneSurfaceIdentity, ResourceKind::Attachment, FallbackKind::None, kNoEdge,
      TexelFormat::Rgba32Float, "sceneSurfaceIdentity"},
+    /* WHERE A TRANSMISSIVE DRAW PUTS ITS RADIANCE (board:1386), kept apart from `SceneHdr` so that
+     * the pass reading what stands behind it is not also writing that. The plan's own
+     * `TopologicalOrderHolds` refuses the shape where it would be -- *no stage at or after `s` may
+     * produce anything `s` reads* -- and that rule is what decided this layout rather than taste. */
+    {Resource::SceneTransmissive, ResourceKind::Attachment, FallbackKind::None, kNoEdge,
+     TexelFormat::Rgba16Float, "sceneTransmissive"},
+    /* THE TWO PUT TOGETHER, AND IT ALIASES AWAY WHEN THERE IS NO GLASS. A plan that declares no
+     * transmissive draw pulls neither the pass nor this resource: its readers rebind to `SceneHdr`
+     * and the frame pays nothing at all -- the same trick `SceneLinear` uses to skip a blit that
+     * would exist only to copy. */
+    {Resource::SceneComposited, ResourceKind::Derived, FallbackKind::Alias, Resource::SceneHdr,
+     TexelFormat::Rgba16Float, "sceneComposited"},
     {Resource::AoBuffer, ResourceKind::Attachment, FallbackKind::Neutral, kNoEdge,
      TexelFormat::R8Unorm, "aoBuffer"},
     /* Resolved linear radiance BEFORE the occlusion composite and BEFORE the metered exposure. A
@@ -280,11 +296,26 @@ inline constexpr StageRow kStages[] = {
      {kNoEdge}, {kNoEdge},
      {Resource::SceneHdr, Resource::SceneVelocity, Resource::SceneDepth,
       Resource::SceneShadingNormal, Resource::SceneSurfaceIdentity, kNoEdge}, kNoFusion},
+    /* THE TRANSMISSIVE HALF OF THE SUBJECTS UNIT, and it is a second PASS rather than a sixth UNIT:
+     * `Sky`, `Sun`, `Moon` and `Stars` are already four stages that are not four units, so the five
+     * geometry units of `CLAUDE.md` are untouched and no LOD cut is added.
+     *
+     * IT READS `SceneHdr` -- everything opaque has drawn by now and nothing after this contributes to
+     * it -- and writes its own target. It does NOT carry the shading normal or the surface identity:
+     * a glass fragment names no single surface, and a stage contributing a target its pipelines never
+     * write is the defect `Subjects`' own comment records. */
+    {Stage::SubjectsTransmissive, Provenance::Content, PassKind::Raster, "subjectsTransmissive",
+     {Resource::SceneHdr, Resource::LinearSampler, kNoEdge}, {kNoEdge},
+     {Resource::SceneTransmissive, Resource::SceneVelocity, Resource::SceneDepth, kNoEdge},
+     kNoFusion},
+    {Stage::CompositeTransmission, Provenance::Content, PassKind::Raster, "compositeTransmission",
+     {Resource::SceneHdr, Resource::SceneTransmissive, Resource::LinearSampler, kNoEdge},
+     {Resource::SceneComposited, kNoEdge}, {kNoEdge}, kNoFusion},
     {Stage::AmbientOcclusion, Provenance::Content, PassKind::Raster, "ambientOcclusion",
      {Resource::SceneDepth, Resource::AtmosphereUniform, kNoEdge}, {kNoEdge},
      {Resource::AoBuffer, kNoEdge}, kNoFusion},
     {Stage::TemporalResolve, Provenance::Content, PassKind::Raster, "temporalResolve",
-     {Resource::SceneHdr, Resource::SceneVelocity, Resource::SceneDepth, Resource::LinearSampler,
+     {Resource::SceneComposited, Resource::SceneVelocity, Resource::SceneDepth, Resource::LinearSampler,
       Resource::AtmosphereUniform, kNoEdge},
      {Resource::SceneLinear, kNoEdge}, {kNoEdge}, Stage::Tonemap},
     {Stage::Tonemap, Provenance::Machinery, PassKind::Raster, "tonemap",
