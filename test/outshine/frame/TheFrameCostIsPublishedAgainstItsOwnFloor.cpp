@@ -332,6 +332,12 @@ struct Measured {
   setupMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - setupBegan)
                 .count();
 
+  /* THE ARM IS A RUN OF ITS OWN AND SAYS SO (board:1413). Every repeat rewinds the orbit to its
+   * first frame, which is a camera cut; a temporal resolve that carried the previous repeat's history
+   * across it would make the picture a function of how many repeats had already happened, and the
+   * suite's own "every repeat of an arm drew the same" is exactly what caught that. */
+  renderer.BeginTemporalRun();
+
   for (int warm = 0; warm < kWarmFrames; ++warm) {
     if (!outshine::Clients::Aim(
             renderer, subject,
@@ -583,7 +589,13 @@ int main(int, char **argv) {
   outshine::Render::PlanSpec declaration;
   declaration.Outputs = {outshine::Render::Resource::SceneDepth,
                          outshine::Render::Resource::FrameTex};
-  declaration.Content = {outshine::Render::Stage::Subjects};
+  /* THE TEMPORAL RESOLVE IS DECLARED HERE AND THE COST IT ADDS IS WHAT THIS SUITE IS FOR
+   * (board:1413). It is `Content`, so no corpus case pulls it and none of their pictures move; this
+   * is the one consumer, which is what keeps it from being a path nothing runs. Its inputs -- the
+   * velocity target and the history pair -- are MACHINERY the plan pulls from the stage's own edges,
+   * so nothing is asked for here that the catalogue does not already require. */
+  declaration.Content = {outshine::Render::Stage::Subjects,
+                         outshine::Render::Stage::TemporalResolve};
   declaration.Display =
       outshine::Render::Declared<outshine::Render::Transfer>(outshine::Render::Transfer::Linear);
   declaration.Exposure = outshine::Render::Declared<float>(1.0f);

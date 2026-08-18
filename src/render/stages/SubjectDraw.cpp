@@ -1641,16 +1641,23 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
     NIdx = 0;
     return true;
   }
-  /* THE PREVIOUS POSE IS OWED EXACTLY WHERE THE PASS ATTACHES A VELOCITY (board:1169), and refused
-   * where it does not. A run nobody reads is a setting that silently did not apply; an attachment
-   * with no run is a target something asked for and nothing wrote. */
-  if ((mesh.PrevVerts != nullptr) != WritesVelocity) {
+  /* A PREVIOUS POSE NOBODY READS IS A SETTING THAT SILENTLY DID NOT APPLY (board:1169), and that half
+   * of the rule stands.
+   *
+   * THE OTHER HALF WAS TOO STRICT AND SAID SO IN ITS OWN WORDS (board:1413). It refused a velocity
+   * target over a mesh with no previous pose because *the motion of every pixel would be a sentinel*
+   * -- and that is not what happens. A screen-space motion vector has two terms, the vertex moved and
+   * the camera moved, and a mesh with no previous pose is a mesh that DID NOT DEFORM: its previous
+   * position is its current one, and the camera term is still whatever `PrevMvp16` says. So the
+   * velocity over rigid geometry is exact rather than absent, and refusing it kept a temporal resolve
+   * off every static subject there is -- which is most of them.
+   *
+   * `Prev` BINDS THE CURRENT POSITIONS IN THAT CASE, below, so the vertex term is identically zero by
+   * arithmetic rather than by a branch in the shader. */
+  if (mesh.PrevVerts != nullptr && !WritesVelocity) {
     NIdx = 0;
-    error = WritesVelocity
-                ? "the pass attaches a velocity target and the mesh carries no previous pose, so "
-                  "the motion of every pixel would be a sentinel"
-                : "the mesh carries a previous pose and the pass attaches no velocity target, so "
-                  "the run would reach no shader";
+    error = "the mesh carries a previous pose and the pass attaches no velocity target, so the run "
+            "would reach no shader";
     return false;
   }
   for (const DrawBatch &batch : mesh.Draws->Batches()) {
@@ -1729,7 +1736,10 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   Col = HasColour ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Colours,
                          NVerts * 4u * (uint32_t)sizeof(float))
                   : OwnedBuffer();
-  Prev = WritesVelocity ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.PrevVerts, positionBytes)
+  /* A RIGID MESH IS ITS OWN PREVIOUS POSE, which makes the vertex half of the motion exactly zero and
+   * leaves the camera half untouched (board:1413). */
+  const float *const previousPose = mesh.PrevVerts != nullptr ? mesh.PrevVerts : mesh.Verts;
+  Prev = WritesVelocity ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, previousPose, positionBytes)
                         : OwnedBuffer();
   Idx = Fill(SDL_GPU_BUFFERUSAGE_INDEX, mesh.Indices, NIdx * (uint32_t)sizeof(uint32_t));
   if (!Vtx || !Emit || !Idx || (WritesVelocity && !Prev) || (HasColour && !Col)) {

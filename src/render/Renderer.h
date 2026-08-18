@@ -29,6 +29,7 @@
 #include "stages/Resolve.h"
 #include "stages/SubjectDraw.h"
 #include "stages/CompositeTransmissionStage.h"
+#include "stages/TemporalResolveStage.h"
 #include "stages/TonemapStage.h"
 
 namespace outshine::Render {
@@ -132,6 +133,20 @@ public:
   void SetFovDeg(double deg) { FovDeg = deg > 0.0 ? (float)deg : FovDeg; }
   void SetOrthoM(double m) { OrthoM = (float)m; }
 
+  /* WHERE A TEMPORAL SEQUENCE BEGINS, DECLARED BY THE CONSUMER AND NEVER GUESSED (board:1413).
+   * Accumulation across frames is only correct while the frames belong to ONE continuous view: a
+   * camera cut, a teleport, a new scenario or a benchmark repeat all end the sequence, and history
+   * carried across one is the previous run's picture bleeding into this one's.
+   *
+   * IT IS NOT DETECTED FROM THE CAMERA. A heuristic on how far the eye moved would be a threshold
+   * nobody could state, and it would be wrong in both directions -- a fast pan is continuous and a
+   * one-metre cut is not. The consumer knows which it did.
+   *
+   * THIS IS WHAT MAKES THE PICTURE A FUNCTION OF THE DECLARATION AND NOT OF THE PACE: [MEASURED] the
+   * frame suite's five repeats of one arm stopped drawing the same picture the moment a resolve was
+   * declared, because the second repeat began with the first one's history. */
+  void BeginTemporalRun(void);
+
   [[nodiscard]] int SceneW(void) const { return Width; }
   [[nodiscard]] int SceneH(void) const { return Height; }
   /* The frame's shape, which a parallel projection needs and a perspective one does not: the
@@ -182,10 +197,36 @@ private:
    * at once, which is the shape of a guard put on the wrong side of a question. */
   bool DrawsGlass_ = false;
   CompositeTransmissionStage CompositeTransmission_;
+  TemporalResolveStage Temporal_;
   TonemapStage Tonemap_;
 
   bool Ready = false;
   int Width = 0, Height = 0;
+
+  /* THE TEMPORAL PAIR AND WHICH OF THEM THIS FRAME WRITES (board:1413). `SceneLinear` is an alias
+   * whenever no temporal stage is held, so these exist only on the plans that pull one -- and then
+   * there are TWO, because the resolve reads what the previous frame wrote and a texture cannot be
+   * both. They are swapped rather than copied: a blit here would be 884 MB/s at 720p60 to move data
+   * that never had to move. */
+  OwnedTexture LinearTex_[2];
+  int LinearAt_ = 0;
+  bool HistoryHeld_ = false;
+  /* Whether THIS temporal run has already written a history, which is not the same question as
+   * whether the renderer has ever submitted a frame -- and conflating the two is what let one arm's
+   * accumulation reach the next. */
+  bool HistoryStarted_ = false;
+
+  /* THE SUB-PIXEL OFFSET THE PROJECTION CARRIES, AND IT IS WHAT MAKES THE RESOLVE ANTI-ALIASING
+   * rather than a smoother of the same samples. Halton(2, 3) over `kJitterPeriod` frames, in pixels
+   * and centred on zero.
+   *
+   * IT IS APPLIED ONLY WHERE THE RESOLVE EXISTS TO UNDO IT. A plan without a temporal stage renders
+   * on the pixel centres it always did, so no case that declines this moves by a sub-pixel -- which
+   * is the difference between a feature and a change to every picture in the corpus. */
+  static constexpr int kJitterPeriod = 8;
+  int JitterAt_ = 0;
+  float Jitter_[2] = {0.0f, 0.0f};
+  float PrevJitter_[2] = {0.0f, 0.0f};
   bool CameraFull = false;                /* SetCameraBasis used */
   double Eye[3] = {0, 0, 0};
   double Fwd[3] = {0, 0, 0}, Right[3] = {0, 0, 0}, Up[3] = {0, 0, 0};

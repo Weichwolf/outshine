@@ -53,6 +53,10 @@ struct Drawn {
                                 error)) {
       return out;
     }
+    /* EVERY PROBE JUMPS THE CAMERA, so every probe is a temporal run of its own (board:1413): a
+     * resolve that blended this viewpoint with the last one would report a radiance neither of them
+     * has, and this function exists to say what IS drawn. */
+    renderer.BeginTemporalRun();
     renderer.RenderFrame();
     if (renderer.ReadDepth(depth) != outshine::Render::ReadState::Ready) { return out; }
     if (renderer.ReadSceneLinear(linear) != outshine::Render::ReadState::Ready) { return out; }

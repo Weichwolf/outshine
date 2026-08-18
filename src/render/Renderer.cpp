@@ -24,8 +24,17 @@ namespace {
 
 /* Camera-relative: vertices arrive pre-translated by (origin-cam), so the eye is at the ORIGIN and
  * the view is pure rotation -- no absolute ECEF coordinate ever reaches float. */
+/* `jitterX` and `jitterY` are a sub-pixel offset in PIXELS, zero on every plan that declares no
+ * temporal resolve (board:1413).
+ *
+ * IT GOES IN THE z COLUMN AND NOT IN THE TRANSLATION, and that is the whole of what makes it a
+ * SUB-PIXEL offset rather than a depth-dependent skew. Under perspective `w = -z_eye`, so a constant
+ * added to `x_clip` moves a near vertex by many pixels and a far one by none; what has to be constant
+ * is `x_ndc = x_clip / w`, so the term added to `x_clip` must itself carry `w` -- which is exactly
+ * what an entry multiplying `z_eye` does. A parallel projection has `w = 1` and the same offset
+ * belongs in the translation instead, which is why the two branches spell it differently. */
 void MvpCamRel(float *m, const double R[3], const double Uc[3], const double F[3], int w, int h,
-               float fovDeg, float orthoM) {
+               float fovDeg, float orthoM, float jitterX, float jitterY) {
   const float fov = fovDeg * 3.14159265f / 180.0f, asp = (float)w / (float)h;
   const float zn = Renderer::kNearM;
   const float f = 1.0f / std::tan(fov / 2.0f);
@@ -35,12 +44,19 @@ void MvpCamRel(float *m, const double R[3], const double Uc[3], const double F[3
                        0,           0,            0,            1};
   /* infinite reversed-Z projection ([0,1]): z_clip = zn, w = -z_eye -> depth = zn / -z_eye. */
   float p[16] = {f / asp, 0, 0, 0, 0, f, 0, 0, 0, 0, 0, -1, 0, 0, zn, 0};
+  /* Two NDC units span the frame, so a pixel is `2 / w` of it. */
+  const float ndcX = w > 0 ? 2.0f * jitterX / (float)w : 0.0f;
+  const float ndcY = h > 0 ? 2.0f * jitterY / (float)h : 0.0f;
+  p[8] = -ndcX;
+  p[9] = -ndcY;
   if (orthoM > 0.0f) {
     /* A comparison against a map is a comparison against a PARALLEL projection; under perspective
      * the same field is two different shapes at the centre and at the corner. */
     const float hw = 0.5f * orthoM * asp, hh = 0.5f * orthoM;
     const float zf = 60000.0f, rz = 1.0f / (zf - zn);
-    const float q[16] = {1.0f / hw, 0, 0, 0, 0, 1.0f / hh, 0, 0, 0, 0, rz, 0, 0, 0, zf * rz, 1};
+    float q[16] = {1.0f / hw, 0, 0, 0, 0, 1.0f / hh, 0, 0, 0, 0, rz, 0, 0, 0, zf * rz, 1};
+    q[12] = ndcX;
+    q[13] = ndcY;
     for (int i = 0; i < 16; i++) { p[i] = q[i]; }
   }
   for (int c = 0; c < 4; c++) {
@@ -114,6 +130,8 @@ bool Renderer::Executable(Stage stage) {
     case Stage::Subjects:
     case Stage::Tonemap:
       return true;
+    case Stage::TemporalResolve:
+      return true;
     case Stage::SubjectsTransmissive:
     case Stage::CompositeTransmission:
       return true;
@@ -132,7 +150,6 @@ bool Renderer::Executable(Stage stage) {
     case Stage::Water:
     case Stage::Models:
     case Stage::AmbientOcclusion:
-    case Stage::TemporalResolve:
     case Stage::Present:
     case Stage::kCount:
       return false;
@@ -300,7 +317,20 @@ void Renderer::Create(Resource resource) {
     case Resource::Meter:
     case Resource::ShadowAtlas:
     case Resource::AoBuffer:
+      return;
+    /* ITS OWN ARM AND NOT A LABEL ON THE ONE ABOVE, which is how this first went wrong: sharing the
+     * body with `Meter`, `ShadowAtlas` and `AoBuffer` made a HELD one of those allocate a texture at
+     * its own format, and those formats are `Handle`. [MEASURED] Metal aborted with *MTLTextureDescriptor
+     * has invalid pixelFormat (0)* -- the tonemap reads `AoBuffer`, so it is held on every plan. */
     case Resource::SceneLinear:
+      /* TWO, AND ONLY WHERE THE PLAN PULLED THE RESOLVE. `SceneLinear` is an alias otherwise and
+       * `Allocate` is never reached for it; where it is real, the resolve reads what the previous
+       * frame wrote, so the pair is what makes that possible without a copy. */
+      LinearTex_[0] = target(resource, colour);
+      LinearTex_[1] = target(resource, colour);
+      LinearAt_ = 0;
+      HistoryHeld_ = false;
+      return;
     case Resource::kCount:
       return;
   }
@@ -329,7 +359,10 @@ SDL_GPUTexture *Renderer::Target(Resource resource) const {
     case Resource::Meter:
     case Resource::ShadowAtlas:
     case Resource::AoBuffer:
+      return nullptr;
+    /* Its own arm, for the reason `Create` records one line up. */
     case Resource::SceneLinear:
+      return LinearTex_[LinearAt_].Get();
     case Resource::kCount:
       return nullptr;
   }
@@ -362,6 +395,12 @@ bool Renderer::Configure(Stage stage, std::string &error) {
     case Stage::CompositeTransmission:
       return CompositeTransmission_.Configure(Handles, HdrTex.Get(), TransmissiveTex.Get(),
                                               Samp.Get(), error);
+    case Stage::TemporalResolve:
+      /* Both samplers are `Samp`, which is already the linear one; the current frame and the
+       * velocity are FETCHED at their own coordinate and ignore it, and the history is the one read
+       * that lands between texels. */
+      return Temporal_.Configure(Handles, FormatOf(Plan_->Format(Resource::SceneLinear)),
+                                 Samp.Get(), Samp.Get(), error);
     case Stage::Tonemap:
       return Tonemap_.Configure(Handles, LinearSource(), DepthTex.Get(), Samp.Get(), Display(),
                                 error);
@@ -380,7 +419,6 @@ bool Renderer::Configure(Stage stage, std::string &error) {
     case Stage::Water:
     case Stage::Models:
     case Stage::AmbientOcclusion:
-    case Stage::TemporalResolve:
     case Stage::Present:
     case Stage::kCount:
       error = "this device layer does not execute the stage";
@@ -393,7 +431,7 @@ bool Renderer::Configure(Stage stage, std::string &error) {
 void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
   FrameContext ctx{};
   for (int axis = 0; axis < 3; axis++) { ctx.Eye[axis] = Eye[axis]; }
-  MvpCamRel(ctx.Mvp16, Right, Up, Fwd, Width, Height, FovDeg, OrthoM);
+  MvpCamRel(ctx.Mvp16, Right, Up, Fwd, Width, Height, FovDeg, OrthoM, Jitter_[0], Jitter_[1]);
   for (int axis = 0; axis < 3; axis++) {
     ctx.PrevEye[axis] = Submitted ? PrevEye[axis] : ctx.Eye[axis];
   }
@@ -404,7 +442,21 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
     case Stage::Subjects: Subjects_.Encode(ctx, into); return;
     case Stage::SubjectsTransmissive: Glass_.Encode(ctx, into); return;
     case Stage::CompositeTransmission: CompositeTransmission_.Encode(ctx, into); return;
-    case Stage::Tonemap: Tonemap_.Encode(ctx, into); return;
+    case Stage::TemporalResolve: {
+      /* WHAT THE RESOLVE READS IS WHAT EVERY CONTRIBUTOR LEFT, resolved through the plan's own alias
+       * rather than named here: with no glass in the plan `SceneComposited` IS `SceneHdr`, and a
+       * second spelling of that would be a second answer. */
+      const float delta[2] = {Jitter_[0] - PrevJitter_[0], Jitter_[1] - PrevJitter_[1]};
+      Temporal_.Bind(Target(Plan_->Bound(Resource::SceneComposited)),
+                     LinearTex_[1 - LinearAt_].Get(), VelTex.Get(), Width, Height);
+      Temporal_.Encode(into, delta, HistoryHeld_);
+      return;
+    }
+    case Stage::Tonemap:
+      /* RE-BOUND EVERY FRAME BECAUSE THE PAIR SWAPS, and a no-op on every plan that has no pair. */
+      Tonemap_.Bind(LinearSource());
+      Tonemap_.Encode(ctx, into);
+      return;
     case Stage::MediumTransmittance:
     case Stage::MediumMultiScatter:
     case Stage::MediumRadiance:
@@ -420,7 +472,6 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
     case Stage::Water:
     case Stage::Models:
     case Stage::AmbientOcclusion:
-    case Stage::TemporalResolve:
     case Stage::Present:
     case Stage::kCount:
       return;
@@ -434,6 +485,25 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
  * WHAT AN ATTACHMENT IS CLEARED TO IS A STATEMENT: the scene target's clear is what a pixel nothing
  * drew carries, the velocity sentinel says "nothing dynamic wrote this pixel", and the reversed-Z
  * depth clears to the far plane at zero. */
+/* THE RADICAL INVERSE OF `index` IN `base`, which is Halton's own definition: write the index in the
+ * base and reflect its digits about the point. Two coprime bases give a pair that fills the pixel
+ * evenly at every prefix length, which is the property a temporal sequence needs -- an accumulation
+ * cut short after three frames should already be well spread.
+ *
+ * INDEXED FROM ONE, because the radical inverse of zero is zero and a frame that sampled the exact
+ * pixel centre would contribute nothing the un-jittered picture did not already have. */
+static float RadicalInverse(int index, int base) {
+  float result = 0.0f;
+  float weight = 1.0f / (float)base;
+  int at = index + 1;
+  while (at > 0) {
+    result += weight * (float)(at % base);
+    at /= base;
+    weight /= (float)base;
+  }
+  return result;
+}
+
 void Renderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
   const RenderPlan::Pass &declared = Plan_->Passes()[pass];
   SDL_GPUColorTargetInfo colours[kMaxColourAttachments] = {};
@@ -464,15 +534,46 @@ void Renderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
   SDL_EndGPURenderPass(into.Pass);
 }
 
+void Renderer::BeginTemporalRun(void) {
+  HistoryStarted_ = false;
+  JitterAt_ = 0;
+  Jitter_[0] = 0.0f;
+  Jitter_[1] = 0.0f;
+  PrevJitter_[0] = 0.0f;
+  PrevJitter_[1] = 0.0f;
+  LinearAt_ = 0;
+  HistoryHeld_ = false;
+}
+
 void Renderer::RenderFrame(void) {
   if (!Ready || !CameraFull) { return; }
+  /* THE SUB-PIXEL OFFSET AND THE PAIR ADVANCE ONCE PER FRAME AND BEFORE ANY PASS, so every stage in
+   * this frame sees one projection and one history -- a jitter advanced inside the pass loop would
+   * make the geometry and the resolve disagree about where the frame was sampled.
+   *
+   * IT MOVES ONLY WHERE THE RESOLVE EXISTS TO UNDO IT (board:1413): a plan that declares no temporal
+   * stage keeps the pixel centres it always had, so nothing that declines this feature moves. */
+  if (Plan_->Holds(Stage::TemporalResolve)) {
+    PrevJitter_[0] = Jitter_[0];
+    PrevJitter_[1] = Jitter_[1];
+    JitterAt_ = (JitterAt_ + 1) % kJitterPeriod;
+    Jitter_[0] = RadicalInverse(JitterAt_, 2) - 0.5f;
+    Jitter_[1] = RadicalInverse(JitterAt_, 3) - 0.5f;
+    /* The frame that writes index 1 can read what index 0 left; the very first cannot, and says so
+     * rather than blending towards a cleared texture. */
+    HistoryHeld_ = HistoryStarted_;
+    HistoryStarted_ = true;
+    LinearAt_ = 1 - LinearAt_;
+  }
   SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device_.Get());
   /* THE PASSES ARE THE COMPILER'S. There is no tally here and no fixed enumeration to keep one
    * against: the count, the order and the attachment set of every pass are what Compile derived. */
   for (size_t pass = 0; pass < Plan_->Passes().size(); ++pass) { EncodePass(commands, pass); }
   SDL_SubmitGPUCommandBuffer(commands);
   for (int axis = 0; axis < 3; axis++) { PrevEye[axis] = Eye[axis]; }
-  MvpCamRel(PrevMvp16, Right, Up, Fwd, Width, Height, FovDeg, OrthoM);
+  /* THE SAME OFFSET THIS FRAME RASTERISED WITH, because this is what the NEXT frame's velocity is
+   * measured against -- and the resolve subtracts the difference of the two. */
+  MvpCamRel(PrevMvp16, Right, Up, Fwd, Width, Height, FovDeg, OrthoM, Jitter_[0], Jitter_[1]);
   Submitted = true;
 }
 

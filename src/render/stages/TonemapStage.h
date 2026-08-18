@@ -26,6 +26,11 @@ public:
   [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUTexture *scene, SDL_GPUTexture *depth,
                                SDL_GPUSampler *exact, const DisplayOptions &options,
                                std::string &error);
+  /* THE SCENE TEXTURE MAY CHANGE BETWEEN FRAMES AND THE PIPELINE MAY NOT (board:1413). A temporal
+   * resolve writes into one of two `SceneLinear` textures and swaps them, so what this stage samples
+   * alternates while everything about how it samples stays put -- which is a re-BIND and never a
+   * reconfigure. */
+  void Bind(SDL_GPUTexture *scene) { Scene = scene; }
   void Encode(const FrameContext &ctx, const PassRecording &into);
 
 private:
