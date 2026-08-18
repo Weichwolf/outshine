@@ -1,10 +1,13 @@
 #include "SubjectDraw.h"
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <string>
 
 #include "MetalRoughBrdf.h"
+#include "IridescenceLobe.h"
 #include "SheenLobe.h"
 #include "NormalFromMap.h"
 #include "SceneTargets.h"
@@ -186,6 +189,10 @@ struct M { float factor; float cut; float metalness; float roughness;
            float clearcoat; float clearcoatRoughness;
            /* `KHR_materials_anisotropy`: strength and the rotation from the tangent, in radians. */
            float anisotropy; float anisotropyRotation;
+           /* `KHR_materials_iridescence`: a thin film whose interference TINTS the specular Fresnel
+            * rather than adding a lobe. Zero strength disables it, and so does zero thickness. */
+           float iridescence; float iridescenceIor;
+           float iridescenceThicknessMin; float iridescenceThicknessMax;
            packed_float3 colourUvU; packed_float3 colourUvV;
            packed_float3 normalUvU; packed_float3 normalUvV;
            packed_float3 metalRoughUvU; packed_float3 metalRoughUvV;
@@ -611,11 +618,25 @@ SUBJECT_LIT_ARM(vsLitTexturedTwoTinted,
  * because a textured surface states all three per texel and the untextured arm states them per
  * material -- one function that read the row would force the mapped arm to write the loop over the
  * lights a second time. */
-static inline float3 shadeRow(constant Lights &lights, Occluders occluders, float3 localM, float3 n,
-                              float3 p, float3 albedo, float metalness, float roughness,
-                              float3 dielectricF0, float3 emitted, float3 sheenColour,
-                              float sheenRoughness, float clearcoat, float clearcoatRoughness,
-                              float anisotropy, float anisotropyRotation, float3 tangentDir) {
+static inline float3 shadeRow(constant M &surface, constant Lights &lights, Occluders occluders,
+                              float3 localM, float3 n, float3 p, float3 albedo, float metalness,
+                              float roughness, float3 dielectricF0, float3 emitted,
+                              float3 tangentDir) {
+  float3 sheenColour = float3(surface.sheenColour);
+  float sheenRoughness = surface.sheenRoughness;
+  float clearcoat = surface.clearcoat;
+  float clearcoatRoughness = surface.clearcoatRoughness;
+  float anisotropy = surface.anisotropy;
+  float anisotropyRotation = surface.anisotropyRotation;
+  /* `KHR_materials_iridescence` WITHOUT ITS THICKNESS TEXTURE SITS AT THE MAXIMUM, which is the
+   * extension's own implicit sample of 1.0 through `mix(minimum, maximum, texture.g)`. The minimum
+   * therefore reaches nothing yet and `board:1405` is what will make it reachable. */
+  float iridescence = surface.iridescence;
+  float iridescenceThickness = surface.iridescenceThicknessMax;
+  /* *THE THIN-FILM THICKNESS OF 0.0 NM DISABLES THE IRIDESCENCE*, and it is stated here rather than
+   * inside the lobe: the lobe answers what a film of that thickness reflects, and a film of no
+   * thickness is not a film. */
+  if (!(iridescenceThickness > 0.0)) { iridescence = 0.0; }
   float3 v = normalize(-p);
   float a = roughness * roughness;
   float a2 = a * a;
@@ -678,25 +699,38 @@ static inline float3 shadeRow(constant Lights &lights, Occluders occluders, floa
       continue;
     }
     float3 h = normalize(toward + v);
-    Brdf reflected = metalRoughBrdf(diffuseColour, f0, a2, nl, nv,
-                                    max(dot(n, h), 0.0), max(dot(v, h), 0.0));
+    float nh = max(dot(n, h), 0.0);
+    float vh = max(dot(v, h), 0.0);
+    /* ONE LOBE AND ONE FRESNEL, CHOSEN, AND ONE COMBINATION APPLIED TO WHICHEVER WAS CHOSEN. The two
+     * extensions that reach in here reach into DIFFERENT halves -- `KHR_materials_anisotropy`
+     * replaces the lobe's shape and leaves the Fresnel alone; `KHR_materials_iridescence` replaces
+     * the Fresnel and leaves the lobe alone -- so a surface declaring both is the product of the two
+     * substitutions and needs no third arm. */
+    float lobe = brdfLobe(a2, nl, nv, nh);
     if (anisotropic) {
-      /* The extension's own parametrisation: `at` along the direction, `ab` across it, and the
-       * Fresnel is the isotropic half's -- only the lobe's shape changes. */
+      /* The extension's own parametrisation: `at` along the direction, `ab` across it. */
       float at = mix(a, 1.0, anisotropy * anisotropy);
       float ab = a;
-      float3 fresnel = brdfFresnel(f0, max(dot(v, h), 0.0));
-      float lobe = brdfAnisotropicDistribution(max(dot(n, h), 0.0), dot(anisoT, h), dot(anisoB, h),
-                                               at, ab) *
-                   brdfAnisotropicVisibility(nl, nv, dot(anisoT, v), dot(anisoB, v),
-                                             dot(anisoT, toward), dot(anisoB, toward), at, ab);
-      reflected.specular = fresnel * lobe;
+      lobe = brdfAnisotropicDistribution(nh, dot(anisoT, h), dot(anisoB, h), at, ab) *
+             brdfAnisotropicVisibility(nl, nv, dot(anisoT, v), dot(anisoB, v),
+                                       dot(anisoT, toward), dot(anisoB, toward), at, ab);
+    }
+    Brdf reflected;
+    if (iridescence > 0.0) {
+      /* *A MODIFIED FRESNEL REFLECTANCE TERM THAT ACCOUNTS FOR INTER-REFLECTIONS* -- the extension's
+       * own sentence, and the whole of what it changes. The strength is a blend between the plain
+       * curve and the film's, which is what `iridescence_strength` means in both of its pseudocode
+       * blocks, and the base is then weighted by `1 - max(F)` rather than channelwise. */
+      float3 filmed = iridescenceFresnel(vh, iridescenceThickness, surface.iridescenceIor, f0);
+      reflected = brdfRgbMix(diffuseColour, mix(brdfFresnel(f0, vh), filmed, iridescence), lobe);
+    } else {
+      reflected = brdfCombine(diffuseColour, brdfFresnel(f0, vh), lobe);
     }
     /* `KHR_materials_sheen` LAYERED OVER THE BASE, and the base SCALED so the two together send out
      * no more than arrived: *sheen_material = sheenColor * sheen_brdf + material *
      * sheen_albedo_scaling*, the extension's own line. A black sheen colour makes the scaling exactly
      * one and the lobe exactly zero, so a surface that declares none is the arithmetic it was. */
-    float3 sheen = sheenColour * sheenDistribution(max(dot(n, h), 0.0), sheenRoughness) *
+    float3 sheen = sheenColour * sheenDistribution(nh, sheenRoughness) *
                    sheenVisibility(nl, nv, sheenRoughness);
     float keep = sheenAlbedoScaling(sheenColour, nv, sheenRoughness);
     float3 layered = (reflected.diffuse + reflected.specular) * keep + sheen;
@@ -712,10 +746,8 @@ static inline float3 shadeRow(constant Lights &lights, Occluders occluders, floa
     if (clearcoat > 0.0) {
       float coatA = clearcoatRoughness * clearcoatRoughness;
       float coatA2 = coatA * coatA;
-      float coatF = 0.04 + 0.96 * pow(1.0 - max(dot(v, h), 0.0), 5.0);
-      float coatLobe = coatA2 > 0.0 ? brdfDistribution(max(dot(n, h), 0.0), coatA2) *
-                                          brdfVisibility(nl, nv, coatA2)
-                                    : 0.0;
+      float coatF = 0.04 + 0.96 * pow(1.0 - vh, 5.0);
+      float coatLobe = brdfLobe(coatA2, nl, nv, nh);
       float weight = clearcoat * coatF;
       layered = layered * (1.0 - weight) + float3(weight * coatLobe);
     }
@@ -756,10 +788,8 @@ static inline float3 shadeRow(constant Lights &lights, Occluders occluders, floa
  * declares no image. */
 static inline float3 shade(constant M &surface, constant Lights &lights, Occluders occluders,
                            float3 localM, float3 n, float3 p, float3 albedo) {
-  return shadeRow(lights, occluders, localM, n, p, albedo, surface.metalness, surface.roughness,
-                  float3(surface.f0), surface.emissive, float3(surface.sheenColour),
-                  surface.sheenRoughness, surface.clearcoat, surface.clearcoatRoughness,
-                  surface.anisotropy, surface.anisotropyRotation, float3(0.0));
+  return shadeRow(surface, lights, occluders, localM, n, p, albedo, surface.metalness,
+                  surface.roughness, float3(surface.f0), surface.emissive, float3(0.0));
 }
 
 /* A DOUBLE-SIDED FACET HIT FROM BEHIND IS LIT BY ITS OTHER FACE, which is what the flip is: the
@@ -835,13 +865,11 @@ fragment SFrag fsLitTextured(LOut in [[stage_in]], bool front [[front_facing]], 
   float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
-  o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
+  o.col = float4(shadeRow(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb * in.colour.rgb,
                           surface.metalness, surface.roughness, SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
-                          float3(surface.sheenColour), surface.sheenRoughness,
-                          surface.clearcoat, surface.clearcoatRoughness,
-                          surface.anisotropy, surface.anisotropyRotation, float3(0.0)), 1.0);
+                          float3(0.0)), 1.0);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
@@ -854,13 +882,11 @@ fragment SFrag fsLitMaskedTextured(LOut in [[stage_in]], bool front [[front_faci
   if (surface.factor * tap.a * in.colour.a < surface.cut) { discard_fragment(); }
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
-  o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
+  o.col = float4(shadeRow(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb * in.colour.rgb,
                           surface.metalness, surface.roughness, SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
-                          float3(surface.sheenColour), surface.sheenRoughness,
-                          surface.clearcoat, surface.clearcoatRoughness,
-                          surface.anisotropy, surface.anisotropyRotation, float3(0.0)), 1.0);
+                          float3(0.0)), 1.0);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
@@ -872,13 +898,11 @@ fragment SFrag fsLitBlendedTextured(LOut in [[stage_in]], bool front [[front_fac
   float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
-  o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
+  o.col = float4(shadeRow(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb * in.colour.rgb,
                           surface.metalness, surface.roughness, SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
-                          float3(surface.sheenColour), surface.sheenRoughness,
-                          surface.clearcoat, surface.clearcoatRoughness,
-                          surface.anisotropy, surface.anisotropyRotation, float3(0.0)),
+                          float3(0.0)),
                  surface.factor * tap.a * in.colour.a);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
@@ -971,13 +995,11 @@ static inline Shaded mappedShade(constant M &surface, constant Lights &lights, O
    * deliberately inseparable (board:1122) and a third member would loosen it; the texture and sampler
    * are the same pair of arguments, so this costs no second fetch after the compiler has seen both. */
   const float meanResultantLength = SUBJECT_NORMAL_TAP(SUBJECT_UVS(in)).w;
-  return Shaded{shadeRow(lights, occluders, in.lp, shadingNormal, in.p, albedo,
-                  surface.metalness * orm.b,
-                  roughenedBy(surface.roughness * orm.g, meanResultantLength), specularF0,
-                  emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
-                  float3(surface.sheenColour), surface.sheenRoughness,
-                  surface.clearcoat, surface.clearcoatRoughness,
-                  surface.anisotropy, surface.anisotropyRotation, in.t.xyz),
+  return Shaded{shadeRow(surface, lights, occluders, in.lp, shadingNormal, in.p, albedo,
+                         surface.metalness * orm.b,
+                         roughenedBy(surface.roughness * orm.g, meanResultantLength), specularF0,
+                         emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
+                         in.t.xyz),
                 shadingNormal};
 }
 
@@ -1176,7 +1198,7 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
                              (identityIndex >= 0 ? "1" : "0") +
                              "\n#define SUBJECT_IDENTITY_COLOUR_INDEX " +
                              std::to_string(identityIndex < 0 ? 0 : identityIndex) +
-                             "\n" + kSubjectBindingsMsl + kSubjectMsl + MetalRoughBrdfMsl() + SheenLobeMsl() +
+                             "\n" + kSubjectBindingsMsl + kSubjectMsl + MetalRoughBrdfMsl() + SheenLobeMsl() + IridescenceLobeMsl() +
                              kSubjectLitMsl + kSubjectLitTexturedMsl + NormalFromMapMsl() +
                              kSubjectMappedMsl;
 
@@ -1499,7 +1521,13 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
    * holds the quantity and the shader holds no arithmetic that could disagree with `Material.h`'s. */
   float f0[3];
   DielectricF0(row, f0);
-  slot.Row = {material.Coverage(), material.State().CoverageCut(),
+  /* THE COUNT AND THE LIST ARE HELD TOGETHER BY THE COMPILER AND NOT BY A COMMENT. `slot.Row` is
+   * longer than this prefix, so a braced assignment straight into it would zero-fill a field somebody
+   * forgot to append and the shader would read a plausible zero -- a roughness of 0, a strength of 0
+   * -- with nothing anywhere to say a value went missing. Deduced here and checked against the
+   * constant, so the mistake is a compile error in both directions. */
+  const float scalars[] = {
+              material.Coverage(), material.State().CoverageCut(),
               row.Metalness,       row.Roughness,
               row.BaseColour[0],   row.BaseColour[1], row.BaseColour[2], row.BaseColour[3],
               row.Emission[0],     row.Emission[1],   row.Emission[2],   material.NormalScale,
@@ -1508,7 +1536,12 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
               row.AttenuationColour[0], row.AttenuationColour[1], row.AttenuationColour[2],
               row.SheenColour[0], row.SheenColour[1], row.SheenColour[2], row.SheenRoughness,
               row.Clearcoat,      row.ClearcoatRoughness,
-              row.Anisotropy,     row.AnisotropyRotationRad};
+              row.Anisotropy,     row.AnisotropyRotationRad,
+              row.Iridescence,    row.IridescenceIor,
+              row.IridescenceThicknessMinNm, row.IridescenceThicknessMaxNm};
+  static_assert(sizeof scalars / sizeof scalars[0] == (size_t)kSurfaceScalars,
+                "the surface row and its declared length are one statement");
+  std::copy(std::begin(scalars), std::end(scalars), slot.Row.begin());
   /* THE FOUR uv MATRICES, IN THE ORDER THE FOUR IMAGES ARE BOUND (board:1177), narrowed to f32 here
    * and nowhere earlier -- the reader composes in its own width and the device is the boundary. The
    * table is walked rather than written out four times so that the row's order and the sampler's

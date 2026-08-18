@@ -387,8 +387,11 @@ private:
    * thing already bound per slot -- a second per-slot uniform would be a second binding to keep in
    * step with the first. It is written one higher than the slot so the identity attachment's clear
    * is distinguishable from the first slot. */
-  static constexpr int kSurfaceScalars = 30; /* factor, cut, metalness, roughness, base4, emissive3,
-                                              * normal scale, slot + 1, f0 3 (board:1205) */
+  /* THE MATERIAL ROW'S SCALAR PREFIX -- every per-material quantity that is a number rather than an
+   * image, in the order the shader's own struct declares them. The list is NOT enumerated here: it
+   * drifted twice while it was, and `SubjectDraw.cpp` now deduces the length from the assignment and
+   * `static_assert`s it against this, so the two cannot disagree. */
+  static constexpr int kSurfaceScalars = 34;
   /* AND ONE uv MATRIX PER IMAGE (board:1177). `KHR_texture_transform` is stated inside each
    * `textureInfo`, so four references means four matrices and there is no per-material transform to
    * spell: an engine carrying one would have to choose which reference's it kept. Six floats each

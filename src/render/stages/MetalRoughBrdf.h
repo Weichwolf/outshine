@@ -152,17 +152,47 @@ struct BrdfGeometry {
   double Vh = 0;
 };
 
-[[nodiscard]] inline BrdfTerms MetalRoughBrdf(const std::array<double, 3> &diffuseColour,
-                                              const std::array<double, 3> &f0, double a2,
-                                              const BrdfGeometry &at) {
-  const std::array<double, 3> fresnel = BrdfFresnel(f0, at.Vh);
+/* THE ISOTROPIC LOBE, NAMED, so that the anisotropic and iridescent paths can put a DIFFERENT lobe or
+ * a DIFFERENT Fresnel through the same combination instead of writing the combination again.
+ *
+ * A ZERO ALPHA IS A MIRROR AND NOT A DIVISION. `a2 = 0` makes the distribution a Dirac, and the
+ * answer is no lobe rather than an invented floor -- the same statement `SheenLobe.h` makes. */
+[[nodiscard]] inline double BrdfLobe(double a2, const BrdfGeometry &at) {
+  return a2 > 0.0 ? BrdfDistribution(at.Nh, a2) * BrdfVisibility(at.Nl, at.Nv, a2) : 0.0;
+}
+
+/* THE CORE SPECIFICATION'S OWN COMBINATION -- glTF 2.0, *B.2.2 Dielectrics*, `fresnel_mix`: the
+ * specular term is weighted by F and the base by `1 - F`, PER CHANNEL. */
+[[nodiscard]] inline BrdfTerms BrdfCombine(const std::array<double, 3> &diffuseColour,
+                                           const std::array<double, 3> &fresnel, double lobe) {
   BrdfTerms terms;
-  const double lobe = a2 > 0.0 ? BrdfDistribution(at.Nh, a2) * BrdfVisibility(at.Nl, at.Nv, a2) : 0.0;
   for (size_t channel = 0; channel < 3; ++channel) {
     terms.Diffuse[channel] = (1.0 - fresnel[channel]) * diffuseColour[channel] * (1.0 / kBrdfPi);
     terms.Specular[channel] = fresnel[channel] * lobe;
   }
   return terms;
+}
+
+/* `KHR_materials_iridescence`'s `rgb_mix`, AND IT IS A DIFFERENT FORMULA RATHER THAN THE SAME ONE
+ * TWICE. A thin film's reflectance is a COLOUR, and the extension says what goes wrong if the base is
+ * weighted by `1 - F` channelwise -- *if instead 1 - rgb_alpha would be used directly, inverse colors
+ * would be created* -- so the base is weighted by the scalar `1 - max(F)` and the surface can only
+ * lose energy. */
+[[nodiscard]] inline BrdfTerms BrdfRgbMix(const std::array<double, 3> &diffuseColour,
+                                          const std::array<double, 3> &fresnel, double lobe) {
+  const double most = std::fmax(std::fmax(fresnel[0], fresnel[1]), fresnel[2]);
+  BrdfTerms terms;
+  for (size_t channel = 0; channel < 3; ++channel) {
+    terms.Diffuse[channel] = (1.0 - most) * diffuseColour[channel] * (1.0 / kBrdfPi);
+    terms.Specular[channel] = fresnel[channel] * lobe;
+  }
+  return terms;
+}
+
+[[nodiscard]] inline BrdfTerms MetalRoughBrdf(const std::array<double, 3> &diffuseColour,
+                                              const std::array<double, 3> &f0, double a2,
+                                              const BrdfGeometry &at) {
+  return BrdfCombine(diffuseColour, BrdfFresnel(f0, at.Vh), BrdfLobe(a2, at));
 }
 
 /* The device half. A textual splice, like the emitters beside it -- never compiled alone. */
@@ -172,6 +202,8 @@ struct BrdfGeometry {
                 "constant float kPi = %.17g;\n", kBrdfPi);
   return std::string(constants) + R"(
 struct Brdf { float3 diffuse; float3 specular; };
+
+static inline float max3(float3 v) { return max(max(v.x, v.y), v.z); }
 
 static inline float brdfAnisotropicDistribution(float nh, float th, float bh, float at, float ab) {
   float a2 = at * ab;
@@ -219,15 +251,28 @@ static inline float3 brdfFresnel(float3 f0, float vh) {
   return f0 + (float3(1.0) - f0) * (squared * squared * grazing);
 }
 
-static inline Brdf metalRoughBrdf(float3 diffuseColour, float3 f0, float a2,
-                                  float nl, float nv, float nh, float vh) {
-  float3 fresnel = brdfFresnel(f0, vh);
+static inline float brdfLobe(float a2, float nl, float nv, float nh) {
+  if (!(a2 > 0.0)) { return 0.0; }
+  return brdfDistribution(nh, a2) * brdfVisibility(nl, nv, a2);
+}
+
+static inline Brdf brdfCombine(float3 diffuseColour, float3 fresnel, float lobe) {
   Brdf terms;
-  float lobe = 0.0;
-  if (a2 > 0.0) { lobe = brdfDistribution(nh, a2) * brdfVisibility(nl, nv, a2); }
   terms.diffuse = (float3(1.0) - fresnel) * diffuseColour * (1.0 / kPi);
   terms.specular = fresnel * lobe;
   return terms;
+}
+
+static inline Brdf brdfRgbMix(float3 diffuseColour, float3 fresnel, float lobe) {
+  Brdf terms;
+  terms.diffuse = (1.0 - max3(fresnel)) * diffuseColour * (1.0 / kPi);
+  terms.specular = fresnel * lobe;
+  return terms;
+}
+
+static inline Brdf metalRoughBrdf(float3 diffuseColour, float3 f0, float a2,
+                                  float nl, float nv, float nh, float vh) {
+  return brdfCombine(diffuseColour, brdfFresnel(f0, vh), brdfLobe(a2, nl, nv, nh));
 }
 )";
 }

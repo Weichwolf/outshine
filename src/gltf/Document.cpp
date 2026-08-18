@@ -197,6 +197,7 @@ bool KnownWrap(int raw, Wrap &out) {
  * variants are a thing, and no fragment arm, pipeline or interpolant is added by it. */
 constexpr const char *const kHonouredExtensions[] = {"KHR_lights_punctual",
                                                      "KHR_materials_anisotropy",
+                                                     "KHR_materials_iridescence",
                                                      "KHR_materials_clearcoat",
                                                      "KHR_materials_sheen",
                                                      "KHR_mesh_quantization",
@@ -215,6 +216,7 @@ constexpr const char *kSpecular = "KHR_materials_specular";
 constexpr const char *kSheen = "KHR_materials_sheen";
 constexpr const char *kClearcoat = "KHR_materials_clearcoat";
 constexpr const char *kAnisotropy = "KHR_materials_anisotropy";
+constexpr const char *kIridescence = "KHR_materials_iridescence";
 constexpr const char *kUnlit = "KHR_materials_unlit";
 constexpr const char *kMaterialsVariants = "KHR_materials_variants";
 constexpr const char *kTextureTransform = "KHR_texture_transform";
@@ -1354,6 +1356,45 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
                       " declares an anisotropyRotation that is not a number");
       }
       material.Surface.AnisotropyRotationRad = static_cast<float>(turn.Num());
+    }
+  }
+  /* `KHR_materials_iridescence`. Neither of its two textures is read yet and `board:1405` carries
+   * that: the red channel of `iridescenceTexture` scales the strength and the green channel of
+   * `iridescenceThicknessTexture` selects between the two thicknesses. A material declaring one gets
+   * the FACTORS, which is the extension's own implicit sample of 1.0 in both -- full strength at the
+   * maximum thickness -- so the film is uniform rather than absent. */
+  const Json::Ref iridescence = declaration["extensions"][kIridescence];
+  if (iridescence.Valid()) {
+    const Json::Ref factor = iridescence["iridescenceFactor"];
+    if (factor.Valid()) {
+      if (factor.GetKind() != Json::Kind::Number || !(factor.Num() >= 0.0) || factor.Num() > 1.0) {
+        return Refuse("material " + Number(index) +
+                      " declares an iridescenceFactor outside [0, 1]");
+      }
+      material.Surface.Iridescence = static_cast<float>(factor.Num());
+    }
+    const Json::Ref filmIor = iridescence["iridescenceIor"];
+    if (filmIor.Valid()) {
+      if (filmIor.GetKind() != Json::Kind::Number || !(filmIor.Num() >= 1.0)) {
+        return Refuse("material " + Number(index) + " declares an iridescenceIor below 1");
+      }
+      material.Surface.IridescenceIor = static_cast<float>(filmIor.Num());
+    }
+    const Json::Ref least = iridescence["iridescenceThicknessMinimum"];
+    if (least.Valid()) {
+      if (least.GetKind() != Json::Kind::Number || !(least.Num() >= 0.0)) {
+        return Refuse("material " + Number(index) +
+                      " declares an iridescenceThicknessMinimum below 0");
+      }
+      material.Surface.IridescenceThicknessMinNm = static_cast<float>(least.Num());
+    }
+    const Json::Ref most = iridescence["iridescenceThicknessMaximum"];
+    if (most.Valid()) {
+      if (most.GetKind() != Json::Kind::Number || !(most.Num() >= 0.0)) {
+        return Refuse("material " + Number(index) +
+                      " declares an iridescenceThicknessMaximum below 0");
+      }
+      material.Surface.IridescenceThicknessMaxNm = static_cast<float>(most.Num());
     }
   }
   const Json::Ref strength =

@@ -370,3 +370,52 @@ is a picture the eye cannot tell apart at p99 5 codes.
 under `board:1382` verifiable rather than built blind: `KHR_materials_sheen` and its kind can now be
 held against an oracle that agrees with us on the base lobe. *Before this measurement, building them
 would have been eleven lobes checked by nothing.*
+
+## The blocked half has a route that does not need OSL, and it is one number
+
+**What this item established is narrower than how it has been read.** The disagreement is the DIFFUSE
+term and only the diffuse term: with the base colour black, `ours - oracle` is **-0.000143** over every
+view angle, two to three orders under the diffuse residual and with no view dependence at all. **A
+surface with no diffuse term is a surface this oracle can already decide.**
+
+**`metallic = 1` is that surface**, and it is one row in a manifest rather than a new instrument. glTF's
+own metal arm has no diffuse term by construction -- *the diffuse component is not present for metals* --
+so a metal case removes the one term the two sides model differently, and removes it by the
+specification's own rule rather than by choosing a convenient asset.
+
+**And it is exactly the arm the four layered extensions need.** `KHR_materials_sheen`,
+`KHR_materials_clearcoat`, `KHR_materials_anisotropy` and `KHR_materials_iridescence` all modify the
+SPECULAR path; not one of them touches the diffuse term. So the family that has been built with no case
+to decide it is the family this route unblocks first.
+
+**Blender's Principled carries all four, read from the node rather than recalled** -- `Anisotropic`,
+`Anisotropic Rotation`, `Tangent`, `Coat Weight`, `Coat Roughness`, `Coat IOR`, `Coat Tint`,
+`Coat Normal`, `Sheen Weight`, `Sheen Roughness`, `Sheen Tint`, and **`Thin Film Thickness` and
+`Thin Film IOR`**, which are `KHR_materials_iridescence`'s two parameters under Blender's names.
+
+## The caveat, named before the route is taken
+
+**The metal Fresnel is not obviously the same on both sides, and it is NOT measured yet.** This item's
+`-0.000143` was taken at `metallic 0` against a DIELECTRIC's F0 of 0.04 through Schlick. At `metallic 1`
+the F0 is the base colour and Blender's Principled uses an F82-tint conductor Fresnel, which is a
+different function from glTF Appendix B's Schlick. **The premise of this route is therefore a
+measurement that has not been made**, and it is the first thing the route owes: a metal sphere, one
+declared base colour, one light, binned against `n.v` the way the dielectric one was.
+
+**Two outcomes and they lead opposite ways.** If the conductor Fresnels agree within the instrument
+floor, the whole shading half of the corpus opens on metal subjects and the four extensions get their
+first case. If they do not, the disagreement is a SECOND named term -- and it is a term about the
+specular path, which this item has so far only ever measured as agreeing.
+
+## OSL is named above as the one route left, and it is closed for the same reason nodes are
+
+**It is available**: [MEASURED] `cycles.shading_system` sets on this Blender 5.2.0, and
+`ShaderNodeScript` offers `INTERNAL` and `EXTERNAL`. So the route is not blocked by the build.
+
+**It is closed by the shading architecture rather than by the vocabulary.** An OSL surface shader runs
+ONCE per shading point and returns a CLOSURE; the integrator evaluates that closure afterwards, once per
+light direction. The weight an OSL script computes therefore cannot depend on the incoming direction,
+and the half-vector is a function of it -- **the same reason `Fresnel` and `Layer Weight` cannot reach
+it, one level down.** *Stated as a mechanism and not as a measurement: what was verified here is that
+OSL is reachable, not that no formulation of it works.* **The metal route above makes the question moot
+for the layered extensions, so it is not worth a round on its own.*

@@ -92,6 +92,15 @@ struct Material {
    * already builds or refuses. */
   float Anisotropy = 0.0f;
   float AnisotropyRotationRad = 0.0f;
+  /* `KHR_materials_iridescence`: a thin film over the surface whose interference tints the SPECULAR
+   * reflectance rather than adding a lobe. Strength 0 is the extension's default and disables it, and
+   * so does a thickness of zero -- *the thin-film thickness of 0.0 nm disables the iridescence*. The
+   * two thicknesses are nanometres and bracket what the thickness texture selects between; with no
+   * such texture the maximum is what applies, which is the extension's own implicit sample of 1.0. */
+  float Iridescence = 0.0f;
+  float IridescenceIor = 1.3f;
+  float IridescenceThicknessMinNm = 100.0f;
+  float IridescenceThicknessMaxNm = 400.0f;
   float Thickness = 0.0f;
   float AttenuationDistance = std::numeric_limits<float>::infinity();
   float AttenuationColour[3] = {1.0f, 1.0f, 1.0f};
