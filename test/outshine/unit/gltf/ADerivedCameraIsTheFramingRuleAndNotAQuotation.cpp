@@ -46,6 +46,7 @@
 
 #include "PreparedRoot.h"
 
+#include <utility>
 #include "Document.h"
 #include "Json.h"
 #include "Pose.h"
@@ -156,6 +157,8 @@ std::vector<Case> Cases() {
 /* WHAT ONE CASE ANSWERED, so the run's summary is built from the values the lines printed rather
  * than from a second pass over the tree. */
 struct Answer {
+  /* The case's own manifest says this engine refuses its subject, and the refusal happened. */
+  bool Declined = false;
   Freedoms Owns = Freedoms::Ours;
   Determination Produced = Determination::Elsewhere;
   bool Judged = false;
@@ -299,6 +302,17 @@ Answer Judge(const Case &subjectCase) {
 
   Document document;
   if (!document.ReadFile(subjectPath)) {
+    /* A CASE WHOSE DECLARED VERDICT IS THAT THIS ENGINE DECLINES IT HAS NO CAMERA TO DERIVE, AND THE
+     * REFUSAL IS ITS ANSWER RATHER THAN ITS FAILURE (`board:1424`, `board:1437`). `limits-probe` is the
+     * criterion kind that says so -- the render suite has consumed it since `board:1424` and this test
+     * did not, so `SpecGlossVsMetalRough` was red here for behaving exactly as its own manifest
+     * declares it must. **It is announced and not skipped**: a silence here could not be told from a
+     * pass that framed something. */
+    if (root["criterion"]["kind"].StrEquals("limits-probe")) {
+      std::printf("DECLINED %s -- %s\n", subjectCase.Id.c_str(), document.Error().c_str());
+      answer.Declined = true;
+      return answer;
+    }
     CHECK(false, "the case's subject reads");
     std::printf("       %s\n", document.Error().c_str());
     return answer;
@@ -315,11 +329,40 @@ Answer Judge(const Case &subjectCase) {
    * degrees about the origin and reaches 2.12 from a centre the rest-pose rule covers to 1.178. So the
    * bounds are the union over the case's own declared frame grid; for a still that union IS the pose,
    * which is why not one of the still cases moves. */
-  double sweptMin[3] = {subject.MinM()[0], subject.MinM()[1], subject.MinM()[2]};
-  double sweptMax[3] = {subject.MaxM()[0], subject.MaxM()[1], subject.MaxM()[2]};
   const Json::Ref animation = root["scene"]["animation"];
   const int frameCount = (int)animation["frames"]["value"].Num(1.0);
   const double fps = animation["fps"]["value"].Num(0.0);
+  /* FRAME 0 IS A POSE AND NOT THE STORED ONE (board:1437). An animated file's rest positions are what
+   * its accessors hold; frame 0 of its grid is what a renderer draws, and for a subject with a
+   * keyframe at t = 0 the two differ. Seeding the sweep from the stored pose and starting the loop at
+   * frame 1 therefore framed a shape nothing renders, and computing the frame fraction from it
+   * compared a rest-pose area against a declaration harvested from a posed render.
+   *
+   * [MEASURED] the two disagreed on 8 cases and **every one of the 8 is animated** -- `SimpleMorph` by a
+   * factor of three, 0.00707695694 against a declared 0.0022899601. Not one still case moved, which is
+   * the same discriminator `board:1432` found one suite over. */
+  if (frameCount >= 1 && fps > 0.0 && animation["animations"].Size() > 0) {
+    std::vector<int> atZero;
+    for (size_t at = 0; at < animation["animations"].Size(); ++at) {
+      atZero.push_back((int)animation["animations"][at].Num(0.0));
+    }
+    outshine::Gltf::Pose pose;
+    std::string poseError;
+    std::vector<outshine::Gltf::Transform> locals;
+    std::vector<double> weights;
+    if (outshine::Gltf::Pose::Build(
+            document, outshine::Span<const int>(atZero.data(), atZero.size()), pose, poseError)) {
+      pose.At(0.0, locals, weights);
+      Subject start;
+      if (start.Build(document,
+                      outshine::Span<const outshine::Gltf::Transform>(locals.data(), locals.size()),
+                      outshine::Span<const double>(weights.data(), weights.size()))) {
+        subject = std::move(start);
+      }
+    }
+  }
+  double sweptMin[3] = {subject.MinM()[0], subject.MinM()[1], subject.MinM()[2]};
+  double sweptMax[3] = {subject.MaxM()[0], subject.MaxM()[1], subject.MaxM()[2]};
   if (frameCount > 1 && fps > 0.0) {
     std::vector<int> declaredAnimations;
     for (size_t at = 0; at < animation["animations"].Size(); ++at) {

@@ -258,21 +258,21 @@
     "camera": {
       "source": "manifest",
       "positionM": [
-        9.587867747106666,
-        4.388919514372969,
-        6.706794147157735
+        9.415391338184937,
+        4.312283811118397,
+        6.586024851099977
       ],
       "lookAtM": [
         -0.0012375414371490479,
-        0.12823442836557897,
-        -0.007569660567237069
+        0.1282344112431515,
+        -0.00756967493466032
       ],
       "rollRad": 0.0,
       "yfovRad": 0.47108996144172666,
       "sensorHeightMm": 24.0,
-      "clipStartM": 10.713076298740102,
-      "clipEndM": 14.201743305615192,
-      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-1.606725037097931, -0.3224358581367497, -0.5194344526319767] to [1.6042499542236328, 0.5789047148679076, 0.5042951314975026], so centre = [-0.0012375414371490479, 0.12823442836557897, -0.007569660567237069] and radius = 1.744333503437545 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 12.457409802177647, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "clipStartM": 10.520383354725952,
+      "clipEndM": 13.946300736983988,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-1.606725037097931, -0.3224358581367497, -0.5194344526319767] to [1.6042499542236328, 0.5789047148679076, 0.5042951314975026], so centre = [-0.0012375414371490479, 0.12823442836557897, -0.007569660567237069] and radius = 1.744333503437545 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 12.457409802177647, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius. RE-DERIVED FROM THE FRAMING RULE (`board:1437`). The declared camera sat a fraction of a metre from the rule's answer, which is the one placement `ADerivedCameraIsTheFramingRuleAndNotAQuotation` forbids -- a camera is the rule's answer or it is deliberately elsewhere, never fitted near it. It is now the rule's, taken over the subject's bounds at FRAME 0 of its own grid rather than over the pose its accessors happen to hold.",
       "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
     },
     "light": {
@@ -390,10 +390,11 @@
   "notes": "A coverage case. Its subject's own shading -- textures, metallic-roughness, and any extension it declares -- is NOT what this decides; `board:1363` records why no case takes the shading arm yet. What it does decide is that the file reads, the geometry lands where the oracle puts it, and each material row reaches its own body.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.090577972,
+      "value": 0.0939988794,
       "unit": "dimensionless",
-      "origin": "measured",
-      "note": "The fraction of the frame the subject's projected area covers at frame 0. RECOMPUTED BY THE RUNNER ON EVERY RUN and refused on mismatch, so what this line does is pin it: a camera that later framed the subject smaller would tighten the boundary bound without saying so. IT IS SEEDED FROM THE RUNNER'S OWN RECOMPUTATION, which makes the check tautological on the round it was seeded and a DRIFT DETECTOR from then on -- honest only because the camera is independently proven to be the framing rule's rather than a quotation of it."
+      "origin": "derived",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0. RECOMPUTED BY THE RUNNER ON EVERY RUN and refused on mismatch, so what this line does is pin it: a camera that later framed the subject smaller would tighten the boundary bound without saying so. IT IS SEEDED FROM THE RUNNER'S OWN RECOMPUTATION, which makes the check tautological on the round it was seeded and a DRIFT DETECTOR from then on -- honest only because the camera is independently proven to be the framing rule's rather than a quotation of it.",
+      "derivation": "The framing rule's own camera projected over the subject's bounds at FRAME 0 of its own grid, summed over every triangle (`board:1437`). It records the population the boundary bound is applied under, so it moves whenever the camera or the pose it is taken at moves -- and both did."
     }
   }
 }

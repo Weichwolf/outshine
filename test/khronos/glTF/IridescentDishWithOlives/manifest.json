@@ -248,21 +248,21 @@
     "camera": {
       "source": "manifest",
       "positionM": [
-        2.2961387519180096,
-        1.2014027103530354,
-        1.607773666752907
+        1.950251102204812,
+        1.0092603730788208,
+        1.3655805157156726
       ],
       "lookAtM": [
-        -4.431635391988209e-09,
-        0.18116944977235644,
-        7.814175695397552e-10
+        3.323089795004286e-08,
+        0.14271387124048535,
+        1.581859369881311e-08
       ],
       "rollRad": 0.0,
       "yfovRad": 0.47108996144172666,
       "sensorHeightMm": 24.0,
-      "clipStartM": 2.565276837522709,
-      "clipEndM": 3.400648155434337,
-      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-0.2661104939986962, -2.581076e-05, -0.26611049243586105] to [0.2661104851354254, 0.3623647103047129, 0.2661104939986962], so centre = [-4.431635391988209e-09, 0.18116944977235644, 7.814175695397552e-10] and radius = 0.41768565895581405 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 2.982962496478523, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "clipStartM": 2.178846500786497,
+      "clipEndM": 2.8883784492552143,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-0.2661104939986962, -2.581076e-05, -0.26611049243586105] to [0.2661104851354254, 0.3623647103047129, 0.2661104939986962], so centre = [-4.431635391988209e-09, 0.18116944977235644, 7.814175695397552e-10] and radius = 0.41768565895581405 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 2.982962496478523, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius. RE-DERIVED FROM THE FRAMING RULE (`board:1437`). The declared camera sat a fraction of a metre from the rule's answer, which is the one placement `ADerivedCameraIsTheFramingRuleAndNotAQuotation` forbids -- a camera is the rule's answer or it is deliberately elsewhere, never fitted near it. It is now the rule's, taken over the subject's bounds at FRAME 0 of its own grid rather than over the pose its accessors happen to hold.",
       "note": "The glTF carries no camera, so the framing rule supplies one. Roll is 0 because the rule sets it: a roll chosen here and nowhere else would make this subject's placement a second determination competing with the rule."
     },
     "light": {
@@ -398,10 +398,11 @@
   "notes": "A coverage case over a moving subject. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.151496951,
+      "value": 0.210048645,
       "unit": "dimensionless",
-      "origin": "measured",
-      "note": "The fraction of the frame the subject's projected area covers at frame 0. RECOMPUTED BY THE RUNNER ON EVERY RUN and refused on mismatch, so what this line does is pin it. It is seeded from that recomputation, which makes it a DRIFT DETECTOR rather than a present-error check -- honest only because the camera is independently proven to be the framing rule's."
+      "origin": "derived",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0. RECOMPUTED BY THE RUNNER ON EVERY RUN and refused on mismatch, so what this line does is pin it. It is seeded from that recomputation, which makes it a DRIFT DETECTOR rather than a present-error check -- honest only because the camera is independently proven to be the framing rule's.",
+      "derivation": "The framing rule's own camera projected over the subject's bounds at FRAME 0 of its own grid, summed over every triangle (`board:1437`). It records the population the boundary bound is applied under, so it moves whenever the camera or the pose it is taken at moves -- and both did."
     }
   }
 }

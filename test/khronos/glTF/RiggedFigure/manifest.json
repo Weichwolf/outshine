@@ -94,21 +94,21 @@
     "camera": {
       "source": "manifest",
       "positionM": [
-        5.234613088675038,
-        3.054740409041451,
-        3.701736671659455
+        5.291696646773942,
+        3.0893066434555427,
+        3.759802810337034
       ],
       "lookAtM": [
-        8.661072240512269e-07,
-        0.7288681241294995,
-        0.03642173381278872
+        9.9727137720107e-07,
+        0.7380707298753719,
+        0.0545176266438125
       ],
       "rollRad": 0.0,
       "yfovRad": 0.47108996144172666,
       "sensorHeightMm": 24.0,
-      "clipStartM": 5.848178578421109,
-      "clipEndM": 7.752612663264767,
-      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-0.5894609689712524, 0.0, -0.13091780245304108] to [0.5894609689712524, 1.4499199390411377, 0.19497710466384888], so centre = [0.0, 0.7249599695205688, 0.0320296511054039] and radius = 0.9484635280120018 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 6.773589355235216, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "clipStartM": 5.911952944198086,
+      "clipEndM": 7.837154875696275,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [-0.5894609689712524, 0.0, -0.13091780245304108] to [0.5894609689712524, 1.4499199390411377, 0.19497710466384888], so centre = [0.0, 0.7249599695205688, 0.0320296511054039] and radius = 0.9484635280120018 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 6.773589355235216, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius. RE-DERIVED FROM THE FRAMING RULE (`board:1437`). The declared camera sat a fraction of a metre from the rule's answer, which is the one placement `ADerivedCameraIsTheFramingRuleAndNotAQuotation` forbids -- a camera is the rule's answer or it is deliberately elsewhere, never fitted near it. It is now the rule's, taken over the subject's bounds at FRAME 0 of its own grid rather than over the pose its accessors happen to hold.",
       "note": "THE ENGINE'S OWN ANSWER, QUOTED (board:1398). Every number here is read from the framing rule's output for this subject -- eye, aim, yfov and both clip planes -- rather than recomputed by the authoring helper, which bounded each primitive by the eight transformed corners of its local AABB and therefore always at least as loosely as the engine bounds the transformed vertices. A looser radius moves the eye back, and 93 cases declared a camera the rule does not derive. `ADerivedCameraIsTheFramingRuleAndNotAQuotation` recomputes all of it and refuses a mismatch, so what this declaration does is PIN the viewpoint, never choose it."
     },
     "light": {
@@ -229,10 +229,11 @@
   "notes": "A coverage case over a moving subject. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.0593343736,
+      "value": 0.057847712,
       "unit": "dimensionless",
-      "origin": "measured",
-      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
+      "origin": "derived",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check.",
+      "derivation": "The framing rule's own camera projected over the subject's bounds at FRAME 0 of its own grid, summed over every triangle (`board:1437`). It records the population the boundary bound is applied under, so it moves whenever the camera or the pose it is taken at moves -- and both did."
     }
   }
 }
