@@ -199,6 +199,7 @@ constexpr const char *const kHonouredExtensions[] = {"KHR_lights_punctual",
                                                      "KHR_materials_anisotropy",
                                                      "KHR_materials_iridescence",
                                                      "KHR_animation_pointer",
+                                                     "EXT_texture_webp",
                                                      "KHR_materials_transmission",
                                                      "KHR_materials_volume",
                                                      "KHR_materials_clearcoat",
@@ -221,6 +222,7 @@ constexpr const char *kClearcoat = "KHR_materials_clearcoat";
 constexpr const char *kAnisotropy = "KHR_materials_anisotropy";
 constexpr const char *kIridescence = "KHR_materials_iridescence";
 constexpr const char *kAnimationPointer = "KHR_animation_pointer";
+constexpr const char *kTextureWebp = "EXT_texture_webp";
 constexpr const char *kTransmission = "KHR_materials_transmission";
 constexpr const char *kVolume = "KHR_materials_volume";
 constexpr const char *kUnlit = "KHR_materials_unlit";
@@ -1248,6 +1250,23 @@ bool Document::ReadAppearance(const Json &json) {
     Texture texture;
     texture.Name = declaration["name"].Str("");
     texture.Source = declaration["source"].Valid() ? declaration["source"].Int(-1) : -1;
+    /* `EXT_texture_webp`: THE EXTENSION'S SOURCE IS THE PRIMARY AND THE TOP-LEVEL ONE IS ITS FALLBACK,
+     * which is the extension's own framing -- *a client implementation that does not support this
+     * extension may be able to ignore the provided WebP image if an optional fallback PNG or JPEG
+     * image is present*. This reader supports it, so it takes the WebP.
+     *
+     * THE DECODE COSTS NOTHING BECAUSE THE HOST ALREADY DOES IT. Images reach a decoder that sniffs
+     * the format from the bytes, so a WebP was always readable and only the INDEX was missing.
+     *
+     * BOTH SIDES LAND ON ONE IMAGE, and that was checked rather than assumed: a WebP and its PNG
+     * fallback are not the same pixels, so picking differently from the oracle would be a
+     * disagreement this engine manufactured. Blender's importer resolves `src if src is not None else
+     * webp_src` unless told otherwise -- so it takes the fallback where one exists and the WebP where
+     * none does, and [MEASURED] the corpus's only such asset declares 15 textures with NO top-level
+     * source at all. **Where a fallback does exist the two would diverge, and that is named here
+     * rather than discovered**: the preparer would have to be told to prefer the WebP too. */
+    const Json::Ref webp = declaration["extensions"][kTextureWebp]["source"];
+    if (webp.Valid()) { texture.Source = webp.Int(-1); }
     texture.Sampler = declaration["sampler"].Valid() ? declaration["sampler"].Int(-1) : -1;
     if (texture.Source >= 0 && static_cast<size_t>(texture.Source) >= Images_.size()) {
       return Refuse("texture " + Number(i) + " names image " +
