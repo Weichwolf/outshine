@@ -11,8 +11,12 @@ namespace outshine::Gltf {
 /* Off every axis, so no face of a box is edge-on and no silhouette is degenerate. */
 constexpr double kFramingAzimuthDeg = 35.0;   /* [SET] */
 constexpr double kFramingElevationDeg = 20.0; /* [SET] */
-/* 39.6 deg is Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL:
- * 2*atan(12/50). It is written as the arithmetic rather than as 39.6 so the lens is what is stated. */
+/* THE ORDINARY REFERENCE LENS: 50 mm on a 24 mm frame height, which is 2*atan(12/50) = 39.6 deg. It
+ * is written as the arithmetic rather than as 39.6 so the LENS is what is stated and the angle is
+ * what falls out. The choice is the engine's and it is [SET]: a normal lens on a full frame puts no
+ * perspective signature of its own into a subject that declares no camera. That several tools ship
+ * the same lens as their factory default is agreement and not the reason -- nothing outside this
+ * header decides these four numbers. */
 constexpr double kFramingSensorHalfHeightMm = 12.0; /* [SET] */
 constexpr double kFramingFocalLengthMm = 50.0;      /* [SET] */
 /* The subject's bounding sphere spans 60 % of the frame's vertical extent. */

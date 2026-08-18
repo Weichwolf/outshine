@@ -1,7 +1,7 @@
 /* ONE MIP LEVEL FROM THE ONE ABOVE IT, BOX-FILTERED IN LINEAR LIGHT (board:1130).
  *
  * IT LIVES HERE RATHER THAN BESIDE ITS CALLER BECAUSE IT IS A PURE FUNCTION AND ITS CLAIM NEEDS A
- * TEST. Arrays in, arrays out, no device and no SDL -- so `test/unit/render/stages/` can hold it to
+ * TEST. Arrays in, arrays out, no device and no SDL -- so a unit test at this layer can hold it to
  * what it promises without a GPU. Left inside `SubjectDraw.cpp`'s anonymous namespace it was
  * unreachable, and the claim below would have been a comment rather than a check.
  *

@@ -7,7 +7,7 @@
  * transliteration. Three rules keep them from drifting: (a) no numeric constant is typed in the MSL
  * at all -- they are emitted from the C++ ones by `MetalRoughBrdfMsl()`; (b) the MSL declares no term
  * the C++ half does not, so a new term has to be written twice on purpose rather than once by
- * accident; (c) the ARRANGEMENT of the terms is measured -- `test/shader/BothHalvesOfTheBrdfAgree.cpp`
+ * accident; (c) the ARRANGEMENT of the terms is measured -- a shader test
  * runs this text on the device over a sample set and compares it against these functions, and carries
  * a mutant of its own to show the comparison can see a scaled term.
  *
@@ -18,7 +18,7 @@
  * GGX under a delta light, so the oracle can confirm it. Clamping the roughness to an invented floor
  * would manufacture a highlight out of a number nobody derived. Against an AREA of directions the
  * same arm reads as a loss instead: a mirror's directional albedo is F and this returns 0, which is
- * what the furnace sweep in test/unit/render/stages/ prints at roughness 0 and does not refuse. */
+ * what this layer's own furnace sweep prints at roughness 0 and does not refuse. */
 #ifndef METALROUGHBRDF_H
 #define METALROUGHBRDF_H
 

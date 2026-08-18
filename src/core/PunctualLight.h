@@ -4,7 +4,7 @@
 namespace outshine {
 
 /* THE THREE SHAPES A LIGHT WITH NO AREA CAN HAVE, which is `KHR_lights_punctual`'s own enumeration
- * and therefore the vocabulary the Khronos corpus states its criteria in. A boolean pair would spell
+ * and therefore the vocabulary content declares them in. A boolean pair would spell
  * a fourth thing that is nothing (`Enum.2`), and the three differ in what they carry rather than in
  * a flag: a directional light has a direction and no position, a point light a position and no
  * direction, a spot both plus its two cone angles. */
@@ -14,7 +14,7 @@ enum class LightKind { Directional, Point, Spot };
  *
  * THE UNITS ARE NOT THE SAME BETWEEN THE ARMS AND THAT IS THE FORMAT'S DOING, not a looseness here:
  * `Intensity` is **lux (lm/m^2)** for a directional light -- the illuminance on a surface facing the
- * beam, which is what Blender's Sun Strength is -- and **candela (lm/sr)** for a point or a spot,
+ * beam -- and **candela (lm/sr)** for a point or a spot,
  * from which the illuminance at distance d is `Intensity / d^2`. One field carrying two units is
  * the format's spelling and re-deriving a single unit here would put a conversion inside a reader.
  *

@@ -750,7 +750,7 @@ fragment SFrag fsLitBlendedTextured(LOut in [[stage_in]], bool front [[front_fac
 /* THE NORMAL-MAPPED ARM: the same BRDF over a normal the file states per texel instead of per
  * vertex, and the tangent basis is what makes the two the same quantity. THE BASIS ITSELF IS
  * `stages/NormalFromMap.h` -- spliced in below, stated there once in MSL and once in C++, and tied
- * by `test/shader/ABackFaceTurnsTheWholeTangentFrame.cpp`. What this arm keeps is the SAMPLING: the
+ * by a shader test of its own. What this arm keeps is the SAMPLING: the
  * tap, the material's scale and the facing the fragment arrived with.
  *
  * ROUGHNESS AND METALNESS COME FROM THE FILE'S OWN IMAGE where it declares one, green and blue,

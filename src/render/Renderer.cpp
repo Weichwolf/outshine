@@ -10,7 +10,7 @@
 
 namespace outshine::Render {
 namespace {
-/* Whether the device is created with the driver's validation enabled. `test/run.sh` builds a second
+/* Whether the device is created with the driver's validation enabled. the harness builds a second
  * arm with `-DOUTSHINE_GPU_VALIDATION=1`; every other build gets `false` and the flag costs a
  * constant fold (board:1123). */
 #ifdef OUTSHINE_GPU_VALIDATION

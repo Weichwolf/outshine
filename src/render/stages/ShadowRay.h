@@ -2,7 +2,7 @@
  * Moller-Trumbore test, emitted as MSL. There are two implementations of one predicate here and
  * that is deliberate for the reason the BRDF states beside its own twin -- the processor half is
  * what a device answer can be checked against on a machine with no device, and
- * `test/shader/AnExactRayAgreesOnBothSides.cpp` runs the two over one subject and one ray set.
+ * a shader test runs the two over one subject and one ray set.
  *
  * THE PACKING IS SPLICED AND NEVER RESTATED. The leaf word's shift and mask, the escape sentinel
  * and the node's own field order come out of the C++ constants below, so a change to the structure

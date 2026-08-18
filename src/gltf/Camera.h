@@ -22,9 +22,11 @@
 
 namespace outshine::Gltf {
 
-/* Where NDC lands in pixels. THE INTEGER RASTER COORDINATE IS THE PIXEL CENTRE, which is what makes
- * a centre-sampling rasteriser and Cycles at a hairline box filter evaluate the same predicate
- * (board:0073); y runs downward, the row order the oracle's raw dump carries. */
+/* Where NDC lands in pixels. THE INTEGER RASTER COORDINATE IS THE PIXEL CENTRE and y RUNS DOWNWARD,
+ * which is the raster convention glTF's own NDC-to-window mapping implies and the one every image
+ * format this engine reads stores its rows in. Both are properties of this engine's raster and are
+ * decided here; what a comparison against any external renderer costs to reconcile is that
+ * comparison's problem and not this header's (board:0073). */
 struct Viewport {
   double WidthPx = 0;
   double HeightPx = 0;

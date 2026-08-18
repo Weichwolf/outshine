@@ -8,7 +8,7 @@
  * SPELLED DIFFERENTLY ON PURPOSE. The C++ half negates the three axes one by one, which is the
  * format's own sentence; the MSL half carries a single sign out to the composed normal, which is the
  * shape a mistake cannot be written in. A transliteration would agree with itself by construction
- * and prove nothing -- `test/shader/ABackFaceTurnsTheWholeTangentFrame.cpp` runs both over one
+ * and prove nothing -- a shader test runs both over one
  * sample set and holds them to the same direction.
  *
  * THE FRAME IS RE-ORTHOGONALISED HERE AND NOT TRUSTED AS IT ARRIVES. A supplied `TANGENT` is

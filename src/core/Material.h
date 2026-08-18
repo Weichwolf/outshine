@@ -11,8 +11,8 @@ namespace outshine {
  * texture happens to carry alpha into a masked one. */
 enum class AlphaMode { Opaque, Masked, Blended };
 
-/* A SURFACE IN glTF 2.0's METAL-ROUGH PARAMETERISATION, which is the one the Khronos corpus states
- * its criteria in, so the engine speaks it rather than translating into a second vocabulary.
+/* A SURFACE IN glTF 2.0's METAL-ROUGH PARAMETERISATION, which is the format's own and therefore the
+ * vocabulary content arrives in, so the engine speaks it rather than translating into a second one.
  *
  * `BaseColour` IS NOT AN ALBEDO UNTIL `Metalness` SAYS SO. At metalness 0 its RGB is the diffuse
  * reflectance of a dielectric; at metalness 1 it is the conductor's normal-incidence reflectance.

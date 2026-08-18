@@ -48,7 +48,7 @@
  * image binds. THAT IS A TRADE AND NOT A FREE ONE: every fragment then interpolates and multiplies a
  * varying, including the ones drawing a subject that declares no vertex colour at all, and the
  * alternative -- a second set of eighteen fragment entry points that do not read it -- is what
- * buying it back would cost. `test/frame/` prices it per arm on every run.
+ * buying it back would cost. The frame suite prices it per arm on every run.
  *
  * THE WINDING IS TRUSTED, because the format defines one, and WHETHER BACK FACES ARE CULLED IS THE
  * MATERIAL'S: glTF states `doubleSided` per material and an asset uses it to hide one polygon
