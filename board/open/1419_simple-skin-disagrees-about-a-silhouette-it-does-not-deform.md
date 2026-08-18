@@ -31,3 +31,23 @@ skin.
 - [ ] **A ten-vertex strip has long thin triangles**, and a silhouette over one is the most sensitive
   thing this corpus rasterises. Whether Blender's armature conversion moves a rest vertex is the next
   question, and it is asked of the ORACLE rather than of us
+
+## A fifth measurement, and it says where to look next rather than what is wrong
+
+**This subject declares no `skeleton` and its joint root is a SIBLING of the mesh node.**
+
+| | scene roots | joints | `skeleton` | nodes |
+|---|---|---|---|---|
+| `SimpleSkin` | **[0, 1]** | [1, 2] | **absent** | 3 |
+| `RiggedSimple` -- green | [0] | [3, 4] | **3** | 5 |
+
+glTF makes `skeleton` optional -- *when undefined, joint transforms resolve to scene root* -- so this
+file is conforming and so is our reading of it. **But it is the degenerate configuration**, and the
+skinned case that passes is the one that declares a skeleton.
+
+**Our side is still correct at t = 0 whatever the skeleton is**: both joints resolve to the identity
+against their inverse binds, which is what `board:1419` measured first, and neither the mesh node's
+transform nor the choice of skeleton root changes that.
+
+**So the question is what Blender's importer builds when no skeleton is named**, and it is asked of the
+oracle. *Five hypotheses have now been tested and none of them is this engine.*
