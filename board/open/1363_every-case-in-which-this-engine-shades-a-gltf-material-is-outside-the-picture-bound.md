@@ -335,3 +335,38 @@ frame fitted to the number this file already warns against.
 **Together with `board:1401` this accounts for EVERY case the picture bound refuses**: two of them,
 `VertexColorTest` because the oracle drops `COLOR_0`, and this one. *Of 52 red cases, two are red
 because the picture differs, and both have a named cause.*
+
+## CORRECTION -- the partition this item is built on no longer holds
+
+This item's finding was that a case is inside the picture bound **if and only if** the runner decided
+its colour, and that *the instrument has never been green*: 0 of 9 where this engine's BRDF is what is
+compared. [MEASURED] again over the corpus as it now stands, 151 cases:
+
+| what decides the colour | within | outside |
+|---|---|---|
+| `emission-per-material` | 82 | 12 |
+| `emission-by-material-index` | 8 | 2 |
+| **`gltf`, `kind: metal-rough` -- THIS ENGINE'S BRDF** | **6** | **2** |
+| `gltf-base-colour/emission` · `diffuse` · `gltf-emissive/emission` | 16 | 0 |
+
+**Six of eight shading cases are inside the bound.** The two that are not are `DirectionalLight` and
+`SpecularTest`. Every one of the others named in this item's own list -- `Lantern`, `WaterBottle`,
+`BoomBox`, `Corset`, `NormalTangentMirrorTest`, `NormalTangentTest`, `PointLightIntensityTest` -- is
+now within it.
+
+**What moved is not one thing and the honest answer is that this was not attributed case by case at
+the time.** Between the measurement above and the one this item opened with: the picture verdict became
+a p99 rather than a maximum (`board:1367`), the bound gained a perceptual floor of one code
+(`board:1359`), every derivable camera became the framing rule's own answer (`board:1398`), and the
+oracle learned to multiply `COLOR_0` (`board:1401`). *Any of those could carry most of it and none of
+them was measured against this partition on its own.*
+
+**The claim that is dead is the strong one**: *the moment this engine's BRDF is the thing under
+comparison, the case is outside by 60 to 230 codes*. It is not. **The claim that survives is narrower
+and still worth an item**: two shading cases remain outside, and one of them -- `DirectionalLight` --
+is a picture the eye cannot tell apart at p99 5 codes.
+
+**This matters beyond this item.** The shading arm being green is what makes every material extension
+under `board:1382` verifiable rather than built blind: `KHR_materials_sheen` and its kind can now be
+held against an oracle that agrees with us on the base lobe. *Before this measurement, building them
+would have been eleven lobes checked by nothing.*
