@@ -785,8 +785,14 @@ ready is a legitimate state**, so it may not go red, and a later round must not 
 
 **Stroustrup/Sutter, [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines) — BINDING**,
 **not in this tree** — 23 157 lines nobody loads is a cost paid on every clone, so **the one-line-per-rule
-index is at the foot of this file** and the standard itself is fetched. Cite by number and **fetch the
-rule rather than recalling it** — `ES.9` is *avoid ALL_CAPS names*, not the enumeration rule (`Enum.2`).
+index is at the foot of this file** and the standard itself is fetched.
+
+**THE INDEX IS THERE TO BE READ WHILE WRITING C++, and its numbers are beside the point.** It is a
+list of the established answers, kept where the work happens so that one is in reach before an invented
+one is — the way a good colleague says *there is a name for that* before you build it twice. **What
+matters is the SENTENCE**; the number is only the handle you fetch the full rule by, and no reader is
+asked to carry one. **Fetch the rule rather than recalling it** — `ES.9` is *avoid ALL_CAPS names*, not
+the enumeration rule (`Enum.2`), and a memory aid that misremembers is worse than none.
 
 | Field | Titles |
 |---|---|
@@ -840,11 +846,11 @@ when it must be reduced, the reduction stands on the ladder above disqualificati
 as it gets on five GPU cores"* is unfalsifiable.
 # The C++ Core Guidelines, one line per rule
 
-**511 rules, one line each, and they are here TO BE READ WHILE WRITING CODE.** [OWNER] this is a
-prompt for the thing itself — a list to skim when a shape is being chosen, so that the established
-answer is in reach before an invented one is. **It is not a citation apparatus** and the numbers are
-incidental to its purpose: they are here because the rules have them, and because a rule you can name
-is a rule you can look up.
+**511 rules, one line each, and they are here TO BE READ WHILE WRITING C++.** [OWNER] this is a prompt
+for the thing itself: a list to skim when a shape is being chosen, so that the established answer is in
+reach before an invented one is. **It is not a citation apparatus and the numbers are irrelevant in
+themselves** — they are here because the rules carry them and because a rule with a name can be fetched
+in full. *Nobody is asked to remember one, and nothing in this repository is better for quoting one.*
 
 **Where the content decides a question, fetch the rule.** The full text is not in the tree — 23 157
 lines nobody loads is a cost paid on every clone — so this line is the reminder and the standard is the
@@ -859,9 +865,11 @@ none**, which is the whole argument for keeping the list beside the work rather 
 
 **Source:** the C++ Core Guidelines (fetched, not in the tree) — Stroustrup/Sutter, *C++ Core Guidelines*, dated **Jun 14, 2026** (841 KB, 514 `### ` sections).
 
-**This is an index, not the standard.** One line per rule, so that a rule number can be *recognised and
-cited correctly* without opening the source. A judgement cites the rule; where the rule's **content**
-decides a question, the full text in the C++ Core Guidelines (fetched, not in the tree) is what settles it — never this line.
+**This is an index, not the standard, and it is here to be READ rather than referenced.** One line per
+rule, so that the established answer is skimmable while a shape is being chosen. **The numbers are
+irrelevant in themselves** — they are the handle the full rule is fetched by and nothing more, and a
+judgement rests on the rule's **content**, which lives in the C++ Core Guidelines (fetched, not in the
+tree) and never in this line.
 
 Numbers are copied from the source, never regenerated. Gaps (`I.13` → `I.22`, `C.5` → `C.7`), out-of-order
 entries (`F.60` between `F.21` and `F.22`), removed rules (`T.46`), placeholders (`CP.201`, `T.101`) and the
