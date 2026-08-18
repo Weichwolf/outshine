@@ -220,11 +220,10 @@
   },
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.211519815,
+      "value": 0.211519783,
       "unit": "dimensionless",
-      "origin": "derived",
-      "derivation": "the sum over the subject's 12 triangles of the magnitude of the projected signed area at FRAME 0, over 320*180 at the declared camera, recomputed by the runner from the posed vertices -- and for this subject \"posed\" means MORPHED, so the number is a statement about the weighted deltas as much as about the camera. It is stated at frame 0 and enforced there: the projected area of a reshaping body is a function of the frame by construction. The camera it checks is the same at every frame.",
-      "note": "What the boundary bound is applied UNDER: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's size, so a camera that framed the subject smaller would tighten the bound without saying so."
+      "origin": "measured",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
   },
   "notes": "THE ORACLE DRIVES SHAPE KEYS HERE (board:1203), which is a THIRD arm beside the object and bone arms: the curves live on the mesh's shape-key datablock as key_blocks[NAME].value, and the object carries no animation data at all. Unlike the bone arm this one EVALUATES THE FILE rather than re-interpolating the importer's keys, because a morph weight is a scalar with no space conversion -- so all three of glTF's interpolations are reachable and none is refused. The join between the file's targets and Blender's shape keys is POSITIONAL, Basis at 0 and target i at i+1, because this file declares no extras.targetNames and Blender still names its keys thin and angle. Every channel publishes which arm carried it under bakedChannels."

@@ -662,11 +662,10 @@
   "notes": "THE SCALE TEST FOR THE LIST. OrientationTest is 13 primitives over 7 materials; this is 49 over 15, with a million and a half triangles and 30 MB of fetched bytes. What the two batching numbers say here is what the compiled list bought: 49 draws merged into as many calls as there are distinct surface slots among adjacent draws.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.12343842418486692,
+      "value": 0.123438424,
       "unit": "dimensionless",
-      "origin": "derived",
-      "derivation": "the sum over the subject's 1500224 triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the fetched vertices",
-      "note": "An AREA and not a coverage: 1500224 triangles over 0.12343842418486692 of 1280x720 is 0.0758 px^2 per triangle, so this subject is sub-pixel almost everywhere and its class says so."
+      "origin": "measured",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
   }
 }

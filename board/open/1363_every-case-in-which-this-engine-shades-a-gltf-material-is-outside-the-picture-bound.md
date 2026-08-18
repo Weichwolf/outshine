@@ -310,3 +310,28 @@ measurement rather than the engine bent to match.*
 **What must be re-measured before any of this**: the specular-only residual of **-0.000143**, largest at
 NORMAL incidence and opposite in sign to the diffuse one. It is two orders under the diffuse term and it
 is not explained, and a round that fixed the diffuse and declared the arm green would be resting on it.
+
+## Comments
+
+**`DirectionalLight` is this defect's picture, and it was LOOKED AT before it was believed.** The case
+scores p99 5 codes against a bound of 1 and is outside. Its two renders are **indistinguishable by
+eye**: three olive spheres, same places, same terminators, same highlights, on both sides.
+
+**Its bound carries two terms and neither of them is this defect.** [MEASURED]
+
+| term | codes |
+|---|---|
+| f32 arithmetic order | 0.000668 |
+| the 8-bit transfer's own quantisation step | 0.999332 |
+| **total** | **1.0** |
+
+So the residual has nowhere declared to live, and 5 codes on a dark olive surface is exactly the size
+the measured coupling difference makes -- up to 24 % of the diffuse term at grazing angles.
+
+**This does not license a term in the bound.** The ladder's first rung is *fix the engine*, and the
+coupling is an engine defect with a measurement, not an oracle limit. A bound term for it would be the
+frame fitted to the number this file already warns against.
+
+**Together with `board:1401` this accounts for EVERY case the picture bound refuses**: two of them,
+`VertexColorTest` because the oracle drops `COLOR_0`, and this one. *Of 52 red cases, two are red
+because the picture differs, and both have a named cause.*

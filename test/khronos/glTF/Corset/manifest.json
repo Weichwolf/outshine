@@ -178,11 +178,10 @@
   "notes": "THE ONE OF THE FOUR THAT DECLARES NO EMISSIVE SOCKET, and that is why it is here: with the emissive image bound, a slot whose material names none must render exactly as it did before, because glTF's emissiveFactor defaults to [0, 0, 0] and the white stand-in texel multiplies it to nothing. A case that only ever bound assets WITH an emissive image could not tell a correct binding from one that emits its stand-in. SUBJECT CLASS IS DERIVED: 0.11443452271378594 of 1280x720 = 105459 px^2 over 18324 triangles is 5.75 px^2 per triangle over both sides, about 2.9 px^2 on the side facing the camera -- so more than half of this subject's triangles are smaller than a pixel, which is the definition of sub-pixel-present.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.11443452271378594,
+      "value": 0.114434523,
       "unit": "dimensionless",
-      "origin": "derived",
-      "derivation": "the sum over the subject's 18324 triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the fetched vertices",
-      "note": "An AREA and not a coverage: every triangle counts by the magnitude of its signed area, so a closed body counts its far side too and this number is about twice the silhouette."
+      "origin": "measured",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
   }
 }

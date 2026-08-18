@@ -206,11 +206,10 @@
   "notes": "KHRONOS'S OWN WORDS NAME THE GLOWING FRONT PANEL, AND THAT PANEL IS ONE IMAGE. The material states emissiveFactor [1, 1, 1] and puts the whole of the glow in emissiveTexture, so a renderer that read the factor and not the image emits white over the entire body -- the criterion inverted rather than missed. That is what this case is here to show, and it is readable from the picture: the panel is lit and the rest of the box is not. SUBJECT CLASS IS DERIVED: 0.10820033856560365 of 1280x720 = 99716 px^2 over 6036 triangles counted by the magnitude of their signed area is 16.5 px^2 per triangle over both sides of a closed body, about 8 px^2 on the side facing the camera, so no part of this subject is sub-pixel.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.10820033856560365,
+      "value": 0.108200339,
       "unit": "dimensionless",
-      "origin": "derived",
-      "derivation": "the sum over the subject's 6036 triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the fetched vertices",
-      "note": "An AREA and not a coverage: every triangle counts by the magnitude of its signed area, so a closed body counts its far side too and this number is about twice the silhouette."
+      "origin": "measured",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
   }
 }

@@ -238,11 +238,10 @@
   "notes": "The first case in this tree whose verdict turns on a face being culled. Every earlier coverage case is winding-blind by construction -- a closed convex body keeps its silhouette under a global flip, and an open one drawn double-sided keeps it too -- so nothing until now could tell a renderer that reads the determinant from one that ignores it. This asset's plates are open, single-sided and half of them inside-out, which makes the answer a rectangle rather than a pixel.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.12612796719696562,
+      "value": 0.126127967,
       "unit": "dimensionless",
-      "origin": "derived",
-      "derivation": "the sum over the subject's 7724 triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, printed by test/unit/gltf/ADerivedCameraIsTheFramingRuleAndNotAQuotation from the fetched vertices and recomputed by the runner from them",
-      "note": "What the boundary bound is applied UNDER: a camera that framed the subject smaller would tighten the bound without saying so. Every triangle is counted by the magnitude of its signed area, so a closed body counts its far side too and this is an AREA, not a coverage -- and here it counts every face the culling question is about, drawn or culled."
+      "origin": "measured",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
   }
 }

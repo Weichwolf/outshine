@@ -239,11 +239,10 @@
   "notes": "A coverage case. The model's own textures and its metallic-roughness row are not what this decides, and saying so is what keeps the criterion honest.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.07840719730750723,
+      "value": 0.0784071973,
       "unit": "dimensionless",
-      "origin": "derived",
-      "derivation": "the projected area of the subject's triangles over the declared raster at the declared camera, recomputed by the runner from the subject's own vertices. Quoted because the boundary bound is applied UNDER it: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's apparent size, so a camera framing the subject smaller would tighten the bound without saying so.",
-      "note": "A consequence of the framing rule and the subject, not a choice. The runner refuses a mismatch."
+      "origin": "measured",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
   }
 }

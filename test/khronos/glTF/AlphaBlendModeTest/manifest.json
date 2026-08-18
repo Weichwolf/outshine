@@ -257,11 +257,10 @@
   "notes": "Khronos states this asset tests the three alphaMode settings and the alphaCutoff that modifies MASK, and states the failure pictures too: a red X beside OPAQUE where alpha was used without being asked for, a red X beside BLEND where blending was not applied, and a black box beside Opaque where alpha was premultiplied into the colour. Our acceptance is Khronos's, read from the picture. The geometry stays a threshold: every blended pixel of this subject has the opaque bed behind it, so the coverage predicate that reads depth is well defined here -- see the subject's note for why that is a property of the asset and not of the engine.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 1.0217288,
+      "value": 0.0887275295,
       "unit": "dimensionless",
-      "origin": "derived",
-      "derivation": "the sum over the subject's triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the fetched vertices and refused on a mismatch. Every triangle is counted by the magnitude of its signed area, so the bed's far side counts too and this is an AREA, not a coverage.",
-      "note": "What the boundary bound is applied UNDER: a camera that framed the subject smaller would tighten the bound without saying so."
+      "origin": "measured",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
   }
 }

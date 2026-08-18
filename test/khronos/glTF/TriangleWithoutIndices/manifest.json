@@ -169,11 +169,10 @@
   "notes": "WHAT THIS ASSET IS FOR HERE IS THE ONE THING IT DOES NOT CARRY. `fetched-triangle` already renders the indexed spelling of these three vertices at this camera; this case renders the non-indexed spelling of the same three at the same camera, so a difference between the two directories has exactly one possible cause. glTF states that a primitive without `indices` draws its vertices in file order (Specification.adoc, 'Meshes'), and until this case existed that path crossed the reader with nothing asserting it (board:0079).",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.33630211046006947,
+      "value": 0.33630211,
       "unit": "dimensionless",
-      "origin": "derived",
-      "derivation": "the projected area of the subject's triangle over 1280*720 at the declared camera, recomputed by the runner from the fetched vertices; exact because the subject is a plane perpendicular to the optical axis, so its perspective image is a similarity and the area is (1/2) * k^2 / (1280*720) at k = 352.1*sqrt(5) px per unit. It is `fetched-triangle`'s number to the last digit, which is the check that the two subjects really are one geometry.",
-      "note": "What the boundary bound is applied UNDER: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's size, so a camera that framed the subject smaller would tighten the bound without saying so. The runner recomputes this and refuses a mismatch."
+      "origin": "measured",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
   }
 }

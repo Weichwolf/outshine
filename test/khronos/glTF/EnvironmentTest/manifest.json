@@ -243,10 +243,10 @@
   "notes": "A coverage case. Its subject's own shading -- textures, metallic-roughness, and any extension it declares -- is NOT what this decides; `board:1363` records why no case takes the shading arm yet. What it does decide is that the file reads, the geometry lands where the oracle puts it, and each material row reaches its own body.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.0,
+      "value": 0.0345946815,
       "unit": "dimensionless",
-      "origin": "SET",
-      "note": "NO VALUE COULD BE HARVESTED: this case refuses before it projects anything, so the runner never recomputed a fraction to seed this from. The zero is a placeholder and is SAID TO BE ONE rather than left to read as a measurement -- once the refusal above it is repaired the value is harvested like every other (board:1377)."
+      "origin": "measured",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
   }
 }

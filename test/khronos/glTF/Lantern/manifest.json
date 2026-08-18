@@ -206,11 +206,10 @@
   "notes": "THREE MESHES ON THREE TRANSLATED NODES SHARING ONE MATERIAL, which is the shape the compiled draw list exists for: three primitives, one surface slot, and the batching numbers say whether they merged. What is readable from the picture is the lamp head, whose glow is emissiveTexture over an emissiveFactor of [1, 1, 1] -- and the wooden post beside it, which is not emissive, is the control inside the same image. SUBJECT CLASS IS DERIVED: 0.048184130852663661 of 1280x720 = 44403 px^2 over 5394 triangles is 8.2 px^2 per triangle over both sides, about 4 px^2 on the facing side.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.04818413085266366,
+      "value": 0.0481841309,
       "unit": "dimensionless",
-      "origin": "derived",
-      "derivation": "the sum over the subject's 5394 triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the fetched vertices",
-      "note": "An AREA and not a coverage: every triangle counts by the magnitude of its signed area, so a closed body counts its far side too and this number is about twice the silhouette."
+      "origin": "measured",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
   }
 }

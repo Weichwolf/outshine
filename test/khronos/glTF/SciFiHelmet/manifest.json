@@ -257,11 +257,10 @@
   "notes": "The asset the draw list was built for. It is one material, so the list merges its one primitive into one call and the batching numbers say so; what it adds over OrientationTest is SCALE -- 23358 triangles and a 2048-square image -- and a real asset's uv layout, which no fixture in this tree generates.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.13402805161996395,
+      "value": 0.134028052,
       "unit": "dimensionless",
-      "origin": "derived",
-      "derivation": "the sum over the subject's 23358 triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the fetched vertices",
-      "note": "An AREA and not a coverage: every triangle counts by the magnitude of its signed area, so a closed body counts its far side too and this number is about twice the silhouette."
+      "origin": "measured",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
   }
 }

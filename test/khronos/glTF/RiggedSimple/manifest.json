@@ -222,11 +222,10 @@
   "notes": "THE ORACLE POSES BONES HERE AND NOT OBJECTS (board:1200). Blender's importer builds an ARMATURE from the joint hierarchy, so glTF node 4 arrives as pose bone Bone.001 and not as an object -- and a pose bone is rest-relative in the bone's own axes, neither of which glTF states. So this case takes the NARROWER of the preparer's two arms: the importer's conversion is reused and only its interpolation is replaced, which is exact for the LINEAR channels this asset declares and is REFUSED for CUBICSPLINE. Every channel publishes which arm carried it under bakedChannels. MEASURED, Blender 5.2.0: the importer also creates an Icosphere as the bone display shape, in a glTF_not_exported collection with hide_render true -- the depsgraph evaluates only Cylinder, so it reaches no pixel.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.039400068,
+      "value": 0.0394000679,
       "unit": "dimensionless",
-      "origin": "derived",
-      "derivation": "the sum over the subject's 188 triangles of the magnitude of the projected signed area at FRAME 0, over 320*180 at the declared camera, recomputed by the runner from the posed vertices -- and for this subject \"posed\" means SKINNED, so the number is a statement about the blend as much as about the camera. It is stated at frame 0 and enforced there: the projected area of a bending body is a function of the frame by construction, so one declared number over the whole grid would be a demand that the joint not move. The camera it checks is the same at every frame.",
-      "note": "What the boundary bound is applied UNDER: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's size, so a camera that framed the subject smaller would tighten the bound without saying so."
+      "origin": "measured",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
   }
 }

@@ -242,11 +242,10 @@
   "notes": "WHAT THE ORACLE CANNOT DECIDE HERE, and it has to be said before the picture is looked at: Cycles does not cull back faces. Blender's importer carries `doubleSided` into `Material.use_backface_culling`, which is a viewport and EEVEE setting, so the path tracer shades a single-sided triangle from behind exactly as it shades it from the front. The reference therefore shows BOTH the single-sided and the double-sided cell with their front polygon visible, and Khronos says one of the two should have been culled. That is a limit of the oracle and not of this engine, which is why the case's verdict is Khronos's own marks and not the reference's pixels -- and it is also why the coverage threshold survives: the wrongly-facing polygon sits IN FRONT of the cell it hides, so culling it changes which colour a pixel carries and not whether the pixel is covered.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.12432269641906393,
+      "value": 0.124322696,
       "unit": "dimensionless",
-      "origin": "derived",
-      "derivation": "the sum over the subject's 72 triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the fetched vertices",
-      "note": "What the boundary bound is applied UNDER: a camera that framed the subject smaller would tighten the bound without saying so. Every triangle is counted by the magnitude of its signed area, so a cell hidden behind another counts too and this is an AREA, not a coverage."
+      "origin": "measured",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
   }
 }

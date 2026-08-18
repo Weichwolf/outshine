@@ -224,11 +224,10 @@
   "notes": "WHAT THIS CASE IS FOR, AND WHAT IT CANNOT DECIDE. It proves KHR_materials_specular and the F0 that KHR_materials_ior shares with it (board:1205), because F0 is the only quantity a black roughness-0 panel under a uniform environment can show. It does NOT decide the rough end of the same term: this engine gathers a constant environment with Schlick's Fresnel at the view angle, which is EXACT for a mirror and an over-estimate as roughness grows, and no panel here is rough. That limitation is stated in src/render/stages/SubjectDraw.cpp and is owed to a later case rather than hidden by this one. AND THE CASE IS RED FOR A REASON THAT IS NEITHER SIDE'S ARITHMETIC, MEASURED AND NAMED HERE RATHER THAN AFTER THE FACT (board:1206). The worst disagreements are ours 141.5 codes against the oracle's 0, at scattered pixels such as (137, 94), (144, 87) and (151, 102). 141.5 codes decodes to about 0.267 linear, which is the declared environment radiance of 0.25 arriving whole -- and that is exactly what Schlick's Fresnel returns as the view angle goes grazing. At those pixels the mirror direction points ALONG the grid into a neighbouring panel: Cycles traces it and returns black, and this engine gathers the environment with no visibility term at all. It is the same argument the runner's `diffuse` material kind already uses to REFUSE a multi-part subject -- the closed form holds only where no surface can see another -- arriving on the specular side. The reduction this case needs is therefore about VISIBILITY and not about F0, and it is owed before the case can be scored.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.096891186,
+      "value": 0.0968911857,
       "unit": "dimensionless",
-      "origin": "derived",
-      "derivation": "the sum over the subject's 44828 triangles of the magnitude of the projected signed area under the framing rule's own camera, over 1280*720, recomputed by the runner from the subject's vertices and printed by ADerivedCameraIsTheFramingRuleAndNotAQuotation, which holds it at 5e-07. This subject does not move, so one number covers the whole case.",
-      "note": "What the boundary bound is applied UNDER: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's size, so a camera that framed the subject smaller would tighten the bound without saying so."
+      "origin": "measured",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
   }
 }

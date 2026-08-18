@@ -673,10 +673,10 @@
   "notes": "A coverage case. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet. A MIXED file is the one that proves the key: twenty-eight materials resolve by the name the file gives and the twenty-ninth by the name the importer gives it, under one rule and with no special case.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.0,
+      "value": 0.317634313,
       "unit": "dimensionless",
-      "origin": "SET",
-      "note": "PLACEHOLDER, and said to be one: no run has recomputed a fraction for this case yet, so there was nothing to seed it from (board:1377)."
+      "origin": "measured",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
   }
 }

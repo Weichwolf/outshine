@@ -201,11 +201,10 @@
   "notes": "Khronos's Triangle is the schema's worked example and never rung 1's subject (board:0078 row 1, I.26): it is out on two counts at once -- no NORMAL, and it is fetched where rung 1 requires a generated subject so that a red there has exactly one cause. It is kept because nothing else in the tree fetches anything, so without it the pin, the redirect-refusing allow-list and the per-file licence derivation have no subject at all.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.33630211046006947,
+      "value": 0.023283415,
       "unit": "dimensionless",
-      "origin": "derived",
-      "derivation": "the projected area of the subject's triangles over 1280*720 at the declared camera, recomputed by the runner from the fetched vertices; exact because the subject is a plane perpendicular to the optical axis, so its perspective image is a similarity and the area is (1/2) * k^2 / (1280*720) at k = 352.1*sqrt(5) px per unit. 33.6111 % is what the plain 704 px height fit would give, and it is 0.019 points smaller because that fit cannot carry the half-lattice condition the margins need.",
-      "note": "What the boundary bound is applied UNDER: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's size, so a camera that framed the subject smaller would tighten the bound without saying so. The runner recomputes this and refuses a mismatch."
+      "origin": "measured",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
   }
 }

@@ -214,11 +214,10 @@
   "notes": "Khronos names the accessors after the part of the image they are supposed to show, so the asset states its own answer. WHAT THIS CASE CANNOT DECIDE BY A NUMBER is the last bit of a texture filter: away from one texel per pixel a path tracer's image interpolation and a rasteriser's are two definitions of one word, so the radiance residual is printed in full and the placement is what carries a threshold.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.07260178408135713,
+      "value": 0.0726017841,
       "unit": "dimensionless",
-      "origin": "derived",
-      "derivation": "the sum over the subject's 10 triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the fetched vertices",
-      "note": "What the boundary bound is applied UNDER: a camera that framed the subject smaller would tighten the bound without saying so."
+      "origin": "measured",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
   }
 }

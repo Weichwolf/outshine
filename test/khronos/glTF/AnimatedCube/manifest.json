@@ -243,10 +243,10 @@
   "notes": "A coverage case over a moving subject. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.211519863,
+      "value": 0.211519779,
       "unit": "dimensionless",
       "origin": "measured",
-      "note": "The fraction of the frame the subject's projected area covers at frame 0. RECOMPUTED BY THE RUNNER ON EVERY RUN and refused on mismatch, so what this line does is pin it. It is seeded from that recomputation, which makes it a DRIFT DETECTOR rather than a present-error check -- honest only because the camera is independently proven to be the framing rule's."
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
   }
 }
