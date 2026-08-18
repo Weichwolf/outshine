@@ -3070,7 +3070,19 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
 
   ScoreShadingNormal(subject, picture, ours, clip, frame, metrics);
 
-  ScoreVelocity(subject, picture, ours, frame, metrics);
+  /* THE VELOCITY'S POPULATION IS WHAT WROTE DEPTH AND NOT WHAT IS COVERED (board:1423). The engine
+   * states the rule in its own pipeline: *a blended surface writes no velocity, and that follows from
+   * its writing no depth -- a temporal resolve reprojects a pixel through the depth that was written
+   * there, so a surface that left none has no motion to claim and would overwrite the motion of
+   * whatever did.* So a pixel a transparent surface drew legitimately carries the static sentinel, and
+   * asking every COVERED pixel for a real velocity would fail the engine for obeying its own rule.
+   *
+   * [MEASURED] `DiffuseTransmissionPlant` went red at 5 px of 31 622 the moment coverage began to
+   * include blended pixels -- **a number broken by moving the population underneath it**, which is
+   * exactly what this tree's own rule warns about, and it was caught by diffing the red set. */
+  const Mask depthOnly =
+      FromDepth(picture.Depth, {}, (int)subject.Frame.WidthPx, (int)subject.Frame.HeightPx);
+  ScoreVelocity(subject, picture, depthOnly, frame, metrics);
 
   ScoreDeterminism(subject, studio, renderer, picture, metrics);
 
