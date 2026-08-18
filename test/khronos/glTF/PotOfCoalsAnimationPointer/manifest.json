@@ -586,10 +586,10 @@
   "notes": "A coverage case over a moving subject. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.0,
+      "value": 0.167990094,
       "unit": "dimensionless",
-      "origin": "SET",
-      "note": "PLACEHOLDER, and said to be one: no run has recomputed a fraction for this case yet, so there was nothing to seed it from (board:1377)."
+      "origin": "measured",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, recomputed by the runner on every run and refused on mismatch. HARVESTED once the case could project at all: the placeholder zero this replaced was declared [SET] and said so, because a refusal before projection leaves nothing to seed from (board:1377). What changed is that this file stopped being refused -- `KHR_materials_transmission` and `KHR_materials_volume` are read again (board:1386) and an animation channel this engine cannot drive is a counted shortfall rather than a refusal (board:1392)."
     }
   }
 }

@@ -1019,10 +1019,17 @@ bool Document::ReadAnimations(const Json &json) {
         const std::string pointer =
             target["extensions"][kAnimationPointer]["pointer"].Str("");
         if (!ResolveMaterialPointer(pointer, channel)) {
-          return Refuse("animation " + Number(i) + " channel " + Number(c) +
-                        " drives the pointer '" + pointer +
-                        "', which this reader resolves for a material's baseColorFactor, "
-                        "metallicFactor, roughnessFactor or emissiveFactor and for nothing else");
+          /* NOT A REFUSAL, AND THE FORMAT IS WHY. glTF 2.0: *client implementations may select an
+           * animation entry and pause it on the first frame, play it automatically, or IGNORE ALL
+           * ANIMATIONS until further user requests* -- so a channel this reader cannot drive is a
+           * shortfall of THIS engine and not a defect of the file, and refusing the whole subject
+           * over one would lose everything else the file draws.
+           *
+           * IT IS COUNTED AND NAMED, which is what keeps it from being a silence: the animation
+           * publishes how many channels it could not drive and which pointers they were. */
+          animation.Undriven++;
+          animation.UndrivenPointers.push_back(pointer);
+          continue;
         }
       } else {
         return Refuse("animation " + Number(i) + " channel " + Number(c) + " drives '" + path +

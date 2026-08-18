@@ -322,6 +322,22 @@ enum class AnimationPath : uint8_t { Translation, Rotation, Scale, Weights, Mate
  * same two-segment walk and cost nothing beyond naming them. */
 enum class MaterialFactor : uint8_t { BaseColour, Metalness, Roughness, Emissive };
 
+/* WHAT A CHANNEL THIS ENGINE CANNOT DRIVE IS, and it is NOT a refusal (board:1392).
+ *
+ * glTF 2.0 says outright that a client may ignore an animation -- *client implementations may select
+ * an animation entry and pause it on the first frame, play it automatically, or IGNORE ALL ANIMATIONS
+ * until further user requests* -- so refusing a whole file over one channel is stricter than the
+ * format and costs a subject that would otherwise draw. **Degrade on detail; refuse on existence.**
+ *
+ * IT IS COUNTED AND NOT DROPPED, which is the difference between a shortfall and a silence. The same
+ * shape `Subject::Undrawn` already carries for a primitive mode this rasteriser has no pass for. */
+enum class UndrivenReason : uint8_t {
+  /* The pointer is a shape this reader does not parse at all. */
+  PointerUnparsed,
+  /* The pointer parses and names a property this reader holds no field for. */
+  PointerUnheld,
+};
+
 /* How many numbers one keyframe of a material factor carries. */
 size_t FactorComponents(MaterialFactor factor);
 
@@ -356,6 +372,12 @@ struct Animation {
   std::string Name;
   std::vector<AnimationSampler> Samplers;
   std::vector<AnimationChannel> Channels;
+  /* WHAT THIS ANIMATION ASKED FOR AND DID NOT GET, counted per reason (board:1392). A consumer that
+   * wants to know whether it is showing the whole animation asks here; one that does not is unchanged.
+   * The pointers themselves are kept because a shortfall a reader cannot NAME is one nobody can act
+   * on -- and they are bounded by the channel count, which the file declares. */
+  size_t Undriven = 0;
+  std::vector<std::string> UndrivenPointers;
 };
 
 /* glTF's OWN DEFAULT MATERIAL, WHICH A PRIMITIVE THAT NAMES NONE WEARS (board:1193). The format

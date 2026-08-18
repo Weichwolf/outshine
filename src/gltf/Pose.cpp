@@ -159,10 +159,15 @@ bool Pose::Build(const Document &document, Span<const int> animations, Pose &out
     out.Channels_.push_back(std::move(held));
   }
   }
-  if (out.Channels_.empty()) {
-    error = document.Path() + ": the declared animations drive no node, so there is no pose to take";
-    return false;
-  }
+  /* AN ANIMATION THIS ENGINE CANNOT DRIVE IS A STILL AND NOT A REFUSAL (board:1392). It was a refusal
+   * while every channel a file could declare was a node channel, so an empty result meant the file
+   * was self-contradictory. `KHR_animation_pointer` broke that: a file may drive nothing BUT
+   * materials, and every one of those channels is legitimately undriven here -- the reader counts
+   * them and names their pointers, so the shortfall is published rather than lost.
+   *
+   * WHAT IS RETURNED IS THE REST POSE, which is the file's own placement of every node, and that is
+   * exactly what glTF says a client that ignores animations shows. **A subject that stands still is a
+   * picture; a subject that refuses is a hole.** */
   return true;
 }
 

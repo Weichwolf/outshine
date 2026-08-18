@@ -739,7 +739,18 @@ outshine::Render::SubjectWrap WrapOf(outshine::Gltf::Wrap wrap) {
  * nobody described; the FORMAT says a primitive with no material wears `baseColorFactor [1,1,1,1]`.
  * `BoxVertexColors` declares no material at all, so the difference was a factor of two on every
  * channel of its whole body -- and it would have read as our COLOR_0 being wrong. */
-void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceTable &out) {
+/* `fileMaterials` IS WHETHER THIS CASE IS COMPARING THE FILE'S OWN SURFACES (board:1386). Where it is
+ * false the manifest has replaced every surface with a flat colour and the oracle renders at ZERO
+ * transmission bounces -- so the oracle's glass is an opaque emitting body, by the case's own
+ * declaration. Handing this engine the FILE's transmissive row there asks it to see through a surface
+ * the other side does not, and the renderer is right to refuse a refracting volume no pass draws.
+ *
+ * SO THE ARM OWNS THE CLOSURE AND NOT ONLY THE COLOUR. A coverage case already overrides what a
+ * surface emits; what it did not override is what KIND of surface it is, and those are one statement.
+ * The transmissive fields are cleared and nothing else is touched: the geometry, the alpha mode and
+ * every texture reference stay the file's, because those are what a coverage case IS about. */
+void ResolveSurfaceTable(const Document &file, const Subject &geometry, bool fileMaterials,
+                         SurfaceTable &out) {
   out.Slots.clear();
   out.Material.clear();
   out.Decoded.clear();
@@ -761,6 +772,10 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
          * construction whatever the colour channel is, which is glTF's own rule: alpha comes from
          * the base colour and from nowhere else, even where the picture is stated in emissive. */
         surface.Row = file.Materials()[(size_t)material].Surface;
+        if (!fileMaterials) {
+          surface.Row.Transmission = 0.0f;
+          surface.Row.Thickness = 0.0f;
+        }
       }
       out.Material.push_back(material);
       out.Slots.push_back(surface);
@@ -1274,7 +1289,7 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
   }
   if (!PoseGeometry(subject, 0, error)) { return false; }
   subject.RestPositions = subject.Geometry.PositionsM();
-  ResolveSurfaceTable(subject.File, subject.Geometry, subject.Surfaces);
+  ResolveSurfaceTable(subject.File, subject.Geometry, subject.MaterialFromFile(), subject.Surfaces);
   if (subject.MaterialFromFile() &&
       !ResolveFileSurface(subject.File, subject.Geometry, subject.Colour, subject.Carrier,
                           subject.Surfaces,
@@ -1633,12 +1648,23 @@ Prepared Prepare(Case &subject, outshine::Render::Renderer &renderer) {
    * IT IS ASKED FOR FROM THE FILE'S OWN MATERIALS rather than from a manifest field: whether a
    * subject carries glass is a fact about the subject, and a declaration that could disagree with it
    * would be a second answer to a question the file already settles. */
+  /* AND ONLY WHERE THIS CASE IS COMPARING THE FILE'S OWN MATERIALS (board:1386). A coverage case
+   * replaces every surface with a flat emission and renders the oracle at ZERO transmission bounces --
+   * so the oracle draws the glass as an opaque emitting body, by the case's own declaration. Asking
+   * for the transmissive pass there makes this engine see through a surface the other side does not,
+   * and the two are then comparing different scenes rather than disagreeing about one.
+   *
+   * [MEASURED] when the reader was restored, `TransmissionOrderTest` went from 2.52 px of silhouette
+   * disagreement to 60.15 px and its IoU to 0.14126761 -- while `picture_p99_delta_code` PASSED at 0,
+   * which is what says the colour was never the question. **A capability that made a case worse was
+   * being asked for by the case that states it is not about it.** */
   bool carriesGlass = false;
   for (const outshine::Gltf::MaterialRef &material : subject.File.Materials()) {
     const outshine::SurfaceKind kind = outshine::StateOf(material.Surface).Kind();
     carriesGlass = carriesGlass || kind == outshine::SurfaceKind::ThinTransmissive ||
                    kind == outshine::SurfaceKind::Refractive;
   }
+  carriesGlass = carriesGlass && subject.MaterialFromFile();
   if (carriesGlass) {
     declaration.Content.push_back(outshine::Render::Stage::SubjectsTransmissive);
     declaration.Content.push_back(outshine::Render::Stage::CompositeTransmission);
@@ -1804,7 +1830,7 @@ void ScoreAlternateSpellings(const Case &subject, const outshine::Clients::Studi
        * entry's. The two spell one surface, so their names agree -- and if they ever did not,
        * copying by position would colour the wrong body while the count still matched. */
       SurfaceTable surfaces;
-      ResolveSurfaceTable(alternate, spelling, surfaces);
+      ResolveSurfaceTable(alternate, spelling, subject.MaterialFromFile(), surfaces);
       built = (!subject.MaterialFromFile() ||
                ResolveFileSurface(alternate, spelling, subject.Colour, subject.Carrier, surfaces,
                                   trouble)) &&
