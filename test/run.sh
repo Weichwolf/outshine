@@ -692,6 +692,16 @@ Fresh() {
     [ -f "$freshNeed" ] || return 1
     [ "$freshNeed" -nt "$freshBinary" ] && return 1
   done
+  # AND EVERY OBJECT IT LINKS, WHICH THE COMPILER'S OWN LIST DOES NOT CARRY. `-MMD` records the
+  # headers a TRANSLATION UNIT read; the library's objects are LINK inputs and appear in no `.d` at
+  # all. [MEASURED] a change to `src/gltf/Document.cpp` left every unit-test binary untouched and the
+  # suite reported green -- against a library the binary was not built with, which is the one failure
+  # a freshness check exists to make impossible. The `*.o` arm above was written for these and never
+  # saw one.
+  for freshObject in $OBJECTS; do
+    [ -f "$freshObject" ] || return 1
+    [ "$freshObject" -nt "$freshBinary" ] && return 1
+  done
   return 0
 }
 
