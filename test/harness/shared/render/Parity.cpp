@@ -2883,7 +2883,7 @@ void ScoreVelocity(const Case &subject, const Picture &picture, const Mask &ours
    * moving pixel of every frame after the first asks a still subject to have a velocity. Where the
    * pose did not move, the target must carry NO motion, which is the same claim facing the other way
    * and is the stronger of the two. */
-  const bool poseMoved = frame > 0 && subject.MovedPx > 0.0;
+  const bool poseMoved = frame > 0 && subject.MovedPx > 0.0;   /* since the PREVIOUS frame */
   metrics.push_back({"velocity_pixels_moving", (double)moving, poseMoved ? 1.0 : 0.0, "px",
                      poseMoved ? Direction::AtLeast : Direction::AtMost});
   Note("velocity, furthest a covered pixel moved since the previous frame", furthestNdc,
@@ -2912,6 +2912,13 @@ void ScoreVelocity(const Case &subject, const Picture &picture, const Mask &ours
 struct Motion {
   bool Measurable = false;
   double MovedPx = 0;
+  /* AND THE SAME DISTANCE FROM THE PREVIOUS FRAME, which is a different question and the one the
+   * velocity target answers (board:1434). `MovedPx` is measured from frame 0 on purpose -- an
+   * animation that ENDS where it began must not be refused for it -- so a looping grid's last frame
+   * reads zero there while its geometry moved a great deal since the frame before. Gating the
+   * velocity claim on the frame-0 distance therefore asked a moving subject to hold still, and
+   * [MEASURED] it did: `Fox` frame 4, 20489 moving pixels against a bound of zero. */
+  double MovedSincePreviousPx = 0;
 };
 
 [[nodiscard]] Motion ScoreMotion(const Case &subject, int frame) {
@@ -2924,11 +2931,12 @@ struct Motion {
   }
   const std::vector<double> &now = subject.Geometry.PositionsM();
   const std::vector<double> &rest = subject.RestPositions;
+  const std::vector<double> &before = subject.PreviousGeometry.PositionsM();
   if (now.size() != rest.size() || now.empty()) {
     CHECK(false, "the posed subject carries the same vertices at every frame of the grid");
     return Motion{false, 0};
   }
-  double furthestM = 0, furthestPx = 0;
+  double furthestM = 0, furthestPx = 0, furthestSincePreviousPx = 0;
   for (size_t vertex = 0; vertex * 3 + 2 < now.size(); ++vertex) {
     double moved = 0;
     for (size_t axis = 0; axis < 3; ++axis) {
@@ -2945,12 +2953,22 @@ struct Motion {
     subject.Frame.Raster(thereNdc, therePx);
     const double dx = herePx[0] - therePx[0], dy = herePx[1] - therePx[1];
     furthestPx = std::fmax(furthestPx, std::sqrt(dx * dx + dy * dy));
+    if (before.size() == now.size()) {
+      const double was[3] = {before[vertex * 3], before[vertex * 3 + 1], before[vertex * 3 + 2]};
+      double wasNdc[3], wasPx[2];
+      clip.Point(was, wasNdc);
+      subject.Frame.Raster(wasNdc, wasPx);
+      const double sx = herePx[0] - wasPx[0], sy = herePx[1] - wasPx[1];
+      furthestSincePreviousPx = std::fmax(furthestSincePreviousPx, std::sqrt(sx * sx + sy * sy));
+    }
   }
   Note("subject motion from frame 0, furthest vertex", furthestM, "m");
   Note("subject motion from frame 0, furthest vertex projected", furthestPx, "px");
+  Note("subject motion from the previous frame, furthest vertex projected", furthestSincePreviousPx,
+       "px");
   Note("the floor it is held against, the oracle's own sub-pixel resolution",
        subject.OracleFloorPx, "px");
-  return Motion{true, furthestPx};
+  return Motion{true, furthestPx, furthestSincePreviousPx};
 }
 
 /* THE FRAME'S ARTEFACTS ON DISK, AND THE VERDICT'S OWN BUFFER BACK. It runs before anything is
@@ -3380,7 +3398,7 @@ int ScoreRenderCase(int argc, char **argv) {
         break;
       }
       furthestMovedPx = std::fmax(furthestMovedPx, motion.MovedPx);
-      subject.MovedPx = motion.MovedPx;
+      subject.MovedPx = motion.MovedSincePreviousPx;
       if (motion.MovedPx > subject.OracleFloorPx) { ++framesThatMoved; }
     }
     const FrameVerdict verdict = ScoreFrame(subject, renderer, frame);

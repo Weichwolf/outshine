@@ -43,3 +43,18 @@ by doing nothing. This edit only stops the case failing for a reason that was ne
 
 - [ ] a case whose oracle renders one picture at every frame of its grid is still refused
 - [ ] a case whose subject moves still owes a moving velocity pixel at every frame that moved
+
+## The first gate used the wrong distance, and the full run said so
+
+The velocity claim was gated on `Motion::MovedPx`, which is measured **from frame 0** -- deliberately, so
+that an animation ENDING where it began is not refused for it (`board:1169`). A looping grid's last frame
+therefore reads zero there while its geometry moved a great deal since the frame before, and the gate
+asked a moving subject to hold still.
+
+[MEASURED] six animated cases went red on it in one run -- `AnimatedColorsCube`, `Fox`, `MeshoptCubeTest`,
+`RecursiveSkeletons`, `RiggedSimple`, `SimpleMorph` -- with `Fox` frame 4 carrying **20 489 moving pixels
+against a bound of zero**. `Motion` now answers both distances, the velocity claim takes the one from the
+PREVIOUS frame, and all six are green again alongside the three the change was for.
+
+**The full suite is what caught it**, one run after the change and before it was committed. *A number
+that only the case in front of you agrees with is not a measurement of the tree.*
