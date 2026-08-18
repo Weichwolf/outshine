@@ -29,7 +29,6 @@
 #include "stages/Resolve.h"
 #include "stages/SubjectDraw.h"
 #include "stages/CompositeTransmissionStage.h"
-#include "stages/TemporalResolveStage.h"
 #include "stages/TonemapStage.h"
 
 namespace outshine::Render {
@@ -197,7 +196,6 @@ private:
    * at once, which is the shape of a guard put on the wrong side of a question. */
   bool DrawsGlass_ = false;
   CompositeTransmissionStage CompositeTransmission_;
-  TemporalResolveStage Temporal_;
   TonemapStage Tonemap_;
 
   bool Ready = false;

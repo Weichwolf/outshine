@@ -396,14 +396,14 @@ bool Renderer::Configure(Stage stage, std::string &error) {
       return CompositeTransmission_.Configure(Handles, HdrTex.Get(), TransmissiveTex.Get(),
                                               Samp.Get(), error);
     case Stage::TemporalResolve:
-      /* Both samplers are `Samp`, which is already the linear one; the current frame and the
-       * velocity are FETCHED at their own coordinate and ignore it, and the history is the one read
-       * that lands between texels. */
-      return Temporal_.Configure(Handles, FormatOf(Plan_->Format(Resource::SceneLinear)),
-                                 Samp.Get(), Samp.Get(), error);
+      /* FUSED INTO THE TRANSFER AND SO CONFIGURED BY IT (board:1413). The catalogue makes the two one
+       * fragment, so there is nothing of its own to build -- and it is `Executable` rather than
+       * refused, because `Init` refuses any stage this layer cannot run and the picture IS made. */
+      return true;
     case Stage::Tonemap:
-      return Tonemap_.Configure(Handles, LinearSource(), DepthTex.Get(), Samp.Get(), Display(),
-                                error);
+      return Tonemap_.Configure(Handles, Target(Plan_->Bound(Resource::SceneComposited)),
+                                DepthTex.Get(), Samp.Get(),
+                                FormatOf(Plan_->Format(Resource::SceneLinear)), Display(), error);
     case Stage::MediumTransmittance:
     case Stage::MediumMultiScatter:
     case Stage::MediumRadiance:
@@ -442,21 +442,19 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
     case Stage::Subjects: Subjects_.Encode(ctx, into); return;
     case Stage::SubjectsTransmissive: Glass_.Encode(ctx, into); return;
     case Stage::CompositeTransmission: CompositeTransmission_.Encode(ctx, into); return;
-    case Stage::TemporalResolve: {
-      /* WHAT THE RESOLVE READS IS WHAT EVERY CONTRIBUTOR LEFT, resolved through the plan's own alias
+    /* NOTHING OF ITS OWN TO ENCODE: the transfer below draws the one fragment that is both. */
+    case Stage::TemporalResolve: return;
+    case Stage::Tonemap: {
+      /* WHAT THE FUSED FRAGMENT READS IS WHAT EVERY CONTRIBUTOR LEFT, through the plan's own alias
        * rather than named here: with no glass in the plan `SceneComposited` IS `SceneHdr`, and a
        * second spelling of that would be a second answer. */
+      Tonemap_.Bind(Target(Plan_->Bound(Resource::SceneComposited)));
       const float delta[2] = {Jitter_[0] - PrevJitter_[0], Jitter_[1] - PrevJitter_[1]};
-      Temporal_.Bind(Target(Plan_->Bound(Resource::SceneComposited)),
-                     LinearTex_[1 - LinearAt_].Get(), VelTex.Get(), Width, Height);
-      Temporal_.Encode(into, delta, HistoryHeld_);
-      return;
-    }
-    case Stage::Tonemap:
-      /* RE-BOUND EVERY FRAME BECAUSE THE PAIR SWAPS, and a no-op on every plan that has no pair. */
-      Tonemap_.Bind(LinearSource());
+      Tonemap_.BindTemporal(LinearTex_[1 - LinearAt_].Get(), VelTex.Get(), Width, Height, delta,
+                            HistoryHeld_);
       Tonemap_.Encode(ctx, into);
       return;
+    }
     case Stage::MediumTransmittance:
     case Stage::MediumMultiScatter:
     case Stage::MediumRadiance:

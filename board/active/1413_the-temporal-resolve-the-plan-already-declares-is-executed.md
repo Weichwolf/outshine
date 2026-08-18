@@ -104,3 +104,42 @@ previous view bleeding into this one, and the frame suite's own *every repeat of
 caught it immediately -- the second repeat began with the first one's accumulation. `BeginTemporalRun`
 is now the consumer's statement that a sequence starts here, and it is NOT detected from the camera: a
 threshold on how far the eye moved would be wrong in both directions.
+
+## The fused resolve is built and it is NOT declared, and that is a state with one open question
+
+**It works.** With the resolve folded into the display fragment the arms stopped drawing one picture:
+`the textured arm's images reached the sampler` went green, which is the check that says the resolve is
+producing a per-subject picture rather than overwriting one.
+
+**And then the frame suite refused it, correctly.** [MEASURED] *every repeat of an arm drew the same
+picture* is red on **three arms of four -- `fill`, `fill-twice-lit` and `texture`, every one of which
+carries a light -- while `geometry`, the one with `lights=0`, holds.** The repeats compare
+`MedianCoveredPx` and `SumRadiance` from `WhatIsDrawn`, which begins a temporal run per probe and so
+renders exactly one frame with no history at all.
+
+**So the picture is a function of something other than the declaration, and that is the one thing this
+engine's own rules forbid outright.** Two readings, and neither is established:
+
+- [ ] **The light path.** The three that fail carry one, the one that holds does not. A jittered
+  projection moves each fragment's world position by a sub-pixel, so a shadow ray near a silhouette can
+  flip -- but that is deterministic for a fixed jitter, and the jitter is reset per probe
+- [ ] **The coverage.** The three that fail also cover 542 207 px against `geometry`'s 32 531, so a
+  single differing pixel is far easier to see in their sum. **If that is it, all four are affected and
+  only one is sensitive enough to say so** -- which would make this a finding about the instrument's
+  reach rather than about the light
+
+**The declaration is withdrawn until that is answered**, so the suite is green and the resolve reaches
+no picture. *That leaves code nothing runs for one round, which is named here rather than hidden -- and
+it is the lesser of the two: a red instrument nobody trusts is worse than a stage nobody has switched
+on.*
+
+## What IS committed and stands on its own
+
+- **The fused fragment**: one pass, two targets, `SceneLinear` for the next frame's history and
+  `FrameTex` for the display, so the resolved scene is never round-tripped
+- **The YCoCg neighbourhood clip towards the mean**, with the sources it comes from
+- **Halton(2, 3) in the projection's z column**, which is what makes it anti-aliasing rather than a
+  smoother of one set of samples, and zero on every plan that declares no resolve
+- **`BeginTemporalRun`**, the consumer's statement that a sequence begins -- never a heuristic on the
+  camera
+- **The rigid-mesh velocity repair**, which stands entirely on its own and unblocked this

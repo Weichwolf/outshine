@@ -589,13 +589,11 @@ int main(int, char **argv) {
   outshine::Render::PlanSpec declaration;
   declaration.Outputs = {outshine::Render::Resource::SceneDepth,
                          outshine::Render::Resource::FrameTex};
-  /* THE TEMPORAL RESOLVE IS DECLARED HERE AND THE COST IT ADDS IS WHAT THIS SUITE IS FOR
-   * (board:1413). It is `Content`, so no corpus case pulls it and none of their pictures move; this
-   * is the one consumer, which is what keeps it from being a path nothing runs. Its inputs -- the
-   * velocity target and the history pair -- are MACHINERY the plan pulls from the stage's own edges,
-   * so nothing is asked for here that the catalogue does not already require. */
-  declaration.Content = {outshine::Render::Stage::Subjects,
-                         outshine::Render::Stage::TemporalResolve};
+  /* THE TEMPORAL RESOLVE IS NOT DECLARED HERE YET AND `board:1413` SAYS WHY. It was, and the suite's
+   * own *every repeat of an arm drew the same picture* went red on the three arms that carry a light
+   * while the lightless one held -- a nondeterminism this suite is exactly the right instrument to
+   * refuse, and one nobody has localised. Declared again in the round that answers it. */
+  declaration.Content = {outshine::Render::Stage::Subjects};
   declaration.Display =
       outshine::Render::Declared<outshine::Render::Transfer>(outshine::Render::Transfer::Linear);
   declaration.Exposure = outshine::Render::Declared<float>(1.0f);

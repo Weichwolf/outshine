@@ -113,16 +113,21 @@ int main() {
          R"({"asset":{"version":"2.0"},
              "extensionsRequired":["KHR_draco_mesh_compression"]})"});
   Holds({"and so is a required extension named beside one that is merely used",
-         "requires extension 'KHR_materials_sheen'",
+         "requires extension 'KHR_materials_pbrSpecularGlossiness'",
          R"({"asset":{"version":"2.0"},
-             "extensionsUsed":["KHR_texture_transform","KHR_materials_sheen"],
-             "extensionsRequired":["KHR_materials_sheen"]})"});
-  /* THE EXAMPLE MUST BE AN EXTENSION THIS READER GENUINELY DOES NOT HONOUR, and it was
-   * `KHR_mesh_quantization` until that one was built (board:1384). **The test did not become wrong --
-   * its SUBJECT moved**, which is the one legitimate reason to edit a specification: the file it
-   * described is no longer a file this reader refuses. `KHR_materials_sheen` is unbuilt today and is
-   * itself a task under `board:1382`, so this line is expected to move again and that is the point of
-   * saying so here. */
+             "extensionsUsed":["KHR_texture_transform","KHR_materials_pbrSpecularGlossiness"],
+             "extensionsRequired":["KHR_materials_pbrSpecularGlossiness"]})"});
+  /* THE EXAMPLE MUST BE AN EXTENSION THIS READER GENUINELY DOES NOT HONOUR, and it has moved twice
+   * for the one legitimate reason: **the test did not become wrong, its SUBJECT did**. It was
+   * `KHR_mesh_quantization` until `board:1384` built that, then `KHR_materials_sheen` until
+   * `board:1385` built that -- and the second line said, in as many words, that it was expected to
+   * move again.
+   *
+   * IT IS `KHR_materials_pbrSpecularGlossiness` NOW, AND THAT ONE CANNOT MOVE. Khronos ARCHIVED it,
+   * and an obsolete extension is one this engine does not implement by the owner's own ruling -- so
+   * this is the first subject here that is stable by construction rather than until somebody gets to
+   * it. *A specification that has to be edited every time the engine gains a capability was telling
+   * the truth about the engine and lying about itself.* */
 
   /* THE APPEARANCE TABLES REFUSE BY NAME TOO, on the same rule: a dangling index that read as -1
    * would draw an untextured surface and look like a material somebody authored that way. */
