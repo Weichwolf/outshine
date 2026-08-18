@@ -106,6 +106,35 @@ constexpr double kBrdfPi = 3.141592653589793;
   return std::sqrt(std::sqrt(ToksvigA2(alpha * alpha, meanResultantLength)));
 }
 
+/* `KHR_materials_anisotropy`: THE SAME GGX WITH TWO ROUGHNESSES INSTEAD OF ONE, quoted from the
+ * extension. `at` is the roughness along the anisotropy direction and `ab` across it, and the
+ * parametrisation is the extension's own: *at = mix(alphaRoughness, 1.0, anisotropy * anisotropy)*,
+ * `ab = alphaRoughness`. **A strength of zero makes the two equal and the lobe round again**, which
+ * is why no branch guards it and why a material declaring none reaches the same arithmetic it had.
+ *
+ * IT NEEDS A TANGENT FRAME AND THE FORMAT SAYS SO: *a mesh primitive using an anisotropy material MUST
+ * have a defined tangent space*. Where none is carried the direction has no meaning, and the caller
+ * hands a zero vector rather than inventing one. */
+[[nodiscard]] inline double BrdfAnisotropicDistribution(double nh, double th, double bh, double at,
+                                                        double ab) {
+  const double a2 = at * ab;
+  const double fx = ab * th, fy = at * bh, fz = a2 * nh;
+  const double dot = fx * fx + fy * fy + fz * fz;
+  if (!(dot > 0.0)) { return 0.0; }
+  const double w2 = a2 / dot;
+  return a2 * w2 * w2 / kBrdfPi;
+}
+
+[[nodiscard]] inline double BrdfAnisotropicVisibility(double nl, double nv, double tv, double bv,
+                                                      double tl, double bl, double at, double ab) {
+  const double alongV = nl * std::sqrt(at * tv * at * tv + ab * bv * ab * bv + nv * nv);
+  const double alongL = nv * std::sqrt(at * tl * at * tl + ab * bl * ab * bl + nl * nl);
+  const double sum = alongV + alongL;
+  if (!(sum > 0.0)) { return 0.0; }
+  const double v = 0.5 / sum;
+  return v > 1.0 ? 1.0 : v;
+}
+
 /* The two halves the specification splits the surface into, kept apart in the return because the
  * furnace integrates them separately: the microfacet lobe is what `DirectionalLight` is named for,
  * and the diffuse term is coupled to it only through `1 - F`. */
@@ -143,6 +172,24 @@ struct BrdfGeometry {
                 "constant float kPi = %.17g;\n", kBrdfPi);
   return std::string(constants) + R"(
 struct Brdf { float3 diffuse; float3 specular; };
+
+static inline float brdfAnisotropicDistribution(float nh, float th, float bh, float at, float ab) {
+  float a2 = at * ab;
+  float3 f = float3(ab * th, at * bh, a2 * nh);
+  float d = dot(f, f);
+  if (!(d > 0.0)) { return 0.0; }
+  float w2 = a2 / d;
+  return a2 * w2 * w2 / kPi;
+}
+
+static inline float brdfAnisotropicVisibility(float nl, float nv, float tv, float bv, float tl,
+                                              float bl, float at, float ab) {
+  float alongV = nl * length(float3(at * tv, ab * bv, nv));
+  float alongL = nv * length(float3(at * tl, ab * bl, nl));
+  float s = alongV + alongL;
+  if (!(s > 0.0)) { return 0.0; }
+  return clamp(0.5 / s, 0.0, 1.0);
+}
 
 static inline float brdfDistribution(float nh, float a2) {
   float denominator = nh * nh * (a2 - 1.0) + 1.0;

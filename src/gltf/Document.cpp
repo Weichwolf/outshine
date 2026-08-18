@@ -196,6 +196,7 @@ bool KnownWrap(int raw, Wrap &out) {
  * is flattened, and is therefore gone before a draw list exists: the render path never learns that
  * variants are a thing, and no fragment arm, pipeline or interpolant is added by it. */
 constexpr const char *const kHonouredExtensions[] = {"KHR_lights_punctual",
+                                                     "KHR_materials_anisotropy",
                                                      "KHR_materials_clearcoat",
                                                      "KHR_materials_sheen",
                                                      "KHR_mesh_quantization",
@@ -213,6 +214,7 @@ constexpr const char *kIor = "KHR_materials_ior";
 constexpr const char *kSpecular = "KHR_materials_specular";
 constexpr const char *kSheen = "KHR_materials_sheen";
 constexpr const char *kClearcoat = "KHR_materials_clearcoat";
+constexpr const char *kAnisotropy = "KHR_materials_anisotropy";
 constexpr const char *kUnlit = "KHR_materials_unlit";
 constexpr const char *kMaterialsVariants = "KHR_materials_variants";
 constexpr const char *kTextureTransform = "KHR_texture_transform";
@@ -1328,6 +1330,30 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
                       " declares a clearcoatRoughnessFactor outside [0, 1]");
       }
       material.Surface.ClearcoatRoughness = static_cast<float>(rough.Num());
+    }
+  }
+  /* `KHR_materials_anisotropy`. Its `anisotropyTexture` is not read: red and green carry a direction
+   * in tangent space and blue a strength multiplier, and a material declaring one is stretched by its
+   * FACTORS alone -- which is the extension's own default texel `(1.0, 0.5, 1.0)`, the +X direction
+   * at full strength, so the picture is plainer rather than wrong. */
+  const Json::Ref anisotropy = declaration["extensions"][kAnisotropy];
+  if (anisotropy.Valid()) {
+    const Json::Ref strengthOf = anisotropy["anisotropyStrength"];
+    if (strengthOf.Valid()) {
+      if (strengthOf.GetKind() != Json::Kind::Number || !(strengthOf.Num() >= 0.0) ||
+          strengthOf.Num() > 1.0) {
+        return Refuse("material " + Number(index) +
+                      " declares an anisotropyStrength outside [0, 1]");
+      }
+      material.Surface.Anisotropy = static_cast<float>(strengthOf.Num());
+    }
+    const Json::Ref turn = anisotropy["anisotropyRotation"];
+    if (turn.Valid()) {
+      if (turn.GetKind() != Json::Kind::Number) {
+        return Refuse("material " + Number(index) +
+                      " declares an anisotropyRotation that is not a number");
+      }
+      material.Surface.AnisotropyRotationRad = static_cast<float>(turn.Num());
     }
   }
   const Json::Ref strength =

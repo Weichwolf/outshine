@@ -86,6 +86,12 @@ struct Material {
    * which is an F0 of 0.04. */
   float Clearcoat = 0.0f;
   float ClearcoatRoughness = 0.0f;
+  /* `KHR_materials_anisotropy`: the specular lobe stretched along a direction in the surface's own
+   * tangent frame. Strength 0 is round and is the extension's default; the rotation is radians
+   * counter-clockwise from the tangent. A mesh using it MUST have a tangent space, which this reader
+   * already builds or refuses. */
+  float Anisotropy = 0.0f;
+  float AnisotropyRotationRad = 0.0f;
   float Thickness = 0.0f;
   float AttenuationDistance = std::numeric_limits<float>::infinity();
   float AttenuationColour[3] = {1.0f, 1.0f, 1.0f};

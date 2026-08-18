@@ -184,6 +184,8 @@ struct M { float factor; float cut; float metalness; float roughness;
            /* `KHR_materials_clearcoat`: a thin dielectric layer over everything below. Zero weight
             * disables it, which is the extension's own default. */
            float clearcoat; float clearcoatRoughness;
+           /* `KHR_materials_anisotropy`: strength and the rotation from the tangent, in radians. */
+           float anisotropy; float anisotropyRotation;
            packed_float3 colourUvU; packed_float3 colourUvV;
            packed_float3 normalUvU; packed_float3 normalUvV;
            packed_float3 metalRoughUvU; packed_float3 metalRoughUvV;
@@ -612,7 +614,8 @@ SUBJECT_LIT_ARM(vsLitTexturedTwoTinted,
 static inline float3 shadeRow(constant Lights &lights, Occluders occluders, float3 localM, float3 n,
                               float3 p, float3 albedo, float metalness, float roughness,
                               float3 dielectricF0, float3 emitted, float3 sheenColour,
-                              float sheenRoughness, float clearcoat, float clearcoatRoughness) {
+                              float sheenRoughness, float clearcoat, float clearcoatRoughness,
+                              float anisotropy, float anisotropyRotation, float3 tangentDir) {
   float3 v = normalize(-p);
   float a = roughness * roughness;
   float a2 = a * a;
@@ -622,6 +625,22 @@ static inline float3 shadeRow(constant Lights &lights, Occluders occluders, floa
   /* THE RAY LEAVES FROM THE SURFACE AND NOT FROM INSIDE IT. Offsetting along the shading normal as
    * well as starting at `count.y` is what keeps a facet whose normal map tilts it towards the light
    * from re-finding its own triangle. */
+  /* `KHR_materials_anisotropy`'s OWN FRAME, built once: the direction is the tangent turned by the
+   * declared rotation inside the tangent plane, and the bitangent follows from it and the normal.
+   * A subject with no tangent hands a zero vector, which the extension's own requirement makes a
+   * material error rather than something to invent a direction for -- so the lobe stays round. */
+  float anisoLen = length(tangentDir);
+  bool anisotropic = anisotropy > 0.0 && anisoLen > 0.0;
+  float3 anisoT = float3(1.0, 0.0, 0.0);
+  float3 anisoB = float3(0.0, 1.0, 0.0);
+  if (anisotropic) {
+    float3 alongT = tangentDir / anisoLen;
+    float3 alongB = normalize(cross(n, alongT));
+    float turnC = cos(anisotropyRotation);
+    float turnS = sin(anisotropyRotation);
+    anisoT = normalize(alongT * turnC + alongB * turnS);
+    anisoB = normalize(cross(n, anisoT));
+  }
   float3 originM = localM + n * lights.count.y;
   float3 sum = float3(0.0);
   int count = int(lights.count.x);
@@ -661,6 +680,18 @@ static inline float3 shadeRow(constant Lights &lights, Occluders occluders, floa
     float3 h = normalize(toward + v);
     Brdf reflected = metalRoughBrdf(diffuseColour, f0, a2, nl, nv,
                                     max(dot(n, h), 0.0), max(dot(v, h), 0.0));
+    if (anisotropic) {
+      /* The extension's own parametrisation: `at` along the direction, `ab` across it, and the
+       * Fresnel is the isotropic half's -- only the lobe's shape changes. */
+      float at = mix(a, 1.0, anisotropy * anisotropy);
+      float ab = a;
+      float3 fresnel = brdfFresnel(f0, max(dot(v, h), 0.0));
+      float lobe = brdfAnisotropicDistribution(max(dot(n, h), 0.0), dot(anisoT, h), dot(anisoB, h),
+                                               at, ab) *
+                   brdfAnisotropicVisibility(nl, nv, dot(anisoT, v), dot(anisoB, v),
+                                             dot(anisoT, toward), dot(anisoB, toward), at, ab);
+      reflected.specular = fresnel * lobe;
+    }
     /* `KHR_materials_sheen` LAYERED OVER THE BASE, and the base SCALED so the two together send out
      * no more than arrived: *sheen_material = sheenColor * sheen_brdf + material *
      * sheen_albedo_scaling*, the extension's own line. A black sheen colour makes the scaling exactly
@@ -727,7 +758,8 @@ static inline float3 shade(constant M &surface, constant Lights &lights, Occlude
                            float3 localM, float3 n, float3 p, float3 albedo) {
   return shadeRow(lights, occluders, localM, n, p, albedo, surface.metalness, surface.roughness,
                   float3(surface.f0), surface.emissive, float3(surface.sheenColour),
-                  surface.sheenRoughness, surface.clearcoat, surface.clearcoatRoughness);
+                  surface.sheenRoughness, surface.clearcoat, surface.clearcoatRoughness,
+                  surface.anisotropy, surface.anisotropyRotation, float3(0.0));
 }
 
 /* A DOUBLE-SIDED FACET HIT FROM BEHIND IS LIT BY ITS OTHER FACE, which is what the flip is: the
@@ -808,7 +840,8 @@ fragment SFrag fsLitTextured(LOut in [[stage_in]], bool front [[front_facing]], 
                           surface.metalness, surface.roughness, SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
                           float3(surface.sheenColour), surface.sheenRoughness,
-                          surface.clearcoat, surface.clearcoatRoughness), 1.0);
+                          surface.clearcoat, surface.clearcoatRoughness,
+                          surface.anisotropy, surface.anisotropyRotation, float3(0.0)), 1.0);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
@@ -826,7 +859,8 @@ fragment SFrag fsLitMaskedTextured(LOut in [[stage_in]], bool front [[front_faci
                           surface.metalness, surface.roughness, SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
                           float3(surface.sheenColour), surface.sheenRoughness,
-                          surface.clearcoat, surface.clearcoatRoughness), 1.0);
+                          surface.clearcoat, surface.clearcoatRoughness,
+                          surface.anisotropy, surface.anisotropyRotation, float3(0.0)), 1.0);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
@@ -843,7 +877,8 @@ fragment SFrag fsLitBlendedTextured(LOut in [[stage_in]], bool front [[front_fac
                           surface.metalness, surface.roughness, SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
                           float3(surface.sheenColour), surface.sheenRoughness,
-                          surface.clearcoat, surface.clearcoatRoughness),
+                          surface.clearcoat, surface.clearcoatRoughness,
+                          surface.anisotropy, surface.anisotropyRotation, float3(0.0)),
                  surface.factor * tap.a * in.colour.a);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
@@ -941,7 +976,8 @@ static inline Shaded mappedShade(constant M &surface, constant Lights &lights, O
                   roughenedBy(surface.roughness * orm.g, meanResultantLength), specularF0,
                   emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
                   float3(surface.sheenColour), surface.sheenRoughness,
-                  surface.clearcoat, surface.clearcoatRoughness),
+                  surface.clearcoat, surface.clearcoatRoughness,
+                  surface.anisotropy, surface.anisotropyRotation, in.t.xyz),
                 shadingNormal};
 }
 
@@ -1471,7 +1507,8 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
               row.Transmission,    row.Thickness,     row.AttenuationDistance,
               row.AttenuationColour[0], row.AttenuationColour[1], row.AttenuationColour[2],
               row.SheenColour[0], row.SheenColour[1], row.SheenColour[2], row.SheenRoughness,
-              row.Clearcoat,      row.ClearcoatRoughness};
+              row.Clearcoat,      row.ClearcoatRoughness,
+              row.Anisotropy,     row.AnisotropyRotationRad};
   /* THE FOUR uv MATRICES, IN THE ORDER THE FOUR IMAGES ARE BOUND (board:1177), narrowed to f32 here
    * and nowhere earlier -- the reader composes in its own width and the device is the boundary. The
    * table is walked rather than written out four times so that the row's order and the sampler's
