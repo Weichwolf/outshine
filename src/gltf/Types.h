@@ -176,6 +176,11 @@ struct Node {
   double Translation[3] = {0, 0, 0};
   double Rotation[4] = {0, 0, 0, 1}; /* xyzw, the format's order */
   double Scale[3] = {1, 1, 1};
+  /* `KHR_node_visibility`. The extension's own rule: *a node is visible if and only if its own
+   * visible property is true and all its parents are visible*, so THIS FIELD IS THE NODE'S OWN
+   * ANSWER and the inherited one is the walk's. Default true, which is the format's, so a file
+   * without the extension costs no branch anywhere. */
+  bool Visible = true;
   /* Into `Document::Skins()`, or -1. glTF puts the reference on the NODE that carries the mesh, so a
    * skin is a property of an instance and not of the geometry -- two nodes may share one mesh and
    * name different skins, and the flatten must therefore skin per node rather than per primitive. */

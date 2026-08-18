@@ -196,6 +196,7 @@ bool KnownWrap(int raw, Wrap &out) {
  * is flattened, and is therefore gone before a draw list exists: the render path never learns that
  * variants are a thing, and no fragment arm, pipeline or interpolant is added by it. */
 constexpr const char *const kHonouredExtensions[] = {"KHR_lights_punctual",
+                                                     "KHR_node_visibility",
                                                      "KHR_materials_emissive_strength",
                                                      "KHR_materials_ior",
                                                      "KHR_materials_specular",
@@ -629,6 +630,13 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     node.Name = declaration["name"].Str("");
     node.Mesh = declaration["mesh"].Valid() ? declaration["mesh"].Int(-1) : -1;
     node.Camera = declaration["camera"].Valid() ? declaration["camera"].Int(-1) : -1;
+    /* `KHR_node_visibility`, and it is READ HERE AND RESOLVED IN THE FLATTEN. The extension carries
+     * one boolean and its default is `true`, so absence and presence-with-true are the same value
+     * and there is no `Has...` flag beside it that could disagree -- the same shape
+     * `KHR_texture_transform` set (board:1177). What is NOT decided here is inheritance: a node's own
+     * answer is a property of the node, and *visible if and only if its own is true and all its
+     * parents are* is a property of the WALK, which is where the hierarchy exists. */
+    node.Visible = declaration["extensions"]["KHR_node_visibility"]["visible"].Bool(true);
     node.Skin = declaration["skin"].Valid() ? declaration["skin"].Int(-1) : -1;
     const Json::Ref lit = declaration["extensions"][kLightsPunctual]["light"];
     node.Light = lit.Valid() ? lit.Int(-1) : -1;

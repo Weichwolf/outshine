@@ -506,6 +506,16 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
    * and a node index the file does not carry, so this walk needs no visited set of its own. */
   std::vector<int> pending(document.Scenes()[(size_t)sceneIndex].Roots.rbegin(),
                            document.Scenes()[(size_t)sceneIndex].Roots.rend());
+  /* `KHR_node_visibility` IS RESOLVED BY NOT DESCENDING, which is the whole of its implementation
+   * here. The extension states *a node is visible if and only if its own visible property is true
+   * and all its parents are visible*, so an invisible node makes its entire subtree invisible and
+   * the cheapest correct answer is to stop: no part, no light, no children pushed.
+   *
+   * WHAT IS DELIBERATELY NOT SKIPPED IS A CAMERA, because the extension says so -- *visibility
+   * affects neither cameras, nor node's interactivity features*. Nothing here has to arrange that:
+   * a camera is resolved by its own scan over `document.Nodes()` further down this file, which never
+   * consulted this walk. **If a later round moves camera resolution into this walk, this comment is
+   * the reason it may not simply inherit the skip.** */
   std::vector<double> elements;
   std::vector<uint32_t> run, indices;
   size_t primitives = 0;
@@ -517,6 +527,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
                     ", which the file does not carry");
     }
     const Node &node = document.Nodes()[(size_t)nodeIndex];
+    if (!node.Visible) { continue; }
     for (auto child = node.Children.rbegin(); child != node.Children.rend(); ++child) {
       pending.push_back(*child);
     }
