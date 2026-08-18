@@ -33,3 +33,32 @@ declaration, the threshold is untouched, and the case's criterion now passes.
 t = 0.5 s they disagree by 39.843127 px.** That time is an exact keyframe, `(0, 0, 1, 0)`, so no
 interpolation is involved and neither side is guessing a pose. *The case moved from "cannot decide
 anything" to "decides, and one of its two frames disagrees", which is the whole point of repairing it.*
+
+## The frame-1 disagreement, narrowed by three measurements and one refutation
+
+| | frame 0, t = 0 s | frame 1, t = 0.5 s |
+|---|---|---|
+| `coverage_fraction_outshine` | 0.023282335 | **0.015630425** |
+| `coverage_fraction_oracle` | **0.023282335** | **0.0015527344** |
+| `worst_disagreement_px` | 0 | 39.843127 |
+| `iou` | 1 | -- |
+
+**Frame 0 is bit-identical and frame 1 is a factor of TEN apart in coverage.** So the geometry, the
+camera and the projection agree -- they are the same at both frames -- and what differs is what the two
+sides did with the rotation.
+
+**Both baked at the same rate and the same instant**, read from `provenance.json`: `fps 2.0`,
+`frame 1`, `interpolation LINEAR`, `keyframes 5`. And t = 0.5 s is an EXACT keyframe, `(0, 0, 1, 0)`,
+so neither side is interpolating.
+
+**THE AXIS-CONVENTION HYPOTHESIS IS DEAD.** glTF is +Y-up and Blender +Z-up, and a 180-degree turn
+about the wrong axis would agree at the identity and diverge exactly here -- which fits the shape of the
+evidence perfectly. It is wrong: [MEASURED] every other case whose rotation is carried by an OBJECT is
+green -- `BoxAnimated`, `AnimatedCube`, `CesiumMilkTruck`, `AnimatedColorsCube`, `InterpolationTest`,
+`VirtualCity` -- and so is every bone-carried one. **Only `AnimatedTriangle` and `ChronographWatch`
+fail, and the conversion cannot be wrong for two subjects and right for six.**
+
+- [ ] **What is left is what makes this subject unlike those six**: it is a single flat triangle with
+  ZERO extent in one axis, and after a half turn about the normal it occupies the quadrant opposite the
+  one the camera was framed on. Whether a degenerate bound, a cull or a clip explains a tenfold
+  coverage difference is the next question, and it is asked of a subject that has no thickness
