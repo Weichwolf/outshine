@@ -1995,6 +1995,15 @@ def main():
     animation = job["scene"].get("animation")
     if animation is not None:
         set_frame_grid(scene, animation, job["frame"])
+    else:
+        # A STILL IS AT THE INSTANT IT CLAIMS, AND IT CLAIMS ZERO (board:1432). Blender opens at frame
+        # 1, so a case that declares no sequence used to be rendered one frame into whatever animation
+        # its file happens to carry -- t = 1/fps and not t = 0. [MEASURED] on `SimpleSkin`, whose joint
+        # turns 45 degrees over half a second: at 24 fps that is 3.75 degrees of pose the still was
+        # never meant to have, which moved the strip's far corner 6.9 px left and 3.8 px down against
+        # an observed 6 and 4. Set before the import for the same reason the grid is.
+        scene.frame_start = 0
+        scene.frame_set(0)
     imported, defaultScenes = import_gltf(job["gltfPaths"],
                                           job["scene"]["light"].get("lightingMode", "RAW"))
     # THE SURVIVORS ARE NAMED BEFORE THE REMOVAL AND NOT ASKED AFTERWARDS (board:1370). `obj.name` on an

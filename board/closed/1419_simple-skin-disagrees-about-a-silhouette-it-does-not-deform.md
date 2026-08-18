@@ -51,3 +51,12 @@ transform nor the choice of skeleton root changes that.
 
 **So the question is what Blender's importer builds when no skeleton is named**, and it is asked of the
 oracle. *Five hypotheses have now been tested and none of them is this engine.*
+
+## Closed by `board:1432`, and the sixth hypothesis was the instant
+
+**The oracle was rendering `t = 1/24 s`, not `t = 0`.** Blender opens at frame 1 and the preparer set the
+frame only when a sequence was declared, so this still was posed 3.75 degrees into its own animation.
+The five refutations above are all still true and they are what left only this.
+
+`worst_disagreement_px` **6.5815859 -> 0**, `iou` **0.9591842 -> 0.99997393**, `pixels_disagreeing`
+**1595 -> 1**.
