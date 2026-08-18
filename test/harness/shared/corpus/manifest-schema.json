@@ -22,6 +22,20 @@
     "release": "a release version, e.g. 5.2.0"
   },
   "objects": {
+    "reduction": {
+      "note": "THE LADDER'S SECOND RUNG, GIVEN A SPELLING (board:1422). `fix the engine, reduce the oracle, patch the asset, disqualify` -- and a case whose reference genuinely cannot answer a metric had no way to say so, which left it red forever or a threshold moved. A reduction names ONE metric of ONE case, turns it into a reported number there and nowhere else, and is announced by name in the log with its reason and counted in the case's own report. THE REASON IS REQUIRED because a reduction with no argument beside it is a disqualification wearing a softer word, and `measured` carries the numbers that argument rests on so a later round can re-take them.",
+      "required": {
+        "metric": "text",
+        "because": "text"
+      },
+      "optional": {
+        "measured": {
+          "map": {
+            "quantity": "number"
+          }
+        }
+      }
+    },
     "manifest": {
       "required": {
         "schema": {
@@ -70,6 +84,11 @@
       },
       "optional": {
         "notes": "string",
+        "reductions": {
+          "array": {
+            "object": "reduction"
+          }
+        },
         "expected": {
           "map": {
             "quantity": "number"

@@ -38,6 +38,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <optional>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -180,6 +181,16 @@ struct Case {
    *
    * IT IS READ FROM THE `default` RECIPE, which is the one the picture bound is taken on. */
   int TransmissionBounces = 0;
+  /* WHICH METRICS THIS CASE DECLARES ITS ORACLE CANNOT DECIDE, AND WHY (board:1422). The ladder's
+   * second rung -- *reduce the oracle* -- had no spelling in this harness, so a case whose reference
+   * genuinely cannot answer a metric had only two states left to it: red forever, or a threshold
+   * moved, which is the one thing this tree refuses.
+   *
+   * A REDUCTION NAMES A METRIC AND CARRIES ITS REASON, and the reason is REQUIRED: a reduction with
+   * no argument beside it is a disqualification wearing a softer word. It turns that metric into a
+   * reported number for this case and for no other, and every one is printed and counted so a corpus
+   * cannot go quiet one metric at a time. */
+  std::map<std::string, std::string> Reductions;
   /* Which channel of the file's own materials the appearance comes from, or `Declared` where the
    * manifest states it. The decoded images are held in `Surfaces` because the renderer copies them
    * and the studio only points at them. */
@@ -549,6 +560,18 @@ public:
    * does not say it allowed a transmission bounce did not allow one. */
   subject.TransmissionBounces =
       root["renders"]["default"]["bounces"]["transmission"].Int(0);
+  const Json::Ref reductions = root["reductions"];
+  for (size_t at = 0; at < reductions.Size(); ++at) {
+    const std::string metric = reductions[at]["metric"].Str("");
+    const std::string because = reductions[at]["because"].Str("");
+    if (metric.empty() || because.empty()) {
+      error = "reductions[" + std::to_string(at) +
+              "] names a metric and a reason, and a reduction with no reason is a disqualification "
+              "wearing a softer word";
+      return false;
+    }
+    subject.Reductions[metric] = because;
+  }
   const Json::Ref filterWidth = root["renders"]["default"]["pixelFilter"]["widthPx"];
   if (filterWidth.GetKind() != Json::Kind::Number || filterWidth.Num() <= 0.0) {
     error = "renders.default.pixelFilter.widthPx is absent or not positive, and half of it is the "
@@ -2598,10 +2621,34 @@ void ScorePictureBound(const PictureDelta &picture, const Tail &bound,
                      bound.Enforced ? Direction::AtMost : Direction::Reported, Count::Picture});
   metrics.push_back({"picture_max_delta_code", picture.Appearance.Code, bound.Codes, "codes",
                      Direction::Reported, Count::Picture});
-  /* A PREDICATE HAS ONE VALUE WHERE THE TWO SIDES AGREE IT APPLIES, so zero here is a statement and
-   * not a tolerance: an oracle alpha between 0 and 1 over our `covered(sceneDepth)` is the blended
-   * -surface defect, and this is the gate that reaches it. */
-  metrics.push_back({"picture_max_delta_code_alpha", picture.Predicate.Code, 0.0, "codes",
+  /* A PREDICATE HAS ONE VALUE WHERE THE TWO SIDES AGREE IT APPLIES: an oracle alpha between 0 and 1
+   * over our `covered(sceneDepth)` is the blended-surface defect, and this is the gate that reaches it.
+   *
+   * IT CARRIES THE SAME PERCEPTUAL FLOOR EVERY OTHER PICTURE BOUND CARRIES (board:1359), and the
+   * floor CONSTRAINS THE ORACLE AND NOT US -- which is the half of this rule that has to be said, or
+   * it forbids the symmetric case it was never about. **Our alpha is a predicate by construction**:
+   * `covered(sceneDepth)` returns 0 or 1 and can be neither 0.996 nor anything between, so a
+   * departure inside this floor is always the reference's. **A blended surface is tens or hundreds of
+   * codes**, so a floor of one cannot hide one; what a bound of exactly zero DID reach is the oracle's
+   * own arithmetic.
+   *
+   * [MEASURED] `SimpleTexture/four-texels-per-pixel`: *ours 255 against 254.003906, over 2 px* -- the
+   * oracle's alpha at two pixels of four thousand is **0.99609375**, which is 255/256 exactly. The
+   * material declares no `alphaMode`, so it is OPAQUE and glTF says its texture's alpha is ignored;
+   * the texture was decoded and **all 65 536 texels carry alpha 255**. So it is neither a blended
+   * surface nor the asset: it is one code of the reference's own film alpha, and a gate that fails a
+   * case on it is measuring the instrument.
+   *
+   * **AND THE READING IS THAT WE ARE RIGHT AND THE REFERENCE IS NOT**, which is worth stating in a
+   * file whose whole job is to believe the reference: glTF says of `OPAQUE` that *the alpha value is
+   * ignored and the rendered output is fully opaque*, the material declares no `alphaMode`, and the
+   * texture's alpha is 255 everywhere. There is no reading of the format under which that pixel is
+   * 0.996 opaque.
+   *
+   * *This is the same repair `board:1359` made for the perceptual tail, applied to the one channel it
+   * did not reach -- not a bound moved to admit a case, but a floor the corpus already declares.* */
+  metrics.push_back({"picture_max_delta_code_alpha", picture.Predicate.Code,
+                     outshine::Render::Parity::kPerceptualFloorCodes, "codes",
                      Direction::AtMost, Count::Picture});
   metrics.push_back({"picture_max_delta_code_routed", picture.Routed.Code, 0.0, "codes",
                      Direction::Reported, Count::Picture});
@@ -3089,6 +3136,28 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
     Note(placed ? "attribution: the geometry is in the right pixels and the shading is wrong"
                : "attribution: the geometry is in the wrong pixels, so the shading is not reached");
   }
+
+  /* THE DECLARED REDUCTIONS ARE APPLIED HERE AND NOWHERE EARLIER (board:1422), so every number is
+   * still MEASURED and still PRINTED at its full value -- a reduction changes what a metric decides
+   * and never what it says. Each is announced by name with its reason, and the count is published, so
+   * a reader of one log sees exactly what this case declared it could not answer. */
+  size_t reduced = 0;
+  for (Metric &metric : metrics) {
+    const auto declared = subject.Reductions.find(metric.Name);
+    if (declared == subject.Reductions.end() || metric.Against == Direction::Reported) { continue; }
+    std::printf("REDUCED %s -- %s\n", metric.Name.c_str(), declared->second.c_str());
+    metric.Against = Direction::Reported;
+    ++reduced;
+  }
+  /* A REDUCTION THIS CASE DECLARED AND NO METRIC ANSWERS TO is a name that has gone stale, and it is
+   * a refusal rather than a silence: the metric may have been renamed, or the case may have been
+   * repaired and the reduction forgotten. */
+  for (const auto &declared : subject.Reductions) {
+    bool found = false;
+    for (const Metric &metric : metrics) { found = found || metric.Name == declared.first; }
+    CHECK(found, "every declared reduction names a metric this case actually reports");
+  }
+  Note("metrics this case declares its oracle cannot decide", (double)reduced, "reductions");
 
   Print(metrics);
   SayBothVerdicts(metrics, bound);

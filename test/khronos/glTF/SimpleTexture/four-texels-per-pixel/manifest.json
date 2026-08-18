@@ -185,5 +185,33 @@
       "derivation": "the quad is a plane perpendicular to the optical axis, so its perspective image is a similarity: 1 m at 64 px per metre is 64 px on a side, and 64*64/(1280*720) = 4096/921600. Recomputed by the runner from the fetched vertices and refused on a mismatch.",
       "note": "What the boundary bound is applied UNDER: a camera that framed the subject smaller would tighten the bound without saying so."
     }
-  }
+  },
+  "reductions": [
+    {
+      "metric": "linear_channels_differing",
+      "because": "Under minification the two sides FILTER, and they filter with different implementations: this engine samples a mip chain on the device and Cycles filters through its own texture system. Bit-equality between two filter implementations is not a property either can offer, and this case exists precisely to put four texels under one pixel. [MEASURED] 8569 of 12288 channels differ where the 1:1 sibling differs by at most 5 ulps -- so the divergence is the FILTER and not the decode, and the sibling is what says so. The case's own subject is decided by `picture_p99_delta_code`, which passes at 0 codes against a bound of 6.4354338.",
+      "measured": {
+        "channelsDiffering": {
+          "value": 8569,
+          "unit": "channels",
+          "origin": "measured"
+        },
+        "channelsCompared": {
+          "value": 12288,
+          "unit": "channels",
+          "origin": "measured"
+        },
+        "siblingWorstUlpsAt1to1": {
+          "value": 5,
+          "unit": "f32 ulps",
+          "origin": "measured"
+        },
+        "picturePercentileCodes": {
+          "value": 0,
+          "unit": "codes",
+          "origin": "measured"
+        }
+      }
+    }
+  ]
 }
