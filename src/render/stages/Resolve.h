@@ -87,9 +87,22 @@ inline std::string DisplayMsl(const DisplayOptions &options) {
               "  return largest > 1.0 ? centre + offset / largest : history;\n"
               "}\n";
   }
+  /* COVERAGE IS WHAT WROTE DEPTH **OR** WHAT BLENDED INTO THE PIXEL (board:1423).
+   *
+   * DEPTH ALONE WAS WRONG FOR A TRANSPARENT SURFACE. `BLEND` must not write depth -- it composites
+   * with what is behind it -- so a blended fragment drew its colour and this function reported the
+   * pixel empty, and the engine's alpha channel contradicted its own colour channel. [MEASURED] over
+   * five red cases we covered less than the reference every time, `GlassVaseFlowers` by 30 %, and
+   * every one of them carried a blended material while the one case that covered MORE carried none.
+   *
+   * DEPTH ALONE WAS ALSO RIGHT FOR A BLACK ONE, and that is why it is still here rather than replaced:
+   * without it *a black subject and no subject are the same three channels*, and the oracle's sphere
+   * carries 46 101 of 46 151 covered pixels at exactly 0.0 RGB. The maximum keeps both properties --
+   * an opaque arm writes alpha 1 and replaces, a blended arm accumulates from a target now cleared to
+   * 0, and the background is 0 in both. */
   source += "static inline float4 displayed(float4 scene, float sceneDepth) {\n"
             "  float3 lit = scene.rgb;\n"
-            "  float a = covered(sceneDepth);\n";
+            "  float a = max(covered(sceneDepth), saturate(scene.a));\n";
   source += "  float scale = " + std::to_string(options.Exposure) + ";\n";
   source += options.Curve == Transfer::Filmic ? "  return float4(filmic(lit * scale), a);\n"
                                               : "  return float4(lit * scale, a);\n";

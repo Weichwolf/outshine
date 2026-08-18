@@ -513,9 +513,22 @@ void Renderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
     attachment.texture = Target(wanted);
     attachment.load_op = SDL_GPU_LOADOP_CLEAR;
     attachment.store_op = SDL_GPU_STOREOP_STORE;
+    /* THE SCENE'S ALPHA CLEARS TO ZERO BECAUSE ALPHA IS COVERAGE AND NOTHING HAS COVERED IT YET
+     * (board:1423). It cleared to ONE, and the `over` blend a transparent surface composites with --
+     * `src ONE, dst ONE_MINUS_SRC_ALPHA` -- then yields `a_src + 1 * (1 - a_src)` = 1 at every pixel,
+     * so a blended fragment's own coverage was destroyed before anything could read it.
+     *
+     * AN OPAQUE ARM STILL WRITES ONE AND REPLACES, so a BLACK opaque subject stays covered -- which is
+     * the property the display transfer took from the depth buffer and must keep.
+     *
+     * THE OTHER TARGETS KEEP THEIR ONE. `SceneTransmissive` is premultiplied with its own coverage in
+     * alpha and is composited by a stage that reads it; the velocity sentinel says *nothing dynamic
+     * wrote this pixel*; and a target whose alpha nobody reads is unchanged either way. */
+    const bool carriesCoverage = wanted == Resource::SceneHdr || wanted == Resource::SceneComposited ||
+                                 wanted == Resource::SceneLinear;
     attachment.clear_color = wanted == Resource::SceneVelocity
                                  ? SDL_FColor{kVelocityStatic, kVelocityStatic, 0, 0}
-                                 : SDL_FColor{0, 0, 0, 1};
+                                 : SDL_FColor{0, 0, 0, carriesCoverage ? 0.0f : 1.0f};
   }
   SDL_GPUDepthStencilTargetInfo depth{};
   if (declared.Depth != kNoEdge) {

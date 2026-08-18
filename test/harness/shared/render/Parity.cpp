@@ -1416,13 +1416,31 @@ struct Picture {
 }
 
 /* REVERSED-Z: the depth attachment is cleared to 0 at the far plane, so anything that wrote depth is
- * strictly greater. That is the whole of our coverage predicate and it reads no colour at all. */
-Mask FromDepth(const std::vector<float> &depth, int width, int height) {
+ * strictly greater.
+ *
+ * AND WHAT A BLENDED SURFACE PUT IN ALPHA, BECAUSE IT WROTE NO DEPTH (board:1423). `BLEND` composites
+ * with what is behind it, so writing depth is the one thing it must not do -- and a predicate that
+ * read depth alone called every transparent pixel empty while the engine had drawn it. [MEASURED] we
+ * covered less than the reference in every red silhouette case that carried a blended material,
+ * `GlassVaseFlowers` by 30 %, and the one case that covered MORE carried none.
+ *
+ * THE SCENE'S ALPHA IS NOW A COVERAGE CHANNEL and this reads it: the target clears to 0, an opaque arm
+ * writes 1 and replaces, and a blended arm accumulates `over` from nothing. **A black opaque subject
+ * is still covered** -- the property the depth was here for -- because its alpha is 1 however dark its
+ * colour is.
+ *
+ * `linear` MAY BE EMPTY, in which case this is the depth predicate exactly as it was. */
+Mask FromDepth(const std::vector<float> &depth, const std::vector<float> &linear, int width,
+               int height) {
   Mask mask;
   mask.Width = width;
   mask.Height = height;
   mask.In.resize(depth.size());
-  for (size_t pixel = 0; pixel < depth.size(); ++pixel) { mask.In[pixel] = depth[pixel] > 0.0f; }
+  const bool carriesAlpha = linear.size() >= depth.size() * 4u;
+  for (size_t pixel = 0; pixel < depth.size(); ++pixel) {
+    const bool blended = carriesAlpha && linear[pixel * 4u + 3u] > 0.0f;
+    mask.In[pixel] = depth[pixel] > 0.0f || blended;
+  }
   return mask;
 }
 
@@ -1885,7 +1903,7 @@ void ScoreAlternateSpellings(const Case &subject, const outshine::Clients::Studi
       Refused(trouble);
       continue;
     }
-    const Mask other = FromDepth(again.Depth, ours.Width, ours.Height);
+    const Mask other = FromDepth(again.Depth, again.Linear, ours.Width, ours.Height);
     metrics.push_back({"differs_from_" + name, (double)Disagreeing(ours, other), 0.0, "px",
                        Direction::AtMost});
   }
@@ -2931,7 +2949,8 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
     return FrameVerdict{};
   }
 
-  const Mask ours = FromDepth(picture.Depth, (int)subject.Frame.WidthPx, (int)subject.Frame.HeightPx);
+  const Mask ours =
+      FromDepth(picture.Depth, picture.Linear, (int)subject.Frame.WidthPx, (int)subject.Frame.HeightPx);
   const Mask theirs = FromOracle(oracle);
 
   const std::vector<float> scored = WriteProducts(subject, picture, oracle, ours, theirs);

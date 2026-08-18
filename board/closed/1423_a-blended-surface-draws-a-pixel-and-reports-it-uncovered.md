@@ -41,10 +41,43 @@ replaces, a blended arm accumulates from 0, and the background stays 0.
 
 ## What must be true
 
-- [ ] **A pixel a blended surface drew is covered, and by its own alpha** -- glTF's `BLEND` contributes
+- [x] **A pixel a blended surface drew is covered, and by its own alpha** -- glTF's `BLEND` contributes
   coverage and the oracle reports it as the blend factor, not as 1
-- [ ] **A black opaque subject stays covered**, which is the property the depth was there for
-- [ ] **The blast radius is measured before the change and after**: [MEASURED] **13 of 145** cases carry
+- [x] **A black opaque subject stays covered**, which is the property the depth was there for
+- [x] **The blast radius is measured before the change and after**: [MEASURED] **13 of 145** cases carry
   a `BLEND` material, and every case's alpha channel is compared, so the corpus is the net
-- [ ] **The composite and the display transfer agree about what alpha means**, or the transmissive pass
+- [x] **The composite and the display transfer agree about what alpha means**, or the transmissive pass
   reads a coverage the opaque pass did not write
+
+## What it bought: SEVEN cases from one repair
+
+| case | before | after |
+|---|---|---|
+| `CompareAlphaCoverage` | IoU 0.89923004 | **green** |
+| `ClearCoatTest` | IoU 0.94706633 | **green** |
+| `TransmissionOrderTest` | IoU 0.99814226 | **green** |
+| `IridescenceDielectricSpheres` | IoU 0.92754751 | **green** |
+| `IridescenceMetallicSpheres` | IoU 0.92754751 | **green** |
+| `DiffuseTransmissionTest` | 3830 samples apart | **green** |
+| `CompareTransmission` | 5282 samples apart | **green** |
+
+**One cause, seven cases** -- and the two iridescence sweeps had reported the identical number all
+along, which is what said their geometry was one thing and not two.
+
+## The repair, in two halves that had to agree
+
+**The engine**: `SceneHdr`, `SceneComposited` and `SceneLinear` clear to alpha **0**, and the display
+transfer takes coverage as `max(covered(sceneDepth), scene.a)`. The other targets keep their 1 --
+`SceneTransmissive` is premultiplied and read by a stage that knows it, and the velocity sentinel means
+something else entirely.
+
+**The harness**: `FromDepth` reads the linear tap's alpha beside the depth, because a mask built from
+depth alone called every transparent pixel empty on OUR side while the oracle's own alpha counted it.
+
+**Both halves were needed and neither is sufficient**: with only the engine's half the corpus did not
+move at all, because the harness never read the picture's alpha.
+
+## What is NOT fixed by it
+
+`GlassVaseFlowers`, `SpecularTest` and `SimpleSkin` are still red, so their disagreement is something
+else -- and `SimpleSkin` carries no blended material at all, which `board:1419` had already established.
