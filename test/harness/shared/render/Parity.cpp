@@ -2076,7 +2076,14 @@ outshine::Clients::Studio MakeStudio(const Case &subject) {
   const double across = acrossNdc * halfHeight * frame.Aspect();
   const double down = downNdc * halfHeight;
   const double secant = std::sqrt(across * across + down * down + 1.0);
-  out = (double)outshine::Render::Renderer::kNearM / (double)depth[at] * secant;
+  /* THE NEAR PLANE IS THE PLACEMENT'S AND NOT THE RENDERER'S CONSTANT (board:1420). The engine takes
+   * `ZNearM` from the placement it is handed and keeps `kNearM` only as a default, so a harness that
+   * kept dividing by the constant would read a range scaled by the ratio of the two -- [MEASURED]
+   * `DirectionalLight` reported 0.297173083 m against a declared 1.78298157 m, which is exactly the
+   * 6:1 its own near plane stands at. **The same two-determinations defect the engine repair was
+   * about, one level up.** */
+  const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : (double)outshine::Render::Renderer::kNearM;
+  out = plane / (double)depth[at] * secant;
   return true;
 }
 

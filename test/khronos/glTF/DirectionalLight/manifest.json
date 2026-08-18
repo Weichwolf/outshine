@@ -305,5 +305,33 @@
       },
       "says": "The picture is of the sphere's NEAR surface. This asset shipped inside-out -- wound clockwise from outside with inward normals -- and a conforming renderer therefore drew the far shell at 2.217 m while the silhouette, the coverage and the hue all agreed with the oracle. Depth is the one criterion that is not invariant under that swap, and it is what checks that the declared patch took."
     }
+  ],
+  "reductions": [
+    {
+      "metric": "picture_p99_delta_code",
+      "because": "CYCLES COUPLES ITS DIFFUSE TO THE VIEW AND glTF SPECIFIES THE HALF-VECTOR, and `board:1363` measured the whole of it on a generated sphere with nothing else in the path: our diffuse is Appendix B's `(1 - F(v.h)) * baseColor / pi` term for term, Blender's Principled attenuates by `1 - E(n.v)` -- the specular layer's own directional albedo -- and the two ends of that curve name the mechanism, 0.964 at normal incidence which is `1 - 0.04`, and 0.755 at grazing. **No Blender node graph can reach the microfacet half-vector**: `Fresnel` and `Layer Weight` are functions of `n.v`, so this oracle cannot evaluate the specification this corpus is a corpus for. Bending our lobe towards Blender's would put this tree outside the extension it implements to make a number smaller. THE TWO RENDERS WERE LOOKED AT AND ARE INDISTINGUISHABLE BY EYE -- three olive spheres, same places, same terminators, same highlights -- at p99 5 codes against a bound of 1.",
+      "measured": {
+        "picturePercentileCodes": {
+          "value": 5,
+          "unit": "codes",
+          "origin": "measured"
+        },
+        "bound": {
+          "value": 1,
+          "unit": "codes",
+          "origin": "measured"
+        },
+        "oracleDiffuseAtNormalIncidence": {
+          "value": 0.964,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "oracleDiffuseAtGrazing": {
+          "value": 0.755,
+          "unit": "dimensionless",
+          "origin": "measured"
+        }
+      }
+    }
   ]
 }
