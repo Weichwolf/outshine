@@ -486,6 +486,29 @@ for candidate in $(find test -name '*.cpp' | sort); do
 done
 [ -n "$TESTS" ] && [ "$TESTS" != " " ] || Die "no test under a declared layer of test/"
 
+# A RENDER CASE IS A DIRECTORY, SO NAMING ONE SELECTS IT (board:1410). Without this the smallest
+# thing that can be run is a whole declarative suite -- 45 cases to see one number move, and the
+# corpus is 148 -- which is a tax on exactly the iteration the corpus exists to make cheap.
+#
+# THE LAYER IS DERIVED BY ASKING EACH LAYER'S OWN ENUMERATION whether it holds the path, never by a
+# second table beside `LayerCases`: a mapping written twice is a mapping that can disagree with
+# itself, and this one would disagree silently by running the wrong suite over no cases at all.
+#
+# THE TRAILER STILL DECIDES. A filtered run reports the count it actually ran, so `1 tests: 1 PASS`
+# cannot be quoted as a suite -- which is the same protection the trailer already gives every run.
+CASE=
+if [ -n "$SUITE" ] && [ -f "test/$SUITE/manifest.json" ]; then
+  for candidate in $(for one in $TESTS; do dirname "${one#test/}"; done | sort -u); do
+    if LayerCases "$candidate" | grep -qxF "test/$SUITE"; then
+      CASE=test/$SUITE
+      SUITE=$candidate
+      break
+    fi
+  done
+  [ -n "$CASE" ] ||
+    Die "test/$SUITE carries a manifest and no declared layer enumerates it -- add it to LayerCases, or name the suite instead"
+fi
+
 if [ -n "$SUITE" ]; then
   selected=""
   for candidate in $TESTS; do
@@ -494,7 +517,11 @@ if [ -n "$SUITE" ]; then
   [ -n "$selected" ] ||
     Die "no declared suite under test/$SUITE -- $(find test -name '*.cpp' -exec dirname {} \; | sed 's|^test/||' | sort -u | tr '\n' ' ')"
   TESTS=$selected
-  printf 'run.sh: %s only\n' "test/$SUITE"
+  if [ -n "$CASE" ]; then
+    printf 'run.sh: %s only, under test/%s\n' "$CASE" "$SUITE"
+  else
+    printf 'run.sh: %s only\n' "test/$SUITE"
+  fi
 fi
 
 started=$(Now)
@@ -920,6 +947,8 @@ for testSource in $TESTS; do
 '
   for oneCase in $cases; do
     IFS=$oldIfs
+    if [ -n "$CASE" ] && [ "$oneCase" != "$CASE" ]; then IFS='
+'; continue; fi
     # THE MARKER IS WHAT "THIS RUN WROTE IT" IS MEASURED AGAINST, and it lives outside the case
     # directory: a marker inside one would be a file the prune then had to have an opinion about.
     : >"$PRUNE_MARKER"

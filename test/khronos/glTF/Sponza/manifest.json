@@ -1079,21 +1079,22 @@
     },
     "light": {
       "kind": "none",
-      "note": "A diffuse surface under the factory world; no punctual source is declared."
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
     },
     "world": {
-      "kind": "factory",
-      "note": "Configured by not being configured. It is the illumination here because the material is diffuse and something has to arrive for it to be seen."
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest and not of a Blender default."
     },
     "material": {
       "source": "manifest",
-      "kind": "diffuse",
-      "colourLinear": [
-        0.5,
-        0.5,
-        0.5
-      ],
-      "note": "DIFFUSE AND NOT EMISSION, because this file declares no material to key a colour by. One colour, and the illumination is the factory world -- the arrangement `Triangle` already runs green. The preparer pins a Diffuse BSDF rather than Principled, so no specular lobe enters at IOR 1.5."
+      "kind": "emission-by-material-index",
+      "note": "EMISSION BY INDEX, BECAUSE THIS FILE NAMES NONE OF ITS MATERIALS. [MEASURED] 25 materials and 0 of them carry a `name`, so `emission-per-material` has no key to hang a colour on -- which is the case `board:1362` built this arm for. The colour comes from a rule with no free parameter, `colour[c] = 0.15 + 0.70 * frac(index * step[c])`, so a manifest cannot tune one to make a case pass.\n\nAND IT IS NOT `diffuse`, WHICH IS WHAT THIS CASE DECLARED AND WHY IT REPORTED NOTHING AT ALL. The closed form rho*L holds only where no surface can see another; Sponza is a building interior whose whole point is that its surfaces see each other. The preparer refused it correctly and the case sat red with no picture compared -- a refusal is the right answer to the wrong declaration, and the repair is the declaration."
     }
   },
   "renders": {
@@ -1130,15 +1131,49 @@
       },
       "exrCodec": "ZIP",
       "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. A still costs one frame, so the full 1280x720 is affordable here where an animated case has to buy its grid."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
     }
   },
-  "notes": "A coverage case. Its subject's own shading -- textures, metallic-roughness, and any extension it declares -- is NOT what this decides; `board:1363` records why no case takes the shading arm yet. What it does decide is that the file reads, the geometry lands where the oracle puts it, and each material row reaches its own body.",
+  "notes": "A coverage case. Its subject's own shading -- textures, metallic-roughness, and any extension it declares -- is NOT what this decides; `board:1363` records why no case takes the shading arm yet. What it does decide is that the file reads, the geometry lands where the oracle puts it, and each material row reaches its own body. A coverage case: what it decides is that a 25-material building interior reads, that its geometry lands where the oracle puts it, and that each material row reaches its own surfaces. Its own shading is NOT what this decides -- `board:1363` records why, and `board:1407` records what changed.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.0,
+      "value": 0.571211949,
       "unit": "dimensionless",
-      "origin": "SET",
-      "note": "NO VALUE COULD BE HARVESTED: this case refuses before it projects anything, so the runner never recomputed a fraction to seed this from. The zero is a placeholder and is SAID TO BE ONE rather than left to read as a measurement -- once the refusal above it is repaired the value is harvested like every other (board:1377)."
+      "origin": "measured",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, recomputed by the runner on every run and refused on mismatch. HARVESTED once the case could project at all: the placeholder zero this replaced was declared [SET] and said so, because a refusal before projection leaves nothing to seed from (board:1377). The camera did not move to obtain it -- what changed is that the material arm stopped being refused."
     }
   }
 }
