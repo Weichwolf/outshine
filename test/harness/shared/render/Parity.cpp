@@ -790,7 +790,7 @@ outshine::Render::SubjectWrap WrapOf(outshine::Gltf::Wrap wrap) {
  * The transmissive fields are cleared and nothing else is touched: the geometry, the alpha mode and
  * every texture reference stay the file's, because those are what a coverage case IS about. */
 void ResolveSurfaceTable(const Document &file, const Subject &geometry, bool oracleTransmits,
-                         SurfaceTable &out) {
+                         bool fileMaterials, SurfaceTable &out) {
   out.Slots.clear();
   out.Material.clear();
   out.Decoded.clear();
@@ -816,6 +816,16 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, bool ora
           surface.Row.Transmission = 0.0f;
           surface.Row.Thickness = 0.0f;
         }
+        /* AND THE ALPHA MODE IS THE ARM'S FOR THE SAME REASON (board:1425). A case whose materials are
+         * the MANIFEST's replaces every surface with a flat emitter, and the preparer's emission arm
+         * carries no coverage at all -- so the reference is opaque whatever the file says, and honouring
+         * `alphaMode: BLEND` here makes this engine see through a surface the other side does not.
+         *
+         * [MEASURED] `GlassVaseFlowers` is the asset that shows it: its two vases are the two ways to
+         * make glass -- `GlassAlpha` with `alphaMode BLEND` and a base alpha of **0.3**, and
+         * `GlassTransmission` with the extension. Ours drew the stems THROUGH the first and the
+         * reference did not, and the two pictures say so at a glance. */
+        if (!fileMaterials) { surface.Row.Alpha = outshine::AlphaMode::Opaque; }
       }
       out.Material.push_back(material);
       out.Slots.push_back(surface);
@@ -1330,7 +1340,7 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, bool ora
   if (!PoseGeometry(subject, 0, error)) { return false; }
   subject.RestPositions = subject.Geometry.PositionsM();
   ResolveSurfaceTable(subject.File, subject.Geometry, subject.TransmissionBounces > 0,
-                      subject.Surfaces);
+                      subject.MaterialFromFile(), subject.Surfaces);
   if (subject.MaterialFromFile() &&
       !ResolveFileSurface(subject.File, subject.Geometry, subject.Colour, subject.Carrier,
                           subject.Surfaces,
@@ -1913,7 +1923,8 @@ void ScoreAlternateSpellings(const Case &subject, const outshine::Clients::Studi
        * entry's. The two spell one surface, so their names agree -- and if they ever did not,
        * copying by position would colour the wrong body while the count still matched. */
       SurfaceTable surfaces;
-      ResolveSurfaceTable(alternate, spelling, subject.TransmissionBounces > 0, surfaces);
+      ResolveSurfaceTable(alternate, spelling, subject.TransmissionBounces > 0,
+                          subject.MaterialFromFile(), surfaces);
       built = (!subject.MaterialFromFile() ||
                ResolveFileSurface(alternate, spelling, subject.Colour, subject.Carrier, surfaces,
                                   trouble)) &&
