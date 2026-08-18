@@ -281,65 +281,8 @@
     },
     "material": {
       "source": "manifest",
-      "kind": "emission-per-material",
-      "colourLinearPerMaterial": {
-        "<default>": [
-          0.85,
-          0.15,
-          0.15
-        ],
-        "ColLabel_0_Mat": [
-          0.15,
-          0.3542572472504414,
-          0.85
-        ],
-        "ColLabel_1_Mat": [
-          0.5585144945008829,
-          0.85,
-          0.15
-        ],
-        "ColLabel_2_Mat": [
-          0.85,
-          0.15,
-          0.7627717417513241
-        ],
-        "ColLabel_3_Mat": [
-          0.15,
-          0.85,
-          0.7329710109982343
-        ],
-        "ColLabel_4_Mat": [
-          0.85,
-          0.528713763747793,
-          0.15
-        ],
-        "RowLabel_0_Mat": [
-          0.3244565164973515,
-          0.15,
-          0.85
-        ],
-        "RowLabel_1_Mat": [
-          0.17980073075308986,
-          0.85,
-          0.15
-        ],
-        "RowLabel_2_Mat": [
-          0.85,
-          0.15,
-          0.38405797800353125
-        ],
-        "RowLabel_3_Mat": [
-          0.15,
-          0.5883152252539726,
-          0.85
-        ],
-        "RowLabel_4_Mat": [
-          0.792572472504414,
-          0.85,
-          0.15
-        ]
-      },
-      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it. A material a primitive does not name is keyed by `<default>`, which is the format's own word for the material an undefined `material` selects."
+      "kind": "emission-by-material-index",
+      "note": "Emission, one colour per glTF material, from a RULE rather than a table (board:1362). This file names ten materials and leaves 25 primitives naming none, and the importer builds a datablock called `DefaultMaterial` for those rather than an empty slot -- a third shape of the format's default that the name-keyed applier does not know. The index rule resolves all of them: a named material by the file's own table, the default by the slot one past the last."
     },
     "animation": {
       "animations": [

@@ -555,14 +555,25 @@ def baked_channels(scene, paths, fps, declared):
                 values = _accessor(document, buffers, sampler["output"])
                 wide = len(values[0])
                 name = _imported_name(document, node)
-                # A SKIN'S `skeleton` NODE IS THE ARMATURE OBJECT AND NEITHER A BONE NOR A MESH
-                # (board:1375). [MEASURED] on `BrainStem`: 19 channels, 18 on nodes the skin lists as
-                # joints -- which arrive as pose bones named `Node_<index>`, the convention above --
-                # and ONE on node 2, the skin's declared `skeleton`. The importer builds that node as
-                # the armature OBJECT under a name taken from elsewhere in the file, so no
-                # `Node_<index>` lookup reaches it and the channel would be dropped. More than one
-                # armature makes the mapping ambiguous and is refused rather than guessed.
-                if node in {skin.get("skeleton") for skin in document.get("skins", [])}:
+                # A SKIN'S `skeleton` NODE IS THE ARMATURE OBJECT ONLY WHERE IT IS NOT ALSO A JOINT
+                # (board:1375). The two shapes both occur and the rule was first measured on one of
+                # them, which is why it fell on the other:
+                #
+                #   [MEASURED] `BrainStem` -- 19 channels, 18 on nodes the skin lists as joints, and
+                #   ONE on node 2, the declared `skeleton`, which is NOT among the joints. The
+                #   importer builds that node as the armature OBJECT under a name taken from
+                #   elsewhere in the file, so no `Node_<index>` lookup reaches it.
+                #
+                #   [MEASURED] `CesiumMan` -- the declared `skeleton` is node 3 and `joints[0]` is
+                #   ALSO node 3. The importer puts all 190 curves on POSE BONES and leaves the
+                #   armature object with none, so redirecting this channel to the object found an
+                #   object with zero curves and the whole case refused.
+                #
+                # THE JOINT WINS, because a joint is where the importer put the curves. More than one
+                # armature makes the object mapping ambiguous and is refused rather than guessed.
+                joints = {j for skin in document.get("skins", []) for j in skin.get("joints", [])}
+                if node in {skin.get("skeleton") for skin in document.get("skins", [])} \
+                        and node not in joints:
                     armatures = [obj for obj in bpy.data.objects if obj.type == "ARMATURE"]
                     if len(armatures) != 1:
                         fail("the glTF animates node " + str(node) + ", which a skin declares as its "
@@ -1384,6 +1395,21 @@ def apply_emission_by_material_index(imported, path):
     def colour_of(slot):
         return tuple(0.15 + 0.70 * math.fmod(slot * step, 1.0) for step in STEP)
 
+    # THE FORMAT'S DEFAULT MATERIAL ARRIVES IN THREE SHAPES AND ALL THREE WERE MEASURED (board:1362),
+    # which is why this is a table and not a branch on one of them:
+    #
+    #   `SimpleMeshes`             -- no materials at all      -> an EMPTY SLOT, no datablock
+    #   `MeshoptCubeTest`          -- 10 named, 25 prims none   -> ONE datablock named `DefaultMaterial`
+    #   `PrimitiveModeNormalsTest` -- 2 unnamed, 12 prims none  -> SIX, `DefaultMaterial` .. `.005`
+    #
+    # So the importer's own name for it is `DefaultMaterial`, duplicated with Blender's `.NNN` suffix
+    # as often as it needs one, and an empty slot where it made none. All of them mean the same
+    # primitive, so all of them take the one slot past the file's last material.
+    IMPORTER_DEFAULT = "DefaultMaterial"
+    if IMPORTER_DEFAULT in by_name:
+        fail("the file names a material %r, which is the name the importer gives the format's own "
+             "default -- so a primitive naming no material and one naming this one would land on the "
+             "same key" % IMPORTER_DEFAULT)
     assigned = {}
     default_material = None
     subject = []
@@ -1402,18 +1428,18 @@ def apply_emission_by_material_index(imported, path):
             if slot.material is not None and slot.material not in subject:
                 subject.append(slot.material)
     for material in subject:
+        # THE EXACT NAME FIRST AND THE STRIPPED ONE ONLY IF IT MISSES. A file may legitimately name a
+        # material `Foo.001`, and stripping unconditionally would send it to `Foo`'s colour.
         wanted = material.name
-        if wanted == DEFAULT_MATERIAL_NAME:
+        if wanted not in by_name:
+            wanted = re.sub(r"\.\d{3}$", "", wanted)
+        if wanted in (DEFAULT_MATERIAL_NAME, IMPORTER_DEFAULT):
             slot = default_slot
-        else:
-            if wanted not in by_name:
-                stripped = re.sub(r"\.\d{3}$", "", wanted)
-                if stripped in by_name:
-                    wanted = stripped
-            if wanted not in by_name:
-                fail("the scene carries the material %r and the file declares %d materials, none "
-                     "spelled that" % (material.name, len(declared_names)))
+        elif wanted in by_name:
             slot = by_name[wanted]
+        else:
+            fail("the scene carries the material %r and the file declares %d materials, none "
+                 "spelled that" % (material.name, len(declared_names)))
         material.use_nodes = True
         tree = material.node_tree
         tree.nodes.clear()
@@ -1510,7 +1536,7 @@ def no_surface_of_the_subject_is_a_light(imported, materials):
             "visibility": gathered_from}
 
 
-def apply_material(imported, declared):
+def apply_material(imported, declared, gltfPaths):
     if declared["source"] == "gltf":
         return keep_file_materials(imported)
     if declared["source"] == "gltf-base-colour":
@@ -1533,7 +1559,12 @@ def apply_material(imported, declared):
     if declared["kind"] == "emission-per-material":
         return apply_emission_per_material(imported, declared["colourLinearPerMaterial"])
     if declared["kind"] == "emission-by-material-index":
-        return apply_emission_by_material_index(imported, path)
+        # THE RULE IS KEYED BY THE FILE'S MATERIAL INDEX, so the file is what it has to read. One
+        # subject is one glTF here, and more than one would make "material 3" name two things.
+        if len(gltfPaths) != 1:
+            fail("scene.material.kind is 'emission-by-material-index' over a subject assembled from "
+                 + str(len(gltfPaths)) + " glTF files, and a material index names one file's table")
+        return apply_emission_by_material_index(imported, gltfPaths[0])
 
     # ONE MATERIAL PER OBJECT, KEYED BY THE glTF NODE'S OWN NAME, which the importer carries into the
     # object's name. A single colour over touching bodies fuses their silhouettes and hides a
@@ -1779,7 +1810,7 @@ def main():
     # materials the subject WEARS, so a variant selected after it would swap a lowered material for
     # an untouched Principled one.
     variant = select_material_variant(imported, job["scene"].get("materialVariant"))
-    material = apply_material(imported, job["scene"]["material"])
+    material = apply_material(imported, job["scene"]["material"], job["gltfPaths"])
     devices = apply_recipe(scene, job["recipe"])
     channels = None
     if animation is not None:

@@ -316,7 +316,8 @@ def _seed_shift(material, renders, light):
     # own emission out of the light tree and out of every gathering ray -- so the word left the sun
     # arm's enumeration rather than staying spellable. What the file's OWN lights bring is a
     # different question and the `gltf` arm keeps it.
-    reduced = (material.get("kind") in ("emission", "emission-per-material") or
+    reduced = (material.get("kind") in ("emission", "emission-per-material",
+                                       "emission-by-material-index") or
                light.get("estimator") == "delta")
     if not reduced:
         if SEED_SHIFT_RECIPE_NAME in renders:

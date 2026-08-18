@@ -102,3 +102,27 @@ count.
 
 **The nine are withheld rather than committed unprepared**, for the reason the earlier twenty were: a
 case that cannot prepare reports nothing and makes the red set harder to read.
+
+## Comments
+
+**The skinned half is fixed, and the rule that blocked it was MY OWN, measured on one shape.**
+`board:1375` recorded skinned animation as blocked because *animated nodes are joints inside an
+armature, not objects*. The preparer already had a bone arm for exactly that. What refused was a
+redirect I had added beside it: *a skin's `skeleton` node is the armature OBJECT*.
+
+**Both shapes occur and I had measured only one.**
+
+| asset | `skin.skeleton` | is it also a joint? | where the importer put the curves |
+|---|---|---|---|
+| `BrainStem` | node 2 | **no** | the armature OBJECT -- the redirect is right |
+| `CesiumMan` | node 3 | **yes, `joints[0]`** | 190 curves on POSE BONES, **0 on the object** |
+
+So on `CesiumMan` the redirect sent the channel to an object with no curves and the case refused with
+*Armature's location is 0 curves and the file's translation carries 3 components* -- a message that
+reads as a defect in the asset and was a defect in the rule. **The joint wins**, because a joint is
+where the importer put the curves; the object redirect applies only where the skeleton node is not
+itself a joint.
+
+**`CesiumMan` prepares.** The five other cases that refused with the same Blender exit status are
+re-prepared in the same round to find out how many shared the cause rather than the symptom -- *the
+caveat first*: identical exit statuses are not evidence of an identical cause.
