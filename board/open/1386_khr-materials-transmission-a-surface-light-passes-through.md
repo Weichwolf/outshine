@@ -89,3 +89,26 @@ alias for the resource a stage would otherwise have had to produce.
 names the problem outright: `TransmissionOrderTest`. So the recommendation above is right for one
 layer of glass and states nothing about two, and the round that builds it must say which of the four
 transmission cases it can decide and which it cannot -- **before it builds, not after.**
+
+## A cheaper path was looked for and ruled out by two measurements
+
+**The shortcut considered**: a thin transmissive sheet with no volume needs no background texture,
+because what passes through it is what alpha compositing already puts there -- so it could ride the
+BLEND pipeline this unit already has, with no new stage at all.
+
+**[MEASURED] it serves a minority.** Over the 148 models, transmissive materials split
+**36 thin against 100 with a volume**. `TransmissionTest` is entirely thin and would be served whole;
+`GlassVaseFlowers` and `TransmissionOrderTest` -- two of the four red glass cases -- are not.
+
+**[MEASURED] and it cannot tint.** glTF transmits light TINTED BY BASE COLOUR, which is per-channel; a
+single draw would have to carry both the reflected radiance and that tint, and SDL_GPU offers no
+dual-source blend factor -- `SDL_GPU_BLENDFACTOR_SRC1_COLOR` does not exist in `SDL_gpu.h`. The only
+single-target shapes left are `dst * srcColour` (the tint, losing the reflection) or premultiplied
+`over` (the reflection, losing the tint). **A stained-glass window would come out colourless**, and
+`StainedGlassLamp` is in the corpus.
+
+*Two draws per transmissive triangle would close it and cost the frame twice for the same pixels.*
+
+**So the background texture is the answer, and the detour is worth writing down because it was ruled
+out with evidence rather than by taste**: it serves both the volumetric majority and the tint in one
+draw, and it is the same resource refraction needs.
