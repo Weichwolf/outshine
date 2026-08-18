@@ -43,6 +43,54 @@ enum class Resource {
   kCount
 };
 
+/* WHICH RESOURCES CARRY SCENE-REFERRED RADIANCE, ANSWERED EXHAUSTIVELY AND WITH NO `default:`
+ * (board:1386). A new resource does not compile until this says which it is, which is the only shape
+ * that survives: the compiler used to name `SceneHdr` and `SceneLinear` by hand, `SceneTransmissive`
+ * was added a year later, and the list quietly did not grow with it.
+ *
+ * WHAT THAT COST, MEASURED. A plan declaring `ScenePrecision::Float` upgraded two of the four and
+ * left the glass pass's target at half float, so its pipeline declared RGBA32Float against an
+ * RGBA16Float framebuffer and Metal's validation aborted the arm outright: *for color attachment 0,
+ * the render pipeline's pixelFormat does not match the framebuffer's*. That was the last unfound
+ * cause of a withdrawn feature.
+ *
+ * THE FORMAT CANNOT STAND IN FOR THIS and that was checked before this function was written: eight
+ * rows are declared `Rgba16Float` and only four of them are radiance -- the three atmosphere LUTs and
+ * the shading normal are not, and upgrading those would widen a measurement's alphabet for no
+ * reason. */
+[[nodiscard]] constexpr bool CarriesSceneRadiance(Resource resource) {
+  switch (resource) {
+    /* The chain a frame's radiance travels: what the opaque units drew, what the glass drew beside
+     * it, the two composited, and the resolved picture the display transfer reads. */
+    case Resource::SceneHdr:
+    case Resource::SceneTransmissive:
+    case Resource::SceneComposited:
+    case Resource::SceneLinear:
+      return true;
+    case Resource::LinearSampler:
+    case Resource::LutSampler:
+    case Resource::AtmosphereUniform:
+    case Resource::CascadeUniform:
+    case Resource::VegetationTable:
+    case Resource::TransmittanceLut:
+    case Resource::MultiScatterLut:
+    case Resource::SkyViewLut:
+    case Resource::IrradianceBuffer:
+    case Resource::Meter:
+    case Resource::ShadowAtlas:
+    case Resource::SceneVelocity:
+    case Resource::SceneDepth:
+    case Resource::SceneShadingNormal:
+    case Resource::SceneSurfaceIdentity:
+    case Resource::AoBuffer:
+    case Resource::FrameTex:
+    case Resource::Surface:
+    case Resource::kCount:
+      return false;
+  }
+  return false;
+}
+
 enum class Stage {
   MediumTransmittance,
   MediumMultiScatter,

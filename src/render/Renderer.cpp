@@ -394,7 +394,9 @@ bool Renderer::Configure(Stage stage, std::string &error) {
       return Glass_.Configure(Handles, error);
     case Stage::CompositeTransmission:
       return CompositeTransmission_.Configure(Handles, HdrTex.Get(), TransmissiveTex.Get(),
-                                              Samp.Get(), error);
+                                              Samp.Get(),
+                                              FormatOf(Plan_->Format(Resource::SceneComposited)),
+                                              error);
     case Stage::TemporalResolve:
       /* FUSED INTO THE TRANSFER AND SO CONFIGURED BY IT (board:1413). The catalogue makes the two one
        * fragment, so there is nothing of its own to build -- and it is `Executable` rather than

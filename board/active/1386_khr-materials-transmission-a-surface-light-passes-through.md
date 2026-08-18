@@ -154,3 +154,55 @@ right independently of transmission.*
 least a seventh cause and I did not find it. *The next round starts by finding what the validated arm
 aborts on -- with the reader restored on a single case rather than on the corpus, which is what I
 should have done at layer one.*
+
+## The seventh cause, found — and it was never about transmission
+
+**The withdrawal ended with an instruction**: *find what the validated arm aborts on, with the reader
+restored on a SINGLE case rather than on the corpus, which is what I should have done at layer one.*
+That was unaffordable at eight minutes a run. It is **2.4 seconds** now (`board:1410`), and the answer
+came in one.
+
+```
+For color attachment 0, the render pipeline's pixelFormat (MTLPixelFormatRGBA32Float)
+does not match the framebuffer's pixelFormat (MTLPixelFormatRGBA16Float).
+```
+
+**`ScenePrecision::Float` upgraded two resources by NAME and there are four.** The compiler read
+`SceneHdr` and `SceneLinear` out of a hand-written pair; `SceneTransmissive` was added for this feature
+and the pair did not grow with it, so the glass pass's pipeline declared 32 bits against a 16-bit
+target and Metal aborted the encoder outright. **A list that had to be remembered, and was not.**
+
+**Repaired so the omission is unspellable**: `CarriesSceneRadiance` answers every resource
+exhaustively and with no `default:`, so a resource added to the chain does not COMPILE until it says
+which it is, and the compiler walks all of them. *The format could not stand in for the question and
+that was checked before the function was written -- eight rows are declared `Rgba16Float` and only four
+are radiance; the three atmosphere LUTs and the shading normal are not.*
+
+**The same defect one level down**: `CompositeTransmissionStage` hardcoded `R16G16B16A16_FLOAT` for its
+own target. It takes the plan's format now. *This is the third stage this round to be caught
+hardcoding a scene format, after the tonemap and a temporal resolve -- so the class is real and the
+repair is the plan being asked rather than the width being typed.*
+
+**[MEASURED] the arm no longer aborts**: `TransmissionOrderTest`, 3 tests, **0 SIGNAL**, where it was
+1 before.
+
+## What the restored reader now measures, and it is two more questions
+
+| | before the reader | with it |
+|---|---|---|
+| `picture_p99_delta_code` | -- | **0, PASS** |
+| `worst_disagreement_px` | 2.5249835 | **60.154229** |
+| `iou` | -- | 0.14126761 |
+
+**The COLOUR is exact where the two agree a pixel is covered, and the COVERAGE is further apart than
+when the glass was drawn opaque.** So what is wrong is not the lobe and not the composite's arithmetic;
+it is which pixels the glass claims.
+
+**And an eighth cause is already named by the catalogue itself.** A new check fails -- *every pixel we
+drew names a surface slot of this subject's own table* -- and `RenderCatalogue.h` predicted it in as many
+words: *it does NOT carry the shading normal or the surface identity: a glass fragment names no single
+surface*. So the identity attachment is right to be empty there and the CHECK does not know it yet.
+
+- [ ] **The coverage a transmissive draw claims**, which is the whole of the 60 px
+- [ ] **The identity check learns that a transmissive pixel names no slot**, which the catalogue
+  already states and the harness does not read

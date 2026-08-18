@@ -216,8 +216,13 @@ bool RenderPlan::Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan>
     return false;
   }
   if (spec.Precision.Or(ScenePrecision::Half) == ScenePrecision::Float) {
-    plan->Format_[static_cast<size_t>(Resource::SceneHdr)] = TexelFormat::Rgba32Float;
-    plan->Format_[static_cast<size_t>(Resource::SceneLinear)] = TexelFormat::Rgba32Float;
+    /* EVERY RESOURCE THAT CARRIES RADIANCE AND NOT A LIST OF THEM (board:1386). The catalogue answers
+     * which, exhaustively and without a `default:`, so a resource added to the chain is upgraded by
+     * existing here rather than by somebody remembering this line. */
+    for (size_t at = 0; at < kResourceCount; ++at) {
+      const Resource resource = static_cast<Resource>(at);
+      if (CarriesSceneRadiance(resource)) { plan->Format_[at] = TexelFormat::Rgba32Float; }
+    }
   }
   plan->Precision_ = spec.Precision.Or(ScenePrecision::Half);
 

@@ -36,7 +36,7 @@ constexpr uint32_t kCompositeImages = 2;
 
 bool CompositeTransmissionStage::Configure(const Gpu &gpu, SDL_GPUTexture *opaque,
                                            SDL_GPUTexture *transmissive, SDL_GPUSampler *exact,
-                                           std::string &error) {
+                                           SDL_GPUTextureFormat targetFormat, std::string &error) {
   Opaque = opaque;
   Transmissive = transmissive;
   Exact = exact;
@@ -61,7 +61,7 @@ bool CompositeTransmissionStage::Configure(const Gpu &gpu, SDL_GPUTexture *opaqu
   /* THE TARGET IS THE SCENE'S OWN FORMAT AND NOT THE SURFACE'S: this stage stays in linear radiance
    * and the display transfer is still the only place a frame leaves it. */
   SDL_GPUColorTargetDescription target{};
-  target.format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
+  target.format = targetFormat;
   SDL_GPUGraphicsPipelineCreateInfo pipeline{};
   pipeline.vertex_shader = vertex.Get();
   pipeline.fragment_shader = fragment.Get();

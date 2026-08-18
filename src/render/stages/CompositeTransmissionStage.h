@@ -25,8 +25,12 @@ public:
   /* `opaque` is the scene as every opaque contributor left it and `transmissive` is what the glass
    * drew, PREMULTIPLIED with its coverage in alpha. `exact` is the sampler both are read through:
    * one texel per fragment at the fragment's own coordinate, so it is a fetch rather than a filter. */
+  /* `target` IS THE PLAN'S FORMAT FOR THE RADIANCE THIS WRITES and is not assumed. A scene declared
+   * at float precision carries 32 bits a channel; a pipeline that hardcoded 16 is refused by the
+   * driver, and Metal says so by aborting the encoder rather than by failing the build (board:1386). */
   [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUTexture *opaque, SDL_GPUTexture *transmissive,
-                               SDL_GPUSampler *exact, std::string &error);
+                               SDL_GPUSampler *exact, SDL_GPUTextureFormat target,
+                               std::string &error);
   void Encode(const FrameContext &ctx, const PassRecording &into);
 
 private:

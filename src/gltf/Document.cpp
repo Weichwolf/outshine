@@ -199,6 +199,8 @@ constexpr const char *const kHonouredExtensions[] = {"KHR_lights_punctual",
                                                      "KHR_materials_anisotropy",
                                                      "KHR_materials_iridescence",
                                                      "KHR_animation_pointer",
+                                                     "KHR_materials_transmission",
+                                                     "KHR_materials_volume",
                                                      "KHR_materials_clearcoat",
                                                      "KHR_materials_sheen",
                                                      "KHR_mesh_quantization",
@@ -219,6 +221,8 @@ constexpr const char *kClearcoat = "KHR_materials_clearcoat";
 constexpr const char *kAnisotropy = "KHR_materials_anisotropy";
 constexpr const char *kIridescence = "KHR_materials_iridescence";
 constexpr const char *kAnimationPointer = "KHR_animation_pointer";
+constexpr const char *kTransmission = "KHR_materials_transmission";
+constexpr const char *kVolume = "KHR_materials_volume";
 constexpr const char *kUnlit = "KHR_materials_unlit";
 constexpr const char *kMaterialsVariants = "KHR_materials_variants";
 constexpr const char *kTextureTransform = "KHR_texture_transform";
@@ -1320,16 +1324,59 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
    * surface; the volume says whether there is a medium behind it and what that medium does to the
    * light on its way. [MEASURED] over the 148 models at the pin, 100 of the 136 transmissive
    * materials carry a volume -- so a reader that took one without the other would draw the majority
-   * of the corpus's glass as a thin sheet, which is a wrong picture rather than a plainer one. */
-  /* `KHR_materials_transmission` AND `KHR_materials_volume` ARE NOT READ, AND THAT IS A WITHDRAWAL
-   * RATHER THAN AN OVERSIGHT (board:1386). The renderer's half is written and compiled -- the
-   * material row, the surface routing on thickness, three fragment arms, a second pass over the same
-   * draw list and its composite -- and the picture it draws is not right yet: with these two read,
-   * 26 of the corpus's models went red and the driver's own validation aborted 30 arms.
+   * of the corpus's glass as a thin sheet, which is a wrong picture rather than a plainer one.
    *
-   * **Half-built is worse than not built**, so the reader that switches the capability on is not
-   * here until the round that finishes it. Neither extension is in `kHonouredExtensions`, so a file
-   * that REQUIRES one is refused by name and nothing is drawn wrongly in silence. */
+   * RESTORED AFTER A WITHDRAWAL, AND THE WITHDRAWAL'S OWN INSTRUCTION IS WHY. The renderer's half was
+   * written and compiled and then switched off, because with these two read 26 models went red and
+   * the driver aborted 30 arms and six causes were found without reaching the last one. The item
+   * ended by naming what to do next: *find what the validated arm aborts on, with the reader restored
+   * on a SINGLE case rather than on the corpus*. That was unaffordable at eight minutes a run and it
+   * is 2.4 seconds now (board:1410), which is the whole reason this is back. */
+  const Json::Ref transmission = declaration["extensions"][kTransmission];
+  if (transmission.Valid()) {
+    const Json::Ref factor = transmission["transmissionFactor"];
+    if (factor.Valid()) {
+      if (factor.GetKind() != Json::Kind::Number || !(factor.Num() >= 0.0) || factor.Num() > 1.0) {
+        return Refuse("material " + Number(index) + " declares a transmissionFactor outside [0, 1]");
+      }
+      material.Surface.Transmission = static_cast<float>(factor.Num());
+    }
+  }
+  /* `KHR_materials_volume`. A THICKNESS OF ZERO IS THE FORMAT'S OWN SWITCH and not a guard: *if the
+   * value is 0 the material is thin-walled*, so the surface routes on it rather than on the index. */
+  const Json::Ref volume = declaration["extensions"][kVolume];
+  if (volume.Valid()) {
+    const Json::Ref thickness = volume["thicknessFactor"];
+    if (thickness.Valid()) {
+      if (thickness.GetKind() != Json::Kind::Number || !(thickness.Num() >= 0.0)) {
+        return Refuse("material " + Number(index) + " declares a thicknessFactor below 0");
+      }
+      material.Surface.Thickness = static_cast<float>(thickness.Num());
+    }
+    const Json::Ref distance = volume["attenuationDistance"];
+    if (distance.Valid()) {
+      if (distance.GetKind() != Json::Kind::Number || !(distance.Num() > 0.0)) {
+        return Refuse("material " + Number(index) +
+                      " declares an attenuationDistance that is not above 0");
+      }
+      material.Surface.AttenuationDistance = static_cast<float>(distance.Num());
+    }
+    const Json::Ref colour = volume["attenuationColor"];
+    if (colour.Valid()) {
+      if (colour.GetKind() != Json::Kind::Array || colour.Size() != 3) {
+        return Refuse("material " + Number(index) +
+                      " declares an attenuationColor that is not three numbers");
+      }
+      for (size_t channel = 0; channel < 3; ++channel) {
+        const Json::Ref component = colour[channel];
+        if (component.GetKind() != Json::Kind::Number || !(component.Num() >= 0.0)) {
+          return Refuse("material " + Number(index) +
+                        " declares an attenuationColor component below 0");
+        }
+        material.Surface.AttenuationColour[channel] = static_cast<float>(component.Num());
+      }
+    }
+  }
   /* `KHR_materials_sheen`, read into the row the way every DATA extension is (board:1177): the
    * values are composed here and the defaults are the identity of what the consumer does with them,
    * so absence and presence-with-defaults are one computation with no branch. The extension's own
