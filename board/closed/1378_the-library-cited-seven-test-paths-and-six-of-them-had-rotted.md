@@ -12,15 +12,21 @@ file or directory under `test/`, which reverses that relation.
 
 [MEASURED] seven distinct paths were cited from `src/`. **Six did not resolve:**
 
-| cited | resolves |
+**The seven are quoted below WITHOUT backticks on purpose**, because a backticked path is a citation
+this repository requires to resolve -- and six of these are the finding precisely because they do not.
+Quoting a dead path as though it were a live one would make this item fail the very check that would
+have caught the defect. *That the citation test refused this file on its first writing is the rule
+working, and it is why it is written this way.*
+
+| cited from src/ | resolves |
 |---|---|
-| `test/shader/BothHalvesOfTheBrdfAgree.cpp` | no |
-| `test/shader/ABackFaceTurnsTheWholeTangentFrame.cpp` | no |
-| `test/shader/AnExactRayAgreesOnBothSides.cpp` | no |
-| `test/unit/render/stages/` | no |
-| `test/frame/` | no |
-| `test/mods/demo/mod.json` | no |
-| `test/run.sh` | yes |
+| test/shader/BothHalvesOfTheBrdfAgree.cpp | no |
+| test/shader/ABackFaceTurnsTheWholeTangentFrame.cpp | no |
+| test/shader/AnExactRayAgreesOnBothSides.cpp | no |
+| test/unit/render/stages/ | no |
+| test/frame/ | no |
+| test/mods/demo/mod.json | no |
+| test/run.sh | yes |
 
 They had all moved under the suite reorganisation and nothing moved the comments with them. **A
 citation pointing from the stable tree at the moving one has no owner**, which is the same argument

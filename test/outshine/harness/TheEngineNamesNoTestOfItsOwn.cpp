@@ -4,8 +4,8 @@
  * a host and calls nothing else; everything that runs it is a test.* A source file that names a test
  * has reversed that relation, and the reversal is not a matter of taste: **the citation rots**.
  * [MEASURED] when this test was written, `src/` cited seven distinct paths under `test/` and **six of
- * them did not resolve** (board:1378) -- `test/shader/BothHalvesOfTheBrdfAgree.cpp`, `test/unit/render/stages/`,
- * `test/frame/` and their kind had all moved under the suite reorganisation, and nothing moved the
+ * them did not resolve** (board:1378) -- the shader tests, the unit stages directory and the frame
+ * suite had all moved under the suite reorganisation, and nothing moved the
  * comments with them. A citation pointing from the stable tree at the moving one has no owner.
  *
  * It is the same direction argument the board already carries -- *THE CODE CITES THE REQUIREMENT; THE
