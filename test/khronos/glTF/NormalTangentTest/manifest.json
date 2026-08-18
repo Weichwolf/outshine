@@ -139,22 +139,21 @@
       "source": "manifest",
       "projection": "orthographic",
       "positionM": [
-        8.498198442098047,
-        3.650967262473817,
-        5.985752615205667
+        0.0,
+        -0.125,
+        5.0
       ],
       "lookAtM": [
         0.0,
-        -0.12499997019767761,
-        0.03525000484660268
+        -0.125,
+        0.0
       ],
       "rollRad": 0.0,
       "yMagM": 1.1076923076923078,
-      "clipStartM": 9.494300622686783,
-      "clipEndM": 12.586078596826322,
+      "clipStartM": 4.0,
+      "clipEndM": 6.0,
       "derivation": "A PARALLEL PROJECTION, FACE ON, and both halves of that are the asset's own words rather than a viewpoint: 'Normal-mapping works best when viewed face-on', and every test cell is a height field about the z axis, so a parallel projection along -z maps a DISPLACED surface and the FLAT quad beside it to the SAME footprint -- which is what turns 'similar' into a pixel correspondence. The aim is the centre of the flattened subject's own bounds -- x -1.1100000143..1.1100000143, y -1.2000000477..0.9500001073 -- so the framing is the asset's and not a choice. THE MAGNIFICATION IS DERIVED FROM THE ONE DISTANCE THE CRITERION MEASURES: every geometry cell sits exactly 0.32 m to the left of the normal-mapped cell it is to be compared with (measured over the subject's thirty connected cells, each exactly 0.300000 m square), so the magnification has to put 0.32 m on a whole number of pixels. 720 / (2 * 1.1076923076923078) = 325 px per metre exactly, so 0.32 m is 104 px, the 0.8 m between two pairs is 260 px and the 0.4 m between two rows is 130 px. 1.1077 m covers the subject's own vertical half-span of 1.0750000774 m; the horizontal half-extent follows from the frame's aspect, 1.1076923076923078 * 16/9 = 1.9692307692307693 m, and covers x -1.11..1.11 with 0.86 m to spare. The eye sits 5 m along +z, clearing the subject's own z extent of -0.01..0.0805 m by nearly five metres.",
-      "note": "THE ENGINE'S OWN ANSWER, QUOTED (board:1398). Every number here is read from the framing rule's output for this subject -- eye, aim, yfov and both clip planes -- rather than recomputed by the authoring helper, which bounded each primitive by the eight transformed corners of its local AABB and therefore always at least as loosely as the engine bounds the transformed vertices. A looser radius moves the eye back, and 93 cases declared a camera the rule does not derive. `ADerivedCameraIsTheFramingRuleAndNotAQuotation` recomputes all of it and refuses a mismatch, so what this declaration does is PIN the viewpoint, never choose it.",
-      "yfovRad": 0.47108996144172666
+      "note": "The file carries no camera, so this case's camera is declared here and the oracle builds the same one from these numbers."
     },
     "light": {
       "kind": "sun",
