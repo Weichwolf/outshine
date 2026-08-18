@@ -92,22 +92,22 @@
     "camera": {
       "source": "manifest",
       "positionM": [
-        4.387170292652635,
-        2.227169323342693,
-        2.7218259412202177
+        0.40045441635898893,
+        0.3004828173814257,
+        1.9051985039759638
       ],
       "lookAtM": [
-        0.5,
-        0.5,
+        0.40045441635898893,
+        0.3004828173814257,
         0.0
       ],
       "rollRad": -0.46364760900080615,
       "yfovRad": 0.47108996144172666,
       "sensorHeightMm": 24.0,
-      "clipStartM": 4.34279848622952,
-      "clipEndM": 5.757012048602616,
+      "clipStartM": 0.1,
+      "clipEndM": 100.0,
       "derivation": "yfov = 2*atan((24/2)/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. roll = -arctan(1/2) = -26.5650511771 deg, and the SIGN is a measurement rather than a preference: a camera roll of +r turns the camera's right vector towards its up vector, so the image of the world rotates by -r. THE ROLL IS CHOSEN FOR THE SLOPES AND NOT FOR THE ANGLES. At this roll the sample's three edges have raster slopes 1/2, 2 and 1/3, and for a slope p/q in lowest terms the distance from EVERY pixel centre in the plane to the line p*X - q*Y = c is |c - round(c)| / sqrt(p^2+q^2) -- independent of the subject's size, where an irrational slope gives about 0.5/L over L boundary pixels and shrinks as the subject grows. The maxima 0.5/sqrt(5), 0.5/sqrt(5) and 0.5/sqrt(10) = 0.223607, 0.223607 and 0.158114 px are reached where all three constants sit at half a lattice step, and THAT CONSTRAINS THE SCALE AS WELL AS THE AIM: with s = k/sqrt(5) the three constants satisfy (V0V1) + (V1V2) - (V0V2) = 5s identically, so half-lattice on all three needs 5s = 1/2 (mod 1). The plain height fit s = 352 (704 px of 720) fails it and admits at best 0.129692 px; s = 352.1 satisfies it, which is k = 352.1*sqrt(5) = 787.31953487767601 px per unit and puts the subject's rotated bounding box 704.2 px tall inside the frame's 720. The aim then follows: the first vertex must land at pixel (0.3, 0.1) modulo 1 -- the unique solution of Cx + 2Cy = 1/2 and 2Cx - Cy = 1/2 -- and the vertex nearest the frame centre that satisfies it is (463.3, 712.1), which places the other two at (1167.5, 360.0) and (111.2, 7.9), all three inside 1280x720. Distance 1.9051985039759638 m is (720/2) / (0.24 * k), the depth at which one unit subtends k px.",
-      "note": "THE ENGINE'S OWN ANSWER, QUOTED (board:1398). Every number here is read from the framing rule's output for this subject -- eye, aim, yfov and both clip planes -- rather than recomputed by the authoring helper, which bounded each primitive by the eight transformed corners of its local AABB and therefore always at least as loosely as the engine bounds the transformed vertices. A looser radius moves the eye back, and 93 cases declared a camera the rule does not derive. `ADerivedCameraIsTheFramingRuleAndNotAQuotation` recomputes all of it and refuses a mismatch, so what this declaration does is PIN the viewpoint, never choose it."
+      "note": "The glTF carries no camera, so rung 1's camera is declared here. Superseded twice: the first form rolled +12 deg, the second -22.5 deg to maximise the minimum edge-to-AXIS angle, which is not the quantity the comparison turns on -- a pixel centre's distance to the EDGE is. That this camera admits no tie is a geometric predicate over these numbers and the fetched vertices; asserting it is the test's job, not the preparer's."
     },
     "light": {
       "kind": "none",
@@ -201,7 +201,7 @@
   "notes": "Khronos's Triangle is the schema's worked example and never rung 1's subject (board:0078 row 1, I.26): it is out on two counts at once -- no NORMAL, and it is fetched where rung 1 requires a generated subject so that a red there has exactly one cause. It is kept because nothing else in the tree fetches anything, so without it the pin, the redirect-refusing allow-list and the per-file licence derivation have no subject at all.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.023283415,
+      "value": 0.33630211,
       "unit": "dimensionless",
       "origin": "measured",
       "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
