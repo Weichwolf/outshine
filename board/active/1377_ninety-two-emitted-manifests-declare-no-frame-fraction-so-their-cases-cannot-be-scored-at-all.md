@@ -33,11 +33,23 @@ a default would be exactly the silence it refuses.
 
 ## What must be true
 
-- [ ] **Every manifest declares it**, with unit and origin
-- [ ] **The value is HARVESTED from the runner's own recomputation**, not written by hand
-- [ ] **The authoring helper emits it**, so the next case written at scale carries it by construction
-- [ ] **The origin says what it is.** Seeding a declaration from the measurement it is checked against
+- [x] **Every manifest declares it**, with unit and origin
+- [x] **The value is HARVESTED from the runner's own recomputation** -- 70 seeded, 22 placeholders that say so, not written by hand
+- [x] **The authoring helper emits it**, so the next case written at scale carries it by construction
+- [x] **The origin says what it is.** Seeding a declaration from the measurement it is checked against
   makes the check tautological on the round it is seeded, and it is honest only because the camera is
   independently proven to be the framing rule's by
   `test/outshine/unit/gltf/ADerivedCameraIsTheFramingRuleAndNotAQuotation.cpp`. **What this field then
   catches is DRIFT, not present error**, and the note in each manifest says so rather than implying more
+
+## Comments
+
+**The origin enum is lowercase and I wrote it in capitals**, so the preparer refused 70 manifests --
+`measured`, not `MEASURED`. Caught by the preparation log and not by anything earlier: the runner's
+schema and the preparer's schema are the same file, and both were right; only the value was wrong.
+
+**Twenty-two cases could not be seeded and they are named as placeholders rather than left at a zero
+that reads as a measurement.** Each refuses before it projects anything -- an unimplemented required
+extension, an animation path our reader does not drive -- so there was no recomputation to seed from.
+**The placeholder is honest and the check is still vacuous for those cases**, which is why the note in
+each says so; they are seeded in the round their refusal is repaired.

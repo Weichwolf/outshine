@@ -16,7 +16,7 @@
     "{array: type}": "a non-empty list of that type",
     "{map: type}": "a non-empty object whose keys are arbitrary and whose values are that type",
     "{quantity: type}": "value of that type, with unit, origin and -- where derived -- derivation",
-    "filename": "a plain file name in the case directory: no slash and no leading dot",
+    "filename": "a path relative to the case directory: no leading slash, no leading dot, no empty, '.' or '..' segment and no trailing slash. glTF references a buffer or image relative to the .gltf and a subdirectory is legal there, so a flattened name is a product the reader cannot find",
     "sha256": "64 lowercase hex digits",
     "sha1": "40 lowercase hex digits",
     "release": "a release version, e.g. 5.2.0"

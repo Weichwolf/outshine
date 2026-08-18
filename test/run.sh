@@ -900,7 +900,16 @@ for testSource in $TESTS; do
     continue
   fi
 
+  # A CASE DIRECTORY MAY CARRY A SPACE AND ONE DOES (board:1228). `Box With Spaces` is a Khronos
+  # sample whose whole point is that its name and its files carry spaces, and an unquoted word split
+  # here turned it into three case paths that do not exist -- reported as UNPREPARED rather than as a
+  # failure, so the model silently had no case at all while its manifest sat in the tree. Splitting on
+  # newline alone is what the enumeration above actually produces.
+  oldIfs=$IFS
+  IFS='
+'
   for oneCase in $cases; do
+    IFS=$oldIfs
     # THE MARKER IS WHAT "THIS RUN WROTE IT" IS MEASURED AGAINST, and it lives outside the case
     # directory: a marker inside one would be a file the prune then had to have an opinion about.
     : >"$PRUNE_MARKER"
@@ -908,7 +917,10 @@ for testSource in $TESTS; do
     JudgeArms "${oneCase#test/}" "$preparedCase"
     SampleSuite
     PruneCase "$oneCase" "$preparedCase"
+    IFS='
+'
   done
+  IFS=$oldIfs
 done
 endKib=$(SuiteKib)
 

@@ -283,8 +283,24 @@ private:
     } else if (kind == "opaque") {
       held = value.GetKind() == Json::Kind::Object && value.Size() > 0;
     } else if (kind == "filename") {
+      /* A PATH INSIDE THE CASE DIRECTORY, NOT A PLAIN NAME, and glTF is what decides that: a file may
+       * reference `ScatteringSkull_images/aoThickness.png` or `MODEL_ROUNDED_CUBE_PART_1/indices.bin`
+       * relative to the `.gltf`, and a product placed under a flattened name is a product the reader
+       * cannot find. [MEASURED] six manifests and seventeen files at the pin. What is refused is
+       * anything that could LEAVE the directory or name it ambiguously: an absolute path, a `.` or
+       * `..` segment, an empty segment, a trailing separator, and a leading dot on the first segment.
+       *
+       * THE PREPARER SPELLS THE SAME RULE AS A REGULAR EXPRESSION and the two disagreed until now --
+       * `prep/schema.py` had been widened for this and this half had not, so a case whose preparation
+       * succeeded was refused at scoring. One rule, two languages, and the corpus is what caught it. */
       const std::string name = value.Str("");
-      held = text && !name.empty() && name[0] != '.' && name.find('/') == std::string::npos;
+      held = text && !name.empty() && name[0] != '.' && name[0] != '/' && name.back() != '/';
+      for (size_t at = 0, next = 0; held && at < name.size(); at = next + 1) {
+        next = name.find('/', at);
+        if (next == std::string::npos) { next = name.size(); }
+        const std::string segment = name.substr(at, next - at);
+        held = !segment.empty() && segment != "." && segment != "..";
+      }
     } else if (kind == "sha256") {
       held = text && Hex(value.Str(""), 64);
     } else if (kind == "sha1") {
