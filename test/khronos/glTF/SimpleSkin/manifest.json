@@ -249,7 +249,7 @@
       "note": "The same recipe with the sampler's seed moved. At one sample per pixel of a deterministic emission there is nothing for a seed to change, so any pixel that moves between these two renders is the oracle's own noise rather than a disagreement with us -- which is what makes this the instrument floor instead of an assumption about it."
     }
   },
-  "notes": "A coverage case. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet. The animation is present in the file and DELIBERATELY not declared here; a later item takes it once a channel can be keyed to a bone.",
+  "notes": "A coverage case. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet. The animation is present in the file and DELIBERATELY not declared here; a later item takes it once a channel can be keyed to a bone. `board:1419` is what this silhouette proves: at t = 0 both joint matrices are the identity, so the strip is its own rest mesh, and the case agrees with an independent CPU rasterisation of that mesh to one pixel -- which is how `board:1432` decided that the instant and not the skin was the disagreement.",
   "expected": {
     "subjectFrameFraction": {
       "value": 0.0416262738,
