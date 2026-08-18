@@ -28,6 +28,7 @@
 #include "RenderPlan.h"
 #include "stages/Resolve.h"
 #include "stages/SubjectDraw.h"
+#include "stages/CompositeTransmissionStage.h"
 #include "stages/TonemapStage.h"
 
 namespace outshine::Render {
@@ -169,6 +170,7 @@ private:
   OwnedTexture SurfaceIdentityTex;
   OwnedSampler Samp;
   SubjectDraw Subjects_;
+  CompositeTransmissionStage CompositeTransmission_;
   TonemapStage Tonemap_;
 
   bool Ready = false;

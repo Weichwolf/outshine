@@ -114,8 +114,9 @@ bool Renderer::Executable(Stage stage) {
     case Stage::Subjects:
     case Stage::Tonemap:
       return true;
-    case Stage::SubjectsTransmissive:
     case Stage::CompositeTransmission:
+      return true;
+    case Stage::SubjectsTransmissive:
     case Stage::MediumTransmittance:
     case Stage::MediumMultiScatter:
     case Stage::MediumRadiance:
@@ -327,11 +328,13 @@ SDL_GPUTexture *Renderer::LinearSource(void) const {
 bool Renderer::Configure(Stage stage, std::string &error) {
   switch (stage) {
     case Stage::Subjects: return Subjects_.Configure(Handles, error);
+    case Stage::CompositeTransmission:
+      return CompositeTransmission_.Configure(Handles, HdrTex.Get(), TransmissiveTex.Get(),
+                                              Samp.Get(), error);
     case Stage::Tonemap:
       return Tonemap_.Configure(Handles, LinearSource(), DepthTex.Get(), Samp.Get(), Display(),
                                 error);
     case Stage::SubjectsTransmissive:
-    case Stage::CompositeTransmission:
     case Stage::MediumTransmittance:
     case Stage::MediumMultiScatter:
     case Stage::MediumRadiance:
@@ -369,9 +372,9 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
   }
   switch (stage) {
     case Stage::Subjects: Subjects_.Encode(ctx, into); return;
+    case Stage::CompositeTransmission: CompositeTransmission_.Encode(ctx, into); return;
     case Stage::Tonemap: Tonemap_.Encode(ctx, into); return;
     case Stage::SubjectsTransmissive:
-    case Stage::CompositeTransmission:
     case Stage::MediumTransmittance:
     case Stage::MediumMultiScatter:
     case Stage::MediumRadiance:
