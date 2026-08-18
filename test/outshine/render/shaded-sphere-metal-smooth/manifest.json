@@ -1,17 +1,18 @@
 {
   "schema": "outshine/render-oracle-manifest",
   "schemaVersion": 1,
-  "id": "render/materials/shaded-sphere-black",
-  "title": "The same sphere with a BLACK base colour -- the discriminator that says whether the residual is diffuse or specular",
+  "id": "render/materials/shaded-sphere-metal-smooth",
+  "title": "The metal sphere at ROUGHNESS 0 -- the discriminator that says whether the residual is multiple scattering",
   "covers": [
     "I.26",
     "I.26.10",
     "board:1363",
+    "board:1407",
     "board:1408"
   ],
   "criterion": {
     "kind": "numeric",
-    "says": "A dielectric with a black base colour under a single directional light returns its specular lobe alone: the diffuse term is the base colour times the irradiance and vanishes with it, while F0 stays at the dielectric constant because metallic is zero.",
+    "says": "A conductor at roughness 0 has no microfacet spread, so the energy a single-scatter model loses between facets is zero and any compensation term a renderer carries has nothing to add. What survives here is not multiple scattering.",
     "statedAt": "https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#appendix-b-brdf-implementation"
   },
   "subjectClass": "opaque-min-1px",
@@ -21,9 +22,9 @@
   },
   "subjects": [
     {
-      "id": "shaded-sphere-black",
+      "id": "shaded-sphere-metal-smooth",
       "kind": "generated",
-      "name": "shaded-sphere-black",
+      "name": "shaded-sphere-metal-smooth",
       "entry": "scene.glb",
       "attributes": [
         "POSITION",
@@ -45,19 +46,19 @@
             },
             "material": {
               "baseColourFactorRgba": [
-                0.0,
-                0.0,
-                0.0,
+                0.5,
+                0.5,
+                0.5,
                 1.0
               ],
-              "metallicFactor": 0.0,
-              "roughnessFactor": 0.5,
-              "note": "BLACK AND METALLIC 0, WHICH LEAVES EXACTLY ONE LOBE. A dielectric's diffuse term is its base colour times the incident irradiance, so a base colour of zero removes it entirely; F0 is fixed at the dielectric constant by metallic 0 and does not depend on the base colour, so the specular lobe is untouched. Everything else -- the geometry, the camera, the light, the roughness -- is `shaded-sphere`'s to the digit."
+              "metallicFactor": 1.0,
+              "roughnessFactor": 0.0,
+              "note": "A MID-GREY DIELECTRIC AT MID ROUGHNESS, and every one of the three is [SET] for a reason. Metallic 0 keeps the base colour in the diffuse term and puts F0 at the dielectric constant rather than at the base colour, so the two lobes stay separable. Roughness 0.5 is far from both ends: at 0 the lobe is a delta and the comparison becomes a question about one pixel, at 1 the GGX tail is nearly flat and the lobe stops deciding anything. 0.5 grey is well inside the transfer's range at both ends."
             }
           }
         }
       ],
-      "notes": "The same uv-sphere, the same camera, the same light and the same roughness as `render/materials/shaded-sphere`. ONE number differs and it is the base colour. That is the whole design: the residual on the sibling case is monotone in n.v and absent at the highlight, which points at the diffuse term rather than the lobe -- and this case removes the diffuse term. If the n.v trend survives here it was specular after all."
+      "notes": "`render/materials/shaded-sphere-metal` with ONE number changed -- the roughness, 0.5 to 0. Everything else is that case to the digit. The residual it reports is near-uniform at 5.8 to 8.7 per cent with no angular feature and we are darker in 129 477 of 129 702 differing channels, which is the signature of an energy term rather than a Fresnel one. Multiple-scattering compensation vanishes at roughness 0 by construction, so if the residual survives here it is not that."
     }
   ],
   "blender": {
@@ -189,7 +190,7 @@
       "note": "The same recipe with the sampler's seed moved. The preparer REQUIRES this arm here and the rule is not about emission: a case is `reduced` when its material emits OR its light's estimator is `delta`, and this one is the second. A delta light against a black world leaves no estimator, so the two renders must agree bit for bit -- and any pixel that moves is the oracle's own noise rather than a disagreement with us."
     }
   },
-  "notes": "Built as a DISCRIMINATOR and not as a coverage case (board:1363). Its value is the difference between its residual and its sibling's, so it is only ever read beside `render/materials/shaded-sphere`.",
+  "notes": "Built as a DISCRIMINATOR (board:1407) and only ever read beside `render/materials/shaded-sphere-metal`. Cycles calls `microfacet_ggx_preserve_energy` on its conductor closure; glTF Appendix B specifies single-scatter GGX with no compensation. Both models agree that at roughness 0 there is nothing to compensate.",
   "expected": {
     "subjectFrameFraction": {
       "value": 0.10012927635618477,

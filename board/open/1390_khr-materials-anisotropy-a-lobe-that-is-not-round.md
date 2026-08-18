@@ -35,3 +35,25 @@ lobe stays round on a mesh the extension says may not use it, and nothing is gue
 - [ ] **`anisotropyTexture` is not read.** Red and green carry a direction in tangent space and blue a
   strength multiplier; a material declaring one is stretched by its FACTORS alone, which is the
   extension's own default texel `(1.0, 0.5, 1.0)` -- the +X direction at full strength
+
+## Built, and blocked on a picture rather than on code
+
+**The lobe is in the engine and both halves agree** -- `BrdfAnisotropicDistribution` and
+`BrdfAnisotropicVisibility` beside their MSL twins, the rotation read in radians and applied in the
+surface's own tangent frame.
+
+**What blocks closing it is that nothing can see it.** Not one corpus case shades a material declaring
+this extension: 107 of 148 replace every material with a flat emission, and the 9 that shade declare
+none of the four layered extensions. So this task has no evidence under `test/` and the board's seventh
+invariant is right to say so -- **it is unproven, and that is a true statement about the tree rather
+than a bookkeeping gap.**
+
+**`board:1407` is what unblocks it.** Anisotropy modifies the specular path and nothing else, a metal
+has no diffuse term, and the diffuse term is the only thing `board:1363` measured this oracle as
+modelling differently. [MEASURED] Blender's importer carries `anisotropyStrength` 0.65 and
+`anisotropyRotation` 0.5 rad through to `Anisotropic` 0.65 and `Anisotropic Rotation` 0.0796 turns, so
+the values arrive.
+
+**One thing to check when the case is authored**: glTF states the direction in the mesh's own tangent
+space, and Blender's `Tangent` socket came back UNLINKED on the import probe. Whether Principled's
+default tangent is the mesh's UV tangent -- which is what glTF means -- is not established here.

@@ -6,7 +6,8 @@
   "covers": [
     "I.26",
     "I.26.10",
-    "board:1363"
+    "board:1363",
+    "board:1408"
   ],
   "criterion": {
     "kind": "numeric",

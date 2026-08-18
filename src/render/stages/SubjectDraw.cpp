@@ -8,6 +8,7 @@
 
 #include "MetalRoughBrdf.h"
 #include "IridescenceLobe.h"
+#include "MicrofacetEnergy.h"
 #include "SheenLobe.h"
 #include "NormalFromMap.h"
 #include "SceneTargets.h"
@@ -643,6 +644,23 @@ static inline float3 shadeRow(constant M &surface, constant Lights &lights, Occl
   float3 diffuseColour = albedo * (1.0 - metalness);
   float3 f0 = mix(dielectricF0, albedo, metalness);
   float nv = max(dot(n, v), 1.0e-6);
+  /* THE ENERGY THE SINGLE BOUNCE LOST, PUT BACK (board:1408). glTF's Appendix B traces one bounce off
+   * the microfacets and drops everything that would have left after two; the core specification says
+   * outright that an implementation of the BRDF **MAY** vary, and this is a derived correction with no
+   * free parameter rather than a match to a renderer.
+   *
+   * READ ONCE PER FRAGMENT because it is a function of the view alone, and applied to the SPECULAR term
+   * only -- the diffuse half is not what lost the energy.
+   *
+   * IT TAKES THE BASE F0 EVEN WHERE IRIDESCENCE TINTS THE FIRST BOUNCE, and that is a named
+   * simplification: the multiplier is driven by the AVERAGE Fresnel over the hemisphere, and a thin
+   * film's average is not its normal-incidence value -- a second integral this does not carry. The two
+   * are the same wherever the film is absent, which is every surface but one kind.
+   *
+   * THE ANISOTROPIC ARM FEEDS IT THE BASE ROUGHNESS, because the lost energy is a property of how much
+   * the facets shadow each other and the stretched lobe redistributes that rather than changing its
+   * total. */
+  float3 energyScale = ggxEnergyScale(f0, roughness, nv);
   /* THE RAY LEAVES FROM THE SURFACE AND NOT FROM INSIDE IT. Offsetting along the shading normal as
    * well as starting at `count.y` is what keeps a facet whose normal map tilts it towards the light
    * from re-finding its own triangle. */
@@ -726,6 +744,7 @@ static inline float3 shadeRow(constant M &surface, constant Lights &lights, Occl
     } else {
       reflected = brdfCombine(diffuseColour, brdfFresnel(f0, vh), lobe);
     }
+    reflected.specular *= energyScale;
     /* `KHR_materials_sheen` LAYERED OVER THE BASE, and the base SCALED so the two together send out
      * no more than arrived: *sheen_material = sheenColor * sheen_brdf + material *
      * sheen_albedo_scaling*, the extension's own line. A black sheen colour makes the scaling exactly
@@ -1198,7 +1217,7 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
                              (identityIndex >= 0 ? "1" : "0") +
                              "\n#define SUBJECT_IDENTITY_COLOUR_INDEX " +
                              std::to_string(identityIndex < 0 ? 0 : identityIndex) +
-                             "\n" + kSubjectBindingsMsl + kSubjectMsl + MetalRoughBrdfMsl() + SheenLobeMsl() + IridescenceLobeMsl() +
+                             "\n" + kSubjectBindingsMsl + kSubjectMsl + MetalRoughBrdfMsl() + SheenLobeMsl() + IridescenceLobeMsl() + MicrofacetEnergyMsl() +
                              kSubjectLitMsl + kSubjectLitTexturedMsl + NormalFromMapMsl() +
                              kSubjectMappedMsl;
 

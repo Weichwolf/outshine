@@ -419,3 +419,28 @@ and the half-vector is a function of it -- **the same reason `Fresnel` and `Laye
 it, one level down.** *Stated as a mechanism and not as a measurement: what was verified here is that
 OSL is reachable, not that no formulation of it works.* **The metal route above makes the question moot
 for the layered extensions, so it is not worth a round on its own.*
+
+## CORRECTION -- this item's headline is stale and a reader would act on it
+
+**It opens with *0 of 9 within* and that is no longer true.** [MEASURED] over the same nine cases, same
+population:
+
+| within | outside | not-enforced |
+|---|---|---|
+| `Lantern` · `WaterBottle` · `BoomBox` · `NormalTangentMirrorTest` · `Corset` · `NormalTangentTest` | `DirectionalLight` · `SpecularTest` | `PointLightIntensityTest` |
+
+**Six of nine.** The verdict moved when the metric became a p99 of the channel difference rather than
+its maximum (`board:1359`, revised by `board:1367`) -- so most of what this item counted was a claim
+about single worst channels, and the picture had been agreeing all along. **The partition this item's
+value rests on -- *a case is inside if and only if the runner decided its colour* -- is what broke, and
+it broke in the direction of the arm working.**
+
+**What survives unchanged is the mechanism.** `board:1407` and `board:1408` reached the two dielectric
+spheres with a diffuse term and they are still outside; the two metal spheres and the black one are
+inside. The diffuse coupling this item measured -- `1 - E(n.v)` against `1 - F(v.h)` -- is still the
+oracle's side and still undecidable with stock nodes.
+
+**And the per-case before-and-after for these nine was NOT captured this round**, which is a gap in the
+measurement rather than a result: the corpus verdict is identical case by case across
+`board:1408`, but whether each of the nine residuals moved is not established. The table above is
+recorded as the baseline the next round compares against.
