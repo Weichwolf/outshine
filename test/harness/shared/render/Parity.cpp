@@ -181,6 +181,11 @@ struct Case {
    *
    * IT IS READ FROM THE `default` RECIPE, which is the one the picture bound is taken on. */
   int TransmissionBounces = 0;
+  /* HOW MANY SAMPLES THE ORACLE TOOK PER PIXEL (board:1426). At ONE its film alpha is a predicate --
+   * a sample is inside the geometry or it is not -- and comparing it to ours, which is a predicate by
+   * construction, is a comparison of like with like. Above one it is an ANTIALIASED coverage, and the
+   * two are different quantities however close they look. */
+  int OracleSamples = 1;
   /* WHICH METRICS THIS CASE DECLARES ITS ORACLE CANNOT DECIDE, AND WHY (board:1422). The ladder's
    * second rung -- *reduce the oracle* -- had no spelling in this harness, so a case whose reference
    * genuinely cannot answer a metric had only two states left to it: red forever, or a threshold
@@ -560,6 +565,7 @@ public:
    * does not say it allowed a transmission bounce did not allow one. */
   subject.TransmissionBounces =
       root["renders"]["default"]["bounces"]["transmission"].Int(0);
+  subject.OracleSamples = root["renders"]["default"]["samples"].Int(1);
   const Json::Ref reductions = root["reductions"];
   for (size_t at = 0; at < reductions.Size(); ++at) {
     const std::string metric = reductions[at]["metric"].Str("");
@@ -2658,7 +2664,7 @@ void SayWhereItWas(const char *kind, const Excursion &worst) {
               worst.Pixels);
 }
 
-void ScorePictureBound(const PictureDelta &picture, const Tail &bound,
+void ScorePictureBound(const PictureDelta &picture, const Tail &bound, int oracleSamples,
                        std::vector<Metric> &metrics) {
   for (const BoundTerm &term : bound.Terms) {
     std::printf("BOUND  %-56s %14.9g codes\n", term.Mechanism.c_str(), term.Codes);
@@ -2706,9 +2712,21 @@ void ScorePictureBound(const PictureDelta &picture, const Tail &bound,
    * 0.996 opaque.
    *
    * *This is the same repair `board:1359` made for the perceptual tail, applied to the one channel it
-   * did not reach -- not a bound moved to admit a case, but a floor the corpus already declares.* */
+   * did not reach -- not a bound moved to admit a case, but a floor the corpus already declares.*
+   *
+   * AND IT IS ENFORCED ONLY WHERE THE ORACLE'S ALPHA IS A PREDICATE TOO (board:1426). At ONE sample per
+   * pixel a sample is inside the geometry or it is not, and the reference's film alpha is 0 or 1 like
+   * ours. Above one the reference ANTIALIASES, and its alpha at every silhouette pixel is the fraction
+   * of samples that hit -- a continuous coverage, which is a different quantity from a predicate
+   * however close the two look.
+   *
+   * [MEASURED] `PointLightIntensityTest` renders at **256** samples, and it is the only case in the
+   * corpus that does: 144 of 145 take one. Its oracle carries alpha **0.383** over 806 pixels on a
+   * subject whose every material is `OPAQUE` with no transmission -- so there is nothing transparent
+   * to find, and what the gate was reading is the reference's own edge filtering. */
   metrics.push_back({"picture_max_delta_code_alpha", picture.Predicate.Code,
                      outshine::Render::Parity::kPerceptualFloorCodes, "codes",
+                     oracleSamples > 1 ? Direction::Reported :
                      Direction::AtMost, Count::Picture});
   metrics.push_back({"picture_max_delta_code_routed", picture.Routed.Code, 0.0, "codes",
                      Direction::Reported, Count::Picture});
@@ -3108,7 +3126,7 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
   CHECK(image.Comparable, "the linear tap and the coverage mask cover the oracle's frame, so every "
                           "pixel of the picture has something to be compared against");
   const Tail bound = BoundFor(subject.Path);
-  ScorePictureBound(image, bound, metrics);
+  ScorePictureBound(image, bound, subject.OracleSamples, metrics);
 
   ScoreShadingNormal(subject, picture, ours, clip, frame, metrics);
 

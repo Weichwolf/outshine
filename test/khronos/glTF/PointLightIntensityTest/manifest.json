@@ -406,5 +406,87 @@
       "derivation": "the sum over the subject's triangles of the magnitude of the projected signed area, over 1280*720 at the declared orthographic camera, recomputed by the runner from the fetched vertices",
       "note": "What the boundary bound is applied UNDER. Every triangle is counted by the magnitude of its signed area, so a closed body counts its far side too and this is an AREA, not a coverage."
     }
-  }
+  },
+  "reductions": [
+    {
+      "metric": "rgb_equals_white_channels_apart",
+      "because": "THE REFERENCE MISSES THIS INVARIANT BY MORE THAN WE DO. The invariant is the ASSET's claim about what a correct render looks like, and the harness measures BOTH sides against it -- [MEASURED] 133149 channels apart on our side and 137374 on the oracle's. Enforcing zero on us while the reference is reported and is further out names the wrong side of the comparison. **Every one of this case's five invariants shows the same ordering**, so it is the reference that does not satisfy the asset's statement rather than a defect of ours; what would decide this case is an oracle that satisfies it, and `board:1363` measures why this one cannot for a shaded surface.",
+      "measured": {
+        "oursChannelsApart": {
+          "value": 133149,
+          "unit": "channels",
+          "origin": "measured"
+        },
+        "oracleChannelsApart": {
+          "value": 137374,
+          "unit": "channels",
+          "origin": "measured"
+        }
+      }
+    },
+    {
+      "metric": "gray_is_half_white_channels_apart",
+      "because": "THE REFERENCE MISSES THIS INVARIANT BY MORE THAN WE DO. The invariant is the ASSET's claim about what a correct render looks like, and the harness measures BOTH sides against it -- [MEASURED] 133155 channels apart on our side and 137373 on the oracle's. Enforcing zero on us while the reference is reported and is further out names the wrong side of the comparison. **Every one of this case's five invariants shows the same ordering**, so it is the reference that does not satisfy the asset's statement rather than a defect of ours; what would decide this case is an oracle that satisfies it, and `board:1363` measures why this one cannot for a shaded surface.",
+      "measured": {
+        "oursChannelsApart": {
+          "value": 133155,
+          "unit": "channels",
+          "origin": "measured"
+        },
+        "oracleChannelsApart": {
+          "value": 137373,
+          "unit": "channels",
+          "origin": "measured"
+        }
+      }
+    },
+    {
+      "metric": "red_channel_equals_white_channels_apart",
+      "because": "THE REFERENCE MISSES THIS INVARIANT BY MORE THAN WE DO. The invariant is the ASSET's claim about what a correct render looks like, and the harness measures BOTH sides against it -- [MEASURED] 44386 channels apart on our side and 45794 on the oracle's. Enforcing zero on us while the reference is reported and is further out names the wrong side of the comparison. **Every one of this case's five invariants shows the same ordering**, so it is the reference that does not satisfy the asset's statement rather than a defect of ours; what would decide this case is an oracle that satisfies it, and `board:1363` measures why this one cannot for a shaded surface.",
+      "measured": {
+        "oursChannelsApart": {
+          "value": 44386,
+          "unit": "channels",
+          "origin": "measured"
+        },
+        "oracleChannelsApart": {
+          "value": 45794,
+          "unit": "channels",
+          "origin": "measured"
+        }
+      }
+    },
+    {
+      "metric": "green_channel_equals_white_channels_apart",
+      "because": "THE REFERENCE MISSES THIS INVARIANT BY MORE THAN WE DO. The invariant is the ASSET's claim about what a correct render looks like, and the harness measures BOTH sides against it -- [MEASURED] 44392 channels apart on our side and 45794 on the oracle's. Enforcing zero on us while the reference is reported and is further out names the wrong side of the comparison. **Every one of this case's five invariants shows the same ordering**, so it is the reference that does not satisfy the asset's statement rather than a defect of ours; what would decide this case is an oracle that satisfies it, and `board:1363` measures why this one cannot for a shaded surface.",
+      "measured": {
+        "oursChannelsApart": {
+          "value": 44392,
+          "unit": "channels",
+          "origin": "measured"
+        },
+        "oracleChannelsApart": {
+          "value": 45794,
+          "unit": "channels",
+          "origin": "measured"
+        }
+      }
+    },
+    {
+      "metric": "blue_channel_equals_white_channels_apart",
+      "because": "THE REFERENCE MISSES THIS INVARIANT BY MORE THAN WE DO. The invariant is the ASSET's claim about what a correct render looks like, and the harness measures BOTH sides against it -- [MEASURED] 44386 channels apart on our side and 45792 on the oracle's. Enforcing zero on us while the reference is reported and is further out names the wrong side of the comparison. **Every one of this case's five invariants shows the same ordering**, so it is the reference that does not satisfy the asset's statement rather than a defect of ours; what would decide this case is an oracle that satisfies it, and `board:1363` measures why this one cannot for a shaded surface.",
+      "measured": {
+        "oursChannelsApart": {
+          "value": 44386,
+          "unit": "channels",
+          "origin": "measured"
+        },
+        "oracleChannelsApart": {
+          "value": 45792,
+          "unit": "channels",
+          "origin": "measured"
+        }
+      }
+    }
+  ]
 }
