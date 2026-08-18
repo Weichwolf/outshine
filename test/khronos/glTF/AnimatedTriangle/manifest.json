@@ -153,17 +153,17 @@
         0
       ],
       "fps": {
-        "value": 1,
+        "value": 2,
         "unit": "frames per second",
         "origin": "SET",
-        "note": "ONE FRAME PER SECOND, AND THE RATE IS AN INTEGER BECAUSE THE HARNESS REQUIRES ONE: a frame is `index / fps` seconds and Blender's own rate is whole. A rate below one -- which is what sampling a 60 s span in five steps would need -- has no spelling, so the grid is a second apart and the note below says what it therefore covers."
+        "note": "TWO FRAMES PER SECOND, AND THE RATE IS RAISED FOR A REASON THE ANIMATION ITSELF STATES. This file turns a full 360 degrees in exactly one second: its first rotation keyframe is (0, 0, 0, 1) and its last is (0, 0, 0, 1) -- the same quaternion. At 1 fps the derived grid ran 0 s and 1 s, which are the two ENDPOINTS of a period, so both frames held one pose and [MEASURED] *subject motion from frame 0, furthest vertex = 0 m*. **A two-frame grid over a looping animation compares a pose with itself**, and the sequence check is right to refuse it: a sequence that does not move agrees with the oracle by construction. At 2 fps the grid is 0 s and 0.5 s -- the half turn, which is the furthest the subject ever gets from where it started. The rate is a declaration and the threshold is untouched."
       },
       "frames": {
         "value": 2,
         "unit": "frames",
         "origin": "derived",
-        "derivation": "min(5, ceil(1 s) + 1) = 2, so the grid runs 0..1 s.",
-        "note": "WHAT THIS GRID COVERS, STATED RATHER THAN IMPLIED. The file's declared span is 1 s and this case samples its first 1 s. Where the span is shorter than that, glTF clamps past the last keyframe and the tail frames state the end pose rather than an extrapolation. Where it is LONGER -- and it is for the long ones -- this case exercises the OPENING of the motion and says so: it decides that the animation is read, applied and posed, not that the whole of it is right. A case that needed the whole span would declare a grid for it and pay for the frames."
+        "derivation": "min(5, ceil(1 s * 2 fps)) = 2, so the grid runs 0 s and 0.5 s and excludes the period's endpoint.",
+        "note": "WHAT THIS GRID COVERS, STATED RATHER THAN IMPLIED. Two frames inside one period, not the period's two ends: the file's declared duration is 1 s and its pose at 1 s is its pose at 0 s."
       }
     }
   },
