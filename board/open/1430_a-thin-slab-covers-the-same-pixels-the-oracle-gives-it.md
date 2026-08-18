@@ -67,3 +67,26 @@ to measure, against the fact that the spheres in the same picture are pixel-exac
 
 - [ ] the two masks agree on the label plates as exactly as they already agree on the spheres, or the
       term that separates them is named with its magnitude
+
+## It is an edge offset and not a dropped triangle
+
+[MEASURED] of the 228, **225 fall inside a mesh-0 triangle** of our own f64 projection, and their distance
+to that triangle's nearest edge is:
+
+| min | p25 | median | p75 | max |
+|---|---|---|---|---|
+| 0.0012 px | 0.0678 px | **0.1448 px** | 0.2217 px | 0.3493 px |
+
+**None is deep inside a face**, and every one of the 228 is adjacent to a pixel we do cover. So no
+triangle is missing and no primitive is culled: the rasterised edge sits inside the projected one by a
+fraction of a pixel. *The distance is to the nearest edge of the containing triangle, which may be an
+interior diagonal rather than a silhouette, so read the figures as a boundary-layer thickness and not as
+the offset itself.*
+
+## Where the next round starts
+
+**Not in the analysis -- in a GPU-side experiment.** The remaining candidates all predict the same
+picture and are separated by rendering, not by reading: a viewport transform off by a fraction of a
+texel, a sub-pixel offset in the vertex path taken only by the textured fragment entry, and the driver's
+own fixed-point edge quantisation. Mesh 0 is **the only textured primitive in this file**, which is the
+one structural difference between it and the 23 spheres that are pixel-exact in the same frame.
