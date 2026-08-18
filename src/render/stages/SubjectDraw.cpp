@@ -78,9 +78,9 @@ const char *FragmentEntryPoint(SurfaceKind kind, VertexLayout layout) {
     switch (kind) {
       case SurfaceKind::Masked: return "fsMappedMasked";
       case SurfaceKind::Blended: return "fsMappedBlended";
-      case SurfaceKind::Opaque:
       case SurfaceKind::ThinTransmissive:
-      case SurfaceKind::Refractive: break;
+      case SurfaceKind::Refractive: return "fsMappedTransmissive";
+      case SurfaceKind::Opaque: break;
     }
     return "fsMapped";
   }
@@ -88,18 +88,18 @@ const char *FragmentEntryPoint(SurfaceKind kind, VertexLayout layout) {
     switch (kind) {
       case SurfaceKind::Masked: return textured ? "fsLitMaskedTextured" : "fsLitMasked";
       case SurfaceKind::Blended: return textured ? "fsLitBlendedTextured" : "fsLitBlended";
-      case SurfaceKind::Opaque:
       case SurfaceKind::ThinTransmissive:
-      case SurfaceKind::Refractive: break;
+      case SurfaceKind::Refractive: return "fsLitTransmissive";
+      case SurfaceKind::Opaque: break;
     }
     return textured ? "fsLitTextured" : "fsLit";
   }
   switch (kind) {
     case SurfaceKind::Masked: return textured ? "fsMaskedTextured" : "fsMasked";
     case SurfaceKind::Blended: return textured ? "fsBlendedTextured" : "fsBlended";
-    case SurfaceKind::Opaque:
     case SurfaceKind::ThinTransmissive:
-    case SurfaceKind::Refractive: break;
+    case SurfaceKind::Refractive: return "fsTransmissive";
+    case SurfaceKind::Opaque: break;
   }
   return textured ? "fsTextured" : "fs";
 }
@@ -170,6 +170,13 @@ struct M { float factor; float cut; float metalness; float roughness;
            /* The dielectric normal-incidence reflectance, already combined from the file's ior and
             * specular factors by `core/Material.h` (board:1205). The shader recomputes nothing. */
            packed_float3 f0;
+           /* `KHR_materials_transmission` AND `KHR_materials_volume` (board:1386). `transmission` is
+            * the fraction that passes through; `thickness` is what makes a volume a volume, and the
+            * format says so outright -- *if the value is 0 the material is thin-walled*. The
+            * attenuation pair is Beer-Lambert's: light travelling `attenuationDistance` through the
+            * medium comes out `attenuationColour`, and an infinite distance absorbs nothing. */
+           float transmission; float thickness; float attenuationDistance;
+           packed_float3 attenuationColour;
            packed_float3 colourUvU; packed_float3 colourUvV;
            packed_float3 normalUvU; packed_float3 normalUvV;
            packed_float3 metalRoughUvU; packed_float3 metalRoughUvV;
@@ -202,12 +209,14 @@ struct Lights { float4 count; float4 environment; Light items[16]; };
     texture2d<float> metalRoughMap [[texture(2)]], sampler metalRoughSampler [[sampler(2)]], \
     texture2d<float> emissiveMap [[texture(3)]], sampler emissiveSampler [[sampler(3)]], \
     texture2d<float> specularStrengthMap [[texture(4)]], sampler specularStrengthSampler [[sampler(4)]], \
-    texture2d<float> specularTintMap [[texture(5)]], sampler specularTintSampler [[sampler(5)]]
+    texture2d<float> specularTintMap [[texture(5)]], sampler specularTintSampler [[sampler(5)]], \
+    texture2d<float> behindMap [[texture(6)]], sampler behindSampler [[sampler(6)]]
 
 /* THE TWO STORAGE BUFFERS AS ONE ARGUMENT, so a shading function takes the subject's own geometry
  * rather than two pointers that could be handed over out of step (`I.23`). */
 struct Occluders { device const BvhNode *nodes; device const BvhTri *tris; };
 #define SUBJECT_OCCLUDERS Occluders{bvhNodes, bvhTris}
+
 
 /* ONE TAP PER SOCKET, AND THE TEXTURE, ITS SAMPLER AND ITS uv MATRIX ARE NAMED TOGETHER OR NOT AT ALL
  * (board:1177). Written out at each of the thirteen sample sites, the three could be paired wrong --
@@ -366,7 +375,34 @@ struct SFrag {
 #else
 #define SUBJECT_SET_SURFACE_IDENTITY(o, m) (void)0
 #endif
+
+/* WHAT PASSES THROUGH A SURFACE, AND IT IS THE SCENE BEHIND IT (board:1386).
+ *
+ * `KHR_materials_transmission`: the transmitted light is TINTED BY BASE COLOUR, so a stained window
+ * colours what is seen through it and a clear one does not. `KHR_materials_volume` adds the medium:
+ * over a path of `thickness` through it, Beer-Lambert attenuates by
+ * `exp(-thickness / attenuationDistance * -log(attenuationColour))` -- the extension's own form,
+ * which reduces to the attenuation colour at exactly one attenuation distance and to no absorption at
+ * all when that distance is infinite. A thin wall has zero thickness and therefore no absorption,
+ * which is the same expression rather than a second branch.
+ *
+ * THE BACKGROUND IS SAMPLED AT THE FRAGMENT'S OWN PIXEL AND IS NOT REFRACTED, and that is a declared
+ * shortfall rather than an oversight: bending the sample by the surface's normal and index is what
+ * makes a thick lens displace what is behind it, and this arm shows it undisplaced. The capability
+ * answers in both directions -- the tint and the absorption are exact, the displacement is absent. */
+static inline float3 transmitted(constant M &surface, texture2d<float> behindMap,
+                                 float2 screen, float3 albedo) {
+  const float3 behind = behindMap.read(uint2(screen)).rgb;
+  float3 medium = float3(1.0);
+  if (surface.thickness > 0.0 && !isinf(surface.attenuationDistance)) {
+    const float3 tint = max(float3(surface.attenuationColour), float3(1e-5));
+    medium = exp(log(tint) * (surface.thickness / surface.attenuationDistance));
+  }
+  return behind * albedo * medium * surface.transmission;
+}
 )";
+
+
 
 /* THE EMITTED ARM'S ENTRY POINTS: two layouts times the three answers glTF's `alphaMode` can give.
  * The textured arms multiply the sampled colour into the same declared radiance the plain ones emit,
@@ -447,6 +483,20 @@ fragment SFrag fsMasked(SOut in [[stage_in]], SUBJECT_SURFACE) {
   if (surface.factor * in.colour.a < surface.cut) { discard_fragment(); }
   SFrag o;
   o.col = float4(in.emitted * in.colour.rgb, 1.0);
+  SUBJECT_SET_VELOCITY(o, in);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
+  SUBJECT_NO_SHADING_NORMAL(o);
+  return o;
+}
+
+/* A SURFACE WITH NO NORMAL SHADES NOTHING, so what it emits and what passes through it are all it
+ * has -- there is no reflected lobe to add and none is invented. */
+fragment SFrag fsTransmissive(SOut in [[stage_in]], SUBJECT_SURFACE) {
+  SFrag o;
+  o.col = float4(in.emitted * in.colour.rgb +
+                     transmitted(surface, behindMap, in.pos.xy,
+                                 surface.base.rgb * in.colour.rgb),
+                 1.0);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_NO_SHADING_NORMAL(o);
@@ -675,6 +725,19 @@ fragment SFrag fsLitMasked(LOut in [[stage_in]], bool front [[front_facing]], SU
   return o;
 }
 
+fragment SFrag fsLitTransmissive(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
+  const float3 shadingNormal = facing(in.n, front);
+  const float3 albedo = surface.base.rgb * in.colour.rgb;
+  SFrag o;
+  o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p, albedo) +
+                     transmitted(surface, behindMap, in.pos.xy, albedo),
+                 1.0);
+  SUBJECT_SET_VELOCITY(o, in);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
+  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
+  return o;
+}
+
 fragment SFrag fsLitBlended(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
@@ -865,6 +928,20 @@ fragment SFrag fsMappedMasked(MOut in [[stage_in]], bool front [[front_facing]],
   return o;
 }
 
+fragment SFrag fsMappedTransmissive(MOut in [[stage_in]], bool front [[front_facing]],
+                                    SUBJECT_SURFACE) {
+  float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
+  const Shaded shaded = SUBJECT_MAPPED_SHADE;
+  SFrag o;
+  o.col = float4(shaded.col + transmitted(surface, behindMap, in.pos.xy,
+                                          surface.base.rgb * tap.rgb * in.colour.rgb),
+                 1.0);
+  SUBJECT_SET_VELOCITY(o, in);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
+  SUBJECT_SET_SHADING_NORMAL(o, shaded.nrm, front);
+  return o;
+}
+
 fragment SFrag fsMappedBlended(MOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
   const Shaded shaded = SUBJECT_MAPPED_SHADE;
@@ -1031,7 +1108,21 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
    * because glTF states it per material -- `TextureSettingsTest` hides a green checkmark behind a
    * polygon facing the wrong way and lets the flag decide which of the two is seen, and one cull
    * mode for the whole subject draws the wrong cell whichever way it is set. */
-  for (const SurfaceKind kind : {SurfaceKind::Opaque, SurfaceKind::Masked, SurfaceKind::Blended}) {
+  /* THE TWO TRANSMISSIVE KINDS ARE BUILT ONLY WHERE THE UNIT WAS GIVEN A BACKGROUND (board:1386).
+   * What passes through glass is the scene behind it, which is a texture the transmissive PASS binds
+   * and the opaque one has not got -- so a plan that draws no glass builds 48 pipelines exactly as
+   * before and pays nothing for a capability it did not ask for. `SetMaterials` still refuses a
+   * transmissive slot when no background was given, and the refusal now names what is missing rather
+   * than what cannot be done. */
+  const bool glass = Behind != nullptr;
+  for (const SurfaceKind kind : {SurfaceKind::Opaque, SurfaceKind::Masked, SurfaceKind::Blended,
+                                 SurfaceKind::ThinTransmissive, SurfaceKind::Refractive}) {
+    if (!glass && (kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive)) {
+      continue;
+    }
+    /* A TRANSMISSIVE FRAGMENT ALREADY CARRIES WHAT IS BEHIND IT, so it is written straight rather
+     * than composited: the arm samples the background, attenuates it and adds its own reflection,
+     * and a blend on top of that would apply the coverage a second time. */
     const bool blends = kind == SurfaceKind::Blended;
     SDL_GPUColorTargetDescription targets[kMaxColourAttachments] = {};
     targets[0].format = gpu.HdrFormat;
@@ -1332,12 +1423,14 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
               row.Metalness,       row.Roughness,
               row.BaseColour[0],   row.BaseColour[1], row.BaseColour[2], row.BaseColour[3],
               row.Emission[0],     row.Emission[1],   row.Emission[2],   material.NormalScale,
-              identity,            f0[0],             f0[1],             f0[2]};
+              identity,            f0[0],             f0[1],             f0[2],
+              row.Transmission,    row.Thickness,     row.AttenuationDistance,
+              row.AttenuationColour[0], row.AttenuationColour[1], row.AttenuationColour[2]};
   /* THE FOUR uv MATRICES, IN THE ORDER THE FOUR IMAGES ARE BOUND (board:1177), narrowed to f32 here
    * and nowhere earlier -- the reader composes in its own width and the device is the boundary. The
    * table is walked rather than written out four times so that the row's order and the sampler's
    * order are one statement: a socket appended to one and not the other has no spelling. */
-  const SubjectTexture *const images[kSubjectImages] = {&material.Colour, &material.Normal,
+  const SubjectTexture *const images[kSubjectMaterialImages] = {&material.Colour, &material.Normal,
                                                         &material.MetalRough, &material.Emissive,
                                                         &material.SpecularStrength,
                                                         &material.SpecularTint};
@@ -1375,11 +1468,16 @@ bool SubjectDraw::SetMaterials(const std::vector<SubjectMaterial> &materials, st
   }
   for (size_t slot = 0; slot < materials.size(); ++slot) {
     const SurfaceKind kind = materials[slot].State().Kind();
-    if (kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive) {
+    /* THE REFUSAL SURVIVES AND ITS REASON NARROWED (board:1386). What is transmitted through a sheet
+     * is the scene behind it, and this unit can now draw that -- but only in a pass that was GIVEN
+     * that scene. On the opaque pass there is none, and the message names what is missing rather
+     * than what cannot be done. */
+    if ((kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive) &&
+        Behind == nullptr) {
       error = "surface slot " + std::to_string(slot) + " is " + KindName(kind) +
-              ", and this unit draws OPAQUE, MASK and BLEND -- what is transmitted through a sheet "
-              "or refracted by a volume is the scene behind it, which is a read of the frame this "
-              "unit does not have, not a blend factor it could substitute";
+              ", and this pass was given no scene behind it -- what is transmitted through a sheet "
+              "or refracted by a volume is that scene, so a transmissive slot belongs to the "
+              "transmissive pass and not to this one";
       Slots.clear();
       return false;
     }
@@ -1625,6 +1723,14 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   for (size_t at = 0; at < Batches.size(); ++at) {
     const DrawBatch &batch = Batches[at];
     const SurfaceSlot &surface = Slots[batch.MaterialSlot];
+    /* WHICH HALF OF THE SUBJECT THIS PASS DRAWS, SAID ONCE (board:1386). A pass given the scene
+     * behind it draws the transmissive slots and nothing else; a pass without one draws everything
+     * else. The two are the same unit over the same draw list, and stating the split here rather
+     * than in two draw lists is what keeps one batching, one sort key and one layout decision --
+     * a second list would be a second place for the order to be got wrong. */
+    const bool glassSlot = surface.Kind == SurfaceKind::ThinTransmissive ||
+                           surface.Kind == SurfaceKind::Refractive;
+    if (glassSlot != (Behind != nullptr)) { continue; }
     /* WHICH LAYOUT THIS BATCH IS DRAWN THROUGH WAS DECIDED IN `SetMesh` (board:1193), where the mesh
      * and the list are both in hand and a combination the table does not carry can be refused by
      * name. What is left here is binding the runs that layout names, in the order `ShapeOf` put
@@ -1667,7 +1773,14 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
           {surface.MetalRough.Image.Get(), surface.MetalRough.Sample.Get()},
           {surface.Emissive.Image.Get(), surface.Emissive.Sample.Get()},
           {surface.SpecularStrength.Image.Get(), surface.SpecularStrength.Sample.Get()},
-          {surface.SpecularTint.Image.Get(), surface.SpecularTint.Sample.Get()}};
+          {surface.SpecularTint.Image.Get(), surface.SpecularTint.Sample.Get()},
+          /* THE PASS'S OWN IMAGE IN THE SLOT AFTER THE MATERIAL'S SIX. On the opaque pass there is no
+           * background and the slot takes the colour image again -- a binding the arms of that pass
+           * never sample, which is the same shape the unit's own comment already defends for an
+           * untextured arm that still declares its images. Leaving it unbound is not an option: the
+           * contract every entry point compiles against declares seven. */
+          {Behind != nullptr ? Behind : surface.Colour.Image.Get(),
+           BehindSampler != nullptr ? BehindSampler : surface.Colour.Sample.Get()}};
       SDL_BindGPUFragmentSamplers(into.Pass, 0, images, kSubjectImages);
       SDL_PushGPUFragmentUniformData(into.Commands, 0, surface.Row.data(),
                                      (uint32_t)(surface.Row.size() * sizeof(float)));

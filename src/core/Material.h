@@ -1,6 +1,8 @@
 #ifndef MATERIAL_H
 #define MATERIAL_H
 
+#include <limits>
+
 namespace outshine {
 
 /* HOW A SURFACE'S ALPHA IS READ, and it is a three-valued property of the material rather than a
@@ -60,6 +62,20 @@ struct Material {
    * general one. Appending cannot repurpose an existing element. */
   float SpecularFactor = 1.0f;
   float SpecularColour[3] = {1.0f, 1.0f, 1.0f};
+  /* `KHR_materials_volume`: what is BENEATH a transmissive surface, and the format's own words are
+   * why `Thickness` decides the arm rather than `Ior` does -- *if the value is 0 the material is
+   * thin-walled, otherwise the material is a volume boundary*, and *it is still necessary to check
+   * the thicknessFactor to determine whether the object is thin-walled or volumetric*. A refractive
+   * index says how strongly light bends at an interface and says nothing about whether there is a
+   * medium behind it.
+   *
+   * `AttenuationDistance` DEFAULTS TO INFINITY, which is the extension's own default and means a
+   * medium that absorbs nothing however far light travels in it. Infinity rather than a large number,
+   * because `exp(-d/inf)` is exactly 1 and any finite stand-in would tint a clear volume by an amount
+   * nobody chose. */
+  float Thickness = 0.0f;
+  float AttenuationDistance = std::numeric_limits<float>::infinity();
+  float AttenuationColour[3] = {1.0f, 1.0f, 1.0f};
 };
 
 /* THE DIELECTRIC'S NORMAL-INCIDENCE REFLECTANCE, AND THIS IS THE ONLY PLACE IT IS COMPUTED

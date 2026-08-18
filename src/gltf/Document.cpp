@@ -209,6 +209,8 @@ constexpr const char *kLightsPunctual = "KHR_lights_punctual";
 constexpr const char *kEmissiveStrength = "KHR_materials_emissive_strength";
 constexpr const char *kIor = "KHR_materials_ior";
 constexpr const char *kSpecular = "KHR_materials_specular";
+constexpr const char *kTransmission = "KHR_materials_transmission";
+constexpr const char *kVolume = "KHR_materials_volume";
 constexpr const char *kUnlit = "KHR_materials_unlit";
 constexpr const char *kMaterialsVariants = "KHR_materials_variants";
 constexpr const char *kTextureTransform = "KHR_texture_transform";
@@ -1249,6 +1251,49 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
     const Json::Ref tint = specular["specularColorFactor"];
     for (size_t k = 0; k < 3 && k < tint.Size(); ++k) {
       material.Surface.SpecularColour[k] = static_cast<float>(tint[k].Num(1.0));
+    }
+  }
+  /* `KHR_materials_transmission` AND `KHR_materials_volume` ARE READ TOGETHER BECAUSE THEY ARE ONE
+   * PHYSICAL THING (board:1386). Transmission says what fraction of light passes through the
+   * surface; the volume says whether there is a medium behind it and what that medium does to the
+   * light on its way. [MEASURED] over the 148 models at the pin, 100 of the 136 transmissive
+   * materials carry a volume -- so a reader that took one without the other would draw the majority
+   * of the corpus's glass as a thin sheet, which is a wrong picture rather than a plainer one. */
+  const Json::Ref transmission = declaration["extensions"][kTransmission];
+  if (transmission.Valid()) {
+    const Json::Ref factor = transmission["transmissionFactor"];
+    if (factor.Valid()) {
+      if (factor.GetKind() != Json::Kind::Number || !(factor.Num() >= 0.0) || factor.Num() > 1.0) {
+        return Refuse("material " + Number(index) +
+                      " declares a transmissionFactor outside [0, 1]");
+      }
+      material.Surface.Transmission = static_cast<float>(factor.Num());
+    }
+  }
+  const Json::Ref volume = declaration["extensions"][kVolume];
+  if (volume.Valid()) {
+    const Json::Ref thickness = volume["thicknessFactor"];
+    if (thickness.Valid()) {
+      if (thickness.GetKind() != Json::Kind::Number || !(thickness.Num() >= 0.0)) {
+        return Refuse("material " + Number(index) +
+                      " declares a thicknessFactor that is not a number at or above zero");
+      }
+      material.Surface.Thickness = static_cast<float>(thickness.Num());
+    }
+    /* THE DEFAULT IS INFINITY AND ABSENCE MUST REACH IT. The extension's range is (0, +inf), so a
+     * declared zero is refused rather than clamped -- a medium that absorbs everything within no
+     * distance is not a thing the format can state and would come out black. */
+    const Json::Ref distance = volume["attenuationDistance"];
+    if (distance.Valid()) {
+      if (distance.GetKind() != Json::Kind::Number || !(distance.Num() > 0.0)) {
+        return Refuse("material " + Number(index) +
+                      " declares an attenuationDistance that is not a number above zero");
+      }
+      material.Surface.AttenuationDistance = static_cast<float>(distance.Num());
+    }
+    const Json::Ref tint = volume["attenuationColor"];
+    for (size_t k = 0; k < 3 && k < tint.Size(); ++k) {
+      material.Surface.AttenuationColour[k] = static_cast<float>(tint[k].Num(1.0));
     }
   }
   const Json::Ref strength =

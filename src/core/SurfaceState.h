@@ -45,13 +45,23 @@ constexpr SurfaceState StateOf(const Material &material) {
   s.CullsBack_ = !material.DoubleSided;
   s.Emits_ = material.Emission[0] > 0.0f || material.Emission[1] > 0.0f ||
              material.Emission[2] > 0.0f;
-  if (material.Transmission > 0.0f && material.Ior > 1.0f) {
+  /* WHAT SEPARATES THE TWO IS THICKNESS AND NOT THE REFRACTIVE INDEX, and the format says so twice:
+   * *if the value is 0 the material is thin-walled, otherwise the material is a volume boundary*,
+   * and *it is still necessary to check the thicknessFactor to determine whether the object is
+   * thin-walled or volumetric* (`KHR_materials_volume`). An index of refraction states how strongly
+   * light bends at an interface; it states nothing about whether a medium lies behind it, and a
+   * thin-walled window with `ior` 1.5 is the ordinary case this rule used to send down the volume
+   * arm. */
+  if (material.Transmission > 0.0f && material.Thickness > 0.0f) {
     s.Kind_ = SurfaceKind::Refractive;
     s.WritesDepth_ = false;
     s.Blends_ = true;
     return s;
   }
   if (material.Transmission > 0.0f) {
+    /* A THIN WALL IS SEEN FROM BOTH SIDES, and `doubleSided` has no say in it: the extension states
+     * the property has no effect on volume boundaries, and a sheet light passes through is exactly
+     * the surface whose far face is part of the picture. */
     s.Kind_ = SurfaceKind::ThinTransmissive;
     s.CullsBack_ = false;
     return s;

@@ -123,7 +123,13 @@ constexpr size_t kMaxSubjectLights = 16;
  * the binding contract every fragment declares, the samplers the encoder binds and the uv matrices
  * the row holds (board:1177) are three readings of the same four sockets, and a fifth socket that
  * reached two of the three would be a slot bound with nothing to sample it by. */
-constexpr uint32_t kSubjectImages = 6;
+/* SIX TEXTURES BELONG TO THE MATERIAL AND ONE BELONGS TO THE PASS (board:1386), and the two counts
+ * are separate because they answer different questions. Every MATERIAL image carries a uv matrix and
+ * a uv-set selector in the surface row; the background a transmissive fragment reads carries neither
+ * -- it is sampled at the fragment's own screen position and belongs to the pass rather than to any
+ * slot. Folding it into one constant would grow the uniform row by a matrix nothing writes. */
+constexpr uint32_t kSubjectMaterialImages = 6;
+constexpr uint32_t kSubjectImages = kSubjectMaterialImages + 1;
 
 /* HOW A BASE-COLOUR TEXTURE IS ADDRESSED, glTF's own two questions and nothing else. The wrap mode
  * and the filter are the FILE's -- `TextureSettingsTest` renders one cell per wrap mode and an
@@ -326,6 +332,13 @@ public:
    * pipeline for, naming it -- an unbuilt closure is a sentence here rather than a silently opaque
    * picture there. `OPAQUE`, `MASK` and `BLEND` are built; a transmissive sheet and a refracting
    * volume are not, and both need a scene the surface can see through rather than a blend factor. */
+  /* THE SCENE BEHIND THIS PASS, given before `Configure` because it decides which pipelines are built
+   * (board:1386). A pass with no glass never calls it and pays for no transmissive pipeline. */
+  void SeeThroughTo(SDL_GPUTexture *behind, SDL_GPUSampler *exact) {
+    Behind = behind;
+    BehindSampler = exact;
+  }
+
   [[nodiscard]] bool SetMaterials(const std::vector<SubjectMaterial> &materials,
                                   std::string &error);
 
@@ -371,7 +384,7 @@ private:
    * thing already bound per slot -- a second per-slot uniform would be a second binding to keep in
    * step with the first. It is written one higher than the slot so the identity attachment's clear
    * is distinguishable from the first slot. */
-  static constexpr int kSurfaceScalars = 16; /* factor, cut, metalness, roughness, base4, emissive3,
+  static constexpr int kSurfaceScalars = 22; /* factor, cut, metalness, roughness, base4, emissive3,
                                               * normal scale, slot + 1, f0 3 (board:1205) */
   /* AND ONE uv MATRIX PER IMAGE (board:1177). `KHR_texture_transform` is stated inside each
    * `textureInfo`, so four references means four matrices and there is no per-material transform to
@@ -392,7 +405,7 @@ private:
    * is the row's precedent for carrying a non-radiometric quantity. */
   static constexpr int kUvSetFloats = 1;
   static constexpr int kSurfaceFloats =
-      kSurfaceScalars + (kUvMatrixFloats + kUvSetFloats) * (int)kSubjectImages;
+      kSurfaceScalars + (kUvMatrixFloats + kUvSetFloats) * (int)kSubjectMaterialImages;
   /* The light list as the shader reads it: a count, then `kMaxSubjectLights` entries of four
    * `float4` -- colour times intensity with the kind, the camera-relative position with the
    * reciprocal of the range, the beam, and the cone's two precomputed numbers. */
@@ -437,6 +450,13 @@ private:
      * decision taken from a narrowing. */
     bool ReadsSecondUv = false;
   };
+
+  /* THE SCENE BEHIND A TRANSMISSIVE DRAW (board:1386), bound by the pass rather than by a slot: it
+   * is one texture for every fragment of the pass and it has no uv matrix, which is why it sits here
+   * and not in `SubjectMaterial`. Null on the opaque pass, and its being null is what decides
+   * whether the two transmissive pipelines are built at all. */
+  SDL_GPUTexture *Behind = nullptr;
+  SDL_GPUSampler *BehindSampler = nullptr;
 
   /* One slot's four images and its surface row, appended to the table. */
   void BindSurface(const SubjectMaterial &material);
