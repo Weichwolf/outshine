@@ -543,10 +543,22 @@ def _bind_declared_animations(document, declared, where):
     importer, and a file that needs the repair and gives no name stops rather than guesses."""
     for index in declared:
         animation = document["animations"][index]
+        # THE REPAIR IS FOR THE OBJECT ARM AND FOR NEITHER OF THE OTHER TWO. A channel reaches its
+        # curves by one of three routes and only one of them is an object's own channelbag:
+        #
+        #   translation/rotation/scale on an ordinary node -> the OBJECT's channelbag, repaired here
+        #   the same on a skin's joint                     -> a POSE BONE's, and `bpy.data.objects`
+        #                                                     holds no object of that name, so the
+        #                                                     lookup below excludes it already
+        #   `weights`                                      -> the mesh's SHAPE KEY datablock
+        #
+        # `SimpleMorph` is the third: its object legitimately carries no channelbag, the repair read
+        # that as a missing binding, and the file names its animation nothing -- so a case that needed
+        # no repair at all was refused for lacking the name a repair would have wanted.
         drives = {}
         for channel in animation.get("channels", []):
             node = channel.get("target", {}).get("node")
-            if node is None:
+            if node is None or channel.get("target", {}).get("path") == "weights":
                 continue
             drives[_imported_name(document, node)] = node
         missing = [n for n in drives

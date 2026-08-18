@@ -168,3 +168,21 @@ needed an action lookup at all -- Blender had already bound the one animation ea
 **I tested `InterpolationTest` and shipped the class.** The full re-preparation is what caught it, 18
 cases refusing where 4 had before. The binding is now a REPAIR: it runs only where an object the
 animation drives carries no curves, and a name is required only there.
+
+**Fourth correction in the same family, and each was narrower than the last.** The repair must not
+fire for the two arms that never used an object's channelbag:
+
+| a channel's route to its curves | who repairs it |
+|---|---|
+| translation/rotation/scale on an ordinary node -> the OBJECT's channelbag | this repair |
+| the same on a skin's joint -> a POSE BONE's | nobody: `bpy.data.objects` holds no object of that name, so the lookup already excludes it |
+| `weights` -> the mesh's SHAPE KEY datablock | nobody, and a slot there reports `target_id_type` `KEY` |
+
+`SimpleMorph` is the third row: its object legitimately carries no channelbag, the repair read that as
+a missing binding, and the file names its animation nothing -- **so a case that needed no repair at all
+was refused for lacking the name a repair would have wanted.**
+
+**[MEASURED] before the next full pass rather than during it: no file at the pin carries several
+animations of which any is unnamed and drives a pose**, so the remaining refusal path is unreachable
+by this corpus. *Three passes were spent discovering these one at a time because the preparer was
+edited while a pass was running -- a measurement you reach into is not a measurement.*
