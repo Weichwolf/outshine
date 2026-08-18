@@ -30,16 +30,16 @@ diffuse term.
 
 ## What must be true
 
-- [ ] **The premise is measured before anything is built on it.** `test/outshine/render/shaded-sphere-metal`
+- [x] **The premise is measured before anything is built on it.** `test/outshine/render/shaded-sphere-metal`
   is `shaded-sphere` with ONE number changed -- `metallicFactor` 0.0 to 1.0 -- and its residual is binned
   against `n.v` exactly the way `board:1363` binned the dielectric one
-- [ ] **The conductor Fresnels are compared as functions and not as one number.** glTF Appendix B is
+- [x] **The conductor Fresnels are compared as functions and not as one number.** glTF Appendix B is
   Schlick with `F0 = baseColor`; Blender's Principled uses an F82-tint conductor Fresnel, which dips near
   82 degrees where Schlick rises monotonically. **If they disagree, the disagreement is a SECOND named
   term about the specular path**, and that is a finding rather than a setback
 - [ ] **The first layered-extension case follows the premise and not the other way round.** No case is
   authored on this route until the route has a number
-- [ ] **A base colour of 0.5 is [SET] for sensitivity**: at F0 near 1 every Fresnel model agrees
+- [x] **A base colour of 0.5 is [SET] for sensitivity**: at F0 near 1 every Fresnel model agrees
   trivially, and at 0.5 the `(1 - F0)` term that carries the angular shape is at its largest
 
 ## What this is NOT
@@ -205,3 +205,14 @@ the distinction `board:1363` drew and refused on: there, glTF specifies `1 - F(v
 and one of them evaluates it with less loss.
 
 **The rung is therefore `fix the engine`, the first one, and no reduction is needed.**
+
+## Closed on its own question, and the one box left open belongs elsewhere
+
+**What this item asked was whether a metal subject makes the shading arm decidable, and the answer is
+yes**: `shaded-sphere-metal` is inside the picture bound at p50 0.00011407057 once `board:1408` restores
+the missing energy, and `shaded-sphere-metal-smooth` is bit-identical.
+
+**The remaining box -- the first layered-extension case -- is not this item's work.** It needs the
+generated fixture to be able to DECLARE an extension, which its material vocabulary
+(`baseColourFactorRgba`, `metallicFactor`, `roughnessFactor`) cannot express. That is a task of its own
+and it now has everything it was waiting for.

@@ -34,11 +34,11 @@ compensation is a second lobe whose shape is fixed by the directional albedo of 
 
 ## What must be true
 
-- [ ] The albedo is integrated from **our own** `BrdfLobe` and never fetched, so it cannot drift from
+- [x] The albedo is integrated from **our own** `BrdfLobe` and never fetched, so it cannot drift from
   the lobe it compensates
-- [ ] At roughness 0 the term is **exactly** zero, so the case that is bit-identical stays bit-identical
-- [ ] Both halves read the same table, generated from the same integral
-- [ ] The correction is applied to every metal-rough surface and not to a chosen one -- a repair that
+- [x] At roughness 0 the term is **exactly** zero, so the case that is bit-identical stays bit-identical
+- [x] Both halves read the same table, generated from the same integral
+- [x] The correction is applied to every metal-rough surface and not to a chosen one -- a repair that
   helped one case would be a patch
 
 ## The estimator was wrong first, and looking at the table is what caught it

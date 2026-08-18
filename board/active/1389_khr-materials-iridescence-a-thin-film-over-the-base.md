@@ -93,3 +93,54 @@ bound, and `board:1407` is the route out of it -- which is what this task now wa
 **The same run rules out a regression from the refactor.** `shadeRow` lost six arguments and gained the
 surface row, the lobe and the Fresnel became separately chosen, and the combination is now stated once
 for all four paths -- and every case scored what it scored before.
+
+## It has a picture now, and the residual has a named mechanism
+
+`test/outshine/render/shaded-sphere-metal-iridescence` is the first case in this tree that SHADES this
+extension. [MEASURED] p50 **0.029943872**, p99 **0.21558743**, outside the bound -- against the same
+sphere without the film at p50 0.00011407057.
+
+**The two sides compute different physics over a metal, by each one's own declaration.** Read from
+`intern/cycles/kernel/closure/bsdf_microfacet.h`: Blender evaluates the film against a **complex** index
+`(n, k)` estimated from `F0` and `F82` by Gulbrandsen's *Artist Friendly Metallic Fresnel*. The
+extension inverts the REAL-index Fresnel and states the limit itself -- *this simple formula is used for
+both dielectrics and metals. While it is physically correct for dielectric materials, it's only an
+approximation for metals, which are usually described using a complex IOR with an additional extinction
+factor. Such a value cannot be accurately inferred from the F0 value and is thus assumed to be 0.0.*
+
+**So the metal case is the extension's own approximation meeting a renderer that does not make it.**
+`test/outshine/render/shaded-sphere-black-iridescence` is the discriminator: a dielectric, where the
+inversion is exact on both sides.
+
+## The discriminator separated TWO terms, and the prediction was half wrong
+
+**Written before the render**: *the residual collapses towards the black sphere's own 0.0038684683.*
+
+| | p50 | p99 | bound |
+|---|---|---|---|
+| `shaded-sphere-black`, no film | 0.0038684683 | 0.0059721113 | within |
+| **`shaded-sphere-black-iridescence`** | **0.028653333** | **0.047628166** | **within** |
+| `shaded-sphere-metal-iridescence` | 0.029943872 | 0.21558743 | outside |
+
+**The TAIL collapsed and the MEDIAN did not.** p99 fell by a factor of 4.5 from the metal to the
+dielectric; p50 stayed at 2.9 % on both, seven times the film-free sphere's. **So the complex index
+explains the tail and something else explains the median**, and the prediction that named one mechanism
+for the whole residual is refuted.
+
+**The dielectric case is INSIDE the bound**, so `KHR_materials_iridescence` now has a picture that holds
+-- but a 2.9 % median with a named cause absent is not something to record as a pass and move past.
+
+**Candidates for the median term, none asserted and none yet measured:**
+
+- [ ] **The Airy sum is truncated at `m = 2`**, which is the extension's own truncation. Blender's
+  `fresnel_iridescence_channel` may carry more orders or an exact series
+- [ ] **The spectral integration.** The extension fits the CIE observer with three Gaussians plus a
+  fourth lobe on X and normalises by `1.0685e-7`; a different fit, or a spectral renderer integrating
+  properly, lands somewhere else by construction
+- [ ] **Polarisation.** The extension approximates the phase step per interface as 0 or pi and drops the
+  S/P split outright, saying so; Cycles' `fresnel_conductor_polarized` exists in the same file and its
+  name says it does not
+- [ ] **THE CAVEAT FIRST**: 2.9 % on a film whose colour swings through the whole hue circle is a SMALL
+  disagreement about a large effect, so the harmless reading is that the two implementations are the
+  same model at different fidelity. That reading is what the candidates above would confirm or break,
+  and it is why this is a measurement to make rather than a defect to report

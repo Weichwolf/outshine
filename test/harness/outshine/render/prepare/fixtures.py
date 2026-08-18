@@ -71,11 +71,53 @@ def _material(where, declared):
     if not isinstance(declared, dict):
         raise Refusal(where, expected="an object", observed=type(declared).__name__)
     field = _fields(where, declared, ("baseColourFactorRgba", "metallicFactor", "roughnessFactor"),
-                    ("note",))
-    return {"pbrMetallicRoughness": {
+                    ("note", "extensions"))
+    row = {"pbrMetallicRoughness": {
         "baseColorFactor": _vector(where + ".baseColourFactorRgba", field["baseColourFactorRgba"], 4),
         "metallicFactor": _unit(where + ".metallicFactor", field["metallicFactor"]),
         "roughnessFactor": _unit(where + ".roughnessFactor", field["roughnessFactor"])}}
+    if "extensions" in field:
+        row["extensions"] = _material_extensions(where + ".extensions", field["extensions"])
+    return row
+
+
+# Every property of every extension a fixture may declare, ENUMERATED rather than passed through.
+# An opaque block would let a mistyped name reach both renderers as nothing at all, and a case whose
+# subject quietly lost its extension is a case that goes green for the wrong reason -- the exact shape
+# `_fields` already refuses one level up, with its own words: a parameter nobody reads is a shape that
+# silently did not change. Nothing defaults here either, for the reason `_material` gives.
+_MATERIAL_EXTENSIONS = {
+    "KHR_materials_sheen": (("sheenColorFactor", 3), ("sheenRoughnessFactor", "unit")),
+    "KHR_materials_clearcoat": (("clearcoatFactor", "unit"), ("clearcoatRoughnessFactor", "unit")),
+    "KHR_materials_iridescence": (("iridescenceFactor", "unit"), ("iridescenceIor", "number"),
+                                  ("iridescenceThicknessMinimum", "number"),
+                                  ("iridescenceThicknessMaximum", "number")),
+}
+
+
+def _material_extensions(where, declared):
+    if not isinstance(declared, dict):
+        raise Refusal(where, expected="an object", observed=type(declared).__name__)
+    for name in sorted(declared):
+        if name not in _MATERIAL_EXTENSIONS:
+            raise Refusal(where + "." + name,
+                          expected="one of " + ", ".join(sorted(_MATERIAL_EXTENSIONS)), observed=name,
+                          why="an extension nobody writes out is a subject that silently declares none")
+    built = {}
+    for name, properties in _MATERIAL_EXTENSIONS.items():
+        if name not in declared:
+            continue
+        block = _fields(where + "." + name, declared[name], tuple(k for k, _ in properties))
+        built[name] = {}
+        for key, kind in properties:
+            at = where + "." + name + "." + key
+            if kind == "unit":
+                built[name][key] = _unit(at, block[key])
+            elif kind == "number":
+                built[name][key] = _number(at, block[key])
+            else:
+                built[name][key] = _vector(at, block[key], kind)
+    return built
 
 
 def _unit(where, value):
@@ -301,6 +343,10 @@ def _write_glb(parts, mode, component, camera, material=None):
 
     if material is not None:
         document["materials"] = [dict(material, name="fixture")]
+        # Declared where the format requires it, so a reader that refuses an unlisted extension --
+        # which is the conforming behaviour -- sees the subject the manifest described.
+        if "extensions" in material:
+            document["extensionsUsed"] = sorted(material["extensions"])
 
     if camera is not None:
         document["cameras"] = [camera["camera"]]
