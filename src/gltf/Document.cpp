@@ -1272,6 +1272,13 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
    * values are composed here and the defaults are the identity of what the consumer does with them,
    * so absence and presence-with-defaults are one computation with no branch. The extension's own
    * defaults are a BLACK colour and a zero roughness, and black is what turns the layer off. */
+  /* THE TWO SHEEN TEXTURES ARE NOT READ AND A MATERIAL THAT DECLARES ONE IS DRAWN WITHOUT IT
+   * (board:1385). `sheenColorTexture` multiplies the colour and `sheenRoughnessTexture` the roughness
+   * in its alpha; both are absent here, so such a material reaches the shader with its FACTORS alone
+   * -- which is exactly what the extension says a material with no texture looks like, so the picture
+   * is a plainer one rather than a wrong one. **It is a shortfall and it is named**: [MEASURED] 10 of
+   * the 42 sheen materials at the pin declare one, and one model, `SheenCloth`, is entirely made of
+   * them. */
   const Json::Ref sheen = declaration["extensions"][kSheen];
   if (sheen.Valid()) {
     const Json::Ref colour = sheen["sheenColorFactor"];
