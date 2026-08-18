@@ -30,6 +30,7 @@
 #ifndef RENDER_SURFACEIDENTITY_H
 #define RENDER_SURFACEIDENTITY_H
 
+#include <cctype>
 #include <array>
 #include <string>
 #include <vector>
@@ -234,11 +235,30 @@ public:
    * that resolves to two is a file whose materials are not distinguishable by name at all. Both are
    * refusals and neither is a nearest match. */
   [[nodiscard]] int FileMaterialNamed(const std::string &name, std::string &why) const {
+    /* BLENDER'S DUPLICATE-DATABLOCK SUFFIX IS STRIPPED ONLY WHERE THE EXACT NAME MISSES (board:1400).
+     * A glTF material bound by more than one mesh arrives as more than one datablock and Blender
+     * disambiguates with `.001` -- [MEASURED] `CompareBaseColor`, whose three meshes name materials
+     * [0, 1, 1], produces `baseColor texture dielectric` and `baseColor texture dielectric.001`, and
+     * three cases refused here naming exactly that string. The colour arm has stripped it since
+     * `board:1373`; this arm did not, which is the same rule spelled twice and drifting.
+     *
+     * THE EXACT NAME IS TRIED FIRST because a file may legitimately name a material `Foo.001`, and
+     * stripping unconditionally would send it to `Foo`'s partition. */
+    std::string wanted = name;
+    bool present = false;
+    for (const std::string &known : Names_) { present |= known == wanted; }
+    if (!present && wanted.size() > 4) {
+      const std::string tail = wanted.substr(wanted.size() - 4);
+      if (tail[0] == '.' && std::isdigit((unsigned char)tail[1]) &&
+          std::isdigit((unsigned char)tail[2]) && std::isdigit((unsigned char)tail[3])) {
+        wanted = wanted.substr(0, wanted.size() - 4);
+      }
+    }
     int found = -1;
     for (size_t at = 0; at < Names_.size(); ++at) {
-      if (Names_[at] != name) { continue; }
+      if (Names_[at] != wanted) { continue; }
       if (found >= 0) {
-        why = "the file carries two materials named " + name;
+        why = "the file carries two materials named " + wanted;
         return -1;
       }
       found = (int)at;

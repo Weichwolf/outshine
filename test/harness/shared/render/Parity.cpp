@@ -2094,14 +2094,22 @@ DeclaredNormals RasteriseDeclaredNormals(const Subject &geometry, const Transfor
 }
 
 /* THE FILE'S MATERIAL NAMES, in the file's own order, which is the currency the two sides state a
- * surface identity in (board:1138). An unnamed material yields an empty string and therefore matches
- * nothing: the correspondence is by name, and a file that named none of its materials has no
- * correspondence to derive rather than a set of empty matches. */
+ * surface identity in (board:1138).
+ *
+ * AN UNNAMED MATERIAL IS KEYED BY THE NAME THE IMPORTER PUBLISHES FOR IT (board:1400), and this used
+ * to yield an empty string instead, with a comment explaining that a file naming none of its
+ * materials has no correspondence to derive. That was true before the key existed. [MEASURED] Blender
+ * calls material `i` of a file that names none `Material_<i>` -- `MetalRoughSpheres` arrives as
+ * `Material_0`, `TextureEncodingTest` as `Material_0` .. `Material_13` -- and the colour arm has keyed
+ * on that since `board:1362`. Five cases refused the identity comparison outright with messages that
+ * NAMED the key the other arm had built: *the file carries no material named Material_42*. **One
+ * comparison, two arms, two spellings of what a material is called.** */
 [[nodiscard]] std::vector<std::string> FileMaterialNames(const Document &file) {
   std::vector<std::string> names;
   names.reserve(file.Materials().size());
-  for (const outshine::Gltf::MaterialRef &material : file.Materials()) {
-    names.push_back(material.Name);
+  for (size_t at = 0; at < file.Materials().size(); ++at) {
+    const std::string &declared = file.Materials()[at].Name;
+    names.push_back(declared.empty() ? "Material_" + std::to_string(at) : declared);
   }
   return names;
 }
