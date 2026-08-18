@@ -1461,7 +1461,25 @@ Mask FromDepth(const std::vector<float> &depth, const std::vector<float> &linear
 }
 
 /* THE ORACLE'S SIDE IS ITS ALPHA, which Cycles writes only for camera rays carrying the transparent
- * background flag -- an exact coverage channel that never touched the lighting. */
+ * background flag -- an exact coverage channel that never touched the lighting.
+ *
+ * HALF A PIXEL IS THE CUT, AND IT IS DERIVED RATHER THAN CHOSEN (board:1431). Cycles distributes its
+ * samples over the pixel's AREA whatever the reconstruction filter's width is, so an oracle rendered
+ * with more than one sample answers *how much of this pixel does the subject cover* while a
+ * centre-sampling rasteriser answers *is this pixel's centre inside it*. **For a straight edge crossing
+ * a pixel the two questions have the same answer at exactly one half**: the edge divides the pixel into
+ * two parts and the centre lies in the larger one, so `coverage >= 0.5` IS the centre predicate and not
+ * an approximation of it.
+ *
+ * THE RULE CONSTRAINS THIS SIDE AND NOT OURS, which is why it is written here: our alpha already
+ * answers the centre question -- an opaque arm writes 1, a blended arm accumulates what it drew -- and
+ * nothing in it is an area estimate.
+ *
+ * [MEASURED] it is a NO-OP on 145 of the 146 prepared oracles in this tree, whose alpha is strictly
+ * binary and for which the two predicates name the same set. The one it moves is
+ * `PointLightIntensityTest`, whose 256 samples exist for its eight lights' selection estimator and
+ * whose manifest claimed in the same breath that they were all taken at the pixel centre -- 
+ * [MEASURED] its edge profile is `0, 0, 0.1016, 1, 1`, which is 26 of 256 samples and an area. */
 Mask FromOracle(const RawF32 &oracle) {
   Mask mask;
   mask.Width = oracle.Width();
@@ -1470,7 +1488,7 @@ Mask FromOracle(const RawF32 &oracle) {
   for (int y = 0; y < mask.Height; ++y) {
     for (int x = 0; x < mask.Width; ++x) {
       mask.In[(size_t)y * (size_t)mask.Width + (size_t)x] =
-          oracle.At(x, y, oracle.Channels() - 1) > 0.0f;
+          oracle.At(x, y, oracle.Channels() - 1) >= 0.5f;
     }
   }
   return mask;
