@@ -84,3 +84,14 @@ other three were not in the harvest's population, which is luck rather than desi
 **An orthographic camera is not a case the framing rule can answer**, so it belongs with the `exact`
 exemption and not with the derivable set. It was restored from before the edit; the rule the harvest
 must carry is that it writes only where the declared projection is the one it derives.
+
+**A camera and its frame fraction move together, and correcting one without the other is a repair that
+reads as a regression.** It has now happened three times in this run of work: the fraction is
+recomputed from the camera on every run and refused on mismatch, so a corrected camera leaves the
+declared fraction stale and the case goes red for the repair. **Harvest both in the same round or
+neither** -- and the tell is unmistakable once seen, because the case fails on `frame_fraction_error`
+alone while its picture is inside the bound.
+
+*[MEASURED] `Fox` and `MorphStressTest` came back at 133 checks against the 32 they ran before: with a
+fraction that matches, the frame loop runs the whole declared grid instead of stopping at the first.
+So the correction bought four times the comparison, and for one run it looked like a loss.*
