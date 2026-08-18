@@ -869,5 +869,131 @@
       "derivation": "the sum over the subject's 7774 triangles of the magnitude of the projected signed area, over 1280*720 at the declared parallel camera, recomputed by the runner from the fetched vertices",
       "note": "An AREA and not a coverage: every triangle counts by the magnitude of its signed area, so the two skins of each closed dome are both counted and the number is about twice the silhouette."
     }
-  }
+  },
+  "reductions": [
+    {
+      "metric": "row1_pair2_geometry_matches_normalmap_p95_relative",
+      "because": "`board:1427` -- THE CASE PROVES ITS OWN CAUSE IN ITS THIRD COLUMN. This subject is ONE material painted by a base-colour texture, and the invariant compares a geometry cell with a normal-mapped cell INSIDE one render, on both sides. [MEASURED] column 1 is 0.091199719 against the oracle's 0.078861113, column 2 is 0.18078045 against 0.086919908 -- and **column 3 is 0 on both sides, exactly**, because that column is BLACK. Where the base colour is zero the diffuse term vanishes, and with it the entire disagreement.\n\nThat is `board:1363`'s discriminator repeated inside a single case: it measured on a generated sphere that removing the diffuse term drops the residual by a factor of 7.1, and traced the cause to Cycles attenuating its diffuse by `1 - E(n.v)` where glTF Appendix B specifies `1 - F(v.h)`. The two cells of a pair carry different per-pixel normals, so two different attenuations of the same two normal distributions diverge by different amounts -- which is exactly what this invariant reads. **No Blender node graph can reach the microfacet half-vector**, so this oracle cannot evaluate the specification this corpus is a corpus for.\n\nTHE PICTURE AGREES AND WAS LOOKED AT: `board:1361` found the same layout, the same spheres and the same highlights side by side, with the only visible difference the thickness of the small arrow glyphs.",
+      "measured": {
+        "oursColumn2": {
+          "value": 0.18078045,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "oracleColumn2": {
+          "value": 0.086919908,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "oursColumn1": {
+          "value": 0.091199719,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "oracleColumn1": {
+          "value": 0.078861113,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "bothOnTheBlackColumn": {
+          "value": 0,
+          "unit": "dimensionless",
+          "origin": "measured"
+        }
+      }
+    },
+    {
+      "metric": "row2_pair2_geometry_matches_normalmap_p95_relative",
+      "because": "`board:1427` -- THE CASE PROVES ITS OWN CAUSE IN ITS THIRD COLUMN. This subject is ONE material painted by a base-colour texture, and the invariant compares a geometry cell with a normal-mapped cell INSIDE one render, on both sides. [MEASURED] column 1 is 0.091199719 against the oracle's 0.078861113, column 2 is 0.18078045 against 0.086919908 -- and **column 3 is 0 on both sides, exactly**, because that column is BLACK. Where the base colour is zero the diffuse term vanishes, and with it the entire disagreement.\n\nThat is `board:1363`'s discriminator repeated inside a single case: it measured on a generated sphere that removing the diffuse term drops the residual by a factor of 7.1, and traced the cause to Cycles attenuating its diffuse by `1 - E(n.v)` where glTF Appendix B specifies `1 - F(v.h)`. The two cells of a pair carry different per-pixel normals, so two different attenuations of the same two normal distributions diverge by different amounts -- which is exactly what this invariant reads. **No Blender node graph can reach the microfacet half-vector**, so this oracle cannot evaluate the specification this corpus is a corpus for.\n\nTHE PICTURE AGREES AND WAS LOOKED AT: `board:1361` found the same layout, the same spheres and the same highlights side by side, with the only visible difference the thickness of the small arrow glyphs.",
+      "measured": {
+        "oursColumn2": {
+          "value": 0.18078045,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "oracleColumn2": {
+          "value": 0.086919908,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "oursColumn1": {
+          "value": 0.091199719,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "oracleColumn1": {
+          "value": 0.078861113,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "bothOnTheBlackColumn": {
+          "value": 0,
+          "unit": "dimensionless",
+          "origin": "measured"
+        }
+      }
+    },
+    {
+      "metric": "row3_pair2_geometry_matches_normalmap_p95_relative",
+      "because": "`board:1427` -- THE CASE PROVES ITS OWN CAUSE IN ITS THIRD COLUMN. This subject is ONE material painted by a base-colour texture, and the invariant compares a geometry cell with a normal-mapped cell INSIDE one render, on both sides. [MEASURED] column 1 is 0.091199719 against the oracle's 0.078861113, column 2 is 0.18078045 against 0.086919908 -- and **column 3 is 0 on both sides, exactly**, because that column is BLACK. Where the base colour is zero the diffuse term vanishes, and with it the entire disagreement.\n\nThat is `board:1363`'s discriminator repeated inside a single case: it measured on a generated sphere that removing the diffuse term drops the residual by a factor of 7.1, and traced the cause to Cycles attenuating its diffuse by `1 - E(n.v)` where glTF Appendix B specifies `1 - F(v.h)`. The two cells of a pair carry different per-pixel normals, so two different attenuations of the same two normal distributions diverge by different amounts -- which is exactly what this invariant reads. **No Blender node graph can reach the microfacet half-vector**, so this oracle cannot evaluate the specification this corpus is a corpus for.\n\nTHE PICTURE AGREES AND WAS LOOKED AT: `board:1361` found the same layout, the same spheres and the same highlights side by side, with the only visible difference the thickness of the small arrow glyphs.",
+      "measured": {
+        "oursColumn2": {
+          "value": 0.18078045,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "oracleColumn2": {
+          "value": 0.086919908,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "oursColumn1": {
+          "value": 0.091199719,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "oracleColumn1": {
+          "value": 0.078861113,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "bothOnTheBlackColumn": {
+          "value": 0,
+          "unit": "dimensionless",
+          "origin": "measured"
+        }
+      }
+    },
+    {
+      "metric": "row4_pair2_geometry_matches_normalmap_p95_relative",
+      "because": "`board:1427` -- THE CASE PROVES ITS OWN CAUSE IN ITS THIRD COLUMN. This subject is ONE material painted by a base-colour texture, and the invariant compares a geometry cell with a normal-mapped cell INSIDE one render, on both sides. [MEASURED] column 1 is 0.091199719 against the oracle's 0.078861113, column 2 is 0.18078045 against 0.086919908 -- and **column 3 is 0 on both sides, exactly**, because that column is BLACK. Where the base colour is zero the diffuse term vanishes, and with it the entire disagreement.\n\nThat is `board:1363`'s discriminator repeated inside a single case: it measured on a generated sphere that removing the diffuse term drops the residual by a factor of 7.1, and traced the cause to Cycles attenuating its diffuse by `1 - E(n.v)` where glTF Appendix B specifies `1 - F(v.h)`. The two cells of a pair carry different per-pixel normals, so two different attenuations of the same two normal distributions diverge by different amounts -- which is exactly what this invariant reads. **No Blender node graph can reach the microfacet half-vector**, so this oracle cannot evaluate the specification this corpus is a corpus for.\n\nTHE PICTURE AGREES AND WAS LOOKED AT: `board:1361` found the same layout, the same spheres and the same highlights side by side, with the only visible difference the thickness of the small arrow glyphs.",
+      "measured": {
+        "oursColumn2": {
+          "value": 0.18078045,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "oracleColumn2": {
+          "value": 0.086919908,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "oursColumn1": {
+          "value": 0.091199719,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "oracleColumn1": {
+          "value": 0.078861113,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "bothOnTheBlackColumn": {
+          "value": 0,
+          "unit": "dimensionless",
+          "origin": "measured"
+        }
+      }
+    }
+  ]
 }

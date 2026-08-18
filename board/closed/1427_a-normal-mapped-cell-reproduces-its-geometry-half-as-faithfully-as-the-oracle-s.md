@@ -39,3 +39,31 @@ that; here **we are twice as far out as the reference**, so there is nothing to 
 **The picture agrees.** `board:1361` looked at this case side by side and found *the same layout, the
 same spheres, the same highlights*, with the only visible difference the thickness of the small arrow
 glyphs in each tile's corner. This item is about a comparison the case makes with ITSELF.
+
+## The cause is inside the case, in its third column
+
+**This subject is ONE material** painted by a base-colour texture -- the three columns are regions of that
+texture, not three materials, and not three tangent setups. That is what makes the third column an
+experiment rather than a curiosity.
+
+| column | its base colour | ours | oracle |
+|---|---|---|---|
+| 1 | pink | 0.091199719 | 0.078861113 |
+| 2 | blue-grey | **0.18078045** | 0.086919908 |
+| 3 | **black** | **0** | **0** |
+
+**Where the base colour is zero, the disagreement is zero -- exactly, on both sides.** No diffuse term,
+no divergence. That is `board:1363`'s discriminator reproduced inside a single render: it measured on a
+generated sphere that removing the diffuse term drops the residual by 7.1x, and named the cause as Cycles
+attenuating its diffuse by `1 - E(n.v)` where glTF Appendix B specifies `1 - F(v.h)`.
+
+**Why an invariant BETWEEN two cells is sensitive to it at all**, which is the part that needed
+explaining: the two cells of a pair carry different per-pixel normals -- one geometric, one from the
+map -- so the two attenuations are evaluated over two different normal distributions and diverge by
+different amounts. The invariant reads that difference and calls it a tangent fault.
+
+**The first reading -- a column-shaped tangent or decode fault -- is refuted by the same column.** A wrong
+tangent basis does not become right when the albedo goes to zero.
+
+**No Blender node graph can reach the microfacet half-vector**, so the reduction is the ladder's second
+rung and not the fourth, and it is declared per `(case, metric)` on the four `pair2` metrics only.
