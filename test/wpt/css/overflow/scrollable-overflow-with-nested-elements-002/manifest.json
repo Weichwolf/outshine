@@ -1,0 +1,49 @@
+{
+  "schema": "outshine/ui-case-manifest",
+  "schemaVersion": 1,
+  "id": "scrollable-overflow-with-nested-elements-002",
+  "title": "CSS Overflow: Scrollable Overflow Transform Rotate Nested Element",
+  "covers": [
+    "css-flexbox-1"
+  ],
+  "criterion": {
+    "kind": "layout-assertions",
+    "says": "every element carrying data-expected-width, data-expected-height, data-offset-x or data-offset-y lands at exactly that width, height and viewport offset in CSS pixels",
+    "statedAt": "https://github.com/web-platform-tests/wpt/blob/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-overflow/scrollable-overflow-with-nested-elements-002.html"
+  },
+  "viewport": {
+    "widthPx": 800,
+    "heightPx": 600,
+    "note": "the reftest viewport WPT lays its own references out in"
+  },
+  "subjects": [
+    {
+      "kind": "document",
+      "id": "scrollable-overflow-with-nested-elements-002",
+      "name": "scrollable-overflow-with-nested-elements-002",
+      "source": {
+        "kind": "web-platform-tests",
+        "commit": "550efd4a2f1f14877d424b5668fbb6e63d5f6165",
+        "path": "css/css-overflow/scrollable-overflow-with-nested-elements-002.html",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the same pin the flexbox family is fetched at, because two families measured at two commits are two corpora"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-overflow/scrollable-overflow-with-nested-elements-002.html",
+          "sha256": "66ff78dc6ccae51f9a754c33ac1949aef83145147c6722135dfd32e176074366",
+          "bytes": 1972,
+          "as": "scrollable-overflow-with-nested-elements-002.html",
+          "role": "document",
+          "licence": {
+            "spdx": "BSD-3-Clause OR LicenseRef-W3C-Software-and-Document",
+            "holder": "web-platform-tests contributors",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/LICENSE.md"
+          }
+        }
+      ],
+      "entry": "scrollable-overflow-with-nested-elements-002.html"
+    }
+  ]
+}

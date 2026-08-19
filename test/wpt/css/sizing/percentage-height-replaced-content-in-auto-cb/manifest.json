@@ -1,0 +1,49 @@
+{
+  "schema": "outshine/ui-case-manifest",
+  "schemaVersion": 1,
+  "id": "percentage-height-replaced-content-in-auto-cb",
+  "title": "percentage-height-replaced-content-in-auto-cb",
+  "covers": [
+    "css-flexbox-1"
+  ],
+  "criterion": {
+    "kind": "layout-assertions",
+    "says": "every element carrying data-expected-width, data-expected-height, data-offset-x or data-offset-y lands at exactly that width, height and viewport offset in CSS pixels",
+    "statedAt": "https://github.com/web-platform-tests/wpt/blob/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-sizing/percentage-height-replaced-content-in-auto-cb.html"
+  },
+  "viewport": {
+    "widthPx": 800,
+    "heightPx": 600,
+    "note": "the reftest viewport WPT lays its own references out in"
+  },
+  "subjects": [
+    {
+      "kind": "document",
+      "id": "percentage-height-replaced-content-in-auto-cb",
+      "name": "percentage-height-replaced-content-in-auto-cb",
+      "source": {
+        "kind": "web-platform-tests",
+        "commit": "550efd4a2f1f14877d424b5668fbb6e63d5f6165",
+        "path": "css/css-sizing/percentage-height-replaced-content-in-auto-cb.html",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the same pin the flexbox family is fetched at, because two families measured at two commits are two corpora"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-sizing/percentage-height-replaced-content-in-auto-cb.html",
+          "sha256": "2f6d64a1bd50f632996fc51830f1ac8db75c4550104b8e6f92c566bb27a69541",
+          "bytes": 562,
+          "as": "percentage-height-replaced-content-in-auto-cb.html",
+          "role": "document",
+          "licence": {
+            "spdx": "BSD-3-Clause OR LicenseRef-W3C-Software-and-Document",
+            "holder": "web-platform-tests contributors",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/LICENSE.md"
+          }
+        }
+      ],
+      "entry": "percentage-height-replaced-content-in-auto-cb.html"
+    }
+  ]
+}

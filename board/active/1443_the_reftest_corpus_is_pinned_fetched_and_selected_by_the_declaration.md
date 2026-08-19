@@ -118,3 +118,25 @@ version for a case Blender never sees. 283 manifests across both suites validate
 **`year` left the licence's required set.** Every web-platform-tests file names a licence and not one
 names a year; the alternative was writing a year the source does not carry into the field that exists
 to record where a claim was made.
+
+## Two more families, and what they measured is that this instrument has reached its edge
+
+`css-overflow` and `css-sizing` were fetched at the same pin, because two families measured at two
+commits are two corpora. [MEASURED]:
+
+| family | tests at the pin | state their own layout | inside the subset |
+|---|---:|---:|---:|
+| `css-flexbox` | 1328 | 138 | 17 |
+| `css-overflow` | 385 | **5** | 0 |
+| `css-sizing` | 317 | 19 | 0 |
+
+**`css-overflow` is judged by pictures and not by numbers**: 380 of its 385 tests state no layout of
+their own at all. **Of the 24 cases the two families do contribute, 18 are script-driven** — the
+document assigns its own geometry in `window.onload` — and the rest reach `float` (10) and the `font`
+shorthand (6).
+
+**So the next capability is the reftest arm and not another layout-assertion family.** That is the
+opposite of what the round expected to find, and it is what the numbers say: the instrument that reads
+`data-expected-*` has taken what upstream states that way, and everything past it is a pair of
+pictures. `board:1444` is where that goes, and its own measurement — one `mismatch` in 765 reftests of
+`css-flexbox` — says the pairs have to be drawn from `css/` more widely than one directory.

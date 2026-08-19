@@ -1,0 +1,49 @@
+{
+  "schema": "outshine/ui-case-manifest",
+  "schemaVersion": 1,
+  "id": "intrinsic-size-fallback-replaced",
+  "title": "CSS Sizing Test: Testing intrinsic size fallback 300x150 for some replaced elements.",
+  "covers": [
+    "css-flexbox-1"
+  ],
+  "criterion": {
+    "kind": "layout-assertions",
+    "says": "every element carrying data-expected-width, data-expected-height, data-offset-x or data-offset-y lands at exactly that width, height and viewport offset in CSS pixels",
+    "statedAt": "https://github.com/web-platform-tests/wpt/blob/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-sizing/intrinsic-size-fallback-replaced.html"
+  },
+  "viewport": {
+    "widthPx": 800,
+    "heightPx": 600,
+    "note": "the reftest viewport WPT lays its own references out in"
+  },
+  "subjects": [
+    {
+      "kind": "document",
+      "id": "intrinsic-size-fallback-replaced",
+      "name": "intrinsic-size-fallback-replaced",
+      "source": {
+        "kind": "web-platform-tests",
+        "commit": "550efd4a2f1f14877d424b5668fbb6e63d5f6165",
+        "path": "css/css-sizing/intrinsic-size-fallback-replaced.html",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the same pin the flexbox family is fetched at, because two families measured at two commits are two corpora"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-sizing/intrinsic-size-fallback-replaced.html",
+          "sha256": "cf1b7df0448e65a65991108bf8ee55650aa6427e797f4e7c9e7be904c755c03a",
+          "bytes": 2049,
+          "as": "intrinsic-size-fallback-replaced.html",
+          "role": "document",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "the file's own header",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-sizing/intrinsic-size-fallback-replaced.html"
+          }
+        }
+      ],
+      "entry": "intrinsic-size-fallback-replaced.html"
+    }
+  ]
+}

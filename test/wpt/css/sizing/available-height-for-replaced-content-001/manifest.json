@@ -1,0 +1,49 @@
+{
+  "schema": "outshine/ui-case-manifest",
+  "schemaVersion": 1,
+  "id": "available-height-for-replaced-content-001",
+  "title": "CSS Test: available height for replaced content",
+  "covers": [
+    "css-flexbox-1"
+  ],
+  "criterion": {
+    "kind": "layout-assertions",
+    "says": "every element carrying data-expected-width, data-expected-height, data-offset-x or data-offset-y lands at exactly that width, height and viewport offset in CSS pixels",
+    "statedAt": "https://github.com/web-platform-tests/wpt/blob/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-sizing/available-height-for-replaced-content-001.html"
+  },
+  "viewport": {
+    "widthPx": 800,
+    "heightPx": 600,
+    "note": "the reftest viewport WPT lays its own references out in"
+  },
+  "subjects": [
+    {
+      "kind": "document",
+      "id": "available-height-for-replaced-content-001",
+      "name": "available-height-for-replaced-content-001",
+      "source": {
+        "kind": "web-platform-tests",
+        "commit": "550efd4a2f1f14877d424b5668fbb6e63d5f6165",
+        "path": "css/css-sizing/available-height-for-replaced-content-001.html",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the same pin the flexbox family is fetched at, because two families measured at two commits are two corpora"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-sizing/available-height-for-replaced-content-001.html",
+          "sha256": "6a9516f02d7cf2af6c3989c4996dba5f0c2c9e517caff4772a29f499189cfe13",
+          "bytes": 945,
+          "as": "available-height-for-replaced-content-001.html",
+          "role": "document",
+          "licence": {
+            "spdx": "BSD-3-Clause OR LicenseRef-W3C-Software-and-Document",
+            "holder": "web-platform-tests contributors",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/LICENSE.md"
+          }
+        }
+      ],
+      "entry": "available-height-for-replaced-content-001.html"
+    }
+  ]
+}
