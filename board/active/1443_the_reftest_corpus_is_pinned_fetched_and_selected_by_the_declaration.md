@@ -9,6 +9,12 @@ WPT's CSS reftests, at one commit, obtained by `test/harness/shared/corpus/prepa
 preparer, the same digest discipline and the same fetch cache the glTF corpus uses, because a second way
 to obtain an upstream is a second thing that can drift.
 
+**ONE MANIFEST FORMAT FOR EVERYTHING THAT RENDERS.** A reftest pair is a case directory with a
+`manifest.json` like every other case in this tree -- its subject is a document instead of a glTF and its
+criterion is `reftest` instead of `numeric`, and nothing else about it is special. That is what lets the
+browser under `test/viewer/` list a UI case beside a Khronos one without a line of special handling, and
+what stops a second corpus growing a second shape.
+
 **THE SELECTION IS DERIVED AND NOT A LIST.** A pair is in the corpus when every element, property and
 value either of its two files uses appears in `board:1442`'s table. That is a question the parser
 answers, so the corpus is a FUNCTION of the declaration -- widen the subset and cases appear; narrow it
@@ -19,6 +25,8 @@ and they leave, and nobody edits a list either time.
       suite the subset reaches* is a number rather than an impression
 - [ ] a pair whose two files disagree about which properties they use is **in** if both are inside the
       subset and **out** otherwise, and the reason is recorded per pair
+- [ ] the manifest gains a subject kind `document` and a criterion kind `reftest`, declared in
+      `test/harness/shared/corpus/manifest-schema.json` where every other key of a manifest is declared
 - [ ] `Ahem` is fetched with the corpus, because a layout test that depends on a system font is a font
       test wearing a layout test's name
 
