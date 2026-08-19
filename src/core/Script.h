@@ -113,6 +113,18 @@ struct Host {
   }
 };
 
+/* WHY A CONSTRUCT OR A NAME IS DELIBERATELY OUTSIDE, or `nullptr` where nothing accounts for it
+ * (board:1448).
+ *
+ * **THIS IS THE DIFFERENCE BETWEEN A BOUNDARY AND A GAP**, the same one the UI subset draws: a script
+ * this interpreter declines because a game's handler will never define a class is FINISHED; one it
+ * declines because nobody built `while` would be WAITING. Both read as *outside the subset* to a
+ * counter, and only this table separates them.
+ *
+ * The name is `token:<what the parser stopped on>`, `name:<a global the host did not answer>`, or one
+ * of the words a corpus case declares about itself. */
+[[nodiscard]] const char *WhyOutside(const std::string &name);
+
 class Program {
 public:
   /* THE TREE'S NODE. Its NAME is public and its DEFINITION is in the implementation: the parser is a
@@ -144,6 +156,11 @@ public:
   [[nodiscard]] size_t Steps(void) const { return Steps_; }
   /* A name the script assigned, for a consumer that wants an answer out of one. */
   [[nodiscard]] const Value *Named(const std::string &name) const;
+  /* THE TOKEN A REFUSED PARSE STOPPED ON, as the script spelled it. The message says where and why in
+   * a sentence; this says WHAT in one word, which is what a caller needs to decide whether the
+   * construct is one this engine declines on purpose or one nobody has built. A sentence cannot be
+   * looked up in a table and a token can. */
+  [[nodiscard]] const std::string &Stopped(void) const { return Stopped_; }
 
 private:
   [[nodiscard]] bool Evaluate(size_t node, Host &host, Value &out, std::string &error);
@@ -154,6 +171,7 @@ private:
   std::vector<std::string> Names_;
   std::vector<Value> Held_;
   size_t Steps_ = 0;
+  std::string Stopped_;
 };
 
 } // namespace outshine::Script

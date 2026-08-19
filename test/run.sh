@@ -559,6 +559,7 @@ uiInside=0
 uiReduced=0
 uiOutside=0
 jsInside=0
+jsReduced=0
 jsOutside=0
 jsHeld=0
 jsRed=0
@@ -694,6 +695,7 @@ CountTheTwo() {
   jsCase=$(sed -n 's/^JS-CASE //p' "$2" | head -1)
   case "$jsSubset" in
     inside) jsInside=$((jsInside + 1)) ;;
+    reduced) jsReduced=$((jsReduced + 1)) ;;
     outside) jsOutside=$((jsOutside + 1)) ;;
   esac
   case "$jsCase" in
@@ -1050,10 +1052,10 @@ printf '%s tests: %s PASS  %s FAIL  %s TIMEOUT  %s SIGNAL  %s BUILD  %s SKIP  %s
     "$uiHeld" "$uiReduced" "$uiOutside" "$((uiInside + uiReduced + uiOutside))" \
     "$uiInside" "$uiRed"
 # THE SCRIPT SUITE'S PAIR, AND IT IS THE SAME SHAPE A THIRD TIME (board:1450).
-[ $((jsInside + jsOutside)) -gt 0 ] &&
-  printf 'test262: subset %s inside of %s   cases %s held, %s red of %s\n' \
-    "$jsInside" "$((jsInside + jsOutside))" \
-    "$jsHeld" "$jsRed" "$((jsHeld + jsRed))"
+[ $((jsInside + jsReduced + jsOutside)) -gt 0 ] &&
+  printf 'test262: %s held, %s reduced, %s unaccounted of %s   (%s attempted, %s red)\n' \
+    "$jsHeld" "$jsReduced" "$jsOutside" "$((jsInside + jsReduced + jsOutside))" \
+    "$jsInside" "$jsRed"
 # WHAT THE API-CONTRACT ARM DOES NOT COVER, printed where its results are, because a green
 # validation arm is not a correctness claim and a later round must not read it as one (board:1123).
 [ "$validatedRan" = yes ] && printf '%s\n' \

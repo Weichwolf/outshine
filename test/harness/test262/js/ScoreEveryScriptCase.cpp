@@ -41,17 +41,17 @@ public:
     if (name == "$ERROR" || name == "$DONOTEVALUATE") { return S::Value::OfRef(kError); }
     if (name == "print") { return S::Value::OfRef(kPrint); }
     if (name == "undefined") { return {}; }
-    Unprovided = name;
+    if (Unprovided.empty()) { Unprovided = "name:" + name; }
     return {};
   }
   [[nodiscard]] S::Value Member(const S::Value &object, const std::string &name) override {
     if (object.What == S::Kind::Ref && object.Ref == kAssert) {
       if (name == "sameValue") { return S::Value::OfRef(kSame); }
       if (name == "notSameValue") { return S::Value::OfRef(kNotSame); }
-      Unprovided = "assert." + name;
+      if (Unprovided.empty()) { Unprovided = "name:assert." + name; }
       return {};
     }
-    Unprovided = name;
+    if (Unprovided.empty()) { Unprovided = "name:" + name; }
     return {};
   }
   [[nodiscard]] bool Call(const S::Value &callee, const S::Value *args, size_t count,
@@ -143,20 +143,18 @@ int main(int argc, char **argv) {
   /* WHAT THE CASE SAYS IT NEEDS, before a line of it is read. A flag or an include this runner does
    * not provide puts the case outside the subset by the case's OWN declaration, which is the cheapest
    * and most honest place to decide it. */
-  std::string wants;
+  std::vector<std::string> wanted;
   for (size_t at = 0; at < subject["attributes"].Size(); ++at) {
     const std::string attribute = subject["attributes"][at].Str();
-    const bool held = attribute == "flags:raw" || attribute == "flags:onlyStrict" ||
-                      attribute == "flags:noStrict" || attribute == "flags:generated" ||
-                      attribute == "flags:CanBlockIsFalse" || attribute == "flags:CanBlockIsTrue";
-    if (!held) {
-      if (!wants.empty()) { wants += " "; }
-      wants += attribute;
-    }
+    /* A FLAG ABOUT WHICH MODE TO RUN IN IS NOTHING TO THIS INTERPRETER, which has one mode. The rest
+     * of what a case declares is a requirement, and a requirement it cannot meet is a name. */
+    const bool nothingToUs = attribute == "flags:raw" || attribute == "flags:generated" ||
+                             attribute == "flags:CanBlockIsFalse" ||
+                             attribute == "flags:CanBlockIsTrue";
+    if (!nothingToUs) { wanted.push_back(attribute); }
   }
   if (wantsRefusal && phase != "runtime") {
-    if (!wants.empty()) { wants += " "; }
-    wants += "negative-" + (phase.empty() ? std::string("parse") : phase);
+    wanted.push_back("negative-" + (phase.empty() ? std::string("parse") : phase));
   }
 
   const std::string script = ReadFile(prepared + "/" + entry, found);
@@ -165,38 +163,50 @@ int main(int argc, char **argv) {
     return outshine::Test::Report();
   }
 
-  if (!wants.empty()) {
-    std::printf("JS-SUBSET outside\n");
-    std::printf("OUTSIDE %s -- the case declares what this runner does not provide: %s\n", id.c_str(),
-                wants.c_str());
-    outshine::Test::Checked(true, "the case names what puts it outside",
-                            (id + ": " + wants).c_str(), __FILE__, __LINE__);
+  /* **A BOUNDARY AND A GAP ARE TWO ANSWERS, AND THE LANGUAGE'S OWN TABLE SEPARATES THEM.** A case
+   * this interpreter declines because a game's handler will never define a class is FINISHED; one it
+   * declines because something is missing is WAITING. An undeclared name is RED, which is what stops
+   * this from being a rubber stamp: the only way to make a case green is to build the capability or to
+   * write the boundary down with its reason. */
+  const auto settle = [&id](const std::vector<std::string> &names) {
+    std::string boundary, gap;
+    for (const std::string &name : names) {
+      const char *why = S::WhyOutside(name);
+      std::string &into = why != nullptr ? boundary : gap;
+      if (!into.empty()) { into += " "; }
+      into += name;
+      if (why != nullptr) { into += " (" + std::string(why) + ")"; }
+    }
+    if (gap.empty()) {
+      std::printf("JS-SUBSET reduced\n");
+      std::printf("REDUCED %s -- every name that puts it outside is a declared boundary: %s\n",
+                  id.c_str(), boundary.c_str());
+      outshine::Test::Checked(true, "the case is outside a boundary this language declared",
+                              (id + ": " + boundary).c_str(), __FILE__, __LINE__);
+    } else {
+      std::printf("JS-SUBSET outside\n");
+      std::printf("OUTSIDE %s -- undeclared: %s\n", id.c_str(), gap.c_str());
+      outshine::Test::Checked(false, "every name that puts a case outside is declared",
+                              (id + ": " + gap + " is outside the subset and nothing says why")
+                                  .c_str(),
+                              __FILE__, __LINE__);
+    }
     return outshine::Test::Report();
-  }
+  };
+
+  if (!wanted.empty()) { return settle(wanted); }
 
   S::Program program;
   std::string error;
   if (!program.Read(script, error)) {
-    /* A PARSE REFUSAL IS *OUTSIDE THE SUBSET* AND NOT A FAILURE, for the reason at the head of this
-     * file: this parser cannot tell a program that is wrong from one that is merely past its subset,
-     * so calling either of them a verdict would be a number about something else. */
-    std::printf("JS-SUBSET outside\n");
-    std::printf("OUTSIDE %s -- the parser reaches its subset: %s\n", id.c_str(), error.c_str());
-    outshine::Test::Checked(!error.empty(), "the parser says where it stopped",
-                            (id + ": " + error).c_str(), __FILE__, __LINE__);
-    return outshine::Test::Report();
+    /* A PARSE REFUSAL NAMES THE TOKEN IT STOPPED ON, and the token is what the boundary table reads.
+     * The message says where and why in a sentence; a sentence cannot be looked up. */
+    return settle({program.Stopped().empty() ? error : "token:" + program.Stopped()});
   }
 
   Test262Host host;
   const bool ran = program.Run(host, error);
-  if (!host.Unprovided.empty()) {
-    std::printf("JS-SUBSET outside\n");
-    std::printf("OUTSIDE %s -- the case reaches a name this runner does not provide: %s\n",
-                id.c_str(), host.Unprovided.c_str());
-    outshine::Test::Checked(true, "the case names what put it outside",
-                            (id + ": " + host.Unprovided).c_str(), __FILE__, __LINE__);
-    return outshine::Test::Report();
-  }
+  if (!host.Unprovided.empty()) { return settle({host.Unprovided}); }
 
   std::printf("JS-SUBSET inside\n");
   char why[512];
