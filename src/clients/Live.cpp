@@ -154,7 +154,9 @@ bool Live::Build(std::string &error) {
      * be answering a question the consumer already answered by naming the rectangle. */
     Renderer_->SetPictureRegion(Declared_.PictureLeftFrac, Declared_.PictureTopFrac,
                                 Declared_.PictureWidthFrac, Declared_.PictureHeightFrac, 0.0);
-    if (!Stand(error) || !Submit(error)) { return false; }
+    if (!Stand(error) || !Surface(*Renderer_, Stood_, Scratch_, error) || !Submit(error)) {
+      return false;
+    }
   } else {
     Renderer_->SetPictureRegion(0, 0, 0, 0, 0);
   }
@@ -297,7 +299,9 @@ bool Live::Stand(std::string &error) {
   return true;
 }
 
-bool Live::Submit(std::string &error) { return Show(*Renderer_, Stood_, Scratch_, error); }
+/* **ONLY THE BODY CROSSES PER FRAME.** The surfaces and the lighting were handed over at stand-up and
+ * nothing about them changes when a subject moves (board:1463). */
+bool Live::Submit(std::string &error) { return Place(*Renderer_, Stood_, Scratch_, error); }
 
 bool Live::Compose(std::string &error) {
   Laid_.clear();

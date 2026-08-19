@@ -395,7 +395,34 @@ bool Aim(Render::Renderer &renderer, const Gltf::Subject &subject, const Gltf::P
   return true;
 }
 
+/* **WHAT A SUBJECT IS MADE OF, AND IT DOES NOT CHANGE WHEN THE SUBJECT MOVES** (board:1463). The
+ * surfaces, the lights and the environment are set here and nowhere else; `Pose` hands over the body.
+ * It is the same separation `Aim` already carries for the camera and it is separate for the same
+ * reason -- these three answer a question the frame does not ask again.
+ *
+ * **`SetSubjectMaterials` RETIRES THE WHOLE TABLE, so calling it per frame re-uploads every image the
+ * subject wears.** A consumer that restated its surfaces every advance paid that on a textured
+ * animated body, and nothing about a material changed between two poses of it. */
+bool Surface(Render::Renderer &renderer, const Studio &studio, StudioScratch &scratch,
+             std::string &error) {
+  if (!studio.Geometry) {
+    error = "the studio declares no subject";
+    return false;
+  }
+  if (!Declared(studio, *studio.Geometry, error)) { return false; }
+  if (!renderer.SetSubjectMaterials(studio.Surfaces, error)) { return false; }
+  if (!PlaceLights(studio, scratch.Lights, error)) { return false; }
+  if (!renderer.SetSubjectLights(scratch.Lights, error)) { return false; }
+  renderer.SetSubjectEnvironment(studio.Environment);
+  return true;
+}
+
 bool Show(Render::Renderer &renderer, const Studio &studio, StudioScratch &scratch,
+          std::string &error) {
+  return Surface(renderer, studio, scratch, error) && Place(renderer, studio, scratch, error);
+}
+
+bool Place(Render::Renderer &renderer, const Studio &studio, StudioScratch &scratch,
           std::string &error) {
   if (!studio.Geometry) {
     error = "the studio declares no subject";
@@ -428,10 +455,6 @@ bool Show(Render::Renderer &renderer, const Studio &studio, StudioScratch &scrat
   }
   const VertexRuns runs = PackVertices(studio, subject, scratch.Vertices);
 
-  if (!renderer.SetSubjectMaterials(studio.Surfaces, error)) { return false; }
-  if (!PlaceLights(studio, scratch.Lights, error)) { return false; }
-  if (!renderer.SetSubjectLights(scratch.Lights, error)) { return false; }
-  renderer.SetSubjectEnvironment(studio.Environment);
   Render::SubjectMesh mesh;
   mesh.Verts = scratch.Vertices.data();
   mesh.Uv = subject.HasUv() ? scratch.Vertices.data() + runs.UvAt : nullptr;

@@ -56,6 +56,31 @@ a camera is framed from are the GRID's and not the rest pose's** (`board:1433` s
 the corpus), so the union over the whole grid is taken once at stand-up and the eye and aim stay the
 rest pose's; what opens is the depth window.
 
+## THE SECOND AND THIRD CUTS, and the metric needed repeats before either could be believed
+
+**`Clients::Show` split into `Surface` and `Place`**, the same separation `Aim` already carries for the
+camera. `SetSubjectMaterials` **retires the whole surface table and re-uploads every image**, and `Show`
+called it on every advance -- so a textured animated body paid its entire texture set per frame while
+nothing about a material had changed. Surfaces, lights and the environment cross once at stand-up; only
+the body crosses per frame.
+
+**`DrawList::Compile` sorts with a TOTAL key instead of `std::stable_sort`.** Stability was carrying the
+submission order, and it charged a temporary buffer proportional to the draw list on every frame.
+`DrawItem::Submitted` is that order **in the data** -- assigned by the list, not by the caller -- so
+`(key, submitted)` is total, `std::sort` needs no buffer, and the compiled order is provably identical.
+[MEASURED] the whole corpus came back unchanged to the digit, which is what a provably order-preserving
+change must produce and is the only reading that would have confirmed the argument.
+
+| | before | after |
+|---|---|---|
+| frames netting a heap move, of 249 | 192 | **43 / 55 / 68 / 79** over four runs |
+| pose-matched pairs differing, of 27 | 20 | 6 to 18 |
+| worst difference | 4576 bytes | **768 to 896 bytes** |
+
+**THE METRIC NEEDED REPEATS AND ONE READING WOULD HAVE LIED.** Consecutive runs of one declaration read
+75 and then 151, so a single before-and-after across this number decides nothing; the four-run spread is
+what makes the direction believable.
+
 ## Where the rest of it is, read rather than guessed
 
 **THE ATTRIBUTION REFUTED THE OBVIOUS ANSWER, twice.** The flattener's temporaries looked like the
@@ -63,10 +88,15 @@ culprit -- `Document::ReadElements` decodes each accessor into a fresh `std::vec
 `Subject.cpp` declares roughly fifteen more -- and POSING moves the heap on **7 frames in 250**.
 `Gltf::Subject`'s own arrays already reuse their storage, and `clear()` keeps capacity.
 
-**What remains is `Clients::Show` and what it hands the renderer**: the index run copied out of the
-subject, `PackVertices` filling the interleaved buffer, and `SetSubjectMaterials`, `SetSubjectLights`
-and `SetSubjectMesh` taking vectors by value on the other side of the boundary. That is the next cut and
-it is renderer-side, not reader-side.
+**WHAT REMAINS IS ONE TAKE-AND-RETURN PAIR THAT STRADDLES THE BOUNDARY.** Submitting moves the heap on
+roughly 220 frames of 250 and drawing moves it on roughly the same number, while the NET over a frame
+moves on 43 to 79 -- so something is taken inside `Place` and given back inside `RenderFrame`, about
+900 bytes of it, on nearly every frame.
+
+**Naming it needs a finer instrument than *which phase*.** A per-phase difference cannot say which call
+site, and guessing from a diff is how the last two rounds nearly filed the wrong defect. **An allocation
+tag -- the `item` string `Heap::Take` already carries, counted per tag -- would answer it**, and that is
+the next thing to build here rather than the next thing to change.
 
 ## What must be true
 

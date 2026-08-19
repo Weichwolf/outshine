@@ -225,6 +225,13 @@ struct DrawItem {
   uint32_t IndexCount = 0;
   VertexLayout Layout = VertexLayout::Position;
   uint32_t FirstIndex = 0;
+  /* **WHICH DRAW THIS WAS, so the compiled order is TOTAL and the sort needs no stability**
+   * (board:1463). Two draws that agree on every field of the key have to land in one order and not
+   * either, or the same declaration draws two pictures wherever they overlap. Carrying the ordinal
+   * here says that in the DATA; leaving it to `std::stable_sort` said it in the ALGORITHM, and paid
+   * for it with a temporary buffer on the frame path -- which is the one thing a frame path may not
+   * do. `Add` assigns it and nobody else touches it. */
+  uint32_t Submitted = 0;
 };
 
 /* WHAT ONE `DrawIndexed` COVERS after merging: a contiguous index run drawn with one pipeline and

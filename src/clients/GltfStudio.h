@@ -115,5 +115,20 @@ struct StudioScratch {
 [[nodiscard]] bool Show(Render::Renderer &renderer, const Studio &studio, StudioScratch &scratch,
                         std::string &error);
 
+/* **WHAT THE SUBJECT IS MADE OF, SET ONCE** (board:1463): its surfaces, its lights and the environment
+ * it sits in. `SetSubjectMaterials` retires the whole table and re-uploads every image, so a consumer
+ * that restated this per frame paid the subject's entire texture set on every advance -- and nothing
+ * about a material changes when a body moves. `Show` is this followed by `Pose`, which is what a runner
+ * drawing one frame per subject wants; a scenario calls the two apart. */
+[[nodiscard]] bool Surface(Render::Renderer &renderer, const Studio &studio, StudioScratch &scratch,
+                           std::string &error);
+
+/* **THE BODY AT ONE POSE**, and the verb is the compositor's own from `CLAUDE.md` -- place, cull,
+ * quantise, draw: the draw list, the index run, the packed vertices and the mesh, plus the
+ * camera through `Aim`. It refuses a subject with no triangle, per-part arrays of the wrong length, a
+ * previous pose of a different vertex count and an eye inside the near plane -- naming the numbers. */
+[[nodiscard]] bool Place(Render::Renderer &renderer, const Studio &studio, StudioScratch &scratch,
+                        std::string &error);
+
 } // namespace outshine::Clients
 #endif

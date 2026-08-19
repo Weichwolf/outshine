@@ -38,7 +38,10 @@ bool DrawList::Add(const DrawItem &item, std::string &error) {
             " and a draw key addresses " + std::to_string(kViewportSlots);
     return false;
   }
+  /* THE ORDINAL IS THE LIST'S AND NOT THE CALLER'S, so a consumer cannot set it wrong and two draws
+   * cannot claim one place (board:1463). It is what makes the compiled order total. */
   Draws_.push_back(item);
+  Draws_.back().Submitted = (uint32_t)Draws_.size() - 1u;
   return true;
 }
 
@@ -50,8 +53,14 @@ void DrawList::Clear() {
 }
 
 void DrawList::Compile() {
-  std::stable_sort(Draws_.begin(), Draws_.end(), [](const DrawItem &a, const DrawItem &b) {
-    return DrawKey::Of(a.Order) < DrawKey::Of(b.Order);
+  /* **A TOTAL ORDER AND AN UNSTABLE SORT, which is the same result and no allocation** (board:1463).
+   * `std::stable_sort` takes a temporary buffer proportional to the list and takes it on every frame;
+   * `std::sort` takes none. The two agree exactly because the ordinal below is the submission index,
+   * so lexicographic `(key, submitted)` IS what stability meant -- proved rather than hoped, which is
+   * why the corpus must come back identical to the digit. */
+  std::sort(Draws_.begin(), Draws_.end(), [](const DrawItem &a, const DrawItem &b) {
+    const DrawKey left = DrawKey::Of(a.Order), right = DrawKey::Of(b.Order);
+    return left == right ? a.Submitted < b.Submitted : left < right;
   });
 
   Runs_.clear();
