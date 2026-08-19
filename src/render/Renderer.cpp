@@ -130,6 +130,8 @@ bool Renderer::Executable(Stage stage) {
     case Stage::Subjects:
     case Stage::Tonemap:
       return true;
+    case Stage::Overlay:
+      return true;
     case Stage::TemporalResolve:
       return true;
     case Stage::SubjectsTransmissive:
@@ -292,6 +294,10 @@ void Renderer::Create(Resource resource) {
       Samp = OwnedSampler(Device_.Get(), SDL_CreateGPUSampler(Device_.Get(), &wanted));
       return;
     }
+    /* THE CONSUMER'S ATLAS IS NOT THE PLAN'S TO MAKE. It is `Given` like a sampler -- the client
+     * hands it over through `SetOverlayAtlas` -- and creating one here would be the engine deciding
+     * what an interface is made of. The stage carries one white texel until it is given something. */
+    case Resource::OverlayAtlas: return;
     case Resource::SceneHdr: HdrTex = target(resource, colour); return;
     case Resource::SceneTransmissive: TransmissiveTex = target(resource, colour); return;
     case Resource::SceneComposited: CompositedTex = target(resource, colour); return;
@@ -342,6 +348,9 @@ void Renderer::Create(Resource resource) {
 
 SDL_GPUTexture *Renderer::Target(Resource resource) const {
   switch (resource) {
+    /* THE ATLAS IS NOT A TARGET AND NOTHING DRAWS INTO IT. It lives inside the stage that samples it,
+     * which is where a `Given` resource belongs. */
+    case Resource::OverlayAtlas: return nullptr;
     case Resource::SceneHdr: return HdrTex.Get();
     case Resource::SceneTransmissive: return TransmissiveTex.Get();
     case Resource::SceneComposited: return CompositedTex.Get();
@@ -423,6 +432,9 @@ bool Renderer::Configure(Stage stage, std::string &error) {
        * fragment, so there is nothing of its own to build -- and it is `Executable` rather than
        * refused, because `Init` refuses any stage this layer cannot run and the picture IS made. */
       return true;
+    case Stage::Overlay:
+      return Overlay_.Configure(Handles, Samp.Get(), FormatOf(Plan_->Format(Resource::FrameTex)),
+                                error);
     case Stage::Tonemap:
       return Tonemap_.Configure(Handles, Target(Plan_->Bound(Resource::SceneComposited)),
                                 DepthTex.Get(), Samp.Get(),
@@ -478,6 +490,13 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
       Tonemap_.Encode(ctx, into);
       return;
     }
+    /* THE INTERFACE IS DRAWN OVER THE FRAME THE TRANSFER JUST PRODUCED, in the target's own pixels.
+     * What it draws was handed in by the consumer through `SetOverlay`; nothing here decides what a
+     * rectangle means, and the stage is given no camera because an interface has none. */
+    case Stage::Overlay:
+      Overlay_.Bind(Width, Height);
+      Overlay_.Encode(ctx, into);
+      return;
     case Stage::MediumTransmittance:
     case Stage::MediumMultiScatter:
     case Stage::MediumRadiance:

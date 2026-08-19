@@ -26,6 +26,7 @@
 #include "GpuOwned.h"
 #include "Readback.h"
 #include "RenderPlan.h"
+#include "stages/OverlayDraw.h"
 #include "stages/Resolve.h"
 #include "stages/SubjectDraw.h"
 #include "stages/CompositeTransmissionStage.h"
@@ -110,6 +111,24 @@ public:
 
   /* THE DECLARED SUBJECT OF A STUDIO (stages/SubjectDraw.h): one indexed mesh and the DRAW LIST over
    * it -- many primitives, each with its own surface slot and vertex layout. */
+  /* THE INTERFACE THE CONSUMER DECLARED, AS RECTANGLES IN THE TARGET'S OWN PIXELS (board:1442).
+   *
+   * **THE RENDERER TAKES `OverlayQuad` AND NOT THE UI LIBRARY'S OWN TYPE, and that is the layering
+   * rather than an inconvenience.** No content noun has a spelling in the renderer; a box, a glyph and
+   * a page are the UI's vocabulary, and a renderer that included them would have learned what it is
+   * drawing. The consumer translates -- which costs a loop it already owns and keeps the two ends
+   * independent enough that either can be replaced.
+   *
+   * **IT IS SET OUTSIDE THE FRAME AND THE UPLOAD HAPPENS HERE**, so the frame path binds and draws
+   * and touches no allocator. */
+  [[nodiscard]] bool SetOverlay(const OverlayQuad *quads, size_t count, std::string &error) {
+    return Overlay_.SetQuads(Handles, quads, count, error);
+  }
+  /* The consumer's atlas -- a glyph sheet, an icon page. RGBA8, tightly packed, held until replaced. */
+  [[nodiscard]] bool SetOverlayAtlas(const uint8_t *rgba, int width, int height, std::string &error) {
+    return Overlay_.SetAtlas(Handles, rgba, width, height, error);
+  }
+
   [[nodiscard]] bool SetSubjectMesh(const SubjectMesh &mesh, std::string &error) {
     return Subjects_.SetMesh(mesh, error) && (!DrawsGlass_ || Glass_.SetMesh(mesh, error));
   }
@@ -235,6 +254,7 @@ private:
   bool DrawsGlass_ = false;
   CompositeTransmissionStage CompositeTransmission_;
   TonemapStage Tonemap_;
+  OverlayDraw Overlay_;
 
   bool Ready = false;
   int Width = 0, Height = 0;

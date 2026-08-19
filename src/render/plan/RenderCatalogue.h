@@ -38,6 +38,10 @@ enum class Resource {
   SceneComposited,
   AoBuffer,
   SceneLinear,
+  /* THE CONSUMER'S OWN IMAGE, WHICH THE ENGINE HOLDS AND NEVER MAKES (board:1442). A font, an icon
+   * sheet, a nine-patch -- who makes an asset is not the engine's business, so this is `Given` like a
+   * sampler and unlike every texture a stage derives. */
+  OverlayAtlas,
   FrameTex,
   Surface,
   kCount
@@ -83,6 +87,9 @@ enum class Resource {
     case Resource::SceneShadingNormal:
     case Resource::SceneSurfaceIdentity:
     case Resource::AoBuffer:
+    /* THE CONSUMER'S ATLAS IS NOT RADIANCE. It is an authored image in the display's own space, which
+     * is the whole reason the overlay sits after the transfer rather than before it. */
+    case Resource::OverlayAtlas:
     case Resource::FrameTex:
     case Resource::Surface:
     case Resource::kCount:
@@ -112,6 +119,7 @@ enum class Stage {
   AmbientOcclusion,
   TemporalResolve,
   Tonemap,
+  Overlay,
   Present,
   kCount
 };
@@ -286,6 +294,8 @@ inline constexpr ResourceRow kResources[] = {
      * through a full-screen blit that exists only to copy. */
     {Resource::SceneLinear, ResourceKind::Derived, FallbackKind::Alias, Resource::SceneComposited,
      TexelFormat::Rgba16Float, "sceneLinear"},
+    {Resource::OverlayAtlas, ResourceKind::Given, FallbackKind::None, kNoEdge, TexelFormat::Handle,
+     "overlayAtlas"},
     {Resource::FrameTex, ResourceKind::Attachment, FallbackKind::None, kNoEdge,
      TexelFormat::Rgba8UnormSrgb, "frameTex"},
     {Resource::Surface, ResourceKind::Attachment, FallbackKind::None, kNoEdge,
@@ -370,6 +380,13 @@ inline constexpr StageRow kStages[] = {
      {Resource::SceneLinear, Resource::SceneDepth, Resource::AoBuffer, Resource::Meter,
       Resource::LinearSampler, kNoEdge},
      {kNoEdge}, {Resource::FrameTex, kNoEdge}, kNoFusion},
+    /* THE INTERFACE, DRAWN OVER THE FRAME AND NOT THROUGH THE TRANSFER (board:1442). It CONTRIBUTES:
+     * the picture exists without it, which is exactly what makes a HUD a declaration and not a
+     * requirement, and it sits AFTER the tonemap because a consumer's colour is display-referred --
+     * a panel put through the transfer would come out a different colour than the one declared. */
+    {Stage::Overlay, Provenance::Content, PassKind::Raster, "overlay",
+     {Resource::OverlayAtlas, Resource::LinearSampler, kNoEdge}, {kNoEdge},
+     {Resource::FrameTex, kNoEdge}, kNoFusion},
     {Stage::Present, Provenance::Machinery, PassKind::Raster, "present",
      {Resource::FrameTex, Resource::LinearSampler, kNoEdge}, {kNoEdge},
      {Resource::Surface, kNoEdge}, kNoFusion},
