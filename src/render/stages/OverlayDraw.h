@@ -88,6 +88,7 @@ private:
   uint32_t Count = 0;     /* how many quads the buffer holds this frame */
   uint32_t Capacity = 0;  /* how many it can hold at all */
   int WidthPx = 0, HeightPx = 0;
+  bool Encodes = false;   /* the target encodes sRGB on write, so a declared colour is linearised */
 };
 
 } // namespace outshine::Render

@@ -131,6 +131,7 @@ bool Renderer::Executable(Stage stage) {
     case Stage::Tonemap:
       return true;
     case Stage::Overlay:
+    case Stage::Present:
       return true;
     case Stage::TemporalResolve:
       return true;
@@ -152,7 +153,6 @@ bool Renderer::Executable(Stage stage) {
     case Stage::Water:
     case Stage::Models:
     case Stage::AmbientOcclusion:
-    case Stage::Present:
     case Stage::kCount:
       return false;
   }
@@ -435,6 +435,8 @@ bool Renderer::Configure(Stage stage, std::string &error) {
     case Stage::Overlay:
       return Overlay_.Configure(Handles, Samp.Get(), FormatOf(Plan_->Format(Resource::FrameTex)),
                                 error);
+    case Stage::Present:
+      return Present_.Configure(Handles, FrameTex.Get(), Samp.Get(), error);
     case Stage::Tonemap:
       return Tonemap_.Configure(Handles, Target(Plan_->Bound(Resource::SceneComposited)),
                                 DepthTex.Get(), Samp.Get(),
@@ -454,7 +456,6 @@ bool Renderer::Configure(Stage stage, std::string &error) {
     case Stage::Water:
     case Stage::Models:
     case Stage::AmbientOcclusion:
-    case Stage::Present:
     case Stage::kCount:
       error = "this device layer does not execute the stage";
       return false;
@@ -497,6 +498,22 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
       Overlay_.Bind(Width, Height);
       Overlay_.Encode(ctx, into);
       return;
+    /* THE HOST'S SURFACE ARRIVED WITH THE FRAME AND ITS FORMAT CAME WITH IT, so the pipeline is built
+     * on the first frame that names one and reused on every frame after. A host that hands over a
+     * different format -- a window moved to another display -- gets a rebuild and not a refusal. */
+    case Stage::Present:
+      /* THE HOST'S SURFACE ARRIVED WITH THE FRAME AND SO DID ITS FORMAT. The plan states which format
+       * `Resource::Surface` carries, which is the same number the host used to create or claim it --
+       * so the pipeline is built the first time a frame is presented and reused after. */
+      {
+        std::string why;
+        if (!Present_.For(Handles, SurfaceFormat(), why)) {
+          Log::Error("render", "present_not_built", {{"msg", why}});
+          return;
+        }
+      }
+      Present_.Encode(ctx, into);
+      return;
     case Stage::MediumTransmittance:
     case Stage::MediumMultiScatter:
     case Stage::MediumRadiance:
@@ -512,7 +529,6 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
     case Stage::Water:
     case Stage::Models:
     case Stage::AmbientOcclusion:
-    case Stage::Present:
     case Stage::kCount:
       return;
   }

@@ -6,6 +6,9 @@
 
 #include <memory>
 #include <string>
+#include <vector>
+
+#include "RenderCatalogue.h"
 
 namespace outshine::Render {
 class Renderer;
@@ -37,8 +40,15 @@ public:
 
   /* The case's own directory, as prepared -- the manifest and the subject the manifest names. */
   [[nodiscard]] bool Read(const std::string &directory, std::string &error);
-  /* The renderer brought up on this case's own plan and its own frame size. */
-  [[nodiscard]] bool Start(outshine::Render::Renderer &renderer, std::string &error);
+  /* The renderer brought up on this case's own plan and its own frame size.
+   *
+   * **`alsoContent` IS WHAT THE HOST WANTS IN THE SAME PICTURE, and it is the host's to declare**
+   * (board:1447). A browser draws its own interface over the case it is showing; that is one plan with
+   * one more content stage, not a second renderer and not a blit. The case decides what its SUBJECT
+   * is and the host decides what else is in the frame -- which is the same division the plan already
+   * makes between machinery and content. */
+  [[nodiscard]] bool Start(outshine::Render::Renderer &renderer, std::string &error,
+                           const std::vector<outshine::Render::Stage> &alsoContent = {});
   /* The subject at one frame of the case's declared grid; frame 0 for a still. */
   [[nodiscard]] bool PoseAt(int frame, std::string &error);
   /* One picture, into whatever surface the renderer's host declared. */

@@ -19,7 +19,16 @@ namespace {
  * THE ROUNDED CORNER IS THE ROUNDED-BOX DISTANCE and it is antialiased over ONE pixel: a hard cut
  * would stair-step on every panel, and a wider ramp would make a small radius look blurred. */
 const char *kOverlayMsl = R"(
-struct Frame { float2 targetPx; float2 pad; };
+struct Frame { float2 targetPx; float encodesSrgb; float pad; };
+
+/* A DECLARED COLOUR IS sRGB AND A TARGET MAY ENCODE sRGB, so the two meet exactly once. CSS states
+ * `#12161b` in the display's own space; a target the driver encodes on write would turn that into a
+ * lighter code, so the shader hands over the LINEAR value whose encoding is the number the consumer
+ * wrote. Whether to do it is read from the target's FORMAT and never set: a stage told which space it
+ * is writing into cannot be told wrongly by a caller who forgot. */
+float3 asLinear(float3 code) {
+  return select(code / 12.92, pow((code + 0.055) / 1.055, 2.4), code > 0.04045);
+}
 
 struct VIn {
   float4 rect     [[attribute(0)]];
@@ -56,6 +65,7 @@ vertex VOut vs(uint vertexId [[vertex_id]], VIn in [[stage_in]], constant Frame 
   o.halfSize = in.rect.zw * 0.5;
   o.radius = min(in.shape.x, min(o.halfSize.x, o.halfSize.y));
   o.colour.a *= in.shape.y;
+  o.colour.rgb = f.encodesSrgb > 0.5 ? asLinear(o.colour.rgb) : o.colour.rgb;
   o.hasPatch = (in.uv.z > in.uv.x && in.uv.w > in.uv.y) ? 1.0 : 0.0;
   return o;
 }
@@ -85,6 +95,11 @@ constexpr uint32_t kAttributes = 5;
 bool OverlayDraw::Configure(const Gpu &gpu, SDL_GPUSampler *smooth,
                             SDL_GPUTextureFormat targetFormat, std::string &error) {
   Smooth = smooth;
+  /* THE TARGET'S OWN FORMAT DECIDES WHETHER A COLOUR IS CONVERTED, and the list is the formats whose
+   * writes the driver encodes. Deriving it here is what makes the conversion impossible to get wrong
+   * from outside. */
+  Encodes = targetFormat == SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB ||
+            targetFormat == SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM_SRGB;
 
   const std::string source = std::string(kMslPrelude) + kOverlayMsl;
   SDL_GPUShaderCreateInfo wanted{};
@@ -261,8 +276,9 @@ void OverlayDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   if (!Pipe || Count == 0 || !Verts || WidthPx <= 0 || HeightPx <= 0) { return; }
   struct Frame {
     float TargetPx[2];
-    float Pad[2];
-  } frame{{(float)WidthPx, (float)HeightPx}, {0.0f, 0.0f}};
+    float EncodesSrgb;
+    float Pad;
+  } frame{{(float)WidthPx, (float)HeightPx}, Encodes ? 1.0f : 0.0f, 0.0f};
   SDL_PushGPUVertexUniformData(into.Commands, 0, &frame, sizeof frame);
 
   SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());

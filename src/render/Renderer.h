@@ -27,6 +27,7 @@
 #include "Readback.h"
 #include "RenderPlan.h"
 #include "stages/OverlayDraw.h"
+#include "stages/PresentStage.h"
 #include "stages/Resolve.h"
 #include "stages/SubjectDraw.h"
 #include "stages/CompositeTransmissionStage.h"
@@ -255,6 +256,7 @@ private:
   CompositeTransmissionStage CompositeTransmission_;
   TonemapStage Tonemap_;
   OverlayDraw Overlay_;
+  PresentStage Present_;
 
   bool Ready = false;
   int Width = 0, Height = 0;

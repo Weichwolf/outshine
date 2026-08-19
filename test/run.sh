@@ -145,7 +145,7 @@ LayerIncludes() {
     outshine/shader) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render -Isrc/render/draw -Isrc/render/plan -Isrc/render/stages" ;;
     # THE BROWSER READS A CASE THE WAY THE RUNNER DOES, so it compiles the runner's own reader and
     # sees exactly the layers that reader sees -- one set, not a second one that could drift.
-    viewer) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
+    viewer) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui -Itest/viewer/parts" ;;
     *) return 1 ;;
   esac
 }
@@ -285,6 +285,7 @@ NotTheHarnesses() {
   case "$1" in
     harness/shared | harness/khronos/glTF | harness/outshine/render) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
     harness/shared/render) printf '%s' "the render scoring instrument, compiled into each corpus's own harness" ;;
+    viewer/parts) printf '%s' "the browser's own declaration and its face, compiled into the browser" ;;
     outshine/host) printf '%s' "host implementations of what the library declares, compiled into the library" ;;
     outshine/unit/compile | outshine/unit/compile/*) printf '%s' "a compile subject, judged by the layer's own refusal test, never linked" ;;
     harness/khronos/glTF/prepare | harness/outshine/render/prepare | harness/wpt/css/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;
@@ -298,7 +299,8 @@ NotTheHarnesses() {
 # asset. So the scorer is one file compiled into each harness rather than one binary behind a flag.
 LayerExtraSources() {
   case "$1" in
-    harness/khronos/glTF | harness/outshine/render | viewer) printf '%s' "test/harness/shared/render/Parity.cpp" ;;
+    harness/khronos/glTF | harness/outshine/render) printf '%s' "test/harness/shared/render/Parity.cpp" ;;
+    viewer) printf '%s' "test/harness/shared/render/Parity.cpp test/viewer/parts/Chrome.cpp" ;;
     *) printf '%s' "" ;;
   esac
 }

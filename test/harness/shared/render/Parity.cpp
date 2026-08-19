@@ -3535,9 +3535,13 @@ bool ConfiguredCase::Declines(void) const {
   return Held_->Subject.Criterion == CriterionKind::LimitsProbe;
 }
 
-bool ConfiguredCase::Start(outshine::Render::Renderer &renderer, std::string &error) {
+bool ConfiguredCase::Start(outshine::Render::Renderer &renderer, std::string &error,
+                           const std::vector<outshine::Render::Stage> &alsoContent) {
   outshine::Render::PlanSpec declaration;
   DeclarePlan(Held_->Subject, declaration);
+  for (const outshine::Render::Stage stage : alsoContent) {
+    declaration.Content.push_back(stage);
+  }
   /* THE HOST PRESENTS, SO THE PLAN SAYS SO. The runner reads `FrameTex` back and asks for no surface
    * at all; a windowed host draws into the one it acquired, and `Present` is the stage that puts it
    * there -- which is a stage the consumer declares like any other. */
