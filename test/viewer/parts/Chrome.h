@@ -61,21 +61,28 @@ struct Showing {
                                       int widthPx, int heightPx);
 
 /* The stylesheet, kept apart from the markup so a reader can see the whole appearance in one place. */
-[[nodiscard]] const char *Style(void);
+[[nodiscard]] std::string Style(void);
 
-/* WHERE THE PICTURE OF A CASE GOES: a rectangle in the surface's own pixels, centred in the pane that
- * is left of the two columns and scaled to fit while keeping the case's own aspect. **The host decides
- * where the picture goes and the library draws it there** -- which is the same sentence the surface
- * declaration makes, one level up. */
+/* **THE ONE PLACE A RATIO BECOMES A DEVICE PIXEL**: the root's text size, as a share of the surface's
+ * height. Everything else in this browser is a percentage, a multiple of the text or a share of what
+ * is left -- so a window twice as large shows the same interface twice as big. */
+[[nodiscard]] double RootEmPx(int heightPx);
+
+/* WHERE THE PICTURE OF A CASE GOES, **IN FRACTIONS OF THE SURFACE**: the room left of the two columns,
+ * below the plate. The library keeps the case's own shape inside it and resolves the pixels, so this
+ * browser never names one -- and a window that is resized costs it nothing.
+ *
+ * The two column widths are pixels because they are a stylesheet's, and turning them into a fraction
+ * is the one division that has to happen somewhere. */
 struct Region {
-  /* **NOT WHOLE PIXELS**, because rounding a rectangle changes its aspect and a camera framed for one
-   * shape may not be projected into another: 840 by 472 is 1.779661 where 1280 by 720 is 1.777778, and
-   * an orthographic placement is checked to a part in a trillion. The viewport takes floats. */
-  double LeftPx = 0, TopPx = 0, WidthPx = 0, HeightPx = 0;
-  [[nodiscard]] bool Held(void) const { return WidthPx > 0 && HeightPx > 0; }
+  double X = 0, Y = 0, Width = 0, Height = 0;
+  [[nodiscard]] bool Held(void) const { return Width > 0 && Height > 0; }
 };
 
-[[nodiscard]] Region StageRegion(int widthPx, int heightPx, int pictureW, int pictureH);
+[[nodiscard]] Region StageRegion(int widthPx, int heightPx);
+/* How much of the surface the two columns take, so a caller placing something in the pane needs no
+ * second copy of the two shares. */
+[[nodiscard]] double ColumnsWidth(int widthPx);
 
 /* HOW MANY ROWS FIT, which the scroll needs and the declaration already decides. One number in one
  * place, or the list scrolls past its own end on one side and not the other. */
@@ -88,7 +95,15 @@ void AddLinkedSheets(const std::string &prepared, Ui::Stylesheet &into);
 
 /* THE TRANSLATION, AND IT IS THE CLIENT'S BY DESIGN. The renderer takes its own quad because no
  * content noun has a spelling in it; this is the loop that costs. */
-[[nodiscard]] std::vector<Render::OverlayQuad> AsOverlay(const std::vector<Ui::Quad> &quads);
+[[nodiscard]] std::vector<Render::OverlayQuad> AsOverlay(const std::vector<Ui::Quad> &quads,
+                                                        double offsetX = 0, double offsetY = 0);
+
+/* **A CONSOLE FOR A CASE WHOSE SUBJECT IS A PROGRAM.** A script has no picture, so showing it as a
+ * blank pane says nothing; showing the program and what this engine made of it says everything a
+ * reader wants. It is a declaration like any other -- the browser has one way to draw. */
+[[nodiscard]] std::string Console(const std::string &title, const std::string &source,
+                                  const std::string &verdict, const char *why, int widthPx,
+                                  int heightPx);
 
 } // namespace outshine::Viewer
 #endif

@@ -3558,6 +3558,16 @@ bool ConfiguredCase::Start(outshine::Render::Renderer &renderer, std::string &er
   return true;
 }
 
+bool ConfiguredCase::FrameToFill(double fill, std::string &error) {
+  Placement derived;
+  if (!Held_->Subject.Geometry.Frame(derived, fill)) {
+    error = "the subject has no extent, so no camera can be derived from it";
+    return false;
+  }
+  Held_->Subject.Eye = derived;
+  return true;
+}
+
 bool ConfiguredCase::PoseAt(int frame, std::string &error) {
   if (Held_->Subject.Animated()) { Held_->Subject.PreviousGeometry = Held_->Subject.Geometry; }
   return PoseGeometry(Held_->Subject, frame, error);

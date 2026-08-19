@@ -122,12 +122,18 @@ struct Placer {
   std::vector<Box> *Out = nullptr;
 
   [[nodiscard]] Computed StyleOf(int node, const Computed *inherited) const;
+  /* `usedW` and `usedH` are the sizes a FLEX line already decided for this box, or -1 where nothing
+   * has. They are separate from the container's size because the two answer different questions: the
+   * container's is what a PERCENTAGE resolves against, and the used one is what the box IS. Passing one
+   * number for both makes `width: 15%` inside a flex item resolve against the item's own room -- which
+   * is 15 % of 15 %, and is how a column collapses to a fifth of itself. */
   double Place(int node, const Computed *inherited, double originX, double originY,
-               double containerWidth, double containerHeight, int parentBox);
+               double containerWidth, double containerHeight, int parentBox, double usedW = -1,
+               double usedH = -1);
   double Children(int node, const Computed &style, int self, double contentX, double contentY,
                   double contentWidth, double contentHeight, double emPx);
   double Blocks(int node, const Computed &style, int self, double contentX, double contentY,
-                double contentWidth, double emPx);
+                double contentWidth, double contentHeight, double emPx);
   double Flex(int node, const Computed &style, int self, double contentX, double contentY,
               double contentWidth, double contentHeight, double emPx);
   double Runs(int node, const Computed &style, int self, double contentX, double contentY,
@@ -501,12 +507,16 @@ double Placer::Runs(int node, const Computed &style, int self, double contentX, 
 }
 
 double Placer::Blocks(int node, const Computed &style, int self, double contentX, double contentY,
-                      double contentWidth, double emPx) {
+                      double contentWidth, double contentHeight, double emPx) {
   double y = contentY;
   y += Runs(node, style, self, contentX, y, contentWidth, emPx);
   for (const int child : Tree->Nodes()[(size_t)node].Children) {
     if (Tree->Nodes()[(size_t)child].Kind != NodeKind::Element) { continue; }
-    y += Place(child, &style, contentX, y, contentWidth, 0, self);
+    /* **A BLOCK HANDS ITS CHILDREN ITS OWN HEIGHT**, or a percentage height inside block flow has
+     * nothing to resolve against and every `height: 100%` in a column comes out zero. [MEASURED] the
+     * browser's own two columns collapsed to nothing on exactly this: `width: 100%` resolved and
+     * `height: 100%` did not, because only one of the two rooms was being passed down. */
+    y += Place(child, &style, contentX, y, contentWidth, contentHeight, self);
   }
   return y - contentY;
 }
@@ -951,12 +961,16 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
        * margins are the MAIN ones and a column's are the CROSS ones, so the two rooms are named by
        * axis rather than by side -- writing them by side is how a column ends up sized by a row's
        * arithmetic. */
-      const double widthRoom = column ? cross + one.CrossMarginStart + one.CrossMarginEnd
-                                      : one.Main + one.MainMarginStart + one.MainMarginEnd;
-      const double heightRoom = column ? one.Main : cross;
+      /* **THE CONTAINER IS THE CONTAINING BLOCK AND THE FLEXED SIZES ARE WHAT THE ITEM IS.** A
+       * percentage inside the item resolves against the first and the item's own box is the second;
+       * handing one number for both is how `width: 15%` inside a flex item became 15 % of 15 %. */
+      const bool stretched = !one.CrossDeclared && self_align == kStretch;
+      const double usedW = column ? (stretched || one.CrossDeclared ? cross : -1.0) : one.Main;
+      const double usedH = column ? one.Main : (stretched || one.CrossDeclared ? cross : -1.0);
       const int before = (int)Out->size();
       Place(one.Node, &style, x - (column ? one.CrossMarginStart : one.MainMarginStart),
-            y - (column ? one.MainMarginStart : one.CrossMarginStart), widthRoom, heightRoom, self);
+            y - (column ? one.MainMarginStart : one.CrossMarginStart), contentWidth, contentHeight,
+            self, usedW, usedH);
       if (before < (int)Out->size()) {
         Box &placed = (*Out)[(size_t)before];
         if (column) {
@@ -985,11 +999,12 @@ double Placer::Children(int node, const Computed &style, int self, double conten
   const uint32_t display = style.Word(Property::Display, kDisplayInline);
   return display == kDisplayFlex || display == kDisplayInlineFlex
              ? Flex(node, style, self, contentX, contentY, contentWidth, contentHeight, emPx)
-             : Blocks(node, style, self, contentX, contentY, contentWidth, emPx);
+             : Blocks(node, style, self, contentX, contentY, contentWidth, contentHeight, emPx);
 }
 
 double Placer::Place(int node, const Computed *inherited, double originX, double originY,
-                     double containerWidth, double containerHeight, int parentBox) {
+                     double containerWidth, double containerHeight, int parentBox, double usedW,
+                     double usedH) {
   const Node &element = Tree->Nodes()[(size_t)node];
   if (element.Kind == NodeKind::Text) { return 0; }
 
@@ -1062,6 +1077,12 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
   contentWidth = Clamped(contentWidth + (borderBox ? frameX : 0.0), style, Property::MinWidth,
                          Property::MaxWidth, containerWidth, emPx) -
                  (borderBox ? frameX : 0.0);
+  /* A SIZE A FLEX LINE ALREADY DECIDED WINS OVER EVERYTHING ABOVE, because the line resolved it from
+   * the same declarations and then flexed it -- and what arrives here is the BORDER box. */
+  if (usedW >= 0) {
+    widthAbsent = false;
+    contentWidth = std::fmax(0.0, usedW - frameX);
+  }
 
   bool heightAbsent = true;
   double contentHeight = 0;
@@ -1089,6 +1110,10 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
    * 30 for items in a container with no declared height and answered 0: the free space came out
    * negative against a room of zero, and the shrink obeyed it. `-1` is *there is no room to measure
    * against*, which is a third answer and not a small number. */
+  if (usedH >= 0) {
+    heightAbsent = false;
+    contentHeight = std::fmax(0.0, usedH - frameY);
+  }
   double heightRoom = heightAbsent ? -1.0 : contentHeight;
   if (heightAbsent && style.Has(Property::MaxHeight) &&
       style.Of(Property::MaxHeight).How != Unit::Auto) {

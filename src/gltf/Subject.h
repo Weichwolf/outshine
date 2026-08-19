@@ -40,6 +40,7 @@
 #include "Span.h"
 
 #include "Camera.h"
+#include "Framing.h"
 #include "Transform.h"
 #include "Variant.h"
 
@@ -95,7 +96,8 @@ struct Placement {
  * with the union, because a camera derived from ONE pose frames a shape an animated subject leaves --
  * `AnimatedTriangle` spins 360 degrees about the origin and reaches 2.12 from a centre the rest-pose
  * rule covers to 1.178. Refuses a degenerate box for the same reason `Frame` does. */
-[[nodiscard]] bool FramingFor(const double minM[3], const double maxM[3], Placement &out);
+[[nodiscard]] bool FramingFor(const double minM[3], const double maxM[3], Placement &out,
+                              double fill = kFramingFill);
 
 [[nodiscard]] bool DeclaredPlacement(const Document &document, int cameraIndex, Placement &out,
                                      std::string &error);
@@ -317,7 +319,10 @@ public:
 
   /* THE FRAMING RULE (Framing.h), applied to this subject's own bounds. Refuses a radius of zero:
    * a fallback camera there manufactures exactly the empty picture the guard exists to catch. */
-  [[nodiscard]] bool Frame(Placement &out) const;
+  [[nodiscard]] /* A CAMERA DERIVED FROM THIS SUBJECT'S OWN BOUNDS. `fill` is how much of the frame's shorter axis the
+   * subject spans: the corpus takes `kFramingFill`, because a case is compared against an oracle framed
+   * the same way, and a BROWSER may ask for more -- showing a model is not reproducing a shot. */
+  bool Frame(Placement &out, double fill = kFramingFill) const;
 
   /* The projected area of every triangle, in square pixels, at `clip` and `viewport`. Signed areas
    * are summed by magnitude, so a subject whose triangles overlap in the image is counted twice and

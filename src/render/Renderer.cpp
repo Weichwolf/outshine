@@ -418,6 +418,38 @@ DisplayOptions Renderer::Display(void) const {
   return options;
 }
 
+/* **THE ONE PLACE A RATIO BECOMES A PIXEL.** The host declared a rectangle in fractions and a shape to
+ * keep inside it; here is where the surface's own size is known, so here is where the two meet -- and
+ * the projection, the viewport and the aspect all read this one answer rather than three arithmetics
+ * that can disagree. It is not rounded: rounding a rectangle changes its shape, and a camera framed for
+ * one shape may not be projected into another. */
+Renderer::Placed Renderer::PictureRect(void) const {
+  Placed out;
+  out.LeftPx = 0;
+  out.TopPx = 0;
+  out.WidthPx = (double)Width;
+  out.HeightPx = (double)Height;
+  if (RegionW_ > 0 && RegionH_ > 0) {
+    out.LeftPx = RegionX_ * (double)Width;
+    out.TopPx = RegionY_ * (double)Height;
+    out.WidthPx = RegionW_ * (double)Width;
+    out.HeightPx = RegionH_ * (double)Height;
+  }
+  if (RegionAspect_ > 0 && out.WidthPx > 0 && out.HeightPx > 0) {
+    const double fitted = out.WidthPx / out.HeightPx > RegionAspect_ ? out.HeightPx * RegionAspect_
+                                                                    : out.WidthPx;
+    const double tall = fitted / RegionAspect_;
+    out.LeftPx += (out.WidthPx - fitted) / 2.0;
+    out.TopPx += (out.HeightPx - tall) / 2.0;
+    out.WidthPx = fitted;
+    out.HeightPx = tall;
+  }
+  return out;
+}
+
+double Renderer::PictureW(void) const { return PictureRect().WidthPx; }
+double Renderer::PictureH(void) const { return PictureRect().HeightPx; }
+
 SDL_GPUTextureFormat Renderer::SurfaceFormat(void) const {
   return Plan_ ? FormatOf(Plan_->Format(Resource::Surface)) : SDL_GPU_TEXTUREFORMAT_INVALID;
 }
@@ -497,16 +529,16 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
    * per-draw state inside a pass, so one pass can carry both -- which is what lets the tonemap end at
    * the pane's edge while the overlay reaches the whole surface. */
   const auto within = [&](bool picture) {
+    /* **THE VIEWPORT IS FLOATING POINT, SO THE RECTANGLE NEED NOT BE WHOLE PIXELS.** Rounding it
+     * changes its ASPECT -- 840 by 472 is 1.779661 where a case declares 1.777778 -- and a camera
+     * checked to a part in a trillion refuses that difference. The picture is placed exactly and the
+     * driver resolves the fraction, which is what a float viewport is for. */
     SDL_GPUViewport where{};
-    const bool given = picture && RegionWidth_ > 0 && RegionHeight_ > 0;
-    /* **THE VIEWPORT IS FLOATING POINT, SO THE REGION NEED NOT BE WHOLE PIXELS.** Rounding it to
-     * integers changes its ASPECT -- 840 by 472 is 1.779661 where the case declares 1.777778 -- and a
-     * camera checked to a part in a trillion refuses that difference. The picture is placed exactly
-     * and the driver resolves the fraction, which is what a float viewport is for. */
-    where.x = given ? (float)RegionLeft_ : 0.0f;
-    where.y = given ? (float)RegionTop_ : 0.0f;
-    where.w = given ? (float)RegionWidth_ : (float)Width;
-    where.h = given ? (float)RegionHeight_ : (float)Height;
+    const Placed rect = PictureRect();
+    where.x = picture ? (float)rect.LeftPx : 0.0f;
+    where.y = picture ? (float)rect.TopPx : 0.0f;
+    where.w = picture ? (float)rect.WidthPx : (float)Width;
+    where.h = picture ? (float)rect.HeightPx : (float)Height;
     where.min_depth = 0.0f;
     where.max_depth = 1.0f;
     if (into.Pass != nullptr) { SDL_SetGPUViewport(into.Pass, &where); }

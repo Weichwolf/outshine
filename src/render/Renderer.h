@@ -62,22 +62,26 @@ public:
    * learns which texture the final pass attaches. */
   void PresentInto(SDL_GPUTexture *surface) { HostSurface_ = surface; }
 
-  /* **WHICH PART OF THE SURFACE THE PICTURE OCCUPIES, AND THE HOST DECIDES IT** (board:1447). A
-   * browser shows a case beside its lists rather than under them; a split screen shows two; a mirror
-   * in a corridor shows one small. All three are this rectangle, and none of them is a second renderer.
+  /* **WHICH PART OF THE SURFACE THE PICTURE OCCUPIES, IN FRACTIONS OF IT** (board:1447). A browser
+   * showing a case beside its lists, a split screen, a mirror in a corridor -- all three are this
+   * rectangle, and none of them is a second renderer.
    *
-   * **THE ASPECT COMES FROM THE REGION AND NOT FROM THE SURFACE**, or a picture framed for one shape is
-   * projected into another and every camera the case declared is wrong by the difference. That is why
-   * this sets a viewport AND the projection rather than a viewport alone.
+   * **THE HOST SPEAKS RATIOS AND THE LIBRARY KNOWS PIXELS.** That the renderer has a resolution is
+   * plain; that a consumer should have to say one is not. Where the picture goes is a ratio, how much
+   * of the frame the subject spans is a ratio, and what shape it has is a ratio -- so a window that is
+   * resized costs the host nothing at all, and the one place a pixel is resolved is the one place that
+   * knows how many there are.
    *
-   * A width or height of zero means *the whole surface*, which is what a host that never calls this
-   * gets. What the region does not cover keeps the frame's clear, so a consumer draws its own
-   * interface there. */
-  void SetPictureRegion(double leftPx, double topPx, double widthPx, double heightPx) {
-    RegionLeft_ = leftPx;
-    RegionTop_ = topPx;
-    RegionWidth_ = widthPx;
-    RegionHeight_ = heightPx;
+   * `aspect` is the shape to keep INSIDE that rectangle: the largest box of that shape is centred in
+   * it, which is what makes a camera framed for 16:9 stay 16:9 wherever it lands. Zero means *take the
+   * rectangle as it is*, which is what a consumer filling a whole surface wants. A width or height of
+   * zero means the whole surface. */
+  void SetPictureRegion(double x, double y, double width, double height, double aspect = 0.0) {
+    RegionX_ = x;
+    RegionY_ = y;
+    RegionW_ = width;
+    RegionH_ = height;
+    RegionAspect_ = aspect;
   }
 
   /* Run the passes and submit. It does NOT wait: the device runs behind the caller, which is what a
@@ -226,12 +230,8 @@ public:
    * difference. */
   [[nodiscard]] int SceneW(void) const { return Width; }
   [[nodiscard]] int SceneH(void) const { return Height; }
-  [[nodiscard]] double PictureW(void) const {
-    return RegionWidth_ > 0 ? RegionWidth_ : (double)Width;
-  }
-  [[nodiscard]] double PictureH(void) const {
-    return RegionHeight_ > 0 ? RegionHeight_ : (double)Height;
-  }
+  [[nodiscard]] double PictureW(void) const;
+  [[nodiscard]] double PictureH(void) const;
   /* **THE PICTURE'S SHAPE AND NOT THE SURFACE'S.** A parallel projection needs it and a perspective one
    * does not: the vertical field of view fixes the horizontal only once the aspect is known -- and the
    * aspect a camera was framed for is the picture's. One place answers *what shape is the picture*, so
@@ -316,7 +316,14 @@ private:
   float Jitter_[2] = {0.0f, 0.0f};
   float PrevJitter_[2] = {0.0f, 0.0f};
   bool CameraFull = false;                /* SetCameraBasis used */
-  double RegionLeft_ = 0, RegionTop_ = 0, RegionWidth_ = 0, RegionHeight_ = 0;
+  /* Fractions of the surface, and the shape to keep inside them. */
+  double RegionX_ = 0, RegionY_ = 0, RegionW_ = 0, RegionH_ = 0, RegionAspect_ = 0;
+  /* THE RESOLVED RECTANGLE IN THE SURFACE'S OWN PIXELS, derived where the pixels are known and stored
+   * so that the projection, the viewport and the aspect all read one answer. */
+  struct Placed {
+    double LeftPx = 0, TopPx = 0, WidthPx = 0, HeightPx = 0;
+  };
+  [[nodiscard]] Placed PictureRect(void) const;
   double Eye[3] = {0, 0, 0};
   double Fwd[3] = {0, 0, 0}, Right[3] = {0, 0, 0}, Up[3] = {0, 0, 0};
   float FovDeg = 60.0f;                   /* [SET] until a scene declares one */

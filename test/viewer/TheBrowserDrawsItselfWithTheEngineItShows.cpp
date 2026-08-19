@@ -40,8 +40,15 @@ namespace View = outshine::Viewer;
 
 namespace {
 
-constexpr int kWidth = 1280;
-constexpr int kHeight = 720;
+/* [SET] THE WINDOW THIS BROWSER ASKS FOR, and the system may give it less. Bigger than the frame the
+ * corpus is measured at, because two columns and a picture is what has to fit -- and the picture is
+ * what the window is for. */
+constexpr int kWidth = 1600;
+constexpr int kHeight = 900;
+
+/* [SET] HOW MUCH OF ITS PANE A MODEL SPANS. The corpus frames at 0.6 because an oracle is framed the
+ * same way; a browser is not comparing anything, so it fills what it can without touching the edge. */
+constexpr double kBrowserFill = 0.92;
 
 /* [SET] WHAT SHARE OF THE FRAME THE BROWSER'S OWN CHROME MAY TAKE ON THE CPU, beside whatever the
  * case it is showing costs. A tenth is the same share the interface was given when it was measured
@@ -63,6 +70,14 @@ struct Browser final : outshine::Script::Host {
   Ui::Stylesheet Sheet;
   Ui::Layout Placed;
   Ui::Painting Painted;
+  /* **WHAT IS IN THE PANE WHEN THE CASE HAS NO PICTURE.** A document is laid out and painted by the
+   * same engine that draws these columns, and a program is shown as a console -- the browser has one
+   * way to draw, and a blank pane would say nothing about either. */
+  Ui::Markup PaneTree;
+  Ui::Stylesheet PaneSheet;
+  Ui::Layout PanePlaced;
+  Ui::Painting PanePainted;
+  std::vector<outshine::Render::OverlayQuad> Ready;
 
   [[nodiscard]] bool Compose(std::string &error) {
     const std::string document = View::Declaration(Cases, Showing, WidthPx, HeightPx);
@@ -72,8 +87,61 @@ struct Browser final : outshine::Script::Host {
     Sheet.Read(Ui::UserAgentSheet());
     Sheet.Read(Tree.StyleText());
     if (!Placed.Build(Tree, Sheet, WidthPx, HeightPx, Face, error)) { return false; }
-    return Painted.Build(Placed, Face, error);
+    if (!Painted.Build(Placed, Face, error)) { return false; }
+    Ready = View::AsOverlay(Painted.Quads());
+    Pane(error);
+    return true;
   }
+
+  /* THE PANE'S OWN CONTENT, appended to the chrome's rectangles. A render case leaves it empty -- the
+   * library drew there -- and the other two kinds fill it with a picture the UI engine made. */
+  void Pane(std::string &error) {
+    const std::vector<int> shown = View::Filtered(Cases, Showing);
+    if (Showing.Selected < 0 || Showing.Selected >= (int)shown.size()) { return; }
+    const View::Listed &one = Cases[(size_t)shown[(size_t)Showing.Selected]];
+    if (!one.Document && !one.Script) { return; }
+
+    const int left = (int)View::ColumnsWidth(WidthPx);
+    const int top = 0;
+    const int w = PaneWidth(), h = HeightPx;
+    if (w <= 0 || h <= 0) { return; }
+
+    bool found = false;
+    const std::string entry = View::EntryOf(one.Prepared, found);
+    std::string document;
+    if (one.Script) {
+      /* WHAT THIS ENGINE MAKES OF THE PROGRAM, which for most of the corpus is *outside the subset*
+       * with the boundary that says why -- the same answer the suite publishes, shown where a reader
+       * is looking. */
+      outshine::Script::Program program;
+      std::string why;
+      const bool reads = found && program.Read(entry, why);
+      const std::string token =
+          program.Stopped().empty() ? std::string() : "token:" + program.Stopped();
+      document = View::Console(one.Name, found ? entry : "the case is not prepared",
+                               reads ? "READS -- " + std::to_string(program.NodeCount()) + " NODES"
+                                     : "REFUSED: " + why,
+                               token.empty() ? nullptr : outshine::Script::WhyOutside(token), w, h);
+    } else if (found) {
+      document = entry;
+    } else {
+      return;
+    }
+
+    PaneTree = Ui::Markup();
+    PaneSheet = Ui::Stylesheet();
+    if (!PaneTree.Read(document, error)) { return; }
+    PaneSheet.Read(Ui::UserAgentSheet());
+    if (one.Document) { View::AddLinkedSheets(one.Prepared, PaneSheet); }
+    PaneSheet.Read(PaneTree.StyleText());
+    if (!PanePlaced.Build(PaneTree, PaneSheet, w, h, Face, error)) { return; }
+    if (!PanePainted.Build(PanePlaced, Face, error)) { return; }
+    const std::vector<outshine::Render::OverlayQuad> inside =
+        View::AsOverlay(PanePainted.Quads(), left, top);
+    Ready.insert(Ready.end(), inside.begin(), inside.end());
+  }
+
+  [[nodiscard]] int PaneWidth(void) const { return WidthPx - (int)View::ColumnsWidth(WidthPx); }
 
   /* A POINTER EVENT IS A HIT AND A DECLARED ACTION, AND THE ACTION IS A SCRIPT. The library hands
    * back the text the element carried and decides nothing about it; the interpreter reads it and the
@@ -250,7 +318,7 @@ int main(int argc, char **argv) {
    * painted a panel over the right-hand side, the case's picture would be behind it and the claim
    * *two targets of one renderer* would be a claim about a picture nobody sees. */
   {
-    const int overStage = Covering(browser.Painted, 1000, 400);
+    const int overStage = Covering(browser.Painted, kWidth - 40, kHeight / 2);
     CHECK(overStage < 0,
           "nothing is painted over the stage, so the picture the library drew is what is seen there");
     const int overPanel = Covering(browser.Painted, 20, 400);
@@ -262,14 +330,18 @@ int main(int argc, char **argv) {
    * x = 20 is choosing a corpus and one at x = 300 is choosing a case, and the coordinates below are
    * the declaration's own geometry rather than numbers this test invented. */
   {
-    const int firstRow = 26 + 9;   /* the column's head, then half a row */
-    browser.Touched(300, firstRow);
+    /* THE GEOMETRY IS THE DECLARATION'S OWN: the head is 1.8 em and a row 1.3, and the root em is the
+     * surface's height over 45. A test that wrote pixels here would be a second copy of a ratio. */
+    const double em = View::RootEmPx(kHeight);
+    const int firstRow = (int)(1.8 * em + 0.65 * em);
+    const int caseColumn = (int)(View::ColumnsWidth(kWidth) - 0.1 * kWidth);
+    browser.Touched(caseColumn, firstRow);
     CHECK(browser.Showing.Selected == 0, "a pointer on the first row of the case column selects it");
     CHECK(browser.Compose(error), "and the declaration recomposes with the selection in it");
 
     const std::vector<std::string> suites = View::Suites(browser.Cases);
     CHECK(!suites.empty(), "the corpus column is derived from the listing");
-    browser.Touched(20, 26 + 18 + 9);   /* the head, the ALL row, then half of the first corpus */
+    browser.Touched(20, (int)(1.8 * em + 1.3 * em + 0.65 * em));
     CHECK(!browser.Showing.Suite.empty(), "a pointer on a corpus filters to it");
     CHECK(browser.Showing.Selected == -1, "and clears a selection that belonged to another listing");
     const size_t narrowed = View::Filtered(browser.Cases, browser.Showing).size();
@@ -293,13 +365,16 @@ int main(int argc, char **argv) {
     browser.Showing.ScrolledRows = 0;
     browser.Recount();
     CHECK(browser.Compose(error), "the unfiltered listing composes");
-    const int before = Covering(browser.Painted, 300, 26 + 9);
+    const double em = View::RootEmPx(kHeight);
+    const int row = (int)(1.8 * em + 0.65 * em);
+    const int column = (int)(View::ColumnsWidth(kWidth) - 0.1 * kWidth);
+    const int before = Covering(browser.Painted, column, row);
     const double firstY = before >= 0 ? browser.Painted.Quads()[(size_t)before].Y : -1.0;
 
     browser.Scrolled(1);
     CHECK(browser.Showing.ScrolledRows == 1, "one notch scrolls one row");
     CHECK(browser.Compose(error), "the scrolled listing composes");
-    const int after = Covering(browser.Painted, 300, 26 + 9);
+    const int after = Covering(browser.Painted, column, row);
     const double nextY = after >= 0 ? browser.Painted.Quads()[(size_t)after].Y : -1.0;
     CHECK(before >= 0 && after >= 0, "a row is under the pointer before and after the scroll");
     CHECK(firstY == nextY,
@@ -329,8 +404,7 @@ int main(int argc, char **argv) {
       browser.Recount();
       const auto began = std::chrono::steady_clock::now();
       const bool composed = browser.Compose(error);
-      const std::vector<outshine::Render::OverlayQuad> ready =
-          View::AsOverlay(browser.Painted.Quads());
+      const std::vector<outshine::Render::OverlayQuad> &ready = browser.Ready;
       const double ms =
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
       if (!composed) { break; }
@@ -409,6 +483,39 @@ int main(int argc, char **argv) {
         }
       }
     }
+  }
+
+  /* **THE PANE HOLDS WHAT THE CASE IS**, and for two of the three kinds that is a picture this engine
+   * made rather than one the renderer drew. A document is laid out and painted by the same engine that
+   * draws these columns; a program is shown as a console, because a blank pane says nothing about a
+   * case whose subject has no picture at all. */
+  {
+    const std::vector<int> all = View::Filtered(browser.Cases, browser.Showing);
+    int documentAt = -1, scriptAt = -1;
+    for (int at = 0; at < (int)all.size(); ++at) {
+      const View::Listed &one = browser.Cases[(size_t)all[(size_t)at]];
+      if (one.Document && documentAt < 0) { documentAt = at; }
+      if (one.Script && scriptAt < 0) { scriptAt = at; }
+    }
+    CHECK(documentAt >= 0 && scriptAt >= 0, "the tree declares a document case and a script case");
+
+    browser.Showing.Selected = -1;
+    CHECK(browser.Compose(error), "with nothing selected the browser composes");
+    const size_t bare = browser.Ready.size();
+
+    browser.Showing.Selected = documentAt;
+    CHECK(browser.Compose(error), "and with a document selected it composes too");
+    CHECK(browser.Ready.size() > bare,
+          "a document case puts rectangles in the pane -- drawn by the engine that drew the columns "
+          "around them, which is the property this browser exists to hold");
+
+    browser.Showing.Selected = scriptAt;
+    CHECK(browser.Compose(error), "and with a program selected it composes");
+    CHECK(browser.Ready.size() > bare,
+          "a program is shown as a console: its own text and what this engine made of it, because a "
+          "case with no picture still has something to say");
+    browser.Showing.Selected = -1;
+    CHECK(browser.Compose(error), "and the browser returns to nothing selected");
   }
 
   /* THE FACE IS THE CLIENT'S ASSET AND IT IS LEGIBLE. Ahem would put a filled square where every
@@ -530,10 +637,17 @@ int Windowed(Browser &browser, int frames) {
             fresh->Start(renderer, why, {outshine::Render::Stage::Overlay}, browser.WidthPx,
                          browser.HeightPx) &&
             fresh->PoseAt(0, why)) {
+          /* **THE BROWSER FRAMES THE MODEL AND DOES NOT REPRODUCE THE SHOT.** A case's own camera is
+           * what an oracle is compared against; a person opening a browser wants to SEE the thing, and
+           * a subject that fills a tenth of its frame because its author stood far back is a subject
+           * nobody can look at. A failure here is not fatal -- a subject with no extent keeps the
+           * camera it declared. */
+          std::string framing;
+          (void)fresh->FrameToFill(kBrowserFill, framing);
           live = std::move(fresh);
-          const View::Region where = View::StageRegion(browser.WidthPx, browser.HeightPx,
-                                                       live->WidthPx(), live->HeightPx());
-          renderer.SetPictureRegion(where.LeftPx, where.TopPx, where.WidthPx, where.HeightPx);
+          const View::Region where = View::StageRegion(browser.WidthPx, browser.HeightPx);
+          renderer.SetPictureRegion(where.X, where.Y, where.Width, where.Height,
+                                    (double)live->WidthPx() / (double)live->HeightPx());
           browser.Showing.Note = "SHOWING " + browser.Cases[(size_t)wanted].Name;
         } else {
           browser.Showing.Note = "DECLINED " + why;
@@ -543,7 +657,7 @@ int Windowed(Browser &browser, int frames) {
        * plan owned, so the atlas is handed over afterwards each time -- it lives in the stage the
        * plan just rebuilt. */
       if (!live) {
-        renderer.SetPictureRegion(0, 0, 0, 0);
+        renderer.SetPictureRegion(0, 0, 0, 0, 0);
         renderer.Init(browser.WidthPx, browser.HeightPx, plan);
         browser.Recount();
       }
@@ -553,15 +667,21 @@ int Windowed(Browser &browser, int frames) {
     }
 
     if (!browser.Compose(error)) { browser.Showing.Note = "THE DECLARATION WAS REFUSED"; }
-    const std::vector<outshine::Render::OverlayQuad> ready =
-        View::AsOverlay(browser.Painted.Quads());
-    if (!renderer.SetOverlay(ready.data(), ready.size(), error)) { running = false; }
+    if (!renderer.SetOverlay(browser.Ready.data(), browser.Ready.size(), error)) { running = false; }
 
     SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(renderer.Device());
     SDL_GPUTexture *surface = nullptr;
     Uint32 gotW = 0, gotH = 0;
     if (SDL_WaitAndAcquireGPUSwapchainTexture(commands, window, &surface, &gotW, &gotH) &&
         surface != nullptr) {
+      /* **THE SWAPCHAIN'S OWN SIZE IS THE SURFACE'S**, and the window's is only what was asked for:
+       * a system may grant less, and a display may hand back more device pixels than points. The
+       * browser lays itself out for what it was GIVEN, or its columns are placed for a frame that does
+       * not exist. */
+      if ((int)gotW != browser.WidthPx || (int)gotH != browser.HeightPx) {
+        browser.WidthPx = (int)gotW;
+        browser.HeightPx = (int)gotH;
+      }
       renderer.PresentInto(surface);
       SDL_SubmitGPUCommandBuffer(commands);
       /* THE CASE DRAWS ITSELF THROUGH THE LIBRARY, or the library draws the chrome alone. Either way

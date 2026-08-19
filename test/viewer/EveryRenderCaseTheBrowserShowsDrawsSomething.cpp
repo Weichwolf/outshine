@@ -155,9 +155,9 @@ int main(void) {
               __LINE__);
       continue;
     }
-    const View::Region where =
-        View::StageRegion(kSurfaceW, kSurfaceH, held.WidthPx(), held.HeightPx());
-    renderer.SetPictureRegion(where.LeftPx, where.TopPx, where.WidthPx, where.HeightPx);
+    const View::Region where = View::StageRegion(kSurfaceW, kSurfaceH);
+    renderer.SetPictureRegion(where.X, where.Y, where.Width, where.Height,
+                              (double)held.WidthPx() / (double)held.HeightPx());
     showing.Note = "SHOWING " + one.Name;
     const std::string document = View::Declaration(cases, showing, kSurfaceW, kSurfaceH);
     chromeTree = Ui::Markup();
@@ -245,8 +245,8 @@ int main(void) {
     /* **THE PICTURE IS INSIDE ITS PANE AND NOWHERE ELSE.** A texel just left of the region belongs to
      * the browser and a texel inside it belongs to the case, and a viewport that leaked would show the
      * case under the lists -- which is the one thing centring is for. */
-    const int outsideR = codeAt((int)where.LeftPx - 4, (int)(where.TopPx + where.HeightPx / 2), 0);
-    const int outsideG = codeAt((int)where.LeftPx - 4, (int)(where.TopPx + where.HeightPx / 2), 1);
+    const int outsideR = codeAt((int)View::ColumnsWidth(kSurfaceW) - 4, kSurfaceH / 2, 0);
+    const int outsideG = codeAt((int)View::ColumnsWidth(kSurfaceW) - 4, kSurfaceH / 2, 1);
     Checked(outsideR >= 0 && outsideR < 40 && outsideG < 40,
             "the picture stops at its pane's edge",
             (one.Name + ": the texel left of the region reads " + std::to_string(outsideR) + " " +
@@ -254,9 +254,9 @@ int main(void) {
                 .c_str(),
             __FILE__, __LINE__);
     ++drew;
-    std::printf("  %-42s %4d x %-4d in a %.1f x %.1f pane at %.1f,%.1f  %zu varying px\n",
-                one.Name.c_str(), held.WidthPx(), held.HeightPx(), where.WidthPx, where.HeightPx,
-                where.LeftPx, where.TopPx, varying);
+    std::printf("  %-42s %4d x %-4d in %.0f x %.0f px of the pane  %zu varying px\n",
+                one.Name.c_str(), held.WidthPx(), held.HeightPx(), renderer.PictureW(),
+                renderer.PictureH(), varying);
   }
 
   std::printf("NOTE cases the tree declares = %zu\n", cases.size());

@@ -54,6 +54,13 @@ public:
   [[nodiscard]] bool Start(outshine::Render::Renderer &renderer, std::string &error,
                            const std::vector<outshine::Render::Stage> &alsoContent = {},
                            int surfaceW = 0, int surfaceH = 0);
+  /* **THE CAMERA THE SUBJECT'S OWN BOUNDS GIVE, instead of the one the case declares.** A runner
+   * comparing against an oracle must keep the case's shot; a BROWSER is showing a model, and a model
+   * that fills a tenth of the frame because its author put the camera far away is a model nobody can
+   * see. `fill` is how much of the shorter axis it spans. It is the host's call, taken after `Start`
+   * and before `Draw`. */
+  [[nodiscard]] bool FrameToFill(double fill, std::string &error);
+
   /* The subject at one frame of the case's declared grid; frame 0 for a still. */
   [[nodiscard]] bool PoseAt(int frame, std::string &error);
   /* One picture, into whatever surface the renderer's host declared. */
