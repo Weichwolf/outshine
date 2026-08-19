@@ -132,8 +132,12 @@ std::string Declaration(const std::vector<Listed> &cases, const Showing &showing
   out += "<div class=bar style=\"height:" + std::to_string(kBarPx) + "px\">";
   for (const std::string &suite : suites) {
     const bool on = showing.Suite == suite;
-    out += "<div class=\"" + std::string(on ? "tab-on" : "tab") + "\" data-action=\"suite:" +
-           Quoted(suite) + "\">" + Quoted(suite) + "</div>";
+    /* THE ACTION IS A SCRIPT AND NOT A TOKEN THE BROWSER TAKES APART. `suite("wpt/css/flexbox")` is
+     * read by the interpreter and answered by a host this browser implements, so what the word means
+     * lives in one place -- and adding a control is adding a native rather than another prefix to
+     * pick off a string. */
+    out += "<div class=\"" + std::string(on ? "tab-on" : "tab") + "\" data-action=\"suite('" +
+           Quoted(suite) + "')\">" + Quoted(suite) + "</div>";
   }
   out += "</div>";
 
@@ -152,7 +156,8 @@ std::string Declaration(const std::vector<Listed> &cases, const Showing &showing
     const Listed &one = cases[(size_t)shown[(size_t)at]];
     const char *style = at == showing.Selected ? "row-on" : (one.Ready ? "row" : "row-out");
     out += "<div class=" + std::string(style) + " style=\"height:" + std::to_string(kRowPx) +
-           "px\" data-action=\"case:" + std::to_string(at) + "\">" + Quoted(one.Name) + "</div>";
+           "px\" data-action=\"select(" + std::to_string(at) + ")\">" + Quoted(one.Name) +
+           "</div>";
   }
   out += "</div></div>";
 

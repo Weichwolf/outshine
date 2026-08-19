@@ -32,6 +32,7 @@
 #include "Pointer.h"
 #include "RenderCase.h"
 #include "Renderer.h"
+#include "Script.h"
 
 using namespace outshine::Test;
 namespace Ui = outshine::Ui;
@@ -51,7 +52,7 @@ constexpr double kChromeShare = 0.10;
 /* WHAT THE BROWSER IS AND WHAT IT KNOWS, and the state is the whole of what its appearance depends
  * on. Two frames of this struct that compare equal produce the same document, which is the property
  * every claim below rests on. */
-struct Browser {
+struct Browser final : outshine::Script::Host {
   std::vector<View::Listed> Cases;
   View::Showing Showing;
   View::SheetFont Face;
@@ -74,22 +75,50 @@ struct Browser {
     return Painted.Build(Placed, Face, error);
   }
 
-  /* A POINTER EVENT IS A HIT AND A DECLARED ACTION, AND WHAT IT MEANS IS DECIDED HERE. The library
-   * hands back the string the element carried; every sentence below is the browser's own reading of
-   * it, and none of it is spellable one layer down. */
+  /* A POINTER EVENT IS A HIT AND A DECLARED ACTION, AND THE ACTION IS A SCRIPT. The library hands
+   * back the text the element carried and decides nothing about it; the interpreter reads it and the
+   * host below answers its words, so what `select` MEANS lives in one place. Adding a control to this
+   * browser is adding a native here -- not another prefix to pick off a string. */
   void Touched(double x, double y) {
     const Ui::Touched found = Ui::Under(Placed, Tree, x, y);
     if (found.Action.empty()) { return; }
-    if (found.Action.compare(0, 6, "suite:") == 0) {
-      const std::string wanted = found.Action.substr(6);
-      Showing.Suite = Showing.Suite == wanted ? std::string() : wanted;
-      Showing.Selected = -1;
-      Showing.ScrolledRows = 0;
-      return;
+    outshine::Script::Program handler;
+    std::string why;
+    if (!handler.Read(found.Action, why) || !handler.Run(*this, why)) {
+      Showing.Note = "THE DECLARED ACTION WAS REFUSED";
     }
-    if (found.Action.compare(0, 5, "case:") == 0) {
-      Showing.Selected = std::atoi(found.Action.c_str() + 5);
+  }
+
+  /* THE BROWSER'S OWN VOCABULARY, AND IT IS THREE WORDS. Nothing in `src/core/Script.cpp` knows any of
+   * them; they exist because this file put them there, which is the whole design of the host. */
+  [[nodiscard]] outshine::Script::Value Global(const std::string &name) override {
+    if (name == "select") { return outshine::Script::Value::OfRef(kSelect); }
+    if (name == "suite") { return outshine::Script::Value::OfRef(kSuite); }
+    if (name == "scroll") { return outshine::Script::Value::OfRef(kScroll); }
+    return {};
+  }
+  [[nodiscard]] bool Call(const outshine::Script::Value &callee,
+                          const outshine::Script::Value *args, size_t count,
+                          outshine::Script::Value &out) override {
+    if (callee.What != outshine::Script::Kind::Ref || count != 1) { return false; }
+    out = outshine::Script::Value();
+    switch (callee.Ref) {
+      case kSelect:
+        Showing.Selected = (int)args[0].Number;
+        return true;
+      case kSuite: {
+        const std::string wanted = args[0].AsText();
+        Showing.Suite = Showing.Suite == wanted ? std::string() : wanted;
+        Showing.Selected = -1;
+        Showing.ScrolledRows = 0;
+        return true;
+      }
+      case kScroll:
+        Scrolled((int)args[0].Number);
+        return true;
+      default: break;
     }
+    return false;
   }
 
   void Scrolled(int rows) {
@@ -99,6 +128,10 @@ struct Browser {
   }
 
   /* THE SENTENCE THE STATUS LINE CARRIES, derived from the listing rather than counted by hand. */
+  static constexpr int kSelect = 1;
+  static constexpr int kSuite = 2;
+  static constexpr int kScroll = 3;
+
   void Recount(void) {
     int ready = 0, documents = 0;
     const std::vector<int> shown = View::Filtered(Cases, Showing);
