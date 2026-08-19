@@ -1,0 +1,62 @@
+{
+  "schema": "outshine/ui-case-manifest",
+  "schemaVersion": 1,
+  "id": "relayout-align-items",
+  "title": "CSS Flexbox: Relayout align flex items",
+  "covers": [
+    "css-flexbox-1"
+  ],
+  "criterion": {
+    "kind": "layout-assertions",
+    "says": "every element carrying data-expected-width, data-expected-height, data-offset-x or data-offset-y lands at exactly that width, height and viewport offset in CSS pixels",
+    "statedAt": "https://github.com/web-platform-tests/wpt/blob/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-flexbox/relayout-align-items.html"
+  },
+  "viewport": {
+    "widthPx": 800,
+    "heightPx": 600,
+    "note": "the reftest viewport WPT lays its own references out in"
+  },
+  "subjects": [
+    {
+      "kind": "document",
+      "id": "relayout-align-items",
+      "name": "relayout-align-items",
+      "source": {
+        "kind": "web-platform-tests",
+        "commit": "550efd4a2f1f14877d424b5668fbb6e63d5f6165",
+        "path": "css/css-flexbox/relayout-align-items.html",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of web-platform-tests on the day the UI suite was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-flexbox/relayout-align-items.html",
+          "sha256": "d35f4b3f112299390ec7a5ad24558f1a440838c764b393ab679d987f144ffdbd",
+          "bytes": 2287,
+          "as": "relayout-align-items.html",
+          "role": "document",
+          "licence": {
+            "spdx": "BSD-3-Clause OR LicenseRef-W3C-Software-and-Document",
+            "holder": "web-platform-tests contributors",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/LICENSE.md"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-flexbox/support/flexbox.css",
+          "sha256": "d73d33ec476c6e00a3cc6b526f4c033c6c9df6733e956c48b3e94bc037ab7a63",
+          "bytes": 2900,
+          "as": "flexbox.css",
+          "role": "stylesheet",
+          "licence": {
+            "spdx": "BSD-3-Clause OR LicenseRef-W3C-Software-and-Document",
+            "holder": "web-platform-tests contributors",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/LICENSE.md"
+          }
+        }
+      ],
+      "entry": "relayout-align-items.html"
+    }
+  ]
+}

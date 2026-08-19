@@ -93,6 +93,22 @@ class Manifest:
         self.covers = self.document["covers"]
         self.criterion = self.document["criterion"]
         self.subjects = _subjects(self.document["subjects"])
+        # A UI CASE HAS NO ORACLE AND SO NO ORACLE POLICY. Everything below this line is about asking
+        # Blender a question, and a document that states its own layout asks nobody: it is fetched
+        # like any other subject and decided by the test that reads it.
+        self.oracle = self.document["schema"] == "outshine/render-oracle-manifest"
+        if not self.oracle:
+            self.viewport = self.document["viewport"]
+            self.blender_version = None
+            self.scene = None
+            self.renders = {}
+            self.subject_class = None
+            self.acceptance_class = None
+            self.expected = {}
+            self.acceptance = {}
+            self.identical_coverage = ()
+            _check_names(self.subjects)
+            return
         self.blender_version = str(self.document["blender"]["version"])
         self.scene = _Scene(self.document["scene"])
         self.renders = _renders(self.document["renders"])
@@ -118,23 +134,8 @@ class Manifest:
                     observed=name,
                     why="those names belong to the test that reads this directory",
                 )
-        seen = {}
-        for subject in self.subjects:
-            for file in subject.files:
-                if file["as"] in RESERVED_OUTPUT_NAMES:
-                    raise Refusal("manifest.subjects", expected="a name outside the reserved set", observed=file["as"])
-                if file["as"] in seen:
-                    raise Refusal(
-                        "manifest.subjects",
-                        expected="one file per name in the test directory",
-                        observed="%s is claimed by both %s and %s" % (file["as"], seen[file["as"]], subject.id),
-                    )
-                seen[file["as"]] = subject.id
-            if subject.kind == "blend":
-                if subject.conversion.settings["outputName"] in seen:
-                    raise Refusal("manifest.subjects", expected="a free name for the conversion output",
-                                  observed=subject.conversion.settings["outputName"])
-                seen[subject.conversion.settings["outputName"]] = subject.id
+        _check_names(self.subjects)
+
 
     def frame_grid(self):
         """Which frames this case is judged at, in order. `[None]` is a still and is the whole
@@ -185,6 +186,28 @@ def output_names_for(recipe_name, frame=None):
         names[quantity + "Exr"] = "oracle." + quantity + suffix + ".exr"
         names[quantity + "Raw"] = "oracle." + quantity + suffix + ".raw"
     return names
+
+
+def _check_names(subjects):
+    """One file per name in a case directory, whatever produced it."""
+    seen = {}
+    for subject in subjects:
+        for file in subject.files:
+            if file["as"] in RESERVED_OUTPUT_NAMES:
+                raise Refusal("manifest.subjects", expected="a name outside the reserved set",
+                              observed=file["as"])
+            if file["as"] in seen:
+                raise Refusal(
+                    "manifest.subjects",
+                    expected="one file per name in the test directory",
+                    observed="%s is claimed by both %s and %s" % (file["as"], seen[file["as"]], subject.id),
+                )
+            seen[file["as"]] = subject.id
+        if subject.kind == "blend":
+            if subject.conversion.settings["outputName"] in seen:
+                raise Refusal("manifest.subjects", expected="a free name for the conversion output",
+                              observed=subject.conversion.settings["outputName"])
+            seen[subject.conversion.settings["outputName"]] = subject.id
 
 
 def _subjects(value):

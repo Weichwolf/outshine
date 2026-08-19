@@ -1,0 +1,75 @@
+{
+  "schema": "outshine/ui-case-manifest",
+  "schemaVersion": 1,
+  "id": "flex-container-max-content-002.tentative",
+  "title": "Flex Container Max-Content Sizes",
+  "covers": [
+    "css-flexbox-1"
+  ],
+  "criterion": {
+    "kind": "layout-assertions",
+    "says": "every element carrying data-expected-width, data-expected-height, data-offset-x or data-offset-y lands at exactly that width, height and viewport offset in CSS pixels",
+    "statedAt": "https://github.com/web-platform-tests/wpt/blob/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-flexbox/flex-container-max-content-002.tentative.html"
+  },
+  "viewport": {
+    "widthPx": 800,
+    "heightPx": 600,
+    "note": "the reftest viewport WPT lays its own references out in"
+  },
+  "subjects": [
+    {
+      "kind": "document",
+      "id": "flex-container-max-content-002.tentative",
+      "name": "flex-container-max-content-002.tentative",
+      "source": {
+        "kind": "web-platform-tests",
+        "commit": "550efd4a2f1f14877d424b5668fbb6e63d5f6165",
+        "path": "css/css-flexbox/flex-container-max-content-002.tentative.html",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of web-platform-tests on the day the UI suite was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-flexbox/flex-container-max-content-002.tentative.html",
+          "sha256": "22def84c35a1a125644221317db7d4b0935c1f52bffb10ee650d84e5996480d2",
+          "bytes": 6409,
+          "as": "flex-container-max-content-002.tentative.html",
+          "role": "document",
+          "licence": {
+            "spdx": "BSD-3-Clause OR LicenseRef-W3C-Software-and-Document",
+            "holder": "web-platform-tests contributors",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/LICENSE.md"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/fonts/ahem.css",
+          "sha256": "5d8b9526d7be573871022125d5ec44f4893e4d851c26ab3fb6df44219422111c",
+          "bytes": 74,
+          "as": "ahem.css",
+          "role": "stylesheet",
+          "licence": {
+            "spdx": "BSD-3-Clause OR LicenseRef-W3C-Software-and-Document",
+            "holder": "web-platform-tests contributors",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/LICENSE.md"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/fonts/Ahem.ttf",
+          "sha256": "b719ecb31c5b21fc573c03f6421c74ac63c271a5a3ff841e34f9705fb94b8448",
+          "bytes": 21768,
+          "as": "Ahem.ttf",
+          "role": "font",
+          "licence": {
+            "spdx": "BSD-3-Clause OR LicenseRef-W3C-Software-and-Document",
+            "holder": "web-platform-tests contributors",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/LICENSE.md"
+          }
+        }
+      ],
+      "entry": "flex-container-max-content-002.tentative.html"
+    }
+  ]
+}

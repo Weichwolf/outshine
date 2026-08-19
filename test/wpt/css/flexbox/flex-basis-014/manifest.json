@@ -1,0 +1,49 @@
+{
+  "schema": "outshine/ui-case-manifest",
+  "schemaVersion": 1,
+  "id": "flex-basis-014",
+  "title": "CSS Test: flex base size that depends on cross size, with aspect-ratio",
+  "covers": [
+    "css-flexbox-1"
+  ],
+  "criterion": {
+    "kind": "layout-assertions",
+    "says": "every element carrying data-expected-width, data-expected-height, data-offset-x or data-offset-y lands at exactly that width, height and viewport offset in CSS pixels",
+    "statedAt": "https://github.com/web-platform-tests/wpt/blob/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-flexbox/flex-basis-014.html"
+  },
+  "viewport": {
+    "widthPx": 800,
+    "heightPx": 600,
+    "note": "the reftest viewport WPT lays its own references out in"
+  },
+  "subjects": [
+    {
+      "kind": "document",
+      "id": "flex-basis-014",
+      "name": "flex-basis-014",
+      "source": {
+        "kind": "web-platform-tests",
+        "commit": "550efd4a2f1f14877d424b5668fbb6e63d5f6165",
+        "path": "css/css-flexbox/flex-basis-014.html",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of web-platform-tests on the day the UI suite was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-flexbox/flex-basis-014.html",
+          "sha256": "d32cce4a8e6cf84890c2eeedeb4ee0d23a55210bb9f330f45dfe8f5538d11e6b",
+          "bytes": 2427,
+          "as": "flex-basis-014.html",
+          "role": "document",
+          "licence": {
+            "spdx": "BSD-3-Clause OR LicenseRef-W3C-Software-and-Document",
+            "holder": "web-platform-tests contributors",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/LICENSE.md"
+          }
+        }
+      ],
+      "entry": "flex-basis-014.html"
+    }
+  ]
+}

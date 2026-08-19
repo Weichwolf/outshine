@@ -1,0 +1,49 @@
+{
+  "schema": "outshine/ui-case-manifest",
+  "schemaVersion": 1,
+  "id": "flex-minimum-width-flex-items-014",
+  "title": "CSS Flexbox: Proper min-width intrinsic size with display: flex",
+  "covers": [
+    "css-flexbox-1"
+  ],
+  "criterion": {
+    "kind": "layout-assertions",
+    "says": "every element carrying data-expected-width, data-expected-height, data-offset-x or data-offset-y lands at exactly that width, height and viewport offset in CSS pixels",
+    "statedAt": "https://github.com/web-platform-tests/wpt/blob/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-flexbox/flex-minimum-width-flex-items-014.html"
+  },
+  "viewport": {
+    "widthPx": 800,
+    "heightPx": 600,
+    "note": "the reftest viewport WPT lays its own references out in"
+  },
+  "subjects": [
+    {
+      "kind": "document",
+      "id": "flex-minimum-width-flex-items-014",
+      "name": "flex-minimum-width-flex-items-014",
+      "source": {
+        "kind": "web-platform-tests",
+        "commit": "550efd4a2f1f14877d424b5668fbb6e63d5f6165",
+        "path": "css/css-flexbox/flex-minimum-width-flex-items-014.html",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of web-platform-tests on the day the UI suite was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-flexbox/flex-minimum-width-flex-items-014.html",
+          "sha256": "74a33ec526d3de2ef78ea538a193be9b893369983733364ac9f81d6e4c6c38f2",
+          "bytes": 1775,
+          "as": "flex-minimum-width-flex-items-014.html",
+          "role": "document",
+          "licence": {
+            "spdx": "BSD-3-Clause OR LicenseRef-W3C-Software-and-Document",
+            "holder": "web-platform-tests contributors",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/LICENSE.md"
+          }
+        }
+      ],
+      "entry": "flex-minimum-width-flex-items-014.html"
+    }
+  ]
+}

@@ -261,6 +261,7 @@ bool Markup::Read(std::string_view markup, std::string &error) {
       }
       const std::string_view body = markup.substr(at, end - at);
       const int node = push(std::move(element));
+      if (name == "script") { Scripted_ = Scripted_ || body.find_first_not_of(" \t\r\n") != std::string_view::npos; }
       if (name == "style") {
         Style_.append(body);
         Style_.push_back('\n');

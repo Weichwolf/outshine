@@ -72,7 +72,9 @@ class Layout {
 public:
   /* `viewport` is the surface the declaration is laid out for -- a HUD's frame, a screen's texture or a
    * book page, and the engine cannot tell which. */
-  [[nodiscard]] bool Build(const Markup &markup, const Stylesheet &sheet, double viewportWidth,
+  /* `sheet` is not `const`: an inline style is READ here, and what it declares outside the subset is
+   * counted into the sheet's own tallies rather than dropped (board:1445). */
+  [[nodiscard]] bool Build(const Markup &markup, Stylesheet &sheet, double viewportWidth,
                            double viewportHeight, const Font &font, std::string &error);
 
   [[nodiscard]] const std::vector<Box> &Boxes(void) const { return Boxes_; }
@@ -87,6 +89,20 @@ private:
 
 /* WHAT AN ELEMENT MEANS BEFORE ANY SHEET SPEAKS, and the list is the whole list. */
 [[nodiscard]] const char *UserAgentSheet(void);
+
+/* THE OTHER HALF OF THE DECLARED SUBSET, AND IT IS ABOUT ELEMENTS RATHER THAN PROPERTIES. A sheet's
+ * properties say what this engine can express; they say nothing about which ELEMENTS it models, and a
+ * declaration is only inside the subset when both are. [MEASURED] the first corpus run let ten cases
+ * through on the property count alone and six of them were about `<img>`, `<input>` and `<embed>` --
+ * boxes whose size comes from a resource this engine never loaded -- so the number named a population
+ * wider than the claim it decided.
+ *
+ * IT IS AN ALLOWLIST BECAUSE A BLOCKLIST CANNOT BE FINISHED. An element nobody has thought of is laid
+ * out as an ordinary box under a blocklist and reported as held; under this list it is outside, which
+ * is the answer that stays true when upstream grows a tag. */
+[[nodiscard]] bool ElementIsInTheSubset(std::string_view tag);
+/* Every element of this markup that is not, each named once, in the document's own order. */
+[[nodiscard]] std::vector<std::string> ElementsOutsideTheSubset(const Markup &markup);
 
 } // namespace outshine::Ui
 #endif

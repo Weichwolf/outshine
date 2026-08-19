@@ -1,0 +1,75 @@
+{
+  "schema": "outshine/ui-case-manifest",
+  "schemaVersion": 1,
+  "id": "flex-item-compressible-002",
+  "title": "CSS Flexbox Test: Testing automatic minimun size of &lt;input&gt; flex items in a column flex container",
+  "covers": [
+    "css-flexbox-1"
+  ],
+  "criterion": {
+    "kind": "layout-assertions",
+    "says": "every element carrying data-expected-width, data-expected-height, data-offset-x or data-offset-y lands at exactly that width, height and viewport offset in CSS pixels",
+    "statedAt": "https://github.com/web-platform-tests/wpt/blob/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-flexbox/flex-item-compressible-002.html"
+  },
+  "viewport": {
+    "widthPx": 800,
+    "heightPx": 600,
+    "note": "the reftest viewport WPT lays its own references out in"
+  },
+  "subjects": [
+    {
+      "kind": "document",
+      "id": "flex-item-compressible-002",
+      "name": "flex-item-compressible-002",
+      "source": {
+        "kind": "web-platform-tests",
+        "commit": "550efd4a2f1f14877d424b5668fbb6e63d5f6165",
+        "path": "css/css-flexbox/flex-item-compressible-002.html",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of web-platform-tests on the day the UI suite was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-flexbox/flex-item-compressible-002.html",
+          "sha256": "e6e9c8c9e1e42bea282413f848ed59c792a70eb9fa2428b96a20b079195b0cad",
+          "bytes": 4432,
+          "as": "flex-item-compressible-002.html",
+          "role": "document",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "the file's own header",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-flexbox/flex-item-compressible-002.html"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/fonts/ahem.css",
+          "sha256": "5d8b9526d7be573871022125d5ec44f4893e4d851c26ab3fb6df44219422111c",
+          "bytes": 74,
+          "as": "ahem.css",
+          "role": "stylesheet",
+          "licence": {
+            "spdx": "BSD-3-Clause OR LicenseRef-W3C-Software-and-Document",
+            "holder": "web-platform-tests contributors",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/LICENSE.md"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/fonts/Ahem.ttf",
+          "sha256": "b719ecb31c5b21fc573c03f6421c74ac63c271a5a3ff841e34f9705fb94b8448",
+          "bytes": 21768,
+          "as": "Ahem.ttf",
+          "role": "font",
+          "licence": {
+            "spdx": "BSD-3-Clause OR LicenseRef-W3C-Software-and-Document",
+            "holder": "web-platform-tests contributors",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/LICENSE.md"
+          }
+        }
+      ],
+      "entry": "flex-item-compressible-002.html"
+    }
+  ]
+}

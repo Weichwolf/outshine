@@ -147,6 +147,19 @@ std::vector<Case> Cases() {
   for (const auto &entry : std::filesystem::recursive_directory_iterator(kSuite, walking)) {
     if (entry.path().filename() != "manifest.json") { continue; }
     const std::string directory = entry.path().parent_path().string();
+    /* THE POPULATION IS THE RENDER CORPORA AND THE PREFIX IS HOW A CASE SAYS WHICH ONE IT IS IN. The
+     * prepared root now holds a third corpus -- documents, judged without an oracle and carrying no
+     * glTF at all -- and a walk that took them would report `the case's subject reads` about a case
+     * that never declared a subject. A camera derived from a declaration is a claim about the render
+     * suites, so those are what this counts. */
+    const std::string leaf = entry.path().parent_path().filename().string();
+    const auto begins = [&leaf](const char *prefix) {
+      return leaf.compare(0, std::string(prefix).size(), prefix) == 0;
+    };
+    if (!begins(outshine::Test::kPreparedKhronosPrefix) &&
+        !begins(outshine::Test::kPreparedGrownPrefix)) {
+      continue;
+    }
     found.push_back(
         {directory.substr(std::string(kSuite).size() + 1), directory, entry.path().string()});
   }

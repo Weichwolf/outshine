@@ -18,6 +18,7 @@
  * subject the preparer fetched. */
 #include <algorithm>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -34,6 +35,11 @@ struct Listed {
   std::string Name;
   std::string Prepared;
   bool Ready = false;
+  /* WHICH INSTRUMENT DECIDES THIS CASE, READ FROM ITS OWN DECLARATION. The browser shows every case
+   * the tree declares and the manifest says what a case IS -- a subject the renderer places, or a
+   * document the UI engine lays out. Reading the kind from the path instead would make a directory's
+   * name a fact about the engine. */
+  bool Document = false;
 };
 
 std::string Flattened(std::string path) {
@@ -64,6 +70,10 @@ std::vector<Listed> Cases(void) {
     one.Suite = cut == std::string::npos ? inside : inside.substr(0, cut);
     one.Ready =
         std::filesystem::exists(std::filesystem::path(one.Prepared) / "manifest.json", walking);
+    std::ifstream declaration(it->path());
+    const std::string text((std::istreambuf_iterator<char>(declaration)),
+                           std::istreambuf_iterator<char>());
+    one.Document = text.find("\"outshine/ui-case-manifest\"") != std::string::npos;
     found.push_back(std::move(one));
   }
   std::sort(found.begin(), found.end(), [](const Listed &a, const Listed &b) {
@@ -80,12 +90,20 @@ int main(void) {
   const std::vector<Listed> listed = Cases();
   CHECK(!listed.empty(), "the tree declares at least one case, so this browser has something to show");
 
-  int configured = 0, unprepared = 0, declined = 0;
+  int configured = 0, unprepared = 0, declined = 0, documents = 0;
   std::string suite;
   for (const Listed &one : listed) {
     if (one.Suite != suite) {
       suite = one.Suite;
       std::printf("SUITE %s\n", suite.c_str());
+    }
+    /* A DOCUMENT CASE IS DECLARED, PREPARED AND NOT YET DRAWABLE, and saying so is the point. The
+     * browser's claim is that it reaches every case the tree declares; the UI engine measures and
+     * places today and does not paint, so this is a named gap with a count rather than a case
+     * quietly missing from a list (board:1442). */
+    if (one.Document) {
+      ++documents;
+      continue;
     }
     if (!one.Ready) {
       ++unprepared;
@@ -117,6 +135,7 @@ int main(void) {
     std::printf("  %-38s %4d x %-4d  %d frame(s)\n", one.Name.c_str(), held.WidthPx(),
                 held.HeightPx(), held.Frames());
   }
+  std::printf("NOTE document cases declared, awaiting the paint layer = %d\n", documents);
   std::printf("NOTE cases the tree declares = %zu\n", listed.size());
   std::printf("NOTE cases configured = %d\n", configured);
   std::printf("NOTE cases whose preparation has not run = %d\n", unprepared);

@@ -81,7 +81,7 @@ std::string Collapsed(const std::string &raw) {
 struct Placer {
   const Markup *Tree = nullptr;
   const Stylesheet *Agent = nullptr;
-  const Stylesheet *Author = nullptr;
+  Stylesheet *Author = nullptr;
   const Font *Face = nullptr;
   double RootEm = 16.0;
   std::vector<Box> *Out = nullptr;
@@ -565,6 +565,52 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
 
 }  // namespace
 
+/* THE ELEMENTS THIS ENGINE LAYS OUT (board:1445, board:1442), and the ones it deliberately draws nothing for. Two lists rather
+ * than one because they fail differently: a flow element missing from the first would be laid out
+ * wrongly, a metadata element missing from the second would be laid out AT ALL. */
+namespace {
+
+constexpr std::string_view kFlowElements[] = {
+    "html", "body",   "div",   "span",       "p",    "section", "article", "header", "footer",
+    "nav",  "main",   "aside", "figure",     "figcaption", "h1", "h2",     "h3",     "h4",
+    "h5",   "h6",     "ul",    "ol",         "li",   "dl",      "dt",      "dd",     "blockquote",
+    "pre",  "code",   "em",    "strong",     "b",    "i",       "u",       "s",      "small",
+    "sub",  "sup",    "br",    "hr",         "a",    "abbr",    "cite",    "q",      "mark",
+    "time", "kbd",    "samp",  "var",        "wbr",  "del",     "ins",     "bdi",    "bdo",
+};
+
+/* NO BOX AT ALL, AND THAT IS THE CORRECT ANSWER RATHER THAN A GAP. A document that could not name its
+ * own title or link its own sheet would put every case outside the subset for a reason that has
+ * nothing to do with layout. */
+constexpr std::string_view kNoBoxElements[] = {"head",  "title", "link",  "meta",  "style",
+                                               "script", "base", "noscript"};
+
+} // namespace
+
+bool ElementIsInTheSubset(std::string_view tag) {
+  for (const std::string_view known : kFlowElements) {
+    if (known == tag) { return true; }
+  }
+  for (const std::string_view known : kNoBoxElements) {
+    if (known == tag) { return true; }
+  }
+  return false;
+}
+
+std::vector<std::string> ElementsOutsideTheSubset(const Markup &markup) {
+  std::vector<std::string> outside;
+  for (int index = 0; index < (int)markup.Nodes().size(); ++index) {
+    const Node &node = markup.Nodes()[size_t(index)];
+    /* The root is the document itself and carries no tag a declaration could have written. */
+    if (index == markup.Root()) { continue; }
+    if (node.Kind != NodeKind::Element || ElementIsInTheSubset(node.Name)) { continue; }
+    bool already = false;
+    for (const std::string &seen : outside) { already = already || seen == node.Name; }
+    if (!already) { outside.push_back(node.Name); }
+  }
+  return outside;
+}
+
 const char *UserAgentSheet(void) {
   /* WHAT A BROWSER BRINGS BEFORE ANY AUTHOR SPEAKS, cut to what this subset can mean. The margins are
    * what the corpus's own numbers are stated against -- `data-offset-x="8"` IS the line below. */
@@ -576,7 +622,7 @@ const char *UserAgentSheet(void) {
          "html { color: black; font-size: 16px; line-height: 1.2; text-align: left }\n";
 }
 
-bool Layout::Build(const Markup &markup, const Stylesheet &sheet, double viewportWidth,
+bool Layout::Build(const Markup &markup, Stylesheet &sheet, double viewportWidth,
                    double viewportHeight, const Font &font, std::string &error) {
   Boxes_.clear();
   if (markup.Root() < 0) {

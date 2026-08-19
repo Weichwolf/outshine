@@ -1,0 +1,49 @@
+{
+  "schema": "outshine/ui-case-manifest",
+  "schemaVersion": 1,
+  "id": "image-as-flexitem-size-004v",
+  "title": "CSS Test: Testing how explicit main-size & cross-size constraints       influence sizing on stretched flex item w/ intrinsic ratio       (with a vertical writing-mode on the flex items).",
+  "covers": [
+    "css-flexbox-1"
+  ],
+  "criterion": {
+    "kind": "layout-assertions",
+    "says": "every element carrying data-expected-width, data-expected-height, data-offset-x or data-offset-y lands at exactly that width, height and viewport offset in CSS pixels",
+    "statedAt": "https://github.com/web-platform-tests/wpt/blob/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-flexbox/image-as-flexitem-size-004v.html"
+  },
+  "viewport": {
+    "widthPx": 800,
+    "heightPx": 600,
+    "note": "the reftest viewport WPT lays its own references out in"
+  },
+  "subjects": [
+    {
+      "kind": "document",
+      "id": "image-as-flexitem-size-004v",
+      "name": "image-as-flexitem-size-004v",
+      "source": {
+        "kind": "web-platform-tests",
+        "commit": "550efd4a2f1f14877d424b5668fbb6e63d5f6165",
+        "path": "css/css-flexbox/image-as-flexitem-size-004v.html",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of web-platform-tests on the day the UI suite was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-flexbox/image-as-flexitem-size-004v.html",
+          "sha256": "1d59de7ca83f4aeb710e92da53ace38749a27f41683de97b0f74d5779b3d37d4",
+          "bytes": 5431,
+          "as": "image-as-flexitem-size-004v.html",
+          "role": "document",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "the file's own header",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-flexbox/image-as-flexitem-size-004v.html"
+          }
+        }
+      ],
+      "entry": "image-as-flexitem-size-004v.html"
+    }
+  ]
+}

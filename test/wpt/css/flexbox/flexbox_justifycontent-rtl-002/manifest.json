@@ -1,0 +1,49 @@
+{
+  "schema": "outshine/ui-case-manifest",
+  "schemaVersion": 1,
+  "id": "flexbox_justifycontent-rtl-002",
+  "title": "CSS Test: Static position of abspos children in a RTL column flex container, with various \"justify-content\" values",
+  "covers": [
+    "css-flexbox-1"
+  ],
+  "criterion": {
+    "kind": "layout-assertions",
+    "says": "every element carrying data-expected-width, data-expected-height, data-offset-x or data-offset-y lands at exactly that width, height and viewport offset in CSS pixels",
+    "statedAt": "https://github.com/web-platform-tests/wpt/blob/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-flexbox/flexbox_justifycontent-rtl-002.html"
+  },
+  "viewport": {
+    "widthPx": 800,
+    "heightPx": 600,
+    "note": "the reftest viewport WPT lays its own references out in"
+  },
+  "subjects": [
+    {
+      "kind": "document",
+      "id": "flexbox_justifycontent-rtl-002",
+      "name": "flexbox_justifycontent-rtl-002",
+      "source": {
+        "kind": "web-platform-tests",
+        "commit": "550efd4a2f1f14877d424b5668fbb6e63d5f6165",
+        "path": "css/css-flexbox/flexbox_justifycontent-rtl-002.html",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of web-platform-tests on the day the UI suite was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-flexbox/flexbox_justifycontent-rtl-002.html",
+          "sha256": "6e33284450dedc21b3670e504cff6d4ea05fe4f0c21ee79ab9327a07dee968ec",
+          "bytes": 3069,
+          "as": "flexbox_justifycontent-rtl-002.html",
+          "role": "document",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "the file's own header",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/web-platform-tests/wpt/550efd4a2f1f14877d424b5668fbb6e63d5f6165/css/css-flexbox/flexbox_justifycontent-rtl-002.html"
+          }
+        }
+      ],
+      "entry": "flexbox_justifycontent-rtl-002.html"
+    }
+  ]
+}

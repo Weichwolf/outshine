@@ -198,14 +198,26 @@ Property PropertyNamed(std::string_view name) {
  * downstream ask which one it meant. */
 namespace {
 
+/* A NUMBER WITH NO UNIT, which is what `flex`'s growth and shrink factors are and what its basis is
+ * never allowed to be. */
+bool Bare(std::string_view text) {
+  const Value value = ReadValue(text);
+  return value.How == Unit::None;
+}
+
 void Expand(std::string_view name, std::string_view text, std::vector<Declaration> &into,
             size_t &unheld, std::vector<std::string> &names) {
   const std::string lowered = Lower(name);
+  /* A VENDOR PREFIX IS DROPPED AND NOT COUNTED (board:1445), which is a different thing from a capability we lack.
+   * [MEASURED] `-webkit-align-self` appeared in 198 of the corpus's declarations, always beside the
+   * standard property it prefixes; counting it as outside the subset put nearly every case outside
+   * for a reason that says nothing about this engine. A prefixed property is by construction not a
+   * standard one, so there is nothing here to be missing. */
+  if (!lowered.empty() && lowered.front() == '-') { return; }
   const auto one = [&](Property what, std::string_view value) {
     into.push_back({what, ReadValue(value)});
   };
-  /* `margin`, `padding` and `border-width` take one to four values in CSS's own clock order. */
-  const auto sides = [&](Property top, Property right, Property bottom, Property left) {
+  const auto words = [&]() {
     std::vector<std::string_view> parts;
     size_t at = 0;
     while (at < text.size()) {
@@ -214,6 +226,11 @@ void Expand(std::string_view name, std::string_view text, std::vector<Declaratio
       while (at < text.size() && !Space(text[at])) { ++at; }
       if (at > from) { parts.push_back(text.substr(from, at - from)); }
     }
+    return parts;
+  };
+  /* `margin`, `padding` and `border-width` take one to four values in CSS's own clock order. */
+  const auto sides = [&](Property top, Property right, Property bottom, Property left) {
+    const std::vector<std::string_view> parts = words();
     if (parts.empty() || parts.size() > 4) { return false; }
     const std::string_view t = parts[0];
     const std::string_view r = parts.size() > 1 ? parts[1] : t;
@@ -223,6 +240,89 @@ void Expand(std::string_view name, std::string_view text, std::vector<Declaratio
     one(right, r);
     one(bottom, b);
     one(left, l);
+    return true;
+  };
+  /* `flex: none | auto | initial | <grow> [<shrink>] [<basis>]`, with CSS's own defaults: a bare
+   * number sets the growth and leaves the basis at zero, which is what makes `flex: 1` share the room
+   * rather than keep the content's width. */
+  const auto flex = [&]() {
+    const std::vector<std::string_view> parts = words();
+    if (parts.empty() || parts.size() > 3) { return false; }
+    if (parts.size() == 1 && (parts[0] == "none" || parts[0] == "auto" || parts[0] == "initial")) {
+      one(Property::FlexGrow, parts[0] == "auto" ? "1" : "0");
+      one(Property::FlexShrink, parts[0] == "none" ? "0" : "1");
+      one(Property::FlexBasis, "auto");
+      return true;
+    }
+    bool grow = false, shrink = false, basis = false;
+    for (const std::string_view part : parts) {
+      const bool bare = Bare(part);
+      if (bare && !grow) {
+        one(Property::FlexGrow, part);
+        grow = true;
+      } else if (bare && !shrink) {
+        one(Property::FlexShrink, part);
+        shrink = true;
+      } else if (!basis) {
+        one(Property::FlexBasis, part);
+        basis = true;
+      } else {
+        return false;
+      }
+    }
+    if (!grow) { return false; }
+    if (!shrink) { one(Property::FlexShrink, "1"); }
+    /* THE SPECIFICATION'S OWN EXPANSION IS `<number> 1 0%`, AND THE UNIT IS LOAD-BEARING. [MEASURED]
+     * a bare `0` reads as a number with no unit, `Resolve` answers ABSENT for one, and the basis then
+     * falls through to the item's declared height -- so `flex: 1` on a 5px-high item took 5px of a
+     * 300px column instead of the 135px it was owed. */
+    if (!basis) { one(Property::FlexBasis, "0%"); }
+    return true;
+  };
+  const auto flexFlow = [&]() {
+    const std::vector<std::string_view> parts = words();
+    if (parts.empty() || parts.size() > 2) { return false; }
+    for (const std::string_view part : parts) {
+      const bool wraps = part == "wrap" || part == "nowrap" || part == "wrap-reverse";
+      one(wraps ? Property::FlexWrap : Property::FlexDirection, part);
+    }
+    return true;
+  };
+  /* `background` and `border` are read ONLY where they say a thing this engine holds. `background:
+   * url(...)` is an image and is outside; saying so is what keeps the second count honest. */
+  const auto single = [&](Property what) {
+    const std::vector<std::string_view> parts = words();
+    if (parts.size() != 1) { return false; }
+    const Value value = ReadValue(parts[0]);
+    if (value.How != Unit::Colour) { return false; }
+    one(what, parts[0]);
+    return true;
+  };
+  const auto border = [&]() {
+    const std::vector<std::string_view> parts = words();
+    if (parts.empty() || parts.size() > 3) { return false; }
+    std::string_view width = "medium";
+    bool sawStyle = false, drawn = true;
+    for (const std::string_view part : parts) {
+      if (part == "none" || part == "hidden") {
+        sawStyle = true;
+        drawn = false;
+      } else if (part == "solid") {
+        sawStyle = true;
+      } else if (ReadValue(part).How == Unit::Colour) {
+        one(Property::BorderColour, part);
+      } else if (ReadValue(part).How == Unit::Pixels || ReadValue(part).How == Unit::Em) {
+        width = part;
+      } else {
+        return false;
+      }
+    }
+    if (!sawStyle) { return false; }
+    const std::string_view used = drawn ? width : std::string_view("0");
+    one(Property::BorderTopWidth, used);
+    one(Property::BorderRightWidth, used);
+    one(Property::BorderBottomWidth, used);
+    one(Property::BorderLeftWidth, used);
     return true;
   };
   if (lowered == "margin") {
@@ -240,6 +340,14 @@ void Expand(std::string_view name, std::string_view text, std::vector<Declaratio
               Property::BorderLeftWidth)) {
       return;
     }
+  } else if (lowered == "flex") {
+    if (flex()) { return; }
+  } else if (lowered == "flex-flow") {
+    if (flexFlow()) { return; }
+  } else if (lowered == "background") {
+    if (single(Property::BackgroundColour)) { return; }
+  } else if (lowered == "border") {
+    if (border()) { return; }
   } else {
     const Property what = PropertyNamed(lowered);
     if (what != Property::kCount) {
@@ -249,6 +357,26 @@ void Expand(std::string_view name, std::string_view text, std::vector<Declaratio
   }
   ++unheld;
   if (names.size() < 64) { names.push_back(lowered); }
+}
+
+/* A COMMENT REACHES NOTHING, AND IT IS REMOVED IN ONE PLACE (board:1445). [MEASURED] a comment's own opening and
+ * closing marks, and the words `spacing` and `things` out of its prose, arrived in the corpus's count
+ * of properties this engine does not hold -- a comment INSIDE a declaration block was being split on
+ * its semicolons and read as CSS, so a sheet's prose became a list of capabilities we appeared to be
+ * missing. Stripping at the top level only is the defect: a block is where the comments are. */
+std::string WithoutComments(std::string_view css) {
+  std::string out;
+  out.reserve(css.size());
+  size_t at = 0;
+  while (at < css.size()) {
+    if (css.compare(at, 2, "/*") == 0) {
+      const size_t end = css.find("*/", at + 2);
+      at = end == std::string_view::npos ? css.size() : end + 2;
+      continue;
+    }
+    out.push_back(css[at++]);
+  }
+  return out;
 }
 
 void ReadBlock(std::string_view body, std::vector<Declaration> &into, size_t &unheld,
@@ -276,6 +404,16 @@ bool ReadCompound(std::string_view text, Compound &out) {
     while (at < text.size() && text[at] != '.' && text[at] != '#') { ++at; }
     const std::string part = Lower(text.substr(from, at - from));
     if (part.empty()) { return false; }
+    /* EVERY PART IS CHECKED, NOT ONLY THE TAG (board:1445). `.item::first-letter` reads as a CLASS NAMED
+     * `item::first-letter` if only the tag branch validates its characters -- it then matches nothing,
+     * matching nothing looks like a rule that simply did not apply, and the sheet is silently a
+     * different sheet. A pseudo-element, an attribute selector and a pseudo-class are all outside the
+     * subset, and outside is a thing this reader COUNTS rather than a thing it fails to notice. */
+    for (const char c : part) {
+      if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_')) {
+        return false;
+      }
+    }
     if (lead == '.') {
       out.Classes.push_back(part);
     } else if (lead == '#') {
@@ -283,12 +421,6 @@ bool ReadCompound(std::string_view text, Compound &out) {
       out.Id = part;
     } else {
       if (!out.Tag.empty()) { return false; }
-      /* `*`, `:hover`, `[attr]` and every combinator are outside the subset and refuse here. */
-      for (const char c : part) {
-        if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_')) {
-          return false;
-        }
-      }
       out.Tag = part;
     }
   }
@@ -297,23 +429,17 @@ bool ReadCompound(std::string_view text, Compound &out) {
 
 }  // namespace
 
-std::vector<Declaration> Stylesheet::Inline(std::string_view text) const {
+std::vector<Declaration> Stylesheet::Inline(std::string_view text) {
   std::vector<Declaration> out;
-  size_t unheld = 0;
-  std::vector<std::string> names;
-  ReadBlock(text, out, unheld, names);
+  ReadBlock(WithoutComments(text), out, Unheld_, Names_);
   return out;
 }
 
-void Stylesheet::Read(std::string_view css) {
+void Stylesheet::Read(std::string_view text) {
+  const std::string stripped = WithoutComments(text);
+  const std::string_view css = stripped;
   size_t at = 0;
   while (at < css.size()) {
-    /* A comment reaches no rule. */
-    if (css.compare(at, 2, "/*") == 0) {
-      const size_t end = css.find("*/", at + 2);
-      at = end == std::string_view::npos ? css.size() : end + 2;
-      continue;
-    }
     if (Space(css[at])) {
       ++at;
       continue;

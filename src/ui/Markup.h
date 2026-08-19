@@ -50,12 +50,19 @@ public:
   /* EVERY `<style>` OF THE DOCUMENT, IN ORDER AND JOINED. The cascade is over declarations rather than
    * over which element carried them, so keeping them apart would be a distinction nothing reads. */
   [[nodiscard]] const std::string &StyleText(void) const { return Style_; }
+  /* THE DOCUMENT CARRIED A PROGRAM AND THIS READER DROPPED IT, which is a fact a consumer is owed
+   * rather than a silence. Nothing here will ever run one -- this is a mechanism and not a browser --
+   * so a declaration whose appearance depends on a script is a declaration this engine cannot honour,
+   * and the honest answer is to say so at the door instead of laying out a tree the author did not
+   * mean. */
+  [[nodiscard]] bool CarriesAScript(void) const { return Scripted_; }
   /* The value of an attribute, or null where the element does not carry it. */
   [[nodiscard]] const std::string *AttributeOf(int node, std::string_view name) const;
 
 private:
   std::vector<Node> Nodes_;
   std::string Style_;
+  bool Scripted_ = false;
   int Root_ = -1;
 };
 

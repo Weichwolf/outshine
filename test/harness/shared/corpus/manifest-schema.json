@@ -37,83 +37,118 @@
       }
     },
     "manifest": {
-      "required": {
-        "schema": {
-          "enum": [
-            "outshine/render-oracle-manifest"
-          ]
-        },
-        "schemaVersion": {
-          "enum": [
-            1
-          ]
-        },
-        "id": "text",
-        "title": "text",
-        "covers": {
-          "array": "text"
-        },
-        "criterion": {
-          "object": "criterion"
-        },
-        "subjectClass": {
-          "enum": [
-            "opaque-min-1px",
-            "sub-pixel-present"
-          ]
-        },
-        "acceptanceClass": {
-          "object": "acceptance-class"
-        },
-        "subjects": {
-          "array": {
-            "object": "subject"
-          }
-        },
-        "blender": {
-          "object": "blender"
-        },
-        "scene": {
-          "object": "scene"
-        },
-        "renders": {
-          "map": {
-            "object": "recipe"
-          }
+      "discriminator": "schema",
+      "variants": {
+        "outshine/render-oracle-manifest": {
+          "required": {
+            "schemaVersion": {
+              "enum": [
+                1
+              ]
+            },
+            "id": "text",
+            "title": "text",
+            "covers": {
+              "array": "text"
+            },
+            "criterion": {
+              "object": "criterion"
+            },
+            "subjectClass": {
+              "enum": [
+                "opaque-min-1px",
+                "sub-pixel-present"
+              ]
+            },
+            "acceptanceClass": {
+              "object": "acceptance-class"
+            },
+            "subjects": {
+              "array": {
+                "object": "subject"
+              }
+            },
+            "blender": {
+              "object": "blender"
+            },
+            "scene": {
+              "object": "scene"
+            },
+            "renders": {
+              "map": {
+                "object": "recipe"
+              }
+            }
+          },
+          "optional": {
+            "notes": "string",
+            "reductions": {
+              "array": {
+                "object": "reduction"
+              }
+            },
+            "expected": {
+              "map": {
+                "quantity": "number"
+              }
+            },
+            "acceptance": {
+              "map": {
+                "object": "threshold-override"
+              }
+            },
+            "identicalCoverage": {
+              "array": "text"
+            },
+            "statedInvariants": {
+              "array": {
+                "object": "stated-invariant"
+              }
+            },
+            "depthProbes": {
+              "array": {
+                "object": "depth-probe"
+              }
+            }
+          },
+          "note": "THE ONLY TRACKED FILE IN A CASE DIRECTORY (board:0083): the scene, the recipe and the acceptance in one declaration."
+    },
+        "outshine/ui-case-manifest": {
+          "required": {
+            "schemaVersion": {
+              "enum": [
+                1
+              ]
+            },
+            "id": "text",
+            "title": "text",
+            "covers": {
+              "array": "text"
+            },
+            "criterion": {
+              "object": "criterion"
+            },
+            "viewport": {
+              "object": "viewport"
+            },
+            "subjects": {
+              "array": {
+                "object": "subject"
+              }
+            }
+          },
+          "optional": {
+            "notes": "string",
+            "reductions": {
+              "array": {
+                "object": "reduction"
+              }
+            }
+          },
+          "note": "A CASE FOR A SUITE THAT RENDERS WITHOUT AN ORACLE. It carries no `blender`, no `scene` and no `renders`, because there is nothing outside this tree to ask: both sides of a reftest pair are drawn by this library, and a layout assertion is a number the document states about itself. What it keeps is everything the VIEWER and the board read -- the id, the title, what it covers, its criterion and its subjects -- so one enumeration reaches every case in the tree and the two suites differ in their instrument rather than in their format."
         }
       },
-      "optional": {
-        "notes": "string",
-        "reductions": {
-          "array": {
-            "object": "reduction"
-          }
-        },
-        "expected": {
-          "map": {
-            "quantity": "number"
-          }
-        },
-        "acceptance": {
-          "map": {
-            "object": "threshold-override"
-          }
-        },
-        "identicalCoverage": {
-          "array": "text"
-        },
-        "statedInvariants": {
-          "array": {
-            "object": "stated-invariant"
-          }
-        },
-        "depthProbes": {
-          "array": {
-            "object": "depth-probe"
-          }
-        }
-      },
-      "note": "THE ONLY TRACKED FILE IN A CASE DIRECTORY (board:0083): the scene, the recipe and the acceptance in one declaration."
+      "note": "ONE DECLARATION NAMES A CASE FOR EVERY SUITE THAT RENDERS, and the `schema` key says which instrument decides it. The variants share the fields an enumeration reads and differ in what an oracle needs, so a manifest cannot carry a Blender version for a case Blender never sees, and a document case cannot silently omit one it does."
     },
     "threshold-override": {
       "required": {
@@ -133,6 +168,16 @@
         "note": "string"
       },
       "note": "A manifest's `acceptance` block carries only what it OVERRIDES over the suite's declared defaults, so every entry owes a reason. WHICH keys may be overridden is the runner's, because the defaults are the runner's."
+    },
+    "viewport": {
+      "required": {
+        "widthPx": "index",
+        "heightPx": "index"
+      },
+      "optional": {
+        "note": "string"
+      },
+      "note": "THE ROOM THE DOCUMENT IS LAID OUT IN, and it is part of the declaration rather than a property of whatever window is open: every offset upstream states is measured against this origin, so a viewport read from a host would make the same document state different numbers on two machines."
     },
     "acceptance-class": {
       "required": {
@@ -180,6 +225,32 @@
             "says": "text",
             "statedAt": "text",
             "declines": "text"
+          },
+          "optional": {
+            "note": "string"
+          }
+        },
+        "layout-assertions": {
+          "note": "THE DOCUMENT STATES WHERE ITS OWN BOXES LAND (board:1444). Upstream writes `data-expected-width`, `data-expected-height`, `data-offset-x` and `data-offset-y` on the elements it means, in CSS pixels against the viewport origin, and the verdict is every one of them exactly. IT IS THE ANCHOR THE REFTEST FAMILY CANNOT BE: a pair of renders can agree because both are empty, and an absolute offset cannot.",
+          "required": {
+            "says": "text",
+            "statedAt": "text"
+          },
+          "optional": {
+            "note": "string"
+          }
+        },
+        "reftest": {
+          "note": "TWO DOCUMENTS THIS LIBRARY DRAWS ITSELF, COMPARED BITWISE. `match` says the pair must be identical to the byte and `mismatch` says it must differ somewhere -- and the second is why the suite is not self-consistency wearing the word correctness. There is no threshold to widen here, which is what makes this suite harder than the picture suite rather than softer.",
+          "required": {
+            "says": "text",
+            "statedAt": "text",
+            "relation": {
+              "enum": [
+                "match",
+                "mismatch"
+              ]
+            }
           },
           "optional": {
             "note": "string"
@@ -278,6 +349,28 @@
             },
             "notes": "string"
           }
+        },
+        "document": {
+          "required": {
+            "id": "text",
+            "name": "text",
+            "source": {
+              "object": "subject-source"
+            },
+            "files": {
+              "array": {
+                "object": "fetched-file"
+              }
+            },
+            "entry": "text"
+          },
+          "optional": {
+            "attributes": {
+              "array": "text"
+            },
+            "notes": "string"
+          },
+          "note": "MARKUP AND THE FILES IT NAMES. `entry` is the document; the rest are what its own `<link>` and `<script>` elements reach for, resolved at the pin and fetched by digest like any other subject -- so a stylesheet that changed upstream is a refusal and not a quietly different picture."
         },
         "generated": {
           "required": {
@@ -386,6 +479,14 @@
             "pinReason": "text"
           }
         },
+        "web-platform-tests": {
+          "required": {
+            "commit": "sha1",
+            "path": "text",
+            "pinnedOn": "text",
+            "pinReason": "text"
+          }
+        },
         "blender-download": {
           "required": {
             "page": "text"
@@ -414,7 +515,10 @@
             "image",
             "metadata",
             "blend",
-            "archive-member"
+            "archive-member",
+            "document",
+            "stylesheet",
+            "font"
           ]
         },
         "licence": {
@@ -449,13 +553,13 @@
       "required": {
         "spdx": "text",
         "holder": "text",
-        "year": "text",
         "statedAt": "text"
       },
       "optional": {
-        "covers": "text"
+        "covers": "text",
+        "year": "text"
       },
-      "note": "Per file and never per repository: a repository-level claim covers nothing in particular."
+      "note": "Per file and never per repository: a repository-level claim covers nothing in particular. `year` IS OPTIONAL BECAUSE SOME UPSTREAMS STATE NONE -- every web-platform-tests file names a licence and not one names a year -- and the alternative was to write a year the source does not carry, which is a fact with no origin sitting in a field that exists to record one. `statedAt` stays required: whatever the grant says, the manifest names where it says it."
     },
     "conversion": {
       "required": {

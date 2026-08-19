@@ -93,3 +93,28 @@ eight pixels**, so the sheet is part of the declaration and not a detail -- `boa
       can be measured by while it is being built
 - [ ] the fetch follows a test's own `<link rel=stylesheet>` and `<script src>` references, because
       `support/flexbox.css` and `/fonts/ahem.css` are part of the case and not of the browser
+
+## Comments
+
+The layout-assertion family is in: **138 cases of 1328 tests** under `css/css-flexbox` at the pin,
+derived by asking every file whether it states its own layout and never by a list somebody wrote.
+
+**The enumeration had to be taken twice, and the first one was wrong by more than half.** GitHub's
+contents endpoint caps a directory listing at 1000 entries and says so nowhere in the payload — it
+reported **799** html files where the git-tree endpoint, which publishes `truncated`, reports
+**1766**. The generator refuses a truncated tree for exactly this reason.
+
+**`mismatch` is all but absent from this directory: 1 of 765 reftests.** So the empty-renderer
+fixed point cannot be defeated here by pairing alone, and the anchor is the layout-assertion family
+itself — an absolute offset in the viewport is a claim no pair of identical blank pages can satisfy.
+A `mismatch` slice has to come from elsewhere in `css/`, and that is worth its own measurement
+before the reftest arm is built.
+
+**The manifest is one format with two variants.** `outshine/ui-case-manifest` carries no `blender`,
+no `scene` and no `renders`, and the root object discriminates on `schema` — so a document case
+cannot silently omit an oracle field a render case needs, and a render case cannot carry a Blender
+version for a case Blender never sees. 283 manifests across both suites validate.
+
+**`year` left the licence's required set.** Every web-platform-tests file names a licence and not one
+names a year; the alternative was writing a year the source does not carry into the field that exists
+to record where a claim was made.

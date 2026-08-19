@@ -87,9 +87,13 @@ class Stylesheet {
 public:
   /* Reads a sheet. A rule this engine cannot express is counted and skipped; a property it does not
    * hold is counted too, and both counts are what the corpus selection reads. */
-  void Read(std::string_view css);
-  /* An element's own `style` attribute, which outranks every rule. */
-  [[nodiscard]] std::vector<Declaration> Inline(std::string_view text) const;
+  void Read(std::string_view text);
+  /* An element's own `style` attribute, which outranks every rule. IT IS NOT `const`, AND THAT IS THE
+   * POINT: what it cannot hold is counted into the same two tallies a rule's would be. [MEASURED] the
+   * count was discarded into a local, so `writing-mode` written inline read as a declaration fully
+   * inside the subset -- an error in OUR FAVOUR, which is the direction a coverage number must never
+   * be wrong in (board:1445). */
+  [[nodiscard]] std::vector<Declaration> Inline(std::string_view text);
 
   [[nodiscard]] const std::vector<Rule> &Rules(void) const { return Rules_; }
   [[nodiscard]] size_t PropertiesOutsideTheSubset(void) const { return Unheld_; }

@@ -140,6 +140,7 @@ LayerIncludes() {
     outshine/unit/clients) printf '%s' "-Isrc/clients" ;;
     outshine/harness) printf '%s' "-Isrc/core" ;;
     harness/khronos/glTF | harness/outshine/render) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
+    harness/wpt/css) printf '%s' "-Isrc/core -Isrc/ui" ;;
     outshine/frame) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
     outshine/shader) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render -Isrc/render/draw -Isrc/render/plan -Isrc/render/stages" ;;
     # THE BROWSER READS A CASE THE WAY THE RUNNER DOES, so it compiles the runner's own reader and
@@ -235,6 +236,7 @@ LayerGroups() {
     outshine/unit/data) printf '%s' "src/core src/core/io src/data" ;;
     outshine/unit/gltf) printf '%s' "src/core src/gltf" ;;
     outshine/unit/ui) printf '%s' "src/core src/ui" ;;
+    harness/wpt/css) printf '%s' "src/core/Json.cpp src/ui" ;;
     outshine/unit/scenario) printf '%s' "src/core src/scenario" ;;
     outshine/unit/generators) printf '%s' "src/core src/generators" ;;
     outshine/unit/generators/draw) printf '%s' "src/core src/generators src/generators/draw" ;;
@@ -265,6 +267,7 @@ LayerCases() {
   case "$1" in
     harness/khronos/glTF) find test/khronos/glTF -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     harness/outshine/render) find test/outshine/render -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
+    harness/wpt/css) find test/wpt/css -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -284,7 +287,7 @@ NotTheHarnesses() {
     harness/shared/render) printf '%s' "the render scoring instrument, compiled into each corpus's own harness" ;;
     outshine/host) printf '%s' "host implementations of what the library declares, compiled into the library" ;;
     outshine/unit/compile | outshine/unit/compile/*) printf '%s' "a compile subject, judged by the layer's own refusal test, never linked" ;;
-    harness/khronos/glTF/prepare | harness/outshine/render/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;
+    harness/khronos/glTF/prepare | harness/outshine/render/prepare | harness/wpt/css/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;
     harness/shared/corpus | harness/shared/corpus/*) printf '%s' "the offline preparer's own, compiled and run by test/harness/shared/corpus/prepare.py" ;;
     *) return 1 ;;
   esac
@@ -547,6 +550,10 @@ grownCriterionRed=0
 grownPictureWithin=0
 grownPictureOutside=0
 grownPictureUnenforced=0
+uiInside=0
+uiOutside=0
+uiHeld=0
+uiRed=0
 failed=0
 timedout=0
 signalled=0
@@ -662,6 +669,16 @@ CountTheTwo() {
   # summed both corpora under the word `khronos` and published `38 met of 44` -- 33 Khronos cases and
   # 11 this engine grows itself, under a name that claimed only the first. A count whose label names a
   # narrower population than it draws from is board:0089's own warning arriving in the reporter.
+  subset=$(sed -n 's/^UI-SUBSET //p' "$2" | head -1)
+  layout=$(sed -n 's/^UI-LAYOUT //p' "$2" | head -1)
+  case "$subset" in
+    inside) uiInside=$((uiInside + 1)) ;;
+    outside) uiOutside=$((uiOutside + 1)) ;;
+  esac
+  case "$layout" in
+    held) uiHeld=$((uiHeld + 1)) ;;
+    red) uiRed=$((uiRed + 1)) ;;
+  esac
   criterion=$(sed -n 's/^KHRONOS-CRITERION //p' "$2" | head -1)
   picture=$(sed -n 's/^PICTURE-BOUND //p' "$2" | head -1)
   case "$1" in
@@ -712,13 +729,25 @@ CountTheTwo() {
 # is written beside the binary, because `$compileDefine` splices a layer's own include set into the
 # binary and a changed include set must rebuild even when no file moved.
 #   $1 the binary   $2 the exact command that would produce it
+#   $3.. every source compiled into it, which its own `.d` DOES NOT NECESSARILY NAME (board:1446).
+# `-MMD` with several inputs and one `-o` writes ONE dependency file and fills it from the LAST
+# translation unit only. [MEASURED] `viewer`'s binary listed `test/harness/shared/render/Parity.cpp`
+# and its headers, and did NOT list `test/viewer/EveryCaseTheTreeDeclaresConfigures.cpp` -- the test's
+# own source. Touching that source rebuilt nothing and the run reported a verdict from a binary
+# compiled before the edit, which is the same phantom board:1403 caught one layer down. Every layer
+# carrying extra sources has this shape, and that is both render corpora.
 Fresh() {
   freshBinary=$1
   freshCommand=$2
+  shift 2
   [ -f "$freshBinary" ] || return 1
   [ -f "$freshBinary.cmd" ] || return 1
   [ "$(cat "$freshBinary.cmd")" = "$freshCommand" ] || return 1
   [ -f "$freshBinary.d" ] || return 1
+  for freshSource in "$@"; do
+    [ -f "$freshSource" ] || return 1
+    [ "$freshSource" -nt "$freshBinary" ] && return 1
+  done
   # Every prerequisite the compiler recorded, minus the make syntax around them.
   for freshNeed in $(tr '\\' ' ' <"$freshBinary.d" | tr ':' ' ' | tr -s ' \n' ' '); do
     case "$freshNeed" in *.o|*.cpp|*.h|*.hpp) ;; *) continue ;; esac
@@ -849,7 +878,7 @@ for testSource in $TESTS; do
   if [ "$built" = yes ]; then
     # shellcheck disable=SC2086
     buildCommand="$CXX $testSource $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $includes $compileDefine $linkage"
-    if Fresh "$plainBinary" "$buildCommand"; then :; else
+    if Fresh "$plainBinary" "$buildCommand" $testSource $(LayerExtraSources "$layer"); then :; else
       $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN -Itest/harness/shared -Itest/harness/shared/render $includes "$compileDefine" $linkage -MMD -MP -MF "$plainBinary.d" -o "$plainBinary" >>"$log" 2>&1 && printf '%s' "$buildCommand" >"$plainBinary.cmd" || built=no
     fi
   fi
@@ -883,7 +912,7 @@ for testSource in $TESTS; do
     if [ "$built" = yes ]; then
       # shellcheck disable=SC2086
       buildCommand="$CXX $testSource $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $SAN $includes $compileDefine $linkage"
-    if Fresh "$sanitisedBinary" "$buildCommand"; then :; else
+    if Fresh "$sanitisedBinary" "$buildCommand" $testSource $(LayerExtraSources "$layer"); then :; else
       $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $SAN -Itest/harness/shared -Itest/harness/shared/render $includes "$compileDefine" $linkage -MMD -MP -MF "$sanitisedBinary.d" -o "$sanitisedBinary" >>"$sanitisedLog" 2>&1 && printf '%s' "$buildCommand" >"$sanitisedBinary.cmd" || built=no
     fi
     fi
@@ -918,7 +947,7 @@ for testSource in $TESTS; do
     if [ "$built" = yes ]; then
       # shellcheck disable=SC2086
       buildCommand="$CXX $testSource $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $validation $includes $compileDefine $linkage"
-    if Fresh "$validatedBinary" "$buildCommand"; then :; else
+    if Fresh "$validatedBinary" "$buildCommand" $testSource $(LayerExtraSources "$layer"); then :; else
       $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $validation -Itest/harness/shared -Itest/harness/shared/render $includes "$compileDefine" $linkage -MMD -MP -MF "$validatedBinary.d" -o "$validatedBinary" >>"$validatedLog" 2>&1 && printf '%s' "$buildCommand" >"$validatedBinary.cmd" || built=no
     fi
     fi
@@ -988,6 +1017,14 @@ printf '%s tests: %s PASS  %s FAIL  %s TIMEOUT  %s SIGNAL  %s BUILD  %s SKIP  %s
     "$grownCriterionMet" "$((grownCriterionMet + grownCriterionRed))" \
     "$grownPictureWithin" "$grownPictureOutside" "$grownPictureUnenforced" \
     "$((grownPictureWithin + grownPictureOutside + grownPictureUnenforced))"
+# THE UI SUITE'S OWN PAIR, AND IT IS THE SAME SHAPE FOR THE SAME REASON (board:1444). `inside the
+# subset` counts DECLARATIONS this engine claims to be able to express; `held` counts the ones whose
+# every stated box landed. Neither stands for the other, and the first is the one that would improve
+# by shrinking -- a suite reporting only `held` gets greener the less of the corpus it attempts.
+[ $((uiInside + uiOutside)) -gt 0 ] &&
+  printf 'wpt:     subset %s inside of %s   layout %s held, %s red of %s\n' \
+    "$uiInside" "$((uiInside + uiOutside))" \
+    "$uiHeld" "$uiRed" "$((uiHeld + uiRed))"
 # WHAT THE API-CONTRACT ARM DOES NOT COVER, printed where its results are, because a green
 # validation arm is not a correctness claim and a later round must not read it as one (board:1123).
 [ "$validatedRan" = yes ] && printf '%s\n' \

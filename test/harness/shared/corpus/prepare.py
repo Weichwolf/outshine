@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from prep import blender as blender_module  # noqa: E402
 from prep import jobs, manifest as manifest_module  # noqa: E402
+from prep import wpt as wpt_module  # noqa: E402
 from prep.refusal import Refusal  # noqa: E402
 from prep.store import ContentStore  # noqa: E402
 
@@ -35,7 +36,7 @@ def prepared_directory(manifest_path):
 # WHERE THE CASES ARE, AND THE TWO SUITES ARE NAMED RATHER THAN DISCOVERED. A walk that found a
 # `manifest.json` anywhere would prepare whatever a future directory happened to contain; these two are
 # the declarative suites and adding a third is a decision, not a side effect.
-CASE_TREES = ("test/khronos/glTF", "test/outshine/render")
+CASE_TREES = ("test/khronos/glTF", "test/outshine/render", "test/wpt/css")
 
 
 def every_manifest():
@@ -51,7 +52,7 @@ def every_manifest():
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("job", choices=("fetch", "generate", "patch", "convert", "render", "all",
-                                        "dry-run"))
+                                        "dry-run", "wpt-cases"))
     parser.add_argument("--manifest", action="append", default=None,
                         help="a case's manifest; repeatable")
     parser.add_argument("--every-case", action="store_true",
@@ -63,7 +64,16 @@ def main(argv):
     parser.add_argument("--recipe", action="append", default=None, help="render only this recipe; repeatable")
     parser.add_argument("--force", action="store_true", help="redo the work even on a cache hit")
     parser.add_argument("--no-cache", action="store_true")
+    parser.add_argument("--wpt-commit", default=None, help="wpt-cases: the pin every case records")
+    parser.add_argument("--wpt-directory", default=None, help="wpt-cases: the upstream directory, e.g. css/css-flexbox")
+    parser.add_argument("--wpt-root", default=None, help="wpt-cases: where the case directories are written")
+    parser.add_argument("--wpt-viewport", default="800x600")
+    parser.add_argument("--wpt-pinned-on", default=None, help="wpt-cases: the date the pin was taken")
+    parser.add_argument("--wpt-pin-reason", default=None)
     arguments = parser.parse_args(argv)
+
+    if arguments.job == "wpt-cases":
+        return _wpt_cases(arguments)
 
     manifests = list(arguments.manifest or [])
     if arguments.every_case:
@@ -89,6 +99,28 @@ def main(argv):
             print("  refused " + one, file=sys.stderr)
         return 1 if refused else 0
     return _prepare(manifests[0], arguments)
+
+
+def _wpt_cases(arguments):
+    """Turn an upstream directory at the pin into one case directory each, and report both counts."""
+    for name in ("wpt_commit", "wpt_directory", "wpt_root", "wpt_pinned_on", "wpt_pin_reason"):
+        if getattr(arguments, name) is None:
+            raise Refusal("wpt-cases", expected="--" + name.replace("_", "-"), observed="absent")
+    width, _, height = arguments.wpt_viewport.partition("x")
+    viewport = (int(width), int(height))
+    tests = wpt_module.tests_in(arguments.wpt_commit, arguments.wpt_directory)
+    written, stated_nothing = [], 0
+    for test in tests:
+        declared = wpt_module.case(arguments.wpt_commit, arguments.wpt_directory, test,
+                                   arguments.wpt_pinned_on, arguments.wpt_pin_reason, viewport)
+        if declared is None:
+            stated_nothing += 1
+            continue
+        written.append(wpt_module.write(declared, arguments.wpt_root))
+    _emit({"directory": arguments.wpt_directory, "commit": arguments.wpt_commit,
+           "tests": len(tests), "cases": len(written),
+           "statesNoLayoutOfItsOwn": stated_nothing, "root": arguments.wpt_root})
+    return 0
 
 
 def _prepare(manifest_path, arguments):
@@ -122,18 +154,22 @@ def _prepare(manifest_path, arguments):
     if arguments.job == "patch" or (arguments.job == "all" and needs_patching):
         report["patch"] = jobs.patch_subjects(declared, destination)
 
+    # A DOCUMENT CASE HAS NOTHING TO ASK BLENDER, AND THAT IS A PROPERTY OF THE CASE RATHER THAN A
+    # FLAG ON THE RUN. `all` over the whole corpus reaches both suites, so the oracle jobs are the ones
+    # a case without an oracle simply does not have; refusing here would make `--every-case` unusable
+    # the day a second kind of case arrived, which is today.
     blender = None
-    if arguments.job in ("convert", "render", "all"):
+    if declared.oracle and arguments.job in ("convert", "render", "all"):
         blender = blender_module.Blender(blender_module.locate(arguments.blender))
         notice = blender.against(declared.blender_version)
         if notice:
             print("notice: " + notice + " -- recorded, not refused", file=sys.stderr)
 
-    needs_conversion = any(subject.kind == "blend" for subject in declared.subjects)
-    if arguments.job == "convert" or (arguments.job == "all" and needs_conversion):
+    needs_conversion = declared.oracle and any(subject.kind == "blend" for subject in declared.subjects)
+    if declared.oracle and (arguments.job == "convert" or (arguments.job == "all" and needs_conversion)):
         report["convert"] = jobs.convert_blends(declared, store, blender, destination, force=arguments.force)
 
-    if arguments.job in ("render", "all"):
+    if declared.oracle and arguments.job in ("render", "all"):
         report["render"] = jobs.render_oracle(
             declared, store, blender, destination, only=arguments.recipe, force=arguments.force
         )
