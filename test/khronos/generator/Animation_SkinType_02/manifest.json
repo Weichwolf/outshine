@@ -1,0 +1,205 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/animation/animation-skintype-02",
+  "title": "Khronos Animation_SkinType_02 -- Joints Component Type: Byte, Weight Component Type: Short",
+  "covers": [
+    "khronos:Animation_SkinType_02",
+    "board:1458"
+  ],
+  "criterion": {
+    "kind": "self-describing",
+    "oracleRole": "reference",
+    "says": "Joints Component Type: Byte, Weight Component Type: Short",
+    "statedAt": "https://github.com/KhronosGroup/glTF-Asset-Generator/blob/3d99767e9a67fbfe109f0d298c1e8d909bcac9db/Output/Positive/Animation_SkinType/README.md",
+    "note": "WHAT THIS CASE DECIDES IS A POSE. The generator states per model what it varies and this case quotes that; what it claims is that every vertex lands where the declared animation puts it at each frame of the grid, which is what a still can decide. Smoothness between the frames is a moving camera's question and belongs to the scenario suite."
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction over a subject that MOVES, so the comparison is taken at every frame of the declared grid rather than at one pose. Nothing here is analytic: what is compared is which pixels each side covers at each sampled time and what colour each body wears there."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render."
+  },
+  "subjects": [
+    {
+      "id": "animation-skintype-02",
+      "kind": "gltf",
+      "name": "Animation_SkinType_02",
+      "entry": "Animation_SkinType_02.gltf",
+      "attributes": [
+        "POSITION"
+      ],
+      "notes": "One model of the generator's Animation_SkinType group, taken whole: the `.gltf` and every buffer it names.",
+      "source": {
+        "kind": "khronos-asset-generator",
+        "commit": "3d99767e9a67fbfe109f0d298c1e8d909bcac9db",
+        "model": "Animation_SkinType/Animation_SkinType_02",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the generator's head at the time this corpus was taken; the five animation groups are stable and the pin is what makes a case's bytes reproducible"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Asset-Generator/3d99767e9a67fbfe109f0d298c1e8d909bcac9db/Output/Positive/Animation_SkinType/Animation_SkinType_02.gltf",
+          "sha256": "b408a5800eaa050dacfc3731196b055f84b4693f5db1ba93bb8fa0a7c484b061",
+          "bytes": 3703,
+          "as": "Animation_SkinType_02.gltf",
+          "role": "gltf",
+          "licence": [
+            {
+              "spdx": "Apache-2.0",
+              "holder": "The Khronos Group Inc.",
+              "covers": "Everything",
+              "statedAt": "https://github.com/KhronosGroup/glTF-Asset-Generator/blob/main/LICENSE"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Asset-Generator/3d99767e9a67fbfe109f0d298c1e8d909bcac9db/Output/Positive/Animation_SkinType/Animation_SkinType_02.bin",
+          "sha256": "49844fc31d4b24e93db747f802f2cd75123a9fe752f50985a192c3580b3c7fe8",
+          "bytes": 380,
+          "as": "Animation_SkinType_02.bin",
+          "role": "buffer",
+          "licence": [
+            {
+              "spdx": "Apache-2.0",
+              "holder": "The Khronos Group Inc.",
+              "covers": "Everything",
+              "statedAt": "https://github.com/KhronosGroup/glTF-Asset-Generator/blob/main/LICENSE"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "derived",
+      "note": "The generator's models carry no camera, and the framing rule takes the union of world bounds over the declared frames -- which means posing the hierarchy and sampling the animation. It is derived inside Blender, where the scene is already imported and posed, and the runner reads what was derived."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material emits, so nothing has to arrive for the picture to exist."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "strength": 0.0,
+      "note": "Declared and zero rather than left factory, so the picture is a function of this manifest."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "Material_0": [
+          0.85,
+          0.15,
+          0.15
+        ]
+      },
+      "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it. A flat emitter is what isolates WHERE the geometry is from what it is made of, which is the only question a pose case asks."
+    },
+    "animation": {
+      "animations": [
+        0
+      ],
+      "fps": {
+        "value": 1,
+        "unit": "frames per second",
+        "origin": "SET",
+        "note": "TWO FRAMES PER SECOND, so the grid runs 0 s and 0.5 s over an animation the generator declares at one second. At 1 fps the two samples would be the period's endpoints, which for a looping curve is one pose compared with itself."
+      },
+      "frames": {
+        "value": 2,
+        "unit": "frames",
+        "origin": "SET",
+        "note": "Frame 0 and one INSIDE the motion. What a still decides is where every vertex ends up when the pose is applied; Cycles renders are not cached, so a sequence over thirty-four cases would cost three times the whole corpus for one extension."
+      }
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render, at one sample per pixel with the box filter at its RNA minimum -- so Cycles has no integration left to perform and a facet returns exactly what it emits. What this case decides is WHERE the geometry is after the pose is applied, and a recipe that shaded would put a second question in the same picture."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render, at one sample per pixel with the box filter at its RNA minimum -- so Cycles has no integration left to perform and a facet returns exactly what it emits. What this case decides is WHERE the geometry is after the pose is applied, and a recipe that shaded would put a second question in the same picture."
+    }
+  },
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.00177755189,
+      "unit": "dimensionless",
+      "origin": "measured",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0. RECOMPUTED BY THE RUNNER ON EVERY RUN and refused on mismatch, so what this line does is pin it -- a DRIFT DETECTOR rather than a present-error check, honest because the camera is derived from the framing rule and not chosen."
+    }
+  }
+}

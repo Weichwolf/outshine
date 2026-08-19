@@ -14,6 +14,7 @@ from prep import blender as blender_module  # noqa: E402
 from prep import jobs, manifest as manifest_module  # noqa: E402
 from prep import test262 as test262_module  # noqa: E402
 from prep import wpt as wpt_module  # noqa: E402
+from prep import generator as generator_module  # noqa: E402
 from prep.refusal import Refusal  # noqa: E402
 from prep.store import ContentStore  # noqa: E402
 
@@ -37,8 +38,8 @@ def prepared_directory(manifest_path):
 # WHERE THE CASES ARE, AND THE TWO SUITES ARE NAMED RATHER THAN DISCOVERED. A walk that found a
 # `manifest.json` anywhere would prepare whatever a future directory happened to contain; these two are
 # the declarative suites and adding a third is a decision, not a side effect.
-CASE_TREES = ("test/khronos/glTF", "test/outshine/render", "test/wpt/css",
-              "test/test262/js")
+CASE_TREES = ("test/khronos/glTF", "test/khronos/generator", "test/outshine/render",
+              "test/wpt/css", "test/test262/js")
 
 
 def every_manifest():
@@ -54,7 +55,7 @@ def every_manifest():
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("job", choices=("fetch", "generate", "patch", "convert", "render", "all",
-                                        "dry-run", "wpt-cases", "test262-cases"))
+                                        "dry-run", "wpt-cases", "test262-cases", "generator-cases"))
     parser.add_argument("--manifest", action="append", default=None,
                         help="a case's manifest; repeatable")
     parser.add_argument("--every-case", action="store_true",
@@ -76,12 +77,18 @@ def main(argv):
     parser.add_argument("--t262-root", default=None)
     parser.add_argument("--t262-pinned-on", default=None)
     parser.add_argument("--t262-pin-reason", default=None)
+    parser.add_argument("--gen-commit", default=None, help="generator-cases: the pin every case records")
+    parser.add_argument("--gen-root", default=None, help="generator-cases: where the case directories are written")
+    parser.add_argument("--gen-pinned-on", default=None)
+    parser.add_argument("--gen-pin-reason", default=None)
     arguments = parser.parse_args(argv)
 
     if arguments.job == "wpt-cases":
         return _wpt_cases(arguments)
     if arguments.job == "test262-cases":
         return _test262_cases(arguments)
+    if arguments.job == "generator-cases":
+        return _generator_cases(arguments)
 
     manifests = list(arguments.manifest or [])
     if arguments.every_case:
@@ -128,6 +135,27 @@ def _wpt_cases(arguments):
     _emit({"directory": arguments.wpt_directory, "commit": arguments.wpt_commit,
            "tests": len(tests), "cases": len(written),
            "statesNoLayoutOfItsOwn": stated_nothing, "root": arguments.wpt_root})
+    return 0
+
+
+def _generator_cases(arguments):
+    """The generator's animation groups at the pin, one case directory each (board:1458)."""
+    for name in ("gen_commit", "gen_root", "gen_pinned_on", "gen_pin_reason"):
+        if getattr(arguments, name) is None:
+            raise Refusal("generator-cases", expected="--" + name.replace("_", "-"), observed="absent")
+    written, groups = [], {}
+    for group in generator_module.GROUPS:
+        stated = generator_module.says(arguments.gen_commit, group)
+        models = generator_module.models_in(arguments.gen_commit, group)
+        groups[group] = len(models)
+        for name, files, materials, animates, moves, ends in models:
+            declared = generator_module.case(
+                arguments.gen_commit, group, name, files, materials, animates, moves, ends, stated,
+                arguments.gen_pinned_on, arguments.gen_pin_reason,
+                generator_module.measured_fraction(arguments.gen_root, name))
+            written.append(generator_module.write(declared, arguments.gen_root, name))
+    _emit({"commit": arguments.gen_commit, "groups": groups, "cases": len(written),
+           "root": arguments.gen_root})
     return 0
 
 

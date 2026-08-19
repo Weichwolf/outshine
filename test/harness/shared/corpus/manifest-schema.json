@@ -112,7 +112,7 @@
             }
           },
           "note": "THE ONLY TRACKED FILE IN A CASE DIRECTORY (board:0083): the scene, the recipe and the acceptance in one declaration."
-    },
+        },
         "outshine/declared-case-manifest": {
           "required": {
             "schemaVersion": {
@@ -525,6 +525,15 @@
             "pinReason": "text"
           }
         },
+        "khronos-asset-generator": {
+          "required": {
+            "commit": "sha1",
+            "model": "text",
+            "pinnedOn": "text",
+            "pinReason": "text"
+          },
+          "note": "THE GENERATOR IS A SECOND KHRONOS REPOSITORY AND NOT THE SAMPLE ASSETS (board:1458). It publishes generated models under Apache-2.0 with no per-model metadata, so the licence is DECLARED in the manifest and checked against what the file states rather than derived from an upstream document -- which is the arm every kind but `khronos-sample-assets` already takes. `model` is the group and the name, e.g. `Animation_Skin/Animation_Skin_07`."
+        },
         "test262": {
           "required": {
             "commit": "sha1",
@@ -702,6 +711,14 @@
             }
           },
           "note": "A PARALLEL PROJECTION IS A DIFFERENT MATRIX AND NOT A LONG LENS, so it is declared and never inferred from which field happens to be present. The orthographic arm carries the vertical extent it covers and no field of view at all."
+        },
+        "derived": {
+          "required": {},
+          "optional": {
+            "fill": "number",
+            "note": "string"
+          },
+          "note": "THE FRAMING RULE, COMPUTED WHERE THE BOUNDS ARE AND READ BY BOTH SIDES (board:1458). The case declares no numbers at all: the preparer unions the subject's world bounds over the declared frames inside Blender -- whose own importer is the flattener, so an armature, a shape key and a node animation are all in the answer -- applies the four constants of src/gltf/Framing.h and publishes what it derived. ONE DERIVATION IS STRONGER THAN TWO THAT AGREE: the alternative quotes seven numbers and recomputes them in C++, which puts Blender's bounds against the engine's and makes the last bits of a float decide whether a case can exist. What quoting protected against is a camera somebody could tune into a pass, and a camera that is a function of the subject's bounds and four declared constants is not tunable. `fill` is how much of the frame's shorter axis the subject's bounding sphere spans, and its absence is the rule's own kFramingFill."
         }
       }
     },
@@ -1044,13 +1061,13 @@
           "array": "index"
         },
         "fps": {
-          "quantity": "integer"
+          "quantity": "number"
         },
         "frames": {
           "quantity": "integer"
         }
       },
-      "note": "WHICH animations, and a place to say WHY. A file may carry several that drive the same node paths -- glTF forbids a repeated target only WITHIN one animation and leaves two animations on one property undefined -- so a case that declares more than one is asking the poser for a result the format does not define. The choice is the case's and the reason for it belongs beside the choice.",
+      "note": "THE RATE IS A NUMBER AND THE COUNT IS WHOLE (board:1458). A rate is a physical quantity -- one frame every four seconds is 0.25 fps and is a perfectly ordinary grid over an animation keyed from 2 s to 6 s; the generator's animation groups key over spans that no whole-number rate can place a sample inside, and 23 of its 34 models were refused by an `integer` here before the constraint was questioned. `frames` is a COUNT and stays whole, which is the distinction the two fields were conflated by. WHICH animations, and a place to say WHY. A file may carry several that drive the same node paths -- glTF forbids a repeated target only WITHIN one animation and leaves two animations on one property undefined -- so a case that declares more than one is asking the poser for a result the format does not define. The choice is the case's and the reason for it belongs beside the choice.",
       "optional": {
         "note": "string"
       }

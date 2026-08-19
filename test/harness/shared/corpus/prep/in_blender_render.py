@@ -44,11 +44,20 @@ def set_frame_grid(scene, animation, frame):
     THE ORDER IS LOAD-BEARING. Blender's glTF importer converts a sampler's SECONDS into f-curve
     frames using the scene's frame rate at import time, so a rate set afterwards would leave every
     keyframe at the frame the factory rate put it at and every product would be the pose of a
-    different instant. `fps_base` is pinned to 1 for the same reason: the pair is a rational rate and
-    only the pair decides what a frame is worth.
+    different instant.
+
+    **THE RATE IS THE PAIR AND THE PAIR CARRIES A FRACTION** (board:1458). `fps` is a whole number and
+    `fps_base` divides it, so a declared 0.25 is `1 / 4.0` and not `int(0.25)` -- which is ZERO. The
+    base was pinned to one while every case declared a whole rate; the generator's animation groups key
+    over spans no whole rate can sample inside, and truncating theirs put the ORACLE on one instant and
+    this engine on another. [MEASURED] frame 0 agreed to 0 px and frame 1 disagreed by 24.87 px, on
+    several cases at once, which is the signature of two clocks rather than of a renderer.
     """
-    scene.render.fps = int(animation["fps"]["value"])
-    scene.render.fps_base = 1.0
+    declared = float(animation["fps"]["value"])
+    if not declared > 0.0:
+        fail("scene.animation.fps is " + repr(declared) + " and a rate decides what a frame is worth")
+    scene.render.fps = 1
+    scene.render.fps_base = 1.0 / declared
     scene.frame_start = 0
     scene.frame_end = max(int(animation["frames"]["value"]) - 1, 0)
     scene.frame_set(int(frame))
@@ -899,7 +908,7 @@ def strip_crossings(imported, camera_source, keep_lights):
         if obj.type == "LIGHT" and not keep_lights:
             bpy.data.objects.remove(obj, do_unlink=True)
             removed["lights"] += 1
-        elif obj.type == "CAMERA" and camera_source == "manifest":
+        elif obj.type == "CAMERA" and camera_source in ("manifest", "derived"):
             bpy.data.objects.remove(obj, do_unlink=True)
             removed["cameras"] += 1
     return removed
@@ -942,6 +951,112 @@ def select_material_variant(imported, name):
                           for obj in imported if obj.type == "MESH"]}
     fail("the case declares material variant %r and the imported files declare %r"
          % (name, [v.name for v in declared]))
+
+
+# **THE FRAMING RULE'S FOUR CONSTANTS, AND `src/gltf/Framing.h` IS THE SOURCE** (board:1458). They are
+# stated here because Blender is where the bounds are, and the duplication is CHECKED rather than
+# avoided: `EveryFramingConstantAgreesWithTheEngine` reads both files and refuses a disagreement.
+# `CLAUDE.md`'s rule is that duplication is a defect exactly when the copies can drift.
+FRAMING_AZIMUTH_DEG = 35.0
+FRAMING_ELEVATION_DEG = 20.0
+FRAMING_SENSOR_HALF_HEIGHT_MM = 12.0
+FRAMING_FOCAL_LENGTH_MM = 50.0
+FRAMING_FILL = 0.6
+FRAMING_NEAR_FLOOR_FRACTION = 0.001
+
+
+def world_bounds_over(scene, imported, instants):
+    """The union of every imported mesh's world bounds over the declared instants, in SECONDS.
+
+    **IT IS THE GRID'S AND NOT THE REST POSE'S** (board:1433). A camera derived from one pose clips a
+    body that moves toward it, and a clip range is a depth window rather than a crop -- so the eye and
+    the aim stay the rest pose's and only the window opens.
+
+    The depsgraph is evaluated at each frame, so an armature, a shape key and a node animation are all
+    in the answer: Blender's own importer is the flattener nobody here has to write.
+    """
+    least = [None, None, None]
+    most = [None, None, None]
+    graph = bpy.context.evaluated_depsgraph_get()
+    # **THE INSTANTS ARE SECONDS AND BLENDER COUNTS FRAMES**, and its own rate is what converts them.
+    # The camera is derived BEFORE the recipe sets a rate, so a frame number handed straight in would
+    # be read at Blender's factory 24 fps -- which is how a camera came to be framed over two instants
+    # 42 ms apart on an animation keyed over six seconds.
+    rate = scene.render.fps / scene.render.fps_base
+    for seconds in instants:
+        exact = seconds * rate
+        whole = math.floor(exact)
+        scene.frame_set(int(whole), subframe=float(exact - whole))
+        graph = bpy.context.evaluated_depsgraph_get()
+        for obj in imported:
+            if obj.type != "MESH" or obj.name not in bpy.data.objects:
+                continue
+            evaluated = obj.evaluated_get(graph)
+            for corner in evaluated.bound_box:
+                point = evaluated.matrix_world @ Vector(corner)
+                for axis in range(3):
+                    if least[axis] is None or point[axis] < least[axis]:
+                        least[axis] = point[axis]
+                    if most[axis] is None or point[axis] > most[axis]:
+                        most[axis] = point[axis]
+    if least[0] is None:
+        fail("no imported mesh has bounds, so no camera can be derived from the subject")
+    return least, most
+
+
+def derive_camera(scene, imported, declared, instants):
+    """The framing rule, computed where the bounds are, and published so the runner can read it.
+
+    **ONE DERIVATION IS STRONGER THAN TWO THAT AGREE** (board:1458). The alternative is to derive in
+    Python, quote seven numbers in the manifest and recompute them in C++ -- which puts Blender's
+    bounds against the engine's and makes the last bits of a float decide whether a case can exist.
+    Reading the oracle's own camera makes both sides use identical numbers BY CONSTRUCTION.
+
+    *What quoting protected against is a camera somebody could tune into a pass. A camera that is a
+    function of the subject's bounds and four declared constants is not tunable, so nothing is given
+    up.*
+
+    The scene is in Blender's Z-up world here, and the rule is stated in glTF's Y-up one, so the
+    bounds are taken back through `YUP_TO_ZUP` before the arithmetic and the result goes forward
+    through it again -- which is what `build_camera` does with a declared camera too.
+    """
+    least, most = world_bounds_over(scene, imported, instants)
+    # THE RULE IS glTF'S FRAME, so the Z-up bounds come back to Y-up: (x, y, z)_zup = (x, -z, y)_yup.
+    corners = [(x, y, z) for x in (least[0], most[0]) for y in (least[1], most[1])
+               for z in (least[2], most[2])]
+    gltf = [(x, z, -y) for (x, y, z) in corners]
+    low = [min(point[axis] for point in gltf) for axis in range(3)]
+    high = [max(point[axis] for point in gltf) for axis in range(3)]
+    span = [high[axis] - low[axis] for axis in range(3)]
+    radius = 0.5 * math.sqrt(sum(value * value for value in span))
+    if not radius > 0.0:
+        fail("the subject has no extent over its own grid, so no camera can be derived from it")
+    centre = [0.5 * (low[axis] + high[axis]) for axis in range(3)]
+
+    azimuth = math.radians(FRAMING_AZIMUTH_DEG)
+    elevation = math.radians(FRAMING_ELEVATION_DEG)
+    to_eye = (math.cos(elevation) * math.cos(azimuth), math.sin(elevation),
+              math.cos(elevation) * math.sin(azimuth))
+    yfov = 2.0 * math.atan(FRAMING_SENSOR_HALF_HEIGHT_MM / FRAMING_FOCAL_LENGTH_MM)
+    fill = declared.get("fill", FRAMING_FILL)
+    distance = radius / math.sin(0.5 * yfov) / (fill if fill > 0.0 else FRAMING_FILL)
+    eye = [centre[axis] + to_eye[axis] * distance for axis in range(3)]
+    floor = radius * FRAMING_NEAR_FLOOR_FRACTION
+    near = distance - radius if distance - radius > floor else floor
+
+    return build_camera(scene, {
+        "positionM": eye,
+        "lookAtM": centre,
+        "rollRad": 0.0,
+        "yfovRad": yfov,
+        "sensorHeightMm": 2.0 * FRAMING_SENSOR_HALF_HEIGHT_MM,
+        "clipStartM": near,
+        "clipEndM": distance + radius,
+    }) | {"derivedFrom": {"minM": low, "maxM": high, "radiusM": radius, "centreM": centre,
+                          "fill": fill, "instantsS": list(instants),
+                          "positionM": eye, "lookAtM": centre, "rollRad": 0.0, "yfovRad": yfov,
+                          "sensorHeightMm": 2.0 * FRAMING_SENSOR_HALF_HEIGHT_MM,
+                          "clipStartM": near, "clipEndM": distance + radius}}
 
 
 def build_camera(scene, declared):
@@ -2015,7 +2130,19 @@ def main():
     removed = strip_crossings(imported, job["scene"]["camera"]["source"],
                               job["scene"]["light"]["kind"] == "gltf")
     imported = [bpy.data.objects[name] for name in names if name in bpy.data.objects]
-    if job["scene"]["camera"]["source"] == "manifest":
+    if job["scene"]["camera"]["source"] == "derived":
+        # THE FRAMES THE RULE UNIONS OVER ARE THE CASE'S OWN GRID, and a still declares one.
+        # THE FRAME COUNT IS A DECLARED QUANTITY and carries its unit and origin, so the number is
+        # under `value`; a still declares no animation at all.
+        # THE INSTANTS THE RULE UNIONS OVER ARE THE CASE'S OWN GRID, IN SECONDS: a still declares one.
+        animation = job["scene"].get("animation", {})
+        grid = animation.get("frames", {})
+        count = int(grid.get("value", 1)) if isinstance(grid, dict) else int(grid or 1)
+        rate = animation.get("fps", {})
+        per_second = float(rate.get("value", 1.0)) if isinstance(rate, dict) else float(rate or 1.0)
+        camera = derive_camera(scene, imported, job["scene"]["camera"],
+                               [at / per_second for at in range(max(count, 1))])
+    elif job["scene"]["camera"]["source"] == "manifest":
         camera = build_camera(scene, job["scene"]["camera"])
     else:
         camera = adopt_camera(scene, imported, job["scene"]["camera"], job["gltfPaths"])

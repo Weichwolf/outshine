@@ -435,6 +435,59 @@ public:
     subject.Eye.YfovRad = declared["yfovRad"].Num(0.0);
     return subject.Eye.YfovRad > 0;
   }
+  /* **A DERIVED CAMERA IS READ AND NOT RECOMPUTED** (board:1458). The preparer unions the subject's
+   * world bounds over the declared frames inside Blender -- whose importer poses the hierarchy and
+   * samples the animation, so an armature and a shape key are in the answer -- applies the four
+   * constants of `src/gltf/Framing.h` and publishes what it derived. Reading it makes both sides use
+   * IDENTICAL numbers by construction, where recomputing here would put Blender's bounds against the
+   * engine's and let the last bits of a float decide whether a case can exist.
+   *
+   * *What quoting a camera protected against is one somebody could tune into a pass. A camera that is
+   * a function of the subject's bounds and four declared constants is not tunable, so nothing is given
+   * up by not restating it.* */
+  if (declared["source"].StrEquals("derived")) {
+    const std::string provenanceText = Slurp(subject.Directory + "provenance.json");
+    Json provenance;
+    if (provenanceText.empty() ||
+        !provenance.Parse(provenanceText.c_str(), provenanceText.size())) {
+      error = subject.Directory +
+              "provenance.json is absent or does not parse, and a derived camera is what the "
+              "preparer published there";
+      return false;
+    }
+    /* THE RENDER'S OWN ACCOUNT IS WHERE THE PREPARER PUBLISHES IT, one row per product, and every row
+     * of a case carries the same camera because the derivation is over the whole grid. The first row
+     * that states one is read; a case with none was prepared before the rule was derived. */
+    Json::Ref from;
+    const Json::Ref rows = provenance.Root()["report"]["render"];
+    for (size_t row = 0; row < rows.Size(); ++row) {
+      const Json::Ref candidate = rows[row]["provenance"]["camera"]["derivedFrom"];
+      if (candidate.Valid()) {
+        from = candidate;
+        break;
+      }
+    }
+    if (!from.Valid()) {
+      error = subject.Directory +
+              "provenance.json carries no camera.derivedFrom, so this case was prepared before the "
+              "framing rule was derived where the bounds are";
+      return false;
+    }
+    double eye[3] = {0, 0, 0}, aim[3] = {0, 0, 0};
+    for (size_t axis = 0; axis < 3; ++axis) {
+      eye[axis] = from["positionM"][axis].Num(0.0);
+      aim[axis] = from["lookAtM"][axis].Num(0.0);
+    }
+    if (!Placement::LookAt(eye, aim, from["rollRad"].Num(0.0), subject.Eye)) {
+      error = "the derived camera aims at its own eye or straight up";
+      return false;
+    }
+    subject.Eye.ZNearM = from["clipStartM"].Num(0.0);
+    subject.Eye.ZFarM = from["clipEndM"].Num(0.0);
+    subject.Eye.YfovRad = from["yfovRad"].Num(0.0);
+    subject.CameraSource = "derived";
+    return subject.Eye.YfovRad > 0 && subject.Eye.ZFarM > subject.Eye.ZNearM;
+  }
   /* A CASE THAT NAMES THE FILE AS ITS CAMERA AND GETS THE FRAMING RULE INSTEAD would render a
    * perfectly good picture through a path it was written to exercise and never touch, so the
    * refusal is the reader's own sentence and there is no arm past it. THE INDEX IS THE MANIFEST'S
@@ -641,8 +694,14 @@ public:
     subject.Frames = (int)frames;
     /* A CAMERA DERIVED PER FRAME WOULD FOLLOW THE SUBJECT, and then a disagreement between two
      * frames could be the pose or the viewpoint with nothing to separate them. The rule frames the
-     * bounds it is given, and an animated subject has a different bounds every frame. */
+     * bounds it is given, and an animated subject has a different bounds every frame.
+     *
+     * **`derived` SATISFIES THAT BY CONSTRUCTION AND IS ADMITTED** (board:1458): the preparer takes the
+     * union of bounds over the WHOLE declared grid, once, and publishes one camera -- so the viewpoint
+     * is fixed across the sequence and the clip window is the grid's rather than the rest pose's,
+     * which is `board:1433`'s own lesson applied where the bounds are. */
     if (!root["scene"]["camera"]["source"].StrEquals("manifest") &&
+        !root["scene"]["camera"]["source"].StrEquals("derived") &&
         !root["scene"]["camera"]["source"].StrEquals("gltf")) {
       error = "scene.animation declares a sequence and scene.camera.source is '" +
               root["scene"]["camera"]["source"].Str("") +
