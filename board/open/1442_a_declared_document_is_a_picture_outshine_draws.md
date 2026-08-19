@@ -66,3 +66,45 @@ reaches. Neither stands for the other, which is the same rule the picture corpus
 `Ahem` is the font WPT uses for exactly this reason -- every glyph is a solid block of known metrics, so
 a layout test is not a font test. It is a handful of rectangles to implement and it is what makes
 pixel-identity a statement about layout rather than about rasterisation.
+
+## Comments
+
+**Three layers stand and are measured against upstream's own corpus** (`board:1443`, `board:1444`):
+the markup reader, the stylesheet reader and the layout. `wpt: subset 14 inside of 138, layout 5
+held, 9 red of 14` — and the first number moved 10 → 0 → 27 → 22 → 14 across this round as the
+subset statement was completed, every step in the direction of claiming less.
+
+**What the corpus found in the engine, each one a class rather than a case:**
+
+| repair | [MEASURED] |
+|---|---|
+| `flex: <number>` expands to `<number> 1 0%` | a bare `0` is a number with no unit and `Resolve` answers absent, so the basis fell through to the item's declared height — `flex: 1` on a 5 px item took 5 px of a 300 px column instead of 135 |
+| the flex container lays out **lines** | one line cannot spell `align-content` at all; `flexbox-lines-must-be-stretched-by-default` held the moment lines existed |
+| `head, title, link, meta, style, script` draw nothing | `<title>` was laid out as two lines of 19.2 px and pushed `<body>` from y = 8 to y = 46.4, which read as an `align-content` defect in three cases |
+| a run that collapses to nothing but spaces is removed | CSS deletes collapsible whitespace between block boxes rather than giving it a line box |
+| centring an overfull line starts before the container | the corpus states a **negative** offset for it; flooring the slack at zero reads as tidy and is a different layout |
+| every part of a compound selector is checked | `.item::first-letter` parsed as a class *named* `item::first-letter`, matched nothing, and counted as nothing |
+| a comment inside a declaration block is not CSS | its own delimiters and the words out of its prose were counted as properties this engine lacks |
+| `flex`, `flex-flow`, `background` and `border` expand | `flex:` alone was **161** declarations read as a gap |
+
+## The paint layer's shape, so the next round starts from a design rather than a blank file
+
+**One verb and no taxonomy**: *draw this rectangle, with that patch of that image, at that tint.* A
+button, a name, a health bar and a debug histogram are the same three numbers, which is what keeps a
+content vocabulary out of the renderer.
+
+- `OverlayQuad` — `LeftPx TopPx WidthPx HeightPx`, `U0 V0 U1 V1`, `Tint[4]`. **A quad whose atlas
+  rectangle has no area draws from the tint alone**, so a solid panel needs no white texel to point at
+- **the atlas is the consumer's image and the engine only holds it** — a font is an asset, and who
+  makes an asset is not the engine's business
+- it **`Contributes`** and does not `Write`: a plan that declares no overlay is exactly the plan it
+  was, so this costs a picture nothing that does not ask for it
+- `[SET]` **8192 quads**, refused beyond with the overage named — a silently truncated interface draws
+  a picture nobody declared. Eight thousand rectangles is a full screen of eight-pixel glyphs several
+  times over
+- `SetAtlas` and `SetQuads` upload **outside** the pass, the shape `SetMesh` already has, so the frame
+  path binds and draws and touches no allocator
+
+*A header carrying this interface with no implementation behind it was written and then removed
+rather than committed: half-built is worse than not built, and the design is worth more here than a
+file nothing compiles.*
