@@ -21,6 +21,8 @@ constexpr uint32_t kBorderBox = Keyword("border-box");
 constexpr uint32_t kHidden = Keyword("hidden");
 constexpr uint32_t kPre = Keyword("pre");
 constexpr uint32_t kRight = Keyword("right");
+constexpr uint32_t kWrap = Keyword("wrap");
+constexpr uint32_t kWrapReverse = Keyword("wrap-reverse");
 
 /* EVERY DECLARATION AN ELEMENT ENDED UP WITH, one slot per property. A slot nobody set stays unset,
  * which is how *the author said nothing* stays distinguishable from *the author said zero*. */
@@ -240,7 +242,15 @@ double Placer::Runs(int node, const Computed &style, int self, double contentX, 
     const Node &run = Tree->Nodes()[(size_t)child];
     if (run.Kind != NodeKind::Text) { continue; }
     const std::string text = keepSpace ? run.Text : Collapsed(run.Text);
-    if (text.empty()) { continue; }
+    /* A RUN THAT COLLAPSES TO NOTHING BUT SPACES IS REMOVED, NOT LAID OUT. Collapsible whitespace
+     * between block-level boxes carries no content, and CSS deletes it rather than giving it a line
+     * box. [MEASURED] the newline and indentation an author writes between two `<div>`s produced ONE
+     * line box each, stacked before every block child, and the first box of `align-content-vert-001a`
+     * landed at y = 46.4 where the document states 8 -- two lines of 19.2 px that exist only in the
+     * source's formatting. */
+    if (text.empty() || (!keepSpace && text.find_first_not_of(' ') == std::string::npos)) {
+      continue;
+    }
     /* WRAPPED AT SPACES AND NOWHERE ELSE, which is what this subset declares: no hyphenation, no
      * breaking inside a word, and a word wider than the line is placed and overflows rather than
      * being cut in half. */
@@ -387,88 +397,181 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
   }
   if (items.empty()) { return 0; }
 
-  double taken = gap * (double)(items.size() - 1);
-  double grow = 0, shrinkWeight = 0;
-  for (const Item &one : items) {
-    taken += one.Base + one.MainMarginStart + one.MainMarginEnd;
-    grow += one.Grow;
-    shrinkWeight += one.Shrink * one.Base;
+  /* THE ITEMS ARE BROKEN INTO LINES BEFORE ANYTHING IS SIZED, because every later step is per line:
+   * a line resolves its OWN free space, a line has its OWN cross size, and `align-items` stretches an
+   * item to the line rather than to the container. Laying a wrapped container out as one line is the
+   * defect that makes `align-content` unspellable -- there is nothing to distribute. */
+  const uint32_t wrapping = style.Word(Property::FlexWrap, 0);
+  const bool wraps = wrapping == kWrap || wrapping == kWrapReverse;
+  struct Line {
+    size_t From = 0, Count = 0;
+    double Cross = 0, CrossAt = 0;
+  };
+  std::vector<Line> lines;
+  {
+    Line line;
+    line.From = 0;
+    double taken = 0;
+    for (size_t i = 0; i < items.size(); ++i) {
+      const double outer = items[i].Base + items[i].MainMarginStart + items[i].MainMarginEnd;
+      const double withGap = line.Count == 0 ? outer : taken + gap + outer;
+      if (wraps && line.Count > 0 && mainRoom > 0 && withGap > mainRoom) {
+        lines.push_back(line);
+        line = Line{i, 0, 0, 0};
+        taken = outer;
+      } else {
+        taken = withGap;
+      }
+      ++line.Count;
+    }
+    lines.push_back(line);
   }
-  const double free = mainRoom - taken;
-  if (free > 0 && grow > 0) {
-    for (Item &one : items) { one.Main = one.Base + free * (one.Grow / grow); }
-  } else if (free < 0 && shrinkWeight > 0) {
-    for (Item &one : items) {
-      one.Main = std::fmax(0.0, one.Base + free * (one.Shrink * one.Base / shrinkWeight));
+
+  /* EACH LINE RESOLVES ITS OWN FLEXIBLE LENGTHS, and its own cross size falls out of what it holds. */
+  for (Line &line : lines) {
+    double taken = gap * (double)(line.Count - 1);
+    double grow = 0, shrinkWeight = 0;
+    for (size_t i = line.From; i < line.From + line.Count; ++i) {
+      taken += items[i].Base + items[i].MainMarginStart + items[i].MainMarginEnd;
+      grow += items[i].Grow;
+      shrinkWeight += items[i].Shrink * items[i].Base;
+    }
+    const double free = mainRoom - taken;
+    for (size_t i = line.From; i < line.From + line.Count; ++i) {
+      Item &one = items[i];
+      one.Main = one.Base;
+      if (free > 0 && grow > 0) {
+        one.Main = one.Base + free * (one.Grow / grow);
+      } else if (free < 0 && shrinkWeight > 0) {
+        one.Main = std::fmax(0.0, one.Base + free * (one.Shrink * one.Base / shrinkWeight));
+      }
+    }
+    for (size_t i = line.From; i < line.From + line.Count; ++i) {
+      Item &one = items[i];
+      if (!one.CrossDeclared) {
+        double w = 0, h = 0;
+        Measure(one.Node, &style, column ? crossRoom : one.Main, w, h);
+        one.Cross = column ? w : h;
+      }
+      line.Cross = std::fmax(line.Cross, one.Cross + one.CrossMarginStart + one.CrossMarginEnd);
     }
   }
 
-  double used = 0;
-  for (const Item &one : items) { used += one.Main + one.MainMarginStart + one.MainMarginEnd; }
-  used += gap * (double)(items.size() - 1);
-  double cursor = 0, between = gap;
-  const double slack = mainRoom - used;
-  if (slack > 0) {
-    if (justify == kFlexEnd) {
-      cursor = slack;
-    } else if (justify == kCentre) {
-      cursor = slack / 2.0;
-    } else if (justify == kSpaceBetween && items.size() > 1) {
-      between = gap + slack / (double)(items.size() - 1);
-    } else if (justify == kSpaceAround) {
-      cursor = slack / (double)(items.size() * 2);
-      between = gap + slack / (double)items.size();
+  /* A SINGLE-LINE CONTAINER'S ONE LINE IS THE WHOLE CROSS ROOM, which is what makes `align-items:
+   * stretch` reach the container's edge and is CSS's own rule rather than a shortcut. */
+  double linesDeep = 0;
+  for (const Line &line : lines) { linesDeep += line.Cross; }
+  linesDeep += gap * (double)(lines.size() - 1);
+  if (!wraps && crossRoom > 0) {
+    lines[0].Cross = crossRoom;
+    linesDeep = crossRoom;
+  }
+
+  /* `align-content` DISTRIBUTES THE LINES, AND ITS INITIAL VALUE IS `stretch` -- which is why a
+   * wrapped container with no declaration at all fills its cross axis rather than hugging its lines. */
+  const uint32_t alignLines = style.Word(Property::AlignContent, kStretch);
+  double lineAt = 0, betweenLines = gap;
+  const double crossSlack = crossRoom - linesDeep;
+  if (crossRoom > 0 && crossSlack > 0 && lines.size() > 0) {
+    if (alignLines == kStretch) {
+      const double share = crossSlack / (double)lines.size();
+      for (Line &line : lines) { line.Cross += share; }
+    } else if (alignLines == kFlexEnd) {
+      lineAt = crossSlack;
+    } else if (alignLines == kCentre) {
+      lineAt = crossSlack / 2.0;
+    } else if (alignLines == kSpaceBetween && lines.size() > 1) {
+      betweenLines = gap + crossSlack / (double)(lines.size() - 1);
+    } else if (alignLines == kSpaceAround) {
+      lineAt = crossSlack / (double)(lines.size() * 2);
+      betweenLines = gap + crossSlack / (double)lines.size();
     }
+  }
+  for (Line &line : lines) {
+    line.CrossAt = lineAt;
+    lineAt += line.Cross + betweenLines;
+  }
+  if (wrapping == kWrapReverse && crossRoom > 0) {
+    for (Line &line : lines) { line.CrossAt = crossRoom - line.CrossAt - line.Cross; }
   }
 
   double deepest = 0;
-  for (Item &one : items) {
-    cursor += one.MainMarginStart;
-    double cross = one.Cross;
-    if (!one.CrossDeclared) {
-      if (align == kStretch && crossRoom > 0) {
-        cross = crossRoom - one.CrossMarginStart - one.CrossMarginEnd;
-      } else {
-        double w = 0, h = 0;
-        Measure(one.Node, &style, column ? crossRoom : one.Main, w, h);
-        cross = column ? w : h;
+  for (const Line &line : lines) {
+    double used = gap * (double)(line.Count - 1);
+    for (size_t i = line.From; i < line.From + line.Count; ++i) {
+      used += items[i].Main + items[i].MainMarginStart + items[i].MainMarginEnd;
+    }
+    double cursor = 0, between = gap;
+    const double slack = mainRoom - used;
+    if (slack > 0) {
+      if (justify == kFlexEnd) {
+        cursor = slack;
+      } else if (justify == kCentre) {
+        cursor = slack / 2.0;
+      } else if (justify == kSpaceBetween && line.Count > 1) {
+        between = gap + slack / (double)(line.Count - 1);
+      } else if (justify == kSpaceAround) {
+        cursor = slack / (double)(line.Count * 2);
+        between = gap + slack / (double)line.Count;
       }
+    } else if (justify == kCentre) {
+      /* CENTRING AN OVERFULL LINE PUTS ITS START BEFORE THE CONTAINER, and that is the answer CSS
+       * gives rather than a clamp: the overflow is symmetric and the corpus states a NEGATIVE offset
+       * for it. Flooring the slack at zero here reads as tidy and is a different layout. */
+      cursor = slack / 2.0;
     }
-    double crossAt = one.CrossMarginStart;
-    if (align == kCentre && crossRoom > 0) {
-      crossAt = (crossRoom - cross - one.CrossMarginStart - one.CrossMarginEnd) / 2.0 +
-                one.CrossMarginStart;
-    } else if (align == kFlexEnd && crossRoom > 0) {
-      crossAt = crossRoom - cross - one.CrossMarginEnd;
-    }
-    const double x = column ? contentX + crossAt : contentX + cursor;
-    const double y = column ? contentY + cursor : contentY + crossAt;
-    /* THE ITEM IS PLACED AT THE SIZE FLEX GAVE IT, which is why it is laid out against that size
-     * rather than against the container's: a flexed item's children see the item, not the flexbox. */
-    /* THE ITEM IS GIVEN THE ROOM FLEX DECIDED, AND THE ROOM IS ITS OWN AXIS'S. A row's horizontal
-     * margins are the MAIN ones and a column's are the CROSS ones, so the two rooms are named by axis
-     * rather than by side -- writing them by side is how a column ends up sized by a row's arithmetic. */
-    const double widthRoom = column ? cross + one.CrossMarginStart + one.CrossMarginEnd
-                                    : one.Main + one.MainMarginStart + one.MainMarginEnd;
-    const double heightRoom = column ? one.Main : cross;
-    const int before = (int)Out->size();
-    Place(one.Node, &style, x - (column ? one.CrossMarginStart : one.MainMarginStart),
-          y - (column ? one.MainMarginStart : one.CrossMarginStart), widthRoom, heightRoom, self);
-    if (before < (int)Out->size()) {
-      Box &placed = (*Out)[(size_t)before];
-      if (column) {
-        placed.Height = one.Main;
-        if (!one.CrossDeclared || align == kStretch) { placed.Width = cross; }
-      } else {
-        placed.Width = one.Main;
-        if (!one.CrossDeclared && align == kStretch) { placed.Height = cross; }
+
+    for (size_t i = line.From; i < line.From + line.Count; ++i) {
+      Item &one = items[i];
+      cursor += one.MainMarginStart;
+      const uint32_t self_align = one.Style.Has(Property::AlignSelf)
+                                      ? one.Style.Word(Property::AlignSelf, align)
+                                      : align;
+      double cross = one.Cross;
+      if (!one.CrossDeclared && self_align == kStretch) {
+        cross = line.Cross - one.CrossMarginStart - one.CrossMarginEnd;
       }
-      deepest = std::fmax(deepest, (column ? cursor + one.Main + one.MainMarginEnd
-                                           : crossAt + placed.Height + one.CrossMarginEnd));
+      double crossAt = line.CrossAt + one.CrossMarginStart;
+      if (self_align == kCentre) {
+        crossAt = line.CrossAt +
+                  (line.Cross - cross - one.CrossMarginStart - one.CrossMarginEnd) / 2.0 +
+                  one.CrossMarginStart;
+      } else if (self_align == kFlexEnd) {
+        crossAt = line.CrossAt + line.Cross - cross - one.CrossMarginEnd;
+      }
+      const double x = column ? contentX + crossAt : contentX + cursor;
+      const double y = column ? contentY + cursor : contentY + crossAt;
+      /* THE ITEM IS GIVEN THE ROOM FLEX DECIDED, AND THE ROOM IS ITS OWN AXIS'S. A row's horizontal
+       * margins are the MAIN ones and a column's are the CROSS ones, so the two rooms are named by
+       * axis rather than by side -- writing them by side is how a column ends up sized by a row's
+       * arithmetic. */
+      const double widthRoom = column ? cross + one.CrossMarginStart + one.CrossMarginEnd
+                                      : one.Main + one.MainMarginStart + one.MainMarginEnd;
+      const double heightRoom = column ? one.Main : cross;
+      const int before = (int)Out->size();
+      Place(one.Node, &style, x - (column ? one.CrossMarginStart : one.MainMarginStart),
+            y - (column ? one.MainMarginStart : one.CrossMarginStart), widthRoom, heightRoom, self);
+      if (before < (int)Out->size()) {
+        Box &placed = (*Out)[(size_t)before];
+        if (column) {
+          placed.Height = one.Main;
+          if (!one.CrossDeclared && self_align == kStretch) { placed.Width = cross; }
+        } else {
+          placed.Width = one.Main;
+          if (!one.CrossDeclared && self_align == kStretch) { placed.Height = cross; }
+        }
+        deepest = std::fmax(deepest, column ? cursor + one.Main + one.MainMarginEnd
+                                            : crossAt + placed.Height + one.CrossMarginEnd);
+      }
+      cursor += one.Main + one.MainMarginEnd + between;
     }
-    cursor += one.Main + one.MainMarginEnd + between;
   }
-  return column ? std::fmax(deepest, used) : deepest;
+  /* WHAT THE CONTAINER USED ON ITS BLOCK AXIS. A column's is the deepest MAIN extent any line
+   * reached; a row's is where its last LINE ends, which is not the same number the moment a container
+   * wraps. */
+  double crossExtent = 0;
+  for (const Line &line : lines) { crossExtent = std::fmax(crossExtent, line.CrossAt + line.Cross); }
+  return column ? deepest : std::fmax(deepest, crossExtent);
 }
 
 double Placer::Children(int node, const Computed &style, int self, double contentX, double contentY,
@@ -619,7 +722,12 @@ const char *UserAgentSheet(void) {
          "span, a, b, i, em, strong, small, code, label { display: inline }\n"
          "body { margin: 8px }\n"
          "p, blockquote, figure, h1, h2, h3, h4, h5, h6, ul, ol, pre, form { margin: 1em 0 }\n"
-         "html { color: black; font-size: 16px; line-height: 1.2; text-align: left }\n";
+         "html { color: black; font-size: 16px; line-height: 1.2; text-align: left }\n"
+         /* THE DOCUMENT'S METADATA DRAWS NOTHING, AND SAYING SO IS THE SHEET'S JOB RATHER THAN THE
+          * LAYOUT'S. [MEASURED] `<title>` was laid out as ordinary text: two lines of 19.2 px that
+          * pushed `<body>` from y = 8 to y = 46.4, and three cases of the corpus read as an
+          * `align-content` defect when the cause was a title nobody was supposed to see. */
+         "head, title, link, meta, style, script, base, noscript { display: none }\n";
 }
 
 bool Layout::Build(const Markup &markup, Stylesheet &sheet, double viewportWidth,
