@@ -85,3 +85,26 @@ arriving where it matters.
 **Authority and cost are two bounds and only one of them is here.** A page on a wall costs a layout and
 a pass whoever owns it, so the declared size and the redraw-on-change rule in `board:1452` are the other
 bound. Neither implies the other.
+
+## A script drives movement, which puts it on the frame path
+
+**The owner's decision, and it changes the COST story rather than the authority one.** A script that
+moves something runs once per tick, not once per event — so it is inside the frame, beside every other
+term that has to be bounded.
+
+- [ ] **The step bound is per TICK and not per run.** 100 000 steps is generous for a handler and
+  absurd for two hundred actors a frame. A tick declares its own number, and a script that reaches it
+  is **refused by name** like everything else here — a script quietly cut short would move something
+  half way and report nothing
+- [ ] **The frame path does not allocate, and that is measured rather than asserted.** `Names_` and
+  `Held_` keep their capacity across `clear()`, so a numeric script allocates nothing after its first
+  run — which is a claim, and a claim about allocation is worth an instrument
+- [ ] **The step comes from the declaration and never from a clock.** `CLAUDE.md`: *if pace decides the
+  result, the coupling is a bug.* A movement script is handed the declared `dt` by its host —
+  `self.x = self.x + speed * dt` — so two runs of one scenario are one scenario
+- [ ] **Authority is unchanged.** `self` is a `Ref` the host gave to that one actor; a script moves what
+  belongs to it and nothing else. The tick adds a cost bound, not a reach
+
+*What the other engines call `Update` or `Tick` is this, and the reason to say so is that the shape is
+settled rather than invented: what is new here is that the reach is a capability and the cost is a
+declared number, and both are checkable.*
