@@ -247,8 +247,79 @@ TriangleBvh TriangleBvh::Over(Span<const float> positionsM, Span<const uint32_t>
   }
 
   built.Nodes_ = std::move(work.Nodes);
+  built.Order_ = std::move(work.Order);
   built.Depth_ = work.Depth;
   return built;
+}
+
+bool TriangleBvh::Refit(Span<const float> positionsM, Span<const uint32_t> indices) {
+  if (Nodes_.empty() || Order_.size() != Tris_.size()) { return false; }
+  if (indices.Size() != Tris_.size() * 3u) { return false; }
+  const size_t vertices = positionsM.Size() / 3u;
+
+  /* THE CORNERS FIRST, through the permutation the build recorded, into storage that already exists. */
+  for (size_t at = 0; at < Tris_.size(); ++at) {
+    const uint32_t tri = Order_[at];
+    float corner[3][3];
+    for (int corner_at = 0; corner_at < 3; ++corner_at) {
+      const uint32_t vertex = indices[(size_t)tri * 3u + (size_t)corner_at];
+      for (int axis = 0; axis < 3; ++axis) {
+        corner[corner_at][axis] =
+            vertex < vertices ? positionsM[(size_t)vertex * 3u + (size_t)axis] : 0.0f;
+      }
+    }
+    BvhTriangle &out = Tris_[at];
+    for (int axis = 0; axis < 3; ++axis) {
+      out.V0[axis] = corner[0][axis];
+      out.E1[axis] = corner[1][axis] - corner[0][axis];
+      out.E2[axis] = corner[2][axis] - corner[0][axis];
+    }
+  }
+
+  /* **THEN THE BOXES, LEAVES-UP, WHICH A REVERSE WALK OF A DEPTH-FIRST ARRAY ALREADY IS.** A node's
+   * children sit at higher indices than it does -- the first is the very next node and the second is
+   * where the first escapes to -- so walking backwards visits every child before its parent and no
+   * second pass or explicit stack is needed. */
+  for (size_t at = Nodes_.size(); at > 0; --at) {
+    BvhNode &node = Nodes_[at - 1];
+    float least[3] = {0, 0, 0}, most[3] = {0, 0, 0};
+    bool began = false;
+    const auto widen = [&least, &most, &began](const float point[3]) {
+      for (int axis = 0; axis < 3; ++axis) {
+        least[axis] = began ? (point[axis] < least[axis] ? point[axis] : least[axis]) : point[axis];
+        most[axis] = began ? (point[axis] > most[axis] ? point[axis] : most[axis]) : point[axis];
+      }
+      began = true;
+    };
+    if (node.IsLeaf()) {
+      const uint32_t first = node.FirstTriangle(), count = node.TriangleCount();
+      for (uint32_t which = 0; which < count; ++which) {
+        const BvhTriangle &tri = Tris_[(size_t)first + which];
+        float point[3];
+        for (int axis = 0; axis < 3; ++axis) { point[axis] = tri.V0[axis]; }
+        widen(point);
+        for (int axis = 0; axis < 3; ++axis) { point[axis] = tri.V0[axis] + tri.E1[axis]; }
+        widen(point);
+        for (int axis = 0; axis < 3; ++axis) { point[axis] = tri.V0[axis] + tri.E2[axis]; }
+        widen(point);
+      }
+    } else {
+      const size_t left = at;                        /* the very next node */
+      const uint32_t right = Nodes_[left].Escape;    /* where the first child escapes to */
+      widen(Nodes_[left].MinM);
+      widen(Nodes_[left].MaxM);
+      if (right != kBvhNoEscape && (size_t)right < Nodes_.size()) {
+        widen(Nodes_[right].MinM);
+        widen(Nodes_[right].MaxM);
+      }
+    }
+    if (!began) { continue; }
+    for (int axis = 0; axis < 3; ++axis) {
+      node.MinM[axis] = least[axis];
+      node.MaxM[axis] = most[axis];
+    }
+  }
+  return true;
 }
 
 /* THE SAME TRAVERSAL THE SHADER RUNS, and it is here so that the device's answer has something to

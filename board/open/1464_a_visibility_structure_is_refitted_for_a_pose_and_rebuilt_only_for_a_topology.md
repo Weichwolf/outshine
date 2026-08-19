@@ -39,6 +39,40 @@ established practice is to refit per frame and rebuild on a declared trigger -- 
 heuristic, a keyframe, or a topology change. **The trigger is a declaration and belongs beside the
 scenario, not inside the builder.**
 
+## THE REFIT IS BUILT AND PROVED; WHAT IS OPEN IS HOW `SetMesh` KNOWS
+
+`TriangleBvh::Refit` writes the corners through the permutation the build already recorded and widens
+the boxes leaves-up -- which a REVERSE WALK of a depth-first array is by construction, since a node's
+children always sit at higher indices than it does. It allocates nothing.
+
+[MEASURED] `ARefittedTreeAnswersWhatARebuiltOneDoes`, 512 triangles, 281 nodes, depth 14, 4096 rays,
+between a rest pose and one twisted about the vertical axis:
+
+| | |
+|---|---|
+| rays the **unrefitted** tree answers differently | **115 of 4096** -- the negative control fires |
+| rays the **refitted** tree answers differently from a REBUILT one | **0 of 4096** |
+| nodes | 281 after the refit, 289 in a rebuild -- different splits, identical answers |
+
+**The negative control is the load-bearing half.** Without it a `Refit` whose body was `return true;`
+would be green, and the failure it would hide -- a shadow structure holding last pose's geometry --
+looks like a scene with slightly wrong shadows rather than like a bug.
+
+## WHAT IS UNDECIDED, and it is one question
+
+**How does `SubjectDraw::SetMesh` know the triangles are the same triangles?** A refit is correct only
+while they are, and three answers are available:
+
+| | cost | how it fails |
+|---|---|---|
+| **compare the index run against a stored copy** | O(n) reads a frame and 4 bytes a index held for the subject's life -- 18 MB on the corpus's largest | it does not: exact, and always cheaper than the rebuild it avoids |
+| **hash the index run** | O(n) reads, 8 bytes held | a collision at 2^-64 leaves a stale structure, which is a picture defect nobody would look for |
+| **the consumer declares a topology identity** | free | a stranger sets it wrong and gets last pose's shadows; `CLAUDE.md` prefers unspellable over documented |
+
+**The first is recommended** and its argument is that the comparison is strictly cheaper than the
+rebuild it replaces -- O(n) reads with no allocation against O(n log n) with one. The 18 MB is the part
+that needs the owner, because it is held for every subject and not only for the ones that move.
+
 ## What must be true
 
 - [ ] **A pose refits and takes nothing from the allocator**, which the tag above measures directly:

@@ -89,6 +89,23 @@ public:
   [[nodiscard]] Span<const BvhTriangle> Triangles() const {
     return Span<const BvhTriangle>(Tris_.data(), Tris_.size());
   }
+  /* **THE SAME TREE OVER A SUBJECT THAT MOVED** (board:1464). A pose keeps every triangle's index and
+   * only changes where its corners are, so the topology, the split planes and the ordering this
+   * structure was built with are all still the ones a rebuild would produce for the same triangles --
+   * what is stale is the corner data and every box that contained it. **Refit rewrites both and takes
+   * nothing from the allocator**: the triangle array is written through the permutation the build
+   * already recorded, and the nodes are widened leaves-up, which a reverse walk of a depth-first array
+   * is by construction.
+   *
+   * **WHAT IT COSTS IS BOX QUALITY AND THE COST IS REAL.** A tree split for one pose has looser boxes
+   * over a very different one, so a traversal visits more nodes; it does not visit the WRONG ones --
+   * every box still contains its children, so no query can miss a triangle. A consumer whose subject
+   * deforms far from its build pose rebuilds, and when to do that is the consumer's declaration.
+   *
+   * Refuses a call whose index run is not the one the tree was built over, because a refit is only
+   * correct while the triangles are the same triangles. */
+  [[nodiscard]] bool Refit(Span<const float> positionsM, Span<const uint32_t> indices);
+
   [[nodiscard]] bool Empty() const { return Nodes_.empty(); }
   /* The longest root-to-leaf path, published because it is what a stacked traversal would have had
    * to size itself against -- and what this one does not. */
@@ -97,6 +114,9 @@ public:
 private:
   std::vector<BvhNode> Nodes_;
   std::vector<BvhTriangle> Tris_;
+  /* WHICH MESH TRIANGLE EACH ENTRY OF `Tris_` IS, kept because a refit has to read the same corners
+   * the build did and the build reordered them. It is the permutation, not a copy of the mesh. */
+  std::vector<uint32_t> Order_;
   uint32_t Depth_ = 0;
 };
 
