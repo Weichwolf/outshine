@@ -32,7 +32,14 @@ exists a film would be a subject with no ruler. Build the ruler, then bring the 
   the device it was taken on
 - [x] **Determinism is two runs of one declaration compared picture by picture**, and a difference is a
   failure naming the first frame that differed
-- [ ] **Residency and memory are read across a long run**, so a leak is a slope and not an anecdote
+- [x] **Memory is read across a long run**, 600 frames, and the claim is a declared ceiling with its
+  own derivation -- the term it has to clear was measured, not supposed
+- [ ] **RESIDENCY IS NOT MEASURED AND HAS NO INSTRUMENT.** `Renderer` publishes draw and batch counts
+  and no byte accounting at all, so what the DEVICE holds is unanswerable here. It is named rather
+  than approximated, because a figure taken from the process's memory and called device residency
+  would be the exact defect an instrument's domain paragraph exists to prevent
+- [ ] **A leak is judged by EQUALITY once `board:1462` lands**, because suspend and quick resume put the
+  horizon at 21 600 000 frames and no run this suite can afford is statistical enough to reach it
 - [x] **NO SANITISER IS IN THE PATH.** A duration measured through a bounds checker is not the shipping
   frame, and `CLAUDE.md` names this for the frame suite already
 - [ ] **A run that misses the floor is RED and says by how much**, because a frame budget nobody can fail
