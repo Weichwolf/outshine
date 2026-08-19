@@ -41,8 +41,8 @@ flex container, and a directory that looks like the subject is not the subject. 
 directory, never into the tree**. A WPT pair is upstream's file and ours only by selection, so the two
 rules point opposite ways and the choice has to be made rather than discovered.
 
-**TAKEN: a manifest per pair, in the tree, WRITTEN BY THE PREPARER AND IDEMPOTENT.** `test/wpt/css/` then
-holds what `test/khronos/glTF/` holds -- one directory per case, one thin manifest each, naming the pin
+**TAKEN: a manifest per pair, in the tree, WRITTEN BY THE PREPARER AND IDEMPOTENT.** A directory named
+for the project whose tests these are -- wpt, under it css -- then holds what `test/khronos/glTF/` holds -- one directory per case, one thin manifest each, naming the pin
 and the two files and nothing else. What it buys is everything this tree does per case: `run.sh` finds
 them with the same `find`, the browser lists them with the same walk, and **a pair can carry its own
 declared reduction** -- which is the mechanism by which this corpus will record what the subset cannot
