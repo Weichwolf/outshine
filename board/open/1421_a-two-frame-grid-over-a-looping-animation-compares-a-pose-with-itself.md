@@ -85,3 +85,22 @@ construction, priced across all 24.
 grid derivation has two defects rather than one: it can land on the period's endpoint, and it can land on
 every key. Both are the same shape -- a grid whose samples are where the answer is already known -- and
 both are answered by the same change, which is why they are priced together rather than twice.
+
+## A derivation that answers both defects at once, and its cost
+
+**Offset the grid by half a step**: sample at `(k + 1/2) / fps` instead of `k / fps`. A grid that landed
+on every key lands strictly between every pair of them, for every case, with no per-case rate hunt -- and
+the period's endpoint stops being a sample by construction, which is this item's first defect.
+
+**What it costs and why it is not taken here.** Frame 0 would no longer be `t = 0`, and `t = 0` is where
+`board:1432` puts a still, where `board:1437` takes the framing bounds, and where the sweep is seeded.
+Blender renders a subframe -- `scene.frame_set(frame, subframe)` -- so the oracle can follow, but **every
+animated case's oracle re-renders and its camera may move with the swept bounds**.
+
+**The alternative is a per-case rate that is not a divisor of the key spacing**, which is what
+`board:1439` and `board:1440` did by hand three times. [MEASURED] it does not generalise: `VirtualCity`
+and `DiffuseTransmissionPlant` carry keys every 1/30 s, so a rate has to avoid a multiple of 30 rather
+than simply rise, and `AnimatedTriangle`'s keys at 0.25 s make every rate that is a multiple of four land
+on keys again.
+
+*Both are the owner's call on scope, and the measurement for it is `board:1440`'s table.*
