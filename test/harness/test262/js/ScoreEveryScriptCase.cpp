@@ -1,4 +1,4 @@
-/* THE HARNESS FOR tc39/test262, fetched at the pin every manifest cites (board:1450).
+/* THE HARNESS FOR tc39/test262, fetched at the pin every manifest cites (board:1449, board:1450).
  *
  * **A CASE IS DECIDED BY WHAT IT DECLARES ABOUT ITSELF.** test262 opens every file with a comment
  * block carrying its own frontmatter: a case with no `negative` entry passes by RUNNING TO THE END, and one with a negative block passes

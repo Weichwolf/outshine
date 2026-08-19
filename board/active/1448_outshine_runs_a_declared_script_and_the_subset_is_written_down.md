@@ -134,3 +134,15 @@ what makes sure there is none.
 *So the host interface is designed as a WORLD API and not as a language binding: sensors, actuators,
 and no ambient authority. The three vocabularies the browser needed — `select`, `suite`, `scroll` --
 are the same shape a switch, a door and a train will use.*
+
+
+## Where this stands
+
+**The interpreter, its subset, its bounds and its corpus are built and measured.** `test262` reports
+9 held, 804 reduced at a declared boundary and 0 unaccounted over 813 cases; a tick costs p99 0.292 us
+and takes nothing from the allocator, which is 11 418 actors in a `[SET]` fifth of the frame.
+
+**The first consumer is done and the second is named.** A UI declaration's action IS a script, answered
+by a host the browser implements — three words, none of which exists in `src/core`. Running a
+DOCUMENT's own `window.onload` in the CSS harness is blocked on function expressions, which this item
+writes down as outside; the 18 corpus cases it would take are counted there and not reached for.

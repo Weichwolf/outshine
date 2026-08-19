@@ -5,8 +5,9 @@ Tags: instrument
 **A case records the digest of the preparer it could actually reach**
 
 The digest a prepared case records is taken over **every** `.py` under `test/harness/`, so adding a
-vendor's fetch step invalidates every other vendor's corpus. [MEASURED] this happened three times in
-one run of work: 143 cases, then 6, then 330 — and the third was caused by
+vendor's fetch step invalidates every other vendor's corpus. [MEASURED] this happened FOUR times in
+one run of work: 143 cases, then 6, then 330, and then every one of them again -- the fourth time for a
+**comment added to a Python file**, which cannot change a product by any argument anyone would make — and the third was caused by
 `test/harness/test262/js/prepare/fetch.py`, a file a Khronos case cannot reach, because the vendor's
 step is chosen by the case's own path.
 
@@ -29,6 +30,19 @@ fetch step is paying for a coupling that does not exist.
   is a document agreeing with itself
 - [ ] The rule that made the population wide is kept where it is right: *a named list is a second copy
   of a fact* — so the narrowing is **derived from the vendor lookup** and never written down as a table
+
+## A second narrowing the fourth occurrence argues for
+
+**A case whose preparation produced no ORACLE product should record no preparer digest at all.** Its
+files are upstream bytes verified against their own `sha256`, which is a stronger guarantee than *made
+by this code* -- so 975 of the tree's 1146 cases are paying for a claim that says less than the one they
+already carry. That alone removes most of the churn, and it is derivable from the manifest's own
+`schema`.
+
+**And the vendor-specific modules belong in their vendor's directory.** `prep/wpt.py` and
+`prep/test262.py` sit in the SHARED preparer, so the reachability rule above cannot exclude them from a
+Khronos case even though nothing reaches them. Moving them beside the fetch steps they belong to makes
+the same rule sharper without a list -- which is what `board:1196` refused and this preserves.
 
 ## Comments
 

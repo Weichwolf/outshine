@@ -198,3 +198,14 @@ a premultiplied blend from a straight one, and a suite that only checked it woul
   design, so it lands with the first client that draws an interface
 - `position: absolute`, deferred and carrying its own item
 - nine red corpus cases, all genuine flexbox depth
+
+
+## Where this stands
+
+**Read, cascade, measure, wrap, place, clip, paint, hit and page are built, and the GPU stage draws
+them.** The CSS suite reports 18 held, 144 reduced at a declared boundary and **0 unaccounted** over
+162 cases — every one of them either right or declined for a reason written down with its argument.
+
+What remains under this feature is its two children: the reftest arm (`board:1443`, `board:1444`), whose
+own measurement says the pairs must come from more of `css/` than one directory. `position: absolute`
+left this item and took `board:1454`, which is what *deferred and not refused* costs to be true.
