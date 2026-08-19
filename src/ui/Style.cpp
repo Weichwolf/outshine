@@ -245,6 +245,15 @@ void Expand(std::string_view name, std::string_view text, std::vector<Declaratio
   /* `flex: none | auto | initial | <grow> [<shrink>] [<basis>]`, with CSS's own defaults: a bare
    * number sets the growth and leaves the basis at zero, which is what makes `flex: 1` share the room
    * rather than keep the content's width. */
+  /* `flex: none | [ <grow> <shrink>? || <basis> ]`, and the `||` is load-bearing: the two NUMBERS are
+   * one group and must be adjacent, so the basis may come before them or after them and never
+   * BETWEEN. `flex: 1 0% 1` is invalid CSS, and a case exists upstream for exactly that.
+   *
+   * **AN INVALID DECLARATION IS DROPPED AND NOT COUNTED AS A GAP.** Returning *not mine* here would
+   * put `flex` on the list of properties this engine cannot express, and it can -- the author wrote
+   * something the grammar does not admit, and CSS's answer is to ignore that declaration and keep
+   * whatever else applies. Counting it would move a case out of the subset for an authoring mistake,
+   * which is a coverage number reporting an engine gap that is not one. */
   const auto flex = [&]() {
     const std::vector<std::string_view> parts = words();
     if (parts.empty() || parts.size() > 3) { return false; }
@@ -254,29 +263,44 @@ void Expand(std::string_view name, std::string_view text, std::vector<Declaratio
       one(Property::FlexBasis, "auto");
       return true;
     }
-    bool grow = false, shrink = false, basis = false;
-    for (const std::string_view part : parts) {
-      const bool bare = Bare(part);
-      if (bare && !grow) {
-        one(Property::FlexGrow, part);
-        grow = true;
-      } else if (bare && !shrink) {
-        one(Property::FlexShrink, part);
-        shrink = true;
-      } else if (!basis) {
-        one(Property::FlexBasis, part);
-        basis = true;
+    size_t numbers = 0, basisAt = parts.size();
+    std::string_view bare[2];
+    for (size_t at = 0; at < parts.size(); ++at) {
+      if (Bare(parts[at])) {
+        if (numbers >= 2) { return true; }   /* three numbers: invalid, and dropped */
+        bare[numbers++] = parts[at];
+      } else if (basisAt == parts.size()) {
+        basisAt = at;
       } else {
-        return false;
+        return true;                          /* two bases: invalid, and dropped */
       }
     }
-    if (!grow) { return false; }
-    if (!shrink) { one(Property::FlexShrink, "1"); }
+    if (numbers == 0) {
+      /* `flex: <basis>` alone -- the numbers take their shorthand defaults, which are 1 and 1 and NOT
+       * the initial values of the longhands. */
+      if (basisAt == parts.size()) { return false; }
+      one(Property::FlexGrow, "1");
+      one(Property::FlexShrink, "1");
+      one(Property::FlexBasis, parts[basisAt]);
+      return true;
+    }
+    /* THE NUMBERS MUST BE ADJACENT. With a basis between them the declaration is invalid, and the one
+     * comparison below is the whole of that rule. */
+    if (numbers == 2 && basisAt < parts.size()) {
+      size_t first = parts.size(), second = parts.size();
+      for (size_t at = 0; at < parts.size(); ++at) {
+        if (!Bare(parts[at])) { continue; }
+        if (first == parts.size()) { first = at; } else { second = at; }
+      }
+      if (basisAt > first && basisAt < second) { return true; }   /* in the middle: dropped */
+    }
+    one(Property::FlexGrow, bare[0]);
+    one(Property::FlexShrink, numbers > 1 ? bare[1] : std::string_view("1"));
     /* THE SPECIFICATION'S OWN EXPANSION IS `<number> 1 0%`, AND THE UNIT IS LOAD-BEARING. [MEASURED]
      * a bare `0` reads as a number with no unit, `Resolve` answers ABSENT for one, and the basis then
      * falls through to the item's declared height -- so `flex: 1` on a 5px-high item took 5px of a
      * 300px column instead of the 135px it was owed. */
-    if (!basis) { one(Property::FlexBasis, "0%"); }
+    one(Property::FlexBasis, basisAt < parts.size() ? parts[basisAt] : std::string_view("0%"));
     return true;
   };
   const auto flexFlow = [&]() {

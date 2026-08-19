@@ -820,8 +820,20 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
 
   const double contentX = box.X + box.Border.Left + box.Padding.Left;
   const double contentY = box.Y + box.Border.Top + box.Padding.Top;
-  const double used = Children(node, style, self, contentX, contentY, contentWidth,
-                               heightAbsent ? 0 : contentHeight, emPx);
+  /* AN INDEFINITE MAIN SIZE WITH A DEFINITE MAXIMUM IS THE MAXIMUM, for the purpose of the room the
+   * contents get. CSS says the available space in an axis is the box's definite max size when its own
+   * size is not definite -- and for a wrapping flex container that room is what DECIDES the wrapping.
+   * [MEASURED] `align-content-vert-001b` writes `max-height: 10px` where `001a` writes `height: 10px`,
+   * and handing zero room to the second made the container one line where the document states three:
+   * 104 of its assertions, on a declaration one word apart from a case that already held. */
+  double heightRoom = heightAbsent ? 0.0 : contentHeight;
+  if (heightAbsent && style.Has(Property::MaxHeight) &&
+      style.Of(Property::MaxHeight).How != Unit::Auto) {
+    bool absent = false;
+    const double ceiling = Resolve(style.Of(Property::MaxHeight), containerHeight, emPx, RootEm, absent);
+    if (!absent) { heightRoom = std::fmax(0.0, ceiling - (borderBox ? frameY : 0.0)); }
+  }
+  const double used = Children(node, style, self, contentX, contentY, contentWidth, heightRoom, emPx);
   if (heightAbsent) { contentHeight = used; }
   /* THE LIMITS ARE APPLIED TO THE BOX THE DECLARATION MEANS. `min-height` speaks of the same box
    * `height` does, so under `border-box` both are the border box and under the default both are the
