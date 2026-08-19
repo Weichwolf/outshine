@@ -119,6 +119,8 @@ bool Pose::Build(const Document &document, Span<const int> animations, Pose &out
     auto held = std::make_unique<Channel>();
     held->Node = channel.Node;
     held->Path = channel.Path;
+    held->Material = channel.Material;
+    held->Factor = channel.Factor;
     held->Times = times;
     held->Values = values;
     if (!Track::Build(channel.Path, sampler.How, held->Times, held->Values, held->Curve)) {
@@ -188,6 +190,9 @@ void Pose::At(double seconds, std::vector<Transform> &locals, std::vector<double
          * no node at all -- the format forbids it -- so this arm is unreachable through the `Node`
          * test above and exists to say the enumeration was ANSWERED rather than defaulted. What a
          * consumer does with an animated material row is its own question and not this pose's. */
+        /* ANSWERED BY `FactorsAt` AND NOT HERE (board:1392). A pointer channel names no node, so it
+         * is unreachable through the `Node` test above; the arm stays so the enumeration is answered
+         * rather than defaulted. */
         case AnimationPath::MaterialFactor: break;
         case AnimationPath::Weights:
           channel->Curve.At(seconds, &weights[posed.WeightFirst]);
@@ -197,6 +202,27 @@ void Pose::At(double seconds, std::vector<Transform> &locals, std::vector<double
     locals[node] = posed.HasMatrix
                        ? Transform::FromColumnMajor(posed.Matrix)
                        : Transform::FromTrs(posed.Translation, posed.Rotation, posed.Scale);
+  }
+}
+
+void Pose::FactorsAt(double seconds, std::vector<FactorAt> &factors) const {
+  factors.clear();
+  for (const std::unique_ptr<Channel> &channel : Channels_) {
+    if (channel->Path != AnimationPath::MaterialFactor || channel->Material < 0) { continue; }
+    FactorAt sampled;
+    sampled.Material = channel->Material;
+    sampled.Factor = channel->Factor;
+    /* THE SAME `Track` THE FOUR NODE PATHS USE, which is the whole of what this item asked for: a
+     * pointer that resolves is animated by the machinery already here rather than by a second
+     * sampler beside it. The curve's width was derived from the run at `Build`, and the factor's own
+     * width bounds the write. */
+    double all[4] = {0, 0, 0, 0};
+    channel->Curve.At(seconds, all);
+    const size_t width = FactorComponents(channel->Factor);
+    for (size_t component = 0; component < width && component < 4; ++component) {
+      sampled.Values[component] = all[component];
+    }
+    factors.push_back(sampled);
   }
 }
 

@@ -16,7 +16,15 @@ rather than a switch it hides.
 
 - [ ] The set of pointers this reader resolves is ENUMERATED and published, and a pointer outside it is
   a named refusal rather than a silent no-op
-- [ ] A pointer that resolves is animated by the same sampler machinery the four node paths use
+- [x] A pointer that resolves is animated by the same sampler machinery the four node paths use --
+  `Pose::FactorsAt` samples the channel's own `Track`, the one the four node paths use, and answers
+  which material, which factor and its values at an instant. Proven by
+  `test/outshine/unit/gltf/AHierarchyIsPosedAtTheTimeItIsAsked.cpp`, whose fixture drives a
+  `baseColorFactor` pointer from the SAME sampler its rotation uses -- so the values the factor must
+  read are the file's own `(0, 0, 0, 1)` and `(0, 0, sqrt(1/2), sqrt(1/2))` and not a second set of
+  numbers to keep true. **An accessor is untyped data and the format says so**, which is what makes one
+  sampler legitimately drive a quaternion and a colour, and the halfway sample is what separates them:
+  a base colour interpolates as a vector where `LINEAR` on a rotation means slerp
 
 Specification: <https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_animation_pointer>. **Fetched, never recalled** -- a rule quoted from memory is a defect one step before the code.
 
@@ -94,3 +102,13 @@ material at the file -- `source: gltf`, `kind: metal-rough` -- is what would mak
 would go **red**, because this item's own open line says nothing drives a material yet. *That is a red
 worth having and it is not taken here: a standing red with no path to green is worse than a named gap,
 and the round that implements the capability is the round that should flip the case.*
+
+## The pose answers; the row is still the consumer's question
+
+`Pose::FactorsAt` is a separate call from `At` because it answers a separate question and its result is
+keyed by MATERIAL where that one is keyed by node -- and a consumer that shades from the manifest rather
+than from the file has no use for it at all. **The remaining line of this item is unchanged**: nothing
+applies these values to a material row per frame, and that is a capability with its own cost.
+
+*What changed is that the values now EXIST at an instant, which is what the consumer will need and what
+no amount of reading the channel could supply.*

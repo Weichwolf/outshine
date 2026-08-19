@@ -78,6 +78,22 @@ public:
    * frame. */
   void At(double seconds, std::vector<Transform> &locals, std::vector<double> &weights) const;
 
+  /* ONE ANIMATED MATERIAL FACTOR AT ONE INSTANT (board:1392). `Values` carries the factor's own width
+   * -- four for a base colour, one for metalness or roughness, three for an emissive -- which is
+   * `FactorComponents` and not a number this struct restates. */
+  struct FactorAt {
+    int Material = -1;
+    MaterialFactor Factor = MaterialFactor::BaseColour;
+    double Values[4] = {0, 0, 0, 0};
+  };
+
+  /* EVERY MATERIAL FACTOR THIS ANIMATION DRIVES, SAMPLED AT `seconds` (board:1392). A separate call
+   * from `At` because it answers a separate question and its result is keyed by MATERIAL where that
+   * one is keyed by node -- and a consumer that shades from the manifest rather than from the file
+   * has no use for it at all. Empty where the file drives no material, which is every subject in
+   * this corpus but three. */
+  void FactorsAt(double seconds, std::vector<FactorAt> &factors) const;
+
   /* Where one node's weights sit in the flat run `At` writes: `{first, count}`, and `count` is zero
    * for a node whose mesh has no morph target -- which is most of them. */
   [[nodiscard]] size_t WeightsFirst(size_t node) const { return Nodes_[node].WeightFirst; }
@@ -105,6 +121,11 @@ private:
   struct Channel {
     int Node = -1;
     AnimationPath Path = AnimationPath::Translation;
+    /* WHICH MATERIAL AND WHICH OF ITS NUMBERS, carried through from the document's own channel and
+     * set only where `Path` is `MaterialFactor` (board:1392). A pointer channel names no node, so
+     * these two are its whole target. */
+    int Material = -1;
+    MaterialFactor Factor = MaterialFactor::BaseColour;
     std::vector<double> Times, Values;
     Track Curve;
   };

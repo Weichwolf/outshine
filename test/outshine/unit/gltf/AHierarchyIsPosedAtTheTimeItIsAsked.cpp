@@ -73,10 +73,15 @@ const char *kJson = R"({
     {"name": "spinner", "mesh": 0, "rotation": [0, 0, 0, 1]}
   ],
   "meshes": [{"primitives": [{"attributes": {"POSITION": 0}, "indices": 1}]}],
+  "materials": [{"pbrMetallicRoughness": {"baseColorFactor": [1, 1, 1, 1]}}],
+  "extensionsUsed": ["KHR_animation_pointer"],
   "animations": [{
     "channels": [
       {"sampler": 0, "target": {"node": 1, "path": "rotation"}},
-      {"sampler": 1, "target": {"node": 0, "path": "translation"}}
+      {"sampler": 1, "target": {"node": 0, "path": "translation"}},
+      {"sampler": 0, "target": {"path": "pointer", "extensions":
+        {"KHR_animation_pointer":
+          {"pointer": "/materials/0/pbrMetallicRoughness/baseColorFactor"}}}}
     ],
     "samplers": [
       {"input": 2, "interpolation": "LINEAR", "output": 3},
