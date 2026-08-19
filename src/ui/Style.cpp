@@ -103,6 +103,12 @@ const NamedColour kColours[] = {
     {"darkgray", 0xA9A9A9FF},    {"darkgrey", 0xA9A9A9FF},   {"lightyellow", 0xFFFFE0FF},
     {"lightpink", 0xFFB6C1FF},   {"lightcyan", 0xE0FFFFFF},  {"seagreen", 0x2E8B57FF},
     {"darkblue", 0x00008BFF},    {"darkgreen", 0x006400FF},  {"darkred", 0x8B0000FF},
+    {"hotpink", 0xFF69B4FF},     {"papayawhip", 0xFFEFD5FF}, {"whitesmoke", 0xF5F5F5FF},
+    {"gainsboro", 0xDCDCDCFF},   {"peachpuff", 0xFFDAB9FF},  {"lavender", 0xE6E6FAFF},
+    {"turquoise", 0x40E0D0FF},   {"crimson", 0xDC143CFF},    {"chocolate", 0xD2691EFF},
+    {"goldenrod", 0xDAA520FF},   {"firebrick", 0xB22222FF},  {"forestgreen", 0x228B22FF},
+    {"midnightblue", 0x191970FF},{"royalblue", 0x4169E1FF},  {"slategray", 0x708090FF},
+    {"slategrey", 0x708090FF},   {"dimgray", 0x696969FF},    {"dimgrey", 0x696969FF},
 };
 
 int HexOf(char c) {
@@ -229,7 +235,7 @@ const Vocabulary kVocabularies[] = {
     {Property::FlexWrap, {"nowrap", "wrap", "wrap-reverse", nullptr}},
     {Property::JustifyContent,
      {"flex-start", "flex-end", "center", "space-between", "space-around", "space-evenly", "start",
-      "end", "left", "right", "normal", nullptr}},
+      "end", "left", "right", "normal", "stretch", nullptr}},
     {Property::AlignItems,
      {"stretch", "flex-start", "flex-end", "center", "start", "end", "baseline", "normal", nullptr}},
     {Property::AlignSelf,
@@ -404,11 +410,26 @@ void Expand(std::string_view name, std::string_view text, std::vector<Declaratio
         sawStyle = true;
       } else if (ReadValue(part).How == Unit::Colour) {
         one(Property::BorderColour, part);
-      } else if (ReadValue(part).How == Unit::Pixels || ReadValue(part).How == Unit::Em) {
-        width = part;
+      } else if (part == "thin" || part == "medium" || part == "thick") {
+        /* CSS'S THREE NAMED WIDTHS. Their pixel values are the engine's own choice and these are the
+         * ones every browser has used for thirty years. */
+        width = part == "thin" ? "1px" : part == "medium" ? "3px" : "5px";
+      } else if (ReadValue(part).How == Unit::Pixels || ReadValue(part).How == Unit::Em ||
+                 (ReadValue(part).How == Unit::None && ReadValue(part).Number == 0.0)) {
+        /* A UNITLESS ZERO IS A LENGTH, and `border: 0` is a declaration CSS admits: the width is zero
+         * and the style takes its initial value. Refusing it for want of the word `solid` refused
+         * eight cases of the corpus over a line that is not about this engine at all. */
+        width = part == "0" ? std::string_view("0px") : part;
       } else {
         return false;
       }
+    }
+    /* `border: 0` IS VALID AND SETS A WIDTH. The style then takes its initial value, which is `none`,
+     * and a frame of zero is what the author wrote -- requiring the word `solid` would refuse a
+     * declaration CSS admits. */
+    if (!sawStyle && parts.size() == 1 && ReadValue(parts[0]).How != Unit::Colour) {
+      sawStyle = true;
+      drawn = true;
     }
     if (!sawStyle) { return false; }
     const std::string_view used = drawn ? width : std::string_view("0");
@@ -617,14 +638,31 @@ void Stylesheet::Read(std::string_view text) {
     }
     const size_t brace = css.find('{', at);
     if (brace == std::string_view::npos) { break; }
-    const size_t close = css.find('}', brace);
+    /* THE MATCHING BRACE AND NOT THE FIRST ONE. A nested rule puts a `}` inside the block, and taking
+     * the first would end the rule in the middle of itself -- after which every remaining declaration
+     * of the sheet is read at the wrong offset. [MEASURED] one corpus case nests, and the reader was
+     * producing a property named `.big { width`. */
+    size_t close = brace;
+    int depth = 0;
+    for (; close < css.size(); ++close) {
+      if (css[close] == '{') { ++depth; }
+      if (css[close] == '}' && --depth == 0) { break; }
+    }
     const std::string_view heads = css.substr(at, brace - at);
     const std::string_view body =
-        css.substr(brace + 1, (close == std::string_view::npos ? css.size() : close) - brace - 1);
-    at = close == std::string_view::npos ? css.size() : close + 1;
+        css.substr(brace + 1, (close >= css.size() ? css.size() : close) - brace - 1);
+    at = close >= css.size() ? css.size() : close + 1;
 
     std::vector<Declaration> declares;
-    ReadBlock(body, declares, Unheld_, Names_);
+    /* A NESTED RULE IS NAMED AND ITS DECLARATIONS ARE NOT READ. It is the same cascade written
+     * shorter, and reading half of it would apply a rule to the wrong elements. */
+    const size_t nested = body.find('{');
+    if (nested != std::string_view::npos) {
+      ++Unselectable_;
+      if (Names_.size() < 64) { Names_.emplace_back("nested-rule"); }
+    }
+    ReadBlock(nested == std::string_view::npos ? body : body.substr(0, body.rfind(';', nested) + 1),
+              declares, Unheld_, Names_);
 
     size_t from = 0;
     while (from <= heads.size()) {
@@ -865,6 +903,19 @@ const Boundary kBoundaries[] = {
     {"counter", "the same, counted"},
     {"list-style", "a marker box is inline layout with a second box beside the content"},
 
+    {"border-spacing", "a table's own spacing, and there are no tables"},
+    {"inset", "an offset means nothing until a positioned box does"},
+    {"background:currentcolor",
+     "a value that resolves against another property is a second cascade pass"},
+    {"color:currentcolor", "the same"},
+    {"nested-rule", "a nested rule is the same cascade written shorter, and a consumer can write it out"},
+    {"!important", "a declaration that outranks the cascade is a second cascade"},
+    {"+", "the adjacent-sibling combinator walks the tree sideways, which no declaration here asks for"},
+    {"~", "the same, further along"},
+    {"the document closes", 
+     "this reader refuses a stray end tag that HTML ignores, so a consumer's declaration is right or "
+     "it is refused -- upstream's corpus is not that consumer"},
+
     /* A SCRIPT DECIDING A LAYOUT. This is a mechanism and not a browser. */
     {"a script in the document decides this layout",
      "this engine runs a declared handler and never a document's own program"},
@@ -875,7 +926,18 @@ const Boundary kBoundaries[] = {
 const char *WhyOutside(std::string_view name) {
   for (const Boundary &boundary : kBoundaries) {
     const std::string_view row(boundary.Name);
-    if (name.size() >= row.size() && name.compare(0, row.size(), row) == 0) { return boundary.Why; }
+    if (name.size() < row.size()) { continue; }
+    /* A PROPERTY IS NAMED FROM ITS START AND A SELECTOR CARRIES ITS REASON IN THE MIDDLE. Both are
+     * needed and only one of them may be loose: a substring test applied to every row would let
+     * `contain` match the selector `.container` and report a case as reduced at a boundary that has
+     * nothing to do with it -- **a false reduction is worse than an open one**, because an open case
+     * is still on the list and a false one is gone. So the loose test is reserved for rows that can
+     * only BE selector fragments, which is what the leading punctuation says. */
+    const bool fragment = row.front() == ':' || row.front() == '+' || row.front() == '~' ||
+                          row.front() == '!';
+    const bool matched = fragment ? name.find(row) != std::string_view::npos
+                                  : name.compare(0, row.size(), row) == 0;
+    if (matched) { return boundary.Why; }
   }
   return nullptr;
 }

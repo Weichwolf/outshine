@@ -120,10 +120,15 @@ int main(int argc, char **argv) {
      * library's contract with a consumer who writes a declaration; upstream's corpus is not that
      * consumer, and counting its stray end tag as a layout defect would put a markup question into a
      * layout number (board:1445). What it may never be is silent, so the refusal is printed with the case. */
-    std::printf("UI-SUBSET outside\n");
-    std::printf("OUTSIDE %s -- the document is outside this reader: %s\n", id.c_str(),
-                error.c_str());
-    outshine::Test::Checked(!error.empty(), "the reader says why it refused",
+    /* A READER REFUSAL GOES THROUGH THE SAME TABLE AS EVERY OTHER NAME. It is a boundary when this
+     * engine refuses on purpose and a gap when it refuses because something is missing, and the one
+     * place that distinction lives is the engine's own declaration. */
+    const char *why = Ui::WhyOutside(error);
+    std::printf("UI-SUBSET %s\n", why != nullptr ? "reduced" : "outside");
+    std::printf("%s %s -- the document is outside this reader: %s%s\n",
+                why != nullptr ? "REDUCED" : "OUTSIDE", id.c_str(), error.c_str(),
+                why != nullptr ? (" (" + std::string(why) + ")").c_str() : "");
+    outshine::Test::Checked(why != nullptr, "the reader refuses at a boundary this engine declared",
                             (id + ": " + error).c_str(), __FILE__, __LINE__);
     return outshine::Test::Report();
   }
