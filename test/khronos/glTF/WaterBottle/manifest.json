@@ -20,7 +20,7 @@
   "subjectClass": "opaque-min-1px",
   "acceptanceClass": {
     "is": "general-position",
-    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (`board/`). A curved fetched body of 4510 triangles resolves into thousands of distinct lines and no roll makes any of them rational; the acceptance is therefore worst_disagreement_px against the oracle's own filter half-width, which introduces no constant of its own."
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (`board/`). A curved fetched body of 4510 triangles resolves into thousands of distinct lines and no roll makes any of them rational; the acceptance is therefore disagreement_p99_px against the oracle's own filter half-width, which introduces no constant of its own."
   },
   "subjects": [
     {

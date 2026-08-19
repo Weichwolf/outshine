@@ -19,7 +19,7 @@
  * pixel moved between two metrics for a reason that is about Cycles' pass semantics, and it would
  * read as a repair. What arrives here has already survived that predicate; this file only spends it.
  *
- * A ROUTED PIXEL IS NEVER AN EXCLUDED PIXEL. It leaves the tail and it enters `worst_disagreement_px`,
+ * A ROUTED PIXEL IS NEVER AN EXCLUDED PIXEL. It leaves the tail and it enters `disagreement_p99_px`,
  * which is stricter -- the disagreement must sit inside the oracle's own filter half-width. A router
  * whose second bin were unbounded would be a mask wearing the word `routed`. */
 #ifndef RENDER_ROUTING_H

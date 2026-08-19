@@ -1,7 +1,7 @@
 /* THE PICTURE BOUND: every pixel of the frame, all four channels, on the case's own display transfer
  * (board:0089).
  *
- * WHY IT EXISTS. `worst_disagreement_px` is a distance from a COVERAGE BOUNDARY, so interior noise
+ * WHY IT EXISTS. `disagreement_p99_px` is a distance from a COVERAGE BOUNDARY, so interior noise
  * can never reach it: `water-bottle`'s reference was salt-and-pepper black dots and that case scored
  * 0, the best in the suite. The instrument was blind to the picture by CONSTRUCTION and not by
  * defect, and a claim about the picture needs an instrument whose domain is the picture.
@@ -242,7 +242,7 @@ struct PictureDelta {
   /* Alpha, where the two sides agree about coverage. Gated at zero: a predicate has one value. */
   Excursion Predicate;
   /* Every channel, at the pixels the two sides disagree about covering. Published here and gated by
-   * I.26.14's `worst_disagreement_px`, which is a distance in pixels rather than a code. */
+   * I.26.14's `disagreement_p99_px`, which is a distance in pixels rather than a code. */
   Excursion Routed;
   size_t PixelsDiffering = 0; /* any channel apart at all, RGBA, whole image */
   size_t ChannelsCompared = 0;

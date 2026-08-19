@@ -188,7 +188,7 @@
   "reductions": [
     {
       "metric": "linear_channels_differing",
-      "because": "This value passes through `pow(x, 2.4)` on BOTH sides and no standard specifies that function to the last ulp, so two conforming implementations differ and bit-equality is not a property either side can offer. [MEASURED] the worst departure is 5 ulps and the picture's worst channel is 9.9012458e-06 codes -- a thousandth of a code, which is nothing at any resolution. WE DECODE sRGB IN SOFTWARE with the IEC piecewise formula, so the residual is two libm implementations of one expression and not two different expressions. The case's own subject -- that a texture lands on the right texels at 1:1 -- is decided by `picture_p99_delta_code`, which passes at 1 code, and by `worst_disagreement_px`, which passes at 0.",
+      "because": "This value passes through `pow(x, 2.4)` on BOTH sides and no standard specifies that function to the last ulp, so two conforming implementations differ and bit-equality is not a property either side can offer. [MEASURED] the worst departure is 5 ulps and the picture's worst channel is 9.9012458e-06 codes -- a thousandth of a code, which is nothing at any resolution. WE DECODE sRGB IN SOFTWARE with the IEC piecewise formula, so the residual is two libm implementations of one expression and not two different expressions. The case's own subject -- that a texture lands on the right texels at 1:1 -- is decided by `picture_p99_delta_code`, which passes at 1 code, and by `disagreement_p99_px`, which passes at 0.",
       "measured": {
         "worstUlps": {
           "value": 5,

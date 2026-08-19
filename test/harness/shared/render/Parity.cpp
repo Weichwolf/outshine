@@ -3173,9 +3173,14 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
      * defect reported as a feature defect -- the misquote I.26.15 exists to make unspellable. */
     const WorstDisagreement worst =
         WorstDisagreementPx(routing, edges, Boundary(theirs).size(), kBoundFraction);
-    metrics.push_back({"worst_disagreement_max_px", worst.Px, subject.OracleFloorPx, "px",
+    metrics.push_back({"disagreement_max_px", worst.Px, subject.OracleFloorPx, "px",
                        Direction::Reported});
-    metrics.push_back({"worst_disagreement_px", worst.AtFraction, subject.OracleFloorPx, "px",
+    /* THE NAME SAYS WHICH QUANTILE IT IS, AND IT USED TO SAY `worst` (board:1438). This number is the
+     * disagreement at `kBoundFraction`, not the largest one -- the largest keeps its own row beside it --
+     * and a metric called `worst_` that is a p99 is the failure `CLAUDE.md` names in one sentence: *the
+     * number was right and about something else*. It cost a round: 0.1353173 on `SpecularTest` was read
+     * as a maximum and reasoned about as one for several steps before the name was checked. */
+    metrics.push_back({"disagreement_p99_px", worst.AtFraction, subject.OracleFloorPx, "px",
                        subject.Placement == ExactnessClass::GeneralPosition ? Direction::AtMost
                                                                             : Direction::Reported,
                        Count::Picture});
@@ -3184,7 +3189,7 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
      * maximum over and read as the same measurement; this is what makes that unspellable in a log.
      * It is `pixels_disagreeing` plus `surface_identity_disagreeing_attributable`, and a reader can
      * check the sum. */
-    metrics.push_back({"worst_disagreement_samples", (double)worst.Pixels, 0.0, "px",
+    metrics.push_back({"disagreement_samples", (double)worst.Pixels, 0.0, "px",
                        Direction::Reported, Count::Picture});
     ScoreExactnessConstruction(subject, edges, tieMarginPx, metrics);
     ScoreVisibilityTerm(subject, clip, renderer.ShadowRayNearM(), metrics);
@@ -3246,7 +3251,7 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
    * that pair is not the question: it made an exactness demand of every self-describing case whose
    * subject happened to be opaque, whether or not the subject could meet it, and made none of a
    * `numeric` case that could. `exact` demands every pixel and declares no tolerance; the other arm
-   * is bounded above by `worst_disagreement_px` instead, so a placement is never unbounded. */
+   * is bounded above by `disagreement_p99_px` instead, so a placement is never unbounded. */
   metrics.push_back({"pixels_disagreeing", (double)Disagreeing(ours, theirs), 0.0, "px",
                      subject.Placement == ExactnessClass::Exact ? Direction::AtMost
                                                                 : Direction::Reported,

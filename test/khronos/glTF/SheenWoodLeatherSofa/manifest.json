@@ -592,7 +592,7 @@
       }
     },
     {
-      "metric": "worst_disagreement_px",
+      "metric": "disagreement_p99_px",
       "because": "THE INSTRUMENT DISAGREES WITH ITSELF BY MORE THAN WE DISAGREE WITH IT, and that is the whole argument. [MEASURED] the oracle's own two seeds differ on 564 samples of one scene; this engine differs from the oracle on 379. A geometric bound is a claim about where a silhouette is, and this reference's silhouette is not reproducible from one render to the next -- so what the bound would be measuring here is the coin flip the `Fringe` material's intermediate alpha makes of every boundary sample at one sample per pixel. The cause is the reduction above and this is its consequence, declared rather than left to read as our defect. What still decides this case is `picture_p99_delta_code`, which passes at 1 code, and `iou` at 0.99187184.",
       "measured": {
         "oracleAgainstItselfSamples": {

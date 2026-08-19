@@ -41,7 +41,7 @@ enum class SubjectClass { OpaqueAtLeastOnePixel, SubPixelPresent };
  *
  * `GeneralPosition` -- everything else, and for several subjects it is permanent rather than
  * pending: a sphere has no straight edge to be rational, and an asset whose camera is upstream's
- * spends no freedom of ours. Acceptance is `worst_disagreement_px <= 0.5 * pixelFilter.widthPx`,
+ * spends no freedom of ours. Acceptance is `disagreement_p99_px <= 0.5 * pixelFilter.widthPx`,
  * which introduces no constant of its own -- the oracle's filter width is already in the recipe.
  *
  * THERE IS NO DEFAULT AND AN ABSENT DECLARATION IS A REFUSAL. A default would make the classification
