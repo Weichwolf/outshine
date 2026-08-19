@@ -659,10 +659,25 @@ void Renderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
      * AN OPAQUE ARM STILL WRITES ONE AND REPLACES, so a BLACK opaque subject stays covered -- which is
      * the property the display transfer took from the depth buffer and must keep.
      *
-     * THE OTHER TARGETS KEEP THEIR ONE. `SceneTransmissive` is premultiplied with its own coverage in
-     * alpha and is composited by a stage that reads it; the velocity sentinel says *nothing dynamic
-     * wrote this pixel*; and a target whose alpha nobody reads is unchanged either way. */
+     * **`SceneTransmissive` CARRIES COVERAGE FOR EXACTLY THE SAME REASON AND CLEARED TO ONE**
+     * (board:1459) -- and
+     * that reading it as *premultiplied, so its one is harmless* was backwards, because the stage that
+     * composites it computes `behind * (1 - front.a) + front`. An UNCOVERED pixel at alpha one makes
+     * that `behind * 0`, so **every pixel no transmissive fragment touched erased the opaque scene
+     * underneath it**: a subject carrying one sheet of glass drew the glass and nothing else.
+     *
+     * [MEASURED] `ABeautifulGame` went from **258 of 102 480 sampled pixels carrying ink to 9213** --
+     * a chess set that was sixteen pawn tops in the dark became a board, thirty-two pieces and their
+     * shadows; `GlassVaseFlowers` from 4327 to 9340, one vase to two vases and their flowers.
+     *
+     * NOTHING IN THE CORPUS COULD SEE IT. Every case there declares `transmission` bounces of zero, so
+     * `DeclarePlan` never asks for the transmissive pass and the composite never runs -- the defect
+     * lived in the one arm no oracle comparison reaches, and a scenario run found it in its first hour.
+     *
+     * THE OTHER TARGETS KEEP THEIR ONE: the velocity sentinel says *nothing dynamic wrote this pixel*,
+     * and a target whose alpha nobody reads is unchanged either way. */
     const bool carriesCoverage = wanted == Resource::SceneHdr || wanted == Resource::SceneComposited ||
+                                 wanted == Resource::SceneTransmissive ||
                                  wanted == Resource::SceneLinear;
     attachment.clear_color = wanted == Resource::SceneVelocity
                                  ? SDL_FColor{kVelocityStatic, kVelocityStatic, 0, 0}

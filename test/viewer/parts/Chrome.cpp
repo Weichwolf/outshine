@@ -251,6 +251,18 @@ std::string Slurp(const std::string &path, bool &found) {
 
 }  // namespace
 
+std::string EntryPath(const std::string &prepared) {
+  bool haveManifest = false;
+  const std::string manifest = Slurp(prepared + "/manifest.json", haveManifest);
+  if (!haveManifest) { return {}; }
+  const size_t at = manifest.find("\"entry\"");
+  if (at == std::string::npos) { return {}; }
+  const size_t open = manifest.find('"', manifest.find(':', at));
+  const size_t close = manifest.find('"', open + 1);
+  if (open == std::string::npos || close == std::string::npos) { return {}; }
+  return prepared + "/" + manifest.substr(open + 1, close - open - 1);
+}
+
 std::string EntryOf(const std::string &prepared, bool &found) {
   bool haveManifest = false;
   const std::string manifest = Slurp(prepared + "/manifest.json", haveManifest);
@@ -266,14 +278,16 @@ std::string EntryOf(const std::string &prepared, bool &found) {
   return Slurp(prepared + "/" + manifest.substr(open + 1, close - open - 1), found);
 }
 
-void AddLinkedSheets(const std::string &prepared, Ui::Stylesheet &into) {
+std::string LinkedSheets(const std::string &prepared) {
+  std::string out;
   std::error_code walking;
   for (const auto &entry : std::filesystem::directory_iterator(prepared, walking)) {
     if (entry.path().extension() != ".css") { continue; }
     bool found = false;
     const std::string text = Slurp(entry.path().string(), found);
-    if (found) { into.Read(text); }
+    if (found) { out += text + "\n"; }
   }
+  return out;
 }
 
 std::string Console(const std::string &title, const std::string &source, const std::string &verdict,

@@ -90,8 +90,14 @@ struct Region {
 
 /* A PREPARED DOCUMENT CASE'S OWN TEXT, and the stylesheets its manifest says it links. They are two
  * calls because a document that does not read is a different answer from one whose sheet is missing. */
+/* WHERE THE CASE'S OWN SUBJECT FILE IS, named by its manifest. A consumer setting a scenario up hands
+ * over a path; reading it is the engine's. Empty where the case is not prepared. */
+[[nodiscard]] std::string EntryPath(const std::string &prepared);
+
 [[nodiscard]] std::string EntryOf(const std::string &prepared, bool &found);
-void AddLinkedSheets(const std::string &prepared, Ui::Stylesheet &into);
+/* THE SHEETS A CASE'S DIRECTORY CARRIES BESIDE ITS PAGE, as text, because a scenario is declared
+ * with style and not with a parsed object. */
+[[nodiscard]] std::string LinkedSheets(const std::string &prepared);
 
 /* THE TRANSLATION, AND IT IS THE CLIENT'S BY DESIGN. The renderer takes its own quad because no
  * content noun has a spelling in it; this is the loop that costs. */

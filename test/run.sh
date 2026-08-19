@@ -146,6 +146,10 @@ LayerIncludes() {
     outshine/shader) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render -Isrc/render/draw -Isrc/render/plan -Isrc/render/stages" ;;
     # THE BROWSER READS A CASE THE WAY THE RUNNER DOES, so it compiles the runner's own reader and
     # sees exactly the layers that reader sees -- one set, not a second one that could drift.
+    # **THE SCENARIO SUITE DECIDES A SEQUENCE AND NOT A FRAME** (board:1457). It links what the render
+    # suites link because a run is drawn on a device, and it links no harness: it reads no oracle and
+    # scores no picture against one -- its claims are about two of OUR frames and their relation.
+    scenario) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui -Itest/harness/shared" ;;
     viewer) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui -Itest/viewer/parts" ;;
     *) return 1 ;;
   esac
@@ -162,7 +166,7 @@ LayerIncludes() {
 # boundary.
 LayerToolchain() {
   case "$1" in
-    harness/khronos/glTF | harness/outshine/render | outshine/frame | viewer) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    harness/khronos/glTF | harness/outshine/render | outshine/frame | viewer | scenario) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     outshine/shader) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3)" ;;
     outshine/unit/clients) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
@@ -202,7 +206,7 @@ LayerLink() {
   case "$1" in
     # zlib, for the oracle's EXR (board:1119). It is already in these processes through SDL3_image ->
     # libpng, so naming it links what the host already provides rather than adding a dependency.
-    harness/khronos/glTF | harness/outshine/render | outshine/frame | viewer) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz" ;;
+    harness/khronos/glTF | harness/outshine/render | outshine/frame | viewer | scenario) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz" ;;
     outshine/harness) printf '%s' "-lz" ;;
     outshine/shader) printf '%s' "$(pkg-config --libs sdl3)" ;;
     outshine/unit/clients) printf '%s' "$(pkg-config --libs sdl3-image)" ;;
@@ -248,7 +252,7 @@ LayerGroups() {
     outshine/unit/render/stages) printf '%s' "" ;;
     outshine/unit/clients) printf '%s' "src/clients/Image.cpp" ;;
     outshine/harness) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
-    harness/khronos/glTF | harness/outshine/render | outshine/frame | viewer) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/clients/GltfStudio.cpp src/clients/Image.cpp" ;;
+    harness/khronos/glTF | harness/outshine/render | outshine/frame | viewer | scenario) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp" ;;
     # `outshine/shader` COMPILES THE RENDERER'S OWN STAGES AS WELL AS ITS OWN TWINS (board:1207). A
     # twin proves an arithmetic; only the unit's OWN text proves that the driver accepts it, and a
     # `shadeRow` call left one argument short survived a green library, a green unit tree and a green
@@ -322,7 +326,8 @@ GroupIncludes() {
     src/render/plan) printf '%s' "-Isrc/core -Isrc/render/plan" ;;
     src/render/draw) printf '%s' "-Isrc/core -Isrc/render/draw" ;;
     src/render | src/render/stages | src/render/Readback.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages $(pkg-config --cflags sdl3)" ;;
-    src/clients/GltfStudio.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients $(pkg-config --cflags sdl3)" ;;
+    src/clients/GltfStudio.cpp | src/clients/Surfaces.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients $(pkg-config --cflags sdl3)" ;;
+    src/clients/Live.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui $(pkg-config --cflags sdl3)" ;;
     src/clients/Image.cpp) printf '%s' "-Isrc/clients $(pkg-config --cflags sdl3-image)" ;;
     *) return 1 ;;
   esac
@@ -332,7 +337,7 @@ GroupIncludes() {
 # SDL_GPU; nothing else in the tree is either.
 GroupToolchain() {
   case "$1" in
-    src/render | src/render/stages | src/render/Readback.cpp | src/clients/GltfStudio.cpp) LayerToolchain render ;;
+    src/render | src/render/stages | src/render/Readback.cpp | src/clients/GltfStudio.cpp | src/clients/Surfaces.cpp | src/clients/Live.cpp) LayerToolchain render ;;
     *) printf '%s' "$CXXSTD" ;;
   esac
 }

@@ -46,6 +46,7 @@
 #include "Check.h"
 
 #include "RenderCase.h"
+#include "Surfaces.h"
 
 #include "Acceptance.h"
 #include "Attribution.h"
@@ -81,49 +82,14 @@ using outshine::Gltf::Viewport;
 using namespace outshine::Render::Parity;
 
 namespace {
+using outshine::Clients::SurfaceTable;
+using outshine::Clients::SurfaceRasters;
+using outshine::Clients::ResolveSurfaceTable;
+using outshine::Clients::ResolveFileSurface;
+using outshine::Clients::ColourFrom;
+using outshine::Clients::ColourCarrier;
 
-/* THE SURFACES ONE SUBJECT DRAWS WITH: one slot per material any drawn primitive names, and
- * `PartSlot` is which slot each part draws with. Two primitives of one material share a slot, which
- * is what lets the compiled draw list merge them into one call. The decoded rasters are held here
- * because the renderer copies them and the studio only points at them. */
-/* THE THREE DECODED IMAGES ONE SURFACE MAY WEAR, held together because they belong to one surface:
- * three vectors indexed by slot would be three things to keep in step, and the slot is the thing. */
-struct SurfaceRasters {
-  outshine::Clients::Raster Colour;
-  outshine::Clients::Raster Normal;
-  outshine::Clients::Raster MetalRough;
-  outshine::Clients::Raster Emissive;
-  /* `KHR_materials_specular`'s two (board:1205), decoded per slot like the rest. */
-  outshine::Clients::Raster SpecularStrength;
-  outshine::Clients::Raster SpecularTint;
-};
 
-struct SurfaceTable {
-  std::vector<outshine::Render::SubjectMaterial> Slots;
-  std::vector<int> Material;      /* the document's material index per slot, -1 where none */
-  std::vector<uint32_t> PartSlot;
-  std::vector<SurfaceRasters> Decoded;
-};
-
-/* WHICH OF THE FILE'S OWN CHANNELS THE DECLARED RADIANCE IS TAKEN FROM, and it is a three-valued
- * question that no boolean can carry (`Enum.2`). `Declared` is the arm where the manifest states the
- * colours itself and the file's materials are not read for appearance at all. The other two name a
- * glTF socket, and which one is a property of the ASSET: `TextureLinearInterpolationTest` states its
- * whole picture in `emissiveFactor`/`emissiveTexture` over a base colour of `[0,0,0,1]`, so a runner
- * that could only read base colour would render its two spheres black and score that. */
-enum class FileColour { Declared, BaseColour, Emissive, Row };
-
-/* WHERE THE NAMED SOCKET'S VALUE COMES FROM IN THAT FILE, and the case says which because the three
- * are different subjects. `Texture` is the arm the socket arms were built for -- the picture IS the
- * image, and a case that declared it and found no image would be scoring a flat factor while
- * claiming to score a texture. `Factor` is the arm `EmissiveStrengthTest` needs: five cubes whose
- * whole appearance is `emissiveFactor` times `KHR_materials_emissive_strength`, with no image
- * anywhere in the file. `VertexColour` is the arm `BoxVertexColors` needs (board:1193): the picture
- * is the primitive's own `COLOR_0` multiplied into base colour, so a case declaring `factor` there
- * would be naming the wrong operand in the one field that says where the appearance comes from.
- * None is a default, so the mismatch in any direction is a refusal naming the file rather than a
- * picture nobody looks at. */
-enum class FileColourCarrier { Texture, Factor, VertexColour };
 
 /* WHETHER THE FILE'S OWN LIGHTS CROSS THE glTF BOUNDARY, and it is a per-case declaration because
  * the answer is not the same for every case (board:0085). For OUR OWN generated
@@ -202,13 +168,13 @@ struct Case {
   /* Which channel of the file's own materials the appearance comes from, or `Declared` where the
    * manifest states it. The decoded images are held in `Surfaces` because the renderer copies them
    * and the studio only points at them. */
-  FileColour Colour = FileColour::Declared;
-  FileColourCarrier Carrier = FileColourCarrier::Texture;
-  bool MaterialFromFile() const { return Colour != FileColour::Declared; }
+  ColourFrom Colour = ColourFrom::Declared;
+  ColourCarrier Carrier = ColourCarrier::Texture;
+  bool MaterialFromFile() const { return Colour != ColourFrom::Declared; }
   /* THE ARM WHERE NO PER-PART RADIANCE IS THE ANSWER AT ALL: the surface's colour is the BRDF
    * evaluated against the light list, so the declared radiance is zero everywhere and the residual
    * against the oracle is a comparison of two shading models rather than of one number. */
-  bool ShadedByLights() const { return Colour == FileColour::Row; }
+  bool ShadedByLights() const { return Colour == ColourFrom::Row; }
   SceneLights Lights = SceneLights::None;
   /* THE DECLARED SUN, resolved once out of the manifest so that the studio builder is a copy and not
    * a second reading. Unread unless `Lights` names it, which is what `SceneLights` is for. */
@@ -305,21 +271,21 @@ bool Reduced(const Case &subject) {
  * refusal below is about this runner's arms, not about the manifest's legality -- a spelling the
  * schema declares and this reader has no arm for is a hole here, and a spelling it does not declare
  * never reaches this line. */
-[[nodiscard]] bool ReadFileColour(const Json::Ref &declared, FileColour &out, std::string &error) {
+[[nodiscard]] bool ReadColourFrom(const Json::Ref &declared, ColourFrom &out, std::string &error) {
   if (declared.StrEquals("gltf-base-colour")) {
-    out = FileColour::BaseColour;
+    out = ColourFrom::BaseColour;
     return true;
   }
   if (declared.StrEquals("gltf-emissive")) {
-    out = FileColour::Emissive;
+    out = ColourFrom::Emissive;
     return true;
   }
   if (declared.StrEquals("gltf")) {
-    out = FileColour::Row;
+    out = ColourFrom::Row;
     return true;
   }
   if (declared.StrEquals("manifest") || !declared.Valid()) {
-    out = FileColour::Declared;
+    out = ColourFrom::Declared;
     return true;
   }
   error = "scene.material.source is '" + declared.Str("") +
@@ -327,18 +293,18 @@ bool Reduced(const Case &subject) {
   return false;
 }
 
-[[nodiscard]] bool ReadFileColourCarrier(const Json::Ref &declared, FileColourCarrier &out,
+[[nodiscard]] bool ReadColourCarrier(const Json::Ref &declared, ColourCarrier &out,
                                          std::string &error) {
   if (declared.StrEquals("texture")) {
-    out = FileColourCarrier::Texture;
+    out = ColourCarrier::Texture;
     return true;
   }
   if (declared.StrEquals("factor")) {
-    out = FileColourCarrier::Factor;
+    out = ColourCarrier::Factor;
     return true;
   }
   if (declared.StrEquals("vertex-colour")) {
-    out = FileColourCarrier::VertexColour;
+    out = ColourCarrier::VertexColour;
     return true;
   }
   error = "scene.material.carriedBy is '" + declared.Str("") + "', and this runner has no arm for it";
@@ -641,10 +607,10 @@ public:
    * factor and the image both come out of the document once the subject has been built. Declaring
    * either of them beside a Khronos asset would be measuring our re-declaration and not the asset. */
   const Json::Ref material = root["scene"]["material"];
-  if (!ReadFileColour(material["source"], subject.Colour, error)) { return false; }
+  if (!ReadColourFrom(material["source"], subject.Colour, error)) { return false; }
   subject.MaterialKind = material["kind"].Str("");
-  if ((subject.Colour == FileColour::BaseColour || subject.Colour == FileColour::Emissive) &&
-      !ReadFileColourCarrier(material["carriedBy"], subject.Carrier, error)) {
+  if ((subject.Colour == ColourFrom::BaseColour || subject.Colour == ColourFrom::Emissive) &&
+      !ReadColourCarrier(material["carriedBy"], subject.Carrier, error)) {
     return false;
   }
   /* WHICH MATERIAL VARIANT THIS CASE RENDERS (board:1188), by the name the file gives it. Its
@@ -770,85 +736,7 @@ std::string MissingInputs(const Case &subject) {
   return missing;
 }
 
-outshine::Render::SubjectWrap WrapOf(outshine::Gltf::Wrap wrap) {
-  switch (wrap) {
-    case outshine::Gltf::Wrap::ClampToEdge: return outshine::Render::SubjectWrap::ClampToEdge;
-    case outshine::Gltf::Wrap::MirroredRepeat: return outshine::Render::SubjectWrap::MirroredRepeat;
-    case outshine::Gltf::Wrap::Repeat: return outshine::Render::SubjectWrap::Repeat;
-  }
-  return outshine::Render::SubjectWrap::Repeat;
-}
 
-/* THE SURFACE TABLE THE SUBJECT DRAWS WITH: one slot per material any drawn primitive names, in the
- * order the parts first name them. Two primitives of one material get one slot, which is what lets
- * the compiled draw list merge them into one call, and a primitive that names no material gets a
- * slot of glTF's OWN default material -- which is a surface, not an absence.
- *
- * THE FORMAT'S DEFAULT AND NOT THE ENGINE'S (board:1193, `Gltf::DefaultMaterial`). This runner used
- * `outshine::Material{}` here, a mid-grey dielectric, which is what this engine draws for a surface
- * nobody described; the FORMAT says a primitive with no material wears `baseColorFactor [1,1,1,1]`.
- * `BoxVertexColors` declares no material at all, so the difference was a factor of two on every
- * channel of its whole body -- and it would have read as our COLOR_0 being wrong. */
-/* `oracleTransmits` IS WHETHER THE CASE'S OWN RECIPE ALLOWED A TRANSMISSION BOUNCE (board:1386). At
- * zero -- which is the corpus's default -- the oracle CANNOT show anything through a surface, so its
- * glass is an opaque body whatever the file says. Handing this engine the FILE's transmissive row
- * there asks it to see through a surface the other side does not, and the renderer is right to refuse
- * a refracting volume no pass draws.
- *
- * IT IS THE RECIPE AND NOT WHERE THE COLOUR CAME FROM, and that distinction was measured: the first
- * condition asked whether the materials were the file's, and `ABeautifulGame` takes its colour from
- * the file's own base-colour images through an EMITTER at zero bounces -- so it passed that test,
- * drew its glass, and entered the red set at 19.542392 px where it had never been. **The question was
- * always what the oracle was allowed to do.**
- *
- * SO THE ARM OWNS THE CLOSURE AND NOT ONLY THE COLOUR. A coverage case already overrides what a
- * surface emits; what it did not override is what KIND of surface it is, and those are one statement.
- * The transmissive fields are cleared and nothing else is touched: the geometry, the alpha mode and
- * every texture reference stay the file's, because those are what a coverage case IS about. */
-void ResolveSurfaceTable(const Document &file, const Subject &geometry, bool oracleTransmits,
-                         bool fileMaterials, SurfaceTable &out) {
-  out.Slots.clear();
-  out.Material.clear();
-  out.Decoded.clear();
-  out.PartSlot.assign(geometry.Parts().size(), 0);
-  for (size_t part = 0; part < geometry.Parts().size(); ++part) {
-    const int material = geometry.Parts()[part].Material;
-    size_t slot = out.Material.size();
-    for (size_t at = 0; at < out.Material.size(); ++at) {
-      if (out.Material[at] == material) {
-        slot = at;
-        break;
-      }
-    }
-    if (slot == out.Material.size()) {
-      outshine::Render::SubjectMaterial surface;
-      surface.Row = outshine::Gltf::DefaultMaterial();
-      if (material >= 0 && (size_t)material < file.Materials().size()) {
-        /* THE WHOLE ROW AND NOT A CHANNEL OF IT. The coverage factor is then `baseColorFactor.a` by
-         * construction whatever the colour channel is, which is glTF's own rule: alpha comes from
-         * the base colour and from nowhere else, even where the picture is stated in emissive. */
-        surface.Row = file.Materials()[(size_t)material].Surface;
-        if (!oracleTransmits) {
-          surface.Row.Transmission = 0.0f;
-          surface.Row.Thickness = 0.0f;
-        }
-        /* AND THE ALPHA MODE IS THE ARM'S FOR THE SAME REASON (board:1425). A case whose materials are
-         * the MANIFEST's replaces every surface with a flat emitter, and the preparer's emission arm
-         * carries no coverage at all -- so the reference is opaque whatever the file says, and honouring
-         * `alphaMode: BLEND` here makes this engine see through a surface the other side does not.
-         *
-         * [MEASURED] `GlassVaseFlowers` is the asset that shows it: its two vases are the two ways to
-         * make glass -- `GlassAlpha` with `alphaMode BLEND` and a base alpha of **0.3**, and
-         * `GlassTransmission` with the extension. Ours drew the stems THROUGH the first and the
-         * reference did not, and the two pictures say so at a glance. */
-        if (!fileMaterials) { surface.Row.Alpha = outshine::AlphaMode::Opaque; }
-      }
-      out.Material.push_back(material);
-      out.Slots.push_back(surface);
-    }
-    out.PartSlot[part] = (uint32_t)slot;
-  }
-}
 
 /* THE SURFACES THE FILE OWNS: each slot's colour image and the sampler that addresses it. Every
  * refusal here names what the asset declared and what was missing, because a texture that quietly
@@ -865,210 +753,7 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, bool ora
  * -- so anything else stops here by name. THIS IS A PROPERTY OF THE LOWERED ARMS AND NOT OF THE
  * SURFACE: the `gltf` arm below binds four of the file's images at once.
  */
-/* ONE OF THE FILE'S OWN MAPS INTO ONE SURFACE SLOT, WHICHEVER SOCKET IT SITS IN. It is a different
- * function from the colour one because it is a different question: there is no alpha and no coverage
- * to decide, and a socket that declares nothing is an ordinary material rather than a refusal --
- * glTF's defaults are the factors, and white is what the shader multiplies by when no image is bound.
- *
- * THE sRGB TRANSFER IS NOT DECIDED HERE AND CANNOT BE. What crosses is the file's RGBA8 texels; which
- * of them carry the transfer is a property of the socket, and `SubjectDraw::Upload` is where the
- * socket is named. A `Linear` in this function's name was true of the two maps it had and would be a
- * lie about the third (`NL.1`). */
-[[nodiscard]] bool ReadSocketImage(const Document &file, const outshine::Gltf::MaterialRef &material,
-                                   const outshine::Gltf::TextureRef &declared, const char *socket,
-                                   outshine::Gltf::CarriedUvSets carried,
-                                   outshine::Clients::Raster &raster,
-                                   outshine::Render::SubjectTexture &bound, std::string &error) {
-  if (!declared.Declared()) { return true; }
-  /* WHICH UV SET, ANSWERED BY THE LIBRARY AND NOT HERE (board:1182). The runner is a consumer of the
-   * reader's answer; a second mapping written in this file is a second place the narrowing could
-   * drift, and it is the narrowing rather than the refusal that this task changed. */
-  std::string why;
-  if (!outshine::Gltf::UvSetOf(declared, carried, socket, bound.Set, why)) {
-    error = std::string("material '") + material.Name + "' " + why;
-    return false;
-  }
-  const outshine::Gltf::Texture &texture = file.Textures()[(size_t)declared.Texture];
-  std::vector<uint8_t> encoded;
-  if (!file.ImageBytes(texture.Source, encoded)) {
-    error = std::string("material '") + material.Name + "' names " + socket + " image " +
-            std::to_string(texture.Source) + ", whose bytes could not be read";
-    return false;
-  }
-  if (!outshine::Clients::DecodeImage(encoded.data(), encoded.size(), raster) || !raster.Holds()) {
-    error = std::string("the ") + socket + " image of material '" + material.Name + "' is " +
-            std::to_string(encoded.size()) + " bytes that this decoder does not read";
-    return false;
-  }
-  bound.Rgba = raster.Rgba.data();
-  bound.Width = (uint32_t)raster.Width;
-  bound.Height = (uint32_t)raster.Height;
-  /* PER REFERENCE, NOT PER MATERIAL (board:1177): the transform crosses beside the image it belongs
-   * to, so a socket's matrix reaches its own sampler and no other. */
-  bound.Uv = declared.Transform;
-  if (texture.Sampler >= 0) {
-    const outshine::Gltf::Sampler &sampler = file.Samplers()[(size_t)texture.Sampler];
-    bound.WrapU = WrapOf(sampler.WrapS);
-    bound.WrapV = WrapOf(sampler.WrapT);
-    bound.Magnify = sampler.Mag == outshine::Gltf::Filter::Nearest
-        ? outshine::Render::SubjectFilter::Nearest
-        : outshine::Render::SubjectFilter::Linear;
-    bound.Minify = sampler.Min == outshine::Gltf::Filter::Nearest
-        ? outshine::Render::SubjectFilter::Nearest
-        : outshine::Render::SubjectFilter::Linear;
-    bound.Mip = sampler.Mip == outshine::Gltf::MipFilter::None
-        ? outshine::Render::SubjectMip::None
-        : (sampler.Mip == outshine::Gltf::MipFilter::Nearest
-               ? outshine::Render::SubjectMip::Nearest
-               : outshine::Render::SubjectMip::Linear);
-  }
-  return true;
-}
 
-[[nodiscard]] bool ResolveFileSurface(const Document &file, const Subject &geometry,
-                                      FileColour channel, FileColourCarrier carrier,
-                                      SurfaceTable &table, std::string &error) {
-  table.Decoded.assign(table.Slots.size(), SurfaceRasters{});
-  const char *socket = channel == FileColour::Emissive ? "emissiveTexture" : "baseColorTexture";
-  /* WHAT THE SUBJECT CARRIES, ASKED ONCE (board:1182): it is the same answer for every socket of
-   * every material of this subject, and asking it per reference would be one place per socket for it
-   * to be asked differently. */
-  const outshine::Gltf::CarriedUvSets carried = geometry.HasUv1()
-      ? outshine::Gltf::CarriedUvSets::Both
-      : outshine::Gltf::CarriedUvSets::FirstOnly;
-  size_t textured = 0;
-  for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
-    const int index = table.Material[slot];
-    if (index < 0 || (size_t)index >= file.Materials().size()) { continue; }
-    const outshine::Gltf::MaterialRef &material = file.Materials()[(size_t)index];
-    const outshine::Gltf::TextureRef &declared =
-        channel == FileColour::Emissive ? material.Emissive : material.BaseColour;
-    if (table.Slots[slot].State().Kind() != outshine::SurfaceKind::Opaque &&
-        material.BaseColour.Texture != declared.Texture) {
-      error = std::string("material '") + material.Name + "' is not OPAQUE, takes its colour from " +
-              socket + " " + std::to_string(declared.Texture) + " and its coverage from " +
-              "baseColorTexture " + std::to_string(material.BaseColour.Texture) +
-              ", and this subject binds one image per surface -- the second binding is the missing "
-              "capability, not a texture to substitute";
-      return false;
-    }
-    if (!declared.Declared()) { continue; }
-    outshine::Render::SubjectTexture &base = table.Slots[slot].Colour;
-    std::string why;
-    if (!outshine::Gltf::UvSetOf(declared, carried, socket, base.Set, why)) {
-      error = std::string("material '") + material.Name + "' " + why;
-      return false;
-    }
-    const outshine::Gltf::Texture &texture = file.Textures()[(size_t)declared.Texture];
-    std::vector<uint8_t> encoded;
-    if (!file.ImageBytes(texture.Source, encoded)) {
-      error = "material '" + material.Name + "' names image " + std::to_string(texture.Source) +
-              ", whose bytes could not be read";
-      return false;
-    }
-    if (!outshine::Clients::DecodeImage(encoded.data(), encoded.size(), table.Decoded[slot].Colour) ||
-        !table.Decoded[slot].Colour.Holds()) {
-      error = std::string("the ") + socket + " image of material '" + material.Name + "' is " +
-              std::to_string(encoded.size()) + " bytes that this decoder does not read";
-      return false;
-    }
-    base.Rgba = table.Decoded[slot].Colour.Rgba.data();
-    base.Width = (uint32_t)table.Decoded[slot].Colour.Width;
-    base.Height = (uint32_t)table.Decoded[slot].Colour.Height;
-    /* board:1177 -- the socket the case declared its picture in carries its own transform, so a
-     * `gltf-base-colour` case reads the file's `KHR_texture_transform` on the socket it names. */
-    base.Uv = declared.Transform;
-    if (texture.Sampler >= 0) {
-      const outshine::Gltf::Sampler &sampler = file.Samplers()[(size_t)texture.Sampler];
-      base.WrapU = WrapOf(sampler.WrapS);
-      base.WrapV = WrapOf(sampler.WrapT);
-      base.Magnify = sampler.Mag == outshine::Gltf::Filter::Nearest
-          ? outshine::Render::SubjectFilter::Nearest
-          : outshine::Render::SubjectFilter::Linear;
-      base.Minify = sampler.Min == outshine::Gltf::Filter::Nearest
-          ? outshine::Render::SubjectFilter::Nearest
-          : outshine::Render::SubjectFilter::Linear;
-      base.Mip = sampler.Mip == outshine::Gltf::MipFilter::None
-          ? outshine::Render::SubjectMip::None
-          : (sampler.Mip == outshine::Gltf::MipFilter::Nearest
-                 ? outshine::Render::SubjectMip::Nearest
-                 : outshine::Render::SubjectMip::Linear);
-    }
-    ++textured;
-  }
-
-  /* THE OTHER THREE MAPS, AND ONLY UNDER THE ARM THAT SHADES WITH THE FILE'S OWN ROW. The other two
-   * arms REPLACE the closure -- a diffuse or an emissive one -- so a normal map they decoded would
-   * be an image nothing reads, and `SciFiHelmet` says so in its own manifest rather than binding
-   * one silently.
-   *
-   * THE EMISSIVE IMAGE IS HERE AND NOT WITH THE COLOUR, because under THIS arm it is not the colour:
-   * `emissiveFactor * emissiveTexture` is a radiance added to what the BRDF returns, and the socket
-   * arms above take the emissive INSTEAD of the closure. `BoomBox`, `Lantern` and `WaterBottle` all
-   * state `emissiveFactor` as `[1, 1, 1]` and put the whole picture of the glow in the image, so a
-   * row read without it emits white over the entire body. */
-  if (channel == FileColour::Row) {
-    for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
-      const int index = table.Material[slot];
-      if (index < 0 || (size_t)index >= file.Materials().size()) { continue; }
-      const outshine::Gltf::MaterialRef &material = file.Materials()[(size_t)index];
-      table.Slots[slot].NormalScale = (float)material.NormalScale;
-      const struct {
-        const outshine::Gltf::TextureRef &Declared;
-        const char *Socket;
-        outshine::Clients::Raster &Into;
-        outshine::Render::SubjectTexture &Bound;
-      } maps[] = {
-          {material.Normal, "normalTexture", table.Decoded[slot].Normal, table.Slots[slot].Normal},
-          {material.MetallicRoughness, "metallicRoughnessTexture", table.Decoded[slot].MetalRough,
-           table.Slots[slot].MetalRough},
-          {material.Emissive, "emissiveTexture", table.Decoded[slot].Emissive,
-           table.Slots[slot].Emissive},
-          {material.SpecularStrength, "specularTexture", table.Decoded[slot].SpecularStrength,
-           table.Slots[slot].SpecularStrength},
-          {material.SpecularTint, "specularColorTexture", table.Decoded[slot].SpecularTint,
-           table.Slots[slot].SpecularTint},
-      };
-      for (const auto &map : maps) {
-        if (!ReadSocketImage(file, material, map.Declared, map.Socket, carried, map.Into, map.Bound,
-                             error)) {
-          return false;
-        }
-      }
-    }
-  }
-
-  /* A TEXTURE IS OWED WHERE THE CASE SAYS THE PICTURE IS ONE, in both directions. Under `gltf` the
-   * row is the appearance and a material with no image is an ordinary material, so nothing is owed;
-   * under the two socket arms the case has declared which of the two it reads, and a file that
-   * disagrees with its own case's declaration is what stops here. */
-  if (channel != FileColour::Row && carrier == FileColourCarrier::Texture && textured == 0) {
-    error = std::string("the manifest hands the surface to the file's ") + socket +
-            " and no material of it declares one";
-    return false;
-  }
-  if (carrier != FileColourCarrier::Texture && textured > 0) {
-    error = std::string("the manifest says the appearance is not the ") + socket + " IMAGE and " +
-            std::to_string(textured) + " material(s) of the file declare an image on that socket, "
-            "which this case would then be sampling instead";
-    return false;
-  }
-  /* THE VERTEX-COLOUR ARM OWES THE ATTRIBUTE IT IS NAMED AFTER (board:1193). A case that declared it
-   * over a subject carrying no `COLOR_0` would render the factor alone and score a flat colour under
-   * the name of a multiplier -- which is the same silent success the two arms above are guarded
-   * against in both directions. */
-  if (carrier == FileColourCarrier::VertexColour && !geometry.HasColour()) {
-    error = "the manifest says the appearance is carried by COLOR_0 and no primitive of the subject "
-            "declares one";
-    return false;
-  }
-  if (textured > 0 && !geometry.HasUv()) {
-    error = "the file's materials are the surface and the subject carries no TEXCOORD_0 to sample "
-            "them with";
-    return false;
-  }
-  return true;
-}
 
 /* WHAT EACH PART OF THE SUBJECT EMITS, derived from the case's own material declaration and from
  * nothing else. Three arms, and the split between them is board:0087's:
@@ -1130,7 +815,7 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, bool ora
                                              ? file.Materials()[(size_t)index].Surface
                                              : outshine::Gltf::DefaultMaterial();
       for (size_t channel = 0; channel < 3; ++channel) {
-        const double factor = subject.Colour == FileColour::Emissive
+        const double factor = subject.Colour == ColourFrom::Emissive
                                   ? (double)surface.Emission[channel]
                                   : (double)surface.BaseColour[channel];
         out[part][channel] =
@@ -1355,6 +1040,13 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, bool ora
   }
   if (!PoseGeometry(subject, 0, error)) { return false; }
   subject.RestPositions = subject.Geometry.PositionsM();
+  /* **THE ARM IS THE CASE'S AND IT OWNS THE ALPHA MODE AND THE TRANSMISSION TOGETHER** (board:1425,
+   * board:1386). A case whose materials are the MANIFEST's is compared against a reference the
+   * preparer rendered as a flat emitter with no coverage at all, so honouring the file's `alphaMode`
+   * here makes this engine see through a surface the other side draws solid -- `GlassVaseFlowers` is
+   * the case that shows it, and its two vases are the two ways to make glass. The mechanism lives in
+   * `Clients::ResolveSurfaceTable`; WHICH ARM A CASE TAKES is decided here, because it is a fact about
+   * the comparison and not about the document. */
   ResolveSurfaceTable(subject.File, subject.Geometry, subject.TransmissionBounces > 0,
                       subject.MaterialFromFile(), subject.Surfaces);
   if (subject.MaterialFromFile() &&

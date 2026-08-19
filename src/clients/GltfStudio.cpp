@@ -34,6 +34,33 @@ void Anchored(const double gltf[3], double out[3]) {
 [[nodiscard]] bool ClearsNearPlane(const Gltf::Subject &subject, const Gltf::Placement &eye,
                                    std::string &error) {
   const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : (double)Render::Renderer::kNearM;
+  /* **THE BOX ANSWERS THE ACCEPTING CASE IN EIGHT CORNERS, AND THE ACCEPTING CASE IS THE FRAME PATH**
+   * (board:1460). Distance along the view axis is a LINEAR functional, so its minimum over a box is
+   * attained at a corner, and every vertex of the subject lies in the box -- a box that clears the
+   * plane therefore proves every vertex clears it, exactly and not conservatively.
+   *
+   * ONLY A BOX THAT FAILS FALLS THROUGH TO THE WALK, because there the box IS conservative: a corner
+   * inside the plane says nothing about whether any real vertex is, and the refusal names a vertex.
+   * A refusal is not a frame, so the walk costs a frame nothing.
+   *
+   * [MEASURED] `ABeautifulGame` carries 934 309 vertices and this ran on EVERY `Aim`, so a moving
+   * camera paid 1.06 ms p50 and 4.12 ms p99 against 0.07 ms and 0.25 ms for a standing one -- **turning
+   * the camera cost sixteen times the whole of the rest of the frame path**, and `CLAUDE.md` allows the
+   * frame path only terms whose bound somebody chose. */
+  double least = 0.0;
+  bool first = true;
+  for (int corner = 0; corner < 8; ++corner) {
+    double along = 0;
+    for (int axis = 0; axis < 3; ++axis) {
+      const double at = (corner & (1 << axis)) != 0 ? subject.MaxM()[axis] : subject.MinM()[axis];
+      along += (at - eye.EyeM[axis]) * eye.Forward[axis];
+    }
+    if (first || along < least) {
+      least = along;
+      first = false;
+    }
+  }
+  if (!first && least > plane) { return true; }
   for (size_t vertex = 0; vertex < subject.VertexCount(); ++vertex) {
     double along = 0;
     for (int axis = 0; axis < 3; ++axis) {

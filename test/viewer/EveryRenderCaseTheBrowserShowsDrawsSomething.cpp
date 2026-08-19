@@ -102,7 +102,7 @@ int main(void) {
       const bool reads = tree.Read(entry, trouble);
       if (reads) {
         sheet.Read(Ui::UserAgentSheet());
-        View::AddLinkedSheets(one.Prepared, sheet);
+        sheet.Read(View::LinkedSheets(one.Prepared));
         sheet.Read(tree.StyleText());
       }
       const bool laid = reads && placed.Build(tree, sheet, 1280, 720, face, trouble);
