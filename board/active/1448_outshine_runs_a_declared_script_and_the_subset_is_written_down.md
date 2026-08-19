@@ -108,3 +108,29 @@ term that has to be bounded.
 *What the other engines call `Update` or `Tick` is this, and the reason to say so is that the shape is
 settled rather than invented: what is new here is that the reach is a capability and the cost is a
 declared number, and both are checkable.*
+
+## An actor keeps its own state, and the host is the world's capability surface
+
+**A model railway that drives by itself and stops at the station now and then** needs memory between
+ticks — a phase, a waiting time. **The program IS that memory.** The consumer holds the `Program`, so
+the consumer holds its names; `kMaxNames` bounds them, `Named` reads them out for a save file, and
+`Reset` is the explicit door to a fresh run. Persisting them inside the interpreter with no way to see
+them would be memory growing per actor where nobody can count it.
+
+- [ ] `Run` keeps the names it assigned; `Reset` clears them. A fixture that wants a clean slate says
+  so, and an actor that wants to remember says nothing
+
+## THE SAME INTERFACE THE LLM INTEGRATION WILL USE, and that is the far-reaching part
+
+**`Host` is not a scripting convenience: it is the capability surface of the world.** What an actor can
+PERCEIVE is what the host answers; what it may DO is what the host calls. A script and a model differ
+in *who chooses the next call* and in nothing else.
+
+**That buys something this repository is otherwise short of: an actor's reach becomes testable without
+a model.** Anything a model could do, a script can do — deterministically, offline, in a corpus, on a
+Tuesday. A capability only a model can reach is a capability nobody can measure, and a shared host is
+what makes sure there is none.
+
+*So the host interface is designed as a WORLD API and not as a language binding: sensors, actuators,
+and no ambient authority. The three vocabularies the browser needed — `select`, `suite`, `scroll` --
+are the same shape a switch, a door and a train will use.*
