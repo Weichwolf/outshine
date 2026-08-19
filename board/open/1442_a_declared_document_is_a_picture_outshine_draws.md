@@ -108,3 +108,49 @@ content vocabulary out of the renderer.
 *A header carrying this interface with no implementation behind it was written and then removed
 rather than committed: half-built is worse than not built, and the design is worth more here than a
 file nothing compiles.*
+
+## The paint layer, the pointer, pages and a real face are built and measured
+
+**`src/ui/Paint.{h,cpp}`** turns a laid-out declaration into rectangles and still names no device.
+The background covers the border box with four edges over it — four widths are four declarations and
+one rectangle behind the background cannot spell a thick left side. A glyph is a rectangle and a
+space is not; **Ahem needs no atlas at all**, which is why the measurement face also paints. The
+initial clip is the TARGET and never the root box, or a page that overflows erases itself. A quad its
+clip excludes entirely is not emitted, which is what makes a page of a long document cost the page.
+
+**`src/ui/Pointer.{h,cpp}`** answers what was touched: the element, the nearest declared
+`data-action`, which element declared it, and where inside the box the point fell. **There is no
+callback registered with the engine and that is the design** — a library that invoked the consumer's
+function would decide when the consumer runs, on which thread, inside which frame; a stage signals
+readiness and never asks. A box clipped away is not under the pointer, because the viewer cannot see
+it and that is the one answer a pointer must never give.
+
+**Pages cut at line boundaries.** A line that would cross the bottom begins the next page and the page
+before it ends short. A line taller than the page still gets one, overflows it and is **counted** — a
+break that cannot advance is a loop with no bound, and dropping the line is the other way to make it
+terminate.
+
+**A real face fits through the interface, and Ahem could not have proved it.** Ahem is monospace, so
+every claim held with it is also true of an engine that divides a width by one advance and calls it a
+measurement. `Glyph::AdvancePx` moves the pen per glyph, the wrap walks until the room runs out, and
+a word wider than the line is placed WHOLE — taking one character at a time is a cut inside a word
+spelled once per glyph. [MEASURED] with a proportional face `mmmm` at 20 px measures **80 px** where
+the monospace reading answers 40, and the second glyph of `im` begins at **5** rather than at 10.
+
+## What it costs, with its population and its domain
+
+[MEASURED] 400 frames of a HUD **re-read from source every frame** — 69 boxes, 284 quads, 1280×720:
+
+| | p50 | p95 | p99 | max |
+|---|---:|---:|---:|---:|
+| before the per-glyph walk | 0.0944 | 0.1315 | 0.1573 | 0.2235 |
+| after it | **0.1105** | 0.1507 | **0.1520** | 0.1815 |
+
+**The domain is stated with the number**: reading, cascading, measuring, placing and turning boxes
+into rectangles. Uploading and drawing them is the renderer's and is not in this figure. Against a
+`[SET]` tenth of 16.67 ms, p99 uses **9.1 %** of that share — **0.91 % of the whole frame**. The
+per-glyph walk cost **+0.016 ms at p50** and bought proportional text; that is the trade, priced.
+
+*The re-read-every-frame population is the pessimistic case on purpose. A consumer rebuilds when
+something changed, so a real HUD pays less than this — but a budget checked against the cheap case is
+not checked.*

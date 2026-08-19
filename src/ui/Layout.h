@@ -24,7 +24,9 @@
 
 namespace outshine::Ui {
 
-/* THE METRICS A FONT ANSWERS WITH, and the layout asks for nothing else. `Ahem` -- the font WPT uses so
+/* THE METRICS A FONT ANSWERS WITH FOR A WHOLE SIZE. `Advance` is the fallback a font uses when it has
+ * no per-glyph answer -- a monospace face, or the measurement face -- and a proportional one overrides
+ * it glyph by glyph through `Glyph::AdvancePx`. `Ahem` -- the font WPT uses so
  * that a layout test is not a font test -- answers `Advance = Size` and `Ascent = 0.8 * Size`, which is
  * what makes a measured line exact rather than approximately right. */
 struct FontMetrics {
@@ -40,6 +42,10 @@ struct FontMetrics {
 struct Glyph {
   double LeftPx = 0, TopPx = 0, WidthPx = 0, HeightPx = 0;
   double U0 = 0, V0 = 0, U1 = 0, V1 = 0;
+  /* HOW FAR THE PEN MOVES AFTER IT, which is what makes a PROPORTIONAL font spellable. Zero means
+   * *ask the size's own metrics*, which is the monospace answer and the one `FontMetrics::Advance`
+   * already gives -- so a font that has nothing per-glyph to say stays a two-line implementation. */
+  double AdvancePx = 0;
   bool Drawn = false;
 };
 
@@ -71,8 +77,8 @@ struct AhemFont final : Font {
    * it — the same door a solid panel goes through. The space draws nothing, exactly as the font's own
    * specimen says. */
   [[nodiscard]] Glyph Shape(char32_t code, double sizePx) const override {
-    if (code == U' ') { return {}; }
-    return {0.0, 0.0, sizePx, sizePx, 0, 0, 0, 0, true};
+    if (code == U' ') { return {0, 0, 0, 0, 0, 0, 0, 0, sizePx, false}; }
+    return {0.0, 0.0, sizePx, sizePx, 0, 0, 0, 0, sizePx, true};
   }
 };
 

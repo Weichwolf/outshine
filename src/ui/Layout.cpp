@@ -109,6 +109,7 @@ struct Placer {
    * and NOT the room its container offers: an empty box wants nothing, and an engine that handed it
    * the container's width would report every such row overfull and shrink every sibling. */
   double MaxContent(int node, const Computed *inherited);
+  [[nodiscard]] double Width(const std::string &text, size_t from, size_t to, double emPx) const;
 };
 
 Computed Placer::StyleOf(int node, const Computed *inherited) const {
@@ -203,7 +204,6 @@ double Placer::MaxContent(int node, const Computed *inherited) {
     return (style.Word(Property::BoxSizing, 0) == kBorderBox ? declared : declared + frame) + margins;
   }
 
-  const FontMetrics metrics = Face->At(emPx);
   double own = 0;
   const bool row = display == kDisplayFlex && style.Word(Property::FlexDirection, 0) != kColumn;
   double along = 0;
@@ -211,7 +211,7 @@ double Placer::MaxContent(int node, const Computed *inherited) {
   for (const int child : element.Children) {
     const Node &node2 = Tree->Nodes()[(size_t)child];
     if (node2.Kind == NodeKind::Text) {
-      own = std::fmax(own, metrics.Advance * (double)Collapsed(node2.Text).size());
+      own = std::fmax(own, Width(Collapsed(node2.Text), 0, std::string::npos, emPx));
       continue;
     }
     const double child2 = MaxContent(child, &style);
@@ -227,6 +227,49 @@ double Placer::MaxContent(int node, const Computed *inherited) {
     own = std::fmax(own, along + (items > 1 ? gap * (double)(items - 1) : 0.0));
   }
   return own + frame + margins;
+}
+
+namespace {
+
+/* THE CODE POINTS OF A RUN, one at a time -- the same decoding the painter does, so the two halves
+ * walk the same columns. */
+size_t NextCodePoint(const std::string &text, size_t at, char32_t &code) {
+  const unsigned char lead = (unsigned char)text[at];
+  size_t length = 1;
+  code = lead;
+  if ((lead & 0xE0u) == 0xC0u) {
+    length = 2;
+    code = lead & 0x1Fu;
+  } else if ((lead & 0xF0u) == 0xE0u) {
+    length = 3;
+    code = lead & 0x0Fu;
+  } else if ((lead & 0xF8u) == 0xF0u) {
+    length = 4;
+    code = lead & 0x07u;
+  }
+  if (at + length > text.size()) { return text.size() - at; }
+  for (size_t i = 1; i < length; ++i) {
+    code = (code << 6) | ((unsigned char)text[at + i] & 0x3Fu);
+  }
+  return length;
+}
+
+} // namespace
+
+/* HOW WIDE A STRETCH OF A RUN IS, ASKED GLYPH BY GLYPH. A single advance for every character is a
+ * MONOSPACE assumption wearing the word `metrics`, and it is the one thing between a label and a page
+ * of a book set in a real face. A font with nothing per-glyph to say answers zero and the size's own
+ * advance is used, so the measurement face costs exactly what it did. */
+double Placer::Width(const std::string &text, size_t from, size_t to, double emPx) const {
+  const FontMetrics metrics = Face->At(emPx);
+  double width = 0;
+  for (size_t at = from; at < to && at < text.size();) {
+    char32_t code = 0;
+    at += NextCodePoint(text, at, code);
+    const Glyph glyph = Face->Shape(code, emPx);
+    width += glyph.AdvancePx > 0 ? glyph.AdvancePx : metrics.Advance;
+  }
+  return width;
 }
 
 double Placer::Runs(int node, const Computed &style, int self, double contentX, double contentY,
@@ -256,12 +299,34 @@ double Placer::Runs(int node, const Computed &style, int self, double contentX, 
      * being cut in half. */
     size_t at = 0;
     while (at < text.size()) {
+      /* WALK UNTIL THE LINE IS FULL, REMEMBERING THE LAST SPACE. A width divided by one advance
+       * answers *how many characters fit* only when every character is the same width, so the walk is
+       * what makes a proportional face wrap where it actually runs out of room. */
       size_t take = text.size() - at;
       if (contentWidth > 0) {
-        const size_t fits = metrics.Advance > 0 ? (size_t)(contentWidth / metrics.Advance) : take;
-        if (fits < take) {
-          size_t space = text.rfind(' ', at + fits);
-          take = space != std::string::npos && space > at ? space - at : std::max<size_t>(fits, 1);
+        double width = 0;
+        size_t lastSpace = std::string::npos, cursor = at;
+        while (cursor < text.size()) {
+          char32_t code = 0;
+          const size_t step = NextCodePoint(text, cursor, code);
+          const Glyph glyph = Face->Shape(code, emPx);
+          const double advance = glyph.AdvancePx > 0 ? glyph.AdvancePx : metrics.Advance;
+          if (width + advance > contentWidth && cursor > at) { break; }
+          if (code == U' ') { lastSpace = cursor; }
+          width += advance;
+          cursor += step;
+        }
+        if (cursor < text.size()) {
+          if (lastSpace != std::string::npos && lastSpace > at) {
+            take = lastSpace - at;
+          } else {
+            /* A WORD WIDER THAN THE LINE IS PLACED WHOLE AND OVERFLOWS. No hyphenation and no break
+             * inside a word is a DECLARED part of this subset, so the line is extended to the word's
+             * own end -- stopping where the room ran out would cut it, and taking one character at a
+             * time is that same cut spelled once per glyph. */
+            const size_t next = text.find(' ', at);
+            take = next == std::string::npos ? text.size() - at : next - at;
+          }
         }
       }
       Box line;
@@ -269,7 +334,7 @@ double Placer::Runs(int node, const Computed &style, int self, double contentX, 
       line.Text = text.substr(at, take);
       line.FontSize = emPx;
       line.Colour = style.Has(Property::Colour) ? style.Of(Property::Colour).Word : 0x000000FFu;
-      line.Width = (double)line.Text.size() * metrics.Advance;
+      line.Width = Width(line.Text, 0, line.Text.size(), emPx);
       line.Height = lineHeight;
       line.Y = y;
       line.X = contentX;

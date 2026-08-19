@@ -137,7 +137,7 @@ private:
              glyph.U0, glyph.V0, glyph.U1, glyph.V1, run.Colour, 0, opacity, clip.X, clip.Y,
              clip.Width, clip.Height, run.Node});
       }
-      pen += metrics.Advance;
+      pen += glyph.AdvancePx > 0 ? glyph.AdvancePx : metrics.Advance;
     }
   }
 
