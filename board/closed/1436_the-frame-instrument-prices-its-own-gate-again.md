@@ -61,3 +61,27 @@ warm phone-class GPU slows first.
 for it to come back at `resolved=yes` with a floor five to eight times smaller. *Recorded so a later
 round does not read a `resolved=no` as a regression: it is a measurement of the device's thermal state,
 which is exactly what a distribution over repeats is for.*
+
+## A fourth observation, and it is the arm drifting rather than one repeat
+
+[MEASURED] at the END of a full suite -- fourteen minutes of continuous GPU work -- the `fill` arm's five
+repeats came back at p50 **3.073, 4.178, 3.856, 3.719, 2.382 ms** against a standalone 1.98 to 2.15. The
+whole arm is warm, not one repeat of it, and the gate collapsed to `second-ray=0.524 ms` against a floor
+of 1.952: `resolved=no`.
+
+**Standalone, minutes later, the same build resolves at 1.850 ms against a floor of 1.761.** So the frame
+suite's gate is not resolvable when it runs last, and `test/run.sh`'s ordering is what decides that.
+
+## What the shape of a repair would be, stated and not taken
+
+**A wide floor and a small effect are two different verdicts and this gate gives them one.** The floor is
+the spread across repeats, so:
+
+- floor **narrow** and effect small -> the effect is genuinely absent, and that is a FAILURE
+- floor **wide** -> the instrument yields no number, which `CLAUDE.md` calls *not measurable* rather than
+  *not yet measured*, and a refusal is the honest verdict
+
+`resolved=no` already carries that distinction in the log and the CHECK flattens it into a failure. **A
+gate that cannot fail while it is warm would be worse**, which is why the discriminator above is written
+down rather than applied: it is the owner's call whether the frame suite runs first, cools down, or
+refuses as unmeasurable.
