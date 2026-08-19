@@ -21,8 +21,36 @@ constexpr uint32_t kBorderBox = Keyword("border-box");
 constexpr uint32_t kHidden = Keyword("hidden");
 constexpr uint32_t kPre = Keyword("pre");
 constexpr uint32_t kRight = Keyword("right");
+constexpr uint32_t kSpaceEvenly = Keyword("space-evenly");
+/* `start` AND `end` ARE CSS BOX ALIGNMENT'S OWN WORDS, and they are not spare spellings of the flex
+ * ones: `flex-start` is the start of the FLEX direction and `start` is the start of the WRITING
+ * direction, which differ under `row-reverse` and under a right-to-left flow. This engine holds
+ * neither of those -- both are named outside the subset -- so within what it does hold the two
+ * coincide, and mapping them is exact rather than approximate. The day a reversed direction arrives,
+ * this mapping is where it stops being exact, and that is written here so the next reader finds it. */
+constexpr uint32_t kStart = Keyword("start");
+constexpr uint32_t kEnd = Keyword("end");
 constexpr uint32_t kWrap = Keyword("wrap");
 constexpr uint32_t kWrapReverse = Keyword("wrap-reverse");
+
+/* THE ALIGNMENT WORD, IN ONE SPELLING. Every place that compares against `kFlexEnd` would otherwise
+ * have to compare against `kEnd` too, and the one that forgot would be a keyword that silently did
+ * nothing -- which is exactly how `space-evenly` read as `flex-start` for a whole corpus run.
+ *
+ * **`start` AND `end` ARE PHYSICAL AND `flex-start` AND `flex-end` ARE NOT**, and under
+ * `wrap-reverse` the two disagree: the cross axis is mirrored, so the line the FLEX axis starts with
+ * is the one that ends up physically last. [MEASURED] `align-content: start` in a reversed container
+ * states x = 8 -- the physical left -- and mapping it to `flex-start` answered 198. Everything below
+ * is computed in flex coordinates and mirrored once at the end, so translating the physical word into
+ * the flex one HERE is what makes the single mirror correct for both.
+ *
+ * The symmetric words -- `center` and the three distributions -- are unchanged by a mirror and need no
+ * arm, which is why there is none. */
+[[nodiscard]] constexpr uint32_t Aligned(uint32_t word, bool reversed) {
+  if (word == kStart) { return reversed ? kFlexEnd : 0u; }
+  if (word == kEnd) { return reversed ? 0u : kFlexEnd; }
+  return word;
+}
 
 /* EVERY DECLARATION AN ELEMENT ENDED UP WITH, one slot per property. A slot nobody set stays unset,
  * which is how *the author said nothing* stays distinguishable from *the author said zero*. */
@@ -396,8 +424,13 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
   const double mainRoom = column ? contentHeight : contentWidth;
   const double crossRoom = column ? contentWidth : contentHeight;
   const double gap = style.Has(Property::Gap) ? style.Of(Property::Gap).Number : 0.0;
-  const uint32_t justify = style.Word(Property::JustifyContent, 0);
-  const uint32_t align = style.Word(Property::AlignItems, kStretch);
+  const uint32_t wrapping = style.Word(Property::FlexWrap, 0);
+  const bool reversed = wrapping == kWrapReverse;
+  /* THE MAIN AXIS IS NOT MIRRORED BY `wrap-reverse` -- only the cross one is -- so `justify-content`
+   * takes the unreversed translation and `align-items` takes the reversed one. Handing both the same
+   * flag is the kind of symmetry that reads as tidy and is a different layout. */
+  const uint32_t justify = Aligned(style.Word(Property::JustifyContent, 0), false);
+  const uint32_t align = Aligned(style.Word(Property::AlignItems, kStretch), reversed);
 
   struct Item {
     int Node = 0;
@@ -502,7 +535,6 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
    * a line resolves its OWN free space, a line has its OWN cross size, and `align-items` stretches an
    * item to the line rather than to the container. Laying a wrapped container out as one line is the
    * defect that makes `align-content` unspellable -- there is nothing to distribute. */
-  const uint32_t wrapping = style.Word(Property::FlexWrap, 0);
   const bool wraps = wrapping == kWrap || wrapping == kWrapReverse;
   struct Line {
     size_t From = 0, Count = 0;
@@ -551,9 +583,21 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
     for (size_t i = line.From; i < line.From + line.Count; ++i) {
       Item &one = items[i];
       if (!one.CrossDeclared) {
-        double w = 0, h = 0;
-        Measure(one.Node, &style, column ? crossRoom : one.Main, w, h);
-        one.Cross = column ? w : h;
+        if (column) {
+          /* A COLUMN'S CROSS AXIS IS WIDTH, AND AN AUTO WIDTH ASKS WHAT THE CONTENT WANTS. Laying the
+           * item out in the room it might get answers *the whole room*, because a block with no width
+           * fills its container -- so the line would be as wide as the container and one line would
+           * eat every other. [MEASURED] `align-content-vert-001b` missed 104 of its assertions on
+           * exactly this, reporting 200 where the document states 110. It is the same defect the MAIN
+           * axis had, one axis over. */
+          one.Cross = MaxContent(one.Node, &style) - one.CrossMarginStart - one.CrossMarginEnd;
+        } else {
+          /* A ROW'S CROSS AXIS IS HEIGHT, and a height is only knowable once a width is -- so this one
+           * IS laid out, in the width flex just gave it. */
+          double w = 0, h = 0;
+          Measure(one.Node, &style, one.Main, w, h);
+          one.Cross = h;
+        }
       }
       line.Cross = std::fmax(line.Cross, one.Cross + one.CrossMarginStart + one.CrossMarginEnd);
     }
@@ -571,7 +615,7 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
 
   /* `align-content` DISTRIBUTES THE LINES, AND ITS INITIAL VALUE IS `stretch` -- which is why a
    * wrapped container with no declaration at all fills its cross axis rather than hugging its lines. */
-  const uint32_t alignLines = style.Word(Property::AlignContent, kStretch);
+  const uint32_t alignLines = Aligned(style.Word(Property::AlignContent, kStretch), reversed);
   double lineAt = 0, betweenLines = gap;
   const double crossSlack = crossRoom - linesDeep;
   if (crossRoom > 0 && crossSlack > 0 && lines.size() > 0) {
@@ -587,6 +631,11 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
     } else if (alignLines == kSpaceAround) {
       lineAt = crossSlack / (double)(lines.size() * 2);
       betweenLines = gap + crossSlack / (double)lines.size();
+    } else if (alignLines == kSpaceEvenly) {
+      /* EVERY GAP THE SAME, INCLUDING THE TWO AT THE ENDS -- which is what separates it from
+       * `space-around`, where the end gaps are half. `n` lines make `n + 1` gaps. */
+      lineAt = crossSlack / (double)(lines.size() + 1);
+      betweenLines = gap + lineAt;
     }
   }
   for (Line &line : lines) {
@@ -615,6 +664,9 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
       } else if (justify == kSpaceAround) {
         cursor = slack / (double)(line.Count * 2);
         between = gap + slack / (double)line.Count;
+      } else if (justify == kSpaceEvenly) {
+        cursor = slack / (double)(line.Count + 1);
+        between = gap + cursor;
       }
     } else if (justify == kCentre) {
       /* CENTRING AN OVERFULL LINE PUTS ITS START BEFORE THE CONTAINER, and that is the answer CSS
@@ -627,20 +679,26 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
       Item &one = items[i];
       cursor += one.MainMarginStart;
       const uint32_t self_align = one.Style.Has(Property::AlignSelf)
-                                      ? one.Style.Word(Property::AlignSelf, align)
+                                      ? Aligned(one.Style.Word(Property::AlignSelf, align), reversed)
                                       : align;
       double cross = one.Cross;
       if (!one.CrossDeclared && self_align == kStretch) {
         cross = line.Cross - one.CrossMarginStart - one.CrossMarginEnd;
       }
-      double crossAt = line.CrossAt + one.CrossMarginStart;
+      double inLine = one.CrossMarginStart;
       if (self_align == kCentre) {
-        crossAt = line.CrossAt +
-                  (line.Cross - cross - one.CrossMarginStart - one.CrossMarginEnd) / 2.0 +
-                  one.CrossMarginStart;
+        inLine = (line.Cross - cross - one.CrossMarginStart - one.CrossMarginEnd) / 2.0 +
+                 one.CrossMarginStart;
       } else if (self_align == kFlexEnd) {
-        crossAt = line.CrossAt + line.Cross - cross - one.CrossMarginEnd;
+        inLine = line.Cross - cross - one.CrossMarginEnd;
       }
+      /* `wrap-reverse` TURNS THE CROSS AXIS ROUND FOR THE ITEM TOO, and not only for the lines. The
+       * cross-start becomes the far edge, so `align-items: flex-start` puts an item AGAINST it --
+       * [MEASURED] `align-content-vert-002` states x = 198 for a 10 px item in a 200 px container, and
+       * reversing only the line order answered 8. Reversing one of the two is a layout that is
+       * mirrored in the large and not in the small. */
+      if (wrapping == kWrapReverse) { inLine = line.Cross - inLine - cross; }
+      const double crossAt = line.CrossAt + inLine;
       const double x = column ? contentX + crossAt : contentX + cursor;
       const double y = column ? contentY + cursor : contentY + crossAt;
       /* THE ITEM IS GIVEN THE ROOM FLEX DECIDED, AND THE ROOM IS ITS OWN AXIS'S. A row's horizontal

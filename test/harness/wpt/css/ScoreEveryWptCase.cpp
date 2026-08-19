@@ -17,6 +17,7 @@
  * layout is a case; whether this engine can hold it is decided HERE, by the subset counters the
  * stylesheet reader publishes, and never by a `grep` for a property name -- a grep reads a shorthand
  * it cannot expand and a selector it cannot parse, and it would answer a different question. */
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -210,6 +211,7 @@ int main(int argc, char **argv) {
    * measured nothing and reported a pass is the empty-renderer fixed point wearing the suite's own
    * colours, so the count is checked before the values are. */
   int stated = 0;
+  double worst = 0.0;
   for (const Ui::Box &box : layout.Boxes()) {
     if (box.Node < 0) { continue; }
     const std::string &element = markup.Nodes()[size_t(box.Node)].Name;
@@ -229,16 +231,32 @@ int main(int argc, char **argv) {
                          : std::strcmp(assertion.What, "height") == 0 ? box.Height
                          : std::strcmp(assertion.What, "x") == 0      ? box.X
                                                                      : box.Y;
-      char measured[192];
+      /* THE DOCUMENT QUOTES THE PROPERTY IT READS, AND THAT PROPERTY IS AN INTEGER. `check-layout`
+       * compares `offsetLeft`, `offsetTop`, `offsetWidth` and `offsetHeight`, every one of which CSSOM
+       * defines as a rounded value -- so a document stating `61` is stating what the browser rounded
+       * `61.333` to, and comparing an unrounded double against it measures a different quantity. This
+       * is the failure `CLAUDE.md` calls *the number was right and about something else*, and it is
+       * NOT a widened bound: a bound this suite could widen does not exist.
+       *
+       * **THE SUB-PIXEL RESIDUAL IS PUBLISHED SO THE ROUNDING CANNOT HIDE A DRIFT.** An engine that
+       * was wrong by 0.49 px everywhere would pass every one of these, and the number below is what
+       * would show it. A fractional expectation is compared EXACTLY, because a document that wrote one
+       * is quoting something else. */
+      const bool integral = want == std::floor(want);
+      const double residual = std::fabs(got - want);
+      worst = std::fmax(worst, residual);
+      const bool holds = integral ? std::floor(got + 0.5) == want : got == want;
+      char measured[224];
       std::snprintf(measured, sizeof measured, "%s: <%s> %s is %.6f, the document states %.6f",
                     id.c_str(), element.c_str(), assertion.What, got, want);
-      outshine::Test::Checked(got == want, "the box lands where the document says", measured,
-                              __FILE__, __LINE__);
+      outshine::Test::Checked(holds, "the box lands where the document says", measured, __FILE__,
+                              __LINE__);
     }
   }
   outshine::Test::Checked(stated > 0, "the document states its own layout",
                           (id + " carries at least one assertion").c_str(), __FILE__, __LINE__);
-  std::printf("STATED %s %d assertions\n", id.c_str(), stated);
+  std::printf("STATED %s %d assertions, worst sub-pixel residual %.6f px\n", id.c_str(), stated,
+              worst);
   std::printf("UI-LAYOUT %s\n", outshine::Test::Failures.Value() == 0 ? "held" : "red");
   return outshine::Test::Report();
 }
