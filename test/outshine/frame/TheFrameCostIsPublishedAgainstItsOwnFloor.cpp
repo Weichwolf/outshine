@@ -134,6 +134,14 @@ constexpr Arm kArms[] = {
      Appearance::Flat},
     {"texture", "scifi-helmet", "/test-khronos-glTF-SciFiHelmet/scene.gltf", 0.25, 1,
      Appearance::Textured},
+    /* THE DISCRIMINATOR `board:1413` NAMED AND NOBODY RAN: `fill`'s subject at `fill`'s standpoint with
+     * NO light. The temporal resolve's repeats went red on the three arms that carry a light and held on
+     * the one that does not -- and those are also the three that cover 542 207 px against 32 531, so the
+     * light and the coverage were confounded. This row separates them: it covers what `fill` covers and
+     * lights nothing. Appended rather than inserted, because `ArmNamed` resolves by name and a row above
+     * the named ones would silently change what the gate prices. */
+    {"fill-unlit", "scifi-helmet", "/test-khronos-glTF-SciFiHelmet/scene.gltf", 0.25, 0,
+     Appearance::Flat},
 };
 
 constexpr size_t kArmCount = sizeof(kArms) / sizeof(kArms[0]);
@@ -491,6 +499,17 @@ void MeasureEveryArm(outshine::Render::Renderer &renderer, const Standing &stand
       measured[at].Repeats.push_back(spread);
       const outshine::Test::Drawn drawn = outshine::Test::WhatThePathDraws(
           renderer, standing.Subjects[at], standing.Framings[at], arm.Scale, kTimedFrames, kProbes);
+      /* A COVERED PIXEL CARRIES A NUMBER, AND THIS IS A VERDICT RATHER THAN A NOTE (board:1413). The
+       * sum above skips a non-finite term so that the repeat comparison measures the picture instead
+       * of measuring `nan != nan` -- and a skip that nobody counted would be a green resting on
+       * exactly what it stepped over. */
+      if (drawn.NonFinitePx > 0) {
+        std::printf("NONFINITE %s repeat %d: %ld covered pixels are not finite, first at index %ld\n",
+                    arm.Id, repeat, drawn.NonFinitePx, drawn.FirstNonFiniteAt);
+      }
+      CHECK(drawn.NonFinitePx == 0,
+            "every covered pixel of every probe carries a finite radiance, so the picture is a "
+            "number and the sums over it are about the picture");
       if (repeat == 0) {
         measured[at].CoveredPx = drawn.MedianCoveredPx;
         measured[at].LeastCoveredPx = drawn.LeastCoveredPx;
@@ -503,6 +522,19 @@ void MeasureEveryArm(outshine::Render::Renderer &renderer, const Standing &stand
       } else if (drawn.MedianCoveredPx != measured[at].CoveredPx ||
                  drawn.SumRadiance != measured[at].SumRadiance) {
         measured[at].EveryRepeatDrewTheSamePicture = false;
+        /* WHICH OF THE TWO MOVED AND BY HOW MUCH (board:1413). The check said only that a repeat drew
+         * something else, and a nondeterminism reported without a magnitude is a fact nobody can act
+         * on: a coverage that moved by one pixel and a radiance that moved in its last bit are two
+         * different findings wearing one sentence. */
+        std::printf("DIFFERS %s repeat %d: covered %ld against %ld (%+ld px), radiance %.9g against "
+                    "%.9g (%+.3g, %+.4g %%)\n",
+                    arm.Id, repeat, drawn.MedianCoveredPx, measured[at].CoveredPx,
+                    drawn.MedianCoveredPx - measured[at].CoveredPx, drawn.SumRadiance,
+                    measured[at].SumRadiance, drawn.SumRadiance - measured[at].SumRadiance,
+                    measured[at].SumRadiance != 0.0
+                        ? 100.0 * (drawn.SumRadiance - measured[at].SumRadiance) /
+                              measured[at].SumRadiance
+                        : 0.0);
       }
       std::printf("REPEAT %s %d setup=%.1f ms p50=%.3f p95=%.3f p99=%.3f min=%.3f max=%.3f\n",
                   arm.Id, repeat, setupMs, spread.P50Ms, spread.P95Ms, spread.P99Ms, spread.MinMs,
@@ -593,6 +625,12 @@ int main(int, char **argv) {
    * own *every repeat of an arm drew the same picture* went red on the three arms that carry a light
    * while the lightless one held -- a nondeterminism this suite is exactly the right instrument to
    * refuse, and one nobody has localised. Declared again in the round that answers it. */
+  /* THE TEMPORAL RESOLVE IS NOT DECLARED HERE YET AND `board:1413` SAYS WHY -- and what it says has
+   * CHANGED: the suite's *every repeat of an arm drew the same picture* was never reporting a
+   * nondeterminism. [MEASURED] with the resolve declared, the counts are identical at every repeat and
+   * the sums are NaN, so `nan != nan` was the whole of it; what is real is that 924 488 covered pixels
+   * of the `fill` arm's probes carry a non-finite radiance. Declared again in the round that answers
+   * THAT, and the check above is what will say when it is answered. */
   declaration.Content = {outshine::Render::Stage::Subjects};
   declaration.Display =
       outshine::Render::Declared<outshine::Render::Transfer>(outshine::Render::Transfer::Linear);

@@ -143,3 +143,57 @@ on.*
 - **`BeginTemporalRun`**, the consumer's statement that a sequence begins -- never a heuristic on the
   camera
 - **The rigid-mesh velocity repair**, which stands entirely on its own and unblocked this
+
+## CORRECTION -- there was never a nondeterminism, and the two readings above were both wrong
+
+Both candidates this item named are refuted, and by the discriminator it asked for and by one it did not.
+
+**THE DISCRIMINATOR IT ASKED FOR, BUILT AND RUN.** A fifth arm, `fill-unlit`: `fill`'s subject at
+`fill`'s standpoint with **no light**. [MEASURED] it covers **542 207 px, exactly what `fill` covers**,
+and it holds. So the coverage reading is dead -- a picture that big is not too big to compare.
+
+**THE ONE IT DID NOT ASK FOR.** The repeat check compared `MedianCoveredPx` and `SumRadiance` and said
+only *a repeat drew something else*. Made to say **which and by how much**, it answered:
+
+```
+DIFFERS fill repeat 1: covered 542207 against 542207 (+0 px), radiance nan against nan
+```
+
+**The coverage is identical to the pixel at every repeat and the sums are NaN**, so the inequality was
+`nan != nan` and nothing else. *The resolve is deterministic. It has always been deterministic.* What it
+is not is finite.
+
+## What is actually wrong, with its size
+
+[MEASURED] over the probes of one run, covered pixels carrying a non-finite radiance:
+
+| arm | lights | non-finite covered px | first at |
+|---|---|---|---|
+| `fill` | 1 | **924 488** | index 336 |
+| `fill-twice-lit` | 2 | **2 074 846** | index 336 |
+| `texture` | 1 | **260 121** | index 451 |
+| `geometry`, `fill-unlit` | 0 | **0** | -- |
+
+**Identical at every repeat**, which is the same statement as above from the other side.
+
+**And a NaN in this fragment spreads by construction.** One non-finite pixel enters the next frame's
+history; the 3x3 box around it is then non-finite, so `centre` and `extent` are NaN, `largest` is NaN,
+`largest > 1.0` is false, `clipTowards` returns the history unchanged, and `mix` carries it out. That is
+how one seed becomes 43 % of a picture. **The seed is the open question and the light path is where it
+is**, which is the one thing the original reading got right.
+
+## What was repaired on the way and stands on its own
+
+**The neighbourhood wrapped at the target's edge.** `scene.read(uint2(int2(px) + int2(dx, dy)))` asks for
+`uint(-1)` -- 4 294 967 295 -- on the first row and column, and a texture read out of range is undefined
+in MSL. It is clamped to the target now. **[MEASURED] it is NOT the seed**: the counts above are from the
+run after the clamp.
+
+## Two instruments got stronger and they are what will close this
+
+- **`WhatIsDrawn` counts non-finite covered pixels and names the first**, and the sum skips them so the
+  repeat comparison measures the picture rather than measuring NaN
+- **A covered pixel carrying a finite radiance is a CHECK**, not a note -- because the sum skipping a
+  term nobody counted would be a green resting on exactly what it stepped over
+- **`fill-unlit` stays in the arm table.** It cost one arm's time and it retired a reading that had stood
+  since this item was opened

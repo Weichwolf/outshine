@@ -15,6 +15,7 @@
 #ifndef WHATISDRAWN_H
 #define WHATISDRAWN_H
 
+#include <cmath>
 #include <algorithm>
 #include <string>
 #include <vector>
@@ -36,6 +37,11 @@ struct Drawn {
   long LeastCoveredPx = 0;
   long MostCoveredPx = 0;
   double SumRadiance = 0.0;
+  /* WHERE A NON-FINITE PIXEL IS AND HOW MANY (board:1413). A sum is NaN the moment one term is, and
+   * `nan != nan` made the repeat check report a nondeterminism that was never one -- so the count and
+   * the first location travel beside the sum. */
+  long NonFinitePx = 0;
+  long FirstNonFiniteAt = -1;
 };
 
 [[nodiscard]] inline Drawn WhatThePathDraws(outshine::Render::Renderer &renderer,
@@ -64,8 +70,14 @@ struct Drawn {
     for (size_t at = 0; at < depth.size() && at * 4u + 3u < linear.size(); ++at) {
       if (depth[at] <= 0.0f) { continue; }
       ++covered;
-      out.SumRadiance +=
-          (double)linear[at * 4u] + (double)linear[at * 4u + 1u] + (double)linear[at * 4u + 2u];
+      const double r = (double)linear[at * 4u], g = (double)linear[at * 4u + 1u],
+                   b = (double)linear[at * 4u + 2u];
+      if (!std::isfinite(r) || !std::isfinite(g) || !std::isfinite(b)) {
+        ++out.NonFinitePx;
+        if (out.FirstNonFiniteAt < 0) { out.FirstNonFiniteAt = (long)at; }
+        continue;
+      }
+      out.SumRadiance += r + g + b;
     }
     counts.push_back(covered);
   }

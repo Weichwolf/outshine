@@ -65,9 +65,18 @@ fragment Resolved fs(VOut in [[stage_in]],
   float3 lowest = float3(1.0e30);
   float3 highest = float3(-1.0e30);
   float3 total = float3(0.0);
+  /* THE NEIGHBOURHOOD IS CLAMPED TO THE TARGET AND IT USED TO WRAP (board:1413). `read()` takes an
+   * unsigned coordinate, so a pixel on the left or top edge asked for `uint(-1)` -- 4 294 967 295 --
+   * and a texture read out of range is undefined in MSL. What came back entered the box and the mean,
+   * and an infinity there survives `clipTowards`: `largest` is infinite, the branch is taken, and
+   * `centre + offset / largest` is `inf + inf/inf`, which is NaN. A NaN in the resolved target is the
+   * next frame's history, so it spreads. The edge row simply repeats itself now, which is what a 3x3
+   * box means at a boundary. */
+  int2 limit = int2(int(scene.get_width()) - 1, int(scene.get_height()) - 1);
   for (int dy = -1; dy <= 1; ++dy) {
     for (int dx = -1; dx <= 1; ++dx) {
-      float3 neighbour = rgbToYCoCg(scene.read(uint2(int2(px) + int2(dx, dy))).rgb);
+      uint2 at = uint2(clamp(int2(px) + int2(dx, dy), int2(0), limit));
+      float3 neighbour = rgbToYCoCg(scene.read(at).rgb);
       lowest = min(lowest, neighbour);
       highest = max(highest, neighbour);
       total += neighbour;
