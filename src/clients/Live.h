@@ -145,6 +145,16 @@ public:
    * surfaces from the front. `Node` is -1 where the point hit no surface. */
   [[nodiscard]] Ui::Touched Under(double xPx, double yPx) const;
 
+  /* **WHAT EACH PHASE OF AN ADVANCE TOOK FROM THE ENGINE'S ALLOCATOR** (board:1463), as a signed
+   * difference wrapped into a size_t: a phase that returned more than it took reads as a huge number,
+   * which is exactly the sign an instrument wants to see rather than a clamp that hides it. Static
+   * because it is a diagnostic and not scenario state -- there is one frame in the engine at a time. */
+  static size_t TookPosing_, TookSubmitting_, TookAiming_, TookDrawing_;
+  [[nodiscard]] static size_t TookPosing(void) { return TookPosing_; }
+  [[nodiscard]] static size_t TookSubmitting(void) { return TookSubmitting_; }
+  [[nodiscard]] static size_t TookAiming(void) { return TookAiming_; }
+  [[nodiscard]] static size_t TookDrawing(void) { return TookDrawing_; }
+
   /* Which frame of its own grid it is showing, and how many it has -- one for a still. */
   [[nodiscard]] int At(void) const { return At_; }
   [[nodiscard]] int Frames(void) const { return Frames_; }
@@ -155,6 +165,7 @@ private:
   [[nodiscard]] double Framing(void) const;
   [[nodiscard]] bool Pose(int frame, std::string &error);
   [[nodiscard]] bool Look(std::string &error);
+  [[nodiscard]] bool Stand(std::string &error);
   [[nodiscard]] bool Submit(std::string &error);
   [[nodiscard]] bool Compose(std::string &error);
 

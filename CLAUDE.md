@@ -77,6 +77,14 @@ is committed, and the round that refutes one is worth the round that produced it
 
 **Nothing is a possession.** Formats, directories, algorithms, interfaces, build, tools — all material.
 
+**THIS IS A GREEN FIELD AND THERE IS NO CONSUMER, so the tests are the whole of the contract.** No
+released interface has to survive, no caller outside this tree has to keep compiling, and no shape is
+owed anything by its own history — a good deal of what is here grew out of an older project and carries
+that project's assumptions rather than this one's. **Question any of it and rewrite what needs
+rewriting; the bar is that the suite still holds and that the round says what moved and why.** A
+rewrite is cheaper now than it will ever be again, and a shape kept only because it is already typed is
+the one cost this project genuinely does not have to pay.
+
 **Good C++ and proven engine design.** The [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines)
 are binding, and the established way is the starting point; either one deviated from is a defect until
 its reason stands beside it. Prefer the shape that makes a mistake **unspellable** over the rule that
@@ -159,6 +167,20 @@ measurement refutes the guess, the refutation is the round's result.**
 **Look it up, do not recall it, and check the source rather than citing it.** A domain claim without a
 source is a defect rather than a finding, and a source that does not support what it is cited for is the
 same defect one step later.
+
+**WHEN A SHAPE IS BEING CHOSEN AND THE CHOICE IS NOT OBVIOUS, LOOK UP WHAT THE SHIPPED ENGINES DO.**
+RAGE and Unreal have thirty years of answers between them and almost every one of them is published —
+so the established mechanism is in reach before an invented one is, and *there is a name for that*
+arrives before the second implementation of it does. **Look it up rather than recall it**, exactly as
+the paragraph above says: what is remembered about an engine is usually its reputation and not its
+mechanism.
+
+**Take the MECHANISM and never the budget, and name the assumption that came with it.** RAGE sizes its
+pools at build time because RAGE knows its content at build time; a world loaded from OSM does not, so
+what transfers is *declared capacity, reused storage, a refusal instead of a growth* and what does not
+is the fixed table. **A mature answer adopted without its assumption is a slow copy** — and the
+assumption is what a deviation's reason is written from, which is the one thing this file already
+demands of every deviation.
 
 **A run-wide average is not a zero point** when the quantity drifts across the run — take the
 neighbourhood and say which. **A photograph is not a photometer** beyond a couple of stops. **A
@@ -828,6 +850,7 @@ for.
 | **Decima** (Guerrilla) | vegetation and terrain **at scale, assembled while the player walks through it** — compute shaders placing a dense world from artist-declared rules (van Muijden, *GPU-Based Run-Time Procedural Placement in Horizon: Zero Dawn*, GDC 2017). When a claim needs evidence about a world that comes into being at run time, **this** is the evidence — Microsoft Flight Simulator is not, because everything there was generated ahead of time in the cloud |
 | **id Tech 7** | a **hard frame floor**, held by scaling what costs pixels rather than by dropping frames — every console version of *Doom Eternal* holds its 60 fps target under dynamic resolution |
 | **Frostbite FrameGraph** | the **declared stage plan**: every pass and resource as a graph, compiled, with lifetime, transitions and allocation falling out of it rather than being hand-ordered (O'Donnell, *FrameGraph: Extensible Rendering Architecture in Frostbite*, GDC 2017) |
+| **RAGE** (Rockstar) | **an allocator with nothing to decide**: pools sized at build time and declared in content, where exceeding one is a refusal rather than a heap that grows. The lesson is the direction — a frame path that takes nothing cannot leak, fragment or stall in an allocator — and Unreal states the same thing the other way with `FMemStack`, a linear stack whose whole frame is popped at once by an `FMemMark` |
 | **SpeedTree** | the production answer to a **discrete ladder**, and we need it: geometry that reduces smoothly plus an **alpha-to-coverage cross-fade** into the billboard, leaf instances shrunk away while the survivors scale up, the billboard picked from an array by azimuth (SpeedTree SDK documentation, *Level of Detail*). A transition, not a wider spacing |
 
 **Selection by DISTANCE RATIO is the technique this engine refuses**, wherever it is found: a per-object

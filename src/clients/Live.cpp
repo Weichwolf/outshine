@@ -2,6 +2,8 @@
 
 #include <cmath>
 
+#include "Heap.h"
+
 #include "Framing.h"
 
 namespace outshine::Clients {
@@ -152,7 +154,7 @@ bool Live::Build(std::string &error) {
      * be answering a question the consumer already answered by naming the rectangle. */
     Renderer_->SetPictureRegion(Declared_.PictureLeftFrac, Declared_.PictureTopFrac,
                                 Declared_.PictureWidthFrac, Declared_.PictureHeightFrac, 0.0);
-    if (!Submit(error)) { return false; }
+    if (!Stand(error) || !Submit(error)) { return false; }
   } else {
     Renderer_->SetPictureRegion(0, 0, 0, 0, 0);
   }
@@ -218,7 +220,16 @@ bool Live::Look(std::string &error) {
   return Aim(*Renderer_, Geometry_, Stood_.Eye, error);
 }
 
-bool Live::Submit(std::string &error) {
+/* **THE STUDIO IS BUILT ONCE AND ONLY WHAT MOVED IS WRITTEN AGAIN** (board:1463). It used to be rebuilt
+ * from an empty one on every advance -- every surface copied, every emitted radiance assigned, every
+ * light pushed -- and [MEASURED] that made SUBMITTING the heaviest allocator in the frame: it moved the
+ * engine's own heap on **223 of 250 frames**, against 15 for posing and 0 for aiming. What actually
+ * changes between two frames of an animated subject is which body the pointers name, and that is two
+ * stores.
+ *
+ * `CLAUDE.md` asks for exactly this and the shipped engines arrange it the same way: a frame path made
+ * of bounded terms, with the allocation at load. */
+bool Live::Stand(std::string &error) {
   Stood_ = Studio{};
   Stood_.Geometry = &Geometry_;
   if (Moves_) { Stood_.Previous = &Previous_; }
@@ -247,6 +258,7 @@ bool Live::Submit(std::string &error) {
   for (int channel = 0; channel < 3; ++channel) {
     Stood_.Environment.RadianceLinear[channel] = (float)Declared_.Environment[channel];
   }
+
   /* **THE CAMERA IS THE SUBJECT'S OWN BOUNDS WHERE A FILL WAS DECLARED, and the document's where it
    * was not.** A runner comparing against an oracle must keep the shot the file states; a consumer
    * SHOWING a model wants to see it, and a model filling a tenth of the frame because its author
@@ -255,12 +267,37 @@ bool Live::Submit(std::string &error) {
   std::string why;
   const bool declared = !File_.Cameras().empty() &&
                         Gltf::DeclaredPlacement(File_, 0, Stood_.Eye, why);
-  if ((Declared_.Fill > 0.0 || !declared) && !Geometry_.Frame(Stood_.Eye, Framing())) {
-    error = "the subject has no extent, so no camera can be derived from it";
-    return false;
+  if (Declared_.Fill > 0.0 || !declared) {
+    /* **THE BOUNDS THE CAMERA IS DERIVED FROM ARE THE GRID'S AND NOT THE REST POSE'S** (board:1433,
+     * board:1463). A camera framed on frame 0 and held still is what a scenario wants -- a viewpoint
+     * that jumped with every pose would be a camera nobody placed -- and a body that moves toward it
+     * then walks INSIDE the near plane, which `Aim` refuses and rightly. [MEASURED] `BoxAnimated`
+     * stopped advancing after 22 frames the moment the per-pose reframing was removed.
+     *
+     * The union over the whole grid is taken ONCE, at stand-up, where an allocation and a walk are
+     * allowed to live. The eye and the aim stay the rest pose's; what opens is the depth window. */
+    double least[3], most[3];
+    for (int axis = 0; axis < 3; ++axis) {
+      least[axis] = Geometry_.MinM()[axis];
+      most[axis] = Geometry_.MaxM()[axis];
+    }
+    for (int frame = 1; frame < Frames_; ++frame) {
+      if (!Pose(frame, error)) { return false; }
+      for (int axis = 0; axis < 3; ++axis) {
+        least[axis] = Geometry_.MinM()[axis] < least[axis] ? Geometry_.MinM()[axis] : least[axis];
+        most[axis] = Geometry_.MaxM()[axis] > most[axis] ? Geometry_.MaxM()[axis] : most[axis];
+      }
+    }
+    if (Frames_ > 1 && !Pose(0, error)) { return false; }
+    if (!Gltf::FramingFor(least, most, Stood_.Eye, Framing())) {
+      error = "the subject has no extent over its own grid, so no camera can be derived from it";
+      return false;
+    }
   }
-  return Show(*Renderer_, Stood_, Scratch_, error);
+  return true;
 }
+
+bool Live::Submit(std::string &error) { return Show(*Renderer_, Stood_, Scratch_, error); }
 
 bool Live::Compose(std::string &error) {
   Laid_.clear();
@@ -294,21 +331,35 @@ bool Live::Redeclare(std::vector<Shows> surfaces, std::string &error) {
   return Compose(error);
 }
 
+/* WHERE AN ADVANCE'S BYTES GO, published per phase so a cost has a cause (board:1463). It is four
+ * relaxed loads a frame and it is read by an instrument, never by the frame. */
+size_t Live::TookPosing_ = 0, Live::TookSubmitting_ = 0, Live::TookAiming_ = 0, Live::TookDrawing_ = 0;
+
 bool Live::Advance(std::string &error) {
+  const auto took = [](size_t before) { return Heap::LiveBytes() - before; };
   /* **A STILL SUBJECT SUBMITS NOTHING**, which is the whole of this class: the device already holds
    * every vertex, index, material and image, and nothing about them changed. */
   if (Moves_ && Frames_ > 1) {
     At_ = (At_ + 1) % Frames_;
-    if (!Pose(At_, error) || !Submit(error)) { return false; }
+    const size_t beforePose = Heap::LiveBytes();
+    if (!Pose(At_, error)) { return false; }
+    const size_t beforeSubmit = Heap::LiveBytes();
+    TookPosing_ = took(beforePose);
+    if (!Submit(error)) { return false; }
+    TookSubmitting_ = took(beforeSubmit);
   }
   /* **AN ORBIT MOVES THE EYE AND NEVER THE BODY**, so it costs an aim and not a submission. It runs
    * after the pose because a posed subject's bounds are this frame's, and a camera framed against the
    * previous frame's would lag the body it is following by one. */
   if (Declared_.OrbitDegPerFrame != 0.0 && Geometry_.TriangleCount() > 0) {
     Around_ += Declared_.OrbitDegPerFrame;
+    const size_t beforeAim = Heap::LiveBytes();
     if (!Look(error)) { return false; }
+    TookAiming_ = took(beforeAim);
   }
+  const size_t beforeDraw = Heap::LiveBytes();
   Renderer_->RenderFrame();
+  TookDrawing_ = took(beforeDraw);
   return true;
 }
 
