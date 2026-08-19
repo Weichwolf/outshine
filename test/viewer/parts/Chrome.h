@@ -31,6 +31,9 @@ struct Listed {
   std::string Prepared;
   bool Ready = false;
   bool Document = false;
+  /* A CASE WHOSE SUBJECT IS A PROGRAM AND NOT A PAGE. The browser shows it as its own text and its own
+   * verdict; counting it among the documents would report 813 pages that were never pages. */
+  bool Script = false;
 };
 
 /* WHAT THE BROWSER IS SHOWING, AND IT IS THE WHOLE OF ITS STATE. A field added here is a thing the
@@ -63,6 +66,11 @@ struct Showing {
 /* HOW MANY ROWS FIT, which the scroll needs and the declaration already decides. One number in one
  * place, or the list scrolls past its own end on one side and not the other. */
 [[nodiscard]] int RowsThatFit(int heightPx);
+
+/* A PREPARED DOCUMENT CASE'S OWN TEXT, and the stylesheets its manifest says it links. They are two
+ * calls because a document that does not read is a different answer from one whose sheet is missing. */
+[[nodiscard]] std::string EntryOf(const std::string &prepared, bool &found);
+void AddLinkedSheets(const std::string &prepared, Ui::Stylesheet &into);
 
 /* THE TRANSLATION, AND IT IS THE CLIENT'S BY DESIGN. The renderer takes its own quad because no
  * content noun has a spelling in it; this is the loop that costs. */

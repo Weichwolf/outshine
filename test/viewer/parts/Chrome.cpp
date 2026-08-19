@@ -63,7 +63,9 @@ std::vector<Listed> Cases(void) {
     std::ifstream declaration(it->path());
     std::stringstream held;
     held << declaration.rdbuf();
-    one.Document = held.str().find("\"outshine/declared-case-manifest\"") != std::string::npos;
+    const std::string stated = held.str();
+    one.Document = stated.find("\"outshine/declared-case-manifest\"") != std::string::npos;
+    one.Script = stated.find("\"kind\": \"script\"") != std::string::npos;
     found.push_back(std::move(one));
   }
   std::sort(found.begin(), found.end(), [](const Listed &a, const Listed &b) {
@@ -177,6 +179,43 @@ std::string Declaration(const std::vector<Listed> &cases, const Showing &showing
 
   out += "</div></body>";
   return out;
+}
+
+namespace {
+
+std::string Slurp(const std::string &path, bool &found) {
+  std::ifstream file(path);
+  found = file.good();
+  std::stringstream held;
+  held << file.rdbuf();
+  return held.str();
+}
+
+}  // namespace
+
+std::string EntryOf(const std::string &prepared, bool &found) {
+  bool haveManifest = false;
+  const std::string manifest = Slurp(prepared + "/manifest.json", haveManifest);
+  found = false;
+  if (!haveManifest) { return {}; }
+  /* THE ENTRY IS WHAT THE MANIFEST NAMES, read without a JSON reader because one field of one shape is
+   * not a document model -- and the browser already links no JSON parser of its own. */
+  const size_t at = manifest.find("\"entry\"");
+  if (at == std::string::npos) { return {}; }
+  const size_t open = manifest.find('"', manifest.find(':', at));
+  const size_t close = manifest.find('"', open + 1);
+  if (open == std::string::npos || close == std::string::npos) { return {}; }
+  return Slurp(prepared + "/" + manifest.substr(open + 1, close - open - 1), found);
+}
+
+void AddLinkedSheets(const std::string &prepared, Ui::Stylesheet &into) {
+  std::error_code walking;
+  for (const auto &entry : std::filesystem::directory_iterator(prepared, walking)) {
+    if (entry.path().extension() != ".css") { continue; }
+    bool found = false;
+    const std::string text = Slurp(entry.path().string(), found);
+    if (found) { into.Read(text); }
+  }
 }
 
 std::vector<Render::OverlayQuad> AsOverlay(const std::vector<Ui::Quad> &quads) {

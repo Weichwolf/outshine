@@ -14,6 +14,7 @@
  * refuses its subject on purpose, and a browser that silently skipped it would answer a different
  * question than *what does this tree declare*. */
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 
 #include <SDL3/SDL_gpu.h>
@@ -66,14 +67,49 @@ int main(void) {
   const View::SheetFont face;
 
   int drew = 0, declined = 0, documents = 0, unprepared = 0, blank = 0, refused = 0;
+  int chromed = 0, shown = 0, reduced = 0, scripts = 0;
   std::string suite;
   for (const View::Listed &one : cases) {
     if (one.Suite != suite) {
       suite = one.Suite;
       std::printf("SUITE %s\n", suite.c_str());
     }
+    if (one.Script) {
+      ++scripts;
+      continue;
+    }
     if (one.Document) {
+      /* **A DOCUMENT CASE IS SHOWN BY THE SAME ENGINE THAT DRAWS THE BROWSER'S OWN CHROME**, which is
+       * the property this browser is built to hold: the viewer and the viewed are one mechanism. It
+       * needs no device -- the picture of a document is a list of rectangles -- so it is decided here
+       * rather than through a plan. */
       ++documents;
+      bool found = false;
+      const std::string entry = View::EntryOf(one.Prepared, found);
+      if (!found) {
+        ++unprepared;
+        continue;
+      }
+      Ui::Markup tree;
+      Ui::Stylesheet sheet;
+      Ui::Layout placed;
+      Ui::Painting painted;
+      std::string trouble;
+      const bool reads = tree.Read(entry, trouble);
+      if (reads) {
+        sheet.Read(Ui::UserAgentSheet());
+        View::AddLinkedSheets(one.Prepared, sheet);
+        sheet.Read(tree.StyleText());
+      }
+      const bool laid = reads && placed.Build(tree, sheet, 1280, 720, face, trouble);
+      const bool drawn = laid && painted.Build(placed, face, trouble);
+      if (drawn && !painted.Quads().empty()) {
+        ++shown;
+      } else {
+        /* A DOCUMENT THIS ENGINE DECLINES IS COUNTED AND NOT HIDDEN, and the corpus suite is where its
+         * reason lives -- every one of them is held or reduced at a declared boundary there. */
+        ++reduced;
+      }
       continue;
     }
     if (!one.Ready) {
@@ -126,6 +162,8 @@ int main(void) {
         if (!renderer.SetOverlay(ready.data(), ready.size(), why)) {
           Checked(false, "the browser's chrome reaches the library",
                   (one.Name + ": " + why).c_str(), __FILE__, __LINE__);
+        } else if (!ready.empty()) {
+          ++chromed;
         }
       }
     }
@@ -177,6 +215,22 @@ int main(void) {
               __FILE__, __LINE__);
       continue;
     }
+    /* **THE CHROME IS OVER THE CASE AND NOT BESIDE IT.** The panel's own colour, read where the
+     * browser declared it, is what says the interface reached the same texels the case did -- a
+     * picture that came back varying could still be the case alone. */
+    const auto codeAt = [&rgba, &held](int x, int y, int channel) {
+      const size_t at = (((size_t)y * (size_t)held.WidthPx()) + (size_t)x) * 4u + (size_t)channel;
+      return at < rgba.size() ? (int)rgba[at] : -1;
+    };
+    if (held.WidthPx() > 40 && held.HeightPx() > 400) {
+      const int r = codeAt(6, 400, 0), g = codeAt(6, 400, 1), b = codeAt(6, 400, 2);
+      Checked(std::abs(r - 0x12) <= 2 && std::abs(g - 0x16) <= 2 && std::abs(b - 0x1b) <= 2,
+              "the browser's own panel is over the case it shows",
+              (one.Name + ": the panel reads " + std::to_string(r) + " " + std::to_string(g) + " " +
+               std::to_string(b) + ", declared 18 22 27")
+                  .c_str(),
+              __FILE__, __LINE__);
+    }
     ++drew;
     std::printf("  %-42s %4d x %-4d  %zu varying px\n", one.Name.c_str(), held.WidthPx(),
                 held.HeightPx(), varying);
@@ -185,7 +239,10 @@ int main(void) {
   std::printf("NOTE cases the tree declares = %zu\n", cases.size());
   std::printf("NOTE render cases the browser drew = %d\n", drew);
   std::printf("NOTE render cases that declined by their own declaration = %d\n", declined);
-  std::printf("NOTE document cases, drawn by the UI engine and not this path = %d\n", documents);
+  std::printf("NOTE document cases the browser shows = %d of %d, %d this engine declines\n", shown,
+              documents, reduced);
+  std::printf("NOTE script cases, whose subject is a program and not a page = %d\n", scripts);
+  std::printf("NOTE render cases the browser drew its own chrome over = %d\n", chromed);
   std::printf("NOTE cases whose preparation has not run = %d\n", unprepared);
   std::printf("NOTE cases that refused or came back blank = %d\n", refused + blank);
   CHECK(drew > 0, "the browser drew at least one case, so the counts above are about work");
