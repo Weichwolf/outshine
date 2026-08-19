@@ -61,3 +61,36 @@ pointer to a missing material must not read as a file with a pointer nobody unde
   new arm by doing nothing and says why -- a material factor is not a node pose. **Applying it means a
   material row that changes per frame, which is a capability and not a parse**, and it is not claimed
   here in either direction
+
+## The oracle CAN decide a material factor, and no case asks it to
+
+Two measurements, and together they say exactly which half of this extension is testable today.
+
+**Blender imports a `baseColorFactor` pointer as an action on the material's node tree.** [MEASURED] on
+`AnimatedColorsCube`, loaded in Blender 5.2: `MATERIAL AnimatedColorMaterial node-tree anim: True`,
+carrying the action `Cube Animation`, while its three static siblings carry none. **So the reference
+animates the factor** and a case that compared it would decide whether this engine does.
+
+**And Blender refuses a `KHR_texture_transform` pointer**, which is what `PotOfCoalsAnimationPointer`'s
+declared reduction records: its oracle renders five identical frames while the file turns two texture
+transforms through a full circle.
+
+| pointer shape | the oracle | a case that tests it |
+|---|---|---|
+| a material's own factor | **animates it** | none -- see below |
+| a `KHR_texture_transform` field | renders a still | `PotOfCoalsAnimationPointer`, reduced |
+
+## Why no case tests the half that IS decidable
+
+**`AnimatedColorsCube` replaces its material.** Its manifest declares
+`scene.material.source = manifest`, `kind = emission-per-material` -- the runner hands each glTF material
+a flat emission keyed by the file's own name for it -- so the file's `baseColorFactor` never reaches the
+picture and neither does the channel that animates it. [MEASURED] the case is green at
+`picture_p99_delta_code` **0 codes on all four frames**, and that green is about the cube's TRANSLATION
+and ROTATION, which is what it does test.
+
+**So the case exists, the oracle is willing, and the declaration steps between them.** Pointing its
+material at the file -- `source: gltf`, `kind: metal-rough` -- is what would make it decide this, and it
+would go **red**, because this item's own open line says nothing drives a material yet. *That is a red
+worth having and it is not taken here: a standing red with no path to green is worse than a named gap,
+and the round that implements the capability is the round that should flip the case.*
