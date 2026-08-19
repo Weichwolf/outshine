@@ -198,5 +198,69 @@
       "derivation": "the projected area of the subject's triangles over the declared raster at the declared camera, recomputed by the runner from the subject's own vertices. It is quoted here because the boundary bound is applied UNDER it: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's apparent size, so a camera that framed the subject smaller would tighten the bound without saying so.",
       "note": "The framing rule of src/gltf/Framing.h fixes the camera, so this number is a consequence of the rule and the subject rather than a choice. The runner refuses a mismatch."
     }
-  }
+  },
+  "reductions": [
+    {
+      "metric": "picture_p99_delta_code",
+      "because": "THE TWO SIDES PUT THE DIFFUSE UNDER THE SPECULAR BY TWO DIFFERENT RULES, AND BOTH ARE FETCHED. Cycles attenuates what is beneath a layer by that layer's own directional albedo at the INCOMING ray angle -- `intern/cycles/kernel/svm/closure.h` reads *Attenuate lower layers* over `const Spectrum albedo = bsdf_albedo(kg, sd, bsdf, true, false); weight = closure_layering_weight(albedo, weight);` -- where glTF Appendix B weights the diffuse by `1 - F(v.h)`, the Fresnel at the HALF-VECTOR, and that is what this engine implements. `board:1363` measured the same thing from the other end: removing the diffuse term drops the residual by a factor of **7.1**, and no Blender node graph can reach a microfacet half-vector.\n\nAND THE FRESNEL ITSELF IS A SECOND MODEL PAIR ON THE SAME SURFACE. Appendix B specifies Schlick; Cycles evaluates the exact unpolarised dielectric expression. [MEASURED] on `SpecularTest` at `F0 = 0.04`, reflectance by view cosine: **0.09118 oracle, 0.08811 exact, 0.06900 Schlick** in the 0.4-0.6 band, where most of a curved surface lies. `board:1429` carries whether this engine should change models; these reductions stand either way, because they are about a DIELECTRIC's two layers and the last bit of f32.\n\nTHE INSTRUMENT IS SOUND AND ITS SIBLING PROVES IT: `shaded-sphere-metal-smooth` agrees with Cycles over **129 702 channels to the last bit**, so a bound of zero is reachable where the BRDF collapses to a mirror -- and every departure from it here is a difference in what is evaluated.",
+      "measured": {
+        "picturep99": {
+          "value": 2,
+          "unit": "codes",
+          "origin": "measured"
+        },
+        "pictureBound": {
+          "value": 1,
+          "unit": "codes",
+          "origin": "measured"
+        },
+        "channelsDiffering": {
+          "value": 129702,
+          "unit": "channels",
+          "origin": "measured"
+        },
+        "p95Relative": {
+          "value": 0.093656913,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "smoothMetalSiblingDiffering": {
+          "value": 0,
+          "unit": "channels",
+          "origin": "measured"
+        }
+      }
+    },
+    {
+      "metric": "linear_channels_differing",
+      "because": "THE TWO SIDES PUT THE DIFFUSE UNDER THE SPECULAR BY TWO DIFFERENT RULES, AND BOTH ARE FETCHED. Cycles attenuates what is beneath a layer by that layer's own directional albedo at the INCOMING ray angle -- `intern/cycles/kernel/svm/closure.h` reads *Attenuate lower layers* over `const Spectrum albedo = bsdf_albedo(kg, sd, bsdf, true, false); weight = closure_layering_weight(albedo, weight);` -- where glTF Appendix B weights the diffuse by `1 - F(v.h)`, the Fresnel at the HALF-VECTOR, and that is what this engine implements. `board:1363` measured the same thing from the other end: removing the diffuse term drops the residual by a factor of **7.1**, and no Blender node graph can reach a microfacet half-vector.\n\nAND THE FRESNEL ITSELF IS A SECOND MODEL PAIR ON THE SAME SURFACE. Appendix B specifies Schlick; Cycles evaluates the exact unpolarised dielectric expression. [MEASURED] on `SpecularTest` at `F0 = 0.04`, reflectance by view cosine: **0.09118 oracle, 0.08811 exact, 0.06900 Schlick** in the 0.4-0.6 band, where most of a curved surface lies. `board:1429` carries whether this engine should change models; these reductions stand either way, because they are about a DIELECTRIC's two layers and the last bit of f32.\n\nTHE INSTRUMENT IS SOUND AND ITS SIBLING PROVES IT: `shaded-sphere-metal-smooth` agrees with Cycles over **129 702 channels to the last bit**, so a bound of zero is reachable where the BRDF collapses to a mirror -- and every departure from it here is a difference in what is evaluated.",
+      "measured": {
+        "picturep99": {
+          "value": 2,
+          "unit": "codes",
+          "origin": "measured"
+        },
+        "pictureBound": {
+          "value": 1,
+          "unit": "codes",
+          "origin": "measured"
+        },
+        "channelsDiffering": {
+          "value": 129702,
+          "unit": "channels",
+          "origin": "measured"
+        },
+        "p95Relative": {
+          "value": 0.093656913,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "smoothMetalSiblingDiffering": {
+          "value": 0,
+          "unit": "channels",
+          "origin": "measured"
+        }
+      }
+    }
+  ]
 }

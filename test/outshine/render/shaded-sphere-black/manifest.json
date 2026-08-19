@@ -198,5 +198,33 @@
       "derivation": "the projected area of the subject's triangles over the declared raster at the declared camera, recomputed by the runner from the subject's own vertices. It is quoted here because the boundary bound is applied UNDER it: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's apparent size, so a camera that framed the subject smaller would tighten the bound without saying so.",
       "note": "The framing rule of src/gltf/Framing.h fixes the camera, so this number is a consequence of the rule and the subject rather than a choice. The runner refuses a mismatch."
     }
-  }
+  },
+  "reductions": [
+    {
+      "metric": "linear_channels_differing",
+      "because": "A BLACK BASE HAS NO DIFFUSE TERM, SO THE LAYERING RULE ABOVE DOES NOT REACH THIS CASE and what is left is the Fresnel model alone. glTF Appendix B specifies Schlick and this engine implements it; Cycles evaluates the exact unpolarised dielectric expression. [MEASURED] on `SpecularTest` at `F0 = 0.04` the two differ by 24 % in the 0.4-0.6 view-cosine band -- and here, with no diffuse to carry it, the whole residual is **p95 relative 0.0056239884** and the picture is **1 code against a bound of 1**. `board:1363` measured the same discriminator from the other end: it is this case, with its diffuse removed, that drops the residual by 7.1.\n\nTHE PICTURE IS INSIDE ITS BOUND. What is reduced is bit-exactness against a different Fresnel model, and `shaded-sphere-metal-smooth` -- whose Fresnel is a constant F0 -- reaches zero over 129 702 channels, which is what says the bound is reachable and the instrument sound.",
+      "measured": {
+        "channelsDiffering": {
+          "value": 129702,
+          "unit": "channels",
+          "origin": "measured"
+        },
+        "p95Relative": {
+          "value": 0.0056239884,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "picturep99": {
+          "value": 1,
+          "unit": "codes",
+          "origin": "measured"
+        },
+        "smoothMetalSiblingDiffering": {
+          "value": 0,
+          "unit": "channels",
+          "origin": "measured"
+        }
+      }
+    }
+  ]
 }
