@@ -182,6 +182,14 @@ int main(void) {
   /* WHERE THOSE BYTES WENT, so the repair has an address and not a direction. Each figure is one
    * frame's difference across one phase; a phase that returned more than it took wraps, and the wrap
    * is left visible rather than clamped. */
+  /* **WHERE THE BYTES WERE TAKEN, by the tag their scope named.** Monotone totals, so the run's own
+   * traffic is the difference across it -- and a tag that never appears is a scope nothing allocated
+   * inside, which is the answer this instrument exists to give. */
+  for (size_t at = 0; at < outshine::Heap::TagCount(); ++at) {
+    const char *tag = outshine::Heap::TagAt(at);
+    if (tag == nullptr) { continue; }
+    std::printf("NOTE taken under %-14s %zu bytes\n", tag, outshine::Heap::TakenAt(at));
+  }
   static const char *const kPhase[4] = {"posing", "submitting", "aiming", "drawing"};
   for (int at = 0; at < 4; ++at) {
     std::printf("NOTE %-10s moved the heap on %4zu of %d frames, worst %zu bytes\n", kPhase[at],

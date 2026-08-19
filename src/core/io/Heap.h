@@ -33,6 +33,37 @@ public:
    * The read is one relaxed load and the accounting is two adds, so nothing here walks anything. */
   static size_t LiveBytes();
 
+  /* **WHAT THE ALLOCATIONS INSIDE A SCOPE ARE FOR** (board:1463). Unreal calls this a Low Level Memory
+   * Tracker and it is the established answer to *which call site took that*: a scope names a category
+   * and every allocation under it is attributed there.
+   *
+   * **IT COUNTS WHAT WAS TAKEN AND NEVER WHAT IS LIVE, which is what keeps it free.** Attributing a
+   * RETURN needs the tag stored beside the block, and a table from pointer to tag is an allocation on
+   * the free path -- the defect this whole item removes, wearing the costume of the fix. A monotone
+   * per-tag total answers *where does this frame's traffic come from*, which is the question, and the
+   * net is already answered by `LiveBytes`.
+   *
+   * The tag is a LITERAL and is compared by pointer, so entering a scope is one store and leaving it
+   * is one more. A tag the table has no room for is counted under `other` rather than dropped. */
+  class Tagged {
+  public:
+    explicit Tagged(const char *tag) noexcept;
+    ~Tagged() noexcept;
+    Tagged(const Tagged &) = delete;
+    Tagged &operator=(const Tagged &) = delete;
+
+  private:
+    const char *Held_;
+  };
+
+  /* Bytes taken under that tag since the program began. Monotone, so a caller reads it twice and
+   * subtracts. An unknown tag answers zero rather than refusing: this is a diagnostic. */
+  [[nodiscard]] static size_t TakenUnder(const char *tag);
+  /* How many tags the table holds, so a consumer can enumerate what was actually seen. */
+  [[nodiscard]] static size_t TagCount();
+  [[nodiscard]] static const char *TagAt(size_t at);
+  [[nodiscard]] static size_t TakenAt(size_t at);
+
   /* A refusal that happened where the count is not ours to see — a C module that answers "out of
    * memory" with an error code. Without this the code arrives as a gap in the world and the run
    * carries on with a hole nobody can trace back to the allocator. */

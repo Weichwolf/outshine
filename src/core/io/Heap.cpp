@@ -22,6 +22,39 @@ namespace {
  * against a lifetime that had not begun. */
 std::atomic<size_t> gLiveBytes{0};
 
+/* [SET] HOW MANY DISTINCT TAGS THE TABLE HOLDS. Thirty-two is a scope for every phase of a frame and
+ * then some; a thirty-third is counted under `other` and said so, because a tag silently dropped is a
+ * cost that reads as free. */
+constexpr size_t kTagSlots = 32;
+constexpr const char *kUntagged = "untagged";
+constexpr const char *kOverflow = "other";
+
+/* THE TAG IN FORCE ON THIS THREAD. A pointer to a literal, so entering a scope is one store. */
+thread_local const char *gTag = nullptr;
+
+struct TagRow {
+  std::atomic<const char *> Name{nullptr};
+  std::atomic<size_t> Taken{0};
+};
+TagRow gTags[kTagSlots];
+
+/* THE ROW FOR A TAG, claimed on first use. Compared by POINTER because tags are literals, which makes
+ * the lookup a scan of at most thirty-two loads and never a string compare. */
+TagRow *RowFor(const char *tag) {
+  for (size_t at = 0; at < kTagSlots; ++at) {
+    const char *held = gTags[at].Name.load(std::memory_order_relaxed);
+    if (held == tag) { return &gTags[at]; }
+    if (held == nullptr) {
+      const char *empty = nullptr;
+      if (gTags[at].Name.compare_exchange_strong(empty, tag, std::memory_order_relaxed)) {
+        return &gTags[at];
+      }
+      if (gTags[at].Name.load(std::memory_order_relaxed) == tag) { return &gTags[at]; }
+    }
+  }
+  return nullptr;
+}
+
 /* WHAT THE ALLOCATOR ACTUALLY SET ASIDE FOR THIS BLOCK, asked of the allocator rather than remembered.
  * A table from pointer to size would be an allocation on the free path, which is the shape this whole
  * item exists to remove. */
@@ -34,7 +67,12 @@ inline size_t BlockBytes(void *block) {
 }
 
 inline void *Counted(void *block) {
-  if (block != nullptr) { gLiveBytes.fetch_add(BlockBytes(block), std::memory_order_relaxed); }
+  if (block == nullptr) { return block; }
+  const size_t bytes = BlockBytes(block);
+  gLiveBytes.fetch_add(bytes, std::memory_order_relaxed);
+  TagRow *row = RowFor(gTag != nullptr ? gTag : kUntagged);
+  if (row == nullptr) { row = RowFor(kOverflow); }
+  if (row != nullptr) { row->Taken.fetch_add(bytes, std::memory_order_relaxed); }
   return block;
 }
 
@@ -80,6 +118,24 @@ void *Heap::Take(const char *item, size_t bytes) {
 }
 
 size_t Heap::LiveBytes() { return gLiveBytes.load(std::memory_order_relaxed); }
+
+Heap::Tagged::Tagged(const char *tag) noexcept : Held_(gTag) { gTag = tag; }
+Heap::Tagged::~Tagged() noexcept { gTag = Held_; }
+
+size_t Heap::TakenUnder(const char *tag) {
+  const TagRow *row = RowFor(tag);
+  return row != nullptr ? row->Taken.load(std::memory_order_relaxed) : 0;
+}
+
+size_t Heap::TagCount() { return kTagSlots; }
+
+const char *Heap::TagAt(size_t at) {
+  return at < kTagSlots ? gTags[at].Name.load(std::memory_order_relaxed) : nullptr;
+}
+
+size_t Heap::TakenAt(size_t at) {
+  return at < kTagSlots ? gTags[at].Taken.load(std::memory_order_relaxed) : 0;
+}
 
 void Heap::Exhausted(const char *item) { End(item, "unstated"); }
 

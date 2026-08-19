@@ -93,10 +93,25 @@ roughly 220 frames of 250 and drawing moves it on roughly the same number, while
 moves on 43 to 79 -- so something is taken inside `Place` and given back inside `RenderFrame`, about
 900 bytes of it, on nearly every frame.
 
-**Naming it needs a finer instrument than *which phase*.** A per-phase difference cannot say which call
-site, and guessing from a diff is how the last two rounds nearly filed the wrong defect. **An allocation
-tag -- the `item` string `Heap::Take` already carries, counted per tag -- would answer it**, and that is
-the next thing to build here rather than the next thing to change.
+**THE TAG WAS BUILT AND IT NAMED THE CALL SITE.** `Heap::Tagged` is a scope that says what the
+allocations inside it are for -- Unreal calls the same thing a Low Level Memory Tracker -- and it counts
+what was TAKEN and never what is live, because attributing a return needs the tag stored beside the
+block and a table from pointer to tag is an allocation on the free path.
+
+[MEASURED] `BoxAnimated`, 500 frames:
+
+| tag | bytes taken | share |
+|---|---|---|
+| **`mesh-bvh`** | **19 767 456** | **96.5 %** |
+| `mesh-upload` | 705 488 | 3.4 % |
+| `render-frame` | 233 296 | |
+| `vertex-pack` | 36 864 | |
+| `index-run` | 3 072 | |
+| `draw-list` | 288 | |
+
+**The visibility structure is rebuilt from nothing on every pose**, 39.5 kB a frame, and it is
+`board:1464`. **Both answers a reader would have guessed are wrong**: the flattener's temporaries are
+0.2 % and the nine GPU buffer creations inside `SetMesh` are 3.4 %.
 
 ## What must be true
 

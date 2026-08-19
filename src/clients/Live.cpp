@@ -362,6 +362,7 @@ bool Live::Advance(std::string &error) {
     TookAiming_ = took(beforeAim);
   }
   const size_t beforeDraw = Heap::LiveBytes();
+  const Heap::Tagged drawing("render-frame");
   Renderer_->RenderFrame();
   TookDrawing_ = took(beforeDraw);
   return true;

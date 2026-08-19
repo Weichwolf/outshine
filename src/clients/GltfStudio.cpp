@@ -1,5 +1,7 @@
 #include "GltfStudio.h"
 
+#include "Heap.h"
+
 #include <cmath>
 #include <string>
 
@@ -444,8 +446,15 @@ bool Place(Render::Renderer &renderer, const Studio &studio, StudioScratch &scra
   }
   if (!Aim(renderer, subject, eye, error)) { return false; }
 
-  if (!BuildDrawList(studio, subject, scratch.Draws, error)) { return false; }
+  /* **THE FOUR STEPS OF A PLACEMENT, EACH NAMING WHAT ITS ALLOCATIONS ARE FOR** (board:1463). A
+   * per-phase difference said something inside here takes about 900 bytes on nearly every frame and
+   * could not say which; these say which. Entering a scope is one store. */
+  {
+    const Heap::Tagged inside("draw-list");
+    if (!BuildDrawList(studio, subject, scratch.Draws, error)) { return false; }
+  }
 
+  const Heap::Tagged packing("index-run");
   scratch.Indices.clear();
   scratch.Indices.reserve(scratch.Draws.IndexCount());
   for (const Render::IndexRun &run : scratch.Draws.Runs()) {
@@ -453,6 +462,7 @@ bool Place(Render::Renderer &renderer, const Studio &studio, StudioScratch &scra
       scratch.Indices.push_back(subject.Indices()[run.SourceFirst + at]);
     }
   }
+  const Heap::Tagged vertices("vertex-pack");
   const VertexRuns runs = PackVertices(studio, subject, scratch.Vertices);
 
   Render::SubjectMesh mesh;
@@ -474,6 +484,7 @@ bool Place(Render::Renderer &renderer, const Studio &studio, StudioScratch &scra
     mesh.PrevAnchor[axis] = kStudioAnchorEcefM[axis];
   }
   mesh.Draws = &scratch.Draws;
+  const Heap::Tagged handing("subject-mesh");
   if (!renderer.SetSubjectMesh(mesh, error)) { return false; }
 
   return true;

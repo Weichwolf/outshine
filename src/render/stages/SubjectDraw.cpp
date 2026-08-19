@@ -1,5 +1,9 @@
 #include "SubjectDraw.h"
 
+#include <new>
+
+#include "Heap.h"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -1763,31 +1767,37 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   }
 
   const uint32_t positionBytes = NVerts * 3u * (uint32_t)sizeof(float);
-  Vtx = Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Verts, positionBytes);
-  Emit = Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Emitted, positionBytes);
-  Nrm = HasNormal ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Normals, positionBytes) : OwnedBuffer();
-  Tan = HasTangent ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Tangents,
+  {
+    /* WHAT THE UPLOAD ITSELF TAKES, told apart from what the visibility structure takes (board:1463):
+     * they are the two halves of `SetMesh` and one of them is nine buffer creations. */
+    const Heap::Tagged uploading("mesh-upload");
+    Vtx = Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Verts, positionBytes);
+    Emit = Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Emitted, positionBytes);
+    Nrm = HasNormal ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Normals, positionBytes) : OwnedBuffer();
+    Tan = HasTangent ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Tangents,
                           NVerts * 4u * (uint32_t)sizeof(float))
                    : OwnedBuffer();
-  Uv = HasUv ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Uv, NVerts * 2u * (uint32_t)sizeof(float))
+    Uv = HasUv ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Uv, NVerts * 2u * (uint32_t)sizeof(float))
              : OwnedBuffer();
-  Uv1 = HasUv1 ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Uv1, NVerts * 2u * (uint32_t)sizeof(float))
+    Uv1 = HasUv1 ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Uv1, NVerts * 2u * (uint32_t)sizeof(float))
                : OwnedBuffer();
-  Col = HasColour ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Colours,
+    Col = HasColour ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Colours,
                          NVerts * 4u * (uint32_t)sizeof(float))
                   : OwnedBuffer();
-  /* A RIGID MESH IS ITS OWN PREVIOUS POSE, which makes the vertex half of the motion exactly zero and
+    /* A RIGID MESH IS ITS OWN PREVIOUS POSE, which makes the vertex half of the motion exactly zero and
    * leaves the camera half untouched (board:1413). */
-  const float *const previousPose = mesh.PrevVerts != nullptr ? mesh.PrevVerts : mesh.Verts;
-  Prev = WritesVelocity ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, previousPose, positionBytes)
+    const float *const previousPose = mesh.PrevVerts != nullptr ? mesh.PrevVerts : mesh.Verts;
+    Prev = WritesVelocity ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, previousPose, positionBytes)
                         : OwnedBuffer();
-  Idx = Fill(SDL_GPU_BUFFERUSAGE_INDEX, mesh.Indices, NIdx * (uint32_t)sizeof(uint32_t));
+    Idx = Fill(SDL_GPU_BUFFERUSAGE_INDEX, mesh.Indices, NIdx * (uint32_t)sizeof(uint32_t));
+  }
   if (!Vtx || !Emit || !Idx || (WritesVelocity && !Prev) || (HasColour && !Col)) {
     NIdx = 0;
     error = std::string("the subject's mesh did not reach the device: ") + SDL_GetError();
     return false;
   }
 
+  const Heap::Tagged building("mesh-bvh");
   /* THE VISIBILITY STRUCTURE IS BUILT OVER THE WHOLE INDEX RUN and not per batch, because a shadow
    * is cast by the subject and not by a draw: a body split into thirty primitives shadows itself
    * across every one of those seams, and thirty structures would each be blind to the other
