@@ -374,6 +374,16 @@ DisplayOptions Renderer::Display(void) const {
   DisplayOptions options;
   options.Exposure = Plan_->Exposure();
   options.Curve = Plan_->Display();
+  /* THE THIRD FIELD, AND IT WAS THE ONE THAT DECIDED WHICH FRAGMENT EXISTS (board:1413). The two
+   * display fragments carry one entry point between them -- `fragment float4 fs` writes the display
+   * alone, `fragment Resolved fs` writes the resolved scene at `color(0)` and the display at
+   * `color(1)` -- and `Configure` picks by this flag. It was never assigned, so a plan that HELD the
+   * resolve compiled the fragment that does not perform it: the pass attached `SceneLinear` and
+   * `FrameTex`, the single output landed on `SceneLinear`, `FrameTex` was written by nothing, and the
+   * shader declared two images against the four the pass bound. [MEASURED] 924 488 covered pixels of
+   * one arm's probes came back non-finite, and a constant written into the fused fragment never
+   * reached the readback -- because that fragment was never compiled. */
+  options.Temporal = Plan_->Holds(Stage::TemporalResolve);
   return options;
 }
 

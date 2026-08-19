@@ -231,3 +231,46 @@ other reports none. Whatever writes that texture, the lighting reaches it.
 One is the ping-pong pair `LinearTex_[LinearAt_]`, the other is whatever the pass built its attachment
 list from, and the constant probe says they differ. That is a question about the plan's attachment
 construction and not about a BRDF.
+
+## IT WAS ONE LINE, AND IT WAS NOT IN THE RESOLVE
+
+`Renderer::Display()` builds the `DisplayOptions` the tonemap is configured from. It set `Exposure` and
+`Curve` and **never assigned `Temporal`**, so the field kept its default `false` while the plan HELD the
+resolve.
+
+**The two display fragments carry one entry point between them** -- `fragment float4 fs` writes the
+display alone, `fragment Resolved fs` writes the resolved scene at `color(0)` and the display at
+`color(1)` -- and `Configure` picks by that flag. So a plan that held the resolve compiled the fragment
+that does not perform it, and every symptom follows:
+
+| observed | because |
+|---|---|
+| the fused fragment's constant never reached the readback | that fragment was never compiled |
+| `SceneLinear` held `(nan, 0, 0, 0)` | the single output landed on attachment 0, which IS `SceneLinear`, and the shader declared **two** images against the **four** the pass bound |
+| `FrameTex` written by nothing | it is attachment 1, and a `float4` fragment writes one |
+| the light dependence | the mismatched bindings are what the lit path reads through |
+| the "nondeterminism" | `nan != nan`, and nothing more |
+
+```cpp
+options.Temporal = Plan_->Holds(Stage::TemporalResolve);
+```
+
+## The resolve executes, and here is what it costs
+
+[MEASURED] p50 over 240 frames of a moving camera, five repeats, with the stage declared:
+
+| arm | without | with | the resolve |
+|---|---|---|---|
+| `geometry` | 1.678 - 1.908 ms | **2.113 ms** | ~ +0.3 ms |
+| `fill` | 1.978 - 2.148 | **2.477** | ~ +0.4 |
+| `fill-twice-lit` | 3.896 - 3.907 | **4.327** | ~ +0.4 |
+| `texture` | 2.223 - 2.342 | **2.686** | ~ +0.35 |
+
+**About 2 % of the 16.67 ms budget at 720p**, and `PRICED second-ray=1.850 ms floor-sum=1.761 resolved=yes`
+with it running -- so the instrument still prices its own gate through the resolve. **Zero non-finite
+pixels on every arm**, and every repeat draws the same picture.
+
+## What remains before this item closes
+
+- [ ] **the corpus does not move** -- no case declares the stage, so a full run is what says the alias
+      still costs nothing. It is the next thing measured

@@ -635,7 +635,8 @@ int main(int, char **argv) {
    * the sums are NaN, so `nan != nan` was the whole of it; what is real is that 924 488 covered pixels
    * of the `fill` arm's probes carry a non-finite radiance. Declared again in the round that answers
    * THAT, and the check above is what will say when it is answered. */
-  declaration.Content = {outshine::Render::Stage::Subjects};
+  declaration.Content = {outshine::Render::Stage::Subjects,
+                         outshine::Render::Stage::TemporalResolve};
   declaration.Display =
       outshine::Render::Declared<outshine::Render::Transfer>(outshine::Render::Transfer::Linear);
   declaration.Exposure = outshine::Render::Declared<float>(1.0f);
