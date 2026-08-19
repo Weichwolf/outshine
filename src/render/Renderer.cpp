@@ -33,7 +33,7 @@ namespace {
  * is `x_ndc = x_clip / w`, so the term added to `x_clip` must itself carry `w` -- which is exactly
  * what an entry multiplying `z_eye` does. A parallel projection has `w = 1` and the same offset
  * belongs in the translation instead, which is why the two branches spell it differently. */
-void MvpCamRel(float *m, const double R[3], const double Uc[3], const double F[3], int w, int h,
+void MvpCamRel(float *m, const double R[3], const double Uc[3], const double F[3], double w, double h,
                float fovDeg, float orthoM, float jitterX, float jitterY, float nearM) {
   const float fov = fovDeg * 3.14159265f / 180.0f, asp = (float)w / (float)h;
   const float zn = nearM;
@@ -482,17 +482,49 @@ bool Renderer::Configure(Stage stage, std::string &error) {
 void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
   FrameContext ctx{};
   for (int axis = 0; axis < 3; axis++) { ctx.Eye[axis] = Eye[axis]; }
-  MvpCamRel(ctx.Mvp16, Right, Up, Fwd, Width, Height, FovDeg, OrthoM, Jitter_[0], Jitter_[1], NearM);
+  /* THE PROJECTION TAKES THE PICTURE'S OWN SHAPE. Where a host gave no region that is the surface, and
+   * where it gave one it is the rectangle the picture will occupy -- so a case framed for 16:9 is
+   * projected as 16:9 wherever on the surface it lands. */
+  MvpCamRel(ctx.Mvp16, Right, Up, Fwd, PictureW(), PictureH(), FovDeg, OrthoM, Jitter_[0],
+            Jitter_[1], NearM);
   for (int axis = 0; axis < 3; axis++) {
     ctx.PrevEye[axis] = Submitted ? PrevEye[axis] : ctx.Eye[axis];
   }
   for (int at = 0; at < 16; at++) {
     ctx.PrevMvp16[at] = Submitted ? PrevMvp16[at] : ctx.Mvp16[at];
   }
+  /* THE PICTURE'S STAGES ARE CONFINED TO THE REGION AND THE INTERFACE'S ARE NOT. A viewport is
+   * per-draw state inside a pass, so one pass can carry both -- which is what lets the tonemap end at
+   * the pane's edge while the overlay reaches the whole surface. */
+  const auto within = [&](bool picture) {
+    SDL_GPUViewport where{};
+    const bool given = picture && RegionWidth_ > 0 && RegionHeight_ > 0;
+    /* **THE VIEWPORT IS FLOATING POINT, SO THE REGION NEED NOT BE WHOLE PIXELS.** Rounding it to
+     * integers changes its ASPECT -- 840 by 472 is 1.779661 where the case declares 1.777778 -- and a
+     * camera checked to a part in a trillion refuses that difference. The picture is placed exactly
+     * and the driver resolves the fraction, which is what a float viewport is for. */
+    where.x = given ? (float)RegionLeft_ : 0.0f;
+    where.y = given ? (float)RegionTop_ : 0.0f;
+    where.w = given ? (float)RegionWidth_ : (float)Width;
+    where.h = given ? (float)RegionHeight_ : (float)Height;
+    where.min_depth = 0.0f;
+    where.max_depth = 1.0f;
+    if (into.Pass != nullptr) { SDL_SetGPUViewport(into.Pass, &where); }
+  };
+
   switch (stage) {
-    case Stage::Subjects: Subjects_.Encode(ctx, into); return;
-    case Stage::SubjectsTransmissive: Glass_.Encode(ctx, into); return;
-    case Stage::CompositeTransmission: CompositeTransmission_.Encode(ctx, into); return;
+    case Stage::Subjects:
+      within(true);
+      Subjects_.Encode(ctx, into);
+      return;
+    case Stage::SubjectsTransmissive:
+      within(true);
+      Glass_.Encode(ctx, into);
+      return;
+    case Stage::CompositeTransmission:
+      within(true);
+      CompositeTransmission_.Encode(ctx, into);
+      return;
     /* NOTHING OF ITS OWN TO ENCODE: the transfer below draws the one fragment that is both. */
     case Stage::TemporalResolve: return;
     case Stage::Tonemap: {
@@ -503,6 +535,7 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
       const float delta[2] = {Jitter_[0] - PrevJitter_[0], Jitter_[1] - PrevJitter_[1]};
       Tonemap_.BindTemporal(LinearTex_[1 - LinearAt_].Get(), VelTex.Get(), Width, Height, delta,
                             HistoryHeld_);
+      within(true);
       Tonemap_.Encode(ctx, into);
       return;
     }
@@ -510,6 +543,7 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
      * What it draws was handed in by the consumer through `SetOverlay`; nothing here decides what a
      * rectangle means, and the stage is given no camera because an interface has none. */
     case Stage::Overlay:
+      within(false);
       Overlay_.Bind(Width, Height);
       Overlay_.Encode(ctx, into);
       return;
@@ -527,6 +561,7 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
           return;
         }
       }
+      within(false);
       Present_.Encode(ctx, into);
       return;
     case Stage::MediumTransmittance:
@@ -657,7 +692,8 @@ void Renderer::RenderFrame(void) {
   for (int axis = 0; axis < 3; axis++) { PrevEye[axis] = Eye[axis]; }
   /* THE SAME OFFSET THIS FRAME RASTERISED WITH, because this is what the NEXT frame's velocity is
    * measured against -- and the resolve subtracts the difference of the two. */
-  MvpCamRel(PrevMvp16, Right, Up, Fwd, Width, Height, FovDeg, OrthoM, Jitter_[0], Jitter_[1], NearM);
+  MvpCamRel(PrevMvp16, Right, Up, Fwd, PictureW(), PictureH(), FovDeg, OrthoM, Jitter_[0],
+            Jitter_[1], NearM);
   Submitted = true;
 }
 

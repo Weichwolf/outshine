@@ -63,6 +63,20 @@ struct Showing {
 /* The stylesheet, kept apart from the markup so a reader can see the whole appearance in one place. */
 [[nodiscard]] const char *Style(void);
 
+/* WHERE THE PICTURE OF A CASE GOES: a rectangle in the surface's own pixels, centred in the pane that
+ * is left of the two columns and scaled to fit while keeping the case's own aspect. **The host decides
+ * where the picture goes and the library draws it there** -- which is the same sentence the surface
+ * declaration makes, one level up. */
+struct Region {
+  /* **NOT WHOLE PIXELS**, because rounding a rectangle changes its aspect and a camera framed for one
+   * shape may not be projected into another: 840 by 472 is 1.779661 where 1280 by 720 is 1.777778, and
+   * an orthographic placement is checked to a part in a trillion. The viewport takes floats. */
+  double LeftPx = 0, TopPx = 0, WidthPx = 0, HeightPx = 0;
+  [[nodiscard]] bool Held(void) const { return WidthPx > 0 && HeightPx > 0; }
+};
+
+[[nodiscard]] Region StageRegion(int widthPx, int heightPx, int pictureW, int pictureH);
+
 /* HOW MANY ROWS FIT, which the scroll needs and the declaration already decides. One number in one
  * place, or the list scrolls past its own end on one side and not the other. */
 [[nodiscard]] int RowsThatFit(int heightPx);

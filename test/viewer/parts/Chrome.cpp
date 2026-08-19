@@ -9,14 +9,20 @@
 #include "PreparedRoot.h"
 
 namespace outshine::Viewer {
-namespace {
 
-/* THE ROW'S HEIGHT AND THE LIST'S TOP, in the same pixels the stylesheet states them in. They are
- * here because the scroll arithmetic reads them too, and two spellings of one number is how a list
- * scrolls one row further than it draws. */
+/* THE TWO COLUMNS AND THE ROW, in the same pixels the stylesheet states them in. They are here because
+ * the stage's own rectangle is derived from them, and two spellings of one number is how a picture
+ * ends up beside the pane it was meant to be centred in. */
+constexpr int kCorpusPx = 180;
+constexpr int kCasePx = 260;
+/* THE ROW'S HEIGHT AND THE BARS ABOVE AND BELOW IT, in the same pixels the stylesheet states them in.
+ * They are here because the scroll arithmetic and the stage's rectangle both read them, and two
+ * spellings of one number is how a list scrolls one row further than it draws. */
 constexpr int kRowPx = 18;
 constexpr int kBarPx = 26;
 constexpr int kStatusPx = 22;
+
+namespace {
 
 std::string Flattened(std::string path) {
   for (char &c : path) {
@@ -101,12 +107,12 @@ const char *Style(void) {
    * this engine to, so the browser cannot look right through a capability nobody measured. */
   return "body { margin: 0; font-family: sheet; color: #c8d0d8; font-size: 16px }\n"
          ".frame { display: flex; flex-direction: row }\n"
-         ".side { display: flex; flex-direction: column; background: #12161b;"
+         ".corpora { display: flex; flex-direction: column; background: #0f1317;"
          " border-width: 0 1px 0 0; border-color: #232c35 }\n"
-         ".bar { background: #1a222a; padding: 5px 8px; box-sizing: border-box;"
-         " display: flex; flex-direction: row; gap: 6px }\n"
-         ".tab { padding: 0 6px; background: #232c35; color: #93a1ad }\n"
-         ".tab-on { padding: 0 6px; background: #2f6f9f; color: #f2f6fa }\n"
+         ".cases { display: flex; flex-direction: column; background: #12161b;"
+         " border-width: 0 1px 0 0; border-color: #232c35 }\n"
+         ".head { background: #1a222a; padding: 5px 8px; box-sizing: border-box; color: #6f8090;"
+         " border-width: 0 0 1px 0; border-color: #232c35 }\n"
          ".list { flex: 1 1 0%; overflow: hidden }\n"
          ".row { padding: 2px 8px; box-sizing: border-box; color: #9fb0bf }\n"
          ".row-on { padding: 2px 8px; box-sizing: border-box; background: #2f6f9f; color: #f2f6fa }\n"
@@ -122,26 +128,42 @@ std::string Declaration(const std::vector<Listed> &cases, const Showing &showing
   const std::vector<int> shown = Filtered(cases, showing);
   const std::vector<std::string> suites = Suites(cases);
   const int rows = RowsThatFit(heightPx);
-  const int sidePx = 300;
 
   std::string out = "<style>";
   out += Style();
   out += "</style><body><div class=frame style=\"width:" + std::to_string(widthPx) +
          "px;height:" + std::to_string(heightPx) + "px\">";
 
-  out += "<div class=side style=\"width:" + std::to_string(sidePx) +
+  /* **TWO COLUMNS AND THEN THE VIEW**, which is how a file browser has shown a hierarchy since long
+   * before this one: the corpus on the left decides what the middle holds, and the middle decides what
+   * the right shows. Each column is its own clipped pane, so a listing of any length scrolls without
+   * moving the one beside it. */
+  out += "<div class=corpora style=\"width:" + std::to_string(kCorpusPx) +
          "px;height:" + std::to_string(heightPx) + "px\">";
-  out += "<div class=bar style=\"height:" + std::to_string(kBarPx) + "px\">";
-  for (const std::string &suite : suites) {
-    const bool on = showing.Suite == suite;
-    /* THE ACTION IS A SCRIPT AND NOT A TOKEN THE BROWSER TAKES APART. `suite("wpt/css/flexbox")` is
-     * read by the interpreter and answered by a host this browser implements, so what the word means
-     * lives in one place -- and adding a control is adding a native rather than another prefix to
-     * pick off a string. */
-    out += "<div class=\"" + std::string(on ? "tab-on" : "tab") + "\" data-action=\"suite('" +
-           Quoted(suite) + "')\">" + Quoted(suite) + "</div>";
+  out += "<div class=head style=\"height:" + std::to_string(kBarPx) + "px\">CORPUS</div>";
+  out += "<div class=list><div>";
+  {
+    const bool all = showing.Suite.empty();
+    out += "<div class=\"" + std::string(all ? "row-on" : "row") + "\" style=\"height:" +
+           std::to_string(kRowPx) + "px\" data-action=\"suite('')\">ALL (" +
+           std::to_string(cases.size()) + ")</div>";
   }
-  out += "</div>";
+  for (const std::string &suite : suites) {
+    int count = 0;
+    for (const Listed &one : cases) { count += one.Suite == suite ? 1 : 0; }
+    const bool on = showing.Suite == suite;
+    out += "<div class=\"" + std::string(on ? "row-on" : "row") + "\" style=\"height:" +
+           std::to_string(kRowPx) + "px\" data-action=\"suite('" + Quoted(suite) + "')\">" +
+           Quoted(suite) + " (" + std::to_string(count) + ")</div>";
+  }
+  out += "</div></div>";
+  out += "<div class=status style=\"height:" + std::to_string(kStatusPx) + "px\">" +
+         Quoted(showing.Note) + "</div></div>";
+
+  out += "<div class=cases style=\"width:" + std::to_string(kCasePx) +
+         "px;height:" + std::to_string(heightPx) + "px\">";
+  out += "<div class=head style=\"height:" + std::to_string(kBarPx) + "px\">CASE (" +
+         std::to_string(shown.size()) + ")</div>";
 
   /* THE LIST IS CLIPPED AND ONLY WHAT CAN BE SEEN IS DECLARED. [MEASURED] declaring all 309 rows and
    * offsetting them under a clip cost p50 1.34 ms and 641 boxes -- 94.5 % of the share this browser
@@ -162,9 +184,11 @@ std::string Declaration(const std::vector<Listed> &cases, const Showing &showing
            "</div>";
   }
   out += "</div></div>";
-
   out += "<div class=status style=\"height:" + std::to_string(kStatusPx) + "px\">" +
-         Quoted(showing.Note) + "</div></div>";
+         (shown.empty() ? std::string("NO CASES") : std::to_string(from + 1) + "-" +
+                                                        std::to_string(upTo) + " OF " +
+                                                        std::to_string(shown.size())) +
+         "</div></div>";
 
   /* THE STAGE DECLARES NO BACKGROUND, so nothing is painted over the picture the renderer drew. A
    * quad with no alpha reaches no pixel and costs no rectangle, which is what makes *transparent* a
@@ -178,6 +202,23 @@ std::string Declaration(const std::vector<Listed> &cases, const Showing &showing
   out += "</div>";
 
   out += "</div></body>";
+  return out;
+}
+
+Region StageRegion(int widthPx, int heightPx, int pictureW, int pictureH) {
+  /* **THE PICTURE IS CENTRED IN ITS PANE AND SCALED TO FIT, KEEPING ITS OWN ASPECT.** A case's camera
+   * was derived for the frame the case declares, so stretching it to a pane of another shape would
+   * show a picture nobody framed -- the fit is what keeps the projection the case's own. */
+  Region out;
+  const int paneX = kCorpusPx + kCasePx;
+  const int paneW = std::max(0, widthPx - paneX);
+  const int paneH = std::max(0, heightPx - kBarPx);
+  if (paneW <= 0 || paneH <= 0 || pictureW <= 0 || pictureH <= 0) { return out; }
+  const double scale = std::min((double)paneW / (double)pictureW, (double)paneH / (double)pictureH);
+  out.WidthPx = (double)pictureW * scale;
+  out.HeightPx = (double)pictureH * scale;
+  out.LeftPx = (double)paneX + ((double)paneW - out.WidthPx) / 2.0;
+  out.TopPx = (double)kBarPx + ((double)paneH - out.HeightPx) / 2.0;
   return out;
 }
 

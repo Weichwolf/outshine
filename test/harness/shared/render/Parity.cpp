@@ -3536,7 +3536,8 @@ bool ConfiguredCase::Declines(void) const {
 }
 
 bool ConfiguredCase::Start(outshine::Render::Renderer &renderer, std::string &error,
-                           const std::vector<outshine::Render::Stage> &alsoContent) {
+                           const std::vector<outshine::Render::Stage> &alsoContent, int surfaceW,
+                           int surfaceH) {
   outshine::Render::PlanSpec declaration;
   DeclarePlan(Held_->Subject, declaration);
   for (const outshine::Render::Stage stage : alsoContent) {
@@ -3548,7 +3549,8 @@ bool ConfiguredCase::Start(outshine::Render::Renderer &renderer, std::string &er
   declaration.Outputs.push_back(outshine::Render::Resource::Surface);
   std::shared_ptr<const outshine::Render::RenderPlan> plan;
   if (!outshine::Render::RenderPlan::Compile(declaration, &plan, error)) { return false; }
-  renderer.Init((int)Held_->Subject.Frame.WidthPx, (int)Held_->Subject.Frame.HeightPx, plan);
+  renderer.Init(surfaceW > 0 ? surfaceW : (int)Held_->Subject.Frame.WidthPx,
+                surfaceH > 0 ? surfaceH : (int)Held_->Subject.Frame.HeightPx, plan);
   if (!renderer.DeviceUsable()) {
     error = "the device did not come up, so this case cannot be shown";
     return false;

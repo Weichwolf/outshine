@@ -62,6 +62,24 @@ public:
    * learns which texture the final pass attaches. */
   void PresentInto(SDL_GPUTexture *surface) { HostSurface_ = surface; }
 
+  /* **WHICH PART OF THE SURFACE THE PICTURE OCCUPIES, AND THE HOST DECIDES IT** (board:1447). A
+   * browser shows a case beside its lists rather than under them; a split screen shows two; a mirror
+   * in a corridor shows one small. All three are this rectangle, and none of them is a second renderer.
+   *
+   * **THE ASPECT COMES FROM THE REGION AND NOT FROM THE SURFACE**, or a picture framed for one shape is
+   * projected into another and every camera the case declared is wrong by the difference. That is why
+   * this sets a viewport AND the projection rather than a viewport alone.
+   *
+   * A width or height of zero means *the whole surface*, which is what a host that never calls this
+   * gets. What the region does not cover keeps the frame's clear, so a consumer draws its own
+   * interface there. */
+  void SetPictureRegion(double leftPx, double topPx, double widthPx, double heightPx) {
+    RegionLeft_ = leftPx;
+    RegionTop_ = topPx;
+    RegionWidth_ = widthPx;
+    RegionHeight_ = heightPx;
+  }
+
   /* Run the passes and submit. It does NOT wait: the device runs behind the caller, which is what a
    * host that wants to prepare the next frame while this one draws depends on. */
   void RenderFrame(void);
@@ -202,12 +220,24 @@ public:
    * declared, because the second repeat began with the first one's history. */
   void BeginTemporalRun(void);
 
+  /* THE SURFACE'S SIZE, which is the host's, and the PICTURE'S, which is the region the host declared
+   * inside it. They are the same number until a host asks for a region, and telling them apart is what
+   * lets a browser hold a case beside its lists without every camera in the tree being wrong by the
+   * difference. */
   [[nodiscard]] int SceneW(void) const { return Width; }
   [[nodiscard]] int SceneH(void) const { return Height; }
-  /* The frame's shape, which a parallel projection needs and a perspective one does not: the
-   * vertical field of view fixes the horizontal only once the aspect is known. */
+  [[nodiscard]] double PictureW(void) const {
+    return RegionWidth_ > 0 ? RegionWidth_ : (double)Width;
+  }
+  [[nodiscard]] double PictureH(void) const {
+    return RegionHeight_ > 0 ? RegionHeight_ : (double)Height;
+  }
+  /* **THE PICTURE'S SHAPE AND NOT THE SURFACE'S.** A parallel projection needs it and a perspective one
+   * does not: the vertical field of view fixes the horizontal only once the aspect is known -- and the
+   * aspect a camera was framed for is the picture's. One place answers *what shape is the picture*, so
+   * the projection and every check against it cannot disagree. */
   [[nodiscard]] double SceneAspect(void) const {
-    return Height > 0 ? (double)Width / (double)Height : 0.0;
+    return PictureH() > 0 ? (double)PictureW() / (double)PictureH() : 0.0;
   }
 
 private:
@@ -286,6 +316,7 @@ private:
   float Jitter_[2] = {0.0f, 0.0f};
   float PrevJitter_[2] = {0.0f, 0.0f};
   bool CameraFull = false;                /* SetCameraBasis used */
+  double RegionLeft_ = 0, RegionTop_ = 0, RegionWidth_ = 0, RegionHeight_ = 0;
   double Eye[3] = {0, 0, 0};
   double Fwd[3] = {0, 0, 0}, Right[3] = {0, 0, 0}, Up[3] = {0, 0, 0};
   float FovDeg = 60.0f;                   /* [SET] until a scene declares one */

@@ -35,6 +35,10 @@ namespace View = outshine::Viewer;
 
 namespace {
 
+/* THE SURFACE THE BROWSER OWNS, which is the window's size and not any case's. */
+constexpr int kSurfaceW = 1280;
+constexpr int kSurfaceH = 720;
+
 /* HOW MANY PIXELS DIFFER FROM THE FIRST ONE. A frame of one colour is a frame nothing reached, whatever
  * that colour is -- so this asks about VARIATION and never about black, which would be a claim about a
  * clear colour rather than about drawing. */
@@ -135,7 +139,11 @@ int main(void) {
     /* THE BROWSER ADDS ITS OWN STAGE TO THE CASE'S PLAN -- one renderer, one plan, one more
      * contribution. The chrome is laid out for the case's own frame, because that is the surface it
      * will be drawn over. */
-    if (!held.Start(renderer, why, {outshine::Render::Stage::Overlay}) || !held.PoseAt(0, why)) {
+    /* **THE SURFACE IS THE WINDOW'S AND THE PICTURE'S RECTANGLE IS THE PANE'S**, which is exactly what
+     * the windowed arm does -- so this test walks the path a person walks and not a shorter one beside
+     * it. Rendering each case at its own size would leave the centring untested and shipped on hope. */
+    if (!held.Start(renderer, why, {outshine::Render::Stage::Overlay}, kSurfaceW, kSurfaceH) ||
+        !held.PoseAt(0, why)) {
       ++refused;
       Checked(false, "the case the browser shows starts", (one.Name + ": " + why).c_str(), __FILE__,
               __LINE__);
@@ -147,15 +155,17 @@ int main(void) {
               __LINE__);
       continue;
     }
+    const View::Region where =
+        View::StageRegion(kSurfaceW, kSurfaceH, held.WidthPx(), held.HeightPx());
+    renderer.SetPictureRegion(where.LeftPx, where.TopPx, where.WidthPx, where.HeightPx);
     showing.Note = "SHOWING " + one.Name;
-    const std::string document =
-        View::Declaration(cases, showing, held.WidthPx(), held.HeightPx());
+    const std::string document = View::Declaration(cases, showing, kSurfaceW, kSurfaceH);
     chromeTree = Ui::Markup();
     chromeSheet = Ui::Stylesheet();
     if (chromeTree.Read(document, why)) {
       chromeSheet.Read(Ui::UserAgentSheet());
       chromeSheet.Read(chromeTree.StyleText());
-      if (chromePlaced.Build(chromeTree, chromeSheet, held.WidthPx(), held.HeightPx(), face, why) &&
+      if (chromePlaced.Build(chromeTree, chromeSheet, kSurfaceW, kSurfaceH, face, why) &&
           chromePainted.Build(chromePlaced, face, why)) {
         const std::vector<outshine::Render::OverlayQuad> ready =
             View::AsOverlay(chromePainted.Quads());
@@ -177,8 +187,8 @@ int main(void) {
     wanted.type = SDL_GPU_TEXTURETYPE_2D;
     wanted.format = renderer.SurfaceFormat();
     wanted.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
-    wanted.width = (Uint32)held.WidthPx();
-    wanted.height = (Uint32)held.HeightPx();
+    wanted.width = (Uint32)kSurfaceW;
+    wanted.height = (Uint32)kSurfaceH;
     wanted.layer_count_or_depth = 1;
     wanted.num_levels = 1;
     SDL_GPUTexture *surface = SDL_CreateGPUTexture(renderer.Device(), &wanted);
@@ -218,22 +228,35 @@ int main(void) {
     /* **THE CHROME IS OVER THE CASE AND NOT BESIDE IT.** The panel's own colour, read where the
      * browser declared it, is what says the interface reached the same texels the case did -- a
      * picture that came back varying could still be the case alone. */
-    const auto codeAt = [&rgba, &held](int x, int y, int channel) {
-      const size_t at = (((size_t)y * (size_t)held.WidthPx()) + (size_t)x) * 4u + (size_t)channel;
+    const auto codeAt = [&rgba](int x, int y, int channel) {
+      const size_t at = (((size_t)y * (size_t)kSurfaceW) + (size_t)x) * 4u + (size_t)channel;
       return at < rgba.size() ? (int)rgba[at] : -1;
     };
-    if (held.WidthPx() > 40 && held.HeightPx() > 400) {
+    {
+      /* The CORPUS column's own colour, `#0f1317`, which is the leftmost of the two. */
       const int r = codeAt(6, 400, 0), g = codeAt(6, 400, 1), b = codeAt(6, 400, 2);
-      Checked(std::abs(r - 0x12) <= 2 && std::abs(g - 0x16) <= 2 && std::abs(b - 0x1b) <= 2,
-              "the browser's own panel is over the case it shows",
-              (one.Name + ": the panel reads " + std::to_string(r) + " " + std::to_string(g) + " " +
-               std::to_string(b) + ", declared 18 22 27")
+      Checked(std::abs(r - 0x0f) <= 2 && std::abs(g - 0x13) <= 2 && std::abs(b - 0x17) <= 2,
+              "the browser's own columns are over the case it shows",
+              (one.Name + ": the corpus column reads " + std::to_string(r) + " " +
+               std::to_string(g) + " " + std::to_string(b) + ", declared 15 19 23")
                   .c_str(),
               __FILE__, __LINE__);
     }
+    /* **THE PICTURE IS INSIDE ITS PANE AND NOWHERE ELSE.** A texel just left of the region belongs to
+     * the browser and a texel inside it belongs to the case, and a viewport that leaked would show the
+     * case under the lists -- which is the one thing centring is for. */
+    const int outsideR = codeAt((int)where.LeftPx - 4, (int)(where.TopPx + where.HeightPx / 2), 0);
+    const int outsideG = codeAt((int)where.LeftPx - 4, (int)(where.TopPx + where.HeightPx / 2), 1);
+    Checked(outsideR >= 0 && outsideR < 40 && outsideG < 40,
+            "the picture stops at its pane's edge",
+            (one.Name + ": the texel left of the region reads " + std::to_string(outsideR) + " " +
+             std::to_string(outsideG))
+                .c_str(),
+            __FILE__, __LINE__);
     ++drew;
-    std::printf("  %-42s %4d x %-4d  %zu varying px\n", one.Name.c_str(), held.WidthPx(),
-                held.HeightPx(), varying);
+    std::printf("  %-42s %4d x %-4d in a %.1f x %.1f pane at %.1f,%.1f  %zu varying px\n",
+                one.Name.c_str(), held.WidthPx(), held.HeightPx(), where.WidthPx, where.HeightPx,
+                where.LeftPx, where.TopPx, varying);
   }
 
   std::printf("NOTE cases the tree declares = %zu\n", cases.size());

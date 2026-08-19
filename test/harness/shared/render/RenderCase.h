@@ -47,8 +47,13 @@ public:
    * one more content stage, not a second renderer and not a blit. The case decides what its SUBJECT
    * is and the host decides what else is in the frame -- which is the same division the plan already
    * makes between machinery and content. */
+  /* `surfaceW` and `surfaceH` are the SURFACE the host owns, where it owns one bigger than the case:
+   * a browser's window holds the case beside its lists, so the frame is the window's and the picture's
+   * own rectangle is declared separately through `Renderer::SetPictureRegion`. Zero means *the case's
+   * own frame*, which is what a runner reading a picture back asks for. */
   [[nodiscard]] bool Start(outshine::Render::Renderer &renderer, std::string &error,
-                           const std::vector<outshine::Render::Stage> &alsoContent = {});
+                           const std::vector<outshine::Render::Stage> &alsoContent = {},
+                           int surfaceW = 0, int surfaceH = 0);
   /* The subject at one frame of the case's declared grid; frame 0 for a still. */
   [[nodiscard]] bool PoseAt(int frame, std::string &error);
   /* One picture, into whatever surface the renderer's host declared. */

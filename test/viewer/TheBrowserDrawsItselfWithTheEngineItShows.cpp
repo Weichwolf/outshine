@@ -250,32 +250,39 @@ int main(int argc, char **argv) {
    * painted a panel over the right-hand side, the case's picture would be behind it and the claim
    * *two targets of one renderer* would be a claim about a picture nobody sees. */
   {
-    const int overStage = Covering(browser.Painted, 900, 400);
+    const int overStage = Covering(browser.Painted, 1000, 400);
     CHECK(overStage < 0,
           "nothing is painted over the stage, so the picture the library drew is what is seen there");
     const int overPanel = Covering(browser.Painted, 20, 400);
     CHECK(overPanel >= 0, "and the panel beside it is painted");
   }
 
-  /* A POINTER IS A HIT AND A DECLARED ACTION. The row under the pointer is the row the browser
-   * selects, and the tab under it is the suite it filters to -- both decided HERE and never one layer
-   * down. */
+  /* A POINTER IS A HIT AND A DECLARED ACTION. **TWO COLUMNS AND THEN THE VIEW**: the corpus on the
+   * left decides what the middle holds, and the middle decides what the right shows -- so a pointer at
+   * x = 20 is choosing a corpus and one at x = 300 is choosing a case, and the coordinates below are
+   * the declaration's own geometry rather than numbers this test invented. */
   {
-    const int firstRow = 26 + 9;   /* the bar, then half a row */
-    browser.Touched(140, firstRow);
-    CHECK(browser.Showing.Selected == 0, "a pointer on the first row selects the first case");
+    const int firstRow = 26 + 9;   /* the column's head, then half a row */
+    browser.Touched(300, firstRow);
+    CHECK(browser.Showing.Selected == 0, "a pointer on the first row of the case column selects it");
     CHECK(browser.Compose(error), "and the declaration recomposes with the selection in it");
 
     const std::vector<std::string> suites = View::Suites(browser.Cases);
-    CHECK(!suites.empty(), "the toolbar is derived from the listing");
-    browser.Touched(20, 13);
-    CHECK(!browser.Showing.Suite.empty(), "a pointer on a tab filters to that suite");
+    CHECK(!suites.empty(), "the corpus column is derived from the listing");
+    browser.Touched(20, 26 + 18 + 9);   /* the head, the ALL row, then half of the first corpus */
+    CHECK(!browser.Showing.Suite.empty(), "a pointer on a corpus filters to it");
     CHECK(browser.Showing.Selected == -1, "and clears a selection that belonged to another listing");
     const size_t narrowed = View::Filtered(browser.Cases, browser.Showing).size();
     CHECK(narrowed > 0 && narrowed < browser.Cases.size(),
           "the filter admits some of the tree and not all of it");
     browser.Recount();
     CHECK(browser.Compose(error), "and the filtered declaration composes");
+
+    /* THE FIRST ROW OF THE CORPUS COLUMN IS *ALL*, which is the way back and is a row like any other. */
+    browser.Touched(20, firstRow);
+    CHECK(browser.Showing.Suite.empty(), "and the row above them all is the way back to the whole tree");
+    CHECK(View::Filtered(browser.Cases, browser.Showing).size() == browser.Cases.size(),
+          "which admits every case the tree declares");
   }
 
   /* THE SCROLL IS A NEGATIVE MARGIN UNDER A CLIP, which is a pane spelled out of what the subset
@@ -286,13 +293,13 @@ int main(int argc, char **argv) {
     browser.Showing.ScrolledRows = 0;
     browser.Recount();
     CHECK(browser.Compose(error), "the unfiltered listing composes");
-    const int before = Covering(browser.Painted, 140, 26 + 9);
+    const int before = Covering(browser.Painted, 300, 26 + 9);
     const double firstY = before >= 0 ? browser.Painted.Quads()[(size_t)before].Y : -1.0;
 
     browser.Scrolled(1);
     CHECK(browser.Showing.ScrolledRows == 1, "one notch scrolls one row");
     CHECK(browser.Compose(error), "the scrolled listing composes");
-    const int after = Covering(browser.Painted, 140, 26 + 9);
+    const int after = Covering(browser.Painted, 300, 26 + 9);
     const double nextY = after >= 0 ? browser.Painted.Quads()[(size_t)after].Y : -1.0;
     CHECK(before >= 0 && after >= 0, "a row is under the pointer before and after the scroll");
     CHECK(firstY == nextY,
@@ -385,15 +392,16 @@ int main(int argc, char **argv) {
             return (int)rgba[(((size_t)y * kWidth) + (size_t)x) * 4u + (size_t)channel];
           };
           /* The panel's own colour, `#12161b`, read where nothing else is drawn over it. */
-          const int r = codeAt(6, 400, 0), g = codeAt(6, 400, 1), b = codeAt(6, 400, 2);
-          std::printf("NOTE the panel reads back as %d %d %d, declared 18 22 27\n", r, g, b);
+          /* The CASE column's own colour, `#12161b`, read where nothing else is drawn over it. */
+          const int r = codeAt(300, 400, 0), g = codeAt(300, 400, 1), b = codeAt(300, 400, 2);
+          std::printf("NOTE the case column reads back as %d %d %d, declared 18 22 27\n", r, g, b);
           CHECK(std::abs(r - 0x12) <= 1 && std::abs(g - 0x16) <= 1 && std::abs(b - 0x1b) <= 1,
                 "a panel declared #12161b comes back as #12161b -- the declaration IS the colour, "
                 "which is what the transfer would break if the two ever met twice");
           /* The stage, where the browser declares nothing, is the picture the library drew. */
           int ink = 0;
           for (int y = 100; y < 600; y += 7) {
-            for (int x = 320; x < 1270; x += 7) {
+            for (int x = 460; x < 1270; x += 7) {
               ink += codeAt(x, y, 0) != r || codeAt(x, y, 1) != g || codeAt(x, y, 2) != b;
             }
           }
@@ -515,10 +523,17 @@ int Windowed(Browser &browser, int frames) {
       std::string why;
       if (wanted >= 0 && browser.Cases[(size_t)wanted].Ready) {
         auto fresh = std::make_unique<ConfiguredCase>();
+        /* THE SURFACE IS THE WINDOW'S AND THE PICTURE'S RECTANGLE IS THE PANE'S. The case is framed
+         * for its own aspect, centred in the room left of the two columns, and everything outside it
+         * keeps the frame's clear -- which is where the browser's own interface is drawn. */
         if (fresh->Read(browser.Cases[(size_t)wanted].Prepared, why) &&
-            fresh->Start(renderer, why, {outshine::Render::Stage::Overlay}) &&
+            fresh->Start(renderer, why, {outshine::Render::Stage::Overlay}, browser.WidthPx,
+                         browser.HeightPx) &&
             fresh->PoseAt(0, why)) {
           live = std::move(fresh);
+          const View::Region where = View::StageRegion(browser.WidthPx, browser.HeightPx,
+                                                       live->WidthPx(), live->HeightPx());
+          renderer.SetPictureRegion(where.LeftPx, where.TopPx, where.WidthPx, where.HeightPx);
           browser.Showing.Note = "SHOWING " + browser.Cases[(size_t)wanted].Name;
         } else {
           browser.Showing.Note = "DECLINED " + why;
@@ -528,6 +543,7 @@ int Windowed(Browser &browser, int frames) {
        * plan owned, so the atlas is handed over afterwards each time -- it lives in the stage the
        * plan just rebuilt. */
       if (!live) {
+        renderer.SetPictureRegion(0, 0, 0, 0);
         renderer.Init(browser.WidthPx, browser.HeightPx, plan);
         browser.Recount();
       }
