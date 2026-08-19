@@ -735,7 +735,18 @@ void Renderer::RenderFrame(void) {
   /* THE PASSES ARE THE COMPILER'S. There is no tally here and no fixed enumeration to keep one
    * against: the count, the order and the attachment set of every pass are what Compile derived. */
   for (size_t pass = 0; pass < Plan_->Passes().size(); ++pass) { EncodePass(commands, pass); }
-  SDL_SubmitGPUCommandBuffer(commands);
+  /* **THE FRAME `kFramesInFlight` SUBMISSIONS BACK MUST HAVE LANDED BEFORE THIS ONE IS ADDED**
+   * (board:1461). That is what makes the queue a bounded quantity and what makes the wall-clock a
+   * consumer measures around this call the PACE rather than the throughput: a submission nobody ever
+   * waited on lets a fast consumer run arbitrarily far ahead, and latency -- the number a player
+   * feels -- becomes unbounded while every average still looks well. */
+  if (Landed_[LandedAt_] != nullptr) {
+    SDL_WaitForGPUFences(Device_.Get(), true, &Landed_[LandedAt_], 1);
+    SDL_ReleaseGPUFence(Device_.Get(), Landed_[LandedAt_]);
+    Landed_[LandedAt_] = nullptr;
+  }
+  Landed_[LandedAt_] = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
+  LandedAt_ = (LandedAt_ + 1) % kFramesInFlight;
   for (int axis = 0; axis < 3; axis++) { PrevEye[axis] = Eye[axis]; }
   /* THE SAME OFFSET THIS FRAME RASTERISED WITH, because this is what the NEXT frame's velocity is
    * measured against -- and the resolve subtracts the difference of the two. */
@@ -747,6 +758,13 @@ void Renderer::RenderFrame(void) {
 void Renderer::WaitForGpu(void) {
   if (!Ready) { return; }
   SDL_WaitForGPUIdle(Device_.Get());
+  /* EVERY FENCE THIS RENDERER HOLDS IS RELEASED WITH THE WAIT, because an idle device owes nothing
+   * and a fence held past what it describes is a handle nobody can use and nobody frees. */
+  for (SDL_GPUFence *&held : Landed_) {
+    if (held == nullptr) { continue; }
+    SDL_ReleaseGPUFence(Device_.Get(), held);
+    held = nullptr;
+  }
 }
 
 ReadState Renderer::ReadPixels(std::vector<uint8_t> &rgba) {

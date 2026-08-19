@@ -92,7 +92,24 @@ public:
    * a MEASURABLE quantity -- a submit returns before any of the work happens, so a clock around
    * `RenderFrame` alone times the encoder and not the frame. Nothing on a shipping frame path calls
    * it; the reads already fence for themselves. */
+  /* THE DEVICE IS IDLED AND EVERY FENCE RELEASED BEFORE ANYTHING IT OWNS IS TORN DOWN, because a
+   * fence outstanding over a destroyed device is a handle nobody can wait on and nobody can free. */
+  ~Renderer(void) { WaitForGpu(); }
+  Renderer(void) = default;
+  Renderer(const Renderer &) = delete;
+  Renderer &operator=(const Renderer &) = delete;
+
   void WaitForGpu(void);
+  /* **HOW MANY FRAMES THIS RENDERER LETS THE DEVICE OWE, and it is a number somebody chose**
+   * (board:1461). `CLAUDE.md` says two frames in flight is the normal case, and it is the whole of
+   * why a frame is worth submitting without waiting: the consumer builds frame N+1 while the device
+   * is still drawing N. **The queue is BOUNDED here and nowhere else** -- a submission that never
+   * waited would let a fast consumer run arbitrarily far ahead of a slow device, and the growth that
+   * makes latency unbounded is exactly what a declared bound exists to stop.
+   *
+   * `RenderFrame` waits for the frame this many submissions back before adding another, so the
+   * duration a consumer measures around it IS the pace the device can hold. */
+  static constexpr int kFramesInFlight = 2; /* [SET] */
 
   /* HOW MANY FRAMES BEFORE THE PICTURE IS THE PICTURE -- a property the compiled plan states, so no
    * caller carries a settle constant of its own. */
@@ -335,6 +352,10 @@ private:
    * first submit it is this frame's, which makes the first frame's motion zero rather than the
    * displacement from an undefined pose. */
   bool Submitted = false;
+  /* THE FENCE OF EACH FRAME THE DEVICE STILL OWES, oldest first by position. A null entry is a slot
+   * nothing is outstanding in, which is what the first `kFramesInFlight` frames of a run find. */
+  SDL_GPUFence *Landed_[kFramesInFlight] = {};
+  int LandedAt_ = 0;
   double PrevEye[3] = {0, 0, 0};
   float PrevMvp16[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 };
