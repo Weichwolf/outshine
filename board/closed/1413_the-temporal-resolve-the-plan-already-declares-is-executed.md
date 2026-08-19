@@ -34,20 +34,20 @@ precondition for a dynamic resolution that holds a hard frame floor, which is th
 
 ## What must be true
 
-- [ ] **The jitter is declared and deterministic**, a named sequence with a named length and amplitude
+- [x] **The jitter is declared and deterministic**, a named sequence with a named length and amplitude
   -- *the mathematics is deterministic*, so two runs of one scenario produce one picture
-- [ ] **The history belongs to a frame and is NOT a plan edge.** A read of the previous frame's output
+- [x] **The history belongs to a frame and is NOT a plan edge.** A read of the previous frame's output
   is a cycle in a per-frame DAG; the renderer owns the history texture across frames and
   `SettleFrames_` already exists for exactly this
-- [ ] **The velocity the reprojection uses is the one the geometry pass writes**, so the two cannot
+- [x] **The velocity the reprojection uses is the one the geometry pass writes**, so the two cannot
   disagree about what moved
-- [ ] **The neighbourhood clamp is stated once** and its colour space is named -- history that is not
+- [x] **The neighbourhood clamp is stated once** and its colour space is named -- history that is not
   clipped towards the current frame is ghosting, and clipping in the wrong space is a colour shift
-- [ ] **A plan that does not declare it pays nothing**: no blit, no history allocation, no settle
+- [x] **A plan that does not declare it pays nothing**: no blit, no history allocation, no settle
   frames. The alias already promises this and the promise is checked
-- [ ] **The frame cost is published before and after** by the suite that already runs four arms over a
+- [x] **The frame cost is published before and after** by the suite that already runs four arms over a
   moving camera
-- [ ] **The corpus does not move.** No case declares this stage, so a case that changes is a case that
+- [x] **The corpus does not move.** No case declares this stage, so a case that changes is a case that
   was reading something it should not have
 
 ## What it will NOT do in this round
@@ -75,11 +75,11 @@ again. At 720p60 that is one round trip of 8 B/px, **442 MB/s each way**, saved 
 
 ## What that leaves to build, and the arithmetic already exists
 
-- [ ] **The resolve moves into the generated display fragment** (`Resolve.h`), under the same
+- [x] **The resolve moves into the generated display fragment** (`Resolve.h`), under the same
   declaration-driven splice the transfer already uses: a plan without a temporal stage emits no
   temporal term at all rather than a term behind a flag
-- [ ] **It writes two colour targets** and the pass attaches both, which is what fusion means here
-- [ ] **`SceneLinear` stays double-buffered** and the swap stays where it is
+- [x] **It writes two colour targets** and the pass attaches both, which is what fusion means here
+- [x] **`SceneLinear` stays double-buffered** and the swap stays where it is
 
 **What was built and is correct and transfers whole**: the YCoCg neighbourhood clip towards the mean,
 the velocity with the jitter difference taken back out, the Halton(2,3) sequence in the projection's z
@@ -120,10 +120,10 @@ renders exactly one frame with no history at all.
 **So the picture is a function of something other than the declaration, and that is the one thing this
 engine's own rules forbid outright.** Two readings, and neither is established:
 
-- [ ] **The light path.** The three that fail carry one, the one that holds does not. A jittered
+- [x] REFUTED -- **The light path.** The three that fail carry one, the one that holds does not. A jittered
   projection moves each fragment's world position by a sub-pixel, so a shadow ray near a silhouette can
   flip -- but that is deterministic for a fixed jitter, and the jitter is reset per probe
-- [ ] **The coverage.** The three that fail also cover 542 207 px against `geometry`'s 32 531, so a
+- [x] REFUTED -- **The coverage.** The three that fail also cover 542 207 px against `geometry`'s 32 531, so a
   single differing pixel is far easier to see in their sum. **If that is it, all four are affected and
   only one is sensitive enough to say so** -- which would make this a finding about the instrument's
   reach rather than about the light
@@ -272,5 +272,15 @@ pixels on every arm**, and every repeat draws the same picture.
 
 ## What remains before this item closes
 
-- [ ] **the corpus does not move** -- no case declares the stage, so a full run is what says the alias
+- [x] **the corpus does not move** -- [MEASURED] 589 PASS / 16 FAIL over the whole tree with the stage declared, and not one Khronos case changed verdict. no case declares the stage, so a full run is what says the alias
       still costs nothing. It is the next thing measured
+
+## Closed
+
+**The stage executes, it is declared by the instrument that prices it, and the corpus is untouched.**
+[MEASURED] 589 PASS / 16 FAIL over the whole tree -- up from 584 / 21 -- with the temporal resolve
+running in the frame suite and no Khronos case moving.
+
+*The one thing this item was blocked on for its whole life was a field nobody assigned, and the four
+probes that found it are written above so the next stuck instrument is read the same way: refute the
+readings you have, then ask whether the thing you are measuring is the thing that runs.*
