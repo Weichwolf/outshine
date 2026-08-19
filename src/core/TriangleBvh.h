@@ -102,9 +102,11 @@ public:
    * every box still contains its children, so no query can miss a triangle. A consumer whose subject
    * deforms far from its build pose rebuilds, and when to do that is the consumer's declaration.
    *
-   * Refuses a call whose index run is not the one the tree was built over, because a refit is only
-   * correct while the triangles are the same triangles. */
-  [[nodiscard]] bool Refit(Span<const float> positionsM, Span<const uint32_t> indices);
+   * **IT TAKES POSITIONS AND NOTHING ELSE, which is what makes a refit over different triangles
+   * unspellable.** The three corner indices of every triangle are kept here, so the caller has nowhere
+   * to hand a different index run -- and the cost of keeping them replaces both the build permutation
+   * this class used to hold and the index run a caller would otherwise have had to keep for it. */
+  [[nodiscard]] bool Refit(Span<const float> positionsM);
 
   [[nodiscard]] bool Empty() const { return Nodes_.empty(); }
   /* The longest root-to-leaf path, published because it is what a stacked traversal would have had
@@ -114,9 +116,9 @@ public:
 private:
   std::vector<BvhNode> Nodes_;
   std::vector<BvhTriangle> Tris_;
-  /* WHICH MESH TRIANGLE EACH ENTRY OF `Tris_` IS, kept because a refit has to read the same corners
-   * the build did and the build reordered them. It is the permutation, not a copy of the mesh. */
-  std::vector<uint32_t> Order_;
+  /* THE THREE VERTICES OF EACH ENTRY OF `Tris_`, in the permutation's order. Twelve bytes a triangle,
+   * and it is what lets a refit read the corners the build read without being handed the mesh again. */
+  std::vector<uint32_t> Corners_;
   uint32_t Depth_ = 0;
 };
 

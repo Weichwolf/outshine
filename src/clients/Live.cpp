@@ -301,7 +301,16 @@ bool Live::Stand(std::string &error) {
 
 /* **ONLY THE BODY CROSSES PER FRAME.** The surfaces and the lighting were handed over at stand-up and
  * nothing about them changes when a subject moves (board:1463). */
-bool Live::Submit(std::string &error) { return Place(*Renderer_, Stood_, Scratch_, error); }
+/* **ONLY THE BODY CROSSES PER FRAME, and after the first pose only its CORNERS do** (board:1464). The
+ * surfaces, the lighting, the index run, the batches and the tree's shape were all handed over at
+ * stand-up. */
+bool Live::Submit(std::string &error) {
+  if (!Stoodup_) {
+    Stoodup_ = Place(*Renderer_, Stood_, Scratch_, error);
+    return Stoodup_;
+  }
+  return Move(*Renderer_, Stood_, Scratch_, error);
+}
 
 bool Live::Compose(std::string &error) {
   Laid_.clear();

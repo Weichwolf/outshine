@@ -76,6 +76,7 @@
 #include <vector>
 
 #include "TexelChain.h"
+#include "TriangleBvh.h"
 #include "PunctualLight.h"
 #include "UvTransform.h"
 
@@ -274,7 +275,15 @@ struct SubjectMaterial {
  * single flat value over touching bodies hides their internal silhouettes, and no rule against it is
  * needed when the array has no shorter spelling. It is carried flat to the fragment, so a face's
  * value is the declared one bit for bit and not an interpolation of three equal numbers. */
-struct SubjectMesh {
+/* **WHERE THE VERTICES ARE AT ONE POSE, AND IT CARRIES NO INDEX RUN ON PURPOSE** (board:1464). A pose
+ * moves corners; it does not change which corners are a triangle. Handing a per-frame path a type that
+ * has nowhere to put an index run is what makes *refit over different triangles* unspellable rather
+ * than refused -- the mistake cannot be written, so no comparison, no hash and no consumer promise has
+ * to guard against it.
+ *
+ * It is the base of `SubjectMesh` rather than a member of it, so a caller that fills a whole mesh
+ * writes exactly what it always wrote. */
+struct SubjectPose {
   const float *Verts = nullptr;      /* 3 floats per vertex, ECEF offsets from `Anchor`, metres */
   const float *Uv = nullptr;         /* 2 floats per vertex, or null */
   /* THE SECOND UV SET, 2 floats per vertex, or null (board:1182). It is a run of its own and never a
@@ -309,10 +318,14 @@ struct SubjectMesh {
    * into a target something asked for. */
   const float *PrevVerts = nullptr;
   uint32_t VertexCount = 0;
-  const uint32_t *Indices = nullptr;
-  uint32_t IndexCount = 0;
   double Anchor[3] = {0, 0, 0};
   double PrevAnchor[3] = {0, 0, 0};
+};
+
+/* THE WHOLE SUBJECT: a pose and the triangles it is a pose OF. */
+struct SubjectMesh : SubjectPose {
+  const uint32_t *Indices = nullptr;
+  uint32_t IndexCount = 0;
   const DrawList *Draws = nullptr;
 };
 
@@ -349,7 +362,28 @@ public:
    * client that never declares a subject stays in for the whole of its life. Refuses a list naming a
    * surface slot the table does not hold, so `Encode` has no arm for one -- a draw silently skipped
    * in the encoder is a body missing from the picture with nothing to attribute it to. */
+  /* THE SUBJECT AND THE POSE IT ARRIVES AT: the batches are validated, the index run and the vertex
+   * streams reach the device, and the visibility structure is BUILT. This is a load-time call. */
   [[nodiscard]] bool SetMesh(const SubjectMesh &mesh, std::string &error);
+
+  /* **THE SAME SUBJECT SOMEWHERE ELSE** (board:1464): the vertex streams reach the device again and the
+   * visibility structure is REFITTED rather than rebuilt -- the tree keeps its topology, its split
+   * planes and its ordering, and only its boxes and its corners move. [MEASURED] building it was
+   * 19 767 456 bytes over a 500-frame run, 96.5 % of everything the frame path took.
+   *
+   * Refuses a pose of a different vertex count and a call before any `SetMesh`, which are the two
+   * states in which there is no tree to refit. */
+  [[nodiscard]] bool SetPose(const SubjectPose &pose, std::string &error);
+
+private:
+  [[nodiscard]] bool HandVisibility(std::string &error);
+  [[nodiscard]] bool HandStreams(const SubjectPose &pose, std::string &error);
+  /* THE SUBJECT'S OWN VISIBILITY STRUCTURE, held because a pose REFITS it (board:1464) rather than
+   * building another. It is the one piece of the mesh that outlives a pose and is not a device
+   * object. */
+  TriangleBvh Visibility_;
+
+public:
 
   /* Replaces the light list the lit arm reads. An empty list is a subject nothing lights, which is
    * what every case outside `KHR_lights_punctual` declares; more than `kMaxSubjectLights` is a

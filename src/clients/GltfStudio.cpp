@@ -490,4 +490,47 @@ bool Place(Render::Renderer &renderer, const Studio &studio, StudioScratch &scra
   return true;
 }
 
+/* **THE SAME BODY SOMEWHERE ELSE** (board:1464). The draw list, the index run and the batches are the
+ * topology's and `Place` handed them over; what a pose changes is where the corners are, so this packs
+ * the vertex streams and hands a `SubjectPose` -- a type with nowhere to put an index run, which is
+ * what makes a pose over different triangles unspellable rather than refused.
+ *
+ * It is the third instance of one separation in this file: `Aim` moves the eye, `Surface` dresses the
+ * body, `Place` stands it up and `Move` moves it. */
+bool Move(Render::Renderer &renderer, const Studio &studio, StudioScratch &scratch,
+          std::string &error) {
+  if (!studio.Geometry) {
+    error = "the studio declares no subject";
+    return false;
+  }
+  const Gltf::Subject &subject = *studio.Geometry;
+  if (!Declared(studio, subject, error)) { return false; }
+  if (studio.Previous && studio.Previous->VertexCount() != subject.VertexCount()) {
+    error = "the studio's previous pose carries " +
+            std::to_string(studio.Previous->VertexCount()) + " vertices and this one carries " +
+            std::to_string(subject.VertexCount()) + ", so no vertex has a place it moved from";
+    return false;
+  }
+  if (!Aim(renderer, subject, studio.Eye, error)) { return false; }
+
+  const Heap::Tagged packing("vertex-pack");
+  const VertexRuns runs = PackVertices(studio, subject, scratch.Vertices);
+  Render::SubjectPose pose;
+  pose.Verts = scratch.Vertices.data();
+  pose.Uv = subject.HasUv() ? scratch.Vertices.data() + runs.UvAt : nullptr;
+  pose.Uv1 = subject.HasUv1() ? scratch.Vertices.data() + runs.Uv1At : nullptr;
+  pose.Normals = subject.HasNormal() ? scratch.Vertices.data() + runs.NormalAt : nullptr;
+  pose.Tangents = subject.HasTangent() ? scratch.Vertices.data() + runs.TangentAt : nullptr;
+  pose.Colours = subject.HasColour() ? scratch.Vertices.data() + runs.ColourAt : nullptr;
+  pose.Emitted = scratch.Vertices.data() + runs.EmittedAt;
+  pose.PrevVerts = studio.Previous ? scratch.Vertices.data() + runs.PreviousAt : nullptr;
+  pose.VertexCount = (uint32_t)subject.VertexCount();
+  for (int axis = 0; axis < 3; ++axis) {
+    pose.Anchor[axis] = kStudioAnchorEcefM[axis];
+    pose.PrevAnchor[axis] = kStudioAnchorEcefM[axis];
+  }
+  const Heap::Tagged handing("subject-pose");
+  return renderer.SetSubjectPose(pose, error);
+}
+
 } // namespace outshine::Clients

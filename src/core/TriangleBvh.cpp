@@ -246,23 +246,28 @@ TriangleBvh TriangleBvh::Over(Span<const float> positionsM, Span<const uint32_t>
     }
   }
 
+  /* THE CORNERS, IN THE PERMUTATION'S ORDER, so a refit reads what the build read. */
+  built.Corners_.resize(triangles * 3u);
+  for (size_t at = 0; at < triangles; ++at) {
+    const uint32_t tri = work.Order[at];
+    for (int corner_at = 0; corner_at < 3; ++corner_at) {
+      built.Corners_[at * 3u + (size_t)corner_at] = indices[(size_t)tri * 3u + (size_t)corner_at];
+    }
+  }
   built.Nodes_ = std::move(work.Nodes);
-  built.Order_ = std::move(work.Order);
   built.Depth_ = work.Depth;
   return built;
 }
 
-bool TriangleBvh::Refit(Span<const float> positionsM, Span<const uint32_t> indices) {
-  if (Nodes_.empty() || Order_.size() != Tris_.size()) { return false; }
-  if (indices.Size() != Tris_.size() * 3u) { return false; }
+bool TriangleBvh::Refit(Span<const float> positionsM) {
+  if (Nodes_.empty() || Corners_.size() != Tris_.size() * 3u) { return false; }
   const size_t vertices = positionsM.Size() / 3u;
 
-  /* THE CORNERS FIRST, through the permutation the build recorded, into storage that already exists. */
+  /* THE CORNERS FIRST, from the indices the build recorded, into storage that already exists. */
   for (size_t at = 0; at < Tris_.size(); ++at) {
-    const uint32_t tri = Order_[at];
     float corner[3][3];
     for (int corner_at = 0; corner_at < 3; ++corner_at) {
-      const uint32_t vertex = indices[(size_t)tri * 3u + (size_t)corner_at];
+      const uint32_t vertex = Corners_[at * 3u + (size_t)corner_at];
       for (int axis = 0; axis < 3; ++axis) {
         corner[corner_at][axis] =
             vertex < vertices ? positionsM[(size_t)vertex * 3u + (size_t)axis] : 0.0f;

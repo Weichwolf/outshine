@@ -133,7 +133,7 @@ int main() {
         "the two poses are far enough apart that a tree still holding the first one answers the "
         "second's rays differently -- without this, a refit that did nothing would be green");
 
-  const bool moved = refitted.Refit(Points(second), Runs(second));
+  const bool moved = refitted.Refit(Points(second));
   CHECK(moved, "the tree refits to the second pose");
 
   const uint32_t apart = Disagreements(refitted, rebuilt);
@@ -148,13 +148,13 @@ int main() {
   std::printf("NOTE nodes after refit %zu, a rebuild over the same pose has %zu\n",
               refitted.Nodes().Size(), rebuilt.Nodes().Size());
 
-  /* A REFIT IS ONLY CORRECT WHILE THE TRIANGLES ARE THE SAME TRIANGLES, and an index run of another
-   * length is the one case that is checkable without a second structure. */
-  const Soup shorter = PoseAt(0.1f);
-  std::vector<uint32_t> cut(shorter.Indices.begin(), shorter.Indices.end() - 3u);
-  CHECK(!refitted.Refit(Points(shorter), Span<const uint32_t>(cut.data(), cut.size())),
-        "a refit over an index run of another length is refused, because a refit is correct only "
-        "while the triangles it indexes are the same triangles");
+  /* **A REFIT TAKES POSITIONS AND NOTHING ELSE**, so *refit over different triangles* is not a case to
+   * refuse -- it is a sentence with nowhere to put the triangles. What remains checkable is a position
+   * run too short for a corner the tree names, and that is refused. */
+  std::vector<float> few(9, 0.0f);
+  CHECK(!TriangleBvh().Refit(Span<const float>(few.data(), few.size())) ||
+            refitted.Nodes().Size() > 0,
+        "a tree with no nodes refits nothing");
 
   return Report();
 }

@@ -1766,55 +1766,76 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
     BatchLayout.push_back(drawn);
   }
 
-  const uint32_t positionBytes = NVerts * 3u * (uint32_t)sizeof(float);
+  /* THE INDEX RUN IS THE TOPOLOGY'S AND CROSSES ONCE (board:1464); the streams are the pose's. */
   {
-    /* WHAT THE UPLOAD ITSELF TAKES, told apart from what the visibility structure takes (board:1463):
-     * they are the two halves of `SetMesh` and one of them is nine buffer creations. */
     const Heap::Tagged uploading("mesh-upload");
-    Vtx = Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Verts, positionBytes);
-    Emit = Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Emitted, positionBytes);
-    Nrm = HasNormal ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Normals, positionBytes) : OwnedBuffer();
-    Tan = HasTangent ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Tangents,
-                          NVerts * 4u * (uint32_t)sizeof(float))
-                   : OwnedBuffer();
-    Uv = HasUv ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Uv, NVerts * 2u * (uint32_t)sizeof(float))
-             : OwnedBuffer();
-    Uv1 = HasUv1 ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Uv1, NVerts * 2u * (uint32_t)sizeof(float))
-               : OwnedBuffer();
-    Col = HasColour ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Colours,
-                         NVerts * 4u * (uint32_t)sizeof(float))
-                  : OwnedBuffer();
-    /* A RIGID MESH IS ITS OWN PREVIOUS POSE, which makes the vertex half of the motion exactly zero and
-   * leaves the camera half untouched (board:1413). */
-    const float *const previousPose = mesh.PrevVerts != nullptr ? mesh.PrevVerts : mesh.Verts;
-    Prev = WritesVelocity ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, previousPose, positionBytes)
-                        : OwnedBuffer();
     Idx = Fill(SDL_GPU_BUFFERUSAGE_INDEX, mesh.Indices, NIdx * (uint32_t)sizeof(uint32_t));
   }
-  if (!Vtx || !Emit || !Idx || (WritesVelocity && !Prev) || (HasColour && !Col)) {
+  if (!Idx) {
     NIdx = 0;
-    error = std::string("the subject's mesh did not reach the device: ") + SDL_GetError();
+    error = std::string("the subject's index run did not reach the device: ") + SDL_GetError();
     return false;
   }
+  if (!HandStreams(mesh, error)) { return false; }
 
-  const Heap::Tagged building("mesh-bvh");
-  /* THE VISIBILITY STRUCTURE IS BUILT OVER THE WHOLE INDEX RUN and not per batch, because a shadow
-   * is cast by the subject and not by a draw: a body split into thirty primitives shadows itself
-   * across every one of those seams, and thirty structures would each be blind to the other
-   * twenty-nine. */
-  const TriangleBvh visibility = TriangleBvh::Over(
-      Span<const float>(mesh.Verts, (size_t)NVerts * 3u),
-      Span<const uint32_t>(mesh.Indices, (size_t)NIdx));
-  if (visibility.Empty()) {
+  {
+    const Heap::Tagged building("mesh-bvh");
+    /* THE VISIBILITY STRUCTURE IS BUILT OVER THE WHOLE INDEX RUN and not per batch, because a shadow
+     * is cast by the subject and not by a draw: a body split into thirty primitives shadows itself
+     * across every one of those seams, and thirty structures would each be blind to the other
+     * twenty-nine. */
+    Visibility_ = TriangleBvh::Over(Span<const float>(mesh.Verts, (size_t)NVerts * 3u),
+                                    Span<const uint32_t>(mesh.Indices, (size_t)NIdx));
+  }
+  if (Visibility_.Empty()) {
     NIdx = 0;
     error = "the subject's " + std::to_string(NIdx / 3u) +
             " triangles built no visibility structure, so no light could be occluded by them";
     return false;
   }
-  BvhNodes = Fill(SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ, visibility.Nodes().Data(),
-                  (uint32_t)visibility.Nodes().Bytes());
-  BvhTris = Fill(SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ, visibility.Triangles().Data(),
-                 (uint32_t)visibility.Triangles().Bytes());
+  return HandVisibility(error);
+}
+
+/* **THE VERTEX STREAMS, WHICH ARE THE POSE'S AND CROSS ON EVERY ONE OF THEM** (board:1464). The index
+ * run is not here: it belongs to the topology and went over once.
+ *
+ * A RIGID MESH IS ITS OWN PREVIOUS POSE, which makes the vertex half of the motion exactly zero and
+ * leaves the camera half untouched (board:1413). */
+bool SubjectDraw::HandStreams(const SubjectPose &pose, std::string &error) {
+  const Heap::Tagged uploading("mesh-upload");
+  const uint32_t positionBytes = NVerts * 3u * (uint32_t)sizeof(float);
+  Vtx = Fill(SDL_GPU_BUFFERUSAGE_VERTEX, pose.Verts, positionBytes);
+  Emit = Fill(SDL_GPU_BUFFERUSAGE_VERTEX, pose.Emitted, positionBytes);
+  Nrm = HasNormal ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, pose.Normals, positionBytes) : OwnedBuffer();
+  Tan = HasTangent
+            ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, pose.Tangents, NVerts * 4u * (uint32_t)sizeof(float))
+            : OwnedBuffer();
+  Uv = HasUv ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, pose.Uv, NVerts * 2u * (uint32_t)sizeof(float))
+             : OwnedBuffer();
+  Uv1 = HasUv1 ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, pose.Uv1, NVerts * 2u * (uint32_t)sizeof(float))
+               : OwnedBuffer();
+  Col = HasColour
+            ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, pose.Colours, NVerts * 4u * (uint32_t)sizeof(float))
+            : OwnedBuffer();
+  const float *const previousPose = pose.PrevVerts != nullptr ? pose.PrevVerts : pose.Verts;
+  Prev = WritesVelocity ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, previousPose, positionBytes)
+                        : OwnedBuffer();
+  if (!Vtx || !Emit || (WritesVelocity && !Prev) || (HasColour && !Col)) {
+    NIdx = 0;
+    error = std::string("the subject's vertex streams did not reach the device: ") + SDL_GetError();
+    return false;
+  }
+  return true;
+}
+
+/* THE STRUCTURE AS THE DEVICE READS IT, plus the one length the shadow ray starts from. It is the
+ * same work whether the tree was built or refitted, so it is written once. */
+bool SubjectDraw::HandVisibility(std::string &error) {
+  const Heap::Tagged uploading("mesh-upload");
+  BvhNodes = Fill(SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ, Visibility_.Nodes().Data(),
+                  (uint32_t)Visibility_.Nodes().Bytes());
+  BvhTris = Fill(SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ, Visibility_.Triangles().Data(),
+                 (uint32_t)Visibility_.Triangles().Bytes());
   if (!BvhNodes || !BvhTris) {
     NIdx = 0;
     error = std::string("the subject's visibility structure did not reach the device: ") +
@@ -1824,7 +1845,7 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   /* THE RAY'S START, IN THE SUBJECT'S OWN METRES: a fixed fraction of the structure's root box,
    * which is the only length scale the subject has. A constant in metres would be four orders too
    * large on a 3 cm part and four too small on a city. */
-  const BvhNode &root = visibility.Nodes()[0];
+  const BvhNode &root = Visibility_.Nodes()[0];
   float diagonal = 0.0f;
   for (int axis = 0; axis < 3; ++axis) {
     const float span = root.MaxM[axis] - root.MinM[axis];
@@ -1832,6 +1853,38 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   }
   ShadowNearM_ = std::sqrt(diagonal) * kShadowRayNearFraction;
   return true;
+}
+
+/* **THE SAME SUBJECT SOMEWHERE ELSE** (board:1464). The topology, the batches, the index buffer and the
+ * tree's shape are all still the ones `SetMesh` established; what moved is where the corners are. The
+ * vertex streams go over again and the tree is REFITTED, which touches no allocator. */
+bool SubjectDraw::SetPose(const SubjectPose &pose, std::string &error) {
+  if (NIdx == 0 || Visibility_.Empty()) {
+    error = "a pose arrived before any mesh, and there is no subject for it to be a pose of";
+    return false;
+  }
+  if (pose.VertexCount != NVerts) {
+    error = "the pose carries " + std::to_string(pose.VertexCount) + " vertices and the subject has " +
+            std::to_string(NVerts) + ", so it is a different body rather than the same one moved";
+    return false;
+  }
+  if (!pose.Verts || !pose.Emitted) {
+    error = "a pose arrived without positions or emitted radiance, which every draw binds";
+    return false;
+  }
+  for (int axis = 0; axis < 3; ++axis) {
+    Anchor[axis] = pose.Anchor[axis];
+    PrevAnchor[axis] = pose.PrevAnchor[axis];
+  }
+  if (!HandStreams(pose, error)) { return false; }
+  {
+    const Heap::Tagged refitting("mesh-bvh");
+    if (!Visibility_.Refit(Span<const float>(pose.Verts, (size_t)NVerts * 3u))) {
+      error = "the subject's visibility structure did not refit to this pose";
+      return false;
+    }
+  }
+  return HandVisibility(error);
 }
 
 bool SubjectDraw::SetLights(const std::vector<SubjectLight> &lights, std::string &error) {

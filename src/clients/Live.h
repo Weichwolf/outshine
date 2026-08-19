@@ -195,6 +195,9 @@ private:
   std::vector<Laid> Laid_;
   std::vector<Render::OverlayQuad> Quads_;
   bool Moves_ = false;
+  /* WHETHER THE SUBJECT'S TOPOLOGY HAS CROSSED, so the first submission stands it up and every later
+   * one moves it (board:1464). */
+  bool Stoodup_ = false;
   int Frames_ = 1;
   int At_ = 0;
   /* THE EYE'S ANGLE AROUND THE SUBJECT, accumulated in degrees so a long run cannot drift by

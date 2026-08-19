@@ -130,5 +130,11 @@ struct StudioScratch {
 [[nodiscard]] bool Place(Render::Renderer &renderer, const Studio &studio, StudioScratch &scratch,
                         std::string &error);
 
+/* **THE SAME BODY SOMEWHERE ELSE** (board:1464): the vertex streams and the camera, and nothing that
+ * could contradict the topology `Place` established -- a `Render::SubjectPose` has nowhere to put an
+ * index run. The visibility structure is refitted rather than rebuilt on the other side of it. */
+[[nodiscard]] bool Move(Render::Renderer &renderer, const Studio &studio, StudioScratch &scratch,
+                        std::string &error);
+
 } // namespace outshine::Clients
 #endif

@@ -58,7 +58,41 @@ between a rest pose and one twisted about the vertical axis:
 would be green, and the failure it would hide -- a shadow structure holding last pose's geometry --
 looks like a scene with slightly wrong shadows rather than like a bug.
 
-## WHAT IS UNDECIDED, and it is one question
+## IT IS WIRED, AND THE QUESTION BELOW WAS THE WRONG QUESTION
+
+**No shipped engine asks whether the topology changed, because its data model makes the question
+unaskable.** A skinned mesh's index buffer lives in the asset and is uploaded once; only the vertex
+streams are dynamic. The question existed here only because `SubjectMesh` bundled indices and vertices
+into one *here is everything, again* call.
+
+**So `SubjectPose` is a type with nowhere to put an index run**, and it is the base of `SubjectMesh`
+rather than a member of it, so a caller filling a whole mesh writes exactly what it always wrote. The
+triangles' corner indices live inside the tree -- twelve bytes a triangle, replacing BOTH the build
+permutation this class used to hold AND the index run a caller would have had to keep -- so `Refit`
+takes positions and nothing else. **A refit over different triangles is not a case to refuse; it is a
+sentence that cannot be written**, which is `CLAUDE.md`'s own preference over a comparison, a hash or a
+consumer's promise. It costs zero bytes held and zero comparisons a frame.
+
+`Clients` gains `Move` beside `Aim`, `Surface` and `Place` -- the fourth instance of one separation --
+and `Live` stands the subject up on its first submission and moves it on every later one.
+
+## [MEASURED] WHAT IT BOUGHT, same run, same tags
+
+| tag | before | after |
+|---|---|---|
+| **`mesh-bvh`** | **19 767 456** | **41 984** -- a factor of **471** |
+| `mesh-upload` | 705 488 | 842 032 |
+| `render-frame` | 233 296 | 233 296 |
+| `vertex-pack` | 36 864 | 36 864 |
+| `index-run` | 3 072 | 3 072 |
+| `draw-list` | 288 | 288 |
+| **the frame path entire** | **~20.8 MB** | **1.16 MB** -- a factor of **18** |
+
+**`mesh-upload` is now the largest term** and it is nine GPU buffer creations a frame; persistent
+buffers with one copy pass are the next cut, and they are the other half of what a shipped engine does
+with a dynamic vertex stream.
+
+## WHAT WAS UNDECIDED, kept because the reasoning is the point
 
 **How does `SubjectDraw::SetMesh` know the triangles are the same triangles?** A refit is correct only
 while they are, and three answers are available:

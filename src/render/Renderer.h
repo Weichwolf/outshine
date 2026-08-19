@@ -172,6 +172,12 @@ public:
   [[nodiscard]] bool SetSubjectMesh(const SubjectMesh &mesh, std::string &error) {
     return Subjects_.SetMesh(mesh, error) && (!DrawsGlass_ || Glass_.SetMesh(mesh, error));
   }
+  /* **THE SAME SUBJECT SOMEWHERE ELSE** (board:1464). A pose carries no index run and no draw list, so
+   * the topology it is a pose OF cannot be contradicted -- and the visibility structure is refitted
+   * rather than built, which is where 96.5 % of this frame path's allocation used to go. */
+  [[nodiscard]] bool SetSubjectPose(const SubjectPose &pose, std::string &error) {
+    return Subjects_.SetPose(pose, error) && (!DrawsGlass_ || Glass_.SetPose(pose, error));
+  }
   /* THE SUBJECT'S SURFACES, one per slot a draw key can name: the file says which image and how it
    * is addressed, the consumer decodes it, and this holds it. */
   [[nodiscard]] bool SetSubjectMaterials(const std::vector<SubjectMaterial> &materials,
