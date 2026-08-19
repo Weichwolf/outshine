@@ -49,3 +49,15 @@ against a floor of 0.252 ms, resolved.
 
 *A performance number that is not a distribution over repeats would have reported 1.8 ms both times, and
 one of those reports would have been a measurement of a warm phone.*
+
+## The warm-device outlier has now been seen three times, and it is always the same arm
+
+[MEASURED] across this session, one repeat of five on the `fill` arm has three times come back at roughly
+double the other four -- p50 3.903, 3.907 and once more against a neighbourhood of 1.98 to 2.24 -- after
+long stretches of continuous GPU work. **`fill` is the fill-bound arm**, and a fill-bound frame is what a
+warm phone-class GPU slows first.
+
+**The instrument refuses correctly every time** -- `resolved=no` -- and a few minutes of quiet is enough
+for it to come back at `resolved=yes` with a floor five to eight times smaller. *Recorded so a later
+round does not read a `resolved=no` as a regression: it is a measurement of the device's thermal state,
+which is exactly what a distribution over repeats is for.*

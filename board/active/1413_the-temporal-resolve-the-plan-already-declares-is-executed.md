@@ -197,3 +197,37 @@ run after the clamp.
   term nobody counted would be a green resting on exactly what it stepped over
 - **`fill-unlit` stays in the arm table.** It cost one arm's time and it retired a reading that had stood
   since this item was opened
+
+## Four candidates went into the probe and one came out, and it is not shading at all
+
+Each of these ran with the stage declared, one change at a time, and every count below is over the same
+probes as the table above.
+
+| probe | result |
+|---|---|
+| **coverage** -- `fill-unlit`, `fill`'s subject and standpoint with no light, **542 207 px** | 0 non-finite. Refuted |
+| **the history and the clip** -- the `inside && historyHeld` branch disabled outright, so `kept = here.rgb` | **identical counts**. Refuted |
+| **the jitter** -- the stage declared and `Jitter_` forced to zero | **identical counts**. Refuted |
+| **the fragment's own write** -- `out.linear = float4(7, 8, 9, 1)` | **the readback still shows `(nan, 0, 0, 0)`** |
+
+**THE LAST ROW IS THE FINDING.** The fused fragment writes a constant into `SceneLinear` and
+`ReadSceneLinear` does not see it, so **the resolve's second attachment and the texture the readback
+resolves are not the same thing** -- and everything above it was a search for a shading defect that was
+never there.
+
+*A first pass at the history probe was invalid and is recorded because it cost a round: setting
+`kCurrentWeight` to 1.0 does NOT bypass the clip, because `mix(a, b, 1)` is evaluated as `a + (b - a)*t`
+and a NaN in `a` survives it. The branch has to be disabled, not weighted away.*
+
+**What the non-finite pixel looks like is consistent with a target nobody wrote**: `(nan, 0, 0, 0)` at a
+pixel whose depth is 0.311709 -- three channels at the clear value and one holding whatever was in the
+allocation. **And it is not simply uninitialised memory either**: `fill` and `fill-unlit` cover the
+*same* 542 207 pixels of the *same* textures in one process, and one reports 924 488 non-finite while the
+other reports none. Whatever writes that texture, the lighting reaches it.
+
+## Where the next round starts
+
+**`Target(Plan_->Bound(Resource::SceneLinear))` against the attachment the fused pass actually binds.**
+One is the ping-pong pair `LinearTex_[LinearAt_]`, the other is whatever the pass built its attachment
+list from, and the constant probe says they differ. That is a question about the plan's attachment
+construction and not about a BRDF.

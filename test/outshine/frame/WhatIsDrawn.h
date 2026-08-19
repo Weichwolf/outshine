@@ -42,6 +42,8 @@ struct Drawn {
    * the first location travel beside the sum. */
   long NonFinitePx = 0;
   long FirstNonFiniteAt = -1;
+  float FirstNonFinite[4] = {0, 0, 0, 0};
+  float FirstNonFiniteDepth = 0;
 };
 
 [[nodiscard]] inline Drawn WhatThePathDraws(outshine::Render::Renderer &renderer,
@@ -74,7 +76,11 @@ struct Drawn {
                    b = (double)linear[at * 4u + 2u];
       if (!std::isfinite(r) || !std::isfinite(g) || !std::isfinite(b)) {
         ++out.NonFinitePx;
-        if (out.FirstNonFiniteAt < 0) { out.FirstNonFiniteAt = (long)at; }
+        if (out.FirstNonFiniteAt < 0) {
+          out.FirstNonFiniteAt = (long)at;
+          for (int ch = 0; ch < 4; ++ch) { out.FirstNonFinite[ch] = linear[at * 4u + (size_t)ch]; }
+          out.FirstNonFiniteDepth = depth[at];
+        }
         continue;
       }
       out.SumRadiance += r + g + b;

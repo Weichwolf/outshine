@@ -504,8 +504,12 @@ void MeasureEveryArm(outshine::Render::Renderer &renderer, const Standing &stand
        * of measuring `nan != nan` -- and a skip that nobody counted would be a green resting on
        * exactly what it stepped over. */
       if (drawn.NonFinitePx > 0) {
-        std::printf("NONFINITE %s repeat %d: %ld covered pixels are not finite, first at index %ld\n",
-                    arm.Id, repeat, drawn.NonFinitePx, drawn.FirstNonFiniteAt);
+        std::printf("NONFINITE %s repeat %d: %ld covered pixels are not finite, first at index %ld "
+                    "carrying (%g, %g, %g, %g) at depth %g\n",
+                    arm.Id, repeat, drawn.NonFinitePx, drawn.FirstNonFiniteAt,
+                    (double)drawn.FirstNonFinite[0], (double)drawn.FirstNonFinite[1],
+                    (double)drawn.FirstNonFinite[2], (double)drawn.FirstNonFinite[3],
+                    (double)drawn.FirstNonFiniteDepth);
       }
       CHECK(drawn.NonFinitePx == 0,
             "every covered pixel of every probe carries a finite radiance, so the picture is a "
