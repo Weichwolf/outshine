@@ -50,12 +50,36 @@ struct Quad {
  * exists to make visible. */
 inline constexpr size_t kQuadBound = 16384;
 
+/* WHICH SLICE OF A LAID-OUT DOCUMENT IS BEING PAINTED. `HeightPx` of zero is the whole of it, which
+ * is what a HUD wants; a book and a quest log declare a height and turn pages. The offset is
+ * subtracted from every quad, so a consumer draws page four into the same rectangle it drew page one
+ * and needs no transform of its own. */
+struct Page {
+  double OffsetY = 0;
+  double HeightPx = 0;
+};
+
+/* WHERE A DOCUMENT IS CUT INTO PAGES OF A DECLARED HEIGHT, AND NEVER THROUGH A LINE. The first offset
+ * is always zero, so the count of pages is the size of what comes back.
+ *
+ * **A LINE IS THE UNBREAKABLE UNIT AND THAT IS THE WHOLE OF THE ALGORITHM.** A page that ended halfway
+ * down a row of glyphs would show their tops on one page and their feet on the next, which is the one
+ * thing a reader notices immediately -- so a line that would cross the bottom begins the next page
+ * instead, and the page before it ends short.
+ *
+ * **A LINE TALLER THAN THE PAGE STILL GETS A PAGE.** It overflows, and it is reported by
+ * `LinesTallerThanThePage` rather than dropped or silently cut: the alternative is a break that cannot
+ * advance, which is a loop with no bound, and the alternative to THAT is losing the line. */
+[[nodiscard]] std::vector<double> PageBreaks(const Layout &layout, double pageHeightPx,
+                                             size_t &linesTallerThanThePage);
+
 class Painting {
 public:
   /* The font must be the one the layout was measured with, or the glyphs land in columns nothing
    * measured. The markup is not needed and not taken: every box already carries the node that asked
    * for it, and a painter that could reach the tree would be a painter that could consult meaning. */
-  [[nodiscard]] bool Build(const Layout &layout, const Font &font, std::string &error);
+  [[nodiscard]] bool Build(const Layout &layout, const Font &font, std::string &error,
+                           const Page &page = {});
 
   [[nodiscard]] const std::vector<Quad> &Quads(void) const { return Quads_; }
   /* HOW MANY THE DECLARATION ASKED FOR PAST THE BOUND. Zero is the normal answer and a consumer that

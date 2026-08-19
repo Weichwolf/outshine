@@ -141,7 +141,7 @@ LayerIncludes() {
     outshine/harness) printf '%s' "-Isrc/core" ;;
     harness/khronos/glTF | harness/outshine/render) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
     harness/wpt/css) printf '%s' "-Isrc/core -Isrc/ui" ;;
-    outshine/frame) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
+    outshine/frame) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui" ;;
     outshine/shader) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render -Isrc/render/draw -Isrc/render/plan -Isrc/render/stages" ;;
     # THE BROWSER READS A CASE THE WAY THE RUNNER DOES, so it compiles the runner's own reader and
     # sees exactly the layers that reader sees -- one set, not a second one that could drift.
@@ -246,7 +246,7 @@ LayerGroups() {
     outshine/unit/render/stages) printf '%s' "" ;;
     outshine/unit/clients) printf '%s' "src/clients/Image.cpp" ;;
     outshine/harness) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
-    harness/khronos/glTF | harness/outshine/render | outshine/frame | viewer) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/clients/GltfStudio.cpp src/clients/Image.cpp" ;;
+    harness/khronos/glTF | harness/outshine/render | outshine/frame | viewer) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/clients/GltfStudio.cpp src/clients/Image.cpp" ;;
     # `outshine/shader` COMPILES THE RENDERER'S OWN STAGES AS WELL AS ITS OWN TWINS (board:1207). A
     # twin proves an arithmetic; only the unit's OWN text proves that the driver accepts it, and a
     # `shadeRow` call left one argument short survived a green library, a green unit tree and a green

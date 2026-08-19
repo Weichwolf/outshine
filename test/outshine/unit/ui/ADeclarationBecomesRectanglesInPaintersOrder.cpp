@@ -170,5 +170,59 @@ int main(void) {
     }
   }
 
+  /* PROSE TURNS PAGES, AND A PAGE NEVER CUTS A LINE. Ten lines of ten pixels in a page of 35 fit
+   * three whole lines and start the fourth on the next page -- the page ends SHORT rather than showing
+   * the tops of a row of glyphs on one page and their feet on the next. */
+  {
+    Built built;
+    if (Paint(built, "<style>body{margin:0}p{font-size:10px;line-height:1;margin:0;width:100px;"
+                     "color:#000000}</style>"
+                     "<body><p>aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa "
+                     "aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa</p></body>",
+              200, 400)) {
+      size_t tooTall = 0;
+      const std::vector<double> starts = PageBreaks(built.Placed, 35, tooTall);
+      CHECK(tooTall == 0, "no line is taller than the page, so none had to overflow one");
+      CHECK(starts.size() == 4,
+            "ten lines of ten pixels in a page of thirty-five make four pages, because the page "
+            "holds three whole lines and the fourth begins the next");
+      if (starts.size() >= 2) {
+        CHECK(starts[0] == 0 && starts[1] == 30,
+              "and the break is at a line boundary, not at the page height -- 30 and never 35");
+      }
+
+      /* THE OFFSET IS TAKEN OFF ON THE WAY OUT, so page two lands in the rectangle page one did and a
+       * consumer draws every page into one target with no transform of its own. */
+      std::string error;
+      Painting second;
+      CHECK(second.Build(built.Placed, AhemFont(), error, Page{30, 35}),
+            "the second page paints from the same layout, which is laid out once and read through a "
+            "window");
+      bool aboveTheTarget = false, belowIt = false;
+      for (const Quad &quad : second.Quads()) {
+        aboveTheTarget = aboveTheTarget || quad.Y < 0;
+        belowIt = belowIt || quad.Y >= 35;
+      }
+      CHECK(!aboveTheTarget && !belowIt,
+            "and every quad of it lands inside the page, because the window clipped in the "
+            "document's coordinates before the shift was applied");
+      CHECK(!second.Quads().empty(), "a page in the middle of the prose is not empty");
+    }
+  }
+
+  /* A LINE TALLER THAN THE PAGE STILL GETS ONE. A break that cannot advance is a loop with no bound
+   * and dropping the line is the other way to make it terminate, so it overflows and is COUNTED. */
+  {
+    Built built;
+    if (Paint(built, "<style>body{margin:0}p{font-size:40px;line-height:1;margin:0;width:400px;"
+                     "color:#000000}</style><body><p>aa aa</p></body>",
+              400, 400)) {
+      size_t tooTall = 0;
+      const std::vector<double> starts = PageBreaks(built.Placed, 10, tooTall);
+      CHECK(tooTall >= 1, "the line that cannot fit is reported rather than dropped or cut");
+      CHECK(!starts.empty(), "and paging still terminates");
+    }
+  }
+
   return Report();
 }
