@@ -33,17 +33,46 @@ struct FontMetrics {
   double Descent = 0;
 };
 
+/* ONE GLYPH AS THE PAINTER NEEDS IT: where it sits relative to the run's origin, and which patch of
+ * the consumer's atlas covers it. A patch with no area is drawn from the colour alone, which is how a
+ * solid glyph — and a solid panel — is spelled without a white texel to point at. `Drawn` is false for
+ * a glyph that covers nothing, so a space costs no quad rather than an empty one. */
+struct Glyph {
+  double LeftPx = 0, TopPx = 0, WidthPx = 0, HeightPx = 0;
+  double U0 = 0, V0 = 0, U1 = 0, V1 = 0;
+  bool Drawn = false;
+};
+
 /* A CONSUMER'S FONT, ASKED PER SIZE. The engine measures with it and never opens a file: who makes an
- * asset is not the engine's business, and a font is an asset. */
+ * asset is not the engine's business, and a font is an asset.
+ *
+ * **THE FONT ANSWERS TWO QUESTIONS AND THEY ARE ASKED AT DIFFERENT TIMES.** `At` is the measurement
+ * the layout needs before anything is placed; `Shape` is the patch the painter needs once a run has a
+ * position. A font that can measure and not draw is a legitimate answer — it is what a headless
+ * measurement pass wants — so `Shape` has a default that draws nothing rather than a pure virtual
+ * that makes such a font unspellable. */
 struct Font {
   virtual ~Font() = default;
   [[nodiscard]] virtual FontMetrics At(double sizePx) const = 0;
+  [[nodiscard]] virtual Glyph Shape(char32_t code, double sizePx) const {
+    (void)code;
+    (void)sizePx;
+    return {};
+  }
 };
 
 /* THE FONT THE CORPUS MEASURES WITH: every glyph a solid square of the em, ascent four fifths of it. */
 struct AhemFont final : Font {
   [[nodiscard]] FontMetrics At(double sizePx) const override {
     return {sizePx, sizePx * 0.8, sizePx * 0.2};
+  }
+  /* AHEM NEEDS NO ATLAS, WHICH IS WHY THE MEASUREMENT FONT ALSO PAINTS. Every glyph but the space is
+   * a filled box from the ascent to the descent, so the patch is empty and the colour is the whole of
+   * it — the same door a solid panel goes through. The space draws nothing, exactly as the font's own
+   * specimen says. */
+  [[nodiscard]] Glyph Shape(char32_t code, double sizePx) const override {
+    if (code == U' ') { return {}; }
+    return {0.0, 0.0, sizePx, sizePx, 0, 0, 0, 0, true};
   }
 };
 
@@ -80,11 +109,21 @@ public:
   [[nodiscard]] const std::vector<Box> &Boxes(void) const { return Boxes_; }
   /* Which box a point falls in, deepest first, or -1. **The library answers what was hit and decides
    * nothing about it** -- what the hit MEANS is the client's, which is why this returns a node and not
-   * an action. */
+   * an action.
+   *
+   * **A POINT INSIDE A BOX THAT WAS CLIPPED AWAY IS NOT A HIT**, because the pixel the client pointed
+   * at belongs to whatever the clip let through. A hit test that ignored `overflow: hidden` would hand
+   * back an element the viewer cannot see, which is the one answer a pointer must never give. */
   [[nodiscard]] int Hit(double x, double y) const;
+  /* THE SURFACE THIS WAS BUILT FOR, published because the painter needs it and must not guess. A
+   * document taller than its viewport still paints every box; what bounds the picture is the TARGET
+   * and never the root box, and clipping to the root is how a page that overflows erases itself. */
+  [[nodiscard]] double ViewportWidth(void) const { return ViewportWidth_; }
+  [[nodiscard]] double ViewportHeight(void) const { return ViewportHeight_; }
 
 private:
   std::vector<Box> Boxes_;
+  double ViewportWidth_ = 0, ViewportHeight_ = 0;
 };
 
 /* WHAT AN ELEMENT MEANS BEFORE ANY SHEET SPEAKS, and the list is the whole list. */

@@ -732,6 +732,8 @@ const char *UserAgentSheet(void) {
 
 bool Layout::Build(const Markup &markup, Stylesheet &sheet, double viewportWidth,
                    double viewportHeight, const Font &font, std::string &error) {
+  ViewportWidth_ = viewportWidth;
+  ViewportHeight_ = viewportHeight;
   Boxes_.clear();
   if (markup.Root() < 0) {
     error = "the declaration has no root, so there is nothing to place";
@@ -762,9 +764,20 @@ int Layout::Hit(double x, double y) const {
    * client asked about. The library answers WHICH and never what it means. */
   for (size_t at = Boxes_.size(); at-- > 0;) {
     const Box &box = Boxes_[at];
-    if (x >= box.X && x < box.X + box.Width && y >= box.Y && y < box.Y + box.Height) {
-      return box.Node;
+    if (!(x >= box.X && x < box.X + box.Width && y >= box.Y && y < box.Y + box.Height)) { continue; }
+    /* EVERY CLIPPING ANCESTOR MUST ALSO CONTAIN THE POINT. The walk is up the parent chain rather than
+     * a rectangle carried on the box, because a clip is a property of an ANCESTOR and copying it down
+     * would be a second fact that drifts the moment a layout is rebuilt. */
+    bool seen = true;
+    for (int up = box.Parent; up >= 0 && seen; up = Boxes_[(size_t)up].Parent) {
+      const Box &over = Boxes_[(size_t)up];
+      if (!over.Clips) { continue; }
+      const double left = over.X + over.Border.Left, top = over.Y + over.Border.Top;
+      const double right = over.X + over.Width - over.Border.Right;
+      const double bottom = over.Y + over.Height - over.Border.Bottom;
+      seen = x >= left && x < right && y >= top && y < bottom;
     }
+    if (seen) { return box.Node; }
   }
   return -1;
 }
