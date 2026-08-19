@@ -509,85 +509,86 @@ bool ReadStatement(Reading &in, size_t &out) {
      * writes. They are noise, and saying that here is the honest middle. */
     const bool declaring = in.IsWord("var") || in.IsWord("let") || in.IsWord("const");
     if (declaring) { ++in.At; }
-    size_t left = 0;
-    held = ReadExpression(in, left);
-    /* `var x;` DECLARES A NAME AND ASSIGNS NOTHING TO IT. Evaluating the bare name instead would ask
-     * the HOST for it -- and the host would rightly say it has no such thing, which turns a
-     * declaration into a refusal. */
-    if (held && declaring && !in.Is("=") && in.Nodes[left].What == Shape::Name) {
-      Program::Node nothing;
-      nothing.What = Shape::Nothing;
-      Program::Node node;
-      node.What = Shape::Assign;
-      node.Spelling = in.Nodes[left].Spelling;
-      if (in.Room()) {
-        node.A = in.Make(std::move(nothing));
-        if (in.Room()) {
-          out = in.Make(std::move(node));
-          (void)in.Take(";");
-          in.Shallower();
-          return true;
-        }
-      }
-      held = false;
-    }
-    if (held && in.Take("=")) {
-      size_t right = 0;
-      held = ReadExpression(in, right);
-      if (held) {
-        const Program::Node &target = in.Nodes[left];
-        Program::Node node;
-        if (target.What == Shape::Name) {
-          node.What = Shape::Assign;
-          node.Spelling = target.Spelling;
-          node.A = right;
-        } else if (target.What == Shape::Member) {
-          node.What = Shape::AssignMember;
-          node.Spelling = target.Spelling;
-          node.A = target.A;
-          node.B = right;
-        } else {
-          in.Error = "the script assigns to something that is neither a name nor a member, at " +
+    if (declaring) {
+      /* A DECLARATION IS A LIST, and every entry may or may not have an initialiser: `var a, b = 2, c;`
+       * is one statement and three names. A name with no initialiser is assigned NOTHING here --
+       * evaluating it instead would ask the HOST for it, and the host would rightly say it has no such
+       * thing, which turns a declaration into a refusal. */
+      Program::Node list;
+      list.What = Shape::Block;
+      for (;;) {
+        if (in.Now().What != Word::Name) {
+          in.Error = "the script declares something that is not a name, at " +
                      Where(in.Text, in.Now().At);
-          held = false;
-        }
-        if (held && in.Room()) { out = in.Make(std::move(node)); } else { held = false; }
-      }
-    } else if (held && !declaring && in.Is(",")) {
-      /* THE COMMA OPERATOR AT STATEMENT LEVEL: `a, b;` evaluates both and keeps the second, which is
-       * what a sequence IS. A declaration's comma is a different mark with the same shape, and it is
-       * handled above. */
-      while (held && in.Take(",")) {
-        size_t right = 0;
-        held = ReadExpression(in, right);
-        if (!held || !in.Room()) {
           held = false;
           break;
         }
         Program::Node node;
-        node.What = Shape::Binary;
-        node.Spelling = ",";
-        node.A = left;
-        node.B = right;
-        left = in.Make(std::move(node));
+        node.What = Shape::Assign;
+        node.Spelling = in.Now().Spelling;
+        ++in.At;
+        if (in.Take("=")) {
+          held = ReadExpression(in, node.A);
+        } else {
+          Program::Node nothing;
+          nothing.What = Shape::Nothing;
+          if (!in.Room()) {
+            held = false;
+            break;
+          }
+          node.A = in.Make(std::move(nothing));
+        }
+        if (!held || !in.Room()) {
+          held = false;
+          break;
+        }
+        list.Parts.push_back(in.Make(std::move(node)));
+        if (!in.Take(",")) { break; }
       }
-      out = left;
-    } else if (held) {
-      out = left;
-    }
-    /* `var a = 1, b = 2` IS ONE DECLARATION AND SEVERAL ASSIGNMENTS, so the comma continues the
-     * statement rather than ending it. They become a block, which is what a sequence of statements is
-     * everywhere else in this reader. */
-    if (held && declaring && in.Is(",")) {
-      Program::Node node;
-      node.What = Shape::Block;
-      node.Parts.push_back(out);
-      while (held && in.Take(",")) {
-        size_t another = 0;
-        held = ReadStatement(in, another);
-        if (held) { node.Parts.push_back(another); }
+      if (held && in.Room()) { out = in.Make(std::move(list)); } else { held = false; }
+    } else {
+      size_t left = 0;
+      held = ReadExpression(in, left);
+      if (held && in.Take("=")) {
+        size_t right = 0;
+        held = ReadExpression(in, right);
+        if (held) {
+          const Program::Node &target = in.Nodes[left];
+          Program::Node node;
+          if (target.What == Shape::Name) {
+            node.What = Shape::Assign;
+            node.Spelling = target.Spelling;
+            node.A = right;
+          } else if (target.What == Shape::Member) {
+            node.What = Shape::AssignMember;
+            node.Spelling = target.Spelling;
+            node.A = target.A;
+            node.B = right;
+          } else {
+            in.Error = "the script assigns to something that is neither a name nor a member, at " +
+                       Where(in.Text, in.Now().At);
+            held = false;
+          }
+          if (held && in.Room()) { out = in.Make(std::move(node)); } else { held = false; }
+        }
+      } else if (held) {
+        /* THE COMMA OPERATOR AT STATEMENT LEVEL: `a, b;` evaluates both and keeps the second. */
+        while (held && in.Take(",")) {
+          size_t right = 0;
+          held = ReadExpression(in, right);
+          if (!held || !in.Room()) {
+            held = false;
+            break;
+          }
+          Program::Node node;
+          node.What = Shape::Binary;
+          node.Spelling = ",";
+          node.A = left;
+          node.B = right;
+          left = in.Make(std::move(node));
+        }
+        out = left;
       }
-      if (held && in.Room()) { out = in.Make(std::move(node)); } else { held = false; }
     }
     if (held) { (void)in.Take(";"); }
   }
