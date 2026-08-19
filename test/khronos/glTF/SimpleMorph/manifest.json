@@ -153,17 +153,17 @@
         0
       ],
       "fps": {
-        "value": 1,
+        "value": 2,
         "unit": "frames per second",
         "origin": "SET",
-        "note": "ONE FRAME PER SECOND, AND THE RATE IS AN INTEGER BECAUSE THE HARNESS REQUIRES ONE: a frame is `index / fps` seconds and Blender's own rate is whole."
+        "note": "TWO FRAMES PER SECOND, SO THE GRID ASKS WHAT A MORPH WEIGHT DOES BETWEEN TWO KEYS. This file's keys sit at 0, 1, 2, 3 and 4 s and at 1 fps the grid was 0..4 -- [MEASURED] **every sample exactly on a key**, where an interpolated weight is the key's own weight. So the corpus's plainest morph case tested five stored weights and never a blend between two of them. At 2 fps the grid is 0, 0.5, 1, 1.5 and 2 s and two of its five samples fall strictly between keys. `board:1440` carries the corpus-wide measurement."
       },
       "frames": {
         "value": 5,
         "unit": "frames",
         "origin": "derived",
-        "derivation": "min(5, ceil(4.0 s) + 1) = 5, so the grid runs 0..4 s.",
-        "note": "The file's declared span is 4 s and this grid samples all of it at 1 s steps."
+        "derivation": "min(5, ceil(4 s * 2 fps) + 1) = 5, so the grid runs 0, 0.5, 1, 1.5 and 2 s.",
+        "note": "Five samples over the first half of the declared duration, two of them between keyframes -- the trade `board:1439` names: a sample between keys decides an interpolation and a sample on a key decides a keyframe."
       }
     }
   },

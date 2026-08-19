@@ -41,6 +41,24 @@ capability proven rather than a green inherited.
 - [ ] the choice is **derived and not hand-set per case** -- `board:1421` already owns the grid
       derivation and its endpoint problem, and this is the second reason to revisit it in the same round
 
+## Two of the ten are taken by hand, and they are the two that carry mechanisms
+
+**Not because ten hand edits are the answer** -- the box above says the choice must be derived -- but
+because two capabilities were worth knowing before the derivation is priced, and neither was known.
+
+| case | what it now asks | verdict at every frame |
+|---|---|---|
+| `RecursiveSkeletons` | 84 skins, **840 joints**, slerped between two keys at 0.5 s and 1.5 s | `disagreement_p99_px` **0**, `picture_p99_delta_code` **1 code** |
+| `SimpleMorph` | a morph weight **blended** between two keys at 0.5 s and 1.5 s | `picture_p99_delta_code` **0 codes** |
+
+**So the skinning path's quaternion interpolation over 840 joints is right against an independent
+renderer, and so is the morph blend.** Neither was tested by anything before this.
+
+**Eight remain**, and two of them are a different shape: `VirtualCity` and
+`DiffuseTransmissionPlant` carry keys every 1/30 s, so *every whole second is a key* and the grid lands on
+one by arithmetic rather than by coarseness. A rate for those has to avoid a multiple of 30 rather than
+simply rise.
+
 ## What it costs, priced before it is taken
 
 Each case's rate change moves its oracle -- a Cycles render per frame -- and changes what the grid
