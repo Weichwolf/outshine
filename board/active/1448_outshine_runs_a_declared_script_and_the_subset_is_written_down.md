@@ -59,3 +59,29 @@ The owner asked for this after the round measured that 18 of 24 new corpus cases
 The shape chosen was **one interpreter with two consumers** over two narrower answers: a DOM subset cut
 to exactly what WPT uses would have been a fit to the corpus rather than a capability, and a purely
 declarative binding language would have solved neither the corpus nor game logic.
+
+## A script is bound to a host, and the reach is a value rather than a name
+
+**The interpreter has no globals of its own, and that is the security property rather than a setting.**
+The only door is `Host::Global`, which the consumer builds — so a script cannot escape, because there
+is nothing to escape from. There is no ambient authority to leak, which is a stronger statement than
+*sandboxed* and it is a property of the shape rather than of a check.
+
+**Bound to a HOST and not to an object.** A consumer writes one host per KIND of thing and gives each
+instance its own `Ref`. A thousand light switches then cost one host and not a thousand — the same
+sentence `CLAUDE.md` makes about one key serving a million instances, applied to authority.
+
+**THE REACH MUST BE A VALUE AND NEVER A NAME, and this is the rule a consumer can get wrong.** A host
+exposing `world.lightAt("hall")` lets every switch address every light, and the binding is gone; a host
+handing the script a `Ref` to its OWN light makes any other one unspellable. That is the difference
+between a capability and a convention, and `Ref` already carries it — the interpreter never looks
+inside one and no script can construct one.
+
+**A passcode panel is the case that tests it.** The script decides nothing about the door: it calls an
+`unlock()` its own host provides. A panel whose host has none opens nothing, and the call **refuses
+loudly** rather than quietly doing nothing — which is `board:1448`'s own rule about an unknown call
+arriving where it matters.
+
+**Authority and cost are two bounds and only one of them is here.** A page on a wall costs a layout and
+a pass whoever owns it, so the declared size and the redraw-on-change rule in `board:1452` are the other
+bound. Neither implies the other.
