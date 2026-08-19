@@ -206,5 +206,44 @@
       "derivation": "the projected area of the subject's triangles over the declared raster at the declared camera, recomputed by the runner from the subject's own vertices. It is quoted here because the boundary bound is applied UNDER it: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's apparent size, so a camera that framed the subject smaller would tighten the bound without saying so.",
       "note": "The framing rule of src/gltf/Framing.h fixes the camera, so this number is a consequence of the rule and the subject rather than a choice. The runner refuses a mismatch."
     }
-  }
+  },
+  "reductions": [
+    {
+      "metric": "picture_p99_delta_code",
+      "because": "THE TWO SIDES IMPLEMENT ONE PAPER AND TWO SUBSTRATES, AND THE FORMAT NAMES THE DIFFERENCE ITSELF. Cycles' `fresnel_iridescence_channel` carries the header *Thin-film iridescence implementation based on 'A Practical Extension to Microfacet Theory for the Modeling of Varying Iridescence' by Laurent Belcour and Pascal Barla*, which is the same paper `src/render/stages/IridescenceLobe.h` implements -- so this is NOT a model pair. What differs is the SUBSTRATE the film sits on: Cycles' signature takes `substrate_n`, `substrate_k` and `F82`, a complex index; `KHR_materials_iridescence` derives a REAL index from F0 and says outright *while it is physically correct for dielectric materials, it's only an approximation for metals, which are usually described using a complex IOR with an additional extinction factor. Such a value cannot be accurately inferred from the F0 value and is thus assumed to be 0.0*. Both fetched at the source rather than recalled.\n\nTHE DISCRIMINATOR WAS BUILT INTO THIS CASE SET AND IT ANSWERS EXACTLY. Same film, same roughness, one field changed:\n\n| sphere | `metallicFactor` | substrate | picture p99 |\n|---|---|---|---|\n| `shaded-sphere-black-iridescence` | **0.0** | dielectric, where the extension is exact | **1 code, within the bound** |\n| `shaded-sphere-metal-iridescence` | **1.0** | conductor, where its extinction is assumed zero | **5 codes** |\n\n**The film over a dielectric agrees; the film over a conductor does not**, which is the extension's own sentence turned into a measurement. The engine is not free to carry the complex index here: the extension prescribes the real-index conversion, so a renderer that used `k` would be right about the metal and wrong about the format.",
+      "measured": {
+        "picturep99": {
+          "value": 5,
+          "unit": "codes",
+          "origin": "measured"
+        },
+        "dielectricSiblingP99": {
+          "value": 1,
+          "unit": "codes",
+          "origin": "measured"
+        },
+        "p95Relative": {
+          "value": 0.21144544,
+          "unit": "dimensionless",
+          "origin": "measured"
+        }
+      }
+    },
+    {
+      "metric": "linear_channels_differing",
+      "because": "THE TWO SIDES IMPLEMENT ONE PAPER AND TWO SUBSTRATES, AND THE FORMAT NAMES THE DIFFERENCE ITSELF. Cycles' `fresnel_iridescence_channel` carries the header *Thin-film iridescence implementation based on 'A Practical Extension to Microfacet Theory for the Modeling of Varying Iridescence' by Laurent Belcour and Pascal Barla*, which is the same paper `src/render/stages/IridescenceLobe.h` implements -- so this is NOT a model pair. What differs is the SUBSTRATE the film sits on: Cycles' signature takes `substrate_n`, `substrate_k` and `F82`, a complex index; `KHR_materials_iridescence` derives a REAL index from F0 and says outright *while it is physically correct for dielectric materials, it's only an approximation for metals, which are usually described using a complex IOR with an additional extinction factor. Such a value cannot be accurately inferred from the F0 value and is thus assumed to be 0.0*. Both fetched at the source rather than recalled.\n\nTHE DISCRIMINATOR WAS BUILT INTO THIS CASE SET AND IT ANSWERS EXACTLY. Same film, same roughness, one field changed:\n\n| sphere | `metallicFactor` | substrate | picture p99 |\n|---|---|---|---|\n| `shaded-sphere-black-iridescence` | **0.0** | dielectric, where the extension is exact | **1 code, within the bound** |\n| `shaded-sphere-metal-iridescence` | **1.0** | conductor, where its extinction is assumed zero | **5 codes** |\n\n**The film over a dielectric agrees; the film over a conductor does not**, which is the extension's own sentence turned into a measurement. The engine is not free to carry the complex index here: the extension prescribes the real-index conversion, so a renderer that used `k` would be right about the metal and wrong about the format.",
+      "measured": {
+        "channelsDiffering": {
+          "value": 129701,
+          "unit": "channels",
+          "origin": "measured"
+        },
+        "p95Relative": {
+          "value": 0.21144544,
+          "unit": "dimensionless",
+          "origin": "measured"
+        }
+      }
+    }
+  ]
 }

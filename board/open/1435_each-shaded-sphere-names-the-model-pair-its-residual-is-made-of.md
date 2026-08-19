@@ -41,9 +41,15 @@ because a metal has no diffuse term for the two models to disagree about.
   form, and `src/render/stages/SheenLobe.h` implements it line for line; Cycles implements **Zeltner,
   Burley and Chiang, *Practical Multiple-Scattering Sheen Using Linearly Transformed Cosines*, 2022**,
   cited in `intern/cycles/kernel/closure/bsdf_sheen.h`. Both fetched at the source. Declared on the case
-- [ ] **iridescence** -- ours is Belcour/Barla; Blender exposes `Thin Film Thickness` and `Thin Film IOR`
-  on the Principled BSDF and Cycles reaches them through `fresnel_iridescence_channel`, whose model
-  carries no citation in the two headers read so far. **The pair is not sourced, so nothing is declared**
+- [x] **iridescence** -- and it is **NOT a model pair**. Cycles' `fresnel_iridescence_channel` in
+  `intern/cycles/kernel/closure/bsdf_util.h` cites *Belcour and Barla, A Practical Extension to
+  Microfacet Theory for the Modeling of Varying Iridescence*, which is the paper
+  `src/render/stages/IridescenceLobe.h` implements. **One paper, two substrates**: Cycles takes
+  `substrate_n`, `substrate_k` and `F82`, a complex index, where `KHR_materials_iridescence` derives a
+  REAL index from F0 and states *it's only an approximation for metals ... assumed to be `0.0`*.
+  **The case set already carried the discriminator**: the film over a dielectric substrate
+  (`metallicFactor 0`) is **1 code and within the bound**; over a conductor (`metallicFactor 1`) it is
+  **5 codes**. Declared on the conductor case
 - [ ] **the rough metal lobe** -- 0.0013726554 at p95 relative and 1 code in the picture, against a
   perfectly smooth sibling at zero. The candidate is our Kulla-Conty energy compensation (`board:1408`)
   against Cycles' own multiple-scattering GGX, and it is a candidate and not a finding
@@ -53,8 +59,9 @@ because a metal has no diffuse term for the two models to disagree about.
 
 ## What must be true
 
-- [ ] every red sphere either declares a reduction naming its model pair **with both sides fetched at the
-      source**, or is repaired
+- [ ] every red sphere either declares a reduction naming its cause **with both sides fetched at the
+      source**, or is repaired -- and *cause* rather than *model pair*, because the iridescence row turned
+      out to be one model over two substrates and the wording would have prejudged it
 - [ ] no reduction is written for a pair that has only been recalled
 
 ## Comments
@@ -62,3 +69,11 @@ because a metal has no diffuse term for the two models to disagree about.
 **The rule this item was written under**: a reduction is an argument, and an argument needs both sides
 quoted. Five pairs above are plausible and unverified, and plausible is exactly what `CLAUDE.md` means by
 *flüssigkeit ist verdächtig* -- so they are listed as work rather than declared as findings.
+
+## The black-iridescence row is now its own question and is NOT covered by the above
+
+Its substrate is a **dielectric**, where the extension's index conversion is exact and both sides
+evaluate the same paper on the same real index -- so the substrate argument does not reach it. Its
+picture passes at 1 code; what fails is bit-exactness, at **p95 relative 0.045389304** against the plain
+black sphere's 0.0056239884. **A factor of eight, and it is not last-bit noise**: two implementations of
+one paper differ somewhere inside it, and nothing in this round says where.
