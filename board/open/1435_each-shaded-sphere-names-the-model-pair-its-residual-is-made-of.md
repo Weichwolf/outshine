@@ -66,8 +66,14 @@ because a metal has no diffuse term for the two models to disagree about.
   | 0.1 - 0.3 | 3597 | 0.01901 | 0.02532 | 1.332 |
   | 0.0 - 0.1 | 476 | 0.01421 | 0.03029 | **2.132** |
 
-  **24 % dark where the coat's Fresnel is at its minimum and 2.1x bright at grazing, with the middle
-  agreeing to half a percent** -- and the same sphere without a coat agrees everywhere at p95 relative
+  **`board:1441` closed the grazing half of this** -- the extension evaluates its layering Fresnel at
+  `NdotV` and this engine used `v.h`, so `p95 relative` fell from 0.213744 to 0.017590152 and the
+  0.0-0.1 bin from 2.132 to 0.819. **What remains is the head-on bin alone, unmoved at 0.758**, where
+  both sides put the coat's Fresnel at 0.04 and a 3 % effect is measured at 24 %. The table below is the
+  before state and is kept because the sign is what identified the term:
+
+  24 % dark where the coat's Fresnel is at its minimum and 2.1x bright at grazing, with the middle
+  agreeing to half a percent -- and the same sphere without a coat agrees everywhere at p95 relative
   0.0013726554. The format's operator is a mix, `base*(1 - clearcoat*F) + clearcoat*F*coatLobe`, and this
   engine implements it; Cycles layers the coat as a closure. **But a layered coat transmits the base
   twice and would be DARKER, not brighter**, so the sign at `n.v` near 1 is not explained by the layering

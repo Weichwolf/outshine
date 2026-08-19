@@ -780,7 +780,19 @@ static inline float3 shadeRow(constant M &surface, constant Lights &lights, Occl
     if (clearcoat > 0.0) {
       float coatA = clearcoatRoughness * clearcoatRoughness;
       float coatA2 = coatA * coatA;
-      float coatF = 0.04 + 0.96 * pow(1.0 - vh, 5.0);
+      /* `NdotV` AND NOT `VdotH`, AND THE EXTENSION SAYS WHY IN ITS OWN WORDS (board:1441): *we compute
+       * the microfacet Fresnel term with NdotV instead of VdotH. That means that we ignore the
+       * orientation of the microsurface.* Its pseudocode is
+       * `clearcoat_fresnel = 0.04 + (1 - 0.04) * (1 - abs(VdotNc))^5`.
+       *
+       * THE HALF-VECTOR FORM WAS NEARLY CONSTANT ACROSS A SUBJECT and that is what the measurement
+       * caught: under one distant light `v.h` barely moves over a sphere, so the base was attenuated by
+       * about the same factor everywhere, where a coat's reflectance runs from 0.04 head-on to 1 at
+       * grazing. [MEASURED] on `shaded-sphere-metal-clearcoat`, ours over the oracle by view angle:
+       * 0.758 at `n.v` 0.9-1.0, 0.995 at 0.7-0.9, 2.132 at 0.0-0.1 -- **too dark where the coat should
+       * transmit and too bright where it should reflect, crossing in the middle**, which is the signature
+       * of a constant attenuation standing in for a view-dependent one. */
+      float coatF = 0.04 + 0.96 * pow(1.0 - nv, 5.0);
       float coatLobe = brdfLobe(coatA2, nl, nv, nh);
       float weight = clearcoat * coatF;
       layered = layered * (1.0 - weight) + float3(weight * coatLobe);
