@@ -556,6 +556,7 @@ grownPictureWithin=0
 grownPictureOutside=0
 grownPictureUnenforced=0
 uiInside=0
+uiReduced=0
 uiOutside=0
 jsInside=0
 jsOutside=0
@@ -682,6 +683,7 @@ CountTheTwo() {
   layout=$(sed -n 's/^UI-LAYOUT //p' "$2" | head -1)
   case "$subset" in
     inside) uiInside=$((uiInside + 1)) ;;
+    reduced) uiReduced=$((uiReduced + 1)) ;;
     outside) uiOutside=$((uiOutside + 1)) ;;
   esac
   case "$layout" in
@@ -1040,10 +1042,13 @@ printf '%s tests: %s PASS  %s FAIL  %s TIMEOUT  %s SIGNAL  %s BUILD  %s SKIP  %s
 # subset` counts DECLARATIONS this engine claims to be able to express; `held` counts the ones whose
 # every stated box landed. Neither stands for the other, and the first is the one that would improve
 # by shrinking -- a suite reporting only `held` gets greener the less of the corpus it attempts.
-[ $((uiInside + uiOutside)) -gt 0 ] &&
-  printf 'wpt:     subset %s inside of %s   layout %s held, %s red of %s\n' \
-    "$uiInside" "$((uiInside + uiOutside))" \
-    "$uiHeld" "$uiRed" "$((uiHeld + uiRed))"
+# THREE ANSWERS AND NOT TWO (board:1442). `held` is a case this engine got right; `reduced` is one it
+# declines at a boundary it DECLARED, with the reason in the case's own log; `outside` is one nothing
+# accounts for -- and only the third is a debt. Green is held + reduced reaching the total.
+[ $((uiInside + uiReduced + uiOutside)) -gt 0 ] &&
+  printf 'wpt:     %s held, %s reduced, %s unaccounted of %s   (%s attempted, %s red)\n' \
+    "$uiHeld" "$uiReduced" "$uiOutside" "$((uiInside + uiReduced + uiOutside))" \
+    "$uiInside" "$uiRed"
 # THE SCRIPT SUITE'S PAIR, AND IT IS THE SAME SHAPE A THIRD TIME (board:1450).
 [ $((jsInside + jsOutside)) -gt 0 ] &&
   printf 'test262: subset %s inside of %s   cases %s held, %s red of %s\n' \

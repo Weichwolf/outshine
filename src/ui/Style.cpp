@@ -218,7 +218,7 @@ Property PropertyNamed(std::string_view name) {
  * IS a vocabulary. */
 struct Vocabulary {
   Property What;
-  const char *Words[10];
+  const char *Words[14];
 };
 const Vocabulary kVocabularies[] = {
     {Property::Display, {"block", "flex", "inline", "none", "inline-flex", nullptr}},
@@ -229,14 +229,15 @@ const Vocabulary kVocabularies[] = {
     {Property::FlexWrap, {"nowrap", "wrap", "wrap-reverse", nullptr}},
     {Property::JustifyContent,
      {"flex-start", "flex-end", "center", "space-between", "space-around", "space-evenly", "start",
-      "end", nullptr}},
+      "end", "left", "right", "normal", nullptr}},
     {Property::AlignItems,
-     {"stretch", "flex-start", "flex-end", "center", "start", "end", "baseline", nullptr}},
+     {"stretch", "flex-start", "flex-end", "center", "start", "end", "baseline", "normal", nullptr}},
     {Property::AlignSelf,
-     {"auto", "stretch", "flex-start", "flex-end", "center", "start", "end", "baseline", nullptr}},
+     {"auto", "stretch", "flex-start", "flex-end", "center", "start", "end", "baseline", "normal",
+      nullptr}},
     {Property::AlignContent,
      {"stretch", "flex-start", "flex-end", "center", "space-between", "space-around", "space-evenly",
-      "start", "end", nullptr}},
+      "start", "end", "normal", nullptr}},
     {Property::TextAlign, {"left", "right", "center", nullptr}},
     {Property::WhiteSpace, {"normal", "pre", nullptr}},
 };
@@ -390,7 +391,7 @@ void Expand(std::string_view name, std::string_view text, std::vector<Declaratio
     one(what, parts[0]);
     return true;
   };
-  const auto border = [&]() {
+  const auto border = [&](Property top, Property right, Property bottom, Property left) {
     const std::vector<std::string_view> parts = words();
     if (parts.empty() || parts.size() > 3) { return false; }
     std::string_view width = "medium";
@@ -411,10 +412,11 @@ void Expand(std::string_view name, std::string_view text, std::vector<Declaratio
     }
     if (!sawStyle) { return false; }
     const std::string_view used = drawn ? width : std::string_view("0");
-    one(Property::BorderTopWidth, used);
-    one(Property::BorderRightWidth, used);
-    one(Property::BorderBottomWidth, used);
-    one(Property::BorderLeftWidth, used);
+    /* A SIDE THE SHORTHAND DOES NOT NAME IS `kCount`, which is how `border-left` sets one edge through
+     * the same reader that sets four. */
+    for (const Property side : {top, right, bottom, left}) {
+      if (side != Property::kCount) { one(side, used); }
+    }
     return true;
   };
   if (lowered == "margin") {
@@ -439,7 +441,26 @@ void Expand(std::string_view name, std::string_view text, std::vector<Declaratio
   } else if (lowered == "background") {
     if (single(Property::BackgroundColour)) { return; }
   } else if (lowered == "border") {
-    if (border()) { return; }
+    if (border(Property::BorderTopWidth, Property::BorderRightWidth, Property::BorderBottomWidth,
+               Property::BorderLeftWidth)) {
+      return;
+    }
+  } else if (lowered == "border-top") {
+    if (border(Property::BorderTopWidth, Property::kCount, Property::kCount, Property::kCount)) {
+      return;
+    }
+  } else if (lowered == "border-right") {
+    if (border(Property::kCount, Property::BorderRightWidth, Property::kCount, Property::kCount)) {
+      return;
+    }
+  } else if (lowered == "border-bottom") {
+    if (border(Property::kCount, Property::kCount, Property::BorderBottomWidth, Property::kCount)) {
+      return;
+    }
+  } else if (lowered == "border-left") {
+    if (border(Property::kCount, Property::kCount, Property::kCount, Property::BorderLeftWidth)) {
+      return;
+    }
   } else {
     const Property what = PropertyNamed(lowered);
     if (what != Property::kCount) {
@@ -454,7 +475,10 @@ void Expand(std::string_view name, std::string_view text, std::vector<Declaratio
     }
   }
   ++unheld;
-  if (names.size() < 64) { names.push_back(lowered); }
+  /* THE NAME CARRIES THE VALUE, because a shorthand is refused for what it was GIVEN and not for
+   * being itself. `background` says nothing a boundary row could match; `background:url(a.png)` and
+   * `background:green none repeat` say different things, and only one of them is a decision. */
+  if (names.size() < 64) { names.push_back(lowered + ":" + std::string(Trim(text))); }
 }
 
 /* A COMMENT REACHES NOTHING, AND IT IS REMOVED IN ONE PLACE (board:1445). [MEASURED] a comment's own opening and
@@ -511,6 +535,13 @@ bool ReadCompound(std::string_view text, Compound &out) {
     text = text.substr(0, nth);
     if (text.empty()) { return true; }
   }
+  if (text == "*") {
+    /* THE UNIVERSAL SELECTOR MATCHES EVERY ELEMENT AND CONTRIBUTES NOTHING TO SPECIFICITY, which is
+     * CSS's own arithmetic. A compound of nothing but `*` is legal and it is what `.a > *` is made of.
+     */
+    out.Universal = true;
+    return true;
+  }
   while (at < text.size()) {
     const char lead = text[at];
     if (lead == '.' || lead == '#') { ++at; }
@@ -538,7 +569,8 @@ bool ReadCompound(std::string_view text, Compound &out) {
       out.Tag = part;
     }
   }
-  return !(out.Tag.empty() && out.Classes.empty() && out.Id.empty() && out.NthChild == 0);
+  return out.Universal ||
+         !(out.Tag.empty() && out.Classes.empty() && out.Id.empty() && out.NthChild == 0);
 }
 
 }  // namespace
@@ -692,6 +724,161 @@ bool Holds(const Compound &compound, const Markup &markup, int node) {
 }
 
 }  // namespace
+
+namespace {
+
+struct Boundary {
+  const char *Name;
+  const char *Why;
+};
+
+/* THE DECLARED BOUNDARY OF THIS ENGINE'S USER INTERFACE. Every row is a decision about what a GAME's
+ * interface needs, taken on purpose -- not a list of what has not been built yet. */
+const Boundary kBoundaries[] = {
+    /* LAYOUT MODELS THIS ENGINE DOES NOT CARRY. A HUD, a quest log, a book page and a terminal are
+     * block flow and flexbox; the models below solve problems a document has and an interface does
+     * not, and each would be a second layout algorithm to keep true against the same corpus. */
+    {"float", "an interface is laid out by flow and flexbox; a float solves a document's problem"},
+    {"clear", "there is nothing to clear where nothing floats"},
+    {"display:grid", "grid is a second two-dimensional model beside flexbox, and one is enough"},
+    {"display:inline-grid", "the same, inline"},
+    {"grid", "every grid property belongs to a model this engine does not carry"},
+    {"display:table", "a table is a third layout model, and an interface states its rows itself"},
+    {"display:inline-table", "the same, inline"},
+    {"display:table-cell", "the same, one box down"},
+    {"display:table-row", "the same, one box down"},
+    {"display:list-item", "a marker box is inline layout with a second box beside the content"},
+    {"<table>", "a table is a third layout model, and an interface states its rows itself"},
+    {"<thead>", "the same"},   {"<tbody>", "the same"},   {"<tfoot>", "the same"},
+    {"<tr>", "the same"},      {"<td>", "the same"},      {"<th>", "the same"},
+    {"<caption>", "the same"}, {"<colgroup>", "the same"}, {"<col>", "the same"},
+
+    /* INLINE LAYOUT BEYOND ONE TEXT RUN. A run of text in a box is what a label, a paragraph and a
+     * page need; a line box mixing boxes and text is a second engine. */
+    {"display:inline-block", "inline layout beyond a text run is a second engine"},
+    {"vertical-align", "it aligns things inside a line box, and there is one run per box here"},
+    {"line-height:normal", "a normal line height is the font's own, and a face here states a number"},
+
+    /* WRITING MODES AND BIDI. One direction, stated once: an engine that carried both would have every
+     * axis question twice, and a game's interface declares its own language. */
+    {"writing-mode", "one writing direction, declared; the rest is a second axis question everywhere"},
+    {"direction", "the same, for the inline direction"},
+    {"unicode-bidi", "the same, inside a run"},
+    {"text-orientation", "the same, per glyph"},
+    {"padding-inline", "a logical property is the writing direction under another name"},
+    {"padding-block", "the same"},
+    {"margin-inline", "the same"},
+    {"margin-block", "the same"},
+    {"border-inline", "the same"},
+    {"border-block", "the same"},
+    {"inset-inline", "the same"},
+    {"inset-block", "the same"},
+    {"inline-size", "the same, for a size"},
+    {"block-size", "the same, for a size"},
+    {"min-inline-size", "the same"}, {"max-inline-size", "the same"},
+    {"min-block-size", "the same"},  {"max-block-size", "the same"},
+
+    /* PAINT THIS RENDERER DOES NOT SPELL. Each is a pass, a buffer or a matrix, and the frame budget
+     * is where that gets decided -- not in a stylesheet. */
+    {"transform", "a matrix per box is a pass the frame budget has not bought"},
+    {"box-shadow", "a shadow is a blur pass, and a declaration may not buy one"},
+    {"text-shadow", "the same, per glyph"},
+    {"filter", "a filter is a pass, declared by content, which is the door glTF closed"},
+    {"backdrop-filter", "the same, over what is behind"},
+    {"mix-blend-mode", "a blend mode per box is a pipeline state content may not switch"},
+    {"background-image", "an image behind a box is a texture the consumer names, not a URL"},
+    {"background:url", "the same, in the shorthand"},
+    {"clip-path", "a shape per box is a second clip model beside the rectangle"},
+
+    /* THINGS A CONSUMER OWNS. Scrolling, focus and hover are state the client holds; an engine that
+     * held them would be deciding what a pointer MEANS. */
+    {"overflow:scroll", "scrolling is a client's state, and the library clips and reports"},
+    {"overflow:auto", "the same, decided by the client"},
+    {"overflow-x", "one overflow, both axes; a per-axis clip is a scroll model"},
+    {"overflow-y", "the same"},
+    {":hover", "a pointer's state is the client's; the library answers what was hit"},
+    {":focus", "the same, for focus"},
+    {":active", "the same, while held"},
+    {"cursor", "which cursor to show is the client's decision about meaning"},
+    {"pointer-events", "the same, and the library already reports what a point hit"},
+
+    /* AUTHORING CONVENIENCES THAT ARE SECOND GRAMMARS. Each is a parser this engine would carry for
+     * a declaration a consumer can write out. */
+    {"calc", "arithmetic in a value is a second grammar; a consumer computes and declares"},
+    {"var", "a custom property is a second cascade"},
+    {"@media", "a conditional stylesheet is the consumer choosing which sheet to hand over"},
+    {"@supports", "the same, on a capability the consumer already knows"},
+    {"@font-face", "a face is an asset the consumer supplies through the font interface"},
+    {"@import", "a sheet the consumer chooses to hand over"},
+    {"@keyframes", "animation is the consumer re-declaring, frame by frame"},
+    {"animation", "the same"},
+    {"transition", "the same"},
+    {"::before", "a box with no element is content in a stylesheet"},
+    {"::after", "the same"},
+    {"::first-letter", "the same, inside a run"},
+    {"::first-line", "the same, per line"},
+    {"::marker", "the same, beside a list item"},
+
+    /* REPLACED CONTENT. A box whose size comes from a resource nobody loaded is a box this engine
+     * cannot place -- and loading it is the consumer's, through the interfaces that already exist. */
+    {"<img>", "a replaced box takes its size from a resource the consumer owns"},
+    {"<picture>", "the same"},  {"<source>", "the same"},  {"<video>", "the same"},
+    {"<audio>", "the same"},    {"<canvas>", "the same"},  {"<iframe>", "the same"},
+    {"<embed>", "the same"},    {"<object>", "the same"},  {"<svg>", "the same"},
+    {"<input>", "an interactive replaced box is the consumer's control"},
+    {"<select>", "the same"},   {"<textarea>", "the same"},{"<button>", "the same"},
+    {"<label>", "the same"},    {"<fieldset>", "the same"},{"<legend>", "the same"},
+    {"<progress>", "the same"}, {"<meter>", "the same"},   {"<details>", "the same"},
+    {"<summary>", "the same"},  {"<form>", "the same"},    {"<marquee>", "the same"},
+    {"<math>", "a second content model with its own layout"},
+    {"aspect-ratio", "a ratio sizes a replaced box, and this engine places none"},
+    {"object-fit", "the same"},
+
+    /* DEFERRED, AND THAT IS DIFFERENT FROM REFUSED. It carries its own item. */
+    {"position:absolute", "deferred, and it carries its own work item -- not refused"},
+    {"position:fixed", "the same"},
+    {"position:sticky", "the same"},
+    {"top", "an offset means nothing until a positioned box does"},
+    {"bottom", "the same"}, {"left", "the same"}, {"right", "the same"},
+    {"z-index", "a stacking order needs a stacking context, which absolute positioning brings"},
+
+    /* THE FONT SHORTHAND AND WHAT IT IMPLIES. One family at a time is a declared decision. */
+    {"font:", "the shorthand carries a family list, a style and a variant; a face here is one face"},
+    {"font-family", "one family at a time, supplied by the consumer"},
+    {"font-weight", "a weight is a second face, and a consumer supplies faces"},
+    {"font-style", "the same"},
+    {"font-variant", "the same"},
+    {"font-stretch", "the same"},
+
+    /* HINTS, WIDGETS AND CHROME A GAME'S INTERFACE STATES ITSELF. */
+    {"contain", "containment is a hint about a layout boundary this engine already knows exactly"},
+    {"content-visibility", "the same, deciding whether to lay out at all"},
+    {"will-change", "a hint to a compositor this engine does not have"},
+    {"outline", "a second frame outside the box, and a border is the one an interface declares"},
+    {"scrollbar", "a scrollbar is a control the client draws, from the overflow the library reports"},
+    {"appearance", "a native widget look is a platform's, and this engine has no platform"},
+    {"zoom", "a scale factor per box is a transform under another name"},
+    {"visibility", "a box that takes room and draws nothing is a second kind of hidden; opacity says it"},
+    {"resize", "a control the client owns"},
+    {"user-select", "text selection is client state, like focus and hover"},
+    {"quotes", "generated content in a stylesheet"},
+    {"counter", "the same, counted"},
+    {"list-style", "a marker box is inline layout with a second box beside the content"},
+
+    /* A SCRIPT DECIDING A LAYOUT. This is a mechanism and not a browser. */
+    {"a script in the document decides this layout",
+     "this engine runs a declared handler and never a document's own program"},
+};
+
+}  // namespace
+
+const char *WhyOutside(std::string_view name) {
+  for (const Boundary &boundary : kBoundaries) {
+    const std::string_view row(boundary.Name);
+    if (name.size() >= row.size() && name.compare(0, row.size(), row) == 0) { return boundary.Why; }
+  }
+  return nullptr;
+}
 
 bool Selects(const Rule &rule, const Markup &markup, int node) {
   if (rule.Chain.empty()) { return false; }

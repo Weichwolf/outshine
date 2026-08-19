@@ -23,6 +23,7 @@ constexpr uint32_t kSpaceAround = Keyword("space-around");
 constexpr uint32_t kStretch = Keyword("stretch");
 constexpr uint32_t kBorderBox = Keyword("border-box");
 constexpr uint32_t kHidden = Keyword("hidden");
+constexpr uint32_t kStatic = Keyword("static");
 constexpr uint32_t kPre = Keyword("pre");
 constexpr uint32_t kRight = Keyword("right");
 constexpr uint32_t kSpaceEvenly = Keyword("space-evenly");
@@ -141,6 +142,11 @@ struct Placer {
    * and NOT the room its container offers: an empty box wants nothing, and an engine that handed it
    * the container's width would report every such row overfull and shrink every sibling. */
   double MaxContent(int node, const Computed *inherited);
+  /* THE SMALLEST WIDTH THE CONTENT CAN BE SQUEEZED INTO WITHOUT OVERFLOWING ITS OWN PARTS: the widest
+   * single word of a text run, the widest indivisible child of a block. It is what CSS calls the
+   * min-content size, and it is a DIFFERENT question from max-content -- the two coincide only where
+   * nothing can wrap. */
+  double MinContent(int node, const Computed *inherited);
   /* WHERE AN ITEM'S FIRST BASELINE SITS, measured from its own top margin edge, by laying it out in
    * the width it will get. It is a trial layout and its boxes are thrown away, which is what makes a
    * baseline knowable before the item is placed. */
@@ -209,6 +215,56 @@ void Placer::Measure(int node, const Computed *inherited, double availableWidth,
     widest = std::fmax(widest, one.X - scratch[0].X + one.Width);
   }
   if (widest > 0) { width = std::fmin(width, widest); }
+}
+
+double Placer::MinContent(int node, const Computed *inherited) {
+  const Node &element = Tree->Nodes()[(size_t)node];
+  if (element.Kind == NodeKind::Text) { return 0; }
+  const Computed style = StyleOf(node, inherited);
+  const uint32_t display = style.Word(Property::Display, kDisplayInline);
+  if (display == kDisplayNone) { return 0; }
+
+  double emPx = 16.0;
+  if (style.Has(Property::FontSize)) {
+    bool absent = false;
+    const double found = Resolve(style.Of(Property::FontSize), 16.0, 16.0, RootEm, absent);
+    if (!absent) { emPx = found; }
+  }
+  const auto len = [&](Property what, double fallback) {
+    if (!style.Has(what)) { return fallback; }
+    bool absent = false;
+    const double found = Resolve(style.Of(what), 0.0, emPx, RootEm, absent);
+    return absent ? fallback : found;
+  };
+  const double frame = len(Property::BorderLeftWidth, 0) + len(Property::BorderRightWidth, 0) +
+                       len(Property::PaddingLeft, 0) + len(Property::PaddingRight, 0);
+  const double margins = len(Property::MarginLeft, 0) + len(Property::MarginRight, 0);
+  if (style.Has(Property::Width) && style.Of(Property::Width).How == Unit::Pixels) {
+    const double declared = style.Of(Property::Width).Number;
+    return (style.Word(Property::BoxSizing, 0) == kBorderBox ? declared : declared + frame) + margins;
+  }
+
+  double own = 0;
+  for (const int child : element.Children) {
+    const Node &inner = Tree->Nodes()[(size_t)child];
+    if (inner.Kind == NodeKind::Text) {
+      /* THE WIDEST SINGLE WORD, because that is the narrowest a run can be made without breaking one
+       * -- and this subset declares that a word is never broken. */
+      const std::string text = Collapsed(inner.Text);
+      size_t at = 0;
+      while (at < text.size()) {
+        const size_t end = text.find(' ', at);
+        const size_t stop = end == std::string::npos ? text.size() : end;
+        own = std::fmax(own, Width(text, at, stop, emPx));
+        at = stop == text.size() ? stop : stop + 1;
+      }
+      continue;
+    }
+    /* EVEN A ROW FLEX CONTAINER TAKES THE MAX AND NOT THE SUM HERE: its items may wrap, and where they
+     * cannot the shrink factor still makes the row narrower than the sum. */
+    own = std::fmax(own, MinContent(child, &style));
+  }
+  return own + frame + margins;
 }
 
 double Placer::MaxContent(int node, const Computed *inherited) {
@@ -453,7 +509,11 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
    * work for the sizes and be wrong for `justify-content`, which measures from the flex start. */
   const bool mainReversed = direction == kRowReverse || direction == kColumnReverse;
   const double mainRoom = column ? contentHeight : contentWidth;
-  const double crossRoom = column ? contentWidth : contentHeight;
+  const double crossRoom = column ? contentWidth : std::fmax(0.0, contentHeight);
+  /* WHETHER THERE IS A ROOM TO MEASURE AGAINST AT ALL. Without one an item keeps the size its own
+   * content asked for: nothing grows into space that has no size and nothing shrinks to fit a
+   * container that has not been given one. */
+  const bool definiteMain = mainRoom >= 0.0;
   const double gap = style.Has(Property::Gap) ? style.Of(Property::Gap).Number : 0.0;
   const uint32_t wrapping = style.Word(Property::FlexWrap, 0);
   const bool reversed = wrapping == kWrapReverse;
@@ -469,7 +529,7 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
     double Base = 0, Main = 0, Cross = 0;
     double MainMarginStart = 0, MainMarginEnd = 0, CrossMarginStart = 0, CrossMarginEnd = 0;
     double Grow = 0, Shrink = 1;
-    double Em = 0;
+    double Em = 0, Floor = 0;
     Property Least = Property::MinWidth, Most = Property::MaxWidth;
     bool CrossDeclared = false;
   };
@@ -557,6 +617,22 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
     item.Least = column ? Property::MinHeight : Property::MinWidth;
     item.Most = column ? Property::MaxHeight : Property::MaxWidth;
     item.Em = itemEm;
+    /* THE AUTOMATIC MINIMUM SIZE. A flex item's `min-width`/`min-height` default to `auto`, and `auto`
+     * on a flex item is its CONTENT-BASED MINIMUM -- not zero. [MEASURED] `flex-minimum-size-001` puts
+     * a 100 px child inside a 10 px flexbox and states the item stays 100 and overflows; flooring the
+     * shrink at zero answered 0. A declared minimum wins over it, and a clipped item has none, because
+     * an item that hides its own overflow has said it may be smaller than its contents. */
+    if (!item.Style.Has(item.Least) || item.Style.Of(item.Least).How == Unit::Auto) {
+      if (item.Style.Word(Property::Overflow, 0) != kHidden) {
+        if (column) {
+          double w = 0, h = 0;
+          Measure(child, &style, contentWidth, w, h);
+          item.Floor = h;
+        } else {
+          item.Floor = MinContent(child, &style) - item.MainMarginStart - item.MainMarginEnd;
+        }
+      }
+    }
     item.Main = item.Base;
     items.push_back(std::move(item));
   }
@@ -579,7 +655,7 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
     for (size_t i = 0; i < items.size(); ++i) {
       const double outer = items[i].Base + items[i].MainMarginStart + items[i].MainMarginEnd;
       const double withGap = line.Count == 0 ? outer : taken + gap + outer;
-      if (wraps && line.Count > 0 && mainRoom > 0 && withGap > mainRoom) {
+      if (wraps && line.Count > 0 && definiteMain && mainRoom > 0 && withGap > mainRoom) {
         lines.push_back(line);
         line = Line{i, 0, 0, 0};
         taken = outer;
@@ -600,7 +676,7 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
       grow += items[i].Grow;
       shrinkWeight += items[i].Shrink * items[i].Base;
     }
-    const double free = mainRoom - taken;
+    const double free = definiteMain ? mainRoom - taken : 0.0;
     for (size_t i = line.From; i < line.From + line.Count; ++i) {
       Item &one = items[i];
       one.Main = one.Base;
@@ -609,7 +685,8 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
       } else if (free < 0 && shrinkWeight > 0) {
         one.Main = std::fmax(0.0, one.Base + free * (one.Shrink * one.Base / shrinkWeight));
       }
-      one.Main = Clamped(one.Main, one.Style, one.Least, one.Most, mainRoom, one.Em);
+      one.Main = Clamped(std::fmax(one.Main, one.Floor), one.Style, one.Least, one.Most, mainRoom,
+                         one.Em);
     }
     for (size_t i = line.From; i < line.From + line.Count; ++i) {
       Item &one = items[i];
@@ -704,7 +781,7 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
       used += items[i].Main + items[i].MainMarginStart + items[i].MainMarginEnd;
     }
     double cursor = 0, between = gap;
-    const double slack = mainRoom - used;
+    const double slack = definiteMain ? mainRoom - used : 0.0;
     if (slack > 0) {
       if (justify == kFlexEnd) {
         cursor = slack;
@@ -760,7 +837,7 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
       const double crossAt = line.CrossAt + inLine;
       /* THE MAIN POSITION IS MIRRORED HERE AND NOWHERE ELSE. `cursor` is where the item sits measured
        * from the flex start; a reversed direction measures the same distance from the other end. */
-      const double mainAt = mainReversed ? mainRoom - cursor - one.Main : cursor;
+      const double mainAt = mainReversed && definiteMain ? mainRoom - cursor - one.Main : cursor;
       const double x = column ? contentX + crossAt : contentX + mainAt;
       const double y = column ? contentY + mainAt : contentY + crossAt;
       /* THE ITEM IS GIVEN THE ROOM FLEX DECIDED, AND THE ROOM IS ITS OWN AXIS'S. A row's horizontal
@@ -846,6 +923,8 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
   box.Radius = len(Property::BorderRadius, containerWidth, 0);
   box.Opacity = style.Has(Property::Opacity) ? style.Of(Property::Opacity).Number : 1.0;
   box.Clips = style.Word(Property::Overflow, 0) == kHidden;
+  box.Positioned = style.Has(Property::Position) &&
+                   style.Word(Property::Position, kStatic) != kStatic;
   box.Colour = style.Has(Property::Colour) ? style.Of(Property::Colour).Word : 0x000000FFu;
   box.FontSize = emPx;
   box.Parent = parentBox;
@@ -863,6 +942,15 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
   if (widthAbsent) {
     contentWidth =
         std::fmax(0.0, containerWidth - box.Margin.Left - box.Margin.Right - frameX);
+    /* AN INLINE-LEVEL BOX SHRINKS TO FIT AND A BLOCK ONE FILLS. That is the whole difference this
+     * subset holds between `flex` and `inline-flex`, and it is the one that decides a size:
+     * [MEASURED] `flex-minimum-size-001` states 110 for an inline flex container whose item wants 110,
+     * and filling the body answered 784. Fit-content is the smaller of what the content wants and what
+     * there is. */
+    if (style.Word(Property::Display, kDisplayInline) == kDisplayInlineFlex) {
+      const double wants = MaxContent(node, inherited) - box.Margin.Left - box.Margin.Right - frameX;
+      contentWidth = std::fmax(0.0, std::fmin(contentWidth, wants));
+    }
   }
   contentWidth = Clamped(contentWidth + (borderBox ? frameX : 0.0), style, Property::MinWidth,
                          Property::MaxWidth, containerWidth, emPx) -
@@ -889,14 +977,20 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
    * [MEASURED] `align-content-vert-001b` writes `max-height: 10px` where `001a` writes `height: 10px`,
    * and handing zero room to the second made the container one line where the document states three:
    * 104 of its assertions, on a declaration one word apart from a case that already held. */
-  double heightRoom = heightAbsent ? 0.0 : contentHeight;
+  /* AN INDEFINITE MAIN SIZE IS NOT A MAIN SIZE OF ZERO, and the two must be distinguishable or every
+   * item of an auto-height column shrinks to nothing. [MEASURED] `box-sizing-min-max-sizes-001` states
+   * 30 for items in a container with no declared height and answered 0: the free space came out
+   * negative against a room of zero, and the shrink obeyed it. `-1` is *there is no room to measure
+   * against*, which is a third answer and not a small number. */
+  double heightRoom = heightAbsent ? -1.0 : contentHeight;
   if (heightAbsent && style.Has(Property::MaxHeight) &&
       style.Of(Property::MaxHeight).How != Unit::Auto) {
     bool absent = false;
     const double ceiling = Resolve(style.Of(Property::MaxHeight), containerHeight, emPx, RootEm, absent);
     if (!absent) { heightRoom = std::fmax(0.0, ceiling - (borderBox ? frameY : 0.0)); }
   }
-  const double used = Children(node, style, self, contentX, contentY, contentWidth, heightRoom, emPx);
+  const double used = Children(node, style, self, contentX, contentY, contentWidth,
+                               std::fmax(heightRoom, heightRoom < 0 ? -1.0 : 0.0), emPx);
   if (heightAbsent) { contentHeight = used; }
   /* THE LIMITS ARE APPLIED TO THE BOX THE DECLARATION MEANS. `min-height` speaks of the same box
    * `height` does, so under `border-box` both are the border box and under the default both are the

@@ -22,6 +22,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "Check.h"
@@ -174,34 +175,43 @@ int main(int argc, char **argv) {
    * decide whether it matters is the heuristic this refuses to be. */
   const std::string scripted =
       markup.CarriesAScript() ? "a script in the document decides this layout" : "";
-  const size_t outsideProperties = sheet.PropertiesOutsideTheSubset();
-  const size_t outsideSelectors = sheet.SelectorsOutsideTheSubset();
   const std::vector<std::string> outsideElements = Ui::ElementsOutsideTheSubset(markup);
-  if (outsideProperties + outsideSelectors + outsideElements.size() > 0 || !scripted.empty()) {
-    std::string names;
-    for (const std::string &name : sheet.NamesOutsideTheSubset()) {
-      if (!names.empty()) { names += " "; }
-      names += name;
+  std::vector<std::string> names;
+  for (const std::string &name : sheet.NamesOutsideTheSubset()) { names.push_back(name); }
+  for (const std::string &name : outsideElements) { names.push_back("<" + name + ">"); }
+  if (!scripted.empty()) { names.push_back(scripted); }
+
+  if (!names.empty()) {
+    /* **A BOUNDARY AND A GAP ARE TWO ANSWERS AND THE ENGINE'S OWN TABLE SEPARATES THEM.** A case this
+     * engine declines because it will never do floats is FINISHED; one it declines because a
+     * capability is missing is WAITING. Both read as *outside the subset* to a counter, and a suite
+     * that could not tell them apart would have a second number that means nothing.
+     *
+     * **AN UNDECLARED NAME IS RED.** That is what stops this from being a rubber stamp: a case cannot
+     * leave the corpus quietly, and the only way to make one green is to build the capability or to
+     * write the boundary down with its reason. */
+    std::string boundary, gap;
+    for (const std::string &name : names) {
+      const char *why = Ui::WhyOutside(name);
+      std::string &into = why != nullptr ? boundary : gap;
+      if (!into.empty()) { into += " "; }
+      into += name;
+      if (why != nullptr) { into += " (" + std::string(why) + ")"; }
     }
-    for (const std::string &name : outsideElements) {
-      if (!names.empty()) { names += " "; }
-      names += "<" + name + ">";
+    if (gap.empty()) {
+      std::printf("UI-SUBSET reduced\n");
+      std::printf("REDUCED %s -- every name that puts it outside is a declared boundary: %s\n",
+                  id.c_str(), boundary.c_str());
+      outshine::Test::Checked(true, "the case is outside a boundary this engine declared",
+                              (id + ": " + boundary).c_str(), __FILE__, __LINE__);
+    } else {
+      std::printf("UI-SUBSET outside\n");
+      std::printf("OUTSIDE %s -- undeclared: %s\n", id.c_str(), gap.c_str());
+      outshine::Test::Checked(false, "every name that puts a case outside is declared",
+                              (id + ": " + gap + " is outside the subset and nothing says why")
+                                  .c_str(),
+                              __FILE__, __LINE__);
     }
-    if (!scripted.empty()) {
-      if (!names.empty()) { names += " "; }
-      names += scripted;
-    }
-    std::printf("UI-SUBSET outside\n");
-    std::printf("OUTSIDE %s -- %zu properties, %zu selectors and %zu elements this engine does not "
-                "hold: %s\n",
-                id.c_str(), outsideProperties, outsideSelectors, outsideElements.size(),
-                names.c_str());
-    /* THE CLAIM A CASE OUTSIDE THE SUBSET STILL MAKES, and it is checkable rather than waved through:
-     * the reader NAMED what it could not hold. A counter that went up with an empty list would be a
-     * case quietly dropped, which is the one thing the second count exists to make visible. */
-    outshine::Test::Checked(!names.empty(), "the reader names what it drops",
-                            (id + " reaches past the subset and says which names").c_str(), __FILE__,
-                            __LINE__);
     return outshine::Test::Report();
   }
 
@@ -212,8 +222,28 @@ int main(int argc, char **argv) {
    * colours, so the count is checked before the values are. */
   int stated = 0;
   double worst = 0.0;
-  for (const Ui::Box &box : layout.Boxes()) {
+  /* THE STATED OFFSET IS MEASURED FROM THE OFFSET PARENT AND NOT FROM THE VIEWPORT. `check-layout`
+   * reads `offsetLeft` and `offsetTop`, which CSSOM defines relative to the nearest POSITIONED
+   * ancestor's padding edge -- so a case that wraps its subject in `position: relative` states 0 where
+   * the box sits at 8, and comparing against the viewport measures a different quantity. [MEASURED]
+   * `flexitem-no-margin-collapsing` states `data-offset-x="0"` for a box this engine places at 8, and
+   * the eight is `body`'s margin, which the case's own positioned container excludes. */
+  const auto originOf = [&layout](int at) {
+    double x = 0, y = 0;
+    for (int up = layout.Boxes()[(size_t)at].Parent; up >= 0;
+         up = layout.Boxes()[(size_t)up].Parent) {
+      const Ui::Box &over = layout.Boxes()[(size_t)up];
+      if (!over.Positioned) { continue; }
+      x = over.X + over.Border.Left;
+      y = over.Y + over.Top();
+      break;
+    }
+    return std::pair<double, double>{x, y};
+  };
+  for (size_t boxAt = 0; boxAt < layout.Boxes().size(); ++boxAt) {
+    const Ui::Box &box = layout.Boxes()[boxAt];
     if (box.Node < 0) { continue; }
+    const std::pair<double, double> origin = originOf((int)boxAt);
     const std::string &element = markup.Nodes()[size_t(box.Node)].Name;
     for (const Assertion &assertion : kAssertions) {
       const std::string *declared = markup.AttributeOf(box.Node, assertion.Attribute);
@@ -229,8 +259,8 @@ int main(int argc, char **argv) {
       }
       const double got = std::strcmp(assertion.What, "width") == 0    ? box.Width
                          : std::strcmp(assertion.What, "height") == 0 ? box.Height
-                         : std::strcmp(assertion.What, "x") == 0      ? box.X
-                                                                     : box.Y;
+                         : std::strcmp(assertion.What, "x") == 0      ? box.X - origin.first
+                                                                     : box.Y - origin.second;
       /* THE DOCUMENT QUOTES THE PROPERTY IT READS, AND THAT PROPERTY IS AN INTEGER. `check-layout`
        * compares `offsetLeft`, `offsetTop`, `offsetWidth` and `offsetHeight`, every one of which CSSOM
        * defines as a rounded value -- so a document stating `61` is stating what the browser rounded

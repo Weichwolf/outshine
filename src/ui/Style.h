@@ -78,6 +78,8 @@ struct Compound {
    * named outside the subset; the corpus writes the integer form and this holds it. Zero means the
    * selector said nothing about position, which is what every selector without it says. */
   int NthChild = 0;
+  /* `*` -- matches every element and adds nothing to specificity, which is CSS's own arithmetic. */
+  bool Universal = false;
   std::string Tag;                    /* empty where the selector names no element type */
   std::vector<std::string> Classes;
   std::string Id;
@@ -129,6 +131,23 @@ private:
 [[nodiscard]] Property PropertyNamed(std::string_view name);
 /* Whether a rule's chain selects this node of this tree. */
 [[nodiscard]] bool Selects(const Rule &rule, const Markup &markup, int node);
+
+/* WHY A CAPABILITY IS DELIBERATELY OUTSIDE, or `nullptr` where it is not deliberate at all
+ * (board:1442).
+ *
+ * **THIS IS THE DIFFERENCE BETWEEN A BOUNDARY AND A GAP, and a suite that cannot tell them apart is a
+ * suite whose second number means nothing.** A case this engine declines because it will never do
+ * floats is a case that is FINISHED; a case it declines because nobody has written `flex-basis` yet is
+ * a case that is waiting. Both read as *outside the subset* to a counter, and only this table
+ * separates them.
+ *
+ * **THE REASON IS REQUIRED AND IT IS THE POINT.** An entry with no argument beside it is a
+ * disqualification wearing a softer word -- the same rule the picture corpus's reductions carry, and
+ * for the same reason.
+ *
+ * The name is what the reader published: a property, a `property:value`, a selector, an `<element>`,
+ * or a sentence the harness wrote. A row matches a name it equals or is a prefix of. */
+[[nodiscard]] const char *WhyOutside(std::string_view name);
 
 } // namespace outshine::Ui
 #endif

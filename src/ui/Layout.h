@@ -95,6 +95,12 @@ struct Box {
   uint32_t Background = 0, BorderColour = 0;
   double Radius = 0, Opacity = 1.0;
   bool Clips = false;
+  /* THE BOX ESTABLISHES A POSITION FOR WHAT IS INSIDE IT -- `position` other than `static`. This engine
+   * does not OFFSET a relatively positioned box yet (that is `position: absolute`'s own item), but
+   * whether a box is positioned is what every offset inside it is measured from, so it is published. */
+  bool Positioned = false;
+  /* The top border edge's inner offset, so a consumer needs no second spelling of the same sum. */
+  [[nodiscard]] double Top(void) const { return Border.Top; }
   int Parent = -1;
   std::vector<int> Children;
   /* WHERE THE FIRST BASELINE SITS, measured from this box's own top border edge. It is what
