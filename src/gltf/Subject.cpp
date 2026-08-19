@@ -844,10 +844,20 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
             double local[3] = {directions[vertex * 3], directions[vertex * 3 + 1],
                                directions[vertex * 3 + 2]};
             double global[3];
+            /* A COLLAPSED TRANSFORM IS A SURFACE WITH NO AREA, AND THAT IS A PICTURE RATHER THAN A
+             * REFUSAL (board:1439). A scale of zero is legal glTF and `InterpolationTest` animates one
+             * on purpose -- its three samplers pulse `(1,1,1)` to `(0,0,0)` and back, which is the whole
+             * subject of the case -- so a node at that instant has every vertex on one point, every
+             * triangle degenerate and nothing to draw. **The engine's rule is degrade on detail and
+             * refuse on existence**, and a node scaled to nothing still exists; it is merely
+             * infinitely small.
+             *
+             * THE NORMAL IS ZERO AND IT IS THE ARITHMETIC'S OWN ANSWER, not a substitute for one: the
+             * surface the normal was perpendicular to has no orientation left, and the line below
+             * already carries that rule for a zero-length normal the FILE declares -- *the consumer
+             * sees a zero and the picture shows it*. This is the same statement one step earlier. */
             if (!place.At(vertex).Normal(local, global)) {
-              return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
-                            " carries a NORMAL and a transform with no inverse, so the surface it is "
-                            "perpendicular to has collapsed");
+              global[0] = global[1] = global[2] = 0.0;
             }
             /* A ZERO-LENGTH NORMAL IS THE FILE'S AND IS CARRIED AS IT ARRIVED. Substituting one here
              * would make a malformed vertex look shaded; the consumer sees a zero and the picture
