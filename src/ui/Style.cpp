@@ -449,6 +449,10 @@ void Stylesheet::Read(std::string_view text) {
      * something it does not. */
     if (css[at] == '@') {
       ++Unselectable_;
+      if (Names_.size() < 64) {
+        const size_t stops = css.find_first_of("{; \t\r\n", at);
+        Names_.emplace_back(css.substr(at, (stops == std::string_view::npos ? css.size() : stops) - at));
+      }
       const size_t brace = css.find('{', at);
       const size_t semi = css.find(';', at);
       if (semi != std::string_view::npos && (brace == std::string_view::npos || semi < brace)) {
@@ -497,7 +501,12 @@ void Stylesheet::Read(std::string_view text) {
         if (held) { rule.Chain.push_back(std::move(compound)); }
       }
       if (!held || rule.Chain.empty()) {
+        /* THE SELECTOR IS NAMED AND NOT ONLY COUNTED. [MEASURED] seven corpus cases came back
+         * *outside the subset* with an EMPTY list of what put them there -- they were outside by a
+         * selector alone, and a count with nothing beside it is a case quietly dropped, which is the
+         * one thing the second count exists to make visible (board:1445). */
         ++Unselectable_;
+        if (Names_.size() < 64) { Names_.emplace_back(head); }
         continue;
       }
       for (const Compound &one : rule.Chain) {
