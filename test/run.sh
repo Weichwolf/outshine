@@ -129,6 +129,7 @@ LayerIncludes() {
     outshine/unit/core) printf '%s' "-Isrc/core -Isrc/core/io" ;;
     outshine/unit/data) printf '%s' "-Isrc/core -Isrc/data" ;;
     outshine/unit/gltf) printf '%s' "-Isrc/core -Isrc/gltf" ;;
+    outshine/unit/ui) printf '%s' "-Isrc/core -Isrc/ui" ;;
     outshine/unit/scenario) printf '%s' "-Isrc/core -Isrc/scenario" ;;
     outshine/unit/generators) printf '%s' "-Isrc/core -Isrc/generators" ;;
     outshine/unit/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
@@ -233,6 +234,7 @@ LayerGroups() {
     outshine/unit/core) printf '%s' "src/core src/core/io" ;;
     outshine/unit/data) printf '%s' "src/core src/core/io src/data" ;;
     outshine/unit/gltf) printf '%s' "src/core src/gltf" ;;
+    outshine/unit/ui) printf '%s' "src/core src/ui" ;;
     outshine/unit/scenario) printf '%s' "src/core src/scenario" ;;
     outshine/unit/generators) printf '%s' "src/core src/generators" ;;
     outshine/unit/generators/draw) printf '%s' "src/core src/generators src/generators/draw" ;;
@@ -305,6 +307,7 @@ GroupIncludes() {
     src/core | src/core/io | src/core/Sha256.cpp | src/core/Json.cpp) printf '%s' "-Isrc/core -Isrc/core/io" ;;
     src/data) printf '%s' "-Isrc/core -Isrc/data" ;;
     src/gltf) printf '%s' "-Isrc/core -Isrc/gltf" ;;
+    src/ui) printf '%s' "-Isrc/core -Isrc/ui" ;;
     src/scenario) printf '%s' "-Isrc/core -Isrc/scenario" ;;
     src/generators) printf '%s' "-Isrc/core -Isrc/generators" ;;
     src/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;

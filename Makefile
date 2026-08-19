@@ -41,6 +41,11 @@ INC_GENERATORS := -Isrc/core -Isrc/generators
 INC_GENDRAW  := $(INC_GENERATORS) -Isrc/generators/draw
 INC_WORLD    := $(INC_CORE) -Isrc/data -Isrc/world -Isrc/world/tiles
 INC_GLTF     := -Isrc/core -Isrc/gltf
+# THE DECLARED INTERFACE, and its whole world is core and itself (board:1442). No device type and no
+# draw call has a spelling in it: it answers what a document MEANS -- which boxes, which glyphs,
+# where -- and the renderer is what puts that on a surface. That is what makes a layout checkable
+# with no device in scope, which is the whole of how this corpus judges it.
+INC_UI       := -Isrc/core -Isrc/ui
 # THE DECLARED RENDER PLAN, and its whole world is core and itself. No device type has a spelling
 # in it, which is what makes a plan checkable before a device exists -- and what makes the device
 # layer replaceable underneath it.
@@ -62,6 +67,7 @@ CORE_SRCS      := $(wildcard src/core/*.cpp) $(wildcard src/core/io/*.cpp)
 DATA_SRCS      := $(wildcard src/data/*.cpp)
 SCENARIO_SRCS  := $(wildcard src/scenario/*.cpp)
 GLTF_SRCS      := $(wildcard src/gltf/*.cpp)
+UI_SRCS        := $(wildcard src/ui/*.cpp)
 GEN_SRCS       := $(wildcard src/generators/*.cpp)
 GEN_DRAW_SRCS  := $(wildcard src/generators/draw/*.cpp)
 WORLD_SRCS     := $(wildcard src/world/*.cpp) $(wildcard src/world/tiles/*.cpp)
@@ -94,6 +100,7 @@ all:             ## compile the library entire -> build/liboutshine.a
 	  build_group "$(INC_DATA)" "$$CC" $(DATA_SRCS); \
 	  build_group "$(INC_SCENARIO)" "$$CC" $(SCENARIO_SRCS); \
 	  build_group "$(INC_GLTF)" "$$CC" $(GLTF_SRCS); \
+	  build_group "$(INC_UI)" "$$CC" $(UI_SRCS); \
 	  build_group "$(INC_GENERATORS)" "$$CC" $(GEN_SRCS); \
 	  build_group "$(INC_GENDRAW)" "$$CC" $(GEN_DRAW_SRCS); \
 	  build_group "$(INC_WORLD) $(SDL_IMAGE_CFLAGS)" "$$CC" $(WORLD_SRCS); \
