@@ -228,6 +228,16 @@ struct Case {
    * checked against this once at the end rather than against one frame's list, because the grid's own
    * claims are scored outside the frame loop and a per-frame check cannot see them. */
   std::set<std::string> MetricsReported;
+  /* **WHETHER THE FILE'S ANIMATION POSES THIS SUBJECT, which is what the case DECLARED** (board:1465).
+   * It used to be `Frames > 1`, and that conflated two questions the corpus never separated because
+   * no case had ever declared a one-frame grid: this engine then built the REST pose while the oracle
+   * applied what the file carries, and the two compared different bodies with nothing saying so.
+   * [MEASURED] `Animation_NodeMisc_03` keys one frame translating `[-0.1, 0, 0]`, and its vertex 6
+   * ended up 0.0526 m inside a near plane derived from the animated bounds -- half the translation. */
+  [[nodiscard]] bool Posed() const { return !Animations.empty(); }
+  /* **WHETHER THIS CASE IS A SEQUENCE**, which is the frame count's question and stays it: the product
+   * names, the previous pose the velocity target differences against, and every claim about a grid
+   * changing the picture are all about having MORE THAN ONE frame. */
   [[nodiscard]] bool Animated() const { return Frames > 1; }
   /* Which frame a product name carries, and it is nothing at all for a still. */
   [[nodiscard]] std::optional<int> ProductFrame(int frame) const {
@@ -1065,7 +1075,7 @@ std::string MissingInputs(const Case &subject) {
  * frame and stands for the whole grid. What is rebuilt is the geometry, because the pose is baked
  * into the world positions exactly as the file's own placements are. */
 [[nodiscard]] bool PoseGeometry(Case &subject, int frame, std::string &error) {
-  if (!subject.Animated()) {
+  if (!subject.Posed()) {
     if (subject.Geometry.Build(subject.File, subject.Variant)) { return true; }
     error = subject.Geometry.Error();
     return false;
@@ -1090,7 +1100,7 @@ std::string MissingInputs(const Case &subject) {
     error = subject.File.Error();
     return false;
   }
-  if (subject.Animated() &&
+  if (subject.Posed() &&
       !outshine::Gltf::Pose::Build(subject.File,
                                    outshine::Span<const int>(subject.Animations.data(),
                                                              subject.Animations.size()),

@@ -36,13 +36,24 @@ answer.
 
 ## What must be true
 
-- [ ] **`Animated()` answers from the DECLARATION** -- a case that names `animations` is posed by them
+- [x] **`Animated()` answers from the DECLARATION** -- a case that names `animations` is posed by them
   at every frame of its grid, including a grid of one
-- [ ] **A one-frame animated case still poses.** The previous-pose run and the velocity target are a
+- [x] **A one-frame animated case still poses.** The previous-pose run and the velocity target are a
   SEQUENCE's business and stay tied to the frame count, which is a different question in the same
   struct and is why the two were conflated
-- [ ] **The whole corpus is re-measured**, because the change reaches every case that declares an
+- [x] **The whole corpus is re-measured**, because the change reaches every case that declares an
   animation -- and a case whose picture moves is a case that was being compared at the wrong pose
+
+## What it became
+
+`Case::Posed()` answers from the declaration and `Case::Animated()` stays the frame count's question --
+the product names, the previous pose the velocity target differences against, and every claim about a
+grid changing the picture are all about having MORE THAN ONE frame, and none of them is about whether
+an animation applies.
+
+[MEASURED] `Animation_Node_03`'s near-plane refusal moved from **3.138705 m to 3.061730 m**, which is
+the pose changing; the whole corpus is unchanged, because no case in it had ever declared a one-frame
+grid and the conflation was correct about every one of them.
 
 ## Comments
 
