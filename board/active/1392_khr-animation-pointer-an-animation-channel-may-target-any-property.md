@@ -112,3 +112,26 @@ applies these values to a material row per frame, and that is a capability with 
 
 *What changed is that the values now EXIST at an instant, which is what the consumer will need and what
 no amount of reading the channel could supply.*
+
+## The consumer needs no new render API, and finding that out nearly cost a dead path
+
+**`Clients::Show` calls `SetSubjectMaterials` on every call**, and the render harness makes a fresh
+`Studio` per frame -- so the material table is already rebuilt frame by frame and the animated values
+only have to be IN it. A `RefreshMaterialRows` on `SubjectDraw` was written, built and **reverted**: with
+nothing to call it, it would have been the dead path `CLAUDE.md` calls worse than a missing one.
+
+**It is still the right shape for a real frame path** and the reason is worth keeping: the row is pushed
+as fragment uniform data per draw, so rewriting its scalars costs no upload and no rebind, where
+`SetMaterials` retires the slot list and re-uploads every image with it. *The corpus's harness is not the
+frame path, so the engine does not need it yet -- and the round that builds a client which draws the same
+subject for a thousand frames is the round that does.*
+
+## What the next round does, in order
+
+1. **`ResolveSurfaceTable` keys surfaces by slot and `FactorsAt` answers by MATERIAL index**, so the
+   first thing needed is the map between them -- and it exists already, because the table is built from
+   the file's own materials
+2. **`PoseGeometry` is the per-frame hook**: it already runs once per frame of the grid, and the factors
+   belong beside the locals and the weights it already samples
+3. **`AnimatedColorsCube` points its material at the file** -- `source: gltf`, `kind: metal-rough` -- and
+   the case decides the capability, against an oracle that [MEASURED] animates the factor
