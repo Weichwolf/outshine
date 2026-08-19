@@ -1,0 +1,45 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "logical-or-S11.11.2_A3_T2",
+  "title": "Type(x) and Type(y) vary between primitive number and Number object",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "Type(x) and Type(y) vary between primitive number and Number object",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/logical-or/S11.11.2_A3_T2.js",
+    "expects": "runs"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "logical-or-S11.11.2_A3_T2",
+      "name": "S11.11.2_A3_T2",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/expressions/logical-or/S11.11.2_A3_T2.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/logical-or/S11.11.2_A3_T2.js",
+          "sha256": "3dec5a93b540d07d10be9d61b3b8fa9918f3d4aa27d5ead2ba70d5645fa51474",
+          "bytes": 969,
+          "as": "S11.11.2_A3_T2.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "S11.11.2_A3_T2.js"
+    }
+  ]
+}

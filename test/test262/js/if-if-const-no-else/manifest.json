@@ -1,0 +1,46 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "if-if-const-no-else",
+  "title": "Lexical declaration (const) not allowed in statement position",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "Lexical declaration (const) not allowed in statement position",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/statements/if/if-const-no-else.js",
+    "expects": "refuses",
+    "phase": "parse"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "if-if-const-no-else",
+      "name": "if-const-no-else",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/statements/if/if-const-no-else.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/statements/if/if-const-no-else.js",
+          "sha256": "366dbefccc688f56bb1106fd5df4ec7915d55e03f86c439ab9c69db161b6d334",
+          "bytes": 351,
+          "as": "if-const-no-else.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "if-const-no-else.js"
+    }
+  ]
+}

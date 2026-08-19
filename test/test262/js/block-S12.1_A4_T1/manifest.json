@@ -1,0 +1,46 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "block-S12.1_A4_T1",
+  "title": "Checking if execution of \"y={__func}()\" fails",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "Checking if execution of \"y={__func}()\" fails",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/statements/block/S12.1_A4_T1.js",
+    "expects": "refuses",
+    "phase": "parse"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "block-S12.1_A4_T1",
+      "name": "S12.1_A4_T1",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/statements/block/S12.1_A4_T1.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/statements/block/S12.1_A4_T1.js",
+          "sha256": "01eb9d51c5c1c385fdc3280a43e48b798d065c1c0d5fb964530e69176cd89619",
+          "bytes": 552,
+          "as": "S12.1_A4_T1.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "S12.1_A4_T1.js"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "flex-item-contains-size-layout-001",
   "title": "flex-item-contains-size-layout-001",

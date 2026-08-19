@@ -1,0 +1,46 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "while-decl-const",
+  "title": "Lexical declaration (const) not allowed in statement position",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "Lexical declaration (const) not allowed in statement position",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/statements/while/decl-const.js",
+    "expects": "refuses",
+    "phase": "parse"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "while-decl-const",
+      "name": "decl-const",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/statements/while/decl-const.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/statements/while/decl-const.js",
+          "sha256": "aa15d14b03322da729045dc9b0fa5bd8595657ee2df414acc8e62d7dc4e0f393",
+          "bytes": 360,
+          "as": "decl-const.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "decl-const.js"
+    }
+  ]
+}

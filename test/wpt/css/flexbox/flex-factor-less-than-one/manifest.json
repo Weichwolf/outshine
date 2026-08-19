@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "flex-factor-less-than-one",
   "title": "CSS Flexbox: flex factors less than one",

@@ -1,0 +1,45 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "greater-than-bigint-and-symbol",
+  "title": "Relational comparison of BigInt and Symbol values",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "Relational comparison of BigInt and Symbol values",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/greater-than/bigint-and-symbol.js",
+    "expects": "runs"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "greater-than-bigint-and-symbol",
+      "name": "bigint-and-symbol",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/expressions/greater-than/bigint-and-symbol.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/greater-than/bigint-and-symbol.js",
+          "sha256": "0f1694bd6eed414c16ef279c7c3566bd19b01ac3b9aca71e5e278ffe4e521c67",
+          "bytes": 467,
+          "as": "bigint-and-symbol.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "bigint-and-symbol.js"
+    }
+  ]
+}

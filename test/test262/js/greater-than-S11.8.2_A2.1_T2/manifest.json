@@ -1,0 +1,45 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "greater-than-S11.8.2_A2.1_T2",
+  "title": "If GetBase(x) is null, throw ReferenceError",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "If GetBase(x) is null, throw ReferenceError",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/greater-than/S11.8.2_A2.1_T2.js",
+    "expects": "runs"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "greater-than-S11.8.2_A2.1_T2",
+      "name": "S11.8.2_A2.1_T2",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/expressions/greater-than/S11.8.2_A2.1_T2.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/greater-than/S11.8.2_A2.1_T2.js",
+          "sha256": "1906aeea77788eb7948cfd87c984895c45dcc9a47b4770bdcf038068658d53d1",
+          "bytes": 519,
+          "as": "S11.8.2_A2.1_T2.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "S11.8.2_A2.1_T2.js"
+    }
+  ]
+}

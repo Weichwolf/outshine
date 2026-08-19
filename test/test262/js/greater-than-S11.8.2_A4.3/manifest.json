@@ -1,0 +1,45 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "greater-than-S11.8.2_A4.3",
+  "title": "x and y are number primitives",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "x and y are number primitives",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/greater-than/S11.8.2_A4.3.js",
+    "expects": "runs"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "greater-than-S11.8.2_A4.3",
+      "name": "S11.8.2_A4.3",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/expressions/greater-than/S11.8.2_A4.3.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/greater-than/S11.8.2_A4.3.js",
+          "sha256": "23bf92e50ec9f26efe47857c01c77ce46883df893571d74e5bb6dfb4ba3d00ff",
+          "bytes": 1151,
+          "as": "S11.8.2_A4.3.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "S11.8.2_A4.3.js"
+    }
+  ]
+}

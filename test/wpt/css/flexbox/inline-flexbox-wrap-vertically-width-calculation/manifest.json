@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "inline-flexbox-wrap-vertically-width-calculation",
   "title": "CSS Flexbox: Inline flexbox width calculation with flex-direction: column and flex-wrap",

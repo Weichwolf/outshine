@@ -1,0 +1,45 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "assignment-target-super-identifier-reference-null",
+  "title": "Assignment Operator evaluates the value prior validating a SuperProperty's reference (null)",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "Assignment Operator evaluates the value prior validating a SuperProperty's reference (null)",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/assignment/target-super-identifier-reference-null.js",
+    "expects": "runs"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "assignment-target-super-identifier-reference-null",
+      "name": "target-super-identifier-reference-null",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/expressions/assignment/target-super-identifier-reference-null.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/assignment/target-super-identifier-reference-null.js",
+          "sha256": "690e503c6739753bb4c536f921fc287b318449b0ac81cb0fccfdab54d454b02a",
+          "bytes": 938,
+          "as": "target-super-identifier-reference-null.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "target-super-identifier-reference-null.js"
+    }
+  ]
+}

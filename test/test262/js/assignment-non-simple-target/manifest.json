@@ -1,0 +1,46 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "assignment-non-simple-target",
+  "title": "Assignment with non-simple target",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "Assignment with non-simple target",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/assignment/non-simple-target.js",
+    "expects": "refuses",
+    "phase": "parse"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "assignment-non-simple-target",
+      "name": "non-simple-target",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/expressions/assignment/non-simple-target.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/assignment/non-simple-target.js",
+          "sha256": "857063304c47d491e5e91e59859c72dcca316cd31702e51f3e4fa47d62aa9c39",
+          "bytes": 520,
+          "as": "non-simple-target.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "non-simple-target.js"
+    }
+  ]
+}

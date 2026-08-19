@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "flex-minimum-width-flex-items-014",
   "title": "CSS Flexbox: Proper min-width intrinsic size with display: flex",

@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "align-self-baseline-with-flex-wrap",
   "title": "align-self-baseline-with-flex-wrap",

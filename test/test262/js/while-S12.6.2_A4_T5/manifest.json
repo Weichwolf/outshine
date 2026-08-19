@@ -1,0 +1,45 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "while-S12.6.2_A4_T5",
+  "title": "Using labeled \"break\" in order to continue a \"while\" loop",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "Using labeled \"break\" in order to continue a \"while\" loop",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/statements/while/S12.6.2_A4_T5.js",
+    "expects": "runs"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "while-S12.6.2_A4_T5",
+      "name": "S12.6.2_A4_T5",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/statements/while/S12.6.2_A4_T5.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/statements/while/S12.6.2_A4_T5.js",
+          "sha256": "37b0d7c0fa3167140b2139992ba0a0001517afd772369da68106b0e8dc0db993",
+          "bytes": 598,
+          "as": "S12.6.2_A4_T5.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "S12.6.2_A4_T5.js"
+    }
+  ]
+}

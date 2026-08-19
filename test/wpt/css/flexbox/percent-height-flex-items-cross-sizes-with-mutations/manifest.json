@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "percent-height-flex-items-cross-sizes-with-mutations",
   "title": "percent-height-flex-items-cross-sizes-with-mutations",

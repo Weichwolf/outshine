@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "intrinsic-size-fallback-replaced",
   "title": "CSS Sizing Test: Testing intrinsic size fallback 300x150 for some replaced elements.",

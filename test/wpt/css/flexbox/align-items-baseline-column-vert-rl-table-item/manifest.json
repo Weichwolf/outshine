@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "align-items-baseline-column-vert-rl-table-item",
   "title": "align-items-baseline-column-vert-rl-table-item",

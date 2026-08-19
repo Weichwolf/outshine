@@ -1,0 +1,45 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "less-than-or-equal-bigint-and-incomparable-string",
+  "title": "Relational comparison of BigInt and string values",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "Relational comparison of BigInt and string values",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/less-than-or-equal/bigint-and-incomparable-string.js",
+    "expects": "runs"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "less-than-or-equal-bigint-and-incomparable-string",
+      "name": "bigint-and-incomparable-string",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/expressions/less-than-or-equal/bigint-and-incomparable-string.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/less-than-or-equal/bigint-and-incomparable-string.js",
+          "sha256": "d6dc9372e24c0073dc200389b10e8814f6b3f8970039d39a15fbf07921856d8f",
+          "bytes": 1822,
+          "as": "bigint-and-incomparable-string.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "bigint-and-incomparable-string.js"
+    }
+  ]
+}

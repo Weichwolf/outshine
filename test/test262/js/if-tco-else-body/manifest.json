@@ -1,0 +1,49 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "if-tco-else-body",
+  "title": "Statement within statement is a candidate for tail-call optimization.",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "Statement within statement is a candidate for tail-call optimization.",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/statements/if/tco-else-body.js",
+    "expects": "runs"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "if-tco-else-body",
+      "name": "tco-else-body",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/statements/if/tco-else-body.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/statements/if/tco-else-body.js",
+          "sha256": "17905990e63fcbfd6f1c21e24d0ec39a198cee81f09d140f5acfcad708fc6f69",
+          "bytes": 547,
+          "as": "tco-else-body.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "tco-else-body.js",
+      "attributes": [
+        "flags:onlyStrict",
+        "includes:tcoHelper.js"
+      ]
+    }
+  ]
+}

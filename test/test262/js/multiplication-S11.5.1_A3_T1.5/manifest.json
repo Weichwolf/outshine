@@ -1,0 +1,45 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "multiplication-S11.5.1_A3_T1.5",
+  "title": "Type(x) and Type(y) vary between Object object and Function object",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "Type(x) and Type(y) vary between Object object and Function object",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/multiplication/S11.5.1_A3_T1.5.js",
+    "expects": "runs"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "multiplication-S11.5.1_A3_T1.5",
+      "name": "S11.5.1_A3_T1.5",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/expressions/multiplication/S11.5.1_A3_T1.5.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/multiplication/S11.5.1_A3_T1.5.js",
+          "sha256": "db6230e22e4643e2f0b96994504e9664969074593e6931c6b4e4993f47d701d7",
+          "bytes": 1014,
+          "as": "S11.5.1_A3_T1.5.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "S11.5.1_A3_T1.5.js"
+    }
+  ]
+}

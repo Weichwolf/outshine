@@ -1,0 +1,48 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "assignment-8.14.4-8-b_1",
+  "title": "Non-writable property on a prototype written to.",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "Non-writable property on a prototype written to.",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/assignment/8.14.4-8-b_1.js",
+    "expects": "runs"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "assignment-8.14.4-8-b_1",
+      "name": "8.14.4-8-b_1",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/expressions/assignment/8.14.4-8-b_1.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/assignment/8.14.4-8-b_1.js",
+          "sha256": "8dcf4e740904b0a842cbf14ab030fea948f049b75a9309e42b678c2dbddf5c70",
+          "bytes": 527,
+          "as": "8.14.4-8-b_1.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "8.14.4-8-b_1.js",
+      "attributes": [
+        "flags:noStrict"
+      ]
+    }
+  ]
+}

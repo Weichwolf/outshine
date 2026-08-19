@@ -141,6 +141,7 @@ LayerIncludes() {
     outshine/harness) printf '%s' "-Isrc/core" ;;
     harness/khronos/glTF | harness/outshine/render) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
     harness/wpt/css) printf '%s' "-Isrc/core -Isrc/ui" ;;
+    harness/test262/js) printf '%s' "-Isrc/core" ;;
     outshine/frame) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui" ;;
     outshine/shader) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render -Isrc/render/draw -Isrc/render/plan -Isrc/render/stages" ;;
     # THE BROWSER READS A CASE THE WAY THE RUNNER DOES, so it compiles the runner's own reader and
@@ -237,6 +238,7 @@ LayerGroups() {
     outshine/unit/gltf) printf '%s' "src/core src/gltf" ;;
     outshine/unit/ui) printf '%s' "src/core src/ui" ;;
     harness/wpt/css) printf '%s' "src/core/Json.cpp src/ui" ;;
+    harness/test262/js) printf '%s' "src/core/Json.cpp src/core/Script.cpp" ;;
     outshine/unit/scenario) printf '%s' "src/core src/scenario" ;;
     outshine/unit/generators) printf '%s' "src/core src/generators" ;;
     outshine/unit/generators/draw) printf '%s' "src/core src/generators src/generators/draw" ;;
@@ -268,6 +270,7 @@ LayerCases() {
     harness/khronos/glTF) find test/khronos/glTF -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     harness/outshine/render) find test/outshine/render -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     harness/wpt/css) find test/wpt/css -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
+    harness/test262/js) find test/test262/js -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -288,7 +291,7 @@ NotTheHarnesses() {
     viewer/parts) printf '%s' "the browser's own declaration and its face, compiled into the browser" ;;
     outshine/host) printf '%s' "host implementations of what the library declares, compiled into the library" ;;
     outshine/unit/compile | outshine/unit/compile/*) printf '%s' "a compile subject, judged by the layer's own refusal test, never linked" ;;
-    harness/khronos/glTF/prepare | harness/outshine/render/prepare | harness/wpt/css/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;
+    harness/khronos/glTF/prepare | harness/outshine/render/prepare | harness/wpt/css/prepare | harness/test262/js/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;
     harness/shared/corpus | harness/shared/corpus/*) printf '%s' "the offline preparer's own, compiled and run by test/harness/shared/corpus/prepare.py" ;;
     *) return 1 ;;
   esac
@@ -309,7 +312,7 @@ LayerExtraSources() {
 # the layering the build rather than a rule, and it is the same set the Makefile hands each group.
 GroupIncludes() {
   case "$1" in
-    src/core | src/core/io | src/core/Sha256.cpp | src/core/Json.cpp) printf '%s' "-Isrc/core -Isrc/core/io" ;;
+    src/core | src/core/io | src/core/Sha256.cpp | src/core/Json.cpp | src/core/Script.cpp) printf '%s' "-Isrc/core -Isrc/core/io" ;;
     src/data) printf '%s' "-Isrc/core -Isrc/data" ;;
     src/gltf) printf '%s' "-Isrc/core -Isrc/gltf" ;;
     src/ui) printf '%s' "-Isrc/core -Isrc/ui" ;;
@@ -554,6 +557,10 @@ grownPictureOutside=0
 grownPictureUnenforced=0
 uiInside=0
 uiOutside=0
+jsInside=0
+jsOutside=0
+jsHeld=0
+jsRed=0
 uiHeld=0
 uiRed=0
 failed=0
@@ -680,6 +687,16 @@ CountTheTwo() {
   case "$layout" in
     held) uiHeld=$((uiHeld + 1)) ;;
     red) uiRed=$((uiRed + 1)) ;;
+  esac
+  jsSubset=$(sed -n 's/^JS-SUBSET //p' "$2" | head -1)
+  jsCase=$(sed -n 's/^JS-CASE //p' "$2" | head -1)
+  case "$jsSubset" in
+    inside) jsInside=$((jsInside + 1)) ;;
+    outside) jsOutside=$((jsOutside + 1)) ;;
+  esac
+  case "$jsCase" in
+    held) jsHeld=$((jsHeld + 1)) ;;
+    red) jsRed=$((jsRed + 1)) ;;
   esac
   criterion=$(sed -n 's/^KHRONOS-CRITERION //p' "$2" | head -1)
   picture=$(sed -n 's/^PICTURE-BOUND //p' "$2" | head -1)
@@ -1027,6 +1044,11 @@ printf '%s tests: %s PASS  %s FAIL  %s TIMEOUT  %s SIGNAL  %s BUILD  %s SKIP  %s
   printf 'wpt:     subset %s inside of %s   layout %s held, %s red of %s\n' \
     "$uiInside" "$((uiInside + uiOutside))" \
     "$uiHeld" "$uiRed" "$((uiHeld + uiRed))"
+# THE SCRIPT SUITE'S PAIR, AND IT IS THE SAME SHAPE A THIRD TIME (board:1450).
+[ $((jsInside + jsOutside)) -gt 0 ] &&
+  printf 'test262: subset %s inside of %s   cases %s held, %s red of %s\n' \
+    "$jsInside" "$((jsInside + jsOutside))" \
+    "$jsHeld" "$jsRed" "$((jsHeld + jsRed))"
 # WHAT THE API-CONTRACT ARM DOES NOT COVER, printed where its results are, because a green
 # validation arm is not a correctness claim and a later round must not read it as one (board:1123).
 [ "$validatedRan" = yes ] && printf '%s\n' \

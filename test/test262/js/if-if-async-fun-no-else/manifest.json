@@ -1,0 +1,46 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "if-if-async-fun-no-else",
+  "title": ">",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": ">",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/statements/if/if-async-fun-no-else.js",
+    "expects": "refuses",
+    "phase": "parse"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "if-if-async-fun-no-else",
+      "name": "if-async-fun-no-else",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/statements/if/if-async-fun-no-else.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/statements/if/if-async-fun-no-else.js",
+          "sha256": "3bef543e21513550536ffb71b1ebfdc6a82c3193eaf4652f7df4e276ff75cccc",
+          "bytes": 547,
+          "as": "if-async-fun-no-else.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "if-async-fun-no-else.js"
+    }
+  ]
+}

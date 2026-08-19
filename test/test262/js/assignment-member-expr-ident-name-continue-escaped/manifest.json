@@ -1,0 +1,48 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "assignment-member-expr-ident-name-continue-escaped",
+  "title": "continue is a valid identifier name, using escape (MemberExpression IdentifierName)",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "continue is a valid identifier name, using escape (MemberExpression IdentifierName)",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/assignment/member-expr-ident-name-continue-escaped.js",
+    "expects": "runs"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "assignment-member-expr-ident-name-continue-escaped",
+      "name": "member-expr-ident-name-continue-escaped",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/expressions/assignment/member-expr-ident-name-continue-escaped.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/assignment/member-expr-ident-name-continue-escaped.js",
+          "sha256": "07623d7fc12726974c29a7a9242f29790384b4e879372ff5d3752d7fe0f26452",
+          "bytes": 608,
+          "as": "member-expr-ident-name-continue-escaped.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "member-expr-ident-name-continue-escaped.js",
+      "attributes": [
+        "flags:generated"
+      ]
+    }
+  ]
+}

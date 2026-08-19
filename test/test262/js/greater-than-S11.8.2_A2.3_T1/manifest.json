@@ -1,0 +1,45 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "greater-than-S11.8.2_A2.3_T1",
+  "title": "Checking that operands of a \"<\" evaluate left-to-right",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "Checking that operands of a \"<\" evaluate left-to-right",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/greater-than/S11.8.2_A2.3_T1.js",
+    "expects": "runs"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "greater-than-S11.8.2_A2.3_T1",
+      "name": "S11.8.2_A2.3_T1",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/expressions/greater-than/S11.8.2_A2.3_T1.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/greater-than/S11.8.2_A2.3_T1.js",
+          "sha256": "a486969c5f541498948180e5cbc8486e1e74f6c7098b04c729e36baca20b3b7f",
+          "bytes": 694,
+          "as": "S11.8.2_A2.3_T1.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "S11.8.2_A2.3_T1.js"
+    }
+  ]
+}

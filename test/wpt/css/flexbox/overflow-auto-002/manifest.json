@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "overflow-auto-002",
   "title": "CSS Flexbox: correct width for non-overflowing content with flex-direction: column",

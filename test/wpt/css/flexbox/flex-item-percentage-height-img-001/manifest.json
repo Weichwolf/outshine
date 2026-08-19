@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "flex-item-percentage-height-img-001",
   "title": "CSS Flexbox: flex item width with percentage-height replaced element",

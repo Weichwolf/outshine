@@ -1,0 +1,45 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "less-than-or-equal-S11.8.3_A3.1_T1.1",
+  "title": ">",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": ">",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/less-than-or-equal/S11.8.3_A3.1_T1.1.js",
+    "expects": "runs"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "less-than-or-equal-S11.8.3_A3.1_T1.1",
+      "name": "S11.8.3_A3.1_T1.1",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/expressions/less-than-or-equal/S11.8.3_A3.1_T1.1.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/less-than-or-equal/S11.8.3_A3.1_T1.1.js",
+          "sha256": "a0b5d66b2576551586fe8dba7b45910e92cd4674651c6e611b794159d60baf15",
+          "bytes": 916,
+          "as": "S11.8.3_A3.1_T1.1.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "S11.8.3_A3.1_T1.1.js"
+    }
+  ]
+}

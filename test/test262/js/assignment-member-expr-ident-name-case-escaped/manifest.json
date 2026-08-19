@@ -1,0 +1,48 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "assignment-member-expr-ident-name-case-escaped",
+  "title": "case is a valid identifier name, using escape (MemberExpression IdentifierName)",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "case is a valid identifier name, using escape (MemberExpression IdentifierName)",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/assignment/member-expr-ident-name-case-escaped.js",
+    "expects": "runs"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "assignment-member-expr-ident-name-case-escaped",
+      "name": "member-expr-ident-name-case-escaped",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/expressions/assignment/member-expr-ident-name-case-escaped.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/assignment/member-expr-ident-name-case-escaped.js",
+          "sha256": "59ce7d564f67b864f5e28cc70ea91c73e6835459a24762b2b1710cff48beca9d",
+          "bytes": 592,
+          "as": "member-expr-ident-name-case-escaped.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "member-expr-ident-name-case-escaped.js",
+      "attributes": [
+        "flags:generated"
+      ]
+    }
+  ]
+}

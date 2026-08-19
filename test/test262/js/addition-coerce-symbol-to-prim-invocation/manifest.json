@@ -1,0 +1,45 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "addition-coerce-symbol-to-prim-invocation",
+  "title": "Invocation of `Symbol.toPrimitive` method during coercion",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "Invocation of `Symbol.toPrimitive` method during coercion",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/addition/coerce-symbol-to-prim-invocation.js",
+    "expects": "runs"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "addition-coerce-symbol-to-prim-invocation",
+      "name": "coerce-symbol-to-prim-invocation",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/expressions/addition/coerce-symbol-to-prim-invocation.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/addition/coerce-symbol-to-prim-invocation.js",
+          "sha256": "b8ef415aca21861607c2c5c6f9e0f6640039d39da60f920ed99b8d96bba787c0",
+          "bytes": 1853,
+          "as": "coerce-symbol-to-prim-invocation.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "coerce-symbol-to-prim-invocation.js"
+    }
+  ]
+}

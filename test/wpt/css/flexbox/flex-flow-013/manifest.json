@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "flex-flow-013",
   "title": "CSS Flexbox Test: flex-flow - column column-reverse and row-reverse",

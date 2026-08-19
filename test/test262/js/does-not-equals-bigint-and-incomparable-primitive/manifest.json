@@ -1,0 +1,45 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "does-not-equals-bigint-and-incomparable-primitive",
+  "title": "Non-strict inequality comparison of BigInt and miscellaneous primitive values",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "Non-strict inequality comparison of BigInt and miscellaneous primitive values",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/does-not-equals/bigint-and-incomparable-primitive.js",
+    "expects": "runs"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "does-not-equals-bigint-and-incomparable-primitive",
+      "name": "bigint-and-incomparable-primitive",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/expressions/does-not-equals/bigint-and-incomparable-primitive.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/does-not-equals/bigint-and-incomparable-primitive.js",
+          "sha256": "9bb2de7ecca4c9647eef8cd01df4f9b676c9fedabe24aaf3f7a7825d4ef9744d",
+          "bytes": 1522,
+          "as": "bigint-and-incomparable-primitive.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "bigint-and-incomparable-primitive.js"
+    }
+  ]
+}

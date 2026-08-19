@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "image-as-flexitem-size-005v",
   "title": "CSS Test: Testing how explicit main-size & cross-size constraints       influence sizing on non-stretched flexible flex item w/ intrinsic ratio       (with a vertical writing-mode on the flex items).",

@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "fieldset-as-container-justify-center.tentative",
   "title": "fieldset-as-container-justify-center.tentative",

@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "justify-content_space-between-002",
   "title": "CSS Flexbox: justify-content: space-between on the last item of a column",

@@ -73,7 +73,7 @@ std::vector<Listed> Cases(void) {
     std::ifstream declaration(it->path());
     const std::string text((std::istreambuf_iterator<char>(declaration)),
                            std::istreambuf_iterator<char>());
-    one.Document = text.find("\"outshine/ui-case-manifest\"") != std::string::npos;
+    one.Document = text.find("\"outshine/declared-case-manifest\"") != std::string::npos;
     found.push_back(std::move(one));
   }
   std::sort(found.begin(), found.end(), [](const Listed &a, const Listed &b) {

@@ -1,0 +1,48 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "assignment-member-expr-ident-name-static-escaped",
+  "title": "static is a valid identifier name, using escape (MemberExpression IdentifierName)",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "static is a valid identifier name, using escape (MemberExpression IdentifierName)",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/assignment/member-expr-ident-name-static-escaped.js",
+    "expects": "runs"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "assignment-member-expr-ident-name-static-escaped",
+      "name": "member-expr-ident-name-static-escaped",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/expressions/assignment/member-expr-ident-name-static-escaped.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/assignment/member-expr-ident-name-static-escaped.js",
+          "sha256": "e2d22be1c7680f298ebeb7e40ace3bc41921e60acbc7806739fbf9b9949719e1",
+          "bytes": 614,
+          "as": "member-expr-ident-name-static-escaped.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "member-expr-ident-name-static-escaped.js",
+      "attributes": [
+        "flags:generated"
+      ]
+    }
+  ]
+}

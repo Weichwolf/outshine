@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "flex-item-compressible-001",
   "title": "CSS Flexbox Test: Testing automatic minimun size of &lt;input&gt; flex items in a row flex container",

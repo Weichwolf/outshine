@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "overflow-auto-006",
   "title": "CSS Flexbox: Height with overflow: auto.",

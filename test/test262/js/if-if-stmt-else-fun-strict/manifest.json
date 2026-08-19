@@ -1,0 +1,49 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "if-if-stmt-else-fun-strict",
+  "title": "AnnexB extension not honored in strict mode (IfStatement with a declaration in the second statement position in the global scope)",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "AnnexB extension not honored in strict mode (IfStatement with a declaration in the second statement position in the global scope)",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/statements/if/if-stmt-else-fun-strict.js",
+    "expects": "refuses",
+    "phase": "parse"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "if-if-stmt-else-fun-strict",
+      "name": "if-stmt-else-fun-strict",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/statements/if/if-stmt-else-fun-strict.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/statements/if/if-stmt-else-fun-strict.js",
+          "sha256": "e36a29c7b57311b9490679220333231321ed25e174dbe854e387c79ecbf4f5f0",
+          "bytes": 1058,
+          "as": "if-stmt-else-fun-strict.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "if-stmt-else-fun-strict.js",
+      "attributes": [
+        "flags:onlyStrict"
+      ]
+    }
+  ]
+}

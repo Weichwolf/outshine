@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "stretched-child-shrink-on-relayout",
   "title": "CSS Flexbox: Shrink stretched child on relayout",

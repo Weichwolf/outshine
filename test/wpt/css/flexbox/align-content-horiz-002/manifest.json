@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "align-content-horiz-002",
   "title": "CSS Test: Testing 'align-content' in a row wrap-reverse flex container",

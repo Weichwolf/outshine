@@ -113,7 +113,7 @@
           },
           "note": "THE ONLY TRACKED FILE IN A CASE DIRECTORY (board:0083): the scene, the recipe and the acceptance in one declaration."
     },
-        "outshine/ui-case-manifest": {
+        "outshine/declared-case-manifest": {
           "required": {
             "schemaVersion": {
               "enum": [
@@ -128,9 +128,6 @@
             "criterion": {
               "object": "criterion"
             },
-            "viewport": {
-              "object": "viewport"
-            },
             "subjects": {
               "array": {
                 "object": "subject"
@@ -138,6 +135,9 @@
             }
           },
           "optional": {
+            "viewport": {
+              "object": "viewport"
+            },
             "notes": "string",
             "reductions": {
               "array": {
@@ -145,7 +145,7 @@
               }
             }
           },
-          "note": "A CASE FOR A SUITE THAT RENDERS WITHOUT AN ORACLE. It carries no `blender`, no `scene` and no `renders`, because there is nothing outside this tree to ask: both sides of a reftest pair are drawn by this library, and a layout assertion is a number the document states about itself. What it keeps is everything the VIEWER and the board read -- the id, the title, what it covers, its criterion and its subjects -- so one enumeration reaches every case in the tree and the two suites differ in their instrument rather than in their format."
+          "note": "A CASE THIS TREE DECIDES BY ITSELF, WITH NOTHING OUTSIDE IT TO ASK. `viewport` IS OPTIONAL because a script draws nothing and a surface it never asked for would be a field carrying a number about a picture that does not exist. It carries no `blender`, no `scene` and no `renders`, because there is nothing outside this tree to ask: both sides of a reftest pair are drawn by this library, and a layout assertion is a number the document states about itself. What it keeps is everything the VIEWER and the board read -- the id, the title, what it covers, its criterion and its subjects -- so one enumeration reaches every case in the tree and the two suites differ in their instrument rather than in their format."
         }
       },
       "note": "ONE DECLARATION NAMES A CASE FOR EVERY SUITE THAT RENDERS, and the `schema` key says which instrument decides it. The variants share the fields an enumeration reads and differ in what an oracle needs, so a manifest cannot carry a Blender version for a case Blender never sees, and a document case cannot silently omit one it does."
@@ -228,6 +228,30 @@
           },
           "optional": {
             "note": "string"
+          }
+        },
+        "script-expectation": {
+          "note": "THE CASE STATES WHAT IS EXPECTED OF IT, IN ITS OWN FRONTMATTER (board:1450). test262 writes a `/*--- ... ---*/` block: a case with no `negative` block passes by RUNNING TO THE END, and one with a negative block passes by being REFUSED -- with the kind of refusal it named. **The kind is required for a negative case** for the same reason `limits-probe` requires `declines`: a case that passes by refusing for the wrong reason is a green light about something else.",
+          "required": {
+            "says": "text",
+            "statedAt": "text",
+            "expects": {
+              "enum": [
+                "runs",
+                "refuses"
+              ]
+            }
+          },
+          "optional": {
+            "note": "string",
+            "phase": {
+              "enum": [
+                "parse",
+                "resolution",
+                "runtime"
+              ]
+            },
+            "kind": "text"
           }
         },
         "layout-assertions": {
@@ -349,6 +373,28 @@
             },
             "notes": "string"
           }
+        },
+        "script": {
+          "required": {
+            "id": "text",
+            "name": "text",
+            "source": {
+              "object": "subject-source"
+            },
+            "files": {
+              "array": {
+                "object": "fetched-file"
+              }
+            },
+            "entry": "text"
+          },
+          "optional": {
+            "attributes": {
+              "array": "text"
+            },
+            "notes": "string"
+          },
+          "note": "A PROGRAM AND THE FILES IT IS RUN WITH. `entry` is the case; the rest are the harness files test262 states a case needs -- `assert.js` and `sta.js` unless the case declares `raw`, plus whatever its own `includes` names. They arrive in the order they must be run in, which is the order upstream states and not an order this tree chose."
         },
         "document": {
           "required": {
@@ -479,6 +525,14 @@
             "pinReason": "text"
           }
         },
+        "test262": {
+          "required": {
+            "commit": "sha1",
+            "path": "text",
+            "pinnedOn": "text",
+            "pinReason": "text"
+          }
+        },
         "web-platform-tests": {
           "required": {
             "commit": "sha1",
@@ -518,7 +572,9 @@
             "archive-member",
             "document",
             "stylesheet",
-            "font"
+            "font",
+            "script",
+            "harness"
           ]
         },
         "licence": {

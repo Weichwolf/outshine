@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "flex-minimum-height-flex-items-010",
   "title": "Tests correct handling of min-height: min-content with dynamic changes",

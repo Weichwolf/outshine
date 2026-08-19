@@ -1,0 +1,45 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "logical-not-S11.4.9_A2.2_T1",
+  "title": "If Type(value) is Object, return false",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "If Type(value) is Object, return false",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/logical-not/S11.4.9_A2.2_T1.js",
+    "expects": "runs"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "logical-not-S11.4.9_A2.2_T1",
+      "name": "S11.4.9_A2.2_T1",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/expressions/logical-not/S11.4.9_A2.2_T1.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/logical-not/S11.4.9_A2.2_T1.js",
+          "sha256": "6f8ba16ef2dc926e573e594490e8d7b627b70e8b65d8fd2d376f1e2a09e7c0fa",
+          "bytes": 2328,
+          "as": "S11.4.9_A2.2_T1.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "S11.4.9_A2.2_T1.js"
+    }
+  ]
+}

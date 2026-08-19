@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "flex-one-sets-flex-basis-to-zero-px",
   "title": "CSS Flexbox: flex-basis with zero pixel",

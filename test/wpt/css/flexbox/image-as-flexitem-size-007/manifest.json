@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "image-as-flexitem-size-007",
   "title": "CSS Test: Testing how explicit main-size & cross-size constraints       influence sizing on non-stretched flex item w/ intrinsic ratio,       some padding, and box-sizing:border-box.",

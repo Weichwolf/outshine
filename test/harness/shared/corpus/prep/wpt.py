@@ -110,7 +110,7 @@ def case(commit, directory, test, pinned_on, pin_reason, viewport):
     files = [_fetched(commit, directory + "/" + test, "document", document)]
     files += _companions(commit, document, directory, {directory + "/" + test})
     return {
-        "schema": "outshine/ui-case-manifest",
+        "schema": "outshine/declared-case-manifest",
         "schemaVersion": 1,
         "id": name,
         "title": (title.group(1).strip().replace("\n", " ") if title else name),

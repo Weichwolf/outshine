@@ -1,0 +1,45 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "logical-or-S11.11.2_A2.1_T4",
+  "title": "If ToBoolean(x) is true and GetBase(y) is null, return true",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "If ToBoolean(x) is true and GetBase(y) is null, return true",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/logical-or/S11.11.2_A2.1_T4.js",
+    "expects": "runs"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "logical-or-S11.11.2_A2.1_T4",
+      "name": "S11.11.2_A2.1_T4",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/expressions/logical-or/S11.11.2_A2.1_T4.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/logical-or/S11.11.2_A2.1_T4.js",
+          "sha256": "b74f9d4b6d1ccbc811982bb8b2c0509b798892b8c3ae603a3d2181298852bda3",
+          "bytes": 372,
+          "as": "S11.11.2_A2.1_T4.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "S11.11.2_A2.1_T4.js"
+    }
+  ]
+}

@@ -98,7 +98,9 @@ class Manifest:
         # like any other subject and decided by the test that reads it.
         self.oracle = self.document["schema"] == "outshine/render-oracle-manifest"
         if not self.oracle:
-            self.viewport = self.document["viewport"]
+            # A SCRIPT DRAWS NOTHING AND SAYS SO BY CARRYING NO VIEWPORT. A surface a case never asked
+            # for would be a number about a picture that does not exist.
+            self.viewport = self.document.get("viewport")
             self.blender_version = None
             self.scene = None
             self.renders = {}

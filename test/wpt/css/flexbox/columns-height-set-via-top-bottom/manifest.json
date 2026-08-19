@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "columns-height-set-via-top-bottom",
   "title": "Proper size of flex item in a column flexbox with height set via top/bottom.",

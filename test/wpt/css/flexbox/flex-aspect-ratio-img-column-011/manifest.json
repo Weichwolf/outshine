@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "flex-aspect-ratio-img-column-011",
   "title": "CSS Flexbox: images' aspect ratio in flex box with flex-direction: column for min-size: auto",

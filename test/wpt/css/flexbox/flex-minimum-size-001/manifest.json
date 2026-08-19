@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "flex-minimum-size-001",
   "title": "CSS Flexbox: flexbox with min-size: auto",

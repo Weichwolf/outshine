@@ -21,7 +21,7 @@ interpreter never looks inside.
 
 | | |
 |---|---|
-| values | number · quoted text · an opaque host handle · nothing |
+| values | number · quoted text · `true` / `false` · `null` / `undefined` · an opaque host handle · nothing — **the literals are the LANGUAGE's and not the host's**, which the corpus found by putting cases outside the subset with *reaches a name this runner does not provide: false* |
 | expressions | variables · member reads · calls · `+ - * / %` · `< <= > >= == !=` · `&& \|\| !` · parentheses |
 | statements | assignment to a name · assignment to a member · a call · `if` / `else` · `while` · blocks |
 | truth | zero and empty text are false, a handle is true, nothing is false — **stated here rather than inherited from a language nobody named** |

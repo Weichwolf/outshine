@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "flex-minimum-height-flex-items-025",
   "title": "flex-minimum-height-flex-items-025",

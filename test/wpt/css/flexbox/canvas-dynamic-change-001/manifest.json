@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "canvas-dynamic-change-001",
   "title": "Canvas size dynamic change in flexbox layout",

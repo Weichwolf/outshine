@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "percentage-max-width-cross-axis",
   "title": "CSS Flexbox: percentage max width when using 'flex-direction: column'",

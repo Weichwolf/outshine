@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "flex-outer-flexbox-column-recalculate-height-on-resize-001",
   "title": "CSS Flexbox: height resizing with flex-direction: column",

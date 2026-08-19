@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "flex-shorthand-flex-basis-middle",
   "title": "CSS Flexbox: flex shorthand with 'auto' or 'zero' percentage value",

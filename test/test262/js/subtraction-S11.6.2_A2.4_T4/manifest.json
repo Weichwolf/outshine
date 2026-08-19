@@ -1,0 +1,48 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "subtraction-S11.6.2_A2.4_T4",
+  "title": "Checking with undeclarated variables",
+  "covers": [
+    "ecma262"
+  ],
+  "criterion": {
+    "kind": "script-expectation",
+    "says": "Checking with undeclarated variables",
+    "statedAt": "https://github.com/tc39/test262/blob/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/subtraction/S11.6.2_A2.4_T4.js",
+    "expects": "runs"
+  },
+  "subjects": [
+    {
+      "kind": "script",
+      "id": "subtraction-S11.6.2_A2.4_T4",
+      "name": "S11.6.2_A2.4_T4",
+      "source": {
+        "kind": "test262",
+        "commit": "3655e7464de3d52643ecddd4b5f9f4f3e7f62398",
+        "path": "test/language/expressions/subtraction/S11.6.2_A2.4_T4.js",
+        "pinnedOn": "2026-08-19",
+        "pinReason": "the tip of tc39/test262 on the day the script subset was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/test/language/expressions/subtraction/S11.6.2_A2.4_T4.js",
+          "sha256": "c6822e3bb50af6ab9f3c74b418fe0c717aedf57d3a74fc2b1bd48872b7590bf6",
+          "bytes": 420,
+          "as": "S11.6.2_A2.4_T4.js",
+          "role": "script",
+          "licence": {
+            "spdx": "BSD-3-Clause",
+            "holder": "Ecma International",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/tc39/test262/3655e7464de3d52643ecddd4b5f9f4f3e7f62398/LICENSE"
+          }
+        }
+      ],
+      "entry": "S11.6.2_A2.4_T4.js",
+      "attributes": [
+        "flags:noStrict"
+      ]
+    }
+  ]
+}

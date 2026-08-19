@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "multiline-min-max",
   "title": "CSS Flexbox: multiline flexbox and line breaks.",

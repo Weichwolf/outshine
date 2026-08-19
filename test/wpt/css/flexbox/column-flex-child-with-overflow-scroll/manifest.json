@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "column-flex-child-with-overflow-scroll",
   "title": "Proper height of column flex children with overflow: scroll.",

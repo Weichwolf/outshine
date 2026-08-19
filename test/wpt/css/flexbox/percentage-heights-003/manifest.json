@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "percentage-heights-003",
   "title": "CSS Flexbox: Resolving relative height content within a flex container against flexed size",

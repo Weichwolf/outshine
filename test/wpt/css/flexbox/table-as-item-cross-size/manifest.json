@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "table-as-item-cross-size",
   "title": "CSS Flexbox: Correct cross size of Table with 'align-self: stretch'",

@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from prep import blender as blender_module  # noqa: E402
 from prep import jobs, manifest as manifest_module  # noqa: E402
+from prep import test262 as test262_module  # noqa: E402
 from prep import wpt as wpt_module  # noqa: E402
 from prep.refusal import Refusal  # noqa: E402
 from prep.store import ContentStore  # noqa: E402
@@ -36,7 +37,8 @@ def prepared_directory(manifest_path):
 # WHERE THE CASES ARE, AND THE TWO SUITES ARE NAMED RATHER THAN DISCOVERED. A walk that found a
 # `manifest.json` anywhere would prepare whatever a future directory happened to contain; these two are
 # the declarative suites and adding a third is a decision, not a side effect.
-CASE_TREES = ("test/khronos/glTF", "test/outshine/render", "test/wpt/css")
+CASE_TREES = ("test/khronos/glTF", "test/outshine/render", "test/wpt/css",
+              "test/test262/js")
 
 
 def every_manifest():
@@ -52,7 +54,7 @@ def every_manifest():
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("job", choices=("fetch", "generate", "patch", "convert", "render", "all",
-                                        "dry-run", "wpt-cases"))
+                                        "dry-run", "wpt-cases", "test262-cases"))
     parser.add_argument("--manifest", action="append", default=None,
                         help="a case's manifest; repeatable")
     parser.add_argument("--every-case", action="store_true",
@@ -70,10 +72,16 @@ def main(argv):
     parser.add_argument("--wpt-viewport", default="800x600")
     parser.add_argument("--wpt-pinned-on", default=None, help="wpt-cases: the date the pin was taken")
     parser.add_argument("--wpt-pin-reason", default=None)
+    parser.add_argument("--t262-commit", default=None, help="test262-cases: the pin every case records")
+    parser.add_argument("--t262-root", default=None)
+    parser.add_argument("--t262-pinned-on", default=None)
+    parser.add_argument("--t262-pin-reason", default=None)
     arguments = parser.parse_args(argv)
 
     if arguments.job == "wpt-cases":
         return _wpt_cases(arguments)
+    if arguments.job == "test262-cases":
+        return _test262_cases(arguments)
 
     manifests = list(arguments.manifest or [])
     if arguments.every_case:
@@ -120,6 +128,22 @@ def _wpt_cases(arguments):
     _emit({"directory": arguments.wpt_directory, "commit": arguments.wpt_commit,
            "tests": len(tests), "cases": len(written),
            "statesNoLayoutOfItsOwn": stated_nothing, "root": arguments.wpt_root})
+    return 0
+
+
+def _test262_cases(arguments):
+    """Turn every declared container at the pin into one case directory each."""
+    for name in ("t262_commit", "t262_root", "t262_pinned_on", "t262_pin_reason"):
+        if getattr(arguments, name) is None:
+            raise Refusal("test262-cases", expected="--" + name.replace("_", "-"), observed="absent")
+    tests = test262_module.tests_at(arguments.t262_commit)
+    written = []
+    for test in tests:
+        declared = test262_module.case(arguments.t262_commit, test, arguments.t262_pinned_on,
+                                       arguments.t262_pin_reason)
+        written.append(test262_module.write(declared, arguments.t262_root))
+    _emit({"containers": len(test262_module.CONTAINERS), "commit": arguments.t262_commit,
+           "tests": len(tests), "cases": len(written), "root": arguments.t262_root})
     return 0
 
 

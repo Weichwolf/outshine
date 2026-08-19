@@ -160,7 +160,7 @@ bool Tokenise(const std::string &text, std::vector<Token> &out, std::string &err
  * parse is in flight, and a pointer into it would dangle exactly then. */
 struct Program::Node {
   enum class Shape : uint8_t {
-    Number, Text, Name, Member, Call, Unary, Binary, Assign, AssignMember, If, While, Block
+    Number, Text, Nothing, Name, Member, Call, Unary, Binary, Assign, AssignMember, If, While, Block
   };
   Shape What = Shape::Number;
   double Number = 0.0;
@@ -241,8 +241,19 @@ bool ReadPrimary(Reading &in, size_t &out) {
   } else if (token.What == Word::Name) {
     ++in.At;
     Program::Node node;
-    node.What = Shape::Name;
-    node.Spelling = token.Spelling;
+    /* `true`, `false`, `null` AND `undefined` ARE THE LANGUAGE'S AND NOT THE HOST'S. [MEASURED] the
+     * script corpus put cases outside the subset with *the case reaches a name this runner does not
+     * provide: false* -- a literal had been reaching the host, which would have made every consumer
+     * responsible for supplying the word `false`. They are values, so they are read as values. */
+    if (token.Spelling == "true" || token.Spelling == "false") {
+      node.What = Shape::Number;
+      node.Number = token.Spelling == "true" ? 1.0 : 0.0;
+    } else if (token.Spelling == "null" || token.Spelling == "undefined") {
+      node.What = Shape::Nothing;
+    } else {
+      node.What = Shape::Name;
+      node.Spelling = token.Spelling;
+    }
     out = in.Make(std::move(node));
   } else if (in.Take("(")) {
     if (!ReadExpression(in, out)) { return false; }
@@ -487,6 +498,9 @@ bool Program::Evaluate(size_t at, Host &host, Value &out, std::string &error) {
       return true;
     case Node::Shape::Text:
       out = Value::OfText(node.Spelling);
+      return true;
+    case Node::Shape::Nothing:
+      out = Value();
       return true;
     case Node::Shape::Name: {
       const Value *held = Named(node.Spelling);

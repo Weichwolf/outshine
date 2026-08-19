@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "flex-minimum-size-002",
   "title": "CSS Flexbox: min-size when the child has a percentage min-size",

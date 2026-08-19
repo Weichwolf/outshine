@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "flex-basis-014",
   "title": "CSS Test: flex base size that depends on cross size, with aspect-ratio",

@@ -1,5 +1,5 @@
 {
-  "schema": "outshine/ui-case-manifest",
+  "schema": "outshine/declared-case-manifest",
   "schemaVersion": 1,
   "id": "flex-minimum-height-flex-items-012",
   "title": "CSS Flexbox: Combining 100% heights with min-height: auto should not lead to overflow",
