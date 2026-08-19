@@ -195,7 +195,7 @@
       "note": "The same recipe with the sampler's seed moved. The preparer REQUIRES this arm here and the rule is not about emission: a case is `reduced` when its material emits OR its light's estimator is `delta`, and this one is the second. A delta light against a black world leaves no estimator, so the two renders must agree bit for bit -- and any pixel that moves is the oracle's own noise rather than a disagreement with us."
     }
   },
-  "notes": "board:1388 built it and no case shaded it. Blender carries the pair as `Coat Weight` and `Coat Roughness` with `Coat IOR` 1.5, [MEASURED] on an import probe -- the same fixed index glTF specifies, so this is the layered extension whose two sides are most nearly the same statement.",
+  "notes": "board:1388 built it and no case shaded it. Blender carries the pair as `Coat Weight` and `Coat Roughness` with `Coat IOR` 1.5, [MEASURED] on an import probe -- the same fixed index glTF specifies, so this is the layered extension whose two sides are most nearly the same statement. `board:1441` IS WHAT THIS SPHERE PROVES: the clearcoat's layering Fresnel is evaluated at `NdotV`, which the extension states outright, and this case is where the half-vector form was caught -- its residual against the view angle crossed from 0.758 to 2.132 where a view-dependent attenuation must run monotonically, and `linear_p95_relative` fell from 0.213744 to 0.017590152 when the angle was corrected.",
   "expected": {
     "subjectFrameFraction": {
       "value": 0.10012927635618477,

@@ -105,21 +105,21 @@
     "camera": {
       "source": "manifest",
       "positionM": [
-        9.299956024373984,
-        5.160045855411069,
-        6.1617955441806105
+        8.763606850684962,
+        4.810650776734253,
+        5.611187925098582
       ],
       "lookAtM": [
-        0.5,
+        0.75,
         1.25,
         0.0
       ],
       "rollRad": 0.0,
       "yfovRad": 0.47108996144172666,
       "sensorHeightMm": 24.0,
-      "clipStartM": 9.831428217532116,
-      "clipEndM": 13.03299033624854,
-      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [0.0, 0.0, 0.0] to [1.0, 0.5, 0.0], so centre = [0.5, 0.25, 0.0] and radius = 0.5590169943749475 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 3.9923006532791145, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius.",
+      "clipStartM": 8.952908434748398,
+      "clipEndM": 11.868384382171048,
+      "derivation": "The framing rule of src/gltf/Framing.h, quoted so the runner can refuse a mismatch rather than trust it. World bounds [0.0, 0.0, 0.0] to [1.0, 0.5, 0.0], so centre = [0.5, 0.25, 0.0] and radius = 0.5590169943749475 m. yfov = 2*atan(12/50) from a 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. distance = radius / sin(yfov/2) / 0.6 = 3.9923006532791145, and the eye is centre + (cos20*cos35, sin20, cos20*sin35) * distance. clipStart is distance - radius and clipEnd is distance + radius. RE-DERIVED AFTER THE GRID MOVED (`board:1440`): raising this case's rate so its samples fall between keyframes changed what the grid sweeps, and the framing rule takes the union over that grid.",
       "note": "THE ENGINE'S OWN ANSWER, QUOTED (board:1398). Every number here is read from the framing rule's output for this subject -- eye, aim, yfov and both clip planes -- rather than recomputed by the authoring helper, which bounded each primitive by the eight transformed corners of its local AABB and therefore always at least as loosely as the engine bounds the transformed vertices. A looser radius moves the eye back, and 93 cases declared a camera the rule does not derive. `ADerivedCameraIsTheFramingRuleAndNotAQuotation` recomputes all of it and refuses a mismatch, so what this declaration does is PIN the viewpoint, never choose it."
     },
     "light": {
@@ -240,10 +240,11 @@
   "notes": "A coverage case. Its shading -- textures, metallic-roughness, any extension it declares -- is NOT what this decides; board:1363 records why no case takes the shading arm yet. COLOR_0 is present in the file and is NOT what this decides: the material below declares the colour, so a vertex-colour disagreement cannot be read out of this case.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.0022899601,
+      "value": 0.002595082123974091,
       "unit": "dimensionless",
-      "origin": "measured",
-      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
+      "origin": "derived",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check.",
+      "derivation": "The framing rule's own camera projected over the subject's bounds at frame 0 of its own grid, summed over every triangle (`board:1437`)."
     }
   }
 }

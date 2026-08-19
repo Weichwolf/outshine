@@ -54,3 +54,16 @@ silence could not be told from a pass that framed something.
 This closes the last unticked line of `board:1361`'s dispatch -- *every non-`exact` camera is re-derived
 from the rule and the test is green again* -- and it took the rule's own answer at the pose that renders
 rather than a re-harvest of what was there.
+
+## A harvested number is read by identity, never by proximity
+
+`board:1440` moved `SimpleMorph`'s grid, which moved what the rule sweeps, which put its declared camera
+0.844343596 m from the rule's answer -- the *fitted near it* placement this test forbids. Re-deriving it
+was routine; **reading the new frame fraction out of the log was not.** The value taken was
+0.0416262738, which belongs to **`SimpleSkin`** -- the next case in the log -- and the real one is
+0.0025950821239740908, a factor of sixteen away.
+
+**The test caught it on the first run**, which is what a declaration checked against a rule is for. But
+the lesson is about the harvest rather than the check: *a log is read by the case's own name and not by
+what follows the case's name*, and a number that arrives a factor of sixteen from where it should be is
+a number that was read from somewhere else.
