@@ -170,6 +170,7 @@ void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> pla
     return;
   }
 
+  Ready = false;
   if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
     Log::Error("render", "no_video", {{"msg", SDL_GetError()}});
     return;
@@ -181,14 +182,28 @@ void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> pla
    * rather than read from the environment for the reason every other arm is -- the library declares
    * what it needs from a host and reads nothing behind the host's back -- and it is off in every
    * build that does not ask, so no shipping frame pays for it. */
-  SDL_GPUDevice *device =
-      SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_MSL, kGpuValidation, nullptr);
-  if (!device) {
-    Log::Error("render", "no_device", {{"msg", SDL_GetError()}});
-    return;
+  /* **THE DEVICE OUTLIVES THE PLAN, AND A SECOND `Init` KEEPS IT.** A host claims its window for the
+   * device this library chose (`Device()`), so replacing the device on a later `Init` would pull the
+   * ground out from under the host's swapchain -- and every resource still held from the old device
+   * would be released against a destroyed one. [MEASURED] a browser showing a second case segfaulted
+   * on exactly that, which is the shape a windowed host takes every time somebody selects a different
+   * case.
+   *
+   * **WHAT THE PLAN OWNS IS REBUILT AND WHAT THE HOST PAIRED WITH IS NOT.** That is the line: a plan
+   * is a picture and a device is an agreement with a host. */
+  if (!Device_) {
+    SDL_GPUDevice *device =
+        SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_MSL, kGpuValidation, nullptr);
+    if (!device) {
+      Log::Error("render", "no_device", {{"msg", SDL_GetError()}});
+      return;
+    }
+    Device_ = OwnedDevice(device);
   }
-
-  Device_ = OwnedDevice(device);
+  /* EVERY FRAME SUBMITTED AGAINST THE OLD PLAN HAS TO RETIRE BEFORE ITS TARGETS GO, or a texture is
+   * released while the device is still reading it. */
+  SDL_WaitForGPUIdle(Device_.Get());
+  SDL_GPUDevice *const device = Device_.Get();
   Handles.Device = device;
   Handles.HdrFormat = FormatOf(Plan_->Format(Resource::SceneHdr));
   Handles.SurfaceFormat = FormatOf(Plan_->Format(Resource::FrameTex));

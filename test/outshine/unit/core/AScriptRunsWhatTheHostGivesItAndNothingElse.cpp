@@ -288,5 +288,28 @@ int main(void) {
     CHECK(!program.Run(nothing, error), "running an unread program is refused");
   }
 
+  /* AN ACTOR REMEMBERS BETWEEN TICKS, because its program IS its memory. A railway that drives by
+   * itself and stops at a station now and then is a handful of names carried from one run to the next,
+   * and the consumer holds them -- bounded, readable, and clearable when it wants a clean slate. */
+  {
+    Program tick;
+    std::string error;
+    CHECK(tick.Read("phase = phase + 1; if (phase > 3) { phase = 0; stops = stops + 1; }", error),
+          "a tick reads");
+    Empty nothing;
+    for (int at = 0; at < 9; ++at) { CHECK(tick.Run(nothing, error), "and runs again"); }
+    const Value *phase = tick.Named("phase");
+    const Value *stops = tick.Named("stops");
+    CHECK(phase != nullptr && stops != nullptr, "the names it assigned are still there");
+    if (phase != nullptr && stops != nullptr) {
+      CHECK(stops->Number == 2,
+            "nine ticks of a four-phase cycle stopped twice -- which is only countable because the "
+            "state survived the run");
+      CHECK(phase->Number == 1, "and the phase is where the ninth tick left it");
+    }
+    tick.Reset();
+    CHECK(tick.Named("phase") == nullptr, "and Reset is the explicit door to a clean slate");
+  }
+
   return Report();
 }

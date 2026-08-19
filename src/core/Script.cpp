@@ -741,6 +741,14 @@ const char *WhyOutside(const std::string &name) {
   return nullptr;
 }
 
+void Program::Reset(void) {
+  /* THE CAPACITY IS KEPT AND ONLY THE CONTENTS GO, so a script ticked every frame allocates on its
+   * first run and on none after it -- which is what *the frame path does not allocate* costs to be
+   * true for an actor that moves. */
+  Names_.clear();
+  Held_.clear();
+}
+
 bool Program::Held(void) const { return !Nodes_.empty(); }
 size_t Program::NodeCount(void) const { return Nodes_.size(); }
 
@@ -960,8 +968,6 @@ bool Program::Run(Host &host, std::string &error) {
     return false;
   }
   Steps_ = 0;
-  Names_.clear();
-  Held_.clear();
   return Perform(Root_, host, error);
 }
 

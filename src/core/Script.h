@@ -150,8 +150,16 @@ public:
    * is a bound nobody can act on. */
   [[nodiscard]] size_t NodeCount(void) const;
 
-  /* Runs the tree against `host`. A refusal names the step that could not be taken. */
+  /* Runs the tree against `host`. A refusal names the step that could not be taken.
+   *
+   * **THE NAMES IT ASSIGNED SURVIVE THE RUN, because an actor's memory is its program.** A railway that
+   * drives by itself and stops at a station now and then remembers a phase and a waiting time between
+   * ticks, and the consumer holds this object, so the consumer holds that memory: `kMaxNames` bounds
+   * it and `Named` reads it out for a save file. Keeping it somewhere the consumer cannot see would be
+   * memory growing per actor where nobody can count it. */
   [[nodiscard]] bool Run(Host &host, std::string &error);
+  /* Forget every name, for a consumer that wants a run with a clean slate. */
+  void Reset(void);
   /* HOW MANY STEPS THE LAST RUN TOOK, against `kMaxSteps`. */
   [[nodiscard]] size_t Steps(void) const { return Steps_; }
   /* A name the script assigned, for a consumer that wants an answer out of one. */
