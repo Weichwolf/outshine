@@ -490,15 +490,28 @@ void Stylesheet::Read(std::string_view text) {
       if (head.empty()) { continue; }
       Rule rule;
       bool held = true;
+      Reach reach = Reach::Descendant;
       size_t cursor = 0;
       while (cursor < head.size() && held) {
         while (cursor < head.size() && Space(head[cursor])) { ++cursor; }
+        /* A COMBINATOR IS A TOKEN BETWEEN COMPOUNDS AND MAY TOUCH EITHER SIDE. `a>b`, `a > b` and
+         * `a >b` are one selector written three ways, so the reader takes the mark wherever it sits
+         * rather than requiring the spacing the corpus happens to use. */
+        if (cursor < head.size() && head[cursor] == '>') {
+          reach = Reach::Child;
+          ++cursor;
+          continue;
+        }
         const size_t start = cursor;
-        while (cursor < head.size() && !Space(head[cursor])) { ++cursor; }
+        while (cursor < head.size() && !Space(head[cursor]) && head[cursor] != '>') { ++cursor; }
         if (cursor == start) { break; }
         Compound compound;
         held = ReadCompound(head.substr(start, cursor - start), compound);
-        if (held) { rule.Chain.push_back(std::move(compound)); }
+        if (held) {
+          if (!rule.Chain.empty()) { rule.Links.push_back(reach); }
+          reach = Reach::Descendant;
+          rule.Chain.push_back(std::move(compound));
+        }
       }
       if (!held || rule.Chain.empty()) {
         /* THE SELECTOR IS NAMED AND NOT ONLY COUNTED. [MEASURED] seven corpus cases came back
@@ -554,13 +567,22 @@ bool Holds(const Compound &compound, const Markup &markup, int node) {
 
 bool Selects(const Rule &rule, const Markup &markup, int node) {
   if (rule.Chain.empty()) { return false; }
-  /* THE SUBJECT IS THE LAST COMPOUND and the rest must be found among the ancestors, in order. That
-   * is the descendant combinator and the only one here. */
+  /* THE SUBJECT IS THE LAST COMPOUND and the rest must be found among the ancestors, right to left.
+   * A DESCENDANT link may skip as far up as it likes; a CHILD link may not skip at all, so it is the
+   * one place this walk cannot backtrack -- and that is why the two are one enum and not one flag on
+   * the rule: a chain mixes them freely. */
   if (!Holds(rule.Chain.back(), markup, node)) { return false; }
   int at = markup.Nodes()[(size_t)node].Parent;
   size_t wanted = rule.Chain.size() - 1;
   while (wanted > 0 && at >= 0) {
-    if (Holds(rule.Chain[wanted - 1], markup, at)) { --wanted; }
+    const Reach reach = wanted - 1 < rule.Links.size() ? rule.Links[wanted - 1] : Reach::Descendant;
+    if (Holds(rule.Chain[wanted - 1], markup, at)) {
+      --wanted;
+    } else if (reach == Reach::Child) {
+      /* THE IMMEDIATE PARENT DID NOT HOLD, so no ancestor can stand in for it. Walking on here is how
+       * `a > b` quietly becomes `a b`, which is a rule that matches more than the author wrote. */
+      return false;
+    }
     at = markup.Nodes()[(size_t)at].Parent;
   }
   return wanted == 0;

@@ -76,8 +76,17 @@ struct Compound {
 };
 
 /* ONE RULE: a chain of compounds joined by descent -- the last is the subject -- and what it declares. */
+/* HOW A COMPOUND REACHES THE ONE AFTER IT. `Descendant` is any ancestor and `Child` is the immediate
+ * parent -- the two CSS spells with a space and with `>`. The sibling combinators are outside the
+ * subset and stay outside: they need the tree walked sideways, which no consumer declaration in this
+ * engine has asked for and which the corpus's own count can say when one does. */
+enum class Reach : uint8_t { Descendant, Child };
+
 struct Rule {
   std::vector<Compound> Chain;
+  /* One per link BETWEEN compounds, so it is one shorter than the chain -- the subject has nothing to
+   * its right to reach. */
+  std::vector<Reach> Links;
   std::vector<Declaration> Declares;
   int Specificity = 0;   /* ids * 10000 + classes * 100 + tags, which is CSS's own ordering */
   int Order = 0;         /* where it appeared, so equal specificity falls to the later rule */

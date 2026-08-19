@@ -114,16 +114,47 @@ int main(void) {
   CHECK(display.How == Unit::Keyword && display.Word == Keyword("flex"),
         "a keyword is compared as an integer and reads as its own spelling");
 
+  /* THE CHILD COMBINATOR IS INSIDE THE SUBSET AND THE DESCENDANT ONE STILL IS. The two differ in
+   * exactly one way and the test is that difference: `>` may not skip a generation, so a rule written
+   * with it must NOT match a grandchild -- and a walk that kept climbing would turn `a > b` into
+   * `a b`, a rule matching more than the author wrote. */
+  {
+    Markup nested;
+    std::string why;
+    CHECK(nested.Read("<div class=outer><p><span id=deep></span></p></div>", why),
+          "the nested document reads");
+    Stylesheet reaching;
+    reaching.Read(".outer > span { width: 1px }\n.outer span { height: 2px }");
+    CHECK(reaching.SelectorsOutsideTheSubset() == 0,
+          "neither combinator is outside the subset");
+    int deep = -1;
+    for (int at = 0; at < (int)nested.Nodes().size(); ++at) {
+      const std::string *id = nested.AttributeOf(at, "id");
+      if (id != nullptr && *id == "deep") { deep = at; }
+    }
+    CHECK(deep >= 0, "the grandchild is found");
+    if (deep >= 0) {
+      outshine::Ui::Value width, height;
+      CHECK(Ranked(reaching, nested, deep, Property::Width, width) == nullptr,
+            "the child combinator does not reach a grandchild");
+      CHECK(Ranked(reaching, nested, deep, Property::Height, height) != nullptr,
+            "and the descendant combinator does, which is the whole of what separates them");
+    }
+  }
+
   /* WHAT IS OUTSIDE THE SUBSET IS COUNTED, WHICH IS WHAT THE CORPUS SELECTION READS. A pair whose
    * files declare something this engine does not hold is outside, and the count is how that question
    * gets answered without a list anybody maintains. */
   Stylesheet outside;
   outside.Read("@media screen { div { width: 1px } }\n"
                "div:hover { width: 2px }\n"
-               "div > p { width: 3px }\n"
+               "div + p { width: 3px }\n"
                "div { transform: rotate(3deg); box-shadow: 0 0 2px black; width: calc(100% - 4em) }");
   CHECK(outside.SelectorsOutsideTheSubset() >= 3,
-        "an at-rule, a pseudo-class and a child combinator are each counted as outside");
+        "an at-rule, a pseudo-class and a sibling combinator are each counted as outside");
+  CHECK(!outside.NamesOutsideTheSubset().empty(),
+        "and each is NAMED and not only counted -- a count with nothing beside it is a rule quietly "
+        "dropped, which is what the corpus's second number exists to make visible");
   CHECK(outside.PropertiesOutsideTheSubset() >= 2,
         "a property this engine does not hold is counted and never dropped in silence");
   CHECK(outside.Rules().empty() ||

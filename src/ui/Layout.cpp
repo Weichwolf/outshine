@@ -109,6 +109,8 @@ struct Placer {
    * and NOT the room its container offers: an empty box wants nothing, and an engine that handed it
    * the container's width would report every such row overfull and shrink every sibling. */
   double MaxContent(int node, const Computed *inherited);
+  [[nodiscard]] double Clamped(double used, const Computed &style, Property least, Property most,
+                               double against, double emPx) const;
   [[nodiscard]] double Width(const std::string &text, size_t from, size_t to, double emPx) const;
 };
 
@@ -272,6 +274,32 @@ double Placer::Width(const std::string &text, size_t from, size_t to, double emP
   return width;
 }
 
+/* WHAT A DECLARED MINIMUM AND MAXIMUM DO TO A USED SIZE, and the ORDER is CSS's own: the maximum is
+ * applied first and the minimum second, so a box whose minimum exceeds its maximum comes out at the
+ * MINIMUM. Reversing the two reads as the same rule and answers differently exactly where the two
+ * declarations disagree, which is the case a corpus writes a test for.
+ *
+ * A LIMIT NOBODY DECLARED IS NOT A LIMIT OF ZERO. `min-*` defaults to nothing here rather than to 0,
+ * because the difference only shows on a negative used size -- and a used size is never negative,
+ * which is itself the floor this applies. */
+double Placer::Clamped(double used, const Computed &style, Property least, Property most,
+                       double against, double emPx) const {
+  double out = used;
+  if (style.Has(most) && style.Of(most).How != Unit::Auto) {
+    bool absent = false;
+    const double ceiling = Resolve(style.Of(most), against, emPx, RootEm, absent);
+    if (!absent) { out = std::fmin(out, ceiling); }
+  }
+  if (style.Has(least) && style.Of(least).How != Unit::Auto) {
+    bool absent = false;
+    const double floor = Resolve(style.Of(least), against, emPx, RootEm, absent);
+    if (!absent) { out = std::fmax(out, floor); }
+  }
+  /* A USED SIZE IS NEVER NEGATIVE. CSS floors it, and a box of negative width is a rectangle nobody
+   * can draw -- it reached the corpus as `width is -80.000000` before this line existed. */
+  return std::fmax(0.0, out);
+}
+
 double Placer::Runs(int node, const Computed &style, int self, double contentX, double contentY,
                     double contentWidth, double emPx) {
   const double lineFactor = style.Number(Property::LineHeight, 1.2);
@@ -377,6 +405,8 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
     double Base = 0, Main = 0, Cross = 0;
     double MainMarginStart = 0, MainMarginEnd = 0, CrossMarginStart = 0, CrossMarginEnd = 0;
     double Grow = 0, Shrink = 1;
+    double Em = 0;
+    Property Least = Property::MinWidth, Most = Property::MaxWidth;
     bool CrossDeclared = false;
   };
   std::vector<Item> items;
@@ -457,6 +487,12 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
       item.Cross = Resolve(item.Style.Of(crossSize), crossRoom, itemEm, RootEm, absent);
       item.CrossDeclared = !absent;
     }
+    /* THE ITEM'S OWN LIMITS ARE KEPT AND APPLIED AFTER FLEXING, not before: growing then clamping is
+     * what CSS's resolution does, and clamping the base first would hand the line a free space that
+     * was never free. */
+    item.Least = column ? Property::MinHeight : Property::MinWidth;
+    item.Most = column ? Property::MaxHeight : Property::MaxWidth;
+    item.Em = itemEm;
     item.Main = item.Base;
     items.push_back(std::move(item));
   }
@@ -510,6 +546,7 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
       } else if (free < 0 && shrinkWeight > 0) {
         one.Main = std::fmax(0.0, one.Base + free * (one.Shrink * one.Base / shrinkWeight));
       }
+      one.Main = Clamped(one.Main, one.Style, one.Least, one.Most, mainRoom, one.Em);
     }
     for (size_t i = line.From; i < line.From + line.Count; ++i) {
       Item &one = items[i];
@@ -706,6 +743,9 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
     contentWidth =
         std::fmax(0.0, containerWidth - box.Margin.Left - box.Margin.Right - frameX);
   }
+  contentWidth = Clamped(contentWidth + (borderBox ? frameX : 0.0), style, Property::MinWidth,
+                         Property::MaxWidth, containerWidth, emPx) -
+                 (borderBox ? frameX : 0.0);
 
   bool heightAbsent = true;
   double contentHeight = 0;
@@ -725,6 +765,12 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
   const double used = Children(node, style, self, contentX, contentY, contentWidth,
                                heightAbsent ? 0 : contentHeight, emPx);
   if (heightAbsent) { contentHeight = used; }
+  /* THE LIMITS ARE APPLIED TO THE BOX THE DECLARATION MEANS. `min-height` speaks of the same box
+   * `height` does, so under `border-box` both are the border box and under the default both are the
+   * content box -- reading one in each currency is how a padded box comes out a frame too tall. */
+  contentHeight = Clamped(contentHeight + (borderBox ? frameY : 0.0), style, Property::MinHeight,
+                          Property::MaxHeight, containerHeight, emPx) -
+                  (borderBox ? frameY : 0.0);
 
   (*Out)[(size_t)self].Width = contentWidth + frameX;
   (*Out)[(size_t)self].Height = contentHeight + frameY;
