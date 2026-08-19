@@ -77,3 +77,16 @@ the coat the GEOMETRIC normal -- *if clearcoatNormalTexture is not given, no nor
 the clear coat layer, even if normal mapping is applied to the base material* -- and this shader passes
 the coat the base's `nl`, `nv` and `nh`, which are the SHADING normal's. On a subject with no normal map
 the two are the same, which is why this case cannot see it and why nothing is claimed about it here.
+
+## Every number this session read through a PNG was audited, and the scope is quoted
+
+**Sound**: `SpecularTest`'s per-panel ratios and its Fresnel curves -- the largest value there is 0.25
+linear and the decode was calibrated against the oracle's own tap on the panel the file pins at F0 = 1
+(0.25000 against 0.25016). `shaded-sphere-metal-sheen`'s reduction -- [MEASURED] **0 of its 24 061
+pixels sit at code 255 and 12 have an oracle above 1.0**, and over that set ours is the brighter side, so
+no clamp is in the comparison. Every coverage mask, which reads alpha and not radiance.
+
+**Unsound and withdrawn**: the head-on rows of this item and of `board:1435`'s clearcoat table.
+
+*The rule this leaves behind: **a picture read for a RATIO is read in the currency the oracle is in**,
+and where our f32 tap is not on disk the comparison belongs to the harness, which has both.*
