@@ -27,6 +27,7 @@ declaration rather than the declaration grown from whatever the corpus happened 
 | **paint** | `background-color`, `border-color`, `border-radius`, `opacity`, `color`, `overflow: hidden` |
 | **text** | one family at a time, `font-size`, `line-height`, `text-align: left \| center \| right`, `white-space: normal \| pre`, wrapping at spaces |
 | **cascade** | inline `style`, then `#id` rules, then `.class` rules, in that order; inheritance for `color`, `font-*`, `line-height`, `text-align` and nothing else |
+| **a declared user-agent sheet** | `body { margin: 8px }`, `p { margin: 1em 0 }`, `div { display: block }` and the rest of the handful the corpus depends on -- [MEASURED] a WPT layout test states `data-offset-x="8"`, which IS `body`'s margin, so a subset without the sheet fails every such case by eight pixels and would look like a layout defect |
 
 ## What it does not do, and every line is a refusal with a reason
 

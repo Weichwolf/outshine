@@ -59,3 +59,37 @@ temp tree where the glTF corpus keeps its own.
 
 *The generation is a subcommand of the preparer and re-runnable: widen the subset in `board:1442` and the
 directories that appear are the ones the declaration now admits.*
+
+## The corpus was read before it was planned, and it says three things
+
+**WPT AT `550efd4a2f1f14877d424b5668fbb6e63d5f6165`**, 2026-08-19. `css/css-flexbox` alone holds 994
+files, 212 of them references.
+
+**1. THERE ARE TWO FAMILIES AND THE SECOND IS THE STRONGER ONE FOR LAYOUT.** Besides the reftests there
+is a family carrying its assertions IN THE MARKUP: `data-expected-width`, `data-expected-height`,
+`data-offset-x`, `data-offset-y` on the elements themselves. [MEASURED] `align-content-horiz-001a.html`
+states every box's size and position that way. **Those are the anchored cases this task said it would
+have to invent -- and upstream already wrote them.** They need no painting, no font rasterisation and no
+pixel comparison: a layout engine can be judged by them the day it exists, and it can be RED against them
+before a single quad is drawn.
+
+**2. A REFTEST'S REFERENCE IS DELIBERATELY WRITTEN WITH OTHER FEATURES, which is what makes the family
+expensive here.** [MEASURED] `auto-margins-001.html` is a flexbox test whose reference renders the same
+picture with a `<table>`; the test itself uses `calc()` and `writing-mode: vertical-rl`. **A pair is in
+the subset only if BOTH files are**, and a reference chosen to be independent of the feature under test
+will reach for exactly the features a subset leaves out. So the reftest family will select thin, and
+that is a property of the family rather than a fault of the subset.
+
+**3. THE TESTS DEPEND ON A UA STYLESHEET AND SAY SO IN THEIR NUMBERS.** `data-offset-x="8"` is `body`'s
+own 8 px margin; `<p>` carries `1em 0`. **A subset with no default sheet fails every one of these by
+eight pixels**, so the sheet is part of the declaration and not a detail -- `board:1442` gains it.
+
+## What follows for this task
+
+- [ ] the corpus carries **two case kinds**, both declarative and both in the one manifest format:
+      `layout-assertions` -- one document, numbers from upstream -- and `reftest` -- two documents,
+      bitwise
+- [ ] the `layout-assertions` family is fetched and selected FIRST, because it is what a layout engine
+      can be measured by while it is being built
+- [ ] the fetch follows a test's own `<link rel=stylesheet>` and `<script src>` references, because
+      `support/flexbox.css` and `/fonts/ahem.css` are part of the case and not of the browser
