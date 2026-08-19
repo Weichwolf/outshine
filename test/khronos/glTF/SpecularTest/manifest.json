@@ -229,5 +229,89 @@
       "origin": "measured",
       "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
     }
-  }
+  },
+  "reductions": [
+    {
+      "metric": "disagreement_p99_px",
+      "because": "CYCLES RENDERS A BACK FACE THIS FORMAT SAYS TO CULL, AND THE 228 PIXELS ARE EXACTLY THOSE FACES. `LabelMat` declares no `doubleSided`, so it is false, and glTF states *when false, back-face culling is enabled*. This engine culls. Blender's importer agrees -- [MEASURED] every material of this file comes in with `use_backface_culling = True` -- but that property is EEVEE's: the identifier does not appear anywhere in `intern/cycles/blender/shader.cpp`, so **the path tracer intersects both sides**.\n\nTHE ARITHMETIC IS EXACT AND NOT AN ARGUMENT. Rasterised on the CPU in f64 from the file's own POSITION accessor, the node's own translation and the manifest's own camera:\n\n| mesh 0, 28 triangles | pixels of the 228 covered |\n|---|---|\n| **all triangles** | **225** |\n| **front-facing only, 14 of 28** | **2** |\n\n**The back faces add exactly 225 pixels beyond the front faces**, and 227 of the 228 lie on this one mesh. The label plates are 2 mm slabs seen at an angle, so their back face's silhouette stands 0.43 px outside their front face's -- [MEASURED] against a boundary layer whose furthest pixel is 0.3493 px from an edge. **Nothing else in the frame shows it**: the 23 spheres are closed, so their back faces are behind their front ones, and their coverage agrees with the oracle's at 14 212 pixels against 14 212.\n\nTHE LADDER WAS WALKED. **Fix the engine** -- there is nothing to fix, the format says cull and this engine culls. **Reduce the oracle** -- taken here. A recipe repair was priced and refused: Cycles can express culling only as a `Geometry -> Backfacing` node driving a Transparent BSDF, and every recipe in this corpus declares `bounces.transparentMax = 0`, at which a transparent surface TERMINATES the ray and renders black rather than passing through. Raising it would change what this oracle IS, on every case, to repair one.",
+      "measured": {
+        "pixelsDisagreeing": {
+          "value": 228,
+          "unit": "px",
+          "origin": "measured"
+        },
+        "allOfThemTheOraclesOwn": {
+          "value": 228,
+          "unit": "px",
+          "origin": "measured"
+        },
+        "coveredByAllTriangles": {
+          "value": 225,
+          "unit": "px",
+          "origin": "measured"
+        },
+        "coveredByFrontFacingOnly": {
+          "value": 2,
+          "unit": "px",
+          "origin": "measured"
+        },
+        "backFacesAddBeyondFront": {
+          "value": 225,
+          "unit": "px",
+          "origin": "measured"
+        },
+        "slabThicknessProjected": {
+          "value": 0.434,
+          "unit": "px",
+          "origin": "measured"
+        },
+        "furthestFromAnEdge": {
+          "value": 0.3493,
+          "unit": "px",
+          "origin": "measured"
+        },
+        "spheresOracle": {
+          "value": 14212,
+          "unit": "px",
+          "origin": "measured"
+        },
+        "spheresOurs": {
+          "value": 14212,
+          "unit": "px",
+          "origin": "measured"
+        }
+      }
+    },
+    {
+      "metric": "linear_channels_differing",
+      "because": "THE TWO SIDES EVALUATE TWO DIFFERENT FRESNEL MODELS AND THE FORMAT PICKS OURS. glTF Appendix B specifies Schlick -- `F = f0 + (1 - f0) * (1 - |VdotH|)^5` -- and that is what this engine implements. Cycles evaluates the exact unpolarised dielectric Fresnel. [MEASURED] on this subject, radiance divided by the environment's own 0.25 so the number IS the reflectance, at `F0 = 0.04`:\n\n| view cosine | oracle | exact Fresnel | Schlick |\n|---|---|---|---|\n| 0.8 - 1.0 | 0.04111 | 0.04073 | 0.04001 |\n| **0.4 - 0.6** | **0.09118** | **0.08811** | **0.06900** |\n| 0.1 - 0.3 | 0.30295 | 0.29163 | 0.29993 |\n\n**Head-on and at grazing the two agree; the mid-angle band is where Schlick is 24 % low**, and that is the band most of a curved surface occupies. `board:1429` carries the decision of whether this engine should evaluate the exact expression instead, and **this reduction stands either way**: it is on BIT-EXACTNESS, and two implementations of one expression on a Metal GPU and a CPU path tracer do not agree to the last bit of f32 unless the expression collapses -- which is why `shaded-sphere-metal-smooth`, whose Fresnel is a constant F0, does reach zero over 129 702 channels.\n\nWHAT THE CASE STILL DECIDES IS ITS OWN SUBJECT: `picture_p99_delta_code` is 5 codes against a bound of 6.4354338, `KHR_materials_specular`'s factor of zero renders exactly black on both sides since `board:1428`, and every one of its 24 materials reaches its own body.",
+      "measured": {
+        "channelsDiffering": {
+          "value": 122775,
+          "unit": "channels",
+          "origin": "measured"
+        },
+        "p50Relative": {
+          "value": 0.067951999,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "picturep99": {
+          "value": 5,
+          "unit": "codes",
+          "origin": "measured"
+        },
+        "pictureBound": {
+          "value": 6.4354338,
+          "unit": "codes",
+          "origin": "measured"
+        },
+        "smoothMetalSiblingDiffering": {
+          "value": 0,
+          "unit": "channels",
+          "origin": "measured"
+        }
+      }
+    }
+  ]
 }

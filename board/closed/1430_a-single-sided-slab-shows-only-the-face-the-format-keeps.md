@@ -112,3 +112,36 @@ rasteriser's fixed-point subpixel grid displaces an edge by, and f32 projection 
 **Re-render the same case with the camera displaced by half a pixel.** If the 228 stay on the same
 object-space edges, the cause is geometric; if they move with the sampling grid, it is the edge rule.
 That needs a knob the scenario suite will have and the render suite does not, which is where this waits.
+
+## CLOSED, AND THE TITLE IS WRONG: the slab must NOT cover them
+
+**`LabelMat` declares no `doubleSided`, so it is false, and glTF states *when false, back-face culling is
+enabled*.** This engine culls. Cycles does not: Blender's importer sets `use_backface_culling = True` on
+every material of this file -- [MEASURED] -- but that property is EEVEE's, and the identifier appears
+nowhere in `intern/cycles/blender/shader.cpp`, so the path tracer intersects both sides.
+
+| mesh 0, 28 triangles, rasterised in f64 | pixels of the 228 covered |
+|---|---|
+| **all triangles** | **225** |
+| **front-facing only, 14 of 28** | **2** |
+
+**The back faces add exactly 225 pixels beyond the front faces.** The plates are 2 mm slabs at an angle,
+so a back face's silhouette stands 0.434 px outside its front face's -- against a boundary layer whose
+furthest pixel measured 0.3493 px from an edge. And nothing else in the frame shows it because nothing
+else is thin: the 23 spheres are closed, and their coverage matched the oracle's at 14 212 against 14 212.
+
+## MY OWN THIRD INSTRUMENT AGREED WITH THE ORACLE BY CONSTRUCTION
+
+This item concluded, in bold, that *a third instrument says the engine drops the pixels, not the oracle*.
+**That instrument did not cull back faces.** It rasterised all 28 triangles, so of course it covered what
+Cycles covers -- it was the oracle's own rule wearing the clothes of an independent check.
+
+*A third thing settles a disagreement between two renderers only if it is independent of what they
+disagree about.* Mine shared one renderer's convention and I did not ask which. The same twenty lines,
+with the winding test the format specifies, answered the opposite in one run.
+
+**Closed by a declared reduction on `SpecularTest`'s `disagreement_p99_px`**, with the ladder walked in
+the manifest: the engine has nothing to fix, and the recipe cannot express culling without changing what
+this oracle is on every case -- Cycles reaches it only through a `Geometry -> Backfacing` node driving a
+Transparent BSDF, and every recipe here declares `bounces.transparentMax = 0`, at which a transparent
+surface terminates the ray and renders black.
