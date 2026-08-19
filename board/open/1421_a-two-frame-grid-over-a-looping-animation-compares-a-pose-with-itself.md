@@ -78,3 +78,10 @@ item named. `AnimatedTriangle` is green on both frames at `iou` 1 and 0 pixels d
 
 **The remaining scope is unchanged and still unticked**: a grid that excludes the endpoint by
 construction, priced across all 24.
+
+## A second reason to revisit the derivation, measured
+
+`board:1440` measures that **ten of the twenty-four animated cases sample nothing but keyframes**, so the
+grid derivation has two defects rather than one: it can land on the period's endpoint, and it can land on
+every key. Both are the same shape -- a grid whose samples are where the answer is already known -- and
+both are answered by the same change, which is why they are priced together rather than twice.
