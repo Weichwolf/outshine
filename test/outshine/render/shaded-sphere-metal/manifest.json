@@ -199,5 +199,33 @@
       "derivation": "the projected area of the subject's triangles over the declared raster at the declared camera, recomputed by the runner from the subject's own vertices. It is quoted here because the boundary bound is applied UNDER it: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's apparent size, so a camera that framed the subject smaller would tighten the bound without saying so.",
       "note": "The framing rule of src/gltf/Framing.h fixes the camera, so this number is a consequence of the rule and the subject rather than a choice. The runner refuses a mismatch."
     }
-  }
+  },
+  "reductions": [
+    {
+      "metric": "linear_channels_differing",
+      "because": "THE ENERGY COMPENSATION IS THE SAME MODEL ON BOTH SIDES AND THE CONDUCTOR'S FRESNEL IS NOT. Cycles' `bsdf_microfacet.h` states its multiple-scattering term is *based on the appendix of 'Revisiting Physically Based Shading at Imageworks' by Christopher Kulla and Alejandro Conty, with one Fss cancelled out since this is already a multiplier on top of the single-scattering BSDF* -- which is exactly the multiplier form `src/render/stages/MicrofacetEnergy.h` carries (`board:1408`), so that term is not the residual.\n\nWHAT DIFFERS IS THE METAL'S FRESNEL. The same file documents *the F82-Tint model, described in 'Novel aspects of the Adobe Standard Material' by Kutz et al. Essentially, this is the usual Schlick Fresnel with an additional cosI*(1-cosI)^6 term which modulates the reflectivity around acos(1/7) degrees (ca. 82 deg)*. glTF Appendix B specifies **plain Schlick** with `f0 = baseColor` and no such term, and that is what this engine implements. Both fetched at the source rather than recalled.\n\nTHE SMOOTH SIBLING IS WHAT SAYS THE INSTRUMENT IS SOUND: `shaded-sphere-metal-smooth` agrees with Cycles over **129 702 channels to the last bit of f32**, so a bound of zero on this metric is reachable and every departure from it is a difference in what is evaluated. Here that difference is a term the format does not have, and the engine is not free to add it: a renderer carrying the F82 dip would be right about the metal and wrong about Appendix B.\n\nTHE PICTURE IS INSIDE ITS BOUND -- `picture_p99_delta_code` 1 code against 1 -- and `linear_p95_relative` is 0.0013726554, which is where a term active only in a narrow band around 82 degrees of the HALF-VECTOR angle lands when a single distant light fixes that angle over most of the subject.",
+      "measured": {
+        "channelsDiffering": {
+          "value": 129675,
+          "unit": "channels",
+          "origin": "measured"
+        },
+        "p95Relative": {
+          "value": 0.0013726554,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "smoothMetalSiblingDiffering": {
+          "value": 0,
+          "unit": "channels",
+          "origin": "measured"
+        },
+        "picturep99": {
+          "value": 1,
+          "unit": "codes",
+          "origin": "measured"
+        }
+      }
+    }
+  ]
 }

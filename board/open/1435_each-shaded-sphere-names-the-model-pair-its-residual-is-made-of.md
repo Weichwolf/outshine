@@ -50,9 +50,15 @@ because a metal has no diffuse term for the two models to disagree about.
   **The case set already carried the discriminator**: the film over a dielectric substrate
   (`metallicFactor 0`) is **1 code and within the bound**; over a conductor (`metallicFactor 1`) it is
   **5 codes**. Declared on the conductor case
-- [ ] **the rough metal lobe** -- 0.0013726554 at p95 relative and 1 code in the picture, against a
-  perfectly smooth sibling at zero. The candidate is our Kulla-Conty energy compensation (`board:1408`)
-  against Cycles' own multiple-scattering GGX, and it is a candidate and not a finding. *An apparent
+- [x] **the rough metal lobe** -- and the candidate was WRONG. Cycles' `bsdf_microfacet.h` states its
+  multiple-scattering term is *based on the appendix of 'Revisiting Physically Based Shading at
+  Imageworks' by Kulla and Conty, with one Fss cancelled out since this is already a multiplier on top of
+  the single-scattering BSDF* -- **the same model and the same multiplier form** `board:1408` built. What
+  differs is the CONDUCTOR'S FRESNEL: the same file documents *the F82-Tint model, described in 'Novel
+  aspects of the Adobe Standard Material' by Kutz et al ... the usual Schlick Fresnel with an additional
+  `cosI*(1-cosI)^6` term which modulates the reflectivity around acos(1/7) degrees (ca. 82)*, where glTF
+  Appendix B specifies plain Schlick with `f0 = baseColor`. Declared on `shaded-sphere-metal` and on
+  `shaded-sphere-metal-clearcoat`. *An apparent
   18 % deficit at `n.v` near 1 was chased and refuted: it was the PNG clamp described in `board:1441`,
   and the same reading made the rough DIELECTRIC look right for the wrong reason -- at that angle its
   radiance is mostly diffuse, so it does not test the specular magnitude at all.*

@@ -444,3 +444,34 @@ oracle's side and still undecidable with stock nodes.
 measurement rather than a result: the corpus verdict is identical case by case across
 `board:1408`, but whether each of the nine residuals moved is not established. The table above is
 recorded as the baseline the next round compares against.
+
+## The partition no longer holds, and this is the re-measurement
+
+[MEASURED] over the nine cases named above, from the run this line was written under:
+
+| case | picture bound | p99 | max |
+|---|---|---|---|
+| `DirectionalLight` | **within** | 5 | 61.717072 |
+| `Lantern` | **within** | 1 | 96.581165 |
+| `WaterBottle` | **within** | 1 | 150.83457 |
+| `BoomBox` | **within** | 1 | 166.69493 |
+| `NormalTangentMirrorTest` | **within** | 4 | 184.35783 |
+| `Corset` | **within** | 1 | 189.12859 |
+| `NormalTangentTest` | **within** | 6 | 229.33018 |
+| `PointLightIntensityTest` | not enforced -- its criterion is the asset's own relations | 46 | 184.19758 |
+| **`SpecularTest`** | **outside** | 5 | 141.5237 |
+
+**Eight of the nine, and the ninth is one case rather than a class.** The statement in this item's title
+is therefore false as written: *the engine's own BRDF now carries a shaded glTF material inside the
+picture bound*, which is the capability the item was opened to reach. The maxima are unchanged and large
+because they always were -- what moved is the percentile the bound is taken at (`board:1367`) and the
+defects the percentile then made visible.
+
+**It stays open for the generated spheres**, which are the cases this item's own instrument was built
+from and which no picture-bound repair reaches: `shaded-sphere` and `shaded-sphere-smooth` at
+`picture_p99_delta_code` 2 codes against 1, and `shaded-sphere-black` and `shaded-sphere-black-iridescence`
+on bit-exactness alone. **All four are dielectrics**, which is where this item's own diffuse-coupling
+measurement lives and where `board:1429`'s Schlick-versus-exact decision applies -- so the two of them
+own what is left and neither is a picture-bound question about the corpus.
+
+`SpecularTest` is carried by `board:1429` and `board:1430`.
