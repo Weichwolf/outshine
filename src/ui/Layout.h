@@ -97,6 +97,12 @@ struct Box {
   bool Clips = false;
   int Parent = -1;
   std::vector<int> Children;
+  /* WHERE THE FIRST BASELINE SITS, measured from this box's own top border edge. It is what
+   * `align-items: baseline` lines up, and it is published rather than recomputed because only the
+   * layout knows where the first line ended up -- a consumer re-deriving it would be deriving it from
+   * numbers the layout already threw away. A box with no text carries its bottom margin edge, which is
+   * the synthesised baseline CSS specifies for exactly that case. */
+  double Baseline = 0;
   /* A run of text and the size it was measured at, empty on every other box. */
   std::string Text;
   double FontSize = 0;

@@ -48,6 +48,10 @@ enum class Unit : uint8_t { None, Pixels, Percent, Em, Rem, Auto, Keyword, Colou
  * sentence -- so nothing here is resolved against a container until the layout has one. */
 struct Value {
   Unit How = Unit::None;
+  /* THE WORD CARRIED A VENDOR PREFIX. It is dropped like a prefixed property name and for the same
+   * reason: it is written beside the standard word by an author covering an older engine, and it says
+   * nothing about what this one can do. */
+  bool Prefixed = false;
   double Number = 0;      /* pixels, percent, em or a plain number */
   uint32_t Word = 0;      /* a keyword's own hash, or a packed rgba where `How` is `Colour` */
 };
@@ -70,6 +74,10 @@ struct Declaration {
 
 /* A COMPOUND SELECTOR: a tag, any number of classes and at most one id, all of which must hold. */
 struct Compound {
+  /* `:nth-child(N)` WITH AN INTEGER, AND ONLY THAT. The `an+b` formula is a second grammar and is
+   * named outside the subset; the corpus writes the integer form and this holds it. Zero means the
+   * selector said nothing about position, which is what every selector without it says. */
+  int NthChild = 0;
   std::string Tag;                    /* empty where the selector names no element type */
   std::vector<std::string> Classes;
   std::string Id;

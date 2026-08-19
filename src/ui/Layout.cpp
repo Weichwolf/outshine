@@ -9,9 +9,13 @@ namespace {
 
 constexpr uint32_t kDisplayBlock = Keyword("block");
 constexpr uint32_t kDisplayFlex = Keyword("flex");
+constexpr uint32_t kDisplayInlineFlex = Keyword("inline-flex");
+constexpr uint32_t kBaseline = Keyword("baseline");
 constexpr uint32_t kDisplayNone = Keyword("none");
 constexpr uint32_t kDisplayInline = Keyword("inline");
 constexpr uint32_t kColumn = Keyword("column");
+constexpr uint32_t kColumnReverse = Keyword("column-reverse");
+constexpr uint32_t kRowReverse = Keyword("row-reverse");
 constexpr uint32_t kFlexEnd = Keyword("flex-end");
 constexpr uint32_t kCentre = Keyword("center");
 constexpr uint32_t kSpaceBetween = Keyword("space-between");
@@ -137,6 +141,10 @@ struct Placer {
    * and NOT the room its container offers: an empty box wants nothing, and an engine that handed it
    * the container's width would report every such row overfull and shrink every sibling. */
   double MaxContent(int node, const Computed *inherited);
+  /* WHERE AN ITEM'S FIRST BASELINE SITS, measured from its own top margin edge, by laying it out in
+   * the width it will get. It is a trial layout and its boxes are thrown away, which is what makes a
+   * baseline knowable before the item is placed. */
+  double BaselineOf(int node, const Computed *inherited, double widthRoom);
   [[nodiscard]] double Clamped(double used, const Computed &style, Property least, Property most,
                                double against, double emPx) const;
   [[nodiscard]] double Width(const std::string &text, size_t from, size_t to, double emPx) const;
@@ -235,7 +243,8 @@ double Placer::MaxContent(int node, const Computed *inherited) {
   }
 
   double own = 0;
-  const bool row = display == kDisplayFlex && style.Word(Property::FlexDirection, 0) != kColumn;
+  const uint32_t how = style.Word(Property::FlexDirection, 0);
+  const bool row = display == kDisplayFlex && how != kColumn && how != kColumnReverse;
   double along = 0;
   int items = 0;
   for (const int child : element.Children) {
@@ -328,6 +337,15 @@ double Placer::Clamped(double used, const Computed &style, Property least, Prope
   return std::fmax(0.0, out);
 }
 
+double Placer::BaselineOf(int node, const Computed *inherited, double widthRoom) {
+  const size_t before = Out->size();
+  Place(node, inherited, 0, 0, widthRoom, 0, -1);
+  double baseline = 0;
+  if (Out->size() > before) { baseline = (*Out)[before].Baseline; }
+  Out->resize(before);
+  return baseline;
+}
+
 double Placer::Runs(int node, const Computed &style, int self, double contentX, double contentY,
                     double contentWidth, double emPx) {
   const double lineFactor = style.Number(Property::LineHeight, 1.2);
@@ -397,6 +415,14 @@ double Placer::Runs(int node, const Computed &style, int self, double contentX, 
       if (align == kCentre) { line.X = contentX + (contentWidth - line.Width) / 2.0; }
       if (align == kRight) { line.X = contentX + contentWidth - line.Width; }
       line.Parent = self;
+      line.Baseline = (lineHeight - (metrics.Ascent + metrics.Descent)) / 2.0 + metrics.Ascent;
+      /* THE BOX'S BASELINE IS ITS FIRST LINE'S, and only the first: a paragraph aligns by the line a
+       * reader's eye starts on, which is what CSS states and what makes two columns of prose line up. */
+      if ((*Out)[(size_t)self].Baseline == 0.0) {
+        (*Out)[(size_t)self].Baseline = (y - contentY) + line.Baseline +
+                                        ((*Out)[(size_t)self].Border.Top +
+                                         (*Out)[(size_t)self].Padding.Top);
+      }
       Out->push_back(line);
       (*Out)[(size_t)self].Children.push_back((int)Out->size() - 1);
       y += lineHeight;
@@ -420,7 +446,12 @@ double Placer::Blocks(int node, const Computed &style, int self, double contentX
 
 double Placer::Flex(int node, const Computed &style, int self, double contentX, double contentY,
                     double contentWidth, double contentHeight, double emPx) {
-  const bool column = style.Word(Property::FlexDirection, 0) == kColumn;
+  const uint32_t direction = style.Word(Property::FlexDirection, 0);
+  const bool column = direction == kColumn || direction == kColumnReverse;
+  /* A REVERSED DIRECTION IS THE MAIN AXIS MIRRORED, and it is applied ONCE at placement -- everything
+   * between here and there is computed in flex coordinates. Reversing the item order instead would
+   * work for the sizes and be wrong for `justify-content`, which measures from the flex start. */
+  const bool mainReversed = direction == kRowReverse || direction == kColumnReverse;
   const double mainRoom = column ? contentHeight : contentWidth;
   const double crossRoom = column ? contentWidth : contentHeight;
   const double gap = style.Has(Property::Gap) ? style.Of(Property::Gap).Number : 0.0;
@@ -429,7 +460,7 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
   /* THE MAIN AXIS IS NOT MIRRORED BY `wrap-reverse` -- only the cross one is -- so `justify-content`
    * takes the unreversed translation and `align-items` takes the reversed one. Handing both the same
    * flag is the kind of symmetry that reads as tidy and is a different layout. */
-  const uint32_t justify = Aligned(style.Word(Property::JustifyContent, 0), false);
+  const uint32_t justify = Aligned(style.Word(Property::JustifyContent, 0), mainReversed);
   const uint32_t align = Aligned(style.Word(Property::AlignItems, kStretch), reversed);
 
   struct Item {
@@ -646,8 +677,28 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
     for (Line &line : lines) { line.CrossAt = crossRoom - line.CrossAt - line.Cross; }
   }
 
+  /* THE BASELINE EACH LINE ALIGNS TO, and it is the deepest one any of its baseline items reached.
+   * Every such item is then pushed down by the difference, which is what makes their first lines of
+   * text share one row -- and it is measured in a first pass because an item cannot know how far to
+   * move until the deepest one is known. */
+  std::vector<double> lineBaseline(lines.size(), 0.0);
+  for (size_t at = 0; at < lines.size(); ++at) {
+    for (size_t i = lines[at].From; i < lines[at].From + lines[at].Count; ++i) {
+      const Item &one = items[i];
+      const uint32_t how = one.Style.Has(Property::AlignSelf)
+                               ? Aligned(one.Style.Word(Property::AlignSelf, align), reversed)
+                               : align;
+      if (how != kBaseline || column) { continue; }
+      /* A COLUMN'S CROSS AXIS IS HORIZONTAL AND A BASELINE IS NOT, so `baseline` in a column falls
+       * back to `flex-start`, which is what CSS says for a case where the two are perpendicular. */
+      lineBaseline[at] = std::fmax(lineBaseline[at], BaselineOf(one.Node, &style, one.Main) +
+                                                        one.CrossMarginStart);
+    }
+  }
+
   double deepest = 0;
-  for (const Line &line : lines) {
+  for (size_t lineAt = 0; lineAt < lines.size(); ++lineAt) {
+    const Line &line = lines[lineAt];
     double used = gap * (double)(line.Count - 1);
     for (size_t i = line.From; i < line.From + line.Count; ++i) {
       used += items[i].Main + items[i].MainMarginStart + items[i].MainMarginEnd;
@@ -697,10 +748,21 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
        * [MEASURED] `align-content-vert-002` states x = 198 for a 10 px item in a 200 px container, and
        * reversing only the line order answered 8. Reversing one of the two is a layout that is
        * mirrored in the large and not in the small. */
+      if (self_align == kBaseline && !column) {
+        /* PUSHED DOWN BY THE DIFFERENCE between this item's own baseline and the line's, which is
+         * zero for whichever item is deepest and positive for every other. */
+        inLine = one.CrossMarginStart +
+                 (lineBaseline[lineAt] - BaselineOf(one.Node, &style, one.Main) -
+                  one.CrossMarginStart);
+        inLine = std::fmax(inLine, 0.0);
+      }
       if (wrapping == kWrapReverse) { inLine = line.Cross - inLine - cross; }
       const double crossAt = line.CrossAt + inLine;
-      const double x = column ? contentX + crossAt : contentX + cursor;
-      const double y = column ? contentY + cursor : contentY + crossAt;
+      /* THE MAIN POSITION IS MIRRORED HERE AND NOWHERE ELSE. `cursor` is where the item sits measured
+       * from the flex start; a reversed direction measures the same distance from the other end. */
+      const double mainAt = mainReversed ? mainRoom - cursor - one.Main : cursor;
+      const double x = column ? contentX + crossAt : contentX + mainAt;
+      const double y = column ? contentY + mainAt : contentY + crossAt;
       /* THE ITEM IS GIVEN THE ROOM FLEX DECIDED, AND THE ROOM IS ITS OWN AXIS'S. A row's horizontal
        * margins are the MAIN ones and a column's are the CROSS ones, so the two rooms are named by
        * axis rather than by side -- writing them by side is how a column ends up sized by a row's
@@ -720,7 +782,7 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
           placed.Width = one.Main;
           if (!one.CrossDeclared && self_align == kStretch) { placed.Height = cross; }
         }
-        deepest = std::fmax(deepest, column ? cursor + one.Main + one.MainMarginEnd
+        deepest = std::fmax(deepest, column ? mainAt + one.Main + one.MainMarginEnd
                                             : crossAt + placed.Height + one.CrossMarginEnd);
       }
       cursor += one.Main + one.MainMarginEnd + between;
@@ -736,7 +798,8 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
 
 double Placer::Children(int node, const Computed &style, int self, double contentX, double contentY,
                         double contentWidth, double contentHeight, double emPx) {
-  return style.Word(Property::Display, kDisplayInline) == kDisplayFlex
+  const uint32_t display = style.Word(Property::Display, kDisplayInline);
+  return display == kDisplayFlex || display == kDisplayInlineFlex
              ? Flex(node, style, self, contentX, contentY, contentWidth, contentHeight, emPx)
              : Blocks(node, style, self, contentX, contentY, contentWidth, emPx);
 }
@@ -844,6 +907,22 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
 
   (*Out)[(size_t)self].Width = contentWidth + frameX;
   (*Out)[(size_t)self].Height = contentHeight + frameY;
+  /* A BOX WITH NO TEXT OF ITS OWN TAKES ITS FIRST CHILD'S BASELINE, and one with no child at all takes
+   * its own bottom margin edge -- the synthesised baseline CSS names for a box that has nothing to
+   * align by. Without the synthesis a box would align by zero, which is its TOP, and two items would
+   * line up by the one edge baseline alignment is not about. */
+  if ((*Out)[(size_t)self].Baseline == 0.0) {
+    for (const int child : (*Out)[(size_t)self].Children) {
+      const Box &inner = (*Out)[(size_t)child];
+      if (inner.Baseline > 0.0) {
+        (*Out)[(size_t)self].Baseline = (inner.Y - (*Out)[(size_t)self].Y) + inner.Baseline;
+        break;
+      }
+    }
+  }
+  if ((*Out)[(size_t)self].Baseline == 0.0) {
+    (*Out)[(size_t)self].Baseline = (*Out)[(size_t)self].Height + box.Margin.Bottom;
+  }
   return (*Out)[(size_t)self].Height + box.Margin.Top + box.Margin.Bottom;
 }
 
