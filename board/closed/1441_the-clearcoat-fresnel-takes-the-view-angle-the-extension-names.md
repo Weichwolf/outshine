@@ -45,11 +45,22 @@ could not explain the sign.*
 `Coat Weight 0.8`, `Coat Roughness 0.1`, `Coat IOR 1.5`, which is this file's `clearcoatFactor 0.8` and
 `clearcoatRoughnessFactor 0.1` exactly.
 
-## What it did not fix, and it is a separate question
+## CORRECTION -- the head-on bin was my instrument and not the engine
 
-**The `n.v` 0.9-1.0 bin did not move: 0.758 before and after.** At normal incidence both sides put the
-coat's Fresnel at 0.04, so the base is weighted 0.968 on ours and the coat adds `0.8 * 0.04 = 0.032`
-times its lobe -- a 3 % effect where 24 % is measured. `board:1435` carries it as an open row.
+The two brightest rows of the table above are **wrong, and they are wrong because the two sides were read
+in two different currencies**: our column is an 8-bit sRGB PNG decoded to linear, which cannot exceed
+1.0, and the oracle's is its f32 tap, which reaches **2.192 on the bare metal sphere and 82.144 on the
+coated one**. [MEASURED] over the brightest one per cent of that sphere the oracle sits at 1.91724 and
+ours reads **exactly 1.00000** -- a clamp, not a shortfall. **1551 of our pixels stand at code 255 and
+1543 of the oracle's exceed 1.0 linear**, which is the same set.
+
+*`CLAUDE.md` says it in one line -- a photograph is not a photometer beyond a couple of stops -- and the
+harness never made this mistake: its own `linear_channels_differing` and `linear_p95_relative` compare
+f32 to f32 on both sides.*
+
+**Nothing in the repair rests on those two rows.** The bins that identified the term are at 0.014 to
+0.019 linear, two orders below the clamp, and the number that decided the change is the harness's own
+`linear_p95_relative` -- **0.213744 to 0.017590152** -- which was never read through a PNG.
 
 ## The population, quoted with the number
 

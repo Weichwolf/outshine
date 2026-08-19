@@ -52,7 +52,10 @@ because a metal has no diffuse term for the two models to disagree about.
   **5 codes**. Declared on the conductor case
 - [ ] **the rough metal lobe** -- 0.0013726554 at p95 relative and 1 code in the picture, against a
   perfectly smooth sibling at zero. The candidate is our Kulla-Conty energy compensation (`board:1408`)
-  against Cycles' own multiple-scattering GGX, and it is a candidate and not a finding
+  against Cycles' own multiple-scattering GGX, and it is a candidate and not a finding. *An apparent
+  18 % deficit at `n.v` near 1 was chased and refuted: it was the PNG clamp described in `board:1441`,
+  and the same reading made the rough DIELECTRIC look right for the wrong reason -- at that angle its
+  radiance is mostly diffuse, so it does not test the specular magnitude at all.*
 - [ ] **the clearcoat** -- MEASURED against the view angle, and it is two effects rather than one. The
   parameters are NOT the cause: Blender's importer gives the oracle `Coat Weight 0.8`, `Coat Roughness
   0.1`, `Coat IOR 1.5`, which is this file's `clearcoatFactor 0.8` and `clearcoatRoughnessFactor 0.1`
@@ -68,8 +71,10 @@ because a metal has no diffuse term for the two models to disagree about.
 
   **`board:1441` closed the grazing half of this** -- the extension evaluates its layering Fresnel at
   `NdotV` and this engine used `v.h`, so `p95 relative` fell from 0.213744 to 0.017590152 and the
-  0.0-0.1 bin from 2.132 to 0.819. **What remains is the head-on bin alone, unmoved at 0.758**, where
-  both sides put the coat's Fresnel at 0.04 and a 3 % effect is measured at 24 %. The table below is the
+  0.0-0.1 bin from 2.132 to 0.819. **And what looked like a remaining head-on deficit was an
+  instrument error of mine, corrected in `board:1441`**: an 8-bit PNG decoded to linear cannot exceed
+  1.0 and the oracle's f32 tap reaches 82.144 there, so the brightest bins compared a clamp against a
+  measurement. The clearcoat row has no open residual. The table below is the
   before state and is kept because the sign is what identified the term:
 
   24 % dark where the coat's Fresnel is at its minimum and 2.1x bright at grazing, with the middle
