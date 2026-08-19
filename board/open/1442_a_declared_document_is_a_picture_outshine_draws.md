@@ -154,3 +154,47 @@ per-glyph walk cost **+0.016 ms at p50** and bought proportional text; that is t
 *The re-read-every-frame population is the pessimistic case on purpose. A consumer rebuilds when
 something changed, so a real HUD pays less than this — but a budget checked against the cheap case is
 not checked.*
+
+## The path reaches a pixel: `Stage::Overlay`
+
+**It CONTRIBUTES and does not write**, so the picture exists without it — which is what makes a HUD a
+declaration rather than a requirement, and why it costs a plan that does not ask for it nothing. It
+sits **after** the display transfer: a consumer's colour is display-referred, and a panel put through
+the transfer would come out a colour nobody declared.
+
+**`Resource::OverlayAtlas` is `Given`, like a sampler.** The consumer's image, which the engine holds
+and never makes. One white texel until it is handed something, so *no atlas* is a value and not a
+branch, and a binding is never left empty — which is a validation error on some drivers and a black
+interface on others.
+
+**One draw for the whole interface.** The six corners are arithmetic and the rectangle is data, so
+every quad is an instance; the clip is a per-quad **discard** rather than a scissor, because a scissor
+is pass-level state and honouring per-rectangle clips with one would mean as many passes as clips.
+The buffer is allocated once at the bound and reused, so a HUD whose length varies allocates in the
+first frames of a run and on no frame after that.
+
+**The renderer takes `OverlayQuad` and not `Ui::Quad`, and that is the layering rather than an
+inconvenience.** No content noun has a spelling in the renderer; a box, a glyph and a page are the
+UI's vocabulary. The consumer translates — a loop it already owns — and either end stays replaceable.
+
+### What the device answered, and every number is the declaration's own
+
+[MEASURED] `test/outshine/shader/TheOverlayPutsEachRectangleWhereItWasDeclared.cpp`, 33 of 33:
+
+| claim | what came back |
+|---|---|
+| a rectangle lands where it was declared | its first and last texel are the declared colour, and one pixel outside each edge is the clear |
+| the clip is per rectangle, in one draw | half of a 40×40 quad past a 20×20 clip never reaches a texel |
+| the blend is premultiplied | one half-opaque white over black reads **128**; a second over it reaches **191**. A straight-alpha blend gives the same 128 and darkens the seam, so the second number is the one that separates them |
+| the radius reaches the pixel | the middle is filled and the corner texel is not |
+| the bound refuses | a list three past it comes back with *3 past the bound* in the refusal |
+
+*The two-quad number is the claim that costs something to make: a single translucent quad cannot tell
+a premultiplied blend from a straight one, and a suite that only checked it would have passed either.*
+
+## What is still open on this item
+
+- the client-side translation from `Ui::Quad` to `OverlayQuad` — ten lines, and it is the client's by
+  design, so it lands with the first client that draws an interface
+- `position: absolute`, deferred and carrying its own item
+- nine red corpus cases, all genuine flexbox depth
