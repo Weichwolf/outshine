@@ -977,6 +977,10 @@ def world_bounds_over(scene, imported, instants):
     """
     least = [None, None, None]
     most = [None, None, None]
+    # **WHAT EACH INSTANT CONTRIBUTED, PUBLISHED** (board:1467). A union says nothing about whether the
+    # walk actually moved the subject, and a camera derived from one pose twice looks exactly like a
+    # camera derived from a subject that does not move.
+    per_instant = []
     graph = bpy.context.evaluated_depsgraph_get()
     # **THE INSTANTS ARE SECONDS AND BLENDER COUNTS FRAMES**, and its own rate is what converts them.
     # The camera is derived BEFORE the recipe sets a rate, so a frame number handed straight in would
@@ -987,7 +991,14 @@ def world_bounds_over(scene, imported, instants):
         exact = seconds * rate
         whole = math.floor(exact)
         scene.frame_set(int(whole), subframe=float(exact - whole))
+        # **THE VIEW LAYER IS UPDATED BEFORE THE DEPSGRAPH IS TAKEN** (board:1467). `frame_set` alone
+        # left every instant evaluating to the FIRST one's pose: [MEASURED] a STEP translation keyed
+        # -0.1 at 0 s and +0.1 at 2 s reported `x in [-0.4, 0.2]` at BOTH instants, so the union was
+        # one pose twice and the near plane derived from it clipped the body this engine renders.
+        bpy.context.view_layer.update()
         graph = bpy.context.evaluated_depsgraph_get()
+        here = [None, None, None]
+        there = [None, None, None]
         for obj in imported:
             if obj.type != "MESH" or obj.name not in bpy.data.objects:
                 continue
@@ -999,9 +1010,15 @@ def world_bounds_over(scene, imported, instants):
                         least[axis] = point[axis]
                     if most[axis] is None or point[axis] > most[axis]:
                         most[axis] = point[axis]
+                    if here[axis] is None or point[axis] < here[axis]:
+                        here[axis] = point[axis]
+                    if there[axis] is None or point[axis] > there[axis]:
+                        there[axis] = point[axis]
+        per_instant.append({"secondsS": seconds, "blenderFrame": exact,
+                            "minM": list(here), "maxM": list(there)})
     if least[0] is None:
         fail("no imported mesh has bounds, so no camera can be derived from the subject")
-    return least, most
+    return least, most, per_instant
 
 
 def derive_camera(scene, imported, declared, instants):
@@ -1020,7 +1037,7 @@ def derive_camera(scene, imported, declared, instants):
     bounds are taken back through `YUP_TO_ZUP` before the arithmetic and the result goes forward
     through it again -- which is what `build_camera` does with a declared camera too.
     """
-    least, most = world_bounds_over(scene, imported, instants)
+    least, most, per_instant = world_bounds_over(scene, imported, instants)
     # THE RULE IS glTF'S FRAME, so the Z-up bounds come back to Y-up: (x, y, z)_zup = (x, -z, y)_yup.
     corners = [(x, y, z) for x in (least[0], most[0]) for y in (least[1], most[1])
                for z in (least[2], most[2])]
@@ -1053,7 +1070,7 @@ def derive_camera(scene, imported, declared, instants):
         "clipStartM": near,
         "clipEndM": distance + radius,
     }) | {"derivedFrom": {"minM": low, "maxM": high, "radiusM": radius, "centreM": centre,
-                          "fill": fill, "instantsS": list(instants),
+                          "fill": fill, "instantsS": list(instants), "atEachInstant": per_instant,
                           "positionM": eye, "lookAtM": centre, "rollRad": 0.0, "yfovRad": yfov,
                           "sensorHeightMm": 2.0 * FRAMING_SENSOR_HALF_HEIGHT_MM,
                           "clipStartM": near, "clipEndM": distance + radius}}

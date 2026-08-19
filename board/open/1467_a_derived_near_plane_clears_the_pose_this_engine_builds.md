@@ -46,9 +46,37 @@ zero. Both are cases where the value AT a keyframe boundary is a convention, and
 not share it: glTF's STEP holds the previous key's value up to and including the next, and Blender's
 f-curve CONSTANT interpolation is what its importer maps that onto.
 
-**THAT IS THE THING TO MEASURE NEXT, and it is measurable without a picture**: pose the subject at the
-declared instants on both sides and compare the world positions. A disagreement there is a reader
-defect and belongs to `src/gltf`; agreement there would move this item to the camera after all.
+## THE MEASUREMENT WAS TAKEN AND IT IS THE PREPARER'S SIDE
+
+`camera.derivedFrom.atEachInstant` now publishes what every instant of the walk contributed, because a
+UNION says nothing about whether the walk moved anything -- a camera derived from one pose twice looks
+exactly like a camera derived from a subject that does not move.
+
+[MEASURED] `Animation_Node_03` keys a **STEP** translation at 0, 1, 2, 3 and 4 seconds with values
+`-0.1, 0.0, +0.1, 0.0, -0.1`. glTF's STEP holds a key's value from that key until the next, so at
+**t = 2 s the value is +0.1** and this engine renders it there. The preparer's walk reports:
+
+| instant | what Blender's bounds gave |
+|---|---|
+| 0.0 s | `x in [-0.4, 0.2]` -- the cube at translation **-0.1**, which is right |
+| 2.0 s | `x in [-0.4, 0.2]` -- **the same pose again** |
+
+**So the engine is right and the ORACLE'S CAMERA WALK is stuck at the first instant.** The rest pose
+would be `x in [-0.3, 0.3]`, so an action IS assigned and evaluated -- it simply never advances.
+
+**`bpy.context.view_layer.update()` before re-taking the depsgraph does not fix it**, which is worth
+recording: the obvious answer to *a `frame_set` that does not take* is not the answer here.
+
+## What is left to try, in order
+
+- [ ] **Print the f-curve keyframe positions from inside Blender.** The importer converts seconds to
+  frames with the scene rate at import time, and this corpus is the first to use a FRACTIONAL rate --
+  `fps = 1`, `fps_base = 2.0`. If the importer reads `scene.render.fps` alone and ignores the base,
+  every key lands at twice its frame and the walk samples inside the first interval forever
+- [ ] **Derive the camera AFTER the preparer's own animation setup**, which runs later in `main` and
+  bakes channels itself -- the camera may simply be reading a scene that is not yet posed
+- [ ] **Compare against a case with a WHOLE rate**, which is every case of the older corpus: if those
+  walk correctly, the fractional rate is the discriminator and the first line above is the answer
 
 ## What must be true
 
