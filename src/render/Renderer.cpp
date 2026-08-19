@@ -305,7 +305,11 @@ void Renderer::Create(Resource resource) {
                                       SDL_GPU_TEXTUREUSAGE_SAMPLER);
       return;
     case Resource::FrameTex: FrameTex = target(resource, colour); return;
-    case Resource::Surface: OffscreenTex = target(resource, colour); return;
+    /* THE SURFACE IS THE HOST'S AND THIS LIBRARY ALLOCATES NONE (board:1443). A window's swapchain
+     * image is acquired per frame and owned by whoever owns the window; a headless host hands in a
+     * texture of its own. Either way the engine is given one, which is what every renderer library
+     * does and what makes this one usable by a host at all. */
+    case Resource::Surface: return;
     case Resource::LutSampler:
     case Resource::AtmosphereUniform:
     case Resource::CascadeUniform:
@@ -346,7 +350,10 @@ SDL_GPUTexture *Renderer::Target(Resource resource) const {
     case Resource::SceneSurfaceIdentity: return SurfaceIdentityTex.Get();
     case Resource::SceneDepth: return DepthTex.Get();
     case Resource::FrameTex: return FrameTex.Get();
-    case Resource::Surface: return OffscreenTex.Get();
+    /* THE HOST'S SURFACE WHERE IT DECLARED ONE, AND THIS ENGINE'S OWN WHERE IT DID NOT (board:1443).
+     * One expression rather than a branch on a mode, so a windowed host and a headless one travel the
+     * same path and the picture is a function of the declaration either way. */
+    case Resource::Surface: return HostSurface_;
     case Resource::LinearSampler:
     case Resource::LutSampler:
     case Resource::AtmosphereUniform:
@@ -385,6 +392,10 @@ DisplayOptions Renderer::Display(void) const {
    * reached the readback -- because that fragment was never compiled. */
   options.Temporal = Plan_->Holds(Stage::TemporalResolve);
   return options;
+}
+
+SDL_GPUTextureFormat Renderer::SurfaceFormat(void) const {
+  return Plan_ ? FormatOf(Plan_->Format(Resource::Surface)) : SDL_GPU_TEXTUREFORMAT_INVALID;
 }
 
 SDL_GPUTexture *Renderer::LinearSource(void) const {

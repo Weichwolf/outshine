@@ -41,6 +41,24 @@ public:
   void Init(int width, int height, std::shared_ptr<const RenderPlan> plan);
   [[nodiscard]] const RenderPlan &Plan(void) const { return *Plan_; }
   [[nodiscard]] bool DeviceUsable(void) const { return Ready; }
+  /* THE DEVICE THIS LIBRARY CHOSE, SO A HOST CAN CLAIM ITS OWN WINDOW FOR IT (board:1443). The engine
+   * creates the device because it is the one that knows which shader format and which validation it
+   * needs; a host that wants a window on the same device needs the handle and nothing else. */
+  [[nodiscard]] SDL_GPUDevice *Device(void) const { return Device_.Get(); }
+  /* WHAT FORMAT A SURFACE THE HOST DECLARES MUST BE (board:1443). The plan says which, because the
+   * catalogue does; the host has to create a texture the final pass can attach and this is the one
+   * number it needs to do that. Invalid before `Init`, which is the same statement as "there is no
+   * plan yet". */
+  [[nodiscard]] SDL_GPUTextureFormat SurfaceFormat(void) const;
+  /* WHERE THE PICTURE GOES, AND THE HOST DECLARES IT (board:1443). A swapchain image is acquired per
+   * frame and belongs to whoever owns the window, so this is set per frame; a headless host hands in
+   * a texture of its own and sets it once. **This library allocates no surface at all** -- it is given
+   * one, which is what every renderer library does and what a plan asking for `Resource::Surface`
+   * means.
+   *
+   * IT IS THE HOST'S DECLARATION AND NOT A MODE: the engine does not learn whether it is windowed, it
+   * learns which texture the final pass attaches. */
+  void PresentInto(SDL_GPUTexture *surface) { HostSurface_ = surface; }
 
   /* Run the passes and submit. It does NOT wait: the device runs behind the caller, which is what a
    * host that wants to prepare the next frame while this one draws depends on. */
@@ -188,9 +206,11 @@ private:
 
   /* FIRST, SO IT IS DESTROYED LAST (`C.13`): every handle below is taken from it. */
   OwnedDevice Device_;
+  /* Null unless a host declared one for this frame. */
+  SDL_GPUTexture *HostSurface_ = nullptr;
   std::shared_ptr<const RenderPlan> Plan_;
   Gpu Handles;
-  OwnedTexture HdrTex, VelTex, DepthTex, FrameTex, OffscreenTex;
+  OwnedTexture HdrTex, VelTex, DepthTex, FrameTex;
   /* `KHR_materials_transmission` (board:1386): where a transmissive draw puts its radiance, and the
    * two put together. Kept apart from `HdrTex` because the pass that reads what stands behind it
    * must not also be writing that -- the plan's own topological invariant refuses the shape where it

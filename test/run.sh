@@ -141,6 +141,9 @@ LayerIncludes() {
     harness/khronos/glTF | harness/outshine/render) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
     outshine/frame) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
     outshine/shader) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render -Isrc/render/draw -Isrc/render/plan -Isrc/render/stages" ;;
+    # THE BROWSER READS A CASE THE WAY THE RUNNER DOES, so it compiles the runner's own reader and
+    # sees exactly the layers that reader sees -- one set, not a second one that could drift.
+    viewer) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
     *) return 1 ;;
   esac
 }
@@ -156,7 +159,7 @@ LayerIncludes() {
 # boundary.
 LayerToolchain() {
   case "$1" in
-    harness/khronos/glTF | harness/outshine/render | outshine/frame) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    harness/khronos/glTF | harness/outshine/render | outshine/frame | viewer) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     outshine/shader) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3)" ;;
     outshine/unit/clients) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
@@ -196,7 +199,7 @@ LayerLink() {
   case "$1" in
     # zlib, for the oracle's EXR (board:1119). It is already in these processes through SDL3_image ->
     # libpng, so naming it links what the host already provides rather than adding a dependency.
-    harness/khronos/glTF | harness/outshine/render | outshine/frame) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz" ;;
+    harness/khronos/glTF | harness/outshine/render | outshine/frame | viewer) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz" ;;
     outshine/harness) printf '%s' "-lz" ;;
     outshine/shader) printf '%s' "$(pkg-config --libs sdl3)" ;;
     outshine/unit/clients) printf '%s' "$(pkg-config --libs sdl3-image)" ;;
@@ -239,7 +242,7 @@ LayerGroups() {
     outshine/unit/render/stages) printf '%s' "" ;;
     outshine/unit/clients) printf '%s' "src/clients/Image.cpp" ;;
     outshine/harness) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
-    harness/khronos/glTF | harness/outshine/render | outshine/frame) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/clients/GltfStudio.cpp src/clients/Image.cpp" ;;
+    harness/khronos/glTF | harness/outshine/render | outshine/frame | viewer) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/clients/GltfStudio.cpp src/clients/Image.cpp" ;;
     # `outshine/shader` COMPILES THE RENDERER'S OWN STAGES AS WELL AS ITS OWN TWINS (board:1207). A
     # twin proves an arithmetic; only the unit's OWN text proves that the driver accepts it, and a
     # `shadeRow` call left one argument short survived a green library, a green unit tree and a green
@@ -290,7 +293,7 @@ NotTheHarnesses() {
 # asset. So the scorer is one file compiled into each harness rather than one binary behind a flag.
 LayerExtraSources() {
   case "$1" in
-    harness/khronos/glTF | harness/outshine/render) printf '%s' "test/harness/shared/render/Parity.cpp" ;;
+    harness/khronos/glTF | harness/outshine/render | viewer) printf '%s' "test/harness/shared/render/Parity.cpp" ;;
     *) printf '%s' "" ;;
   esac
 }

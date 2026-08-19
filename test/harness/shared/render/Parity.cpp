@@ -45,6 +45,8 @@
 
 #include "Check.h"
 
+#include "RenderCase.h"
+
 #include "Acceptance.h"
 #include "Attribution.h"
 #include "Exactness.h"
@@ -1623,6 +1625,69 @@ void ScoreRadianceResidual(const Case &subject, const Picture &picture, const Ra
  * line number is what sends a reader to the phase that stopped. */
 enum class Prepared { Yes, No };
 
+/* THE CASE'S OWN RENDER DECLARATION, AND IT IS ONE STATEMENT WITH ONE CALLER MORE (board:1443). The
+ * runner compiled it inline; the viewer under `test/viewer/` configures outshine from the same
+ * manifest and must therefore ask for the same plan, or the picture it shows is a function of which
+ * host opened the case rather than of the declaration. **The renderer is the library and neither host
+ * renders**: they configure, and this is where that configuring says what to draw into. */
+void DeclarePlan(const Case &subject, outshine::Render::PlanSpec &declaration) {
+  /* THE SHADING NORMAL IS REQUESTED, WHICH IS WHAT ATTACHES IT (board:1121, board:1122). The plan
+   * prunes a target nothing reads, so asking for it here is the whole of why it exists in this
+   * plan and in no other. */
+  /* THE SURFACE IDENTITY IS REQUESTED FOR THE SAME REASON AND ON THE SAME TERMS (board:1138): the
+   * plan prunes a target nothing reads, so no plan outside this runner pays for it. */
+  declaration.Outputs = {outshine::Render::Resource::SceneDepth,
+                         outshine::Render::Resource::SceneShadingNormal,
+                         outshine::Render::Resource::SceneSurfaceIdentity,
+                         outshine::Render::Resource::FrameTex};
+  /* THE MOTION TARGET IS REQUESTED BY A SEQUENCE AND BY NOTHING ELSE (board:1169). The plan prunes
+   * a target nothing reads, so a still case's pipelines, vertex layouts and shader text are exactly
+   * what they were; and a subject that cannot move has no motion to publish. */
+  if (subject.Animated()) {
+    declaration.Outputs.push_back(outshine::Render::Resource::SceneVelocity);
+  }
+  declaration.Content = {outshine::Render::Stage::Subjects};
+  /* THE TRANSMISSIVE PASS IS REQUESTED BY A SUBJECT THAT CARRIES GLASS AND BY NOTHING ELSE
+   * (board:1386). What passes through a surface is the scene behind it, which is a second pass over
+   * the same draw list with the opaque scene bound -- and `SceneComposited` aliases straight to
+   * `SceneHdr` when neither is asked for, so a case with no transmissive material has exactly the
+   * pipelines, targets and passes it had before this existed.
+   *
+   * IT IS ASKED FOR FROM THE FILE'S OWN MATERIALS rather than from a manifest field: whether a
+   * subject carries glass is a fact about the subject, and a declaration that could disagree with it
+   * would be a second answer to a question the file already settles. */
+  /* AND ONLY WHERE THIS CASE IS COMPARING THE FILE'S OWN MATERIALS (board:1386). A coverage case
+   * replaces every surface with a flat emission and renders the oracle at ZERO transmission bounces --
+   * so the oracle draws the glass as an opaque emitting body, by the case's own declaration. Asking
+   * for the transmissive pass there makes this engine see through a surface the other side does not,
+   * and the two are then comparing different scenes rather than disagreeing about one.
+   *
+   * [MEASURED] when the reader was restored, `TransmissionOrderTest` went from 2.52 px of silhouette
+   * disagreement to 60.15 px and its IoU to 0.14126761 -- while `picture_p99_delta_code` PASSED at 0,
+   * which is what says the colour was never the question. **A capability that made a case worse was
+   * being asked for by the case that states it is not about it.** */
+  bool carriesGlass = false;
+  for (const outshine::Gltf::MaterialRef &material : subject.File.Materials()) {
+    const outshine::SurfaceKind kind = outshine::StateOf(material.Surface).Kind();
+    carriesGlass = carriesGlass || kind == outshine::SurfaceKind::ThinTransmissive ||
+                   kind == outshine::SurfaceKind::Refractive;
+  }
+  carriesGlass = carriesGlass && subject.TransmissionBounces > 0;
+  if (carriesGlass) {
+    declaration.Content.push_back(outshine::Render::Stage::SubjectsTransmissive);
+    declaration.Content.push_back(outshine::Render::Stage::CompositeTransmission);
+  }
+  declaration.Display =
+      outshine::Render::Declared<outshine::Render::Transfer>(outshine::Render::Transfer::Linear);
+  declaration.Exposure = outshine::Render::Declared<float>(1.0f);
+  /* THE TAP IS f32 BECAUSE THE VALUE IS THE VERDICT (board:0087). At rgba16float the
+   * store's own rounding was 63x the arithmetic term and every channel of the flat cases sat exactly
+   * one binary16 step low -- the format speaking, not the engine. The rule this obeys is that a rung
+   * needing tighter than the storage floor changes the storage and never the threshold. */
+  declaration.Precision = outshine::Render::Declared<outshine::Render::ScenePrecision>(
+      outshine::Render::ScenePrecision::Float);
+}
+
 /* THE ORACLE AT ONE FRAME, read before anything of that frame is rendered: an absent reference is a
  * property of the case, and finding it out after a device bring-up would report a rendering failure
  * for a missing file. THE EXR IS THE ORACLE AND THE FLAT DUMP IS ITS CACHE (board:1119). */
@@ -1748,61 +1813,7 @@ Prepared Prepare(Case &subject, outshine::Render::Renderer &renderer) {
    * transfer function over scene-referred linear values and nothing else, and the frame target is
    * sRGB-encoding: a curve here would be measuring the curve (board:0087). */
   outshine::Render::PlanSpec declaration;
-  /* THE SHADING NORMAL IS REQUESTED, WHICH IS WHAT ATTACHES IT (board:1121, board:1122). The plan
-   * prunes a target nothing reads, so asking for it here is the whole of why it exists in this
-   * plan and in no other. */
-  /* THE SURFACE IDENTITY IS REQUESTED FOR THE SAME REASON AND ON THE SAME TERMS (board:1138): the
-   * plan prunes a target nothing reads, so no plan outside this runner pays for it. */
-  declaration.Outputs = {outshine::Render::Resource::SceneDepth,
-                         outshine::Render::Resource::SceneShadingNormal,
-                         outshine::Render::Resource::SceneSurfaceIdentity,
-                         outshine::Render::Resource::FrameTex};
-  /* THE MOTION TARGET IS REQUESTED BY A SEQUENCE AND BY NOTHING ELSE (board:1169). The plan prunes
-   * a target nothing reads, so a still case's pipelines, vertex layouts and shader text are exactly
-   * what they were; and a subject that cannot move has no motion to publish. */
-  if (subject.Animated()) {
-    declaration.Outputs.push_back(outshine::Render::Resource::SceneVelocity);
-  }
-  declaration.Content = {outshine::Render::Stage::Subjects};
-  /* THE TRANSMISSIVE PASS IS REQUESTED BY A SUBJECT THAT CARRIES GLASS AND BY NOTHING ELSE
-   * (board:1386). What passes through a surface is the scene behind it, which is a second pass over
-   * the same draw list with the opaque scene bound -- and `SceneComposited` aliases straight to
-   * `SceneHdr` when neither is asked for, so a case with no transmissive material has exactly the
-   * pipelines, targets and passes it had before this existed.
-   *
-   * IT IS ASKED FOR FROM THE FILE'S OWN MATERIALS rather than from a manifest field: whether a
-   * subject carries glass is a fact about the subject, and a declaration that could disagree with it
-   * would be a second answer to a question the file already settles. */
-  /* AND ONLY WHERE THIS CASE IS COMPARING THE FILE'S OWN MATERIALS (board:1386). A coverage case
-   * replaces every surface with a flat emission and renders the oracle at ZERO transmission bounces --
-   * so the oracle draws the glass as an opaque emitting body, by the case's own declaration. Asking
-   * for the transmissive pass there makes this engine see through a surface the other side does not,
-   * and the two are then comparing different scenes rather than disagreeing about one.
-   *
-   * [MEASURED] when the reader was restored, `TransmissionOrderTest` went from 2.52 px of silhouette
-   * disagreement to 60.15 px and its IoU to 0.14126761 -- while `picture_p99_delta_code` PASSED at 0,
-   * which is what says the colour was never the question. **A capability that made a case worse was
-   * being asked for by the case that states it is not about it.** */
-  bool carriesGlass = false;
-  for (const outshine::Gltf::MaterialRef &material : subject.File.Materials()) {
-    const outshine::SurfaceKind kind = outshine::StateOf(material.Surface).Kind();
-    carriesGlass = carriesGlass || kind == outshine::SurfaceKind::ThinTransmissive ||
-                   kind == outshine::SurfaceKind::Refractive;
-  }
-  carriesGlass = carriesGlass && subject.TransmissionBounces > 0;
-  if (carriesGlass) {
-    declaration.Content.push_back(outshine::Render::Stage::SubjectsTransmissive);
-    declaration.Content.push_back(outshine::Render::Stage::CompositeTransmission);
-  }
-  declaration.Display =
-      outshine::Render::Declared<outshine::Render::Transfer>(outshine::Render::Transfer::Linear);
-  declaration.Exposure = outshine::Render::Declared<float>(1.0f);
-  /* THE TAP IS f32 BECAUSE THE VALUE IS THE VERDICT (board:0087). At rgba16float the
-   * store's own rounding was 63x the arithmetic term and every channel of the flat cases sat exactly
-   * one binary16 step low -- the format speaking, not the engine. The rule this obeys is that a rung
-   * needing tighter than the storage floor changes the storage and never the threshold. */
-  declaration.Precision = outshine::Render::Declared<outshine::Render::ScenePrecision>(
-      outshine::Render::ScenePrecision::Float);
+  DeclarePlan(subject, declaration);
   std::shared_ptr<const outshine::Render::RenderPlan> plan;
   const bool compiled = outshine::Render::RenderPlan::Compile(declaration, &plan, why);
   CHECK(compiled, "the case's render declaration compiles");
@@ -3498,3 +3509,63 @@ int ScoreRenderCase(int argc, char **argv) {
          "own thresholds and directions, and always writes the three pictures");
   return Report();
 }
+
+/* THE SAME CONFIGURATION, A SECOND HOST (board:1443). Everything above this line scores; everything
+ * below it only says what the case IS -- which manifest, which subject, which camera, which plan --
+ * so that the viewer under `test/viewer/` reads a case exactly as the runner does and the picture is
+ * a function of the declaration rather than of who opened it. */
+struct ConfiguredCase::Held {
+  Case Subject;
+  outshine::Clients::StudioScratch Scratch;
+};
+
+ConfiguredCase::ConfiguredCase() : Held_(std::make_unique<Held>()) {}
+ConfiguredCase::~ConfiguredCase() = default;
+
+bool ConfiguredCase::Read(const std::string &directory, std::string &error) {
+  Held_->Subject.Directory = directory;
+  if (!Held_->Subject.Directory.empty() && Held_->Subject.Directory.back() != '/') {
+    Held_->Subject.Directory += '/';
+  }
+  if (!ReadManifest(Held_->Subject, error)) { return false; }
+  return BuildSubject(Held_->Subject, error);
+}
+
+bool ConfiguredCase::Declines(void) const {
+  return Held_->Subject.Criterion == CriterionKind::LimitsProbe;
+}
+
+bool ConfiguredCase::Start(outshine::Render::Renderer &renderer, std::string &error) {
+  outshine::Render::PlanSpec declaration;
+  DeclarePlan(Held_->Subject, declaration);
+  /* THE HOST PRESENTS, SO THE PLAN SAYS SO. The runner reads `FrameTex` back and asks for no surface
+   * at all; a windowed host draws into the one it acquired, and `Present` is the stage that puts it
+   * there -- which is a stage the consumer declares like any other. */
+  declaration.Outputs.push_back(outshine::Render::Resource::Surface);
+  std::shared_ptr<const outshine::Render::RenderPlan> plan;
+  if (!outshine::Render::RenderPlan::Compile(declaration, &plan, error)) { return false; }
+  renderer.Init((int)Held_->Subject.Frame.WidthPx, (int)Held_->Subject.Frame.HeightPx, plan);
+  if (!renderer.DeviceUsable()) {
+    error = "the device did not come up, so this case cannot be shown";
+    return false;
+  }
+  return true;
+}
+
+bool ConfiguredCase::PoseAt(int frame, std::string &error) {
+  if (Held_->Subject.Animated()) { Held_->Subject.PreviousGeometry = Held_->Subject.Geometry; }
+  return PoseGeometry(Held_->Subject, frame, error);
+}
+
+bool ConfiguredCase::Draw(outshine::Render::Renderer &renderer, std::string &error) {
+  const outshine::Clients::Studio studio = MakeStudio(Held_->Subject);
+  if (!outshine::Clients::Show(renderer, studio, Held_->Scratch, error)) { return false; }
+  renderer.RenderFrame();
+  return true;
+}
+
+int ConfiguredCase::Frames(void) const { return Held_->Subject.Frames; }
+double ConfiguredCase::Fps(void) const { return Held_->Subject.Fps; }
+int ConfiguredCase::WidthPx(void) const { return (int)Held_->Subject.Frame.WidthPx; }
+int ConfiguredCase::HeightPx(void) const { return (int)Held_->Subject.Frame.HeightPx; }
+const std::string &ConfiguredCase::Title(void) const { return Held_->Subject.Directory; }
