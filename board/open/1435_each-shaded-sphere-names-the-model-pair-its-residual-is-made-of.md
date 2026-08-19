@@ -53,8 +53,26 @@ because a metal has no diffuse term for the two models to disagree about.
 - [ ] **the rough metal lobe** -- 0.0013726554 at p95 relative and 1 code in the picture, against a
   perfectly smooth sibling at zero. The candidate is our Kulla-Conty energy compensation (`board:1408`)
   against Cycles' own multiple-scattering GGX, and it is a candidate and not a finding
-- [ ] **the clearcoat** -- 0.213744 at p95 relative and yet **1 code** in the picture, which is the pair
-  in the table most worth explaining: a fifth of the radiance and nothing anyone can see
+- [ ] **the clearcoat** -- MEASURED against the view angle, and it is two effects rather than one. The
+  parameters are NOT the cause: Blender's importer gives the oracle `Coat Weight 0.8`, `Coat Roughness
+  0.1`, `Coat IOR 1.5`, which is this file's `clearcoatFactor 0.8` and `clearcoatRoughnessFactor 0.1`
+  exactly. The residual against `n.v`, radiance in linear:
+
+  | `n.v` | px | oracle | ours | ratio |
+  |---|---|---|---|---|
+  | 0.9 - 1.0 | 8813 | 0.49161 | 0.37247 | **0.758** |
+  | 0.7 - 0.9 | 14850 | 0.13593 | 0.13530 | 0.995 |
+  | 0.5 - 0.7 | 11049 | 0.04106 | 0.04190 | 1.020 |
+  | 0.1 - 0.3 | 3597 | 0.01901 | 0.02532 | 1.332 |
+  | 0.0 - 0.1 | 476 | 0.01421 | 0.03029 | **2.132** |
+
+  **24 % dark where the coat's Fresnel is at its minimum and 2.1x bright at grazing, with the middle
+  agreeing to half a percent** -- and the same sphere without a coat agrees everywhere at p95 relative
+  0.0013726554. The format's operator is a mix, `base*(1 - clearcoat*F) + clearcoat*F*coatLobe`, and this
+  engine implements it; Cycles layers the coat as a closure. **But a layered coat transmits the base
+  twice and would be DARKER, not brighter**, so the sign at `n.v` near 1 is not explained by the layering
+  and the cause is not named. `board:1429` does not reach it either: at normal incidence Schlick and the
+  exact Fresnel agree
 - [ ] **the dielectric rows** -- `board:1363`'s coupling, already measured there
 
 ## What must be true
