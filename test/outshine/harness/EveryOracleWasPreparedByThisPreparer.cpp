@@ -36,14 +36,22 @@
 
 namespace {
 
-/* EVERY `.py` UNDER THE PREPARER, ENUMERATED RATHER THAN LISTED. A named list here is a second copy of
- * the one `jobs.py` keeps, and the two drifted the first time a file was added to one of them -- this
- * test went red naming 34 cases, which was the divergence and not a stale corpus. Both sides now derive
- * the set the same way, so there is nothing to keep in step. */
-/* EVERY HARNESS SOURCE, NOT ONE DIRECTORY (board:1196): the preparer is split by vendor, so
- * `fetch.py` and `grown.py` sit beside the corpus they serve while still deciding what lands on
- * disk. The preparer digests this same tree, recursively, in sorted path order. */
-const char *const kPreparerDirectory = "test/harness";
+/* EVERY `.py` OF THE PREPARER THAT CAN REACH THIS CASE, ENUMERATED RATHER THAN LISTED. A named list
+ * here is a second copy of the one `jobs.py` keeps, and the two drifted the first time a file was added
+ * to one of them. Both sides derive the set the same way, so there is nothing to keep in step.
+ *
+ * **AND THE SET IS PER CASE** (board:1451). `test/harness/` entire was one population and one claim,
+ * and the claim was wider than what it decides: adding a fetch step to one corpus invalidated another's
+ * 148 cases, which is hours of Cycles paid for a coupling that does not exist. What a case is digested
+ * against is now the SHARED preparer plus the harness serving its own corpus -- the same lookup that
+ * CHOOSES its steps, so what runs for it is what is digested for it.
+ *
+ * **THE LOOKUP IS POSITIONAL AND THERE IS NO TABLE**, which is `vendor.py`'s own rule: the harness for a
+ * case at `test/<a>/<b>/<case>` is the deepest existing directory under `test/harness/` matching a
+ * prefix of its path, so a new corpus adds a directory and nothing else. A list here would be the third
+ * copy of a fact and the one nobody updates. */
+const char *const kHarnessRoot = "test/harness";
+const char *const kSharedHarness = "test/harness/shared";
 
 bool Slurp(const std::string &path, std::string &into) {
   std::FILE *file = std::fopen(path.c_str(), "rb");
@@ -57,26 +65,50 @@ bool Slurp(const std::string &path, std::string &into) {
   return true;
 }
 
-bool IsDirectory(const std::string &path) {
-  struct stat entry {};
-  return stat(path.c_str(), &entry) == 0 && S_ISDIR(entry.st_mode);
-}
 
 /* The preparer concatenates its sources in sorted path order and hashes the result once. The order is
  * part of the digest, so it is stated in both places identically or the two never agree. */
-std::string PreparerDigest(bool &complete) {
+void SourcesUnder(const std::string &directory, std::vector<std::string> &into) {
+  if (!std::filesystem::is_directory(directory)) { return; }
+  const size_t first = into.size();
+  for (const std::filesystem::directory_entry &entry :
+       std::filesystem::recursive_directory_iterator(directory)) {
+    if (entry.is_regular_file() && entry.path().extension() == ".py") {
+      into.push_back(entry.path().string());
+    }
+  }
+  std::sort(into.begin() + (long)first, into.end());
+}
+
+/* THE HARNESS SERVING A CASE, by position: the deepest existing directory under `test/harness/` whose
+ * path is a prefix of the case's own, relative to `test/`. `vendor.harness_of` is this same walk. */
+std::string HarnessOf(const std::string &caseDirectory) {
+  const std::string prefix = "test/";
+  std::string relative = caseDirectory;
+  if (relative.rfind(prefix, 0) == 0) { relative = relative.substr(prefix.size()); }
+  std::string found;
+  std::string walked = kHarnessRoot;
+  size_t at = 0;
+  while (at <= relative.size()) {
+    const size_t slash = relative.find('/', at);
+    const std::string part = relative.substr(at, slash == std::string::npos ? std::string::npos
+                                                                            : slash - at);
+    if (part.empty()) { break; }
+    walked += "/" + part;
+    if (std::filesystem::is_directory(walked)) { found = walked; }
+    if (slash == std::string::npos) { break; }
+    at = slash + 1;
+  }
+  return found;
+}
+
+std::string PreparerDigest(const std::string &caseDirectory, bool &complete) {
   std::string material;
   complete = true;
   std::vector<std::string> sources;
-  if (std::filesystem::is_directory(kPreparerDirectory)) {
-    for (const std::filesystem::directory_entry &entry :
-         std::filesystem::recursive_directory_iterator(kPreparerDirectory)) {
-      if (entry.is_regular_file() && entry.path().extension() == ".py") {
-        sources.push_back(entry.path().string());
-      }
-    }
-  }
-  std::sort(sources.begin(), sources.end());
+  SourcesUnder(kSharedHarness, sources);
+  const std::string vendor = HarnessOf(caseDirectory);
+  if (!vendor.empty() && vendor != kSharedHarness) { SourcesUnder(vendor, sources); }
   for (const std::string &source : sources) {
     if (!Slurp(source, material)) { complete = false; }
   }
@@ -97,26 +129,39 @@ bool RecordedDigest(const std::string &document, std::string &out) {
   return true;
 }
 
-/* THE PREPARED ROOT AND NOT THE TREE (board:1364). A case's products live under the system temp root,
- * so the two-level walk of `test/khronos/glTF/` this replaces now finds manifests and nothing else --
- * which reports as an EMPTY population rather than as a failure, and an empty population is a green
- * test about nothing. The root is flat and spelled once in `PreparedRoot.h`, so one level is the whole
- * walk and BOTH corpora arrive rather than only the fetched one. */
-std::vector<std::string> PreparedCases() {
-  std::vector<std::string> cases;
+/* **THE TRACKED CASES, AND THE PREPARED DIRECTORY DERIVED FROM EACH** (board:1451). The walk starts in
+ * the TREE and not in the prepared root, because a case's digest is a function of its own tracked path
+ * -- which harness serves it -- and the prepared leaf is that path with its separators flattened, so
+ * one end gives the other without a table (`PreparedRoot.h` states the rule).
+ *
+ * A tracked case with nothing prepared is skipped rather than failed: it is a corpus nobody has run the
+ * preparer over, which is what `UNPREPARED` means everywhere else in this tree. */
+struct Case {
+  std::string Tracked;
+  std::string Prepared;
+};
+
+std::vector<Case> PreparedCases() {
+  std::vector<Case> cases;
+  if (!std::filesystem::is_directory("test")) { return cases; }
   const std::string root = outshine::Test::PreparedRoot() + "/";
-  DIR *prepared = opendir(root.c_str());
-  if (!prepared) { return cases; }
-  for (dirent *one = readdir(prepared); one; one = readdir(prepared)) {
-    const std::string name = one->d_name;
-    if (name == "." || name == "..") { continue; }
-    const std::string directory = root + name + "/";
+  for (const std::filesystem::directory_entry &entry :
+       std::filesystem::recursive_directory_iterator("test")) {
+    if (!entry.is_regular_file() || entry.path().filename() != "manifest.json") { continue; }
+    std::string tracked = entry.path().parent_path().generic_string();
+    if (tracked.rfind("test/harness", 0) == 0) { continue; }
+    std::string flattened = tracked;
+    for (char &letter : flattened) {
+      if (letter == '/') { letter = '-'; }
+    }
+    const std::string prepared = root + flattened + "/";
     std::string document;
-    if (IsDirectory(directory) && Slurp(directory + "provenance.json", document)) {
-      cases.push_back(directory);
+    if (Slurp(prepared + "provenance.json", document)) {
+      cases.push_back({tracked, prepared});
     }
   }
-  closedir(prepared);
+  std::sort(cases.begin(), cases.end(),
+            [](const Case &left, const Case &right) { return left.Tracked < right.Tracked; });
   return cases;
 }
 
@@ -125,34 +170,47 @@ std::vector<std::string> PreparedCases() {
 int main() {
   using namespace outshine::Test;
 
-  bool complete = false;
-  const std::string current = PreparerDigest(complete);
-  CHECK(complete, "every source the preparer digests is present in the tree to be digested here");
-  Note(("the preparer in the tree digests to " + current).c_str());
-
-  const std::vector<std::string> cases = PreparedCases();
+  const std::vector<Case> cases = PreparedCases();
   Note("prepared cases carrying a provenance document", (double)cases.size(), "cases");
   if (cases.empty()) {
     Unprepared("test/harness/shared/corpus/prepare.py has produced no provenance.json to check a digest against");
     return Report();
   }
 
-  size_t agreeing = 0, silent = 0;
-  for (const std::string &directory : cases) {
+  size_t agreeing = 0, silent = 0, incomplete = 0;
+  std::string sawKhronos, sawGrown;
+  for (const Case &one : cases) {
     std::string document;
-    if (!Slurp(directory + "provenance.json", document)) { continue; }
+    if (!Slurp(one.Prepared + "provenance.json", document)) { continue; }
     std::string recorded;
     if (!RecordedDigest(document, recorded)) {
       ++silent;
       continue;
     }
+    bool complete = false;
+    const std::string current = PreparerDigest(one.Tracked, complete);
+    incomplete += complete ? 0u : 1u;
+    if (one.Tracked.rfind("test/khronos", 0) == 0) { sawKhronos = current; }
+    if (one.Tracked.rfind("test/outshine", 0) == 0) { sawGrown = current; }
     const bool same = recorded == current;
-    CHECK(same, (directory + "provenance.json names the preparer that is in the tree").c_str());
+    CHECK(same, (one.Tracked + " names the preparer that can reach it").c_str());
     if (!same) {
-      Note((directory + ": prepared by " + recorded).c_str());
+      Note((one.Tracked + ": prepared by " + recorded + ", the tree digests to " + current).c_str());
     } else {
       ++agreeing;
     }
+  }
+  CHECK(incomplete == 0, "every source a case's preparer digests is present to be digested here");
+
+  /* **TWO CORPORA DIGEST DIFFERENTLY, WHICH IS THE WHOLE OF THIS CHANGE** (board:1451). If they agreed
+   * the population would still be `test/harness/` entire and a vendor's edit would still invalidate
+   * every other vendor's cases -- so this is the claim, not a curiosity. */
+  if (!sawKhronos.empty() && !sawGrown.empty()) {
+    Note(("khronos digests to " + sawKhronos).c_str());
+    Note(("grown digests to " + sawGrown).c_str());
+    CHECK(sawKhronos != sawGrown,
+          "two corpora served by different harnesses digest to different preparers, so an edit to one "
+          "vendor's steps cannot invalidate the other's cases");
   }
   /* A DOCUMENT WITHOUT THE FIELD IS A CORPUS FROM BEFORE THE FIELD EXISTED, and it is a failure rather
    * than a skip: it is exactly the state this test was written to make visible. */

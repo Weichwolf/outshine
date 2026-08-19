@@ -39,8 +39,26 @@ CONVERT_SCRIPT = os.path.join(HERE, "in_blender_convert.py")
 # this directory alone silently stopped covering them and a change there would not have missed the
 # cache. Every harness source is digested, which is the same rule as before applied to where the
 # sources actually are.
-RENDER_CODE = tuple(sorted(
-    glob.glob(os.path.join(vendor.harness_root(HERE), "**", "*.py"), recursive=True)))
+# **THE POPULATION IS THE SHARED PREPARER PLUS THE CASE'S OWN VENDOR, AND NOT EVERY VENDOR** (board:1451).
+# `test/harness/` entire was one glob and one claim, and the claim was wider than what it decides: adding
+# a fetch step to test262 invalidated 148 Khronos cases, which is HOURS OF CYCLES paid for a coupling
+# that does not exist. [MEASURED] it happened four times in one run of work -- 143 cases, then 6, then
+# 330, then every one of them again for a COMMENT added to a Python file.
+#
+# The split is the same lookup `vendor.harness_of` already performs to CHOOSE a case's step, so the two
+# cannot drift: what runs for this case is what is digested for this case. `test/harness/shared/` is
+# every case's, because every case's convert, render and store go through it.
+SHARED_CODE = tuple(sorted(
+    glob.glob(os.path.join(vendor.harness_root(HERE), "shared", "**", "*.py"), recursive=True)))
+
+
+def _vendor_code(case_directory):
+    """Every `.py` of the harness serving this case, or none where it is the shared one itself."""
+    harness = vendor.harness_of(case_directory)
+    shared = os.path.join(vendor.harness_root(HERE), "shared")
+    if os.path.abspath(harness) == os.path.abspath(shared):
+        return ()
+    return tuple(sorted(glob.glob(os.path.join(harness, "**", "*.py"), recursive=True)))
 
 PROVENANCE_NAME = "provenance.json"
 # THE BEAUTY PAIR PLUS ONE PAIR PER QUANTITY (manifest.QUANTITY_PASSES). The beauty products keep the
@@ -51,9 +69,14 @@ PRODUCTS = ("exr", "raw") + tuple(
 )
 
 
-def render_code_digest():
-    """One digest over every source that runs inside Blender or decodes what comes out."""
-    return sha256_hex(b"".join(open(path, "rb").read() for path in sorted(RENDER_CODE)))
+def render_code_digest(case_directory):
+    """One digest over the preparer that can actually reach this case.
+
+    The order is part of the digest and is stated identically here and in the C++ check, or the two
+    never agree: shared first in sorted path order, then the vendor's, also sorted.
+    """
+    paths = list(SHARED_CODE) + list(_vendor_code(case_directory))
+    return sha256_hex(b"".join(open(path, "rb").read() for path in paths))
 
 
 def plan(manifest, store):
@@ -300,7 +323,7 @@ def _render_one(manifest, store, blender, destination, gltf_paths, subject_pin, 
         "scene": manifest.scene.as_job(),
         "recipe": recipe,
         # board:1120 -- see RENDER_CODE above.
-        "preparer": render_code_digest(),
+        "preparer": render_code_digest(manifest.directory),
     }
     # THE FRAME IS PART OF THE KEY (board:1128), and it is absent from a still's key rather than
     # null in it: a case with no animation declares no frame, and its products keep the keys the
@@ -400,7 +423,7 @@ def write_provenance(manifest, store, destination, blender, report):
     document = {
         "manifestId": manifest.id,
         "manifestSchemaVersion": manifest_module.SCHEMA_VERSION,
-        "preparerDigest": render_code_digest(),
+        "preparerDigest": render_code_digest(manifest.directory),
         "blenderDeclared": manifest.blender_version,
         "blenderObserved": blender.version if blender else None,
         "blenderBuildHash": blender.build_hash if blender else None,

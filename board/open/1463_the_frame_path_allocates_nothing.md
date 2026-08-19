@@ -56,6 +56,18 @@ a camera is framed from are the GRID's and not the rest pose's** (`board:1433` s
 the corpus), so the union over the whole grid is taken once at stand-up and the eye and aim stay the
 rest pose's; what opens is the depth window.
 
+## THE CLAIM IS GREEN AND THE ITEM IS NOT CLOSED, which are two different things
+
+[MEASURED] after `board:1464` wired the refit: **27 pose-matched pairs one lap apart, 0 of them
+differing, worst 0 bytes**. `AnEngineInSteadyStateReturnsToTheSameLiveByteCount` holds -- the engine's
+own live bytes are EXACTLY equal at the same pose one lap later, which is the byte-exact statement that
+reaches 21 600 000 frames by arithmetic rather than by running them.
+
+**8 of 249 frames still move the heap at all**, down from 192. They cancel within a lap, so nothing
+leaks; they are still work a shipped engine does not do, and they are `mesh-upload` -- nine GPU buffer
+creations, nine transfer buffers and nine command-buffer submissions a frame where a persistent buffer
+and one copy pass would do. **That is what is left of this item.**
+
 ## THE SECOND AND THIRD CUTS, and the metric needed repeats before either could be believed
 
 **`Clients::Show` split into `Surface` and `Place`**, the same separation `Aim` already carries for the

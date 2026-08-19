@@ -53,11 +53,32 @@ subject's **world bounds over the union of the declared frames** (`board:1433`),
 node hierarchy and sampling the animation. **A Python importer computing that would be a second spelling
 of the flattener and the sampler**, which is the one thing `CLAUDE.md` forbids outright.
 
-*The way out is already half-built*: `prep/in_blender_render.py` has the scene loaded, posed and
-animated when it calls `build_camera`, so the bounds are one function away -- and Blender's own importer
-is a flattener nobody has to write. **The four framing constants would then be the only thing stated
-twice**, and `ADerivedCameraIsTheFramingRuleAndNotAQuotation` already refuses a disagreement. Doing that
-touches the preparer, which is why `board:1451` comes first and not second.
+### THE DECISION, and it is taken rather than deferred
+
+**A `derived` camera is computed ONCE, inside Blender, and the runner READS it.** The manifest declares
+`camera: {source: "derived", fill: ...}` and carries no numbers at all; `prep/in_blender_render.py`
+already has the scene imported, posed and animated when it calls `build_camera`, so the union of world
+bounds over the declared frames is one function away and Blender's own importer is a flattener nobody
+has to write. The numbers it derives are published in the render's account, and the runner takes them.
+
+**ONE DERIVATION IS STRONGER THAN TWO THAT AGREE.** The alternative -- derive in Python, quote in the
+manifest, recompute in C++ and refuse a mismatch -- is what the existing 93 cameras do, and it works
+because a human ran the C++ and pasted. Automating it would put Blender's bounds against `Gltf::Subject`'s
+bounds and make the last bits of a float the thing that decides whether a case can exist. Reading the
+oracle's own camera makes both sides use identical numbers **by construction**, which is what the
+quoting was for in the first place.
+
+*What quoting protected against was a camera somebody could tune into a pass. A camera that is a
+function of the subject's bounds and four declared constants is not tunable, so nothing is given up.*
+
+**THE FOUR CONSTANTS ARE THE ONE THING STATED TWICE, and the duplication is made checkable rather than
+avoided**: `src/gltf/Framing.h` is the source, Python names it, and a harness test reads both and
+refuses a disagreement. `CLAUDE.md`'s rule is that duplication is a defect exactly when the copies can
+drift, and a checked copy cannot.
+
+**`board:1451` came first because this touches the shared preparer**, and the shared preparer is in
+every case's digest -- so this change re-prepares the corpus once more, which is 23m40s [MEASURED] and
+is the last time it will cost anything unrelated.
 
 **Cycles renders are not cached** -- the owner's ruling, `CLAUDE.md`. The existing corpus renders roughly
 114 cases. These four groups are of the order of 40 cases; taken as eight-frame motions that is **320

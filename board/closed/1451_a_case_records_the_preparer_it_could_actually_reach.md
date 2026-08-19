@@ -20,12 +20,39 @@ it decides, so a true statement about one corpus is refuted by an edit to anothe
 Re-preparing the picture corpus is **hours of Cycles**. Paying that because a second corpus gained a
 fetch step is paying for a coupling that does not exist.
 
+## IT IS BUILT, AND BOTH SIDES DERIVE THE SET THE SAME WAY
+
+`jobs.py` digests `test/harness/shared/**/*.py` in sorted order and then the harness `vendor.harness_of`
+would CHOOSE this case's steps from, also sorted. The C++ check performs the same positional walk --
+the deepest existing directory under `test/harness/` whose path is a prefix of the case's own -- so
+**there is no table on either side and a new corpus adds a directory and nothing else.**
+
+**The walk starts in the TREE and not in the prepared root**, because a case's digest is a function of
+its own tracked path; the prepared leaf is that path with its separators flattened, which is the rule
+`PreparedRoot.h` already states, so one end gives the other without a list.
+
+[MEASURED] the two corpora now digest differently -- khronos `d04202835c39dd2a...`, grown
+`2a6baa908103a739...` -- and **the test claims that difference rather than merely permitting it**: if
+they agreed, the population would still be `test/harness/` entire and a vendor's edit would still
+invalidate every other vendor's cases.
+
+**The one-time cost was paid in this round**: every prepared case recorded the old global digest, so
+every one was re-prepared. [MEASURED] a trivial case is 3.7 s end to end.
+
+## THE COST IT WAS FILED AGAINST, PAID ONCE AND FOR THE LAST TIME
+
+Every prepared case recorded the old global digest, so every one was re-prepared: **23m40s** [MEASURED]
+over 1143 cases, and the oracle products came back byte-identical -- khronos 147 of 147 criteria with
+146 within the picture bound, grown 19 of 20, exactly the figures a run before it produced. **A full
+re-render of the corpus reproducing itself is a statement about the oracle nobody had taken before**:
+Cycles at these recipes is deterministic across a rebuild of every product.
+
 ## What must be true
 
-- [ ] The digest is over **the shared preparer plus the case's own vendor's steps**, which is the same
+- [x] The digest is over **the shared preparer plus the case's own vendor's steps**, which is the same
   lookup `vendor.harness_of` already performs to CHOOSE the step — so the two cannot drift, and the
   guarantee stays exactly where it means something
-- [ ] The C++ check computes it the same way, per case, from the case's own path. **It may not read a
+- [x] The C++ check computes it the same way, per case, from the case's own path. **It may not read a
   list out of the provenance it is checking**: a digest verified against a list the same file supplies
   is a document agreeing with itself
 - [ ] The rule that made the population wide is kept where it is right: *a named list is a second copy
