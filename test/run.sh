@@ -197,7 +197,7 @@ GroupIncludes() {
     src/world/Wayfinding.cpp) printf '%s' "-Isrc/corridor -Isrc/world" ;;
     src/world/RoadHarvest.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/data -Isrc/world -Isrc/world/tiles" ;;
     src/data) printf '%s' "-Isrc/core -Isrc/data" ;;
-    src/world | src/world/tiles) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/data -Isrc/world -Isrc/world/tiles $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    src/world | src/world/tiles) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/corridor -Isrc/data -Isrc/world -Isrc/world/tiles $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     src/gltf) printf '%s' "-Isrc/core -Isrc/gltf" ;;
     src/ui) printf '%s' "-Isrc/core -Isrc/ui" ;;
     src/scenario) printf '%s' "-Isrc/core -Isrc/scenario" ;;

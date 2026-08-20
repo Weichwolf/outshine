@@ -27,3 +27,21 @@ sharpest turn on the route is 137.3 degrees.
 At a right angle the closed form is 0.28 % out and the whole route's median corner is far gentler than
 that. What breaks it is the tail: 25 turns past a right angle and 1 past 135 degrees in 2480 vertices.
 **Fixing the median would have bought nothing; the tail is the whole finding.**
+
+## Comments -- what the measured correction actually showed
+
+Correcting each corner by its own measured offset does NOT converge on the Munich to Hamburg
+corridor. Over 24 passes: 6517 corner corrections, the worst offset falling 23.56 m -> 15.64 m and
+then stalling, with **1284 corners of 2300 pinned at the vehicle's tightest radius of 4.876 m**.
+
+**1284 hairpins on a motorway route is not a road, so the measurement is wrong somewhere and not the
+data.** Simplifying the polyline first with Douglas-Peucker inside the same 9.55 m accuracy removed
+258 of 2560 vertices and moved the worst offset by 0.2 m -- so vertex density is not the cause
+either.
+
+The next thing to check is the offset measurement itself: it resects each vertex against the laid
+line in a window around that vertex's own fitted station, and a station that is wrong by more than
+the window gives a huge offset for a corner that is fine. `atVertexM` is assigned for every interior
+vertex but never for the LAST one, which is one vertex and not 1284 -- so the window width, four
+times the incoming leg, is the candidate: on a leg of a few metres that window is a few metres wide
+and the true nearest station can lie outside it.

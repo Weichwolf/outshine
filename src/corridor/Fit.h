@@ -11,6 +11,8 @@ namespace outshine {
 
 [[nodiscard]] double CornerRadiusM(double turnRad, double shorterLegM, double withinM);
 
+[[nodiscard]] std::vector<double> Simplify(const std::vector<double> &eastNorthM, double withinM);
+
 
 struct Fitted {
   bool Laid = false;
@@ -25,6 +27,10 @@ struct Fitted {
   double SharpestTurnAtM = 0.0;
   size_t TurnsPastRightAngle = 0;
   size_t TurnsPastHalfCircle = 0;
+  size_t Corrected = 0;
+  size_t Strained = 0;
+  double StrainedWorstM = 0.0;
+  size_t Passes = 0;
   size_t Undrivable = 0;
   double UndrivableAtM = 0.0;
   std::string Error;

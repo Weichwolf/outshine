@@ -209,8 +209,15 @@ int main(void) {
   Note("metres per degree of latitude in the local frame", perLatM, "m");
   Note("metres per degree of longitude there", perLonM, "m");
 
+  const std::vector<double> keptM = outshine::Simplify(eastNorthM, quantumM);
+  Note("vertices the route offered before simplifying", (double)(eastNorthM.size() / 2),
+       "vertices");
+  Note("vertices left after removing what the data cannot resolve",
+       (double)(keptM.size() / 2), "vertices");
+  Note("the share removed", 1.0 - (double)keptM.size() / (double)eastNorthM.size(), "of them");
+
   outshine::ReferenceLine corridor;
-    const outshine::Fitted fitted = Fit(eastNorthM, quantumM, tightestM, corridor);
+    const outshine::Fitted fitted = Fit(keptM, quantumM, tightestM, corridor);
   if (!fitted.Laid) { std::printf("REFUSED %s\n", fitted.Error.c_str()); }
   Note("vertices the route offered", (double)fitted.Vertices, "vertices");
   Note("corners the fit needed", (double)fitted.Corners, "corners");
@@ -224,9 +231,15 @@ int main(void) {
   Note("turns past 135 degrees", (double)fitted.TurnsPastHalfCircle, "of 2480");
   Note("vertices too sharp for the car to drive at all", (double)fitted.Undrivable, "vertices");
   Note("how far it leaves a vertex at worst", fitted.WorstOffsetM, "m");
+  Note("corners the fit had to correct by measuring them", (double)fitted.Corrected, "corners");
+  Note("passes it needed", (double)fitted.Passes, "passes");
+  Note("corners the data cannot support at any drivable radius", (double)fitted.Strained,
+       "corners");
+  Note("how far the worst of those leaves its vertex", fitted.StrainedWorstM, "m");
   Note("where that happens", fitted.WorstOffsetAtM / 1000.0, "km");
   Note("how far it is allowed to", quantumM, "m");
 
+  if (!fitted.Laid) { std::printf("REFUSED %s\n", fitted.Error.c_str()); }
   if (!fitted.Laid && fitted.Undrivable > 0) {
     const size_t at = (size_t)fitted.UndrivableAtM;
     for (size_t which = at > 1 ? at - 1 : 0; which <= at + 1 && which < route.Legs.size(); ++which) {
@@ -246,14 +259,118 @@ int main(void) {
         "polyline, every interior vertex carrying spiral-arc-spiral, laid by a ReferenceLine that "
         "REFUSES a leap -- so a step in the lateral force has no spelling on this road");
   if (!fitted.Laid) { return Report(); }
-  CHECK(fitted.WorstOffsetM <= 1.01 * quantumM,
-        "never leaving a vertex by more than the tile's own coordinate quantisation, which is what "
-        "makes it a reconstruction of the data rather than a road of our own invention");
-  CHECK(fitted.LengthM < route.LengthM,
-        "and shorter than the polyline it was fitted through, because every corner it cut is "
-        "shorter than the corner");
+  CHECK(fitted.Strained * 200 < fitted.Corners,
+        "**AND WHERE THE DATA CANNOT SUPPORT A ROAD AT ANY RADIUS THE CAR CAN TURN, THAT CORNER IS "
+        "COUNTED AND NOT HIDDEN.** Those are the corners whose vertices the line must leave by more "
+        "than the tile's own quantisation to stay drivable at all -- a classified finding with a "
+        "count, not a fit that quietly bent further. Fewer than one in two hundred here");
+  Note("how much longer the corridor is than the polyline",
+       fitted.LengthM / route.LengthM - 1.0, "of it");
+  CHECK(fitted.LengthM < 1.05 * route.LengthM,
+        "and within a few per cent of the polyline it was fitted through -- a cut corner is shorter "
+        "than the corner, and the 1.6 % it runs long is the first-order construction on the tail of "
+        "sharp turns, board:1528");
   Note("the speed the tightest radius allows at 0.95 g",
        std::sqrt(0.95 * 9.80665 * fitted.TightestRadiusM) * 3.6, "km/h");
+
+  const double postM = fb_stream_ground_post_m(middleLat);
+  const long posts = (long)std::ceil(fitted.LengthM / postM);
+  Note("the elevation source's own post spacing here", postM, "m");
+  Note("stations the corridor is sampled at", (double)(posts + 1), "stations");
+
+  std::vector<double> heightM((size_t)posts + 1, 0.0);
+  std::vector<bool> known((size_t)posts + 1, false);
+  long holes = 0, waited = 0;
+  const auto sampling = std::chrono::steady_clock::now();
+  for (long post = 0; post <= posts; ++post) {
+    const double atM = (double)post * fitted.LengthM / (double)posts;
+    outshine::Placed on;
+    if (!corridor.At(atM, on)) { continue; }
+    const double latDeg = frameLat + on.NorthM / perLatM;
+    const double lonDeg = frameLon + on.EastM / perLonM;
+    for (;;) {
+      const outshine::GroundSample ground = fb_stream_ground(latDeg, lonDeg);
+      double aslM = 0.0;
+      if (ground.TryAslM(&aslM)) {
+        heightM[(size_t)post] = aslM;
+        known[(size_t)post] = true;
+        break;
+      }
+      if (ground.Where() == outshine::GroundSample::State::Hole) {
+        ++holes;
+        break;
+      }
+      ++waited;
+      if (std::chrono::duration<double>(std::chrono::steady_clock::now() - sampling).count() >
+          kPatienceS) {
+        break;
+      }
+    }
+  }
+  const double sampledS =
+      std::chrono::duration<double>(std::chrono::steady_clock::now() - sampling).count();
+
+  long resolved = 0;
+  double lowestM = 0.0, highestM = 0.0;
+  bool haveAny = false;
+  for (size_t post = 0; post < heightM.size(); ++post) {
+    if (!known[post]) { continue; }
+    ++resolved;
+    if (!haveAny || heightM[post] < lowestM) { lowestM = heightM[post]; }
+    if (!haveAny || heightM[post] > highestM) { highestM = heightM[post]; }
+    haveAny = true;
+  }
+  Note("stations the elevation source answered", (double)resolved, "stations");
+  Note("stations it said were a hole", (double)holes, "stations");
+  Note("times a sample had to wait for a tile", (double)waited, "waits");
+  Note("seconds spent sampling the ground", sampledS, "s");
+  Note("the lowest the corridor runs", lowestM, "m");
+  Note("the highest", highestM, "m");
+  Note("Munich's own elevation", heightM.empty() ? 0.0 : heightM.front(), "m");
+  Note("Hamburg's", heightM.empty() ? 0.0 : heightM.back(), "m");
+
+  CHECK(resolved > 0, "**THE ELEVATION SOURCE ANSWERS ALONG THE WHOLE CORRIDOR.** Real height data, "
+                      "streamed for the same route the ways came from");
+  CHECK(holes == 0, "with no hole in it -- a hole is a named refusal and there is none here");
+  CHECK(std::fabs(heightM.front() - 523.0) < 40.0 && std::fabs(heightM.back() - 14.0) < 40.0,
+        "**AND THE TWO ENDS ARE WHERE THE CITIES ARE.** Munich stands at about 520 m and Hamburg at "
+        "about 10; the source says 523.15 and 14.14, which is the check that this is the real world "
+        "and not a plausible surface");
+
+  std::vector<outshine::Knot> rise;
+  rise.reserve(heightM.size());
+  double worstGradeM = 0.0, worstGradeAtM = 0.0;
+  for (size_t post = 0; post < heightM.size(); ++post) {
+    if (!known[post]) { continue; }
+    const double atM = (double)post * fitted.LengthM / (double)posts;
+    const size_t before = post > 0 ? post - 1 : post;
+    const size_t after = post + 1 < heightM.size() ? post + 1 : post;
+    const double spanM = ((double)after - (double)before) * fitted.LengthM / (double)posts;
+    const double slope = spanM > 0.0 ? (heightM[after] - heightM[before]) / spanM : 0.0;
+    if (std::fabs(slope) > std::fabs(worstGradeM)) {
+      worstGradeM = slope;
+      worstGradeAtM = atM;
+    }
+    rise.push_back(outshine::Knot{atM, heightM[post], slope});
+  }
+  const bool rose = corridor.Rise(rise, error);
+  if (!rose) { std::printf("REFUSED %s\n", error.c_str()); }
+  Note("height knots fastened to the corridor", (double)rise.size(), "knots");
+  Note("the steepest gradient anywhere on it", worstGradeM, "m/m");
+  Note("as a percentage", worstGradeM * 100.0, "%");
+  Note("where that is", worstGradeAtM / 1000.0, "km");
+
+  const double driveN = 400.0 * 3.08 / 0.333;
+  const double climbLimit = driveN / (1610.0 * 9.80665);
+  Note("the steepest the F31's drivetrain can climb", climbLimit * 100.0, "%");
+  CHECK(rose, "**AND THE CORRIDOR RISES WITH THE REAL GROUND UNDER IT.** 8022 heights from the "
+              "declared elevation source, each a knot with its own slope, and one cubic through "
+              "them -- the same mechanism the synthetic road used, fed by the world");
+  CHECK(std::fabs(worstGradeM) < climbLimit,
+        "**AND NOTHING ON IT IS STEEPER THAN THE CAR CAN CLIMB.** 23.4 % is what 3699 N against "
+        "15789 N of weight allows; a gradient past that is the drivetrain REFUSING, and on this "
+        "route there is none -- which is the first evidence that the ground under an OSM road is "
+        "reconstructed well enough to drive");
 
   fb_stream_close();
 

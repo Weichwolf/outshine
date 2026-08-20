@@ -8,7 +8,7 @@
 namespace outshine {
 
 inline constexpr size_t kMaxCorridorSegments = 262144;
-inline constexpr size_t kMaxCorridorKnots = 4096;
+inline constexpr size_t kMaxCorridorKnots = 262144;
 inline constexpr double kResectionCoarseM = 1.0;
 inline constexpr int kResectionRefinements = 40;
 inline constexpr double kTangentTolerance = 1.0e-9;

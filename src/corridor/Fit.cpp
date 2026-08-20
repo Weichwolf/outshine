@@ -16,6 +16,63 @@ double Wrapped(double angleRad) {
 
 } // namespace
 
+namespace {
+
+double AwayFromChordM(const std::vector<double> &points, size_t point, size_t from, size_t to) {
+  const double fromE = points[2 * from], fromN = points[2 * from + 1];
+  const double toE = points[2 * to], toN = points[2 * to + 1];
+  const double atE = points[2 * point], atN = points[2 * point + 1];
+  const double runE = toE - fromE, runN = toN - fromN;
+  const double runSquared = runE * runE + runN * runN;
+  if (runSquared <= 0.0) {
+    const double e = atE - fromE, n = atN - fromN;
+    return std::sqrt(e * e + n * n);
+  }
+  double part = ((atE - fromE) * runE + (atN - fromN) * runN) / runSquared;
+  if (part < 0.0) { part = 0.0; }
+  if (part > 1.0) { part = 1.0; }
+  const double e = atE - (fromE + part * runE), n = atN - (fromN + part * runN);
+  return std::sqrt(e * e + n * n);
+}
+
+void KeepBetween(const std::vector<double> &points, size_t from, size_t to, double withinM,
+                 std::vector<bool> &keep) {
+  if (to <= from + 1) { return; }
+  size_t worst = from;
+  double worstM = 0.0;
+  for (size_t point = from + 1; point < to; ++point) {
+    const double awayM = AwayFromChordM(points, point, from, to);
+    if (awayM > worstM) {
+      worstM = awayM;
+      worst = point;
+    }
+  }
+  if (worstM <= withinM) { return; }
+  keep[worst] = true;
+  KeepBetween(points, from, worst, withinM, keep);
+  KeepBetween(points, worst, to, withinM, keep);
+}
+
+} // namespace
+
+std::vector<double> Simplify(const std::vector<double> &eastNorthM, double withinM) {
+  const size_t points = eastNorthM.size() / 2;
+  if (points < 3 || !(withinM > 0.0)) { return eastNorthM; }
+  std::vector<bool> keep(points, false);
+  keep.front() = true;
+  keep.back() = true;
+  KeepBetween(eastNorthM, 0, points - 1, withinM, keep);
+
+  std::vector<double> out;
+  out.reserve(eastNorthM.size());
+  for (size_t point = 0; point < points; ++point) {
+    if (!keep[point]) { continue; }
+    out.push_back(eastNorthM[2 * point]);
+    out.push_back(eastNorthM[2 * point + 1]);
+  }
+  return out;
+}
+
 double CornerRadiusM(double turnRad, double shorterLegM, double withinM) {
   const double swing = std::fabs(turnRad);
   const double half = 0.5 * swing;
@@ -98,9 +155,13 @@ Fitted Fit(const std::vector<double> &eastNorthM, double withinM, double tightes
     }
   }
 
+  std::vector<double> atVertexM(points, 0.0);
+  for (int pass = 0; pass < 24; ++pass) {
+  ++out.Passes;
+  out.Straights = 0;
+  out.Corners = 0;
   std::vector<Segment> along;
   along.reserve(3 * points);
-  std::vector<double> atVertexM(points, 0.0);
   double laidM = 0.0;
   for (size_t leg = 0; leg + 1 < points; ++leg) {
     const double straightM = legM[leg] - tangentM[leg] - tangentM[leg + 1];
@@ -141,6 +202,8 @@ Fitted Fit(const std::vector<double> &eastNorthM, double withinM, double tightes
   if (!into.Lay(from, along, out.Error)) { return out; }
 
   out.LengthM = into.LengthM();
+  out.WorstOffsetM = 0.0;
+  bool overran = false;
   for (size_t vertex = 0; vertex < points; ++vertex) {
     const double eastM = eastNorthM[2 * vertex];
     const double northM = eastNorthM[2 * vertex + 1];
@@ -156,9 +219,37 @@ Fitted Fit(const std::vector<double> &eastNorthM, double withinM, double tightes
       out.WorstOffsetM = awayM;
       out.WorstOffsetAtM = alongM;
     }
+    if (awayM > withinM && radiusM[vertex] > 0.0) {
+      const double shrink = withinM / awayM;
+      const double swing = std::fabs(turnRad[vertex]);
+      const double half = 0.5 * swing;
+      const double shiftShare = 1.0 + swing * swing / 96.0;
+      radiusM[vertex] *= shrink;
+      spiralM[vertex] = 0.5 * radiusM[vertex] * swing;
+      arcM[vertex] = 0.5 * radiusM[vertex] * swing;
+      tangentM[vertex] = radiusM[vertex] * (shiftShare * std::tan(half) + 0.25 * swing);
+      if (radiusM[vertex] < tightestM) {
+        radiusM[vertex] = tightestM;
+        spiralM[vertex] = 0.5 * tightestM * swing;
+        arcM[vertex] = 0.5 * tightestM * swing;
+        tangentM[vertex] = tightestM * (shiftShare * std::tan(half) + 0.25 * swing);
+        ++out.Strained;
+        if (awayM > out.StrainedWorstM) { out.StrainedWorstM = awayM; }
+        continue;
+      }
+      ++out.Corrected;
+      overran = true;
+    }
+  }
+  if (!overran) {
+    out.Laid = true;
+    return out;
+  }
   }
 
-  out.Laid = true;
+  out.Error = "corners kept overrunning " + std::to_string(withinM) +
+              " m after twenty-four measured corrections, which is a fit that does not converge rather "
+              "than a road";
   return out;
 }
 
