@@ -13,11 +13,6 @@ struct Reader {
   std::string Named;
 };
 
-const char *const kPictureLayers[] = {"src/core",       "src/corridor", "src/data",
-                                      "src/generators", "src/gltf",     "src/render",
-                                      "src/scenario",   "src/ui",       "src/world",
-                                      "src/clients"};
-
 struct Excused {
   const char *Named;
   const char *Why;
@@ -63,9 +58,12 @@ int main(void) {
 
   std::vector<Reader> found;
   size_t files = 0;
-  for (const char *const layer : kPictureLayers) {
-    if (!std::filesystem::exists(layer)) { continue; }
-    for (const auto &entry : std::filesystem::recursive_directory_iterator(layer)) {
+  size_t layers = 0;
+  {
+    for (const auto &layer : std::filesystem::directory_iterator("src")) {
+      if (layer.is_directory()) { ++layers; }
+    }
+    for (const auto &entry : std::filesystem::recursive_directory_iterator("src")) {
       if (!entry.is_regular_file()) { continue; }
       const std::string path = entry.path().string();
       const std::string suffix = entry.path().extension().string();
@@ -99,7 +97,13 @@ int main(void) {
     }
   }
 
+  Note("layers of the library walked", (double)layers, "directories");
   Note("files of the picture path read", (double)files, "files");
+  CHECK(layers >= 10 && files >= 200,
+        "**AND THE LAYERS ARE WALKED AND NEVER LISTED.** A list of directories in a checker is a "
+        "second index over the tree: it went green once here while omitting src/world, which is "
+        "exactly where the two surviving readers live. What passes on its first run is what to "
+        "distrust");
   for (const Reader &one : found) {
     std::printf("FOUND %s:%d reads the environment for '%s', with no reason declared\n",
                 one.File.c_str(), one.Line, one.Named.c_str());
