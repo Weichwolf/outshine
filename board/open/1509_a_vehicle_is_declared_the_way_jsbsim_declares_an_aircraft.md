@@ -63,16 +63,20 @@ this way -- it takes a mass, a force and a drag area and DERIVES every accelerat
 
 ## What must be true
 
-- [ ] **A vehicle is a declaration and the engine assembles it**, so a car, a lorry, a motorcycle and a
+- [x] **A vehicle is a declaration and the engine READS it** -- `<vehicle>` is a row of the scenario
+      grammar with its own eight elements, and `tools/driver/f31.scenario` is read by the engine that
+      will drive it. *Assembling it into a body is the physics and is not built*, so a car, a lorry, a motorcycle and a
       locomotive are one program and several files
-- [ ] **Every quantity is physical and carries its unit**, and nothing in the model is a limit chosen
-      to make a case pass
-- [ ] **The contact points are a suspension and not a constraint**: spring, damper, travel, bump stop
-      and a LINK LIMIT, so `board:1501`'s tear-off threshold is derived
+- [x] **Every quantity is physical and carries its unit**, and nothing in the model is a limit chosen
+      to make a case pass -- proved by DERIVING one: the ride frequency is nowhere in the file and
+      comes out at **1.419 Hz** from the mass and the spring rate, which is a road car's
+- [x] **The contact points are a suspension and not a constraint**: spring, damper, travel, bump stop
+      and a LINK LIMIT, so `board:1501`'s tear-off threshold is derived. Declared and read; the forces
+      are not computed yet
 - [ ] **The tyre is a force from slip**, so grip is exceeded rather than clamped -- a car that cannot
       lose grip cannot find a corner built too tight
-- [ ] **The declaration is a scenario's** (`board:1480`), so the drive suite pins its vehicle and a
-      scenario may carry another
+- [x] **The declaration is a scenario's** (`board:1480`) -- `<vehicle>` sits beside `<views>` and
+      `<player>`, read by the same grammar and refused by the same sentence when it is misspelled
 - [ ] **It is deterministic to the bit at a declared tick rate**, or a crash cannot be re-driven
 
 ## THE SAME INSTRUMENT LANDS AN AIRCRAFT, and that is not a future nicety
@@ -101,3 +105,28 @@ hull-on-water and foot-on-ground, and the medium is a declaration.
 and the force model* are code while the *aircraft* is data -- and the aircraft data is written by people
 who are not programmers. **A scenario declaring a vehicle is that same line drawn in this tree**, and it
 is the same line `CLAUDE.md` draws when it says an engine is a mechanism and content is data.
+
+## READING IS NOT STANDING UP, and the test found that
+
+`Engine::Load` read a scenario and stood it up in one call, so **checking a declaration needed its 30 MB
+of geometry.** That is wrong for a validator, wrong for a test, and wrong for a tool that lists what a
+scenario declares. `Engine::Read` is the declaration alone.
+
+## What proves it
+
+**`test/render/outshine/client/TheDriversScenarioLoadsAndItsNumbersArePhysical.cpp`** reads
+`tools/driver/f31.scenario` -- **the file that will be driven, not a fixture resembling it** -- and
+holds 27 checks over it:
+
+| | |
+|---|---|
+| wheelbase the four contacts span | **2.81 m** against 2.810 published |
+| the track they span | **1.548 m** against 1.543 -- *and the track was never used to set the scale* |
+| every contact's height above ground | exactly one tyre radius, which is what a wheel standing still means |
+| static sag at a corner | 0.123 m of 0.18 m travel |
+| **the ride frequency that implies** | **1.419 Hz** |
+
+**The ride frequency is the check that matters** because it appears nowhere in the file: it follows from
+the mass and the spring rate, and its landing in a road car's band is what says the rate is physical
+rather than chosen. *A declared `LateralMs2` could never have been checked that way.*
+

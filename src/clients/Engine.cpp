@@ -42,6 +42,7 @@ std::vector<std::string> Unacted(const Scenario &scenario) {
   note(scenario.Tables.size(), "tables");
   note(scenario.Events.size(), "declared events");
   note(scenario.Views.size(), "views");
+  note(scenario.Vehicles.size(), "vehicles");
   if (!scenario.Played.Is.empty()) { carried.push_back("a player"); }
   note(scenario.Input.size(), "input bindings");
   note(scenario.State.size(), "persisted values");
@@ -88,6 +89,30 @@ bool Engine::Declare(const Scenario &scenario) {
   S_->Standing.reset();
   if (!Clients::Live::Open(S_->Device, std::move(declared), nullptr, S_->Standing, S_->Error)) {
     S_->Standing.reset();
+    return false;
+  }
+  S_->Declared = scenario;
+  S_->Carried = Unacted(scenario);
+  S_->Error.clear();
+  return true;
+}
+
+bool Engine::Read(const std::string &path) {
+  std::FILE *const file = std::fopen(path.c_str(), "rb");
+  if (file == nullptr) {
+    S_->Error = path + ": no scenario at that path";
+    return false;
+  }
+  std::string text;
+  char block[4096];
+  size_t read = 0;
+  while ((read = std::fread(block, 1, sizeof block, file)) > 0) { text.append(block, read); }
+  std::fclose(file);
+
+  Scenario scenario;
+  scenario.Render.Frame = S_->Frame;
+  if (!ReadScenario(text.c_str(), text.size(), scenario, S_->Error)) {
+    S_->Error = path + ": " + S_->Error;
     return false;
   }
   S_->Declared = scenario;

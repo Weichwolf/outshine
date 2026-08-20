@@ -24,7 +24,7 @@ struct Element {
 const Element kGrammar[] = {
     {"scenario",
      "world render lighting providers generators compositors assets placements surfaces kinds "
-     "instances regions volumes audio tables events views player physics clock input state layer",
+     "instances regions volumes audio tables events views vehicle player physics clock input state layer",
      "name version epoch decay"},
     {"scenario/layer", "", "id path"},
     {"scenario/world", "", "lat lon radiusM windDeg windMs cloudCover"},
@@ -79,6 +79,16 @@ const Element kGrammar[] = {
     {"scenario/views/view", "",
      "id follows person offsetX offsetY offsetZ distanceM pitchLimitDeg fovDeg timeScale"},
     {"scenario/player", "", "is starts view eyeHeightM walkMs runMs"},
+    {"scenario/vehicle", "inertia contact tyre drive brake body seat",
+     "name asset massKg wheelbaseM"},
+    {"scenario/vehicle/inertia", "", "ixx iyy izz"},
+    {"scenario/vehicle/contact", "",
+     "at node x y z springNPerM damperNsPerM travelM bumpStopNPerM linkLimitN"},
+    {"scenario/vehicle/tyre", "", "grip radiusM corneringNPerRad relaxationM"},
+    {"scenario/vehicle/drive", "", "peakTorqueNm finalDrive"},
+    {"scenario/vehicle/brake", "", "peakTorqueNm"},
+    {"scenario/vehicle/body", "", "dragArea frontalM2 airDensity"},
+    {"scenario/vehicle/seat", "", "at node x y z"},
     {"scenario/physics", "", "dial"},
     {"scenario/clock", "", "start rate"},
     {"scenario/input", "bind", ""},
@@ -463,6 +473,47 @@ bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &
     made.FovDeg = one.Num("fovDeg", 0.0);
     made.TimeScale = one.Num("timeScale", 1.0);
     into.Views.push_back(made);
+  }
+
+  for (size_t at = 0; at < root.Count("vehicle"); ++at) {
+    const Xml::Ref one = root.At("vehicle", at);
+    Vehicle made;
+    made.Name = one.Attr("name");
+    made.Asset = one.Attr("asset");
+    made.MassKg = one.Num("massKg", 0.0);
+    made.WheelbaseM = one.Num("wheelbaseM", 0.0);
+    const Xml::Ref inertia = one.Child("inertia");
+    made.InertiaKgM2[0] = inertia.Num("ixx", 0.0);
+    made.InertiaKgM2[1] = inertia.Num("iyy", 0.0);
+    made.InertiaKgM2[2] = inertia.Num("izz", 0.0);
+    for (size_t which = 0; which < one.Count("contact"); ++which) {
+      const Xml::Ref touch = one.At("contact", which);
+      Contact wheel;
+      wheel.At = touch.Attr("at");
+      ReadVector(touch, "x", "y", "z", wheel.AtM, 3);
+      wheel.SpringNPerM = touch.Num("springNPerM", 0.0);
+      wheel.DamperNsPerM = touch.Num("damperNsPerM", 0.0);
+      wheel.TravelM = touch.Num("travelM", 0.0);
+      wheel.BumpStopNPerM = touch.Num("bumpStopNPerM", 0.0);
+      wheel.LinkLimitN = touch.Num("linkLimitN", 0.0);
+      made.Contacts.push_back(wheel);
+    }
+    const Xml::Ref tyre = one.Child("tyre");
+    made.Grip = tyre.Num("grip", 0.0);
+    made.TyreRadiusM = tyre.Num("radiusM", 0.0);
+    made.CorneringNPerRad = tyre.Num("corneringNPerRad", 0.0);
+    made.RelaxationM = tyre.Num("relaxationM", 0.0);
+    made.PeakTorqueNm = one.Child("drive").Num("peakTorqueNm", 0.0);
+    made.FinalDrive = one.Child("drive").Num("finalDrive", 0.0);
+    made.BrakeTorqueNm = one.Child("brake").Num("peakTorqueNm", 0.0);
+    const Xml::Ref body = one.Child("body");
+    made.DragArea = body.Num("dragArea", 0.0);
+    made.FrontalM2 = body.Num("frontalM2", 0.0);
+    made.AirDensity = body.Num("airDensity", 0.0);
+    const Xml::Ref seat = one.Child("seat");
+    made.SeatAt = seat.Attr("at");
+    ReadVector(seat, "x", "y", "z", made.SeatM, 3);
+    into.Vehicles.push_back(made);
   }
 
   const Xml::Ref player = root.Child("player");

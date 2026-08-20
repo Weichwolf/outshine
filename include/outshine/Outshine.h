@@ -20,6 +20,7 @@ public:
 
   void RenderTo(Extent frame);
 
+  [[nodiscard]] bool Read(const std::string &path);
   [[nodiscard]] bool Load(const std::string &path);
   [[nodiscard]] bool Declare(const Scenario &scenario);
 

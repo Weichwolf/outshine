@@ -1,0 +1,131 @@
+#include <cmath>
+#include <cstdio>
+#include <string>
+
+#include <outshine/Outshine.h>
+
+#include "Check.h"
+
+namespace {
+
+constexpr double kWheelbaseMm = 2810.0;
+constexpr double kTrackFrontMm = 1543.0;
+constexpr double kTyreRadiusMm = 328.0;
+constexpr double kKerbKg = 1610.0;
+
+} // namespace
+
+int main(void) {
+  using namespace outshine::Test;
+  std::setvbuf(stdout, nullptr, _IONBF, 0);
+
+  outshine::Engine engine;
+  const bool loaded = engine.Read("tools/driver/f31.scenario");
+  if (!loaded) { std::printf("REFUSED %s\n", engine.Error().c_str()); }
+  CHECK(loaded, "the driver's own scenario is read by the engine that will drive it -- this is the "
+                "file, not a fixture that resembles it. **READING IS NOT STANDING UP**: a declaration "
+                "can be checked without its 30 MB of geometry, which is what a scenario validator "
+                "needs and what this test is");
+  if (!loaded) { return Report(); }
+
+  const outshine::Scenario &read = engine.Declared();
+  CHECK(read.Vehicles.size() == 1, "it declares one vehicle");
+  if (read.Vehicles.empty()) { return Report(); }
+  const outshine::Vehicle &car = read.Vehicles[0];
+
+  CHECK(car.Contacts.size() == 4, "a car has four contacts, and the shape is 0 or 1..N rather than "
+                                  "four fields named for wheels");
+
+  double frontZ = 0.0, rearZ = 0.0, leftX = 0.0, rightX = 0.0;
+  size_t front = 0, rear = 0;
+  for (const outshine::Contact &wheel : car.Contacts) {
+    if (wheel.AtM[2] < 0.0) {
+      frontZ += wheel.AtM[2];
+      ++front;
+    } else {
+      rearZ += wheel.AtM[2];
+      ++rear;
+    }
+    leftX = std::fmin(leftX, wheel.AtM[0]);
+    rightX = std::fmax(rightX, wheel.AtM[0]);
+  }
+  CHECK(front == 2 && rear == 2, "two of them ahead of the centre of mass and two behind it");
+  if (front != 2 || rear != 2) { return Report(); }
+
+  const double wheelbaseM = std::fabs(rearZ / (double)rear - frontZ / (double)front);
+  const double trackM = rightX - leftX;
+  Note("wheelbase the contacts span", wheelbaseM, "m");
+  Note("what the F31 publishes", kWheelbaseMm / 1000.0, "m");
+  Note("track the contacts span", trackM, "m");
+  Note("what the F31 publishes at the front", kTrackFrontMm / 1000.0, "m");
+
+  CHECK_NEAR(wheelbaseM, kWheelbaseMm / 1000.0, 0.01, "m",
+             "**THE CONTACTS ARE WHERE THE WHEELS ARE.** The wheelbase they span is the one the F31 "
+             "publishes, because it was measured off the asset's own tyre geometry and the asset's "
+             "scale was derived from that same dimension");
+  CHECK_NEAR(trackM, kTrackFrontMm / 1000.0, 0.02, "m",
+             "and the track agrees too, which is the independent check: the scale came from the "
+             "wheelbase and the track was never used to set it");
+  CHECK_NEAR(car.WheelbaseM, kWheelbaseMm / 1000.0, 1e-9, "m",
+             "and the declaration states the dimension its scale was derived from, so the asset's "
+             "units are a fact the file carries rather than a constant somewhere in the reader");
+
+  CHECK_NEAR(car.TyreRadiusM, kTyreRadiusMm / 1000.0, 0.01, "m",
+             "the tyre radius is a 225/50 R17's, within 1.5 % -- a fourth measurement nobody chose, "
+             "and its agreeing is why the other three are believed");
+  for (const outshine::Contact &wheel : car.Contacts) {
+    CHECK_NEAR(wheel.AtM[1], car.TyreRadiusM, 1e-9, "m",
+               "and every contact sits exactly a tyre radius above the ground, which is what a wheel "
+               "standing still means");
+  }
+
+  CHECK(car.MassKg == kKerbKg && car.MassKg > 0.0, "the mass is the car's kerb weight");
+  CHECK(car.InertiaKgM2[0] > 0.0 && car.InertiaKgM2[1] > 0.0 && car.InertiaKgM2[2] > 0.0,
+        "and it carries an inertia tensor, because a body that resists rotation is not a point");
+  CHECK(car.InertiaKgM2[1] > car.InertiaKgM2[0] && car.InertiaKgM2[2] > car.InertiaKgM2[0],
+        "whose roll term is the smallest, which is what being long and narrow means");
+
+  for (const outshine::Contact &wheel : car.Contacts) {
+    CHECK(wheel.SpringNPerM > 0.0 && wheel.DamperNsPerM > 0.0 && wheel.TravelM > 0.0 &&
+              wheel.BumpStopNPerM > wheel.SpringNPerM && wheel.LinkLimitN > 0.0,
+          "**A CONTACT IS A SUSPENSION AND NOT A CONSTRAINT**: a spring, a damper, a travel, a bump "
+          "stop stiffer than the spring, and a LINK LIMIT -- which is what makes the bump that tears "
+          "a wheel off a derivation rather than a threshold somebody picked");
+  }
+
+  const double corner = car.MassKg * 9.80665 / 4.0;
+  const double sagM = corner / car.Contacts[0].SpringNPerM;
+  const double rideHz = std::sqrt(car.Contacts[0].SpringNPerM / (car.MassKg / 4.0)) / (2.0 * 3.14159265358979);
+  Note("static sag at one corner", sagM, "m");
+  Note("the ride frequency that implies", rideHz, "Hz");
+  CHECK(sagM > 0.02 && sagM < car.Contacts[0].TravelM,
+        "the car sits down on its springs by a sensible amount and does not use its whole travel "
+        "standing still");
+  CHECK(rideHz > 0.8 && rideHz < 2.0,
+        "and the ride frequency it implies is a road car's rather than a race car's -- a number "
+        "DERIVED from the mass and the rate rather than declared beside them");
+
+  CHECK(car.Grip > 0.0 && car.DragArea > 0.0 && car.AirDensity > 0.0 && car.PeakTorqueNm > 0.0,
+        "every quantity the speed profile needs is physical: a friction coefficient, a drag area, an "
+        "air density and a torque -- never a top speed or a lateral limit somebody tuned");
+
+  CHECK(read.Views.size() == 2 && read.Views[0].Person == "first",
+        "it declares a first-person view and a chase view");
+  CHECK_NEAR(read.Views[0].OffsetM[1], car.SeatM[1], 1e-9, "m",
+             "and the eye sits where the seat says, so the camera is not a second opinion about "
+             "where the driver is");
+  CHECK(read.Views[0].OffsetM[0] < 0.0,
+        "**LEFT OF THE CENTRELINE**, which the asset itself decided: its front-left seat carries "
+        "13 791 points against the right's 6 442, so the steering wheel is on the left");
+  Note("the eye above the ground", read.Views[0].OffsetM[1], "m");
+  CHECK(read.Views[0].OffsetM[1] > 1.0 && read.Views[0].OffsetM[1] < 1.4,
+        "at a height a saloon's driver has -- and this one is an ESTIMATE that is settled by sitting "
+        "in it and looking, which is what board:1511 says about it");
+
+  CHECK(read.Input.size() >= 4, "and the actions a driver needs are bound by name");
+
+  Covers("I.4.1 a vehicle is declared in the scenario the way JSBSim declares an aircraft: every "
+         "quantity physical, every position measured off the asset, and the limits derived rather "
+         "than tuned");
+  return Report();
+}

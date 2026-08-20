@@ -205,6 +205,37 @@ struct View {
   double TimeScale = 1.0;
 };
 
+struct Contact {
+  std::string At;
+  double AtM[3] = {0.0, 0.0, 0.0};
+  double SpringNPerM = 0.0;
+  double DamperNsPerM = 0.0;
+  double TravelM = 0.0;
+  double BumpStopNPerM = 0.0;
+  double LinkLimitN = 0.0;
+};
+
+struct Vehicle {
+  std::string Name;
+  std::string Asset;
+  double MassKg = 0.0;
+  double WheelbaseM = 0.0;
+  double InertiaKgM2[3] = {0.0, 0.0, 0.0};
+  std::vector<Contact> Contacts;
+  double Grip = 0.0;
+  double TyreRadiusM = 0.0;
+  double CorneringNPerRad = 0.0;
+  double RelaxationM = 0.0;
+  double PeakTorqueNm = 0.0;
+  double FinalDrive = 0.0;
+  double BrakeTorqueNm = 0.0;
+  double DragArea = 0.0;
+  double FrontalM2 = 0.0;
+  double AirDensity = 0.0;
+  std::string SeatAt;
+  double SeatM[3] = {0.0, 0.0, 0.0};
+};
+
 struct Player {
   std::string Is;
   std::string Starts;
@@ -255,6 +286,7 @@ struct Scenario {
   std::vector<Table> Tables;
   std::vector<Event> Events;
   std::vector<View> Views;
+  std::vector<Vehicle> Vehicles;
   Player Played;
 
   Physics Motion;
