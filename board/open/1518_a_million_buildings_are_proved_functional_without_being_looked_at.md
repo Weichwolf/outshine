@@ -139,3 +139,28 @@ driving cannot.
 **So: two headline numbers every round, never one.** Kilometres per finding over a stratified
 population, and geometric agreement where ground truth exists. Neither subsumes the other, and quoting
 either alone is the defect this pairing exists to prevent.
+
+### And the smoothing objection is weaker than the owner's answer to it: THE DEFECT IS CONSERVED
+
+*"Smoothing would produce unrealistic gradients."* -- and that closes the local optimum by arithmetic
+alone, without needing the fidelity check beside it. **A step is a bounded vertical displacement that
+has to be absorbed somewhere.** Spreading a 5 m step over a length L gives an average grade of 5/L:
+
+| L | grade | what happens |
+|---|---|---|
+| 20 m | 25 % | the drivetrain refuses |
+| 50 m | 10 % | drivable -- and the road has left the terrain by about 2.5 m |
+
+**The limit is derived and not a matter of taste.** On the F31, 3699.1 N of drive against 15788.7 N of
+weight gives `sin(theta) = F / mg = 0.2343`, so 13.55 deg = 24.1 %. The friction ceiling
+`tan(theta) <= mu = 0.95` sits at 43.5 deg, so the drivetrain binds first. Smoothing to avoid one
+crash therefore produces a different one, and the argument above was weaker than it needed to be.
+
+**Which makes the gradient limit the TRIGGER and not only the check.** A step that cannot be spread
+without an impossible grade IS the evidence that a structure stands there -- the owner's original
+statement, *too much gradient because a tunnel was not recognised*, is the reveal's whole mechanism
+stated as a measurement.
+
+**One honest exception**: where the step was noise in the elevation data rather than terrain,
+smoothing is CORRECT and the fidelity check punishes it. Noisy ground truth is its own case and needs
+naming before a fidelity number is believed.
