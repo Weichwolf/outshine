@@ -8,6 +8,7 @@
 namespace outshine {
 
 inline constexpr size_t kMaxCorridorSegments = 4096;
+inline constexpr size_t kMaxCorridorKnots = 4096;
 inline constexpr double kTangentTolerance = 1.0e-9;
 
 enum class Curve : uint8_t { Straight, Arc, Spiral };
@@ -15,8 +16,19 @@ enum class Curve : uint8_t { Straight, Arc, Spiral };
 struct Placed {
   double EastM = 0.0;
   double NorthM = 0.0;
+  double HeightM = 0.0;
   double HeadingRad = 0.0;
   double CurvaturePerM = 0.0;
+  double Slope = 0.0;
+  double SlopeRatePerM = 0.0;
+  double BankRad = 0.0;
+  double BankRatePerM = 0.0;
+};
+
+struct Knot {
+  double AlongM = 0.0;
+  double Value = 0.0;
+  double RatePerM = 0.0;
 };
 
 struct Segment {
@@ -30,9 +42,14 @@ class ReferenceLine {
 public:
   [[nodiscard]] bool Lay(const Placed &from, const std::vector<Segment> &along, std::string &error);
 
+  [[nodiscard]] bool Rise(const std::vector<Knot> &through, std::string &error);
+  [[nodiscard]] bool Bank(const std::vector<Knot> &through, std::string &error);
+
   [[nodiscard]] bool At(double alongM, Placed &out) const;
   [[nodiscard]] double LengthM(void) const { return Length_; }
   [[nodiscard]] size_t SegmentCount(void) const { return Laid_.size(); }
+  [[nodiscard]] size_t RiseKnotCount(void) const { return Rise_.size(); }
+  [[nodiscard]] size_t BankKnotCount(void) const { return Bank_.size(); }
   [[nodiscard]] const std::string &Error(void) const { return Error_; }
 
 private:
@@ -43,8 +60,14 @@ private:
   };
   [[nodiscard]] static Placed Walk(const Placed &from, const Segment &along, double byM);
   [[nodiscard]] bool Refuse(const std::string &why);
+  [[nodiscard]] bool Fasten(const std::vector<Knot> &through, const char *what, const char *unit,
+                            std::vector<Knot> &into, std::string &error);
+  static void Read(const std::vector<Knot> &through, double alongM, double &value, double &rate,
+                   double &bend);
 
   std::vector<Held> Laid_;
+  std::vector<Knot> Rise_;
+  std::vector<Knot> Bank_;
   double Length_ = 0.0;
   Placed End_;
   std::string Error_;

@@ -33,10 +33,12 @@ imply.
 
 ## What must be true
 
-- [ ] **A corridor is a reference line with an elevation profile and a cross-slope**, and the mesh is
-      evaluated from it rather than being the primary thing. *The PLAN VIEW is built* --
-      `src/core/ReferenceLine.{h,cpp}`: straights, arcs and spirals, `At(s)` answering position,
-      heading and curvature. The elevation profile and the cross-slope are not
+- [x] **A corridor is a reference line with an elevation profile and a cross-slope**, and the mesh is
+      evaluated from it rather than being the primary thing. `src/corridor/ReferenceLine.{h,cpp}`:
+      straights, arcs and spirals in plan, and `Rise()` / `Bank()` fastening a height and a
+      cross-slope to the same stations. `At(s)` answers position, heading, curvature, height, slope,
+      vertical bend and bank. Proven by `AReferenceLineCarriesACurvatureWithoutALeap.cpp` and
+      `AReferenceLineRisesAndBanksWithoutAGradeBreak.cpp`
 - [ ] **A junction is a BLEND with declared continuity**, so several roads meeting share a tangent
       rather than a point -- G1 at minimum, and where two design speeds meet, the lower one's limits
 - [ ] **The continuity class is DECLARED and CHECKED at build**, not discovered by driving: a generator
@@ -90,3 +92,22 @@ curvature and heading against the spiral's own rate, the refusal and both halves
 curvature at the ends and inside the arc, a station off either end placing nothing, and a line of no
 segments refused.
 
+## Comments
+
+The height and the cross-slope are ONE mechanism with two applications: a knot is a station, a value
+and a rate, and a cubic Hermite through consecutive knots is the unique curve that passes through
+both measurements at both declared rates. OpenDRIVE declares its polynomial coefficients a,b,c,d
+directly; we declare the two physical quantities and derive the cubic, because a coefficient is a
+magic number and a height and a grade are measurements. The knots are also exactly what a global
+elevation solve produces, so nothing has to be converted between the solve and the corridor.
+
+What is declared apart stays apart: the bank does not touch the plan curvature, which is what makes
+`g tan(theta) / kappa` -- the speed a curve carries with no lateral friction at all -- readable from
+the declaration.
+
+Measured on a 840 m synthetic road (150 m straight, 120 m spiral, 300 m arc at R=400, 120 m spiral,
+150 m straight) with a 4 % crest over its middle: the published slope differs from the height's own
+central difference by 6.7e-12 m/m and the published bend from the slope's by 1.0e-15 1/m, so the
+three are one function rather than three opinions. Sharpest vertical bend 1.769e-4 1/m, which puts
+the airborne speed at sqrt(g/h'') = 235.5 m/s = 848 km/h. **That is the negative control's whole
+value**: on a road built this way a wheel leaving the ground is never the road.

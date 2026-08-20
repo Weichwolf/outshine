@@ -27,8 +27,95 @@ double HeadingAlong(const Segment &along, double byM) {
 bool ReferenceLine::Refuse(const std::string &why) {
   Error_ = why;
   Laid_.clear();
+  Rise_.clear();
+  Bank_.clear();
   Length_ = 0.0;
   return false;
+}
+
+bool ReferenceLine::Fasten(const std::vector<Knot> &through, const char *what, const char *unit,
+                           std::vector<Knot> &into, std::string &error) {
+  into.clear();
+  if (Laid_.empty()) {
+    error = std::string("a ") + what + " profile is fastened to a line that is laid, and this one "
+            "carries no segments to fasten it to";
+    Error_ = error;
+    return false;
+  }
+  if (through.size() > kMaxCorridorKnots) {
+    error = std::string("a ") + what + " profile of " + std::to_string(through.size()) +
+            " knots reaches the bound of " + std::to_string(kMaxCorridorKnots);
+    Error_ = error;
+    return false;
+  }
+  for (size_t which = 0; which < through.size(); ++which) {
+    const Knot &knot = through[which];
+    if (!(knot.AlongM >= 0.0) || knot.AlongM > Length_ + kTangentTolerance) {
+      error = std::string("a ") + what + " knot stands at " + std::to_string(knot.AlongM) +
+              " m along a line " + std::to_string(Length_) +
+              " m long, and a profile states its " + what + " over the line it is fastened to";
+      Error_ = error;
+      return false;
+    }
+    if (which > 0 && !(knot.AlongM > through[which - 1].AlongM)) {
+      error = std::string("a ") + what + " knot at " + std::to_string(knot.AlongM) +
+              " m follows one at " + std::to_string(through[which - 1].AlongM) +
+              " m, and a station a line reaches once carries one " + what + " and one " + unit;
+      Error_ = error;
+      return false;
+    }
+  }
+  into = through;
+  return true;
+}
+
+bool ReferenceLine::Rise(const std::vector<Knot> &through, std::string &error) {
+  return Fasten(through, "height", "slope", Rise_, error);
+}
+
+bool ReferenceLine::Bank(const std::vector<Knot> &through, std::string &error) {
+  return Fasten(through, "bank", "rate", Bank_, error);
+}
+
+void ReferenceLine::Read(const std::vector<Knot> &through, double alongM, double &value,
+                         double &rate, double &bend) {
+  value = 0.0;
+  rate = 0.0;
+  bend = 0.0;
+  if (through.empty()) { return; }
+  if (alongM <= through.front().AlongM) {
+    rate = through.front().RatePerM;
+    value = through.front().Value + rate * (alongM - through.front().AlongM);
+    return;
+  }
+  if (alongM >= through.back().AlongM) {
+    rate = through.back().RatePerM;
+    value = through.back().Value + rate * (alongM - through.back().AlongM);
+    return;
+  }
+
+  size_t low = 0, high = through.size() - 1;
+  while (low < high) {
+    const size_t mid = (low + high + 1) / 2;
+    if (through[mid].AlongM <= alongM) {
+      low = mid;
+    } else {
+      high = mid - 1;
+    }
+  }
+  const Knot &from = through[low];
+  const Knot &to = through[low + 1];
+  const double span = to.AlongM - from.AlongM;
+  const double t = (alongM - from.AlongM) / span;
+  const double tt = t * t;
+  const double ttt = tt * t;
+
+  value = (2.0 * ttt - 3.0 * tt + 1.0) * from.Value + (ttt - 2.0 * tt + t) * span * from.RatePerM +
+          (-2.0 * ttt + 3.0 * tt) * to.Value + (ttt - tt) * span * to.RatePerM;
+  rate = (6.0 * tt - 6.0 * t) / span * from.Value + (3.0 * tt - 4.0 * t + 1.0) * from.RatePerM +
+         (-6.0 * tt + 6.0 * t) / span * to.Value + (3.0 * tt - 2.0 * t) * to.RatePerM;
+  bend = (12.0 * t - 6.0) / (span * span) * from.Value + (6.0 * t - 4.0) / span * from.RatePerM +
+         (-12.0 * t + 6.0) / (span * span) * to.Value + (6.0 * t - 2.0) / span * to.RatePerM;
 }
 
 Placed ReferenceLine::Walk(const Placed &from, const Segment &along, double byM) {
@@ -68,6 +155,8 @@ Placed ReferenceLine::Walk(const Placed &from, const Segment &along, double byM)
 bool ReferenceLine::Lay(const Placed &from, const std::vector<Segment> &along, std::string &error) {
   Error_.clear();
   Laid_.clear();
+  Rise_.clear();
+  Bank_.clear();
   Length_ = 0.0;
   End_ = from;
 
@@ -133,6 +222,10 @@ bool ReferenceLine::At(double alongM, Placed &out) const {
   }
   const Held &held = Laid_[low];
   out = Walk(held.Entry, held.Declared, alongM - held.AlongM);
+
+  double bend = 0.0;
+  Read(Rise_, alongM, out.HeightM, out.Slope, out.SlopeRatePerM);
+  Read(Bank_, alongM, out.BankRad, out.BankRatePerM, bend);
   return true;
 }
 
