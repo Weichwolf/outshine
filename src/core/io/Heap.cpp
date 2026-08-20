@@ -32,7 +32,12 @@ struct TagRow {
 TagRow gTags[kTagSlots];
 
 TagRow *RowFor(const char *tag) {
-  for (size_t at = 0; at < kTagSlots; ++at) {
+  if (gTags[0].Name.load(std::memory_order_relaxed) == nullptr) {
+    const char *empty = nullptr;
+    gTags[0].Name.compare_exchange_strong(empty, kOverflow, std::memory_order_relaxed);
+  }
+  if (tag == kOverflow) { return &gTags[0]; }
+  for (size_t at = 1; at < kTagSlots; ++at) {
     const char *held = gTags[at].Name.load(std::memory_order_relaxed);
     if (held == tag) { return &gTags[at]; }
     if (held == nullptr) {
@@ -60,7 +65,7 @@ inline void *Counted(void *block) {
   gLiveBytes.fetch_add(bytes, std::memory_order_relaxed);
   TagRow *row = RowFor(gTag != nullptr ? gTag : kUntagged);
   if (row == nullptr) { row = RowFor(kOverflow); }
-  if (row != nullptr) { row->Taken.fetch_add(bytes, std::memory_order_relaxed); }
+  row->Taken.fetch_add(bytes, std::memory_order_relaxed);
   return block;
 }
 

@@ -155,47 +155,68 @@ Transform Subject::JointMatrix(const Skin &skin, size_t joint, const Transform &
 bool Subject::BlendSkinFor(const Document &document, const Skin &skin,
                            const std::vector<Transform> &joints, const Primitive &primitive,
                            size_t vertices, std::vector<Transform> &out) {
-  const int bones = primitive.Find("JOINTS_0");
-  const int weights = primitive.Find("WEIGHTS_0");
-  if (bones < 0 || weights < 0) {
-    return Refuse(document.Path() + ": a primitive on a skinned node carries " +
-                  std::string(bones < 0 ? "no JOINTS_0" : "JOINTS_0") + " and " +
-                  std::string(weights < 0 ? "no WEIGHTS_0" : "WEIGHTS_0") +
-                  ", and a skin without both binds no vertex to any joint");
-  }
   std::vector<double> index;
   std::vector<double> weight;
-  if (!document.ReadElements(bones, index)) {
-    return Refuse(document.Path() + ": JOINTS_0 does not decode: " + document.Error());
+  size_t sets = 0;
+  for (;; ++sets) {
+    const std::string which = std::to_string(sets);
+    const int bones = primitive.Find(("JOINTS_" + which).c_str());
+    const int weights = primitive.Find(("WEIGHTS_" + which).c_str());
+    if (bones < 0 && weights < 0) { break; }
+    if (bones < 0 || weights < 0) {
+      return Refuse(document.Path() + ": a primitive on a skinned node carries " +
+                    std::string(bones < 0 ? "no JOINTS_" : "JOINTS_") + which + " and " +
+                    std::string(weights < 0 ? "no WEIGHTS_" : "WEIGHTS_") + which +
+                    ", and a set without both binds no vertex to any joint");
+    }
+    std::vector<double> theseIndices;
+    std::vector<double> theseWeights;
+    if (!document.ReadElements(bones, theseIndices)) {
+      return Refuse(document.Path() + ": JOINTS_" + which + " does not decode: " + document.Error());
+    }
+    if (!document.ReadElements(weights, theseWeights)) {
+      return Refuse(document.Path() + ": WEIGHTS_" + which + " does not decode: " + document.Error());
+    }
+    if (theseIndices.size() != vertices * 4 || theseWeights.size() != vertices * 4) {
+      return Refuse(document.Path() + ": JOINTS_" + which + " decodes to " +
+                    std::to_string(theseIndices.size() / 4) + " and WEIGHTS_" + which + " to " +
+                    std::to_string(theseWeights.size() / 4) + " sets over " +
+                    std::to_string(vertices) + " vertices, and glTF states both are VEC4");
+    }
+    index.insert(index.end(), theseIndices.begin(), theseIndices.end());
+    weight.insert(weight.end(), theseWeights.begin(), theseWeights.end());
   }
-  if (!document.ReadElements(weights, weight)) {
-    return Refuse(document.Path() + ": WEIGHTS_0 does not decode: " + document.Error());
+  if (sets == 0) {
+    return Refuse(document.Path() +
+                  ": a primitive on a skinned node carries no JOINTS_0 and no WEIGHTS_0, and a skin "
+                  "without both binds no vertex to any joint");
   }
-  if (index.size() != vertices * 4 || weight.size() != vertices * 4) {
-    return Refuse(document.Path() + ": JOINTS_0 decodes to " + std::to_string(index.size() / 4) +
-                  " and WEIGHTS_0 to " + std::to_string(weight.size() / 4) + " sets over " +
-                  std::to_string(vertices) + " vertices, and glTF states both are VEC4");
-  }
+
   out.assign(vertices, Transform());
   for (size_t vertex = 0; vertex < vertices; ++vertex) {
     double blended[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     double sum = 0;
-    for (size_t slot = 0; slot < 4; ++slot) {
-      const double share = weight[vertex * 4 + slot];
-      if (share == 0.0) { continue; }
-      const double named = index[vertex * 4 + slot];
-      if (!(named >= 0.0) || (size_t)named >= joints.size()) {
-        return Refuse(document.Path() + ": JOINTS_0 of vertex " + std::to_string(vertex) +
-                      " names joint " + std::to_string((long long)named) + " and the skin declares " +
-                      std::to_string(joints.size()));
+    for (size_t set = 0; set < sets; ++set) {
+      const size_t base = set * vertices * 4 + vertex * 4;
+      for (size_t slot = 0; slot < 4; ++slot) {
+        const double share = weight[base + slot];
+        if (share == 0.0) { continue; }
+        const double named = index[base + slot];
+        if (!(named >= 0.0) || (size_t)named >= joints.size()) {
+          return Refuse(document.Path() + ": JOINTS_" + std::to_string(set) + " of vertex " +
+                        std::to_string(vertex) + " names joint " +
+                        std::to_string((long long)named) + " and the skin declares " +
+                        std::to_string(joints.size()));
+        }
+        sum += share;
+        const Transform &matrix = joints[(size_t)named];
+        for (int at = 0; at < 16; ++at) { blended[at] += share * matrix.M[at]; }
       }
-      sum += share;
-      const Transform &matrix = joints[(size_t)named];
-      for (int at = 0; at < 16; ++at) { blended[at] += share * matrix.M[at]; }
     }
     if (sum == 0.0) {
-      return Refuse(document.Path() + ": WEIGHTS_0 of vertex " + std::to_string(vertex) +
-                    " sums to zero, so the vertex is bound to no joint and names no position");
+      return Refuse(document.Path() + ": the weights of vertex " + std::to_string(vertex) +
+                    " sum to zero over all " + std::to_string(sets) +
+                    " sets, so the vertex is bound to no joint and names no position");
     }
     for (int at = 0; at < 16; ++at) { out[vertex].M[at] = blended[at]; }
   }

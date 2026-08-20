@@ -1,3 +1,4 @@
+#include "Heap.h"
 #include "Renderer.h"
 
 #include <cmath>
@@ -448,6 +449,7 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
     if (into.Pass != nullptr) { SDL_SetGPUViewport(into.Pass, &where); }
   };
 
+  const outshine::Heap::Tagged encoding(Row(stage).Name);
   switch (stage) {
     case Stage::Subjects:
       within(true);
