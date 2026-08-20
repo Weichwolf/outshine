@@ -24,7 +24,7 @@ struct Element {
 const Element kGrammar[] = {
     {"scenario",
      "world render lighting providers generators compositors assets placements surfaces kinds "
-     "instances regions volumes audio tables events views physics clock input state layer",
+     "instances regions volumes audio tables events views player physics clock input state layer",
      "name version epoch decay"},
     {"scenario/layer", "", "id path"},
     {"scenario/world", "", "lat lon radiusM windDeg windMs cloudCover"},
@@ -76,7 +76,9 @@ const Element kGrammar[] = {
     {"scenario/events/event", "carries", "name"},
     {"scenario/events/event/carries", "", "what"},
     {"scenario/views", "view", ""},
-    {"scenario/views/view", "", "id follows offsetX offsetY offsetZ fovDeg timeScale"},
+    {"scenario/views/view", "",
+     "id follows person offsetX offsetY offsetZ distanceM pitchLimitDeg fovDeg timeScale"},
+    {"scenario/player", "", "is starts view eyeHeightM walkMs runMs"},
     {"scenario/physics", "", "dial"},
     {"scenario/clock", "", "start rate"},
     {"scenario/input", "bind", ""},
@@ -452,12 +454,25 @@ bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &
     View made;
     made.Id = one.Attr("id");
     made.Follows = one.Attr("follows");
+    made.Person = one.Attr("person");
+    made.DistanceM = one.Num("distanceM", 0.0);
+    made.PitchLimitDeg = one.Num("pitchLimitDeg", 89.0);
     made.OffsetM[0] = one.Num("offsetX", 0.0);
     made.OffsetM[1] = one.Num("offsetY", 0.0);
     made.OffsetM[2] = one.Num("offsetZ", 0.0);
     made.FovDeg = one.Num("fovDeg", 0.0);
     made.TimeScale = one.Num("timeScale", 1.0);
     into.Views.push_back(made);
+  }
+
+  const Xml::Ref player = root.Child("player");
+  if (player.Valid()) {
+    into.Played.Is = player.Attr("is");
+    into.Played.Starts = player.Attr("starts");
+    into.Played.View = player.Attr("view");
+    into.Played.EyeHeightM = player.Num("eyeHeightM", 1.7);
+    into.Played.WalkMs = player.Num("walkMs", 1.4);
+    into.Played.RunMs = player.Num("runMs", 4.5);
   }
 
   const Xml::Ref state = root.Child("state");

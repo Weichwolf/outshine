@@ -42,6 +42,7 @@ std::vector<std::string> Unacted(const Scenario &scenario) {
   note(scenario.Tables.size(), "tables");
   note(scenario.Events.size(), "declared events");
   note(scenario.Views.size(), "views");
+  if (!scenario.Played.Is.empty()) { carried.push_back("a player"); }
   note(scenario.Input.size(), "input bindings");
   note(scenario.State.size(), "persisted values");
   if (scenario.Ground.Declared) { carried.push_back("a world origin"); }

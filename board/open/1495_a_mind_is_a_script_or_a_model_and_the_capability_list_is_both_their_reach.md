@@ -6,26 +6,43 @@ Tags: scope
 **A mind is a script or a model, and the capability list is both their reach**
 
 `board:1448` wrote it down before there was anywhere to put it: **a script and a model differ in WHO
-CHOOSES THE NEXT CALL and in nothing else.** So a kind does not declare a programme -- it declares a
-**mind**, and the mind chooses `script` or `model`.
+CHOOSES THE NEXT CALL and in nothing else.** The owner sharpened it into the shape that ships:
+**THREE TIERS, AND THEY ARE A LADDER RATHER THAN A CHOICE** -- an actor carries all three at once, the
+way an LOD ladder carries rungs.
+
+| tier | deadline | bounded in | who computes it |
+|---|---|---|---|
+| **reflex** | the frame, every frame | microseconds | **the engine's own** -- steer, navigate, avoid (`board:1496`) |
+| **script** | a declared rate, a few times a second | **steps** | a bounded programme (`board:1448`) |
+| **deliberate** | none; it arrives when it arrives | **tokens and latency** | a model |
 
 ```xml
-<kind name="settler" tickHz="4">
-  <mind chooses="script" programme="wander.js" seed="7"/>
+<kind name="settler" asset="body">
+  <mind tier="reflex" uses="steer"    hz="60"/>
+  <mind tier="reflex" uses="navigate" hz="60"/>
+  <mind tier="script" programme="wander.js" hz="4" stepBudget="2000" seed="7"/>
   <may do="walk"/><may do="speak"/>
 </kind>
 
-<kind name="mayor" inherits="settler" tickHz="0.2">
-  <mind chooses="model" prompt="mayor.md" model="local-small"
-        temperature="0.7" tokenBudget="512" latencyBudgetMs="800"/>
-  <may do="walk"/><may do="speak"/><may do="trade"/>
+<kind name="mayor" inherits="settler">
+  <mind tier="deliberate" prompt="mayor.md" model="local-small" meanwhile="stand"
+        everyS="120" temperature="0.7" tokenBudget="512" latencyBudgetMs="800"/>
+  <may do="trade"/>
 </kind>
 ```
+
+**Three tiers, three deadlines, three kinds of budget** -- and a kind carries 0 or 1..N of them, so a
+coffee cup thinks nothing and a settler thinks three ways at once. **The rate belongs to the MIND and
+not to the kind**, or the same number would stand in two places.
 
 **THE `may do` LIST IS THE FUNCTION-CALLING SCHEMA.** It is already the host capability surface a script
 may reach; a model is offered exactly the same set as its tools. **One declaration, two consumers**, and
 that is what makes an actor's reach testable without a model at all -- anything a model could do, a
 script can do, deterministically, in a corpus, on a Tuesday.
+
+**A DECOUPLED MIND DECLARES WHAT ITS BODY DOES WHILE IT THINKS.** `meanwhile` is *something is always
+drawn* asked of thinking: an actor waiting on an answer is still somewhere, and an actor that froze for
+800 ms is a defect a player sees.
 
 ## The three constraints a model brings that a script does not
 

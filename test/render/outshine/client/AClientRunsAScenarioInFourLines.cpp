@@ -120,9 +120,12 @@ std::string WriteScenario(const std::string &stands) {
     <event name="took-damage"><carries what="who"/><carries what="howMuch"/></event>
   </events>
   <views>
-    <view id="first-person" follows="player" offsetY="1.7" fovDeg="80"/>
-    <view id="aimed" follows="player" offsetY="1.7" fovDeg="45" timeScale="0.2"/>
+    <view id="eyes" follows="player" person="first" offsetY="1.7" fovDeg="80"/>
+    <view id="over-the-shoulder" follows="player" person="third" offsetY="1.6"
+          distanceM="2.5" pitchLimitDeg="70" fovDeg="70"/>
+    <view id="aimed" follows="player" person="first" offsetY="1.7" fovDeg="45" timeScale="0.2"/>
   </views>
+  <player is="settler" starts="sanctuary" view="eyes" eyeHeightM="1.75" walkMs="1.4" runMs="4.5"/>
   <physics dial="walking"/>
   <clock start="2287-10-23T09:00:00Z" rate="60"/>
   <input>
@@ -260,7 +263,17 @@ int main(void) {
   CHECK(read.Events.size() == 2 && read.Events[1].Carries.size() == 2,
         "an EVENT declares what it carries, so the vocabulary between a volume, a script and a "
         "surface is written down rather than agreed by habit");
-  CHECK(read.Views.size() == 2 && read.Views[1].TimeScale == 0.2,
+  CHECK(read.Played.Is == "settler" && read.Played.Starts == "sanctuary" &&
+            read.Played.View == "eyes" && read.Played.EyeHeightM == 1.75,
+        "a PLAYER is a kind, a region it starts in and the view it looks through -- the engine ships "
+        "one because input, a body and a camera meeting in one place is what every game has and no "
+        "two of them would spell alike");
+  CHECK(read.Views.size() == 3 && read.Views[0].Person == "first" &&
+            read.Views[1].Person == "third" && read.Views[1].DistanceM == 2.5 &&
+            read.Views[1].PitchLimitDeg == 70.0,
+        "a view is FIRST or THIRD person, and a third-person one declares its distance and how far "
+        "the pitch may go before the body is in the way");
+  CHECK(read.Views.size() == 3 && read.Views[2].TimeScale == 0.2,
         "a VIEW declares what it follows and the rate time runs at, which is what an aimed shot or "
         "a slow-motion kill is made of");
   CHECK(read.Motion.Dial == "walking" && read.Time.Rate == 60.0,

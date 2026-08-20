@@ -197,9 +197,21 @@ struct Event {
 struct View {
   std::string Id;
   std::string Follows;
+  std::string Person;
   double OffsetM[3] = {0.0, 0.0, 0.0};
+  double DistanceM = 0.0;
+  double PitchLimitDeg = 89.0;
   double FovDeg = 0.0;
   double TimeScale = 1.0;
+};
+
+struct Player {
+  std::string Is;
+  std::string Starts;
+  std::string View;
+  double EyeHeightM = 1.7;
+  double WalkMs = 1.4;
+  double RunMs = 4.5;
 };
 
 struct Physics {
@@ -243,6 +255,7 @@ struct Scenario {
   std::vector<Table> Tables;
   std::vector<Event> Events;
   std::vector<View> Views;
+  Player Played;
 
   Physics Motion;
   Clock Time;
