@@ -35,9 +35,28 @@ line a guess about which one is the door.
 - [ ] **`test/run.sh`'s per-layer `-I` sets and the `Makefile`'s compile groups say the same thing they
   say now**, or the two disagree about what a layer may reach
 
-## The question this has to answer first
+## The sample was taken and the answer is NINE
 
 **Whether the public tree is a copy, a move, or a facade.** `libsoftgl` moves: `include/GL/` is the
 surface and `src/` is everything else. A copy would drift; a facade adds a level of indirection to
-every call. *The measurement that decides it is how many of the 138 a consumer actually needs* --
-`tools/viewer` is a real consumer and its include list is the sample.
+every call. **A move, then** -- and it is affordable, because `tools/viewer` is a real consumer and
+[MEASURED] it reaches **9 of the 138**:
+
+| module | what a consumer needs |
+|---|---|
+| `src/clients/` | `Live.h` |
+| `src/render/` | `Renderer.h` · `stages/OverlayDraw.h` |
+| `src/ui/` | `Layout.h` · `Paint.h` · `Pointer.h` |
+| `src/core/` | `Script.h` · `io/Log.h` |
+
+## And the viewer does not LINK the library, which is the other half
+
+`test/run.sh` gives `tools/viewer` nine `-I` flags straight into `src/` and then compiles the
+library's own source directories INTO the viewer binary. `liboutshine.a` is what the `Makefile`
+builds and nothing links it. **So the browser is not an app on a library; it is a second build of the
+library with a front end**, and nothing in this tree ever proves the library links as one.
+
+- [ ] **`tools/viewer` links `liboutshine.a` and compiles none of `src/`**, which is the only way the
+  archive the `Makefile` produces is ever exercised
+- [ ] **One `-I` and no more**: a consumer names `include/`, and reaching a private header is a
+  compile error rather than a convention
