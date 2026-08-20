@@ -5,13 +5,19 @@ Tags: scope
 
 **The autopilot is the engine's own and holds the lane**
 
-**The owner's ruling: autopilot is standard outshine functionality.** It is a REFLEX -- `board:1495`'s
+**The owner's ruling: autopilot is standard outshine functionality.** **And it obeys PHYSICS and not
+traffic law** -- no speed limits, no signs, no right of way yet; the speed a corner allows is the speed
+grip allows, and that is a number the geometry produces rather than a tag anybody wrote. It is a REFLEX -- `board:1495`'s
 fastest tier -- and it is the vehicle's counterpart to `steer`: `uses="drive"`.
 
 ## What must be true
 
-- [ ] **`drive` follows a route as a vehicle**: a speed profile from the curvature ahead, a steering
-      angle from the lane centre, and braking that respects the declared grip
+- [x] **The speed comes from the CURVATURE and never from a tag.** `v = sqrt(a_lat / k)` at every
+      station, capped by the vehicle's top speed, then a forward pass for what the drivetrain can reach
+      and a backward pass for what the brakes can shed -- so the car is slow in a tight curve and fast
+      on a straight **because the geometry says so**. `src/core/SpeedProfile.{h,cpp}`
+- [ ] **`drive` steers as well as it paces**: a steering angle from the lane centre, with a look-ahead
+      derived from speed
 - [ ] **It looks AHEAD by a distance derived from speed**, which is what a driver does and what makes a
       clothoid the right transition -- a controller that steers at the point it is standing on
       oscillates
