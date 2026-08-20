@@ -24,7 +24,19 @@ underneath, because a vehicle in its own medium is a force model and an integrat
 | **B. a package** (Jolt, Bullet, PhysX) | a host dependency, and `CLAUDE.md` allows one that the host provides | mature collision, joints and stacking -- **none of which this instrument needs** |
 | **C. ours now, a package later** if stacking, ragdolls and debris arrive | the interface is written twice if the shapes differ | the decision is deferred to when there is a measurement |
 
-## Recommendation: A, and the reason is the instrument rather than pride
+## THE OWNER'S ANSWER: A. Everything is written here, and no further dependency.
+
+*Recorded before the reasoning below, because the reasoning was the recommendation and the ruling is
+what decides it.* **The engine takes no physics package.** The integrator, the suspension, the tyre and
+the medium dial are ours, and `board:1509`'s vehicle declaration is what keeps that from meaning "a car
+in the code".
+
+**What the ruling costs, stated so it is not discovered later**: collision between arbitrary bodies,
+stacking, joints and ragdolls are all work this repository owes itself the day a scenario asks for them.
+**`CLAUDE.md`'s answer to that is already written** -- *something missing is a task, not a limit* -- so
+they are tasks when a measurement asks, and until then they are absent rather than borrowed.
+
+## The recommendation this replaced, and its reason still stands
 
 **The drive suite must re-drive a crash from a seed and find the same crash.** A general engine's
 determinism is a mode you enable and a promise across versions and platforms that nobody owes you;
