@@ -44,7 +44,55 @@ causes and names none of them.
 - [ ] **The same scenario runs with a window** at 60 Hz in first person, and stops where the headless
       run stopped
 
+## The fleet, and the ONE decision that is not how many cars
+
+**The owner's question: hundreds of cars in parallel, or one car with its telemetry read at each
+crash?** Hundreds -- and the count of cars is the cheapest variable in the system, so it is not where
+the design happens.
+
+**What is scarce is not CPU, it is what a person has to read.** Headless, with no renderer, a single
+core drives thousands of kilometres an hour. Six cores are not the constraint; ten thousand crashes to
+read is.
+
+- [ ] **A crash is a SAMPLE and not a stop.** The fleet records, respawns cleanly at `s + delta` with
+      the state reset, and drives on -- otherwise a route yields its FIRST finding and nothing about
+      the rest of it. The reset must be clean or crash 1 cascades into ghosts 2..N. *The windowed run
+      still stops, and so does a single representative: stopping is for looking, not for measuring*
+- [ ] **A crash is FINGERPRINTED and the fingerprint is the class key.** Not a log to read: a small
+      tuple computed at the moment -- which mounts went past limit or airborne and in what order, the
+      vertical bend and grade step at that station, the curvature step, what the pilot demanded
+      against what it got, whether the corridor already violated an invariant before the car arrived,
+      and what the source said there (`bridge`, `tunnel`, `layer`, ways meeting at the node). **Same
+      tuple, one finding, whether it fired once or four thousand times**
+- [ ] **The COLLAPSE RATIO is published and it is the instrument's own quality metric.** Crashes over
+      classes: at 1 the fingerprint is too fine to act on, at everything-in-one-class it is too coarse
+      to act on. *That it collapses is expected with high confidence; by how much is unknown, and
+      measuring it is the first campaign's job*
+- [ ] **Classes are ranked by KILOMETRES AFFECTED, never by count.** One that fires every 10 km of
+      motorway beats one that fires 500 times on a single track. The priority is computed
+- [ ] **One representative per class is driven single, windowed and looked at** -- which is where the
+      eyes belong, and it is one picture per class rather than one per crash
+- [ ] **A fix is proved on the POPULATION and not on the representative.** Re-run the same seeds; the
+      rate must move. A representative that stopped crashing is a case repaired
+- [ ] **The population is STRATIFIED and quoted with every rate**: road class x terrain x whether the
+      structure was tagged. Random sampling over-samples whatever is dense, and a rate without its
+      stratum is a rate about Germany's suburbs
+- [ ] **The synthetic road drives in every campaign as its own stratum.** If it ever produces a
+      finding the instrument moved, and that is known before anything about real data is believed
+
 ## What this may not do
 
 **It may not grow a list of exempted places.** A road that is known bad is a work item or a data
 refusal, never a line in a skip list -- *the board is the only place a known defect lives*.
+
+## Comments
+
+**The single car has exactly two jobs and neither is finding defects.** The first is the very first
+campaign, before any classifier exists: roughly ten crashes read completely by hand, because they are
+what tells you which fields the fingerprint needs. That is the only round a car drives alone. The
+second is as a class representative afterwards -- which requires that every run be reproducible from
+`(route seed, corridor hash, vehicle hash)`, because a class that cannot be stood up again is a class
+that cannot be repaired.
+
+**Serially fixing crashes optimises for whichever road you happened to drive first.** That is fixing
+cases in an arbitrary order, and the ordering carries no information about what matters.
