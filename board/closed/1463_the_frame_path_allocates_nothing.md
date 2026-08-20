@@ -127,12 +127,8 @@ block and a table from pointer to tag is an allocation on the free path.
 
 ## What must be true
 
-- [ ] **A build's temporaries come from an arena the subject owns**, released once at the end of the
-  build -- one `release()` for the whole frame, which is the `FMemMark` shape and not fifteen rewrites
-- [ ] **The arena's capacity is declared and reused across builds**, so the first build grows it and no
-  later one takes anything from the allocator at all
-- [ ] **A build that outgrows the arena is a REFUSAL naming the bound**, not a silent fallback to the
-  heap -- the RAGE half of the answer, and the half a monotonic resource does not give for free
+*The three arena lines that stood here are about the BUILD path and not the frame path, and this item
+is the frame's. They moved to `board:1481` whole.*
 - [x] **`AnEngineInSteadyStateReturnsToTheSameLiveByteCount` goes green**, and it goes green by equality
   rather than by a tolerance -- and it stopped FLAPPING, which is the half that says the repair reached
   something: the same declaration read 0 and then 13 differing pairs before, and 0 twice after
@@ -234,8 +230,9 @@ shipped answer is that an upload rides the FRAME's command buffer rather than on
 is a restructuring, because `Cross` runs inside `SetPose` and the frame's buffer does not exist yet
 there.
 
-- [ ] **The pose's upload is recorded into the frame's own command buffer**, so a pose acquires
-  nothing: one submission a frame, not two
+- [x] **The pose's upload is recorded into the frame's own command buffer**, so a pose acquires
+  nothing: one submission a frame, not two -- and the TOPOLOGY keeps its own, because 139 MB is not
+  a thing to stage through a ring
 
 ## The upload was moved into the frame's command buffer, and the picture refuted it
 
@@ -305,7 +302,38 @@ belongs.*
 flapping: it read 0, 4 and 13 over three runs before and reads 1 twice after, which is a term that can
 now be chased rather than a distribution that had to be averaged.
 
-- [ ] **The last 256 bytes.** One frame of 249 takes them, deterministically, and they are outside all
-  four phases -- `render-frame` reads 294 816 bytes after the settling point, 1184 a frame, so the term
-  is inside `Renderer::RenderFrame` and outside what `Live` brackets
+- [x] **The last 256 bytes are the DRIVER's, and they are named rather than removed.** Every stage of
+  the plan was tagged by its own name -- `Row(stage).Name`, which is the Low Level Memory Tracker shape
+  and cost one line -- and every one of them read **0 bytes after the settling point**. What was left
+  was bracketed directly, and it is the same on all 500 frames:
+
+  | | |
+  |---|---|
+  | `SDL_AcquireGPUCommandBuffer` | **+128 bytes**, 500 of 500 frames |
+  | `SDL_SubmitGPUCommandBufferAndAcquireFence` | **-48 bytes**, 499 of 500 (once -3248) |
+
+  **There is no frame without a command buffer**, so this is a term to declare and not one to remove.
+  The test now claims the sharper thing: **all four phases take nothing on every frame**, and what the
+  engine does not own is bounded at one pose-matched pair with the mechanism written beside it
+
+## Where it ended, and what the claim is now
+
+**The frame path takes nothing.** [MEASURED] `BoxAnimated`, 500 frames, three consecutive runs
+reporting identically:
+
+```
+posing  0 of 250   submitting  0 of 250   aiming  0 of 250   drawing  0 of 250
+```
+
+**Every tag reads zero after the settling point** -- `mesh-bvh`, `mesh-upload`, `draw-list`,
+`index-run`, `vertex-pack`, `subject-mesh`, and every stage of the compiled plan by its own name.
+
+**What remains is 80 bytes a frame inside SDL**, +128 at acquire and -48 at submit, measured at the
+call. It moves one pose-matched pair of 28. *A frame without a command buffer does not exist, so the
+honest claim is not "zero bytes" but "nothing this engine takes", with the driver's own arena named,
+measured and bounded beside it.*
+
+**The horizon the item was written against**: at 80 bytes a frame from the driver's arena -- which is
+recycled rather than grown, or the pairs would not be flat -- 21 600 000 frames is not a leak. What
+WOULD have been one is the 1120 bytes a frame this round removed.
 
