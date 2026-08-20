@@ -70,16 +70,34 @@ bool Pose::Build(const Document &document, Span<const int> animations, Pose &out
   /* WHICH ANIMATION CLAIMED A NODE'S PATH, so a second claim is refused by name rather than resolved
    * by order. The format leaves two animations on one property undefined; deciding it here would be
    * this engine inventing a rule the file does not carry. */
-  std::vector<std::pair<int, AnimationPath>> claimed;
+  /* WHAT A CHANNEL DRIVES, AND IT IS NOT ALWAYS A NODE (board:1392). A `KHR_animation_pointer`
+   * channel names no node at all -- the extension states the `node` property MUST NOT be set -- so a
+   * key of `(node, path)` would read every material channel in a file as one and the same claim and
+   * refuse the second. What identifies a claim is the thing driven: a node and its path, or a
+   * material and its factor. */
+  struct Claim {
+    int Node = -1;
+    AnimationPath Path = AnimationPath::Translation;
+    int Material = -1;
+    MaterialFactor Factor = MaterialFactor::BaseColour;
+  };
+  std::vector<Claim> claimed;
   std::vector<int> claimedBy;
   for (size_t which = 0; which < animations.Size(); ++which) {
   const int animation = animations[which];
   const Animation &what = declared[(size_t)animation];
   for (const AnimationChannel &channel : what.Channels) {
+    /* **A CHANNEL DRIVES A NODE OR IT DRIVES A MATERIAL, AND ONLY ONE OF THOSE HAS A NODE**
+     * (board:1392). Every check between here and the sampler is about a node, and a pointer channel
+     * has none by the extension's own rule -- so guarding them as one is what let `Node < 0` swallow
+     * every material channel before it could be held. [MEASURED] `FactorsAt` was unreachable code:
+     * it answered nothing for a file whose animation resolved perfectly, because the pose had
+     * dropped the channel one function earlier. */
+    const bool drivesMaterial = channel.Path == AnimationPath::MaterialFactor;
     /* THE FORMAT'S OWN "IGNORE THIS ONE": a channel with no node is defined as skipped rather than
      * as an error, so it is not a refusal here either. */
-    if (channel.Node < 0) { continue; }
-    if ((size_t)channel.Node >= document.Nodes().size()) {
+    if (!drivesMaterial && channel.Node < 0) { continue; }
+    if (!drivesMaterial && (size_t)channel.Node >= document.Nodes().size()) {
       error = document.Path() + ": animation channel targets node " +
               std::to_string(channel.Node) + ", which the file does not carry";
       return false;
@@ -88,13 +106,13 @@ bool Pose::Build(const Document &document, Span<const int> animations, Pose &out
      * transforms only*, which was true of a pose that carried none. What survives is narrower and
      * is about the FILE: a weights channel driving a node whose mesh has no morph target drives
      * nothing, and the format gives its keyframes no length. */
-    if (channel.Path == AnimationPath::Weights &&
+    if (!drivesMaterial && channel.Path == AnimationPath::Weights &&
         out.Nodes_[(size_t)channel.Node].WeightCount == 0) {
       error = document.Path() + ": animation channel targets the morph weights of node " +
               std::to_string(channel.Node) + ", whose mesh declares no morph target";
       return false;
     }
-    if (out.Nodes_[(size_t)channel.Node].HasMatrix) {
+    if (!drivesMaterial && out.Nodes_[(size_t)channel.Node].HasMatrix) {
       error = document.Path() + ": node " + std::to_string(channel.Node) +
               " spells its placement as a matrix and is targeted for animation, which the format "
               "forbids";
@@ -148,7 +166,10 @@ bool Pose::Build(const Document &document, Span<const int> animations, Pose &out
       first = false;
     }
     for (size_t already = 0; already < claimed.size(); ++already) {
-      if (claimed[already].first == channel.Node && claimed[already].second == channel.Path) {
+      if (claimed[already].Path != channel.Path) { continue; }
+      if (drivesMaterial ? (claimed[already].Material == channel.Material &&
+                            claimed[already].Factor == channel.Factor)
+                         : claimed[already].Node == channel.Node) {
         error = document.Path() + ": animations " + std::to_string(claimedBy[already]) + " and " +
                 std::to_string(animation) + " both drive the " + PathName(channel.Path) +
                 " of node " + std::to_string(channel.Node) +
@@ -156,7 +177,7 @@ bool Pose::Build(const Document &document, Span<const int> animations, Pose &out
         return false;
       }
     }
-    claimed.push_back({channel.Node, channel.Path});
+    claimed.push_back(Claim{channel.Node, channel.Path, channel.Material, channel.Factor});
     claimedBy.push_back(animation);
     out.Channels_.push_back(std::move(held));
   }

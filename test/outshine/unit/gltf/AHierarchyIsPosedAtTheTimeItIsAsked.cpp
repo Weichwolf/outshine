@@ -171,7 +171,12 @@ int main() {
   Pose pose;
   CHECK(Pose::Build(file, 0, pose, why), "the animation resolves into a pose");
   if (!why.empty()) { std::printf("NOTE refusal: %s\n", why.c_str()); }
-  CHECK(pose.ChannelCount() == 2, "both channels of the animation are carried");
+  /* **THREE, AND THE THIRD IS THE POINTER** (board:1392). This line read `== 2` and was a defect
+   * written down as a requirement: a `KHR_animation_pointer` channel names no node -- the extension
+   * states the `node` property MUST NOT be set -- and `Pose::Build` skipped every channel whose node
+   * was negative, so the material channel was dropped one function before `FactorsAt` could answer
+   * it. The item this fixture was built for says the channel is read, resolved and CARRIED. */
+  CHECK(pose.ChannelCount() == 3, "all three channels of the animation are carried");
   CHECK(pose.NodeCount() == file.Nodes().size(),
         "the pose covers every node of the file and not only the driven ones");
   CHECK_NEAR(pose.StartS(), 0.0, 0.0, "s", "the pose's grid starts where the file's keyframes do");
@@ -180,6 +185,37 @@ int main() {
   /* A QUARTER OF THE SPAN: the one place the two candidate rotation blends disagree by a measurable
    * angle, and the closed form below is the spherical one glTF states. */
   const double when = 0.25;
+
+  /* **ONE SAMPLER, TWO INTERPOLATIONS, AND THAT IS THE WHOLE POINT** (board:1392). The pointer
+   * channel rides the SAME sampler the rotation does, so the numbers it must read are the file's own
+   * `(0,0,0,1)` and `(0,0,sqrt(1/2),sqrt(1/2))` rather than a second set to keep true. An accessor is
+   * untyped data and the format says so: as a rotation those two keyframes are SLERPED and land at
+   * 22.5 degrees; as a base colour they are blended component by component and land somewhere the
+   * slerp never goes. Reading the same run both ways is what separates the two, and it is why this
+   * fixture drives a colour from a quaternion's sampler instead of declaring a tidier one. */
+  std::vector<Pose::FactorAt> driven;
+  pose.FactorsAt(when, driven);
+  CHECK(driven.size() == 1, "the animation's one material factor is answered at an instant");
+  if (driven.size() == 1) {
+    CHECK(driven[0].Material == 0 && driven[0].Factor == outshine::Gltf::MaterialFactor::BaseColour,
+          "keyed by the material the pointer named and the factor it named");
+    const double blended[4] = {0.0, 0.0, when * kQuarterTurn, 1.0 + when * (kQuarterTurn - 1.0)};
+    /* THE TOLERANCE IS THE BUFFER'S AND NOT A TASTE. `sqrt(1/2)` is stored as a `float` in the
+     * fixture's binary chunk and compared against a `double` here, so the floor is float32's own
+     * quantisation -- [MEASURED] 3.03e-09, and a bound of 1e-09 was this test measuring its own
+     * storage rather than the blend. */
+    for (size_t component = 0; component < 4; ++component) {
+      CHECK_NEAR(driven[0].Values[component], blended[component], 1e-7, "",
+                 "and carrying the component blend of the sampler this channel shares");
+    }
+    /* THE NEGATIVE CONTROL, because agreeing with one formula is only a claim about the other if the
+     * two differ here: the slerp puts `z` at sin(11.25 deg) and the blend puts it lower. */
+    const double spherical = std::sin(11.25 * 3.14159265358979323846 / 180.0);
+    Note("factor z, component blend", driven[0].Values[2], "");
+    Note("rotation z, spherical", spherical, "");
+    CHECK(driven[0].Values[2] < spherical - 1e-6,
+          "which is not where the spherical blend of the same two keyframes lands");
+  }
   std::vector<Transform> locals;
   std::vector<double> weights;
   pose.At(when, locals, weights);

@@ -248,7 +248,8 @@ constexpr const char *kTextureTransform = "KHR_texture_transform";
  *
  * A LEADING EMPTY SEGMENT IS THE POINTER'S OWN SYNTAX -- RFC 6901 pointers begin with `/` -- so the
  * split produces it and it is stepped over rather than special-cased away. */
-bool ResolveMaterialPointer(const std::string &pointer, AnimationChannel &channel) {
+bool ResolveMaterialPointer(const std::string &pointer, AnimationChannel &channel,
+                            UndrivenReason &why) {
   std::vector<std::string> segments;
   size_t at = 0;
   while (at <= pointer.size()) {
@@ -258,21 +259,29 @@ bool ResolveMaterialPointer(const std::string &pointer, AnimationChannel &channe
     if (slash == std::string::npos) { break; }
     at = slash + 1;
   }
+  why = UndrivenReason::PointerUnparsed;
   if (segments.size() < 4 || !segments.front().empty() || segments[1] != "materials") {
     return false;
   }
   const std::string &index = segments[2];
   if (index.empty() || index.find_first_not_of("0123456789") != std::string::npos) { return false; }
-  channel.Path = AnimationPath::MaterialFactor;
-  channel.Material = std::atoi(index.c_str());
-  if (segments.size() == 4 && segments[3] == "emissiveFactor") {
-    channel.Factor = MaterialFactor::Emissive;
+
+  /* THE TAIL IS EVERYTHING AFTER `/materials/<i>/`, rejoined, so the table carries whole spellings
+   * and the walk has one shape whether a property sits on the material or on its
+   * `pbrMetallicRoughness` (board:1392). */
+  std::string tail = segments[3];
+  for (size_t part = 4; part < segments.size(); ++part) { tail += "/" + segments[part]; }
+
+  /* PAST HERE THE POINTER IS WELL FORMED AND NAMES A MATERIAL, so anything left is a property this
+   * reader holds no field for -- a capability gap and not a grammar one. */
+  why = UndrivenReason::PointerUnheld;
+  for (const AnimatablePointer &known : AnimatablePointers()) {
+    if (tail != known.Tail) { continue; }
+    channel.Path = AnimationPath::MaterialFactor;
+    channel.Material = std::atoi(index.c_str());
+    channel.Factor = known.Factor;
     return true;
   }
-  if (segments.size() != 5 || segments[3] != "pbrMetallicRoughness") { return false; }
-  if (segments[4] == "baseColorFactor") { channel.Factor = MaterialFactor::BaseColour; return true; }
-  if (segments[4] == "metallicFactor") { channel.Factor = MaterialFactor::Metalness; return true; }
-  if (segments[4] == "roughnessFactor") { channel.Factor = MaterialFactor::Roughness; return true; }
   return false;
 }
 
@@ -1050,7 +1059,8 @@ bool Document::ReadAnimations(const Json &json) {
          * itself in the refusal rather than being read and driven nowhere (board:1392). */
         const std::string pointer =
             target["extensions"][kAnimationPointer]["pointer"].Str("");
-        if (!ResolveMaterialPointer(pointer, channel)) {
+        UndrivenReason why = UndrivenReason::PointerUnparsed;
+        if (!ResolveMaterialPointer(pointer, channel, why)) {
           /* NOT A REFUSAL, AND THE FORMAT IS WHY. glTF 2.0: *client implementations may select an
            * animation entry and pause it on the first frame, play it automatically, or IGNORE ALL
            * ANIMATIONS until further user requests* -- so a channel this reader cannot drive is a
@@ -1059,8 +1069,7 @@ bool Document::ReadAnimations(const Json &json) {
            *
            * IT IS COUNTED AND NAMED, which is what keeps it from being a silence: the animation
            * publishes how many channels it could not drive and which pointers they were. */
-          animation.Undriven++;
-          animation.UndrivenPointers.push_back(pointer);
+          animation.Undriven.push_back(UndrivenChannel{pointer, why});
           continue;
         }
       } else {

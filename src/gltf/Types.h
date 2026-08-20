@@ -15,6 +15,8 @@
 #include <string>
 #include <vector>
 
+#include "Span.h"
+
 #include "Keyframes.h"
 
 #include "Material.h"
@@ -332,6 +334,23 @@ enum class AnimationPath : uint8_t { Translation, Rotation, Scale, Weights, Mate
  * same two-segment walk and cost nothing beyond naming them. */
 enum class MaterialFactor : uint8_t { BaseColour, Metalness, Roughness, Emissive };
 
+/* THE POINTER EACH FACTOR IS SPELLED BY, AND THIS TABLE IS THE GRAMMAR (board:1392). `Tail` is what
+ * follows `/materials/<i>/`, exactly as the format spells it.
+ *
+ * **THE SET IS PUBLISHED BECAUSE A CALLER MUST BE ABLE TO ENUMERATE IT.** A chain of string
+ * comparisons hidden inside a parser answers *does this one pointer resolve* and cannot answer *which
+ * pointers do* -- so nothing could compare what this reader honours against what the extension
+ * defines, and the honoured set would drift by addition with nobody able to see it. A table can be
+ * walked, printed in a refusal, and checked against `MaterialFactor` by a test that fails when one
+ * gains an enumerator and the other does not. */
+struct AnimatablePointer {
+  const char *Tail;
+  MaterialFactor Factor;
+};
+
+/* EVERY POINTER THIS READER RESOLVES, in one place and in no other. */
+Span<const AnimatablePointer> AnimatablePointers(void);
+
 /* WHAT A CHANNEL THIS ENGINE CANNOT DRIVE IS, and it is NOT a refusal (board:1392).
  *
  * glTF 2.0 says outright that a client may ignore an animation -- *client implementations may select
@@ -347,6 +366,17 @@ enum class UndrivenReason : uint8_t {
   /* The pointer parses and names a property this reader holds no field for. */
   PointerUnheld,
 };
+
+/* ONE CHANNEL THIS READER COULD NOT DRIVE, and BOTH halves are kept (board:1392). A count says how
+ * much was lost and a pointer says what -- a shortfall a reader cannot NAME is one nobody can act on,
+ * and a reason separates *this reader does not parse that shape* from *it parses and holds no field*,
+ * which are a grammar gap and a capability gap and are answered by different work. They are bounded by
+ * the channel count, which the file declares. */
+struct UndrivenChannel {
+  std::string Pointer;
+  UndrivenReason Why = UndrivenReason::PointerUnparsed;
+};
+
 
 /* How many numbers one keyframe of a material factor carries. */
 size_t FactorComponents(MaterialFactor factor);
@@ -382,12 +412,9 @@ struct Animation {
   std::string Name;
   std::vector<AnimationSampler> Samplers;
   std::vector<AnimationChannel> Channels;
-  /* WHAT THIS ANIMATION ASKED FOR AND DID NOT GET, counted per reason (board:1392). A consumer that
-   * wants to know whether it is showing the whole animation asks here; one that does not is unchanged.
-   * The pointers themselves are kept because a shortfall a reader cannot NAME is one nobody can act
-   * on -- and they are bounded by the channel count, which the file declares. */
-  size_t Undriven = 0;
-  std::vector<std::string> UndrivenPointers;
+  /* WHAT THIS ANIMATION ASKED FOR AND DID NOT GET (board:1392). A consumer that wants to know whether
+   * it is showing the whole animation asks here; one that does not is unchanged. */
+  std::vector<UndrivenChannel> Undriven;
 };
 
 /* glTF's OWN DEFAULT MATERIAL, WHICH A PRIMITIVE THAT NAMES NONE WEARS (board:1193). The format

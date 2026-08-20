@@ -108,6 +108,19 @@ size_t PathComponents(AnimationPath path) {
   return 0;
 }
 
+/* THE FOUR, AND ADDING A FIFTH IS ADDING A ROW (board:1392). `emissiveFactor` sits directly on the
+ * material; the other three sit on `pbrMetallicRoughness`, and the tail carries that so the walk has
+ * one shape and not two. */
+Span<const AnimatablePointer> AnimatablePointers(void) {
+  static const AnimatablePointer kPointers[] = {
+      {"emissiveFactor", MaterialFactor::Emissive},
+      {"pbrMetallicRoughness/baseColorFactor", MaterialFactor::BaseColour},
+      {"pbrMetallicRoughness/metallicFactor", MaterialFactor::Metalness},
+      {"pbrMetallicRoughness/roughnessFactor", MaterialFactor::Roughness},
+  };
+  return Span<const AnimatablePointer>(kPointers, sizeof kPointers / sizeof kPointers[0]);
+}
+
 size_t FactorComponents(MaterialFactor factor) {
   switch (factor) {
     /* Four, because `baseColorFactor` carries alpha and the format animates it with the rest. */

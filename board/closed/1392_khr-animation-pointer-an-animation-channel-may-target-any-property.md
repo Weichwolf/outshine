@@ -14,8 +14,13 @@ rather than a switch it hides.
 
 **Five models use it**, and it is what `KHR_node_visibility` is specified to be used with.
 
-- [ ] The set of pointers this reader resolves is ENUMERATED and published, and a pointer outside it is
-  a named refusal rather than a silent no-op
+- [x] The set of pointers this reader resolves is ENUMERATED and published, and a pointer outside it is
+  a named refusal rather than a silent no-op. `AnimatablePointers()` is a table of `(tail, factor)` and
+  the parser WALKS it, so there is no second list beside the grammar;
+  `test/outshine/unit/gltf/TheSetOfAnimatablePointersIsPublishedAndClosed.cpp` closes it in both
+  directions -- no `MaterialFactor` without a pointer that spells it and no factor spelled twice --
+  and derives the enumerator set from `FactorComponents`, whose switch the compiler already holds
+  complete, rather than restating it
 - [x] A pointer that resolves is animated by the same sampler machinery the four node paths use --
   `Pose::FactorsAt` samples the channel's own `Track`, the one the four node paths use, and answers
   which material, which factor and its values at an instant. Proven by
@@ -61,14 +66,19 @@ pointer to a missing material must not read as a file with a pointer nobody unde
 - [x] **`AnimatedColorsCube` is green** -- criteria 1 of 1, inside the picture bound. It had been
   refused before it could project anything, so its declared frame fraction was a [SET] placeholder of
   zero that said so, harvested now at 0.104956927
-- [ ] **`AnimationPointerUVs` still refuses**, and now the refusal quotes the pointer it could not
-  resolve rather than only the path name. Its targets reach `KHR_materials_diffuse_transmission`,
-  `KHR_materials_transmission` and `KHR_materials_volume`, so it is blocked on `board:1386` and
-  `board:1387` as much as on the texture-transform grammar
-- [ ] **NOTHING DRIVES A MATERIAL YET.** The channel is read, resolved and carried; `Pose` answers the
-  new arm by doing nothing and says why -- a material factor is not a node pose. **Applying it means a
-  material row that changes per frame, which is a capability and not a parse**, and it is not claimed
-  here in either direction
+- [x] **A pointer this reader cannot drive quotes ITSELF and says which kind of gap it is.**
+  `UndrivenChannel{Pointer, Why}` replaces a bare count beside a bare list, and `UndrivenReason`
+  stopped being a declared-and-unused enumeration: **unparsed** is a grammar gap and **unheld** is a
+  capability gap, and they are answered by different work. `AnimationPointerUVs` itself is still
+  UNPREPARED in the corpus -- its targets reach `KHR_materials_diffuse_transmission`,
+  `KHR_materials_transmission` and `KHR_materials_volume`, so the CASE is blocked on `board:1386` and
+  `board:1387` as much as on the texture-transform grammar -- and the MECHANISM is proven on a fixture
+  instead, which is the honest place for it
+- [x] **NOTHING DRIVES A MATERIAL YET, and now the channel really is carried.** `Pose::FactorsAt`
+  answers which material, which factor and its values at an instant; `Pose::At` leaves the arm alone
+  and says why, because a material factor is not a node pose. **Applying it means a material row that
+  changes per frame, which is a capability and not a parse**, and it is not claimed here in either
+  direction -- but *carried* now means something a test has run
 
 ## The oracle CAN decide a material factor, and no case asks it to
 
@@ -135,3 +145,35 @@ subject for a thousand frames is the round that does.*
    belong beside the locals and the weights it already samples
 3. **`AnimatedColorsCube` points its material at the file** -- `source: gltf`, `kind: metal-rough` -- and
    the case decides the capability, against an oracle that [MEASURED] animates the factor
+
+## The line that said "carried" was not true, and a test was pinning it
+
+**`Pose::Build` dropped every material channel one function before `FactorsAt` could answer it.** The
+guard read `if (channel.Node < 0) { continue; }` -- the format's own *a channel with no node is skipped
+rather than an error* -- and `KHR_animation_pointer` states outright that the `node` property **MUST
+NOT** be set. So every pointer channel had no node by the extension's own rule, and every one of them
+was swallowed by a rule written for node channels. **`FactorsAt` was unreachable code**: it answered
+nothing, for any file, and nothing had ever called it -- not one consumer and not one test.
+
+**And `AHierarchyIsPosedAtTheTimeItIsAsked` asserted `pose.ChannelCount() == 2` over a fixture that
+declares THREE channels.** The defect was written down as a requirement. *Tests are the specification
+and a failing one shows a defect in the code -- the exception is a test demonstrably mis-specified, and
+this is one: the item this fixture exists for says the channel is read, resolved and CARRIED.*
+
+**What identifies a claim is the thing driven, and it is not always a node.** The duplicate-channel
+refusal keyed on `(node, path)`, so two pointer channels -- both with node `-1` -- read as one claim
+and the second was refused. It keys on `(node, path)` or `(material, factor)` now, by what the channel
+drives.
+
+*This is the same class as `board:1473`, one layer up: **a shape in a game engine is 0 or 1..N**, and
+code that assumes exactly one of something is a defect waiting for the second.*
+
+## Comments
+
+The fixture drives a base colour from the SAME sampler its rotation uses, and that is now measured
+rather than merely arranged. [MEASURED] at a quarter of the span the two readings of one accessor part
+company: as a rotation the keyframes SLERP to `z = 0.195090322`, and as a colour they blend component
+by component to `z = 0.176776692`. **An accessor is untyped data and the format says so** -- the run
+decides nothing about how it is read, the channel's target does. The tolerance is `1e-7` because
+`sqrt(1/2)` sits in the buffer as a `float`: a bound of `1e-9` failed at 3.03e-09, which was the test
+measuring its own storage.
