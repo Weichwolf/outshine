@@ -39,6 +39,11 @@ imply.
       cross-slope to the same stations. `At(s)` answers position, heading, curvature, height, slope,
       vertical bend and bank. Proven by `AReferenceLineCarriesACurvatureWithoutALeap.cpp` and
       `AReferenceLineRisesAndBanksWithoutAGradeBreak.cpp`
+- [x] **A polyline becomes a corridor without a curvature leap** -- `src/corridor/Fit.{h,cpp}`. Every
+      interior vertex carries spiral-arc-spiral, and the radius is DERIVED from how far the line may
+      leave the vertex: `R = within / (shiftShare / cos(theta/2) - 1)` with
+      `shiftShare = 1 + theta^2/96` carrying the spirals' own offset. Proven by
+      `ACorridorIsFittedThroughVerticesItMayNotLeave.cpp`
 - [ ] **A junction is a BLEND with declared continuity**, so several roads meeting share a tangent
       rather than a point -- G1 at minimum, and where two design speeds meet, the lower one's limits
 - [ ] **The continuity class is DECLARED and CHECKED at build**, not discovered by driving: a generator
@@ -111,3 +116,18 @@ central difference by 6.7e-12 m/m and the published bend from the slope's by 1.0
 three are one function rather than three opinions. Sharpest vertical bend 1.769e-4 1/m, which puts
 the airborne speed at sqrt(g/h'') = 235.5 m/s = 848 km/h. **That is the negative control's whole
 value**: on a road built this way a wheel leaving the ground is never the road.
+
+**The fit's bound is the DATA'S OWN ACCURACY and nothing else.** A corner cut moves the line off the
+vertex by `R (1/cos(theta/2) - 1)`, and the spirals push it further by their shift `L^2/24R`; bounding
+the sum by the tile's coordinate quantisation bounds the radius. At zoom 10 that quantum is 9.55 m, so
+a 90 degree turn admits 21.206 m of radius and not the 23.067 m a circular corner would allow. Nobody
+picked either number.
+
+Measured: a right-angle corner between two 1000 m legs fits at 21.2060328 m radius, leaves the vertex
+by 9.5827 m against a 9.5546 m budget -- 0.28 % over, and that residual is the clothoid's NUMERICAL
+INTEGRATION rather than the construction: the closed form is exact in the first-order shift while the
+line is walked by 8-node Gauss-Legendre. The fitted length is 1989.808 m against the polyline's
+2000 m, because a corner cut is shorter than the corner. A 40-vertex zigzag fits 38 corners with a
+worst offset of 5.31 m.
+
+**A turn too sharp for the legs around it is a REFUSAL and not a corner to invent.**
