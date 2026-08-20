@@ -23,7 +23,11 @@ Tags: perf
 - [ ] Broad phase over the one spatial index, never a second index
 - [ ] Narrow phase: sphere, capsule, box, convex hull, triangle soup (Ericson, ch. 4–5)
 - [ ] Contact manifold generation and persistent contact caching
-- [ ] Contact solver: restitution, friction with a declared material pair table
+- [ ] Contact solver: restitution, friction with a declared material pair table. *The SHEAR half is
+      built* -- `src/physics/Shear.h`: force linear in the slip angle near zero, saturating into a
+      declared slide, cornering and braking sharing one limit, and built over a relaxation length
+      rather than at once (`AContactShedsWhatItCanHoldAndNoMore.cpp`). The material pair table is
+      not: friction is per contact today
 - [ ] Joints: hinge, ball, slider, fixed, motorised, with limits
 - [ ] Force sources as a declared list, so a wheel, a propeller and a muscle are the same kind of thing
 - [ ] Medium: air and water with density, and a body that knows which it is in
