@@ -9,7 +9,7 @@
  * line from going stale: the constant below and the device must agree or that test is red.
  *
  * IT STANDS AT test/ ROOT BECAUSE TWO SUITES READ IT. `shader` measures it; `render` derives the
- * picture bound's sampler term from it (`test/khronos/glTF/PictureBound.h`). A second spelling in either
+ * picture bound's sampler term from it (`test/render/khronos/glTF/PictureBound.h`). A second spelling in either
  * place would be the same statement twice. */
 #ifndef TEST_SUBTEXELPRECISION_H
 #define TEST_SUBTEXELPRECISION_H

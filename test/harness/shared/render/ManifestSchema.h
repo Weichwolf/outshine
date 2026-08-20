@@ -318,7 +318,7 @@ private:
 };
 
 /* WHERE THE DECLARATION IS, DERIVED FROM THE CASE. § I.26.10 fixes a case at
- * `test/khronos/glTF/<feature>/<case>/`, so the corpus root is three directories up -- the preparer that
+ * `test/render/khronos/glTF/<feature>/<case>/`, so the corpus root is three directories up -- the preparer that
  * reads the same file lives there. */
 [[nodiscard]] inline std::string SchemaPathBesideCase(const std::string &caseDirectory) {
   /* REPO-RELATIVE AND NOT A WALK UP FROM THE CASE (board:1196). The old form counted directory levels

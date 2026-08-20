@@ -58,7 +58,7 @@ INC_RENDER   := $(INC_CORE) -Isrc/render/plan -Isrc/render/draw -Isrc/render -Is
 INC_SIMHALF  := $(INC_CORE) -Isrc/data -Isrc/scenario -Isrc/world -Isrc/world/tiles -Isrc/generators -Isrc/clients
 INC_CLIENTS  := $(INC_SIMHALF) -Isrc/generators/draw -Isrc/gltf $(INC_RENDER)
 # THE HOST SEAM'S IMPLEMENTATIONS, which a test supplies and the library never names.
-INC_HOST     := -Isrc/core -Isrc/data -Itest/host
+INC_HOST     := -Isrc/core -Isrc/data -Itools/host
 
 SDL_IMAGE_CFLAGS := $(shell pkg-config --cflags sdl3-image)
 SDL_CFLAGS       := $(shell pkg-config --cflags sdl3)
@@ -79,7 +79,7 @@ SIM_SRCS       := src/clients/Sim.cpp src/clients/LogSinks.cpp src/clients/Strea
   src/clients/RegionForge.cpp
 # THE SETUP CALLS A CONSUMER MAKES over the renderer, and the picture medium a test writes with.
 APP_SRCS       := src/clients/GltfStudio.cpp src/clients/Image.cpp
-HOST_SRCS      := $(wildcard test/host/*.cpp)
+HOST_SRCS      := $(wildcard tools/host/*.cpp)
 
 OBJ := build/obj
 

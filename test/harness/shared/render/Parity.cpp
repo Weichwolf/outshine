@@ -1393,7 +1393,7 @@ void ScoreRadianceResidual(const Case &subject, const Picture &picture, const Ra
 enum class Prepared { Yes, No };
 
 /* THE CASE'S OWN RENDER DECLARATION, AND IT IS ONE STATEMENT WITH ONE CALLER MORE (board:1443). The
- * runner compiled it inline; the viewer under `test/viewer/` configures outshine from the same
+ * runner compiled it inline; the viewer under `tools/viewer/` configures outshine from the same
  * manifest and must therefore ask for the same plan, or the picture it shows is a function of which
  * host opened the case rather than of the declaration. **The renderer is the library and neither host
  * renders**: they configure, and this is where that configuring says what to draw into. */
@@ -3284,7 +3284,7 @@ int ScoreRenderCase(int argc, char **argv) {
 
 /* THE SAME CONFIGURATION, A SECOND HOST (board:1443). Everything above this line scores; everything
  * below it only says what the case IS -- which manifest, which subject, which camera, which plan --
- * so that the viewer under `test/viewer/` reads a case exactly as the runner does and the picture is
+ * so that the viewer under `tools/viewer/` reads a case exactly as the runner does and the picture is
  * a function of the declaration rather than of who opened it. */
 struct ConfiguredCase::Held {
   Case Subject;

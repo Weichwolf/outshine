@@ -60,7 +60,7 @@ validatedRan=no
 # crash, a build that fell over, or a test that failed for two reasons instead of one -- which is how
 # a broken harness stays quiet. `LAYER/NAME:FAILURES` demands exactly that many failed claims, and
 # the count comes from the trailer, which is the only place that can hold it.
-EXPECT_FAIL="outshine/harness/ExpectFail:1"
+EXPECT_FAIL="harness/claims/ExpectFail:1"
 
 Die() {
   printf 'run.sh: %s\n' "$*" >&2
@@ -105,7 +105,7 @@ done
 
 # WHAT A TEST OF THIS LAYER MAY NAME. One line per declared directory; there is no default arm.
 #
-# SUITES, SPLIT BY INSTRUMENT (board:0082). test/outshine/unit/ mirrors src/ exactly and
+# SUITES, SPLIT BY INSTRUMENT (board:0082). test/unit/ mirrors src/ exactly and
 # is the only tree that carries the layering proof; test/render/ and test/scenario/ are declarative
 # and organised by feature and by declared run. A render case links the library ENTIRE by
 # construction -- it needs the reader, the renderer and the readback at once -- so `render` gets the
@@ -113,7 +113,7 @@ done
 #
 # test/shader/ IS THE FOURTH, AND IT IS THE SAME SPLIT APPLIED ONCE MORE: its subject is shader text and
 # its instrument is a real device with no asset, no camera and no oracle. It cannot be a unit layer --
-# `outshine/unit/render/stages` links nothing and brings no device up, which is a property of the shading model
+# `unit/render/stages` links nothing and brings no device up, which is a property of the shading model
 # as a header of pure functions and worth keeping -- and it cannot be a render case, because a render
 # source is invoked once per case directory and this one has no case to be invoked over.
 #
@@ -126,31 +126,31 @@ done
 # looking like the timed one.
 LayerIncludes() {
   case "$1" in
-    outshine/unit/core) printf '%s' "-Isrc/core -Isrc/core/io" ;;
-    outshine/unit/data) printf '%s' "-Isrc/core -Isrc/data" ;;
-    outshine/unit/gltf) printf '%s' "-Isrc/core -Isrc/gltf" ;;
-    outshine/unit/ui) printf '%s' "-Isrc/core -Isrc/ui" ;;
-    outshine/unit/scenario) printf '%s' "-Isrc/core -Isrc/scenario" ;;
-    outshine/unit/generators) printf '%s' "-Isrc/core -Isrc/generators" ;;
-    outshine/unit/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
-    outshine/unit/world) printf '%s' "-Isrc/core -Isrc/data -Isrc/world -Isrc/world/tiles" ;;
-    outshine/unit/render/plan) printf '%s' "-Isrc/core -Isrc/render/plan" ;;
-    outshine/unit/render/draw) printf '%s' "-Isrc/core -Isrc/render/draw" ;;
-    outshine/unit/render/stages) printf '%s' "-Isrc/core -Isrc/render/stages" ;;
-    outshine/unit/clients) printf '%s' "-Isrc/clients" ;;
-    outshine/harness) printf '%s' "-Isrc/core" ;;
-    harness/khronos/glTF | harness/khronos/generator | harness/outshine/render) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
-    harness/wpt/css) printf '%s' "-Isrc/core -Isrc/ui" ;;
-    harness/test262/js) printf '%s' "-Isrc/core" ;;
-    outshine/frame) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui" ;;
-    outshine/shader) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render -Isrc/render/draw -Isrc/render/plan -Isrc/render/stages" ;;
+    unit/core) printf '%s' "-Isrc/core -Isrc/core/io" ;;
+    unit/data) printf '%s' "-Isrc/core -Isrc/data" ;;
+    unit/gltf) printf '%s' "-Isrc/core -Isrc/gltf" ;;
+    unit/ui) printf '%s' "-Isrc/core -Isrc/ui" ;;
+    unit/scenario) printf '%s' "-Isrc/core -Isrc/scenario" ;;
+    unit/generators) printf '%s' "-Isrc/core -Isrc/generators" ;;
+    unit/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
+    unit/world) printf '%s' "-Isrc/core -Isrc/data -Isrc/world -Isrc/world/tiles" ;;
+    unit/render/plan) printf '%s' "-Isrc/core -Isrc/render/plan" ;;
+    unit/render/draw) printf '%s' "-Isrc/core -Isrc/render/draw" ;;
+    unit/render/stages) printf '%s' "-Isrc/core -Isrc/render/stages" ;;
+    unit/clients) printf '%s' "-Isrc/clients" ;;
+    harness/claims) printf '%s' "-Isrc/core" ;;
+    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
+    harness/render/wpt/css) printf '%s' "-Isrc/core -Isrc/ui" ;;
+    harness/render/test262/js) printf '%s' "-Isrc/core" ;;
+    render/outshine/frame) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui" ;;
+    render/outshine/shader) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render -Isrc/render/draw -Isrc/render/plan -Isrc/render/stages" ;;
     # THE BROWSER READS A CASE THE WAY THE RUNNER DOES, so it compiles the runner's own reader and
     # sees exactly the layers that reader sees -- one set, not a second one that could drift.
     # **THE SCENARIO SUITE DECIDES A SEQUENCE AND NOT A FRAME** (board:1457). It links what the render
     # suites link because a run is drawn on a device, and it links no harness: it reads no oracle and
     # scores no picture against one -- its claims are about two of OUR frames and their relation.
-    scenario) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui -Itest/harness/shared" ;;
-    viewer) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui -Itest/viewer/parts" ;;
+    render/outshine/scenario) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui -Itest/harness/shared" ;;
+    tools/viewer) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui -Itools/viewer/parts" ;;
     *) return 1 ;;
   esac
 }
@@ -166,9 +166,9 @@ LayerIncludes() {
 # boundary.
 LayerToolchain() {
   case "$1" in
-    harness/khronos/glTF | harness/khronos/generator | harness/outshine/render | outshine/frame | viewer | scenario) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
-    outshine/shader) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3)" ;;
-    outshine/unit/clients) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3-image)" ;;
+    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    render/outshine/shader) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3)" ;;
+    unit/clients) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
   esac
 }
@@ -181,7 +181,7 @@ LayerToolchain() {
 # test's own id so a sanitised run can never be read as a shipping one.
 LayerSanitiser() {
   case "$1" in
-    harness/khronos/glTF | harness/khronos/generator | harness/outshine/render | outshine/shader) printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
+    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/shader) printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -197,7 +197,7 @@ LayerSanitiser() {
 # `SubjectDraw` still declared two colour outputs into a pass with one attachment.
 LayerValidation() {
   case "$1" in
-    harness/khronos/glTF | harness/khronos/generator | harness/outshine/render | outshine/shader) printf '%s' "-DOUTSHINE_GPU_VALIDATION=1" ;;
+    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/shader) printf '%s' "-DOUTSHINE_GPU_VALIDATION=1" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -206,10 +206,10 @@ LayerLink() {
   case "$1" in
     # zlib, for the oracle's EXR (board:1119). It is already in these processes through SDL3_image ->
     # libpng, so naming it links what the host already provides rather than adding a dependency.
-    harness/khronos/glTF | harness/khronos/generator | harness/outshine/render | outshine/frame | viewer | scenario) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz" ;;
-    outshine/harness) printf '%s' "-lz" ;;
-    outshine/shader) printf '%s' "$(pkg-config --libs sdl3)" ;;
-    outshine/unit/clients) printf '%s' "$(pkg-config --libs sdl3-image)" ;;
+    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz" ;;
+    harness/claims) printf '%s' "-lz" ;;
+    render/outshine/shader) printf '%s' "$(pkg-config --libs sdl3)" ;;
+    unit/clients) printf '%s' "$(pkg-config --libs sdl3-image)" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -217,12 +217,12 @@ LayerLink() {
 # WHAT A TEST OF THIS LAYER LINKS. Layer archives are a later step; until then the harness compiles
 # the same source groups the Makefile does, each with its own directory's include set.
 #
-# `outshine/unit/world` LINKS NOTHING and that is a limit, not a choice: src/world/tiles decodes terrarium PNG
+# `unit/world` LINKS NOTHING and that is a limit, not a choice: src/world/tiles decodes terrarium PNG
 # and imagery JPEG through SDL3_image, whose flags come from pkg-config -- and this harness's whole
 # dependency set is the shell, the compiler and the clock. A test that needs to RUN world code is
 # what pays to widen that.
 #
-# `outshine/unit/render/stages` LINKS NOTHING EITHER, and there it is a property of the subject rather than a
+# `unit/render/stages` LINKS NOTHING EITHER, and there it is a property of the subject rather than a
 # limit: a shading model is a header of pure functions, so the white furnace integrates it with no
 # object to link and no device to bring up.
 #
@@ -230,36 +230,36 @@ LayerLink() {
 # and a test that spelled its own download and its own map would be comparing two halves of a
 # shading model through a third thing nothing else uses.
 #
-# `outshine/unit/clients` PAID IT, for one file. src/clients/Image.cpp IS the SDL3_image boundary -- the decode
+# `unit/clients` PAID IT, for one file. src/clients/Image.cpp IS the SDL3_image boundary -- the decode
 # a glTF base-colour texture arrives through and the encode a render case's pictures leave through --
 # so a test of it that stood in for the library would be testing the stand-in. The widening is one
 # layer and one source and it changes nothing for the others: every remaining unit layer still links
 # nothing at all.
 LayerGroups() {
   case "$1" in
-    outshine/unit/core) printf '%s' "src/core src/core/io" ;;
-    outshine/unit/data) printf '%s' "src/core src/core/io src/data" ;;
-    outshine/unit/gltf) printf '%s' "src/core src/gltf" ;;
-    outshine/unit/ui) printf '%s' "src/core src/ui" ;;
-    harness/wpt/css) printf '%s' "src/core/Json.cpp src/ui" ;;
-    harness/test262/js) printf '%s' "src/core/Json.cpp src/core/Script.cpp" ;;
-    outshine/unit/scenario) printf '%s' "src/core src/scenario" ;;
-    outshine/unit/generators) printf '%s' "src/core src/generators" ;;
-    outshine/unit/generators/draw) printf '%s' "src/core src/generators src/generators/draw" ;;
-    outshine/unit/world) printf '%s' "" ;;
-    outshine/unit/render/plan) printf '%s' "src/core src/core/io src/render/plan" ;;
-    outshine/unit/render/draw) printf '%s' "src/core src/core/io src/render/draw" ;;
-    outshine/unit/render/stages) printf '%s' "" ;;
-    outshine/unit/clients) printf '%s' "src/clients/Image.cpp" ;;
-    outshine/harness) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
-    harness/khronos/glTF | harness/khronos/generator | harness/outshine/render | outshine/frame | viewer | scenario) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp" ;;
-    # `outshine/shader` COMPILES THE RENDERER'S OWN STAGES AS WELL AS ITS OWN TWINS (board:1207). A
+    unit/core) printf '%s' "src/core src/core/io" ;;
+    unit/data) printf '%s' "src/core src/core/io src/data" ;;
+    unit/gltf) printf '%s' "src/core src/gltf" ;;
+    unit/ui) printf '%s' "src/core src/ui" ;;
+    harness/render/wpt/css) printf '%s' "src/core/Json.cpp src/ui" ;;
+    harness/render/test262/js) printf '%s' "src/core/Json.cpp src/core/Script.cpp" ;;
+    unit/scenario) printf '%s' "src/core src/scenario" ;;
+    unit/generators) printf '%s' "src/core src/generators" ;;
+    unit/generators/draw) printf '%s' "src/core src/generators src/generators/draw" ;;
+    unit/world) printf '%s' "" ;;
+    unit/render/plan) printf '%s' "src/core src/core/io src/render/plan" ;;
+    unit/render/draw) printf '%s' "src/core src/core/io src/render/draw" ;;
+    unit/render/stages) printf '%s' "" ;;
+    unit/clients) printf '%s' "src/clients/Image.cpp" ;;
+    harness/claims) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
+    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp" ;;
+    # `render/outshine/shader` COMPILES THE RENDERER'S OWN STAGES AS WELL AS ITS OWN TWINS (board:1207). A
     # twin proves an arithmetic; only the unit's OWN text proves that the driver accepts it, and a
     # `shadeRow` call left one argument short survived a green library, a green unit tree and a green
     # shader suite because nothing in this layer compiled `SubjectDraw`'s source. It is still no
     # asset, no camera and no oracle -- which is what this layer is -- and it is now a device against
     # the shader the engine actually ships.
-    outshine/shader) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
+    render/outshine/shader) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
     *) return 1 ;;
   esac
 }
@@ -271,11 +271,11 @@ LayerGroups() {
 # 137 and nothing else.
 LayerCases() {
   case "$1" in
-    harness/khronos/glTF) find test/khronos/glTF -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
-    harness/khronos/generator) find test/khronos/generator -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
-    harness/outshine/render) find test/outshine/render -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
-    harness/wpt/css) find test/wpt/css -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
-    harness/test262/js) find test/test262/js -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
+    harness/render/khronos/glTF) find test/render/khronos/glTF -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
+    harness/render/khronos/generator) find test/render/khronos/generator -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
+    harness/render/outshine/grown) find test/render/outshine/grown -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
+    harness/render/wpt/css) find test/render/wpt/css -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
+    harness/render/test262/js) find test/render/test262/js -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -288,15 +288,15 @@ LayerCases() {
 # must exist before Blender opens, a generator is C++, and the alternative -- growing the part in the
 # preparer's Python -- would score a subject this engine does not draw. So the preparer builds and
 # runs it (test/corpus/prep/grown.py), the harness never touches it, and what the emit path
-# guarantees is held by a test that does run: outshine/unit/gltf/AProducedSubjectIsTheOneItStated.
+# guarantees is held by a test that does run: unit/gltf/AProducedSubjectIsTheOneItStated.
 NotTheHarnesses() {
   case "$1" in
-    harness/shared | harness/khronos/glTF | harness/khronos/generator | harness/outshine/render) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
+    harness/shared | harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
     harness/shared/render) printf '%s' "the render scoring instrument, compiled into each corpus's own harness" ;;
-    viewer/parts) printf '%s' "the browser's own declaration and its face, compiled into the browser" ;;
-    outshine/host) printf '%s' "host implementations of what the library declares, compiled into the library" ;;
-    outshine/unit/compile | outshine/unit/compile/*) printf '%s' "a compile subject, judged by the layer's own refusal test, never linked" ;;
-    harness/khronos/glTF/prepare | harness/khronos/generator/prepare | harness/outshine/render/prepare | harness/wpt/css/prepare | harness/test262/js/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;
+    tools/viewer/parts) printf '%s' "the browser's own declaration and its face, compiled into the browser" ;;
+    tools/host) printf '%s' "a host's transports, which nothing compiles yet -- board:0069 is where they are spent" ;;
+    unit/compile | unit/compile/*) printf '%s' "a compile subject, judged by the layer's own refusal test, never linked" ;;
+    harness/render/khronos/glTF/prepare | harness/render/khronos/generator/prepare | harness/render/outshine/grown/prepare | harness/render/wpt/css/prepare | harness/render/test262/js/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;
     harness/shared/corpus | harness/shared/corpus/*) printf '%s' "the offline preparer's own, compiled and run by test/harness/shared/corpus/prepare.py" ;;
     *) return 1 ;;
   esac
@@ -307,8 +307,8 @@ NotTheHarnesses() {
 # asset. So the scorer is one file compiled into each harness rather than one binary behind a flag.
 LayerExtraSources() {
   case "$1" in
-    harness/khronos/glTF | harness/khronos/generator | harness/outshine/render) printf '%s' "test/harness/shared/render/Parity.cpp" ;;
-    viewer) printf '%s' "test/harness/shared/render/Parity.cpp test/viewer/parts/Chrome.cpp" ;;
+    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "test/harness/shared/render/Parity.cpp" ;;
+    tools/viewer) printf '%s' "test/harness/shared/render/Parity.cpp tools/viewer/parts/Chrome.cpp" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -491,8 +491,15 @@ PRUNE_MARKER=$BUILD/prune.marker
 
 # EVERY DIRECTORY RESOLVES BEFORE ANYTHING IS BUILT. An undeclared one found halfway through is a
 # refusal the reader has to notice under three green lines; found here it is the only thing printed.
+# A TOOL IS NOT RUN WITH THE LIBRARY'S TESTS AND IS NAMED TO BE RUN AT ALL. `test/unit` and
+# `test/render` decide whether outshine is right, so they run on every change to it; `tools/` holds
+# programs BUILT on it -- the browser, a host's transports -- whose own tests answer a different
+# question and cost a device to ask. Naming one is the whole opt-in.
+TREES=test
+case "$SUITE" in tools | tools/*) TREES="test tools" ;; esac
+
 TESTS=""
-for candidate in $(find test -name '*.cpp' | sort); do
+for candidate in $(find $TREES -name '*.cpp' | sort); do
   candidateLayer=$(dirname "${candidate#test/}")
   if LayerIncludes "$candidateLayer" >/dev/null; then
     LayerGroups "$candidateLayer" >/dev/null ||
@@ -535,12 +542,12 @@ if [ -n "$SUITE" ]; then
     case "${candidate#test/}" in "$SUITE"/*) selected="$selected $candidate" ;; esac
   done
   [ -n "$selected" ] ||
-    Die "no declared suite under test/$SUITE -- $(find test -name '*.cpp' -exec dirname {} \; | sed 's|^test/||' | sort -u | tr '\n' ' ')"
+    Die "no declared suite under $SUITE -- $(find $TREES -name '*.cpp' -exec dirname {} \; | sed 's|^test/||' | sort -u | tr '\n' ' ')"
   TESTS=$selected
   if [ -n "$CASE" ]; then
-    printf 'run.sh: %s only, under test/%s\n' "$CASE" "$SUITE"
+    printf 'run.sh: %s only, under %s\n' "$CASE" "$SUITE"
   else
-    printf 'run.sh: %s only\n' "test/$SUITE"
+    printf 'run.sh: %s only\n' "$SUITE"
   fi
 fi
 
@@ -711,7 +718,7 @@ CountTheTwo() {
   criterion=$(sed -n 's/^KHRONOS-CRITERION //p' "$2" | head -1)
   picture=$(sed -n 's/^PICTURE-BOUND //p' "$2" | head -1)
   case "$1" in
-    khronos/*)
+    render/khronos/*)
       case "$criterion" in
         met) criterionMet=$((criterionMet + 1)) ;;
         red) criterionRed=$((criterionRed + 1)) ;;

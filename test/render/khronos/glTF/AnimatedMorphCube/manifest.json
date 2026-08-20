@@ -1,0 +1,230 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/animation/animated-morph-cube",
+  "title": "Rung 8 -- morph targets: one cube reshaped by two targets, frame by frame against Cycles",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "I.26.15"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "Demonstrates a simple cube with two simple morph targets and an animation that transitions between them both.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimatedMorphCube/metadata.json",
+    "note": "The asset states no number, so the criterion is the suite's own: our picture against Cycles' picture at every frame of a declared grid. What the ASSET decides is which mechanism is under test -- MORPH TARGETS and nothing else: one node, one primitive of 12 triangles, one material, no skin, no texture, no light. The two targets overlap in time rather than following one another, which is what makes the case about the WEIGHTED SUM and not about two poses played in turn."
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction -- azimuth 35 deg, elevation 20 deg -- puts every silhouette edge of the cube at an irrational raster slope, and the morph moves those edges continuously, so no roll makes the construction exact at more than one frame and a case is judged at eighteen."
+  },
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "subjects": [
+    {
+      "id": "animated-morph-cube",
+      "kind": "gltf",
+      "name": "AnimatedMorphCube",
+      "entry": "scene.gltf",
+      "attributes": [
+        "POSITION",
+        "NORMAL",
+        "TANGENT"
+      ],
+      "notes": "One node carrying scale 100 and a 180-degree rotation, one mesh, one primitive of 24 vertices and 12 triangles, and TWO MORPH TARGETS each carrying POSITION, NORMAL and TANGENT deltas. mesh.weights is [0, 0], which is the rest shape. The one animation channel drives node 0's weights, LINEAR over 127 keyframes spanning 0 to 4.19999743 s, and its output accessor is SCALAR of count 254 -- 127 x 2, which is the format's rule that a weights keyframe carries one value per target. Measured here over the declared grid: target 0 reaches 0.9888 and target 1 reaches 0.98, and they OVERLAP, so the picture tests a weighted sum of two deltas rather than a switch between two shapes.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "AnimatedMorphCube",
+        "pinnedOn": "2026-08-17",
+        "pinReason": "the same pin every other Khronos subject in this tree carries"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimatedMorphCube/glTF/AnimatedMorphCube.gltf",
+          "sha256": "0b910ed4b52fd9fbb565911fc7f9f285edb0f30fa4913a93143466d439d1092e",
+          "bytes": 4621,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Microsoft",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimatedMorphCube/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimatedMorphCube/glTF/AnimatedMorphCube.bin",
+          "sha256": "4aba93918adba56c1cc688a38c527bc647e26f2c386802e119b4d01b7250dd23",
+          "bytes": 4284,
+          "as": "AnimatedMorphCube.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Microsoft",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimatedMorphCube/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimatedMorphCube/metadata.json",
+          "sha256": "fd7cd0e275ee972aab7f9be923b1271fd0a98d78185f6d87976e9167cf10e0bf",
+          "bytes": 785,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Microsoft",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AnimatedMorphCube/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "scene": {
+    "frame": "gltf",
+    "animation": {
+      "animations": [
+        0
+      ],
+      "fps": {
+        "value": 4,
+        "unit": "frames per second",
+        "origin": "SET",
+        "note": "The grid is the case's and not the file's. The asset keys at about 30 fps -- 127 keys over 4.2 s -- so sampling at 4 fps lands BETWEEN its keyframes, which is where an interpolation error lives. 18 renders per recipe rather than 127, and the morph is smooth enough over 4.2 s that eighteen samples resolve it."
+      },
+      "frames": {
+        "value": 18,
+        "unit": "frames",
+        "origin": "derived",
+        "derivation": "ceil(4.19999743 s * 4 fps) + 1 = 18, so frame 17 at 4.25 s is the first past the file's last keyframe and the grid covers the whole declared duration. Outside it glTF clamps to the last keyframe, so that frame states the end shape rather than an extrapolation."
+      }
+    },
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        9.521586883790182,
+        4.230684908732062,
+        6.667087124029915
+      ],
+      "lookAtM": [
+        4.6566128730773926e-08,
+        3.4638958368304884e-14,
+        2.448872857829798e-07
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 10.63764378456951,
+      "clipEndM": 14.101746519139033,
+      "derivation": "The framing rule of board:0083 applied to the union of the MORPHED subject's bounds over the declared grid, and the numbers are the ENGINE's own rather than a second derivation of the same rule -- the cross-check in test/unit/gltf/ADerivedCameraIsTheFramingRuleAndNotAQuotation.cpp holds every declared camera against Framing.h at the libm floor, and a hand-computed one disagreed with it in the seventh digit. Bounds: axis 0 [-1.0000003501772881, 1.0000004433095455], axis 1 [-1.0000001190696601, 1.0000001190696866], axis 2 [-1.0000002087559188, 1.0000003950204337] m, centre (4.6566128730773926e-08, 1.3211653993039363e-14, 9.3132257461547852e-08). The node's full TRS applies after the deltas -- scale 100 and a 180-degree rotation, and the rotation matters because a morphed cube is not symmetric even though a cube is. Direction azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6, yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, znear = distance - r and zfar = distance + r. Roll 0: the silhouette is irrational at every roll and moves with the morph, so no roll buys exactness. RE-DERIVED OVER THE FRAME GRID (board:1366): the bounds are the union of the subject's box over all declared frames, not the box of the stored pose. This cube MORPHS, so its swept extent is [-1.0000003501772881, 1.0000004433095455] on X against the rest pose's [-1, 1], and the eye moves 4.81649513e-07 m -- five orders above the test's 1e-12 relative tolerance and utterly invisible in the picture. The number is small and the rule is not: a subject whose motion exceeds its own size leaves a rest-pose frame entirely, which is why the union is what is framed.",
+      "note": "THE ENGINE'S OWN ANSWER, QUOTED (board:1398). Every number here is read from the framing rule's output for this subject -- eye, aim, yfov and both clip planes -- rather than recomputed by the authoring helper, which bounded each primitive by the eight transformed corners of its local AABB and therefore always at least as loosely as the engine bounds the transformed vertices. A looser radius moves the eye back, and 93 cases declared a camera the rule does not derive. `ADerivedCameraIsTheFramingRuleAndNotAQuotation` recomputes all of it and refuses a mismatch, so what this declaration does is PIN the viewpoint, never choose it."
+    },
+    "light": {
+      "kind": "none",
+      "note": "An emission case gathers nothing, so there is nothing for a light to add. The only illumination left is Blender's factory world and it reaches no surface of this subject."
+    },
+    "world": {
+      "kind": "factory",
+      "note": "Configured by not being configured. The observed colour and strength go into provenance.json, so a Blender that changed them is visible without any machinery that refuses."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "Material": [
+          0.5,
+          0.25,
+          0.125
+        ]
+      },
+      "note": "Emission, one colour per glTF material, and the geometry is untouched (board:0087). ONE body wearing ONE material, so the two-colour argument BoxAnimated needed does not arise. An emitter at strength 1 gathers nothing, which removes the world as a light, the sun's disk, a light's radius and visibility at once -- and that is what leaves the morph as the only mechanism a disagreement can be attributed to. IT ALSO TAKES THE TANGENT OUT OF THE PICTURE: the asset morphs TANGENT and board:1126 is open on that surface, but an emitter samples no normal map, so a red here cannot be that bug wearing a new name."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 320,
+      "resolutionY": 180,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. THE FRAME IS 320x180 AND THAT IS A COST DECISION WITH A MEASURED NUMBER BEHIND IT: an animated case multiplies every product by its frame count, and a quantity's raw at 1280x720 is 14.75 MB, so this grid's five raws would be 2.29 GB against a corpus already measured at 19.9 GB. At one quarter the linear size, the same 16:9 and the same lens, it is 143 MB, and the subject still covers 11.7 % of the frame -- about 6 700 pixels -- which is the population the picture bound is taken over."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 320,
+      "resolutionY": 180,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe at another seed, and the whole of the emission case's acceptance. A Monte-Carlo estimator's answer depends on its seed; an emitter has no estimator, so the two dumps must agree bit for bit and any difference NAMES the integral that survived. It is rendered at every frame of the grid for the same reason the picture is: what is visible is a function of the pose."
+    }
+  },
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.211519783,
+      "unit": "dimensionless",
+      "origin": "measured",
+      "note": "The fraction of the frame the subject's projected area covers at frame 0, RE-HARVESTED after the camera became the framing rule's own answer (board:1398). Recomputed by the runner on every run and refused on mismatch, so this line PINS the framing and never chooses it; seeded from that recomputation, it is a drift detector rather than a present-error check."
+    }
+  },
+  "notes": "THE ORACLE DRIVES SHAPE KEYS HERE (board:1203), which is a THIRD arm beside the object and bone arms: the curves live on the mesh's shape-key datablock as key_blocks[NAME].value, and the object carries no animation data at all. Unlike the bone arm this one EVALUATES THE FILE rather than re-interpolating the importer's keys, because a morph weight is a scalar with no space conversion -- so all three of glTF's interpolations are reachable and none is refused. The join between the file's targets and Blender's shape keys is POSITIONAL, Basis at 0 and target i at i+1, because this file declares no extras.targetNames and Blender still names its keys thin and angle. Every channel publishes which arm carried it under bakedChannels."
+}

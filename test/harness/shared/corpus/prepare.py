@@ -38,8 +38,8 @@ def prepared_directory(manifest_path):
 # WHERE THE CASES ARE, AND THE TWO SUITES ARE NAMED RATHER THAN DISCOVERED. A walk that found a
 # `manifest.json` anywhere would prepare whatever a future directory happened to contain; these two are
 # the declarative suites and adding a third is a decision, not a side effect.
-CASE_TREES = ("test/khronos/glTF", "test/khronos/generator", "test/outshine/render",
-              "test/wpt/css", "test/test262/js")
+CASE_TREES = ("test/render/khronos/glTF", "test/render/khronos/generator", "test/render/outshine/grown",
+              "test/render/wpt/css", "test/render/test262/js")
 
 
 def every_manifest():

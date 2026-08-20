@@ -19,7 +19,7 @@ class Renderer;
 /* A CASE CONFIGURED FOR OUTSHINE, WITH NOTHING SCORED (board:1443).
  *
  * **THE RENDERER IS THE LIBRARY AND NEITHER HOST RENDERS.** The runner and the viewer under
- * `test/viewer/` both read a manifest and configure outshine from it; what they do afterwards
+ * `tools/viewer/` both read a manifest and configure outshine from it; what they do afterwards
  * differs entirely -- one scores a picture against an oracle and the other shows it in a window --
  * and the configuring is the part that must not be written twice. A second reading of the same
  * manifest would be a second answer to *what is this case*, and the two would drift on the first

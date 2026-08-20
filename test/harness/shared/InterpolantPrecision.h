@@ -3,7 +3,7 @@
  * NOTHING PUBLISHES IT. Metal documents no interpolation precision; Vulkan exposes
  * `subPixelPrecisionBits` and D3D11 mandates 8 fractional bits, and neither is a statement about this
  * device. So both device quantities below are measured here, by
- * `test/outshine/shader/TheInterpolatorCarriesAQuantityAcrossATriangle.cpp`, and that test is what keeps
+ * `test/render/outshine/shader/TheInterpolatorCarriesAQuantityAcrossATriangle.cpp`, and that test is what keeps
  * these lines from going stale.
  *
  * IT IS NOT ONE NUMBER, AND THAT IS THE FINDING. The deviation between a hardware-interpolated quantity

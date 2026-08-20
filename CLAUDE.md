@@ -522,12 +522,23 @@ The split is by **instrument**, not by shape, and the placement rule is one ques
 ```mermaid
 flowchart TD
   q{"what would fail this test?"}
-  q -->|"wrong computation"| u["UNIT · test/outshine/unit"]
-  q -->|"wrong pixels"| r["RENDER · test/khronos/glTF"]
-  q -->|"wrong on the device"| s["SHADER · test/outshine/shader"]
-  q -->|"cost moved"| f["FRAME · test/outshine/frame"]
-  q -->|"floor broke, run drifted"| c["SCENARIO"]
+  q -->|"wrong computation"| u["UNIT · test/unit"]
+  q -->|"wrong pixels"| r["RENDER · test/render"]
+  q -->|"wrong on the device"| s["SHADER · test/render/outshine/shader"]
+  q -->|"cost moved"| f["FRAME · test/render/outshine/frame"]
+  q -->|"floor broke, run drifted"| c["SCENARIO · test/render/outshine/scenario"]
 ```
+
+**TWO TREES DECIDE WHETHER THE LIBRARY IS RIGHT AND THEY BOTH RUN ON EVERY CHANGE TO IT.**
+`test/unit/` holds the computation and mirrors `src/` exactly; `test/render/`, one directory per vendor and suite,
+is everything a device or a vendor's corpus decides — `khronos/glTF`, `khronos/generator`,
+`outshine/grown`, `outshine/frame`, `outshine/shader`, `outshine/scenario`, `wpt/css`, `test262/js`.
+`test/harness/` holds the programs that score them, positioned to mirror the cases they serve.
+
+**`tools/` IS BUILT ON THE LIBRARY AND IS NOT RUN WITH IT.** The browser and a host's transports
+answer a different question, so they are named to run at all — `test/run.sh tools/viewer` — and a
+change to the engine does not pay for them. *A tool that had to pass before the library could be
+measured would make the library's own verdict hostage to something the library does not contain.*
 
 | Suite | What would fail it | What it links | What decides it |
 |---|---|---|---|
@@ -591,7 +602,8 @@ amber state**: the repair is that the red names its cause.
 | | |
 |---|---|
 | `src/` | the library **entire** — its C++ and, in `src/assets/`, the declared data the engine is made of. No entry point, no build file, no host implementation, no test fixture |
-| `test/` | the suites above, plus `test/outshine/host/` (host implementations of what the library declares), `test/outshine/mods/` (declared worlds), `test/harness/shared/corpus/` (the oracle's subjects, fetched and built, never committed) and `test/outshine/harness/` (the harness's own claims, including that every path this file cites resolves) |
+| `test/` | **`test/unit/`** mirroring `src/`, **`test/render/`** -- one directory per vendor and suite -- for everything a device or a vendor's corpus decides, and **`harness/`** — the programs that score them, mirroring the cases they serve, plus `test/harness/claims/` (the harness's own claims, including that every path this file cites resolves) and `test/harness/shared/corpus/` (the oracle's subjects, fetched and built, never committed) |
+| `tools/` | programs built ON the library and not run with it: `tools/viewer/` (the browser) and `tools/host/`. Named to run at all — `test/run.sh tools/viewer` |
 | `test/run.sh` | the harness, and the only runner. One process per test, a real verdict per test, non-zero on any failure or undeclared skip. **macOS has no `timeout(1)`** — it brings its own |
 | `Makefile` | **three targets and no others**: build the library, run the tests, clean. No gate target, no verify target — everything a gate decided is a test, and two runners means two verdicts |
 | `test/harness/shared/corpus/prepare.py` | **the one offline script the constraints allow.** Fetch · generate · patch · convert · render, each idempotent and independently invocable. It compares, scores and decides **nothing** — that is C++, in the test |
@@ -600,14 +612,14 @@ amber state**: the repair is that the red names its cause.
 
 **Layering is the build, never a checker.** Each directory compiles with its own include set — one
 compile group per layer in the `Makefile`, the same sets in `test/run.sh` — so a name a layer must not
-reach has **no spelling** in it, and a breach is a compile error rather than a report. `test/outshine/unit/`
+reach has **no spelling** in it, and a breach is a compile error rather than a report. `test/unit/`
 mirrors `src/`, so every unit test is a continuous proof that its layer's include set is exactly what it
 claims. There is no vendored third-party tree: a dependency is a package the host provides, or it is
 ours.
 
 **A backticked path is a citation and must resolve**; something to be built is named in prose instead —
 a *host layer*, a *shader directory*. Written in one syntax, a reader cannot tell evidence from
-intention and neither can a checker. `test/outshine/harness/EveryPathCitedInADocumentResolves.cpp` reads this
+intention and neither can a checker. `test/harness/claims/EveryPathCitedInADocumentResolves.cpp` reads this
 file.
 
 **Only correct work is committed**, and `git log` is what was — no journal.
@@ -760,7 +772,7 @@ before it is still on disk, saying nothing about it. **Read the trailer first**:
 is what says a run happened at all, and a count quoted without it may be a measurement of the past.
 
 **`git grep`, never `grep -r`, for the marker queries — and stage a new file before querying it.**
-`test/khronos/glTF/.gitignore` opens with `*` and re-includes `/*.cpp`, so **git honours the negation and some
+`test/render/khronos/glTF/.gitignore` opens with `*` and re-includes `/*.cpp`, so **git honours the negation and some
 greps do not** and a recursive grep silently skips `Parity.cpp`, the largest test file in the tree.
 `git grep` searches **tracked** files, which is the population the question means — and which is why a
 work item proven only by a test not yet added reads as unproven too. Both failures point the dangerous

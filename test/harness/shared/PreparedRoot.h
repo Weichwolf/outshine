@@ -6,8 +6,8 @@
  * same directory. This header is the third and last consumer, so the three agree by construction
  * rather than by three copies of a path.
  *
- * THE LEAF IS THE CASE'S OWN PATH WITH ITS SEPARATORS FLATTENED -- `test/khronos/glTF/Box` becomes
- * `test-khronos-glTF-Box`. It is derivable from either end without a table, which is what lets a test
+ * THE LEAF IS THE CASE'S OWN PATH WITH ITS SEPARATORS FLATTENED -- `test/render/khronos/glTF/Box` becomes
+ * `test-render-khronos-glTF-Box`. It is derivable from either end without a table, which is what lets a test
  * ask *which corpus is this case in* by looking at the prefix rather than by carrying a list. */
 #ifndef TEST_PREPAREDROOT_H
 #define TEST_PREPAREDROOT_H
@@ -17,8 +17,8 @@
 
 namespace outshine::Test {
 
-inline constexpr const char *kPreparedKhronosPrefix = "test-khronos-glTF-";
-inline constexpr const char *kPreparedGrownPrefix = "test-outshine-render-";
+inline constexpr const char *kPreparedKhronosPrefix = "test-render-khronos-glTF-";
+inline constexpr const char *kPreparedGrownPrefix = "test-render-outshine-grown-";
 
 /* `TMPDIR` WITH `/tmp` BEHIND IT, which is what `test/run.sh` resolves and what Python's
  * `tempfile.gettempdir()` returns first. A trailing separator is stripped so the join below produces
