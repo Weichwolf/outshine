@@ -10,7 +10,7 @@ namespace outshine {
 inline constexpr size_t kMaxCorridorSegments = 4096;
 inline constexpr size_t kMaxCorridorKnots = 4096;
 inline constexpr double kResectionCoarseM = 1.0;
-inline constexpr int kResectionRefinements = 4;
+inline constexpr int kResectionRefinements = 40;
 inline constexpr double kTangentTolerance = 1.0e-9;
 
 enum class Curve : uint8_t { Straight, Arc, Spiral };

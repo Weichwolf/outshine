@@ -16,14 +16,19 @@ double Wrapped(double angleRad) {
 
 } // namespace
 
+double ReachOf(const Reins &with, double speedMs) {
+  double reachM = with.SettleS * (speedMs > 0.0 ? speedMs : 0.0);
+  if (reachM < with.LeastReachM) { reachM = with.LeastReachM; }
+  return reachM;
+}
+
 Demand Hold(const ReferenceLine &along, const Reins &with, const Placement &at, double speedMs,
             double wantedMs) {
   Demand out;
   out.SpeedMs = wantedMs;
   if (!at.Found || !(with.SettleS > 0.0)) { return out; }
 
-  double reachM = with.SettleS * (speedMs > 0.0 ? speedMs : 0.0);
-  if (reachM < with.LeastReachM) { reachM = with.LeastReachM; }
+  const double reachM = ReachOf(with, speedMs);
   out.ReachM = reachM;
 
   const Sighting ahead = Sight(along, at, reachM);

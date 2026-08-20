@@ -82,6 +82,7 @@ LayerIncludes() {
     render/outshine/frame) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui" ;;
     render/outshine/shader) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render -Isrc/render/draw -Isrc/render/plan -Isrc/render/stages" ;;
     render/outshine/client) printf '%s' "-Iinclude" ;;
+    render/outshine/drive) printf '%s' "-Isrc/core -Isrc/corridor -Isrc/physics -Isrc/pilot" ;;
     render/outshine/scenario) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui -Itest/harness/shared" ;;
     tools/viewer) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui -Itools/viewer/parts" ;;
     *) return 1 ;;
@@ -92,6 +93,7 @@ LayerToolchain() {
   case "$1" in
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     render/outshine/client) printf '%s' "-std=c++20" ;;
+    render/outshine/drive) printf '%s' "-std=c++20" ;;
     render/outshine/shader) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3)" ;;
     unit/clients) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
@@ -143,6 +145,7 @@ LayerGroups() {
     harness/claims) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario | render/outshine/client) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/clients/Engine.cpp src/clients/Scenario.cpp" ;;
     render/outshine/shader) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
+    render/outshine/drive) printf '%s' "src/corridor src/physics src/pilot" ;;
     *) return 1 ;;
   esac
 }

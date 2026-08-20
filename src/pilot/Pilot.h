@@ -26,6 +26,8 @@ struct Demand {
   bool Saturated = false;
 };
 
+[[nodiscard]] double ReachOf(const Reins &with, double speedMs);
+
 [[nodiscard]] Demand Hold(const ReferenceLine &along, const Reins &with, const Placement &at,
                           double speedMs, double wantedMs);
 

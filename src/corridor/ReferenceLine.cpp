@@ -238,21 +238,40 @@ bool ReferenceLine::Nearest(double eastM, double northM, double nearM, double wi
   }
   if (!have) { return false; }
 
-  double spanM = kResectionCoarseM;
-  for (int narrow = 0; narrow < kResectionRefinements; ++narrow) {
-    spanM *= 0.1;
-    for (int side = -1; side <= 1; side += 2) {
-      const double tryM = bestM + (double)side * spanM;
-      if (tryM < lowM || tryM > highM) { continue; }
-      Placed there;
-      if (!At(tryM, there)) { continue; }
-      const double is = away(there);
-      if (is < bestAway) {
-        bestAway = is;
-        bestM = tryM;
+  double lowBracket = bestM - kResectionCoarseM;
+  double highBracket = bestM + kResectionCoarseM;
+  if (lowBracket < lowM) { lowBracket = lowM; }
+  if (highBracket > highM) { highBracket = highM; }
+
+  const double shrink = 0.6180339887498949;
+  double leftM = highBracket - shrink * (highBracket - lowBracket);
+  double rightM = lowBracket + shrink * (highBracket - lowBracket);
+  const auto awayAt = [this, &away](double atM, double &into) {
+    Placed there;
+    if (!At(atM, there)) { return false; }
+    into = away(there);
+    return true;
+  };
+  double leftAway = 0.0, rightAway = 0.0;
+  if (awayAt(leftM, leftAway) && awayAt(rightM, rightAway)) {
+    for (int narrow = 0; narrow < kResectionRefinements; ++narrow) {
+      if (leftAway < rightAway) {
+        highBracket = rightM;
+        rightM = leftM;
+        rightAway = leftAway;
+        leftM = highBracket - shrink * (highBracket - lowBracket);
+        if (!awayAt(leftM, leftAway)) { break; }
+      } else {
+        lowBracket = leftM;
+        leftM = rightM;
+        leftAway = rightAway;
+        rightM = lowBracket + shrink * (highBracket - lowBracket);
+        if (!awayAt(rightM, rightAway)) { break; }
       }
     }
+    bestM = 0.5 * (lowBracket + highBracket);
   }
+
   alongM = bestM;
   return true;
 }
