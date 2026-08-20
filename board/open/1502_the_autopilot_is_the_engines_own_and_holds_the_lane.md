@@ -18,7 +18,13 @@ fastest tier -- and it is the vehicle's counterpart to `steer`: `uses="drive"`.
 - [ ] **On a road that is CORRECT it holds the lane centre within a declared tolerance**, at every speed
       the suite drives -- *that is the autopilot's own test and it uses the synthetic road, not OSM*
 - [ ] **It answers what it achieved**: the deviation it held, the speed it managed against the speed the
-      road allows, and whether it had to brake -- **both directions**
-- [ ] **It does NOT avoid defects.** A controller that steers around a step has hidden the finding: it
-      follows the lane, and where the lane is wrong the car leaves the road and the suite says so
+      road allows, and whether it had to brake -- **both directions**, and every one of those is a
+      finding when it exceeds the floor
+- [ ] **HAVING TO SWERVE IS ITSELF THE FINDING.** A controller that steers around a step has not
+      survived a defect, it has MEASURED one -- so the deviation from the ideal line is the primary
+      number and a crash is only its extreme. *That makes the instrument continuous rather than binary
+      and far more sensitive: a road that forces 40 cm of correction is found long before one that
+      throws the car off.*
+- [ ] **The ideal line is the reference line's**, so "where the car should be" is a geometric fact and
+      not the controller's opinion
 - [ ] **It costs microseconds and allocates nothing**, because it is a reflex

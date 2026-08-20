@@ -22,16 +22,22 @@ causes and names none of them.
 
 - [ ] **A route is a SEED**: two endpoints and a path derived from it, so a run is named by one number
       and re-driven exactly
-- [ ] **The run is headless and faster than real time**, and how much faster is measured -- because a
-      suite that drives 800 km in real time is a suite nobody runs
+- [ ] **THE HEADLESS RUN LINKS NO RENDERER AT ALL.** No device, no plan, no frame -- the world, the
+      corridors and the physics and nothing else. *That is what makes it fast, and it is also the first
+      real test of `CLAUDE.md`'s claim that the engine is a library: a world that cannot be simulated
+      without a GPU is a world welded to one.*
+- [ ] **How much faster than real time is MEASURED** and published per run, because a suite that drives
+      800 km in real time is a suite nobody runs
 - [ ] **A finding is CLASSIFIED, not counted**: discontinuity · gap · gradient · curvature ·
       connectivity · overlap -- *each has a different owner and a different repair, and one number
       called "crashes" would name none of them*
 - [ ] **Every finding carries its place**: the road's OSM id, the position along it, and enough for the
       windowed run to stand up there and look
-- [ ] **The verdict is KILOMETRES PER CRASH against a declared floor**, with the classes beside it. A
-      run that crashed once at km 700 beats one that crashed twice at km 3, and a bare crash count
-      cannot say that
+- [ ] **The verdict is KILOMETRES PER FINDING against a declared floor**, and a finding is a DEVIATION
+      and not only a crash: having to correct is already the defect. A crash is the extreme of the same
+      number. *A run that held the line for 700 km beats one that fought the road from km 3, and a bare
+      crash count cannot say that*
+- [ ] **The floor for deviation comes from the synthetic road**, like every other floor here
 - [ ] **Two runs of one seed find the same defects in the same order**, or this is not a test
 - [ ] **The same scenario runs with a window** at 60 Hz in first person, and stops where the headless
       run stopped

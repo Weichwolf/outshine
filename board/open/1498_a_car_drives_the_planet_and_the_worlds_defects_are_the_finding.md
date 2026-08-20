@@ -10,7 +10,9 @@ place a body can move through. **A car on a road is that instrument**, and it ne
 it.
 
 **A seeded route -- Munich to Hamburg -- driven headless, faster than real time, stopping at the first
-place the car cannot stay on the road.** The telemetry says WHERE and WHAT KIND, and the same scenario
+place the car cannot hold its line.** **The headless run links NO RENDERER**: the world, the corridors
+and the physics, nothing else -- which is what makes it fast and is also the first real test of the
+claim that this engine is a library rather than a thing welded to a GPU. The telemetry says WHERE and WHAT KIND, and the same scenario
 with a window is the same drive in first person at 60 Hz, so a defect can be looked at.
 
 ## Why this is the right instrument and not merely a fun one
@@ -22,7 +24,11 @@ generator defect, a gap is a reader defect, a route through no road is a router 
 finding has a different owner, which is what makes the instrument worth building rather than one bit of
 crash/no-crash.*
 
-**The headline number is kilometres per crash**, and defects per 100 km by class beside it. That is a
+**HAVING TO SWERVE IS ALREADY THE DEFECT**, which is the sharpest thing about this instrument: the
+finding is the DEVIATION from the ideal line, continuous and per millisecond, and a crash is only its
+extreme. A road that forces 40 cm of correction is found long before one that throws the car off.
+
+**The headline number is kilometres per finding**, and findings per 100 km by class beside it. That is a
 number that starts small, is honest, and drives the work.
 
 ## The three-way confound, and it would eat the whole thing
