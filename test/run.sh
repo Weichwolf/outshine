@@ -40,6 +40,7 @@ trap 'KillRunning; exit 129' HUP
 trap 'KillRunning' EXIT
 
 SUITE=
+SUITES=
 while [ $# -gt 0 ]; do
   case "$1" in
     --timeout)
@@ -53,7 +54,7 @@ while [ $# -gt 0 ]; do
       shift 2
       ;;
     -*) Die "unknown option '$1'" ;;
-    *) SUITE=${1%/}; shift; continue ;;
+    *) SUITES="$SUITES ${1%/}"; SUITE=${1%/}; shift; continue ;;
   esac
 done
 
@@ -334,7 +335,9 @@ $CXX test/harness/shared/Prune.cpp $OBJECTS $CXXSTD $OPT $WARN -Itest/harness/sh
 PRUNE_MARKER=$BUILD/prune.marker
 
 TREES=test
-case "$SUITE" in tools | tools/*) TREES="test tools" ;; esac
+for named in $SUITES; do
+  case "$named" in tools | tools/*) TREES="test tools" ;; esac
+done
 
 TESTS=""
 for candidate in $(find $TREES -name '*.cpp' | sort); do
@@ -351,8 +354,14 @@ for candidate in $(find $TREES -name '*.cpp' | sort); do
 done
 [ -n "$TESTS" ] && [ "$TESTS" != " " ] || Die "no test under a declared layer of test/"
 
+NAMED=0
+for named in $SUITES; do NAMED=$((NAMED + 1)); done
+
 CASE=
-if [ -n "$SUITE" ] && [ -f "test/$SUITE/manifest.json" ]; then
+if [ "$NAMED" -gt 1 ] && [ -f "test/$SUITE/manifest.json" ]; then
+  Die "a single case is named on its own -- $SUITE carries a manifest and $NAMED suites were named"
+fi
+if [ "$NAMED" -eq 1 ] && [ -f "test/$SUITE/manifest.json" ]; then
   for candidate in $(for one in $TESTS; do dirname "${one#test/}"; done | sort -u); do
     if LayerCases "$candidate" | grep -qxF "test/$SUITE"; then
       CASE=test/$SUITE
@@ -362,20 +371,25 @@ if [ -n "$SUITE" ] && [ -f "test/$SUITE/manifest.json" ]; then
   done
   [ -n "$CASE" ] ||
     Die "test/$SUITE carries a manifest and no declared layer enumerates it -- add it to LayerCases, or name the suite instead"
+  SUITES=" $SUITE"
 fi
 
-if [ -n "$SUITE" ]; then
+if [ -n "$SUITES" ]; then
   selected=""
-  for candidate in $TESTS; do
-    case "${candidate#test/}" in "$SUITE"/*) selected="$selected $candidate" ;; esac
+  for named in $SUITES; do
+    under=""
+    for candidate in $TESTS; do
+      case "${candidate#test/}" in "$named"/*) under="$under $candidate" ;; esac
+    done
+    [ -n "$under" ] ||
+      Die "no declared suite under $named -- $(find $TREES -name '*.cpp' -exec dirname {} \; | sed 's|^test/||' | sort -u | tr '\n' ' ')"
+    selected="$selected$under"
   done
-  [ -n "$selected" ] ||
-    Die "no declared suite under $SUITE -- $(find $TREES -name '*.cpp' -exec dirname {} \; | sed 's|^test/||' | sort -u | tr '\n' ' ')"
-  TESTS=$selected
+  TESTS=$(printf '%s\n' $selected | sort -u | tr '\n' ' ')
   if [ -n "$CASE" ]; then
     printf 'run.sh: %s only, under %s\n' "$CASE" "$SUITE"
   else
-    printf 'run.sh: %s only\n' "$SUITE"
+    printf 'run.sh:%s only\n' "$SUITES"
   fi
 fi
 

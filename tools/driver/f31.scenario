@@ -13,6 +13,7 @@
   </assets>
 
   <vehicle name="f31" asset="scene.gltf" massKg="1610" wheelbaseM="2.810">
+    <centreOfMass x="0" y="0.55" z="0"/>
     <inertia ixx="540" iyy="2400" izz="2600"/>
 
     <contact at="front-left"  x="-0.774" y="0.333" z="-1.405" reachM="0.45635"
@@ -31,7 +32,7 @@
     <tyre grip="0.95" radiusM="0.333" corneringNPerRad="55000" relaxationM="0.4"/>
     <drive peakTorqueNm="400" finalDrive="3.08"/>
     <brake peakTorqueNm="2200"/>
-    <body dragArea="0.66" frontalM2="2.19" airDensity="1.225"/>
+    <body dragCoefficient="0.66" frontalM2="2.19" airDensity="1.225"/>
 
     <seat at="driver" x="-0.494" y="1.220" z="0.003"/>
   </vehicle>

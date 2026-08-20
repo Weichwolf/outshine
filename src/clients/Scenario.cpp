@@ -79,15 +79,16 @@ const Element kGrammar[] = {
     {"scenario/views/view", "",
      "id follows person offsetX offsetY offsetZ distanceM pitchLimitDeg fovDeg timeScale"},
     {"scenario/player", "", "is starts view eyeHeightM walkMs runMs"},
-    {"scenario/vehicle", "inertia contact tyre drive brake body seat",
+    {"scenario/vehicle", "centreOfMass inertia contact tyre drive brake body seat",
      "name asset massKg wheelbaseM"},
+    {"scenario/vehicle/centreOfMass", "", "x y z"},
     {"scenario/vehicle/inertia", "", "ixx iyy izz"},
     {"scenario/vehicle/contact", "",
      "at node x y z reachM stiffnessNPerM dampingNsPerM travelM stopNPerM limitN"},
     {"scenario/vehicle/tyre", "", "grip radiusM corneringNPerRad relaxationM"},
     {"scenario/vehicle/drive", "", "peakTorqueNm finalDrive"},
     {"scenario/vehicle/brake", "", "peakTorqueNm"},
-    {"scenario/vehicle/body", "", "dragArea frontalM2 airDensity"},
+    {"scenario/vehicle/body", "", "dragCoefficient frontalM2 airDensity"},
     {"scenario/vehicle/seat", "", "at node x y z"},
     {"scenario/physics", "", "dial"},
     {"scenario/clock", "", "start rate"},
@@ -482,6 +483,11 @@ bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &
     made.Asset = one.Attr("asset");
     made.MassKg = one.Num("massKg", 0.0);
     made.WheelbaseM = one.Num("wheelbaseM", 0.0);
+    const Xml::Ref centre = one.Child("centreOfMass");
+    made.CentreOfMassM[0] = centre.Num("x", 0.0);
+    made.CentreOfMassM[1] = centre.Num("y", 0.0);
+    made.CentreOfMassM[2] = centre.Num("z", 0.0);
+
     const Xml::Ref inertia = one.Child("inertia");
     made.InertiaKgM2[0] = inertia.Num("ixx", 0.0);
     made.InertiaKgM2[1] = inertia.Num("iyy", 0.0);
@@ -508,7 +514,7 @@ bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &
     made.FinalDrive = one.Child("drive").Num("finalDrive", 0.0);
     made.BrakeTorqueNm = one.Child("brake").Num("peakTorqueNm", 0.0);
     const Xml::Ref body = one.Child("body");
-    made.DragArea = body.Num("dragArea", 0.0);
+    made.DragCoefficient = body.Num("dragCoefficient", 0.0);
     made.FrontalM2 = body.Num("frontalM2", 0.0);
     made.AirDensity = body.Num("airDensity", 0.0);
     const Xml::Ref seat = one.Child("seat");

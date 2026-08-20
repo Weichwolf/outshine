@@ -19,6 +19,8 @@ struct Shear {
   bool Sliding = false;
 };
 
+[[nodiscard]] Shear ShedAt(const Slip &through, double loadN, double slipRad, double askedAlongN);
+
 [[nodiscard]] Shear Shed(const Slip &through, double loadN, double acrossMs, double alongMs,
                          double askedAlongN);
 

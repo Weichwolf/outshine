@@ -52,7 +52,7 @@ Envelope F31() {
   out.MassKg = 1610.0;
   out.DriveN = 400.0 * 3.08 / 0.333;
   out.BrakeN = 2200.0 / 0.333;
-  out.DragArea = 0.66;
+  out.DragArea = 0.66 * 2.19;
   out.AirDensity = 1.225;
   return out;
 }

@@ -77,3 +77,21 @@ points against the right's 6 442** -- the steering wheel and its column are on t
       `[SET]` estimates until a measurement replaces them
 - [ ] **The spring and damper rates are DERIVED rather than guessed**: a declared ride frequency and
       damping ratio give both from the corner mass, which is how a suspension is actually specified
+
+## Comments
+
+**The centre of mass was missing and its absence was invisible.** With no declared centre of mass the
+body origin sat at wheel-centre height, so the car settled at exactly the right ride height, stood
+level to 1.5e-6 rad, carried exactly its own weight on four contacts -- and transferred NO weight
+under braking, because the lever was zero. Every static check passed over it.
+
+It is now `<centreOfMass x="0" y="0.55" z="0"/>`. The 0.55 m is an ESTIMATE of a saloon's centre of
+mass height and is the one number in this vehicle that is not measured off the asset or published by
+the manufacturer; it is settled the same way the seat height is. The 50:50 longitudinal position is
+the car's published distribution and the test reads it back as the front and rear axles carrying the
+same load without anything being tuned.
+
+**The force acts at the CONTACT PATCH and not at the mount.** The patch is a reach below the mount
+along the surface normal; applying at the mount instead shortened the lever from 0.55 m to 0.217 m
+and lost 60 % of the weight transfer, with every static check still green. Measured: 1251.37 N of
+transfer under 3.92266 m/s2 of braking against the 1236.13 N that `m a h / L` predicts, 1.23 % apart.

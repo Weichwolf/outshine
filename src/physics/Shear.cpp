@@ -4,14 +4,12 @@
 
 namespace outshine::Physics {
 
-Shear Shed(const Slip &through, double loadN, double acrossMs, double alongMs,
-           double askedAlongN) {
+Shear ShedAt(const Slip &through, double loadN, double slipRad, double askedAlongN) {
   Shear out;
   if (!(loadN > 0.0)) { return out; }
 
   out.HoldN = through.Friction * loadN;
-  const double rollingMs = std::fabs(alongMs);
-  out.AngleRad = rollingMs > 0.0 ? std::atan2(-acrossMs, rollingMs) : 0.0;
+  out.AngleRad = slipRad;
 
   double across = through.StiffnessNPerRad * out.AngleRad;
   double along = askedAlongN;
@@ -27,6 +25,13 @@ Shear Shed(const Slip &through, double loadN, double acrossMs, double alongMs,
   out.AlongN = along;
   out.Ratio = out.HoldN > 0.0 ? asked / out.HoldN : 0.0;
   return out;
+}
+
+Shear Shed(const Slip &through, double loadN, double acrossMs, double alongMs,
+           double askedAlongN) {
+  const double rollingMs = std::fabs(alongMs);
+  const double slipRad = rollingMs > 0.0 ? std::atan2(-acrossMs, rollingMs) : 0.0;
+  return ShedAt(through, loadN, slipRad, askedAlongN);
 }
 
 double Relaxed(const Slip &through, double wasRad, double isRad, double rolledM) {

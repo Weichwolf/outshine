@@ -221,6 +221,7 @@ struct Vehicle {
   std::string Asset;
   double MassKg = 0.0;
   double WheelbaseM = 0.0;
+  double CentreOfMassM[3] = {0.0, 0.0, 0.0};
   double InertiaKgM2[3] = {0.0, 0.0, 0.0};
   std::vector<Contact> Contacts;
   double Grip = 0.0;
@@ -230,7 +231,7 @@ struct Vehicle {
   double PeakTorqueNm = 0.0;
   double FinalDrive = 0.0;
   double BrakeTorqueNm = 0.0;
-  double DragArea = 0.0;
+  double DragCoefficient = 0.0;
   double FrontalM2 = 0.0;
   double AirDensity = 0.0;
   std::string SeatAt;

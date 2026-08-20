@@ -29,7 +29,10 @@ Tags: perf
       rather than at once (`AContactShedsWhatItCanHoldAndNoMore.cpp`). The material pair table is
       not: friction is per contact today
 - [ ] Joints: hinge, ball, slider, fixed, motorised, with limits
-- [ ] Force sources as a declared list, so a wheel, a propeller and a muscle are the same kind of thing
+- [x] Force sources as a declared list, so a wheel, a propeller and a muscle are the same kind of
+      thing -- `src/physics/Rig.h`: a body and 1..N mounts, each an attachment point, a contact, a
+      slip and a declared share of the steering, the drive and the braking. Proven by
+      `ARigCarriesItsBodyOnEveryMountItHas.cpp`
 - [ ] Medium: air and water with density, and a body that knows which it is in
 - [ ] Buoyancy from displaced volume against the core's water level
 - [ ] Aerodynamic and hydrodynamic coefficients per body, not a table lookup

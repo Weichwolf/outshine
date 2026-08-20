@@ -100,7 +100,7 @@ int main(void) {
   car.MassKg = 1610.0;
   car.DriveN = 400.0 * 3.08 / 0.333;
   car.BrakeN = 2200.0 / 0.333;
-  car.DragArea = 0.66;
+  car.DragArea = 0.66 * 2.19;
   car.AirDensity = 1.225;
   Axles axles;
   axles.WheelbaseM = 2.810;
