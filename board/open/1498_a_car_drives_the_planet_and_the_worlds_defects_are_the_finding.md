@@ -44,8 +44,10 @@ road produce?** That number is the instrument floor, and no defect smaller than 
 
 - [ ] **A road is a reference line with declared continuity**, so a crack is unspellable rather than
       detectable -- `board:1499`
-- [ ] **A bridge and a tunnel have a height the data does not give**, inferred to a declared rule --
-      `board:1500`
+- [ ] **Every road node gets an elevation and the solve is GLOBAL** -- `board:1500`
+- [ ] **The terrain is cut and filled to meet the road**, because a road is not laid on the ground --
+      `board:1505`
+- [ ] **A bridge looks like a bridge and a tunnel has a portal**, judged by eye -- `board:1506`
 - [ ] **A vehicle answers whether it stayed on the road**, per wheel, per millisecond -- `board:1501`
 - [ ] **The autopilot is the engine's own** and holds a lane on a road that is correct -- `board:1502`
 - [ ] **A route crosses a continent** over a graph that streams -- `board:1503`
