@@ -27,6 +27,25 @@ once per process and cannot even be varied deliberately.
 | `src/world/World.cpp` | `FB_DAGLOG` -- logging, and harmless |
 | `src/clients/Env.h` | the reader itself |
 
+## HOW THE SHIPPED ENGINES DO IT, looked up rather than recalled
+
+**Not one of them reads the environment.** Unreal has three places and every one is visible:
+
+| where | what it is | why it is not an environment variable |
+|---|---|---|
+| **per asset** | *Nanite Settings* on the mesh -- the precision its representation is built at | it travels WITH the content, so a different asset can want a different answer |
+| **per run** | `DefaultScalability.ini`, `DefaultEngine.ini` | a FILE the application loads, which can be diffed, shipped and pinned |
+| **at runtime** | a **console variable** | **registered, enumerable, queryable and loggable** -- a deliberate act with a name |
+
+**And Nanite has no LOD threshold at all**: it targets a pixel error and scales the triangle count to
+it, which is the currency this engine already declares.
+
+**THE DIFFERENCE IS NOT WHERE THE NUMBER LIVES, IT IS WHETHER ANYBODY CAN SEE IT.** A CVar can be
+listed, printed into a report and compared between two runs. `getenv` is ambient: it is read once,
+appears in no output, and a shell that set it three days ago changes today's measurement with nothing to
+grep for. *That is the whole defect, and it is why `FB_TAU` is worse than a hard-coded constant would
+be -- a constant at least shows up in a diff.*
+
 ## What must be true
 
 - [ ] **The pixel error is DECLARED by the scenario** (`board:1480`'s render row) and defaulted where it
@@ -36,7 +55,10 @@ once per process and cannot even be varied deliberately.
 - [ ] **A test holds that no `getenv` reaches a picture**, which is a grep this repository can make into
       a claim: `src/` may read the environment where a HOST does, and nowhere the frame path can see
 - [ ] **The value in force is PUBLISHED with every measurement**, so a number taken under a different
-      tau is not silently comparable with one that was not
+      tau is not silently comparable with one that was not -- *this is the property a CVar has and an
+      environment variable cannot*
+- [ ] **A per-ASSET precision may refine the per-run one**, which is Unreal's Nanite Settings and is the
+      right shape: the content knows things the run does not
 
 ## Comments
 
