@@ -116,7 +116,15 @@ bool Live::Build(std::string &error) {
         return false;
       }
       Moves_ = Motion_.EndS() > 0.0;
-      Frames_ = Moves_ ? (int)(Motion_.EndS() * Declared_.Fps) + 1 : 1;
+      /* **THE GRID IS HALF-OPEN SO THE LOOP IS SEAMLESS.** `[0, end]` renders the end pose and then
+       * wraps to the start pose, and for a periodic animation -- which is what an asset that loops
+       * IS -- those two are the same pose, so every lap stutters for one frame at the seam. `[0, end)`
+       * makes the wrap the next step of the motion rather than a repeat of it.
+       *
+       * A scenario that wants the endpoint is asking for a SEQUENCE and not a loop, and that is the
+       * render suite's grid, declared per case; this is the runtime, and a runtime plays. */
+      Frames_ = Moves_ ? (int)(Motion_.EndS() * Declared_.Fps + 0.5) : 1;
+      if (Frames_ < 1) { Frames_ = 1; }
     }
     if (!Pose(0, error)) { return false; }
     ResolveSurfaceTable(File_, Geometry_, true, true, Table_);
