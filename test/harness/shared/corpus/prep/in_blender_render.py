@@ -1558,7 +1558,7 @@ def multiply_vertex_colour(tree, colour, users):
     tree.links.new(attribute.outputs["Color"], product.inputs[7])
     return product
 
-def keep_file_materials(imported):
+def keep_file_materials(imported, transmissionBounces):
     """THE FILE'S OWN MATERIALS, UNTOUCHED, AND WHAT THAT COSTS RECORDED RATHER THAN HIDDEN.
 
     The whole point of this arm is that the Principled BSDF the importer wired IS the subject, so
@@ -1602,9 +1602,9 @@ def keep_file_materials(imported):
     if not observed:
         fail("material.source is gltf and the subject wears no material at all")
     return {"source": "gltf", "observed": observed,
-            "notALight": no_surface_of_the_subject_is_a_light(imported, materials)}
+            "notALight": no_surface_of_the_subject_is_a_light(imported, materials, transmissionBounces)}
 
-def no_surface_of_the_subject_is_a_light(imported, materials):
+def no_surface_of_the_subject_is_a_light(imported, materials, transmissionBounces):
     """THE SUBJECT IS SEEN AND NEVER GATHERED FROM, which is what removes the estimator an emissive
     asset carries into a scene whose only declared source has no area (board:0087).
 
@@ -1628,7 +1628,7 @@ def no_surface_of_the_subject_is_a_light(imported, materials):
             continue
         obj.visible_diffuse = False
         obj.visible_glossy = False
-        obj.visible_transmission = False
+        obj.visible_transmission = transmissionBounces > 0
         obj.visible_volume_scatter = False
         gathered_from.append({"object": obj.name, "camera": obj.visible_camera,
                               "shadow": obj.visible_shadow, "diffuse": obj.visible_diffuse,
@@ -1638,9 +1638,9 @@ def no_surface_of_the_subject_is_a_light(imported, materials):
     return {"emissionSampling": sorted(set(m.cycles.emission_sampling for m in materials)),
             "visibility": gathered_from}
 
-def apply_material(imported, declared, gltfPaths):
+def apply_material(imported, declared, gltfPaths, transmissionBounces):
     if declared["source"] == "gltf":
-        return keep_file_materials(imported)
+        return keep_file_materials(imported, transmissionBounces)
     if declared["source"] == "gltf-base-colour":
         return lower_to_file_colour(imported, declared["kind"], "Base Color", "gltf-base-colour")
     if declared["source"] == "gltf-emissive":
@@ -1893,7 +1893,8 @@ def main():
         camera = adopt_camera(scene, imported, job["scene"]["camera"], job["gltfPaths"])
     light = build_light(scene, job["scene"]["light"], imported)
     variant = select_material_variant(imported, job["scene"].get("materialVariant"))
-    material = apply_material(imported, job["scene"]["material"], job["gltfPaths"])
+    material = apply_material(imported, job["scene"]["material"], job["gltfPaths"],
+                              job["recipe"]["bounces"]["transmission"])
     devices = apply_recipe(scene, job["recipe"])
     channels = None
     if animation is not None:

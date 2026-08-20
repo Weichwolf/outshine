@@ -11,9 +11,18 @@ this is not an enhancement.
 
 **Two models at the pin require it**; thirty-three use it -- the widest gap in the honoured list.
 
-- [ ] What a transmissive surface does to the frame graph is decided BEFORE the lobe: it needs what is
-  behind it, and that is a pass question and not a material one
-- [ ] It composes with `KHR_materials_ior`, which the reader already honours
+- [x] What a transmissive surface does to the frame graph is decided BEFORE the lobe: it needs what is
+  behind it, and that is a pass question and not a material one. The compiled plan answers it with a
+  `SceneTransmissive` target the transmissive draws read, and `plan_passes` reads **4** against **2**
+  for an opaque case -- a number the case declares its class for rather than a constant
+- [x] It composes with `KHR_materials_ior`, and the composition is the OPPOSITE of what a reader would
+  guess. **The extension treats a surface as infinitely thin and states microfacet-level refraction
+  rather than MACROSCOPIC refraction** -- light passes straight through, blurred only by roughness -- so
+  an index does NOT bend a transmitted ray here. Blender's importer wires a glTF `ior` into the
+  Principled BSDF's own, where transmission then does bend it, and the first render of the new case
+  showed the body split into three refracted faces on the oracle's side and one straight silhouette on
+  ours. **The case declares `ior` 1.0 for that reason**, and what it decides is transmission rather than
+  which renderer refracts
 - [ ] A stall is worse than a wrong pixel: whatever this costs is priced by the frame suite
 
 Specification: <https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_transmission>. **Fetched, never recalled** -- a rule quoted from memory is a defect one step before the code.
@@ -203,9 +212,11 @@ drew names a surface slot of this subject's own table* -- and `RenderCatalogue.h
 words: *it does NOT carry the shading normal or the surface identity: a glass fragment names no single
 surface*. So the identity attachment is right to be empty there and the CHECK does not know it yet.
 
-- [ ] **The coverage a transmissive draw claims**, which is the whole of the 60 px
-- [ ] **The identity check learns that a transmissive pixel names no slot**, which the catalogue
-  already states and the harness does not read
+- [x] **The coverage a transmissive draw claims** is the oracle's within a pixel: `coverage_fraction`
+  0.10575955 against 0.10576063, `iou` **0.9999487**, `pixels_disagreeing` **5**, `boundary_max_px` 1
+- [x] **The identity check learns that a transmissive pixel names no slot**, which `RenderCatalogue.h`
+  already stated and the harness now reads: the claim is asked of every class but `transmissive`, and a
+  `subjectClass` of that name is what a case declares to say so
 
 ## The eighth cause, and the first condition for it was wrong
 
@@ -245,15 +256,62 @@ matters is not another repair; it is finding that configuration.
 
 **What such a case needs, and each is a real cost:**
 
-- [ ] **At least one transmission bounce**, or the reference cannot show anything through a surface
-- [ ] **More than one sample per pixel**, because a path tracer at 1 spp through glass is noise -- and
+- [x] **At least one transmission bounce** -- the recipe declares 8, and that was NOT sufficient on its
+  own. See below: the preparer was blinding the oracle by a different door
+- [x] **More than one sample per pixel** -- 512, and the cost of it is that two seeds no longer agree
+  bit for bit, which is reduced per case and per metric with its reason. Because
   the corpus's 1 spp is what makes its coverage predicate exact, so this case is a DIFFERENT recipe
   rather than a changed one
-- [ ] **A subject small enough to afford it.** `board:1363`'s route was a generated sphere for exactly
+- [x] **A subject small enough to afford it**: two generated cubes, twelve triangles each. `board:1363`'s route was a generated sphere for exactly
   this reason, and a generated pane of glass in front of a generated body is the same move
-- [ ] **The four cases that carry glass keep their present recipe** and stay coverage cases: what they
+- [x] **The four cases that carry glass keep their present recipe** and stay coverage cases -- untouched, and re-run after the engine changed: `ABeautifulGame`, `CommercialRefrigerator`, `CompareTransmission` and `TransmissionOrderTest` are 12 of 12 PASS. What they
   decide is where the geometry is, and they decide it correctly today
 
 **Until then the reader is a shortfall that is named rather than a claim**: it reads what the format
 declares, no case draws it, and the four extensions' worth of picture below it is `board:1407`'s
 generated-subject route waiting to be walked a second time.
+
+## The case exists, and building it found two defects -- one in the preparer and one in the engine
+
+**THE ORACLE WAS BLIND BY A DOOR NOBODY WAS LOOKING AT.** `no_surface_of_the_subject_is_a_light` takes
+the subject out of the light tree so an emissive asset does not illuminate the scene it is being
+measured in -- and it does that partly by setting `obj.visible_transmission = False` on every mesh. **A
+ray that refracts through the shell was then forbidden to see the body behind it**, so the reference
+came back a solid black cube whatever the recipe declared. It is now `transmissionBounces > 0`, read
+from the same recipe field that already decides whether the transmissive pass is requested -- one
+condition, in one place, for both.
+
+**The route to that was three refutations, in this order.** The first render was black; the guess was
+that the enclosed body's shadow rays were blocked by the shell, so the body was made an EMITTER --
+still black, which refuted it. The second guess was that Blender had not imported the extension; a
+probe printed `Transmission Weight = 1.0` and `IOR = 1.5` off the imported material, which refuted that
+too. The third was that Cycles could not render it at all; the same file rendered directly in Cycles
+with the same bounce settings put **(0.875, 0, 0)** at the centre pixel -- the emitter, seen through the
+glass. *Only then was the difference between that probe and the preparer worth reading, and it was one
+line.*
+
+**AND THE ENGINE ADDED THE TRANSMITTED TERM WHERE THE EXTENSION REPLACES A TERM.**
+`o.col = shaded.col + transmitted(...)` kept the surface's whole diffuse lobe and put the transmitted
+radiance on top of it, so a shell with `transmissionFactor` 1 was drawn as a lit opaque grey box with a
+pale blush of what was behind it. The extension's own composition is `mix(diffuse_brdf, specular_btdf,
+transmission)`, so the diffuse half is displaced:
+
+```
+float3 diffuseColour = albedo * (1.0 - metalness) * (1.0 - surface.transmission);
+```
+
+| | before | after |
+|---|---|---|
+| `picture_p99_delta_code` | **243 codes** | **0** |
+| `linear_channels_differing` | 292 398 | **468** of 292 404 |
+| by eye | a grey box with a pink blush | the oracle's picture |
+
+*One line, and it is the line the specification writes.* A material that declares no transmission
+carries 0 and multiplies by one, which is why the corpus did not move.
+
+## Comments
+
+**The declared `ior` of 1.0 is the case's most interesting line and it is not a convenience.** glTF's
+default index for a dielectric is 1.5, so a reader who left the extension out would still get 1.5 and
+still get a refracting oracle. Declaring 1.0 states that this case is about transmission and not about
+refraction, and a case about macroscopic refraction is `KHR_materials_volume`'s -- `board:1387`.

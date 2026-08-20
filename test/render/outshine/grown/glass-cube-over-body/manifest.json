@@ -1,0 +1,295 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/materials/glass-cube-over-body",
+  "title": "A transmissive shell over an opaque body -- the first case whose oracle is allowed to look through a surface",
+  "covers": [
+    "I.26",
+    "I.26.10"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "KHR_materials_transmission: a surface whose transmissionFactor is 1 lets the body behind it be seen, refracted by its own index. Every case before this one renders the oracle at ZERO transmission bounces, where the reference picture cannot show anything through a surface whatever the file says -- so the reader was built, correct and unreachable. This case is the configuration in which the oracle can decide it: one transmission bounce or more, more than one sample per pixel, and a subject small enough to afford both.",
+    "statedAt": "https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_transmission"
+  },
+  "subjectClass": "transmissive",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The shell's silhouette is a cube's and could be placed on a lattice, but what decides this case is not where its edges are: it is what is seen THROUGH it, over every pixel the shell covers. A silhouette placed exactly would make the one number that matters no more decidable than it is here."
+  },
+  "subjects": [
+    {
+      "id": "glass-cube-over-body",
+      "kind": "generated",
+      "name": "glass-cube-over-body",
+      "entry": "scene.glb",
+      "attributes": [
+        "POSITION",
+        "NORMAL"
+      ],
+      "source": {
+        "kind": "outshine-generated"
+      },
+      "files": [
+        {
+          "as": "scene.glb",
+          "role": "gltf",
+          "generator": {
+            "shape": "nested-cubes",
+            "parameters": {
+              "halfExtentM": 1.0,
+              "placement": "trs",
+              "chain": [
+                {
+                  "translationM": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "rotationXyzw": [
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                  ],
+                  "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                  ]
+                },
+                {
+                  "translationM": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "rotationXyzw": [
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                  ],
+                  "scale": [
+                    0.35,
+                    0.35,
+                    0.35
+                  ]
+                }
+              ]
+            },
+            "material": [
+              {
+                "baseColourFactorRgba": [
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "metallicFactor": 0.0,
+                "roughnessFactor": 0.0,
+                "note": "THE SHELL, AND ITS INDEX IS 1.0 ON PURPOSE. KHR_materials_transmission treats a surface as INFINITELY THIN and states microfacet-level refraction rather than macroscopic refraction -- light passes straight through, blurred only by roughness. Blender's importer wires a glTF ior into the Principled BSDF's own, where transmission then BENDS the ray, so an index of 1.5 would put a macroscopic refraction on one side of the comparison and none on the other and the case would decide which renderer refracts rather than whether either transmits. At 1.0 there is no bending and no Fresnel, and what is left is the one question this case exists to ask.",
+                "extensions": {
+                  "KHR_materials_transmission": {
+                    "transmissionFactor": 1.0
+                  },
+                  "KHR_materials_ior": {
+                    "ior": 1.0
+                  }
+                }
+              },
+              {
+                "baseColourFactorRgba": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "metallicFactor": 0.0,
+                "roughnessFactor": 1.0,
+                "note": "THE BODY EMITS, AND THAT IS WHAT MAKES THE CASE DECIDABLE. A shell that encloses a body blocks every shadow ray from it to a delta sun, so an opaque inner body under this light is black by construction and says nothing about transmission. An emitter needs no light to reach it: what arrives at the eye is its own radiance, and the only question left is whether the shell let it through.",
+                "emissiveFactorRgb": [
+                  1.0,
+                  0.0,
+                  0.0
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "notes": "Two cubes, the inner one nested in the outer by its own node scale, and one material row each."
+    }
+  ],
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "derived",
+      "note": "The framing rule over the subject's own bounds, derived inside Blender where the scene is already imported, and read back by the runner."
+    },
+    "light": {
+      "kind": "sun",
+      "irradianceWPerM2": 3.141592653589793,
+      "directionM": [
+        -0.35,
+        -0.35,
+        -1.0
+      ],
+      "angleRad": 0.0,
+      "estimator": "delta",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "note": "A DELTA LIGHT AND NOT AN ENVIRONMENT, which is what makes a lobe decidable at all: a uniform environment delivers the same radiance from every direction, so a Lambertian surface returns rho*L whichever way it faces and the diffuse term stops depending on the normal. pi W/m2 is [SET] so that a Lambertian surface facing the light returns exactly its albedo -- rho * E / pi = rho -- which puts a 0.5 grey at 0.5 scene-referred and makes every reported number readable without a conversion."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "strength": 0.0,
+      "note": "BLACK, AND IT IS THE REDUCTION RATHER THAN A LOOK. Blender's factory world is an area source Cycles samples, which at one sample per pixel is a Bernoulli draw rather than a value; black removes it, and the delta light above is then the whole illumination and carries no estimator."
+    },
+    "material": {
+      "source": "gltf",
+      "kind": "metal-rough",
+      "note": "THE FILE'S OWN ROW, EVALUATED BY THIS ENGINE'S BRDF. Every other generated case lowers the closure to an emission or a diffuse and scores the raster; this one does not, and that is the whole point of it (board:1363): nine fetched cases take this arm and all nine are outside the picture bound by 60 to 230 codes, with no case that isolates the lobe from the textures, the materials and the lights around it."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 512,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 8,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 8,
+        "volume": 0,
+        "transparentMax": 8
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does. The illumination is a DELTA light against a black world, so the integrator has nothing left to sample and the picture is a value rather than a draw -- which is what the seed-shift arm below verifies rather than assumes."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 512,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 8,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 8,
+        "volume": 0,
+        "transparentMax": 8
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe with the sampler's seed moved. The preparer REQUIRES this arm here and the rule is not about emission: a case is `reduced` when its material emits OR its light's estimator is `delta`, and this one is the second. A delta light against a black world leaves no estimator, so the two renders must agree bit for bit -- and any pixel that moves is the oracle's own noise rather than a disagreement with us."
+    }
+  },
+  "notes": "THE FIRST CASE WITH A DIFFERENT RECIPE, and it is a different recipe rather than a changed one. The corpus renders at one sample and zero bounces because that is what makes Cycles evaluate the same coverage predicate a centre-sampling rasteriser does, and the four fetched cases that carry glass keep exactly that -- what they decide is where the geometry is, and they decide it correctly. This one decides something none of them can, and pays for it in samples.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.237344569,
+      "unit": "dimensionless",
+      "origin": "measured",
+      "note": "The fraction of the frame the shell's projected area covers. Recomputed by the runner on every run and refused on mismatch, so this line is a DRIFT DETECTOR rather than a present-error check."
+    }
+  },
+  "reductions": [
+    {
+      "metric": "oracle_samples_differing_between_seeds",
+      "because": "**THIS RECIPE IS STOCHASTIC BY DECLARATION AND EVERY OTHER ONE IN THE CORPUS IS NOT.** The bound of zero asks two seeds to agree bit for bit, which is exactly right where a case renders at one sample with no bounces -- there is no randomness to disagree about, and a difference then means the oracle moved under us. Here the recipe declares 512 samples and 8 transmission bounces because a reference that may not look THROUGH a surface cannot decide transmission at all, and a path tracer with a different seed traces different paths. No sample count closes that: it is a property of the estimator and not of its convergence.\\n\\n**The rung above was taken first and it is what produced the number below.** The engine was fixed: the transmitted term was ADDED to a fully shaded surface where the extension replaces the diffuse one, and repairing that took `picture_p99_delta_code` from **243 codes to 0**. What remains is the oracle's own dispersion.\\n\\n**The claim this metric is really making -- is the reference converged -- wants a MAGNITUDE and this one is a count.** That is a repair to the instrument rather than to this case, and it is filed.",
+      "measured": {
+        "samplesDifferingBetweenSeeds": {
+          "value": 1373,
+          "unit": "samples",
+          "origin": "measured"
+        },
+        "samples": {
+          "value": 512,
+          "unit": "samples",
+          "origin": "SET"
+        },
+        "transmissionBounces": {
+          "value": 8,
+          "unit": "bounces",
+          "origin": "SET"
+        }
+      }
+    },
+    {
+      "metric": "linear_channels_differing",
+      "because": "**468 CHANNELS OF 292 404, AND THEY ARE THE SILHOUETTE OF THE BODY SEEN THROUGH THE SHELL.** [MEASURED] `pixels_disagreeing` is **5** and `boundary_max_px` is **1**, so the two sides place the geometry within a pixel everywhere; at that seam one side samples the emitter and the other the shell, and a relative difference of 1 follows from WHICH surface a pixel centre caught rather than from any disagreement about what either surface returns. `linear_p50_relative` and `linear_p99_relative` both read 1 for that reason: the population is the seam and nothing else.\\n\\n**The picture agrees.** `picture_p99_delta_code` is **0** against a bound of 1, `iou` is 0.9999487, and `disagreement_p99_px` is 0 -- and this same metric read **292 398** before the engine was repaired, so what is left is 0.16 % of what the defect cost.",
+      "measured": {
+        "channelsDiffering": {
+          "value": 468,
+          "unit": "channels",
+          "origin": "measured"
+        },
+        "channelsCompared": {
+          "value": 292404,
+          "unit": "channels",
+          "origin": "measured"
+        },
+        "pixelsDisagreeing": {
+          "value": 5,
+          "unit": "px",
+          "origin": "measured"
+        },
+        "boundaryMaxPx": {
+          "value": 1,
+          "unit": "px",
+          "origin": "measured"
+        }
+      }
+    }
+  ]
+}

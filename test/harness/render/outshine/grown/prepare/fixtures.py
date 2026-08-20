@@ -53,8 +53,23 @@ def generate(where, recipe):
                         sorted(COMPONENT_TYPES))
     parts = _SHAPES[shape](where + ".parameters", field["parameters"], mode)
     camera = _camera(where + ".camera", field["camera"]) if "camera" in field else None
-    material = _material(where + ".material", field["material"]) if "material" in field else None
-    return _write_glb(parts, mode, component, camera, material), {}
+    materials = _materials(where + ".material", field.get("material"), len(parts))
+    return _write_glb(parts, mode, component, camera, materials), {}
+
+
+def _materials(where, declared, parts):
+    """One row for every part, from a subject that declares one row or one per part."""
+    if declared is None:
+        return None
+    if isinstance(declared, dict):
+        return [_material(where, declared)] * parts
+    if not isinstance(declared, list):
+        raise Refusal(where, expected="an object, or a list of one per part",
+                      observed=type(declared).__name__)
+    if len(declared) != parts:
+        raise Refusal(where, expected=str(parts) + " rows, one per part", observed=str(len(declared)),
+                      why="a subject whose rows and parts disagree leaves a part wearing another's")
+    return [_material(where + "[%d]" % at, one) for at, one in enumerate(declared)]
 
 def _material(where, declared):
     """A metallic-roughness row, so a GENERATED subject can be the one the engine's own BRDF shades.
@@ -67,11 +82,13 @@ def _material(where, declared):
     if not isinstance(declared, dict):
         raise Refusal(where, expected="an object", observed=type(declared).__name__)
     field = _fields(where, declared, ("baseColourFactorRgba", "metallicFactor", "roughnessFactor"),
-                    ("note", "extensions"))
+                    ("note", "extensions", "emissiveFactorRgb"))
     row = {"pbrMetallicRoughness": {
         "baseColorFactor": _vector(where + ".baseColourFactorRgba", field["baseColourFactorRgba"], 4),
         "metallicFactor": _unit(where + ".metallicFactor", field["metallicFactor"]),
         "roughnessFactor": _unit(where + ".roughnessFactor", field["roughnessFactor"])}}
+    if "emissiveFactorRgb" in field:
+        row["emissiveFactor"] = _vector(where + ".emissiveFactorRgb", field["emissiveFactorRgb"], 3)
     if "extensions" in field:
         row["extensions"] = _material_extensions(where + ".extensions", field["extensions"])
     return row
@@ -82,6 +99,8 @@ _MATERIAL_EXTENSIONS = {
     "KHR_materials_iridescence": (("iridescenceFactor", "unit"), ("iridescenceIor", "number"),
                                   ("iridescenceThicknessMinimum", "number"),
                                   ("iridescenceThicknessMaximum", "number")),
+    "KHR_materials_transmission": (("transmissionFactor", "unit"),),
+    "KHR_materials_ior": (("ior", "number"),),
 }
 
 def _material_extensions(where, declared):
@@ -259,7 +278,7 @@ def _look_at(where, position, aim, roll):
     return (rolled_right + [0.0] + rolled_up + [0.0] +
             [-forward[axis] for axis in range(3)] + [0.0] + list(position) + [1.0])
 
-def _write_glb(parts, mode, component, camera, material=None):
+def _write_glb(parts, mode, component, camera, materials=None):
     document = {"asset": {"version": "2.0", "generator": "outshine test/harness/shared/corpus"},
                 "scene": 0, "scenes": [{"nodes": []}], "nodes": [], "meshes": [],
                 "accessors": [], "bufferViews": [], "buffers": []}
@@ -279,8 +298,8 @@ def _write_glb(parts, mode, component, camera, material=None):
                             code, "SCALAR", len(part.run), target=34963)
         primitive = {"attributes": {"POSITION": position, "NORMAL": normal}, "indices": indices,
                      "mode": MODES[mode]}
-        if material is not None:
-            primitive["material"] = 0
+        if materials is not None:
+            primitive["material"] = len(document["meshes"])
         document["meshes"].append({"primitives": [primitive]})
         node = dict(part.node)
         node["name"] = part.name
@@ -291,10 +310,14 @@ def _write_glb(parts, mode, component, camera, material=None):
         document["nodes"][at]["children"] = [at + 1]
     document["scenes"][0]["nodes"] = [0] if parts else []
 
-    if material is not None:
-        document["materials"] = [dict(material, name="fixture")]
-        if "extensions" in material:
-            document["extensionsUsed"] = sorted(material["extensions"])
+    if materials is not None:
+        document["materials"] = [dict(one, name=part.name)
+                                 for one, part in zip(materials, parts)]
+        used = set()
+        for one in materials:
+            used.update(one.get("extensions", {}))
+        if used:
+            document["extensionsUsed"] = sorted(used)
 
     if camera is not None:
         document["cameras"] = [camera["camera"]]

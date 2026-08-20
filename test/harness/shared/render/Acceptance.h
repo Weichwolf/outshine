@@ -8,7 +8,7 @@
 
 namespace outshine::Render::Parity {
 
-enum class SubjectClass { OpaqueAtLeastOnePixel, SubPixelPresent };
+enum class SubjectClass { OpaqueAtLeastOnePixel, SubPixelPresent, Transmissive };
 
 enum class ExactnessClass { Exact, GeneralPosition };
 
@@ -202,7 +202,12 @@ struct Acceptance {
     out = SubjectClass::SubPixelPresent;
     return true;
   }
-  error = "subjectClass '" + spelling + "' is neither opaque-min-1px nor sub-pixel-present";
+  if (spelling == "transmissive") {
+    out = SubjectClass::Transmissive;
+    return true;
+  }
+  error = "subjectClass '" + spelling +
+          "' is none of opaque-min-1px, sub-pixel-present, transmissive";
   return false;
 }
 

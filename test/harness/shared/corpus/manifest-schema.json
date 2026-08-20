@@ -57,7 +57,8 @@
             "subjectClass": {
               "enum": [
                 "opaque-min-1px",
-                "sub-pixel-present"
+                "sub-pixel-present",
+                "transmissive"
               ]
             },
             "acceptanceClass": {

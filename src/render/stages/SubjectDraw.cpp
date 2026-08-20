@@ -437,7 +437,7 @@ static inline float3 shadeRow(constant M &surface, constant Lights &lights, Occl
   float3 v = normalize(-p);
   float a = roughness * roughness;
   float a2 = a * a;
-  float3 diffuseColour = albedo * (1.0 - metalness);
+  float3 diffuseColour = albedo * (1.0 - metalness) * (1.0 - surface.transmission);
   float3 f0 = mix(dielectricF0, albedo, metalness);
 
   float f90 = mix(dielectricF90, 1.0, metalness);

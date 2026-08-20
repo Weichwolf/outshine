@@ -1555,7 +1555,8 @@ void NoteDisagreements(const outshine::Render::Parity::IdentityReading &reading)
   const IdentityQuestion asked{oracle, mine, theirs, ours, oraclePicture, declared, blended};
   const IdentityReading reading = ReadSurfaceIdentity(asked);
 
-  CHECK(reading.OursNamingNoSlot == 0,
+  const bool namesOneSurface = subject.Accepted.Subject != SubjectClass::Transmissive;
+  CHECK(!namesOneSurface || reading.OursNamingNoSlot == 0,
         "every pixel we drew names a surface slot of this subject's own table, so the identity "
         "attachment carries what the encoder bound and not what the target was cleared to");
   if (reading.OursNamingNoSlot > 0) {
@@ -2147,8 +2148,9 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
   ScoreDepthProbes(subject, studio, picture.Depth, metrics);
 
   Note("oracle instrument floor", subject.OracleFloorPx, "px");
+  const double passBound = subject.Accepted.Subject == SubjectClass::Transmissive ? 4.0 : 2.0;
   metrics.push_back(
-      {"plan_passes", (double)renderer.Plan().PassCount(), 2.0, "passes", Direction::AtMost});
+      {"plan_passes", (double)renderer.Plan().PassCount(), passBound, "passes", Direction::AtMost});
 
   const Json::Ref expected = subject.Manifest.Root()["expected"]["subjectFrameFraction"];
   double declaredFraction = 0;
