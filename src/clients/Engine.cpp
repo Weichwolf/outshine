@@ -15,6 +15,7 @@ struct Engine::State {
   Extent Frame{1280, 720};
   Scenario Declared;
   std::vector<std::string> Carried;
+  std::vector<Scenario> Asleep;
   std::string Error;
 };
 
@@ -135,6 +136,44 @@ bool Engine::Run() {
     if (!S_->Standing->Advance(S_->Error)) { return false; }
   }
   return true;
+}
+
+bool Engine::Park(void) {
+  if (!S_->Standing) {
+    S_->Error = "no scenario is standing, so there is nothing to park";
+    return false;
+  }
+  if (S_->Declared.Named.Name.empty()) {
+    S_->Error = "a scenario is parked under its name and this one declares none";
+    return false;
+  }
+  for (const Scenario &asleep : S_->Asleep) {
+    if (asleep.Named.Name == S_->Declared.Named.Name) {
+      S_->Error = S_->Declared.Named.Name + " is parked already, so parking it twice would leave two";
+      return false;
+    }
+  }
+  S_->Asleep.push_back(S_->Declared);
+  S_->Standing.reset();
+  S_->Error.clear();
+  return true;
+}
+
+bool Engine::Resume(const std::string &name) {
+  for (size_t at = 0; at < S_->Asleep.size(); ++at) {
+    if (S_->Asleep[at].Named.Name != name) { continue; }
+    const Scenario taken = S_->Asleep[at];
+    S_->Asleep.erase(S_->Asleep.begin() + (long)at);
+    return Declare(taken);
+  }
+  S_->Error = name + " is not parked, and resuming what was never parked is not a load";
+  return false;
+}
+
+std::vector<std::string> Engine::Parked(void) const {
+  std::vector<std::string> names;
+  for (const Scenario &asleep : S_->Asleep) { names.push_back(asleep.Named.Name); }
+  return names;
 }
 
 int Engine::At(void) const { return S_->Standing ? S_->Standing->At() : 0; }

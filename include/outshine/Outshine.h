@@ -29,6 +29,10 @@ public:
   [[nodiscard]] bool Advance();
   [[nodiscard]] bool Run();
 
+  [[nodiscard]] bool Park();
+  [[nodiscard]] bool Resume(const std::string &name);
+  [[nodiscard]] std::vector<std::string> Parked(void) const;
+
   [[nodiscard]] int At(void) const;
   [[nodiscard]] int Frames(void) const;
   [[nodiscard]] bool Standing(void) const;

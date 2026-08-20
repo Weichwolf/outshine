@@ -122,6 +122,29 @@ std::string WriteScenario(const std::string &stands) {
   return path;
 }
 
+std::string InteriorScenario(const std::string &stands) {
+  const std::string path = outshine::Test::PreparedRoot() + "/vault-111.scenario";
+  std::FILE *const file = std::fopen(path.c_str(), "wb");
+  if (file == nullptr) { return std::string(); }
+  std::string text = R"(<?xml version="1.0" encoding="utf-8"?>
+<scenario name="vault 111" version="1" epoch="2287">
+  <render widthPx="320" heightPx="240" fps="30" fill="0.9"/>
+  <lighting><key lux="200" elevationDeg="90" bearingDeg="0"/></lighting>
+  <assets>
+    <asset uri=")";
+  text += stands;
+  text += R"(" kind="gltf"/>
+  </assets>
+  <regions>
+    <region id="vault-111" kind="interior" radiusM="60" streams="false"/>
+  </regions>
+</scenario>
+)";
+  std::fwrite(text.data(), 1, text.size(), file);
+  std::fclose(file);
+  return path;
+}
+
 } // namespace
 
 int main(void) {
@@ -212,6 +235,43 @@ int main(void) {
   CHECK(!engine.Carried().empty(),
         "what a scenario declares and this runtime does not yet act on is PUBLISHED rather than "
         "read and dropped -- a declaration nobody can see ignored is a scenario that lies");
+
+  const std::string interior = InteriorScenario(stands);
+  CHECK(!interior.empty(), "a second scenario is written where the client can read it");
+  CHECK(engine.Parked().empty(), "nothing is parked before a door is walked through");
+  const bool parked = engine.Park();
+  if (!parked) { std::printf("REFUSED %s\n", engine.Error().c_str()); }
+  CHECK(parked, "walking through a door PARKS the scenario that was live");
+  CHECK(engine.Parked().size() == 1 && engine.Parked()[0] == "four lines",
+        "and it is parked under its own name, so the door on the other side names what to come back "
+        "to");
+  CHECK(!engine.Standing(),
+        "nothing stands while a scenario is parked, which is what releases the residency a stand-up "
+        "can rebuild");
+
+  const bool inside = engine.Load(interior);
+  if (!inside) { std::printf("REFUSED %s\n", engine.Error().c_str()); }
+  CHECK(inside, "the interior stands up in its place");
+  CHECK(engine.Declared().Named.Name == "vault 111" && engine.Parked().size() == 1,
+        "the live scenario is the interior and the exterior is still parked");
+  CHECK(engine.Resume("nowhere") == false,
+        "resuming what was never parked is refused rather than answered with nothing");
+
+  const bool leaving = engine.Park();
+  CHECK(leaving, "the door on the other side parks the interior in its turn");
+  CHECK(engine.Parked().size() == 2,
+        "so both sides of the door are parked for the instant between them -- RESUME PARKS NOTHING "
+        "BY ITSELF, because a scenario that vanished on somebody else's call is a scenario nobody "
+        "can reason about");
+
+  const bool back = engine.Resume("four lines");
+  if (!back) { std::printf("REFUSED %s\n", engine.Error().c_str()); }
+  CHECK(back, "walking back through the door RESUMES what was parked");
+  CHECK(engine.Declared().Named.Name == "four lines" && engine.Declared().Kinds.size() == 2,
+        "and it is the same scenario, carrying what it declared, rather than a second load of the "
+        "same file");
+  CHECK(engine.Parked().size() == 1 && engine.Parked()[0] == "vault 111",
+        "and the interior stays parked, so walking back in again is a resume and not a load");
 
   outshine::Engine empty;
   const bool nothing = empty.Advance();
