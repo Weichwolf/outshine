@@ -208,11 +208,12 @@ struct View {
 struct Contact {
   std::string At;
   double AtM[3] = {0.0, 0.0, 0.0};
-  double SpringNPerM = 0.0;
-  double DamperNsPerM = 0.0;
+  double ReachM = 0.0;
+  double StiffnessNPerM = 0.0;
+  double DampingNsPerM = 0.0;
   double TravelM = 0.0;
-  double BumpStopNPerM = 0.0;
-  double LinkLimitN = 0.0;
+  double StopNPerM = 0.0;
+  double LimitN = 0.0;
 };
 
 struct Vehicle {

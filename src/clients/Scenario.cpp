@@ -83,7 +83,7 @@ const Element kGrammar[] = {
      "name asset massKg wheelbaseM"},
     {"scenario/vehicle/inertia", "", "ixx iyy izz"},
     {"scenario/vehicle/contact", "",
-     "at node x y z springNPerM damperNsPerM travelM bumpStopNPerM linkLimitN"},
+     "at node x y z reachM stiffnessNPerM dampingNsPerM travelM stopNPerM limitN"},
     {"scenario/vehicle/tyre", "", "grip radiusM corneringNPerRad relaxationM"},
     {"scenario/vehicle/drive", "", "peakTorqueNm finalDrive"},
     {"scenario/vehicle/brake", "", "peakTorqueNm"},
@@ -491,11 +491,12 @@ bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &
       Contact wheel;
       wheel.At = touch.Attr("at");
       ReadVector(touch, "x", "y", "z", wheel.AtM, 3);
-      wheel.SpringNPerM = touch.Num("springNPerM", 0.0);
-      wheel.DamperNsPerM = touch.Num("damperNsPerM", 0.0);
+      wheel.ReachM = touch.Num("reachM", 0.0);
+      wheel.StiffnessNPerM = touch.Num("stiffnessNPerM", 0.0);
+      wheel.DampingNsPerM = touch.Num("dampingNsPerM", 0.0);
       wheel.TravelM = touch.Num("travelM", 0.0);
-      wheel.BumpStopNPerM = touch.Num("bumpStopNPerM", 0.0);
-      wheel.LinkLimitN = touch.Num("linkLimitN", 0.0);
+      wheel.StopNPerM = touch.Num("stopNPerM", 0.0);
+      wheel.LimitN = touch.Num("limitN", 0.0);
       made.Contacts.push_back(wheel);
     }
     const Xml::Ref tyre = one.Child("tyre");

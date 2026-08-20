@@ -86,16 +86,24 @@ int main(void) {
         "whose roll term is the smallest, which is what being long and narrow means");
 
   for (const outshine::Contact &wheel : car.Contacts) {
-    CHECK(wheel.SpringNPerM > 0.0 && wheel.DamperNsPerM > 0.0 && wheel.TravelM > 0.0 &&
-              wheel.BumpStopNPerM > wheel.SpringNPerM && wheel.LinkLimitN > 0.0,
-          "**A CONTACT IS A SUSPENSION AND NOT A CONSTRAINT**: a spring, a damper, a travel, a bump "
-          "stop stiffer than the spring, and a LINK LIMIT -- which is what makes the bump that tears "
-          "a wheel off a derivation rather than a threshold somebody picked");
+    CHECK(wheel.ReachM > 0.0 && wheel.StiffnessNPerM > 0.0 && wheel.DampingNsPerM > 0.0 &&
+              wheel.TravelM > 0.0 && wheel.StopNPerM > wheel.StiffnessNPerM && wheel.LimitN > 0.0,
+          "**A CONTACT IS COMPLIANT AND NOT A CONSTRAINT**: a reach, a stiffness, a damping, a travel, "
+          "a stop far stiffer than the elastic stage, and a LIMIT -- which is what makes the bump that "
+          "breaks it a derivation rather than a threshold somebody picked. *The physics knows no "
+          "wheel and no strut; what this contact IS belongs to the declaration that placed it*");
   }
 
   const double corner = car.MassKg * 9.80665 / 4.0;
-  const double sagM = corner / car.Contacts[0].SpringNPerM;
-  const double rideHz = std::sqrt(car.Contacts[0].SpringNPerM / (car.MassKg / 4.0)) / (2.0 * 3.14159265358979);
+  for (const outshine::Contact &wheel : car.Contacts) {
+    CHECK_NEAR(wheel.ReachM - corner / wheel.StiffnessNPerM, wheel.AtM[1], 1e-4, "m",
+               "**THE REACH IS DERIVED AND NOT PICKED**: pressed by its share of the car's weight, a "
+               "contact of this reach and this stiffness leaves its anchor exactly where the anchor "
+               "says it stands. The front and the rear differ because their rates do -- so the car "
+               "sits level as a CONSEQUENCE of four numbers rather than as a fifth one");
+  }
+  const double sagM = corner / car.Contacts[0].StiffnessNPerM;
+  const double rideHz = std::sqrt(car.Contacts[0].StiffnessNPerM / (car.MassKg / 4.0)) / (2.0 * 3.14159265358979);
   Note("static sag at one corner", sagM, "m");
   Note("the ride frequency that implies", rideHz, "Hz");
   CHECK(sagM > 0.02 && sagM < car.Contacts[0].TravelM,
