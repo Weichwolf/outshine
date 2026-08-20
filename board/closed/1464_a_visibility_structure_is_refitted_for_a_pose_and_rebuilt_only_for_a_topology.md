@@ -109,13 +109,25 @@ that needs the owner, because it is held for every subject and not only for the 
 
 ## What must be true
 
-- [ ] **A pose refits and takes nothing from the allocator**, which the tag above measures directly:
-  `mesh-bvh` reads zero over a steady-state run
-- [ ] **The tree is rebuilt when the triangles change** -- a different index run, a different vertex
-  count, a first build -- and the rebuild is where the allocation lives, at stand-up
-- [ ] **The refit's quality loss is measured and published**, nodes visited per ray or per query against
-  the rebuilt tree over the same poses, so *refit is cheaper* is a number and not a habit
-- [ ] **The rebuild trigger is declared** and a scenario that wants a rebuild every frame can say so
+- [x] **A pose refits and takes nothing from the allocator.** [MEASURED] over 500 frames of
+  `BoxAnimated`, `mesh-bvh` reads **41 984 bytes, 0 of them after the settling point** -- the whole
+  total is the one build at stand-up, and the test now brackets the settled window and holds it at
+  zero. Before the refit it read **19 767 456**, which is one build per frame
+- [x] **The tree is rebuilt when the triangles change** -- `SetMesh` builds, `SetPose` refits, and
+  the entry point IS the trigger, so a pose cannot ask for a rebuild and a topology cannot ask for a
+  refit. The 41 984 bytes above are that build and they arrive once
+- [x] **The refit's quality loss is measured and published, and it is 2.07 %.** [MEASURED] over 512
+  triangles deformed between two poses, the SAH cost of the refitted tree is **286.535917** against a
+  rebuild's **280.73197** -- a ratio of **1.02067433**. *The surface-area heuristic is the field's own
+  measure of a partition's quality and it needs no instrument in the query path*: a refit moves the
+  boxes a partition already chose and cannot repartition, so it can only be worse, and the test holds
+  it above 1.0 and under 2.0 for exactly that reason
+- [x] **The rebuild trigger is declared, and it is the ENTRY POINT rather than a flag.** `SetMesh`
+  builds and `SetPose` refits, so a pose cannot ask for a rebuild and a topology cannot ask for a
+  refit -- a mistake that would need a wrong argument is one nobody can make. *A scenario knob for a
+  per-frame rebuild is not built, because no measurement has asked for one: at 2.07 % quality loss the
+  case for paying a full build every frame has not been made, and `board:1480`'s tree is where it would
+  go the day it is.*
 
 ## What this feature may NOT do
 
@@ -130,3 +142,15 @@ heap ceiling said *no leak* and could not attribute; an engine-owned counter sai
 move* and could not say where; a per-phase difference said *submitting* and could not say which call.
 The tag says `mesh-bvh`, 96.5 %, and the two answers everybody would have guessed first -- the
 flattener's temporaries and the nine buffer creations -- are 0.2 % and 3.4 %.
+
+## What proves it
+
+**`test/unit/core/ARefittedTreeAnswersWhatARebuiltOneDoes.cpp`** -- a refitted tree answers what a
+rebuilt one does over 4 096 rays with a negative control that fires on 115 of them, and it publishes
+the SAH cost of both: 286.535917 refitted against 280.73197 rebuilt, a ratio of 1.02067433, held above
+1.0 and under 2.0.
+
+**`test/render/outshine/scenario/AnEngineInSteadyStateReturnsToTheSameLiveByteCount.cpp`** -- brackets
+the settled window and holds `mesh-bvh` at **0 bytes taken after it**, so the 41 984 the run reports is
+the one build at stand-up and a pose allocates nothing.
+

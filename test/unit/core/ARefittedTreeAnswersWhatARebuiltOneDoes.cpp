@@ -82,6 +82,26 @@ void RayAt(uint32_t at, float origin[3], float direction[3]) {
 
 }
 
+double SahCost(const TriangleBvh &tree) {
+  const outshine::Span<const outshine::BvhNode> nodes = tree.Nodes();
+  if (nodes.Size() == 0) { return 0.0; }
+  const auto area = [](const outshine::BvhNode &node) {
+    const double x = (double)node.MaxM[0] - (double)node.MinM[0];
+    const double y = (double)node.MaxM[1] - (double)node.MinM[1];
+    const double z = (double)node.MaxM[2] - (double)node.MinM[2];
+    const double wide = x > 0.0 ? x : 0.0, tall = y > 0.0 ? y : 0.0, deep = z > 0.0 ? z : 0.0;
+    return 2.0 * (wide * tall + tall * deep + deep * wide);
+  };
+  const double root = area(nodes[0]);
+  if (!(root > 0.0)) { return 0.0; }
+  double sum = 0.0;
+  for (size_t at = 0; at < nodes.Size(); ++at) {
+    const outshine::BvhNode &node = nodes[at];
+    sum += area(node) * (node.IsLeaf() ? (double)node.TriangleCount() : 1.0);
+  }
+  return sum / root;
+}
+
 int main() {
   using namespace outshine::Test;
 
@@ -108,6 +128,19 @@ int main() {
   CHECK(apart == 0,
         "a tree built over one pose and refitted to another answers every ray exactly as a tree "
         "BUILT over that pose does -- a refit may cost box quality and may never cost an answer");
+
+  const double refittedCost = SahCost(refitted);
+  const double rebuiltCost = SahCost(rebuilt);
+  const double lost = rebuiltCost > 0.0 ? refittedCost / rebuiltCost : 0.0;
+  Note("SAH cost, refitted to the second pose", refittedCost, "dimensionless");
+  Note("SAH cost, rebuilt over the second pose", rebuiltCost, "dimensionless");
+  Note("what the refit costs against a rebuild", lost, "x");
+  CHECK(lost >= 1.0 - 1e-9,
+        "a refit keeps the tree a rebuild would have chosen or a worse one, never a better one -- "
+        "it moves the boxes a partition already decided and cannot repartition");
+  CHECK(lost < 2.0,
+        "and over a deformation of this size it stays inside twice a rebuild's cost, which is what "
+        "makes refit-over-rebuild a trade rather than a surrender");
 
   CHECK(refitted.Nodes().Size() == rebuilt.Nodes().Size() || true,
         "the node count is the tree's own and is not compared -- two poses may split differently");

@@ -206,3 +206,64 @@ attribution.
 FULL suite run and the `585 520` from the `scenario` suite alone, so the first reading of this repair
 credited it with a difference that was partly the corpus's absence. The table above is both sides taken
 the same way, which is the only form in which either number means anything.
+
+## The remaining term is attributed, and the guess about it was refuted
+
+[MEASURED] the steady-state run now brackets the settled window, so a tag says what it took AFTER the
+engine reached its lap rather than over the whole run:
+
+| tag | over 500 frames | after the settling point |
+|---|---|---|
+| `mesh-bvh` | 41 984 | **0** |
+| `mesh-upload` | 585 520 | **278 880** |
+
+**`mesh-bvh` is closed**: the refit takes nothing and the whole total is the one build at stand-up
+(`board:1464`). **What is left is 278 880 bytes over 249 settled frames -- 1120 a frame -- and all of
+it is `mesh-upload`.**
+
+**THE GUESS WAS SDL'S CYCLING AND IT IS REFUTED.** `Cross` maps its staging buffer and uploads with
+`cycle` true, which is SDL's rename mechanism and allocates a fresh internal buffer when the device may
+still be reading. Turning BOTH off and re-running read **278 880 bytes -- identical to the digit**. A
+change that alters the mechanism by design cannot reproduce a number exactly; identical is a finding,
+and it says the renaming is not where the memory goes. Cycling was restored, because it costs nothing
+measurable and it is the safe idiom.
+
+**What is left inside `mesh-upload` is SDL's own per-submission objects**: `Cross` acquires a command
+buffer and begins a copy pass once per pose, and those are allocations SDL makes on our behalf. **The
+shipped answer is that an upload rides the FRAME's command buffer rather than one of its own** -- which
+is a restructuring, because `Cross` runs inside `SetPose` and the frame's buffer does not exist yet
+there.
+
+- [ ] **The pose's upload is recorded into the frame's own command buffer**, so a pose acquires
+  nothing: one submission a frame, not two
+
+## The upload was moved into the frame's command buffer, and the picture refuted it
+
+**The attribution above says the 1120 bytes are SDL's per-submission objects, so the shipped answer is
+to stop submitting**: stage the bytes at pose time, record the regions, and let the FRAME's command
+buffer carry the copy pass. That was built -- `FlushCrossings`, drained in `RenderFrame` right after
+the command buffer is acquired, with a ring of staging slots so a pose does not overwrite what the
+device is still reading.
+
+| | before | deferred, one staging buffer | deferred, a ring of three |
+|---|---|---|---|
+| `mesh-upload` after settling | 278 880 B | **0** | **0** |
+| pipelined frame p50 | 5.33 ms | **24.91 ms** | 2.28 ms |
+| pipelined frame p99 | 6.68 ms | **43.98 ms** | 3.37 ms |
+| samples carrying ink | 9 213 of 102 480 | -- | **258 of 102 480** |
+| pipelined against serialised | agrees | -- | **9 165 samples differ** |
+
+**The allocation went to zero both ways and the picture went with it.** With one staging buffer the
+map blocks on a copy pass that has not been submitted yet -- 25 ms a frame. With a ring the frame got
+FASTER than the original, 2.28 ms against 5.33, and that is the tell: it was fast because it was drawing
+almost nothing. The coverage check caught it -- *the subject covers the frame it was framed for* -- and
+the determinism check caught the rest, because the picture then depended on the pace.
+
+**Reverted.** What the attempt bought is the measurement: **the whole of the remaining per-frame
+allocation is the copy pass's own command buffer, and removing it is worth 1120 bytes a frame against a
+picture** -- so it is not taken until the staging discipline is right.
+
+- [ ] **The deferred upload lands with the picture intact.** What it must get right: a staging slot per
+  FRAME rather than per `Cross` call, a flush that is guaranteed to run for every staged pose -- an
+  early return in `RenderFrame` strands one -- and the coverage and determinism checks as its guard
+

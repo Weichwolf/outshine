@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
 #include <memory>
 #include <string>
 #include <vector>
@@ -82,10 +83,16 @@ int main(void) {
 
   size_t tookOn[4] = {}, worstOf[4] = {};
   bool advanced = true;
+  std::vector<size_t> takenAtSettling;
   for (int frame = 0; frame < kRunFrames && advanced; ++frame) {
     advanced = live->Advance(error);
     held.push_back(outshine::Heap::LiveBytes());
     if (frame < kSettleFrames) { continue; }
+    if (takenAtSettling.empty()) {
+      for (size_t at = 0; at < outshine::Heap::TagCount(); ++at) {
+        takenAtSettling.push_back(outshine::Heap::TakenAt(at));
+      }
+    }
     const ptrdiff_t phase[4] = {(ptrdiff_t)outshine::Clients::Live::TookPosing(),
                                 (ptrdiff_t)outshine::Clients::Live::TookSubmitting(),
                                 (ptrdiff_t)outshine::Clients::Live::TookAiming(),
@@ -107,6 +114,7 @@ int main(void) {
         "can be compared with itself");
   if (lap <= 1 || (size_t)kSettleFrames + lap >= held.size()) { return Report(); }
 
+  size_t bvhAfterSettling = 0;
   size_t pairs = 0, differing = 0;
   long long worst = 0, total = 0;
   for (size_t at = (size_t)kSettleFrames; at + lap < held.size(); ++at) {
@@ -139,7 +147,11 @@ int main(void) {
   for (size_t at = 0; at < outshine::Heap::TagCount(); ++at) {
     const char *tag = outshine::Heap::TagAt(at);
     if (tag == nullptr) { continue; }
-    std::printf("NOTE taken under %-14s %zu bytes\n", tag, outshine::Heap::TakenAt(at));
+    const size_t since =
+        at < takenAtSettling.size() ? outshine::Heap::TakenAt(at) - takenAtSettling[at] : 0u;
+    std::printf("NOTE taken under %-14s %zu bytes, %zu of them after the settling point\n", tag,
+                outshine::Heap::TakenAt(at), since);
+    if (std::strcmp(tag, "mesh-bvh") == 0) { bvhAfterSettling = since; }
   }
   static const char *const kPhase[4] = {"posing", "submitting", "aiming", "drawing"};
   for (int at = 0; at < 4; ++at) {
@@ -151,6 +163,11 @@ int main(void) {
         "the engine's own live bytes are the same number at the same pose one lap later -- a "
         "difference of one byte a frame is 21.6 MB over a hundred hours, so the frame path has to "
         "take nothing rather than take little (board:1463)");
+
+  CHECK(bvhAfterSettling == 0,
+        "a pose REFITS the visibility structure and takes nothing from the allocator doing it -- "
+        "what mesh-bvh reads over the run is the one build at stand-up, and a rebuild per pose "
+        "would put that number in every frame");
 
   return Report();
 }
