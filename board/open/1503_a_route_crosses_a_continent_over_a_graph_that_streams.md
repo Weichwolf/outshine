@@ -24,3 +24,23 @@ is not there yet.
       here* names a place the geometry agrees exists
 - [ ] **A route is reproducible from its seed**, both endpoints and the path between them, or the suite
       cannot re-drive a crash
+
+## Comments
+
+**Routing and drawing are separate requirements, and fetching for one by the rules of the other is
+what makes a continental route look expensive.** Measured on Munich to Hamburg at zoom 10:
+
+| | square covering both cities | corridor along the line |
+|---|---|---|
+| tiles | 841 | **166** |
+| points | 2 647 016 | 467 257 |
+| nodes | 2 154 004 | 384 053 |
+| route | 752.421067 km | **752.420705 km** |
+
+**Five times less data and the same answer to 0.4 m over 752 km.** The corridor walks the great circle
+in steps of one tile's ground size and fetches a ring of 2 around each station; the square exists only
+because a renderer wants everything a camera might see.
+
+The next reduction is hierarchical: plan coarse at a zoom where only the motorway network survives,
+then refine only along what the coarse plan chose. That is what GTA's separate path graph is
+(`board:1521`) and it is the shipped answer to a graph that does not fit.

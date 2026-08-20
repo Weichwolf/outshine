@@ -55,11 +55,13 @@ int main(void) {
   Note("the zoom the ways are read at", (double)kZoom, "");
   const double tileGroundM =
       40075017.0 * std::cos(middleLat * 3.14159265358979 / 180.0) / (double)(1L << kZoom);
-  const int kRingTiles = (int)std::ceil(0.5 * straightM / tileGroundM) + 1;
+  const int kCorridorRing = 2;
+  const long steps = (long)std::ceil(straightM / tileGroundM) + 1;
+  const long square = (long)(2 * std::ceil(0.5 * straightM / tileGroundM) + 3);
   Note("a tile's ground size at this zoom and latitude", tileGroundM / 1000.0, "km");
-  Note("the ring that puts both cities inside", (double)(2 * kRingTiles + 1), "tiles across");
-  Note("tiles that asks the server for", (double)((2 * kRingTiles + 1) * (2 * kRingTiles + 1)),
-       "tiles");
+  Note("stations along the line the corridor is fetched at", (double)steps, "stations");
+  Note("the ring fetched around each", (double)(2 * kCorridorRing + 1), "tiles across");
+  Note("what a square covering both cities would have cost", (double)(square * square), "tiles");
 
   outshine::Data::ContentStore::Config keeping;
   keeping.Directory = "/tmp/outshine-drive-cache";
@@ -87,19 +89,28 @@ int main(void) {
   const auto began = std::chrono::steady_clock::now();
   long passes = 0;
   int built = 0;
-  for (;;) {
-    built += field.Build(middleLat, middleLon, kRingTiles);
-    ++passes;
-    if (field.PendingTiles() == 0) { break; }
-    if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >
-        kPatienceS) {
-      break;
+  bool ranOut = false;
+  for (long step = 0; step <= steps && !ranOut; ++step) {
+    const double part = (double)step / (double)steps;
+    const double atLat = kMunichLat + part * (kHamburgLat - kMunichLat);
+    const double atLon = kMunichLon + part * (kHamburgLon - kMunichLon);
+    for (;;) {
+      built += field.Build(atLat, atLon, kCorridorRing);
+      ++passes;
+      if (field.PendingTiles() == 0) { break; }
+      if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >
+          kPatienceS) {
+        ranOut = true;
+        break;
+      }
     }
   }
+  CHECK(!ranOut, "the corridor is fetched inside the patience declared for it");
   const double fetchedS =
       std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
 
-  Note("passes over the ring", (double)passes, "passes");
+  Note("passes over the corridor", (double)passes, "passes");
+  Note("tiles the corridor actually took", (double)field.Tiles().size(), "tiles");
   Note("tiles decoded", (double)built, "tiles");
   Note("tiles still pending", (double)field.PendingTiles(), "tiles");
   Note("layers the server did not send", (double)field.MissingLayers(), "layers");
