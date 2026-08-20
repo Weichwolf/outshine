@@ -226,6 +226,8 @@ struct Vehicle {
   std::vector<Contact> Contacts;
   double Grip = 0.0;
   double TyreRadiusM = 0.0;
+  double TurningCircleM = 0.0;
+  double TrackM = 0.0;
   double CorneringNPerRad = 0.0;
   double RelaxationM = 0.0;
   double PeakTorqueNm = 0.0;
@@ -247,7 +249,7 @@ struct Player {
   double RunMs = 4.5;
 };
 
-struct Physics {
+struct PhysicsSettings {
   std::string Dial;
 };
 
@@ -291,7 +293,7 @@ struct Scenario {
   std::vector<Vehicle> Vehicles;
   Player Played;
 
-  Physics Motion;
+  PhysicsSettings Motion;
   Clock Time;
   std::vector<Binding> Input;
   std::vector<Persisted> State;

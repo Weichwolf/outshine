@@ -74,7 +74,7 @@ LayerIncludes() {
     unit/render/plan) printf '%s' "-Isrc/core -Isrc/render/plan" ;;
     unit/render/draw) printf '%s' "-Isrc/core -Isrc/render/draw" ;;
     unit/render/stages) printf '%s' "-Isrc/core -Isrc/render/stages" ;;
-    unit/clients) printf '%s' "-Isrc/clients" ;;
+    unit/clients) printf '%s' "-Iinclude -Isrc/core -Isrc/corridor -Isrc/physics -Isrc/pilot -Isrc/clients" ;;
     harness/claims) printf '%s' "-Isrc/core" ;;
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
     harness/render/wpt/css) printf '%s' "-Isrc/core -Isrc/ui" ;;
@@ -141,7 +141,7 @@ LayerGroups() {
     unit/render/plan) printf '%s' "src/core src/core/io src/render/plan" ;;
     unit/render/draw) printf '%s' "src/core src/core/io src/render/draw" ;;
     unit/render/stages) printf '%s' "" ;;
-    unit/clients) printf '%s' "src/clients/Image.cpp" ;;
+    unit/clients) printf '%s' "src/core src/corridor src/physics src/pilot src/clients/Image.cpp src/clients/Scenario.cpp src/clients/Rigging.cpp" ;;
     harness/claims) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario | render/outshine/client) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/clients/Engine.cpp src/clients/Scenario.cpp" ;;
     render/outshine/shader) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
@@ -188,6 +188,7 @@ GroupIncludes() {
     src/corridor) printf '%s' "-Isrc/core -Isrc/corridor" ;;
     src/physics) printf '%s' "-Isrc/core -Isrc/physics" ;;
     src/pilot) printf '%s' "-Isrc/core -Isrc/corridor -Isrc/pilot" ;;
+    src/clients/Rigging.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/corridor -Isrc/physics -Isrc/pilot -Isrc/clients" ;;
     src/data) printf '%s' "-Isrc/core -Isrc/data" ;;
     src/gltf) printf '%s' "-Isrc/core -Isrc/gltf" ;;
     src/ui) printf '%s' "-Isrc/core -Isrc/ui" ;;

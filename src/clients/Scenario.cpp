@@ -80,7 +80,7 @@ const Element kGrammar[] = {
      "id follows person offsetX offsetY offsetZ distanceM pitchLimitDeg fovDeg timeScale"},
     {"scenario/player", "", "is starts view eyeHeightM walkMs runMs"},
     {"scenario/vehicle", "centreOfMass inertia contact tyre drive brake body seat",
-     "name asset massKg wheelbaseM"},
+     "name asset massKg wheelbaseM turningCircleM trackM"},
     {"scenario/vehicle/centreOfMass", "", "x y z"},
     {"scenario/vehicle/inertia", "", "ixx iyy izz"},
     {"scenario/vehicle/contact", "",
@@ -483,6 +483,8 @@ bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &
     made.Asset = one.Attr("asset");
     made.MassKg = one.Num("massKg", 0.0);
     made.WheelbaseM = one.Num("wheelbaseM", 0.0);
+    made.TurningCircleM = one.Num("turningCircleM", 0.0);
+    made.TrackM = one.Num("trackM", 0.0);
     const Xml::Ref centre = one.Child("centreOfMass");
     made.CentreOfMassM[0] = centre.Num("x", 0.0);
     made.CentreOfMassM[1] = centre.Num("y", 0.0);
