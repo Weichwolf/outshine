@@ -164,3 +164,33 @@ stated as a measurement.
 **One honest exception**: where the step was noise in the elevation data rather than terrain,
 smoothing is CORRECT and the fidelity check punishes it. Noisy ground truth is its own case and needs
 naming before a fidelity number is believed.
+
+### A bridge as an embankment is CORRECT where nothing passes under it -- which narrows the gap
+
+*"A bridge as an embankment is fine too if nothing goes under it. If something goes under it, you have
+an error."* This corrects the claim above that the embankment case is what held-out tags catch and
+driving cannot. **It is an O(n) check, and a sharper one:**
+
+> For every reconstructed structure, ask what claims the space beneath it. Nothing -> the embankment is
+> NOT a finding. Something -> the clearance must cover the height that something declares.
+
+**So the confirmation gap is not open-ended: it is exactly the set of things that pass underneath, and
+that set is enumerable from the one spatial index.** The clearance is the passing body's own -- a
+lorry's height, a pantograph's, a boat's air draft -- rather than a table of structure types.
+
+**And it generalises in both directions with one rule.** A tunnel reconstructed as a cutting is equally
+correct until something runs over it, at which point the cutting has severed that road:
+
+> The reconstruction is free where it is unobserved from the other side. It is constrained exactly
+> where another corridor claims the space.
+
+### Which yields a SECOND trigger for the reveal, cheaper than the gradient one
+
+| trigger | from | what it says |
+|---|---|---|
+| **gradient limit** | the profile cannot be spread without an impossible grade | something STANDS there |
+| **un-noded crossing** | two ways cross in plan with no shared node | they MUST be vertically separated |
+
+The second is pure topology, needs no elevation solve at all, and additionally says WHICH of the two
+is above -- from `layer`, or from whichever profile is the one that cannot descend. **The crossing is
+its own evidence.**
