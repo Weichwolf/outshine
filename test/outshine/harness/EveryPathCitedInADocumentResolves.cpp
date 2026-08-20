@@ -1,12 +1,13 @@
 /* A DOCUMENT THAT CITES A FILE WHICH IS NOT IN THE TREE IS A DOCUMENT ABOUT A DIFFERENT REPOSITORY.
- * A board entry states what must be true and the source that satisfies it cites the entry back by
- * id, so a citation that no longer resolves turns a claim into one with nothing under it -- and
- * measured at `498e883`, 17 ticked lines cited a file that is not in the tree. NOTHING WAS CHECKING
- * IT, which is why the class kept growing: a rename moves the code and leaves every quotation of it
- * behind, silently, and the next reader believes the document.
+ * A rename moves the code and leaves every quotation of it behind, silently, and the next reader
+ * believes the document -- measured at `498e883`, 17 ticked lines cited a file that is not in the
+ * tree and nothing was checking it, which is why the class kept growing.
  *
- * This is the test that holds `board:0037` — seventeen ticked lines naming a file that is not in the
- * tree — and `board:0019` — stale pointers held with confidence, sites naming a deleted document.
+ * **IT READS THE BINDING DOCUMENTS AND NOT THE BOARD.** `CLAUDE.md` is binding on everything here and
+ * `src/assets/tables/` is declared data the engine is built from; both are part of the product. The
+ * board is a NOTEBOOK about the work, and a suite that went red over a stale line in one would be
+ * reporting a markdown file as a defect in the tree. A board citation is kept true when the item is
+ * read, which is the point of use and the only place the knowledge is.
  *
  * WHAT COUNTS AS A CITATION, stated here because the rule has to be decidable rather than
  * approximate. A backticked span that begins with one of this repository's own top-level directories
@@ -31,15 +32,15 @@
 
 namespace {
 
-/* Every document this repository writes about itself. `CLAUDE.md` is the vision and the board's
- * usage, `board/` is the work and `src/assets/tables/` is declared data; all three cite files, and a
+/* Every BINDING document this repository writes about itself. `CLAUDE.md` is the vision and the
+ * board's usage, and `src/assets/tables/` is declared data; both cite files, and a
  * citation is a citation whoever wrote it. The agent definitions were a fourth tree until the law they
  * carried was folded into CLAUDE.md and they were deleted; the loop below skips a tree that is not
  * there, so a later split back out costs one line rather than a discovery. */
 std::vector<std::filesystem::path> Documents() {
   std::vector<std::filesystem::path> found;
   if (std::filesystem::exists("CLAUDE.md")) { found.emplace_back("CLAUDE.md"); }
-  for (const char *const tree : {"board", ".claude/agents", "src/assets/tables"}) {
+  for (const char *const tree : {"src/assets/tables"}) {
     if (!std::filesystem::is_directory(tree)) { continue; }
     for (const std::filesystem::directory_entry &entry :
          std::filesystem::recursive_directory_iterator(tree)) {
@@ -60,7 +61,7 @@ bool IsABareOwnDocument(const std::string &span) {
 }
 
 bool NamesThisTree(const std::string &span) {
-  static const char *const kOurs[] = {"src/", "test/", "board/", ".claude/"};
+  static const char *const kOurs[] = {"src/", "test/", "board/"};
   for (const char *const top : kOurs) {
     if (span.compare(0, std::string(top).size(), top) == 0) { return true; }
   }
@@ -176,6 +177,6 @@ int main() {
         "names its file is a claim with something under it");
 
   Covers("I.20 a document that cites a file names one that is in the tree: every backticked path in "
-         "CLAUDE.md, board/ and src/assets/tables/ resolves, or the run is red");
+         "CLAUDE.md and src/assets/tables/ resolves, or the run is red");
   return Report();
 }

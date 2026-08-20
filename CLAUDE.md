@@ -72,8 +72,8 @@ is** — none of the three is a bad day.
 
 **The run is months long and the vision is its destination, not its direction.** Every clause of the
 first page is reachable from this tree by this session, and the board is its decomposition. **Over that
-length a claim nobody re-measured becomes a fact**, so a number an agent reports is re-measured before it
-is committed, and the round that refutes one is worth the round that produced it.
+length a claim nobody re-measured becomes a fact**, so a number is re-measured before it is committed,
+and the round that refutes one is worth the round that produced it.
 
 **Nothing is a possession.** Formats, directories, algorithms, interfaces, build, tools — all material.
 
@@ -596,7 +596,7 @@ amber state**: the repair is that the red names its cause.
 | `Makefile` | **three targets and no others**: build the library, run the tests, clean. No gate target, no verify target — everything a gate decided is a test, and two runners means two verdicts |
 | `test/harness/shared/corpus/prepare.py` | **the one offline script the constraints allow.** Fetch · generate · patch · convert · render, each idempotent and independently invocable. It compares, scores and decides **nothing** — that is C++, in the test |
 | `board/` | **the only documentation tree**, and the working system — see *The board* below |
-| this file | the vision, the constraints, the stance, the architecture, the setup, **the roles** and the rule index. As short as the content allows, and no shorter |
+| this file | the vision, the constraints, the stance, the architecture, the setup and the rule index. As short as the content allows, and no shorter |
 
 **Layering is the build, never a checker.** Each directory compiles with its own include set — one
 compile group per layer in the `Makefile`, the same sets in `test/run.sh` — so a name a layer must not
@@ -614,8 +614,8 @@ file.
 
 ## The board
 
-**`board/` is the working system and this is its only statement.** Not restated in a `README`, not in an
-agent description — a convention written twice is the defect the board exists to remove.
+**`board/` is the working system and this is its only statement.** Not restated in a `README` and not
+anywhere else — a convention written twice is the defect the board exists to remove.
 
 **Three directories and the path is the state**: `board/open/` · `board/active/` · `board/closed/`. There
 is no fourth: a `blocked/` is where a board rots, because nothing owns moving a task out of it. **Blocked
@@ -767,11 +767,11 @@ work item proven only by a test not yet added reads as unproven too. Both failur
 way: **proven reads as unproven.** The harness's own invariant walks the filesystem and has neither
 hazard; **the query has both**.
 
-**While any agent is running, stage named files and never a directory.** `git mv` **stages** its
-rename, so `git add -A` or `git add board/` sweeps another round's state change into a commit about
-something else. The rule is not *commit only paths nobody else writes to*; it is **name every file you
-commit**, because the index already holds what somebody else staged — and a rename is **two** paths, so
-committing only the new one leaves the item under both directories at once.
+**Stage named files and never a directory.** `git mv` **stages** its rename, so `git add -A` or `git add
+board/` sweeps whatever else is in flight into a commit about something else — a background run's
+artefacts, a half-finished edit, a state change that belongs to the next round. **Name every file you
+commit**, and remember a rename is **two** paths: committing only the new one leaves the item under both
+directories at once.
 
 
 **The session's task list is not used, and `board/active/` is the only ordering.** A mirror was tried
@@ -781,7 +781,12 @@ copy could drift, and nothing read it. **`ls board/active/` is the state** — t
 is not a view; it is a duplicate, and duplication is a defect exactly when the copies can drift.*
 
 
-**Seven invariants, and one query that must never become a test.** Six are read from the board:
+**Seven things to keep true, and no test reads the board to do it.** The board is a notebook about the
+work and not a part of the engine: a dangling `Depends:` is a bookkeeping slip, and a suite that went red
+over one would be reporting a markdown file as a defect in the tree — which is exactly the confusion
+between *the thing* and *the writing about the thing* that this file spends its length avoiding. **A test
+answers what the engine does.** Six of these are read from the board by eye, at the one moment somebody
+is already reading the item closely enough to notice — **grooming it into `board/active/`**:
 
 - a dependency cycle
 - a `closed` item depending on one that is not closed
@@ -793,11 +798,13 @@ is not a view; it is a duplicate, and duplication is a defect exactly when the c
   exact failure a feature/task split exists to catch**: the thing that looked done because its headline
   was ticked while the work under it was not
 
-The seventh is read from the tree instead: **a `closed` `feature`, `task` or `bug` cited by nothing under
-`test/`, which is an unproven claim** — an `issue` is exempt for the reason stated above. *That is the
-owner's standing instruction made checkable rather than asserted, and it cannot drift, because it is read
-from the trees that compile and run.* A **`board:` marker naming an id that does not exist** is the same
-defect facing the other way, and the citation test already holds it.
+**The seventh is the one that matters and it is read from the tree**: a `closed` `feature`, `task` or
+`bug` cited by nothing under `test/` is an unproven claim, and `git grep -l 'board:0042' -- test/` answers
+it in one line **at the moment the item is closed**. An `issue` is exempt for the reason stated above. A
+**`board:` marker naming an id that does not exist** is the same defect facing the other way, and
+`ls board/*/0042_*` answers that one. *Both belong to closing an item, which is where the knowledge is,
+and neither belongs to a sweep — `CLAUDE.md` already says the board is kept true at the point of use, and
+a test that swept it would be the sweep this file refuses.*
 
 Query: **what is ready to start** — open tasks whose every `Depends:` is closed. **A board with nothing
 ready is a legitimate state**, so it may not go red, and a later round must not helpfully make it a test.
@@ -879,8 +886,8 @@ in full. *Nobody is asked to remember one, and nothing in this repository is bet
 lines nobody loads is a cost paid on every clone — so this line is the reminder and the standard is the
 answer.
 
-*Why the numbers still have to be right even though citing is not the point:* `ES.9` stood in two agent
-definitions as "use an enumeration rather than boolean flags" for a long time. `ES.9` is *avoid
+*Why the numbers still have to be right even though citing is not the point:* `ES.9` stood in this
+repository's own documents as "use an enumeration rather than boolean flags" for a long time. `ES.9` is *avoid
 ALL_CAPS names*; the enumeration rule is `Enum.2`. **A memory aid that misremembers is worse than
 none**, which is the whole argument for keeping the list beside the work rather than in a head.
 
