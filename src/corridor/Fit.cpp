@@ -207,7 +207,10 @@ Fitted Fit(const std::vector<double> &eastNorthM, double withinM, double tightes
   for (size_t vertex = 0; vertex < points; ++vertex) {
     const double eastM = eastNorthM[2 * vertex];
     const double northM = eastNorthM[2 * vertex + 1];
-    const double windowM = 4.0 * (legM[vertex > 0 ? vertex - 1 : 0] + 1.0);
+    double windowM = 0.0;
+    if (vertex > 0) { windowM += legM[vertex - 1]; }
+    if (vertex + 1 < points) { windowM += legM[vertex]; }
+    if (windowM < 1.0) { windowM = 1.0; }
     double alongM = 0.0;
     if (!into.Nearest(eastM, northM, atVertexM[vertex], windowM, alongM)) { continue; }
     Placed on;
@@ -218,6 +221,23 @@ Fitted Fit(const std::vector<double> &eastNorthM, double withinM, double tightes
     if (awayM > out.WorstOffsetM) {
       out.WorstOffsetM = awayM;
       out.WorstOffsetAtM = alongM;
+      out.WorstVertex = (double)vertex;
+      out.WorstLegInM = vertex > 0 ? legM[vertex - 1] : 0.0;
+      out.WorstLegOutM = vertex + 1 < points ? legM[vertex] : 0.0;
+      out.WorstTurnRad = turnRad[vertex];
+      out.WorstRadiusM = radiusM[vertex];
+      out.WorstStationM = alongM;
+      out.WorstExpectedM = atVertexM[vertex];
+    }
+    double predictedM = 0.0;
+    if (radiusM[vertex] > 0.0) {
+      const double swing = std::fabs(turnRad[vertex]);
+      const double shiftShare = 1.0 + swing * swing / 96.0;
+      predictedM = radiusM[vertex] * (shiftShare / std::cos(0.5 * swing) - 1.0);
+    }
+    if (awayM > withinM && predictedM <= withinM) {
+      if (awayM - predictedM > out.DriftM) { out.DriftM = awayM - predictedM; }
+      continue;
     }
     if (awayM > withinM && radiusM[vertex] > 0.0) {
       const double shrink = withinM / awayM;
@@ -242,6 +262,7 @@ Fitted Fit(const std::vector<double> &eastNorthM, double withinM, double tightes
     }
   }
   if (!overran) {
+    out.DriftPerCornerM = out.Corners > 0 ? out.DriftM / (double)out.Corners : 0.0;
     out.Laid = true;
     return out;
   }

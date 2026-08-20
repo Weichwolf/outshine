@@ -45,3 +45,29 @@ the window gives a huge offset for a corner that is fine. `atVertexM` is assigne
 vertex but never for the LAST one, which is one vertex and not 1284 -- so the window width, four
 times the incoming leg, is the candidate: on a leg of a few metres that window is a few metres wide
 and the true nearest station can lie outside it.
+
+## Closed -- it was drift and not the corner
+
+**The corner correction was chasing something no corner caused.** Instrumenting the worst vertex named
+it: vertex 2294 of 2302, second to last on the route, incoming leg 81.64 m, outgoing 810.70 m, turn
+87.35 degrees, radius pinned at the vehicle's 4.876 m floor -- and a corner of that radius and that
+turn leaves its vertex by 1.96 m, not by the 15.64 m measured. The resection was right: the station it
+found, 770794.49 m, matches the station the fit expected, 770791.82 m.
+
+**So the line was 15.6 m from the polyline for reasons that had nothing to do with that corner.** The
+line is walked corner by corner and each spiral is integrated by 8-node Gauss-Legendre; the residual
+accumulates LATERALLY over 2300 corners.
+
+Each corner now compares its measured offset against its OWN predicted one,
+`R (shiftShare / cos(theta/2) - 1)`, and only corrects when the corner itself is at fault. What is
+left is published as drift:
+
+| | |
+|---|---|
+| passes needed | 24 and not converging -> **1** |
+| corners pinned at the vehicle's floor | 1284 of 2300 -> **0** |
+| drift over 774 km | **17.16 m** |
+| per corner | **7.46 mm** |
+
+**A correction that chases a term it cannot move will consume every degree of freedom it has**, and
+here it consumed the radius of 1284 corners that were never wrong.

@@ -233,6 +233,16 @@ int main(void) {
   Note("how far it leaves a vertex at worst", fitted.WorstOffsetM, "m");
   Note("corners the fit had to correct by measuring them", (double)fitted.Corrected, "corners");
   Note("passes it needed", (double)fitted.Passes, "passes");
+  Note("how far the laid line drifts from the polyline beyond any corner's own doing",
+       fitted.DriftM, "m");
+  Note("per corner that is", fitted.DriftPerCornerM * 1000.0, "mm");
+  Note("the worst vertex", fitted.WorstVertex, "");
+  Note("its incoming leg", fitted.WorstLegInM, "m");
+  Note("its outgoing leg", fitted.WorstLegOutM, "m");
+  Note("the turn there", fitted.WorstTurnRad * 180.0 / 3.14159265358979, "deg");
+  Note("the radius it settled on", fitted.WorstRadiusM, "m");
+  Note("the station the fit expected it at", fitted.WorstExpectedM, "m");
+  Note("the station the resection found", fitted.WorstStationM, "m");
   Note("corners the data cannot support at any drivable radius", (double)fitted.Strained,
        "corners");
   Note("how far the worst of those leaves its vertex", fitted.StrainedWorstM, "m");
@@ -259,6 +269,12 @@ int main(void) {
         "polyline, every interior vertex carrying spiral-arc-spiral, laid by a ReferenceLine that "
         "REFUSES a leap -- so a step in the lateral force has no spelling on this road");
   if (!fitted.Laid) { return Report(); }
+  CHECK(fitted.DriftM < 0.05 * quantumM * (double)fitted.Corners,
+        "**AND WHAT IS LEFT IS DRIFT, WHICH NO CORNER CAN CORRECT.** The line is walked corner by "
+        "corner and each spiral is integrated by 8-node Gauss-Legendre; the residual accumulates "
+        "laterally over 2300 corners. It is reported as its own term, in millimetres per corner, "
+        "rather than being chased by shrinking corners that were never at fault -- which is what "
+        "pinned 1284 of them at the vehicle's tightest radius. board:1528");
   CHECK(fitted.Strained * 200 < fitted.Corners,
         "**AND WHERE THE DATA CANNOT SUPPORT A ROAD AT ANY RADIUS THE CAR CAN TURN, THAT CORNER IS "
         "COUNTED AND NOT HIDDEN.** Those are the corners whose vertices the line must leave by more "
