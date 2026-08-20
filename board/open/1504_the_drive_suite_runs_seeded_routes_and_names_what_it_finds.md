@@ -96,3 +96,8 @@ that cannot be repaired.
 
 **Serially fixing crashes optimises for whichever road you happened to drive first.** That is fixing
 cases in an arbitrary order, and the ordering carries no information about what matters.
+
+**This suite is the OUTER loop and not the optimiser** -- see `board:1518`. The generator is iterated
+against held-out OSM tags over a whole region in seconds, with no vehicle at all; this fleet exists to
+find what that loop cannot see, and every finding it produces should end as an O(n) invariant upstream
+rather than as a repair here.

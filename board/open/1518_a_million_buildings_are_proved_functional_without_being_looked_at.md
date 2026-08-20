@@ -82,3 +82,38 @@ functional correctness that nobody has to write cases for.** A crack, a hole, a 
 tunnel and a gradient nothing could climb all arrive as the same reading -- a contact past its limit,
 or free fall -- and `board:1516`'s pilot means the same instrument drives a road, walks a footway and
 runs a rail.
+
+## The fleet is not the optimiser, and that is a correction
+
+**Asked whether driving cars is the right way to OPTIMISE the OSM generator, the answer is no, and the
+first version of this reasoning oversold it.** A driving fleet is a downstream instrument with five
+structural weaknesses:
+
+| | |
+|---|---|
+| **long causal chain** | crash → physics → pilot → corridor → solve → generator → provider → OSM. Six candidate owners, and the fingerprint INFERS between them. An invariant on the output names the owner with certainty |
+| **coverage follows roads, not branches** | a car drives kilometres; the generator's rare paths -- tunnel portal, multi-level junction, untagged bridge, roundabout -- are sampled in whatever proportion routes happen to cross them. That is where the defects are and where the sample is thinnest |
+| **it cannot see most of the world** | buildings, footways, waterways, power lines and rails are all invisible to a car driving past them, and buildings were the original question |
+| **it spends a simulation on arithmetic** | a 40 % gradient is answerable from the corridor before anything drives it |
+| **optimising against it fits it** | with "the car crashed" as the only signal, smoothing everything until nothing crashes is a local optimum that looks defensible and is wrong |
+
+**The counter-argument, and it is real:** functional correctness for a road IS drivability, so the car
+is not merely an instrument, it is the definition of the requirement. **The resolution is that the car
+defines the ACCEPTANCE CRITERION and need not be the SEARCH procedure.** Define correctness by
+drivability; find violations with arithmetic wherever arithmetic can; drive only for what it cannot.
+
+**So the fleet's product is not a fix -- it is a new O(n) check.** Every finding it produces ends its
+life as an invariant, or it will be found again forever. Its own finding rate must FALL over time
+because checks moved upstream, and never because roads were smoothed until it stopped complaining.
+
+## Optimise towards what -- the objective that is still missing
+
+There is no positive target for the OSM generator today, only the absence of crashes, and an absence
+target has a trivial wrong solution. The target must be **the corridor reproduces the surveyed
+geometry within a stated tolerance wherever ground truth exists** -- held-out tags, and better
+elevation data where a region has it.
+
+Which puts the TIGHT loop somewhere else entirely: the elevation solve and the structure reveal run
+over a whole region with no vehicle at all, in seconds, and validate against OSM's own tags. That is
+the loop the generator is iterated in. **The fleet is the slow outer loop that says what the tight one
+cannot see.**
