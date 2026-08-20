@@ -50,7 +50,8 @@ const Element kGrammar[] = {
     {"scenario/surfaces/surface", "",
      "document style programme leftFrac topFrac widthFrac heightFrac z"},
     {"scenario/kinds", "kind", ""},
-    {"scenario/kinds/kind", "may has", "name inherits asset programme tickHz"},
+    {"scenario/kinds/kind", "may has mind", "name inherits asset tickHz"},
+    {"scenario/kinds/kind/mind", "", "chooses programme prompt model temperature tokenBudget latencyBudgetMs seed"},
     {"scenario/kinds/kind/may", "", "do"},
     {"scenario/kinds/kind/has", "", "name value"},
     {"scenario/instances", "instance", ""},
@@ -309,8 +310,18 @@ bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &
     made.Name = one.Attr("name");
     made.Inherits = one.Attr("inherits");
     made.Asset = one.Attr("asset");
-    made.Programme = one.Attr("programme");
     made.TickHz = one.Num("tickHz", 0.0);
+    const Xml::Ref mind = one.Child("mind");
+    if (mind.Valid()) {
+      made.Thinks.Chooses = mind.Attr("chooses");
+      made.Thinks.Programme = mind.Attr("programme");
+      made.Thinks.Prompt = mind.Attr("prompt");
+      made.Thinks.Model = mind.Attr("model");
+      made.Thinks.Temperature = mind.Num("temperature", 0.0);
+      made.Thinks.TokenBudget = (int)mind.Int("tokenBudget", 0);
+      made.Thinks.LatencyBudgetMs = mind.Num("latencyBudgetMs", 0.0);
+      made.Thinks.Seed = mind.Int("seed", 0);
+    }
     for (size_t which = 0; which < one.Count("may"); ++which) {
       made.Capabilities.push_back(one.At("may", which).Attr("do"));
     }

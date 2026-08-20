@@ -106,11 +106,22 @@ struct Attribute {
   std::string Value;
 };
 
+struct Mind {
+  std::string Chooses;
+  std::string Programme;
+  std::string Prompt;
+  std::string Model;
+  double Temperature = 0.0;
+  int TokenBudget = 0;
+  double LatencyBudgetMs = 0.0;
+  long long Seed = 0;
+};
+
 struct Kind {
   std::string Name;
   std::string Inherits;
   std::string Asset;
-  std::string Programme;
+  Mind Thinks;
   std::vector<std::string> Capabilities;
   std::vector<Attribute> Attributes;
   double TickHz = 0.0;

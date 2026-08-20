@@ -59,10 +59,18 @@ std::string WriteScenario(const std::string &stands) {
     <surface document="hud.html" style="hud.css" programme="hud.js" heightFrac="0.2" z="1"/>
   </surfaces>
   <kinds>
-    <kind name="settler" asset="body" programme="wander.js" tickHz="4">
+    <kind name="settler" asset="body" tickHz="4">
+      <mind chooses="script" programme="wander.js" seed="7"/>
       <may do="walk"/>
       <may do="speak"/>
       <has name="health" value="100"/>
+    </kind>
+    <kind name="mayor" inherits="settler" tickHz="0.2">
+      <mind chooses="model" prompt="mayor.md" model="local-small"
+            temperature="0.7" tokenBudget="512" latencyBudgetMs="800"/>
+      <may do="walk"/>
+      <may do="speak"/>
+      <may do="trade"/>
     </kind>
     <kind name="coffee-cup" asset="cup">
       <has name="massKg" value="0.2"/>
@@ -186,10 +194,22 @@ int main(void) {
         "a compositor is read with its budget");
   CHECK(read.Surfaces.size() == 1 && read.Surfaces[0].Programme == "hud.js",
         "a surface is read with its document, its style and its programme");
-  CHECK(read.Kinds.size() == 2 && read.Kinds[0].Capabilities.size() == 2 &&
+  CHECK(read.Kinds.size() == 3 && read.Kinds[0].Capabilities.size() == 2 &&
             read.Kinds[0].TickHz == 4.0 && read.Kinds[0].Attributes.size() == 1,
         "a KIND is read with what it may do, the rate it ticks at and the attributes it carries -- "
         "one mechanism for an actor, an item, a door and a container");
+  CHECK(read.Kinds[0].Thinks.Chooses == "script" && read.Kinds[0].Thinks.Programme == "wander.js" &&
+            read.Kinds[0].Thinks.Seed == 7,
+        "a MIND that is a script names its programme and its seed, so the same scenario runs twice "
+        "the same way");
+  CHECK(read.Kinds[1].Thinks.Chooses == "model" && read.Kinds[1].Thinks.Prompt == "mayor.md" &&
+            read.Kinds[1].Thinks.TokenBudget == 512 &&
+            read.Kinds[1].Thinks.LatencyBudgetMs == 800.0,
+        "and a MIND that is a model names its prompt and BOTH its budgets -- a mind with no bound on "
+        "what it may spend is a term the frame cannot carry");
+  CHECK(read.Kinds[1].Capabilities.size() == 3 && read.Kinds[2].Thinks.Chooses.empty(),
+        "the capability list is what a script may call AND what a model is offered as functions, one "
+        "declaration; and a kind with no mind thinks nothing, which is most of them");
   CHECK(read.Instances.size() == 1 && read.Instances[0].Of == "settler" &&
             read.Instances[0].In == "sanctuary" && read.Instances[0].Holds.size() == 1,
         "an INSTANCE names its kind, the region it stands in and what it holds, so an inventory is "
@@ -268,7 +288,7 @@ int main(void) {
   const bool back = engine.Resume("four lines");
   if (!back) { std::printf("REFUSED %s\n", engine.Error().c_str()); }
   CHECK(back, "walking back through the door RESUMES what was parked");
-  CHECK(engine.Declared().Named.Name == "four lines" && engine.Declared().Kinds.size() == 2,
+  CHECK(engine.Declared().Named.Name == "four lines" && engine.Declared().Kinds.size() == 3,
         "and it is the same scenario, carrying what it declared, rather than a second load of the "
         "same file");
   CHECK(engine.Parked().size() == 1 && engine.Parked()[0] == "vault 111",
