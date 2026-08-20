@@ -15,6 +15,7 @@ using outshine::ReferenceLine;
 namespace {
 
 constexpr double kWithinM = 9.55462861;
+constexpr double kTightestM = 4.874;
 
 } // namespace
 
@@ -24,7 +25,7 @@ int main(void) {
 
   ReferenceLine straight;
   const std::vector<double> line = {0.0, 0.0, 1000.0, 0.0, 2000.0, 0.0};
-  const Fitted flat = Fit(line, kWithinM, straight);
+  const Fitted flat = Fit(line, kWithinM, kTightestM, straight);
   if (!flat.Laid) { std::printf("REFUSED %s\n", flat.Error.c_str()); }
   Note("a straight polyline fits to", flat.LengthM, "m");
   Note("corners it needed", (double)flat.Corners, "corners");
@@ -33,7 +34,7 @@ int main(void) {
 
   ReferenceLine bent;
   const std::vector<double> corner = {0.0, 0.0, 1000.0, 0.0, 1000.0, 1000.0};
-  const Fitted right = Fit(corner, kWithinM, bent);
+  const Fitted right = Fit(corner, kWithinM, kTightestM, bent);
   if (!right.Laid) { std::printf("REFUSED %s\n", right.Error.c_str()); }
   CHECK(right.Laid, "a right-angle corner fits");
   if (!right.Laid) { return Report(); }
@@ -83,7 +84,7 @@ int main(void) {
     zigzag.push_back((double)step * 100.0);
     zigzag.push_back((step % 2 == 0) ? 0.0 : 30.0);
   }
-  const Fitted many = Fit(zigzag, kWithinM, wiggle);
+  const Fitted many = Fit(zigzag, kWithinM, kTightestM, wiggle);
   if (!many.Laid) { std::printf("REFUSED %s\n", many.Error.c_str()); }
   CHECK(many.Laid,
         "**AND A LINE THAT TURNS AT EVERY VERTEX STILL LAYS, WHICH IS THE WHOLE POINT.** "
@@ -100,9 +101,19 @@ int main(void) {
 
   ReferenceLine tooShort;
   const std::vector<double> single = {0.0, 0.0};
-  const Fitted refused = Fit(single, kWithinM, tooShort);
+  const Fitted refused = Fit(single, kWithinM, kTightestM, tooShort);
   CHECK(!refused.Laid, "one vertex is not a corridor and says so");
   std::printf("REFUSAL %s\n", refused.Error.c_str());
+
+  ReferenceLine doubled;
+  const std::vector<double> back = {0.0, 0.0, 1000.0, 0.0, 0.0, 5.0};
+  const Fitted cusp = Fit(back, kWithinM, kTightestM, doubled);
+  CHECK(!cusp.Laid && cusp.Undrivable == 1,
+        "**AND A POLYLINE THAT DOUBLES BACK IS A REFUSAL AND NOT A CUSP TO SMOOTH.** A corner "
+        "tighter than the vehicle's own steering lock is not a road: it is a route that turned "
+        "round, and fitting a 0.18 m radius through it would hide the finding inside a corridor "
+        "nobody could drive");
+  std::printf("REFUSAL %s\n", cusp.Error.c_str());
 
   Covers("I.9.11 a corridor is fitted through a polyline it may not leave by more than the data's "
          "own accuracy: the corner radius falls out of that bound, every vertex carries a pair of "

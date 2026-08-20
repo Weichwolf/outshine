@@ -1,5 +1,7 @@
 #include "Wayfinding.h"
 
+#include "Fit.h"
+
 #include <algorithm>
 #include <cmath>
 #include <queue>
@@ -161,7 +163,17 @@ bool Network::Nearest(const Waypoint &to, size_t &node, double &awayM) const {
   return true;
 }
 
-Route Network::Plan(const Waypoint &from, const Waypoint &to) const {
+void Network::Within(const Waypoint &of, double reachM, std::vector<size_t> &nodes) const {
+  nodes.clear();
+  for (size_t which = 0; which < Nodes_.size(); ++which) {
+    if (ApartM(of.LatDeg, of.LonDeg, Nodes_[which].LatDeg, Nodes_[which].LonDeg) <= reachM) {
+      nodes.push_back(which);
+    }
+  }
+}
+
+Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM,
+                    double withinM) const {
   Route out;
   out.StraightM = ApartM(from.LatDeg, from.LonDeg, to.LatDeg, to.LonDeg);
   if (!Woven_) {
@@ -179,14 +191,23 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to) const {
   const double never = 1.0e300;
   std::vector<double> best(Nodes_.size(), never);
   std::vector<size_t> came(Nodes_.size(), Nodes_.size());
+  std::vector<double> cameLengthM(Nodes_.size(), 0.0);
   std::vector<bool> settled(Nodes_.size(), false);
 
   using Step = std::pair<double, size_t>;
   std::priority_queue<Step, std::vector<Step>, std::greater<Step>> open;
-  best[start] = 0.0;
-  open.push(Step{ApartM(Nodes_[start].LatDeg, Nodes_[start].LonDeg, Nodes_[finish].LatDeg,
-                        Nodes_[finish].LonDeg),
-                 start});
+  std::vector<size_t> nearStart;
+  Within(from, startAwayM + kStartReachM, nearStart);
+  if (nearStart.empty()) { nearStart.push_back(start); }
+  out.StartedFrom = nearStart.size();
+  for (const size_t seed : nearStart) {
+    const double awayM = ApartM(from.LatDeg, from.LonDeg, Nodes_[seed].LatDeg, Nodes_[seed].LonDeg);
+    if (awayM >= best[seed]) { continue; }
+    best[seed] = awayM;
+    open.push(Step{awayM + ApartM(Nodes_[seed].LatDeg, Nodes_[seed].LonDeg, Nodes_[finish].LatDeg,
+                                  Nodes_[finish].LonDeg),
+                   seed});
+  }
 
   size_t reached = 0;
   while (!open.empty()) {
@@ -198,12 +219,44 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to) const {
     if (node == finish) { break; }
 
     const Node &here = Nodes_[node];
+    const bool hasBack = came[node] != Nodes_.size();
+    double backEast = 0.0, backNorth = 0.0;
+    if (hasBack) {
+      const Node &was = Nodes_[came[node]];
+      backEast = (here.LonDeg - was.LonDeg) * std::cos(here.LatDeg * 0.017453292519943295);
+      backNorth = here.LatDeg - was.LatDeg;
+    }
     for (size_t which = 0; which < here.EdgeCount; ++which) {
       const Edge &edge = Edges_[here.FirstEdge + which];
+      if (hasBack && edge.LengthM > 0.0) {
+        const Node &next = Nodes_[edge.To];
+        const double onEast =
+            (next.LonDeg - here.LonDeg) * std::cos(here.LatDeg * 0.017453292519943295);
+        const double onNorth = next.LatDeg - here.LatDeg;
+        const double wasLength = std::sqrt(backEast * backEast + backNorth * backNorth);
+        const double onLength = std::sqrt(onEast * onEast + onNorth * onNorth);
+        if (wasLength > 0.0 && onLength > 0.0) {
+          const double turned =
+              (backEast * onEast + backNorth * onNorth) / (wasLength * onLength);
+          const double turnRad = std::acos(turned < -1.0 ? -1.0 : (turned > 1.0 ? 1.0 : turned));
+          const double half = 0.5 * turnRad;
+          if (std::tan(half) > 0.0 && tightestM > 0.0 &&
+              edge.LengthM > 0.0 && std::fabs(turnRad) > 1.0e-9) {
+            const double shorter =
+              edge.LengthM < cameLengthM[node] ? edge.LengthM : cameLengthM[node];
+            const double room = 0.5 * shorter / std::tan(half);
+            if (room < tightestM) {
+              ++out.TurnsRefused;
+              continue;
+            }
+          }
+        }
+      }
       const double through = best[node] + edge.LengthM;
       if (through >= best[edge.To]) { continue; }
       best[edge.To] = through;
       came[edge.To] = node;
+      cameLengthM[edge.To] = edge.LengthM;
       open.push(Step{through + ApartM(Nodes_[edge.To].LatDeg, Nodes_[edge.To].LonDeg,
                                       Nodes_[finish].LatDeg, Nodes_[finish].LonDeg),
                      edge.To});
@@ -226,7 +279,6 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to) const {
       out.Error = "a route of more than " + std::to_string(kMaxRouteLegs) + " legs";
       return out;
     }
-    if (node == start) { break; }
   }
   std::reverse(back.begin(), back.end());
 

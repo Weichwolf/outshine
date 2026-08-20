@@ -70,7 +70,7 @@ LayerIncludes() {
     unit/scenario) printf '%s' "-Isrc/core -Isrc/scenario" ;;
     unit/generators) printf '%s' "-Isrc/core -Isrc/generators" ;;
     unit/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
-    unit/world) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/data -Isrc/world -Isrc/world/tiles" ;;
+    unit/world) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/corridor -Isrc/data -Isrc/world -Isrc/world/tiles" ;;
     unit/render/plan) printf '%s' "-Isrc/core -Isrc/render/plan" ;;
     unit/render/draw) printf '%s' "-Isrc/core -Isrc/render/draw" ;;
     unit/render/stages) printf '%s' "-Isrc/core -Isrc/render/stages" ;;
@@ -85,7 +85,7 @@ LayerIncludes() {
     render/outshine/drive) printf '%s' "-Iinclude -Isrc/corridor -Isrc/physics -Isrc/pilot -Isrc/world" ;;
     render/outshine/scenario) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui -Itest/harness/shared" ;;
     tools/viewer) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui -Itools/viewer/parts" ;;
-    tools/driver) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/data -Isrc/world -Isrc/world/tiles -Itools/host" ;;
+    tools/driver) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/corridor -Isrc/data -Isrc/world -Isrc/world/tiles -Itools/host" ;;
     *) return 1 ;;
   esac
 }
@@ -140,7 +140,7 @@ LayerGroups() {
     unit/scenario) printf '%s' "src/core src/scenario" ;;
     unit/generators) printf '%s' "src/core src/generators" ;;
     unit/generators/draw) printf '%s' "src/core src/generators src/generators/draw" ;;
-    unit/world) printf '%s' "src/world/Wayfinding.cpp" ;;
+    unit/world) printf '%s' "src/corridor src/world/Wayfinding.cpp" ;;
     unit/render/plan) printf '%s' "src/core src/core/io src/render/plan" ;;
     unit/render/draw) printf '%s' "src/core src/core/io src/render/draw" ;;
     unit/render/stages) printf '%s' "" ;;
@@ -148,7 +148,7 @@ LayerGroups() {
     harness/claims) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario | render/outshine/client) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/clients/Engine.cpp src/clients/Scenario.cpp" ;;
     render/outshine/shader) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
-    tools/driver) printf '%s' "src/core src/core/io src/data src/world/tiles src/world" ;;
+    tools/driver) printf '%s' "src/core src/core/io src/corridor src/data src/world/tiles src/world" ;;
     render/outshine/drive) printf '%s' "src/corridor src/physics src/pilot src/world/Wayfinding.cpp" ;;
     *) return 1 ;;
   esac
@@ -194,7 +194,7 @@ GroupIncludes() {
     src/physics) printf '%s' "-Isrc/physics" ;;
     src/pilot) printf '%s' "-Isrc/corridor -Isrc/pilot" ;;
     src/clients/Rigging.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/corridor -Isrc/physics -Isrc/pilot -Isrc/clients" ;;
-    src/world/Wayfinding.cpp) printf '%s' "-Isrc/world" ;;
+    src/world/Wayfinding.cpp) printf '%s' "-Isrc/corridor -Isrc/world" ;;
     src/world/RoadHarvest.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/data -Isrc/world -Isrc/world/tiles" ;;
     src/data) printf '%s' "-Isrc/core -Isrc/data" ;;
     src/world | src/world/tiles) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/data -Isrc/world -Isrc/world/tiles $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;

@@ -9,6 +9,9 @@
 
 namespace outshine {
 
+[[nodiscard]] double CornerRadiusM(double turnRad, double shorterLegM, double withinM);
+
+
 struct Fitted {
   bool Laid = false;
   size_t Vertices = 0;
@@ -19,11 +22,16 @@ struct Fitted {
   double WorstOffsetAtM = 0.0;
   double TightestRadiusM = 0.0;
   double SharpestTurnRad = 0.0;
+  double SharpestTurnAtM = 0.0;
+  size_t TurnsPastRightAngle = 0;
+  size_t TurnsPastHalfCircle = 0;
+  size_t Undrivable = 0;
+  double UndrivableAtM = 0.0;
   std::string Error;
 };
 
 [[nodiscard]] Fitted Fit(const std::vector<double> &eastNorthM, double withinM,
-                         ReferenceLine &into);
+                         double tightestM, ReferenceLine &into);
 
 } // namespace outshine
 

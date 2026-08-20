@@ -8,6 +8,7 @@
 #include "Check.h"
 
 #include "ContentStore.h"
+#include "Fit.h"
 #include "CurlTransport.h"
 #include "DeclaredSources.h"
 #include "GroundMaterials.h"
@@ -169,7 +170,12 @@ int main(void) {
         "for if the endpoints snapped to them; a node 200 km away would give a route that is "
         "shorter than the great circle and still look like a route");
 
-  const Route route = roads.Plan(Waypoint{kMunichLat, kMunichLon}, Waypoint{kHamburgLat, kHamburgLon});
+  const double tightestM = 2.810 / std::tan(0.522804742);
+  Note("the tightest circle the F31 can turn", tightestM, "m");
+  const Route route =
+      roads.Plan(Waypoint{kMunichLat, kMunichLon}, Waypoint{kHamburgLat, kHamburgLon}, tightestM,
+                 quantumM);
+  Note("turns the search refused as too sharp for the car", (double)route.TurnsRefused, "turns");
   if (!route.Found) { std::printf("REFUSED %s\n", route.Error.c_str()); }
   Note("nodes the search settled", (double)route.Reached, "nodes");
   CHECK(route.Found,
@@ -189,6 +195,65 @@ int main(void) {
   CHECK(route.LengthM / 1000.0 > 700.0 && route.LengthM / 1000.0 < 900.0,
         "and its length is what a road between these two cities is -- 612 km as the crow flies and "
         "roughly 775 by motorway, so a route far outside that band went somewhere a car would not");
+
+  const double frameLat = route.Legs.front().At.LatDeg;
+  const double frameLon = route.Legs.front().At.LonDeg;
+  const double perLatM = ApartM(frameLat, frameLon, frameLat + 1.0, frameLon);
+  const double perLonM = ApartM(frameLat, frameLon, frameLat, frameLon + 1.0);
+  std::vector<double> eastNorthM;
+  eastNorthM.reserve(route.Legs.size() * 2);
+  for (const auto &leg : route.Legs) {
+    eastNorthM.push_back((leg.At.LonDeg - frameLon) * perLonM);
+    eastNorthM.push_back((leg.At.LatDeg - frameLat) * perLatM);
+  }
+  Note("metres per degree of latitude in the local frame", perLatM, "m");
+  Note("metres per degree of longitude there", perLonM, "m");
+
+  outshine::ReferenceLine corridor;
+    const outshine::Fitted fitted = Fit(eastNorthM, quantumM, tightestM, corridor);
+  if (!fitted.Laid) { std::printf("REFUSED %s\n", fitted.Error.c_str()); }
+  Note("vertices the route offered", (double)fitted.Vertices, "vertices");
+  Note("corners the fit needed", (double)fitted.Corners, "corners");
+  Note("straights between them", (double)fitted.Straights, "straights");
+  Note("the corridor it laid", fitted.LengthM / 1000.0, "km");
+  Note("the polyline it came from", route.LengthM / 1000.0, "km");
+  Note("the tightest radius on it", fitted.TightestRadiusM, "m");
+  Note("the sharpest turn it carried", fitted.SharpestTurnRad * 180.0 / 3.14159265358979, "deg");
+  Note("at which vertex", fitted.SharpestTurnAtM, "");
+  Note("turns past a right angle", (double)fitted.TurnsPastRightAngle, "of 2480");
+  Note("turns past 135 degrees", (double)fitted.TurnsPastHalfCircle, "of 2480");
+  Note("vertices too sharp for the car to drive at all", (double)fitted.Undrivable, "vertices");
+  Note("how far it leaves a vertex at worst", fitted.WorstOffsetM, "m");
+  Note("where that happens", fitted.WorstOffsetAtM / 1000.0, "km");
+  Note("how far it is allowed to", quantumM, "m");
+
+  if (!fitted.Laid && fitted.Undrivable > 0) {
+    const size_t at = (size_t)fitted.UndrivableAtM;
+    for (size_t which = at > 1 ? at - 1 : 0; which <= at + 1 && which < route.Legs.size(); ++which) {
+      std::printf("AT %zu  %.7f %.7f\n", which, route.Legs[which].At.LatDeg,
+                  route.Legs[which].At.LonDeg);
+    }
+    if (at >= 1 && at + 1 < route.Legs.size()) {
+      std::printf("LEGS in %.2f m  out %.2f m\n",
+                  ApartM(route.Legs[at - 1].At.LatDeg, route.Legs[at - 1].At.LonDeg,
+                         route.Legs[at].At.LatDeg, route.Legs[at].At.LonDeg),
+                  ApartM(route.Legs[at].At.LatDeg, route.Legs[at].At.LonDeg,
+                         route.Legs[at + 1].At.LatDeg, route.Legs[at + 1].At.LonDeg));
+    }
+  }
+  CHECK(fitted.Laid,
+        "**AND THE ROUTE BECOMES A CORRIDOR WITH NO CURVATURE LEAP ANYWHERE ON IT.** 752 km of OSM "
+        "polyline, every interior vertex carrying spiral-arc-spiral, laid by a ReferenceLine that "
+        "REFUSES a leap -- so a step in the lateral force has no spelling on this road");
+  if (!fitted.Laid) { return Report(); }
+  CHECK(fitted.WorstOffsetM <= 1.01 * quantumM,
+        "never leaving a vertex by more than the tile's own coordinate quantisation, which is what "
+        "makes it a reconstruction of the data rather than a road of our own invention");
+  CHECK(fitted.LengthM < route.LengthM,
+        "and shorter than the polyline it was fitted through, because every corner it cut is "
+        "shorter than the corner");
+  Note("the speed the tightest radius allows at 0.95 g",
+       std::sqrt(0.95 * 9.80665 * fitted.TightestRadiusM) * 3.6, "km/h");
 
   fb_stream_close();
 

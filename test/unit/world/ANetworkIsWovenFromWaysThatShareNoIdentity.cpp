@@ -95,7 +95,7 @@ int main(void) {
   const Waypoint corner{lat, lon};
   const Waypoint opposite{lat + (double)(kSide - 1) * kBlockDeg,
                           lon + (double)(kSide - 1) * kBlockDeg};
-  const Route across = grid.Plan(corner, opposite);
+  const Route across = grid.Plan(corner, opposite, 0.0, 10.0);
   if (!across.Found) { std::printf("REFUSED %s\n", across.Error.c_str()); }
   CHECK(across.Found, "and a route is searched from one corner of it to the other");
   if (!across.Found) { return Report(); }
@@ -129,7 +129,7 @@ int main(void) {
   island.Lay(first, 2, 3.5);
   island.Lay(second, 2, 3.5);
   CHECK(island.Weave(error), "two ways that never meet still weave");
-  const Route broken = island.Plan(Waypoint{48.0, 11.0}, Waypoint{49.0, 12.0});
+  const Route broken = island.Plan(Waypoint{48.0, 11.0}, Waypoint{49.0, 12.0}, 0.0, 10.0);
   CHECK(!broken.Found,
         "**AND A NETWORK IN PIECES IS A NAMED REFUSAL AND NOT AN EMPTY ROUTE.** The search says how "
         "many nodes it could reach, so a caller can tell a disconnected network from a search that "

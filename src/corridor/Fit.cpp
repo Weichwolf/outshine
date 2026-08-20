@@ -16,7 +16,18 @@ double Wrapped(double angleRad) {
 
 } // namespace
 
-Fitted Fit(const std::vector<double> &eastNorthM, double withinM, ReferenceLine &into) {
+double CornerRadiusM(double turnRad, double shorterLegM, double withinM) {
+  const double swing = std::fabs(turnRad);
+  const double half = 0.5 * swing;
+  if (half < 1.0e-9 || half >= 0.5 * kTurn * 0.5 || !(withinM > 0.0)) { return 0.0; }
+  const double shiftShare = 1.0 + swing * swing / 96.0;
+  const double byAccuracy = withinM / (shiftShare / std::cos(half) - 1.0);
+  const double byRoom = 0.5 * shorterLegM / (shiftShare * std::tan(half) + 0.25 * swing);
+  return byAccuracy < byRoom ? byAccuracy : byRoom;
+}
+
+Fitted Fit(const std::vector<double> &eastNorthM, double withinM, double tightestM,
+           ReferenceLine &into) {
   Fitted out;
   const size_t points = eastNorthM.size() / 2;
   out.Vertices = points;
@@ -51,15 +62,22 @@ Fitted Fit(const std::vector<double> &eastNorthM, double withinM, ReferenceLine 
     turnRad[vertex] = turn;
     const double half = std::fabs(0.5 * turn);
     if (half < 1.0e-9) { continue; }
-    if (std::fabs(turn) > out.SharpestTurnRad) { out.SharpestTurnRad = std::fabs(turn); }
+    if (std::fabs(turn) > out.SharpestTurnRad) {
+      out.SharpestTurnRad = std::fabs(turn);
+      out.SharpestTurnAtM = (double)vertex;
+    }
+    if (std::fabs(turn) > 0.5 * 3.14159265358979) { ++out.TurnsPastRightAngle; }
+    if (std::fabs(turn) > 0.75 * 3.14159265358979) { ++out.TurnsPastHalfCircle; }
 
     const double shorter = legM[vertex - 1] < legM[vertex] ? legM[vertex - 1] : legM[vertex];
     const double swing = std::fabs(turn);
     const double shiftShare = 1.0 + swing * swing / 96.0;
-    const double byAccuracy = withinM / (shiftShare / std::cos(half) - 1.0);
-    const double byRoom =
-        0.5 * shorter / (shiftShare * std::tan(half) + 0.25 * swing);
-    const double radius = byAccuracy < byRoom ? byAccuracy : byRoom;
+    const double radius = CornerRadiusM(turn, shorter, withinM);
+    if (radius < tightestM) {
+      ++out.Undrivable;
+      if (out.Undrivable == 1) { out.UndrivableAtM = (double)vertex; }
+      continue;
+    }
     if (radius > 0.0) {
       radiusM[vertex] = radius;
       spiralM[vertex] = 0.5 * radius * swing;
@@ -82,22 +100,37 @@ Fitted Fit(const std::vector<double> &eastNorthM, double withinM, ReferenceLine 
 
   std::vector<Segment> along;
   along.reserve(3 * points);
+  std::vector<double> atVertexM(points, 0.0);
+  double laidM = 0.0;
   for (size_t leg = 0; leg + 1 < points; ++leg) {
     const double straightM = legM[leg] - tangentM[leg] - tangentM[leg + 1];
     if (straightM > 1.0e-6) {
       along.push_back(Segment{Curve::Straight, straightM, 0.0, 0.0});
+      laidM += straightM;
       ++out.Straights;
     }
     const size_t vertex = leg + 1;
+    atVertexM[vertex] = laidM + spiralM[vertex] + 0.5 * arcM[vertex];
     if (vertex + 1 >= points || radiusM[vertex] <= 0.0) { continue; }
     const double curvature = (turnRad[vertex] >= 0.0 ? 1.0 : -1.0) / radiusM[vertex];
     along.push_back(Segment{Curve::Spiral, spiralM[vertex], 0.0, curvature});
     along.push_back(Segment{Curve::Arc, arcM[vertex], curvature, curvature});
     along.push_back(Segment{Curve::Spiral, spiralM[vertex], curvature, 0.0});
+    laidM += 2.0 * spiralM[vertex] + arcM[vertex];
     ++out.Corners;
   }
   if (along.empty()) {
     out.Error = "every leg was consumed by its corners, so the fit has no length";
+    return out;
+  }
+
+  if (out.Undrivable > 0) {
+    out.Error = std::to_string(out.Undrivable) +
+                " of these vertices turn too sharply for anything that can only bend to " +
+                std::to_string(tightestM) +
+                " m, the first at index " + std::to_string((long)out.UndrivableAtM) +
+                " -- a corner tighter than the vehicle's own lock is not a road to smooth, it is a "
+                "route that doubles back on itself, and that is a finding about the graph";
     return out;
   }
 
@@ -111,8 +144,9 @@ Fitted Fit(const std::vector<double> &eastNorthM, double withinM, ReferenceLine 
   for (size_t vertex = 0; vertex < points; ++vertex) {
     const double eastM = eastNorthM[2 * vertex];
     const double northM = eastNorthM[2 * vertex + 1];
+    const double windowM = 4.0 * (legM[vertex > 0 ? vertex - 1 : 0] + 1.0);
     double alongM = 0.0;
-    if (!into.Nearest(eastM, northM, 0.5 * out.LengthM, out.LengthM, alongM)) { continue; }
+    if (!into.Nearest(eastM, northM, atVertexM[vertex], windowM, alongM)) { continue; }
     Placed on;
     if (!into.At(alongM, on)) { continue; }
     const double east = eastM - on.EastM;
