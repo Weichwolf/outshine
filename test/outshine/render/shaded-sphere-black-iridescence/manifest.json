@@ -206,5 +206,38 @@
       "derivation": "the projected area of the subject's triangles over the declared raster at the declared camera, recomputed by the runner from the subject's own vertices. It is quoted here because the boundary bound is applied UNDER it: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's apparent size, so a camera that framed the subject smaller would tighten the bound without saying so.",
       "note": "The framing rule of src/gltf/Framing.h fixes the camera, so this number is a consequence of the rule and the subject rather than a choice. The runner refuses a mismatch."
     }
-  }
+  },
+  "reductions": [
+    {
+      "metric": "linear_channels_differing",
+      "because": "THE SUBSTRATE ARGUMENT DOES NOT CARRY THIS CASE, AND THAT IS WHY IT EXISTS. `shaded-sphere-metal-iridescence` reduces this same metric because the extension derives a REAL index from F0 and says outright that its extinction is assumed 0.0 for metals. Here `metallicFactor` is 0.0: the substrate is a dielectric, where that inversion is exact on both sides. **So the residual is the FILM's own, and it is three divergences in how the film is evaluated -- each read at the source on both sides rather than recalled.**\n\n| | `KHR_materials_iridescence` | Cycles |\n|---|---|---|\n| Airy orders | `for (int m = 1; m <= 2; ++m)` | `for (int m = 1; m < 4; m++)`, with the comment *Truncate after m=3, higher differences have barely any impact.* |\n| spectral integration | three Gaussian fits of the CIE observer plus a fourth lobe on X, normalised by `1.0685e-7`, then XYZ to sRGB | a **pre-tabulated** sensitivity, `thin_film_table`, looked up per channel -- no Gaussian fit at all |\n| polarisation | *This approximation allows to eliminate the split into S and P polarization* | split explicitly: `saturatef(0.5f * (R_s + R_p))` |\n\n**OUR SIDE IS THE EXTENSION'S, CONSTANT FOR CONSTANT.** `src/render/stages/IridescenceLobe.h` carries `5.4856e-13 / 4.4201e-13 / 5.2481e-13`, the positions `1.6810e+06 / 1.7953e+06 / 2.2084e+06`, the fourth lobe at `9.7470e-14`, the normalisation `1.0685e-7` and `for (int m = 1; m <= 2; ++m)`. **So the rung above this one is accounted for rather than skipped**: fixing the engine here means implementing Cycles' three choices, which would make this renderer right about the physics and wrong about the format -- the same sentence this case set already records one row up, for the substrate.\n\n**THE PICTURE IS NOT WHAT FAILS, AND THE CAVEAT IS TAKEN FIRST.** `picture_p99_delta_code` is 1 code against a bound of 1, `iou` is 1 and `disagreement_p99_px` is 0 -- the two renders are the same picture. What cannot hold is BIT-EXACTNESS in linear radiance, and that bound is not an unreachable demand: `shaded-sphere-smooth` (metal, smooth) meets it at **0 channels differing of 129 702**, where the BRDF reduces to a mirror and both sides evaluate one model. A 2.9 % median on a film whose colour swings through the whole hue circle is a SMALL disagreement about a LARGE effect, which is the same model at different fidelity -- and the three rows above are what turns that reading from a hope into a citation.",
+      "measured": {
+        "channelsDiffering": {
+          "value": 129702,
+          "unit": "channels",
+          "origin": "measured"
+        },
+        "channelsCompared": {
+          "value": 138402,
+          "unit": "channels",
+          "origin": "measured"
+        },
+        "p50Relative": {
+          "value": 0.028653333,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "p95Relative": {
+          "value": 0.045389304,
+          "unit": "dimensionless",
+          "origin": "measured"
+        },
+        "p99Relative": {
+          "value": 0.047628166,
+          "unit": "dimensionless",
+          "origin": "measured"
+        }
+      }
+    }
+  ]
 }
