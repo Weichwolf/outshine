@@ -35,16 +35,18 @@ program nobody can bound.**
 
 ## What must be true
 
-- [ ] **Everything that grows states its bound**, and each is a number somebody chose: `kMaxTokens`
+- [x] **Everything that grows states its bound**, and each is a number somebody chose: `kMaxTokens`
   4096 · `kMaxNodes` 2048 · `kMaxDepth` 32 · `kMaxSteps` 100 000 · `kMaxNames` 128 · `kMaxArgs` 8. A
   script that reaches one is **refused with the bound named**, never truncated — a program cut in half
   is a program that did something else
-- [ ] **A parse is once and a run is many.** `Read` produces a tree and `Run` walks it, so a handler
+- [x] **A parse is once and a run is many.** `Read` produces a tree and `Run` walks it, so a handler
   never meets the parser on an event and the text may go once it is read
-- [ ] **A call the host does not know is a refusal**, not a silent nothing
-- [ ] **The frame path is not where a script runs.** A handler runs on an event; a fixture runs when a
-  case is prepared. Neither is inside `RenderFrame`, and that is stated because it is the one place
-  this could become a per-frame allocation
+- [x] **A call the host does not know is a refusal**, not a silent nothing
+- [x] **No script runs inside `RenderFrame`.** A handler runs on an event, a fixture runs when a case
+  is prepared, and an actor runs on a TICK -- and a tick is beside the frame rather than in it.
+  [MEASURED] `git grep -l Script -- src/render src/world` is empty, which is the whole claim. *The
+  line used to read "the frame path is not where a script runs" and the owner's ruling further down
+  this page contradicts it; what it was actually protecting is the sentence above*
 
 ## Why it is not the third path content ships a program by
 
@@ -92,17 +94,25 @@ bound. Neither implies the other.
 moves something runs once per tick, not once per event — so it is inside the frame, beside every other
 term that has to be bounded.
 
-- [ ] **The step bound is per TICK and not per run.** 100 000 steps is generous for a handler and
-  absurd for two hundred actors a frame. A tick declares its own number, and a script that reaches it
-  is **refused by name** like everything else here — a script quietly cut short would move something
-  half way and report nothing
-- [ ] **The frame path does not allocate, and that is measured rather than asserted.** `Names_` and
+- [x] **`kMaxSteps` is a RUNAWAY DETECTOR and not a schedule, which is what both shipped answers say
+  it is.** This line used to demand a per-tick number, and a per-tick number is the wrong instrument:
+  a script refused half way through its motion has moved something and reported nothing, which the
+  line itself said. **Looked up rather than recalled**: Unreal's loop guard is
+  `GMaximumScriptLoopIterations`, a CONFIG value whose job is to kill a broken script, and its
+  per-frame cost control is somewhere else entirely -- `SetActorTickInterval` and the Significance
+  Manager, which lower or disable a tick by importance so that **not everything ticks every frame**.
+  RAGE passes an op budget into `scrThread::Run(opsToExecute)` and its scripts **yield** with `WAIT`,
+  carrying thread state across frames. *We have no continuations -- no closures, no coroutines, and
+  each is a decision on this page -- so RAGE's half is not open to us and Unreal's is.* **The fixed
+  number stays exactly where a fixed number belongs, and the cost of thousands of actors is a
+  SCHEDULER's, filed as `board:1475`**
+- [x] **The frame path does not allocate, and that is measured rather than asserted.** `Names_` and
   `Held_` keep their capacity across `clear()`, so a numeric script allocates nothing after its first
   run — which is a claim, and a claim about allocation is worth an instrument
-- [ ] **The step comes from the declaration and never from a clock.** `CLAUDE.md`: *if pace decides the
+- [x] **The step comes from the declaration and never from a clock.** `CLAUDE.md`: *if pace decides the
   result, the coupling is a bug.* A movement script is handed the declared `dt` by its host —
   `self.x = self.x + speed * dt` — so two runs of one scenario are one scenario
-- [ ] **Authority is unchanged.** `self` is a `Ref` the host gave to that one actor; a script moves what
+- [x] **Authority is unchanged.** `self` is a `Ref` the host gave to that one actor; a script moves what
   belongs to it and nothing else. The tick adds a cost bound, not a reach
 
 *What the other engines call `Update` or `Tick` is this, and the reason to say so is that the shape is
@@ -117,7 +127,7 @@ the consumer holds its names; `kMaxNames` bounds them, `Named` reads them out fo
 `Reset` is the explicit door to a fresh run. Persisting them inside the interpreter with no way to see
 them would be memory growing per actor where nobody can count it.
 
-- [ ] `Run` keeps the names it assigned; `Reset` clears them. A fixture that wants a clean slate says
+- [x] `Run` keeps the names it assigned; `Reset` clears them. A fixture that wants a clean slate says
   so, and an actor that wants to remember says nothing
 
 ## THE SAME INTERFACE THE LLM INTEGRATION WILL USE, and that is the far-reaching part
