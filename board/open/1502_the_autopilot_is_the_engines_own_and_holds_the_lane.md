@@ -15,9 +15,11 @@ fastest tier -- and it is the vehicle's counterpart to `steer`: `uses="drive"`.
 - [x] **The speed comes from the CURVATURE and never from a tag.** `v = sqrt(a_lat / k)` at every
       station, capped by the vehicle's top speed, then a forward pass for what the drivetrain can reach
       and a backward pass for what the brakes can shed -- so the car is slow in a tight curve and fast
-      on a straight **because the geometry says so**. `src/core/SpeedProfile.{h,cpp}`
-- [ ] **`drive` steers as well as it paces**: a steering angle from the lane centre, with a look-ahead
-      derived from speed
+      on a straight **because the geometry says so**. `src/corridor/SpeedProfile.{h,cpp}`
+- [x] **`drive` steers as well as it paces**: `src/pilot/` demands a CURVATURE from a chord sighted a
+      look-ahead time ahead, and `Drive()` converts it with atan(L kappa). Proven by
+      `APilotHoldsALineByAimingAtIt.cpp` -- see `board:1516` for why the demand is a curvature and
+      not a steering angle
 - [ ] **It looks AHEAD by a distance derived from speed**, which is what a driver does and what makes a
       clothoid the right transition -- a controller that steers at the point it is standing on
       oscillates
