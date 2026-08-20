@@ -52,6 +52,8 @@ road produce?** That number is the instrument floor, and no defect smaller than 
 - [ ] **The autopilot is the engine's own** and holds a lane on a road that is correct -- `board:1502`
 - [ ] **A route crosses a continent** over a graph that streams -- `board:1503`
 - [ ] **The suite runs seeded routes headless and classifies what it finds** -- `board:1504`
+- [ ] **A railway is the same corridor with far tighter limits** -- `board:1507` -- and **a train
+      cannot steer, which removes a leg of the confound** -- `board:1508`
 - [ ] **The same scenario runs with a window, in first person, at 60 Hz**, and stops where the headless
       run stopped -- because *look at every image produced and report what is seen*
 

@@ -3,7 +3,12 @@ Parent: 1498
 Area: generators
 Tags: scope
 
-**A road is a reference line, and a crack is unspellable**
+**A corridor is a reference line, and a crack is unspellable**
+
+**THIS IS NOT ONLY ABOUT ROADS.** A road, a railway, a canal, a runway, a pipeline, a power line and a
+wall are all the same shape: **a reference line with a cross-section swept along it.** They differ in
+the profile and in the limits -- and a railway's limits are far tighter than a road's, which is why the
+rails are the harder case and the better test.
 
 **Today a road is a strip of triangles from OSM nodes.** Two ways meeting at a node produce two strips
 that agree about a position and about nothing else -- not the tangent, not the curvature, not the
@@ -38,6 +43,8 @@ imply.
 - [ ] **Two tiles that share a road share its reference line**, or the seam returns at every tile
       boundary and this whole item bought nothing
 - [ ] **The reference line is what the ROUTER walks**, so navigation and geometry cannot disagree
+- [ ] **One mechanism carries every corridor**: `highway=*`, `railway=*`, `waterway=*` and the rest
+      differ in their profile and their limits, never in their machinery
 
 ## Comments
 
