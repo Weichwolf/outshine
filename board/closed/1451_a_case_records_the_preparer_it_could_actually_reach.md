@@ -55,8 +55,12 @@ Cycles at these recipes is deterministic across a rebuild of every product.
 - [x] The C++ check computes it the same way, per case, from the case's own path. **It may not read a
   list out of the provenance it is checking**: a digest verified against a list the same file supplies
   is a document agreeing with itself
-- [ ] The rule that made the population wide is kept where it is right: *a named list is a second copy
-  of a fact* — so the narrowing is **derived from the vendor lookup** and never written down as a table
+- [x] The rule that made the population wide is kept where it is right: *a named list is a second copy
+  of a fact* — so the narrowing is **derived from the vendor lookup** and never written down as a table.
+  `SHARED_CODE` is a `glob` over `harness/shared/**/*.py` and `_vendor_code` is a `glob` over the
+  harness `vendor.harness_of` finds POSITIONALLY for the case, with the shared one returning none of
+  its own — two derivations and no list. *This survived `test/` being restructured, which is what a
+  derived rule buys: the harness tree moved under `render/` and the digest followed it with no edit.*
 
 ## A second narrowing the fourth occurrence argues for
 
@@ -77,3 +81,12 @@ The wide population was deliberate and its reason is still good — `board:1196`
 split by vendor moved `fetch.py` and `grown.py` out of one directory and a glob silently stopped
 covering them. **The repair is not to narrow it back by a list**, which is what that round refused; it
 is to derive the same reachability the preparer already derives when it picks a step.
+
+## What proves it
+
+**`test/harness/claims/EveryOracleWasPreparedByThisPreparer.cpp`** recomputes the per-case digest the
+same way `jobs.render_code_digest` does -- shared first in sorted path order, then the vendor harness
+found positionally from the case's own path, also sorted -- and refuses any case whose prepared
+provenance names a different one. It is what caught the restructure: every prepared input went stale
+the moment a path string inside the preparer changed, which is the digest doing exactly its job.
+
