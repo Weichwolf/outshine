@@ -47,10 +47,7 @@ inline void BoundingSphere(const float *verts, uint32_t nverts, int stride, floa
   *rad = (float)std::sqrt(r2);
 }
 
-inline float SseTauPx(void) {
-  static const float tau = []() { const char *e = getenv("FB_TAU"); return e ? (float)atof(e) : 1.0f; }();
-  return tau;
-}
+inline constexpr float kPixelTau = 1.0f;
 
 struct ClusterDag {
   std::vector<float> Verts;
