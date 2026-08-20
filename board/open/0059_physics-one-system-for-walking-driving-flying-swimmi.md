@@ -8,10 +8,18 @@ Tags: perf
 - [ ] A contact representation with its own rungs, selected by distance to the observer rather than by the draw's screen-space error — a body far enough to be one impostor cell still needs a correct standing surface, and the two criteria are not the same
 - [ ] Collision geometry evicted with the tile that owns it, and its bytes in the ledger under their own name
 - [x] Occupancy claimed through a sink, so a proposal and a placement are one type
-- [ ] **A segment or joint fails under load.** Not aerodynamic fidelity — the bar is that the engine can tell whether a leg breaks. A declared body's joints and segments carry a load limit, the solver reports the load, and exceeding it is a **state change on the body**, not a log line: the same declaration that carries a walking human's knee carries an undercarriage leg and a branch. This is what makes a hard landing, a fall and a collision have consequences without a second system to model them
+- [ ] **A segment or joint fails under load.** *Half of this is built and it is the ground half*:
+      `src/physics/Contact.h` carries a travel, a stop and a LIMIT, and a car dropped far enough
+      goes past all three -- 0.603 m on the F31, derived from its six declared numbers and gravity
+      rather than from a rule about crashing (`ACarSettlesAtTheHeightItsContactsDeclare.cpp`). The
+      joints and segments between contacts are not Not aerodynamic fidelity — the bar is that the engine can tell whether a leg breaks. A declared body's joints and segments carry a load limit, the solver reports the load, and exceeding it is a **state change on the body**, not a log line: the same declaration that carries a walking human's knee carries an undercarriage leg and a branch. This is what makes a hard landing, a fall and a collision have consequences without a second system to model them
 - [ ] The failure threshold is declared per material and per section, so it is derived from what the body is made of rather than set per body
-- [ ] Rigid-body state: position, orientation, linear and angular velocity, inertia tensor
-- [ ] Integrator with a fixed timestep and an interpolated render pose
+- [x] Rigid-body state: position, orientation, linear and angular velocity, inertia tensor
+      (`src/physics/Body.h`), proven by `ABodyMovesOnlyByForce.cpp`
+- [ ] Integrator with a fixed timestep and an interpolated render pose. *The fixed-step integrator
+      is built and its error is derived rather than measured -- `Step()`, semi-implicit, with
+      Euler's equations complete enough to produce the tennis racket theorem. The interpolated
+      render pose is not*
 - [ ] Broad phase over the one spatial index, never a second index
 - [ ] Narrow phase: sphere, capsule, box, convex hull, triangle soup (Ericson, ch. 4–5)
 - [ ] Contact manifold generation and persistent contact caching
