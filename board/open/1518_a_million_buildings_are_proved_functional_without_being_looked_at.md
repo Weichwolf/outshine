@@ -117,3 +117,25 @@ Which puts the TIGHT loop somewhere else entirely: the elevation solve and the s
 over a whole region with no vehicle at all, in seconds, and validate against OSM's own tags. That is
 the loop the generator is iterated in. **The fleet is the slow outer loop that says what the tight one
 cannot see.**
+
+### The owner is right that drivability is a very good indicator, and here is the precise form
+
+**It is a SYSTEM signal.** It cannot go green by repairing one subsystem: the elevation solve, the
+junction blend, the gradient limit, the structure reveal, tile continuity and curvature continuity
+must all hold at once. That is exactly what a top-line number should be, and it is very hard to
+satisfy accidentally.
+
+**And the "smooth everything until nothing crashes" objection above only bites if drivability is the
+ONLY signal.** With the tolerance-against-ground-truth check running beside it, smoothing costs
+geometric fidelity immediately, and that local optimum is closed. The two instruments seal each
+other.
+
+**The asymmetry that remains is the useful one: drivability is a STRONG FALSIFIER and a WEAK
+CONFIRMER.** A crash means something is definitely wrong -- high information, and the owner named
+correctly. A clean run means the road is DRIVABLE, not that it is RIGHT: a bridge reconstructed as a
+smooth embankment drives perfectly and is wrong. That is precisely the case held-out tags see and
+driving cannot.
+
+**So: two headline numbers every round, never one.** Kilometres per finding over a stratified
+population, and geometric agreement where ground truth exists. Neither subsumes the other, and quoting
+either alone is the defect this pairing exists to prevent.
