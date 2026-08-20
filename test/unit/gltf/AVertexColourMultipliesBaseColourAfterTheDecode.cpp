@@ -143,7 +143,7 @@ Accessor Spelled(ComponentType component, ElementType element, bool normalized) 
 
 int main() {
   using namespace outshine::Test;
-  Covers("board:1193");
+  Covers("I.26.16 COLOR_0 multiplies the base colour after the decode, so a normalised integer colour arrives as the linear value the format states");
 
   for (const Cell &cell : kCells) {
     const size_t components = std::string(cell.Element) == "VEC4" ? 4u : 3u;

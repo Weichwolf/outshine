@@ -68,7 +68,7 @@ Worn WornUnder(const Document &file, const VariantSelection &variant, Subject &i
 
 int main() {
   using namespace outshine::Test;
-  Covers("board:1188");
+  Covers("I.26.15 KHR_materials_variants: the selected variant is the material a part wears, and an unselected one changes nothing");
 
   Document file;
   CHECK(Reads(kTwoVariants, kMapped, file),

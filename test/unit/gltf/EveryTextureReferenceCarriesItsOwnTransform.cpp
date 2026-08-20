@@ -47,7 +47,7 @@ void CarriesOffsetAndTurn(const TextureRef &reference, double offsetU, double ro
 
 int main() {
   using namespace outshine::Test;
-  Covers("board:1177");
+  Covers("I.26.13 every texture reference carries its own KHR_texture_transform, so two sockets of one material may sample one image differently");
 
   Document five;
   const bool read = Reads(

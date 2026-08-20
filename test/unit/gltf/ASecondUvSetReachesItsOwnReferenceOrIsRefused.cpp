@@ -71,7 +71,7 @@ constexpr double kTolerance = 5.9604644775390625e-08;
 
 int main() {
   using namespace outshine::Test;
-  Covers("board:1182");
+  Covers("I.26.14 a texture reference resolves to the uv set it names, and a set the subject or the engine does not carry is a refusal quoting both the set asked for and what is bound");
 
   Document both;
   CHECK(Reads(true, both), "a primitive declaring TEXCOORD_0 and TEXCOORD_1 is read");

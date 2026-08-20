@@ -22,7 +22,7 @@ void MapsTo(const UvTransform &transform, UvPoint from, double wantU, double wan
 
 int main() {
   using namespace outshine::Test;
-  Covers("board:1177");
+  Covers("I.26.13 KHR_texture_transform composes as translation x rotation x scale, stated once in core and spelled nowhere else");
 
   const UvTransform absent;
   const UvTransform declaredDefaults = UvTransformOf(outshine::UvTransformProperties{});

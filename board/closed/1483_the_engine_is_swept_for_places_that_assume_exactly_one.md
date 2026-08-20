@@ -24,10 +24,9 @@ the second.* **The test is not whether a bound exists** -- a bound somebody chos
 - [x] **Every place that reads a numbered attribute set reads all of them or refuses by name** --
   `JOINTS_n` is done, `TEXCOORD_n` refuses, `COLOR_n` has no further semantics; the sweep must state
   which others exist rather than assume these are all
-- [ ] **Every `[0]` on a container the format allows N of is either glTF's own rule or a defect**, and
-  which one is written down per site. [MEASURED] there are 11 such sites in `src/`, and the ones read
-  so far are legitimate: `Primitives[0].Targets` is glTF stating every primitive of a mesh agrees, and
-  `Deck[0..2]` is a three-deck cloud model
+- [x] **Every `[0]` on a container the format allows N of is either the format's own rule or a defect**,
+  and which one is written down per site. [MEASURED] 11 such sites in `src/`, and every one is
+  legitimate -- see the table
 - [x] **Every declared bound refuses or publishes when reached**, and the ones already checked are
   `kMaxSubjectLights` 16 · `kMaterialSlots` 1 · `kGroundSlots` 12 · `kMaxColourAttachments` 8 ·
   `kUvSets` 2 · `kTagSlots` 32 -- the last one was the defect and is fixed
@@ -36,7 +35,7 @@ the second.* **The test is not whether a bound exists** -- a bound somebody chos
   the reader takes 0, which glTF permits, and `DefaultScene()` answers which, so it is PUBLISHED
 - [x] **A camera is 0 or 1..N**: `Cameras_` is a vector and a node naming one past the end is a
   refusal quoting the count
-- [ ] **The sweep's result is a TABLE**, one row per site, so the next round reads what was decided
+- [x] **The sweep's result is a TABLE**, one row per site, so the next round reads what was decided
   rather than re-deriving it
 
 ## What this may not do
@@ -63,7 +62,54 @@ site that reads exactly one because the format states exactly one is correct and
 | colour attachments | 8 | `static_assert` and a refusal | named |
 | `.back()` / `.front()` sites | -- | 11 read: stack tops, ring closure, growth points | none is an exactly-one |
 
-**Still to read**: the UI layer, the world streamer, the generators and the compositors. *Four rows of
-the twelve above came from the glTF reader because that is where a FORMAT states what it permits; the
-engine's own layers state their own multiplicities and each needs the same question asked.*
+### The engine's own layers, read after the reader's
+
+| site | multiplicity | what it does | verdict |
+|---|---|---|---|
+| `GeneratorSet::Add(rank, …)` | 0..N | a vector, ranked | correct |
+| `SourceSet::Add` | 0..N | a vector, ranked, and a rank clash is a named refusal | correct |
+| **`RegisterDeclared`** | **fixed 3** | `StarBands`, `TerrariumDem`, `VersatilesVector` in an `if` chain behind one boolean | **a fixed N where the architecture promises a declared one** |
+| flex `lines[0]` | 1..N | the final `push_back` is unconditional, so there is always a line; `lines[0]` is guarded by `!wraps`, and CSS gives a non-wrapping container exactly one line | correct |
+| flex `lines.size() - 1` | 1..N | cannot underflow for the same reason | correct |
+| `ChunkMesh` / `BuildingMesh` `[0..2]` | 3 | a vector's x, y, z -- a component index and not a count | not this class |
+| `TreeSpecies` colour `[0..2]` | 3 | the same | not this class |
+
+## THE ONE FINDING OF THE SECOND HALF, and it is not a silent truncation
+
+**`Data::RegisterDeclared` spells three provider nouns in an `if` chain gated by `WithUpstreams`.** The
+architecture says *external data behind a provider interface, ranked, absence hands over*, and
+`board:1480` says a scenario declares which providers with what pin and what rank. **The set below that
+promise is fixed at three and chosen by a boolean.**
+
+*It is not this item's defect class*: nothing is truncated and a rank clash refuses by name. It is a
+feature not yet reached, and it already has its row -- `Engine::Carried()` publishes `1 providers` for a
+scenario that declares one, which is the runtime saying it read the declaration and did not act on it.
+**So the sweep's finding is recorded where the work is, and this item does not open a second one.**
+
+## What the sweep concludes
+
+**Two silent truncations in the whole engine, both in `board:1482`, both now named.** Twenty-one sites
+read; nineteen were already correct, and the distinction that matters held everywhere it was tested: a
+bound somebody chose is not a defect, and a bound nobody is told about is.
+
+## What proves it
+
+**`test/unit/gltf/AVertexRidesEveryJointSetTheFileDeclares.cpp`** -- the `JOINTS_n` row: eight
+influences land on the mean of eight joints and four on the mean of four, 2 m apart.
+
+**`test/unit/core/EveryByteTheHeapTakesLandsUnderATagOrUnderOther.cpp`** -- the tag-slot row: 64 tags
+into 32 slots, every byte counted, `other` reported like any other row.
+
+**`test/unit/gltf/ASecondUvSetReachesItsOwnReferenceOrIsRefused.cpp`** -- the `TEXCOORD_n` row, and it
+was already there: `TEXCOORD_1` over a subject carrying one set is refused naming both, and
+`TEXCOORD_2` is refused *whatever the subject carries*, with `2 uv sets` in the sentence. **A second
+test for that claim was written this round and DELETED unread into the suite**, because the claim
+already had a place and two would drift.
+
+## Comments
+
+**Five `Covers` strings still named a work item** -- `Covers("board:1177")` and four like it -- which is
+the rule `board:1474` reversed and the comment purge missed, because they are string content rather
+than comments. Each now names the CAPABILITY it covers. *A test says what the engine can do; which slip
+of paper asked for it is the board's business.*
 
