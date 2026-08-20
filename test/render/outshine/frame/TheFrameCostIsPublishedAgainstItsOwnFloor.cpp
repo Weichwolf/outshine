@@ -42,7 +42,7 @@ constexpr int kProbes = 8;
 
 constexpr int kRepeats = 5;
 
-enum class Appearance { Flat, Textured };
+enum class Appearance { Flat, Textured, Transmissive };
 
 struct Arm {
   const char *Id;
@@ -66,6 +66,9 @@ constexpr Arm kArms[] = {
 
     {"fill-unlit", "scifi-helmet", "/test-render-khronos-glTF-SciFiHelmet/scene.gltf", 0.25, 0,
      Appearance::Flat},
+
+    {"transmissive", "scifi-helmet", "/test-render-khronos-glTF-SciFiHelmet/scene.gltf", 0.25, 1,
+     Appearance::Transmissive},
 };
 
 constexpr size_t kArmCount = sizeof(kArms) / sizeof(kArms[0]);
@@ -150,6 +153,7 @@ outshine::Clients::Studio StudioOver(const outshine::Gltf::Subject &subject, App
   surface.Row.BaseColour[3] = 1.0f;
   surface.Row.Roughness = 0.5f;
   surface.Row.Metalness = 0.0f;
+  if (skin == Appearance::Transmissive) { surface.Row.Transmission = 1.0f; }
   if (skin == Appearance::Textured) {
     BindSocket(rasters.Colour, surface.Colour);
     BindSocket(rasters.Normal, surface.Normal);
@@ -343,11 +347,38 @@ struct Standing {
   return everyArmStands;
 }
 
+std::shared_ptr<const outshine::Render::RenderPlan> PlanFor(Appearance skin) {
+  outshine::Render::PlanSpec declaration;
+  declaration.Outputs = {outshine::Render::Resource::SceneDepth,
+                         outshine::Render::Resource::FrameTex};
+  declaration.Content = {outshine::Render::Stage::Subjects,
+                         outshine::Render::Stage::TemporalResolve};
+  if (skin == Appearance::Transmissive) {
+    declaration.Content.push_back(outshine::Render::Stage::SubjectsTransmissive);
+  }
+  declaration.Display =
+      outshine::Render::Declared<outshine::Render::Transfer>(outshine::Render::Transfer::Linear);
+  declaration.Exposure = outshine::Render::Declared<float>(1.0f);
+  declaration.Precision = outshine::Render::Declared<outshine::Render::ScenePrecision>(
+      outshine::Render::ScenePrecision::Float);
+  std::shared_ptr<const outshine::Render::RenderPlan> plan;
+  std::string why;
+  if (!outshine::Render::RenderPlan::Compile(declaration, &plan, why)) { return nullptr; }
+  return plan;
+}
+
 void MeasureEveryArm(outshine::Render::Renderer &renderer, const Standing &standing,
                      const BoundRasters &rasters, std::vector<Measured> &measured) {
+  Appearance standing_plan = Appearance::Flat;
   for (int repeat = 0; repeat < kRepeats; ++repeat) {
     for (size_t at = 0; at < kArmCount; ++at) {
       const Arm &arm = kArms[at];
+      const Appearance wanted =
+          arm.Skin == Appearance::Transmissive ? Appearance::Transmissive : Appearance::Flat;
+      if (wanted != standing_plan) {
+        renderer.Init(kFrameWidthPx, kFrameHeightPx, PlanFor(wanted));
+        standing_plan = wanted;
+      }
       Distribution spread;
       double setupMs = 0.0;
       std::string error;
@@ -415,7 +446,10 @@ void PublishEveryArm(const Standing &standing, const std::vector<Measured> &meas
                 "(%ld..%ld over the path) frames=%d repeats=%d p50=%.3f p95=%.3f p99=%.3f "
                 "floor=%.3f ms (%.1f%%) budget=%.1f%%\n",
                 arm.Id, arm.Subject, standing.Subjects[at].TriangleCount(), arm.Scale, arm.Lights,
-                arm.Skin == Appearance::Textured ? "textured" : "flat", result.CoveredPx,
+                arm.Skin == Appearance::Textured ? "textured"
+                    : arm.Skin == Appearance::Transmissive ? "transmissive"
+                                                           : "flat",
+                result.CoveredPx,
                 kFrameWidthPx * kFrameHeightPx, result.LeastCoveredPx, result.MostCoveredPx,
                 kTimedFrames, kRepeats, result.P50Ms(), result.P95Ms(), result.P99Ms(),
                 result.FloorMs(), 100.0 * result.FloorMs() / result.P50Ms(),

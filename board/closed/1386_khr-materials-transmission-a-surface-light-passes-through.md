@@ -23,7 +23,18 @@ this is not an enhancement.
   showed the body split into three refracted faces on the oracle's side and one straight silhouette on
   ours. **The case declares `ior` 1.0 for that reason**, and what it decides is transmission rather than
   which renderer refracts
-- [ ] A stall is worse than a wrong pixel: whatever this costs is priced by the frame suite
+- [x] A stall is worse than a wrong pixel: whatever this costs is priced by the frame suite, and
+  [MEASURED] **it is not separable from the noise at this coverage**. The `transmissive` arm carries the
+  same subject, scale and light as `fill` and declares the transmissive stage; over 240 frames x 5
+  repeats at 542 834 px of 921 600 it reads p50 **2.476 ms** against `fill`'s **2.544**, p99 3.868
+  against 4.186. **The difference is 0.068 ms and the arm's own floor is 1.173 ms**, so the honest
+  statement is that the pass costs nothing this instrument can resolve -- with the floor beside it,
+  because a difference under the floor is a measurement that was not taken rather than a cost that is
+  not there.
+
+  **Each arm compiles its own plan.** Declaring `SubjectsTransmissive` for every arm was the first
+  attempt and it took the opaque arms to `covered=0 px`: the plan is the population, so one plan for
+  six arms would have re-based five archives to measure the sixth
 
 Specification: <https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_transmission>. **Fetched, never recalled** -- a rule quoted from memory is a defect one step before the code.
 
