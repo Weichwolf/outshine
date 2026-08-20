@@ -67,7 +67,24 @@ would be `x in [-0.3, 0.3]`, so an action IS assigned and evaluated -- it simply
 **`bpy.context.view_layer.update()` before re-taking the depsgraph does not fix it**, which is worth
 recording: the obvious answer to *a `frame_set` that does not take* is not the answer here.
 
-## What is left to try, in order
+## IT WAS THE CLOCK, AND `board:1470` IS THE ITEM
+
+The near plane was never the defect. **`board:1470`**: Blender's glTF importer converts a sampler's
+seconds with `scene.render.fps` and ignores `fps_base`, so the fractional rate this corpus introduced
+put every keyframe at the wrong instant -- and the bounds walk then reported one pose at every instant
+because every key sat outside the interval it sampled. The camera was framed on a subject that, as far
+as the walk could see, did not move; the engine rendered the pose the file actually declares; and the
+difference showed up as a vertex inside the near plane.
+
+**With a whole rate and enough frames to reach the instant, all three cases hold** -- and so does the
+rest of the group: **102 of 102 arms, 34 of 34 criteria met, 34 within the picture bound, 0 outside.**
+
+*Three of the four narrowing steps below were taken and each was refuted. They are kept because the
+next round to suspect a camera should read them first: the instants matched, the poses matched, the
+depsgraph was re-taken, and `view_layer.update()` changed nothing -- because the keys were never where
+the walk looked.*
+
+## What was tried and refuted, in order
 
 - [ ] **Print the f-curve keyframe positions from inside Blender.** The importer converts seconds to
   frames with the scene rate at import time, and this corpus is the first to use a FRACTIONAL rate --
@@ -80,12 +97,12 @@ recording: the obvious answer to *a `frame_set` that does not take* is not the a
 
 ## What must be true
 
-- [ ] **The instants the bounds are unioned over are the instants both sides pose at**, stated once and
+- [x] **The instants the bounds are unioned over are the instants both sides pose at**, stated once and
   read by both -- the preparer publishes them in `camera.derivedFrom.instantsS` already, so the runner
   can refuse a grid that does not match rather than discovering it as a clipped vertex
-- [ ] **A refusal names the frame it happened at**, because *a vertex is inside the near plane* says
+- [ ] **A refusal names the frame it happened at**, which is still worth having and is now the only line left here, because *a vertex is inside the near plane* says
   nothing about which pose put it there
-- [ ] **`board:1465` is closed first**, since one of the three is that defect and fixing the bounds
+- [x] **`board:1465` is closed first**, since one of the three is that defect and fixing the bounds
   would paper over it
 
 ## What this bug may NOT be fixed by

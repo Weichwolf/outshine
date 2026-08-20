@@ -12,9 +12,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from prep import blender as blender_module  # noqa: E402
 from prep import jobs, manifest as manifest_module  # noqa: E402
+from prep import vendor  # noqa: E402
 from prep import test262 as test262_module  # noqa: E402
 from prep import wpt as wpt_module  # noqa: E402
-from prep import generator as generator_module  # noqa: E402
 from prep.refusal import Refusal  # noqa: E402
 from prep.store import ContentStore  # noqa: E402
 
@@ -143,6 +143,10 @@ def _generator_cases(arguments):
     for name in ("gen_commit", "gen_root", "gen_pinned_on", "gen_pin_reason"):
         if getattr(arguments, name) is None:
             raise Refusal("generator-cases", expected="--" + name.replace("_", "-"), observed="absent")
+    # THE IMPORTER IS THE VENDOR'S, found the same way its fetch step is: by position under
+    # `test/harness/`, so a corpus that adds one adds a directory and nothing else (board:1469).
+    generator_module = vendor.at(os.path.join(vendor.harness_of(arguments.gen_root), "prepare",
+                                              "import_cases.py"))
     written, groups = [], {}
     for group in generator_module.GROUPS:
         stated = generator_module.says(arguments.gen_commit, group)

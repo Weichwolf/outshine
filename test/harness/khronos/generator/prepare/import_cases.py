@@ -1,5 +1,11 @@
 """The glTF-Asset-Generator's animation groups, derived from the pin rather than chosen (board:1458).
 
+IT SITS BESIDE THE CORPUS IT SERVES AND NOT IN THE SHARED PREPARER (board:1451, board:1469). An importer
+decides what lands on disk for ONE vendor, so it is digested with that vendor and an edit to it cannot
+invalidate anybody else's cases. [MEASURED] while it lived under `prep/` a one-line comment added to it
+put all 1153 cases of the other corpora out of date at once, which is the exact coupling the per-case
+digest was built to remove -- one directory short of removing it.
+
 WHAT THIS PRODUCES IS A DECLARATION AND NOT A PRODUCT. One directory per upstream model, each holding a
 manifest that names the pin, the files and what the model is about -- the same shape the picture corpus
 already uses, so one enumeration reaches the runner and the viewer with nothing new to teach either.
@@ -33,7 +39,7 @@ import struct
 import urllib.parse
 import urllib.request
 
-from .refusal import Refusal
+from prep.refusal import Refusal
 
 RAW = "https://raw.githubusercontent.com/KhronosGroup/glTF-Asset-Generator/"
 TREE = "https://api.github.com/repos/KhronosGroup/glTF-Asset-Generator/git/trees/"
@@ -170,14 +176,33 @@ def _fetched(commit, group, name, payload):
 
 
 def _accessor(document, buffers, index):
-    """One accessor's values, read out of the buffer the file names."""
+    """One accessor's values, read out of the buffer the file names.
+
+    **THE STRIDE IS THE VIEW'S AND NOT THE ELEMENT'S.** A buffer view may interleave, so the step
+    between two elements is `byteStride` where one is declared and the element's own width only where
+    none is -- reading past the end of a strided view is what says so, loudly, and did.
+    """
     accessor = document["accessors"][index]
     view = document["bufferViews"][accessor["bufferView"]]
     payload = buffers[view.get("buffer", 0)]
     start = view.get("byteOffset", 0) + accessor.get("byteOffset", 0)
     wide = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}[accessor["type"]]
-    return [struct.unpack_from("<%df" % wide, payload, start + at * 4 * wide)
-            for at in range(accessor["count"])]
+    # **THE COMPONENT TYPE IS THE FILE'S AND NOT ASSUMED FLOAT.** `Animation_SamplerType` is a whole
+    # group about exactly this: a rotation may arrive as normalized bytes or shorts, and a reader that
+    # unpacked four floats out of a four-BYTE element walked off the end of the buffer -- which is what
+    # said so. The scale is glTF's own for a normalized integer.
+    code, symbol, size, scale = {
+        5120: ("b", "b", 1, 127.0), 5121: ("B", "B", 1, 255.0),
+        5122: ("h", "h", 2, 32767.0), 5123: ("H", "H", 2, 65535.0),
+        5125: ("I", "I", 4, 1.0), 5126: ("f", "f", 4, 1.0),
+    }[accessor["componentType"]]
+    step = view.get("byteStride") or (size * wide)
+    normalized = bool(accessor.get("normalized")) and code != "f"
+    out = []
+    for at in range(accessor["count"]):
+        raw = struct.unpack_from("<%d%s" % (wide, symbol), payload, start + at * step)
+        out.append(tuple(max(value / scale, -1.0) if normalized else float(value) for value in raw))
+    return out
 
 
 def motion_of(document, buffers):
@@ -201,7 +226,13 @@ def motion_of(document, buffers):
     return moves, (max(ends) if ends else 0.0)
 
 
-# THE GRID EVERY CASE IS DECIDED ON, and the rate is read from the corpus rather than assumed.
+# THE GRID EVERY CASE IS DECIDED ON, and it is read from the corpus rather than assumed (board:1466).
+#
+# [MEASURED] the generator keys at 0, 1 and 2 seconds in some models and from 2 to 6 in others, and
+# four do not start at zero at all. A fixed two-frame grid sampled twice inside one step of a STEP
+# curve; the span's END is where a rotation comes back; a fractional rate reaches the middle and the
+# ORACLE'S IMPORTER CANNOT READ ONE (board:1470). What is left is the corpus's own currency: one frame
+# a second, and as many of them as it takes to reach the middle of the keyed span.
 #
 # [MEASURED] the generator keys its animations at **0, 1 and 2 seconds** -- not at one second, which is
 # what this constant first said. At 2 fps the grid was 0 s and 0.5 s, and for a STEP interpolation a
@@ -323,11 +354,13 @@ def case(commit, group, name, files, materials, animates, moves, ends, stated, p
             },
             **({"animation": {
                 "animations": [0],
-                "fps": {"value": (2.0 / ends) if moves and ends > 0.0 else 1.0,
-                        "unit": "frames per second", "origin": "derived",
-                        "derivation": ("2 / " + repr(ends) + " s, so the two-frame grid runs 0 s and "
-                                       + repr(ends / 2.0) + " s -- the MIDDLE of the span this file "
-                                       "keys, not its end." if moves and ends > 0.0 else
+                "fps": {"value": 1, "unit": "frames per second", "origin": "SET",
+                        "derivation": ("one, because the oracle's importer reads a WHOLE rate and a "
+                                       "grid that needs a finer instant asks for more frames instead "
+                                       "(board:1470). At one frame a second the grid runs 0 s, 1 s, "
+                                       "... and reaches " + repr(int(ends // 2)) + " s, which is the "
+                                       "middle of the span this file keys."
+                                       if moves and ends > 0.0 else
                                        "one, because the grid is one frame: this file's channels "
                                        "cannot change the pose, so a rate decides nothing."),
                         "note": "THE RATE IS THE ANIMATION'S OWN AND NOT A CONSTANT. [MEASURED] the "
@@ -339,8 +372,14 @@ def case(commit, group, name, files, materials, animates, moves, ends, stated, p
                                 "an END is where a rotation comes back: `Animation_NodeMisc_01` turns "
                                 "through a full circle between its first and last key, so the two "
                                 "endpoints are one pose and the grid compared it with itself."},
-                "frames": {"value": FRAMES if moves else 1, "unit": "frames", "origin": "derived",
-                           "derivation": ("two, because the file's channels change the pose"
+                "frames": {"value": (int(ends // 2) + 1) if moves and ends > 0.0 else 1,
+                           "unit": "frames", "origin": "derived",
+                           "derivation": ("enough frames at one a second to reach the middle of the "
+                                          "keyed span, which is " + repr(int(ends // 2)) + " s: an "
+                                          "END is where a rotation comes back and a FIXED fraction "
+                                          "of a span lands inside one step of a STEP curve, so the "
+                                          "instant is the span's own middle and the count is what "
+                                          "reaches it"
                                           if moves else
                                           "one, because the file carries an animation whose channels "
                                           "cannot change the pose -- a constant override or a single "

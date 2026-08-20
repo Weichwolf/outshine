@@ -46,18 +46,22 @@ def set_frame_grid(scene, animation, frame):
     keyframe at the frame the factory rate put it at and every product would be the pose of a
     different instant.
 
-    **THE RATE IS THE PAIR AND THE PAIR CARRIES A FRACTION** (board:1458). `fps` is a whole number and
-    `fps_base` divides it, so a declared 0.25 is `1 / 4.0` and not `int(0.25)` -- which is ZERO. The
-    base was pinned to one while every case declared a whole rate; the generator's animation groups key
-    over spans no whole rate can sample inside, and truncating theirs put the ORACLE on one instant and
-    this engine on another. [MEASURED] frame 0 agreed to 0 px and frame 1 disagreed by 24.87 px, on
-    several cases at once, which is the signature of two clocks rather than of a renderer.
+    **`fps_base` IS PINNED TO ONE BECAUSE THE IMPORTER READS `fps` ALONE** (board:1458, board:1470).
+    A rational pair looks like the right way to carry a fractional rate and is not: Blender's glTF
+    importer converts a sampler's seconds with `scene.render.fps` and never divides by the base, so
+    `fps = 1, fps_base = 2.0` places every key at twice its instant.
+    [MEASURED] `AnimatedMorphCube` refused outright -- *the importer's first key at 0.0012839989 and
+    the same key derived from the file is 0.0* -- and the camera walk over a fractional rate reported
+    one pose at every instant, because every key sat outside the interval being sampled.
+    **A GRID THAT NEEDS AN INSTANT A WHOLE RATE CANNOT REACH ASKS FOR MORE FRAMES**, which is the
+    corpus's own currency, and not for a rate the oracle cannot read.
     """
-    declared = float(animation["fps"]["value"])
-    if not declared > 0.0:
-        fail("scene.animation.fps is " + repr(declared) + " and a rate decides what a frame is worth")
-    scene.render.fps = 1
-    scene.render.fps_base = 1.0 / declared
+    declared = animation["fps"]["value"]
+    if int(declared) != declared or int(declared) < 1:
+        fail("scene.animation.fps is " + repr(declared) + " and the oracle's importer reads a whole "
+             "rate; a grid needing a finer instant declares more frames instead")
+    scene.render.fps = int(declared)
+    scene.render.fps_base = 1.0
     scene.frame_start = 0
     scene.frame_end = max(int(animation["frames"]["value"]) - 1, 0)
     scene.frame_set(int(frame))
@@ -2152,10 +2156,11 @@ def main():
         # THE FRAME COUNT IS A DECLARED QUANTITY and carries its unit and origin, so the number is
         # under `value`; a still declares no animation at all.
         # THE INSTANTS THE RULE UNIONS OVER ARE THE CASE'S OWN GRID, IN SECONDS: a still declares one.
-        animation = job["scene"].get("animation", {})
-        grid = animation.get("frames", {})
+        # The name is its own: `animation` above is None for a still and this branch must not shadow it.
+        declaredGrid = job["scene"].get("animation") or {}
+        grid = declaredGrid.get("frames", {})
         count = int(grid.get("value", 1)) if isinstance(grid, dict) else int(grid or 1)
-        rate = animation.get("fps", {})
+        rate = declaredGrid.get("fps", {})
         per_second = float(rate.get("value", 1.0)) if isinstance(rate, dict) else float(rate or 1.0)
         camera = derive_camera(scene, imported, job["scene"]["camera"],
                                [at / per_second for at in range(max(count, 1))])

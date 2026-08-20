@@ -38,7 +38,25 @@ varies** --
 `Target: Translation, Interpolation: Step`. The criterion is therefore READ from upstream rather than
 written here, which is what makes 34 cases a tool's work instead of 34 writing tasks.
 
-## TWO THINGS BLOCK IT AND BOTH WERE FOUND BY TRYING
+## IT IS IN, AND IT IS GREEN
+
+[MEASURED] **102 of 102 arms pass. 34 of 34 criteria met, 34 within the picture bound, 0 outside.**
+Khronos as a whole goes from 147 criteria to 181.
+
+The grid is **one frame a second and as many frames as it takes to reach the middle of the keyed span**
+-- not two frames at a rate, which was tried three ways and refuted three ways (a fixed rate samples
+twice inside one STEP; a span's END is where a rotation comes back; a fractional rate reaches the middle
+and the oracle's importer cannot read one, `board:1470`). A file whose channels cannot change the pose
+declares ONE frame and still declares its animation, because the oracle applies what the file carries
+(`board:1465`).
+
+**Five defects were found by this corpus on the day it arrived**, and three of them were in the harness
+rather than in the engine: `board:1465` posing from the frame count, `board:1469` an importer in the
+shared preparer, `board:1470` the oracle's rate, plus two of my own inside the importer -- an accessor
+reader that assumed float32 where `Animation_SamplerType` declares normalized bytes, and a local that
+shadowed the outer `animation` and crashed every case without one.
+
+## THE TWO THINGS THAT BLOCKED IT, AND BOTH WERE FOUND BY TRYING
 
 **`board:1451` is a real `Depends:` and not a courtesy.** A prepared case records a digest over every
 `.py` under `test/harness/`, so adding a vendor's fetch step invalidates every existing case -- and
@@ -90,13 +108,13 @@ motion is front-loaded. It is one number in a manifest, beside the frame count t
 
 ## What must be true
 
-- [ ] **The generator's output is fetched at a pin like every other upstream**, digest-checked, with the
+- [x] **The generator's output is fetched at a pin like every other upstream**, digest-checked, with the
   fetch cache doing what it already does
-- [ ] **A case declares which two frames it is decided at**, and both are compared on the same terms as
+- [x] **A case declares which two frames it is decided at**, and both are compared on the same terms as
   every other case -- covered pixels to the perceptual tail, disagreed pixels to the geometric bound
-- [ ] **A refusal is named.** A generator case this engine cannot pose is a declared boundary with the
+- [x] **A refusal is named.** A generator case this engine cannot pose is a declared boundary with the
   capability missing beside it, never a case quietly absent from the count
-- [ ] **The count is published beside the existing two**, so *criteria met* and *cases within the picture
+- [x] **The count is published beside the existing two**, so *criteria met* and *cases within the picture
   bound* keep meaning what they mean
 
 ## What this feature may NOT do

@@ -695,9 +695,15 @@ public:
     if (!ReadDeclaredNumber(animation["frames"], "scene.animation.frames", frames, error)) {
       return false;
     }
-    if (!(fps > 0) || !(frames > 1)) {
+    /* **A ONE-FRAME GRID IS A DECLARATION AND NOT A SEQUENCE** (board:1465). This refused fewer than
+     * two frames while `Animated()` decided from the count whether to POSE at all, so one frame meant
+     * a still and a still that named an animation was a contradiction. It is not one now: `Posed()`
+     * reads the declaration, and a file carrying an animation whose channels cannot change the pose --
+     * a single keyframe, an override to a constant -- needs exactly one frame, because the ORACLE
+     * applies what the file carries and two frames would render one pose twice. */
+    if (!(fps > 0) || !(frames >= 1)) {
       error = "scene.animation declares " + std::to_string(frames) + " frames at " +
-              std::to_string(fps) + " fps, and a sequence is at least two frames on a positive grid";
+              std::to_string(fps) + " fps, and a grid is at least one frame on a positive rate";
       return false;
     }
     subject.Fps = fps;

@@ -126,17 +126,17 @@
         0
       ],
       "fps": {
-        "value": 1.0,
+        "value": 1,
         "unit": "frames per second",
-        "origin": "derived",
-        "derivation": "2 / 2.0 s, so the two-frame grid runs 0 s and 1.0 s -- the MIDDLE of the span this file keys, not its end.",
+        "origin": "SET",
+        "derivation": "one, because the oracle's importer reads a WHOLE rate and a grid that needs a finer instant asks for more frames instead (board:1470). At one frame a second the grid runs 0 s, 1 s, ... and reaches 1 s, which is the middle of the span this file keys.",
         "note": "THE RATE IS THE ANIMATION'S OWN AND NOT A CONSTANT. [MEASURED] the generator keys at 0, 1 and 2 seconds in some models and at 2 to 6 in others, and four of them do not start at zero at all -- so a fixed rate sampled two points inside one step of `Animation_Node_03` and never reached the channels of `Animation_NodeMisc_02`.\n\nFRAME 1 LANDS IN THE MIDDLE OF THE SPAN AND NOT AT ITS END, because an END is where a rotation comes back: `Animation_NodeMisc_01` turns through a full circle between its first and last key, so the two endpoints are one pose and the grid compared it with itself."
       },
       "frames": {
         "value": 2,
         "unit": "frames",
         "origin": "derived",
-        "derivation": "two, because the file's channels change the pose",
+        "derivation": "enough frames at one a second to reach the middle of the keyed span, which is 1 s: an END is where a rotation comes back and a FIXED fraction of a span lands inside one step of a STEP curve, so the instant is the span's own middle and the count is what reaches it",
         "note": "Frame 0 and one INSIDE the motion. What a still decides is where every vertex ends up when the pose is applied; Cycles renders are not cached, so a sequence over thirty-four cases would cost three times the whole corpus for one extension."
       }
     }

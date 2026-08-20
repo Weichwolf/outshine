@@ -126,9 +126,9 @@
         0
       ],
       "fps": {
-        "value": 1.0,
+        "value": 1,
         "unit": "frames per second",
-        "origin": "derived",
+        "origin": "SET",
         "derivation": "one, because the grid is one frame: this file's channels cannot change the pose, so a rate decides nothing.",
         "note": "THE RATE IS THE ANIMATION'S OWN AND NOT A CONSTANT. [MEASURED] the generator keys at 0, 1 and 2 seconds in some models and at 2 to 6 in others, and four of them do not start at zero at all -- so a fixed rate sampled two points inside one step of `Animation_Node_03` and never reached the channels of `Animation_NodeMisc_02`.\n\nFRAME 1 LANDS IN THE MIDDLE OF THE SPAN AND NOT AT ITS END, because an END is where a rotation comes back: `Animation_NodeMisc_01` turns through a full circle between its first and last key, so the two endpoints are one pose and the grid compared it with itself."
       },

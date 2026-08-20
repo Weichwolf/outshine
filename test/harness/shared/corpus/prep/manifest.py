@@ -296,11 +296,22 @@ class _Scene:
                               why="one animation named twice drives every node it touches twice, "
                                   "and glTF states no result when two channels target one node's "
                                   "one path")
-        if self.animation is not None and self.animation["frames"]["value"] < 2:
+        # **A ONE-FRAME ANIMATION IS A DECLARATION AND NOT A STILL** (board:1465, board:1469). This
+        # refused `frames < 2` because *one frame of an animation is a still that renders the pose at
+        # t=0 and passes every frame-by-frame comparison* -- which was true while the runner decided
+        # whether to POSE from the frame count. It does not any more: a case that names `animations` is
+        # posed by them at every frame of its grid, including a grid of one.
+        #
+        # AND THE ONE-FRAME GRID IS WHAT SOME FILES NEED. A glTF may carry an animation whose channels
+        # cannot change the pose -- a single keyframe, or an override to a constant -- and the ORACLE
+        # applies what the file carries whatever the manifest says. A case that stayed silent about
+        # such an animation put Blender on the animated pose and this engine on the rest pose, and the
+        # two compared different bodies; declaring it at one frame is what makes them agree. Declaring
+        # it at TWO would render one pose twice, which the runner's sequence check refuses by name.
+        if self.animation is not None and self.animation["frames"]["value"] < 1:
             raise Refusal("manifest.scene.animation.frames",
-                          expected="at least 2", observed=repr(self.animation["frames"]["value"]),
-                          why="one frame of an animation is a still that renders the pose at t=0 "
-                              "and passes every frame-by-frame comparison")
+                          expected="at least 1", observed=repr(self.animation["frames"]["value"]),
+                          why="a grid of no frames renders nothing and decides nothing")
         # THE ONE NUMBER THAT COULD MAKE A DECLARED SUN AN AREA SOURCE, refused here because the sun
         # arm no longer carries a field in which a case could admit the estimator it would get back.
         # The runner refuses the same number when it builds its own light; this refusal is what stops

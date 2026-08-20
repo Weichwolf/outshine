@@ -1061,13 +1061,13 @@
           "array": "index"
         },
         "fps": {
-          "quantity": "number"
+          "quantity": "integer"
         },
         "frames": {
           "quantity": "integer"
         }
       },
-      "note": "THE RATE IS A NUMBER AND THE COUNT IS WHOLE (board:1458). A rate is a physical quantity -- one frame every four seconds is 0.25 fps and is a perfectly ordinary grid over an animation keyed from 2 s to 6 s; the generator's animation groups key over spans that no whole-number rate can place a sample inside, and 23 of its 34 models were refused by an `integer` here before the constraint was questioned. `frames` is a COUNT and stays whole, which is the distinction the two fields were conflated by. WHICH animations, and a place to say WHY. A file may carry several that drive the same node paths -- glTF forbids a repeated target only WITHIN one animation and leaves two animations on one property undefined -- so a case that declares more than one is asking the poser for a result the format does not define. The choice is the case's and the reason for it belongs beside the choice.",
+      "note": "THE RATE IS WHOLE BECAUSE THE ORACLE'S IMPORTER READS IT WHOLE (board:1458, board:1470). A fractional rate is a perfectly sensible declaration and Blender's glTF importer cannot take one: it converts a sampler's seconds with `scene.render.fps` and never divides by `fps_base`, so a rational pair places every key at the wrong instant. A grid that needs an instant a whole rate cannot reach asks for MORE FRAMES, which is this corpus's own currency. WHICH animations, and a place to say WHY. A file may carry several that drive the same node paths -- glTF forbids a repeated target only WITHIN one animation and leaves two animations on one property undefined -- so a case that declares more than one is asking the poser for a result the format does not define. The choice is the case's and the reason for it belongs beside the choice.",
       "optional": {
         "note": "string"
       }
