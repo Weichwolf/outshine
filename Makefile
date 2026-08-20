@@ -56,7 +56,7 @@ INC_PLAN     := -Isrc/core -Isrc/render/plan
 INC_DRAWLIST := -Isrc/core -Isrc/render/draw
 INC_RENDER   := $(INC_CORE) -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages
 INC_SIMHALF  := $(INC_CORE) -Isrc/data -Isrc/scenario -Isrc/world -Isrc/world/tiles -Isrc/generators -Isrc/clients
-INC_CLIENTS  := $(INC_SIMHALF) -Isrc/generators/draw -Isrc/gltf $(INC_RENDER)
+INC_CLIENTS  := -Iinclude -Isrc/ui $(INC_SIMHALF) -Isrc/generators/draw -Isrc/gltf $(INC_RENDER)
 # THE HOST SEAM'S IMPLEMENTATIONS, which a test supplies and the library never names.
 INC_HOST     := -Isrc/core -Isrc/data -Itools/host
 
@@ -78,7 +78,8 @@ SIM_SRCS       := src/clients/Sim.cpp src/clients/LogSinks.cpp src/clients/Strea
   src/clients/EyeTelemetry.cpp src/clients/CsvTelemetry.cpp src/clients/Species.cpp \
   src/clients/RegionForge.cpp
 # THE SETUP CALLS A CONSUMER MAKES over the renderer, and the picture medium a test writes with.
-APP_SRCS       := src/clients/GltfStudio.cpp src/clients/Image.cpp
+APP_SRCS       := src/clients/GltfStudio.cpp src/clients/Image.cpp \
+  src/clients/Surfaces.cpp src/clients/Live.cpp src/clients/Engine.cpp
 HOST_SRCS      := $(wildcard tools/host/*.cpp)
 
 OBJ := build/obj

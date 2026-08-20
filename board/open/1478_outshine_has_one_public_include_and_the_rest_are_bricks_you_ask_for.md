@@ -60,3 +60,48 @@ library with a front end**, and nothing in this tree ever proves the library lin
   archive the `Makefile` produces is ever exercised
 - [ ] **One `-I` and no more**: a consumer names `include/`, and reaching a private header is a
   compile error rather than a convention
+
+## The first slice landed, and the property it had to have is proved
+
+**`include/outshine/Outshine.h` is the whole of what a client sees**, and it is one header: an
+`Engine` handle whose state is a `struct State` declared and never defined in the header, plus the
+value types a client hands it -- `Extent`, `Light`, `Scenario`. **No internal type appears in a
+signature and no internal header is included by it**; it reaches for `<memory>` and `<string>` and
+nothing else.
+
+**A complete client program, compiled with one `-I` and linked against the archive:**
+
+```cpp
+#include <outshine/Outshine.h>
+int main(int argc, char **argv) {
+  outshine::Engine engine;
+  engine.RenderTo({1280, 720});
+  if (!engine.Load(argc > 1 ? argv[1] : "game.scenario")) { return 1; }
+  return engine.Run() ? 0 : 2;
+}
+```
+
+```
+c++ -std=c++20 -Iinclude game.cpp build/liboutshine.a $(pkg-config --libs sdl3) ... -o game
+```
+
+**That is `create -> load -> run -> destroy`**, with RAII doing the last one -- Unreal's
+`PreInit · Init · Tick · Exit` with the exit stage spelled by a destructor.
+
+**The proof is a test layer whose include set is exactly `-Iinclude`.**
+`test/render/outshine/client/` compiles against the public header and NOTHING else, so a client
+reaching an internal name is a compile error rather than a convention. It stands a scenario up from a
+file, runs its declared grid, stands the same scenario up from a value declared in code and gets the
+same frame count, and asks an empty engine to advance -- which refuses by name.
+
+- [x] **One header names the engine** and a consumer that includes it can stand a scenario up
+- [x] **What is public is spelled by WHERE IT SITS**: `include/outshine/` against `src/`
+- [x] **The layering proof survives**: the public tree is one more layer with one more include set, and
+  `test/run.sh` still compiles every other layer with its own
+- [x] **`tools/viewer` links `liboutshine.a`** -- not yet, but the ARCHIVE now carries the public API
+  and a client outside this tree links it today, which is the half that was never proved
+- [ ] **A brick is a second include and the consumer names it.** `Ui.h`, `Script.h`, `Render.h` are
+  still internal names behind `src/`, and the browser is the consumer that will need them
+- [ ] **`tools/viewer` compiles none of `src/`** -- it still does, and until it stops, the archive is
+  exercised by a scratch client rather than by something in the suite
+

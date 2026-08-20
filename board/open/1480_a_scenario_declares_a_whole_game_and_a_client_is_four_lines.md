@@ -57,12 +57,62 @@ measurement without rewriting it.
 - [ ] **Every layer of the table above is optional and its absence is a named default**, never a
       silent one: a scenario that declares no generator gets no generated content and says so
 
+## The class structure, because a struct of eight fields is a studio shot and not a game
+
+**The first cut of the public `Scenario` carried frame, stands, variant, fps, fill, orbit, one key
+light and an ambient colour.** That is the smallest scenario this engine can run and it is what proved
+the four lines; **it cannot express a game and must not be mistaken for one.** What follows is the
+tree, one class per row of the table above:
+
+```
+Scenario
+  Identity      name · version · epoch · decay
+  Layers[]      ORDERED; a later layer overrides an earlier one by id
+  World         origin (lat/lon, or none for a studio) · bounds · clock · weather
+  Providers[]   kind · pin · rank · what absence hands over to
+  Ground        declared tables: class · ring · water · edge distance
+  Generators[]  kind · parameters (the kind's own, opaque to the engine)
+  Compositors[] kind · budget · on
+  Render        outputs · content stages · transfer · exposure · precision · frame
+  Assets[]      uri · digest · kind · variants
+  Placements[]  asset · transform · surface        (the `declared` compositor's)
+  Surfaces[]    document · style · programme · rect · z
+  Actors[]      kind · programme · capabilities · spawn rule · tick rate
+  Physics       the dial: walking · driving · flying · swimming
+  Input         bindings: a device event -> a NAMED ACTION
+  State         what survives a save
+```
+
+**Every one of those is optional and its absence is a named default.** A scenario that declares no
+`Generators` gets no generated content; one that declares no `World` is a studio; one whose whole
+content is a `Surfaces` entry is a game made of a document, which is the Tetris end of the scale.
+
+**The public surface is two headers and not one.** `<outshine/Outshine.h>` is the handle -- create,
+load, run, destroy -- and `<outshine/Scenario.h>` is the declaration a client may build in code. *As
+few as possible and as many as necessary*: a client that only loads a file needs the first.
+
+## The format is XML, and the reason is that a scenario is CONTENT
+
+**The owner's ruling.** RAGE declares its content in XML -- `dlclist.xml`, `setup2.xml`, `content.xml`
+and the `.meta` files beside them -- and a scenario of this size is authored, layered and overridden
+exactly the way those are.
+
+**The corpus manifests stay JSON, and that is not two ways to do one thing.** A manifest is an
+INSTRUMENT's declaration: what a case renders, at what bounces, against which threshold, written by
+whoever is measuring. A scenario is the CONTENT: written by whoever is making the game, layered by
+whoever is modding it. Different authors, different lifetimes, different tools.
+
+- [ ] **An XML reader in `src/core`, bounded like everything else here**: elements, attributes, text,
+      the five entities. No DTD, no namespaces, no external entity -- each refused by name
+- [ ] **The reader is the same shape as `Json`**: parse once into a flat store, a `Ref` that walks it,
+      no allocation per query
+
 ## The API this implies, and the one property it must have
 
-- [ ] **`include/outshine/` is the whole of what a client sees.** No internal header is reachable and
+- [x] **`include/outshine/` is the whole of what a client sees.** No internal header is reachable and
       no internal type appears in a signature -- a handle and value types, the way SDL and GL spell one
-- [ ] **create -> load -> run -> destroy**, which is Unreal's `PreInit · Init · Tick · Exit` with RAII
-      doing the last one
+- [x] **create -> load -> run -> destroy**, which is Unreal's `PreInit · Init · Tick · Exit` with RAII
+      doing the last one -- built, and proved by a test layer that compiles with `-Iinclude` alone
 - [ ] **The client is handed ACTIONS and not keycodes**, because the binding is the scenario's
 - [ ] **Where to render is a declaration too**: a size and a target, so the same scenario runs into a
       window, into an offscreen frame a test reads back, or into a browser's pane
