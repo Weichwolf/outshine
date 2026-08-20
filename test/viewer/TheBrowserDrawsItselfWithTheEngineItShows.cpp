@@ -690,10 +690,28 @@ int Windowed(Browser &browser, int frames) {
       browser.Recount();
       outshine::Clients::Declaration declaration = browser.Declare();
       declaration.Presents = true;
+      /* **A CASE THAT WILL NOT STAND UP IS A DECLINED CASE AND NOT THE END OF THE SESSION.** The
+       * refusal goes in the status line and the browser stands up its own interface instead, so a
+       * reader can read WHY and click the next case. [MEASURED] this loop used to `break` on a null
+       * scenario and the window closed itself after 1127 frames with exit 0 -- a program that ends
+       * where it should report is the one failure a person cannot tell from a crash. */
       if (!outshine::Clients::Live::Open(renderer, std::move(declaration), &browser.Face, live,
                                          error)) {
-        browser.Showing.Note = "DECLINED " + error;
-        live.reset();
+        const std::string refusedBy = error;
+        /* THE REFUSAL GOES TO THE CONSOLE AS WELL AS TO THE STATUS LINE, because a person watching a
+         * window reads one sentence and a person diagnosing reads a list. */
+        std::printf("DECLINED %s: %s\n", browser.Body().c_str(), refusedBy.c_str());
+        outshine::Clients::Declaration bare = browser.Declare();
+        bare.Presents = true;
+        bare.Stands.clear();
+        if (!outshine::Clients::Live::Open(renderer, std::move(bare), &browser.Face, live, error)) {
+          std::printf("the browser could not stand up its own interface: %s\n", error.c_str());
+          return 1;
+        }
+        browser.Showing.Note = "DECLINED " + refusedBy;
+        if (!live->Redeclare(browser.Surfaces(), error)) {
+          browser.Showing.Note = "THE DECLARATION WAS REFUSED";
+        }
       }
       if (live && !SDL_ClaimWindowForGPUDevice(renderer.Device(), window)) {
         std::printf("the window was refused: %s\n", SDL_GetError());

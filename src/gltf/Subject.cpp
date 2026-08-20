@@ -126,7 +126,14 @@ struct BasisKey {
   }
 };
 
-BasisKey KeyOf(const double basis[4]) {
+/* FOUR VALUES AND NOT AN ARRAY, so that the width of the key is spelled at the call. [MEASURED] the
+ * `const double basis[4]` form is a pointer with a bound written on it for decoration: a caller
+ * handed it a `double[3]` and it read a fourth word off the stack, and because the key is a memcmp
+ * over the bits, the split then fragmented at random -- 26 cases died under the sanitiser. A
+ * reference to an array would not bind to the pointer into a flat run below, and casting one there
+ * is the same defect in a costume, so the components are named and a missing one does not compile. */
+BasisKey KeyOf(double x, double y, double z, double w) {
+  const double basis[4] = {x, y, z, w};
   BasisKey key;
   for (size_t at = 0; at < 4; ++at) {
     const double folded = basis[at] == 0.0 ? 0.0 : basis[at];
@@ -326,7 +333,7 @@ bool Subject::BuildTangentsFor(const Document &document, const Primitive &primit
       continue;
     }
     if (std::memcmp(&Tangents_[vertex * 4], basis, 4 * sizeof(double)) == 0) { continue; }
-    BasisKey key = KeyOf(basis);
+    BasisKey key = KeyOf(basis[0], basis[1], basis[2], basis[3]);
     /* The vertex is part of the key, so two vertices that happen to want one basis do not collapse
      * into each other -- they are different points of the surface and only their tangent agrees. */
     key.Bits[0] ^= (uint64_t)vertex * 0x9e3779b97f4a7c15ull;
@@ -369,6 +376,99 @@ bool Subject::BuildTangentsFor(const Document &document, const Primitive &primit
     Indices_[part.FirstIndex + corner] = made;
   }
   part.Tangent = TangentSource::Generated;
+  return true;
+}
+
+/* **THE FLAT NORMAL THE FORMAT REQUIRES WHERE A PRIMITIVE DECLARES NONE** (board:1471).
+ *
+ * glTF 2.0, meshes: *When normals are not specified, client implementations MUST calculate flat
+ * normals and the provided tangents (if present) MUST be ignored.* It is a MUST and this reader did
+ * not meet it -- `Clients::Show` refused a lit scene over such a part instead, deliberately and by
+ * name, so that nothing was drawn black in a scene where everything else is lit. **A game engine has
+ * to display its assets**, and 16 of the 34 models of the generator's two skinning groups declare no
+ * NORMAL at all.
+ *
+ * **FLAT MEANS ONE NORMAL PER TRIANGLE, WHICH MEANS ONE VERTEX PER CORNER.** A shared vertex can hold
+ * exactly one normal, so a primitive that is to be flat-shaded is de-indexed: every corner becomes its
+ * own vertex carrying its own face's normal. That is the same split `BuildTangentsFor` performs for a
+ * tangent basis, without the dedup -- there is nothing to share.
+ *
+ * THE TANGENTS ARE DROPPED AND THE FORMAT SAYS SO. A basis defined against a normal the file did not
+ * declare is a basis about a different surface. */
+bool Subject::FlatNormalsFor(Part &part) {
+  if (part.HasNormal || part.IndexCount == 0) { return true; }
+  const size_t before = VertexCount();
+  Normals_.resize(Positions_.size(), 0.0);
+
+  /* **THE SPLIT IS A FUNCTION OF THE INDEX RUN AND OF NOTHING ELSE** (board:1473). It asks which
+   * corner reached a vertex first and never asks whether two faces happen to agree, because a
+   * coplanarity test reads POSITIONS -- and this runs after the pose is baked, so on a skinned
+   * subject the answer changes with the frame and the vertex COUNT becomes a function of time.
+   * [MEASURED] `Animation_Skin_07` and `Animation_Skin_09` posed 2 frames and carried a different
+   * number of vertices at each; the harness caught it as *the posed subject carries the same
+   * vertices at every frame of the grid*, which is the invariant a static index buffer with a
+   * dynamic vertex stream rests on. A bake decides topology once and a pose writes values into it. */
+  std::vector<char> owned(before, 0);
+  for (size_t triangle = 0; triangle + 2 < part.IndexCount; triangle += 3) {
+    uint32_t of[3] = {Indices_[part.FirstIndex + triangle],
+                      Indices_[part.FirstIndex + triangle + 1],
+                      Indices_[part.FirstIndex + triangle + 2]};
+    for (size_t corner = 0; corner < 3; ++corner) {
+      const uint32_t vertex = of[corner];
+      if (vertex < before && !owned[vertex]) {
+        owned[vertex] = 1;
+        continue;
+      }
+      /* A CORNER THAT ARRIVES SECOND TAKES A COPY, and every array a vertex is addressed by grows
+       * with it. There is no dedup to look the copy up in: a face normal belongs to one triangle. */
+      const uint32_t made = (uint32_t)VertexCount();
+      for (size_t axis = 0; axis < 3; ++axis) {
+        Positions_.push_back(Positions_[(size_t)vertex * 3 + axis]);
+      }
+      Normals_.resize((size_t)made * 3 + 3, 0.0);
+      if (!Uv_.empty()) {
+        Uv_.resize((size_t)made * 2 + 2, 0.0);
+        Uv_[(size_t)made * 2] = Uv_[(size_t)vertex * 2];
+        Uv_[(size_t)made * 2 + 1] = Uv_[(size_t)vertex * 2 + 1];
+      }
+      if (!Uv1_.empty()) {
+        Uv1_.resize((size_t)made * 2 + 2, 0.0);
+        Uv1_[(size_t)made * 2] = Uv1_[(size_t)vertex * 2];
+        Uv1_[(size_t)made * 2 + 1] = Uv1_[(size_t)vertex * 2 + 1];
+      }
+      if (!Colours_.empty()) {
+        Colours_.resize((size_t)made * 4 + 4, 0.0);
+        for (size_t channel = 0; channel < 4; ++channel) {
+          Colours_[(size_t)made * 4 + channel] = Colours_[(size_t)vertex * 4 + channel];
+        }
+      }
+      if (!Tangents_.empty()) { Tangents_.resize((size_t)made * 4 + 4, 0.0); }
+      of[corner] = made;
+      Indices_[part.FirstIndex + triangle + corner] = made;
+    }
+
+    double edge[2][3];
+    for (size_t axis = 0; axis < 3; ++axis) {
+      edge[0][axis] = Positions_[(size_t)of[1] * 3 + axis] - Positions_[(size_t)of[0] * 3 + axis];
+      edge[1][axis] = Positions_[(size_t)of[2] * 3 + axis] - Positions_[(size_t)of[0] * 3 + axis];
+    }
+    double face[3] = {edge[0][1] * edge[1][2] - edge[0][2] * edge[1][1],
+                      edge[0][2] * edge[1][0] - edge[0][0] * edge[1][2],
+                      edge[0][0] * edge[1][1] - edge[0][1] * edge[1][0]};
+    const double length = std::sqrt(face[0] * face[0] + face[1] * face[1] + face[2] * face[2]);
+    /* A DEGENERATE TRIANGLE HAS NO NORMAL AND IS GIVEN THE ZERO ONE RATHER THAN A GUESS: it covers
+     * no pixel, so nothing samples it, and inventing a direction would make it shade something. */
+    if (length > 0.0) {
+      for (size_t axis = 0; axis < 3; ++axis) { face[axis] /= length; }
+    } else {
+      face[0] = face[1] = face[2] = 0.0;
+    }
+    for (size_t corner = 0; corner < 3; ++corner) {
+      for (size_t axis = 0; axis < 3; ++axis) { Normals_[(size_t)of[corner] * 3 + axis] = face[axis]; }
+    }
+  }
+  part.HasNormal = true;
+  part.VertexCount += VertexCount() - before;
   return true;
 }
 
@@ -909,11 +1009,17 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
           Indices_.push_back(base + index);
         }
         part.IndexCount = Indices_.size() - part.FirstIndex;
+        /* **BEFORE THE TANGENT BASIS, BECAUSE THE BASIS IS DEFINED AGAINST A NORMAL** (board:1471).
+         * A primitive that declares none gets the flat one the format requires here, so what follows
+         * sees a part with normals like any other -- and `BuildTangentsFor` refuses a part without
+         * them, which is why the order is load-bearing rather than tidy. */
+        if (!FlatNormalsFor(part)) { return false; }
         if (!BuildTangentsFor(document, primitive, place,
                               Span<const double>(nodeWeights.data(), morphCount), part, vertices)) {
           return false;
         }
         anyTangent = anyTangent || part.HasTangent();
+        anyNormal = anyNormal || part.HasNormal;
         part.VertexCount = VertexCount() - part.FirstVertex;
         /* A primitive that yielded no triangle is not a part: it is a name a per-part declaration
          * would have to answer for while nothing of it is drawn. */

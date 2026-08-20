@@ -352,6 +352,11 @@ private:
   [[nodiscard]] bool BlendSkinFor(const Document &document, const Skin &skin,
                                   const std::vector<Transform> &joints, const Primitive &primitive,
                                   size_t vertices, std::vector<Transform> &out);
+  /* THE FLAT NORMAL glTF REQUIRES WHERE A PRIMITIVE DECLARES NONE (board:1471). It de-indexes the
+   * part -- one vertex per corner -- because flat shading is one normal per TRIANGLE and a shared
+   * vertex can hold one normal. */
+  [[nodiscard]] bool FlatNormalsFor(Part &part);
+
   [[nodiscard]] bool BuildTangentsFor(const Document &document, const Primitive &primitive,
                                       const VertexPlacement &place,
                                        Span<const double> morphWeights, Part &part,

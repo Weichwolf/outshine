@@ -2710,6 +2710,11 @@ struct Motion {
   const std::vector<double> &now = subject.Geometry.PositionsM();
   const std::vector<double> &rest = subject.RestPositions;
   const std::vector<double> &before = subject.PreviousGeometry.PositionsM();
+  /* **THE COUNT, BEFORE THE PICTURE** (board:1473). A pose writes values into a topology a bake
+   * decided; a subject whose vertex count moves with the frame has no static index buffer to draw
+   * with, and every motion number taken over it is about two different meshes. [MEASURED] this is
+   * what caught a flat-normal split that consulted positions after the pose was baked -- it read as
+   * `0 px` of motion, which looks like a still and was a different mesh. */
   if (now.size() != rest.size() || now.empty()) {
     CHECK(false, "the posed subject carries the same vertices at every frame of the grid");
     return Motion{false, 0};

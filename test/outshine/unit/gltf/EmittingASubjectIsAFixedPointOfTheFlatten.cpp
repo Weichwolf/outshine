@@ -253,9 +253,16 @@ int main() {
     CHECK(still.First.Parts()[0].Tangent == TangentSource::Supplied,
           "the supplied tangent basis is the one the file wrote, so its PROVENANCE is what the "
           "round trip has to carry");
-    CHECK(!still.First.Parts()[1].HasNormal && !still.First.Parts()[1].HasUv,
-          "the second part carries POSITION alone, so a writer that stated one attribute set for "
-          "the whole subject would be caught here");
+    /* **THE DISCRIMINATOR IS THE UV SET AND NO LONGER THE NORMAL** (board:1471). This part was
+     * POSITION alone and the claim was that a writer stating one attribute set for the whole subject
+     * would be caught by it. glTF requires a reader to CALCULATE flat normals where a primitive
+     * declares none -- *client implementations MUST calculate flat normals* -- so a part read out of a
+     * file never carries POSITION alone again, and a test asserting it would be asserting against the
+     * format. The uv set is untouched by that rule and catches the same writer. */
+    CHECK(still.First.Parts()[1].HasNormal && !still.First.Parts()[1].HasUv,
+          "the second part carries no uv set while the first does, so a writer that stated one "
+          "attribute set for the whole subject would be caught here -- and it carries the flat "
+          "normal the format requires a reader to calculate");
   }
   std::string differs;
   const bool exact = Same(still.First, still.Second, differs);
