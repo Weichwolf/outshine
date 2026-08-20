@@ -101,12 +101,90 @@ struct Surface {
   int Z = 0;
 };
 
-struct Actor {
-  std::string Kind;
+struct Attribute {
+  std::string Name;
+  std::string Value;
+};
+
+struct Kind {
+  std::string Name;
+  std::string Inherits;
+  std::string Asset;
   std::string Programme;
   std::vector<std::string> Capabilities;
-  std::string Spawn;
+  std::vector<Attribute> Attributes;
   double TickHz = 0.0;
+};
+
+struct Instance {
+  std::string Of;
+  std::string Id;
+  std::string In;
+  double TranslationM[3] = {0.0, 0.0, 0.0};
+  double RotationXyzw[4] = {0.0, 0.0, 0.0, 1.0};
+  std::vector<Attribute> Attributes;
+  std::vector<std::string> Holds;
+};
+
+struct Region {
+  std::string Id;
+  std::string Kind;
+  double OriginM[3] = {0.0, 0.0, 0.0};
+  double RadiusM = 0.0;
+  bool Streams = true;
+  std::vector<std::string> Uses;
+};
+
+struct Door {
+  std::string Id;
+  std::string From;
+  std::string To;
+  double AtM[3] = {0.0, 0.0, 0.0};
+};
+
+struct Volume {
+  std::string Id;
+  std::string In;
+  std::string Shape;
+  double AtM[3] = {0.0, 0.0, 0.0};
+  double ExtentM[3] = {0.0, 0.0, 0.0};
+  std::string Fires;
+  std::string When;
+};
+
+struct Sound {
+  std::string Id;
+  std::string Uri;
+  std::string Bus;
+  bool Positional = false;
+  bool Loops = false;
+  double GainDb = 0.0;
+  double FalloffM = 0.0;
+};
+
+struct Bus {
+  std::string Id;
+  std::string Into;
+  double GainDb = 0.0;
+};
+
+struct Table {
+  std::string Id;
+  std::vector<std::string> Columns;
+  std::vector<std::vector<std::string>> Rows;
+};
+
+struct Event {
+  std::string Name;
+  std::vector<std::string> Carries;
+};
+
+struct View {
+  std::string Id;
+  std::string Follows;
+  double OffsetM[3] = {0.0, 0.0, 0.0};
+  double FovDeg = 0.0;
+  double TimeScale = 1.0;
 };
 
 struct Physics {
@@ -139,7 +217,18 @@ struct Scenario {
   std::vector<Asset> Assets;
   std::vector<Placement> Placements;
   std::vector<Surface> Surfaces;
-  std::vector<Actor> Actors;
+
+  std::vector<Kind> Kinds;
+  std::vector<Instance> Instances;
+  std::vector<Region> Regions;
+  std::vector<Door> Doors;
+  std::vector<Volume> Volumes;
+  std::vector<Sound> Sounds;
+  std::vector<Bus> Buses;
+  std::vector<Table> Tables;
+  std::vector<Event> Events;
+  std::vector<View> Views;
+
   Physics Motion;
   Clock Time;
   std::vector<Binding> Input;

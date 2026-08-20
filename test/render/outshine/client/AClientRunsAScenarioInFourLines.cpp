@@ -57,12 +57,56 @@ std::string WriteScenario(const std::string &stands) {
   <surfaces>
     <surface document="hud.html" style="hud.css" programme="hud.js" heightFrac="0.2" z="1"/>
   </surfaces>
-  <actors>
-    <actor kind="settler" programme="wander.js" spawn="ring" tickHz="4">
+  <kinds>
+    <kind name="settler" asset="body" programme="wander.js" tickHz="4">
       <may do="walk"/>
       <may do="speak"/>
-    </actor>
-  </actors>
+      <has name="health" value="100"/>
+    </kind>
+    <kind name="coffee-cup" asset="cup">
+      <has name="massKg" value="0.2"/>
+      <has name="value" value="1"/>
+    </kind>
+  </kinds>
+  <instances>
+    <instance of="settler" id="mama-murphy" in="sanctuary" x="4" y="0" z="-2">
+      <has name="health" value="60"/>
+      <holds what="coffee-cup"/>
+    </instance>
+  </instances>
+  <regions>
+    <region id="sanctuary" kind="exterior" x="0" y="0" z="0" radiusM="900" streams="true">
+      <uses what="terrain"/>
+    </region>
+    <region id="vault-111" kind="interior" radiusM="60" streams="false"/>
+    <door id="vault-door" from="vault-111" to="sanctuary" x="12" y="0" z="30"/>
+  </regions>
+  <volumes>
+    <volume id="porch" in="sanctuary" shape="box" x="3" y="0" z="-1"
+            extentX="4" extentY="3" extentZ="4" fires="entered-home" when="enter"/>
+  </volumes>
+  <audio>
+    <bus id="master" gainDb="0"/>
+    <bus id="music" into="master" gainDb="-6"/>
+    <sound id="diamond-city-radio" uri="radio.ogg" bus="music" loops="true" gainDb="-3"/>
+    <sound id="footstep" uri="step.ogg" bus="master" positional="true" falloffM="20"/>
+  </audio>
+  <tables>
+    <table id="damage">
+      <column name="weapon"/>
+      <column name="perShot"/>
+      <row><cell value="pipe-pistol"/><cell value="13"/></row>
+      <row><cell value="10mm"/><cell value="18"/></row>
+    </table>
+  </tables>
+  <events>
+    <event name="entered-home"><carries what="who"/></event>
+    <event name="took-damage"><carries what="who"/><carries what="howMuch"/></event>
+  </events>
+  <views>
+    <view id="first-person" follows="player" offsetY="1.7" fovDeg="80"/>
+    <view id="aimed" follows="player" offsetY="1.7" fovDeg="45" timeScale="0.2"/>
+  </views>
   <physics dial="walking"/>
   <clock start="2287-10-23T09:00:00Z" rate="60"/>
   <input>
@@ -118,9 +162,42 @@ int main(void) {
         "a compositor is read with its budget");
   CHECK(read.Surfaces.size() == 1 && read.Surfaces[0].Programme == "hud.js",
         "a surface is read with its document, its style and its programme");
-  CHECK(read.Actors.size() == 1 && read.Actors[0].Capabilities.size() == 2 &&
-            read.Actors[0].TickHz == 4.0,
-        "an actor is read with the capabilities it may reach and the rate it ticks at");
+  CHECK(read.Kinds.size() == 2 && read.Kinds[0].Capabilities.size() == 2 &&
+            read.Kinds[0].TickHz == 4.0 && read.Kinds[0].Attributes.size() == 1,
+        "a KIND is read with what it may do, the rate it ticks at and the attributes it carries -- "
+        "one mechanism for an actor, an item, a door and a container");
+  CHECK(read.Instances.size() == 1 && read.Instances[0].Of == "settler" &&
+            read.Instances[0].In == "sanctuary" && read.Instances[0].Holds.size() == 1,
+        "an INSTANCE names its kind, the region it stands in and what it holds, so an inventory is "
+        "the same relation as a world placement");
+  CHECK(read.Instances[0].Attributes.size() == 1 &&
+            read.Instances[0].Attributes[0].Value == "60",
+        "and it overrides its kind's attribute, which is what makes a kind a default rather than a "
+        "constant");
+  CHECK(read.Regions.size() == 2 && read.Regions[0].Kind == "exterior" &&
+            !read.Regions[1].Streams,
+        "a REGION is read with what it is and whether it streams, which is the difference between "
+        "an open world and an interior");
+  CHECK(read.Doors.size() == 1 && read.Doors[0].From == "vault-111" &&
+            read.Doors[0].To == "sanctuary",
+        "and a DOOR names the two it joins, so a transition is a declaration and not a script");
+  CHECK(read.Volumes.size() == 1 && read.Volumes[0].Fires == "entered-home" &&
+            read.Volumes[0].When == "enter",
+        "a VOLUME fires a named event, which is how a quest stage, a trap and an ambush are all one "
+        "mechanism");
+  CHECK(read.Buses.size() == 2 && read.Buses[1].Into == "master" &&
+            read.Sounds.size() == 2 && read.Sounds[1].Positional,
+        "AUDIO is declared: buses routing into buses, and a sound that is positional or is not");
+  CHECK(read.Tables.size() == 1 && read.Tables[0].Columns.size() == 2 &&
+            read.Tables[0].Rows.size() == 2 && read.Tables[0].Rows[1][1] == "18",
+        "a TABLE is declared data a script reads, so damage, loot and prices are content and never "
+        "a number in the engine");
+  CHECK(read.Events.size() == 2 && read.Events[1].Carries.size() == 2,
+        "an EVENT declares what it carries, so the vocabulary between a volume, a script and a "
+        "surface is written down rather than agreed by habit");
+  CHECK(read.Views.size() == 2 && read.Views[1].TimeScale == 0.2,
+        "a VIEW declares what it follows and the rate time runs at, which is what an aimed shot or "
+        "a slow-motion kill is made of");
   CHECK(read.Motion.Dial == "walking" && read.Time.Rate == 60.0,
         "the physics dial and the clock are read");
   CHECK(read.Input.size() == 1 && read.Input[0].Action == "forward",

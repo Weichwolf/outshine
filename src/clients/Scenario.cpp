@@ -168,20 +168,6 @@ bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &
     into.Surfaces.push_back(made);
   }
 
-  const Xml::Ref actors = root.Child("actors");
-  for (size_t at = 0; at < actors.Count("actor"); ++at) {
-    const Xml::Ref one = actors.At("actor", at);
-    Actor made;
-    made.Kind = one.Attr("kind");
-    made.Programme = one.Attr("programme");
-    made.Spawn = one.Attr("spawn");
-    made.TickHz = one.Num("tickHz", 0.0);
-    for (size_t which = 0; which < one.Count("may"); ++which) {
-      made.Capabilities.push_back(one.At("may", which).Attr("do"));
-    }
-    into.Actors.push_back(made);
-  }
-
   const Xml::Ref physics = root.Child("physics");
   if (physics.Valid()) { into.Motion.Dial = physics.Attr("dial"); }
 
@@ -195,6 +181,147 @@ bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &
   for (size_t at = 0; at < input.Count("bind"); ++at) {
     const Xml::Ref one = input.At("bind", at);
     into.Input.push_back(Binding{one.Attr("event"), one.Attr("action")});
+  }
+
+  const Xml::Ref kinds = root.Child("kinds");
+  for (size_t at = 0; at < kinds.Count("kind"); ++at) {
+    const Xml::Ref one = kinds.At("kind", at);
+    Kind made;
+    made.Name = one.Attr("name");
+    made.Inherits = one.Attr("inherits");
+    made.Asset = one.Attr("asset");
+    made.Programme = one.Attr("programme");
+    made.TickHz = one.Num("tickHz", 0.0);
+    for (size_t which = 0; which < one.Count("may"); ++which) {
+      made.Capabilities.push_back(one.At("may", which).Attr("do"));
+    }
+    for (size_t which = 0; which < one.Count("has"); ++which) {
+      const Xml::Ref attribute = one.At("has", which);
+      made.Attributes.push_back(Attribute{attribute.Attr("name"), attribute.Attr("value")});
+    }
+    into.Kinds.push_back(made);
+  }
+
+  const Xml::Ref instances = root.Child("instances");
+  for (size_t at = 0; at < instances.Count("instance"); ++at) {
+    const Xml::Ref one = instances.At("instance", at);
+    Instance made;
+    made.Of = one.Attr("of");
+    made.Id = one.Attr("id");
+    made.In = one.Attr("in");
+    ReadVector(one, "x", "y", "z", made.TranslationM, 3);
+    ReadVector(one, "qx", "qy", "qz", made.RotationXyzw, 3);
+    made.RotationXyzw[3] = one.Num("qw", 1.0);
+    for (size_t which = 0; which < one.Count("has"); ++which) {
+      const Xml::Ref attribute = one.At("has", which);
+      made.Attributes.push_back(Attribute{attribute.Attr("name"), attribute.Attr("value")});
+    }
+    for (size_t which = 0; which < one.Count("holds"); ++which) {
+      made.Holds.push_back(one.At("holds", which).Attr("what"));
+    }
+    into.Instances.push_back(made);
+  }
+
+  const Xml::Ref regions = root.Child("regions");
+  for (size_t at = 0; at < regions.Count("region"); ++at) {
+    const Xml::Ref one = regions.At("region", at);
+    Region made;
+    made.Id = one.Attr("id");
+    made.Kind = one.Attr("kind");
+    ReadVector(one, "x", "y", "z", made.OriginM, 3);
+    made.RadiusM = one.Num("radiusM", 0.0);
+    made.Streams = one.Flag("streams", true);
+    for (size_t which = 0; which < one.Count("uses"); ++which) {
+      made.Uses.push_back(one.At("uses", which).Attr("what"));
+    }
+    into.Regions.push_back(made);
+  }
+  for (size_t at = 0; at < regions.Count("door"); ++at) {
+    const Xml::Ref one = regions.At("door", at);
+    Door made;
+    made.Id = one.Attr("id");
+    made.From = one.Attr("from");
+    made.To = one.Attr("to");
+    ReadVector(one, "x", "y", "z", made.AtM, 3);
+    into.Doors.push_back(made);
+  }
+
+  const Xml::Ref volumes = root.Child("volumes");
+  for (size_t at = 0; at < volumes.Count("volume"); ++at) {
+    const Xml::Ref one = volumes.At("volume", at);
+    Volume made;
+    made.Id = one.Attr("id");
+    made.In = one.Attr("in");
+    made.Shape = one.Attr("shape", "box");
+    ReadVector(one, "x", "y", "z", made.AtM, 3);
+    made.ExtentM[0] = one.Num("extentX", 0.0);
+    made.ExtentM[1] = one.Num("extentY", 0.0);
+    made.ExtentM[2] = one.Num("extentZ", 0.0);
+    made.Fires = one.Attr("fires");
+    made.When = one.Attr("when", "enter");
+    into.Volumes.push_back(made);
+  }
+
+  const Xml::Ref audio = root.Child("audio");
+  for (size_t at = 0; at < audio.Count("bus"); ++at) {
+    const Xml::Ref one = audio.At("bus", at);
+    into.Buses.push_back(Bus{one.Attr("id"), one.Attr("into"), one.Num("gainDb", 0.0)});
+  }
+  for (size_t at = 0; at < audio.Count("sound"); ++at) {
+    const Xml::Ref one = audio.At("sound", at);
+    Sound made;
+    made.Id = one.Attr("id");
+    made.Uri = one.Attr("uri");
+    made.Bus = one.Attr("bus");
+    made.Positional = one.Flag("positional", false);
+    made.Loops = one.Flag("loops", false);
+    made.GainDb = one.Num("gainDb", 0.0);
+    made.FalloffM = one.Num("falloffM", 0.0);
+    into.Sounds.push_back(made);
+  }
+
+  const Xml::Ref tables = root.Child("tables");
+  for (size_t at = 0; at < tables.Count("table"); ++at) {
+    const Xml::Ref one = tables.At("table", at);
+    Table made;
+    made.Id = one.Attr("id");
+    for (size_t which = 0; which < one.Count("column"); ++which) {
+      made.Columns.push_back(one.At("column", which).Attr("name"));
+    }
+    for (size_t which = 0; which < one.Count("row"); ++which) {
+      const Xml::Ref row = one.At("row", which);
+      std::vector<std::string> cells;
+      for (size_t cell = 0; cell < row.Count("cell"); ++cell) {
+        cells.push_back(row.At("cell", cell).Attr("value"));
+      }
+      made.Rows.push_back(cells);
+    }
+    into.Tables.push_back(made);
+  }
+
+  const Xml::Ref events = root.Child("events");
+  for (size_t at = 0; at < events.Count("event"); ++at) {
+    const Xml::Ref one = events.At("event", at);
+    Event made;
+    made.Name = one.Attr("name");
+    for (size_t which = 0; which < one.Count("carries"); ++which) {
+      made.Carries.push_back(one.At("carries", which).Attr("what"));
+    }
+    into.Events.push_back(made);
+  }
+
+  const Xml::Ref views = root.Child("views");
+  for (size_t at = 0; at < views.Count("view"); ++at) {
+    const Xml::Ref one = views.At("view", at);
+    View made;
+    made.Id = one.Attr("id");
+    made.Follows = one.Attr("follows");
+    made.OffsetM[0] = one.Num("offsetX", 0.0);
+    made.OffsetM[1] = one.Num("offsetY", 0.0);
+    made.OffsetM[2] = one.Num("offsetZ", 0.0);
+    made.FovDeg = one.Num("fovDeg", 0.0);
+    made.TimeScale = one.Num("timeScale", 1.0);
+    into.Views.push_back(made);
   }
 
   const Xml::Ref state = root.Child("state");

@@ -31,7 +31,16 @@ std::vector<std::string> Unacted(const Scenario &scenario) {
   note(scenario.Compositors.size(), "compositors");
   note(scenario.Placements.size(), "placements");
   note(scenario.Surfaces.size(), "surfaces");
-  note(scenario.Actors.size(), "actors");
+  note(scenario.Kinds.size(), "kinds");
+  note(scenario.Instances.size(), "instances");
+  note(scenario.Regions.size(), "regions");
+  note(scenario.Doors.size(), "doors");
+  note(scenario.Volumes.size(), "trigger volumes");
+  note(scenario.Sounds.size(), "sounds");
+  note(scenario.Buses.size(), "audio buses");
+  note(scenario.Tables.size(), "tables");
+  note(scenario.Events.size(), "declared events");
+  note(scenario.Views.size(), "views");
   note(scenario.Input.size(), "input bindings");
   note(scenario.State.size(), "persisted values");
   if (scenario.Ground.Declared) { carried.push_back("a world origin"); }

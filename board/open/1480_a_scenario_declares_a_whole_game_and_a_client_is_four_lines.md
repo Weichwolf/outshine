@@ -68,20 +68,60 @@ tree, one class per row of the table above:
 Scenario
   Identity      name · version · epoch · decay
   Layers[]      ORDERED; a later layer overrides an earlier one by id
-  World         origin (lat/lon, or none for a studio) · bounds · clock · weather
+  World         origin (lat/lon, or none for a studio) · bounds · weather
   Providers[]   kind · pin · rank · what absence hands over to
-  Ground        declared tables: class · ring · water · edge distance
   Generators[]  kind · parameters (the kind's own, opaque to the engine)
   Compositors[] kind · budget · on
   Render        outputs · content stages · transfer · exposure · precision · frame
-  Assets[]      uri · digest · kind · variants
-  Placements[]  asset · transform · surface        (the `declared` compositor's)
+  Lighting      key · environment
+  Assets[]      uri · digest · kind · variant
+  Placements[]  asset · transform          (the `declared` compositor's)
   Surfaces[]    document · style · programme · rect · z
-  Actors[]      kind · programme · capabilities · spawn rule · tick rate
+
+  Kinds[]       name · inherits · asset · programme · capabilities · attributes · tick rate
+  Instances[]   of · id · in · transform · attribute overrides · what it HOLDS
+  Regions[]     id · interior or exterior · origin · radius · streams · what it uses
+  Doors[]       id · from · to · where
+  Volumes[]     id · in · shape · extent · what it FIRES · when
+  Sounds[]      id · uri · bus · positional · loops · gain · falloff
+  Buses[]       id · into · gain
+  Tables[]      id · columns · rows
+  Events[]      name · what it carries
+  Views[]       id · follows · offset · fov · TIME SCALE
+
   Physics       the dial: walking · driving · flying · swimming
-  Input         bindings: a device event -> a NAMED ACTION
-  State         what survives a save
+  Clock         start · rate
+  Input[]       a device event -> a NAMED ACTION
+  State[]       what survives a save
 ```
+
+### Where the six new rows came from, which was playing it rather than listing features
+
+*The owner's exercise: a few hours of Fallout 4, written down as what HAPPENS and then decomposed.*
+
+| what happens | what it needs | the row |
+|---|---|---|
+| wake in the vault, walk out the door | an interior that does not stream, an exterior that does, a transition between | **Regions · Doors** |
+| Codsworth speaks, I choose a reply | a surface, a voice line, a programme on the thing that speaks | Surfaces + **Sounds** + Kinds |
+| pick up a coffee cup, break it for components | a thing with mass and value, held by another thing | **Kinds · Instances** |
+| a raider shoots, I lose health | a number per weapon, a value on an instance, an event | **Tables · Events** |
+| a quest stage completes when I reach the porch | a shape that fires a named event | **Volumes · Events** |
+| the radio plays, footsteps echo, rain | routed mixing and a positional source | **Sounds · Buses** |
+| I aim, time slows | a second camera with its own rate | **Views** |
+| I level up and pick a perk | attributes on an instance, read by a programme, against a table | Kinds · Instances · Tables |
+| I build a wall and wire power | instances placed at run time, holding one another | Kinds · Instances |
+| I save and come back | State |
+
+**THE ENGINE SPELLS NO NOUN OF THAT LIST.** There is no `Quest`, no `Perk`, no `Weapon`, no `Faction`
+and no `Dialogue` in this tree, and there must not be: those are content, and each one above is made of
+**kinds, instances, attributes, volumes, events, tables and surfaces**. *An engine that spelled `Quest`
+would have to be changed to ship a game without quests.*
+
+**One mechanism carries the nouns, which is the shape both references take**: Bethesda's Creation Engine
+is records-and-forms with a base record and instance overrides; Unreal is actors-and-components. Here a
+`Kind` is the default and an `Instance` overrides it -- `mama-murphy` is a `settler` with `health` 60
+where the kind says 100 -- and **what a thing HOLDS is the same relation as where it stands**, so an
+inventory and a world placement are one mechanism rather than two.
 
 **Every one of those is optional and its absence is a named default.** A scenario that declares no
 `Generators` gets no generated content; one that declares no `World` is a studio; one whose whole
