@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <string>
 
@@ -990,7 +991,7 @@ OwnedBuffer SubjectDraw::Fill(SDL_GPUBufferUsageFlags usage, const void *from, u
   return buffer;
 }
 
-bool SubjectDraw::Cross(Crossing *what, size_t count, std::string &error) {
+bool SubjectDraw::Cross(Crossing *what, size_t count, bool deferred, std::string &error) {
   uint32_t total = 0;
   for (size_t at = 0; at < count; ++at) {
     Crossing &one = what[at];
@@ -1016,22 +1017,64 @@ bool SubjectDraw::Cross(Crossing *what, size_t count, std::string &error) {
   }
   if (total == 0) { return true; }
 
-  if (StagingBytes_ < total || !Staging_) {
-    SDL_GPUTransferBufferCreateInfo wanted{};
-    wanted.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-    wanted.size = total;
-    Staging_ = OwnedTransfer(Device, SDL_CreateGPUTransferBuffer(Device, &wanted));
-    if (!Staging_) {
-      StagingBytes_ = 0;
-      error = std::string("the pose's staging buffer found no room on the device: ") + SDL_GetError();
-      return false;
+  if (!deferred) { return Submit(what, count, total, error); }
+  const uint32_t wanted = StagingUsed_ + total;
+  if (StagingBytes_ < wanted || !Staging_[StagingAt_]) {
+    SDL_GPUTransferBufferCreateInfo room{};
+    room.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+    room.size = wanted > StagingBytes_ ? wanted : StagingBytes_;
+    if (wanted > StagingBytes_) { StagingBytes_ = wanted; }
+    for (size_t slot = 0; slot < kStagingRing; ++slot) {
+      Staging_[slot] = OwnedTransfer(Device, SDL_CreateGPUTransferBuffer(Device, &room));
+      if (!Staging_[slot]) {
+        error = std::string("the pose's staging buffer found no room on the device: ") + SDL_GetError();
+        return false;
+      }
     }
-    StagingBytes_ = total;
   }
 
-  auto *const mapped = static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(Device, Staging_.Get(), true));
+  auto *const mapped =
+      static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(Device, Staging_[StagingAt_].Get(), false));
   if (mapped == nullptr) {
     error = std::string("the pose's staging buffer did not map: ") + SDL_GetError();
+    return false;
+  }
+  uint32_t at = StagingUsed_;
+  for (size_t one = 0; one < count; ++one) {
+    if (what[one].Bytes == 0 || what[one].From == nullptr) { continue; }
+    std::memcpy(mapped + at, what[one].From, what[one].Bytes);
+    at = (at + what[one].Bytes + 15u) & ~15u;
+  }
+  SDL_UnmapGPUTransferBuffer(Device, Staging_[StagingAt_].Get());
+
+  at = StagingUsed_;
+  for (size_t one = 0; one < count; ++one) {
+    if (what[one].Bytes == 0 || what[one].From == nullptr) { continue; }
+    if (StagedCount_ >= kStagedCrossings) {
+      error = "a frame stages more runs than the " + std::to_string(kStagedCrossings) +
+              " this subject declares room for";
+      return false;
+    }
+    Staged_[StagedCount_++] =
+        Staged{what[one].Into->Get(), at, what[one].Bytes, Staging_[StagingAt_].Get()};
+    at = (at + what[one].Bytes + 15u) & ~15u;
+  }
+  StagingUsed_ = at;
+  return true;
+}
+
+bool SubjectDraw::Submit(Crossing *what, size_t count, uint32_t total, std::string &error) {
+  SDL_GPUTransferBufferCreateInfo room{};
+  room.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+  room.size = total;
+  OwnedTransfer once(Device, SDL_CreateGPUTransferBuffer(Device, &room));
+  if (!once) {
+    error = std::string("the topology's staging buffer found no room on the device: ") + SDL_GetError();
+    return false;
+  }
+  auto *const mapped = static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(Device, once.Get(), false));
+  if (mapped == nullptr) {
+    error = std::string("the topology's staging buffer did not map: ") + SDL_GetError();
     return false;
   }
   uint32_t at = 0;
@@ -1040,21 +1083,35 @@ bool SubjectDraw::Cross(Crossing *what, size_t count, std::string &error) {
     std::memcpy(mapped + at, what[one].From, what[one].Bytes);
     at = (at + what[one].Bytes + 15u) & ~15u;
   }
-  SDL_UnmapGPUTransferBuffer(Device, Staging_.Get());
+  SDL_UnmapGPUTransferBuffer(Device, once.Get());
 
   SDL_GPUCommandBuffer *const commands = SDL_AcquireGPUCommandBuffer(Device);
   SDL_GPUCopyPass *const copy = SDL_BeginGPUCopyPass(commands);
   at = 0;
   for (size_t one = 0; one < count; ++one) {
     if (what[one].Bytes == 0 || what[one].From == nullptr) { continue; }
-    const SDL_GPUTransferBufferLocation source{Staging_.Get(), at};
+    const SDL_GPUTransferBufferLocation source{once.Get(), at};
     const SDL_GPUBufferRegion into{what[one].Into->Get(), 0, what[one].Bytes};
-    SDL_UploadToGPUBuffer(copy, &source, &into, true);
+    SDL_UploadToGPUBuffer(copy, &source, &into, false);
     at = (at + what[one].Bytes + 15u) & ~15u;
   }
   SDL_EndGPUCopyPass(copy);
   SDL_SubmitGPUCommandBuffer(commands);
   return true;
+}
+
+void SubjectDraw::FlushCrossings(SDL_GPUCommandBuffer *commands) {
+  if (StagedCount_ == 0 || commands == nullptr) { return; }
+  SDL_GPUCopyPass *const copy = SDL_BeginGPUCopyPass(commands);
+  for (size_t at = 0; at < StagedCount_; ++at) {
+    const SDL_GPUTransferBufferLocation source{Staged_[at].Staging, Staged_[at].From};
+    const SDL_GPUBufferRegion into{Staged_[at].Into, 0, Staged_[at].Bytes};
+    SDL_UploadToGPUBuffer(copy, &source, &into, false);
+  }
+  SDL_EndGPUCopyPass(copy);
+  StagedCount_ = 0;
+  StagingUsed_ = 0;
+  StagingAt_ = (StagingAt_ + 1) % kStagingRing;
 }
 
 constexpr bool kChainIsReadable = false;
@@ -1321,7 +1378,7 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
     error = std::string("the subject's index run did not reach the device: ") + SDL_GetError();
     return false;
   }
-  if (!HandStreams(mesh, error)) { return false; }
+  if (!HandStreams(mesh, false, error)) { return false; }
 
   {
     const Heap::Tagged building("mesh-bvh");
@@ -1335,10 +1392,10 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
             " triangles built no visibility structure, so no light could be occluded by them";
     return false;
   }
-  return HandVisibility(error);
+  return HandVisibility(false, error);
 }
 
-bool SubjectDraw::HandStreams(const SubjectPose &pose, std::string &error) {
+bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::string &error) {
   const Heap::Tagged uploading("mesh-upload");
   const uint32_t positionBytes = NVerts * 3u * (uint32_t)sizeof(float);
   const uint32_t pairBytes = NVerts * 2u * (uint32_t)sizeof(float);
@@ -1361,7 +1418,7 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, std::string &error) {
       {&Prev, &Held_[(size_t)Stream::Previous], vertex, WritesVelocity ? previousPose : nullptr,
        WritesVelocity ? positionBytes : 0u},
   };
-  if (!Cross(streams, sizeof streams / sizeof streams[0], error)) {
+  if (!Cross(streams, sizeof streams / sizeof streams[0], deferred, error)) {
     NIdx = 0;
     return false;
   }
@@ -1373,7 +1430,7 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, std::string &error) {
   return true;
 }
 
-bool SubjectDraw::HandVisibility(std::string &error) {
+bool SubjectDraw::HandVisibility(bool deferred, std::string &error) {
   const Heap::Tagged uploading("mesh-upload");
   const auto storage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ;
 
@@ -1383,7 +1440,7 @@ bool SubjectDraw::HandVisibility(std::string &error) {
       {&BvhTris, &Held_[(size_t)Stream::BvhTriangles], storage, Visibility_.Triangles().Data(),
        (uint32_t)Visibility_.Triangles().Bytes()},
   };
-  if (!Cross(structure, sizeof structure / sizeof structure[0], error)) {
+  if (!Cross(structure, sizeof structure / sizeof structure[0], deferred, error)) {
     NIdx = 0;
     return false;
   }
@@ -1422,7 +1479,7 @@ bool SubjectDraw::SetPose(const SubjectPose &pose, std::string &error) {
     Anchor[axis] = pose.Anchor[axis];
     PrevAnchor[axis] = pose.PrevAnchor[axis];
   }
-  if (!HandStreams(pose, error)) { return false; }
+  if (!HandStreams(pose, true, error)) { return false; }
   {
     const Heap::Tagged refitting("mesh-bvh");
     if (!Visibility_.Refit(Span<const float>(pose.Verts, (size_t)NVerts * 3u))) {
@@ -1430,7 +1487,7 @@ bool SubjectDraw::SetPose(const SubjectPose &pose, std::string &error) {
       return false;
     }
   }
-  return HandVisibility(error);
+  return HandVisibility(true, error);
 }
 
 bool SubjectDraw::SetLights(const std::vector<SubjectLight> &lights, std::string &error) {

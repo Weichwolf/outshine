@@ -263,7 +263,49 @@ the determinism check caught the rest, because the picture then depended on the 
 allocation is the copy pass's own command buffer, and removing it is worth 1120 bytes a frame against a
 picture** -- so it is not taken until the staging discipline is right.
 
-- [ ] **The deferred upload lands with the picture intact.** What it must get right: a staging slot per
-  FRAME rather than per `Cross` call, a flush that is guaranteed to run for every staged pose -- an
-  early return in `RenderFrame` strands one -- and the coverage and determinism checks as its guard
+- [x] **The deferred upload lands with the picture intact**, and what it needed was a SPLIT rather than
+  a better ring. See below
+
+## It landed, and the thing that was wrong was the population, not the mechanism
+
+**Two diagnoses were wrong before the measurement gave the right one.** The first guess was the staged
+bound -- `SetMesh` stages ten runs and `SetPose` ten more before the first flush, over a bound of
+sixteen -- so the bound was raised to 32 and the picture stayed empty at 258 samples of 102 480. The
+second was that the flush never ran; a counter said it ran **360 times against 8 stagings**, which
+refuted that too and named the real thing in the same line: `used=139661664`. **139 MB.**
+
+**`ABeautifulGame`'s topology is 139 MB and a ring of three staging slots is 419 MB**, which the device
+refuses -- so `SetMesh` failed, and a subject that never uploaded drew 258 samples. *The ring was
+sized for a pose and asked to carry a topology.*
+
+**So the upload is split by what it IS, which is the shape that was there to be seen from the start:**
+
+| | goes where | how big | how often |
+|---|---|---|---|
+| **topology** -- the index run, the first streams, the built tree | its OWN command buffer, submitted at once | 139 MB on this subject | once, at stand-up |
+| **pose** -- the vertex streams and the refitted tree | staged into a ring of three and drained by the FRAME's command buffer | kilobytes | every advance |
+
+*That is `static index buffer, dynamic vertex stream` spelled in transfers rather than in buffers, and
+it is why a load-time transfer must not ride the frame: the frame is where the small, repeated thing
+belongs.*
+
+[MEASURED] `BoxAnimated`, 500 frames, against the same run before the split:
+
+| | before | after |
+|---|---|---|
+| `mesh-upload` over the run | 585 520 B | **25 520 B** |
+| `mesh-upload` after the settling point | 278 880 B | **0** |
+| `mesh-bvh` after the settling point | 0 | **0** |
+| **posing · submitting · aiming · drawing** | 3 · 245 · 0 · 243 frames of 250 | **0 · 0 · 0 · 0** |
+| pose-matched pairs differing, of 28 | 0 · 4 · 13 over three runs | **1, twice, identically** |
+| pipelined frame p50 / p99 | 5.33 / 6.68 ms | **4.89 / 6.59 ms** |
+| samples carrying ink | 9 213 of 102 480 | **9 213** |
+
+**Every one of the four phases now takes nothing on every frame of the run**, and the metric stopped
+flapping: it read 0, 4 and 13 over three runs before and reads 1 twice after, which is a term that can
+now be chased rather than a distribution that had to be averaged.
+
+- [ ] **The last 256 bytes.** One frame of 249 takes them, deterministically, and they are outside all
+  four phases -- `render-frame` reads 294 816 bytes after the settling point, 1184 a frame, so the term
+  is inside `Renderer::RenderFrame` and outside what `Live` brackets
 

@@ -127,8 +127,8 @@ public:
   [[nodiscard]] bool SetPose(const SubjectPose &pose, std::string &error);
 
 private:
-  [[nodiscard]] bool HandVisibility(std::string &error);
-  [[nodiscard]] bool HandStreams(const SubjectPose &pose, std::string &error);
+  [[nodiscard]] bool HandVisibility(bool deferred, std::string &error);
+  [[nodiscard]] bool HandStreams(const SubjectPose &pose, bool deferred, std::string &error);
 
   TriangleBvh Visibility_;
 
@@ -206,7 +206,13 @@ private:
     uint32_t Bytes = 0;
   };
 
-  [[nodiscard]] bool Cross(Crossing *what, size_t count, std::string &error);
+  [[nodiscard]] bool Cross(Crossing *what, size_t count, bool deferred, std::string &error);
+  [[nodiscard]] bool Submit(Crossing *what, size_t count, uint32_t total, std::string &error);
+
+public:
+  void FlushCrossings(SDL_GPUCommandBuffer *commands);
+
+private:
 
   [[nodiscard]] std::array<float, kLightFloats> PackedLights(const FrameContext &ctx) const;
 
@@ -234,8 +240,20 @@ private:
   };
   std::array<uint32_t, (size_t)Stream::Count> Held_{};
 
-  OwnedTransfer Staging_;
+  static constexpr size_t kStagingRing = 3;
+  std::array<OwnedTransfer, kStagingRing> Staging_{};
   uint32_t StagingBytes_ = 0;
+  uint32_t StagingUsed_ = 0;
+  size_t StagingAt_ = 0;
+  struct Staged {
+    SDL_GPUBuffer *Into = nullptr;
+    uint32_t From = 0;
+    uint32_t Bytes = 0;
+    SDL_GPUTransferBuffer *Staging = nullptr;
+  };
+  static constexpr size_t kStagedCrossings = 32;
+  std::array<Staged, kStagedCrossings> Staged_{};
+  size_t StagedCount_ = 0;
 
   OwnedBuffer BvhNodes, BvhTris;
 

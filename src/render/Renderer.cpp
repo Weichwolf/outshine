@@ -585,6 +585,9 @@ void Renderer::RenderFrame(void) {
   }
   SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device_.Get());
 
+  Subjects_.FlushCrossings(commands);
+  if (DrawsGlass_) { Glass_.FlushCrossings(commands); }
+
   for (size_t pass = 0; pass < Plan_->Passes().size(); ++pass) { EncodePass(commands, pass); }
 
   if (Landed_[LandedAt_] != nullptr) {
