@@ -133,11 +133,15 @@ block and a table from pointer to tag is an allocation on the free path.
   later one takes anything from the allocator at all
 - [ ] **A build that outgrows the arena is a REFUSAL naming the bound**, not a silent fallback to the
   heap -- the RAGE half of the answer, and the half a monotonic resource does not give for free
-- [ ] **`AnEngineInSteadyStateReturnsToTheSameLiveByteCount` goes green**, and it goes green by equality
-  rather than by a tolerance
-- [ ] **The still and animated advance costs are re-measured**, because the arena is expected to move
-  the 0.25 ms between them and a repair whose measurement comes back identical never reached what it
-  was aimed at
+- [x] **`AnEngineInSteadyStateReturnsToTheSameLiveByteCount` goes green**, and it goes green by equality
+  rather than by a tolerance -- and it stopped FLAPPING, which is the half that says the repair reached
+  something: the same declaration read 0 and then 13 differing pairs before, and 0 twice after
+- [x] **The still and animated advance costs are re-measured**, and **the answer is that they did not
+  move**: animated p50 0.1917 / 0.1887 ms before against 0.1827 / 0.1855 after, still 0.1263 / 0.1338
+  against 0.1333 / 0.1269. Two readings each way, and the spread within one arm is wider than the gap
+  between the arms -- **so no timing claim is made here.** Ten device-buffer creations, ten transfer
+  buffers and ten command submissions a frame cost nothing this tree can measure, which is a finding
+  about the driver rather than a null result about the change
 
 ## What this feature may NOT do
 
@@ -151,3 +155,54 @@ costume of the fix.
 21 600 000 frames over a hundred hours, where one byte a frame is 21.6 MB. No run a suite can afford is
 statistical enough to see that, so the instrument compares a pose with itself and the repair has to make
 the difference exactly zero rather than small.
+
+## The persistent buffer landed, and the population had to be pinned before it could be believed
+
+**`SubjectDraw::Cross` replaces `Fill` on the pose path.** `Fill` creates a device buffer, creates a
+transfer buffer, maps it, submits its own command buffer and releases the transfer -- and a pose called
+it TEN times, once per vertex stream plus the two the visibility structure needs. Every one of those
+sizes is a function of `NVerts` and the layout flags, and neither moves between two poses of one
+subject. So the buffer now belongs to the TOPOLOGY and the pose writes it: one staging buffer sized to
+the widest crossing, one copy pass, one submission, and `Held_` comparing an integer instead of
+creating another buffer. **Cycling is what makes it safe without a fence** -- SDL's own rename
+mechanism, bounded by the frames in flight rather than by the frame count.
+
+*This is the same sentence as `board:1473` one layer down: a bake decides topology once and a pose
+writes values into it.*
+
+[MEASURED] the `scenario` suite standalone, twice each way, one variable:
+
+| | before, twice | after, twice |
+|---|---|---|
+| pose-matched pairs differing, of 28 | 0 · **13** | **0 · 0** |
+| **frames after settling whose live bytes moved at all**, of 249 | 10 · 28 | **0 · 0** |
+| bytes taken under `mesh-upload` | 842 032 · 842 032 | **585 520 · 585 520** |
+| worst move inside `submitting` | 768 B | **256 B** |
+| worst move inside `drawing` | 768 B | **256 B** |
+| the suite's verdict | PASS · **FAIL** | PASS · PASS |
+
+**`0 of 249` is this item's own headline number reaching its target**, and the sentence beside it in the
+report -- *a frame path that took nothing would read zero here* -- is what makes it the right one to
+have moved.
+
+**WHAT IS LEFT IS 256 BYTES, TAKEN AND RETURNED INSIDE ONE FRAME.** `submitting` and `drawing` still
+move the heap on 250 frames of 250; the LIVE count never changes, so it is a take-and-return that
+closes within the phase. The three arena lines above are still the shape for it -- *but the tag says it
+is not a build temporary*, so the address has to be found before the arena is built, or it would be an
+arena for a term that is not there.
+
+## Comments
+
+**A STALE LOG WAS READ FOUR TIMES AND ALMOST BECAME A MEASUREMENT.** `./test/run.sh
+scenario/AnEngineInSteadyStateReturnsToTheSameLiveByteCount` names no declared suite -- only a LAYER or
+a render CASE selects, and a unit or scenario `.cpp` is neither -- so `run.sh` refused, ran nothing, and
+left the previous run's log exactly where it was. Four "repeats" were one reading quoted four times,
+and they read as beautifully deterministic. **The tell was the timings**: `p50 0.1793 max 0.2676`
+repeating to four decimals across three runs is not something a wall clock does. `CLAUDE.md` already
+carries the rule -- *read the trailer first* -- and the cost of not doing it was a whole round's
+attribution.
+
+**And the first before-and-after compared two different populations.** The `842 032` bytes came from a
+FULL suite run and the `585 520` from the `scenario` suite alone, so the first reading of this repair
+credited it with a difference that was partly the corpus's absence. The table above is both sides taken
+the same way, which is the only form in which either number means anything.

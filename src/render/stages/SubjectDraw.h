@@ -510,8 +510,25 @@ private:
    * transfer, which is glTF's per-socket rule and never a per-image guess. */
   enum class Transfer { Srgb, Linear };
   [[nodiscard]] BoundImage Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind);
-  /* One vertex or index buffer, filled from host memory through an upload transfer buffer. */
+  /* One vertex or index buffer, filled from host memory through an upload transfer buffer. It
+   * CREATES the buffer, so it is the topology's door and never a pose's -- `Cross` is the pose's. */
   [[nodiscard]] OwnedBuffer Fill(SDL_GPUBufferUsageFlags usage, const void *from, uint32_t bytes);
+
+  /* **ONE RUN OF HOST BYTES ON ITS WAY TO ONE DEVICE BUFFER** (board:1463). `Held` is what that
+   * buffer was last sized for, so a crossing whose byte count is unchanged reuses it and a crossing
+   * that grew replaces it -- and the first is every pose after the first. */
+  struct Crossing {
+    OwnedBuffer *Into = nullptr;
+    uint32_t *Held = nullptr;
+    SDL_GPUBufferUsageFlags Usage = 0;
+    const void *From = nullptr;
+    uint32_t Bytes = 0;
+  };
+  /* **EVERY STREAM OF ONE POSE IN ONE COPY PASS, THROUGH ONE STAGING BUFFER THAT OUTLIVES IT.**
+   * The shape is the shipped one: a persistent device buffer written per frame, never a buffer
+   * created per frame. `SDL_CreateGPUBuffer` ten times a pose, ten transfer buffers and ten command
+   * submissions is what this replaces. */
+  [[nodiscard]] bool Cross(Crossing *what, size_t count, std::string &error);
   /* The light list in the shader's own alphabet, restated camera-relative for this frame. */
   [[nodiscard]] std::array<float, kLightFloats> PackedLights(const FrameContext &ctx) const;
   /* Which of the built pipelines a draw of this layout, kind and facing takes. */
@@ -552,6 +569,18 @@ private:
    * and the fragment's output set are both built from this (board:1121). */
   std::vector<Resource> Colours;
   OwnedBuffer Vtx, Uv, Uv1, Nrm, Tan, Col, Emit, Idx, Prev;
+  /* **WHAT EACH OF THOSE WAS LAST SIZED FOR** (board:1463), in the order the enumeration below
+   * names -- so a pose asks *is this buffer already the right size* with an integer compare rather
+   * than by creating another one. Zero means the buffer is not held, which is what a layout without
+   * that run declares. */
+  enum class Stream : uint8_t {
+    Vertex, Emitted, Normal, Tangent, Uv, Uv1, Colour, Previous, BvhNodes, BvhTriangles, Count
+  };
+  std::array<uint32_t, (size_t)Stream::Count> Held_{};
+  /* THE ONE STAGING BUFFER, sized to the widest pose this subject has crossed and cycled rather
+   * than recreated -- SDL's own mechanism for writing a buffer the device may still be reading. */
+  OwnedTransfer Staging_;
+  uint32_t StagingBytes_ = 0;
   /* THE SUBJECT'S OWN GEOMETRY AS THE VISIBILITY TERM READS IT (`core/TriangleBvh.h`): the
    * acceleration structure's nodes and the triangles its leaves name, in the same anchor-relative
    * metres `Vtx` holds. They are built at `SetMesh` and not per frame, because nothing in them

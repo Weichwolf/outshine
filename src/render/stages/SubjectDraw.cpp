@@ -1395,6 +1395,95 @@ OwnedBuffer SubjectDraw::Fill(SDL_GPUBufferUsageFlags usage, const void *from, u
   return buffer;
 }
 
+/* **EVERY STREAM OF ONE POSE, IN ONE COPY PASS, INTO BUFFERS THE TOPOLOGY ALREADY OWNS**
+ * (board:1463).
+ *
+ * WHAT THIS REPLACES IS NOT ARITHMETIC, IT IS TEN DRIVER OBJECTS A FRAME. `Fill` creates a device
+ * buffer, creates a transfer buffer, maps it, submits its own command buffer and releases the
+ * transfer -- and a pose called it ten times, so an animated subject took and returned roughly
+ * 1.7 kB of allocator memory and ten command submissions on every advance while nothing about its
+ * SIZES had changed. [MEASURED] `submitting` moved the heap on 245 frames of 250 and `drawing` on
+ * 243, netting only 4 pose-matched pairs a lap apart: a take-and-return pair straddling the
+ * boundary, which is exactly what a per-frame creation looks like from the allocator's side.
+ *
+ * THE SHAPE IS THE SHIPPED ONE AND NOT AN INVENTION. A static index buffer with dynamic vertex
+ * streams is what every engine that animates a mesh does; the buffer belongs to the topology and
+ * the pose WRITES it. Here the sizes are a function of `NVerts` and the layout flags, neither of
+ * which moves between two poses of one subject, so `Held_` compares an integer and the buffer
+ * survives.
+ *
+ * CYCLING IS WHY THIS IS SAFE WITHOUT A FENCE. The device may still be reading last frame's
+ * contents, so both the map and the upload cycle -- SDL's own rename mechanism, bounded by the
+ * frames in flight rather than by the frame count, which is what makes the steady state take
+ * nothing at all. */
+bool SubjectDraw::Cross(Crossing *what, size_t count, std::string &error) {
+  uint32_t total = 0;
+  for (size_t at = 0; at < count; ++at) {
+    Crossing &one = what[at];
+    if (one.Bytes == 0 || one.From == nullptr) {
+      one.Into->Reset();
+      *one.Held = 0;
+      continue;
+    }
+    if (*one.Held != one.Bytes || !*one.Into) {
+      SDL_GPUBufferCreateInfo wanted{};
+      wanted.usage = one.Usage;
+      wanted.size = one.Bytes;
+      *one.Into = OwnedBuffer(Device, SDL_CreateGPUBuffer(Device, &wanted));
+      if (!*one.Into) {
+        *one.Held = 0;
+        error = std::string("a vertex stream found no room on the device: ") + SDL_GetError();
+        return false;
+      }
+      *one.Held = one.Bytes;
+    }
+    /* SIXTEEN, because a transfer offset is read by the copy engine and an unaligned one is a
+     * portability question nobody should have to answer per backend. */
+    total = (total + one.Bytes + 15u) & ~15u;
+  }
+  if (total == 0) { return true; }
+
+  if (StagingBytes_ < total || !Staging_) {
+    SDL_GPUTransferBufferCreateInfo wanted{};
+    wanted.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+    wanted.size = total;
+    Staging_ = OwnedTransfer(Device, SDL_CreateGPUTransferBuffer(Device, &wanted));
+    if (!Staging_) {
+      StagingBytes_ = 0;
+      error = std::string("the pose's staging buffer found no room on the device: ") + SDL_GetError();
+      return false;
+    }
+    StagingBytes_ = total;
+  }
+
+  auto *const mapped = static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(Device, Staging_.Get(), true));
+  if (mapped == nullptr) {
+    error = std::string("the pose's staging buffer did not map: ") + SDL_GetError();
+    return false;
+  }
+  uint32_t at = 0;
+  for (size_t one = 0; one < count; ++one) {
+    if (what[one].Bytes == 0 || what[one].From == nullptr) { continue; }
+    std::memcpy(mapped + at, what[one].From, what[one].Bytes);
+    at = (at + what[one].Bytes + 15u) & ~15u;
+  }
+  SDL_UnmapGPUTransferBuffer(Device, Staging_.Get());
+
+  SDL_GPUCommandBuffer *const commands = SDL_AcquireGPUCommandBuffer(Device);
+  SDL_GPUCopyPass *const copy = SDL_BeginGPUCopyPass(commands);
+  at = 0;
+  for (size_t one = 0; one < count; ++one) {
+    if (what[one].Bytes == 0 || what[one].From == nullptr) { continue; }
+    const SDL_GPUTransferBufferLocation source{Staging_.Get(), at};
+    const SDL_GPUBufferRegion into{what[one].Into->Get(), 0, what[one].Bytes};
+    SDL_UploadToGPUBuffer(copy, &source, &into, true);
+    at = (at + what[one].Bytes + 15u) & ~15u;
+  }
+  SDL_EndGPUCopyPass(copy);
+  SDL_SubmitGPUCommandBuffer(commands);
+  return true;
+}
+
 /* ONE IMAGE ON THE DEVICE, IN LINEAR f32. One texel of white where the surface declares none, so
  * every slot's binding is complete -- it is never a stand-in for a missing texture, because the
  * pipeline that draws a surface declaring none does not sample it, and white is the multiplicative
@@ -1804,22 +1893,31 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
 bool SubjectDraw::HandStreams(const SubjectPose &pose, std::string &error) {
   const Heap::Tagged uploading("mesh-upload");
   const uint32_t positionBytes = NVerts * 3u * (uint32_t)sizeof(float);
-  Vtx = Fill(SDL_GPU_BUFFERUSAGE_VERTEX, pose.Verts, positionBytes);
-  Emit = Fill(SDL_GPU_BUFFERUSAGE_VERTEX, pose.Emitted, positionBytes);
-  Nrm = HasNormal ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, pose.Normals, positionBytes) : OwnedBuffer();
-  Tan = HasTangent
-            ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, pose.Tangents, NVerts * 4u * (uint32_t)sizeof(float))
-            : OwnedBuffer();
-  Uv = HasUv ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, pose.Uv, NVerts * 2u * (uint32_t)sizeof(float))
-             : OwnedBuffer();
-  Uv1 = HasUv1 ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, pose.Uv1, NVerts * 2u * (uint32_t)sizeof(float))
-               : OwnedBuffer();
-  Col = HasColour
-            ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, pose.Colours, NVerts * 4u * (uint32_t)sizeof(float))
-            : OwnedBuffer();
+  const uint32_t pairBytes = NVerts * 2u * (uint32_t)sizeof(float);
+  const uint32_t quadBytes = NVerts * 4u * (uint32_t)sizeof(float);
   const float *const previousPose = pose.PrevVerts != nullptr ? pose.PrevVerts : pose.Verts;
-  Prev = WritesVelocity ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, previousPose, positionBytes)
-                        : OwnedBuffer();
+  const auto vertex = SDL_GPU_BUFFERUSAGE_VERTEX;
+  /* A RUN THIS LAYOUT DOES NOT CARRY CROSSES AS ZERO BYTES, which `Cross` reads as *let this buffer
+   * go*: the flags are the topology's, so it happens at the first pose and never again. */
+  Crossing streams[] = {
+      {&Vtx, &Held_[(size_t)Stream::Vertex], vertex, pose.Verts, positionBytes},
+      {&Emit, &Held_[(size_t)Stream::Emitted], vertex, pose.Emitted, positionBytes},
+      {&Nrm, &Held_[(size_t)Stream::Normal], vertex, HasNormal ? pose.Normals : nullptr,
+       HasNormal ? positionBytes : 0u},
+      {&Tan, &Held_[(size_t)Stream::Tangent], vertex, HasTangent ? pose.Tangents : nullptr,
+       HasTangent ? quadBytes : 0u},
+      {&Uv, &Held_[(size_t)Stream::Uv], vertex, HasUv ? pose.Uv : nullptr, HasUv ? pairBytes : 0u},
+      {&Uv1, &Held_[(size_t)Stream::Uv1], vertex, HasUv1 ? pose.Uv1 : nullptr,
+       HasUv1 ? pairBytes : 0u},
+      {&Col, &Held_[(size_t)Stream::Colour], vertex, HasColour ? pose.Colours : nullptr,
+       HasColour ? quadBytes : 0u},
+      {&Prev, &Held_[(size_t)Stream::Previous], vertex, WritesVelocity ? previousPose : nullptr,
+       WritesVelocity ? positionBytes : 0u},
+  };
+  if (!Cross(streams, sizeof streams / sizeof streams[0], error)) {
+    NIdx = 0;
+    return false;
+  }
   if (!Vtx || !Emit || (WritesVelocity && !Prev) || (HasColour && !Col)) {
     NIdx = 0;
     error = std::string("the subject's vertex streams did not reach the device: ") + SDL_GetError();
@@ -1832,10 +1930,19 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, std::string &error) {
  * same work whether the tree was built or refitted, so it is written once. */
 bool SubjectDraw::HandVisibility(std::string &error) {
   const Heap::Tagged uploading("mesh-upload");
-  BvhNodes = Fill(SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ, Visibility_.Nodes().Data(),
-                  (uint32_t)Visibility_.Nodes().Bytes());
-  BvhTris = Fill(SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ, Visibility_.Triangles().Data(),
-                 (uint32_t)Visibility_.Triangles().Bytes());
+  const auto storage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ;
+  /* A REFIT MOVES THE BOXES AND NOT THEIR COUNT, so these two are sized by the topology exactly as
+   * the vertex streams are, and a pose rewrites them in the same pass (board:1463). */
+  Crossing structure[] = {
+      {&BvhNodes, &Held_[(size_t)Stream::BvhNodes], storage, Visibility_.Nodes().Data(),
+       (uint32_t)Visibility_.Nodes().Bytes()},
+      {&BvhTris, &Held_[(size_t)Stream::BvhTriangles], storage, Visibility_.Triangles().Data(),
+       (uint32_t)Visibility_.Triangles().Bytes()},
+  };
+  if (!Cross(structure, sizeof structure / sizeof structure[0], error)) {
+    NIdx = 0;
+    return false;
+  }
   if (!BvhNodes || !BvhTris) {
     NIdx = 0;
     error = std::string("the subject's visibility structure did not reach the device: ") +

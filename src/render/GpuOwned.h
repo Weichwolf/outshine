@@ -83,6 +83,9 @@ private:
 
 using OwnedBuffer = Owned<SDL_GPUBuffer, SDL_ReleaseGPUBuffer>;
 using OwnedTexture = Owned<SDL_GPUTexture, SDL_ReleaseGPUTexture>;
+/* A STAGING BUFFER THAT OUTLIVES THE UPLOAD IT SERVED (board:1463). One created and released per
+ * upload is a frame-path allocation wearing a driver call's clothes. */
+using OwnedTransfer = Owned<SDL_GPUTransferBuffer, SDL_ReleaseGPUTransferBuffer>;
 using OwnedSampler = Owned<SDL_GPUSampler, SDL_ReleaseGPUSampler>;
 using OwnedShader = Owned<SDL_GPUShader, SDL_ReleaseGPUShader>;
 using OwnedPipeline = Owned<SDL_GPUGraphicsPipeline, SDL_ReleaseGPUGraphicsPipeline>;
