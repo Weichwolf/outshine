@@ -15,6 +15,123 @@ const Asset *Scenario::Subject(void) const {
 
 namespace {
 
+struct Element {
+  const char *Path;
+  const char *Children;
+  const char *Attributes;
+};
+
+const Element kGrammar[] = {
+    {"scenario",
+     "world render lighting providers generators compositors assets placements surfaces kinds "
+     "instances regions volumes audio tables events views physics clock input state layer",
+     "name version epoch decay"},
+    {"scenario/layer", "", "id path"},
+    {"scenario/world", "", "lat lon radiusM windDeg windMs cloudCover"},
+    {"scenario/render", "output stage",
+     "widthPx heightPx fps fill orbitDegPerFrame transfer exposure precision"},
+    {"scenario/render/output", "", "name"},
+    {"scenario/render/stage", "", "name"},
+    {"scenario/lighting", "key environment", ""},
+    {"scenario/lighting/key", "", "lux elevationDeg bearingDeg"},
+    {"scenario/lighting/environment", "", "r g b"},
+    {"scenario/providers", "provider", ""},
+    {"scenario/providers/provider", "", "kind pin rank whenAbsent"},
+    {"scenario/generators", "generator", ""},
+    {"scenario/generators/generator", "set", "kind"},
+    {"scenario/generators/generator/set", "", "name value"},
+    {"scenario/compositors", "compositor", ""},
+    {"scenario/compositors/compositor", "", "kind budgetPx on"},
+    {"scenario/assets", "asset", ""},
+    {"scenario/assets/asset", "", "uri digest kind variant"},
+    {"scenario/placements", "place", ""},
+    {"scenario/placements/place", "", "asset x y z qx qy qz qw scale"},
+    {"scenario/surfaces", "surface", ""},
+    {"scenario/surfaces/surface", "",
+     "document style programme leftFrac topFrac widthFrac heightFrac z"},
+    {"scenario/kinds", "kind", ""},
+    {"scenario/kinds/kind", "may has", "name inherits asset programme tickHz"},
+    {"scenario/kinds/kind/may", "", "do"},
+    {"scenario/kinds/kind/has", "", "name value"},
+    {"scenario/instances", "instance", ""},
+    {"scenario/instances/instance", "has holds", "of id in x y z qx qy qz qw"},
+    {"scenario/instances/instance/has", "", "name value"},
+    {"scenario/instances/instance/holds", "", "what"},
+    {"scenario/regions", "region door", ""},
+    {"scenario/regions/region", "uses", "id kind x y z radiusM streams"},
+    {"scenario/regions/region/uses", "", "what"},
+    {"scenario/regions/door", "", "id from to x y z"},
+    {"scenario/volumes", "volume", ""},
+    {"scenario/volumes/volume", "", "id in shape x y z extentX extentY extentZ fires when"},
+    {"scenario/audio", "bus sound", ""},
+    {"scenario/audio/bus", "", "id into gainDb"},
+    {"scenario/audio/sound", "", "id uri bus positional loops gainDb falloffM"},
+    {"scenario/tables", "table", ""},
+    {"scenario/tables/table", "column row", "id"},
+    {"scenario/tables/table/column", "", "name"},
+    {"scenario/tables/table/row", "cell", ""},
+    {"scenario/tables/table/row/cell", "", "value"},
+    {"scenario/events", "event", ""},
+    {"scenario/events/event", "carries", "name"},
+    {"scenario/events/event/carries", "", "what"},
+    {"scenario/views", "view", ""},
+    {"scenario/views/view", "", "id follows offsetX offsetY offsetZ fovDeg timeScale"},
+    {"scenario/physics", "", "dial"},
+    {"scenario/clock", "", "start rate"},
+    {"scenario/input", "bind", ""},
+    {"scenario/input/bind", "", "event action"},
+    {"scenario/state", "persist", ""},
+    {"scenario/state/persist", "", "what"},
+};
+
+bool Names(const char *list, const std::string &wanted) {
+  const std::string all(list);
+  size_t at = 0;
+  while (at < all.size()) {
+    const size_t stop = all.find(' ', at);
+    const std::string one = all.substr(at, stop == std::string::npos ? std::string::npos : stop - at);
+    if (one == wanted) { return true; }
+    if (stop == std::string::npos) { break; }
+    at = stop + 1;
+  }
+  return false;
+}
+
+const Element *Known(const std::string &path) {
+  for (const Element &one : kGrammar) {
+    if (path == one.Path) { return &one; }
+  }
+  return nullptr;
+}
+
+bool Grammatical(const Xml::Ref &node, const std::string &path, std::string &error) {
+  const Element *const known = Known(path);
+  if (known == nullptr) {
+    error = "<" + node.Name() + "> is not a child this scenario's grammar declares at " + path;
+    return false;
+  }
+  for (size_t at = 0; at < node.AttributeCount(); ++at) {
+    const std::string named = node.AttributeAt(at);
+    if (!Names(known->Attributes, named)) {
+      error = "<" + node.Name() + "> carries the attribute '" + named +
+              "', and the ones it may carry are: " +
+              (*known->Attributes == 0 ? std::string("none") : std::string(known->Attributes));
+      return false;
+    }
+  }
+  for (Xml::Ref child = node.First(); child.Valid(); child = child.Next()) {
+    const std::string name = child.Name();
+    if (!Names(known->Children, name)) {
+      error = "<" + node.Name() + "> carries a <" + name +
+              ">, and the children it may carry are: " +
+              (*known->Children == 0 ? std::string("none") : std::string(known->Children));
+      return false;
+    }
+    if (!Grammatical(child, path + "/" + name, error)) { return false; }
+  }
+  return true;
+}
+
 void ReadVector(const Xml::Ref &from, const char *x, const char *y, const char *z, double *into,
                 size_t count) {
   const char *names[4] = {x, y, z, "w"};
@@ -81,6 +198,8 @@ bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &
     error = "a scenario's root element is <scenario> and this one is <" + root.Name() + ">";
     return false;
   }
+
+  if (!Grammatical(root, "scenario", error)) { return false; }
 
   into = Scenario();
   into.Named.Name = root.Attr("name");

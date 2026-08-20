@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <cstring>
 #include <string>
 
 #include <outshine/Outshine.h>
@@ -272,6 +273,39 @@ int main(void) {
         "same file");
   CHECK(engine.Parked().size() == 1 && engine.Parked()[0] == "vault 111",
         "and the interior stays parked, so walking back in again is a resume and not a load");
+
+  const struct {
+    const char *What;
+    const char *Text;
+    const char *Names;
+  } kTypos[] = {
+      {"an unknown element",
+       "<scenario name=\"t\"><generatorz/></scenario>", "generatorz"},
+      {"an unknown attribute",
+       "<scenario name=\"t\"><world radiusMeters=\"9\"/></scenario>", "radiusMeters"},
+      {"an element in the wrong parent",
+       "<scenario name=\"t\"><world><provider kind=\"terrain\"/></world></scenario>", "provider"},
+      {"an attribute on the root",
+       "<scenario naem=\"t\"/>", "naem"},
+  };
+  size_t refused = 0;
+  for (const auto &typo : kTypos) {
+    const std::string path = PreparedRoot() + "/typo.scenario";
+    std::FILE *const file = std::fopen(path.c_str(), "wb");
+    if (file == nullptr) { continue; }
+    std::fwrite(typo.Text, 1, std::strlen(typo.Text), file);
+    std::fclose(file);
+    outshine::Engine typed;
+    const bool stood = typed.Load(path);
+    const bool quotes = typed.Error().find(typo.Names) != std::string::npos;
+    if (!stood && quotes) { ++refused; }
+    std::printf("NOTE %-30s -> %s\n", typo.What,
+                stood ? "STOOD UP" : typed.Error().c_str());
+  }
+  CHECK(refused == sizeof(kTypos) / sizeof(kTypos[0]),
+        "a scenario that misspells an element or an attribute is REFUSED and the refusal quotes what "
+        "it could not place -- a typo that loads in silence costs an afternoon and leaves a black "
+        "frame with nothing to grep for");
 
   outshine::Engine empty;
   const bool nothing = empty.Advance();

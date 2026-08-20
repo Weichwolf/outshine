@@ -40,6 +40,9 @@ public:
     [[nodiscard]] long long Int(const char *attribute, long long whenAbsent) const;
     [[nodiscard]] bool Flag(const char *attribute, bool whenAbsent) const;
 
+    [[nodiscard]] size_t AttributeCount(void) const;
+    [[nodiscard]] std::string AttributeAt(size_t which) const;
+
     [[nodiscard]] Ref Child(const char *name) const;
     [[nodiscard]] Ref First(void) const;
     [[nodiscard]] Ref Next(void) const;

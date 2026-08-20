@@ -95,6 +95,19 @@ bool Xml::Ref::Flag(const char *attribute, bool whenAbsent) const {
   return whenAbsent;
 }
 
+size_t Xml::Ref::AttributeCount(void) const {
+  if (!Valid()) { return 0; }
+  return From_->Nodes_[At_].Attributes;
+}
+
+std::string Xml::Ref::AttributeAt(size_t which) const {
+  if (!Valid()) { return std::string(); }
+  const Node &node = From_->Nodes_[At_];
+  if (which >= node.Attributes) { return std::string(); }
+  const Attribute &one = From_->Attributes_[node.FirstAttribute + which];
+  return From_->Span(one.NameOff, one.NameLen);
+}
+
 Xml::Ref Xml::Ref::First(void) const {
   if (!Valid()) { return Ref(); }
   return Ref(From_, From_->Nodes_[At_].FirstChild);
