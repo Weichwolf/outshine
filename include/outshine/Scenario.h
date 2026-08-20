@@ -107,13 +107,18 @@ struct Attribute {
 };
 
 struct Mind {
-  std::string Chooses;
+  std::string Tier;
+  std::string Uses;
   std::string Programme;
   std::string Prompt;
   std::string Model;
-  double Temperature = 0.0;
+  std::string Meanwhile;
+  double Hz = 0.0;
+  double EverySeconds = 0.0;
+  long long StepBudget = 0;
   int TokenBudget = 0;
   double LatencyBudgetMs = 0.0;
+  double Temperature = 0.0;
   long long Seed = 0;
 };
 
@@ -121,10 +126,9 @@ struct Kind {
   std::string Name;
   std::string Inherits;
   std::string Asset;
-  Mind Thinks;
+  std::vector<Mind> Minds;
   std::vector<std::string> Capabilities;
   std::vector<Attribute> Attributes;
-  double TickHz = 0.0;
 };
 
 struct Instance {

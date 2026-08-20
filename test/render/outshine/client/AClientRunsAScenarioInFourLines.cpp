@@ -59,18 +59,25 @@ std::string WriteScenario(const std::string &stands) {
     <surface document="hud.html" style="hud.css" programme="hud.js" heightFrac="0.2" z="1"/>
   </surfaces>
   <kinds>
-    <kind name="settler" asset="body" tickHz="4">
-      <mind chooses="script" programme="wander.js" seed="7"/>
+    <kind name="settler" asset="body">
+      <mind tier="reflex" uses="steer" hz="60"/>
+      <mind tier="reflex" uses="navigate" hz="60"/>
+      <mind tier="script" programme="wander.js" hz="4" stepBudget="2000" seed="7"/>
       <may do="walk"/>
       <may do="speak"/>
       <has name="health" value="100"/>
     </kind>
-    <kind name="mayor" inherits="settler" tickHz="0.2">
-      <mind chooses="model" prompt="mayor.md" model="local-small"
-            temperature="0.7" tokenBudget="512" latencyBudgetMs="800"/>
+    <kind name="mayor" inherits="settler">
+      <mind tier="reflex" uses="navigate" hz="60"/>
+      <mind tier="deliberate" prompt="mayor.md" model="local-small" meanwhile="stand"
+            everyS="120" temperature="0.7" tokenBudget="512" latencyBudgetMs="800"/>
       <may do="walk"/>
       <may do="speak"/>
       <may do="trade"/>
+    </kind>
+    <kind name="courier">
+      <mind tier="reflex" uses="navigate" hz="60"/>
+      <may do="walk"/>
     </kind>
     <kind name="coffee-cup" asset="cup">
       <has name="massKg" value="0.2"/>
@@ -194,22 +201,36 @@ int main(void) {
         "a compositor is read with its budget");
   CHECK(read.Surfaces.size() == 1 && read.Surfaces[0].Programme == "hud.js",
         "a surface is read with its document, its style and its programme");
-  CHECK(read.Kinds.size() == 3 && read.Kinds[0].Capabilities.size() == 2 &&
-            read.Kinds[0].TickHz == 4.0 && read.Kinds[0].Attributes.size() == 1,
-        "a KIND is read with what it may do, the rate it ticks at and the attributes it carries -- "
-        "one mechanism for an actor, an item, a door and a container");
-  CHECK(read.Kinds[0].Thinks.Chooses == "script" && read.Kinds[0].Thinks.Programme == "wander.js" &&
-            read.Kinds[0].Thinks.Seed == 7,
-        "a MIND that is a script names its programme and its seed, so the same scenario runs twice "
-        "the same way");
-  CHECK(read.Kinds[1].Thinks.Chooses == "model" && read.Kinds[1].Thinks.Prompt == "mayor.md" &&
-            read.Kinds[1].Thinks.TokenBudget == 512 &&
-            read.Kinds[1].Thinks.LatencyBudgetMs == 800.0,
-        "and a MIND that is a model names its prompt and BOTH its budgets -- a mind with no bound on "
-        "what it may spend is a term the frame cannot carry");
-  CHECK(read.Kinds[1].Capabilities.size() == 3 && read.Kinds[2].Thinks.Chooses.empty(),
-        "the capability list is what a script may call AND what a model is offered as functions, one "
-        "declaration; and a kind with no mind thinks nothing, which is most of them");
+  CHECK(read.Kinds.size() == 4 && read.Kinds[0].Capabilities.size() == 2 &&
+            read.Kinds[0].Attributes.size() == 1,
+        "a KIND is read with what it may do and the attributes it carries -- one mechanism for an "
+        "actor, an item, a door and a container. THE RATE IS THE MIND'S: each tier declares its own, "
+        "so a kind cannot carry a second number that means the same thing");
+  CHECK(read.Kinds[0].Minds.size() == 3,
+        "a kind carries 0 or 1..N minds and a settler carries three -- THE TIERS ARE A LADDER AND "
+        "NOT A CHOICE, the way the LOD rungs are");
+  CHECK(read.Kinds[0].Minds[0].Tier == "reflex" && read.Kinds[0].Minds[0].Uses == "steer" &&
+            read.Kinds[0].Minds[0].Hz == 60.0,
+        "a REFLEX mind is the engine's own and names which fast intelligence it uses -- it runs at "
+        "the frame's rate because it costs microseconds");
+  CHECK(read.Kinds[0].Minds[1].Uses == "navigate",
+        "and a kind takes several of one tier: steering and navigation are two reflexes and not one");
+  CHECK(read.Kinds[0].Minds[2].Tier == "script" && read.Kinds[0].Minds[2].Hz == 4.0 &&
+            read.Kinds[0].Minds[2].StepBudget == 2000 && read.Kinds[0].Minds[2].Seed == 7,
+        "a SCRIPT mind runs at a declared rate rather than every frame, and is bounded in STEPS "
+        "because that is what a bounded interpreter can be held to");
+  CHECK(read.Kinds[1].Minds.size() == 2 && read.Kinds[1].Minds[1].Tier == "deliberate" &&
+            read.Kinds[1].Minds[1].EverySeconds == 120.0 &&
+            read.Kinds[1].Minds[1].TokenBudget == 512 &&
+            read.Kinds[1].Minds[1].LatencyBudgetMs == 800.0,
+        "a DELIBERATE mind runs every so many SECONDS and is bounded in tokens and in latency -- "
+        "three tiers, three deadlines, three kinds of budget");
+  CHECK(read.Kinds[1].Minds[1].Meanwhile == "stand",
+        "and it declares what the body does WHILE IT THINKS, which is *something is always drawn* "
+        "asked of thinking: an actor waiting on an answer still has to be somewhere");
+  CHECK(read.Kinds[3].Minds.empty(),
+        "and a coffee cup thinks nothing, which is 0 of 0..N");
+
   CHECK(read.Instances.size() == 1 && read.Instances[0].Of == "settler" &&
             read.Instances[0].In == "sanctuary" && read.Instances[0].Holds.size() == 1,
         "an INSTANCE names its kind, the region it stands in and what it holds, so an inventory is "
@@ -288,7 +309,7 @@ int main(void) {
   const bool back = engine.Resume("four lines");
   if (!back) { std::printf("REFUSED %s\n", engine.Error().c_str()); }
   CHECK(back, "walking back through the door RESUMES what was parked");
-  CHECK(engine.Declared().Named.Name == "four lines" && engine.Declared().Kinds.size() == 3,
+  CHECK(engine.Declared().Named.Name == "four lines" && engine.Declared().Kinds.size() == 4,
         "and it is the same scenario, carrying what it declared, rather than a second load of the "
         "same file");
   CHECK(engine.Parked().size() == 1 && engine.Parked()[0] == "vault 111",
