@@ -29,15 +29,50 @@ std::string WriteScenario(const std::string &stands) {
   const std::string path = outshine::Test::PreparedRoot() + "/four-lines.scenario";
   std::FILE *const file = std::fopen(path.c_str(), "wb");
   if (file == nullptr) { return std::string(); }
-  std::string text = "{\n";
-  text += "  \"schema\": \"outshine/scenario\",\n";
-  text += "  \"frame\": { \"widthPx\": 320, \"heightPx\": 240 },\n";
-  text += "  \"stands\": \"" + stands + "\",\n";
-  text += "  \"fps\": 30,\n";
-  text += "  \"fill\": 0.9,\n";
-  text += "  \"key\": { \"lux\": 40000, \"elevationDeg\": 45, \"bearingDeg\": 135 },\n";
-  text += "  \"environment\": [0.05, 0.06, 0.08]\n";
-  text += "}\n";
+  std::string text = R"(<?xml version="1.0" encoding="utf-8"?>
+<scenario name="four lines" version="1" epoch="2287" decay="0.4">
+  <world lat="44.38" lon="4.42" radiusM="800" cloudCover="0.1"/>
+  <render widthPx="320" heightPx="240" fps="30" fill="0.9"/>
+  <lighting>
+    <key lux="40000" elevationDeg="45" bearingDeg="135"/>
+    <environment r="0.05" g="0.06" b="0.08"/>
+  </lighting>
+  <providers>
+    <provider kind="terrain" pin="2026-08-20" rank="0" whenAbsent="hand over"/>
+  </providers>
+  <generators>
+    <generator kind="tree">
+      <set name="species" value="beech"/>
+      <set name="seed" value="7"/>
+    </generator>
+  </generators>
+  <compositors>
+    <compositor kind="forest" budgetPx="1.0" on="true"/>
+  </compositors>
+  <assets>
+    <asset uri=")";
+  text += stands;
+  text += R"(" kind="gltf"/>
+  </assets>
+  <surfaces>
+    <surface document="hud.html" style="hud.css" programme="hud.js" heightFrac="0.2" z="1"/>
+  </surfaces>
+  <actors>
+    <actor kind="settler" programme="wander.js" spawn="ring" tickHz="4">
+      <may do="walk"/>
+      <may do="speak"/>
+    </actor>
+  </actors>
+  <physics dial="walking"/>
+  <clock start="2287-10-23T09:00:00Z" rate="60"/>
+  <input>
+    <bind event="key:W" action="forward"/>
+  </input>
+  <state>
+    <persist what="actor.named"/>
+  </state>
+</scenario>
+)";
   std::fwrite(text.data(), 1, text.size(), file);
   std::fclose(file);
   return path;
@@ -56,7 +91,6 @@ int main(void) {
   const std::string scenario = WriteScenario(stands);
   CHECK(!scenario.empty(), "the scenario is written where the client can read it");
   if (scenario.empty()) { return Report(); }
-  std::printf("NOTE the scenario stands %s\n", stands.c_str());
 
   outshine::Engine engine;
   engine.RenderTo({1280, 720});
@@ -64,35 +98,54 @@ int main(void) {
   const bool ran = loaded && engine.Run();
 
   if (!loaded) { std::printf("REFUSED %s\n", engine.Error().c_str()); }
-  CHECK(loaded, "a client stands a scenario up out of a file, in one call and with no engine type in "
-                "its hands");
+  CHECK(loaded, "a client stands a scenario up out of an XML file, in one call and with no engine "
+                "type in its hands");
   if (!ran && loaded) { std::printf("REFUSED %s\n", engine.Error().c_str()); }
   CHECK(ran, "and runs it to the end of its declared grid");
+  if (!loaded) { return Report(); }
 
-  std::printf("NOTE the run advanced %d frames of %d\n", engine.At(), engine.Frames());
+  const outshine::Scenario &read = engine.Declared();
+  CHECK(read.Named.Name == "four lines" && read.Named.Epoch == 2287.0,
+        "the scenario keeps its identity, so a client can ask what it loaded");
+  CHECK(read.Ground.Declared && read.Ground.RadiusM == 800.0,
+        "a world origin is read");
+  CHECK(read.Providers.size() == 1 && read.Providers[0].Kind == "terrain",
+        "a provider is read with its pin and its rank");
+  CHECK(read.Generators.size() == 1 && read.Generators[0].Parameters.size() == 2 &&
+            read.Generators[0].Parameters[0].Value == "beech",
+        "a generator is read with the parameters its own kind declares");
+  CHECK(read.Compositors.size() == 1 && read.Compositors[0].On,
+        "a compositor is read with its budget");
+  CHECK(read.Surfaces.size() == 1 && read.Surfaces[0].Programme == "hud.js",
+        "a surface is read with its document, its style and its programme");
+  CHECK(read.Actors.size() == 1 && read.Actors[0].Capabilities.size() == 2 &&
+            read.Actors[0].TickHz == 4.0,
+        "an actor is read with the capabilities it may reach and the rate it ticks at");
+  CHECK(read.Motion.Dial == "walking" && read.Time.Rate == 60.0,
+        "the physics dial and the clock are read");
+  CHECK(read.Input.size() == 1 && read.Input[0].Action == "forward",
+        "an input binding names an ACTION, so a client never sees a keycode");
+  CHECK(read.State.size() == 1, "and what survives a save is read");
+
   CHECK(engine.Frames() > 1, "an animated scenario declares more than one frame");
   CHECK(engine.Standing(), "and the engine is still standing when the run is over");
 
-  outshine::Scenario declared;
-  declared.Frame = {320, 240};
-  declared.Stands = stands;
-  declared.Fps = 30.0;
-  declared.Fill = 0.9;
-  declared.Key = {40000.0, 45.0, 135.0};
-  outshine::Engine second;
-  const bool inCode = second.Declare(declared);
-  if (!inCode) { std::printf("REFUSED %s\n", second.Error().c_str()); }
-  CHECK(inCode, "a scenario declared in code stands up the same way a file does");
-  CHECK(!inCode || second.Frames() == engine.Frames(),
-        "and it is the same scenario, so it declares the same number of frames");
+  std::printf("NOTE the engine read and did NOT act on:\n");
+  for (const std::string &one : engine.Carried()) { std::printf("       %s\n", one.c_str()); }
+  CHECK(!engine.Carried().empty(),
+        "what a scenario declares and this runtime does not yet act on is PUBLISHED rather than "
+        "read and dropped -- a declaration nobody can see ignored is a scenario that lies");
 
   outshine::Engine empty;
   const bool nothing = empty.Advance();
   CHECK(!nothing, "an engine with no scenario refuses to advance");
   CHECK(!empty.Error().empty(), "and says why rather than returning quietly");
-  std::printf("NOTE the empty engine says: %s\n", empty.Error().c_str());
+
+  outshine::Engine broken;
+  const bool subjectless = broken.Load(scenario + ".missing");
+  CHECK(!subjectless, "a scenario that is not there is refused by path");
 
   Covers("I.4 a client says where to render, loads a scenario, runs it and cleans up -- and reaches "
-         "nothing of the engine but the handle it was given");
+         "nothing of the engine but the handle and the declaration it was given");
   return Report();
 }

@@ -79,7 +79,7 @@ SIM_SRCS       := src/clients/Sim.cpp src/clients/LogSinks.cpp src/clients/Strea
   src/clients/RegionForge.cpp
 # THE SETUP CALLS A CONSUMER MAKES over the renderer, and the picture medium a test writes with.
 APP_SRCS       := src/clients/GltfStudio.cpp src/clients/Image.cpp \
-  src/clients/Surfaces.cpp src/clients/Live.cpp src/clients/Engine.cpp
+  src/clients/Surfaces.cpp src/clients/Live.cpp src/clients/Engine.cpp src/clients/Scenario.cpp
 HOST_SRCS      := $(wildcard tools/host/*.cpp)
 
 OBJ := build/obj

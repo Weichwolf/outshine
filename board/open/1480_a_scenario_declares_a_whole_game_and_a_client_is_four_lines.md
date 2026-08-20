@@ -54,7 +54,7 @@ measurement without rewriting it.
       declaration nobody can trace is a declaration nobody can debug
 - [ ] **A change set selects which declarations are active**, so one scenario carries variants without
       a second copy of itself
-- [ ] **Every layer of the table above is optional and its absence is a named default**, never a
+- [x] **Every layer of the table above is optional and its absence is a named default**, never a
       silent one: a scenario that declares no generator gets no generated content and says so
 
 ## The class structure, because a struct of eight fields is a studio shot and not a game
@@ -102,9 +102,9 @@ INSTRUMENT's declaration: what a case renders, at what bounces, against which th
 whoever is measuring. A scenario is the CONTENT: written by whoever is making the game, layered by
 whoever is modding it. Different authors, different lifetimes, different tools.
 
-- [ ] **An XML reader in `src/core`, bounded like everything else here**: elements, attributes, text,
+- [x] **An XML reader in `src/core`, bounded like everything else here**: elements, attributes, text,
       the five entities. No DTD, no namespaces, no external entity -- each refused by name
-- [ ] **The reader is the same shape as `Json`**: parse once into a flat store, a `Ref` that walks it,
+- [x] **The reader is the same shape as `Json`**: parse once into a flat store, a `Ref` that walks it,
       no allocation per query
 
 ## The API this implies, and the one property it must have
@@ -128,3 +128,25 @@ scenario: enough to put a camera somewhere and take a picture, and none of the t
 **`Clients::Live` is the runtime that already stands one up and advances it** -- a declaration, a
 subject, surfaces, an atlas, a frame count -- and it is the thing the public `Engine` will be a face
 for. What is missing is not a runtime; it is the DECLARATION, and the twelve rows are its decomposition.
+
+## The declaration is complete and the runtime's shortfall is a number
+
+**A scenario in the shape above is authored, read and carried today.** `include/outshine/Scenario.h`
+is the tree -- identity, layers, world, providers, generators, compositors, render, lighting, assets,
+placements, surfaces, actors, physics, clock, input, state -- in value types a client can build in code
+or load from XML.
+
+**WHAT THE RUNTIME DOES NOT YET ACT ON IS PUBLISHED**, which is the difference between a declaration
+and a lie. `Engine::Carried()` answers it, and over the test's scenario it reads:
+
+```
+1 providers · 1 generators · 1 compositors · 1 surfaces · 1 actors
+1 input bindings · 1 persisted values · a world origin · a physics dial · a clock
+```
+
+*Every one of those is a row of the table above waiting for its runtime, and none of them is silently
+dropped.* The one row the runtime does act on is `assets` plus `render` plus `lighting`, which is the
+studio leaf -- and that is now a measured shortfall rather than an impression.
+
+- [ ] The eleven rows above reach a runtime, one at a time, each with the case that decides it
+

@@ -3,30 +3,11 @@
 
 #include <memory>
 #include <string>
+#include <vector>
+
+#include <outshine/Scenario.h>
 
 namespace outshine {
-
-struct Extent {
-  int WidthPx = 0;
-  int HeightPx = 0;
-};
-
-struct Light {
-  double Lux = 0.0;
-  double ElevationDeg = 0.0;
-  double BearingDeg = 0.0;
-};
-
-struct Scenario {
-  Extent Frame;
-  std::string Stands;
-  std::string Variant;
-  double Fps = 60.0;
-  double Fill = 0.9;
-  double OrbitDegPerFrame = 0.0;
-  Light Key;
-  double Environment[3] = {0.0, 0.0, 0.0};
-};
 
 class Engine {
 public:
@@ -41,6 +22,9 @@ public:
 
   [[nodiscard]] bool Load(const std::string &path);
   [[nodiscard]] bool Declare(const Scenario &scenario);
+
+  [[nodiscard]] const Scenario &Declared(void) const;
+  [[nodiscard]] const std::vector<std::string> &Carried(void) const;
 
   [[nodiscard]] bool Advance();
   [[nodiscard]] bool Run();
