@@ -46,10 +46,40 @@ appears in no output, and a shell that set it three days ago changes today's mea
 grep for. *That is the whole defect, and it is why `FB_TAU` is worse than a hard-coded constant would
 be -- a constant at least shows up in a diff.*
 
+## THE PIXEL IS THE NATURAL THRESHOLD, so the default is DERIVED and not chosen
+
+**One pixel is what *no visible difference* MEANS.** A rung whose projected error is under a pixel
+cannot be told from the rung above it by anyone looking at the screen -- that is not a preference, it is
+what the display is. **So `tau = 1 px` is a derivation and the existing default is already right**; what
+is wrong is only how it can be changed.
+
+*This is Nanite's own claim restated: it carries no LOD threshold because it targets a pixel, and
+`CLAUDE.md` already demands the same currency -- **a budget is a screen-space error in pixels, because
+it is the only currency comparable across terrain, trunk, facade and crown**.*
+
+## THREE LEVELS AND A FIXED PRECEDENCE, which is the owner's ruling
+
+| | who sets it | when |
+|---|---|---|
+| **the engine's default** | outshine, **derived** -- one pixel | always, and it is sensible on its own |
+| **the scenario** | the declaration (`board:1480`'s render row) | where a world wants a different bar |
+| **the client** | the consumer, where it makes sense | at run time, deliberately |
+
+**A later level overrides an earlier one and the value in force is published.** *That is the same
+later-overrides-earlier rule `board:1493`'s layers follow, and the same shape Unreal has as
+default -> ini -> console variable -- with the environment removed from the chain entirely.*
+
+**AND THE ENGINE MUST WORK WITH NOTHING DECLARED.** A scenario that says nothing about pixel error gets
+one pixel and a correct picture; a client that overrides nothing gets the scenario's. *An engine whose
+defaults are absent is an engine every consumer has to configure before it draws anything, which is the
+opposite of `create -> load -> run -> destroy`.*
+
 ## What must be true
 
-- [ ] **The pixel error is DECLARED by the scenario** (`board:1480`'s render row) and defaulted where it
-      is absent, so two runs of one declaration are one picture whatever the shell holds
+- [ ] **The pixel error is one pixel unless something says otherwise**, and what said otherwise is
+      published -- so two runs of one declaration are one picture whatever the shell holds
+- [ ] **Every default the engine ships is DERIVED or `[SET]` with a reason**, because a default nobody
+      can argue with is a magic number with better manners
 - [ ] **The worker count is declared too**, because *if pace decides the result, the coupling is a bug*
       -- and a streamer with a different number of workers must produce the same world
 - [ ] **A test holds that no `getenv` reaches a picture**, which is a grep this repository can make into
