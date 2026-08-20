@@ -33,10 +33,12 @@ causes and names none of them.
       called "crashes" would name none of them*
 - [ ] **Every finding carries its place**: the road's OSM id, the position along it, and enough for the
       windowed run to stand up there and look
-- [ ] **The verdict is KILOMETRES PER FINDING against a declared floor**, and a finding is a DEVIATION
-      and not only a crash: having to correct is already the defect. A crash is the extreme of the same
-      number. *A run that held the line for 700 km beats one that fought the road from km 3, and a bare
-      crash count cannot say that*
+- [ ] **The verdict is KILOMETRES PER FINDING against a declared floor**, and a finding is EITHER a
+      deviation OR a crash -- **the two are different failure modes and neither subsumes the other**.
+      Having to correct means the road is bad; a crash means it is impossible, and the impossible ones
+      show *no deviation at all*: an unrecognised tunnel gives a laterally perfect road at a 40 %
+      gradient. *A run that held the line for 700 km beats one that fought the road from km 3, and a
+      bare crash count cannot say that -- but a bare deviation count would miss the mountain*
 - [ ] **The floor for deviation comes from the synthetic road**, like every other floor here
 - [ ] **Two runs of one seed find the same defects in the same order**, or this is not a test
 - [ ] **The same scenario runs with a window** at 60 Hz in first person, and stops where the headless

@@ -24,9 +24,18 @@ generator defect, a gap is a reader defect, a route through no road is a router 
 finding has a different owner, which is what makes the instrument worth building rather than one bit of
 crash/no-crash.*
 
-**HAVING TO SWERVE IS ALREADY THE DEFECT**, which is the sharpest thing about this instrument: the
-finding is the DEVIATION from the ideal line, continuous and per millisecond, and a crash is only its
-extreme. A road that forces 40 cm of correction is found long before one that throws the car off.
+**TWO FAILURE MODES AND NEITHER SUBSUMES THE OTHER.**
+
+**Having to swerve is already the defect.** The deviation from the ideal line is continuous, per
+millisecond, and finds a road that is *bad* long before one that is impossible -- 40 cm of forced
+correction is a finding.
+
+**And the crash is still needed, because the worst defects produce NO deviation at all.** A tunnel
+nobody recognised gives a road that climbs the mountain instead of going through it: laterally perfect,
+continuous, zero deviation, **and a 40 % gradient no vehicle can take.** The car simply cannot get up,
+or it leaves the ground at the crest. *A deviation measures a road you can drive badly; a crash
+measures a road you cannot drive at all, and the second is where the biggest structural misreadings
+live.*
 
 **The headline number is kilometres per finding**, and findings per 100 km by class beside it. That is a
 number that starts small, is honest, and drives the work.
