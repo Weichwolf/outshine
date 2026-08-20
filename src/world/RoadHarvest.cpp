@@ -1,0 +1,53 @@
+#include "RoadHarvest.h"
+
+#include <vector>
+
+namespace outshine::World {
+
+Reaped Reap(const OsmField &field, const VegetationTemplates &widths, double vehicleWidthM,
+            Network &into) {
+  Reaped out;
+  const int streets = field.Layer(OsmLayer::Streets);
+  if (streets < 0) { return out; }
+
+  std::vector<double> along;
+  for (const OsmField::Feature &feature : field.Features()) {
+    if ((int)feature.Layer != streets) { continue; }
+    if (feature.Type != 2) {
+      ++out.NotALine;
+      continue;
+    }
+    const VegetationTemplates::Rule *const rule =
+        widths.Find(field.LayerName((int)feature.Layer), field.Str(feature, "kind"));
+    if (rule == nullptr || !(rule->WidthM > 0.0f)) {
+      ++out.Unclassed;
+      continue;
+    }
+    const double widthM = (double)rule->WidthM;
+    if (widthM < vehicleWidthM) {
+      ++out.TooNarrow;
+      if (widthM > out.WidestRefusedM) { out.WidestRefusedM = widthM; }
+      continue;
+    }
+    if (!(out.NarrowestTakenM > 0.0) || widthM < out.NarrowestTakenM) {
+      out.NarrowestTakenM = widthM;
+    }
+
+    for (uint32_t which = 0; which < feature.RingCount; ++which) {
+      const OsmField::Ring &ring = field.Rings()[feature.FirstRing + which];
+      if (ring.Count < 2) { continue; }
+      along.clear();
+      along.reserve(ring.Count * 2);
+      for (uint32_t point = 0; point < ring.Count; ++point) {
+        along.push_back(field.Points()[2 * ((size_t)ring.First + point)]);
+        along.push_back(field.Points()[2 * ((size_t)ring.First + point) + 1]);
+      }
+      into.Lay(along.data(), ring.Count, 0.5 * widthM);
+      ++out.Ways;
+      out.Points += ring.Count;
+    }
+  }
+  return out;
+}
+
+} // namespace outshine::World

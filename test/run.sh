@@ -70,7 +70,7 @@ LayerIncludes() {
     unit/scenario) printf '%s' "-Isrc/core -Isrc/scenario" ;;
     unit/generators) printf '%s' "-Isrc/core -Isrc/generators" ;;
     unit/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
-    unit/world) printf '%s' "-Isrc/core -Isrc/data -Isrc/world -Isrc/world/tiles" ;;
+    unit/world) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/data -Isrc/world -Isrc/world/tiles" ;;
     unit/render/plan) printf '%s' "-Isrc/core -Isrc/render/plan" ;;
     unit/render/draw) printf '%s' "-Isrc/core -Isrc/render/draw" ;;
     unit/render/stages) printf '%s' "-Isrc/core -Isrc/render/stages" ;;
@@ -190,7 +190,9 @@ GroupIncludes() {
     src/pilot) printf '%s' "-Isrc/corridor -Isrc/pilot" ;;
     src/clients/Rigging.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/corridor -Isrc/physics -Isrc/pilot -Isrc/clients" ;;
     src/world/Wayfinding.cpp) printf '%s' "-Isrc/world" ;;
+    src/world/RoadHarvest.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/data -Isrc/world -Isrc/world/tiles" ;;
     src/data) printf '%s' "-Isrc/core -Isrc/data" ;;
+    src/world) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/data -Isrc/world -Isrc/world/tiles" ;;
     src/gltf) printf '%s' "-Isrc/core -Isrc/gltf" ;;
     src/ui) printf '%s' "-Isrc/core -Isrc/ui" ;;
     src/scenario) printf '%s' "-Isrc/core -Isrc/scenario" ;;
