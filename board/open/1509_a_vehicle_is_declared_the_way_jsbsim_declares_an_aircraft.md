@@ -20,17 +20,40 @@ program flies a Cessna and a 737.**
 it is misspelled. *One format, one reader, one place a typo is caught.*
 
 ```xml
-<vehicle name="hatchback" massKg="1320">
-  <inertia ixx="420" iyy="1900" izz="2000"/>
-  <contact at="fl" x="1.25" y="0.76" z="-0.35" springNPerM="32000" damperNsPerM="3400"
+<vehicle name="f31" asset="bmw-f31" massKg="1610">
+  <inertia ixx="540" iyy="2400" izz="2600"/>
+  <contact node="wheel_front_left"  springNPerM="32000" damperNsPerM="3400"
            travelM="0.18" bumpStopNPerM="450000" linkLimitN="24000"/>
-  <contact at="fr" .../><contact at="rl" .../><contact at="rr" .../>
-  <tyre grip="0.95" radiusM="0.31" corneringNPerRad="55000" relaxationM="0.4"/>
-  <drive peakTorqueNm="240" wheelRadiusM="0.31" finalDrive="3.9"/>
-  <brake peakTorqueNm="1400"/>
-  <body dragArea="0.68" liftArea="0.0" frontalM2="2.2"/>
+  <contact node="wheel_front_right" .../>
+  <contact node="wheel_rear_left"   .../>
+  <contact node="wheel_rear_right"  .../>
+  <tyre grip="0.95" corneringNPerRad="55000" relaxationM="0.4"/>
+  <drive peakTorqueNm="400" finalDrive="3.08"/>
+  <brake peakTorqueNm="2200"/>
+  <body dragArea="0.66" frontalM2="2.19"/>
+  <seat node="driver_head" view="eyes"/>
 </vehicle>
 ```
+
+## THE GEOMETRY CARRIES THE ATTACHMENT POINTS AND THE DECLARATION NAMES THEM
+
+**No coordinate above is invented, and that is the owner's point about how other engines do it.** A
+socket is *a transform declared at design time, relative to something in the model's own hierarchy* --
+Unreal puts sockets on a bone, Blender uses an Empty, Roblox an `Attachment` inside a Part, Maya and Max
+a locator or a dummy. **Every one of them attaches physics and behaviour to NAMED PLACES IN THE MODEL.**
+
+**In glTF that mechanism already exists and needs nothing new: a node with a name.** This reader builds
+the node hierarchy with its names already, so `<contact node="wheel_front_left">` takes the wheel's
+position, its radius and its axis FROM THE MODEL -- and a wheel that moves in the model moves in the
+physics without a number changing anywhere.
+
+**And it is robust in a way a convention is not.** [MEASURED, from the field] a `SOCKET_` prefix does
+not survive a glTF export in common tooling, so **the scenario names whatever node is actually there**
+rather than requiring the artist to have used a magic prefix. *A declaration that adapts to the asset
+beats a convention the asset must satisfy.*
+
+- [ ] **A contact, a seat and a camera are NODES of the asset named by the declaration**, never
+      coordinates, and a name the asset does not carry is a refusal listing what it does carry
 
 **EVERY NUMBER IS A PHYSICAL QUANTITY WITH A UNIT AND NOT A LIMIT SOMEBODY TUNED.** The lateral
 acceleration a corner allows is `grip * g`; the top speed is where drive force equals drag; the bump
