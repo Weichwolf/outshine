@@ -1,36 +1,3 @@
-/* THE RENDER RUNNER. One program over one case directory: read the glTF, resolve the camera and the
- * recipe, render, compare against the cached oracle, score. It contains no scene-specific branch at
- * all -- a case that would need one is not a render case (board:0084).
- *
- * THE GUARD IS WORTH MORE THAN THE COMPARISON. Two empty images score perfectly: IoU over two empty
- * sets is 1.0 under most formulations and boundary displacement over an empty boundary is 0, so a
- * case that renders nothing passes green having tested nothing. At two hundred directories where
- * adding one costs a file drop, that is how a suite goes hollow. Zero coverage on EITHER side is a
- * failure and not a comparison, an absent or unreadable oracle is a failure and never a skip, and
- * the trailer says COMPARED or NOTHING-TO-COMPARE so the two cannot be confused by their exit code.
- *
- * THE PICTURES ARE ALWAYS WRITTEN, pass and fail alike, because the owner opens the case directory
- * to see progress and a picture that only appears on a failure cannot show any.
- *
- * EXACTLY TWO PICTURES IN A CASE DIRECTORY AND NEVER A THIRD -- `0-reference.png`, how it should look,
- * and `1-outshine.png`, what we produce now, honest and including broken. Nothing else in the folder
- * is an image: a difference picture, a coverage mask and a second shaded frame were each proposed
- * and each refused, because every one of them was read as one of the two and the reader needed a
- * legend to tell which. THE MASK IS AN INSTRUMENT FOR ONE NARROW QUESTION AND THE PICTURE IS THE
- * PRODUCT: substituting the scored mask for the colour frame would have made every folder look
- * correct while the renderer drew no visible subject at all.
- *
- * BOTH PICTURES ARE WRITTEN HERE, FROM THE TWO BUFFERS THE SCORE IS COMPUTED ON. The reference used
- * to be Blender's own PNG beside the float dump the number came from -- two encodings of one image,
- * with nobody checking they agreed, and a second set of colour-management settings to keep honest.
- *
- * ONE ALPHA CONVENTION ON BOTH SIDES: RGBA, STRAIGHT (NON-PREMULTIPLIED), ALPHA IS COVERAGE, AND THE
- * COMPARISON READS ALL FOUR CHANNELS. Without alpha a black subject and no subject are the same
- * pixels -- MEASURED, the oracle's sphere carries 46 101 of its 46 151 covered pixels at exactly 0.0
- * RGB -- so a three-channel comparison cannot tell "we drew black" from "we drew nothing", which is
- * the empty-image hole living inside the image. At one sample per pixel under a 0.01 px box filter
- * the oracle's alpha is exactly 0 or 1, so straight and premultiplied coincide here and the choice
- * only starts to matter when a filter widens; it is stated now so that it is not chosen then. */
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -89,38 +56,10 @@ using outshine::Clients::ResolveFileSurface;
 using outshine::Clients::ColourFrom;
 using outshine::Clients::ColourCarrier;
 
-
-
-/* WHETHER THE FILE'S OWN LIGHTS CROSS THE glTF BOUNDARY, and it is a per-case declaration because
- * the answer is not the same for every case (board:0085). For OUR OWN generated
- * fixtures the light is declared beside the asset, so that a rung measures the light we meant; for
- * a Khronos asset whose criterion is stated IN TERMS OF the light in the file -- `DirectionalLight`
- * says "the directional lightsource is defined as ..." -- re-declaring it beside the asset would
- * measure our transcription instead. `None` is the default and drops whatever the file carries. */
 enum class SceneLights { None, FromFile, DeclaredSun };
 
-/* BLENDER'S FACTORY WORLD, and it is a property of the ORACLE rather than of the engine, which is why
- * it stands in the test and not in `src/`. A `Background` node at colour 0.05087608844041824 linear
- * on all three channels and strength 1.0, sampled as a light (board:0085): under a
- * coverage recipe -- 1 spp, a box filter at 0.01 px, a Diffuse BSDF at roughness 0, zero bounces --
- * Cycles has no integration left to perform and a facet of albedo rho returns exactly rho*L.
- * At the declared albedo 0.8 that is 0.8 x 0.05087608844041824 = 0.0407008708.
- *
- * INDEPENDENT OF THE FACET'S NORMAL, and that is the environment's doing rather than an omission
- * here: a uniform environment delivers the same radiance from every direction, so the irradiance on
- * a Lambertian surface is pi*L whichever way it faces and the outgoing radiance is rho*L. THERE IS
- * NO N.L TERM TO MATCH IN THIS SCENE -- a cube's three visible faces come back at one value, and a
- * renderer that shaded N.L here would disagree with the oracle on two of them. What the oracle does
- * carry beyond rho*L is VISIBILITY: at one sample the single cosine-weighted direction either
- * escapes to the world and the pixel is rho*L, or it meets geometry and the pixel is 0. That is
- * ambient occlusion at one sample, it is a noise field rather than a value, and no rasteriser
- * reproduces it -- which is why a case whose subject occludes itself or its neighbours cannot reach
- * an exact image and says so in its own class rather than in a tolerance. */
 constexpr double kFactoryWorldRadiance = 0.05087608844041824;
 
-/* WHAT THE RUNNER READ AND NOTHING ELSE: the declaration, its resolved camera and its resolved
- * thresholds. Held as one object so the render step takes a subject rather than eleven arguments
- * (`I.23`). */
 struct Case {
   std::string Directory;
   Json Manifest;
@@ -130,125 +69,67 @@ struct Case {
   Viewport Frame;
   Acceptance Accepted;
   ExactnessClass Placement = ExactnessClass::GeneralPosition;
-  /* THE ORACLE'S OWN SUB-PIXEL RESOLUTION, read once from the recipe that produced it: half the box
-   * filter's width bounds how far a Cycles sample can sit from the pixel centre, and every near-tie
-   * in this suite is judged against it. Held here rather than read at each of the four sites that
-   * want it, because `Json::Ref::Num(def)` answers an absent key with the default and a filter width
-   * of zero would silently turn every one of those judgements into "no tolerance at all". */
+
   double OracleFloorPx = 0;
   CriterionKind Criterion = CriterionKind::Numeric;
   OracleRole Oracle = OracleRole::Reference;
   std::string CameraSource;
-  /* Scene-referred linear radiance per subject part, derived from the case's own material
-   * declaration and from nothing else. */
+
   std::vector<std::array<float, 3>> Emitted;
   std::string MaterialKind;
-  /* HOW MANY TRANSMISSION BOUNCES THE ORACLE'S OWN RECIPE ALLOWED (board:1386). Zero is the corpus's
-   * default and it means the oracle CANNOT show anything through a surface -- so a case declaring it
-   * has an opaque picture on the reference side whatever its materials say, and asking this engine
-   * for a transmissive pass there compares two different scenes rather than one disagreement.
-   *
-   * IT IS READ FROM THE `default` RECIPE, which is the one the picture bound is taken on. */
+
   int TransmissionBounces = 0;
-  /* HOW MANY SAMPLES THE ORACLE TOOK PER PIXEL (board:1426). At ONE its film alpha is a predicate --
-   * a sample is inside the geometry or it is not -- and comparing it to ours, which is a predicate by
-   * construction, is a comparison of like with like. Above one it is an ANTIALIASED coverage, and the
-   * two are different quantities however close they look. */
+
   int OracleSamples = 1;
-  /* WHICH METRICS THIS CASE DECLARES ITS ORACLE CANNOT DECIDE, AND WHY (board:1422). The ladder's
-   * second rung -- *reduce the oracle* -- had no spelling in this harness, so a case whose reference
-   * genuinely cannot answer a metric had only two states left to it: red forever, or a threshold
-   * moved, which is the one thing this tree refuses.
-   *
-   * A REDUCTION NAMES A METRIC AND CARRIES ITS REASON, and the reason is REQUIRED: a reduction with
-   * no argument beside it is a disqualification wearing a softer word. It turns that metric into a
-   * reported number for this case and for no other, and every one is printed and counted so a corpus
-   * cannot go quiet one metric at a time. */
+
   std::map<std::string, std::string> Reductions;
-  /* Which channel of the file's own materials the appearance comes from, or `Declared` where the
-   * manifest states it. The decoded images are held in `Surfaces` because the renderer copies them
-   * and the studio only points at them. */
+
   ColourFrom Colour = ColourFrom::Declared;
   ColourCarrier Carrier = ColourCarrier::Texture;
   bool MaterialFromFile() const { return Colour != ColourFrom::Declared; }
-  /* THE ARM WHERE NO PER-PART RADIANCE IS THE ANSWER AT ALL: the surface's colour is the BRDF
-   * evaluated against the light list, so the declared radiance is zero everywhere and the residual
-   * against the oracle is a comparison of two shading models rather than of one number. */
+
   bool ShadedByLights() const { return Colour == ColourFrom::Row; }
   SceneLights Lights = SceneLights::None;
-  /* THE DECLARED SUN, resolved once out of the manifest so that the studio builder is a copy and not
-   * a second reading. Unread unless `Lights` names it, which is what `SceneLights` is for. */
+
   outshine::PunctualLight Sun;
-  /* Whether the ORACLE of this case still has an estimator: a scene whose only sources are lights
-   * with no area is sampled deterministically and owes the two-seed check; more than one such light
-   * is not, because Cycles picks one per shading event. The manifest declares which. */
+
   bool DeltaLit = false;
-  /* The environment's radiance per channel, scene-referred linear: Blender's factory world under
-   * the `factory` arm, the declared colour times the declared strength under `uniform`. */
+
   double WorldRadiance[3] = {kFactoryWorldRadiance, kFactoryWorldRadiance, kFactoryWorldRadiance};
-  /* What the ASSET says a render of itself must satisfy, empty unless the criterion is
-   * `stated-invariant` -- which is the only kind that has any. */
+
   std::vector<Invariant> Invariants;
-  /* WHICH `KHR_materials_variants` VARIANT THIS CASE RENDERS, or none (board:1188). It is spent in
-   * `Subject::Build` and is the only field of this case that changes which material a part wears, so
-   * a pair of cases differing in nothing but this line is a pair of pictures differing in nothing
-   * but the selection. */
+
   outshine::Gltf::VariantSelection Variant;
   SurfaceTable Surfaces;
-  /* THE FRAME GRID THIS CASE IS JUDGED ON (board:1169), and a still declares none: `Frames` is 1,
-   * `Animation` is empty and every product keeps the name the corpus already carries. An animated
-   * case declares the grid and the file supplies the curves; frame n is n / `Fps` seconds into the
-   * animation, DERIVED and never accumulated, which is the currency board:1129 decided in. */
+
   int Frames = 1;
   double Fps = 0;
-  /* WHICH OF THE FILE'S ANIMATIONS PLAY, declared and never assumed (board:1198). The format states
-   * animations are independent and a client may play any subset, so `all of them` is a declaration
-   * like any other and has no shorthand -- a shorthand would make the picture a function of the file
-   * rather than of the case. */
+
   std::vector<int> Animations;
   outshine::Gltf::Pose Animation;
-  /* One local transform per node of the file, rewritten at every frame -- the caller's buffer, so a
-   * sweep over the grid allocates once. */
+
   std::vector<Transform> Locals;
-  /* THE MORPH WEIGHTS OF EVERY NODE AT THIS FRAME, flat and sliced by `Pose::WeightsFirst`, taken in
-   * the same call as the transforms so a body cannot be posed at one instant and shaped at another
-   * (board:1203). */
+
   std::vector<double> Weights;
-  /* THE DRAWN VERTICES AT FRAME 0, kept so that the motion at every later frame is measured against
-   * what was actually handed to the renderer and not against what the tracks say (board:1169). */
+
   std::vector<double> RestPositions;
-  /* THE SAME SUBJECT AT THE PREVIOUS FRAME OF THE GRID, which is what a screen-space motion vector
-   * is measured against. At frame 0 it is frame 0, so the first frame of a sequence publishes a
-   * velocity of exactly zero everywhere it is covered rather than a displacement from nothing. */
+
   Subject PreviousGeometry;
-  /* HOW FAR THIS FRAME'S POSE MOVED FROM THE PREVIOUS ONE, in pixels (board:1434). Held on the case
-   * because the velocity metric is scored inside the frame and the motion is measured outside it. */
+
   double MovedPx = 0;
-  /* EVERY METRIC NAME THIS CASE REPORTED, over the whole grid (board:1434). A declared reduction is
-   * checked against this once at the end rather than against one frame's list, because the grid's own
-   * claims are scored outside the frame loop and a per-frame check cannot see them. */
+
   std::set<std::string> MetricsReported;
-  /* **WHETHER THE FILE'S ANIMATION POSES THIS SUBJECT, which is what the case DECLARED** (board:1465).
-   * It used to be `Frames > 1`, and that conflated two questions the corpus never separated because
-   * no case had ever declared a one-frame grid: this engine then built the REST pose while the oracle
-   * applied what the file carries, and the two compared different bodies with nothing saying so.
-   * [MEASURED] `Animation_NodeMisc_03` keys one frame translating `[-0.1, 0, 0]`, and its vertex 6
-   * ended up 0.0526 m inside a near plane derived from the animated bounds -- half the translation. */
+
   [[nodiscard]] bool Posed() const { return !Animations.empty(); }
-  /* **WHETHER THIS CASE IS A SEQUENCE**, which is the frame count's question and stays it: the product
-   * names, the previous pose the velocity target differences against, and every claim about a grid
-   * changing the picture are all about having MORE THAN ONE frame. */
+
   [[nodiscard]] bool Animated() const { return Frames > 1; }
-  /* Which frame a product name carries, and it is nothing at all for a still. */
+
   [[nodiscard]] std::optional<int> ProductFrame(int frame) const {
     return Animated() ? std::optional<int>(frame) : std::nullopt;
   }
-  /* WHAT IS IN THIS CASE'S PATH THAT IS KNOWN TO DIFFER, and therefore what the picture bound's tail
-   * is the sum of. Every field of it is read off the case or off the resolved surfaces; none of it
-   * is a threshold a manifest can set (board:0089). */
+
   PathContents Path;
 };
-
 
 std::string Slurp(const std::string &path) {
   std::FILE *file = std::fopen(path.c_str(), "rb");
@@ -265,22 +146,12 @@ std::string Slurp(const std::string &path) {
 
 void Refused(const std::string &why) { std::printf("REFUSED %s\n", why.c_str()); }
 
-/* WHICH CASES OWE THE TWO-SEED CHECK: the ones whose oracle has no estimator left. A surface that
- * emits its declared colour gathers nothing, whatever the colour is keyed on. A scene lit only by
- * punctual lights over a world of strength zero is the same claim from the other side -- a light
- * with no radius is sampled in one deterministic direction -- so two seeds must agree bit for bit
- * there too, and any difference names the source that still has an area. */
 bool Reduced(const Case &subject) {
   return subject.MaterialKind == "emission" || subject.MaterialKind == "emission-per-material" ||
          subject.MaterialKind == "emission-by-material-index" ||
          subject.DeltaLit;
 }
 
-/* Which glTF socket a manifest's `scene.material.source` names, or `Declared` for the arm where the
- * manifest states the colours itself. WHICH (source, kind) PAIRS EXIST is the schema's and the
- * refusal below is about this runner's arms, not about the manifest's legality -- a spelling the
- * schema declares and this reader has no arm for is a hole here, and a spelling it does not declare
- * never reaches this line. */
 [[nodiscard]] bool ReadColourFrom(const Json::Ref &declared, ColourFrom &out, std::string &error) {
   if (declared.StrEquals("gltf-base-colour")) {
     out = ColourFrom::BaseColour;
@@ -331,12 +202,7 @@ bool Reduced(const Case &subject) {
     out = SceneLights::None;
     return true;
   }
-  /* `sun` IS A DECLARED DELTA LIGHT AND IT REACHES BOTH SIDES. Blender takes the same four numbers
-   * and builds a SUN whose angular diameter the case declares; the studio builds a directional
-   * light out of the direction and the irradiance times the colour. THE ANGLE HAS NO ENGINE SIDE
-   * and that is the whole reason a case may only declare zero: a sun with an angular diameter has an
-   * area, which puts an integral back in the oracle and a soft terminator in a picture the engine
-   * draws hard. `point` is still the arm this runner has no path to. */
+
   if (declared.StrEquals("sun")) {
     out = SceneLights::DeclaredSun;
     return true;
@@ -347,14 +213,6 @@ bool Reduced(const Case &subject) {
   return false;
 }
 
-/* THE DECLARED SUN AS THE ENGINE'S OWN LIGHT. Blender's Sun Strength is an irradiance in W/m^2 on a
- * surface facing the beam and `KHR_lights_punctual`'s directional `intensity` is an illuminance in
- * lux on the same surface, so the two are the same NUMBER in the same PLACE and the RAW arm of the
- * importer is what says so -- there is no conversion here to get wrong.
- *
- * AN ANGULAR DIAMETER ABOVE ZERO IS REFUSED AND NOT ROUNDED AWAY. A sun with an angle is an area
- * source: the oracle gets an estimator back and a picture gets a soft terminator that a punctual
- * light cannot draw. The refusal names the number so that a case cannot acquire one silently. */
 [[nodiscard]] bool ReadDeclaredSun(const Json::Ref &declared, outshine::PunctualLight &out,
                                    std::string &error) {
   const double angle = declared["angleRad"].Num(-1.0);
@@ -391,9 +249,6 @@ bool Reduced(const Case &subject) {
   return true;
 }
 
-/* THE RENDERER'S OWN LINES, ON THE RUNNER'S STDOUT. The library emits nothing without an injected
- * sink, and a test whose subject IS the renderer was reading a device that could not speak: a
- * validation error, a lost device and a failed buffer map were all the same silence. */
 class RunnerLog : public outshine::LogSink {
 public:
   void Write(double, outshine::LogLevel level, const char *tag, const char *event,
@@ -407,8 +262,6 @@ public:
   }
 };
 
-/* THE CAMERA COMES FROM THE MANIFEST WHERE IT DECLARES ONE, then from the glTF, then from the
- * framing rule -- and never from anywhere else, so no viewpoint can be tuned into a pass. */
 [[nodiscard]] bool ResolveCamera(Case &subject, std::string &error) {
   const Json::Ref declared = subject.Manifest.Root()["scene"]["camera"];
   if (declared["source"].StrEquals("manifest")) {
@@ -424,16 +277,11 @@ public:
     subject.Eye.ZNearM = declared["clipStartM"].Num(0.0);
     subject.Eye.ZFarM = declared["clipEndM"].Num(0.0);
     subject.CameraSource = "manifest";
-    /* THE PROJECTION IS DECLARED AND NOT INFERRED FROM WHICH FIELD IS PRESENT. A parallel
-     * projection is a different matrix, not a very long focal length, and a case that needs one
-     * needs it for a reason it can state: `PointLightIntensityTest` compares two panels 2.25 m
-     * apart in the same picture, and only a parallel projection makes them congruent in pixels, so
-     * "identical" is decidable there instead of approximate. */
+
     if (declared["projection"].StrEquals("orthographic")) {
       subject.Eye.Kind = outshine::Gltf::CameraKind::Orthographic;
       subject.Eye.YMagM = declared["yMagM"].Num(0.0);
-      /* The engine's parallel projection carries the VERTICAL extent and derives the horizontal
-       * from the frame's aspect, so the horizontal magnification is not a second declaration. */
+
       subject.Eye.XMagM = subject.Eye.YMagM * subject.Frame.Aspect();
       return subject.Eye.YMagM > 0;
     }
@@ -445,16 +293,7 @@ public:
     subject.Eye.YfovRad = declared["yfovRad"].Num(0.0);
     return subject.Eye.YfovRad > 0;
   }
-  /* **A DERIVED CAMERA IS READ AND NOT RECOMPUTED** (board:1458). The preparer unions the subject's
-   * world bounds over the declared frames inside Blender -- whose importer poses the hierarchy and
-   * samples the animation, so an armature and a shape key are in the answer -- applies the four
-   * constants of `src/gltf/Framing.h` and publishes what it derived. Reading it makes both sides use
-   * IDENTICAL numbers by construction, where recomputing here would put Blender's bounds against the
-   * engine's and let the last bits of a float decide whether a case can exist.
-   *
-   * *What quoting a camera protected against is one somebody could tune into a pass. A camera that is
-   * a function of the subject's bounds and four declared constants is not tunable, so nothing is given
-   * up by not restating it.* */
+
   if (declared["source"].StrEquals("derived")) {
     const std::string provenanceText = Slurp(subject.Directory + "provenance.json");
     Json provenance;
@@ -465,9 +304,7 @@ public:
               "preparer published there";
       return false;
     }
-    /* THE RENDER'S OWN ACCOUNT IS WHERE THE PREPARER PUBLISHES IT, one row per product, and every row
-     * of a case carries the same camera because the derivation is over the whole grid. The first row
-     * that states one is read; a case with none was prepared before the rule was derived. */
+
     Json::Ref from;
     const Json::Ref rows = provenance.Root()["report"]["render"];
     for (size_t row = 0; row < rows.Size(); ++row) {
@@ -498,11 +335,7 @@ public:
     subject.CameraSource = "derived";
     return subject.Eye.YfovRad > 0 && subject.Eye.ZFarM > subject.Eye.ZNearM;
   }
-  /* A CASE THAT NAMES THE FILE AS ITS CAMERA AND GETS THE FRAMING RULE INSTEAD would render a
-   * perfectly good picture through a path it was written to exercise and never touch, so the
-   * refusal is the reader's own sentence and there is no arm past it. THE INDEX IS THE MANIFEST'S
-   * AND HAS NO DEFAULT: `Cameras` carries a perspective and an orthographic camera at one point,
-   * and "the first one" would render one and report the other's criterion. */
+
   if (declared["source"].StrEquals("gltf")) {
     if (declared["index"].GetKind() != Json::Kind::Number) {
       error = "the manifest names the glTF as the camera's source and declares no `index` into its "
@@ -516,10 +349,7 @@ public:
     subject.CameraSource = "gltf";
     return true;
   }
-  /* UNREACHABLE FOR A VALID MANIFEST AND KEPT AS THE REFUSAL'S OTHER HALF (board:1366): the schema's
-   * camera discriminator has exactly two variants and both are handled above, so a fall-through here
-   * means a manifest the schema would have refused. A sweep of the frame grid was tried in this branch
-   * and removed -- it cost every animated case a pose per frame at load and could not fire. */
+
   if (subject.Geometry.Frame(subject.Eye)) {
     subject.CameraSource = "framing-rule";
     return true;
@@ -529,14 +359,6 @@ public:
   return false;
 }
 
-/* WHAT THE ORACLE STILL CARRIES THAT OUR PICTURE CANNOT BE HELD TO, read off the case's own
- * description of its reference and never off a tolerance (board:0089).
- *
- * `not-bit-reproducible` OWES ITS MEASUREMENT AND IS REFUSED WITHOUT ONE. It is not an estimator --
- * there is nothing random left in the mathematics -- so a bound is derivable; but it is not zero
- * either, and what makes it a number is the residue between two renders of the same scene at the
- * same seed on this host. A case that claimed the word without the number would be claiming room it
- * had not measured. */
 [[nodiscard]] bool ReadOraclePath(const Json::Ref &light, PathContents &path, std::string &error) {
   path.OracleEstimates = light["estimator"].StrEquals("selected");
   path.OracleIsHostIrreproducible = light["estimator"].StrEquals("not-bit-reproducible");
@@ -553,12 +375,6 @@ public:
   return true;
 }
 
-/* THE DISPLAY TRANSFER BOTH SIDES ARE READ THROUGH, and the runner refuses any spelling but the one
- * it implements rather than quietly scoring on a curve nobody applied. `Standard` over an `sRGB`
- * device is the sRGB OETF and nothing else, which is exactly what our plan's `Transfer::Linear` into
- * an sRGB-encoding attachment produces -- so the picture bound's `T` is the same function on both
- * sides. Every exposure and gamma in the chain must be the identity, because a case that scaled one
- * of them would be compared on an axis this runner does not know it is on. */
 [[nodiscard]] bool ReadDisplayTransfer(const Json::Ref &recipe, std::string &error) {
   const Json::Ref colour = recipe["colourManagement"];
   const bool standard = colour["viewTransform"].StrEquals("Standard") &&
@@ -583,9 +399,7 @@ public:
             std::to_string(subject.Manifest.StoppedAt());
     return false;
   }
-  /* THE DECLARATION IS READ BEFORE THE DOCUMENT IS. The schema is the preparer's too, so a manifest
-   * this runner accepts is one the preparer can prepare -- which is the property the two closed sets
-   * did not have. */
+
   const std::string schemaPath = SchemaPathBesideCase(subject.Directory);
   const std::string schemaText = Slurp(schemaPath);
   if (schemaText.empty()) {
@@ -600,8 +414,7 @@ public:
     return false;
   }
   if (!ReadExactnessClass(root, subject.Placement, error)) { return false; }
-  /* Absent is zero, which is the corpus's own default and the conservative reading: a recipe that
-   * does not say it allowed a transmission bounce did not allow one. */
+
   subject.TransmissionBounces =
       root["renders"]["default"]["bounces"]["transmission"].Int(0);
   subject.OracleSamples = root["renders"]["default"]["samples"].Int(1);
@@ -624,9 +437,7 @@ public:
     return false;
   }
   subject.OracleFloorPx = 0.5 * filterWidth.Num();
-  /* THE ASSET SAYS WHAT CORRECT IS AND THE KIND OF ANSWER DECIDES THE INSTRUMENT (I.26.12). The
-   * quotation and the file it came from are required beside it, so the kind cannot move without a
-   * quotation moving with it. */
+
   if (!ReadCriterionKind(root["criterion"]["kind"].Str(""), subject.Criterion, error)) {
     return false;
   }
@@ -636,13 +447,7 @@ public:
             "asset's";
     return false;
   }
-  /* WHICH KINDS OF CRITERION MAY CARRY STATED INVARIANTS, and it is not one kind but two. A
-   * `stated-invariant` case MUST declare them, because they are its whole acceptance. A
-   * `self-describing` case MAY, because reclassifying the PICTURE releases nothing that is
-   * computable from our own render alone -- `DirectionalLight` keeps its hue check when its
-   * reference stops deciding (board:0085). A `numeric` or `limits-probe` case may
-   * not: the first is scored on the image and the second has no pass at all, so an invariant there
-   * would be an acceptance its criterion does not claim. */
+
   const bool statesInvariants = root["statedInvariants"].Size() > 0;
   const bool mayStateInvariants = subject.Criterion == CriterionKind::StatedInvariant ||
                                   subject.Criterion == CriterionKind::SelfDescribing;
@@ -666,9 +471,6 @@ public:
   subject.Accepted.EnforceBoundary = subject.Accepted.Subject == SubjectClass::OpaqueAtLeastOnePixel;
   if (!ReadAcceptance(root["acceptance"], subject.Accepted, error)) { return false; }
 
-  /* `gltf-base-colour` IS THE ARM WHERE THE FILE OWNS THE SURFACE, so nothing is read here and the
-   * factor and the image both come out of the document once the subject has been built. Declaring
-   * either of them beside a Khronos asset would be measuring our re-declaration and not the asset. */
   const Json::Ref material = root["scene"]["material"];
   if (!ReadColourFrom(material["source"], subject.Colour, error)) { return false; }
   subject.MaterialKind = material["kind"].Str("");
@@ -676,16 +478,10 @@ public:
       !ReadColourCarrier(material["carriedBy"], subject.Carrier, error)) {
     return false;
   }
-  /* WHICH MATERIAL VARIANT THIS CASE RENDERS (board:1188), by the name the file gives it. Its
-   * absence is the extension's own default -- no active variant -- so the 37 cases that declare
-   * nothing take the same path they always took, and the name is carried rather than resolved here
-   * because the document it is resolved against is the one about to be flattened. */
+
   const Json::Ref variant = root["scene"]["materialVariant"];
   if (variant.Valid()) { subject.Variant = outshine::Gltf::VariantSelection(variant.Str("")); }
-  /* THE FRAME GRID, WHERE THE CASE DECLARES ONE. Its absence is the still corpus and needs no arm:
-   * one frame, no pose, the file's own placements. A grid of one would be a still that renders the
-   * pose at t = 0 and passes every frame-by-frame comparison, so the preparer refuses it and this
-   * reader does not have to. */
+
   const Json::Ref animation = root["scene"]["animation"];
   if (animation.Valid()) {
     const Json::Ref which = animation["animations"];
@@ -695,12 +491,7 @@ public:
     if (!ReadDeclaredNumber(animation["frames"], "scene.animation.frames", frames, error)) {
       return false;
     }
-    /* **A ONE-FRAME GRID IS A DECLARATION AND NOT A SEQUENCE** (board:1465). This refused fewer than
-     * two frames while `Animated()` decided from the count whether to POSE at all, so one frame meant
-     * a still and a still that named an animation was a contradiction. It is not one now: `Posed()`
-     * reads the declaration, and a file carrying an animation whose channels cannot change the pose --
-     * a single keyframe, an override to a constant -- needs exactly one frame, because the ORACLE
-     * applies what the file carries and two frames would render one pose twice. */
+
     if (!(fps > 0) || !(frames >= 1)) {
       error = "scene.animation declares " + std::to_string(frames) + " frames at " +
               std::to_string(fps) + " fps, and a grid is at least one frame on a positive rate";
@@ -708,14 +499,7 @@ public:
     }
     subject.Fps = fps;
     subject.Frames = (int)frames;
-    /* A CAMERA DERIVED PER FRAME WOULD FOLLOW THE SUBJECT, and then a disagreement between two
-     * frames could be the pose or the viewpoint with nothing to separate them. The rule frames the
-     * bounds it is given, and an animated subject has a different bounds every frame.
-     *
-     * **`derived` SATISFIES THAT BY CONSTRUCTION AND IS ADMITTED** (board:1458): the preparer takes the
-     * union of bounds over the WHOLE declared grid, once, and publishes one camera -- so the viewpoint
-     * is fixed across the sequence and the clip window is the grid's rather than the rest pose's,
-     * which is `board:1433`'s own lesson applied where the bounds are. */
+
     if (!root["scene"]["camera"]["source"].StrEquals("manifest") &&
         !root["scene"]["camera"]["source"].StrEquals("derived") &&
         !root["scene"]["camera"]["source"].StrEquals("gltf")) {
@@ -731,19 +515,11 @@ public:
   if (subject.Lights == SceneLights::DeclaredSun && !ReadDeclaredSun(light, subject.Sun, error)) {
     return false;
   }
-  /* WHETHER THE TWO SEEDS MUST AGREE BIT FOR BIT, declared in one spelling on both arms. A DECLARED
-   * SUN CAN NO LONGER ANSWER `selected`: the preparer takes the subject's own emission out of
-   * Cycles' light tree and out of every gathering ray, so that arm's enumeration has lost the word.
-   * The file's own lights are a different question -- their number is upstream's -- so the `gltf`
-   * arm keeps it. The measurements are in the schema's note beside the field. */
+
   subject.DeltaLit = light["estimator"].StrEquals("delta");
   if (!ReadOraclePath(light, subject.Path, error)) { return false; }
   if (!ReadDisplayTransfer(root["renders"]["default"], error)) { return false; }
-  /* THE ENVIRONMENT AS A RADIANCE, per channel, and the two arms are the two ways a case can state
-   * one. `factory` is Blender's own and its number is not the manifest's to restate; `uniform` is
-   * the arm a case takes to REMOVE the environment, and the only value in the tree today is zero --
-   * which is the reduction a lit case needs, because an environment is an area source and a delta
-   * light is not. */
+
   const Json::Ref world = root["scene"]["world"];
   if (world["kind"].StrEquals("uniform")) {
     const double strength = world["strength"].Num(0.0);
@@ -776,12 +552,6 @@ bool Present(const std::string &path) {
   return true;
 }
 
-/* WHAT THE PREPARER OWES THIS CASE, taken from the case's own declaration rather than from a list
- * here: every file a subject names as `as`, and the oracle products of the default recipe. A case
- * directory's ONLY tracked file is its manifest (board:0083), so on a fresh clone
- * all of these are absent and the answer is "not prepared" -- which is red, and is neither a pass
- * nor a skip, because a tier that skipped when its inputs were missing could not be told from a tier
- * that passed having compared nothing. */
 std::string MissingInputs(const Case &subject) {
   std::vector<std::string> owed;
   const Json::Ref subjects = subject.Manifest.Root()["subjects"];
@@ -811,42 +581,6 @@ std::string MissingInputs(const Case &subject) {
   return missing;
 }
 
-
-
-/* THE SURFACES THE FILE OWNS: each slot's colour image and the sampler that addresses it. Every
- * refusal here names what the asset declared and what was missing, because a texture that quietly
- * failed to load draws the factor alone -- a flat colour that looks exactly like a material somebody
- * authored that way.
- *
- * ON THE SOCKET ARMS THE COLOUR IMAGE AND THE COVERAGE IMAGE ARE ONE BINDING, AND WHERE THAT IS A
- * LIE THE CASE IS REFUSED. Those arms REPLACE the closure with a single emitter or a Diffuse BSDF
- * whose whole appearance is one image, and the subject draw's `Colour` slot is that image: its rgb
- * is the colour and its alpha is the coverage. glTF, though, takes coverage always from
- * `baseColorTexture` whichever socket the picture comes from. Under the base-colour arm the two are
- * the same image by construction; under the emissive arm they are the same image only where the
- * asset happens to name one texture for both -- `TextureLinearInterpolationTest`'s label plate does
- * -- so anything else stops here by name. THIS IS A PROPERTY OF THE LOWERED ARMS AND NOT OF THE
- * SURFACE: the `gltf` arm below binds four of the file's images at once.
- */
-
-
-/* WHAT EACH PART OF THE SUBJECT EMITS, derived from the case's own material declaration and from
- * nothing else. Three arms, and the split between them is board:0087's:
- *
- * `diffuse` IS THE CLOSED FORM AND IT IS ONLY AVAILABLE TO A SINGLE UNOCCLUDED FACET. Under a
- * uniform environment a Lambertian facet returns `rho*L` whichever way it faces, with no integral
- * left -- but only while nothing in the scene can be seen from anything else. Where it can, Cycles
- * at one sample takes ONE cosine-weighted direction per pixel and either escapes to the world or
- * meets geometry, so the pixel is a Bernoulli draw whose mean is the visible sky fraction, and the
- * case has stopped measuring a placement. A subject of more than one mesh-bearing node is refused
- * this arm outright, because there the surfaces certainly do see one another.
- *
- * `emission` REMOVES ALL FOUR INTEGRALS AT ONCE -- the world as a light, the sun's disk, the point
- * light's radius and visibility -- because a surface that emits its declared colour gathers nothing.
- * IT DECLARES ONE COLOUR PER NODE AND HAS NO SHORTER SPELLING: a single flat colour over three
- * touching cubes fuses them into one silhouette, which hides a misplaced node inside the union and
- * is a WORSE instrument than the noise it replaces. The boundary between two declared colours is
- * exact; a boundary in binary ambient-occlusion noise never was. */
 [[nodiscard]] bool ResolveEmission(const Case &subject, const Document &file,
                                    const Subject &geometry,
                                    std::vector<std::array<float, 3>> &out, std::string &error) {
@@ -854,11 +588,6 @@ std::string MissingInputs(const Case &subject) {
   const size_t parts = geometry.Parts().size();
   out.assign(parts, {0.0f, 0.0f, 0.0f});
 
-  /* THE LIT ARM DECLARES NO RADIANCE. Every part emits nothing and the picture is what the light
-   * list and the surface's own row make of it, which is the whole point of the arm -- EXCEPT where
-   * the file's own material says the surface is not lit. `KHR_materials_unlit` states the whole
-   * appearance of such a surface as its base colour, so that colour IS its declared radiance, and a
-   * lit scene carrying one caption plate has a part whose picture no light decides. */
   if (subject.ShadedByLights()) {
     for (size_t part = 0; part < parts; ++part) {
       const int index = geometry.Parts()[part].Material;
@@ -873,19 +602,11 @@ std::string MissingInputs(const Case &subject) {
   }
 
   if (subject.MaterialFromFile()) {
-    /* THE FILE OWNS THE COLOUR AND THE CASE OWNS THE CLOSURE, and the closure is one factor.
-     * `diffuse`: the metal-rough model at metalness 0 under a uniform environment reduces to
-     * `baseColour(u,v) * factor * L`. `emission`: the surface's radiance IS the declared colour, so
-     * the environment leaves the arithmetic entirely -- which is what a subject whose surfaces see
-     * one another has to declare, because there Cycles at one sample is measuring visibility
-     * (board:0087). The texel is the shader's either way; this is the factor. */
+
     const bool emits = subject.MaterialKind == "emission";
     for (size_t part = 0; part < parts; ++part) {
       const int index = geometry.Parts()[part].Material;
-      /* THE FORMAT'S DEFAULT MATERIAL WHERE THE PRIMITIVE NAMES NONE (board:1193), which for a
-       * base-colour case is a `baseColorFactor` of [1,1,1,1]: the emitted radiance is then the
-       * identity every other operand multiplies into, and `BoxVertexColors`'s picture IS its
-       * `COLOR_0`. The engine's own default would put 0.5 there and halve the body. */
+
       const outshine::Material surface = index >= 0 && (size_t)index < file.Materials().size()
                                              ? file.Materials()[(size_t)index].Surface
                                              : outshine::Gltf::DefaultMaterial();
@@ -900,34 +621,19 @@ std::string MissingInputs(const Case &subject) {
     return true;
   }
 
-  /* ONE COLOUR PER MATERIAL, WHICH IS THE KEY A MULTI-MATERIAL ASSET HAS. A per-NODE colour cannot
-   * reach two primitives of one node that name different materials -- `SciFiHelmet` and
-   * `AlphaBlendModeTest` are exactly that -- and the importer carries the material's own name
-   * across, so the two sides key on the same string. */
   if (subject.MaterialKind == "emission-per-material") {
     const Json::Ref declared = material["colourLinearPerMaterial"];
     std::vector<std::string> matched;
     for (size_t part = 0; part < parts; ++part) {
       const int index = geometry.Parts()[part].Material;
-      /* A PRIMITIVE THAT NAMES NO MATERIAL IS NOT AN ERROR AND THE FORMAT SAYS SO (board:1373). glTF
-       * 2.0: "When [material] is undefined, the primitive is rendered with the default material" --
-       * metallic 1, roughness 1, base colour white. Nine models in the index have one, and refusing
-       * them cost nine cases that could not run at all. The reserved key is the format's own word for
-       * that material, in angle brackets so it cannot be confused with a name a file could state. */
+
       static const std::string kDefaultMaterial = "<default>";
       if (index >= (int)file.Materials().size()) {
         error = "part " + std::to_string(part) + " names material " + std::to_string(index) +
                 " and the file declares " + std::to_string(file.Materials().size());
         return false;
       }
-      /* AN UNNAMED MATERIAL IS KEYED BY THE NAME THE IMPORTER PUBLISHES FOR IT (board:1362), and
-       * that name was MEASURED rather than chosen: Blender's glTF importer calls material `i` of a
-       * file that names none `Material_<i>` -- [MEASURED] `MetalRoughSpheres` (one unnamed material)
-       * arrives as `Material_0`, `TextureEncodingTest` (fourteen) as `Material_0` .. `Material_13`.
-       * The glTF index is therefore already IN the string, so two unnamed materials can never
-       * collide and the `.001` duplicate suffix -- which is right for one material bound twice and
-       * would be wrong here -- never enters. It is the same convention `Mesh_<index>` and
-       * `Node_<index>` already carry in this harness, read from the importer and not predicted. */
+
       std::string name;
       if (index < 0) {
         name = kDefaultMaterial;
@@ -935,9 +641,7 @@ std::string MissingInputs(const Case &subject) {
         name = file.Materials()[(size_t)index].Name;
       } else {
         name = "Material_" + std::to_string(index);
-        /* THE ONE WAY THAT KEY CAN LIE, REFUSED RATHER THAN DOCUMENTED. A file carrying both an
-         * unnamed material and a named one spelled `Material_<n>` would put two materials under one
-         * key and paint one of them the other's colour, silently. */
+
         for (size_t other = 0; other < file.Materials().size(); ++other) {
           if (file.Materials()[other].Name == name) {
             error = "material " + std::to_string(index) + " names itself nothing and material " +
@@ -972,22 +676,6 @@ std::string MissingInputs(const Case &subject) {
     return true;
   }
 
-  /* A COLOUR PER MATERIAL FROM A RULE RATHER THAN A TABLE (board:1362). A table names materials, and
-   * that is the right declaration while a subject has a handful: `IridescenceMetallicSpheres` draws
-   * 344 and `NodePerformanceTest` 10 000, where a table stops being a declaration and becomes a
-   * transcription of the file. THE RULE IS THE DECLARATION HERE and it takes no parameters, so a
-   * manifest cannot tune a colour to make a case pass.
-   *
-   * colour[c] = 0.15 + 0.70 * frac(slot * step[c]), slot = the glTF material index, and the format's
-   * default material takes the slot one past the last so it can never collide with a declared one.
-   * The three steps are irrational and mutually incommensurable, so the walks never resynchronise and
-   * two adjacent materials are far apart in all three channels. The range is [0.15, 0.85], which is
-   * the range every hand-written table in this tree already uses.
-   *
-   * THIS ARITHMETIC IS SPELLED TWICE, HERE AND IN in_blender_render.py, BECAUSE THE TWO SIDES ARE TWO
-   * LANGUAGES -- and nothing has to police the copies, because a drift between them IS a colour
-   * disagreement and a colour disagreement is precisely what these cases measure. The instrument for
-   * this duplication is the case itself. */
   if (subject.MaterialKind == "emission-by-material-index") {
     static const double kStep[3] = {0.6180339887498949, 0.4142135623730951, 0.3027756377319946};
     for (size_t part = 0; part < parts; ++part) {
@@ -1056,10 +744,6 @@ std::string MissingInputs(const Case &subject) {
   return true;
 }
 
-/* WHETHER A WEIGHT IS INTERPOLATED ANYWHERE IN THIS CASE'S PATH, asked of the surfaces that were
- * actually bound rather than of anything a manifest says. An image of one texel has no span to
- * interpolate across and a nearest-filtered one carries no weight, so neither puts the sampler term
- * into the bound -- and a case cannot acquire the term by declaring anything (I.26.15). */
 [[nodiscard]] bool AnyLinearFilteredImage(const SurfaceTable &surfaces) {
   const auto interpolates = [](const outshine::Render::SubjectTexture &image) {
     return image.Rgba != nullptr && (image.Width > 1u || image.Height > 1u) &&
@@ -1075,11 +759,6 @@ std::string MissingInputs(const Case &subject) {
   return false;
 }
 
-/* THE SUBJECT AT ONE FRAME, and for a still there is one frame and no pose (board:1169). The parts,
- * their materials and their order are the scene graph's and do not move with the pose, so everything
- * resolved off them -- the surface table, the per-part radiance -- is resolved once at the first
- * frame and stands for the whole grid. What is rebuilt is the geometry, because the pose is baked
- * into the world positions exactly as the file's own placements are. */
 [[nodiscard]] bool PoseGeometry(Case &subject, int frame, std::string &error) {
   if (!subject.Posed()) {
     if (subject.Geometry.Build(subject.File, subject.Variant)) { return true; }
@@ -1115,13 +794,7 @@ std::string MissingInputs(const Case &subject) {
   }
   if (!PoseGeometry(subject, 0, error)) { return false; }
   subject.RestPositions = subject.Geometry.PositionsM();
-  /* **THE ARM IS THE CASE'S AND IT OWNS THE ALPHA MODE AND THE TRANSMISSION TOGETHER** (board:1425,
-   * board:1386). A case whose materials are the MANIFEST's is compared against a reference the
-   * preparer rendered as a flat emitter with no coverage at all, so honouring the file's `alphaMode`
-   * here makes this engine see through a surface the other side draws solid -- `GlassVaseFlowers` is
-   * the case that shows it, and its two vases are the two ways to make glass. The mechanism lives in
-   * `Clients::ResolveSurfaceTable`; WHICH ARM A CASE TAKES is decided here, because it is a fact about
-   * the comparison and not about the document. */
+
   ResolveSurfaceTable(subject.File, subject.Geometry, subject.TransmissionBounces > 0,
                       subject.MaterialFromFile(), subject.Surfaces);
   if (subject.MaterialFromFile() &&
@@ -1140,36 +813,16 @@ std::string MissingInputs(const Case &subject) {
 struct Picture {
   std::vector<float> Depth;
   std::vector<uint8_t> Rgba;
-  /* THE SCENE-REFERRED LINEAR TAP, RGBA f32: what the plan's `sceneLinear` holds, before any display
-   * transfer. Determinism is judged on this and never on the PNG, whose 8-bit quantisation would
-   * hide a difference the float buffer carries. */
+
   std::vector<float> Linear;
-  /* THE NORMAL THE BRDF RECEIVED, xyzw per pixel (board:1122). WHETHER A LOBE WAS SHADED AT ALL IS
-   * CARRIED BY THE VECTOR AND NOT BY w: the emissive arms write a zero VECTOR, and a zero-length
-   * vector is not a direction, so the three-way excludes those pixels by that predicate and never by
-   * an angular threshold -- an angle against a zero vector is meaningless and would read as a clean
-   * 90 degrees on every one of them.
-   *
-   * `w` CARRIES THE FACING, +1 front and -1 back (board:1126). It was documented as marking the
-   * shaded-ness above and nothing ever read it, which is the same shape as a metric whose name
-   * misstates its instrument. It exists because both tangent assets declare `doubleSided`, so the
-   * shader's back-face branch is reachable and the question of how many DISPUTED pixels are shaded
-   * back-facing decides whether that branch's defect is the one under investigation. */
+
   std::vector<float> ShadingNormal;
-  /* WHICH SURFACE SLOT THE FRAGMENT WORE, one value per pixel in `x`, one higher than the slot
-   * (board:1138). It is the coverage predicate's missing half: `Depth` says a pixel is covered and
-   * this says by WHAT, so a surface swap has a spelling that is not a number of codes. */
+
   std::vector<float> SurfaceIdentity;
-  /* THE SCREEN-SPACE MOTION OF WHAT WROTE THE DEPTH, xy per pixel in NDC units per frame
-   * (board:1169). Empty unless the plan attaches the target, which only a sequence asks for: with
-   * nothing in the tree ever moving, no case had ever produced a velocity that was not the pass's
-   * own "nothing dynamic wrote this pixel" sentinel. */
+
   std::vector<float> Velocity;
 };
 
-/* THE RUNNER IS A CODE CONSUMER OF THE SETUP API and not a second engine: everything it asks for is
- * `Clients::Show`, which is the same call a scenario loader that declared a glTF subject would make.
- * Nothing about the placement or the frame mapping is decided here. */
 [[nodiscard]] bool Capture(outshine::Render::Renderer &renderer,
                            const outshine::Clients::Studio &studio, Picture &out,
                            std::string &error) {
@@ -1177,9 +830,7 @@ struct Picture {
   if (!outshine::Clients::Show(renderer, studio, scratch, error)) { return false; }
 
   for (int frame = 0; frame < renderer.SettleFrames(); ++frame) { renderer.RenderFrame(); }
-  /* NO FRAME IS DRAWN BETWEEN THE THREE READS, so no pace reaches the picture: each copies a target
-   * that already exists and waits for that copy alone. How many frames a picture needs before it is
-   * the picture is the PLAN's statement, above. */
+
   if (renderer.ReadDepth(out.Depth) != outshine::Render::ReadState::Ready) {
     error = "the depth readback did not complete";
     return false;
@@ -1208,21 +859,6 @@ struct Picture {
   return true;
 }
 
-/* REVERSED-Z: the depth attachment is cleared to 0 at the far plane, so anything that wrote depth is
- * strictly greater.
- *
- * AND WHAT A BLENDED SURFACE PUT IN ALPHA, BECAUSE IT WROTE NO DEPTH (board:1423). `BLEND` composites
- * with what is behind it, so writing depth is the one thing it must not do -- and a predicate that
- * read depth alone called every transparent pixel empty while the engine had drawn it. [MEASURED] we
- * covered less than the reference in every red silhouette case that carried a blended material,
- * `GlassVaseFlowers` by 30 %, and the one case that covered MORE carried none.
- *
- * THE SCENE'S ALPHA IS NOW A COVERAGE CHANNEL and this reads it: the target clears to 0, an opaque arm
- * writes 1 and replaces, and a blended arm accumulates `over` from nothing. **A black opaque subject
- * is still covered** -- the property the depth was here for -- because its alpha is 1 however dark its
- * colour is.
- *
- * `linear` MAY BE EMPTY, in which case this is the depth predicate exactly as it was. */
 Mask FromDepth(const std::vector<float> &depth, const std::vector<float> &linear, int width,
                int height) {
   Mask mask;
@@ -1237,26 +873,6 @@ Mask FromDepth(const std::vector<float> &depth, const std::vector<float> &linear
   return mask;
 }
 
-/* THE ORACLE'S SIDE IS ITS ALPHA, which Cycles writes only for camera rays carrying the transparent
- * background flag -- an exact coverage channel that never touched the lighting.
- *
- * HALF A PIXEL IS THE CUT, AND IT IS DERIVED RATHER THAN CHOSEN (board:1431). Cycles distributes its
- * samples over the pixel's AREA whatever the reconstruction filter's width is, so an oracle rendered
- * with more than one sample answers *how much of this pixel does the subject cover* while a
- * centre-sampling rasteriser answers *is this pixel's centre inside it*. **For a straight edge crossing
- * a pixel the two questions have the same answer at exactly one half**: the edge divides the pixel into
- * two parts and the centre lies in the larger one, so `coverage >= 0.5` IS the centre predicate and not
- * an approximation of it.
- *
- * THE RULE CONSTRAINS THIS SIDE AND NOT OURS, which is why it is written here: our alpha already
- * answers the centre question -- an opaque arm writes 1, a blended arm accumulates what it drew -- and
- * nothing in it is an area estimate.
- *
- * [MEASURED] it is a NO-OP on 145 of the 146 prepared oracles in this tree, whose alpha is strictly
- * binary and for which the two predicates name the same set. The one it moves is
- * `PointLightIntensityTest`, whose 256 samples exist for its eight lights' selection estimator and
- * whose manifest claimed in the same breath that they were all taken at the pixel centre -- 
- * [MEASURED] its edge profile is `0, 0, 0.1016, 1, 1`, which is 26 of 256 samples and an area. */
 Mask FromOracle(const RawF32 &oracle) {
   Mask mask;
   mask.Width = oracle.Width();
@@ -1271,10 +887,6 @@ Mask FromOracle(const RawF32 &oracle) {
   return mask;
 }
 
-/* THE ORACLE'S PIXELS IN OUR OUTPUT'S CURRENCY, and the transform is the standard one rather than a
- * house curve: `renders.default.colourManagement.viewTransform` is `Standard`, which is the sRGB
- * OETF over the scene-referred linear values and nothing else. The float dump is what is read, never
- * the oracle's own PNG, because the float is the reference and the PNG is for looking. */
 uint8_t Srgb8(double linear) {
   const double clamped = linear < 0.0 ? 0.0 : (linear > 1.0 ? 1.0 : linear);
   const double encoded = clamped <= 0.0031308 ? 12.92 * clamped
@@ -1283,9 +895,6 @@ uint8_t Srgb8(double linear) {
   return (uint8_t)(level > 255.0 ? 255.0 : level);
 }
 
-/* THE ORACLE'S FRAME IN OUR OUTPUT'S FORM: RGB through the sRGB transfer, alpha carried straight
- * across as the coverage it already is. The three colour channels get a curve and the fourth does
- * not, because alpha is not a colour and encoding it would bend a coverage into a display code. */
 std::vector<uint8_t> Encoded(const RawF32 &oracle) {
   std::vector<uint8_t> rgba((size_t)oracle.Width() * (size_t)oracle.Height() * 4u);
   for (int y = 0; y < oracle.Height(); ++y) {
@@ -1301,11 +910,6 @@ std::vector<uint8_t> Encoded(const RawF32 &oracle) {
   return rgba;
 }
 
-  /* THE SAME DECLARATION TWICE IN ONE PROCESS. What this isolates is frame-to-frame state: a second
-   * process would also change the allocator, the device and the shader cache, and a difference there
-   * would not say which. It is judged on the linear tap and never on the PNG, because an 8-bit
-   * quantisation hides a difference the float buffer carries. `CLAUDE.md`: the mathematics is
-   * deterministic, and if pace decides the result the coupling is a bug. */
 void ScoreDeterminism(const Case &subject, const outshine::Clients::Studio &studio,
                       outshine::Render::Renderer &renderer, const Picture &picture,
                       std::vector<Metric> &metrics) {
@@ -1342,17 +946,6 @@ void ScoreDeterminism(const Case &subject, const outshine::Clients::Studio &stud
   }
 }
 
-  /* THE RADIANCE RESIDUAL, IN THE TAP'S OWN ALPHABET (board:0087). Zero is the bar
-   * and there is nothing in it to nudge: the tap is f32 on both sides, so our float either is the
-   * oracle's float or it is not.
-   *
-   * MEASURED ON EVERY CASE AND ENFORCED ON THE ONES THAT ARE ABOUT IT, and the split is the case's
-   * own declaration rather than a choice here. A coverage case declares a flat colour in its
-   * manifest and says in the same breath that nothing in the comparison reads it -- it is there so
-   * the picture a person opens is not black -- so making that colour's last bit a verdict would be
-   * enforcing something the case states it is not for. A case whose surface is the FILE's is about
-   * the value, and there the number is the verdict. Both print it, so the residual is visible in
-   * every log whether or not it decides that log's colour. */
 void ScoreRadianceResidual(const Case &subject, const Picture &picture, const RawF32 &oracle,
                            std::vector<Metric> &metrics) {
   using namespace outshine::Test;
@@ -1385,54 +978,20 @@ void ScoreRadianceResidual(const Case &subject, const Picture &picture, const Ra
   }
 }
 
-/* EVERYTHING A CASE MUST PASS BEFORE ANYTHING IS RENDERED: the manifest, its inputs, its subject and
- * camera, the cached oracle and its shape, the oracle's own residual, the plan and the device. Each
- * of them ends the run the same way, so the sentence that ends it stands ONCE at the caller instead
- * of nine times here (`ES.3`) -- and each phase keeps its own `CHECK` at its own line, because the
- * line number is what sends a reader to the phase that stopped. */
 enum class Prepared { Yes, No };
 
-/* THE CASE'S OWN RENDER DECLARATION, AND IT IS ONE STATEMENT WITH ONE CALLER MORE (board:1443). The
- * runner compiled it inline; the viewer under `tools/viewer/` configures outshine from the same
- * manifest and must therefore ask for the same plan, or the picture it shows is a function of which
- * host opened the case rather than of the declaration. **The renderer is the library and neither host
- * renders**: they configure, and this is where that configuring says what to draw into. */
 void DeclarePlan(const Case &subject, outshine::Render::PlanSpec &declaration) {
-  /* THE SHADING NORMAL IS REQUESTED, WHICH IS WHAT ATTACHES IT (board:1121, board:1122). The plan
-   * prunes a target nothing reads, so asking for it here is the whole of why it exists in this
-   * plan and in no other. */
-  /* THE SURFACE IDENTITY IS REQUESTED FOR THE SAME REASON AND ON THE SAME TERMS (board:1138): the
-   * plan prunes a target nothing reads, so no plan outside this runner pays for it. */
+
   declaration.Outputs = {outshine::Render::Resource::SceneDepth,
                          outshine::Render::Resource::SceneShadingNormal,
                          outshine::Render::Resource::SceneSurfaceIdentity,
                          outshine::Render::Resource::FrameTex};
-  /* THE MOTION TARGET IS REQUESTED BY A SEQUENCE AND BY NOTHING ELSE (board:1169). The plan prunes
-   * a target nothing reads, so a still case's pipelines, vertex layouts and shader text are exactly
-   * what they were; and a subject that cannot move has no motion to publish. */
+
   if (subject.Animated()) {
     declaration.Outputs.push_back(outshine::Render::Resource::SceneVelocity);
   }
   declaration.Content = {outshine::Render::Stage::Subjects};
-  /* THE TRANSMISSIVE PASS IS REQUESTED BY A SUBJECT THAT CARRIES GLASS AND BY NOTHING ELSE
-   * (board:1386). What passes through a surface is the scene behind it, which is a second pass over
-   * the same draw list with the opaque scene bound -- and `SceneComposited` aliases straight to
-   * `SceneHdr` when neither is asked for, so a case with no transmissive material has exactly the
-   * pipelines, targets and passes it had before this existed.
-   *
-   * IT IS ASKED FOR FROM THE FILE'S OWN MATERIALS rather than from a manifest field: whether a
-   * subject carries glass is a fact about the subject, and a declaration that could disagree with it
-   * would be a second answer to a question the file already settles. */
-  /* AND ONLY WHERE THIS CASE IS COMPARING THE FILE'S OWN MATERIALS (board:1386). A coverage case
-   * replaces every surface with a flat emission and renders the oracle at ZERO transmission bounces --
-   * so the oracle draws the glass as an opaque emitting body, by the case's own declaration. Asking
-   * for the transmissive pass there makes this engine see through a surface the other side does not,
-   * and the two are then comparing different scenes rather than disagreeing about one.
-   *
-   * [MEASURED] when the reader was restored, `TransmissionOrderTest` went from 2.52 px of silhouette
-   * disagreement to 60.15 px and its IoU to 0.14126761 -- while `picture_p99_delta_code` PASSED at 0,
-   * which is what says the colour was never the question. **A capability that made a case worse was
-   * being asked for by the case that states it is not about it.** */
+
   bool carriesGlass = false;
   for (const outshine::Gltf::MaterialRef &material : subject.File.Materials()) {
     const outshine::SurfaceKind kind = outshine::StateOf(material.Surface).Kind();
@@ -1447,17 +1006,11 @@ void DeclarePlan(const Case &subject, outshine::Render::PlanSpec &declaration) {
   declaration.Display =
       outshine::Render::Declared<outshine::Render::Transfer>(outshine::Render::Transfer::Linear);
   declaration.Exposure = outshine::Render::Declared<float>(1.0f);
-  /* THE TAP IS f32 BECAUSE THE VALUE IS THE VERDICT (board:0087). At rgba16float the
-   * store's own rounding was 63x the arithmetic term and every channel of the flat cases sat exactly
-   * one binary16 step low -- the format speaking, not the engine. The rule this obeys is that a rung
-   * needing tighter than the storage floor changes the storage and never the threshold. */
+
   declaration.Precision = outshine::Render::Declared<outshine::Render::ScenePrecision>(
       outshine::Render::ScenePrecision::Float);
 }
 
-/* THE ORACLE AT ONE FRAME, read before anything of that frame is rendered: an absent reference is a
- * property of the case, and finding it out after a device bring-up would report a rendering failure
- * for a missing file. THE EXR IS THE ORACLE AND THE FLAT DUMP IS ITS CACHE (board:1119). */
 [[nodiscard]] bool ReadOracle(const Case &subject, int frame, RawF32 &oracle, size_t &seedApart) {
   using namespace outshine::Test;
   const std::optional<int> which = subject.ProductFrame(frame);
@@ -1479,11 +1032,6 @@ void DeclarePlan(const Case &subject, outshine::Render::PlanSpec &declaration) {
     return false;
   }
 
-  /* THE ORACLE STATES ITS OWN RESIDUAL BEFORE IT JUDGES OURS, and for an emission case that residual
-   * must be nothing at all: two seeds, the same bits, or the case fails on the ORACLE and not on us.
-   * Why an emitter owes exactly this, and why the second recipe may differ in the seed alone, is
-   * declared where the manifest is read (test/harness/shared/corpus/prep/manifest.py) and derived in
-   * `board/` */
   seedApart = 0;
   if (!Reduced(subject)) { return true; }
   const std::string second = OracleProduct{"", "seed-shift", which}.Exr();
@@ -1529,20 +1077,7 @@ Prepared Prepare(Case &subject, outshine::Render::Renderer &renderer) {
   }
 
   const bool loaded = BuildSubject(subject, why);
-  /* A `limits-probe` EXPECTS THE REFUSAL AND THE REFUSAL IS ITS VERDICT (board:1424).
-   *
-   * The kind has been in this harness's vocabulary since it was written -- *the asset states it is not
-   * expected to render correctly everywhere* -- and nothing consumed it, so a case whose whole subject
-   * is an extension this engine declines had no way to pass except by the engine changing its mind.
-   *
-   * `SpecGlossVsMetalRough` is that case. Its criterion is *tests if the
-   * KHR_materials_pbrSpecularGlossiness extension is supported properly*, that extension is ARCHIVED
-   * by Khronos, and this engine does not implement obsolete extensions -- so the file names it in
-   * `extensionsRequired` and a conforming reader MUST refuse it. **The refusal is the correct
-   * behaviour and this is where it is scored as such.**
-   *
-   * IT IS NOT A PASS FOR ANY REFUSAL. The refusal has to NAME the thing the case is about, or a case
-   * could go green because the file was corrupt, the camera was missing or a buffer was short. */
+
   if (!loaded && subject.Criterion == CriterionKind::LimitsProbe) {
     const std::string names = subject.Manifest.Root()["criterion"]["declines"].Str("");
     const bool named = !names.empty() && why.find(names) != std::string::npos;
@@ -1563,22 +1098,12 @@ Prepared Prepare(Case &subject, outshine::Render::Renderer &renderer) {
               subject.Manifest.Root()["criterion"]["kind"].Str("").c_str(),
               subject.Manifest.Root()["criterion"]["says"].Str("").c_str(),
               subject.Manifest.Root()["criterion"]["statedAt"].Str("").c_str());
-  /* The reference is still rendered and still lands in the directory; this is the line that says it
-   * decides nothing here, so the disagreement stays visible until Blender gains what it lacks
-   * (board:0085, condition three). */
+
   if (subject.Oracle == OracleRole::CannotExpressTheCriterion) {
     std::printf("ORACLE NOT-DECIDING -- %s\n",
                 subject.Manifest.Root()["criterion"]["oracleLimitation"].Str("").c_str());
   }
 
-  /* THE CASE'S OWN DECLARATION, and it is the whole of what will be created and encoded. One content
-   * stage and two requested outputs: the depth the coverage predicate reads, and the picture a person
-   * opens. No light model, no atmosphere chain, no shadow, no occlusion, no temporal resolve, no
-   * present -- none of them is switched off here, none of them is in the plan at all.
-   *
-   * `Transfer::Linear` because the oracle's own view transform is `Standard`, which is the sRGB
-   * transfer function over scene-referred linear values and nothing else, and the frame target is
-   * sRGB-encoding: a curve here would be measuring the curve (board:0087). */
   outshine::Render::PlanSpec declaration;
   DeclarePlan(subject, declaration);
   std::shared_ptr<const outshine::Render::RenderPlan> plan;
@@ -1602,11 +1127,6 @@ Prepared Prepare(Case &subject, outshine::Render::Renderer &renderer) {
   return Prepared::Yes;
 }
 
-/* THE TWO CONDITIONS OF THE EXACTNESS CONSTRUCTION, RECOMPUTED FROM THE PROJECTED GEOMETRY AND HELD
- * WHERE THE CASE CLAIMS THEM (`board/`). Published on every case and enforced on
- * an `exact` one: the counts and residuals say, for a case that cannot claim it, exactly what stands
- * in the way -- how many distinct silhouette lines its freedoms would have to satisfy, and whether
- * any of them is straight at a rational slope at all. */
 void ScoreExactnessConstruction(const Case &subject, const EdgeSet &silhouette, double tieMarginPx,
                                 std::vector<Metric> &metrics) {
   const Exactness measured = Measure(silhouette);
@@ -1615,38 +1135,22 @@ void ScoreExactnessConstruction(const Case &subject, const EdgeSet &silhouette, 
                      Direction::Reported});
   metrics.push_back({"silhouette_edges", (double)measured.SilhouetteEdges, 0.0, "edges",
                      Direction::Reported});
-  /* CONDITION (A), IN PIXELS AND NOT IN RADIANS: how far the far endpoint of the worst silhouette
-   * edge sits off the rational line fitted to it. An angular residual says nothing until it is
-   * multiplied by the edge's own length, and it is the length that makes an irrational slope
-   * unrecoverable. The threshold is the oracle's own filter half-width -- a deviation under it is
-   * below the reference's resolution and nothing about it is decidable. */
+
   metrics.push_back({"exactness_slope_residual_px", measured.SlopeResidualPx, subject.OracleFloorPx,
                      "px", claimed ? Direction::AtMost : Direction::Reported});
-  /* CONDITION (B): the distance from every pixel centre in the plane to the nearest silhouette line,
-   * which is a constant of the line and not a draw. Against the ruled floor, ten times the oracle's
-   * jitter. */
+
   metrics.push_back({"exactness_margin_px", measured.MarginPx, kMarginFloorPx, "px",
                      claimed ? Direction::AtLeast : Direction::Reported});
-  /* What the same slopes would deliver if every constant sat at half a lattice step -- the ceiling
-   * the offset condition is measured against, so a margin that is short says whether the slope or
-   * the placement is what fell short. */
+
   metrics.push_back({"exactness_margin_ceiling_px", measured.CeilingPx, 0.0, "px",
                      Direction::Reported});
-  /* ONE QUANTITY REACHED TWO WAYS, and on a constructed case they must be the same number. The
-   * margin above is PREDICTED from the line constants over the whole integer lattice; `Ties.h`
-   * MEASURES it over the boundary pixels this render actually produced. On a subject whose slope is
-   * not rational the prediction means nothing and they may differ by anything, which is why the
-   * claim is made only where the case claims the construction. The tolerance is nine digits below a
-   * pixel: both sides are the same projected doubles put through different arithmetic on quantities
-   * of order 1000 px, so their disagreement floor is around 1e-10 px. */
-  constexpr double kOneQuantityPx = 1e-9; /* [SET] raster pixels */
+
+  constexpr double kOneQuantityPx = 1e-9;
   metrics.push_back({"exactness_margin_agreement_px",
                      std::fabs(tieMarginPx - measured.MarginPx), kOneQuantityPx, "px",
                      claimed ? Direction::AtMost : Direction::Reported});
-  /* THE LINES THEMSELVES, WHICH IS WHAT A CONSTRUCTION IS WRITTEN FROM: the slope to roll to and the
-   * constant to place. Capped, because a subject with no lattice structure has as many lines as it
-   * has silhouette edges and printing 1.5 million of them says nothing the count above did not. */
-  constexpr size_t kLinesPrinted = 16; /* [SET] */
+
+  constexpr size_t kLinesPrinted = 16;
   for (size_t line = 0; line < measured.Lines.size() && line < kLinesPrinted; ++line) {
     const LatticeLine &fit = measured.Lines[line];
     std::printf("NOTE   silhouette line %ld x - %ld y = %.9f over %zu edges: margin %.9g px of "
@@ -1655,17 +1159,6 @@ void ScoreExactnessConstruction(const Case &subject, const EdgeSet &silhouette, 
   }
 }
 
-/* THE VISIBILITY ESTIMATOR'S OWN DISPLACEMENT, IN SCREEN PIXELS (board:0089). A
- * shadow boundary is a coverage boundary of the LIGHT's visibility, so a disagreement about it is
- * bounded in the predicate's own geometry and never in codes. Our estimator is an exact ray and the
- * only thing that displaces it is where the ray starts: `ShadowRay.h`'s self-intersection bias, a
- * fixed fraction of the subject's own diagonal, which the device half reads and this reads back.
- *
- * PROJECTED THROUGH THE CASE'S OWN CAMERA AND NOT THROUGH AN ASSUMED ONE: the raster displacement of
- * a world displacement of that magnitude, taken as the operator norm of the finite-difference
- * Jacobian at the subject's centre, so a perspective case and a parallel case are answered by one
- * expression. THE NUMBER IS DERIVED AND NOT FITTED -- it shrinks when the bias does, and no case can
- * widen it, which is the property that separates it from a tolerance. */
 void ScoreVisibilityTerm(const Case &subject, const Transform &clip, double biasM,
                          std::vector<Metric> &metrics) {
   double centre[3];
@@ -1674,8 +1167,7 @@ void ScoreVisibilityTerm(const Case &subject, const Transform &clip, double bias
   double ndc[3];
   clip.Point(centre, ndc);
   subject.Frame.Raster(ndc, at);
-  /* The 2x3 Jacobian by one-sided differences over the bias itself, so the step IS the displacement
-   * being bounded and no second length enters. */
+
   double jacobian[3][2] = {{0, 0}, {0, 0}, {0, 0}};
   for (int axis = 0; axis < 3; ++axis) {
     double moved[3] = {centre[0], centre[1], centre[2]};
@@ -1687,10 +1179,8 @@ void ScoreVisibilityTerm(const Case &subject, const Transform &clip, double bias
     jacobian[axis][0] = movedAt[0] - at[0];
     jacobian[axis][1] = movedAt[1] - at[1];
   }
-  /* The operator 2-norm of a 2x3 matrix is the square root of the largest eigenvalue of J*J^T, and
-   * for the 2x2 symmetric J*J^T that is closed form -- so the worst direction is answered rather
-   * than the three axes sampled, which would understate a diagonal one. */
-  double gram[3] = {0, 0, 0}; /* xx, xy, yy */
+
+  double gram[3] = {0, 0, 0};
   for (int axis = 0; axis < 3; ++axis) {
     gram[0] += jacobian[axis][0] * jacobian[axis][0];
     gram[1] += jacobian[axis][0] * jacobian[axis][1];
@@ -1703,10 +1193,6 @@ void ScoreVisibilityTerm(const Case &subject, const Transform &clip, double bias
                      Direction::Reported});
 }
 
-/* TWO OF OUR OWN RENDERS, AND NO ORACLE IN IT AT ALL. A second spelling of the same surface -- the
- * same placement through a `matrix`, the same triangles under another index width, the same quad as
- * a strip or a fan -- must land in the same pixels, and that claim is DECIDABLE: it is exact, not
- * within a tolerance, so its threshold is zero disagreeing pixels and it needs no reference. */
 void ScoreAlternateSpellings(const Case &subject, const outshine::Clients::Studio &studio,
                              outshine::Render::Renderer &renderer, const Mask &ours,
                              std::vector<Metric> &metrics) {
@@ -1720,18 +1206,13 @@ void ScoreAlternateSpellings(const Case &subject, const outshine::Clients::Studi
     bool built = alternate.ReadFile(subject.Directory + name);
     if (!built) {
       trouble = alternate.Error();
-      /* THE ALTERNATE IS BUILT UNDER THE CASE'S OWN VARIANT (board:1188). A variant moves no vertex,
-       * so it cannot change the coverage this metric is over -- but a spelling built without the
-       * declaration is a second way of building one subject, and the two would part company the
-       * first time a selection reached geometry. */
+
     } else if (!(built = spelling.Build(alternate, subject.Variant))) {
       trouble = spelling.Error();
     } else {
       outshine::Clients::Studio other = studio;
       other.Geometry = &spelling;
-      /* RESOLVED AGAINST THE ALTERNATE'S OWN NODES AND ITS OWN MATERIALS, not copied from the
-       * entry's. The two spell one surface, so their names agree -- and if they ever did not,
-       * copying by position would colour the wrong body while the count still matched. */
+
       SurfaceTable surfaces;
       ResolveSurfaceTable(alternate, spelling, subject.TransmissionBounces > 0,
                           subject.MaterialFromFile(), surfaces);
@@ -1754,14 +1235,6 @@ void ScoreAlternateSpellings(const Case &subject, const outshine::Clients::Studi
   }
 }
 
-/* WHAT THE ASSET ITSELF SAYS MUST HOLD, on the linear tap, before anything is compared with the
- * oracle. Its caller places it ahead of the image comparison because for a `stated-invariant` case
- * this IS the verdict and the comparison below it is the diagnostic beside it -- the reverse of
- * every other kind, and the reason the two are never both enforced on one case. */
-/* THE ORACLE'S PIXELS IN THE SHAPE THE INVARIANTS ARE COMPUTED ON. `RawF32` interleaves by its own
- * channel count, which is 3 or 4 depending on what Cycles wrote, and `LinearFrame` reads a stride of
- * four -- so this repacks rather than casting, and a subject with no alpha reads as covered
- * everywhere, which is what an invariant over a declared rectangle wants. */
 std::vector<float> OracleAsRgba(const RawF32 &oracle) {
   std::vector<float> samples((size_t)oracle.Width() * (size_t)oracle.Height() * 4u, 0.0f);
   for (int y = 0; y < oracle.Height(); ++y) {
@@ -1783,15 +1256,6 @@ void ScoreStatedInvariants(const Case &subject, const Picture &picture, const Ra
   const bool tapHolds = tap.Holds() || subject.Invariants.empty();
   CHECK(tapHolds, "the linear tap the stated invariants are computed on covers the frame");
 
-  /* THE SAME QUESTION PUT TO THE ORACLE, AND IT IS NOT A CONVENIENCE (board:1131). A `region-compare`
-   * puts two rectangles of ONE render beside each other, so its bound is a property of the subject AND
-   * of the engine both populations were measured on. That is the instrument-domain failure in its
-   * population-too-small face: with one engine the number cannot separate *we broke it* from *this is
-   * what the technique does*, and it decided a shipping question on exactly that ambiguity -- filtering
-   * a normal map flattens it, and the geometry the flattened quad imitates does not flatten.
-   *
-   * REPORTED AND NEVER ENFORCED. The oracle is what our pixels are judged against; it is not a second
-   * subject with its own thresholds, and giving it one would be two verdicts over one comparison. */
   const bool oracleFits = oracle.Width() == tap.Width && oracle.Height() == tap.Height;
   std::vector<float> theirSamples;
   LinearFrame theirs;
@@ -1819,15 +1283,10 @@ void ScoreStatedInvariants(const Case &subject, const Picture &picture, const Ra
   }
 }
 
-/* THE STUDIO THE CASE DECLARES. The file's lights cross only where the case says so: every other
- * case is lit by nothing and draws the radiance it declared, which is what keeps a rung measuring
- * the light we meant. */
 outshine::Clients::Studio MakeStudio(const Case &subject) {
   outshine::Clients::Studio studio;
   studio.Geometry = &subject.Geometry;
-  /* THE PREVIOUS POSE CROSSES ONLY WHERE THE PLAN ATTACHES A VELOCITY TARGET, which is exactly a
-   * sequence: the studio refuses one it has nowhere to write and refuses its absence where it must
-   * write one, so the two declarations cannot be set out of step (board:1169). */
+
   if (subject.Animated()) { studio.Previous = &subject.PreviousGeometry; }
   studio.Eye = subject.Eye;
   studio.EmittedRadiance = subject.Emitted;
@@ -1839,13 +1298,7 @@ outshine::Clients::Studio MakeStudio(const Case &subject) {
     }
   }
   if (subject.Lights == SceneLights::DeclaredSun) { studio.Lights.push_back(subject.Sun); }
-  /* THE DECLARED ENVIRONMENT, AND ONLY IN THE ARM THAT DOES NOT ALREADY CARRY IT (board:1206).
-   *
-   * Every other arm PRE-MULTIPLIES the world into a per-part radiance and hands it over as an
-   * emission -- `rho*L` closed form for a Lambert surface, exact and already correct -- so passing
-   * the environment there as well would count it twice and darken nothing while brightening
-   * everything. `ShadedByLights` is the one arm where the surface's own row is evaluated and the
-   * declared radiance is zero everywhere, which is exactly the arm that had no environment at all. */
+
   if (subject.ShadedByLights()) {
     for (int channel = 0; channel < 3; ++channel) {
       studio.Environment.RadianceLinear[channel] = subject.WorldRadiance[channel];
@@ -1854,15 +1307,6 @@ outshine::Clients::Studio MakeStudio(const Case &subject) {
   return studio;
 }
 
-/* WHICH SURFACE THE PICTURE IS OF, and it is the criterion silhouette, coverage and hue cannot be.
- * Swapping the near shell of a closed body for its far one with the shading normals reversed leaves
- * the silhouette, the coverage and the hue all unchanged -- three criteria simultaneously blind,
- * each individually correct -- and `DirectionalLight` shipped in exactly that state without any of
- * them noticing (board:0073). Range is not invariant under it.
- *
- * THE RANGE IS ALONG THE VIEW RAY AND NOT ALONG THE BORESIGHT, which is what the cosine is: the
- * depth attachment carries `kNearM / rangeAlongBoresight`, and a probe away from the frame centre
- * that skipped the correction would report a distance the geometry does not have. */
 [[nodiscard]] bool RangeAt(const outshine::Gltf::Placement &eye, const outshine::Gltf::Viewport &frame,
                            const std::vector<float> &depth, int column, int row, double &out,
                            std::string &error) {
@@ -1886,12 +1330,7 @@ outshine::Clients::Studio MakeStudio(const Case &subject) {
   const double across = acrossNdc * halfHeight * frame.Aspect();
   const double down = downNdc * halfHeight;
   const double secant = std::sqrt(across * across + down * down + 1.0);
-  /* THE NEAR PLANE IS THE PLACEMENT'S AND NOT THE RENDERER'S CONSTANT (board:1420). The engine takes
-   * `ZNearM` from the placement it is handed and keeps `kNearM` only as a default, so a harness that
-   * kept dividing by the constant would read a range scaled by the ratio of the two -- [MEASURED]
-   * `DirectionalLight` reported 0.297173083 m against a declared 1.78298157 m, which is exactly the
-   * 6:1 its own near plane stands at. **The same two-determinations defect the engine repair was
-   * about, one level up.** */
+
   const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : (double)outshine::Render::Renderer::kNearM;
   out = plane / (double)depth[at] * secant;
   return true;
@@ -1926,8 +1365,6 @@ void ScoreDepthProbes(const Case &subject, const outshine::Clients::Studio &stud
   }
 }
 
-/* WHAT THE RUN WAS GIVEN, printed before it is rendered, so a picture that comes out wrong can be
- * attributed to the declaration rather than to the renderer without a second run. */
 void NoteWhatTheStudioCarries(const Case &subject, const outshine::Clients::Studio &studio) {
   if (subject.Lights == SceneLights::FromFile) {
     for (const outshine::Gltf::PlacedLight &placed : subject.Geometry.Lights()) {
@@ -1939,8 +1376,7 @@ void NoteWhatTheStudioCarries(const Case &subject, const outshine::Clients::Stud
   }
   outshine::Test::Note("punctual lights the studio declares", (double)studio.Lights.size(),
                        "lights");
-  /* HOW MANY UV SETS THE SUBJECT CARRIES (board:1182), published for every case rather than for the
-   * textured ones: it is what the per-slot set below is read against. */
+
   outshine::Test::Note("uv sets the subject carries", subject.Geometry.HasUv1() ? 2.0 : 1.0, "sets");
   for (size_t part = 0; part < subject.Geometry.Parts().size(); ++part) {
     outshine::Test::Note(
@@ -1955,8 +1391,7 @@ void NoteWhatTheStudioCarries(const Case &subject, const outshine::Clients::Stud
                          (double)subject.Surfaces.Slots[slot].Colour.Height, "texels");
     outshine::Test::Note(("declared coverage factor, surface slot " + std::to_string(slot)).c_str(),
                          (double)subject.Surfaces.Slots[slot].Coverage(), "dimensionless");
-    /* WHICH UV SET THE BOUND IMAGE READS (board:1182), published so that "the picture moved" and
-     * "the picture is read from the other set" are separable without a second run. */
+
     outshine::Test::Note(("colour image uv set, surface slot " + std::to_string(slot)).c_str(),
                          subject.Surfaces.Slots[slot].Colour.Set == outshine::UvSet::Second ? 1.0
                                                                                             : 0.0,
@@ -1964,22 +1399,8 @@ void NoteWhatTheStudioCarries(const Case &subject, const outshine::Clients::Stud
   }
 }
 
-/* THE FILE'S OWN DECLARED `NORMAL`, RASTERISED (board:1122). The third leg, and the only one that
- * ADJUDICATES: ours and Cycles are the same quantity computed twice, so where they differ neither is
- * evidence about the other. The accessor is authored outside this tree.
- *
- * INTERPOLATED THE WAY A RASTERISER INTERPOLATES IT -- barycentric over the projected triangle, in
- * the glTF frame the accessor is already in -- and depth-ordered by the convention THIS projection
- * actually uses: `gltf/Camera.h` puts NDC z in [-1, +1] with -1 AT THE NEAR PLANE, which is
- * explicitly not the engine's reversed-Z. Nearer is LESSER here, and keeping the greater one kept
- * the FAR surface: on a closed body that is the back, whose normal points away, and it reported p50
- * around 90-115 degrees on `water-bottle`, `boom-box`, `corset` and `lantern` while the open grid of
- * `normal-tangent-mirror` was unaffected because it has no back to pick. It is
- * the geometric normal the normal map perturbs and not the perturbed one, which is exactly what
- * makes it the adjudicator: a disagreement between the other two is a disagreement about the
- * PERTURBATION, and this is the frame the perturbation is relative to. */
 struct DeclaredNormals {
-  std::vector<float> Xyz; /* 3 per pixel, glTF frame; zero where no triangle covers the pixel */
+  std::vector<float> Xyz;
   std::vector<float> Depth;
 };
 
@@ -1990,12 +1411,7 @@ DeclaredNormals RasteriseDeclaredNormals(const Subject &geometry, const Transfor
   out.Depth.assign((size_t)width * (size_t)height, 2.0f);
   if (geometry.Normals().size() < geometry.PositionsM().size()) { return out; }
   const std::vector<uint32_t> &indices = geometry.Indices();
-  /* PER PART, AND THE INDEX RUN IS THE PART'S OWN. Walking `Indices()` as one flat list is right for
-   * a subject of one primitive and wrong for every other: a part's triangles start at
-   * `part.FirstIndex`, so a flat walk reads one part's indices as another's and interpolates
-   * normals across a seam that does not exist. It reported p50 103 degrees on `water-bottle` and
-   * `boom-box`, and BOTH legs returned the same wrong number, which is what said the fault was
-   * here rather than in either of them. */
+
   for (const outshine::Gltf::Part &part : geometry.Parts()) {
   for (size_t triangle = 0; triangle * 3u + 2u < part.IndexCount; ++triangle) {
     double corner[3][2];
@@ -2034,8 +1450,7 @@ DeclaredNormals RasteriseDeclaredNormals(const Subject &geometry, const Transfor
         const double w2 = 1.0 - w0 - w1;
         const double z = w0 * depth[0] + w1 * depth[1] + w2 * depth[2];
         const size_t at = (size_t)y * (size_t)width + (size_t)x;
-        /* NEARER IS LESSER in this projection (`gltf/Camera.h`), so the nearest surface is the
-         * smallest z and the buffer starts beyond the far plane. */
+
         if (z >= (double)out.Depth[at]) { continue; }
         out.Depth[at] = (float)z;
         for (int axis = 0; axis < 3; ++axis) {
@@ -2049,17 +1464,6 @@ DeclaredNormals RasteriseDeclaredNormals(const Subject &geometry, const Transfor
   return out;
 }
 
-/* THE FILE'S MATERIAL NAMES, in the file's own order, which is the currency the two sides state a
- * surface identity in (board:1138).
- *
- * AN UNNAMED MATERIAL IS KEYED BY THE NAME THE IMPORTER PUBLISHES FOR IT (board:1400), and this used
- * to yield an empty string instead, with a comment explaining that a file naming none of its
- * materials has no correspondence to derive. That was true before the key existed. [MEASURED] Blender
- * calls material `i` of a file that names none `Material_<i>` -- `MetalRoughSpheres` arrives as
- * `Material_0`, `TextureEncodingTest` as `Material_0` .. `Material_13` -- and the colour arm has keyed
- * on that since `board:1362`. Five cases refused the identity comparison outright with messages that
- * NAMED the key the other arm had built: *the file carries no material named Material_42*. **One
- * comparison, two arms, two spellings of what a material is called.** */
 [[nodiscard]] std::vector<std::string> FileMaterialNames(const Document &file) {
   std::vector<std::string> names;
   names.reserve(file.Materials().size());
@@ -2070,11 +1474,6 @@ DeclaredNormals RasteriseDeclaredNormals(const Subject &geometry, const Transfor
   return names;
 }
 
-/* WHICH OF THE FILE'S MATERIALS COMPOSITE RATHER THAN COVER (board:1144), in the file's own order,
- * so the identity reader can set a pixel with two surfaces on it aside without a colour to compare.
- * `MASK` is NOT one of them and the distinction is the point: a masked texel is either fully there
- * or discarded, so its pixel has exactly one surface, and folding it in here would set aside a
- * population this predicate has said nothing about. */
 [[nodiscard]] std::vector<uint8_t> BlendedFileMaterials(const Document &file) {
   std::vector<uint8_t> blended;
   blended.reserve(file.Materials().size());
@@ -2084,14 +1483,6 @@ DeclaredNormals RasteriseDeclaredNormals(const Subject &geometry, const Transfor
   return blended;
 }
 
-/* WHAT EACH SIDE PUTS AT ONE PIXEL, PRINTED (board:1138). The pixels are the ones the two sides
- * NAME DIFFERENTLY, so the population is derived from the reading and a case whose sides agree
- * prints nothing at all -- a coordinate written down here would go stale at the first reframing and
- * then read as a finding.
- *
- * THE ORACLE'S OWN SPLIT IS PRINTED UNDER ITS OWN WORD, because it is a different fact: there the
- * oracle's index pass and the oracle's picture name different materials, and neither line is about
- * us. Two facts under one prefix is how the second one gets read as the first. */
 void NoteDisagreements(const outshine::Render::Parity::IdentityReading &reading) {
   for (const outshine::Render::Parity::Disagreement &where : reading.Disagreements) {
     std::printf("SURFACE-AT %d,%d oracle=%s ours=%s\n", where.X, where.Y,
@@ -2101,27 +1492,13 @@ void NoteDisagreements(const outshine::Render::Parity::IdentityReading &reading)
     std::printf("SURFACE-ORACLE-SPLIT %d,%d its index says %s and its picture does not\n", where.X,
                 where.Y, where.Oracle.Name.c_str());
   }
-  /* THE CENSUS OVER THE WHOLE POPULATION, beside the eight coordinates (board:1144). Eight pixels of
-   * twenty-one thousand cannot say whether one mechanism or five are at work; a row per pair of
-   * surfaces can, and it is the row rather than the coordinate that names the mechanism. */
+
   for (const outshine::Render::Parity::Swap &row : reading.Swaps) {
     std::printf("SURFACE-SWAP oracle=%s ours=%s over %zu px\n", row.OracleName.c_str(),
                 row.OursName.c_str(), row.Pixels);
   }
 }
 
-/* THE COLOUR THE ORACLE'S PICTURE MUST CARRY WHERE ITS INDEX PASS NAMES A MATERIAL (board:1138),
- * derived from what the runner already resolved and from nothing read a second time: the radiance
- * each part was declared to emit, gathered onto the file material that part wears.
- *
- * IT IS COMPUTABLE ONLY UNDER THE DECLARED ARMS. Where the appearance is the file's own image times
- * a factor, or a BRDF against a light list, the picture at a pixel is not a constant per material
- * and there is no closed form to hold it against -- so this refuses by name instead of comparing
- * against the factor alone, which would call every textured pixel a split.
- *
- * TWO PARTS OF ONE MATERIAL DECLARING DIFFERENT RADIANCE IS A REFUSAL AND NOT A LAST WRITE. The
- * per-material arm keys on the material, so a disagreement there means the resolution above did
- * something this derivation cannot express, and taking either value would hide it. */
 [[nodiscard]] outshine::Render::Parity::DeclaredColours ColoursPerFileMaterial(const Case &subject) {
   outshine::Render::Parity::DeclaredColours out;
   if (subject.MaterialFromFile() || subject.ShadedByLights()) {
@@ -2150,20 +1527,6 @@ void NoteDisagreements(const outshine::Render::Parity::IdentityReading &reading)
   return out;
 }
 
-/* WHICH SURFACE EACH SIDE PUTS AT EACH PIXEL, AND WHERE THEY DISAGREE (board:1138).
- *
- * EVERY COUNT IT PUBLISHES IS REPORTED AND NONE OF THEM IS A BOUND; a threshold here would be a
- * number nobody derived. What it RETURNS is the routing mask the picture bound spends (board:1144),
- * and that is a different thing from a verdict: the mask carries the attributable disagreements
- * alone, so a pixel moves between two bounds only where this reader could say the disagreement was
- * ours. It is returned rather than filled through a parameter (`F.20`) because the caller needs a
- * fresh mask each case and there is no capacity to reuse.
- *
- * THE OBJECT PASS IS READ FOR ITS DISCRIMINATION AND NOT FOR A VERDICT, because our side carries no
- * node identity to hold it against: the compiled draw list merges the primitives of several nodes
- * into one call whenever they share a material, so the finest identity a fragment can carry through
- * the per-slot uniform is the SURFACE. Publishing how many distinct objects the pass separates says
- * what a node-level comparison would have to work with, and claims nothing our side can answer. */
 [[nodiscard]] Mask ScoreSurfaceIdentity(const Case &subject, const Picture &picture,
                                         const RawF32 &oraclePicture, const Mask &ours,
                                         const Mask &theirs, int frame,
@@ -2192,11 +1555,6 @@ void NoteDisagreements(const outshine::Render::Parity::IdentityReading &reading)
   const IdentityQuestion asked{oracle, mine, theirs, ours, oraclePicture, declared, blended};
   const IdentityReading reading = ReadSurfaceIdentity(asked);
 
-  /* THE ONE CLAIM THIS READER ENFORCES, and it is about our own plumbing rather than about the
-   * oracle (board:1138): every pixel our depth says we drew carries a surface slot our own table
-   * holds. It is the property that makes every count below mean anything -- an attachment the
-   * encoder never wrote would read as slot -1 everywhere and the comparison would be a comparison
-   * with the target's clear. */
   CHECK(reading.OursNamingNoSlot == 0,
         "every pixel we drew names a surface slot of this subject's own table, so the identity "
         "attachment carries what the encoder bound and not what the target was cleared to");
@@ -2214,28 +1572,21 @@ void NoteDisagreements(const outshine::Render::Parity::IdentityReading &reading)
                      Direction::Reported});
   metrics.push_back({"surface_identity_disagreeing", (double)reading.Disagreeing, 0.0, "px",
                      Direction::Reported});
-  /* ABSENT AND NOT ZERO WHERE THE ORACLE'S TWO PRODUCTS CANNOT BE HELD AGAINST EACH OTHER: a zero
-   * there would say "the oracle never contradicts itself on this case", which is a claim this
-   * instrument has no way to make. */
+
   metrics.push_back({"surface_oracle_index_unlike_its_own_picture",
                      declared.Computable ? (double)reading.OracleSplit : std::nan(""), 0.0, "px",
                      Direction::Reported});
-  /* NEVER ABSENT, because it is read off the file's own `alphaMode` and every case has one: a NaN
-   * here would say the instrument could not look, when looking costs a lookup (board:1144). */
+
   metrics.push_back({"surface_identity_disagreeing_composite", (double)reading.Composite, 0.0, "px",
                      Direction::Reported});
   metrics.push_back({"surface_identity_disagreeing_attributable",
                      reading.AttributionKnown ? (double)reading.Attributable : std::nan(""), 0.0,
                      "px", Direction::Reported});
-  /* THE DOMAIN IS REPORTED WHERE IT BITES AND NOWHERE ELSE. A case with nothing to attribute is not
-   * short of an instrument, so saying so on every such case would put a refusal beside a clean
-   * reading and teach a reader to skip both. */
+
   if (!reading.AttributionKnown) { Refused("surface identity: " + declared.Why); }
   if (!reading.Adjudicated) { Refused("surface identity: " + reading.Refusal); }
   NoteDisagreements(reading);
 
-  /* THE OBJECT PASS'S DISCRIMINATION, on its own, because it is a different partition of the same
-   * frame and a count of one there means a node-level question cannot be asked of this case either. */
   OracleSurfaces objects;
   if (!objects.Read(subject.Directory, IndexPass::Object, subject.ProductFrame(frame), names)) {
     Refused(objects.Error());
@@ -2247,22 +1598,6 @@ void NoteDisagreements(const outshine::Render::Parity::IdentityReading &reading)
   return reading.AttributableAt;
 }
 
-/* THE THREE LEGS OF THE NORMAL COMPARISON, PUBLISHED RATHER THAN DIFFERENCED (board:1122).
- *
- * WHY THREE. Ours against Cycles says the two differ and NOTHING about which is wrong. The file's own
- * `NORMAL` accessor is the third party, authored outside this tree, and it is what separates an
- * engine fix from `reduce the oracle`: if Cycles matches the file and we do not, the defect is ours;
- * if we match and Cycles does not, Cycles is shading normals the glTF never declared.
- *
- * THE FRAME MAP IS BLENDER-WORLD TO glTF AND IT IS VALIDATED, not assumed: `(x, y, z) -> (x, z, -y)`,
- * unit length preserved to one f32 ulp, residual tilt 0.3174 degrees DERIVED from the normal
- * texture's own 8-bit quantisation -- `128/255*2-1 = 0.00392` per axis over two axes. So a
- * disagreement above ~0.4 degrees is real and the effect under investigation is 4.2 to 10.3 degrees.
- *
- * PIXELS WITH NO SHADING NORMAL ARE EXCLUDED BY PREDICATE AND NEVER BY THRESHOLD. The emissive arms
- * shade no lobe and write a declared zero VECTOR; an angle against a zero vector is meaningless and
- * would come back as a clean 90 degrees on every one of them, which reads as a finding. The count of
- * excluded pixels is published beside the result, because an exclusion nobody counts is a mask. */
 void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask &ours,
                         const Transform &clip, int frame, std::vector<Metric> &metrics) {
   using namespace outshine::Test;
@@ -2282,8 +1617,7 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
 
   const DeclaredNormals declared = RasteriseDeclaredNormals(subject.Geometry, clip, subject.Frame,
                                                             ours.Width, ours.Height);
-  /* THE FILE'S LEG BESIDE THE OTHER TWO (board:1126). Three quantities compared inside one process
-   * and none of them openable is an investigation that has to be re-run to be questioned. */
+
   {
     std::vector<float> rgba((size_t)ours.Width * (size_t)ours.Height * 4u, 0.0f);
     for (size_t pixel = 0; pixel * 3u + 2u < declared.Xyz.size(); ++pixel) {
@@ -2295,25 +1629,12 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
     (void)WriteRawF32(subject.Directory + "file.normal.raw", rgba, ours.Width, ours.Height, 4,
                       unwritten);
   }
-  /* [DERIVED] THE SIGNAL THRESHOLD, AND IT IS DELIBERATELY NOT THE FLOOR. The two legs' median
-   * disagreement is [MEASURED] 0.00099 degrees on the tangent assets and 0.0129 on `water-bottle` --
-   * so a floor-selected population admitted 147 669 pixels at a median margin of 0.0025 degrees, and
-   * gave a 2:1 count over a population that mostly agrees, quoted about a 9.48 degree tail it does not
-   * contain. A pixel carries an opinion about which leg is right only once the two differ by more than
-   * the term BOTH were validated against: the normal texture's own 8-bit quantisation, 128/255 per axis
-   * over two axes = 0.3174 degrees. Rounded up to 0.4, so every admitted pixel disagrees by more than
-   * the asset is able to express, and the floor -- three hundred times smaller -- is what makes that
-   * rounding safe rather than arbitrary. */
+
   constexpr double kNormalSignalDeg = 0.4;
   size_t shaded = 0, noLobe = 0, uncovered = 0, adjudicated = 0;
   size_t disputed = 0, oursNearer = 0, cyclesNearer = 0;
   std::vector<double> disputedMargin;
-  /* WHERE ACROSS THE FRAME THE DISPUTE SITS, in four equal vertical bands. `normal-tangent` and its
-   * mirror are regular grids whose columns differ in ONE declared thing -- real geometry, a normal map,
-   * a V-mirrored tangent, a U-mirrored tangent -- so a dispute concentrated in one band names which
-   * declared thing it is about, and a dispute spread evenly says the grid is not the axis at all. The
-   * band is a position in the image and NOT a claim that band N is column N: that mapping is by layout
-   * and is not read from the file. */
+
   size_t bandDisputed[4] = {0, 0, 0, 0};
   size_t shadedBack = 0, disputedBack = 0;
   double worstDeg = 0, sumDeg = 0;
@@ -2322,23 +1643,16 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
     for (size_t x = 0; x < width; ++x) {
       if (!ours.At((int)x, (int)y)) { ++uncovered; continue; }
       const size_t at = (y * width + x) * 4u;
-      /* OUR LEG IS IN THE ENGINE'S FRAME AND THE COMPARISON IS IN glTF's, so it is mapped back by
-       * the inverse of the permutation `GltfStudio::EcefFromGltf` applied at upload --
-       * `ecef = (gltf.y, gltf.x, -gltf.z)`, so `gltf = (ecef.y, ecef.x, -ecef.z)`. It is a signed
-       * permutation of determinant +1, its own inverse transpose, so a normal stays a normal and
-       * stays unit under it. THIS WAS THE DEFECT THE FIRST READING FOUND: the oracle's leg had been
-       * validated and ours never had, and a frame error and a shading-normal defect look identical
-       * -- 179 degrees on one case and 107 on another, which no sign error can produce. */
+
       const double ex = picture.ShadingNormal[at], ey = picture.ShadingNormal[at + 1],
                    ez = picture.ShadingNormal[at + 2];
       const double ox = ey, oy = ex, oz = -ez;
       const double oursLength = std::sqrt(ox * ox + oy * oy + oz * oz);
-      /* THE PREDICATE, and it is length rather than a small angle: a zero vector is not a direction
-       * and no tolerance can make it one. */
+
       if (oursLength <= 0.0) { ++noLobe; continue; }
       const bool backFacing = picture.ShadingNormal[at + 3] < 0.0f;
       if (backFacing) { ++shadedBack; }
-      /* Blender world to glTF: the importer maps glTF +Z to Blender -Y. */
+
       const double bx = (double)cycles.At((int)x, (int)y, 0);
       const double by = (double)cycles.At((int)x, (int)y, 1);
       const double bz = (double)cycles.At((int)x, (int)y, 2);
@@ -2353,9 +1667,6 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
       sumDeg += deg;
       if (deg > worstDeg) { worstDeg = deg; }
 
-      /* THE ADJUDICATOR. Where no triangle of the file covers this pixel there is nothing to
-       * adjudicate WITH, so it is skipped by the same kind of predicate the no-lobe pixels are --
-       * a zero-length declared normal is not a direction either. */
       const double fx = declared.Xyz[(y * width + x) * 3u];
       const double fy = declared.Xyz[(y * width + x) * 3u + 1];
       const double fz = declared.Xyz[(y * width + x) * 3u + 2];
@@ -2372,14 +1683,6 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
       oursVsFile.push_back(oursFile);
       cyclesVsFile.push_back(cyclesFile);
 
-      /* WHICH LEG THE DECLARATION AGREES WITH, OVER THE PIXELS THAT DISAGREE AT ALL. The two legs
-       * agree to a floor of 0.001 degrees, but SELECTING AT THE FLOOR WAS THE WRONG POPULATION: it
-       * admits pixels that disagree by barely more than the instrument's own limit, and they have no
-       * opinion about which leg is right. The question is the 9.48 degree tail, so the selection is
-       * the SIGNAL threshold -- above the 0.3174 degree term both legs were validated against, which
-       * is the point past which a disagreement cannot be the texture's quantisation. THE POPULATION
-       * SIZE IS PUBLISHED FIRST: a verdict over two hundred pixels and one over two hundred thousand
-       * are different claims, and the first one is not a verdict. */
       if (deg <= kNormalSignalDeg) { continue; }
       ++disputed;
       if (oursFile < cyclesFile) {
@@ -2409,12 +1712,11 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
   metrics.push_back({"shading_normal_max_deg", worstDeg, 0.0, "degrees", Direction::Reported});
   metrics.push_back({"shading_normal_mean_deg", sumDeg / (double)shaded, 0.0, "degrees",
                     Direction::Reported});
-  /* THE THREE LEGS, PUBLISHED SIDE BY SIDE. `ours vs cycles` says they differ; the two against the
-   * FILE say which of them the declaration agrees with, and that is the whole of the branch. */
+
   std::sort(oursVsFile.begin(), oursVsFile.end());
   std::sort(cyclesVsFile.begin(), cyclesVsFile.end());
   Note("shading normal, pixels the file adjudicates", (double)adjudicated, "px");
-  /* THE POPULATION BEFORE THE VERDICT. */
+
   Note("shading normal, pixels where the two legs disagree beyond what the texture can express", (double)disputed,
        "px");
   if (disputed > 0) {
@@ -2430,7 +1732,7 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
     metrics.push_back({"disputed_ours_nearer_fraction",
                        (double)oursNearer / (double)disputed, 0.0, "dimensionless",
                        Direction::Reported});
-    /* `cyclesVsFile - oursVsFile` at the median: POSITIVE means the declaration sits nearer ours. */
+
     metrics.push_back({"disputed_margin_p50_deg", Percentile(disputedMargin, 0.50), 0.0, "degrees",
                        Direction::Reported});
   }
@@ -2446,19 +1748,6 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
   }
 }
 
-/* THE PICTURE BOUND, SCORED AND PUBLISHED (board:0089). The bound is the sum of the
- * terms this case's own path puts in it, the metric is the tail, and the histogram beside it is
- * unbounded by design -- 519 pixels at one code and 5 190 pixels at one code are equally acceptable,
- * and one pixel past the tail is red.
- *
- * IT REPLACED THE PNG COMPARISON RATHER THAN JOINING IT. `image_pixels_differing` asked the same
- * question -- whole image, RGBA, ours against the oracle's -- through two 8-bit encodings, so its
- * own rounding was inside the answer and its unit could not be smaller than a code. Two instruments
- * for one claim is how the two come to disagree.
- *
- * THE BUCKET COUNTS ARE PRINTED SPARSELY. A case at zero prints one line saying so, and a case with
- * a tail prints the buckets that hold something -- 256 lines of zeros would bury the tail that
- * decides it. */
 void SayWhereItWas(const char *kind, const Excursion &worst) {
   using namespace outshine::Test;
   if (worst.Code <= 0.0) { return; }
@@ -2477,67 +1766,21 @@ void ScorePictureBound(const PictureDelta &picture, const Tail &bound, int oracl
     std::printf("BOUND  %-56s %14s\n",
                 "the oracle still estimates, so no tail bound may be enforced", "--");
   }
-  /* THE BOUND IS ASKED ABOUT THE PICTURE AND THE MAXIMUM KEEPS ITS OWN ROW (board:1359, board:1367).
-   * A max over 2 764 800 channels is a claim about one channel; the finish line is a claim about a
-   * picture, and the owner's tolerance is that the two look 99 % alike. `WaterBottle` is what made it
-   * visible: its two renders are indistinguishable by eye and it scored 149.27 codes as outside.
-   *
-   * THE MAXIMUM IS STILL PUBLISHED AND STILL NAMED, because a case agreeing to a code and one agreeing
-   * to 200 on nine channels are different facts, and a rule that hid the difference would conceal a
-   * regression inside its own tolerance. */
+
   const double atFraction =
       PercentileCode(picture.Buckets, picture.ChannelsCompared, kBoundFraction);
   metrics.push_back({"picture_p99_delta_code", atFraction, bound.Codes, "codes",
                      bound.Enforced ? Direction::AtMost : Direction::Reported, Count::Picture});
   metrics.push_back({"picture_max_delta_code", picture.Appearance.Code, bound.Codes, "codes",
                      Direction::Reported, Count::Picture});
-  /* A PREDICATE HAS ONE VALUE WHERE THE TWO SIDES AGREE IT APPLIES: an oracle alpha between 0 and 1
-   * over our `covered(sceneDepth)` is the blended-surface defect, and this is the gate that reaches it.
-   *
-   * IT CARRIES THE SAME PERCEPTUAL FLOOR EVERY OTHER PICTURE BOUND CARRIES (board:1359), and the
-   * floor CONSTRAINS THE ORACLE AND NOT US -- which is the half of this rule that has to be said, or
-   * it forbids the symmetric case it was never about. **Our alpha is a predicate by construction**:
-   * `covered(sceneDepth)` returns 0 or 1 and can be neither 0.996 nor anything between, so a
-   * departure inside this floor is always the reference's. **A blended surface is tens or hundreds of
-   * codes**, so a floor of one cannot hide one; what a bound of exactly zero DID reach is the oracle's
-   * own arithmetic.
-   *
-   * [MEASURED] `SimpleTexture/four-texels-per-pixel`: *ours 255 against 254.003906, over 2 px* -- the
-   * oracle's alpha at two pixels of four thousand is **0.99609375**, which is 255/256 exactly. The
-   * material declares no `alphaMode`, so it is OPAQUE and glTF says its texture's alpha is ignored;
-   * the texture was decoded and **all 65 536 texels carry alpha 255**. So it is neither a blended
-   * surface nor the asset: it is one code of the reference's own film alpha, and a gate that fails a
-   * case on it is measuring the instrument.
-   *
-   * **AND THE READING IS THAT WE ARE RIGHT AND THE REFERENCE IS NOT**, which is worth stating in a
-   * file whose whole job is to believe the reference: glTF says of `OPAQUE` that *the alpha value is
-   * ignored and the rendered output is fully opaque*, the material declares no `alphaMode`, and the
-   * texture's alpha is 255 everywhere. There is no reading of the format under which that pixel is
-   * 0.996 opaque.
-   *
-   * *This is the same repair `board:1359` made for the perceptual tail, applied to the one channel it
-   * did not reach -- not a bound moved to admit a case, but a floor the corpus already declares.*
-   *
-   * AND IT IS ENFORCED ONLY WHERE THE ORACLE'S ALPHA IS A PREDICATE TOO (board:1426). At ONE sample per
-   * pixel a sample is inside the geometry or it is not, and the reference's film alpha is 0 or 1 like
-   * ours. Above one the reference ANTIALIASES, and its alpha at every silhouette pixel is the fraction
-   * of samples that hit -- a continuous coverage, which is a different quantity from a predicate
-   * however close the two look.
-   *
-   * [MEASURED] `PointLightIntensityTest` renders at **256** samples, and it is the only case in the
-   * corpus that does: 144 of 145 take one. Its oracle carries alpha **0.383** over 806 pixels on a
-   * subject whose every material is `OPAQUE` with no transmission -- so there is nothing transparent
-   * to find, and what the gate was reading is the reference's own edge filtering. */
+
   metrics.push_back({"picture_max_delta_code_alpha", picture.Predicate.Code,
                      outshine::Render::Parity::kPerceptualFloorCodes, "codes",
                      oracleSamples > 1 ? Direction::Reported :
                      Direction::AtMost, Count::Picture});
   metrics.push_back({"picture_max_delta_code_routed", picture.Routed.Code, 0.0, "codes",
                      Direction::Reported, Count::Picture});
-  /* WHERE THE ORACLE SAYS NO LIGHT REACHED THIS PIXEL AND WE DISAGREE. Reported, because it is a
-   * DIAGNOSTIC over a population and the verdict is the tail above; it exists because eight of the
-   * thirteen cases outside the bound have a worst pixel of exactly this shape and a worst pixel is an
-   * anecdote until it is counted. */
+
   metrics.push_back({"picture_oracle_black_channels", (double)picture.OracleBlackChannels, 0.0,
                      "channels", Direction::Reported, Count::Picture});
   metrics.push_back({"picture_oracle_black_we_lit", (double)picture.OracleBlackWeLit, 0.0, "channels",
@@ -2545,9 +1788,6 @@ void ScorePictureBound(const PictureDelta &picture, const Tail &bound, int oracl
   metrics.push_back({"picture_oracle_black_worst_code", picture.OracleBlackWorstCode, 0.0, "codes",
                      Direction::Reported, Count::Picture});
 
-  /* THE CHANNELS THAT DECIDED IT, in order, with where they are. The tail is a max, so on a picture
-   * that is exact almost everywhere the verdict belongs to a handful -- and a handful is where a cause
-   * can still be read off the coordinates. */
   size_t shown = 0;
   for (const Excursion &channel : picture.Worst) {
     if (channel.Code <= 0.0) { break; }
@@ -2581,11 +1821,6 @@ void ScorePictureBound(const PictureDelta &picture, const Tail &bound, int oracl
   SayWhereItWas("routed-to-coverage", picture.Routed);
 }
 
-/* THE TWO COUNTS THE SUITE IS QUOTED BY, PRINTED ONCE PER CASE SO THAT NEITHER CAN BE QUOTED FOR THE
- * OTHER (board:0089). Khronos's criterion is a statement about a FEATURE and it
- * does not stop being met because our picture is not the reference's picture; the picture bound is
- * about the PICTURE and it is the owner's standard. THE CASE IS RED IF EITHER IS RED, and the two
- * lines are what make "the suite is green" unsayable without saying which of them it is about. */
 void SayBothVerdicts(const std::vector<Metric> &metrics, const Tail &bound) {
   bool criterionMet = true;
   bool withinPicture = true;
@@ -2594,9 +1829,7 @@ void SayBothVerdicts(const std::vector<Metric> &metrics, const Tail &bound) {
     (metric.Counts == Count::Picture ? withinPicture : criterionMet) = false;
   }
   std::printf("KHRONOS-CRITERION %s\n", criterionMet ? "met" : "red");
-  /* A CASE WHOSE ORACLE STILL ESTIMATES IS NOT WITHIN THE BOUND, IT IS UNBOUNDED. Printing `within`
-   * there would be the escape hatch I.26.15 refuses, one word further along: a case nobody can count
-   * either way would be counted as a pass. */
+
   std::printf("PICTURE-BOUND %s\n",
               !bound.Enforced ? "not-enforced" : (withinPicture ? "within" : "outside"));
 }
@@ -2608,21 +1841,8 @@ std::string Argument(int argc, char **argv) {
   return directory;
 }
 
-} // namespace
+}
 
-/* WHAT THE MOTION TARGET ACTUALLY CARRIES, and this is the first case in the tree that can ask
- * (board:1169). Every geometry pipeline declares the attachment and every fragment used to write
- * `kVelocityStatic` into it unconditionally, so the answer was the sentinel at every covered pixel
- * of every case -- a target allocated, cleared, written and never once holding a motion.
- *
- * THE SENTINEL IS THE CLEAR VALUE AND A COVERED PIXEL MAY NOT CARRY IT. NDC displacement is bounded
- * by 2 per axis and the clear is -1e4, so the two cannot be confused, and "a fragment reached this
- * pixel and wrote no motion" has a spelling that a count can find.
- *
- * ZERO IS AN ANSWER AND NOT AN ABSENCE: the outer body of this subject never moves, so most of its
- * covered pixels carry exactly zero at every frame, and frame 0 carries zero everywhere because its
- * previous pose is itself. What must not be zero is the count over the WHOLE frame once something
- * has moved. */
 void ScoreVelocity(const Case &subject, const Picture &picture, const Mask &ours, int frame,
                    std::vector<Metric> &metrics) {
   using namespace outshine::Test;
@@ -2634,9 +1854,7 @@ void ScoreVelocity(const Case &subject, const Picture &picture, const Mask &ours
   }
   size_t covered = 0, sentinel = 0, moving = 0;
   double furthestNdc = 0, furthestPx = 0;
-  /* NDC SPANS 2 ACROSS THE FRAME IN EACH AXIS, so a displacement in pixels is the x component times
-   * half the width and the y component times half the HEIGHT -- one scale for both axes would be a
-   * number whose frame of reference is only right where the frame is square. */
+
   const double toPxX = 0.5 * subject.Frame.WidthPx, toPxY = 0.5 * subject.Frame.HeightPx;
   for (size_t pixel = 0; pixel < pixels; ++pixel) {
     if (!ours.In[pixel]) { continue; }
@@ -2655,13 +1873,8 @@ void ScoreVelocity(const Case &subject, const Picture &picture, const Mask &ours
   metrics.push_back({"velocity_pixels_covered", (double)covered, 0.0, "px", Direction::Reported});
   metrics.push_back({"velocity_pixels_carrying_the_static_sentinel", (double)sentinel, 0.0, "px",
                      Direction::AtMost});
-  /* AND IT IS ASKED ONLY OF A FRAME WHOSE POSE ACTUALLY MOVED (board:1434). A declared sequence need
-   * not move geometry at all -- `KHR_animation_pointer` lets a channel drive a material, and
-   * `PotOfCoalsAnimationPointer` turns two texture transforms and nothing else -- so demanding a
-   * moving pixel of every frame after the first asks a still subject to have a velocity. Where the
-   * pose did not move, the target must carry NO motion, which is the same claim facing the other way
-   * and is the stronger of the two. */
-  const bool poseMoved = frame > 0 && subject.MovedPx > 0.0;   /* since the PREVIOUS frame */
+
+  const bool poseMoved = frame > 0 && subject.MovedPx > 0.0;
   metrics.push_back({"velocity_pixels_moving", (double)moving, poseMoved ? 1.0 : 0.0, "px",
                      poseMoved ? Direction::AtLeast : Direction::AtMost});
   Note("velocity, furthest a covered pixel moved since the previous frame", furthestNdc,
@@ -2670,32 +1883,10 @@ void ScoreVelocity(const Case &subject, const Picture &picture, const Mask &ours
        "px per frame");
 }
 
-/* THE SUBJECT MOVES, AND IT IS PROVED BEFORE THE FRAMES ARE COMPARED (board:1169). A case that
- * renders the rest pose at every frame passes every frame-by-frame comparison, and that is the
- * hollow green an animated suite dies of quietly: the oracle would be posed by Blender and we would
- * be posed by nothing, and only a subject that HAPPENED to move would show it.
- *
- * IT IS MEASURED ON THE DRAWN GEOMETRY AND NOT ON THE POSE WE INTENDED. What is compared is the
- * vertex run that was handed to the renderer at this frame against the one handed to it at frame 0,
- * so a sampler pinned to frame 0 anywhere between the declaration and the draw call comes back as
- * zero here whatever the tracks say.
- *
- * THE FLOOR IS THE ORACLE'S OWN SUB-PIXEL RESOLUTION, which is the smallest displacement either
- * side could resolve: half the box filter's width, already declared in the recipe and already the
- * floor every near-tie in this suite is judged against. A displacement under it is a frame the
- * oracle cannot tell from the last one. */
-/* WHAT ONE FRAME CONTRIBUTES TO THE MOTION CLAIM, AND THE CLAIM ITSELF IS NOT ITS TO MAKE.
- * `Measurable` is false only where the frame could not be measured at all; `MovedPx` is what it
- * moved. The verdict is taken over the GRID by the caller, for the reason in `ScoreMotion`. */
 struct Motion {
   bool Measurable = false;
   double MovedPx = 0;
-  /* AND THE SAME DISTANCE FROM THE PREVIOUS FRAME, which is a different question and the one the
-   * velocity target answers (board:1434). `MovedPx` is measured from frame 0 on purpose -- an
-   * animation that ENDS where it began must not be refused for it -- so a looping grid's last frame
-   * reads zero there while its geometry moved a great deal since the frame before. Gating the
-   * velocity claim on the frame-0 distance therefore asked a moving subject to hold still, and
-   * [MEASURED] it did: `Fox` frame 4, 20489 moving pixels against a bound of zero. */
+
   double MovedSincePreviousPx = 0;
 };
 
@@ -2710,11 +1901,7 @@ struct Motion {
   const std::vector<double> &now = subject.Geometry.PositionsM();
   const std::vector<double> &rest = subject.RestPositions;
   const std::vector<double> &before = subject.PreviousGeometry.PositionsM();
-  /* **THE COUNT, BEFORE THE PICTURE** (board:1473). A pose writes values into a topology a bake
-   * decided; a subject whose vertex count moves with the frame has no static index buffer to draw
-   * with, and every motion number taken over it is about two different meshes. [MEASURED] this is
-   * what caught a flat-normal split that consulted positions after the pose was baked -- it read as
-   * `0 px` of motion, which looks like a still and was a different mesh. */
+
   if (now.size() != rest.size() || now.empty()) {
     CHECK(false, "the posed subject carries the same vertices at every frame of the grid");
     return Motion{false, 0};
@@ -2754,15 +1941,6 @@ struct Motion {
   return Motion{true, furthestPx, furthestSincePreviousPx};
 }
 
-/* THE FRAME'S ARTEFACTS ON DISK, AND THE VERDICT'S OWN BUFFER BACK. It runs before anything is
- * scored, so a case that is about to fail still leaves the two frames a person opens to see why --
- * especially then. Over a sequence every frame overwrites them, which is what makes the pair in the
- * directory the frame the verdict came from: the early exit stops at the first failing frame, so the
- * last pair written is that one or the last one that passed (board:1169).
- *
- * IT RETURNS THE SCORED SAMPLES because they are what it wrote, and the caller compares against
- * exactly the buffer that is now on disk -- an `F.20` return rather than a fourth output parameter.
- */
 [[nodiscard]] std::vector<float> WriteProducts(const Case &subject, const Picture &picture,
                                                const RawF32 &oracle, const Mask &ours,
                                                const Mask &theirs) {
@@ -2776,20 +1954,6 @@ struct Motion {
         "1-outshine.png is written beside the reference, pass or fail");
   if (!unwritten.empty()) { Refused(unwritten); }
 
-  /* OUR FLOAT FRAME BESIDE THE ORACLE'S, IN THE ORACLE'S OWN LAYOUT. Until it existed the compared
-   * values were openable on one side and not on the other, so a case failing on floats -- which is
-   * the whole of the picture bound -- left nothing to look at, which is the position the owner was
-   * in when the mask was green and the picture was wrong. `.raw` is DATA and not a picture, so the
-   * two-picture rule above is untouched: what may not be in this folder is a third IMAGE.
-   *
-   * IT IS THE BUFFER THE BOUND IS COMPUTED ON, and the read-back below is what makes that a checked
-   * property rather than a sentence: the file is opened again through the same reader the oracle is
-   * read through and held against the samples that were scored. A writer that put down anything
-   * else would rebuild exactly the split -- the picture showing one thing, the score measuring
-   * another -- that this whole round is about. */
-  /* THE SHADING NORMAL BESIDE THE FRAME (board:1126). It is a diagnostic product like the two
-   * pictures: the attachment is already read back for the three-way, and a quantity that only
-   * exists inside one process cannot be taken apart by anything that did not render it. */
   std::string unwrittenNormal;
   if (!picture.ShadingNormal.empty()) {
     (void)WriteRawF32(subject.Directory + "outshine.normal.raw", picture.ShadingNormal, ours.Width,
@@ -2816,14 +1980,6 @@ struct Motion {
   return scored;
 }
 
-/* WHAT ONE FRAME OF A CASE CAME TO. `Compared` says the two sides were both there and scored;
- * `Held` says every enforced metric of that frame held. A sequence stops at the first frame where
- * either is false (board:1129), and a still is the one-frame case of the same loop. */
-/* FNV-1a OVER THE ORACLE'S FLOATS, and it decides one question only: did the reference change between
- * two frames of a declared grid (board:1434). A digest and not a difference, because the answer wanted
- * is a boolean and a picture-sized subtraction to reach it would be a second comparison nobody reads.
- * f32 bit patterns go in as they lie, so a NaN would hash as itself -- which is correct here, since two
- * frames that are bit-identical are the same picture whatever the bits mean. */
 [[nodiscard]] std::uint64_t Digest(const RawF32 &oracle) {
   std::uint64_t hash = 1469598103934665603ull;
   for (int y = 0; y < oracle.Height(); ++y) {
@@ -2842,15 +1998,12 @@ struct Motion {
   return hash;
 }
 
-/* THE GRID'S OWN CLAIM WEARS A METRIC'S NAME so a case whose oracle cannot render its sequence can
- * declare that on the same ladder every other undecidable number uses (board:1434). */
 constexpr char kGridChangesThePicture[] = "frames_whose_picture_differs_from_frame_0";
 
 struct FrameVerdict {
   bool Compared = false;
   bool Held = false;
-  /* A DIGEST OF THE ORACLE'S OWN PIXELS AT THIS FRAME (board:1434), so the grid's emptiness can be
-   * decided by the reference rather than by our geometry. */
+
   std::uint64_t OracleDigest = 0;
 };
 
@@ -2885,26 +2038,14 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
     metrics.push_back({"oracle_samples_differing_between_seeds", (double)seedApart, 0.0, "samples",
                        Direction::AtMost});
   }
-  /* THE DRAW LIST, COUNTED. A batching claim nobody counts is a claim, and the two numbers together
-   * say what the key bought on this subject: how many primitives were drawn and how many
-   * `DrawIndexed` calls they cost after the compiled list merged what shared a pipeline and a
-   * surface slot. */
+
   metrics.push_back({"subject_draws", (double)renderer.SubjectDrawCount(), 0.0, "draws",
                      Direction::Reported});
   metrics.push_back({"subject_draw_calls", (double)renderer.SubjectBatchCount(), 0.0, "calls",
                      Direction::Reported});
   metrics.push_back({"subject_surfaces", (double)subject.Surfaces.Slots.size(), 0.0, "slots",
                      Direction::Reported});
-  /* NEITHER SIDE MAY BE DEGENERATE AND NO SCORE IS COMPUTED UNTIL BOTH ARE NOT. This is the guard,
-   * and it is placed here rather than reported afterwards precisely so that the agreement numbers
-   * over two empty masks are never printed at all.
-   *
-   * THE GUARD READS THE TWO METRICS BY NAME AND NOT BY POSITION. It used to ask `metrics[0]` and
-   * `metrics[1]`, which were the two coverage fractions when it was written; four metrics have since
-   * been inserted ahead of them, so it was reading the seed check and the draw count, and a case
-   * whose oracle merely had an estimator left was refused as "a side of the comparison is empty"
-   * with 44 950 covered pixels on one side and 44 998 on the other. Naming the two objects is what
-   * makes the drift unspellable rather than caught. */
+
   const Metric coverageOurs{"coverage_fraction_outshine", ours.Fraction(),
                             subject.Accepted.CoverageFractionMin, "dimensionless",
                             Direction::AtLeast};
@@ -2925,18 +2066,10 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
 
   ScoreAlternateSpellings(subject, studio, renderer, ours, metrics);
 
-  /* WHICH SURFACE EACH SIDE PUTS AT EACH PIXEL, READ BEFORE ANYTHING IS ROUTED (board:1144). It used
-   * to stand below the picture comparison, where its answer arrived after the comparison that needs
-   * it -- and a router that cannot ask "do the two sides name the same surface here" scores a
-   * surface swap as a colour disagreement. It stays a reported diagnostic; what changed is only WHEN
-   * it is available. */
   const Mask routedBySurface =
       ScoreSurfaceIdentity(subject, picture, oracle, ours, theirs, frame, metrics);
   const Routing routing{ours, theirs, routedBySurface};
 
-  /* WHETHER "EVERY PIXEL MUST AGREE" IS A FAIR DEMAND ON THIS SUBJECT, and it is a property of the
-   * subject rather than of either renderer (Ties.h). Reported beside the disagreement so a red is
-   * attributable without a second run. */
   Transform clip;
   const bool projects = subject.Eye.Clip(subject.Frame.Aspect(), clip);
   CHECK(projects, "the resolved camera yields a projection");
@@ -2944,54 +2077,25 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
     const EdgeSet edges = Silhouette(subject.Geometry, clip, subject.Frame);
     const double tieMarginPx = TieMarginPx(ours, edges);
     metrics.push_back({"tie_margin_px", tieMarginPx, 0.0, "px", Direction::Reported});
-    /* THE `general-position` ARM'S WHOLE ACCEPTANCE (`board/`), and it introduces
-     * no constant of its own: the oracle's filter half-width is already declared in the recipe, and
-     * a disagreement further from the silhouette than the oracle can resolve is not a tie however
-     * few pixels of it there are. Under `exact` the pixel count is the acceptance instead and this
-     * is reported beside it, because a bound that admits a disagreement is not what that arm says.
-     *
-     * IT COUNTS TOWARD THE PICTURE AND NOT THE FEATURE, and that follows from the routing rather
-     * than from taste: the picture bound sends every pixel it does not score perceptually to THIS
-     * metric, so a routed pixel that failed here while the picture read `within` would be a picture
-     * defect reported as a feature defect -- the misquote I.26.15 exists to make unspellable. */
+
     const WorstDisagreement worst =
         WorstDisagreementPx(routing, edges, Boundary(theirs).size(), kBoundFraction);
     metrics.push_back({"disagreement_max_px", worst.Px, subject.OracleFloorPx, "px",
                        Direction::Reported});
-    /* THE NAME SAYS WHICH QUANTILE IT IS, AND IT USED TO SAY `worst` (board:1438). This number is the
-     * disagreement at `kBoundFraction`, not the largest one -- the largest keeps its own row beside it --
-     * and a metric called `worst_` that is a p99 is the failure `CLAUDE.md` names in one sentence: *the
-     * number was right and about something else*. It cost a round: 0.1353173 on `SpecularTest` was read
-     * as a maximum and reasoned about as one for several steps before the name was checked. */
+
     metrics.push_back({"disagreement_p99_px", worst.AtFraction, subject.OracleFloorPx, "px",
                        subject.Placement == ExactnessClass::GeneralPosition ? Direction::AtMost
                                                                             : Direction::Reported,
                        Count::Picture});
-    /* THE POPULATION, QUOTED WITH THE NUMBER (board:1144), and named the way `boundary_samples`
-     * already names one. The metric above is a MAXIMUM, so it can be moved by changing what it is a
-     * maximum over and read as the same measurement; this is what makes that unspellable in a log.
-     * It is `pixels_disagreeing` plus `surface_identity_disagreeing_attributable`, and a reader can
-     * check the sum. */
+
     metrics.push_back({"disagreement_samples", (double)worst.Pixels, 0.0, "px",
                        Direction::Reported, Count::Picture});
     ScoreExactnessConstruction(subject, edges, tieMarginPx, metrics);
     ScoreVisibilityTerm(subject, clip, renderer.ShadowRayNearM(), metrics);
   }
 
-  /* THE VERDICT IS THE RENDERED IMAGE AGAINST THE ORACLE'S IMAGE, because that is what a render case
-   * is for. Everything below it -- coverage, the boundary distribution, IoU -- is printed as a
-   * DIAGNOSTIC and none of it is sufficient for a pass: a case scoring the coverage mask exactly
-   * while drawing no visible subject was green here for a whole round, which is the vacuous-gate
-   * failure in its purest form. */
-  /* WHAT THE ASSET ITSELF SAYS MUST HOLD, on the linear tap, before anything is compared with the
-   * oracle. It is placed ahead of the image comparison because for a `stated-invariant` case this
-   * IS the verdict and the comparison below is the diagnostic beside it -- the reverse of every
-   * other kind, and the reason the two are never both enforced on one case. */
   ScoreStatedInvariants(subject, picture, oracle, metrics);
 
-  /* THE PICTURE ITSELF, WHOLE, ON THE LINEAR TAP AND ON THE DECLARED TRANSFER (I.26.15). Our alpha
-   * is `covered(sceneDepth)`, so it comes from the depth mask and not from the colour attachment --
-   * the same expression the display shader evaluates, over the same input. */
   const PictureDelta image = ComparePicture(scored, oracle, routing);
   CHECK(image.Comparable, "the linear tap and the coverage mask cover the oracle's frame, so every "
                           "pixel of the picture has something to be compared against");
@@ -3000,16 +2104,6 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
 
   ScoreShadingNormal(subject, picture, ours, clip, frame, metrics);
 
-  /* THE VELOCITY'S POPULATION IS WHAT WROTE DEPTH AND NOT WHAT IS COVERED (board:1423). The engine
-   * states the rule in its own pipeline: *a blended surface writes no velocity, and that follows from
-   * its writing no depth -- a temporal resolve reprojects a pixel through the depth that was written
-   * there, so a surface that left none has no motion to claim and would overwrite the motion of
-   * whatever did.* So a pixel a transparent surface drew legitimately carries the static sentinel, and
-   * asking every COVERED pixel for a real velocity would fail the engine for obeying its own rule.
-   *
-   * [MEASURED] `DiffuseTransmissionPlant` went red at 5 px of 31 622 the moment coverage began to
-   * include blended pixels -- **a number broken by moving the population underneath it**, which is
-   * exactly what this tree's own rule warns about, and it was caught by diffing the red set. */
   const Mask depthOnly =
       FromDepth(picture.Depth, {}, (int)subject.Frame.WidthPx, (int)subject.Frame.HeightPx);
   ScoreVelocity(subject, picture, depthOnly, frame, metrics);
@@ -3024,24 +2118,15 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
   metrics.push_back({"boundary_p50_px", boundary.P50, 0.0, "px", Direction::Reported});
   metrics.push_back({"boundary_p99_px", boundary.P99, 0.0, "px", Direction::Reported});
   metrics.push_back({"boundary_max_px", boundary.Max, 0.0, "px", Direction::Reported});
-  /* How many distances the percentiles above were taken over, which is both the instrument's sample
-   * size and the whole of its cost: the nearest-neighbour search is exhaustive, so a case pays the
-   * square of this number and nothing else about the subject. */
+
   metrics.push_back({"boundary_samples", (double)boundary.Samples, 0.0, "px", Direction::Reported});
   metrics.push_back({"iou", Iou(ours, theirs), 0.0, "dimensionless", Direction::Reported});
-  /* THE PLACEMENT ACCEPTANCE, AND WHICH ARM IT IS COMES FROM THE CASE'S OWN DECLARED CLASS AND FROM
-   * NOTHING INFERRED (`board/`). It used to be `self-describing AND opaque`, and
-   * that pair is not the question: it made an exactness demand of every self-describing case whose
-   * subject happened to be opaque, whether or not the subject could meet it, and made none of a
-   * `numeric` case that could. `exact` demands every pixel and declares no tolerance; the other arm
-   * is bounded above by `disagreement_p99_px` instead, so a placement is never unbounded. */
+
   metrics.push_back({"pixels_disagreeing", (double)Disagreeing(ours, theirs), 0.0, "px",
                      subject.Placement == ExactnessClass::Exact ? Direction::AtMost
                                                                 : Direction::Reported,
                      Count::Picture});
-  /* AND WHERE THEY ARE, BY THE FILE'S OWN NODE NAMES. A count says the two renderers differ; the
-   * table says whether the difference belongs to one class of node or straddles every one of them,
-   * which is the discriminator between a transform question and a raster question. */
+
   if (projects && Disagreeing(ours, theirs) > 0) {
     Note("disagreement attributed by node, both faces, overlap counted twice");
     const Attribution table =
@@ -3052,7 +2137,7 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
     }
     Note("disagreeing pixels no node's geometry projects onto", (double)table.Unattributed, "px");
     Note("triangles outside the depth range, unattributed", (double)table.Unprojectable,
-         "triangles");   /* the verdict is the metric below; this row says how many were left unattributed */
+         "triangles");
   }
   if (projects) {
     metrics.push_back({"triangles_outside_the_depth_range",
@@ -3061,14 +2146,10 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
   }
   ScoreDepthProbes(subject, studio, picture.Depth, metrics);
 
-  /* Published beside the result and never subtracted from it. */
   Note("oracle instrument floor", subject.OracleFloorPx, "px");
   metrics.push_back(
       {"plan_passes", (double)renderer.Plan().PassCount(), 2.0, "passes", Direction::AtMost});
 
-  /* THE FRAME FRACTION IS A DECLARED, RECOMPUTED, REFUSED-ON-MISMATCH PROPERTY of the case: it is
-   * what the boundary bound is being applied under, so a camera that quietly frames the subject
-   * smaller tightens the bound without saying so (I.26). */
   const Json::Ref expected = subject.Manifest.Root()["expected"]["subjectFrameFraction"];
   double declaredFraction = 0;
   const bool statesFraction = ReadDeclaredNumber(expected, "expected.subjectFrameFraction",
@@ -3077,11 +2158,7 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
   if (statesFraction && projects) {
     const double fraction = subject.Geometry.ProjectedAreaPx(clip, subject.Frame) /
                             (subject.Frame.WidthPx * subject.Frame.HeightPx);
-    /* THE CAMERA IS A PROPERTY OF THE CASE AND NOT OF THE FRAME, so the check that it frames the
-     * subject as the derivation says is taken once, at the frame the declaration is stated for. An
-     * animated subject has a different projected area at every frame BY CONSTRUCTION -- that is
-     * what animating it means -- so enforcing one declared number over the whole grid would demand
-     * that the subject not move. It is still recomputed and published at every frame. */
+
     metrics.push_back({"frame_fraction_error", std::fabs(fraction - declaredFraction),
                        subject.Accepted.FrameFractionTolerance, "dimensionless",
                        frame == 0 ? Direction::AtMost : Direction::Reported});
@@ -3093,20 +2170,12 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
     Refused(why);
   }
 
-  /* TEN REDS MUST BE TEN PIECES OF INFORMATION, NOT ONE. The coverage mask separates the two
-   * failures a render case can have, and they lead to different work: geometry in the wrong pixels
-   * is the reader, the camera or the raster convention, and it stops the shading question being
-   * asked at all; geometry in the right pixels with a different image is the shading. */
   if (image.PixelsDiffering > 0) {
     const bool placed = boundary.P95 <= subject.Accepted.BoundaryP95MaxPx;
     Note(placed ? "attribution: the geometry is in the right pixels and the shading is wrong"
                : "attribution: the geometry is in the wrong pixels, so the shading is not reached");
   }
 
-  /* THE DECLARED REDUCTIONS ARE APPLIED HERE AND NOWHERE EARLIER (board:1422), so every number is
-   * still MEASURED and still PRINTED at its full value -- a reduction changes what a metric decides
-   * and never what it says. Each is announced by name with its reason, and the count is published, so
-   * a reader of one log sees exactly what this case declared it could not answer. */
   size_t reduced = 0;
   for (Metric &metric : metrics) {
     const auto declared = subject.Reductions.find(metric.Name);
@@ -3129,10 +2198,6 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
   return verdict;
 }
 
-/* THE SCORING IS SHARED AND THE HARNESS IS NOT (board:1196). Two corpora are scored by this one
- * instrument -- the Khronos glTF sample assets and the subjects this engine grows itself -- and each
- * carries its own harness under its own directory, so a suite is a folder rather than a flag. What is
- * shared is the measurement; what is separate is the run. */
 int ScoreRenderCase(int argc, char **argv) {
   using namespace outshine::Test;
 
@@ -3152,14 +2217,6 @@ int ScoreRenderCase(int argc, char **argv) {
     return Report();
   }
 
-  /* FRAME BY FRAME, IN ORDER, STOPPING AT THE FIRST ONE THAT FAILS (board:1129). A per-sequence
-   * aggregate -- a mean over frames, a worst-of -- would let one badly wrong frame average into the
-   * bound and would name no frame to look at; the frame it stops at is also the most diagnostic,
-   * because every later one inherits its divergence. A still is one frame and takes the same path.
-   *
-   * THE TWO PICTURES IN THE DIRECTORY ARE THE FRAME THE VERDICT CAME FROM, which follows from the
-   * early exit rather than from a rule: every frame overwrites them, and the last one written is
-   * the one that failed or the last one that passed. */
   std::string why;
   int compared = 0;
   double furthestMovedPx = 0;
@@ -3171,8 +2228,7 @@ int ScoreRenderCase(int argc, char **argv) {
     if (subject.Animated()) {
       std::printf("FRAME %d of %d at %.9g s\n", frame, subject.Frames,
                   (double)frame / subject.Fps);
-      /* WHAT THE MOTION IS MEASURED FROM, advanced before the pose is taken: at frame 0 the
-       * geometry is still frame 0's, so the first frame's velocity is exactly zero. */
+
       subject.PreviousGeometry = subject.Geometry;
       if (!PoseGeometry(subject, frame, why)) {
         CHECK(false, "the subject poses at every frame of the declared grid");
@@ -3207,25 +2263,7 @@ int ScoreRenderCase(int argc, char **argv) {
       break;
     }
   }
-  /* THE MOTION CLAIM IS TAKEN OVER THE GRID AND NOT PER FRAME (board:1169, board:1200).
-   *
-   * It used to be per frame -- every frame's drawn geometry had to differ from frame 0's -- and that
-   * rule forbids a picture the format states is correct. `RiggedSimple` LOOPS: its bend returns to
-   * the rest pose, so the last frame of a grid covering the whole declared duration IS frame 0's
-   * picture, measured here at exactly 0 m, and demanding otherwise forbids an animation from ending
-   * where it began.
-   *
-   * A HOLD IS NOT THE SAME CASE AND WAS NEVER CAUGHT BY THE OLD RULE, which is worth saying because
-   * it looks like it would be: `BoxAnimated` carries the same translation at two keyframes and is
-   * stationary between them, but the comparison is against FRAME 0 rather than against the previous
-   * frame, and it never returns there. So the rule that had to change is the one about RETURNING,
-   * not the one about STANDING STILL.
-   *
-   * WHAT THE CLAUSE IS ACTUALLY FOR SURVIVES INTACT: a case whose subject never moves is a still
-   * rendered N times, and it agrees with the oracle by construction rather than by being right. That
-   * is a statement about the SEQUENCE, and it is now made where it is true. The count of frames that
-   * moved is published beside the maximum, so a grid where one frame carries all the motion is
-   * visible rather than merely passing. */
+
   Note("the furthest the drawn subject moved from frame 0 over the grid", furthestMovedPx, "px");
   Note("frames whose drawn subject differs from frame 0", (double)framesThatMoved, "frames");
   Note("frames whose oracle picture differs from frame 0", (double)oracleFramesThatDiffer, "frames");
@@ -3241,23 +2279,13 @@ int ScoreRenderCase(int argc, char **argv) {
     }
     Print(grid);
   }
-  /* A REDUCTION THIS CASE DECLARED AND NO METRIC ANSWERS TO is a name that has gone stale, and it is a
-   * refusal rather than a silence: the metric may have been renamed, or the case may have been repaired
-   * and the reduction forgotten. Asked ONCE over the whole grid (board:1434), because the grid's own
-   * claim is scored here and a per-frame list cannot contain it. */
+
   for (const auto &declared : subject.Reductions) {
     CHECK(subject.MetricsReported.count(declared.first) == 1,
           "every declared reduction names a metric this case actually reports");
   }
   if (subject.Animated() && subject.Reductions.count(kGridChangesThePicture) == 0) {
-    /* A SEQUENCE CHANGES THE PICTURE; IT NEED NOT MOVE THE GEOMETRY (board:1434). What this clause is
-     * for is unchanged -- a grid that renders one thing N times agrees with the oracle by
-     * construction rather than by being right -- but `KHR_animation_pointer` lets a channel drive a
-     * material, and `PotOfCoalsAnimationPointer` turns two texture transforms and moves not one
-     * vertex. Asking THE ORACLE whether its own frames differ is the question that covers both, and
-     * it constrains the reference rather than us: a grid the reference renders identically is empty
-     * whatever we do with it, and a grid the reference varies is a real comparison even where the
-     * variation is a material's. */
+
     CHECK(furthestMovedPx > subject.OracleFloorPx || oracleFramesThatDiffer > 0,
           "the declared grid changes the picture -- the drawn subject moves, or the oracle's own "
           "frames differ -- so the sequence is not a still rendered once per frame and agreeing with "
@@ -3282,10 +2310,6 @@ int ScoreRenderCase(int argc, char **argv) {
   return Report();
 }
 
-/* THE SAME CONFIGURATION, A SECOND HOST (board:1443). Everything above this line scores; everything
- * below it only says what the case IS -- which manifest, which subject, which camera, which plan --
- * so that the viewer under `tools/viewer/` reads a case exactly as the runner does and the picture is
- * a function of the declaration rather than of who opened it. */
 struct ConfiguredCase::Held {
   Case Subject;
   outshine::Clients::StudioScratch Scratch;
@@ -3315,9 +2339,7 @@ bool ConfiguredCase::Start(outshine::Render::Renderer &renderer, std::string &er
   for (const outshine::Render::Stage stage : alsoContent) {
     declaration.Content.push_back(stage);
   }
-  /* THE HOST PRESENTS, SO THE PLAN SAYS SO. The runner reads `FrameTex` back and asks for no surface
-   * at all; a windowed host draws into the one it acquired, and `Present` is the stage that puts it
-   * there -- which is a stage the consumer declares like any other. */
+
   declaration.Outputs.push_back(outshine::Render::Resource::Surface);
   std::shared_ptr<const outshine::Render::RenderPlan> plan;
   if (!outshine::Render::RenderPlan::Compile(declaration, &plan, error)) { return false; }

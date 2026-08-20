@@ -8,7 +8,6 @@ Span<const char *const> Water::NoteNames() const noexcept {
   return Span<const char *const>(kNames, kNotes);
 }
 
-/* The HIGHEST outline covering the point, so a basin inside a lake answers with its own level. */
 WaterDepth Water::DepthAt(const Ground &ground, double eastM, double northM) const noexcept {
   const FeatureField &features = ground.Features();
   bool wet = false;
@@ -27,11 +26,6 @@ WaterDepth Water::DepthAt(const Ground &ground, double eastM, double northM) con
   return WaterDepth::Between((double)levelAslM, ground.HeightAslM(eastM, northM));
 }
 
-/* ONE SAMPLE PER OUTLINE, at its own vertex centroid, and only where that point is INSIDE the ring:
- * a river bends, so its box centre is as often bank as water and a count taken there would measure
- * the shape of the bend. What is not testable that way is counted rather than dropped — the three
- * counts partition the outlines of the region. A count over the interior would be a raster, and the
- * question it answers is a point query's (Water::DepthAt), not a region's. */
 void Water::Occupy(const Ground &ground, Yield &yield) const noexcept {
   const FeatureField &features = ground.Features();
   for (size_t i = 0; i < features.Count(); i++) {
@@ -55,8 +49,7 @@ void Water::Occupy(const Ground &ground, Yield &yield) const noexcept {
         WaterDepth::Between((double)levelAslM, ground.HeightAslM(e / count, n / count));
     double m = 0.0;
     if (depth.TryDepthM(&m)) yield.Raise(DeepestM, m);
-    /* Raised and not counted: how far the two models are apart is the number that says whether an
-     * outline is off by a bank or by a cliff, and a bare count cannot. */
+
     if (depth.TryDisagreementM(&m)) yield.Raise(LevelBelowGround, m);
   }
 }
@@ -65,4 +58,4 @@ uint32_t Water::Proposes(double) const noexcept { return 0; }
 
 bool Water::At(const Ground &, double, double, Body *) const noexcept { return false; }
 
-} // namespace outshine::Generators
+}

@@ -24,8 +24,6 @@ bool Scene::Read(const Json::Ref &node, const std::string &path, std::string &er
   if (Kind_ == Kind::Run && !ReadRuns(named, err)) return false;
   if (!named.Closed()) return false;
 
-  /* THE STAGE DECIDES WHICH PRODUCTS ARE EVEN MEANINGFUL. A bench measures the one subject a studio
-   * declares, and there is no subject on a world stage to measure. */
   for (const Run &r : Runs_) {
     const bool bench = r.What == Run::Kind::Bench;
     if (bench && !Stage_->AsStudio())
@@ -38,8 +36,6 @@ bool Scene::Read(const Json::Ref &node, const std::string &path, std::string &er
   return true;
 }
 
-/* EXACTLY ONE ARM. Both is a scene that says two things about what it shows; neither is a scene that
- * says nothing, and there is no default arm because "a world at latitude 0" is a place nobody chose. */
 bool Scene::ReadStage(Fields &scene, std::string &err) {
   Fields stage(scene.Child("stage"), scene.Under("stage"), err);
   const bool world = stage.Present("world"), studio = stage.Present("studio");
@@ -55,9 +51,7 @@ bool Scene::ReadStage(Fields &scene, std::string &err) {
 bool Scene::ReadWorld(const Json::Ref &node, const std::string &path, std::string &err) {
   Fields f(node, path, err);
   double lat = 0.0, lon = 0.0;
-  /* WEB MERCATOR ENDS AT ±85.0511° BY CONSTRUCTION, and the refusal is the Standpoint's own: there is
-   * no way to hold one outside the band, so a latitude the tile scheme cannot carry never becomes a
-   * place at all rather than becoming tile (0,0) further down. */
+
   if (!f.Need("lat", -90.0, 90.0, lat) || !f.Need("lon", -180.0, 180.0, lon)) return false;
   const std::optional<Standpoint> where = Standpoint::At(lat, lon);
   if (!where)
@@ -115,8 +109,6 @@ bool Scene::ReadStudio(const Json::Ref &node, const std::string &path, std::stri
   return true;
 }
 
-/* A SUBJECT IS A GENERATOR INVOCATION, so the generator is named first and reads its own parameters:
- * a parameter belonging to another generator has nowhere to be written rather than being ignored. */
 bool Scene::ReadSubject(const Json::Ref &node, const std::string &path, Subject &out,
                         std::string &err) {
   Fields f(node, path, err);
@@ -144,9 +136,6 @@ bool Scene::ReadSubject(const Json::Ref &node, const std::string &path, Subject 
   return f.Closed();
 }
 
-/* "exposure": { "mode": "auto"|"manual", "keyEv"|"compEv": <stops> }
- * Absent -> auto, no compensation. Present -> the mode's OWN stop field is required, because a mode
- * declared without its number is a scene that did not finish saying what it wanted. */
 bool Scene::ReadExposure(Fields &scene, std::string &err) {
   if (!scene.Present("exposure")) { scene.Seen("exposure"); return true; }
   Fields f(scene.Child("exposure"), scene.Under("exposure"), err);
@@ -163,9 +152,6 @@ bool Scene::ReadExposure(Fields &scene, std::string &err) {
   return f.Closed();
 }
 
-/* "render": { "width": <px>, "height": <px>, "why": "<reason>" }
- * Absent -> the budget's 1280x720. The reason is REQUIRED for any other size and refused when
- * missing: a size nobody justified is how the budget's subject drifts without anyone noticing. */
 bool Scene::ReadResolution(Fields &scene, std::string &err) {
   if (!scene.Present("render")) { scene.Seen("render"); return true; }
   Fields f(scene.Child("render"), scene.Under("render"), err);
@@ -182,9 +168,6 @@ bool Scene::ReadResolution(Fields &scene, std::string &err) {
   return f.Closed();
 }
 
-/* A MISTYPED PIN MUST NOT MEASURE THE HALTON PHASE. The pin exists so a depth channel carries the
- * surface and not the sample position; a spelling the loader ignores hands the measurement a
- * sub-pixel offset it will read as a residual. */
 bool Scene::ReadJitter(Fields &scene) {
   if (!scene.Present("jitter")) { scene.Seen("jitter"); return true; }
   const Json::Ref jitter = scene.Child("jitter");
@@ -236,8 +219,7 @@ bool Scene::ReadRuns(Fields &scene, std::string &err) {
     if (kind == "motion") {
       out.What = Run::Kind::Motion;
       if (!ReadMotion(f, out)) return false;
-      /* Animation owns its channel list and states its own refusals, so this reader only accounts
-       * for the key and lifts the message it gets back to this run's path. */
+
       f.Seen("animation");
       if (f.Present("animation")) {
         std::string why;
@@ -270,4 +252,4 @@ bool Scene::ReadRuns(Fields &scene, std::string &err) {
   return true;
 }
 
-}  // namespace outshine::Scenario
+}

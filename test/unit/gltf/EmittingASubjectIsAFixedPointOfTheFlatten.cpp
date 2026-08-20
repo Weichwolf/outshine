@@ -1,21 +1,3 @@
-/* `Subject(Emit(S)) == S`, EXACT -- positions, indices, part boundaries, part materials, tangent
- * provenance, and the two attribute runs a part may or may not carry.
- *
- * IT IS A FIXED POINT OF THE FLATTEN AND NOT OF THE DOCUMENT, and the difference is the whole test.
- * `Document -> Document` is NOT identity: the flatten discards the hierarchy, so a hierarchy of
- * nested nodes and a flat list of parts are two documents with ONE subject, and a round-trip
- * asserted on the document would be asserting something false. The fixture below carries a nested,
- * transformed hierarchy for exactly that reason -- the emitted file is a different document and must
- * be the same subject.
- *
- * AND WHERE THE POINT IS REACHED DEPENDS ON THE SUBJECT, SO BOTH ARMS ARE MEASURED HERE. `Subject`
- * holds doubles and glTF's POSITION is f32. A subject whose nodes are at the identity carries the
- * file's own f32 values, so `Subject(Emit(S)) == S` holds at ZERO applications and that is the
- * section's acceptance, asserted on the first fixture. A subject whose nodes ROTATED it carries
- * doubles no f32 represents, so the first emit narrows them and every emit after that changes
- * nothing: the point is reached after one application, the narrowing is MEASURED against one f32
- * ulp rather than hidden, and `Emit(S)` and `Emit(Subject(Emit(S)))` are asserted BYTE-IDENTICAL --
- * which is what would catch an emitter whose output depended on how many times it had run. */
 #include <cmath>
 #include <limits>
 #include <string>
@@ -39,19 +21,13 @@ using outshine::Test::Glb;
 
 namespace {
 
-/* Two triangles that share nothing: one carries NORMAL and TEXCOORD_0 and a supplied TANGENT, the
- * other carries POSITION alone -- so the emitted file has to state a different attribute set per
- * primitive, and `HasUv`/`HasNormal`/`Tangent` have something to be wrong about. */
 constexpr float kPosition[6][3] = {{0.f, 0.f, 0.f}, {1.f, 0.f, 0.f}, {0.f, 1.f, 0.f},
                                    {2.f, 0.f, 0.f}, {3.f, 0.f, 0.f}, {2.f, 1.f, 0.f}};
 constexpr float kNormal[3][3] = {{0.f, 0.f, 1.f}, {0.f, 0.f, 1.f}, {0.f, 0.f, 1.f}};
 constexpr float kUv[3][2] = {{0.f, 0.f}, {1.f, 0.f}, {0.f, 1.f}};
 constexpr float kTangent[3][4] = {{1.f, 0.f, 0.f, 1.f}, {1.f, 0.f, 0.f, 1.f}, {1.f, 0.f, 0.f, 1.f}};
 constexpr uint16_t kIndex[3] = {0, 1, 2};
-/* AND A `COLOR_0` ON THE FIRST PRIMITIVE ONLY (board:1193), so the emitted file states the semantic
- * on one primitive and not the other. The values are dyadic and inside [0, 1], which is what a
- * fixed point over an f32 attribute needs: a colour the narrowing moved would be measuring the
- * conversion instead of the round trip, and one outside the range is a file the reader refuses. */
+
 constexpr float kColour[3][4] = {{0.f, 0.5f, 1.f, 1.f},
                                  {0.25f, 1.f, 0.f, 0.5f},
                                  {1.f, 0.f, 0.75f, 0.25f}};
@@ -71,8 +47,7 @@ std::vector<uint8_t> Binary() {
     for (const float axis : tangent) { Append(bytes, axis); }
   }
   for (const uint16_t index : kIndex) { Append(bytes, index); }
-  /* Two bytes of padding, so the colour accessor starts on a multiple of its own component size --
-   * the six unsigned-short indices before it leave the run at 186. */
+
   Append(bytes, uint16_t{0});
   for (const auto &colour : kColour) {
     for (const float channel : colour) { Append(bytes, channel); }
@@ -80,11 +55,6 @@ std::vector<uint8_t> Binary() {
   return bytes;
 }
 
-/* A NESTED, ROTATED, TRANSLATED HIERARCHY over two meshes. The turn is 45 degrees about Y and NOT a
- * right angle: a quarter turn permutes axis-aligned coordinates and would leave every vertex on an
- * f32 it already was, so the arm that is supposed to measure the narrowing would have measured
- * nothing. Measured, and it is why this fixture says 45: at 90 degrees the worst movement was
- * 7.45e-09 f32 ulps, which is a double residual and not a conversion. */
 enum class Placed { AtTheIdentity, TurnedAndScaled };
 
 std::string Fixture(Placed how) {
@@ -140,8 +110,6 @@ std::string Fixture(Placed how) {
 })";
 }
 
-/* The one place the two subjects are held against each other, so "the same" has one spelling. Every
- * comparison is exact: a tolerance here would be a tolerance on a serialiser. */
 [[nodiscard]] bool Same(const Subject &left, const Subject &right, std::string &differs) {
   const auto say = [&differs](const char *what) {
     differs = what;
@@ -194,10 +162,6 @@ Emission Over(const Subject &subject, const Document &file) {
   return what;
 }
 
-/* THE LARGEST DISTANCE ANY COMPONENT MOVED, IN f32 ULPS AT THAT COMPONENT'S OWN MAGNITUDE. It is
- * reported rather than compared against a fixed epsilon, because the only quantity the narrowing can
- * cost is representation: a double rounded to the nearest f32 is within half an ulp of itself, and
- * anything above one ulp is arithmetic somebody did, not a conversion. */
 double WorstUlps(const std::vector<double> &was, const std::vector<double> &is) {
   double worst = 0.0;
   for (size_t at = 0; at < was.size() && at < is.size(); ++at) {
@@ -210,8 +174,6 @@ double WorstUlps(const std::vector<double> &was, const std::vector<double> &is) 
   return worst;
 }
 
-/* One arm of the claim: read a fixture, emit it, read it back. Everything below is stated about the
- * three subjects this produces. */
 struct RoundTrip {
   Document Read, Again;
   Subject First, Second;
@@ -230,7 +192,7 @@ RoundTrip Through(Placed how, const std::vector<uint8_t> &binary) {
   return trip;
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -238,8 +200,6 @@ int main() {
   const std::vector<uint8_t> binary = Binary();
   CHECK(binary.size() == 236, "the fixture's binary chunk is the length its buffer declares");
 
-  /* THE SECTION'S OWN ACCEPTANCE, ON THE ARM WHERE IT IS EXACT AT ZERO APPLICATIONS: nodes at the
-   * identity, so every number the flatten produced is the f32 the file carried. */
   RoundTrip still = Through(Placed::AtTheIdentity, binary);
   CHECK(still.Ok, "a subject at the identity flattens, emits and reads back");
   if (!still.Ok) {
@@ -253,12 +213,7 @@ int main() {
     CHECK(still.First.Parts()[0].Tangent == TangentSource::Supplied,
           "the supplied tangent basis is the one the file wrote, so its PROVENANCE is what the "
           "round trip has to carry");
-    /* **THE DISCRIMINATOR IS THE UV SET AND NO LONGER THE NORMAL** (board:1471). This part was
-     * POSITION alone and the claim was that a writer stating one attribute set for the whole subject
-     * would be caught by it. glTF requires a reader to CALCULATE flat normals where a primitive
-     * declares none -- *client implementations MUST calculate flat normals* -- so a part read out of a
-     * file never carries POSITION alone again, and a test asserting it would be asserting against the
-     * format. The uv set is untouched by that rule and catches the same writer. */
+
     CHECK(still.First.Parts()[1].HasNormal && !still.First.Parts()[1].HasUv,
           "the second part carries no uv set while the first does, so a writer that stated one "
           "attribute set for the whole subject would be caught here -- and it carries the flat "
@@ -269,14 +224,10 @@ int main() {
   CHECK(exact, "Subject(Emit(S)) == S, exactly, for a subject whose numbers the format can hold");
   if (!exact) { std::printf("       %s differ\n", differs.c_str()); }
 
-  /* THE DOCUMENTS ARE NOT THE SAME AND THAT IS THE POINT. Three nodes became two at the identity;
-   * asserting the document would assert something false. */
   CHECK(still.Again.Nodes().size() != still.Read.Nodes().size(),
         "the emitted DOCUMENT differs from the source document, because the flatten discarded the "
         "hierarchy and nothing here invents one");
 
-  /* THE OTHER ARM: a rotation no f32 holds, so the first emit narrows and the claim is about where
-   * the point is rather than whether there is one. */
   RoundTrip turned = Through(Placed::TurnedAndScaled, binary);
   CHECK(turned.Ok, "a rotated, scaled, translated subject flattens, emits and reads back");
   if (!turned.Ok) {
@@ -311,8 +262,6 @@ int main() {
                      "stated on the subject rather than on the bytes");
   if (reread && !settledSame) { std::printf("       %s differ\n", differs.c_str()); }
 
-  /* THE MATERIAL ROW IS THE SUBJECT'S OTHER HALF and it travels beside the geometry rather than
-   * inside it: a part's material index means nothing without the table it indexes. */
   CHECK(still.Again.Materials().size() == still.Read.Materials().size(),
         "the material table crosses whole, so a part's material INDEX still names the same surface");
   bool rows = still.Again.Materials().size() == still.Read.Materials().size();
@@ -335,7 +284,6 @@ int main() {
   CHECK(rows, "every material crosses exactly -- name, base colour, metalness, roughness, emission, "
               "alpha mode, cutoff, two-sidedness and whether it reads light at all");
 
-  /* WHAT THE WRITER CANNOT STATE IS A REFUSAL THAT NAMES IT, never a file with the part left out. */
   Subject empty;
   Emission nothing;
   nothing.Geometry = &empty;

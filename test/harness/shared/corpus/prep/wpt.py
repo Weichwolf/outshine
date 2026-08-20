@@ -28,19 +28,14 @@ URL_IN_CSS = re.compile(r"""url\(\s*["']?([^"')]+)["']?\s*\)""")
 TITLE = re.compile(r"<title>(.*?)</title>", re.I | re.S)
 PUBLIC_DOMAIN = re.compile(r"copyright is dedicated to the Public Domain", re.I)
 
-# THE PROJECT'S OWN STATEMENT, and it is the only one most of these files carry. `LICENSE.md` at the
-# pin offers the 3-Clause BSD and the W3C Software and Document Licence together; a file that
-# dedicates itself to the public domain in its own header says so and is recorded as CC0.
 PROJECT_LICENCE = {"spdx": "BSD-3-Clause OR LicenseRef-W3C-Software-and-Document",
                    "holder": "web-platform-tests contributors",
                    "covers": "Everything"}
-
 
 def _get(url, binary=False):
     with urllib.request.urlopen(url, timeout=60) as response:
         raw = response.read()
     return raw if binary else raw.decode("utf-8", "replace")
-
 
 def tests_in(commit, directory):
     """Every file the named directory holds at the pin, exhaustively -- the tree endpoint says so."""
@@ -55,14 +50,12 @@ def tests_in(commit, directory):
                   if entry["type"] == "blob" and entry["path"].endswith(".html")
                   and "/" not in entry["path"])
 
-
 def _resolve(reference, directory):
     if reference.startswith("/"):
         return reference[1:]
     if "://" in reference:
         return None
     return os.path.normpath(os.path.join(directory, reference))
-
 
 def _fetched(commit, path, role, text):
     raw = text.encode("utf-8") if isinstance(text, str) else text
@@ -76,7 +69,6 @@ def _fetched(commit, path, role, text):
             "as": os.path.basename(path),
             "role": role,
             "licence": licence}
-
 
 def _companions(commit, document, directory, seen):
     """Every file the document's own elements reach for, one level of `url()` behind a stylesheet."""
@@ -98,7 +90,6 @@ def _companions(commit, document, directory, seen):
             seen.add(nested)
             files.append(_fetched(commit, nested, "font", _get(RAW + commit + "/" + nested, binary=True)))
     return files
-
 
 def case(commit, directory, test, pinned_on, pin_reason, viewport):
     """One upstream test as a case, or None when it states nothing this suite can decide."""
@@ -134,7 +125,6 @@ def case(commit, directory, test, pinned_on, pin_reason, viewport):
             "entry": test,
         }],
     }
-
 
 def write(case_declaration, root):
     directory = os.path.join(root, case_declaration["id"])

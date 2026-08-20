@@ -1,24 +1,3 @@
-/* glTF 2.0's OWN metal-rough BRDF, term for term out of the specification's Appendix B, in C++ and
- * in MSL. The Khronos corpus states its criteria in this model, so an engine that shaded a house
- * approximation would be measuring the approximation.
- *
- * TWO HALVES OF ONE FORMULA: a shading term has to run on the device and has to be integrable on the
- * host, and no language spans both. The C++ half is the definition and the MSL half is its
- * transliteration. Three rules keep them from drifting: (a) no numeric constant is typed in the MSL
- * at all -- they are emitted from the C++ ones by `MetalRoughBrdfMsl()`; (b) the MSL declares no term
- * the C++ half does not, so a new term has to be written twice on purpose rather than once by
- * accident; (c) the ARRANGEMENT of the terms is measured -- a shader test
- * runs this text on the device over a sample set and compares it against these functions, and carries
- * a mutant of its own to show the comparison can see a scaled term.
- *
- * `alpha = 0` MEANS NO SPECULAR AT ALL, and that is the physics rather than a guard against a
- * division. A perfectly smooth surface has a Dirac lobe and a light with no area is a Dirac source;
- * the probability that the two coincide at a shading point is zero, so the correct answer against a
- * punctual light is zero specular everywhere -- which is also what Cycles returns for a roughness-0
- * GGX under a delta light, so the oracle can confirm it. Clamping the roughness to an invented floor
- * would manufacture a highlight out of a number nobody derived. Against an AREA of directions the
- * same arm reads as a loss instead: a mirror's directional albedo is F and this returns 0, which is
- * what this layer's own furnace sweep prints at roughness 0 and does not refuse. */
 #ifndef METALROUGHBRDF_H
 #define METALROUGHBRDF_H
 
@@ -29,35 +8,19 @@
 
 namespace outshine::Render {
 
-/* glTF's dielectric normal-incidence reflectance at its default IOR of 1.5, which is what
- * `core/Material.h`'s `DielectricF0` returns for a material declaring neither `KHR_materials_ior` nor
- * `KHR_materials_specular`. IT IS NO LONGER EMITTED INTO THE SHADER (board:1205): the row carries the
- * computed F0 now, so a constant in the shader text would be a second answer to the same question and
- * the fragment reads the one it was handed. What is left here is a NAME for the default, used by the
- * lobe's own tests to pick a representative dielectric. */
 constexpr double kDielectricF0 = 0.04;
 constexpr double kBrdfPi = 3.141592653589793;
 
-/* Trowbridge-Reitz (GGX). `a2` is alpha squared and alpha is roughness squared, which is glTF's own
- * remapping and not a house one. */
 [[nodiscard]] inline double BrdfDistribution(double nh, double a2) {
   const double denominator = nh * nh * (a2 - 1.0) + 1.0;
   return a2 / (kBrdfPi * denominator * denominator);
 }
 
-/* Height-correlated Smith, carrying the `1 / (4 |N.L| |N.V|)` of the microfacet denominator inside
- * it -- so this is a visibility and not a masking term, and multiplying by 1/(4 nl nv) again would
- * be the commonest way to halve a highlight twice. */
 [[nodiscard]] inline double BrdfVisibility(double nl, double nv, double a2) {
   return 0.5 / (nl * std::sqrt(nv * nv * (1.0 - a2) + a2) +
                 nv * std::sqrt(nl * nl * (1.0 - a2) + a2));
 }
 
-/* Schlick, on the HALF-VECTOR angle. `vh` and not `nv`: the Fresnel of a microfacet model is the
- * one at the facet that actually reflects V into L. The fifth power is spelled as a product and not
- * as `pow(x, 5)` so that the two halves perform the SAME four multiplications: a device `pow` is
- * `exp2(5 * log2(x))` under a relaxed-precision compiler and its error is thousands of ulps, which
- * would put a transcendental's accuracy inside the tie that compares the halves. */
 [[nodiscard]] inline std::array<double, 3> BrdfFresnel(const std::array<double, 3> &f0, double f90,
                                                       double vh) {
   const double grazing = 1.0 - vh;
@@ -67,27 +30,6 @@ constexpr double kBrdfPi = 3.141592653589793;
           f0[2] + (f90 - f0[2]) * weight};
 }
 
-/* THE PERTURBATION A MIP CHAIN AVERAGED AWAY, RETURNED AS ROUGHNESS (board:1130). `l` is the mean
- * resultant length of the normals a texel stands for -- 1 where nothing was averaged, shorter as they
- * diverge -- and it arrives in the normal texture's alpha, which glTF gives no meaning.
- *
- * TOKSVIG 2005 states it for Blinn-Phong: a lobe of exponent `s` under normals of that spread behaves
- * as `s' = s*l / (l + s*(1 - l))`. The bridge to GGX is `s = 2/a2 - 2` (Real-Time Rendering 4e, 9.8.1).
- * Substituting and clearing `a2` from the denominators:
- *
- *     N = 2l(1 - a2)                D = l*a2 + 2(1 - a2)(1 - l)
- *     s' = N/D                      a2' = 2/(s' + 2) = 2D/(N + 2D)
- *
- * WHICH DIVIDES ONCE WHERE THE DIRECT FORM DIVIDES TWICE, and that is the whole reason for the
- * rearrangement rather than a preference: `s` is unbounded as `a2` falls to zero, so the direct form
- * needs a clamp exactly where this engine refuses to invent one. THE LIMITS ARE EXACT AND NOT
- * APPROACHED -- at `l = 1` this is `a2`; at `a2 = 0` with `l = 1` it is 0, so a mirror stays a mirror
- * and the `alpha = 0` arm above still means what it says; as `l` falls to 0 it rises to 1. IN EXACT
- * ARITHMETIC, and `RoughenedBy` below says why that qualifier is load-bearing rather than pedantic.
- *
- * ITS ONE DEGENERATE POINT IS NAMED RATHER THAN CLAMPED: `N + 2D = 2l + 4(1 - a2)(1 - l)` vanishes only
- * at `l = 0` with `a2 = 1`, four exactly opposing normals on a surface that is already fully rough, and
- * 1 is both the limit from every direction and the value that surface already had. */
 [[nodiscard]] inline double ToksvigA2(double a2, double l) {
   const double d = l * a2 + 2.0 * (1.0 - a2) * (1.0 - l);
   const double n = 2.0 * l * (1.0 - a2);
@@ -95,27 +37,13 @@ constexpr double kBrdfPi = 3.141592653589793;
   return denominator > 0.0 ? 2.0 * d / denominator : 1.0;
 }
 
-/* The same correction in glTF's own currency, so a caller never has to know that `alpha` is roughness
- * squared and `a2` is that squared again. */
 [[nodiscard]] inline double RoughenedBy(double roughness, double meanResultantLength) {
-  /* THE IDENTITY IS TAKEN AS AN IDENTITY AND NOT COMPUTED (board:1130). `ToksvigA2(a2, 1)` IS `a2` in
-   * exact arithmetic, but reaching it through `r*r`, `alpha*alpha` and two roots does not return `r`
-   * in binary32 -- measured, an unfiltered picture moved in its fourth decimal for the code merely
-   * being present, which is a correction leaking into the case it was defined to leave alone. */
+
   if (!(meanResultantLength < 1.0)) { return roughness; }
   const double alpha = roughness * roughness;
   return std::sqrt(std::sqrt(ToksvigA2(alpha * alpha, meanResultantLength)));
 }
 
-/* `KHR_materials_anisotropy`: THE SAME GGX WITH TWO ROUGHNESSES INSTEAD OF ONE, quoted from the
- * extension. `at` is the roughness along the anisotropy direction and `ab` across it, and the
- * parametrisation is the extension's own: *at = mix(alphaRoughness, 1.0, anisotropy * anisotropy)*,
- * `ab = alphaRoughness`. **A strength of zero makes the two equal and the lobe round again**, which
- * is why no branch guards it and why a material declaring none reaches the same arithmetic it had.
- *
- * IT NEEDS A TANGENT FRAME AND THE FORMAT SAYS SO: *a mesh primitive using an anisotropy material MUST
- * have a defined tangent space*. Where none is carried the direction has no meaning, and the caller
- * hands a zero vector rather than inventing one. */
 [[nodiscard]] inline double BrdfAnisotropicDistribution(double nh, double th, double bh, double at,
                                                         double ab) {
   const double a2 = at * ab;
@@ -136,16 +64,11 @@ constexpr double kBrdfPi = 3.141592653589793;
   return v > 1.0 ? 1.0 : v;
 }
 
-/* The two halves the specification splits the surface into, kept apart in the return because the
- * furnace integrates them separately: the microfacet lobe is what `DirectionalLight` is named for,
- * and the diffuse term is coupled to it only through `1 - F`. */
 struct BrdfTerms {
   std::array<double, 3> Diffuse{0.0, 0.0, 0.0};
   std::array<double, 3> Specular{0.0, 0.0, 0.0};
 };
 
-/* The cosines a shading point hands the model, so the caller states its geometry once instead of
- * four times in a row (`I.23`). Every one of them is a clamped dot product, dimensionless. */
 struct BrdfGeometry {
   double Nl = 0;
   double Nv = 0;
@@ -153,17 +76,10 @@ struct BrdfGeometry {
   double Vh = 0;
 };
 
-/* THE ISOTROPIC LOBE, NAMED, so that the anisotropic and iridescent paths can put a DIFFERENT lobe or
- * a DIFFERENT Fresnel through the same combination instead of writing the combination again.
- *
- * A ZERO ALPHA IS A MIRROR AND NOT A DIVISION. `a2 = 0` makes the distribution a Dirac, and the
- * answer is no lobe rather than an invented floor -- the same statement `SheenLobe.h` makes. */
 [[nodiscard]] inline double BrdfLobe(double a2, const BrdfGeometry &at) {
   return a2 > 0.0 ? BrdfDistribution(at.Nh, a2) * BrdfVisibility(at.Nl, at.Nv, a2) : 0.0;
 }
 
-/* THE CORE SPECIFICATION'S OWN COMBINATION -- glTF 2.0, *B.2.2 Dielectrics*, `fresnel_mix`: the
- * specular term is weighted by F and the base by `1 - F`, PER CHANNEL. */
 [[nodiscard]] inline BrdfTerms BrdfCombine(const std::array<double, 3> &diffuseColour,
                                            const std::array<double, 3> &fresnel, double lobe) {
   BrdfTerms terms;
@@ -174,11 +90,6 @@ struct BrdfGeometry {
   return terms;
 }
 
-/* `KHR_materials_iridescence`'s `rgb_mix`, AND IT IS A DIFFERENT FORMULA RATHER THAN THE SAME ONE
- * TWICE. A thin film's reflectance is a COLOUR, and the extension says what goes wrong if the base is
- * weighted by `1 - F` channelwise -- *if instead 1 - rgb_alpha would be used directly, inverse colors
- * would be created* -- so the base is weighted by the scalar `1 - max(F)` and the surface can only
- * lose energy. */
 [[nodiscard]] inline BrdfTerms BrdfRgbMix(const std::array<double, 3> &diffuseColour,
                                           const std::array<double, 3> &fresnel, double lobe) {
   const double most = std::fmax(std::fmax(fresnel[0], fresnel[1]), fresnel[2]);
@@ -196,7 +107,6 @@ struct BrdfGeometry {
   return BrdfCombine(diffuseColour, BrdfFresnel(f0, f90, at.Vh), BrdfLobe(a2, at));
 }
 
-/* The device half. A textual splice, like the emitters beside it -- never compiled alone. */
 [[nodiscard]] inline std::string MetalRoughBrdfMsl(void) {
   char constants[256];
   std::snprintf(constants, sizeof constants,
@@ -278,5 +188,5 @@ static inline Brdf metalRoughBrdf(float3 diffuseColour, float3 f0, float f90, fl
 )";
 }
 
-} // namespace outshine::Render
+}
 #endif

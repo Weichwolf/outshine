@@ -1,24 +1,3 @@
-/* THE TIE BETWEEN THE TWO HALVES OF THE VISIBILITY PREDICATE. `core/TriangleBvh.h` states the
- * stackless traversal and the Moller-Trumbore test in C++; `render/stages/ShadowRay.h` states the
- * same two in the MSL every lit fragment is spliced from. Nothing evaluated both until this file,
- * and the picture cannot tell them apart: a shader that traversed wrong would render a scene with
- * the wrong shadows, which looks like a lighting choice rather than a defect.
- *
- * THE STRUCTURE ITSELF CROSSES, BYTE FOR BYTE. The processor half builds it and the device half
- * reads the same bytes as a storage buffer, so this also ties the PACKING -- the leaf word's shift
- * and mask, the escape sentinel, the 32-byte node -- which is the half a constant emitted from C++
- * cannot protect on its own, because the field ORDER is written out twice.
- *
- * THE VERDICT IS BOOLEAN, SO THE COMPARISON IS EXACT AND HAS NO TOLERANCE. That is a property of
- * the subject rather than a strictness: an occlusion query returns one of two answers, and "nearly
- * the same answer" has no meaning. Where f32 puts a ray exactly through an edge the two halves could
- * in principle part, and the ray set is built to sample that -- if it ever happens the count is
- * published rather than allowed for.
- *
- * THE COMPARISON CARRIES ITS OWN NEGATIVE CONTROL, at the site the whole design turns on: the
- * emitted traversal's ESCAPE LINK is replaced by "stop", which is what a stack-based traversal
- * written without its stack would do. The tie must go red over it, or it is not seeing the
- * traversal at all. */
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
@@ -57,8 +36,6 @@ bool Refused(const void *made, const char *what) {
   return true;
 }
 
-/* A COUNTER-BASED HASH RATHER THAN A GENERATOR WITH STATE: the n-th value is a function of n, so the
- * subject set cannot move between rounds. */
 double Unit(uint32_t at) {
   uint32_t bits = at * 2654435761u + 1013904223u;
   bits ^= bits >> 15u;
@@ -74,8 +51,6 @@ struct Soup {
   std::vector<uint32_t> Indices;
 };
 
-/* FACETS ON SHELLS, which is what a real subject's surface looks like to a tree -- a uniform cloud
- * is the one distribution a badly split tree still traverses correctly by accident. */
 Soup Grown(uint32_t triangles) {
   Soup out;
   for (uint32_t at = 0; at < triangles; ++at) {
@@ -95,8 +70,6 @@ Soup Grown(uint32_t triangles) {
   return out;
 }
 
-/* ONE RAY AS BOTH HALVES TAKE IT: origin, direction, and the distance the query is bounded by.
- * Eight floats so the stride is a power of two and the device reads one aligned block per ray. */
 constexpr uint32_t kRayFloats = 8;
 
 struct Ray {
@@ -106,11 +79,6 @@ struct Ray {
   float DistanceM;
 };
 
-/* THE RAY SET IS THREE POPULATIONS AND THAT IS DELIBERATE. A third come from outside and aim inside,
- * which is the ordinary shadow query; a third START ON A TRIANGLE and leave along its own normal,
- * which is where a self-intersection lives; a third are aimed exactly along an axis, which is where
- * the slab test divides by zero. A set of only the first would agree with a traversal that got the
- * other two wrong. */
 std::vector<Ray> RaySet(const Soup &soup, uint32_t count) {
   std::vector<Ray> rays;
   const size_t triangles = soup.Indices.size() / 3u;
@@ -146,8 +114,7 @@ std::vector<Ray> RaySet(const Soup &soup, uint32_t count) {
     double aim[3] = {1.6 * (Unit(at * 13u + 2u) - 0.5), 1.6 * (Unit(at * 13u + 3u) - 0.5),
                      1.6 * (Unit(at * 13u + 4u) - 0.5)};
     if (population == 1u) {
-      /* Straight along an axis from the origin, so two of the three inverse directions are
-       * infinite and one slab is degenerate. */
+
       const int axis = (int)(Unit(at * 19u) * 3.0) % 3;
       for (int which = 0; which < 3; ++which) { aim[which] = origin[which]; }
       aim[axis] = origin[axis] > 0 ? origin[axis] - 6.0 : origin[axis] + 6.0;
@@ -168,8 +135,6 @@ std::vector<Ray> RaySet(const Soup &soup, uint32_t count) {
   return rays;
 }
 
-/* The entry point the emitted traversal is evaluated through. It declares nothing of its own: it
- * unpacks a ray, calls `bvhOccludes` and writes the one bit that came back. */
 std::string TieShader(const std::string &traversal) {
   char stride[128];
   std::snprintf(stride, sizeof stride, "constant uint kRay = %uu;\n", kRayFloats);
@@ -192,10 +157,6 @@ kernel void tie(uint3 id [[thread_position_in_grid]],
 )";
 }
 
-/* THE NEGATIVE CONTROL'S SITE, named rather than guessed: the link a missed box follows. Replacing
- * it with the end sentinel is a traversal that gives up at the first miss, which is precisely the
- * defect the escape field exists to prevent. An empty return means the site is gone, and then the
- * mutation was never applied -- which this refuses over rather than passing. */
 std::string WithoutTheEscapeLink(const std::string &traversal) {
   const std::string site = "if (enter > leave) { at = node.escape; continue; }";
   const size_t found = traversal.find(site);
@@ -250,8 +211,6 @@ SDL_GPUBuffer *MakeBuffer(SDL_GPUDevice *device, SDL_GPUBufferUsageFlags usage, 
   return buffer;
 }
 
-/* THE DEVICE'S ANSWER, ONE FLOAT PER RAY. The structure crosses as the same bytes the processor
- * half holds -- `Nodes().Data()` and `Triangles().Data()` -- so nothing here restates a layout. */
 std::vector<float> RunOnDevice(const Instrument &on, const std::string &msl,
                                const std::vector<float> &rays, const TriangleBvh &built,
                                size_t rayCount) {
@@ -321,7 +280,7 @@ long Disagreements(const std::vector<float> &device, const std::vector<bool> &he
   return apart;
 }
 
-} // namespace
+}
 
 int main(void) {
   using namespace outshine::Test;

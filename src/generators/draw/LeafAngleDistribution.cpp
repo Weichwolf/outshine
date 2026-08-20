@@ -9,7 +9,7 @@ namespace {
 
 constexpr double kPi = 3.14159265358979323846;
 
-} // namespace
+}
 
 void LeafAngleDistribution::Measure(const TreeSkeleton &plant) {
   Samples_.fill(0.0f);
@@ -34,8 +34,6 @@ void LeafAngleDistribution::Measure(const TreeSkeleton &plant) {
   MeanElevationDeg_ = (float)(elevSum * inv);
   for (float &h : Histogram_) { h = (float)((double)h * inv); }
 
-  /* G(el) = (2/pi) * mean over the population of sqrt(1 - (u.s)^2), averaged over the beam azimuth so
-   * that the result is a function of elevation alone. */
   const double azStep = 2.0 * kPi / (double)kAzimuths;
   for (int d = 0; d < kElevations; ++d) {
     const double el = (double)d * kPi / 180.0;
@@ -55,7 +53,6 @@ void LeafAngleDistribution::Measure(const TreeSkeleton &plant) {
     Samples_[(size_t)d] = (float)(2.0 / kPi * acc / (double)kAzimuths);
   }
 
-  /* G = g0 + g1*sin(el)^p — Sward.h's own form. p is scanned, (g0,g1) solved exactly at each p. */
   double bestErr = 1e30, bestG0 = 0.0, bestG1 = 0.0, bestP = 1.0;
   std::vector<double> x((size_t)kElevations);
   for (int step = 0; step <= 1150; ++step) {
@@ -98,4 +95,4 @@ float LeafAngleDistribution::Fit(float sinEl) const {
   return G0_ + G1_ * std::pow(s, Gp_);
 }
 
-} // namespace outshine::Generators
+}

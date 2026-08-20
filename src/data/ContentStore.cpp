@@ -10,9 +10,6 @@
 namespace outshine::Data {
 namespace {
 
-/* [SET] What the store may occupy before the sweep takes the oldest back. Sized from the measured
- * cost of the working set this device streams, not from what a disk can hold: the store it replaces
- * had no cap at all and reached 7 GB, of which 3.1 GB served nothing. */
 constexpr size_t kDefaultCapBytes = 2ull << 30;
 
 constexpr const char *kDefaultLeaf = "outshine-content";
@@ -24,11 +21,10 @@ constexpr const char *kDefaultLeaf = "outshine-content";
   return (base / kDefaultLeaf).string();
 }
 
-} // namespace
+}
 
 std::string ContentKey(const SourceDecl &decl, const Address &at) {
-  /* NEWLINE-SEPARATED and the version is inside: two sources with ids that concatenate to the same
-   * text would otherwise share a name, and a source that changed its bytes would keep its old ones. */
+
   std::string subject = decl.Id;
   subject += '\n';
   subject += std::to_string(decl.Version);
@@ -105,9 +101,7 @@ bool ContentStore::TryRead(const std::string &key, std::vector<uint8_t> *out) co
 
 void ContentStore::Keep(const std::string &key, const uint8_t *data, size_t bytes) {
   if (Using_ != Use::On || bytes == 0) return;
-  /* THE NAME APPEARS WITH ITS BYTES OR NOT AT ALL. A reader that opened a half-written file would
-   * hand a truncated tile to a decoder and cache the answer, so the write lands on a temporary whose
-   * name no reader ever forms and rename() publishes it in one step. */
+
   const std::string temp = Directory_ + "/." + key + "." +
                            std::to_string(TempSerial_.fetch_add(1, std::memory_order_relaxed));
   std::FILE *f = std::fopen(temp.c_str(), "wb");
@@ -142,4 +136,4 @@ ContentStore::Ledger ContentStore::Counters() const {
   return out;
 }
 
-} // namespace outshine::Data
+}

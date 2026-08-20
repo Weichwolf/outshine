@@ -1,12 +1,3 @@
-/* THE INTERPRETER, AND THE LINE IT DOES NOT CROSS (board:1448).
- *
- * **THE LIBRARY EXECUTES AND THE CONSUMER SUPPLIES THE WORLD.** Every claim below hands the same
- * interpreter a different host and gets a different language -- which is the whole design stated as a
- * test: there is no `document` in `src/core/Script.cpp`, and there is one here because this file put
- * it there.
- *
- * **THE SUBSET IS TESTED IN BOTH DIRECTIONS.** What is in, by running it; what is out, by the refusal
- * naming it. A capability list nobody exercises the far side of is a list of hopes. */
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -20,9 +11,6 @@ using namespace outshine::Script;
 
 namespace {
 
-/* A HOST THAT IS A DOCUMENT, and this file is the only place in the tree that word appears beside this
- * interpreter. `document.getElementById("x").style.height = "100px"` is four host answers and one
- * assignment, and not one line of it is knowledge the library carries. */
 class Document final : public Host {
 public:
   struct Element {
@@ -41,8 +29,7 @@ public:
     if (object.What != Kind::Ref) { return {}; }
     if (object.Ref == kDocument && name == "getElementById") { return Value::OfRef(kLookup); }
     if (object.Ref >= kFirstElement && name == "style") {
-      /* A STYLE IS A HANDLE ONTO THE SAME ELEMENT, one range higher. The host decides that; the
-       * interpreter carries an integer it never looks inside. */
+
       return Value::OfRef(object.Ref + kStyleShift);
     }
     if (object.Ref >= kFirstElement && name == "offsetHeight") {
@@ -86,8 +73,6 @@ private:
   static constexpr int kStyleShift = 1000;
 };
 
-/* THE SMALLEST USEFUL HOST: one name and one call. It exists to show that a consumer implementing one
- * method has a language with one word in it, which is what the defaults in `Host` are for. */
 class Adder final : public Host {
 public:
   [[nodiscard]] Value Global(const std::string &name) override {
@@ -101,7 +86,6 @@ public:
   }
 };
 
-/* A host that answers nothing at all, which is the default `Host` and the strictest one. */
 class Empty final : public Host {};
 
 bool Runs(const char *text, Host &host, std::string &error) {
@@ -110,11 +94,10 @@ bool Runs(const char *text, Host &host, std::string &error) {
   return program.Run(host, error);
 }
 
-}  // namespace
+}
 
 int main(void) {
-  /* ARITHMETIC, COMPARISON AND TRUTH, and every answer is read back through a name the script
-   * assigned -- which is also the claim that a name assigned is a name that exists. */
+
   {
     Program program;
     std::string error;
@@ -142,9 +125,6 @@ int main(void) {
     CHECK(number("g") == 1, "a number equals itself whatever it is written as");
   }
 
-  /* `+` IS TWO OPERATIONS AND TEXT WINS, which is what makes `100 + "px"` the string a length is
-   * written as -- and an integral number is written without a point, or a host would be handed
-   * `100.000000px`. */
   {
     Program program;
     std::string error;
@@ -161,8 +141,6 @@ int main(void) {
     CHECK(text("c") == "2.5x", "a number that is not integral keeps what it needs");
   }
 
-  /* CONTROL FLOW, AND `while` IS BOUNDED BY THE STEP COUNT AND NOTHING ELSE. A loop that cannot end is
-   * refused rather than run, which is what a declared bound BUYS. */
   {
     Program program;
     std::string error;
@@ -187,7 +165,6 @@ int main(void) {
           "and the refusal names the bound it reached");
   }
 
-  /* THE HOST IS THE WORLD, and the same interpreter is a different language for each one. */
   {
     Document document;
     document.Elements.push_back({"outer", "", ""});
@@ -214,8 +191,6 @@ int main(void) {
     CHECK(a != nullptr && a->Number == 42, "the host's own call answered");
   }
 
-  /* A CALL THE HOST DOES NOT KNOW IS A REFUSAL. A call that quietly did nothing is a script that
-   * appeared to work and changed nothing, which is the worst of the three outcomes. */
   {
     Empty nothing;
     std::string error;
@@ -225,8 +200,6 @@ int main(void) {
     CHECK(!Runs("a = 1; a.b = 2;", nothing, error), "a write no host takes is refused too");
   }
 
-  /* `&&` AND `||` DO NOT REACH THEIR RIGHT SIDE UNLESS THEY MUST, which is not an optimisation: it is
-   * how a script guards a member read, and evaluating both would make the guard the failure. */
   {
     Empty nothing;
     std::string error;
@@ -237,8 +210,6 @@ int main(void) {
           "both, and reaching either would have refused");
   }
 
-  /* WHAT IS OUTSIDE THE SUBSET, BY THE REFUSAL NAMING IT. Each of these is a decision written down in
-   * board:1448, and a subset whose far side nobody exercises is a list of hopes. */
   {
     Empty nothing;
     std::string error;
@@ -268,7 +239,6 @@ int main(void) {
                 sizeof(kOutside) / sizeof(kOutside[0]));
   }
 
-  /* THE PARSE BOUNDS ARE REACHED AND NAMED, not silently survived. */
   {
     std::string deep;
     for (size_t at = 0; at < kMaxDepth + 8; ++at) { deep += "("; }
@@ -280,7 +250,6 @@ int main(void) {
     CHECK(error.find("depth bound") != std::string::npos, "and the refusal names the bound");
   }
 
-  /* A SCRIPT THAT WAS NEVER READ IS NOT A SCRIPT THAT DID NOTHING. */
   {
     Program program;
     Empty nothing;
@@ -288,9 +257,6 @@ int main(void) {
     CHECK(!program.Run(nothing, error), "running an unread program is refused");
   }
 
-  /* AN ACTOR REMEMBERS BETWEEN TICKS, because its program IS its memory. A railway that drives by
-   * itself and stops at a station now and then is a handful of names carried from one run to the next,
-   * and the consumer holds them -- bounded, readable, and clearable when it wants a clean slate. */
   {
     Program tick;
     std::string error;

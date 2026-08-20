@@ -1,8 +1,3 @@
-/* THE CONTENT STORE NAMES A FILE BY THIS DIGEST, so a wrong implementation would serve one source's
- * bytes under another source's request and no other test in this tree could see it. The vectors
- * below are FIPS 180-4's own plus the three lengths where the padding decides — 55 fits the length
- * field, 56 does not and forces a second block, 64 is an exact block — and they are CORRECTNESS
- * against something outside this tree rather than agreement with it. */
 #include "Check.h"
 #include "Sha256.h"
 

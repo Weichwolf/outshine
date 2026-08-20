@@ -7,17 +7,9 @@
 
 namespace outshine::Data {
 
-/* THE STAR CATALOGUE AS A SOURCE, and it is the one that proves the contract is not a tile
- * interface: whole-world addressing, no upstream, no cache. Four incremental magnitude bands of
- * HYG-derived positions, 6 bytes per star, generated in this tree and carried in the library's
- * declared data — 53 KB total, a bounded natural constant rather than a position-specific tile.
- *
- * IT IS NEVER VACANT. A band that will not read is a defect in the installation, never a statement
- * about the sky, so this source has no absence at all and refuses instead. */
 class StarBands : public Source {
 public:
-  /* The directory the bands are declared in. A source that guessed it would be a source whose
-   * refusal cannot name what it looked for. */
+
   explicit StarBands(std::string directory);
 
   static constexpr uint32_t kBands = 4;
@@ -38,5 +30,5 @@ private:
   SourceDecl Decl_;
 };
 
-} // namespace outshine::Data
+}
 #endif

@@ -1,24 +1,3 @@
-/* THE C++ EXR READER AGAINST THE ARTEFACT IT REPLACES (board:1119).
- *
- * THE ACCEPTANCE IS BIT-EXACTNESS AND NOTHING SOFTER: reading `oracle.exr` and stacking `R,G,B,A`
- * must reproduce `oracle.raw` sample for sample. Both files are already committed products of one
- * Blender render, `oracle.raw` was written by the Python reader whose port this is, and a float that
- * differs in its last bit is a decoder that differs -- there is no rounding anywhere in this path to
- * hide behind.
- *
- * IT IS THE SAME TEST THE PYTHON READER PASSED, IN THE OTHER LANGUAGE. That reader was validated
- * against this exact artefact before it was trusted with a single new channel, and this one earns its
- * place the same way rather than by inspection of the two sources.
- *
- * IT LIVES IN `harness` BECAUSE ITS SUBJECT IS A FILE FORMAT. It needs no device, no camera, no
- * oracle comparison and no picture: `unit` decides a computation within one layer's include set,
- * `render` decides pixels against Cycles, and a decoder is neither. The harness layer links nothing
- * but the standard library and zlib, which is the whole of what this reads.
- *
- * EVERY PREPARED CASE, NOT ONE. A decoder validated on a single file is a decoder validated on one
- * image's channel order, one compression choice and one set of scanline block boundaries. The corpus
- * carries the population that actually exists, so the population is what it is run over -- and a tree
- * with nothing prepared is UNPREPARED and says so, never a silent pass over zero files. */
 #include <cstdint>
 #include <cstring>
 #include <algorithm>
@@ -40,28 +19,17 @@ using outshine::Render::Parity::RawF32;
 
 namespace {
 
-/* The channels a beauty dump stacks, in the order `OSRAWF32` declares them. */
 const char *const kRgba[4] = {"R", "G", "B", "A"};
-
 
 bool Exists(const std::string &path) {
   struct stat entry {};
   return stat(path.c_str(), &entry) == 0 && S_ISREG(entry.st_mode);
 }
 
-/* Every `test/render/khronos/glTF/<feature>/<case>/` that carries BOTH products. A case with neither has not been
- * prepared; a case with one of the two is a preparer defect and is reported as a missing pair rather
- * than skipped. */
-/* A CASE IS FOUND BY WHAT IT CARRIES, NOT BY HOW DEEP IT SITS (board:1196). The two-level walk this
- * replaces encoded one corpus's layout; naming a case for the model it carries put three of them a
- * level lower and the population silently lost them. */
 std::vector<std::string> PreparedCases(size_t &unpaired) {
   std::vector<std::string> cases;
   std::error_code failed;
-  /* THE PREPARED ROOT AND NOT THE TREE (board:1364). A case's products live under the system temp
-   * root, so a walk of the case trees now finds manifests and nothing else -- which reported as an
-   * EMPTY POPULATION rather than as a failure, and an empty population is a green test about nothing.
-   * The root is spelled once, in `PreparedRoot.h`, because a second copy of it would drift. */
+
   const std::string corpus = outshine::Test::PreparedRoot();
   if (std::filesystem::is_directory(corpus, failed)) {
     for (const std::filesystem::directory_entry &one :
@@ -81,7 +49,7 @@ std::vector<std::string> PreparedCases(size_t &unpaired) {
   return cases;
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -93,8 +61,6 @@ int main() {
         "no case carries one of the pair without the other, which would be a preparer defect rather "
         "than an unprepared tree");
 
-  /* A DECODER PROVED OVER ZERO FILES IS THE VACUOUS GATE. `Unprepared` is the harness's own verdict
-   * for "this needs an input nobody prepared", and it is not a pass. */
   if (cases.empty()) {
     Unprepared("test/harness/shared/corpus/prepare.py has produced no oracle.exr/oracle.raw pair to decode");
     return Report();
@@ -130,8 +96,6 @@ int main() {
     CHECK(everyChannel, (directory + "oracle.exr carries R, G, B and A").c_str());
     if (!everyChannel) { continue; }
 
-    /* THE COMPARISON IS `==` ON f32 AND THAT IS DELIBERATE. Both sides came from the same bytes
-     * through two decoders; anything but equality would be one of them rounding. */
     size_t apart = 0;
     double worst = 0;
     for (int y = 0; y < raw.Height(); ++y) {
@@ -158,7 +122,7 @@ int main() {
 
   Note("cases decoded and held against their raw", (double)compared, "cases");
   Note("samples compared", (double)samples, "samples");
-  Covers("board:1119 the runner can read the oracle's EXR directly, so the flat raw beside it is a "
+  Covers("the runner can read the oracle's EXR directly, so the flat raw beside it is a "
          "derived cache rather than an artefact that must survive");
   return Report();
 }

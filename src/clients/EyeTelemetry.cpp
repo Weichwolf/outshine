@@ -9,7 +9,7 @@ const TelemetryChannel kChannels[] = {
     {"eyeLatDeg", "deg"},  {"eyeLonDeg", "deg"},  {"eyeAltAslM", "m"}, {"eyeEastM", "m"},
     {"eyeNorthM", "m"},    {"eyeTravelM", "m"},   {"eyeYawDeg", "deg"}, {"eyePitchDeg", "deg"}};
 
-}  // namespace
+}
 
 void EyeTelemetry::Moved(const Stance &s) {
   if (!Stood_) {
@@ -30,8 +30,7 @@ void EyeTelemetry::DeclareTelemetry(TelemetrySchema &schema) const {
 }
 
 void EyeTelemetry::SampleTelemetry(TelemetryRow &row) const {
-  /* Before the first move there is no eye and no plane to measure one in; a zero here would read as
-   * Null Island at sea level. */
+
   if (!Stood_) {
     for (size_t i = 0; i < sizeof kChannels / sizeof kChannels[0]; i++) row.Push(std::string());
     return;
@@ -46,4 +45,4 @@ void EyeTelemetry::SampleTelemetry(TelemetryRow &row) const {
   row.Push(At_.PitchDeg);
 }
 
-} // namespace outshine::Clients
+}

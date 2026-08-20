@@ -1,11 +1,3 @@
-/* A DELIVERY CARRIES WHICH SOURCE ANSWERED AND AT WHICH ADDRESS, never only bytes. A request above
- * a source's last native zoom is served from an ancestor, and *which* ancestor is what the decoder
- * downstream computes its crop from — a crop taken from the requested address over an ancestor's
- * pixels is a wrong picture drawn silently. What resolution actually answered was an assumption
- * until this was a value.
- *
- * The two upstreams differ here and the difference is declared, not assumed: a raster can be cropped
- * from its parent and a vector tile cannot, because clipping geometry is not resampling it. */
 #include "Check.h"
 #include "ContentStore.h"
 #include "SourceSet.h"
@@ -41,7 +33,7 @@ public:
   return c;
 }
 
-} // namespace
+}
 
 int main() {
   Test::Covers("I.22 a Delivery carries which source answered and at which address");
@@ -53,15 +45,12 @@ int main() {
   CHECK(dem.Declaration().MaxZoom == 15, "the elevation source declares its own last native zoom");
   CHECK(vector.Declaration().MaxZoom == 14, "and so does the vector source, to a different value");
 
-  /* AT ITS OWN ZOOM the answer is the question. */
   {
     const Request asked(DataKind::Elevation, Address::Tile(14, 8620, 5403));
     CHECK(dem.Covers(asked) == Coverage::Inside, "a z14 elevation tile is inside");
     CHECK(dem.Serves(asked) == asked.Where(), "and is served from itself");
   }
 
-  /* ABOVE IT the ancestor answers, and the arithmetic is the one the crop inverts: two zooms up is
-   * a shift of two, so 4x4 sub-tiles of one parent. */
   {
     const Request asked(DataKind::Elevation, Address::Tile(17, 68960, 43224));
     CHECK(dem.Covers(asked) == Coverage::Inside, "a z17 elevation tile is still inside its domain");
@@ -71,15 +60,12 @@ int main() {
     CHECK(at.Text() == "15/17240/10806", "and the canonical text names it");
   }
 
-  /* A VECTOR TILE CANNOT BE CROPPED FROM ITS PARENT, so above its last zoom it is Outside instead —
-   * which is what lets the selector hand the request to another source rather than guess. */
   {
     const Request asked(DataKind::VectorMap, Address::Tile(15, 17240, 10806));
     CHECK(vector.Covers(asked) == Coverage::Outside,
           "a z15 vector tile is outside the vector source's domain");
   }
 
-  /* AND THE REGISTRY REPORTS THE ANCESTOR'S ADDRESS, not the request's. */
   {
     ContentStore store(StoreOff());
     SourceSet sources(store);

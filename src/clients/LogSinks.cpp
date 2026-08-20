@@ -12,7 +12,7 @@ const char *LevelStr(LogLevel l) {
   }
   return "?";
 }
-} // namespace
+}
 
 void TextLogSink::Write(double simTimeS, LogLevel level, const char *tag, const char *event,
                         const std::vector<LogField> &fields) {
@@ -26,4 +26,4 @@ void TextLogSink::Write(double simTimeS, LogLevel level, const char *tag, const 
   fflush(File_);
 }
 
-} // namespace outshine::Clients
+}

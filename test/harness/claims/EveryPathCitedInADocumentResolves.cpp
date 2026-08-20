@@ -1,28 +1,3 @@
-/* A DOCUMENT THAT CITES A FILE WHICH IS NOT IN THE TREE IS A DOCUMENT ABOUT A DIFFERENT REPOSITORY.
- * A rename moves the code and leaves every quotation of it behind, silently, and the next reader
- * believes the document -- measured at `498e883`, 17 ticked lines cited a file that is not in the
- * tree and nothing was checking it, which is why the class kept growing.
- *
- * **IT READS THE BINDING DOCUMENTS AND NOT THE BOARD.** `CLAUDE.md` is binding on everything here and
- * `src/assets/tables/` is declared data the engine is built from; both are part of the product. The
- * board is a NOTEBOOK about the work, and a suite that went red over a stale line in one would be
- * reporting a markdown file as a defect in the tree. A board citation is kept true when the item is
- * read, which is the point of use and the only place the knowledge is.
- *
- * WHAT COUNTS AS A CITATION, stated here because the rule has to be decidable rather than
- * approximate. A backticked span that begins with one of this repository's own top-level directories
- * is a claim about THIS tree; `Models/DirectionalLight/README.md` and `Specification.adoc` are
- * upstream and this file says nothing about them. A span carrying a placeholder (`<case>`), a glob,
- * an ellipsis, a space or a URL scheme is not a path and is skipped by name rather than by failing.
- *
- * THREE SHAPES RESOLVE, AND ALL THREE ARE FORMS THE DOCUMENTS ALREADY USE. A file path resolves as
- * itself; a path ending in `/` resolves as a directory; and a name with no extension resolves as
- * `.cpp` beside it, because a test in this tree is cited by its id and IS a `.cpp` in a layer
- * directory. A brace group is expanded, since the documents write `{h,cpp}` and mean both.
- *
- * IT IS A TEST AND NOT A LINE IN run.sh. The harness's verdict comes from a trailer a reporter
- * printed; a bare shell check beside it would be a second verdict shape with no claims, no count and
- * no way to be inverted -- and this repository has already paid for having two runners. */
 #include <cstdio>
 #include <filesystem>
 #include <string>
@@ -32,11 +7,6 @@
 
 namespace {
 
-/* Every BINDING document this repository writes about itself. `CLAUDE.md` is the vision and the
- * board's usage, and `src/assets/tables/` is declared data; both cite files, and a
- * citation is a citation whoever wrote it. The agent definitions were a fourth tree until the law they
- * carried was folded into CLAUDE.md and they were deleted; the loop below skips a tree that is not
- * there, so a later split back out costs one line rather than a discovery. */
 std::vector<std::filesystem::path> Documents() {
   std::vector<std::filesystem::path> found;
   if (std::filesystem::exists("CLAUDE.md")) { found.emplace_back("CLAUDE.md"); }
@@ -50,14 +20,10 @@ std::vector<std::filesystem::path> Documents() {
   return found;
 }
 
-/* A BARE `.md` NAME IS OURS TOO, and it is how the `doc/` migration's damage survived: the process
- * documents cited `requirements.md`, `bugs.md` and `todo.md` after those files were deleted, and a rule
- * that demanded a directory prefix could not see any of them. A span with a slash and a foreign root is
- * upstream and stays out; a bare name is a name in this tree or it is nothing. */
 bool IsABareOwnDocument(const std::string &span) {
   if (span.find('/') != std::string::npos) { return false; }
   if (span.size() < 4 || span.compare(span.size() - 3, 3, ".md") != 0) { return false; }
-  return span.find("NNNN") == std::string::npos; /* the filename template, not a citation */
+  return span.find("NNNN") == std::string::npos;
 }
 
 bool NamesThisTree(const std::string &span) {
@@ -68,14 +34,11 @@ bool NamesThisTree(const std::string &span) {
   return IsABareOwnDocument(span);
 }
 
-/* A span that cannot be a path in this tree, said as a predicate so the skip is a decision and not a
- * silent miss. The ellipsis is the multi-byte one the documents use in `test/...cpp`. */
 bool IsAPlaceholder(const std::string &span) {
   return span.find_first_of("<>* ") != std::string::npos ||
          span.find("…") != std::string::npos || span.find("://") != std::string::npos;
 }
 
-/* `Parity.cpp:199,222-238` cites lines of a file; the file is what resolves. */
 std::string WithoutLineReference(const std::string &span) {
   const size_t colon = span.rfind(':');
   if (colon == std::string::npos || colon + 1 == span.size()) { return span; }
@@ -87,8 +50,6 @@ std::string WithoutLineReference(const std::string &span) {
   return span.substr(0, colon);
 }
 
-/* `src/clients/{Png,Walker}.cpp` names two files and both are claims. One group is all the documents
- * write, so this expands one and does not recurse. */
 std::vector<std::string> Expanded(const std::string &span) {
   const size_t open = span.find('{');
   const size_t close = span.find('}', open == std::string::npos ? 0 : open);
@@ -149,7 +110,7 @@ void CitationsIn(const std::filesystem::path &document, std::vector<Citation> &i
   }
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;

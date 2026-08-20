@@ -1,18 +1,3 @@
-/* THE PRUNE'S PRECONDITION, EXERCISED ON THE DANGEROUS PATH (board:1181).
- *
- * The runner prunes every case as it finishes, pass or fail, so a mistake here is not a re-render --
- * it is a file nothing can produce again. The whole safety argument is therefore the proof, and a
- * test that only showed a provable file being removed would say nothing about the case this exists
- * for. So the subject here is mostly the refusals: a key the store has no object for, an object of
- * the wrong size, an object that differs in one byte, a file no producer claims -- each stays, and
- * each says which proof refused it.
- *
- * IT BUILDS ITS OWN CASE AND ITS OWN STORE under the system temp directory rather than pruning
- * anything real: a test whose subject is deletion must not be able to delete the corpus, and a
- * fabricated store is the only way to spell "the store does NOT hold this" on purpose.
- *
- * THE MARKER'S TIME IS SET RATHER THAN TAKEN. "This run wrote it" is an mtime comparison, and a test
- * that raced the clock's resolution would be a flake wearing a proof's hat. */
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
@@ -49,8 +34,6 @@ const Examination *Find(const std::vector<Examination> &examinations, const char
   return nullptr;
 }
 
-/* One claim per file, spelled as the sentence the file's own row must satisfy, so a failure names
- * the file and the verdict rather than an index into a vector. */
 void Claim(const std::vector<Examination> &examinations, const char *leaf, Verdict wanted,
            const char *claim) {
   const Examination *row = Find(examinations, leaf);
@@ -69,9 +52,6 @@ struct Fabricated {
   fs::path Root, Case, Store, Marker;
 };
 
-/* A CASE CARRYING ONE FILE PER PROOF AND ONE PER REFUTATION. Everything the prune can meet is here,
- * including the three ways a named key fails, because those are the states that decide whether a
- * file survives. */
 Fabricated Fabricate(const std::string &storeName) {
   Fabricated made;
   made.Root = fs::temp_directory_path() / ("outshine-prune-" + storeName);
@@ -107,8 +87,6 @@ Fabricated Fabricate(const std::string &storeName) {
   return made;
 }
 
-/* The provenance the preparer would have written, with one key per named product: two that hold,
- * three that do not, and one product the store never received at all. */
 std::string Provenance(const Fabricated &made) {
   const std::string directory = made.Case.string() + "/";
   return std::string("{\n\"contentStore\": \"") + made.Store.string() +
@@ -131,7 +109,7 @@ std::string Provenance(const Fabricated &made) {
 
 bool Exists(const Fabricated &made, const char *leaf) { return fs::exists(made.Case / leaf); }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -170,8 +148,7 @@ int main() {
   Claim(examinations, "grown.gltf", Verdict::Stays,
         "a file in neither class -- no key, not written by this run, not in the store under its own "
         "digest -- stays");
-  /* THE ONE THE FALL-THROUGH WOULD HAVE COST. A named product that was rewritten during the run
-   * looks exactly like our own output to an mtime check, and the store cannot vouch for it. */
+
   Claim(examinations, "oracle.objectIndex.raw", Verdict::Stays,
         "a named product the store cannot vouch for stays even when this run's clock would have "
         "called it ours");
@@ -210,8 +187,6 @@ int main() {
                    "0000000000000000000000000000000000000000000000000000000000000001"),
         "the store keeps the object the case stopped keeping a second copy of");
 
-  /* A PRUNE THAT CANNOT PROVE ITS PRECONDITION DOES NOT PROCEED, and the case with no provenance is
-   * the live shape of that: nothing names a key, so nothing may be decided from a mtime alone. */
   const Fabricated undocumented = Fabricate("undocumented");
   const outshine::Prune::CaseReading refused =
       outshine::Prune::ReadCase(undocumented.Case, undocumented.Marker);
@@ -224,7 +199,7 @@ int main() {
   fs::remove_all(made.Root, failed);
   fs::remove_all(undocumented.Root, failed);
 
-  Covers("board:1181 the runner prunes test by test, and a file whose producer cannot be proven "
+  Covers("the runner prunes test by test, and a file whose producer cannot be proven "
          "stays with the reason its proof failed");
   return Report();
 }

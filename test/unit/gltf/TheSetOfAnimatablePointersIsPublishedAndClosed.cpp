@@ -1,23 +1,3 @@
-/* WHAT THIS READER RESOLVES OF `KHR_animation_pointer` IS AN ENUMERATION AND NOT A CHAIN OF STRING
- * COMPARISONS (board:1392). The extension targets a JSON pointer into the whole asset object model,
- * which is every mutable property the format has -- so the honest statement is never *this reader
- * supports it* but *this reader resolves exactly these, and anything else is named*.
- *
- * A HIDDEN CHAIN ANSWERS THE WRONG QUESTION. `if (tail == "metallicFactor") ...` answers *does this
- * one pointer resolve*; it cannot answer *which pointers do*, so nothing could compare what is
- * honoured against what the extension defines, and the set would drift by addition with nobody able
- * to see it. `AnimatablePointers()` is walkable, so this test can close it in BOTH directions: no
- * `MaterialFactor` without a pointer that spells it, and no pointer naming a factor twice.
- *
- * THE ENUMERATOR SET IS DERIVED AND NOT RESTATED. A second list of `MaterialFactor` values here would
- * be exactly the drift this test exists against, so the walk asks `FactorComponents`, whose switch the
- * compiler already forces to cover the enumeration -- warnings are errors, so a new enumerator cannot
- * reach this test without going through it.
- *
- * AND A POINTER OUTSIDE THE SET IS NOT A REFUSAL. glTF 2.0 lets a client ignore animations outright,
- * so a channel this engine cannot drive is a shortfall of THIS engine and not a defect of the file --
- * counted, quoted, and separated into a grammar gap and a capability gap, which are answered by
- * different work. */
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -41,9 +21,6 @@ using outshine::Gltf::UndrivenReason;
 
 namespace {
 
-/* ONE SAMPLER SERVES EVERY CHANNEL, because what is under test is the TARGET and not the curve. The
- * output is a `VEC4` so the one channel that resolves -- `baseColorFactor` -- finds the four
- * components it must have; the channels that do not resolve never reach that check. */
 const char *kJson = R"({
   "asset": {"version": "2.0"},
   "extensionsUsed": ["KHR_animation_pointer"],
@@ -81,7 +58,7 @@ std::vector<uint8_t> Binary() {
   return out;
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -90,7 +67,6 @@ int main() {
   CHECK(published.Size() > 0, "this reader publishes the set of pointers it resolves");
   Note("pointers this reader resolves", (double)published.Size(), "pointers");
 
-  /* NO TAIL TWICE, or one spelling would silently take the other's factor. */
   size_t repeated = 0;
   for (size_t one = 0; one < published.Size(); ++one) {
     for (size_t two = one + 1; two < published.Size(); ++two) {
@@ -99,8 +75,6 @@ int main() {
   }
   CHECK(repeated == 0, "no pointer is spelled twice in the published set");
 
-  /* CLOSED IN BOTH DIRECTIONS. `FactorComponents` answers non-zero for exactly the enumerators the
-   * format gives a keyframe width to, and its switch is what the compiler already holds complete. */
   size_t factors = 0, unspelled = 0, spelledTwice = 0;
   for (int raw = 0; raw < 256; ++raw) {
     const MaterialFactor factor = (MaterialFactor)raw;
@@ -119,8 +93,6 @@ int main() {
   CHECK(factors == published.Size(),
         "the published pointers and the factors they drive are one set and not two");
 
-  /* EVERY PUBLISHED TAIL RESOLVES WHEN IT IS SPELLED, which is what says the table is the grammar the
-   * parser actually walks rather than a second list beside it. */
   for (const AnimatablePointer &known : published) {
     std::string json = kJson;
     const std::string was = "/materials/0/pbrMetallicRoughness/baseColorFactor";
@@ -128,9 +100,7 @@ int main() {
     const std::vector<uint8_t> glb = Glb(json, Binary());
     Document file;
     if (!file.Read(Span<const uint8_t>(glb.data(), glb.size()), "pointers.glb")) {
-      /* A factor whose keyframe is not four wide cannot ride a `VEC4` sampler, and that refusal is
-       * the reader's arithmetic rather than the table's: it proves the tail was RESOLVED, because an
-       * unresolved one is counted and never refuses. */
+
       CHECK(FactorComponents(known.Factor) != 4,
             "a published pointer whose factor is four wide reads against a VEC4 sampler");
       continue;
@@ -163,19 +133,10 @@ int main() {
     if (lost.Why == UndrivenReason::PointerUnheld) { ++unheld; }
     if (lost.Why == UndrivenReason::PointerUnparsed) { ++unparsed; }
   }
-  /* THE TWO REASONS ARE DIFFERENT WORK AND THE TEST SAYS SO. `anisotropyStrength` is a well-formed
-   * pointer at a material this reader holds no field for -- a capability, waiting on `board:1390`.
-   * `/nodes/0/translation` is a shape this reader does not parse at all -- a grammar. Reporting both
-   * as *unsupported* would put one number on two questions. */
+
   CHECK(unheld == 1, "a pointer that parses and names a property no field holds says so");
   CHECK(unparsed == 1, "and a pointer this reader does not parse at all is a different answer");
 
-  /* **CARRIED IS NOT DRIVEN, AND BOTH HALVES ARE SAID HERE.** `Pose` answers what the channel holds
-   * at an instant; nothing in this engine reads that answer yet, so a material is not animated and
-   * this test does not pretend one is. What it does hold is that the resolved channel SURVIVES into
-   * the pose and samples -- a capability published with no consumer is otherwise a claim nobody has
-   * ever run. The sampler's two keyframes are 0.5 throughout, so the value is the same at either
-   * end and what is under test is that the factor arrives keyed by its own material. */
   Pose pose;
   std::string why;
   const int animations[] = {0};

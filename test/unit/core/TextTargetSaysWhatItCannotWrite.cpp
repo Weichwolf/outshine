@@ -1,11 +1,3 @@
-/* A RUN WHOSE LOG CANNOT BE WRITTEN HAS TO SAY SO. What this replaces was a collector on the far end
- * of a POST: with nothing listening, `demo/frame` wrote 674 lines, delivered none and exited 0. The
- * destination is now the consumer's to name, so the failure it can name wrongly is a path — and the
- * claim below is that a path which will not open yields no stream and a reason that names it, never
- * a stream that swallows.
- *
- * DECIDABLE, not agreement: the three cases are a stream the process always has, a path this test
- * writes and reads back, and a path under a directory that does not exist. */
 #include "Check.h"
 #include "TextTarget.h"
 
@@ -33,7 +25,7 @@ std::string ReadBack(const std::string &path) {
   return out;
 }
 
-}  // namespace
+}
 
 int main() {
   Test::Covers("the library owns its log: a consumer names a path, stdout or stderr, and a "
@@ -61,7 +53,6 @@ int main() {
         "the handle closes with the object, so the bytes are on disc without anyone flushing");
   std::remove(path.c_str());
 
-  /* The one case the deleted collector could not report about itself. */
   const std::string unreachable = ScratchDir() + "outshine-no-such-directory/x.log";
   const TextTarget refused(unreachable);
   CHECK(!refused.Refusal().empty(), "a path that will not open refuses instead of swallowing");

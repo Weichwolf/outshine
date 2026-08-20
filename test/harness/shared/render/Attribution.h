@@ -1,25 +1,3 @@
-/* WHICH PART OF THE SUBJECT A DISAGREEMENT IS ON.
- *
- * A COUNT OF DISAGREEING PIXELS SAYS THAT TWO RENDERERS DIFFER AND NEVER WHERE, and "where" is what
- * separates the two causes a coverage case can have: a difference confined to one class of node is a
- * property of THAT NODE'S transform -- winding, culling, a mirrored basis -- and a difference
- * straddling every node is a property of the raster. Nothing here knows which nodes those are: it
- * partitions by the file's own node names and prints the table, and reading the table is the reader's.
- *
- * BOTH FACES, DELIBERATELY. The rasterisation below takes every triangle of every part with no
- * culling at all, so a pixel the oracle covers and we do not is still attributed to the node whose
- * geometry projects there -- which is exactly the case a culling difference produces, and the one an
- * attribution that culled could not see.
- *
- * OVERLAP IS COUNTED, NOT RESOLVED. A pixel inside two parts is counted for both and the row sums
- * exceed the pixel count where parts overlap in the image; a depth test here would be a second
- * rasteriser deciding what the real one already decided, and the question this answers is which
- * nodes a disagreement touches rather than which node won it.
- *
- * OUTSIDE THE DEPTH RANGE IS DROPPED. A triangle with a vertex whose clip-space depth leaves
- * [-1, 1] is one the real rasteriser does not draw either, and clipping it against the frustum here
- * would put a third projection in the tree. Such a triangle is counted in `Unprojectable`, so a
- * table that is missing geometry says so instead of looking complete. */
 #ifndef RENDER_ATTRIBUTION_H
 #define RENDER_ATTRIBUTION_H
 
@@ -39,20 +17,18 @@ namespace outshine::Render::Parity {
 struct NodeDisagreement {
   std::string Node;
   size_t Triangles = 0;
-  size_t OursOnly = 0;   /* covered by us, not by the oracle */
-  size_t TheirsOnly = 0; /* covered by the oracle, not by us */
+  size_t OursOnly = 0;
+  size_t TheirsOnly = 0;
 };
 
 struct Attribution {
   std::vector<NodeDisagreement> Nodes;
-  size_t Unattributed = 0;  /* disagreeing pixels no part's geometry projects onto */
-  size_t Unprojectable = 0; /* triangles dropped for crossing the near plane */
+  size_t Unattributed = 0;
+  size_t Unprojectable = 0;
 };
 
 namespace Detail {
 
-/* The half-plane test at a pixel's centre, in the raster frame the whole suite uses: integer x, y is
- * the centre of pixel (x, y). */
 inline bool Inside(const double corner[3][2], double x, double y) {
   double sign = 0;
   for (int edge = 0; edge < 3; ++edge) {
@@ -67,9 +43,6 @@ inline bool Inside(const double corner[3][2], double x, double y) {
   return true;
 }
 
-/* WHERE THE DISAGREEING PIXELS ARE, coarsely, so a triangle that cannot touch one is skipped before
- * it is scanned. `ABeautifulGame` is 1 500 224 triangles disagreeing in 2 pixels, and a full-frame
- * scan per triangle is the whole cost of this instrument on the assets that most want it. */
 class Occupancy {
 public:
   Occupancy(const Mask &ours, const Mask &theirs)
@@ -118,16 +91,8 @@ inline void Span(const double corner[3][2], int limit, int axis, int &low, int &
   high = std::min(limit - 1, (int)std::ceil(most));
 }
 
-}  // namespace Detail
+}
 
-/* HOW MUCH OF THE SUBJECT THE DECLARED DEPTH WINDOW CUTS, ASKED OF EVERY CASE AND NOT ONLY OF ONE THAT
- * ALREADY DISAGREES (board:1433). The clip range is derived as `distance +- radius` about the framing
- * centre, so it contains the whole subject by construction and a triangle outside it is a DECLARATION
- * defect rather than a picture one -- the oracle honours the far plane and this engine's reversed-Z
- * projection is infinite, so the two sides stop rendering the same subject and the count is the only
- * place that says so. It used to be a NOTE inside the attribution table, which is reached only when
- * pixels already disagree; a case whose clipped part happened to land where both sides were empty
- * printed nothing at all. */
 [[nodiscard]] inline size_t TrianglesOutsideTheDepthRange(const outshine::Gltf::Subject &geometry,
                                                          const outshine::Gltf::Transform &clip) {
   size_t outside = 0;
@@ -200,8 +165,7 @@ inline Attribution AttributeDisagreement(const outshine::Gltf::Subject &geometry
       touched.In[at] = 2u;
       (ours.At(pixel.X, pixel.Y) ? row.OursOnly : row.TheirsOnly) += 1u;
     }
-    /* A pixel inside two triangles of ONE part is one pixel of that part, and one inside two PARTS
-     * is counted for both -- so the marker is cleared between parts and kept across triangles. */
+
     for (const Pixel &pixel : covered) {
       touched.In[(size_t)pixel.Y * (size_t)ours.Width + (size_t)pixel.X] = 1u;
     }
@@ -217,6 +181,6 @@ inline Attribution AttributeDisagreement(const outshine::Gltf::Subject &geometry
   return table;
 }
 
-}  // namespace outshine::Render::Parity
+}
 
 #endif

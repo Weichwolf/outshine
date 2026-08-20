@@ -1,7 +1,3 @@
-/* WHICH INSTRUMENT THE RUN CARRIED, taken from the compiler's own answer and from nothing else. A
- * flag the build remembers to pass can drift from the flags it actually compiled with, and a row
- * that names the wrong instrument is worse than a row that names none: a sanitised frame
- * distribution read as a shipping one is a regression that was never there. */
 #ifndef SANITISERS_H
 #define SANITISERS_H
 
@@ -21,5 +17,5 @@ constexpr const char *kSanitisers = "";
 constexpr const char *kSanitisers = "";
 #endif
 
-} // namespace outshine::Clients
+}
 #endif

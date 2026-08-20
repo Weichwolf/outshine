@@ -1,6 +1,3 @@
-/* WHAT THE READER WILL NOT INTERPRET, AND THE SENTENCE IT SAYS SO WITH. Every claim here asserts the
- * refusal AND a fragment of its wording: a reader that refused everything for one reason would pass a
- * test that only counted `false`, and that is the vacuous shape this repository keeps finding. */
 #include <string>
 #include <vector>
 
@@ -16,7 +13,6 @@ namespace {
 
 const std::vector<uint8_t> kFourBytes = {0, 0, 0, 0};
 
-/* Every subject is a whole file, because a refusal is a property of a file and not of a fragment. */
 struct Refusal {
   const char *Why;
   const char *Says;
@@ -40,7 +36,7 @@ void Holds(const Refusal &subject) {
   }
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -94,8 +90,7 @@ int main() {
              "meshes":[{"primitives":[{"mode":7,"attributes":{}}]}]})"});
   Holds({"a camera that is neither perspective nor orthographic is refused", "glTF 2.0 has two",
          R"({"asset":{"version":"2.0"},"cameras":[{"type":"panoramic"}]})"});
-  /* A named refusal rather than a gap: this reader decodes two containers, and a file that carries
-   * its buffer as base64 must say which one it is instead of reading as an empty mesh. */
+
   Holds({"an embedded data: buffer is refused by name", "data: URI, which this reader does not decode",
          R"({"asset":{"version":"2.0"},
              "buffers":[{"byteLength":4,"uri":"data:application/octet-stream;base64,AAAAAA=="}]})"});
@@ -103,9 +98,6 @@ int main() {
          R"({"asset":{"version":"2.0"},"buffers":[{"byteLength":4,"uri":"nowhere.bin"}]})",
          {}, false});
 
-  /* THE TWO DOORS A FILE STATES ITS OWN UNREADABILITY THROUGH, and both stood open until this round.
-   * A quantized or Draco-compressed file whose required extension is ignored does not fail to read:
-   * it reads as plausible numbers in the wrong units, which is the worst answer available. */
   Holds({"an asset.minVersion above 2.0 is refused", "asset.minVersion '2.1'",
          R"({"asset":{"version":"2.0","minVersion":"2.1"}})"});
   Holds({"a required extension this reader does not implement is refused",
@@ -117,20 +109,7 @@ int main() {
          R"({"asset":{"version":"2.0"},
              "extensionsUsed":["KHR_texture_transform","KHR_materials_pbrSpecularGlossiness"],
              "extensionsRequired":["KHR_materials_pbrSpecularGlossiness"]})"});
-  /* THE EXAMPLE MUST BE AN EXTENSION THIS READER GENUINELY DOES NOT HONOUR, and it has moved twice
-   * for the one legitimate reason: **the test did not become wrong, its SUBJECT did**. It was
-   * `KHR_mesh_quantization` until `board:1384` built that, then `KHR_materials_sheen` until
-   * `board:1385` built that -- and the second line said, in as many words, that it was expected to
-   * move again.
-   *
-   * IT IS `KHR_materials_pbrSpecularGlossiness` NOW, AND THAT ONE CANNOT MOVE. Khronos ARCHIVED it,
-   * and an obsolete extension is one this engine does not implement by the owner's own ruling -- so
-   * this is the first subject here that is stable by construction rather than until somebody gets to
-   * it. *A specification that has to be edited every time the engine gains a capability was telling
-   * the truth about the engine and lying about itself.* */
 
-  /* THE APPEARANCE TABLES REFUSE BY NAME TOO, on the same rule: a dangling index that read as -1
-   * would draw an untextured surface and look like a material somebody authored that way. */
   Holds({"a texture naming an image the file does not carry is refused", "names image 3 of 0",
          R"({"asset":{"version":"2.0"},"textures":[{"source":3}]})"});
   Holds({"a material naming a texture the file does not carry is refused",
@@ -139,10 +118,7 @@ int main() {
              "materials":[{"pbrMetallicRoughness":{"baseColorTexture":{"index":2}}}]})"});
   Holds({"an alphaMode the format does not define is refused", "alphaMode 'DITHER'",
          R"({"asset":{"version":"2.0"},"materials":[{"alphaMode":"DITHER"}]})"});
-  /* A DECLARED VALUE THAT IS NOT OF ITS DECLARED TYPE IS THE SILENT-SUCCESS SHAPE, not a parse
-   * error: the JSON is well formed and the reader's `Num(default)` answers the default for a string
-   * as readily as for an absent key, so the two claims below are what separate "we read 1" from
-   * "the file said 1". */
+
   Holds({"an emissiveStrength that is not a number is refused", "emissiveStrength that is not a number",
          R"({"asset":{"version":"2.0"},"materials":[{"extensions":
              {"KHR_materials_emissive_strength":{"emissiveStrength":"2"}}}]})"});
@@ -156,8 +132,6 @@ int main() {
          R"({"asset":{"version":"2.0"},
              "meshes":[{"primitives":[{"attributes":{},"material":1}]}]})"});
 
-  /* A GLB carrying a binary chunk and no JSON chunk at all, assembled by hand because the fixture
-   * always writes one. */
   std::vector<uint8_t> noJson;
   Append(noJson, uint32_t{0x46546C67});
   Append(noJson, uint32_t{2});
@@ -171,7 +145,6 @@ int main() {
   CHECK(headless.Error().find("no JSON chunk") != std::string::npos,
         "and the refusal says which chunk was missing");
 
-  /* A GLB of another version, assembled by hand because the fixture only writes version 2. */
   std::vector<uint8_t> wrongVersion;
   Append(wrongVersion, uint32_t{0x46546C67});
   Append(wrongVersion, uint32_t{1});
@@ -182,7 +155,6 @@ int main() {
   CHECK(old.Error().find("GLB of version 1") != std::string::npos,
         "and the refusal names the version it found");
 
-  /* A decode that cannot be satisfied is a false return, not a short buffer of zeros. */
   const char *const overrun = R"({"asset":{"version":"2.0"},
       "buffers":[{"byteLength":4}],
       "bufferViews":[{"buffer":0,"byteOffset":0,"byteLength":4}],

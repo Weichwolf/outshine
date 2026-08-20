@@ -1,15 +1,3 @@
-/* `OSRAWF32` -- THE FLOAT IMAGE FORMAT BOTH SIDES OF A COMPARISON ARE WRITTEN IN AND READ THROUGH.
- * The preparer dumps the oracle beside its EXR because SDL3 provides no EXR reader and vendoring
- * OpenEXR to compute a coverage fraction would buy nothing (board:0083).
- *
- * IT USED TO BE THE ORACLE'S ALONE AND THAT WAS AN ASYMMETRY, not a design: the compared values on
- * one side of the picture bound were openable and on the other side they were not, so a case failing
- * on floats left nothing to look at. `Written` puts our frame down in the same layout, so ONE READER
- * opens both and a person comparing them is comparing like with like.
- *
- * AN ABSENT OR MALFORMED FILE IS A REFUSAL AND NEVER A SKIP. A case that quietly compares against
- * nothing is the hollow green the whole render suite is built to make impossible, so every early
- * return below carries the sentence that says which file and which field. */
 #ifndef RENDER_RAWF32_H
 #define RENDER_RAWF32_H
 
@@ -52,8 +40,7 @@ public:
     }
     uint32_t field[7];
     std::memcpy(field, bytes.data() + 8, sizeof field);
-    /* The writer put its own 0x01020304 down natively; a reader that sees it byte-swapped is on the
-     * other endianness and would decode every float wrong without any length going out of range. */
+
     if (field[0] != 0x01020304u) {
       return Refuse(path + ": byte-order mark reads " + std::to_string(field[0]) +
                     ", so the dump was written on the other endianness");
@@ -80,16 +67,6 @@ public:
     return true;
   }
 
-  /* THE SAME SAMPLES, DECODED FROM THE EXR THE ORACLE ACTUALLY IS (board:1119). `oracle.raw` is a
-   * 16x DECOMPRESSED CACHE of `oracle.exr` -- 265 MB against 16 MB per case -- and it existed only
-   * because C++ had no EXR reader. Filling this object from the EXR makes the flat dump derived
-   * rather than an artefact that must survive, and every consumer below is unchanged because what
-   * they read is the sample layout and not the file it came from.
-   *
-   * IT IS NOT A FALLBACK AND THERE IS NO SECOND PATH: the caller names which file it means. The
-   * decoder's agreement with the flat dump is held bit-for-bit over every prepared case by
-   * `test/harness/TheOraclesExrReadsAsItsRaw.cpp`, which is what lets this replace it rather than
-   * sit beside it. */
   [[nodiscard]] bool ReadExrFile(const std::string &path) {
     Error_.clear();
     Samples_.clear();
@@ -141,13 +118,6 @@ private:
   bool TopRowFirst_ = true;
 };
 
-/* THE WRITER, AND IT IS THE READER'S OWN INVERSE: the same eight-byte tag, the same native
- * `0x01020304` mark, the same seven header words. It is the whole of the format's second half and it
- * stands beside the first so the two cannot drift.
- *
- * THE CALLER HANDS THE SAMPLES THE SCORE WAS COMPUTED ON AND NOTHING ELSE. A writer that re-derived
- * anything -- re-rendered, re-transformed, recomposed an alpha -- would put a file in the directory
- * that is not what the number came from, which is exactly the split this exists to close. */
 [[nodiscard]] inline bool WriteRawF32(const std::string &path, const std::vector<float> &samples,
                                       int width, int height, int channels, std::string &error) {
   if (samples.size() != (size_t)width * (size_t)height * (size_t)channels) {
@@ -160,8 +130,7 @@ private:
             " channels";
     return false;
   }
-  /* The channel names and the pad to a four-byte boundary are the preparer's, copied so the two
-   * files are the same 44 bytes of header and not two dialects one reader happens to accept. */
+
   static const char kNames[8] = {'R', 0, 'G', 0, 'B', 0, 'A', 0};
   constexpr uint32_t kHeaderBytes = 44;
   const uint32_t field[7] = {0x01020304u,        1u,           (uint32_t)width, (uint32_t)height,
@@ -184,5 +153,5 @@ private:
   return true;
 }
 
-} // namespace outshine::Render::Parity
+}
 #endif

@@ -11,28 +11,14 @@ namespace outshine::World {
 
 namespace {
 
-/* The shoreline IS the water level, so the level is read off the ring — but not as its minimum. The
- * minimum is one texel: measured on the Weser at Hameln over 26 292 water pixels, min 62.97 m against
- * p5 63.00 m against max 129.93 m, so an outlier at either end exists and only one of them is cheap to
- * be wrong about. The 5th percentile keeps the shore and drops the stray. */
 constexpr double kLevelPercentile = 0.05;
 
-/* Beyond this above the level a ring point is not shore but hillside, and the ring is a water body
- * whose outline OSM and the DEM disagree about. [SET] 5 m: an order over the 1.12 m the Weser's own
- * fall contributes across a whole z14 tile, well under the 67 m the disagreement produced. */
 constexpr double kShoreToleranceM = 5.0;
 
-/* [SET] 0.15 m of lift. The DEM already carries a flat surface under a water body — measured on the
- * Weser at Hameln, p5..p95 = 1.12 m over 1.5 km — so the water mesh and the terrain mesh land
- * COPLANAR and fight for every pixel. Every engine lifts its water plane for the same reason it lifts
- * a decal; 0.15 m is under the terrain's own 47 m support spacing and over any float error at ECEF
- * magnitudes. */
 constexpr double kLiftM = 0.15;
 
-}  // namespace
+}
 
-/* Every ring point of every water feature of one tile, asked for a height and nothing else: a
- * feature whose DEM has not landed defers the whole tile rather than being dropped. */
 bool WaterField::TileGroundResolved(const OsmField &field, size_t from, size_t to, int poly,
                                     int line) const {
   const std::vector<double> &pts = field.Points();
@@ -83,8 +69,7 @@ uint32_t WaterField::Ingest(const OsmField &field, const VegetationTemplates &ve
 
   for (size_t c = next.From; c < next.To; c++) {
     const OsmField::Feature &f = feats[c];
-    /* A culvert carries no water at the surface. The bake draws one anyway (tiles/src/raster.c has
-     * no tunnel test), so chasing its coverage would be rebuilding its artefact. */
+
     if (field.Num(f, "tunnel", 0.0) > 0.5) continue;
     if (f.Type == 2 && (int)f.Layer == line) {
       for (uint32_t r = 0; r < f.RingCount; r++) {
@@ -102,9 +87,7 @@ uint32_t WaterField::Ingest(const OsmField &field, const VegetationTemplates &ve
           hs.push_back(aslM);
         }
         if (!ok) { NoGround_++; continue; }
-        /* Water runs downhill, so the sequence along the way is monotone — which end is downstream is
-         * whichever end sits lower. Enforcing it turns the terrain's own noise into a surface that
-         * cannot run uphill, and that is the whole claim being made here. */
+
         if (hs.front() >= hs.back())
           for (size_t k = 1; k < hs.size(); k++) hs[k] = std::min(hs[k], hs[k - 1]);
         else
@@ -174,9 +157,7 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
                 s.LevelM + kLiftM, p);
       for (int c = 0; c < 3; c++) p3[(size_t)k * 3 + c] = p[c] - Anchor_[c];
     }
-    /* EAR CLIPPING, because a fan folded: measured on the Hannover tile it covered 13 % of the water
-     * at 52 % precision — half of what it drew lay outside the outline. A lake is concave often
-     * enough that the convex shortcut is simply wrong. */
+
     std::vector<double> en((size_t)n * 2);
     for (uint32_t k = 0; k < n; k++)
       EnuOffsetM(refLat, refLon, ring[((size_t)s.FirstPoint + k) * 2],
@@ -195,13 +176,13 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
     auto inside = [&](uint32_t a2, uint32_t b2, uint32_t c2, uint32_t q) {
       return cross(a2, b2, q) >= 0.0 && cross(b2, c2, q) >= 0.0 && cross(c2, a2, q) >= 0.0;
     };
-    size_t guard = (size_t)n * (size_t)n + 16;   /* a self-intersecting ring must not spin forever */
+    size_t guard = (size_t)n * (size_t)n + 16;
     while (poly.size() >= 3 && guard-- > 0) {
       bool clipped = false;
       for (size_t k = 0; k < poly.size(); k++) {
         const uint32_t a2 = poly[(k + poly.size() - 1) % poly.size()], b2 = poly[k],
                        c2 = poly[(k + 1) % poly.size()];
-        if (cross(a2, b2, c2) <= 0.0) continue;                 /* reflex */
+        if (cross(a2, b2, c2) <= 0.0) continue;
         bool clear = true;
         for (uint32_t q : poly)
           if (q != a2 && q != b2 && q != c2 && inside(a2, b2, c2, q)) { clear = false; break; }
@@ -256,4 +237,4 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
   }
 }
 
-} // namespace outshine::World
+}

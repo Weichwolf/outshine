@@ -1,7 +1,3 @@
-/* Periodically sampled state, a time series with a schema (Log.h is the discrete-event counterpart).
- * Classes DECLARE themselves a source; emission is CENTRAL, and the concrete sink is injected from
- * app/. A row is built by CONCATENATION, so declaration/registration order IS column order — no
- * string-keyed lookup at sample time. */
 #ifndef TELEMETRY_H
 #define TELEMETRY_H
 #include <string>
@@ -27,9 +23,7 @@ class TelemetryRow {
 public:
   void Push(double v);
   void Push(int v);
-  /* A CUMULATIVE COUNTER IS 64 BITS, and the frame is wasm32 where `long` is 32: a run that streams
-   * for hours reaches 2^31 in the pool's ask counters, and a column that wraps there takes the two
-   * published counting identities with it. */
+
   void Push(long long v);
   void Push(bool v);
   void Push(const std::string &v);
@@ -44,8 +38,8 @@ class TelemetrySource {
 public:
   virtual ~TelemetrySource() = default;
   virtual const char *TelemetryName() const = 0;
-  virtual void DeclareTelemetry(TelemetrySchema &schema) const = 0;   /* once, at Bus::Start() */
-  virtual void SampleTelemetry(TelemetryRow &row) const = 0;          /* once per Bus::Tick() */
+  virtual void DeclareTelemetry(TelemetrySchema &schema) const = 0;
+  virtual void SampleTelemetry(TelemetryRow &row) const = 0;
 };
 
 class TelemetrySink {
@@ -55,8 +49,6 @@ public:
   virtual void Row(const std::vector<std::string> &fields) = 0;
 };
 
-/* The one emitter. Sources register once as BORROWED pointers — the bus never owns a system. A null
- * sink makes Tick() a cheap no-op, which is what the WASM boot leaves it as. */
 class TelemetryBus {
 public:
   void Register(TelemetrySource *src) { Sources_.push_back(src); }
@@ -72,5 +64,5 @@ private:
   bool Started_ = false;
 };
 
-} // namespace outshine
-#endif /* TELEMETRY_H */
+}
+#endif

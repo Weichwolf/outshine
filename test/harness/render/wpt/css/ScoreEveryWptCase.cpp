@@ -1,22 +1,3 @@
-/* THE HARNESS FOR web-platform-tests' own CSS tests, fetched at the pin every manifest cites
- * (board:1444).
- *
- * WHAT DECIDES A CASE HERE IS THE DOCUMENT ITSELF, and that is what makes this suite harder than the
- * picture suite rather than softer. Upstream writes `data-expected-width`, `data-expected-height`,
- * `data-offset-x` and `data-offset-y` on the elements it means, in CSS pixels against the viewport's
- * own origin, and the verdict is every one of them EXACTLY. There is no threshold here, so there is
- * none to widen -- the ladder's rungs are fix the engine, reduce the case, patch the asset,
- * disqualify, and the first is the only one that moves a number.
- *
- * TWO COUNTS AND NEITHER STANDS FOR THE OTHER (board:1444). `HELD` counts cases whose every assertion
- * landed; `OUTSIDE` counts cases whose declaration reaches past the subset this engine holds. A suite
- * that reported only the first would improve by shrinking, which is the defect the pair exists to
- * prevent: the second is what says how much of the corpus the engine has actually arrived at.
- *
- * THE SELECTION IS DERIVED AND NEVER CURATED. Every test in the pinned directory that states its own
- * layout is a case; whether this engine can hold it is decided HERE, by the subset counters the
- * stylesheet reader publishes, and never by a `grep` for a property name -- a grep reads a shorthand
- * it cannot expand and a selector it cannot parse, and it would answer a different question. */
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -36,10 +17,6 @@ namespace {
 using outshine::Json;
 namespace Ui = outshine::Ui;
 
-/* THE ATTRIBUTES THE CORPUS STATES ITS OWN LAYOUT WITH, and the whole list. `data-expected-client-*`
- * and the scroll family are upstream's too and are NOT read: they are about a box this engine does not
- * model yet, and reading them as if they were the border box would report a number about the wrong
- * quantity -- the failure that wears four faces in `CLAUDE.md`, here the one called domain too narrow. */
 struct Assertion {
   const char *Attribute;
   const char *What;
@@ -66,14 +43,13 @@ std::string ReadFile(const std::string &path, bool &found) {
   return text;
 }
 
-/* A number as the corpus writes it: an integer, or a decimal upstream states to the pixel. */
 bool NumberIn(const std::string &text, double &value) {
   char *end = nullptr;
   value = std::strtod(text.c_str(), &end);
   return end != nullptr && end != text.c_str() && *end == '\0';
 }
 
-} // namespace
+}
 
 int main(int argc, char **argv) {
   if (argc != 2) {
@@ -81,9 +57,7 @@ int main(int argc, char **argv) {
                             __FILE__, __LINE__);
     return outshine::Test::Report();
   }
-  /* THE ARGUMENT IS THE PREPARED DIRECTORY AND THE DECLARATION IS IN IT. `test/run.sh` hands the
-   * runner the case's prepared root, and the preparer copies the manifest beside what it fetched --
-   * so a case is one directory to this program, the same way it is to the picture suite. */
+
   const std::string prepared = argv[1];
 
   bool found = false;
@@ -116,13 +90,7 @@ int main(int argc, char **argv) {
   Ui::Markup markup;
   std::string error;
   if (!markup.Read(document, error)) {
-    /* A DOCUMENT THIS READER REFUSES IS OUTSIDE THE SUBSET AND NOT A FAILED CASE. The refusal is the
-     * library's contract with a consumer who writes a declaration; upstream's corpus is not that
-     * consumer, and counting its stray end tag as a layout defect would put a markup question into a
-     * layout number (board:1445). What it may never be is silent, so the refusal is printed with the case. */
-    /* A READER REFUSAL GOES THROUGH THE SAME TABLE AS EVERY OTHER NAME. It is a boundary when this
-     * engine refuses on purpose and a gap when it refuses because something is missing, and the one
-     * place that distinction lives is the engine's own declaration. */
+
     const char *why = Ui::WhyOutside(error);
     std::printf("UI-SUBSET %s\n", why != nullptr ? "reduced" : "outside");
     std::printf("%s %s -- the document is outside this reader: %s%s\n",
@@ -133,8 +101,6 @@ int main(int argc, char **argv) {
     return outshine::Test::Report();
   }
 
-  /* THE SHEET IS THE UA SHEET, THEN EVERY FILE THE DOCUMENT LINKS, THEN ITS OWN `<style>` -- which is
-   * the cascade's own order, so a later rule of equal specificity wins as CSS says it does. */
   Ui::Stylesheet sheet;
   sheet.Read(Ui::UserAgentSheet());
   for (size_t i = 0; i < subject["files"].Size(); ++i) {
@@ -159,25 +125,6 @@ int main(int argc, char **argv) {
     return outshine::Test::Report();
   }
 
-  /* WHETHER THIS CASE IS THE ENGINE'S TO HOLD, decided by the reader that would have to hold it. A
-   * case outside the subset is neither a pass nor a failure: it is the second count, and it is
-   * announced by name so the run says which capability would take it in. */
-  /* THE QUESTION IS ASKED AFTER THE LAYOUT AND NOT BEFORE IT, because an element's own `style`
-   * attribute is read during the build and a sheet cannot report what it has not been given yet.
-   * [MEASURED] asking first put `writing-mode` cases INSIDE the subset -- the property is written
-   * inline in those documents, and an error in the coverage number's favour is the one direction it
-   * must never be wrong in. */
-  /* A LAYOUT A SCRIPT DECIDES IS OUTSIDE THIS ENGINE, AND THAT IS A DECISION RATHER THAN A GAP. This
-   * is a mechanism and not a browser: a consumer declares a surface and the library measures it, and
-   * nothing here will ever run a program the document carries. [MEASURED] `percentage-heights-011`
-   * states `data-expected-height="100"` on a box whose height is assigned by `outer.style.height =
-   * "100px"` in the document's own `window.onload`, so the number it states is about a tree this
-   * engine is never given.
-   *
-   * THE RULE IS DERIVED AND NOT A JUDGEMENT ABOUT WHAT A SCRIPT DOES. Upstream's own harness arrives
-   * as `<script src>` and the static form of a case calls it from a `body` attribute; a case that
-   * carries an inline script BODY runs code before the layout is asked about. Reading the code to
-   * decide whether it matters is the heuristic this refuses to be. */
   const std::string scripted =
       markup.CarriesAScript() ? "a script in the document decides this layout" : "";
   const std::vector<std::string> outsideElements = Ui::ElementsOutsideTheSubset(markup);
@@ -187,14 +134,7 @@ int main(int argc, char **argv) {
   if (!scripted.empty()) { names.push_back(scripted); }
 
   if (!names.empty()) {
-    /* **A BOUNDARY AND A GAP ARE TWO ANSWERS AND THE ENGINE'S OWN TABLE SEPARATES THEM.** A case this
-     * engine declines because it will never do floats is FINISHED; one it declines because a
-     * capability is missing is WAITING. Both read as *outside the subset* to a counter, and a suite
-     * that could not tell them apart would have a second number that means nothing.
-     *
-     * **AN UNDECLARED NAME IS RED.** That is what stops this from being a rubber stamp: a case cannot
-     * leave the corpus quietly, and the only way to make one green is to build the capability or to
-     * write the boundary down with its reason. */
+
     std::string boundary, gap;
     for (const std::string &name : names) {
       const char *why = Ui::WhyOutside(name);
@@ -222,17 +162,9 @@ int main(int argc, char **argv) {
 
   std::printf("UI-SUBSET inside\n");
 
-  /* EVERY ASSERTION THE DOCUMENT STATES, AND A DOCUMENT THAT STATES NONE IS A FAILURE. A case that
-   * measured nothing and reported a pass is the empty-renderer fixed point wearing the suite's own
-   * colours, so the count is checked before the values are. */
   int stated = 0;
   double worst = 0.0;
-  /* THE STATED OFFSET IS MEASURED FROM THE OFFSET PARENT AND NOT FROM THE VIEWPORT. `check-layout`
-   * reads `offsetLeft` and `offsetTop`, which CSSOM defines relative to the nearest POSITIONED
-   * ancestor's padding edge -- so a case that wraps its subject in `position: relative` states 0 where
-   * the box sits at 8, and comparing against the viewport measures a different quantity. [MEASURED]
-   * `flexitem-no-margin-collapsing` states `data-offset-x="0"` for a box this engine places at 8, and
-   * the eight is `body`'s margin, which the case's own positioned container excludes. */
+
   const auto originOf = [&layout](int at) {
     double x = 0, y = 0;
     for (int up = layout.Boxes()[(size_t)at].Parent; up >= 0;
@@ -266,17 +198,7 @@ int main(int argc, char **argv) {
                          : std::strcmp(assertion.What, "height") == 0 ? box.Height
                          : std::strcmp(assertion.What, "x") == 0      ? box.X - origin.first
                                                                      : box.Y - origin.second;
-      /* THE DOCUMENT QUOTES THE PROPERTY IT READS, AND THAT PROPERTY IS AN INTEGER. `check-layout`
-       * compares `offsetLeft`, `offsetTop`, `offsetWidth` and `offsetHeight`, every one of which CSSOM
-       * defines as a rounded value -- so a document stating `61` is stating what the browser rounded
-       * `61.333` to, and comparing an unrounded double against it measures a different quantity. This
-       * is the failure `CLAUDE.md` calls *the number was right and about something else*, and it is
-       * NOT a widened bound: a bound this suite could widen does not exist.
-       *
-       * **THE SUB-PIXEL RESIDUAL IS PUBLISHED SO THE ROUNDING CANNOT HIDE A DRIFT.** An engine that
-       * was wrong by 0.49 px everywhere would pass every one of these, and the number below is what
-       * would show it. A fractional expectation is compared EXACTLY, because a document that wrote one
-       * is quoting something else. */
+
       const bool integral = want == std::floor(want);
       const double residual = std::fabs(got - want);
       worst = std::fmax(worst, residual);

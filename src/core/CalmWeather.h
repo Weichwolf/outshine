@@ -1,6 +1,3 @@
-/* The weather hook's primitive floor, ConstantElevation's sibling: still air, no cloud, unlimited
- * visibility, everywhere. THE DEFAULT for every client that does not declare otherwise, and the reason a
- * mission without a `wx` line is bit-identical to one from before weather existed. */
 #ifndef CALMWEATHER_H
 #define CALMWEATHER_H
 #include "WeatherProvider.h"
@@ -23,5 +20,5 @@ public:
   }
 };
 
-} // namespace outshine
+}
 #endif

@@ -1,17 +1,3 @@
-/* TWO BINARY MASKS AND THE THREE NUMBERS THAT COMPARE THEM.
- *
- * BOUNDARY DISPLACEMENT IS THE DECIDING INSTRUMENT and IoU is beside it for continuity with the
- * literature (board:0073): IoU cannot see a half-pixel camera offset on a large
- * subject, and it drifts twofold in strictness with the subject's size. The displacement
- * distribution can, and it NAMES the defect -- 0.5 px is a raster-convention error, ~3 px is a
- * projection error, a radial trend is focal length, a shear is handedness.
- *
- * THE DISTRIBUTION IS SYMMETRIC, over both directions at once. One direction alone cannot see a mask
- * that is a strict subset of the other: every boundary pixel of the smaller one can sit on a
- * boundary pixel of the larger while a whole edge is missing.
- *
- * EXACT EUCLIDEAN, BY EXHAUSTION. A chamfer transform is an approximation with an error of a few
- * per cent of a pixel, and the number being decided is 0.1 px. */
 #ifndef RENDER_MASK_H
 #define RENDER_MASK_H
 
@@ -47,8 +33,6 @@ struct Pixel {
   int X = 0, Y = 0;
 };
 
-/* A pixel that is in the mask and has a 4-neighbour that is not -- the frame's outside counts as
- * "not", so a subject running off the edge still has a boundary there. */
 inline std::vector<Pixel> Boundary(const Mask &mask) {
   std::vector<Pixel> edge;
   for (int y = 0; y < mask.Height; ++y) {
@@ -100,8 +84,6 @@ inline Distribution BoundaryDisplacement(const Mask &a, const Mask &b) {
   return out;
 }
 
-/* The symmetric difference as a count, which is what a reader acts on: "eleven pixels" is a
- * different instruction from "0.999996". */
 inline size_t Disagreeing(const Mask &a, const Mask &b) {
   size_t n = 0;
   for (size_t i = 0; i < a.In.size() && i < b.In.size(); ++i) {
@@ -110,8 +92,6 @@ inline size_t Disagreeing(const Mask &a, const Mask &b) {
   return n;
 }
 
-/* Undefined over two empty masks, which is exactly why the caller refuses a degenerate side before
- * asking: 0/0 answered as 1.0 is how an empty render scores perfectly. */
 inline double Iou(const Mask &a, const Mask &b) {
   size_t intersection = 0, uni = 0;
   for (size_t i = 0; i < a.In.size() && i < b.In.size(); ++i) {
@@ -122,5 +102,5 @@ inline double Iou(const Mask &a, const Mask &b) {
   return uni > 0 ? (double)intersection / (double)uni : 0.0;
 }
 
-} // namespace outshine::Render::Parity
+}
 #endif

@@ -11,4 +11,4 @@ const char *Name(DataKind kind) noexcept {
   return "";
 }
 
-} // namespace outshine::Data
+}

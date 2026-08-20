@@ -8,8 +8,6 @@ namespace outshine::Clients {
 
 namespace {
 
-/* SDL grows the stream and hands the block back at close; the copy out of it is what the caller
- * owns, so nothing SDL allocated leaves this file. */
 struct DynamicIo {
   SDL_IOStream *Stream = nullptr;
 
@@ -32,7 +30,7 @@ struct OwnedSurface {
   OwnedSurface &operator=(const OwnedSurface &) = delete;
 };
 
-}  // namespace
+}
 
 bool DecodeImage(const uint8_t *bytes, size_t count, Raster &out) {
   out = Raster();
@@ -40,13 +38,10 @@ bool DecodeImage(const uint8_t *bytes, size_t count, Raster &out) {
 
   SDL_IOStream *io = SDL_IOFromConstMem(bytes, count);
   if (!io) return false;
-  /* `true` closes the stream whether or not the decode succeeded, which is the only arm that does
-   * not leak on the failure path. */
+
   const OwnedSurface decoded(IMG_Load_IO(io, true));
   if (!decoded.Surface) return false;
 
-  /* THE ONE CONVERSION, and it is what makes the convention true rather than assumed: whatever the
-   * file's channel order, bit depth or palette was, what leaves here is RGBA8 in memory order. */
   const OwnedSurface rgba(SDL_ConvertSurface(decoded.Surface, SDL_PIXELFORMAT_RGBA32));
   if (!rgba.Surface) return false;
   if (rgba.Surface->w <= 0 || rgba.Surface->h <= 0) return false;
@@ -82,4 +77,4 @@ bool EncodePng(const uint8_t *rgba, int width, int height, std::vector<uint8_t> 
   return SDL_ReadIO(io.Stream, out.data(), out.size()) == out.size();
 }
 
-}  // namespace outshine::Clients
+}

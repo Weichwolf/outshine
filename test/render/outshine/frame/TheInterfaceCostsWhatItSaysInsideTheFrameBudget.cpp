@@ -1,20 +1,3 @@
-/* WHAT AN INTERFACE COSTS INSIDE 16.67 ms, AND IT IS A DISTRIBUTION OVER A CHANGING DECLARATION
- * (board:1442).
- *
- * **THE SUBJECT IS THE CPU HALF AND THE DOMAIN SAYS SO.** Reading, cascading, measuring, placing and
- * turning a laid-out declaration into rectangles is what this measures; uploading those rectangles and
- * drawing them is the renderer's and is not in this number. A cost quoted without its domain decides
- * nothing, and folding the two would hide which of them moved.
- *
- * **WHY IT IS A FRAME TEST AND NOT A UNIT TEST.** Its subject is a DURATION. A duration measured
- * through a bounds checker is not the shipping frame, and this layer is the one with no sanitiser in
- * the path -- the same split the geometry cost lives under.
- *
- * **THE DECLARATION CHANGES EVERY FRAME AND THAT IS THE POINT.** A HUD whose text never moves would
- * measure a cache and call it a frame: the counters here are re-spelled each iteration, so the
- * stylesheet, the tree and the runs are all genuinely re-read. That is the pessimistic case -- a real
- * consumer would rebuild only when something changed -- and a pessimistic number is the one a budget
- * can be checked against. */
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
@@ -30,13 +13,8 @@ using namespace outshine::Ui;
 
 namespace {
 
-/* THE TARGET, AND IT IS THE ONE THIS REPOSITORY IS MEASURED AGAINST EVERYWHERE ELSE. */
 constexpr double kFrameBudgetMs = 16.67;
 
-/* [SET] WHAT SHARE OF THE FRAME AN INTERFACE MAY TAKE ON THE CPU. A HUD is not what the frame is FOR:
- * the world, the actors and the picture are, and a tenth is the largest slice that leaves the budget
- * recognisably theirs. It is a number somebody chose, it is here to be argued with, and it is checked
- * rather than quoted. */
 constexpr double kInterfaceShare = 0.10;
 
 struct Distribution {
@@ -58,9 +36,6 @@ struct Distribution {
   return out;
 }
 
-/* A HUD OF THE SHAPE A GAME ACTUALLY DECLARES: a bar, a row of counters that change, a log of lines
- * that scroll. Everything in it is inside the declared subset, so what is measured is the engine's own
- * path and not a fallback. */
 std::string Hud(int frame) {
   std::string document =
       "<style>"
@@ -85,7 +60,7 @@ std::string Hud(int frame) {
   return document;
 }
 
-}  // namespace
+}
 
 int main(void) {
   constexpr int kWarmup = 40;
@@ -133,8 +108,6 @@ int main(void) {
   const Distribution cost = Over(samples);
   const double allowed = kFrameBudgetMs * kInterfaceShare;
 
-  /* EVERY NUMBER WITH ITS POPULATION, which here is 400 frames of a declaration that changes on every
-   * one of them, at 1280x720, read from source each time. */
   std::printf("NOTE population = %zu frames, %zu boxes, %zu quads at 1280x720, "
               "the declaration re-read every frame\n",
               samples.size(), boxes, quads);
@@ -143,14 +116,10 @@ int main(void) {
   std::printf("NOTE budget %.2f ms, share [SET] %.0f%%, allowed %.4f ms, p99 uses %.1f%% of it\n",
               kFrameBudgetMs, kInterfaceShare * 100.0, allowed, 100.0 * cost.P99Ms / allowed);
 
-  /* THE VERDICT IS ON p99 AND NOT ON THE MEAN, because a frame that misses is seen by everyone and an
-   * average that holds says nothing about which frame did not. */
   CHECK(cost.P99Ms < allowed,
         "the interface's own path fits inside the share of the frame it was given, at p99");
   CHECK(cost.P50Ms < allowed, "and at p50, which is the case that must not even be close");
 
-  /* THE BOUND IS A NUMBER SOMEBODY CHOSE AND A RUN THAT REACHED IT WOULD BE DRAWING A PICTURE NOBODY
-   * DECLARED, so the overage is checked rather than printed. */
   CHECK(beyond == 0, "and it asks for no rectangle past the declared bound");
   CHECK(quads > 0, "having drawn something at all, which is what says the number above is about work");
 

@@ -1,23 +1,3 @@
-/* `KHR_node_visibility`, AND THE HALF THAT IS EASY TO GET WRONG IS INHERITANCE (board:1383).
- *
- * The extension carries one boolean. Its rule is not one boolean's worth: *a node is visible if and
- * only if its own visible property is true and all its parents are visible* -- so a node that says
- * `true` about itself still draws nothing under a parent that says `false`. **A reader that answered
- * each node from its own field would be right on every single-level file and wrong on the first
- * hierarchy**, which is why the chain below is three deep and its leaf is visible.
- *
- * WHAT THE EXTENSION EXCLUDES IS AS NORMATIVE AS WHAT IT HIDES: *visibility affects neither cameras,
- * nor node's interactivity features*. A camera on an invisible node still resolves, and it is checked
- * here rather than assumed, because our flatten implements visibility by NOT DESCENDING and a later
- * round that moved camera resolution into that walk would inherit the skip silently.
- *
- * A LIGHT IS A VISUAL FEATURE AND A CAMERA IS NOT. The specification's list is *meshes, light sources
- * (e.g., attached with KHR_lights_punctual), point clouds, particles, billboards, volumetric
- * effects*, so a hidden node's light leaves the draw list with its geometry.
- *
- * THE SUBJECT IS BUILT IN MEMORY AND NOTHING IS PREPARED. This is a rule about the reader and the
- * flatten; it needs no oracle, no device and no corpus, so a fixture on disk would only add a way for
- * it to be unprepared. */
 #include <string>
 #include <vector>
 
@@ -34,8 +14,6 @@ using outshine::Test::Glb;
 
 namespace {
 
-/* Three vertices, no indices, one buffer view. The geometry is irrelevant to what is being decided --
- * what matters is WHICH NODES produced a part -- so it is the smallest thing a mesh can be. */
 const char *const kJson = R"({
   "asset": { "version": "2.0" },
   "extensionsUsed": [ "KHR_node_visibility", "KHR_lights_punctual" ],
@@ -87,7 +65,7 @@ bool Lit(const Subject &subject, const char *node) {
   return false;
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -141,7 +119,7 @@ int main() {
         "hides: visibility affects neither cameras nor interactivity");
   if (!why.empty()) { std::printf("       %s\n", why.c_str()); }
 
-  Covers("board:1383 KHR_node_visibility: a hidden node contributes no part and no light, its "
+  Covers("KHR_node_visibility: a hidden node contributes no part and no light, its "
          "descendants inherit that however they answer for themselves, and a camera is exempt");
   return Report();
 }

@@ -20,21 +20,12 @@
 namespace outshine::Clients {
 namespace {
 
-/* THE RING. One region is one OSM tile, so no second grid exists, and the radius is what the reach
- * needs: a disc of Sim::kReachM spans 1800 m against a z14 region's 1506, so it can lie across
- * three regions on either axis and no fewer will do. */
 constexpr Generators::Schedule::Ring kRing{14, 1};
 
-/* [SET] kg/m3, air-dry broadleaf timber (Wagenfuehr, Holzatlas: beech 680...720). A stem's mass is
- * its own cone against it, which is the only mass a stand has to carry. */
 constexpr double kWoodDensityKgPerM3 = 700.0;
 
-/* [SET] the ground class row a trunk's contact carries. One row, because what a contact does is
- * physics and no generator names a material of its own yet. */
 constexpr Generators::ContactMaterial kTrunkContact{1};
 
-/* [SET] the contact row a wall carries. Its own row rather than the trunk's, because the two answer
- * a collision differently and the table is where that difference is declared. */
 constexpr Generators::ContactMaterial kWallContact{2};
 
 double MonotonicMs() {
@@ -49,33 +40,29 @@ Generators::Forest::Stem StemOf(const Generators::TreeSpecies &sp) {
   stem.HeightSigma = sp.HeightSigma();
   stem.TrunkRadiusM = sp.DbhM() > 0.0f ? 0.5f * sp.DbhM()
                                        : sp.GrowthParams().BaseRadius * sp.HeightM();
-  /* A cone of the declared stem, which is the standing volume the forestry tables measure. */
+
   const double r = (double)stem.TrunkRadiusM;
   stem.MassKg = (float)(kPi * r * r * stem.HeightM / 3.0 * kWoodDensityKgPerM3);
   stem.Contact = kTrunkContact;
   return stem;
 }
 
-/* THE STANCE A STUDIO STARTS FROM. There is no place to declare, so it is the studio's anchor and
- * the eye looks down the prime meridian: nothing in a studio picture is measured from either. */
 Sim::Stance StanceOf(const Scenario::WorldStage *world) {
   if (!world) return {Scenario::kAnchorLatDeg, Scenario::kAnchorLonDeg, 0.0, 0.0};
   return {world->Where.LatDeg(), world->Where.LonDeg(), world->YawDeg, world->PitchDeg};
 }
 
-}  // namespace
+}
 
 Sim::Sim(const Scenario::Scene &scene, const Assets &assets)
     : Scene_(scene),
       Assets_(assets),
-      /* A STUDIO DECLARES ITS OWN LIGHT AND ITS OWN WIND per shot, so the four numbers below have no
-       * world to come from and are zero rather than borrowed from a place that does not exist. */
+
       Wind_(Scene_.Staged().AsWorld()),
       Stance_(StanceOf(Scene_.Staged().AsWorld())),
       W_(PixelFocalLength(Scene_.RenderResolution().Height, Scene_.FovDeg())),
       Ring_(kRing) {
-  /* The thread that builds this object is the one that will draw on it, and this is the earliest
-   * moment at which the engine can say so. */
+
   StackProbe::Enter(StackProbe::Purpose::Frame);
   if (const Scenario::WorldStage *w = WorldStage()) {
     ViewM_ = w->ViewM;
@@ -102,9 +89,7 @@ bool Sim::LoadTables() {
                {{"path", Assets_.Vegetation}, {"why", Veg_.Error()}});
     return false;
   }
-  /* THE DECLARED TABLE A GENERATOR STANDS ON, and it is the class model's own rows read once: a
-   * generator has no spelling for the vegetation table, and a per-region copy of it would be the
-   * same statement in as many places as there are regions. */
+
   const World::VegetationTemplates::Row *rows = Veg_.Rows();
   const size_t nrows = Veg_.TemplateCount();
   std::vector<Generators::GroundTable::Row> table(nrows);
@@ -117,9 +102,7 @@ bool Sim::LoadTables() {
   }
   Table_ = Generators::GroundTable::Of(
       Span<const Generators::GroundTable::Row>(table.data(), table.size()));
-  /* ONE REGION IS ONE TILE, and this is where that stops being a convention: the ring's regions and
-   * the vector field's tiles are addressed by the same key, so a region's outlines are one tile's
-   * outlines and neither side may be re-zoomed alone. */
+
   if (W_.Vectors().Zoom() != Ring_.Zoom()) {
     Log::Error("sim", "region_zoom_is_not_the_vector_zoom",
                {{"ring", (double)Ring_.Zoom()}, {"vectors", (double)W_.Vectors().Zoom()}});
@@ -153,17 +136,13 @@ bool Sim::LoadTables() {
                    Span<const float>(StandsPerM2_.data(), StandsPerM2_.size()), Veg_.Limit());
     if (!Gens_.Add(kTreeRank, *Trees_)) return false;
   }
-  /* THE RING AND THE EPHEMERIS ARE THE WORLD'S. A studio has no ring to fill and its key light is
-   * declared, so neither the region pool nor a sun position is allocated or computed for one. */
+
   if (!WorldStage()) return true;
   if (!OpenPool()) return false;
   SunPos(Stance_.Lat, Stance_.Lon, Clk_, &SunEl_, &SunAz_);
   return true;
 }
 
-/* THE BUDGET IS THE GENERATORS' OWN DECLARATION, summed: every one of them claims out of the same
- * sink, so the slot has to hold all of them at once. A table edited denser moves this number without
- * anybody remembering to, which is the whole reason it is not written down as a constant. */
 bool Sim::OpenPool() {
   const std::optional<Generators::Region> widest = Ring_.Widest(Stance_.Lat, Stance_.Lon);
   if (!widest) {
@@ -186,20 +165,6 @@ bool Sim::OpenPool() {
   return true;
 }
 
-/* THE REGION'S OWN OUTLINES, cut out of the world's decoded vectors and put into the frame a
- * generator works in — metres east and north of the region anchor. The core resolved what each of
- * them carries: a footprint's roof and base off its own ground and an OSM tag, a water body's level
- * off its shore, a way's width off the class table. None of those numbers is derived here, which is
- * the split the deleted architecture document draws.
- *
- * NULL WHILE THIS REGION'S VECTOR TILE IS STILL OUT. One region is one tile on both sources, so the
- * rule the DEM block already follows holds here too: taken whole or not at all. A region built from
- * half its outlines would stand for good with a street of houses missing.
- *
- * A SLICE AND NOT A SCAN, which is the same insight the ground block runs on: one region is one
- * tile, the producers append a tile's produce contiguously, so the range exists by construction. It
- * also ends a duplicate — the source clips a feature at the tile border, so a house on a seam is in
- * both tiles, and a scan bounded by the region's box took both copies into the same region. */
 std::shared_ptr<const Generators::FeatureField> Sim::Features(
     const Generators::Region &region) const {
   if (!W_.Vectors().Decoded(region.X(), region.Y())) return nullptr;
@@ -259,14 +224,6 @@ std::shared_ptr<const Generators::FeatureField> Sim::Features(
       Span<const Generators::FeatureField::Vertex>(vertices.data(), vertices.size()));
 }
 
-/* THE GROUND OF ONE REGION, TAKEN OUT OF THE POOL WHOLE. One region is one DEM tile at one zoom, so
- * the posting block the patch wants is the block the tile already holds: the region is found once
- * and every posting after that is arithmetic. Recovering the same block by asking the point oracle
- * per posting cost 16 641 geodetic round trips and 16 641 slot scans to rebuild bytes that were
- * already there, on the thread that draws.
- *
- * The postings sit on the DEM's own node spacing; how far the patch's own interpolation stands from
- * the drawn surface between them is unmeasured. */
 Sim::Snapped Sim::Snapshot(const Generators::Region &region, Generators::Ground::Snapshot *out,
                            SnapshotCost *cost) const {
   const double t0 = MonotonicMs();
@@ -284,8 +241,7 @@ Sim::Snapped Sim::Snapshot(const Generators::Region &region, Generators::Ground:
   const double stepE = region.SpanEm() / (double)(side - 1);
   const double stepN = region.SpanNm() / (double)(side - 1);
   for (int j = 0; j < side; j++) {
-    /* The region's own frame scales longitude by the latitude of the row, so one row is equally
-     * spaced in longitude and the next one is not — which is exactly the shape the block reads. */
+
     double lat = 0.0, lonFrom = 0.0, latAgain = 0.0, lonNext = 0.0;
     region.Geo(0.0, (double)j * stepN, &lat, &lonFrom);
     region.Geo(stepE, (double)j * stepN, &latAgain, &lonNext);
@@ -328,10 +284,6 @@ bool Sim::Standing(const Generators::Region &region) const {
   return false;
 }
 
-/* WHAT THE RING NO LONGER NAMES GOES BACK, and what is under way for such a region is dropped. The
- * ring is a function of the eye's own region, so it changes at a crossing and not at a step: a
- * region held against the reach alone would be generated again every time the eye wandered over one
- * threshold. */
 void Sim::Release() {
   for (size_t i = Grown_.size(); i-- > 0;) {
     if (Names(Grown_[i].Where.Where())) continue;
@@ -348,9 +300,7 @@ void Sim::Gather() {
   std::optional<Populated> grown = Forge_->Collect();
   if (!grown) return;
   const Generators::Region where = grown->Where.Where();
-  /* A REGION THAT DOES NOT FIT IS REFUSED WHOLE. Half of one is a straight lattice-row edge in the
-   * picture and a count nobody can attribute; the budget is the pool's, and what exceeds it is a
-   * declaration this client cannot hold. */
+
   uint32_t full = 0;
   for (const Generators::Yield &yield : grown->Yields)
     full += yield.Claims(Generators::Claim::Outcome::Full);
@@ -367,15 +317,6 @@ void Sim::Gather() {
   Version_++;
 }
 
-/* ONE REQUEST AT A TIME, because one region is in flight by construction. The snapshot is taken on
- * this thread — the DEM oracle it reads is not re-entrant (world/TerrainLoader.h) — and the
- * generators run on the forge's.
- *
- * ONE SNAPSHOT ATTEMPT PER TURN, ROUND ROBIN. A ring of nine unready regions used to try all nine
- * in the frame that asked and try them all again in the next, so a DEM in flight was a SUSTAINED
- * frame cost for as long as it was in flight. The cursor is what keeps that budget from coupling the
- * ring to its slowest member: a region whose DEM never lands is stepped over next turn instead of
- * standing in front of the eight behind it. */
 void Sim::Ask() {
   if (!Forge_->Idle()) return;
   for (size_t n = 0; n < Ring_.Count(); n++) {
@@ -387,8 +328,7 @@ void Sim::Ask() {
     Generators::Ground::Snapshot snapshot;
     const Snapped snapped = Snapshot(*region, &snapshot, &SnapshotCost_);
     if (snapped == Snapped::Waiting) return;
-    /* NOTHING GROWS ON GROUND THAT DOES NOT EXIST, and the answer is final (world/TerrainLoader.h):
-     * a ring member left unanswered holds the loading screen open for the whole scene. */
+
     if (snapped == Snapped::NoGround) {
       Log::Warn("sim", "region_without_ground", {{"zoom", (double)region->Zoom()},
           {"x", (double)region->X()}, {"y", (double)region->Y()}});
@@ -418,9 +358,6 @@ void Sim::Populate() {
   PopulateMs_ = MonotonicMs() - t0;
 }
 
-/* THE WHOLE PARTITION IN ONE LINE: every candidate of the region leaves through exactly one name, so
- * a count that does not sum to the lattice is a case nobody wrote. The two millisecond fields are
- * the two threads it cost — the snapshot on the caller's, the generators on the forge's. */
 void Sim::Say(const Populated &grown, const SnapshotCost &cost) const {
   const Generators::Region &region = grown.Where.Where();
   std::vector<LogField> fields{{"zoom", (double)region.Zoom()}, {"x", (double)region.X()},
@@ -461,7 +398,7 @@ long Sim::StandCount() const {
 
 void Sim::StartTelemetry() {
   if (Identity_) Bus_.Register(Identity_);
-  /* Straight after the identity: every other column is read against where the eye was. */
+
   Bus_.Register(&Where_);
   Bus_.Register(&Stream_);
 }
@@ -469,7 +406,7 @@ void Sim::StartTelemetry() {
 Sim::Bring Sim::ResolveGround(double lat, double lon, double *out) const {
   const GroundSample g = fb_stream_ground(lat, lon);
   if (g.TryAslM(out)) return Bring::Open;
-  /* A hole never becomes a height. */
+
   return g.Where() == GroundSample::State::Pending ? Bring::Waiting : Bring::Failed;
 }
 
@@ -490,8 +427,7 @@ Sim::Bring Sim::Open() {
                                  {"contentStore", Content_->Directory()},
                                  {"contentStoreUsed", Content_->Enabled()},
                                  {"stars", Assets_.Stars}});
-    /* WHAT EACH UPSTREAM SAID ABOUT ITSELF, in the run's own record. A declared number nothing reads
-     * rots; this is its first reader, and the measured payload beside it is what § I.22 owes next. */
+
     for (size_t i = 0; i < Sources_->Count(); i++) {
       const Data::SourceDecl &decl = Sources_->At(i).Declaration();
       Log::Info("sim", "source",
@@ -559,18 +495,11 @@ void Sim::Look(const Stance &s) {
   Where_.Moved({s.Lat, s.Lon, asl, s.YawDeg, s.PitchDeg});
 }
 
-/* One pass begins here, which is also where the ring's cost for it is zero again: a pass that never
- * reaches Populate spent nothing on it and must not publish the last one that did. */
 void Sim::Advance() {
   PopulateMs_ = 0.0;
   W_.Update(Stance_.Lat, Stance_.Lon);
 }
 
-/* THE STANDPOINT IS CHECKED AGAINST WHAT IS DATA. Terrain and buildings come from DEM and OSM, so
- * the eye is LIFTED above them; a tree is a draw from a landcover density and the eye is not moved
- * for one — the stand that would hold it is dropped where the picture is collected instead.
- * The roof comes out of the same generator every other caller asks, so it waits for the region the
- * eye stands in and not merely for a vector tile. */
 void Sim::Settle() {
   if (!RoofChecked_ && Stand_.LensDeclared()) {
     const std::optional<Generators::Ground> ground = GroundAt(Stance_.Lat, Stance_.Lon);
@@ -593,9 +522,6 @@ void Sim::Settle() {
   Populate();
 }
 
-/* ONE REGION, BUILT WHERE IT IS ASKED FOR. A point query has no ring behind it and no forge: the
- * region containing the place is snapshotted on this thread and thrown away again, which is what
- * lets the server target answer a place it never walked to. */
 std::optional<Generators::Ground> Sim::GroundAt(double lat, double lon) const {
   const Generators::Region region = Generators::Region::Of(Ring_.Zoom(), lat, lon);
   Generators::Ground::Snapshot snapshot;
@@ -629,4 +555,4 @@ Sim::Place Sim::At(double lat, double lon) const {
   return p;
 }
 
-} // namespace outshine::Clients
+}

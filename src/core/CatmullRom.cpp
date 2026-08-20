@@ -14,8 +14,7 @@ void CurveKnots(const double *points, size_t count, size_t components, double al
       const double d = points[i * components + c] - points[(i - 1) * components + c];
       d2 += d * d;
     }
-    /* A repeated point would give a zero knot span and divide by it downstream; one unit of
-     * separation is the smallest lie that keeps the parameterisation strictly increasing. */
+
     const double step = std::pow(std::sqrt(d2), alpha);
     knotsOut[i] = knotsOut[i - 1] + (step > 0.0 ? step : 1.0);
   }
@@ -39,4 +38,4 @@ void CatmullRomTangents(const double *knots, size_t count, const double *values,
   }
 }
 
-}  // namespace outshine
+}

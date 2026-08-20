@@ -14,7 +14,6 @@ import os
 
 _LOADED = {}
 
-
 def _repository(start):
     at = os.path.abspath(start)
     while at != os.path.dirname(at):
@@ -23,16 +22,10 @@ def _repository(start):
         at = os.path.dirname(at)
     raise RuntimeError("no parent of " + start + " holds test/harness")
 
-
 def harness_root(start):
     """`test/harness/` itself, found from anywhere inside it."""
     return os.path.join(_repository(start), "test", "harness")
 
-
-# THE LOOKUP STARTS AT THE MANIFEST AND NEVER AT THE DESTINATION. A case's prepared files live under
-# the system temp root now (`CLAUDE.md`: every artefact goes there, never into the tree), so a walk up
-# from the destination leaves the repository entirely and finds no harness. The manifest is the tracked
-# file and it is the one thing about a case that is always inside the tree.
 def harness_of(case_directory):
     """The harness directory serving the corpus this case belongs to."""
     root = _repository(case_directory)
@@ -47,18 +40,14 @@ def harness_of(case_directory):
         raise RuntimeError("no harness under test/harness/ serves " + case_directory)
     return found
 
-
 def beside(anchor, name):
     """The module named `name` sitting beside `anchor`, loaded by path rather than by package."""
     return at(os.path.join(os.path.dirname(os.path.abspath(anchor)), name + ".py"))
 
-
 def step(case_directory, name):
     """The named step of the harness serving this case, or None where that harness declares none."""
-    # the runner directory holds the runner; how the corpus is obtained sits under prepare/ 
     path = os.path.join(harness_of(case_directory), "prepare", name + ".py")
     return at(path) if os.path.isfile(path) else None
-
 
 def at(path):
     path = os.path.abspath(path)

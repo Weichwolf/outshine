@@ -5,10 +5,6 @@
 
 namespace outshine {
 
-/* Kids_ is filled depth-first while a container is still open, so a child's slot cannot be reserved
- * before its subtree exists. Each container therefore collects its member ids on a local vector and
- * copies them into Kids_ on close — bounded by the container's own arity, never by the document. */
-
 bool Json::Parse(const char *text, size_t len) {
   Text_.assign(text, len);
   Nodes_.clear();
@@ -127,8 +123,7 @@ std::string Json::Decode(uint32_t off, uint32_t len, bool escaped) const {
       case 'r': out.push_back('\r'); break;
       case 'b': out.push_back('\b'); break;
       case 'f': out.push_back('\f'); break;
-      /* \uXXXX is decoded to UTF-8 only for the BMP: no glTF or sidecar key needs a surrogate pair,
-       * and a lone high surrogate would be a corrupt document rather than a case to handle. */
+
       case 'u': {
         if (i + 4 >= len) break;
         const unsigned cp = (unsigned)std::strtoul(Text_.substr(off + i + 1, 4).c_str(), nullptr, 16);
@@ -204,4 +199,4 @@ bool Json::Ref::StrEquals(const char *s) const {
   return n.StrLen == l && !std::memcmp(Doc->Text_.c_str() + n.Str, s, l);
 }
 
-} // namespace outshine
+}

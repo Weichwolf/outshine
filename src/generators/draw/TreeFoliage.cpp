@@ -9,11 +9,10 @@ namespace outshine::Generators {
 namespace {
 
 constexpr float kTau = 6.2831853f;
-/* The golden angle, the same phyllotaxis the grower rolls its laterals by: N laminae on one shoot
- * point that fan by 2pi/N alone would stack into a rosette from every direction but one. */
+
 constexpr float kGolden = 2.39996323f;
 
-} // namespace
+}
 
 void TreeFoliage::Build(const TreeSkeleton &plant, const TreeMesh &shape, const TreeSpecies &species,
                         int mult) {
@@ -46,9 +45,7 @@ void TreeFoliage::Build(const TreeSkeleton &plant, const TreeMesh &shape, const 
   if (points == 0 || oneM2 <= 0.0) { return; }
   double want = (double)species.Lai() * CrownProjM2_ / oneM2;
   want *= (double)(mult > 0 ? mult : 1);
-  /* The count is what carries the index, so the buffer is what limits it. A capped crown reports the
-   * index it actually built — a species that needs the cap has a crown too coarse to hold its own
-   * declaration, and LeafAreaM2 says so instead of the code pretending. */
+
   if (want > (double)kMaxInstances) { want = (double)kMaxInstances; }
   PerPoint_ = want > 0.0 ? want / (double)points
                          : (double)leaf.CardsPerPoint * (double)(mult > 0 ? mult : 1);
@@ -58,8 +55,7 @@ void TreeFoliage::Build(const TreeSkeleton &plant, const TreeMesh &shape, const 
   TreeRandom rng(0x1eaf0001u);
   double owed = 0.0;
   for (const LeafPoint &p : plant.LeafPoints) {
-    /* The count per point is fractional and the debt is carried, so the crown's total is the declared
-     * one to the last lamina instead of a rounding per point. */
+
     owed += PerPoint_;
     const long n = (long)(owed + 0.5);
     owed -= (double)n;
@@ -79,4 +75,4 @@ float TreeFoliage::CardLeafM(int leavesPerCard, size_t cards, double lai,
   return (float)std::sqrt(lai * crownProjM2 / per);
 }
 
-} // namespace outshine::Generators
+}

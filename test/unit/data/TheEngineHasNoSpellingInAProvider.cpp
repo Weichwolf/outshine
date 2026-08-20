@@ -1,7 +1,3 @@
-/* A PROVIDER MAY NOT NAME THE ENGINE. A source that needed the world to answer *what do you cover*
- * would have the arrow the wrong way round, and the include set is what makes the streamer, the
- * renderer, a generator and the log unspellable rather than discouraged. */
-
 #include "Check.h"
 #include "Layering.h"
 

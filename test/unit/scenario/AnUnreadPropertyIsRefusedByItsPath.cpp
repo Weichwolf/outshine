@@ -1,10 +1,3 @@
-/* A DECLARATION IS CLOSED. Every property is either read or refused by name, at every depth — which
- * is the only mechanism that keeps a field the engine stopped reading from surviving in the
- * declaration, and the only one that turns a typo into a refusal instead of a default.
- *
- * The measured defect: ten `subject` scenes each declared eight properties the bench never read, and
- * `fovDeg: 30` stood in the JSON while a C++ constant of the same value acted. Neither is spellable
- * now — the first because the key has no home, the second because the number has one place. */
 #include "Check.h"
 #include "Mod.h"
 
@@ -42,7 +35,7 @@ std::string With(const std::string &find, const std::string &replace) {
   return true;
 }
 
-}  // namespace
+}
 
 int main() {
   Covers("I.4 an unknown property is refused with its path");
@@ -63,8 +56,6 @@ int main() {
                 "runs[0].turnSteps"),
         "a bench property on a motion run is refused, naming the run's index");
 
-  /* A SIZE OTHER THAN THE BUDGET'S NEEDS ITS REASON, and dropping the reason must not drop the
-   * refusal — the field is optional and the refusal is not. */
   CHECK(Refused(With(", \"why\": \"a quarter frame, to keep this test cheap\"", ""), "render.why"),
         "a render size that is not the budget's and states no why is refused");
 

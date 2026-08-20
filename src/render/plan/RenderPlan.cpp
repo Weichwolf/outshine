@@ -8,10 +8,6 @@
 namespace outshine::Render {
 namespace {
 
-/* WHY A WORKLIST AND NOT A RECURSION: the pull is a backward closure over "who produces what I
- * read", and the catalogue's enumeration is already a linear extension of that graph, so nothing
- * here has to sort, visit twice or detect a cycle. The static assertions in RenderCatalogue.h are
- * what pay for that. */
 struct Pull {
   const PlanSpec &Spec;
   bool Declared[kStageCount] = {};
@@ -33,17 +29,6 @@ struct Pull {
     Wanted.push_back(r);
   }
 
-  /* A CONTRIBUTION DOES NOT MAKE ITS TARGET WANTED, and that asymmetry with `Reads` is the whole of
-   * the pruning (board:1121). Wanting it made every target of every held stage held BY CONSTRUCTION,
-   * so the backward closure ran forwards for half its edges and `sceneVelocity` was allocated,
-   * cleared and written in every plan that drew geometry -- including the parity runner's, which
-   * reads it nowhere. A target is now held because something READS it or because the consumer asked
-   * for it as an output, which is what "compiled backwards from a requested output" means.
-   *
-   * THE DEPTH TARGET IS THE EXCEPTION AND IT IS NOT AN ESCAPE HATCH: a depth attachment is what a
-   * raster pass IS -- the depth test consumes it inside the pass, with no stage reading it as a
-   * resource -- so pruning it would leave a geometry pass with no depth test rather than saving a
-   * buffer. A COLOUR target is a data product and has a reader or has no reason to exist. */
   void Hold(Stage s) {
     if (HeldStage[static_cast<size_t>(s)]) { return; }
     HeldStage[static_cast<size_t>(s)] = true;
@@ -54,8 +39,6 @@ struct Pull {
     }
   }
 
-  /* THE REFUSAL NAMES THE REPAIR AND NOT ONLY THE DEFECT: the resource that was missing, the stage
-   * that wanted it, and the stage the catalogue says would have supplied it. */
   void Missing(Resource r, const char *why) {
     Error += Error.empty() ? "render.outputs: " : "; also ";
     Error += std::string(Row(r).Name) + " " + why;
@@ -99,8 +82,7 @@ struct Pull {
         Want(row.AliasOf);
         return true;
       case FallbackKind::Neutral:
-        /* Absent, and its readers are generated without it -- which is what makes "the plan carries
-         * no dead path" true rather than asserted. */
+
         return true;
       case FallbackKind::None:
         Missing(r, row.Kind == ResourceKind::Attachment
@@ -112,9 +94,6 @@ struct Pull {
     return false;
   }
 
-  /* THE WHOLE WALK, NOT THE FIRST STUMBLE. Stopping at the first unsupplied resource made the
-   * sentence depend on the order the queue happened to reach two equally missing attachments in, so
-   * adding one read edge to one stage rewrote a refusal that had not changed meaning. */
   [[nodiscard]] bool Run() {
     for (Resource r : Spec.Outputs) { Want(r); }
     for (size_t at = 0; at < Wanted.size(); ++at) { (void)Resolve(Wanted[at]); }
@@ -143,7 +122,7 @@ std::string Decimal(float value) {
   return text;
 }
 
-} // namespace
+}
 
 bool RenderPlan::StageByName(const std::string &name, Stage *out) {
   for (size_t s = 0; s < kStageCount; ++s) {
@@ -168,8 +147,6 @@ bool RenderPlan::Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan>
     return false;
   }
 
-  /* A DECLARED CONTENT STAGE THAT NOTHING PULLED contributes to nothing this plan requests. It is
-   * not harmless: it is a statement the consumer believes it made and the picture does not carry. */
   for (Stage s : spec.Content) {
     if (pull.HeldStage[static_cast<size_t>(s)]) { continue; }
     error = std::string("render.content.") + Row(s).Name +
@@ -187,15 +164,7 @@ bool RenderPlan::Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan>
     plan->Bound_[r] = pull.Bound[r];
     plan->Format_[r] = kResources[r].Format;
   }
-  /* AN ALIAS MAY POINT AT AN ALIAS, AND A READER BINDS WHAT IS AT THE END OF THE CHAIN (board:1386).
-   * `Want` already recurses, so a resource two aliases away is PULLED correctly -- but `Bound` was
-   * left at the first hop, and a reader given it bound a resource the plan does not hold.
-   * `SceneLinear -> SceneComposited -> SceneHdr` is the chain that made it visible: a picture with no
-   * temporal resolve and no glass has both aliases and must reach the scene target itself.
-   *
-   * THE WALK IS BOUNDED BY THE RESOURCE COUNT, which is what makes a cycle in the catalogue a
-   * refusal here rather than a hang -- and the catalogue's own `static_assert`s already forbid one,
-   * so this bound is the belt beside that brace. */
+
   for (size_t r = 0; r < kResourceCount; ++r) {
     Resource at = plan->Bound_[r];
     for (size_t step = 0; step < kResourceCount; ++step) {
@@ -207,18 +176,12 @@ bool RenderPlan::Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan>
   }
   plan->Aliases_ = pull.Aliases;
 
-  /* THE DECLARED PRECISION, APPLIED WHERE THE SCENE-REFERRED CHAIN IS STORED and nowhere else: the
-   * two rows that carry radiance before the display transfer. Every other row's format is its
-   * meaning -- a velocity is rg16float, a frame is sRGB-encoded -- and widening one of those would
-   * be a different picture rather than a finer measurement of this one. */
   if (spec.Precision.IsSet() && !plan->HeldResource_[static_cast<size_t>(Resource::SceneHdr)]) {
     error = "render.precision: no resource of the compiled plan carries scene-referred radiance";
     return false;
   }
   if (spec.Precision.Or(ScenePrecision::Half) == ScenePrecision::Float) {
-    /* EVERY RESOURCE THAT CARRIES RADIANCE AND NOT A LIST OF THEM (board:1386). The catalogue answers
-     * which, exhaustively and without a `default:`, so a resource added to the chain is upgraded by
-     * existing here rather than by somebody remembering this line. */
+
     for (size_t at = 0; at < kResourceCount; ++at) {
       const Resource resource = static_cast<Resource>(at);
       if (CarriesSceneRadiance(resource)) { plan->Format_[at] = TexelFormat::Rgba32Float; }
@@ -226,7 +189,6 @@ bool RenderPlan::Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan>
   }
   plan->Precision_ = spec.Precision.Or(ScenePrecision::Half);
 
-  /* THE ONE PAIR THAT HAS A FUSED IMPLEMENTATION, and half of it is not a plan. */
   if (plan->HeldStage_[static_cast<size_t>(Stage::TemporalResolve)] &&
       !plan->HeldStage_[static_cast<size_t>(Stage::Tonemap)]) {
     error = "render.content.temporalResolve: the resolve and the display transfer are one fragment, "
@@ -234,7 +196,6 @@ bool RenderPlan::Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan>
     return false;
   }
 
-  /* THE OPTIONS, and an option nothing in the compiled plan reads is refused with its path. */
   if (spec.Display.IsSet() && !plan->HeldStage_[static_cast<size_t>(Stage::Tonemap)]) {
     error = "render.display: no stage of the compiled plan reads a display transfer";
     return false;
@@ -251,10 +212,6 @@ bool RenderPlan::Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan>
   plan->Display_ = spec.Display.Or(Transfer::Filmic);
   plan->Exposure_ = spec.Exposure.Or(1.0f);
 
-  /* PASSES ARE COMPILED, NOT COUNTED. A pass is a maximal run of consecutive stages of one kind over
-   * one target set -- which is what a render pass IS, and for compute (an empty target set) is R1,
-   * dispatch order inside one pass. R2 is the exception: a declared pair with a fused implementation
-   * becomes one pass carrying both target sets. */
   for (size_t at = 0; at < plan->Order_.size(); ++at) {
     const Stage stage = plan->Order_[at];
     const StageRow &row = Row(stage);
@@ -291,10 +248,7 @@ bool RenderPlan::Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan>
       for (const Resource *edge : edges) {
         for (size_t e = 0; e < kMaxEdges && edge[e] != kNoEdge; ++e) {
           const Resource target = edge[e];
-          /* THE PRUNE, AT THE ATTACHMENT (board:1121). A stage still DECLARES what it draws into;
-           * what the compiled plan attaches is the subset something reads. Skipping it here rather
-           * than editing the catalogue keeps the row a statement about the stage and not about one
-           * plan. */
+
           if (!plan->HeldResource_[static_cast<size_t>(target)]) { continue; }
           if (Row(target).Format == TexelFormat::Depth32Float) {
             if (pass.Depth != kNoEdge && pass.Depth != target) {
@@ -317,8 +271,6 @@ bool RenderPlan::Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan>
     }
   }
 
-  /* A plan with no temporal history needs no settle frames; one frame is what the device needs to
-   * have submitted before there is anything to copy. */
   plan->SettleFrames_ =
       1 + (plan->HeldStage_[static_cast<size_t>(Stage::TemporalResolve)] ? kTemporalSettleFrames : 0);
 
@@ -343,4 +295,4 @@ bool RenderPlan::Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan>
   return true;
 }
 
-} // namespace outshine::Render
+}

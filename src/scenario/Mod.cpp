@@ -19,8 +19,7 @@ bool Mod::Read(const std::string &text, const std::string &path) {
 
   Json doc;
   if (!doc.Parse(text.c_str(), text.size()))
-    /* THE BYTE OFFSET, because "not valid JSON" over a 40 kB declaration sends its reader to search
-     * the whole file for a comma. */
+
     return Refuse("is not valid JSON, stopping at byte " + std::to_string(doc.StoppedAt()));
 
   std::string err;
@@ -73,4 +72,4 @@ std::string Mod::Ids() const {
   return out;
 }
 
-}  // namespace outshine::Scenario
+}

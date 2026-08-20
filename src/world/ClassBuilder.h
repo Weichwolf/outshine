@@ -1,5 +1,3 @@
-/* The class grid, laid down on one thread. `board/active/` §1 carries the shape and why it is not
- * append-only. */
 #ifndef CLASSBUILDER_H
 #define CLASSBUILDER_H
 
@@ -17,17 +15,14 @@
 
 namespace outshine::World {
 
-/* Which of the two class grids a job lays down. At namespace scope so a job can carry it under the
- * name the project uses for it without the member hiding the type. */
 enum class ClassGrain { Fine, Coarse };
 
 class ClassBuilder {
 public:
   struct Ring {
-    uint32_t First = 0, Count = 0;   /* into Job::Pts as ENU metre pairs, ring not closed */
+    uint32_t First = 0, Count = 0;
   };
-  /* The vector source's own geometry codes, so a decoded feature keeps its type across the handover
-   * without a translation table. */
+
   enum class Shape : uint8_t { Point = 1, Line = 2, Polygon = 3 };
 
   struct Feature {
@@ -38,12 +33,10 @@ public:
     float WidthM = 0.0f;
     float MinE = 0, MinN = 0, MaxE = 0, MaxN = 0;
   };
-  /* Nothing here points outside the job: the arrays arrive by move and leave by move, so no address
-   * into them survives on the calling side. */
+
   struct Job {
     ClassGrain Grain = ClassGrain::Fine;
-    /* The plane Pts are projected in, carried with them: the structure that comes back states the
-     * frame its own words mean, and a re-anchor between submit and handback cannot relabel it. */
+
     TangentFrame Frame;
     double CamE = 0, CamN = 0;
     double CellM = 1;
@@ -51,7 +44,7 @@ public:
     int UnmappedRow = 0;
     std::vector<float> Pts;
     std::vector<Ring> Rings;
-    std::vector<Feature> Feats;      /* ascending rank; the order the grid is laid down in */
+    std::vector<Feature> Feats;
   };
   struct Handback {
     std::shared_ptr<const ClassStructure> Structure;
@@ -63,18 +56,14 @@ public:
   ClassBuilder(const ClassBuilder &) = delete;
   ClassBuilder &operator=(const ClassBuilder &) = delete;
 
-  /* Precondition: nothing submitted and nothing uncollected. The caller knows this from its own
-   * bookkeeping, which is why it is asserted here and not queried (`I.6`). */
   void Submit(Job job);
   std::optional<Handback> Collect();
 
-  /* The two grids and the scratch that lays them down. The worker owns all three, so the number is
-   * written there and read through an atomic rather than by walking another thread's vectors. */
   size_t HeapBytes() const { return HeapBytes_.load(std::memory_order_relaxed); }
 
 private:
   struct Hit { double X; int Dir; };
-  /* Worker thread only. */
+
   struct Workspace {
     std::vector<uint8_t> Base, BaseRank;
     std::vector<int32_t> SeedHead, SeedNext;
@@ -84,15 +73,13 @@ private:
     std::vector<int32_t> CellHead, CellNext;
     std::vector<uint32_t> CellStamp, CellEdge, CellCount;
     std::vector<Hit> Hits;
-    std::vector<uint32_t> Seeds;   /* the cell-ordered re-emit, swapped into the grid */
+    std::vector<uint32_t> Seeds;
   };
 
   void Run();
   void LayDown(const Job &job, ClassStructure::Grid &out, int &overflow);
   size_t ScratchBytes() const;
 
-  /* Three states, not a boolean over three: `Pending_` empty means either "nothing asked" or "the
-   * worker has taken it", and those are not the same thing (`ES.9`). */
   enum class Stage { Idle, Building, Done };
 
   mutable std::mutex Mu_;
@@ -102,7 +89,6 @@ private:
   Stage Stage_ = Stage::Idle;
   bool Stop_ = false;
 
-  /* Owned by the worker thread alone. */
   std::shared_ptr<const ClassStructure::Grid> Fine_, Coarse_;
   Workspace Workspace_;
   uint64_t Version_ = 0;
@@ -111,5 +97,5 @@ private:
   std::thread Thread_;
 };
 
-} // namespace outshine::World
+}
 #endif

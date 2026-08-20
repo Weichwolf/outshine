@@ -18,7 +18,7 @@ double Clock() {
   return (double)duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count() * 1e-3;
 }
 
-}  // namespace
+}
 
 void ClassField::Open(double lat, double lon) {
   Frame_ = TangentFrame::At(lat, lon);
@@ -37,8 +37,7 @@ size_t ClassField::HeapBytes() const {
 }
 
 void ClassField::Ingest(Tier &t) {
-  /* The builder has this tier's arrays. Deferring costs a pass; OsmField keeps what arrived and
-   * PtsDone/FeatsDone make the catch-up exact. */
+
   if (t.ArraysLent) return;
   const std::vector<double> &pts = t.Field->Points();
   const size_t havePts = pts.size() / 2;
@@ -78,12 +77,10 @@ void ClassField::Ingest(Tier &t) {
       UnknownFeats_++;
       continue;
     }
-    /* A culvert or a tunnel carries nothing at the surface. shortbread hands us `tunnel` on every
-     * layer that can have one and every OSM renderer acts on it; the bake does not, which is why its
-     * water looks fuller than the ground actually is. */
+
     if (t.Field->Num(f, "tunnel", 0.0) > 0.5) continue;
     if (f.Type != 2 && f.Type != 3) continue;
-    if (f.Type == 2 && rule->WidthM <= 0.0f) {   /* the source's line code */
+    if (f.Type == 2 && rule->WidthM <= 0.0f) {
       std::string key(layer);
       key.append("/").append(kind).append("#width");
       if (Unknown_.insert(key).second)
@@ -124,9 +121,6 @@ void ClassField::Ingest(Tier &t) {
   t.Stale = true;
 }
 
-/* LENT, NOT COPIED. The three arrays move into the job and come back with the result, so nothing is
- * duplicated and nothing is allocated: the tier simply does not have them while the grid is laid
- * down, which is why no rule is needed against reading them. */
 ClassBuilder::Job ClassField::LendTo(Tier &t, ClassGrain grain, double camE, double camN) {
   assert(!t.ArraysLent);
   ClassBuilder::Job job;
@@ -154,8 +148,7 @@ void ClassField::SubmitDue(double camE, double camN) {
     Builder_.Submit(LendTo(t, grain, camE, camN));
     Submitted_ = grain;
     Submits_[grain == ClassGrain::Fine ? 0 : 1]++;
-    /* The anchor is settled here rather than when the grid lands, so the drift test cannot ask for
-     * the same grid again while the one it already asked for is still being laid down. */
+
     t.OrgE = std::floor(camE / t.CellM - t.HalfCells) * t.CellM;
     t.OrgN = std::floor(camN / t.CellM - t.HalfCells) * t.CellM;
     t.Stale = false;
@@ -165,7 +158,7 @@ void ClassField::SubmitDue(double camE, double camN) {
 
 void ClassField::Update(double camLat, double camLon) {
   if (!Opened_ || !Veg_ || !Veg_->Ready()) return;
-  /* THE LAYER SET IS THE DECLARATION'S, so it cannot be known before the table is loaded. */
+
   if (!Fine_.Field) {
     Fine_.Field = std::make_unique<OsmField>(Fine_.Zoom, Veg_->Layers());
     Coarse_.Field = std::make_unique<OsmField>(Coarse_.Zoom, Veg_->AreaLayers());
@@ -203,9 +196,7 @@ void ClassField::Update(double camLat, double camLon) {
     std::lock_guard<std::mutex> lk(Mu_);
     Published_ = std::move(done->Structure);
   }
-  /* NOT "is the builder busy": that answer is already in the past by the time it is acted on, and a
-   * worker finishing in that window would let the next submit lend a tier its own uncollected,
-   * already moved-out arrays. This one is render-thread-local and cannot race. */
+
   if (!Submitted_) SubmitDue(camE, camN);
 }
 
@@ -215,4 +206,4 @@ bool ClassField::Complete() const {
          Fine_.Have && Coarse_.Have && !Fine_.Stale && !Coarse_.Stale && !Submitted_;
 }
 
-} // namespace outshine::World
+}

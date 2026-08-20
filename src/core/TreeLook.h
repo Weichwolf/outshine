@@ -3,10 +3,6 @@
 
 namespace outshine {
 
-/* Linear reflectance throughout. `BarkFreq` is furrow cycles per RADIAN of circumference, and
- * `LeafRgb` is already tint x base — that multiplication is world knowledge, so nothing downstream
- * may repeat it. The `Leaf*` block is TreeLeaf's `ProfileWidth` verbatim, which is why the drawn
- * silhouette is the declared lamina and no atlas has to carry a leaf shape. */
 struct TreeLook {
   float BarkRgb[3] = {0.40f, 0.31f, 0.23f};
   float BarkDark = 0.62f;
@@ -20,8 +16,8 @@ struct TreeLook {
   float LeafLobes = 0.0f;
   float LeafLobeDepth = 0.0f;
   float LeafSerration = 0.0f;
-  float NeedleWidth = 0.0f;   /* > 0 selects the needle profile */
+  float NeedleWidth = 0.0f;
 };
 
-} // namespace outshine
-#endif /* TREELOOK_H */
+}
+#endif

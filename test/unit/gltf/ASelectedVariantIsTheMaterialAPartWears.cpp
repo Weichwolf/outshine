@@ -1,20 +1,3 @@
-/* `KHR_materials_variants` IS A SELECTION AND IT IS SPENT IN THE FLATTEN (board:1188).
- *
- * THE CLAIM: a declared variant decides which material index a PART wears, and nothing below the
- * flatten can tell that the file carried the extension at all. `Part::Material` is what the surface
- * table and then the draw list's material slot are built from, so a selection that lands here has
- * landed everywhere -- and a consumer cannot forget to apply it, because there is no second place
- * the material of a part is decided.
- *
- * WHY IT IS CHECKED AS NUMBERS AND NOT ONLY AS A PICTURE: a selection that silently did nothing
- * renders the primitive's own material, which for `MaterialsVariantsShoe` is exactly what its
- * `midnight` variant asks for. That reads as a correct picture. The render pair
- * (the two `MaterialsVariantsShoe` cases) is what catches it in pixels; this is what
- * catches it in the one field it is written into.
- *
- * AND THE THREE REFUSALS, EACH THE SAME INVARIANT AT A DIFFERENT LEVEL: a name the file does not
- * declare, a primitive mapped twice by one variant, and two variants of one name. None of the three
- * has a defensible answer, so none of them gets one. */
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -32,11 +15,6 @@ using outshine::Gltf::Document;
 using outshine::Gltf::Subject;
 using outshine::Gltf::VariantSelection;
 
-/* One mesh of two triangles over three materials, in `MaterialsVariantsShoe`'s own shape: the FIRST
- * primitive is remapped by both variants and the SECOND by neither, which is the extension's
- * per-primitive fall-back written into the fixture rather than asserted about it. The mesh's own
- * materials are 0 and 2, so no variant's answer is the file's answer and no assertion below can
- * hold by coincidence. */
 std::string Text(const std::string &variants, const std::string &mappings) {
   return std::string("{\"asset\":{\"version\":\"2.0\"},") + variants +
          "\"materials\":[{\"name\":\"zero\"},{\"name\":\"one\"},{\"name\":\"two\"}],"
@@ -57,7 +35,6 @@ const char *const kTwoVariants =
     "\"extensions\":{\"KHR_materials_variants\":{\"variants\":[{\"name\":\"beach\"},"
     "{\"name\":\"street\"}]}},";
 
-/* `beach` puts material 1 on the first primitive and `street` puts material 2 on it. */
 const char *const kMapped =
     ",\"extensions\":{\"KHR_materials_variants\":{\"mappings\":["
     "{\"material\":1,\"variants\":[0]},{\"material\":2,\"variants\":[1]}]}}";
@@ -76,7 +53,6 @@ bool Reads(const std::string &variants, const std::string &mappings, Document &i
   return into.Read(outshine::Span<const uint8_t>(glb.data(), glb.size()), "");
 }
 
-/* The two parts' materials under one declaration, as the pair they are compared as. */
 struct Worn {
   int First = -2;
   int Second = -2;
@@ -88,7 +64,7 @@ Worn WornUnder(const Document &file, const VariantSelection &variant, Subject &i
   return Worn{into.Parts()[0].Material, into.Parts()[1].Material};
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -125,7 +101,6 @@ int main() {
         "and NEITHER selection is the file's own material, so a selection that silently did "
         "nothing fails here rather than passing on a coincidence");
 
-  /* THE FIRST REFUSAL: a name the file does not declare. */
   Subject refused;
   CHECK(!refused.Build(file, VariantSelection("midnight")),
         "a variant name the file does not declare is a REFUSAL and never the default, never the "
@@ -138,9 +113,6 @@ int main() {
   CHECK(refused.Parts().empty(),
         "and nothing is drawn in its place");
 
-  /* THE SECOND: one variant mapped twice by one primitive, which the extension forbids in as many
-   * words -- "across the entire mappings array, each variant index must be used no more than one
-   * time" -- and which has no answer because the file states two. */
   Document twice;
   CHECK(!Reads(kTwoVariants,
                ",\"extensions\":{\"KHR_materials_variants\":{\"mappings\":["
@@ -151,8 +123,6 @@ int main() {
   CHECK(twice.Error().find("'beach' to material 1 and to material 2") != std::string::npos,
         "and the sentence names the variant and both materials it was given");
 
-  /* THE THIRD: two variants of one name, which is the same defect one level up -- a declaration
-   * naming that variant would select two of them. */
   Document ambiguous;
   CHECK(!Reads("\"extensions\":{\"KHR_materials_variants\":{\"variants\":[{\"name\":\"beach\"},"
                "{\"name\":\"beach\"}]}},",
@@ -160,7 +130,6 @@ int main() {
         "two variants of one name are refused, because a selection is BY NAME and that name would "
         "select two");
 
-  /* AND THE ORDINARY FILE IS UNTOUCHED: no variants, no mappings, no selection, one path. */
   Document plain;
   CHECK(Reads("", "", plain), "a file carrying no variants at all is read");
   CHECK(plain.Variants().empty(), "and declares none");

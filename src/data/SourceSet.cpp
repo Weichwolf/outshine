@@ -14,7 +14,7 @@ SourceSet::Registration SourceSet::Add(std::unique_ptr<Source> source) {
     if (other.Kind == decl.Kind && other.Order == decl.Order) return Registration::DuplicateRank;
   }
   Sources_.push_back(std::move(source));
-  /* Held sorted, so the walk IS the rank order and no comparator travels with the query. */
+
   std::sort(Sources_.begin(), Sources_.end(),
             [](const std::unique_ptr<Source> &a, const std::unique_ptr<Source> &b) {
               const SourceDecl &da = a->Declaration();
@@ -86,8 +86,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
         return Delivery::From(decl.Id, query.At_, std::move(bytes));
       }
       case Meaning::Absent:
-        /* THE HANDOVER. This source declared the place inside its domain and found nothing there;
-         * the next one down may still hold it, and only the exhaustion of the list is terminal. */
+
         query.Current_ = nullptr;
         {
           std::lock_guard<std::mutex> lock(LedgerMutex_);
@@ -106,8 +105,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
         }
         [[fallthrough]];
       case Meaning::Refused:
-        /* A REFUSAL IS NOT AN ABSENCE and must never be cached as one: it is a statement about this
-         * request or the wire, so the query ends and the caller may ask again from scratch. */
+
         query.Current_ = nullptr;
         {
           std::lock_guard<std::mutex> lock(LedgerMutex_);
@@ -130,4 +128,4 @@ SourceSet::Ledger SourceSet::Counters() const {
   return Ledger_;
 }
 
-} // namespace outshine::Data
+}

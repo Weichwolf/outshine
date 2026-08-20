@@ -1,18 +1,3 @@
-/* ALL SEVEN PRIMITIVE MODES ARE glTF 2.0 AND A FILE IS ENTITLED TO ALL OF THEM (board:1399).
- *
- * This renderer rasterises the three that bound a surface. It used to REFUSE any file carrying one of
- * the other four, which is a hole with a loud message attached to the wrong thing: [MEASURED] two of
- * the 148 models at the pin carry a non-surface primitive, and twelve drawable primitives went with
- * the two refusals. `MeshPrimitiveModes`, whose entire purpose is that TRIANGLE_STRIP and
- * TRIANGLE_FAN triangulate to the same surface the oracle draws, never reached that question.
- *
- * `CLAUDE.md`: *degrade on detail; refuse only on existence, and refuse loudly* -- and *every
- * capability answers what it achieved, in both directions*. Both halves are checked here: the
- * surfaces survive, and what was dropped is a number the caller can read WITH THE MODES IN IT, so a
- * subject that drew everything is distinguishable from one that drew most of it.
- *
- * THE ONE THING THAT IS STILL FATAL is a subject with no surface at all, and that is the second half
- * of the same rule: there is nothing to draw, and silence would be the hole. */
 #include <cctype>
 #include <string>
 #include <vector>
@@ -31,8 +16,6 @@ using outshine::Test::Glb;
 
 namespace {
 
-/* One buffer of four vertices, read by every primitive below. The modes are what differ; the geometry
- * is deliberately the same so a difference in the result cannot come from the vertices. */
 const char *const kMixed = R"({
   "asset": { "version": "2.0" },
   "scene": 0,
@@ -57,7 +40,6 @@ const char *const kMixed = R"({
                    "min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 0.0] } ]
 })";
 
-/* The same file with its one surface removed, which is the case that must still refuse. */
 const char *const kNoSurface = R"({
   "asset": { "version": "2.0" },
   "scene": 0,
@@ -77,7 +59,7 @@ std::vector<uint8_t> Quad() {
   return std::vector<uint8_t>(bytes, bytes + sizeof(xyz));
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -121,8 +103,6 @@ int main() {
         "and a mode that DID draw is not counted among the dropped, which is the direction a "
         "miscount would most easily go");
 
-  /* THE SECOND HALF OF THE RULE. Degrading on detail is not licence to be silent about a subject that
-   * has no surface at all: there is nothing to draw and the refusal is the loud part. */
   const std::vector<uint8_t> bare = Glb(kNoSurface, Quad());
   Document only;
   const bool readBare = only.Read({bare.data(), bare.size()}, "points-only.glb");
@@ -135,7 +115,7 @@ int main() {
     if (!drew) { std::printf("NOTE refused: %s\n", nothing.Error().c_str()); }
   }
 
-  Covers("board:1399 a primitive mode this rasteriser has no pass for is skipped and counted, the "
+  Covers("a primitive mode this rasteriser has no pass for is skipped and counted, the "
          "surfaces beside it still draw, and a subject with no surface at all is refused");
   return Report();
 }

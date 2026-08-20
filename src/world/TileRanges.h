@@ -1,9 +1,3 @@
-/* WHERE ONE TILE'S PRODUCE LIES in a producer's own array, by OsmField tile index.
- *
- * A producer consumes one tile per pass and appends what that tile yielded, so the range exists by
- * construction; keeping it turns "everything decoded so far, filtered" into a slice. Tiles are
- * consumed out of order when one of them defers (world/TileWatermark.h), which is why this is
- * indexed by tile and not a running list, and why a tile that yielded nothing still has an entry. */
 #ifndef TILERANGES_H
 #define TILERANGES_H
 
@@ -33,5 +27,5 @@ private:
   std::vector<Range> Ranges_;
 };
 
-} // namespace outshine::World
+}
 #endif

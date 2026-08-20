@@ -7,9 +7,6 @@ namespace outshine {
 
 enum class SurfaceKind { Opaque, Masked, Blended, ThinTransmissive, Refractive };
 
-/* WHETHER A MESH'S TRIANGLE ORDER CAN BE TRUSTED — the half of "facing" a material cannot state.
- * An OSM ring arrives wound either way, so a prism extruded from one has no reliable outward side;
- * a mesh a generator grew does. Culling needs both answers and neither substitutes for the other. */
 enum class Winding { Trusted, Unknown };
 
 class SurfaceState;
@@ -22,9 +19,7 @@ public:
   [[nodiscard]] constexpr bool CullsBack() const { return CullsBack_; }
   [[nodiscard]] constexpr bool Blends() const { return Blends_; }
   [[nodiscard]] constexpr bool Emits() const { return Emits_; }
-  /* Below this alpha a `Masked` fragment is discarded. The number is the MATERIAL's -- the format
-   * carries one per material and `AlphaBlendModeTest` renders three different ones in one file --
-   * so this only carries it through and states no value of its own. */
+
   constexpr float CoverageCut() const { return CoverageCut_; }
 
 private:
@@ -45,13 +40,7 @@ constexpr SurfaceState StateOf(const Material &material) {
   s.CullsBack_ = !material.DoubleSided;
   s.Emits_ = material.Emission[0] > 0.0f || material.Emission[1] > 0.0f ||
              material.Emission[2] > 0.0f;
-  /* WHAT SEPARATES THE TWO IS THICKNESS AND NOT THE REFRACTIVE INDEX, and the format says so twice:
-   * *if the value is 0 the material is thin-walled, otherwise the material is a volume boundary*,
-   * and *it is still necessary to check the thicknessFactor to determine whether the object is
-   * thin-walled or volumetric* (`KHR_materials_volume`). An index of refraction states how strongly
-   * light bends at an interface; it states nothing about whether a medium lies behind it, and a
-   * thin-walled window with `ior` 1.5 is the ordinary case this rule used to send down the volume
-   * arm. */
+
   if (material.Transmission > 0.0f && material.Thickness > 0.0f) {
     s.Kind_ = SurfaceKind::Refractive;
     s.WritesDepth_ = false;
@@ -59,9 +48,7 @@ constexpr SurfaceState StateOf(const Material &material) {
     return s;
   }
   if (material.Transmission > 0.0f) {
-    /* A THIN WALL IS SEEN FROM BOTH SIDES, and `doubleSided` has no say in it: the extension states
-     * the property has no effect on volume boundaries, and a sheet light passes through is exactly
-     * the surface whose far face is part of the picture. */
+
     s.Kind_ = SurfaceKind::ThinTransmissive;
     s.CullsBack_ = false;
     return s;
@@ -69,8 +56,7 @@ constexpr SurfaceState StateOf(const Material &material) {
   switch (material.Alpha) {
     case AlphaMode::Opaque: break;
     case AlphaMode::Masked: s.Kind_ = SurfaceKind::Masked; break;
-    /* A blended surface is composited in the order it is drawn, so it cannot also write the depth
-     * that would hide what is behind it -- the same pair the refractive arm above states. */
+
     case AlphaMode::Blended:
       s.Kind_ = SurfaceKind::Blended;
       s.WritesDepth_ = false;
@@ -84,5 +70,5 @@ constexpr SurfaceState StateOf(const Material &material) {
   return state.CullsBack() && winding == Winding::Trusted;
 }
 
-} // namespace outshine
+}
 #endif

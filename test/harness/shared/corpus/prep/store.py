@@ -7,20 +7,14 @@ import tempfile
 
 from .refusal import Refusal
 
-# src/data/ContentStore.cpp kDefaultLeaf, under the same temp directory std::filesystem picks. One
-# store or none: a second cache beside this one is a second thing that can disagree with the first.
 STORE_LEAF = "outshine-content"
 
-# Bumped when this file's derivation changes shape, so a recipe that means something new cannot be
-# served an artefact that meant the old thing. It sits in the key next to the Blender version.
 DERIVATION_VERSION = 10
 
 DERIVATION_ID = "outshine.corpus.prep"
 
-
 def sha256_hex(data):
     return hashlib.sha256(data).hexdigest()
-
 
 def sha256_of_file(path):
     digest = hashlib.sha256()
@@ -29,14 +23,11 @@ def sha256_of_file(path):
             digest.update(block)
     return digest.hexdigest()
 
-
 def canonical_json(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
-
 def default_directory():
     return os.path.join(tempfile.gettempdir(), STORE_LEAF)
-
 
 def derived_key(kind, recipe):
     """The name a derived artefact is filed under.
@@ -46,7 +37,6 @@ def derived_key(kind, recipe):
     """
     subject = "\n".join([DERIVATION_ID, str(DERIVATION_VERSION), kind, canonical_json(recipe)])
     return sha256_hex(subject.encode("utf-8"))
-
 
 class ContentStore:
     """A directory of files and nothing else: hash = filename, no index, no sidecar."""
@@ -140,7 +130,6 @@ class ContentStore:
             for block in iter(lambda: src.read(1 << 20), b""):
                 out.write(block)
         os.replace(temp, destination_path)
-
 
 def _check_key(key):
     if len(key) != 64 or any(c not in "0123456789abcdef" for c in key):

@@ -11,14 +11,12 @@ namespace {
 
 constexpr float kTau = 6.2831853f;
 
-/* A ring's j-th vertex direction, and the ONE place that angle is spelled. A shoot's declared roll
- * indexes the same circle, which is what lets a branch find the wall it grew through. */
 TreeVec3 RingDir(const TreeSkeleton::Node &node, float angle) {
   const TreeVec3 b = Normalize(Cross(node.Dir, node.Up));
   return node.Up * std::cos(angle) + b * std::sin(angle);
 }
 
-} // namespace
+}
 
 int TreeMesher::AddVert(TreeVec3 p) {
   Verts_.push_back(p);
@@ -64,8 +62,7 @@ bool TreeMesher::ChordHolds(const TreeSkeleton &plant, int from, int last, int s
       const TreeSkeleton::Node &n = plant.Nodes[(size_t)i];
       const float t = Dot(n.Pos - na.Pos, chord) / span;
       const TreeVec3 off = n.Pos - (na.Pos + chord * t);
-      /* An axis that has moved and a radius that has changed both move the outline, so the budget
-       * pays for their sum rather than for each alone. */
+
       if (Length(off) + std::fabs(n.Radius - (na.Radius + (nb.Radius - na.Radius) * t)) > tol) {
         return false;
       }
@@ -88,8 +85,6 @@ void TreeMesher::RingsOf(const TreeSkeleton &plant, const TreeSkeleton::Shoot &s
   std::reverse(Stations_.begin(), Stations_.end());
 }
 
-/* Half the diagonal of the FINEST wall the parent can have where this shoot leaves it: half a
- * skeleton segment along the axis, one side of the parent's declared polygon around it. */
 float TreeMesher::RoomAt(const TreeSkeleton &plant, const TreeSkeleton::Shoot &shoot) const {
   const TreeSkeleton::Node &upper = plant.Nodes[(size_t)shoot.ParentNode];
   const TreeSkeleton::Node &lower = plant.Nodes[(size_t)(shoot.ParentNode - 1)];
@@ -113,11 +108,6 @@ void TreeMesher::Wall(const int *from, const int *to, int sides) {
   }
 }
 
-/* THE FRACTURE IS A PROFILE ROUND THE RING, NOT A VALUE PER VERTEX. Drawn per index it moved when
- * the side count did, and a coarser rank then stood TALLER than a finer one — measured on log_beech
- * and snag_spruce, the only two declarations that break. Drawn instead at the finest ring this rule
- * allows and taken as the LOWEST splinter the vertex stands for, a coarser ring can only fall short
- * of a finer one, which is the direction a refinement is allowed to move in. */
 void TreeMesher::BreakProfile(uint32_t seed, int sides, float *out) const {
   float splinter[kMaxSides];
   TreeRandom rng(seed);
@@ -142,11 +132,7 @@ void TreeMesher::Cap(const TreeSkeleton::Node &node, const int *ring, int sides,
     case RingCap::Base: apex = -0.6f; break;
     case RingCap::Point: apex = 2.4f; break;
     case RingCap::Cut: apex = 0.0f; break;
-    /* A wind break is splinters, not a plane: the ring's own vertices are pulled forward at random
-     * and the apex stands at the longest splinter of all — which is both what a snapped trunk leaves
-     * and the only way the TOPMOST point of the cap sits on the axis. A rim vertex there instead
-     * made the plant's height depend on how many sides the ring had, because a k-gon inscribed in a
-     * circle does not sample the circle's highest point monotonically in k. */
+
     case RingCap::Broken: apex = 1.4f; break;
   }
   const int ci = AddVert(node.Pos + node.Dir * (node.Radius * apex));
@@ -171,18 +157,12 @@ bool TreeMesher::Collar(int face, const TreeSkeleton::Node &anchor,
   const Face parent = Faces_[(size_t)face];
   const int o[4] = {parent.A, parent.B, parent.C, parent.D};
   if (parent.D < 0) { return false; }
-  /* NO DRAWN VERTEX MAY DEPEND ON ANOTHER DRAWN VERTEX. The collar sits where the plant says the
-   * shoot leaves and is no wider than the NARROWEST wall this rule could leave there; both come off
-   * the skeleton. Reading the wall that happened to be standing instead made a coarse rank of a snag
-   * 2.6 cm TALLER than a fine one (measured, snag_spruce), because a decimated wall spans several
-   * stations, its middle is not the anchor and its corners are further out. */
+
   const TreeVec3 ctr = anchor.Pos;
   const float r = anchor.Radius < room ? anchor.Radius : room;
 
   Dead_[(size_t)face] = 1;
 
-  /* A REGULAR polygon at the collar AND at the first ring: equal segments, no distortion where the
-   * branch leaves the trunk. */
   int inner[kMaxSides];
   for (int j = 0; j < sides; ++j) {
     const float a = kTau * (float)j / (float)sides;
@@ -191,8 +171,6 @@ bool TreeMesher::Collar(int face, const TreeSkeleton::Node &anchor,
   Ring(first, first.Radius, sides, out);
   Wall(inner, out, sides);
 
-  /* The parent's quad stitched to the branch's polygon by angle, so the hole the dead face left is
-   * closed without a T-junction. */
   const TreeVec3 b = Normalize(Cross(anchor.Dir, anchor.Up));
   const TreeVec3 rel = Verts_[(size_t)o[0]] - ctr;
   float a0 = std::atan2(Dot(rel, b), Dot(rel, anchor.Up));
@@ -261,17 +239,14 @@ void TreeMesher::Draw(const TreeSkeleton &plant, float pixelHeightFrac, TreeMesh
       const int first = (int)Faces_.size();
       Ring(plant.Nodes[(size_t)n], plant.Nodes[(size_t)n].Radius, sides, next);
       Wall(ring, next, sides);
-      /* A STATION WITH NO RING OF ITS OWN STILL HAS TO ANSWER A CHILD, so the band that spans it is
-       * the one its branches leave through. Without this a decimated shoot would orphan every branch
-       * it carries and the crown would come apart at exactly the ranks meant to be cheaper. */
+
       for (int skipped = covered + 1; skipped <= n; ++skipped) {
         Bands_[(size_t)skipped] = Band{first, sides};
       }
       covered = n;
       for (int j = 0; j < sides; ++j) { ring[j] = next[j]; }
     }
-    /* The break is random and the randomness is the PLANT's, not the drawing's: seeded from the
-     * declaration and the shoot, it splinters the same way however many sides the ring has. */
+
     Cap(plant.Nodes[(size_t)last], ring, sides, shoot.End,
         plant.Seed * 2654435761u + (uint32_t)i + 1u);
   }
@@ -318,4 +293,4 @@ void TreeMesher::Export(TreeMesh &out) {
   }
 }
 
-} // namespace outshine::Generators
+}

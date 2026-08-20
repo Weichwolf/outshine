@@ -1,11 +1,3 @@
-/* WHAT A SKIN IS BEFORE ANYTHING IS DEFORMED (board:1200). A joint list and one inverse bind matrix
- * per joint, paired by position -- so the reader's whole job is that the pairing survives and that a
- * file which cannot mean anything is refused by name rather than skinned into nonsense.
- *
- * THE ABSENT `inverseBindMatrices` IS THE CASE WORTH HAVING A TEST FOR. glTF states that when the
- * property is undefined every matrix is the identity, so an empty vector here is a MEANING and not a
- * gap; a reader that materialised N identities would make "the file declared them" and "the file
- * declared none" indistinguishable, and the round-trip could not tell them apart either. */
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -19,9 +11,6 @@ using outshine::Gltf::Document;
 
 namespace {
 
-/* Two joints, and the inverse bind matrices are DISTINGUISHABLE from each other and from the
- * identity: joint 0 translates by (-1, 0, 0) and joint 1 by (0, -2, 0), column-major as the format
- * states, so a reader that transposed or that swapped the pair says so in the numbers. */
 std::vector<uint8_t> Binary() {
   std::vector<uint8_t> out;
   const float first[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 1};
@@ -50,7 +39,6 @@ const char *const kJson = R"({
   "skins": [ { "name": "arm", "skeleton": 1, "joints": [1, 2], "inverseBindMatrices": 0 } ]
 })";
 
-/* The same file with the matrices withdrawn, which the format defines as "every one is identity". */
 const char *const kNoBind = R"({
   "asset": { "version": "2.0" },
   "scenes": [ { "nodes": [0] } ],
@@ -69,7 +57,7 @@ bool Refuses(const char *json, const std::string &naming) {
   return document.Error().find(naming) != std::string::npos;
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;

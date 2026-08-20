@@ -1,6 +1,3 @@
-/* THE STREAMER IS UNDER THE GENERATORS, NOT BESIDE THEM. A world file that could name one would let
- * content decide what the world is. */
-
 #include "Check.h"
 #include "Layering.h"
 

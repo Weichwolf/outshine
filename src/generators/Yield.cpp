@@ -11,8 +11,7 @@ Yield::Yield(OccupancySink &space, Span<const char *const> names, Span<Note> not
 }
 
 Claim Yield::Place(const Body &body) noexcept {
-  /* Taken before the claim, because where this generator's stretch of the shared sink begins is only
-   * known at its first success — the yields of a whole set are built before any of them runs. */
+
   const uint32_t before = Space_->Claims(Claim::Outcome::Placed);
   const Claim claim = Space_->Place(body);
   Claims_[(size_t)claim.Why()]++;
@@ -23,4 +22,4 @@ Claim Yield::Place(const Body &body) noexcept {
   return claim;
 }
 
-} // namespace outshine::Generators
+}

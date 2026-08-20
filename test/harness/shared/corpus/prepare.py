@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Offline asset preparation for the glTF render ladder. Never a test, a gate or a build step."""
 
 import argparse
@@ -10,17 +9,15 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from prep import blender as blender_module  # noqa: E402
-from prep import jobs, manifest as manifest_module  # noqa: E402
-from prep import vendor  # noqa: E402
-from prep import test262 as test262_module  # noqa: E402
-from prep import wpt as wpt_module  # noqa: E402
-from prep.refusal import Refusal  # noqa: E402
-from prep.store import ContentStore  # noqa: E402
-
+from prep import blender as blender_module
+from prep import jobs, manifest as manifest_module
+from prep import vendor
+from prep import test262 as test262_module
+from prep import wpt as wpt_module
+from prep.refusal import Refusal
+from prep.store import ContentStore
 
 PREPARED_LEAF = "outshine-prepared"
-
 
 def prepared_directory(manifest_path):
     """Where a case's fetched, generated, converted and rendered files go, and it is NOT the tree.
@@ -34,13 +31,8 @@ def prepared_directory(manifest_path):
     leaf = os.path.relpath(case, root) if case.startswith(root + os.sep) else os.path.basename(case)
     return os.path.join(tempfile.gettempdir(), PREPARED_LEAF, leaf.replace(os.sep, "-"))
 
-
-# WHERE THE CASES ARE, AND THE TWO SUITES ARE NAMED RATHER THAN DISCOVERED. A walk that found a
-# `manifest.json` anywhere would prepare whatever a future directory happened to contain; these two are
-# the declarative suites and adding a third is a decision, not a side effect.
 CASE_TREES = ("test/render/khronos/glTF", "test/render/khronos/generator", "test/render/outshine/grown",
               "test/render/wpt/css", "test/render/test262/js")
-
 
 def every_manifest():
     """Every case's declaration, in a stable order so two runs report the same list."""
@@ -50,7 +42,6 @@ def every_manifest():
             if "manifest.json" in files:
                 found.append(os.path.join(here, "manifest.json"))
     return sorted(found)
-
 
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
@@ -96,9 +87,6 @@ def main(argv):
     if not manifests:
         parser.error("name at least one --manifest, or --every-case")
 
-    # ONE CASE IS THE UNIT AND A SWEEP IS A LOOP OVER IT, so a refusal names its case and the rest of
-    # the corpus still gets prepared. The exit status is what says whether ANY of them refused --
-    # a sweep that reported a refusal and exited zero would be the silent skip this tree keeps removing.
     if len(manifests) > 1:
         refused = []
         for one in manifests:
@@ -114,7 +102,6 @@ def main(argv):
             print("  refused " + one, file=sys.stderr)
         return 1 if refused else 0
     return _prepare(manifests[0], arguments)
-
 
 def _wpt_cases(arguments):
     """Turn an upstream directory at the pin into one case directory each, and report both counts."""
@@ -137,14 +124,11 @@ def _wpt_cases(arguments):
            "statesNoLayoutOfItsOwn": stated_nothing, "root": arguments.wpt_root})
     return 0
 
-
 def _generator_cases(arguments):
     """The generator's animation groups at the pin, one case directory each (board:1458)."""
     for name in ("gen_commit", "gen_root", "gen_pinned_on", "gen_pin_reason"):
         if getattr(arguments, name) is None:
             raise Refusal("generator-cases", expected="--" + name.replace("_", "-"), observed="absent")
-    # THE IMPORTER IS THE VENDOR'S, found the same way its fetch step is: by position under
-    # `test/harness/`, so a corpus that adds one adds a directory and nothing else (board:1469).
     generator_module = vendor.at(os.path.join(vendor.harness_of(arguments.gen_root), "prepare",
                                               "import_cases.py"))
     written, groups = [], {}
@@ -162,7 +146,6 @@ def _generator_cases(arguments):
            "root": arguments.gen_root})
     return 0
 
-
 def _test262_cases(arguments):
     """Turn every declared container at the pin into one case directory each."""
     for name in ("t262_commit", "t262_root", "t262_pinned_on", "t262_pin_reason"):
@@ -178,14 +161,10 @@ def _test262_cases(arguments):
            "tests": len(tests), "cases": len(written), "root": arguments.t262_root})
     return 0
 
-
 def _prepare(manifest_path, arguments):
     declared = manifest_module.load(manifest_path)
     destination = arguments.dest or prepared_directory(manifest_path)
     os.makedirs(destination, exist_ok=True)
-    # THE RUNNER IS GIVEN ONE DIRECTORY AND READS THE DECLARATION FROM IT, so the manifest is copied
-    # beside what it produced. The copy is rewritten on every preparation and nothing ever edits it,
-    # which is what keeps the tracked file the only authority.
     if os.path.abspath(destination) != os.path.abspath(declared.directory):
         shutil.copyfile(manifest_path, os.path.join(destination, "manifest.json"))
     store = ContentStore(arguments.store, enabled=not arguments.no_cache)
@@ -203,17 +182,10 @@ def _prepare(manifest_path, arguments):
     if arguments.job == "generate" or (arguments.job == "all" and needs_generation):
         report["generate"] = jobs.generate_subjects(declared, destination)
 
-    # BETWEEN THE FETCH AND EVERYTHING THAT READS THE FILES. The fetch verifies upstream's digest and
-    # restores the pristine bytes; the patch is stated on top of them, so the order is what keeps the
-    # pin exact and the correction reproducible.
     needs_patching = any(subject.patch for subject in declared.subjects)
     if arguments.job == "patch" or (arguments.job == "all" and needs_patching):
         report["patch"] = jobs.patch_subjects(declared, destination)
 
-    # A DOCUMENT CASE HAS NOTHING TO ASK BLENDER, AND THAT IS A PROPERTY OF THE CASE RATHER THAN A
-    # FLAG ON THE RUN. `all` over the whole corpus reaches both suites, so the oracle jobs are the ones
-    # a case without an oracle simply does not have; refusing here would make `--every-case` unusable
-    # the day a second kind of case arrived, which is today.
     blender = None
     if declared.oracle and arguments.job in ("convert", "render", "all"):
         blender = blender_module.Blender(blender_module.locate(arguments.blender))
@@ -236,11 +208,9 @@ def _prepare(manifest_path, arguments):
     _emit({"manifest": declared.id, "destination": destination, "provenance": provenance, "report": report})
     return 0
 
-
 def _emit(document):
     json.dump(document, sys.stdout, indent=2, sort_keys=True)
     sys.stdout.write("\n")
-
 
 if __name__ == "__main__":
     try:

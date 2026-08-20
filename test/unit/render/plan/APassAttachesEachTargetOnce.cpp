@@ -1,13 +1,3 @@
-/* THE PASS DESCRIPTOR'S TARGET SET, judged with no device in the process. It used to be rebuilt at
- * encode time from the pass's stages with a duplicate guard that compared texture views -- and the
- * renderer's `View()` answers `CreateView()`, a new object every call, so the guard never fired and
- * every stage of a pass wrote its own copy of a shared target. Eight content stages produced sixteen
- * entries against a device floor of eight.
- *
- * The union is now the plan's, computed once, and the type that holds it absorbs a repeat and
- * refuses beyond the floor. What this test measures is the property the defect violated: the number
- * of colour attachments a pass declares equals the number of DISTINCT targets its stages name, never
- * the number of stage-target edges. */
 #include <memory>
 #include <set>
 #include <string>
@@ -31,8 +21,6 @@ using outshine::Render::Transfer;
 
 namespace {
 
-/* The distinct colour targets of a pass, counted here from the catalogue rows independently of the
- * plan's own set -- otherwise the claim would be that the set agrees with itself. */
 size_t DistinctColourTargets(const RenderPlan &plan, const RenderPlan::Pass &pass) {
   std::set<Resource> seen;
   for (size_t at = 0; at < pass.Count; ++at) {
@@ -40,11 +28,7 @@ size_t DistinctColourTargets(const RenderPlan &plan, const RenderPlan::Pass &pas
     const Resource *const edges[2] = {row.Writes, row.Contributes};
     for (const Resource *edge : edges) {
       for (size_t e = 0; e < kMaxEdges && edge[e] != kNoEdge; ++e) {
-        /* THE SAME HELD FILTER THE COMPILER APPLIES (board:1121). A stage still DECLARES every
-         * target it draws into; the compiled plan attaches the subset something reads, so a helper
-         * that counted the declarations would be comparing a pass against a population the plan
-         * deliberately no longer has. The claim below is unchanged -- each distinct target exactly
-         * once -- and only what "distinct target" ranges over has moved. */
+
         if (!plan.Holds(edge[e])) { continue; }
         if (Row(edge[e]).Format != TexelFormat::Depth32Float) { seen.insert(edge[e]); }
       }
@@ -53,7 +37,6 @@ size_t DistinctColourTargets(const RenderPlan &plan, const RenderPlan::Pass &pas
   return seen.size();
 }
 
-/* The number of stage-target EDGES, which is what the defective guard let through. */
 size_t ColourEdges(const RenderPlan &plan, const RenderPlan::Pass &pass) {
   size_t edgeCount = 0;
   for (size_t at = 0; at < pass.Count; ++at) {
@@ -99,13 +82,11 @@ void JudgePlan(const RenderPlan &plan, const char *what) {
        "edges");
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
 
-  /* THE SET ITSELF, before any plan: a repeat is absorbed and the ninth distinct entry is refused
-   * rather than written past the end. */
   {
     AttachmentSet set;
     CHECK(set.Empty(), "a fresh set attaches nothing");
@@ -122,7 +103,6 @@ int main() {
     CHECK(set.Size() == kMaxColourAttachments, "and the set stops at the floor");
   }
 
-  /* THE COVERAGE PLAN, which is what every render case in the tree compiles today. */
   {
     PlanSpec spec;
     spec.Outputs = {Resource::SceneDepth, Resource::FrameTex};
@@ -136,9 +116,6 @@ int main() {
     if (compiled) { JudgePlan(*plan, "coverage plan"); }
   }
 
-  /* EVERY CONTENT STAGE THE CATALOGUE HAS, into a surface. This is the declaration the defect was
-   * measured on: with the target set rebuilt per stage it produced twenty entries in an array of
-   * sixteen. Here it is a plan that compiles, or a refusal that names the pass. */
   {
     PlanSpec spec;
     spec.Outputs = {Resource::Surface};
@@ -159,13 +136,6 @@ int main() {
     }
   }
 
-  /* THE PRUNE, HELD OVER THE ONE PAIR THAT DISCRIMINATES IT (board:1121). `sceneVelocity` has
-   * exactly one reader in the catalogue, so two plans differing only by whether that reader is
-   * declared are the smallest experiment that can tell "compiled backwards from a requested output"
-   * from "every target of every held stage". Before the prune BOTH plans held it and attached it:
-   * the parity runner's own two-pass plan allocated, cleared and wrote a full-screen rg16float
-   * target it reads nowhere. THE CLAIM IS THE DIFFERENCE AND NOT EITHER SIDE -- a test asserting
-   * only the absence would pass equally on a compiler that had dropped the target altogether. */
   {
     PlanSpec unread;
     unread.Outputs = {Resource::FrameTex};
@@ -200,9 +170,7 @@ int main() {
       CHECK(attachedWithout == 0 && attachedWith == 1,
             "the two compiled plans DIFFER in what they attach, which is the property a backward "
             "closure has and a forward one cannot");
-      /* THE DEPTH TARGET SURVIVES BOTH, and it is the one contribution with no reader at all: a
-       * depth attachment is what a raster pass IS rather than a data product, so pruning it would
-       * leave a geometry pass with no depth test instead of saving a buffer. */
+
       CHECK(without->Holds(Resource::SceneDepth) && with->Holds(Resource::SceneDepth),
             "the depth target is held in both, because the depth test consumes it inside the pass "
             "and no stage reads it as a resource");

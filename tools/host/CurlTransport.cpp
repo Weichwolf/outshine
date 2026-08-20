@@ -8,9 +8,6 @@
 namespace outshine::Host {
 namespace {
 
-/* [SET] Threads when the host is not asked. Eight, because the tile pool's ceiling is six workers
- * plus the frame thread's own oracle ask, and a transport narrower than its caller turns parallel
- * asks into a queue. */
 constexpr int kDefaultThreads = 8;
 
 struct Sink {
@@ -21,19 +18,17 @@ struct Sink {
 size_t Write(void *data, size_t size, size_t members, void *user) {
   Sink *sink = (Sink *)user;
   const size_t add = size * members;
-  /* Returning short aborts the transfer, which curl reports as an error — the partial bytes are
-   * never handed back as an answer. */
+
   if (sink->Max && sink->Out->size() + add > sink->Max) return 0;
   const uint8_t *bytes = (const uint8_t *)data;
   sink->Out->insert(sink->Out->end(), bytes, bytes + add);
   return add;
 }
 
-} // namespace
+}
 
 CurlTransport::CurlTransport(const Config &config) : Config_(config) {
-  /* curl_easy_init's lazy global init is not thread-safe, and every thread below has its own easy
-   * handle. */
+
   curl_global_init(CURL_GLOBAL_DEFAULT);
   int n = Config_.Threads;
   if (n <= 0) {
@@ -68,7 +63,7 @@ Data::Wire CurlTransport::Collect(Data::Ticket ticket) {
   if (ticket == Data::Ticket::None) return Data::Wire::Unreachable();
   std::lock_guard<std::mutex> lock(Mutex_);
   const auto found = Transfers_.find((uint64_t)ticket);
-  /* A ticket collected twice, or one that was cancelled: there is no answer to have. */
+
   if (found == Transfers_.end()) return Data::Wire::Unreachable();
   if (!found->second.Done) return Data::Wire::Working();
   Transfer done = std::move(found->second);
@@ -88,14 +83,12 @@ void CurlTransport::Cancel(Data::Ticket ticket) {
   }
   const auto queued = std::find(Queue_.begin(), Queue_.end(), (uint64_t)ticket);
   if (queued != Queue_.end()) {
-    /* Never started: it leaves without touching the wire at all. */
+
     Queue_.erase(queued);
     Transfers_.erase(found);
     return;
   }
-  /* Already under way. It cannot be taken off the wire from here, so it is marked and the worker
-   * drops its product when it lands — which is what stops a cancelled transfer from filling the
-   * table for the life of the run. */
+
   found->second.Cancelled = true;
 }
 
@@ -151,4 +144,4 @@ void CurlTransport::Work() {
   if (handle) curl_easy_cleanup(handle);
 }
 
-} // namespace outshine::Host
+}

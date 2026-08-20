@@ -58,9 +58,7 @@ void StreamTelemetry::DeclareTelemetry(TelemetrySchema &schema) const {
   schema.Add("poolHttpMs", "ms");
   schema.Add("poolFetchBlockedMs", "ms");
   schema.Add("poolHttpGaveUp", "count");
-  /* THE REFUSALS, beside the give-ups and never merged with them: a give-up is a server that is slow
-   * and a refusal is a request this tree may not repeat unchanged. A coarse quadrant with no refusal
-   * in the row has a different cause from one with them. */
+
   schema.Add("poolHttpRefused", "count");
   schema.Add("poolMeshRefused", "count");
   schema.Add("poolFetchedMB", "MiB");
@@ -119,4 +117,4 @@ void StreamTelemetry::SampleTelemetry(TelemetryRow &row) const {
   row.Push(Last_.Admission.Capped);
 }
 
-} // namespace outshine::Clients
+}

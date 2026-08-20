@@ -1,11 +1,3 @@
-/* READING ONE DECLARED OBJECT, WITH NO WAY TO IGNORE PART OF IT. Every reader below marks the key it
- * read; `Closed()` then refuses any key that is present and was not, naming its full path. That is
- * the whole mechanism behind "an unknown property is refused": a misspelt field cannot fall through
- * to a default, and a field the engine stopped reading cannot survive in the declaration — which is
- * how ten scenes came to carry eighty fields nothing had read for months.
- *
- * The error is written once, at the first refusal, and every later call is a no-op: a reader states
- * its fields in a row and asks at the end, instead of threading a bool through each line. */
 #ifndef FIELDS_H
 #define FIELDS_H
 
@@ -26,13 +18,9 @@ public:
   Fields &operator=(const Fields &) = delete;
 
   const std::string &Path() const { return Path_; }
-  /* The path this object names itself by, restated once its own id is known: a refusal reads better
-   * as `scenes(walk).fovDeg` than as `scenes[0].fovDeg`, and the id is only known after one read. */
+
   void Rename(std::string path) { Path_ = std::move(path); }
 
-  /* A key that is present, of the right kind and inside its declared range, or a refusal naming the
-   * path and the bound. A range is part of the declaration: "eyeM" without one is a metre count that
-   * can be a light-year. */
   [[nodiscard]] bool Need(const char *key, double lo, double hi, double &out) {
     const Json::Ref v = Take(key);
     if (!Err_.empty()) return false;
@@ -65,18 +53,14 @@ public:
     return Present(key) ? NeedString(key, out) : Mark(key);
   }
 
-  /* A nested object or array, marked read; the caller builds a Fields of its own over it with the
-   * path this one hands it, so a refusal three levels down still names all three. */
   Json::Ref Child(const char *key) { return Take(key); }
-  /* Accounted for without being read here: a nested reader takes it, or it is absent and its
-   * declared default stands. Without this, `Closed()` would refuse a key its own reader handled. */
+
   void Seen(const char *key) { (void)Mark(key); }
   [[nodiscard]] bool Present(const char *key) const {
     return Node_[key].GetKind() != Json::Kind::Invalid;
   }
   std::string Under(const char *key) const { return Path_ + "." + key; }
 
-  /* Whatever the caller could not say in a Need: a refusal in this object's own words, at its path. */
   [[nodiscard]] bool Refuse(const char *key, const std::string &why) {
     if (Err_.empty()) Err_ = Path_ + "." + key + " " + why;
     return false;
@@ -86,7 +70,6 @@ public:
     return false;
   }
 
-  /* EVERY KEY ACCOUNTED FOR. Called once, at the end of a reader. */
   [[nodiscard]] bool Closed() {
     if (!Err_.empty()) return false;
     for (size_t i = 0; i < Node_.Size(); i++) {
@@ -120,5 +103,5 @@ private:
   std::vector<std::string> Read_;
 };
 
-} // namespace outshine::Scenario
+}
 #endif

@@ -24,10 +24,8 @@ MAGIC = 0x01312F76
 _PIXEL_TYPES = {0: numpy.uint32, 1: numpy.float16, 2: numpy.float32}
 _LINES_PER_BLOCK = {0: 1, 2: 1, 3: 16}
 
-
 class Unreadable(Exception):
     pass
-
 
 def _attributes(data):
     at = 8
@@ -46,7 +44,6 @@ def _attributes(data):
         found[name] = (kind, data[at:at + size])
         at += size
 
-
 def _channels(blob):
     at = 0
     out = []
@@ -61,7 +58,6 @@ def _channels(blob):
         out.append((name, pixel_type))
     return out
 
-
 def _unzip(block):
     """zlib, then EXR's own byte predictor and its two-half interleave, in that order."""
     raw = numpy.frombuffer(zlib.decompress(block), dtype=numpy.uint8).astype(numpy.int32)
@@ -73,7 +69,6 @@ def _unzip(block):
     out[0::2] = halves[:split]
     out[1::2] = halves[split:]
     return out.tobytes()
-
 
 def read(path):
     """`(width, height, {channel: float32 array, top row first})`, and the name keeps any layer
@@ -110,8 +105,6 @@ def read(path):
         block = data[offset + 8:offset + 8 + size]
         rows = min(per_block, y1 - line + 1)
         payload = block if compression == 0 else _unzip(block)
-        # Within a block the rows come first and the CHANNELS second, in the header's own order --
-        # so the offset of a channel's row depends on every channel declared before it.
         cursor = 0
         for row in range(rows):
             for name, pixel_type in channels:

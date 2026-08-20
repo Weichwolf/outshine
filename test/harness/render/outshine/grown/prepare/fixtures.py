@@ -33,7 +33,6 @@ COMPONENT_TYPES = {"UNSIGNED_BYTE": (5121, "B", 1), "UNSIGNED_SHORT": (5123, "H"
 MODES = {"TRIANGLES": 4, "TRIANGLE_STRIP": 5, "TRIANGLE_FAN": 6}
 FLOAT32 = 5126
 
-
 def generate(where, recipe):
     """The bytes of one fixture, and what its producer reported about it -- empty for the shapes
     written here, because the whole of their report is the recipe that is already in the manifest."""
@@ -57,9 +56,6 @@ def generate(where, recipe):
     material = _material(where + ".material", field["material"]) if "material" in field else None
     return _write_glb(parts, mode, component, camera, material), {}
 
-
-# ---------------------------------------------------------------- the material
-
 def _material(where, declared):
     """A metallic-roughness row, so a GENERATED subject can be the one the engine's own BRDF shades.
 
@@ -80,12 +76,6 @@ def _material(where, declared):
         row["extensions"] = _material_extensions(where + ".extensions", field["extensions"])
     return row
 
-
-# Every property of every extension a fixture may declare, ENUMERATED rather than passed through.
-# An opaque block would let a mistyped name reach both renderers as nothing at all, and a case whose
-# subject quietly lost its extension is a case that goes green for the wrong reason -- the exact shape
-# `_fields` already refuses one level up, with its own words: a parameter nobody reads is a shape that
-# silently did not change. Nothing defaults here either, for the reason `_material` gives.
 _MATERIAL_EXTENSIONS = {
     "KHR_materials_sheen": (("sheenColorFactor", 3), ("sheenRoughnessFactor", "unit")),
     "KHR_materials_clearcoat": (("clearcoatFactor", "unit"), ("clearcoatRoughnessFactor", "unit")),
@@ -93,7 +83,6 @@ _MATERIAL_EXTENSIONS = {
                                   ("iridescenceThicknessMinimum", "number"),
                                   ("iridescenceThicknessMaximum", "number")),
 }
-
 
 def _material_extensions(where, declared):
     if not isinstance(declared, dict):
@@ -119,16 +108,12 @@ def _material_extensions(where, declared):
                 built[name][key] = _vector(at, block[key], kind)
     return built
 
-
 def _unit(where, value):
     number = _number(where, value)
     if not 0.0 <= number <= 1.0:
         raise Refusal(where, expected="a number in [0, 1], which is what the format allows",
                       observed=repr(number))
     return number
-
-
-# ---------------------------------------------------------------- the shapes
 
 class _Part:
     """One mesh at one node's placement. `run` is in the primitive's own mode, not triangles.
@@ -146,22 +131,13 @@ class _Part:
         self.name = name
         self.node = node or {}
 
-
 def _triangle(where, parameters, mode):
     field = _fields(where, parameters, ("legM",))
     leg = _positive(where + ".legM", field["legM"])
     _only_triangles(where, mode, "a triangle")
-    # RIGHT-ISOCELES AND NOT EQUILATERAL, and the reason is arithmetic rather than taste: an
-    # equilateral triangle has interior angles of 60 deg, so if one edge's raster slope is rational
-    # the other two are tan(t +/- 60 deg) = (t -/+ sqrt 3) / (1 +/- t sqrt 3), irrational for every
-    # rational t. No roll makes its silhouette rational, so it can never carry the exactness
-    # construction of `board/`, which is written for this shape and names it.
-    # Legs along +X and +Y about the bounding box's centre, in the plane z = 0, wound
-    # counter-clockwise from +Z.
     half = 0.5 * leg
     positions = [(-half, -half, 0.0), (half, -half, 0.0), (-half, half, 0.0)]
     return [_Part(positions, [(0.0, 0.0, 1.0)] * 3, [0, 1, 2], "triangle")]
-
 
 def _quad(where, parameters, mode):
     field = _fields(where, parameters, ("halfWidthM", "halfHeightM"))
@@ -169,12 +145,8 @@ def _quad(where, parameters, mode):
     half_height = _positive(where + ".halfHeightM", field["halfHeightM"])
     positions = [(-half_width, -half_height, 0.0), (half_width, -half_height, 0.0),
                  (-half_width, half_height, 0.0), (half_width, half_height, 0.0)]
-    # One surface, three spellings of it. The strip's own flip rule makes its two triangles the same
-    # two the list names; the fan's diagonal is the other one, which is why it is the same SURFACE
-    # and not the same triangulation.
     runs = {"TRIANGLES": [0, 1, 2, 2, 1, 3], "TRIANGLE_STRIP": [0, 1, 2, 3], "TRIANGLE_FAN": [0, 1, 3, 2]}
     return [_Part(positions, [(0.0, 0.0, 1.0)] * 4, runs[mode], "quad")]
-
 
 _CUBE_FACES = (
     ((1, 0, 0), ((1, -1, -1), (1, 1, -1), (1, 1, 1), (1, -1, 1))),
@@ -184,7 +156,6 @@ _CUBE_FACES = (
     ((0, 0, 1), ((-1, -1, 1), (1, -1, 1), (1, 1, 1), (-1, 1, 1))),
     ((0, 0, -1), ((1, -1, -1), (-1, -1, -1), (-1, 1, -1), (1, 1, -1))),
 )
-
 
 def _cube_mesh(half_extent):
     positions, normals, run = [], [], []
@@ -196,14 +167,12 @@ def _cube_mesh(half_extent):
         run.extend([base, base + 1, base + 2, base, base + 2, base + 3])
     return positions, normals, run
 
-
 def _cube(where, parameters, mode):
     field = _fields(where, parameters, ("halfExtentM",))
     half_extent = _positive(where + ".halfExtentM", field["halfExtentM"])
     _only_triangles(where, mode, "a cube")
     positions, normals, run = _cube_mesh(half_extent)
     return [_Part(positions, normals, run, "cube")]
-
 
 def _uv_sphere(where, parameters, mode):
     field = _fields(where, parameters, ("radiusM", "segments", "rings"))
@@ -227,21 +196,11 @@ def _uv_sphere(where, parameters, mode):
         for segment in range(segments):
             here = ring * (segments + 1) + segment
             below = here + segments + 1
-            # Counter-clockwise seen from OUTSIDE, which is glTF's front face and the direction the
-            # NORMAL attribute already points. Wound the other way round the shape is unchanged and
-            # every visible face is a back face: Cycles then rejects each sampled direction against
-            # the inward geometric normal and the whole sphere renders black -- measured, 46 101 of
-            # 46 151 covered pixels at exactly 0.0, which is what this order costs when it is wrong.
-            #
-            # The pole rows would give a triangle of zero area on one side of every quad, and a
-            # degenerate triangle is a face the oracle's importer and our rasteriser may disagree
-            # about for a reason that has nothing to do with the silhouette.
             if ring != 0:
                 run.extend([here, here + 1, below])
             if ring != rings - 1:
                 run.extend([here + 1, below + 1, below])
     return [_Part(positions, normals, run, "sphere")]
-
 
 def _nested_cubes(where, parameters, mode):
     field = _fields(where, parameters, ("halfExtentM", "placement", "chain"))
@@ -263,12 +222,8 @@ def _nested_cubes(where, parameters, mode):
         parts.append(_Part(positions, normals, run, "level%d" % depth, node))
     return parts
 
-
 _SHAPES = {"triangle": _triangle, "quad": _quad, "cube": _cube, "uv-sphere": _uv_sphere,
            "nested-cubes": _nested_cubes}
-
-
-# ---------------------------------------------------------------- the camera
 
 def _camera(where, declared):
     if not isinstance(declared, dict):
@@ -293,7 +248,6 @@ def _camera(where, declared):
                                   "zfar": _positive(where + ".zfarM", field["zfarM"])}}
     return {"camera": block, "matrix": matrix}
 
-
 def _look_at(where, position, aim, roll):
     """glTF's camera looks down -Z in its node's space, so the node's columns are right, up, -forward."""
     forward = _normalised(where, [aim[axis] - position[axis] for axis in range(3)])
@@ -304,9 +258,6 @@ def _look_at(where, position, aim, roll):
     rolled_up = [up[axis] * turn - right[axis] * lean for axis in range(3)]
     return (rolled_right + [0.0] + rolled_up + [0.0] +
             [-forward[axis] for axis in range(3)] + [0.0] + list(position) + [1.0])
-
-
-# ---------------------------------------------------------------- the container
 
 def _write_glb(parts, mode, component, camera, material=None):
     document = {"asset": {"version": "2.0", "generator": "outshine test/harness/shared/corpus"},
@@ -336,15 +287,12 @@ def _write_glb(parts, mode, component, camera, material=None):
         node["mesh"] = len(document["meshes"]) - 1
         document["nodes"].append(node)
 
-    # The chain is nested: node n is node n-1's child, and only the first is a root of the scene.
     for at in range(len(parts) - 1):
         document["nodes"][at]["children"] = [at + 1]
     document["scenes"][0]["nodes"] = [0] if parts else []
 
     if material is not None:
         document["materials"] = [dict(material, name="fixture")]
-        # Declared where the format requires it, so a reader that refuses an unlisted extension --
-        # which is the conforming behaviour -- sees the subject the manifest described.
         if "extensions" in material:
             document["extensionsUsed"] = sorted(material["extensions"])
 
@@ -363,7 +311,6 @@ def _write_glb(parts, mode, component, camera, material=None):
     out += struct.pack("<II", len(binary), CHUNK_BIN) + bytes(binary)
     return out
 
-
 def _accessor(document, binary, payload, component, element, count, bounds=None, target=None):
     binary += b"\0" * (-len(binary) % 4)
     view = {"buffer": 0, "byteOffset": len(binary), "byteLength": len(payload)}
@@ -379,13 +326,9 @@ def _accessor(document, binary, payload, component, element, count, bounds=None,
     document["accessors"].append(accessor)
     return len(document["accessors"]) - 1
 
-
 def _floats(points):
     flat = [component for point in points for component in point]
     return struct.pack("<%df" % len(flat), *flat)
-
-
-# ---------------------------------------------------------------- arithmetic and refusals
 
 def _trs(translation, rotation, scale):
     """Column-major T * R * S, the format's own composition order."""
@@ -398,17 +341,14 @@ def _trs(translation, rotation, scale):
         out.extend([basis[column][row] * scale[column] for row in range(3)] + [0.0])
     return out + list(translation) + [1.0]
 
-
 def _cross(a, b):
     return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
-
 
 def _normalised(where, vector):
     length = math.sqrt(sum(component * component for component in vector))
     if length == 0.0:
         raise Refusal(where, expected="a direction", observed="a zero-length vector")
     return [component / length for component in vector]
-
 
 def _fields(where, value, required, optional=()):
     if not isinstance(value, dict):
@@ -423,18 +363,15 @@ def _fields(where, value, required, optional=()):
             raise Refusal(where, expected="the field " + repr(key), observed="absent")
     return value
 
-
 def _one_of(where, value, allowed):
     if value not in allowed:
         raise Refusal(where, expected="one of " + ", ".join(allowed), observed=repr(value))
     return value
 
-
 def _number(where, value):
     if not isinstance(value, (int, float)) or isinstance(value, bool):
         raise Refusal(where, expected="a number", observed=repr(value))
     return float(value)
-
 
 def _positive(where, value):
     number = _number(where, value)
@@ -442,18 +379,15 @@ def _positive(where, value):
         raise Refusal(where, expected="a positive number", observed=repr(value))
     return number
 
-
 def _count(where, value, floor):
     if not isinstance(value, int) or isinstance(value, bool) or value < floor:
         raise Refusal(where, expected="an integer of at least %d" % floor, observed=repr(value))
     return value
 
-
 def _vector(where, value, length):
     if not isinstance(value, list) or len(value) != length:
         raise Refusal(where, expected="%d numbers" % length, observed=repr(value))
     return [_number(where, component) for component in value]
-
 
 def _only_triangles(where, mode, subject):
     if mode != "TRIANGLES":

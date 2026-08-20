@@ -1,10 +1,3 @@
-/* That a region is a function of place is only answered by generating one twice and comparing bytes.
- * The second pass reuses a sink that has meanwhile held another region, so state surviving an Open
- * fails here rather than as a forest that moves when the viewer walks a ring.
- *
- * The class is checked the same way: the grid below has two overlapping outlines and nothing else,
- * so what a candidate classifies as is known in closed form at every point — and a lattice would
- * have to answer with the nearest of its postings. */
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -42,7 +35,6 @@ using namespace outshine::Generators;
 
 namespace {
 
-/* "The hot path allocates nothing" is a claim about a signature until something counts. */
 long gAllocations = 0;
 bool gCounting = false;
 
@@ -59,8 +51,6 @@ constexpr int kSide = 33;
 constexpr double kCellM = 8.0;
 constexpr uint32_t kBodies = 8192;
 
-/* THE TWO OUTLINES, in the class structure's own metres: a wood of the higher rank and a scrub of
- * the lower, overlapping over 300 m. Everything outside both is the coarse grid's meadow. */
 constexpr double kWoodW = 200.0, kWoodE = 900.0;
 constexpr double kScrubW = 600.0, kScrubE = 1200.0;
 constexpr int kMeadowRow = 0, kWoodRow = 1, kScrubRow = 2;
@@ -82,8 +72,7 @@ Truth Expected(double classEm) {
 }
 
 void PushEdges(ClassStructure::Grid &g, double west, double east) {
-  /* The outline runs a kilometre past the region on both sides, so the nearest edge to any sample
-   * is one of the two that matter and the expected distance stays closed-form. */
+
   const float ring[4][4] = {{(float)west, -1000.0f, (float)east, -1000.0f},
                             {(float)east, -1000.0f, (float)east, 5000.0f},
                             {(float)east, 5000.0f, (float)west, 5000.0f},
@@ -92,15 +81,13 @@ void PushEdges(ClassStructure::Grid &g, double west, double east) {
     for (float v : e) g.Edges.push_back(v);
 }
 
-/* One acceleration cell holding both outlines: the same words the fragment reads, laid down by
- * hand because ClassBuilder is world/ and has no spelling here. */
 std::shared_ptr<const ClassStructure> SyntheticClasses(const TangentFrame &frame) {
   auto fine = std::make_shared<ClassStructure::Grid>();
   fine->W = fine->H = 1;
   fine->OrgE = fine->OrgN = -100.0;
   fine->CellM = 4000.0;
-  fine->Cells = {0xFFu | (2u << 16), 0u};   /* no base class, two seeds */
-  const uint32_t wind = 128u;              /* the cell corner lies outside both outlines */
+  fine->Cells = {0xFFu | (2u << 16), 0u};
+  const uint32_t wind = 128u;
   fine->Seeds = {(uint32_t)kWoodRow | (5u << 8) | (4u << 16) | (wind << 24), 0u, 0u,
                  (uint32_t)kScrubRow | (3u << 8) | (4u << 16) | (wind << 24), 4u, 0u};
   fine->Refs = {0, 1, 2, 3, 4, 5, 6, 7};
@@ -115,13 +102,9 @@ std::shared_ptr<const ClassStructure> SyntheticClasses(const TangentFrame &frame
   return std::make_shared<const ClassStructure>(frame, fine, coarse, 1, kMeadowRow, 0.0, 0);
 }
 
-/* TWO OUTLINES IN THE REGION'S OWN METRES: a square that is roofed and a square that is wet. The
- * wet one sits where the synthetic ground runs from 400 to 520 m and its level is 430, so part of it
- * is under the ground and part over — which is the case core/WaterDepth.h exists for. */
 constexpr int32_t kBuiltRow = 1, kWetRow = 2, kWayRow = 0;
 constexpr float kRoofAslM = 560.0f, kLevelAslM = 430.0f, kBaseAslM = 470.0f;
-/* A ribbon straight across the region at 80 % north, 6 m wide: what a query has to get right is the
- * half-width, and a way is the one feature whose extent is not in its own vertices. */
+
 constexpr float kHalfWayM = 3.0f;
 
 std::shared_ptr<const FeatureField> SyntheticFeatures(const Region &region) {
@@ -169,10 +152,6 @@ Ground::Snapshot SyntheticSnapshot(const Region &region) {
   return s;
 }
 
-/* THE BORDER, and it is the one thing a second region can be asked. The lattice is the region's own
- * subdivision, so a cell belongs to one region and a point of the plane lies in one region's cell:
- * the two lattices must meet with neither a gap nor a doubled stand. Measured on the real forest at
- * a density that accepts every cell, so the placed stands ARE the lattice. */
 struct Seam {
   double MinStepM = 1.0e30, MaxStepM = 0.0, CrossMinM = 1.0e30, CrossMaxM = 0.0;
   long Rows = 0, Stands = 0;
@@ -187,8 +166,6 @@ std::vector<Body> Grown(RegionPool &pool, const Ground &ground, const Generator 
   return std::vector<Body>(placed.begin(), placed.end());
 }
 
-/* A stand-in for the generators step 6 onwards moves in: a jittered lattice, the ground's own rules,
- * and a trunk that claims its space. */
 class Scatter : public Generator {
 public:
   enum Note { NoClass, TooSteep, InWater, Occupied, HighestStandAslM, kNotes };
@@ -221,8 +198,6 @@ public:
     }
   }
 
-  /* Every lattice cell of the ground it is asked about, because this one refuses on the ground and
-   * never on a draw: the ceiling it declares is the lattice itself. */
   uint32_t Proposes(double areaM2) const noexcept override {
     return (uint32_t)(areaM2 / (StepM_ * StepM_) + 1.0);
   }
@@ -249,8 +224,6 @@ private:
   double StepM_;
 };
 
-/* One yield per registered generator, over the storage the caller brought: what step 6's region job
- * does at bring-up, done here so that the gate exercises the same shape. */
 std::vector<Yield> Yields(const GeneratorSet &set, OccupancySink &sink,
                           std::vector<Yield::Note> &notes) {
   std::vector<Yield> yields;
@@ -266,13 +239,11 @@ std::vector<Yield> Yields(const GeneratorSet &set, OccupancySink &sink,
 struct Run {
   std::vector<Body> Bodies;
   std::vector<BodyRange> Ranges;
-  std::vector<uint32_t> Conflicts;   /* per yield, against the sink's own total */
+  std::vector<uint32_t> Conflicts;
   uint32_t Occupied = 0, Outside = 0, Full = 0;
   double OccupyMs = 0.0;
 };
 
-/* Acquires, fills and gives the buffers straight back, so the next region gets a sink that has just
- * held another one — which is the only way a leftover shows up as a moved body. */
 Run Filled(RegionPool &pool, const Ground &ground, const GeneratorSet &set,
            std::vector<Yield::Note> &notes) {
   std::optional<RegionPool::Lease> lease = pool.TryAcquire(ground);
@@ -302,7 +273,7 @@ Run Filled(RegionPool &pool, const Ground &ground, const GeneratorSet &set,
          (!a.Raised || a.Peak == b.Peak);
 }
 
-} // namespace
+}
 
 void *operator new(size_t bytes) {
   if (gCounting) gAllocations++;
@@ -333,9 +304,6 @@ int main() {
   classless.Classes.reset();
   CHECK(!Ground::Of(a, classless), "a Ground was offered with no classifier");
 
-  /* WHAT THE TWO FRAMES COST EACH OTHER: the region measures east with the cosine at the sample and
-   * the class structure with an ECEF tangent plane, so the same place has two sets of metres. The
-   * conversion runs through geodetic coordinates; this is what skipping it would have been worth. */
   double frameOffsetM = 0.0;
   for (int j = 0; j <= 8; j++)
     for (int i = 0; i <= 8; i++) {
@@ -345,8 +313,6 @@ int main() {
       frameOffsetM = std::max(frameOffsetM, std::max(std::fabs(e - em), std::fabs(n - nm)));
     }
 
-  /* THE CLASS IS A FUNCTION: every sample answers what the outlines say at that very point, and the
-   * finest boundary it resolves is bounded by nothing but the sample spacing. */
   constexpr int kProbeSide = 200;
   std::vector<Truth> want((size_t)kProbeSide * kProbeSide);
   std::vector<Cover> got((size_t)kProbeSide * kProbeSide);
@@ -361,7 +327,7 @@ int main() {
       t = Expected(e);
       if (t.HasEdge) finestEdgeM = std::min(finestEdgeM, t.EdgeM);
     }
-  /* What one candidate costs the generator: the whole hop, region metres to a class row. */
+
   const auto probesStarted = std::chrono::steady_clock::now();
   for (int j = 0; j < kProbeSide; j++)
     for (int i = 0; i < kProbeSide; i++)
@@ -418,8 +384,6 @@ int main() {
             !field->Contains(field->At(0), 200.0, 30.0),
         "the outline holds the wrong points");
 
-  /* TWO of them, because one generator cannot show that the second one's bodies start where the
-   * first one's end — and a set of one is not the contract. */
   const Scatter scatter(30.0), sparse(97.0);
   GeneratorSet set;
   CHECK(set.Add(Rank{10}, scatter), "the first registration was refused");
@@ -430,8 +394,7 @@ int main() {
       notes3(noteCount);
 
   const Schedule schedule(Schedule::Ring{14, 2});
-  /* The pool is sized on the widest region it will ever be handed, and the schedule is what names
-   * that one: a slot narrower than the ground opened on it has no room for the ground's own cells. */
+
   const std::optional<Region> widest = schedule.Widest(51.96, 9.55);
   CHECK(widest.has_value(), "the ring named no region to size the pool on");
   for (size_t i = 0; i < schedule.Count(); i++) {
@@ -441,9 +404,7 @@ int main() {
   }
   RegionPool pool(RegionPool::Extent{a, schedule.Broadest()},
                   RegionPool::Shape{2, kBodies, kCellM});
-  /* Every generator states what it can claim over a stated area, and that declaration is what the
-   * pool is sized on: a ceiling that is not derived from it truncates a region instead of refusing
-   * it, silently, at whatever lattice row the scan reached. */
+
   CHECK(sparse.Proposes(a.SpanEm() * a.SpanNm()) > 0,
         "a registered generator proposes nothing over a whole region");
   CHECK(sparse.Proposes(4.0 * a.SpanEm() * a.SpanNm()) > sparse.Proposes(a.SpanEm() * a.SpanNm()),
@@ -461,7 +422,7 @@ int main() {
   const Run run1 = Filled(pool, *groundA, set, notes);
   const Run runB = Filled(pool, *groundB, set, notesB);
   const Run run2 = Filled(pool, *groundA, set, notes2);
-  /* Held, so the third pass runs in the OTHER buffer set. */
+
   std::optional<RegionPool::Lease> held = pool.TryAcquire(*groundA);
   const Run run3 = Filled(pool, *groundA, set, notes3);
   held.reset();
@@ -503,8 +464,7 @@ int main() {
         "a note lost the name its generator declared");
 
   {
-    /* Every cell placed: the acceptance threshold is above one, so nothing is drawn away and the
-     * bodies are the lattice itself. */
+
     const float perM2[3] = {0.2f, 0.2f, 0.2f};
     const Forest forest(Forest::Stem{}, Span<const float>(perM2, 3), AlpineLimit());
     const double em = a.SpanEm() / (double)(int)(a.SpanEm() / Forest::kCellM + 0.5);
@@ -517,9 +477,7 @@ int main() {
     const std::vector<Body> east =
         Grown(wide, *groundB, forest, Span<Yield::Note>(seamNotesB.data(), seamNotesB.size()));
     CHECK(a.SpanEm() == b.SpanEm(), "two regions of one Mercator row disagree on their width");
-    /* THE BAND AROUND THE BORDER and nothing else: away from it the synthetic ground's own rules
-     * refuse stands (the scrub band is steeper than it declares), and a refusal is not a gap in a
-     * lattice. Inside the band every cell places, so a missing one is the lattice's own. */
+
     constexpr double kBandM = 100.0;
     std::map<long, std::vector<double>> byRow;
     for (const Body &body : west)
@@ -544,9 +502,7 @@ int main() {
     }
     CHECK(seam.Stands > 10000 && !west.empty() && !east.empty(),
           "the two regions placed nothing to compare");
-    /* One cell, one stand, jittered over the middle half of it: two neighbours therefore stand
-     * between half a cell and one and a half cells apart, and that must hold ACROSS the border
-     * exactly as it holds inside a region. */
+
     CHECK(seam.MinStepM >= 0.5 * em - 1.0e-6 && seam.MaxStepM <= 1.5 * em + 1.0e-6,
           "the lattice has a gap or a doubled stand somewhere");
     CHECK(seam.CrossMinM >= 0.5 * em - 1.0e-6 && seam.CrossMaxM <= 1.5 * em + 1.0e-6,
@@ -575,7 +531,6 @@ int main() {
           "a body inside one already standing was not refused as occupied");
   }
 
-  /* THE FOURTH OUTCOME, which a sink sized for a region never reaches. */
   RegionPool tiny(RegionPool::Extent{a, schedule.Broadest()}, RegionPool::Shape{1, 4, kCellM});
   std::vector<Yield::Note> tinyNotes(noteCount);
   const Run cramped = Filled(tiny, *groundA, set, tinyNotes);
@@ -591,13 +546,7 @@ int main() {
   constexpr Material bark{};
   static_assert(StateOf(leaf).Kind() == SurfaceKind::ThinTransmissive, "leaf");
   static_assert(!StateOf(leaf).CullsBack() && StateOf(leaf).WritesDepth(), "leaf state");
-  /* A PANE WITH NO THICKNESS IS THIN-WALLED HOWEVER STRONGLY IT REFRACTS, and this assertion used to
-   * say otherwise (board:1386). `KHR_materials_volume`: *if the value is 0 the material is
-   * thin-walled, otherwise the material is a volume boundary*, and *it is still necessary to check
-   * the thicknessFactor to determine whether the object is thin-walled or volumetric*. An index of
-   * refraction states how strongly light bends at an interface and says nothing about whether a
-   * medium lies behind it -- so this material, transmission 0.9 and ior 1.5 with no volume, is the
-   * ordinary window and not a solid. `GlassBrokenWindow` at the pin declares exactly that. */
+
   static_assert(StateOf(glass).Kind() == SurfaceKind::ThinTransmissive, "a pane with no volume");
   static_assert(!StateOf(glass).CullsBack(), "a thin wall is seen from both sides");
   constexpr Material solid = [](Material made) {
@@ -608,10 +557,6 @@ int main() {
   static_assert(StateOf(solid).Blends() && !StateOf(solid).WritesDepth(), "a volume's state");
   static_assert(StateOf(bark).Kind() == SurfaceKind::Opaque, "bark");
 
-  /* THE TWO OUTLINE GENERATORS, on the two synthetic outlines. What they answer is a point query,
-   * so what has to hold is that the answer is a function of the place — and that no depth can come
-   * back negative where the level model and the ground disagree, which is the whole reason the
-   * answer is a state and not a double. */
   {
     const Buildings built(ContactMaterial{2});
     const Water wet;
@@ -620,8 +565,7 @@ int main() {
           "nothing stands under the roofed outline");
     CHECK(std::fabs(roof.BaseAslM + (double)roof.HeightM - (double)kRoofAslM) < 0.01,
           "the roof the query answers is not the roof the outline carries");
-    /* THE PRISM QUERIED IS THE PRISM DRAWN: its base is the outline's own, so the height that comes
-     * back is the height the outline carries and not that minus the ground's fall across it. */
+
     CHECK(std::fabs(roof.BaseAslM - (double)kBaseAslM) < 0.01,
           "the queried prism does not stand on the outline's own base");
     CHECK(!built.At(*groundA, 0.50 * a.SpanEm(), 0.15 * a.SpanNm(), &roof),
@@ -658,8 +602,6 @@ int main() {
                 "worstDisagreementM=%.3f\n",
                 (long)(65 * 65), dry, standing, disagreeing, deepest, worst);
 
-    /* THE WAY REACHES EXACTLY ITS DECLARED HALF-WIDTH, which is the one claim a ribbon makes that a
-     * ring cannot: its extent is not in its own vertices. Probed straight across the centreline. */
     const Infrastructure ways;
     const double on = 0.80 * a.SpanNm(), mid = 0.50 * a.SpanEm();
     CHECK(ways.MadeAt(*groundA, mid, on).has_value(), "nothing is made on the way's own centreline");

@@ -1,9 +1,3 @@
-/* AN SDL_GPU HANDLE THAT FREES ITSELF. SDL_GPU's objects are raw C handles with a release function
- * each, so a member holding one is an owning raw pointer -- the exact shape `R.1`, `R.3` and `C.31`
- * name. This makes the leak unspellable rather than forbidden: there is no way to hold a handle that
- * is not released, because holding one IS this type.
- *
- * MOVE-ONLY, because a handle has one owner: a copy would release twice. */
 #ifndef GPUOWNED_H
 #define GPUOWNED_H
 
@@ -45,11 +39,6 @@ private:
   Handle *Handle_ = nullptr;
 };
 
-/* THE DEVICE AND THE SUBSYSTEM IT NEEDS, AS ONE LIFETIME, and it is not the template above because
- * SDL spells this pair differently: a device is destroyed rather than released, and the video
- * subsystem it was opened under is reference-counted beside it. DECLARE IT FIRST in whatever holds
- * it (`C.13`): members are destroyed in reverse declaration order, so a device declared first
- * outlives every handle taken from it. */
 class OwnedDevice {
 public:
   OwnedDevice() = default;
@@ -83,12 +72,11 @@ private:
 
 using OwnedBuffer = Owned<SDL_GPUBuffer, SDL_ReleaseGPUBuffer>;
 using OwnedTexture = Owned<SDL_GPUTexture, SDL_ReleaseGPUTexture>;
-/* A STAGING BUFFER THAT OUTLIVES THE UPLOAD IT SERVED (board:1463). One created and released per
- * upload is a frame-path allocation wearing a driver call's clothes. */
+
 using OwnedTransfer = Owned<SDL_GPUTransferBuffer, SDL_ReleaseGPUTransferBuffer>;
 using OwnedSampler = Owned<SDL_GPUSampler, SDL_ReleaseGPUSampler>;
 using OwnedShader = Owned<SDL_GPUShader, SDL_ReleaseGPUShader>;
 using OwnedPipeline = Owned<SDL_GPUGraphicsPipeline, SDL_ReleaseGPUGraphicsPipeline>;
 
-} // namespace outshine::Render
+}
 #endif

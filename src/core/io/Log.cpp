@@ -15,8 +15,7 @@ LogField::LogField(const char *key, const char *v) : Key(key), Value(v) {}
 LogField::LogField(const char *key, const std::string &v) : Key(key), Value(v) {}
 
 LogSink *Log::Sink_ = nullptr;
-/* Debug by default so the browser console looks unchanged; a caller wanting a quieter channel raises
- * the level explicitly. */
+
 LogLevel Log::Level_ = LogLevel::Debug;
 thread_local LogSink *Log::ThreadSink_ = nullptr;
 thread_local double Log::TimeS_ = 0.0;
@@ -35,13 +34,13 @@ void Log::Emit(LogLevel level, const char *tag, const char *event,
 void Log::Emit(LogLevel level, const char *tag, const char *event,
                  const std::vector<LogField> &fields) {
   if (!Sink_ || level < Level_) return;
-  /* A capture buffer is a redirect of an already-accepted line, not a second switch. */
+
   LogSink *out = ThreadSink_ ? ThreadSink_ : Sink_;
   if (!Unit_[0]) {
     out->Write(TimeS_, level, tag, event, fields);
     return;
   }
-  /* Attribution FIRST: a script splits on the first field, a human sees whose line it is at once. */
+
   std::vector<LogField> withUnit;
   withUnit.reserve(fields.size() + 1);
   withUnit.emplace_back("unit", static_cast<const char *>(Unit_));
@@ -49,4 +48,4 @@ void Log::Emit(LogLevel level, const char *tag, const char *event,
   out->Write(TimeS_, level, tag, event, withUnit);
 }
 
-} // namespace outshine
+}

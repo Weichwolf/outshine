@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Bake the FlightBox star catalogue into incremental magnitude bands for fb-tiles.
 
 Source : HYG v4 (astronexus/HYG-Database, CC-BY-SA 4.0), the Hipparcos-derived open catalogue.
@@ -25,20 +24,16 @@ import argparse, csv, datetime as dt, io, math, os, struct, sys, urllib.request
 
 HYG_URL = "https://raw.githubusercontent.com/astronexus/HYG-Database/main/hyg/CURRENT/hygdata_v41.csv"
 MAG_MAX = 6.5
-BANDS   = [3.0, 4.5, 6.0, 6.5]          # upper mag edge of each incremental band
+BANDS   = [3.0, 4.5, 6.0, 6.5]
 ARCSEC  = math.pi / 180.0 / 3600.0
 J2000   = 2451545.0
 
-
 def jd_of_year(year):
-    # year e.g. 2026.54 -> Julian Date at that fractional Gregorian year (UTC noon-agnostic; the
-    # ~0.5 d offset is 0.00002 deg of precession, far below format resolution).
     y = int(math.floor(year))
     base = dt.date(y, 1, 1).toordinal()
     days = dt.date(y, 12, 31).toordinal() + 1 - base
     frac_ordinal = base + (year - y) * days
-    return frac_ordinal + 1721424.5          # proleptic Gregorian ordinal 1 == JD 1721425.0 at noon
-
+    return frac_ordinal + 1721424.5
 
 def precession_matrix(jd_to):
     """IAU 1976 precession from J2000.0 to jd_to, as a 3x3 rotation of equatorial rectangular
@@ -59,20 +54,16 @@ def precession_matrix(jd_to):
     def mul(a, b):
         return [[sum(a[i][k] * b[k][j] for k in range(3)) for j in range(3)] for i in range(3)]
 
-    # P = Rz(-z) . Ry(+theta) . Rz(-zeta)   (Explanatory Supplement)
     return mul(rz(-z), mul(ry(theta), rz(-zeta)))
-
 
 def apply(mat, v):
     return [sum(mat[i][k] * v[k] for k in range(3)) for i in range(3)]
-
 
 def load_rows(src):
     data = src.read()
     if isinstance(data, bytes):
         data = data.decode("utf-8")
     return list(csv.DictReader(io.StringIO(data)))
-
 
 def pack(rows, epoch_year):
     jd = jd_of_year(epoch_year)
@@ -81,22 +72,20 @@ def pack(rows, epoch_year):
     out = []
     for r in rows:
         if r.get("proper") == "Sol" or r.get("id") == "0":
-            continue                                    # the Sun sits at the frame origin, not a star
+            continue
         try:
             mag = float(r["mag"])
         except (ValueError, KeyError):
             continue
         if not mag <= MAG_MAX:
             continue
-        ra = float(r["ra"]) * 15.0 * math.pi / 180.0    # HYG ra is in HOURS
+        ra = float(r["ra"]) * 15.0 * math.pi / 180.0
         dec = float(r["dec"]) * math.pi / 180.0
-        # proper motion in the J2000 frame; pmra is mu_alpha* = mu_alpha*cos(dec) (mas/yr)
         pmra = float(r["pmra"] or 0.0) * 1e-3 * ARCSEC
         pmdec = float(r["pmdec"] or 0.0) * 1e-3 * ARCSEC
         cd = math.cos(dec)
         ra += (pmra / cd if cd > 1e-6 else 0.0) * dt_yr
         dec += pmdec * dt_yr
-        # precess J2000 -> date
         v = [math.cos(dec) * math.cos(ra), math.cos(dec) * math.sin(ra), math.sin(dec)]
         x, y, zc = apply(P, v)
         ra_d = math.degrees(math.atan2(y, x)) % 360.0
@@ -104,11 +93,10 @@ def pack(rows, epoch_year):
         try:
             bv = float(r["ci"])
         except (ValueError, KeyError):
-            bv = 0.0                                     # unknown colour -> ~white
+            bv = 0.0
         out.append((mag, ra_d, dec_d, bv))
     out.sort(key=lambda s: s[0])
     return out
-
 
 def encode(star):
     mag, ra_d, dec_d, bv = star
@@ -117,7 +105,6 @@ def encode(star):
     mag_u = max(0, min(255, round((mag + 1.5) / 8.0 * 255.0)))
     bv_u = max(0, min(255, round((bv + 0.5) / 3.0 * 255.0)))
     return struct.pack("<HhBB", ra_u, dec_i, mag_u, bv_u)
-
 
 def main():
     ap = argparse.ArgumentParser()
@@ -164,7 +151,6 @@ def main():
     with open(os.path.join(outdir, "manifest.txt"), "w") as f:
         f.write("\n".join(manifest) + "\n")
     sys.stderr.write("\n".join(manifest) + "\n")
-
 
 if __name__ == "__main__":
     main()

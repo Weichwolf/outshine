@@ -1,7 +1,3 @@
-/* A GENERATOR PRODUCES A RESULT, NEVER A LINE AND NEVER A PICTURE. It has no camera, no device, no
- * streamer and no log: core/io is off this include set, so scattered output has no spelling here,
- * and the drawing half lives one directory further out. */
-
 #include "Check.h"
 #include "Layering.h"
 

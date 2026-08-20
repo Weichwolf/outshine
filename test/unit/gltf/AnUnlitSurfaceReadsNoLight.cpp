@@ -1,12 +1,3 @@
-/* `KHR_materials_unlit`, WHICH IS THE ONE EXTENSION WHOSE ABSENCE IS A BLACK PICTURE RATHER THAN A
- * MISSING EFFECT. The extension says the base colour IS the rendered output -- no light, no normal,
- * no BRDF -- so a caption plate carried through the lit path comes back at whatever the lights leave
- * on a surface facing away from all of them, which for `PointLightIntensityTest` is a solid black
- * bar where the words the criterion is read from should be.
- *
- * IT IS DECLARED BY THE PRESENCE OF AN EMPTY OBJECT and carries no property of its own, so the
- * object's KIND is the whole of what is read: a `true` under that key is a file saying something the
- * extension does not define, and reading it as "unlit" would accept a spelling nobody wrote. */
 #include <string>
 #include <vector>
 
@@ -65,7 +56,7 @@ std::string Fixture(const char *unlitDeclaration) {
   return out.Read({glb.data(), glb.size()}, "unlit.glb");
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -89,16 +80,13 @@ int main() {
     CHECK(document.Materials()[1].Surface.Unlit,
           "a material that declares the extension is unlit, and that is what selects the arm whose "
           "output is the base colour");
-    /* THE BASE COLOUR IS THE WHOLE APPEARANCE OF AN UNLIT SURFACE, so a reader that carried the
-     * flag and dropped the colour would draw the plate in a colour nothing declared. */
+
     CHECK(document.Materials()[1].Surface.BaseColour[0] == 0.1f &&
               document.Materials()[1].Surface.BaseColour[1] == 0.2f &&
               document.Materials()[1].Surface.BaseColour[2] == 0.3f,
           "the unlit material's base colour crosses unchanged, because it IS the radiance");
   }
 
-  /* A PRESENT VALUE THAT IS NOT THE SHAPE THE EXTENSION DEFINES IS REFUSED AND NEVER DEFAULTED,
-   * which is the same rule `emissiveStrength` already carries one field along. */
   Document mistyped;
   CHECK(!Reads("true", mistyped),
         "KHR_materials_unlit declared as anything but an object is refused rather than read as "

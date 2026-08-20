@@ -1,23 +1,3 @@
-/* **THE FOURTH CONSTRAINT BECOMING A MEASUREMENT** (board:1457). *720p60 on this device* has been a
- * sentence this repository quotes; here it is a distribution it publishes -- p50, p95 and p99 of frame
- * time over a camera that moves, taken on the surface the budget names.
- *
- * **THE CAMERA MOVES AND THE BODY DOES NOT, and that is the point rather than a simplification.** A
- * still subject under a moving eye is the case `Clients::Aim` was separated from `Clients::Show` for:
- * the geometry is set up once and the eye moves every frame. If a frame under a moving camera costs
- * what a frame under a still one costs, the separation is real; if it does not, something is being
- * rebuilt that nobody asked to rebuild.
- *
- * **THE FRAME IS MEASURED AT THE PACE THE ENGINE ACTUALLY RUNS, with two frames in flight.**
- * `Renderer::RenderFrame` submits without waiting and waits for the frame `kFramesInFlight` back
- * before adding another, so the wall-clock around one `Advance` is the pace the device can hold --
- * a consumer building frame N+1 while the device draws N, which is what a shipping frame is. The
- * SERIALISED figure is taken beside it, because the difference of the two is what the overlap buys
- * and a number nobody can compare decides less.
- *
- * **DETERMINISM IS TWO RUNS OF ONE DECLARATION, COMPARED PICTURE BY PICTURE.** A run that is not
- * reproducible cannot be regressed against, and every performance claim after it would be a sample of
- * a machine rather than a property of a declaration. */
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
@@ -36,41 +16,21 @@ namespace {
 using outshine::Test::Checked;
 using outshine::Test::Report;
 
-/* [SET] THE SURFACE THE BUDGET NAMES -- `CLAUDE.md`, 720p60 on this device. */
 constexpr int kSurfaceW = 1280, kSurfaceH = 720;
-/* [SET] 16.67 ms is the budget; a frame that misses it is seen by everyone. */
+
 constexpr double kFrameBudgetMs = 16.67;
-/* **HOW MUCH OF THE FRAME THE SUBJECT MUST COVER** (board:1459). `ABeautifulGame` carries glass -- its
- * pawn tops -- so it is drawn by a plan with the transmissive pass in it, and that pass composited over
- * the opaque scene by ERASING it: the board, the pieces and their shadows were multiplied away and the
- * picture was sixteen pawn tops in the dark.
- *
- * [MEASURED] the defect covered **258 of 102 480** samples and the repair covers **9213**. The floor is
- * 4 % of the population -- less than half of what is measured, so ordinary variation in a moving camera
- * cannot trip it, and sixteen times what the defect left standing, so the defect cannot pass it. It is a
- * COVERAGE claim and never a picture one: what the pixels are worth is the render suite's. */
+
 constexpr double kCoveredAtLeast = 0.04;
 
-/* [SET] THE DECLARED RUN. Ninety frames at four degrees is a full turn and a half around the subject,
- * which is long enough for a distribution and short enough that a red run is diagnosable. */
 constexpr int kRunFrames = 90;
-/* **THE FRAMES THAT PAY FOR THE STAND-UP ARE NOT FRAMES OF THE RUN.** `Open` queues every pipeline,
- * every vertex and every image; the first advances are where the device finishes that work, and
- * [MEASURED] the largest of them is 659 ms against a p50 of 7.8. A steady-state budget is about steady
- * state, so they are excluded -- and the exclusion is DECLARED here rather than hidden in a percentile,
- * because a run that dropped its worst frames silently would be quoting a distribution it had cut. */
+
 constexpr int kWarmupFrames = 10;
 constexpr double kOrbitDegPerFrame = 4.0;
-/* A DIAGNOSTIC ARM: the same run with a standing camera, so what the ORBIT costs is a difference of two
- * measurements rather than an attribution nobody took. */
 
 constexpr double kFill = 0.9;
 constexpr double kKeyLux = 3.0, kKeyElevationDeg = 35.0, kKeyBearingDeg = -35.0;
 constexpr double kAmbient = 0.35;
 
-/* THE SUBJECT, DECLARED. `ABeautifulGame` is the corpus's heaviest body -- a chess set of thirty-odd
- * pieces with its own textures -- which is what makes it worth putting under a moving camera: a run
- * over the lightest case would hold the budget and say nothing about whether the engine does. */
 constexpr const char *kSubject = "ABeautifulGame";
 
 [[nodiscard]] std::string EntryPath(const std::string &prepared) {
@@ -108,7 +68,6 @@ constexpr const char *kSubject = "ABeautifulGame";
   return out;
 }
 
-/* **THE POPULATION, DECLARED ONCE**, so a before and an after cannot select differently. */
 constexpr int kStep = 3;
 
 [[nodiscard]] size_t Population(void) {
@@ -150,9 +109,6 @@ struct Distribution {
   return out;
 }
 
-/* ONE RUN OF THE DECLARATION: every frame advanced and WAITED ON, with the picture at `keepAt` read
- * back so two runs can be compared. The readback is outside the clock -- it is a stall this tree puts
- * in a test and never in a frame. */
 [[nodiscard]] bool Run(outshine::Render::Renderer &renderer, int keepAt, std::vector<double> &into,
                        std::vector<double> &cpu, std::vector<uint8_t> &kept, bool serialised,
                        std::string &error) {
@@ -185,7 +141,7 @@ struct Distribution {
   return true;
 }
 
-} // namespace
+}
 
 int main(void) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
@@ -219,27 +175,14 @@ int main(void) {
               100.0 * cost.P99Ms / kFrameBudgetMs);
   (void)cpu;
 
-  /* **THIS IS THE FRAME BUDGET DECIDING SOMETHING** (board:1461). The pace is taken with two frames
-   * in flight, which is the arrangement a shipping frame runs in, so the figure is neither a
-   * throughput nor a sum of terms that overlap -- it is how long a consumer waits to hand over the
-   * next frame.
-   *
-   * THE ENGINE'S OWN SIDE IS CHECKED SEPARATELY against a declared share, because it is the term this
-   * repository can act on directly and the one a heavier device would not rescue. [MEASURED] it was
-   * 1.06 ms p50 and 4.12 ms p99 until `board:1460`, and the whole of that was a per-vertex scan on the
-   * frame path -- which is exactly the term this second number exists to expose. */
   CHECK(cost.P99Ms < kFrameBudgetMs,
         "the declared run holds the frame budget at p99, pipelined -- which is the fourth constraint "
         "of CLAUDE.md answering with a distribution instead of being quoted");
 
-
-  /* **THE CAMERA ACTUALLY MOVED.** A run that held the budget because nothing changed would be a
-   * measurement of an idle device wearing the name of a frame. */
   std::vector<uint8_t> last;
   CHECK(renderer.ReadPixels(last) == outshine::Render::ReadState::Ready,
         "the last frame of the run comes off the device");
-  /* A DIAGNOSTIC AND NOT A VERDICT: how much of the frame carries the body at all, so a small sweep
-   * can be told from a small subject. */
+
   size_t ink = 0;
   for (int y = 0; y < kSurfaceH; y += kStep) {
     for (int x = 0; x < kSurfaceW; x += kStep) {
@@ -265,8 +208,6 @@ int main(void) {
         "the camera moved over the run -- a budget held by an unchanging picture measures an idle "
         "device and not a frame");
 
-  /* **TWO RUNS OF ONE DECLARATION ARE THE SAME PICTURES.** Without this every number above is a sample
-   * of a machine rather than a property of a declaration, and nothing later could be regressed. */
   const bool ranTwice = Run(renderer, kKeepAt, second, secondCpu, secondKept, true, error);
   if (!ranTwice) { std::printf("       %s\n", error.c_str()); }
   CHECK(ranTwice, "the same declaration stands up a second time");
@@ -278,11 +219,7 @@ int main(void) {
           "the same declaration produces the same picture at the same frame whether the run was "
           "pipelined or serialised -- the picture is a function of the declaration, and not of the "
           "machine and not of the pace");
-    /* **THE SECOND RUN IS SERIALISED, and judging it too is a strictly stronger claim.** With no
-     * overlap the figure is CPU and device added rather than run at once, so a term that grows on the
-     * engine's own side -- the per-vertex scan `board:1460` removed was 4.12 ms p99 -- shows here even
-     * where the device would have hidden it behind its own work. **A run that holds the budget in BOTH
-     * arrangements holds it for a reason and not by an overlap.** */
+
     const Distribution again = Over(second);
     std::printf("NOTE serialised frame ms  p50 %.4f  p95 %.4f  p99 %.4f  max %.4f\n", again.P50Ms,
                 again.P95Ms, again.P99Ms, again.MaxMs);

@@ -1,16 +1,3 @@
-/* THE GENERATOR, RUN, SO THAT WHAT IT GREW CAN BE SCORED. The preparer needs one `.glb` per case
- * before Blender ever opens; a generated part's bytes therefore have to exist offline, and the only
- * thing that may produce them is the engine's own C++ -- a second implementation in the preparer's
- * Python would score a tree this repository does not draw. So the preparer builds this and runs it,
- * exactly as it locates and runs Blender (test/harness/shared/corpus/README.md).
- *
- * IT IS NOT A TEST AND CARRIES NO VERDICT. It grows, writes and reports; what the part is worth is
- * decided by the render case, and what the emit path guarantees is held by
- * test/unit/gltf/AProducedSubjectIsTheOneItStated.
- *
- * THE METRE ENTERS HERE AND NOWHERE ELSE. `TreeMesh` comes back normalised to height 1 -- the one
- * number carrying a metre is `TreeSpecies::HeightM` -- and glTF's frame is metres, so the scale is
- * applied at the handover and the file says how tall the tree is. */
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -37,8 +24,7 @@ struct Request {
   std::string SpeciesPath;
   std::string OutputPath;
   std::string NodeName;
-  /* The model length of one pixel as a fraction of the tree's own height, which is the budget
-   * TreeMesher::Draw already takes. 0 draws the plant entire. */
+
   double PixelHeightFrac = 0.0;
 };
 
@@ -75,17 +61,10 @@ struct Request {
   return true;
 }
 
-/* THE DECLARED COLOUR IS sRGB AND glTF's `baseColorFactor` IS LINEAR. Every colour in a species file
- * is sRGB and says so (src/assets/world/species/beech.json, `bark_origin`); writing it into the file
- * unconverted is the two-to-four-times-too-bright bark that note was written about. */
 double LinearFromSrgb(double encoded) {
   return encoded <= 0.04045 ? encoded / 12.92 : std::pow((encoded + 0.055) / 1.055, 2.4);
 }
 
-/* SIX TIMES THE SIGNED VOLUME THE TRIANGLES ENCLOSE. It is the winding, measured rather than
- * assumed: glTF's front face is counter-clockwise seen from outside, so a closed mesh wound the
- * format's way encloses a POSITIVE volume, and one wound inside out renders as nothing but back
- * faces -- 46 101 black pixels of a sphere is what that cost the corpus once already. */
 double SixSignedVolume(const std::vector<float> &positions, const std::vector<uint32_t> &indices) {
   double total = 0.0;
   for (size_t corner = 0; corner + 2 < indices.size(); corner += 3) {
@@ -99,8 +78,6 @@ double SixSignedVolume(const std::vector<float> &positions, const std::vector<ui
   return total;
 }
 
-/* THE FRAMING RULE'S ANSWER FOR THIS SUBJECT, in the shape a manifest declares a camera in, so a
- * case's camera is transcribed from the rule rather than composed beside it. */
 void PrintCamera(const outshine::Gltf::Placement &eye, const double aim[3]) {
   std::printf("  \"framingCamera\": {\n");
   std::printf("    \"source\": \"manifest\",\n");
@@ -119,7 +96,7 @@ int Fail(const std::string &why) {
   return 1;
 }
 
-} // namespace
+}
 
 int main(int argc, char **argv) {
   Request request;
@@ -132,9 +109,6 @@ int main(int argc, char **argv) {
                 species.Error());
   }
 
-  /* GROWN ONCE, DRAWN AT THE ASKED-FOR BUDGET. The skeleton is what the species declares and the
-   * budget is a view over it, so this program's part at one budget is a subset of its part at a
-   * finer one rather than another tree. */
   outshine::Generators::TreeGrower grower;
   outshine::Generators::TreeMesher mesher;
   outshine::Generators::TreeSkeleton plant;
@@ -145,8 +119,6 @@ int main(int argc, char **argv) {
     return Fail("the grower produced no triangle for " + species.Name() + " at the requested budget");
   }
 
-  /* The mesh is interleaved position and normal (`core/ChunkVtx.h`, `PlainVtx`) and a piece states
-   * planar runs, so the two are separated once here -- at the handover, off the frame path. */
   const size_t vertices = mesh.BarkVertexCount();
   const double heightM = (double)species.HeightM();
   std::vector<float> positions(vertices * 3);

@@ -1,20 +1,3 @@
-/* A CHANNEL THAT CARRIES A CHOICE MUST NOT BE AVERAGED (board:1130). `normal-tangent`'s
- * metallic-roughness map is the case that named this: its metalness takes EXACTLY TWO values, 0 and
- * 255, against 85 distinct values for occlusion and 180 for roughness. A box filter over it returns 86
- * at the top of the chain -- metalness 0.34, a third-metal, which is not a material and appears nowhere
- * in the source. That is what saturated six render tails the first time the whole chain was made
- * readable.
- *
- * SO THE CLAIM IS IN TWO HALVES AND BOTH ARE CHECKED HERE. The predicate must separate an index from a
- * quantity FROM THE TEXELS ALONE -- a rule read off the slot would be fitted to glTF's packing and would
- * say nothing about the next format. And the filter must then return a value THE FOUR SOURCE TEXELS
- * CONTAIN, where the plain mean returns one they do not; testing only that an index channel is
- * unchanged would pass on an implementation that point-sampled everything.
- *
- * THE 2-2 SPLIT IS THE INTERESTING ONE and it is why nearest-to-the-mean was chosen over
- * first-past-the-post: a tie must not resolve by which corner a texel sits in, or a mirrored island
- * filters differently from its twin. This tree has a mirrored case whose whole purpose is to catch that,
- * so the property is asserted directly rather than left to it. */
 #include <cmath>
 #include <cstdint>
 #include <vector>
@@ -24,24 +7,13 @@
 
 namespace {
 
-/* One 2x2 RGBA block, laid out so each channel is a different population:
- *
- *   red   {0, 1, 1, 1}      two values, a 3-1 majority        -> an index, and the majority is 1
- *   green {0, 0, 1, 1}      two values, a 2-2 SPLIT           -> an index, and the tie goes to 0
- *   blue  {0, 0.5, 1, 1}    THREE values                      -> a quantity, and takes the mean 0.625
- *   alpha {1, 1, 1, 1}      one value                         -> an index, trivially unchanged
- *
- * The means of red and green are 0.75 and 0.5, and NEITHER IS IN {0, 1} -- which is what makes the
- * index checks below claims rather than restatements. */
 std::vector<float> MixedChannels() {
-  return {0.0f, 0.0f, 0.0f, 1.0f,   /* texel (0,0) */
-          1.0f, 0.0f, 0.5f, 1.0f,   /* texel (1,0) */
-          1.0f, 1.0f, 1.0f, 1.0f,   /* texel (0,1) */
-          1.0f, 1.0f, 1.0f, 1.0f};  /* texel (1,1) */
+  return {0.0f, 0.0f, 0.0f, 1.0f,
+          1.0f, 0.0f, 0.5f, 1.0f,
+          1.0f, 1.0f, 1.0f, 1.0f,
+          1.0f, 1.0f, 1.0f, 1.0f};
 }
 
-/* The same block with its two columns exchanged. A filter that depends on iteration order answers
- * differently here; one that does not cannot tell the two apart. */
 std::vector<float> ColumnsExchanged(const std::vector<float> &block) {
   std::vector<float> mirrored(block.size(), 0.0f);
   for (size_t row = 0; row < 2; ++row) {
@@ -54,7 +26,7 @@ std::vector<float> ColumnsExchanged(const std::vector<float> &block) {
   return mirrored;
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -93,8 +65,6 @@ int main() {
         "a quantity channel of the SAME block still takes the plain mean, so the index rule is applied "
         "per channel and does not quantise a texture because one of its channels is binary");
 
-  /* WITHOUT THE MASK THE SAME TEXELS COME BACK AS VALUES THE SOURCE DOES NOT HOLD, which is the whole
-   * defect stated as arithmetic rather than as a picture. */
   std::vector<float> averaged;
   HalveInPlace(block, 2, 2, averaged, width, height, TexelKind::Value, 0u);
   Note("same channels with no index mask, 3-1", (double)averaged[0], "linear");
@@ -103,7 +73,6 @@ int main() {
         "the plain mean of a two-valued channel is a value it never takes, so the check above is a "
         "difference and not a restatement of the input");
 
-  /* ORDER INDEPENDENCE, asserted rather than assumed. */
   const std::vector<float> mirrored = ColumnsExchanged(block);
   CHECK(IndexChannelsOf(mirrored) == mask, "the predicate counts a population, so exchanging columns "
                                            "does not change which channels are an index");
@@ -114,7 +83,7 @@ int main() {
         "a mirrored block filters to the same texel, so an island and its mirror image cannot take "
         "different materials from one map -- which is the case this tree already renders twice");
 
-  Covers("board:1130 a channel taking at most two values is an index, measured from the texels rather "
+  Covers("a channel taking at most two values is an index, measured from the texels rather "
          "than read off the slot, and it snaps to a value the source contains instead of averaging into "
          "one it does not");
   return Report();

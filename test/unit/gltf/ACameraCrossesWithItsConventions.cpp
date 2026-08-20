@@ -1,9 +1,3 @@
-/* THE CAMERA'S SIGNS, CHECKED BY WHERE A POINT LANDS AND NOT BY RESTATING THE MATRIX. Asserting the
- * projection's entries against the same algebra that produced them proves the typing was careful and
- * nothing else. What decides handedness is behaviour: the near plane must be at NDC z = -1 and the
- * far plane at +1, the frustum's top edge must be at NDC y = +1 and therefore at the TOP row of the
- * raster, and a camera must look down -Z. Each of those is a sign a reader can get wrong on its own.
- */
 #include <cmath>
 #include <string>
 #include <vector>
@@ -48,7 +42,7 @@ double NdcZ(const Transform &projection, double viewZ) {
   return ndc[2];
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -117,8 +111,6 @@ int main() {
   CHECK_NEAR(ndc[1], 1.0, 1e-12, "ndc", "ymag is the half height");
   CHECK_NEAR(ndc[2], -1.0, 1e-12, "ndc", "the orthographic near plane is at NDC z = -1 too");
 
-  /* The view transform is the inverse of the camera node's world transform, so the camera's own
-   * position must land on the origin of view space and the direction it faces must be -Z there. */
   Transform view;
   CHECK(document.ViewTransform(0, view), "a camera node has a view transform");
   const double eye[3] = {7.0, 8.0, 9.0};

@@ -23,4 +23,4 @@ void DrawSet::Draw(const Ground &ground, const GeneratorSet &generators, Span<co
   }
 }
 
-} // namespace outshine::Generators
+}

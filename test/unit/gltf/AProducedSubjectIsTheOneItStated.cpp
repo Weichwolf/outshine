@@ -1,14 +1,3 @@
-/* THE PRODUCER'S EDGE OF THE MODEL: `Assemble` takes what a generator made and yields the same
- * drawable the reader yields, so a generated part can be written, rendered by the oracle and scored
- * (board:0105).
- *
- * THE FIXED POINT HOLDS AT ZERO APPLICATIONS HERE AND THAT IS WHY THE RUNS ARE f32. A produced
- * subject's numbers are the format's own width, so `Subject(Emit(Assemble(A))) == Assemble(A)` is
- * EXACT -- no narrowing stands between the part a generator grew and the part Cycles is handed.
- *
- * AND EVERY REFUSAL IS ASSERTED BY ITS SENTENCE. A generator's malformed run is arithmetic that went
- * wrong, and the failure it causes if it is admitted is a hole in a picture somebody has to trace
- * back; the checks below are what turn each of them into a named sentence at the handover. */
 #include <cmath>
 #include <cstdint>
 #include <string>
@@ -31,9 +20,6 @@ using outshine::Gltf::TangentSource;
 
 namespace {
 
-/* TWO PIECES THAT CARRY DIFFERENT ATTRIBUTE SETS, because that is what a real part looks like: a
- * bark tube states position and normal, a leaf states a uv as well, and the runs a subject holds
- * have to cover both without either piece reading the other's zeros. */
 const float kBarkPosition[] = {0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 2.f, 0.f};
 const float kBarkNormal[] = {0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f, 0.f, 1.f};
 const uint32_t kBarkIndex[] = {0, 1, 2};
@@ -62,7 +48,6 @@ Assembly Over(const std::vector<Piece> &pieces) {
   return what;
 }
 
-/* The sentence a refused assembly left behind, or an empty string where it was admitted. */
 std::string Refusal(const std::vector<Piece> &pieces) {
   Subject subject;
   if (subject.Assemble(Over(pieces))) { return std::string(); }
@@ -73,7 +58,7 @@ bool Mentions(const std::string &sentence, const char *fragment) {
   return sentence.find(fragment) != std::string::npos;
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -96,7 +81,6 @@ int main() {
         "a producer that stated no basis is not recorded as having supplied one");
   CHECK(made.MinM()[1] == 0.0 && made.MaxM()[1] == 2.0, "the bounds are the produced positions'");
 
-  /* THE FIXED POINT, ON A PRODUCED SUBJECT AND AT ZERO APPLICATIONS. */
   MaterialRef bark;
   bark.Name = "bark";
   Emission what;
@@ -115,14 +99,7 @@ int main() {
   CHECK(again.Build(written), "the written file flattens back into a subject");
   CHECK(again.PositionsM() == made.PositionsM(),
         "every produced position survives the round trip exactly, because a produced run is f32");
-  /* **THE NORMALS DO NOT SURVIVE UNCHANGED AND THAT IS THE FORMAT SPEAKING** (board:1471). glTF:
-   * *when normals are not specified, client implementations MUST calculate flat normals*. The leaf
-   * piece is produced with POSITION and UV alone, so a reader hands it back the normal of its own
-   * plane -- and a test asserting the run came back identical would be asserting against the format.
-   *
-   * WHAT IS CHECKED IS THAT THE RULE APPLIED WHERE IT SHOULD AND NOWHERE ELSE: every normal the
-   * producer stated survives exactly, and every one it did not is a unit vector rather than the zero
-   * the produced run carried. */
+
   bool statedSurvive = again.Normals().size() == made.Normals().size();
   size_t calculated = 0;
   for (size_t at = 0; statedSurvive && at + 2 < made.Normals().size(); at += 3) {
@@ -156,17 +133,13 @@ int main() {
                  again.Parts()[part].FirstIndex == made.Parts()[part].FirstIndex &&
                  again.Parts()[part].IndexCount == made.Parts()[part].IndexCount &&
                  again.Parts()[part].HasUv == made.Parts()[part].HasUv &&
-                 /* **`HasNormal` IS THE ONE FIELD THE ROUND TRIP IS ALLOWED TO GAIN** (board:1471).
-                  * A part produced without normals comes back with the flat ones the format requires
-                  * a reader to calculate, so what survives is the direction of the change and not
-                  * the value: a part that HAD them still has them, and one that did not now does. */
+
                  again.Parts()[part].HasNormal &&
                  again.Parts()[part].Tangent == made.Parts()[part].Tangent;
   }
   CHECK(partsAgree, "every part's name, material, boundaries and attribute set survive -- and the "
                     "one thing a round trip may add is the normal glTF requires it to calculate");
 
-  /* WHAT A GENERATOR CANNOT HAND OVER, ONE NAMED SENTENCE EACH. */
   CHECK(Mentions(Refusal(std::vector<Piece>()), "no piece"),
         "an assembly of no piece is refused by name");
 

@@ -1,7 +1,3 @@
-/* THE COMPACTION, BOTH ARMS. A sparse accessor over a base bufferView overrides some of it; a sparse
- * accessor with NO bufferView reads as zeros and then overrides -- and the second arm is the one a
- * reader gets wrong, because "no bufferView" looks like "nothing to read" until a morph target comes
- * out empty. */
 #include <string>
 #include <vector>
 
@@ -16,8 +12,6 @@ using outshine::Test::Glb;
 
 namespace {
 
-/* Four VEC3 base elements, then the overriding indices {1, 3} as unsigned shorts, then their two
- * VEC3 values. Bytes: 48 + 4 + 24 = 76. */
 std::vector<uint8_t> Binary() {
   std::vector<uint8_t> bytes;
   const float base[4][3] = {{1.f, 2.f, 3.f}, {4.f, 5.f, 6.f}, {7.f, 8.f, 9.f}, {10.f, 11.f, 12.f}};
@@ -53,7 +47,7 @@ const char *const kJson = R"({
   ]
 })";
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;

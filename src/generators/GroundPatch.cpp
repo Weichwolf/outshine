@@ -10,7 +10,7 @@ namespace {
 
 double Clamped(double v, double lo, double hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
-} // namespace
+}
 
 std::shared_ptr<const GroundPatch> GroundPatch::Complete(const Region &region, int side,
                                                          Span<const Posting> postings) {
@@ -64,4 +64,4 @@ size_t GroundPatch::HeapBytes() const {
   return AslM_.capacity() * sizeof(double);
 }
 
-} // namespace outshine::Generators
+}

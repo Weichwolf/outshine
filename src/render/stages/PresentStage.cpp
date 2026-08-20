@@ -5,9 +5,6 @@
 namespace outshine::Render {
 namespace {
 
-/* One triangle covering the surface, so there is no vertex buffer to own; the frame is READ at the
- * fragment's own pixel rather than sampled, because the two are the same size and a filter between
- * them would be a resample nobody declared. */
 const char *kPresentMsl = R"(
 struct VOut { float4 pos [[position]]; };
 vertex VOut vs(uint i [[vertex_id]]) {
@@ -22,7 +19,7 @@ fragment float4 fs(VOut in [[stage_in]],
 }
 )";
 
-} // namespace
+}
 
 bool PresentStage::Configure(const Gpu &gpu, SDL_GPUTexture *frame, SDL_GPUSampler *exact,
                              std::string &error) {
@@ -32,8 +29,7 @@ bool PresentStage::Configure(const Gpu &gpu, SDL_GPUTexture *frame, SDL_GPUSampl
     error = "there is no frame to present, so the plan holds no picture to put on a surface";
     return false;
   }
-  /* THE PIPELINE WAITS FOR THE HOST'S FORMAT. `Init` runs before any surface is declared, so building
-   * one here would be building it for a format nobody has stated yet. */
+
   (void)gpu;
   return true;
 }
@@ -88,4 +84,4 @@ void PresentStage::Encode(const FrameContext &ctx, const PassRecording &into) {
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }
 
-} // namespace outshine::Render
+}

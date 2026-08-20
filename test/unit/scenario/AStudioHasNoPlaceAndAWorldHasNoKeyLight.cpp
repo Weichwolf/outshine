@@ -1,10 +1,3 @@
-/* WORLD-OR-NOT IS THE SUBJECT AND NOT A THIRD AXIS, and this is the claim that makes the difference
- * a defect rather than a matter of taste: the fields of the arm that was not chosen have nowhere to
- * be written. Ten declared scenes carried eighty of them — lat, lon, eyeM, yawDeg, pitchDeg, utc,
- * windDeg, windMs on a bench that reads none — and the loader took every one of them in silence.
- *
- * Held here: a studio that declares a latitude is refused BY PATH, a world that declares a key light
- * is refused BY PATH, and a scene that declares both arms or neither is refused as well. */
 #include "Check.h"
 #include "Mod.h"
 
@@ -32,8 +25,6 @@ const char *kWorld = R"({
       "utc": "2026-08-06T17:40:00Z", "windDeg": 250, "windMs": 6.0, "cloudCover": 0.55 } },
     "runs": [{ "kind": "motion", "frames": 1, "give": "stills", "path": "walk.png" }] }] })";
 
-/* One substitution in the text, so what is being asked is exactly one difference from a declaration
- * the same test has already shown to load. */
 std::string With(const char *text, const std::string &find, const std::string &replace) {
   std::string out = text;
   const size_t at = out.find(find);
@@ -52,7 +43,7 @@ std::string With(const char *text, const std::string &find, const std::string &r
   return true;
 }
 
-}  // namespace
+}
 
 int main() {
   Covers("I.25 Stage as an enumeration with a record per arm");

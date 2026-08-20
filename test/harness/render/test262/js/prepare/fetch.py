@@ -14,13 +14,9 @@ import urllib.request
 from prep.refusal import Refusal
 from prep.store import sha256_of_file
 
-# THE WHOLE OF WHAT MAY BE REACHED, and the commit is part of the pattern rather than a parameter
-# checked afterwards: a URL naming a branch would fetch something different tomorrow and the digest
-# would only notice once it had already changed.
 WPT_URL = re.compile(
     r"^https://raw\.githubusercontent\.com/tc39/test262/([0-9a-f]{40})/(.+)$"
 )
-
 
 def check_url(url, commit=None):
     match = WPT_URL.match(url)
@@ -35,7 +31,6 @@ def check_url(url, commit=None):
                       observed=match.group(1))
     return match
 
-
 def stream_to_file(url, path):
     with urllib.request.urlopen(url, timeout=120) as response, open(path, "wb") as out:
         while True:
@@ -43,7 +38,6 @@ def stream_to_file(url, path):
             if not chunk:
                 break
             out.write(chunk)
-
 
 def download_to_store(url, expected_sha256, store, expected_bytes=None, commit=None, member=None):
     """Fetch, hash, refuse on mismatch, and file the bytes under their own digest."""

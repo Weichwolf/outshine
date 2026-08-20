@@ -1,10 +1,3 @@
-/* THE STORE IS A DIRECTORY OF FILES AND THE HASH IS THE FILENAME. What has to hold:
- *   - the key covers the source's id, its declared VERSION and the address, so a version bump
- *     invalidates without a sweep and two sources cannot collide
- *   - a name never appears before its bytes are complete
- *   - cache-on and cache-off differ in timing and in nothing else: what comes back is the same bytes
- *   - the store is capped, and the cap is enforced rather than declared — the store this replaces
- *     had none and reached 7 GB, of which 3.1 GB served nothing */
 #include "Check.h"
 #include "ContentStore.h"
 
@@ -41,7 +34,7 @@ namespace {
   return n;
 }
 
-} // namespace
+}
 
 int main() {
   Test::Covers("I.22 the provider delivers hash and data, and hash is the filename");
@@ -79,7 +72,6 @@ int main() {
     CHECK(ledger.Writes == 1 && ledger.Hits == 1 && ledger.Misses == 2, "the ledger agrees");
   }
 
-  /* CACHE OFF. The same calls, the same answers to the caller, and nothing on disk. */
   {
     ContentStore::Config config;
     config.Directory = Scratch("outshine-store-off");
@@ -91,7 +83,6 @@ int main() {
     CHECK(FilesIn(config.Directory) == 0, "and writes nothing");
   }
 
-  /* THE CAP IS ENFORCED. Four 1 KiB entries under a 2 KiB cap leave at most two behind. */
   {
     const std::string dir = Scratch("outshine-store-cap");
     const std::vector<uint8_t> kilobyte(1024, 0xAB);

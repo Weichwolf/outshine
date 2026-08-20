@@ -15,8 +15,7 @@ namespace outshine::Generators {
 
 class Ground {
 public:
-  /* Held as snapshots so that a republish while a region is being generated cannot tear what a
-   * generator is halfway through reading. */
+
   struct Snapshot {
     std::shared_ptr<const GroundPatch> Patch;
     std::shared_ptr<const ClassStructure> Classes;
@@ -24,7 +23,6 @@ public:
     std::shared_ptr<const GroundTable> Table;
   };
 
-  /* None when a part is missing; there is no Ground with a piece of itself absent. */
   static std::optional<Ground> Of(const Region &region, const Snapshot &snapshot);
 
   const Region &Where() const noexcept { return Region_; }
@@ -37,16 +35,13 @@ public:
   void GradientAt(double eastM, double northM, double *dhde, double *dhdn) const noexcept {
     Patch_->GradientAt(eastM, northM, dhde, dhdn);
   }
-  /* Evaluated from the outlines at this very point, never sampled off a lattice: the class is the
-   * one quantity here that comes from vectors, and a raster fine enough not to notch a wood line
-   * below a scatter's own step does not fit in the region budget. */
+
   Cover CoverAt(double eastM, double northM) const noexcept;
   const FeatureField &Features() const noexcept { return *Features_; }
   const GroundTable &Table() const noexcept { return *Table_; }
-  /* The declared anchor every ECEF offset of this region is measured from, at sea level. */
+
   const double *AnchorEcef() const noexcept { return AnchorEcef_; }
-  /* What this region's own ground costs while it stands — two columns of a region's byte line: the
-   * posting block, and the outlines cut out of the vector source for this region alone. */
+
   size_t PatchHeapBytes() const noexcept { return Patch_->HeapBytes(); }
   size_t FeatureHeapBytes() const noexcept { return Features_->HeapBytes(); }
 
@@ -61,5 +56,5 @@ private:
   double AnchorEcef_[3];
 };
 
-} // namespace outshine::Generators
+}
 #endif

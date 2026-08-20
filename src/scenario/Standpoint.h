@@ -1,7 +1,3 @@
-/* A PLACE ON EARTH THIS ENGINE CAN BE ENTERED FROM. There is no constructor: the only way to hold one
- * is to have got it from At(), which refuses a latitude the slippy-tile scheme cannot carry
- * (core/Mercator.h). So "a standpoint outside the Mercator band" is not a value that is checked
- * somewhere — it is a value that does not exist, and a stage with no place has no field to put one in. */
 #ifndef STANDPOINT_H
 #define STANDPOINT_H
 
@@ -28,5 +24,5 @@ private:
   double Lat_, Lon_;
 };
 
-} // namespace outshine::Scenario
+}
 #endif

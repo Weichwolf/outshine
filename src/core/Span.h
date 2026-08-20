@@ -39,5 +39,5 @@ private:
   size_t Size_ = 0;
 };
 
-} // namespace outshine
+}
 #endif

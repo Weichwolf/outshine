@@ -1,17 +1,3 @@
-/* THE TEST-CASE BROWSER, AND ITS OWN CLAIMS (board:1447).
- *
- * **ONE PROGRAM, TWO TARGETS, AND THE CLIENT CHOOSES.** With no argument it owns a texture, draws
- * every frame into it, checks what came back and reports; with `--window` it owns a window, hands the
- * library the swapchain image it acquired, and loops until it is closed. The library cannot tell the
- * two apart -- it is handed a pointer to a surface either way -- which is what makes the headless arm
- * a real test of the windowed one rather than a rehearsal of it.
- *
- * **NOTHING HERE DECIDES A PIXEL.** The browser's appearance is `Chrome::Declaration` -- markup and
- * style -- laid out and painted by the library, and a case's picture is the library rendering the
- * case's own manifest. `TheBrowserSpellsNoDrawingInstruction` reads this file to say so.
- *
- * **THE APPEARANCE IS A PURE FUNCTION OF THE STATE**, which is what lets a window's behaviour be
- * checked without one: give the state, get the document, and every claim below is about that. */
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -41,25 +27,14 @@ namespace View = outshine::Viewer;
 
 namespace {
 
-/* [SET] THE WINDOW THIS BROWSER ASKS FOR, and the system may give it less. Bigger than the frame the
- * corpus is measured at, because two columns and a picture is what has to fit -- and the picture is
- * what the window is for. */
 constexpr int kWidth = 1600;
 constexpr int kHeight = 900;
 
-/* [SET] HOW MUCH OF ITS PANE A MODEL SPANS. The corpus frames at 0.6 because an oracle is framed the
- * same way; a browser is not comparing anything, so it fills what it can without touching the edge. */
 constexpr double kBrowserFill = 0.92;
 
-/* [SET] WHAT SHARE OF THE FRAME THE BROWSER'S OWN CHROME MAY TAKE ON THE CPU, beside whatever the
- * case it is showing costs. A tenth is the same share the interface was given when it was measured
- * alone, and it is checked here rather than quoted. */
 constexpr double kFrameBudgetMs = 16.67;
 constexpr double kChromeShare = 0.10;
 
-/* WHAT THE BROWSER IS AND WHAT IT KNOWS, and the state is the whole of what its appearance depends
- * on. Two frames of this struct that compare equal produce the same document, which is the property
- * every claim below rests on. */
 struct Browser final : outshine::Script::Host {
   std::vector<View::Listed> Cases;
   View::Showing Showing;
@@ -67,11 +42,6 @@ struct Browser final : outshine::Script::Host {
   int WidthPx = kWidth;
   int HeightPx = kHeight;
 
-  /* **WHAT THIS BROWSER HANDS THE ENGINE, AND IT IS THE WHOLE OF WHAT IT DOES.** Two surfaces --
-   * its own columns and whatever is in the pane -- a file for the body, and the rectangle the body
-   * stands in. It reads no glTF, poses nothing, compiles no plan, frames no camera and paints no
-   * quad: every one of those is the engine's, and a consumer that did any of them would be a second
-   * implementation of the thing it is here to show off. */
   [[nodiscard]] outshine::Clients::Declaration Declare(void) const {
     outshine::Clients::Declaration out;
     out.SurfaceWidthPx = WidthPx;
@@ -84,10 +54,7 @@ struct Browser final : outshine::Script::Host {
     if (one != nullptr && one->Ready && !one->Document && !one->Script) {
       out.Stands = View::EntryPath(one->Prepared);
       out.Fill = kBrowserFill;
-      /* **HOW THIS BROWSER LIGHTS WHAT IT SHOWS**, and it is the client's call rather than the
-       * engine's: a viewer wants form to read at a glance, so a key light high and to the left over a
-       * modest ambient. [SET] 3.0 lux and 0.35 W/(m^2 sr) -- chosen to make a mid-grey body land near
-       * the middle of the display range with its shaded side still legible. */
+
       out.KeyLux = 3.0;
       out.KeyElevationDeg = 35.0;
       out.KeyBearingDeg = -35.0;
@@ -101,9 +68,6 @@ struct Browser final : outshine::Script::Host {
     return out;
   }
 
-  /* THE TWO SURFACES, in fractions of the frame: the columns on the left and the pane beside them.
-   * A render case leaves the pane empty -- the engine draws a body there -- and the other two kinds
-   * fill it with a page or a console, laid out by the same engine that lays out these columns. */
   [[nodiscard]] std::vector<outshine::Clients::Shows> Surfaces(void) const {
     std::vector<outshine::Clients::Shows> out;
     outshine::Clients::Shows chrome;
@@ -122,9 +86,7 @@ struct Browser final : outshine::Script::Host {
     pane.LeftFrac = left;
     pane.WidthFrac = 1.0 - left;
     if (one->Script) {
-      /* WHAT THIS ENGINE MAKES OF THE PROGRAM, which for most of the corpus is *outside the subset*
-       * with the boundary that says why -- the same answer the suite publishes, shown where a reader
-       * is looking. */
+
       outshine::Script::Program program;
       std::string why;
       const bool reads = found && program.Read(entry, why);
@@ -150,9 +112,6 @@ struct Browser final : outshine::Script::Host {
     return &Cases[(size_t)shown[(size_t)Showing.Selected]];
   }
 
-  /* WHETHER THE ENGINE HAS TO STAND A NEW SCENARIO UP, or only to be told what the surfaces say. A
-   * body and a plan change when the SELECTION does; scrolling a list and filtering a suite change
-   * neither, and re-standing the scenario for one would rebuild every pipeline to move a row. */
   [[nodiscard]] std::string Body(void) const {
     const View::Listed *one = Selected();
     return one != nullptr && one->Ready && !one->Document && !one->Script ? one->Prepared
@@ -163,10 +122,6 @@ struct Browser final : outshine::Script::Host {
 
   [[nodiscard]] int PaneWidth(void) const { return WidthPx - (int)View::ColumnsWidth(WidthPx); }
 
-  /* A POINTER EVENT IS A HIT AND A DECLARED ACTION, AND THE ACTION IS A SCRIPT. The library hands
-   * back the text the element carried and decides nothing about it; the interpreter reads it and the
-   * host below answers its words, so what `select` MEANS lives in one place. Adding a control to this
-   * browser is adding a native here -- not another prefix to pick off a string. */
   void Touched(const Ui::Touched &found) {
     if (found.Action.empty()) { return; }
     outshine::Script::Program handler;
@@ -176,8 +131,6 @@ struct Browser final : outshine::Script::Host {
     }
   }
 
-  /* THE BROWSER'S OWN VOCABULARY, AND IT IS THREE WORDS. Nothing in `src/core/Script.cpp` knows any of
-   * them; they exist because this file put them there, which is the whole design of the host. */
   [[nodiscard]] outshine::Script::Value Global(const std::string &name) override {
     if (name == "select") { return outshine::Script::Value::OfRef(kSelect); }
     if (name == "suite") { return outshine::Script::Value::OfRef(kSuite); }
@@ -214,7 +167,6 @@ struct Browser final : outshine::Script::Host {
     Showing.ScrolledRows = std::clamp(Showing.ScrolledRows + rows, 0, most);
   }
 
-  /* THE SENTENCE THE STATUS LINE CARRIES, derived from the listing rather than counted by hand. */
   static constexpr int kSelect = 1;
   static constexpr int kSuite = 2;
   static constexpr int kScroll = 3;
@@ -231,10 +183,6 @@ struct Browser final : outshine::Script::Host {
   }
 };
 
-/* THE LIBRARY SAYS WHY IT REFUSED AND A CLIENT THAT INSTALLED NO SINK HEARS NOTHING. [MEASURED] the
- * browser's first plan came back as *the device did not come up* with the reason -- a named stage this
- * device layer does not execute -- written to a sink nobody had set. A client owns its own diagnostics
- * and this is the browser's. */
 class Spoken final : public outshine::LogSink {
 public:
   void Write(double, outshine::LogLevel level, const char *tag, const char *event,
@@ -266,7 +214,6 @@ struct Distribution {
   return out;
 }
 
-/* WHICH QUAD COVERS A POINT, deepest last, or -1 -- the painter's order IS the depth here. */
 int Covering(const Ui::Painting &painting, double x, double y) {
   int found = -1;
   for (int at = 0; at < (int)painting.Quads().size(); ++at) {
@@ -280,12 +227,10 @@ int Covering(const Ui::Painting &painting, double x, double y) {
 
 int Windowed(Browser &browser, int frames);
 
-}  // namespace
+}
 
 int main(int argc, char **argv) {
-  /* `--frames N` RUNS THE WINDOWED ARM AND STOPS, which is what makes it checkable at all. A loop
-   * that only ends when a person closes it can be compiled and never run, and a windowed path nobody
-   * ran is a path that does not work. */
+
   int frames = -1;
   std::string opening;
   bool windowed = false;
@@ -302,9 +247,6 @@ int main(int argc, char **argv) {
     browser.Cases = View::Cases();
     browser.Recount();
 
-  /* `--show` OPENS ON A CASE, which is what makes a cost measurable without a hand on the mouse: the
-   * expensive frame is the one with a subject up, and a headless run that never selects one measures
-   * the cheap half of the program. It is the same two writes a click makes. */
   if (!opening.empty()) {
     for (int at = 0; at < (int)browser.Cases.size(); ++at) {
       if (browser.Cases[(size_t)at].Name.find(opening) == std::string::npos) { continue; }
@@ -319,9 +261,6 @@ int main(int argc, char **argv) {
     return Windowed(browser, frames);
   }
 
-  /* **THE BROWSER'S ONE PRODUCT IS A DECLARATION**, so every claim below is read off one. The layout
-   * and the painting are the ENGINE's and are proved in `test/unit/ui`; what is proved here
-   * is that what this consumer declares is well-formed, complete and placed where it says. */
   Ui::Markup tree;
   Ui::Stylesheet sheet;
   Ui::Layout placed;
@@ -356,8 +295,6 @@ int main(int argc, char **argv) {
     return Report();
   }
 
-  /* EVERY RECTANGLE IS INSIDE THE SURFACE. A quad past the edge is one the client asked the library to
-   * draw where nobody can see it, and it costs the same as one that shows. */
   {
     int outside = 0;
     for (const Ui::Quad &quad : painted.Quads()) {
@@ -370,9 +307,6 @@ int main(int argc, char **argv) {
           "and it asks for no rectangle past the library's bound");
   }
 
-  /* THE STAGE IS TRANSPARENT, WHICH IS WHAT LETS ONE RENDERER SERVE TWO CONTRIBUTIONS. If the browser
-   * painted a panel over the right-hand side, the case's picture would be behind it and the claim
-   * *two targets of one renderer* would be a claim about a picture nobody sees. */
   {
     const int overStage = Covering(painted, kWidth - 40, kHeight / 2);
     CHECK(overStage < 0,
@@ -381,13 +315,8 @@ int main(int argc, char **argv) {
     CHECK(overPanel >= 0, "and the panel beside it is painted");
   }
 
-  /* A POINTER IS A HIT AND A DECLARED ACTION. **TWO COLUMNS AND THEN THE VIEW**: the corpus on the
-   * left decides what the middle holds, and the middle decides what the right shows -- so a pointer at
-   * x = 20 is choosing a corpus and one at x = 300 is choosing a case, and the coordinates below are
-   * the declaration's own geometry rather than numbers this test invented. */
   {
-    /* THE GEOMETRY IS THE DECLARATION'S OWN: the head is 1.8 em and a row 1.3, and the root em is the
-     * surface's height over 45. A test that wrote pixels here would be a second copy of a ratio. */
+
     const double em = View::RootEmPx(kHeight);
     const int firstRow = (int)(1.8 * em + 0.65 * em);
     const int caseColumn = (int)(View::ColumnsWidth(kWidth) - 0.1 * kWidth);
@@ -408,15 +337,12 @@ int main(int argc, char **argv) {
     CHECK(lay(browser.Surfaces()[0], browser.Face, kWidth, kHeight, error),
           "and the filtered declaration composes");
 
-    /* THE FIRST ROW OF THE CORPUS COLUMN IS *ALL*, which is the way back and is a row like any other. */
     browser.Touched(Ui::Under(placed, tree, 20, firstRow));
     CHECK(browser.Showing.Suite.empty(), "and the row above them all is the way back to the whole tree");
     CHECK(View::Filtered(browser.Cases, browser.Showing).size() == browser.Cases.size(),
           "which admits every case the tree declares");
   }
 
-  /* THE SCROLL IS A NEGATIVE MARGIN UNDER A CLIP, which is a pane spelled out of what the subset
-   * already holds. One row of scroll moves the content by exactly one row and never by a pixel more. */
   {
     browser.Showing.Suite.clear();
     browser.Showing.Selected = -1;
@@ -450,9 +376,6 @@ int main(int argc, char **argv) {
     browser.Showing.ScrolledRows = 0;
   }
 
-  /* WHAT THE CHROME COSTS, WITH ITS POPULATION AND ITS DOMAIN. Declaring, reading, cascading, laying
-   * out, painting and translating -- everything between the browser's state and the rectangles the
-   * library is handed. Uploading and drawing them is the renderer's and is not in this number. */
   {
     constexpr int kWarmup = 20;
     constexpr int kFrames = 200;
@@ -486,11 +409,6 @@ int main(int argc, char **argv) {
     browser.Showing.ScrolledRows = 0;
   }
 
-  /* THE WHOLE PATH, THROUGH THE LIBRARY, INTO A TARGET THIS PROGRAM OWNS. Everything above is about a
-   * list of rectangles; this is about texels, and it is the same code the windowed arm runs with a
-   * swapchain image in place of the texture. **A DECLARED COLOUR MUST COME BACK AS ITSELF**: the frame
-   * encodes sRGB on write and CSS states colours in sRGB, so a panel declared `#12161b` that read back
-   * lighter would mean every colour in every interface is wrong by the transfer. */
   {
     outshine::Render::Renderer renderer;
     browser.Showing = View::Showing();
@@ -508,7 +426,7 @@ int main(int argc, char **argv) {
         const auto codeAt = [&rgba](int x, int y, int channel) {
           return (int)rgba[(((size_t)y * kWidth) + (size_t)x) * 4u + (size_t)channel];
         };
-        /* The CASE column's own colour, `#12161b`, read where nothing else is drawn over it. */
+
         const int r = codeAt(300, 400, 0), g = codeAt(300, 400, 1), b = codeAt(300, 400, 2);
         std::printf("NOTE the case column reads back as %d %d %d, declared 18 22 27\n", r, g, b);
         CHECK(std::abs(r - 0x12) <= 1 && std::abs(g - 0x16) <= 1 && std::abs(b - 0x1b) <= 1,
@@ -518,10 +436,6 @@ int main(int argc, char **argv) {
     }
   }
 
-  /* **THE PANE HOLDS WHAT THE CASE IS**, and for two of the three kinds that is a picture this engine
-   * made rather than one the renderer drew. A document is laid out and painted by the same engine that
-   * draws these columns; a program is shown as a console, because a blank pane says nothing about a
-   * case whose subject has no picture at all. */
   {
     const std::vector<int> all = View::Filtered(browser.Cases, browser.Showing);
     int documentAt = -1, scriptAt = -1;
@@ -550,11 +464,6 @@ int main(int argc, char **argv) {
     CHECK(browser.Surfaces().size() == 1, "and the browser returns to nothing selected");
   }
 
-  /* **A SCENARIO TAKES ITS BODY WITH IT WHEN IT GOES** (board:1455), and this is the defect that
-   * shape closes rather than a property somebody hoped for. A body was drawn across the whole surface
-   * behind every document the browser showed afterwards, because a mesh outlives whatever set it and
-   * a picture region of zero means *the whole frame*. Standing a body up, then standing a scenario
-   * with none up in its place, must leave nothing of the first one in the picture. */
   {
     outshine::Render::Renderer renderer;
     std::unique_ptr<outshine::Clients::Live> live;
@@ -579,7 +488,7 @@ int main(int argc, char **argv) {
       if (stood && live->Advance(error)) {
         (void)(renderer.ReadPixels(withIt) == outshine::Render::ReadState::Ready);
       }
-      /* NOTHING SELECTED IS A SCENARIO WITH NO BODY, and it is opened the same way. */
+
       browser.Showing = View::Showing();
       browser.Recount();
       const bool bare =
@@ -614,9 +523,6 @@ int main(int argc, char **argv) {
     }
   }
 
-  /* THE FACE IS THE CLIENT'S ASSET AND IT IS LEGIBLE. Ahem would put a filled square where every
-   * letter goes; this says the sheet has ink in it and that a glyph is narrower than its cell, which
-   * is what a readable label needs and a measurement face does not have. */
   {
     const std::vector<uint8_t> sheet = View::Sheet();
     size_t ink = 0;
@@ -635,15 +541,11 @@ int main(int argc, char **argv) {
 
 namespace {
 
-/* THE WINDOWED ARM. Everything above ran without one; this adds a window, a swapchain and an event
- * loop, and changes nothing about how a picture is decided. */
 int Windowed(Browser &browser, int frames) {
   Spoken spoken;
   outshine::Log::SetSink(&spoken);
   outshine::Render::Renderer renderer;
-  /* **THE SCENARIO IS HELD BY POINTER AND SWAPPED WHOLE.** Standing another one up releases this one,
-   * and what it put in the renderer -- the body, the picture's rectangle, the rectangles over it --
-   * leaves with it. That is the only way a case stops being shown. */
+
   std::unique_ptr<outshine::Clients::Live> live;
   std::string error;
 
@@ -654,10 +556,6 @@ int Windowed(Browser &browser, int frames) {
     return 1;
   }
 
-  /* **THIS LOOP IS THE WHOLE OF WHAT A CONSUMER DOES.** It pumps events, and where one changed what
-   * the browser IS it hands the engine a new declaration -- a whole scenario when the body changed, a
-   * set of surfaces when only the writing did. Everything else is `Advance`, and `Advance` is the
-   * engine running. There is no draw call here, no mesh, no camera and no plan. */
   bool running = true;
   bool restand = true, redeclare = false;
   std::string body;
@@ -690,16 +588,11 @@ int Windowed(Browser &browser, int frames) {
       browser.Recount();
       outshine::Clients::Declaration declaration = browser.Declare();
       declaration.Presents = true;
-      /* **A CASE THAT WILL NOT STAND UP IS A DECLINED CASE AND NOT THE END OF THE SESSION.** The
-       * refusal goes in the status line and the browser stands up its own interface instead, so a
-       * reader can read WHY and click the next case. [MEASURED] this loop used to `break` on a null
-       * scenario and the window closed itself after 1127 frames with exit 0 -- a program that ends
-       * where it should report is the one failure a person cannot tell from a crash. */
+
       if (!outshine::Clients::Live::Open(renderer, std::move(declaration), &browser.Face, live,
                                          error)) {
         const std::string refusedBy = error;
-        /* THE REFUSAL GOES TO THE CONSOLE AS WELL AS TO THE STATUS LINE, because a person watching a
-         * window reads one sentence and a person diagnosing reads a list. */
+
         std::printf("DECLINED %s: %s\n", browser.Body().c_str(), refusedBy.c_str());
         outshine::Clients::Declaration bare = browser.Declare();
         bare.Presents = true;
@@ -734,8 +627,7 @@ int Windowed(Browser &browser, int frames) {
     Uint32 gotW = 0, gotH = 0;
     if (SDL_WaitAndAcquireGPUSwapchainTexture(commands, window, &surface, &gotW, &gotH) &&
         surface != nullptr) {
-      /* **THE SWAPCHAIN'S OWN SIZE IS THE SURFACE'S**, and the window's is only what was asked for: a
-       * system may grant less, and a display may hand back more device pixels than points. */
+
       if ((int)gotW != browser.WidthPx || (int)gotH != browser.HeightPx) {
         browser.WidthPx = (int)gotW;
         browser.HeightPx = (int)gotH;
@@ -763,4 +655,4 @@ int Windowed(Browser &browser, int frames) {
   return 0;
 }
 
-}  // namespace
+}

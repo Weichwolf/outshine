@@ -1,21 +1,3 @@
-/* A SCANLINE OpenEXR READER IN C++ (board:1119), and `test/harness/shared/corpus/prep/exr.py` is its specification.
- *
- * WHY IT EXISTS. `oracle.raw` exists only because C++ could not read an EXR: it is a flat f32 dump of
- * what `oracle.exr` already holds, 265 MB against 16 MB per case, a 16x DECOMPRESSED CACHE of a file
- * the corpus keeps anyway. With this reader the raw is derivable rather than stored, and the corpus
- * retention rule stops costing a Blender re-render per suite run.
- *
- * WHY NOT A PACKAGE. `OpenEXR` is a dependency for a format that is a header, an offset table and
- * zlib -- and zlib is already in this process, linked through SDL3_image's libpng. `CLAUDE.md`'s rule
- * is satisfied either way: a package the host provides, or ours.
- *
- * WHAT IT READS AND WHAT IT REFUSES. Scanline images, `NONE`/`ZIPS`/`ZIP`, `HALF` and `FLOAT`
- * channels. TILED, DEEP AND MULTIPART ARE REFUSED BY NAME rather than half-read -- the same three the
- * Python reader refuses and for the same reason: this serves one producer, and a file it does not
- * understand is a defect in that producer rather than an input to accommodate.
- *
- * IT IS A HEADER BECAUSE ITS ONE CONSUMER IS A TEST and `RawF32.h` beside it is one too; a reader
- * whose whole surface is "open this file, hand me the planes" has no state worth a translation unit. */
 #ifndef RENDER_EXR_H
 #define RENDER_EXR_H
 
@@ -52,8 +34,6 @@ public:
   [[nodiscard]] int Width() const { return Width_; }
   [[nodiscard]] int Height() const { return Height_; }
 
-  /* THE CHANNEL'S NAME KEEPS ANY LAYER PREFIX THE PRODUCER WROTE -- `normal.R` and `R` are different
-   * channels and stripping the prefix here would merge two layers that differ only by it. */
   [[nodiscard]] const std::vector<float> *Plane(const std::string &channel) const {
     const auto found = Planes_.find(channel);
     return found == Planes_.end() ? nullptr : &found->second;
@@ -74,10 +54,9 @@ private:
 
   struct Channel {
     std::string Name;
-    int PixelType = 0; /* 0 UINT, 1 HALF, 2 FLOAT */
+    int PixelType = 0;
   };
 
-  /* binary16 to f32 is exact, so widening here loses nothing and one currency leaves this reader. */
   [[nodiscard]] static float HalfToFloat(uint16_t bits) {
     const uint32_t sign = (uint32_t)(bits >> 15) << 31;
     uint32_t exponent = (bits >> 10) & 0x1Fu;
@@ -85,7 +64,7 @@ private:
     uint32_t wide = 0;
     if (exponent == 0) {
       if (mantissa != 0) {
-        /* Subnormal: renormalise into the f32 exponent range rather than truncating to zero. */
+
         int shift = 0;
         while ((mantissa & 0x400u) == 0) {
           mantissa <<= 1;
@@ -106,9 +85,6 @@ private:
     return out;
   }
 
-  /* zlib, THEN EXR's OWN BYTE PREDICTOR AND ITS TWO-HALF INTERLEAVE, in that order. Neither step is
-   * zlib's and neither is optional: the predictor makes the stream compressible and the interleave
-   * separates a float's high bytes from its low ones. */
   [[nodiscard]] bool Unzip(const uint8_t *from, size_t size, std::vector<uint8_t> &into) {
     uLongf produced = (uLongf)into.size();
     if (uncompress(into.data(), &produced, from, (uLong)size) != Z_OK) { return false; }
@@ -179,9 +155,9 @@ private:
 
     size_t perBlock = 0;
     switch (compression) {
-      case 0: perBlock = 1; break; /* NONE */
-      case 2: perBlock = 1; break; /* ZIPS */
-      case 3: perBlock = 16; break; /* ZIP */
+      case 0: perBlock = 1; break;
+      case 2: perBlock = 1; break;
+      case 3: perBlock = 16; break;
       default:
         return Refuse(path + ": compression " + std::to_string(compression) +
                       ", and this reader knows NONE, ZIPS and ZIP");
@@ -232,8 +208,6 @@ private:
         return Refuse(path + ": an uncompressed scanline block is shorter than its rows");
       }
 
-      /* WITHIN A BLOCK THE ROWS COME FIRST AND THE CHANNELS SECOND, in the header's own order -- so a
-       * channel's row offset depends on every channel declared before it. */
       size_t cursor = 0;
       for (size_t row = 0; row < rows; ++row) {
         const size_t y = (size_t)(line - dataWindow[1]) + row;
@@ -284,7 +258,7 @@ private:
                       std::to_string(pixelType) + ", and this reader knows HALF and FLOAT");
       }
       channel.PixelType = pixelType;
-      at += 16u; /* pixel type, pLinear + two pad bytes, xSampling, ySampling */
+      at += 16u;
       out.push_back(channel);
     }
     return true;
@@ -295,5 +269,5 @@ private:
   std::map<std::string, std::vector<float>> Planes_;
 };
 
-} // namespace outshine::Render::Parity
+}
 #endif

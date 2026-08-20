@@ -1,39 +1,3 @@
-/* WHICH DETERMINATION PRODUCED A CASE'S CAMERA, MEASURED -- AND THE FRAMING RULE'S OWN OUTPUT
- * PRINTED AND HELD.
- *
- * THE QUOTED DERIVATION. Case manifests declare a camera and state its position, lens and clip range
- * as fifteen-digit doubles, with the framing rule named in prose beside them -- numbers no committed
- * instrument reproduced. A quoted derivation is a [SET] number wearing a derivation's clothes:
- * nothing fails when the bounds in the prose are wrong, because nothing recomputes them. This runs
- * the rule over each case's own subject and scores the declaration against it. The bounds, the radius
- * and the centre come from the file's vertices; the direction, the lens and the fill from Framing.h;
- * and the eye that falls out has to be the eye the manifest declares.
- *
- * THE PROSE IS NOT THE DISCRIMINATOR AND THAT WAS MEASURED THE HARD WAY. This test first read the
- * derivation for the string `src/gltf/Framing.h` and called that the claim; the run then showed eight
- * further cases taking the rule's camera to 0 m while naming it as "the framing rule of
- * board:0083" instead. A wording difference had become a red. **The separation in
- * metres is the discriminator** -- it is 0 m or it is 4.5 m and upwards, with nothing between.
- *
- * THE TWO DETERMINATIONS OF ONE QUANTITY, which is the defect underneath (`board/`
- * I.26.14): the framing rule and the exactness construction both decide the camera distance, and
- * nothing makes them agree. The framing rule wins by default because it runs first, so a case can
- * carry the rational roll and lose the lattice-offset condition without anything noticing. Held here:
- * every camera falls unambiguously to one determination and the band between them is empty. THAT AN
- * `exact` CASE MAY NOT TAKE THE RULE'S CAMERA IS NOT HELD HERE AND NEEDS NO RULE AT ALL: the runner
- * recomputes the lattice offset of every silhouette line, and a distance the framing rule chose
- * satisfies it only by coincidence -- so the measurement refuses the combination where a string
- * comparison would only have reported it.
- *
- * OWNERSHIP, COMPUTED RATHER THAN REMEMBERED. `2 + k >= E` counts the freedoms WE own, and ownership
- * is decided by whose camera it is and not by whose subject it is. `camera.source` alone is the wrong
- * discriminator: four cases carry `"gltf"` and two of those files are ours. The pair
- * (`camera.source`, `subjects[].source.kind`) decides it, so the trap has no spelling here instead of
- * a note asking someone to remember.
- *
- * THE SUBJECTS ARE FETCHED OR GENERATED, NEVER TRACKED (I.26.10), so on a fresh clone they are
- * absent. That is UNPREPARED and it is RED: a skip here could not be told from a pass that framed
- * nothing. */
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -61,36 +25,17 @@ using outshine::Gltf::Viewport;
 
 namespace {
 
-/* THE PREPARED ROOT AND NOT THE TREE (board:1364). Every case's products live under the system temp
- * root, so a walk of `test/render/khronos/glTF` now finds manifests without subjects and reports ZERO cases --
- * a green test about nothing. The root is flat, so `recursive_directory_iterator` still walks it and the
- * two corpora are told apart by the leaf's prefix rather than by depth. */
 const std::string kSuite = outshine::Test::PreparedRoot();
-/* What `subjects[].source.kind` says when the subject is one this tree produced. Anything else is
- * upstream's, and then whether the freedoms are ours turns on who placed the camera. */
+
 const char *const kGenerated = "outshine-generated";
 
-/* ONE ULP OF A DOUBLE NEAR 60 IS 7.1e-15, and the two sides of every comparison below are the same
- * arithmetic evaluated by two libm implementations -- ours here, CPython's when the manifest was
- * written. `sin`, `cos` and `atan` are correctly rounded in neither, so a few ulps of the largest
- * quantity involved is the floor of what an agreement can be asked for. This tolerance is RELATIVE,
- * and it is orders below the smallest thing it must be able to catch, which is a mistyped last digit
- * at 1e-11 relative. */
-constexpr double kLibmAgreement = 1e-12; /* [SET] relative */
-/* THE BAND THE TWO DETERMINATIONS ARE SEPARATED BY, and it is held rather than assumed. A camera
- * within a millimetre of the rule's eye took its distance from the rule; one a metre away or more
- * was determined somewhere else. Measured over the suite: the first arm is 0 m exactly at fourteen
- * cases and the second is 4.50 m at its closest, so the empty band is three orders wide on both
- * sides of these two numbers. A camera landing INSIDE it is the hazard this test exists for -- a
- * placement fitted near the rule's answer, belonging to neither determination and attributable to
- * neither. */
-constexpr double kSameCameraM = 1e-3;     /* [SET] metres */
-constexpr double kDistinctCameraM = 1.0;  /* [SET] metres */
+constexpr double kLibmAgreement = 1e-12;
 
-/* WHOSE FREEDOMS THE PLACEMENT SPENDS. Not a boolean over `camera.source`: that string is `"gltf"`
- * for two files upstream authored and two we generate (Enum.2). */
+constexpr double kSameCameraM = 1e-3;
+constexpr double kDistinctCameraM = 1.0;
+
 enum class Freedoms { Ours, Upstreams };
-/* WHAT PRODUCED THE DECLARED CAMERA, measured and never read off the prose. */
+
 enum class Determination { FramingRule, Elsewhere, TheFilesOwn };
 const char *Spell(Freedoms freedoms) {
   return (freedoms == Freedoms::Ours) ? "ours" : "upstream's";
@@ -103,9 +48,7 @@ const char *Spell(Determination determination) {
   }
   return "";
 }
-/* THE RULING'S OWN FOUR CASES (I.26.14, 2026-08-13), which exist here because they are the trap:
- * all four declare `camera.source = "gltf"` and the freedoms belong to us in two of them. The table
- * is what turns "remember that the string is the wrong discriminator" into a claim that fails. */
+
 struct OwnershipRuling {
   const char *Id;
   Freedoms Owns;
@@ -122,9 +65,6 @@ std::string Slurp(const std::string &path) {
   return std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 }
 
-/* `CHECK_NEAR` takes an absolute tolerance because a default one is an unstated acceptance; the
- * quantities here span 0.02 m to 59 m, so the scale each is judged at is stated per call from the
- * declared value itself. */
 double AgreementFor(double declared) {
   const double magnitude = std::fabs(declared);
   return kLibmAgreement * ((magnitude > 1.0) ? magnitude : 1.0);
@@ -147,11 +87,7 @@ std::vector<Case> Cases() {
   for (const auto &entry : std::filesystem::recursive_directory_iterator(kSuite, walking)) {
     if (entry.path().filename() != "manifest.json") { continue; }
     const std::string directory = entry.path().parent_path().string();
-    /* THE POPULATION IS THE RENDER CORPORA AND THE PREFIX IS HOW A CASE SAYS WHICH ONE IT IS IN. The
-     * prepared root now holds a third corpus -- documents, judged without an oracle and carrying no
-     * glTF at all -- and a walk that took them would report `the case's subject reads` about a case
-     * that never declared a subject. A camera derived from a declaration is a claim about the render
-     * suites, so those are what this counts. */
+
     const std::string leaf = entry.path().parent_path().filename().string();
     const auto begins = [&leaf](const char *prefix) {
       return leaf.compare(0, std::string(prefix).size(), prefix) == 0;
@@ -167,28 +103,14 @@ std::vector<Case> Cases() {
   return found;
 }
 
-/* WHAT ONE CASE ANSWERED, so the run's summary is built from the values the lines printed rather
- * than from a second pass over the tree. */
 struct Answer {
-  /* The case's own manifest says this engine refuses its subject, and the refusal happened. */
+
   bool Declined = false;
   Freedoms Owns = Freedoms::Ours;
   Determination Produced = Determination::Elsewhere;
   bool Judged = false;
 };
 
-/* THE AGREEMENT BLOCK, run over a case whose camera the measurement attributes to the framing rule --
- * and each quantity is held against the determination that actually produced it, which is the whole
- * point of separating them.
- *
- * WHAT THE RULE PRODUCES: the eye, from the bounds' centre, the radius, the fixed direction and the
- * fill; the aim, which IS that centre; and the lens, from the fixed focal length and sensor height.
- * The eye and the lens are held at the libm floor, nine orders tighter than the millimetre the
- * attribution was made on; the aim is held exactly, because it is a copy of a number and not the
- * output of a transcendental.
- *
- * WHAT A CASE SPENDS ITSELF: the roll and the clip range. The clip range must contain the subject;
- * the roll the rule does not produce and does not contradict. */
 void HoldAgainstTheRule(const Json::Ref &root, const Subject &subject, const Placement &framed,
                         const double centre[3]) {
   const Json::Ref declared = root["scene"]["camera"];
@@ -217,14 +139,6 @@ void HoldAgainstTheRule(const Json::Ref &root, const Subject &subject, const Pla
   CHECK(declared["sensorHeightMm"].Num(0.0) == 24.0,
         "the declared sensor height is the rule's own 2 * 12 mm, exactly and not to a tolerance");
 
-  /* THE AIM IS THE RULE'S TOO, AND IT IS THE BOUNDS' CENTRE EXACTLY. A sub-pixel band here is what
-   * let five cases carry an aim 3.5927e-3 m off the centre -- 0.435660418 px, identical to nine
-   * digits across subjects at three scales, so a rule somebody applied in pixels -- while their own
-   * derivation cited the framing rule, which aims at the centre. 0.4357 px is 87x the oracle's
-   * 0.005 px filter half-width on cases whose acceptance is a sub-pixel distance to an edge, so
-   * "sub-pixel" was never the right band; the right band is zero. THE OFFSET IS STILL PRINTED IN
-   * PIXELS, because metres say nothing until they are divided by `2 * tan(yfov/2) * d / heightPx`,
-   * and that is the number a reader needs when this line goes red. */
   const double toCentre = Separation(framed.EyeM, centre);
   const double pixelM = (viewport.HeightPx > 0)
                             ? 2.0 * std::tan(0.5 * framed.YfovRad) * toCentre / viewport.HeightPx
@@ -236,9 +150,6 @@ void HoldAgainstTheRule(const Json::Ref &root, const Subject &subject, const Pla
         "the declared aim IS the bounds' centre, which is the point the framing rule aims at -- an "
         "aim beside it is a second determination of the camera wearing the rule's distance");
 
-  /* THE CLIP RANGE IS THE CASE'S, and what it owes is the subject: a near plane in front of the
-   * subject's nearest point or a far plane inside it would clip the very silhouette the comparison
-   * scores. The rule's own [distance - r, distance + r] is what "the subject" means here. */
   const double near = declared["clipStartM"].Num(0.0);
   const double far = declared["clipEndM"].Num(0.0);
   std::printf("NOTE   declared clip = [%.9g, %.9g] m, the rule's = [%.9g, %.9g] m\n", near, far,
@@ -247,18 +158,10 @@ void HoldAgainstTheRule(const Json::Ref &root, const Subject &subject, const Pla
         "the declared clip range is positive and contains the rule's own, so no plane cuts the "
         "silhouette the case is scored on");
 
-  /* THE ROLL IS THE CASE'S AND NOT THE RULE'S. The rule produces zero; eight cases declare a roll of
-   * -arctan(1/2) on top of it, which is condition (A) of the exactness construction sitting beside a
-   * distance that knows nothing about condition (B) -- the mixed determination I.26.14 names. It is
-   * PUBLISHED here rather than refused, because refusing it would decide the classification this
-   * instrument was built to inform. */
   const double roll = declared["rollRad"].Num(0.0);
   std::printf("NOTE   declared roll = %.12g rad, which the framing rule does not produce%s\n", roll,
               (roll == 0.0) ? " and does not contradict" : " -- condition (A) over a rule distance");
 
-  /* THE WHOLE CAMERA REBUILT: the rule's eye and lens, the case's aim, roll and clip. If that is
-   * really what the manifest declares, the frame fraction it comes out at is the one the case states
-   * -- which the runner computes independently from the declared numbers. */
   Placement asDeclared;
   const bool rolls = Placement::LookAt(framed.EyeM, aim, roll, asDeclared);
   CHECK(rolls, "the rule's eye with the case's own aim and roll resolve to a camera basis");
@@ -278,10 +181,7 @@ void HoldAgainstTheRule(const Json::Ref &root, const Subject &subject, const Pla
   const Json::Ref accepted = root["expected"]["subjectFrameFraction"];
   CHECK(accepted["value"].GetKind() == Json::Kind::Number,
         "the case states the projected frame fraction its boundary bound is applied under");
-  /* Not the libm tolerance: this is a sum over every triangle of the subject -- 1 500 224 of them for
-   * ABeautifulGame -- so it carries accumulated rounding as well as the camera's. 5e-7 is the
-   * runner's own `frame_fraction_error` threshold, read from the same rule rather than restated as a
-   * second opinion. */
+
   CHECK_NEAR(fraction, accepted["value"].Num(0.0), 5e-7, "dimensionless",
              "the frame fraction under the rule's own camera is the fraction the case declares");
   std::printf("NOTE   frame fraction under the rule = %.17g\n", fraction);
@@ -301,8 +201,7 @@ Answer Judge(const Case &subjectCase) {
 
   const bool cameraIsTheFiles = declared["source"].StrEquals("gltf");
   const bool subjectIsOurs = subject0["source"]["kind"].StrEquals(kGenerated);
-  /* The ruling's three ownership cases as one expression: the placement is ours unless BOTH the file
-   * and the camera inside it are upstream's. */
+
   answer.Owns = (cameraIsTheFiles && !subjectIsOurs) ? Freedoms::Upstreams : Freedoms::Ours;
   answer.Produced = cameraIsTheFiles ? Determination::TheFilesOwn : Determination::Elsewhere;
 
@@ -315,12 +214,7 @@ Answer Judge(const Case &subjectCase) {
 
   Document document;
   if (!document.ReadFile(subjectPath)) {
-    /* A CASE WHOSE DECLARED VERDICT IS THAT THIS ENGINE DECLINES IT HAS NO CAMERA TO DERIVE, AND THE
-     * REFUSAL IS ITS ANSWER RATHER THAN ITS FAILURE (`board:1424`, `board:1437`). `limits-probe` is the
-     * criterion kind that says so -- the render suite has consumed it since `board:1424` and this test
-     * did not, so `SpecGlossVsMetalRough` was red here for behaving exactly as its own manifest
-     * declares it must. **It is announced and not skipped**: a silence here could not be told from a
-     * pass that framed something. */
+
     if (root["criterion"]["kind"].StrEquals("limits-probe")) {
       std::printf("DECLINED %s -- %s\n", subjectCase.Id.c_str(), document.Error().c_str());
       answer.Declined = true;
@@ -337,23 +231,10 @@ Answer Judge(const Case &subjectCase) {
     return answer;
   }
 
-  /* THE RULE OVER THE MOTION AND NOT OVER THE STORED POSE (board:1366). A camera derived from the pose
-   * the file happens to hold frames a shape an animated subject LEAVES -- `AnimatedTriangle` spins 360
-   * degrees about the origin and reaches 2.12 from a centre the rest-pose rule covers to 1.178. So the
-   * bounds are the union over the case's own declared frame grid; for a still that union IS the pose,
-   * which is why not one of the still cases moves. */
   const Json::Ref animation = root["scene"]["animation"];
   const int frameCount = (int)animation["frames"]["value"].Num(1.0);
   const double fps = animation["fps"]["value"].Num(0.0);
-  /* FRAME 0 IS A POSE AND NOT THE STORED ONE (board:1437). An animated file's rest positions are what
-   * its accessors hold; frame 0 of its grid is what a renderer draws, and for a subject with a
-   * keyframe at t = 0 the two differ. Seeding the sweep from the stored pose and starting the loop at
-   * frame 1 therefore framed a shape nothing renders, and computing the frame fraction from it
-   * compared a rest-pose area against a declaration harvested from a posed render.
-   *
-   * [MEASURED] the two disagreed on 8 cases and **every one of the 8 is animated** -- `SimpleMorph` by a
-   * factor of three, 0.00707695694 against a declared 0.0022899601. Not one still case moved, which is
-   * the same discriminator `board:1432` found one suite over. */
+
   if (frameCount >= 1 && fps > 0.0 && animation["animations"].Size() > 0) {
     std::vector<int> atZero;
     for (size_t at = 0; at < animation["animations"].Size(); ++at) {
@@ -422,19 +303,10 @@ Answer Judge(const Case &subjectCase) {
     answer.Produced = Determination::FramingRule;
   }
 
-  /* THE LEDGER LINE. Everything a reader needs to attribute a residual to a determination is on it:
-   * who owns the freedoms, what produced the camera, and the subject's own size. THE ACCEPTANCE
-   * CLASS IS NOT ON IT and is not read here: the runner reads it, from the one reader that also
-   * enforces it (test/shared/render/Acceptance.h), and a second spelling of the same word in a layer that
-   * cannot include that file is a statement in two places. */
   std::printf("NOTE %-38s freedoms %-11s camera from %-22s r = %.9g m, %zu triangles\n",
               subjectCase.Id.c_str(), Spell(answer.Owns), Spell(answer.Produced),
               subject.RadiusM(), subject.TriangleCount());
-  /* THE RULE'S ANSWER FOR EVERY CASE, WHETHER OR NOT THE CASE TOOK IT -- which is what makes this a
-   * usable instrument rather than only a check. A case being written has no camera yet; it declares
-   * its subject, this prints what the rule frames it at, and the manifest is filled from here. Two
-   * cases with the same subject then get the same picture because they read the same line, not
-   * because two people ran the same arithmetic twice. */
+
   std::printf("NOTE   the framing rule frames this subject at eye (%.17g, %.17g, %.17g) m, aim "
               "(%.17g, %.17g, %.17g) m, yfov %.17g rad, clip [%.17g, %.17g] m\n",
               framed.EyeM[0], framed.EyeM[1], framed.EyeM[2], centre[0], centre[1], centre[2],
@@ -443,8 +315,7 @@ Answer Judge(const Case &subjectCase) {
   if (cameraIsTheFiles) { return answer; }
 
   std::printf("NOTE %-38s declared eye is %.9g m from the framing rule's\n", "", separation);
-  /* THE BAND BETWEEN THE TWO DETERMINATIONS IS EMPTY, and that is what makes them distinguishable at
-   * all. A camera inside it belongs to neither and can be attributed to neither. */
+
   CHECK(separation <= kSameCameraM || separation >= kDistinctCameraM,
         "the declared camera is the framing rule's answer or is a metre or more from it, never "
         "fitted near it, which is the placement neither determination could account for");
@@ -455,14 +326,13 @@ Answer Judge(const Case &subjectCase) {
   return answer;
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
 
   const std::vector<Case> cases = Cases();
-  /* A walk that found nothing would report a clean run over an empty set, which is the vacuous shape
-   * this suite's whole guard exists to catch. */
+
   CHECK(!cases.empty(), "the render suite's case directories are found and their manifests read");
 
   int ours = 0, upstreams = 0, byTheRule = 0, elsewhere = 0, theFiles = 0;

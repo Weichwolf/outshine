@@ -1,6 +1,3 @@
-/* The growth's ONE source of chance: xorshift32, seeded from the species' declared seed. Deterministic
- * and portable — the same declaration yields the same tree in the browser and natively, which is what
- * makes a vertex count an acceptance criterion at all. */
 #ifndef TREERANDOM_H
 #define TREERANDOM_H
 
@@ -27,5 +24,5 @@ private:
   uint32_t State_;
 };
 
-} // namespace outshine::Generators
+}
 #endif

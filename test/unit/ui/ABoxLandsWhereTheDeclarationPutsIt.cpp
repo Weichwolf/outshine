@@ -1,12 +1,3 @@
-/* WHERE A BOX LANDS, IN PIXELS (board:1442).
- *
- * **The numbers here are the corpus's own idiom.** WPT states a layout case's answer as
- * `data-expected-width` and `data-offset-x` on the element itself -- `board:1443` measures that -- so
- * this test is written the same way: a declaration, and the pixels it must produce. Nothing is compared
- * against a picture, because a layout is right or wrong before anything is painted.
- *
- * **`Ahem` is why the numbers are exact**: every glyph is a solid square of the em, so a run of five
- * characters at 16 px is 80 px and a line is a line rather than a rasterisation. */
 #include <cmath>
 #include <string>
 
@@ -47,13 +38,11 @@ struct Laid {
 
 bool Near(double a, double b) { return std::fabs(a - b) < 1e-6; }
 
-}  // namespace
+}
 
 int main(void) {
   using namespace outshine::Test;
 
-  /* THE USER-AGENT SHEET IS WHY THE FIRST BOX IS AT EIGHT. Without it every case below is off by
-   * `body`'s own margin, which is exactly the eight pixels `board:1443` measured in the corpus. */
   {
     Laid one;
     std::string why;
@@ -68,8 +57,6 @@ int main(void) {
     }
   }
 
-  /* THE BOX MODEL IN CSS'S OWN DEFAULT: `width` is the CONTENT and the frame is added to it, which is
-   * `content-box` -- and `border-box` is the other answer, declared. */
   {
     Laid one;
     std::string why;
@@ -90,7 +77,6 @@ int main(void) {
     }
   }
 
-  /* FLEX ALONG THE MAIN AXIS: a base, a grow, a gap and a justification. */
   {
     Laid one;
     std::string why;
@@ -114,7 +100,6 @@ int main(void) {
     }
   }
 
-  /* JUSTIFICATION AND CENTRING, which is the arithmetic a HUD is made of. */
   {
     Laid one;
     std::string why;
@@ -131,7 +116,6 @@ int main(void) {
     }
   }
 
-  /* A COLUMN IS THE SAME ALGORITHM WITH THE AXES SWAPPED, which is the whole reason it is one. */
   {
     Laid one;
     std::string why;
@@ -150,9 +134,6 @@ int main(void) {
     }
   }
 
-  /* PROSE, WHICH IS WHAT SEPARATES A QUEST LOG FROM A ROW OF BUTTONS: a run wraps at spaces and every
-   * line is one line-height tall. At `Ahem` and 10 px, "aaaa bbbb cccc" is three words of 40 px, and a
-   * 100 px column takes two of them on the first line. */
   {
     Laid one;
     std::string why;
@@ -172,7 +153,6 @@ int main(void) {
     }
   }
 
-  /* A HIT IS A NODE AND NOT A DECISION, which is the whole of what interaction is here. */
   {
     Laid one;
     std::string why;
@@ -186,7 +166,7 @@ int main(void) {
     CHECK(missed < 0, "and a point outside every box answers nothing at all");
   }
 
-  Covers("board:1442 the library measures, wraps and places, and what it answers is where every box "
+  Covers("the library measures, wraps and places, and what it answers is where every box "
          "landed in the viewport's own pixels -- judged with no device and no picture");
   return Report();
 }

@@ -1,10 +1,3 @@
-/* WHICH DECLARATION WINS, AND WHY (board:1442).
- *
- * The selectors here are the ones the corpus writes -- `div.flexbox` from
- * `css/css-flexbox/align-content-horiz-001a.html` and `#circles, #circles div` from
- * `auto-margins-001.html` -- because a ranking that mis-ordered THOSE would put the corpus's own
- * boxes in the wrong place on the first file read. What is outside the subset is asked for by name
- * and counted rather than skipped, since that count is what the corpus selection reads. */
 #include <string>
 
 #include "Check.h"
@@ -47,7 +40,7 @@ int FirstWithId(const Markup &markup, const char *id) {
   return -1;
 }
 
-}  // namespace
+}
 
 int main(void) {
   using namespace outshine::Test;
@@ -77,23 +70,17 @@ int main(void) {
   const int ring = FirstWithId(markup, "ring");
   CHECK(inner >= 0 && ring >= 0, "the fixture carries both elements");
 
-  /* CSS'S OWN ORDER: an id outranks a class, a class outranks a type, and a descendant chain adds
-   * what its compounds add. Four rules select `#inner` and the id wins. */
   outshine::Ui::Value width;
   const Rule *won = Ranked(sheet, markup, inner, Property::Width, width);
   CHECK(won != nullptr, "a rule selects the inner element");
   CHECK(width.How == Unit::Pixels && width.Number == 4.0,
         "an id outranks a class, a descendant chain and a type");
 
-  /* THE DESCENDANT COMBINATOR SELECTS THROUGH A GAP and not only through a parent. */
   outshine::Ui::Value margin;
   const Rule *descends = Ranked(sheet, markup, ring, Property::MarginTop, margin);
   CHECK(descends != nullptr, "`#circles div` selects a division inside `#circles`");
   CHECK(margin.How == Unit::Auto, "and the value it carries is the keyword the author wrote");
 
-  /* A SHORTHAND IS SEVERAL DECLARATIONS AND NOT A VALUE. Three values in CSS's clock order mean top,
-   * right-and-left, bottom -- and a reader that kept `padding` whole would make every box downstream
-   * ask which side it meant. */
   const int flexbox = markup.Nodes()[(size_t)inner].Parent;
   outshine::Ui::Value top, right, bottom, left;
   CHECK(Ranked(sheet, markup, flexbox, Property::PaddingTop, top) != nullptr, "the shorthand expands");
@@ -103,7 +90,6 @@ int main(void) {
   CHECK(top.Number == 1.0 && right.Number == 2.0 && bottom.Number == 3.0 && left.Number == 2.0,
         "three values are top, then right and left, then bottom -- CSS's own clock");
 
-  /* A COLOUR IS A VALUE AND NOT A STRING, and a three-digit hex is the six-digit one doubled. */
   outshine::Ui::Value colour;
   CHECK(Ranked(sheet, markup, inner, Property::Colour, colour) != nullptr, "the colour is declared");
   CHECK(colour.How == Unit::Colour && colour.Word == 0x00FF88FFu,
@@ -114,10 +100,6 @@ int main(void) {
   CHECK(display.How == Unit::Keyword && display.Word == Keyword("flex"),
         "a keyword is compared as an integer and reads as its own spelling");
 
-  /* THE CHILD COMBINATOR IS INSIDE THE SUBSET AND THE DESCENDANT ONE STILL IS. The two differ in
-   * exactly one way and the test is that difference: `>` may not skip a generation, so a rule written
-   * with it must NOT match a grandchild -- and a walk that kept climbing would turn `a > b` into
-   * `a b`, a rule matching more than the author wrote. */
   {
     Markup nested;
     std::string why;
@@ -142,9 +124,6 @@ int main(void) {
     }
   }
 
-  /* WHAT IS OUTSIDE THE SUBSET IS COUNTED, WHICH IS WHAT THE CORPUS SELECTION READS. A pair whose
-   * files declare something this engine does not hold is outside, and the count is how that question
-   * gets answered without a list anybody maintains. */
   Stylesheet outside;
   outside.Read("@media screen { div { width: 1px } }\n"
                "div:hover { width: 2px }\n"
@@ -161,7 +140,7 @@ int main(void) {
             outside.Rules().size() < 4,
         "and no rule this reader could not express reached the sheet");
 
-  Covers("board:1442 the cascade is ranked by CSS specificity over the selector subset the corpus "
+  Covers("the cascade is ranked by CSS specificity over the selector subset the corpus "
          "writes, and everything outside the subset is counted so the corpus selection is derived");
   return Report();
 }

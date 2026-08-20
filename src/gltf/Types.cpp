@@ -42,9 +42,6 @@ size_t ElementColumns(ElementType element) {
   return 0;
 }
 
-/* Every column of a matrix element starts 4-byte aligned, so a MAT3 of bytes occupies 12 and not 9.
- * Getting this wrong reads a correct file as garbage without any index going out of range, which is
- * why it is computed in one place rather than at each call site. */
 size_t TightElementBytes(ElementType element, ComponentType component) {
   const size_t rows = ElementRows(element);
   const size_t columns = ElementColumns(element);
@@ -73,8 +70,7 @@ bool VertexColourComponents(const Accessor &accessor, size_t &components, std::s
     return false;
   }
   if (accessor.Element != ElementType::Vec3 && accessor.Element != ElementType::Vec4) {
-    /* Rows and columns rather than a component count, because a MAT2 has four components and would
-     * otherwise read as a VEC4 in its own refusal. */
+
     why = "carries an element of " + std::to_string(ElementRows(accessor.Element)) + " rows and " +
           std::to_string(ElementColumns(accessor.Element)) +
           " columns, and a vertex colour is VEC3 or VEC4";
@@ -101,16 +97,12 @@ size_t PathComponents(AnimationPath path) {
     case AnimationPath::Scale: return 3;
     case AnimationPath::Rotation: return 4;
     case AnimationPath::Weights: return 0;
-    /* NOT ANSWERABLE FROM THE PATH ALONE, the same statement `Weights` makes: which numbers a
-     * material factor carries is the factor's, and `FactorComponents` is where that is asked. */
+
     case AnimationPath::MaterialFactor: return 0;
   }
   return 0;
 }
 
-/* THE FOUR, AND ADDING A FIFTH IS ADDING A ROW (board:1392). `emissiveFactor` sits directly on the
- * material; the other three sit on `pbrMetallicRoughness`, and the tail carries that so the walk has
- * one shape and not two. */
 Span<const AnimatablePointer> AnimatablePointers(void) {
   static const AnimatablePointer kPointers[] = {
       {"emissiveFactor", MaterialFactor::Emissive},
@@ -123,7 +115,7 @@ Span<const AnimatablePointer> AnimatablePointers(void) {
 
 size_t FactorComponents(MaterialFactor factor) {
   switch (factor) {
-    /* Four, because `baseColorFactor` carries alpha and the format animates it with the rest. */
+
     case MaterialFactor::BaseColour: return 4;
     case MaterialFactor::Metalness:
     case MaterialFactor::Roughness: return 1;
@@ -132,9 +124,6 @@ size_t FactorComponents(MaterialFactor factor) {
   return 0;
 }
 
-/* THE THREE ARMS ARE ORDERED SO THE SENTENCE NAMES THE RIGHT PARTY (board:1182): a set beyond the
- * second is refused BEFORE the subject is consulted, because that shortfall is this engine's and
- * would otherwise be reported as the asset's missing attribute. */
 bool UvSetOf(const TextureRef &reference, CarriedUvSets carried, const char *socket, UvSet &out,
              std::string &why) {
   if (reference.TexCoord == 0) {
@@ -178,4 +167,4 @@ int Primitive::MaterialUnder(int variant) const {
   return mapped < 0 ? Material : mapped;
 }
 
-} // namespace outshine::Gltf
+}

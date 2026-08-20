@@ -1,20 +1,3 @@
-/* THE SUBJECT UNIT'S OWN SHADER TEXT, HANDED TO A REAL DEVICE AND NOTHING ELSE (board:1207).
- *
- * WHY THIS EXISTS, AND IT IS A DEFECT'S OWN EPITAPH. A `shadeRow` call site was left one argument
- * short while four others were updated. The library BUILT -- the text is a C++ string literal, so the
- * host compiler never reads it. The unit tree passed 54 of 54. The shader suite passed, because not
- * one of its members compiled THIS unit's source. The error surfaced only when a render case created a
- * device, and it took a full corpus preparation and a 208-test run to see: 71 cases red on a picture
- * they never got to draw.
- *
- * SO THE CLAIM IS DELIBERATELY THE SMALLEST ONE THAT WOULD HAVE CAUGHT IT: every shader this unit
- * emits is accepted by the driver. No asset, no camera, no oracle, no corpus -- which is exactly what
- * `CLAUDE.md` says a shader case is, and the one shape of failure the other four members cannot see.
- *
- * IT IS THE ATTACHMENT SETS THAT MAKE IT MORE THAN ONE COMPILE. `Configure` splices the plan's colour
- * targets into the text -- velocity, shading normal and surface identity each add an output and an
- * arm -- so a set the plan can produce is a shader variant nobody else compiles. The sets below are
- * walked rather than assumed: the empty one, each single target, and all three together. */
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -46,8 +29,6 @@ int main() {
     return Report();
   }
 
-  /* THE THREE OPTIONAL TARGETS AND EVERY COMBINATION THIS TEST WALKS, named rather than counted so a
-   * target added to the plan and not to this list is visible as a name that is not here. */
   const Resource optional[3] = {Resource::SceneVelocity, Resource::SceneShadingNormal,
                                 Resource::SceneSurfaceIdentity};
   int compiled = 0;
@@ -55,9 +36,7 @@ int main() {
     Gpu gpu;
     gpu.Device = device;
     gpu.FiltersFloat32 = true;
-    /* `Add` answers whether the set had room, and the answer is CHECKED rather than dropped: a set
-     * that silently lost a target would make this test compile a shader the plan cannot produce and
-     * report a pass about a variant nobody renders. */
+
     bool held = gpu.SceneColours.Add(Resource::SceneHdr);
     std::string named = "SceneHdr";
     for (int at = 0; at < 3; ++at) {

@@ -1,12 +1,3 @@
-/* THE DRAW LIST'S TWO CLAIMS, AND THEY ARE IN TENSION -- which is why the key's field order is the
- * whole design. Correctness first: a blended surface is composited over what is behind it, so it may
- * never sort ahead of an opaque one, and among blended surfaces the farther one goes first.
- * Performance second, out of what correctness leaves: draws that agree on pipeline and surface slot
- * are laid out contiguously and merged into one call.
- *
- * NO DEVICE HERE. The whole point of putting the list in `src/render/draw/` is that ordering,
- * refusal and batching are decidable with no `wgpu::` name in scope, so this test links `src/core`
- * and the list and nothing else. */
 #include <string>
 #include <vector>
 
@@ -46,13 +37,11 @@ uint64_t KeyOf(uint32_t slot, double depth, AlphaMode alpha) {
   return DrawKey::Of(Draw(slot, depth, alpha, 0, 3).Order).Bits();
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
 
-  /* ERICSON'S ORDER, READ OFF THE KEY ITSELF. The translucency field sits above the depth field, so
-   * no depth and no material can lift a blended draw above an opaque one. */
   CHECK(KeyOf(0, 0.99, AlphaMode::Opaque) < KeyOf(0, 0.01, AlphaMode::Blended),
         "the farthest opaque draw still sorts before the nearest blended one");
   CHECK(KeyOf(kMaterialSlots - 1, 0.5, AlphaMode::Opaque) < KeyOf(0, 0.5, AlphaMode::Masked),
@@ -64,7 +53,6 @@ int main() {
   CHECK(KeyOf(1, 0.5, AlphaMode::Opaque) < KeyOf(2, 0.5, AlphaMode::Opaque),
         "at one depth and one kind the surface slot is what orders, which is what groups a batch");
 
-  /* THE LIST REFUSES WHAT IT CANNOT ORDER, AND NAMES IT. */
   {
     DrawList list;
     std::string why;
@@ -79,8 +67,6 @@ int main() {
     CHECK(list.Empty(), "nothing refused entered the list");
   }
 
-  /* THE COMPILED RUN COVERS EVERY DRAW EXACTLY ONCE, in the sorted order, and that is what makes the
-   * batcher's contiguity test true rather than hopeful. */
   {
     DrawList list;
     std::string why;
@@ -102,8 +88,6 @@ int main() {
     }
     CHECK(contiguous, "each draw's compiled place follows the one before it with no gap");
 
-    /* THE TWO DRAWS OF SLOT 1 AT ONE DEPTH ARE ADJACENT AFTER THE SORT, so they cost one call; the
-     * blended draw is last whatever its depth. */
     CHECK(list.Batches().size() == 3, "four draws over three distinct states cost three calls");
     CHECK(list.Batches()[0].Draws == 2 && list.Batches()[0].IndexCount == 15,
           "the two draws of one surface slot at one depth merged into one call");
@@ -112,8 +96,6 @@ int main() {
     Note("draws in the list", (double)list.Draws().size(), "draws");
     Note("draw calls after merging", (double)list.Batches().size(), "calls");
 
-    /* INSERTION ORDER BREAKS EVERY TIE, so the same declaration compiles to the same order twice --
-     * no address, no container order, no hash decides a pixel. */
     DrawList again;
     added = again.Add(Draw(2, 0.80, AlphaMode::Opaque, 300, 3), why);
     added = again.Add(Draw(1, 0.20, AlphaMode::Opaque, 100, 6), why) && added;
@@ -127,8 +109,6 @@ int main() {
     CHECK(same, "one declaration compiles to one order, twice");
   }
 
-  /* A DIFFERENT VERTEX LAYOUT IS A DIFFERENT PIPELINE, so it breaks a batch even where the surface
-   * slot agrees -- which is the case a file with uvs on one primitive and none on the next is. */
   {
     DrawList list;
     std::string why;
@@ -141,13 +121,6 @@ int main() {
     CHECK(list.Batches().size() == 2, "two vertex layouts are two calls whatever the slot says");
   }
 
-  /* THE LAYOUT TABLE IS THE VALID SET, AND A SET OF RUNS THAT IS NOT IN IT IS A REFUSAL
-   * (board:1193). The vertex colour doubles the table because it depends on nothing -- every layout
-   * has one with it and one without -- while the other four constrain each other, and it is exactly
-   * those constraints that leave combinations with no row: a tangent with no normal, a second uv set
-   * with no first. `LayoutOf` answers the row or says there is none; the nearest row is never an
-   * answer, because a draw bound through a layout it did not ask for is the silent substitution the
-   * enumeration exists to prevent. */
   {
     using outshine::Render::CarriesColour;
     using outshine::Render::kVertexLayouts;
@@ -186,7 +159,7 @@ int main() {
           "and neither is a second uv set with no first");
   }
 
-  Covers("board:1193 the vertex colour is a free axis over the layout table: sixteen rows, and a "
+  Covers("the vertex colour is a free axis over the layout table: sixteen rows, and a "
          "set of runs the table does not carry is refused rather than rounded to the nearest one");
   Covers("I.27 the draw list is the pass's, not the stage's: it carries the sort key, the batching "
          "and the material state, and the sort key is per draw with Ericson's field order -- "

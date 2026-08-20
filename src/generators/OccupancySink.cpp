@@ -17,7 +17,7 @@ constexpr uint32_t kNoBody = 0xffffffffu;
          b.BaseAslM < a.BaseAslM + (double)a.HeightM;
 }
 
-} // namespace
+}
 
 OccupancySink::OccupancySink(const Storage &storage) : Store_(storage) {
   assert(Store_.Links.Size() == Store_.Bodies.Size());
@@ -47,8 +47,7 @@ int OccupancySink::CellOf(double m, int cells) const noexcept {
 }
 
 bool OccupancySink::Clear(const Body &body) const noexcept {
-  /* The query grows by the largest radius placed so far, which is what makes one cell size exact
-   * for bodies of every size. */
+
   const double reach = (double)body.RadiusM + (double)MaxRadiusM_;
   const int e0 = CellOf(body.Em - reach, CellsE_), e1 = CellOf(body.Em + reach, CellsE_);
   const int n0 = CellOf(body.Nm - reach, CellsN_), n1 = CellOf(body.Nm + reach, CellsN_);
@@ -84,4 +83,4 @@ Claim OccupancySink::Place(const Body &body) noexcept {
   return Claim::Of(BodyId(slot));
 }
 
-} // namespace outshine::Generators
+}

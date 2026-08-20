@@ -15,9 +15,7 @@ Ground::Ground(const Region &region, const Snapshot &snapshot)
 }
 
 Cover Ground::CoverAt(double eastM, double northM) const noexcept {
-  /* Through geodetic coordinates rather than by shifting one set of metres into the other: the two
-   * frames are anchored differently and scale longitude differently, and the two conventions agree
-   * only where both are written out. */
+
   double lat = 0.0, lon = 0.0;
   Region_.Geo(eastM, northM, &lat, &lon);
   double e = 0.0, n = 0.0;
@@ -30,4 +28,4 @@ Cover Ground::CoverAt(double eastM, double northM) const noexcept {
   return Cover::Of(row, (float)edgeM, runnerUp);
 }
 
-} // namespace outshine::Generators
+}

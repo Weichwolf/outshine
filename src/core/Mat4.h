@@ -1,6 +1,3 @@
-/* 4x4 matrix / 3-vector maths, column-major (element m[c*4+r] is column c, row r; m*v takes a column
- * vector) — the one part of the renderer that needs no GL context and can therefore be asserted
- * directly instead of judged by looking at pixels. */
 #ifndef MAT4_H
 #define MAT4_H
 #include <math.h>
@@ -25,10 +22,6 @@ inline void Mat4Mul(float *o, const float *a, const float *b) {
   memcpy(o, r, 64);
 }
 
-/* Right-handed REVERSED-Z perspective: near maps to NDC z=+1, far to -1 (the zn<->zf swap in the
- * z-row). With GL_GEQUAL and a 32-bit float depth buffer the 1/z curve cancels the mantissa
- * distribution, giving near-uniform precision over 0.01 m..240 km. x/y and w are unchanged, so screen
- * projection, the HUD's manual projection and frustum extraction are unaffected. */
 inline void Mat4Perspective(float *m, float fovy, float asp, float zn, float zf) {
   float f = 1.f / tanf(fovy * 0.5f);
   memset(m, 0, 64);
@@ -54,7 +47,6 @@ inline void Vec3Cross(float *o, const float *a, const float *b) {
   o[2] = a[0] * b[1] - a[1] * b[0];
 }
 
-/* World -> view. Camera at eye, looking at ctr, with up roughly `up`. */
 inline void Mat4LookAt(float *m, const float *eye, const float *ctr, const float *up) {
   float f[3] = {ctr[0] - eye[0], ctr[1] - eye[1], ctr[2] - eye[2]};
   Vec3Normalize(f);
@@ -78,5 +70,5 @@ inline void Mat4LookAt(float *m, const float *eye, const float *ctr, const float
   m[14] = (f[0] * eye[0] + f[1] * eye[1] + f[2] * eye[2]);
 }
 
-} // namespace outshine
-#endif /* MAT4_H */
+}
+#endif

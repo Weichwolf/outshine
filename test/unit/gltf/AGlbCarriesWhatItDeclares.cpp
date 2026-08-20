@@ -1,9 +1,3 @@
-/* THE GLB PATH, END TO END: the container, every index width, all seven primitive modes, a byte
- * stride with live padding in it, and two normalised integer attributes.
- *
- * THE PADDING IS NOT ZERO. A reader that ignored `byteStride` would step 12 bytes instead of 16 and
- * read 0xCD as a float -- a wrong answer that is visibly wrong, instead of a wrong answer that
- * happens to be zero and looks like a mesh at the origin. */
 #include <string>
 #include <vector>
 
@@ -22,7 +16,6 @@ using outshine::Test::PadTo4;
 
 namespace {
 
-/* The subject: a unit quad in the z = 0 plane, four vertices, two triangles. */
 constexpr float kPosition[4][3] = {{0.f, 0.f, 0.f}, {1.f, 0.f, 0.f}, {1.f, 1.f, 0.f}, {0.f, 1.f, 0.f}};
 constexpr int8_t kNormal[4][3] = {{0, 0, 127}, {-127, 0, 0}, {0, 127, 0}, {0, 0, -128}};
 constexpr uint16_t kTexcoord[4][2] = {{0, 0}, {65535, 0}, {65535, 65535}, {0, 65535}};
@@ -86,7 +79,7 @@ const char *const kJson = R"({
   ] } ]
 })";
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;

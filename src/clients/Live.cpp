@@ -9,9 +9,6 @@
 namespace outshine::Clients {
 namespace {
 
-/* THE UI'S RECTANGLE AND THE RENDERER'S, AND THIS IS THE ONLY PLACE THE TWO MEET. A box, a glyph and
- * a page are the UI's vocabulary and no content noun has a spelling in the renderer, so somebody has
- * to translate -- and one place is what keeps a shift from disagreeing with itself. */
 void AsOverlay(const std::vector<Ui::Quad> &from, double offsetX, double offsetY,
                std::vector<Render::OverlayQuad> &out) {
   out.reserve(out.size() + from.size());
@@ -39,15 +36,11 @@ void AsOverlay(const std::vector<Ui::Quad> &from, double offsetX, double offsetY
   }
 }
 
-/* WHAT THE SUBJECT'S OWN DOCUMENT OWES THE PLAN, asked of the file and of nothing else. A declaration
- * that could disagree with the document about whether it carries glass or moves would be a second
- * answer to a question the file already settles. */
 void DeclarePlan(const Gltf::Document &file, bool moves, bool presents,
                  Render::PlanSpec &declaration) {
   declaration.Outputs = {Render::Resource::FrameTex};
   if (presents) { declaration.Outputs.push_back(Render::Resource::Surface); }
-  /* THE MOTION TARGET IS REQUESTED BY A SEQUENCE AND BY NOTHING ELSE (board:1169): the plan prunes a
-   * target nothing reads, so a still subject's pipelines and shader text are exactly what they were. */
+
   if (moves) { declaration.Outputs.push_back(Render::Resource::SceneVelocity); }
   declaration.Content = {Render::Stage::Subjects, Render::Stage::Overlay};
   bool carriesGlass = false;
@@ -60,25 +53,19 @@ void DeclarePlan(const Gltf::Document &file, bool moves, bool presents,
     declaration.Content.push_back(Render::Stage::SubjectsTransmissive);
     declaration.Content.push_back(Render::Stage::CompositeTransmission);
   }
-  /* **THE EXPOSURE IS DECLARED AND NOT METERED, because the picture is a function of the declaration.**
-   * A metered one reads an irradiance buffer that a scenario with no sky never fills, so the frame
-   * would be decided by a chain nobody declared -- and the same scenario would look different the
-   * moment a sky was added for an unrelated reason. */
+
   declaration.Display = Render::Declared<Render::Transfer>(Render::Transfer::Filmic);
   declaration.Exposure = Render::Declared<float>(1.0f);
 }
 
-} // namespace
+}
 
 Live::Live(Render::Renderer &renderer, Declaration declaration, const Ui::Font *font)
     : Renderer_(&renderer), Font_(font), Declared_(std::move(declaration)) {}
 
 Live::~Live() {
   if (Renderer_ == nullptr) { return; }
-  /* **WHAT THIS SCENARIO PUT IN THE RENDERER LEAVES WITH IT.** An empty mesh is a subject with no
-   * index run, which draws nothing; the picture region goes back to *the whole surface*, which is
-   * what a scenario with no body means. Without this the last body drawn stays in the frame behind
-   * whatever is shown next, because a mesh outlives the thing that set it. */
+
   std::string ignored;
   (void)Renderer_->SetSubjectMesh(Render::SubjectMesh{}, ignored);
   (void)Renderer_->SetOverlay(nullptr, 0, ignored);
@@ -87,8 +74,7 @@ Live::~Live() {
 
 bool Live::Open(Render::Renderer &renderer, Declaration declaration, const Ui::Font *font,
                 std::unique_ptr<Live> &out, std::string &error) {
-  /* THE PREVIOUS SCENARIO IS DESTROYED BEFORE THIS ONE IS BUILT, which is what makes the transition
-   * a single statement rather than a teardown a consumer has to remember. */
+
   out.reset();
   std::unique_ptr<Live> live(new Live(renderer, std::move(declaration), font));
   if (!live->Build(error)) { return false; }
@@ -107,8 +93,7 @@ bool Live::Build(std::string &error) {
       error = File_.Error();
       return false;
     }
-    /* EVERY ANIMATION THE FILE DECLARES DRIVES IT, because a file that carries motion carries it to
-     * be seen. A consumer picking a subset would be answering a question about the document. */
+
     if (!File_.Animations().empty()) {
       std::vector<int> all((size_t)File_.Animations().size());
       for (size_t at = 0; at < all.size(); ++at) { all[at] = (int)at; }
@@ -116,13 +101,7 @@ bool Live::Build(std::string &error) {
         return false;
       }
       Moves_ = Motion_.EndS() > 0.0;
-      /* **THE GRID IS HALF-OPEN SO THE LOOP IS SEAMLESS.** `[0, end]` renders the end pose and then
-       * wraps to the start pose, and for a periodic animation -- which is what an asset that loops
-       * IS -- those two are the same pose, so every lap stutters for one frame at the seam. `[0, end)`
-       * makes the wrap the next step of the motion rather than a repeat of it.
-       *
-       * A scenario that wants the endpoint is asking for a SEQUENCE and not a loop, and that is the
-       * render suite's grid, declared per case; this is the runtime, and a runtime plays. */
+
       Frames_ = Moves_ ? (int)(Motion_.EndS() * Declared_.Fps + 0.5) : 1;
       if (Frames_ < 1) { Frames_ = 1; }
     }
@@ -148,18 +127,12 @@ bool Live::Build(std::string &error) {
     return false;
   }
 
-  /* A CAMERA EXISTS EVEN WHERE NOTHING STANDS, because a plan carrying a geometry stage will not
-   * render a frame without one -- and that is right: a stage that PLACES things needs to know from
-   * where. A scenario with no body places nothing and the basis is still the honest thing to hand
-   * over, rather than a special case in the library for a plan that happens to be empty. */
   const double eye[3] = {0.0, 0.0, 0.0}, forward[3] = {0.0, 0.0, -1.0};
   const double right[3] = {1.0, 0.0, 0.0}, up[3] = {0.0, 1.0, 0.0};
   Renderer_->SetCameraBasis(eye, forward, right, up);
 
   if (Geometry_.TriangleCount() > 0) {
-    /* THE PICTURE FILLS THE REGION IT WAS DECLARED IN and the camera is derived for that shape, so
-     * no aspect is imposed on top: a scenario that letterboxed itself inside its own rectangle would
-     * be answering a question the consumer already answered by naming the rectangle. */
+
     Renderer_->SetPictureRegion(Declared_.PictureLeftFrac, Declared_.PictureTopFrac,
                                 Declared_.PictureWidthFrac, Declared_.PictureHeightFrac, 0.0);
     if (!Stand(error) || !Surface(*Renderer_, Stood_, Scratch_, error) || !Submit(error)) {
@@ -173,11 +146,7 @@ bool Live::Build(std::string &error) {
 
 bool Live::Pose(int frame, std::string &error) {
   if (Moves_) {
-    /* **AT THE FIRST POSE THE PREVIOUS ONE IS THIS ONE, because nothing has moved yet.** The velocity
-     * target needs a pose to difference against and there is no earlier frame to take it from; a
-     * subject differenced against an EMPTY one is what the studio refuses, and rightly -- no vertex
-     * would have a place it moved from. Capturing before the build on every later frame is what makes
-     * the pair a motion. */
+
     const bool first = Geometry_.VertexCount() == 0;
     if (!first) { Previous_ = Geometry_; }
     Motion_.At((double)frame / Declared_.Fps, Locals_, Weights_);
@@ -194,10 +163,6 @@ bool Live::Pose(int frame, std::string &error) {
   return false;
 }
 
-/* **THE EYE MOVES AND NOTHING ELSE DOES.** The framing rule answers where a camera stands to see this
- * body; the orbit turns that standpoint about the subject's own centre, and `Aim` carries it -- no
- * mesh, no material and no image is touched. The angle is ACCUMULATED and the basis DERIVED from it,
- * because rotating a basis by a small angle ninety times is ninety chances to drift. */
 bool Live::Look(std::string &error) {
   Gltf::Placement framed;
   if (!Geometry_.Frame(framed, Framing())) {
@@ -230,15 +195,6 @@ bool Live::Look(std::string &error) {
   return Aim(*Renderer_, Geometry_, Stood_.Eye, error);
 }
 
-/* **THE STUDIO IS BUILT ONCE AND ONLY WHAT MOVED IS WRITTEN AGAIN** (board:1463). It used to be rebuilt
- * from an empty one on every advance -- every surface copied, every emitted radiance assigned, every
- * light pushed -- and [MEASURED] that made SUBMITTING the heaviest allocator in the frame: it moved the
- * engine's own heap on **223 of 250 frames**, against 15 for posing and 0 for aiming. What actually
- * changes between two frames of an animated subject is which body the pointers name, and that is two
- * stores.
- *
- * `CLAUDE.md` asks for exactly this and the shipped engines arrange it the same way: a frame path made
- * of bounded terms, with the allocation at load. */
 bool Live::Stand(std::string &error) {
   Stood_ = Studio{};
   Stood_.Geometry = &Geometry_;
@@ -246,15 +202,12 @@ bool Live::Stand(std::string &error) {
   Stood_.EmittedRadiance.assign(Geometry_.Parts().size(), {0.0f, 0.0f, 0.0f});
   Stood_.PartSurface = Table_.PartSlot;
   Stood_.Surfaces = Table_.Slots;
-  /* THE FILE'S OWN LIGHTS, because a document that declares how it is lit has answered the question.
-   * A file that declares none is drawn by whatever its rows emit, which is what an unlit asset is. */
+
   for (const Gltf::PlacedLight &placed : Geometry_.Lights()) {
     Stood_.Lights.push_back(placed.Light);
   }
   if (Declared_.KeyLux > 0.0) {
-    /* THE BEAM, IN glTF's OWN FRAME -- right-handed, +Y up, and the light travels along its node's
-     * -Z. Elevation is degrees above the horizon and bearing is degrees around +Y from -Z, so a key
-     * at 30 deg and 40 deg stands high and to one side, which is where a key light stands. */
+
     const double elevation = Declared_.KeyElevationDeg * 3.14159265358979323846 / 180.0;
     const double bearing = Declared_.KeyBearingDeg * 3.14159265358979323846 / 180.0;
     PunctualLight key;
@@ -269,23 +222,11 @@ bool Live::Stand(std::string &error) {
     Stood_.Environment.RadianceLinear[channel] = (float)Declared_.Environment[channel];
   }
 
-  /* **THE CAMERA IS THE SUBJECT'S OWN BOUNDS WHERE A FILL WAS DECLARED, and the document's where it
-   * was not.** A runner comparing against an oracle must keep the shot the file states; a consumer
-   * SHOWING a model wants to see it, and a model filling a tenth of the frame because its author
-   * stood far back is a model nobody can look at. A file carrying no camera is framed either way,
-   * because there is nothing else to take. */
   std::string why;
   const bool declared = !File_.Cameras().empty() &&
                         Gltf::DeclaredPlacement(File_, 0, Stood_.Eye, why);
   if (Declared_.Fill > 0.0 || !declared) {
-    /* **THE BOUNDS THE CAMERA IS DERIVED FROM ARE THE GRID'S AND NOT THE REST POSE'S** (board:1433,
-     * board:1463). A camera framed on frame 0 and held still is what a scenario wants -- a viewpoint
-     * that jumped with every pose would be a camera nobody placed -- and a body that moves toward it
-     * then walks INSIDE the near plane, which `Aim` refuses and rightly. [MEASURED] `BoxAnimated`
-     * stopped advancing after 22 frames the moment the per-pose reframing was removed.
-     *
-     * The union over the whole grid is taken ONCE, at stand-up, where an allocation and a walk are
-     * allowed to live. The eye and the aim stay the rest pose's; what opens is the depth window. */
+
     double least[3], most[3];
     for (int axis = 0; axis < 3; ++axis) {
       least[axis] = Geometry_.MinM()[axis];
@@ -307,11 +248,6 @@ bool Live::Stand(std::string &error) {
   return true;
 }
 
-/* **ONLY THE BODY CROSSES PER FRAME.** The surfaces and the lighting were handed over at stand-up and
- * nothing about them changes when a subject moves (board:1463). */
-/* **ONLY THE BODY CROSSES PER FRAME, and after the first pose only its CORNERS do** (board:1464). The
- * surfaces, the lighting, the index run, the batches and the tree's shape were all handed over at
- * stand-up. */
 bool Live::Submit(std::string &error) {
   if (!Stoodup_) {
     Stoodup_ = Place(*Renderer_, Stood_, Scratch_, error);
@@ -352,14 +288,11 @@ bool Live::Redeclare(std::vector<Shows> surfaces, std::string &error) {
   return Compose(error);
 }
 
-/* WHERE AN ADVANCE'S BYTES GO, published per phase so a cost has a cause (board:1463). It is four
- * relaxed loads a frame and it is read by an instrument, never by the frame. */
 size_t Live::TookPosing_ = 0, Live::TookSubmitting_ = 0, Live::TookAiming_ = 0, Live::TookDrawing_ = 0;
 
 bool Live::Advance(std::string &error) {
   const auto took = [](size_t before) { return Heap::LiveBytes() - before; };
-  /* **A STILL SUBJECT SUBMITS NOTHING**, which is the whole of this class: the device already holds
-   * every vertex, index, material and image, and nothing about them changed. */
+
   if (Moves_ && Frames_ > 1) {
     At_ = (At_ + 1) % Frames_;
     const size_t beforePose = Heap::LiveBytes();
@@ -369,9 +302,7 @@ bool Live::Advance(std::string &error) {
     if (!Submit(error)) { return false; }
     TookSubmitting_ = took(beforeSubmit);
   }
-  /* **AN ORBIT MOVES THE EYE AND NEVER THE BODY**, so it costs an aim and not a submission. It runs
-   * after the pose because a posed subject's bounds are this frame's, and a camera framed against the
-   * previous frame's would lag the body it is following by one. */
+
   if (Declared_.OrbitDegPerFrame != 0.0 && Geometry_.TriangleCount() > 0) {
     Around_ += Declared_.OrbitDegPerFrame;
     const size_t beforeAim = Heap::LiveBytes();
@@ -394,4 +325,4 @@ Ui::Touched Live::Under(double xPx, double yPx) const {
   return Ui::Touched{};
 }
 
-} // namespace outshine::Clients
+}

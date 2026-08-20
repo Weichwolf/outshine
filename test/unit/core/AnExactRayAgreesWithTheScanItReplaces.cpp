@@ -1,19 +1,3 @@
-/* WHAT AN ACCELERATION STRUCTURE IS FOR IS SPEED, so the only thing that can be wrong with it is the
- * ANSWER -- and the answer it must give is the one a linear scan over every triangle gives. That is
- * this file: the same Moller-Trumbore test, once through the tree and once over the whole soup, and
- * the two verdicts compared ray by ray.
- *
- * THE SCAN IS WRITTEN HERE AND NOT CALLED FROM THE SUBJECT, which is the point: a scan that shared
- * the structure's own intersection code would agree with it about a triangle it read wrong. It is
- * the second implementation, and it is the cheap one precisely because nobody has to make it fast.
- *
- * THE COMPARISON CARRIES ITS OWN NEGATIVE CONTROL. A tie that cannot see a missing occluder would
- * pass over a structure that returned "nothing is in the way" for every ray, which is the exact
- * failure mode a shadow term has: it looks like a scene with no shadows rather than like a bug. So
- * the scan is run once more with ONE triangle removed, and this refuses unless that disagrees.
- *
- * THE SOUP IS DETERMINISTIC AND HAS NO SEED THAT CAN MOVE. A structure whose test set changed
- * between rounds would make a regression and a re-roll the same event. */
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -31,8 +15,6 @@ using outshine::TriangleBvh;
 
 namespace {
 
-/* A COUNTER-BASED HASH RATHER THAN A GENERATOR WITH STATE: the n-th value is a function of n, so a
- * loop that changes shape does not change the set. */
 double Unit(uint32_t at) {
   uint32_t bits = at * 2654435761u + 1013904223u;
   bits ^= bits >> 15u;
@@ -43,9 +25,6 @@ double Unit(uint32_t at) {
   return (double)bits * 2.3283064365386963e-10;
 }
 
-/* THE SOUP: triangles clustered rather than uniform, because a uniform cloud is the one distribution
- * a bad split heuristic still handles. Each triangle is a small facet placed on one of a handful of
- * shells, which is what a real subject's surface looks like to a tree. */
 struct Soup {
   std::vector<float> PositionsM;
   std::vector<uint32_t> Indices;
@@ -70,9 +49,6 @@ Soup Grown(uint32_t triangles) {
   return out;
 }
 
-/* THE SCAN THE STRUCTURE REPLACES. `skip` is the negative control's whole mechanism: at any index
- * inside the soup one triangle stops being an occluder, and a comparison that cannot see that is a
- * comparison that could not see the structure losing one either. */
 bool ScanOccludes(const Soup &soup, const float originM[3], const float direction[3], float nearM,
                   float distanceM, size_t skip) {
   const size_t triangles = soup.Indices.size() / 3u;
@@ -110,9 +86,6 @@ bool ScanOccludes(const Soup &soup, const float originM[3], const float directio
   return false;
 }
 
-/* ONE RAY OF THE SET: from a point on a sphere well outside the soup, aimed at a point well inside
- * it, so roughly half the set hits and half misses. A set that all hit or all missed would agree
- * with a structure that answered the same thing every time. */
 struct Ray {
   float OriginM[3];
   float Direction[3];
@@ -141,10 +114,6 @@ Ray RayAt(uint32_t at) {
   return out;
 }
 
-/* EVERY NODE REACHED EXACTLY ONCE AND EVERY TRIANGLE NAMED EXACTLY ONCE. It is the invariant the
- * escape links carry, and it is the one thing the ray comparison cannot see: a tree that lost a
- * subtree would simply answer "not occluded" a little more often, which reads as a scene with fewer
- * shadows rather than as a structure with a hole. */
 bool WholeAndOnce(const TriangleBvh &built) {
   std::vector<int> nodeSeen(built.Nodes().Size(), 0);
   std::vector<int> triangleSeen(built.Triangles().Size(), 0);
@@ -177,7 +146,7 @@ bool WholeAndOnce(const TriangleBvh &built) {
   return true;
 }
 
-} // namespace
+}
 
 int main(void) {
   using namespace outshine::Test;
@@ -209,14 +178,10 @@ int main(void) {
   }
   std::printf("RAYS %u, occluded %ld, disagreements %ld\n", kRays, occluded, disagreed);
   CHECK(disagreed == 0, "the structure gives the linear scan's answer on every ray");
-  /* A SET THAT ALL HIT OR ALL MISSED WOULD AGREE WITH A CONSTANT, so the split is checked before
-   * the agreement is believed. */
+
   CHECK(occluded > kRays / 8 && occluded < kRays - kRays / 8,
         "the ray set is genuinely mixed, so agreement is not agreement with a constant");
 
-  /* THE NEGATIVE CONTROL. One triangle stops being an occluder in the scan; the structure still has
-   * it, so the two must part company somewhere. The triangle is the one the ray set hits most, found
-   * by asking rather than assumed -- a control aimed at a triangle nothing hits proves nothing. */
   long bestHits = 0;
   size_t bestTriangle = 0;
   for (size_t candidate = 0; candidate < 32; ++candidate) {
@@ -249,16 +214,12 @@ int main(void) {
         "removing one occluder from the scan moves exactly the rays it occluded, so the comparison "
         "can see a triangle the structure would have lost");
 
-  /* THE EMPTY STRUCTURE IS A STATE AND NOT A FAILURE: nothing occludes, which is what an absent
-   * subject means to a light. */
   const TriangleBvh nothing = TriangleBvh::Over(Span<const float>(), Span<const uint32_t>());
   const float origin[3] = {0, 0, 0};
   const float along[3] = {0, 0, 1};
   CHECK(nothing.Empty(), "no triangles builds no structure");
   CHECK(!nothing.Occludes(origin, along, 0.0f, 1.0e30f), "every ray misses an empty structure");
 
-  /* AN INDEX RUN THAT IS NOT A MULTIPLE OF THREE IS NOT A TRIANGLE LIST, and a structure over its
-   * first floor(n/3) triangles would be a picture missing an occluder nobody could attribute. */
   const uint32_t stray[4] = {0, 1, 2, 0};
   CHECK(TriangleBvh::Over(Span<const float>(soup.PositionsM.data(), soup.PositionsM.size()),
                           Span<const uint32_t>(stray, 4))

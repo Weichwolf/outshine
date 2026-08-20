@@ -1,11 +1,3 @@
-/* Nanite half 1: a cluster DAG over a triangle soup plus the monotone screen-space-error cut that
- * reads it. Half 2 — the compute software rasteriser —
- * is not here and cannot be: a shading language has no 64-bit atomic.
- *
- * The crack-free guarantee is structural, not a fudge: a GROUP of clusters is the unit of
- * simplification, its outer edges are LOCKED while its interior is collapsed, and every cluster born
- * from one group carries that group's error AND that group's bounding sphere — so all of them switch
- * on the same frame, and the only interfaces where levels can differ are the locked ones. */
 #ifndef CLUSTERDAG_H
 #define CLUSTERDAG_H
 
@@ -19,9 +11,6 @@
 
 namespace outshine {
 
-/* Two spheres and two errors, not one: `Self*` is the group this cluster was SIMPLIFIED FROM and
- * `Parent*` the group that REPLACES it. Sharing the group sphere is what makes siblings switch
- * together; a per-cluster sphere would let two halves of one group disagree and crack. */
 struct DagCluster {
   uint32_t First = 0, Count = 0;
   float SelfCenter[3] = {0, 0, 0};
@@ -33,12 +22,8 @@ struct DagCluster {
   uint8_t Level = 0;
 };
 
-inline constexpr float kDagRootErr = 3.0e38f;   /* a root is never replaced */
+inline constexpr float kDagRootErr = 3.0e38f;
 
-/* Fills `Self*` straight off a vertex soup: AABB centre and its half-diagonal. Looser than Ritter but
- * exact in the only sense that matters — it never excludes a vertex, so a cull that reads it never
- * removes something that is on screen. EVERY cluster carries a sphere, including the degenerate roots
- * the no-DAG paths build: a sphere left at radius 0 culls a whole tile the moment anything tests it. */
 inline void BoundingSphere(const float *verts, uint32_t nverts, int stride, float ctr[3], float *rad) {
   if (!verts || nverts == 0) {
     ctr[0] = ctr[1] = ctr[2] = 0.0f;
@@ -62,56 +47,32 @@ inline void BoundingSphere(const float *verts, uint32_t nverts, int stride, floa
   *rad = (float)std::sqrt(r2);
 }
 
-/* [SET] 1.0. THE UNIT IS ABSOLUTE PIXELS, not a fraction of the viewport — Hoppe 1997 states his
- * tolerance as 0.075…0.33 % of window size, and this file takes the modern convention instead,
- * which is what makes "at 1440p every element survives twice as far" true.
- * The VALUE is the literature's centre of mass: Hoppe 1998 "near 1 pixel", Ponchio 2008 1 px,
- * Karis 2021 "< 1 pixel". Below ~1 px no transition mechanism is needed at all, which is why there
- * is no dither and no crossfade anywhere in this file. */
 inline float SseTauPx(void) {
   static const float tau = []() { const char *e = getenv("FB_TAU"); return e ? (float)atof(e) : 1.0f; }();
   return tau;
 }
 
-/* ONE vertex per position-and-attribute tuple for EVERY level: a half-edge collapse never moves a
- * vertex, so a coarse level indexes the same array the fine one does. `First`/`Count` of a cluster
- * are therefore an INDEX range, not a vertex range. */
 struct ClusterDag {
   std::vector<float> Verts;
   std::vector<uint32_t> Idx;
   std::vector<DagCluster> Clusters;
   int Stride = 8;
   int Levels = 0;
-  uint32_t BaseTris = 0;   /* level 0 = exactly what the flat mesh used to draw */
+  uint32_t BaseTris = 0;
   uint32_t AllTris = 0;
 };
 
 struct ClusterDagOpts {
-  int MaxTrisPerCluster = 128;   /* Karis 2021: Nanite's cluster is 128 triangles */
+  int MaxTrisPerCluster = 128;
   int GroupSize = 4;
-  float TargetRatio = 0.5f;      /* triangles a group keeps; the halving that makes the DAG a ladder */
+  float TargetRatio = 0.5f;
   int MinLevelTris = 8;
-  /* An ATTRIBUTE SEAM, not a geometric one: two corners at the same point in different classes stay
-   * two vertices, but they collapse TOGETHER, because the seam is a property of the shading and not
-   * of the surface. Null = one class. A collapse that would change a corner's class is refused. */
+
   int (*ClassOf)(const float *v) = nullptr;
-  /* THE VERTICAL, when the surface has one. Ulrich 2002 measures a chunk's error as the maximum
-   * VERTICAL deviation, which is what makes the terrain lineage's tolerance a bound; a height field
-   * has an up axis and a building does not, so a zero vector selects the general measure (nearest
-   * point on the simplified surface) instead of the vertical one. */
+
   float Up[3] = {0.0f, 0.0f, 0.0f};
 };
 
-/* HOPPE'S ANISOTROPY, and on a height field it is one sine. The stored error is a VERTICAL distance
- * (Ulrich), so the length it actually moves the picture is its component ACROSS the view ray:
- * |e·u − (e·u·v)v| = e·sin∠(u,v). Along the ray the surface only changes depth; across it the
- * silhouette moves. An isotropic tolerance pays sin = 1 everywhere and so buys nothing at the horizon
- * it does not also buy under the camera's feet, where the same metres are invisible.
- *
- * Taken over the WHOLE bounding sphere, not at its centre, and that is what keeps the cut single-
- * crossing: a parent sphere contains its children's, so its cone of directions contains theirs, so
- * its maximum sine is never smaller — the ordering the DAG is built on survives the weighting. A
- * camera inside the sphere sees the full cone and the factor is 1, which is exactly the old metric. */
 inline float DagCrossFactor(const float ctr[3], float rad, const double eye[3], const float up[3]) {
   const double u2 = (double)up[0] * up[0] + (double)up[1] * up[1] + (double)up[2] * up[2];
   if (u2 < 1.0e-12) return 1.0f;
@@ -128,8 +89,6 @@ inline float DagCrossFactor(const float ctr[3], float rad, const double eye[3], 
   return (float)std::max(std::sin(lo < 0.0 ? 0.0 : lo), std::sin(hi > 3.14159265358979 ? 3.14159265358979 : hi));
 }
 
-/* sse_px = err_m * f_px / d, d measured CONSERVATIVELY to the nearest point of the bounding sphere
- * (Ponchio 2008 §3.6.1). `up` zero = no vertical, hence no anisotropy. */
 inline float DagSse(const float ctr[3], float rad, float err, const double eye[3], float fPx,
                     const float up[3]) {
   if (!(err > 0.0f)) return 0.0f;
@@ -140,16 +99,11 @@ inline float DagSse(const float ctr[3], float rad, float err, const double eye[3
   return (float)((double)err * (double)DagCrossFactor(ctr, rad, eye, up) * (double)fPx / d);
 }
 
-/* THE SAME CUT FOR A POINT INSTANCE. A radius of zero and no vertical reduce DagSse to err*f/d, so
- * `sse <= tau` is `d^2 <= (err*f/tau)^2` — the identical inequality with the root removed, which is
- * what lets a ladder over thousands of instances be squared distances against squared edges. */
 inline double DagEdgeSq(double errM, float fPx, float tau) {
   const double edge = errM * (double)fPx / (double)tau;
   return edge * edge;
 }
 
-/* THE CUT. Monotone error along every root-to-leaf path makes this a single crossing, so exactly one
- * cluster per region of the surface answers true — no gap, no overlap, no traversal. */
 [[nodiscard]] inline bool DagSelect(const DagCluster &c, const double eye[3], float fPx, float tau,
                       const float up[3]) {
   return DagSse(c.SelfCenter, c.SelfRadius, c.SelfErr, eye, fPx, up) <= tau &&
@@ -159,10 +113,10 @@ inline double DagEdgeSq(double errM, float fPx, float tau) {
 namespace dag {
 
 struct Quadric {
-  double A[6];   /* xx xy xz yy yz zz */
+  double A[6];
   double B[3];
   double C;
-  double W;      /* accumulated plane weight: cost/W is a squared DISTANCE, cost alone is not */
+  double W;
 };
 
 inline void QAddPlane(Quadric &q, const double n[3], double d, double w) {
@@ -188,8 +142,6 @@ inline double QEval(const Quadric &q, const double p[3]) {
          2.0 * (q.B[0] * p[0] + q.B[1] * p[1] + q.B[2] * p[2]) + q.C;
 }
 
-/* METRES. The raw quadric is area-weighted, so its square root scales with triangle size — measured,
- * a 6 m height field reported 40 m of error and the ladder never left level 0. */
 inline double QDist(const Quadric &q, const double p[3]) {
   return std::sqrt(std::max(0.0, QEval(q, p)) / std::max(q.W, 1.0e-12));
 }
@@ -207,11 +159,11 @@ inline uint32_t Morton(uint32_t x, uint32_t y, uint32_t z) {
 }
 
 struct Mesh {
-  std::vector<float> V;          /* Stride floats per attribute vertex */
-  std::vector<uint32_t> Corner;  /* soup corner -> attribute vertex */
-  std::vector<uint32_t> Pos;     /* attribute vertex -> position vertex */
-  std::vector<uint8_t> Cls;      /* attribute vertex -> class */
-  std::vector<double> PP;        /* 3 doubles per position vertex */
+  std::vector<float> V;
+  std::vector<uint32_t> Corner;
+  std::vector<uint32_t> Pos;
+  std::vector<uint8_t> Cls;
+  std::vector<double> PP;
   int Stride = 8;
   int NPos = 0;
   const float *P(uint32_t v) const { return &V[(size_t)v * (size_t)Stride]; }
@@ -242,10 +194,7 @@ inline void Weld(const float *soup, uint32_t nverts, int stride, int (*classOf)(
   m->Corner.resize(nverts);
 
   std::unordered_map<PosKey, uint32_t, PosKeyHash, PosKeyEq> pmap;
-  /* Keyed on the WHOLE vertex, not on (position, class): the index buffer replaces the soup, so a
-   * corner must come back with the bytes it went in with. Two walls meeting at one point disagree in
-   * their normal and stay two vertices; on a height-field grid every corner of a posting is byte-
-   * identical and they all collapse to one. */
+
   std::unordered_multimap<uint64_t, uint32_t> amap;
   pmap.reserve(nverts);
   amap.reserve(nverts);
@@ -289,9 +238,6 @@ inline void Weld(const float *soup, uint32_t nverts, int stride, int (*classOf)(
   m->NPos = (int)(m->PP.size() / 3);
 }
 
-/* Morton order of triangle centroids, then consecutive runs of `maxTris`. The stand-in for Nanite's
- * METIS graph partitioning: on a height-field grid a Morton run of 128 triangles IS an 8x8 block of
- * quads, which is the partition METIS would find. */
 inline void Partition(const Mesh &m, const std::vector<uint32_t> &tri, int maxTris,
                       std::vector<uint32_t> *order, std::vector<uint32_t> *starts) {
   const size_t n = tri.size() / 3;
@@ -330,10 +276,6 @@ inline void Partition(const Mesh &m, const std::vector<uint32_t> &tri, int maxTr
   starts->push_back((uint32_t)n);
 }
 
-/* WHICH LEVEL-0 POSITIONS A SURVIVING VERTEX STANDS FOR. A half-edge collapse never moves a vertex —
- * p0 becomes p1 at p1's own coordinates — so every position in the mesh is an ORIGINAL position and
- * the ones that vanished are exactly the ones whose deviation has to be measured. An intrusive list
- * per representative keeps the splice O(1) and the whole structure three int arrays. */
 struct Absorb {
   std::vector<int32_t> Head, Tail, Next;
   void Init(int n) {
@@ -351,20 +293,12 @@ struct Absorb {
   }
 };
 
-/* THE MEASURED BOUND. Garland-Heckbert's residual is an RMS distance to accumulated planes and it
- * understates the real deviation by up to 2.8x — so it is kept as the
- * collapse ORDER, which is all it was ever derived for, and the error that is STORED is measured
- * here: every level-0 position the group stands for, against the group's simplified triangles.
- *
- * A uniform bucket grid over the two widest axes turns that from O(points x triangles) into O(points):
- * the vertical query reads one column, the general one grows a ring until the ring is farther than
- * the best hit, which is exact because a 3D distance is never below its 2D projection. */
 struct DevMesh {
   bool Vertical = false;
   double U[3] = {0, 0, 0}, A[3] = {1, 0, 0}, B[3] = {0, 1, 0};
   double Lo[2] = {0, 0}, Cell = 1.0;
   int NX = 1, NY = 1;
-  std::vector<double> T;          /* 9 doubles per triangle: three corners */
+  std::vector<double> T;
   std::vector<uint32_t> Start, Idx;
 
   void Set(const std::vector<double> &corners, const float up[3]) {
@@ -460,15 +394,12 @@ private:
   }
   static int Clamp(int v, int n) { return v < 0 ? 0 : (v >= n ? n - 1 : v); }
 
-  /* The vertical query. -1 = the point's column meets no triangle, which is every wall in an OSM
-   * prism and the rim of a group; the caller then falls back to the general measure. */
   double Column(const double p[3]) const {
     const int cx = Clamp((int)std::floor((Pa(p) - Lo[0]) / Cell), NX);
     const int cy = Clamp((int)std::floor((Pb(p) - Lo[1]) / Cell), NY);
     const double pu = Pa(p), pv = Pb(p), ph = Pu(p);
     double best = -1.0;
-    /* ONE cell, not a ring: a triangle is inserted into every cell its projected AABB touches, so the
-     * triangle a point sits in is always in that point's own cell. */
+
     const size_t c = (size_t)cy * (size_t)NX + (size_t)cx;
     for (uint32_t i = Start[c]; i < Start[c + 1]; i++) {
       const double *q = &T[(size_t)Idx[i] * 9];
@@ -557,12 +488,9 @@ struct Collapse {
   double Cost;
   uint32_t P0, P1;
   uint32_t Stamp;
-  [[nodiscard]] bool operator<(const Collapse &o) const { return Cost > o.Cost; }   /* std::*_heap gives a max-heap */
+  [[nodiscard]] bool operator<(const Collapse &o) const { return Cost > o.Cost; }
 };
 
-/* One group, simplified in place. `tri` holds ATTRIBUTE vertices; the topology it is collapsed on is
- * the POSITION graph, so an attribute seam (a roof meeting its wall) is not mistaken for a hole and
- * the two sides move together. Returns the group's error in metres. */
 inline void SimplifyGroup(const Mesh &m, std::vector<uint32_t> &tri, size_t targetTris,
                           const std::vector<uint8_t> &sharedPos, Absorb &ab) {
   const size_t n0 = tri.size() / 3;
@@ -582,7 +510,6 @@ inline void SimplifyGroup(const Mesh &m, std::vector<uint32_t> &tri, size_t targ
   for (size_t i = 0; i < nv; i++)
     for (int a = 0; a < 3; a++) pos[i * 3 + (size_t)a] = m.PP[(size_t)pv[i] * 3 + (size_t)a];
 
-  /* Which attribute vertex a corner becomes when its position moves: same class, same point. */
   std::unordered_map<uint64_t, uint32_t> attrAt;
   attrAt.reserve(n0 * 3);
   std::vector<uint32_t> clsMask(nv, 0);
@@ -592,8 +519,8 @@ inline void SimplifyGroup(const Mesh &m, std::vector<uint32_t> &tri, size_t targ
     clsMask[p] |= 1u << (m.Cls[v] & 31);
   }
 
-  std::vector<uint32_t> A(tri);          /* per corner: attribute vertex */
-  std::vector<uint32_t> T(tri.size());   /* per corner: local position vertex */
+  std::vector<uint32_t> A(tri);
+  std::vector<uint32_t> T(tri.size());
   for (size_t i = 0; i < tri.size(); i++) T[i] = loc[m.Pos[tri[i]]];
 
   std::vector<uint8_t> live(n0, 1), locked(nv, 0), dead(nv, 0);
@@ -623,9 +550,6 @@ inline void SimplifyGroup(const Mesh &m, std::vector<uint32_t> &tri, size_t targ
     for (int k = 0; k < 3; k++) QAddPlane(Q[T[t * 3 + (size_t)k]], un, d, len * 0.5);
   }
 
-  /* THE LOCK. An edge NOT shared by two live triangles inside the group is the group's outer
-   * boundary — the interface a neighbour cluster on another level shares. Pinning its endpoints is
-   * the whole crack argument. */
   {
     std::unordered_map<uint64_t, int> ecount;
     ecount.reserve(n0 * 3);
@@ -644,12 +568,6 @@ inline void SimplifyGroup(const Mesh &m, std::vector<uint32_t> &tri, size_t targ
     }
   }
 
-  /* THE EDGE TEST DOES NOT SEE A BOWTIE. Two closed prisms that meet at a single OSM corner weld into
-   * one position whose every edge is still shared by two triangles inside each group, so the rule
-   * above leaves it free — and then group A collapses it while group B keeps it as a target. That is
-   * a tear at that point, and it was also a wild write: `Absorb` is one structure over the whole mesh
-   * and its dead entry's tail is -1. Vertex sharing is the criterion the crack argument actually
-   * needs; on a manifold surface it locks exactly what the edge rule already locked. */
   for (uint32_t i = 0; i < (uint32_t)nv; i++)
     if (sharedPos[pv[i]]) locked[i] = 1;
 
@@ -677,7 +595,7 @@ inline void SimplifyGroup(const Mesh &m, std::vector<uint32_t> &tri, size_t targ
   };
   auto Push = [&](uint32_t p0, uint32_t p1) {
     if (dead[p0] || dead[p1] || locked[p0]) return;
-    if ((clsMask[p0] & clsMask[p1]) != clsMask[p0]) return;   /* would change a corner's class */
+    if ((clsMask[p0] & clsMask[p1]) != clsMask[p0]) return;
     heap.push_back(Collapse{Cost(p0, p1), p0, p1, stamp[p0] + stamp[p1]});
     std::push_heap(heap.begin(), heap.end());
   };
@@ -702,8 +620,6 @@ inline void SimplifyGroup(const Mesh &m, std::vector<uint32_t> &tri, size_t targ
     if (dead[c.P0] || dead[c.P1] || locked[c.P0]) continue;
     if (stamp[c.P0] + stamp[c.P1] != c.Stamp) continue;
 
-    /* Link condition: the vertices adjacent to BOTH endpoints must be exactly those opposite the
-     * collapsed edge, or the collapse punches a non-manifold hole rather than removing a vertex. */
     Neighbours(c.P0, nb0);
     Neighbours(c.P1, nb1);
     opp.clear();
@@ -726,12 +642,6 @@ inline void SimplifyGroup(const Mesh &m, std::vector<uint32_t> &tri, size_t targ
     opp.erase(std::unique(opp.begin(), opp.end()), opp.end());
     if (common != opp) continue;
 
-    /* No fold-over: a triangle that keeps p0 must not turn inside out when p0 becomes p1 — AND it
-     * must not become a sliver. The sign test alone is not enough and the counter-example is
-     * measured: a sliver's normal is near-horizontal on a height field, so a later collapse flipped
-     * it with dot = +1026 (|n| 27.6 -> 551.4) and 550 m2 of the tile ended up covered twice. The
-     * quality floor is scale-free — 4*area^2 / longestEdge^4, which a right isoceles triangle scores
-     * 0.5 and a 1:10 sliver 0.1. [SET] 0.10. */
     bool flip = false;
     for (uint32_t t : inc[c.P0]) {
       if (!live[t] || flip) continue;
@@ -811,10 +721,8 @@ inline void Sphere(const Mesh &m, const std::vector<uint32_t> &tri, size_t first
   *rad = (float)std::sqrt(r2);
 }
 
-}  // namespace dag
+}
 
-/* `soup` is a triangle list of `nverts` vertices, `stride` floats each, position first. The welded
- * vertices are byte-identical to the soup's, so level 0 draws the flat mesh exactly. */
 [[nodiscard]] inline bool ClusterDagBuild(const float *soup, uint32_t nverts, int stride,
                             const ClusterDagOpts &opts, ClusterDag *out) {
   if (!soup || !out || nverts < 3 || stride < 3) return false;
@@ -847,7 +755,7 @@ inline void Sphere(const Mesh &m, const std::vector<uint32_t> &tri, size_t first
 
   dag::Absorb absorb;
   absorb.Init(m.NPos);
-  std::vector<DagCluster> self(lvlRange.size());   /* Self* of the level about to be emitted */
+  std::vector<DagCluster> self(lvlRange.size());
 
   for (int level = 0;; level++) {
     const size_t nClusters = lvlRange.size();
@@ -869,9 +777,6 @@ inline void Sphere(const Mesh &m, const std::vector<uint32_t> &tri, size_t first
 
     if (nClusters <= 1 || lvlTri.size() / 3 <= (size_t)opts.MinLevelTris) break;
 
-    /* GROUPS of consecutive (Morton-ordered) clusters, simplified as ONE with their shared outer
-     * boundary locked, then re-split. Every cluster the split produces inherits the group's error
-     * AND the group's sphere, which is what makes the siblings switch on the same frame. */
     std::vector<uint32_t> nextTri;
     std::vector<std::pair<uint32_t, uint32_t>> nextRange;
     std::vector<DagCluster> nextSelf;
@@ -893,10 +798,6 @@ inline void Sphere(const Mesh &m, const std::vector<uint32_t> &tri, size_t first
       float gc[3] = {0, 0, 0}, gr = 0.0f;
       dag::Sphere(m, gt, 0, gt.size(), gc, &gr);
 
-      /* MONOTONE ERROR IS NOT ENOUGH — sse = err*f/(d-r) also carries the radius, so a parent with a
-       * TIGHTER sphere can project a smaller error than its child and the cut crosses twice. Measured
-       * on a 64x64 grid: 175 doubly-covered samples out of 200704 before the sphere was forced to
-       * contain its children's. */
       for (size_t ci = g0; ci < g1; ci++) {
         const DagCluster &cc = out->Clusters[firstIdx + ci];
         gChild[gi] = std::max(gChild[gi], cc.SelfErr);
@@ -908,8 +809,6 @@ inline void Sphere(const Mesh &m, const std::vector<uint32_t> &tri, size_t first
       gSphere[gi * 4 + 3] = gr;
     }
 
-    /* Every group is formed before any of them is simplified, because a group may not collapse a
-     * position another group still stands on and it cannot know that from its own triangles. */
     std::vector<int32_t> owner((size_t)m.NPos, -1);
     std::vector<uint8_t> shared((size_t)m.NPos, 0);
     for (size_t gi = 0; gi < nGroups; gi++)
@@ -926,9 +825,6 @@ inline void Sphere(const Mesh &m, const std::vector<uint32_t> &tri, size_t first
       after += gt.size() / 3;
     }
 
-    /* THE WHOLE LEVEL, not the group: a group's locked boundary vertex stands for level-0 positions
-     * that its own triangles stopped covering when the grouping shifted, and measuring those against
-     * the group alone reports the distance to the nearest EDGE instead of the deviation. */
     std::vector<double> corners;
     corners.reserve(after * 9);
     for (const std::vector<uint32_t> &g : group)
@@ -949,10 +845,8 @@ inline void Sphere(const Mesh &m, const std::vector<uint32_t> &tri, size_t first
       for (uint32_t pIdx : gpos)
         for (int32_t o = absorb.Head[pIdx]; o >= 0; o = absorb.Next[(size_t)o])
           ge = std::max(ge, (float)dm.Dev(&m.PP[(size_t)o * 3]));
-      if (!(ge > gChild[gi])) ge = gChild[gi] + 1.0e-4f;   /* strictly increasing: one crossing, one cut */
+      if (!(ge > gChild[gi])) ge = gChild[gi] + 1.0e-4f;
 
-      /* Held back, not written: a level that turns out not to reduce is DISCARDED below, and a
-       * ParentErr pointing at a level that was never emitted would delete the geometry. */
       pErr.push_back(ge);
       for (int a = 0; a < 4; a++) pSphere.push_back(gSphere[gi * 4 + (size_t)a]);
       if (gt.empty()) continue;
@@ -988,9 +882,6 @@ inline void Sphere(const Mesh &m, const std::vector<uint32_t> &tri, size_t first
   return !out->Clusters.empty();
 }
 
-/* THE TILE'S DAG. The skirt curtain is appended as ONE root cluster instead of being handed to the
- * builder: it shares the tile's boundary edge, and an edge with two users is not a boundary, so the
- * simplifier would be free to move the very ring that has to match the neighbouring tile. */
 inline void TileDagBuild(const float *soup, int nverts, int gridverts, const double origin[3],
                          std::vector<float> &outVerts, std::vector<uint32_t> &outIdx,
                          std::vector<DagCluster> &outClusters) {
@@ -1002,9 +893,7 @@ inline void TileDagBuild(const float *soup, int nverts, int gridverts, const dou
 
   ClusterDag dag;
   ClusterDagOpts opts;
-  /* Terrain HAS a vertical, so its error is Ulrich's maximum vertical deviation. Geocentric up at the
-   * tile centre: the ellipsoid deviates by at most 0.19 deg from it, which is 1.5e-5 of a metre over a
-   * z14 tile and cannot move a bound. */
+
   {
     const double l = std::sqrt(origin[0] * origin[0] + origin[1] * origin[1] + origin[2] * origin[2]);
     if (l > 1.0)
@@ -1051,5 +940,5 @@ inline void TileDagBuild(const float *soup, int nverts, int gridverts, const dou
   outClusters.push_back(sc);
 }
 
-}  // namespace outshine
+}
 #endif

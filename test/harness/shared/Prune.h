@@ -1,35 +1,3 @@
-/* WHAT A FINISHED CASE MAY LOSE, AND WHAT IT MAY NOT (board:1181).
- *
- * A case directory is a materialised view: at 129 MB a case the corpus grows with every feature row,
- * and the peak is what the owner's rule is about -- prune test by test, always, so the working set is
- * one case rather than the whole corpus. Pruning is not deletion; it is declining to keep a second
- * copy.
- *
- * SO THE WHOLE SAFETY ARGUMENT IS THE PROOF, AND THERE ARE TWO OF THEM BECAUSE THERE ARE TWO
- * PRODUCERS. The store is authoritative for the oracle half -- 88.5 MB of a 137 MB case -- and knows
- * nothing about the other: `outshine.raw`, `outshine.normal.raw` and `file.normal.raw` are OUR
- * outputs, never stored, and their producer is the case's own run. One check would be right about the
- * first half and wrong about the second, so each half is proven by its own instrument and a file in
- * neither class STAYS, with the reason its proof failed.
- *
- * A CASE'S SUBJECT IS NOT ITS PRODUCT, AND IT IS DECLARED KEPT RATHER THAN LEFT UNPROVEN. It was a
- * candidate for exactly one run and the run said so: six `unit/gltf` tests and `test/frame` read
- * `scene.gltf`, `Cameras.bin` and `NormalTangentTest.gltf` out of case directories, and four of them
- * lost their input the moment the render layer -- which sorts earlier -- had been pruned. What made
- * the subject prunable was a third route, a store object under the file's OWN digest, and that route
- * is gone. Naming the subject in the keep set is what keeps the report honest afterwards: nineteen
- * files a case cannot prove is noise, and noise is what teaches a reader to skip the one line that
- * matters. Which leaves are the subject's is read from the preparer's own fetch, generate and convert
- * reports rather than listed here, where the list would go stale at the next `.bin` beside a
- * `.gltf`.
- *
- * THE PROOF IS BYTE EQUALITY AND NOT DIGEST EQUALITY, which is a deliberate strengthening of the
- * requirement's wording: the store object and the file are compared byte for byte, so the claim
- * "these bytes exist somewhere else" rests on the bytes rather than on a collision bound. It is also
- * the cheaper of the two -- a memcmp against two SHA-256 passes -- which is why nothing is traded.
- *
- * AND THE PROOF IS CARRIED IN THE TYPE. `Remove` takes a `Removable`, whose constructor only
- * `Examine` can reach, so deleting a file whose proof was never taken has no spelling here. */
 #ifndef PRUNE_H
 #define PRUNE_H
 
@@ -51,8 +19,6 @@ namespace outshine::Prune {
 
 enum class Verdict : uint8_t { Kept, Prunable, Stays };
 
-/* WHY A FILE MAY GO, and the two are not interchangeable: the first is recovered by
- * `test/harness/shared/corpus/prepare.py`, the second by re-running the case. */
 enum class Proof : uint8_t { Untaken, StoreHoldsTheseBytes, ThisRunWroteIt };
 
 struct CaseUnderPrune;
@@ -61,7 +27,6 @@ struct Examination;
 
 Examination Examine(const CaseUnderPrune &subject, const std::filesystem::path &file);
 
-/* A file whose bytes exist somewhere this case did not have to keep them. */
 class Removable {
 public:
   [[nodiscard]] const std::filesystem::path &Path() const { return Path_; }
@@ -85,27 +50,20 @@ struct Examination {
   std::filesystem::path Path;
   std::uintmax_t Bytes = 0;
   Verdict What = Verdict::Stays;
-  /* For a file that stays, which proof was attempted and what refuted it -- a diagnosis begins here
-   * and must not begin with reading this header. */
+
   std::string Why;
   std::optional<Removable> Ticket;
 };
 
-/* WHAT ONE CASE'S PRUNE IS DECIDED FROM. Both mappings live in the case's own `provenance.json` --
- * the store key each product was placed from, and the leaf each subject file arrived as -- which is
- * why provenance survives pruning (board:1176 reads the same file for the same reason). */
 struct CaseUnderPrune {
   std::filesystem::path Directory;
   std::filesystem::path StoreDirectory;
   std::map<std::string, std::string> KeyByLeaf;
   std::set<std::string> SubjectLeaves;
-  /* Anything written after this was written by the arms this runner just ran, so re-running the case
-   * is its producer. The marker is a file the runner touches before the first arm. */
+
   std::filesystem::file_time_type RunStarted{};
 };
 
-/* THE KEEP SET. The two pictures a person looks at, the declaration the case IS, the provenance the
- * next prune reads its keys out of, and the subject every other suite reads. */
 inline bool IsInTheKeepSet(const CaseUnderPrune &subject, const std::filesystem::path &file) {
   const std::string leaf = file.filename().string();
   return file.extension() == ".png" || leaf == "manifest.json" || leaf == "provenance.json" ||
@@ -121,7 +79,6 @@ inline bool ReadWholeFile(const std::filesystem::path &path, std::string &into) 
 
 enum class Sameness : uint8_t { Same, DifferentSize, DifferentBytes, Unreadable };
 
-/* Byte for byte, in blocks, so a 14.7 MB product costs one buffer and not two. */
 inline Sameness SameContent(const std::filesystem::path &left, const std::filesystem::path &right,
                             std::uintmax_t &firstDifference) {
   std::error_code failed;
@@ -157,8 +114,6 @@ inline std::string Decimal(std::uintmax_t value) {
   return digits;
 }
 
-/* THE STORE'S ANSWER FOR ONE CANDIDATE, under a key somebody named. `held` is the whole verdict; the
- * string is what a reader needs when it is false. */
 inline std::string StoreVouches(const CaseUnderPrune &subject, const std::string &key,
                                 const std::filesystem::path &file, bool &held) {
   held = false;
@@ -194,9 +149,6 @@ inline Examination Examine(const CaseUnderPrune &subject, const std::filesystem:
     return examination;
   }
 
-  /* A NAMED PRODUCT IS ANSWERED BY ITS KEY AND BY NOTHING ELSE. Falling through to a weaker proof
-   * when the store disagrees is exactly how an oracle product that was overwritten would be pruned
-   * on the strength of its mtime. */
   const std::map<std::string, std::string>::const_iterator named =
       subject.KeyByLeaf.find(file.filename().string());
   if (named != subject.KeyByLeaf.end()) {
@@ -231,14 +183,6 @@ inline bool Remove(const Removable &removable) {
   return std::filesystem::remove(removable.Path(), failed) && !failed;
 }
 
-/* EVERY PRODUCT KEY THE PREPARER RECORDED FOR THIS CASE, keyed by the leaf it placed. `report.render`
- * carries one row per recipe and frame, and inside a row the key and the placed path stand under the
- * same product name, which is what turns a file on disk into a key.
- *
- * `keys` MEANS PLACED PRODUCTS AND ONLY THOSE. A render row also names the key its own account is
- * stored under (`provenanceKey`, board:1154), and that document is never placed as a file: it reaches
- * the case inside `provenance.json`. Reading it here would be looking for a leaf that does not
- * exist. */
 inline void CollectKeys(const Json::Ref &report, std::map<std::string, std::string> &into) {
   const Json::Ref renders = report["render"];
   for (size_t row = 0; row < renders.Size(); ++row) {
@@ -253,10 +197,6 @@ inline void CollectKeys(const Json::Ref &report, std::map<std::string, std::stri
   }
 }
 
-/* EVERY LEAF THE PREPARER PLACED AS AN INPUT, from the three jobs that place one: what was fetched,
- * what we generated, and what a `.blend` was converted into. Each names the file it wrote under `as`
- * or `outputName`, so the subject set is READ from the run that produced it rather than listed here
- * -- a list would go stale at the next `.bin` beside a `.gltf`. */
 inline void CollectSubjectLeaves(const Json::Ref &report, std::set<std::string> &into) {
   const Json::Ref fetched = report["fetch"]["files"];
   for (size_t row = 0; row < fetched.Size(); ++row) { into.insert(fetched[row]["as"].Str()); }
@@ -271,7 +211,7 @@ inline void CollectSubjectLeaves(const Json::Ref &report, std::set<std::string> 
 
 struct CaseReading {
   std::optional<CaseUnderPrune> Subject;
-  /* Why nothing can be decided. A prune that cannot prove its precondition does not proceed. */
+
   std::string Refusal;
 };
 
@@ -352,6 +292,6 @@ inline Ledger Count(const std::vector<Examination> &examinations) {
   return ledger;
 }
 
-} // namespace outshine::Prune
+}
 
 #endif

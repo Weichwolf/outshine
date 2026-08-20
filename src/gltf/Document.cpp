@@ -5,17 +5,14 @@
 
 #include "Json.h"
 
-/* THE FORMAT IS LITTLE-ENDIAN AND SO IS EVERY TARGET THIS ENGINE HAS. Said as a compile error rather
- * than as a comment, because a big-endian port that silently byte-swapped every accessor would be
- * discovered by looking at a picture. */
 static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__, "glTF buffers are little-endian");
 
 namespace outshine::Gltf {
 namespace {
 
-constexpr uint32_t kGlbMagic = 0x46546C67;      /* 'glTF' */
-constexpr uint32_t kChunkJson = 0x4E4F534A;     /* 'JSON' */
-constexpr uint32_t kChunkBinary = 0x004E4942;   /* 'BIN\0' */
+constexpr uint32_t kGlbMagic = 0x46546C67;
+constexpr uint32_t kChunkJson = 0x4E4F534A;
+constexpr uint32_t kChunkBinary = 0x004E4942;
 constexpr uint32_t kGlbVersion = 2;
 
 uint32_t LittleWord(const uint8_t *at) {
@@ -85,8 +82,6 @@ double Component(const uint8_t *at, ComponentType component) {
   return 0;
 }
 
-/* The format's own normalisation, and the asymmetry is the format's too: a signed component divides
- * by its positive maximum and clamps at -1, so -128 and -127 both mean -1. */
 double Normalise(double raw, ComponentType component) {
   switch (component) {
   case ComponentType::Int8: return raw < -127.0 ? -1.0 : raw / 127.0;
@@ -106,12 +101,6 @@ std::string DirectoryOf(const std::string &path) {
 
 std::string Number(size_t value) { return std::to_string(value); }
 
-/* A URI IS PERCENT-DECODED BEFORE IT REACHES THE FILESYSTEM. glTF requires the writer to
- * percent-encode reserved characters (`Specification.adoc:550`), which makes decoding them a
- * reader's obligation and not a convenience: `Box With Spaces` names its images `Box%20With%20Spaces
- * .png` and its buffer with literal spaces, so a reader that concatenates opens the buffer and
- * fails at the first texture. An incomplete or non-hex escape at the end is left verbatim -- the
- * alternative is reading past the string. */
 int HexDigit(char c) {
   if (c >= '0' && c <= '9') { return c - '0'; }
   if (c >= 'a' && c <= 'f') { return c - 'a' + 10; }
@@ -144,8 +133,6 @@ bool KnownWrap(int raw, Wrap &out) {
   }
 }
 
-/* `magFilter` HAS TWO LEGAL VALUES AND NO MIP HALF, because magnification reads one level by
- * definition. An undeclared one is the client's choice and this reader takes LINEAR. */
 [[nodiscard]] bool KnownMagFilter(int raw, Filter &out) {
   switch (raw) {
   case 9728: out = Filter::Nearest; return true;
@@ -154,17 +141,6 @@ bool KnownWrap(int raw, Wrap &out) {
   }
 }
 
-/* `minFilter` PACKS TWO ANSWERS INTO ONE INTEGER and this reader used to give one of them
- * (board:1134). It read `9728 is NEAREST and everything else in the format's set is a LINEAR base`,
- * which is false for the two values that are a NEAREST base WITH mipmapping -- 9984 and 9986 -- and
- * those are not exotic: `NormalTangentTest` and `TextureSettingsTest` both declare 9986, so two
- * corpus subjects were being filtered linearly under minification where the file asks for point
- * sampling. The mip half was lost entirely, decided instead by a constant at the sampler.
- *
- * AN UNDECLARED `minFilter` IS THE CLIENT'S CHOICE and this reader takes a linear base with linear
- * levels -- what the sampler did unconditionally before, so absence keeps its behaviour and only a
- * DECLARATION changes it. AN UNKNOWN ONE IS REFUSED, like a wrap mode: the previous silent mapping to
- * LINEAR is how a file could ask for something this engine does not implement and be told nothing. */
 [[nodiscard]] bool KnownMinFilter(int raw, Filter &base, MipFilter &mip) {
   switch (raw) {
   case 9728: base = Filter::Nearest; mip = MipFilter::None; return true;
@@ -177,24 +153,6 @@ bool KnownWrap(int raw, Wrap &out) {
   }
 }
 
-/* WHAT THIS READER IMPLEMENTS WELL ENOUGH TO CLAIM. An extension is added here in the round its
- * behaviour is built, so `extensionsRequired` naming anything else is a refusal -- a list seeded
- * with names nobody implemented would be the silent-acceptance defect wearing a table.
- *
- * A DATA EXTENSION -- one that adds numbers to a row rather than an arm to the renderer -- IS BUILT
- * THE WAY `KHR_texture_transform` WAS (board:1177), and the three decisions are stated where they are
- * used rather than restated here: its values are composed into their final form AT THE READER
- * (`core/UvTransform.h`), its defaults are the IDENTITY of whatever the consumer does with them, so
- * absence and presence-with-defaults are one computation with no branch and no pipeline permutation
- * (`board:1156`), and PRESENCE IS THE VALUES THEMSELVES -- there is no `Has...` flag anywhere in this
- * reader that can disagree with the numbers beside it.
- *
- * A SELECTION EXTENSION IS THE OTHER SHAPE AND IT IS NOT BUILT THAT WAY (board:1188).
- * `KHR_materials_variants` carries no number for a material row -- it is a MAPPING from a variant to
- * a material, per primitive -- so putting it in the row would put a table inside the thing it
- * selects. It is read into the primitive, resolved into the material a part wears while the subject
- * is flattened, and is therefore gone before a draw list exists: the render path never learns that
- * variants are a thing, and no fragment arm, pipeline or interpolant is added by it. */
 constexpr const char *const kHonouredExtensions[] = {"KHR_lights_punctual",
                                                      "KHR_materials_anisotropy",
                                                      "KHR_materials_iridescence",
@@ -231,23 +189,6 @@ constexpr const char *kUnlit = "KHR_materials_unlit";
 constexpr const char *kMaterialsVariants = "KHR_materials_variants";
 constexpr const char *kTextureTransform = "KHR_texture_transform";
 
-/* A DECLARED PAIR OF NUMBERS, OR A REFUSAL NAMING WHICH PROPERTY WAS NOT ONE. `Num(def)` answers the
- * default for a string, an object and a null alike, so a present-but-wrong value would otherwise be
- * read as the extension's default and ship as a picture nobody could trace back to the file -- the
- * same silent success `emissiveStrength` refuses one function above. */
-/* A JSON POINTER INTO A MATERIAL'S FACTORS, RESOLVED BY WALKING IT RATHER THAN BY MATCHING STRINGS
- * (board:1392). The grammar is exactly two shapes and the walk is what says so:
- *
- *     /materials/<i>/pbrMetallicRoughness/{baseColorFactor,metallicFactor,roughnessFactor}
- *     /materials/<i>/emissiveFactor
- *
- * THE INDEX IS NOT VALIDATED HERE and that is deliberate: this answers whether the POINTER is one
- * this reader understands, and whether the material exists is the caller's question, asked against
- * the materials it has actually read. Splitting them keeps a file with a good pointer to a missing
- * material from reading as a file with a pointer nobody understands.
- *
- * A LEADING EMPTY SEGMENT IS THE POINTER'S OWN SYNTAX -- RFC 6901 pointers begin with `/` -- so the
- * split produces it and it is stepped over rather than special-cased away. */
 bool ResolveMaterialPointer(const std::string &pointer, AnimationChannel &channel,
                             UndrivenReason &why) {
   std::vector<std::string> segments;
@@ -266,14 +207,9 @@ bool ResolveMaterialPointer(const std::string &pointer, AnimationChannel &channe
   const std::string &index = segments[2];
   if (index.empty() || index.find_first_not_of("0123456789") != std::string::npos) { return false; }
 
-  /* THE TAIL IS EVERYTHING AFTER `/materials/<i>/`, rejoined, so the table carries whole spellings
-   * and the walk has one shape whether a property sits on the material or on its
-   * `pbrMetallicRoughness` (board:1392). */
   std::string tail = segments[3];
   for (size_t part = 4; part < segments.size(); ++part) { tail += "/" + segments[part]; }
 
-  /* PAST HERE THE POINTER IS WELL FORMED AND NAMES A MATERIAL, so anything left is a property this
-   * reader holds no field for -- a capability gap and not a grammar one. */
   why = UndrivenReason::PointerUnheld;
   for (const AnimatablePointer &known : AnimatablePointers()) {
     if (tail != known.Tail) { continue; }
@@ -303,14 +239,6 @@ bool ReadUvPair(const Json::Ref &declared, const char *property, double out[2], 
   return true;
 }
 
-/* ONE `textureInfo`'s `KHR_texture_transform`, COMPOSED (board:1177). The three properties leave this
- * function as a matrix and never as themselves, so translation x rotation x scale is stated in
- * `core/UvTransform.h` once and has no second spelling; what is here is only the reading and the
- * refusals.
- *
- * `texCoord` OVERWRITES the reference's own set rather than sitting beside it, which is the
- * extension's own rule -- "Overrides the textureInfo texCoord value if supplied" -- so a consumer
- * cannot read the superseded one by mistake. */
 bool ReadTextureTransform(const Json::Ref &info, TextureRef &into, std::string &why) {
   const Json::Ref declared = info["extensions"][kTextureTransform];
   if (!declared.Valid()) { return true; }
@@ -348,29 +276,8 @@ bool KnownAlphaMode(const std::string &raw, AlphaMode &out) {
   return false;
 }
 
-} // namespace
+}
 
-/* WHICH ACCESSOR AN ATTRIBUTE MAY BE, and it is the format's own table rather than this reader's
- * taste (`Specification.adoc`, mesh primitive attribute semantics). Base glTF 2.0 permits:
- *
- *   POSITION   VEC3  float
- *   NORMAL     VEC3  float
- *   TANGENT    VEC4  float
- *   TEXCOORD_n VEC2  float | unsigned byte normalized | unsigned short normalized
- *   COLOR_n    VEC3 or VEC4  float | unsigned byte normalized | unsigned short normalized
- *   JOINTS_n   VEC4  unsigned byte | unsigned short
- *   WEIGHTS_n  VEC4  float | unsigned byte normalized | unsigned short normalized
- *
- * `KHR_mesh_quantization` WIDENS EXACTLY FOUR OF THOSE ROWS and nothing else. Its own words: *because
- * the extension does not provide a way to specify both FLOAT and quantized versions of the data,
- * files that use the extension must specify it in extensionsRequired* -- so it is never optional and
- * the widened set is gated on the file declaring it.
- *
- * WHY THE TABLE IS ENFORCED AT ALL. Until now every combination decoded, which made honouring the
- * extension mean nothing: a reader that already accepted a quantised POSITION was not implementing
- * the extension, it was failing to check. The check IS the behaviour here (board:1384), and
- * [MEASURED] over the 148 models at the pin it refuses none of them -- one declares the extension and
- * uses it, and no model uses a non-base combination without declaring it. */
 struct AttributeShape {
   ElementType Element;
   ComponentType Component;
@@ -411,8 +318,7 @@ bool ShapeAllowed(const std::string &semantic, const AttributeShape &shape, bool
   if (semantic.rfind("WEIGHTS_", 0) == 0) {
     return vec4 && ((f32 && !norm) || ((u8 || u16) && norm));
   }
-  /* AN APPLICATION-SPECIFIC SEMANTIC IS THE FILE'S BUSINESS AND NOT THIS TABLE'S: the format reserves
-   * every name it defines and leaves `_`-prefixed ones to the writer. */
+
   return true;
 }
 
@@ -446,8 +352,6 @@ bool Document::Read(Span<const uint8_t> whole, const std::string &path) {
   const uint8_t *const bytes = whole.Data();
   const size_t length = whole.Size();
 
-  /* THE CONTAINER IS DECIDED BY THE BYTES. A .glb named .gltf is still a .glb, and a reader that
-   * trusted the extension would report a JSON parse failure at byte 0 for a file that is fine. */
   if (length >= 12 && LittleWord(bytes) == kGlbMagic) {
     const uint32_t version = LittleWord(bytes + 4);
     const uint32_t declared = LittleWord(bytes + 8);
@@ -476,8 +380,7 @@ bool Document::Read(Span<const uint8_t> whole, const std::string &path) {
         binaryChunk = bytes + at;
         binaryLength = chunkLength;
       }
-      /* Chunks are 4-byte aligned; an unknown type is skipped, which is what the format asks of a
-       * reader so a future chunk does not make an otherwise readable file unreadable. */
+
       at += (chunkLength + 3) & ~size_t{3};
     }
     if (jsonChunk == nullptr) { return Refuse("is a GLB with no JSON chunk"); }
@@ -502,8 +405,7 @@ bool Document::ResolveBuffers(const Json &json, const uint8_t *binaryChunk, size
       }
       bytes.assign(binaryChunk, binaryChunk + binaryLength);
     } else if (uri.rfind("data:", 0) == 0) {
-      /* A named refusal, not a gap: an embedded base64 buffer is a container this round did not
-       * build, and a file that carries one must say so rather than read as empty. */
+
       return Refuse("buffer " + Number(i) + " is a data: URI, which this reader does not decode");
     } else {
       std::ifstream file(directory + uri, std::ios::binary);
@@ -534,11 +436,6 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     return Refuse("declares asset.version '" + Version_ + "', and this reader is glTF 2.0");
   }
 
-  /* THE TWO DOORS A FILE STATES ITS OWN UNREADABILITY THROUGH, and both were open. `minVersion` is
-   * the writer saying "below this the file cannot be read at all", and `extensionsRequired` the
-   * same statement per extension -- a quantized or Draco-compressed file whose extension is ignored
-   * reads as plausible numbers in the wrong units rather than as a refusal. Neither is a warning:
-   * the format says a client that cannot honour them must not load the asset. */
   MinVersion_ = root["asset"]["minVersion"].Str("");
   if (!MinVersion_.empty() && MinVersion_.rfind("2.0", 0) != 0) {
     return Refuse("declares asset.minVersion '" + MinVersion_ +
@@ -671,10 +568,7 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
         }
         primitive.Attributes.push_back(std::move(attribute));
       }
-      /* THE MORPH TARGETS, and every semantic in one is checked against the base attribute it
-       * displaces. glTF allows POSITION, NORMAL and TANGENT in a target and nothing else, and a
-       * target that names a semantic the primitive does not carry displaces nothing -- both are
-       * refused here rather than left for a flatten to skip silently. */
+
       const Json::Ref targets = declared["targets"];
       for (size_t t = 0; t < targets.Size(); ++t) {
         MorphTarget target;
@@ -722,9 +616,7 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
       }
       const Json::Ref variants = declared["extensions"][kMaterialsVariants];
       if (variants.Valid() && !ReadVariantMappings(variants, i, p, primitive)) { return false; }
-      /* EVERY PRIMITIVE OF A MESH MORPHS TOGETHER, which is why glTF puts the weights on the mesh
-       * and not on the primitive -- so two primitives declaring different target counts have no
-       * single weight run to drive them and the file cannot mean anything. */
+
       if (!mesh.Primitives.empty() &&
           mesh.Primitives[0].Targets.size() != primitive.Targets.size()) {
         return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " declares " +
@@ -775,12 +667,7 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     node.Name = declaration["name"].Str("");
     node.Mesh = declaration["mesh"].Valid() ? declaration["mesh"].Int(-1) : -1;
     node.Camera = declaration["camera"].Valid() ? declaration["camera"].Int(-1) : -1;
-    /* `KHR_node_visibility`, and it is READ HERE AND RESOLVED IN THE FLATTEN. The extension carries
-     * one boolean and its default is `true`, so absence and presence-with-true are the same value
-     * and there is no `Has...` flag beside it that could disagree -- the same shape
-     * `KHR_texture_transform` set (board:1177). What is NOT decided here is inheritance: a node's own
-     * answer is a property of the node, and *visible if and only if its own is true and all its
-     * parents are* is a property of the WALK, which is where the hierarchy exists. */
+
     node.Visible = declaration["extensions"]["KHR_node_visibility"]["visible"].Bool(true);
     node.Skin = declaration["skin"].Valid() ? declaration["skin"].Int(-1) : -1;
     const Json::Ref lit = declaration["extensions"][kLightsPunctual]["light"];
@@ -807,8 +694,7 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
       }
       for (size_t k = 0; k < 3 && k < scale.Size(); ++k) { node.Scale[k] = scale[k].Num(1.0); }
     }
-    /* `EXT_mesh_gpu_instancing`. The attributes name accessors like any other run, so the counts are
-     * checked where every accessor index in this file is checked and nothing is decoded here. */
+
     const Json::Ref instancing = declaration["extensions"][kMeshGpuInstancing]["attributes"];
     if (instancing.Valid()) {
       node.InstanceTranslation =
@@ -824,9 +710,7 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
                         " of " + Number(Accessors_.size()));
         }
         const size_t here = Accessors_[(size_t)accessor].Count;
-        /* THE EXTENSION'S OWN RULE AND IT IS WHAT MAKES THE COUNT ANSWERABLE: *all attributes MUST
-         * have the same count*, so a file that disagrees with itself has no instance count and is
-         * refused rather than drawn at whichever number happened to be read first. */
+
         if (count != 0 && here != count) {
           return Refuse("node " + Number(i) +
                         " instances on accessors of different lengths, and the extension requires "
@@ -886,7 +770,7 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     return Refuse("names default scene " + Number(static_cast<size_t>(DefaultScene_)) + " of " +
                   Number(Scenes_.size()));
   }
-  /* THE MORPH LAYOUT, DERIVED ONCE AND HERE, after the meshes and the nodes are both complete. */
+
   MorphAt_.assign(Nodes_.size() + 1, 0);
   for (size_t node = 0; node < Nodes_.size(); ++node) {
     size_t count = 0;
@@ -901,12 +785,6 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
   return true;
 }
 
-/* THE SKINS, READ AFTER THE NODES because every joint is a node index and the table has to be
- * complete before one can be refused for naming a node the file does not carry.
- *
- * AN ABSENT `inverseBindMatrices` IS NOT AN OMISSION, it is the format stating that every matrix is
- * the identity -- so the vector is left empty and the consumer reads the absence, rather than this
- * reader materialising N identities that would then have to be told apart from declared ones. */
 bool Document::ReadSkins(const Json::Ref &root) {
   const Json::Ref skins = root["skins"];
   for (size_t i = 0; i < skins.Size(); ++i) {
@@ -954,17 +832,6 @@ bool Document::ReadSkins(const Json::Ref &root) {
   return true;
 }
 
-/* THE ANIMATIONS, READ LAST because every reference in them points backwards: a sampler names two
- * accessors and a channel names a node, and both tables are complete by the time this runs.
- *
- * THREE WORDS AND NO FOURTH. `interpolation` and `target.path` are both strings with a closed set of
- * values, and an unrecognised one is refused by name rather than falling back to `LINEAR` or to
- * `translation` -- a viewer that quietly substitutes one is exactly what `InterpolationTest` was
- * built to expose, and a reader that did it would make the case unable to see it.
- *
- * A CHANNEL WITH NO TARGET NODE IS NOT AN ERROR: the format defines it as a channel to be ignored,
- * so it is carried at -1 and the consumer's loop skips it. Refusing it here would refuse a
- * conforming file. */
 bool Document::ReadAnimations(const Json &json) {
   const Json::Ref animations = json.Root()["animations"];
   for (size_t i = 0; i < animations.Size(); ++i) {
@@ -1000,16 +867,7 @@ bool Document::ReadAnimations(const Json &json) {
         return Refuse("animation " + Number(i) + " sampler " + Number(s) +
                       " has a time grid that is not SCALAR");
       }
-      /* THE SHAPE RULE THE FORMAT PUTS ON A SAMPLER, and it is what makes `CUBICSPLINE` a different
-       * DECODE and not a different formula: three elements per keyframe against one. A file that got
-       * this wrong would otherwise be read as an animation a third as long.
-       *
-       * IT IS A MULTIPLE AND NOT AN EQUALITY, BECAUSE A SAMPLER DOES NOT KNOW ITS PATH (board:1203).
-       * A `weights` output is SCALAR and carries one value PER TARGET per keyframe -- 127 keyframes
-       * and two targets is 254 -- so an equality here refuses every morph animation in the corpus.
-       * Which multiple is right is a question about the mesh the CHANNEL names, and `Pose::Build`
-       * refuses a width that disagrees with it, where the mesh is in scope. What is checked here is
-       * what a sampler alone can decide: that the run divides. */
+
       const size_t perKeyframe = (sampler.How == Interpolation::CubicSpline) ? 3u : 1u;
       const Accessor &values = Accessors_[static_cast<size_t>(sampler.Output)];
       const size_t wanted = times.Count * perKeyframe;
@@ -1053,22 +911,12 @@ bool Document::ReadAnimations(const Json &json) {
       } else if (path == "weights") {
         channel.Path = AnimationPath::Weights;
       } else if (path == "pointer") {
-        /* `KHR_animation_pointer`: the target is a JSON pointer into the asset and the channel names
-         * no node -- *the animation channel `node` property **MUST NOT** be set*. What this reader
-         * resolves is the material factors and nothing else, and a pointer outside that quotes
-         * itself in the refusal rather than being read and driven nowhere (board:1392). */
+
         const std::string pointer =
             target["extensions"][kAnimationPointer]["pointer"].Str("");
         UndrivenReason why = UndrivenReason::PointerUnparsed;
         if (!ResolveMaterialPointer(pointer, channel, why)) {
-          /* NOT A REFUSAL, AND THE FORMAT IS WHY. glTF 2.0: *client implementations may select an
-           * animation entry and pause it on the first frame, play it automatically, or IGNORE ALL
-           * ANIMATIONS until further user requests* -- so a channel this reader cannot drive is a
-           * shortfall of THIS engine and not a defect of the file, and refusing the whole subject
-           * over one would lose everything else the file draws.
-           *
-           * IT IS COUNTED AND NAMED, which is what keeps it from being a silence: the animation
-           * publishes how many channels it could not drive and which pointers they were. */
+
           animation.Undriven.push_back(UndrivenChannel{pointer, why});
           continue;
         }
@@ -1092,15 +940,6 @@ bool Document::ReadAnimations(const Json &json) {
   return true;
 }
 
-/* `KHR_lights_punctual`'s DOCUMENT-LEVEL TABLE. A light here has no place: the extension puts the
- * reference on a node and the beam on that node's -Z, so where and which way are the hierarchy's
- * answer and are resolved by whoever walks it.
- *
- * `type` IS THE ONE FIELD WITH NO DEFAULT AND AN UNKNOWN SPELLING IS A REFUSAL, because the three
- * arms differ in their UNITS -- `intensity` is lux under `directional` and candela under the other
- * two -- so a light whose type was guessed is a number in the wrong unit rather than a light in the
- * wrong shape. The extension's own defaults are used where a field is absent: white, intensity 1,
- * and a spot cone of 0 to pi/4. */
 bool Document::ReadLights(const Json &json) {
   const Json::Ref declared =
       json.Root()["extensions"][kLightsPunctual]["lights"];
@@ -1142,15 +981,6 @@ bool Document::ReadLights(const Json &json) {
   return true;
 }
 
-/* `KHR_materials_variants`' DOCUMENT-LEVEL TABLE (board:1188), which is a list of NAMES and nothing
- * else. It is read before the meshes because a primitive's mappings are checked against it, and a
- * mapping validated against a table that did not exist yet would be validated against nothing.
- *
- * A NAME IS REQUIRED BY THE EXTENSION'S OWN SCHEMA AND A REPEATED ONE IS REFUSED HERE. The second is
- * this reader's addition and it is what makes selection BY NAME answerable: a declaration names the
- * variant it renders, so two variants called `beach` are a file stating two answers to one question
- * -- the same defect as a primitive mapped twice, one level up. An index would sidestep it and put a
- * position in a list into every declaration that selects. */
 bool Document::ReadVariants(const Json &json) {
   const Json::Ref declared = json.Root()["extensions"][kMaterialsVariants];
   if (!declared.Valid()) { return true; }
@@ -1181,11 +1011,6 @@ bool Document::ReadVariants(const Json &json) {
   return true;
 }
 
-/* ONE PRIMITIVE'S MAPPINGS, INTO THE DENSE RUN `Primitive::VariantMaterials` IS (board:1188).
- *
- * "ACROSS THE ENTIRE MAPPINGS ARRAY, EACH VARIANT INDEX MUST BE USED NO MORE THAN ONE TIME" is the
- * extension's own sentence, and here it is the slot already being written -- the file has stated two
- * materials for one variant, and picking either is picking a picture the file did not decide. */
 bool Document::ReadVariantMappings(const Json::Ref &declared, size_t mesh, size_t primitive,
                                    Primitive &into) {
   const std::string where =
@@ -1233,10 +1058,6 @@ bool Document::ReadVariantMappings(const Json::Ref &declared, size_t mesh, size_
   return true;
 }
 
-/* THE APPEARANCE TABLES, in the order their references run: an image is bytes, a texture names an
- * image and a sampler, a material names textures. Read as one operation because each of the three
- * checks its references against the one before it, and splitting them would put the same index
- * bound in three places. */
 bool Document::ReadAppearance(const Json &json) {
   const Json::Ref root = json.Root();
 
@@ -1289,21 +1110,7 @@ bool Document::ReadAppearance(const Json &json) {
     Texture texture;
     texture.Name = declaration["name"].Str("");
     texture.Source = declaration["source"].Valid() ? declaration["source"].Int(-1) : -1;
-    /* `EXT_texture_webp`: THE EXTENSION'S SOURCE IS THE PRIMARY AND THE TOP-LEVEL ONE IS ITS FALLBACK,
-     * which is the extension's own framing -- *a client implementation that does not support this
-     * extension may be able to ignore the provided WebP image if an optional fallback PNG or JPEG
-     * image is present*. This reader supports it, so it takes the WebP.
-     *
-     * THE DECODE COSTS NOTHING BECAUSE THE HOST ALREADY DOES IT. Images reach a decoder that sniffs
-     * the format from the bytes, so a WebP was always readable and only the INDEX was missing.
-     *
-     * BOTH SIDES LAND ON ONE IMAGE, and that was checked rather than assumed: a WebP and its PNG
-     * fallback are not the same pixels, so picking differently from the oracle would be a
-     * disagreement this engine manufactured. Blender's importer resolves `src if src is not None else
-     * webp_src` unless told otherwise -- so it takes the fallback where one exists and the WebP where
-     * none does, and [MEASURED] the corpus's only such asset declares 15 textures with NO top-level
-     * source at all. **Where a fallback does exist the two would diverge, and that is named here
-     * rather than discovered**: the preparer would have to be told to prefer the WebP too. */
+
     const Json::Ref webp = declaration["extensions"][kTextureWebp]["source"];
     if (webp.Valid()) { texture.Source = webp.Int(-1); }
     texture.Sampler = declaration["sampler"].Valid() ? declaration["sampler"].Int(-1) : -1;
@@ -1337,8 +1144,7 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
     material.Surface.BaseColour[k] = static_cast<float>(baseColour[k].Num(1.0));
   }
   if (!baseColour.Valid()) {
-    /* glTF's own default is white, and the engine's default `Material` is a mid grey, so a file that
-     * declares no factor must overwrite it rather than inherit ours. */
+
     for (float &channel : material.Surface.BaseColour) { channel = 1.0f; }
   }
   material.Surface.Metalness = static_cast<float>(pbr["metallicFactor"].Num(1.0));
@@ -1348,17 +1154,7 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
   for (size_t k = 0; k < 3 && k < emissive.Size(); ++k) {
     material.Surface.Emission[k] = static_cast<float>(emissive[k].Num(0.0));
   }
-  /* KHR_materials_emissive_strength MULTIPLIES the factor rather than replacing it, and the product
-   * is what leaves this reader: `emissiveFactor` is capped at 1 by the core format, so the extension
-   * is the only way a glTF says "brighter than white" and a consumer that kept the two apart would
-   * have to remember to multiply them at every site that reads emission. */
-  /* KHR_materials_ior AND KHR_materials_specular SET ONE QUANTITY BETWEEN THEM, and `DielectricF0`
-   * in `core/Material.h` is where they meet -- so both are read into the row here and neither is
-   * combined with the other until the one place that does it.
-   *
-   * `ior = 0` IS LEGAL AND IS NOT "ABSENT". The extension states it means a surface with no Fresnel,
-   * so the default 1.5 may not stand in for it and the check below is on validity rather than on
-   * being non-zero. */
+
   const Json::Ref ior = declaration["extensions"][kIor]["ior"];
   if (ior.Valid()) {
     if (ior.GetKind() != Json::Kind::Number) {
@@ -1384,19 +1180,7 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
       material.Surface.SpecularColour[k] = static_cast<float>(tint[k].Num(1.0));
     }
   }
-  /* `KHR_materials_transmission` AND `KHR_materials_volume` ARE READ TOGETHER BECAUSE THEY ARE ONE
-   * PHYSICAL THING (board:1386). Transmission says what fraction of light passes through the
-   * surface; the volume says whether there is a medium behind it and what that medium does to the
-   * light on its way. [MEASURED] over the 148 models at the pin, 100 of the 136 transmissive
-   * materials carry a volume -- so a reader that took one without the other would draw the majority
-   * of the corpus's glass as a thin sheet, which is a wrong picture rather than a plainer one.
-   *
-   * RESTORED AFTER A WITHDRAWAL, AND THE WITHDRAWAL'S OWN INSTRUCTION IS WHY. The renderer's half was
-   * written and compiled and then switched off, because with these two read 26 models went red and
-   * the driver aborted 30 arms and six causes were found without reaching the last one. The item
-   * ended by naming what to do next: *find what the validated arm aborts on, with the reader restored
-   * on a SINGLE case rather than on the corpus*. That was unaffordable at eight minutes a run and it
-   * is 2.4 seconds now (board:1410), which is the whole reason this is back. */
+
   const Json::Ref transmission = declaration["extensions"][kTransmission];
   if (transmission.Valid()) {
     const Json::Ref factor = transmission["transmissionFactor"];
@@ -1407,8 +1191,7 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
       material.Surface.Transmission = static_cast<float>(factor.Num());
     }
   }
-  /* `KHR_materials_volume`. A THICKNESS OF ZERO IS THE FORMAT'S OWN SWITCH and not a guard: *if the
-   * value is 0 the material is thin-walled*, so the surface routes on it rather than on the index. */
+
   const Json::Ref volume = declaration["extensions"][kVolume];
   if (volume.Valid()) {
     const Json::Ref thickness = volume["thicknessFactor"];
@@ -1442,17 +1225,7 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
       }
     }
   }
-  /* `KHR_materials_sheen`, read into the row the way every DATA extension is (board:1177): the
-   * values are composed here and the defaults are the identity of what the consumer does with them,
-   * so absence and presence-with-defaults are one computation with no branch. The extension's own
-   * defaults are a BLACK colour and a zero roughness, and black is what turns the layer off. */
-  /* THE TWO SHEEN TEXTURES ARE NOT READ AND A MATERIAL THAT DECLARES ONE IS DRAWN WITHOUT IT
-   * (board:1385). `sheenColorTexture` multiplies the colour and `sheenRoughnessTexture` the roughness
-   * in its alpha; both are absent here, so such a material reaches the shader with its FACTORS alone
-   * -- which is exactly what the extension says a material with no texture looks like, so the picture
-   * is a plainer one rather than a wrong one. **It is a shortfall and it is named**: [MEASURED] 10 of
-   * the 42 sheen materials at the pin declare one, and one model, `SheenCloth`, is entirely made of
-   * them. */
+
   const Json::Ref sheen = declaration["extensions"][kSheen];
   if (sheen.Valid()) {
     const Json::Ref colour = sheen["sheenColorFactor"];
@@ -1474,16 +1247,7 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
       material.Surface.SheenRoughness = static_cast<float>(roughness.Num());
     }
   }
-  /* `KHR_materials_clearcoat`, and its THREE textures are not read -- `clearcoatTexture` (red),
-   * `clearcoatRoughnessTexture` (green) and `clearcoatNormalTexture`. A material declaring one is
-   * coated by its factor across the whole surface, which is the plainer picture rather than a wrong
-   * one; [MEASURED] 18, 16 and 13 of the 40 clearcoat materials at the pin declare each. **The one
-   * model that REQUIRES the extension, `ClearCoatCarPaint`, declares none**, so what is built here is
-   * enough to decide it honestly and `board:1388` carries the rest.
-   *
-   * A COAT WITH NO NORMAL MAP IS THE FORMAT'S OWN ANSWER AND NOT A GAP: *if clearcoatNormalTexture is
-   * not given, no normal mapping is applied to the clear coat layer, even if normal mapping is applied
-   * to the base material* -- so the coat uses the geometric normal by the extension's rule. */
+
   const Json::Ref clearcoat = declaration["extensions"][kClearcoat];
   if (clearcoat.Valid()) {
     const Json::Ref factor = clearcoat["clearcoatFactor"];
@@ -1502,10 +1266,7 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
       material.Surface.ClearcoatRoughness = static_cast<float>(rough.Num());
     }
   }
-  /* `KHR_materials_anisotropy`. Its `anisotropyTexture` is not read: red and green carry a direction
-   * in tangent space and blue a strength multiplier, and a material declaring one is stretched by its
-   * FACTORS alone -- which is the extension's own default texel `(1.0, 0.5, 1.0)`, the +X direction
-   * at full strength, so the picture is plainer rather than wrong. */
+
   const Json::Ref anisotropy = declaration["extensions"][kAnisotropy];
   if (anisotropy.Valid()) {
     const Json::Ref strengthOf = anisotropy["anisotropyStrength"];
@@ -1526,11 +1287,7 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
       material.Surface.AnisotropyRotationRad = static_cast<float>(turn.Num());
     }
   }
-  /* `KHR_materials_iridescence`. Neither of its two textures is read yet and `board:1405` carries
-   * that: the red channel of `iridescenceTexture` scales the strength and the green channel of
-   * `iridescenceThicknessTexture` selects between the two thicknesses. A material declaring one gets
-   * the FACTORS, which is the extension's own implicit sample of 1.0 in both -- full strength at the
-   * maximum thickness -- so the film is uniform rather than absent. */
+
   const Json::Ref iridescence = declaration["extensions"][kIridescence];
   if (iridescence.Valid()) {
     const Json::Ref factor = iridescence["iridescenceFactor"];
@@ -1568,10 +1325,7 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
   const Json::Ref strength =
       declaration["extensions"][kEmissiveStrength]["emissiveStrength"];
   if (strength.Valid()) {
-    /* A PRESENT VALUE THAT IS NOT A NUMBER IS REFUSED AND NEVER DEFAULTED. `Num(def)` answers the
-     * default for a string, an object and a null alike, so a declared brightness of `"2"` would have
-     * been read as 1 and shipped as a picture nobody could trace back to the file -- a silent
-     * success inside a reader that refuses everything else by name. */
+
     if (strength.GetKind() != Json::Kind::Number) {
       return Refuse("material " + Number(index) + " declares an emissiveStrength that is not a "
                     "number");
@@ -1586,10 +1340,6 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
     }
   }
 
-  /* KHR_materials_unlit IS DECLARED BY THE PRESENCE OF ITS OBJECT and carries no property of its
-   * own, so the object's KIND is the whole of what is read: a `true` or a number under that key is a
-   * file saying something the extension does not define, and defaulting it to "unlit" would accept a
-   * spelling nobody wrote. */
   const Json::Ref unlit = declaration["extensions"][kUnlit];
   if (unlit.Valid()) {
     if (unlit.GetKind() != Json::Kind::Object) {
@@ -1606,10 +1356,6 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
   }
   material.Surface.CoverageCut = static_cast<float>(declaration["alphaCutoff"].Num(0.5));
 
-  /* WHICH OBJECT A SOCKET SITS IN, CARRIED AS THE OBJECT AND NOT AS A FLAG (board:1205, `Enum.2`).
-   * It was a `bool UnderPbr` while there were two places a texture could be declared; there are now
-   * three -- glTF puts two under `pbrMetallicRoughness`, three at the material's root and two inside
-   * `KHR_materials_specular` -- and a boolean cannot name a third. */
   const struct {
     Json::Ref Under;
     const char *Slot;
@@ -1633,8 +1379,7 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
                     Number(static_cast<size_t>(slot.Into->Texture)) + " of " +
                     Number(Textures_.size()));
     }
-    /* READ AFTER the reference's own `texCoord` and never before it, because the extension's set
-     * OVERRIDES that one and the two are written into the same field. */
+
     std::string why;
     if (!ReadTextureTransform(declared, *slot.Into, why)) {
       return Refuse("material " + Number(index) + " " + slot.Slot + " " + why);
@@ -1695,8 +1440,6 @@ bool Document::ReadElements(int accessorIndex, std::vector<double> &out) const {
   if (!ElementBytes(accessor, stride, element)) { return false; }
   const size_t columnBytes = (columns > 1) ? element / columns : 0;
 
-  /* THE SPAN IS CHECKED BEFORE ANYTHING IS WRITTEN. A refused read that had already filled `out`
-   * with zeros hands its caller a mesh at the origin, which is data a bug can be mistaken for. */
   Span<const uint8_t> span;
   if (accessor.View >= 0) {
     if (!ViewSpan(accessor.View, span)) { return false; }
@@ -1733,7 +1476,7 @@ bool Document::ApplySparse(const Accessor &accessor, std::vector<double> &out) c
   const size_t rows = ElementRows(accessor.Element);
   const size_t columns = ElementColumns(accessor.Element);
   const size_t componentBytes = ComponentBytes(accessor.Component);
-  /* Sparse values are tightly packed: the overriding run carries no byteStride of its own. */
+
   const size_t element = TightElementBytes(accessor.Element, accessor.Component);
   const size_t columnBytes = (columns > 1) ? element / columns : 0;
   const size_t indexBytes = ComponentBytes(sparse.IndicesComponent);
@@ -1818,4 +1561,4 @@ bool Document::ViewTransform(int cameraNode, Transform &out) const {
   return world.Inverse(out);
 }
 
-} // namespace outshine::Gltf
+}

@@ -15,7 +15,7 @@ namespace {
 
 uint64_t TileKey(int x, int y) { return ((uint64_t)(uint32_t)x << 32) | (uint32_t)y; }
 
-}  // namespace
+}
 
 OsmField::OsmField(int zoom, const std::vector<std::string> &layers) : Layers_(layers), Zoom_(zoom) {}
 
@@ -33,8 +33,7 @@ uint32_t OsmField::Intern(std::vector<std::string> &pool,
 int OsmField::Build(double lat, double lon, int ringTiles) {
   uint32_t cx = 0, cy = 0;
   Pending_ = 0;
-  /* No tile addresses this place, so there are no vectors to ask for. Silent by design: the owner
-   * projects the same camera in the same pass and the crossing is written there, once. */
+
   Geo centre;
   centre.LonDeg = lon;
   centre.LatDeg = lat;
@@ -50,8 +49,7 @@ int OsmField::Build(double lat, double lon, int ringTiles) {
       if (tx < 0 || ty < 0 || tx >= n || ty >= n) continue;
       const uint64_t key = TileKey((int)tx, (int)ty);
       if (std::find(Done_.begin(), Done_.end(), key) != Done_.end()) continue;
-      /* The scan RUNS ON past the one tile this pass decodes, because a caller that has to know the
-       * block is complete needs the count of what is still out, not the first miss. */
+
       if (decoded) { Pending_++; continue; }
       if (!AddTile((int)tx, (int)ty, added)) { Pending_++; continue; }
       Done_.push_back(key);
@@ -81,12 +79,9 @@ bool OsmField::AddTile(int tx, int ty, int &added) {
   const Data::Request request(Data::DataKind::VectorMap,
                               Data::Address::Tile(Zoom_, (uint32_t)tx, (uint32_t)ty));
   const TilePool::Reply reply = fb_tile_pool()->Bytes(request, &Scratch_);
-  /* Retry next pass, do NOT mark done. A refusal is not an answer about the place either. */
+
   if (reply == TilePool::Reply::Pending || reply == TilePool::Reply::Refused) return false;
-  /* Absent is an ANSWER about the place: every covering source says there is no vector tile here, so
-   * the block is complete without one and asking again would spin a thread on a settled question.
-   * Undeclared is settled too, by the declaration rather than by the world — the block is finished
-   * without vectors either way, and the pool has already said so in the log. */
+
   if (reply == TilePool::Reply::Absent || reply == TilePool::Reply::Undeclared) return true;
   const int got = (int)Scratch_.Bytes.size();
 
@@ -102,7 +97,7 @@ bool OsmField::AddTile(int tx, int ty, int &added) {
         Log::Error("world", "vectile_undecodable", {{"z", Zoom_}, {"x", tx}, {"y", ty},
                                                    {"bytes", got}, {"layer", Layers_[li]}});
       } else {
-        Missing_++;   /* the tile carries no such layer at all — normal, and a property of the PLACE */
+        Missing_++;
       }
       continue;
     }
@@ -169,7 +164,7 @@ size_t OsmField::HeapBytes() const {
   for (const std::string &s : Keys_) strings += s.capacity();
   for (const std::string &s : Strings_) strings += s.capacity();
   for (const std::string &s : Layers_) strings += s.capacity();
-  /* The two intern maps are counted by node, which is what an unordered_map costs beyond its keys. */
+
   const size_t nodes = (KeyIndex_.size() + StringIndex_.size()) *
                        (sizeof(std::string) + sizeof(uint32_t) + 2 * sizeof(void *));
   return CapacityBytes(Features_) + CapacityBytes(Rings_) + CapacityBytes(Points_) +
@@ -200,4 +195,4 @@ std::string_view OsmField::Str(const Feature &f, const char *key) const {
   return {};
 }
 
-} // namespace outshine::World
+}

@@ -15,8 +15,6 @@ from prep.store import sha256_hex, sha256_of_file
 KHRONOS_HOST = "raw.githubusercontent.com"
 KHRONOS_REPO = "KhronosGroup/glTF-Sample-Assets"
 
-# The whole of what may be reached. A source not on this list is not a source: everything under it
-# is pinned, licence-checked and reachable without an account, and nothing else has been shown to be.
 PLAIN_PREFIXES = (
     "https://download.blender.org/demo/cycles/",
     "https://download.blender.org/demo/eevee/",
@@ -32,10 +30,8 @@ KHRONOS_URL = re.compile(
 USER_AGENT = "outshine-corpus-prep/1"
 TIMEOUT_S = 120
 
-
 def khronos_url(commit, path):
     return "https://%s/%s/%s/%s" % (KHRONOS_HOST, KHRONOS_REPO, commit, path)
-
 
 def check_url(url, commit=None):
     """The pin lives inside the URL for a repo source, so the URL and the declared pin cross-check."""
@@ -59,7 +55,6 @@ def check_url(url, commit=None):
         why="an unlisted source has no pin, no stated licence and no reason to be trusted",
     )
 
-
 class _RefuseOffListRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, request, fp, code, msg, headers, newurl):
         check_url(newurl)
@@ -67,17 +62,11 @@ class _RefuseOffListRedirect(urllib.request.HTTPRedirectHandler):
             self, request, fp, code, msg, headers, newurl
         )
 
-
 _OPENER = urllib.request.build_opener(_RefuseOffListRedirect())
-
 
 def _request(url, headers=None):
     fields = {"User-Agent": USER_AGENT}
     fields.update(headers or {})
-    # A URL IS ASCII ON THE WIRE AND A MODEL NAME NEED NOT BE (board:1373). `Unicode❤♻Test` is in the
-    # pinned index, and `http.client` encodes the request line as ASCII: an unescaped name raises
-    # `UnicodeEncodeError` before a byte is sent. The PATH is percent-encoded and the scheme, host and
-    # any already-escaped triplet are left alone, so the digest still pins the same bytes.
     parts = urllib.parse.urlsplit(url)
     on_the_wire = urllib.parse.urlunsplit((
         parts.scheme, parts.netloc,
@@ -86,19 +75,16 @@ def _request(url, headers=None):
         parts.fragment))
     return urllib.request.Request(on_the_wire, headers=fields)
 
-
 def _open(url, headers=None):
     try:
         return _OPENER.open(_request(url, headers), timeout=TIMEOUT_S)
     except (urllib.error.URLError, OSError) as error:
         raise Refusal("fetch " + url, why=str(error))
 
-
 def stream_to_file(url, path):
     with _open(url) as response, open(path, "wb") as out:
         for block in iter(lambda: response.read(1 << 20), b""):
             out.write(block)
-
 
 def content_length(url):
     with _open(url, {"Range": "bytes=0-0"}) as response:
@@ -116,7 +102,6 @@ def content_length(url):
         raise Refusal("range request to " + url, expected="a Content-Range header", observed=content_range)
     return int(match.group(1))
 
-
 def read_range(url, start, length):
     if length <= 0:
         return b""
@@ -132,13 +117,11 @@ def read_range(url, start, length):
         raise Refusal("range request to " + url, expected="%d bytes" % length, observed="%d bytes" % len(data))
     return data
 
-
 _EOCD = b"PK\x05\x06"
 _EOCD64_LOCATOR = b"PK\x06\x07"
 _EOCD64 = b"PK\x06\x06"
 _CENTRAL = b"PK\x01\x02"
 _LOCAL = b"PK\x03\x04"
-
 
 def zip_directory(url, size=None):
     """The central directory over HTTP ranges: an archive is read, never downloaded, to list it."""
@@ -182,7 +165,6 @@ def zip_directory(url, size=None):
         offset += 46 + name_len + extra_len + comment_len
     return {"url": url, "archiveBytes": total, "members": members}
 
-
 def _zip64(extra, uncompressed, compressed, local_at):
     at = 0
     while at + 4 <= len(extra):
@@ -200,7 +182,6 @@ def _zip64(extra, uncompressed, compressed, local_at):
                 local_at = struct.unpack_from("<Q", body, cursor)[0]
         at += 4 + size
     return uncompressed, compressed, local_at
-
 
 def zip_member_bytes(url, member, directory=None):
     listing = directory or zip_directory(url)
@@ -223,7 +204,6 @@ def zip_member_bytes(url, member, directory=None):
         return zlib.decompress(raw, -zlib.MAX_WBITS)
     raise Refusal("zip member " + member, expected="stored or deflated", observed="compression method %d" % entry["method"])
 
-
 def download_to_store(url, expected_sha256, store, expected_bytes=None, commit=None, member=None):
     """Fetch, hash, refuse on mismatch, and file the bytes under their own digest."""
     check_url(url, commit)
@@ -231,8 +211,6 @@ def download_to_store(url, expected_sha256, store, expected_bytes=None, commit=N
         return "cached", os.path.getsize(store.path(expected_sha256))
 
     if member is not None:
-        # The pin is the member's digest, which is what is consumed; hashing 830 MB to reach 2 MB
-        # would cost the whole download the range request exists to avoid.
         data = zip_member_bytes(url, member)
         observed = sha256_hex(data)
         size = len(data)
@@ -252,7 +230,6 @@ def download_to_store(url, expected_sha256, store, expected_bytes=None, commit=N
     finally:
         if os.path.exists(temp):
             os.remove(temp)
-
 
 def _check(subject, observed, expected, size, expected_bytes):
     if observed != expected:

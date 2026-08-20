@@ -1,11 +1,3 @@
-/* THE VECTOR SOURCE'S OWN LAYER NAMES, in one place. Every one of them is a word the tile provider
- * chose (shortbread schema), so it is a fact about the source and not a taxonomy of ours — which is
- * exactly why it must be spelled once: a layer the provider renames is then one edit, and a layer
- * this engine asks for and nobody declares in the class table cannot be spelled at all.
- *
- * The class table (src/assets/world/vegetation.json) names the SAME words as data, because it maps
- * (layer, kind) to a template. That is not a second place for this statement: the table decides what
- * a layer MEANS, this decides which layers are fetched. */
 #ifndef OSMLAYER_H
 #define OSMLAYER_H
 
@@ -35,5 +27,5 @@ inline std::vector<std::string> OsmLayerNames(std::initializer_list<OsmLayer> la
   return names;
 }
 
-} // namespace outshine::World
+}
 #endif

@@ -25,7 +25,7 @@ double TileLonDeg(int x, int zoom) {
   return (double)x / (double)(1u << (unsigned)zoom) * 360.0 - 180.0;
 }
 
-} // namespace
+}
 
 Region::Region(int zoom, int x, int y) : Zoom_(zoom), X_(x), Y_(y) {
   Seed_ = Mix(((uint64_t)zoom << 58) ^ ((uint64_t)(uint32_t)x << 29) ^ (uint64_t)(uint32_t)y);
@@ -62,4 +62,4 @@ void Region::AnchorEcef(double aslM, double out[3]) const {
   GeoToEcef(AnchorLat_, AnchorLon_, aslM, out);
 }
 
-} // namespace outshine::Generators
+}

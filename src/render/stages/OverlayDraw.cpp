@@ -8,24 +8,9 @@ namespace outshine::Render {
 
 namespace {
 
-/* THE INTERFACE IS ONE DRAW OF ONE INSTANCED QUAD, and the instance IS the rectangle. Six vertices
- * come out of `vertex_id` so there is no vertex geometry to own; everything that differs between
- * rectangles arrives per instance, which is what lets a whole HUD be one bind and one draw.
- *
- * THE CLIP AND THE CORNER ARE FRAGMENT WORK, NOT PASS WORK. A scissor is a pass-level state change,
- * so honouring a per-rectangle clip with one would mean as many passes as clips; discarding outside
- * the region costs the fragments that were going to be thrown away anyway and keeps the draw single.
- *
- * THE ROUNDED CORNER IS THE ROUNDED-BOX DISTANCE and it is antialiased over ONE pixel: a hard cut
- * would stair-step on every panel, and a wider ramp would make a small radius look blurred. */
 const char *kOverlayMsl = R"(
 struct Frame { float2 targetPx; float encodesSrgb; float pad; };
 
-/* A DECLARED COLOUR IS sRGB AND A TARGET MAY ENCODE sRGB, so the two meet exactly once. CSS states
- * `#12161b` in the display's own space; a target the driver encodes on write would turn that into a
- * lighter code, so the shader hands over the LINEAR value whose encoding is the number the consumer
- * wrote. Whether to do it is read from the target's FORMAT and never set: a stage told which space it
- * is writing into cannot be told wrongly by a caller who forgot. */
 float3 asLinear(float3 code) {
   return select(code / 12.92, pow((code + 0.055) / 1.055, 2.4), code > 0.04045);
 }
@@ -90,14 +75,12 @@ fragment float4 fs(VOut in [[stage_in]],
 
 constexpr uint32_t kAttributes = 5;
 
-} // namespace
+}
 
 bool OverlayDraw::Configure(const Gpu &gpu, SDL_GPUSampler *smooth,
                             SDL_GPUTextureFormat targetFormat, std::string &error) {
   Smooth = smooth;
-  /* THE TARGET'S OWN FORMAT DECIDES WHETHER A COLOUR IS CONVERTED, and the list is the formats whose
-   * writes the driver encodes. Deriving it here is what makes the conversion impossible to get wrong
-   * from outside. */
+
   Encodes = targetFormat == SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB ||
             targetFormat == SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM_SRGB;
 
@@ -123,7 +106,7 @@ bool OverlayDraw::Configure(const Gpu &gpu, SDL_GPUSampler *smooth,
   SDL_GPUVertexBufferDescription buffer{};
   buffer.slot = 0;
   buffer.pitch = sizeof(OverlayQuad);
-  /* PER INSTANCE AND NOT PER VERTEX: the six corners are arithmetic, the rectangle is data. */
+
   buffer.input_rate = SDL_GPU_VERTEXINPUTRATE_INSTANCE;
   SDL_GPUVertexAttribute attributes[kAttributes] = {};
   for (uint32_t i = 0; i < kAttributes; ++i) {
@@ -133,9 +116,6 @@ bool OverlayDraw::Configure(const Gpu &gpu, SDL_GPUSampler *smooth,
     attributes[i].offset = i * 4u * (uint32_t)sizeof(float);
   }
 
-  /* THE INTERFACE IS COMPOSITED OVER THE FRAME, PREMULTIPLIED. The fragment multiplies its own colour
-   * by its alpha, so the blend is `one, one-minus-source-alpha` -- which is the state that composes
-   * correctly when quads overlap, where straight alpha darkens every seam. */
   SDL_GPUColorTargetDescription target{};
   target.format = targetFormat;
   target.blend_state.enable_blend = true;
@@ -166,8 +146,6 @@ bool OverlayDraw::Configure(const Gpu &gpu, SDL_GPUSampler *smooth,
   }
   Pipe = OwnedPipeline(gpu.Device, made);
 
-  /* ONE WHITE TEXEL SO *NO ATLAS* IS A VALUE AND NOT A BRANCH. A binding left empty is a validation
-   * error on some drivers and a black interface on others, and both are worse than four bytes. */
   static const uint8_t kWhite[4] = {255, 255, 255, 255};
   return SetAtlas(gpu, kWhite, 1, 1, error);
 }
@@ -233,9 +211,7 @@ bool OverlayDraw::SetQuads(const Gpu &gpu, const OverlayQuad *quads, size_t coun
   if (count == 0) { return true; }
 
   const uint32_t bytes = (uint32_t)(count * sizeof(OverlayQuad));
-  /* THE BUFFER GROWS AND NEVER SHRINKS, up to the bound. A frame with fewer rectangles than the last
-   * reuses what is there, so a HUD whose length varies allocates during the first frames of a run and
-   * on no frame after that -- which is what *the frame path does not allocate* costs to be true. */
+
   if (!Verts || Capacity < count) {
     SDL_GPUBufferCreateInfo wanted{};
     wanted.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
@@ -289,4 +265,4 @@ void OverlayDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   SDL_DrawGPUPrimitives(into.Pass, 6, Count, 0, 0);
 }
 
-} // namespace outshine::Render
+}

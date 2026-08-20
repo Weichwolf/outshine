@@ -69,17 +69,12 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     dst[3] = m.DetailFineM;
   };
 
-  /* THE SUBSTRATE HALF OF A ROW, which a template and the unmapped declaration have in common and
-   * which is the ONLY half the unmapped one has: material, litter, relief and the two edge numbers.
-   * Everything a plant needs is written by the caller, so a declaration that is only a substrate has
-   * nowhere to say how much grows on it. */
   const auto substrate = [&](const Json::Ref &g, Row *row) -> bool {
     const std::string gname = g["class"].Str("");
     const int gi = mats.Find(gname);
     if (gi < 0) { Error_ = "unknown ground class: " + gname; return false; }
     const GroundMaterials::Material &gm = mats.At((size_t)gi);
-    /* The declaration may override the litter the material declares — beech litter under spruce is
-     * the defect the botanist calls, and forest_floor alone cannot tell the two stands apart. */
+
     const std::string lname = g["litterClass"].Str("");
     const int li = lname.empty() ? gm.LitterClass : mats.Find(lname);
     if (!lname.empty() && li < 0) { Error_ = "unknown litter class: " + lname; return false; }
@@ -125,11 +120,6 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     row.Param[3]  = (float)gr["dryFraction"].Num(0.35);
     row.Edge[2]   = (float)t["trees"]["perM2"].Num(0.0);
 
-    /* Beyond the cover stage's fade radius no blade is drawn and the terrain layer is the only thing
-     * left showing the meadow, so its albedo has to be the SWARD's and not the floor's. The aggregate
-     * is built from the TEMPLATE's own three declarations and from no shader constant - the two blade
-     * colours mixed by the declared dry fraction - so retuning a colour moves the terrain with it and
-     * nothing here can drift out of step with a stage it cannot see. */
     const float closure = (float)g["swardClosure"].Num(0.0);
     if (closure > 0.0f) {
       for (int c = 0; c < 3; c++) {
@@ -141,9 +131,6 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     Table_.push_back(row);
   }
 
-  /* LAST, so that its index is stable and every template keeps the index its osm rows were resolved
-   * against. It is drawn where OSM has no datum; the classifier answers "no row" there, so no
-   * scatter ever reaches it. */
   {
     const Json::Ref u = doc.Root()["unmapped"];
     if (u.GetKind() != Json::Kind::Object) { Error_ = "no unmapped substrate declared"; return false; }
@@ -154,7 +141,6 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     Table_.push_back(row);
   }
 
-  /* The osm rows come SECOND, so every row can name a template by index without a forward pass. */
   for (size_t i = 0; i < tpls.Size(); i++) {
     const Json::Ref rows = tpls[i]["osm"];
     for (size_t k = 0; k < rows.Size(); k++) {
@@ -219,4 +205,4 @@ const VegetationTemplates::Rule *VegetationTemplates::Find(std::string_view laye
   return it != Rules_.end() ? &it->second : nullptr;
 }
 
-} // namespace outshine::World
+}

@@ -8,19 +8,12 @@ namespace outshine {
 
 namespace {
 
-/* A word that no plausible pointer, float or ASCII run reproduces. */
 constexpr uint64_t kPaint = 0xA5C35A3CA5C35A3Cull;
-/* Below the caller's own frame: the paint must not reach the frame that is painting, nor the frames
- * the paint itself pushes. */
+
 constexpr size_t kLiveMargin = 4096;
-/* [SET] How far below the entry point the probe can see. The scan is linear and exact over exactly
- * this much, so the span is the price of a Mark: 64 Ki word compares. Against a deepest observed 204
- * KiB it leaves a factor of two and a half, and a thread that outruns it says so — Peak reaches
- * Limit rather than passing it. */
+
 constexpr size_t kPaintSpan = 512u * 1024u;
-/* The toolchain writes its own stack-overflow cookie at the deepest address of the stack and aborts
- * when it no longer reads back — so the paint stops short of it and the two instruments coexist:
- * this one says how deep the thread went, that one says when it went past the end. */
+
 constexpr size_t kToolchainCookie = 16;
 
 struct Slot {
@@ -63,7 +56,7 @@ void Raise(std::atomic<size_t> &target, size_t value) {
   }
 }
 
-} // namespace
+}
 
 void StackProbe::Enter(Purpose purpose) {
   uintptr_t base = 0, end = 0, current = 0;
@@ -71,9 +64,7 @@ void StackProbe::Enter(Purpose purpose) {
   const uintptr_t deepest = end + kToolchainCookie;
   if (base == 0 || current < deepest + kLiveMargin + sizeof(uint64_t)) return;
   const uintptr_t top = (current - kLiveMargin) & ~(uintptr_t)7;
-  /* Compared by addition, never by subtraction: a thread whose whole stack is shallower than
-   * kPaintSpan makes top - kPaintSpan reach below the stack, and the paint would run into memory
-   * that is not this thread's. */
+
   const uintptr_t bottom = top >= deepest + kPaintSpan ? top - kPaintSpan : deepest;
   for (uintptr_t a = bottom; a < top; a += sizeof(uint64_t)) *(uint64_t *)a = kPaint;
   tBase = base;
@@ -87,10 +78,6 @@ void StackProbe::Enter(Purpose purpose) {
   Mark();
 }
 
-/* LINEAR FROM THE BOTTOM, and not a bisection over it. A frame may reserve bytes it never writes, so
- * an intact stretch can sit above the deepest address ever written; a bisection would take that
- * stretch for the frontier and report LESS stack than was used, which is the wrong direction for a
- * number a stack size gets set from. The first written word from below is the frontier, exactly. */
 void StackProbe::Mark() {
   if (tBase == 0) return;
   uintptr_t frontier = tPaintTop;
@@ -125,4 +112,4 @@ const char *StackProbe::Name(Purpose purpose) {
   return "";
 }
 
-} // namespace outshine
+}

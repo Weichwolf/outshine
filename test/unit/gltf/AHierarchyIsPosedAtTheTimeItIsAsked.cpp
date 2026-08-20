@@ -1,18 +1,3 @@
-/* THE LINK BETWEEN A TIME AND A DRAWABLE, HELD IN ARITHMETIC (board:1169). The sampler was already
- * right about its own numbers -- `ASamplerIsWhatTheFileSaysBetweenItsKeyframes` sweeps all three
- * interpolations over all three paths -- and nothing carried its answer into the hierarchy. What is
- * new here is the composition: a parent that translates and a child that rotates, and a vertex that
- * has to arrive where T(parent) * R(child) puts it.
- *
- * THE TIME IS A QUARTER OF THE ROTATION SPAN AND THAT IS THE WHOLE POINT. At the midpoint the
- * normalised component blend and the spherical one are both the bisector and agree exactly, so a
- * pose checked only at keyframes and midpoints passes over a component lerp. At a quarter of a
- * 90-degree span they are 22.5 and 21.598 degrees apart -- the number the sampler test already
- * measured -- and the vertex below is placed by the first of the two.
- *
- * AND THE POSE COVERS EVERY NODE, DRIVEN OR NOT. The triangle's own node carries the rotation and
- * its parent carries the translation; a run that held only the driven ones would place the child
- * correctly and lose the parent, which is the failure the length refusal makes unspellable. */
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -36,28 +21,26 @@ using outshine::Test::Append;
 
 namespace {
 
-/* THE ROTATION SPAN'S SECOND KEYFRAME: a quarter turn about +Z, xyzw. Written as the arithmetic so
- * the angle is what is stated and the components follow from it. */
 const double kQuarterTurn = std::sqrt(0.5);
 
 constexpr size_t kBufferBytes = 116;
 
 std::vector<uint8_t> Buffer() {
   std::vector<uint8_t> bytes;
-  /* POSITION, three vertices. */
+
   const float positions[9] = {0, 0, 0, 1, 0, 0, 0, 1, 0};
   for (const float value : positions) { Append(bytes, value); }
-  /* The triangle. */
+
   for (const uint16_t index : {uint16_t{0}, uint16_t{1}, uint16_t{2}}) { Append(bytes, index); }
   outshine::Test::PadTo4(bytes, 0xAB);
-  /* The rotation sampler: two keyframes, a second apart, identity to a quarter turn about +Z. */
+
   Append(bytes, 0.0f);
   Append(bytes, 1.0f);
   for (const float value : {0.0f, 0.0f, 0.0f, 1.0f}) { Append(bytes, value); }
   for (const float value : {0.0f, 0.0f, (float)kQuarterTurn, (float)kQuarterTurn}) {
     Append(bytes, value);
   }
-  /* The translation sampler: the same two instants, the origin to four metres along +X. */
+
   Append(bytes, 0.0f);
   Append(bytes, 1.0f);
   for (const float value : {0.0f, 0.0f, 0.0f, 4.0f, 0.0f, 0.0f}) { Append(bytes, value); }
@@ -110,9 +93,6 @@ const char *kJson = R"({
   "buffers": [{"byteLength": 116}]
 })";
 
-/* THE SAME FILE WITH THE DRIVEN NODE SPELLING ITS PLACEMENT AS A MATRIX, which the format forbids
- * for exactly the reason the pose refuses it: there is no rotation component in a matrix for a
- * channel to write. */
 const char *kMatrixJson = R"({
   "asset": {"version": "2.0"},
   "scene": 0,
@@ -153,7 +133,7 @@ double Distance(const std::vector<double> &positions, size_t vertex, const doubl
   return std::sqrt(square);
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -171,28 +151,15 @@ int main() {
   Pose pose;
   CHECK(Pose::Build(file, 0, pose, why), "the animation resolves into a pose");
   if (!why.empty()) { std::printf("NOTE refusal: %s\n", why.c_str()); }
-  /* **THREE, AND THE THIRD IS THE POINTER** (board:1392). This line read `== 2` and was a defect
-   * written down as a requirement: a `KHR_animation_pointer` channel names no node -- the extension
-   * states the `node` property MUST NOT be set -- and `Pose::Build` skipped every channel whose node
-   * was negative, so the material channel was dropped one function before `FactorsAt` could answer
-   * it. The item this fixture was built for says the channel is read, resolved and CARRIED. */
+
   CHECK(pose.ChannelCount() == 3, "all three channels of the animation are carried");
   CHECK(pose.NodeCount() == file.Nodes().size(),
         "the pose covers every node of the file and not only the driven ones");
   CHECK_NEAR(pose.StartS(), 0.0, 0.0, "s", "the pose's grid starts where the file's keyframes do");
   CHECK_NEAR(pose.EndS(), 1.0, 0.0, "s", "the pose's grid ends where the file's keyframes do");
 
-  /* A QUARTER OF THE SPAN: the one place the two candidate rotation blends disagree by a measurable
-   * angle, and the closed form below is the spherical one glTF states. */
   const double when = 0.25;
 
-  /* **ONE SAMPLER, TWO INTERPOLATIONS, AND THAT IS THE WHOLE POINT** (board:1392). The pointer
-   * channel rides the SAME sampler the rotation does, so the numbers it must read are the file's own
-   * `(0,0,0,1)` and `(0,0,sqrt(1/2),sqrt(1/2))` rather than a second set to keep true. An accessor is
-   * untyped data and the format says so: as a rotation those two keyframes are SLERPED and land at
-   * 22.5 degrees; as a base colour they are blended component by component and land somewhere the
-   * slerp never goes. Reading the same run both ways is what separates the two, and it is why this
-   * fixture drives a colour from a quaternion's sampler instead of declaring a tidier one. */
   std::vector<Pose::FactorAt> driven;
   pose.FactorsAt(when, driven);
   CHECK(driven.size() == 1, "the animation's one material factor is answered at an instant");
@@ -200,16 +167,12 @@ int main() {
     CHECK(driven[0].Material == 0 && driven[0].Factor == outshine::Gltf::MaterialFactor::BaseColour,
           "keyed by the material the pointer named and the factor it named");
     const double blended[4] = {0.0, 0.0, when * kQuarterTurn, 1.0 + when * (kQuarterTurn - 1.0)};
-    /* THE TOLERANCE IS THE BUFFER'S AND NOT A TASTE. `sqrt(1/2)` is stored as a `float` in the
-     * fixture's binary chunk and compared against a `double` here, so the floor is float32's own
-     * quantisation -- [MEASURED] 3.03e-09, and a bound of 1e-09 was this test measuring its own
-     * storage rather than the blend. */
+
     for (size_t component = 0; component < 4; ++component) {
       CHECK_NEAR(driven[0].Values[component], blended[component], 1e-7, "",
                  "and carrying the component blend of the sampler this channel shares");
     }
-    /* THE NEGATIVE CONTROL, because agreeing with one formula is only a claim about the other if the
-     * two differ here: the slerp puts `z` at sin(11.25 deg) and the blend puts it lower. */
+
     const double spherical = std::sin(11.25 * 3.14159265358979323846 / 180.0);
     Note("factor z, component blend", driven[0].Values[2], "");
     Note("rotation z, spherical", spherical, "");
@@ -234,8 +197,7 @@ int main() {
   CHECK_NEAR(Distance(posed.PositionsM(), 1, expected), 0.0, 1e-7, "m",
              "the vertex arrives where the parent's translation and the child's spherical rotation "
              "put it");
-  /* WHAT THE COMPONENT BLEND WOULD HAVE PUT THERE, measured rather than asserted: the two answers
-   * have to be further apart than the tolerance above, or the claim is not about the blend. */
+
   const double lerpAngle = 2.0 * std::atan2(when * kQuarterTurn,
                                             (1.0 - when) + when * kQuarterTurn);
   const double lerped[3] = {carried + std::cos(lerpAngle), std::sin(lerpAngle), 0.0};
@@ -245,9 +207,6 @@ int main() {
   Note("distance from the vertex the component blend would place", apart, "m");
   CHECK(apart > 1e-3, "the two blends are far enough apart here that the claim is about the blend");
 
-  /* THE MOTION ITSELF, which is what an animated render case must be able to state before it
-   * compares anything (board:1169): the drawn vertex at this time is not the drawn vertex at the
-   * start of the grid. */
   std::vector<Transform> atStart;
   pose.At(0.0, atStart, weights);
   Subject rest;
@@ -265,8 +224,6 @@ int main() {
        "m");
   CHECK(moved > 1e-3, "the subject moves, so a comparison across the grid is comparing two poses");
 
-  /* THE POSE AT THE START OF THE GRID IS THE FILE'S OWN REST POSE, which is what makes a still case
-   * and the first frame of an animated one the same picture. */
   Subject unposed;
   CHECK(unposed.Build(file), "the document flattens with no pose at all");
   double drift = 0;
@@ -299,9 +256,6 @@ int main() {
         "an animation index the file does not carry is refused rather than defaulted to the first");
   std::printf("NOTE %s\n", why.c_str());
 
-  /* A POSE IS BUILT FROM A DECLARED SET, AND THE SET IS NOT AN INDEX (board:1198). A file's animations
-   * are independent and a client plays any subset, so the subset is the caller's declaration -- and the
-   * three statements below are the three ways that declaration can be wrong. */
   const int justTheFirst[1] = {0};
   Pose asASet;
   CHECK(Pose::Build(file, Span<const int>(justTheFirst, 1), asASet, why),
@@ -316,8 +270,6 @@ int main() {
         "an empty set is refused, and that is a different statement from a file carrying none");
   std::printf("NOTE %s\n", why.c_str());
 
-  /* THE SAME ANIMATION TWICE IS THE CONFLICT, EXACTLY: both entries claim the same node's same path,
-   * which is what two animations driving one property would do and what the format leaves undefined. */
   const int twice[2] = {0, 0};
   Pose contested;
   CHECK(!Pose::Build(file, Span<const int>(twice, 2), contested, why),

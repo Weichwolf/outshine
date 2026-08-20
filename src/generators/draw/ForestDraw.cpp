@@ -19,4 +19,4 @@ void ForestDraw::Draw(const Ground &ground, Span<const Body> placed,
   }
 }
 
-} // namespace outshine::Generators
+}

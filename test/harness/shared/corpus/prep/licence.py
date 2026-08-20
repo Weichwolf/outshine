@@ -14,12 +14,8 @@ from .refusal import Refusal
 
 ALLOWED_SPDX = frozenset(["CC0-1.0", "CC-BY-4.0"])
 
-# Khronos's, Cesium's, UX3D's and DGG's statements that a logo is non-copyrightable. They carry no
-# obligation, so they are allowed by prefix rather than enumerated as they appear.
 ALLOWED_SPDX_PREFIXES = ("LicenseRef-LegalMark-",)
 
-# Established once, on evidence. NOT a gate any more (board:1171) and still the record: standing here
-# rather than in a reviewer's memory is the difference between a fact and a habit.
 NOTED_SUBJECTS = {
     "Sponza": "Crytek Cryengine Limited License Agreement -- a proprietary EULA, not a free licence",
     "BrainStem": "Smith Micro Poser EULA",
@@ -34,11 +30,9 @@ NOTED_SUBJECTS = {
     "Duck": "SCEA Shared Source License 1.0 (Sony, 2006)",
 }
 
-
 def check_subject_name(name):
     """The note this subject carries, or None. It is RECORDED and never refused (board:1171)."""
     return NOTED_SUBJECTS.get(name)
-
 
 def declared_grants(field):
     """A file's declared licences, whether the manifest spelled one or several.
@@ -48,7 +42,6 @@ def declared_grants(field):
     a list was possible.
     """
     return list(field) if isinstance(field, list) else [field]
-
 
 def check_spdx(spdx, where):
     """The note this grant carries, or None. RECORDED and never refused (board:1171).
@@ -62,7 +55,6 @@ def check_spdx(spdx, where):
         if spdx.startswith(prefix):
             return None
     return "%s is %s, which is outside %s" % (where, spdx, ", ".join(sorted(ALLOWED_SPDX)))
-
 
 def spdx_from_khronos_metadata(metadata_bytes, where):
     """The licence is read at the pin, never transcribed -- a change upstream is then a refusal."""
@@ -97,10 +89,8 @@ def spdx_from_khronos_metadata(metadata_bytes, where):
         )
     return found
 
-
 def canonical_entry(entry):
     return json.dumps(entry, sort_keys=True, separators=(",", ":"))
-
 
 def check_declared_matches_derived(declared, derived, where):
     """A declaration nobody checks is a transcription, and a transcription drifts."""

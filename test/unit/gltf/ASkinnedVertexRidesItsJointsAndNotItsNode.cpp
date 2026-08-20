@@ -1,23 +1,3 @@
-/* LINEAR BLEND SKINNING, AND THE CLAUSE THAT IS EASIEST TO GET WRONG SILENTLY (board:1200).
- *
- * glTF states that the transform of the node instantiating a skinned mesh MUST BE IGNORED -- only the
- * joints move the vertices. A flatten that applied the node transform as well renders a subject that
- * looks posed, sits somewhere else, and fails no assertion anybody wrote. So the skinned node here
- * carries a translation of 100 m in y, and no vertex may show it.
- *
- * THE FIXTURE IS ARRANGED SO EVERY NUMBER IS HAND-CHECKABLE AND EACH ONE FAILS DIFFERENTLY:
- *
- *   joint A  the identity                          inverse bind: identity
- *   joint B  a quarter turn about +Z               inverse bind: translate (2, 0, 0)
- *
- * so joint B's matrix is `R * T`, which sends (x, y, z) to (-y, x + 2, z) -- and the ORDER matters,
- * because `T * R` would send it to (-y + 2, x, z). Translations commute and rotations do not, which is
- * why the bind pose here is a rotation rather than the offset that would have hidden a swap.
- *
- *   v0 = (0, 0, 0)   weights (1, 0)     -> (0, 0, 0)     the joint that does nothing
- *   v1 = (1, 0, 0)   weights (0, 1)     -> (0, 3, 0)     one joint, fully
- *   v2 = (0, 0, 1)   weights (.5, .5)   -> (0, 1, 1)     the blend, and it is the mean of the two
- */
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -34,26 +14,25 @@ using outshine::Gltf::Subject;
 
 namespace {
 
-/* A quarter turn about +Z as glTF stores a quaternion: x, y, z, w. */
 const char *const kQuarterTurnZ = "0, 0, 0.7071067811865476, 0.7071067811865476";
 
 std::vector<uint8_t> Binary() {
   using outshine::Test::Append;
   std::vector<uint8_t> out;
-  /* POSITION, three points, at byte 0 */
+
   const float points[9] = {0, 0, 0, 1, 0, 0, 0, 0, 1};
   for (float value : points) { Append(out, value); }
-  /* JOINTS_0, VEC4 of unsigned short, at byte 36 */
+
   const uint16_t bones[12] = {0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0};
   for (uint16_t value : bones) { Append(out, value); }
-  /* WEIGHTS_0, VEC4 of float, at byte 60 */
+
   const float shares[12] = {1, 0, 0, 0, 1, 0, 0, 0, 0.5f, 0.5f, 0, 0};
   for (float value : shares) { Append(out, value); }
-  /* inverseBindMatrices, two MAT4, at byte 108: identity, then translate (2, 0, 0) */
+
   const float bind[32] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
                           1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 2, 0, 0, 1};
   for (float value : bind) { Append(out, value); }
-  /* indices, at byte 236 */
+
   const uint16_t run[3] = {0, 1, 2};
   for (uint16_t value : run) { Append(out, value); }
   return out;
@@ -90,7 +69,7 @@ std::string Json() {
 })";
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -130,16 +109,12 @@ int main() {
     }
   }
 
-  /* THE CLAUSE THIS CASE EXISTS FOR, stated as its own check so a failure names it rather than
-   * appearing as three coordinates being wrong by the same amount. */
   bool carriedTheNode = false;
   for (size_t vertex = 0; vertex < 3; ++vertex) { carriedTheNode = carriedTheNode || at[vertex * 3 + 1] > 50.0; }
   CHECK(!carriedTheNode,
         "the skinned mesh node's own 100 m translation reaches no vertex, which is what glTF states "
         "MUST happen and what a flatten applying it as well would fail silently");
 
-  /* AND THE ORDER OF THE PRODUCT, likewise its own check: `R * inverseBind` sends (1, 0, 0) to
-   * (0, 3, 0) and the swapped product sends it to (2, 1, 0), so one number separates them. */
   CHECK_NEAR(at[3], 0.0, 1e-9, "m", "vertex 1's x is the rotation applied AFTER the inverse bind");
   CHECK_NEAR(at[4], 3.0, 1e-9, "m", "vertex 1's y is x + 2 turned onto +y, not the swapped product's 1");
 

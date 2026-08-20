@@ -16,27 +16,20 @@ import bpy
 import numpy
 from mathutils import Matrix, Quaternion, Vector
 
-# THE SCRIPT IS HANDED TO BLENDER BY PATH, so its own directory is not on the import path and the
-# reader beside it has no spelling without this line.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import exr  # noqa: E402
+import exr
 
-# glTF is +Y up and Blender is +Z up, so (x, y, z) -> (x, -z, y). Every declared vector and every
-# declared frame goes through this one map, in one place, and the importer applies the same one.
 YUP_TO_ZUP = Matrix(((1, 0, 0, 0), (0, 0, -1, 0), (0, 1, 0, 0), (0, 0, 0, 1)))
-
 
 def fail(message):
     print("in_blender_render: " + message, file=sys.stderr)
     sys.exit(9)
-
 
 def job_from_argv():
     if "--" not in sys.argv:
         fail("no job file after --")
     with open(sys.argv[sys.argv.index("--") + 1], "r") as f:
         return json.load(f)
-
 
 def set_frame_grid(scene, animation, frame):
     """The declared grid, set BEFORE the import and the frame set after it.
@@ -66,7 +59,6 @@ def set_frame_grid(scene, animation, frame):
     scene.frame_end = max(int(animation["frames"]["value"]) - 1, 0)
     scene.frame_set(int(frame))
 
-
 def _channelbag_of(obj):
     """The f-curves that drive THIS object. Blender 5's action carries several slots and two objects
     of one glTF file share one action, so the channelbag is selected by the object's own slot handle
@@ -81,24 +73,11 @@ def _channelbag_of(obj):
                     return bag
     return None
 
-
 _COMPONENT = {5126: ("f", 4), 5123: ("H", 2), 5125: ("I", 4), 5122: ("h", 2), 5121: ("B", 1), 5120: ("b", 1)}
 _COUNT = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}
 
-
-# THE FORMAT'S OWN DEQUANTISATION, quoted from `Specification.adoc` rather than recalled:
-#
-#   signed byte     f = max(c / 127.0, -1.0)
-#   unsigned byte   f = c / 255.0
-#   signed short    f = max(c / 32767.0, -1.0)
-#   unsigned short  f = c / 65535.0
-#
-# THE `max` IS NOT A CLAMP ADDED HERE. A signed byte reaches -128 and a signed short -32768, one step
-# past what the scale maps to -1, so the format pins both to -1 rather than letting a single code
-# describe a value outside the range every consumer assumes.
 _NORMALISE = {5120: 127.0, 5121: 255.0, 5122: 32767.0, 5123: 65535.0}
 _SIGNED = {5120, 5122}
-
 
 def _accessor(document, buffers, index):
     """ONE ACCESSOR AS FLOATING-POINT ELEMENTS, WITH `normalized` AND `byteStride` HONOURED.
@@ -136,7 +115,6 @@ def _accessor(document, buffers, index):
         return [tuple(max(c / scale, -1.0) for c in element) for element in raw]
     return [tuple(c / scale for c in element) for element in raw]
 
-
 def _slerp(first, second, unit):
     """glTF's LINEAR interpolation OF A ROTATION, written from the specification's own formula.
 
@@ -154,13 +132,11 @@ def _slerp(first, second, unit):
         mixed = tuple(near * first[c] + sign * far * second[c] for c in range(4))
     return _unit(mixed)
 
-
 def _unit(q):
     length = math.sqrt(sum(c * c for c in q))
     if length == 0.0:
         fail("a rotation sampled to a zero-length quaternion, which names no rotation")
     return tuple(c / length for c in q)
-
 
 def _sampled(times, values, how, wide, at, spherical=False):
     """glTF's three interpolations, from the specification and not from a library.
@@ -185,8 +161,6 @@ def _sampled(times, values, how, wide, at, spherical=False):
         if spherical:
             return _slerp(values[key], values[key + 1], unit)
         return tuple(values[key][c] + (values[key + 1][c] - values[key][c]) * unit for c in range(wide))
-    # CUBIC HERMITE over the in-tangent, value, out-tangent triples. THE TANGENTS ARE SCALED BY THE
-    # SEGMENT DURATION -- that scaling is the whole difference from a Bezier with the same handles.
     value, out = values[3 * key + 1], values[3 * key + 2]
     into, next_value = values[3 * (key + 1)], values[3 * (key + 1) + 1]
     square, cube = unit * unit, unit * unit * unit
@@ -194,7 +168,6 @@ def _sampled(times, values, how, wide, at, spherical=False):
                     (-2 * cube + 3 * square) * next_value[c] + (cube - square) * span * into[c]
                     for c in range(wide))
     return _unit(hermite) if spherical else hermite
-
 
 def document_buffers(path, document):
     """The subject's own buffers, whichever container carries them: a GLB's BIN chunk, a `.bin` beside
@@ -228,18 +201,9 @@ def document_buffers(path, document):
                 out.append(b.read())
     return out
 
-
-
 _CURVE_OF = {"translation": "location", "rotation": "rotation_quaternion", "scale": "scale"}
 
-# glTF IS Y-UP AND BLENDER IS Z-UP, AND THE IMPORTER PUTS THAT CONVERSION ON THE ROOT OBJECTS ONLY
-# (MEASURED, Blender 5.2.0). A root node translating (0, 2.52, 0) in the file arrives as
-# (0, 0, 2.52); a child's channel arrives unconverted, because its parent already carries the
-# conversion. Writing the file's own numbers into a root's curves would therefore move it along the
-# wrong axis -- a picture, not a crash. `_agrees` re-derives the importer's first key from the file
-# on every channel, so this hypothesis is checked per case rather than trusted.
 _CONVERSION = Matrix.Rotation(math.radians(90.0), 4, "X")
-
 
 def _to_blender(road, value, converted):
     """One sampled glTF value in the slots Blender keys it in.
@@ -256,18 +220,10 @@ def _to_blender(road, value, converted):
         if converted == "composed":
             return tuple(_CONVERSION.to_quaternion() @ quaternion)
         if converted == "conjugated":
-            # A ROTATION EXPRESSED IN CONVERTED AXES IS CONJUGATED, NOT COMPOSED, and the two are
-            # different claims about what the conversion IS. `C @ q` is the rotation that results from
-            # turning the whole node by C -- correct where the conversion sits in a PARENT. `C q C-1`
-            # is the same rotation written in a basis C has turned -- correct where the node's own
-            # FRAME is converted. [MEASURED] on `CesiumMilkTruck`: `Wheels` turns about glTF's -Y and
-            # the importer writes a turn about Blender's -Z, which conjugation gives exactly and
-            # composition does not.
             turn = _CONVERSION.to_quaternion()
             return tuple(turn @ quaternion @ turn.inverted())
         return tuple(quaternion)
     return tuple(value)
-
 
 def _agrees(road, ours, theirs):
     """A quaternion and its negation name one rotation, and the importer negates keys to keep a curve
@@ -276,7 +232,6 @@ def _agrees(road, ours, theirs):
     if road != "rotation":
         return straight
     return min(straight, max(abs(ours[c] + theirs[c]) for c in range(len(ours))))
-
 
 def _convention(road, checkAt, theirs, where):
     """WHICH FRAME THIS CHANNEL IS IN, READ OFF THE IMPORTER'S OWN FIRST KEY (board:1375).
@@ -307,8 +262,6 @@ def _convention(road, checkAt, theirs, where):
     if len(matched) == 1:
         return matched[0][0], matched[0][1]
     if matched:
-        # A value the conversion cannot move matches more than one. The first non-identity candidate
-        # is taken -- it is the one the majority of channels are in -- and the choice is recorded.
         pick = [m for m in matched if m[0] is not False] or matched
         return pick[0][0], "ambiguous:" + "+".join(m[1] for m in matched)
     fail(where + "'s " + road + " at the importer's first key is " + repr(theirs) +
@@ -316,7 +269,6 @@ def _convention(road, checkAt, theirs, where):
          "; ".join("%s gives %r" % (label, got) for _, label, got in fits) +
          " -- so this channel is in a frame this preparer does not know, and every baked key would be "
          "in the wrong space")
-
 
 def _shape_key_curves(name, targets):
     """The mesh's shape-key f-curves for a glTF node's morph targets, in the FILE's target order.
@@ -349,7 +301,6 @@ def _shape_key_curves(name, targets):
                             curves[target] = fcurve
     return keys, curves
 
-
 def _write_shape_keys(name, curves, taken, checkAt):
     """The evaluated weights, onto the shape keys as one exact key per rendered frame.
 
@@ -378,7 +329,6 @@ def _write_shape_keys(name, curves, taken, checkAt):
         written += 1
     return written
 
-
 def _bone_curves(name, road):
     """The armature and the f-curves driving one JOINT's channel, or (None, None) if no bone owns it.
 
@@ -395,7 +345,6 @@ def _bone_curves(name, road):
         if curves:
             return obj, curves
     return None, None
-
 
 def _resample_bone(name, road, how, curves, frames, wide):
     """A JOINT'S CHANNEL, RE-INTERPOLATED IN THE SPACE THE IMPORTER PUT IT IN (board:1200).
@@ -438,7 +387,6 @@ def _resample_bone(name, road, how, curves, frames, wide):
         curves[component].update()
     return wide
 
-
 def _between(at, keys, frame, wide, how, spherical):
     """STEP and LINEAR over keys already in the target's own space, clamped at both ends as glTF
     states. A rotation is interpolated on the sphere here for the same reason it is everywhere else --
@@ -457,7 +405,6 @@ def _between(at, keys, frame, wide, how, spherical):
     if spherical:
         return _slerp(keys[key], keys[key + 1], unit)
     return tuple(keys[key][c] + (keys[key + 1][c] - keys[key][c]) * unit for c in range(wide))
-
 
 def _imported_name(document, index):
     """WHAT THE IMPORTER CALLED THIS glTF NODE. [MEASURED] Blender 5.2.0 on `BoxAnimated`, whose four
@@ -480,16 +427,9 @@ def _imported_name(document, index):
             named = document.get(table, [])[node[kind]].get("name")
             if named:
                 return named
-    # AN UNNAMED MESH GIVES `Mesh_<meshIndex>` AND NOT THE NODE'S INDEX (board:1375). [MEASURED] on
-    # `AnimatedTriangle`, whose single node and single mesh are both unnamed: the importer builds one
-    # object called `Mesh_0`. The old fallback looked for `Node_0`, found nothing, and refused -- which
-    # is the guard working, and it is why this is a measurement rather than a silently dropped channel.
-    # `BoxAnimated` keeps the other branch honest: its `Node_0` and `Node_1` carry no mesh and ARE named
-    # by node index.
     if "mesh" in node:
         return "Mesh_" + str(node["mesh"])
     return "Node_" + str(index)
-
 
 def _write_frames(name, road, taken, wide, checkAt):
     """The evaluated poses, onto this object's own curves as one exact key per frame.
@@ -515,11 +455,6 @@ def _write_frames(name, road, taken, wide, checkAt):
         fail(obj.name + "'s " + road_name + " is " + str(len(curves)) + " curves and the file's " +
              road + " carries " + str(wide) + " components")
     converted, convention = True, "unchecked"
-    # THE CONVERSION IS CHECKED BEFORE IT IS RELIED ON, ON EVERY CHANNEL OF EVERY CASE. The importer
-    # has already placed this channel's first key in Blender's own space; deriving that same key from
-    # the file and comparing is what turns `roots are converted, children are not` from a fact about
-    # one Blender version into a claim this preparer restates every time it runs. A wrong axis or a
-    # component-for-component quaternion is an O(1) disagreement here and a plausible picture later.
     if all(len(curves[c].keyframe_points) for c in range(wide)):
         theirs = tuple(curves[c].keyframe_points[0].co[1] for c in range(wide))
         converted, convention = _convention(road, checkAt, theirs, obj.name)
@@ -556,18 +491,6 @@ def _bind_declared_animations(document, declared, where):
     importer, and a file that needs the repair and gives no name stops rather than guesses."""
     for index in declared:
         animation = document["animations"][index]
-        # THE REPAIR IS FOR THE OBJECT ARM AND FOR NEITHER OF THE OTHER TWO. A channel reaches its
-        # curves by one of three routes and only one of them is an object's own channelbag:
-        #
-        #   translation/rotation/scale on an ordinary node -> the OBJECT's channelbag, repaired here
-        #   the same on a skin's joint                     -> a POSE BONE's, and `bpy.data.objects`
-        #                                                     holds no object of that name, so the
-        #                                                     lookup below excludes it already
-        #   `weights`                                      -> the mesh's SHAPE KEY datablock
-        #
-        # `SimpleMorph` is the third: its object legitimately carries no channelbag, the repair read
-        # that as a missing binding, and the file names its animation nothing -- so a case that needed
-        # no repair at all was refused for lacking the name a repair would have wanted.
         drives = {}
         for channel in animation.get("channels", []):
             node = channel.get("target", {}).get("node")
@@ -589,13 +512,6 @@ def _bind_declared_animations(document, declared, where):
             fail(where + " animation " + repr(name) + " drives " + ", ".join(sorted(missing)) +
                  ", which carry no curves, and the scene holds no action of that name")
         for slot in action.slots:
-            # A SLOT NAMES THE KIND OF DATABLOCK IT DRIVES AND ONLY `OBJECT` BELONGS HERE. Morph
-            # weights live on the mesh's shape-key datablock, whose slot reports `KEY` and whose
-            # identifier carries the `KE` prefix -- [MEASURED] `AnimatedMorphCube` publishes exactly
-            # one slot, `KEAnimatedMorphCube`, target_id_type `KEY`. Assigning it to an object is
-            # refused by Blender itself with *this slot is not suitable*, and the weights arm below
-            # reaches those curves through the shape keys rather than through this binding
-            # (board:1203).
             if getattr(slot, "target_id_type", "OBJECT") != "OBJECT":
                 continue
             obj = bpy.data.objects.get(slot.name_display)
@@ -612,7 +528,6 @@ def _bind_declared_animations(document, declared, where):
                 continue
             obj.animation_data.action = action
             obj.animation_data.action_slot = slot
-
 
 def baked_channels(scene, paths, fps, declared, lightsFromFile=False, cameraFromFile=False):
     """EVERY ANIMATED CHANNEL, WRITTEN TO THE FRAME GRID AS EXACT KEYS (board:1198, board:1175).
@@ -636,10 +551,6 @@ def baked_channels(scene, paths, fps, declared, lightsFromFile=False, cameraFrom
         document = document_json(path)
         if not document.get("animations"):
             continue
-        # THE DECLARED SUBSET AND NOT THE FILE'S WHOLE LIST. glTF states animations are independent
-        # and a client plays any subset, so which of them play is the case's declaration -- and a
-        # baker that played all of them would make the picture a function of the FILE rather than of
-        # the manifest, which is the one property this engine does not trade.
         for which in declared:
             if which < 0 or which >= len(document["animations"]):
                 fail(path + " carries " + str(len(document["animations"])) +
@@ -655,9 +566,6 @@ def baked_channels(scene, paths, fps, declared, lightsFromFile=False, cameraFrom
                 if node is None:
                     continue
                 if road == "weights":
-                    # THE THIRD ARM (board:1203): the curves are on the MESH's shape-key datablock,
-                    # not on the object and not on a pose bone, so neither of the two dispatches
-                    # below can reach them.
                     sampler = animation["samplers"][channel["sampler"]]
                     how = sampler.get("interpolation", "LINEAR")
                     times = _accessor(document, buffers, sampler["input"])
@@ -690,35 +598,6 @@ def baked_channels(scene, paths, fps, declared, lightsFromFile=False, cameraFrom
                 values = _accessor(document, buffers, sampler["output"])
                 wide = len(values[0])
                 name = _imported_name(document, node)
-                # A SKIN'S `skeleton` NODE IS THE ARMATURE OBJECT ONLY WHERE IT IS NOT ALSO A JOINT
-                # (board:1375). The two shapes both occur and the rule was first measured on one of
-                # them, which is why it fell on the other:
-                #
-                #   [MEASURED] `BrainStem` -- 19 channels, 18 on nodes the skin lists as joints, and
-                #   ONE on node 2, the declared `skeleton`, which is NOT among the joints. The
-                #   importer builds that node as the armature OBJECT under a name taken from
-                #   elsewhere in the file, so no `Node_<index>` lookup reaches it.
-                #
-                #   [MEASURED] `CesiumMan` -- the declared `skeleton` is node 3 and `joints[0]` is
-                #   ALSO node 3. The importer puts all 190 curves on POSE BONES and leaves the
-                #   armature object with none, so redirecting this channel to the object found an
-                #   object with zero curves and the whole case refused.
-                #
-                # THE JOINT WINS, because a joint is where the importer put the curves. More than one
-                # armature makes the object mapping ambiguous and is refused rather than guessed.
-                # A CHANNEL DRIVING A NODE THE SCENE DELIBERATELY DOES NOT CARRY IS SKIPPED AND
-                # SAID SO. A case that declares `light.kind` other than `gltf` imports none of the
-                # file's lights, so a channel targeting a light node targets a thing that is not in
-                # the scene -- and refusing there reads as a defect in the asset when it is a
-                # consequence of the case's own declaration. [MEASURED] `DiffuseTransmissionPlant`
-                # animates `pointlight_firefly1`, which Blender WOULD import as a LIGHT object and
-                # which this case asked it not to -- and `chase_firefly1`, a CAMERA node, for the
-                # same reason one line further on: a case declaring its own camera does not carry
-                # the file's.
-                #
-                # THE EXEMPTION IS EXACTLY THIS AND NOT A WIDER ONE: a miss on any other node stays a
-                # refusal, because a channel silently dropped leaves that node at rest on the
-                # oracle's side while ours moves, which reads as a shading disagreement and is not.
                 carried = document["nodes"][node]
                 itsLight = "KHR_lights_punctual" in carried.get("extensions", {})
                 itsCamera = "camera" in carried
@@ -736,11 +615,6 @@ def baked_channels(scene, paths, fps, declared, lightsFromFile=False, cameraFrom
                              " armatures -- so which object carries that channel is ambiguous")
                     name = armatures[0].name
                 grid = list(range(scene.frame_start, scene.frame_end + 1))
-                # A JOINT IS A POSE BONE AND NOT AN OBJECT, so the arms are dispatched on which of
-                # them owns the name -- and they are NOT the same mechanism. The object arm evaluates
-                # the FILE; the bone arm re-interpolates the IMPORTER'S keys, because a bone's
-                # transform is rest-relative in axes glTF never states. Which arm ran is published
-                # per channel rather than left to be inferred from the asset.
                 armature, curves = _bone_curves(name, road)
                 if armature is not None:
                     written = _resample_bone(name, road, how, curves, grid, wide)
@@ -750,10 +624,6 @@ def baked_channels(scene, paths, fps, declared, lightsFromFile=False, cameraFrom
                     for frame in grid:
                         taken.append((frame, _sampled(times, values, how, wide, frame / float(fps),
                                                       road == "rotation")))
-                    # THE IMPORTER'S OWN FIRST KEY IS THE WITNESS: the value compared against it is
-                    # this sampler at the file's first key time -- the stored key for STEP and
-                    # LINEAR, the middle of the triple for CUBICSPLINE, which is what the importer
-                    # put there.
                     written = _write_frames(name, road, taken, wide,
                                             _sampled(times, values, how, wide, times[0][0],
                                                      road == "rotation"))
@@ -761,9 +631,6 @@ def baked_channels(scene, paths, fps, declared, lightsFromFile=False, cameraFrom
                 baked.append({"animation": index, "node": node, "name": name, "carriedBy": carried,
                               "path": road, "interpolation": how, "keyframes": len(times),
                               "frames": len(grid), "curves": written})
-    # PUBLISHED, NEVER SILENT: a channel this preparer chose not to write is a fact the runner
-    # and a reader of the provenance need, because the alternative is a node at rest on one side
-    # only and no record of why.
     return {"baked": baked, "leftAlone": left, "skippedLightChannels": skippedLightChannels}
 
 def evaluated_pose(imported):
@@ -780,7 +647,6 @@ def evaluated_pose(imported):
         matrix = bpy.data.objects[obj.name].evaluated_get(depsgraph).matrix_world
         pose[obj.name] = [list(row) for row in matrix]
     return pose
-
 
 def clear_objects():
     """THE SCENE BEFORE THE SUBJECT, and removing the objects is not enough (board:1203).
@@ -804,7 +670,6 @@ def clear_objects():
             except (RuntimeError, ReferenceError, TypeError):
                 pass
 
-
 def observed_world(scene):
     world = scene.world
     if world is None or world.node_tree is None:
@@ -816,7 +681,6 @@ def observed_world(scene):
                     "strength": node.inputs["Strength"].default_value}
     return {"present": True, "hasNodeTree": True, "note": "no Background node"}
 
-
 def apply_world(scene, declared):
     if declared["kind"] == "factory":
         return
@@ -825,7 +689,6 @@ def apply_world(scene, declared):
         if node.type == "BACKGROUND":
             node.inputs["Color"].default_value = tuple(declared["colourLinear"]) + (1.0,)
             node.inputs["Strength"].default_value = declared["strength"]
-
 
 def import_gltf(paths, lighting_mode):
     """`lighting_mode` is how the importer turns glTF's photometric units into Blender's, and it is
@@ -847,7 +710,6 @@ def import_gltf(paths, lighting_mode):
         kept.append(keep_default_scene(path, set(bpy.data.collections) - collections))
     return [obj for obj in bpy.data.objects if obj not in before], kept
 
-
 def document_json(path):
     """The subject's own JSON, whichever of the format's two containers carries it. A GLB's first
     chunk is the JSON one by the format's rule, at byte 12 with an 8-byte chunk header; refusing
@@ -860,7 +722,6 @@ def document_json(path):
     if kind != 0x4E4F534A:
         fail("%s is a GLB whose first chunk is %#x and the format's first chunk is JSON" % (path, kind))
     return json.loads(payload[20:20 + length].decode("utf-8"))
-
 
 def keep_default_scene(path, new_collections):
     """MEASURED, 5.2.0: the importer does not honour glTF's `scene` property -- it imports EVERY
@@ -878,8 +739,6 @@ def keep_default_scene(path, new_collections):
     if len(scenes) <= 1:
         return {"scenes": len(scenes), "honoured": "single-scene"}
     default = document.get("scene", 0)
-    # The importer REUSES an existing empty collection as the file's root, so the root is not
-    # necessarily new; what is new is the per-scene collections under it.
     roots = [c for c in [bpy.context.scene.collection] + list(bpy.data.collections)
              if len(c.children) == len(scenes)
              and all(child in new_collections for child in c.children)]
@@ -901,7 +760,6 @@ def keep_default_scene(path, new_collections):
     return {"scenes": len(scenes), "honoured": "default-scene", "defaultScene": default,
             "keptCollection": children[default].name, "droppedObjects": sorted(dropped)}
 
-
 def strip_crossings(imported, camera_source, keep_lights):
     """What crossed the glTF boundary and must not have. Light and material are declared beside the
     asset, so whatever the file carried is deleted -- EXCEPT where the case declares the light as the
@@ -916,7 +774,6 @@ def strip_crossings(imported, camera_source, keep_lights):
             bpy.data.objects.remove(obj, do_unlink=True)
             removed["cameras"] += 1
     return removed
-
 
 def select_material_variant(imported, name):
     """THE ORACLE READS `KHR_materials_variants` ITSELF (board:1188), which is what makes it an
@@ -934,10 +791,6 @@ def select_material_variant(imported, name):
 
     The slots are read back AFTER the switch and reported, because "the operator ran" and "the
     material moved" are two claims and only the second one is about the picture."""
-    # THE PROPERTY IS NOT ALWAYS THERE, AND ITS ABSENCE IS AN ANSWER. The importer registers the
-    # variant UI only when a file it imported declares variants, so on the 37 cases that declare none
-    # this attribute does not exist -- which is exactly "the file declares no variants" and is
-    # reported as that rather than crashing the render of a case this feature is not about.
     declared = list(getattr(bpy.data.scenes[0], "gltf2_KHR_materials_variants_variants", []))
     if name is None:
         return {"declared": [v.name for v in declared], "active": None}
@@ -956,18 +809,12 @@ def select_material_variant(imported, name):
     fail("the case declares material variant %r and the imported files declare %r"
          % (name, [v.name for v in declared]))
 
-
-# **THE FRAMING RULE'S FOUR CONSTANTS, AND `src/gltf/Framing.h` IS THE SOURCE** (board:1458). They are
-# stated here because Blender is where the bounds are, and the duplication is CHECKED rather than
-# avoided: `EveryFramingConstantAgreesWithTheEngine` reads both files and refuses a disagreement.
-# `CLAUDE.md`'s rule is that duplication is a defect exactly when the copies can drift.
 FRAMING_AZIMUTH_DEG = 35.0
 FRAMING_ELEVATION_DEG = 20.0
 FRAMING_SENSOR_HALF_HEIGHT_MM = 12.0
 FRAMING_FOCAL_LENGTH_MM = 50.0
 FRAMING_FILL = 0.6
 FRAMING_NEAR_FLOOR_FRACTION = 0.001
-
 
 def world_bounds_over(scene, imported, instants):
     """The union of every imported mesh's world bounds over the declared instants, in SECONDS.
@@ -981,24 +828,13 @@ def world_bounds_over(scene, imported, instants):
     """
     least = [None, None, None]
     most = [None, None, None]
-    # **WHAT EACH INSTANT CONTRIBUTED, PUBLISHED** (board:1467). A union says nothing about whether the
-    # walk actually moved the subject, and a camera derived from one pose twice looks exactly like a
-    # camera derived from a subject that does not move.
     per_instant = []
     graph = bpy.context.evaluated_depsgraph_get()
-    # **THE INSTANTS ARE SECONDS AND BLENDER COUNTS FRAMES**, and its own rate is what converts them.
-    # The camera is derived BEFORE the recipe sets a rate, so a frame number handed straight in would
-    # be read at Blender's factory 24 fps -- which is how a camera came to be framed over two instants
-    # 42 ms apart on an animation keyed over six seconds.
     rate = scene.render.fps / scene.render.fps_base
     for seconds in instants:
         exact = seconds * rate
         whole = math.floor(exact)
         scene.frame_set(int(whole), subframe=float(exact - whole))
-        # **THE VIEW LAYER IS UPDATED BEFORE THE DEPSGRAPH IS TAKEN** (board:1467). `frame_set` alone
-        # left every instant evaluating to the FIRST one's pose: [MEASURED] a STEP translation keyed
-        # -0.1 at 0 s and +0.1 at 2 s reported `x in [-0.4, 0.2]` at BOTH instants, so the union was
-        # one pose twice and the near plane derived from it clipped the body this engine renders.
         bpy.context.view_layer.update()
         graph = bpy.context.evaluated_depsgraph_get()
         here = [None, None, None]
@@ -1024,7 +860,6 @@ def world_bounds_over(scene, imported, instants):
         fail("no imported mesh has bounds, so no camera can be derived from the subject")
     return least, most, per_instant
 
-
 def derive_camera(scene, imported, declared, instants):
     """The framing rule, computed where the bounds are, and published so the runner can read it.
 
@@ -1042,7 +877,6 @@ def derive_camera(scene, imported, declared, instants):
     through it again -- which is what `build_camera` does with a declared camera too.
     """
     least, most, per_instant = world_bounds_over(scene, imported, instants)
-    # THE RULE IS glTF'S FRAME, so the Z-up bounds come back to Y-up: (x, y, z)_zup = (x, -z, y)_yup.
     corners = [(x, y, z) for x in (least[0], most[0]) for y in (least[1], most[1])
                for z in (least[2], most[2])]
     gltf = [(x, z, -y) for (x, y, z) in corners]
@@ -1079,7 +913,6 @@ def derive_camera(scene, imported, declared, instants):
                           "sensorHeightMm": 2.0 * FRAMING_SENSOR_HALF_HEIGHT_MM,
                           "clipStartM": near, "clipEndM": distance + radius}}
 
-
 def build_camera(scene, declared):
     position = Vector(declared["positionM"])
     forward = (Vector(declared["lookAtM"]) - position)
@@ -1106,8 +939,6 @@ def build_camera(scene, declared):
     data.sensor_fit = "VERTICAL"
     described = {}
     if declared.get("projection") == "orthographic":
-        # `ortho_scale` IS THE EXTENT OF THE FITTED SENSOR AXIS, and the fit is VERTICAL here, so the
-        # number is the vertical extent in metres -- twice glTF's `ymag`, which is a half-extent.
         data.type = "ORTHO"
         data.ortho_scale = 2.0 * declared["yMagM"]
         described = {"projection": "orthographic", "orthoScaleM": data.ortho_scale}
@@ -1125,7 +956,6 @@ def build_camera(scene, declared):
     described.update({"sensorFit": data.sensor_fit,
                       "matrixWorld": [list(row) for row in obj.matrix_world]})
     return described
-
 
 def adopt_camera(scene, imported, declared, paths):
     """The camera the manifest names by its index into the file's own `cameras`, resolved WITHOUT
@@ -1158,7 +988,6 @@ def adopt_camera(scene, imported, declared, paths):
             "sensorFit": matched[0].data.sensor_fit, "matchedOn": list(wanted),
             "matrixWorld": [list(row) for row in matched[0].matrix_world]}
 
-
 def importer_camera(declared):
     """What Blender's importer builds from one glTF camera declaration -- its own arithmetic,
     restated here because that is the only handle on which imported object came from which
@@ -1167,15 +996,12 @@ def importer_camera(declared):
         lens = declared["orthographic"]
         return ("ORTHO", 2.0 * max(lens["xmag"], lens["ymag"]), lens["znear"], lens["zfar"])
     lens = declared["perspective"]
-    # An absent `zfar` is an infinite frustum, which the importer spells as a big number.
     return ("PERSP", lens["yfov"], lens["znear"], lens.get("zfar", 1e12))
-
 
 def importer_camera_of(data):
     if data.type == "ORTHO":
         return ("ORTHO", data.ortho_scale, data.clip_start, data.clip_end)
     return ("PERSP", data.angle_y, data.clip_start, data.clip_end)
-
 
 def same_camera(observed, declared):
     """Blender's camera properties are single precision and its field of view round-trips through a
@@ -1185,7 +1011,6 @@ def same_camera(observed, declared):
     if observed[0] != declared[0]:
         return False
     return all(abs(a - b) <= 1e-6 * max(1.0, abs(b)) for a, b in zip(observed[1:], declared[1:]))
-
 
 def observed_lights(imported):
     """Every light the import left standing, as it stands: what the manifest claims about the file's
@@ -1198,9 +1023,6 @@ def observed_lights(imported):
                  "color": list(obj.data.color), "locationBlender": list(obj.location),
                  "matrixWorld": [list(row) for row in obj.matrix_world]}
         if hasattr(obj.data, "shadow_soft_size"):
-            # A DELTA SOURCE, AND IT IS WHAT MAKES THE TWO-SEED CHECK PASSABLE: a lamp with a radius
-            # is an area light and Cycles samples its solid angle, which is an estimator with
-            # variance. At radius zero there is one shadow ray and no integral left.
             obj.data.shadow_soft_size = 0.0
             entry["radiusM"] = obj.data.shadow_soft_size
         if obj.data.type == "SUN":
@@ -1208,7 +1030,6 @@ def observed_lights(imported):
             entry["angleRad"] = obj.data.angle
         out.append(entry)
     return out
-
 
 def build_light(scene, declared, imported):
     if declared["kind"] == "gltf":
@@ -1238,7 +1059,6 @@ def build_light(scene, declared, imported):
     return {"kind": "point", "powerW": data.energy, "radiusM": data.shadow_soft_size,
             "locationBlender": list(obj.location)}
 
-
 def subject_materials(imported):
     """The materials the SUBJECT wears, in slot order, and never `bpy.data.materials`: the factory
     file ships its own ("Dots Stroke", "Material"), and rewriting those would be rewriting the
@@ -1252,7 +1072,6 @@ def subject_materials(imported):
                 materials.append(slot.material)
     return materials
 
-
 def surface_shader(tree):
     """The node the Material Output takes its Surface from, which is the closure to be replaced."""
     for node in tree.nodes:
@@ -1262,7 +1081,6 @@ def surface_shader(tree):
         if surface.is_linked:
             return node, surface.links[0].from_node
     return None, None
-
 
 def images_feeding(socket):
     """Which image datablocks actually reach this socket. `SciFiHelmet` carries four in one material
@@ -1285,7 +1103,6 @@ def images_feeding(socket):
                           "size": list(node.image.size)})
         edge.extend(node.inputs)
     return found
-
 
 def cull_back_faces(tree, shader):
     """THE ORACLE IS LOWERED, NOT THE TOLERANCE: Cycles has no back-face culling for camera rays.
@@ -1310,7 +1127,6 @@ def cull_back_faces(tree, shader):
     tree.links.new(transparent.outputs[0], mix.inputs[2])
     return mix
 
-
 def image_nodes_feeding(socket):
     """The TEX_IMAGE nodes that actually reach this socket, as nodes rather than as a report."""
     found, seen, edge = [], set(), [socket]
@@ -1327,12 +1143,10 @@ def image_nodes_feeding(socket):
         edge.extend(node.inputs)
     return found
 
-
 def srgb_to_linear(encoded):
     """The transfer function glTF declares its colour images in, on a numpy array, verbatim."""
     return numpy.where(encoded <= 0.04045, encoded / 12.92,
                        numpy.power((encoded + 0.055) / 1.055, 2.4))
-
 
 def linear_float_image(image, made):
     """CYCLES DECODES sRGB AFTER FILTERING FOR AN 8-BIT IMAGE, and that is exactly the defect
@@ -1376,8 +1190,6 @@ def linear_float_image(image, made):
     samples = numpy.empty(width * height * image.channels, dtype=numpy.float32)
     image.pixels.foreach_get(samples)
     if image.colorspace_settings.name == "sRGB":
-        # Three channels carry the transfer and the fourth does not: alpha is a coverage, never a
-        # colour, and glTF says so in the same sentence that declares the colour encoded.
         samples = samples.reshape(-1, image.channels)
         samples[:, :3] = srgb_to_linear(samples[:, :3])
         samples = samples.reshape(-1)
@@ -1387,7 +1199,6 @@ def linear_float_image(image, made):
     copy.pixels.foreach_set(numpy.ascontiguousarray(samples, dtype=numpy.float32))
     made[image.name] = copy
     return copy
-
 
 def decode_before_filtering(socket, made):
     """Retargets every image feeding this socket onto its linear float copy."""
@@ -1399,7 +1210,6 @@ def decode_before_filtering(socket, made):
         node.image = linear_float_image(node.image, made)
         swapped.append({"was": was, "now": node.image.name})
     return swapped
-
 
 def keep_alpha(tree, shader, alpha):
     """THE FILE'S OWN `alphaMode`, KEPT RATHER THAN RE-DECLARED.
@@ -1425,11 +1235,9 @@ def keep_alpha(tree, shader, alpha):
     else:
         mix.inputs["Fac"].default_value = alpha.default_value
         source = "unlinked default " + repr(alpha.default_value)
-    # Fac 0 takes the first shader and Fac 1 the second, so coverage 1 must select the surface.
     tree.links.new(transparent.outputs[0], mix.inputs[1])
     tree.links.new(shader.outputs[0], mix.inputs[2])
     return mix, source
-
 
 def lower_to_file_colour(imported, kind, socket_name, source_name):
     """Replaces the CLOSURE and keeps whatever the importer wired into one of its colour sockets.
@@ -1475,11 +1283,6 @@ def lower_to_file_colour(imported, kind, socket_name, source_name):
             fail("material %r is shaded by a %s, which has no %s to keep"
                  % (material.name, closure.type, socket_name))
         base = closure.inputs[socket_name]
-        # `KHR_materials_emissive_strength` ARRIVES ON THE CLOSURE AND IS CARRIED, NOT DROPPED. The
-        # importer multiplies nothing: it puts the extension's factor on `Emission Strength` and
-        # leaves `Emission Color` at `emissiveFactor`, so the lowered node has to take both or the
-        # radiance is off by the factor the asset exists to test. A LINKED strength is still a
-        # refusal, because a socket driven by a node is not a scalar this can carry over.
         strength = closure.inputs.get("Emission Strength")
         emitted = 1.0
         if socket_name == "Emission Color":
@@ -1517,7 +1320,6 @@ def lower_to_file_colour(imported, kind, socket_name, source_name):
     meshes = sum(1 for obj in imported if obj.type == "MESH")
     return {"source": source_name, "kind": kind, "meshes": meshes, "rewired": rewired}
 
-
 def diffuse_material(name, colour):
     """Never Principled: at metallic 0 it still carries a specular lobe at IOR 1.5.
 
@@ -1536,7 +1338,6 @@ def diffuse_material(name, colour):
     tree.links.new(shader.outputs[0], output.inputs["Surface"])
     return material
 
-
 def emission_material(name, colour):
     """A surface whose radiance IS the declared colour: no incoming light, no visibility test and no
     integral of any kind. It removes the world sampled as a light, the sun's disk, a light's radius
@@ -1552,12 +1353,7 @@ def emission_material(name, colour):
     tree.links.new(shader.outputs[0], output.inputs["Surface"])
     return material
 
-
-# THE RESERVED NAME FOR THE MATERIAL glTF SELECTS WHEN A PRIMITIVE NAMES NONE. Angle brackets because a
-# glTF material name is an arbitrary string and this must not collide with one a file could state; the
-# same spelling is what `Parity.cpp` keys the same primitive by.
 DEFAULT_MATERIAL_NAME = "<default>"
-
 
 def apply_emission_per_material(imported, colours):
     """One emitter per glTF MATERIAL, which is the key a multi-material asset has.
@@ -1584,22 +1380,10 @@ def apply_emission_per_material(imported, colours):
     """
     assigned = {}
     subject = []
-    # THE FORMAT'S OWN DEFAULT MATERIAL, GIVEN A DATABLOCK SO IT CAN CARRY A COLOUR (board:1373).
-    # glTF 2.0: "When [material] is undefined, the primitive is rendered with the default material."
-    # Blender expresses that as an EMPTY slot -- or as no slot at all -- and an empty slot cannot hold
-    # an emitter, so one is created here and keyed by the reserved name our side uses for the same
-    # primitive. It is created only where a subject actually has one, so a manifest that declared
-    # `<default>` for a subject without one is still refused by the unmatched-colour check below.
     default_material = None
     for obj in imported:
         if obj.type != "MESH":
             continue
-        # THE MANIFEST DECIDES WHETHER THIS SUBJECT HAS ONE, NOT BLENDER'S SLOT COUNT. Filling every
-        # empty slot unconditionally created a `<default>` on `RiggedSimple`, whose file names a
-        # material for every primitive -- a case that was green went red. The manifest states what the
-        # subject carries and our side derives the same from the file's own primitives, so the two
-        # agree by construction; an empty slot with no `<default>` declared is left exactly as the old
-        # code left it.
         empty = [slot for slot in obj.material_slots if slot.material is None]
         if DEFAULT_MATERIAL_NAME in colours and (not obj.material_slots or empty):
             if default_material is None:
@@ -1611,12 +1395,6 @@ def apply_emission_per_material(imported, colours):
         for slot in obj.material_slots:
             if slot.material is not None and slot.material not in subject:
                 subject.append(slot.material)
-    # BLENDER'S DUPLICATE-DATABLOCK SUFFIX IS READ BACK, NEVER PREDICTED (board:1373). A glTF material
-    # bound by more than one mesh arrives as more than one datablock, and Blender disambiguates with a
-    # `.001` suffix -- MEASURED on `CompareBaseColor`, whose three meshes name materials [0, 1, 1] and
-    # whose scene then carries `baseColor texture dielectric` and `baseColor texture dielectric.001`.
-    # A manifest that had to state the second would be stating a count of Blender's copies; stripping
-    # the suffix maps it back to the name the FILE gives, which is the key both sides share.
     for material in subject:
         wanted = material.name
         if wanted not in colours:
@@ -1648,7 +1426,6 @@ def apply_emission_per_material(imported, colours):
             fail("the manifest declares a colour for material %r and the scene carries no such "
                  "material" % name)
     return {"source": "manifest", "kind": "emission-per-material", "assigned": assigned}
-
 
 def apply_emission_by_material_index(imported, path):
     """One emitter per glTF MATERIAL, coloured by a RULE rather than by a table (board:1362).
@@ -1682,16 +1459,6 @@ def apply_emission_by_material_index(imported, path):
     def colour_of(slot):
         return tuple(0.15 + 0.70 * math.fmod(slot * step, 1.0) for step in STEP)
 
-    # THE FORMAT'S DEFAULT MATERIAL ARRIVES IN THREE SHAPES AND ALL THREE WERE MEASURED (board:1362),
-    # which is why this is a table and not a branch on one of them:
-    #
-    #   `SimpleMeshes`             -- no materials at all      -> an EMPTY SLOT, no datablock
-    #   `MeshoptCubeTest`          -- 10 named, 25 prims none   -> ONE datablock named `DefaultMaterial`
-    #   `PrimitiveModeNormalsTest` -- 2 unnamed, 12 prims none  -> SIX, `DefaultMaterial` .. `.005`
-    #
-    # So the importer's own name for it is `DefaultMaterial`, duplicated with Blender's `.NNN` suffix
-    # as often as it needs one, and an empty slot where it made none. All of them mean the same
-    # primitive, so all of them take the one slot past the file's last material.
     IMPORTER_DEFAULT = "DefaultMaterial"
     if IMPORTER_DEFAULT in by_name:
         fail("the file names a material %r, which is the name the importer gives the format's own "
@@ -1715,8 +1482,6 @@ def apply_emission_by_material_index(imported, path):
             if slot.material is not None and slot.material not in subject:
                 subject.append(slot.material)
     for material in subject:
-        # THE EXACT NAME FIRST AND THE STRIPPED ONE ONLY IF IT MISSES. A file may legitimately name a
-        # material `Foo.001`, and stripping unconditionally would send it to `Foo`'s colour.
         wanted = material.name
         if wanted not in by_name:
             wanted = re.sub(r"\.\d{3}$", "", wanted)
@@ -1746,7 +1511,6 @@ def apply_emission_by_material_index(imported, path):
         assigned[str(slot)] = {"material": material.name,
                                "backFaceCulled": material.use_backface_culling}
     return {"source": "manifest", "kind": "emission-by-material-index", "assigned": assigned}
-
 
 def multiply_vertex_colour(tree, colour, users):
     """`COLOR_0` MULTIPLIES THE DECLARED COLOUR, BECAUSE THE FORMAT SAYS SO (board:1401).
@@ -1794,7 +1558,6 @@ def multiply_vertex_colour(tree, colour, users):
     tree.links.new(attribute.outputs["Color"], product.inputs[7])
     return product
 
-
 def keep_file_materials(imported):
     """THE FILE'S OWN MATERIALS, UNTOUCHED, AND WHAT THAT COSTS RECORDED RATHER THAN HIDDEN.
 
@@ -1841,7 +1604,6 @@ def keep_file_materials(imported):
     return {"source": "gltf", "observed": observed,
             "notALight": no_surface_of_the_subject_is_a_light(imported, materials)}
 
-
 def no_surface_of_the_subject_is_a_light(imported, materials):
     """THE SUBJECT IS SEEN AND NEVER GATHERED FROM, which is what removes the estimator an emissive
     asset carries into a scene whose only declared source has no area (board:0087).
@@ -1876,7 +1638,6 @@ def no_surface_of_the_subject_is_a_light(imported, materials):
     return {"emissionSampling": sorted(set(m.cycles.emission_sampling for m in materials)),
             "visibility": gathered_from}
 
-
 def apply_material(imported, declared, gltfPaths):
     if declared["source"] == "gltf":
         return keep_file_materials(imported)
@@ -1886,9 +1647,6 @@ def apply_material(imported, declared, gltfPaths):
         return lower_to_file_colour(imported, declared["kind"], "Emission Color", "gltf-emissive")
     meshes = [obj for obj in imported if obj.type == "MESH"]
     if declared["kind"] == "diffuse":
-        # ONE FACET, ONE COLOUR. The closed form rho*L is only available where nothing in the scene
-        # can be seen from anything else, and a subject of several bodies is refused this arm by the
-        # manifest before a render is made.
         if len(meshes) != 1:
             fail("material.kind is diffuse over %d meshes, and the closed form holds for a single "
                  "unoccluded facet" % len(meshes))
@@ -1900,16 +1658,11 @@ def apply_material(imported, declared, gltfPaths):
     if declared["kind"] == "emission-per-material":
         return apply_emission_per_material(imported, declared["colourLinearPerMaterial"])
     if declared["kind"] == "emission-by-material-index":
-        # THE RULE IS KEYED BY THE FILE'S MATERIAL INDEX, so the file is what it has to read. One
-        # subject is one glTF here, and more than one would make "material 3" name two things.
         if len(gltfPaths) != 1:
             fail("scene.material.kind is 'emission-by-material-index' over a subject assembled from "
                  + str(len(gltfPaths)) + " glTF files, and a material index names one file's table")
         return apply_emission_by_material_index(imported, gltfPaths[0])
 
-    # ONE MATERIAL PER OBJECT, KEYED BY THE glTF NODE'S OWN NAME, which the importer carries into the
-    # object's name. A single colour over touching bodies fuses their silhouettes and hides a
-    # misplaced node inside the union; the boundary between two declared colours is exact.
     colours = declared["colourLinearPerNode"]
     assigned = {}
     for obj in meshes:
@@ -1926,15 +1679,11 @@ def apply_material(imported, declared, gltfPaths):
                  % node)
     return {"source": "manifest", "kind": "emission", "assigned": assigned}
 
-
 def enable_devices(recipe):
     if recipe["device"] == "CPU":
         return {"device": "CPU", "backend": "NONE", "names": []}
     preferences = bpy.context.preferences.addons["cycles"].preferences
     preferences.compute_device_type = "METAL"
-    # HOW MUCH CYCLES SPECIALISES ITS KERNELS, and it is declared here rather than left at Blender's
-    # default (board:1372). `FULL` re-specialises per SCENE FEATURE SET, so a corpus of many small,
-    # differently-featured cases pays a fresh Metal compile for almost every one.
     level = os.environ.get("OUTSHINE_CYCLES_KERNELS", "OFF")
     if hasattr(preferences, "kernel_optimization_level"):
         preferences.kernel_optimization_level = level
@@ -1945,7 +1694,6 @@ def enable_devices(recipe):
         if device.use:
             names.append(device.name)
     return {"device": "GPU", "backend": preferences.compute_device_type, "names": names}
-
 
 def apply_recipe(scene, recipe):
     scene.render.engine = "CYCLES"
@@ -1978,13 +1726,11 @@ def apply_recipe(scene, recipe):
     scene.view_settings.gamma = colour["gamma"]
     return devices
 
-
 RAW_MAGIC = b"OSRAWF32"
 RAW_VERSION = 1
 RAW_BYTE_ORDER = 0x01020304
 RAW_CHANNELS = ("R", "G", "B", "A")
 RAW_TOP_ROW_FIRST = 0
-
 
 def ask_for_quantities(scene, passes, work_directory, recipe):
     """Turn on the render passes the job asks for and route each to its own EXR.
@@ -2015,9 +1761,6 @@ def ask_for_quantities(scene, passes, work_directory, recipe):
     for at, material in enumerate(sorted(bpy.data.materials, key=lambda m: m.name)):
         material.pass_index = at + 1
         indexed["materials"].append({"name": material.name, "passIndex": at + 1})
-    # THE OBJECT INDEX NEEDS THE SAME TREATMENT AND MEASURING IT IS WHY IT IS HERE: with only the
-    # materials indexed, the object pass came back ZERO EVERYWHERE and a field of zeros reads as an
-    # answer. That is the failure this table refuses roughness over, so it is not tolerated here.
     for at, obj in enumerate(sorted(bpy.data.objects, key=lambda o: o.name)):
         obj.pass_index = at + 1
         indexed["objects"].append({"name": obj.name, "passIndex": at + 1})
@@ -2048,7 +1791,6 @@ def ask_for_quantities(scene, passes, work_directory, recipe):
         written[quantity] = socket
     return {"indices": indexed, "passes": written}
 
-
 def collect_quantities(work_directory, paths):
     """Move each slot's frame file to the path the job named, and dump it in the picture's layout.
 
@@ -2068,7 +1810,6 @@ def collect_quantities(work_directory, paths):
         collected[quantity] = write_raw(target["exr"], target["raw"])
     return collected
 
-
 def save_products(scene, recipe, exr_path, raw_path):
     image = bpy.data.images["Render Result"]
     settings = scene.render.image_settings
@@ -2078,7 +1819,6 @@ def save_products(scene, recipe, exr_path, raw_path):
     settings.exr_codec = recipe["exrCodec"]
     image.save_render(filepath=exr_path, scene=scene)
     return write_raw(exr_path, raw_path)
-
 
 def write_raw(exr_path, raw_path):
     """The oracle's pixels in a form C++ can read: SDL3 has no EXR reader and none is worth vendoring.
@@ -2116,7 +1856,6 @@ def write_raw(exr_path, raw_path):
     return {"width": width, "height": height, "channels": list(RAW_CHANNELS),
             "headerBytes": header_bytes, "rowOrder": "top-first"}
 
-
 def main():
     job = job_from_argv()
     scene = bpy.context.scene
@@ -2132,31 +1871,15 @@ def main():
     if animation is not None:
         set_frame_grid(scene, animation, job["frame"])
     else:
-        # A STILL IS AT THE INSTANT IT CLAIMS, AND IT CLAIMS ZERO (board:1432). Blender opens at frame
-        # 1, so a case that declares no sequence used to be rendered one frame into whatever animation
-        # its file happens to carry -- t = 1/fps and not t = 0. [MEASURED] on `SimpleSkin`, whose joint
-        # turns 45 degrees over half a second: at 24 fps that is 3.75 degrees of pose the still was
-        # never meant to have, which moved the strip's far corner 6.9 px left and 3.8 px down against
-        # an observed 6 and 4. Set before the import for the same reason the grid is.
         scene.frame_start = 0
         scene.frame_set(0)
     imported, defaultScenes = import_gltf(job["gltfPaths"],
                                           job["scene"]["light"].get("lightingMode", "RAW"))
-    # THE SURVIVORS ARE NAMED BEFORE THE REMOVAL AND NOT ASKED AFTERWARDS (board:1370). `obj.name` on an
-    # object Blender has already freed raises `StructRNA of type Object has been removed`, so the filter
-    # that was meant to drop the removed ones was itself reading them. It never fired until a subject
-    # arrived whose import `strip_crossings` actually deletes from -- `Duck` is the first, and it was
-    # only reached at all once the licence stopped gating the corpus.
     names = [obj.name for obj in imported]
     removed = strip_crossings(imported, job["scene"]["camera"]["source"],
                               job["scene"]["light"]["kind"] == "gltf")
     imported = [bpy.data.objects[name] for name in names if name in bpy.data.objects]
     if job["scene"]["camera"]["source"] == "derived":
-        # THE FRAMES THE RULE UNIONS OVER ARE THE CASE'S OWN GRID, and a still declares one.
-        # THE FRAME COUNT IS A DECLARED QUANTITY and carries its unit and origin, so the number is
-        # under `value`; a still declares no animation at all.
-        # THE INSTANTS THE RULE UNIONS OVER ARE THE CASE'S OWN GRID, IN SECONDS: a still declares one.
-        # The name is its own: `animation` above is None for a still and this branch must not shadow it.
         declaredGrid = job["scene"].get("animation") or {}
         grid = declaredGrid.get("frames", {})
         count = int(grid.get("value", 1)) if isinstance(grid, dict) else int(grid or 1)
@@ -2169,9 +1892,6 @@ def main():
     else:
         camera = adopt_camera(scene, imported, job["scene"]["camera"], job["gltfPaths"])
     light = build_light(scene, job["scene"]["light"], imported)
-    # BEFORE THE MATERIAL ARM AND AFTER THE IMPORT (board:1188): the lowering below rewires the
-    # materials the subject WEARS, so a variant selected after it would swap a lowered material for
-    # an untouched Principled one.
     variant = select_material_variant(imported, job["scene"].get("materialVariant"))
     material = apply_material(imported, job["scene"]["material"], job["gltfPaths"])
     devices = apply_recipe(scene, job["recipe"])
@@ -2218,6 +1938,5 @@ def main():
         "polygons": sum(len(obj.data.polygons) for obj in imported if obj.type == "MESH"),
     }
     print(job["provenanceOpen"] + json.dumps(provenance) + job["provenanceClose"])
-
 
 main()

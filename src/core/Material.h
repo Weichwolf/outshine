@@ -5,98 +5,36 @@
 
 namespace outshine {
 
-/* HOW A SURFACE'S ALPHA IS READ, and it is a three-valued property of the material rather than a
- * magnitude anything infers. glTF 2.0 (`Specification.adoc:2178`): under `OPAQUE` "the rendered
- * output is fully opaque and any alpha value is ignored", under `MASK` it is cut at `alphaCutoff`,
- * under `BLEND` it is composited. A float cannot carry three answers (`Enum.2`), and deriving the
- * mode from `BaseColour[3] < 1` -- which is what this engine did -- turns an opaque material whose
- * texture happens to carry alpha into a masked one. */
 enum class AlphaMode { Opaque, Masked, Blended };
 
-/* A SURFACE IN glTF 2.0's METAL-ROUGH PARAMETERISATION, which is the format's own and therefore the
- * vocabulary content arrives in, so the engine speaks it rather than translating into a second one.
- *
- * `BaseColour` IS NOT AN ALBEDO UNTIL `Metalness` SAYS SO. At metalness 0 its RGB is the diffuse
- * reflectance of a dielectric; at metalness 1 it is the conductor's normal-incidence reflectance.
- * The old field was named `Albedo` and carried no metalness at all, so a metal had no spelling and
- * the name was true of only half the range it covered.
- *
- * The defaults are one declared surface -- a fully rough, fully covering, opaque, non-transmitting
- * dielectric mid grey. [SET] 0.5 linear base colour, the neutral card; everything else is the
- * absence of an effect, so a row that declares nothing draws as matte grey rather than as black or
- * as glass. */
 struct Material {
-  /* Linear RGB plus alpha, glTF's `baseColorFactor` order. The alpha is the QUANTITY; what is done
-   * with it is `Alpha`'s answer and never this field's. */
+
   float BaseColour[4] = {0.5f, 0.5f, 0.5f, 1.0f};
-  float Metalness = 0.0f;               /* 0 dielectric, 1 conductor; glTF's default is 1 and ours
-                                         * is 0 because a surface nobody described is not a metal */
-  float Roughness = 1.0f;               /* GGX perceptual roughness, 0..1 */
-  float Transmission = 0.0f;            /* fraction passed through the sheet, 0..1 */
-  float Ior = 1.5f;                     /* refractive index; glTF's dielectric default, F0 = 0.04 */
-  float Emission[3] = {0.0f, 0.0f, 0.0f}; /* cd/m^2 */
+  float Metalness = 0.0f;
+  float Roughness = 1.0f;
+  float Transmission = 0.0f;
+  float Ior = 1.5f;
+  float Emission[3] = {0.0f, 0.0f, 0.0f};
   AlphaMode Alpha = AlphaMode::Opaque;
-  /* glTF's `doubleSided`, and it lives here rather than beside the reader because it is a statement
-   * about the SURFACE that only the pipeline can honour: a single-sided facet is culled from behind
-   * and a double-sided one is not. `TextureSettingsTest` puts a polygon facing the wrong way in
-   * front of a test polygon and lets the flag decide which of the two is seen, so an engine that
-   * carries the flag no further than its reader draws the wrong cell. glTF's own default is false. */
+
   bool DoubleSided = false;
-  /* Below this alpha a `Masked` fragment is discarded. 0.5 is the format's own default and not an
-   * argument made here (`Specification.adoc`, `alphaCutoff`); `AlphaBlendModeTest` renders 0.25 and
-   * 0.75 columns that fail an engine carrying one number for the whole scene. */
+
   float CoverageCut = 0.5f;
-  /* `KHR_materials_unlit`: the base colour IS the radiance the surface leaves, so no light, no
-   * normal and no BRDF enter it. It is a property of the SURFACE and not a quality setting, which is
-   * why it sits beside the other surface answers rather than beside a renderer's options -- and it
-   * moves no pipeline state, because what changes is which radiance a part declares and not how the
-   * fragment is composited. */
+
   bool Unlit = false;
-  /* `KHR_materials_specular`: the two factors that scale a dielectric's normal-incidence
-   * reflectance. Both are the extension's own defaults, which are the identity -- so a file that
-   * declares neither reaches `DielectricF0` with the same number it would have had.
-   *
-   * THEY SIT AT THE END AND THE POSITION IS THE POINT (board:1205). This row is brace-initialised
-   * positionally in places, so a field inserted in the middle silently reassigns every initialiser
-   * after it -- one of them changed arity and failed to compile, which is the lucky case and not the
-   * general one. Appending cannot repurpose an existing element. */
+
   float SpecularFactor = 1.0f;
   float SpecularColour[3] = {1.0f, 1.0f, 1.0f};
-  /* `KHR_materials_volume`: what is BENEATH a transmissive surface, and the format's own words are
-   * why `Thickness` decides the arm rather than `Ior` does -- *if the value is 0 the material is
-   * thin-walled, otherwise the material is a volume boundary*, and *it is still necessary to check
-   * the thicknessFactor to determine whether the object is thin-walled or volumetric*. A refractive
-   * index says how strongly light bends at an interface and says nothing about whether there is a
-   * medium behind it.
-   *
-   * `AttenuationDistance` DEFAULTS TO INFINITY, which is the extension's own default and means a
-   * medium that absorbs nothing however far light travels in it. Infinity rather than a large number,
-   * because `exp(-d/inf)` is exactly 1 and any finite stand-in would tint a clear volume by an amount
-   * nobody chose. */
-  /* `KHR_materials_sheen`: a retroreflective lobe layered over the metal-rough base, for cloth. The
-   * extension's own defaults are BLACK and ZERO, and black is what disables it -- *if
-   * sheenColorFactor is zero, the whole sheen layer is disabled* -- so a file that declares nothing
-   * reaches the shader with a layer that contributes nothing and costs no branch of its own. */
+
   float SheenColour[3] = {0.0f, 0.0f, 0.0f};
   float SheenRoughness = 0.0f;
-  /* `KHR_materials_clearcoat`: a thin dielectric layer over everything below it, and the extension's
-   * own default of zero disables the whole layer. It reuses the metal-rough SPECULAR lobe rather than
-   * introducing one -- *the specular BRDF for the clearcoat layer is computed using the specular term
-   * from the glTF 2.0 Metallic-Roughness material* -- with its own roughness and a fixed ior of 1.5,
-   * which is an F0 of 0.04. */
+
   float Clearcoat = 0.0f;
   float ClearcoatRoughness = 0.0f;
-  /* `KHR_materials_anisotropy`: the specular lobe stretched along a direction in the surface's own
-   * tangent frame. Strength 0 is round and is the extension's default; the rotation is radians
-   * counter-clockwise from the tangent. A mesh using it MUST have a tangent space, which this reader
-   * already builds or refuses. */
+
   float Anisotropy = 0.0f;
   float AnisotropyRotationRad = 0.0f;
-  /* `KHR_materials_iridescence`: a thin film over the surface whose interference tints the SPECULAR
-   * reflectance rather than adding a lobe. Strength 0 is the extension's default and disables it, and
-   * so does a thickness of zero -- *the thin-film thickness of 0.0 nm disables the iridescence*. The
-   * two thicknesses are nanometres and bracket what the thickness texture selects between; with no
-   * such texture the maximum is what applies, which is the extension's own implicit sample of 1.0. */
+
   float Iridescence = 0.0f;
   float IridescenceIor = 1.3f;
   float IridescenceThicknessMinNm = 100.0f;
@@ -106,21 +44,6 @@ struct Material {
   float AttenuationColour[3] = {1.0f, 1.0f, 1.0f};
 };
 
-/* THE DIELECTRIC'S NORMAL-INCIDENCE REFLECTANCE, AND THIS IS THE ONLY PLACE IT IS COMPUTED
- * (board:1205). `KHR_materials_ior` and `KHR_materials_specular` do not set two quantities -- they set
- * ONE, and the renderer needs it as one number:
- *
- *     F0 = specularColour * min( ((ior - 1)/(ior + 1))^2 * specularFactor , 1 )
- *
- * IT LIVES BESIDE THE ROW AND NOT IN THE SHADER because the shader has a C++ twin and the twin would
- * be a second spelling of this arithmetic -- the failure this engine has already paid for once, when a
- * constant 0.04 stood in the shader and the material carried an `Ior` nothing read.
- *
- * THE `min` IS THE FORMAT'S AND NOT A CLAMP ADDED HERE: `KHR_materials_specular` states the product is
- * capped at 1 before the colour tints it, so a specular factor above unity brightens nothing and a
- * tint is still free to darken. `ior = 0` is legal and means a surface with no Fresnel at all, which
- * this expression gives for free -- ((0-1)/(0+1))^2 = 1 would be wrong, so the format's own reading is
- * that ior 0 disables the term, and it is spelled rather than derived. */
 inline void DielectricF0(const Material &material, float out[3]) {
   if (material.Ior == 0.0f) {
     out[0] = out[1] = out[2] = 0.0f;
@@ -134,32 +57,11 @@ inline void DielectricF0(const Material &material, float out[3]) {
   }
 }
 
-/* THE DIELECTRIC'S GRAZING REFLECTANCE, AND IT IS THE SAME EXTENSION'S SECOND HALF (board:1428).
- * `KHR_materials_specular` states the pair together --
- *
- *     dielectric_f0  = min(0.04 * specularColor, 1) * specular
- *     dielectric_f90 = specular
- *
- * -- so a reading that carries the factor into F0 and leaves F90 at unity keeps the whole grazing rim
- * of a surface the file asked to have none. [MEASURED] on `SpecularTest`, whose first row declares
- * `specularFactor = 0` on a black, smooth, non-metallic panel: the oracle renders it EXACTLY zero and
- * we rendered 0.01059 linear, which is the size of the rim every other panel in that row also carries.
- *
- * IT IS THE FACTOR ITSELF AND NOT A CAPPED ONE, because the cap the extension states is on the F0
- * product alone; and `ior = 0` disables this term for the reason it disables F0 -- a surface with no
- * dielectric interface has no reflection at any angle, grazing included.
- *
- * WHY THE PAIR TOGETHER IS EXACTLY THE FORMAT'S `weight * fresnel`: with `f0' = s*f0` and `f90' = s`,
- * Schlick reads `s*f0 + (s - s*f0)*(1-vh)^5 = s * (f0 + (1-f0)*(1-vh)^5)`, so the layer weight and the
- * base's `1 - weight * max(fresnel)` both fall out of these two numbers and neither needs a third. */
 inline float DielectricF90(const Material &material) {
   return material.Ior == 0.0f ? 0.0f : material.SpecularFactor;
 }
 
-/* A MATERIAL AS THE PICTURE TAKES IT: a row of numbers, and nothing in it can switch a pipeline
- * state (the deleted architecture document). Its field meanings live in the shader that reads the row and are
- * written down nowhere else, which is what keeps a content taxonomy out of the engine. */
 constexpr int kMaterialRowFloats = 20;
 
-} // namespace outshine
+}
 #endif

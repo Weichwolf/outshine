@@ -1,9 +1,3 @@
-/* A read-only JSON DOM over a borrowed byte range — everything a GLB's JSON chunk and the model
- * sidecar need and nothing else. Stdlib only: a glTF file is two chunks and a component table, not a
- * reason to take a dependency. Nodes live in ONE flat pool, so parsing a 80 kB chunk is a handful of
- * vector growths and no per-value allocation; a Ref is an index, copied freely.
- * A missing key yields an INVALID Ref rather than an error, and every reader supplies its default —
- * that is what lets the sidecar gain fields without the renderer noticing. */
 #ifndef JSON_H
 #define JSON_H
 
@@ -18,7 +12,6 @@ class Json {
 public:
   enum class Kind : uint8_t { Invalid, Null, Bool, Number, String, Array, Object };
 
-  /* A cursor into the owning Json. Never outlives it and never owns anything. */
   class Ref {
   public:
     Ref() = default;
@@ -30,8 +23,7 @@ public:
 
     Ref operator[](size_t i) const;
     Ref operator[](const char *key) const;
-    /* THE KEYS AN OBJECT ACTUALLY CARRIES, so a reader can refuse one it does not know. Without it a
-     * misspelt property is silently the default, which is how eighty fields nobody read survived. */
+
     std::string Key(size_t i) const;
 
     double Num(double def = 0.0) const;
@@ -45,11 +37,9 @@ public:
     int32_t Node = -1;
   };
 
-  /* `text` is copied; the DOM's strings point into the copy, so the caller's buffer may go. */
   [[nodiscard]] bool Parse(const char *text, size_t len);
   [[nodiscard]] bool Ok() const { return Ok_; }
-  /* Where the parse stopped, bytes from the start of the text. Meaningful only after a refused
-   * Parse; a reader that says "not valid JSON" without it sends its reader to search a whole file. */
+
   size_t StoppedAt() const { return P_; }
   Ref Root() const { return Ref(this, Nodes_.empty() ? -1 : 0); }
 
@@ -59,9 +49,9 @@ private:
   struct Node {
     Kind K = Kind::Invalid;
     double Num = 0.0;
-    uint32_t Str = 0, StrLen = 0;   /* into Text_ (unescaped strings are re-emitted into Pool_) */
+    uint32_t Str = 0, StrLen = 0;
     uint32_t Key = 0, KeyLen = 0;
-    uint32_t First = 0, Count = 0;  /* into Kids_ */
+    uint32_t First = 0, Count = 0;
     bool Escaped = false, KeyEscaped = false;
   };
 
@@ -77,5 +67,5 @@ private:
   bool Ok_ = false;
 };
 
-} // namespace outshine
+}
 #endif

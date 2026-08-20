@@ -1,13 +1,3 @@
-/* THE COMPILER OF THE DECLARED PLAN, judged with no device in the process at all. This test's layer
- * include set is `-Isrc/core -Isrc/render/plan` and nothing else, so "a plan is checkable before a
- * bind group can exist" is proved by the build rather than claimed in a comment: if anything in the
- * plan reached for the renderer or for a `wgpu::` type, this test would not compile. */
-/* A ROW THIS TREE DOES NOT IMPLEMENT DOES NOT EXIST (board:0031). `BenchGround` was a row named for a
- * subject bench that went with the browser-era clients: no implementation, no consumer, no test, and
- * a name referring to something already deleted. Removing it is held at COMPILE time rather than here
- * -- `sizeof kStages / sizeof kStages[0] == kStageCount` and `EveryRowIsAtItsOwnIndex()` mean the
- * enumerator and the row must go together or the catalogue does not build -- and every test in this
- * directory exercises those assertions by compiling against it. Twenty rows are nineteen. */
 #include <memory>
 #include <string>
 
@@ -23,9 +13,6 @@ using outshine::Render::Transfer;
 
 namespace {
 
-/* The declaration a coverage rung makes: one content stage, two requested outputs, a declared
- * exposure and no display curve. Written here rather than in a helper the runner shares, because a
- * test that used the runner's own declaration would agree with it by construction. */
 PlanSpec CoverageSpec() {
   PlanSpec spec;
   spec.Outputs = {Resource::SceneDepth, Resource::FrameTex};
@@ -37,7 +24,7 @@ PlanSpec CoverageSpec() {
 
 int PassesOf(const RenderPlan &plan) { return plan.PassCount(); }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -63,12 +50,7 @@ int main() {
       CHECK(plan->Bound(Resource::SceneLinear) == Resource::SceneHdr,
             "with no temporal resolve declared, a reader of the linear resolve binds the scene "
             "target it falls back to");
-      /* TWO ALIASES, AND THE SECOND ARRIVED WITH THE TRANSMISSIVE PASS (board:1386). A picture with
-       * neither a temporal resolve nor any glass falls back twice -- `SceneLinear` to
-       * `SceneComposited` and that to `SceneHdr` -- and a reader binds what is at the END of the
-       * chain, which the line above is what checks. **The count is the claim that every alias is
-       * PUBLISHED**, not that there is only ever one, and a chain whose hops were not each announced
-       * would be a rebinding nobody could read out of the plan. */
+
       CHECK(plan->Aliases().size() == 2u, "the plan publishes every alias it applied");
       CHECK(plan->SettleFrames() == 1,
             "a plan with no temporal history needs no settle frames beyond the one the device needs "
@@ -78,8 +60,6 @@ int main() {
     }
   }
 
-  /* THE SAME DECLARATION TWICE IS THE SAME PLAN. A digest that moved between two compilations of one
-   * declaration would key a baseline to the weather. */
   {
     std::shared_ptr<const RenderPlan> first, second;
     std::string why;
@@ -91,8 +71,6 @@ int main() {
     }
   }
 
-  /* THE PICTURE PLAN: content that declares the resolve gets it and its history, and the compiler
-   * re-fuses the resolve with the tonemap rather than the shader hiding the merge. */
   {
     PlanSpec spec;
     spec.Outputs = {Resource::Surface};
@@ -120,8 +98,6 @@ int main() {
     }
   }
 
-  /* THE ANTI-VACUOUS RULE. A plan that compiles, runs and renders black is the vacuous gate wearing
-   * a pipeline, and it is refused where the declaration is written. */
   {
     PlanSpec spec;
     spec.Outputs = {Resource::FrameTex};
@@ -135,7 +111,6 @@ int main() {
     Note(("zero-contributor refusal: " + why).c_str());
   }
 
-  /* A CONTENT STAGE THAT CONTRIBUTES TO NOTHING THE PLAN REQUESTS. */
   {
     PlanSpec spec;
     spec.Outputs = {Resource::SceneDepth};
@@ -144,16 +119,13 @@ int main() {
     std::string why;
     const bool compiled = RenderPlan::Compile(spec, &plan, why);
     CHECK(!compiled, "a declared stage nothing reads is refused rather than encoded for nobody");
-    /* THE PATH IS DERIVED FROM THE CATALOGUE AND NOT SPELLED HERE. The refusal builds it from
-     * `Row(id).Name`, so a test that spelled the name would go stale on a rename without failing to
-     * compile -- which it did twice, and cost two gate runs, when five stages became mechanisms. */
+
     CHECK(why.find(std::string("render.content.") + Row(Stage::AmbientOcclusion).Name) !=
               std::string::npos,
           "the refusal names the declaration path of the stage it refused");
     Note(("unread-content refusal: " + why).c_str());
   }
 
-  /* AN OPTION NO STAGE OF THE COMPILED PLAN READS. */
   {
     PlanSpec spec;
     spec.Outputs = {Resource::SceneDepth};
@@ -167,9 +139,6 @@ int main() {
           "the option refusal names the option's own declaration path");
   }
 
-  /* THE DECLARED STORAGE OF THE SCENE-REFERRED CHAIN, which is what a case whose verdict is the
-   * VALUE declares (board:0087). It moves the plan's identity, so a baseline taken
-   * at one precision cannot be read as the other's. */
   {
     std::shared_ptr<const RenderPlan> narrow, wide;
     std::string why;
@@ -200,8 +169,6 @@ int main() {
     }
   }
 
-  /* A PRECISION DECLARED OVER A PLAN THAT CARRIES NO RADIANCE AT ALL -- here a shadow atlas and the
-   * one stage that draws into it, which is a whole plan whose every target is depth. */
   {
     PlanSpec spec;
     spec.Outputs = {Resource::ShadowAtlas};
@@ -217,8 +184,6 @@ int main() {
     Note(("unread-precision refusal: " + why).c_str());
   }
 
-  /* A LIT SURFACE WITH NO SHADOW MAP is refused and told which stage supplies the atlas, rather than
-   * given a cleared texture that would be a second lighting path. */
   {
     PlanSpec spec;
     spec.Outputs = {Resource::FrameTex};
@@ -234,8 +199,6 @@ int main() {
     Note(("missing-producer refusal: " + why).c_str());
   }
 
-  /* THE ONE PLACE A STRING BECOMES A STAGE, so a declaration file's typo is a refusal and not a
-   * silently absent stage. */
   {
     Stage found = Stage::kCount;
     CHECK(RenderPlan::StageByName("terrain", &found) && found == Stage::Terrain,

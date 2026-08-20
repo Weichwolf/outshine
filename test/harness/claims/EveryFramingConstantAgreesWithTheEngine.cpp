@@ -1,17 +1,3 @@
-/* **THE FRAMING RULE IS STATED TWICE AND THE TWO CANNOT DRIFT** (board:1458).
- *
- * A derived camera is computed inside Blender, because Blender is where the posed world bounds are and
- * its own importer is a flattener nobody here has to write. That puts the rule's four constants in a
- * Python file as well as in `src/gltf/Framing.h`, and `CLAUDE.md` is explicit about what that costs:
- * **duplication is a defect exactly when the copies can drift**, so this file is what stops them.
- *
- * **IT READS BOTH FILES AS TEXT AND COMPARES THE NUMBERS.** Neither side is asked to expose the other's
- * spelling: the header declares `constexpr double kFramingAzimuthDeg = 35.0;` and the preparer declares
- * `FRAMING_AZIMUTH_DEG = 35.0`, and what must agree is the VALUE. A test that included the header and
- * trusted Python would be checking one side against itself.
- *
- * **A CONSTANT THE HEADER GAINS AND THE PREPARER DOES NOT IS A FAILURE**, in that direction too: the
- * rule growing a fifth number and only one side learning it is exactly the drift this exists against. */
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -32,8 +18,6 @@ bool Slurp(const std::string &path, std::string &into) {
   return true;
 }
 
-/* THE NUMBER FOLLOWING A NAME AND AN `=`, whichever language wrote it. Both sides spell a literal, so
- * one reader serves both and neither is asked to be parsed as its own language. */
 bool NumberAfter(const std::string &text, const std::string &name, double &out) {
   const size_t at = text.find(name);
   if (at == std::string::npos) { return false; }
@@ -57,8 +41,6 @@ struct Pair {
   const char *InThePreparer;
 };
 
-/* EVERY CONSTANT THE RULE HAS. A fifth appearing in the header and not here would pass this file and
- * fail the corpus, so the count is checked too. */
 constexpr Pair kConstants[] = {
     {"kFramingAzimuthDeg", "FRAMING_AZIMUTH_DEG"},
     {"kFramingElevationDeg", "FRAMING_ELEVATION_DEG"},
@@ -68,7 +50,7 @@ constexpr Pair kConstants[] = {
     {"kFramingNearFloorFraction", "FRAMING_NEAR_FLOOR_FRACTION"},
 };
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -101,13 +83,10 @@ int main() {
   }
   Note("framing constants agreeing across the two statements", (double)agreeing, "constants");
 
-  /* **A CONSTANT THE HEADER GAINS AND THIS FILE DOES NOT IS THE OTHER DIRECTION OF THE SAME DRIFT.**
-   * Every `kFraming` in the header is counted, so a fifth number added there without a pair here is a
-   * failure rather than a silence. */
   size_t declared = 0;
   for (size_t at = header.find("kFraming"); at != std::string::npos;
        at = header.find("kFraming", at + 1)) {
-    /* Only the DECLARATIONS, which are the ones followed by an `=` before the next newline. */
+
     const size_t line = header.find('\n', at);
     const size_t equals = header.find('=', at);
     if (equals != std::string::npos && (line == std::string::npos || equals < line)) { ++declared; }
@@ -117,7 +96,7 @@ int main() {
         "every constant the framing rule declares has a pair in this file, so a fifth one added to "
         "the header cannot be a number only one side knows");
 
-  Covers("board:1458 a derived camera is computed where the bounds are, and the rule's constants "
+  Covers("a derived camera is computed where the bounds are, and the rule's constants "
          "cannot drift between the engine and the preparer");
   return Report();
 }

@@ -7,9 +7,6 @@ namespace outshine::Gltf {
 
 namespace {
 
-/* THE FORMAT'S OWN NUMBERS, stated once here for the writer exactly as `Types.h` states them for the
- * reader: the reader turns them into enumerations on the way in and this turns enumerations back
- * into them on the way out, so neither side carries a literal in its arms. */
 constexpr uint32_t kGlbMagic = 0x46546C67;
 constexpr uint32_t kGlbVersion = 2;
 constexpr uint32_t kChunkJson = 0x4E4F534A;
@@ -26,10 +23,6 @@ void PadTo4(std::vector<uint8_t> &out, uint8_t filler) {
   while ((out.size() % 4) != 0) { out.push_back(filler); }
 }
 
-/* SHORTEST ROUND-TRIPPING DECIMAL, and it is what makes the fixed point hold through a TEXT format:
- * the JSON carries the material row and the node names, and a factor written with too few digits
- * comes back as a different float. 9 significant digits is the exact bound for binary32 -- every
- * f32 is recovered from its 9-digit decimal -- and the values written through here are all f32. */
 std::string Number(double value) {
   char text[40];
   std::snprintf(text, sizeof text, "%.9g", value);
@@ -38,8 +31,6 @@ std::string Number(double value) {
 
 std::string Integer(size_t value) { return std::to_string(value); }
 
-/* A JSON STRING WITH THE FORMAT'S OWN ESCAPES. A node name is the file's own and can carry anything;
- * a writer that pasted it in raw would emit a document its own reader refuses. */
 std::string Quoted(const std::string &text) {
   std::string out = "\"";
   for (const char raw : text) {
@@ -72,9 +63,6 @@ const char *AlphaSpelling(AlphaMode mode) {
   return "OPAQUE";
 }
 
-/* ONE ATTRIBUTE RUN AS THE FILE HOLDS IT: which semantic, how many components, and which of the
- * subject's parallel runs the values come from. A null run is an attribute this part does not carry,
- * which is a primitive that states one fewer semantic and never a run of zeros. */
 struct Attribute {
   const char *Semantic;
   size_t Components;
@@ -104,10 +92,6 @@ private:
     return false;
   }
 
-  /* WHAT THIS WRITER CANNOT STATE, REFUSED BEFORE A BYTE IS WRITTEN AND NAMED ONE BY ONE. Every arm
-   * here is a capability the emit path does not have yet rather than a rule about content, and each
-   * says which -- a half-written file that dropped what it could not express is the silent defect
-   * this whole boundary is built to make impossible. */
   [[nodiscard]] bool Admissible() {
     if (Subject_.Parts().empty()) {
       return Refuse("the subject draws no part, and a file with no triangle is not a subject");
@@ -168,8 +152,6 @@ private:
     return true;
   }
 
-  /* THE MATERIAL TABLE, WHOLE AND IN ORDER, because `Part::Material` is an index into it and a table
-   * that skipped an unused entry would renumber every part after it. */
   std::string Materials() {
     if (What_.Materials.Empty()) { return ""; }
     std::string json = ",\"materials\":[";
@@ -198,16 +180,11 @@ private:
       json += "}";
     }
     json += "]";
-    /* An extension a file USES and does not REQUIRE, which is what the extension's own registration
-     * says: a reader that does not implement it draws the surface lit, which is a picture rather
-     * than a refusal. */
+
     if (unlit) { json += ",\"extensionsUsed\":[\"KHR_materials_unlit\"]"; }
     return json;
   }
 
-  /* ONE NODE, ONE MESH, ONE PRIMITIVE PER PART, all at the identity -- which is what makes the
-   * second flatten reproduce the first. A hierarchy here would be a hierarchy the subject no longer
-   * carries, so it could only be invented. */
   std::string Parts() {
     std::string nodes = ",\"nodes\":[";
     std::string meshes = ",\"meshes\":[";
@@ -239,10 +216,7 @@ private:
         {"TEXCOORD_0", 2, drawn.HasUv ? &Subject_.Uv() : nullptr},
         {"TEXCOORD_1", 2, drawn.HasUv1 ? &Subject_.Uv1() : nullptr},
         {"TANGENT", 4, drawn.Tangent == TangentSource::Supplied ? &Subject_.Tangents() : nullptr},
-        /* WRITTEN AS FLOAT VEC4, which is one of the format's six spellings and the only one this
-         * writer needs (board:1193): the run is already four wide and already linear, so the reader
-         * gives back what went in and the fixed point holds at zero applications. A normalized
-         * integer would be the same colours through a quantisation nobody asked for. */
+
         {"COLOR_0", 4, drawn.HasColour ? &Subject_.Colours() : nullptr}};
     std::string json;
     for (const Attribute &attribute : declared) {
@@ -253,9 +227,6 @@ private:
     return json;
   }
 
-  /* ONE ATTRIBUTE OF ONE PART, appended to the single buffer and given its own view and accessor.
-   * POSITION carries the min and max the format requires of it and no other accessor does, which is
-   * the format's own asymmetry rather than this writer's. */
   size_t Vertices(const Part &drawn, const Attribute &attribute) {
     const size_t at = Binary_.size();
     std::vector<double> lowest(attribute.Components, 0.0);
@@ -277,9 +248,6 @@ private:
                     bounded ? &highest : nullptr);
   }
 
-  /* THE PART'S INDICES, RESTATED AGAINST ITS OWN VERTEX RUN. `Subject::Indices()` addresses the
-   * whole flattened run; a primitive's accessor addresses only the vertices its own accessors carry,
-   * so the part's first vertex is what comes off. */
   size_t Indices(const Part &drawn) {
     const size_t at = Binary_.size();
     for (size_t corner = 0; corner < drawn.IndexCount; ++corner) {
@@ -342,7 +310,7 @@ private:
   size_t ViewCount_ = 0, AccessorCount_ = 0;
 };
 
-} // namespace
+}
 
 bool Emit(const Emission &what, std::vector<uint8_t> &glb, std::string &error) {
   error.clear();
@@ -354,4 +322,4 @@ bool Emit(const Emission &what, std::vector<uint8_t> &glb, std::string &error) {
   return Writer(what, error).Run(glb);
 }
 
-} // namespace outshine::Gltf
+}

@@ -1,15 +1,3 @@
-/* THE INTERFACE, DRAWN ON A REAL DEVICE, AND READ BACK PIXEL BY PIXEL (board:1442).
- *
- * **THE PAINT LAYER'S CLAIMS ARE ABOUT A LIST AND THIS ONE IS ABOUT PIXELS.** `src/ui/Paint` says a
- * rectangle carries a colour, a clip and an opacity; nothing in that suite can say the driver put a
- * texel anywhere. This does, and it is the last link of the path a declaration travels: markup, style,
- * layout, quads, and the frame.
- *
- * No asset, no camera and no oracle -- a device, a pipeline and a target, which is what this suite is.
- *
- * **EVERY COLOUR HERE IS CHECKED AGAINST WHAT WAS DECLARED AND NOT AGAINST A REFERENCE IMAGE.** The
- * numbers below are the consumer's own: a rectangle declared opaque red must come back opaque red, and
- * a pixel outside every rectangle must come back the clear the pass declared. */
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -37,7 +25,6 @@ namespace {
 constexpr uint32_t kWidth = 64;
 constexpr uint32_t kHeight = 48;
 
-/* THE DEVICE, AND NOTHING ELSE: no swapchain, no window, no asset. */
 class Instrument {
 public:
   ~Instrument() {
@@ -57,11 +44,10 @@ public:
 };
 
 struct Frame {
-  std::vector<uint8_t> Texels;   /* rgba8, tightly packed at kWidth * 4 */
+  std::vector<uint8_t> Texels;
   bool Held = false;
 };
 
-/* ONE PIXEL AS FOUR CODES. */
 struct Rgba {
   int R = 0, G = 0, B = 0, A = 0;
   bool operator==(const Rgba &other) const {
@@ -75,8 +61,6 @@ Rgba At(const Frame &frame, uint32_t x, uint32_t y) {
   return {frame.Texels[at], frame.Texels[at + 1], frame.Texels[at + 2], frame.Texels[at + 3]};
 }
 
-/* Draw the declared rectangles into a fresh target and bring the texels back. The clear is BLACK and
- * opaque, so *nothing was drawn here* has one spelling and it is not the same as any declared colour. */
 Frame Drawn(Instrument &on, const std::vector<OverlayQuad> &quads) {
   Frame frame;
   Gpu handles{};
@@ -158,7 +142,7 @@ OverlayQuad Solid(float x, float y, float w, float h, float r, float g, float b,
   return quad;
 }
 
-}  // namespace
+}
 
 int main(void) {
   Instrument on;
@@ -167,8 +151,6 @@ int main(void) {
     return Report();
   }
 
-  /* A DECLARED RECTANGLE LANDS WHERE IT WAS DECLARED, TO THE PIXEL, and one pixel outside it is the
-   * clear. Both halves are the claim: a stage that filled the target would pass the first alone. */
   {
     const Frame frame = Drawn(on, {Solid(8, 6, 16, 12, 1, 0, 0, 1)});
     CHECK(frame.Held, "the overlay drew and the target came back");
@@ -182,9 +164,6 @@ int main(void) {
     }
   }
 
-  /* THE CLIP IS HONOURED PER RECTANGLE AND NOT AS A PASS STATE. One draw, one pipeline, and the half
-   * of the rectangle outside its own clip never reaches a texel -- which is what lets a whole
-   * interface with many clips be a single draw. */
   {
     OverlayQuad clipped = Solid(0, 0, 40, 40, 0, 1, 0, 1);
     clipped.ClipLeftPx = 0;
@@ -201,10 +180,6 @@ int main(void) {
     }
   }
 
-  /* OPACITY COMPOSES OVER WHAT IS ALREADY THERE, PREMULTIPLIED. Half-opaque white over black is 128
-   * on this transfer -- the number a straight-alpha blend would also give, which is why the SECOND
-   * claim below is the one that separates them: two half-opaque quads over each other reach 191, and
-   * a straight blend darkens the seam instead. */
   {
     const Frame frame = Drawn(on, {Solid(0, 0, 32, 32, 1, 1, 1, 0.5f),
                                    Solid(16, 0, 32, 32, 1, 1, 1, 0.5f)});
@@ -220,9 +195,6 @@ int main(void) {
     }
   }
 
-  /* A ROUNDED CORNER IS CUT AND THE MIDDLE IS NOT. The claim is about the CORNER TEXEL, because a
-   * radius that did nothing would leave it filled and a radius that ate the box would empty the
-   * middle. */
   {
     OverlayQuad rounded = Solid(8, 8, 24, 24, 0, 0, 1, 1);
     rounded.RadiusPx = 8;
@@ -235,8 +207,6 @@ int main(void) {
     }
   }
 
-  /* THE BOUND REFUSES AND SAYS BY HOW MUCH. A silently truncated interface draws a picture nobody
-   * declared, which is the one failure a published bound exists to prevent. */
   {
     Gpu handles{};
     handles.Device = on.Device;

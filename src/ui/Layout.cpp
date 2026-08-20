@@ -27,38 +27,18 @@ constexpr uint32_t kStatic = Keyword("static");
 constexpr uint32_t kPre = Keyword("pre");
 constexpr uint32_t kRight = Keyword("right");
 constexpr uint32_t kSpaceEvenly = Keyword("space-evenly");
-/* `start` AND `end` ARE CSS BOX ALIGNMENT'S OWN WORDS, and they are not spare spellings of the flex
- * ones: `flex-start` is the start of the FLEX direction and `start` is the start of the WRITING
- * direction, which differ under `row-reverse` and under a right-to-left flow. This engine holds
- * neither of those -- both are named outside the subset -- so within what it does hold the two
- * coincide, and mapping them is exact rather than approximate. The day a reversed direction arrives,
- * this mapping is where it stops being exact, and that is written here so the next reader finds it. */
+
 constexpr uint32_t kStart = Keyword("start");
 constexpr uint32_t kEnd = Keyword("end");
 constexpr uint32_t kWrap = Keyword("wrap");
 constexpr uint32_t kWrapReverse = Keyword("wrap-reverse");
 
-/* THE ALIGNMENT WORD, IN ONE SPELLING. Every place that compares against `kFlexEnd` would otherwise
- * have to compare against `kEnd` too, and the one that forgot would be a keyword that silently did
- * nothing -- which is exactly how `space-evenly` read as `flex-start` for a whole corpus run.
- *
- * **`start` AND `end` ARE PHYSICAL AND `flex-start` AND `flex-end` ARE NOT**, and under
- * `wrap-reverse` the two disagree: the cross axis is mirrored, so the line the FLEX axis starts with
- * is the one that ends up physically last. [MEASURED] `align-content: start` in a reversed container
- * states x = 8 -- the physical left -- and mapping it to `flex-start` answered 198. Everything below
- * is computed in flex coordinates and mirrored once at the end, so translating the physical word into
- * the flex one HERE is what makes the single mirror correct for both.
- *
- * The symmetric words -- `center` and the three distributions -- are unchanged by a mirror and need no
- * arm, which is why there is none. */
 [[nodiscard]] constexpr uint32_t Aligned(uint32_t word, bool reversed) {
   if (word == kStart) { return reversed ? kFlexEnd : 0u; }
   if (word == kEnd) { return reversed ? 0u : kFlexEnd; }
   return word;
 }
 
-/* EVERY DECLARATION AN ELEMENT ENDED UP WITH, one slot per property. A slot nobody set stays unset,
- * which is how *the author said nothing* stays distinguishable from *the author said zero*. */
 struct Computed {
   Value Held[(size_t)Property::kCount];
   bool Set[(size_t)Property::kCount] = {};
@@ -81,8 +61,6 @@ struct Computed {
   }
 };
 
-/* A LENGTH AGAINST THE ONE THING THAT CAN RESOLVE IT. `Auto` answers *absent*, because the difference
- * between "auto" and "unset" lives in the caller's own rule and not here. */
 double Resolve(const Value &value, double against, double emPx, double rootEmPx, bool &absent) {
   absent = false;
   switch (value.How) {
@@ -122,11 +100,7 @@ struct Placer {
   std::vector<Box> *Out = nullptr;
 
   [[nodiscard]] Computed StyleOf(int node, const Computed *inherited) const;
-  /* `usedW` and `usedH` are the sizes a FLEX line already decided for this box, or -1 where nothing
-   * has. They are separate from the container's size because the two answer different questions: the
-   * container's is what a PERCENTAGE resolves against, and the used one is what the box IS. Passing one
-   * number for both makes `width: 15%` inside a flex item resolve against the item's own room -- which
-   * is 15 % of 15 %, and is how a column collapses to a fifth of itself. */
+
   double Place(int node, const Computed *inherited, double originX, double originY,
                double containerWidth, double containerHeight, int parentBox, double usedW = -1,
                double usedH = -1);
@@ -138,24 +112,14 @@ struct Placer {
               double contentWidth, double contentHeight, double emPx);
   double Runs(int node, const Computed &style, int self, double contentX, double contentY,
               double contentWidth, double emPx);
-  /* WHAT A SUBTREE WOULD TAKE, measured by laying it out and throwing the boxes away. Flex needs an
-   * item's content size before it can decide the item's size, and there is no shortcut that stays
-   * true for a subtree with its own children. */
+
   void Measure(int node, const Computed *inherited, double availableWidth, double &width,
                double &height);
-  /* THE WIDTH A SUBTREE WANTS WITH NOTHING WRAPPING -- max-content, and it is a different question
-   * from *what would it take in this much room*. A flex item with no declared main size takes this
-   * and NOT the room its container offers: an empty box wants nothing, and an engine that handed it
-   * the container's width would report every such row overfull and shrink every sibling. */
+
   double MaxContent(int node, const Computed *inherited);
-  /* THE SMALLEST WIDTH THE CONTENT CAN BE SQUEEZED INTO WITHOUT OVERFLOWING ITS OWN PARTS: the widest
-   * single word of a text run, the widest indivisible child of a block. It is what CSS calls the
-   * min-content size, and it is a DIFFERENT question from max-content -- the two coincide only where
-   * nothing can wrap. */
+
   double MinContent(int node, const Computed *inherited, bool ownSize = true);
-  /* WHERE AN ITEM'S FIRST BASELINE SITS, measured from its own top margin edge, by laying it out in
-   * the width it will get. It is a trial layout and its boxes are thrown away, which is what makes a
-   * baseline knowable before the item is placed. */
+
   double BaselineOf(int node, const Computed *inherited, double widthRoom);
   [[nodiscard]] double Clamped(double used, const Computed &style, Property least, Property most,
                                double against, double emPx, double frame = 0.0) const;
@@ -188,8 +152,7 @@ Computed Placer::StyleOf(int node, const Computed *inherited) const {
       }
     }
   };
-  /* THE USER-AGENT SHEET SITS BENEATH EVERY AUTHOR RULE, which one bias states once rather than a
-   * second ranking rule stating it everywhere. */
+
   gather(*Agent, -1000000);
   gather(*Author, 0);
   std::stable_sort(found.begin(), found.end(), [](const Ranked &a, const Ranked &b) {
@@ -212,9 +175,7 @@ void Placer::Measure(int node, const Computed *inherited, double availableWidth,
   Out = held;
   width = scratch.empty() ? 0 : scratch[0].Width;
   height = scratch.empty() ? 0 : scratch[0].Height;
-  /* A BLOCK WITH NO DECLARED WIDTH FILLED ITS CONTAINER, and what a flex item wants is what its
-   * CONTENTS take. The widest descendant answers that, which is the shrink-to-fit rule stated for the
-   * one case this subset has. */
+
   double widest = 0;
   for (const Box &one : scratch) {
     if (one.Parent < 0) { continue; }
@@ -245,10 +206,7 @@ double Placer::MinContent(int node, const Computed *inherited, bool ownSize) {
   const double frame = len(Property::BorderLeftWidth, 0) + len(Property::BorderRightWidth, 0) +
                        len(Property::PaddingLeft, 0) + len(Property::PaddingRight, 0);
   const double margins = len(Property::MarginLeft, 0) + len(Property::MarginRight, 0);
-  /* A DECLARED WIDTH IS THIS BOX'S MIN-CONTENT CONTRIBUTION -- for every box but the one being asked
-   * about. CSS's automatic minimum size is the SMALLER of the specified-size suggestion and the
-   * content-size suggestion, and answering the specified size here would collapse the two into one and
-   * always return the larger. */
+
   if (ownSize && style.Has(Property::Width) && style.Of(Property::Width).How == Unit::Pixels) {
     const double declared = style.Of(Property::Width).Number;
     return (style.Word(Property::BoxSizing, 0) == kBorderBox ? declared : declared + frame) + margins;
@@ -258,8 +216,7 @@ double Placer::MinContent(int node, const Computed *inherited, bool ownSize) {
   for (const int child : element.Children) {
     const Node &inner = Tree->Nodes()[(size_t)child];
     if (inner.Kind == NodeKind::Text) {
-      /* THE WIDEST SINGLE WORD, because that is the narrowest a run can be made without breaking one
-       * -- and this subset declares that a word is never broken. */
+
       const std::string text = Collapsed(inner.Text);
       size_t at = 0;
       while (at < text.size()) {
@@ -270,8 +227,7 @@ double Placer::MinContent(int node, const Computed *inherited, bool ownSize) {
       }
       continue;
     }
-    /* EVEN A ROW FLEX CONTAINER TAKES THE MAX AND NOT THE SUM HERE: its items may wrap, and where they
-     * cannot the shrink factor still makes the row narrower than the sum. */
+
     own = std::fmax(own, MinContent(child, &style));
   }
   return own + frame + margins;
@@ -293,9 +249,7 @@ double Placer::MaxContent(int node, const Computed *inherited) {
   const auto len = [&](Property what, double fallback) {
     if (!style.Has(what)) { return fallback; }
     bool absent = false;
-    /* A PERCENTAGE HAS NO ANSWER HERE, and that is the honest one: max-content is asked before any
-     * container is known, so a percentage contributes nothing rather than a number invented from a
-     * width nobody has yet. */
+
     const double found = Resolve(style.Of(what), 0.0, emPx, RootEm, absent);
     return absent ? fallback : found;
   };
@@ -336,8 +290,6 @@ double Placer::MaxContent(int node, const Computed *inherited) {
 
 namespace {
 
-/* THE CODE POINTS OF A RUN, one at a time -- the same decoding the painter does, so the two halves
- * walk the same columns. */
 size_t NextCodePoint(const std::string &text, size_t at, char32_t &code) {
   const unsigned char lead = (unsigned char)text[at];
   size_t length = 1;
@@ -359,12 +311,8 @@ size_t NextCodePoint(const std::string &text, size_t at, char32_t &code) {
   return length;
 }
 
-} // namespace
+}
 
-/* HOW WIDE A STRETCH OF A RUN IS, ASKED GLYPH BY GLYPH. A single advance for every character is a
- * MONOSPACE assumption wearing the word `metrics`, and it is the one thing between a label and a page
- * of a book set in a real face. A font with nothing per-glyph to say answers zero and the size's own
- * advance is used, so the measurement face costs exactly what it did. */
 double Placer::Width(const std::string &text, size_t from, size_t to, double emPx) const {
   const FontMetrics metrics = Face->At(emPx);
   double width = 0;
@@ -377,24 +325,12 @@ double Placer::Width(const std::string &text, size_t from, size_t to, double emP
   return width;
 }
 
-/* WHAT A DECLARED MINIMUM AND MAXIMUM DO TO A USED SIZE, and the ORDER is CSS's own: the maximum is
- * applied first and the minimum second, so a box whose minimum exceeds its maximum comes out at the
- * MINIMUM. Reversing the two reads as the same rule and answers differently exactly where the two
- * declarations disagree, which is the case a corpus writes a test for.
- *
- * A LIMIT NOBODY DECLARED IS NOT A LIMIT OF ZERO. `min-*` defaults to nothing here rather than to 0,
- * because the difference only shows on a negative used size -- and a used size is never negative,
- * which is itself the floor this applies. */
 double Placer::Clamped(double used, const Computed &style, Property least, Property most,
                        double against, double emPx, double frame) const {
-  /* THE LIMIT SPEAKS THE BOX THE DECLARATION MEANS. Under the default `content-box`, `min-width: 400`
-   * is four hundred pixels of CONTENT and the border box is that plus the frame -- while flex
-   * distributes border boxes. [MEASURED] `multiline-min-max` gives an item `min-width: 400px` and
-   * `padding-left: 10px` and states 500; clamping the border box against 400 answered 400. */
+
   const double sides = style.Word(Property::BoxSizing, 0) == kBorderBox ? 0.0 : frame;
   double out = used;
-  /* `kCount` IS *NO LIMIT ON THIS SIDE*, which a caller needs when it is applying one of the two --
-   * the automatic minimum size is clamped by the maximum and by nothing else. */
+
   if (most != Property::kCount && style.Has(most) && style.Of(most).How != Unit::Auto) {
     bool absent = false;
     const double ceiling = Resolve(style.Of(most), against, emPx, RootEm, absent);
@@ -405,8 +341,7 @@ double Placer::Clamped(double used, const Computed &style, Property least, Prope
     const double floor = Resolve(style.Of(least), against, emPx, RootEm, absent);
     if (!absent) { out = std::fmax(out, floor + sides); }
   }
-  /* A USED SIZE IS NEVER NEGATIVE. CSS floors it, and a box of negative width is a rectangle nobody
-   * can draw -- it reached the corpus as `width is -80.000000` before this line existed. */
+
   return std::fmax(0.0, out);
 }
 
@@ -432,23 +367,14 @@ double Placer::Runs(int node, const Computed &style, int self, double contentX, 
     const Node &run = Tree->Nodes()[(size_t)child];
     if (run.Kind != NodeKind::Text) { continue; }
     const std::string text = keepSpace ? run.Text : Collapsed(run.Text);
-    /* A RUN THAT COLLAPSES TO NOTHING BUT SPACES IS REMOVED, NOT LAID OUT. Collapsible whitespace
-     * between block-level boxes carries no content, and CSS deletes it rather than giving it a line
-     * box. [MEASURED] the newline and indentation an author writes between two `<div>`s produced ONE
-     * line box each, stacked before every block child, and the first box of `align-content-vert-001a`
-     * landed at y = 46.4 where the document states 8 -- two lines of 19.2 px that exist only in the
-     * source's formatting. */
+
     if (text.empty() || (!keepSpace && text.find_first_not_of(' ') == std::string::npos)) {
       continue;
     }
-    /* WRAPPED AT SPACES AND NOWHERE ELSE, which is what this subset declares: no hyphenation, no
-     * breaking inside a word, and a word wider than the line is placed and overflows rather than
-     * being cut in half. */
+
     size_t at = 0;
     while (at < text.size()) {
-      /* WALK UNTIL THE LINE IS FULL, REMEMBERING THE LAST SPACE. A width divided by one advance
-       * answers *how many characters fit* only when every character is the same width, so the walk is
-       * what makes a proportional face wrap where it actually runs out of room. */
+
       size_t take = text.size() - at;
       if (contentWidth > 0) {
         double width = 0;
@@ -467,10 +393,7 @@ double Placer::Runs(int node, const Computed &style, int self, double contentX, 
           if (lastSpace != std::string::npos && lastSpace > at) {
             take = lastSpace - at;
           } else {
-            /* A WORD WIDER THAN THE LINE IS PLACED WHOLE AND OVERFLOWS. No hyphenation and no break
-             * inside a word is a DECLARED part of this subset, so the line is extended to the word's
-             * own end -- stopping where the room ran out would cut it, and taking one character at a
-             * time is that same cut spelled once per glyph. */
+
             const size_t next = text.find(' ', at);
             take = next == std::string::npos ? text.size() - at : next - at;
           }
@@ -489,8 +412,7 @@ double Placer::Runs(int node, const Computed &style, int self, double contentX, 
       if (align == kRight) { line.X = contentX + contentWidth - line.Width; }
       line.Parent = self;
       line.Baseline = (lineHeight - (metrics.Ascent + metrics.Descent)) / 2.0 + metrics.Ascent;
-      /* THE BOX'S BASELINE IS ITS FIRST LINE'S, and only the first: a paragraph aligns by the line a
-       * reader's eye starts on, which is what CSS states and what makes two columns of prose line up. */
+
       if ((*Out)[(size_t)self].Baseline == 0.0) {
         (*Out)[(size_t)self].Baseline = (y - contentY) + line.Baseline +
                                         ((*Out)[(size_t)self].Border.Top +
@@ -512,10 +434,7 @@ double Placer::Blocks(int node, const Computed &style, int self, double contentX
   y += Runs(node, style, self, contentX, y, contentWidth, emPx);
   for (const int child : Tree->Nodes()[(size_t)node].Children) {
     if (Tree->Nodes()[(size_t)child].Kind != NodeKind::Element) { continue; }
-    /* **A BLOCK HANDS ITS CHILDREN ITS OWN HEIGHT**, or a percentage height inside block flow has
-     * nothing to resolve against and every `height: 100%` in a column comes out zero. [MEASURED] the
-     * browser's own two columns collapsed to nothing on exactly this: `width: 100%` resolved and
-     * `height: 100%` did not, because only one of the two rooms was being passed down. */
+
     y += Place(child, &style, contentX, y, contentWidth, contentHeight, self);
   }
   return y - contentY;
@@ -525,22 +444,16 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
                     double contentWidth, double contentHeight, double emPx) {
   const uint32_t direction = style.Word(Property::FlexDirection, 0);
   const bool column = direction == kColumn || direction == kColumnReverse;
-  /* A REVERSED DIRECTION IS THE MAIN AXIS MIRRORED, and it is applied ONCE at placement -- everything
-   * between here and there is computed in flex coordinates. Reversing the item order instead would
-   * work for the sizes and be wrong for `justify-content`, which measures from the flex start. */
+
   const bool mainReversed = direction == kRowReverse || direction == kColumnReverse;
   const double mainRoom = column ? contentHeight : contentWidth;
   const double crossRoom = column ? contentWidth : std::fmax(0.0, contentHeight);
-  /* WHETHER THERE IS A ROOM TO MEASURE AGAINST AT ALL. Without one an item keeps the size its own
-   * content asked for: nothing grows into space that has no size and nothing shrinks to fit a
-   * container that has not been given one. */
+
   const bool definiteMain = mainRoom >= 0.0;
   const double gap = style.Has(Property::Gap) ? style.Of(Property::Gap).Number : 0.0;
   const uint32_t wrapping = style.Word(Property::FlexWrap, 0);
   const bool reversed = wrapping == kWrapReverse;
-  /* THE MAIN AXIS IS NOT MIRRORED BY `wrap-reverse` -- only the cross one is -- so `justify-content`
-   * takes the unreversed translation and `align-items` takes the reversed one. Handing both the same
-   * flag is the kind of symmetry that reads as tidy and is a different layout. */
+
   const uint32_t justify = Aligned(style.Word(Property::JustifyContent, 0), mainReversed);
   const uint32_t align = Aligned(style.Word(Property::AlignItems, kStretch), reversed);
 
@@ -586,8 +499,6 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
     item.Grow = item.Style.Number(Property::FlexGrow, 0);
     item.Shrink = item.Style.Number(Property::FlexShrink, 1);
 
-    /* THE BASE IS `flex-basis`, THEN THE MAIN-AXIS SIZE, THEN WHAT THE CONTENTS TAKE -- which is the
-     * order the specification states and the only one where an item with neither answers at all. */
     bool haveBase = false;
     const Property mainSize = column ? Property::Height : Property::Width;
     if (item.Style.Has(Property::FlexBasis) && item.Style.Of(Property::FlexBasis).How != Unit::Auto) {
@@ -600,8 +511,7 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
       item.Base = Resolve(item.Style.Of(mainSize), mainRoom, itemEm, RootEm, absent);
       haveBase = !absent;
     }
-    /* A DECLARED SIZE IS THE CONTENT'S UNDER CSS'S OWN DEFAULT, and what flex distributes is the
-     * BORDER box -- so the frame is added here, once, and every later step speaks one currency. */
+
     if (haveBase && item.Style.Word(Property::BoxSizing, 0) != kBorderBox) {
       const double frame =
           column ? len(Property::BorderTopWidth, contentWidth, 0) +
@@ -624,8 +534,7 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
                               len(Property::PaddingRight, contentWidth, 0);
     if (!haveBase) {
       if (column) {
-        /* A COLUMN'S MAIN AXIS IS HEIGHT, and a height is only knowable once a width is -- so this one
-         * IS measured in the room it will get, which is the container's own content width. */
+
         double w = 0, h = 0;
         Measure(child, &style, contentWidth, w, h);
         item.Base = h;
@@ -640,17 +549,11 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
       item.Cross = Resolve(item.Style.Of(crossSize), crossRoom, itemEm, RootEm, absent);
       item.CrossDeclared = !absent;
     }
-    /* THE ITEM'S OWN LIMITS ARE KEPT AND APPLIED AFTER FLEXING, not before: growing then clamping is
-     * what CSS's resolution does, and clamping the base first would hand the line a free space that
-     * was never free. */
+
     item.Least = column ? Property::MinHeight : Property::MinWidth;
     item.Most = column ? Property::MaxHeight : Property::MaxWidth;
     item.Em = itemEm;
-    /* THE AUTOMATIC MINIMUM SIZE. A flex item's `min-width`/`min-height` default to `auto`, and `auto`
-     * on a flex item is its CONTENT-BASED MINIMUM -- not zero. [MEASURED] `flex-minimum-size-001` puts
-     * a 100 px child inside a 10 px flexbox and states the item stays 100 and overflows; flooring the
-     * shrink at zero answered 0. A declared minimum wins over it, and a clipped item has none, because
-     * an item that hides its own overflow has said it may be smaller than its contents. */
+
     if (!item.Style.Has(item.Least) || item.Style.Of(item.Least).How == Unit::Auto) {
       if (item.Style.Word(Property::Overflow, 0) != kHidden) {
         if (column) {
@@ -658,17 +561,10 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
           Measure(child, &style, contentWidth, w, h);
           item.Floor = h;
         } else {
-          /* THE SMALLER OF THE TWO SUGGESTIONS, THEN CLAMPED BY THE MAXIMUM -- which is what CSS's
-           * automatic minimum size IS, word for word. [MEASURED] taking the specified size alone made
-           * an item with `width: 40px; max-width: 30px` come out 40: its own floor outranked its own
-           * ceiling, which is a box that is larger than the largest it may be. */
+
           const double content =
               MinContent(child, &style, false) - item.MainMarginStart - item.MainMarginEnd;
-          /* THE SPECIFIED-SIZE SUGGESTION IS THE ITEM'S OWN `width` OR `height` AND NOT ITS BASIS.
-           * [MEASURED] an item with `flex-basis: 20px` and no width came out 20 where the document
-           * states 100: a basis is what the item asks to START at, and a minimum is about what its
-           * contents cannot go below. Reading one as the other makes every flexible item's floor its
-           * own starting size, which is a floor that flexing can never leave. */
+
           double suggestion = content;
           if (item.Style.Has(mainSize) && item.Style.Of(mainSize).How != Unit::Auto) {
             bool absent = false;
@@ -687,11 +583,7 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
       }
     }
     item.Main = item.Base;
-    /* THE HYPOTHETICAL MAIN SIZE IS THE BASE UNDER ITS OWN LIMITS, and it is what decides where a line
-     * BREAKS -- flexing happens afterwards, per line, and cannot be consulted before the lines exist.
-     * [MEASURED] `multiline-min-max` gives an item `flex: 1` with `min-width: 400px` in a 600 px
-     * container: its base is zero, so breaking by the base fits four items on one line where the
-     * document states three. */
+
     item.Hypothetical = std::fmax(Clamped(item.Base, item.Style, item.Least, item.Most, mainRoom,
                                           itemEm, item.Frame),
                                   item.Floor);
@@ -699,10 +591,6 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
   }
   if (items.empty()) { return 0; }
 
-  /* THE ITEMS ARE BROKEN INTO LINES BEFORE ANYTHING IS SIZED, because every later step is per line:
-   * a line resolves its OWN free space, a line has its OWN cross size, and `align-items` stretches an
-   * item to the line rather than to the container. Laying a wrapped container out as one line is the
-   * defect that makes `align-content` unspellable -- there is nothing to distribute. */
   const bool wraps = wrapping == kWrap || wrapping == kWrapReverse;
   struct Line {
     size_t From = 0, Count = 0;
@@ -729,21 +617,12 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
     lines.push_back(line);
   }
 
-  /* EACH LINE RESOLVES ITS OWN FLEXIBLE LENGTHS, and its own cross size falls out of what it holds. */
   for (Line &line : lines) {
     double taken = gap * (double)(line.Count - 1);
     for (size_t i = line.From; i < line.From + line.Count; ++i) {
       taken += items[i].Base + items[i].MainMarginStart + items[i].MainMarginEnd;
     }
-    /* **RESOLVING FLEXIBLE LENGTHS, AND IT IS A LOOP AND NOT A DIVISION.** An item whose clamped size
-     * differs from what its factor asked for is FROZEN at the clamp, and what it gave up or took is
-     * redistributed among the rest -- so one item hitting its `max-width` does not make every other
-     * item smaller. [MEASURED] `multiline-min-max` gives an item `flex: 1 1 600px; max-width: 300px`
-     * beside three of 100 in a 600 px container and states the three stay 100; distributing the
-     * shortfall in one pass answered less for all of them.
-     *
-     * The loop terminates because every pass freezes at least one item or ends, which is the
-     * specification's own argument and the bound this loop is written against. */
+
     const double outerBases = taken;
     const bool growing = definiteMain && mainRoom > outerBases;
     std::vector<bool> frozen(line.Count, false);
@@ -789,8 +668,7 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
         for (size_t i = 0; i < line.Count; ++i) { frozen[i] = true; }
         break;
       }
-      /* A POSITIVE TOTAL MEANS THE MINIMUMS WON, so those items are frozen and the rest are asked
-       * again with less room; a negative total is the same sentence about the maximums. */
+
       for (size_t i = 0; i < line.Count; ++i) {
         if (frozen[i]) { continue; }
         const Item &one = items[line.From + i];
@@ -804,16 +682,10 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
       Item &one = items[i];
       if (!one.CrossDeclared) {
         if (column) {
-          /* A COLUMN'S CROSS AXIS IS WIDTH, AND AN AUTO WIDTH ASKS WHAT THE CONTENT WANTS. Laying the
-           * item out in the room it might get answers *the whole room*, because a block with no width
-           * fills its container -- so the line would be as wide as the container and one line would
-           * eat every other. [MEASURED] `align-content-vert-001b` missed 104 of its assertions on
-           * exactly this, reporting 200 where the document states 110. It is the same defect the MAIN
-           * axis had, one axis over. */
+
           one.Cross = MaxContent(one.Node, &style) - one.CrossMarginStart - one.CrossMarginEnd;
         } else {
-          /* A ROW'S CROSS AXIS IS HEIGHT, and a height is only knowable once a width is -- so this one
-           * IS laid out, in the width flex just gave it. */
+
           double w = 0, h = 0;
           Measure(one.Node, &style, one.Main, w, h);
           one.Cross = h;
@@ -823,8 +695,6 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
     }
   }
 
-  /* A SINGLE-LINE CONTAINER'S ONE LINE IS THE WHOLE CROSS ROOM, which is what makes `align-items:
-   * stretch` reach the container's edge and is CSS's own rule rather than a shortcut. */
   double linesDeep = 0;
   for (const Line &line : lines) { linesDeep += line.Cross; }
   linesDeep += gap * (double)(lines.size() - 1);
@@ -833,8 +703,6 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
     linesDeep = crossRoom;
   }
 
-  /* `align-content` DISTRIBUTES THE LINES, AND ITS INITIAL VALUE IS `stretch` -- which is why a
-   * wrapped container with no declaration at all fills its cross axis rather than hugging its lines. */
   const uint32_t alignLines = Aligned(style.Word(Property::AlignContent, kStretch), reversed);
   double lineAt = 0, betweenLines = gap;
   const double crossSlack = crossRoom - linesDeep;
@@ -852,8 +720,7 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
       lineAt = crossSlack / (double)(lines.size() * 2);
       betweenLines = gap + crossSlack / (double)lines.size();
     } else if (alignLines == kSpaceEvenly) {
-      /* EVERY GAP THE SAME, INCLUDING THE TWO AT THE ENDS -- which is what separates it from
-       * `space-around`, where the end gaps are half. `n` lines make `n + 1` gaps. */
+
       lineAt = crossSlack / (double)(lines.size() + 1);
       betweenLines = gap + lineAt;
     }
@@ -866,10 +733,6 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
     for (Line &line : lines) { line.CrossAt = crossRoom - line.CrossAt - line.Cross; }
   }
 
-  /* THE BASELINE EACH LINE ALIGNS TO, and it is the deepest one any of its baseline items reached.
-   * Every such item is then pushed down by the difference, which is what makes their first lines of
-   * text share one row -- and it is measured in a first pass because an item cannot know how far to
-   * move until the deepest one is known. */
   std::vector<double> lineBaseline(lines.size(), 0.0);
   for (size_t at = 0; at < lines.size(); ++at) {
     for (size_t i = lines[at].From; i < lines[at].From + lines[at].Count; ++i) {
@@ -878,8 +741,7 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
                                ? Aligned(one.Style.Word(Property::AlignSelf, align), reversed)
                                : align;
       if (how != kBaseline || column) { continue; }
-      /* A COLUMN'S CROSS AXIS IS HORIZONTAL AND A BASELINE IS NOT, so `baseline` in a column falls
-       * back to `flex-start`, which is what CSS says for a case where the two are perpendicular. */
+
       lineBaseline[at] = std::fmax(lineBaseline[at], BaselineOf(one.Node, &style, one.Main) +
                                                         one.CrossMarginStart);
     }
@@ -909,9 +771,7 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
         between = gap + cursor;
       }
     } else if (justify == kCentre) {
-      /* CENTRING AN OVERFULL LINE PUTS ITS START BEFORE THE CONTAINER, and that is the answer CSS
-       * gives rather than a clamp: the overflow is symmetric and the corpus states a NEGATIVE offset
-       * for it. Flooring the slack at zero here reads as tidy and is a different layout. */
+
       cursor = slack / 2.0;
     }
 
@@ -932,14 +792,9 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
       } else if (self_align == kFlexEnd) {
         inLine = line.Cross - cross - one.CrossMarginEnd;
       }
-      /* `wrap-reverse` TURNS THE CROSS AXIS ROUND FOR THE ITEM TOO, and not only for the lines. The
-       * cross-start becomes the far edge, so `align-items: flex-start` puts an item AGAINST it --
-       * [MEASURED] `align-content-vert-002` states x = 198 for a 10 px item in a 200 px container, and
-       * reversing only the line order answered 8. Reversing one of the two is a layout that is
-       * mirrored in the large and not in the small. */
+
       if (self_align == kBaseline && !column) {
-        /* PUSHED DOWN BY THE DIFFERENCE between this item's own baseline and the line's, which is
-         * zero for whichever item is deepest and positive for every other. */
+
         inLine = one.CrossMarginStart +
                  (lineBaseline[lineAt] - BaselineOf(one.Node, &style, one.Main) -
                   one.CrossMarginStart);
@@ -947,23 +802,12 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
       }
       if (wrapping == kWrapReverse) { inLine = line.Cross - inLine - cross; }
       const double crossAt = line.CrossAt + inLine;
-      /* THE MAIN POSITION IS MIRRORED HERE AND NOWHERE ELSE. `cursor` is where the item sits measured
-       * from the flex start; a reversed direction measures the same distance from the other end. */
-      /* A REVERSED DIRECTION MIRRORS AGAINST WHAT THE LINE ACTUALLY USED when there is no room to
-       * mirror against. [MEASURED] `column-reverse-gap` has an auto height and states its items at
-       * 30, 15 and 0; mirroring only where the main size is definite answered 0, 15, 30 -- the
-       * declaration reversed and the layout not. */
+
       const double mirrorAgainst = definiteMain ? mainRoom : used;
       const double mainAt = mainReversed ? mirrorAgainst - cursor - one.Main : cursor;
       const double x = column ? contentX + crossAt : contentX + mainAt;
       const double y = column ? contentY + mainAt : contentY + crossAt;
-      /* THE ITEM IS GIVEN THE ROOM FLEX DECIDED, AND THE ROOM IS ITS OWN AXIS'S. A row's horizontal
-       * margins are the MAIN ones and a column's are the CROSS ones, so the two rooms are named by
-       * axis rather than by side -- writing them by side is how a column ends up sized by a row's
-       * arithmetic. */
-      /* **THE CONTAINER IS THE CONTAINING BLOCK AND THE FLEXED SIZES ARE WHAT THE ITEM IS.** A
-       * percentage inside the item resolves against the first and the item's own box is the second;
-       * handing one number for both is how `width: 15%` inside a flex item became 15 % of 15 %. */
+
       const bool stretched = !one.CrossDeclared && self_align == kStretch;
       const double usedW = column ? (stretched || one.CrossDeclared ? cross : -1.0) : one.Main;
       const double usedH = column ? one.Main : (stretched || one.CrossDeclared ? cross : -1.0);
@@ -986,9 +830,7 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
       cursor += one.Main + one.MainMarginEnd + between;
     }
   }
-  /* WHAT THE CONTAINER USED ON ITS BLOCK AXIS. A column's is the deepest MAIN extent any line
-   * reached; a row's is where its last LINE ends, which is not the same number the moment a container
-   * wraps. */
+
   double crossExtent = 0;
   for (const Line &line : lines) { crossExtent = std::fmax(crossExtent, line.CrossAt + line.Cross); }
   return column ? deepest : std::fmax(deepest, crossExtent);
@@ -1064,11 +906,7 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
   if (widthAbsent) {
     contentWidth =
         std::fmax(0.0, containerWidth - box.Margin.Left - box.Margin.Right - frameX);
-    /* AN INLINE-LEVEL BOX SHRINKS TO FIT AND A BLOCK ONE FILLS. That is the whole difference this
-     * subset holds between `flex` and `inline-flex`, and it is the one that decides a size:
-     * [MEASURED] `flex-minimum-size-001` states 110 for an inline flex container whose item wants 110,
-     * and filling the body answered 784. Fit-content is the smaller of what the content wants and what
-     * there is. */
+
     if (style.Word(Property::Display, kDisplayInline) == kDisplayInlineFlex) {
       const double wants = MaxContent(node, inherited) - box.Margin.Left - box.Margin.Right - frameX;
       contentWidth = std::fmax(0.0, std::fmin(contentWidth, wants));
@@ -1077,8 +915,7 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
   contentWidth = Clamped(contentWidth + (borderBox ? frameX : 0.0), style, Property::MinWidth,
                          Property::MaxWidth, containerWidth, emPx) -
                  (borderBox ? frameX : 0.0);
-  /* A SIZE A FLEX LINE ALREADY DECIDED WINS OVER EVERYTHING ABOVE, because the line resolved it from
-   * the same declarations and then flexed it -- and what arrives here is the BORDER box. */
+
   if (usedW >= 0) {
     widthAbsent = false;
     contentWidth = std::fmax(0.0, usedW - frameX);
@@ -1099,17 +936,7 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
 
   const double contentX = box.X + box.Border.Left + box.Padding.Left;
   const double contentY = box.Y + box.Border.Top + box.Padding.Top;
-  /* AN INDEFINITE MAIN SIZE WITH A DEFINITE MAXIMUM IS THE MAXIMUM, for the purpose of the room the
-   * contents get. CSS says the available space in an axis is the box's definite max size when its own
-   * size is not definite -- and for a wrapping flex container that room is what DECIDES the wrapping.
-   * [MEASURED] `align-content-vert-001b` writes `max-height: 10px` where `001a` writes `height: 10px`,
-   * and handing zero room to the second made the container one line where the document states three:
-   * 104 of its assertions, on a declaration one word apart from a case that already held. */
-  /* AN INDEFINITE MAIN SIZE IS NOT A MAIN SIZE OF ZERO, and the two must be distinguishable or every
-   * item of an auto-height column shrinks to nothing. [MEASURED] `box-sizing-min-max-sizes-001` states
-   * 30 for items in a container with no declared height and answered 0: the free space came out
-   * negative against a room of zero, and the shrink obeyed it. `-1` is *there is no room to measure
-   * against*, which is a third answer and not a small number. */
+
   if (usedH >= 0) {
     heightAbsent = false;
     contentHeight = std::fmax(0.0, usedH - frameY);
@@ -1124,19 +951,14 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
   const double used = Children(node, style, self, contentX, contentY, contentWidth,
                                std::fmax(heightRoom, heightRoom < 0 ? -1.0 : 0.0), emPx);
   if (heightAbsent) { contentHeight = used; }
-  /* THE LIMITS ARE APPLIED TO THE BOX THE DECLARATION MEANS. `min-height` speaks of the same box
-   * `height` does, so under `border-box` both are the border box and under the default both are the
-   * content box -- reading one in each currency is how a padded box comes out a frame too tall. */
+
   contentHeight = Clamped(contentHeight + (borderBox ? frameY : 0.0), style, Property::MinHeight,
                           Property::MaxHeight, containerHeight, emPx) -
                   (borderBox ? frameY : 0.0);
 
   (*Out)[(size_t)self].Width = contentWidth + frameX;
   (*Out)[(size_t)self].Height = contentHeight + frameY;
-  /* A BOX WITH NO TEXT OF ITS OWN TAKES ITS FIRST CHILD'S BASELINE, and one with no child at all takes
-   * its own bottom margin edge -- the synthesised baseline CSS names for a box that has nothing to
-   * align by. Without the synthesis a box would align by zero, which is its TOP, and two items would
-   * line up by the one edge baseline alignment is not about. */
+
   if ((*Out)[(size_t)self].Baseline == 0.0) {
     for (const int child : (*Out)[(size_t)self].Children) {
       const Box &inner = (*Out)[(size_t)child];
@@ -1152,22 +974,8 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
   return (*Out)[(size_t)self].Height + box.Margin.Top + box.Margin.Bottom;
 }
 
-}  // namespace
+}
 
-/* WHAT THIS ENGINE DOES NOT LAY OUT, AND IT IS A LIST OF WHAT IS REPLACED OR INTERACTIVE
- * (board:1445, board:1442).
- *
- * **IT WAS AN ALLOWLIST AND THE CORPUS REFUTED THAT SHAPE.** The argument for one was that an element
- * nobody thought of would be laid out as an ordinary box and reported as held. [MEASURED] what
- * actually happened is that `<x-flexbox>`, `<x-item>` and `<x-word-v>` -- ordinary boxes with ordinary
- * styles -- put four cases outside the subset for having a name nobody had listed, and HTML's own rule
- * is that an unknown element IS an ordinary box. A consumer declaring `<health-bar>` wants exactly
- * that.
- *
- * **SO THE LIST NAMES WHAT IS DIFFERENT, and what is different is a box whose size comes from
- * somewhere else**: a resource the consumer owns, a control the platform draws, or a second layout
- * model. Those are the ones this engine cannot place, and every one of them carries its reason in
- * `WhyOutside`. */
 namespace {
 
 constexpr std::string_view kNotABox[] = {
@@ -1178,7 +986,7 @@ constexpr std::string_view kNotABox[] = {
     "colgroup", "col",     "frame",   "frameset", "applet",  "template", "slot",
 };
 
-} // namespace
+}
 
 bool ElementIsInTheSubset(std::string_view tag) {
   for (const std::string_view different : kNotABox) {
@@ -1191,7 +999,7 @@ std::vector<std::string> ElementsOutsideTheSubset(const Markup &markup) {
   std::vector<std::string> outside;
   for (int index = 0; index < (int)markup.Nodes().size(); ++index) {
     const Node &node = markup.Nodes()[size_t(index)];
-    /* The root is the document itself and carries no tag a declaration could have written. */
+
     if (index == markup.Root()) { continue; }
     if (node.Kind != NodeKind::Element || ElementIsInTheSubset(node.Name)) { continue; }
     bool already = false;
@@ -1202,18 +1010,14 @@ std::vector<std::string> ElementsOutsideTheSubset(const Markup &markup) {
 }
 
 const char *UserAgentSheet(void) {
-  /* WHAT A BROWSER BRINGS BEFORE ANY AUTHOR SPEAKS, cut to what this subset can mean. The margins are
-   * what the corpus's own numbers are stated against -- `data-offset-x="8"` IS the line below. */
+
   return "html, body, div, p, h1, h2, h3, h4, h5, h6, section, article, header, footer, nav, main,"
          " ul, ol, li, blockquote, figure, form, fieldset, pre { display: block }\n"
          "span, a, b, i, em, strong, small, code, label { display: inline }\n"
          "body { margin: 8px }\n"
          "p, blockquote, figure, h1, h2, h3, h4, h5, h6, ul, ol, pre, form { margin: 1em 0 }\n"
          "html { color: black; font-size: 16px; line-height: 1.2; text-align: left }\n"
-         /* THE DOCUMENT'S METADATA DRAWS NOTHING, AND SAYING SO IS THE SHEET'S JOB RATHER THAN THE
-          * LAYOUT'S. [MEASURED] `<title>` was laid out as ordinary text: two lines of 19.2 px that
-          * pushed `<body>` from y = 8 to y = 46.4, and three cases of the corpus read as an
-          * `align-content` defect when the cause was a title nobody was supposed to see. */
+
          "head, title, link, meta, style, script, base, noscript { display: none }\n";
 }
 
@@ -1236,8 +1040,6 @@ bool Layout::Build(const Markup &markup, Stylesheet &sheet, double viewportWidth
   placer.Face = &font;
   placer.Out = &Boxes_;
 
-  /* THE DOCUMENT'S OWN ROOT IS THIS READER'S AND CARRIES NO BOX, so its element children are placed
-   * straight against the viewport. */
   double y = 0;
   for (const int child : markup.Nodes()[(size_t)markup.Root()].Children) {
     if (markup.Nodes()[(size_t)child].Kind != NodeKind::Element) { continue; }
@@ -1247,14 +1049,11 @@ bool Layout::Build(const Markup &markup, Stylesheet &sheet, double viewportWidth
 }
 
 int Layout::Hit(double x, double y) const {
-  /* DEEPEST FIRST, which is what a pointer means: the box drawn last over that point is the one the
-   * client asked about. The library answers WHICH and never what it means. */
+
   for (size_t at = Boxes_.size(); at-- > 0;) {
     const Box &box = Boxes_[at];
     if (!(x >= box.X && x < box.X + box.Width && y >= box.Y && y < box.Y + box.Height)) { continue; }
-    /* EVERY CLIPPING ANCESTOR MUST ALSO CONTAIN THE POINT. The walk is up the parent chain rather than
-     * a rectangle carried on the box, because a clip is a property of an ANCESTOR and copying it down
-     * would be a second fact that drifts the moment a layout is rebuilt. */
+
     bool seen = true;
     for (int up = box.Parent; up >= 0 && seen; up = Boxes_[(size_t)up].Parent) {
       const Box &over = Boxes_[(size_t)up];
@@ -1269,4 +1068,4 @@ int Layout::Hit(double x, double y) const {
   return -1;
 }
 
-}  // namespace outshine::Ui
+}

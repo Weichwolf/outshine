@@ -26,8 +26,6 @@ from .refusal import Refusal
 RAW = "https://raw.githubusercontent.com/tc39/test262/"
 TREE = "https://api.github.com/repos/tc39/test262/git/trees/"
 
-# THE CONTAINERS, AND EVERY NAME IS A CONSTRUCT THE SUBSET DECLARES. Adding one is adding a capability
-# to `board:1448` first; removing one is giving up scope, which is the owner's.
 CONTAINERS = (
     "test/language/expressions/addition",
     "test/language/expressions/subtraction",
@@ -54,24 +52,14 @@ CONTAINERS = (
     "test/language/statements/expression",
 )
 
-# WHAT test262 PREPENDS IS NOT FETCHED, AND THE REASON IS THE SUBSET ITSELF. `assert.js` and `sta.js`
-# DEFINE FUNCTIONS, which `board:1448` writes down as outside -- so shipping them as script text would
-# make every non-`raw` case fail at the parser for a reason that has nothing to do with the case. The
-# harness implements their CONTRACT as host natives instead, and the case's own text is run unmodified.
-#
-# WHAT A CASE NEEDS IS STILL RECORDED, as an attribute rather than a file: a case whose `includes` names
-# something the runner does not provide is OUTSIDE THE SUBSET and says which name put it there.
-
 FRONTMATTER = re.compile(r"/\*---(.*?)---\*/", re.S)
 
 LICENCE = {"spdx": "BSD-3-Clause", "holder": "Ecma International",
            "covers": "Everything"}
 
-
 def _get(url):
     with urllib.request.urlopen(url, timeout=60) as response:
         return response.read().decode("utf-8", "replace")
-
 
 def _list(commit, directory):
     url = TREE + commit + ":" + directory.replace("/", "%2F") + "?recursive=1"
@@ -88,7 +76,6 @@ def _list(commit, directory):
                       why="a truncated enumeration is not an enumeration")
     return sorted(entry["path"] for entry in listing["tree"]
                   if entry["type"] == "blob" and entry["path"].endswith(".js"))
-
 
 def _declared(text):
     """The case's own frontmatter, read for the four things a verdict needs."""
@@ -110,7 +97,6 @@ def _declared(text):
         out["negative"] = {"phase": negative.group(1), "type": negative.group(2)}
     return out
 
-
 def _fetched(commit, path, role, text):
     raw = text.encode("utf-8")
     return {"url": RAW + commit + "/" + path,
@@ -120,14 +106,11 @@ def _fetched(commit, path, role, text):
             "role": role,
             "licence": dict(LICENCE, statedAt=RAW + commit + "/LICENSE")}
 
-
 def case(commit, path, pinned_on, pin_reason, harness=None):
     """One upstream test as a case."""
     text = _get(RAW + commit + "/" + path)
     declared = _declared(text)
     name = os.path.basename(path)[: -len(".js")]
-    # THE CASE'S OWN NAME IS NOT UNIQUE ACROSS test262, so the id carries the container it came from --
-    # `addition/S11.6.1_A1` and `subtraction/S11.6.2_A1` are two cases with one basename upstream.
     corner = path.split("/")[-2]
     identity = corner + "-" + name
 
@@ -165,12 +148,9 @@ def case(commit, path, pinned_on, pin_reason, harness=None):
                        "pinnedOn": pinned_on, "pinReason": pin_reason},
             "files": files,
             "entry": os.path.basename(path),
-            # AN EMPTY LIST IS NOT THE SAME AS NO LIST, and the schema says so: a case that needs
-            # nothing beyond the runner carries no `attributes` key at all rather than an empty one.
             **({"attributes": attributes} if attributes else {}),
         }],
     }
-
 
 def write(declaration, root):
     directory = os.path.join(root, declaration["id"])
@@ -180,7 +160,6 @@ def write(declaration, root):
         json.dump(declaration, f, indent=2)
         f.write("\n")
     return path
-
 
 def tests_at(commit):
     """Every file of every declared container, exhaustively, with its container's path restored."""

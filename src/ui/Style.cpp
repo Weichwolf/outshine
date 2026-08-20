@@ -26,8 +26,6 @@ struct Named {
   Property What;
 };
 
-/* THE TABLE IS THE SUBSET, and `board:1442` is where it is argued. A name absent here is a property
- * this engine does not hold, which is a fact the corpus selection reads rather than an oversight. */
 const Named kProperties[] = {
     {"display", Property::Display},
     {"position", Property::Position},
@@ -79,9 +77,6 @@ const Named kProperties[] = {
     {"font-family", Property::FontFamily},
 };
 
-/* THE NAMED COLOURS THE CORPUS USES, and it is a short list on purpose: a full CSS colour table is
- * 148 names of which this corpus writes a dozen, and every one it writes is here. A name outside it
- * is a property value this engine does not hold, counted like any other. */
 struct NamedColour {
   const char *Spelling;
   uint32_t Rgba;
@@ -151,16 +146,11 @@ bool ReadColour(std::string_view text, uint32_t &out) {
   return false;
 }
 
-/* A VALUE, READ ONCE. A number with a unit is a length; a bare number is a number; a colour is a
- * colour; anything else is a keyword and its spelling is hashed so a comparison is an integer. */
 Value ReadValue(std::string_view text) {
   const std::string_view trimmed = Trim(text);
   Value value;
   if (trimmed.empty()) { return value; }
-  /* THE PREFIX IS NOTICED ONCE, HERE. It was set only in the final arm before, and `-webkit-flex`
-   * never reaches it: a leading `-` sends the reader down the NUMBER path, which recognises no unit
-   * and falls out as a keyword without ever passing the line that marked it. [MEASURED] 66 prefixed
-   * values across the corpus stayed counted after the rule that was meant to drop them. */
+
   value.Prefixed = trimmed.front() == '-';
   if (trimmed == "auto") {
     value.How = Unit::Auto;
@@ -190,8 +180,7 @@ Value ReadValue(std::string_view text) {
     } else if (suffix == "rem") {
       value.How = Unit::Rem;
     } else {
-      /* A unit this engine does not hold -- `vh`, `ch`, `pt` -- and the value is not a length it can
-       * resolve. It is left as `None` with the number kept, and the reader above counts it. */
+
       value.How = Unit::Keyword;
       value.Word = Keyword(trimmed);
     }
@@ -202,7 +191,7 @@ Value ReadValue(std::string_view text) {
   return value;
 }
 
-}  // namespace
+}
 
 Property PropertyNamed(std::string_view name) {
   const std::string lowered = Lower(name);
@@ -212,16 +201,6 @@ Property PropertyNamed(std::string_view name) {
   return Property::kCount;
 }
 
-/* THE VALUES A KEYWORD PROPERTY MAY CARRY, AND THE OTHER HALF OF THE SUBSET (board:1445). A property
- * this engine holds can still be given a word it does not implement -- `display: inline-block`,
- * `overflow: scroll`, `position: absolute` -- and the layout would then answer confidently about a box
- * it modelled as something else. [MEASURED] `align-self-014` sat INSIDE the subset and red because its
- * children are inline blocks: the name `display` is held, the word is not, and only a name was being
- * checked.
- *
- * **A PROPERTY NOT ON THIS TABLE TAKES ANY VALUE**, because its values are lengths, colours or numbers
- * and those are checked by the reader that parses them. This table is for the properties whose value
- * IS a vocabulary. */
 struct Vocabulary {
   Property What;
   const char *Words[14];
@@ -248,14 +227,9 @@ const Vocabulary kVocabularies[] = {
     {Property::WhiteSpace, {"normal", "pre", nullptr}},
 };
 
-/* Whether the engine implements this word for this property. A property with no vocabulary row takes
- * any value; `auto` and `inherit`-free keywords are listed where they mean something. */
 [[nodiscard]] bool WordIsHeld(Property what, const Value &value) {
   if (value.How != Unit::Keyword) { return true; }
-  /* A VENDOR-PREFIXED VALUE IS DROPPED AND NOT COUNTED, for the same reason a prefixed property name
-   * is: `display: -webkit-flex` is written beside `display: flex` by an author covering an old engine,
-   * and counting it as a gap would put a case outside the subset over a line that says nothing about
-   * this engine. [MEASURED] 66 of them across the corpus, always beside the standard word. */
+
   if (value.Prefixed) { return true; }
   for (const Vocabulary &vocabulary : kVocabularies) {
     if (vocabulary.What != what) { continue; }
@@ -268,13 +242,8 @@ const Vocabulary kVocabularies[] = {
   return true;
 }
 
-/* THE SHORTHANDS THE CORPUS WRITES, expanded here rather than carried as their own properties: a
- * shorthand is a spelling of several declarations and holding it as a value would make every reader
- * downstream ask which one it meant. */
 namespace {
 
-/* A NUMBER WITH NO UNIT, which is what `flex`'s growth and shrink factors are and what its basis is
- * never allowed to be. */
 bool Bare(std::string_view text) {
   const Value value = ReadValue(text);
   return value.How == Unit::None;
@@ -283,11 +252,7 @@ bool Bare(std::string_view text) {
 void Expand(std::string_view name, std::string_view text, std::vector<Declaration> &into,
             size_t &unheld, std::vector<std::string> &names) {
   const std::string lowered = Lower(name);
-  /* A VENDOR PREFIX IS DROPPED AND NOT COUNTED (board:1445), which is a different thing from a capability we lack.
-   * [MEASURED] `-webkit-align-self` appeared in 198 of the corpus's declarations, always beside the
-   * standard property it prefixes; counting it as outside the subset put nearly every case outside
-   * for a reason that says nothing about this engine. A prefixed property is by construction not a
-   * standard one, so there is nothing here to be missing. */
+
   if (!lowered.empty() && lowered.front() == '-') { return; }
   const auto one = [&](Property what, std::string_view value) {
     into.push_back({what, ReadValue(value)});
@@ -303,7 +268,7 @@ void Expand(std::string_view name, std::string_view text, std::vector<Declaratio
     }
     return parts;
   };
-  /* `margin`, `padding` and `border-width` take one to four values in CSS's own clock order. */
+
   const auto sides = [&](Property top, Property right, Property bottom, Property left) {
     const std::vector<std::string_view> parts = words();
     if (parts.empty() || parts.size() > 4) { return false; }
@@ -317,18 +282,7 @@ void Expand(std::string_view name, std::string_view text, std::vector<Declaratio
     one(left, l);
     return true;
   };
-  /* `flex: none | auto | initial | <grow> [<shrink>] [<basis>]`, with CSS's own defaults: a bare
-   * number sets the growth and leaves the basis at zero, which is what makes `flex: 1` share the room
-   * rather than keep the content's width. */
-  /* `flex: none | [ <grow> <shrink>? || <basis> ]`, and the `||` is load-bearing: the two NUMBERS are
-   * one group and must be adjacent, so the basis may come before them or after them and never
-   * BETWEEN. `flex: 1 0% 1` is invalid CSS, and a case exists upstream for exactly that.
-   *
-   * **AN INVALID DECLARATION IS DROPPED AND NOT COUNTED AS A GAP.** Returning *not mine* here would
-   * put `flex` on the list of properties this engine cannot express, and it can -- the author wrote
-   * something the grammar does not admit, and CSS's answer is to ignore that declaration and keep
-   * whatever else applies. Counting it would move a case out of the subset for an authoring mistake,
-   * which is a coverage number reporting an engine gap that is not one. */
+
   const auto flex = [&]() {
     const std::vector<std::string_view> parts = words();
     if (parts.empty() || parts.size() > 3) { return false; }
@@ -342,39 +296,34 @@ void Expand(std::string_view name, std::string_view text, std::vector<Declaratio
     std::string_view bare[2];
     for (size_t at = 0; at < parts.size(); ++at) {
       if (Bare(parts[at])) {
-        if (numbers >= 2) { return true; }   /* three numbers: invalid, and dropped */
+        if (numbers >= 2) { return true; }
         bare[numbers++] = parts[at];
       } else if (basisAt == parts.size()) {
         basisAt = at;
       } else {
-        return true;                          /* two bases: invalid, and dropped */
+        return true;
       }
     }
     if (numbers == 0) {
-      /* `flex: <basis>` alone -- the numbers take their shorthand defaults, which are 1 and 1 and NOT
-       * the initial values of the longhands. */
+
       if (basisAt == parts.size()) { return false; }
       one(Property::FlexGrow, "1");
       one(Property::FlexShrink, "1");
       one(Property::FlexBasis, parts[basisAt]);
       return true;
     }
-    /* THE NUMBERS MUST BE ADJACENT. With a basis between them the declaration is invalid, and the one
-     * comparison below is the whole of that rule. */
+
     if (numbers == 2 && basisAt < parts.size()) {
       size_t first = parts.size(), second = parts.size();
       for (size_t at = 0; at < parts.size(); ++at) {
         if (!Bare(parts[at])) { continue; }
         if (first == parts.size()) { first = at; } else { second = at; }
       }
-      if (basisAt > first && basisAt < second) { return true; }   /* in the middle: dropped */
+      if (basisAt > first && basisAt < second) { return true; }
     }
     one(Property::FlexGrow, bare[0]);
     one(Property::FlexShrink, numbers > 1 ? bare[1] : std::string_view("1"));
-    /* THE SPECIFICATION'S OWN EXPANSION IS `<number> 1 0%`, AND THE UNIT IS LOAD-BEARING. [MEASURED]
-     * a bare `0` reads as a number with no unit, `Resolve` answers ABSENT for one, and the basis then
-     * falls through to the item's declared height -- so `flex: 1` on a 5px-high item took 5px of a
-     * 300px column instead of the 135px it was owed. */
+
     one(Property::FlexBasis, basisAt < parts.size() ? parts[basisAt] : std::string_view("0%"));
     return true;
   };
@@ -387,8 +336,7 @@ void Expand(std::string_view name, std::string_view text, std::vector<Declaratio
     }
     return true;
   };
-  /* `background` and `border` are read ONLY where they say a thing this engine holds. `background:
-   * url(...)` is an image and is outside; saying so is what keeps the second count honest. */
+
   const auto single = [&](Property what) {
     const std::vector<std::string_view> parts = words();
     if (parts.size() != 1) { return false; }
@@ -411,30 +359,24 @@ void Expand(std::string_view name, std::string_view text, std::vector<Declaratio
       } else if (ReadValue(part).How == Unit::Colour) {
         one(Property::BorderColour, part);
       } else if (part == "thin" || part == "medium" || part == "thick") {
-        /* CSS'S THREE NAMED WIDTHS. Their pixel values are the engine's own choice and these are the
-         * ones every browser has used for thirty years. */
+
         width = part == "thin" ? "1px" : part == "medium" ? "3px" : "5px";
       } else if (ReadValue(part).How == Unit::Pixels || ReadValue(part).How == Unit::Em ||
                  (ReadValue(part).How == Unit::None && ReadValue(part).Number == 0.0)) {
-        /* A UNITLESS ZERO IS A LENGTH, and `border: 0` is a declaration CSS admits: the width is zero
-         * and the style takes its initial value. Refusing it for want of the word `solid` refused
-         * eight cases of the corpus over a line that is not about this engine at all. */
+
         width = part == "0" ? std::string_view("0px") : part;
       } else {
         return false;
       }
     }
-    /* `border: 0` IS VALID AND SETS A WIDTH. The style then takes its initial value, which is `none`,
-     * and a frame of zero is what the author wrote -- requiring the word `solid` would refuse a
-     * declaration CSS admits. */
+
     if (!sawStyle && parts.size() == 1 && ReadValue(parts[0]).How != Unit::Colour) {
       sawStyle = true;
       drawn = true;
     }
     if (!sawStyle) { return false; }
     const std::string_view used = drawn ? width : std::string_view("0");
-    /* A SIDE THE SHORTHAND DOES NOT NAME IS `kCount`, which is how `border-left` sets one edge through
-     * the same reader that sets four. */
+
     for (const Property side : {top, right, bottom, left}) {
       if (side != Property::kCount) { one(side, used); }
     }
@@ -496,17 +438,10 @@ void Expand(std::string_view name, std::string_view text, std::vector<Declaratio
     }
   }
   ++unheld;
-  /* THE NAME CARRIES THE VALUE, because a shorthand is refused for what it was GIVEN and not for
-   * being itself. `background` says nothing a boundary row could match; `background:url(a.png)` and
-   * `background:green none repeat` say different things, and only one of them is a decision. */
+
   if (names.size() < 64) { names.push_back(lowered + ":" + std::string(Trim(text))); }
 }
 
-/* A COMMENT REACHES NOTHING, AND IT IS REMOVED IN ONE PLACE (board:1445). [MEASURED] a comment's own opening and
- * closing marks, and the words `spacing` and `things` out of its prose, arrived in the corpus's count
- * of properties this engine does not hold -- a comment INSIDE a declaration block was being split on
- * its semicolons and read as CSS, so a sheet's prose became a list of capabilities we appeared to be
- * missing. Stripping at the top level only is the defect: a block is where the comments are. */
 std::string WithoutComments(std::string_view css) {
   std::string out;
   out.reserve(css.size());
@@ -540,8 +475,7 @@ void ReadBlock(std::string_view body, std::vector<Declaration> &into, size_t &un
 
 bool ReadCompound(std::string_view text, Compound &out) {
   size_t at = 0;
-  /* `:nth-child(N)` IS READ OFF THE END BEFORE THE REST IS PARSED, so the parts that follow are the
-   * ordinary tag, id and class the compound is otherwise made of. */
+
   const size_t nth = text.find(":nth-child(");
   if (nth != std::string_view::npos) {
     const size_t close = text.find(')', nth);
@@ -557,9 +491,7 @@ bool ReadCompound(std::string_view text, Compound &out) {
     if (text.empty()) { return true; }
   }
   if (text == "*") {
-    /* THE UNIVERSAL SELECTOR MATCHES EVERY ELEMENT AND CONTRIBUTES NOTHING TO SPECIFICITY, which is
-     * CSS's own arithmetic. A compound of nothing but `*` is legal and it is what `.a > *` is made of.
-     */
+
     out.Universal = true;
     return true;
   }
@@ -570,11 +502,7 @@ bool ReadCompound(std::string_view text, Compound &out) {
     while (at < text.size() && text[at] != '.' && text[at] != '#') { ++at; }
     const std::string part = Lower(text.substr(from, at - from));
     if (part.empty()) { return false; }
-    /* EVERY PART IS CHECKED, NOT ONLY THE TAG (board:1445). `.item::first-letter` reads as a CLASS NAMED
-     * `item::first-letter` if only the tag branch validates its characters -- it then matches nothing,
-     * matching nothing looks like a rule that simply did not apply, and the sheet is silently a
-     * different sheet. A pseudo-element, an attribute selector and a pseudo-class are all outside the
-     * subset, and outside is a thing this reader COUNTS rather than a thing it fails to notice. */
+
     for (const char c : part) {
       if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_')) {
         return false;
@@ -594,7 +522,7 @@ bool ReadCompound(std::string_view text, Compound &out) {
          !(out.Tag.empty() && out.Classes.empty() && out.Id.empty() && out.NthChild == 0);
 }
 
-}  // namespace
+}
 
 std::vector<Declaration> Stylesheet::Inline(std::string_view text) {
   std::vector<Declaration> out;
@@ -611,9 +539,7 @@ void Stylesheet::Read(std::string_view text) {
       ++at;
       continue;
     }
-    /* AN AT-RULE IS OUTSIDE THE SUBSET AND SAYS SO. `@media`, `@font-face` and `@import` each carry a
-     * question this engine has no answer for, and skipping one silently would make a sheet mean
-     * something it does not. */
+
     if (css[at] == '@') {
       ++Unselectable_;
       if (Names_.size() < 64) {
@@ -638,10 +564,7 @@ void Stylesheet::Read(std::string_view text) {
     }
     const size_t brace = css.find('{', at);
     if (brace == std::string_view::npos) { break; }
-    /* THE MATCHING BRACE AND NOT THE FIRST ONE. A nested rule puts a `}` inside the block, and taking
-     * the first would end the rule in the middle of itself -- after which every remaining declaration
-     * of the sheet is read at the wrong offset. [MEASURED] one corpus case nests, and the reader was
-     * producing a property named `.big { width`. */
+
     size_t close = brace;
     int depth = 0;
     for (; close < css.size(); ++close) {
@@ -654,8 +577,7 @@ void Stylesheet::Read(std::string_view text) {
     at = close >= css.size() ? css.size() : close + 1;
 
     std::vector<Declaration> declares;
-    /* A NESTED RULE IS NAMED AND ITS DECLARATIONS ARE NOT READ. It is the same cascade written
-     * shorter, and reading half of it would apply a rule to the wrong elements. */
+
     const size_t nested = body.find('{');
     if (nested != std::string_view::npos) {
       ++Unselectable_;
@@ -678,9 +600,7 @@ void Stylesheet::Read(std::string_view text) {
       size_t cursor = 0;
       while (cursor < head.size() && held) {
         while (cursor < head.size() && Space(head[cursor])) { ++cursor; }
-        /* A COMBINATOR IS A TOKEN BETWEEN COMPOUNDS AND MAY TOUCH EITHER SIDE. `a>b`, `a > b` and
-         * `a >b` are one selector written three ways, so the reader takes the mark wherever it sits
-         * rather than requiring the spacing the corpus happens to use. */
+
         if (cursor < head.size() && head[cursor] == '>') {
           reach = Reach::Child;
           ++cursor;
@@ -698,17 +618,14 @@ void Stylesheet::Read(std::string_view text) {
         }
       }
       if (!held || rule.Chain.empty()) {
-        /* THE SELECTOR IS NAMED AND NOT ONLY COUNTED. [MEASURED] seven corpus cases came back
-         * *outside the subset* with an EMPTY list of what put them there -- they were outside by a
-         * selector alone, and a count with nothing beside it is a case quietly dropped, which is the
-         * one thing the second count exists to make visible (board:1445). */
+
         ++Unselectable_;
         if (Names_.size() < 64) { Names_.emplace_back(head); }
         continue;
       }
       for (const Compound &one : rule.Chain) {
         rule.Specificity += one.Id.empty() ? 0 : 10000;
-        /* A PSEUDO-CLASS COUNTS AS A CLASS, which is CSS's own arithmetic and not a convenience. */
+
         rule.Specificity += (int)(one.Classes.size() + (one.NthChild > 0 ? 1u : 0u)) * 100;
         rule.Specificity += one.Tag.empty() ? 0 : 1;
       }
@@ -726,9 +643,7 @@ bool Holds(const Compound &compound, const Markup &markup, int node) {
   if (element.Kind != NodeKind::Element) { return false; }
   if (!compound.Tag.empty() && element.Name != compound.Tag) { return false; }
   if (compound.NthChild > 0) {
-    /* COUNTED AMONG ELEMENT SIBLINGS AND NOT AMONG NODES, because the whitespace an author writes
-     * between two tags is a text node and CSS does not count it. Counting nodes would make the same
-     * document select differently depending on how it was indented. */
+
     if (element.Parent < 0) { return false; }
     int position = 0;
     for (const int sibling : markup.Nodes()[(size_t)element.Parent].Children) {
@@ -761,7 +676,7 @@ bool Holds(const Compound &compound, const Markup &markup, int node) {
   return true;
 }
 
-}  // namespace
+}
 
 namespace {
 
@@ -770,12 +685,8 @@ struct Boundary {
   const char *Why;
 };
 
-/* THE DECLARED BOUNDARY OF THIS ENGINE'S USER INTERFACE. Every row is a decision about what a GAME's
- * interface needs, taken on purpose -- not a list of what has not been built yet. */
 const Boundary kBoundaries[] = {
-    /* LAYOUT MODELS THIS ENGINE DOES NOT CARRY. A HUD, a quest log, a book page and a terminal are
-     * block flow and flexbox; the models below solve problems a document has and an interface does
-     * not, and each would be a second layout algorithm to keep true against the same corpus. */
+
     {"float", "an interface is laid out by flow and flexbox; a float solves a document's problem"},
     {"clear", "there is nothing to clear where nothing floats"},
     {"display:grid", "grid is a second two-dimensional model beside flexbox, and one is enough"},
@@ -791,14 +702,10 @@ const Boundary kBoundaries[] = {
     {"<tr>", "the same"},      {"<td>", "the same"},      {"<th>", "the same"},
     {"<caption>", "the same"}, {"<colgroup>", "the same"}, {"<col>", "the same"},
 
-    /* INLINE LAYOUT BEYOND ONE TEXT RUN. A run of text in a box is what a label, a paragraph and a
-     * page need; a line box mixing boxes and text is a second engine. */
     {"display:inline-block", "inline layout beyond a text run is a second engine"},
     {"vertical-align", "it aligns things inside a line box, and there is one run per box here"},
     {"line-height:normal", "a normal line height is the font's own, and a face here states a number"},
 
-    /* WRITING MODES AND BIDI. One direction, stated once: an engine that carried both would have every
-     * axis question twice, and a game's interface declares its own language. */
     {"writing-mode", "one writing direction, declared; the rest is a second axis question everywhere"},
     {"direction", "the same, for the inline direction"},
     {"unicode-bidi", "the same, inside a run"},
@@ -816,8 +723,6 @@ const Boundary kBoundaries[] = {
     {"min-inline-size", "the same"}, {"max-inline-size", "the same"},
     {"min-block-size", "the same"},  {"max-block-size", "the same"},
 
-    /* PAINT THIS RENDERER DOES NOT SPELL. Each is a pass, a buffer or a matrix, and the frame budget
-     * is where that gets decided -- not in a stylesheet. */
     {"transform", "a matrix per box is a pass the frame budget has not bought"},
     {"box-shadow", "a shadow is a blur pass, and a declaration may not buy one"},
     {"text-shadow", "the same, per glyph"},
@@ -828,8 +733,6 @@ const Boundary kBoundaries[] = {
     {"background:url", "the same, in the shorthand"},
     {"clip-path", "a shape per box is a second clip model beside the rectangle"},
 
-    /* THINGS A CONSUMER OWNS. Scrolling, focus and hover are state the client holds; an engine that
-     * held them would be deciding what a pointer MEANS. */
     {"overflow:scroll", "scrolling is a client's state, and the library clips and reports"},
     {"overflow:auto", "the same, decided by the client"},
     {"overflow-x", "one overflow, both axes; a per-axis clip is a scroll model"},
@@ -840,8 +743,6 @@ const Boundary kBoundaries[] = {
     {"cursor", "which cursor to show is the client's decision about meaning"},
     {"pointer-events", "the same, and the library already reports what a point hit"},
 
-    /* AUTHORING CONVENIENCES THAT ARE SECOND GRAMMARS. Each is a parser this engine would carry for
-     * a declaration a consumer can write out. */
     {"calc", "arithmetic in a value is a second grammar; a consumer computes and declares"},
     {"var", "a custom property is a second cascade"},
     {"@media", "a conditional stylesheet is the consumer choosing which sheet to hand over"},
@@ -857,8 +758,6 @@ const Boundary kBoundaries[] = {
     {"::first-line", "the same, per line"},
     {"::marker", "the same, beside a list item"},
 
-    /* REPLACED CONTENT. A box whose size comes from a resource nobody loaded is a box this engine
-     * cannot place -- and loading it is the consumer's, through the interfaces that already exist. */
     {"<img>", "a replaced box takes its size from a resource the consumer owns"},
     {"<picture>", "the same"},  {"<source>", "the same"},  {"<video>", "the same"},
     {"<audio>", "the same"},    {"<canvas>", "the same"},  {"<iframe>", "the same"},
@@ -872,7 +771,6 @@ const Boundary kBoundaries[] = {
     {"aspect-ratio", "a ratio sizes a replaced box, and this engine places none"},
     {"object-fit", "the same"},
 
-    /* DEFERRED, AND THAT IS DIFFERENT FROM REFUSED. It carries its own item. */
     {"position:absolute", "deferred, and it carries its own work item -- not refused"},
     {"position:fixed", "the same"},
     {"position:sticky", "the same"},
@@ -880,7 +778,6 @@ const Boundary kBoundaries[] = {
     {"bottom", "the same"}, {"left", "the same"}, {"right", "the same"},
     {"z-index", "a stacking order needs a stacking context, which absolute positioning brings"},
 
-    /* THE FONT SHORTHAND AND WHAT IT IMPLIES. One family at a time is a declared decision. */
     {"font:", "the shorthand carries a family list, a style and a variant; a face here is one face"},
     {"font-family", "one family at a time, supplied by the consumer"},
     {"font-weight", "a weight is a second face, and a consumer supplies faces"},
@@ -888,7 +785,6 @@ const Boundary kBoundaries[] = {
     {"font-variant", "the same"},
     {"font-stretch", "the same"},
 
-    /* HINTS, WIDGETS AND CHROME A GAME'S INTERFACE STATES ITSELF. */
     {"contain", "containment is a hint about a layout boundary this engine already knows exactly"},
     {"content-visibility", "the same, deciding whether to lay out at all"},
     {"will-change", "a hint to a compositor this engine does not have"},
@@ -912,27 +808,21 @@ const Boundary kBoundaries[] = {
     {"!important", "a declaration that outranks the cascade is a second cascade"},
     {"+", "the adjacent-sibling combinator walks the tree sideways, which no declaration here asks for"},
     {"~", "the same, further along"},
-    {"the document closes", 
+    {"the document closes",
      "this reader refuses a stray end tag that HTML ignores, so a consumer's declaration is right or "
      "it is refused -- upstream's corpus is not that consumer"},
 
-    /* A SCRIPT DECIDING A LAYOUT. This is a mechanism and not a browser. */
     {"a script in the document decides this layout",
      "this engine runs a declared handler and never a document's own program"},
 };
 
-}  // namespace
+}
 
 const char *WhyOutside(std::string_view name) {
   for (const Boundary &boundary : kBoundaries) {
     const std::string_view row(boundary.Name);
     if (name.size() < row.size()) { continue; }
-    /* A PROPERTY IS NAMED FROM ITS START AND A SELECTOR CARRIES ITS REASON IN THE MIDDLE. Both are
-     * needed and only one of them may be loose: a substring test applied to every row would let
-     * `contain` match the selector `.container` and report a case as reduced at a boundary that has
-     * nothing to do with it -- **a false reduction is worse than an open one**, because an open case
-     * is still on the list and a false one is gone. So the loose test is reserved for rows that can
-     * only BE selector fragments, which is what the leading punctuation says. */
+
     const bool fragment = row.front() == ':' || row.front() == '+' || row.front() == '~' ||
                           row.front() == '!';
     const bool matched = fragment ? name.find(row) != std::string_view::npos
@@ -944,10 +834,7 @@ const char *WhyOutside(std::string_view name) {
 
 bool Selects(const Rule &rule, const Markup &markup, int node) {
   if (rule.Chain.empty()) { return false; }
-  /* THE SUBJECT IS THE LAST COMPOUND and the rest must be found among the ancestors, right to left.
-   * A DESCENDANT link may skip as far up as it likes; a CHILD link may not skip at all, so it is the
-   * one place this walk cannot backtrack -- and that is why the two are one enum and not one flag on
-   * the rule: a chain mixes them freely. */
+
   if (!Holds(rule.Chain.back(), markup, node)) { return false; }
   int at = markup.Nodes()[(size_t)node].Parent;
   size_t wanted = rule.Chain.size() - 1;
@@ -956,8 +843,7 @@ bool Selects(const Rule &rule, const Markup &markup, int node) {
     if (Holds(rule.Chain[wanted - 1], markup, at)) {
       --wanted;
     } else if (reach == Reach::Child) {
-      /* THE IMMEDIATE PARENT DID NOT HOLD, so no ancestor can stand in for it. Walking on here is how
-       * `a > b` quietly becomes `a b`, which is a rule that matches more than the author wrote. */
+
       return false;
     }
     at = markup.Nodes()[(size_t)at].Parent;
@@ -965,4 +851,4 @@ bool Selects(const Rule &rule, const Markup &markup, int node) {
   return wanted == 0;
 }
 
-}  // namespace outshine::Ui
+}

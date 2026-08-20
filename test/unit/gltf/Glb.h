@@ -1,6 +1,3 @@
-/* A GLB ASSEMBLED IN PROCESS, so a fixture is a thing the next round changes one field of rather than
- * a committed binary nobody can recompute. The corpus preparer emits GLB by default, which is why it
- * is the container these tests reach for first. */
 #ifndef TEST_GLB_H
 #define TEST_GLB_H
 
@@ -16,8 +13,6 @@ template <class Scalar> inline void Append(std::vector<uint8_t> &out, Scalar val
   out.insert(out.end(), at, at + sizeof value);
 }
 
-/* `filler` is deliberately not zero where it pads a vertex stride: a stride the reader ignored then
- * decodes as this value instead of quietly reading the next component. */
 inline void PadTo4(std::vector<uint8_t> &out, uint8_t filler) {
   while ((out.size() % 4) != 0) { out.push_back(filler); }
 }
@@ -45,5 +40,5 @@ inline std::vector<uint8_t> Glb(const std::string &json, const std::vector<uint8
   return out;
 }
 
-} // namespace outshine::Test
+}
 #endif

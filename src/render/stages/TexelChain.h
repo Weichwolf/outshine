@@ -1,22 +1,3 @@
-/* ONE MIP LEVEL FROM THE ONE ABOVE IT, BOX-FILTERED IN LINEAR LIGHT (board:1130).
- *
- * IT LIVES HERE RATHER THAN BESIDE ITS CALLER BECAUSE IT IS A PURE FUNCTION AND ITS CLAIM NEEDS A
- * TEST. Arrays in, arrays out, no device and no SDL -- so a unit test at this layer can hold it to
- * what it promises without a GPU. Left inside `SubjectDraw.cpp`'s anonymous namespace it was
- * unreachable, and the claim below would have been a comment rather than a check.
- *
- * LINEAR IS NOT A CHOICE HERE: `Upload` decodes sRGB before this runs, and averaging encoded values
- * would filter the transfer curve rather than the light. An odd dimension drops its last row or
- * column rather than weighting unevenly -- every corpus texture is a power of two, and a
- * non-power-of-two loses at most one texel of its smallest levels.
- *
- * A DIRECTION IS RENORMALISED AND A VALUE IS NOT, and that is the whole of what `TexelKind` buys.
- * It is an enumeration rather than a flag because four call sites each have to say which their
- * texels are, and a bool is four chances to say it wrong.
- *
- * WHY THE CHAIN IS BUILT HERE AND NOT BY THE DEVICE'S OWN GENERATOR: the generator has no way to be
- * told a texel is a direction, so it would average a normal map without renormalising -- a different
- * picture, arrived at silently, with no flag recording that it happened. */
 #ifndef TEXEL_CHAIN_H
 #define TEXEL_CHAIN_H
 
@@ -28,22 +9,6 @@ namespace outshine::Render {
 
 enum class TexelKind { Value, Direction };
 
-/* WHICH CHANNELS ARE AN INDEX RATHER THAN A QUANTITY, ANSWERED FROM THE TEXELS AND NOT FROM THE SLOT.
- *
- * A channel taking AT MOST TWO DISTINCT VALUES carries a choice between two materials, not a measured
- * amount, and a box filter over it returns a value the asset does not contain. `normal-tangent`'s
- * metallic-roughness map is the case that named this: its metalness takes EXACTLY TWO values, 0 and
- * 255, while occlusion takes 85 and roughness 180 (board:1130). The whole-map mean of that metalness is
- * 86, so a fetch at the top of the chain returns 0.34 whether the texel under it was metal or
- * dielectric -- a third-metal, which is not a material and appears nowhere in the source.
- *
- * THE PREDICATE NEEDS NO THRESHOLD, which is why it is a count and not a histogram: 2 against 85 and
- * 180 has no midpoint to choose. EXACT float comparison is right here because a channel arrives as
- * `code / 255.0f` from an 8-bit source, so two texels of one code are bit-identical by construction.
- *
- * ITS DOMAIN IS TWO VALUES AND IT IS STATED RATHER THAN IMPLIED: a three-material index map reads as a
- * quantity here and is filtered as one. Widening it means deciding when a small distinct count stops
- * being an index, which is a threshold, and no case in this tree yet forces that choice. */
 inline uint32_t IndexChannelsOf(const std::vector<float> &texels) {
   uint32_t mask = 0;
   for (uint32_t channel = 0; channel < 4; ++channel) {
@@ -87,12 +52,7 @@ inline void HalveInPlace(const std::vector<float> &from, uint32_t fromWidth, uin
           into[at + channel] = mean;
           continue;
         }
-        /* AN INDEX CHANNEL SNAPS THE MEAN TO A VALUE THE FOUR ACTUALLY CONTAIN, so every level holds a
-         * material the asset declares rather than an average of two. NEAREST-TO-THE-MEAN rather than
-         * first-past-the-post because it does not depend on which corner a texel sits in -- a 2-2 split
-         * must not resolve differently for a mirrored island than for its twin, and this tree has a
-         * mirrored case whose whole purpose is to catch exactly that. The tie goes to the smaller value,
-         * which is a declared choice and not an accident of iteration order. */
+
         float best = sample[0], distance = std::fabs(sample[0] - mean);
         for (int which = 1; which < 4; ++which) {
           const float other = std::fabs(sample[which] - mean);
@@ -104,22 +64,7 @@ inline void HalveInPlace(const std::vector<float> &from, uint32_t fromWidth, uin
         into[at + channel] = best;
       }
       if (kind != TexelKind::Direction) { continue; }
-      /* THE MEAN OF UNIT VECTORS IS SHORT AND THE SHORTFALL IS LOST PERTURBATION. Renormalising keeps
-       * the direction and would DISCARD that variance -- and a term named, computed and then rounded
-       * away is how a term becomes unnamed. So the length is KEPT, in the alpha channel, and the
-       * shader turns it into roughness by Toksvig's factor.
-       *
-       * THE OBJECTION THAT USED TO STAND HERE WAS MEASURED AND IS WRONG (board:1131). It said carrying
-       * the term would move us away from the oracle to make a number smaller. Asked the same
-       * self-consistency question, the oracle's own two cells disagree by 0.04859..0.08692 while our
-       * filtered quad reaches 0.27571386 -- 3.2x PAST it, not short of it. Cycles filters this texture
-       * too; what it does differently is shade many rays and average the RADIANCE, where we average the
-       * NORMAL and shade once. The gap between the two orders is exactly this length.
-       *
-       * ALPHA IS ACCUMULATED AND NOT RECOMPUTED, because level n is built from level n-1's ALREADY
-       * RENORMALISED texels: a length measured there sees only the last halving's divergence and would
-       * report a chain as flat-and-certain that is neither. The mean resultant length of a composition
-       * is the product, so the running value multiplies. */
+
       float direction[3];
       float length = 0.0f;
       for (int axis = 0; axis < 3; ++axis) {
@@ -136,6 +81,6 @@ inline void HalveInPlace(const std::vector<float> &from, uint32_t fromWidth, uin
   }
 }
 
-} // namespace outshine::Render
+}
 
 #endif

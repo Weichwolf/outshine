@@ -45,7 +45,7 @@ struct Sampler {
   Keyframes::Interpolation How = Keyframes::Interpolation::Linear;
 };
 
-}  // namespace
+}
 
 const char *Animation::Name(Target t) {
   for (const TargetName &n : kTargets)
@@ -53,12 +53,6 @@ const char *Animation::Name(Target t) {
   return "?";
 }
 
-/* "animation": { "samplers": [{ "input": [...], "output": [...], "interpolation": "..." }],
- *                "channels": [{ "sampler": 0, "target": "camera.yawDeg" }] }
- * glTF's own two-table shape, so one sampler can drive several properties. `interpolation` is
- * REQUIRED: CUBICSPLINE carries three numbers per keyframe and the others carry one, so a default
- * would have to guess what the output array means. CATMULLROM is ours — glTF has no name for
- * "derive the tangents" because glTF is written by an exporter, and a hand-written scene is not. */
 bool Animation::Read(const Ref &node, std::string &err) {
   const Ref samplers = node["samplers"], channels = node["channels"];
   if (samplers.GetKind() != JKind::Array || channels.GetKind() != JKind::Array) {
@@ -97,9 +91,7 @@ bool Animation::Read(const Ref &node, std::string &err) {
       return false;
     }
     if (derive) {
-      /* The frames ARE the knots: a scalar track over a strictly increasing frame axis cannot loop,
-       * so the centripetal reparameterisation that positions need would answer a question this
-       * curve does not ask (core/CatmullRom.h). */
+
       tracks[i].Values.resize(values.size() * 3);
       CatmullRomTangents(tracks[i].Frames.data(), tracks[i].Frames.size(), values.data(), 1,
                          tracks[i].Values.data());
@@ -149,4 +141,4 @@ double Animation::At(Target t, double frame) const {
   return Keyframes(c.How, c.Frames.data(), c.Frames.size(), c.Values.data(), 1).AtScalar(frame);
 }
 
-}  // namespace outshine::Scenario
+}

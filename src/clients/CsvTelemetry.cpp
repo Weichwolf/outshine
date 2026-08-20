@@ -3,8 +3,6 @@
 namespace outshine::Clients {
 namespace {
 
-/* RFC 4180. A field carrying a comma unquoted shifts every column to its right by one for the whole
- * run, and the row is then unreadable by name. */
 void Append(std::string &out, const std::string &field) {
   if (field.find_first_of(",\"\n") == std::string::npos) {
     out += field;
@@ -18,7 +16,7 @@ void Append(std::string &out, const std::string &field) {
   out += '"';
 }
 
-}  // namespace
+}
 
 void CsvTelemetry::WriteRow(const std::vector<std::string> &fields) {
   if (!File_) return;
@@ -36,4 +34,4 @@ void CsvTelemetry::Header(const std::vector<std::string> &columns) { WriteRow(co
 
 void CsvTelemetry::Row(const std::vector<std::string> &fields) { WriteRow(fields); }
 
-} // namespace outshine::Clients
+}

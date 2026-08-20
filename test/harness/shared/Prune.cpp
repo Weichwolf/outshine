@@ -1,15 +1,3 @@
-/* THE HARNESS'S OWN PRUNE (board:1181), beside its own clock and judged by neither.
- *
- *   prune <case directory> <marker file>
- *
- * IT IS NOT A TEST AND HOLDS NO VERDICT. `test/run.sh` runs a case's three arms and then runs this
- * over that one directory, always -- pass or fail -- so the working set is one case rather than the
- * whole corpus. What it decides is only whether a file's bytes exist somewhere else; what a case is
- * WORTH is the trailer's business and it never reads one.
- *
- * ONE LINE ON STDOUT FOR THE RUNNER, EVERYTHING ELSE ON STDERR FOR THE LOG. A file that stays is the
- * interesting output and it names the proof that refused it, because the next reader's question is
- * "why is this still here" and the answer must not be "read the header". */
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -35,8 +23,6 @@ const char *Because(const Examination &examination) {
   return examination.Why.c_str();
 }
 
-/* THE RECOVERY STEP, IN THE RUNNER'S OWN OUTPUT, so a diagnosis does not begin with "how do I see
- * the pixels again". Two producers, two commands, and neither rebuilds anything on a warm store. */
 void NameTheRecovery(const std::string &directory) {
   std::fprintf(stderr, "  the oracle half comes back with: python3 test/harness/shared/corpus/prepare.py all "
                        "--manifest %smanifest.json\n",
@@ -44,8 +30,6 @@ void NameTheRecovery(const std::string &directory) {
   std::fprintf(stderr, "  our own dumps come back by re-running this case: sh test/run.sh\n");
 }
 
-/* The removal and the line that says it happened are one loop on purpose: a report written from the
- * examination alone would say a file went when the unlink had refused. */
 size_t RemoveAndSay(const std::vector<Examination> &examinations) {
   size_t refused = 0;
   for (const Examination &examination : examinations) {
@@ -62,7 +46,7 @@ size_t RemoveAndSay(const std::vector<Examination> &examinations) {
   return refused;
 }
 
-} // namespace
+}
 
 int main(int argc, char **argv) {
   if (argc != 3) {

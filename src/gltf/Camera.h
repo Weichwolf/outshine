@@ -1,17 +1,3 @@
-/* THE glTF CAMERA, AND ITS TWO CONVENTIONS STATED ONCE.
- *
- * HANDEDNESS: a camera sits in its node's local space looking down **-Z**, with **+Y up** and **+X
- * right**, right-handed. The view transform is therefore the INVERSE of the camera node's world
- * transform, and nothing here flips a sign to taste.
- *
- * CLIP SPACE: the format's projection puts NDC z in [-1, +1] with -1 at the near plane. That is not
- * this engine's depth convention (core/Mat4.h is reversed-Z), and converting between them is the
- * renderer's business at the point where it builds a pipeline -- the file's meaning stays the file's.
- *
- * `aspectRatio` and `zfar` are OPTIONAL in the format. `aspectRatio` is carried because it is what
- * the file says and never applied, because the frame the picture lands in is what decides the
- * horizontal extent; absent zfar means an infinite frustum, which is a different matrix and not a
- * large number substituted for one. */
 #ifndef GLTF_CAMERA_H
 #define GLTF_CAMERA_H
 
@@ -22,11 +8,6 @@
 
 namespace outshine::Gltf {
 
-/* Where NDC lands in pixels. THE INTEGER RASTER COORDINATE IS THE PIXEL CENTRE and y RUNS DOWNWARD,
- * which is the raster convention glTF's own NDC-to-window mapping implies and the one every image
- * format this engine reads stores its rows in. Both are properties of this engine's raster and are
- * decided here; what a comparison against any external renderer costs to reconcile is that
- * comparison's problem and not this header's (board:0073). */
 struct Viewport {
   double WidthPx = 0;
   double HeightPx = 0;
@@ -43,8 +24,7 @@ struct Camera {
   CameraKind Kind = CameraKind::Perspective;
 
   double YfovRad = 0;
-  /* 0 means the format did not state it, and the file's own number is not read by `Projection`
-   * either -- see the head of this file. */
+
   double AspectRatio = 0;
   double ZNearM = 0;
   double ZFarM = 0;
@@ -52,11 +32,8 @@ struct Camera {
   double XMagM = 0;
   double YMagM = 0;
 
-  /* Refuses rather than producing a matrix full of infinities: a zero yfov, a zero magnification or
-   * a near plane at the eye are files that cannot mean anything, and a caller that gets `false` can
-   * say which file it was. */
   [[nodiscard]] bool Projection(double viewportAspect, Transform &out) const;
 };
 
-} // namespace outshine::Gltf
+}
 #endif

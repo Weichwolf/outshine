@@ -6,12 +6,6 @@ namespace outshine::Render {
 
 namespace {
 
-/* One triangle covering the frame, so there is no vertex buffer and no index buffer to own.
- *
- * THE ARITHMETIC IS PREMULTIPLIED `over` AND NOTHING ELSE. The glass pass writes the radiance it
- * emits ALREADY MULTIPLIED by its own coverage, and that coverage in alpha; so what is behind it is
- * attenuated by `1 - a` and the two are added. Writing it any other way -- a lerp on the colour, a
- * second multiply here -- would apply coverage twice wherever two transmissive fragments overlap. */
 const char *kCompositeMsl = R"(
 struct VOut { float4 pos [[position]]; };
 vertex VOut vs(uint i [[vertex_id]]) {
@@ -32,7 +26,7 @@ fragment float4 fs(VOut in [[stage_in]],
 
 constexpr uint32_t kCompositeImages = 2;
 
-} // namespace
+}
 
 bool CompositeTransmissionStage::Configure(const Gpu &gpu, SDL_GPUTexture *opaque,
                                            SDL_GPUTexture *transmissive, SDL_GPUSampler *exact,
@@ -58,8 +52,6 @@ bool CompositeTransmissionStage::Configure(const Gpu &gpu, SDL_GPUTexture *opaqu
     return false;
   }
 
-  /* THE TARGET IS THE SCENE'S OWN FORMAT AND NOT THE SURFACE'S: this stage stays in linear radiance
-   * and the display transfer is still the only place a frame leaves it. */
   SDL_GPUColorTargetDescription target{};
   target.format = targetFormat;
   SDL_GPUGraphicsPipelineCreateInfo pipeline{};
@@ -89,4 +81,4 @@ void CompositeTransmissionStage::Encode(const FrameContext &, const PassRecordin
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }
 
-} // namespace outshine::Render
+}

@@ -34,10 +34,6 @@ double Length(const double v[3]) {
   return true;
 }
 
-/* AN ATTRIBUTE RUN A PRODUCER STATES, against the vertex count its positions already fixed. The
- * finiteness check is here and not at the reader's end because a NaN in a file is a byte somebody
- * wrote and a NaN in a produced run is arithmetic that went wrong -- caught at the handover, it
- * names the piece; caught in the picture, it is a hole. */
 [[nodiscard]] bool RunIsStatable(Span<const float> run, size_t vertices, size_t components,
                                  const char *semantic, const std::string &where, std::string &why) {
   if (run.Empty()) { return true; }
@@ -74,21 +70,12 @@ bool DrawsASurface(PrimitiveMode mode) {
          mode == PrimitiveMode::TriangleFan;
 }
 
-/* Whether `run` can be walked as this mode at all: three indices to a triangle for a list, three to
- * start a run for a strip or a fan. */
 bool RunIsWhole(PrimitiveMode mode, size_t indices) {
   return (mode == PrimitiveMode::Triangles) ? (indices > 0 && indices % 3 == 0) : (indices >= 3);
 }
 
-/* WHAT A NODE'S TRANSFORM DOES TO THE ORDER OF ITS TRIANGLES. A mirroring transform turns a
- * front face into a back one, so the format restates the winding rather than the geometry
- * (Specification.adoc:1734). It is an argument of the triangulation and not a step after it, so a
- * path that produces triangles without deciding this has no spelling (`Enum.2`). */
 enum class Handedness { Preserved, Reversed };
 
-/* THE ODD TRIANGLE OF A STRIP IS (i+1, i, i+2), NOT A SLIDING WINDOW: without the swap every second
- * triangle of the run would face the other way, which is the format's rule and not a convention this
- * file chooses. A fan is (0, i, i+1) throughout and needs no such swap. Assumes `RunIsWhole`. */
 void Triangulate(PrimitiveMode mode, Handedness handedness, const std::vector<uint32_t> &run,
                  std::vector<uint32_t> &out) {
   out.clear();
@@ -115,10 +102,6 @@ void Triangulate(PrimitiveMode mode, Handedness handedness, const std::vector<ui
   }
 }
 
-/* THE FOUR NUMBERS OF ONE BASIS AS A KEY, so that "these two corners hold the same basis" is an
- * exact question. Any bound below which two bases counted as one would be a tolerance nobody
- * derived, and the price of having none is a duplicated vertex where two bases differ in their last
- * bit -- which costs memory and never a picture. */
 struct BasisKey {
   uint64_t Bits[4] = {};
   bool operator<(const BasisKey &other) const {
@@ -126,12 +109,6 @@ struct BasisKey {
   }
 };
 
-/* FOUR VALUES AND NOT AN ARRAY, so that the width of the key is spelled at the call. [MEASURED] the
- * `const double basis[4]` form is a pointer with a bound written on it for decoration: a caller
- * handed it a `double[3]` and it read a fourth word off the stack, and because the key is a memcmp
- * over the bits, the split then fragmented at random -- 26 cases died under the sanitiser. A
- * reference to an array would not bind to the pointer into a flat run below, and casting one there
- * is the same defect in a costume, so the components are named and a missing one does not compile. */
 BasisKey KeyOf(double x, double y, double z, double w) {
   const double basis[4] = {x, y, z, w};
   BasisKey key;
@@ -142,21 +119,8 @@ BasisKey KeyOf(double x, double y, double z, double w) {
   return key;
 }
 
-} // namespace
+}
 
-/* THE JOINT MATRICES OF ONE SKIN, one per joint and in the skin's own order. Each takes a vertex out
- * of the joint's bind pose and into the scene: `world(joint) * inverseBind`, which is the format's
- * own product and the order matters -- the inverse bind acts first. An absent `inverseBindMatrices`
- * is the identity by the format's rule, which is why the empty vector needs no second arm. */
-/* ONE SEMANTIC'S BLENDED MORPH DELTAS FOR ONE PRIMITIVE, or an empty run where nothing displaces it.
- *
- * glTF states a morphed attribute is `base + SUM(w_i * delta_i)`, and every delta accessor has
- * already been refused at read time unless its count matches the base's -- so this loop needs no
- * bound of its own and a target that leaves this semantic alone simply contributes nothing.
- *
- * THE WEIGHTS ARE NOT NORMALISED AND MUST NOT BE. Unlike a skin's, a morph weight set has no
- * constraint at all in the format: weights outside [0, 1] and sets summing to anything are legal and
- * are how a file states an exaggeration or an inversion. */
 bool Subject::MorphDeltasFor(const Document &document, const Primitive &primitive,
                              const char *semantic, const double *weights, size_t count,
                              size_t components, size_t vertices, std::vector<double> &out) {
@@ -188,17 +152,6 @@ Transform Subject::JointMatrix(const Skin &skin, size_t joint, const Transform &
   return world * Transform::FromColumnMajor(&skin.InverseBind[joint * 16]);
 }
 
-/* ONE BLENDED TRANSFORM PER VERTEX, from JOINTS_0 and WEIGHTS_0.
- *
- * THE MATRICES ARE BLENDED AND THEN APPLIED, not applied and then blended, and the two are the same
- * number: the transform is affine and the blend is linear, so the order is chosen for cost -- four
- * matrix adds per vertex against four point transforms per attribute.
- *
- * THE WEIGHTS ARE USED AS THE FILE DECLARES THEM. glTF says a float weight set SHOULD sum to one; it
- * does not say MUST, so renormalising would repair somebody else's asset inside a comparison whose
- * subject IS that asset -- the same argument COLOR_0's range refusal turns the other way, because
- * there the format says MUST. What IS refused is a vertex whose weights sum to zero, which names no
- * position at all rather than an unusual one. */
 bool Subject::BlendSkinFor(const Document &document, const Skin &skin,
                            const std::vector<Transform> &joints, const Primitive &primitive,
                            size_t vertices, std::vector<Transform> &out) {
@@ -265,10 +218,7 @@ bool Subject::BuildTangentsFor(const Document &document, const Primitive &primit
       return Refuse(document.Path() + ": TANGENT decodes to " + std::to_string(elements.size() / 4) +
                     " vectors over " + std::to_string(vertices) + " vertices");
     }
-    /* A MORPH TARGET'S TANGENT DELTA IS VEC3 AND THE BASE TANGENT IS VEC4, which the format states
-     * and which is not a quirk: `w` is the bitangent's SIGN, a handedness and not a direction, so
-     * there is nothing for a delta to add to it. Blending it would produce a fourth component
-     * between -1 and 1 that names no handedness at all. */
+
     std::vector<double> morphedTangents;
     if (!MorphDeltasFor(document, primitive, "TANGENT", morphWeights.Data(), morphWeights.Size(), 3,
                         vertices, morphedTangents)) {
@@ -280,9 +230,6 @@ bool Subject::BuildTangentsFor(const Document &document, const Primitive &primit
       }
     }
 
-    /* A TANGENT TRANSFORMS LIKE A DIRECTION IN THE SURFACE and not like the normal: it lies IN the
-     * tangent plane, so the node's linear part carries it and the inverse transpose would tilt it
-     * out of the plane on any non-uniform scale. */
     for (size_t vertex = 0; vertex < vertices; ++vertex) {
       const Transform &placed = place.At(vertex);
       const double mirrored = placed.LinearDeterminant() < 0 ? -1.0 : 1.0;
@@ -300,10 +247,6 @@ bool Subject::BuildTangentsFor(const Document &document, const Primitive &primit
     return true;
   }
 
-  /* THE THREE CONDITIONS THE FORMAT PUTS ON GENERATING ONE, and all three are the file's rather than
-   * this reader's: the material must actually sample a normal map, and the primitive must carry the
-   * normal and the uv set the algorithm is defined over. A basis generated where nothing reads it is
-   * an attribute the subject did not declare. */
   const bool needed = part.Material >= 0 && (size_t)part.Material < document.Materials().size() &&
                       document.Materials()[(size_t)part.Material].Normal.Texture >= 0;
   if (!needed || !part.HasNormal || !part.HasUv || part.IndexCount == 0) { return true; }
@@ -334,8 +277,7 @@ bool Subject::BuildTangentsFor(const Document &document, const Primitive &primit
     }
     if (std::memcmp(&Tangents_[vertex * 4], basis, 4 * sizeof(double)) == 0) { continue; }
     BasisKey key = KeyOf(basis[0], basis[1], basis[2], basis[3]);
-    /* The vertex is part of the key, so two vertices that happen to want one basis do not collapse
-     * into each other -- they are different points of the surface and only their tangent agrees. */
+
     key.Bits[0] ^= (uint64_t)vertex * 0x9e3779b97f4a7c15ull;
     const auto found = split.find(key);
     if (found != split.end()) {
@@ -349,17 +291,13 @@ bool Subject::BuildTangentsFor(const Document &document, const Primitive &primit
     Uv_.resize((size_t)made * 2 + 2, 0.0);
     Uv_[(size_t)made * 2] = Uv_[vertex * 2];
     Uv_[(size_t)made * 2 + 1] = Uv_[vertex * 2 + 1];
-    /* THE SECOND SET IS SPLIT WITH THE FIRST (board:1182). A vertex duplicated for its tangent
-     * basis is the same point of the surface, so every run it appears in has to follow it -- a run
-     * left short would leave the copy addressing zero, which is the image's corner. */
+
     if (!Uv1_.empty()) {
       Uv1_.resize((size_t)made * 2 + 2, 0.0);
       Uv1_[(size_t)made * 2] = Uv1_[vertex * 2];
       Uv1_[(size_t)made * 2 + 1] = Uv1_[vertex * 2 + 1];
     }
-    /* AND THE VERTEX COLOUR FOLLOWS IT FOR THE SAME REASON (board:1193): the copy is the same point
-     * of the surface, so a run left short would leave it multiplying base colour by zero -- a black
-     * wedge along a seam, which reads as shading rather than as a missing run. */
+
     if (!Colours_.empty()) {
       Colours_.resize((size_t)made * 4 + 4, 0.0);
       for (size_t channel = 0; channel < 4; ++channel) {
@@ -379,35 +317,11 @@ bool Subject::BuildTangentsFor(const Document &document, const Primitive &primit
   return true;
 }
 
-/* **THE FLAT NORMAL THE FORMAT REQUIRES WHERE A PRIMITIVE DECLARES NONE** (board:1471).
- *
- * glTF 2.0, meshes: *When normals are not specified, client implementations MUST calculate flat
- * normals and the provided tangents (if present) MUST be ignored.* It is a MUST and this reader did
- * not meet it -- `Clients::Show` refused a lit scene over such a part instead, deliberately and by
- * name, so that nothing was drawn black in a scene where everything else is lit. **A game engine has
- * to display its assets**, and 16 of the 34 models of the generator's two skinning groups declare no
- * NORMAL at all.
- *
- * **FLAT MEANS ONE NORMAL PER TRIANGLE, WHICH MEANS ONE VERTEX PER CORNER.** A shared vertex can hold
- * exactly one normal, so a primitive that is to be flat-shaded is de-indexed: every corner becomes its
- * own vertex carrying its own face's normal. That is the same split `BuildTangentsFor` performs for a
- * tangent basis, without the dedup -- there is nothing to share.
- *
- * THE TANGENTS ARE DROPPED AND THE FORMAT SAYS SO. A basis defined against a normal the file did not
- * declare is a basis about a different surface. */
 bool Subject::FlatNormalsFor(Part &part) {
   if (part.HasNormal || part.IndexCount == 0) { return true; }
   const size_t before = VertexCount();
   Normals_.resize(Positions_.size(), 0.0);
 
-  /* **THE SPLIT IS A FUNCTION OF THE INDEX RUN AND OF NOTHING ELSE** (board:1473). It asks which
-   * corner reached a vertex first and never asks whether two faces happen to agree, because a
-   * coplanarity test reads POSITIONS -- and this runs after the pose is baked, so on a skinned
-   * subject the answer changes with the frame and the vertex COUNT becomes a function of time.
-   * [MEASURED] `Animation_Skin_07` and `Animation_Skin_09` posed 2 frames and carried a different
-   * number of vertices at each; the harness caught it as *the posed subject carries the same
-   * vertices at every frame of the grid*, which is the invariant a static index buffer with a
-   * dynamic vertex stream rests on. A bake decides topology once and a pose writes values into it. */
   std::vector<char> owned(before, 0);
   for (size_t triangle = 0; triangle + 2 < part.IndexCount; triangle += 3) {
     uint32_t of[3] = {Indices_[part.FirstIndex + triangle],
@@ -419,8 +333,7 @@ bool Subject::FlatNormalsFor(Part &part) {
         owned[vertex] = 1;
         continue;
       }
-      /* A CORNER THAT ARRIVES SECOND TAKES A COPY, and every array a vertex is addressed by grows
-       * with it. There is no dedup to look the copy up in: a face normal belongs to one triangle. */
+
       const uint32_t made = (uint32_t)VertexCount();
       for (size_t axis = 0; axis < 3; ++axis) {
         Positions_.push_back(Positions_[(size_t)vertex * 3 + axis]);
@@ -456,8 +369,7 @@ bool Subject::FlatNormalsFor(Part &part) {
                       edge[0][2] * edge[1][0] - edge[0][0] * edge[1][2],
                       edge[0][0] * edge[1][1] - edge[0][1] * edge[1][0]};
     const double length = std::sqrt(face[0] * face[0] + face[1] * face[1] + face[2] * face[2]);
-    /* A DEGENERATE TRIANGLE HAS NO NORMAL AND IS GIVEN THE ZERO ONE RATHER THAN A GUESS: it covers
-     * no pixel, so nothing samples it, and inventing a direction would make it shade something. */
+
     if (length > 0.0) {
       for (size_t axis = 0; axis < 3; ++axis) { face[axis] /= length; }
     } else {
@@ -521,10 +433,6 @@ bool Placement::Clip(double viewportAspect, Transform &out) const {
   return true;
 }
 
-/* A REFUSED SUBJECT CARRIES NO RUN AT ALL, and every run goes rather than the two that used to:
- * `HasUv`, `HasNormal` and `HasTangent` answer from their own run's emptiness, so leaving one of
- * them populated over zero vertices spells a subject that has a tangent for a vertex it does not
- * have. */
 bool Subject::Refuse(const std::string &why) {
   Error_ = why;
   Positions_.clear();
@@ -549,10 +457,7 @@ bool Subject::Build(const Document &document, Span<const Transform> pose,
                   " local transforms and the file carries " +
                   std::to_string(document.Nodes().size()) + " nodes");
   }
-  /* AN EMPTY WEIGHT RUN IS "THE FILE'S OWN", not "no morph", which is why it is not refused against
-   * a document that declares targets: a caller posing a file with no animation on its weights has
-   * nothing to say about them and the mesh's own values stand. A run of the WRONG length is a
-   * different statement and is refused. */
+
   if (weights.Size() != 0 && weights.Size() != document.MorphWeightsTotal()) {
     return Refuse(document.Path() + ": the pose states " + std::to_string(weights.Size()) +
                   " morph weights and the file's nodes carry " +
@@ -561,16 +466,6 @@ bool Subject::Build(const Document &document, Span<const Transform> pose,
   return Flatten(document, pose.Data(), weights.Size() ? weights.Data() : nullptr, variant);
 }
 
-/* EVERY WORLD TRANSFORM ONE MESH NODE DRAWS AT (board:1416). Without `EXT_mesh_gpu_instancing` that is
- * the node's own and nothing else, which is the one-element vector below; with it, the node's world
- * transform composed with each declared instance, in the extension's own order.
- *
- * A MISSING ATTRIBUTE IS ITS IDENTITY AND NOT AN ERROR: the three are independently optional, so a
- * file giving translations alone instances at the rest rotation and scale, which is what the format
- * means by leaving one out.
- *
- * THE COUNT IS ALREADY AGREED. The reader refused a node whose attributes have different lengths, so
- * the first non-empty run's length is the instance count and no second opinion is formed here. */
 bool InstanceTransforms(const Document &document, const Node &node, const Transform &world,
                         std::vector<Transform> &out) {
   out.clear();
@@ -613,9 +508,7 @@ bool InstanceTransforms(const Document &document, const Node &node, const Transf
 
 bool Subject::Flatten(const Document &document, const Transform *pose, const double *weights,
                       const VariantSelection &variant) {
-  /* THE ONE PLACE THE TWO SPELLINGS MEET, so the walk below asks for a placement once however this
-   * was entered. The posed overload states the run's length and the unposed one has no run, and
-   * neither can be reached with a run that half covers the file. */
+
   const auto placementOf = [&document, pose](int node, Transform &out) {
     return pose ? document.WorldTransform(node, Span<const Transform>(pose, document.Nodes().size()),
                                           out)
@@ -643,8 +536,6 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
     return Refuse(document.Path() + ": no default scene to draw");
   }
 
-  /* THE SELECTION IS SPENT HERE AND GOES NO FURTHER (board:1188): from this line on it is an index
-   * into the file's own variant table, and one line below it is a material index like any other. */
   int activeVariant = -1;
   {
     std::string why;
@@ -653,20 +544,9 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
     }
   }
 
-  /* Depth-first over the hierarchy from the scene's roots; WorldTransform already refuses a cycle
-   * and a node index the file does not carry, so this walk needs no visited set of its own. */
   std::vector<int> pending(document.Scenes()[(size_t)sceneIndex].Roots.rbegin(),
                            document.Scenes()[(size_t)sceneIndex].Roots.rend());
-  /* `KHR_node_visibility` IS RESOLVED BY NOT DESCENDING, which is the whole of its implementation
-   * here. The extension states *a node is visible if and only if its own visible property is true
-   * and all its parents are visible*, so an invisible node makes its entire subtree invisible and
-   * the cheapest correct answer is to stop: no part, no light, no children pushed.
-   *
-   * WHAT IS DELIBERATELY NOT SKIPPED IS A CAMERA, because the extension says so -- *visibility
-   * affects neither cameras, nor node's interactivity features*. Nothing here has to arrange that:
-   * a camera is resolved by its own scan over `document.Nodes()` further down this file, which never
-   * consulted this walk. **If a later round moves camera resolution into this walk, this comment is
-   * the reason it may not simply inherit the skip.** */
+
   std::vector<double> elements;
   std::vector<uint32_t> run, indices;
   size_t primitives = 0;
@@ -696,9 +576,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
       const double origin[3] = {0, 0, 0};
       double position[3];
       placement.Point(origin, position);
-      /* THE BEAM IS THE NODE'S -Z, which is `KHR_lights_punctual`'s own rule and the same convention
-       * the format gives a camera. A zero-scaled node has no direction to give and is refused rather
-       * than pointed somewhere. */
+
       const double axis[3] = {0, 0, -1};
       double beam[3];
       placement.Direction(axis, beam);
@@ -722,9 +600,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
       return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
                     " has no world transform: " + document.Error());
     }
-    /* THE WEIGHTS THIS NODE MORPHS BY: the pose's where one was given, and the mesh's own where it
-     * was not -- which is the same rule `pose` itself follows one field up, so "the file's own" has
-     * one meaning for both halves of a pose. */
+
     const size_t morphCount = document.MorphWeightsCount(nodeIndex);
     std::vector<double> nodeWeights;
     if (morphCount > 0) {
@@ -735,8 +611,6 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
       }
     }
 
-    /* THE SKIN'S JOINT MATRICES, ONCE PER NODE AND NOT PER PRIMITIVE: they are a property of the
-     * skin and the pose, and every primitive of the mesh rides the same ones. */
     std::vector<Transform> jointMatrices;
     if (node.Skin >= 0) {
       const Skin &skin = document.Skins()[(size_t)node.Skin];
@@ -750,20 +624,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
         jointMatrices[joint] = JointMatrix(skin, joint, placed);
       }
     }
-    /* `EXT_mesh_gpu_instancing`: ONE BODY PER INSTANCE, and the extension's own composition --
-     * *an object space transform that should be multiplied by the node's world transform*. A node
-     * with no instancing has exactly one, which is its world transform, so the loop below is the
-     * un-instanced path unchanged and costs it nothing.
-     *
-     * THE CHILDREN ARE NOT INSTANCED. The extension says instancing applies to a node's MESH and is
-     * silent about a subtree; the conservative reading is that a child follows its parent once, and
-     * a reading that multiplied a subtree would be inventing a behaviour the format does not define.
-     *
-     * IT IS AN EXPANSION AND NOT GPU INSTANCING, WHICH IS SAID HERE BECAUSE THE NAMES COLLIDE. What
-     * this produces is N parts sharing one mesh's vertices through their own transforms; a draw list
-     * that batches them into one call is the compositor's business and the extension's own note says
-     * so -- *GPU instancing and other optimizations are possible, and encouraged, even without this
-     * extension*. */
+
     std::vector<Transform> instances;
     if (!InstanceTransforms(document, node, world, instances)) {
       return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
@@ -777,19 +638,12 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
         part.Material = primitive.MaterialUnder(activeVariant);
         part.FirstVertex = VertexCount();
         part.FirstIndex = Indices_.size();
-        /* A MODE THIS RASTERISER HAS NO PASS FOR IS SKIPPED AND COUNTED, NEVER FATAL (board:1399).
-         * All seven modes are glTF 2.0 and a file is entitled to all of them; refusing the whole
-         * subject over one point cloud lost twelve drawable primitives across two of the 148 models --
-         * `MeshPrimitiveModes`, whose entire purpose is that TRIANGLE_STRIP and TRIANGLE_FAN
-         * triangulate to the same surface, never reached that question. **Degrade on detail; refuse
-         * only on existence.** A subject with no surface primitive at all is still a refusal, and that
-         * one is below: `Indices_` stays empty and nothing is drawn. */
+
         if (!DrawsASurface(primitive.Mode)) {
           ++Undrawn_.Primitives;
           const size_t mode = (size_t)primitive.Mode;
           if (mode < 7) { ++Undrawn_.ByMode[mode]; }
-          /* `part` is still local here -- it is pushed at the foot of this body -- so the skip drops
-           * it by not reaching that line, and nothing already in `Parts_` is touched. */
+
           continue;
         }
         const int position = primitive.Find("POSITION");
@@ -806,10 +660,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
         }
         const uint32_t base = (uint32_t)(Positions_.size() / 3);
         const size_t vertices = elements.size() / 3;
-        /* THE MORPH IS APPLIED FIRST, BEFORE THE SKIN AND BEFORE THE NODE, which is the order glTF
-         * states: the targets displace the mesh in its own space, the skin then binds that displaced
-         * vertex to its joints, and only an unskinned node's transform places it. Any other order
-         * puts the deltas through a matrix they were never expressed in. */
+
         std::vector<double> morphedPositions;
         if (!MorphDeltasFor(document, primitive, "POSITION", nodeWeights.data(), morphCount, 3,
                             vertices, morphedPositions)) {
@@ -831,13 +682,6 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
           for (int axis = 0; axis < 3; ++axis) { Positions_.push_back(global[axis]); }
         }
 
-        /* THE TWO UV SETS, PER PRIMITIVE. Each run stays as long as the vertex run whatever the mix
-         * is: a primitive that carried none contributes zeros there and is drawn by a pipeline with
-         * no slot for it, so those zeros are unread rather than sampled at the image's corner.
-         *
-         * THE SECOND SET IS READ HERE AND NOT DERIVED FROM THE FIRST (board:1182), which is the whole
-         * of what `MultiUVTest` separates: its two accessors sit in two buffer views 192 bytes apart
-         * and place the same face 0.25 uv units -- 256 texels of a 1024 image -- from each other. */
         const struct {
           const char *Semantic;
           bool Part::*Carried;
@@ -865,19 +709,6 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
                     set.Into->begin() + static_cast<std::ptrdiff_t>(part.FirstVertex * 2));
         }
 
-        /* THE VERTEX COLOUR, PER PRIMITIVE, WIDENED TO RGBA AND OTHERWISE UNTOUCHED (board:1193). It
-         * is glTF's "additional linear multiplier to base color", so no transfer function is applied
-         * to it -- here or at the sampler -- and the widening is the format's own sentence about VEC3
-         * rather than a convenience: alpha 1.0 is the multiplicative identity of base colour's alpha.
-         *
-         * OUT OF RANGE IS A REFUSAL AND NOT A CLAMP (board:1193), and the decision is written here
-         * because all three answers are defensible and only one can be tested. The format says every
-         * component MUST lie in [0, 1] (`Specification.adoc:1356`), so a file outside it is malformed;
-         * CLAMPING would repair somebody else's asset inside a comparison whose subject IS that asset,
-         * and TRUSTING would multiply base colour past one and publish a brighter body that reads as
-         * authored. The refusal names the vertex, the channel and the value. IT IS SPELLABLE ON TWO OF
-         * THE SIX CELLS ONLY: a normalized unsigned byte or short cannot leave [0, 1], so on four of
-         * them the range is carried by the type and this arm is unreachable. */
         const int colour = primitive.Find("COLOR_0");
         part.HasColour = colour >= 0;
         anyColour = anyColour || part.HasColour;
@@ -916,10 +747,6 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
           }
         }
 
-        /* THE NORMAL, PER PRIMITIVE, ROTATED BY THE INVERSE TRANSPOSE and normalised here so that no
-         * consumer has to know whether the node scaled it. The run stays as long as the vertex run
-         * whatever the mix is; a primitive that carried none contributes zeros and is drawn by a
-         * pipeline with no normal slot, so those zeros are unread rather than shaded as a direction. */
         const int normal = primitive.Find("NORMAL");
         part.HasNormal = normal >= 0;
         anyNormal = anyNormal || part.HasNormal;
@@ -944,24 +771,11 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
             double local[3] = {directions[vertex * 3], directions[vertex * 3 + 1],
                                directions[vertex * 3 + 2]};
             double global[3];
-            /* A COLLAPSED TRANSFORM IS A SURFACE WITH NO AREA, AND THAT IS A PICTURE RATHER THAN A
-             * REFUSAL (board:1439). A scale of zero is legal glTF and `InterpolationTest` animates one
-             * on purpose -- its three samplers pulse `(1,1,1)` to `(0,0,0)` and back, which is the whole
-             * subject of the case -- so a node at that instant has every vertex on one point, every
-             * triangle degenerate and nothing to draw. **The engine's rule is degrade on detail and
-             * refuse on existence**, and a node scaled to nothing still exists; it is merely
-             * infinitely small.
-             *
-             * THE NORMAL IS ZERO AND IT IS THE ARITHMETIC'S OWN ANSWER, not a substitute for one: the
-             * surface the normal was perpendicular to has no orientation left, and the line below
-             * already carries that rule for a zero-length normal the FILE declares -- *the consumer
-             * sees a zero and the picture shows it*. This is the same statement one step earlier. */
+
             if (!place.At(vertex).Normal(local, global)) {
               global[0] = global[1] = global[2] = 0.0;
             }
-            /* A ZERO-LENGTH NORMAL IS THE FILE'S AND IS CARRIED AS IT ARRIVED. Substituting one here
-             * would make a malformed vertex look shaded; the consumer sees a zero and the picture
-             * shows it. */
+
             (void)Normalise(global);
             for (int axis = 0; axis < 3; ++axis) {
               Normals_[(part.FirstVertex + vertex) * 3 + (size_t)axis] = global[axis];
@@ -982,10 +796,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
           return Refuse(document.Path() + ": " + std::to_string(run.size()) +
                         " indices do not make a whole run of " + ModeName(primitive.Mode));
         }
-        /* THE WINDING RULE IS STATED FOR THE NODE'S TRANSFORM, AND A SKINNED PRIMITIVE IGNORES THAT
-         * TRANSFORM -- so for a skin the sign is taken from the vertices themselves, and a primitive
-         * whose blended matrices do not agree on it is refused rather than drawn with a guess: one
-         * primitive cannot carry two windings, and picking either would flip half its triangles. */
+
         Handedness handedness = Handedness::Preserved;
         if (skinned.empty()) {
           handedness = world.LinearDeterminant() < 0 ? Handedness::Reversed : Handedness::Preserved;
@@ -1009,10 +820,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
           Indices_.push_back(base + index);
         }
         part.IndexCount = Indices_.size() - part.FirstIndex;
-        /* **BEFORE THE TANGENT BASIS, BECAUSE THE BASIS IS DEFINED AGAINST A NORMAL** (board:1471).
-         * A primitive that declares none gets the flat one the format requires here, so what follows
-         * sees a part with normals like any other -- and `BuildTangentsFor` refuses a part without
-         * them, which is why the order is load-bearing rather than tidy. */
+
         if (!FlatNormalsFor(part)) { return false; }
         if (!BuildTangentsFor(document, primitive, place,
                               Span<const double>(nodeWeights.data(), morphCount), part, vertices)) {
@@ -1021,8 +829,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
         anyTangent = anyTangent || part.HasTangent();
         anyNormal = anyNormal || part.HasNormal;
         part.VertexCount = VertexCount() - part.FirstVertex;
-        /* A primitive that yielded no triangle is not a part: it is a name a per-part declaration
-         * would have to answer for while nothing of it is drawn. */
+
         if (part.IndexCount > 0) { Parts_.push_back(part); }
       }
     }
@@ -1101,9 +908,7 @@ bool Subject::Assemble(const Assembly &what) {
         !RunIsStatable(piece.Colours, vertices, 4, "vertex colours", where, why)) {
       return Refuse(why);
     }
-    /* THE RANGE IS CHECKED ON A PRODUCED RUN TOO (board:1193), on the same terms a file's is: the
-     * format's [0, 1] is a property of the QUANTITY and not of where it came from, and a generator
-     * that multiplied base colour past one would be publishing a brighter body nobody declared. */
+
     for (size_t at = 0; at < piece.Colours.Size(); ++at) {
       if (piece.Colours[at] >= 0.0f && piece.Colours[at] <= 1.0f) { continue; }
       return Refuse(where + " states a vertex colour component of " +
@@ -1122,9 +927,7 @@ bool Subject::Assemble(const Assembly &what) {
     part.HasUv1 = !piece.Uv1.Empty();
     part.HasNormal = !piece.Normals.Empty();
     part.HasColour = !piece.Colours.Empty();
-    /* A PRODUCER'S BASIS IS A SUPPLIED ONE. `Generated` is what the reader records when it ran
-     * MikkTSpace over a file that stated none, and a generator claiming that word would be saying
-     * its basis came from an algorithm this subject can re-run. */
+
     part.Tangent = piece.Tangents.Empty() ? TangentSource::None : TangentSource::Supplied;
     anyUv = anyUv || part.HasUv;
     anyUv1 = anyUv1 || part.HasUv1;
@@ -1133,9 +936,7 @@ bool Subject::Assemble(const Assembly &what) {
     anyColour = anyColour || part.HasColour;
 
     for (const float component : piece.PositionsM) { Positions_.push_back((double)component); }
-    /* The three optional runs stay as long as the vertex run whatever the mix is, exactly as the
-     * flatten leaves them: a piece that carried none contributes zeros that `HasUv`/`HasNormal`/
-     * `Tangent` say are unread. */
+
     Uv_.resize((Positions_.size() / 3) * 2, 0.0);
     Uv1_.resize((Positions_.size() / 3) * 2, 0.0);
     Normals_.resize(Positions_.size(), 0.0);
@@ -1189,11 +990,6 @@ bool Subject::Frame(Placement &out, double fill) const {
   return FramingFor(Min_, Max_, out, fill);
 }
 
-/* THE RULE OVER BOUNDS THAT NEED NOT BE ONE POSE'S (board:1366). An animated subject's stored pose is
- * one frame of its motion, and a camera derived from that pose frames a shape the subject leaves:
- * measured on `AnimatedTriangle`, which spins 360 degrees about the origin, reaching 2.12 from a centre
- * this rule covers to 1.178. The caller that knows the frame grid unions the poses and hands the union
- * here, and `Frame` above is this called with the subject's own box. */
 bool FramingFor(const double minM[3], const double maxM[3], Placement &out, double fill) {
   const double span[3] = {maxM[0] - minM[0], maxM[1] - minM[1], maxM[2] - minM[2]};
   const double radius = 0.5 * Length(span);
@@ -1203,7 +999,7 @@ bool FramingFor(const double minM[3], const double maxM[3], Placement &out, doub
 
   const double azimuth = kFramingAzimuthDeg * kPi / 180.0;
   const double elevation = kFramingElevationDeg * kPi / 180.0;
-  /* Azimuth is measured in glTF's ground plane from +X towards +Z, elevation up from it. */
+
   double toEye[3] = {std::cos(elevation) * std::cos(azimuth), std::sin(elevation),
                      std::cos(elevation) * std::sin(azimuth)};
 
@@ -1285,4 +1081,4 @@ double Subject::ProjectedAreaPx(const Transform &clip, const Viewport &viewport)
   return total;
 }
 
-} // namespace outshine::Gltf
+}

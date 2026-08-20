@@ -6,13 +6,9 @@ namespace outshine::Generators {
 
 namespace {
 
-/* [SET] kg/m3 of GROSS BUILT VOLUME, not of a material: a masonry house is mostly air, and what a
- * substitute body needs is the mass the whole prism carries. 300 is the middle of the 250...350 that
- * European residential construction lands on once floors, walls and roof are spread over the volume
- * they enclose. It is a placeholder for a per-material sum and is deleted the day one exists. */
 constexpr double kBuiltDensityKgPerM3 = 300.0;
 
-} // namespace
+}
 
 Buildings::Buildings(ContactMaterial contact) : Contact_(contact) {}
 
@@ -21,8 +17,6 @@ Span<const char *const> Buildings::NoteNames() const noexcept {
   return Span<const char *const>(kNames, kNotes);
 }
 
-/* Nothing is claimed, so this counts what it saw: a region whose outlines all vanished and a region
- * that has none are otherwise the same empty line. */
 void Buildings::Occupy(const Ground &ground, Yield &yield) const noexcept {
   const FeatureField &features = ground.Features();
   for (size_t i = 0; i < features.Count(); i++) {
@@ -60,13 +54,6 @@ const FeatureField::Feature *Buildings::Over(const Ground &ground, double eastM,
   return highest;
 }
 
-/* The prism the point stands under, as the body it would be. Its cylinder is INSCRIBED in the
- * outline's own box: a substitute larger than the thing it substitutes claims ground the building
- * does not stand on, and a terrace is where that shows.
- *
- * THE BASE IS THE FEATURE'S OWN, not the ground under the box centre. The drawn prism stands on the
- * ring's lowest corner, so a base taken from the terrain at the centre floats against it by the
- * ground's fall across the footprint and the height reported here would be short by exactly that. */
 bool Buildings::At(const Ground &ground, double eastM, double northM, Body *out) const noexcept {
   const FeatureField::Feature *f = Over(ground, eastM, northM);
   if (!f) return false;
@@ -91,4 +78,4 @@ bool Buildings::At(const Ground &ground, double eastM, double northM, Body *out)
   return true;
 }
 
-} // namespace outshine::Generators
+}

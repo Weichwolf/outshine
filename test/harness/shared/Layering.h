@@ -1,23 +1,3 @@
-/* WHAT THE TYPE SYSTEM AND THE INCLUDE SET MUST REFUSE, with a verdict the harness can count.
- *
- * THE POSITIVE DIRECTION IS NOT HERE AND MUST NOT BE. Every test under test/unit/<layer>/ is already
- * compiled with that layer's include set, so an illegal include is a build failure -- continuous,
- * free, and what "layering is the build, never a checker" means. The negative direction cannot be
- * had that way: proving a name has NO spelling means invoking the compiler and asserting it refuses.
- *
- * THE SUBJECT DECLARES ITS OWN REASON AND THE TEST ASSERTS IT. A gate that accepts any non-zero exit
- * is the vacuous shape wearing a compiler: a typo, a moved header or a changed flag also fails, and
- * the gate reports green over a proof it no longer carries. A subject carries one line --
- * `// REFUSED: <text>` or `// ACCEPTED` -- and a subject with neither fails the test by name.
- *
- * EACH REFUSAL CARRIES ITS OWN POSITIVE CONTROL, in the subject, as the include above the forbidden
- * one: if the layer's set stopped resolving, the control's header would be the missing one and the
- * declared diagnostic would not match. That is what keeps a refusal from passing for the wrong
- * reason without a second test asserting that a legal include is legal.
- *
- * OUTSHINE_COMPILE COMES FROM THE HARNESS -- the same compiler, the same house warning set and the
- * same include set this test itself was built with. Written down here instead, it would be a second
- * copy of the layering that drifts the first time one side moves. */
 #ifndef LAYERING_H
 #define LAYERING_H
 
@@ -63,8 +43,6 @@ struct CompilerAnswer {
   std::string Diagnostics;
 };
 
-/* popen, and it is the only process this repository starts from C++. The standard library has no way
- * to run a compiler and read what it said, and what it said is the whole point of the test. */
 inline CompilerAnswer Compile(const std::filesystem::path &subject) {
   const std::string command =
       std::string(OUTSHINE_COMPILE) + " -fsyntax-only '" + subject.string() + "' 2>&1";
@@ -77,8 +55,6 @@ inline CompilerAnswer Compile(const std::filesystem::path &subject) {
   return answer;
 }
 
-/* Every .cpp under `directory` is a subject and every subject is judged. A directory that holds none
- * fails: a gate over nothing is the shape this whole file exists to refuse. */
 inline void EveryCompileSubjectHolds(const char *directory) {
   std::vector<std::filesystem::path> subjects;
   for (const auto &entry : std::filesystem::directory_iterator(directory)) {
@@ -112,11 +88,6 @@ inline void EveryCompileSubjectHolds(const char *directory) {
   Note("compile subjects judged", static_cast<double>(subjects.size()), "files");
 }
 
-/* THE ONE ESCAPE AN INCLUDE SET CANNOT CLOSE. `#include "../render/Renderer.h"` resolves relative to
- * the including file and does not consult -I at all, so a layer bounded by its include set is not
- * bounded against it. This is the one thing the deleted `-MM` closure loops caught that the build
- * does not, and it is a checker rather than a compile error -- said plainly, because the difference
- * is what decides how much it is worth. */
 inline void NoIncludeClimbsOutOfItsDirectory(const char *directory) {
   int examined = 0;
   for (const auto &entry : std::filesystem::directory_iterator(directory)) {
@@ -140,6 +111,6 @@ inline void NoIncludeClimbsOutOfItsDirectory(const char *directory) {
   Note("sources read for a climbing include", static_cast<double>(examined), "files");
 }
 
-} // namespace outshine::Test
+}
 
 #endif

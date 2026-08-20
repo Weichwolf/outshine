@@ -1,13 +1,3 @@
-/* THE TWO SPELLINGS OF ONE TRANSFORM. glTF lets a node carry `matrix` OR the `translation`,
- * `rotation`, `scale` triple, and the composition is T * R * S in that order. Two children of one
- * rotated parent say the same thing both ways here, and the world transform they must both produce
- * is written out in integers -- so this test does not check the reader against itself.
- *
- * THE EXPECTED MATRIX IS EXACT AND DERIVED, NOT MEASURED. The child's rotation is a quarter turn
- * about +Z, whose basis columns are (0,1,0), (-1,0,0), (0,0,1); scaling those by (2,3,4) and adding
- * the translation (5,-6,7) gives the child's local matrix in whole numbers. The parent is a quarter
- * turn about +X at (1,2,3), and the product of the two is likewise whole. Every number below can be
- * recomputed with a pencil, which is the property that makes it a reference. */
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -24,12 +14,10 @@ using outshine::Test::Glb;
 
 namespace {
 
-/* sin(45 deg) = cos(45 deg): the scalar and vector halves of a quarter-turn quaternion. */
 const double kHalfTurnRoot = 0.70710678118654752440;
 
 std::string Json() {
-  /* Seventeen significant digits, because std::to_string writes six and a quaternion rounded to six
-   * is no longer a unit quaternion at the tolerance this test asserts. */
+
   char digits[32];
   std::snprintf(digits, sizeof digits, "%.17g", kHalfTurnRoot);
   const std::string half = digits;
@@ -47,11 +35,9 @@ std::string Json() {
 })";
 }
 
-/* Column-major, and every entry is exact: parent(quarter turn about +X, at (1,2,3)) times
- * child(quarter turn about +Z, scale (2,3,4), at (5,-6,7)). */
 const double kExpectedWorld[16] = {0, 0, 2, 0, -3, 0, 0, 0, 0, -4, 0, 0, 6, -5, -3, 1};
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -80,7 +66,6 @@ int main() {
                "the matrix child's world transform is the same one");
   }
 
-  /* The number a consumer actually feels: where a vertex lands, in metres. */
   const double vertex[3] = {1.0, 1.0, 1.0};
   double byTrs[3] = {0, 0, 0};
   double byMatrix[3] = {0, 0, 0};

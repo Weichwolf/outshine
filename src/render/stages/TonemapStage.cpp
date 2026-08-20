@@ -7,7 +7,6 @@ namespace outshine::Render {
 
 namespace {
 
-/* One triangle covering the frame, so there is no vertex buffer and no index buffer to own. */
 const char *kFullScreenMsl = R"(
 struct VOut { float4 pos [[position]]; };
 vertex VOut vs(uint i [[vertex_id]]) {
@@ -24,13 +23,6 @@ fragment float4 fs(VOut in [[stage_in]],
 }
 )";
 
-/* THE FUSED FRAGMENT, AND IT IS ONE PASS AND TWO TARGETS (board:1413). The catalogue fuses the
- * temporal resolve into this stage -- *the resolve and the display transfer are one fragment* -- so
- * the resolved radiance is never written, read back and written again: it leaves here as `SceneLinear`
- * for the next frame to reproject, and as the display picture, in one write each.
- *
- * THE ORDER OF THE TWO OUTPUTS IS THE PASS'S ATTACHMENT ORDER, which is the catalogue's: the resolve
- * contributes `SceneLinear` and this stage `FrameTex`, and the resolve's row comes first. */
 const char *kTemporalFullScreenMsl = R"(
 struct VOut { float4 pos [[position]]; };
 vertex VOut vs(uint i [[vertex_id]]) {
@@ -46,9 +38,9 @@ struct Resolved {
 };
 
 struct Temporal {
-  float2 jitterDelta;   /* pixels: what the velocity carries and the motion does not */
-  float2 texel;         /* 1 / size, so the reprojection is in uv */
-  float historyHeld;    /* 0 on the first frame of a run: the present is then the answer */
+  float2 jitterDelta;
+  float2 texel;
+  float historyHeld;
   float pad0, pad1, pad2;
 };
 
@@ -61,18 +53,10 @@ fragment Resolved fs(VOut in [[stage_in]],
   uint2 px = uint2(in.pos.xy);
   float4 here = scene.read(px);
 
-  /* The neighbourhood, gathered once and used for both the box and the mean. Nine reads of a target
-   * already in cache; the expensive half of this is the history fetch, and it is one. */
   float3 lowest = float3(1.0e30);
   float3 highest = float3(-1.0e30);
   float3 total = float3(0.0);
-  /* THE NEIGHBOURHOOD IS CLAMPED TO THE TARGET AND IT USED TO WRAP (board:1413). `read()` takes an
-   * unsigned coordinate, so a pixel on the left or top edge asked for `uint(-1)` -- 4 294 967 295 --
-   * and a texture read out of range is undefined in MSL. What came back entered the box and the mean,
-   * and an infinity there survives `clipTowards`: `largest` is infinite, the branch is taken, and
-   * `centre + offset / largest` is `inf + inf/inf`, which is NaN. A NaN in the resolved target is the
-   * next frame's history, so it spreads. The edge row simply repeats itself now, which is what a 3x3
-   * box means at a boundary. */
+
   int2 limit = int2(int(scene.get_width()) - 1, int(scene.get_height()) - 1);
   for (int dy = -1; dy <= 1; ++dy) {
     for (int dx = -1; dx <= 1; ++dx) {
@@ -86,8 +70,6 @@ fragment Resolved fs(VOut in [[stage_in]],
   float3 centre = total * (1.0 / 9.0);
   float3 extent = max(highest - centre, centre - lowest);
 
-  /* THE VELOCITY WITH THE JITTER TAKEN BACK OUT. Both view-projections carried their own frame's
-   * sub-pixel offset, so what the geometry pass wrote is the true motion plus the difference. */
   float2 motion = velocity.read(px).xy - u.jitterDelta * u.texel;
   float2 uv = (float2(px) + 0.5) * u.texel;
   float2 was = uv - motion;
@@ -109,7 +91,7 @@ fragment Resolved fs(VOut in [[stage_in]],
 constexpr uint32_t kTonemapImages = 2;
 constexpr uint32_t kTemporalImages = 4;
 
-} // namespace
+}
 
 bool TonemapStage::Configure(const Gpu &gpu, SDL_GPUTexture *scene, SDL_GPUTexture *depth,
                              SDL_GPUSampler *exact, SDL_GPUTextureFormat linear,
@@ -138,8 +120,6 @@ bool TonemapStage::Configure(const Gpu &gpu, SDL_GPUTexture *scene, SDL_GPUTextu
     return false;
   }
 
-  /* TWO DESCRIPTIONS WHERE THE RESOLVE IS FUSED IN, in the pass's own attachment order: the resolved
-   * radiance carries the scene's format and the picture carries the surface's. */
   SDL_GPUColorTargetDescription target[2] = {};
   target[0].format = options.Temporal ? linear : gpu.SurfaceFormat;
   target[1].format = gpu.SurfaceFormat;
@@ -186,4 +166,4 @@ void TonemapStage::Encode(const FrameContext &, const PassRecording &into) {
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }
 
-} // namespace outshine::Render
+}

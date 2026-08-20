@@ -1,9 +1,3 @@
-/* WHAT THE PAINT LAYER OWES, AND EVERY NUMBER HERE IS THE DECLARATION'S OWN (board:1442).
- *
- * The subject is `src/ui/Paint.{h,cpp}`: a laid-out declaration becomes rectangles, in painter's
- * order, each carrying the clip it is allowed to touch and the opacity it inherited. **No device is
- * linked and none is needed** -- which is the property that makes the whole engine judgeable before a
- * pixel exists, and the reason the layout is testable the same way. */
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -45,7 +39,6 @@ bool Paint(Built &built, const char *markup, double width, double height) {
   return true;
 }
 
-/* The first quad whose rectangle is exactly these four numbers, or -1. */
 int At(const Painting &painting, double x, double y, double w, double h) {
   for (size_t i = 0; i < painting.Quads().size(); ++i) {
     const Quad &q = painting.Quads()[i];
@@ -54,17 +47,10 @@ int At(const Painting &painting, double x, double y, double w, double h) {
   return -1;
 }
 
-}  // namespace
+}
 
 int main(void) {
-  /* A COLOURED BOX IS ONE RECTANGLE AND A TRANSPARENT ONE IS NONE. `body`'s own margin puts it at 8,
-   * which is the same eight the layout suite measures against, so the two layers agree by
-   * construction rather than by two copies of a number.
-   *
-   * **THE `<body>` IS WRITTEN AND NOT IMPLIED, and that is the engine's answer rather than an
-   * omission.** A browser invents the element a fragment left out; this is a mechanism, a consumer
-   * declares the surface it means, and a HUD that wanted no eight-pixel margin would be given one by
-   * a convenience it never asked for. */
+
   {
     Built built;
     if (Paint(built, "<style>#a{width:100px;height:50px;background:#ff0000}</style>"
@@ -82,8 +68,6 @@ int main(void) {
     }
   }
 
-  /* FOUR EDGES AND NOT ONE FRAME. The widths differ on purpose: a single rectangle behind the
-   * background cannot spell a border thick on one side, and that is the whole argument for four. */
   {
     Built built;
     if (Paint(built, "<style>#a{width:100px;height:40px;background:#00ff00;"
@@ -103,8 +87,6 @@ int main(void) {
     }
   }
 
-  /* A CLIP TRAVELS WITH THE QUAD. The child reaches past its parent; what the consumer is told is the
-   * intersection, computed once here rather than replayed as a stack of scissors it did not build. */
   {
     Built built;
     if (Paint(built, "<style>#o{width:50px;height:50px;overflow:hidden}"
@@ -121,8 +103,6 @@ int main(void) {
     }
   }
 
-  /* OPACITY IS ALREADY THE PRODUCT DOWN THE TREE, so a consumer multiplies nothing and a nested
-   * declaration cannot come out brighter than the parent that dimmed it. */
   {
     Built built;
     if (Paint(built, "<style>#o{opacity:0.5}#i{width:10px;height:10px;background:#ffffff;"
@@ -137,8 +117,6 @@ int main(void) {
     }
   }
 
-  /* A GLYPH IS A RECTANGLE AND A SPACE IS NOT. Ahem's every glyph is a filled box of the em, which is
-   * why the measurement font also paints and why this needs no atlas at all. */
   {
     Built built;
     if (Paint(built, "<style>p{font-size:10px;line-height:1;margin:0;color:#000000}</style>"
@@ -155,9 +133,6 @@ int main(void) {
     }
   }
 
-  /* THE BOUND IS PUBLISHED IN BOTH DIRECTIONS. A list cut without a word draws a picture nobody
-   * declared, so a declaration inside the bound must report ZERO beyond it -- the claim that the
-   * counter is a measurement and not an ornament. */
   {
     Built built;
     if (Paint(built, "<style>div{width:5px;height:5px;background:#ff00ff}</style>"
@@ -170,9 +145,6 @@ int main(void) {
     }
   }
 
-  /* PROSE TURNS PAGES, AND A PAGE NEVER CUTS A LINE. Ten lines of ten pixels in a page of 35 fit
-   * three whole lines and start the fourth on the next page -- the page ends SHORT rather than showing
-   * the tops of a row of glyphs on one page and their feet on the next. */
   {
     Built built;
     if (Paint(built, "<style>body{margin:0}p{font-size:10px;line-height:1;margin:0;width:100px;"
@@ -191,8 +163,6 @@ int main(void) {
               "and the break is at a line boundary, not at the page height -- 30 and never 35");
       }
 
-      /* THE OFFSET IS TAKEN OFF ON THE WAY OUT, so page two lands in the rectangle page one did and a
-       * consumer draws every page into one target with no transform of its own. */
       std::string error;
       Painting second;
       CHECK(second.Build(built.Placed, AhemFont(), error, Page{30, 35}),
@@ -210,8 +180,6 @@ int main(void) {
     }
   }
 
-  /* A LINE TALLER THAN THE PAGE STILL GETS ONE. A break that cannot advance is a loop with no bound
-   * and dropping the line is the other way to make it terminate, so it overflows and is COUNTED. */
   {
     Built built;
     if (Paint(built, "<style>body{margin:0}p{font-size:40px;line-height:1;margin:0;width:400px;"

@@ -19,13 +19,13 @@ namespace {
   d.Keeps = Cacheability::Forever;
   d.Need = Necessity::Required;
   d.Latency = LatencyClass::Distant;
-  /* Measured 2026-08-12: 38 B mid-ocean, 153 kB over a town. */
+
   d.TypicalPayloadBytes = 80000;
   d.RetryBudget = 4;
   return d;
 }
 
-} // namespace
+}
 
 VersatilesVector::VersatilesVector() : WebTileSource(Declared()) {}
 
@@ -39,13 +39,11 @@ std::string VersatilesVector::Url(const Address &at) const {
 }
 
 Meaning VersatilesVector::Classify(int status, size_t bytes) const noexcept {
-  /* AN EMPTY BODY IS AN ANSWER HERE and is not one for the DEM: a vector tile with no features is a
-   * legal tile that says "nothing mapped", and the smallest measured real tile is 38 bytes. Zero
-   * bytes with a 200 is still a truncated transfer, not a place. */
+
   if (status == 200) return bytes > 0 ? Meaning::Bytes : Meaning::Retry;
   if (status == 404) return Meaning::Absent;
   if (status == 408 || status == 429 || status >= 500) return Meaning::Retry;
   return Meaning::Refused;
 }
 
-} // namespace outshine::Data
+}

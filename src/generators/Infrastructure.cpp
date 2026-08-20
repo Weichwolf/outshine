@@ -14,8 +14,7 @@ std::optional<Infrastructure::Made> Infrastructure::MadeAt(const Ground &ground,
   for (size_t i = 0; i < features.Count(); i++) {
     const FeatureField::Feature &f = features.At(i);
     if (f.Kind != FeatureKind::Way || !FeatureField::Boxed(f, eastM, northM)) continue;
-    /* An area way has no declared width — what it covers is its own ring, and reporting a width for
-     * it would be inventing one. */
+
     const float widthM = f.Form == FeatureForm::Ribbon ? 2.0f * f.HalfWidthM : 0.0f;
     if (made && widthM <= made->WidthM) continue;
     if (!features.Contains(f, eastM, northM)) continue;
@@ -24,8 +23,6 @@ std::optional<Infrastructure::Made> Infrastructure::MadeAt(const Ground &ground,
   return made;
 }
 
-/* Nothing is claimed, so this counts what it saw: a region whose ways all fell outside and a region
- * that has none are otherwise the same empty line. */
 void Infrastructure::Occupy(const Ground &ground, Yield &yield) const noexcept {
   const FeatureField &features = ground.Features();
   for (size_t i = 0; i < features.Count(); i++) {
@@ -40,4 +37,4 @@ uint32_t Infrastructure::Proposes(double) const noexcept { return 0; }
 
 bool Infrastructure::At(const Ground &, double, double, Body *) const noexcept { return false; }
 
-} // namespace outshine::Generators
+}

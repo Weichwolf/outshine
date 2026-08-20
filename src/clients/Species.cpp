@@ -15,4 +15,4 @@ bool ReadSpecies(const char *path, Generators::TreeSpecies *out) {
   return !text.empty() && out->Parse(text.c_str(), text.size());
 }
 
-} // namespace outshine::Clients
+}

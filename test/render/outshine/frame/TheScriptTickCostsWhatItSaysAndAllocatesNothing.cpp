@@ -1,18 +1,3 @@
-/* WHAT A SCRIPT COSTS ON THE FRAME PATH, AND WHETHER IT ALLOCATES THERE (board:1448).
- *
- * **A SCRIPT THAT MOVES SOMETHING RUNS EVERY TICK**, which puts it beside every other term the frame
- * budget has to hold. So two questions have numbers here and not opinions: what one tick costs, and
- * how many actors fit in the share of a frame the engine is willing to give them.
- *
- * **THE ALLOCATION CLAIM IS MEASURED AND NOT ASSERTED.** `Names_` and `Held_` keep their capacity
- * across runs, so a numeric script should allocate on its first tick and on none after it -- and
- * *should* is exactly the word an instrument exists to remove. The instrument is the tree's own
- * `HeapProbe`, which reads what the allocator has TAKEN: a number that never falls, so a tick that
- * allocated and freed still shows -- which is the question here, because a free costs a frame just as
- * an allocation does.
- *
- * **THE STEP COMES FROM THE DECLARATION.** The host hands `dt` over; nothing here reads a clock, which
- * is `CLAUDE.md`'s own rule that a result decided by pace is a coupling and not a result. */
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
@@ -29,15 +14,9 @@ namespace S = outshine::Script;
 
 namespace {
 
-/* [SET] THE FRAME, AND THE SHARE ACTORS MAY TAKE OF IT. A world's actors are not what a frame is FOR
- * either -- the picture is -- and a fifth is the largest slice that leaves the rest recognisable. It
- * is a number somebody chose and it is checked rather than quoted. */
 constexpr double kFrameBudgetMs = 16.67;
 constexpr double kActorShare = 0.20;
 
-/* A HOST THAT IS A TRAIN. Three words: where it is, how fast it goes, and how long this step is. Every
- * one of them is a value the consumer owns, and the script can reach nothing else -- which is the
- * whole of what *bound to a host* means. */
 class Train final : public S::Host {
 public:
   double Where = 0, Speed = 12.5, Step = 1.0 / 60.0;
@@ -90,11 +69,10 @@ struct Distribution {
   return out;
 }
 
-}  // namespace
+}
 
 int main(void) {
-  /* A TRAIN THAT DRIVES BY ITSELF AND STOPS AT THE STATION NOW AND THEN. The phase lives in the
-   * program, because an actor's program IS its memory. */
+
   S::Program tick;
   std::string error;
   CHECK(tick.Read("self.at = self.at + self.speed * dt;\n"
@@ -107,16 +85,10 @@ int main(void) {
   CHECK(tick.Run(train, error), "and runs");
   std::printf("NOTE one tick takes %zu steps of the %zu allowed\n", tick.Steps(), S::kMaxSteps);
 
-  /* THE WARM-UP IS WHERE THE ALLOCATION IS ALLOWED TO HAPPEN, and the measured phase is where it may
-   * not. Splitting them is what turns *should not allocate* into a number. */
   constexpr int kWarmup = 64;
   constexpr int kTicks = 20000;
   for (int at = 0; at < kWarmup; ++at) { (void)tick.Run(train, error); }
 
-  /* THE INSTRUMENT'S OWN MEMORY IS TAKEN BEFORE THE ZERO POINT IS READ. [MEASURED] reserving the
-   * sample vector afterwards made the allocator take a 4 MiB chunk to serve it, and the reading blamed
-   * the script for 4 MiB it never asked for -- `CLAUDE.md`'s own rule that an instrument in the path is
-   * its own field and is never folded into the number. */
   std::vector<double> samples;
   samples.reserve(kTicks);
   const size_t before = outshine::HeapProbe::BreakBytes();
@@ -142,14 +114,9 @@ int main(void) {
               kFrameBudgetMs, kActorShare * 100.0, allowed, actors);
   std::printf("NOTE bytes the allocator took during the measured ticks = %zu\n", allocated);
 
-  /* THE TRAIN MOVED AND STOPPED, which is what says the numbers above are about work and not about an
-   * interpreter returning early. */
   CHECK(train.Stops > 0, "the train reached the station and stopped, more than once over the run");
   CHECK(train.Where >= 0 && train.Where <= 100, "and it is somewhere on its own track");
 
-  /* **NOTHING IS ALLOCATED ON THE FRAME PATH.** A single allocation here is a claim in `CLAUDE.md`
-   * turning false, and it would turn false silently -- a tick that allocates costs a mean nobody
-   * notices and a p99 somebody does. */
   CHECK(allocated == 0,
         "a tick of a numeric script takes nothing new from the allocator after its first run, so the "
         "frame path holds");

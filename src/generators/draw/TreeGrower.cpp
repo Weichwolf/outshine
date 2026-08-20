@@ -7,22 +7,15 @@ namespace outshine::Generators {
 namespace {
 
 constexpr float kTau = 6.2831853f;
-constexpr float kGolden = 2.39996323f; /* the divergence angle, in radians — phyllotaxis along a shoot */
+constexpr float kGolden = 2.39996323f;
 constexpr float kDeg = 0.01745f;
 
-/* [SET] How far past the silhouette a shoot may drift before it is ended rather than bent. A hard
- * stop AT the surface would end every shoot the wander pushes one step too far and leave the crown
- * edge ragged; 10 % is under one step of the coarsest declared step length. */
 constexpr float kEscapeStop = 1.10f;
-/* [SET] How hard a shoot outside the silhouette is steered back. A full turn onto the inward normal
- * makes the crown edge read as a moulded surface; this is a lean, not a wall. */
+
 constexpr float kBendBack = 0.55f;
-/* A shoot with fewer steps than this is not a branch — it is a stub the collar alone would show. */
+
 constexpr int kMinBranchSteps = 3;
 
-/* How far a shoot's geometry stands proud of its last ring, as a multiple of that ring's radius. It
- * is the tallest cap TreeMesher builds (RingCap::Point), so bounding a node by it bounds every
- * drawing of that node. */
 constexpr float kCapReach = 2.4f;
 
 TreeVec3 RadialAt(TreeVec3 dir, TreeVec3 up, float roll) {
@@ -31,7 +24,7 @@ TreeVec3 RadialAt(TreeVec3 dir, TreeVec3 up, float roll) {
   return n * std::cos(roll) + b * std::sin(roll);
 }
 
-} // namespace
+}
 
 TreeVec3 TreeGrower::Inward(TreeVec3 p) const {
   if (Form_.Envelope == CrownEnvelope::Cut) {
@@ -91,9 +84,7 @@ void TreeGrower::SetCrown(const TreeSpecies &species, float growHeight) {
   const float h = species.HeightM();
   CrownTopY_ = growHeight;
   CrownBaseY_ = Form_.BoleFrac * growHeight;
-  /* THE DECLARED SPREAD IS THE ENVELOPE'S SCALE. `spread_m` was a number nothing read; it is now
-   * the one that decides how wide the grown thing may get, in the same ratio to the height the
-   * plant is normalised by. */
+
   CrownHalfWidth_ = h > 0.0f ? 0.5f * species.SpreadM() / h * growHeight : 0.0f;
   HalfRunX_ = h > 0.0f ? 0.5f * Form_.RunM / h * growHeight : 0.0f;
 }
@@ -104,10 +95,6 @@ int TreeGrower::AddNode(int shoot, TreeVec3 pos, TreeVec3 dir, TreeVec3 up, floa
   return (int)Plant_->Nodes.size() - 1;
 }
 
-/* THE BASE PLAN. One axis or many, and where they leave the ground: a stool's stems emerge within a
- * disc and lean out, a hedge's stand in a row along its own run, a tree's is the origin. The pipe
- * model (da Vinci's rule) divides the declared stem section among them, so a five-stemmed hazel is
- * one hazel and not five. */
 void TreeGrower::SeedLeaders(const TreeSpecies::Growth &g, int bareSteps) {
   const int n = Form_.Leaders < 1 ? 1 : Form_.Leaders;
   const float radius = g.BaseRadius / std::sqrt((float)n);
@@ -127,8 +114,7 @@ void TreeGrower::SeedLeaders(const TreeSpecies::Growth &g, int bareSteps) {
                                  std::sin(lean) * std::sin(roll)));
     t.Up = Vec3(0, 0, 1);
     if (Form_.Arch == Architecture::Hedge) {
-      /* Planted at a spacing and grown at none: an even row reads as a plantation from every angle
-       * a hedge is seen from. */
+
       const float u = ((float)i + 0.5f + 0.34f * Rng_.Signed()) / (float)n;
       t.Pos = Vec3(HalfRunX_ * (2.0f * u - 1.0f) * 0.94f,
                    0.0f, CrownHalfWidth_ * 0.5f * Rng_.Signed());
@@ -152,8 +138,6 @@ void TreeGrower::SeedLeaders(const TreeSpecies::Growth &g, int bareSteps) {
   }
 }
 
-/* The finest shoot level carries no geometry: it distributes attachment points ON the shoot surface
- * with an outward stalk vector. Every leaf therefore sits on a twig and grows away from it. */
 void TreeGrower::EmitLeafPoints(TreeVec3 pos, TreeVec3 dir, TreeVec3 up, float radius, int count,
                                 float roll) {
   TreeVec3 n, b;
@@ -174,8 +158,7 @@ void TreeGrower::SpawnLateral(const Tip &t, const TreeSpecies::Growth &g, int no
   const TreeVec3 dir = Normalize(t.Dir * std::cos(a) + fn * std::sin(a));
   const float br = t.Radius * g.OrderRadius;
   if (br <= g.MinRadius) { return; }
-  /* Shade pruning: a second-order branch growing back INTO the crown is shaded, so it is dropped with
-   * the declared probability — a closed outer shell instead of a visible inner skeleton. */
+
   if (g.ShadePrune > 0.0f && t.Order >= 2) {
     const float rl = std::sqrt(t.Pos.X * t.Pos.X + t.Pos.Z * t.Pos.Z);
     if (rl > 1e-4f) {
@@ -188,13 +171,6 @@ void TreeGrower::SpawnLateral(const Tip &t, const TreeSpecies::Growth &g, int no
   SpawnShoot(t, Request{node, roll, dir, fn, br, foliate}, g);
 }
 
-/* PRUNED AT SPAWN, not after: a shoot is given the run that stays inside the declared silhouette,
- * and one with no run at all is not grown. Cutting a finished crown back would leave the severed
- * stubs; this never grows them.
- *
- * A SHOOT LEAVES THE PARENT'S SURFACE, not its axis, and the point is computed rather than read off a
- * face: the face a drawing would use exists only in a drawing, and reading it here is what let a
- * budget decide where a branch starts. */
 void TreeGrower::SpawnShoot(const Tip &parent, const Request &request, const TreeSpecies::Growth &g) {
   const std::vector<TreeSkeleton::Node> &nodes = Plant_->Nodes;
   const TreeSkeleton::Node &upper = nodes[(size_t)request.ParentNode];
@@ -206,7 +182,7 @@ void TreeGrower::SpawnShoot(const Tip &parent, const Request &request, const Tre
   int steps = (int)((float)parent.Steps * g.OrderLen);
   if (steps < kMinBranchSteps) { steps = kMinBranchSteps; }
   const float len = RoomInside(from, request.Dir, (float)steps * parent.Step);
-  /* A shoot shorter than its own diameter is a collar and not a branch. */
+
   if (len < 2.0f * request.Radius) { return; }
 
   Tip b;
@@ -247,9 +223,6 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
     Plant_->Shoots[(size_t)t.Shoot].First = (int)Plant_->Nodes.size();
     float leafRoll = t.Roll;
 
-    /* THE ANCHOR IS A NODE. For a leader it is the seed ring; for a branch it is the point on the
-     * parent's surface the shoot leaves from, and the first ring of its own tube stands one step
-     * further on at the same thickness — which is the collar. */
     {
       TreeVec3 n, b;
       FrameFrom(t.Dir, t.Up, n, b);
@@ -267,8 +240,7 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
     for (int s = 0; s < t.Steps; ++s) {
       if ((int)Plant_->Nodes.size() >= kMaxNodes) { break; }
       const TreeVec3 oldDir = t.Dir;
-      /* Wander plus tropism: the leader holds its own axis (LeaderBias), a branch follows
-       * BranchUpBias, which is negative for a weeping habit. */
+
       TreeVec3 nf, bf;
       FrameFrom(t.Dir, t.Up, nf, bf);
       const float wr = g.Wander * kDeg;
@@ -288,9 +260,6 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
       last = AddNode(t.Shoot, t.Pos, t.Dir, t.Up, t.Radius);
       if (t.Order == 0 && t.Leader == 0) { TrunkProfile_.push_back(Vec3(t.Pos.Y, t.Radius, 0.0f)); }
 
-      /* THE SILHOUETTE IS A WALL FOR A BRANCH AND A LEAN FOR A LEADER. A leader that could be cut
-       * short would shorten the very height the envelope is scaled by, and the next pass would take
-       * the shorter one — the plant would walk itself into the ground over two passes. */
       const float escaped = Escape(t.Pos);
       if (escaped > 1.0f) {
         const float pull = std::fmin(1.0f, (escaped - 1.0f) * 4.0f) * kBendBack;
@@ -323,7 +292,7 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
       }
       if (t.Radius < g.MinRadius) { break; }
     }
-    /* A shoot still thick enough forks into two instead of ending in a flat cap. */
+
     if (g.TerminalFork && t.Radius > g.TwigRadius && t.Order <= g.MaxOrder &&
         (int)Plant_->Nodes.size() < kMaxNodes && last > Plant_->Shoots[(size_t)t.Shoot].First) {
       for (int j = 0; j < 2; ++j) {
@@ -355,8 +324,7 @@ void TreeGrower::MeasureReach() {
       s.Reach = std::fmax(s.Reach, Length(n.Pos - anchor) + kCapReach * n.Radius);
     }
   }
-  /* A child is queued while its parent is drawn from the queue, so a child's index always exceeds
-   * its parent's and one backward sweep settles every sub-tree. */
+
   for (size_t i = shoots.size(); i-- > 0;) {
     const TreeSkeleton::Shoot &child = shoots[i];
     if (child.Parent < 0 || child.Count <= 0) { continue; }
@@ -368,10 +336,6 @@ void TreeGrower::MeasureReach() {
   }
 }
 
-/* THE ORIGIN IS THE TRUNK FOOT, and the crown's bounding box has no say in it. Centring x/z on the box
- * put the stem up to 5.65 m (pine, measured) off the point the scatter placed the plant at, and yaw
- * then swung the whole plant around that point on that radius. The trunk grows from (0, ·, 0), so the
- * only thing to do is not to move it. */
 void TreeGrower::NormalizeToUnitHeight(float heightM) {
   if (Plant_->Nodes.empty()) { return; }
   TreeVec3 mn = Vec3(1e30f, 1e30f, 1e30f), mx = Vec3(-1e30f, -1e30f, -1e30f);
@@ -381,9 +345,7 @@ void TreeGrower::NormalizeToUnitHeight(float heightM) {
     mx = Vec3(std::fmax(mx.X, p.X + half.X), std::fmax(mx.Y, p.Y + half.Y),
               std::fmax(mx.Z, p.Z + half.Z));
   };
-  /* THE BOX IS OVER THE PLANT, NOT OVER ONE DRAWING OF IT. A ring of radius r about an axis `d`
-   * reaches r*sqrt(1 - d_c^2) along axis c whatever its side count, so this bounds every rank at
-   * once — which is what makes one plant the same size at every rank instead of a size per rank. */
+
   for (const TreeSkeleton::Shoot &s : Plant_->Shoots) {
     for (int i = s.First; i < s.First + s.Count; ++i) {
       const TreeSkeleton::Node &n = Plant_->Nodes[(size_t)i];
@@ -400,13 +362,6 @@ void TreeGrower::NormalizeToUnitHeight(float heightM) {
   }
   for (const LeafPoint &p : Plant_->LeafPoints) { cover(p.Pos, TreeVec3{}); }
 
-  /* Y = 0 IS THE TRUNK FOOT, not the lowest vertex, and `height_m` is measured from there — which is
-   * what a stand height is. Taking the box minimum put a weeping willow's foot 6.87 m and a spruce's
-   * 3.67 m above the ground (measured), because both hang branches below their own base. A branch
-   * below zero belongs below the terrain; that is where it grows. */
-  /* A LYING BODY IS MEASURED ALONG ITS OWN AXIS. `height_m` is the standing extent of a standing
-   * plant and the LENGTH of a fallen one; normalising a log by its vertical extent would make the
-   * instance scale its DIAMETER to the declared metres. */
   const bool lying = GrowthForm::Lying(Form_.Arch);
   const float y0 = lying ? mn.Y
                          : (TrunkProfile_.empty() ? mn.Y
@@ -430,7 +385,7 @@ void TreeGrower::NormalizeToUnitHeight(float heightM) {
   Plant_->FootRadius = TrunkProfile_[0].Y * s;
   Plant_->DbhRadius = Plant_->FootRadius;
   if (heightM <= 0.0f) { return; }
-  const float yb = 1.3f / heightM;   /* breast height, in the plant's own unit-height metric */
+  const float yb = 1.3f / heightM;
   for (size_t i = 1; i < TrunkProfile_.size(); ++i) {
     const float ya = (TrunkProfile_[i - 1].X - y0) * s, yc = (TrunkProfile_[i].X - y0) * s;
     if (yb > yc) { continue; }
@@ -443,15 +398,6 @@ void TreeGrower::NormalizeToUnitHeight(float heightM) {
   Plant_->DbhRadius = TrunkProfile_.back().Y * s;
 }
 
-/* THE STEM IS SOLVED, NOT DECLARED. `base_radius` lives in grower units and the plant is normalised by
- * a height the branches decide, so the same 0.08 came out as 70 cm on a beech and 80 cm on an elm —
- * measured. The species declares the number forestry measures (`dbh_cm`) and the whole radius cascade
- * is scaled to hit it; scaling base, twig and min together keeps every branch's termination and every
- * leaf point exactly where they were, so only the thickness moves.
- *
- * NOTHING IN THIS SOLVE CAN SEE A BUDGET. It reads `DbhRadius` off the SKELETON — the plant, not a
- * drawing of it — so the loop runs the same number of times and settles on the same radii whatever a
- * rank later asks for. */
 void TreeGrower::Grow(const TreeSpecies &species, TreeSkeleton &out) {
   Plant_ = &out;
   TreeSpecies::Growth g = species.GrowthParams();
@@ -460,16 +406,10 @@ void TreeGrower::Grow(const TreeSpecies &species, TreeSkeleton &out) {
   const float targetR = species.DbhM() * 0.5f;
   out.Seed = g.Seed;
 
-  /* The envelope arrives in tree HEIGHTS and the grower works in its own units, so the first pass
-   * runs on an ESTIMATE of the height and the second on the one it measured. `trunk_steps * step_len`
-   * alone will not do — the crown reaches well past the leader's own run (beech 6.80 against 4.16,
-   * oak 4.54 against 2.24, both measured) — so the estimate carries that factor and the refinement
-   * removes it. */
   SetCrown(species, 1.6f * (float)g.TrunkSteps * g.StepLen);
   Passes_ = 1;
   GrowOnce(g, h);
-  /* THE SECOND PASS IS NOT OPTIONAL: the envelope is scaled by the height the plant comes out at, so
-   * the first pass shapes a crown against an estimate and only the second against the measurement. */
+
   SetCrown(species, GrowHeight_);
   GrowOnce(g, h);
   Passes_++;
@@ -489,4 +429,4 @@ void TreeGrower::Grow(const TreeSpecies &species, TreeSkeleton &out) {
   }
 }
 
-} // namespace outshine::Generators
+}

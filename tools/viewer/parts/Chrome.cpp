@@ -10,20 +10,12 @@
 
 namespace outshine::Viewer {
 
-/* THE TWO COLUMNS AND THE ROW, in the same pixels the stylesheet states them in. They are here because
- * the stage's own rectangle is derived from them, and two spellings of one number is how a picture
- * ends up beside the pane it was meant to be centred in. */
-/* **THE WHOLE GEOMETRY OF THIS BROWSER, AS RATIOS, AND EACH IS WRITTEN ONCE.** The stylesheet is built
- * from them and so is the arithmetic that decides how many rows to declare -- two spellings of one
- * number is how a list scrolls one row further than it draws, and a stylesheet and a scroll that
- * disagree is that defect wearing two hats. */
-constexpr double kCorpusShare = 0.15;   /* of the surface's width */
+constexpr double kCorpusShare = 0.15;
 constexpr double kCaseShare = 0.22;
-constexpr double kRowEm = 1.3;          /* of the root text */
+constexpr double kRowEm = 1.3;
 constexpr double kHeadEm = 1.8;
 constexpr double kStatusEm = 1.6;
-/* [SET] HOW MANY LINES OF TEXT THE SURFACE IS TALL. It is the only absolute in the browser, and it is
- * absolute because a glyph is drawn from texels: something has to say how many of them a line gets. */
+
 constexpr double kLinesTall = 45.0;
 
 namespace {
@@ -35,10 +27,6 @@ std::string Flattened(std::string path) {
   return path;
 }
 
-/* A DECLARATION IS TEXT AND A CASE NAME COMES FROM A DIRECTORY, so the one character that could end an
- * attribute early is removed. It is a refusal to produce broken markup rather than a sanitiser: no
- * name in this tree carries a quote, and if one ever does this turns it into an underscore instead of
- * a document that reads as something else. */
 std::string Quoted(const std::string &text) {
   std::string out;
   out.reserve(text.size());
@@ -46,7 +34,7 @@ std::string Quoted(const std::string &text) {
   return out;
 }
 
-} // namespace
+}
 
 std::vector<Listed> Cases(void) {
   std::vector<Listed> found;
@@ -56,15 +44,12 @@ std::vector<Listed> Cases(void) {
     if (walking) { break; }
     if (!it->is_regular_file(walking) || it->path().filename() != "manifest.json") { continue; }
     const std::string relative = it->path().parent_path().string();
-    /* The preparer's own inputs live beside the corpora and declare no case. */
+
     if (relative.find("/prepare") != std::string::npos) { continue; }
     Listed one;
     one.Name = it->path().parent_path().filename().string();
     one.Prepared = Test::PreparedRoot() + "/" + Flattened(relative);
-    /* THE SUITE IS THE CORPUS AND NOT THE PATH ABOVE THE CASE. [MEASURED] taking the parent
-     * directory reported SIX suites where the tree holds three: a corpus whose cases nest one level
-     * deeper -- `khronos/glTF/Cameras/cameras-orthographic` -- grew a suite per model. Two components
-     * is what a vendor and its suite are, and it is derived rather than listed. */
+
     const std::string inside = relative.substr(5);
     const size_t first = inside.find('/');
     const size_t second = first == std::string::npos ? first : inside.find('/', first + 1);
@@ -110,20 +95,10 @@ double RootEmPx(int heightPx) { return (double)heightPx / kLinesTall; }
 double ColumnsWidth(int widthPx) { return (kCorpusShare + kCaseShare) * (double)widthPx; }
 
 std::string Style(void) {
-  /* **THE WHOLE FASSADE IN RATIOS, and the one absolute number is the root's font size** -- which the
-   * declaration sets from the surface's own height, because a text size is the single place a ratio
-   * has to become a device pixel. Everything else is a percentage of its parent, a multiple of the
-   * text, or a share of what is left: a window twice as large shows the same interface twice as big,
-   * and no number here has to be revisited.
-   *
-   * Every property and every value below is inside the subset the corpus holds this engine to, so the
-   * browser cannot look right through a capability nobody measured. */
+
   const auto share = [](double of) { return std::to_string(of * 100.0) + "%"; };
   const auto em = [](double of) { return std::to_string(of) + "em"; };
-  /* **A FULL-HEIGHT COLUMN NEEDS A DEFINITE HEIGHT ALL THE WAY UP**, and a user-agent sheet gives the
-   * root none -- which is CSS's own arrangement and not a gap: `html { height: 100% }` resolves against
-   * the viewport, and a page that wants the whole of it says so. Every page that has ever had a
-   * full-height sidebar has written this line. */
+
   return std::string("html, body { height: 100% }\n")
          + "body { margin: 0; font-family: sheet; color: #c8d0d8 }\n"
          + ".frame { display: flex; flex-direction: row; width: 100%; height: 100% }\n"
@@ -162,17 +137,10 @@ std::string Declaration(const std::vector<Listed> &cases, const Showing &showing
   const int rows = RowsThatFit(heightPx);
   (void)widthPx;
 
-  /* **THE ONE ABSOLUTE NUMBER, AND IT IS THE ROOT'S TEXT SIZE.** Everything below is a percentage of a
-   * parent, a multiple of this, or a share of what is left -- so nothing in this declaration has to be
-   * revisited when the surface changes size, and the whole interface scales with it. */
   std::string out = "<style>html { font-size: " + std::to_string(RootEmPx(heightPx)) + "px }\n";
   out += Style();
   out += "</style><body><div class=frame>";
 
-  /* **TWO COLUMNS AND THEN THE VIEW**, which is how a file browser has shown a hierarchy since long
-   * before this one: the corpus on the left decides what the middle holds, and the middle decides what
-   * the right shows. Each column is its own clipped pane, so a listing of any length scrolls without
-   * moving the one beside it. */
   out += "<div class=corpora><div class=head>CORPUS</div><div class=list><div>";
   {
     const bool all = showing.Suite.empty();
@@ -191,14 +159,6 @@ std::string Declaration(const std::vector<Listed> &cases, const Showing &showing
   out += "<div class=cases><div class=head>CASE (" + std::to_string(shown.size()) +
          ")</div>";
 
-  /* THE LIST IS CLIPPED AND ONLY WHAT CAN BE SEEN IS DECLARED. [MEASURED] declaring all 309 rows and
-   * offsetting them under a clip cost p50 1.34 ms and 641 boxes -- 94.5 % of the share this browser
-   * was given -- for a picture that shows about forty. **The engine laying out a box nobody can see is
-   * the engine doing what it was asked**, so the repair belongs here: a client decides WHAT it
-   * declares, and a listing of any length declares one screenful.
-   *
-   * THE ROW'S ACTION CARRIES ITS INDEX IN THE FILTERED LISTING AND NOT IN THE SLICE, or a pointer
-   * would select a different case after every scroll. */
   const int from = std::max(0, showing.ScrolledRows);
   const int upTo = std::min((int)shown.size(), from + rows + 1);
   out += "<div class=list><div>";
@@ -214,9 +174,6 @@ std::string Declaration(const std::vector<Listed> &cases, const Showing &showing
                               std::to_string(shown.size())) +
          "</div></div>";
 
-  /* THE STAGE DECLARES NO BACKGROUND, so nothing is painted over the picture the renderer drew. A
-   * quad with no alpha reaches no pixel and costs no rectangle, which is what makes *transparent* a
-   * value here rather than a mode. */
   out += "<div class=stage>";
   if (showing.Selected >= 0 && showing.Selected < (int)shown.size()) {
     const Listed &one = cases[(size_t)shown[(size_t)showing.Selected]];
@@ -227,9 +184,7 @@ std::string Declaration(const std::vector<Listed> &cases, const Showing &showing
 }
 
 Region StageRegion(int widthPx, int heightPx) {
-  /* **THE ROOM THE PICTURE MAY HAVE, AS FRACTIONS.** What shape the picture takes inside it is the
-   * library's, because the library is what knows the case's aspect and what knows how many pixels
-   * there are -- this browser only says *here, and not over my lists*. */
+
   Region out;
   if (widthPx <= 0 || heightPx <= 0) { return out; }
   out.X = kCorpusShare + kCaseShare;
@@ -249,7 +204,7 @@ std::string Slurp(const std::string &path, bool &found) {
   return held.str();
 }
 
-}  // namespace
+}
 
 std::string EntryPath(const std::string &prepared) {
   bool haveManifest = false;
@@ -268,8 +223,7 @@ std::string EntryOf(const std::string &prepared, bool &found) {
   const std::string manifest = Slurp(prepared + "/manifest.json", haveManifest);
   found = false;
   if (!haveManifest) { return {}; }
-  /* THE ENTRY IS WHAT THE MANIFEST NAMES, read without a JSON reader because one field of one shape is
-   * not a document model -- and the browser already links no JSON parser of its own. */
+
   const size_t at = manifest.find("\"entry\"");
   if (at == std::string::npos) { return {}; }
   const size_t open = manifest.find('"', manifest.find(':', at));
@@ -297,8 +251,7 @@ std::string Console(const std::string &title, const std::string &source, const s
   out += Style();
   out += "</style><body><div class=console><div class=head>" + Quoted(title) +
          "</div><div class=list><div>";
-  /* THE PROGRAM AS IT IS WRITTEN, one row per line, and only what fits -- a client declares one
-   * screenful for the same reason the case list does. */
+
   size_t at = 0;
   int lines = 0;
   const int most = RowsThatFit(heightPx);
@@ -328,8 +281,7 @@ std::vector<Render::OverlayQuad> AsOverlay(const std::vector<Ui::Quad> &quads, d
     to.V0 = (float)from.V0;
     to.U1 = (float)from.U1;
     to.V1 = (float)from.V1;
-    /* THE COLOUR IS RGBA8 ON ONE SIDE AND FOUR FLOATS ON THE OTHER, and this is the only place the
-     * two meet. A shift written twice is a shift that will disagree with itself. */
+
     to.Red = (float)((from.Colour >> 24) & 0xFFu) / 255.0f;
     to.Green = (float)((from.Colour >> 16) & 0xFFu) / 255.0f;
     to.Blue = (float)((from.Colour >> 8) & 0xFFu) / 255.0f;
@@ -345,4 +297,4 @@ std::vector<Render::OverlayQuad> AsOverlay(const std::vector<Ui::Quad> &quads, d
   return out;
 }
 
-} // namespace outshine::Viewer
+}

@@ -1,12 +1,3 @@
-/* AN ABSENCE FROM ONE SOURCE HANDS OVER TO THE NEXT, and only the exhaustion of the list is
- * terminal. The shape this replaces made the FIRST absence final at the node, so a national DEM over
- * one country falling through to a global pyramid everywhere else had no spelling at all.
- *
- * Four claims:
- *   - rank order decides who is asked first, and a duplicate rank is refused AT REGISTRATION
- *   - an Absent from rank 0 is handed to rank 1, whose bytes are what the caller gets
- *   - every covering source answering Absent is Vacant, which is the world and may be cached
- *   - a Refused is not an absence: it ends the query and does not become a fact about the place */
 #include "Check.h"
 #include "ContentStore.h"
 #include "SourceSet.h"
@@ -20,8 +11,6 @@ using namespace outshine::Data;
 
 namespace {
 
-/* A declared source whose answer is written into it, so the registry's behaviour is the only thing
- * under test. It counts how often it was asked, which is what makes "never asked" decidable. */
 class Scripted : public Source {
 public:
   Scripted(std::string id, Rank order, Meaning answer, Coverage coverage)
@@ -88,7 +77,7 @@ public:
 
 const Request kSomewhere(DataKind::Elevation, Address::Tile(14, 8620, 5403));
 
-} // namespace
+}
 
 int main() {
   Test::Covers("I.22 an Absent from one source hands over to the next");
@@ -97,8 +86,6 @@ int main() {
 
   SilentTransport transport;
 
-  /* A DUPLICATE RANK IS A LOAD ERROR. Two sources of one kind at rank 0 would make who answers a
-   * coin toss between two orderings that both build. */
   {
     ContentStore store(StoreOff());
     SourceSet sources(store);
@@ -113,7 +100,6 @@ int main() {
     CHECK(sources.Count() == 1, "and it is not in the registry");
   }
 
-  /* THE HANDOVER. Rank 0 says there is nothing here; rank 1 has it. */
   {
     ContentStore store(StoreOff());
     SourceSet sources(store);
@@ -136,7 +122,6 @@ int main() {
     CHECK(sources.Counters().HandedOver == 1, "the ledger records one handover");
   }
 
-  /* THE LIST EXHAUSTED. Both covering sources answer Absent, and only then is it the world. */
   {
     ContentStore store(StoreOff());
     SourceSet sources(store);
@@ -156,8 +141,6 @@ int main() {
     CHECK(!answer.TryTake(&taken), "and it carries no bytes and no source to read them from");
   }
 
-  /* A REFUSAL IS NOT AN ABSENCE. It ends the query, it is a different state, and the lower-ranked
-   * source is not consulted — a proxy error must not be able to remove ground for good. */
   {
     ContentStore store(StoreOff());
     SourceSet sources(store);
@@ -174,8 +157,6 @@ int main() {
     CHECK(holder->Asked == 0, "and it does not hand over, because it says nothing about the place");
   }
 
-  /* AN OUTSIDE SOURCE IS NOT IN THE CANDIDATE LIST AT ALL, so it is never begun even when it stands
-   * at the rank that would otherwise answer first. */
   {
     ContentStore store(StoreOff());
     SourceSet sources(store);

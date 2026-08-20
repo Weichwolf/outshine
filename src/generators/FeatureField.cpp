@@ -21,7 +21,7 @@ FeatureField::FeatureField(Span<const Feature> features, Span<const Ring> rings,
       Vertices_(vertices.begin(), vertices.end()) {
   for (Feature &f : Features_) {
     f.MinEm = f.MinNm = 0.0f;
-    f.MaxEm = f.MaxNm = -1.0f;   /* empty, so a feature with no vertices bounds nothing */
+    f.MaxEm = f.MaxNm = -1.0f;
     bool first = true;
     for (const Ring &r : Rings(f))
       for (const Vertex &v : Vertices(r)) {
@@ -31,8 +31,7 @@ FeatureField::FeatureField(Span<const Feature> features, Span<const Ring> rings,
         f.MinNm = v.Nm < f.MinNm ? v.Nm : f.MinNm;
         f.MaxNm = v.Nm > f.MaxNm ? v.Nm : f.MaxNm;
       }
-    /* A ribbon reaches half its width past its own centreline, so its box has to as well or the
-     * cheap rejection would drop exactly the kerb the query is about. */
+
     if (first || f.Form != FeatureForm::Ribbon) continue;
     f.MinEm -= f.HalfWidthM;
     f.MaxEm += f.HalfWidthM;
@@ -49,8 +48,6 @@ Span<const FeatureField::Vertex> FeatureField::Vertices(const Ring &r) const {
   return Span<const Vertex>(Vertices_.data() + r.First, r.Count);
 }
 
-/* The nearest point of a segment, as the squared distance to it — squared because nothing here
- * compares a distance to anything but another distance and a root would be paid per segment. */
 namespace {
 
 double SegmentGapM2(double em, double nm, double e0, double n0, double e1, double n1) {
@@ -65,7 +62,7 @@ double SegmentGapM2(double em, double nm, double e0, double n0, double e1, doubl
   return ge * ge + gn * gn;
 }
 
-}  // namespace
+}
 
 bool FeatureField::Contains(const Feature &f, double eastM, double northM) const noexcept {
   if (!Boxed(f, eastM, northM)) return false;
@@ -97,4 +94,4 @@ size_t FeatureField::HeapBytes() const {
          Vertices_.capacity() * sizeof(Vertex);
 }
 
-} // namespace outshine::Generators
+}

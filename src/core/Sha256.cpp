@@ -46,7 +46,7 @@ void Compress(uint32_t state[8], const uint8_t block[64]) {
   state[4] += e; state[5] += f; state[6] += g; state[7] += h;
 }
 
-} // namespace
+}
 
 std::string Sha256Hex(const void *data, size_t bytes) {
   uint32_t state[8] = {0x6a09e667u, 0xbb67ae85u, 0x3c6ef372u, 0xa54ff53au,
@@ -58,8 +58,7 @@ std::string Sha256Hex(const void *data, size_t bytes) {
     p += 64;
     left -= 64;
   }
-  /* The tail and the length in one buffer: 64 bytes when the remainder still leaves room for the
-   * 0x80 and the 8 length bytes, 128 when it does not. */
+
   uint8_t tail[128] = {};
   std::memcpy(tail, p, left);
   tail[left] = 0x80;
@@ -81,4 +80,4 @@ std::string Sha256Hex(const void *data, size_t bytes) {
 
 std::string Sha256Hex(const std::string &text) { return Sha256Hex(text.data(), text.size()); }
 
-} // namespace outshine
+}

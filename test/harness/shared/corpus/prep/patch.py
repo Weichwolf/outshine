@@ -26,7 +26,6 @@ _COMPONENT = {5121: ("B", 1), 5123: ("H", 2), 5125: ("I", 4), 5126: ("f", 4)}
 _COMPONENTS_OF = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}
 _TRIANGLES = 4
 
-
 def apply(subject, destination):
     """Every declared correction of one subject, in the order the manifest states them."""
     report = []
@@ -38,7 +37,6 @@ def apply(subject, destination):
                           observed=transform["kind"])
         report.append(correction(where, subject, destination, transform))
     return report
-
 
 class _Buffers:
     """The glTF and its external buffers, decoded far enough to address one accessor's elements.
@@ -94,10 +92,8 @@ class _Buffers:
             with open(os.path.join(self.directory, name), "wb") as f:
                 f.write(content)
 
-
 def _element_bytes(accessor):
     return _COMPONENT[accessor["componentType"]][1] * _COMPONENTS_OF[accessor["type"]]
-
 
 def _reverse_winding(where, subject, destination, transform):
     """Every triangle that faces inward, wound the other way. No vertex moves."""
@@ -105,8 +101,6 @@ def _reverse_winding(where, subject, destination, transform):
     primitives = _triangle_primitives(where, files.document)
     before = _agreed(where, transform, files, primitives, _WINDING)
 
-    # AN ACCESSOR IS CORRECTED EXACTLY ONCE. This asset's three meshes SHARE one index accessor, so
-    # flipping per primitive would flip it three times and leave it as it started.
     flipped = set()
     for primitive in primitives:
         positions, _, _ = files.read(primitive["attributes"]["POSITION"])
@@ -125,7 +119,6 @@ def _reverse_winding(where, subject, destination, transform):
     return {"kind": transform["kind"], "subject": subject.id, "observedBefore": before,
             "observedAfter": after, "buffersRewritten": sorted(files.names),
             "indexAccessorsReversed": sorted(flipped)}
-
 
 def _flip_normals(where, subject, destination, transform):
     """Every vertex normal that points inward, negated. No position and no index is touched."""
@@ -152,16 +145,13 @@ def _flip_normals(where, subject, destination, transform):
             "observedAfter": after, "buffersRewritten": sorted(files.names),
             "normalAccessorsFlipped": sorted(flipped)}
 
-
 _CORRECTIONS = {"reverse-winding": _reverse_winding, "flip-normals": _flip_normals}
-
 
 def _agreed(where, transform, files, primitives, owned):
     """What is on disk before the correction, recomputed and held against what was declared."""
     before = {name: value for name, value in _count(files, primitives).items() if name in owned}
     _agrees(where, transform["observedBefore"], before)
     return before
-
 
 def _took(where, destination, subject, primitives, owned):
     """THE CORRECTION IS RE-MEASURED FROM THE FILE ON DISK and not from the buffers in hand, so a
@@ -190,10 +180,8 @@ def _took(where, destination, subject, primitives, owned):
         )
     return after
 
-
 _WINDING = ("triangles", "trianglesCounterClockwiseFromOutside", "trianglesOfZeroArea")
 _NORMALS = ("vertexNormals", "vertexNormalsOutward")
-
 
 def _triangle_primitives(where, document):
     """Every drawn primitive of the document. Outward is measured from each primitive's OWN vertex
@@ -216,7 +204,6 @@ def _triangle_primitives(where, document):
         raise Refusal(where, expected="a triangle primitive", observed="none")
     return found
 
-
 def _centre(positions):
     total = [0.0, 0.0, 0.0]
     vertices = len(positions) // 3
@@ -224,7 +211,6 @@ def _centre(positions):
         for axis in range(3):
             total[axis] += positions[vertex * 3 + axis]
     return [component / vertices for component in total]
-
 
 def _outward_triangles(positions, indices, centre):
     """How many triangles face outward, and how many have no facing to ask about.
@@ -253,7 +239,6 @@ def _outward_triangles(positions, indices, centre):
             outward += 1
     return outward, degenerate
 
-
 def _outward_normals(positions, normals, centre):
     outward = 0
     for vertex in range(len(normals) // 3):
@@ -262,7 +247,6 @@ def _outward_normals(positions, normals, centre):
         if along > 0.0:
             outward += 1
     return outward
-
 
 def _count(files, primitives):
     triangles = ccw = flat = vertices = outward = 0
@@ -280,7 +264,6 @@ def _count(files, primitives):
     return {"triangles": triangles, "trianglesCounterClockwiseFromOutside": ccw,
             "trianglesOfZeroArea": flat, "vertexNormals": vertices,
             "vertexNormalsOutward": outward}
-
 
 def _agrees(where, declared, observed):
     for name in sorted(observed):

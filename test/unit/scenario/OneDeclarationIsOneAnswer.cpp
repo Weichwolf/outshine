@@ -1,11 +1,3 @@
-/* THE SAME SCENARIO DECLARED TWICE IS THE SAME SCENARIO. Two things could make it not so, and both
- * are held here: the ORDER the properties arrive in, and the WHITESPACE between them. Neither is
- * part of what a declaration says, so neither may reach a single number a run stands on.
- *
- * It is the declaration half of the still gate's claim — that gate imposes four tile arrival orders
- * and demands one picture; this one imposes two property orders and demands one scene. Where that
- * one needs a device and a network, this one needs neither, so it runs in the fast tier and says
- * which of the two halves moved when a picture ever does. */
 #include "Check.h"
 #include "Mod.h"
 
@@ -35,8 +27,6 @@ const char *kOneOrder = R"({
         "subject": { "generator": "tree", "species": "beech", "leafMult": 2 } } },
       "runs": [{ "kind": "bench", "dir": "bench", "turnSteps": 4 }] }] })";
 
-/* The same declaration with every object's properties reversed and the layout changed. A reader that
- * depended on order or on layout would answer differently here and identically anywhere else. */
 const char *kOtherOrder =
     "{\"scenes\":[{\"runs\":[{\"path\":\"walk.png\",\"give\":\"stills\",\"frames\":1,"
     "\"kind\":\"motion\"}],\"exposure\":{\"keyEv\":-3.5,\"mode\":\"manual\"},\"settleFrames\":7,"
@@ -52,7 +42,7 @@ const char *kOtherOrder =
     "\"subject\":\"one world scene and one studio scene\",\"name\":\"t\","
     "\"schema\":\"outshine/mod/1\"}";
 
-}  // namespace
+}
 
 int main() {
   Covers("I.4 the same scenario declared twice in different arrival orders gives the same answer");

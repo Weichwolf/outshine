@@ -17,7 +17,7 @@ namespace {
 std::atomic<size_t> gPeakLive{0};
 std::atomic<double> gCostMs{0.0};
 
-}  // namespace
+}
 
 size_t HeapProbe::LiveBytes() {
 #if defined(__APPLE__)
@@ -32,8 +32,7 @@ size_t HeapProbe::LiveBytes() {
 
 size_t HeapProbe::BreakBytes() {
 #if defined(__APPLE__)
-  /* The default zone's own footprint. Not a break — macOS has no single one — but the same
-   * question: what this allocator took from the system rather than what it is handing out. */
+
   malloc_statistics_t s{};
   malloc_zone_statistics(malloc_default_zone(), &s);
   return s.size_allocated;
@@ -58,4 +57,4 @@ size_t HeapProbe::PeakLiveBytes() { return gPeakLive.load(std::memory_order_rela
 
 double HeapProbe::SampleCostMs() { return gCostMs.load(std::memory_order_relaxed); }
 
-} // namespace outshine
+}

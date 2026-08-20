@@ -1,28 +1,3 @@
-/* HOW MANY POSITIONS A SAMPLER ADMITS INSIDE ONE TEXEL SPAN, measured on this device, because
- * nothing publishes it for Metal and a bound derived from a guess is a guess wearing a derivation
- * (`test/SubTexelPrecision.h`).
- *
- * THE INSTRUMENT IS ONE DISPATCH AND IT NEEDS NO REFERENCE. A two-texel ramp from 0 to 1 is sampled
- * at 65 536 offsets between the two texel centres; a sampler carrying the weight in float would
- * return 65 536 distinct values, and one snapping it to `2^n` divisions returns `2^n`. THE COUNT IS
- * THE ANSWER DIRECTLY, so there is nothing here to compare against and nothing to tune.
- *
- * THE STEP IS THE ANSWER AND THE COUNT IS THE STEP PLUS ONE, which is a fact about the SNAPPING RULE
- * and was measured rather than assumed: 65 536 offsets across the OPEN span return 257 distinct
- * weights whose every step is 1/256. Round-to-nearest is what makes it 257 -- the offsets inside the
- * first half-division round down onto 0 and those inside the last round up onto 1, so `2^n`
- * divisions have `2^n + 1` endpoints. A truncating sampler would have returned 256. Both readings
- * are held below, because a device that made them disagree would be doing something neither
- * describes.
- *
- * THE RAMP IS R32_FLOAT SO THAT THE ANSWER IS THE WEIGHT. An 8-bit ramp would carry the filter's own
- * output quantisation into the same count and the two terms could not be told apart; the picture
- * bound's sampler term is about the WEIGHT (board:0089), so the weight is what this
- * isolates.
- *
- * THE SAMPLER IS THE RENDERER'S OWN -- linear/linear, clamp to edge (`src/render/Renderer.cpp:216`).
- * A probe with a sampler nobody renders through would be measuring a sampler that is not in the
- * path. */
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -57,12 +32,8 @@ bool Refused(const void *made, const char *what) {
   return true;
 }
 
-/* Offsets across the span between the two texel centres. Far above any plausible division count, so
- * that "the probe ran out of resolution" and "the sampler carries the weight in float" are
- * distinguishable rather than one indistinct answer. */
 constexpr uint32_t kOffsets = 1u << 16;
 
-/* THE DEVICE, AND NOTHING ELSE: no swapchain, no window, no asset. */
 class Instrument {
 public:
   ~Instrument() {
@@ -82,10 +53,6 @@ public:
   SDL_GPUDevice *Device = nullptr;
 };
 
-/* `u` walks the OPEN span between the FIRST TWO texel centres, so every offset the sampler can snap
- * to inside one texel is reachable and neither endpoint is counted twice. At width W those centres
- * are at 0.5/W and 1.5/W, and the shader is handed the width rather than assuming one -- because
- * whether the division count DEPENDS on the width is the question this probe is asked. */
 std::string ProbeShader() {
   return std::string(kMslPrelude) + R"(
 struct Span { uint offsets; uint texels; };
@@ -103,9 +70,6 @@ kernel void probe(uint3 id [[thread_position_in_grid]],
 )";
 }
 
-/* THE RAMP, W TEXELS WIDE, whose first two texels are 0 and 1 -- so the returned value across their
- * span IS the weight and no scaling stands between the measurement and the number. Everything past
- * the second texel is 1 and is never sampled; it is there to make the texture the declared width. */
 SDL_GPUTexture *Ramp(SDL_GPUDevice *device, uint32_t width) {
   SDL_GPUTextureCreateInfo wanted{};
   wanted.type = SDL_GPU_TEXTURETYPE_2D;
@@ -215,8 +179,6 @@ std::vector<float> Weights(const Instrument &on, uint32_t width) {
   return out;
 }
 
-/* THE TWO READINGS OF THE SAME RETURNED SET. `Distinct` is `2^n` and `SmallestStep` is `1/2^n`, and
- * the caller holds them against each other. */
 struct Divisions {
   size_t Distinct = 0;
   double SmallestStep = 0;
@@ -240,16 +202,9 @@ Divisions Count(std::vector<float> returned) {
   return found;
 }
 
-/* THE WIDTHS THE PROBE IS RUN AT, AND WHY THERE IS MORE THAN ONE. Two texels is the narrowest span
- * the question has a meaning over. 512 is the width every image in the Khronos corpus actually
- * carries, and it is here because the picture bound applies the term measured at two texels to
- * pictures sampled at 512: if the division count fell with the width -- which is what a fixed-point
- * coordinate of fixed TOTAL width would do -- the term the bound carries would be for a sampler that
- * is not in the path. That was a live hypothesis about `texture-coordinate-test`'s residual and this
- * is the instrument that answers it. */
 constexpr uint32_t kWidthsProbed[] = {2, 512};
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -275,14 +230,10 @@ int main() {
     Note(("lowest weight returned" + at).c_str(), found.Lowest, "of a texel span");
     Note(("highest weight returned" + at).c_str(), found.Highest, "of a texel span");
 
-    /* A COUNT AT THE PROBE'S OWN RESOLUTION IS NOT A MEASUREMENT OF THE DEVICE. Refused rather than
-     * reported, because "65 536" would read as a division count and would be this file's number. */
     CHECK(found.Distinct * 4 < kOffsets,
           ("the probe resolves the division: the distinct count is far below the offsets sampled, "
            "so the snapping and not this dispatch is what set it" + at).c_str());
 
-    /* THE DIVISION ITSELF, at nine digits: both readings come off f32 values of order 1, so their
-     * own disagreement floor is around 1e-7. */
     CHECK_NEAR(found.SmallestStep, 1.0 / (double)kSubTexelDivisions, 1.0e-7, "of a texel span",
                ("one division of the texel span is the declared 2^-n (test/SubTexelPrecision.h)" +
                 at)

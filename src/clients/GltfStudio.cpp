@@ -10,9 +10,9 @@
 namespace outshine::Clients {
 
 void EcefFromGltf(const double gltf[3], double out[3]) {
-  out[0] = gltf[1];  /* up */
-  out[1] = gltf[0];  /* east */
-  out[2] = -gltf[2]; /* north */
+  out[0] = gltf[1];
+  out[1] = gltf[0];
+  out[2] = -gltf[2];
 }
 
 namespace {
@@ -22,33 +22,10 @@ void Anchored(const double gltf[3], double out[3]) {
   for (int axis = 0; axis < 3; ++axis) { out[axis] += kStudioAnchorEcefM[axis]; }
 }
 
-/* A SUBJECT NEARER THAN THE NEAR PLANE WOULD BE SILENTLY CROPPED, so it is a refusal that names both
- * numbers.
- *
- * THE PLANE IS THE PLACEMENT'S OWN AND NO LONGER A CONSTANT (board:1420). It was
- * `Renderer::kNearM`, fixed at 0.05 m, while the placement beside it declared `ZNearM` -- two
- * determinations of one quantity, and the constant won. [MEASURED] `MetalRoughSpheresNoTextures` is
- * 5.6 mm in radius and framed at 40 mm, so every vertex of it lay in front of the fixed plane and the
- * whole picture was this refusal. **A subject smaller than a matchbox could not be rendered at all.**
- *
- * A PLACEMENT THAT DECLARES NO NEAR PLANE FALLS BACK TO THE CONSTANT, which is what the renderer does
- * with the same number, so the two cannot disagree about which plane was used. */
 [[nodiscard]] bool ClearsNearPlane(const Gltf::Subject &subject, const Gltf::Placement &eye,
                                    std::string &error) {
   const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : (double)Render::Renderer::kNearM;
-  /* **THE BOX ANSWERS THE ACCEPTING CASE IN EIGHT CORNERS, AND THE ACCEPTING CASE IS THE FRAME PATH**
-   * (board:1460). Distance along the view axis is a LINEAR functional, so its minimum over a box is
-   * attained at a corner, and every vertex of the subject lies in the box -- a box that clears the
-   * plane therefore proves every vertex clears it, exactly and not conservatively.
-   *
-   * ONLY A BOX THAT FAILS FALLS THROUGH TO THE WALK, because there the box IS conservative: a corner
-   * inside the plane says nothing about whether any real vertex is, and the refusal names a vertex.
-   * A refusal is not a frame, so the walk costs a frame nothing.
-   *
-   * [MEASURED] `ABeautifulGame` carries 934 309 vertices and this ran on EVERY `Aim`, so a moving
-   * camera paid 1.06 ms p50 and 4.12 ms p99 against 0.07 ms and 0.25 ms for a standing one -- **turning
-   * the camera cost sixteen times the whole of the rest of the frame path**, and `CLAUDE.md` allows the
-   * frame path only terms whose bound somebody chose. */
+
   double least = 0.0;
   bool first = true;
   for (int corner = 0; corner < 8; ++corner) {
@@ -78,12 +55,7 @@ void Anchored(const double gltf[3], double out[3]) {
   return true;
 }
 
-/* THE ENGINE'S PARALLEL PROJECTION IS ONE NUMBER -- the vertical extent it covers -- and glTF
- * declares two magnifications. Where the two disagree the engine would silently render the vertical
- * one and drop the horizontal, so the mismatch is a refusal naming both. 1e-12 relative is float
- * noise on a round-tripped decimal; the smallest mistake this catches is a sensor fit, which is a
- * factor of the aspect ratio away. */
-constexpr double kMagnificationAgreement = 1e-12; /* [SET] */
+constexpr double kMagnificationAgreement = 1e-12;
 
 [[nodiscard]] bool SetProjection(Render::Renderer &renderer, const Gltf::Placement &eye,
                                  std::string &error) {
@@ -108,21 +80,11 @@ constexpr double kMagnificationAgreement = 1e-12; /* [SET] */
     return false;
   }
   renderer.SetFovDeg(eye.YfovRad * 180.0 / 3.14159265358979323846);
-  /* THE PLACEMENT'S OWN NEAR PLANE, BECAUSE IT DECLARES ONE (board:1420). A `Placement` carries
-   * `ZNearM` and the renderer used to carry a constant, which is two determinations of one quantity
-   * -- and the constant won, so a subject framed nearer than 5 cm was cut away entirely.
-   *
-   * A PLACEMENT THAT DECLARES NOTHING KEEPS THE RENDERER'S DEFAULT, which `SetNearM` states by
-   * refusing a value that is not above zero. */
+
   renderer.SetNearM(eye.ZNearM);
   return true;
 }
 
-/* WHERE A PART SITS IN THE DEPTH FIELD OF ITS DRAW KEY: 0 at the declaration's own near plane, 1 at
- * its far plane, measured along the view axis to the CENTRE OF THE PART'S BOX. The box centre and
- * not a vertex mean, because min and max are exact and commutative in IEEE-754 while a mean moves
- * when the loader's order does -- and a draw order that moved with the loader's order would be a
- * pace-dependent picture. */
 double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
                      const Gltf::Placement &eye) {
   if (part.VertexCount == 0) { return 0.0; }
@@ -146,19 +108,6 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
   return (along - eye.ZNearM) / span;
 }
 
-/* WHETHER ONE PART IS SHADED AT ALL, in the one place that can answer it: a cosine needs a normal,
- * a light list to measure against, and a surface that reads light. `KHR_materials_unlit` says the
- * base colour IS the output -- "no lighting, no shadow ray, no BRDF" -- so an unlit part takes the
- * emitted arm however many lights the scene declares, and the radiance it emits is the surface's own
- * base colour, which is what the caller declares per part. Two spellings of this predicate, one
- * deciding the refusal below and one deciding the pipeline, is the disagreement that would draw an
- * unlit caption black. */
-/* WHETHER THIS SCENE HAS ANYTHING TO GATHER, and it is ONE predicate because the comment above says
- * why (board:1206). A punctual list is not the only source: a declared environment is a light --
- * the one whose solid angle is the whole sphere -- and a scene lit by it alone was drawing every
- * part through the emitted arm, whose declared radiance in that arm is zero. `SpecularTest` came
- * back entirely black against an oracle that showed its label plates bright, which is what a picture
- * looks like when the pipeline choice and the light list disagree about what a light is. */
 [[nodiscard]] bool Gathers(const Studio &studio) {
   return !studio.Lights.empty() || studio.Environment.RadianceLinear[0] > 0.0 ||
          studio.Environment.RadianceLinear[1] > 0.0 || studio.Environment.RadianceLinear[2] > 0.0;
@@ -194,11 +143,7 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
               std::to_string(studio.Surfaces.size());
       return false;
     }
-    /* A LIT SCENE OVER A PART WITH NO NORMAL IS A REFUSAL AND NOT A DARKER DRAW. Falling back to the
-     * emitted arm would draw that part in a radiance nothing declared -- black, in a scene where
-     * every other body is lit -- which reads as a shading bug rather than as the missing attribute
-     * it is. glTF says a client MUST compute flat normals for such a primitive; until something
-     * does, this is what says so. */
+
     if (Gathers(studio) && !subject.Parts()[part].HasNormal &&
         !studio.Surfaces[studio.PartSurface[part]].Row.Unlit) {
       error = "the studio declares " + std::to_string(studio.Lights.size()) +
@@ -212,9 +157,6 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
   return true;
 }
 
-/* ONE DRAW ITEM PER DRAWN PRIMITIVE, then compiled: the sort puts correctness first and the layout
- * puts two draws of one surface next to each other in the index run, which is what lets them become
- * one call. */
 [[nodiscard]] bool BuildDrawList(const Studio &studio, const Gltf::Subject &subject,
                                  Render::DrawList &list, std::string &error) {
   list.Clear();
@@ -229,31 +171,16 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
     item.Order.MaterialSlot = slot;
     item.SourceFirstIndex = (uint32_t)where.FirstIndex;
     item.IndexCount = (uint32_t)where.IndexCount;
-    /* THE LAYOUT IS A PROPERTY OF THE DRAW AND NEEDS BOTH HALVES: a part that carries uvs but wears
-     * a surface with no image would otherwise take the textured pipeline and sample the one white
-     * texel that only exists to make the bind group complete -- a stand-in wearing a texture's
-     * name. THE SAME HOLDS OF THE NORMAL, and its second half is the SCENE rather than the surface:
-     * a subject nothing lights takes the emitted arm however many normals its file carries, because
-     * there is no direction for a cosine to be measured against and the declaration's own radiance
-     * is the whole answer. */
+
     Render::VertexRunsCarried carried;
     carried.Uv = where.HasUv && studio.Surfaces[slot].ReadsAnyImage();
     carried.Normal = Lit(studio, subject, part);
-    /* THE NORMAL-MAPPED LAYOUT NEEDS BOTH HALVES TOO, and the second half is the SURFACE: a part
-     * that carries a tangent basis under a surface with no normal map would sample the one white
-     * texel that only exists to complete the bind group, and white decodes to the tangent-space
-     * direction (1, 1, 1), which is a tilt no file asked for. */
+
     carried.Tangent = carried.Normal && carried.Uv && where.HasTangent() &&
                       studio.Surfaces[slot].Normal.Rgba;
-    /* THE SECOND UV SET NEEDS BOTH HALVES TOO, and they are the part's attribute and the SURFACE's
-     * declaration (board:1182): a part that carries `TEXCOORD_1` under a surface no socket of which
-     * reads it would bind a run nothing samples, and a surface that reads it over a part carrying
-     * none is refused in `SetSubjectMesh` rather than drawn from the first set. */
+
     carried.Uv1 = carried.Uv && where.HasUv1 && studio.Surfaces[slot].ReadsSecondUv();
-    /* THE VERTEX COLOUR HAS NO SECOND HALF AND THE ASYMMETRY IS THE POINT (board:1193): the three
-     * above are runs that only exist to address a texture, so a surface declaring none leaves them
-     * addressing a stand-in. `COLOR_0` multiplies BASE COLOUR, and every surface has one -- there is
-     * no socket for it to be missing, so the part's own attribute is the whole condition. */
+
     carried.Colour = where.HasColour;
     if (!Render::LayoutOf(carried, item.Layout)) {
       error = "part " + std::to_string(part) + " of node '" + where.NodeName +
@@ -266,7 +193,6 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
   return true;
 }
 
-/* WHERE EACH VERTEX RUN STARTS inside the one buffer the caller reuses. */
 struct VertexRuns {
   size_t UvAt = 0;
   size_t Uv1At = 0;
@@ -277,9 +203,6 @@ struct VertexRuns {
   size_t PreviousAt = 0;
 };
 
-/* ONE BUFFER, ONE RUN PER ATTRIBUTE: the positions, the two uv sets, the normals, the tangents and
- * the per-vertex radiance, so a caller reusing capacity across a loop of cases pays one allocation
- * and the vertex buffers are pointers into it. */
 VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
                         std::vector<float> &vertices) {
   vertices.clear();
@@ -296,20 +219,14 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
   for (const double coordinate : subject.Uv()) { vertices.push_back((float)coordinate); }
   runs.Uv1At = vertices.size();
   for (const double coordinate : subject.Uv1()) { vertices.push_back((float)coordinate); }
-  /* THE NORMAL TAKES THE SAME PERMUTATION AS THE POSITION AND NOT AN INVERSE TRANSPOSE OF IT. The
-   * map from glTF's frame to the engine's is a signed permutation whose determinant is +1, so it is
-   * its own inverse transpose and a normal stays a normal and stays unit under it. Anything else
-   * here would be re-deriving `EcefFromGltf` in a second form. */
+
   runs.NormalAt = vertices.size();
   for (size_t vertex = 0; vertex * 3 < subject.Normals().size(); ++vertex) {
     double ecef[3];
     EcefFromGltf(&subject.Normals()[vertex * 3], ecef);
     for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
   }
-  /* THE TANGENT TAKES THE SAME PERMUTATION AS THE POSITION, for the same reason the normal does --
-   * it is a direction in the surface, and the map between the two frames is a signed permutation of
-   * determinant +1. `w` IS NOT PERMUTED AND MUST NOT BE: it is a handedness relative to the normal
-   * and the tangent, and a map that preserves orientation preserves it. */
+
   runs.TangentAt = vertices.size();
   for (size_t vertex = 0; vertex * 4 < subject.Tangents().size(); ++vertex) {
     double ecef[3];
@@ -317,10 +234,7 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
     for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
     vertices.push_back((float)subject.Tangents()[vertex * 4 + 3]);
   }
-  /* THE VERTEX COLOUR CROSSES UNPERMUTED AND UNDECODED (board:1193). It is not a direction, so the
-   * frame map has nothing to do to it, and it is already the LINEAR multiplier glTF says it is -- a
-   * transfer function applied on this side would be the plausible wrong picture the case exists to
-   * catch. Narrowing to f32 is the same narrowing every other run takes. */
+
   runs.ColourAt = vertices.size();
   for (const double component : subject.Colours()) { vertices.push_back((float)component); }
   runs.PreviousAt = vertices.size();
@@ -345,14 +259,6 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
   return runs;
 }
 
-/* THE DECLARED LIGHTS IN THE ENGINE'S FRAME. The position becomes an ECEF double, because a float
- * metre at the Earth's radius is a half-metre quantum and a light half a metre out of place is a
- * shading error nobody would attribute to a cast; the direction and the two cone angles cross
- * unchanged in shape, the direction only permuted.
- *
- * REFUSES A LIGHT WHOSE BEAM IS NOT A DIRECTION. `Gltf::Subject` normalises what it places, so a
- * zero here is a caller that built the list itself -- and a zero beam would make every facet face
- * away from a directional light and the whole subject black. */
 [[nodiscard]] bool PlaceLights(const Studio &studio, std::vector<Render::SubjectLight> &out,
                                std::string &error) {
   out.clear();
@@ -382,7 +288,7 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
   return true;
 }
 
-} // namespace
+}
 
 bool Aim(Render::Renderer &renderer, const Gltf::Subject &subject, const Gltf::Placement &eye,
          std::string &error) {
@@ -397,14 +303,6 @@ bool Aim(Render::Renderer &renderer, const Gltf::Subject &subject, const Gltf::P
   return true;
 }
 
-/* **WHAT A SUBJECT IS MADE OF, AND IT DOES NOT CHANGE WHEN THE SUBJECT MOVES** (board:1463). The
- * surfaces, the lights and the environment are set here and nowhere else; `Pose` hands over the body.
- * It is the same separation `Aim` already carries for the camera and it is separate for the same
- * reason -- these three answer a question the frame does not ask again.
- *
- * **`SetSubjectMaterials` RETIRES THE WHOLE TABLE, so calling it per frame re-uploads every image the
- * subject wears.** A consumer that restated its surfaces every advance paid that on a textured
- * animated body, and nothing about a material changed between two poses of it. */
 bool Surface(Render::Renderer &renderer, const Studio &studio, StudioScratch &scratch,
              std::string &error) {
   if (!studio.Geometry) {
@@ -446,9 +344,6 @@ bool Place(Render::Renderer &renderer, const Studio &studio, StudioScratch &scra
   }
   if (!Aim(renderer, subject, eye, error)) { return false; }
 
-  /* **THE FOUR STEPS OF A PLACEMENT, EACH NAMING WHAT ITS ALLOCATIONS ARE FOR** (board:1463). A
-   * per-phase difference said something inside here takes about 900 bytes on nearly every frame and
-   * could not say which; these say which. Entering a scope is one store. */
   {
     const Heap::Tagged inside("draw-list");
     if (!BuildDrawList(studio, subject, scratch.Draws, error)) { return false; }
@@ -479,8 +374,7 @@ bool Place(Render::Renderer &renderer, const Studio &studio, StudioScratch &scra
   mesh.IndexCount = (uint32_t)scratch.Indices.size();
   for (int axis = 0; axis < 3; ++axis) {
     mesh.Anchor[axis] = kStudioAnchorEcefM[axis];
-    /* The subject stands at one place on the globe whatever it is doing, so the previous frame's
-     * anchor is this one: what moved is the vertices and the eye, and both of those are carried. */
+
     mesh.PrevAnchor[axis] = kStudioAnchorEcefM[axis];
   }
   mesh.Draws = &scratch.Draws;
@@ -490,13 +384,6 @@ bool Place(Render::Renderer &renderer, const Studio &studio, StudioScratch &scra
   return true;
 }
 
-/* **THE SAME BODY SOMEWHERE ELSE** (board:1464). The draw list, the index run and the batches are the
- * topology's and `Place` handed them over; what a pose changes is where the corners are, so this packs
- * the vertex streams and hands a `SubjectPose` -- a type with nowhere to put an index run, which is
- * what makes a pose over different triangles unspellable rather than refused.
- *
- * It is the third instance of one separation in this file: `Aim` moves the eye, `Surface` dresses the
- * body, `Place` stands it up and `Move` moves it. */
 bool Move(Render::Renderer &renderer, const Studio &studio, StudioScratch &scratch,
           std::string &error) {
   if (!studio.Geometry) {
@@ -533,4 +420,4 @@ bool Move(Render::Renderer &renderer, const Studio &studio, StudioScratch &scrat
   return renderer.SetSubjectPose(pose, error);
 }
 
-} // namespace outshine::Clients
+}

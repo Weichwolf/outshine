@@ -1,17 +1,3 @@
-/* WHAT SURVIVES THE FLATTENING. A subject is one run of triangles by the time anything draws it, and
- * the hierarchy that produced it is gone -- except for `Parts()`, which says which vertices came from
- * which node and what that node was called.
- *
- * IT EXISTS BECAUSE A DECLARATION SAYS THINGS PER NODE. What each body of a subject emits is one
- * colour per node (board:0087), and a colour resolved by POSITION in a list is a
- * second thing to keep in step on both sides of a comparison; resolved by NAME it is a fact about the
- * file. This test pins the three properties a name-keyed declaration stands on: one part per
- * mesh-bearing node, the file's own names, and a partition of the vertices that leaves none out and
- * counts none twice.
- *
- * THE SUBJECT IS GENERATED, NOT TRACKED (I.26.10: a case directory's only tracked file is its
- * manifest), so on a fresh clone it is absent and that is a statement about the tree rather than
- * about the reader. It is RED and it is not a skip. */
 #include <fstream>
 #include <string>
 #include <vector>
@@ -28,12 +14,6 @@ using outshine::Gltf::Subject;
 
 namespace {
 
-/* THE PREPARED ROOT AND NOT THE TREE (board:1364). A case directory carries its manifest and nothing
- * else; every product is under the system temp root, so a subject is addressed through `PreparedRoot()`
- * and the flattened leaf its path becomes. Spelled once there, because a copy of the mapping would
- * drift the moment one side moved. */
-
-
 const std::string kThreeCubes = outshine::Test::PreparedRoot() + "/test-render-outshine-grown-trs-hierarchy/scene.glb";
 
 bool Present(const char *path) {
@@ -41,7 +21,7 @@ bool Present(const char *path) {
   return file.good();
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -71,7 +51,6 @@ int main() {
         "one part per mesh-bearing node of the chain, three levels deep");
   Note("parts", (double)subject.Parts().size(), "nodes");
 
-  /* THE NAMES ARE THE FILE'S. A generated name here would make the whole keying circular. */
   const char *const wanted[3] = {"level0", "level1", "level2"};
   size_t named = 0;
   for (size_t part = 0; part < subject.Parts().size() && part < 3; ++part) {
@@ -79,8 +58,6 @@ int main() {
   }
   CHECK(named == 3, "each part carries the glTF node's own name, in the order the walk visited them");
 
-  /* A PARTITION AND NOT A LIST OF RANGES: consecutive, covering, disjoint. A part that overlapped
-   * its neighbour would give one vertex two declared colours and the last writer would win. */
   size_t next = 0;
   bool consecutive = true;
   for (const outshine::Gltf::Part &part : subject.Parts()) {

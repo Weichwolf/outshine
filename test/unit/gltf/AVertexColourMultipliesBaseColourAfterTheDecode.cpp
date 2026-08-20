@@ -1,47 +1,3 @@
-/* glTF's `COLOR_0`, AND THE SIX CELLS OF WHICH ONE ASSET COVERS ONE (board:1193).
- *
- * THE SPECIFICATION PERMITS SIX SPELLINGS AND `BoxVertexColors` CARRIES ONE OF THEM: `VEC3` or
- * `VEC4`, times float, unsigned byte normalized or unsigned short normalized
- * (`Specification.adoc:1339`). The corpus's only vertex-coloured asset is float `VEC3`, so the other
- * five reach no picture at all, and the shape of that gap is board:1179's and board:1186's -- a path
- * that exists, is claimed, and is exercised by nothing. They are exercised HERE, as six accessors
- * over one set of colours, because a synthetic file is what makes a cell that no upstream asset
- * spells decidable at all.
- *
- * THE ONE CLAIM THE SIX SHARE: they are the SAME colours, and WHERE THEY CANNOT BE, THAT IS
- * MEASURED RATHER THAN TOLERATED. The reader divides a normalized integer by its own maximum, so an
- * unsigned byte 255, an unsigned short 65535 and a float 1.0 arrive as one double, and a `VEC3`
- * element is widened with the alpha 1.0 the format states -- so nothing downstream carries six
- * shapes of vertex colour, or two widths of it. At 0 and at 1 the six agree BIT FOR BIT. At an
- * intermediate value they cannot: `128/255` is not a dyadic rational, so a float accessor stores the
- * nearest f32 and a normalized byte accessor divides in double, and the two lattices meet only at 0
- * and 1 for these denominators. The residual is a REPRESENTATION and is asserted against half an f32
- * ulp -- an equality here would have been a claim about arithmetic nobody can satisfy.
- *
- * AND THE ONE THEY ARE MOST LIKELY TO BE READ WRONG BY: `COLOR_0` IS LINEAR IN ALL SIX. An unsigned
- * byte colour is what an sRGB-encoded value looks like -- every base-colour texel in the corpus is
- * one -- and the format says this one is not: "this value acts as an additional LINEAR multiplier to
- * base color" (`Specification.adoc:2088`). A reader that decoded it would produce a picture that is
- * plausible and wrong, which is the silent-success class board:1182 was filed against, so the two
- * readings are stated side by side below and the wrong one is named.
- *
- * THE CLAMP IS A REQUIREMENT ON THE ASSET AND THIS ENGINE REFUSES RATHER THAN REPAIRS. "All
- * components of each `COLOR_0` accessor element MUST be clamped to `[0.0, 1.0]` range"
- * (`Specification.adoc:1356`) sits in a paragraph of statements about what a FILE must contain, so a
- * file outside the range is malformed. Three answers were available and all three are defensible:
- * clamp, refuse, trust. THIS ENGINE REFUSES AND NAMES THE VERTEX, THE CHANNEL AND THE VALUE, because
- * clamping repairs somebody else's asset inside a comparison whose subject IS that asset (board:0073
- * on deriving what a file does not carry), and trusting multiplies base colour past one and publishes
- * a brighter body that reads as authored. It is spellable on TWO of the six cells: a normalized
- * unsigned byte or short cannot leave [0, 1], so on the other four the range is carried by the type
- * and the refusal has nowhere to fire.
- *
- * AND THE OTHER OPERAND IS glTF's DEFAULT MATERIAL, which is why it is stated here too: the asset
- * that carries the picture declares NO material, so `COLOR_0` multiplies the format's own
- * `baseColorFactor` of [1,1,1,1] and not this engine's mid-grey default. Those are the render case's
- * two candidate causes for one residual, and this is where they are separated -- the case cannot.
- *
- * NOTHING HERE RENDERS. Which numbers a file's vertex colours are is a computation over the file. */
 #include <cmath>
 #include <cstdint>
 #include <string>
@@ -68,17 +24,11 @@ using outshine::Gltf::VertexColourComponents;
 using outshine::Test::Append;
 using outshine::Test::Glb;
 
-/* THE THREE COLOURS THE SIX CELLS ALL CARRY. 0 and 1 are exact in every one of the six, which is
- * what the bit-for-bit claim below is asserted on; `128/255` is the intermediate value, and it is
- * the one an sRGB decode would move -- by more than a factor of two -- which is what makes the
- * linearity claim decidable rather than asserted. */
 constexpr double kZero = 0.0;
 constexpr double kHalf = 128.0 / 255.0;
 constexpr double kOne = 1.0;
 constexpr double kAlpha = 64.0 / 255.0;
 
-/* The same value read as though it were sRGB-encoded, which is what this reader must NOT do. It is
- * the format's own transfer, spelled here once so the number in the message is derived. */
 double LinearFromSrgb(double encoded) {
   return encoded < 0.04045 ? encoded / 12.92 : std::pow((encoded + 0.055) / 1.055, 2.4);
 }
@@ -90,7 +40,6 @@ struct Cell {
   const char *Element;
 };
 
-/* THE SIX CELLS, AS THE FILE SPELLS THEM. */
 constexpr Cell kCells[6] = {
     {"float VEC3", 5126, false, "VEC3"},        {"float VEC4", 5126, false, "VEC4"},
     {"ubyte normalized VEC3", 5121, true, "VEC3"},
@@ -98,9 +47,6 @@ constexpr Cell kCells[6] = {
     {"ushort normalized VEC3", 5123, true, "VEC3"},
     {"ushort normalized VEC4", 5123, true, "VEC4"}};
 
-/* One triangle whose three vertices carry the three colours above, in whichever of the six
- * spellings the cell names. The colour run is the LAST view so that its width may vary without
- * moving anything else. */
 std::string Text(const Cell &cell, size_t colourBytes) {
   const std::string normalized = cell.Normalized ? ",\"normalized\":true" : "";
   return std::string(
@@ -126,9 +72,6 @@ std::string Text(const Cell &cell, size_t colourBytes) {
          std::to_string(48 + colourBytes) + "}]}";
 }
 
-/* The colour run in the cell's own component type. `components` is 3 or 4; the fourth value is
- * `kAlpha`, so a reader that widened a VEC3 with something other than 1.0 and a reader that dropped
- * a VEC4's fourth component are two different failures below. */
 std::vector<uint8_t> Binary(const Cell &cell, size_t components) {
   const float positions[9] = {0, 0, 0, 1, 0, 0, 0, 1, 0};
   const uint32_t indices[3] = {0, 1, 2};
@@ -149,9 +92,7 @@ std::vector<uint8_t> Binary(const Cell &cell, size_t components) {
         Append(out, (uint16_t)std::lround(value * 65535.0));
       }
     }
-    /* The format's own alignment rule: every accessor element starts on a multiple of its component
-     * size, and a three-wide unsigned byte element is three bytes. Padding it here would state a
-     * stride the accessor does not declare, so the run stays tight and the reader reads it tight. */
+
   }
   return out;
 }
@@ -176,7 +117,6 @@ bool Reads(const Cell &cell, Document &into, Subject &out, std::string &why) {
   return true;
 }
 
-/* A FILE WHOSE COLOUR IS OUT OF RANGE, which only a float accessor can spell. */
 std::vector<uint8_t> OutOfRangeBinary(float value) {
   const float positions[9] = {0, 0, 0, 1, 0, 0, 0, 1, 0};
   const uint32_t indices[3] = {0, 1, 2};
@@ -199,13 +139,12 @@ Accessor Spelled(ComponentType component, ElementType element, bool normalized) 
   return accessor;
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
   Covers("board:1193");
 
-  /* THE SIX CELLS, AND THE CLAIM IS THAT THEY ARE ONE ANSWER. */
   for (const Cell &cell : kCells) {
     const size_t components = std::string(cell.Element) == "VEC4" ? 4u : 3u;
     Document file;
@@ -224,9 +163,7 @@ int main() {
           "the run is four wide whatever the accessor was, because the alpha multiplies base "
           "colour's alpha and therefore reaches alphaMode");
     if (subject.Colours().size() != subject.VertexCount() * 4) { continue; }
-    /* THE CELL'S OWN LATTICE. A float accessor carries the nearest f32 to 128/255 and a normalized
-     * integer one carries the rational divided in double; both are the same colour and neither is
-     * the other's bits. */
+
     const double half = cell.ComponentCode == 5126 ? (double)(float)kHalf : kHalf;
     const double alpha = cell.ComponentCode == 5126 ? (double)(float)kAlpha : kAlpha;
     const double expected[3][4] = {{kZero, half, kOne, components == 4 ? alpha : 1.0},
@@ -254,7 +191,6 @@ int main() {
     Note("  its distance from 128/255", std::fabs(subject.Colours()[1] - kHalf), "linear");
   }
 
-  /* THE VALUE IS LINEAR, AND THE READING THAT WOULD BE WRONG IS NAMED. */
   {
     Document file;
     Subject subject;
@@ -263,7 +199,7 @@ int main() {
           "the unsigned byte cell -- the one an sRGB-encoded colour looks like -- is read");
     const double decoded = LinearFromSrgb(kHalf);
     CHECK(subject.Colours().size() > 1 && subject.Colours()[1] == kHalf,
-          /* The unsigned byte cell divides in double, so this one IS exact. */
+
           "an unsigned byte 128 is 128/255 LINEAR and never the sRGB decode of it: COLOR_0 is an "
           "additional linear multiplier, and decoding it here is a plausible wrong picture");
     Note("unsigned byte 128 as read", kHalf, "linear");
@@ -274,7 +210,6 @@ int main() {
          "display codes");
   }
 
-  /* THE SIX ARE THE WHOLE SET, and a seventh spelling is a refusal that names what it refused. */
   {
     size_t components = 0;
     std::string why;
@@ -303,7 +238,6 @@ int main() {
           "and a scalar is refused for the same reason");
   }
 
-  /* OUT OF RANGE IS A NAMED REFUSAL AND NOT A CLAMP. */
   for (const float value : {1.5f, -0.25f}) {
     const std::vector<uint8_t> glb =
         Glb(Text(kCells[0], 36), OutOfRangeBinary(value));
@@ -323,8 +257,6 @@ int main() {
     Note(subject.Error().c_str());
   }
 
-  /* A PRODUCED RUN IS HELD TO THE SAME RANGE, because [0, 1] is a property of the quantity and not
-   * of where it came from. */
   {
     const float positions[9] = {0, 0, 0, 1, 0, 0, 0, 1, 0};
     const float good[12] = {0, 0, 0, 1, 1, 1, 1, 1, 0.5f, 0.5f, 0.25f, 1};
@@ -349,7 +281,6 @@ int main() {
     }
   }
 
-  /* AND THE OTHER OPERAND: glTF's DEFAULT MATERIAL IS NOT THIS ENGINE'S DEFAULT SURFACE. */
   {
     const outshine::Material format = outshine::Gltf::DefaultMaterial();
     const outshine::Material engine;

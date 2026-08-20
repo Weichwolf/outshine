@@ -15,42 +15,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 RENDER_SCRIPT = os.path.join(HERE, "in_blender_render.py")
 CONVERT_SCRIPT = os.path.join(HERE, "in_blender_convert.py")
 
-# THE PREPARER'S OWN CODE, DIGESTED INTO THE ORACLE KEY (board:1120). The key covered Blender, the
-# subject pins, the declared scene and the recipe -- everything the manifest says and nothing the
-# PREPARER does. But `in_blender_render.py` decides which passes are enabled, how materials are
-# built, and where lights and cameras sit, and `exr.py` decides how the products are decoded on the
-# way out. All of that changes what Cycles renders while the declaration is untouched.
-#
-# MEASURED, WHICH IS WHY IT IS HERE: enabling three render passes changed 8 of 58 beauty products
-# under keys that still matched, up to 8 ulps where 256 samples accumulate. No verdict moved, and
-# that was luck rather than design -- the drift was found by hashing before and after on a hunch,
-# which is not an instrument.
-#
-# THE WHOLE FILE AND NOT A VERSION STRING: a version somebody has to remember to bump is a second
-# fact about the code, kept by hand, and it goes stale exactly when it matters.
-# EVERY SOURCE OF THE PREPARER, AND NOT A LIST. A named list is a second copy of a fact -- it was
-# (render script, exr.py) while manifest.py declared QUANTITY_PASSES, so editing a quantity's socket
-# changed the bytes and not the product name, and the key did not move. A list also has to agree with
-# the one the harness holds, and it did not. Anything under this directory can change what lands on
-# disk, so everything under it is digested and there is nothing to keep in step.
-# THE POPULATION IS test/harness/ ENTIRE, AND THAT IS WHAT THE PARAGRAPH ABOVE MEANS NOW (board:1196).
-# Splitting the preparer by vendor moved `fetch.py` and `grown.py` OUT of this directory while leaving
-# them able to decide what lands on disk -- `grown.py` produces the subject's own bytes -- so a glob of
-# this directory alone silently stopped covering them and a change there would not have missed the
-# cache. Every harness source is digested, which is the same rule as before applied to where the
-# sources actually are.
-# **THE POPULATION IS THE SHARED PREPARER PLUS THE CASE'S OWN VENDOR, AND NOT EVERY VENDOR** (board:1451).
-# `test/harness/` entire was one glob and one claim, and the claim was wider than what it decides: adding
-# a fetch step to test262 invalidated 148 Khronos cases, which is HOURS OF CYCLES paid for a coupling
-# that does not exist. [MEASURED] it happened four times in one run of work -- 143 cases, then 6, then
-# 330, then every one of them again for a COMMENT added to a Python file.
-#
-# The split is the same lookup `vendor.harness_of` already performs to CHOOSE a case's step, so the two
-# cannot drift: what runs for this case is what is digested for this case. `test/harness/shared/` is
-# every case's, because every case's convert, render and store go through it.
 SHARED_CODE = tuple(sorted(
     glob.glob(os.path.join(vendor.harness_root(HERE), "shared", "**", "*.py"), recursive=True)))
-
 
 def _vendor_code(case_directory):
     """Every `.py` of the harness serving this case, or none where it is the shared one itself."""
@@ -61,13 +27,9 @@ def _vendor_code(case_directory):
     return tuple(sorted(glob.glob(os.path.join(harness, "**", "*.py"), recursive=True)))
 
 PROVENANCE_NAME = "provenance.json"
-# THE BEAUTY PAIR PLUS ONE PAIR PER QUANTITY (manifest.QUANTITY_PASSES). The beauty products keep the
-# product names they have always had, so their cache keys are unchanged -- what misses is the QUANTITY
-# keys, which never existed, and a miss on any product re-runs the one render that produces them all.
 PRODUCTS = ("exr", "raw") + tuple(
     q + suffix for q in manifest_module.QUANTITY_PASSES for suffix in ("Exr", "Raw")
 )
-
 
 def render_code_digest(case_directory):
     """One digest over the preparer that can actually reach this case.
@@ -77,7 +39,6 @@ def render_code_digest(case_directory):
     """
     paths = list(SHARED_CODE) + list(_vendor_code(case_directory))
     return sha256_hex(b"".join(open(path, "rb").read() for path in paths))
-
 
 def plan(manifest, store):
     """What the run costs cold, published before it starts spending it."""
@@ -95,13 +56,9 @@ def plan(manifest, store):
             )
             if not cached:
                 total += file["bytes"]
-    # THE COST IS RECIPES TIMES FRAMES AND NOT RECIPES. A sequence renders its whole declared grid
-    # per recipe (board:1129), so a plan that counted recipes alone would understate a 31-frame case
-    # by a factor of 31 -- and this exists to publish what a cold run costs before it spends it.
     frames = manifest.frame_grid()
     return {"files": rows, "bytesToFetch": total, "renders": sorted(manifest.renders),
             "framesPerRecipe": len(frames), "rendersToRun": len(manifest.renders) * len(frames)}
-
 
 def generate_subjects(manifest, destination):
     """The fixtures we own. Written every run rather than cached: the recipe is a few hundred bytes
@@ -119,16 +76,12 @@ def generate_subjects(manifest, destination):
                 out.write(produced)
             made = {"subject": subject.id, "as": file["as"], "bytes": len(produced),
                     "sha256": sha256_hex(produced)}
-            # WHAT THE PRODUCER SAID ABOUT WHAT IT MADE, into provenance.json. For a part the engine
-            # grew this is the only place the counts, the solved DBH and the framing the rule gives
-            # it are written down, and a manifest quoting one of them can be checked against it.
             if said:
                 made["reported"] = said
             report.append(made)
     if not report:
         raise Refusal("generate " + manifest.id, why="no subject is generated; there is nothing to make")
     return report
-
 
 def fetch_subjects(manifest, store, destination, force=False):
     report = {"files": [], "licence": []}
@@ -154,7 +107,6 @@ def fetch_subjects(manifest, store, destination, force=False):
             )
         report["licence"].extend(_check_licences(subject, store))
     return report
-
 
 def _check_licences(subject, store):
     """Per file. A repository-level claim covers nothing in particular, so nothing inherits one."""
@@ -194,7 +146,6 @@ def _check_licences(subject, store):
         )
     return checked
 
-
 def patch_subjects(manifest, destination):
     """The declared corrections, applied to the fetched bytes and never to the pin.
 
@@ -210,7 +161,6 @@ def patch_subjects(manifest, destination):
         raise Refusal("patch " + manifest.id, why="no subject declares a patch; there is nothing to correct")
     return report
 
-
 def convert_blends(manifest, store, blender, destination, force=False):
     results = []
     for subject in manifest.subjects:
@@ -222,7 +172,6 @@ def convert_blends(manifest, store, blender, destination, force=False):
             "convert " + manifest.id, why="no subject is a .blend; there is nothing to convert"
         )
     return results
-
 
 def _convert(subject, manifest, store, blender, destination, force):
     blend = _file_named(subject, subject.entry)
@@ -262,7 +211,6 @@ def _convert(subject, manifest, store, blender, destination, force):
     store.copy_out(key, target)
     return {"subject": subject.id, "outputName": output_name, "cache": "miss", "key": key, "provenance": provenance}
 
-
 def render_oracle(manifest, store, blender, destination, only=None, force=False):
     gltf_paths = []
     for name in manifest.gltf_names():
@@ -278,12 +226,6 @@ def render_oracle(manifest, store, blender, destination, only=None, force=False)
 
     subject_pin = []
     for subject in manifest.subjects:
-        # A fetched file's digest is the manifest's declared pin; a generated one has no pin to
-        # declare, so the key carries the digest of what the generator actually produced -- which is
-        # what makes a generator that moved under an unchanged manifest miss the cache.
-        # A PATCHED SUBJECT PINS WHAT IS ON DISK AND NOT WHAT WAS FETCHED, and it carries the patch
-        # declaration too: the first makes a changed transform IMPLEMENTATION miss the cache, the
-        # second makes a changed DECLARATION miss it, and either alone would serve a stale oracle.
         pin = {"id": subject.id, "entry": subject.entry,
                "files": sorted([f["as"], sha256_of_file(os.path.join(destination, f["as"]))
                                 if subject.patch else
@@ -306,72 +248,41 @@ def render_oracle(manifest, store, blender, destination, only=None, force=False)
                                        subject_pin, name, frame, force))
     return results
 
-
 def _render_one(manifest, store, blender, destination, gltf_paths, subject_pin, name, frame, force):
     recipe = manifest.renders[name]
     names = manifest_module.output_names_for(name, frame)
     targets = {product: os.path.join(destination, filename) for product, filename in names.items()}
     recipe_key = {
-        # The pinned Blender is in the key because a point release that changes Cycles
-        # must miss. Both the declared and the observed version are here: the first
-        # catches a manifest bump on an unchanged host, the second a host that moved
-        # under an unchanged manifest, and one of the two alone catches neither.
         "blenderDeclared": manifest.blender_version,
         "blenderObserved": blender.version,
         "blenderBuildHash": blender.build_hash,
         "subjects": subject_pin,
         "scene": manifest.scene.as_job(),
         "recipe": recipe,
-        # board:1120 -- see RENDER_CODE above.
         "preparer": render_code_digest(manifest.directory),
     }
-    # THE FRAME IS PART OF THE KEY (board:1128), and it is absent from a still's key rather than
-    # null in it: a case with no animation declares no frame, and its products keep the keys the
-    # corpus already computed for them.
     if frame is not None:
         recipe_key["frame"] = frame
     keys = {product: derived_key("oracle." + product, dict(recipe_key, product=product))
             for product in names}
-    # THE RENDER'S OWN ACCOUNT IS A PRODUCT OF THE RENDER, KEYED AND STORED LIKE THE BYTES IT
-    # DESCRIBES (board:1154). It carries the pass-index mapping, and that mapping is assigned inside
-    # Blender over `bpy.data.materials` -- including the factory startup file's own materials -- so it
-    # is not reconstructible from the glTF and not recomputable outside a Blender run. It used to be
-    # returned by the render and dropped on a cache hit, which left the index passes on disk as
-    # 14.7 MB of integers naming nothing.
-    #
-    # IT IS NOT PLACED IN THE CASE DIRECTORY AND IT IS NOT IN `keys`. `keys` means "the store key each
-    # PLACED product came from" and the prune reads it as exactly that; this document reaches the case
-    # through `provenance.json`, which already carries it, so placing a file beside it would be the
-    # same statement in two places.
     provenance_key = derived_key("oracle.provenance", dict(recipe_key, product="provenance"))
     stored = all(store.has(key) for key in keys.values()) and store.has(provenance_key)
     placed = stored and all(_matches(targets[p], sha256_of_file(store.path(keys[p]))) for p in targets)
     row = {"recipe": name, "keys": keys, "provenanceKey": provenance_key}
     if frame is not None:
         row["frame"] = frame
-    # WHETHER CYCLES RAN IS STATED AND NEVER INFERRED. It used to be read off the provenance being
-    # non-null, which made the cache verdict a side effect of the defect above: the moment a hit
-    # carries its account too, "provenance means miss" reports every hit as a miss.
     rendered = bool(force) or not stored
     if rendered:
         _run_render(manifest, blender, gltf_paths, recipe, keys, provenance_key, store, frame)
     if rendered or not placed:
         for product in targets:
             store.copy_out(keys[product], targets[product])
-    # READ BACK FROM THE STORE ON BOTH PATHS, never handed over from the run that happened to produce
-    # it: one route from the bytes to the report is one route that can be wrong, and a fresh run
-    # cannot then pass over what a cached one would have refused.
     account = _stored_provenance(store, provenance_key, manifest)
-    # THE RENDER IS NOT KEPT (board:1369). It has been copied out and its account has been read, so the
-    # store entry is spent -- and a Cycles render is CPU this machine has, where 54 GB of cache was disk
-    # it did not. The FETCH cache is untouched: upstream bytes cost the network and the network
-    # rate-limits.
     for key in keys.values():
         store.forget(key)
     store.forget(provenance_key)
     return dict(row, cache="miss" if rendered else "hit", products=_sizes(targets),
                 provenance=account)
-
 
 def _stored_provenance(store, key, manifest):
     document = store.read(key)
@@ -388,10 +299,7 @@ def _stored_provenance(store, key, manifest):
         raise Refusal("render " + manifest.id, expected="the account under key " + key + " as JSON",
                       observed=str(error))
 
-
 def _run_render(manifest, blender, gltf_paths, recipe, keys, provenance_key, store, frame):
-    # WHAT THIS RENDER PRODUCES IS THE KEY SET AND NOT A SECOND LIST BESIDE IT. The two were passed
-    # separately and were equal by construction, which is a fact kept in two places.
     with tempfile.TemporaryDirectory(prefix="outshine-oracle-") as work:
         paths = {product: os.path.join(work, "oracle." + product) for product in keys}
         job_path = os.path.join(work, "job.json")
@@ -413,11 +321,7 @@ def _run_render(manifest, blender, gltf_paths, recipe, keys, provenance_key, sto
             if not os.path.isfile(paths[product]):
                 raise Refusal("render " + manifest.id, expected=product + " product", observed="no such file")
             store.keep_file(keys[product], paths[product])
-    # LAST, ONCE EVERY PRODUCT IS IN. `stored` is one predicate over the whole set, so a run that
-    # died between the two leaves the render to be done again rather than half-cached, and the
-    # account is never in the store describing bytes that are not.
     store.keep(provenance_key, canonical_json(provenance).encode("utf-8"))
-
 
 def write_provenance(manifest, store, destination, blender, report):
     document = {
@@ -437,17 +341,14 @@ def write_provenance(manifest, store, destination, blender, report):
         f.write("\n")
     return path
 
-
 def _file_named(subject, name):
     for file in subject.files:
         if file["as"] == name:
             return file
     raise Refusal("manifest subject " + subject.id, expected="a declared file named " + name, observed="none")
 
-
 def _matches(path, sha256):
     return os.path.isfile(path) and sha256_of_file(path) == sha256
-
 
 def _sizes(targets):
     return {

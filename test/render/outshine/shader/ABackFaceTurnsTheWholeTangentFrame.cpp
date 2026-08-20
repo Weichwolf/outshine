@@ -1,37 +1,3 @@
-/* THE TANGENT BASIS ON BOTH SIDES OF THE SURFACE (board:1127). `NormalFromMap.h` states glTF's
- * normal-mapping basis twice -- once in C++, once in the MSL the mapped fragment arm is spliced from
- * -- and until this file existed nothing evaluated the device half at a back-facing fragment. The
- * corpus could not: measured over the two tangent assets, 0 shaded fragments are back-facing, so a
- * left-handed back-face basis rendered every case identically and no picture could fall.
- *
- * WHAT THIS MEASURES IS THE FRAME AND NOT THE MAP. The same supplied normal, tangent, handedness,
- * sampled triple and scale go through both halves at both facings, and the ANGLE between the two
- * answers is the metric -- both halves return a unit direction, so an angle is the whole of the
- * disagreement and it needs no scale to be read against.
- *
- * THE TWO HALVES ARE SPELLED DIFFERENTLY, which is what makes the comparison worth taking. The C++
- * half negates the three axes one at a time, as the format's own renderer does
- * (`material_info.glsl:160`); the MSL half carries one sign out to the composed normal. A
- * transliteration would agree with itself and measure nothing.
- *
- * THE THIRD CLAIM IS THE ITEM'S OWN SENTENCE AND IT IS TAKEN ON THE DEVICE ALONE: a back-facing
- * fragment's normal is the front-facing one negated, bit for bit, over the same inputs. That is what
- * "the frame turns whole" means with no reference in the path at all -- a basis that negated two
- * axes of three cannot satisfy it, whatever the reference says.
- *
- * THE COMPARISON CARRIES ITS OWN NEGATIVE CONTROL, and the control is the defect this file is named
- * for rather than an invented one: the emitted MSL is mutated so the bitangent is negated a second
- * time on a back face, which reproduces exactly the `(-n, -t, +b)` basis the repaired text replaced.
- * The mutant must go red at every back-facing sample whose bitangent contributes, and it must move
- * no front-facing sample at all -- an instrument that also moved the front faces would be measuring
- * something wider than the back-face branch.
- *
- * THE ALLOWANCE IS DERIVED PER SAMPLE AND NOT CHOSEN. The device computes in f32 and the reference
- * in f64. The conditioning is the Gram-Schmidt: a supplied tangent close to the normal loses the
- * perpendicular part to cancellation, so the angular error of the basis grows as the reciprocal of
- * the fraction of the tangent that survives it. Every sample publishes that fraction and its own
- * allowance follows from it; the sweep's worst is printed, and the defect this file exists for is
- * seven orders above it. */
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -71,8 +37,6 @@ bool Refused(const void *made, const char *what) {
   return true;
 }
 
-/* ONE SHADING POINT AS BOTH HALVES TAKE IT. Every value is already rounded to f32, because the
- * device gets f32 and a reference evaluated on wider inputs would be measuring the upload. */
 struct SamplePoint {
   SuppliedFrame Supplied{};
   Direction Tap{};
@@ -80,24 +44,18 @@ struct SamplePoint {
   Facing At = Facing::Front;
 };
 
-constexpr uint32_t kInputFloats = 12;   /* normal 3, tangent 4, tap 3, scale 1, facing 1 */
+constexpr uint32_t kInputFloats = 12;
 constexpr uint32_t kOutputFloats = 3;
 
-constexpr double kFloatEpsilon = 5.9604644775390625e-08;   /* 2^-24, half an ulp at 1.0 */
+constexpr double kFloatEpsilon = 5.9604644775390625e-08;
 constexpr double kDegreesPerRadian = 57.295779513082320876798;
-/* [SET] The rounded operations the longest path through the basis performs, generously counted: the
- * normalisation of the supplied normal, the dot product and the subtraction of the projection, the
- * second normalisation, the cross product, the three scaled axes and their sum, and the final
- * normalisation. */
+
 constexpr double kRoundingSteps = 24.0;
 
 double AsFloat(double value) { return static_cast<double>(static_cast<float>(value)); }
 
 Direction AsFloat(const Direction &of) { return {AsFloat(of.X), AsFloat(of.Y), AsFloat(of.Z)}; }
 
-/* HOW MUCH OF THE SUPPLIED TANGENT SURVIVES GRAM-SCHMIDT, between 0 and 1. It is the sine of the
- * angle between the supplied tangent and the supplied normal, and it is the sample's conditioning:
- * everything the basis derives from the perpendicular part inherits the reciprocal of it. */
 double PerpendicularFraction(const SuppliedFrame &supplied) {
   const Direction normal = Normalised(supplied.Normal);
   const double along = Dot(normal, supplied.Tangent);
@@ -107,7 +65,6 @@ double PerpendicularFraction(const SuppliedFrame &supplied) {
   return std::sqrt(Dot(perpendicular, perpendicular) / Dot(supplied.Tangent, supplied.Tangent));
 }
 
-/* The angular error in radians this sample's own conditioning admits of the device's f32. */
 double AllowedRadians(const SuppliedFrame &supplied) {
   return kRoundingSteps * kFloatEpsilon * (1.0 + 1.0 / PerpendicularFraction(supplied));
 }
@@ -117,13 +74,6 @@ double AngleBetween(const Direction &left, const Direction &right) {
   return std::acos(cosine);
 }
 
-/* THE SWEEP. The supplied normals are neither unit nor axis-aligned and the tangents are neither
- * unit nor perpendicular, because that is how they arrive at a fragment -- a sweep of exact
- * orthonormal bases would never exercise the re-orthogonalisation the basis performs. BOTH
- * HANDEDNESSES ARE PRESENT: `w` is what a mirrored body carries, and a basis that ignored it would
- * agree with itself at `w = 1` forever. THE TAPS SPAN THE SIGN OF EVERY CHANNEL AND INCLUDE ONE
- * WITH NO BITANGENT COMPONENT AT ALL, which is the sample the back-face defect cannot move -- it
- * belongs in the set so that the count of moved samples is a count and not a total. */
 const Direction kSuppliedNormals[] = {
     {0.0, 0.0, 1.0}, {0.2, -0.3, 0.93}, {-0.61, 0.55, 0.57}, {0.0, 0.98, 0.19}, {0.33, 0.33, -0.88},
 };
@@ -132,17 +82,15 @@ const Direction kSuppliedTangents[] = {
 };
 constexpr double kHandedness[] = {1.0, -1.0};
 const Direction kTaps[] = {
-    {0.0, 0.0, 1.0},        /* flat, and the one sample no basis error can move */
-    {0.31, -0.62, 0.72},    /* the map's green channel dominant and negative */
+    {0.0, 0.0, 1.0},
+    {0.31, -0.62, 0.72},
     {-0.44, 0.55, 0.71},
-    {0.06, 0.94, 0.34},     /* almost entirely bitangent */
+    {0.06, 0.94, 0.34},
     {-0.83, -0.12, 0.55},
 };
-/* glTF's own default is 1; 0 is the flattening end of the parameter and 2 is a file exaggerating. */
+
 constexpr double kScales[] = {0.0, 0.5, 1.0, 2.0};
 
-/* THE TWO FACINGS SIT ADJACENT IN THE SET, so the exactness claim below compares two slots and not
- * two runs: the device evaluates the pair from bit-identical inputs in one dispatch. */
 std::vector<SamplePoint> SampleSet(void) {
   std::vector<SamplePoint> points;
   for (const Direction &normal : kSuppliedNormals) {
@@ -188,9 +136,6 @@ std::vector<float> Uploaded(const std::vector<SamplePoint> &points) {
   return floats;
 }
 
-/* The entry point the basis's own text is evaluated through. It declares no arithmetic of its own:
- * it unpacks a sample, calls `normalFromMap` and writes what came back. The sample count is a
- * uniform and not a length query, because MSL has none. */
 std::string TieShader(const std::string &basis) {
   char stride[128];
   std::snprintf(stride, sizeof stride, "constant uint kIn = %uu;\nconstant uint kOut = %uu;\n",
@@ -218,10 +163,6 @@ kernel void tie(uint3 id [[thread_position_in_grid]],
 )";
 }
 
-/* THE NEGATIVE CONTROL'S SITE, named rather than guessed: the bitangent. Negating it a second time
- * on a back face is the `(-n, -t, +b)` basis board:1127 is about, restored exactly. An empty return
- * means the site is gone, and then the mutation was never applied -- which this refuses over rather
- * than passing. */
 std::string WithTheBitangentLeftUnturned(const std::string &basis) {
   const std::string site = "float3 b = cross(n, t) * tangent.w;";
   const size_t found = basis.find(site);
@@ -230,7 +171,6 @@ std::string WithTheBitangentLeftUnturned(const std::string &basis) {
                                     "float3 b = cross(n, t) * tangent.w * select(-1.0, 1.0, front);");
 }
 
-/* THE DEVICE, AND NOTHING ELSE: no swapchain, no window, no asset. */
 class Instrument {
 public:
   ~Instrument() {
@@ -333,8 +273,6 @@ Direction At(const std::vector<float> &measured, size_t sample) {
   return {measured[slot], measured[slot + 1], measured[slot + 2]};
 }
 
-/* THE COUNTS ARE SPLIT BY FACING, because the branch this file is about is one of the two: a
- * disagreement over both would be a defect in the basis itself and a different finding. */
 struct Agreement {
   double WorstRadians = 0;
   double WorstAllowed = 0;
@@ -375,10 +313,6 @@ void ReportAgreement(const char *what, const Agreement &found) {
               found.WorstAllowed * kDegreesPerRadian);
 }
 
-/* HOW MANY BACK-FACING SAMPLES A BASIS ERROR CAN MOVE AT ALL. A tap with no bitangent component, or
- * a scale of zero, composes the same direction under either basis -- so this is the population the
- * negative control is judged over, and quoting the whole back-facing count instead would report a
- * defect the sweep never asked those samples about. */
 int MovableByTheBitangent(const std::vector<SamplePoint> &points) {
   int movable = 0;
   for (const SamplePoint &point : points) {
@@ -387,7 +321,7 @@ int MovableByTheBitangent(const std::vector<SamplePoint> &points) {
   return movable;
 }
 
-} // namespace
+}
 
 int main() {
   const std::vector<SamplePoint> points = SampleSet();
@@ -415,8 +349,6 @@ int main() {
         "the device's basis and the format's own statement of it name the same direction at every "
         "sample of both facings, inside the f32 error the sample's own conditioning admits");
 
-  /* THE ITEM'S SENTENCE, ON THE DEVICE ALONE. The two facings of one configuration are adjacent, so
-   * this compares two slots of one dispatch and no reference enters it. */
   int notNegated = 0;
   double worstAsymmetry = 0;
   for (size_t at = 0; at + 1 < points.size(); at += 2) {
@@ -452,7 +384,7 @@ int main() {
   }
 
   CHECK(DeviceErrors == 0, "the device reported no error over either dispatch");
-  outshine::Test::Covers("board:1127 the tangent basis at a back-facing fragment: the mapped normal "
+  outshine::Test::Covers("the tangent basis at a back-facing fragment: the mapped normal "
                          "is the front-facing one negated whole, and the device's basis agrees with "
                          "the format's own statement of it at both facings");
   return outshine::Test::Report();

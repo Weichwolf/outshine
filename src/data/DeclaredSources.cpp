@@ -19,4 +19,4 @@ Registered RegisterDeclared(SourceSet &set, const Declared &declared) {
   return Registered::Complete;
 }
 
-} // namespace outshine::Data
+}

@@ -13,22 +13,13 @@ namespace outshine::World {
 
 namespace {
 
-/* THE PROVIDER'S FILL, not a building's height. Measured on /t/vector/14/8617/5404 (Hameln): 1634 of
- * 1706 footprints carry exactly 5 — 95.8 %, integer, and the Altstadt they cover is three and four
- * storeys of half-timber. A single value on 96 % of a town is a default, and taking it literally puts
- * the whole of Hameln under a caravan roof. */
 constexpr double kFillHeightM = 5.0;
 
-/* [SET] the storey and the roof the default is built out of: 2.9 m floor-to-floor is the German
- * residential measure, 3.2 m is a 35 deg pitched roof on a ~9 m span. The right fix is upstream —
- * the vector upstream must carry OSM's building:levels — and these exist to be deleted when it does. */
 constexpr double kStoreyM = 2.9;
 constexpr double kRoofAllowanceM = 3.2;
-/* [SET] how far back from a carriageway a building still counts as standing ON that street, metres.
- * Beyond it the way is a road that happens to pass nearby. */
+
 constexpr double kOnTheStreetM = 16.0;
-/* [SET] a way this wide is a carriageway with a footway beside it; anything narrower is itself a
- * footway or a track and has no kerb to run against. A German residential street declares 5.5 m. */
+
 constexpr double kCarriagewayM = 4.0;
 
 uint32_t PlaceHash(double latDeg, double lonDeg) {
@@ -39,26 +30,10 @@ uint32_t PlaceHash(double latDeg, double lonDeg) {
   return h ^ (h >> 16);
 }
 
-/* HOW MANY STOREYS A PLAN CARRIES, where nobody said, and NOT off the plan's area. Area already
- * decides the use, the floor height, the bay, the pitch and the roof kind downstream; keying the
- * height on it too leaves a town with ONE free variable, and a full turn then reads as one estate
- * built to one drawing. It is also backwards where it matters — a Hameln burgher house has a small
- * plan and four storeys, a supermarket has 2000 m2 and one.
- *
- * The two facts used here are independent of area and of each other: HOW CLOSE THE STREET IS (a plot
- * on a town-centre frontage is built up, one behind the building line is not) and HOW NARROW THE
- * PLAN IS across its frontage (a burgher plot is narrow and deep because it paid tax on its
- * frontage). The draw over the resulting range is the corner's own position, so it is a fact about
- * there and the same in both clients.
- *
- * [SET] The ranges are the German Altstadt pattern by inspection of Hameln's own street view, NOT a
- * census: there is no such statistic and the earlier comment claimed one. */
 int DefaultStoreys(double areaM2, double acrossM, double standBackM, double latDeg, double lonDeg) {
   const uint32_t h = PlaceHash(latDeg, lonDeg);
   const bool onStreet = standBackM >= 0.0 && standBackM <= kOnTheStreetM;
-  /* AREA IS A GUARD HERE AND NOT THE VARIABLE. A burgher house is narrow across its frontage and
-   * DEEP behind it; a 40 m2 plan that is narrow both ways is a shed or a stair tower, and giving it
-   * the frontage's storeys puts a pencil in the street. */
+
   const bool aPlot = areaM2 >= 70.0;
   int least = 1, most = 2;
   if (onStreet && aPlot && acrossM <= 14.0) { least = 3; most = 5; }
@@ -85,9 +60,6 @@ double RingAreaM2(const OsmField &field, const OsmField::Ring &ring) {
   return std::fabs(0.5 * a);
 }
 
-/* The width of the plan ACROSS its own long axis, which is the frontage a plot is measured by. Off
- * the extents in the ring's own frame — no box fit here, because what a generator does with the same
- * ring is the generator's and this only needs an order of magnitude. */
 double AcrossM(const OsmField &field, const OsmField::Ring &ring) {
   const std::vector<double> &pts = field.Points();
   const double refLat = pts[(size_t)ring.First * 2], refLon = pts[(size_t)ring.First * 2 + 1];
@@ -102,10 +74,6 @@ double AcrossM(const OsmField &field, const OsmField::Ring &ring) {
   return std::min(e1 - e0, n1 - n0);
 }
 
-/* THE NEAREST CARRIAGEWAY, as a straight kerb line in the ring's own frame. What comes back is the
- * tangent at the nearest point pushed out to the edge of the declared width — the chord a plot's
- * frontage is set out against. The way stays a polyline in the field it was ingested into; carrying
- * one into the mesher would be a second copy of the street. */
 Frontage NearestStreet(const OsmField &field, const OsmField::Ring &ring,
                        Span<const WayLine> ways, double *standBackM) {
   Frontage out;
@@ -123,8 +91,6 @@ Frontage NearestStreet(const OsmField &field, const OsmField::Ring &ring,
   cE /= (double)ring.Count;
   cN /= (double)ring.Count;
 
-  /* One degree of latitude is 111 km, so a bracket in degrees around the reach costs no projection
-   * and rejects nearly every way in the region before a single segment is touched. */
   const double padDeg = (kOnTheStreetM + 60.0) / 111000.0;
   double best = 1.0e30, bE = 0.0, bN = 0.0, bDirE = 0.0, bDirN = 0.0, bHalf = 0.0;
   for (const WayLine &w : ways) {
@@ -151,8 +117,6 @@ Frontage NearestStreet(const OsmField &field, const OsmField::Ring &ring,
   }
   if (best > 1.0e29 || best <= bHalf) return out;
 
-  /* Towards the carriageway is from the plan's centre to the nearest point on the centreline; the
-   * kerb is that same line pulled back by the declared half-width. */
   const double toE = (bE - cE) / best, toN = (bN - cN) / best;
   out.Known = true;
   out.KerbEm = bE - toE * bHalf;
@@ -165,11 +129,8 @@ Frontage NearestStreet(const OsmField &field, const OsmField::Ring &ring,
   return out;
 }
 
-}  // namespace
+}
 
-/* The lowest corner of a ring, or why there is none. Read TWICE per tile — once to decide whether the
- * tile can be consumed at all, once to build — because the second read is a hit in the oracle's own
- * tile cache while the first is what keeps a footprint from being thrown away for arriving early. */
 GroundSample BuildingField::RingBase(const OsmField &field, const OsmField::Ring &ring,
                                     std::vector<double> *corners) {
   const std::vector<double> &pts = field.Points();
@@ -180,7 +141,7 @@ GroundSample BuildingField::RingBase(const OsmField &field, const OsmField::Ring
     const GroundSample g = fb_stream_ground(pts[((size_t)ring.First + k) * 2],
                                             pts[((size_t)ring.First + k) * 2 + 1]);
     double aslM = 0.0;
-    if (!g.TryAslM(&aslM)) return g;   /* the corner's own reason travels out, unre-encoded */
+    if (!g.TryAslM(&aslM)) return g;
     if (corners) corners->push_back(aslM);
     lowest = std::min(lowest, aslM);
   }
@@ -221,9 +182,6 @@ int BuildingField::Build(const OsmField &field, Span<const WayLine> ways) {
   const uint32_t firstPrint = (uint32_t)Prints_.size();
   int added = 0;
 
-  /* A FOOTPRINT IS CONSUMED ONCE. Whichever ring is asked first, a tile is either buildable now or
-   * asked again next pass — dropping a stand because its DEM had not landed yet is indistinguishable
-   * from "nothing stands here" and is never revisited. */
   const TileWatermark::Next next = Mark_.Ask(feats, [&](size_t from, size_t to) {
     return TileGroundResolved(field, from, to, layer);
   });
@@ -284,9 +242,6 @@ int BuildingField::Build(const OsmField &field, Span<const WayLine> ways) {
   return (int)Prints_.size();
 }
 
-/* WHAT STANDS ON THE OUTLINE is not decided here. This resolves the ring, the ground under it and a
- * height; the shape of the thing is a generator's, installed from above, and the server target
- * installs none — which is why a machine with no device no longer extrudes a town it cannot draw. */
 void BuildingField::Raise(const OsmField &field, const Footprint &f) {
   if (!Mesher_) return;
   const std::vector<double> &pts = field.Points();
@@ -301,4 +256,4 @@ void BuildingField::Raise(const OsmField &field, const Footprint &f) {
   Mesher_->Mesh(plan, Verts_);
 }
 
-} // namespace outshine::World
+}

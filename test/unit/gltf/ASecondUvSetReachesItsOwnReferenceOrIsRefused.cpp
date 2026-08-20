@@ -1,27 +1,3 @@
-/* THE SECOND UV SET IS READ AS ITS OWN STREAM, AND THE REFUSAL board:1177 STATED NARROWS RATHER THAN
- * DISAPPEARS (board:1182).
- *
- * TWO CLAIMS, AND THE SECOND IS THE DANGEROUS ONE.
- *
- * FIRST: a primitive declaring `TEXCOORD_1` yields a second run that is the file's own numbers and
- * not a copy of the first. `MultiUVTest` is the asset that shows it, and the trap it is built for is
- * an engine that reads set 0 twice: its two accessors sit in two buffer views and place one face a
- * quarter of the image apart, so the reading decides WHERE the emissive image lands and not whether
- * it lands. That is a silent success, not a disagreement -- an image on the wrong uv set is still an
- * image on a surface -- so the numbers are checked here rather than left to a picture alone.
- *
- * SECOND: a texture reference naming `TEXCOORD_1` on a subject that carries ONE uv set is a NAMED
- * REFUSAL, and it stays one now that the engine can bind two. The refusal was never about the
- * engine's capability; it is about the SUBJECT's attributes, and the fall-back it forbids -- read the
- * first set instead -- is exactly what `MultiUVTest` writes "Multiple UVs not supported in this
- * viewer" into the frame to catch. A round that turned this into a fall-back would pass every case
- * in the corpus and ship the defect green.
- *
- * AND THE THIRD ARM IS THE ENGINE'S OWN BOUND: `TEXCOORD_2` and beyond is a refusal that names how
- * many sets are bound, because a set no vertex layout carries is not a set that can be read.
- *
- * NOTHING HERE RENDERS. Which uv set a reference reads is a computation over the file's declaration
- * and the subject's attributes, so the instrument is a stated invariant and not a picture. */
 #include <cmath>
 #include <cstdint>
 #include <string>
@@ -43,12 +19,6 @@ using outshine::Gltf::TextureRef;
 using outshine::Gltf::UvSetOf;
 using outshine::UvSet;
 
-/* One quad whose two uv sets address two different quarters of the image, with the emissive
- * reference reading the second and the base colour reading the first -- `MultiUVTest`'s shape,
- * spelled small. `secondSet` false leaves TEXCOORD_1 out entirely, which is the refusing subject.
- *
- * A GLB AND NOT A `data:` URI, because this reader decodes no data URI and a temporary file would
- * put a filesystem between the claim and the bytes it is about. */
 std::string Text(bool secondSet) {
   const std::string attributes = secondSet ? "\"POSITION\":0,\"TEXCOORD_0\":1,\"TEXCOORD_1\":2"
                                            : "\"POSITION\":0,\"TEXCOORD_0\":1";
@@ -62,10 +32,7 @@ std::string Text(bool secondSet) {
          attributes +
          "},\"indices\":3,\"material\":0}]}],"
          "\"nodes\":[{\"mesh\":0}],\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
-         /* Three positions, three first-set uvs at the image's left edge, the same three shifted
-          * 0.75 along u for the second set, and one triangle. The shift is uniform so the claim
-          * below is one number, and it is non-zero at EVERY vertex so no vertex can agree by
-          * accident. */
+
          "\"accessors\":["
          "{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\","
          "\"min\":[0,0,0],\"max\":[1,1,0]},"
@@ -80,8 +47,6 @@ std::string Text(bool secondSet) {
          "\"buffers\":[{\"byteLength\":96}]}";
 }
 
-/* THE BYTES THE ACCESSORS ADDRESS, written as the numbers rather than as a blob: the two uv runs are
- * the whole point of this case and a base64 literal would hide which coordinates they are. */
 std::vector<uint8_t> Binary() {
   const float positions[9] = {0, 0, 0, 1, 0, 0, 0, 1, 0};
   const float first[6] = {0.0f, 0.0f, 0.25f, 0.0f, 0.0f, 0.25f};
@@ -100,9 +65,9 @@ bool Reads(bool secondSet, Document &into) {
   return into.Read(outshine::Span<const uint8_t>(glb.data(), glb.size()), "");
 }
 
-constexpr double kTolerance = 5.9604644775390625e-08; /* half an f32 ulp at 1.0 */
+constexpr double kTolerance = 5.9604644775390625e-08;
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -119,9 +84,6 @@ int main() {
   CHECK(carried.Uv().size() == carried.Uv1().size(),
         "the two runs cover the same vertices, so a consumer binds them in step");
 
-  /* THE NUMBERS, AND THIS IS THE CLAIM AN ENGINE READING SET 0 TWICE FAILS. Every vertex differs
-   * between the two sets by 0.75 uv units, so an implementation that read the first accessor into
-   * both runs agrees here at exactly zero vertices. */
   double closest = 1e9;
   for (size_t vertex = 0; vertex < carried.VertexCount(); ++vertex) {
     const double du = carried.Uv1()[vertex * 2] - carried.Uv()[vertex * 2];
@@ -147,7 +109,6 @@ int main() {
         "a reference naming TEXCOORD_1 resolves on a subject that carries it -- the narrowing");
   CHECK(set == UvSet::Second, "to the SECOND set, which is what board:1182 adds");
 
-  /* THE OTHER SIDE OF THE NARROWING, AND IT IS THE HALF THAT MUST NOT BECOME A FALL-BACK. */
   Document one;
   CHECK(Reads(false, one), "the same file without TEXCOORD_1 is read");
   Subject alone;
@@ -169,8 +130,6 @@ int main() {
   CHECK(why.find("first uv set only") != std::string::npos,
         "and what the subject carries instead, so the sentence says whose defect it is");
 
-  /* AND THE ENGINE'S OWN BOUND, which is a different sentence from the one above: two sets are what
-   * a vertex layout binds, so a third is not a subject's shortfall but this engine's. */
   TextureRef third;
   third.Texture = 0;
   third.TexCoord = 2;

@@ -1,12 +1,3 @@
-/* WHAT `KHR_lights_punctual` HAS TO SURVIVE ON THE WAY IN, and every claim here is about a number
- * that decides a picture: the light's KIND, because the units differ between the arms; its
- * PLACE, because a light's position and its beam are the node hierarchy's answer and not the light
- * table's; and the extension's REFUSALS, because a spot whose cone is inside out and a node naming a
- * light the file does not carry are both files this reader must not interpret.
- *
- * IT IS A FIXTURE AND NOT A FETCHED ASSET. The corpus case that carries the real thing is
- * `test/render/khronos/glTF/`, whose subject is 450 KB and whose verdict is a render; what belongs at
- * this layer is the boundary, which is decidable from a document written out here. */
 #include <cmath>
 #include <string>
 
@@ -21,8 +12,6 @@ using outshine::Gltf::Subject;
 
 namespace {
 
-/* One quad, one directional light on a rotated node, one point light on a translated child of a
- * scaled node -- so the placement below is a composition and not a copy of a translation. */
 const char *kSceneJson = R"({
   "asset": {"version": "2.0"},
   "extensionsUsed": ["KHR_lights_punctual"],
@@ -60,7 +49,6 @@ const char *kSceneJson = R"({
   "buffers": [{"byteLength": 108, "uri": "quad.bin"}]
 })";
 
-/* A unit quad in the z = 0 plane with every normal along +Z, then six 16-bit indices. */
 void WriteBuffer(const std::string &path) {
   const float vertices[] = {-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0,
                             0,  0,  1, 0, 0,  1, 0, 0, 1, 0,  0, 1};
@@ -90,7 +78,7 @@ std::string Scratch() {
   return directory;
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -129,10 +117,6 @@ int main() {
                              "against");
   CHECK(subject.Lights().size() == 3, "every light the scene places arrives placed");
 
-  /* THE HIERARCHY IS THE PLACEMENT AND THE TEST IS THAT IT COMPOSES. `Rig` translates by 1 and
-   * scales by 2, and `Bulb` sits 1.5 up inside it, so the lamp is at (1, 3, 0) and not at (1, 1.5,
-   * 0) -- which is exactly the difference between multiplying the transforms and copying the
-   * child's own translation. */
   const auto &lamp = subject.Lights()[1];
   CHECK(lamp.LightName == "Lamp" && lamp.NodeName == "Bulb",
         "a placed light names both the light it is and the node that placed it");
@@ -142,16 +126,12 @@ int main() {
         "the parent's scale reaches the child's translation, so a light inside a scaled rig is "
         "where the rig puts it");
 
-  /* A quarter turn about +X takes -Z to +Y, so the sun's beam points straight up in glTF's frame.
-   * The beam is the node's -Z and nothing else, which is the extension's own rule. */
   const auto &sun = subject.Lights()[0];
   Note("the sun's beam, y", (double)sun.Light.Direction[1], "unit, glTF frame");
   CHECK(std::fabs(sun.Light.Direction[1] - 1.0f) < 1e-6f &&
             std::fabs(sun.Light.Direction[0]) < 1e-6f && std::fabs(sun.Light.Direction[2]) < 1e-6f,
         "the beam is the node's -Z turned by the node's rotation, normalised");
 
-  /* A SPOT WHOSE CONE IS INSIDE OUT IS A REFUSAL AND NOT A CLAMP. The extension requires the inner
-   * angle below the outer, and a client that clamped would light a cone the file never described. */
   Document broken;
   std::string inverted(kSceneJson);
   const size_t cone = inverted.find("\"innerConeAngle\": 0.2");
@@ -162,8 +142,6 @@ int main() {
         "a spot whose inner cone is wider than its outer one is refused rather than clamped");
   Note("the refusal", (double)broken.Error().size(), "characters, and it names the light");
 
-  /* A NODE NAMING A LIGHT THE TABLE DOES NOT HOLD is the other half of the same rule: an index that
-   * addresses past the table would otherwise light the scene with whatever was next in memory. */
   Document dangling;
   std::string past(kSceneJson);
   const size_t names = past.find("\"light\": 2");

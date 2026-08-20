@@ -23,18 +23,12 @@ double Clock() {
   return (double)duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count() * 1e-3;
 }
 
-constexpr int kSeedCap = 32;    /* per cell; measured worst 14 over the reference block */
-constexpr int kRefCap = 255;    /* per seed; measured worst 45 edges in one whole cell */
+constexpr int kSeedCap = 32;
+constexpr int kRefCap = 255;
 
-/* An OSM way is a SAMPLE of a curve, not a description of a polygon: a surveyor sets a node where the
- * bend needs one, and the chord between two nodes is the sampling artefact, not the road. So the
- * chords are replaced by the centripetal Catmull-Rom through the same nodes — it passes through every
- * one of them, so no declared position moves, and it only adds where the curve leaves the chord. */
-constexpr float kCurveTolM = 0.60f;   /* [SET] */
+constexpr float kCurveTolM = 0.60f;
 constexpr int kCurveMaxSplit = 8;
 
-/* Barry-Goldman, knots spaced by sqrt of chord length: the CENTRIPETAL parameterisation, which is the
- * one that cannot cusp or loop between two nodes however uneven the survey's spacing. */
 void CatmullPoint(const float *p0, const float *p1, const float *p2, const float *p3,
                   float u, float *out) {
   auto knot = [](float t, const float *a, const float *b) {
@@ -56,8 +50,6 @@ void CatmullPoint(const float *p0, const float *p1, const float *p2, const float
   for (int a = 0; a < 2; a++) out[a] = ((t2 - t) * b1[a] + (t - t1) * b2[a]) / (t2 - t1);
 }
 
-/* Ring points in, curve points out. `closed` wraps the neighbour lookup; an open way reflects its end
- * tangents so the first and last spans bend like their neighbours instead of going straight. */
 void CurveRing(const float *pts, uint32_t first, uint32_t count, bool closed,
                std::vector<float> &out) {
   out.clear();
@@ -92,7 +84,7 @@ void CurveRing(const float *pts, uint32_t first, uint32_t count, bool closed,
   }
 }
 
-}  // namespace
+}
 
 ClassBuilder::ClassBuilder()
     : Fine_(std::make_shared<const ClassStructure::Grid>()),
@@ -153,8 +145,7 @@ void ClassBuilder::Run() {
     const double t0 = Clock();
     LayDown(job, *grid, overflow);
     const double buildMs = Clock() - t0;
-    /* The grid a rebuild did not touch is handed on by pointer, so the one that stood costs nothing
-     * and the two cannot drift into being one truth each. */
+
     if (job.Grain == ClassGrain::Fine) Fine_ = std::move(grid); else Coarse_ = std::move(grid);
     Version_++;
     Handback y;
@@ -163,7 +154,7 @@ void ClassBuilder::Run() {
     y.Returned = std::move(job);
     HeapBytes_.store(GridBytes(*Fine_) + GridBytes(*Coarse_) + ScratchBytes(),
                      std::memory_order_relaxed);
-    /* Back at the shallow end of this thread, so the stack it just went to is a settled fact. */
+
     StackProbe::Mark();
     {
       std::lock_guard<std::mutex> lk(Mu_);
@@ -173,10 +164,6 @@ void ClassBuilder::Run() {
   }
 }
 
-/* One whole grid, laid down feature by feature in ascending rank. The row sweep carries
- * an ACTIVE EDGE LIST, so a feature costs its own edges once per row it actually spans and not its
- * whole outline per row of its bounding box — without that, a coarse-tier forest spanning twelve
- * kilometres would be tens of milliseconds on its own. */
 void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflow) {
   Workspace &work = Workspace_;
   const int W = job.HalfCells * 2, H = job.HalfCells * 2;
@@ -188,21 +175,18 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
   std::vector<uint8_t> &base = work.Base, &baseRank = work.BaseRank;
   base.assign((size_t)W * H, 0xFF);
   baseRank.assign((size_t)W * H, 0);
-  /* Per-cell seed lists as an intrusive linked list over two flat arrays: a vector of vectors here
-   * allocates once per cell and that alone was two thirds of the rebuild. */
+
   std::vector<int32_t> &seedHead = work.SeedHead, &seedNext = work.SeedNext;
   std::vector<uint32_t> &seedCount = work.SeedCount;
   seedHead.assign((size_t)W * H, -1);
   seedNext.clear();
   seedCount.assign((size_t)W * H, 0);
 
-  std::vector<float> &ex = work.Edges;      /* this feature's edges: x0,y0,x1,y1 */
-  std::vector<float> &curve = work.Curve;   /* the way resampled along its Catmull-Rom, per feature */
-  std::vector<uint32_t> &byY = work.ByY;    /* edge order by ymin */
+  std::vector<float> &ex = work.Edges;
+  std::vector<float> &curve = work.Curve;
+  std::vector<uint32_t> &byY = work.ByY;
   std::vector<uint32_t> &act = work.Act;
-  /* The same for one feature's edges over the cells of its bounding box, with a VERSION STAMP so the
-   * head array is never cleared between features. The stamp restarts with the grid, so the arrays
-   * carried over from the previous build have to be invalidated once here. */
+
   std::vector<int32_t> &ceHead = work.CellHead, &ceNext = work.CellNext;
   std::vector<uint32_t> &ceStamp = work.CellStamp, &ceEdge = work.CellEdge, &ceCount = work.CellCount;
   std::fill(ceStamp.begin(), ceStamp.end(), 0u);
@@ -226,8 +210,7 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
         }
       }
     } else {
-      /* A line is its CENTRELINE. Extruding it to a polygon makes the answer binary, and a way
-       * narrower than a pixel is then hit whole or missed whole. Half the width lives in the seed. */
+
       for (uint32_t k = 0; k < f.RingCount; k++) {
         const Ring &ring = job.Rings[f.FirstRing + k];
         CurveRing(job.Pts.data(), ring.First, ring.Count, false, curve);
@@ -256,8 +239,7 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
     }
     ceNext.clear();
     ceEdge.clear();
-    /* A centreline reaches half its width sideways, so the cells it must appear in reach that far too;
-     * without the pad the fragment beside the axis never sees the edge it is measured against. */
+
     const float epad = (f.Form == Shape::Polygon) ? 0.0f : f.WidthM * 0.5f;
     for (size_t e = 0; e < ne; e++) {
       const float *p = &ex[e * 4];
@@ -320,9 +302,7 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
         const size_t ci = (size_t)j * W + (size_t)i;
         if (nce == 0 || seedCount[ci] >= (uint32_t)kSeedCap || nce > (uint32_t)kRefCap) {
           if (nce != 0) overflow++;
-          /* An OPEN centreline has no inside, so its winding is not a coverage test — and the running
-           * counter would carry it along the scanline. A line covers a cell only through its seed,
-           * where the distance decides; without a seed it covers nothing. */
+
           if (f.Form == Shape::Polygon && wind != 0) { base[ci] = (uint8_t)f.Tpl; baseRank[ci] = (uint8_t)f.Rank; }
           continue;
         }
@@ -345,8 +325,6 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
     B.Edges.insert(B.Edges.end(), ex.begin(), ex.end());
   }
 
-  /* The seeds of one cell must be contiguous, so they are re-emitted in cell order once every feature
-   * has been laid down. */
   std::vector<uint32_t> &seeds = work.Seeds;
   seeds.clear();
   seeds.reserve(B.Seeds.size());
@@ -362,7 +340,7 @@ void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflo
                       ((uint32_t)seedCount[ci] << 16);
     B.Cells[ci * 2 + 1] = first;
   }
-  B.Seeds.swap(seeds);   /* the scratch keeps the block's old storage and reuses it next build */
+  B.Seeds.swap(seeds);
 }
 
-} // namespace outshine::World
+}

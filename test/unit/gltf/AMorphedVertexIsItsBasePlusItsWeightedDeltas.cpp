@@ -1,16 +1,3 @@
-/* MORPH TARGETS, AND THE THREE THINGS ABOUT THEM THAT ARE EASY TO GET WRONG QUIETLY (board:1203).
- *
- * ONE: the weights are NOT normalised, and must not be. A skin's weights have a `SHOULD` behind them;
- * a morph weight set has no constraint at all, so 0.5 and 0.5 do not make a half-way blend of two
- * targets -- they make half of each, added. This fixture uses weights that sum to 1.5 and to -1, both
- * of which the format allows and both of which a renormalising implementation would silently repair.
- *
- * TWO: a tangent delta is VEC3 against a VEC4 base, because `w` is the bitangent's SIGN. A blend that
- * touched it would produce a fourth component naming no handedness at all.
- *
- * THREE: the deltas apply in the mesh's OWN space, before the node transform -- so the node here
- * carries a scale of 10, and a delta that had been put through it would arrive ten times too large.
- */
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -30,26 +17,21 @@ namespace {
 std::vector<uint8_t> Binary() {
   using outshine::Test::Append;
   std::vector<uint8_t> out;
-  /* POSITION, three vertices, byte 0 */
+
   const float base[9] = {0, 0, 0, 1, 0, 0, 0, 1, 0};
   for (float value : base) { Append(out, value); }
-  /* target 0's POSITION delta, byte 36: moves only vertex 1, by +2 in x */
+
   const float first[9] = {0, 0, 0, 2, 0, 0, 0, 0, 0};
   for (float value : first) { Append(out, value); }
-  /* target 1's POSITION delta, byte 72: moves only vertex 2, by +4 in y */
+
   const float second[9] = {0, 0, 0, 0, 0, 0, 0, 4, 0};
   for (float value : second) { Append(out, value); }
-  /* indices, byte 108 */
+
   const uint16_t run[3] = {0, 1, 2};
   for (uint16_t value : run) { Append(out, value); }
   return out;
 }
 
-/* `mesh.weights` is 1.5 and -1: neither is in [0, 1] and they do not sum to one, which the format
- * permits for a morph and which is the whole point of stating them here. Vertex 1 therefore moves
- * 1.5 * 2 = 3 in x, and vertex 2 moves -1 * 4 = -4 in y. The node scales by 10 AFTER that, so the
- * drawn positions are 40 and -40 -- and a delta applied in the node's space would give 30 and -40
- * against a base already at 10, which is a different picture rather than a different scale. */
 const char *const kJson = R"({
   "asset": { "version": "2.0" },
   "scenes": [ { "nodes": [0] } ],
@@ -82,7 +64,7 @@ bool Refuses(const char *json, const std::string &naming) {
   return document.Error().find(naming) != std::string::npos;
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -116,8 +98,6 @@ int main() {
   CHECK(subject.VertexCount() == 3, "three vertices reach the flatten");
   if (subject.VertexCount() != 3) { return Report(); }
 
-  /* v0 is displaced by neither target and only scaled; v1 by target 0 at weight 1.5; v2 by target 1
-   * at weight -1, which moves it the OTHER way and is what a clamp to [0, 1] would erase. */
   const double want[9] = {0, 0, 0, 40, 0, 0, 0, -30, 0};
   for (size_t vertex = 0; vertex < 3; ++vertex) {
     for (size_t axis = 0; axis < 3; ++axis) {

@@ -1,27 +1,3 @@
-/* THE READER AGAINST A NUMBER THIS TREE DID NOT PRODUCE. `test/render/khronos/glTF/Triangle/`
- * was prepared by the corpus round: the vertices come from Khronos, the camera was placed in Blender
- * and the projected area fraction was derived analytically there. Nothing below re-derives it -- the
- * expected value is read out of the case's own manifest -- so what is being checked is the chain
- * *file bytes -> accessor -> view -> projection -> raster*, end to end, against an outside answer.
- *
- * WHY THE AREA IS EXACT HERE AND NOT AN APPROXIMATION: the subject is a plane perpendicular to the
- * optical axis, so its perspective image is a similarity and the shoelace area is closed form.
- *
- * THE EDGES ARE THE HANDEDNESS CHECK AND THE AREA IS NOT. Area survives a mirrored x axis, a flipped
- * raster row order and a roll of the wrong sign; the three edge normals below survive none of them.
- *
- * AND THE QUANTITY THEY ARE CHECKED ON IS THE ONE THE COMPARISON TURNS ON. What stood here was the
- * angle each edge makes with the nearest raster axis, maximised at 22.5 degrees -- a proxy, and the
- * wrong one: a rasteriser and a path tracer disagree about a pixel when its CENTRE is close to an
- * EDGE, which is a distance and not an angle. At an irrational slope those distances equidistribute
- * and the smallest of them falls as about 0.5/L over L boundary pixels, so a bigger subject is a
- * worse one. At a slope p/q in lowest terms the distance from every pixel centre in the plane to
- * p*X - q*Y = c is |c - round(c)| / sqrt(p^2 + q^2), which depends on neither L nor position, and at
- * c on a half lattice step it is the largest it can be. This test pins exactly that: the three
- * normals, and half a lattice step on each.
- *
- * THE SUBJECT CARRIES NO NORMAL AND THAT IS NOT REPAIRED (board:0073): the reader is
- * asked for one below and must name what is missing. */
 #include <cmath>
 #include <fstream>
 #include <string>
@@ -43,12 +19,6 @@ using outshine::Gltf::Viewport;
 
 namespace {
 
-/* THE PREPARED ROOT AND NOT THE TREE (board:1364). A case directory carries its manifest and nothing
- * else; every product is under the system temp root, so a subject is addressed through `PreparedRoot()`
- * and the flattened leaf its path becomes. Spelled once there, because a copy of the mapping would
- * drift the moment one side moved. */
-
-
 const std::string kCase = outshine::Test::PreparedRoot() + "/test-render-khronos-glTF-Triangle/";
 
 std::string Slurp(const std::string &path) {
@@ -56,7 +26,7 @@ std::string Slurp(const std::string &path) {
   return std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -79,10 +49,6 @@ int main() {
   CHECK(viewport.WidthPx == 1280.0 && viewport.HeightPx == 720.0,
         "the manifest's render recipe is the 1280x720 frame the oracle was rendered at");
 
-  /* THE SUBJECT IS FETCHED, NOT TRACKED (board:0083: a case directory's only
-   * tracked file is its manifest), so on a fresh clone it is absent and that is a statement about
-   * the tree rather than about the reader. It is RED and it is not a skip -- a tier that skipped
-   * here could not be told from one that passed having read nothing. */
   const std::string subjectPath = std::string(kCase) + "scene.gltf";
   if (Slurp(subjectPath).empty()) {
     Unprepared(subjectPath.c_str());
@@ -113,10 +79,6 @@ int main() {
         "three vertices and three indices, which is what the file declares");
   if (positions.size() != 9 || indices.size() != 3) { return Report(); }
 
-  /* The placement convention -- POSITIVE ROLL TURNS THE CAMERA'S RIGHT VECTOR TOWARDS ITS UP VECTOR,
-   * so the image of the world rotates by the opposite sign -- is stated once, in src/gltf, and this
-   * test reads it from there rather than restating it. A second copy is how the two come to disagree
-   * on the day one of them is corrected. */
   Placement place;
   CHECK(Placement::LookAt(eye, aim, declared["rollRad"].Num(0.0), place),
         "the declared camera placement resolves to a camera basis");
@@ -149,18 +111,13 @@ int main() {
   const Json::Ref accepted = manifest.Root()["expected"]["subjectFrameFraction"];
   const double expected = accepted["value"].Num(0.0);
   CHECK(expected > 0.0, "the manifest states the projected frame fraction it derived");
-  /* The manifest carries nine decimals, which is what the runner recomputes against; the tolerance
-   * is far above float noise and far below the 1.65x framing error this number exists to pin. */
+
   CHECK_NEAR(fraction, expected, 5e-7, "dimensionless",
              "the reader's projection of the fetched vertices reproduces the oracle's analytic "
              "projected area fraction");
   Note("projected frame fraction", fraction, "dimensionless");
   Note("projected area", areaPx, "px^2");
 
-  /* The three edges of the sample under the declared roll of -arctan(1/2), each as the primitive
-   * integer normal of the line it lies on in raster pixels. Coprime, so `p*i - q*j` over integer
-   * pixel centres runs over every integer and the nearest one to `c` is at distance
-   * `|c - round(c)|`. */
   const double normals[3][2] = {{1, 2}, {1, -3}, {2, -1}};
   for (int edge = 0; edge < 3; ++edge) {
     const double *from = raster[edge];

@@ -1,13 +1,3 @@
-/* WHAT THE ENGINE CAN RENDER, as data a compiler can read. Every resource and every stage this
- * renderer owns is one row here, and the rows carry no device handle, no texture and no pipeline --
- * which is what lets a plan be checked before a device object exists. WebGPU pins a view into a bind
- * group at bind-group creation, so "create only what is declared" has to be a graph settled before
- * anything is created, and never a branch at a creation site.
- *
- * THE ENUMERATION ORDER IS THE EXECUTION ORDER, and `TopologicalOrderHolds` below is the proof: for
- * every stage, every producer of everything it reads stands earlier in the enumeration. A cyclic
- * catalogue therefore does not compile, and the derived order needs no sort at run time and no
- * second number to tie-break -- the order a consumer could get wrong has no spelling. */
 #ifndef RENDERCATALOGUE_H
 #define RENDERCATALOGUE_H
 
@@ -15,8 +5,6 @@
 
 namespace outshine::Render {
 
-/* A named, typed GPU artefact of the plan. Never a string: a string defers a typo to run time, and
- * the point of the plan is that the refusal happens where the plan is written. */
 enum class Resource {
   LinearSampler,
   LutSampler,
@@ -38,34 +26,16 @@ enum class Resource {
   SceneComposited,
   AoBuffer,
   SceneLinear,
-  /* THE CONSUMER'S OWN IMAGE, WHICH THE ENGINE HOLDS AND NEVER MAKES (board:1442). A font, an icon
-   * sheet, a nine-patch -- who makes an asset is not the engine's business, so this is `Given` like a
-   * sampler and unlike every texture a stage derives. */
+
   OverlayAtlas,
   FrameTex,
   Surface,
   kCount
 };
 
-/* WHICH RESOURCES CARRY SCENE-REFERRED RADIANCE, ANSWERED EXHAUSTIVELY AND WITH NO `default:`
- * (board:1386). A new resource does not compile until this says which it is, which is the only shape
- * that survives: the compiler used to name `SceneHdr` and `SceneLinear` by hand, `SceneTransmissive`
- * was added a year later, and the list quietly did not grow with it.
- *
- * WHAT THAT COST, MEASURED. A plan declaring `ScenePrecision::Float` upgraded two of the four and
- * left the glass pass's target at half float, so its pipeline declared RGBA32Float against an
- * RGBA16Float framebuffer and Metal's validation aborted the arm outright: *for color attachment 0,
- * the render pipeline's pixelFormat does not match the framebuffer's*. That was the last unfound
- * cause of a withdrawn feature.
- *
- * THE FORMAT CANNOT STAND IN FOR THIS and that was checked before this function was written: eight
- * rows are declared `Rgba16Float` and only four of them are radiance -- the three atmosphere LUTs and
- * the shading normal are not, and upgrading those would widen a measurement's alphabet for no
- * reason. */
 [[nodiscard]] constexpr bool CarriesSceneRadiance(Resource resource) {
   switch (resource) {
-    /* The chain a frame's radiance travels: what the opaque units drew, what the glass drew beside
-     * it, the two composited, and the resolved picture the display transfer reads. */
+
     case Resource::SceneHdr:
     case Resource::SceneTransmissive:
     case Resource::SceneComposited:
@@ -87,8 +57,7 @@ enum class Resource {
     case Resource::SceneShadingNormal:
     case Resource::SceneSurfaceIdentity:
     case Resource::AoBuffer:
-    /* THE CONSUMER'S ATLAS IS NOT RADIANCE. It is an authored image in the display's own space, which
-     * is the whole reason the overlay sits after the transfer rather than before it. */
+
     case Resource::OverlayAtlas:
     case Resource::FrameTex:
     case Resource::Surface:
@@ -124,27 +93,14 @@ enum class Stage {
   kCount
 };
 
-/* WHERE A RESOURCE COMES FROM, and the three answers decide three different refusals.
- * `Given` is the plan's own -- a sampler, a uniform the host writes each frame -- and no stage
- * produces it. `Derived` is produced by exactly one stage and does not exist without it.
- * `Attachment` is a render target: the plan creates and clears it, and stages draw into it. */
 enum class ResourceKind { Given, Derived, Attachment };
 
-/* THE CRITERION, AS A FIELD. Does the stage's absence change the picture, or make it impossible?
- * Impossible -> `Machinery`, and the compiler pulls it backwards from the requested output.
- * Different -> `Content`, and the consumer declares it or does without. Nothing else decides this. */
 enum class Provenance { Machinery, Content };
 
 enum class PassKind { Compute, Raster };
 
-/* WHAT A RESOURCE FALLS BACK TO when its producer is content the declaration did not name. `Alias`
- * rebinds its readers to another resource; `Neutral` means the plan creates it and fills it with the
- * value that makes its reader behave as if it were absent. A `Derived` resource with `None` and an
- * undeclared producer is a refusal naming both. */
 enum class FallbackKind { None, Alias, Neutral };
 
-/* THE STORAGE, because a picture changes when it changes and the plan's digest has to cover it.
- * `Handle` is a sampler or a uniform, which has no texel. */
 enum class TexelFormat {
   Handle,
   Rgba16Float,
@@ -157,16 +113,13 @@ enum class TexelFormat {
 
 inline constexpr size_t kMaxEdges = 8;
 
-/* HOW MANY COLOUR TARGETS ONE PASS MAY CARRY. WebGPU guarantees `maxColorAttachments = 8` and Metal
- * on this device reports the same, so eight is the floor a plan may assume rather than a number
- * chosen here. A pass whose target union exceeds it is refused where the plan is compiled. */
 inline constexpr size_t kMaxColourAttachments = 8;
 
 struct ResourceRow {
   Resource Id;
   ResourceKind Kind;
   FallbackKind Fallback;
-  Resource AliasOf;   /* Resource::kCount unless Fallback == Alias */
+  Resource AliasOf;
   TexelFormat Format;
   const char *Name;
 };
@@ -176,29 +129,17 @@ struct StageRow {
   Provenance From;
   PassKind Kind;
   const char *Name;
-  /* `Reads` is what the stage samples or binds; `Writes` names the `Derived` resources that do not
-   * exist without it; `Contributes` is its render-target set, which is what a pass IS. */
+
   Resource Reads[kMaxEdges];
   Resource Writes[kMaxEdges];
   Resource Contributes[kMaxEdges];
-  /* THE ONE PAIR AN IMPLEMENTATION CAN FUSE. R2 admits a pair only where a single fragment writing
-   * both target sets exists, because reading a target of the pass one is in is not legal WebGPU:
-   * without the fused shader the rule would be a rule for producing invalid command buffers. */
+
   Stage FusesInto;
 };
 
 inline constexpr Resource kNoEdge = Resource::kCount;
 inline constexpr Stage kNoFusion = Stage::kCount;
 
-/* THE COLOUR TARGET SET OF ONE PASS: the union of its stages' targets, one entry per distinct
- * `Resource`, in first-seen order. The union is the type's job and not the caller's, because the
- * caller's version of it was the defect -- it compared two freshly created texture views, which are
- * different objects for the same resource, so the duplicate guard never fired and a pass of n stages
- * wrote 2n entries into an array sized for one attachment per edge.
- *
- * `Add` is the only way in, it absorbs a repeat, and it refuses rather than growing: a set that
- * cannot hold what it was handed is a plan the device would reject, and the refusal belongs where
- * the plan is compiled. Nothing can index past `Size()`, so the encoder's array cannot be overrun. */
 class AttachmentSet {
 public:
   [[nodiscard]] constexpr bool Add(Resource resource) {
@@ -238,14 +179,10 @@ inline constexpr ResourceRow kResources[] = {
      TexelFormat::Rgba16Float, "skyViewLut"},
     {Resource::IrradianceBuffer, ResourceKind::Derived, FallbackKind::None, kNoEdge,
      TexelFormat::Handle, "irradiance"},
-    /* The exposure a plan without the meter runs at is the plan's own declared scalar, baked into
-     * the tonemap it generates -- so a picture that wants a fixed exposure pays neither the meter
-     * nor the hemisphere integral behind it. */
+
     {Resource::Meter, ResourceKind::Derived, FallbackKind::Neutral, kNoEdge, TexelFormat::Handle,
      "meter"},
-    /* No neutral atlas. A lit surface samples a shadow map with a comparison sampler and a cascade
-     * uniform; standing a cleared texture in for one is a second lighting path, so a plan that lights
-     * a surface and declares no shadow map is refused and told which stage supplies it. */
+
     {Resource::ShadowAtlas, ResourceKind::Attachment, FallbackKind::None, kNoEdge,
      TexelFormat::Depth32Float, "shadowAtlas"},
     {Resource::SceneHdr, ResourceKind::Attachment, FallbackKind::None, kNoEdge,
@@ -254,44 +191,21 @@ inline constexpr ResourceRow kResources[] = {
      TexelFormat::Rg16Float, "sceneVelocity"},
     {Resource::SceneDepth, ResourceKind::Attachment, FallbackKind::None, kNoEdge,
      TexelFormat::Depth32Float, "sceneDepth"},
-    /* THE NORMAL THE BRDF RECEIVED, world-space, in the subject's own frame (board:1122). It exists
-     * because the third leg of the normal comparison had no source: Cycles publishes its shading
-     * normal and the glTF declares its own, and ours was inferred from where a highlight landed --
-     * a 2.33 px centroid displacement on a 33.4 px dome, which is 4.2 to 10.3 degrees and structural
-     * rather than precision. IT IS ATTACHED ONLY WHERE SOMETHING READS IT (board:1121), so no plan
-     * that does not ask for it pays a byte. */
+
     {Resource::SceneShadingNormal, ResourceKind::Attachment, FallbackKind::None, kNoEdge,
      TexelFormat::Rgba16Float, "sceneShadingNormal"},
-    /* WHICH SURFACE THE FRAGMENT WORE, as the index of the slot its draw bound (board:1138). It is
-     * the coverage predicate's missing half: the depth attachment answers `is this pixel covered`
-     * and nothing in the frame answered `WHAT covers it`, so a surface swap could only ever be read
-     * out of the colour, where a declared colour and a shaded one have the same spelling.
-     *
-     * IT CARRIES A SLOT AND NOT A MATERIAL, because a material is a content noun and this layer has
-     * no spelling for one. Which material a slot is, is the consumer's own table.
-     *
-     * f32 AND NOT f16 SO THE VALUE CANNOT BE THE FORMAT'S. binary16 is exact on integers to 2048 and
-     * this index would fit; at f32 the ceiling is 2^24 and no subject can reach it, so "the identity
-     * was rounded" is unspellable rather than bounded by a count nobody checks. */
+
     {Resource::SceneSurfaceIdentity, ResourceKind::Attachment, FallbackKind::None, kNoEdge,
      TexelFormat::Rgba32Float, "sceneSurfaceIdentity"},
-    /* WHERE A TRANSMISSIVE DRAW PUTS ITS RADIANCE (board:1386), kept apart from `SceneHdr` so that
-     * the pass reading what stands behind it is not also writing that. The plan's own
-     * `TopologicalOrderHolds` refuses the shape where it would be -- *no stage at or after `s` may
-     * produce anything `s` reads* -- and that rule is what decided this layout rather than taste. */
+
     {Resource::SceneTransmissive, ResourceKind::Attachment, FallbackKind::None, kNoEdge,
      TexelFormat::Rgba16Float, "sceneTransmissive"},
-    /* THE TWO PUT TOGETHER, AND IT ALIASES AWAY WHEN THERE IS NO GLASS. A plan that declares no
-     * transmissive draw pulls neither the pass nor this resource: its readers rebind to `SceneHdr`
-     * and the frame pays nothing at all -- the same trick `SceneLinear` uses to skip a blit that
-     * would exist only to copy. */
+
     {Resource::SceneComposited, ResourceKind::Derived, FallbackKind::Alias, Resource::SceneHdr,
      TexelFormat::Rgba16Float, "sceneComposited"},
     {Resource::AoBuffer, ResourceKind::Attachment, FallbackKind::Neutral, kNoEdge,
      TexelFormat::R8Unorm, "aoBuffer"},
-    /* Resolved linear radiance BEFORE the occlusion composite and BEFORE the metered exposure. A
-     * picture plan without the temporal resolve reaches the tonemap through the alias rather than
-     * through a full-screen blit that exists only to copy. */
+
     {Resource::SceneLinear, ResourceKind::Derived, FallbackKind::Alias, Resource::SceneComposited,
      TexelFormat::Rgba16Float, "sceneLinear"},
     {Resource::OverlayAtlas, ResourceKind::Given, FallbackKind::None, kNoEdge, TexelFormat::Handle,
@@ -345,23 +259,12 @@ inline constexpr StageRow kStages[] = {
     {Stage::Models, Provenance::Content, PassKind::Raster, "models",
      {Resource::ShadowAtlas, Resource::IrradianceBuffer, Resource::CascadeUniform, kNoEdge}, {kNoEdge},
      {Resource::SceneHdr, Resource::SceneVelocity, Resource::SceneDepth, kNoEdge}, kNoFusion},
-    /* THE SHADING NORMAL IS ON `subjects` ALONE and that is not a shortcut: only this stage has a
-     * shader that writes one, and a stage contributing a target its pipelines never write is
-     * board:1121's defect in a new place. It is SAFE BY CONSTRUCTION rather than by review -- pass
-     * merging requires identical contribution sets, so a geometry stage without this target can
-     * never share a pass with the one that has it. */
+
     {Stage::Subjects, Provenance::Content, PassKind::Raster, "subjects",
      {kNoEdge}, {kNoEdge},
      {Resource::SceneHdr, Resource::SceneVelocity, Resource::SceneDepth,
       Resource::SceneShadingNormal, Resource::SceneSurfaceIdentity, kNoEdge}, kNoFusion},
-    /* THE TRANSMISSIVE HALF OF THE SUBJECTS UNIT, and it is a second PASS rather than a sixth UNIT:
-     * `Sky`, `Sun`, `Moon` and `Stars` are already four stages that are not four units, so the five
-     * geometry units of `CLAUDE.md` are untouched and no LOD cut is added.
-     *
-     * IT READS `SceneHdr` -- everything opaque has drawn by now and nothing after this contributes to
-     * it -- and writes its own target. It does NOT carry the shading normal or the surface identity:
-     * a glass fragment names no single surface, and a stage contributing a target its pipelines never
-     * write is the defect `Subjects`' own comment records. */
+
     {Stage::SubjectsTransmissive, Provenance::Content, PassKind::Raster, "subjectsTransmissive",
      {Resource::SceneHdr, Resource::LinearSampler, kNoEdge}, {kNoEdge},
      {Resource::SceneTransmissive, Resource::SceneVelocity, Resource::SceneDepth, kNoEdge},
@@ -380,10 +283,7 @@ inline constexpr StageRow kStages[] = {
      {Resource::SceneLinear, Resource::SceneDepth, Resource::AoBuffer, Resource::Meter,
       Resource::LinearSampler, kNoEdge},
      {kNoEdge}, {Resource::FrameTex, kNoEdge}, kNoFusion},
-    /* THE INTERFACE, DRAWN OVER THE FRAME AND NOT THROUGH THE TRANSFER (board:1442). It CONTRIBUTES:
-     * the picture exists without it, which is exactly what makes a HUD a declaration and not a
-     * requirement, and it sits AFTER the tonemap because a consumer's colour is display-referred --
-     * a panel put through the transfer would come out a different colour than the one declared. */
+
     {Stage::Overlay, Provenance::Content, PassKind::Raster, "overlay",
      {Resource::OverlayAtlas, Resource::LinearSampler, kNoEdge}, {kNoEdge},
      {Resource::FrameTex, kNoEdge}, kNoFusion},
@@ -392,12 +292,6 @@ inline constexpr StageRow kStages[] = {
      {Resource::Surface, kNoEdge}, kNoFusion},
 };
 
-/* MEASURED, not derived: the settled 1280x720 reference frame against the same frame after 512
- * settle frames (`--settle N`, 2026-08-07). Pixels differing by more than two codes: 3924 at 0, 22
- * at 48, 7 at 128, and 7 at 192 / 256 / 384. 128 is where the curve reaches its floor; below it the
- * accumulator is still visibly filling, above it nothing moves. The residual 7 px is the f16
- * history's last bit and does not go to zero at any length. It is a property of the temporal stage,
- * so it stands beside its row and no test carries a settle constant of its own. */
 inline constexpr int kTemporalSettleFrames = 128;
 
 constexpr size_t kResourceCount = static_cast<size_t>(Resource::kCount);
@@ -413,8 +307,6 @@ constexpr bool Names(const Resource (&edges)[kMaxEdges], Resource wanted) {
   return false;
 }
 
-/* Anything that puts content into a resource: the single writer of a `Derived` one, or any of the
- * contributors of an `Attachment`. */
 constexpr bool Produces(Stage s, Resource r) {
   return Names(Row(s).Writes, r) || Names(Row(s).Contributes, r);
 }
@@ -426,10 +318,6 @@ constexpr size_t ProducerCount(Resource r) {
   }
   return found;
 }
-
-/* THE FOUR REFUSALS THAT ARE THE ENGINE'S AND NEVER THE CONSUMER'S. Each is a property of the table
- * above, so each is a compile error rather than an error string: a consumer must not be told a
- * sentence about a defect it could not have caused. */
 
 constexpr bool EveryRowIsAtItsOwnIndex() {
   for (size_t i = 0; i < kResourceCount; ++i) {
@@ -474,9 +362,6 @@ constexpr bool EveryAttachmentHasAContributor() {
   return true;
 }
 
-/* NO CYCLE, AND NO SORT AT RUN TIME. Every producer of everything a stage reads stands earlier in
- * the enumeration, so the enumeration is a linear extension of the dependency graph and a cyclic
- * catalogue cannot be written down. */
 constexpr bool TopologicalOrderHolds() {
   for (size_t s = 0; s < kStageCount; ++s) {
     const StageRow &row = kStages[s];
@@ -489,8 +374,6 @@ constexpr bool TopologicalOrderHolds() {
   return true;
 }
 
-/* A fused pair must stand next to each other and the second must read what the first writes, or the
- * rule would name a merge the compiler could never reach. */
 constexpr bool EveryFusionIsAdjacentAndFed() {
   for (size_t s = 0; s < kStageCount; ++s) {
     const StageRow &row = kStages[s];
@@ -524,5 +407,5 @@ static_assert(TopologicalOrderHolds(),
 static_assert(EveryFusionIsAdjacentAndFed(),
               "a declared fusion names the next stage and that stage reads what this one writes");
 
-} // namespace outshine::Render
+}
 #endif

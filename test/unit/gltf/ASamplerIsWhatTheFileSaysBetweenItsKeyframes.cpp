@@ -1,29 +1,3 @@
-/* THE THREE INTERPOLATIONS OVER THE THREE PATHS, AND THE TIME THEY ARE ASKED AT.
- *
- * `InterpolationTest` is nine animations -- `LINEAR`, `STEP` and `CUBICSPLINE` over `translation`,
- * `rotation` and `scale` -- and Khronos judges it *by eye in motion against the reference, `STEP`
- * shows no intermediate value*. That is a comparison this tree cannot make yet: the render runner has
- * no time axis, so a still of an animated asset would compare our rest pose against Cycles at
- * whatever frame Blender happened to be on, and the red would name the clock rather than the
- * sampler. **So the asset is not fetched here and the subject is the same nine combinations built in
- * process** -- one GLB, three keyframes, values chosen so every answer below has a closed form
- * exact in binary floating point. The Khronos asset lands with the render round that can score it.
- *
- * WHAT A FIXTURE BUYS THAT THE ASSET COULD NOT. `STEP shows no intermediate value` is a statement
- * about EVERY time in a span, and by eye it is a statement about the few a viewer happens to draw.
- * Here it is swept and the claim is exact: over the whole grid the sampler returns a bitwise copy of
- * a keyframe and never a value that is not in the file.
- *
- * THE TIME CONTRACT IS THE OTHER HALF (board:0076), and it is arithmetic rather than
- * pixels: the animation time of frame `n` is `n / fps` DERIVED, never a running total. The drift an
- * accumulator earns is measured below rather than asserted, so the reason the contract exists is a
- * number in this log and not a sentence in a header.
- *
- * A ROTATION IS THE ONE PATH WHERE `LINEAR` IS NOT LINEAR. glTF says spherical, and at the MIDPOINT
- * of a span the normalised component blend and the spherical blend agree exactly -- both are the
- * bisector -- so a test sampling only midpoints cannot tell them apart and would pass over a
- * component lerp. Every rotation claim below is taken at a QUARTER of its span, where the two are
- * 22.500 and 21.598 degrees: 0.902 degrees apart, measured here and printed beside the claim. */
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -46,15 +20,8 @@ using outshine::Test::Append;
 
 namespace {
 
-/* THE ONE NUMBER ABOUT THE BUFFER THAT IS NOT IN THE JSON BELOW. Every offset and length is stated
- * there, in the bufferViews, which is where a reader looks; restating them here would be a second
- * copy for the next round to keep in step. This is the total, and it is checked against what the
- * writer below actually produced -- a layout that drifted from its declaration would otherwise read
- * past the end of a chunk and be caught by nothing. */
 constexpr size_t kBufferBytes = 492;
 
-/* 90 degrees about +Z as a unit quaternion, xyzw. Written as the arithmetic so the angle is what is
- * stated and the components are what follow from it. */
 const double kQuarterTurn = std::sqrt(0.5);
 
 std::vector<uint8_t> Buffer() {
@@ -63,32 +30,25 @@ std::vector<uint8_t> Buffer() {
     for (double value : run) { Append(bytes, static_cast<float>(value)); }
   };
   put({0.0, 1.0, 2.0});
-  /* Translation: a span whose midpoint is exact, then a second span so a clamp past the end has
-   * something to clamp to. */
+
   put({0, 0, 0, 2, 4, 8, 6, 12, 24});
   put({1, 1, 1, 2, 2, 2, 4, 4, 4});
   put({0, 0, 0, 1, 0, 0, kQuarterTurn, kQuarterTurn, 0, 0, 1, 0});
-  /* Translation under CUBICSPLINE: zero tangents everywhere but the first out-tangent, which is 2
-   * on x. At the middle of the first span the Hermite basis gives 0.125*2 + 0.5*1 = 0.75, and a
-   * LINEAR sampler over the same keyframes would give 0.5 -- so this one number is what separates
-   * the spline from a straight line rather than merely being consistent with it. */
-  put({0, 0, 0, /**/ 0, 0, 0, /**/ 2, 0, 0});
-  put({0, 0, 0, /**/ 1, 0, 0, /**/ 0, 0, 0});
-  put({0, 0, 0, /**/ 2, 0, 0, /**/ 0, 0, 0});
-  /* Scale under CUBICSPLINE with every tangent zero: the basis reduces to h00 + h01, which is a
-   * smooth step, and at the middle of a span that is the plain mean. */
-  put({0, 0, 0, /**/ 1, 1, 1, /**/ 0, 0, 0});
-  put({0, 0, 0, /**/ 3, 3, 3, /**/ 0, 0, 0});
-  put({0, 0, 0, /**/ 5, 5, 5, /**/ 0, 0, 0});
-  /* Rotation under CUBICSPLINE, tangents zero, the same three orientations. */
-  put({0, 0, 0, 0, /**/ 0, 0, 0, 1, /**/ 0, 0, 0, 0});
-  put({0, 0, 0, 0, /**/ 0, 0, kQuarterTurn, kQuarterTurn, /**/ 0, 0, 0, 0});
-  put({0, 0, 0, 0, /**/ 0, 0, 1, 0, /**/ 0, 0, 0, 0});
+
+  put({0, 0, 0,  0, 0, 0,  2, 0, 0});
+  put({0, 0, 0,  1, 0, 0,  0, 0, 0});
+  put({0, 0, 0,  2, 0, 0,  0, 0, 0});
+
+  put({0, 0, 0,  1, 1, 1,  0, 0, 0});
+  put({0, 0, 0,  3, 3, 3,  0, 0, 0});
+  put({0, 0, 0,  5, 5, 5,  0, 0, 0});
+
+  put({0, 0, 0, 0,  0, 0, 0, 1,  0, 0, 0, 0});
+  put({0, 0, 0, 0,  0, 0, kQuarterTurn, kQuarterTurn,  0, 0, 0, 0});
+  put({0, 0, 0, 0,  0, 0, 1, 0,  0, 0, 0, 0});
   return bytes;
 }
 
-/* The nine animations, named the way Khronos names them, so a failure line says which of the nine.
- * `output` is the accessor index and `interpolation` the word the file carries. */
 const char *const kJson = R"({
   "asset": {"version": "2.0"},
   "buffers": [{"byteLength": 492}],
@@ -148,10 +108,7 @@ const char *const kJson = R"({
   ]
 })";
 
-/* THE FRAME RATE THE TIME CONTRACT IS STATED AT. 60 is CLAUDE.md's 720p60 budget, and it divides the
- * fixture's one-second keyframe spacing exactly, which is what lets a frame index land ON a keyframe
- * rather than near one. */
-constexpr double kFps = 60.0; /* [SET] frames per second */
+constexpr double kFps = 60.0;
 
 const Animation *Named(const Document &document, const char *name) {
   for (const Animation &animation : document.Animations()) {
@@ -160,8 +117,6 @@ const Animation *Named(const Document &document, const char *name) {
   return nullptr;
 }
 
-/* The one sampler of a one-channel animation, decoded. `false` where the animation is not there or
- * does not have the shape the fixture declares, so a caller never samples a run it did not get. */
 bool Decode(const Document &document, const char *name, std::vector<double> &times,
             std::vector<double> &values, Track &out) {
   const Animation *animation = Named(document, name);
@@ -174,8 +129,6 @@ bool Decode(const Document &document, const char *name, std::vector<double> &tim
   return Track::Build(animation->Channels[0].Path, sampler.How, times, values, out);
 }
 
-/* A refusal is checked by what it REFUSED, not by the fact that it said no: a reader that refused
- * every file would pass a test that only looked at the boolean. */
 void RefusesNaming(const std::string &json, const std::vector<uint8_t> &binary, const char *fragment,
                    const char *claim) {
   Document document;
@@ -188,7 +141,7 @@ void RefusesNaming(const std::string &json, const std::vector<uint8_t> &binary, 
   if (!names) { std::printf("       %s\n", document.Error().c_str()); }
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -208,9 +161,6 @@ int main() {
   CHECK(document.Animations().size() == 9,
         "all nine animations survive the read, which is the matrix InterpolationTest is");
 
-  /* THE MATRIX IS COMPLETE, checked rather than assumed: three interpolations seen on each of the
-   * three paths. A reader that collapsed CUBICSPLINE onto LINEAR would still produce nine
-   * animations, and this is what notices. */
   int seen[3][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
   for (const Animation &animation : document.Animations()) {
     if (animation.Channels.size() != 1 || animation.Samplers.size() != 1) { continue; }
@@ -230,9 +180,6 @@ int main() {
   Track keyframes;
   double got[4] = {0, 0, 0, 0};
 
-  /* STEP -- and the claim is Khronos's own, swept rather than sampled: over the whole grid at a
-   * thousand times the frame rate, the sampler returns a BITWISE copy of a keyframe and never a
-   * value that is not in the file. */
   if (Decode(document, "Step Translation", times, values, keyframes)) {
     size_t notAKeyframe = 0;
     const int steps = 6000;
@@ -250,8 +197,7 @@ int main() {
     CHECK(notAKeyframe == 0,
           "STEP shows no intermediate value anywhere on or beyond the grid, which is Khronos's own "
           "criterion swept rather than looked at");
-    /* And it holds the EARLIER keyframe across a span, which is what makes it a step and not a
-     * nearest-keyframe rule. */
+
     keyframes.At(0.999, got);
     CHECK(got[0] == 0.0 && got[1] == 0.0 && got[2] == 0.0,
           "STEP holds the earlier keyframe right up to the next one, never the nearer one");
@@ -259,8 +205,6 @@ int main() {
     CHECK(false, "the STEP translation sampler decodes");
   }
 
-  /* LINEAR over a path that is not a rotation is the plain blend, and the fixture's numbers make the
-   * midpoint exact in binary. */
   if (Decode(document, "Linear Translation", times, values, keyframes)) {
     keyframes.At(0.5, got);
     CHECK(got[0] == 1.0 && got[1] == 2.0 && got[2] == 4.0,
@@ -276,19 +220,11 @@ int main() {
     CHECK(false, "the LINEAR translation sampler decodes");
   }
 
-  /* LINEAR OVER A ROTATION IS SPHERICAL, and the quarter point is where that stops agreeing with a
-   * normalised component blend. At a quarter of a 90-degree span the spherical answer is 22.5
-   * degrees about +Z; the component blend is 23.19 degrees, which is 0.69 degrees away and far
-   * above the tolerance below. */
   if (Decode(document, "Linear Rotation", times, values, keyframes)) {
-    const double quarterTurnAt = std::atan(1.0) / 4.0; /* 22.5 degrees in radians */
+    const double quarterTurnAt = std::atan(1.0) / 4.0;
     keyframes.At(0.25, got);
-    /* THE FIXTURE'S KEYFRAMES CROSS AS float32, so the closed form in double cannot be met tighter
-     * than the rounding of the inputs: 5.96e-8 relative at magnitude 1, and the measured miss is
-     * 2.23e-9. The tolerance is that rounding, not a number fitted to the result -- and it is four
-     * orders below the 0.0157 this claim exists to separate from, which is what a component blend
-     * puts on the same quaternion. */
-    constexpr double kFloat32Rounding = 1e-7; /* [SET] absolute, quaternion component */
+
+    constexpr double kFloat32Rounding = 1e-7;
     CHECK_NEAR(got[2], std::sin(quarterTurnAt), kFloat32Rounding, "quaternion z",
                "LINEAR over a rotation is SPHERICAL: a quarter of the way through a 90 degree span "
                "is 22.5 degrees, which a component blend does not produce");
@@ -307,9 +243,6 @@ int main() {
     CHECK(false, "the LINEAR rotation sampler decodes");
   }
 
-  /* CUBICSPLINE reads three elements per keyframe and its tangents are scaled by the span. The two
-   * claims below are the two halves of that: the value at a keyframe is the MIDDLE of its triple,
-   * and the value between keyframes is a curve a straight line does not reach. */
   if (Decode(document, "CubicSpline Translation", times, values, keyframes)) {
     keyframes.At(1.0, got);
     CHECK(got[0] == 1.0,
@@ -341,15 +274,12 @@ int main() {
     CHECK(false, "the CUBICSPLINE rotation sampler decodes");
   }
 
-  /* THE TIME CONTRACT (board:0076). An integer frame index with derived seconds is
-   * the rule; what it buys is measured here rather than asserted, by running the accumulator the
-   * rule forbids beside it. */
   {
     double accumulated = 0.0;
     const double step = 1.0 / kFps;
     int firstDisagreement = -1;
     double worstDrift = 0.0;
-    const int frames = 3600; /* one minute at 60 fps */
+    const int frames = 3600;
     for (int frame = 0; frame <= frames; ++frame) {
       const double derived = double(frame) / kFps;
       const double drift = std::fabs(accumulated - derived);
@@ -363,9 +293,7 @@ int main() {
     CHECK(firstDisagreement > 0,
           "an accumulated clock DOES leave the derived one, so the contract this test holds is "
           "protecting against something that happens rather than against a possibility");
-    /* And the derived clock lands ON the fixture's keyframes, which is the second half of I.26.3:
-     * the engine's animation time at frame n equals the glTF sampler input at the corresponding
-     * keyframe, exactly and not to a tolerance. */
+
     if (Decode(document, "Linear Translation", times, values, keyframes)) {
       for (size_t key = 0; key < times.size(); ++key) {
         const int frame = int(times[key] * kFps);
@@ -376,9 +304,6 @@ int main() {
     }
   }
 
-  /* WHAT THE READER REFUSES, and each refusal names what it refused. A viewer that fell back to
-   * LINEAR on an unknown word is the defect InterpolationTest exists to expose; a reader that did
-   * the same would make the case unable to see it. */
   {
     std::string json(kJson);
     const size_t at = json.find("\"CUBICSPLINE\"");
@@ -397,9 +322,7 @@ int main() {
       RefusesNaming(unknown, binary, "colour",
                     "a path the format does not define is refused rather than read as translation");
     }
-    /* THE SHAPE RULE: a CUBICSPLINE sampler over an output run of one element per keyframe is a file
-     * whose animation is a third of its declared length, and reading it as LINEAR would produce a
-     * plausible motion nobody authored. */
+
     std::string shortened = json;
     const size_t spline = shortened.find("\"input\": 0, \"output\": 4, \"interpolation\": \"CUBICSPLINE\"");
     CHECK(spline != std::string::npos, "the fixture's CUBICSPLINE translation sampler is findable");

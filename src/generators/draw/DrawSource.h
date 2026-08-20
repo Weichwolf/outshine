@@ -14,8 +14,6 @@ public:
   DrawSource(const DrawSource &) = delete;
   DrawSource &operator=(const DrawSource &) = delete;
 
-  /* `placed` is what occupancy actually claimed for this source, in the order it claimed it. The
-   * region is not a parameter here either — the ground is of exactly one and says which. */
   virtual void Draw(const Ground &ground, Span<const Body> placed,
                     DrawSink &sink) const noexcept = 0;
 
@@ -23,5 +21,5 @@ protected:
   DrawSource() = default;
 };
 
-} // namespace outshine::Generators
+}
 #endif

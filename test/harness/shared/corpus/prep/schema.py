@@ -12,12 +12,6 @@ import re
 from .refusal import Refusal
 
 _PATTERNS = {
-    # A RELATIVE PATH INSIDE THE CASE DIRECTORY, AND NOT MERELY A PLAIN NAME (board:1374). A glTF
-    # references its buffers and images by RELATIVE URI, and seven models in the pinned index put theirs
-    # in a subdirectory -- `EnvironmentTest_images/roughness_metallic_0.png`,
-    # `MODEL_ROUNDED_CUBE_PART_1/positions.bin`. Flattening the name would break the file's own
-    # reference, so the rule keeps what it was for -- nothing may escape the case directory -- and stops
-    # forbidding what glTF requires. No leading slash, no segment that is `.` or `..`, no empty segment.
     "filename": ("a relative path inside the case directory",
                  r"^(?!/)(?!.*(^|/)\.\.?(/|$))(?!.*//)[^/].*[^/]$|^[^/.][^/]*$"),
     "sha256": ("64 lowercase hex digits", r"^[0-9a-f]{64}$"),
@@ -28,17 +22,14 @@ _PATTERNS = {
 _PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                      "manifest-schema.json")
 
-
 def _load():
     with open(_PATH, "r") as f:
         return json.load(f)
-
 
 _DECLARATION = _load()
 SCHEMA = _DECLARATION["schema"]
 SCHEMA_VERSION = _DECLARATION["schemaVersion"]
 _OBJECTS = _DECLARATION["objects"]
-
 
 def enumeration(object_name, key):
     """The allowed values of an enumerated key, for a caller that has to branch on one.
@@ -55,7 +46,6 @@ def enumeration(object_name, key):
             return tuple(declared["enum"])
     raise KeyError(object_name + "." + key + " is not an enumerated key of this schema")
 
-
 def variants(object_name):
     """The discriminator values an object declares, in the file's own order."""
     node = _OBJECTS[object_name]
@@ -63,13 +53,11 @@ def variants(object_name):
         raise KeyError(object_name + " declares no variants")
     return tuple(node["variants"])
 
-
 def check(object_name, where, value):
     """Validate `value` against the named object and return it."""
     if object_name not in _OBJECTS:
         raise KeyError(object_name + " is not declared in " + _PATH)
     return _object(_OBJECTS[object_name], where, value, ())
-
 
 def _object(node, where, value, inherited):
     if not isinstance(value, dict):
@@ -102,7 +90,6 @@ def _object(node, where, value, inherited):
             _value(declared, where + "." + key, value[key])
     return value
 
-
 def _value(declared, where, value):
     if isinstance(declared, str):
         _scalar(declared, where, value)
@@ -121,11 +108,6 @@ def _value(declared, where, value):
         for index, item in enumerate(value):
             _value(declared["array"], "%s[%d]" % (where, index), item)
         return
-    # ONE OR SEVERAL, AND THE SEVERAL IS NOT A SPECIAL CASE (board:1182). MultiUVTest is covered by a CC-BY
-    # grant AND by Khronos's non-copyrightable-logo mark, and the licence check compares the SET a
-    # file declares against the set upstream's metadata states -- so a file under two licences has to
-    # declare two. The reader already normalised a list; this is the schema saying so, and until now
-    # the two disagreed about what a manifest may contain.
     if "oneOrMore" in declared:
         items = value if isinstance(value, list) else [value]
         if not items:
@@ -145,9 +127,6 @@ def _value(declared, where, value):
         return
     raise KeyError("the schema declares a type this reader does not know: " + repr(declared))
 
-
-# EVERY NUMBER CARRIES ITS ORIGIN (CLAUDE.md), so a bare value has no spelling in a manifest and the
-# shape holds it rather than a checker counting it.
 def _quantity(inner, where, value):
     if not isinstance(value, dict):
         raise Refusal(where, expected="value, unit and origin", observed=_seen(value))
@@ -168,7 +147,6 @@ def _quantity(inner, where, value):
     if value["origin"] == "derived" and not value.get("derivation"):
         raise Refusal(where, expected="a derivation beside a derived number", observed="none",
                       why="derived without its derivation is a bare number wearing a label")
-
 
 def _scalar(kind, where, value):
     if kind == "string":
@@ -203,7 +181,6 @@ def _scalar(kind, where, value):
             raise Refusal(where, expected=expected, observed=_seen(value))
     else:
         raise KeyError("the schema declares a scalar this reader does not know: " + kind)
-
 
 def _seen(value):
     return type(value).__name__ + " " + repr(value)[:80]

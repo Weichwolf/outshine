@@ -1,23 +1,3 @@
-/* WHAT THE SAMPLER RETURNS FROM EACH LEVEL OF A CHAIN THIS ENGINE UPLOADED (board:1130).
- *
- * WHY THIS EXISTS. `board:1130` set `min_lod`/`max_lod` so the chain became reachable and six appearance
- * tails saturated -- `ours 255 against 0` at a single pixel, on OPAQUE materials. Seam LOD has since
- * been eliminated on the device, and four arithmetic paths between a reachable chain and a bright pixel
- * were read and all carry a bound. **What no reading settles is whether the levels this engine uploads
- * read back as the bytes it put there**, and that is the one remaining step between the chain and the
- * pixel.
- *
- * THE SUSPICION IS THE SMALL LEVELS AND IT IS SPECIFIC. `SubjectDraw` uploads every level itself, one
- * copy pass each, with `pixels_per_row = levelWidth` -- and the last levels of any chain are 4x4, 2x2
- * and 1x1. A row pitch an API rounds up, or a transfer sized for texels rather than for a required
- * alignment, reads adjacent memory: garbage that is bounded by nothing and lands full-bright as often
- * as not. **A level that is never sampled cannot show it**, which is exactly the state `max_lod = 0`
- * held the engine in.
- *
- * THE INSTRUMENT IS THE CHAIN ITSELF AND NOTHING AROUND IT. Each level is filled with a DISTINCT
- * constant, the fragment samples an explicitly named level, and the returned value is checked against
- * the constant that level was given. No asset, no camera, no oracle, no corpus -- and no LOD selection
- * either, because `level()` states which one rather than deriving it. */
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -49,15 +29,10 @@ bool Refused(const void *made, const char *what) {
   return true;
 }
 
-/* 64 -> 1 is seven levels, which reaches the 1x1 the suspicion is about while staying small enough that
- * the whole chain is uploaded in well under a millisecond. The raster is one row per level. */
 constexpr uint32_t kMapSide = 64;
 constexpr uint32_t kLevels = 7;
 constexpr uint32_t kSide = 64;
 
-/* WHAT LEVEL `n` IS FILLED WITH, and the values are distinct and none is 0 or 1: a level read back as
- * either would be indistinguishable from a clear or from a saturation, which is the failure being
- * looked for. */
 float FillOf(uint32_t level) { return 0.1f + 0.1f * (float)level; }
 
 class Instrument {
@@ -120,9 +95,6 @@ SDL_GPUShader *Stage(SDL_GPUDevice *device, const std::string &source, const cha
   return SDL_CreateGPUShader(device, &wanted);
 }
 
-/* THE UPLOAD IS THE SUBJECT, so it is written the way `SubjectDraw` writes it: one transfer buffer and
- * one copy pass per level, `pixels_per_row` set to that level's own width. A probe that uploaded the
- * chain some other way would be testing a path this engine does not take. */
 bool FillChain(SDL_GPUDevice *device, SDL_GPUTexture *map) {
   uint32_t width = kMapSide, height = kMapSide;
   for (uint32_t level = 0; level < kLevels; ++level) {
@@ -260,7 +232,7 @@ Rendered Raster(const Instrument &on) {
   return out;
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -276,8 +248,6 @@ int main() {
   CHECK(got.Ready, "the chain rasterised and read back");
   if (!got.Ready) { return Report(); }
 
-  /* THE ROW A LEVEL OWNS is `[level, level + 1) * kSide / kLevels`, and the middle of it is sampled so
-   * the reading is never on a boundary the row arithmetic could round either way. */
   size_t wrong = 0;
   double worst = 0;
   for (uint32_t level = 0; level < kLevels; ++level) {

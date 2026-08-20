@@ -20,9 +20,6 @@ import tempfile
 from prep.refusal import Refusal
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-# THE ROOT IS FOUND BY WHAT IS IN IT, NOT BY COUNTING DIRECTORIES UP (board:1196). Walking a fixed
-# number of parents encodes where this file happens to sit, so moving the preparer one level deeper
-# resolved the species table to `test/src/assets/` and refused every grown subject by name.
 def _repository(start):
     at = start
     while at != os.path.dirname(at):
@@ -32,20 +29,14 @@ def _repository(start):
     raise Refusal("locating the repository", "a parent of " + start + " holding src/assets and a Makefile",
                   "no parent of " + start + " holds both")
 
-
 REPOSITORY = _repository(_HERE)
-SOURCE = os.path.join(_HERE, "GrowPart.cpp")  # beside this file: the grower and its program are one step
+SOURCE = os.path.join(_HERE, "GrowPart.cpp")
 SPECIES_DIRECTORY = os.path.join(REPOSITORY, "src", "assets", "world", "species")
 LIBRARY = os.path.join(REPOSITORY, "build", "liboutshine.a")
 
-# THE INCLUDE SET OF A PROGRAM THAT HOLDS BOTH VOCABULARIES AT ONCE: what a generator makes and what
-# the format states. It is written here rather than taken from the Makefile because this program is
-# not part of the library the Makefile builds -- and a set that drifts out of step fails the compile
-# by name rather than silently producing a different part.
 INCLUDES = ("src/core", "src/gltf", "src/generators", "src/generators/draw", "src/clients")
 
 SHAPES = ("grown-tree",)
-
 
 def build(where, shape, parameters):
     """The bytes of one grown part, and the report the generator printed about it."""
@@ -79,7 +70,6 @@ def build(where, shape, parameters):
             produced = grown.read()
     return produced, json.loads(run.stdout)
 
-
 def _built():
     """The library, then the one program over it. Both are the compiler's own idea of up to date."""
     compiler = os.environ.get("CXX", "c++")
@@ -101,13 +91,11 @@ def _built():
                       observed=(compiled.stderr or compiled.stdout).strip())
     return binary
 
-
 def _text(where, parameters, key):
     value = parameters.get(key)
     if not isinstance(value, str) or not value:
         raise Refusal(where, expected="a non-empty name", observed=repr(value))
     return value
-
 
 def _fraction(where, parameters):
     value = parameters.get("pixelHeightFrac")

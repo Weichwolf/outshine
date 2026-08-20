@@ -14,7 +14,7 @@ double MonotonicMs() {
       .count();
 }
 
-}  // namespace
+}
 
 RegionForge::RegionForge(const Generators::GeneratorSet &generators)
     : Gens_(generators), Thread_([this] { Run(); }) {}
@@ -54,8 +54,7 @@ std::optional<RegionForge::Grown> RegionForge::Collect() {
   std::lock_guard<std::mutex> lk(Mu_);
   if (Stage_ != Stage::Done) return {};
   std::optional<Grown> out;
-  /* A dropped result releases its lease HERE, on the thread that owns the pool: the pool's slot
-   * bookkeeping has no lock and must not be touched from the worker. */
+
   if (!Dropped_) out = std::move(Result_);
   Result_.reset();
   Where_.reset();
@@ -95,7 +94,7 @@ void RegionForge::Run() {
     const double t0 = MonotonicMs();
     Gens_.Occupy(grown.Where, Span<Generators::Yield>(grown.Yields.data(), grown.Yields.size()));
     grown.OccupyMs = MonotonicMs() - t0;
-    /* Back at the shallow end of this thread, so the stack it just went to is a settled fact. */
+
     StackProbe::Mark();
     {
       std::lock_guard<std::mutex> lk(Mu_);
@@ -105,4 +104,4 @@ void RegionForge::Run() {
   }
 }
 
-} // namespace outshine::Clients
+}

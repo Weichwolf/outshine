@@ -1,20 +1,3 @@
-/* THE HARNESS FOR tc39/test262, fetched at the pin every manifest cites (board:1449, board:1450).
- *
- * **A CASE IS DECIDED BY WHAT IT DECLARES ABOUT ITSELF.** test262 opens every file with a comment
- * block carrying its own frontmatter: a case with no `negative` entry passes by RUNNING TO THE END, and one with a negative block passes
- * by being REFUSED with the kind of refusal it named. Nothing here decides what a case means.
- *
- * **THE HARNESS'S CONTRACT IS PROVIDED AS NATIVES AND NOT AS SCRIPT TEXT.** `assert.js` and `sta.js`
- * define functions, which the subset writes down as outside -- so running them would fail every case
- * at the parser for a reason that has nothing to do with the case. The host below implements what they
- * promise, and the case's own text is run unmodified. **A name the host does not provide is OUTSIDE
- * THE SUBSET and never a failure**, which is the difference between *we cannot decide this* and *this
- * is wrong*.
- *
- * **A NEGATIVE `parse` CASE IS OUTSIDE THE SUBSET AND THAT IS A DECISION.** This parser refuses a
- * VALID program that reaches past the subset with the same voice it refuses an invalid one, so it
- * cannot tell the two apart -- and a case that passed by refusing for the wrong reason would be a
- * green light about something else. It is the `(case, metric)` ladder's second rung, taken openly. */
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -29,12 +12,10 @@ namespace {
 using outshine::Json;
 namespace S = outshine::Script;
 
-/* WHAT THE HOST ANSWERS, and the whole of it. Every name here is one `assert.js` or `sta.js` promises;
- * a case reaching anything else is outside the subset and says which name. */
 class Test262Host final : public S::Host {
 public:
-  std::string Unprovided;   /* the first name this host could not answer */
-  std::string Failed;       /* the first assertion that did not hold */
+  std::string Unprovided;
+  std::string Failed;
 
   [[nodiscard]] S::Value Global(const std::string &name) override {
     if (name == "assert") { return S::Value::OfRef(kAssert); }
@@ -112,7 +93,7 @@ std::string ReadFile(const std::string &path, bool &found) {
   return text;
 }
 
-}  // namespace
+}
 
 int main(int argc, char **argv) {
   if (argc != 2) {
@@ -140,14 +121,10 @@ int main(int argc, char **argv) {
   const bool wantsRefusal = root["criterion"]["expects"].StrEquals("refuses");
   const std::string phase = root["criterion"]["phase"].Str();
 
-  /* WHAT THE CASE SAYS IT NEEDS, before a line of it is read. A flag or an include this runner does
-   * not provide puts the case outside the subset by the case's OWN declaration, which is the cheapest
-   * and most honest place to decide it. */
   std::vector<std::string> wanted;
   for (size_t at = 0; at < subject["attributes"].Size(); ++at) {
     const std::string attribute = subject["attributes"][at].Str();
-    /* A FLAG ABOUT WHICH MODE TO RUN IN IS NOTHING TO THIS INTERPRETER, which has one mode. The rest
-     * of what a case declares is a requirement, and a requirement it cannot meet is a name. */
+
     const bool nothingToUs = attribute == "flags:raw" || attribute == "flags:generated" ||
                              attribute == "flags:CanBlockIsFalse" ||
                              attribute == "flags:CanBlockIsTrue";
@@ -163,11 +140,6 @@ int main(int argc, char **argv) {
     return outshine::Test::Report();
   }
 
-  /* **A BOUNDARY AND A GAP ARE TWO ANSWERS, AND THE LANGUAGE'S OWN TABLE SEPARATES THEM.** A case
-   * this interpreter declines because a game's handler will never define a class is FINISHED; one it
-   * declines because something is missing is WAITING. An undeclared name is RED, which is what stops
-   * this from being a rubber stamp: the only way to make a case green is to build the capability or to
-   * write the boundary down with its reason. */
   const auto settle = [&id](const std::vector<std::string> &names) {
     std::string boundary, gap;
     for (const std::string &name : names) {
@@ -199,8 +171,7 @@ int main(int argc, char **argv) {
   S::Program program;
   std::string error;
   if (!program.Read(script, error)) {
-    /* A PARSE REFUSAL NAMES THE TOKEN IT STOPPED ON, and the token is what the boundary table reads.
-     * The message says where and why in a sentence; a sentence cannot be looked up. */
+
     return settle({program.Stopped().empty() ? error : "token:" + program.Stopped()});
   }
 

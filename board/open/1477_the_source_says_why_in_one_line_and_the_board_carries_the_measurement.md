@@ -47,3 +47,25 @@ is a measurement destroyed, and this repository has spent whole rounds re-derivi
 
 **And it may not touch a refusal's message.** What a refusal SAYS to its caller is behaviour, not
 commentary.
+
+## Done, and one comment turned out to be a declaration
+
+[MEASURED] the sweep: **72 986 C++ lines to 59 400**, 13 586 removed; `test/run.sh` 1096 to 785; 20
+Python files; 338 comment lines inside the shader text that lives in raw strings, which the C++ pass
+correctly left alone because they are string CONTENT and had to be taken separately.
+
+**`test/unit/compile/*` broke, and it was right to.** Those subjects carry `// ACCEPTED` or
+`// REFUSED: <the compiler's own words>`, and `test/harness/shared/Layering.h` READS that line -- it is
+the fixture's declaration and not a note to a reader. Stripping it took the expectation out of every
+compile subject at once. **A comment a program reads is data wearing a comment's syntax**, and the
+lesson is not "keep prose" but that this one has the wrong spelling: the state could sit in the path,
+the way `board/open|active|closed` already spells a state, and then nothing would be readable-by-accident.
+
+**27 `Covers("board:NNNN ...")` lines lost their id** and kept their sentence, which is the same rule
+facing the report: a test says what capability it covers, not which slip of paper asked for it.
+
+## Comments
+
+The nine `Covers` strings that name `I.26`-style ids are a DIFFERENT taxonomy and were left alone --
+they name a requirement in the engine's own numbering, not a work item.
+

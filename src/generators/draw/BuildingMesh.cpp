@@ -12,40 +12,28 @@ namespace outshine::Generators {
 
 namespace {
 
-/* [SET] the wall is put 0.30 m into the ground so a plan standing on a terrain facet cannot show
- * daylight under itself where the facet falls away from the corner the base was sampled at. */
 constexpr double kSinkM = 0.30;
-/* [SET] rafter, boarding and covering: 0.20 m is what a German pantile roof measures from the
- * underside of the soffit to the top of the tile, and it is what makes the verge a board rather
- * than a knife edge. */
+
 constexpr double kSlabM = 0.20;
 constexpr double kParapetThickM = 0.32;
 constexpr double kCorniceM = 0.16;
 constexpr double kChimneyWideM = 0.55;
 constexpr double kChimneyOverRidgeM = 0.85;
-/* [SET] the base course. A German Sockel runs 0.40-0.70 m and stands 6-10 cm proud of the render;
- * it exists because splash off the pavement destroys lime render, and it is what stops a wall from
- * meeting the ground at a razor edge. Measured from the HIGHEST ground on the ring, not from the
- * base: the base is the lowest corner, and a plot with half a metre of fall across it buried the
- * whole course except at that one corner. */
+
 constexpr double kPlinthM = 0.50;
 constexpr double kPlinthProudM = 0.09;
-/* [SET] a kerb: 0.12 m upstand and a 0.16 m coping. The upstand is also what lifts the pavement off
- * the terrain mesh, so the two surfaces cannot fight for the same depth. */
+
 constexpr double kKerbUpM = 0.12;
 constexpr double kKerbTopM = 0.16;
 constexpr double kKerbSkirtM = 0.10;
-/* A pavement narrower than this is the wall's own shadow gap and neither is a footway. The kerb line
- * is a CHORD of the way, so a corner of a long frontage on a bend reads much further back than the
- * middle does; rejecting on the far corner threw away most of a town's frontages, and clamping the
- * band instead keeps the geometry a footway rather than a forecourt. */
+
 constexpr double kPavementLeastM = 0.6;
 constexpr double kPavementMostM = 24.0;
 constexpr double kFootwayMostM = 5.0;
 
 struct Vtx {
   Plan2 P;
-  double Z = 0.0;   /* metres over the structure's base */
+  double Z = 0.0;
   float U = 0.0f, V = 0.0f;
 };
 
@@ -73,9 +61,6 @@ Vtx Face(const BuildingShape &s, const Plan2 &p, double z, Facade kind) {
   return {p, z, FaceUvX(kind, s.Ident), (float)z};
 }
 
-/* WHERE THE OUTLINE IS, once: the tangent frame at the ring's first corner. A building spans at most
- * a couple of hundred metres, over which the sphere departs from this plane by d^2/2R — 0.8 mm at
- * 100 m — so one frame per structure is exact to well inside the vertex format. */
 class Site {
 public:
   Site(const StructurePlan &plan, std::vector<float> &soup) : Soup_(soup) {
@@ -117,10 +102,6 @@ private:
   double Origin_[3], East_[3], North_[3], Up_[3];
 };
 
-/* THE TERRAIN UNDER THE PLOT, as a plane through the corners the streamer sampled. A pavement four
- * metres wide has to follow the ground and a single base height cannot express that; a plane can, it
- * costs one 3x3 solve per footprint, and over a plot it is what the DEM's own posting resolves
- * anyway. Metres over the structure's base, which is the LOWEST corner. */
 class Site2Ground {
 public:
   Site2Ground(Span<const double> ringLatLon, Span<const double> cornerAslM, double baseAslM) {
@@ -166,8 +147,6 @@ Plan2 Along(const Plan2 &p, const Plan2 &q, double t) {
   return {p.E + (q.E - p.E) * t, p.N + (q.N - p.N) * t};
 }
 
-/* Whole bays, so a pier lands on both corners and a window is never cut by one. A face too narrow
- * for an opening gets no rhythm at all, which the facade reads as a blind wall. */
 double BaysOn(double lengthM, double bayM) {
   if (lengthM < 1.9) return 0.0;
   return std::max(1.0, std::round(lengthM / bayM));
@@ -179,9 +158,6 @@ void WallPanel(const BuildingShape &s, const Plan2 &p, const Plan2 &q, double ba
             Wall(s, q, highZ, bay1, stand), Wall(s, p, highZ, bay0, stand));
 }
 
-/* THE DOOR IS ONE BAY OF THE FRONT, cut out of the face as its own panel. A hash over the whole face
- * would put the entrance on whichever wall the rhythm happened to land on; splitting the face is
- * what makes "one door, on the street" a statement of geometry rather than of luck. */
 void FrontWall(const BuildingShape &s, const Plan2 &p, const Plan2 &q, double bays, double lowZ,
                double highZ, Site &site) {
   const double door = std::floor(0.5 * bays);
@@ -210,10 +186,6 @@ void Walls(const BuildingShape &s, double lowZ, Site &site) {
   }
 }
 
-/* THE BASE COURSE, as relief. A change of colour alone leaves the wall meeting the ground at one
- * plane; nine centimetres of stone standing proud puts a cast shadow line along the foot of every
- * facade, and that line is what the eye reads as contact. A party wall gets none — there is no
- * outside of it to weather. */
 void Plinth(const BuildingShape &s, double topZ, Site &site) {
   const std::vector<Plan2> out = RoofSurface::Widened(s.Ring, kPlinthProudM);
   if (out.size() != s.Ring.size()) return;
@@ -229,8 +201,6 @@ void Plinth(const BuildingShape &s, double topZ, Site &site) {
   }
 }
 
-/* The wall that closes a roof against the sky, wherever the roof stands over the outline: a gable,
- * a shed's high side and a sawtooth's glazing are the same statement made at different corners. */
 void Gables(const BuildingShape &s, const RoofSurface &roof, Site &site) {
   const size_t n = s.Ring.size();
   const double eaves = EavesZ(s);
@@ -260,9 +230,6 @@ void Covering(const BuildingShape &s, const RoofSurface &roof, const std::vector
   }
 }
 
-/* The underside of the overhang and the board that closes it. This is the one detail that turns an
- * extrusion into a building at a hundred metres: it puts a hard shadow line along the whole eaves,
- * and the shadow is cast, not drawn. */
 void Eaves(const BuildingShape &s, const RoofSurface &roof, const std::vector<Plan2> &wide,
            Site &site) {
   const size_t n = s.Ring.size();
@@ -280,11 +247,6 @@ void Eaves(const BuildingShape &s, const RoofSurface &roof, const std::vector<Pl
   }
 }
 
-/* A CORNICE AND THE PARAPET OVER IT. The cornice is what a flat roof has instead of an eaves
- * overhang: a course standing 0.16 m proud of the wall, which puts the same hard cast shadow line
- * along the top of the facade that a verge puts under a pitched roof. The parapet then stands back
- * on it, so its own foot is in that shadow — and its top is the structure's top, which is why the
- * shape took the parapet out of the height instead of adding it on. */
 void Crown(const BuildingShape &s, const std::vector<Plan2> &inner, const std::vector<Plan2> &out,
            Site &site) {
   const size_t n = s.Ring.size();
@@ -333,8 +295,6 @@ void Box(Site &site, const BuildingShape &s, const Plan2 &centre, double halfU, 
          s.Use == BuildingUse::Block;
 }
 
-/* A chimney and a lift overrun stand ABOVE the structure's top on purpose: the header's top is the
- * ridge, the parapet or the cap, and roof furniture is none of those. */
 void Chimney(const BuildingShape &s, const RoofSurface &roof, Site &site) {
   const double along = (((double)(s.Seed >> 9 & 0xffu) / 255.0) - 0.5) * 1.30 * s.HalfUm;
   const Plan2 foot = s.FromBox(along, 0.0);
@@ -351,8 +311,6 @@ void RoofPlant(const BuildingShape &s, double deckZ, Site &site) {
   Box(site, s, foot, halfU, halfV, deckZ, deckZ + 2.1, Facade::Metal);
 }
 
-/* The plinth's top, level, over the structure's base — one course of stone, and the ground rises
- * against it rather than it following the ground. */
 double PlinthTopZ(const BuildingShape &s, const Site2Ground &ground) {
   double highest = 0.0;
   for (const Plan2 &p : s.Ring) highest = std::max(highest, ground.At(p));
@@ -371,8 +329,7 @@ void RaisePart(const BuildingShape &s, const Site2Ground &ground, Site &site) {
     const std::vector<Plan2> out = RoofSurface::Widened(s.Ring, kCorniceM);
     const bool crowned = inner.size() == s.Ring.size() && out.size() == s.Ring.size() &&
                          s.HalfVm > 2.2 && s.RiseM > 0.0;
-    /* Without a crown the deck IS the top: the parapet was taken out of the height, so putting the
-     * deck at the eaves would leave the roof a parapet's worth below what the query answers. */
+
     const double deckZ = crowned ? EavesZ(s) : EavesZ(s) + s.RiseM;
     Covering(s, roof, crowned ? inner : s.Ring, deckZ, site);
     if (crowned) Crown(s, inner, out, site);
@@ -395,10 +352,6 @@ Plan2 OntoKerb(const Frontage &street, const Plan2 &p, double back) {
   return {p.E - back * street.ToStreetE, p.N - back * street.ToStreetN};
 }
 
-/* THE FOOTWAY AND THE KERB THAT ENDS IT. The band is bounded by the building line on one side and
- * the edge of the carriageway on the other, so its width is DERIVED from where the house stands and
- * how wide the way declares itself — never set. The upstand is what lifts the band clear of the
- * terrain mesh underneath, so a kerb and a depth-fight are the same 12 cm. */
 void Pavement(const BuildingShape &s, const Frontage &street, const Site2Ground &ground,
               double plinthZ, Site &site) {
   if (!street.Known || !s.OnGround()) return;
@@ -431,7 +384,7 @@ void Pavement(const BuildingShape &s, const Frontage &street, const Site2Ground 
   }
 }
 
-}  // namespace
+}
 
 void BuildingMesh::Mesh(const StructurePlan &plan, std::vector<float> &soup) const noexcept {
   if (plan.RingLatLon.Size() < 6 || !plan.AnchorEcef) return;
@@ -446,4 +399,4 @@ void BuildingMesh::Mesh(const StructurePlan &plan, std::vector<float> &soup) con
   }
 }
 
-}  // namespace outshine::Generators
+}

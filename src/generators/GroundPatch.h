@@ -17,9 +17,6 @@ public:
     GroundSample Height = GroundSample::Waiting();
   };
 
-  /* Null when ANY posting is unresolved: a region with a hole in its ground is never offered, so
-   * no generator ever has to branch on a datum that is not there. `side` postings per axis, row
-   * major from the region anchor, the last one on the far edge. */
   static std::shared_ptr<const GroundPatch> Complete(const Region &region, int side,
                                                      Span<const Posting> postings);
 
@@ -28,7 +25,7 @@ public:
   double SpacingNm() const { return SpacingNm_; }
 
   double HeightAslM(double eastM, double northM) const noexcept;
-  /* The drawn surface's gradient, metres per metre, in the region frame. */
+
   void GradientAt(double eastM, double northM, double *dhde, double *dhdn) const noexcept;
   double SlopeDeg(double eastM, double northM) const noexcept;
 
@@ -42,5 +39,5 @@ private:
   std::vector<double> AslM_;
 };
 
-} // namespace outshine::Generators
+}
 #endif

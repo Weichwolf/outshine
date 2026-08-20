@@ -21,26 +21,16 @@
 #include "TerrainTiles.h"
 #include "TileGeodesy.h"
 
-/* A C ABI cannot live in a namespace, but the types it borrows do. */
 using namespace outshine;
 using namespace outshine::World;
 using outshine::World::TilePool;
 
 namespace {
 
-/* [SET] The pool's ceiling, in threads: one per core beyond the two the client's own threads
- * occupy. Six against a browser's six connections per host, which is why the in-flight cap and the
- * thread count are the same number. */
 constexpr int kMaxTileThreads = 6;
 
-/* [SET] What the shared byte cache may hold. A z14 Terrarium PNG measures 50-160 KiB and a vector
- * tile 5-54 KiB (measured, Weserbergland), so this is several rings of both around the camera —
- * a ceiling reached only by travelling, and the eviction below is what makes travelling survivable. */
 constexpr size_t kByteBudget = 64u * 1024u * 1024u;
 
-/* [SET] Decoded source grids per pool thread. A stitch reads five (the tile and its four edge
- * neighbours) and everything beyond that buys sharing between consecutive builds; at 256 KiB per
- * z14 grid this is 4 MiB a thread, 24 MiB at the six-thread ceiling. */
 constexpr int kPoolDemCacheTiles = 16;
 
 std::unique_ptr<TilePool> gPool;
@@ -57,8 +47,7 @@ int PoolThreads() {
   unsigned hw = std::thread::hardware_concurrency();
   int n = hw > 3u ? (int)hw - 2 : 1;
   if (n > kMaxTileThreads) n = kMaxTileThreads;
-  /* THE POOL WIDTH IS THE ARRIVAL SCHEDULE. A picture that is a function of the scene has to come out
-   * the same at one thread and at six, and the only way to test that is to be able to say which. */
+
   if (const char *e = getenv("FB_TILEWORKERS")) {
     const int w = atoi(e);
     if (w > 0 && w <= 32) n = w;
@@ -66,31 +55,14 @@ int PoolThreads() {
   return n;
 }
 
-/* THE HEIGHT ORACLE. It answers with the surface the renderer DRAWS — the finest tile of the ladder,
- * its stitched source grid, its posting lattice, its triangle, its split (ChunkSurface.h) — so what
- * is placed on the ground stands on the ground. The finest tile and not the drawn one: a coarser tile
- * is the renderer's approximation of this surface within a declared screen-space error, and a
- * placement that followed the LOD would move as the camera walks.
- *
- * WHY THE TILE AND NOT THE POINT. /elev is one round trip per position, and in the browser that trip
- * lands AFTER the tick that asked: a per-point cache can therefore never answer the question the
- * simulation is asking, and the un-keyed one that stood here answered it with somebody else's
- * position entirely. ONE TILE IS 4.8 km of ground at this zoom, twenty seconds of flight: the
- * transport happens two hundred times more rarely than the question, which is what makes a streamed
- * ground truth usable at all. */
-constexpr int kGroundSlots = 12;   /* a cast plus its stores sits in a handful of tiles at once */
-/* WHAT ONE STITCH TOUCHES, and nothing beyond it: a build needs five decoded grids at once. Every
- * entry beyond the fifth buys sharing BETWEEN builds, and it buys it with permanent memory — one z14
- * grid is 256*256 float32 = 256 KiB, so the decodesPerBuild the teardown reports is the price of that
- * trade, measured, per scenario. */
+constexpr int kGroundSlots = 12;
+
 constexpr int kGroundStitchGrids = 5;
 constexpr double kGroundGridBytes = 256.0 * 256.0 * 4.0;
 
-/* One tile of the drawn surface, reduced to what a query needs: the chunk's node heights. Built once
- * per tile, because the stitch behind them costs five PNG decodes. */
 struct GroundTile {
   long X = 0, Y = 0;
-  int Nodes = 0;                 /* per edge; the chunk is square because the source grid is */
+  int Nodes = 0;
   uint32_t Postings = 0;
   std::vector<float> H;
   bool Resident = false;
@@ -101,32 +73,28 @@ struct GroundTile {
 FbGroundSurface gSurface{14, 128};
 GroundTile gGround[kGroundSlots];
 uint64_t gGroundClock = 0;
-long gGroundBuilds = 0;    /* tiles turned into node heights */
-long gGroundDecodes = 0;   /* PNGs the stitch decoded for them -- 5 per build without the cache */
-double gGroundStitchMs = 0.0;   /* the wall the builds spent inside the stitch, decode included */
-bool gGroundPending = false;   /* set by the source: a miss that is a wait, not a hole */
+long gGroundBuilds = 0;
+long gGroundDecodes = 0;
+double gGroundStitchMs = 0.0;
+bool gGroundPending = false;
 
-/* THE ORACLE READS THE POOL'S ONE CACHE, so the DEM the mesh already pulled is the DEM the oracle
- * reads. It waits on the calling thread, which is legal here and is a property of this host. */
 class OracleTerrain : public TerrainSource {
  public:
   TerrainBytes Take(int z, uint32_t x, uint32_t y) override {
     if (!gPool) return TerrainBytes::Wire();
-    gGroundDecodes++;   /* a source call IS a DEM cache miss: what it hands back gets decoded */
+    gGroundDecodes++;
     const Data::Request request(Data::DataKind::Elevation, Data::Address::Tile(z, x, y));
     TilePool::Landing landing;
     switch (gPool->BytesBlocking(request, &landing)) {
       case TilePool::Reply::Ready: {
-        /* The address that ANSWERED, which is the request's own except where the source served it
-         * from an ancestor — the crop downstream is computed from the difference. */
+
         int az = 0;
         uint32_t ax = 0, ay = 0;
         if (!landing.At.TryTile(&az, &ax, &ay)) return TerrainBytes::Wire();
         return TerrainBytes::From(az, ax, ay, std::move(landing.Bytes));
       }
       case TilePool::Reply::Absent: return TerrainBytes::Nothing();
-      /* Terminal, like the pool's own source (world/TilePool.cpp PoolTerrain): no declared source
-       * covers this request, so waiting for it is waiting for nothing. */
+
       case TilePool::Reply::Undeclared: return TerrainBytes::Nothing();
       case TilePool::Reply::Refused: return TerrainBytes::Wire();
       case TilePool::Reply::Pending: break;
@@ -151,8 +119,6 @@ void FillNodeHeights(const TerrainField &field, uint32_t rowPostings, uint32_t c
   }
 }
 
-/* Null = not usable yet: PENDING (retry next tick) or a real hole, and fb_stream_ground below is what
- * tells those two apart for the caller. */
 const GroundTile *GroundTileAt(long x, long y) {
   GroundTile *victim = &gGround[0];
   for (GroundTile &t : gGround) {
@@ -170,8 +136,7 @@ const GroundTile *GroundTileAt(long x, long y) {
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
   const TerrainField *field = grid.TryField();
   if (grid.Where() == TerrainGrid::State::Undecodable) {
-    /* A source that will not decode is not a wait — the bytes are cached and the next ask decodes
-     * the same failure — so it becomes a hole, and this line is what says whose. */
+
     Log::Error("world", "ground_grid_failed", {{"z", gSurface.Z}, {"x", (int)x}, {"y", (int)y}});
   }
   const uint32_t stride = gGroundTiles->Stride();
@@ -180,7 +145,7 @@ const GroundTile *GroundTileAt(long x, long y) {
   const int gr = field ? World::ChunkNodes(rowPostings, gSurface.Grid) : 0;
   const int gc = field ? World::ChunkNodes(colPostings, gSurface.Grid) : 0;
   const bool square = gr >= 2 && gr == gc && rowPostings == colPostings;
-  if (gGroundPending) return nullptr;   /* NOT cached, or the wait would become permanent */
+  if (gGroundPending) return nullptr;
   gGroundBuilds++;
   victim->X = x;
   victim->Y = y;
@@ -197,9 +162,6 @@ const GroundTile *GroundTileAt(long x, long y) {
   return victim;
 }
 
-/* THE ONE EVALUATION OF THE DRAWN SURFACE INSIDE A TILE, by fraction of the tile: fx east from the
- * west edge, fy south from the north edge. Both readers below go through it, so "a block and a point
- * answer the same number" is a property of the code. */
 double TileHeightAslM(const float *nodes, int side, uint32_t postings, double fx, double fy) {
   const double px = Clamped01(fx) * (double)(postings - 1);
   const double py = Clamped01(fy) * (double)(postings - 1);
@@ -217,8 +179,7 @@ double TileHeightAslM(const float *nodes, int side, uint32_t postings, double fx
 
 void GroundOpen(FbGroundSurface surface) {
   gSurface = surface;
-  /* The oracle asks in tile fractions and never in ENU metres, so its frame's origin is the map's
-   * own and the answer does not depend on where the scene stands. */
+
   TerrainTiles::Config config;
   config.DemCacheTiles = kGroundStitchGrids;
   gGroundTiles = std::make_unique<TerrainTiles>(gGroundSource, EnuFrame::At(0.0, 0.0), config);
@@ -241,7 +202,7 @@ void GroundClose() {
   gGroundClock = 0;
 }
 
-}  // namespace
+}
 
 int fb_stream_open(Data::SourceSet &sources, Data::Transport &transport, double lat, double lon,
                    FbGroundSurface surface) {
@@ -285,7 +246,7 @@ GroundSample fb_stream_ground(double lat, double lon) {
 
 FbGroundBlock fb_stream_ground_block(int z, long x, long y) {
   FbGroundBlock block;
-  if (z != gSurface.Z) return block;   /* Missing: no other zoom of this surface exists */
+  if (z != gSurface.Z) return block;
   long hx = x, hy = y;
   if (!WrapTile(z, &hx, &hy)) return block;
   gGroundPending = false;
@@ -315,8 +276,7 @@ void FbGroundBlock::AslMRow(double latDeg, double lonFromDeg, double lonStepDeg,
   const TileFrac fromFrac = ToTileFracClamped(from, Zoom_);
   const double tx0 = fromFrac.X, ty = fromFrac.Y;
   double tx1 = ToTileFracClamped(to, Zoom_).X;
-  /* A row starting west of the dateline and stepping over it comes back as a tile index of nearly
-   * zero, which would run the whole row backwards across the world. */
+
   const double width = (double)((long)1 << Zoom_);
   if ((tx1 - tx0) * lonStepDeg < 0.0) tx1 += lonStepDeg > 0.0 ? width : -width;
   const double fy = ty - (double)Y_;
@@ -325,8 +285,6 @@ void FbGroundBlock::AslMRow(double latDeg, double lonFromDeg, double lonStepDeg,
     out[i] = TileHeightAslM(Nodes_, Side_, Postings_, fx0 + (double)i * fxStep, fy);
 }
 
-/* The one raster left in this file: the moon, which is a MEASURED image of a real body and not
- * authored appearance (CLAUDE.md principle 2). */
 int fb_load_image_file(const char *path, uint8_t **rgba, int *w, int *h) {
   SDL_Surface *decoded = IMG_Load(path);
   if (!decoded) {
@@ -340,7 +298,7 @@ int fb_load_image_file(const char *path, uint8_t **rgba, int *w, int *h) {
   *w = rgba32->w;
   *h = rgba32->h;
   const size_t bytes = (size_t)(*w) * (size_t)(*h) * 4;
-  uint8_t *out = (uint8_t *)Heap::Take("moon rgba", bytes);   /* the caller free()s */
+  uint8_t *out = (uint8_t *)Heap::Take("moon rgba", bytes);
   for (int r = 0; r < rgba32->h; r++)
     memcpy(out + (size_t)r * (size_t)(*w) * 4,
            (const uint8_t *)rgba32->pixels + (size_t)r * (size_t)rgba32->pitch,
@@ -357,8 +315,7 @@ FbStarBands fb_fetch_stars(uint8_t *dst, int cap) {
   for (uint32_t b = 0; b < Data::StarBands::kBands; b++) {
     const Data::Request request(Data::DataKind::StarCatalogue, Data::Address::Whole(b));
     const TilePool::Reply reply = gPool->Bytes(request, &band);
-    /* The pool caches what has landed, so the bands already copied are re-copied for free on the
-     * next turn and no progress has to be carried across the poll. */
+
     if (reply == TilePool::Reply::Pending) return {FbStarBands::State::Pending, 0};
     if (reply != TilePool::Reply::Ready || band.Bytes.empty()) break;
     if (off + (int)band.Bytes.size() > cap) break;

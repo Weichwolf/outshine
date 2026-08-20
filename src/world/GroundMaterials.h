@@ -1,6 +1,3 @@
-/* The ground-material table: sixteen classes, each a LINEAR
- * reflectance plus the procedural surface that makes two classes of equal reflectance look different.
- * A vegetation template REFERENCES a class by name; it never declares a colour. */
 #ifndef GROUNDMATERIALS_H
 #define GROUNDMATERIALS_H
 
@@ -14,19 +11,18 @@ class GroundMaterials {
 public:
   struct Material {
     std::string Name;
-    float Albedo[3];        /* linear VISIBLE-band reflectance, moisture and band ratio applied */
+    float Albedo[3];
     float VisibleRatio;
     float Roughness;
     float Moisture;
-    float SpecularScale;    /* fraction of the class that presents a coherent dielectric interface */
+    float SpecularScale;
     float GrainSizeM;
     float HeightAmplitudeM;
     float DetailCoarseM;
     float DetailFineM;
-    /* slope.plausibleDeg[1]: the steepest face this material still lies on. Above it the ground is
-     * the bare-rock class and nothing stands (vegetation.json alpineLimit). */
+
     float SlopeMaxDeg;
-    int LitterClass;        /* index into this table, or -1 */
+    int LitterClass;
     float LitterCoverage;
   };
 
@@ -43,5 +39,5 @@ private:
   std::string Error_;
 };
 
-} // namespace outshine::World
+}
 #endif

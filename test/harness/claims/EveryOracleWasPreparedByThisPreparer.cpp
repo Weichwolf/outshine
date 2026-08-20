@@ -1,23 +1,3 @@
-/* THE ORACLE ON DISK WAS PRODUCED BY THE PREPARER IN THE TREE (board:1120).
- *
- * THE DEFECT THIS EXISTS FOR. The oracle key covered Blender, the subject pins, the declared scene and
- * the recipe -- everything the manifest SAYS and nothing the preparer DOES. `in_blender_render.py`
- * decides which passes are enabled, how materials are built and where lights and cameras sit; `exr.py`
- * decides how the products are decoded on the way out. A change to either moves what Cycles renders
- * while every field of the key stays identical, so the store serves the old bytes indefinitely.
- *
- * IT WAS FOUND BY HASHING BEFORE AND AFTER ON A HUNCH, which is not an instrument. The digest in the
- * key means a preparer change MISSES; this test means a corpus prepared by a different preparer is
- * VISIBLE rather than silently trusted -- the two are not the same guarantee. The key protects the
- * next run; this protects the run that already happened.
- *
- * WHAT IT COMPARES. Each case's `provenance.json` records the digest of the preparer that produced it.
- * This recomputes that digest from the files in the tree and holds the two against each other. It
- * hashes the same bytes the preparer hashes -- the whole file, not a version string, because a version
- * somebody has to remember to bump goes stale exactly when it matters.
- *
- * A TREE WITH NOTHING PREPARED IS UNPREPARED AND SAYS SO. `test/run.sh` does not prepare, so a corpus
- * that has never been built is a missing input rather than a failure, and never a silent pass. */
 #include <cstdint>
 #include <algorithm>
 #include <cstdio>
@@ -36,20 +16,6 @@
 
 namespace {
 
-/* EVERY `.py` OF THE PREPARER THAT CAN REACH THIS CASE, ENUMERATED RATHER THAN LISTED. A named list
- * here is a second copy of the one `jobs.py` keeps, and the two drifted the first time a file was added
- * to one of them. Both sides derive the set the same way, so there is nothing to keep in step.
- *
- * **AND THE SET IS PER CASE** (board:1451). `test/harness/` entire was one population and one claim,
- * and the claim was wider than what it decides: adding a fetch step to one corpus invalidated another's
- * 148 cases, which is hours of Cycles paid for a coupling that does not exist. What a case is digested
- * against is now the SHARED preparer plus the harness serving its own corpus -- the same lookup that
- * CHOOSES its steps, so what runs for it is what is digested for it.
- *
- * **THE LOOKUP IS POSITIONAL AND THERE IS NO TABLE**, which is `vendor.py`'s own rule: the harness for a
- * case at `test/<a>/<b>/<case>` is the deepest existing directory under `test/harness/` matching a
- * prefix of its path, so a new corpus adds a directory and nothing else. A list here would be the third
- * copy of a fact and the one nobody updates. */
 const char *const kHarnessRoot = "test/harness";
 const char *const kSharedHarness = "test/harness/shared";
 
@@ -65,9 +31,6 @@ bool Slurp(const std::string &path, std::string &into) {
   return true;
 }
 
-
-/* The preparer concatenates its sources in sorted path order and hashes the result once. The order is
- * part of the digest, so it is stated in both places identically or the two never agree. */
 void SourcesUnder(const std::string &directory, std::vector<std::string> &into) {
   if (!std::filesystem::is_directory(directory)) { return; }
   const size_t first = into.size();
@@ -80,8 +43,6 @@ void SourcesUnder(const std::string &directory, std::vector<std::string> &into) 
   std::sort(into.begin() + (long)first, into.end());
 }
 
-/* THE HARNESS SERVING A CASE, by position: the deepest existing directory under `test/harness/` whose
- * path is a prefix of the case's own, relative to `test/`. `vendor.harness_of` is this same walk. */
 std::string HarnessOf(const std::string &caseDirectory) {
   const std::string prefix = "test/";
   std::string relative = caseDirectory;
@@ -115,8 +76,6 @@ std::string PreparerDigest(const std::string &caseDirectory, bool &complete) {
   return outshine::Sha256Hex(material);
 }
 
-/* The value of `"preparerDigest"` in a provenance document, without a JSON parser: the field is a flat
- * string written by `json.dump`, and this test's whole business with the file is one key. */
 bool RecordedDigest(const std::string &document, std::string &out) {
   const std::string key = "\"preparerDigest\":";
   const size_t at = document.find(key);
@@ -129,13 +88,6 @@ bool RecordedDigest(const std::string &document, std::string &out) {
   return true;
 }
 
-/* **THE TRACKED CASES, AND THE PREPARED DIRECTORY DERIVED FROM EACH** (board:1451). The walk starts in
- * the TREE and not in the prepared root, because a case's digest is a function of its own tracked path
- * -- which harness serves it -- and the prepared leaf is that path with its separators flattened, so
- * one end gives the other without a table (`PreparedRoot.h` states the rule).
- *
- * A tracked case with nothing prepared is skipped rather than failed: it is a corpus nobody has run the
- * preparer over, which is what `UNPREPARED` means everywhere else in this tree. */
 struct Case {
   std::string Tracked;
   std::string Prepared;
@@ -165,7 +117,7 @@ std::vector<Case> PreparedCases() {
   return cases;
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -202,9 +154,6 @@ int main() {
   }
   CHECK(incomplete == 0, "every source a case's preparer digests is present to be digested here");
 
-  /* **TWO CORPORA DIGEST DIFFERENTLY, WHICH IS THE WHOLE OF THIS CHANGE** (board:1451). If they agreed
-   * the population would still be `test/harness/` entire and a vendor's edit would still invalidate
-   * every other vendor's cases -- so this is the claim, not a curiosity. */
   if (!sawKhronos.empty() && !sawGrown.empty()) {
     Note(("khronos digests to " + sawKhronos).c_str());
     Note(("grown digests to " + sawGrown).c_str());
@@ -212,14 +161,13 @@ int main() {
           "two corpora served by different harnesses digest to different preparers, so an edit to one "
           "vendor's steps cannot invalidate the other's cases");
   }
-  /* A DOCUMENT WITHOUT THE FIELD IS A CORPUS FROM BEFORE THE FIELD EXISTED, and it is a failure rather
-   * than a skip: it is exactly the state this test was written to make visible. */
+
   CHECK(silent == 0,
         "every provenance document records the preparer that produced it, so a corpus older than the "
         "field is reported rather than passed over");
   Note("cases whose oracle was produced by this preparer", (double)agreeing, "cases");
 
-  Covers("board:1120 the oracle key covers the preparer's own code, so a preparer change invalidates "
+  Covers("the oracle key covers the preparer's own code, so a preparer change invalidates "
          "the corpus instead of being found by hashing on a hunch");
   return Report();
 }

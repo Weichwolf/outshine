@@ -1,11 +1,3 @@
-/* WEB MERCATOR ENDS AT ±85.05112877980659° AND A STANDPOINT CANNOT EXIST OUTSIDE IT. The band was
- * checked in the scene reader before this round, which left the refusal a rule a second reader could
- * forget; it is a factory now, so a place outside the band is a value nobody can hold and every
- * consumer of a world stage has one by construction.
- *
- * The window in which the old code fabricated tile (0,0) rather than refusing was
- * 85.051128779807 < lat <= 85.053023927135, 211.7 m wide — which is why the boundary is checked at
- * the digit and not at a round number. */
 #include "Check.h"
 #include "Mod.h"
 #include "Standpoint.h"
@@ -32,7 +24,7 @@ std::string WorldAt(const char *lat) {
   return mod.Read(WorldAt(lat), "t.json");
 }
 
-}  // namespace
+}
 
 int main() {
   Covers("I.4 a standpoint the tile scheme cannot carry is refused by name");

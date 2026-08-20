@@ -31,9 +31,6 @@ private:
   TreeMesh &Mesh_;
 };
 
-/* Half width of the lamina at t along the midrib. A beta profile with its maximum at `Widest`: the base
- * stays rounded whatever `Tip` does, so acuminate (oak, birch) and elliptic (beech) are one family and
- * not a diamond. */
 float ProfileWidth(const TreeSpecies::Leaf &p, float t) {
   if (p.Kind == TreeSpecies::LeafKind::Needle) {
     float w = p.NeedleWidth * (1.0f - 0.12f * t);
@@ -59,8 +56,6 @@ float ProfileWidth(const TreeSpecies::Leaf &p, float t) {
   return w;
 }
 
-/* One lamina: midrib from `base` at angle `ang` in the XY plane, three strips (left rim, midrib, right
- * rim) so that fold and lengthwise curvature have somewhere to live. */
 void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, TreeVec3 base, float ang, float lenScale) {
   int n = p.Segments;
   if (n < 4) { n = 4; }
@@ -109,8 +104,6 @@ void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, TreeVec3 base, float ang
   }
 }
 
-/* A palmate leaf (maple) as ONE connected sheet: a radial net from the leaf base to a lobed outline, so
- * the lobes are cut out of a single lamina rather than assembled from overlapping blades. */
 void BuildPalmate(Sink &sink, const TreeSpecies::Leaf &p) {
   const int r = 6;
   int a = p.Segments;
@@ -178,8 +171,6 @@ void BuildPalmate(Sink &sink, const TreeSpecies::Leaf &p) {
   }
 }
 
-/* A needle "card" is a densely needled SHORT SHOOT, not a single needle: that is the unit a conifer
- * canopy is actually built from. NeedleLen separates the long-needled pine from spruce and fir. */
 void BuildNeedleShoot(Sink &sink, const TreeSpecies::Leaf &p) {
   const float len = p.Length;
   int n = (int)(len / 0.0085f);
@@ -212,7 +203,6 @@ void BuildNeedleShoot(Sink &sink, const TreeSpecies::Leaf &p) {
   }
 }
 
-/* Pinnate (ash, rowan): a thin rachis with paired leaflets and a terminal one, each a small lamina. */
 void BuildPinnate(Sink &sink, const TreeSpecies::Leaf &p) {
   const int pairs = p.Leaflets > 0 ? p.Leaflets : 5;
   const float len = p.Length, rw = len * 0.006f;
@@ -233,7 +223,6 @@ void BuildPinnate(Sink &sink, const TreeSpecies::Leaf &p) {
   BuildBlade(sink, p, Vec3(0, len * 0.93f, 0), 0.0f, ls);
 }
 
-/* Palmately compound (horse chestnut): leaflets radiating from one point, the middle ones longest. */
 void BuildPalmateCompound(Sink &sink, const TreeSpecies::Leaf &p) {
   const int n = p.Leaflets > 0 ? p.Leaflets : 5;
   const float spread = (p.PalmateSpread > 0 ? p.PalmateSpread : 80.0f) * kDeg;
@@ -245,7 +234,7 @@ void BuildPalmateCompound(Sink &sink, const TreeSpecies::Leaf &p) {
   }
 }
 
-} // namespace
+}
 
 void TreeLeaf::Build(const TreeSpecies::Leaf &leaf, TreeMesh &out) {
   out.LeafVerts.clear();
@@ -260,4 +249,4 @@ void TreeLeaf::Build(const TreeSpecies::Leaf &leaf, TreeMesh &out) {
   }
 }
 
-} // namespace outshine::Generators
+}

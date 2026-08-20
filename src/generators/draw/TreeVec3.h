@@ -21,7 +21,6 @@ inline TreeVec3 Cross(TreeVec3 a, TreeVec3 b) {
 }
 inline float Length(TreeVec3 a) { return std::sqrt(Dot(a, a)); }
 
-/* A growing tip must always have a direction, so a degenerate vector yields +Y instead of NaN. */
 inline TreeVec3 Normalize(TreeVec3 a) {
   const float l = Length(a);
   return l > 1e-8f ? a * (1.0f / l) : TreeVec3{0.0f, 1.0f, 0.0f};
@@ -38,8 +37,6 @@ inline void FrameFrom(TreeVec3 t, TreeVec3 ref, TreeVec3 &n, TreeVec3 &b) {
   b = Normalize(Cross(tt, n));
 }
 
-/* Rotation-minimising frame by double reflection (Wang et al. 2008): carries the reference normal from
- * (p0,t0) to (p1,t1) without torsion, which is what keeps a branch's bark rings from twisting. */
 inline TreeVec3 RmfDouble(TreeVec3 p0, TreeVec3 p1, TreeVec3 t0, TreeVec3 t1, TreeVec3 x0) {
   const TreeVec3 v1 = p1 - p0;
   const float c1 = Dot(v1, v1);
@@ -52,5 +49,5 @@ inline TreeVec3 RmfDouble(TreeVec3 p0, TreeVec3 p1, TreeVec3 t0, TreeVec3 t1, Tr
   return Normalize(rL - v2 * (2.0f / c2 * Dot(v2, rL)));
 }
 
-} // namespace outshine::Generators
+}
 #endif

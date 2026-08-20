@@ -1,22 +1,3 @@
-/* HOW EXACTLY THE HARDWARE CARRIES A PER-VERTEX QUANTITY ACROSS A TRIANGLE (board:1195).
- *
- * THE SUBJECT IS THE INTERPOLATOR AND NOTHING ELSE. No asset, no camera, no oracle: one triangle whose
- * per-vertex attribute is the barycentric basis, rasterised to `R32G32B32A32_FLOAT`, against the same
- * coordinate computed in double from the same clip positions at the same pixel centre. What the device
- * returns and what the arithmetic says are then the only two numbers in the room.
- *
- * THE BASIS IS THE ATTRIBUTE FOR A REASON. A barycentric coordinate spans exactly [0, 1], so the
- * deviation measured on it is the deviation a linear radiance of that range suffers with no rescaling in
- * between -- which is what `test/render/khronos/glTF/PictureBound.h` needs and what a per-vertex colour actually is.
- *
- * THE CLIP POSITIONS ARE PUSHED AS A UNIFORM RATHER THAN WRITTEN TWICE. The host derives the exact
- * answer from the same three float4s the vertex stage returns, so a triangle that moved would move both
- * sides together and could not be mistaken for an interpolation error.
- *
- * TWO ARMS, BECAUSE PERSPECTIVE CORRECTION IS A SECOND MECHANISM. With every `w` at 1 the hardware
- * interpolates affinely and the measurement is the barycentric evaluation alone; with the `w`s apart it
- * must divide per pixel, and the subjects this bound is applied to are perspective. Reporting one number
- * for both would be two populations under one name. */
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -52,8 +33,6 @@ bool Refused(const void *made, const char *what) {
   return true;
 }
 
-/* Wide enough that the covered population is six figures rather than a handful, and square so neither
- * axis is privileged by the aspect. */
 constexpr uint32_t kSide = 512;
 
 class Instrument {
@@ -75,8 +54,6 @@ public:
   SDL_GPUDevice *Device = nullptr;
 };
 
-/* NO VERTEX BUFFER: the three clip positions arrive as a uniform and the basis is the vertex index, so
- * there is no upload path between the declaration and the raster that could alter either. */
 std::string TriangleShader() {
   return std::string(kMslPrelude) + R"(
 struct Corners { float4 clip[3]; };
@@ -156,9 +133,7 @@ Rendered Raster(const Instrument &on, const float clip[12]) {
   if (!Refused(commands, "a command buffer")) {
     SDL_GPUColorTargetInfo attachment{};
     attachment.texture = target;
-    /* CLEARED TO ZERO SO COVERAGE IS READ FROM THE ALPHA the fragment writes as 1: a pixel the
-     * rasteriser did not cover is then distinguishable from one it covered and wrote zero into, which
-     * a corner of the basis legitimately is. */
+
     attachment.clear_color = {0.0f, 0.0f, 0.0f, 0.0f};
     attachment.load_op = SDL_GPU_LOADOP_CLEAR;
     attachment.store_op = SDL_GPU_STOREOP_STORE;
@@ -191,11 +166,6 @@ struct Deviation {
   double Sum = 0;
 };
 
-/* THE EXACT ANSWER, IN DOUBLE, FROM THE SAME THREE CLIP POSITIONS. The screen triangle is the clip
- * positions divided by their own `w` and mapped through the viewport the pass declared; the affine
- * barycentrics come from the edge functions at the pixel centre; and where the `w`s differ the
- * perspective-correct coordinate is `(lambda_i / w_i) / sum(lambda_j / w_j)`, which is the same
- * correction the hardware applies and the reason both arms exist. */
 Deviation Against(const std::vector<float> &rgba, const float clip[12], int subpixelBits = 0) {
   Deviation found;
   double sx[3], sy[3], w[3];
@@ -206,10 +176,7 @@ Deviation Against(const std::vector<float> &rgba, const float clip[12], int subp
     const double ndcY = (double)clip[corner * 4 + 1] / cw;
     sx[corner] = (ndcX * 0.5 + 0.5) * (double)kSide;
     sy[corner] = (0.5 - ndcY * 0.5) * (double)kSide;
-    /* THE REFERENCE ON THE RASTERISER'S OWN GRID. A rasteriser does not use the projected position: it
-     * snaps it to a fixed-point subpixel grid first, so a reference built from the unsnapped position
-     * is comparing against a triangle the hardware never drew. `subpixelBits == 0` is the unsnapped
-     * reference and the sweep below is what says which grid this device is on. */
+
     if (subpixelBits > 0) {
       const double grid = (double)(1u << (unsigned)subpixelBits);
       sx[corner] = std::round(sx[corner] * grid) / grid;
@@ -247,9 +214,6 @@ Deviation Against(const std::vector<float> &rgba, const float clip[12], int subp
   return found;
 }
 
-/* THE TWO GEOMETRIC QUANTITIES THE DERIVED TERM TAKES, read off the same three clip positions the
- * reference uses: the triangle's SMALLEST height in pixels -- twice its area over its longest edge --
- * and the widest ratio between its corners' `w`s. */
 void GeometryOf(const float clip[12], double &smallestHeight, double &widestWRatio) {
   double sx[3], sy[3], w[3];
   for (int corner = 0; corner < 3; ++corner) {
@@ -286,26 +250,21 @@ void Report(const char *arm, const Deviation &found) {
   outshine::Test::Note(("worst deviation at row" + at).c_str(), found.WorstAt[1], "px");
 }
 
-} // namespace
+}
 
 int main() {
   Instrument on;
   CHECK(on.Device != nullptr, "a device answers, so the interpolator can be probed at all");
   if (!on.Device) { return outshine::Test::Report(); }
 
-  /* A triangle wide enough to cover most of the frame, and deliberately not symmetric about either
-   * axis: a symmetric one would let an error that depends on the sign of a barycentric cancel. */
   const float affine[12] = {-0.9f, -0.8f, 0.0f, 1.0f,
                              0.85f, -0.7f, 0.0f, 1.0f,
                             -0.1f,  0.9f, 0.0f, 1.0f};
-  /* THE SAME TRIANGLE IN NDC, WITH THE `w`s APART. `clip.xy = ndc * w` puts every corner exactly where
-   * the affine arm put it, so the two arms differ in the correction and in nothing else. */
+
   const float perspective[12] = {-0.9f * 0.5f, -0.8f * 0.5f, 0.0f, 0.5f,
                                   0.85f * 4.0f, -0.7f * 4.0f, 0.0f, 4.0f,
                                  -0.1f * 1.5f,  0.9f * 1.5f, 0.0f, 1.5f};
 
-  /* THE BIT COUNT THE DECLARED GRID IS, so the sweep below and `kSubpixelGrid` cannot disagree
-   * silently: change one and this arithmetic finds the other. */
   int declaredBits = 0;
   for (double grid = kSubpixelGrid; grid < 1.0; grid *= 2.0) { ++declaredBits; }
 
@@ -327,9 +286,6 @@ int main() {
     std::printf("NOTE %s: smallest height %.6g px, widest w ratio %.6g, derived term %.9g\n", arm.first,
                 smallestHeight, widestWRatio, derived);
 
-    /* WHICH GRID THE RASTERISER IS ON, MEASURED. The reference is rebuilt on each candidate and the one
-     * that collapses the residual IS the grid -- an assertion that the minimum lands where
-     * `kSubpixelGrid` says, rather than a number read out of another API's mandate. */
     int quietest = 0;
     double quietestWorst = 0;
     bool first = true;
@@ -346,16 +302,10 @@ int main() {
           "the grid that collapses the residual is the one kSubpixelGrid declares, so the subpixel "
           "grid is measured on this device rather than assumed from another API");
 
-    /* WHAT IS LEFT ON THAT GRID IS THE ARITHMETIC AND NOTHING ELSE, which is what makes the derived
-     * term a decomposition rather than one fitted number wearing two names. The perspective arm
-     * amplifies its inputs by the `w` ratio, so its residual is allowed the same factor. */
     CHECK(quietestWorst <= kInterpolantArithmeticError * widestWRatio,
           "once the reference stands on the rasteriser's own grid the residual is within f32's four "
           "roundings, so the snap and the arithmetic are two terms and not one");
 
-    /* THE DERIVATION IS A CEILING AND THE DEVICE MUST SIT UNDER IT. A device quieter than derived is
-     * not a failure -- a bound built on this would merely be generous -- but a device noisier than
-     * derived makes every bound built on it wrong, so only that direction is red. */
     CHECK(found.Worst <= derived,
           "this device interpolates within the error test/harness/shared/InterpolantPrecision.h "
           "DERIVES for this triangle, so the picture bound's interpolant term bounds the mechanism it "
@@ -365,7 +315,7 @@ int main() {
   }
 
   CHECK(DeviceErrors == 0, "the device reported no error over the probe");
-  outshine::Test::Covers("board:1195 the interpolant term of the picture bound: how exactly this device carries a "
+  outshine::Test::Covers("the interpolant term of the picture bound: how exactly this device carries a "
          "per-vertex quantity across a triangle, measured rather than assumed");
   return outshine::Test::Report();
 }

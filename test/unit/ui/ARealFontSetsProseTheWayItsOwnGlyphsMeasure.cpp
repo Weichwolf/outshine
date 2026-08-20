@@ -1,13 +1,3 @@
-/* THE ENGINE SETS PROSE IN A FONT IT DID NOT WRITE (board:1442).
- *
- * **AHEM IS THE MEASUREMENT FACE AND IT IS MONOSPACE**, so every claim proved with it is also true of
- * an engine that divides a width by one advance and calls it a measurement. This file exists to make
- * that impossible: the face here has a DIFFERENT advance per glyph and a patch of an atlas for each,
- * which is what a real face is, and the numbers below are what the run must come out to.
- *
- * **THE FONT IS THE CONSUMER'S AND THE ENGINE NEVER OPENS A FILE.** Who makes an asset is not the
- * engine's business; what the engine owes is an interface a real face fits through, and this is the
- * test of that claim rather than of any particular face. */
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -21,10 +11,6 @@ using namespace outshine::Ui;
 
 namespace {
 
-/* A PROPORTIONAL FACE, ARITHMETIC ENOUGH TO BE CHECKED BY HAND: `i` is a quarter of the em, `m` is a
- * whole one, everything else is half, and a space is a third. The atlas is a sixteen-column grid, so
- * every glyph's patch is a different rectangle and a painter that ignored them would still place
- * boxes and would place the wrong picture in them. */
 struct GridFont final : Font {
   [[nodiscard]] FontMetrics At(double sizePx) const override {
     return {sizePx * 0.5, sizePx * 0.8, sizePx * 0.2};
@@ -76,11 +62,10 @@ int Lines(const Built &built) {
   return count;
 }
 
-}  // namespace
+}
 
 int main(void) {
-  /* A RUN IS AS WIDE AS ITS OWN GLYPHS AND NOT AS WIDE AS ITS CHARACTER COUNT. `mmmm` at 20 px is
-   * four ems -- 80 -- where a monospace reading of the same face would answer four half-ems, 40. */
+
   {
     Built built;
     if (Set(built, "<style>body{margin:0}p{font-size:20px;line-height:1;margin:0;width:400px;"
@@ -99,8 +84,6 @@ int main(void) {
     }
   }
 
-  /* THE PEN MOVES BY EACH GLYPH'S OWN ADVANCE. `im` is a quarter then a whole, so the second glyph
-   * begins at 5 and is 20 wide -- a painter walking a fixed advance would put it at 10. */
   {
     Built built;
     if (Set(built, "<style>body{margin:0}p{font-size:20px;line-height:1;margin:0;width:400px;"
@@ -122,9 +105,6 @@ int main(void) {
     }
   }
 
-  /* THE WRAP HAPPENS WHERE THE ROOM RUNS OUT, WHICH A CHARACTER COUNT CANNOT KNOW. Six `m` at 10 px
-   * is 60; in 45 px of room four fit on the first line and two follow, and the break is at the space
-   * because no word is ever cut in this subset. */
   {
     Built built;
     if (Set(built, "<style>body{margin:0}p{font-size:10px;line-height:1;margin:0;width:45px;"
@@ -135,9 +115,6 @@ int main(void) {
     }
   }
 
-  /* A WORD WIDER THAN THE LINE IS PLACED AND OVERFLOWS. No hyphenation and no break inside a word is
-   * a DECLARED part of this subset, so the answer is one line that reaches past its box rather than a
-   * word cut in half or a loop that cannot advance. */
   {
     Built built;
     if (Set(built, "<style>body{margin:0}p{font-size:10px;line-height:1;margin:0;width:12px;"

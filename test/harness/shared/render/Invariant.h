@@ -1,40 +1,3 @@
-/* WHAT A `stated-invariant` CASE IS SCORED ON: the relation the ASSET states about a render of
- * itself, evaluated on the scene-referred linear tap and on nothing else.
- *
- * THE INSTRUMENT IS DECLARED, NOT CHOSEN HERE. Each check names its kind, carries Khronos's own
- * words and the file they came from, and states every number with an origin -- so a case cannot move
- * from one instrument to another without a quotation moving with it, and cannot acquire a threshold
- * nobody derived. The two kinds below are the whole set this runner has, and an unknown one is a
- * refusal naming what it may be.
- *
- * `hue-of-brightest` -- over the brightest declared fraction of the covered pixels, each channel's
- * share of the pixel's own sum equals a declared hue. `DirectionalLight` states the arithmetic
- * itself: "redHue = R / R + G + B", and gives the number for its own light. IT IS A RATIO AND NOT A
- * MAGNITUDE, which is exactly why it survives the precision caveat the asset states in the same
- * paragraph.
- *
- * `region-compare` -- two rectangles of the frame, congruent by construction, agree per channel
- * after a declared scale. `PointLightIntensityTest`: "the expectation for the bottom row of this
- * test is that the 'Red + Green + Blue' test will be identical (or very nearly so) to the 'White'
- * test". THE TWO RECTANGLES ARE PIXELS AND THEY ARE DERIVED: the case declares an orthographic
- * camera precisely so that two bodies 2.25 m apart project to an exact integer pixel offset, which
- * is what turns "identical" into a decidable claim rather than a resampling.
- *
- * A `region-compare` CARRIES EXACTLY ONE CURRENCY AND THE CASE PICKS IT, because the two answer
- * different questions and a check that declared both would be two opinions about one comparison.
- *
- * `maxUlps` IS A MAXIMUM AND IT IS RIGHT WHERE BOTH SIDES COME OUT OF ONE SHADER OVER ONE SURFACE:
- * the only thing between them is then the order f32 rounded a sum of the same terms at two
- * positions, an ulp count says exactly that, and a relative epsilon would hide how much room it
- * left. `PointLightIntensityTest` is that case -- two panels of one material under two light lists.
- *
- * `maxP95Relative` IS A QUANTILE AND IT IS THE ONLY HONEST CURRENCY WHERE THE TWO REGIONS ARE THE
- * SAME SURFACE STATED TWO WAYS. `NormalTangentTest` compares a 516-triangle tessellation of a dome
- * against a flat quad wearing the 8-bit map baked from it: on the silhouette rim the two disagree by
- * O(1) for a CORRECT renderer, because that is where a tessellation and a bake differ, so a maximum
- * over the region admits any tangent error at all or admits none. A quantile separates the rim from
- * the body, and the bound it is judged at is a decision boundary between two MEASURED populations
- * rather than a tolerance -- the case states both. */
 #ifndef RENDER_INVARIANT_H
 #define RENDER_INVARIANT_H
 
@@ -53,7 +16,6 @@ namespace outshine::Render::Parity {
 
 enum class InvariantKind { HueOfBrightest, RegionCompare };
 
-/* A rectangle of the frame, in pixels, with its origin at the top-left the tap itself uses. */
 struct PixelRect {
   int X = 0, Y = 0, Width = 0, Height = 0;
 };
@@ -62,22 +24,16 @@ struct Invariant {
   InvariantKind Kind = InvariantKind::HueOfBrightest;
   std::string Name;
   double Rgb[3] = {0, 0, 0};
-  double Fraction = 0;      /* HueOfBrightest: the share of covered pixels judged */
-  double Tolerance = 0;     /* HueOfBrightest: the largest admissible hue error */
-  PixelRect From, To;       /* RegionCompare */
-  double Scale = 1.0;       /* RegionCompare: what `To` is multiplied by before comparing */
-  double MaxUlps = 0;       /* RegionCompare: the widest admissible f32 disagreement */
+  double Fraction = 0;
+  double Tolerance = 0;
+  PixelRect From, To;
+  double Scale = 1.0;
+  double MaxUlps = 0;
   double MaxP95Relative = 0;
-  /* WHICH OF THE TWO THE CASE DECLARED, as an enumeration rather than a sentinel value: a bound of
-   * zero is a legitimate demand in both currencies, so "which one" cannot be read off the number. */
+
   enum class Currency { Ulps, P95Relative };
   Currency Judged = Currency::Ulps;
-  /* WHICH CHANNELS THE COMPARISON READS, and it is declared because the asset states two different
-   * claims: the bottom row must match in ALL THREE -- "the 'Red + Green + Blue' test will be
-   * identical to the 'White' test" -- while the top row matches ONE at a time -- "when viewing the
-   * red channel of the output in isolation, the 'Red' test and the 'White' test should be very
-   * similar". A check that always read three would fail the second on the two channels the asset
-   * says nothing about. */
+
   bool Channel[3] = {true, true, true};
 };
 
@@ -152,8 +108,6 @@ struct Invariant {
   return out.Width > 0 && out.Height > 0;
 }
 
-/* Every check the case declares, in the order it declares them. A `stated-invariant` case that
- * declares none is a refusal: its whole acceptance would then be a picture nobody compares. */
 [[nodiscard]] inline bool ReadInvariants(const Json::Ref &declared, std::vector<Invariant> &out,
                                          std::string &error) {
   out.clear();
@@ -241,8 +195,6 @@ struct Invariant {
   return true;
 }
 
-/* THE TAP AS A GRID: four channels per pixel, row-major, top row first -- the same shape the oracle
- * dump has, so a rectangle means the same thing on both sides. */
 struct LinearFrame {
   const std::vector<float> *Samples = nullptr;
   int Width = 0;
@@ -258,9 +210,6 @@ struct LinearFrame {
   [[nodiscard]] bool Covered(int x, int y) const { return At(x, y, 3) > 0.0f; }
 };
 
-/* Ordered as integers, which is what an ulp distance IS for IEEE-754 binary32 of the same sign. Both
- * sides of every comparison here are radiances, so neither is negative and no sign-magnitude
- * correction is needed; a negative would be a defect the caller sees as a huge count. */
 inline int64_t UlpsBetween(float a, float b) {
   int32_t left = 0, right = 0;
   std::memcpy(&left, &a, sizeof left);
@@ -268,9 +217,6 @@ inline int64_t UlpsBetween(float a, float b) {
   return left > right ? (int64_t)left - (int64_t)right : (int64_t)right - (int64_t)left;
 }
 
-/* One check against one render, as the metrics it produces. The count is what is enforced; the
- * worst observed value goes beside it as a `Reported` metric so a case that passes narrowly is
- * visible before it starts failing. */
 inline void Evaluate(const Invariant &check, const LinearFrame &frame,
                      std::vector<Metric> &metrics) {
   switch (check.Kind) {
@@ -315,9 +261,7 @@ inline void Evaluate(const Invariant &check, const LinearFrame &frame,
     case InvariantKind::RegionCompare: {
       size_t apart = 0, compared = 0;
       int64_t worst = 0;
-      /* THE DISAGREEMENT AS A DISTRIBUTION AND NOT AS ITS MAXIMUM (`CLAUDE.md`). Two radiances that
-       * differ in their exponent are millions of ulps apart while being physically the same number
-       * near zero, so a worst case alone says nothing about whether the panels agree. */
+
       std::vector<double> spread, relative;
       double fromTotal = 0, toTotal = 0;
       for (int row = 0; row < check.From.Height; ++row) {
@@ -346,9 +290,7 @@ inline void Evaluate(const Invariant &check, const LinearFrame &frame,
           }
         }
       }
-      /* THE COUNT IS ENFORCED ONLY WHERE THE CHECK IS JUDGED IN ULPS, because it IS the ulp bound
-       * read as a max-norm: every compared channel must be within `maxUlps`. Under the quantile
-       * currency it stays as a reading, so a case cannot be judged twice on one comparison. */
+
       metrics.push_back({check.Name + "_channels_apart", (double)apart, 0.0, "channels",
                          check.Judged == Invariant::Currency::Ulps ? Direction::AtMost
                                                                    : Direction::Reported});
@@ -359,8 +301,7 @@ inline void Evaluate(const Invariant &check, const LinearFrame &frame,
                          "channels", Direction::AtLeast});
       std::sort(spread.begin(), spread.end());
       std::sort(relative.begin(), relative.end());
-      /* THE TWO REGIONS AS QUANTITIES, so a disagreement in ulps can be read against the radiances
-       * it is a disagreement between -- an ulp count near zero is a large number about nothing. */
+
       metrics.push_back({check.Name + "_from_mean", compared > 0 ? fromTotal / (double)compared : 0.0,
                          0.0, "linear, scene-referred", Direction::Reported});
       metrics.push_back({check.Name + "_to_mean", compared > 0 ? toTotal / (double)compared : 0.0,
@@ -384,5 +325,5 @@ inline void Evaluate(const Invariant &check, const LinearFrame &frame,
   }
 }
 
-} // namespace outshine::Render::Parity
+}
 #endif

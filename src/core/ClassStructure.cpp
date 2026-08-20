@@ -13,9 +13,6 @@ double Clock() {
   return (double)duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count() * 1e-3;
 }
 
-/* WHAT A WINDING NUMBER CHANGES BY when the point moves along an axis. Both this evaluator and the
- * fragment's two legs use these and nothing else, so a disagreement between them is not expressible.
- * Moving +x across an edge: the sign of the edge's own dy. Moving +y: minus the sign of its dx. */
 inline int CrossX(float x0, float y0, float x1, float y1, double cy, double xa, double xb) {
   if ((y0 <= cy) == (y1 <= cy)) return 0;
   const double xi = (double)x0 + (cy - (double)y0) * ((double)x1 - (double)x0) /
@@ -41,7 +38,7 @@ double SegDist(double px, double py, float x0, float y0, float x1, float y1) {
   return std::sqrt(qx * qx + qy * qy);
 }
 
-}  // namespace
+}
 
 ClassStructure::ClassStructure(const TangentFrame &frame, std::shared_ptr<const Grid> fine,
                                std::shared_ptr<const Grid> coarse, uint64_t version,
@@ -87,8 +84,6 @@ void ClassStructure::Pack(int unmappedRow) {
   }
 }
 
-/* THE FIRST OF THE THREE OUTCOMES, counted and never logged per occurrence: how much of the fine
- * grid OSM says nothing about. Sampled at the cell centres. */
 void ClassStructure::Probe() {
   const Grid &B = *Fine_;
   for (int j = 0; j < B.H; j++)
@@ -100,8 +95,6 @@ void ClassStructure::Probe() {
     }
 }
 
-/* The cell's base class, then every seed whose winding at the sample says the feature contains it;
- * highest declared rank wins. */
 int ClassStructure::Evaluate(double e, double n, double *distM, int *runnerUp) const {
   int best = -1, bestRank = -1, second = -1, secondRank = -1;
   double bestDist = kNoEdgeM;
@@ -142,11 +135,11 @@ int ClassStructure::Evaluate(double e, double n, double *distM, int *runnerUp) c
         best = tpl; bestRank = rank; bestDist = d;
       } else if (rank > secondRank) { second = tpl; secondRank = rank; }
     }
-    if (best >= 0) break;   /* the fine grid answers alone where it has an answer */
+    if (best >= 0) break;
   }
   if (distM) *distM = bestDist;
   if (runnerUp) *runnerUp = second;
   return best;
 }
 
-} // namespace outshine
+}

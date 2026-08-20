@@ -13,11 +13,9 @@ class GroundTable {
 public:
   struct Row {
     Material Surface;
-    /* [SET] dry soil on rubber, the middle of the 0.5..0.8 band the handbooks give — a declared row
-     * that says nothing else says this. */
+
     float FrictionMu = 0.6f;
-    /* The steepest face this class still lies on; above it the ground is bare rock. [SET] vertical,
-     * so a row that does not declare a limit imposes none. */
+
     float SlopeMaxDeg = 90.0f;
   };
 
@@ -33,5 +31,5 @@ private:
   std::vector<Row> Rows_;
 };
 
-} // namespace outshine::Generators
+}
 #endif

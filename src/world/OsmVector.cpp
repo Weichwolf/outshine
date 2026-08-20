@@ -53,7 +53,7 @@ struct Reader {
 
 int32_t ZigZag(uint64_t v) { return (int32_t)((v >> 1) ^ (~(v & 1) + 1)); }
 
-}  // namespace
+}
 
 bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool *present) {
   if (present) *present = false;
@@ -75,7 +75,6 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
     Reader L = top.Bytes();
     if (!top.Ok) return false;
 
-    /* One pass to find the name, a second to decode: the name may follow the features. */
     Reader probe = L;
     std::string name;
     uint32_t n2 = 0, w2 = 0;
@@ -155,9 +154,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
       size_t gi = 0;
       uint32_t ringFirst = 0;
       int ringCount = 0;
-      /* A LINESTRING never sends ClosePath, so a decoder that only emits on cmd 7 keeps polygons and
-       * drops every way — silently, because RingCount 0 is a legal feature. Each MoveTo, and the end
-       * of the stream, closes the run that was open. */
+
       const auto flushLine = [&]() {
         if (f.Type != 2 || ringCount < 2) return;
         Ring r{};
@@ -191,9 +188,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
             Ring r{};
             r.First = ringFirst;
             r.Count = (uint32_t)ringCount;
-            /* MVT tile space has y DOWN and the spec winds exterior rings clockwise ON SCREEN, which
-             * makes the plain shoelace sum POSITIVE: (0,0)(10,0)(10,10)(0,10) sums to +200. Getting
-             * this sign backwards silently keeps only the handful of malformed rings — 12 of 9 194. */
+
             r.Exterior = a > 0.0;
             Rings_.push_back(r);
           }
@@ -240,4 +235,4 @@ std::string_view OsmVector::Str(const Feature &f, const char *key) const {
   return {};
 }
 
-} // namespace outshine::World
+}

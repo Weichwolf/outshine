@@ -1,8 +1,3 @@
-/* THE LIBRARY'S HALF OF INTERACTION, AND THE LINE IT DOES NOT CROSS (board:1442).
- *
- * A pointer event yields the element under it and the action that element declared. **What the action
- * MEANS is never decided here**, which is why every claim below is about a node, a string and a
- * coordinate, and none is about a button, a page or a door. */
 #include <cstdio>
 #include <string>
 
@@ -37,12 +32,10 @@ bool Lay(Built &built, const char *markup, double width, double height) {
   return true;
 }
 
-}  // namespace
+}
 
 int main(void) {
-  /* THE DECLARATION IS FOUND FROM WHATEVER WAS HIT, and what is hit is the deepest box -- the text
-   * inside the element, not the element. An action that only answered its own box would be missed by
-   * every pointer that landed on the label it contains. */
+
   {
     Built built;
     if (Lay(built, "<style>#b{width:120px;height:30px;background:#334455;font-size:10px}"
@@ -56,9 +49,6 @@ int main(void) {
       CHECK(inside.DeclaredBy == inside.Node,
             "and past the text the element that was hit is the one that declared it");
 
-      /* THE POINTER LANDS ON THE TEXT AND NOT ON THE ELEMENT, which is the case the walk exists for:
-       * the deepest box under a glyph is the RUN, and a declaration that only answered its own box
-       * would be missed by every pointer that hit the label it contains. */
       const Touched onGlyph = Under(built.Placed, built.Tree, 4, 4);
       CHECK(onGlyph.Action == "open-the-quest-log",
             "a pointer on the first glyph reaches the same declaration");
@@ -68,8 +58,6 @@ int main(void) {
     }
   }
 
-  /* A MISS IS SPELLABLE. A hit test that answered the root for every stray point would make *nothing
-   * was touched* impossible to say, and a client cannot check a state that has no value. */
   {
     Built built;
     if (Lay(built, "<style>body{margin:0}#b{width:10px;height:10px;background:#ffffff}</style>"
@@ -81,8 +69,6 @@ int main(void) {
     }
   }
 
-  /* AN ELEMENT WITH NO DECLARATION IS STILL A HIT. The two answers are independent: the client may
-   * care where the pointer is without anything having been declared there. */
   {
     Built built;
     if (Lay(built, "<style>body{margin:0}#b{width:40px;height:40px;background:#ffffff}</style>"
@@ -99,8 +85,6 @@ int main(void) {
     }
   }
 
-  /* A BOX CLIPPED AWAY IS NOT UNDER THE POINTER. The viewer cannot see it, so handing it back would
-   * be the one answer a pointer must never give. */
   {
     Built built;
     if (Lay(built, "<style>body{margin:0}"

@@ -9,22 +9,16 @@ namespace outshine::Generators {
 
 namespace {
 
-/* Three streams per cell rather than slices of one, because place, density and size must not
- * correlate: a size drawn from the same bits as the yaw stripes the forest into bands. */
 constexpr uint64_t kStreamsPerCell = 3;
 
 float Unit24(uint64_t bits) { return (float)(bits & 0xFFFFFFu) * (1.0f / 16777216.0f); }
 float Unit16(uint64_t bits) { return (float)(bits & 0xFFFFu) * (1.0f / 65536.0f); }
 
-/* Triangular rather than normal, because the distribution ends HARD at mu +- 2.449 sigma: over
- * 166 000 stands a normal draw certainly produces a 4-sigma tree, and in the picture that is a
- * defect and not spread. 2.4494897 = 1/sqrt(2/12), the standard deviation of the sum of two
- * uniforms. */
 float SizeFactor(uint64_t bits, float sigma) {
   return 1.0f + sigma * (Unit16(bits) + Unit16(bits >> 16) - 1.0f) * 2.4494897f;
 }
 
-} // namespace
+}
 
 Forest::Forest(const Stem &stem, Span<const float> perM2ByRow, const AlpineLimit &limit)
     : Stem_(stem), PerM2_(perM2ByRow), Limit_(limit) {}
@@ -65,9 +59,7 @@ Forest::Outcome Forest::Consider(const Ground &ground, const Lattice &lattice, C
   if (Unit24(draw) > (float)((double)perM2 * lattice.Em * lattice.Nm)) return Outcome::DensityDraw;
 
   const double aslM = ground.HeightAslM(eastM, northM);
-  /* The jitter's frame is the anchor's own metres, so it wanders across a region border instead of
-   * repeating with it; the anchor's latitude carries the treeline, which falls 58.8 m per degree and
-   * therefore by under a metre over one region. */
+
   const double latDeg = region.AnchorLat();
   const double jitterE = Wrap180(region.AnchorLon()) * kMPerDeg * std::cos(latDeg * kDeg2Rad);
   const double jitterN = latDeg * kMPerDeg;
@@ -78,8 +70,7 @@ Forest::Outcome Forest::Consider(const Ground &ground, const Lattice &lattice, C
                                (double)ground.Table().At((size_t)row).SlopeMaxDeg);
   if (woody <= 0.0) return Outcome::AboveTreeline;
   if (steep >= 1.0) return Outcome::TooSteep;
-  /* ONE DRAW AGAINST ONE FRACTION: two would let a stand survive the treeline only to be counted
-   * again against the wall. */
+
   if ((double)Unit24(draw >> 24) >= woody * (1.0 - steep)) return Outcome::WoodyDraw;
 
   const float size = SizeFactor(region.Seed(index * kStreamsPerCell + 2), Stem_.HeightSigma);
@@ -110,19 +101,13 @@ void Forest::Occupy(const Ground &ground, Yield &yield) const noexcept {
         case Outcome::Placed: break;
       }
       const Claim claim = yield.Place(body);
-      /* The scan is row major, so carrying on past a full sink would end the forest on one lattice
-       * row — a straight east-west edge in the picture. The count travels out in the yield and the
-       * engine refuses the whole region on it. */
+
       if (claim.Why() == Claim::Outcome::Full) return;
       if (claim.Why() == Claim::Outcome::Placed) yield.Raise(HighestStandAslM, body.BaseAslM);
     }
   }
 }
 
-/* Every cell of the region draws once against the densest declared row, so what stands is a sum of
- * Bernoulli trials and its spread is that sum's own. Eight standard deviations over the mean is a
- * margin no draw reaches at a hundred thousand cells; what passes it is a table declaring more than
- * the budget holds, and that is a refusal rather than a number to widen. */
 uint32_t Forest::Proposes(double areaM2) const noexcept {
   double densest = 0.0;
   for (size_t i = 0; i < PerM2_.Size(); i++)
@@ -143,4 +128,4 @@ bool Forest::At(const Ground &ground, double eastM, double northM, Body *out) co
   return Consider(ground, lattice, cell, out) == Outcome::Placed;
 }
 
-} // namespace outshine::Generators
+}

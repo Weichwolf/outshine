@@ -17,7 +17,7 @@ const char *PathName(AnimationPath path) {
   return "unknown";
 }
 
-} // namespace
+}
 
 bool Pose::Build(const Document &document, int animation, Pose &out, std::string &error) {
   const int one[1] = {animation};
@@ -52,11 +52,7 @@ bool Pose::Build(const Document &document, Span<const int> animations, Pose &out
     }
     for (size_t at = 0; at < 4; ++at) { held.Rotation[at] = source.Rotation[at]; }
     for (size_t at = 0; at < 16; ++at) { held.Matrix[at] = source.Matrix[at]; }
-    /* THE NODE'S MORPH WEIGHTS AND THEIR REST VALUES (board:1203). The count is the mesh's, because
-     * glTF puts the targets on the primitive and the weights on the mesh, and the reader has already
-     * refused a mesh whose primitives disagree about the count. An absent `mesh.weights` is the
-     * format's zeros, which is what an empty `Weights` means and why the resize below states it once
-     * rather than at every reader of the run. */
+
     held.WeightFirst = document.MorphWeightsFirst(node);
     held.WeightCount = document.MorphWeightsCount(node);
     for (size_t at = 0; at < held.WeightCount; ++at) {
@@ -67,14 +63,7 @@ bool Pose::Build(const Document &document, Span<const int> animations, Pose &out
 
   bool first = true;
   std::vector<double> times, values;
-  /* WHICH ANIMATION CLAIMED A NODE'S PATH, so a second claim is refused by name rather than resolved
-   * by order. The format leaves two animations on one property undefined; deciding it here would be
-   * this engine inventing a rule the file does not carry. */
-  /* WHAT A CHANNEL DRIVES, AND IT IS NOT ALWAYS A NODE (board:1392). A `KHR_animation_pointer`
-   * channel names no node at all -- the extension states the `node` property MUST NOT be set -- so a
-   * key of `(node, path)` would read every material channel in a file as one and the same claim and
-   * refuse the second. What identifies a claim is the thing driven: a node and its path, or a
-   * material and its factor. */
+
   struct Claim {
     int Node = -1;
     AnimationPath Path = AnimationPath::Translation;
@@ -87,25 +76,16 @@ bool Pose::Build(const Document &document, Span<const int> animations, Pose &out
   const int animation = animations[which];
   const Animation &what = declared[(size_t)animation];
   for (const AnimationChannel &channel : what.Channels) {
-    /* **A CHANNEL DRIVES A NODE OR IT DRIVES A MATERIAL, AND ONLY ONE OF THOSE HAS A NODE**
-     * (board:1392). Every check between here and the sampler is about a node, and a pointer channel
-     * has none by the extension's own rule -- so guarding them as one is what let `Node < 0` swallow
-     * every material channel before it could be held. [MEASURED] `FactorsAt` was unreachable code:
-     * it answered nothing for a file whose animation resolved perfectly, because the pose had
-     * dropped the channel one function earlier. */
+
     const bool drivesMaterial = channel.Path == AnimationPath::MaterialFactor;
-    /* THE FORMAT'S OWN "IGNORE THIS ONE": a channel with no node is defined as skipped rather than
-     * as an error, so it is not a refusal here either. */
+
     if (!drivesMaterial && channel.Node < 0) { continue; }
     if (!drivesMaterial && (size_t)channel.Node >= document.Nodes().size()) {
       error = document.Path() + ": animation channel targets node " +
               std::to_string(channel.Node) + ", which the file does not carry";
       return false;
     }
-    /* THE REFUSAL THAT STOOD HERE IS GONE WITH ITS CAUSE (board:1203). It read *a pose writes node
-     * transforms only*, which was true of a pose that carried none. What survives is narrower and
-     * is about the FILE: a weights channel driving a node whose mesh has no morph target drives
-     * nothing, and the format gives its keyframes no length. */
+
     if (!drivesMaterial && channel.Path == AnimationPath::Weights &&
         out.Nodes_[(size_t)channel.Node].WeightCount == 0) {
       error = document.Path() + ": animation channel targets the morph weights of node " +
@@ -148,10 +128,7 @@ bool Pose::Build(const Document &document, Span<const int> animations, Pose &out
               " values, which do not describe a curve";
       return false;
     }
-    /* THE CURVE'S WIDTH IS THE MESH'S TARGET COUNT, and `Track` derived it from the run rather than
-     * from the path, which cannot answer it. A file whose weights run divides to a different number
-     * is refused HERE, where the mesh is in scope: 127 keyframes and 254 values is two targets, and
-     * a mesh with three would be a keyframe run that silently drives the wrong ones. */
+
     if (channel.Path == AnimationPath::Weights &&
         held->Curve.Components() != out.Nodes_[(size_t)channel.Node].WeightCount) {
       error = document.Path() + ": the weights channel of node " + std::to_string(channel.Node) +
@@ -182,15 +159,7 @@ bool Pose::Build(const Document &document, Span<const int> animations, Pose &out
     out.Channels_.push_back(std::move(held));
   }
   }
-  /* AN ANIMATION THIS ENGINE CANNOT DRIVE IS A STILL AND NOT A REFUSAL (board:1392). It was a refusal
-   * while every channel a file could declare was a node channel, so an empty result meant the file
-   * was self-contradictory. `KHR_animation_pointer` broke that: a file may drive nothing BUT
-   * materials, and every one of those channels is legitimately undriven here -- the reader counts
-   * them and names their pointers, so the shortfall is published rather than lost.
-   *
-   * WHAT IS RETURNED IS THE REST POSE, which is the file's own placement of every node, and that is
-   * exactly what glTF says a client that ignores animations shows. **A subject that stands still is a
-   * picture; a subject that refuses is a hole.** */
+
   return true;
 }
 
@@ -205,15 +174,7 @@ void Pose::At(double seconds, std::vector<Transform> &locals, std::vector<double
         case AnimationPath::Translation: channel->Curve.At(seconds, posed.Translation); break;
         case AnimationPath::Rotation: channel->Curve.At(seconds, posed.Rotation); break;
         case AnimationPath::Scale: channel->Curve.At(seconds, posed.Scale); break;
-        /* `Build` has already refused a width that disagrees with the mesh, so this writes exactly
-         * the node's own slice and no bound needs re-checking on the frame path. */
-        /* A MATERIAL FACTOR IS NOT A POSE AND REACHES NO NODE (board:1392). A pointer channel names
-         * no node at all -- the format forbids it -- so this arm is unreachable through the `Node`
-         * test above and exists to say the enumeration was ANSWERED rather than defaulted. What a
-         * consumer does with an animated material row is its own question and not this pose's. */
-        /* ANSWERED BY `FactorsAt` AND NOT HERE (board:1392). A pointer channel names no node, so it
-         * is unreachable through the `Node` test above; the arm stays so the enumeration is answered
-         * rather than defaulted. */
+
         case AnimationPath::MaterialFactor: break;
         case AnimationPath::Weights:
           channel->Curve.At(seconds, &weights[posed.WeightFirst]);
@@ -233,10 +194,7 @@ void Pose::FactorsAt(double seconds, std::vector<FactorAt> &factors) const {
     FactorAt sampled;
     sampled.Material = channel->Material;
     sampled.Factor = channel->Factor;
-    /* THE SAME `Track` THE FOUR NODE PATHS USE, which is the whole of what this item asked for: a
-     * pointer that resolves is animated by the machinery already here rather than by a second
-     * sampler beside it. The curve's width was derived from the run at `Build`, and the factor's own
-     * width bounds the write. */
+
     double all[4] = {0, 0, 0, 0};
     channel->Curve.At(seconds, all);
     const size_t width = FactorComponents(channel->Factor);
@@ -247,4 +205,4 @@ void Pose::FactorsAt(double seconds, std::vector<FactorAt> &factors) const {
   }
 }
 
-} // namespace outshine::Gltf
+}

@@ -46,31 +46,22 @@ TREE = "https://api.github.com/repos/KhronosGroup/glTF-Asset-Generator/git/trees
 BLOB = "https://github.com/KhronosGroup/glTF-Asset-Generator/blob/"
 ROOT = "Output/Positive"
 
-# THE FIVE GROUPS THAT ANIMATE, named because the repository holds twenty-six and the other twenty-one
-# are about materials, meshes and textures this corpus reaches by other cases. `Animation_SamplerType`
-# carries the interpolation kinds and belongs with the other four.
 GROUPS = ("Animation_Node", "Animation_NodeMisc", "Animation_SamplerType", "Animation_Skin",
           "Animation_SkinType")
 
-# THE PROJECT'S OWN LICENCE, and it is declared here because this vendor publishes no per-model
-# metadata for it to be derived from -- which is the arm `_check_licences` takes for every kind that is
-# not `khronos-sample-assets`.
 LICENCE = [{"spdx": "Apache-2.0", "holder": "The Khronos Group Inc.",
             "covers": "Everything",
             "statedAt": "https://github.com/KhronosGroup/glTF-Asset-Generator/blob/main/LICENSE"}]
 
-# ONE ROW OF A GROUP'S TABLE: the model number, then the cells that say what it varies.
 ROW = re.compile(r"^\|\s*\[(\d+)\]\([^)]*\)(?:<br>\[View\]\([^)]*\))?\s*\|(.*)\|\s*$", re.M)
 HEADER = re.compile(r"^\|\s*\|(.*)\|\s*$", re.M)
 CELL_LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 CELL_IMAGE = re.compile(r"<img[^>]*>")
 
-
 def _get(url, binary=False):
     with urllib.request.urlopen(url, timeout=60) as response:
         raw = response.read()
     return raw if binary else raw.decode("utf-8", "replace")
-
 
 def models_in(commit, group):
     """Every `.gltf` the group holds at the pin, with the files each one needs, exhaustively."""
@@ -88,11 +79,6 @@ def models_in(commit, group):
         if not path.endswith(".gltf") or "/" in path:
             continue
         stem = path[:-len(".gltf")]
-        # **WHAT A MODEL NEEDS IS WHAT IT SAYS IT NEEDS, read from the file rather than guessed from a
-        # name.** These models reference their buffers and images by URI, and the images sit in a
-        # `Textures/` directory beside them -- a prefix match over the listing would have found the
-        # buffer and silently missed every texture, which is a case that renders untextured and says
-        # nothing about it.
         document = json.loads(_get(RAW + commit + "/" + ROOT + "/" + group + "/" + path))
         needed = [path]
         for section in ("buffers", "images"):
@@ -108,24 +94,10 @@ def models_in(commit, group):
                                   why="a model whose own references do not resolve is not a case")
                 if reference not in needed:
                     needed.append(reference)
-        # **A MATERIAL WITH NO NAME IS KEYED THE WAY THE ORACLE NAMES IT.** These models leave
-        # `materials[].name` out, and Blender's glTF importer calls an unnamed material `Material_<i>`.
-        # That is an assumption about the oracle's importer and it is SELF-CHECKING: the material arm
-        # refuses by name when the scene carries a material the manifest does not declare, so a changed
-        # convention stops the preparation rather than rendering something nobody declared.
         buffers = [_get(RAW + commit + "/" + ROOT + "/" + group + "/" +
                         urllib.parse.unquote(entry["uri"]), binary=True)
                    for entry in document.get("buffers", []) if entry.get("uri")]
         moves, ends = motion_of(document, buffers)
-        # **A FILE THAT CARRIES AN ANIMATION DECLARES ONE EVEN WHEN IT CANNOT MOVE** (board:1458).
-        # Blender applies what the file carries; this engine poses what the MANIFEST declares -- so a
-        # case that stayed silent about a constant channel put the oracle on the animated pose and us
-        # on the rest pose, and the two were comparing different bodies. [MEASURED]
-        # `Animation_NodeMisc_03` keys one frame at [-0.1, 0, 0] and its vertex 6 then sat inside the
-        # camera's near plane; `_05` overrides a rotation to a constant and disagreed outright.
-        #
-        # WHAT MOVING DECIDES IS THE GRID'S LENGTH AND NOT ITS EXISTENCE: two frames where the pose
-        # changes, one where it cannot.
         animates = len(document.get("animations", [])) > 0
         moves = moves and ends > 0.0
         names = [material.get("name") or ("Material_" + str(at))
@@ -133,12 +105,10 @@ def models_in(commit, group):
         out.append((stem, needed, names, animates, moves, ends))
     return out
 
-
 def _cells(text):
     text = CELL_IMAGE.sub("", text)
     text = CELL_LINK.sub(r"\1", text)
     return [cell.strip() for cell in text.split("|")]
-
 
 def says(commit, group):
     """What each model of the group varies, read from the group's own table.
@@ -162,7 +132,6 @@ def says(commit, group):
         stated[match.group(1)] = ", ".join(pairs)
     return stated
 
-
 def _fetched(commit, group, name, payload):
     return {
         "url": RAW + commit + "/" + ROOT + "/" + group + "/" + name,
@@ -173,7 +142,6 @@ def _fetched(commit, group, name, payload):
                  else "buffer" if name.endswith(".bin") else "image"),
         "licence": LICENCE,
     }
-
 
 def _accessor(document, buffers, index):
     """One accessor's values, read out of the buffer the file names.
@@ -187,10 +155,6 @@ def _accessor(document, buffers, index):
     payload = buffers[view.get("buffer", 0)]
     start = view.get("byteOffset", 0) + accessor.get("byteOffset", 0)
     wide = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}[accessor["type"]]
-    # **THE COMPONENT TYPE IS THE FILE'S AND NOT ASSUMED FLOAT.** `Animation_SamplerType` is a whole
-    # group about exactly this: a rotation may arrive as normalized bytes or shorts, and a reader that
-    # unpacked four floats out of a four-BYTE element walked off the end of the buffer -- which is what
-    # said so. The scale is glTF's own for a normalized integer.
     code, symbol, size, scale = {
         5120: ("b", "b", 1, 127.0), 5121: ("B", "B", 1, 255.0),
         5122: ("h", "h", 2, 32767.0), 5123: ("H", "H", 2, 65535.0),
@@ -203,7 +167,6 @@ def _accessor(document, buffers, index):
         raw = struct.unpack_from("<%d%s" % (wide, symbol), payload, start + at * step)
         out.append(tuple(max(value / scale, -1.0) if normalized else float(value) for value in raw))
     return out
-
 
 def motion_of(document, buffers):
     """Whether the animation can move the subject at all, and the last instant it is keyed at.
@@ -225,23 +188,6 @@ def motion_of(document, buffers):
                 moves = True
     return moves, (max(ends) if ends else 0.0)
 
-
-# THE GRID EVERY CASE IS DECIDED ON, and it is read from the corpus rather than assumed (board:1466).
-#
-# [MEASURED] the generator keys at 0, 1 and 2 seconds in some models and from 2 to 6 in others, and
-# four do not start at zero at all. A fixed two-frame grid sampled twice inside one step of a STEP
-# curve; the span's END is where a rotation comes back; a fractional rate reaches the middle and the
-# ORACLE'S IMPORTER CANNOT READ ONE (board:1470). What is left is the corpus's own currency: one frame
-# a second, and as many of them as it takes to reach the middle of the keyed span.
-#
-# [MEASURED] the generator keys its animations at **0, 1 and 2 seconds** -- not at one second, which is
-# what this constant first said. At 2 fps the grid was 0 s and 0.5 s, and for a STEP interpolation a
-# step holds until its next key, so both samples were the same pose: `Animation_Node_03` reported *0
-# frames whose picture differs from frame 0* and was right to.
-#
-# [SET] 1 fps and two frames, so the grid is 0 s and 1 s -- two DISTINCT keyframes, which differ under
-# every interpolation the corpus carries. The period is 2 s and its endpoints are 0 s and 2 s, so this
-# grid is not `AnimatedTriangle`'s trap of comparing a pose with itself across a full period.
 FPS = 1
 FRAMES = 2
 
@@ -262,12 +208,7 @@ RECIPE = {
             "same picture.",
 }
 
-
-# [SET] WHAT EVERY MATERIAL EMITS. One colour for all of them, because what a pose case decides is
-# WHERE the geometry is: two colours would put a second question -- which material a facet wears -- in
-# the same picture, and that question has its own cases.
 EMISSION = [0.85, 0.15, 0.15]
-
 
 def case(commit, group, name, files, materials, animates, moves, ends, stated, pinned_on,
          pin_reason, measured=None):
@@ -343,9 +284,6 @@ def case(commit, group, name, files, materials, animates, moves, ends, stated, p
             "material": {
                 "source": "manifest",
                 "kind": "emission-per-material",
-                # `<default>` IS DECLARED ONLY WHERE A PRIMITIVE SELECTS NO MATERIAL, because the
-                # arm refuses in BOTH directions: a colour for a material the scene does not carry is
-                # as much a defect as a material the manifest does not declare.
                 "colourLinearPerMaterial": ({material: EMISSION for material in materials}
                                             if materials else {"<default>": EMISSION}),
                 "note": "Emission, one colour per glTF material, keyed by the name the FILE gives it. "
@@ -410,7 +348,6 @@ def case(commit, group, name, files, materials, animates, moves, ends, stated, p
         },
     }
 
-
 def measured_fraction(root, name):
     """The frame fraction a previous generation pinned, or None where the case is new."""
     path = os.path.join(root, name, "manifest.json")
@@ -420,7 +357,6 @@ def measured_fraction(root, name):
         declared = json.load(f)
     stated = declared.get("expected", {}).get("subjectFrameFraction", {})
     return stated.get("value") if stated.get("origin") == "measured" else None
-
 
 def write(declaration, root, name):
     directory = os.path.join(root, name)

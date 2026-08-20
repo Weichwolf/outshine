@@ -17,63 +17,19 @@ from .refusal import Refusal
 SCHEMA = schema.SCHEMA
 SCHEMA_VERSION = schema.SCHEMA_VERSION
 
-# The runner writes these. The preparer refuses to name them, so a collision has no spelling here.
-# Exactly two pictures live in a case directory and the test writes BOTH of them, out of the two
-# buffers it computes the score on -- so this preparer produces no image at all. It used to write
-# the reference through Blender's own PNG path, which was a second encoding of an image the float
-# dump already carried, with a second set of colour-management settings to keep honest and nobody
-# checking that the picture and the number agreed. A third image of any kind is what this set exists
-# to prevent.
 RESERVED_OUTPUT_NAMES = frozenset(["0-reference.png", "1-outshine.png", "outshine.exr",
                                    "outshine.raw", "provenance.json"])
 
 DEFAULT_RECIPE_NAME = "default"
 
-# THE QUANTITIES THE ORACLE IS ASKED FOR BESIDES THE PICTURE. Cycles has answered one question until
-# now -- is this IMAGE right -- and a whole-image tail cannot say WHICH term of a shading model is
-# wrong. It has render passes, so it can answer `is this QUANTITY right`, and each row turns a band
-# of the tail into an attribution. A third quantity is a ROW HERE and not another round, which is the
-# whole reason this is a table.
-#
-# Every one lands in the same `OSRAWF32` layout as the picture, through the same reader, so no
-# quantity gets a format of its own.
-#
-# THE SET IS WHAT A TEST READS TODAY, and the rule is a measured one rather than a preference: an
-# invalidation costs ~5 minutes and a channel costs ~15 MB per case per recipe, so ADDING a channel
-# is cheap and HOLDING one is not. Eighteen channels measured 293 MB a case and 19.9 GB across the
-# corpus, which is a constraint on a 50 GB disk; three is a rounding error. A channel arrives when a
-# test reads it.
-#
-# DROPPED WITH THEIR REASONS, so the next round does not rediscover them:
-#   depth      -- the router's WEAKER implementation; index is exact and no test reads depth today.
-#   position, uv, ambientOcclusion         -- no bound derivable from named terms, nothing reads them.
-#   diffuse/glossy/transmission {Color, Direct, Indirect}, emission, environment -- these attribute
-#                 the six unattributed cases and are the first expected back. NEXT round's
-#                 justification, not this round's speculation.
-#   roughness  -- Cycles publishes NO roughness pass; measured on this host, there is no
-#                 `use_pass_roughness` among the view layer's flags. It would need a SHADER AOV wired
-#                 into every material, where a material the wiring missed reports zero and zero reads
-#                 as an answer -- the same defect `objectIndex` was caught with. Needs a
-#                 wiring-completeness check first, and that is its own item.
 QUANTITY_PASSES = {
-    # WHAT THE SHADING DISAGREEMENT IS ABOUT: a highlight measured 4.2-10.3 degrees out of place, and
-    # inferring a normal from where a highlight landed is not a measurement of a normal.
     "normal": {"socket": "Normal", "viewLayerFlag": "use_pass_normal"},
-    # THE ROUTER'S PREDICATE. The picture bound asks `is this pixel covered` when the question is
-    # `WHAT covers it`, and a surface swap read as 209 codes for want of this.
     "materialIndex": {"socket": "Material Index", "viewLayerFlag": "use_pass_material_index"},
     "objectIndex": {"socket": "Object Index", "viewLayerFlag": "use_pass_object_index"},
-    # WHERE THE SURFACE WAS SAMPLED (board:1126). The shading disagreement is now known to be a
-    # magnitude and not an orientation -- the tangential direction agrees to a fiftieth of a degree
-    # while the tilt does not -- and the leading candidate is that we point-sample a 2048-square normal
-    # map under heavy minification while Cycles filters over the ray footprint. Testing that needs the
-    # uv the tap was taken at, and with it the footprint-averaged tap is computable on the CPU from the
-    # texture already on disk: no attachment, no shader change.
     "uv": {"socket": "UV", "viewLayerFlag": "use_pass_uv"},
 }
 SEED_SHIFT_RECIPE_NAME = "seed-shift"
 RECIPE_NAME = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
-
 
 def load(path):
     try:
@@ -82,7 +38,6 @@ def load(path):
     except (OSError, ValueError) as error:
         raise Refusal("manifest " + path, why=str(error))
     return Manifest(document, os.path.dirname(os.path.abspath(path)))
-
 
 class Manifest:
     def __init__(self, document, directory):
@@ -93,13 +48,8 @@ class Manifest:
         self.covers = self.document["covers"]
         self.criterion = self.document["criterion"]
         self.subjects = _subjects(self.document["subjects"])
-        # A UI CASE HAS NO ORACLE AND SO NO ORACLE POLICY. Everything below this line is about asking
-        # Blender a question, and a document that states its own layout asks nobody: it is fetched
-        # like any other subject and decided by the test that reads it.
         self.oracle = self.document["schema"] == "outshine/render-oracle-manifest"
         if not self.oracle:
-            # A SCRIPT DRAWS NOTHING AND SAYS SO BY CARRYING NO VIEWPORT. A surface a case never asked
-            # for would be a number about a picture that does not exist.
             self.viewport = self.document.get("viewport")
             self.blender_version = None
             self.scene = None
@@ -116,12 +66,7 @@ class Manifest:
         self.renders = _renders(self.document["renders"])
         _seed_shift(self.scene.material, self.renders, self.scene.light)
         self.subject_class = self.document["subjectClass"]
-        # The class the case claims for its placement, and both arms owe an argument: `exact` says
-        # what carries the construction, `general-position` says why it cannot. Which one the runner
-        # then ENFORCES is the runner's, the same way the thresholds are.
         self.acceptance_class = self.document["acceptanceClass"]["is"]
-        # THE THRESHOLDS ARE THE RUNNER'S, NOT THIS FILE'S. Stated before the run and read from
-        # there, so a number cannot be edited to match a result.
         self.expected = self.document.get("expected", {})
         self.acceptance = self.document.get("acceptance", {})
         self.identical_coverage = _identical_coverage(
@@ -137,7 +82,6 @@ class Manifest:
                     why="those names belong to the test that reads this directory",
                 )
         _check_names(self.subjects)
-
 
     def frame_grid(self):
         """Which frames this case is judged at, in order. `[None]` is a still and is the whole
@@ -162,7 +106,6 @@ class Manifest:
         return [s.conversion.settings["outputName"] if s.kind == "blend" else s.entry
                 for s in self.subjects]
 
-
 def output_names_for(recipe_name, frame=None):
     """The float pair a recipe leaves behind: the EXR the score was defined on and the flat f32 dump
     a C++ reader can be twenty lines long for. No picture -- both pictures are the runner's.
@@ -177,18 +120,12 @@ def output_names_for(recipe_name, frame=None):
     if frame is not None:
         suffix += ".f%04d" % frame
     names = {"exr": "oracle" + suffix + ".exr", "raw": "oracle" + suffix + ".raw"}
-    # THE QUANTITIES BELONG TO THE DEFAULT RECIPE ONLY, and that is a cost decision with a measured
-    # number behind it: a quantity's raw is an uncompressed f32 plane at 14.75 MB, eighteen of them
-    # is 265 MB per recipe per case, and the OTHER recipes exist to re-render the PICTURE -- the
-    # seed-shift pair proves the beauty is deterministic, the coverage recipe raises its sample
-    # count. Nothing reads a second seed's normal, so nothing writes one.
     if recipe_name != DEFAULT_RECIPE_NAME:
         return names
     for quantity in QUANTITY_PASSES:
         names[quantity + "Exr"] = "oracle." + quantity + suffix + ".exr"
         names[quantity + "Raw"] = "oracle." + quantity + suffix + ".raw"
     return names
-
 
 def _check_names(subjects):
     """One file per name in a case directory, whatever produced it."""
@@ -211,14 +148,12 @@ def _check_names(subjects):
                               observed=subject.conversion.settings["outputName"])
             seen[subject.conversion.settings["outputName"]] = subject.id
 
-
 def _subjects(value):
     subjects = [_Subject(i, v) for i, v in enumerate(value)]
     identifiers = [s.id for s in subjects]
     if len(set(identifiers)) != len(identifiers):
         raise Refusal("manifest.subjects", expected="distinct ids", observed=", ".join(identifiers))
     return subjects
-
 
 class _Subject:
     def __init__(self, index, field):
@@ -235,8 +170,6 @@ class _Subject:
         self.entry = field["entry"]
         self.attributes = field.get("attributes", [])
         self.notes = field.get("notes", "")
-        # A DECLARED CORRECTION ON TOP OF THE VERIFIED UPSTREAM BYTES, or None. The pin above is
-        # untouched by it, which is the whole shape: the fetch still checks upstream's digest.
         self.patch = field.get("patch")
         self.conversion = _Conversion(where, field["conversion"]) if "conversion" in field else None
         for position, file in enumerate(self.files):
@@ -263,7 +196,6 @@ class _Subject:
                 return file
         return None
 
-
 class _Scene:
     """What is declared beside the glTF because it must never cross it."""
 
@@ -272,22 +204,8 @@ class _Scene:
         self.light = field["light"]
         self.world = field["world"]
         self.material = field["material"]
-        # THE GRID THIS CASE IS JUDGED ON, or None for a still. The FRAME is not here: it varies per
-        # render and travels in the key beside this, so what a scene declares is the grid and what a
-        # product declares is which frame of it.
         self.animation = field.get("animation")
-        # WHICH `KHR_materials_variants` VARIANT BOTH SIDES RENDER, or None for the extension's own
-        # default (board:1188). It is a NAME, so the oracle resolves it against the file it imported
-        # rather than against a position in a list this declaration would have to keep in step with.
         self.material_variant = field.get("materialVariant")
-        # THE REFUSAL THAT USED TO LIVE HERE IS GONE BECAUSE ITS CAUSE IS (board:1198). It read
-        # `index` must be 0, because Blender's importer makes the file's first animation the active
-        # one and a second index would have rendered animation 0 while reporting the other. That was
-        # a fact about the IMPORTED ACTION, and no imported action reaches the render any more: the
-        # preparer writes an exact key at every rendered frame for every channel of every DECLARED
-        # animation, from the file's own accessor bytes. What survives is the narrower claim below --
-        # a set that names one animation twice is a declaration that cannot be honoured, because the
-        # two copies drive the same node's same path and the format states no result for that.
         if self.animation is not None:
             seen = self.animation["animations"]
             if len(set(seen)) != len(seen):
@@ -296,26 +214,10 @@ class _Scene:
                               why="one animation named twice drives every node it touches twice, "
                                   "and glTF states no result when two channels target one node's "
                                   "one path")
-        # **A ONE-FRAME ANIMATION IS A DECLARATION AND NOT A STILL** (board:1465, board:1469). This
-        # refused `frames < 2` because *one frame of an animation is a still that renders the pose at
-        # t=0 and passes every frame-by-frame comparison* -- which was true while the runner decided
-        # whether to POSE from the frame count. It does not any more: a case that names `animations` is
-        # posed by them at every frame of its grid, including a grid of one.
-        #
-        # AND THE ONE-FRAME GRID IS WHAT SOME FILES NEED. A glTF may carry an animation whose channels
-        # cannot change the pose -- a single keyframe, or an override to a constant -- and the ORACLE
-        # applies what the file carries whatever the manifest says. A case that stayed silent about
-        # such an animation put Blender on the animated pose and this engine on the rest pose, and the
-        # two compared different bodies; declaring it at one frame is what makes them agree. Declaring
-        # it at TWO would render one pose twice, which the runner's sequence check refuses by name.
         if self.animation is not None and self.animation["frames"]["value"] < 1:
             raise Refusal("manifest.scene.animation.frames",
                           expected="at least 1", observed=repr(self.animation["frames"]["value"]),
                           why="a grid of no frames renders nothing and decides nothing")
-        # THE ONE NUMBER THAT COULD MAKE A DECLARED SUN AN AREA SOURCE, refused here because the sun
-        # arm no longer carries a field in which a case could admit the estimator it would get back.
-        # The runner refuses the same number when it builds its own light; this refusal is what stops
-        # the ORACLE being rendered with a disc in the first place.
         if self.light["kind"] == "sun" and self.light["angleRad"] != 0:
             raise Refusal("manifest.scene.light.angleRad", expected="0",
                           observed=repr(self.light["angleRad"]),
@@ -326,13 +228,9 @@ class _Scene:
         job = {"camera": self.camera, "light": self.light, "world": self.world, "material": self.material}
         if self.animation is not None:
             job["animation"] = self.animation
-        # ABSENT WHEN UNDECLARED AND NOT NULL IN THE KEY: this dictionary is what the oracle's cache
-        # key is derived from, so a key that gained a field would miss on every case in the corpus
-        # and re-render 37 manifests through Cycles to produce the same bytes.
         if self.material_variant is not None:
             job["materialVariant"] = self.material_variant
         return job
-
 
 def _seed_shift(material, renders, light):
     """The acceptance an emission case owes, declared rather than argued.
@@ -343,15 +241,6 @@ def _seed_shift(material, renders, light):
     the integral that survived the change. The second recipe therefore differs from the first in the
     seed and in nothing else; anything else would make the comparison a test of that too.
     """
-    # WHICH CASES OWE IT: the ones whose render has no estimator left. An emitter gathers nothing.
-    # A punctual light with no radius is a delta source, so a scene lit only by such lights and by a
-    # world of strength zero is sampled deterministically too -- the same claim, reached from the
-    # other side, and the same acceptance.
-    # A DECLARED SUN CAN NO LONGER ANSWER `selected`. The arm declares a single source, the angle is
-    # refused where the scene is read, and `no_surface_of_the_subject_is_a_light` takes the subject's
-    # own emission out of the light tree and out of every gathering ray -- so the word left the sun
-    # arm's enumeration rather than staying spellable. What the file's OWN lights bring is a
-    # different question and the `gltf` arm keeps it.
     reduced = (material.get("kind") in ("emission", "emission-per-material",
                                        "emission-by-material-index") or
                light.get("estimator") == "delta")
@@ -370,13 +259,11 @@ def _seed_shift(material, renders, light):
         raise Refusal("manifest.renders." + SEED_SHIFT_RECIPE_NAME + ".seed",
                       expected="a seed other than " + repr(default["seed"]), observed=repr(shifted["seed"]))
     for key in sorted(default):
-        # `note` is prose about the recipe and not a setting Cycles reads.
         if key not in ("seed", "note") and default[key] != shifted[key]:
             raise Refusal("manifest.renders." + SEED_SHIFT_RECIPE_NAME + "." + key,
                           expected=repr(default[key]), observed=repr(shifted[key]),
                           why="the two recipes differ in the seed, so that a difference in the "
                               "output can only be the estimator")
-
 
 def _renders(value):
     if DEFAULT_RECIPE_NAME not in value:
@@ -391,7 +278,6 @@ def _renders(value):
             raise Refusal("manifest.renders." + name, expected="lowercase, digits and hyphens", observed=name)
         _recipe("manifest.renders." + name, value[name])
     return value
-
 
 def _recipe(where, field):
     """What makes an oracle render mean anything, and each of these is refused for its own reason."""
@@ -418,7 +304,6 @@ def _recipe(where, field):
                       observed=field["pixelFilter"]["widthPx"])
     return field
 
-
 def _identical_coverage(value, subjects):
     """Files this case's own render must land in the same pixels as -- decided between two renders
     of ours, with no oracle in it at all, so the agreement is exact rather than within a tolerance.
@@ -441,7 +326,6 @@ def _identical_coverage(value, subjects):
         raise Refusal("manifest.identicalCoverage", expected="distinct names", observed=", ".join(value))
     return list(value)
 
-
 class _Conversion:
     def __init__(self, where, field):
         self.settings = field
@@ -451,9 +335,6 @@ class _Conversion:
                 expected="a name outside the reserved set",
                 observed=field["outputName"],
             )
-        # One file per conversion, so the whole product has one hash and one name in the store.
-        # GLTF_SEPARATE writes a .bin and a texture directory beside the .gltf, and a store keyed on
-        # the .gltf alone loses them -- measured: the import then fails on a missing scene.bin.
         if field["exportSettings"].get("export_format") != "GLB":
             raise Refusal(
                 where + ".conversion.exportSettings.export_format",

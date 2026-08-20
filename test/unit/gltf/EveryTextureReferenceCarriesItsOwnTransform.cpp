@@ -1,23 +1,3 @@
-/* `KHR_texture_transform` IS PER TEXTURE REFERENCE AND NOT PER MATERIAL (board:1177), and this is the
- * claim no asset in the Khronos corpus states.
- *
- * MEASURED, at the pinned commit: `TextureTransformTest` gives each of its nine materials exactly one
- * `baseColorTexture` and no other socket, and `TextureTransformMultiTest` gives each of its
- * twenty-nine materials exactly one transformed reference -- base colour on one, emissive on the next,
- * normal on the next. So the corpus separates "transformed on every socket" from "transformed on the
- * base-colour socket only", and it never separates "one transform per reference" from "one transform
- * per material", because no file in it puts two DIFFERENT transforms on two references of one
- * material. A picture cannot decide what no picture spells, so it is decided here.
- *
- * FIVE SOCKETS, FIVE DIFFERENT TRANSFORMS, ONE MATERIAL. An engine carrying a single transform per
- * material returns one of the five for all of them, whichever it happened to keep, and every one of
- * the five claims below fails. An engine that reads the file's structure returns five.
- *
- * AND THE OVERRIDE IS THE OTHER HALF OF THE SAME SENTENCE. The extension's own `texCoord` REPLACES the
- * `textureInfo`'s when supplied and is silent when it is not, so both directions are stated: a
- * reference whose textureInfo names set 1 and whose extension names set 0 reads set 0, and one whose
- * extension names no set keeps what the textureInfo said. A reader that merged the two fields, or
- * preferred the wrong one, passes exactly half of that. */
 #include <cmath>
 #include <cstdint>
 #include <string>
@@ -33,8 +13,6 @@ using outshine::Gltf::Document;
 using outshine::Gltf::MaterialRef;
 using outshine::Gltf::TextureRef;
 
-/* One document carrying one texture and whatever materials the caller spells, read from bytes: the
- * claim is about decoding and a temporary file would put a filesystem in the way of it. */
 bool Reads(const std::string &materials, Document &into) {
   const std::string text =
       "{\"asset\":{\"version\":\"2.0\"},"
@@ -49,7 +27,7 @@ std::string Transformed(const char *offsetU, const char *rotation) {
          offsetU + ",0.0],\"rotation\":" + rotation + "}}}";
 }
 
-constexpr double kTolerance = 5.9604644775390625e-08; /* half an f32 ulp at 1.0 */
+constexpr double kTolerance = 5.9604644775390625e-08;
 
 void CarriesOffsetAndTurn(const TextureRef &reference, double offsetU, double rotationRad,
                           const char *socket) {
@@ -60,19 +38,17 @@ void CarriesOffsetAndTurn(const TextureRef &reference, double offsetU, double ro
   CHECK_NEAR(reference.Transform.M[0], std::cos(rotationRad), kTolerance, "uv per uv",
              (std::string("and its own rotation: an engine keeping one transform per material would "
                           "answer another socket's turn on the ") + socket).c_str());
-  /* THE SIGNED HALF OF THE TURN AND NOT ONLY ITS COSINE, which is even, so a flipped rotation would
-   * otherwise pass every claim in this file (`core/UvTransform.h` holds WHICH sign is right). */
+
   CHECK_NEAR(reference.Transform.M[3], -std::sin(rotationRad), kTolerance, "uv per uv",
              (std::string("and carries the turn with its sign on the ") + socket).c_str());
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
   Covers("board:1177");
 
-  /* ONE MATERIAL, FIVE SOCKETS, FIVE DISTINCT TRANSFORMS. */
   Document five;
   const bool read = Reads(
       "{\"pbrMetallicRoughness\":{\"baseColorTexture\":" + Transformed("0.1", "0.11") +
@@ -92,8 +68,6 @@ int main() {
     CarriesOffsetAndTurn(material.Emissive, 0.5, 0.55, "emissiveTexture");
   }
 
-  /* A REFERENCE THAT DECLARES NOTHING CARRIES THE IDENTITY, beside one that declares something -- so
-   * the untransformed socket of a transformed material is not swept up by its neighbour either. */
   Document mixed;
   CHECK(Reads("{\"pbrMetallicRoughness\":{\"baseColorTexture\":" + Transformed("0.25", "0.5") +
                   "},\"emissiveTexture\":{\"index\":0}}",
@@ -108,7 +82,6 @@ int main() {
     }
   }
 
-  /* THE `texCoord` OVERRIDE, BOTH DIRECTIONS. */
   Document overridden;
   CHECK(Reads("{\"pbrMetallicRoughness\":{\"baseColorTexture\":{\"index\":0,\"texCoord\":1,"
               "\"extensions\":{\"KHR_texture_transform\":{\"texCoord\":0}}}}}",
@@ -130,9 +103,6 @@ int main() {
           "override is not a reset to zero");
   }
 
-  /* A PRESENT VALUE THAT IS NOT WHAT THE EXTENSION DEFINES IS REFUSED AND NEVER DEFAULTED, the same
-   * rule `emissiveStrength` already carries: `Num(def)` answers the default for a string and an
-   * object alike, so a silent default here would be a picture nobody could trace to the file. */
   const struct {
     const char *Spelling;
     const char *What;
@@ -163,9 +133,6 @@ int main() {
           "and the refusal names the extension, so the sentence says which field was wrong");
   }
 
-  /* AND THE FILE THAT REQUIRES IT NOW LOADS, which is the other half of implementing an extension:
-   * `TextureTransformMultiTest` lists it in `extensionsRequired`, so until this round it was refused
-   * by name and no picture of it existed at all. */
   Document required;
   const std::string text =
       "{\"asset\":{\"version\":\"2.0\"},"

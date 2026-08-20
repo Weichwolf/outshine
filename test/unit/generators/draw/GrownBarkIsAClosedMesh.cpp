@@ -1,13 +1,3 @@
-/* THE DECIDABLE CLASS, of which this tree had nothing: a geometric invariant needs no reference and no
- * device, and it is true or false. TreeGrower declares the bark mesh "watertight and connected by
- * construction" — that is a claim about every declaration under src/assets/world/species/, and until now
- * nothing retook it. Every species is grown at full detail and its bark is held to five invariants:
- * indices in range, no degenerate triangle, unit normals, every edge used exactly twice in opposite
- * directions, and a positive signed volume.
- *
- * THE DECLARATIONS ARE WHAT IS ON DISK. A hand-written list here would measure the species it was
- * written for and silently skip every plant added since, which is how a form nobody grew looks green.
- * The working directory is the repository root; the harness runs it there. */
 #include <dirent.h>
 
 #include <algorithm>
@@ -31,8 +21,6 @@ namespace {
 
 const char *const kSpeciesDir = "src/assets/world/species";
 
-/* What one bark mesh answered. Metres are absent on purpose: the mesh is delivered normalised, so
- * every length here is a fraction of the tree's own height and every area a fraction of its square. */
 struct BarkVerdict {
   size_t Triangles = 0;
   size_t IndexOutOfRange = 0;
@@ -40,12 +28,12 @@ struct BarkVerdict {
   size_t ZeroArea = 0;
   size_t EdgeNotUsedTwice = 0;
   size_t EdgeNotOpposed = 0;
-  double WorstNormalOff = 0.0;    /* |n| - 1 */
-  double SmallestArea = 1.0;      /* fraction of height^2 */
-  double SignedVolume = 0.0;      /* fraction of height^3, positive if wound outward */
-  double LowestY = 0.0;           /* fraction of height, 0 if the base plane is the floor */
-  size_t LooseIndices = 0;        /* indices past the last whole triangle */
-  double DeclaredExtent = 0.0;    /* the mesh's extent along the axis height_m is measured on */
+  double WorstNormalOff = 0.0;
+  double SmallestArea = 1.0;
+  double SignedVolume = 0.0;
+  double LowestY = 0.0;
+  size_t LooseIndices = 0;
+  double DeclaredExtent = 0.0;
   long EulerCharacteristic = 0;
 };
 
@@ -80,9 +68,6 @@ std::vector<std::string> DeclaredSpecies() {
   return got == (size_t)bytes;
 }
 
-/* Undirected key, with the traversal direction kept apart: a closed orientable surface uses every
- * edge exactly twice and in opposite directions, and the two failures are different defects — a hole
- * versus a flipped triangle. */
 uint64_t EdgeKey(uint32_t a, uint32_t b) {
   return a < b ? ((uint64_t)a << 32 | b) : ((uint64_t)b << 32 | a);
 }
@@ -97,10 +82,6 @@ void MeasureVertices(const TreeMesh &mesh, BarkVerdict &v) {
   }
 }
 
-/* THE OTHER HALF OF TreeMesh.h's CONTRACT — "base at y = 0, height exactly 1". The extent is taken
- * over the box, which the grower normalises by, and not over the bark: the finest shoots are leaf
- * points at a coarse rank, so the topmost bark vertex is below the top of the plant. A lying form is
- * measured along its own run, because `height_m` is its LENGTH. */
 double DeclaredExtent(const TreeSpecies &declaration, const TreeSkeleton &plant) {
   if (GrowthForm::Lying(declaration.Form().Arch)) {
     return std::max((double)plant.BoxMax.X - plant.BoxMin.X, (double)plant.BoxMax.Z - plant.BoxMin.Z);
@@ -133,8 +114,7 @@ void MeasureTriangles(const TreeMesh &mesh, BarkVerdict &v) {
     const double area = 0.5 * std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
     if (area <= 0.0) { ++v.ZeroArea; }
     v.SmallestArea = std::min(v.SmallestArea, area);
-    /* The divergence theorem over the closed surface: one number that catches a globally inverted
-     * mesh, where a per-triangle test cannot. */
+
     v.SignedVolume += ((double)a[0] * ((double)b[1] * c[2] - (double)b[2] * c[1]) -
                        (double)a[1] * ((double)b[0] * c[2] - (double)b[2] * c[0]) +
                        (double)a[2] * ((double)b[0] * c[1] - (double)b[1] * c[0])) /
@@ -151,16 +131,12 @@ void MeasureTriangles(const TreeMesh &mesh, BarkVerdict &v) {
   for (const auto &direction : directions) {
     if (direction.second != 0) { ++v.EdgeNotOpposed; }
   }
-  /* An index buffer whose length is not a multiple of three has a tail no triangle can use, and the
-   * loop above steps over it in silence; counting it is what turns that into a verdict. */
+
   v.LooseIndices = mesh.BarkIdx.size() % 3;
   v.Triangles = mesh.BarkIdx.size() / 3;
   v.EulerCharacteristic = (long)vertices - (long)uses.size() + (long)v.Triangles;
 }
 
-/* How many declarations broke each invariant, and the extremes that make a passing run worth reading.
- * Counted per species and checked once at the end, so one bad declaration names itself instead of
- * ending the sweep. */
 struct Sweep {
   size_t Declarations = 0;
   size_t Unreadable = 0, BadIndices = 0, Degenerate = 0, BadNormals = 0;
@@ -262,19 +238,17 @@ void Publish(const Sweep &sweep) {
        "of 1");
   Note(("smallest triangle area, and it is not zero, in " + sweep.SmallestIn).c_str(),
        sweep.SmallestArea, "of height^2");
-  /* chi = 2C - 2G over a closed orientable surface: a multi-stemmed shrub is several closed shells in
-   * one buffer, so this is the number that says how many, not a failure. */
+
   Note("Euler characteristic, lowest over the declarations", (double)sweep.LowestEuler, "2C - 2G");
   Note("Euler characteristic, highest over the declarations", (double)sweep.HighestEuler, "2C - 2G");
-  /* NOT A CHECK, and deliberately so: TreeMesh.h declares "base at y = 0" and seven declarations put
-   * geometry below it. Which of the two is wrong is not decided here (the bug board). */
+
   const std::string lowest =
       sweep.LowestIn.empty() ? std::string("no bark vertex below the declared base plane")
                              : "lowest bark vertex below the declared base plane, in " + sweep.LowestIn;
   Note(lowest.c_str(), sweep.LowestY, "of height");
 }
 
-} // namespace
+}
 
 int main() {
   outshine::Test::Covers("I.20 Every index in range and no degenerate triangle — the bark mesh, "

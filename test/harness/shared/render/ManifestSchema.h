@@ -1,14 +1,3 @@
-/* THE ONE DECLARATION OF WHAT A MANIFEST MAY CONTAIN, READ BY THE SIDE THAT SCORES.
- *
- * `test/harness/shared/corpus/manifest-schema.json` is the declaration and the preparer reads the same file. This
- * header is a reader and states no key, no type and no allowed value of its own: a fact it knew that
- * the file did not would be the second closed set this file exists to remove -- the preparer's set
- * and the runner's disagreed on eight of twenty-six manifests and nothing failed, because a key the
- * runner requires and the preparer refuses breaks only the preparer, silently.
- *
- * WHAT IS NOT HERE. Which lights the studio can build, which thresholds may be overridden and which
- * criterion owes which block are the runner's own statements about ITS capability, not about what a
- * manifest may say -- they stay beside the code that acts on them. */
 #ifndef RENDER_MANIFEST_SCHEMA_H
 #define RENDER_MANIFEST_SCHEMA_H
 
@@ -148,10 +137,7 @@ private:
       }
       return true;
     }
-    /* ONE OR SEVERAL, AND THE SEVERAL IS NOT A SPECIAL CASE (board:1182). A subject's file may be
-     * covered by more than one grant -- `MultiUVTest` carries a CC-BY licence and Khronos's
-     * non-copyrightable-logo mark -- and the licence check compares the SET a file declares against
-     * the set upstream's own metadata states, so a file under two has to name two. */
+
     if (declared["oneOrMore"].Valid()) {
       if (value.GetKind() != Json::Kind::Array) {
         return Value(declared["oneOrMore"], where, value, error);
@@ -195,8 +181,6 @@ private:
     return list;
   }
 
-  /* EVERY NUMBER CARRIES ITS ORIGIN (CLAUDE.md), so the shape holds the rule rather than a checker
-   * counting it: a bare float cannot be spelled where a quantity is declared. */
   [[nodiscard]] bool Quantity(const Json::Ref &inner, const std::string &where,
                              const Json::Ref &value, std::string &error) const {
     if (value.GetKind() != Json::Kind::Object) {
@@ -283,16 +267,7 @@ private:
     } else if (kind == "opaque") {
       held = value.GetKind() == Json::Kind::Object && value.Size() > 0;
     } else if (kind == "filename") {
-      /* A PATH INSIDE THE CASE DIRECTORY, NOT A PLAIN NAME, and glTF is what decides that: a file may
-       * reference `ScatteringSkull_images/aoThickness.png` or `MODEL_ROUNDED_CUBE_PART_1/indices.bin`
-       * relative to the `.gltf`, and a product placed under a flattened name is a product the reader
-       * cannot find. [MEASURED] six manifests and seventeen files at the pin. What is refused is
-       * anything that could LEAVE the directory or name it ambiguously: an absolute path, a `.` or
-       * `..` segment, an empty segment, a trailing separator, and a leading dot on the first segment.
-       *
-       * THE PREPARER SPELLS THE SAME RULE AS A REGULAR EXPRESSION and the two disagreed until now --
-       * `prep/schema.py` had been widened for this and this half had not, so a case whose preparation
-       * succeeded was refused at scoring. One rule, two languages, and the corpus is what caught it. */
+
       const std::string name = value.Str("");
       held = text && !name.empty() && name[0] != '.' && name[0] != '/' && name.back() != '/';
       for (size_t at = 0, next = 0; held && at < name.size(); at = next + 1) {
@@ -317,18 +292,12 @@ private:
   }
 };
 
-/* WHERE THE DECLARATION IS, DERIVED FROM THE CASE. § I.26.10 fixes a case at
- * `test/render/khronos/glTF/<feature>/<case>/`, so the corpus root is three directories up -- the preparer that
- * reads the same file lives there. */
 [[nodiscard]] inline std::string SchemaPathBesideCase(const std::string &caseDirectory) {
-  /* REPO-RELATIVE AND NOT A WALK UP FROM THE CASE (board:1196). The old form counted directory levels
-   * between a case and the preparer, so a corpus organised one level deeper -- which naming cases for
-   * the models they carry immediately produced -- resolved to a path that does not exist. A depth the
-   * schema does not know cannot be got wrong. */
+
   (void)caseDirectory;
   return "test/harness/shared/corpus/manifest-schema.json";
 }
 
-}  // namespace outshine::Render::Parity
+}
 
 #endif

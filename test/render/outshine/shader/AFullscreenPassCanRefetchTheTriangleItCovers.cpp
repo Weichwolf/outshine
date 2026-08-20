@@ -1,20 +1,3 @@
-/* THE ONE ASSUMPTION A VISIBILITY BUFFER RESTS ON, EXERCISED BEFORE ANYTHING IS BUILT ON IT
- * (board:1412).
- *
- * Deferred material evaluation splits the frame in two: the geometry pass writes WHICH triangle covers
- * each pixel and nothing else, and a later fullscreen pass evaluates the material. That is only cheaper
- * than shading in place if the second pass can RE-FETCH the triangle's vertices and interpolate them
- * itself -- otherwise the first pass has to write every interpolated quantity into a fat G-buffer, and
- * on a tile-based GPU at 720p each extra RGBA16F target is about 22 MB of traffic a frame.
- *
- * SO THE QUESTION IS WHETHER A FRAGMENT SHADER CAN INDEX RAW VERTEX AND INDEX DATA. It is a capability
- * question and it is asked the only way one can be: by exercising it, on this device, through the
- * runtime path every shader in this tree takes.
- *
- * WHAT IS ASSERTED. That the shader compiles with readonly storage buffers bound to a FRAGMENT stage,
- * that it can index them dynamically, and that the barycentric interpolation it does is accepted. What
- * is NOT claimed is that it is fast, or that the divergent fetch pattern is kind to a cache -- those
- * are the frame suite's and they come after this answers yes. */
 #include <cstdio>
 #include <string>
 
@@ -24,9 +7,6 @@
 
 namespace {
 
-/* The resolve shader in miniature: unpack a primitive id and two barycentrics, index the index buffer
- * three times, index the vertex buffer three times, interpolate. Nothing is shaded -- what is under
- * test is the FETCH, and a lobe here would only add a way for it to fail for another reason. */
 const char *const kResolve = R"(
 #include <metal_stdlib>
 using namespace metal;
@@ -62,9 +42,6 @@ fragment float4 resolve(FsIn in [[stage_in]],
 }
 )";
 
-/* THE CONTROL. The same shader with the two storage buffers removed and the fetch replaced by a
- * constant, so a refusal of the one above is about the STORAGE BUFFERS and not about this probe's
- * signature, its entry point or its attachment. */
 const char *const kNarrow = R"(
 #include <metal_stdlib>
 using namespace metal;
@@ -100,7 +77,7 @@ bool Accepts(SDL_GPUDevice *device, const char *source, Uint32 storageBuffers, s
   return true;
 }
 
-} // namespace
+}
 
 int main() {
   using namespace outshine::Test;
@@ -130,7 +107,7 @@ int main() {
         "triangle itself, which is what lets a visibility buffer be one attachment instead of a "
         "G-buffer of several");
 
-  Covers("board:1412 a fullscreen pass re-fetches and re-interpolates the triangle a pixel covers, "
+  Covers("a fullscreen pass re-fetches and re-interpolates the triangle a pixel covers, "
          "exercised on this device before a deferred material path is built on the assumption");
   SDL_DestroyGPUDevice(device);
   SDL_QuitSubSystem(SDL_INIT_VIDEO);

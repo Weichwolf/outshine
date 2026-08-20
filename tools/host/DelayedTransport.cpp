@@ -26,8 +26,7 @@ Data::Wire DelayedTransport::Collect(Data::Ticket ticket) {
   {
     std::lock_guard<std::mutex> lock(Mutex_);
     const auto held = Release_.find((uint64_t)ticket);
-    /* THE ANSWER IS HELD, NOT THE REQUEST. The transfer underneath runs at full speed; what this
-     * decides is which of several finished answers the caller is allowed to see first. */
+
     if (held != Release_.end() && std::chrono::steady_clock::now() < held->second)
       return Data::Wire::Working();
   }
@@ -46,4 +45,4 @@ void DelayedTransport::Cancel(Data::Ticket ticket) {
   Under_.Cancel(ticket);
 }
 
-} // namespace outshine::Host
+}

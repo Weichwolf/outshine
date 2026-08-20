@@ -20,9 +20,6 @@ std::string Lower(std::string_view text) {
 
 bool Space(char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f'; }
 
-/* THE FIVE THE FORMAT REQUIRES AND THE ONE PROSE CANNOT DO WITHOUT, plus the numeric forms. A named
- * reference outside this set is left as it was written rather than dropped: an unknown entity in a
- * declaration is a character the author typed, and swallowing it would delete text silently. */
 void Resolve(std::string_view raw, std::string &out) {
   for (size_t at = 0; at < raw.size();) {
     if (raw[at] != '&') {
@@ -46,7 +43,7 @@ void Resolve(std::string_view raw, std::string &out) {
     } else if (Matches(name, "apos")) {
       out.push_back('\'');
     } else if (Matches(name, "nbsp")) {
-      /* U+00A0 in utf-8, which is what a declaration means by a space that does not break. */
+
       out.push_back((char)0xC2);
       out.push_back((char)0xA0);
     } else if (!name.empty() && name[0] == '#') {
@@ -58,7 +55,7 @@ void Resolve(std::string_view raw, std::string &out) {
         ++at;
         continue;
       }
-      /* utf-8, written out because the alternative is a dependency for six lines of arithmetic. */
+
       if (code < 0x80) {
         out.push_back((char)code);
       } else if (code < 0x800) {
@@ -83,7 +80,7 @@ void Resolve(std::string_view raw, std::string &out) {
   }
 }
 
-}  // namespace
+}
 
 bool ClosesItself(std::string_view tag) {
   static const char *const kVoid[] = {"area", "base",  "br",   "col",   "embed",  "hr",   "img",
@@ -124,9 +121,6 @@ bool Markup::Read(std::string_view markup, std::string &error) {
   Style_.clear();
   Root_ = -1;
 
-  /* THE ROOT IS THIS READER'S OWN AND NOT THE DOCUMENT'S `<html>`. A declaration may open with a
-   * comment, a doctype or straight into `<body>`, and a tree whose root depends on which of those the
-   * author chose would make every later rule ask the same question again. */
   Nodes_.push_back({NodeKind::Element, "#document", "", {}, {}, -1});
   Root_ = 0;
   std::vector<int> open{0};
@@ -155,8 +149,7 @@ bool Markup::Read(std::string_view markup, std::string &error) {
       at = end;
       continue;
     }
-    /* `<!doctype`, `<!--` and any other bang: a declaration about the document rather than a part of
-     * it, so it reaches no node. */
+
     if (markup.compare(at, 4, "<!--") == 0) {
       const size_t end = markup.find("-->", at + 4);
       at = end == std::string_view::npos ? markup.size() : end + 3;
@@ -176,7 +169,7 @@ bool Markup::Read(std::string_view markup, std::string &error) {
     }
     const std::string name = Lower(markup.substr(nameFrom, cursor - nameFrom));
     if (name.empty()) {
-      /* A `<` that begins nothing is a character the author typed. */
+
       text.push_back('<');
       at += 1;
       continue;
@@ -190,8 +183,7 @@ bool Markup::Read(std::string_view markup, std::string &error) {
         return false;
       }
       flush();
-      /* POP TO THE NEAREST ANCESTOR THAT MATCHES, and drop an end tag with no ancestor at all. That is
-       * the whole of the recovery: it closes what the author closed and never invents an element. */
+
       size_t found = open.size();
       for (size_t depth = open.size(); depth-- > 1;) {
         if (Nodes_[(size_t)open[depth]].Name == name) {
@@ -242,9 +234,6 @@ bool Markup::Read(std::string_view markup, std::string &error) {
     }
     at = cursor < markup.size() && markup[cursor] == '>' ? cursor + 1 : markup.size();
 
-    /* A `<p>` IS CLOSED BY THE NEXT BLOCK, and that is the one implied end tag here. Prose in this
-     * corpus is written without `</p>` and a reader that nested the rest of the document inside it
-     * would put every following box in the wrong parent. */
     if (IsBlockLevel(name) && open.size() > 1 && Nodes_[(size_t)open.back()].Name == "p") {
       flush();
       open.pop_back();
@@ -286,4 +275,4 @@ bool Markup::Read(std::string_view markup, std::string &error) {
   return true;
 }
 
-}  // namespace outshine::Ui
+}

@@ -60,9 +60,6 @@ bool GroundMaterials::Load(const char *path) {
     m.SlopeMaxDeg = (float)pd[(size_t)1].Num(90.0);
     litterName[i] = c["litter"]["class"].Str("");
 
-    /* Cook-Torrance wants a continuous dielectric interface; a heap of grains has none, so its
-     * specular is a scale and not a lobe shape (specularModel). Unknown spelling is an error and not
-     * a default, because either default draws a wrong material everywhere the class wins. */
     const Json::Ref surf = c["surface"];
     if (surf.StrEquals("coherent")) m.SpecularScale = 1.0f;
     else if (surf.StrEquals("particulate")) {
@@ -73,13 +70,9 @@ bool GroundMaterials::Load(const char *path) {
     bool wetExempt = false;
     for (size_t e = 0; e < excl.Size(); e++)
       if (excl[e].StrEquals(m.Name.c_str())) wetExempt = true;
-    /* The dial is applied ONCE, here, so no consumer can apply it twice: the class list is static
-     * today and weather has no producer. */
+
     const float wet = wetExempt ? 1.0f : (1.0f - kWet * m.Moisture);
-    /* The triple is locked to the SHORTWAVE albedo (0.3-2.5 um) and the renderer is visible-band, so
-     * the band correction is a per-class SCALE: the chromaticity is a separate source and must not
-     * move. A single gain across the table is what failed before — 0.257 for grass against 0.953 for
-     * asphalt is a factor 3.7 (ground-materials.json visibleBandModel.whyNotOneNumber). */
+
     m.VisibleRatio = (float)c["visibleBroadbandRatio"].Num(1.0);
     for (int k = 0; k < 3; k++)
       m.Albedo[k] = (float)c["albedo"][(size_t)k].Num(0.15) * wet * m.VisibleRatio;
@@ -95,4 +88,4 @@ bool GroundMaterials::Load(const char *path) {
   return true;
 }
 
-} // namespace outshine::World
+}

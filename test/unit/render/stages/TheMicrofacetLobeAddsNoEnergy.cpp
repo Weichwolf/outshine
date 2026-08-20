@@ -1,28 +1,3 @@
-/* THE WHITE FURNACE, on our own BRDF and on nothing else. `DirectionalLight` exists to catch an NDF
- * factor that ADDS light -- "it is important that this factor does not add light energy" -- and the
- * quantity that statement is about is the DIRECTIONAL ALBEDO, the fraction of the light arriving
- * from a uniform white environment that a surface sends back:
- *
- *     E(V) = integral over the hemisphere of f(V, L) * (N.L) dL,   and E(V) <= 1.
- *
- * IT IS NOT A PER-PIXEL CEILING ON OUTGOING RADIANCE. A microfacet lobe concentrates a fixed
- * irradiance into a small solid angle, so a highlight above the incident irradiance is what
- * "concentrated" means; the specification's own Appendix B returns f_spec * N.L = 4.857 at the
- * roughness-0.16 sphere's centre, so a ceiling of 0.9 there is a test the reference implementation
- * fails (board:0085). The integral is what an added factor actually breaks.
- *
- * THE SAMPLER AND ITS DENSITY ARE WRITTEN HERE AND NOT TAKEN FROM THE SUBJECT, and that is the whole
- * design of this instrument. The obvious white furnace importance-samples the BRDF's own
- * distribution, and then D appears in the numerator and in the pdf and CANCELS -- so a D scaled by
- * any constant, which is exactly the defect the asset is named for, returns the same number and the
- * test is blind to it. The visible-normal sampler and its density below are Heitz's (JCGT 7(4),
- * 2018), spelled independently, so a factor in `BrdfDistribution` survives the ratio and moves the
- * integral by that factor.
- *
- * F0 = 1 FOR THE CLAIM. A Fresnel below one scales the lobe down and would hide an excess under it;
- * a perfect reflector is the configuration in which the microfacet model has nowhere to hide, and it
- * is what "white furnace" names. The dielectric sweep beside it is reported and carries a finding of
- * its own -- see the note this test prints for the grazing angles. */
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -54,8 +29,6 @@ Vector Normalised(const Vector &of) {
   return {of.X / length, of.Y / length, of.Z / length};
 }
 
-/* Hammersley: one stratified pair per index, so the sweep's numbers are the same on every run and a
- * difference between two rounds is a change in the subject rather than in a seed. */
 struct SamplePair {
   double First = 0, Second = 0;
 };
@@ -70,8 +43,6 @@ SamplePair Hammersley(uint32_t index, uint32_t count) {
   return {(index + 0.5) / count, bits * 2.3283064365386963e-10};
 }
 
-/* Heitz 2018, section 3.2: a half-vector drawn from the distribution of visible normals, by
- * projecting the hemisphere of the stretched view direction onto a disc. */
 Vector SampleVisibleNormal(const Vector &view, double alpha, const SamplePair &at) {
   const Vector stretched = Normalised({alpha * view.X, alpha * view.Y, view.Z});
   const double planar = stretched.X * stretched.X + stretched.Y * stretched.Y;
@@ -94,9 +65,6 @@ Vector SampleVisibleNormal(const Vector &view, double alpha, const SamplePair &a
   return Normalised({alpha * unstretched.X, alpha * unstretched.Y, std::fmax(0.0, unstretched.Z)});
 }
 
-/* The density of that sampler over the LIGHT direction, spelled from the same paper and never from
- * the subject: p(L) = G1(V) * max(0, V.H) * D(H) / (N.V) / (4 V.H). Its own D and its own Smith
- * masking, so a factor in either of the subject's terms cannot cancel here. */
 double VisibleNormalDensity(double alpha, double nv, double nh) {
   const double alphaSquared = alpha * alpha;
   const double denominator = nh * nh * (alphaSquared - 1.0) + 1.0;
@@ -106,9 +74,6 @@ double VisibleNormalDensity(double alpha, double nv, double nh) {
   return masking * distribution / (4.0 * nv);
 }
 
-/* WHAT ONE SWEEP POINT PRODUCES: the two halves of the directional albedo, separately, because the
- * microfacet lobe is what the claim is about and the diffuse term is coupled to it only through
- * `1 - F`. Both are dimensionless fractions of the incident irradiance. */
 struct DirectionalAlbedo {
   double Specular = 0;
   double Diffuse = 0;
@@ -118,8 +83,7 @@ struct DirectionalAlbedo {
 DirectionalAlbedo Integrate(double roughness, double nv, double metalness, uint32_t samples) {
   const double alpha = roughness * roughness;
   const double alphaSquared = alpha * alpha;
-  /* Albedo 1 on every channel is what makes this a WHITE furnace, so one channel carries all three
-   * and the sweep prints a scalar. */
+
   const std::array<double, 3> f0{metalness > 0.5 ? 1.0 : kDielectricF0,
                                  metalness > 0.5 ? 1.0 : kDielectricF0,
                                  metalness > 0.5 ? 1.0 : kDielectricF0};
@@ -140,8 +104,7 @@ DirectionalAlbedo Integrate(double roughness, double nv, double metalness, uint3
         albedo.Specular += terms.Specular[0] * light.Z / density;
       }
     }
-    /* The diffuse half over a cosine-distributed light direction, whose density is cos/pi -- so the
-     * estimator is the term times pi and the subject's own 1/pi is what it has to cancel. */
+
     const double radius = std::sqrt(at.First);
     const double angle = 2.0 * kBrdfPi * at.Second;
     const Vector light{radius * std::cos(angle), radius * std::sin(angle),
@@ -157,20 +120,14 @@ DirectionalAlbedo Integrate(double roughness, double nv, double metalness, uint3
   return albedo;
 }
 
-/* The full range, both ends included: 0 is the delta-lobe arm the model states for itself and 1 is
- * glTF's maximum roughness. */
 constexpr double kRoughnessSweep[] = {0.0, 0.05, 0.1, 0.16, 0.25, 0.33, 0.5, 0.7, 0.85, 1.0};
-/* Head-on, and three angles down to 81.4 degrees off the normal, which is where a Schlick Fresnel
- * approaches one and where every energy defect of this model lives. */
+
 constexpr double kViewCosineSweep[] = {1.0, 0.7, 0.4, 0.15};
 
 constexpr uint32_t kSamples = 1u << 18;
-/* The same integral at a quarter of the samples: the difference between the two IS this instrument's
- * own error, published rather than folded into the acceptance. */
+
 constexpr uint32_t kCoarseSamples = 1u << 16;
 
-/* The largest value the sweep found and where it found it, carried together so the report cannot
- * print a maximum next to another sweep point's coordinates. */
 struct Extremum {
   double Value = 0;
   double Roughness = 0;
@@ -218,7 +175,7 @@ Sweep RunSweep(void) {
   return found;
 }
 
-} // namespace
+}
 
 int main() {
   const Sweep found = RunSweep();
@@ -226,12 +183,6 @@ int main() {
   outshine::Test::Note("estimator floor, 2^18 against 2^16 samples", found.EstimatorFloor,
                        "dimensionless");
 
-  /* REPORTED AND NOT REFUSED, with its cause named. glTF's Appendix B couples the two halves by the
-   * Fresnel of the LIGHT's own half-vector -- `f_diffuse = (1 - F(V.H)) * diffuse` -- and at a
-   * grazing view F rises towards 1 in the specular lobe while the diffuse term's own V.H stays near
-   * 0.76, so the two do not sum to the surface's albedo. The excess is the specification's model and
-   * not a transcription error here, and refusing it would put this tree's renderer outside the model
-   * every Khronos criterion is stated in. It is a requirement line, not a threshold. */
   found.DielectricTotal.Report(
       "worst dielectric directional albedo, diffuse and specular together");
 

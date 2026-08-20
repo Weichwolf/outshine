@@ -7,13 +7,8 @@ namespace outshine::World {
 
 namespace {
 
-/* The raw fetch is hit ~15x per output tile (self + 4 stitch neighbours, each re-stitching), so
- * caching the DECODED grid short-circuits the dominant cold-boot cost: the PNG decode. */
 constexpr int kDemCacheCeiling = 128;
 
-/* WORST WINS over a stitch's four neighbours, and Refused outranks Deferred on purpose: a refusal
- * that were overwritten by a promise would lose the only name that says this tree or the wire was
- * wrong, and the tile would be retried for ever with nothing in the record to trace it to. */
 [[nodiscard]] int Severity(TerrainGrid::State s) {
   switch (s) {
     case TerrainGrid::State::Refused: return 3;
@@ -29,7 +24,7 @@ constexpr int kDemCacheCeiling = 128;
   return Severity(a) >= Severity(b) ? a : b;
 }
 
-}  // namespace
+}
 
 TerrainTiles::TerrainTiles(TerrainSource &source, EnuFrame frame, Config config)
     : Source_(source), Frame_(frame), Config_(config) {
@@ -43,7 +38,7 @@ TerrainTiles::TerrainTiles(TerrainSource &source, EnuFrame frame, Config config)
 const TerrainField *TerrainTiles::CacheLookup(int z, uint32_t x, uint32_t y) {
   for (CacheEntry &e : Cache_) {
     if (!e.Used || e.Z != z || e.X != x || e.Y != y) continue;
-    e.Seq = ++Seq_;   /* touch */
+    e.Seq = ++Seq_;
     return &e.Field;
   }
   return nullptr;
@@ -81,9 +76,6 @@ TerrainGrid TerrainTiles::RawGrid(int z, uint32_t x, uint32_t y) {
     }
   }
 
-  /* THE SOURCE MAY ANSWER FROM AN ANCESTOR, and says which one. A source that answered an address
-   * finer than the one asked for, or one absurdly coarser, has broken its own contract — that is
-   * this tree being wrong and not the ground being absent. */
   const int steps = z - sourceZ;
   if (steps < 0 || steps >= 24) return TerrainGrid::Refused();
   const uint32_t subDiv = 1u << steps;
@@ -98,9 +90,7 @@ TerrainGrid TerrainTiles::RawGrid(int z, uint32_t x, uint32_t y) {
     const uint32_t cropCols = field->Cols() / subDiv;
     const uint32_t cropRows = field->Rows() / subDiv;
     if (cropCols < 2 || cropRows < 2) return TerrainGrid::NotHere();
-    /* Exactly the sub-tile's own texels, no overlap column: a texel is an AREA, so the sub-tile is
-     * covered by cropCols of them and the value ON its border comes from the stitch, the same way an
-     * uncropped tile gets it. An extra column would put a sample half a texel outside. */
+
     TerrainField cropped(cropRows, cropCols);
     for (uint32_t r = 0; r < cropRows; r++)
       for (uint32_t c = 0; c < cropCols; c++)
@@ -119,8 +109,6 @@ TerrainGrid::State TerrainTiles::StitchEdge(TerrainField &self, int z, uint32_t 
   const TerrainField *n = neighbour.TryField();
   if (!n || !n->Meshable()) return neighbour.Where();
 
-  /* Dimension mismatches (parent-edge cropping shaves a row) are tolerated — only the overlapping
-   * range is averaged. */
   if (side == Side::West || side == Side::East) {
     const uint32_t selfCol = (side == Side::West) ? 0 : self.Cols() - 1;
     const uint32_t neighbourCol = (side == Side::West) ? n->Cols() - 1 : 0;
@@ -142,11 +130,6 @@ TerrainGrid TerrainTiles::StitchedGrid(int z, uint32_t x, uint32_t y) {
   TerrainField *field = grid.TryFieldMutable();
   if (!field) return grid;
 
-  /* THE STITCH READS FOUR NEIGHBOURS, so this tile's own answer is not the only one that decides: a
-   * mesh built while any of them was still coming freezes a seam into a node that is never asked
-   * again. A neighbour that is simply ABSENT costs this edge its averaging and nothing more — the
-   * map has no tile there to average with — but one that is deferred or refused is not an answer at
-   * all, and the worst of the four is what this tile becomes. */
   TerrainGrid::State worst = TerrainGrid::State::Decoded;
   const uint32_t n = 1u << z;
   if (x > 0) worst = Worse(worst, StitchEdge(*field, z, x - 1, y, Side::West));
@@ -180,4 +163,4 @@ size_t TerrainTiles::HeapBytes() const {
   return bytes;
 }
 
-}  // namespace outshine::World
+}

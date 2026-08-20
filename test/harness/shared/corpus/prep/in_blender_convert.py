@@ -5,18 +5,15 @@ import sys
 
 import bpy
 
-
 def fail(message):
     print("in_blender_convert: " + message, file=sys.stderr)
     sys.exit(9)
-
 
 def job_from_argv():
     if "--" not in sys.argv:
         fail("no job file after --")
     with open(sys.argv[sys.argv.index("--") + 1], "r") as f:
         return json.load(f)
-
 
 def export_properties():
     try:
@@ -25,14 +22,11 @@ def export_properties():
         pass
     return set(bpy.ops.export_scene.gltf.get_rna_type().properties.keys())
 
-
 def main():
     job = job_from_argv()
     known = export_properties()
     unknown = sorted(k for k in job["exportSettings"] if k not in known)
     if unknown:
-        # A setting the exporter does not have is a setting that did not apply, and a conversion that
-        # silently ignores one is a conversion nobody can attribute afterwards.
         fail("the exporter has no such setting(s): " + ", ".join(unknown))
 
     scene = bpy.context.scene
@@ -61,11 +55,9 @@ def main():
     }
     print(job["provenanceOpen"] + json.dumps(provenance) + job["provenanceClose"])
 
-
 def _plain(value):
     if isinstance(value, (str, int, float, bool)) or value is None:
         return value
     return str(value)
-
 
 main()

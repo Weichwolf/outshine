@@ -6,10 +6,7 @@ namespace outshine::Gltf {
 
 namespace {
 
-/* Below this the two quaternions are one rotation to the last bits and the spherical formula's
- * `sin(angle)` divides by nothing useful. The component blend is then the limit the formula tends
- * to rather than a fallback for it. */
-constexpr double kSameRotationCosine = 1.0 - 1e-12; /* [SET] dimensionless */
+constexpr double kSameRotationCosine = 1.0 - 1e-12;
 
 void Normalise(double *quaternion) {
   const double square = quaternion[0] * quaternion[0] + quaternion[1] * quaternion[1] +
@@ -19,9 +16,6 @@ void Normalise(double *quaternion) {
   for (size_t at = 0; at < 4; ++at) { quaternion[at] /= magnitude; }
 }
 
-/* The shorter arc, which is the format's own rule: two quaternions differing in overall sign are the
- * same rotation, and blending the long way round makes a body spin backwards for one span and only
- * for that span. */
 void Slerp(const double *from, const double *to, double weight, double *out) {
   double cosine = from[0] * to[0] + from[1] * to[1] + from[2] * to[2] + from[3] * to[3];
   double target[4] = {to[0], to[1], to[2], to[3]};
@@ -44,7 +38,7 @@ void Slerp(const double *from, const double *to, double weight, double *out) {
   Normalise(out);
 }
 
-} // namespace
+}
 
 bool Track::Build(AnimationPath path, Interpolation how, const std::vector<double> &times,
                   const std::vector<double> &values, Track &out) {
@@ -69,9 +63,7 @@ void Track::At(double seconds, double *out) const {
   if (!Valid() || out == nullptr) { return; }
   size_t span = 0;
   double weight = 0.0;
-  /* THE ONE ARM THAT IS NOT CORE'S: a `Linear` blend of a quaternion, strictly inside the grid.
-   * `Step` picks a keyframe and `CubicSpline` runs the Hermite basis in both worlds, and outside the
-   * grid every arm clamps to the same keyframe -- so those all delegate. */
+
   const bool spherical = Spherical_ && Curve_.How() == Interpolation::Linear &&
                          Curve_.Span(seconds, span, weight);
   if (spherical) {
@@ -82,4 +74,4 @@ void Track::At(double seconds, double *out) const {
   if (Spherical_) { Normalise(out); }
 }
 
-} // namespace outshine::Gltf
+}

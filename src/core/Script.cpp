@@ -23,9 +23,7 @@ std::string Value::AsText(void) const {
     case Kind::Ref: return "";
     case Kind::Number: break;
   }
-  /* AN INTEGRAL NUMBER IS WRITTEN WITHOUT A POINT, because `element.style.height = 100 + "px"` must
-   * produce `100px` and not `100.000000px` -- and a host receiving the second would set a length
-   * nobody declared. */
+
   char held[32];
   if (Number == std::floor(Number) && std::fabs(Number) < 1e15) {
     std::snprintf(held, sizeof held, "%lld", (long long)Number);
@@ -47,14 +45,10 @@ struct Token {
 };
 
 bool Space(char c) {
-  /* THE VERTICAL TAB AND THE FORM FEED ARE WHITE SPACE TOO, and so are several characters that arrive
-   * as more than one byte -- the no-break space, the line and paragraph separators, the byte order
-   * mark. A reader that stopped on one would refuse a file for a character nobody can see. */
+
   return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\v' || c == '\f';
 }
 
-/* HOW MANY BYTES OF WHITE SPACE START HERE, counting the multi-byte ones. Zero means this is not
- * white space at all. */
 size_t SpaceRun(const std::string &text, size_t at) {
   if (Space(text[at])) { return 1; }
   static const char *const kWide[] = {"\xC2\xA0", "\xE2\x80\xA8", "\xE2\x80\xA9",
@@ -70,12 +64,6 @@ size_t SpaceRun(const std::string &text, size_t at) {
 bool Starts(char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '$'; }
 bool Continues(char c) { return Starts(c) || (c >= '0' && c <= '9'); }
 
-/* THE MARKS, LONGEST FIRST, so `==` is never read as two `=`. */
-/* THE WORDS THIS SUBSET DOES NOT IMPLEMENT AND THE LANGUAGE RESERVES. Reading them as ordinary names
- * is what made `new Boolean(true)` stop on `Boolean`: the parser took `new` for a variable and then
- * found an identifier where an operator belonged, so the refusal named the wrong word and no table
- * could recognise it. A reserved word stops the parse ON ITSELF, which is the answer a reader can act
- * on. */
 constexpr const char *kReserved[] = {"new",   "typeof", "void",  "delete", "instanceof", "in",
                                      "function", "class", "await", "yield", "async",  "throw",
                                      "try",   "catch",  "finally", "switch", "case",  "for",
@@ -188,10 +176,8 @@ bool Tokenise(const std::string &text, std::vector<Token> &out, std::string &err
   return true;
 }
 
-} // namespace
+}
 
-/* ONE NODE OF THE TREE, and every edge is an index rather than a pointer: the vector may grow while a
- * parse is in flight, and a pointer into it would dangle exactly then. */
 struct Program::Node {
   enum class Shape : uint8_t {
     Number, Text, Nothing, Name, Member, Call, Unary, Binary, Assign, AssignMember, Step, If,
@@ -199,14 +185,13 @@ struct Program::Node {
   };
   Shape What = Shape::Number;
   double Number = 0.0;
-  std::string Spelling;   /* a literal's text, a name, a member's name, or an operator */
+  std::string Spelling;
   size_t A = 0, B = 0, C = 0;
   std::vector<size_t> Parts;
 };
 
 namespace {
 
-/* THE PARSER'S OWN STATE, so the recursion carries one argument and the bounds live in one place. */
 struct Reading {
   const std::string &Text;
   const std::vector<Token> &Tokens;
@@ -256,9 +241,7 @@ struct Reading {
 using Shape = Program::Node::Shape;
 
 bool ReadExpression(Reading &in, size_t &out);
-/* AN EXPRESSION, OR SEVERAL SEPARATED BY COMMAS. It is a LEVEL ABOVE `ReadExpression` and not part of
- * it, because an argument list is separated by the same mark: `f(a, b)` is two arguments and `(a, b)`
- * is one value, and only the caller knows which it is asking for. */
+
 bool ReadSequence(Reading &in, size_t &out);
 bool ReadStatement(Reading &in, size_t &out);
 
@@ -280,10 +263,7 @@ bool ReadPrimary(Reading &in, size_t &out) {
   } else if (token.What == Word::Name) {
     ++in.At;
     Program::Node node;
-    /* `true`, `false`, `null` AND `undefined` ARE THE LANGUAGE'S AND NOT THE HOST'S. [MEASURED] the
-     * script corpus put cases outside the subset with *the case reaches a name this runner does not
-     * provide: false* -- a literal had been reaching the host, which would have made every consumer
-     * responsible for supplying the word `false`. They are values, so they are read as values. */
+
     if (token.Spelling == "true" || token.Spelling == "false") {
       node.What = Shape::Number;
       node.Number = token.Spelling == "true" ? 1.0 : 0.0;
@@ -298,7 +278,7 @@ bool ReadPrimary(Reading &in, size_t &out) {
     if (!ReadSequence(in, out)) { return false; }
     if (!in.Want(")")) { return false; }
   } else if (in.Is("++") || in.Is("--")) {
-    /* PREFIX: the name is changed and the NEW value is what the expression is. */
+
     const std::string mark = in.Now().Spelling;
     ++in.At;
     size_t target = 0;
@@ -312,7 +292,7 @@ bool ReadPrimary(Reading &in, size_t &out) {
     node.What = Shape::Step;
     node.Spelling = in.Nodes[target].Spelling;
     node.Number = mark == "++" ? 1.0 : -1.0;
-    node.A = 0;   /* prefix */
+    node.A = 0;
     if (!in.Room()) { return false; }
     out = in.Make(std::move(node));
     return true;
@@ -333,8 +313,6 @@ bool ReadPrimary(Reading &in, size_t &out) {
     return false;
   }
 
-  /* MEMBERS AND CALLS CHAIN, so `document.getElementById("a").style` is one expression and not three
-   * statements a consumer has to write. */
   for (;;) {
     if (in.Take(".")) {
       if (in.Now().What != Word::Name) {
@@ -351,14 +329,13 @@ bool ReadPrimary(Reading &in, size_t &out) {
       continue;
     }
     if (in.Is("++") || in.Is("--")) {
-      /* POSTFIX: the name is changed and the OLD value is what the expression is. The two differ in
-       * exactly that, which is why they are one node with a flag and not two shapes. */
+
       if (in.Nodes[out].What != Shape::Name) { break; }
       Program::Node node;
       node.What = Shape::Step;
       node.Spelling = in.Nodes[out].Spelling;
       node.Number = in.Now().Spelling == "++" ? 1.0 : -1.0;
-      node.A = 1;   /* postfix */
+      node.A = 1;
       ++in.At;
       if (!in.Room()) { return false; }
       out = in.Make(std::move(node));
@@ -391,8 +368,6 @@ bool ReadPrimary(Reading &in, size_t &out) {
   return true;
 }
 
-/* PRECEDENCE AS A TABLE AND NOT AS A LADDER OF FUNCTIONS: one row per level, read left to right, so
- * adding an operator is adding a row rather than a function nobody notices is missing. */
 struct Level {
   const char *Marks[4];
 };
@@ -473,8 +448,7 @@ bool ReadStatement(Reading &in, size_t &out) {
   if (!in.Deeper()) { return false; }
   bool held = true;
   if (in.Take(";")) {
-    /* THE EMPTY STATEMENT. `;` on its own is a statement that does nothing, and a language that
-     * refused it would refuse every stray semicolon an author leaves behind. */
+
     Program::Node node;
     node.What = Shape::Block;
     if (in.Room()) { out = in.Make(std::move(node)); } else { held = false; }
@@ -491,8 +465,7 @@ bool ReadStatement(Reading &in, size_t &out) {
       ++in.At;
       size_t otherwise = 0;
       held = ReadStatement(in, otherwise);
-      /* ZERO IS A LEGAL NODE INDEX, so the `else` is carried as its index PLUS ONE and zero means
-       * *there was none*. A sentinel that collides with a real value is the defect this avoids. */
+
       node.C = held ? otherwise + 1 : 0;
     }
     if (held && in.Room()) { out = in.Make(std::move(node)); } else { held = false; }
@@ -503,17 +476,11 @@ bool ReadStatement(Reading &in, size_t &out) {
     held = in.Want("(") && ReadSequence(in, node.A) && in.Want(")") && ReadStatement(in, node.B);
     if (held && in.Room()) { out = in.Make(std::move(node)); } else { held = false; }
   } else {
-    /* `var`, `let` AND `const` ARE READ AND DROPPED. A script here assigns a name and the name
-     * exists; the three keywords carry a scoping rule this subset does not have, so accepting them
-     * with their meaning would be a lie and refusing them would reject half the scripts anyone
-     * writes. They are noise, and saying that here is the honest middle. */
+
     const bool declaring = in.IsWord("var") || in.IsWord("let") || in.IsWord("const");
     if (declaring) { ++in.At; }
     if (declaring) {
-      /* A DECLARATION IS A LIST, and every entry may or may not have an initialiser: `var a, b = 2, c;`
-       * is one statement and three names. A name with no initialiser is assigned NOTHING here --
-       * evaluating it instead would ask the HOST for it, and the host would rightly say it has no such
-       * thing, which turns a declaration into a refusal. */
+
       Program::Node list;
       list.What = Shape::Block;
       for (;;) {
@@ -572,7 +539,7 @@ bool ReadStatement(Reading &in, size_t &out) {
           if (held && in.Room()) { out = in.Make(std::move(node)); } else { held = false; }
         }
       } else if (held) {
-        /* THE COMMA OPERATOR AT STATEMENT LEVEL: `a, b;` evaluates both and keeps the second. */
+
         while (held && in.Take(",")) {
           size_t right = 0;
           held = ReadExpression(in, right);
@@ -596,7 +563,7 @@ bool ReadStatement(Reading &in, size_t &out) {
   return held;
 }
 
-} // namespace
+}
 
 bool Program::Read(const std::string &text, std::string &error) {
   Nodes_.clear();
@@ -605,8 +572,7 @@ bool Program::Read(const std::string &text, std::string &error) {
   Stopped_.clear();
   std::vector<Token> tokens;
   if (!Tokenise(text, tokens, error)) {
-    /* THE TOKENISER STOPPED ON A CHARACTER IT HAS NO SHAPE FOR, and the character is what a caller
-     * looks up. The message already carries the position. */
+
     const size_t quoted = error.find('\'');
     if (quoted != std::string::npos && quoted + 1 < error.size()) {
       Stopped_ = error.substr(quoted + 1, 1);
@@ -646,11 +612,8 @@ struct Boundary {
   const char *Why;
 };
 
-/* THE DECLARED BOUNDARY OF THIS LANGUAGE. Every row is a decision about what a handler on a declared
- * surface and a fixture in a test need -- not a list of what has not been written yet. */
 const Boundary kBoundaries[] = {
-    /* THINGS A SCRIPT WOULD DEFINE. A handler is called BY the consumer; a script that defines its own
-     * callables is a program with a lifetime, and a lifetime is a thing to bound. */
+
     {"token:function", "a script here is a handler; one that defines callables has a lifetime to bound"},
     {"token:=>", "the same, written shorter"},
     {"token:class", "a type system in a declaration is a program the consumer cannot see the shape of"},
@@ -660,17 +623,12 @@ const Boundary kBoundaries[] = {
     {"token:await", "nothing here is asynchronous, and a handler that waited would hold a frame"},
     {"token:async", "the same, declared"},
 
-    /* AGGREGATES A SCRIPT WOULD BUILD. Values here are numbers, text and handles the HOST owns -- a
-     * script that built its own would own memory, and every bound in this file is about not doing
-     * that. */
     {"token:[", "an array is memory a script owns, and the host owns the values here"},
     {"token:{", "an object literal is the same, keyed"},
     {"token::", "an object literal, a label or a conditional -- three grammars behind one mark"},
     {"token:?", "a conditional expression is an `if` written where a value goes"},
     {"token:...", "spreading is an aggregate under another name"},
 
-    /* SYNTAX THIS SUBSET DOES NOT SPELL. Each is a second grammar for something the subset already
-     * says once. */
     {"token:for", "a `while` says it, and one loop with one bound is easier to reason about"},
     {"token:do", "the same, tested at the end"},
     {"token:switch", "an `if` chain says it"},
@@ -689,9 +647,6 @@ const Boundary kBoundaries[] = {
     {"token:n", "a BigInt literal is a second number type"},
     {"token:=", "an assignment where a value was expected -- a destructuring or a default"},
 
-    /* THE STANDARD LIBRARY IS THE HOST'S. This interpreter has no globals of its own on purpose: what
-     * a script can reach is what the consumer decided to expose, and a language that brought its own
-     * would be deciding for every consumer. */
     {"name:Object", "the standard library is the host's; this language brings none"},
     {"name:Array", "the same"},      {"name:Function", "the same"},  {"name:String", "the same"},
     {"name:Number", "the same"},     {"name:Boolean", "the same"},   {"name:Symbol", "the same"},
@@ -715,7 +670,6 @@ const Boundary kBoundaries[] = {
     {"name:verifyProperty", "the same"},
     {"name:testWithTypedArrayConstructors", "the same"},
 
-    /* WHAT A CASE DECLARES ABOUT ITSELF. */
     {"negative-parse",
      "this parser refuses a valid program past its subset with the same voice it refuses an invalid "
      "one, so a case that passed by refusing would be a green light about something else"},
@@ -731,7 +685,7 @@ const Boundary kBoundaries[] = {
     {"the script reaches the node bound", "the same, in size"},
 };
 
-}  // namespace
+}
 
 const char *WhyOutside(const std::string &name) {
   for (const Boundary &boundary : kBoundaries) {
@@ -742,9 +696,7 @@ const char *WhyOutside(const std::string &name) {
 }
 
 void Program::Reset(void) {
-  /* THE CAPACITY IS KEPT AND ONLY THE CONTENTS GO, so a script ticked every frame allocates on its
-   * first run and on none after it -- which is what *the frame path does not allocate* costs to be
-   * true for an actor that moves. */
+
   Names_.clear();
   Held_.clear();
 }
@@ -777,9 +729,7 @@ bool Program::Evaluate(size_t at, Host &host, Value &out, std::string &error) {
       return true;
     case Node::Shape::Name: {
       const Value *held = Named(node.Spelling);
-      /* A NAME THE SCRIPT ASSIGNED IS THE SCRIPT'S; ANY OTHER IS THE HOST'S. That order is what lets a
-       * consumer expose `document` and a script still name a variable `document` without the two
-       * fighting -- the script's own assignment wins, which is what every language does. */
+
       out = held != nullptr ? *held : host.Global(node.Spelling);
       return true;
     }
@@ -828,8 +778,7 @@ bool Program::Evaluate(size_t at, Host &host, Value &out, std::string &error) {
     case Node::Shape::Unary: {
       Value inner;
       if (!Evaluate(node.A, host, inner, error)) { return false; }
-        /* UNARY PLUS IS NOT A NO-OP: it is the coercion to a number, which is what makes `+"3"` three
-       * and `+x` a number whatever `x` was. */
+
       out = node.Spelling == "!"  ? Value::OfNumber(inner.Truth() ? 0.0 : 1.0)
             : node.Spelling == "+" ? Value::OfNumber(inner.What == Kind::Text
                                                          ? std::strtod(inner.Text.c_str(), nullptr)
@@ -840,11 +789,9 @@ bool Program::Evaluate(size_t at, Host &host, Value &out, std::string &error) {
     case Node::Shape::Binary: {
       Value left;
       if (!Evaluate(node.A, host, left, error)) { return false; }
-      /* `&&` AND `||` DO NOT EVALUATE THEIR RIGHT SIDE UNLESS THEY HAVE TO, which is not an
-       * optimisation: `a && a.b` is how a script guards a member read, and evaluating both would make
-       * the guard the thing that fails. */
+
       if (node.Spelling == ",") {
-        /* THE LEFT SIDE IS EVALUATED FOR WHAT IT DOES AND THE RIGHT IS THE VALUE. */
+
         return Evaluate(node.B, host, out, error);
       }
       if (node.Spelling == "&&") {
@@ -863,8 +810,7 @@ bool Program::Evaluate(size_t at, Host &host, Value &out, std::string &error) {
       }
       Value right;
       if (!Evaluate(node.B, host, right, error)) { return false; }
-      /* `+` IS THE ONE OPERATOR THAT IS TWO OPERATIONS, and text wins when either side is text --
-       * which is what makes `100 + "px"` the string a length is written as. */
+
       if (node.Spelling == "+" && (left.What == Kind::Text || right.What == Kind::Text)) {
         out = Value::OfText(left.AsText() + right.AsText());
         return true;
@@ -905,14 +851,7 @@ bool Program::Perform(size_t at, Host &host, std::string &error) {
   const Node &node = Nodes_[at];
   switch (node.What) {
     case Node::Shape::Block: {
-      /* **THE PARTS ARE READ BY INDEX AND NOT COPIED**, because a copy is an allocation and a block
-       * runs every tick. [MEASURED] copying them cost 4 MiB of allocator growth over 20 000 ticks of a
-       * script that touches nothing but numbers -- which is the frame path allocating, quietly, in the
-       * one place a comment said it was being careful.
-       *
-       * It is safe because `Run` never touches `Nodes_`: the tree is built by `Read` and walked here,
-       * so nothing can move underneath this loop. The index is re-read each turn anyway, which costs
-       * nothing and survives a future where that stops being true. */
+
       for (size_t at2 = 0; at2 < Nodes_[at].Parts.size(); ++at2) {
         if (!Perform(Nodes_[at].Parts[at2], host, error)) { return false; }
       }
@@ -976,4 +915,4 @@ bool Program::Run(Host &host, std::string &error) {
   return Perform(Root_, host, error);
 }
 
-} // namespace outshine::Script
+}

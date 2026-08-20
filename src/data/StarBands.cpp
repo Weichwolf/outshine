@@ -9,23 +9,22 @@ namespace {
 [[nodiscard]] SourceDecl Declared() {
   SourceDecl d;
   d.Id = "hyg.bands";
-  /* Raised when the bands are re-baked at a new epoch: the bytes change for an unchanged address,
-   * which is exactly the case the content key exists to separate. */
+
   d.Version = 1;
   d.Kind = DataKind::StarCatalogue;
   d.How = Scheme::WholeWorld;
   d.Wire = WireFormat::StarBandBinary;
   d.Order = Rank{0};
-  d.Keeps = Cacheability::Never;   /* it is already a local file; a copy of it is a second truth */
+  d.Keeps = Cacheability::Never;
   d.Need = Necessity::Required;
   d.Latency = LatencyClass::Local;
-  /* 53 520 B across four bands, measured from the bake manifest. */
+
   d.TypicalPayloadBytes = 13380;
   d.RetryBudget = 0;
   return d;
 }
 
-} // namespace
+}
 
 StarBands::StarBands(std::string directory)
     : Directory_(std::move(directory)), Decl_(Declared()) {}
@@ -66,4 +65,4 @@ Fetched StarBands::Collect(const Address &at, Ticket ticket, Transport &transpor
   return Fetched::Delivered(std::move(bytes));
 }
 
-} // namespace outshine::Data
+}

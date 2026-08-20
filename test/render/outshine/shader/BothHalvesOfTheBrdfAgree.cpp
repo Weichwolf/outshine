@@ -1,29 +1,3 @@
-/* THE TIE BETWEEN THE TWO HALVES OF THE BRDF. `stages/MetalRoughBrdf.h` states glTF's metal-rough
- * model twice -- once in C++, once in the MSL the fragment shader is spliced from -- and until this
- * file existed nothing evaluated both. The white furnace integrates the C++ half, so its verdict was
- * about a function the renderer does not run; the shader was pinned to it only through
- * `directional-light`'s hue check, which is scale-invariant and would not catch a scaled D.
- *
- * WHAT THIS MEASURES IS THE ARRANGEMENT OF THE TERMS, which is the half the emitted constants cannot
- * protect. The same sample set goes through both halves and every channel of both terms is compared.
- *
- * THE COMPARISON CARRIES ITS OWN NEGATIVE CONTROL. A tie that cannot see the defect the asset is
- * named for is the instrument this round already rejected once, so the emitted MSL is mutated here
- * -- the distribution scaled by two -- and the same comparison must go red over it. The mutation is
- * a textual substitution into the emitted text and it names its site: if the site stops existing,
- * this refuses rather than passing over a mutation that was never applied.
- *
- * THE ALLOWANCE IS DERIVED PER SAMPLE AND NOT CHOSEN. The device computes in f32 and the reference
- * in f64, so the two cannot agree exactly, and one flat tolerance over the whole domain would be
- * decided by the worst-conditioned corner. The conditioning is knowable: the distribution's
- * denominator is `nh^2 (a2 - 1) + 1`, a difference of two quantities near 1 whose f32 absolute error
- * is therefore about eps whatever the result is, and D depends on its square -- so the relative
- * error of D is about `2 * eps / denominator`, which is 3e-7 at a rough surface and 15 % at the
- * sharpest lobe in the sweep. That is the physics of f32 at a Dirac-adjacent lobe rather than a
- * concession, and it is published per sweep: `AllowedRelative` returns it and the report prints how
- * many samples it exceeds one part in a hundred at. Every mutation this tie is for is a factor, not
- * a last-bit difference: a scaled D is 100 % at every sample, three orders above the worst
- * allowance and seven above the typical one. */
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -53,9 +27,6 @@ using outshine::Render::ReadState;
 
 namespace {
 
-/* WHAT THE DEVICE REFUSED. SDL_GPU answers a failure by returning nothing and leaving a sentence in
- * `SDL_GetError`, so every call whose answer this file depends on is counted here -- a dispatch that
- * never ran must not be readable as a dispatch that agreed. */
 int DeviceErrors = 0;
 
 bool Refused(const void *made, const char *what) {
@@ -65,38 +36,26 @@ bool Refused(const void *made, const char *what) {
   return true;
 }
 
-/* ONE SHADING POINT AS BOTH HALVES TAKE IT: the two colours the model is evaluated with, the squared
- * alpha, and the four clamped cosines. Every value here is already rounded to f32, because the
- * device gets f32 and a reference evaluated on wider inputs would be measuring the upload. */
 struct SamplePoint {
   std::array<double, 3> DiffuseColour{};
   std::array<double, 3> F0{};
-  /* `KHR_materials_specular`'s grazing half (board:1428). Swept like every other input, because a
-   * parameter the twins share but no sample varies is a parameter neither half is compared on. */
+
   double F90 = 1.0;
   double A2 = 0;
   BrdfGeometry At{};
 };
 
-/* THE UPLOAD LAYOUT, TWELVE FLOATS PER SAMPLE, and the shader reads the stride from this constant
- * rather than from a second spelling of the number -- the same rule the model's own constants follow
- * (`MetalRoughBrdf.h`). */
 constexpr uint32_t kInputFloats = 12;
-constexpr uint32_t kOutputFloats = 6;   /* diffuse rgb, then specular rgb */
+constexpr uint32_t kOutputFloats = 6;
 
-constexpr double kFloatEpsilon = 5.9604644775390625e-08;   /* 2^-24, half an ulp at 1.0 */
-/* [SET] The number of rounded operations the widest path through the model performs, generously
- * counted: five in the visibility term including its two square roots, four in the Fresnel weight,
- * three in the distribution outside its denominator, and the products that combine them. */
+constexpr double kFloatEpsilon = 5.9604644775390625e-08;
+
 constexpr double kRoundingSteps = 16.0;
-/* [SET] Below this magnitude a term is noise in either precision, and a relative difference over it
- * would be a division by rounding. The model's terms run from about 1e-2 to 1e5 in these sweeps. */
+
 constexpr double kNoiseFloor = 1.0e-6;
 
 double AsFloat(double value) { return static_cast<double>(static_cast<float>(value)); }
 
-/* The f32 relative error this sample's own conditioning admits. `a2 = 0` takes the arm with no
- * distribution at all, where the specular term is exactly zero in both halves. */
 double AllowedRelative(double a2, double nh) {
   if (a2 <= 0.0) { return kRoundingSteps * kFloatEpsilon; }
   const double denominator = nh * nh * (a2 - 1.0) + 1.0;
@@ -116,8 +75,6 @@ Vector Normalised(const Vector &of) {
   return {of.X / length, of.Y / length, of.Z / length};
 }
 
-/* Hammersley, so the sweep is the same set on every run and a difference between two rounds is a
- * change in the subject rather than in a seed. */
 Vector CosineDirection(uint32_t index, uint32_t count) {
   uint32_t bits = index;
   bits = (bits << 16u) | (bits >> 16u);
@@ -132,17 +89,10 @@ Vector CosineDirection(uint32_t index, uint32_t count) {
   return {radius * std::cos(angle), radius * std::sin(angle), std::sqrt(std::fmax(0.0, 1.0 - first))};
 }
 
-/* THE MATERIALS THE MODEL IS EVALUATED WITH, chosen so no channel can stand in for another: a
- * chromatic dielectric would hide a Fresnel written on the wrong channel, and the perfect reflector
- * is the configuration the white furnace states its claim in. These are the model's OWN inputs and
- * not a metalness remapping -- `shade()` in `SubjectDraw.cpp` performs that remapping and it is a
- * different subject from the one this file ties. */
 struct Material {
   std::array<double, 3> DiffuseColour;
   std::array<double, 3> F0;
-  /* `KHR_materials_specular`'s `dielectric_f90 = specular` (board:1428). Unity is every material that
-   * declares no such factor; the two rows below it are the extension's weakened rim and its absence,
-   * and a row whose F0 is already one has a flat Fresnel whatever this is. */
+
   double F90;
 };
 
@@ -153,9 +103,9 @@ const Material kMaterials[] = {
     {{0.0, 0.0, 0.0}, {0.955, 0.638, 0.538}, 1.0},
     {{0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}, 1.0},
 };
-/* Both ends included: 0 is the delta-lobe arm the model states for itself, 1 is glTF's maximum. */
+
 constexpr double kRoughnessSweep[] = {0.0, 0.05, 0.15, 0.3, 0.5, 0.75, 1.0};
-/* Head-on down to 87 degrees off the normal, which is where Schlick's Fresnel approaches one. */
+
 constexpr double kViewCosineSweep[] = {1.0, 0.85, 0.5, 0.2, 0.05};
 constexpr uint32_t kLightDirections = 32;
 
@@ -204,11 +154,6 @@ std::vector<float> Uploaded(const std::vector<SamplePoint> &points) {
   return floats;
 }
 
-/* The entry point the model's own text is evaluated through. It declares no term of its own: it
- * unpacks a sample, calls `metalRoughBrdf` and writes what came back.
- *
- * THE SAMPLE COUNT IS A UNIFORM AND NOT A LENGTH QUERY, because MSL has none: a device buffer is a
- * pointer there, so the bound is handed in beside it rather than asked of it. */
 std::string TieShader(const std::string &model) {
   char stride[128];
   std::snprintf(stride, sizeof stride, "constant uint kIn = %uu;\nconstant uint kOut = %uu;\n",
@@ -238,9 +183,6 @@ kernel void tie(uint3 id [[thread_position_in_grid]],
 )";
 }
 
-/* THE NEGATIVE CONTROL'S SITE, named rather than guessed: the numerator of the distribution. An
- * empty return means the site is gone, and then the mutation was never applied -- which this refuses
- * over rather than passing. */
 std::string WithDoubledDistribution(const std::string &model) {
   const std::string site = "return a2 / (kPi";
   const size_t found = model.find(site);
@@ -248,8 +190,6 @@ std::string WithDoubledDistribution(const std::string &model) {
   return std::string(model).replace(found, site.size(), "return 2.0 * a2 / (kPi");
 }
 
-/* THE DEVICE, AND NOTHING ELSE: no swapchain, no window, no asset. SDL_GPU wants the video subsystem
- * up before it will open one, and that is the whole of the bring-up. */
 class Instrument {
 public:
   ~Instrument() {
@@ -269,8 +209,6 @@ public:
   SDL_GPUDevice *Device = nullptr;
 };
 
-/* A STORAGE BUFFER AND ITS UPLOAD, in one place, because the two are one statement: a buffer with no
- * bytes in it would be a dispatch over whatever the allocator last held. */
 SDL_GPUBuffer *MakeBuffer(SDL_GPUDevice *device, SDL_GPUBufferUsageFlags usage, const float *from,
                           uint32_t bytes) {
   SDL_GPUBufferCreateInfo wanted{};
@@ -349,19 +287,16 @@ std::vector<float> RunOnDevice(const Instrument &on, const std::string &msl,
   return out;
 }
 
-/* WHICH TERM A CHANNEL BELONGS TO. The counts the negative control is judged on are about the
- * specular half alone -- a scaled distribution leaves the diffuse term untouched, and a count over
- * both halves would report half of them agreeing and read like a partial failure. */
 enum class Half { Diffuse, Specular };
 
 struct Agreement {
-  double WorstRatio = 0;        /* difference over what the sample's conditioning allows */
-  double WorstRelative = 0;     /* dimensionless, at the worst channel */
+  double WorstRatio = 0;
+  double WorstRelative = 0;
   int Compared = 0;
   int Disagreeing = 0;
-  int SpecularAbove = 0;        /* specular channels whose reference exceeds the noise floor */
+  int SpecularAbove = 0;
   int SpecularDisagreeing = 0;
-  int LooseSamples = 0;         /* samples whose allowance exceeds one part in a hundred */
+  int LooseSamples = 0;
 };
 
 void Offer(Agreement &into, Half half, double reference, double measured, double allowedRelative) {
@@ -401,7 +336,7 @@ void ReportAgreement(const char *what, const Agreement &found) {
               what, found.Compared, found.Disagreeing, found.WorstRatio, found.WorstRelative);
 }
 
-} // namespace
+}
 
 int main() {
   const std::vector<SamplePoint> points = SampleSet();

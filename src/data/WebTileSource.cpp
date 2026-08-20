@@ -3,11 +3,9 @@
 namespace outshine::Data {
 namespace {
 
-/* Above this a tile index no longer fits the 32 bits an address carries, and no upstream in this
- * tree serves anything near it. */
 constexpr int kDeepestTileZoom = 30;
 
-} // namespace
+}
 
 Coverage WebTileSource::Covers(const Request &request) const noexcept {
   if (request.Kind() != Decl_.Kind) return Coverage::Outside;
@@ -40,8 +38,7 @@ Fetched WebTileSource::Collect(const Address &at, Ticket ticket, Transport &tran
   switch (wire.Where()) {
     case Wire::State::Working:
       return Fetched::Working();
-    /* NO ANSWER TO HAVE is not a statement about the world and never becomes one: a name that did
-     * not resolve or a connection that dropped is the wire, and the wire heals. */
+
     case Wire::State::Unreachable:
       return Fetched::Meant(Meaning::Retry);
     case Wire::State::Answered:
@@ -55,4 +52,4 @@ Fetched WebTileSource::Collect(const Address &at, Ticket ticket, Transport &tran
   return Fetched::Delivered(std::move(body));
 }
 
-} // namespace outshine::Data
+}

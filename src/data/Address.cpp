@@ -11,4 +11,4 @@ std::string Address::Text() const {
   return std::string(text);
 }
 
-} // namespace outshine::Data
+}

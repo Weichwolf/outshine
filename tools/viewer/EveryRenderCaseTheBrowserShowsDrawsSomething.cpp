@@ -1,18 +1,3 @@
-/* THE BROWSER SHOWS EVERY CASE THE TREE DECLARES, AND *SHOWS* MEANS TEXELS (board:1447).
- *
- * **A CASE THAT CONFIGURES IS NOT A CASE THAT APPEARS.** `EveryCaseTheTreeDeclaresConfigures` says a
- * manifest reads and a studio is built; this says the library then DREW something. The two are a long
- * way apart: a subject that reads, a plan that compiles and a device that comes up still leave a black
- * frame if nothing reached a texel, and a black frame is exactly what a browser must never show
- * quietly.
- *
- * **THE CLIENT OWNS THE TARGET AND THE LIBRARY IS HANDED ONE**, which is the same path the windowed
- * arm takes with a swapchain image in its place -- so this is a test OF the browser and not a
- * rehearsal beside it.
- *
- * **A CASE THAT DECLINES IS ANNOUNCED AND COUNTED, never hidden.** `limits-probe` says the engine
- * refuses its subject on purpose, and a browser that silently skipped it would answer a different
- * question than *what does this tree declare*. */
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -35,13 +20,9 @@ namespace View = outshine::Viewer;
 
 namespace {
 
-/* THE SURFACE THE BROWSER OWNS, which is the window's size and not any case's. */
 constexpr int kSurfaceW = 1280;
 constexpr int kSurfaceH = 720;
 
-/* HOW MANY PIXELS DIFFER FROM THE FIRST ONE. A frame of one colour is a frame nothing reached, whatever
- * that colour is -- so this asks about VARIATION and never about black, which would be a claim about a
- * clear colour rather than about drawing. */
 size_t Varying(const std::vector<uint8_t> &rgba) {
   if (rgba.size() < 4) { return 0; }
   size_t varying = 0;
@@ -52,11 +33,10 @@ size_t Varying(const std::vector<uint8_t> &rgba) {
   return varying;
 }
 
-}  // namespace
+}
 
 int main(void) {
-  /* UNBUFFERED, because a run that dies on a device loses a buffered tail -- and the tail is the case
-   * it died on, which is the one thing a reader needs. */
+
   std::setvbuf(stdout, nullptr, _IONBF, 0);
   const std::vector<View::Listed> cases = View::Cases();
   CHECK(!cases.empty(), "the tree declares cases");
@@ -83,10 +63,7 @@ int main(void) {
       continue;
     }
     if (one.Document) {
-      /* **A DOCUMENT CASE IS SHOWN BY THE SAME ENGINE THAT DRAWS THE BROWSER'S OWN CHROME**, which is
-       * the property this browser is built to hold: the viewer and the viewed are one mechanism. It
-       * needs no device -- the picture of a document is a list of rectangles -- so it is decided here
-       * rather than through a plan. */
+
       ++documents;
       bool found = false;
       const std::string entry = View::EntryOf(one.Prepared, found);
@@ -110,8 +87,7 @@ int main(void) {
       if (drawn && !painted.Quads().empty()) {
         ++shown;
       } else {
-        /* A DOCUMENT THIS ENGINE DECLINES IS COUNTED AND NOT HIDDEN, and the corpus suite is where its
-         * reason lives -- every one of them is held or reduced at a declared boundary there. */
+
         ++reduced;
       }
       continue;
@@ -136,12 +112,6 @@ int main(void) {
       continue;
     }
 
-    /* THE BROWSER ADDS ITS OWN STAGE TO THE CASE'S PLAN -- one renderer, one plan, one more
-     * contribution. The chrome is laid out for the case's own frame, because that is the surface it
-     * will be drawn over. */
-    /* **THE SURFACE IS THE WINDOW'S AND THE PICTURE'S RECTANGLE IS THE PANE'S**, which is exactly what
-     * the windowed arm does -- so this test walks the path a person walks and not a shorter one beside
-     * it. Rendering each case at its own size would leave the centring untested and shipped on hope. */
     if (!held.Start(renderer, why, {outshine::Render::Stage::Overlay}, kSurfaceW, kSurfaceH) ||
         !held.PoseAt(0, why)) {
       ++refused;
@@ -178,11 +148,6 @@ int main(void) {
       }
     }
 
-    /* **THE CLIENT OWNS THE TARGET AND HANDS THE LIBRARY A POINTER TO IT.** A case's plan asks for
-     * `Resource::Surface` because a host presents; this host is headless, so its surface is a texture
-     * of its own -- which is the same declaration a windowed host makes with a swapchain image, and
-     * the library cannot tell the two apart. Without one the present pass attaches nothing, and a pass
-     * with no attachment is where this test found its own missing half. */
     SDL_GPUTextureCreateInfo wanted{};
     wanted.type = SDL_GPU_TEXTURETYPE_2D;
     wanted.format = renderer.SurfaceFormat();
@@ -225,15 +190,13 @@ int main(void) {
               __FILE__, __LINE__);
       continue;
     }
-    /* **THE CHROME IS OVER THE CASE AND NOT BESIDE IT.** The panel's own colour, read where the
-     * browser declared it, is what says the interface reached the same texels the case did -- a
-     * picture that came back varying could still be the case alone. */
+
     const auto codeAt = [&rgba](int x, int y, int channel) {
       const size_t at = (((size_t)y * (size_t)kSurfaceW) + (size_t)x) * 4u + (size_t)channel;
       return at < rgba.size() ? (int)rgba[at] : -1;
     };
     {
-      /* The CORPUS column's own colour, `#0f1317`, which is the leftmost of the two. */
+
       const int r = codeAt(6, 400, 0), g = codeAt(6, 400, 1), b = codeAt(6, 400, 2);
       Checked(std::abs(r - 0x0f) <= 2 && std::abs(g - 0x13) <= 2 && std::abs(b - 0x17) <= 2,
               "the browser's own columns are over the case it shows",
@@ -242,9 +205,7 @@ int main(void) {
                   .c_str(),
               __FILE__, __LINE__);
     }
-    /* **THE PICTURE IS INSIDE ITS PANE AND NOWHERE ELSE.** A texel just left of the region belongs to
-     * the browser and a texel inside it belongs to the case, and a viewport that leaked would show the
-     * case under the lists -- which is the one thing centring is for. */
+
     const int outsideR = codeAt((int)View::ColumnsWidth(kSurfaceW) - 4, kSurfaceH / 2, 0);
     const int outsideG = codeAt((int)View::ColumnsWidth(kSurfaceW) - 4, kSurfaceH / 2, 1);
     Checked(outsideR >= 0 && outsideR < 40 && outsideG < 40,

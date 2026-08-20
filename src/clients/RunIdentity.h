@@ -1,7 +1,3 @@
-/* WHAT EVERY TELEMETRY ROW HAS TO CARRY to be worth anything a week later: which mod, which scene,
- * which translation, which build, which browser. A run manifest beside the file would be one more
- * thing that can get separated from it — a row that cannot say what produced it is not a
- * measurement (CLAUDE.md). Registered FIRST on the bus, so the identity is the leading columns. */
 #ifndef RUNIDENTITY_H
 #define RUNIDENTITY_H
 
@@ -14,10 +10,7 @@ namespace outshine::Clients {
 
 class RunIdentity : public TelemetrySource {
 public:
-  /* `Build` is the wasm hash in the browser and the binary's hash natively; `Agent` is the browser's
-   * own version string and empty natively, where there is no browser to pin. `RenderW`/`RenderH` are
-   * the scene's declared render size in pixels — the canvas the picture ends up on is not it. The
-   * instrument is absent here on purpose: it is not the caller's to state (Sanitisers.h). */
+
   struct Fields {
     std::string Mod, Scene, Client, Build, Agent;
     int RenderW = 0, RenderH = 0;
@@ -51,5 +44,5 @@ private:
   Fields F_;
 };
 
-} // namespace outshine::Clients
+}
 #endif

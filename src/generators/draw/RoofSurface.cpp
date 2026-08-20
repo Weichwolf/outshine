@@ -8,7 +8,7 @@ namespace outshine::Generators {
 namespace {
 
 struct Line {
-  double A = 0.0, B = 0.0, C = 0.0;   /* A u + B v = C, in the box frame */
+  double A = 0.0, B = 0.0, C = 0.0;
 };
 
 constexpr double kOnLineM = 1.0e-4;
@@ -26,9 +26,6 @@ void PushTri(std::vector<Plan2> &out, const Plan2 &a, const Plan2 &b, const Plan
   out.push_back(c);
 }
 
-/* Ear clipping, because a fan off one corner fills the convex hull and a town's plans are L- and
- * U-shaped. The guard bounds a self-intersecting ring: what was clipped stands, the rest is not
- * roofed, which is visible and finite where an endless loop is neither. */
 void EarClip(const std::vector<Plan2> &ring, std::vector<Plan2> &tris) {
   const size_t n = ring.size();
   if (n < 3) return;
@@ -63,9 +60,6 @@ void EarClip(const std::vector<Plan2> &ring, std::vector<Plan2> &tris) {
   }
 }
 
-/* One side of a half-plane, as a convex polygon of at most four corners, fanned. Both sides are
- * taken in turn, which is what makes the split lossless: every point of the triangle lands in
- * exactly one output triangle. */
 void HalfPlane(const Plan2 *t, const double *d, double sign, std::vector<Plan2> &out) {
   Plan2 poly[4];
   int n = 0;
@@ -140,8 +134,6 @@ int CreasesOf(const BuildingShape &s, Line *lines) {
   return 0;
 }
 
-/* A dome is the one shape here that is not piecewise flat, so it is the one that is refined instead
- * of split: four passes take a plan of a few triangles to a cap whose facets are under a metre. */
 void Refine(std::vector<Plan2> &tris, int passes) {
   for (int p = 0; p < passes; p++) {
     std::vector<Plan2> out;
@@ -160,7 +152,7 @@ void Refine(std::vector<Plan2> &tris, int passes) {
   }
 }
 
-}  // namespace
+}
 
 RoofSurface::RoofSurface(const BuildingShape &shape) : Shape_(shape) {}
 
@@ -195,12 +187,11 @@ double RoofSurface::HeightAt(const Plan2 &enu) const noexcept {
     }
     case RoofKind::Dome: {
       const double r = std::hypot(u / hu, v / hv);
-      f = r >= 1.0 ? 0.0 : std::sqrt(1.0 - r * r);   /* a cap has no verge; Analyse gives it no overhang */
+      f = r >= 1.0 ? 0.0 : std::sqrt(1.0 - r * r);
       break;
     }
   }
-  /* NOT clamped at the eaves: the overhang lies OUTSIDE the plan, and a roof plane that stops falling
-   * where the wall ends turns its own verge into a horizontal lip. */
+
   return f * rise;
 }
 
@@ -230,10 +221,10 @@ std::vector<Plan2> RoofSurface::Widened(const std::vector<Plan2> &ring, double b
     const double e0 = p.E - a.E, n0 = p.N - a.N, l0 = std::hypot(e0, n0);
     const double e1 = b.E - p.E, n1 = b.N - p.N, l1 = std::hypot(e1, n1);
     if (l0 < 1.0e-6 || l1 < 1.0e-6) return {};
-    /* Outward is the right-hand normal of a counter-clockwise ring. */
+
     const double ox = (n0 / l0 + n1 / l1), oy = -(e0 / l0 + e1 / l1);
     const double len = std::hypot(ox, oy);
-    if (len < 0.35) return {};   /* a spike: the two edges nearly double back, and the miter blows up */
+    if (len < 0.35) return {};
     const double miter = byM / (0.5 * len * len);
     if (std::fabs(miter) > 4.0 * std::fabs(byM)) return {};
     out.push_back({p.E + ox * miter, p.N + oy * miter});
@@ -241,4 +232,4 @@ std::vector<Plan2> RoofSurface::Widened(const std::vector<Plan2> &ring, double b
   return out;
 }
 
-}  // namespace outshine::Generators
+}
