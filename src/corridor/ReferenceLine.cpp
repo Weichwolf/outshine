@@ -207,6 +207,56 @@ bool ReferenceLine::Lay(const Placed &from, const std::vector<Segment> &along, s
   return true;
 }
 
+bool ReferenceLine::Nearest(double eastM, double northM, double nearM, double windowM,
+                            double &alongM) const {
+  if (Laid_.empty() || !(windowM > 0.0)) { return false; }
+
+  double lowM = nearM - windowM;
+  double highM = nearM + windowM;
+  if (lowM < 0.0) { lowM = 0.0; }
+  if (highM > Length_) { highM = Length_; }
+  if (!(highM > lowM)) { return false; }
+
+  const auto away = [eastM, northM](const Placed &there) {
+    const double east = eastM - there.EastM;
+    const double north = northM - there.NorthM;
+    return east * east + north * north;
+  };
+
+  double bestM = lowM;
+  double bestAway = 0.0;
+  bool have = false;
+  for (double atM = lowM; atM <= highM; atM += kResectionCoarseM) {
+    Placed there;
+    if (!At(atM, there)) { continue; }
+    const double is = away(there);
+    if (!have || is < bestAway) {
+      have = true;
+      bestAway = is;
+      bestM = atM;
+    }
+  }
+  if (!have) { return false; }
+
+  double spanM = kResectionCoarseM;
+  for (int narrow = 0; narrow < kResectionRefinements; ++narrow) {
+    spanM *= 0.1;
+    for (int side = -1; side <= 1; side += 2) {
+      const double tryM = bestM + (double)side * spanM;
+      if (tryM < lowM || tryM > highM) { continue; }
+      Placed there;
+      if (!At(tryM, there)) { continue; }
+      const double is = away(there);
+      if (is < bestAway) {
+        bestAway = is;
+        bestM = tryM;
+      }
+    }
+  }
+  alongM = bestM;
+  return true;
+}
+
 bool ReferenceLine::At(double alongM, Placed &out) const {
   if (Laid_.empty()) { return false; }
   if (!(alongM >= 0.0) || alongM > Length_) { return false; }

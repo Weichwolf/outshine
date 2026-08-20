@@ -9,6 +9,8 @@ namespace outshine {
 
 inline constexpr size_t kMaxCorridorSegments = 4096;
 inline constexpr size_t kMaxCorridorKnots = 4096;
+inline constexpr double kResectionCoarseM = 1.0;
+inline constexpr int kResectionRefinements = 4;
 inline constexpr double kTangentTolerance = 1.0e-9;
 
 enum class Curve : uint8_t { Straight, Arc, Spiral };
@@ -46,6 +48,8 @@ public:
   [[nodiscard]] bool Bank(const std::vector<Knot> &through, std::string &error);
 
   [[nodiscard]] bool At(double alongM, Placed &out) const;
+  [[nodiscard]] bool Nearest(double eastM, double northM, double nearM, double windowM,
+                             double &alongM) const;
   [[nodiscard]] double LengthM(void) const { return Length_; }
   [[nodiscard]] size_t SegmentCount(void) const { return Laid_.size(); }
   [[nodiscard]] size_t RiseKnotCount(void) const { return Rise_.size(); }

@@ -5,8 +5,6 @@
 
 namespace outshine::Pilot {
 
-inline constexpr double kResectionCoarseM = 1.0;
-inline constexpr int kResectionRefinements = 4;
 inline constexpr int kChordSteps = 12;
 
 struct Placement {

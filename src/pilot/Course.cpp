@@ -30,45 +30,8 @@ Placement Locate(const ReferenceLine &along, double eastM, double northM, double
   out.HeightM = heightM;
   out.HeadingRad = headingRad;
 
-  const double lengthM = along.LengthM();
-  if (!(lengthM > 0.0) || !(windowM > 0.0)) { return out; }
-
-  double lowM = nearM - windowM;
-  double highM = nearM + windowM;
-  if (lowM < 0.0) { lowM = 0.0; }
-  if (highM > lengthM) { highM = lengthM; }
-  if (!(highM > lowM)) { return out; }
-
-  double bestM = lowM;
-  double bestAway = 0.0;
-  bool have = false;
-  for (double atM = lowM; atM <= highM; atM += kResectionCoarseM) {
-    Placed there;
-    if (!along.At(atM, there)) { continue; }
-    const double away = AwayFrom(there, eastM, northM);
-    if (!have || away < bestAway) {
-      have = true;
-      bestAway = away;
-      bestM = atM;
-    }
-  }
-  if (!have) { return out; }
-
-  double spanM = kResectionCoarseM;
-  for (int narrow = 0; narrow < kResectionRefinements; ++narrow) {
-    spanM *= 0.1;
-    for (int side = -1; side <= 1; side += 2) {
-      const double tryM = bestM + (double)side * spanM;
-      if (tryM < lowM || tryM > highM) { continue; }
-      Placed there;
-      if (!along.At(tryM, there)) { continue; }
-      const double away = AwayFrom(there, eastM, northM);
-      if (away < bestAway) {
-        bestAway = away;
-        bestM = tryM;
-      }
-    }
-  }
+  double bestM = 0.0;
+  if (!along.Nearest(eastM, northM, nearM, windowM, bestM)) { return out; }
 
   Placed on;
   if (!along.At(bestM, on)) { return out; }
