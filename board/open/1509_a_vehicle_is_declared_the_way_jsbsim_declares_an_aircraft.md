@@ -14,7 +14,10 @@ inertia tensor, ground reactions as spring/damper contact points, propulsion, an
 coefficient tables -- and the simulator assembles it. **No aircraft is hard-coded, and that is why one
 program flies a Cessna and a 737.**
 
-**A car is the same shape with different tables.** So the vehicle is DECLARED and never written:
+**A car is the same shape with different tables.** So the vehicle is DECLARED and never written --
+**and the declaration is a row of OUR scenario and not a second file format.** `<vehicle>` sits beside
+`<kinds>`, `<views>` and `<player>`, read by the same grammar table and refused by the same sentence when
+it is misspelled. *One format, one reader, one place a typo is caught.*
 
 ```xml
 <vehicle name="hatchback" massKg="1320">
