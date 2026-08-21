@@ -113,6 +113,26 @@ struct Ridden {
   double RatioOfHold = 0.0;
   double CurvaturePerM = 0.0;
   double CurvatureRatePerM = 0.0;
+  double ReachedM = 0.0;
+  double TopMs = 0.0;
+  double WorstOffsetM = 0.0;
+  double WorstOffsetAtM = 0.0;
+  double WorstRatio = 0.0;
+  size_t MostAirborne = 0;
+  double AirborneAtM = 0.0;
+  double BrokeAtM = 0.0;
+  double LeftTheRoadAtM = 0.0;
+  double LeftByM = 0.0;
+  double LeftAtMs = 0.0;
+  double LeftPlannedMs = 0.0;
+  double LeftCurvature = 0.0;
+  double LeftRate = 0.0;
+  double LeftLaneM = 0.0;
+  double LeftEdgeM = 0.0;
+  double LeftAsideM = 0.0;
+  double LeftAcrossM = 0.0;
+  size_t OffTheSurface = 0;
+  double SimulatedS = 0.0;
 };
 
 class Journey {

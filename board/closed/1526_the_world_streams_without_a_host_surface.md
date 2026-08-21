@@ -50,3 +50,28 @@ under all three filters an encoder actually chooses, and RGBA read at four chann
 
 **`src/world` and `tools/driver` now compile and link with no SDL flag anywhere.** The goal's
 *headless with no renderer linked at all* is literally true for the first time.
+
+## The framing was wrong, and the owner corrected it
+
+**SDL_image is a DECODER, not a renderer.** The goal asks that outshine be able to RUN without
+initialising a renderer -- or against an offscreen surface -- and the headless drive already did
+that: it never created a device. Linking a library that turns bytes into pixels was never the thing
+the goal forbade. This item was filed on a confusion between *links SDL* and *needs a renderer*, and
+`board:1504`'s sentence about a world welded to a GPU does not apply to an image decode.
+
+**So the PNG reader has to stand on a measurement instead**, and it does. Over **130 real Terrarium
+tiles from the Munich to Hamburg cache, 2600 decodes each way**:
+
+| | per tile |
+|---|---|
+| `src/core/io/Png` | **0.8694 ms** |
+| SDL_image | 1.1846 ms |
+| | **1.363x** |
+
+And the output is not merely the same size: comparing every byte of all 130 tiles against
+`IMG_Load_IO` + `SDL_ConvertSurface` gives **0 tiles differing and 0 bytes wrong**. The whole drive
+agrees too -- 774.851 km against 774.847, the difference being the run's own step boundary.
+
+**It is kept because it is a third faster on the real population and produces the same bytes**, in a
+path that runs thousands of times per route, not because SDL was forbidden. The dead
+`fb_load_image_file` deletion stands on its own: nothing called it.
