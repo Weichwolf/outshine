@@ -23,12 +23,14 @@ frame. What is wrong is the **brute force between them**.
 
 ## What must be true
 
-- [ ] **A post finds its station in O(1) or O(log n)**, not by scanning 601 of them. The corridor is a
-      polyline in station order and a post's east-north is a monotone query along it
-- [ ] **The cost is stated where it is spent** -- *everything that grows states its bound*, and a
-      product of two sampling rates is exactly the kind of growth that hides inside two reasonable
-      numbers
-- [ ] **The tool finishes**, so the drive can be looked at again
+- [x] **A post finds its station via `Corridor::Nearest` with a walking hint** -- the previous
+      post's station seeds the next search inside a 200 m window, so the scan of 601 centre samples
+      became a local walk; re-lays fell 1937 -> 202 in the same session
+- [x] **The cost is stated where it is spent** -- the hint window is `kHintWindowM = 200.0` beside
+      the grids it bounds
+- [x] **The tool finishes**: the full Munich-Hamburg stills drive now runs in **355.7 s against the
+      560 s test ceiling** (2026-08-22, 26 stills written, PASS), where this item opened on a run
+      that had produced nothing after 76 minutes
 
 ## Comments
 
@@ -39,3 +41,10 @@ the picture actually needs is 22 000 times that.
 
 **`ReferenceLine::Nearest` already exists and already does this properly** -- golden section over the
 station axis, and `board:1523` sharpened it. The grading should ask it rather than carry its own scan.
+
+
+## Comments
+
+Closed on the measured run: 355.7 s wall for the whole route with 12 stations and 26 stills, PASS
+inside the harness. The remaining per-relay cost is the ground grid itself (267x267 posts x one
+`GroundAt` each), and that is a bound somebody chose, stated beside its constants.
