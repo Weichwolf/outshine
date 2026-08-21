@@ -42,6 +42,27 @@ first link is named.
 claims, a `ReadScenario` error nobody printed, and this -- a `void` return over an error that had
 already been written down.
 
+## THE SKY'S TECHNIQUE IS ALREADY CHOSEN, AND IT IS PUBLISHED
+
+**The catalogue's own stage names are Hillaire's**, looked up rather than recalled: *A Scalable and
+Production Ready Sky and Atmosphere Rendering Technique*, Sebastien Hillaire, Computer Graphics Forum
+2020. Its chain is exactly the one this engine's diagram draws:
+
+| the paper's LUT | parameterised by | the catalogue's stage |
+|---|---|---|
+| Transmittance | sample height and direction, toward the top of the atmosphere | `MediumTransmittance` -> `TransmittanceLut` |
+| Multiple Scattering | sample height and sun direction | `MediumMultiScatter` |
+| Sky View | latitude and longitude about the camera | `MediumRadiance` -> `SkyViewLut` |
+
+**So nothing about the sky needs designing.** The stage rows, their resources and their order were
+written from a published technique whose whole point is that it is cheap, physically based, needs no
+high-dimensional LUTs, and scales from mobile to desktop. What is missing is the compute passes
+themselves -- `MediumTransmittance` is a `PassKind::Compute` producing one texture, and it is the
+first link because the other two read it.
+
+**And the refusal now walks the chain for us.** Implement one, declare the sky again, and the device
+names the next stage it cannot run. That is a work list the engine hands out by itself.
+
 ## What must be true
 
 - [ ] **Declaring a stage the device cannot execute refuses at plan time**, by name, before a frame is
