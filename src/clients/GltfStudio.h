@@ -20,6 +20,8 @@ constexpr double kStudioAnchorEcefM[3] = {6378137.0, 0.0, 0.0};
 
 void EcefFromGltf(const double gltf[3], double out[3]);
 
+void PlacedInEcef(const double gltf[16], double out[16]);
+
 struct Studio {
   const Gltf::Subject *Geometry = nullptr;
   Gltf::Placement Eye;
@@ -40,6 +42,8 @@ struct Studio {
 
   Render::SubjectEnvironment Environment;
 };
+
+void Placements(const Studio &studio, std::vector<double> &into);
 
 struct StudioScratch {
   std::vector<float> Vertices;

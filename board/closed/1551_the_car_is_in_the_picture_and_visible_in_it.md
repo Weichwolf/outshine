@@ -163,8 +163,10 @@ stands kilometres out and the "car" it shows is the unscaled giant, which is why
 - [x] **A picture that carries a subject's parts draws them**, and a case decides it --
       `test/render/outshine/scenario/TheChaseCameraSeesTheCarItFollows.cpp`: the F31 joined to a
       built ground, the chase camera 7 m behind, 93 822 dark pixels of 230 400
-- [ ] **Whatever the answer is, it is not another hypothesis** -- the case above bisects three of
-      the drive's ingredients and all three pass; what remains is the drive's own geometry
+- [x] **Whatever the answer is, it is not another hypothesis** -- settled by bisection and CLOSED:
+      `Live::Carry` handed the placement matrices to the renderer RAW while every other route
+      conjugates them through `PlacedInEcef` -- the second arrival route the architecture forbids,
+      found in the one client path that bypassed `Placements()`
 
 ## Comments
 
@@ -177,3 +179,35 @@ lesson worth carrying -- halve the picture before reasoning about it.
 embankment shaded, the ground is graded to the formation with a reach the RAA prescribes, the exposure
 is derived from the declared illuminance, and the frame is 50.59 % opaque against 1.09 % when this
 began.
+
+
+## CLOSED -- THE CAR IS IN THE PICTURE AND VISIBLE IN IT
+
+**The defect was the missing glTF-to-engine conjugation in `Live::Carry`.** The studio path runs
+every placement through `Placements()` -- `PlacedInEcef`, the axis conjugation P.M.P -- before the
+renderer sees it; `Carry` pushed `Stood_.PartPlacement` raw. In the conjugated frame a placement's
+translation lands with x and y swapped and z negated, so the drive's car stood tens of metres away
+from where the camera looked, while identity placements (the road, the ground, every case before
+this one) were exactly the fixed point of the conjugation and never showed it.
+
+**That is the *second arrival route is a second case* defect CLAUDE.md names**, caught in the wild:
+one route conjugated, one did not, and only content arriving through the second was wrong.
+
+**Looked at, in the drive's own stills**: `km0017.3-third` -- an F31 from behind, mirrors and roof
+line legible, standing ON the carriageway under the blue sky, 7 m ahead of the chase camera.
+`km0017.3-first` -- the BONNET at the bottom of the driver's view. Both for the first time in this
+tool's history.
+
+**The proof is the permanent case** `test/render/outshine/scenario/TheChaseCameraSeesTheCarItFollows.cpp`:
+the car and a 96 800-triangle ground in one Live, measured at the origin, under the drive's own yaw,
+190 m out, and across a restand -- 96 692 / 95 249 / 11 082 / 96 692 dark pixels, every rung above
+the hundredth-of-the-frame floor.
+
+**Two instrument defects found on the way, both the same shape**: a dark-pixel count over a small
+ground counted the sky's unlit ground half as "car" (a false PASS), and a probe at the drive's own
+body height stood the car under a flat test ground (a false FAIL). The population's edges decide
+what a pixel count means, both times.
+
+**Still open, and now filed separately: the car is BLACK.** Submitted, placed, sized -- and unlit.
+That is a lighting question (the key light and the asset's materials), not a placement one, and it
+is board:1562.

@@ -85,6 +85,8 @@ public:
 
   [[nodiscard]] bool ReadPixels(std::vector<uint8_t> &rgba, std::string &error);
 
+  void PlacedBounds(double least[3], double most[3]);
+
   [[nodiscard]] bool Advance(std::string &error);
 
   void Eye(const Gltf::Placement &from);
@@ -137,6 +139,8 @@ private:
   Gltf::Placement Eye_;
   bool HaveEye_ = false;
   bool Aimed_ = true;
+  bool BoundsPlaced_ = false;
+  double PlacedLeast_[3] = {0, 0, 0}, PlacedMost_[3] = {0, 0, 0};
   Gltf::Pose Motion_;
   Gltf::VariantSelection Variant_;
   std::vector<Gltf::Transform> Locals_;

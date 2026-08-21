@@ -15,8 +15,6 @@ void EcefFromGltf(const double gltf[3], double out[3]) {
   out[2] = -gltf[2];
 }
 
-namespace {
-
 void PlacedInEcef(const double gltf[16], double out[16]) {
   constexpr int kAxis[4] = {1, 0, 2, 3};
   constexpr double kSign[4] = {1.0, 1.0, -1.0, 1.0};
@@ -34,6 +32,8 @@ void Placements(const Studio &studio, std::vector<double> &into) {
     PlacedInEcef(studio.PartPlacement[part].data(), into.data() + part * 16u);
   }
 }
+
+namespace {
 
 void Anchored(const double gltf[3], double out[3]) {
   EcefFromGltf(gltf, out);

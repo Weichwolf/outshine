@@ -1550,18 +1550,26 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   const auto place = [this, &ctx, &uniform, &into](uint32_t slot) {
     const double *const model =
         Placed_.empty() ? Model : Placed_.data() + (size_t)slot * 16u;
+
+    double carried[16];
+    for (int i = 0; i < 16; i++) { carried[i] = model[i]; }
+    if (!Placed_.empty()) {
+      for (int axis = 0; axis < 3; ++axis) { carried[12 + axis] += Anchor[axis] - ctx.Eye[axis]; }
+    }
     double placed[16];
     for (int row = 0; row < 4; ++row) {
       for (int column = 0; column < 4; ++column) {
         double sum = 0.0;
         for (int over = 0; over < 4; ++over) {
-          sum += (double)ctx.Mvp16[over * 4 + row] * model[column * 4 + over];
+          sum += (double)ctx.Mvp16[over * 4 + row] * carried[column * 4 + over];
         }
         placed[column * 4 + row] = sum;
       }
     }
     for (int i = 0; i < 16; i++) { uniform[i] = (float)placed[i]; }
-    for (int i = 0; i < 3; i++) { uniform[16 + i] = (float)(Anchor[i] - ctx.Eye[i]); }
+    for (int i = 0; i < 3; i++) {
+      uniform[16 + i] = Placed_.empty() ? (float)(Anchor[i] - ctx.Eye[i]) : 0.0f;
+    }
     for (int i = 0; i < 16; i++) { uniform[20 + i] = ctx.PrevMvp16[i]; }
     for (int i = 0; i < 3; i++) { uniform[36 + i] = (float)(PrevAnchor[i] - ctx.PrevEye[i]); }
     SDL_PushGPUVertexUniformData(into.Commands, 0, uniform, sizeof uniform);

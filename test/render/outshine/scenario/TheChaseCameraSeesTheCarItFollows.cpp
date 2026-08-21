@@ -65,20 +65,52 @@ int main(void) {
   std::vector<float> positions, normals;
   std::vector<uint32_t> indices;
   {
-    const float h = 60.0f;
-    const float corner[4][3] = {{-h, 0, -h}, {h, 0, -h}, {h, 0, h}, {-h, 0, h}};
-    for (const auto &at : corner) {
-      positions.insert(positions.end(), {at[0], at[1], at[2]});
-      normals.insert(normals.end(), {0.0f, 1.0f, 0.0f});
+    const float h = 400.0f;
+    const int cells = 220;
+    for (int row = 0; row <= cells; ++row) {
+      for (int column = 0; column <= cells; ++column) {
+        positions.insert(positions.end(),
+                         {-h + 2.0f * h * (float)column / (float)cells, 0.0f,
+                          -h + 2.0f * h * (float)row / (float)cells});
+        normals.insert(normals.end(), {0.0f, 1.0f, 0.0f});
+      }
     }
-    indices = {0, 2, 1, 0, 3, 2};
+    for (int row = 0; row < cells; ++row) {
+      for (int column = 0; column < cells; ++column) {
+        const uint32_t at = (uint32_t)(row * (cells + 1) + column);
+        const uint32_t below = at + (uint32_t)cells + 1u;
+        indices.insert(indices.end(), {at, below, at + 1u, at + 1u, below, below + 1u});
+      }
+    }
   }
-  Piece lying;
-  lying.PositionsM = Span<const float>(positions.data(), positions.size());
-  lying.Normals = Span<const float>(normals.data(), normals.size());
-  lying.Indices = Span<const uint32_t>(indices.data(), indices.size());
+  std::vector<float> deckPositions, deckNormals;
+  std::vector<uint32_t> deckIndices;
+  {
+    const float half = 5.0f;
+    const float lift = 0.35f;
+    const float corner[4][3] = {{-half, lift, -400.0f}, {half, lift, -400.0f},
+                                {half, lift, 400.0f}, {-half, lift, 400.0f}};
+    for (const auto &at : corner) {
+      deckPositions.insert(deckPositions.end(), {at[0], at[1], at[2]});
+      deckNormals.insert(deckNormals.end(), {0.0f, 1.0f, 0.0f});
+    }
+    deckIndices = {0, 2, 1, 0, 3, 2};
+  }
+  Piece pair[2];
+  pair[0].NodeName = "ground";
+  pair[0].Material = 0;
+  pair[0].PositionsM = Span<const float>(positions.data(), positions.size());
+  pair[0].Normals = Span<const float>(normals.data(), normals.size());
+  pair[0].Indices = Span<const uint32_t>(indices.data(), indices.size());
+  pair[1].NodeName = "deck";
+  pair[1].Material = 1;
+  pair[1].PositionsM = Span<const float>(deckPositions.data(), deckPositions.size());
+  pair[1].Normals = Span<const float>(deckNormals.data(), deckNormals.size());
+  pair[1].Indices = Span<const uint32_t>(deckIndices.data(), deckIndices.size());
   Subject ground;
-  CHECK(ground.Assemble(Assembly{Span<const Piece>(&lying, 1)}), "a ground assembles");
+  CHECK(ground.Assemble(Assembly{Span<const Piece>(pair, 2)}),
+        "a ground of 96 800 triangles and a carriageway deck assemble -- the drive's own shape, "
+        "two pieces and two declared surfaces, at a size in the drive's own class");
 
   outshine::Render::Renderer renderer;
   Declaration declaration;
@@ -86,11 +118,15 @@ int main(void) {
   declaration.SurfaceHeightPx = kHighPx;
   declaration.Stands = carPath;
   declaration.Built = &ground;
-  declaration.Surfacing.resize(1);
+  declaration.Surfacing.resize(2);
   declaration.Surfacing[0].BaseColour[0] = 0.24f;
   declaration.Surfacing[0].BaseColour[1] = 0.30f;
   declaration.Surfacing[0].BaseColour[2] = 0.16f;
   declaration.Surfacing[0].Roughness = 0.98f;
+  declaration.Surfacing[1].BaseColour[0] = 0.14f;
+  declaration.Surfacing[1].BaseColour[1] = 0.14f;
+  declaration.Surfacing[1].BaseColour[2] = 0.15f;
+  declaration.Surfacing[1].Roughness = 0.92f;
   declaration.KeyLux = 40000.0;
   declaration.KeyElevationDeg = 42.0;
   declaration.KeyBearingDeg = 150.0;
@@ -155,10 +191,75 @@ int main(void) {
         "This is board:1551's bisection made permanent: same Live, same Carry, same camera "
         "shape, no corridor and no journey in the way");
 
+  const auto placedAt = [&](double yawDeg, const double at[3], size_t &darkOut) {
+    const double yaw = yawDeg * 3.14159265358979 / 180.0;
+    const double c = std::cos(yaw), n = std::sin(yaw);
+    double turned[16] = {0};
+    turned[0] = c * assetM;
+    turned[2] = -n * assetM;
+    turned[5] = assetM;
+    turned[8] = n * assetM;
+    turned[10] = c * assetM;
+    turned[15] = 1.0;
+    const double shift[3] = {-kAssetCentreX * assetM, -kAssetGround * assetM,
+                             -kAssetCentreZ * assetM};
+    for (int row = 0; row < 3; ++row) {
+      turned[12 + row] = at[row];
+      for (int k = 0; k < 3; ++k) { turned[12 + row] += turned[k * 4 + row] / assetM * shift[k]; }
+    }
+    if (!standing->Carry(turned, roadAt, error)) { return false; }
+    Placement follows = chase;
+    const double ahead[3] = {-n, 0.0, -c};
+    for (int axis = 0; axis < 3; ++axis) {
+      follows.EyeM[axis] = at[axis] - ahead[axis] * kChaseBackM;
+      follows.Forward[axis] = ahead[axis];
+    }
+    follows.EyeM[1] += kChaseUpM;
+    follows.Right[0] = c;
+    follows.Right[1] = 0.0;
+    follows.Right[2] = -n;
+    std::vector<uint8_t> moved;
+    if (!frame(follows, moved)) { return false; }
+    darkOut = DarkAgainstGround(moved);
+    return true;
+  };
+
+  {
+    const double origin[3] = {0.0, 0.0, 0.0};
+    const double out[3] = {-40.9, 0.9, -189.9};
+    size_t dark0 = 0, darkYaw = 0, darkOut = 0, darkBoth = 0;
+    CHECK(placedAt(0.0, origin, dark0) && placedAt(12.8, origin, darkYaw) &&
+              placedAt(0.0, out, darkOut) && placedAt(12.8, out, darkBoth),
+          "four placements render: origin, yaw alone, offset alone, both");
+    Note("dark pixels at the origin, no yaw", (double)dark0, "px");
+    Note("dark pixels with yaw alone", (double)darkYaw, "px");
+    Note("dark pixels 190 m out, no yaw", (double)darkOut, "px");
+    {
+      size_t ignored = 0;
+      (void)placedAt(0.0, out, ignored);
+      std::string shotError;
+      if (!standing->Screenshot("/tmp/chase-offset-probe.png", shotError)) {
+        std::printf("REFUSED %s\n", shotError.c_str());
+      }
+      (void)placedAt(0.0, origin, ignored);
+      if (!standing->Screenshot("/tmp/chase-origin-probe.png", shotError)) {
+        std::printf("REFUSED %s\n", shotError.c_str());
+      }
+    }
+
+    Note("dark pixels with both", (double)darkBoth, "px");
+    CHECK(darkYaw > (size_t)(kWidePx * kHighPx) / 100,
+          "the car survives its own yaw at the origin");
+    CHECK(darkOut > (size_t)(kWidePx * kHighPx) / 100,
+          "**AND IT SURVIVES STANDING 190 M FROM THE ORIGIN**, which is the drive's own frame");
+    CHECK(darkBoth > (size_t)(kWidePx * kHighPx) / 100,
+          "and the two together");
+  }
+
   {
     const double yaw = 12.8 * 3.14159265358979 / 180.0;
     const double c = std::cos(yaw), n = std::sin(yaw);
-    const double at[3] = {-40.9, -0.6, -189.9};
+    const double at[3] = {-40.9, 0.9, -189.9};
     double turned[16] = {0};
     turned[0] = c * assetM;
     turned[2] = -n * assetM;

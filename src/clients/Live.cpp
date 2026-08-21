@@ -231,6 +231,40 @@ void Live::Eye(const Gltf::Placement &from) {
   Aimed_ = false;
 }
 
+void Live::PlacedBounds(double least[3], double most[3]) {
+  if (!BoundsPlaced_) {
+    const std::vector<double> &at = Geometry_.PositionsM();
+    bool first = true;
+    for (size_t part = 0; part < Geometry_.Parts().size(); ++part) {
+      const Gltf::Part &one = Geometry_.Parts()[part];
+      const std::array<double, 16> identity{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+      const std::array<double, 16> &placed =
+          part < Stood_.PartPlacement.size() ? Stood_.PartPlacement[part] : identity;
+      for (size_t vertex = one.FirstVertex; vertex < one.FirstVertex + one.VertexCount; ++vertex) {
+        const double *const from = at.data() + vertex * 3;
+        for (int axis = 0; axis < 3; ++axis) {
+          const double out = placed[axis] * from[0] + placed[4 + axis] * from[1] +
+                             placed[8 + axis] * from[2] + placed[12 + axis];
+          if (first || out < PlacedLeast_[axis]) { PlacedLeast_[axis] = out; }
+          if (first || out > PlacedMost_[axis]) { PlacedMost_[axis] = out; }
+        }
+        first = false;
+      }
+    }
+    if (first) {
+      for (int axis = 0; axis < 3; ++axis) {
+        PlacedLeast_[axis] = 0.0;
+        PlacedMost_[axis] = 0.0;
+      }
+    }
+    BoundsPlaced_ = true;
+  }
+  for (int axis = 0; axis < 3; ++axis) {
+    least[axis] = PlacedLeast_[axis];
+    most[axis] = PlacedMost_[axis];
+  }
+}
+
 bool Live::Look(std::string &error) {
   Gltf::Placement framed;
   if (HaveEye_) {
@@ -238,13 +272,14 @@ bool Live::Look(std::string &error) {
     Stood_.EyeStandsInside = true;
     return Aim(*Renderer_, Geometry_, Stood_.Eye, error, true);
   }
-  if (!Geometry_.Frame(framed, Framing())) {
+  double least[3], most[3];
+  PlacedBounds(least, most);
+  if (!Gltf::FramingFor(least, most, framed, Framing())) {
     error = "the subject has no extent, so no camera can be derived from it";
     return false;
   }
-  const double centre[3] = {(Geometry_.MinM()[0] + Geometry_.MaxM()[0]) * 0.5,
-                            (Geometry_.MinM()[1] + Geometry_.MaxM()[1]) * 0.5,
-                            (Geometry_.MinM()[2] + Geometry_.MaxM()[2]) * 0.5};
+  const double centre[3] = {(least[0] + most[0]) * 0.5, (least[1] + most[1]) * 0.5,
+                            (least[2] + most[2]) * 0.5};
   const double turn = Around_ * 3.14159265358979323846 / 180.0;
   const double cosine = std::cos(turn), sine = std::sin(turn);
   const auto spun = [cosine, sine](const double from[3], double out[3]) {
@@ -428,7 +463,9 @@ bool Live::Carry(const double body[16], const double built[16], std::string &err
     const double *const from = part < Joined_ ? body : built;
     for (int at = 0; at < 16; ++at) { Stood_.PartPlacement[part][at] = from[at]; }
   }
-  return Renderer_->SetSubjectPlacements(Stood_.PartPlacement.front().data(),
+  BoundsPlaced_ = false;
+  Placements(Stood_, Scratch_.Placements);
+  return Renderer_->SetSubjectPlacements(Scratch_.Placements.data(),
                                          Stood_.PartPlacement.size(), error);
 }
 
