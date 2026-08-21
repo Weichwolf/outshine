@@ -85,6 +85,8 @@ public:
 
   void Eye(const Gltf::Placement &from);
 
+  [[nodiscard]] const Gltf::Placement &Aimed(void) const { return Stood_.Eye; }
+
   void FrameItself(void) {
     HaveEye_ = false;
     Aimed_ = false;

@@ -404,6 +404,23 @@ int main(void) {
     {
       standing->FrameItself();
       if (standing->Advance(error)) {
+        if (next == 0) {
+          const outshine::Gltf::Placement derived = standing->Aimed();
+          std::printf("DERIVED at %.1f %.1f %.1f fwd %.3f %.3f %.3f yfov %.4f near %.4f\n",
+                      derived.EyeM[0], derived.EyeM[1], derived.EyeM[2], derived.Forward[0],
+                      derived.Forward[1], derived.Forward[2], derived.YfovRad, derived.ZNearM);
+          standing->Eye(derived);
+          if (standing->Advance(error)) {
+            char same[256];
+            std::snprintf(same, sizeof same, "%s/km%06.1f-declared-same-place.png", into.c_str(),
+                          rode.ReachedM / 1000.0);
+            if (!standing->Screenshot(same, error)) { std::printf("REFUSED %s\n", error.c_str()); }
+          } else {
+            std::printf("REFUSED redraw: %s\n", error.c_str());
+          }
+          standing->FrameItself();
+          if (!standing->Advance(error)) { std::printf("REFUSED reframe: %s\n", error.c_str()); }
+        }
         char framed[256];
         std::snprintf(framed, sizeof framed, "%s/km%06.1f-framed.png", into.c_str(),
                       rode.ReachedM / 1000.0);

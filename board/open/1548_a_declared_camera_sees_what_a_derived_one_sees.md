@@ -29,6 +29,24 @@ out missing data and rules out streaming.
 | the ground patch does not reach the car | centred it on the car and re-laid on a 280 m stray. **No change** |
 | the near plane clips it | 0.1 m to 2.0 m. **No change**. And the projection is reverse-Z with an INFINITE far plane, so distance cannot cull either |
 
+## Two more ruled out, and the first one EXONERATES the path this item is named after
+
+| Guess | Ruled out by |
+|---|---|
+| **the declared path itself** -- `standsInside`, or anything `Look`'s declared branch skips | **The derived camera's own placement, read back and re-set as a DECLARED eye, draws a byte-identical picture.** 13 805 bytes against 13 805. The declared path is not the defect; the VALUES I hand it are |
+| depth precision at a 0.1 m near plane | the depth target is `D32_FLOAT` and the projection is reverse-Z -- which is exactly the pairing that makes a 0.1 m near plane sound. Unreal ships a 10 cm near clip on the same technique |
+
+**What the two cameras actually are**, printed side by side at km 17.3:
+
+```
+DERIVED  at 5522.8 2452.5 3737.9   fwd -0.770 -0.342 -0.539   yfov 0.4711   near 6201.2416
+MINE     at  -45.6    0.2  -214.8  fwd -0.221  0.008 -0.975   yfov 1.1345   near 0.1
+```
+
+The derived eye stands **7 km away** framing the whole 1400 m patch. Mine stands 1.5 m over the car.
+**The geometry says mine should see ground**: the patch spans z from -878.7 to +581.3, the car sits at
+z = -221.7 and looks toward -z, so roughly 660 m of ground lies ahead of it.
+
 ## What is left
 
 **The difference between the two paths is exactly one bool and one placement.** `Live::Look` takes the
