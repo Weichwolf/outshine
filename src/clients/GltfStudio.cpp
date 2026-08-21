@@ -17,6 +17,24 @@ void EcefFromGltf(const double gltf[3], double out[3]) {
 
 namespace {
 
+void EcefFromGltf(const double gltf[16], double out[16]) {
+  constexpr int kAxis[4] = {1, 0, 2, 3};
+  constexpr double kSign[4] = {1.0, 1.0, -1.0, 1.0};
+  for (int column = 0; column < 4; ++column) {
+    for (int row = 0; row < 4; ++row) {
+      out[column * 4 + row] =
+          kSign[row] * gltf[kAxis[column] * 4 + kAxis[row]] * kSign[column];
+    }
+  }
+}
+
+void Placements(const Studio &studio, std::vector<double> &into) {
+  into.resize(studio.PartPlacement.size() * 16u);
+  for (size_t part = 0; part < studio.PartPlacement.size(); ++part) {
+    EcefFromGltf(studio.PartPlacement[part].data(), into.data() + part * 16u);
+  }
+}
+
 void Anchored(const double gltf[3], double out[3]) {
   EcefFromGltf(gltf, out);
   for (int axis = 0; axis < 3; ++axis) { out[axis] += kStudioAnchorEcefM[axis]; }
@@ -381,8 +399,9 @@ bool Place(Render::Renderer &renderer, const Studio &studio, StudioScratch &scra
   mesh.Draws = &scratch.Draws;
   const Heap::Tagged handing("subject-mesh");
   if (!renderer.SetSubjectMesh(mesh, error)) { return false; }
+  Placements(studio, scratch.Placements);
   if (!renderer.SetSubjectPlacements(
-          studio.PartPlacement.empty() ? nullptr : studio.PartPlacement.front().data(),
+          scratch.Placements.empty() ? nullptr : scratch.Placements.data(),
           studio.PartPlacement.size(), error)) {
     return false;
   }
@@ -424,8 +443,9 @@ bool Move(Render::Renderer &renderer, const Studio &studio, StudioScratch &scrat
   }
   const Heap::Tagged handing("subject-pose");
   if (!renderer.SetSubjectPose(pose, error)) { return false; }
+  Placements(studio, scratch.Placements);
   return renderer.SetSubjectPlacements(
-      studio.PartPlacement.empty() ? nullptr : studio.PartPlacement.front().data(),
+      scratch.Placements.empty() ? nullptr : scratch.Placements.data(),
       studio.PartPlacement.size(), error);
 }
 
