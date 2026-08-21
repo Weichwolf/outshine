@@ -127,6 +127,8 @@ against ground of its own brightness.
 260 parts, the scale is right, and a camera framing the whole patch from kilometres out shows it while
 a camera seven metres behind it does not.
 
+**Two more ruled out in the same run.** `Restand` does not drop it -- the framed view at km 17.3, after several re-standings, still carries the car as a black shape on green ground. And the two driver cameras are genuinely distinct: `km0017.3-first` and `-third` differ in hash and in size, so `Look`'s declared branch is aiming them separately.
+
 **What that leaves**: something about the chase placement or the near field, and it is now a much
 narrower question than when this item opened -- geometry, scale, submission, surface and contrast are
 each measured and each sound.
