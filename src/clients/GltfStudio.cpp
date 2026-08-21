@@ -169,6 +169,7 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
     item.Order.Surface = studio.Surfaces[slot].State();
     item.Order.DepthFraction = DepthFraction(subject, where, studio.Eye);
     item.Order.MaterialSlot = slot;
+    item.ModelSlot = part < studio.PartPlacement.size() ? (uint32_t)part : 0u;
     item.SourceFirstIndex = (uint32_t)where.FirstIndex;
     item.IndexCount = (uint32_t)where.IndexCount;
 
@@ -380,6 +381,11 @@ bool Place(Render::Renderer &renderer, const Studio &studio, StudioScratch &scra
   mesh.Draws = &scratch.Draws;
   const Heap::Tagged handing("subject-mesh");
   if (!renderer.SetSubjectMesh(mesh, error)) { return false; }
+  if (!renderer.SetSubjectPlacements(
+          studio.PartPlacement.empty() ? nullptr : studio.PartPlacement.front().data(),
+          studio.PartPlacement.size(), error)) {
+    return false;
+  }
 
   return true;
 }

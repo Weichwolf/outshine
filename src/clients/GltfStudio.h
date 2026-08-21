@@ -28,6 +28,8 @@ struct Studio {
 
   std::vector<uint32_t> PartSurface;
 
+  std::vector<std::array<double, 16>> PartPlacement;
+
   std::vector<Render::SubjectMaterial> Surfaces;
 
   const Gltf::Subject *Previous = nullptr;

@@ -142,6 +142,8 @@ struct DrawItem {
   VertexLayout Layout = VertexLayout::Position;
   uint32_t FirstIndex = 0;
 
+  uint32_t ModelSlot = 0;
+
   uint32_t Submitted = 0;
 };
 
