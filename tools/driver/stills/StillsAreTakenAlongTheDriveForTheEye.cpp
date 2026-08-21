@@ -183,7 +183,7 @@ void Shifted(const double byM[3], double out[16]) {
   for (int axis = 0; axis < 3; ++axis) { out[12 + axis] = byM[axis]; }
 }
 
-void Standing(const outshine::Physics::Body &body, double byM, double out[16]) {
+void Standing(const outshine::Physics::Body &body, double byM, double liftM, double out[16]) {
   const double axes[3][3] = {{byM, 0, 0}, {0, byM, 0}, {0, 0, byM}};
   for (int column = 0; column < 3; ++column) {
     double turned[3];
@@ -192,6 +192,7 @@ void Standing(const outshine::Physics::Body &body, double byM, double out[16]) {
     out[column * 4 + 3] = 0.0;
   }
   for (int row = 0; row < 3; ++row) { out[12 + row] = body.PositionM[row]; }
+  out[13] += liftM;
   out[15] = 1.0;
 }
 
@@ -251,7 +252,11 @@ int main(void) {
   const double assetM = declaredCar.AssetWheelbase > 0.0
                             ? declaredCar.WheelbaseM / declaredCar.AssetWheelbase
                             : 1.0;
+  const double liftM = declaredCar.AssetGround < 0.0
+                           ? -declaredCar.AssetGround * assetM - declaredCar.CentreOfMassM[1]
+                           : 0.0;
   Note("the metres one unit of the asset spans", assetM, "m per unit");
+  Note("how far the model must rise so its tyres touch the ground", liftM, "m");
   Note("the length the asset draws at that scale", 297.584 * assetM, "m");
   CHECK(assetM > 0.0 && 297.584 * assetM > 4.0 && 297.584 * assetM < 5.2,
         "**AND THE ASSET IS DRAWN AT THE SCALE ITS OWN WHEELBASE DECLARES.** The model carries no "
@@ -385,7 +390,7 @@ int main(void) {
     }
     if (!rode.Found || rode.Lost) { break; }
     double body16[16];
-    Standing(journey.Carried(), assetM, body16);
+    Standing(journey.Carried(), assetM, liftM, body16);
     for (int axis = 0; axis < 3; ++axis) { body16[12 + axis] -= originM[axis]; }
     const double strayEastM = body16[12] - groundAtM[0];
     const double strayNorthM = body16[14] - groundAtM[2];
@@ -442,7 +447,7 @@ int main(void) {
                   car.PositionM[2]);
     }
     double body[16];
-    Standing(journey.Carried(), assetM, body);
+    Standing(journey.Carried(), assetM, liftM, body);
     for (int axis = 0; axis < 3; ++axis) { body[12 + axis] -= originM[axis]; }
     for (int person = 0; person < 2; ++person) {
       if (next == 0 && person == 0) {
