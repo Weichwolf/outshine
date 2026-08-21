@@ -4,20 +4,15 @@
 
 namespace outshine {
 
-Standing Stand(const ReferenceLine &over, double eastM, double northM, double halfWidthM,
-               double nearM, double windowM) {
-  Standing out;
-  double alongM = 0.0;
-  if (!over.Nearest(eastM, northM, nearM, windowM, alongM)) { return out; }
+namespace {
 
-  Placed on;
-  if (!over.At(alongM, on)) { return out; }
+Standing Surface(const Placed &on, double alongM, double acrossM, double halfWidthM) {
+  Standing out;
+  out.AlongM = alongM;
+  out.AcrossM = acrossM;
+  out.On = halfWidthM <= 0.0 || std::fabs(acrossM) <= halfWidthM;
 
   const double left[2] = {-std::sin(on.HeadingRad), std::cos(on.HeadingRad)};
-  out.AlongM = alongM;
-  out.AcrossM = (eastM - on.EastM) * left[0] + (northM - on.NorthM) * left[1];
-  out.On = halfWidthM <= 0.0 || std::fabs(out.AcrossM) <= halfWidthM;
-
   const double bank = std::tan(on.BankRad);
   out.HeightM = on.HeightM - out.AcrossM * bank;
 
@@ -33,6 +28,25 @@ Standing Stand(const ReferenceLine &over, double eastM, double northM, double ha
     for (int axis = 0; axis < 3; ++axis) { out.NormalM[axis] = sign * normal[axis] / length; }
   }
   return out;
+}
+
+} // namespace
+
+Standing Stand(const ReferenceLine &over, double eastM, double northM, double halfWidthM,
+               double nearM, double windowM) {
+  double alongM = 0.0;
+  if (!over.Nearest(eastM, northM, nearM, windowM, alongM)) { return Standing(); }
+  Placed on;
+  if (!over.At(alongM, on)) { return Standing(); }
+  const double left[2] = {-std::sin(on.HeadingRad), std::cos(on.HeadingRad)};
+  const double acrossM = (eastM - on.EastM) * left[0] + (northM - on.NorthM) * left[1];
+  return Surface(on, alongM, acrossM, halfWidthM);
+}
+
+Standing StandAt(const ReferenceLine &over, double alongM, double acrossM, double halfWidthM) {
+  Placed on;
+  if (!over.At(alongM, on)) { return Standing(); }
+  return Surface(on, alongM, acrossM, halfWidthM);
 }
 
 } // namespace outshine

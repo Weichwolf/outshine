@@ -16,6 +16,9 @@ struct Standing {
 [[nodiscard]] Standing Stand(const ReferenceLine &over, double eastM, double northM,
                              double halfWidthM, double nearM, double windowM);
 
+[[nodiscard]] Standing StandAt(const ReferenceLine &over, double alongM, double acrossM,
+                               double halfWidthM);
+
 } // namespace outshine
 
 #endif

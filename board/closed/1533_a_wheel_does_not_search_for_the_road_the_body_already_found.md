@@ -35,3 +35,25 @@ orders of magnitude more.
 
 *Measure before you reach* -- and the measurement here says the cheap-looking optimisation is worth
 nothing and the boring one is worth 3 to 4 times.
+
+## Closed -- 4.6x, and the answer moved seven millimetres
+
+`Carriageway` gains `StandAt(over, alongM, acrossM, halfWidthM)`, which takes a station instead of
+searching for one; `Stand` now resects and calls it, so there is one surface computation and two ways
+in. A mount's station is the body's plus the arm projected onto the heading, and its offset is the
+body's plus the arm projected onto the left normal -- the same projection the carriageway edge test
+already used.
+
+| | before | after |
+|---|---|---|
+| wall clock for the route | 605 s | **131 s** |
+| faster than real time | 41.55x | **191.16x** |
+| resections per step | 5 | **1** |
+
+**And the drive arrives in the same place**: 774.852396 km against 774.852403, a worst deviation of
+0.876317 m against 0.875457. The arm is projected as a straight where the corridor curves, and over
+1.4 m on the tightest radius the route carries that is worth about 5 mm -- which is what the seven
+millimetres over 774 km is.
+
+*A faster run that arrives somewhere else has not been made faster*, and this one arrives within a
+centimetre of where it did.

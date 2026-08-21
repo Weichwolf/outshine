@@ -45,7 +45,6 @@ constexpr double kPatienceS = 900.0;
 constexpr double kResectM = 4.0;
 constexpr double kJoinMs = 20.0;
 constexpr double kFromM = 50.0;
-constexpr double kMountResectM = 8.0;
 
 struct Unused_Drove {
   bool Lost = false;
@@ -1042,11 +1041,12 @@ Ridden Journey::Ride(double dtS) {
                               ? (size_t)(at.AlongM / fineM)
                               : fineEdge.size() - 1;
       const double edgeM = fineEdge[band];
+      const double armEastM = worldM[0] - eastM;
+      const double armNorthM = -worldM[2] - northM;
+      const double armAlongM = std::cos(headingRad) * armEastM + std::sin(headingRad) * armNorthM;
+      const double armAcrossM = -std::sin(headingRad) * armEastM + std::cos(headingRad) * armNorthM;
       const outshine::Standing on =
-          outshine::Stand(corridor, worldM[0], -worldM[2], 0.0, at.AlongM,
-                          kMountResectM + 3.0 * S_->LostM);
-      const double armAcrossM =
-          -std::sin(headingRad) * (worldM[0] - eastM) + std::cos(headingRad) * (-worldM[2] - northM);
+          outshine::StandAt(corridor, at.AlongM + armAlongM, at.OffsetM + armAcrossM, 0.0);
       under[which].Found = std::fabs(at.OffsetM + armAcrossM) <= edgeM;
       under[which].HeightM = on.HeightM;
       under[which].NormalM[0] = on.NormalM[0];
