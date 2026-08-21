@@ -50,6 +50,21 @@ running to the horizon instead of a hairline.
       61 km, clipped at the top edge by then
 - [ ] **A detached wheel is diagnosed** -- the reviewer saw it in all three images and I had not
 
+## THE DRIVER'S FRAME, LOOKED AT
+
+**A carriageway running to a vanishing point, green ground either side, both road edges legible.**
+The first frame in this work that reads as a road one could drive down.
+
+| on the reviewer's measures | round 1 | round 2 | now |
+|---|---|---|---|
+| opaque fraction, driver's frame | 1.09 % | -- | **49.28 %** |
+| pure white on the subject | 57.9 % | 0.00 % | **0.00 %** |
+| saturation p50, whole frame | -- | 0.038 | **0.05** driver / **0.31** framed |
+
+**Saturation is the honest caveat**: 0.05 across the driver's frame, because a road fills half of it
+and asphalt has no colour. The green is real and measured where the ground is; the number is low
+because the picture is mostly road, which is what a driver sees.
+
 ## Comments
 
 **THE INSTRUMENT WAS THE FINDING.** Before this, the windowed drive reported p50 0.655 ms, p95 0.985 ms
