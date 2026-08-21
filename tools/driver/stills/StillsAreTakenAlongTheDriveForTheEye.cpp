@@ -61,7 +61,7 @@ struct Ground {
 };
 
 struct Along {
-  double EastM, HeightM, NorthM;
+  double EastM, HeightM, NorthM, LowestM;
 };
 
 bool Lie(const Journey &journey, const double aboutM[3], const double originM[3],
@@ -79,7 +79,10 @@ bool Lie(const Journey &journey, const double aboutM[3], const double originM[3]
     outshine::Placed on;
     if (!journey.Corridor().At(atM, on)) { continue; }
     const outshine::Standing top = StandAt(journey.Corridor(), atM, 0.0, 0.0);
-    centre.push_back(Along{on.EastM, top.HeightM, on.NorthM});
+    const outshine::Standing left = StandAt(journey.Corridor(), atM, -section.HalfWidthM, 0.0);
+    const outshine::Standing right = StandAt(journey.Corridor(), atM, section.HalfWidthM, 0.0);
+    const double lowestM = std::fmin(top.HeightM, std::fmin(left.HeightM, right.HeightM));
+    centre.push_back(Along{on.EastM, top.HeightM, on.NorthM, lowestM});
   }
   if (centre.empty()) { return false; }
 
@@ -95,14 +98,16 @@ bool Lie(const Journey &journey, const double aboutM[3], const double originM[3]
       if (!sample.TryAslM(&aslM)) { ++out.Holes; }
 
       double nearestM = 1.0e30, roadM = aslM;
-      for (const Along &on : centre) {
-        const double dEast = eastM - on.EastM, dNorth = northM - on.NorthM;
+      size_t nearestAt = 0;
+      for (size_t on = 0; on < centre.size(); ++on) {
+        const double dEast = eastM - centre[on].EastM, dNorth = northM - centre[on].NorthM;
         const double awayM = std::sqrt(dEast * dEast + dNorth * dNorth);
         if (awayM < nearestM) {
           nearestM = awayM;
-          roadM = on.HeightM;
+          nearestAt = on;
         }
       }
+      roadM = centre[nearestAt].LowestM;
       const double formationM = roadM - section.ThicknessM;
       const double liftM = formationM - aslM;
       const double reachM = keptM + std::fabs(liftM) * kSideSlopeRun;
