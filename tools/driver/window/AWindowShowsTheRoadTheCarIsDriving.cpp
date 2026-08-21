@@ -158,12 +158,12 @@ int main(void) {
   declaration.Stands = carPath;
   declaration.Built = &road;
   declaration.Surfacing.resize(2);
-  outshine::Material &ground = declaration.Surfacing[0];
-  ground.BaseColour[0] = 0.24f;
-  ground.BaseColour[1] = 0.30f;
-  ground.BaseColour[2] = 0.16f;
-  ground.Roughness = 0.98f;
-  ground.Metalness = 0.0f;
+  outshine::Material &verge = declaration.Surfacing[0];
+  verge.BaseColour[0] = 0.24f;
+  verge.BaseColour[1] = 0.30f;
+  verge.BaseColour[2] = 0.16f;
+  verge.Roughness = 0.98f;
+  verge.Metalness = 0.0f;
   outshine::Material &asphalt = declaration.Surfacing[1];
   asphalt.BaseColour[0] = 0.14f;
   asphalt.BaseColour[1] = 0.14f;
@@ -282,7 +282,9 @@ int main(void) {
     }
     double body[16];
     Standing(journey.Carried(), body);
-    if (!standing->Carry(body, error)) {
+    double whereBuilt[16];
+    for (int at = 0; at < 16; ++at) { whereBuilt[at] = (at % 5) == 0 ? 1.0 : 0.0; }
+    if (!standing->Carry(body, whereBuilt, error)) {
       std::printf("REFUSED %s\n", error.c_str());
       break;
     }
