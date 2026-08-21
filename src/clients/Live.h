@@ -35,7 +35,7 @@ struct Declaration {
   std::string Stands;
 
   const Gltf::Subject *Built = nullptr;
-  Material Surface;
+  std::vector<Material> Surfacing{Material{}};
 
   std::string Variant;
 

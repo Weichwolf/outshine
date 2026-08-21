@@ -291,6 +291,7 @@ int main(void) {
 
   outshine::Gltf::Piece piece;
   piece.NodeName = "corridor";
+  piece.Material = 1;
   piece.PositionsM = outshine::Span<const float>(ribbon.PositionM.data(), ribbon.PositionM.size());
   piece.Normals = outshine::Span<const float>(ribbon.NormalM.data(), ribbon.NormalM.size());
   piece.Indices = outshine::Span<const uint32_t>(ribbon.Index.data(), ribbon.Index.size());
@@ -306,6 +307,7 @@ int main(void) {
 
   outshine::Gltf::Piece lying;
   lying.NodeName = "ground";
+  lying.Material = 0;
   lying.PositionsM = outshine::Span<const float>(ground.PositionM.data(), ground.PositionM.size());
   lying.Normals = outshine::Span<const float>(ground.NormalM.data(), ground.NormalM.size());
   lying.Indices = outshine::Span<const uint32_t>(ground.Index.data(), ground.Index.size());
@@ -324,11 +326,19 @@ int main(void) {
   declaration.Fps = 60.0;
   declaration.Stands = carPath;
   declaration.Built = &road;
-  declaration.Surface.BaseColour[0] = 0.14f;
-  declaration.Surface.BaseColour[1] = 0.14f;
-  declaration.Surface.BaseColour[2] = 0.15f;
-  declaration.Surface.Roughness = 0.92f;
-  declaration.Surface.Metalness = 0.0f;
+  declaration.Surfacing.resize(2);
+  outshine::Material &ground = declaration.Surfacing[0];
+  ground.BaseColour[0] = 0.24f;
+  ground.BaseColour[1] = 0.30f;
+  ground.BaseColour[2] = 0.16f;
+  ground.Roughness = 0.98f;
+  ground.Metalness = 0.0f;
+  outshine::Material &asphalt = declaration.Surfacing[1];
+  asphalt.BaseColour[0] = 0.14f;
+  asphalt.BaseColour[1] = 0.14f;
+  asphalt.BaseColour[2] = 0.15f;
+  asphalt.Roughness = 0.92f;
+  asphalt.Metalness = 0.0f;
   declaration.KeyLux = 40000.0;
   declaration.KeyElevationDeg = 42.0;
   declaration.KeyBearingDeg = 150.0;
@@ -397,6 +407,7 @@ int main(void) {
         Ground under;
         outshine::Gltf::Piece lyingNow;
         lyingNow.NodeName = "ground";
+        lyingNow.Material = 0;
         const bool laid =
             Lie(journey, aboutNow, originM, section, laidFromM, laidToM, centre, under);
         if (laid) {

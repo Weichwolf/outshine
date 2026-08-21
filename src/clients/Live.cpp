@@ -94,7 +94,7 @@ double Live::Framing(void) const {
 bool Live::Build(std::string &error) {
   if (Declared_.Built != nullptr && Declared_.Stands.empty()) {
     Geometry_ = *Declared_.Built;
-    ResolveDeclaredSurface(Geometry_, Declared_.Surface, Table_);
+    ResolveDeclaredSurface(Geometry_, Declared_.Surfacing.front(), Table_);
   }
   if (!Declared_.Stands.empty()) {
     if (!Declared_.Variant.empty()) { Variant_ = Gltf::VariantSelection(Declared_.Variant); }
@@ -121,20 +121,30 @@ bool Live::Build(std::string &error) {
       return false;
     }
     if (Declared_.Built != nullptr) {
-      SurfaceTable joining;
-      ResolveDeclaredSurface(*Declared_.Built, Declared_.Surface, joining);
-      if (joining.Slots.empty()) {
-        error = "the declared surface for the built geometry resolved to no slot, so the parts "
-                "joining this picture would name a surface that is not there";
-        return false;
+      const uint32_t base = (uint32_t)Table_.Slots.size();
+      for (const Material &declaredSurface : Declared_.Surfacing) {
+        SurfaceTable joining;
+        ResolveDeclaredSurface(*Declared_.Built, declaredSurface, joining);
+        if (joining.Slots.empty()) {
+          error = "a declared surface for the built geometry resolved to no slot, so the parts "
+                  "joining this picture would name a surface that is not there";
+          return false;
+        }
+        Table_.Slots.push_back(joining.Slots.front());
       }
-      const uint32_t slot = (uint32_t)Table_.Slots.size();
-      Table_.Slots.push_back(joining.Slots.front());
+      const size_t before = Geometry_.Parts().size();
       if (!Geometry_.Append(*Declared_.Built)) {
         error = Geometry_.Error();
         return false;
       }
-      Table_.PartSlot.resize(Geometry_.Parts().size(), slot);
+      Table_.PartSlot.resize(Geometry_.Parts().size(), base);
+      for (size_t part = before; part < Geometry_.Parts().size(); ++part) {
+        const int wanted = Geometry_.Parts()[part].Material;
+        const uint32_t at = wanted > 0 && (size_t)wanted < Declared_.Surfacing.size()
+                                ? (uint32_t)wanted
+                                : 0u;
+        Table_.PartSlot[part] = base + at;
+      }
       Joined_ = Geometry_.Parts().size() - Declared_.Built->Parts().size();
     }
   }
