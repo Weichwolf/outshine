@@ -286,6 +286,7 @@ int main(void) {
     }
   }
 
+  double groundAtM[3] = {0.0, 0.0, 0.0};
   Ridden rode;
   size_t next = 0;
   long wrote = 0;
@@ -295,7 +296,14 @@ int main(void) {
       if (!rode.Found || rode.Arrived || rode.Lost) { break; }
     }
     if (!rode.Found || rode.Lost) { break; }
-    if (rode.ReachedM + kRelayAtM > laidToM) {
+    double body16[16];
+    Standing(journey.Carried(), body16);
+    for (int axis = 0; axis < 3; ++axis) { body16[12 + axis] -= originM[axis]; }
+    const double strayEastM = body16[12] - groundAtM[0];
+    const double strayNorthM = body16[14] - groundAtM[2];
+    const double strayM =
+        std::sqrt(strayEastM * strayEastM + strayNorthM * strayNorthM);
+    if (rode.ReachedM + kRelayAtM > laidToM || strayM > kGroundReachM * 0.4) {
       laidFromM = rode.ReachedM > kBehindM ? rode.ReachedM - kBehindM : 0.0;
       laidToM = laidFromM + kShownM;
       const outshine::Ribbon nextRun =
@@ -305,7 +313,9 @@ int main(void) {
             outshine::Span<const float>(nextRun.PositionM.data(), nextRun.PositionM.size());
         piece.Normals = outshine::Span<const float>(nextRun.NormalM.data(), nextRun.NormalM.size());
         piece.Indices = outshine::Span<const uint32_t>(nextRun.Index.data(), nextRun.Index.size());
-        double aboutNow[3] = {nextRun.OriginM[0], nextRun.OriginM[1], nextRun.OriginM[2]};
+        for (int axis = 0; axis < 3; ++axis) { groundAtM[axis] = body16[12 + axis]; }
+        double aboutNow[3] = {body16[12] + originM[0], body16[13] + originM[1],
+                              body16[14] + originM[2]};
         Ground under;
         outshine::Gltf::Piece lyingNow;
         lyingNow.NodeName = "ground";
