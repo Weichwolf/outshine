@@ -80,6 +80,22 @@ length; the geometry is not rebuilt because the asset has no animation; and noth
 one this session never built: **how many draws the frame actually submitted**, against how many the
 list holds. `SubjectDraw::DrawCount()` already sums `batch.Draws` and nothing reads it.
 
+## THE INSTRUMENT ANSWERS -- every part is submitted
+
+```
+DRAWS the stage submits 260 for a picture of 260 parts
+PARTS total 260 carried 258  car at -34.9 -0.9 -167.5
+```
+
+**260 draws for 260 parts.** The device is asked to draw every one, the car's 258 included, seven
+metres ahead of a camera pointed at it. So it is not geometry, not placement, not scale, not
+selection and not submission -- **every one of those is now measured rather than argued.**
+
+**What is left is CONTRAST, and the reviewer measured it two rounds ago**: the car's pixels sit at
+luminance p50 **76** and the ground surface at R = G = **76.6**, saturation p50 **0.038**. A vehicle
+drawn against ground of the same brightness is submitted, rasterised, and indistinguishable. That is
+his S5 -- *one single material colour for the whole of Germany* -- and it was never a missing draw.
+
 ## What must be true
 
 - [ ] **A picture that carries a subject's parts draws them**, and a case decides it: stand the F31 up
