@@ -48,9 +48,13 @@ constexpr uint64_t kSeed = 0x5EEDu;
 class Quiet : public Sink {
 public:
   void Number(const char *, double, const char *) override {}
-  void Claim(bool, const char *) override {}
+  void Claim(bool held, const char *why) override {
+    if (!held) { std::printf("UNHELD %s\n", why); }
+  }
   void Near(double, double, double, const char *, const char *) override {}
-  void Say(const std::string &) override {}
+  void Say(const std::string &line) override {
+    if (line.rfind("REFUSED", 0) == 0) { std::printf("%s\n", line.c_str()); }
+  }
 };
 
 struct Ground {
@@ -178,8 +182,8 @@ void Shifted(const double byM[3], double out[16]) {
   for (int axis = 0; axis < 3; ++axis) { out[12 + axis] = byM[axis]; }
 }
 
-void Standing(const outshine::Physics::Body &body, double out[16]) {
-  const double axes[3][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+void Standing(const outshine::Physics::Body &body, double byM, double out[16]) {
+  const double axes[3][3] = {{byM, 0, 0}, {0, byM, 0}, {0, 0, byM}};
   for (int column = 0; column < 3; ++column) {
     double turned[3];
     outshine::Physics::Turn(body.OrientationQ, axes[column], turned);
@@ -242,6 +246,18 @@ int main(void) {
     return Report();
   }
 
+  const outshine::Vehicle &declaredCar = journey.Declared().Vehicles[0];
+  const double assetM = declaredCar.AssetWheelbase > 0.0
+                            ? declaredCar.WheelbaseM / declaredCar.AssetWheelbase
+                            : 1.0;
+  Note("the metres one unit of the asset spans", assetM, "m per unit");
+  Note("the length the asset draws at that scale", 297.584 * assetM, "m");
+  CHECK(assetM > 0.0 && 297.584 * assetM > 4.0 && 297.584 * assetM < 5.2,
+        "**AND THE ASSET IS DRAWN AT THE SCALE ITS OWN WHEELBASE DECLARES.** The model carries no "
+        "scale, so it is derived: 2.810 m declared over 180.71 units measured off the tyre "
+        "material (board:1511). At 0.015550 m per unit the bounding box draws 4.63 m long, 2.06 m "
+        "wide over the mirrors and 1.47 m tall over the antenna -- an F31 is 4.624, 2.03 and 1.44, "
+        "so THREE independent dimensions agree and none of them set the scale");
   const double routeM = journey.LengthM();
   Note("the route the stills are taken along", routeM / 1000.0, "km");
 
@@ -358,7 +374,7 @@ int main(void) {
     }
     if (!rode.Found || rode.Lost) { break; }
     double body16[16];
-    Standing(journey.Carried(), body16);
+    Standing(journey.Carried(), assetM, body16);
     for (int axis = 0; axis < 3; ++axis) { body16[12 + axis] -= originM[axis]; }
     const double strayEastM = body16[12] - groundAtM[0];
     const double strayNorthM = body16[14] - groundAtM[2];
@@ -414,7 +430,7 @@ int main(void) {
                   car.PositionM[2]);
     }
     double body[16];
-    Standing(journey.Carried(), body);
+    Standing(journey.Carried(), assetM, body);
     for (int axis = 0; axis < 3; ++axis) { body[12 + axis] -= originM[axis]; }
     for (int person = 0; person < 2; ++person) {
       if (next == 0 && person == 0) {

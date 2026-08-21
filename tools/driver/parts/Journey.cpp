@@ -505,8 +505,10 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
     while ((one = std::fgetc(declaration)) != EOF) { text.push_back((char)one); }
     std::fclose(declaration);
   }
-  say.Claim(!text.empty() && outshine::ReadScenario(text.data(), text.size(), declared, error),
-        "and it reads");
+  const bool read = !text.empty() && outshine::ReadScenario(text.data(), text.size(), declared, error);
+  if (!read && !error.empty()) { say.Say(Line("REFUSED %s", error.c_str())); }
+  say.Claim(read, "and it reads");
+  if (!read) { return false; }
   say.Claim(declared.Vehicles.size() == 1, "declaring one vehicle");
   if (declared.Vehicles.empty()) { return false; }
 
