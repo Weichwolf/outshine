@@ -42,6 +42,7 @@ constexpr double kGroundReachM = 400.0;
 constexpr double kGroundStepM = 3.0;
 constexpr double kSideSlopeRun = 1.5;
 constexpr double kCentreStepM = 1.5;
+constexpr double kHintWindowM = 200.0;
 constexpr int kStills = 12;
 constexpr uint64_t kSeed = 0x5EEDu;
 
@@ -91,6 +92,7 @@ bool Lie(const Journey &journey, const double aboutM[3], const double originM[3]
   if (centre.empty()) { return false; }
 
   const double keptM = section.HalfWidthM + section.ShoulderM;
+  double hintM = 0.5 * (fromM + toM);
   std::vector<double> heightM((size_t)side * (size_t)side, 0.0);
   for (int row = 0; row < side; ++row) {
     const double northM = aboutM[2] * -1.0 - kGroundReachM + (double)row * kGroundStepM;
@@ -101,17 +103,16 @@ bool Lie(const Journey &journey, const double aboutM[3], const double originM[3]
       double aslM = 0.0;
       if (!sample.TryAslM(&aslM)) { ++out.Holes; }
 
-      double nearestM = 1.0e30, roadM = aslM;
-      size_t nearestAt = 0;
-      for (size_t on = 0; on < centre.size(); ++on) {
-        const double dEast = eastM - centre[on].EastM, dNorth = northM - centre[on].NorthM;
-        const double awayM = std::sqrt(dEast * dEast + dNorth * dNorth);
-        if (awayM < nearestM) {
-          nearestM = awayM;
-          nearestAt = on;
-        }
+      double alongM = hintM;
+      if (!journey.Corridor().Nearest(eastM, northM, hintM, kHintWindowM, alongM)) {
+        alongM = hintM;
       }
-      roadM = centre[nearestAt].LowestM;
+      hintM = alongM;
+      const size_t nearestAt = (size_t)((alongM - fromM) / kCentreStepM + 0.5);
+      const Along &on = centre[nearestAt < centre.size() ? nearestAt : centre.size() - 1];
+      const double dEast = eastM - on.EastM, dNorth = northM - on.NorthM;
+      const double nearestM = std::sqrt(dEast * dEast + dNorth * dNorth);
+      const double roadM = on.LowestM;
       const double formationM = roadM - section.ThicknessM;
       const double liftM = formationM - aslM;
       const double reachM = keptM + std::fabs(liftM) * kSideSlopeRun;
