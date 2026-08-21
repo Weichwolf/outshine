@@ -20,6 +20,7 @@
 #include "stages/CompositeTransmissionStage.h"
 #include "stages/MediumMultiScatterStage.h"
 #include "stages/MediumRadianceStage.h"
+#include "stages/SkyStage.h"
 #include "stages/MediumTransmittanceStage.h"
 #include "stages/TonemapStage.h"
 
@@ -111,10 +112,11 @@ public:
     Radiance_.Declare(medium, CosSunZenith_, EyeHeightM_);
   }
 
-  void SetSun(float cosSunZenith, float eyeHeightM) {
-    CosSunZenith_ = cosSunZenith;
+  void SetSky(const float toSun[3], const float up[3], float illuminanceLux, float eyeHeightM) {
+    CosSunZenith_ = toSun[0] * up[0] + toSun[1] * up[1] + toSun[2] * up[2];
     EyeHeightM_ = eyeHeightM;
     Radiance_.Declare(Medium_, CosSunZenith_, EyeHeightM_);
+    Sky_.Declare(Medium_, toSun, up, illuminanceLux, eyeHeightM);
   }
 
   [[nodiscard]] SDL_GPUTexture *SkyViewTable(void) const { return SkyViewLut_.Get(); }
@@ -161,6 +163,7 @@ private:
   [[nodiscard]] bool Configure(Stage stage, std::string &error);
   void EncodeStage(Stage stage, const PassRecording &into);
   void EncodePass(SDL_GPUCommandBuffer *commands, size_t pass);
+  bool Touched_[kResourceCount] = {};
   [[nodiscard]] SDL_GPUTexture *Target(Resource resource) const;
   [[nodiscard]] DisplayOptions Display(void) const;
 
@@ -190,6 +193,7 @@ private:
   MediumTransmittanceStage MediumTransmittance_;
   MediumMultiScatterStage MultiScatter_;
   MediumRadianceStage Radiance_;
+  SkyStage Sky_;
   Medium Medium_;
   float CosSunZenith_ = 1.0f;
   float EyeHeightM_ = 0.0f;

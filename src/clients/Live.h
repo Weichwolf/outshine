@@ -83,6 +83,8 @@ public:
 
   [[nodiscard]] bool Screenshot(const std::string &path, std::string &error);
 
+  [[nodiscard]] bool ReadPixels(std::vector<uint8_t> &rgba, std::string &error);
+
   [[nodiscard]] bool Advance(std::string &error);
 
   void Eye(const Gltf::Placement &from);

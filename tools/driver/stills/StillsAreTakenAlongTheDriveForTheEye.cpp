@@ -350,6 +350,7 @@ int main(void) {
   declaration.KeyLux = 40000.0;
   declaration.KeyElevationDeg = 42.0;
   declaration.KeyBearingDeg = 150.0;
+  declaration.DrawsSky = true;
   declaration.Environment[0] = 0.06;
   declaration.Environment[1] = 0.07;
   declaration.Environment[2] = 0.09;

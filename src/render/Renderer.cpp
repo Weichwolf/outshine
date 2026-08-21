@@ -111,6 +111,7 @@ bool Renderer::Executable(Stage stage) {
     case Stage::MediumTransmittance:
     case Stage::MediumMultiScatter:
     case Stage::MediumRadiance:
+    case Stage::Sky:
     case Stage::Subjects:
     case Stage::Tonemap:
       return true;
@@ -125,7 +126,6 @@ bool Renderer::Executable(Stage stage) {
     case Stage::Irradiance:
     case Stage::AutoExposure:
     case Stage::LightVisibility:
-    case Stage::Sky:
     case Stage::Sun:
     case Stage::Moon:
     case Stage::Stars:
@@ -443,10 +443,11 @@ bool Renderer::Configure(Stage stage, std::string &error) {
     case Stage::MediumRadiance:
       return Radiance_.Configure(Handles, TransmittanceLut_.Get(), MultiScatterLut_.Get(),
                                  LutSamp.Get(), SkyViewLut_.Get(), error);
+    case Stage::Sky:
+      return Sky_.Configure(Handles, SkyViewLut_.Get(), LutSamp.Get(), error);
     case Stage::Irradiance:
     case Stage::AutoExposure:
     case Stage::LightVisibility:
-    case Stage::Sky:
     case Stage::Sun:
     case Stage::Moon:
     case Stage::Stars:
@@ -543,10 +544,24 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
     case Stage::MediumRadiance:
       Radiance_.Encode(into);
       return;
+    case Stage::Sky: {
+      within(true);
+      const float tanHalfH = std::tan((float)(FovDeg * 3.14159265358979 / 180.0) * 0.5f);
+      const float tanHalfW =
+          tanHalfH * (PictureH() > 0.0 ? (float)(PictureW() / PictureH()) : 1.0f);
+      float right[3], up[3], fwd[3];
+      for (int axis = 0; axis < 3; ++axis) {
+        right[axis] = (float)Right[axis];
+        up[axis] = (float)Up[axis];
+        fwd[axis] = (float)Fwd[axis];
+      }
+      Sky_.SetBasis(right, up, fwd, tanHalfW, tanHalfH);
+      Sky_.Encode(ctx, into);
+      return;
+    }
     case Stage::Irradiance:
     case Stage::AutoExposure:
     case Stage::LightVisibility:
-    case Stage::Sky:
     case Stage::Sun:
     case Stage::Moon:
     case Stage::Stars:
@@ -595,7 +610,9 @@ void Renderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
   for (const Resource wanted : declared.Targets) {
     SDL_GPUColorTargetInfo &attachment = colours[colourCount++];
     attachment.texture = Target(wanted);
-    attachment.load_op = SDL_GPU_LOADOP_CLEAR;
+    attachment.load_op =
+        Touched_[(size_t)wanted] ? SDL_GPU_LOADOP_LOAD : SDL_GPU_LOADOP_CLEAR;
+    Touched_[(size_t)wanted] = true;
     attachment.store_op = SDL_GPU_STOREOP_STORE;
 
     const bool carriesCoverage = wanted == Resource::SceneHdr || wanted == Resource::SceneComposited ||
@@ -608,7 +625,8 @@ void Renderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
   SDL_GPUDepthStencilTargetInfo depth{};
   if (declared.Depth != kNoEdge) {
     depth.texture = Target(declared.Depth);
-    depth.load_op = SDL_GPU_LOADOP_CLEAR;
+    depth.load_op = Touched_[(size_t)declared.Depth] ? SDL_GPU_LOADOP_LOAD : SDL_GPU_LOADOP_CLEAR;
+    Touched_[(size_t)declared.Depth] = true;
     depth.store_op = SDL_GPU_STOREOP_STORE;
     depth.clear_depth = 0.0f;
     depth.stencil_load_op = SDL_GPU_LOADOP_DONT_CARE;
@@ -649,6 +667,7 @@ void Renderer::RenderFrame(void) {
     HistoryStarted_ = true;
     LinearAt_ = 1 - LinearAt_;
   }
+  for (bool &touched : Touched_) { touched = false; }
   SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device_.Get());
 
   Subjects_.FlushCrossings(commands);

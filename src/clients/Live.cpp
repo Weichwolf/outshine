@@ -9,6 +9,7 @@
 #include "Image.h"
 
 #include "Framing.h"
+#include "GltfStudio.h"
 
 namespace outshine::Clients {
 namespace {
@@ -170,6 +171,22 @@ bool Live::Build(std::string &error) {
       !Renderer_->SetOverlayAtlas(Declared_.AtlasRgba, Declared_.AtlasWidthPx,
                                   Declared_.AtlasHeightPx, error)) {
     return false;
+  }
+  if (Declared_.DrawsSky) {
+    Renderer_->SetMedium(Render::Medium{});
+
+    const double elevation = Declared_.KeyElevationDeg * 3.14159265358979323846 / 180.0;
+    const double bearing = Declared_.KeyBearingDeg * 3.14159265358979323846 / 180.0;
+    const double toSunGltf[3] = {std::cos(elevation) * std::sin(bearing), std::sin(elevation),
+                                 std::cos(elevation) * std::cos(bearing)};
+    const double upGltf[3] = {0.0, 1.0, 0.0};
+    double toSunEngine[3], upEngine[3];
+    EcefFromGltf(toSunGltf, toSunEngine);
+    EcefFromGltf(upGltf, upEngine);
+    const float toSun[3] = {(float)toSunEngine[0], (float)toSunEngine[1], (float)toSunEngine[2]};
+    const float up[3] = {(float)upEngine[0], (float)upEngine[1], (float)upEngine[2]};
+
+    Renderer_->SetSky(toSun, up, (float)Declared_.KeyLux, 0.0f);
   }
 
   const double eye[3] = {0.0, 0.0, 0.0}, forward[3] = {0.0, 0.0, -1.0};
@@ -345,6 +362,18 @@ bool Live::Compose(std::string &error) {
 bool Live::Redeclare(std::vector<Shows> surfaces, std::string &error) {
   Declared_.Surfaces = std::move(surfaces);
   return Compose(error);
+}
+
+bool Live::ReadPixels(std::vector<uint8_t> &rgba, std::string &error) {
+  if (Renderer_ == nullptr || !Stoodup_) {
+    error = "nothing has been drawn yet, so there is no frame to read";
+    return false;
+  }
+  if (Renderer_->ReadPixels(rgba) != Render::ReadState::Ready) {
+    error = "the frame did not come back from the device";
+    return false;
+  }
+  return true;
 }
 
 bool Live::Screenshot(const std::string &path, std::string &error) {
