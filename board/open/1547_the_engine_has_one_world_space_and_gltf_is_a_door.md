@@ -80,10 +80,42 @@ and the only question is WHERE.
 | the draw | a vertex buffer already in world space -- the shader multiplies and does not convert |
 | the upload | must copy, not transform. So `PackVertices` converts **nothing** |
 | the subject | already world space, so `Aim`, the lights and the placements convert nothing either |
-| the door | **`Subject.cpp:703`** -- the single place `Build` writes a world position, after the node hierarchy is applied -- and the matching writes for normals and tangents, and `Assemble` for generated parts |
+| the door | **NOT in `Gltf::Subject`** -- see the correction below. It is the boundary where a subject enters the render client |
 
 **Twelve conversions become one.** What is left outside the door is the **oracle boundary**, where
 talking to Blender is a tool's business and belongs in `test/harness/`, not on the frame path.
+
+## CORRECTION -- the door is not in `Gltf::Subject`, and the tests said so
+
+**Attempted and withdrawn in the same round, which is what an attempt is for.** Converting inside
+`Subject::Build` and `Subject::Assemble` took `unit/gltf` from **26 PASS / 1 FAIL to 19 PASS / 9 FAIL**.
+The nine were not coordinate quibbles:
+
+```
+ADerivedCameraIsTheFramingRuleAndNotAQuotation   AHierarchyIsPosedAtTheTimeItIsAsked
+ALightCrossesWithItsPlaceAndItsUnits             AMorphedVertexIsItsBasePlusItsWeightedDeltas
+ASkinnedVertexRidesItsJointsAndNotItsNode        AVertexRidesEveryJointSetTheFileDeclares
+AProducedSubjectIsTheOneItStated                 AGeneratedBasisIsTheOneTheExporterWrote
+EmittingASubjectIsAFixedPointOfTheFlatten
+```
+
+**`EmittingASubjectIsAFixedPointOfTheFlatten` is the one that settles it**: it asserts
+`emit(subject)` reproduces the file. **`Gltf::Subject` IS the glTF flatten** -- being faithful to the
+document is its whole contract, and a subject that silently holds another basis cannot round-trip.
+*Tests are the specification*, and this one specifies the type.
+
+**So the twelve conversions are in the right LAYER and the wrong FREQUENCY was never the real problem
+either.** Measured: `PackVertices` runs once per `Place`, not per frame; the eye is four vectors; the
+placements are 259 matrices. **The cost was never the defect. The defect is that the compiler cannot
+tell the two bases apart**, so every new thing entering a picture must remember, and four things in
+one session did not.
+
+**What the fix must therefore be**: a **distinct world-space type**, so mixing the two is a compile
+error rather than a picture that looks nearly right. Not a conversion moved earlier -- a shape that
+makes the mistake unspellable, which is what `CLAUDE.md` asks for and what a `double[3]` cannot give.
+
+**And a second attempt was withdrawn too**: converting from the client would need a mutation door on
+`Subject` for a client's concern, which pushes the same leak the other way.
 
 ## Comments
 
