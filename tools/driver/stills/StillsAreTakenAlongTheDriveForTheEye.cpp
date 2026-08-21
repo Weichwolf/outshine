@@ -349,6 +349,22 @@ int main(void) {
       }
       outshine::Gltf::Placement where = Seen(journey.Carried(), journey.Declared().Views[person]);
       for (int axis = 0; axis < 3; ++axis) { where.EyeM[axis] -= originM[axis]; }
+      if (next == 0 && person == 0) {
+        double fLat = 0.0, fLon = 0.0, pLat = 1.0, pLon = 1.0;
+        journey.Frame(fLat, fLon, pLat, pLon);
+        const double carEastM = body[12] + originM[0];
+        const double carNorthM = -(body[14] + originM[2]);
+        const outshine::GroundSample under =
+            fb_stream_ground(fLat + carNorthM / pLat, fLon + carEastM / pLon);
+        double aslM = 0.0;
+        if (under.TryAslM(&aslM)) {
+          const double roadAslM = body[13] + originM[1];
+          std::printf("CUTFILL raw terrain %.2f m asl, the car stands at %.2f, so the road is "
+                      "%.2f m %s the ground it was never cut into\n",
+                      aslM, roadAslM, std::fabs(roadAslM - aslM),
+                      roadAslM > aslM ? "ABOVE" : "BELOW");
+        }
+      }
       if (next == 0) {
         std::printf("EYE %s at %.1f %.1f %.1f  fwd %.3f %.3f %.3f  up %.3f %.3f %.3f\n",
                     person == 0 ? "first" : "third", where.EyeM[0], where.EyeM[1], where.EyeM[2],
