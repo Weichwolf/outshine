@@ -998,6 +998,42 @@ bool Subject::Assemble(const Assembly &what) {
   return true;
 }
 
+bool Subject::Append(const Subject &other) {
+  if (other.Parts_.empty()) {
+    return Refuse("a subject with no part appends nothing, and an empty append is a caller's mistake "
+                  "rather than a shape this can carry");
+  }
+  const size_t vertexBase = VertexCount();
+  const size_t indexBase = Indices_.size();
+  const size_t vertexTotal = vertexBase + other.VertexCount();
+
+  const auto join = [vertexBase, vertexTotal](std::vector<double> &mine,
+                                              const std::vector<double> &theirs, size_t stride) {
+    if (mine.empty() && theirs.empty()) { return; }
+    mine.resize(vertexTotal * stride, 0.0);
+    for (size_t at = 0; at < theirs.size(); ++at) { mine[vertexBase * stride + at] = theirs[at]; }
+  };
+  Positions_.insert(Positions_.end(), other.Positions_.begin(), other.Positions_.end());
+  join(Uv_, other.Uv_, 2);
+  join(Uv1_, other.Uv1_, 2);
+  join(Normals_, other.Normals_, 3);
+  join(Tangents_, other.Tangents_, 4);
+  join(Colours_, other.Colours_, 4);
+
+  Indices_.reserve(Indices_.size() + other.Indices_.size());
+  for (const uint32_t index : other.Indices_) {
+    Indices_.push_back((uint32_t)vertexBase + index);
+  }
+  Parts_.reserve(Parts_.size() + other.Parts_.size());
+  for (Part part : other.Parts_) {
+    part.FirstVertex += vertexBase;
+    part.FirstIndex += indexBase;
+    Parts_.push_back(std::move(part));
+  }
+  Bound();
+  return true;
+}
+
 double Subject::RadiusM() const {
   const double span[3] = {Max_[0] - Min_[0], Max_[1] - Min_[1], Max_[2] - Min_[2]};
   return 0.5 * Length(span);

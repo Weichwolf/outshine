@@ -1,6 +1,7 @@
 """Offline asset preparation for the glTF render ladder. Never a test, a gate or a build step."""
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -46,7 +47,8 @@ def every_manifest():
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("job", choices=("fetch", "generate", "patch", "convert", "render", "all",
-                                        "dry-run", "wpt-cases", "test262-cases", "generator-cases"))
+                                        "dry-run", "wpt-cases", "test262-cases", "generator-cases",
+                                        "scenario-assets"))
     parser.add_argument("--manifest", action="append", default=None,
                         help="a case's manifest; repeatable")
     parser.add_argument("--every-case", action="store_true",
@@ -74,6 +76,8 @@ def main(argv):
     parser.add_argument("--gen-pin-reason", default=None)
     arguments = parser.parse_args(argv)
 
+    if arguments.job == "scenario-assets":
+        return _scenario_assets(arguments)
     if arguments.job == "wpt-cases":
         return _wpt_cases(arguments)
     if arguments.job == "test262-cases":
@@ -102,6 +106,82 @@ def main(argv):
             print("  refused " + one, file=sys.stderr)
         return 1 if refused else 0
     return _prepare(manifests[0], arguments)
+
+SCENARIO_ASSETS = (
+    {
+        "leaf": "tools-driver-f31",
+        "title": "2014 BMW 3 Series (F31)",
+        "author": "DisneyCars (https://sketchfab.com/supercarmodels)",
+        "licence": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+        "source": "https://sketchfab.com/3d-models/"
+                  "2014-bmw-3-series-f31-71746440f98d48ca9ea41ceeaa3504c7",
+        "credit": 'This work is based on "2014 BMW 3 Series (F31)" by DisneyCars, '
+                  "licensed under CC-BY-4.0",
+        "declaredBy": "tools/driver/f31.scenario",
+        "files": {
+            "scene.gltf": "c60068fcd0f8c25e73225cd3725a422fca46c00a2a68ca481988a6680cc5fb1d",
+            "scene.bin": "be46e9c11f5b7f16a2cc01a3a96b92394bff04ed3742a8974de2f9bc093ba453",
+        },
+        "carries": ("textures",),
+        "roots": ("~/Downloads/2014_bmw_3_series_f31",),
+    },
+)
+
+def _digest(path):
+    """The file's SHA-256, which is what decides whether this is the declared asset."""
+    reading = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for block in iter(lambda: handle.read(1 << 20), b""):
+            reading.update(block)
+    return reading.hexdigest()
+
+def _scenario_assets(arguments):
+    """Place the assets a SCENARIO declares, from a licensed copy this machine already holds.
+
+    A Khronos subject carries a URL and is fetched; these carry a page a person visits and accepts a
+    licence on, so there is nothing a script may fetch unattended. What a script CAN do is verify: the
+    scenario pins the digest, so a wrong file is refused by name and a right one is the declared asset
+    byte for byte. Absent, this refuses and prints where the asset comes from -- it never substitutes."""
+    placed, refused = [], []
+    for asset in SCENARIO_ASSETS:
+        destination = os.path.join(tempfile.gettempdir(), PREPARED_LEAF, asset["leaf"])
+        found = None
+        for root in asset["roots"]:
+            here = os.path.expanduser(root)
+            if all(os.path.isfile(os.path.join(here, name)) for name in asset["files"]):
+                found = here
+                break
+        if found is None:
+            refused.append({"leaf": asset["leaf"], "why": "no root holds every declared file",
+                            "looked": [os.path.expanduser(r) for r in asset["roots"]],
+                            "source": asset["source"], "licence": asset["licence"]})
+            continue
+        wrong = {}
+        for name, want in asset["files"].items():
+            got = _digest(os.path.join(found, name))
+            if got != want:
+                wrong[name] = {"declared": want, "found": got}
+        if wrong:
+            refused.append({"leaf": asset["leaf"], "why": "a file is not what the scenario declares",
+                            "from": found, "files": wrong, "source": asset["source"]})
+            continue
+        os.makedirs(destination, exist_ok=True)
+        for name in asset["files"]:
+            shutil.copyfile(os.path.join(found, name), os.path.join(destination, name))
+        for directory in asset["carries"]:
+            source = os.path.join(found, directory)
+            if not os.path.isdir(source):
+                continue
+            target = os.path.join(destination, directory)
+            if os.path.isdir(target):
+                shutil.rmtree(target)
+            shutil.copytree(source, target)
+        with open(os.path.join(destination, "CREDIT.txt"), "w", encoding="utf-8") as handle:
+            handle.write(asset["credit"] + "\n" + asset["source"] + "\n" + asset["licence"] + "\n")
+        placed.append({"leaf": asset["leaf"], "from": found, "to": destination,
+                       "declaredBy": asset["declaredBy"]})
+    _emit({"placed": placed, "refused": refused})
+    return 0 if not refused else 1
 
 def _wpt_cases(arguments):
     """Turn an upstream directory at the pin into one case directory each, and report both counts."""

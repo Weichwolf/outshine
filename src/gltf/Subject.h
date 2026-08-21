@@ -104,6 +104,8 @@ public:
 
   [[nodiscard]] bool Assemble(const Assembly &what);
 
+  [[nodiscard]] bool Append(const Subject &other);
+
   const std::string &Error() const { return Error_; }
 
   const std::vector<double> &PositionsM() const { return Positions_; }

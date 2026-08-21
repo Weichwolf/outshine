@@ -87,12 +87,7 @@ double Live::Framing(void) const {
 }
 
 bool Live::Build(std::string &error) {
-  if (Declared_.Built != nullptr && !Declared_.Stands.empty()) {
-    error = "a scenario stands up ONE geometry: this one declares both a file to read and a subject "
-            "already built, and which of the two the picture came from would be unanswerable";
-    return false;
-  }
-  if (Declared_.Built != nullptr) {
+  if (Declared_.Built != nullptr && Declared_.Stands.empty()) {
     Geometry_ = *Declared_.Built;
     ResolveDeclaredSurface(Geometry_, Declared_.Surface, Table_);
   }
@@ -119,6 +114,23 @@ bool Live::Build(std::string &error) {
     if (!ResolveFileSurface(File_, Geometry_, ColourFrom::Row, ColourCarrier::Texture, Table_,
                             error)) {
       return false;
+    }
+    if (Declared_.Built != nullptr) {
+      SurfaceTable joining;
+      ResolveDeclaredSurface(*Declared_.Built, Declared_.Surface, joining);
+      if (joining.Slots.empty()) {
+        error = "the declared surface for the built geometry resolved to no slot, so the parts "
+                "joining this picture would name a surface that is not there";
+        return false;
+      }
+      const uint32_t slot = (uint32_t)Table_.Slots.size();
+      Table_.Slots.push_back(joining.Slots.front());
+      if (!Geometry_.Append(*Declared_.Built)) {
+        error = Geometry_.Error();
+        return false;
+      }
+      Table_.PartSlot.resize(Geometry_.Parts().size(), slot);
+      Joined_ = Geometry_.Parts().size() - Declared_.Built->Parts().size();
     }
   }
 
@@ -304,6 +316,23 @@ bool Live::Compose(std::string &error) {
 bool Live::Redeclare(std::vector<Shows> surfaces, std::string &error) {
   Declared_.Surfaces = std::move(surfaces);
   return Compose(error);
+}
+
+bool Live::Carry(const double model[16], std::string &error) {
+  if (Joined_ == 0) {
+    error = "nothing joined this picture from a file, so there is no body to carry -- every part "
+            "stands where the world put it";
+    return false;
+  }
+  if (Stood_.PartPlacement.size() != Geometry_.Parts().size()) {
+    Stood_.PartPlacement.assign(Geometry_.Parts().size(),
+                                {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1});
+  }
+  for (size_t part = 0; part < Joined_; ++part) {
+    for (int at = 0; at < 16; ++at) { Stood_.PartPlacement[part][at] = model[at]; }
+  }
+  return Renderer_->SetSubjectPlacements(Stood_.PartPlacement.front().data(),
+                                         Stood_.PartPlacement.size(), error);
 }
 
 bool Live::Restand(const Gltf::Subject &built, std::string &error) {

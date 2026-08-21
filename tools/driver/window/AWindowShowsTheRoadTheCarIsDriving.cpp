@@ -9,6 +9,7 @@
 
 #include "CurlTransport.h"
 #include "Heap.h"
+#include "PreparedRoot.h"
 #include "Journey.h"
 #include "Live.h"
 #include "Renderer.h"
@@ -46,6 +47,18 @@ public:
   void Near(double, double, double, const char *, const char *) override {}
   void Say(const std::string &) override {}
 };
+
+void Standing(const outshine::Physics::Body &body, double out[16]) {
+  const double axes[3][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+  for (int column = 0; column < 3; ++column) {
+    double turned[3];
+    outshine::Physics::Turn(body.OrientationQ, axes[column], turned);
+    for (int row = 0; row < 3; ++row) { out[column * 4 + row] = turned[row]; }
+    out[column * 4 + 3] = 0.0;
+  }
+  for (int row = 0; row < 3; ++row) { out[12 + row] = body.PositionM[row]; }
+  out[15] = 1.0;
+}
 
 outshine::Gltf::Placement Seen(const outshine::Physics::Body &body, const outshine::View &view) {
   outshine::Gltf::Placement out;
@@ -128,6 +141,20 @@ int main(void) {
   declaration.SurfaceWidthPx = kWidePx;
   declaration.SurfaceHeightPx = kHighPx;
   declaration.Fps = kFps;
+  const std::string carPath = outshine::Test::PreparedRoot() + "/tools-driver-f31/scene.gltf";
+  bool carThere = false;
+  if (std::FILE *const probe = std::fopen(carPath.c_str(), "rb")) {
+    std::fclose(probe);
+    carThere = true;
+  }
+  if (!carThere) {
+    Unprepared(("the declared F31 is not in the prepared corpus at " + carPath +
+                " -- python3 test/harness/shared/corpus/prepare.py scenario-assets places it from a "
+                "licensed copy, checked against the digest tools/driver/f31.scenario pins")
+                   .c_str());
+    return Report();
+  }
+  declaration.Stands = carPath;
   declaration.Built = &road;
   declaration.Surface.BaseColour[0] = 0.14f;
   declaration.Surface.BaseColour[1] = 0.14f;
@@ -150,6 +177,17 @@ int main(void) {
                "SUBJECT and a declared surface rather than a filename, which is the door "
                "board:1535 says a generator and a file must share");
   if (!stood) { return Report(); }
+
+  Note("parts the picture carries", (double)standing->Shown().Parts().size(), "parts");
+  Note("of them the car's own", (double)standing->CarriedParts(), "parts");
+  Note("triangles the picture carries", (double)standing->Shown().TriangleCount(), "triangles");
+  CHECK(standing->CarriedParts() > 100 &&
+            standing->Shown().Parts().size() > standing->CarriedParts(),
+        "**AND THE CAR IS IN THE PICTURE BESIDE THE ROAD.** The F31 the scenario declares is read "
+        "from the prepared corpus -- 258 meshes, digest-checked against what f31.scenario pins -- "
+        "and the swept corridor is APPENDED to it as further parts carrying their own surface. One "
+        "subject, two placements: the car's parts stand at the body's pose and the road's stand "
+        "where the world put them");
 
   const long perFrame = (long)(1.0 / kFps / kStepS + 0.5);
   Note("physics steps a frame", (double)perFrame, "steps");
@@ -232,6 +270,12 @@ int main(void) {
           relaidAtFrame = frame;
         }
       }
+    }
+    double body[16];
+    Standing(journey.Carried(), body);
+    if (!standing->Carry(body, error)) {
+      std::printf("REFUSED %s\n", error.c_str());
+      break;
     }
     const outshine::View &view = journey.Declared().Views[along < 0.5 ? 0 : 1];
     standing->Eye(Seen(journey.Carried(), view));

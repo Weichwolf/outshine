@@ -74,6 +74,8 @@ public:
 
   [[nodiscard]] bool Restand(const Gltf::Subject &built, std::string &error);
 
+  [[nodiscard]] bool Carry(const double model[16], std::string &error);
+
   [[nodiscard]] bool Advance(std::string &error);
 
   void Eye(const Gltf::Placement &from);
@@ -85,6 +87,9 @@ public:
   [[nodiscard]] static size_t TookSubmitting(void) { return TookSubmitting_; }
   [[nodiscard]] static size_t TookAiming(void) { return TookAiming_; }
   [[nodiscard]] static size_t TookDrawing(void) { return TookDrawing_; }
+
+  [[nodiscard]] const Gltf::Subject &Shown(void) const { return Geometry_; }
+  [[nodiscard]] size_t CarriedParts(void) const { return Joined_; }
 
   [[nodiscard]] int At(void) const { return At_; }
   [[nodiscard]] int Frames(void) const { return Frames_; }
@@ -127,6 +132,7 @@ private:
   bool Moves_ = false;
 
   bool Stoodup_ = false;
+  size_t Joined_ = 0;
   int Frames_ = 1;
   int At_ = 0;
 

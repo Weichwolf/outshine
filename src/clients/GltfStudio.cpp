@@ -423,7 +423,10 @@ bool Move(Render::Renderer &renderer, const Studio &studio, StudioScratch &scrat
     pose.PrevAnchor[axis] = kStudioAnchorEcefM[axis];
   }
   const Heap::Tagged handing("subject-pose");
-  return renderer.SetSubjectPose(pose, error);
+  if (!renderer.SetSubjectPose(pose, error)) { return false; }
+  return renderer.SetSubjectPlacements(
+      studio.PartPlacement.empty() ? nullptr : studio.PartPlacement.front().data(),
+      studio.PartPlacement.size(), error);
 }
 
 }
