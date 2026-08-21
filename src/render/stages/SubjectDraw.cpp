@@ -1544,23 +1544,27 @@ uint32_t SubjectDraw::DrawCount() const {
 void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   if (NIdx == 0 || Batches.empty() || !Vtx || !Idx || !Emit || !BvhNodes || !BvhTris) { return; }
   float uniform[kUniFloats] = {};
-  {
+  const auto place = [this, &ctx, &uniform, &into](uint32_t slot) {
+    const double *const model =
+        Placed_.empty() ? Model : Placed_.data() + (size_t)slot * 16u;
     double placed[16];
     for (int row = 0; row < 4; ++row) {
       for (int column = 0; column < 4; ++column) {
         double sum = 0.0;
         for (int over = 0; over < 4; ++over) {
-          sum += (double)ctx.Mvp16[over * 4 + row] * Model[column * 4 + over];
+          sum += (double)ctx.Mvp16[over * 4 + row] * model[column * 4 + over];
         }
         placed[column * 4 + row] = sum;
       }
     }
     for (int i = 0; i < 16; i++) { uniform[i] = (float)placed[i]; }
-  }
-  for (int i = 0; i < 3; i++) { uniform[16 + i] = (float)(Anchor[i] - ctx.Eye[i]); }
-  for (int i = 0; i < 16; i++) { uniform[20 + i] = ctx.PrevMvp16[i]; }
-  for (int i = 0; i < 3; i++) { uniform[36 + i] = (float)(PrevAnchor[i] - ctx.PrevEye[i]); }
-  SDL_PushGPUVertexUniformData(into.Commands, 0, uniform, sizeof uniform);
+    for (int i = 0; i < 3; i++) { uniform[16 + i] = (float)(Anchor[i] - ctx.Eye[i]); }
+    for (int i = 0; i < 16; i++) { uniform[20 + i] = ctx.PrevMvp16[i]; }
+    for (int i = 0; i < 3; i++) { uniform[36 + i] = (float)(PrevAnchor[i] - ctx.PrevEye[i]); }
+    SDL_PushGPUVertexUniformData(into.Commands, 0, uniform, sizeof uniform);
+  };
+  place(Batches.empty() ? 0u : Batches.front().ModelSlot);
+  uint32_t standing = Batches.empty() ? 0u : Batches.front().ModelSlot;
   const std::array<float, kLightFloats> lights = PackedLights(ctx);
   SDL_PushGPUFragmentUniformData(into.Commands, 1, lights.data(),
                                  (uint32_t)(lights.size() * sizeof(float)));
@@ -1622,6 +1626,10 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
                                      (uint32_t)(surface.Row.size() * sizeof(float)));
       boundSlot = batch.MaterialSlot;
       slotBound = true;
+    }
+    if (batch.ModelSlot != standing) {
+      place(batch.ModelSlot);
+      standing = batch.ModelSlot;
     }
     SDL_DrawGPUIndexedPrimitives(into.Pass, batch.IndexCount, 1, batch.FirstIndex, 0, 0);
   }

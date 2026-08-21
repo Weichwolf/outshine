@@ -153,6 +153,8 @@ struct DrawBatch {
   SurfaceKind Kind = SurfaceKind::Opaque;
 
   uint32_t Draws = 1;
+
+  uint32_t ModelSlot = 0;
 };
 
 struct IndexRun {

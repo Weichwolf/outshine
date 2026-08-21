@@ -81,6 +81,11 @@ public:
     return Subjects_.SetMesh(mesh, error) && (!DrawsGlass_ || Glass_.SetMesh(mesh, error));
   }
 
+  [[nodiscard]] bool SetSubjectPlacements(const double *models, size_t rows, std::string &error) {
+    return Subjects_.SetPlacements(models, rows, error) &&
+           (!DrawsGlass_ || Glass_.SetPlacements(models, rows, error));
+  }
+
   [[nodiscard]] bool SetSubjectPose(const SubjectPose &pose, std::string &error) {
     return Subjects_.SetPose(pose, error) && (!DrawsGlass_ || Glass_.SetPose(pose, error));
   }

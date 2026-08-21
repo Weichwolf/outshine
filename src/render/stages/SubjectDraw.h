@@ -120,6 +120,22 @@ public:
 
   void GlassIsDrawnElsewhere() { GlassDrawnElsewhere_ = true; }
 
+  [[nodiscard]] bool SetPlacements(const double *models, size_t rows, std::string &error) {
+    if (models == nullptr || rows == 0) {
+      Placed_.clear();
+      return true;
+    }
+    Placed_.assign(models, models + rows * 16u);
+    for (const DrawBatch &batch : Batches) {
+      if ((size_t)batch.ModelSlot < rows) { continue; }
+      error = "a draw names placement slot " + std::to_string(batch.ModelSlot) +
+              " over a table of " + std::to_string(rows) + " placements";
+      Placed_.clear();
+      return false;
+    }
+    return true;
+  }
+
   [[nodiscard]] bool SetMaterials(const std::vector<SubjectMaterial> &materials,
                                   std::string &error);
 
@@ -271,6 +287,7 @@ private:
   double Anchor[3] = {0, 0, 0};
   double PrevAnchor[3] = {0, 0, 0};
   double Model[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  std::vector<double> Placed_;
 
   bool WritesVelocity = false;
 };
