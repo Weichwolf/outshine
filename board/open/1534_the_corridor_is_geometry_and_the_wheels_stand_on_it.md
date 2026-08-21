@@ -15,12 +15,15 @@ window showing the car over nothing is not a step towards the goal, it is the th
 
 ## What must be true
 
-- [ ] **The corridor sweeps its cross-section into a SOLID**: carriageway, shoulder, verge and side
-      slope, with a thickness, so a bridge deck has a soffit and `board:1518`'s clearance rule has
-      something to measure
-- [ ] **`Stand()` and the mesh are one statement.** Today `Stand()` computes a height and a normal
-      analytically; the mesh must be evaluated FROM that same function, or the two will differ and
-      the car will drive on a surface nobody drew
+- [x] **The corridor sweeps its cross-section into a SOLID** -- `src/corridor/Ribbon.{h,cpp}`:
+      carriageway, shoulder either side and a THICKNESS along the surface normal, so a bridge deck
+      has a soffit and `board:1518`'s clearance rule has something to measure. Sixteen triangles a
+      segment, eight vertices a station. The verge and side slope are not built
+- [x] **`Stand()` and the mesh are one statement.** Every vertex of the top surface is placed by
+      `StandAt` itself -- not by a copy of the formula. Measured over 401 stations of a banked,
+      climbing arc: **0 vertices differ beyond float, worst 9.35e-7 m**, where a float at 500 m from
+      the frame origin resolves 3.05e-5 m. What is left is the mesh being float where the physics is
+      double, which is a property of the STORAGE
 - [ ] **The mesh is generated per tile and streams**, because 774 km of road at any useful resolution
       is not one buffer -- and `board:1529` says the same about the terrain it deforms
 - [ ] **Lane markings are on the surface and derived from the same lane count** the pilot drives by,
@@ -37,3 +40,14 @@ sweep needs.
 
 `tools/driver/parts/Journey.h` already exposes `Corridor()` and `Carried()`, so the windowed driver
 needs no new access -- it needs the road to exist.
+
+## Comments -- what the first sweep measured
+
+800 m of banked, climbing arc at a 2 m step: 401 stations, 3208 vertices, 6400 triangles -- **8
+triangles a metre** at a 7.5 m carriageway with 2.5 m shoulders. Over 774 km that is 6.2 million
+triangles, which is exactly why the remaining line says *per tile and streams*.
+
+The drawn cross-slope is the declared one to 1e-5 m, and the soffit sits 0.3492 m below a 0.35 m
+section -- because the thickness is measured along the SURFACE NORMAL and the road both banks 0.06 rad
+and climbs 3 %. On a level road those would be the same number; on this one they differ by 0.8 mm,
+and the one a bridge is measured under is the normal.
