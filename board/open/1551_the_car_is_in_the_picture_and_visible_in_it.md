@@ -69,8 +69,8 @@ this one is not occlusion, because a 4.6 m car seven metres ahead cannot hide be
 | | |
 |---|---|
 | `Live::Build` | resolves the file's surface table, then appends the built parts and `resize`s `PartSlot` with one extra slot. The 258 file entries must survive that |
-| `Live::Advance` | calls `Pose(At_)` whenever `Moves_`, which rebuilds `Geometry_` FROM THE DOCUMENT -- and would discard everything appended after it |
-| `Joined_` | recomputed inside `Build` from `Geometry_.Parts().size()` minus the built subject's, and read by `Carry` to decide which parts take the body |
+| ~~`Live::Advance` rebuilding the geometry~~ | **RULED OUT.** The asset declares `animations: 0` and `skins: 0` over its 519 nodes and 258 meshes, so `Moves_` is false, `Pose` does nothing and `Advance` rebuilds nothing |
+| `Joined_` | **printed as 258 of 260**, so the car's parts are in the picture AND take the body placement. Recomputed inside `Build` from `Geometry_.Parts().size()` minus the built subject's, and read by `Carry` to decide which parts take the body |
 
 ## What must be true
 
