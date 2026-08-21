@@ -412,6 +412,11 @@ int main(void) {
     Standing(journey.Carried(), body);
     for (int axis = 0; axis < 3; ++axis) { body[12 + axis] -= originM[axis]; }
     for (int person = 0; person < 2; ++person) {
+      if (next == 0 && person == 0) {
+        std::printf("PARTS total %zu carried %zu  car at %.1f %.1f %.1f\n",
+                    standing->Shown().Parts().size(), standing->CarriedParts(), body[12], body[13],
+                    body[14]);
+      }
       if (!standing->Carry(body, roadAt, error)) {
         std::printf("REFUSED carry: %s\n", error.c_str());
         break;
