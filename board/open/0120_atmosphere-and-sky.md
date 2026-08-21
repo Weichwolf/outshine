@@ -4,7 +4,7 @@ Tags: instrument
 
 **II.5 Atmosphere and sky**
 
-- [ ] Bruneton transmittance LUT (`TransmittanceStage`) — **the implementation named here was deleted with the WebGPU renderer at `0161f88`**; the stage survives in the catalogue and `Renderer::Executable` refuses it by name (`render/Renderer.cpp:102-127`), so this is scope again and not a silent loss
+- [x] Bruneton transmittance LUT — built as `MediumTransmittanceStage` over `ParticipatingMedium.h`, the engine's first compute pass; the zenith ray is checked against the closed form and every texel against the C++ twin on the device (`board:1555`)
 - [ ] Multiple-scattering LUT (`MultiScatterStage`) — **the implementation named here was deleted with the WebGPU renderer at `0161f88`**; the stage survives in the catalogue and `Renderer::Executable` refuses it by name (`render/Renderer.cpp:102-127`), so this is scope again and not a silent loss
 - [ ] Sky-view LUT (`SkyViewStage`) — **the implementation named here was deleted with the WebGPU renderer at `0161f88`**; the stage survives in the catalogue and `Renderer::Executable` refuses it by name (`render/Renderer.cpp:102-127`), so this is scope again and not a silent loss
 - [ ] Sky draw from the LUTs (`SkyStage`) — **the implementation named here was deleted with the WebGPU renderer at `0161f88`**; the stage survives in the catalogue and `Renderer::Executable` refuses it by name (`render/Renderer.cpp:102-127`), so this is scope again and not a silent loss

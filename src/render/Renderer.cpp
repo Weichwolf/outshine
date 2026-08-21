@@ -108,6 +108,7 @@ void Renderer::SetCameraBasis(const double eye[3], const double fwd[3], const do
 
 bool Renderer::Executable(Stage stage) {
   switch (stage) {
+    case Stage::MediumTransmittance:
     case Stage::Subjects:
     case Stage::Tonemap:
       return true;
@@ -119,7 +120,6 @@ bool Renderer::Executable(Stage stage) {
     case Stage::SubjectsTransmissive:
     case Stage::CompositeTransmission:
       return true;
-    case Stage::MediumTransmittance:
     case Stage::MediumMultiScatter:
     case Stage::MediumRadiance:
     case Stage::Irradiance:
@@ -182,13 +182,13 @@ void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> pla
 
   for (const RenderPlan::Pass &pass : Plan_->Passes()) {
     if (pass.Kind == PassKind::Compute || pass.Depth == kNoEdge) { continue; }
-    Handles.SceneColours = pass.Colours;
+    Handles.SceneColours = pass.Targets;
     break;
   }
   const auto coloursOfPassWith = [this](Stage wanted) {
     for (const RenderPlan::Pass &pass : Plan_->Passes()) {
       for (size_t at = pass.First; at < pass.First + pass.Count; ++at) {
-        if (Plan_->Order()[at] == wanted) { return pass.Colours; }
+        if (Plan_->Order()[at] == wanted) { return pass.Targets; }
       }
     }
     return Handles.SceneColours;
@@ -275,11 +275,24 @@ void Renderer::Create(Resource resource) {
     case Resource::FrameTex: FrameTex = target(resource, colour); return;
 
     case Resource::Surface: return;
+    case Resource::TransmittanceLut: {
+      SDL_GPUTextureCreateInfo wanted{};
+      wanted.type = SDL_GPU_TEXTURETYPE_2D;
+      wanted.format = FormatOf(Plan_->Format(resource));
+      wanted.usage = SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_TEXTUREUSAGE_SAMPLER;
+      wanted.width = kTransmittanceLutWidth;
+      wanted.height = kTransmittanceLutHeight;
+      wanted.layer_count_or_depth = 1;
+      wanted.num_levels = 1;
+      wanted.sample_count = SDL_GPU_SAMPLECOUNT_1;
+      TransmittanceLut_ =
+          OwnedTexture(Device_.Get(), SDL_CreateGPUTexture(Device_.Get(), &wanted));
+      return;
+    }
     case Resource::LutSampler:
     case Resource::AtmosphereUniform:
     case Resource::CascadeUniform:
     case Resource::VegetationTable:
-    case Resource::TransmittanceLut:
     case Resource::MultiScatterLut:
     case Resource::SkyViewLut:
     case Resource::IrradianceBuffer:
@@ -314,12 +327,12 @@ SDL_GPUTexture *Renderer::Target(Resource resource) const {
     case Resource::FrameTex: return FrameTex.Get();
 
     case Resource::Surface: return HostSurface_;
+    case Resource::TransmittanceLut: return TransmittanceLut_.Get();
     case Resource::LinearSampler:
     case Resource::LutSampler:
     case Resource::AtmosphereUniform:
     case Resource::CascadeUniform:
     case Resource::VegetationTable:
-    case Resource::TransmittanceLut:
     case Resource::MultiScatterLut:
     case Resource::SkyViewLut:
     case Resource::IrradianceBuffer:
@@ -407,6 +420,7 @@ bool Renderer::Configure(Stage stage, std::string &error) {
                                 DepthTex.Get(), Samp.Get(),
                                 FormatOf(Plan_->Format(Resource::SceneLinear)), Display(), error);
     case Stage::MediumTransmittance:
+      return MediumTransmittance_.Configure(Handles, TransmittanceLut_.Get(), error);
     case Stage::MediumMultiScatter:
     case Stage::MediumRadiance:
     case Stage::Irradiance:
@@ -501,6 +515,8 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
       Present_.Encode(ctx, into);
       return;
     case Stage::MediumTransmittance:
+      MediumTransmittance_.Encode(into);
+      return;
     case Stage::MediumMultiScatter:
     case Stage::MediumRadiance:
     case Stage::Irradiance:
@@ -534,9 +550,25 @@ static float RadicalInverse(int index, int base) {
 
 void Renderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
   const RenderPlan::Pass &declared = Plan_->Passes()[pass];
+  if (declared.Kind == PassKind::Compute) {
+    SDL_GPUStorageTextureReadWriteBinding written[kMaxColourAttachments] = {};
+    uint32_t writtenCount = 0;
+    for (const Resource wanted : declared.Targets) {
+      SDL_GPUStorageTextureReadWriteBinding &binding = written[writtenCount++];
+      binding.texture = Target(wanted);
+      binding.cycle = false;
+    }
+    PassRecording into{commands, nullptr,
+                       SDL_BeginGPUComputePass(commands, written, writtenCount, nullptr, 0)};
+    for (size_t at = 0; at < declared.Count; ++at) {
+      EncodeStage(Plan_->Order()[declared.First + at], into);
+    }
+    SDL_EndGPUComputePass(into.Dispatch);
+    return;
+  }
   SDL_GPUColorTargetInfo colours[kMaxColourAttachments] = {};
   uint32_t colourCount = 0;
-  for (const Resource wanted : declared.Colours) {
+  for (const Resource wanted : declared.Targets) {
     SDL_GPUColorTargetInfo &attachment = colours[colourCount++];
     attachment.texture = Target(wanted);
     attachment.load_op = SDL_GPU_LOADOP_CLEAR;
@@ -558,8 +590,10 @@ void Renderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
     depth.stencil_load_op = SDL_GPU_LOADOP_DONT_CARE;
     depth.stencil_store_op = SDL_GPU_STOREOP_DONT_CARE;
   }
-  PassRecording into{commands, SDL_BeginGPURenderPass(commands, colours, colourCount,
-                                                      declared.Depth != kNoEdge ? &depth : nullptr)};
+  PassRecording into{commands,
+                     SDL_BeginGPURenderPass(commands, colours, colourCount,
+                                            declared.Depth != kNoEdge ? &depth : nullptr),
+                     nullptr};
   for (size_t at = 0; at < declared.Count; ++at) {
     EncodeStage(Plan_->Order()[declared.First + at], into);
   }

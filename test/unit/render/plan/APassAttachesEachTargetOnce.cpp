@@ -59,22 +59,44 @@ void JudgePlan(const RenderPlan &plan, const char *what) {
     const size_t distinct = DistinctColourTargets(plan, pass);
     const size_t edgeCount = ColourEdges(plan, pass);
     if (pass.Kind == PassKind::Compute) {
-      CHECK(pass.Colours.Empty() && pass.Depth == kNoEdge,
-            "a compute pass attaches nothing at all");
+      size_t writes = 0;
+      std::set<Resource> stored;
+      for (size_t at = 0; at < pass.Count; ++at) {
+        const outshine::Render::StageRow &row = Row(plan.Order()[pass.First + at]);
+        for (size_t e = 0; e < kMaxEdges && row.Writes[e] != kNoEdge; ++e) {
+          if (!plan.Holds(row.Writes[e])) { continue; }
+          if (Row(row.Writes[e]).Format == TexelFormat::Handle) { continue; }
+          if (stored.insert(row.Writes[e]).second) { ++writes; }
+        }
+      }
+      CHECK(pass.Targets.Size() == writes,
+            "**A COMPUTE PASS ATTACHES EVERY TEXTURE IT WRITES AND NOTHING ELSE.** This claim used "
+            "to read 'a compute pass attaches nothing at all', which was true only while the "
+            "device ran no compute stage -- a test that records an absent capability goes red the "
+            "day the capability arrives, which is what it is for. A device binds its read-write "
+            "storage textures when the pass OPENS, so the plan owes the renderer that set before "
+            "a single dispatch is encoded");
+      for (const Resource target : pass.Targets) {
+        CHECK(stored.count(target) == 1,
+              "and every one of them is a resource some stage of this pass declared it writes");
+      }
+      CHECK(pass.Depth == kNoEdge,
+            "and a compute pass never attaches depth, because there is no rasteriser in it to "
+            "test against one");
       continue;
     }
-    CHECK(pass.Colours.Size() == distinct,
+    CHECK(pass.Targets.Size() == distinct,
           "a raster pass attaches each distinct colour target exactly once");
-    CHECK(pass.Colours.Size() <= kMaxColourAttachments,
+    CHECK(pass.Targets.Size() <= kMaxColourAttachments,
           "no pass exceeds the device's colour-attachment floor");
     std::set<Resource> written;
-    for (const Resource target : pass.Colours) {
+    for (const Resource target : pass.Targets) {
       CHECK(written.insert(target).second, "no target appears twice in one pass's set");
       CHECK(Row(target).Format != TexelFormat::Depth32Float,
             "a depth target is never a colour attachment");
     }
     if (edgeCount > widestEdges) { widestEdges = edgeCount; }
-    if (pass.Colours.Size() > widest) { widest = pass.Colours.Size(); }
+    if (pass.Targets.Size() > widest) { widest = pass.Targets.Size(); }
   }
   Note((std::string(what) + " widest pass, distinct colour targets").c_str(), (double)widest,
        "attachments");
@@ -158,12 +180,12 @@ int main() {
             "unread rather than what is merely contributed to");
       size_t attachedWithout = 0, attachedWith = 0;
       for (const RenderPlan::Pass &pass : without->Passes()) {
-        for (const Resource colour : pass.Colours) {
+        for (const Resource colour : pass.Targets) {
           attachedWithout += colour == Resource::SceneVelocity ? 1u : 0u;
         }
       }
       for (const RenderPlan::Pass &pass : with->Passes()) {
-        for (const Resource colour : pass.Colours) {
+        for (const Resource colour : pass.Targets) {
           attachedWith += colour == Resource::SceneVelocity ? 1u : 0u;
         }
       }

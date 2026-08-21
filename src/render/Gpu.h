@@ -21,6 +21,7 @@ struct Gpu {
 struct PassRecording {
   SDL_GPUCommandBuffer *Commands = nullptr;
   SDL_GPURenderPass *Pass = nullptr;
+  SDL_GPUComputePass *Dispatch = nullptr;
 };
 
 }

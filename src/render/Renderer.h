@@ -18,6 +18,7 @@
 #include "stages/Resolve.h"
 #include "stages/SubjectDraw.h"
 #include "stages/CompositeTransmissionStage.h"
+#include "stages/MediumTransmittanceStage.h"
 #include "stages/TonemapStage.h"
 
 namespace outshine::Render {
@@ -101,6 +102,10 @@ public:
     return Subjects_.SetLights(lights, error) && (!DrawsGlass_ || Glass_.SetLights(lights, error));
   }
 
+  void SetMedium(const Medium &medium) { MediumTransmittance_.Declare(medium); }
+
+  [[nodiscard]] SDL_GPUTexture *TransmittanceTable(void) const { return TransmittanceLut_.Get(); }
+
   void SetSubjectEnvironment(const SubjectEnvironment &environment) {
     Subjects_.SetEnvironment(environment);
     if (DrawsGlass_) { Glass_.SetEnvironment(environment); }
@@ -150,6 +155,7 @@ private:
   std::shared_ptr<const RenderPlan> Plan_;
   Gpu Handles;
   OwnedTexture HdrTex, VelTex, DepthTex, FrameTex;
+  OwnedTexture TransmittanceLut_;
 
   OwnedTexture TransmissiveTex, CompositedTex;
 
@@ -164,6 +170,7 @@ private:
   bool DrawsGlass_ = false;
   CompositeTransmissionStage CompositeTransmission_;
   TonemapStage Tonemap_;
+  MediumTransmittanceStage MediumTransmittance_;
   OverlayDraw Overlay_;
   PresentStage Present_;
 

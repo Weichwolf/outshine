@@ -241,7 +241,24 @@ bool RenderPlan::Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan>
   }
 
   for (Pass &pass : plan->Passes_) {
-    if (pass.Kind == PassKind::Compute) { continue; }
+    if (pass.Kind == PassKind::Compute) {
+      for (size_t at = 0; at < pass.Count; ++at) {
+        const StageRow &row = Row(plan->Order_[pass.First + at]);
+        for (size_t e = 0; e < kMaxEdges && row.Writes[e] != kNoEdge; ++e) {
+          const Resource target = row.Writes[e];
+          if (!plan->HeldResource_[static_cast<size_t>(target)]) { continue; }
+
+          if (Row(target).Format == TexelFormat::Handle) { continue; }
+          if (!pass.Targets.Add(target)) {
+            error = std::string("compute pass ") + pass.Name + ": more than " +
+                    std::to_string(kMaxColourAttachments) +
+                    " distinct storage targets, which is the device floor";
+            return false;
+          }
+        }
+      }
+      continue;
+    }
     for (size_t at = 0; at < pass.Count; ++at) {
       const StageRow &row = Row(plan->Order_[pass.First + at]);
       const Resource *const edges[2] = {row.Writes, row.Contributes};
@@ -260,7 +277,7 @@ bool RenderPlan::Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan>
             pass.Depth = target;
             continue;
           }
-          if (!pass.Colours.Add(target)) {
+          if (!pass.Targets.Add(target)) {
             error = std::string("render pass ") + pass.Name + ": more than " +
                     std::to_string(kMaxColourAttachments) +
                     " distinct colour targets, which is the device floor";

@@ -43,7 +43,7 @@ public:
     size_t First;
     size_t Count;
 
-    AttachmentSet Colours;
+    AttachmentSet Targets;
     Resource Depth = kNoEdge;
   };
 
