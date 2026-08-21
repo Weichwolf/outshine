@@ -41,7 +41,7 @@ constexpr double kRibbonStepM = 2.0;
 constexpr double kGroundReachM = 400.0;
 constexpr double kGroundStepM = 3.0;
 constexpr double kSideSlopeRun = 1.5;
-constexpr double kCentreStepM = 10.0;
+constexpr double kCentreStepM = 1.5;
 constexpr int kStills = 12;
 constexpr uint64_t kSeed = 0x5EEDu;
 
