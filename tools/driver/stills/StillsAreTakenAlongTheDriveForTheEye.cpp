@@ -16,6 +16,7 @@
 #include "PreparedRoot.h"
 #include "TerrainLoader.h"
 #include "Renderer.h"
+#include "Carriageway.h"
 #include "Ribbon.h"
 
 using outshine::Driver::Between;
@@ -39,6 +40,8 @@ constexpr double kRelayAtM = 400.0;
 constexpr double kRibbonStepM = 2.0;
 constexpr double kGroundReachM = 700.0;
 constexpr double kGroundStepM = 12.0;
+constexpr double kSideSlopeRun = 1.5;
+constexpr double kCentreStepM = 10.0;
 constexpr int kStills = 12;
 constexpr uint64_t kSeed = 0x5EEDu;
 
@@ -57,7 +60,13 @@ struct Ground {
   size_t Holes = 0;
 };
 
-bool Lie(const Journey &journey, const double aboutM[3], const double originM[3], Ground &out) {
+struct Along {
+  double EastM, HeightM, NorthM;
+};
+
+bool Lie(const Journey &journey, const double aboutM[3], const double originM[3],
+         const outshine::Section &section, double fromM, double toM, std::vector<Along> &centre,
+         Ground &out) {
   double frameLat = 0.0, frameLon = 0.0, perLatM = 1.0, perLonM = 1.0;
   journey.Frame(frameLat, frameLon, perLatM, perLonM);
   const int side = (int)(2.0 * kGroundReachM / kGroundStepM) + 1;
@@ -65,6 +74,16 @@ bool Lie(const Journey &journey, const double aboutM[3], const double originM[3]
   out.NormalM.clear();
   out.Index.clear();
   out.Holes = 0;
+  centre.clear();
+  for (double atM = fromM; atM <= toM; atM += kCentreStepM) {
+    outshine::Placed on;
+    if (!journey.Corridor().At(atM, on)) { continue; }
+    const outshine::Standing top = StandAt(journey.Corridor(), atM, 0.0, 0.0);
+    centre.push_back(Along{on.EastM, top.HeightM, on.NorthM});
+  }
+  if (centre.empty()) { return false; }
+
+  const double keptM = section.HalfWidthM + section.ShoulderM;
   std::vector<double> heightM((size_t)side * (size_t)side, 0.0);
   for (int row = 0; row < side; ++row) {
     const double northM = aboutM[2] * -1.0 - kGroundReachM + (double)row * kGroundStepM;
@@ -74,6 +93,25 @@ bool Lie(const Journey &journey, const double aboutM[3], const double originM[3]
           fb_stream_ground(frameLat + northM / perLatM, frameLon + eastM / perLonM);
       double aslM = 0.0;
       if (!sample.TryAslM(&aslM)) { ++out.Holes; }
+
+      double nearestM = 1.0e30, roadM = aslM;
+      for (const Along &on : centre) {
+        const double dEast = eastM - on.EastM, dNorth = northM - on.NorthM;
+        const double awayM = std::sqrt(dEast * dEast + dNorth * dNorth);
+        if (awayM < nearestM) {
+          nearestM = awayM;
+          roadM = on.HeightM;
+        }
+      }
+      const double formationM = roadM - section.ThicknessM;
+      const double liftM = formationM - aslM;
+      const double reachM = keptM + std::fabs(liftM) * kSideSlopeRun;
+      if (nearestM <= keptM) {
+        aslM = formationM;
+      } else if (nearestM < reachM) {
+        const double part = (nearestM - keptM) / (reachM - keptM);
+        aslM = formationM + (aslM - formationM) * part * part * (3.0 - 2.0 * part);
+      }
       heightM[(size_t)row * (size_t)side + (size_t)column] = aslM;
     }
   }
@@ -236,7 +274,8 @@ int main(void) {
   piece.Indices = outshine::Span<const uint32_t>(ribbon.Index.data(), ribbon.Index.size());
   Ground ground;
   double aboutM[3] = {ribbon.OriginM[0], ribbon.OriginM[1], ribbon.OriginM[2]};
-  const bool lies = Lie(journey, aboutM, originM, ground);
+  std::vector<Along> centre;
+  const bool lies = Lie(journey, aboutM, originM, section, 0.0, kShownM, centre, ground);
   Note("holes the ground sampling met", (double)ground.Holes, "posts");
   CHECK(lies, "**AND THE GROUND UNDER THE ROAD IS SAMPLED FROM THE FIELD THE WHEELS STAND ON.** "
               "fb_stream_ground is what the drive already asks for every contact, so the drawn "
@@ -268,7 +307,6 @@ int main(void) {
   declaration.Surface.BaseColour[2] = 0.15f;
   declaration.Surface.Roughness = 0.92f;
   declaration.Surface.Metalness = 0.0f;
-  declaration.DrawsSky = true;
   declaration.KeyLux = 40000.0;
   declaration.KeyElevationDeg = 42.0;
   declaration.KeyBearingDeg = 150.0;
@@ -337,7 +375,8 @@ int main(void) {
         Ground under;
         outshine::Gltf::Piece lyingNow;
         lyingNow.NodeName = "ground";
-        const bool laid = Lie(journey, aboutNow, originM, under);
+        const bool laid =
+            Lie(journey, aboutNow, originM, section, laidFromM, laidToM, centre, under);
         if (laid) {
           lyingNow.PositionsM =
               outshine::Span<const float>(under.PositionM.data(), under.PositionM.size());
