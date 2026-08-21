@@ -114,6 +114,23 @@ would say *there is a car on a road*.
 missing was a second declared surface, so the ground wore the road's asphalt and a dark car stood
 against ground of its own brightness.
 
+## STILL OPEN, AND SHARPER -- visible when FRAMED, absent from the CHASE
+
+**Both looked at, in the same run, at the same station:**
+
+| view | what is in it |
+|---|---|
+| `000-framed-by-the-engine` | green ground, a dark road across it, and **the car, plainly distinguishable** |
+| `km0017.3-third` | the same road and the same green ground, from 7 m behind the car -- **and no car** |
+
+**So contrast is no longer the explanation.** The picture holds the car, 260 draws are submitted for
+260 parts, the scale is right, and a camera framing the whole patch from kilometres out shows it while
+a camera seven metres behind it does not.
+
+**What that leaves**: something about the chase placement or the near field, and it is now a much
+narrower question than when this item opened -- geometry, scale, submission, surface and contrast are
+each measured and each sound.
+
 ## What must be true
 
 - [ ] **A picture that carries a subject's parts draws them**, and a case decides it: stand the F31 up
