@@ -187,7 +187,7 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
     item.Order.Surface = studio.Surfaces[slot].State();
     item.Order.DepthFraction = DepthFraction(subject, where, studio.Eye);
     item.Order.MaterialSlot = slot;
-    item.ModelSlot = part < studio.PartPlacement.size() ? (uint32_t)part : 0u;
+    item.ModelSlot = (uint32_t)part;
     item.SourceFirstIndex = (uint32_t)where.FirstIndex;
     item.IndexCount = (uint32_t)where.IndexCount;
 

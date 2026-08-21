@@ -241,6 +241,8 @@ bool Live::Look(std::string &error) {
 
 bool Live::Stand(std::string &error) {
   Stood_ = Studio{};
+  Stood_.PartPlacement.assign(Geometry_.Parts().size(),
+                              {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1});
   Stood_.Geometry = &Geometry_;
   if (Moves_) { Stood_.Previous = &Previous_; }
   Stood_.EmittedRadiance.assign(Geometry_.Parts().size(), {0.0f, 0.0f, 0.0f});
