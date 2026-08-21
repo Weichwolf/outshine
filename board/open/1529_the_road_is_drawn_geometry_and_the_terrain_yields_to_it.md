@@ -60,3 +60,33 @@ tile must be able to evaluate it from what is loaded around it.
       has: shift the tile grid by half a tile and the ground inside must not move
 - [ ] **A tile whose neighbour has not arrived says PENDING and not a guess**, the way
       `GroundSample` already answers Resolved, Pending or Hole
+
+### The centreline is not a lane, and the car drives in a lane
+
+**The owner's ruling:** *a rural road has two opposing lanes and a motorway has at least four -- so do
+not drive exactly down the middle.*
+
+The corridor's reference line is the centreline of the whole carriageway. Driving it means driving on
+the centre line, which on a two-lane road is head-on into the oncoming lane, and it also OVERSTATES the
+lateral budget by a factor of the lane count: on a 12 m motorway the budget is not
+`6.0 - 0.906 = 5.09 m` but the lane's own `1.5 - 0.906 = 0.594 m`.
+
+- [ ] **The lane count is derived from the declared width**, because every width in
+      `src/assets/world/vegetation.json` came from a standard that names its cross-section -- RAA RQ 28
+      is 2 x 3.75 m plus a 2.5 m hard shoulder per carriageway, RAL RQ 11.5 is 2 x 3.5 m, RASt's 5.5 m
+      residential street is two 2.75 m lanes
+- [ ] **The car's line is the centre of ITS lane**, offset from the reference line, and which side
+      depends on the country's driving side -- a declaration, and `board:1524`'s Dover to Calais route
+      exists to catch it
+- [ ] **The tracking budget is the LANE half-width minus the car's half-width**, everywhere it is used:
+      the speed the pursuit lag allows, the grip reserved for holding the line, and whether a wheel has
+      left the road
+- [ ] **A oneway carriageway has all its lanes in one direction** and a two-way one splits them, so
+      the offset depends on what the way declares and not on the width alone
+
+## Comments
+
+**This makes the car SLOWER and that is correct.** With the whole carriageway as budget the pursuit law
+allowed 179 km/h on a motorway; with one lane it allows about 60. A car that used the full width to
+hold its line would be crossing the centre line to make its corners, which is what the number was
+quietly permitting.

@@ -66,6 +66,8 @@ struct Drove {
   double WorstRatio = 0.0;
   double AirborneAtM = 0.0;
   double BrokeAtM = 0.0;
+  double LeftTheRoadAtM = 0.0;
+  double LeftByM = 0.0;
 };
 
 void Unit(double v[3]) {
@@ -459,6 +461,8 @@ int main(void) {
   outshine::Envelope planning = stood.Envelope;
   const double holdWithinM = 0.5 * reaped.NarrowestTakenM - 0.5 * kF31WidthM;
   planning.ReserveMs2 = 2.0 * holdWithinM / (1.0 * 1.0);
+  planning.HoldWithinM = holdWithinM;
+  planning.SettleS = 1.0;
   Note("the narrowest road on the route", reaped.NarrowestTakenM, "m");
   Note("what the car leaves either side of itself there", holdWithinM, "m");
   Note("the lateral acceleration reserved for holding the line", planning.ReserveMs2, "m/s2");
@@ -484,6 +488,32 @@ int main(void) {
       gradeLimit[post] = limit;
     }
   }
+  std::vector<double> halfWidthM(roadM.size(), 0.0);
+  {
+    size_t leg = 0;
+    for (size_t post = 0; post < halfWidthM.size(); ++post) {
+      const double atM = (double)post * spanM * route.LengthM / fitted.LengthM;
+      while (leg + 1 < route.Legs.size() && route.Legs[leg + 1].AlongM < atM) { ++leg; }
+      double half = route.Legs[leg].HalfWidthM;
+      if (leg + 1 < route.Legs.size() && route.Legs[leg + 1].HalfWidthM > 0.0 &&
+          route.Legs[leg + 1].HalfWidthM < half) {
+        half = route.Legs[leg + 1].HalfWidthM;
+      }
+      halfWidthM[post] = half;
+    }
+  }
+  double narrowestHalfM = 1.0e9, widestHalfM = 0.0;
+  for (const double half : halfWidthM) {
+    narrowestHalfM = half < narrowestHalfM ? half : narrowestHalfM;
+    widestHalfM = half > widestHalfM ? half : widestHalfM;
+  }
+  Note("the narrowest the carriageway gets", 2.0 * narrowestHalfM, "m");
+  Note("the widest", 2.0 * widestHalfM, "m");
+  Note("the car's own width", kF31WidthM, "m");
+  CHECK(2.0 * narrowestHalfM > kF31WidthM,
+        "**AND THE CAR FITS ON THE NARROWEST STRETCH OF ITS OWN ROUTE.** The harvest already refused "
+        "ways narrower than the car; this says the route it chose kept that true end to end");
+
   long undeclared = 0;
   double gentlestLimit = 1.0, gentlestAtM = 0.0;
   for (size_t post = 0; post < gradeLimit.size(); ++post) {
@@ -679,8 +709,11 @@ int main(void) {
     for (size_t which = 0; which < rig.Count; ++which) {
       double worldM[3];
       outshine::Physics::Place(body, rig.Mounts[which].AtM, worldM);
+      const size_t post = (size_t)(at.AlongM / spanM);
+      const double edgeM =
+          halfWidthM[post < halfWidthM.size() ? post : halfWidthM.size() - 1];
       const outshine::Standing on =
-          outshine::Stand(corridor, worldM[0], -worldM[2], 0.0, at.AlongM,
+          outshine::Stand(corridor, worldM[0], -worldM[2], edgeM, at.AlongM,
                           kMountResectM + 3.0 * lostM);
       under[which].Found = on.On;
       under[which].HeightM = on.HeightM;
@@ -713,6 +746,10 @@ int main(void) {
       }
     }
 
+    if (read.Airborne > 0 && drove.LeftTheRoadAtM <= 0.0) {
+      drove.LeftTheRoadAtM = at.AlongM;
+      drove.LeftByM = at.OffsetM;
+    }
     if (read.PastLimit || read.Airborne == rig.Count) {
       drove.BrokeAtM = at.AlongM;
       drove.PastLimit = drove.PastLimit || read.PastLimit;
@@ -742,6 +779,8 @@ int main(void) {
   Note("most mounts off the ground at once", (double)drove.MostAirborne, "of 4");
   Note("where that was", drove.AirborneAtM / 1000.0, "km");
   Note("where a contact first went past its limit", drove.BrokeAtM / 1000.0, "km");
+  Note("where a wheel first left the carriageway", drove.LeftTheRoadAtM / 1000.0, "km");
+  Note("how far off the line it was there", drove.LeftByM, "m");
 
   CHECK(!drove.Lost, "the car never left the corridor's own window");
   CHECK(!drove.PastLimit,

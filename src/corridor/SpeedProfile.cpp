@@ -57,6 +57,13 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
       const double held = std::sqrt(lateralMs2 / bend);
       Held_[at] = held < topMs ? held : topMs;
     }
+    const double ramp = std::fabs(here.CurvatureRatePerM);
+    if (ramp > 0.0 && within.HoldWithinM > 0.0 && within.SettleS > 0.0) {
+      const double followedMs =
+          std::cbrt(6.0 * within.HoldWithinM / (ramp * within.SettleS * within.SettleS *
+                                                within.SettleS));
+      if (followedMs < Held_[at]) { Held_[at] = followedMs; }
+    }
     const double climb = here.Slope;
     if (climb > 0.0) {
       const double left = within.DriveN - within.MassKg * kGravityMs2 * climb;

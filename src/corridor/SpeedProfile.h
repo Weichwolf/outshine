@@ -19,6 +19,8 @@ struct Envelope {
   double DragArea = 0.0;
   double AirDensity = 0.0;
   double ReserveMs2 = 0.0;
+  double HoldWithinM = 0.0;
+  double SettleS = 0.0;
 
   [[nodiscard]] double LateralMs2(void) const { return Grip * kGravityMs2; }
   [[nodiscard]] double HoldingMs2(void) const {
