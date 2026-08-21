@@ -447,8 +447,8 @@ flowchart TD
   classDef built fill:#1f6f3f,stroke:#0d3b21,color:#fff
   classDef idle fill:#8a6d1f,stroke:#4a3a0d,color:#fff
   classDef absent fill:#7a2222,stroke:#3d1111,color:#fff,stroke-dasharray:4 3
-  class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,TerrainLoader,ChunkMesh,OsmField,RoadHarvest,Wayfinding,StreetField,BuildingField,WaterField,Ground,Forest,Buildings,Water,Infrastructure,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,Subject,DrawList,SubjectDraw,Renderer,TonemapStage,PresentStage,Live,StarBands built
-  class Frustum,Sim,Ephemeris,RegionForge idle
+  class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,TerrainLoader,ChunkMesh,OsmField,RoadHarvest,Wayfinding,StreetField,BuildingField,WaterField,Ground,Forest,Buildings,Water,Infrastructure,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,Subject,DrawList,SubjectDraw,Renderer,TonemapStage,PresentStage,Live,StarBands,Sim,Ephemeris built
+  class Frustum,RegionForge idle
   class Entities absent
 ```
 
@@ -467,7 +467,7 @@ flowchart TD
 | **the geometry path does not instance** | `SubjectDraw.cpp:1626` passes a **literal `1`** as the instance count, while `OverlayDraw.cpp:265` passes `Count` -- so the engine instances on one path and not the other. `DrawBatch::Draws` exists at `DrawList.h:155` and is summed **as a statistic only** at `SubjectDraw.cpp:1540` | `1538` |
 | **nothing culls against the frustum** | `Camera.h:100-115` defines `Frustum`, `FrustumFrom` and `AabbVisible`, and **no `.cpp` under `src/` calls any of the three.** The compositor row promises *places, culls, quantises, batches*; two of the four are written down | `1538` |
 | **there is no entity store** | thousands of traffic participants, aircraft and clouds need one. The good news is measured: **`src/pilot/`, `src/physics/`, `src/corridor/` hold no mutable static at all**, so many actors is a memory question rather than an architectural one | `1538` |
-| **the world client is unproven** | `src/clients/Sim.cpp` is 558 lines standing up terrain, OSM, vegetation, water, sun, moon and stars. The `Makefile` compiles it; **`test/run.sh` names it in no suite's source list**, and no `.cpp` outside it constructs a `Sim`. `Ephemeris` is reached only from there, and `RegionForge` and `SceneWeather` from nowhere in `src/` at all | `1537` |
+| **the world client reads one species** | `Clients::ReadSpecies` takes a single file, so a `Sim` carries exactly one tree species where the shape is **0 or 1..N**. Found by standing a world up: the directory `src/assets/world/species/` holds 32 of them and the client can name one | `1537` |
 | **the drive is proven where the suite does not look** | `tools/driver/` drives 774.852 km; `test/render/outshine/drive/` **refuses** over the stale free `Plan(from, to)` at `Wayfinding.h:100`, whose only caller is that case | `1539` |
 | **the window stands up a subject, not a world** | the driver's GUI assembles one `Gltf::Subject`; `Sim` is the world path and the driver does not use it | `1537` |
 
