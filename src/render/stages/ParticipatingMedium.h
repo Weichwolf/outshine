@@ -35,6 +35,16 @@ inline constexpr int kTransmittanceSteps = 40;
 
 inline constexpr float kMediumSampleSegment = 0.5f;
 
+inline constexpr uint32_t kMultiScatterLutSize = 32;
+
+inline constexpr int kMultiScatterSteps = 20;
+
+inline constexpr int kMultiScatterGrid = 8;
+
+inline constexpr float kMediumLuminanceSegment = 0.3f;
+
+inline constexpr float kMediumGroundLiftKm = 0.01f;
+
 [[nodiscard]] inline float MediumTopReach(const Medium &medium, float radiusKm, float cosZenith) {
   const float under = radiusKm * radiusKm * (cosZenith * cosZenith - 1.0f) +
                       medium.TopRadiusKm * medium.TopRadiusKm;
@@ -69,6 +79,82 @@ inline void MediumExtinctionPerKm(const Medium &medium, float heightKm, float ou
     out[channel] = rayleigh * medium.RayleighScatteringPerKm[channel] +
                    mie * medium.MieExtinctionPerKm +
                    ozone * medium.OzoneAbsorptionPerKm[channel];
+  }
+}
+
+inline void MediumScatterExtinctPerKm(const Medium &medium, float heightKm, float scattering[3],
+                                      float extinction[3]) {
+  const float rayleigh = std::exp(-heightKm / medium.RayleighScaleHeightKm);
+  const float mie = std::exp(-heightKm / medium.MieScaleHeightKm);
+  const float tent = 1.0f - std::fabs(heightKm - medium.OzoneCentreKm) / medium.OzoneHalfWidthKm;
+  const float ozone = std::fmin(1.0f, std::fmax(0.0f, tent));
+  for (int channel = 0; channel < 3; ++channel) {
+    scattering[channel] =
+        rayleigh * medium.RayleighScatteringPerKm[channel] + mie * medium.MieScatteringPerKm;
+    extinction[channel] = rayleigh * medium.RayleighScatteringPerKm[channel] +
+                          mie * medium.MieExtinctionPerKm +
+                          ozone * medium.OzoneAbsorptionPerKm[channel];
+  }
+}
+
+template <typename ToSun>
+inline void MediumMultiScatterTexel(const Medium &medium, float unitU, float unitV,
+                                    ToSun &&transmittanceToSun, float luminance[3],
+                                    float transfer[3]) {
+  const float cosSun = unitU * 2.0f - 1.0f;
+  const float sinSun = std::sqrt(std::fmax(0.0f, 1.0f - cosSun * cosSun));
+  const float radiusKm = medium.BottomRadiusKm + kMediumGroundLiftKm +
+                         unitV * (medium.TopRadiusKm - medium.BottomRadiusKm - kMediumGroundLiftKm);
+
+  double summedL[3] = {0.0, 0.0, 0.0};
+  double summedF[3] = {0.0, 0.0, 0.0};
+  for (int which = 0; which < kMultiScatterGrid * kMultiScatterGrid; ++which) {
+    const float ring = ((float)(which / kMultiScatterGrid) + 0.5f) / (float)kMultiScatterGrid;
+    const float around = ((float)(which % kMultiScatterGrid) + 0.5f) / (float)kMultiScatterGrid;
+    const float theta = 2.0f * 3.14159265358979f * ring;
+    const float cosPhi = 1.0f - 2.0f * around;
+    const float sinPhi = std::sqrt(std::fmax(0.0f, 1.0f - cosPhi * cosPhi));
+    const float dir[3] = {std::cos(theta) * sinPhi, std::sin(theta) * sinPhi, cosPhi};
+    const float cosView = dir[2];
+
+    const float toGround = MediumGroundReach(medium, radiusKm, cosView);
+    const float toTop = MediumTopReach(medium, radiusKm, cosView);
+    const float span = toGround < 0.0f ? toTop : std::fmin(toTop, toGround);
+    const float stride = span / (float)kMultiScatterSteps;
+
+    double throughput[3] = {1.0, 1.0, 1.0};
+    for (int step = 0; step < kMultiScatterSteps; ++step) {
+      const float along = stride * ((float)step + kMediumLuminanceSegment);
+      const float heightKm = MediumHeightAlong(medium, radiusKm, cosView, along);
+      float scattering[3], extinction[3];
+      MediumScatterExtinctPerKm(medium, heightKm, scattering, extinction);
+
+      const float hereKm = heightKm + medium.BottomRadiusKm;
+
+      const float sunDot = dir[2] * cosSun + dir[0] * sinSun;
+      const float cosSunAt = (radiusKm * cosSun + along * sunDot) / hereKm;
+
+      const float shadowed =
+          MediumGroundReach(medium, hereKm - kMediumGroundLiftKm, cosSunAt) >= 0.0f ? 0.0f : 1.0f;
+      float sun[3] = {0.0f, 0.0f, 0.0f};
+      if (shadowed > 0.0f) { transmittanceToSun(hereKm, cosSunAt, sun); }
+
+      for (int channel = 0; channel < 3; ++channel) {
+        const double stepT = std::exp(-(double)extinction[channel] * (double)stride);
+        const double source = (double)shadowed * (double)sun[channel] *
+                              (double)scattering[channel] / (4.0 * 3.14159265358979);
+        summedL[channel] += throughput[channel] * source * (1.0 - stepT) /
+                            (double)extinction[channel];
+        summedF[channel] += throughput[channel] * (double)scattering[channel] * (1.0 - stepT) /
+                            (double)extinction[channel];
+        throughput[channel] *= stepT;
+      }
+    }
+  }
+  for (int channel = 0; channel < 3; ++channel) {
+    luminance[channel] =
+        (float)(summedL[channel] / (double)(kMultiScatterGrid * kMultiScatterGrid));
+    transfer[channel] = (float)(summedF[channel] / (double)(kMultiScatterGrid * kMultiScatterGrid));
   }
 }
 
@@ -163,6 +249,30 @@ static inline float3 mediumExtinctionPerKm(constant Medium &medium, float height
          ozone * float3(medium.ozoneAbsorptionPerKm);
 }
 
+static inline float2 mediumTransmittanceUv(constant Medium &medium, float radiusKm,
+                                           float cosZenith) {
+  float span = sqrt(max(0.0, medium.topRadiusKm * medium.topRadiusKm -
+                             medium.bottomRadiusKm * medium.bottomRadiusKm));
+  float ground =
+      sqrt(max(0.0, radiusKm * radiusKm - medium.bottomRadiusKm * medium.bottomRadiusKm));
+  float reach = mediumTopReach(medium, radiusKm, cosZenith);
+  float shortest = medium.topRadiusKm - radiusKm;
+  float longest = ground + span;
+  return float2((reach - shortest) / (longest - shortest), ground / span);
+}
+
+static inline void mediumScatterExtinctPerKm(constant Medium &medium, float heightKm,
+                                             thread float3 &scattering,
+                                             thread float3 &extinction) {
+  float rayleigh = exp(-heightKm / medium.rayleighScaleHeightKm);
+  float mie = exp(-heightKm / medium.mieScaleHeightKm);
+  float tent = 1.0 - fabs(heightKm - medium.ozoneCentreKm) / medium.ozoneHalfWidthKm;
+  float ozone = clamp(tent, 0.0, 1.0);
+  scattering = rayleigh * float3(medium.rayleighScatteringPerKm) + mie * medium.mieScatteringPerKm;
+  extinction = rayleigh * float3(medium.rayleighScatteringPerKm) +
+               mie * medium.mieExtinctionPerKm + ozone * float3(medium.ozoneAbsorptionPerKm);
+}
+
 static inline void mediumTransmittanceParams(constant Medium &medium, float u, float v,
                                              thread float &radiusKm, thread float &cosZenith) {
   float span = sqrt(max(0.0, medium.topRadiusKm * medium.topRadiusKm -
@@ -176,6 +286,56 @@ static inline void mediumTransmittanceParams(constant Medium &medium, float u, f
                            : (span * span - ground * ground - reach * reach) /
                                  (2.0 * radiusKm * reach);
   cosZenith = clamp(cosZenith, -1.0, 1.0);
+}
+
+static inline void mediumMultiScatterTexel(constant Medium &medium, float unitU, float unitV,
+                                           texture2d<float> transmittance, sampler lut,
+                                           uint steps, uint grid, float segment, float liftKm,
+                                           thread float3 &luminance, thread float3 &transfer) {
+  float cosSun = unitU * 2.0 - 1.0;
+  float sinSun = sqrt(max(0.0, 1.0 - cosSun * cosSun));
+  float radiusKm = medium.bottomRadiusKm + liftKm +
+                   unitV * (medium.topRadiusKm - medium.bottomRadiusKm - liftKm);
+  float3 summedL = float3(0.0);
+  float3 summedF = float3(0.0);
+  for (uint which = 0u; which < grid * grid; which = which + 1u) {
+    float ring = (float(which / grid) + 0.5) / float(grid);
+    float around = (float(which % grid) + 0.5) / float(grid);
+    float theta = 2.0 * 3.14159265358979 * ring;
+    float cosPhi = 1.0 - 2.0 * around;
+    float sinPhi = sqrt(max(0.0, 1.0 - cosPhi * cosPhi));
+    float3 dir = float3(cos(theta) * sinPhi, sin(theta) * sinPhi, cosPhi);
+    float cosView = dir.z;
+    float toGround = mediumGroundReach(medium, radiusKm, cosView);
+    float toTop = mediumTopReach(medium, radiusKm, cosView);
+    float span = toGround < 0.0 ? toTop : min(toTop, toGround);
+    float stride = span / float(steps);
+    float3 throughput = float3(1.0);
+    for (uint step = 0u; step < steps; step = step + 1u) {
+      float along = stride * (float(step) + segment);
+      float heightKm = mediumHeightAlong(medium, radiusKm, cosView, along);
+      float3 scattering;
+      float3 extinction;
+      mediumScatterExtinctPerKm(medium, heightKm, scattering, extinction);
+      float hereKm = heightKm + medium.bottomRadiusKm;
+      float sunDot = dir.z * cosSun + dir.x * sinSun;
+      float cosSunAt = (radiusKm * cosSun + along * sunDot) / hereKm;
+      float shadowed = mediumGroundReach(medium, hereKm - liftKm, cosSunAt) >= 0.0 ? 0.0 : 1.0;
+      float3 sun = float3(0.0);
+      if (shadowed > 0.0) {
+        sun = transmittance
+                  .sample(lut, mediumTransmittanceUv(medium, hereKm, cosSunAt), level(0.0))
+                  .rgb;
+      }
+      float3 stepT = exp(-extinction * stride);
+      float3 source = shadowed * sun * scattering / (4.0 * 3.14159265358979);
+      summedL += throughput * source * (1.0 - stepT) / extinction;
+      summedF += throughput * scattering * (1.0 - stepT) / extinction;
+      throughput *= stepT;
+    }
+  }
+  luminance = summedL / float(grid * grid);
+  transfer = summedF / float(grid * grid);
 }
 
 static inline float3 mediumTransmittance(constant Medium &medium, float radiusKm, float cosZenith,

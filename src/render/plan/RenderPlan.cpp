@@ -224,6 +224,15 @@ bool RenderPlan::Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan>
         for (size_t e = 0; e < kMaxEdges; ++e) {
           if (last.Contributes[e] != row.Contributes[e]) { sameTargets = false; }
         }
+
+        for (size_t held = 0; held < open.Count && sameTargets; ++held) {
+          const StageRow &earlier = Row(plan->Order_[open.First + held]);
+          for (size_t w = 0; w < kMaxEdges && earlier.Writes[w] != kNoEdge; ++w) {
+            for (size_t r = 0; r < kMaxEdges && row.Reads[r] != kNoEdge; ++r) {
+              if (row.Reads[r] == earlier.Writes[w]) { sameTargets = false; }
+            }
+          }
+        }
         if (sameTargets) {
           merged = true;
           if (row.Kind == PassKind::Compute) {

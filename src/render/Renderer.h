@@ -18,6 +18,7 @@
 #include "stages/Resolve.h"
 #include "stages/SubjectDraw.h"
 #include "stages/CompositeTransmissionStage.h"
+#include "stages/MediumMultiScatterStage.h"
 #include "stages/MediumTransmittanceStage.h"
 #include "stages/TonemapStage.h"
 
@@ -102,7 +103,12 @@ public:
     return Subjects_.SetLights(lights, error) && (!DrawsGlass_ || Glass_.SetLights(lights, error));
   }
 
-  void SetMedium(const Medium &medium) { MediumTransmittance_.Declare(medium); }
+  void SetMedium(const Medium &medium) {
+    MediumTransmittance_.Declare(medium);
+    MultiScatter_.Declare(medium);
+  }
+
+  [[nodiscard]] SDL_GPUTexture *MultiScatterTable(void) const { return MultiScatterLut_.Get(); }
 
   [[nodiscard]] SDL_GPUTexture *TransmittanceTable(void) const { return TransmittanceLut_.Get(); }
 
@@ -155,14 +161,14 @@ private:
   std::shared_ptr<const RenderPlan> Plan_;
   Gpu Handles;
   OwnedTexture HdrTex, VelTex, DepthTex, FrameTex;
-  OwnedTexture TransmittanceLut_;
+  OwnedTexture TransmittanceLut_, MultiScatterLut_;
 
   OwnedTexture TransmissiveTex, CompositedTex;
 
   OwnedTexture ShadingNormalTex;
 
   OwnedTexture SurfaceIdentityTex;
-  OwnedSampler Samp;
+  OwnedSampler Samp, LutSamp;
   SubjectDraw Subjects_;
 
   SubjectDraw Glass_;
@@ -171,6 +177,7 @@ private:
   CompositeTransmissionStage CompositeTransmission_;
   TonemapStage Tonemap_;
   MediumTransmittanceStage MediumTransmittance_;
+  MediumMultiScatterStage MultiScatter_;
   OverlayDraw Overlay_;
   PresentStage Present_;
 
