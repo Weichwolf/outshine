@@ -34,7 +34,7 @@ bool WaterField::TileGroundResolved(const OsmField &field, size_t from, size_t t
       if (isPoly && (!ring.Exterior || ring.Count < 3 || ring.Count > 512)) continue;
       if (isLine && (ring.Count < 2 || ring.Count > 512)) continue;
       for (uint32_t k = 0; k < ring.Count; k++)
-        if (fb_stream_ground(pts[((size_t)ring.First + k) * 2],
+        if (GroundAt(pts[((size_t)ring.First + k) * 2],
                              pts[((size_t)ring.First + k) * 2 + 1])
                 .Where() == GroundSample::State::Pending)
           return false;
@@ -79,7 +79,7 @@ uint32_t WaterField::Ingest(const OsmField &field, const VegetationTemplates &ve
         bool ok = true;
         for (uint32_t k = 0; k < ring.Count; k++) {
           double aslM = 0.0;
-          if (!fb_stream_ground(pts[((size_t)ring.First + k) * 2],
+          if (!GroundAt(pts[((size_t)ring.First + k) * 2],
                                 pts[((size_t)ring.First + k) * 2 + 1]).TryAslM(&aslM)) {
             ok = false;
             break;
@@ -113,7 +113,7 @@ uint32_t WaterField::Ingest(const OsmField &field, const VegetationTemplates &ve
       bool ground = true;
       for (uint32_t k = 0; k < ring.Count; k++) {
         double aslM = 0.0;
-        if (!fb_stream_ground(pts[((size_t)ring.First + k) * 2],
+        if (!GroundAt(pts[((size_t)ring.First + k) * 2],
                               pts[((size_t)ring.First + k) * 2 + 1]).TryAslM(&aslM)) {
           ground = false;
           break;

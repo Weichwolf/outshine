@@ -228,14 +228,14 @@ Sim::Snapped Sim::Snapshot(const Generators::Region &region, Generators::Ground:
                            SnapshotCost *cost) const {
   const double t0 = MonotonicMs();
   const auto done = [&](Snapped how) { cost->TotalMs = MonotonicMs() - t0; return how; };
-  const FbGroundBlock block = fb_stream_ground_block(region.Zoom(), region.X(), region.Y());
+  const outshine::World::GroundBlock block = outshine::World::GroundBlockAt(region.Zoom(), region.X(), region.Y());
   switch (block.Where()) {
-    case FbGroundBlock::State::Pending: return done(Snapped::Waiting);
-    case FbGroundBlock::State::Missing: return done(Snapped::NoGround);
-    case FbGroundBlock::State::Resolved: break;
+    case outshine::World::GroundBlock::State::Pending: return done(Snapped::Waiting);
+    case outshine::World::GroundBlock::State::Missing: return done(Snapped::NoGround);
+    case outshine::World::GroundBlock::State::Resolved: break;
   }
 
-  const int side = (int)(region.SpanNm() / fb_stream_ground_post_m(region.AnchorLat()) + 0.5) + 1;
+  const int side = (int)(region.SpanNm() / outshine::World::GroundPostM(region.AnchorLat()) + 0.5) + 1;
   std::vector<Generators::GroundPatch::Posting> postings((size_t)side * (size_t)side);
   std::vector<double> row((size_t)side);
   const double stepE = region.SpanEm() / (double)(side - 1);
@@ -404,7 +404,7 @@ void Sim::StartTelemetry() {
 }
 
 Sim::Bring Sim::ResolveGround(double lat, double lon, double *out) const {
-  const GroundSample g = fb_stream_ground(lat, lon);
+  const GroundSample g = outshine::World::GroundAt(lat, lon);
   if (g.TryAslM(out)) return Bring::Open;
 
   return g.Where() == GroundSample::State::Pending ? Bring::Waiting : Bring::Failed;
@@ -485,7 +485,7 @@ void Sim::SetSkyOffsetS(double s) {
 void Sim::Look(const Stance &s) {
   Stance_ = s;
   double groundAslM = 0.0;
-  if (fb_stream_ground(s.Lat, s.Lon).TryAslM(&groundAslM)) Stand_.SetGroundAslM(groundAslM);
+  if (outshine::World::GroundAt(s.Lat, s.Lon).TryAslM(&groundAslM)) Stand_.SetGroundAslM(groundAslM);
   const double asl = Stand_.AltAslM();
   GeoToEcef(s.Lat, s.Lon, asl, Eye_);
   CameraBasisEcef(s.YawDeg, s.PitchDeg, 0.0, s.Lat, s.Lon, Fwd_, Right_, Up_);
@@ -532,7 +532,7 @@ std::optional<Generators::Ground> Sim::GroundAt(double lat, double lon) const {
 
 Sim::Place Sim::At(double lat, double lon) const {
   Place p;
-  p.GroundResolved = fb_stream_ground(lat, lon).TryAslM(&p.GroundAslM);
+  p.GroundResolved = outshine::World::GroundAt(lat, lon).TryAslM(&p.GroundAslM);
 
   const std::shared_ptr<const ClassStructure> cls = W_.Classes().Read();
   if (cls) {

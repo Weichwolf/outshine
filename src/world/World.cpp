@@ -45,7 +45,7 @@ World::World(double pixelFocalLength)
     Pass(0), Evicted(0), LastLog(0), Leaves(0), DrawnReady(0), Pending(0), TargetTot(0), TargetRdy(0),
     MeshVram(0) {}
 
-World::~World() { if (Opened) fb_stream_close(); }
+World::~World() { if (Opened) CloseGround(); }
 
 World::Pools World::HeapPools() const {
   Pools p;
@@ -60,7 +60,7 @@ World::Pools World::HeapPools() const {
   p.Water = Water_.HeapBytes() + CapacityBytes(WaterVerts);
   p.Streets = Streets_.HeapBytes();
   p.Class = Cls_.HeapBytes();
-  if (const TilePool *pool = fb_tile_pool()) {
+  if (const TilePool *pool = GroundTiles()) {
     p.ByteCache = pool->ByteCacheBytes();
     p.DemCache = pool->DemCacheBytes();
     p.Scheduler = pool->SchedulerBytes();
@@ -74,7 +74,7 @@ bool World::Open(Data::SourceSet &sources, Data::Transport &transport, double la
   Lat0 = lat;
   Lon0 = lon;
   Index_.clear();
-  if (fb_stream_open(sources, transport, lat, lon, {kMaxZ, kGrid}) == 0) return false;
+  if (OpenGround(sources, transport, lat, lon, {kMaxZ, kGrid}) == 0) return false;
   Cls_.Open(lat, lon);
 
   double origin[3];
@@ -332,7 +332,7 @@ void World::Update(double camLat, double camLon) {
   const double tUpdate = Clock();
   while (camLon > 180.0) camLon -= 360.0;
   while (camLon < -180.0) camLon += 360.0;
-  fb_tile_pool()->Camera(camLat, camLon);
+  GroundTiles()->Camera(camLat, camLon);
 
   const double tCls = Clock();
   Cls_.Update(camLat, camLon);
@@ -384,7 +384,7 @@ void World::AdmitMesh(Node &nd, int &budget) {
   const double tMesh = Clock();
   TileBuild tile;
 
-  switch (fb_tile_pool()->Mesh(nd.z, (uint32_t)nd.x, (uint32_t)nd.y, kGrid, &tile)) {
+  switch (GroundTiles()->Mesh(nd.z, (uint32_t)nd.x, (uint32_t)nd.y, kGrid, &tile)) {
     case TilePool::Reply::Ready:
       nd.verts = std::move(tile.Verts);
       nd.idx = std::move(tile.Idx);
@@ -502,7 +502,7 @@ void World::Refine(const Eye &eye, double nowMs) {
   if (BuildingDagId != 0) {
     TileBuild ladder;
 
-    const TilePool::Reply built = fb_tile_pool()->Dag(
+    const TilePool::Reply built = GroundTiles()->Dag(
         BuildingDagId, BuildingSoup.data(), (int)(BuildingSoup.size() / 8), 3, &ladder);
     if (built == TilePool::Reply::Ready) {
       const uint32_t vbase = (uint32_t)(BuildingDagVerts.size() / 8);
@@ -552,7 +552,7 @@ void World::Refine(const Eye &eye, double nowMs) {
     if (nd.handle >= 0) Retired_.push_back(nd.handle);
 
     if (nd.Mesh != MeshState::Held)
-      if (TilePool *pool = fb_tile_pool()) pool->ForgetMesh(nd.z, (uint32_t)nd.x, (uint32_t)nd.y);
+      if (TilePool *pool = GroundTiles()) pool->ForgetMesh(nd.z, (uint32_t)nd.x, (uint32_t)nd.y);
     Index_.erase(Key(nd.z, nd.x, nd.y));
     size_t last = Nodes.size() - 1;
     if (i != last) {

@@ -138,7 +138,7 @@ GroundSample BuildingField::RingBase(const OsmField &field, const OsmField::Ring
   if (ring.Count == 0) return GroundSample::Missing();
   double lowest = 1.0e9;
   for (uint32_t k = 0; k < ring.Count; k++) {
-    const GroundSample g = fb_stream_ground(pts[((size_t)ring.First + k) * 2],
+    const GroundSample g = GroundAt(pts[((size_t)ring.First + k) * 2],
                                             pts[((size_t)ring.First + k) * 2 + 1]);
     double aslM = 0.0;
     if (!g.TryAslM(&aslM)) return g;

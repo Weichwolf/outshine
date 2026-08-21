@@ -99,7 +99,7 @@ bool Lie(const Journey &journey, const double aboutM[3], const double originM[3]
     for (int column = 0; column < side; ++column) {
       const double eastM = aboutM[0] - kGroundReachM + (double)column * kGroundStepM;
       const outshine::GroundSample sample =
-          fb_stream_ground(frameLat + northM / perLatM, frameLon + eastM / perLonM);
+          outshine::World::GroundAt(frameLat + northM / perLatM, frameLon + eastM / perLonM);
       double aslM = 0.0;
       if (!sample.TryAslM(&aslM)) { ++out.Holes; }
 
@@ -309,7 +309,7 @@ int main(void) {
   const bool lies = Lie(journey, aboutM, originM, section, 0.0, kShownM, centre, ground);
   Note("holes the ground sampling met", (double)ground.Holes, "posts");
   CHECK(lies, "**AND THE GROUND UNDER THE ROAD IS SAMPLED FROM THE FIELD THE WHEELS STAND ON.** "
-              "fb_stream_ground is what the drive already asks for every contact, so the drawn "
+              "outshine::World::GroundAt is what the drive already asks for every contact, so the drawn "
               "ground and the driven ground are ONE ground rather than two");
   if (!lies) { return Report(); }
 
@@ -500,7 +500,7 @@ int main(void) {
         const double carEastM = body[12] + originM[0];
         const double carNorthM = -(body[14] + originM[2]);
         const outshine::GroundSample under =
-            fb_stream_ground(fLat + carNorthM / pLat, fLon + carEastM / pLon);
+            outshine::World::GroundAt(fLat + carNorthM / pLat, fLon + carEastM / pLon);
         double aslM = 0.0;
         if (under.TryAslM(&aslM)) {
           const double roadAslM =

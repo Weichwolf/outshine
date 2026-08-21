@@ -168,7 +168,7 @@ Journey::~Journey() { Close(); }
 
 void Journey::Close(void) {
   if (S_ && S_->Opened) {
-    fb_stream_close();
+    outshine::World::CloseGround();
     S_->Opened = false;
   }
 }
@@ -259,10 +259,10 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
         "the declared upstream sources register, ranked and without a clash");
   say.Number("sources registered", (double)sources.Count(), "sources");
 
-  FbGroundSurface surface;
+  outshine::World::GroundSurface surface;
   surface.Z = 12;
   surface.Grid = 64;
-  const int opened = fb_stream_open(sources, wire, middleLat, middleLon, surface);
+  const int opened = outshine::World::OpenGround(sources, wire, middleLat, middleLon, surface);
   say.Claim(opened == 1,
         "the streamer opens over the declared sources -- and it is a GLOBAL, which is what "
         "OsmField reaches for. CLAUDE.md gives neither a global nor a singleton a place to live, "
@@ -519,7 +519,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
   if (!stood.Stood) { return false; }
 
 
-  const double postM = fb_stream_ground_post_m(middleLat);
+  const double postM = outshine::World::GroundPostM(middleLat);
   const long posts = (long)std::ceil(fitted.LengthM / postM);
   say.Number("the elevation source's own post spacing here", postM, "m");
   say.Number("stations the corridor is sampled at", (double)(posts + 1), "stations");
@@ -535,7 +535,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
     const double latDeg = frameLat + on.NorthM / perLatM;
     const double lonDeg = frameLon + on.EastM / perLonM;
     for (;;) {
-      const outshine::GroundSample ground = fb_stream_ground(latDeg, lonDeg);
+      const outshine::GroundSample ground = outshine::World::GroundAt(latDeg, lonDeg);
       double aslM = 0.0;
       if (ground.TryAslM(&aslM)) {
         heightM[(size_t)post] = aslM;

@@ -78,7 +78,7 @@ Span<const OsmField::Feature> OsmField::OfTile(int index) const {
 bool OsmField::AddTile(int tx, int ty, int &added) {
   const Data::Request request(Data::DataKind::VectorMap,
                               Data::Address::Tile(Zoom_, (uint32_t)tx, (uint32_t)ty));
-  const TilePool::Reply reply = fb_tile_pool()->Bytes(request, &Scratch_);
+  const TilePool::Reply reply = GroundTiles()->Bytes(request, &Scratch_);
 
   if (reply == TilePool::Reply::Pending || reply == TilePool::Reply::Refused) return false;
 

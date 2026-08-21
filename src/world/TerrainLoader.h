@@ -10,23 +10,25 @@ class SourceSet;
 class Transport;
 }
 
-struct FbGroundSurface { int Z; int Grid; };
+namespace outshine::World {
 
-int  fb_stream_open(outshine::Data::SourceSet &sources, outshine::Data::Transport &transport,
-                    double lat, double lon, FbGroundSurface surface);
-void fb_stream_close(void);
+struct GroundSurface { int Z; int Grid; };
 
-outshine::World::TilePool *fb_tile_pool(void);
+int  OpenGround(outshine::Data::SourceSet &sources, outshine::Data::Transport &transport,
+                    double lat, double lon, GroundSurface surface);
+void CloseGround(void);
 
-outshine::GroundSample fb_stream_ground(double lat, double lon);
+TilePool *GroundTiles(void);
 
-double fb_stream_ground_post_m(double latDeg);
+GroundSample GroundAt(double lat, double lon);
 
-class FbGroundBlock;
+double GroundPostM(double latDeg);
 
-FbGroundBlock fb_stream_ground_block(int z, long x, long y);
+class GroundBlock;
 
-class FbGroundBlock {
+GroundBlock GroundBlockAt(int z, long x, long y);
+
+class GroundBlock {
 public:
   enum class State { Resolved, Pending, Missing };
 
@@ -36,7 +38,7 @@ public:
                double *out) const noexcept;
 
 private:
-  friend FbGroundBlock fb_stream_ground_block(int z, long x, long y);
+  friend GroundBlock GroundBlockAt(int z, long x, long y);
 
   const float *Nodes_ = nullptr;
   long X_ = 0, Y_ = 0;
@@ -46,11 +48,13 @@ private:
 };
 
 
-struct FbStarBands {
+struct FetchedStars {
   enum class State { Pending, Complete };
   State Where;
   int Bytes;
 };
-FbStarBands fb_fetch_stars(uint8_t *dst, int cap);
+FetchedStars FetchStars(uint8_t *dst, int cap);
+
+}
 
 #endif

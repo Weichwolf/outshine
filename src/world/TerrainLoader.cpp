@@ -68,7 +68,7 @@ struct GroundTile {
   uint64_t Used = 0;
 };
 
-FbGroundSurface gSurface{14, 128};
+GroundSurface gSurface{14, 128};
 GroundTile gGround[kGroundSlots];
 uint64_t gGroundClock = 0;
 long gGroundBuilds = 0;
@@ -175,7 +175,7 @@ double TileHeightAslM(const float *nodes, int side, uint32_t postings, double fx
   return (double)World::ChunkCellHeight(cell, su, sv);
 }
 
-void GroundOpen(FbGroundSurface surface) {
+void GroundOpen(GroundSurface surface) {
   gSurface = surface;
 
   TerrainTiles::Config config;
@@ -202,8 +202,10 @@ void GroundClose() {
 
 }
 
-int fb_stream_open(Data::SourceSet &sources, Data::Transport &transport, double lat, double lon,
-                   FbGroundSurface surface) {
+namespace outshine::World {
+
+int OpenGround(Data::SourceSet &sources, Data::Transport &transport, double lat, double lon,
+                   GroundSurface surface) {
   TilePool::Config config;
   config.OriginLatDeg = lat;
   config.OriginLonDeg = lon;
@@ -215,19 +217,19 @@ int fb_stream_open(Data::SourceSet &sources, Data::Transport &transport, double 
   return 1;
 }
 
-void fb_stream_close(void) {
+void CloseGround(void) {
   GroundClose();
   gPool.reset();
 }
 
-TilePool *fb_tile_pool(void) { return gPool.get(); }
+TilePool *GroundTiles(void) { return gPool.get(); }
 
-double fb_stream_ground_post_m(double latDeg) {
+double GroundPostM(double latDeg) {
   return 40075016.686 * std::cos(latDeg * 3.14159265358979 / 180.0) /
          (double)((long)1 << gSurface.Z) / (double)gSurface.Grid;
 }
 
-GroundSample fb_stream_ground(double lat, double lon) {
+GroundSample GroundAt(double lat, double lon) {
   lon = Wrapped180(lon);
   Geo place;
   place.LatDeg = lat;
@@ -242,15 +244,15 @@ GroundSample fb_stream_ground(double lat, double lon) {
       TileHeightAslM(t->H.data(), t->Nodes, t->Postings, f.X - (double)hx, f.Y - (double)hy));
 }
 
-FbGroundBlock fb_stream_ground_block(int z, long x, long y) {
-  FbGroundBlock block;
+GroundBlock GroundBlockAt(int z, long x, long y) {
+  GroundBlock block;
   if (z != gSurface.Z) return block;
   long hx = x, hy = y;
   if (!WrapTile(z, &hx, &hy)) return block;
   gGroundPending = false;
   const GroundTile *t = GroundTileAt(hx, hy);
   if (!t) {
-    block.Where_ = gGroundPending ? FbGroundBlock::State::Pending : FbGroundBlock::State::Missing;
+    block.Where_ = gGroundPending ? GroundBlock::State::Pending : GroundBlock::State::Missing;
     return block;
   }
   block.Nodes_ = t->H.data();
@@ -259,11 +261,11 @@ FbGroundBlock fb_stream_ground_block(int z, long x, long y) {
   block.Zoom_ = z;
   block.Side_ = t->Nodes;
   block.Postings_ = t->Postings;
-  block.Where_ = FbGroundBlock::State::Resolved;
+  block.Where_ = GroundBlock::State::Resolved;
   return block;
 }
 
-void FbGroundBlock::AslMRow(double latDeg, double lonFromDeg, double lonStepDeg, int count,
+void GroundBlock::AslMRow(double latDeg, double lonFromDeg, double lonStepDeg, int count,
                             double *out) const noexcept {
   Geo from;
   from.LatDeg = latDeg;
@@ -283,19 +285,21 @@ void FbGroundBlock::AslMRow(double latDeg, double lonFromDeg, double lonStepDeg,
     out[i] = TileHeightAslM(Nodes_, Side_, Postings_, fx0 + (double)i * fxStep, fy);
 }
 
-FbStarBands fb_fetch_stars(uint8_t *dst, int cap) {
-  if (!gPool) return {FbStarBands::State::Complete, 0};
+FetchedStars FetchStars(uint8_t *dst, int cap) {
+  if (!gPool) return {FetchedStars::State::Complete, 0};
   int off = 0;
   TilePool::Landing band;
   for (uint32_t b = 0; b < Data::StarBands::kBands; b++) {
     const Data::Request request(Data::DataKind::StarCatalogue, Data::Address::Whole(b));
     const TilePool::Reply reply = gPool->Bytes(request, &band);
 
-    if (reply == TilePool::Reply::Pending) return {FbStarBands::State::Pending, 0};
+    if (reply == TilePool::Reply::Pending) return {FetchedStars::State::Pending, 0};
     if (reply != TilePool::Reply::Ready || band.Bytes.empty()) break;
     if (off + (int)band.Bytes.size() > cap) break;
     memcpy(dst + off, band.Bytes.data(), band.Bytes.size());
     off += (int)band.Bytes.size();
   }
-  return {FbStarBands::State::Complete, off};
+  return {FetchedStars::State::Complete, off};
+}
+
 }
