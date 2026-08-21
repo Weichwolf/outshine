@@ -146,6 +146,7 @@ struct Journey::State {
   outshine::Physics::Body Body;
   std::vector<double> RoadM, HalfWidthM, LaneHalfM, AsideM, FineAside, FineEdge;
   double ReserveMs2 = 0.0;
+  double FrameLat = 0.0, FrameLon = 0.0, PerLatM = 1.0, PerLonM = 1.0;
   double FineM = 2.0;
   double SpanM = 0.0;
   double NarrowestLaneM = 0.0;
@@ -178,6 +179,13 @@ const outshine::Scenario &Journey::Declared(void) const { return S_->Declared; }
 double Journey::LengthM(void) const { return S_->Corridor.LengthM(); }
 
 double Journey::ReserveMs2(void) const { return S_->ReserveMs2; }
+
+void Journey::Frame(double &latDeg, double &lonDeg, double &perLatM, double &perLonM) const {
+  latDeg = S_->FrameLat;
+  lonDeg = S_->FrameLon;
+  perLatM = S_->PerLatM;
+  perLonM = S_->PerLonM;
+}
 
 namespace {
 
@@ -243,8 +251,9 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
 
   outshine::Data::ContentStore::Config keeping;
   keeping.Directory = "/tmp/outshine-drive-cache";
-  outshine::Data::ContentStore store(keeping);
-  outshine::Data::SourceSet sources(store);
+  S_->Store = std::make_unique<outshine::Data::ContentStore>(keeping);
+  S_->Sources = std::make_unique<outshine::Data::SourceSet>(*S_->Store);
+  outshine::Data::SourceSet &sources = *S_->Sources;
   say.Claim(outshine::Data::RegisterDeclared(sources, {"src/assets/sky", true}) ==
             outshine::Data::Registered::Complete,
         "the declared upstream sources register, ranked and without a clash");
@@ -397,6 +406,10 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
   const double frameLon = route.Legs.front().At.LonDeg;
   const double perLatM = ApartM(frameLat, frameLon, frameLat + 1.0, frameLon);
   const double perLonM = ApartM(frameLat, frameLon, frameLat, frameLon + 1.0);
+  S_->FrameLat = frameLat;
+  S_->FrameLon = frameLon;
+  S_->PerLatM = perLatM;
+  S_->PerLonM = perLonM;
   std::vector<double> eastNorthM;
   eastNorthM.reserve(route.Legs.size() * 2);
   for (const auto &leg : route.Legs) {

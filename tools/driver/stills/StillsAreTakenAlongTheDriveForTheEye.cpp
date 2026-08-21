@@ -14,6 +14,7 @@
 #include "Journey.h"
 #include "Live.h"
 #include "PreparedRoot.h"
+#include "TerrainLoader.h"
 #include "Renderer.h"
 #include "Ribbon.h"
 
@@ -36,6 +37,8 @@ constexpr double kBehindM = 120.0;
 constexpr double kShownM = 900.0;
 constexpr double kRelayAtM = 400.0;
 constexpr double kRibbonStepM = 2.0;
+constexpr double kGroundReachM = 700.0;
+constexpr double kGroundStepM = 12.0;
 constexpr int kStills = 12;
 constexpr uint64_t kSeed = 0x5EEDu;
 
@@ -46,6 +49,71 @@ public:
   void Near(double, double, double, const char *, const char *) override {}
   void Say(const std::string &) override {}
 };
+
+struct Ground {
+  std::vector<float> PositionM;
+  std::vector<float> NormalM;
+  std::vector<uint32_t> Index;
+  size_t Holes = 0;
+};
+
+bool Lie(const Journey &journey, const double aboutM[3], const double originM[3], Ground &out) {
+  double frameLat = 0.0, frameLon = 0.0, perLatM = 1.0, perLonM = 1.0;
+  journey.Frame(frameLat, frameLon, perLatM, perLonM);
+  const int side = (int)(2.0 * kGroundReachM / kGroundStepM) + 1;
+  out.PositionM.clear();
+  out.NormalM.clear();
+  out.Index.clear();
+  out.Holes = 0;
+  std::vector<double> heightM((size_t)side * (size_t)side, 0.0);
+  for (int row = 0; row < side; ++row) {
+    const double northM = aboutM[2] * -1.0 - kGroundReachM + (double)row * kGroundStepM;
+    for (int column = 0; column < side; ++column) {
+      const double eastM = aboutM[0] - kGroundReachM + (double)column * kGroundStepM;
+      const outshine::GroundSample sample =
+          fb_stream_ground(frameLat + northM / perLatM, frameLon + eastM / perLonM);
+      double aslM = 0.0;
+      if (!sample.TryAslM(&aslM)) { ++out.Holes; }
+      heightM[(size_t)row * (size_t)side + (size_t)column] = aslM;
+    }
+  }
+  if (out.Holes * 2 > heightM.size()) { return false; }
+  for (int row = 0; row < side; ++row) {
+    const double northM = aboutM[2] * -1.0 - kGroundReachM + (double)row * kGroundStepM;
+    for (int column = 0; column < side; ++column) {
+      const double eastM = aboutM[0] - kGroundReachM + (double)column * kGroundStepM;
+      const size_t at = (size_t)row * (size_t)side + (size_t)column;
+      out.PositionM.push_back((float)(eastM - originM[0]));
+      out.PositionM.push_back((float)(heightM[at] - originM[1]));
+      out.PositionM.push_back((float)(-northM - originM[2]));
+      const size_t west = column > 0 ? at - 1 : at;
+      const size_t east = column + 1 < side ? at + 1 : at;
+      const size_t south = row > 0 ? at - (size_t)side : at;
+      const size_t north = row + 1 < side ? at + (size_t)side : at;
+      const double slopeEast = (heightM[east] - heightM[west]) / (2.0 * kGroundStepM);
+      const double slopeNorth = (heightM[north] - heightM[south]) / (2.0 * kGroundStepM);
+      const double length = std::sqrt(slopeEast * slopeEast + slopeNorth * slopeNorth + 1.0);
+      out.NormalM.push_back((float)(-slopeEast / length));
+      out.NormalM.push_back((float)(1.0 / length));
+      out.NormalM.push_back((float)(slopeNorth / length));
+    }
+  }
+  for (int row = 0; row + 1 < side; ++row) {
+    for (int column = 0; column + 1 < side; ++column) {
+      const uint32_t here = (uint32_t)(row * side + column);
+      const uint32_t right = here + 1;
+      const uint32_t up = here + (uint32_t)side;
+      const uint32_t across = up + 1;
+      out.Index.push_back(here);
+      out.Index.push_back(right);
+      out.Index.push_back(up);
+      out.Index.push_back(right);
+      out.Index.push_back(across);
+      out.Index.push_back(up);
+    }
+  }
+  return true;
+}
 
 void Shifted(const double byM[3], double out[16]) {
   for (int at = 0; at < 16; ++at) { out[at] = (at % 5) == 0 ? 1.0 : 0.0; }
@@ -151,10 +219,27 @@ int main(void) {
   piece.PositionsM = outshine::Span<const float>(ribbon.PositionM.data(), ribbon.PositionM.size());
   piece.Normals = outshine::Span<const float>(ribbon.NormalM.data(), ribbon.NormalM.size());
   piece.Indices = outshine::Span<const uint32_t>(ribbon.Index.data(), ribbon.Index.size());
+  Ground ground;
+  double aboutM[3] = {ribbon.OriginM[0], ribbon.OriginM[1], ribbon.OriginM[2]};
+  const bool lies = Lie(journey, aboutM, originM, ground);
+  Note("holes the ground sampling met", (double)ground.Holes, "posts");
+  CHECK(lies, "**AND THE GROUND UNDER THE ROAD IS SAMPLED FROM THE FIELD THE WHEELS STAND ON.** "
+              "fb_stream_ground is what the drive already asks for every contact, so the drawn "
+              "ground and the driven ground are ONE ground rather than two");
+  if (!lies) { return Report(); }
+
+  outshine::Gltf::Piece lying;
+  lying.NodeName = "ground";
+  lying.PositionsM = outshine::Span<const float>(ground.PositionM.data(), ground.PositionM.size());
+  lying.Normals = outshine::Span<const float>(ground.NormalM.data(), ground.NormalM.size());
+  lying.Indices = outshine::Span<const uint32_t>(ground.Index.data(), ground.Index.size());
+  const outshine::Gltf::Piece both[2] = {lying, piece};
+
   outshine::Gltf::Subject road;
   CHECK(road.Assemble(outshine::Gltf::Assembly{
-            outshine::Span<const outshine::Gltf::Piece>(&piece, 1)}),
-        "and becomes geometry without passing through a file");
+            outshine::Span<const outshine::Gltf::Piece>(both, 2)}),
+        "and both become geometry without passing through a file");
+  Note("triangles the ground carries", (double)(ground.Index.size() / 3), "triangles");
 
   outshine::Render::Renderer renderer;
   outshine::Clients::Declaration declaration;
@@ -220,9 +305,21 @@ int main(void) {
             outshine::Span<const float>(nextRun.PositionM.data(), nextRun.PositionM.size());
         piece.Normals = outshine::Span<const float>(nextRun.NormalM.data(), nextRun.NormalM.size());
         piece.Indices = outshine::Span<const uint32_t>(nextRun.Index.data(), nextRun.Index.size());
+        double aboutNow[3] = {nextRun.OriginM[0], nextRun.OriginM[1], nextRun.OriginM[2]};
+        Ground under;
+        outshine::Gltf::Piece lyingNow;
+        lyingNow.NodeName = "ground";
+        const bool laid = Lie(journey, aboutNow, originM, under);
+        if (laid) {
+          lyingNow.PositionsM =
+              outshine::Span<const float>(under.PositionM.data(), under.PositionM.size());
+          lyingNow.Normals = outshine::Span<const float>(under.NormalM.data(), under.NormalM.size());
+          lyingNow.Indices = outshine::Span<const uint32_t>(under.Index.data(), under.Index.size());
+        }
+        const outshine::Gltf::Piece pair[2] = {lyingNow, piece};
         outshine::Gltf::Subject ahead;
-        if (ahead.Assemble(outshine::Gltf::Assembly{
-                outshine::Span<const outshine::Gltf::Piece>(&piece, 1)})) {
+        if (laid && ahead.Assemble(outshine::Gltf::Assembly{
+                        outshine::Span<const outshine::Gltf::Piece>(pair, 2)})) {
           for (int axis = 0; axis < 3; ++axis) { originM[axis] = nextRun.OriginM[axis]; }
           (void)standing->Restand(ahead, error);
         }
@@ -252,6 +349,17 @@ int main(void) {
       }
       outshine::Gltf::Placement where = Seen(journey.Carried(), journey.Declared().Views[person]);
       for (int axis = 0; axis < 3; ++axis) { where.EyeM[axis] -= originM[axis]; }
+      if (next == 0) {
+        std::printf("EYE %s at %.1f %.1f %.1f  fwd %.3f %.3f %.3f  up %.3f %.3f %.3f\n",
+                    person == 0 ? "first" : "third", where.EyeM[0], where.EyeM[1], where.EyeM[2],
+                    where.Forward[0], where.Forward[1], where.Forward[2], where.Up[0], where.Up[1],
+                    where.Up[2]);
+        std::printf("CAR at %.1f %.1f %.1f\n", body[12], body[13], body[14]);
+        const outshine::Gltf::Subject &shown = standing->Shown();
+        std::printf("ROAD min %.1f %.1f %.1f max %.1f %.1f %.1f\n", shown.MinM()[0],
+                    shown.MinM()[1], shown.MinM()[2], shown.MaxM()[0], shown.MaxM()[1],
+                    shown.MaxM()[2]);
+      }
       standing->Eye(where);
       if (!standing->Advance(error)) {
         std::printf("REFUSED advance: %s\n", error.c_str());

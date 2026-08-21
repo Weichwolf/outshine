@@ -164,6 +164,7 @@ public:
   [[nodiscard]] const Scenario &Declared(void) const;
   [[nodiscard]] double LengthM(void) const;
   [[nodiscard]] double ReserveMs2(void) const;
+  void Frame(double &latDeg, double &lonDeg, double &perLatM, double &perLonM) const;
 
 private:
   struct State;

@@ -17,7 +17,7 @@ void EcefFromGltf(const double gltf[3], double out[3]) {
 
 namespace {
 
-void EcefFromGltf(const double gltf[16], double out[16]) {
+void PlacedInEcef(const double gltf[16], double out[16]) {
   constexpr int kAxis[4] = {1, 0, 2, 3};
   constexpr double kSign[4] = {1.0, 1.0, -1.0, 1.0};
   for (int column = 0; column < 4; ++column) {
@@ -31,7 +31,7 @@ void EcefFromGltf(const double gltf[16], double out[16]) {
 void Placements(const Studio &studio, std::vector<double> &into) {
   into.resize(studio.PartPlacement.size() * 16u);
   for (size_t part = 0; part < studio.PartPlacement.size(); ++part) {
-    EcefFromGltf(studio.PartPlacement[part].data(), into.data() + part * 16u);
+    PlacedInEcef(studio.PartPlacement[part].data(), into.data() + part * 16u);
   }
 }
 
