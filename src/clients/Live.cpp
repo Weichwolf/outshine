@@ -332,6 +332,32 @@ bool Live::Stand(std::string &error) {
   for (int channel = 0; channel < 3; ++channel) {
     Stood_.Environment.RadianceLinear[channel] = (float)Declared_.Environment[channel];
   }
+  if (Declared_.DrawsSky && Declared_.KeyLux > 0.0) {
+
+    const Render::Medium medium;
+    const float cosSun =
+        (float)std::sin(Declared_.KeyElevationDeg * 3.14159265358979323846 / 180.0);
+    const auto toSun = [&](float radiusKm, float cosZenith, float out[3]) {
+      Render::MediumTransmittance(medium, radiusKm, cosZenith, Render::kTransmittanceSteps, out);
+    };
+    const auto secondOrder = [&](float radiusKm, float cosZenith, float out[3]) {
+      float luminance[3], transfer[3];
+      const float unitU = cosZenith * 0.5f + 0.5f;
+      const float unitV = (radiusKm - medium.BottomRadiusKm) /
+                          (medium.TopRadiusKm - medium.BottomRadiusKm);
+      Render::MediumMultiScatterTexel(medium, unitU, unitV, toSun, luminance, transfer);
+      for (int channel = 0; channel < 3; ++channel) {
+        out[channel] = luminance[channel] / (1.0f - transfer[channel]);
+      }
+    };
+    float skylight[3];
+    Render::MediumSkyIrradiance(medium, medium.BottomRadiusKm + Render::kMediumGroundLiftKm,
+                                cosSun, toSun, secondOrder, skylight);
+    for (int channel = 0; channel < 3; ++channel) {
+      Stood_.Environment.RadianceLinear[channel] +=
+          skylight[channel] / 3.14159265358979f * Declared_.KeyLux;
+    }
+  }
 
   std::string why;
   const bool declared = !File_.Cameras().empty() &&

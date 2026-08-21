@@ -457,10 +457,18 @@ int main(void) {
         outshine::Gltf::Subject ahead;
         if (laid && ahead.Assemble(outshine::Gltf::Assembly{
                         outshine::Span<const outshine::Gltf::Piece>(pair, 2)})) {
+          std::printf("RELAY at %.3f km laid %.3f..%.3f km origin moved %.1f %.1f %.1f stray %.1f m "
+                      "ground %zu tri road %zu tri\n",
+                      rode.ReachedM / 1000.0, laidFromM / 1000.0, laidToM / 1000.0,
+                      nextRun.OriginM[0] - originM[0], nextRun.OriginM[1] - originM[1],
+                      nextRun.OriginM[2] - originM[2], strayM, under.Index.size() / 3,
+                      nextRun.Index.size() / 3);
           for (int axis = 0; axis < 3; ++axis) { originM[axis] = nextRun.OriginM[axis]; }
           if (!standing->Restand(ahead, error)) {
             std::printf("REFUSED restand: %s\n", error.c_str());
           }
+        } else if (!laid) {
+          std::printf("RELAY at %.3f km REFUSED: the ground did not lie\n", rode.ReachedM / 1000.0);
         }
       }
     }

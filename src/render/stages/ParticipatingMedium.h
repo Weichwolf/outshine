@@ -277,6 +277,32 @@ inline void MediumSkyRay(const Medium &medium, float radiusKm, float cosView, fl
   for (int channel = 0; channel < 3; ++channel) { luminance[channel] = (float)summed[channel]; }
 }
 
+template <typename ToSun, typename Psi>
+inline void MediumSkyIrradiance(const Medium &medium, float radiusKm, float cosSunZenith,
+                                ToSun &&transmittanceToSun, Psi &&multiScattered,
+                                float irradiance[3]) {
+  double summed[3] = {0.0, 0.0, 0.0};
+  for (int which = 0; which < kMultiScatterGrid * kMultiScatterGrid; ++which) {
+    const float ring = ((float)(which / kMultiScatterGrid) + 0.5f) / (float)kMultiScatterGrid;
+    const float around = ((float)(which % kMultiScatterGrid) + 0.5f) / (float)kMultiScatterGrid;
+    const float azimuth = 2.0f * 3.14159265358979f * ring;
+
+    const float cosView = std::sqrt(around);
+    const float sinView = std::sqrt(std::fmax(0.0f, 1.0f - around));
+    const float lightViewCos = std::cos(azimuth);
+    (void)sinView;
+    float luminance[3];
+    MediumSkyRay(medium, radiusKm, cosView, lightViewCos, cosSunZenith, transmittanceToSun,
+                 multiScattered, luminance);
+    for (int channel = 0; channel < 3; ++channel) { summed[channel] += (double)luminance[channel]; }
+  }
+
+  for (int channel = 0; channel < 3; ++channel) {
+    irradiance[channel] = (float)(summed[channel] * 3.14159265358979 /
+                                  (double)(kMultiScatterGrid * kMultiScatterGrid));
+  }
+}
+
 inline void MediumTransmittanceParams(const Medium &medium, float u, float v, float *radiusKm,
                                       float *cosZenith) {
   const float span = std::sqrt(std::fmax(0.0f, medium.TopRadiusKm * medium.TopRadiusKm -
