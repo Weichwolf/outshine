@@ -20,3 +20,9 @@ its cross-section frame at a way boundary.
 
 Found by the magazine-reviewer round; the same round confirmed the rest of the ribbon is free of
 z-fighting and cracks, so this is a join rule, not a tessellation defect.
+
+The reviewer's third round looked at the same station from the driver's eye and reports the right
+edge CLEAN -- "road present, continuous, edge smooth" (`km0267.1-first`, 2026-08-22). Plausible
+causes for the disappearance: the notch was in a previous build's sweep and one of the corridor
+fixes since removed it, or the new camera angle hides it. The item stays open until the edge
+polylines are dumped over km 266-268 and the step is measured absent.
