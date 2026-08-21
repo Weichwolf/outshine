@@ -178,11 +178,6 @@ bool Lie(const Journey &journey, const double aboutM[3], const double originM[3]
   return true;
 }
 
-void Shifted(const double byM[3], double out[16]) {
-  for (int at = 0; at < 16; ++at) { out[at] = (at % 5) == 0 ? 1.0 : 0.0; }
-  for (int axis = 0; axis < 3; ++axis) { out[12 + axis] = byM[axis]; }
-}
-
 void Standing(const outshine::Physics::Body &body, double byM, const double shiftM[3],
               double out[16]) {
   const double axes[3][3] = {{byM, 0, 0}, {0, byM, 0}, {0, 0, byM}};
@@ -293,7 +288,6 @@ int main(void) {
   outshine::Ribbon ribbon = Sweep(journey.Corridor(), section, laidFromM, laidToM, kRibbonStepM);
   CHECK(ribbon.Woven, "and its first run sweeps into a solid");
   double originM[3] = {ribbon.OriginM[0], ribbon.OriginM[1], ribbon.OriginM[2]};
-  Shifted(originM, roadAt);
   for (int at = 0; at < 16; ++at) { roadAt[at] = (at % 5) == 0 ? 1.0 : 0.0; }
   if (!ribbon.Woven) { return Report(); }
 
