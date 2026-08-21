@@ -434,6 +434,8 @@ int main(void) {
     for (int axis = 0; axis < 3; ++axis) { body[12 + axis] -= originM[axis]; }
     for (int person = 0; person < 2; ++person) {
       if (next == 0 && person == 0) {
+        std::printf("DRAWS the stage submits %u for a picture of %zu parts\n",
+                    renderer.SubjectDrawCount(), standing->Shown().Parts().size());
         std::printf("PARTS total %zu carried %zu  car at %.1f %.1f %.1f\n",
                     standing->Shown().Parts().size(), standing->CarriedParts(), body[12], body[13],
                     body[14]);
