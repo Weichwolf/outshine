@@ -87,6 +87,8 @@ public:
 
   void PlacedBounds(double least[3], double most[3]);
 
+  void SkyEye(double aboveGroundM);
+
   [[nodiscard]] bool Advance(std::string &error);
 
   void Eye(const Gltf::Placement &from);
@@ -141,6 +143,9 @@ private:
   bool Aimed_ = true;
   bool BoundsPlaced_ = false;
   double PlacedLeast_[3] = {0, 0, 0}, PlacedMost_[3] = {0, 0, 0};
+  float SkyToSun_[3] = {0, 0, 0};
+  float SkyUp_[3] = {0, 0, 0};
+  bool SkyStands_ = false;
   Gltf::Pose Motion_;
   Gltf::VariantSelection Variant_;
   std::vector<Gltf::Transform> Locals_;

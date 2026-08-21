@@ -186,6 +186,11 @@ bool Live::Build(std::string &error) {
     const float toSun[3] = {(float)toSunEngine[0], (float)toSunEngine[1], (float)toSunEngine[2]};
     const float up[3] = {(float)upEngine[0], (float)upEngine[1], (float)upEngine[2]};
 
+    for (int axis = 0; axis < 3; ++axis) {
+      SkyToSun_[axis] = toSun[axis];
+      SkyUp_[axis] = up[axis];
+    }
+    SkyStands_ = true;
     Renderer_->SetSky(toSun, up, (float)Declared_.KeyLux, 0.0f);
   }
 
@@ -423,6 +428,15 @@ bool Live::Compose(std::string &error) {
 bool Live::Redeclare(std::vector<Shows> surfaces, std::string &error) {
   Declared_.Surfaces = std::move(surfaces);
   return Compose(error);
+}
+
+void Live::SkyEye(double aboveGroundM) {
+  if (!SkyStands_ || Renderer_ == nullptr) { return; }
+
+  constexpr double kSkyEyeStepM = 2.0;
+  const double quantisedM =
+      std::floor(std::fmax(0.0, aboveGroundM) / kSkyEyeStepM + 0.5) * kSkyEyeStepM;
+  Renderer_->SetSky(SkyToSun_, SkyUp_, (float)Declared_.KeyLux, (float)quantisedM);
 }
 
 bool Live::ReadPixels(std::vector<uint8_t> &rgba, std::string &error) {

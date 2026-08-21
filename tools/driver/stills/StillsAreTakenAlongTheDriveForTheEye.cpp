@@ -43,6 +43,8 @@ constexpr double kGroundStepM = 3.0;
 
 constexpr double kHorizonReachM = 12000.0;
 constexpr double kFarStepM = 240.0;
+
+constexpr double kEarthRadiusM = 6371000.0;
 constexpr double kSideSlopeRun = 1.5;
 constexpr double kCentreStepM = 1.5;
 constexpr double kHintWindowM = 200.0;
@@ -192,7 +194,11 @@ bool Lie(const Journey &journey, const double aboutM[3], const double originM[3]
             outshine::World::GroundAt(frameLat + northM / perLatM, frameLon + eastM / perLonM);
         double aslM = lastAslM;
         if (sample.TryAslM(&aslM)) { lastAslM = aslM; }
-        farHeightM[(size_t)row * (size_t)farSide + (size_t)column] = aslM;
+        const double dEastM = eastM - aboutM[0];
+        const double dNorthM = northM - aboutM[2] * -1.0;
+        const double awayM2 = dEastM * dEastM + dNorthM * dNorthM;
+        farHeightM[(size_t)row * (size_t)farSide + (size_t)column] =
+            aslM - awayM2 / (2.0 * kEarthRadiusM);
       }
     }
     for (int row = 0; row < farSide; ++row) {
@@ -586,6 +592,7 @@ int main(void) {
           const double liftM = roadAslM - aslM;
           std::printf("CUTFILL at %.1f km the road stands %+.2f m against raw ground of %.2f m asl\n",
                       rode.ReachedM / 1000.0, liftM, aslM);
+          standing->SkyEye(liftM + journey.Declared().Views[0].OffsetM[1]);
           if (liftM < worstCutM) { worstCutM = liftM; }
           if (liftM > worstFillM) { worstFillM = liftM; }
           liftTotalM += std::fabs(liftM);
