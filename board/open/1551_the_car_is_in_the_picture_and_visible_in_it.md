@@ -50,6 +50,28 @@ inside one.
 94 m tall thing was in every frame from the moment the F31 was joined, and nothing said so because
 nothing measured the subject it stood up.
 
+## BISECTED AGAIN -- it draws ALONE and vanishes JOINED
+
+**At the corrected scale, drawn as the only subject from (0, 1.5, 7) -- its own declared chase
+offset -- the F31 is there and recognisable**: a 3 Series Touring from behind, dark body, pale glass
+roof, rear window, red tail light, roof aerial.
+
+**Joined to the ground and the corridor, from the same offset, it is gone.** So the defect is not the
+placement, not the scale, not the camera and not the vehicle asset. **It is what happens when a file
+subject and a built subject stand in one picture.**
+
+That is the same shape as `board:1529`'s road, which drew alone and vanished under the ground -- and
+this one is not occlusion, because a 4.6 m car seven metres ahead cannot hide behind a road surface
+0.35 m proud of the formation it sits on.
+
+**Where to look, in order:**
+
+| | |
+|---|---|
+| `Live::Build` | resolves the file's surface table, then appends the built parts and `resize`s `PartSlot` with one extra slot. The 258 file entries must survive that |
+| `Live::Advance` | calls `Pose(At_)` whenever `Moves_`, which rebuilds `Geometry_` FROM THE DOCUMENT -- and would discard everything appended after it |
+| `Joined_` | recomputed inside `Build` from `Geometry_.Parts().size()` minus the built subject's, and read by `Carry` to decide which parts take the body |
+
 ## What must be true
 
 - [ ] **A picture that carries a subject's parts draws them**, and a case decides it: stand the F31 up
