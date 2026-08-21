@@ -39,6 +39,33 @@ public:
   void Say(const std::string &) override {}
 };
 
+outshine::Gltf::Placement Seen(const outshine::Physics::Body &body, const outshine::View &view) {
+  outshine::Gltf::Placement out;
+  const double aheadBody[3] = {0.0, 0.0, -1.0};
+  const double rightBody[3] = {1.0, 0.0, 0.0};
+  const double upBody[3] = {0.0, 1.0, 0.0};
+  double ahead[3], right[3], up[3];
+  outshine::Physics::Turn(body.OrientationQ, aheadBody, ahead);
+  outshine::Physics::Turn(body.OrientationQ, rightBody, right);
+  outshine::Physics::Turn(body.OrientationQ, upBody, up);
+
+  double sat[3];
+  outshine::Physics::Turn(body.OrientationQ, view.OffsetM, sat);
+  for (int axis = 0; axis < 3; ++axis) { out.EyeM[axis] = body.PositionM[axis] + sat[axis]; }
+
+  if (view.Person == "third") {
+    for (int axis = 0; axis < 3; ++axis) {
+      out.EyeM[axis] -= ahead[axis] * view.DistanceM;
+    }
+  }
+  for (int axis = 0; axis < 3; ++axis) {
+    out.Forward[axis] = ahead[axis];
+    out.Right[axis] = right[axis];
+    out.Up[axis] = up[axis];
+  }
+  return out;
+}
+
 } // namespace
 
 int main(void) {
@@ -115,6 +142,14 @@ int main(void) {
 
   const long perFrame = (long)(1.0 / kFps / kStepS + 0.5);
   Note("physics steps a frame", (double)perFrame, "steps");
+  Note("views the scenario declares", (double)journey.Declared().Views.size(), "views");
+  CHECK(journey.Declared().Views.size() >= 2,
+        "**AND THE CAMERA COMES FROM THE DECLARATION.** The scenario names an eyes view in first "
+        "person at the seat it measured off the asset, and a chase view in third at a declared "
+        "distance -- so where the picture is taken from is content, not a constant in a driver");
+  if (journey.Declared().Views.size() < 2) { return Report(); }
+  Note("the first-person eye above the ground", journey.Declared().Views[0].OffsetM[1], "m");
+  Note("the chase view's distance", journey.Declared().Views[1].DistanceM, "m");
 
   double worstMs = 0.0, totalMs = 0.0;
   long drawn = 0;
@@ -124,23 +159,8 @@ int main(void) {
       rode = journey.Ride(kStepS);
       if (!rode.Found || rode.Arrived || rode.Lost) { break; }
     }
-    const outshine::Physics::Body &body = journey.Carried();
-    outshine::Gltf::Placement eye;
-    const double aheadBody[3] = {0.0, 0.0, -1.0};
-    double ahead[3];
-    outshine::Physics::Turn(body.OrientationQ, aheadBody, ahead);
-    for (int axis = 0; axis < 3; ++axis) {
-      eye.EyeM[axis] = body.PositionM[axis] - ahead[axis] * 8.0;
-      eye.Forward[axis] = ahead[axis];
-    }
-    eye.EyeM[1] += 2.5;
-    eye.Up[0] = 0.0;
-    eye.Up[1] = 1.0;
-    eye.Up[2] = 0.0;
-    eye.Right[0] = ahead[2];
-    eye.Right[1] = 0.0;
-    eye.Right[2] = -ahead[0];
-    standing->Eye(eye);
+    const outshine::View &view = journey.Declared().Views[frame < kFrames / 2 ? 0 : 1];
+    standing->Eye(Seen(journey.Carried(), view));
 
     const auto began = std::chrono::steady_clock::now();
     if (!standing->Advance(error)) {
@@ -167,6 +187,10 @@ int main(void) {
         "**AND THE CAR MOVED WHILE THEY WERE.** The same Ride that carried it 774 km headless is "
         "stepping here, sixteen times a frame, with the camera behind it -- one code path, two "
         "modes");
+  CHECK(journey.Declared().Views[0].Person == "first" &&
+            journey.Declared().Views[1].Person == "third",
+        "and both persons were used -- the first half of the run from the driver's seat, the second "
+        "from behind, both placed by turning the declared offset into the body's own frame");
   CHECK(worstMs < 1000.0 / kFps,
         "and the worst frame is inside the 16.67 ms budget, which is what makes this a test of the "
         "engine rather than a viewer");
