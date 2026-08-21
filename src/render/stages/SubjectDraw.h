@@ -99,6 +99,7 @@ struct SubjectPose {
   uint32_t VertexCount = 0;
   double Anchor[3] = {0, 0, 0};
   double PrevAnchor[3] = {0, 0, 0};
+  double Model[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 };
 
 struct SubjectMesh : SubjectPose {
@@ -269,6 +270,7 @@ private:
   bool FiltersFloat32 = false;
   double Anchor[3] = {0, 0, 0};
   double PrevAnchor[3] = {0, 0, 0};
+  double Model[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 
   bool WritesVelocity = false;
 };
