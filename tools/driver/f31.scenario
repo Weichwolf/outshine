@@ -12,7 +12,7 @@
            digest="c60068fcd0f8c25e73225cd3725a422fca46c00a2a68ca481988a6680cc5fb1d"/>
   </assets>
 
-  <vehicle name="f31" asset="scene.gltf" massKg="1610" wheelbaseM="2.810" assetWheelbase="180.71" assetGround="-60.939" turningCircleM="11.3" trackM="1.548">
+  <vehicle name="f31" asset="scene.gltf" massKg="1610" wheelbaseM="2.810" assetWheelbase="180.71" assetGround="-60.939" assetCentreX="60.104" assetCentreZ="22.847" turningCircleM="11.3" trackM="1.548">
     <centreOfMass x="0" y="0.55" z="0"/>
     <inertia ixx="540" iyy="2400" izz="2600"/>
 

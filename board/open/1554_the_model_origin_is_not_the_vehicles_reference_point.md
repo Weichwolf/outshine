@@ -25,6 +25,24 @@ axles at wheel-hub height**. `board:1511` measured those positions off the asset
 and they are right. What is wrong is that the DRAWN model is placed by its own origin, which is
 somewhere else entirely.
 
+## MEASURED AND DECLARED
+
+**Measured through the engine's own flatten**, over the car's 258 parts:
+
+```
+PATCHES 11492 points within 3 u of the lowest, centred at x 60.104 z 22.847 u (lowest y -60.939 u)
+```
+
+**The caveat first**: 11 492 points within 3 units of the lowest is the car's whole UNDERSIDE, not the
+four tyre patches -- `board:1511` could filter by the `f31_gum` material and this cannot. For a
+symmetric car the x centroid is the same either way; the z centroid is the underbody's, not the
+axles'. **And x is confirmed independently**: the bounding box runs -0.097 to +1.967 m, whose midpoint
+is 0.935 m, exactly the 60.104 u the patches give.
+
+**The scenario carries all three now** -- `assetGround="-60.939"`, `assetCentreX="60.104"`,
+`assetCentreZ="22.847"` -- and the driver carries the model onto that point through the body's own
+rotation, so the shift turns with the car rather than being added in world axes.
+
 ## What must be true
 
 - [ ] **The declaration carries the offset from the model's origin to the vehicle's reference point**,

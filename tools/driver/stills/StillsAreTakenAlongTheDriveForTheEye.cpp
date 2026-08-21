@@ -183,7 +183,8 @@ void Shifted(const double byM[3], double out[16]) {
   for (int axis = 0; axis < 3; ++axis) { out[12 + axis] = byM[axis]; }
 }
 
-void Standing(const outshine::Physics::Body &body, double byM, double liftM, double out[16]) {
+void Standing(const outshine::Physics::Body &body, double byM, const double shiftM[3],
+              double out[16]) {
   const double axes[3][3] = {{byM, 0, 0}, {0, byM, 0}, {0, 0, byM}};
   for (int column = 0; column < 3; ++column) {
     double turned[3];
@@ -191,8 +192,9 @@ void Standing(const outshine::Physics::Body &body, double byM, double liftM, dou
     for (int row = 0; row < 3; ++row) { out[column * 4 + row] = turned[row]; }
     out[column * 4 + 3] = 0.0;
   }
-  for (int row = 0; row < 3; ++row) { out[12 + row] = body.PositionM[row]; }
-  out[13] += liftM;
+  double carried[3];
+  outshine::Physics::Turn(body.OrientationQ, shiftM, carried);
+  for (int row = 0; row < 3; ++row) { out[12 + row] = body.PositionM[row] + carried[row]; }
   out[15] = 1.0;
 }
 
@@ -252,9 +254,10 @@ int main(void) {
   const double assetM = declaredCar.AssetWheelbase > 0.0
                             ? declaredCar.WheelbaseM / declaredCar.AssetWheelbase
                             : 1.0;
-  const double liftM = declaredCar.AssetGround < 0.0
-                           ? -declaredCar.AssetGround * assetM - declaredCar.CentreOfMassM[1]
-                           : 0.0;
+  const double shiftM[3] = {-declaredCar.AssetCentreX * assetM,
+                            -declaredCar.AssetGround * assetM - declaredCar.CentreOfMassM[1],
+                            -declaredCar.AssetCentreZ * assetM};
+  const double liftM = shiftM[1];
   Note("the metres one unit of the asset spans", assetM, "m per unit");
   Note("how far the model must rise so its tyres touch the ground", liftM, "m");
   Note("the length the asset draws at that scale", 297.584 * assetM, "m");
@@ -358,6 +361,32 @@ int main(void) {
   if (!stood) { std::printf("REFUSED %s\n", error.c_str()); }
   CHECK(stood, "the picture stands up with the car and the road in it");
   if (!stood) { return Report(); }
+  {
+    const outshine::Gltf::Subject &shown = standing->Shown();
+    const size_t cars = standing->CarriedParts();
+    double lowest = 1.0e30;
+    size_t upto = 0;
+    for (size_t part = 0; part < cars && part < shown.Parts().size(); ++part) {
+      const outshine::Gltf::Part &one = shown.Parts()[part];
+      upto = one.FirstVertex + one.VertexCount > upto ? one.FirstVertex + one.VertexCount : upto;
+    }
+    for (size_t at = 0; at < upto; ++at) {
+      const double y = shown.PositionsM()[at * 3 + 1];
+      lowest = y < lowest ? y : lowest;
+    }
+    double sumEast = 0.0, sumNorth = 0.0;
+    long patches = 0;
+    for (size_t at = 0; at < upto; ++at) {
+      if (shown.PositionsM()[at * 3 + 1] > lowest + 3.0) { continue; }
+      sumEast += shown.PositionsM()[at * 3];
+      sumNorth += shown.PositionsM()[at * 3 + 2];
+      ++patches;
+    }
+    std::printf("PATCHES %ld points within 3 u of the lowest, centred at x %.3f z %.3f u "
+                "(lowest y %.3f u)\n",
+                patches, patches > 0 ? sumEast / (double)patches : 0.0,
+                patches > 0 ? sumNorth / (double)patches : 0.0, lowest);
+  }
   Note("parts the picture carries", (double)standing->Shown().Parts().size(), "parts");
   Note("triangles", (double)standing->Shown().TriangleCount(), "triangles");
 
@@ -390,7 +419,7 @@ int main(void) {
     }
     if (!rode.Found || rode.Lost) { break; }
     double body16[16];
-    Standing(journey.Carried(), assetM, liftM, body16);
+    Standing(journey.Carried(), assetM, shiftM, body16);
     for (int axis = 0; axis < 3; ++axis) { body16[12 + axis] -= originM[axis]; }
     const double strayEastM = body16[12] - groundAtM[0];
     const double strayNorthM = body16[14] - groundAtM[2];
@@ -447,7 +476,7 @@ int main(void) {
                   car.PositionM[2]);
     }
     double body[16];
-    Standing(journey.Carried(), assetM, liftM, body);
+    Standing(journey.Carried(), assetM, shiftM, body);
     for (int axis = 0; axis < 3; ++axis) { body[12 + axis] -= originM[axis]; }
     for (int person = 0; person < 2; ++person) {
       if (next == 0 && person == 0) {

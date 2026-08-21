@@ -225,6 +225,7 @@ struct Vehicle {
   double AssetWheelbase = 0.0;
 
   double AssetGround = 0.0;
+  double AssetCentreX = 0.0, AssetCentreZ = 0.0;
   double CentreOfMassM[3] = {0.0, 0.0, 0.0};
   double InertiaKgM2[3] = {0.0, 0.0, 0.0};
   std::vector<Contact> Contacts;
