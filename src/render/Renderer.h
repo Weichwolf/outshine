@@ -19,6 +19,7 @@
 #include "stages/SubjectDraw.h"
 #include "stages/CompositeTransmissionStage.h"
 #include "stages/MediumMultiScatterStage.h"
+#include "stages/MediumRadianceStage.h"
 #include "stages/MediumTransmittanceStage.h"
 #include "stages/TonemapStage.h"
 
@@ -104,9 +105,19 @@ public:
   }
 
   void SetMedium(const Medium &medium) {
+    Medium_ = medium;
     MediumTransmittance_.Declare(medium);
     MultiScatter_.Declare(medium);
+    Radiance_.Declare(medium, CosSunZenith_, EyeHeightM_);
   }
+
+  void SetSun(float cosSunZenith, float eyeHeightM) {
+    CosSunZenith_ = cosSunZenith;
+    EyeHeightM_ = eyeHeightM;
+    Radiance_.Declare(Medium_, CosSunZenith_, EyeHeightM_);
+  }
+
+  [[nodiscard]] SDL_GPUTexture *SkyViewTable(void) const { return SkyViewLut_.Get(); }
 
   [[nodiscard]] SDL_GPUTexture *MultiScatterTable(void) const { return MultiScatterLut_.Get(); }
 
@@ -161,7 +172,7 @@ private:
   std::shared_ptr<const RenderPlan> Plan_;
   Gpu Handles;
   OwnedTexture HdrTex, VelTex, DepthTex, FrameTex;
-  OwnedTexture TransmittanceLut_, MultiScatterLut_;
+  OwnedTexture TransmittanceLut_, MultiScatterLut_, SkyViewLut_;
 
   OwnedTexture TransmissiveTex, CompositedTex;
 
@@ -178,6 +189,10 @@ private:
   TonemapStage Tonemap_;
   MediumTransmittanceStage MediumTransmittance_;
   MediumMultiScatterStage MultiScatter_;
+  MediumRadianceStage Radiance_;
+  Medium Medium_;
+  float CosSunZenith_ = 1.0f;
+  float EyeHeightM_ = 0.0f;
   OverlayDraw Overlay_;
   PresentStage Present_;
 

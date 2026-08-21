@@ -110,6 +110,7 @@ bool Renderer::Executable(Stage stage) {
   switch (stage) {
     case Stage::MediumTransmittance:
     case Stage::MediumMultiScatter:
+    case Stage::MediumRadiance:
     case Stage::Subjects:
     case Stage::Tonemap:
       return true;
@@ -121,7 +122,6 @@ bool Renderer::Executable(Stage stage) {
     case Stage::SubjectsTransmissive:
     case Stage::CompositeTransmission:
       return true;
-    case Stage::MediumRadiance:
     case Stage::Irradiance:
     case Stage::AutoExposure:
     case Stage::LightVisibility:
@@ -276,18 +276,24 @@ void Renderer::Create(Resource resource) {
 
     case Resource::Surface: return;
     case Resource::TransmittanceLut:
-    case Resource::MultiScatterLut: {
+    case Resource::MultiScatterLut:
+    case Resource::SkyViewLut: {
       SDL_GPUTextureCreateInfo wanted{};
       wanted.type = SDL_GPU_TEXTURETYPE_2D;
       wanted.format = FormatOf(Plan_->Format(resource));
       wanted.usage = SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_TEXTUREUSAGE_SAMPLER;
-      const bool square = resource == Resource::MultiScatterLut;
-      wanted.width = square ? kMultiScatterLutSize : kTransmittanceLutWidth;
-      wanted.height = square ? kMultiScatterLutSize : kTransmittanceLutHeight;
+      wanted.width = resource == Resource::MultiScatterLut ? kMultiScatterLutSize
+                     : resource == Resource::SkyViewLut    ? kSkyViewLutWidth
+                                                           : kTransmittanceLutWidth;
+      wanted.height = resource == Resource::MultiScatterLut ? kMultiScatterLutSize
+                      : resource == Resource::SkyViewLut    ? kSkyViewLutHeight
+                                                            : kTransmittanceLutHeight;
       wanted.layer_count_or_depth = 1;
       wanted.num_levels = 1;
       wanted.sample_count = SDL_GPU_SAMPLECOUNT_1;
-      OwnedTexture &held = square ? MultiScatterLut_ : TransmittanceLut_;
+      OwnedTexture &held = resource == Resource::MultiScatterLut ? MultiScatterLut_
+                           : resource == Resource::SkyViewLut    ? SkyViewLut_
+                                                                 : TransmittanceLut_;
       held = OwnedTexture(Device_.Get(), SDL_CreateGPUTexture(Device_.Get(), &wanted));
       return;
     }
@@ -305,7 +311,6 @@ void Renderer::Create(Resource resource) {
     case Resource::AtmosphereUniform:
     case Resource::CascadeUniform:
     case Resource::VegetationTable:
-    case Resource::SkyViewLut:
     case Resource::IrradianceBuffer:
     case Resource::Meter:
     case Resource::ShadowAtlas:
@@ -340,12 +345,12 @@ SDL_GPUTexture *Renderer::Target(Resource resource) const {
     case Resource::Surface: return HostSurface_;
     case Resource::TransmittanceLut: return TransmittanceLut_.Get();
     case Resource::MultiScatterLut: return MultiScatterLut_.Get();
+    case Resource::SkyViewLut: return SkyViewLut_.Get();
     case Resource::LinearSampler:
     case Resource::LutSampler:
     case Resource::AtmosphereUniform:
     case Resource::CascadeUniform:
     case Resource::VegetationTable:
-    case Resource::SkyViewLut:
     case Resource::IrradianceBuffer:
     case Resource::Meter:
     case Resource::ShadowAtlas:
@@ -436,6 +441,8 @@ bool Renderer::Configure(Stage stage, std::string &error) {
       return MultiScatter_.Configure(Handles, TransmittanceLut_.Get(), LutSamp.Get(),
                                      MultiScatterLut_.Get(), error);
     case Stage::MediumRadiance:
+      return Radiance_.Configure(Handles, TransmittanceLut_.Get(), MultiScatterLut_.Get(),
+                                 LutSamp.Get(), SkyViewLut_.Get(), error);
     case Stage::Irradiance:
     case Stage::AutoExposure:
     case Stage::LightVisibility:
@@ -534,6 +541,8 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
       MultiScatter_.Encode(into);
       return;
     case Stage::MediumRadiance:
+      Radiance_.Encode(into);
+      return;
     case Stage::Irradiance:
     case Stage::AutoExposure:
     case Stage::LightVisibility:
