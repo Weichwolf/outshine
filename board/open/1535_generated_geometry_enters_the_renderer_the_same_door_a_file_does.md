@@ -22,14 +22,16 @@ scenario special case.* So the answer is not a second entrance -- it is ONE:
 
 ## What must be true
 
-- [ ] **`Live` takes a `Subject`, not a path**, and `Engine::Declare` is what turns a declared asset
-      into one -- moving the file reading OUT of Live rather than adding a branch inside it
-- [ ] **The surface comes from the DECLARATION when there is no document.** `Scenario::Surfaces`
-      already exists; a corridor's asphalt is a base colour and a roughness, declared like any other
-      content, and `ResolveFileSurface` becomes the file's own way of producing the same table
+- [x] **`Live` takes a `Subject`** -- `Declaration::Built` beside `Stands`, and declaring BOTH is a
+      refusal, because which of the two the picture came from would be unanswerable. Moving the file
+      reading out of Live entirely is still open
+- [x] **The surface comes from the DECLARATION when there is no document** --
+      `ResolveDeclaredSurface(geometry, row, table)`: one slot, one material row, no rasters.
+      Asphalt is a base colour and a roughness. Reading it from `Scenario::Surfaces` rather than
+      from the caller is still open
 - [ ] **A generated part and a loaded part are indistinguishable downstream**, which is the test: the
       renderer must not be able to tell, and `board:1512`'s ladder must apply to both
-- [ ] **No GLB is written to stand a corridor up.** `Gltf::Emit` stays for what it is for -- handing a
+- [x] **No GLB is written to stand a corridor up.** `Gltf::Emit` stays for what it is for -- handing a
       part to something outside this process
 
 ## Comments
@@ -41,3 +43,21 @@ on a filename.
 
 `board:1534` is where the corridor's own remaining work lives (per-tile, streaming, lane markings);
 this item is the door it has to walk through.
+
+## What it measures
+
+`tools/driver/window/AWindowShowsTheRoadTheCarIsDriving.cpp` lays the road with the same
+`Journey::Lay` the headless driver calls, sweeps its first 400 m into 3200 triangles, assembles them
+into a `Gltf::Subject` with no file in between, and stands it up at 1280x720.
+
+| | |
+|---|---|
+| triangles drawn | 3200 in 1 part |
+| physics steps a frame | 17 |
+| frames drawn | 119 |
+| how far the car got | 27.40 m |
+| mean frame | **0.2258 ms** |
+| worst frame | **11.272 ms** against a 16.667 ms budget |
+
+**Two binaries, one translation unit.** `tools/driver` links no renderer; `tools/driver/window` links
+the whole of it; `tools/driver/parts/Journey` is compiled into both and knows about neither.

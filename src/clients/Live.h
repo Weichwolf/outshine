@@ -15,6 +15,7 @@
 #include "Pose.h"
 #include "Renderer.h"
 #include "Style.h"
+#include "Material.h"
 #include "Subject.h"
 #include "Surfaces.h"
 
@@ -32,6 +33,9 @@ struct Declaration {
   int SurfaceWidthPx = 0, SurfaceHeightPx = 0;
 
   std::string Stands;
+
+  const Gltf::Subject *Built = nullptr;
+  Material Surface;
 
   std::string Variant;
 
@@ -70,6 +74,8 @@ public:
 
   [[nodiscard]] bool Advance(std::string &error);
 
+  void Eye(const Gltf::Placement &from);
+
   [[nodiscard]] Ui::Touched Under(double xPx, double yPx) const;
 
   static size_t TookPosing_, TookSubmitting_, TookAiming_, TookDrawing_;
@@ -105,6 +111,8 @@ private:
   std::shared_ptr<const Render::RenderPlan> Plan_;
   Gltf::Document File_;
   Gltf::Subject Geometry_, Previous_;
+  Gltf::Placement Eye_;
+  bool HaveEye_ = false;
   Gltf::Pose Motion_;
   Gltf::VariantSelection Variant_;
   std::vector<Gltf::Transform> Locals_;

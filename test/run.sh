@@ -86,6 +86,7 @@ LayerIncludes() {
     render/outshine/drive) printf '%s' "-Iinclude -Isrc/corridor -Isrc/physics -Isrc/pilot -Isrc/world" ;;
     render/outshine/scenario) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui -Itest/harness/shared" ;;
     tools/viewer) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui -Itools/viewer/parts" ;;
+    tools/driver/window) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/clients -Isrc/corridor -Isrc/data -Isrc/gltf -Isrc/physics -Isrc/pilot -Isrc/render -Isrc/render/plan -Isrc/render/draw -Isrc/render/stages -Isrc/ui -Isrc/world -Isrc/world/tiles -Itools/host -Itools/driver/parts" ;;
     tools/driver) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/clients -Isrc/corridor -Isrc/data -Isrc/physics -Isrc/pilot -Isrc/gltf -Isrc/world -Isrc/world/tiles -Itools/host -Itools/driver/parts" ;;
     *) return 1 ;;
   esac
@@ -97,6 +98,7 @@ LayerToolchain() {
     render/outshine/client) printf '%s' "-std=c++20" ;;
     render/outshine/drive) printf '%s' "-std=c++20" ;;
     tools/driver) printf '%s' "-std=c++20" ;;
+    tools/driver/window) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     render/outshine/shader) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3)" ;;
     unit/clients) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
@@ -122,6 +124,7 @@ LayerLink() {
     harness/claims) printf '%s' "-lz" ;;
     unit/core/io) printf '%s' "-lz" ;;
     tools/driver) printf '%s' "-lz -lcurl" ;;
+    tools/driver/window) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz -lcurl" ;;
     render/outshine/shader) printf '%s' "$(pkg-config --libs sdl3)" ;;
     unit/clients) printf '%s' "$(pkg-config --libs sdl3-image)" ;;
     *) printf '%s' "" ;;
@@ -151,6 +154,7 @@ LayerGroups() {
     harness/claims) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario | render/outshine/client) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/clients/Engine.cpp src/clients/Scenario.cpp" ;;
     render/outshine/shader) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
+    tools/driver/window) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/corridor src/physics src/pilot src/data src/world/tiles src/world src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/clients/Scenario.cpp src/clients/Rigging.cpp" ;;
     tools/driver) printf '%s' "src/core src/core/io src/gltf src/corridor src/physics src/pilot src/data src/world/tiles src/world src/clients/Scenario.cpp src/clients/Rigging.cpp" ;;
     render/outshine/drive) printf '%s' "src/corridor src/physics src/pilot src/world/Wayfinding.cpp" ;;
     *) return 1 ;;
@@ -187,6 +191,7 @@ LayerExtraSources() {
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "test/harness/shared/render/Parity.cpp" ;;
     tools/viewer) printf '%s' "test/harness/shared/render/Parity.cpp tools/viewer/parts/Chrome.cpp" ;;
     tools/driver) printf '%s' "tools/host/CurlTransport.cpp tools/driver/parts/Journey.cpp" ;;
+    tools/driver/window) printf '%s' "tools/host/CurlTransport.cpp tools/driver/parts/Journey.cpp" ;;
     *) printf '%s' "" ;;
   esac
 }

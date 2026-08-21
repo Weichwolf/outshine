@@ -87,6 +87,15 @@ double Live::Framing(void) const {
 }
 
 bool Live::Build(std::string &error) {
+  if (Declared_.Built != nullptr && !Declared_.Stands.empty()) {
+    error = "a scenario stands up ONE geometry: this one declares both a file to read and a subject "
+            "already built, and which of the two the picture came from would be unanswerable";
+    return false;
+  }
+  if (Declared_.Built != nullptr) {
+    Geometry_ = *Declared_.Built;
+    ResolveDeclaredSurface(Geometry_, Declared_.Surface, Table_);
+  }
   if (!Declared_.Stands.empty()) {
     if (!Declared_.Variant.empty()) { Variant_ = Gltf::VariantSelection(Declared_.Variant); }
     if (!File_.ReadFile(Declared_.Stands)) {
@@ -163,8 +172,17 @@ bool Live::Pose(int frame, std::string &error) {
   return false;
 }
 
+void Live::Eye(const Gltf::Placement &from) {
+  Eye_ = from;
+  HaveEye_ = true;
+}
+
 bool Live::Look(std::string &error) {
   Gltf::Placement framed;
+  if (HaveEye_) {
+    Stood_.Eye = Eye_;
+    return Aim(*Renderer_, Geometry_, Stood_.Eye, error);
+  }
   if (!Geometry_.Frame(framed, Framing())) {
     error = "the subject has no extent, so no camera can be derived from it";
     return false;

@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "Document.h"
+#include "Material.h"
 #include "Image.h"
 #include "Renderer.h"
 #include "Subject.h"
@@ -35,6 +36,8 @@ enum class ColourCarrier { Texture, Factor, VertexColour };
 
 void ResolveSurfaceTable(const Gltf::Document &file, const Gltf::Subject &geometry,
                          bool carriesTransmission, bool ownMaterials, SurfaceTable &out);
+
+void ResolveDeclaredSurface(const Gltf::Subject &geometry, const Material &row, SurfaceTable &out);
 
 [[nodiscard]] bool ResolveFileSurface(const Gltf::Document &file, const Gltf::Subject &geometry,
                                       ColourFrom channel, ColourCarrier carrier, SurfaceTable &table,

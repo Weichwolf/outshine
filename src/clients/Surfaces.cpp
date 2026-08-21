@@ -62,6 +62,21 @@ Render::SubjectWrap WrapOf(Gltf::Wrap wrap) {
 
 }
 
+void ResolveDeclaredSurface(const Gltf::Subject &geometry, const Material &row,
+                            SurfaceTable &out) {
+  out.Slots.clear();
+  out.Material.clear();
+  out.PartSlot.clear();
+  out.Decoded.clear();
+
+  Render::SubjectMaterial slot;
+  slot.Row = row;
+  out.Slots.push_back(slot);
+  out.Decoded.push_back(SurfaceRasters());
+  out.Material.push_back(0);
+  out.PartSlot.assign(geometry.Parts().size(), 0u);
+}
+
 void ResolveSurfaceTable(const Gltf::Document &file, const Gltf::Subject &geometry, bool carriesTransmission,
                          bool ownMaterials, SurfaceTable &out) {
   out.Slots.clear();
