@@ -151,13 +151,37 @@ int main(void) {
   Note("the first-person eye above the ground", journey.Declared().Views[0].OffsetM[1], "m");
   Note("the chase view's distance", journey.Declared().Views[1].DistanceM, "m");
 
+  size_t bound = 0;
+  double steerBy = 0.0, throttleBy = 0.0, brakeBy = 0.0;
+  for (const outshine::Binding &binding : journey.Declared().Input) {
+    ++bound;
+    if (binding.Action == "steer-left") { steerBy = 1.0; }
+    if (binding.Action == "throttle") { throttleBy = 1.0; }
+    if (binding.Action == "brake") { brakeBy = 1.0; }
+  }
+  Note("actions the scenario binds", (double)bound, "bindings");
+  CHECK(bound >= 4 && steerBy > 0.0 && throttleBy > 0.0 && brakeBy > 0.0,
+        "**AND THE ACTIONS A DRIVER NEEDS ARE BOUND BY NAME IN THE SCENARIO.** throttle, brake and "
+        "steering are declared beside the car, not wired into a program -- which is what lets a "
+        "player take the wheel from the mind without either of them being rewritten");
+
   double worstMs = 0.0, totalMs = 0.0;
   long drawn = 0;
+  double tookOverAtM = 0.0, mindWouldRad = 0.0, playerRad = 0.0;
   Ridden rode;
   for (int frame = 0; frame < kFrames; ++frame) {
+    outshine::Driver::Taken taken;
+    taken.Has = frame >= kFrames / 3 && frame < 2 * kFrames / 3;
+    taken.SteerRad = steerBy * 0.02;
+    taken.Throttle = throttleBy * 0.35;
     for (long step = 0; step < perFrame; ++step) {
-      rode = journey.Ride(kStepS);
+      rode = journey.Ride(kStepS, &taken);
       if (!rode.Found || rode.Arrived || rode.Lost) { break; }
+    }
+    if (taken.Has && tookOverAtM <= 0.0) {
+      tookOverAtM = rode.ReachedM;
+      mindWouldRad = rode.MindSteerRad;
+      playerRad = taken.SteerRad;
     }
     const outshine::View &view = journey.Declared().Views[frame < kFrames / 2 ? 0 : 1];
     standing->Eye(Seen(journey.Carried(), view));
@@ -191,6 +215,16 @@ int main(void) {
             journey.Declared().Views[1].Person == "third",
         "and both persons were used -- the first half of the run from the driver's seat, the second "
         "from behind, both placed by turning the declared offset into the body's own frame");
+  Note("where the player took the wheel", tookOverAtM, "m");
+  Note("what the mind was steering there", mindWouldRad, "rad");
+  Note("what the player steered instead", playerRad, "rad");
+  CHECK(rode.WasTaken == false && tookOverAtM > 0.0 &&
+            std::fabs(playerRad - mindWouldRad) > 1.0e-6,
+        "**AND A PLAYER TOOK THE WHEEL FROM THE MIND THAT WAS DRIVING, AND GAVE IT BACK.** For the "
+        "middle third of the run the controls came from the bound actions instead of the pilot; the "
+        "pilot went on computing what it WOULD have done and publishing it, which is what makes the "
+        "handover readable rather than a mode nobody can see. By the last frame the mind had it "
+        "again");
   CHECK(worstMs < 1000.0 / kFps,
         "and the worst frame is inside the 16.67 ms budget, which is what makes this a test of the "
         "engine rather than a viewer");

@@ -950,7 +950,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Si
   return true;
 }
 
-Ridden Journey::Ride(double dtS) {
+Ridden Journey::Ride(double dtS, const Taken *taken) {
   Ridden &out = S_->Tally;
   out.Found = false;
   if (!S_->Ready) { return out; }
@@ -1033,6 +1033,13 @@ Ridden Journey::Ride(double dtS) {
     controls.SteerRad = command.SteerRad;
     controls.DriveN = command.DriveN;
     controls.BrakeN = command.BrakeN;
+    out.MindSteerRad = command.SteerRad;
+    out.WasTaken = taken != nullptr && taken->Has;
+    if (out.WasTaken) {
+      controls.SteerRad = taken->SteerRad;
+      controls.DriveN = taken->Throttle * stood.Envelope.DriveN;
+      controls.BrakeN = taken->Brake * stood.Envelope.BrakeN;
+    }
 
     outshine::Physics::Footing under[outshine::Physics::kMaxMounts];
     for (size_t which = 0; which < rig.Count; ++which) {

@@ -96,6 +96,13 @@ struct Laid {
   std::string Error;
 };
 
+struct Taken {
+  bool Has = false;
+  double SteerRad = 0.0;
+  double Throttle = 0.0;
+  double Brake = 0.0;
+};
+
 struct Ridden {
   bool Found = false;
   bool Arrived = false;
@@ -133,6 +140,8 @@ struct Ridden {
   double LeftAcrossM = 0.0;
   size_t OffTheSurface = 0;
   double SimulatedS = 0.0;
+  bool WasTaken = false;
+  double MindSteerRad = 0.0;
 };
 
 class Journey {
@@ -143,7 +152,7 @@ public:
   Journey &operator=(const Journey &) = delete;
 
   [[nodiscard]] bool Lay(const Between &between, const char *scenarioPath, int zoom, Sink &say);
-  [[nodiscard]] Ridden Ride(double dtS);
+  [[nodiscard]] Ridden Ride(double dtS, const Taken *taken = nullptr);
   void Close(void);
 
   [[nodiscard]] const Physics::Body &Carried(void) const;
