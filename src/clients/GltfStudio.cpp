@@ -292,9 +292,9 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
 }
 
 bool Aim(Render::Renderer &renderer, const Gltf::Subject &subject, const Gltf::Placement &eye,
-         std::string &error) {
+         std::string &error, bool standsInside) {
   if (!SetProjection(renderer, eye, error)) { return false; }
-  if (!ClearsNearPlane(subject, eye, error)) { return false; }
+  if (!standsInside && !ClearsNearPlane(subject, eye, error)) { return false; }
   double position[3], forward[3], right[3], up[3];
   Anchored(eye.EyeM, position);
   EcefFromGltf(eye.Forward, forward);

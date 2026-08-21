@@ -205,7 +205,8 @@ bool Live::Look(std::string &error) {
   Gltf::Placement framed;
   if (HaveEye_) {
     Stood_.Eye = Eye_;
-    return Aim(*Renderer_, Geometry_, Stood_.Eye, error);
+    Stood_.EyeStandsInside = true;
+    return Aim(*Renderer_, Geometry_, Stood_.Eye, error, true);
   }
   if (!Geometry_.Frame(framed, Framing())) {
     error = "the subject has no extent, so no camera can be derived from it";
@@ -234,7 +235,8 @@ bool Live::Look(std::string &error) {
   spun(framed.Up, basis);
   for (int axis = 0; axis < 3; ++axis) { framed.Up[axis] = basis[axis]; }
   Stood_.Eye = framed;
-  return Aim(*Renderer_, Geometry_, Stood_.Eye, error);
+  Stood_.EyeStandsInside = false;
+  return Aim(*Renderer_, Geometry_, Stood_.Eye, error, false);
 }
 
 bool Live::Stand(std::string &error) {

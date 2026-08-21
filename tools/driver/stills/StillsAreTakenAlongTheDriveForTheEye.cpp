@@ -32,8 +32,9 @@ constexpr int kZoom = 10;
 constexpr double kStepS = 1.0e-3;
 constexpr int kWidePx = 1280;
 constexpr int kHighPx = 720;
-constexpr double kShownM = 400.0;
-constexpr double kAheadM = 600.0;
+constexpr double kBehindM = 120.0;
+constexpr double kShownM = 900.0;
+constexpr double kRelayAtM = 400.0;
 constexpr double kRibbonStepM = 2.0;
 constexpr int kStills = 12;
 constexpr uint64_t kSeed = 0x5EEDu;
@@ -83,6 +84,11 @@ outshine::Gltf::Placement Seen(const outshine::Physics::Body &body, const outshi
     out.Right[axis] = right[axis];
     out.Up[axis] = up[axis];
   }
+
+  out.Kind = outshine::Gltf::CameraKind::Perspective;
+  out.YfovRad = view.FovDeg * 3.14159265358979323846 / 180.0;
+  out.ZNearM = 0.1;
+  out.ZFarM = 4000.0;
   return out;
 }
 
@@ -130,9 +136,10 @@ int main(void) {
   section.HalfWidthM = 3.75;
   section.ShoulderM = 2.5;
   section.ThicknessM = 0.35;
+  double laidFromM = 0.0;
   double laidToM = kShownM;
   double roadAt[16];
-  outshine::Ribbon ribbon = Sweep(journey.Corridor(), section, 0.0, laidToM, kRibbonStepM);
+  outshine::Ribbon ribbon = Sweep(journey.Corridor(), section, laidFromM, laidToM, kRibbonStepM);
   CHECK(ribbon.Woven, "and its first run sweeps into a solid");
   double originM[3] = {ribbon.OriginM[0], ribbon.OriginM[1], ribbon.OriginM[2]};
   Shifted(originM, roadAt);
@@ -203,11 +210,11 @@ int main(void) {
       if (!rode.Found || rode.Arrived || rode.Lost) { break; }
     }
     if (!rode.Found || rode.Lost) { break; }
-    if (rode.ReachedM + kAheadM > laidToM) {
-      const double fromM = laidToM;
-      laidToM += kShownM;
+    if (rode.ReachedM + kRelayAtM > laidToM) {
+      laidFromM = rode.ReachedM > kBehindM ? rode.ReachedM - kBehindM : 0.0;
+      laidToM = laidFromM + kShownM;
       const outshine::Ribbon nextRun =
-          Sweep(journey.Corridor(), section, fromM, laidToM, kRibbonStepM);
+          Sweep(journey.Corridor(), section, laidFromM, laidToM, kRibbonStepM);
       if (nextRun.Woven) {
         piece.PositionsM =
             outshine::Span<const float>(nextRun.PositionM.data(), nextRun.PositionM.size());
@@ -239,11 +246,17 @@ int main(void) {
     Standing(journey.Carried(), body);
     for (int axis = 0; axis < 3; ++axis) { body[12 + axis] -= originM[axis]; }
     for (int person = 0; person < 2; ++person) {
-      if (!standing->Carry(body, roadAt, error)) { break; }
+      if (!standing->Carry(body, roadAt, error)) {
+        std::printf("REFUSED carry: %s\n", error.c_str());
+        break;
+      }
       outshine::Gltf::Placement where = Seen(journey.Carried(), journey.Declared().Views[person]);
       for (int axis = 0; axis < 3; ++axis) { where.EyeM[axis] -= originM[axis]; }
       standing->Eye(where);
-      if (!standing->Advance(error)) { break; }
+      if (!standing->Advance(error)) {
+        std::printf("REFUSED advance: %s\n", error.c_str());
+        break;
+      }
       char name[256];
       std::snprintf(name, sizeof name, "%s/km%06.1f-%s.png", into.c_str(),
                     rode.ReachedM / 1000.0, person == 0 ? "first" : "third");

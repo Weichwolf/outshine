@@ -24,6 +24,8 @@ struct Studio {
   const Gltf::Subject *Geometry = nullptr;
   Gltf::Placement Eye;
 
+  bool EyeStandsInside = false;
+
   std::vector<std::array<float, 3>> EmittedRadiance;
 
   std::vector<uint32_t> PartSurface;
@@ -47,7 +49,8 @@ struct StudioScratch {
 };
 
 [[nodiscard]] bool Aim(Render::Renderer &renderer, const Gltf::Subject &subject,
-                       const Gltf::Placement &eye, std::string &error);
+                       const Gltf::Placement &eye, std::string &error,
+                       bool standsInside = false);
 
 [[nodiscard]] bool Show(Render::Renderer &renderer, const Studio &studio, StudioScratch &scratch,
                         std::string &error);
