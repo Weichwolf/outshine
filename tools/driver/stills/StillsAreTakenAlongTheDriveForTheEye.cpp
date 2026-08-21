@@ -425,7 +425,9 @@ int main(void) {
     const double strayNorthM = body16[14] - groundAtM[2];
     const double strayM =
         std::sqrt(strayEastM * strayEastM + strayNorthM * strayNorthM);
-    if (rode.ReachedM + kRelayAtM > laidToM || strayM > kGroundReachM * 0.4) {
+    const double wantedAtM = next < atM.size() ? atM[next] : 1.0e30;
+    const bool nearAStill = rode.ReachedM + kGroundReachM > wantedAtM;
+    if (nearAStill && (rode.ReachedM + kRelayAtM > laidToM || strayM > kGroundReachM * 0.4)) {
       laidFromM = rode.ReachedM > kBehindM ? rode.ReachedM - kBehindM : 0.0;
       laidToM = laidFromM + kShownM;
       const outshine::Ribbon nextRun =
