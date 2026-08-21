@@ -40,13 +40,14 @@ void AsOverlay(const std::vector<Ui::Quad> &from, double offsetX, double offsetY
   }
 }
 
-void DeclarePlan(const Gltf::Document &file, bool moves, bool presents,
+void DeclarePlan(const Gltf::Document &file, bool moves, bool presents, bool sky,
                  Render::PlanSpec &declaration) {
   declaration.Outputs = {Render::Resource::FrameTex};
   if (presents) { declaration.Outputs.push_back(Render::Resource::Surface); }
 
   if (moves) { declaration.Outputs.push_back(Render::Resource::SceneVelocity); }
   declaration.Content = {Render::Stage::Subjects, Render::Stage::Overlay};
+  if (sky) { declaration.Content.push_back(Render::Stage::Sky); }
   bool carriesGlass = false;
   for (const Gltf::MaterialRef &material : file.Materials()) {
     const SurfaceKind kind = StateOf(material.Surface).Kind();
@@ -139,7 +140,7 @@ bool Live::Build(std::string &error) {
   }
 
   Render::PlanSpec declaration;
-  DeclarePlan(File_, Moves_, Declared_.Presents, declaration);
+  DeclarePlan(File_, Moves_, Declared_.Presents, Declared_.DrawsSky, declaration);
   if (Declared_.Exposure > 0.0) {
     declaration.Exposure = Render::Declared<float>((float)Declared_.Exposure);
   } else if (Declared_.KeyLux > 0.0) {

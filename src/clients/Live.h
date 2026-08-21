@@ -52,6 +52,8 @@ struct Declaration {
   double KeyLux = 0.0;
 
   double Exposure = 0.0;
+
+  bool DrawsSky = false;
   double KeyElevationDeg = 0.0, KeyBearingDeg = 0.0;
 
   bool Presents = false;

@@ -268,6 +268,7 @@ int main(void) {
   declaration.Surface.BaseColour[2] = 0.15f;
   declaration.Surface.Roughness = 0.92f;
   declaration.Surface.Metalness = 0.0f;
+  declaration.DrawsSky = true;
   declaration.KeyLux = 40000.0;
   declaration.KeyElevationDeg = 42.0;
   declaration.KeyBearingDeg = 150.0;
