@@ -65,6 +65,29 @@ declared branch when an eye was set and the derived branch otherwise; both reach
 `Anchored` and `EcefFromGltf` over eye, forward, right and up. Whatever differs is inside those values
 or inside what `standsInside` skips.
 
+## FOUND -- and it was an ORDER, not a value
+
+**`Stand()` resets `Stood_ = Studio{}`, which empties `PartPlacement`. `BuildDrawList` read exactly
+that**: `part < studio.PartPlacement.size() ? part : 0`. With the table empty at compile time, **every
+part took `ModelSlot` 0 -- the car's** -- so the road and the ground were transformed by the vehicle's
+pose and landed roughly twice as far out as the car.
+
+**It explains both halves of what the reviewer measured.** The declared camera at the car saw nothing
+because the world had been moved away from it; the derived camera, framing from kilometres out,
+sometimes caught the displaced geometry. *Same data, opposite result per camera.*
+
+**Every part takes its own slot unconditionally now**, and `Stand()` seeds the table with identity for
+every part before anything compiles against it, so the table is never shorter than the draws naming it.
+
+**Measured on `km0017.3-third`, the reviewer's own instrument:**
+
+| | before | after |
+|---|---|---|
+| opaque fraction | **1.09 %** | **49.04 %** |
+
+The ground fills from a horizon at half height to the bottom edge. *A ground plane fills to the bottom
+edge for any pitch, always* -- met.
+
 ## What must be true
 
 - [ ] **A picture drawn from a declared eye holds the same geometry a derived eye holds**, and a test
