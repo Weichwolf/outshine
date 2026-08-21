@@ -306,6 +306,14 @@ bool Live::Redeclare(std::vector<Shows> surfaces, std::string &error) {
   return Compose(error);
 }
 
+bool Live::Restand(const Gltf::Subject &built, std::string &error) {
+  Declared_.Built = &built;
+  Stoodup_ = false;
+  if (!Build(error)) { return false; }
+  if (!Stand(error)) { return false; }
+  return Submit(error);
+}
+
 size_t Live::TookPosing_ = 0, Live::TookSubmitting_ = 0, Live::TookAiming_ = 0, Live::TookDrawing_ = 0;
 
 bool Live::Advance(std::string &error) {

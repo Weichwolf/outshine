@@ -72,6 +72,8 @@ public:
 
   [[nodiscard]] bool Redeclare(std::vector<Shows> surfaces, std::string &error);
 
+  [[nodiscard]] bool Restand(const Gltf::Subject &built, std::string &error);
+
   [[nodiscard]] bool Advance(std::string &error);
 
   void Eye(const Gltf::Placement &from);
