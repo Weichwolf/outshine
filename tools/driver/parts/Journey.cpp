@@ -200,10 +200,10 @@ std::string Line(const char *shape, ...) {
 } // namespace
 
 bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Sink &say) {
-  const double kMunichLat = between.FromLatDeg;
-  const double kMunichLon = between.FromLonDeg;
-  const double kHamburgLat = between.ToLatDeg;
-  const double kHamburgLon = between.ToLonDeg;
+  const double fromLatDeg = between.FromLatDeg;
+  const double fromLonDeg = between.FromLonDeg;
+  const double toLatDeg = between.ToLatDeg;
+  const double toLonDeg = between.ToLonDeg;
   const int kZoom = zoom;
 
   auto &corridor = S_->Corridor;
@@ -224,9 +224,9 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Si
   auto &holdWithinM = S_->HoldWithinM;
 
 
-  const double straightM = ApartM(kMunichLat, kMunichLon, kHamburgLat, kHamburgLon);
-  const double middleLat = 0.5 * (kMunichLat + kHamburgLat);
-  const double middleLon = 0.5 * (kMunichLon + kHamburgLon);
+  const double straightM = ApartM(fromLatDeg, fromLonDeg, toLatDeg, toLonDeg);
+  const double middleLat = 0.5 * (fromLatDeg + toLatDeg);
+  const double middleLon = 0.5 * (fromLonDeg + toLonDeg);
   say.Number("Marienplatz to Rathausmarkt as the crow flies", straightM / 1000.0, "km");
   say.Number("the zoom the ways are read at", (double)kZoom, "");
   const double tileGroundM =
@@ -268,8 +268,8 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Si
   bool ranOut = false;
   for (long step = 0; step <= steps && !ranOut; ++step) {
     const double part = (double)step / (double)steps;
-    const double atLat = kMunichLat + part * (kHamburgLat - kMunichLat);
-    const double atLon = kMunichLon + part * (kHamburgLon - kMunichLon);
+    const double atLat = fromLatDeg + part * (toLatDeg - fromLatDeg);
+    const double atLon = fromLonDeg + part * (toLonDeg - fromLonDeg);
     for (;;) {
       built += field.Build(atLat, atLon, kCorridorRing);
       ++passes;
@@ -351,16 +351,16 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Si
   say.Number("junctions among them", (double)roads.JunctionCount(), "nodes");
   say.Number("edges", (double)roads.EdgeCount(), "edges");
 
-  size_t atMunich = 0, atHamburg = 0;
-  double munichAwayM = 0.0, hamburgAwayM = 0.0;
-  say.Claim(roads.Nearest(Waypoint{kMunichLat, kMunichLon}, atMunich, munichAwayM) &&
-            roads.Nearest(Waypoint{kHamburgLat, kHamburgLon}, atHamburg, hamburgAwayM),
+  size_t atFrom = 0, atTo = 0;
+  double fromAwayM = 0.0, toAwayM = 0.0;
+  say.Claim(roads.Nearest(Waypoint{fromLatDeg, fromLonDeg}, atFrom, fromAwayM) &&
+            roads.Nearest(Waypoint{toLatDeg, toLonDeg}, atTo, toAwayM),
         "both city centres resolve to a node of the network");
-  say.Number("how far Marienplatz is from the nearest road node", munichAwayM, "m");
-  say.Number("how far Rathausmarkt is from the nearest road node", hamburgAwayM, "m");
+  say.Number("how far Marienplatz is from the nearest road node", fromAwayM, "m");
+  say.Number("how far Rathausmarkt is from the nearest road node", toAwayM, "m");
   say.Number("how far each walk is as a share of the drive",
-       (munichAwayM + hamburgAwayM) / straightM, "of it");
-  say.Claim(munichAwayM + hamburgAwayM < 0.001 * straightM,
+       (fromAwayM + toAwayM) / straightM, "of it");
+  say.Claim(fromAwayM + toAwayM < 0.001 * straightM,
         "**AND THE WALK AT EACH END IS NEGLIGIBLE AGAINST THE DRIVE.** Both squares are pedestrian "
         "zones, so the nearest CARRIAGEWAY is a few hundred metres away and the car parks at the "
         "edge -- 267 m at Marienplatz and 221 m at Rathausmarkt, together under a thousandth of the "
@@ -371,7 +371,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Si
   const double tightestM = 2.810 / std::tan(0.522804742);
   say.Number("the tightest circle the F31 can turn", tightestM, "m");
   const Route route =
-      roads.Plan(Waypoint{kMunichLat, kMunichLon}, Waypoint{kHamburgLat, kHamburgLon}, tightestM,
+      roads.Plan(Waypoint{fromLatDeg, fromLonDeg}, Waypoint{toLatDeg, toLonDeg}, tightestM,
                  quantumM);
   say.Number("turns the search refused as too sharp for the car", (double)route.TurnsRefused, "turns");
   if (!route.Found) { say.Say(Line("REFUSED %s", route.Error.c_str())); }
@@ -558,8 +558,8 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Si
   say.Number("seconds spent sampling the ground", sampledS, "s");
   say.Number("the lowest the corridor runs", lowestM, "m");
   say.Number("the highest", highestM, "m");
-  say.Number("Munich's own elevation", heightM.empty() ? 0.0 : heightM.front(), "m");
-  say.Number("Hamburg's", heightM.empty() ? 0.0 : heightM.back(), "m");
+  say.Number("the elevation where the route starts", heightM.empty() ? 0.0 : heightM.front(), "m");
+  say.Number("and where it ends", heightM.empty() ? 0.0 : heightM.back(), "m");
 
   say.Claim(resolved > 0, "**THE ELEVATION SOURCE ANSWERS ALONG THE WHOLE CORRIDOR.** Real height data, "
                       "streamed for the same route the ways came from");
