@@ -416,8 +416,8 @@ int main(void) {
     double body16[16];
     Standing(journey.Carried(), assetM, shiftM, body16);
     for (int axis = 0; axis < 3; ++axis) { body16[12 + axis] -= originM[axis]; }
-    const double strayEastM = body16[12] - groundAtM[0];
-    const double strayNorthM = body16[14] - groundAtM[2];
+    const double strayEastM = body16[12] + originM[0] - groundAtM[0];
+    const double strayNorthM = body16[14] + originM[2] - groundAtM[2];
     const double strayM =
         std::sqrt(strayEastM * strayEastM + strayNorthM * strayNorthM);
     const double wantedAtM = next < atM.size() ? atM[next] : 1.0e30;
@@ -432,15 +432,17 @@ int main(void) {
             outshine::Span<const float>(nextRun.PositionM.data(), nextRun.PositionM.size());
         piece.Normals = outshine::Span<const float>(nextRun.NormalM.data(), nextRun.NormalM.size());
         piece.Indices = outshine::Span<const uint32_t>(nextRun.Index.data(), nextRun.Index.size());
-        for (int axis = 0; axis < 3; ++axis) { groundAtM[axis] = body16[12 + axis]; }
+        for (int axis = 0; axis < 3; ++axis) {
+          groundAtM[axis] = body16[12 + axis] + originM[axis];
+        }
         double aboutNow[3] = {body16[12] + originM[0], body16[13] + originM[1],
                               body16[14] + originM[2]};
         Ground under;
         outshine::Gltf::Piece lyingNow;
         lyingNow.NodeName = "ground";
         lyingNow.Material = 0;
-        const bool laid =
-            Lie(journey, aboutNow, originM, section, laidFromM, laidToM, centre, under);
+        const bool laid = Lie(journey, aboutNow, nextRun.OriginM, section, laidFromM, laidToM,
+                              centre, under);
         if (laid) {
           lyingNow.PositionsM =
               outshine::Span<const float>(under.PositionM.data(), under.PositionM.size());
