@@ -145,6 +145,7 @@ struct Journey::State {
   outshine::Physics::Rig Rig;
   outshine::Physics::Body Body;
   std::vector<double> RoadM, HalfWidthM, LaneHalfM, AsideM, FineAside, FineEdge;
+  double ReserveMs2 = 0.0;
   double FineM = 2.0;
   double SpanM = 0.0;
   double NarrowestLaneM = 0.0;
@@ -175,6 +176,8 @@ const outshine::Physics::Body &Journey::Carried(void) const { return S_->Body; }
 const outshine::ReferenceLine &Journey::Corridor(void) const { return S_->Corridor; }
 const outshine::Scenario &Journey::Declared(void) const { return S_->Declared; }
 double Journey::LengthM(void) const { return S_->Corridor.LengthM(); }
+
+double Journey::ReserveMs2(void) const { return S_->ReserveMs2; }
 
 namespace {
 
@@ -834,6 +837,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
   outshine::Envelope planning = stood.Envelope;
   holdWithinM = 0.5 * narrowestLaneM - 0.5 * kF31WidthM;
   planning.ReserveMs2 = 2.0 * holdWithinM / (1.0 * 1.0);
+  S_->ReserveMs2 = planning.ReserveMs2;
   const double floorRatio = 1.409 / 0.477;
   planning.HoldWithinM = holdWithinM / floorRatio;
   say.Number("what the negative control measured the closed loop to cost over the first-order lag",
@@ -985,6 +989,7 @@ Ridden Journey::Ride(double dtS, const Taken *taken) {
 
     const double speedMs = std::sqrt(body.VelocityMs[0] * body.VelocityMs[0] +
                                      body.VelocityMs[2] * body.VelocityMs[2]);
+    out.SpeedMs = speedMs;
     reins.TightestPerM = outshine::Pilot::TightestPerM(stood.Axles, stood.Envelope, speedMs);
     {
       const size_t fine = (size_t)(at.AlongM / fineM);

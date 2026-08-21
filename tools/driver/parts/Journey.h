@@ -163,6 +163,7 @@ public:
   [[nodiscard]] const ReferenceLine &Corridor(void) const;
   [[nodiscard]] const Scenario &Declared(void) const;
   [[nodiscard]] double LengthM(void) const;
+  [[nodiscard]] double ReserveMs2(void) const;
 
 private:
   struct State;
