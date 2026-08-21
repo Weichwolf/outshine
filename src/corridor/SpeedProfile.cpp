@@ -66,8 +66,8 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
     const double ramp = std::fabs(here.CurvatureRatePerM);
     if (ramp > 0.0 && within.HoldWithinM > 0.0 && within.SettleS > 0.0) {
       const double followedMs =
-          std::cbrt(6.0 * within.HoldWithinM / (ramp * within.SettleS * within.SettleS *
-                                                within.SettleS));
+          std::cbrt(6.0 * within.HoldWithinM /
+                    (ramp * within.SettleS * within.SettleS * within.SettleS));
       if (followedMs < Held_[at]) { Held_[at] = followedMs; }
     }
     const double climb = here.Slope;

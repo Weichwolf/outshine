@@ -555,6 +555,12 @@ int main(void) {
   Note("the largest step the lane centre takes where the road changes width", steppedM, "m");
   Note("where that is", steppedAtM / 1000.0, "km");
 
+  double narrowestLaneHereM = 1.0e9;
+  for (const double half : laneHalfM) {
+    narrowestLaneHereM = 2.0 * half < narrowestLaneHereM ? 2.0 * half : narrowestLaneHereM;
+  }
+  const double budgetM = 0.5 * narrowestLaneHereM - 0.5 * kF31WidthM;
+
   const double fineM = 2.0;
   std::vector<double> fineAside((size_t)(fitted.LengthM / fineM) + 2, 0.0);
   std::vector<double> fineEdge(fineAside.size(), 0.0);
@@ -565,12 +571,38 @@ int main(void) {
     fineEdge[fine] = halfWidthM[band];
   }
   {
-    const double budgetM = 0.5 * 3.25 - 0.5 * kF31WidthM;
     const double reachM = 1.0 * 232.722657 / 3.6;
     const double mostPerM = budgetM / reachM;
     Note("the fastest the lane centre may move sideways", mostPerM * 1000.0, "mm per metre");
     Note("so a 1.125 m shift is taken over", 1.125 / mostPerM, "m of road");
     const double most = mostPerM * fineM;
+
+    std::vector<double> roomM(fineAside.size(), 0.0);
+    for (size_t fine = 0; fine < roomM.size(); ++fine) {
+      const double room = fineEdge[fine] - 0.5 * kF31WidthM - budgetM;
+      roomM[fine] = room > 0.0 ? room : 0.0;
+    }
+    double leadM = 0.0;
+    for (size_t fine = roomM.size() - 1; fine > 0; --fine) {
+      const double reachable = roomM[fine] + most;
+      if (roomM[fine - 1] > reachable) {
+        leadM = std::fmax(leadM, roomM[fine - 1] - reachable);
+        roomM[fine - 1] = reachable;
+      }
+    }
+    for (size_t fine = 1; fine < roomM.size(); ++fine) {
+      const double reachable = roomM[fine - 1] + most;
+      if (roomM[fine] > reachable) { roomM[fine] = reachable; }
+    }
+    Note("the tracking error the lane centre keeps clear of the edge", budgetM, "m");
+    Note("the most a narrowing pulled the lane centre in ahead of itself", leadM, "m");
+    long led = 0;
+    for (size_t fine = 0; fine < fineAside.size(); ++fine) {
+      if (fineAside[fine] > roomM[fine]) { fineAside[fine] = roomM[fine]; ++led; }
+      if (fineAside[fine] < -roomM[fine]) { fineAside[fine] = -roomM[fine]; ++led; }
+    }
+    Note("stations where a narrowing ahead moved the car in early", (double)led, "stations");
+
     for (int sweep = 0; sweep < 400; ++sweep) {
       long moved = 0;
       for (size_t fine = 1; fine < fineAside.size(); ++fine) {
@@ -597,10 +629,8 @@ int main(void) {
     }
     long clamped = 0;
     for (size_t fine = 0; fine < fineAside.size(); ++fine) {
-      const double roomM = fineEdge[fine] - 0.5 * kF31WidthM;
-      if (roomM <= 0.0) { continue; }
-      if (fineAside[fine] > roomM) { fineAside[fine] = roomM; ++clamped; }
-      if (fineAside[fine] < -roomM) { fineAside[fine] = -roomM; ++clamped; }
+      if (fineAside[fine] > roomM[fine]) { fineAside[fine] = roomM[fine]; ++clamped; }
+      if (fineAside[fine] < -roomM[fine]) { fineAside[fine] = -roomM[fine]; ++clamped; }
     }
     Note("stations where the road edge overruled the taper", (double)clamped, "stations");
 
@@ -850,7 +880,7 @@ int main(void) {
         heldAsideM += std::fabs(byM) <= mayMoveM ? byM : (byM > 0.0 ? mayMoveM : -mayMoveM);
       }
       const double roomM = fineEdge[fine < fineEdge.size() ? fine : fineEdge.size() - 1] -
-                           0.5 * kF31WidthM;
+                           0.5 * kF31WidthM - budgetM;
       if (roomM > 0.0) {
         if (heldAsideM > roomM) { heldAsideM = roomM; }
         if (heldAsideM < -roomM) { heldAsideM = -roomM; }
@@ -874,8 +904,9 @@ int main(void) {
     for (size_t which = 0; which < rig.Count; ++which) {
       double worldM[3];
       outshine::Physics::Place(body, rig.Mounts[which].AtM, worldM);
-      const size_t post = (size_t)(at.AlongM / spanM);
-      const size_t band = post < fineEdge.size() ? post : fineEdge.size() - 1;
+      const size_t band = (size_t)(at.AlongM / fineM) < fineEdge.size()
+                              ? (size_t)(at.AlongM / fineM)
+                              : fineEdge.size() - 1;
       const double edgeM = fineEdge[band];
       const outshine::Standing on =
           outshine::Stand(corridor, worldM[0], -worldM[2], 0.0, at.AlongM,

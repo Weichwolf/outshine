@@ -38,3 +38,21 @@ nothing. That number was bought by driving into the oncoming lane, so it was nev
 deviation -- was measured on a car that used the whole carriageway to hold its line. The lane
 constraint is what made the road's own geometry start mattering, and the first thing it found is that
 the width in the data changes as a STEP where a real road has a taper.
+
+## Comments -- the taper now leads, and what is left is not dynamic
+
+**The lane centre is now pulled in AHEAD of a narrowing**, by the same backward sweep the speed profile
+uses: what fits at station i also limits how far out the car may be at station i-1. It pulls in by up
+to **2.478 m** and touches **109 stations**. And the lane centre keeps the tracking budget clear of the
+edge -- 0.7195 m -- instead of sitting on it, which was worth 12 km of route.
+
+Two instrument defects fixed on the way, both the same shape as every other: an index computed on the
+96.53 m station grid and used on the 2 m grid, so the car read the road's width from 110 m away while
+it was at km 5.35; and `Airborne` counted a wheel in the air and a wheel off the road as one thing, so
+a normal suspension lift read as leaving the carriageway.
+
+**And then the useful null result.** Halving the tracking budget given to each speed term dropped the
+mean from 175.37 to 157.59 km/h -- and the car reached **126.408 km against 126.407 km**, with the same
+0.842 m of error at the same station. *A failure that does not move when the speed drops by 18 km/h is
+not a cornering error.* Whatever puts the car 0.842 m out of its lane at km 126.4 is geometric, and
+the next thing to look at is what the reference line itself does there.
