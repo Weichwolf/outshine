@@ -9,6 +9,7 @@
 #include "Journey.h"
 
 #include "Carriageway.h"
+#include "Ribbon.h"
 #include "ContentStore.h"
 #include "Drive.h"
 #include "Rigging.h"
@@ -175,28 +176,6 @@ const outshine::Physics::Body &Journey::Carried(void) const { return S_->Body; }
 const outshine::ReferenceLine &Journey::Corridor(void) const { return S_->Corridor; }
 const outshine::Scenario &Journey::Declared(void) const { return S_->Declared; }
 double Journey::LengthM(void) const { return S_->Corridor.LengthM(); }
-
-namespace {
-
-std::string Line(const char *shape, const std::string &one) {
-  std::string out = shape;
-  const size_t at = out.find("%s");
-  if (at != std::string::npos) { out.replace(at, 2, one); }
-  return out;
-}
-
-std::string Line(const char *shape, const char *one) { return Line(shape, std::string(one)); }
-
-std::string Line(const char *shape, ...) {
-  char held[512];
-  va_list rest;
-  va_start(rest, shape);
-  std::vsnprintf(held, sizeof(held), shape, rest);
-  va_end(rest);
-  return std::string(held);
-}
-
-} // namespace
 
 bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Sink &say) {
   const double kMunichLat = between.FromLatDeg;
