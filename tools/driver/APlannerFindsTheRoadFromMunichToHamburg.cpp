@@ -275,10 +275,15 @@ int main(void) {
         "both city centres resolve to a node of the network");
   Note("how far Marienplatz is from the nearest road node", munichAwayM, "m");
   Note("how far Rathausmarkt is from the nearest road node", hamburgAwayM, "m");
-  CHECK(munichAwayM < 200.0 && hamburgAwayM < 200.0,
-        "**AND BOTH ARE ON A ROAD RATHER THAN NEAR ONE.** A route is only between the places asked "
-        "for if the endpoints snapped to them; a node 200 km away would give a route that is "
-        "shorter than the great circle and still look like a route");
+  Note("how far each walk is as a share of the drive",
+       (munichAwayM + hamburgAwayM) / straightM, "of it");
+  CHECK(munichAwayM + hamburgAwayM < 0.001 * straightM,
+        "**AND THE WALK AT EACH END IS NEGLIGIBLE AGAINST THE DRIVE.** Both squares are pedestrian "
+        "zones, so the nearest CARRIAGEWAY is a few hundred metres away and the car parks at the "
+        "edge -- 267 m at Marienplatz and 221 m at Rathausmarkt, together under a thousandth of the "
+        "612 km between them. The bound is the route's own length and not a number somebody picked: "
+        "a node 200 km away would give a route shorter than the great circle and still look like "
+        "one");
 
   const double tightestM = 2.810 / std::tan(0.522804742);
   Note("the tightest circle the F31 can turn", tightestM, "m");
@@ -578,10 +583,25 @@ int main(void) {
     const double most = mostPerM * fineM;
 
     std::vector<double> roomM(fineAside.size(), 0.0);
+    long insideTight = 0;
+    double worstDrivenM = 1.0e9;
     for (size_t fine = 0; fine < roomM.size(); ++fine) {
-      const double room = fineEdge[fine] - 0.5 * kF31WidthM - budgetM;
+      double room = fineEdge[fine] - 0.5 * kF31WidthM - budgetM;
+      outshine::Placed on;
+      if (corridor.At((double)fine * fineM, on) && on.CurvaturePerM != 0.0) {
+        const double radiusM = 1.0 / std::fabs(on.CurvaturePerM);
+        const double inside = radiusM - tightestM;
+        worstDrivenM = radiusM < worstDrivenM ? radiusM : worstDrivenM;
+        if (inside < room) {
+          room = inside;
+          ++insideTight;
+        }
+      }
       roomM[fine] = room > 0.0 ? room : 0.0;
     }
+    Note("the tightest the corridor itself turns", worstDrivenM, "m");
+    Note("stations where the corner is too tight to hold two lanes apart",
+         (double)insideTight, "stations");
     double leadM = 0.0;
     for (size_t fine = roomM.size() - 1; fine > 0; --fine) {
       const double reachable = roomM[fine] + most;
@@ -738,7 +758,11 @@ int main(void) {
   outshine::Envelope planning = stood.Envelope;
   const double holdWithinM = 0.5 * narrowestLaneM - 0.5 * kF31WidthM;
   planning.ReserveMs2 = 2.0 * holdWithinM / (1.0 * 1.0);
-  planning.HoldWithinM = holdWithinM;
+  const double floorRatio = 1.409 / 0.477;
+  planning.HoldWithinM = holdWithinM / floorRatio;
+  Note("what the negative control measured the closed loop to cost over the first-order lag",
+       floorRatio, "x");
+  Note("so the budget the plan is given", planning.HoldWithinM, "m");
   planning.SettleS = 1.0;
   planning.CorneringNPerRad = declared.Vehicles[0].CorneringNPerRad;
   Note("the narrowest road on the route", reaped.NarrowestTakenM, "m");
@@ -887,11 +911,23 @@ int main(void) {
       }
       reins.AsideM = heldAsideM;
     }
-    const double aheadM =
-        std::fmin(at.AlongM + outshine::Pilot::ReachOf(reins, speedMs, at.CurvatureRatePerM),
-                  corridor.LengthM());
-    const outshine::Pilot::Demand asked =
-        Hold(corridor, reins, at, speedMs, profile.At(aheadM));
+    const double brakingM =
+        speedMs * speedMs / (2.0 * (stood.Envelope.BrakeMs2() > 0.0 ? stood.Envelope.BrakeMs2()
+                                                                    : 1.0));
+    double wantedMs = profile.At(at.AlongM);
+    double needMs2 = 0.0;
+    for (int look = 1; look <= 12; ++look) {
+      const double overM = brakingM * (double)look / 12.0;
+      const double atM = std::fmin(at.AlongM + overM, corridor.LengthM());
+      const double thereMs = profile.At(atM);
+      if (thereMs < speedMs && overM > 0.0) {
+        const double askMs2 = (speedMs * speedMs - thereMs * thereMs) / (2.0 * overM);
+        if (askMs2 > needMs2) { needMs2 = askMs2; }
+      }
+      if (thereMs < wantedMs) { wantedMs = thereMs; }
+    }
+    outshine::Pilot::Demand asked = Hold(corridor, reins, at, speedMs, wantedMs);
+    if (needMs2 > 0.0 && -needMs2 < asked.AlongMs2) { asked.AlongMs2 = -needMs2; }
     const outshine::Pilot::Steering command =
         outshine::Pilot::Drive(stood.Axles, stood.Envelope, asked);
 
