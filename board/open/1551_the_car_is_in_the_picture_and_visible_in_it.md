@@ -135,14 +135,36 @@ a camera seven metres behind it does not.
 narrower question than when this item opened -- geometry, scale, submission, surface and contrast are
 each measured and each sound.
 
+## THE BISECTION IS NOW A PERMANENT CASE, AND IT PASSES ON EVERY RUNG
+
+`TheChaseCameraSeesTheCarItFollows.cpp` stands the F31 with a built ground in one Live and looks
+from 7 m behind: **93 822 dark pixels of 230 400 -- the car fills forty percent of the chase
+frame.** Then it climbs toward the drive one ingredient at a time, and every rung passes:
+
+| rung | dark pixels |
+|---|---|
+| axis-aligned, at the origin | 93 822 |
+| the drive's own yaw (12.8 deg) and offset (190 m out) | 114 560 |
+| after a `Restand`, carried again | 93 822 |
+
+**So Live, Carry, the rotation, the large offset and the restand are each eliminated by
+measurement.** What the case does NOT contain is the drive's own geometry -- the swept carriageway
+and the graded ground -- and the standing suspicion is board:1529's shape one storey up: **the
+physics may be driving on a surface that is not the drawn deck**, leaving the drawn car under the
+drawn road. A side-view probe at the first station decides it.
+
+And the framed views are explained in passing: `BOUNDS -60.9..33.3` shows the FRAMING still spans
+the raw 300 m asset -- `FrameItself` frames bounds that ignore the placements, so the framed camera
+stands kilometres out and the "car" it shows is the unscaled giant, which is why it was always
+"plainly distinguishable" while the chase saw nothing.
+
 ## What must be true
 
-- [ ] **A picture that carries a subject's parts draws them**, and a case decides it: stand the F31 up
-      alone, aim a declared camera at it from its own declared chase distance, and assert the opaque
-      fraction is not zero
-- [ ] **Whatever the answer is, it is not another hypothesis** -- this one is settled by bisection,
-      the way `board:1529`'s road was: draw the car alone, with no ground and no corridor, from the
-      same camera
+- [x] **A picture that carries a subject's parts draws them**, and a case decides it --
+      `test/render/outshine/scenario/TheChaseCameraSeesTheCarItFollows.cpp`: the F31 joined to a
+      built ground, the chase camera 7 m behind, 93 822 dark pixels of 230 400
+- [ ] **Whatever the answer is, it is not another hypothesis** -- the case above bisects three of
+      the drive's ingredients and all three pass; what remains is the drive's own geometry
 
 ## Comments
 

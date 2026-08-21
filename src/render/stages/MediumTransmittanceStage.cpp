@@ -37,6 +37,7 @@ kernel void mediumTransmittanceKernel(uint2 at [[thread_position_in_grid]],
 }
 
 bool MediumTransmittanceStage::Configure(const Gpu &gpu, SDL_GPUTexture *lut, std::string &error) {
+  if (Lut != lut) { Settled_ = false; }
   Lut = lut;
   if (Lut == nullptr) {
     error = "the plan holds no transmittance table for this stage to write, so nothing downstream "

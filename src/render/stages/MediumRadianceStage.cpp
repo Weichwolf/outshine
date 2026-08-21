@@ -62,6 +62,9 @@ kernel void mediumRadianceKernel(uint2 at [[thread_position_in_grid]],
 bool MediumRadianceStage::Configure(const Gpu &gpu, SDL_GPUTexture *transmittance,
                                     SDL_GPUTexture *multiScatter, SDL_GPUSampler *lut,
                                     SDL_GPUTexture *into, std::string &error) {
+  if (Into != into || Transmittance != transmittance || MultiScatter != multiScatter) {
+    Settled_ = false;
+  }
   Transmittance = transmittance;
   MultiScatter = multiScatter;
   Lut = lut;

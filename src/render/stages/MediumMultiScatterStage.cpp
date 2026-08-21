@@ -44,6 +44,7 @@ kernel void mediumMultiScatterKernel(uint2 at [[thread_position_in_grid]],
 bool MediumMultiScatterStage::Configure(const Gpu &gpu, SDL_GPUTexture *transmittance,
                                         SDL_GPUSampler *lut, SDL_GPUTexture *into,
                                         std::string &error) {
+  if (Into != into || Transmittance != transmittance) { Settled_ = false; }
   Transmittance = transmittance;
   Lut = lut;
   Into = into;
