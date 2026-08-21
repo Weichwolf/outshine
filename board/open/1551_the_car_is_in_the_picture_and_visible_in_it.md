@@ -129,6 +129,8 @@ a camera seven metres behind it does not.
 
 **Two more ruled out in the same run.** `Restand` does not drop it -- the framed view at km 17.3, after several re-standings, still carries the car as a black shape on green ground. And the two driver cameras are genuinely distinct: `km0017.3-first` and `-third` differ in hash and in size, so `Look`'s declared branch is aiming them separately.
 
+**A ninth: the frames agree.** Both the vehicle placement and the eye subtract the same `originM` -- `body[12+axis] -= originM[axis]` at both sites, and `where.EyeM[axis] -= originM[axis]` for the camera -- so the car is not sitting in absolute world coordinates while the camera works in local ones.
+
 **What that leaves**: something about the chase placement or the near field, and it is now a much
 narrower question than when this item opened -- geometry, scale, submission, surface and contrast are
 each measured and each sound.
