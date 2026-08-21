@@ -68,9 +68,17 @@ this one is not occlusion, because a 4.6 m car seven metres ahead cannot hide be
 
 | | |
 |---|---|
-| `Live::Build` | resolves the file's surface table, then appends the built parts and `resize`s `PartSlot` with one extra slot. The 258 file entries must survive that |
+| ~~`Live::Build`'s surface table~~ | **RULED OUT.** Measured at the join: `parts 260  slots 24  partSlot 260`, and the material-slot ceiling is 16 777 216. Every table is the length it must be |
 | ~~`Live::Advance` rebuilding the geometry~~ | **RULED OUT.** The asset declares `animations: 0` and `skins: 0` over its 519 nodes and 258 meshes, so `Moves_` is false, `Pose` does nothing and `Advance` rebuilds nothing |
 | `Joined_` | **printed as 258 of 260**, so the car's parts are in the picture AND take the body placement. Recomputed inside `Build` from `Geometry_.Parts().size()` minus the built subject's, and read by `Carry` to decide which parts take the body |
+
+**All three suspects the bisection named are now eliminated by measurement.** The car's 258 parts are
+in the picture, carry the vehicle placement, and have a surface slot each in a table of the right
+length; the geometry is not rebuilt because the asset has no animation; and nothing is capped.
+
+**What is left is what happens between the draw list and the device**, and the next instrument is the
+one this session never built: **how many draws the frame actually submitted**, against how many the
+list holds. `SubjectDraw::DrawCount()` already sums `batch.Draws` and nothing reads it.
 
 ## What must be true
 
