@@ -47,6 +47,17 @@ The derived eye stands **7 km away** framing the whole 1400 m patch. Mine stands
 **The geometry says mine should see ground**: the patch spans z from -878.7 to +581.3, the car sits at
 z = -221.7 and looks toward -z, so roughly 660 m of ground lies ahead of it.
 
+## And two more, each by a run
+
+| Guess | Ruled out by |
+|---|---|
+| the ground patch is degenerate, or flat, or somewhere else | **measured, per re-lay**: `min -700.0 -14.5 -692.0  max 692.0 11.8 700.0`, 13 689 posts. A real 1400 m patch with 26 m of relief, centred on the origin the eye is 222 m from |
+| `Restand` fails silently and the geometry is stale | the return value is checked and printed now. **278 log lines, zero refusals.** It succeeds every time |
+
+**Everything measured is consistent, and the picture is still empty.** The subject is where it should
+be, the eye is where it should be, the patch is real, the re-stand lands, the path is exonerated and
+the depth is sound. That is the state this item hands on.
+
 ## What is left
 
 **The difference between the two paths is exactly one bool and one placement.** `Live::Look` takes the

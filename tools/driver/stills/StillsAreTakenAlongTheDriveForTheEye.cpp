@@ -98,6 +98,21 @@ bool Lie(const Journey &journey, const double aboutM[3], const double originM[3]
       out.NormalM.push_back((float)(slopeNorth / length));
     }
   }
+  {
+    float low[3] = {out.PositionM[0], out.PositionM[1], out.PositionM[2]};
+    float high[3] = {low[0], low[1], low[2]};
+    for (size_t at = 0; at < out.PositionM.size(); at += 3) {
+      for (int axis = 0; axis < 3; ++axis) {
+        low[axis] = out.PositionM[at + (size_t)axis] < low[axis] ? out.PositionM[at + (size_t)axis]
+                                                                 : low[axis];
+        high[axis] = out.PositionM[at + (size_t)axis] > high[axis]
+                         ? out.PositionM[at + (size_t)axis]
+                         : high[axis];
+      }
+    }
+    std::printf("GROUND min %.1f %.1f %.1f  max %.1f %.1f %.1f  posts %zu\n", low[0], low[1],
+                low[2], high[0], high[1], high[2], out.PositionM.size() / 3);
+  }
   for (int row = 0; row + 1 < side; ++row) {
     for (int column = 0; column + 1 < side; ++column) {
       const uint32_t here = (uint32_t)(row * side + column);
@@ -331,7 +346,9 @@ int main(void) {
         if (laid && ahead.Assemble(outshine::Gltf::Assembly{
                         outshine::Span<const outshine::Gltf::Piece>(pair, 2)})) {
           for (int axis = 0; axis < 3; ++axis) { originM[axis] = nextRun.OriginM[axis]; }
-          (void)standing->Restand(ahead, error);
+          if (!standing->Restand(ahead, error)) {
+            std::printf("REFUSED restand: %s\n", error.c_str());
+          }
         }
       }
     }
