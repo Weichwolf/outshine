@@ -40,6 +40,9 @@ constexpr double kRelayAtM = 400.0;
 constexpr double kRibbonStepM = 2.0;
 constexpr double kGroundReachM = 400.0;
 constexpr double kGroundStepM = 3.0;
+
+constexpr double kHorizonReachM = 12000.0;
+constexpr double kFarStepM = 240.0;
 constexpr double kSideSlopeRun = 1.5;
 constexpr double kCentreStepM = 1.5;
 constexpr double kHintWindowM = 200.0;
@@ -173,6 +176,66 @@ bool Lie(const Journey &journey, const double aboutM[3], const double originM[3]
       out.Index.push_back(right);
       out.Index.push_back(across);
       out.Index.push_back(up);
+    }
+  }
+
+  {
+    const uint32_t base = (uint32_t)(out.PositionM.size() / 3u);
+    const int farSide = (int)(2.0 * kHorizonReachM / kFarStepM) + 1;
+    std::vector<double> farHeightM((size_t)farSide * (size_t)farSide, 0.0);
+    double lastAslM = aboutM[1];
+    for (int row = 0; row < farSide; ++row) {
+      const double northM = aboutM[2] * -1.0 - kHorizonReachM + (double)row * kFarStepM;
+      for (int column = 0; column < farSide; ++column) {
+        const double eastM = aboutM[0] - kHorizonReachM + (double)column * kFarStepM;
+        const outshine::GroundSample sample =
+            outshine::World::GroundAt(frameLat + northM / perLatM, frameLon + eastM / perLonM);
+        double aslM = lastAslM;
+        if (sample.TryAslM(&aslM)) { lastAslM = aslM; }
+        farHeightM[(size_t)row * (size_t)farSide + (size_t)column] = aslM;
+      }
+    }
+    for (int row = 0; row < farSide; ++row) {
+      const double northM = aboutM[2] * -1.0 - kHorizonReachM + (double)row * kFarStepM;
+      for (int column = 0; column < farSide; ++column) {
+        const double eastM = aboutM[0] - kHorizonReachM + (double)column * kFarStepM;
+        const size_t at = (size_t)row * (size_t)farSide + (size_t)column;
+        out.PositionM.push_back((float)(eastM - originM[0]));
+        out.PositionM.push_back((float)(farHeightM[at] - originM[1]));
+        out.PositionM.push_back((float)(-northM - originM[2]));
+        const size_t west = column > 0 ? at - 1 : at;
+        const size_t east = column + 1 < farSide ? at + 1 : at;
+        const size_t south = row > 0 ? at - (size_t)farSide : at;
+        const size_t north = row + 1 < farSide ? at + (size_t)farSide : at;
+        const double slopeEast = (farHeightM[east] - farHeightM[west]) / (2.0 * kFarStepM);
+        const double slopeNorth = (farHeightM[north] - farHeightM[south]) / (2.0 * kFarStepM);
+        const double length = std::sqrt(slopeEast * slopeEast + slopeNorth * slopeNorth + 1.0);
+        out.NormalM.push_back((float)(-slopeEast / length));
+        out.NormalM.push_back((float)(1.0 / length));
+        out.NormalM.push_back((float)(slopeNorth / length));
+      }
+    }
+    const double insideM = kGroundReachM - kFarStepM;
+    for (int row = 0; row + 1 < farSide; ++row) {
+      const double cellNorthM =
+          aboutM[2] * -1.0 - kHorizonReachM + ((double)row + 0.5) * kFarStepM;
+      for (int column = 0; column + 1 < farSide; ++column) {
+        const double cellEastM = aboutM[0] - kHorizonReachM + ((double)column + 0.5) * kFarStepM;
+        if (std::fabs(cellEastM - aboutM[0]) < insideM &&
+            std::fabs(cellNorthM - aboutM[2] * -1.0) < insideM) {
+          continue;
+        }
+        const uint32_t here = base + (uint32_t)(row * farSide + column);
+        const uint32_t right = here + 1;
+        const uint32_t up = here + (uint32_t)farSide;
+        const uint32_t across = up + 1;
+        out.Index.push_back(here);
+        out.Index.push_back(right);
+        out.Index.push_back(up);
+        out.Index.push_back(right);
+        out.Index.push_back(across);
+        out.Index.push_back(up);
+      }
     }
   }
   return true;
@@ -453,12 +516,22 @@ int main(void) {
         outshine::Gltf::Subject ahead;
         if (laid && ahead.Assemble(outshine::Gltf::Assembly{
                         outshine::Span<const outshine::Gltf::Piece>(pair, 2)})) {
-          std::printf("RELAY at %.3f km laid %.3f..%.3f km origin moved %.1f %.1f %.1f stray %.1f m "
-                      "ground %zu tri road %zu tri\n",
-                      rode.ReachedM / 1000.0, laidFromM / 1000.0, laidToM / 1000.0,
-                      nextRun.OriginM[0] - originM[0], nextRun.OriginM[1] - originM[1],
-                      nextRun.OriginM[2] - originM[2], strayM, under.Index.size() / 3,
-                      nextRun.Index.size() / 3);
+          {
+            outshine::Placed on;
+            const bool found = journey.Corridor().At(rode.ReachedM, on);
+            const outshine::Standing deck =
+                StandAt(journey.Corridor(), rode.ReachedM, 0.0, 0.0);
+            const double carEastM = body16[12] + originM[0];
+            const double carUpM = body16[13] + originM[1];
+            const double carNorthM = -(body16[14] + originM[2]);
+            std::printf("RELAY at %.3f km laid %.3f..%.3f km stray %.1f m corridor %s dE %.1f "
+                        "dN %.1f dUp %.2f ground %zu tri road %zu tri\n",
+                        rode.ReachedM / 1000.0, laidFromM / 1000.0, laidToM / 1000.0, strayM,
+                        found ? "found" : "LOST", found ? on.EastM - carEastM : 0.0,
+                        found ? on.NorthM - carNorthM : 0.0,
+                        found ? deck.HeightM - carUpM : 0.0, under.Index.size() / 3,
+                        nextRun.Index.size() / 3);
+          }
           for (int axis = 0; axis < 3; ++axis) { originM[axis] = nextRun.OriginM[axis]; }
           if (!standing->Restand(ahead, error)) {
             std::printf("REFUSED restand: %s\n", error.c_str());

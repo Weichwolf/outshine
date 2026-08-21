@@ -23,3 +23,11 @@ coarsely, and the sky chain provides the haze colour the far ring fades into.
 
 Filed from the reviewer's round; the band was first measured in board:1558's comments and is now
 ranked by an outside eye as the third-worst thing in the picture.
+
+**The far ring stands** (2026-08-22 01:33): a second, coarser grid from 400 m to 12 km
+(`kHorizonReachM`, 240 m posts, a missing far sample carries the last height rather than sea
+level), indexed as a ring around the fine grid. Measured over the twelve fresh first-person
+stills, 120 horizon rows sampled per frame: **seven of twelve stations at ZERO dark pixels**, and
+the residue is a one-pixel line (463 px at km 61) -- the angular gap between the ring's silhouette
+seen from the 2 m eye and the sky LUT's horizon computed for its 10 m table eye. The remaining
+checkbox closes when the LUT eye height follows the camera.
