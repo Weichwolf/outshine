@@ -303,6 +303,8 @@ int main(void) {
   }
 
   double groundAtM[3] = {0.0, 0.0, 0.0};
+  double worstCutM = 0.0, worstFillM = 0.0, liftTotalM = 0.0;
+  long liftAt = 0;
   Ridden rode;
   size_t next = 0;
   long wrote = 0;
@@ -387,10 +389,13 @@ int main(void) {
         double aslM = 0.0;
         if (under.TryAslM(&aslM)) {
           const double roadAslM = body[13] + originM[1];
-          std::printf("CUTFILL raw terrain %.2f m asl, the car stands at %.2f, so the road is "
-                      "%.2f m %s the ground it was never cut into\n",
-                      aslM, roadAslM, std::fabs(roadAslM - aslM),
-                      roadAslM > aslM ? "ABOVE" : "BELOW");
+          const double liftM = roadAslM - aslM;
+          std::printf("CUTFILL at %.1f km the road stands %+.2f m against raw ground of %.2f m asl\n",
+                      rode.ReachedM / 1000.0, liftM, aslM);
+          if (liftM < worstCutM) { worstCutM = liftM; }
+          if (liftM > worstFillM) { worstFillM = liftM; }
+          liftTotalM += std::fabs(liftM);
+          ++liftAt;
         }
       }
       if (next == 0) {
@@ -449,6 +454,16 @@ int main(void) {
     if (rode.Arrived) { break; }
   }
 
+  Note("stations where cut and fill were measured", (double)liftAt, "stations");
+  Note("the deepest the road sits below raw ground", worstCutM, "m");
+  Note("the highest it stands above it", worstFillM, "m");
+  Note("the mean absolute lift over those stations", liftAt > 0 ? liftTotalM / (double)liftAt : 0.0,
+       "m");
+  CHECK(liftAt > 0,
+        "**AND CUT AND FILL ARE PUBLISHED ALONG THE ROUTE, NOT AT ONE POINT.** A road that fills "
+        "30 m is a viaduct nobody marked, and a road that CUTS is buried in the terrain the "
+        "renderer draws -- which is why this number and the missing carriageway in the driver's "
+        "view are one finding rather than two");
   Note("stills written", (double)wrote, "files");
   Note("how far the drive got", rode.ReachedM / 1000.0, "km");
   CHECK(wrote >= 2 * (long)atM.size() - 2,
