@@ -5,6 +5,7 @@
 
 #include "Check.h"
 
+#include "CurlTransport.h"
 #include "Journey.h"
 
 using outshine::Driver::Between;
@@ -46,7 +47,9 @@ int main(void) {
   Journey journey;
   const Between between{kMarienplatzLat, kMarienplatzLon, kRathausmarktLat, kRathausmarktLon};
 
-  const bool laid = journey.Lay(between, "tools/driver/f31.scenario", kZoom, harness);
+  outshine::Host::CurlTransport::Config wiring;
+  outshine::Host::CurlTransport wire(wiring);
+  const bool laid = journey.Lay(between, "tools/driver/f31.scenario", kZoom, wire, harness);
   CHECK(laid, "**THE ROAD FROM MARIENPLATZ TO RATHAUSMARKT IS LAID.** A route over ways fetched "
               "live, a corridor fitted through them, the real ground under it shaped to each road "
               "class's own grade, and the declared F31 standing on it -- and every one of those "

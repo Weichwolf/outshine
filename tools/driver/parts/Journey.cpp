@@ -15,7 +15,7 @@
 #include "Rigging.h"
 #include "ScenarioRead.h"
 #include "Fit.h"
-#include "CurlTransport.h"
+#include "Transport.h"
 #include "DeclaredSources.h"
 #include "GroundMaterials.h"
 #include "OsmField.h"
@@ -137,7 +137,6 @@ namespace outshine::Driver {
 struct Journey::State {
   std::unique_ptr<outshine::Data::ContentStore> Store;
   std::unique_ptr<outshine::Data::SourceSet> Sources;
-  std::unique_ptr<outshine::Host::CurlTransport> Wire;
   outshine::Scenario Declared;
   outshine::Clients::Rigged Stood;
   outshine::ReferenceLine Corridor;
@@ -199,7 +198,7 @@ std::string Line(const char *shape, ...) {
 
 } // namespace
 
-bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Sink &say) {
+bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Data::Transport &wire, Sink &say) {
   const double fromLatDeg = between.FromLatDeg;
   const double fromLonDeg = between.FromLonDeg;
   const double toLatDeg = between.ToLatDeg;
@@ -248,9 +247,6 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Si
         "the declared upstream sources register, ranked and without a clash");
   say.Number("sources registered", (double)sources.Count(), "sources");
 
-  outshine::Host::CurlTransport::Config wiring;
-  wiring.Threads = 8;
-  outshine::Host::CurlTransport wire(wiring);
   FbGroundSurface surface;
   surface.Z = 12;
   surface.Grid = 64;

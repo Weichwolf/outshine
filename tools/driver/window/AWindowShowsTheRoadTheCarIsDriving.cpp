@@ -6,6 +6,7 @@
 
 #include "Check.h"
 
+#include "CurlTransport.h"
 #include "Journey.h"
 #include "Live.h"
 #include "Renderer.h"
@@ -75,7 +76,9 @@ int main(void) {
   Quiet quiet;
   Journey journey;
   const Between between{kMarienplatzLat, kMarienplatzLon, kRathausmarktLat, kRathausmarktLon};
-  const bool laid = journey.Lay(between, "tools/driver/f31.scenario", kZoom, quiet);
+  outshine::Host::CurlTransport::Config wiring;
+  outshine::Host::CurlTransport wire(wiring);
+  const bool laid = journey.Lay(between, "tools/driver/f31.scenario", kZoom, wire, quiet);
   CHECK(laid, "**THE WINDOW LAYS THE ROAD WITH THE SAME CALL THE HEADLESS DRIVER DOES.** One "
               "translation unit, two binaries: the headless one links no renderer at all and this "
               "one links the whole of it, and neither knows which it is");

@@ -15,6 +15,10 @@
 #include "SpeedProfile.h"
 #include "Wayfinding.h"
 
+namespace outshine::Data {
+class Transport;
+}
+
 namespace outshine::Driver {
 
 class Sink {
@@ -151,7 +155,7 @@ public:
   Journey(const Journey &) = delete;
   Journey &operator=(const Journey &) = delete;
 
-  [[nodiscard]] bool Lay(const Between &between, const char *scenarioPath, int zoom, Sink &say);
+  [[nodiscard]] bool Lay(const Between &between, const char *scenarioPath, int zoom, Data::Transport &wire, Sink &say);
   [[nodiscard]] Ridden Ride(double dtS, const Taken *taken = nullptr);
   void Close(void);
 
