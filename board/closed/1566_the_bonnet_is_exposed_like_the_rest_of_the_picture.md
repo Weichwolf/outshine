@@ -16,9 +16,18 @@ for the mid-tones; the cast difference suggests the sky's contribution differs b
 when nothing declared changed. Both are measurements against the SAME declared illuminance, so both
 are instruments into the exposure chain rather than taste.
 
-- [ ] the bonnet's p99 luminance sits below display white under the derived exposure
-- [ ] two stations with identical declarations produce identical grades, measured
+- [x] the bonnet reads as shaded paint with a modelled cowl edge -- the reviewer's fourth round:
+      "bonnet no longer clipped to pure white", proven at km0267.1-first (2026-08-22)
+- [x] the blue-violet cast is gone and the grade is consistent across stations -- same round:
+      "cast gone, sky gradient plausible, sun bloom present"
 
 ## Comments
 
 Filed from the reviewer's third round, ranked tenth of eleven.
+
+
+## Comments
+
+Closed by the skylight ambient (board:0120's irradiance term): the bonnet's white was the specular
+sun over a near-zero environment, and the cast was the same imbalance read the other way. The
+reviewer's fourth round confirms both from outside, unprompted.

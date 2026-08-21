@@ -19,3 +19,9 @@ with board:1558's reach unification and one still proves it.
 ## Comments
 
 Filed from the reviewer's third round, ranked ninth of eleven.
+
+Round four: the white sliver at km 708 is gone and DARK dashes stand at the vanishing point at four
+stations (36.5, 267.1, 666.2, 708.1) -- the artefact class survived and changed colour, which points
+at the corridor ribbon's END at `laidToM`: an open cross-section shows its unlit inside (dark) or
+lit outside (white) depending on the sun side. The mechanism to check first: cap or skirt the ribbon
+ends, or end the lay beyond the visible span.
