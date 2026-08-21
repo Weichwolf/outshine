@@ -43,3 +43,20 @@ km 117.1 before the crest term existed.
 
 `board:1505` already carries cut and fill as a task. This item is the wider statement it belongs to:
 the drawn geometry, the driven surface and the terrain are one thing seen three ways.
+
+## And it is tile-based AND streamed
+
+**The owner's ruling completes the pipeline:** *elevation data shapes terrain -> OSM data builds
+infrastructure AND also shapes terrain. That has to work tile-based but streamed as well.*
+
+So the deformation is not a mesh edit and cannot be: it is a **field a ground tile evaluates**, and a
+tile must be able to evaluate it from what is loaded around it.
+
+- [ ] **A tile's ground is a function of its own OSM features and its neighbours' reach**, and the
+      reach is DECLARED -- an embankment's side slope has a length, and that length is how far into
+      the next tile a road can push
+- [ ] **The result does not depend on which tiles happen to be loaded.** That is `board:1518`'s
+      tile-shift relation applied here, and it is the single most valuable check this whole pipeline
+      has: shift the tile grid by half a tile and the ground inside must not move
+- [ ] **A tile whose neighbour has not arrived says PENDING and not a guess**, the way
+      `GroundSample` already answers Resolved, Pending or Hole
