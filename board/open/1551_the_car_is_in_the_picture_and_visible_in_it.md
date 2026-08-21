@@ -96,6 +96,24 @@ luminance p50 **76** and the ground surface at R = G = **76.6**, saturation p50 
 drawn against ground of the same brightness is submitted, rasterised, and indistinguishable. That is
 his S5 -- *one single material colour for the whole of Germany* -- and it was never a missing draw.
 
+## CONFIRMED IN THE PICTURE
+
+**Looked at**: the ground is green, the carriageway a dark line across it, and the car a clearly
+distinguishable dark shape standing ON the ground. The first frame of this session in which a person
+would say *there is a car on a road*.
+
+**Against the reviewer's own instruments, on his own measure:**
+
+| | round 2 | now |
+|---|---|---|
+| saturation p50 | **0.038** | **0.31** |
+| luminance band 96-223 | 0.35 % | **93.6 %** |
+| pure white | 0.00 % | 0.00 % |
+
+**The car was never missing a draw.** 260 draws were submitted for 260 parts all along; what was
+missing was a second declared surface, so the ground wore the road's asphalt and a dark car stood
+against ground of its own brightness.
+
 ## What must be true
 
 - [ ] **A picture that carries a subject's parts draws them**, and a case decides it: stand the F31 up
