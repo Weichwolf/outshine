@@ -29,6 +29,27 @@ carriageway, the same embankment, no vehicle.
 | the chase camera is not behind the car | +6.97 m along the view axis, printed above |
 | the road hides it | the road is 0.35 m proud of a formation the car stands ON, and the car is 4.6 m long |
 
+## BISECTED -- the drawn car is 65 TIMES TOO BIG
+
+**Drawn alone, from (0, 1.5, 7) looking down -Z -- its own declared chase offset -- the frame fills
+with black geometry. The camera is INSIDE the car.** Measured:
+
+```
+CARBOUNDS  span 132.728 x 94.267 x 297.584 m
+an F31 is         1.811 x  1.440 x   4.624 m
+           ratio    73.3 x    65.5 x    64.4
+```
+
+**The scenario declares `wheelbaseM="2.810"` and `board:1511` records that the asset's scale was
+derived from that dimension** -- for the PHYSICS. `Live::Build` reads `scene.gltf` raw and applies
+nothing, so the drawn subject is a 300 m object and every camera that should see a car is standing
+inside one.
+
+**And it corrects an attribution I made earlier in the same session.** The vertical span of -60.9 to
+33.3 m that I read off the picture's bounds and put down to the corridor was **always the car**. A
+94 m tall thing was in every frame from the moment the F31 was joined, and nothing said so because
+nothing measured the subject it stood up.
+
 ## What must be true
 
 - [ ] **A picture that carries a subject's parts draws them**, and a case decides it: stand the F31 up
