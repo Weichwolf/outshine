@@ -1,45 +1,25 @@
 #include "TerrainGrid.h"
 
-#include <SDL3/SDL_iostream.h>
-#include <SDL3/SDL_surface.h>
-#include <SDL3_image/SDL_image.h>
-
-#include <memory>
-
 #include "Log.h"
+#include "Png.h"
 
 namespace outshine::World {
-
-namespace {
-
-struct SurfaceDeleter {
-  void operator()(SDL_Surface *s) const { SDL_DestroySurface(s); }
-};
-using OwnedSurface = std::unique_ptr<SDL_Surface, SurfaceDeleter>;
-
-}
 
 TerrainGrid TerrainGrid::FromTerrariumPng(const uint8_t *png, size_t len) {
   if (!png || len == 0) return NotHere();
 
-  SDL_IOStream *io = SDL_IOFromConstMem(png, len);
-  if (!io) return Undecodable();
-  const OwnedSurface decoded(IMG_Load_IO(io, true));
-  if (!decoded) {
-    Log::Error("world", "dem_undecodable", {{"bytes", (int)len}, {"why", std::string(SDL_GetError())}});
+  const Io::Png read = Io::ReadPng(png, len);
+  if (!read.Read) {
+    Log::Error("world", "dem_undecodable", {{"bytes", (int)len}, {"why", read.Error}});
     return Undecodable();
   }
 
-  const OwnedSurface rgb(SDL_ConvertSurface(decoded.get(), SDL_PIXELFORMAT_RGB24));
-  if (!rgb || rgb->w <= 0 || rgb->h <= 0) return Undecodable();
-
-  TerrainField field((uint32_t)rgb->h, (uint32_t)rgb->w);
-  const uint8_t *rows = (const uint8_t *)rgb->pixels;
-  for (int r = 0; r < rgb->h; r++) {
-    const uint8_t *p = rows + (size_t)r * (size_t)rgb->pitch;
-    for (int c = 0; c < rgb->w; c++, p += 3) {
-
-      field.SetM((uint32_t)r, (uint32_t)c,
+  TerrainField field(read.High, read.Wide);
+  const size_t stride = (size_t)read.Wide * read.Channels;
+  for (uint32_t r = 0; r < read.High; r++) {
+    const uint8_t *p = read.Bytes.data() + (size_t)r * stride;
+    for (uint32_t c = 0; c < read.Wide; c++, p += read.Channels) {
+      field.SetM(r, c,
                  (float)p[0] * 256.0f + (float)p[1] + (float)p[2] * (1.0f / 256.0f) - 32768.0f);
     }
   }

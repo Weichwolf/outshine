@@ -45,7 +45,6 @@ private:
   State Where_ = State::Missing;
 };
 
-int  fb_load_image_file(const char *path, uint8_t **rgba, int *w, int *h);
 
 struct FbStarBands {
   enum class State { Pending, Complete };

@@ -60,6 +60,7 @@ done
 
 LayerIncludes() {
   case "$1" in
+    unit/core/io) printf '%s' "-Isrc/core -Isrc/core/io" ;;
     unit/core) printf '%s' "-Isrc/core -Isrc/core/io" ;;
     unit/corridor) printf '%s' "-Isrc/corridor" ;;
     unit/physics) printf '%s' "-Isrc/physics" ;;
@@ -95,7 +96,7 @@ LayerToolchain() {
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     render/outshine/client) printf '%s' "-std=c++20" ;;
     render/outshine/drive) printf '%s' "-std=c++20" ;;
-    tools/driver) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    tools/driver) printf '%s' "-std=c++20" ;;
     render/outshine/shader) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3)" ;;
     unit/clients) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
@@ -119,7 +120,8 @@ LayerLink() {
   case "$1" in
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario | render/outshine/client) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz" ;;
     harness/claims) printf '%s' "-lz" ;;
-    tools/driver) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz -lcurl" ;;
+    unit/core/io) printf '%s' "-lz" ;;
+    tools/driver) printf '%s' "-lz -lcurl" ;;
     render/outshine/shader) printf '%s' "$(pkg-config --libs sdl3)" ;;
     unit/clients) printf '%s' "$(pkg-config --libs sdl3-image)" ;;
     *) printf '%s' "" ;;
@@ -129,6 +131,7 @@ LayerLink() {
 LayerGroups() {
   case "$1" in
     unit/core) printf '%s' "src/core src/core/io" ;;
+    unit/core/io) printf '%s' "src/core src/core/io" ;;
     unit/corridor) printf '%s' "src/corridor" ;;
     unit/physics) printf '%s' "src/physics" ;;
     unit/pilot) printf '%s' "src/corridor src/pilot" ;;
@@ -197,7 +200,7 @@ GroupIncludes() {
     src/world/Wayfinding.cpp) printf '%s' "-Isrc/corridor -Isrc/world" ;;
     src/world/RoadHarvest.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/data -Isrc/world -Isrc/world/tiles" ;;
     src/data) printf '%s' "-Isrc/core -Isrc/data" ;;
-    src/world | src/world/tiles) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/corridor -Isrc/data -Isrc/world -Isrc/world/tiles $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    src/world | src/world/tiles) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/corridor -Isrc/data -Isrc/world -Isrc/world/tiles" ;;
     src/gltf) printf '%s' "-Isrc/core -Isrc/gltf" ;;
     src/ui) printf '%s' "-Isrc/core -Isrc/ui" ;;
     src/scenario) printf '%s' "-Isrc/core -Isrc/scenario" ;;

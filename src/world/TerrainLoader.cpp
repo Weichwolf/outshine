@@ -12,8 +12,6 @@
 #include "ChunkSurface.h"
 #include "GroundSample.h"
 #include "Heap.h"
-#include <SDL3/SDL_surface.h>
-#include <SDL3_image/SDL_image.h>
 
 #include "Log.h"
 #include "SourceSet.h"
@@ -283,29 +281,6 @@ void FbGroundBlock::AslMRow(double latDeg, double lonFromDeg, double lonStepDeg,
   const double fx0 = tx0 - (double)X_, fxStep = tx1 - tx0;
   for (int i = 0; i < count; i++)
     out[i] = TileHeightAslM(Nodes_, Side_, Postings_, fx0 + (double)i * fxStep, fy);
-}
-
-int fb_load_image_file(const char *path, uint8_t **rgba, int *w, int *h) {
-  SDL_Surface *decoded = IMG_Load(path);
-  if (!decoded) {
-    Log::Error("world", "image_file_undecodable",
-               {{"path", std::string(path ? path : "")}, {"why", std::string(SDL_GetError())}});
-    return 0;
-  }
-  SDL_Surface *rgba32 = SDL_ConvertSurface(decoded, SDL_PIXELFORMAT_RGBA32);
-  SDL_DestroySurface(decoded);
-  if (!rgba32) return 0;
-  *w = rgba32->w;
-  *h = rgba32->h;
-  const size_t bytes = (size_t)(*w) * (size_t)(*h) * 4;
-  uint8_t *out = (uint8_t *)Heap::Take("moon rgba", bytes);
-  for (int r = 0; r < rgba32->h; r++)
-    memcpy(out + (size_t)r * (size_t)(*w) * 4,
-           (const uint8_t *)rgba32->pixels + (size_t)r * (size_t)rgba32->pitch,
-           (size_t)(*w) * 4);
-  SDL_DestroySurface(rgba32);
-  *rgba = out;
-  return 1;
 }
 
 FbStarBands fb_fetch_stars(uint8_t *dst, int cap) {

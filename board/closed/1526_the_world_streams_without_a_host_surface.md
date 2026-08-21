@@ -30,3 +30,23 @@ the instrument working exactly as the board said it would.
 the standard library alone, and `src/world/RoadHarvest.cpp` needs core, data and the tile pool but no
 device. The dependency is in the terrain path only, which is why this is a bug and not an
 architecture problem -- `board:1525` is the general rule it violates.
+
+## Closed -- the engine reads its own elevation tiles
+
+**Two things were in the way and only one of them was real.** `fb_load_image_file` in `TerrainLoader`
+called `IMG_Load` and was called by NOBODY -- its heap tag still said "moon rgba" and the caller was
+long gone. That is a dead path, and `CLAUDE.md` is unambiguous about those. Deleted.
+
+**The real one was the elevation decode.** `TerrainGrid::FromTerrariumPng` used SDL_image to turn a
+Terrarium tile into RGB. `src/core/io/Png.{h,cpp}` now does it: signature, IHDR, IDAT and IEND,
+inflated against zlib -- which the tree already links -- and unfiltered row by row through None, Sub,
+Up, Average and Paeth. About 150 lines, ours, no new dependency.
+
+Every shape it does not take is refused by name and by number: a bit depth it does not read, a colour
+type it does not read, interlacing, a truncation that says how many bytes were claimed and how many
+were left, and a row filter PNG does not have. Proven by
+`test/unit/core/io/APngReaderTakesWhatAnElevationTileIs.cpp` -- **0 bytes wrong** over 64x48 tiles
+under all three filters an encoder actually chooses, and RGBA read at four channels.
+
+**`src/world` and `tools/driver` now compile and link with no SDL flag anywhere.** The goal's
+*headless with no renderer linked at all* is literally true for the first time.
