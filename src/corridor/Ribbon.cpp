@@ -56,6 +56,18 @@ Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM, d
   out.NormalM.reserve(stations * kRibbonAcross * 2 * 3);
   out.AcrossM.reserve(stations * kRibbonAcross * 2);
 
+  {
+    Placed first;
+    if (!along.At(fromM > toM ? toM : fromM, first)) {
+      out.Error = "the reference line places nothing at " + std::to_string(fromM) + " m";
+      return out;
+    }
+    const Standing surface = StandAt(along, fromM > toM ? toM : fromM, 0.0, 0.0);
+    out.OriginM[0] = first.EastM;
+    out.OriginM[1] = surface.HeightM;
+    out.OriginM[2] = -first.NorthM;
+  }
+
   for (size_t station = 0; station < stations; ++station) {
     const double atM = fromM + (double)station * stepM;
     Placed on;
@@ -69,7 +81,8 @@ Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM, d
       const Standing surface = StandAt(along, atM > toM ? toM : atM, acrossAt[which], 0.0);
       const double eastM = on.EastM + left[0] * acrossAt[which];
       const double northM = on.NorthM + left[1] * acrossAt[which];
-      Put(out.PositionM, eastM, surface.HeightM, -northM);
+      Put(out.PositionM, eastM - out.OriginM[0], surface.HeightM - out.OriginM[1],
+          -northM - out.OriginM[2]);
       Put(out.NormalM, surface.NormalM[0], surface.NormalM[1], -surface.NormalM[2]);
       out.AcrossM.push_back((float)acrossAt[which]);
     }
@@ -77,9 +90,9 @@ Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM, d
       const Standing surface = StandAt(along, atM > toM ? toM : atM, acrossAt[which], 0.0);
       const double eastM = on.EastM + left[0] * acrossAt[which];
       const double northM = on.NorthM + left[1] * acrossAt[which];
-      Put(out.PositionM, eastM - surface.NormalM[0] * section.ThicknessM,
-          surface.HeightM - surface.NormalM[1] * section.ThicknessM,
-          -(northM - surface.NormalM[2] * section.ThicknessM));
+      Put(out.PositionM, eastM - surface.NormalM[0] * section.ThicknessM - out.OriginM[0],
+          surface.HeightM - surface.NormalM[1] * section.ThicknessM - out.OriginM[1],
+          -(northM - surface.NormalM[2] * section.ThicknessM) - out.OriginM[2]);
       Put(out.NormalM, -surface.NormalM[0], -surface.NormalM[1], surface.NormalM[2]);
       out.AcrossM.push_back((float)acrossAt[which]);
     }

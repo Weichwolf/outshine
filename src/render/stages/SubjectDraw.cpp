@@ -1296,6 +1296,9 @@ bool SubjectDraw::SetMaterials(const std::vector<SubjectMaterial> &materials, st
 }
 
 bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
+
+  StagedCount_ = 0;
+  StagingUsed_ = 0;
   NVerts = mesh.VertexCount;
   NIdx = mesh.IndexCount;
   HasUv = mesh.Uv != nullptr;

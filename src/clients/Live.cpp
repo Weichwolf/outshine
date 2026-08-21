@@ -2,7 +2,11 @@
 
 #include <cmath>
 
+#include <cstdio>
+#include <vector>
+
 #include "Heap.h"
+#include "Image.h"
 
 #include "Framing.h"
 
@@ -136,6 +140,13 @@ bool Live::Build(std::string &error) {
 
   Render::PlanSpec declaration;
   DeclarePlan(File_, Moves_, Declared_.Presents, declaration);
+  if (Declared_.Exposure > 0.0) {
+    declaration.Exposure = Render::Declared<float>((float)Declared_.Exposure);
+  } else if (Declared_.KeyLux > 0.0) {
+    const double ev100 = std::log2(Declared_.KeyLux / 2.5);
+    declaration.Exposure =
+        Render::Declared<float>((float)(1.0 / (1.2 * std::pow(2.0, ev100))));
+  }
   if (!Render::RenderPlan::Compile(declaration, &Plan_, error)) { return false; }
   Renderer_->Init(Declared_.SurfaceWidthPx, Declared_.SurfaceHeightPx, Plan_);
   if (!Renderer_->DeviceUsable()) {
@@ -187,6 +198,7 @@ bool Live::Pose(int frame, std::string &error) {
 void Live::Eye(const Gltf::Placement &from) {
   Eye_ = from;
   HaveEye_ = true;
+  Aimed_ = false;
 }
 
 bool Live::Look(std::string &error) {
@@ -318,7 +330,45 @@ bool Live::Redeclare(std::vector<Shows> surfaces, std::string &error) {
   return Compose(error);
 }
 
-bool Live::Carry(const double model[16], std::string &error) {
+bool Live::Screenshot(const std::string &path, std::string &error) {
+  if (Renderer_ == nullptr || !Stoodup_) {
+    error = "nothing has been drawn yet, so there is no frame to write";
+    return false;
+  }
+  std::vector<uint8_t> rgba;
+  if (Renderer_->ReadPixels(rgba) != Render::ReadState::Ready) {
+    error = "the frame did not come back from the device";
+    return false;
+  }
+  const size_t want =
+      (size_t)Declared_.SurfaceWidthPx * (size_t)Declared_.SurfaceHeightPx * 4u;
+  if (rgba.size() != want) {
+    error = "the frame read back " + std::to_string(rgba.size()) + " bytes and " +
+            std::to_string(Declared_.SurfaceWidthPx) + " by " +
+            std::to_string(Declared_.SurfaceHeightPx) + " rgba is " + std::to_string(want);
+    return false;
+  }
+  std::vector<uint8_t> png;
+  if (!EncodePng(rgba.data(), Declared_.SurfaceWidthPx, Declared_.SurfaceHeightPx, png)) {
+    error = "the frame did not encode as a png";
+    return false;
+  }
+  std::FILE *const file = std::fopen(path.c_str(), "wb");
+  if (file == nullptr) {
+    error = "the screenshot could not be opened for writing at " + path;
+    return false;
+  }
+  const size_t wrote = std::fwrite(png.data(), 1, png.size(), file);
+  std::fclose(file);
+  if (wrote != png.size()) {
+    error = "the screenshot wrote " + std::to_string(wrote) + " of " + std::to_string(png.size()) +
+            " bytes to " + path;
+    return false;
+  }
+  return true;
+}
+
+bool Live::Carry(const double body[16], const double built[16], std::string &error) {
   if (Joined_ == 0) {
     error = "nothing joined this picture from a file, so there is no body to carry -- every part "
             "stands where the world put it";
@@ -328,8 +378,9 @@ bool Live::Carry(const double model[16], std::string &error) {
     Stood_.PartPlacement.assign(Geometry_.Parts().size(),
                                 {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1});
   }
-  for (size_t part = 0; part < Joined_; ++part) {
-    for (int at = 0; at < 16; ++at) { Stood_.PartPlacement[part][at] = model[at]; }
+  for (size_t part = 0; part < Stood_.PartPlacement.size(); ++part) {
+    const double *const from = part < Joined_ ? body : built;
+    for (int at = 0; at < 16; ++at) { Stood_.PartPlacement[part][at] = from[at]; }
   }
   return Renderer_->SetSubjectPlacements(Stood_.PartPlacement.front().data(),
                                          Stood_.PartPlacement.size(), error);
@@ -358,10 +409,12 @@ bool Live::Advance(std::string &error) {
     TookSubmitting_ = took(beforeSubmit);
   }
 
-  if (Declared_.OrbitDegPerFrame != 0.0 && Geometry_.TriangleCount() > 0) {
-    Around_ += Declared_.OrbitDegPerFrame;
+  const bool orbits = Declared_.OrbitDegPerFrame != 0.0 && Geometry_.TriangleCount() > 0;
+  if (orbits) { Around_ += Declared_.OrbitDegPerFrame; }
+  if (orbits || !Aimed_) {
     const size_t beforeAim = Heap::LiveBytes();
     if (!Look(error)) { return false; }
+    Aimed_ = true;
     TookAiming_ = took(beforeAim);
   }
   const size_t beforeDraw = Heap::LiveBytes();

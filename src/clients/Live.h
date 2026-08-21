@@ -50,6 +50,8 @@ struct Declaration {
 
   double Environment[3] = {0.0, 0.0, 0.0};
   double KeyLux = 0.0;
+
+  double Exposure = 0.0;
   double KeyElevationDeg = 0.0, KeyBearingDeg = 0.0;
 
   bool Presents = false;
@@ -74,11 +76,19 @@ public:
 
   [[nodiscard]] bool Restand(const Gltf::Subject &built, std::string &error);
 
-  [[nodiscard]] bool Carry(const double model[16], std::string &error);
+  [[nodiscard]] bool Carry(const double body[16], const double built[16],
+                           std::string &error);
+
+  [[nodiscard]] bool Screenshot(const std::string &path, std::string &error);
 
   [[nodiscard]] bool Advance(std::string &error);
 
   void Eye(const Gltf::Placement &from);
+
+  void FrameItself(void) {
+    HaveEye_ = false;
+    Aimed_ = false;
+  }
 
   [[nodiscard]] Ui::Touched Under(double xPx, double yPx) const;
 
@@ -120,6 +130,7 @@ private:
   Gltf::Subject Geometry_, Previous_;
   Gltf::Placement Eye_;
   bool HaveEye_ = false;
+  bool Aimed_ = true;
   Gltf::Pose Motion_;
   Gltf::VariantSelection Variant_;
   std::vector<Gltf::Transform> Locals_;
