@@ -18,6 +18,7 @@ struct Placement {
   double HeightErrorM = 0.0;
   double HeadingErrorRad = 0.0;
   double CurvaturePerM = 0.0;
+  double CurvatureRatePerM = 0.0;
   double SlopeAt = 0.0;
   double BankRad = 0.0;
 };

@@ -26,6 +26,7 @@ struct Leg {
   Waypoint At;
   double AlongM = 0.0;
   double HalfWidthM = 0.0;
+  double MaxGradient = 0.0;
 };
 
 struct Route {
@@ -43,7 +44,7 @@ class Network {
 public:
   explicit Network(double snapM) : SnapM_(snapM) {}
 
-  void Lay(const double *latLonPairs, size_t points, double halfWidthM);
+  void Lay(const double *latLonPairs, size_t points, double halfWidthM, double maxGradient);
   [[nodiscard]] bool Weave(std::string &error);
 
   [[nodiscard]] size_t WayCount(void) const { return Ways_.size(); }
@@ -63,6 +64,7 @@ private:
     size_t First = 0;
     size_t Count = 0;
     double HalfWidthM = 0.0;
+    double MaxGradient = 0.0;
   };
   struct Node {
     double LatDeg = 0.0;
@@ -70,6 +72,7 @@ private:
     size_t FirstEdge = 0;
     size_t EdgeCount = 0;
     double HalfWidthM = 0.0;
+    double MaxGradient = 0.0;
   };
   struct Edge {
     size_t To = 0;
@@ -81,6 +84,7 @@ private:
   double SnapM_ = 0.0;
   std::vector<double> Points_;
   std::vector<double> Widths_;
+  std::vector<double> Gradients_;
   std::vector<Way> Ways_;
   std::vector<Node> Nodes_;
   std::vector<Edge> Edges_;

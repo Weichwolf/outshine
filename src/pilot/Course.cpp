@@ -42,6 +42,7 @@ Placement Locate(const ReferenceLine &along, double eastM, double northM, double
   out.HeightErrorM = heightM - on.HeightM;
   out.HeadingErrorRad = Wrapped(headingRad - on.HeadingRad);
   out.CurvaturePerM = on.CurvaturePerM;
+  out.CurvatureRatePerM = on.CurvatureRatePerM;
   out.SlopeAt = on.Slope;
   out.BankRad = on.BankRad;
   return out;

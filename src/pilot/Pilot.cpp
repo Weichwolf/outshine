@@ -16,8 +16,13 @@ double Wrapped(double angleRad) {
 
 } // namespace
 
-double ReachOf(const Reins &with, double speedMs) {
+double ReachOf(const Reins &with, double speedMs, double curvatureRatePerM) {
   double reachM = with.SettleS * (speedMs > 0.0 ? speedMs : 0.0);
+  const double ramp = std::fabs(curvatureRatePerM);
+  if (with.HoldWithinM > 0.0 && ramp > 0.0) {
+    const double byLag = std::cbrt(6.0 * with.HoldWithinM / ramp);
+    if (byLag < reachM) { reachM = byLag; }
+  }
   if (reachM < with.LeastReachM) { reachM = with.LeastReachM; }
   return reachM;
 }
@@ -28,7 +33,7 @@ Demand Hold(const ReferenceLine &along, const Reins &with, const Placement &at, 
   out.SpeedMs = wantedMs;
   if (!at.Found || !(with.SettleS > 0.0)) { return out; }
 
-  const double reachM = ReachOf(with, speedMs);
+  const double reachM = ReachOf(with, speedMs, at.CurvatureRatePerM);
   out.ReachM = reachM;
 
   const Sighting ahead = Sight(along, at, reachM);

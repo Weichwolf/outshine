@@ -194,3 +194,37 @@ correct until something runs over it, at which point the cutting has severed tha
 The second is pure topology, needs no elevation solve at all, and additionally says WHICH of the two
 is above -- from `layer`, or from whichever profile is the one that cannot descend. **The crossing is
 its own evidence.**
+
+### The reveal SAMPLES THE SURROUNDINGS -- it is not one number at one station
+
+**The owner's ruling:** *you have to sample the surroundings somehow, to recognise bridges, tunnels and
+ramps.* A gradient at a station says something is wrong there; it does not say WHAT. What names the
+structure is the neighbourhood:
+
+| what is sampled around the station | what it tells you |
+|---|---|
+| the terrain either side of the corridor, across its width | a CUTTING has ground above the road on both sides; an EMBANKMENT has ground below on both |
+| the terrain ahead and behind, over the structure's own length | a bridge spans a low place; a tunnel passes a high one; a ramp does neither and just climbs |
+| what other corridors cross in plan, and at what height | the clearance rule -- and the only thing that makes a bridge a bridge rather than a dam |
+| what the water layer says underneath | a crossing over water is a bridge with no further evidence needed |
+| how far the cut or fill runs | 30 m of fill over 40 m is a viaduct; 0.4 m over 4 km is a road |
+| whether the neighbouring ways share the corridor's height or the terrain's | a ramp LEAVES the road it came from, so its far end is at the terrain and its near end is not |
+
+- [ ] **A structure is proposed by the CUT AND FILL profile and confirmed by the neighbourhood**, never
+      by a single station's gradient
+- [ ] **Each structure kind has a named signature** over those samples, and the signature is what is
+      classified -- so `board:1504`'s fingerprint gets a structure class rather than a number
+- [ ] **A proposal the neighbourhood contradicts is a REFUSAL and is reported**, because a bridge with
+      ground under it and a tunnel with sky over it are both the reconstruction being wrong loudly
+
+### The upstream bytes are cached and the engine already knows how
+
+**The owner's ruling:** *the engine should cache the OSM and elevation data -- it already has a caching
+framework.* `Data::ContentStore` is that framework, hash-keyed, and it is what makes the second run of
+the Munich to Hamburg planner take 0.25 s of fetching against 7.03 s, and the elevation sampling 0.6 s
+against 69.8 s.
+
+- [ ] **The store's directory is DECLARED and not a literal in a tool.** The driver currently names a
+      path of its own, which means two programs cache the same planet twice
+- [ ] **The cache is quoted with every timing**, because a number taken over a warm cache and one taken
+      cold are different measurements of different things

@@ -51,7 +51,7 @@ int main(void) {
       along.push_back(lat + (double)row * kBlockDeg);
       along.push_back(lon + (double)column * kBlockDeg);
     }
-    grid.Lay(along.data(), (size_t)kSide, 3.5);
+    grid.Lay(along.data(), (size_t)kSide, 3.5, 0.06);
   }
   for (int column = 0; column < kSide; ++column) {
     std::vector<double> down;
@@ -59,7 +59,7 @@ int main(void) {
       down.push_back(lat + (double)row * kBlockDeg);
       down.push_back(lon + (double)column * kBlockDeg);
     }
-    grid.Lay(down.data(), (size_t)kSide, 3.5);
+    grid.Lay(down.data(), (size_t)kSide, 3.5, 0.06);
   }
 
   std::string error;
@@ -126,8 +126,8 @@ int main(void) {
   Network island(kSnapM);
   const double first[4] = {48.0, 11.0, 48.0, 11.01};
   const double second[4] = {49.0, 12.0, 49.0, 12.01};
-  island.Lay(first, 2, 3.5);
-  island.Lay(second, 2, 3.5);
+  island.Lay(first, 2, 3.5, 0.06);
+  island.Lay(second, 2, 3.5, 0.06);
   CHECK(island.Weave(error), "two ways that never meet still weave");
   const Route broken = island.Plan(Waypoint{48.0, 11.0}, Waypoint{49.0, 12.0}, 0.0, 10.0);
   CHECK(!broken.Found,

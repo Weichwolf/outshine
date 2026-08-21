@@ -10,7 +10,7 @@ namespace outshine {
 inline constexpr size_t kMaxCorridorSegments = 262144;
 inline constexpr size_t kMaxCorridorKnots = 262144;
 inline constexpr double kResectionCoarseM = 1.0;
-inline constexpr int kResectionRefinements = 40;
+inline constexpr int kResectionRefinements = 24;
 inline constexpr double kTangentTolerance = 1.0e-9;
 
 enum class Curve : uint8_t { Straight, Arc, Spiral };
@@ -21,6 +21,7 @@ struct Placed {
   double HeightM = 0.0;
   double HeadingRad = 0.0;
   double CurvaturePerM = 0.0;
+  double CurvatureRatePerM = 0.0;
   double Slope = 0.0;
   double SlopeRatePerM = 0.0;
   double BankRad = 0.0;

@@ -155,6 +155,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
       rule.Tpl = (int)i;
       rule.Rank = (int)r["rank"].Num(-1.0);
       rule.WidthM = (float)r["widthM"].Num(0.0);
+      rule.MaxGradient = (float)r["maxGradient"].Num(0.0);
       if (rule.Rank < 0) { Error_ = "osm row without rank: " + layer + "/" + kind; return false; }
       const std::string key = layer + "/" + kind;
       if (!Rules_.emplace(key, rule).second) { Error_ = "duplicate osm row: " + key; return false; }

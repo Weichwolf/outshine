@@ -18,8 +18,13 @@ struct Envelope {
   double BrakeN = 0.0;
   double DragArea = 0.0;
   double AirDensity = 0.0;
+  double ReserveMs2 = 0.0;
 
   [[nodiscard]] double LateralMs2(void) const { return Grip * kGravityMs2; }
+  [[nodiscard]] double HoldingMs2(void) const {
+    const double left = Grip * kGravityMs2 - ReserveMs2;
+    return left > 0.0 ? left : 0.0;
+  }
   [[nodiscard]] double AccelMs2(void) const { return MassKg > 0.0 ? DriveN / MassKg : 0.0; }
   [[nodiscard]] double BrakeMs2(void) const {
     const double fromTyres = Grip * kGravityMs2;
@@ -42,12 +47,18 @@ public:
   [[nodiscard]] size_t SampleCount(void) const { return Held_.size(); }
   [[nodiscard]] double SampleAt(size_t which) const { return Held_[which]; }
   [[nodiscard]] double CurvatureAt(size_t which) const { return Curvature_[which]; }
+  [[nodiscard]] double CrestHeldMs(void) const { return CrestHeld_; }
+  [[nodiscard]] double CrestHeldAtM(void) const { return CrestHeldAt_; }
+  [[nodiscard]] size_t CrestsThatBound(void) const { return CrestsBound_; }
 
 private:
   std::vector<double> Held_;
   std::vector<double> Curvature_;
   double StepM_ = 0.0;
   double LengthM_ = 0.0;
+  double CrestHeld_ = 0.0;
+  double CrestHeldAt_ = 0.0;
+  size_t CrestsBound_ = 0;
 };
 
 } // namespace outshine

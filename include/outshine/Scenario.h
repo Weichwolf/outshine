@@ -29,7 +29,7 @@ struct Layer {
   std::string Path;
 };
 
-struct World {
+struct WorldSettings {
   bool Declared = false;
   double Lat = 0.0;
   double Lon = 0.0;
@@ -270,7 +270,7 @@ struct Persisted {
 struct Scenario {
   Identity Named;
   std::vector<Layer> Layers;
-  World Ground;
+  WorldSettings Ground;
   std::vector<Provider> Providers;
   std::vector<Generator> Generators;
   std::vector<Compositor> Compositors;

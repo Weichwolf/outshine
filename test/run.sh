@@ -85,7 +85,7 @@ LayerIncludes() {
     render/outshine/drive) printf '%s' "-Iinclude -Isrc/corridor -Isrc/physics -Isrc/pilot -Isrc/world" ;;
     render/outshine/scenario) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui -Itest/harness/shared" ;;
     tools/viewer) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui -Itools/viewer/parts" ;;
-    tools/driver) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/corridor -Isrc/data -Isrc/world -Isrc/world/tiles -Itools/host" ;;
+    tools/driver) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/clients -Isrc/corridor -Isrc/data -Isrc/physics -Isrc/pilot -Isrc/world -Isrc/world/tiles -Itools/host" ;;
     *) return 1 ;;
   esac
 }
@@ -148,7 +148,7 @@ LayerGroups() {
     harness/claims) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario | render/outshine/client) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/clients/Engine.cpp src/clients/Scenario.cpp" ;;
     render/outshine/shader) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
-    tools/driver) printf '%s' "src/core src/core/io src/corridor src/data src/world/tiles src/world" ;;
+    tools/driver) printf '%s' "src/core src/core/io src/corridor src/physics src/pilot src/data src/world/tiles src/world src/clients/Scenario.cpp src/clients/Rigging.cpp" ;;
     render/outshine/drive) printf '%s' "src/corridor src/physics src/pilot src/world/Wayfinding.cpp" ;;
     *) return 1 ;;
   esac

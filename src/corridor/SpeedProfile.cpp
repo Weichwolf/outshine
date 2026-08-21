@@ -10,6 +10,9 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
   Curvature_.clear();
   StepM_ = 0.0;
   LengthM_ = 0.0;
+  CrestHeld_ = 0.0;
+  CrestHeldAt_ = 0.0;
+  CrestsBound_ = 0;
 
   if (!(stepM > 0.0)) {
     error = "a speed profile is sampled at a positive step and this one asks for " +
@@ -23,7 +26,7 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
             "acceleration is derived from those -- this one leaves at least one at zero";
     return false;
   }
-  const double lateralMs2 = within.LateralMs2();
+  const double lateralMs2 = within.HoldingMs2();
   const double accelMs2 = within.AccelMs2();
   const double brakeMs2 = within.BrakeMs2();
   const double topMs = within.TopMs();
@@ -53,6 +56,25 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
     if (bend > 0.0) {
       const double held = std::sqrt(lateralMs2 / bend);
       Held_[at] = held < topMs ? held : topMs;
+    }
+    const double climb = here.Slope;
+    if (climb > 0.0) {
+      const double left = within.DriveN - within.MassKg * kGravityMs2 * climb;
+      const double resistance = 0.5 * within.AirDensity * within.DragArea;
+      const double heldMs = left > 0.0 && resistance > 0.0 ? std::sqrt(left / resistance) : 0.0;
+      if (heldMs < Held_[at]) { Held_[at] = heldMs; }
+    }
+    const double crest = -here.SlopeRatePerM;
+    if (crest > 0.0) {
+      const double flying = std::sqrt(kGravityMs2 / crest);
+      if (flying < Held_[at]) {
+        Held_[at] = flying;
+        ++CrestsBound_;
+        if (CrestHeld_ <= 0.0 || flying < CrestHeld_) {
+          CrestHeld_ = flying;
+          CrestHeldAt_ = station;
+        }
+      }
     }
   }
 

@@ -11,6 +11,7 @@ struct Reins {
   double SettleS = 0.0;
   double LeastReachM = 0.0;
   double TightestPerM = 0.0;
+  double HoldWithinM = 0.0;
 };
 
 struct Demand {
@@ -26,7 +27,8 @@ struct Demand {
   bool Saturated = false;
 };
 
-[[nodiscard]] double ReachOf(const Reins &with, double speedMs);
+[[nodiscard]] double ReachOf(const Reins &with, double speedMs,
+                            double curvatureRatePerM = 0.0);
 
 [[nodiscard]] Demand Hold(const ReferenceLine &along, const Reins &with, const Placement &at,
                           double speedMs, double wantedMs);

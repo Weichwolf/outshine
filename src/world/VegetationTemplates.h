@@ -31,6 +31,7 @@ public:
     int Tpl = 0;
     int Rank = 0;
     float WidthM = 0.0f;
+    float MaxGradient = 0.0f;
   };
 
   struct Blade {

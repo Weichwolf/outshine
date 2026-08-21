@@ -123,6 +123,7 @@ Placed ReferenceLine::Walk(const Placed &from, const Segment &along, double byM)
   const double rate =
       along.LengthM > 0.0 ? (along.ExitCurvature - along.EntryCurvature) / along.LengthM : 0.0;
   out.CurvaturePerM = along.EntryCurvature + rate * byM;
+  out.CurvatureRatePerM = rate;
   out.HeadingRad = from.HeadingRad + HeadingAlong(along, byM);
 
   if (along.Shape == Curve::Straight) {

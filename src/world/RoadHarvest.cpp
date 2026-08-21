@@ -42,7 +42,7 @@ Reaped Reap(const OsmField &field, const VegetationTemplates &widths, double veh
         along.push_back(field.Points()[2 * ((size_t)ring.First + point)]);
         along.push_back(field.Points()[2 * ((size_t)ring.First + point) + 1]);
       }
-      into.Lay(along.data(), ring.Count, 0.5 * widthM);
+      into.Lay(along.data(), ring.Count, 0.5 * widthM, (double)rule->MaxGradient);
       ++out.Ways;
       out.Points += ring.Count;
     }

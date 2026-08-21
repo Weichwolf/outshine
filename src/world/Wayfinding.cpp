@@ -35,17 +35,20 @@ double ApartM(double fromLatDeg, double fromLonDeg, double toLatDeg, double toLo
   return 2.0 * kEarthRadiusM * std::asin(std::sqrt(half < 1.0 ? half : 1.0));
 }
 
-void Network::Lay(const double *latLonPairs, size_t points, double halfWidthM) {
+void Network::Lay(const double *latLonPairs, size_t points, double halfWidthM,
+                  double maxGradient) {
   if (latLonPairs == nullptr || points < 2) { return; }
   Way way;
   way.First = Points_.size() / 2;
   way.Count = points;
   way.HalfWidthM = halfWidthM;
+  way.MaxGradient = maxGradient;
   Ways_.push_back(way);
   for (size_t which = 0; which < points; ++which) {
     Points_.push_back(latLonPairs[2 * which]);
     Points_.push_back(latLonPairs[2 * which + 1]);
     Widths_.push_back(halfWidthM);
+    Gradients_.push_back(maxGradient);
   }
   Woven_ = false;
 }
@@ -107,10 +110,15 @@ bool Network::Weave(std::string &error) {
       made.LatDeg = latDeg;
       made.LonDeg = lonDeg;
       made.HalfWidthM = Widths_[point];
+      made.MaxGradient = Gradients_[point];
       Nodes_.push_back(made);
       byCell[CellOf(latDeg, lonDeg)].push_back(found);
-    } else if (Widths_[point] > Nodes_[found].HalfWidthM) {
-      Nodes_[found].HalfWidthM = Widths_[point];
+    } else {
+      if (Widths_[point] > Nodes_[found].HalfWidthM) { Nodes_[found].HalfWidthM = Widths_[point]; }
+      if (Nodes_[found].MaxGradient <= 0.0 ||
+          (Gradients_[point] > 0.0 && Gradients_[point] < Nodes_[found].MaxGradient)) {
+        Nodes_[found].MaxGradient = Gradients_[point];
+      }
     }
     nodeOf[point] = found;
   }
@@ -295,6 +303,7 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM,
     leg.At.LonDeg = node.LonDeg;
     leg.AlongM = alongM;
     leg.HalfWidthM = node.HalfWidthM;
+    leg.MaxGradient = node.MaxGradient;
     out.Legs.push_back(leg);
   }
   out.LengthM = alongM;
