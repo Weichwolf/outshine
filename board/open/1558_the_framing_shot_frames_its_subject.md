@@ -25,3 +25,9 @@ Three separate defects share these pictures:
 Found by the magazine-reviewer round, ranked eleventh by damage but named the cheapest fix on the
 list. The reach mismatch (900 shown vs 400 sampled) was measurable in the tool's own constants once
 the picture pointed at it.
+
+Measured while it was suspected of being a sky defect: the dark band below the drawn terrain's edge
+is the CORRECT answer -- from 10 m up a ray 0.5 deg under the horizon crosses 1.1 km of thin air
+(L = 0.0028 against 0.19 at the horizon, factor 70), and the ground albedo is zero as in the
+reference's Earth. The band disappears when the drawn ground reaches the horizon, which is this
+item's reach defect, not a medium defect.
