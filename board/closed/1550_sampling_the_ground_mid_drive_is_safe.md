@@ -24,6 +24,33 @@ in the streamer's state does not outlive what it is asked to do.
 **`BytesBlocking` is the shape to look at**: a blocking fetch, on the caller's thread, from a pool
 whose workers were started for the laying phase.
 
+## CLOSED -- the ownership fix did it, and the item's own claim was stale
+
+**Eight stations measured across 342 km with no fault**, where this item said one was all the crash
+allowed:
+
+| station | the road against raw ground | raw ground |
+|---|---|---|
+| 17.3 km | **-0.14 m** | 471.97 m |
+| 36.5 km | -0.03 m | 445.64 m |
+| 61.4 km | -0.15 m | 434.92 m |
+| 117.4 km | -0.12 m | 409.54 m |
+| 198.7 km | -0.13 m | 273.47 m |
+| 250.2 km | +0.05 m | 240.41 m |
+| 267.1 km | -0.18 m | 259.23 m |
+| **342.3 km** | **+1.59 m** | 567.27 m -- hill country, a real embankment |
+
+**What actually fixed it was giving `Journey::State` ownership of the `ContentStore` and `SourceSet`**
+that `Lay` had been building on its own stack. This item was written believing that fix insufficient
+because a later run still faulted; the ground sampling now runs about **14 million times** per drive
+inside `Lie` without one.
+
+**And the instrument had to be corrected before the numbers meant anything.** It first read the DRAWN
+model's placement, so when `board:1554` lifted the model onto its tyres the published cut jumped from
++0.41 to +0.81 m -- the same road, a moved instrument. It reads the corridor surface now, from the
+physics body less its declared centre of mass, and the numbers became the few centimetres of cut a
+road on a plain actually has.
+
 ## What must be true
 
 - [ ] **The ground can be asked for a height at any time after the world opens**, as often as a caller

@@ -481,7 +481,7 @@ int main(void) {
     Standing(journey.Carried(), assetM, shiftM, body);
     for (int axis = 0; axis < 3; ++axis) { body[12 + axis] -= originM[axis]; }
     for (int person = 0; person < 2; ++person) {
-      if (next == 0 && person == 0) {
+      if (person == 0) {
         std::printf("DRAWS the stage submits %u for a picture of %zu parts\n",
                     renderer.SubjectDrawCount(), standing->Shown().Parts().size());
         std::printf("PARTS total %zu carried %zu  car at %.1f %.1f %.1f\n",
@@ -494,7 +494,7 @@ int main(void) {
       }
       outshine::Gltf::Placement where = Seen(journey.Carried(), journey.Declared().Views[person]);
       for (int axis = 0; axis < 3; ++axis) { where.EyeM[axis] -= originM[axis]; }
-      if (next == 0 && person == 0) {
+      if (person == 0) {
         double fLat = 0.0, fLon = 0.0, pLat = 1.0, pLon = 1.0;
         journey.Frame(fLat, fLon, pLat, pLon);
         const double carEastM = body[12] + originM[0];
@@ -503,7 +503,8 @@ int main(void) {
             fb_stream_ground(fLat + carNorthM / pLat, fLon + carEastM / pLon);
         double aslM = 0.0;
         if (under.TryAslM(&aslM)) {
-          const double roadAslM = body[13] + originM[1];
+          const double roadAslM =
+              journey.Carried().PositionM[1] - declaredCar.CentreOfMassM[1];
           const double liftM = roadAslM - aslM;
           std::printf("CUTFILL at %.1f km the road stands %+.2f m against raw ground of %.2f m asl\n",
                       rode.ReachedM / 1000.0, liftM, aslM);
