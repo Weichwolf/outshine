@@ -12,6 +12,7 @@ struct Reins {
   double LeastReachM = 0.0;
   double TightestPerM = 0.0;
   double HoldWithinM = 0.0;
+  double AsideM = 0.0;
 };
 
 struct Demand {

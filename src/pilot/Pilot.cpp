@@ -36,7 +36,7 @@ Demand Hold(const ReferenceLine &along, const Reins &with, const Placement &at, 
   const double reachM = ReachOf(with, speedMs, at.CurvatureRatePerM);
   out.ReachM = reachM;
 
-  const Sighting ahead = Sight(along, at, reachM);
+  const Sighting ahead = Sight(along, at, reachM, with.AsideM);
   if (!ahead.Found) { return out; }
   out.AtEnd = ahead.AtEnd;
   out.OutOfReach = ahead.OutOfReach;

@@ -32,6 +32,8 @@ public:
     int Rank = 0;
     float WidthM = 0.0f;
     float MaxGradient = 0.0f;
+    int Lanes = 0;
+    bool Oneway = false;
   };
 
   struct Blade {

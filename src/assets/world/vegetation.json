@@ -461,7 +461,9 @@
           "kind": "track",
           "rank": 80,
           "widthM": 3.0,
-          "maxGradient": 0.15
+          "maxGradient": 0.15,
+          "lanes": 1,
+          "oneway": 0
         }
       ]
     },
@@ -550,14 +552,18 @@
           "kind": "path",
           "rank": 80,
           "widthM": 1.5,
-          "maxGradient": 0.2
+          "maxGradient": 0.2,
+          "lanes": 1,
+          "oneway": 0
         },
         {
           "layer": "streets",
           "kind": "bridleway",
           "rank": 80,
           "widthM": 1.5,
-          "maxGradient": 0.2
+          "maxGradient": 0.2,
+          "lanes": 1,
+          "oneway": 0
         }
       ]
     },
@@ -936,63 +942,81 @@
           "kind": "footway",
           "rank": 80,
           "widthM": 1.8,
-          "maxGradient": 0.15
+          "maxGradient": 0.15,
+          "lanes": 1,
+          "oneway": 0
         },
         {
           "layer": "streets",
           "kind": "steps",
           "rank": 81,
           "widthM": 1.5,
-          "maxGradient": 0.5
+          "maxGradient": 0.5,
+          "lanes": 1,
+          "oneway": 0
         },
         {
           "layer": "streets",
           "kind": "cycleway",
           "rank": 81,
           "widthM": 2.0,
-          "maxGradient": 0.06
+          "maxGradient": 0.06,
+          "lanes": 1,
+          "oneway": 0
         },
         {
           "layer": "streets",
           "kind": "service",
           "rank": 81,
           "widthM": 3.5,
-          "maxGradient": 0.12
+          "maxGradient": 0.12,
+          "lanes": 1,
+          "oneway": 0
         },
         {
           "layer": "streets",
           "kind": "living_street",
           "rank": 82,
           "widthM": 4.75,
-          "maxGradient": 0.1
+          "maxGradient": 0.1,
+          "lanes": 1,
+          "oneway": 0
         },
         {
           "layer": "streets",
           "kind": "pedestrian",
           "rank": 82,
           "widthM": 6.0,
-          "maxGradient": 0.1
+          "maxGradient": 0.1,
+          "lanes": 1,
+          "oneway": 0
         },
         {
           "layer": "streets",
           "kind": "residential",
           "rank": 83,
           "widthM": 5.5,
-          "maxGradient": 0.1
+          "maxGradient": 0.1,
+          "lanes": 2,
+          "oneway": 0
         },
         {
           "layer": "streets",
           "kind": "unclassified",
           "rank": 83,
           "widthM": 5.5,
-          "maxGradient": 0.1
+          "maxGradient": 0.1,
+          "lanes": 2,
+          "oneway": 0
         },
         {
           "layer": "streets",
           "kind": "tertiary",
           "rank": 84,
           "widthM": 6.5,
-          "maxGradient": 0.08
+          "maxGradient": 0.08,
+          "lanes": 2,
+          "oneway": 0
         },
         {
           "layer": "streets",
@@ -1041,14 +1065,18 @@
           "kind": "secondary",
           "rank": 85,
           "widthM": 7.5,
-          "maxGradient": 0.07
+          "maxGradient": 0.07,
+          "lanes": 2,
+          "oneway": 0
         },
         {
           "layer": "streets",
           "kind": "primary",
           "rank": 86,
           "widthM": 9.5,
-          "maxGradient": 0.06
+          "maxGradient": 0.06,
+          "lanes": 2,
+          "oneway": 0
         },
         {
           "layer": "streets",
@@ -1061,14 +1089,18 @@
           "kind": "trunk",
           "rank": 87,
           "widthM": 11.5,
-          "maxGradient": 0.045
+          "maxGradient": 0.045,
+          "lanes": 2,
+          "oneway": 0
         },
         {
           "layer": "streets",
           "kind": "motorway",
           "rank": 88,
           "widthM": 12.0,
-          "maxGradient": 0.04
+          "maxGradient": 0.04,
+          "lanes": 2,
+          "oneway": 1
         },
         {
           "layer": "streets",
@@ -1292,5 +1324,6 @@
       "rockTemplate": "[SET] rock_crevice, i.e. limestone. This is the whole regional-lithology assumption of the engine in one line, and it is wrong outside the Calcareous Alps - granite, basalt and sandstone all have their own chromaticity and the engine has no lithology map. Declared as one name so that a mod restates it. No lithology map is built."
     }
   },
-  "osmGradientOrigin": "maxGradient is the maximum LONGITUDINAL grade of a line feature of this kind, as a rise over run, and it is what the road's own vertical alignment is bounded by -- the terrain is cut and filled until the road holds it. German design standards: RAA gives motorways 4.0 % in flat terrain and RAL 4.5 % for trunk roads; RAL rises to 6.0 % (primary), 7.0 % (secondary) and 8.0 % (tertiary) as the design speed falls; RASt 06 allows 10 % in built-up streets and 12 % on service access. Ramps take one step steeper than the road they leave because they are short. Track 15 % and path 20 % are KTBL and FGSV figures for unpaved ways; steps 50 % is a stair and is there so that a kind with no row cannot silently become a road. It is NOT derived from the vehicle: the grade a car can hold at its top speed is 0.15 %, which is not a road, and the grade it can hold from rest is 23.4 %, which is a wall -- the class is what decides, and the vehicle only says whether it can drive what the class built."
+  "osmGradientOrigin": "maxGradient is the maximum LONGITUDINAL grade of a line feature of this kind, as a rise over run, and it is what the road's own vertical alignment is bounded by -- the terrain is cut and filled until the road holds it. German design standards: RAA gives motorways 4.0 % in flat terrain and RAL 4.5 % for trunk roads; RAL rises to 6.0 % (primary), 7.0 % (secondary) and 8.0 % (tertiary) as the design speed falls; RASt 06 allows 10 % in built-up streets and 12 % on service access. Ramps take one step steeper than the road they leave because they are short. Track 15 % and path 20 % are KTBL and FGSV figures for unpaved ways; steps 50 % is a stair and is there so that a kind with no row cannot silently become a road. It is NOT derived from the vehicle: the grade a car can hold at its top speed is 0.15 %, which is not a road, and the grade it can hold from rest is 23.4 %, which is a wall -- the class is what decides, and the vehicle only says whether it can drive what the class built.",
+  "osmLaneOrigin": "lanes is the number of running lanes ACROSS the whole declared width, and oneway says whether they all run the same way. Both come from the same cross-sections the widths do: RAA RQ 28 is 2 x 3.75 m running lanes plus a 2.5 m hard shoulder per ONE-WAY carriageway, so motorway is 2 lanes oneway in 12.0 m; RAL RQ 11.5 and RQ 9.5 are two-way with 2 x 3.5 m; RASt 06's 6.5 m tertiary and 5.5 m residential are two-way at 3.25 and 2.75 m. A link is one lane because a ramp is. Service, track and everything narrower is a single shared lane. This is what stops a car driving down the centre line: its lane is width / lanes, and its own line is offset from the reference line by (lanes - 1) x laneWidth / 2 toward the driving side."
 }

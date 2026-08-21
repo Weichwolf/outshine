@@ -34,6 +34,7 @@ Reading Bear(Rig &of, const Body &body, const Footing *under, const Controls &wi
     const Mount &mount = of.Mounts[which];
     const Footing &ground = under[which];
     if (!ground.Found) {
+      ++out.OffTheSurface;
       ++out.Airborne;
       of.HeldSlipRad[which] = 0.0;
       continue;

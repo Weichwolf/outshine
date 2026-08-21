@@ -1,5 +1,6 @@
 #include "RoadHarvest.h"
 
+#include <string_view>
 #include <vector>
 
 namespace outshine::World {
@@ -29,6 +30,26 @@ Reaped Reap(const OsmField &field, const VegetationTemplates &widths, double veh
       if (widthM > out.WidestRefusedM) { out.WidestRefusedM = widthM; }
       continue;
     }
+    const std::string_view kind = field.Str(feature, "kind");
+    if (rule->Lanes <= 0) {
+      ++out.NotACarriageway;
+      if (out.NotCarriageways.find(kind) == std::string::npos) {
+        out.NotCarriageways += std::string(kind) + " ";
+      }
+      continue;
+    }
+    if (!(rule->MaxGradient > 0.0)) {
+      ++out.Ungraded;
+      if (out.WithoutGrade.find(kind) == std::string::npos) {
+        out.WithoutGrade += std::string(kind) + " ";
+      }
+    }
+    if (rule->Lanes <= 0) {
+      ++out.Unlaned;
+      if (out.WithoutLanes.find(kind) == std::string::npos) {
+        out.WithoutLanes += std::string(kind) + " ";
+      }
+    }
     if (!(out.NarrowestTakenM > 0.0) || widthM < out.NarrowestTakenM) {
       out.NarrowestTakenM = widthM;
     }
@@ -42,7 +63,7 @@ Reaped Reap(const OsmField &field, const VegetationTemplates &widths, double veh
         along.push_back(field.Points()[2 * ((size_t)ring.First + point)]);
         along.push_back(field.Points()[2 * ((size_t)ring.First + point) + 1]);
       }
-      into.Lay(along.data(), ring.Count, 0.5 * widthM, (double)rule->MaxGradient);
+      into.Lay(along.data(), ring.Count, 0.5 * widthM, (double)rule->MaxGradient, rule->Lanes);
       ++out.Ways;
       out.Points += ring.Count;
     }

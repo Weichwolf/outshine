@@ -21,6 +21,7 @@ struct Envelope {
   double ReserveMs2 = 0.0;
   double HoldWithinM = 0.0;
   double SettleS = 0.0;
+  double CorneringNPerRad = 0.0;
 
   [[nodiscard]] double LateralMs2(void) const { return Grip * kGravityMs2; }
   [[nodiscard]] double HoldingMs2(void) const {

@@ -68,6 +68,14 @@ struct Drove {
   double BrokeAtM = 0.0;
   double LeftTheRoadAtM = 0.0;
   double LeftByM = 0.0;
+  double LeftAtMs = 0.0;
+  double LeftPlannedMs = 0.0;
+  double LeftCurvature = 0.0;
+  double LeftRate = 0.0;
+  double LeftLaneM = 0.0;
+  double LeftEdgeM = 0.0;
+  double LeftAsideM = 0.0;
+  double LeftAcrossM = 0.0;
 };
 
 void Unit(double v[3]) {
@@ -230,6 +238,24 @@ int main(void) {
   Note("the narrowest it took", reaped.NarrowestTakenM, "m");
   Note("ways whose kind carries no declared width", (double)reaped.Unclassed, "ways");
 
+  Note("ways that are not a carriageway at all", (double)reaped.NotACarriageway, "ways");
+  if (!reaped.NotCarriageways.empty()) {
+    std::printf("NOT CARRIAGEWAYS %s\n", reaped.NotCarriageways.c_str());
+  }
+  CHECK(reaped.NotACarriageway > 0,
+        "**AND A RAILWAY IS NOT A ROAD, WHICH WIDTH ALONE NEVER SAID.** The streets layer carries "
+        "rail, tram, subway, monorail, funicular, narrow_gauge and light_rail, and a rail ballast "
+        "crown is 3.8 m -- wider than the car, so the width test passed them and the router put the "
+        "F31 on the tracks. What a CARRIAGEWAY has is LANES; a railway declares none, and that is "
+        "the test");
+  Note("ways whose kind declares no maximum grade", (double)reaped.Ungraded, "ways");
+  Note("ways whose kind declares no lane count", (double)reaped.Unlaned, "ways");
+  if (!reaped.WithoutGrade.empty()) {
+    std::printf("UNGRADED KINDS %s\n", reaped.WithoutGrade.c_str());
+  }
+  if (!reaped.WithoutLanes.empty()) {
+    std::printf("UNLANED KINDS %s\n", reaped.WithoutLanes.c_str());
+  }
   CHECK(reaped.Ways > 0, "and roads a 1.811 m car can fit down are harvested from them");
   CHECK(reaped.WidestRefusedM < kF31WidthM || reaped.TooNarrow == 0,
         "**ADMISSIBILITY IS THE VEHICLE'S WIDTH AND NOT A LIST OF TAGS.** Every way this refused is "
@@ -458,16 +484,6 @@ int main(void) {
         "about 10; the source says 523.15 and 14.14, which is the check that this is the real world "
         "and not a plausible surface");
 
-  outshine::Envelope planning = stood.Envelope;
-  const double holdWithinM = 0.5 * reaped.NarrowestTakenM - 0.5 * kF31WidthM;
-  planning.ReserveMs2 = 2.0 * holdWithinM / (1.0 * 1.0);
-  planning.HoldWithinM = holdWithinM;
-  planning.SettleS = 1.0;
-  Note("the narrowest road on the route", reaped.NarrowestTakenM, "m");
-  Note("what the car leaves either side of itself there", holdWithinM, "m");
-  Note("the lateral acceleration reserved for holding the line", planning.ReserveMs2, "m/s2");
-  Note("what is left for the path", planning.HoldingMs2(), "m/s2");
-
   outshine::SpeedProfile inPlan;
   CHECK(inPlan.Over(corridor, stood.Envelope, postM, 0.0, error),
         "the plan view alone gives a speed at every station, before the ground is consulted");
@@ -502,6 +518,116 @@ int main(void) {
       halfWidthM[post] = half;
     }
   }
+  std::vector<double> laneHalfM(roadM.size(), 0.0);
+  std::vector<double> asideM(roadM.size(), 0.0);
+  long laneless = 0;
+  {
+    size_t leg = 0;
+    for (size_t post = 0; post < laneHalfM.size(); ++post) {
+      const double atM = (double)post * spanM * route.LengthM / fitted.LengthM;
+      while (leg + 1 < route.Legs.size() && route.Legs[leg + 1].AlongM < atM) { ++leg; }
+      const int lanes = route.Legs[leg].Lanes;
+      if (lanes <= 0) {
+        ++laneless;
+        laneHalfM[post] = halfWidthM[post];
+        continue;
+      }
+      const double laneM = 2.0 * halfWidthM[post] / (double)lanes;
+      laneHalfM[post] = 0.5 * laneM;
+      asideM[post] = -0.5 * (double)(lanes - 1) * laneM;
+    }
+  }
+  Note("stations whose road kind declares no lane count", (double)laneless, "stations");
+  CHECK(laneless == 0,
+        "**AND EVERY KIND ON THE ROUTE DECLARES HOW MANY LANES IT CARRIES.** The lane count comes from "
+        "the same cross-sections the widths do -- RAA RQ 28 is two 3.75 m running lanes and a 2.5 m "
+        "shoulder per one-way carriageway -- so a car's lane is the width over the count and not the "
+        "whole road");
+
+  double steppedM = 0.0, steppedAtM = 0.0;
+  for (size_t post = 1; post < asideM.size(); ++post) {
+    const double step = std::fabs(asideM[post] - asideM[post - 1]);
+    if (step > steppedM) {
+      steppedM = step;
+      steppedAtM = (double)post * spanM;
+    }
+  }
+  Note("the largest step the lane centre takes where the road changes width", steppedM, "m");
+  Note("where that is", steppedAtM / 1000.0, "km");
+
+  const double fineM = 2.0;
+  std::vector<double> fineAside((size_t)(fitted.LengthM / fineM) + 2, 0.0);
+  std::vector<double> fineEdge(fineAside.size(), 0.0);
+  for (size_t fine = 0; fine < fineAside.size(); ++fine) {
+    const size_t post = (size_t)((double)fine * fineM / spanM);
+    const size_t band = post < asideM.size() ? post : asideM.size() - 1;
+    fineAside[fine] = asideM[band];
+    fineEdge[fine] = halfWidthM[band];
+  }
+  {
+    const double budgetM = 0.5 * 3.25 - 0.5 * kF31WidthM;
+    const double reachM = 1.0 * 232.722657 / 3.6;
+    const double mostPerM = budgetM / reachM;
+    Note("the fastest the lane centre may move sideways", mostPerM * 1000.0, "mm per metre");
+    Note("so a 1.125 m shift is taken over", 1.125 / mostPerM, "m of road");
+    const double most = mostPerM * fineM;
+    for (int sweep = 0; sweep < 400; ++sweep) {
+      long moved = 0;
+      for (size_t fine = 1; fine < fineAside.size(); ++fine) {
+        if (fineAside[fine] > fineAside[fine - 1] + most) {
+          fineAside[fine] = fineAside[fine - 1] + most;
+          ++moved;
+        }
+        if (fineAside[fine] < fineAside[fine - 1] - most) {
+          fineAside[fine] = fineAside[fine - 1] - most;
+          ++moved;
+        }
+      }
+      for (size_t fine = fineAside.size() - 1; fine > 0; --fine) {
+        if (fineAside[fine - 1] > fineAside[fine] + most) {
+          fineAside[fine - 1] = fineAside[fine] + most;
+          ++moved;
+        }
+        if (fineAside[fine - 1] < fineAside[fine] - most) {
+          fineAside[fine - 1] = fineAside[fine] - most;
+          ++moved;
+        }
+      }
+      if (moved == 0) { break; }
+    }
+    long clamped = 0;
+    for (size_t fine = 0; fine < fineAside.size(); ++fine) {
+      const double roomM = fineEdge[fine] - 0.5 * kF31WidthM;
+      if (roomM <= 0.0) { continue; }
+      if (fineAside[fine] > roomM) { fineAside[fine] = roomM; ++clamped; }
+      if (fineAside[fine] < -roomM) { fineAside[fine] = -roomM; ++clamped; }
+    }
+    Note("stations where the road edge overruled the taper", (double)clamped, "stations");
+
+    double leftM = 0.0, worstOverM = 0.0;
+    for (size_t fine = 1; fine < fineAside.size(); ++fine) {
+      leftM = std::fmax(leftM, std::fabs(fineAside[fine] - fineAside[fine - 1]));
+      const double outerM = std::fabs(fineAside[fine]) + 0.5 * kF31WidthM;
+      if (outerM > fineEdge[fine]) {
+        worstOverM = std::fmax(worstOverM, outerM - fineEdge[fine]);
+      }
+    }
+    Note("the largest step left after tapering", leftM, "m");
+    Note("the furthest the tapered lane centre pushes the car past a road edge", worstOverM, "m");
+  }
+
+  double narrowestLaneM = 1.0e9, widestLaneM = 0.0, mostAsideM = 0.0;
+  for (size_t post = 0; post < laneHalfM.size(); ++post) {
+    narrowestLaneM = 2.0 * laneHalfM[post] < narrowestLaneM ? 2.0 * laneHalfM[post] : narrowestLaneM;
+    widestLaneM = 2.0 * laneHalfM[post] > widestLaneM ? 2.0 * laneHalfM[post] : widestLaneM;
+    mostAsideM = std::fabs(asideM[post]) > mostAsideM ? std::fabs(asideM[post]) : mostAsideM;
+  }
+  Note("the narrowest LANE on the route", narrowestLaneM, "m");
+  Note("the widest lane", widestLaneM, "m");
+  Note("the furthest the car sits from the centreline", mostAsideM, "m");
+  Note("what it leaves either side of itself in the narrowest lane",
+       0.5 * narrowestLaneM - 0.5 * kF31WidthM, "m");
+
   double narrowestHalfM = 1.0e9, widestHalfM = 0.0;
   for (const double half : halfWidthM) {
     narrowestHalfM = half < narrowestHalfM ? half : narrowestHalfM;
@@ -579,6 +705,17 @@ int main(void) {
   Note("the mean earth moved per station", movedM / (double)roadM.size(), "m");
   Note("stations still being shaped when the passes ran out", (double)shaped, "stations");
 
+  outshine::Envelope planning = stood.Envelope;
+  const double holdWithinM = 0.5 * narrowestLaneM - 0.5 * kF31WidthM;
+  planning.ReserveMs2 = 2.0 * holdWithinM / (1.0 * 1.0);
+  planning.HoldWithinM = holdWithinM;
+  planning.SettleS = 1.0;
+  planning.CorneringNPerRad = declared.Vehicles[0].CorneringNPerRad;
+  Note("the narrowest road on the route", reaped.NarrowestTakenM, "m");
+  Note("what the car leaves either side of itself there", holdWithinM, "m");
+  Note("the lateral acceleration reserved for holding the line", planning.ReserveMs2, "m/s2");
+  Note("what is left for the path", planning.HoldingMs2(), "m/s2");
+
   std::vector<outshine::Knot> rise;
   rise.reserve(roadM.size());
   double worstGradeM = 0.0, worstGradeAtM = 0.0;
@@ -649,9 +786,14 @@ int main(void) {
   CHECK(corridor.At(0.0, start), "the corridor answers at its own start");
   const outshine::Standing under0 =
       outshine::Stand(corridor, start.EastM, start.NorthM, 0.0, 0.0, 50.0);
-  body.PositionM[0] = start.EastM;
+  const double startAsideM = asideM.empty() ? 0.0 : asideM.front();
+  Note("the fastest the car may move between lane centres",
+       ((0.5 * narrowestLaneM - 0.5 * kF31WidthM) / (1.0 * stood.Envelope.TopMs())) * 1000.0,
+       "mm per metre");
+  body.PositionM[0] = start.EastM - std::sin(start.HeadingRad) * startAsideM;
   body.PositionM[1] = under0.HeightM + stood.CentreM[1];
-  body.PositionM[2] = -start.NorthM;
+  body.PositionM[2] = -(start.NorthM + std::cos(start.HeadingRad) * startAsideM);
+  Note("how far from the centreline the car starts, in its own lane", startAsideM, "m");
   {
     const double up[3] = {under0.NormalM[0], under0.NormalM[1], -under0.NormalM[2]};
     Lie(body, start, up);
@@ -674,6 +816,10 @@ int main(void) {
   double nearM = 0.0;
   double simulatedS = 0.0;
   double lostM = 0.0;
+  double heldAsideM = 0.0;
+  bool haveAside = false;
+  const double asideRatePerM =
+      (0.5 * narrowestLaneM - 0.5 * kF31WidthM) / (1.0 * stood.Envelope.TopMs());
   for (long step = 0; step < kMaxSteps; ++step) {
     const double eastM = body.PositionM[0];
     const double northM = -body.PositionM[2];
@@ -692,6 +838,25 @@ int main(void) {
     const double speedMs = std::sqrt(body.VelocityMs[0] * body.VelocityMs[0] +
                                      body.VelocityMs[2] * body.VelocityMs[2]);
     reins.TightestPerM = outshine::Pilot::TightestPerM(stood.Axles, stood.Envelope, speedMs);
+    {
+      const size_t fine = (size_t)(at.AlongM / fineM);
+      const double wantAsideM = fineAside[fine < fineAside.size() ? fine : fineAside.size() - 1];
+      if (!haveAside) {
+        heldAsideM = wantAsideM;
+        haveAside = true;
+      } else {
+        const double mayMoveM = asideRatePerM * speedMs * kStepS;
+        const double byM = wantAsideM - heldAsideM;
+        heldAsideM += std::fabs(byM) <= mayMoveM ? byM : (byM > 0.0 ? mayMoveM : -mayMoveM);
+      }
+      const double roomM = fineEdge[fine < fineEdge.size() ? fine : fineEdge.size() - 1] -
+                           0.5 * kF31WidthM;
+      if (roomM > 0.0) {
+        if (heldAsideM > roomM) { heldAsideM = roomM; }
+        if (heldAsideM < -roomM) { heldAsideM = -roomM; }
+      }
+      reins.AsideM = heldAsideM;
+    }
     const double aheadM =
         std::fmin(at.AlongM + outshine::Pilot::ReachOf(reins, speedMs, at.CurvatureRatePerM),
                   corridor.LengthM());
@@ -710,12 +875,14 @@ int main(void) {
       double worldM[3];
       outshine::Physics::Place(body, rig.Mounts[which].AtM, worldM);
       const size_t post = (size_t)(at.AlongM / spanM);
-      const double edgeM =
-          halfWidthM[post < halfWidthM.size() ? post : halfWidthM.size() - 1];
+      const size_t band = post < fineEdge.size() ? post : fineEdge.size() - 1;
+      const double edgeM = fineEdge[band];
       const outshine::Standing on =
-          outshine::Stand(corridor, worldM[0], -worldM[2], edgeM, at.AlongM,
+          outshine::Stand(corridor, worldM[0], -worldM[2], 0.0, at.AlongM,
                           kMountResectM + 3.0 * lostM);
-      under[which].Found = on.On;
+      const double armAcrossM =
+          -std::sin(headingRad) * (worldM[0] - eastM) + std::cos(headingRad) * (-worldM[2] - northM);
+      under[which].Found = std::fabs(at.OffsetM + armAcrossM) <= edgeM;
       under[which].HeightM = on.HeightM;
       under[which].NormalM[0] = on.NormalM[0];
       under[which].NormalM[1] = on.NormalM[1];
@@ -729,8 +896,9 @@ int main(void) {
         outshine::Physics::Bear(rig, body, under, controls, wrench, kStepS);
 
     if (at.AlongM >= kFromM) {
-      if (std::fabs(at.OffsetM) > std::fabs(drove.WorstOffsetM)) {
-        drove.WorstOffsetM = at.OffsetM;
+      const double inLaneM = at.OffsetM - reins.AsideM;
+      if (std::fabs(inLaneM) > std::fabs(drove.WorstOffsetM)) {
+        drove.WorstOffsetM = inLaneM;
         drove.WorstOffsetAtM = at.AlongM;
       }
       drove.WorstRatio = std::fmax(drove.WorstRatio, read.WorstRatio);
@@ -746,9 +914,24 @@ int main(void) {
       }
     }
 
-    if (read.Airborne > 0 && drove.LeftTheRoadAtM <= 0.0) {
+    if (read.OffTheSurface > 0 && drove.LeftTheRoadAtM <= 0.0) {
       drove.LeftTheRoadAtM = at.AlongM;
-      drove.LeftByM = at.OffsetM;
+      drove.LeftByM = at.OffsetM - reins.AsideM;
+      drove.LeftAtMs = speedMs;
+      drove.LeftPlannedMs = profile.At(at.AlongM);
+      drove.LeftCurvature = at.CurvaturePerM;
+      drove.LeftRate = at.CurvatureRatePerM;
+      const size_t post = (size_t)(at.AlongM / spanM);
+      drove.LeftLaneM = 2.0 * laneHalfM[post < laneHalfM.size() ? post : laneHalfM.size() - 1];
+      const size_t fine = (size_t)(at.AlongM / fineM);
+      drove.LeftEdgeM = fineEdge[fine < fineEdge.size() ? fine : fineEdge.size() - 1];
+      drove.LeftAsideM = reins.AsideM;
+      drove.LeftAcrossM = at.OffsetM;
+    }
+    if (read.OffTheSurface > 0) {
+      drove.BrokeAtM = at.AlongM;
+      drove.LeftTheRoadAtM = at.AlongM;
+      break;
     }
     if (read.PastLimit || read.Airborne == rig.Count) {
       drove.BrokeAtM = at.AlongM;
@@ -772,15 +955,33 @@ int main(void) {
   Note("hours simulated", simulatedS / 3600.0, "h");
   Note("seconds of wall clock", wallS, "s");
   Note("how much faster than real time", simulatedS / (wallS > 0.0 ? wallS : 1.0), "x");
-  Note("worst deviation from the line", drove.WorstOffsetM, "m");
+  Note("worst deviation from the middle of its own lane", drove.WorstOffsetM, "m");
   Note("the look-ahead the pilot had at top speed", 1.0 * drove.TopMs / 3.6 * 3.6, "m");
   Note("where that was", drove.WorstOffsetAtM / 1000.0, "km");
   Note("worst share of a contact's grip used", drove.WorstRatio, "of it");
   Note("most mounts off the ground at once", (double)drove.MostAirborne, "of 4");
   Note("where that was", drove.AirborneAtM / 1000.0, "km");
   Note("where a contact first went past its limit", drove.BrokeAtM / 1000.0, "km");
-  Note("where a wheel first left the carriageway", drove.LeftTheRoadAtM / 1000.0, "km");
-  Note("how far off the line it was there", drove.LeftByM, "m");
+  Note("where a wheel first left the CARRIAGEWAY", drove.LeftTheRoadAtM / 1000.0, "km");
+  Note("how far out of its lane it was there", drove.LeftByM, "m");
+  Note("how fast it was going", drove.LeftAtMs * 3.6, "km/h");
+  Note("what the profile planned there", drove.LeftPlannedMs * 3.6, "km/h");
+  Note("the curvature there", drove.LeftCurvature, "1/m");
+  Note("the radius that is", drove.LeftCurvature != 0.0 ? 1.0 / std::fabs(drove.LeftCurvature) : 0.0,
+       "m");
+  Note("the curvature rate there", drove.LeftRate, "1/m2");
+  Note("the lane it was in", drove.LeftLaneM, "m");
+  Note("the carriageway half-width there", drove.LeftEdgeM, "m");
+  Note("where its lane centre was", drove.LeftAsideM, "m");
+  Note("where the car actually was, from the centreline", drove.LeftAcrossM, "m");
+  Note("its outer contact would then be at",
+       std::fabs(drove.LeftAcrossM) + 0.774, "m");
+  Note("what the pursuit lag allows at that rate and budget",
+       drove.LeftRate != 0.0
+           ? std::cbrt(6.0 * (0.5 * drove.LeftLaneM - 0.5 * kF31WidthM) / std::fabs(drove.LeftRate)) *
+                 3.6
+           : 0.0,
+       "km/h");
 
   CHECK(!drove.Lost, "the car never left the corridor's own window");
   CHECK(!drove.PastLimit,

@@ -46,6 +46,7 @@ struct Reading {
   double SlipRad[kMaxMounts] = {0.0};
   double RatioOfHold[kMaxMounts] = {0.0};
   size_t Airborne = 0;
+  size_t OffTheSurface = 0;
   double HeaviestN = 0.0;
   double WorstSlipRad = 0.0;
   double WorstRatio = 0.0;

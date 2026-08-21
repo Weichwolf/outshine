@@ -14,6 +14,15 @@ double Wrapped(double angleRad) {
   return angleRad;
 }
 
+Placed Beside(const Placed &on, double asideM) {
+  if (asideM == 0.0) { return on; }
+  Placed out = on;
+  out.EastM -= std::sin(on.HeadingRad) * asideM;
+  out.NorthM += std::cos(on.HeadingRad) * asideM;
+  out.HeightM -= asideM * std::tan(on.BankRad);
+  return out;
+}
+
 double AwayFrom(const Placed &line, double eastM, double northM) {
   const double east = eastM - line.EastM;
   const double north = northM - line.NorthM;
@@ -48,7 +57,8 @@ Placement Locate(const ReferenceLine &along, double eastM, double northM, double
   return out;
 }
 
-Sighting Sight(const ReferenceLine &along, const Placement &from, double chordM) {
+Sighting Sight(const ReferenceLine &along, const Placement &from, double chordM,
+               double asideM) {
   Sighting out;
   if (!from.Found || !(chordM > 0.0)) { return out; }
 
@@ -63,7 +73,7 @@ Sighting Sight(const ReferenceLine &along, const Placement &from, double chordM)
   double reachedM = 0.0;
   for (int narrow = 0; narrow < kChordSteps; ++narrow) {
     if (!along.At(atM, there)) { return out; }
-    reachedM = std::sqrt(AwayFrom(there, from.EastM, from.NorthM));
+    reachedM = std::sqrt(AwayFrom(Beside(there, asideM), from.EastM, from.NorthM));
     if (out.AtEnd || std::fabs(reachedM - chordM) < 1.0e-6) { break; }
     double stepM = chordM - reachedM;
     atM += stepM;
@@ -74,15 +84,16 @@ Sighting Sight(const ReferenceLine &along, const Placement &from, double chordM)
     if (atM < from.AlongM) { atM = from.AlongM; }
   }
   if (!along.At(atM, there)) { return out; }
-  reachedM = std::sqrt(AwayFrom(there, from.EastM, from.NorthM));
+  const Placed aimed = Beside(there, asideM);
+  reachedM = std::sqrt(AwayFrom(aimed, from.EastM, from.NorthM));
   if (!(reachedM > 0.0)) { return out; }
 
   out.Found = true;
   out.OutOfReach = !out.AtEnd && std::fabs(reachedM - chordM) > 1.0e-3;
   out.AlongM = atM;
   out.ChordM = reachedM;
-  out.BearingRad = std::atan2(there.NorthM - from.NorthM, there.EastM - from.EastM);
-  out.ClimbRad = std::atan2(there.HeightM - from.HeightM, reachedM);
+  out.BearingRad = std::atan2(aimed.NorthM - from.NorthM, aimed.EastM - from.EastM);
+  out.ClimbRad = std::atan2(aimed.HeightM - from.HeightM, reachedM);
   return out;
 }
 
