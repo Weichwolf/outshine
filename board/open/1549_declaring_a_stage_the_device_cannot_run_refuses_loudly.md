@@ -22,6 +22,26 @@ case Stage::Water: case Stage::Models:   case Stage::AmbientOcclusion:
 the caller** -- the run printed no refusal at all, and a picture that silently omits what it was asked
 for is the exact shape `CLAUDE.md` forbids: *a missing producer is a REFUSAL*, and *a failure is loud*.
 
+## THE REFUSAL SPEAKS NOW, AND IT NAMES A DIFFERENT STAGE
+
+`Renderer::Init` already logged the stage by name and then **returned void**, so the caller learnt
+nothing and `Live` reported *"the device did not come up"*. It keeps a refusal now -- `WhyNot()` --
+and `Live` passes it through. Declaring the sky again gives:
+
+```
+REFUSED this device layer does not execute the stage 'mediumTransmittance',
+        which the catalogue offers and the consumer declared
+```
+
+**Not `sky`.** The compiler pulls the plan backwards, so declaring `Stage::Sky` requires the
+atmosphere machinery behind it, and **`MediumTransmittance` is where the device stops**. That is a
+sharper statement than this item opened with: the sky is not one missing stage, it is a chain, and the
+first link is named.
+
+**Three mute refusals found in one session, all the same shape**: a `Sink` that discarded failing
+claims, a `ReadScenario` error nobody printed, and this -- a `void` return over an error that had
+already been written down.
+
 ## What must be true
 
 - [ ] **Declaring a stage the device cannot execute refuses at plan time**, by name, before a frame is

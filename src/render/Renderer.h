@@ -29,6 +29,8 @@ public:
   [[nodiscard]] const RenderPlan &Plan(void) const { return *Plan_; }
   [[nodiscard]] bool DeviceUsable(void) const { return Ready; }
 
+  [[nodiscard]] const std::string &WhyNot(void) const { return WhyNot_; }
+
   [[nodiscard]] SDL_GPUDevice *Device(void) const { return Device_.Get(); }
 
   [[nodiscard]] SDL_GPUTextureFormat SurfaceFormat(void) const;
@@ -166,6 +168,7 @@ private:
   PresentStage Present_;
 
   bool Ready = false;
+  std::string WhyNot_;
   int Width = 0, Height = 0;
 
   OwnedTexture LinearTex_[2];

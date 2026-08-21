@@ -141,6 +141,7 @@ bool Renderer::Executable(Stage stage) {
 }
 
 void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> plan) {
+  WhyNot_.clear();
   Plan_ = std::move(plan);
   Width = width;
   Height = height;
@@ -148,12 +149,15 @@ void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> pla
   for (const Stage stage : Plan_->Order()) {
     if (Executable(stage)) { continue; }
     Log::Error("render", "stage_not_executed", {{"stage", Row(stage).Name}});
+    WhyNot_ = std::string("this device layer does not execute the stage '") + Row(stage).Name +
+              "', which the catalogue offers and the consumer declared";
     return;
   }
 
   Ready = false;
   if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
     Log::Error("render", "no_video", {{"msg", SDL_GetError()}});
+    WhyNot_ = std::string("the video subsystem did not start: ") + SDL_GetError();
     return;
   }
 
@@ -162,6 +166,7 @@ void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> pla
         SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_MSL, kGpuValidation, nullptr);
     if (!device) {
       Log::Error("render", "no_device", {{"msg", SDL_GetError()}});
+      WhyNot_ = std::string("no gpu device: ") + SDL_GetError();
       return;
     }
     Device_ = OwnedDevice(device);
@@ -205,6 +210,7 @@ void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> pla
     Handles.SceneColours = coloursOfPassWith(stage);
     if (Configure(stage, why)) { continue; }
     Log::Error("render", "stage_not_configured", {{"stage", Row(stage).Name}, {"msg", why}});
+    WhyNot_ = std::string("the stage '") + Row(stage).Name + "' did not configure: " + why;
     return;
   }
   Ready = true;
