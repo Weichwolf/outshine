@@ -439,6 +439,7 @@ flowchart TD
   Rig --> Contact & Shear
   Forest & Buildings & Water & Ribbon & Subject --> DrawList
   DrawList --> SubjectDraw --> Renderer --> TonemapStage --> PresentStage
+  MediumTransmittanceStage --> MediumMultiScatterStage --> MediumRadianceStage --> SkyStage --> Renderer
   Live --> Renderer
   Ephemeris & RegionForge --> Sim --> Renderer
   Frustum -.-> DrawList
@@ -447,7 +448,7 @@ flowchart TD
   classDef built fill:#1f6f3f,stroke:#0d3b21,color:#fff
   classDef idle fill:#8a6d1f,stroke:#4a3a0d,color:#fff
   classDef absent fill:#7a2222,stroke:#3d1111,color:#fff,stroke-dasharray:4 3
-  class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,TerrainLoader,ChunkMesh,OsmField,RoadHarvest,Wayfinding,StreetField,BuildingField,WaterField,Ground,Forest,Buildings,Water,Infrastructure,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,Subject,DrawList,SubjectDraw,Renderer,TonemapStage,PresentStage,Live,StarBands,Sim,Ephemeris built
+  class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,TerrainLoader,ChunkMesh,OsmField,RoadHarvest,Wayfinding,StreetField,BuildingField,WaterField,Ground,Forest,Buildings,Water,Infrastructure,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,Subject,DrawList,SubjectDraw,Renderer,TonemapStage,PresentStage,Live,StarBands,Sim,Ephemeris,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage built
   class Frustum,RegionForge idle
   class Entities absent
 ```

@@ -129,7 +129,7 @@ const char *KindName(SurfaceKind kind) {
 }
 
 static const char *kSubjectBindingsMsl = R"(
-struct S { float4x4 mvp; float4 anc; float4x4 prevMvp; float4 prevAnc; };
+struct S { float4x4 mvp; float4 anc; float4x4 prevMvp; float4 prevAnc; float4x4 model; };
 
 struct M { float factor; float cut; float metalness; float roughness;
            float4 base; packed_float3 emissive; float normalScale; float identity;
@@ -394,13 +394,12 @@ struct NAME##In { float3 p [[attribute(0)]]; SUBJECT_NORMAL_ATTRIBUTE \
                   SUBJECT_PREV_ATTRIBUTE RUNS }; \
 vertex LOut NAME(NAME##In v [[stage_in]], constant S &s [[buffer(0)]]) { \
   LOut o; \
-  float3 placed = v.p + s.anc.xyz; \
-  o.pos = s.mvp * float4(placed, 1.0); \
+  o.pos = s.mvp * float4(v.p + s.anc.xyz, 1.0); \
   o.uv = UV; \
   o.uv1 = UV1; \
   o.colour = COLOUR; \
-  o.n = v.n; \
-  o.p = placed; \
+  o.n = normalize(s.model[0].xyz * v.n.x + s.model[1].xyz * v.n.y + s.model[2].xyz * v.n.z); \
+  o.p = (s.model * float4(v.p, 1.0)).xyz; \
   o.lp = v.p; \
   SUBJECT_SET_MOTION(o, v, s); \
   return o; \
@@ -661,15 +660,16 @@ struct NAME##In { float3 p [[attribute(0)]]; SUBJECT_UV_ATTRIBUTE SUBJECT_NORMAL
                   SUBJECT_TANGENT_ATTRIBUTE SUBJECT_PREV_ATTRIBUTE RUNS }; \
 vertex MOut NAME(NAME##In v [[stage_in]], constant S &s [[buffer(0)]]) { \
   MOut o; \
-  float3 placed = v.p + s.anc.xyz; \
-  o.pos = s.mvp * float4(placed, 1.0); \
+  o.pos = s.mvp * float4(v.p + s.anc.xyz, 1.0); \
   o.uv = v.uv; \
   o.uv1 = UV1; \
   o.colour = COLOUR; \
-  o.n = v.n; \
-  o.p = placed; \
+  o.n = normalize(s.model[0].xyz * v.n.x + s.model[1].xyz * v.n.y + s.model[2].xyz * v.n.z); \
+  o.p = (s.model * float4(v.p, 1.0)).xyz; \
   o.lp = v.p; \
-  o.t = v.t; \
+  o.t = float4(normalize(s.model[0].xyz * v.t.x + s.model[1].xyz * v.t.y + \
+                         s.model[2].xyz * v.t.z), \
+               v.t.w); \
   SUBJECT_SET_MOTION(o, v, s); \
   return o; \
 }
@@ -1572,6 +1572,11 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
     }
     for (int i = 0; i < 16; i++) { uniform[20 + i] = ctx.PrevMvp16[i]; }
     for (int i = 0; i < 3; i++) { uniform[36 + i] = (float)(PrevAnchor[i] - ctx.PrevEye[i]); }
+
+    if (Placed_.empty()) {
+      for (int axis = 0; axis < 3; ++axis) { carried[12 + axis] += Anchor[axis] - ctx.Eye[axis]; }
+    }
+    for (int i = 0; i < 16; i++) { uniform[40 + i] = (float)carried[i]; }
     SDL_PushGPUVertexUniformData(into.Commands, 0, uniform, sizeof uniform);
   };
   place(Batches.empty() ? 0u : Batches.front().ModelSlot);
