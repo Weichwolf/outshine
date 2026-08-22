@@ -33,3 +33,14 @@ board:1581 plans as move 2.
 
 board:1581's decomposition (move 2) supersedes the narration wholesale -- but nothing above
 waits for it.
+
+---
+
+**Closed, all boxes.** No string in src/ names a work item; the cache directory, the assets root
+and the vehicle width arrive as declarations (Provision through Lay, widthM through the grammar,
+the scenario read FIRST); no sim include line spells src/clients -- ScenarioRead lives in the
+scenario layer (whose compile subjects caught my first, too-wide cut), Sim::Stand lives in sim
+with its test in the mirror; the dead struct, the vararg Line (two live callers made explicit)
+and the fossil indentation are gone. Proofs: the fast gate 118/118, Munich 38/0, Kyoto 35/0,
+the road edge 7/0 over the final build. The duplicate-symbol lesson is in the runner: a file
+group never sits beside its own directory group.
