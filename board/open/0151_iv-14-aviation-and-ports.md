@@ -18,3 +18,20 @@ exists.** It depends on I.12 in full.*
 **Cost of the full sweep**: about 858 x 8.17 s of Blender, roughly two hours, so the corpus is built once and cached rather than re-rendered.
 
 **Retention**: after validation both `outshine.raw` and `oracle.raw` are deleted; `oracle.exr` and the two PNGs are kept. About 1.4 MB a case against 25 GB today.
+
+
+---
+
+## Folded children (2026-08-22)
+
+- [ ] Runway with threshold markings, centre line, touchdown zone *(was 0716)*
+- [ ] Taxiway with its centre line and edge lights *(was 0717)*
+- [ ] Apron and stands *(was 0718)*
+- [ ] Approach lighting *(was 0719)*
+- [ ] Windsock *(was 0720)*
+- [ ] Control tower *(was 0721)*
+- [ ] Helipad marking *(was 0722)*
+- [ ] Quay crane *(was 0723)*
+- [ ] Container stacks *(was 0724)*
+- [ ] Ro-ro ramp *(was 0725)*
+- [ ] Marina pontoons *(was 0726)*
