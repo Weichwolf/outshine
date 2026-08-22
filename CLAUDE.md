@@ -44,6 +44,22 @@ Peers never call each other; a part-on-part dependency travels as data through G
 Budget = screen-space error in px, quantised to a global ladder before it becomes a key;
 key = `(kind, params, seed, rung)` value, no strings. Degrade on detail, refuse on existence.
 
+### The actor chain (SOLL — the owner's causal decomposition)
+
+```mermaid
+flowchart LR
+  G["GEOMETRY — glTF parts"] --> F["FUNCTIONS — steer · drive · brake · lamps"]
+  F --> P["PHYSICS — contacts, forces at the patch"]
+  M["INTELLIGENCE"] -->|acts on| F
+  M -->|sees| W["world queries — ground · corridor · sight"]
+  M -->|asks| N["NAVIGATION — two coordinates in, corridor out"]
+  PLAYER["player bindings"] -->|same seam| F
+```
+
+Physics binds to functions, never to the mind; the mind and the player actuate ONE seam.
+`Journey` folds into `Sim` along this chain (`board:1581`). **A client includes nothing but
+`include/outshine/`** — enforced by the build (`board:1582`).
+
 ## Render plan (IST/SOLL per stage)
 
 ```mermaid
@@ -157,7 +173,7 @@ classDiagram
   }
   Engine --> Live : owns
   Live --> Renderer : drives
-  Journey --> GroundStream : owns
+  Journey --> GroundStream : owns — folds into Sim, board:1581
   Sim --> GroundStream : owns via World
 ```
 
