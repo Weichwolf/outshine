@@ -42,31 +42,22 @@ int main(void) {
         "never links the named suites. The audit is the declaration's own consistency check");
   CHECK(said.find("AUDIT clean") != std::string::npos, "and it says so in words");
 
-  const std::string dup =
-      Seeded("dup", "s|\"src/scene\" ;;|\"src/scene src/scene/Store.cpp\" ;;|");
-  std::string dupCopy;
-  (void)Run("cat " + dup, dupCopy);
-  CHECK(dupCopy.find("src/scene src/scene/Store.cpp") != std::string::npos,
-        "the duplicate seed took -- unit/scene's group line still reads as the control expects");
-  std::string dupSaid;
-  const int dupVerdict = Run("sh " + dup + " --audit 2>&1", dupSaid);
-  CHECK(dupVerdict != 0 && dupSaid.find("lists twice") != std::string::npos,
-        "**AND THE DETECTOR DETECTS**: a seeded duplicate -- a file listed beside the directory "
-        "that already expands to it -- flips the audit verdict and names the doubled listing "
-        "(board:1641's negative control, no longer manual)");
-
-  const std::string orphan = Seeded(
-      "orphan", "s|Wayfinding.cpp src/clients/Sim.cpp src/clients/|Wayfinding.cpp src/clients/|");
-  std::string orphanCopy;
-  (void)Run("cat " + orphan, orphanCopy);
-  CHECK(orphanCopy.find("Wayfinding.cpp src/clients/Sim.cpp") == std::string::npos,
-        "the orphan seed took -- Sim.cpp left the one closure that compiles it in the copy");
-  std::string orphanSaid;
-  const int orphanVerdict = Run("sh " + orphan + " --audit 2>&1", orphanSaid);
-  CHECK(orphanVerdict != 0 &&
-            orphanSaid.find("no suite compiles src/clients/Sim.cpp") != std::string::npos,
-        "and a seeded orphan -- a source struck from every suite's closure -- flips the verdict "
-        "and names the file no suite would compile");
+  const std::string seeded = Seeded(
+      "both", "s|\"src/scene\" ;;|\"src/scene src/scene/Store.cpp\" ;;|;"
+              "s|Wayfinding.cpp src/clients/Sim.cpp src/clients/|Wayfinding.cpp src/clients/|");
+  std::string copy;
+  (void)Run("cat " + seeded, copy);
+  CHECK(copy.find("src/scene src/scene/Store.cpp") != std::string::npos &&
+            copy.find("Wayfinding.cpp src/clients/Sim.cpp") == std::string::npos,
+        "both seeds took -- a duplicate beside src/scene, and Sim.cpp struck from the one "
+        "closure that compiles it");
+  std::string seededSaid;
+  const int seededVerdict = Run("sh " + seeded + " --audit 2>&1", seededSaid);
+  CHECK(seededVerdict != 0 && seededSaid.find("lists twice") != std::string::npos &&
+            seededSaid.find("no suite compiles src/clients/Sim.cpp") != std::string::npos,
+        "**AND THE DETECTORS DETECT**: one dually-seeded copy flips the verdict and names BOTH "
+        "defects -- the audit collects every defect before it judges, so the control costs one "
+        "run, not two (board:1641's negative control, no longer manual)");
 
   Covers("IV.7 the build declaration audits itself in the fast gate: duplicate listings and "
          "orphan sources refuse before any named suite has to discover them at link time, and "

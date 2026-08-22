@@ -65,3 +65,16 @@ audit three times and measures 6873 ms [MEASURED, one cold worktree run] — the
 gate member. If the audit reports ALL defects before its verdict, one copy seeded with both
 defects proves both detectors in two audit runs instead of three; worth taking when the warm
 gate nears its 90 s bound. The link-closure half stays the open remainder.
+
+---
+
+Closed: the systemic half stands. `run.sh --audit-link` builds every declared suite's object
+set under its own declaration (warm: stat-walks the cache) and refuses any outshine symbol
+the set cannot resolve from itself, via nm closure; an optional suite argument narrows the
+walk. Proving test: test/harness/claims/EveryDeclaredSuiteResolvesItsOwnSymbols.cpp -- the
+real tree must audit closed, AND a copy with Wayfinding struck from world's declaration must
+refuse naming __ZN8outshine4Path7Network3Lay, the very symbol whose silent absence filed this
+item. The cost note is also repaid: the listing controls run as ONE dually-seeded copy
+(6.9 s -> 4.7 s [MEASURED warm]), the closure control narrows to the seeded suite; the
+closure's real run costs 13.5 s warm [MEASURED] -- the price of a link truth the gate never
+had, inside a 68.4 s warm gate against the 90 s bound.

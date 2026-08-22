@@ -3,6 +3,7 @@
 set -u
 set -m
 AUDIT=0
+AUDITLINK=0
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT" || exit 2
@@ -59,6 +60,7 @@ while [ $# -gt 0 ]; do
       ;;
     --library) LIBRARY=1; shift ;;
     --audit) AUDIT=1; shift ;;
+    --audit-link) AUDITLINK=1; shift ;;
     -*) Die "unknown option '$1'" ;;
     *) SUITES="$SUITES ${1%/}"; SUITE=${1%/}; shift; continue ;;
   esac
@@ -434,6 +436,38 @@ if [ "$AUDIT" = 1 ]; then
     printf '%s\n' "$covered" | grep -qx "$source" || { printf 'AUDIT no suite compiles %s\n' "$source"; bad=1; }
   done
   [ "$bad" = 0 ] && printf 'AUDIT clean: every suite lists each source once, every source has a suite\n'
+  exit $bad
+fi
+
+# every DECLARED suite's object set is closed over its own outshine symbols (board:1641):
+# a sources list that lost a unit refuses here by name, not at a sporadic link
+if [ "$AUDITLINK" = 1 ]; then
+  bad=0
+  auditSuites=$SUITES
+  [ -n "$auditSuites" ] ||
+    auditSuites=$(find test tools -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u)
+  for suiteDir in $auditSuites; do
+    groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
+    [ -n "$groups" ] || continue
+    OBJECTS=""
+    built=yes
+    for group in $groups; do
+      BuildGroup "$group" || { built=no; break; }
+    done
+    if [ "$built" = no ]; then
+      printf 'AUDIT %s does not compile under its own declaration\n' "$suiteDir"
+      bad=1
+      continue
+    fi
+    nm -u $OBJECTS 2>/dev/null | grep -o '__ZN8outshine[A-Za-z0-9_]*' | sort -u > "$BUILD/audit.undef"
+    nm -gU $OBJECTS 2>/dev/null | awk '{print $3}' | grep '^__ZN8outshine' | sort -u > "$BUILD/audit.def"
+    unresolved=$(comm -23 "$BUILD/audit.undef" "$BUILD/audit.def")
+    if [ -n "$unresolved" ]; then
+      printf 'AUDIT %s cannot resolve: %s\n' "$suiteDir" "$(printf '%s' "$unresolved" | head -3 | tr '\n' ' ')"
+      bad=1
+    fi
+  done
+  [ "$bad" = 0 ] && printf 'AUDIT closed: every declared suite resolves its own symbols from its own objects\n'
   exit $bad
 fi
 
