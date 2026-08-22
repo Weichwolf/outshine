@@ -25,3 +25,22 @@ The decided shape:
   is the standing test that the render column is a column
 
 Depends: 1582
+
+
+---
+
+**Survey + decided seam (2026-08-22, owner steer: the renderer must be generic).** What stands:
+the executor table exists (Renderer::kExecutors, Stage -> Configure/Encode) -- the PLAN side is
+already table-driven and src/render/plan is pointer-free. What is hard-wired: Gpu and
+PassRecording are SDL type bags, and 21 stage files plus the Renderer speak SDL_GPU directly.
+
+The seam is the PLAN, not a wrapper: a BACKEND is an implementation of the plan's four verbs --
+create resource, configure stage, encode stage, present -- against its own device. The decided
+cut:
+1. src/render/plan and src/render/draw stay (and are audited) backend-free -- the shared truth
+2. the current stage set and Renderer internals become the SDL_GPU backend (render/sdlgpu/),
+   the first row of the backend table; the Renderer facade keeps its API and selects a backend
+3. render/soft/ implements the SAME plan against ../softgl -- stages it cannot execute refuse
+   and publish -> neutral; the C++ twins fill the LUT resources CPU-side
+4. the second row is the PROOF of the first: no shared header may name an SDL type once the
+   split lands (the audit that guards it is the same shape as run.sh --audit)
