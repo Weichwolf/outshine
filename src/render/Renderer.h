@@ -32,7 +32,7 @@ public:
 
   void Init(int width, int height, std::shared_ptr<const RenderPlan> plan);
   [[nodiscard]] const RenderPlan &Plan(void) const { return *Plan_; }
-  [[nodiscard]] bool DeviceUsable(void) const { return Ready; }
+  [[nodiscard]] bool DeviceUsable(void) const { return Ready_; }
 
   [[nodiscard]] const std::string &WhyNot(void) const { return WhyNot_; }
 
@@ -78,11 +78,11 @@ public:
   [[nodiscard]] ReadState ReadSceneVelocity(std::vector<float> &xy);
 
   [[nodiscard]] bool SetOverlay(const OverlayQuad *quads, size_t count, std::string &error) {
-    return Overlay_.SetQuads(Handles, quads, count, error);
+    return Overlay_.SetQuads(Handles_, quads, count, error);
   }
 
   [[nodiscard]] bool SetOverlayAtlas(const uint8_t *rgba, int width, int height, std::string &error) {
-    return Overlay_.SetAtlas(Handles, rgba, width, height, error);
+    return Overlay_.SetAtlas(Handles_, rgba, width, height, error);
   }
 
   [[nodiscard]] bool SetSubjectMesh(const SubjectMesh &mesh, std::string &error) {
@@ -147,16 +147,16 @@ public:
   void SetCameraBasis(const double eye[3], const double fwd[3], const double right[3],
                       const double up[3]);
 
-  void SetFovDeg(double deg) { FovDeg = deg > 0.0 ? (float)deg : FovDeg; }
-  void SetOrthoM(double m) { OrthoM = (float)m; }
+  void SetFovDeg(double deg) { FovDeg_ = deg > 0.0 ? (float)deg : FovDeg_; }
+  void SetOrthoM(double m) { OrthoM_ = (float)m; }
 
-  void SetNearM(double m) { NearM = m > 0.0 ? (float)m : NearM; }
-  [[nodiscard]] float NearMetres(void) const { return NearM; }
+  void SetNearM(double m) { NearM_ = m > 0.0 ? (float)m : NearM_; }
+  [[nodiscard]] float NearMetres(void) const { return NearM_; }
 
   void BeginTemporalRun(void);
 
-  [[nodiscard]] int SceneW(void) const { return Width; }
-  [[nodiscard]] int SceneH(void) const { return Height; }
+  [[nodiscard]] int SceneW(void) const { return Width_; }
+  [[nodiscard]] int SceneH(void) const { return Height_; }
   [[nodiscard]] double PictureW(void) const;
   [[nodiscard]] double PictureH(void) const;
 
@@ -214,17 +214,17 @@ private:
 
   SDL_GPUTexture *HostSurface_ = nullptr;
   std::shared_ptr<const RenderPlan> Plan_;
-  Gpu Handles;
-  OwnedTexture HdrTex, VelTex, DepthTex, FrameTex;
+  Gpu Handles_;
+  OwnedTexture HdrTex_, VelTex_, DepthTex_, FrameTex_;
   OwnedTexture TransmittanceLut_, MultiScatterLut_, SkyViewLut_;
   OwnedTexture ShadowAtlas_;
 
-  OwnedTexture TransmissiveTex, CompositedTex;
+  OwnedTexture TransmissiveTex_, CompositedTex_;
 
-  OwnedTexture ShadingNormalTex;
+  OwnedTexture ShadingNormalTex_;
 
-  OwnedTexture SurfaceIdentityTex;
-  OwnedSampler Samp, LutSamp;
+  OwnedTexture SurfaceIdentityTex_;
+  OwnedSampler Samp_, LutSamp_;
   SubjectDraw Subjects_;
 
   SubjectDraw Glass_;
@@ -243,9 +243,9 @@ private:
   OverlayDraw Overlay_;
   PresentStage Present_;
 
-  bool Ready = false;
+  bool Ready_ = false;
   std::string WhyNot_;
-  int Width = 0, Height = 0;
+  int Width_ = 0, Height_ = 0;
 
   OwnedTexture LinearTex_[2];
   int LinearAt_ = 0;
@@ -257,7 +257,7 @@ private:
   int JitterAt_ = 0;
   float Jitter_[2] = {0.0f, 0.0f};
   float PrevJitter_[2] = {0.0f, 0.0f};
-  bool CameraFull = false;
+  bool CameraFull_ = false;
 
   double RegionX_ = 0, RegionY_ = 0, RegionW_ = 0, RegionH_ = 0, RegionAspect_ = 0;
 
@@ -265,18 +265,18 @@ private:
     double LeftPx = 0, TopPx = 0, WidthPx = 0, HeightPx = 0;
   };
   [[nodiscard]] Placed PictureRect(void) const;
-  double Eye[3] = {0, 0, 0};
-  double Fwd[3] = {0, 0, 0}, Right[3] = {0, 0, 0}, Up[3] = {0, 0, 0};
-  float FovDeg = 60.0f;
-  float OrthoM = 0.0f;
-  float NearM = kNearM;
+  double Eye_[3] = {0, 0, 0};
+  double Fwd_[3] = {0, 0, 0}, Right_[3] = {0, 0, 0}, Up_[3] = {0, 0, 0};
+  float FovDeg_ = 60.0f;
+  float OrthoM_ = 0.0f;
+  float NearM_ = kNearM;
 
-  bool Submitted = false;
+  bool Submitted_ = false;
 
   SDL_GPUFence *Landed_[kFramesInFlight] = {};
   int LandedAt_ = 0;
-  double PrevEye[3] = {0, 0, 0};
-  float PrevMvp16[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  double PrevEye_[3] = {0, 0, 0};
+  float PrevMvp16_[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 };
 
 }

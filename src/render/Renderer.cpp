@@ -98,12 +98,12 @@ float HalfToFloat(uint16_t bits) {
 void Renderer::SetCameraBasis(const double eye[3], const double fwd[3], const double right[3],
                               const double up[3]) {
   for (int axis = 0; axis < 3; axis++) {
-    Eye[axis] = eye[axis];
-    Fwd[axis] = fwd[axis];
-    Right[axis] = right[axis];
-    Up[axis] = up[axis];
+    Eye_[axis] = eye[axis];
+    Fwd_[axis] = fwd[axis];
+    Right_[axis] = right[axis];
+    Up_[axis] = up[axis];
   }
-  CameraFull = true;
+  CameraFull_ = true;
 }
 
 const Renderer::Executor Renderer::kExecutors[] = {
@@ -138,8 +138,8 @@ bool Renderer::Executable(Stage stage) { return ExecutorOf(stage) != nullptr; }
 void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> plan) {
   WhyNot_.clear();
   Plan_ = std::move(plan);
-  Width = width;
-  Height = height;
+  Width_ = width;
+  Height_ = height;
 
   for (const Stage stage : Plan_->Order()) {
     if (Executable(stage)) { continue; }
@@ -149,7 +149,7 @@ void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> pla
     return;
   }
 
-  Ready = false;
+  Ready_ = false;
   if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
     Log::Error("render", "no_video", {{"msg", SDL_GetError()}});
     WhyNot_ = std::string("the video subsystem did not start: ") + SDL_GetError();
@@ -169,15 +169,15 @@ void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> pla
 
   SDL_WaitForGPUIdle(Device_.Get());
   SDL_GPUDevice *const device = Device_.Get();
-  Handles.Device = device;
-  Handles.HdrFormat = FormatOf(Plan_->Format(Resource::SceneHdr));
-  Handles.SurfaceFormat = FormatOf(Plan_->Format(Resource::FrameTex));
-  Handles.Width = Width;
-  Handles.Height = Height;
+  Handles_.Device = device;
+  Handles_.HdrFormat = FormatOf(Plan_->Format(Resource::SceneHdr));
+  Handles_.SurfaceFormat = FormatOf(Plan_->Format(Resource::FrameTex));
+  Handles_.Width = Width_;
+  Handles_.Height = Height_;
 
   for (const RenderPlan::Pass &pass : Plan_->Passes()) {
     if (pass.Kind == PassKind::Compute || pass.Depth == kNoEdge) { continue; }
-    Handles.SceneColours = pass.Targets;
+    Handles_.SceneColours = pass.Targets;
     break;
   }
   const auto coloursOfPassWith = [this](Stage wanted) {
@@ -186,9 +186,9 @@ void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> pla
         if (Plan_->Order()[at] == wanted) { return pass.Targets; }
       }
     }
-    return Handles.SceneColours;
+    return Handles_.SceneColours;
   };
-  Handles.FiltersFloat32 =
+  Handles_.FiltersFloat32 =
       SDL_GPUTextureSupportsFormat(device, SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT,
                                    SDL_GPU_TEXTURETYPE_2D, SDL_GPU_TEXTUREUSAGE_SAMPLER);
 
@@ -202,22 +202,22 @@ void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> pla
   }
   for (const Stage stage : Plan_->Order()) {
     std::string why;
-    Handles.SceneColours = coloursOfPassWith(stage);
+    Handles_.SceneColours = coloursOfPassWith(stage);
     if (Configure(stage, why)) { continue; }
     Log::Error("render", "stage_not_configured", {{"stage", Row(stage).Name}, {"msg", why}});
     WhyNot_ = std::string("the stage '") + Row(stage).Name + "' did not configure: " + why;
     return;
   }
-  Ready = true;
+  Ready_ = true;
 
   Log::Info("render", "device_ready",
-            {{"width", Width},
-             {"height", Height},
+            {{"width", Width_},
+             {"height", Height_},
              {"driver", SDL_GetGPUDeviceDriver(device)},
              {"plan", Plan_->Digest()},
              {"passes", Plan_->PassCount()},
              {"stages", (int)Plan_->Order().size()},
-             {"f32filter", Handles.FiltersFloat32}});
+             {"f32filter", Handles_.FiltersFloat32}});
   for (const std::string &merge : Plan_->Merges()) {
     Log::Info("render", "plan_merge", {{"merge", merge}});
   }
@@ -232,8 +232,8 @@ void Renderer::Create(Resource resource) {
     wanted.type = SDL_GPU_TEXTURETYPE_2D;
     wanted.format = FormatOf(Plan_->Format(of));
     wanted.usage = usage;
-    wanted.width = (uint32_t)Width;
-    wanted.height = (uint32_t)Height;
+    wanted.width = (uint32_t)Width_;
+    wanted.height = (uint32_t)Height_;
     wanted.layer_count_or_depth = 1;
     wanted.num_levels = 1;
     wanted.sample_count = SDL_GPU_SAMPLECOUNT_1;
@@ -251,23 +251,23 @@ void Renderer::Create(Resource resource) {
       wanted.min_filter = SDL_GPU_FILTER_LINEAR;
       wanted.mag_filter = SDL_GPU_FILTER_LINEAR;
       wanted.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
-      Samp = OwnedSampler(Device_.Get(), SDL_CreateGPUSampler(Device_.Get(), &wanted));
+      Samp_ = OwnedSampler(Device_.Get(), SDL_CreateGPUSampler(Device_.Get(), &wanted));
       return;
     }
 
     case Resource::OverlayAtlas: return;
-    case Resource::SceneHdr: HdrTex = target(resource, colour); return;
-    case Resource::SceneTransmissive: TransmissiveTex = target(resource, colour); return;
-    case Resource::SceneComposited: CompositedTex = target(resource, colour); return;
-    case Resource::SceneVelocity: VelTex = target(resource, colour); return;
-    case Resource::SceneShadingNormal: ShadingNormalTex = target(resource, colour); return;
-    case Resource::SceneSurfaceIdentity: SurfaceIdentityTex = target(resource, colour); return;
+    case Resource::SceneHdr: HdrTex_ = target(resource, colour); return;
+    case Resource::SceneTransmissive: TransmissiveTex_ = target(resource, colour); return;
+    case Resource::SceneComposited: CompositedTex_ = target(resource, colour); return;
+    case Resource::SceneVelocity: VelTex_ = target(resource, colour); return;
+    case Resource::SceneShadingNormal: ShadingNormalTex_ = target(resource, colour); return;
+    case Resource::SceneSurfaceIdentity: SurfaceIdentityTex_ = target(resource, colour); return;
     case Resource::SceneDepth:
 
-      DepthTex = target(resource, SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET |
+      DepthTex_ = target(resource, SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET |
                                       SDL_GPU_TEXTUREUSAGE_SAMPLER);
       return;
-    case Resource::FrameTex: FrameTex = target(resource, colour); return;
+    case Resource::FrameTex: FrameTex_ = target(resource, colour); return;
 
     case Resource::Surface: return;
     case Resource::TransmittanceLut:
@@ -300,7 +300,7 @@ void Renderer::Create(Resource resource) {
       wanted.min_filter = SDL_GPU_FILTER_LINEAR;
       wanted.mag_filter = SDL_GPU_FILTER_LINEAR;
       wanted.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
-      LutSamp = OwnedSampler(Device_.Get(), SDL_CreateGPUSampler(Device_.Get(), &wanted));
+      LutSamp_ = OwnedSampler(Device_.Get(), SDL_CreateGPUSampler(Device_.Get(), &wanted));
       return;
     }
     case Resource::AtmosphereUniform:
@@ -340,14 +340,14 @@ SDL_GPUTexture *Renderer::Target(Resource resource) const {
   switch (resource) {
 
     case Resource::OverlayAtlas: return nullptr;
-    case Resource::SceneHdr: return HdrTex.Get();
-    case Resource::SceneTransmissive: return TransmissiveTex.Get();
-    case Resource::SceneComposited: return CompositedTex.Get();
-    case Resource::SceneVelocity: return VelTex.Get();
-    case Resource::SceneShadingNormal: return ShadingNormalTex.Get();
-    case Resource::SceneSurfaceIdentity: return SurfaceIdentityTex.Get();
-    case Resource::SceneDepth: return DepthTex.Get();
-    case Resource::FrameTex: return FrameTex.Get();
+    case Resource::SceneHdr: return HdrTex_.Get();
+    case Resource::SceneTransmissive: return TransmissiveTex_.Get();
+    case Resource::SceneComposited: return CompositedTex_.Get();
+    case Resource::SceneVelocity: return VelTex_.Get();
+    case Resource::SceneShadingNormal: return ShadingNormalTex_.Get();
+    case Resource::SceneSurfaceIdentity: return SurfaceIdentityTex_.Get();
+    case Resource::SceneDepth: return DepthTex_.Get();
+    case Resource::FrameTex: return FrameTex_.Get();
 
     case Resource::Surface: return HostSurface_;
     case Resource::TransmittanceLut: return TransmittanceLut_.Get();
@@ -385,13 +385,13 @@ Renderer::Placed Renderer::PictureRect(void) const {
   Placed out;
   out.LeftPx = 0;
   out.TopPx = 0;
-  out.WidthPx = (double)Width;
-  out.HeightPx = (double)Height;
+  out.WidthPx = (double)Width_;
+  out.HeightPx = (double)Height_;
   if (RegionW_ > 0 && RegionH_ > 0) {
-    out.LeftPx = RegionX_ * (double)Width;
-    out.TopPx = RegionY_ * (double)Height;
-    out.WidthPx = RegionW_ * (double)Width;
-    out.HeightPx = RegionH_ * (double)Height;
+    out.LeftPx = RegionX_ * (double)Width_;
+    out.TopPx = RegionY_ * (double)Height_;
+    out.WidthPx = RegionW_ * (double)Width_;
+    out.HeightPx = RegionH_ * (double)Height_;
   }
   if (RegionAspect_ > 0 && out.WidthPx > 0 && out.HeightPx > 0) {
     const double fitted = out.WidthPx / out.HeightPx > RegionAspect_ ? out.HeightPx * RegionAspect_
@@ -427,16 +427,16 @@ bool Renderer::Configure(Stage stage, std::string &error) {
 
 bool Renderer::ConfigureSubjects(std::string &error) {
   if (DrawsGlass_) { Subjects_.GlassIsDrawnElsewhere(); }
-  return Subjects_.Configure(Handles, error);
+  return Subjects_.Configure(Handles_, error);
 }
 
 bool Renderer::ConfigureGlass(std::string &error) {
-  Glass_.SeeThroughTo(HdrTex.Get(), Samp.Get());
-  return Glass_.Configure(Handles, error);
+  Glass_.SeeThroughTo(HdrTex_.Get(), Samp_.Get());
+  return Glass_.Configure(Handles_, error);
 }
 
 bool Renderer::ConfigureCompositeTransmission(std::string &error) {
-  return CompositeTransmission_.Configure(Handles, HdrTex.Get(), TransmissiveTex.Get(), Samp.Get(),
+  return CompositeTransmission_.Configure(Handles_, HdrTex_.Get(), TransmissiveTex_.Get(), Samp_.Get(),
                                           FormatOf(Plan_->Format(Resource::SceneComposited)),
                                           error);
 }
@@ -447,40 +447,40 @@ bool Renderer::ConfigureTemporalResolve(std::string &error) {
 }
 
 bool Renderer::ConfigureOverlay(std::string &error) {
-  return Overlay_.Configure(Handles, Samp.Get(), FormatOf(Plan_->Format(Resource::FrameTex)),
+  return Overlay_.Configure(Handles_, Samp_.Get(), FormatOf(Plan_->Format(Resource::FrameTex)),
                             error);
 }
 
 bool Renderer::ConfigurePresent(std::string &error) {
-  return Present_.Configure(Handles, FrameTex.Get(), Samp.Get(), error);
+  return Present_.Configure(Handles_, FrameTex_.Get(), Samp_.Get(), error);
 }
 
 bool Renderer::ConfigureTonemap(std::string &error) {
-  return Tonemap_.Configure(Handles, Target(Plan_->Bound(Resource::SceneComposited)),
-                            DepthTex.Get(), Samp.Get(),
+  return Tonemap_.Configure(Handles_, Target(Plan_->Bound(Resource::SceneComposited)),
+                            DepthTex_.Get(), Samp_.Get(),
                             FormatOf(Plan_->Format(Resource::SceneLinear)), Display(), error);
 }
 
 bool Renderer::ConfigureMediumTransmittance(std::string &error) {
-  return MediumTransmittance_.Configure(Handles, TransmittanceLut_.Get(), error);
+  return MediumTransmittance_.Configure(Handles_, TransmittanceLut_.Get(), error);
 }
 
 bool Renderer::ConfigureMediumMultiScatter(std::string &error) {
-  return MultiScatter_.Configure(Handles, TransmittanceLut_.Get(), LutSamp.Get(),
+  return MultiScatter_.Configure(Handles_, TransmittanceLut_.Get(), LutSamp_.Get(),
                                  MultiScatterLut_.Get(), error);
 }
 
 bool Renderer::ConfigureMediumRadiance(std::string &error) {
-  return Radiance_.Configure(Handles, TransmittanceLut_.Get(), MultiScatterLut_.Get(),
-                             LutSamp.Get(), SkyViewLut_.Get(), error);
+  return Radiance_.Configure(Handles_, TransmittanceLut_.Get(), MultiScatterLut_.Get(),
+                             LutSamp_.Get(), SkyViewLut_.Get(), error);
 }
 
 bool Renderer::ConfigureSky(std::string &error) {
-  return Sky_.Configure(Handles, SkyViewLut_.Get(), LutSamp.Get(), error);
+  return Sky_.Configure(Handles_, SkyViewLut_.Get(), LutSamp_.Get(), error);
 }
 
 bool Renderer::ConfigureLightVisibility(std::string &error) {
-  return Shadow_.Configure(Subjects_, Handles, error);
+  return Shadow_.Configure(Subjects_, Handles_, error);
 }
 
 void Renderer::Picture(bool picture, const PassRecording &into) {
@@ -488,8 +488,8 @@ void Renderer::Picture(bool picture, const PassRecording &into) {
   const Placed rect = PictureRect();
   where.x = picture ? (float)rect.LeftPx : 0.0f;
   where.y = picture ? (float)rect.TopPx : 0.0f;
-  where.w = picture ? (float)rect.WidthPx : (float)Width;
-  where.h = picture ? (float)rect.HeightPx : (float)Height;
+  where.w = picture ? (float)rect.WidthPx : (float)Width_;
+  where.h = picture ? (float)rect.HeightPx : (float)Height_;
   where.min_depth = 0.0f;
   where.max_depth = 1.0f;
   if (into.Pass != nullptr) { SDL_SetGPUViewport(into.Pass, &where); }
@@ -500,15 +500,15 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
   if (seat == nullptr || seat->Encode == nullptr) { return; }
 
   FrameContext ctx{};
-  for (int axis = 0; axis < 3; axis++) { ctx.Eye[axis] = Eye[axis]; }
+  for (int axis = 0; axis < 3; axis++) { ctx.Eye[axis] = Eye_[axis]; }
 
-  MvpCamRel(ctx.Mvp16, Right, Up, Fwd, PictureW(), PictureH(), FovDeg, OrthoM, Jitter_[0],
-            Jitter_[1], NearM);
+  MvpCamRel(ctx.Mvp16, Right_, Up_, Fwd_, PictureW(), PictureH(), FovDeg_, OrthoM_, Jitter_[0],
+            Jitter_[1], NearM_);
   for (int axis = 0; axis < 3; axis++) {
-    ctx.PrevEye[axis] = Submitted ? PrevEye[axis] : ctx.Eye[axis];
+    ctx.PrevEye[axis] = Submitted_ ? PrevEye_[axis] : ctx.Eye[axis];
   }
   for (int at = 0; at < 16; at++) {
-    ctx.PrevMvp16[at] = Submitted ? PrevMvp16[at] : ctx.Mvp16[at];
+    ctx.PrevMvp16[at] = Submitted_ ? PrevMvp16_[at] : ctx.Mvp16[at];
   }
 
   const outshine::Heap::Tagged encoding(Row(stage).Name);
@@ -533,7 +533,7 @@ void Renderer::EncodeCompositeTransmission(const FrameContext &ctx, const PassRe
 void Renderer::EncodeTonemap(const FrameContext &ctx, const PassRecording &into) {
   Tonemap_.Bind(Target(Plan_->Bound(Resource::SceneComposited)));
   const float delta[2] = {Jitter_[0] - PrevJitter_[0], Jitter_[1] - PrevJitter_[1]};
-  Tonemap_.BindTemporal(LinearTex_[1 - LinearAt_].Get(), VelTex.Get(), Width, Height, delta,
+  Tonemap_.BindTemporal(LinearTex_[1 - LinearAt_].Get(), VelTex_.Get(), Width_, Height_, delta,
                         HistoryHeld_);
   Picture(true, into);
   Tonemap_.Encode(ctx, into);
@@ -541,14 +541,14 @@ void Renderer::EncodeTonemap(const FrameContext &ctx, const PassRecording &into)
 
 void Renderer::EncodeOverlay(const FrameContext &ctx, const PassRecording &into) {
   Picture(false, into);
-  Overlay_.Bind(Width, Height);
+  Overlay_.Bind(Width_, Height_);
   Overlay_.Encode(ctx, into);
 }
 
 void Renderer::EncodePresent(const FrameContext &ctx, const PassRecording &into) {
   {
     std::string why;
-    if (!Present_.For(Handles, SurfaceFormat(), why)) {
+    if (!Present_.For(Handles_, SurfaceFormat(), why)) {
       Log::Error("render", "present_not_built", {{"msg", why}});
       return;
     }
@@ -578,13 +578,13 @@ void Renderer::EncodeLightVisibility(const FrameContext &ctx, const PassRecordin
 
 void Renderer::EncodeSky(const FrameContext &ctx, const PassRecording &into) {
   Picture(true, into);
-  const float tanHalfH = std::tan((float)(FovDeg * 3.14159265358979 / 180.0) * 0.5f);
+  const float tanHalfH = std::tan((float)(FovDeg_ * 3.14159265358979 / 180.0) * 0.5f);
   const float tanHalfW = tanHalfH * (PictureH() > 0.0 ? (float)(PictureW() / PictureH()) : 1.0f);
   float right[3], up[3], fwd[3];
   for (int axis = 0; axis < 3; ++axis) {
-    right[axis] = (float)Right[axis];
-    up[axis] = (float)Up[axis];
-    fwd[axis] = (float)Fwd[axis];
+    right[axis] = (float)Right_[axis];
+    up[axis] = (float)Up_[axis];
+    fwd[axis] = (float)Fwd_[axis];
   }
   Sky_.SetBasis(right, up, fwd, tanHalfW, tanHalfH);
   Sky_.Encode(ctx, into);
@@ -671,7 +671,7 @@ void Renderer::BeginTemporalRun(void) {
 }
 
 void Renderer::RenderFrame(void) {
-  if (!Ready || !CameraFull) { return; }
+  if (!Ready_ || !CameraFull_) { return; }
 
   if (Plan_->Holds(Stage::TemporalResolve)) {
     PrevJitter_[0] = Jitter_[0];
@@ -699,15 +699,15 @@ void Renderer::RenderFrame(void) {
   }
   Landed_[LandedAt_] = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
   LandedAt_ = (LandedAt_ + 1) % kFramesInFlight;
-  for (int axis = 0; axis < 3; axis++) { PrevEye[axis] = Eye[axis]; }
+  for (int axis = 0; axis < 3; axis++) { PrevEye_[axis] = Eye_[axis]; }
 
-  MvpCamRel(PrevMvp16, Right, Up, Fwd, PictureW(), PictureH(), FovDeg, OrthoM, Jitter_[0],
-            Jitter_[1], NearM);
-  Submitted = true;
+  MvpCamRel(PrevMvp16_, Right_, Up_, Fwd_, PictureW(), PictureH(), FovDeg_, OrthoM_, Jitter_[0],
+            Jitter_[1], NearM_);
+  Submitted_ = true;
 }
 
 void Renderer::WaitForGpu(void) {
-  if (!Ready) { return; }
+  if (!Ready_) { return; }
   SDL_WaitForGPUIdle(Device_.Get());
 
   for (SDL_GPUFence *&held : Landed_) {
@@ -718,38 +718,38 @@ void Renderer::WaitForGpu(void) {
 }
 
 ReadState Renderer::ReadPixels(std::vector<uint8_t> &rgba) {
-  if (!Ready || !FrameTex) { return ReadState::Failed; }
+  if (!Ready_ || !FrameTex_) { return ReadState::Failed; }
   Readback read;
-  if (read.FromTexture(Device_.Get(), FrameTex.Get(), (uint32_t)Width, (uint32_t)Height, 4u) !=
+  if (read.FromTexture(Device_.Get(), FrameTex_.Get(), (uint32_t)Width_, (uint32_t)Height_, 4u) !=
       ReadState::Ready) {
     return ReadState::Failed;
   }
-  rgba.assign(read.Rows(), read.Rows() + (size_t)Width * (size_t)Height * 4u);
+  rgba.assign(read.Rows(), read.Rows() + (size_t)Width_ * (size_t)Height_ * 4u);
   return ReadState::Ready;
 }
 
 ReadState Renderer::ReadDepth(std::vector<float> &depth) {
-  if (!Ready || !DepthTex) { return ReadState::Failed; }
+  if (!Ready_ || !DepthTex_) { return ReadState::Failed; }
   Readback read;
-  if (read.FromTexture(Device_.Get(), DepthTex.Get(), (uint32_t)Width, (uint32_t)Height, 4u) !=
+  if (read.FromTexture(Device_.Get(), DepthTex_.Get(), (uint32_t)Width_, (uint32_t)Height_, 4u) !=
       ReadState::Ready) {
     return ReadState::Failed;
   }
-  depth.resize((size_t)Width * (size_t)Height);
+  depth.resize((size_t)Width_ * (size_t)Height_);
   std::memcpy(depth.data(), read.Rows(), depth.size() * sizeof(float));
   return ReadState::Ready;
 }
 
 ReadState Renderer::ReadSceneLinear(std::vector<float> &rgba) {
   SDL_GPUTexture *source = LinearSource();
-  if (!Ready || !source) { return ReadState::Failed; }
+  if (!Ready_ || !source) { return ReadState::Failed; }
   const bool wide = Plan_->Format(Resource::SceneLinear) == TexelFormat::Rgba32Float;
   Readback read;
-  if (read.FromTexture(Device_.Get(), source, (uint32_t)Width, (uint32_t)Height, wide ? 16u : 8u) !=
+  if (read.FromTexture(Device_.Get(), source, (uint32_t)Width_, (uint32_t)Height_, wide ? 16u : 8u) !=
       ReadState::Ready) {
     return ReadState::Failed;
   }
-  const size_t components = (size_t)Width * (size_t)Height * 4u;
+  const size_t components = (size_t)Width_ * (size_t)Height_ * 4u;
   rgba.resize(components);
   if (wide) {
     std::memcpy(rgba.data(), read.Rows(), components * sizeof(float));
@@ -765,7 +765,7 @@ ReadState Renderer::ReadSceneLinear(std::vector<float> &rgba) {
 }
 
 ReadState Renderer::ReadShadowAtlas(std::vector<float> &depth) {
-  if (!Ready || !ShadowAtlas_) { return ReadState::Failed; }
+  if (!Ready_ || !ShadowAtlas_) { return ReadState::Failed; }
   Readback read;
   if (read.FromTexture(Device_.Get(), ShadowAtlas_.Get(), (uint32_t)kShadowAtlasPx,
                        (uint32_t)kShadowAtlasPx, 4u) != ReadState::Ready) {
@@ -777,14 +777,14 @@ ReadState Renderer::ReadShadowAtlas(std::vector<float> &depth) {
 }
 
 ReadState Renderer::ReadShadingNormal(std::vector<float> &xyz) {
-  SDL_GPUTexture *source = ShadingNormalTex.Get();
-  if (!Ready || !source) { return ReadState::Failed; }
+  SDL_GPUTexture *source = ShadingNormalTex_.Get();
+  if (!Ready_ || !source) { return ReadState::Failed; }
   Readback read;
-  if (read.FromTexture(Device_.Get(), source, (uint32_t)Width, (uint32_t)Height, 8u) !=
+  if (read.FromTexture(Device_.Get(), source, (uint32_t)Width_, (uint32_t)Height_, 8u) !=
       ReadState::Ready) {
     return ReadState::Failed;
   }
-  const size_t components = (size_t)Width * (size_t)Height * 4u;
+  const size_t components = (size_t)Width_ * (size_t)Height_ * 4u;
   xyz.resize(components);
   for (size_t component = 0; component < components; ++component) {
     uint16_t bits = 0;
@@ -795,14 +795,14 @@ ReadState Renderer::ReadShadingNormal(std::vector<float> &xyz) {
 }
 
 ReadState Renderer::ReadSceneVelocity(std::vector<float> &xy) {
-  SDL_GPUTexture *source = VelTex.Get();
-  if (!Ready || !source) { return ReadState::Failed; }
+  SDL_GPUTexture *source = VelTex_.Get();
+  if (!Ready_ || !source) { return ReadState::Failed; }
   Readback read;
-  if (read.FromTexture(Device_.Get(), source, (uint32_t)Width, (uint32_t)Height, 4u) !=
+  if (read.FromTexture(Device_.Get(), source, (uint32_t)Width_, (uint32_t)Height_, 4u) !=
       ReadState::Ready) {
     return ReadState::Failed;
   }
-  const size_t components = (size_t)Width * (size_t)Height * 2u;
+  const size_t components = (size_t)Width_ * (size_t)Height_ * 2u;
   xy.resize(components);
   for (size_t component = 0; component < components; ++component) {
     uint16_t bits = 0;
@@ -813,14 +813,14 @@ ReadState Renderer::ReadSceneVelocity(std::vector<float> &xy) {
 }
 
 ReadState Renderer::ReadSurfaceIdentity(std::vector<float> &slot) {
-  SDL_GPUTexture *source = SurfaceIdentityTex.Get();
-  if (!Ready || !source) { return ReadState::Failed; }
+  SDL_GPUTexture *source = SurfaceIdentityTex_.Get();
+  if (!Ready_ || !source) { return ReadState::Failed; }
   Readback read;
-  if (read.FromTexture(Device_.Get(), source, (uint32_t)Width, (uint32_t)Height, 16u) !=
+  if (read.FromTexture(Device_.Get(), source, (uint32_t)Width_, (uint32_t)Height_, 16u) !=
       ReadState::Ready) {
     return ReadState::Failed;
   }
-  const size_t components = (size_t)Width * (size_t)Height * 4u;
+  const size_t components = (size_t)Width_ * (size_t)Height_ * 4u;
   slot.resize(components);
   std::memcpy(slot.data(), read.Rows(), components * sizeof(float));
   return ReadState::Ready;
