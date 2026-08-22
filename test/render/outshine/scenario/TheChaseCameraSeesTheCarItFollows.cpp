@@ -38,13 +38,15 @@ std::string PreparedCar(void) {
   return root + "/outshine-prepared/tools-driver-f31/scene.gltf";
 }
 
-size_t DarkAgainstGround(const std::vector<uint8_t> &rgba) {
-  size_t dark = 0;
-  for (size_t px = 0; px < rgba.size(); px += 4) {
-    const int sum = rgba[px] + rgba[px + 1] + rgba[px + 2];
-    if (rgba[px + 3] != 0 && sum < 60) { ++dark; }
+size_t Different(const std::vector<uint8_t> &with, const std::vector<uint8_t> &without) {
+  size_t apart = 0;
+  for (size_t px = 0; px + 3 < with.size() && px + 3 < without.size(); px += 4) {
+    const int delta = std::abs((int)with[px] - (int)without[px]) +
+                      std::abs((int)with[px + 1] - (int)without[px + 1]) +
+                      std::abs((int)with[px + 2] - (int)without[px + 2]);
+    if (delta > 24) { ++apart; }
   }
-  return dark;
+  return apart;
 }
 
 } // namespace
@@ -160,6 +162,13 @@ int main(void) {
     }
     return standing->ReadPixels(rgba, error);
   };
+  const auto banish = [&]() {
+    double away[16] = {0};
+    away[0] = away[5] = away[10] = assetM;
+    away[13] = -10000.0;
+    away[15] = 1.0;
+    return standing->Carry(away, roadAt, error);
+  };
 
   Placement chase;
   chase.EyeM[0] = 0.0;
@@ -177,11 +186,13 @@ int main(void) {
   chase.YfovRad = 55.0 * 3.14159265358979 / 180.0;
   chase.ZNearM = 0.1;
 
-  std::vector<uint8_t> seen;
+  std::vector<uint8_t> seen, empty;
   CHECK(frame(chase, seen), "the chase frame renders");
   if (seen.empty()) { return Report(); }
-  const size_t dark = DarkAgainstGround(seen);
-  Note("pixels darker than RGB-sum 60 in the chase frame", (double)dark, "px");
+  CHECK(banish() && frame(chase, empty), "and the same frame renders with the car banished");
+  CHECK(standing->Carry(body, roadAt, error), "and the car returns");
+  const size_t dark = Different(seen, empty);
+  Note("pixels the car changes in the chase frame", (double)dark, "px");
   Note("what the whole frame holds", (double)(kWidePx * kHighPx), "px");
 
   CHECK(dark > (size_t)(kWidePx * kHighPx) / 100,
@@ -207,7 +218,6 @@ int main(void) {
       turned[12 + row] = at[row];
       for (int k = 0; k < 3; ++k) { turned[12 + row] += turned[k * 4 + row] / assetM * shift[k]; }
     }
-    if (!standing->Carry(turned, roadAt, error)) { return false; }
     Placement follows = chase;
     const double ahead[3] = {-n, 0.0, -c};
     for (int axis = 0; axis < 3; ++axis) {
@@ -218,9 +228,12 @@ int main(void) {
     follows.Right[0] = c;
     follows.Right[1] = 0.0;
     follows.Right[2] = -n;
+    std::vector<uint8_t> gone;
+    if (!banish() || !frame(follows, gone)) { return false; }
+    if (!standing->Carry(turned, roadAt, error)) { return false; }
     std::vector<uint8_t> moved;
     if (!frame(follows, moved)) { return false; }
-    darkOut = DarkAgainstGround(moved);
+    darkOut = Different(moved, gone);
     return true;
   };
 
@@ -231,9 +244,9 @@ int main(void) {
     CHECK(placedAt(0.0, origin, dark0) && placedAt(12.8, origin, darkYaw) &&
               placedAt(0.0, out, darkOut) && placedAt(12.8, out, darkBoth),
           "four placements render: origin, yaw alone, offset alone, both");
-    Note("dark pixels at the origin, no yaw", (double)dark0, "px");
-    Note("dark pixels with yaw alone", (double)darkYaw, "px");
-    Note("dark pixels 190 m out, no yaw", (double)darkOut, "px");
+    Note("pixels the car changes at the origin, no yaw", (double)dark0, "px");
+    Note("pixels the car changes with yaw alone", (double)darkYaw, "px");
+    Note("pixels the car changes 190 m out, no yaw", (double)darkOut, "px");
     {
       size_t ignored = 0;
       (void)placedAt(0.0, out, ignored);
@@ -247,7 +260,7 @@ int main(void) {
       }
     }
 
-    Note("dark pixels with both", (double)darkBoth, "px");
+    Note("pixels the car changes with both", (double)darkBoth, "px");
     CHECK(darkYaw > (size_t)(kWidePx * kHighPx) / 100,
           "the car survives its own yaw at the origin");
     CHECK(darkOut > (size_t)(kWidePx * kHighPx) / 100,
@@ -257,54 +270,14 @@ int main(void) {
   }
 
   {
-    const double yaw = 12.8 * 3.14159265358979 / 180.0;
-    const double c = std::cos(yaw), n = std::sin(yaw);
-    const double at[3] = {-40.9, 0.9, -189.9};
-    double turned[16] = {0};
-    turned[0] = c * assetM;
-    turned[2] = -n * assetM;
-    turned[5] = assetM;
-    turned[8] = n * assetM;
-    turned[10] = c * assetM;
-    turned[15] = 1.0;
-    const double shift[3] = {-kAssetCentreX * assetM, -kAssetGround * assetM,
-                             -kAssetCentreZ * assetM};
-    for (int row = 0; row < 3; ++row) {
-      turned[12 + row] = at[row];
-      for (int k = 0; k < 3; ++k) { turned[12 + row] += turned[k * 4 + row] / assetM * shift[k]; }
-    }
-    CHECK(standing->Carry(turned, roadAt, error),
-          "the car turns to the drive's own heading and moves 190 m out");
-
-    Placement follows = chase;
-    const double ahead[3] = {-n, 0.0, -c};
-    for (int axis = 0; axis < 3; ++axis) {
-      follows.EyeM[axis] = at[axis] - ahead[axis] * kChaseBackM;
-      follows.Forward[axis] = ahead[axis];
-    }
-    follows.EyeM[1] += kChaseUpM;
-    follows.Right[0] = c;
-    follows.Right[1] = 0.0;
-    follows.Right[2] = -n;
-
-    std::vector<uint8_t> moved;
-    CHECK(frame(follows, moved), "and the moved chase frame renders");
-    const size_t darkMoved = DarkAgainstGround(moved);
-    Note("dark pixels with the drive's own heading and offset", (double)darkMoved, "px");
-    CHECK(darkMoved > (size_t)(kWidePx * kHighPx) / 100,
-          "**AND THE CAR SURVIVES THE DRIVE'S OWN ROTATION AND OFFSET** -- the placement carries "
-          "a yaw and stands 190 m from the origin, exactly the frame the stills tool prints, and "
-          "the camera still sees it");
-  }
-
-  {
-    CHECK(standing->Restand(ground, error) && standing->Carry(body, roadAt, error),
-          "the picture re-stands the way the drive re-lays its corridor, and the car is carried "
-          "again");
-    std::vector<uint8_t> after;
-    CHECK(frame(chase, after), "and the frame after the restand renders");
-    const size_t darkAfter = DarkAgainstGround(after);
-    Note("dark pixels after a restand", (double)darkAfter, "px");
+    CHECK(standing->Restand(ground, error), 
+          "the picture re-stands the way the drive re-lays its corridor");
+    std::vector<uint8_t> gone, after;
+    CHECK(banish() && frame(chase, gone) && standing->Carry(body, roadAt, error) &&
+              frame(chase, after),
+          "and the car is carried again after it");
+    const size_t darkAfter = Different(after, gone);
+    Note("pixels the car changes after a restand", (double)darkAfter, "px");
     CHECK(darkAfter > (size_t)(kWidePx * kHighPx) / 100,
           "**AND THE CAR SURVIVES A RESTAND**, which the drive does at every relay");
   }

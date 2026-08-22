@@ -24,9 +24,12 @@ struct Medium {
   float OzoneHalfWidthKm = 15.0f;
   float MiePhaseG = 0.8f;
   float Pad = 0.0f;
+
+  float GroundAlbedo[3] = {0.10f, 0.13f, 0.07f};
+  float Pad2 = 0.0f;
 };
 
-static_assert(sizeof(Medium) == 64, "the medium is four float4 rows a device can bind unpadded");
+static_assert(sizeof(Medium) == 80, "the medium is five float4 rows a device can bind unpadded");
 
 inline constexpr uint32_t kTransmittanceLutWidth = 256;
 inline constexpr uint32_t kTransmittanceLutHeight = 64;
@@ -274,6 +277,21 @@ inline void MediumSkyRay(const Medium &medium, float radiusKm, float cosView, fl
       throughput[channel] *= stepT;
     }
   }
+  if (toGround >= 0.0f) {
+    const float hereKm = std::sqrt(radiusKm * radiusKm + toGround * toGround +
+                                   2.0f * radiusKm * toGround * cosView);
+    const float sunDot = dir[0] * sun[0] + dir[2] * sun[2];
+    const float cosSunAt = (radiusKm * cosSunZenith + toGround * sunDot) / hereKm;
+    if (cosSunAt > 0.0f) {
+      float toSunGround[3];
+      transmittanceToSun(hereKm, cosSunAt, toSunGround);
+      for (int channel = 0; channel < 3; ++channel) {
+        summed[channel] += throughput[channel] * (double)toSunGround[channel] *
+                           (double)cosSunAt * (double)medium.GroundAlbedo[channel] /
+                           3.14159265358979;
+      }
+    }
+  }
   for (int channel = 0; channel < 3; ++channel) { luminance[channel] = (float)summed[channel]; }
 }
 
@@ -359,6 +377,7 @@ struct Medium {
   packed_float3 rayleighScatteringPerKm; float mieScatteringPerKm;
   packed_float3 ozoneAbsorptionPerKm; float mieExtinctionPerKm;
   float ozoneCentreKm; float ozoneHalfWidthKm; float miePhaseG; float pad;
+  packed_float3 groundAlbedo; float pad2;
 };
 
 static inline float mediumTopReach(constant Medium &medium, float radiusKm, float cosZenith) {
@@ -589,6 +608,19 @@ static inline float3 mediumSkyRay(constant Medium &medium, float radiusKm, float
     float3 stepT = exp(-extinction * stride);
     summed += throughput * source * (1.0 - stepT) / extinction;
     throughput *= stepT;
+  }
+  if (toGround >= 0.0) {
+    float hereKm = sqrt(radiusKm * radiusKm + toGround * toGround +
+                        2.0 * radiusKm * toGround * cosView);
+    float sunDot = dot(dir, sun);
+    float cosSunAt = (radiusKm * cosSunZenith + toGround * sunDot) / hereKm;
+    if (cosSunAt > 0.0) {
+      float3 toSunGround =
+          transmittance.sample(lut, mediumTransmittanceUv(medium, hereKm, cosSunAt), level(0.0))
+              .rgb;
+      summed += throughput * toSunGround * cosSunAt * float3(medium.groundAlbedo) /
+                3.14159265358979;
+    }
   }
   return summed;
 }
