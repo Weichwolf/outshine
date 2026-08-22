@@ -24,3 +24,8 @@ Tags: perf, instrument
 - [ ] Every budget line names which memory it constrains, linear or device — separate pools, separate exhaustion, and only one of them has a probe that can fall
 - [ ] Pools borrow from one another in a declared grain against one fixed total, instead of each holding a private reservation that idles — Guerrilla's asset and render pools share physical memory in 64 MiB grants, which is what makes a fixed budget elastic without making it larger. `poolRegionsKB` sits at 38 157 KiB, 16 % of the used heap, from t=1 s to t=77 s whether or not anything generates
 - [ ] What fixed `WebAssembly.Memory` each engine actually grants with `SharedArrayBuffer` in play — TOOL, one page that allocates and reports. Not yet measured; not a limit
+
+
+---
+
+**Closed as stale (2026-08-22).** The browser memory ledger is deleted; allocator counting landed and the steady-state scenario case carries the acceptance.

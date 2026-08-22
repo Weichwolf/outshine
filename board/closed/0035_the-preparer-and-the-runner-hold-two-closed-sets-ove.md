@@ -22,3 +22,8 @@ preparer accepts but the runner never reads would fail in neither.
 when** `dry-run` accepts every manifest the runner accepts and refuses every one it does not, checked by
 running both over the whole corpus — which is a test, not an inspection. **Band 1**: the Khronos work
 adds manifests, and every one added under a split schema is added twice.
+
+
+---
+
+**Closed by the backlog adjudication (2026-08-22).** One manifest schema (manifest-schema.json) read by prepare's schema.py and the runner's ManifestSchema.h; carriedBy lives in it.

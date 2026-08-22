@@ -23,3 +23,8 @@ checks anything against an outside answer — and it is the test whose red will 
 whose subject is a prepared artefact. Until it exists, the test's own first claim is *the subject is
 present*, distinct from *the subject reads*. A `--allow-skip` entry is the wrong answer — it makes the
 test green forever, which is the defect class this harness was built to close.
+
+
+---
+
+**Closed by the backlog adjudication (2026-08-22).** A missing prepared subject reports UNPREPARED -- its own trailer category in run.sh -- never a reader defect.

@@ -17,3 +17,8 @@ the deleted terrain shader and `src/world/TerrainLoader.cpp:329` cite *"CLAUDE.m
 2"* in English, which is the same dangling number in the right language. Right: the sentence the rule
 actually is, quoted or paraphrased, with no number — a number into a list that is not numbered is worse
 than no citation, because it reads as precise.
+
+
+---
+
+**Closed by the backlog adjudication (2026-08-22).** grep Prinzip over src/ is empty; the three cited sites are gone with their files.

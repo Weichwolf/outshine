@@ -45,3 +45,8 @@ in the fragment rather than in the concatenation.*
 - [ ] **`one class per file` survives intact and gains a sibling rule**: the stage class stays one class in one `.h`/`.cpp` pair and owns its pipeline; the shader is *its* file, named after it, beside it. What is deleted is not a class but a string. The house rule was never *one class and its shader in one file*
 - [ ] **A shader on disk is still generated in principle 2's sense, and this is stated explicitly because the opposite reading would be a real defect.** Principle 2's test is *can this be recomputed from something we own* — and a shader is **code in this tree, compiled by a tool in this tree**, which is the same status as every `.cpp`. A `.cpp` on disk is not "authored appearance" and neither is a `.hlsl`. § I.19's existing line already says shaders stay generated across the move; this line says the file form does not touch that
 - [ ] **What would make the answer wrong, so a later round can find it**: if SDL_shadercross turned out to be unusable offline and the engine had to compile HLSL at run time, the artefact would be source again and the argument's spine would go with it. Checked: shadercross is documented as an offline tool *and* a run-time library, and SDL_GPU's own model is precompiled-per-backend. If that changes, this decision is re-taken rather than patched
+
+
+---
+
+**Closed as superseded (2026-08-22).** Its content became CLAUDE.md: the port is done, MSL generation decided, shader files refused; the frame floor lives in 0058 and the dialect残 in 0018.

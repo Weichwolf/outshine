@@ -11,3 +11,8 @@ Tags: scope
 - [ ] Dedicated non-computing threads sized by the protocol's connection limit per origin
 - [x] Request-level timeout; no timeout on the load as a whole
 - [ ] Audio worklet thread that neither blocks nor allocates in its callback
+
+
+---
+
+**Closed as stale (2026-08-22).** Web-worker framing; SDL3 threads are the platform.

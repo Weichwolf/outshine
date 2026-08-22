@@ -17,3 +17,8 @@ Tags: perf, instrument
 - [ ] The impostor atlas under a declared byte budget with an eviction unit of one cell, and a bake that is scheduled as non-frame work rather than run on arrival
 - [ ] A prototype's rungs evictable independently of the prototype, so a species seen once at distance costs its impostor and not its four meshes
 - [ ] Hysteresis on a rank switch, a minimum observer movement before anything updates, and a per-frame update budget
+
+
+---
+
+**Closed as superseded (2026-08-22).** CLAUDE.md refuses distance-LOD by construction (one currency: projected error); the criticised ModelDraw/impostor lines target deleted code; the culling remainder is the entity-store item.

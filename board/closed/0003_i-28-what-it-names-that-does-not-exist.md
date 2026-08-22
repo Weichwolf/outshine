@@ -13,3 +13,8 @@ Tags: oracle, perf, instrument
 **Why the emit path is worth it before the rest:** it is what gives a generated part a number. Cycles
 renders a grown beech and the picture bound decides it — otherwise vegetation is judged by eye against
 SpeedTree for as long as it exists.
+
+
+---
+
+**Closed by the backlog adjudication (2026-08-22).** The emit path is a fixed point of the flatten (EmittingASubjectIsAFixedPointOfTheFlatten), the DrawList compositor stands, and the frame suite prices the instrument.

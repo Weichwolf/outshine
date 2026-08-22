@@ -17,3 +17,8 @@ if it is wrong, the alternative is a repair round on a fixed cadence and the own
 - **The exception, and it is the only one: a defect that blocks the next round is not deferred to it.**
   Band 1 is repaired before the work that would meet it starts, because meeting it inside that work
   makes the work's own acceptance unreadable.
+
+
+---
+
+**Closed as superseded (2026-08-22).** CLAUDE.md's board section codifies the repair policy: defect found = item, same round; open->active->closed is the machine.

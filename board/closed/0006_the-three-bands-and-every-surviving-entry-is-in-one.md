@@ -58,3 +58,8 @@ or it is a hope.*
 | The trailer is authenticated by shape, and a hard error stops the run | **the round that adds a test the harness cannot already judge** |
 
 ---
+
+
+---
+
+**Closed as stale (2026-08-22).** The three-band index mechanism is dead; every surviving entry carries its own numbered item.

@@ -108,3 +108,8 @@ the row where *cannot execute* is cheapest to disprove, and the first one worth 
 **The camera half is still unexercised and is named so it is not read as covered**: nothing in the corpus
 moves the camera between frames, so `PrevMvp16 != Mvp16` has never occurred. **Velocity is proven for
 moving geometry under a still camera and for nothing else.**
+
+
+---
+
+**Closed by the backlog adjudication (2026-08-22).** The catalogue is read as a capability statement: kExecutors rows, loud WhyNot refusals, executability published per stage in the map.

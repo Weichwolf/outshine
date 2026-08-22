@@ -32,3 +32,8 @@ real finding* — yes, and they are the only part of this measurement that is ab
 case has more than one, geometry untouched. **Not** separating the cubes — that repairs the oracle by
 changing the subject, and it cannot repair `sphere` at all. **Fixed when** two renders at two seeds are
 bit-identical for these three cases, which is a stronger statement than the pixel count falling.
+
+
+---
+
+**Closed by the backlog adjudication (2026-08-22).** All three manifests declare kind: emission -- the demanded repair, in the tree.

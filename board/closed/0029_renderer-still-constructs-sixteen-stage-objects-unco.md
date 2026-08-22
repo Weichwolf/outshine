@@ -26,3 +26,8 @@ resource exists, and let `View()` return a handle.
 **Band 3 — waits for the SDL_GPU port**, which rewrites every one of these sites; repairing them first
 would be repairing code about to be deleted. **Fixed when** a stage object exists because the plan holds
 its stage, so a call into an unheld stage does not compile.
+
+
+---
+
+**Closed by the backlog adjudication (2026-08-22).** The band-3 condition (SDL_GPU port) arrived: no unconditional stage members, RenderFrame is 35 lines, stages configure through the executor table per plan.

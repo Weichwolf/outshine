@@ -47,3 +47,8 @@ from the declared bounds and refusing a mismatch, in the runner that already rec
 *Not a defect, and recorded here so the same investigation is not run twice: the clip range's origin
 **was** found. `blender --factory-startup` reports `clip_start = 0.10000000149011612` and
 `clip_end = 100.0` — Blender's factory camera, the same source those manifests already cite for the lens.*
+
+
+---
+
+**Closed by the backlog adjudication (2026-08-22).** The five manifests derive lookAtM from the bounds centre and document the derivation; the runner recomputes the aim.

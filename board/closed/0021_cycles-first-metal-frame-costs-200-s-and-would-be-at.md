@@ -24,3 +24,8 @@ A second trap in the same measurement, and it is the one that produced the CPU c
 have `compute_device_type` set *and* `get_devices()` called *and* the device's `use` flag set, or Cycles
 falls back to CPU silently and the run is 5.6× slower with no message. A harness that does not assert
 the device it got has measured something it did not choose.
+
+
+---
+
+**Closed by the backlog adjudication (2026-08-22).** in_blender_render.py pins METAL compute, enumerates devices and publishes the backend; cold-frame cost is published by jobs.py and never timed as scene cost.

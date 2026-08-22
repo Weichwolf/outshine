@@ -17,3 +17,8 @@ Tags: oracle
 - [ ] Footstep response to the contact material under the foot
 - [ ] Interaction: open, carry, use, sit
 - [ ] Input rebinding as a declaration
+
+
+---
+
+**Closed as superseded (2026-08-22).** The actor chain answers it: Pilot with Walk/Drive/Fly/Rail stands, player and mind actuate one seam, and the interactive client is the driver game.

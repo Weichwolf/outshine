@@ -110,3 +110,8 @@ renderer *per* API — and file access, input and audio are separate `CryCommon`
 `IInput`, the Audio Translation Layer), not platform macros. So the shape is **two tiers**: a thin
 low seam of primitives, and a set of ordinary abstract interfaces for services. Where it does not
 transfer: CryEngine assumed threads on every target it shipped on. § I.18 does not.
+
+
+---
+
+**Closed as stale (2026-08-22).** The verify-* gate world, emcc targets and hardening ledger are deleted (Makefile is build/test/clean); the living残 -- span bound, void casts, factory -- are 0007/0009's.

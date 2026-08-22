@@ -34,3 +34,8 @@ Tags: perf
   drawn trunk: a 30 m mast rather than a tree. Right: `dbh_cm` 40–60, i.e. `H/D` 0.50–0.75, and the
   origin string amended — the crown of `Populus nigra 'Italica'` being narrow lowers `h_crit` further
   rather than excusing the slenderness, so the reason currently written there argues the wrong way.
+
+
+---
+
+**Closed as stale (2026-08-22).** The criticised pictures -- wasm walk, impostor forest, ModelDraw -- no longer exist; the poplar number was rewritten with its counter-argument.

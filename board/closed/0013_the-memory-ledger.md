@@ -91,3 +91,8 @@ Tags: perf, instrument
   round disclosed is not the weakness; the design of the comparison is. Right: force the probe every
   frame for one declared run and compare the distributions of that against the unprobed run — then the
   effect is 100 % of frames instead of 2 %, and the per-frame cost follows by division.
+
+
+---
+
+**Closed as stale (2026-08-22).** The emscripten/dlmalloc ledger world is deleted; HeapProbe counts the allocator directly and the memory acceptance lives in the scenario suite.

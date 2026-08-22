@@ -29,3 +29,8 @@ Tags: perf
 - [ ] Epoch and decay reaching geometry or identity — REFUSED: the same dataset must stay the same dataset or the claim is untestable
 - [ ] A scripting language for mechanics — REFUSED: function calling over a declared surface, or nothing
 - [ ] Quality levels or graphics presets — REFUSED: there is one version during basic development
+
+
+---
+
+**Closed as superseded (2026-08-22).** The scenario layer is the declaration story now (Engine::Declare, src/scenario, the catalogue doctrine); driving and flying live under the actor chain and the driver game items.

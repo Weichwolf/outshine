@@ -17,3 +17,8 @@ Tags: instrument
 - [ ] `addresses` and label layers fetched
 - [ ] `boundaries` layer fetched
 - [ ] Zoom above 14 for terrain — `/t/terrain/15/…` returns non-PNG, so z14 may be the finest served; unresolved
+
+
+---
+
+**Closed as stale (2026-08-22).** The fb-tiles container is gone; the data path goes Transport -> WebTileSource -> ContentStore against upstreams directly.

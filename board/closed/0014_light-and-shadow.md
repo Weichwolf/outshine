@@ -26,3 +26,8 @@ Tags: instrument
   dependency — and give every drawn posting a centred difference. Decides it, and it is **decidable**
   with no reference: the normal at `fx = 1.0` of one tile against the normal at `fx = 0.0` of its
   neighbour must be the same vector.
+
+
+---
+
+**Closed as stale (2026-08-22).** The rg11 branch died with the port and terrain is not rendered; when GEO returns, the normal seam gets a fresh item against the code that then exists.
