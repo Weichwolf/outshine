@@ -44,3 +44,11 @@ drop below the deck -- the sun-averted face of that step was the systemic ink li
 posts sawing across it were the teeth. The blend starts at DECK height now, and km 17.3's framed
 edge shows the teeth collapsed to a soft moire and the ink to a faint residue. What remains is
 the 3 m grid against the 2 m edge polyline -- this item's original statement, now the whole of it.
+
+Round ten rules on the bet: LOST, and the ruling is the finding. The kerb fix deleted the hairline
+from every clean stretch -- "the cleanest road edges I've seen in ten rounds" at 250.2 and 666.2 --
+so the sub-deck blend WAS the systemic cause. But km 17.3's seven tears stand untouched with navy
+open INSIDE them (a real gap between deck and verge, not a shading of the step), and the
+first-person "hood trim" is the car asset's own silhouette shading, no verge's business. Three
+symptoms shared a colour, not a cause. This item's remainder is now precisely km 17.3's local
+seam: the station where the verge mesh fails to reach the deck edge at all.
