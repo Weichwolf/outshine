@@ -71,6 +71,50 @@ bool Network::Weave(std::string &error) {
   Cells_.clear();
   Woven_ = false;
 
+  // the weave is a function of the CONTENT, never of arrival: tiles stream in whatever order
+  // the scheduler grants, so the ways are put into one canonical order before any node merges
+  {
+    std::vector<size_t> order(Ways_.size());
+    for (size_t at = 0; at < order.size(); ++at) { order[at] = at; }
+    std::sort(order.begin(), order.end(), [this](size_t a, size_t b) {
+      const Way &wa = Ways_[a];
+      const Way &wb = Ways_[b];
+      const size_t count = wa.Count < wb.Count ? wa.Count : wb.Count;
+      for (size_t at = 0; at < 2 * count; ++at) {
+        const double da = Points_[2 * wa.First + at];
+        const double db = Points_[2 * wb.First + at];
+        if (da != db) { return da < db; }
+      }
+      return wa.Count < wb.Count;
+    });
+    std::vector<double> points, widths, gradients;
+    std::vector<int> lanes;
+    std::vector<Way> ways;
+    points.reserve(Points_.size());
+    widths.reserve(Widths_.size());
+    gradients.reserve(Gradients_.size());
+    lanes.reserve(Lanes_.size());
+    ways.reserve(Ways_.size());
+    for (const size_t which : order) {
+      Way moved = Ways_[which];
+      const size_t first = moved.First;
+      moved.First = points.size() / 2;
+      ways.push_back(moved);
+      for (size_t at = 0; at < moved.Count; ++at) {
+        points.push_back(Points_[2 * (first + at)]);
+        points.push_back(Points_[2 * (first + at) + 1]);
+        widths.push_back(Widths_[first + at]);
+        gradients.push_back(Gradients_[first + at]);
+        lanes.push_back(Lanes_[first + at]);
+      }
+    }
+    Points_ = std::move(points);
+    Widths_ = std::move(widths);
+    Gradients_ = std::move(gradients);
+    Lanes_ = std::move(lanes);
+    Ways_ = std::move(ways);
+  }
+
   if (Ways_.empty()) {
     error = "a network is woven from 1..N ways and this one carries none";
     return false;

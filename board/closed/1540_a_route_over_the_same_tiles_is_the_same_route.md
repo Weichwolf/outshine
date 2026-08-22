@@ -50,3 +50,19 @@ nothing about it*, and the file's own warning caught it only because the mtime w
 route was **774.852 km** when first measured and is **762.64 km** now. That is a **1.6 %** change, four
 orders of magnitude larger than the spread above, and it is upstream data changing between sessions --
 not this defect. Two different findings that both look like *the route length moved*.
+
+---
+
+Closed -- the cause was ARRIVAL ORDER, exactly the class the harmless-explanation table
+could not name: tiles stream in whatever order the scheduler grants, Lay records them in
+that order, and Weave's snap-merge lets the FIRST point of a cluster become the node --
+so the surviving coordinate, and with it every edge length, depended on which tile landed
+first. 54 mm over 762 km was two different merge winners metres apart, diluted over the
+route. The fix: Weave puts the ways into ONE canonical order (lexicographic over their
+point content) before any merge -- the graph is a function of the declared ways, never of
+the scheduler. Proving test:
+test/unit/actor/path/ARouteIsAFunctionOfTheWaysAndNotTheirArrival.cpp -- a 3x3 mesh whose
+corners only join by snapping, laid forward and reversed: pre-fix it measures 30 vs 24
+nodes and 4449.48 vs 4453.55 m (the class, at metre scale); post-fix both orders weave the
+same nodes and plan the same route TO THE BIT (CHECK ==, no tolerance). Negative-controlled
+by running the test against the unfixed weave. Drive suite 1/1, gate 130/130.
