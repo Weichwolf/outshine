@@ -51,3 +51,17 @@ stringly-typed capabilities · content that ships a program · god actors · ECS
 two representations with a converter (the Unity-baking rot) · unreserved shared affordances
 
 Depends: 1581
+
+---
+
+**Learned, slice 1 (store · traits · tags).** `src/scene/` stands as a dependency-free brick like
+`src/corridor`: `Register.h` is the constexpr catalogue (four kinds; five relations each carrying
+its rule -- Exclusive, Acyclic, target-kind mask, required source capability, required companion
+relation; hierarchical tags with prefix algebra, wrong matches are compile errors), `Store` is a
+generation-checked pool that refuses illegal wiring at assembly with a text naming the rule.
+Proving tests: `unit/scene/TheRuleOnARelationRefusesTheWiringItForbids` (second driver, wrong
+kind, inert source, assignment-before-nav, cycle -- all refused; removal frees the exclusive
+seat) and `unit/scene/ATagIsAValueAndMatchingIsPrefixAlgebra` (capability flows down IsA by
+query, not copy). `make` picked the layer up with no Makefile change -- board:1584's one
+declaration at work. Open: prefab subtree instantiation, slots/claim, the XML door through the
+same API, and the fold of the F31 declaration into a prefab.

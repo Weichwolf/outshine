@@ -64,6 +64,7 @@ LayerIncludes() {
     unit/core/io) printf '%s' "-Isrc/core -Isrc/core/io" ;;
     unit/core) printf '%s' "-Isrc/core -Isrc/core/io" ;;
     unit/corridor) printf '%s' "-Isrc/corridor" ;;
+    unit/scene) printf '%s' "-Isrc/scene" ;;
     unit/physics) printf '%s' "-Isrc/physics" ;;
     unit/pilot) printf '%s' "-Isrc/corridor -Isrc/pilot" ;;
     unit/data) printf '%s' "-Isrc/core -Isrc/data" ;;
@@ -140,6 +141,7 @@ LayerGroups() {
     unit/core) printf '%s' "src/core src/core/io" ;;
     unit/core/io) printf '%s' "src/core src/core/io" ;;
     unit/corridor) printf '%s' "src/corridor" ;;
+    unit/scene) printf '%s' "src/scene" ;;
     unit/physics) printf '%s' "src/physics" ;;
     unit/pilot) printf '%s' "src/corridor src/pilot" ;;
     unit/data) printf '%s' "src/core src/core/io src/data" ;;
@@ -206,6 +208,7 @@ GroupIncludes() {
   case "$1" in
     src/core | src/core/io | src/core/Sha256.cpp | src/core/Json.cpp | src/core/Script.cpp) printf '%s' "-Isrc/core -Isrc/core/io" ;;
     src/corridor) printf '%s' "-Isrc/corridor" ;;
+    src/scene) printf '%s' "-Isrc/scene" ;;
     src/physics) printf '%s' "-Isrc/physics" ;;
     src/pilot) printf '%s' "-Isrc/corridor -Isrc/pilot" ;;
     src/clients/Rigging.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/corridor -Isrc/physics -Isrc/pilot -Isrc/clients" ;;
