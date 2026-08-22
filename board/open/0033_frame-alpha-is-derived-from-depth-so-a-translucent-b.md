@@ -40,3 +40,9 @@ accumulated alpha for blended contributions, composited with the depth predicate
 empty background — nothing behind it, `filmTransparent` on both sides — agrees on alpha. **That case
 does not exist and is owed with the repair**, because the defect is invisible to every asset that
 supplies its own bed.
+
+---
+
+Adjudicated 2026-08-22: the repair stands in the tree (Resolve.h takes coverage from depth OR
+scene alpha) -- what keeps this open is the missing proof case: the declared BLEND-over-nothing
+picture does not exist yet.

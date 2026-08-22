@@ -31,3 +31,9 @@ pipelines is the set of distinct keys the compiled draw lists contain and the co
 plan compiler — as the pass count already is. **Fixed when** no array in this file is sized by an
 enumeration's cardinality, and a surface kind this unit cannot draw is refused where the *plan* is
 compiled rather than where a material table is set.
+
+---
+
+Adjudicated 2026-08-22: Configure builds all five surface kinds and the transmissive shaders
+exist; what keeps this open is the glass gating -- the clone stage (board:1574) is the surviving
+half of this item's critique.
