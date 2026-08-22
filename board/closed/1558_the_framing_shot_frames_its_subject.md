@@ -11,8 +11,10 @@ a chosen distance, ground continuous under everything drawn.
 
 Three separate defects share these pictures:
 
-- [ ] **the camera**: frame the subject from its bounds (the engine already computes `FrameItself`),
-      not from a fixed distance that shrinks the world to a stamp
+- [x] **the camera**: the framing shot now COMPOSES its subject -- 14 m back, 9 m beside, 4.5 m
+      up, a 42-degree lens aimed six metres ahead of the car -- instead of ringing bounds that
+      grew a 12 km horizon ring. Looked at: km 342's frame holds the car, its wheels, the road
+      winding the valley and the sky in one picture
 - [ ] **the ground under the road**: the shown corridor reaches `kShownM` = 900 m while the sampled
       ground reaches `kGroundReachM` = 400 m, so the road runs off its tile as a hairline. One reach,
       derived from the other, so the mistake becomes unspellable
@@ -36,3 +38,13 @@ Round 12 of the drive: the unwritten surround is CLOSED by the sky's ground boun
 frame is olive earth-light now, alpha everywhere), and the framing camera rings the PLACED bounds
 -- which now include the 12 km horizon ring, so the tile is a stamp again for a new reason. The
 framing needs a subject rule (the car and its near field), not an everything rule.
+
+
+## CLOSED
+
+All three defects this item carried are gone by different hands: the unwritten surround fell to
+the sky chain's ground bounce, the reach mismatch fell to board:1565's one derived reach, and the
+camera fell to a composition rule -- the subject and its near field, not the bounds of everything
+drawn. The first attempt drew the world upside down: a right-vector with both signs flipped
+passes every "is something drawn" check and fails the only question a picture answers, which is
+why the closing evidence is the looked-at frame.

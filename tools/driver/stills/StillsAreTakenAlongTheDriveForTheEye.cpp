@@ -635,29 +635,51 @@ int main(void) {
       }
     }
     {
-      standing->FrameItself();
-      if (standing->Advance(error)) {
-        if (next == 0) {
-          const outshine::Gltf::Placement derived = standing->Aimed();
-          std::printf("DERIVED at %.1f %.1f %.1f fwd %.3f %.3f %.3f yfov %.4f near %.4f\n",
-                      derived.EyeM[0], derived.EyeM[1], derived.EyeM[2], derived.Forward[0],
-                      derived.Forward[1], derived.Forward[2], derived.YfovRad, derived.ZNearM);
-          standing->Eye(derived);
-          if (standing->Advance(error)) {
-            char same[256];
-            std::snprintf(same, sizeof same, "%s/km%06.1f-declared-same-place.png", into.c_str(),
-                          rode.ReachedM / 1000.0);
-            if (!standing->Screenshot(same, error)) { std::printf("REFUSED %s\n", error.c_str()); }
-          } else {
-            std::printf("REFUSED redraw: %s\n", error.c_str());
-          }
-          standing->FrameItself();
-          if (!standing->Advance(error)) { std::printf("REFUSED reframe: %s\n", error.c_str()); }
+      outshine::Gltf::Placement beauty;
+      {
+        const double aheadBody[3] = {0.0, 0.0, -1.0};
+        double aheadCar[3];
+        outshine::Physics::Turn(journey.Carried().OrientationQ, aheadBody, aheadCar);
+
+        constexpr double kBeautyBackM = 14.0;
+        constexpr double kBeautySideM = 9.0;
+        constexpr double kBeautyUpM = 4.5;
+        const double sideCar[3] = {-aheadCar[2], 0.0, aheadCar[0]};
+        double carDrawn[3];
+        for (int axis = 0; axis < 3; ++axis) { carDrawn[axis] = body[12 + axis]; }
+        for (int axis = 0; axis < 3; ++axis) {
+          beauty.EyeM[axis] = carDrawn[axis] - aheadCar[axis] * kBeautyBackM +
+                              sideCar[axis] * kBeautySideM;
         }
+        beauty.EyeM[1] += kBeautyUpM;
+        double toCar[3];
+        double length = 0.0;
+        for (int axis = 0; axis < 3; ++axis) {
+          toCar[axis] = carDrawn[axis] + aheadCar[axis] * 6.0 - beauty.EyeM[axis];
+          length += toCar[axis] * toCar[axis];
+        }
+        length = std::sqrt(length);
+        for (int axis = 0; axis < 3; ++axis) { beauty.Forward[axis] = toCar[axis] / length; }
+        const double flat =
+            std::sqrt(beauty.Forward[0] * beauty.Forward[0] + beauty.Forward[2] * beauty.Forward[2]);
+        beauty.Right[0] = -beauty.Forward[2] / flat;
+        beauty.Right[1] = 0.0;
+        beauty.Right[2] = beauty.Forward[0] / flat;
+        beauty.Up[0] = beauty.Right[1] * beauty.Forward[2] - beauty.Right[2] * beauty.Forward[1];
+        beauty.Up[1] = beauty.Right[2] * beauty.Forward[0] - beauty.Right[0] * beauty.Forward[2];
+        beauty.Up[2] = beauty.Right[0] * beauty.Forward[1] - beauty.Right[1] * beauty.Forward[0];
+        beauty.Kind = outshine::Gltf::CameraKind::Perspective;
+        beauty.YfovRad = 42.0 * 3.14159265358979323846 / 180.0;
+        beauty.ZNearM = 0.1;
+      }
+      standing->Eye(beauty);
+      if (standing->Advance(error)) {
         char framed[256];
         std::snprintf(framed, sizeof framed, "%s/km%06.1f-framed.png", into.c_str(),
                       rode.ReachedM / 1000.0);
         if (!standing->Screenshot(framed, error)) { std::printf("REFUSED %s\n", error.c_str()); }
+      } else {
+        std::printf("REFUSED framed: %s\n", error.c_str());
       }
     }
     ++next;
