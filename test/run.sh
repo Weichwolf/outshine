@@ -83,7 +83,8 @@ if [ "$INHERITED_NEST" != "$BUILD" ]; then
     if mv "$NESTLOCK" "$NESTLOCK.stolen.$$" 2>/dev/null; then
       stolenPid=$(cat "$NESTLOCK.stolen.$$" 2>/dev/null)
       if [ -n "$stolenPid" ] && kill -0 "$stolenPid" 2>/dev/null; then
-        mv "$NESTLOCK.stolen.$$" "$NESTLOCK" 2>/dev/null
+        ln "$NESTLOCK.stolen.$$" "$NESTLOCK" 2>/dev/null || :
+        rm -f "$NESTLOCK.stolen.$$"
         Die "the nest's claim turned live mid-break (pid $stolenPid) -- refusing rather than corrupting two gates"
       fi
       rm -f "$NESTLOCK.stolen.$$"
