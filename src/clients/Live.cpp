@@ -108,7 +108,7 @@ bool Live::Build(std::string &error) {
     }
     AssetReads_ += 1;
 
-    if (!File_.Animations().empty()) {
+    if (!File_.Animations().empty() && Declared_.Animation == AssetAnimation::Play) {
       std::vector<int> all((size_t)File_.Animations().size());
       for (size_t at = 0; at < all.size(); ++at) { all[at] = (int)at; }
       if (!Gltf::Pose::Build(File_, Span<const int>(all.data(), all.size()), Motion_, error)) {

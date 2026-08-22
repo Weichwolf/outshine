@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include <outshine/Scenario.h>
+
 #include "Document.h"
 #include "GltfStudio.h"
 #include "Layout.h"
@@ -29,6 +31,7 @@ struct Shows {
 };
 
 struct Declaration {
+  AssetAnimation Animation = AssetAnimation::Play;
 
   int SurfaceWidthPx = 0, SurfaceHeightPx = 0;
 

@@ -83,11 +83,14 @@ struct Lighting {
   double Environment[3] = {0.0, 0.0, 0.0};
 };
 
+enum class AssetAnimation { Play, Ignore, Driven };
+
 struct Asset {
   std::string Uri;
   std::string Digest;
   std::string Kind;
   std::string Variant;
+  AssetAnimation Animation = AssetAnimation::Play;
 };
 
 struct Placement {

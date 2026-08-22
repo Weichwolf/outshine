@@ -36,6 +36,18 @@ struct Engine::State {
 namespace {
 
 std::vector<std::string> Unacted(const Scenario &scenario) {
+  std::vector<std::string> quiet;
+  for (const Asset &asset : scenario.Assets) {
+    if (asset.Animation == AssetAnimation::Ignore) {
+      quiet.push_back("asset '" + asset.Uri +
+                      "': its own animation is IGNORED by declaration -- a still is what was "
+                      "asked for, not what the engine fell back to");
+    } else if (asset.Animation == AssetAnimation::Driven) {
+      quiet.push_back("asset '" + asset.Uri +
+                      "': its own animation is DRIVEN by the engine -- the file's clips wait "
+                      "for the pose the simulation supplies");
+    }
+  }
   std::vector<std::string> carried;
   const auto note = [&carried](size_t many, const char *what) {
     if (many > 0) { carried.push_back(std::to_string(many) + " " + what); }
@@ -66,6 +78,7 @@ std::vector<std::string> Unacted(const Scenario &scenario) {
   if (scenario.Assets.size() > 1) {
     carried.push_back(std::to_string(scenario.Assets.size() - 1) + " assets beside the subject");
   }
+  carried.insert(carried.end(), quiet.begin(), quiet.end());
   return carried;
 }
 
@@ -112,6 +125,7 @@ bool Engine::Declare(const Scenario &scenario) {
       scenario.Render.Frame.HeightPx > 0 ? scenario.Render.Frame.HeightPx : S_->Frame.HeightPx;
   declared.Stands = subject->Uri;
   declared.Variant = subject->Variant;
+  declared.Animation = subject->Animation;
   declared.Fps = scenario.Render.Fps;
   declared.Fill = scenario.Render.Fill;
   declared.OrbitDegPerFrame = scenario.Render.OrbitDegPerFrame;

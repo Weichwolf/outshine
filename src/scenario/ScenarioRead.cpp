@@ -44,7 +44,7 @@ const Element kGrammar[] = {
     {"scenario/compositors", "compositor", ""},
     {"scenario/compositors/compositor", "", "kind budgetPx on", "kind"},
     {"scenario/assets", "asset", ""},
-    {"scenario/assets/asset", "", "uri digest kind variant", "uri"},
+    {"scenario/assets/asset", "", "uri digest kind variant animation", "uri"},
     {"scenario/placements", "place", ""},
     {"scenario/placements/place", "", "asset x y z qx qy qz qw scale", "asset"},
     {"scenario/surfaces", "surface", ""},
@@ -287,6 +287,18 @@ bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &
     made.Digest = one.Attr("digest");
     made.Kind = one.Attr("kind");
     made.Variant = one.Attr("variant");
+    const std::string animation = one.Attr("animation", "play");
+    if (animation == "play") {
+      made.Animation = AssetAnimation::Play;
+    } else if (animation == "ignore") {
+      made.Animation = AssetAnimation::Ignore;
+    } else if (animation == "driven") {
+      made.Animation = AssetAnimation::Driven;
+    } else {
+      error = "<asset> declares animation='" + animation +
+              "', and the three answers are play, ignore and driven";
+      return false;
+    }
     into.Assets.push_back(made);
   }
 

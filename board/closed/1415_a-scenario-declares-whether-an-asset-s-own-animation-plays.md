@@ -33,3 +33,20 @@ implemented.
 **The corpus's own sequence check is what makes `play` load-bearing** -- *the drawn subject moves over
 the declared grid, so the sequence is not a still rendered once per frame and agreeing with the oracle
 by construction*. A case whose subject does not move is comparing a still, and the check says so.
+
+---
+
+Closed -- the three answers are one enumeration on the asset row, and never a fallback:
+
+- <asset animation="play|ignore|driven">, default play (the corpus's ruling: the corpus
+  always plays, and nothing in test/render declares otherwise). A fourth answer refuses
+  naming the three.
+- IGNORE and COULD-NOT-DRIVE are different answers: the capability (Carried) says "IGNORED
+  by declaration -- a still is what was asked for, not what the engine fell back to";
+  DRIVEN says the file's clips wait for the simulation's pose.
+- Taking over re-reads nothing: driven simply leaves the pose door (Subject::Build over the
+  same node table, proven since AHierarchyIsPosedAtTheTimeItIsAsked) to the engine.
+
+Proving test: test/render/outshine/client/AnAssetsOwnAnimationPlaysOrIsDeclaredStill.cpp --
+the SAME Khronos animation asset stands 48 frames under play, 1 frame under ignore with the
+spoken capability, 1 under driven, and 'bounce' refuses. Gate green.

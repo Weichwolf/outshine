@@ -286,7 +286,7 @@ GroupIncludes() {
     src/render/draw) printf '%s' "-Isrc/core -Isrc/render/draw" ;;
     src/render | src/render/stages | src/render/Readback.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages $(pkg-config --cflags sdl3)" ;;
     src/clients/GltfStudio.cpp | src/clients/Surfaces.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients $(pkg-config --cflags sdl3)" ;;
-    src/clients/Live.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui $(pkg-config --cflags sdl3)" ;;
+    src/clients/Live.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui $(pkg-config --cflags sdl3)" ;;
     src/clients/Assembly.cpp) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/clients" ;;
     src/sim) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/actor/path -Isrc/data -Isrc/actor/body -Isrc/actor/mind -Isrc/scenario -Isrc/sim -Isrc/ground -Isrc/ground/tiles" ;;
     src/clients/Engine.cpp) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/scenario -Isrc/ui $(pkg-config --cflags sdl3)" ;;
