@@ -11,7 +11,7 @@ BUILD=${BUILD%/}/outshine-tests
 PREPARED=${TMPDIR:-/tmp}
 PREPARED=${PREPARED%/}/outshine-prepared
 CXX=${CXX:-c++}
-CXXSTD=-std=c++17
+CXXSTD=-std=c++20
 WARN="-Wall -Wextra -Wpedantic -Wshadow -Werror -Wno-unused-parameter"
 OPT=-O2
 
