@@ -19,6 +19,7 @@ struct Engine::State {
   std::vector<Scenario> Asleep;
   Store Scene;
   Column<Vehicle> Vehicles;
+  Column<Drive> Drives;
   Assembled Stood;
   std::string Error;
 };
@@ -65,18 +66,19 @@ Engine::Engine() : S_(std::make_unique<State>()) {}
 
 bool Engine::Assemble() {
   const Scenario &declared = S_->Declared;
-  const size_t named =
-      declared.Vehicles.size() + (declared.Played.Is.empty() ? 0u : 1u);
+  const size_t named = declared.Vehicles.size() + (declared.Played.Is.empty() ? 0u : 1u) +
+                       (declared.Driven.Declared ? 2u : 0u);
   if (named == 0) {
     S_->Error = "the declaration names nothing to assemble";
     return false;
   }
-  if (!S_->Scene.Open(named) || !S_->Vehicles.Open(S_->Scene, named)) {
+  if (!S_->Scene.Open(named) || !S_->Vehicles.Open(S_->Scene, named) ||
+      !S_->Drives.Open(S_->Scene, named)) {
     S_->Error = "the scene did not open for the " + std::to_string(named) +
                 " entities the declaration names";
     return false;
   }
-  return outshine::Assemble(declared, S_->Scene, S_->Vehicles, S_->Stood, S_->Error);
+  return outshine::Assemble(declared, S_->Scene, S_->Vehicles, S_->Drives, S_->Stood, S_->Error);
 }
 
 Store &Engine::Scene(void) { return S_->Scene; }

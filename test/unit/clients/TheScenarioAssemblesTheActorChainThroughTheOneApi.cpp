@@ -48,8 +48,10 @@ int main(void) {
   CHECK(scene.Open(16), "a store opens for the handful the scenario declares");
   outshine::Column<outshine::Vehicle> vehicles;
   CHECK(vehicles.Open(scene, 16), "and a column for the vehicles' numbers beside it");
+  outshine::Column<outshine::Drive> drives;
+  CHECK(drives.Open(scene, 16), "and one for the drives");
   Assembled stood;
-  const bool assembled = Assemble(declared, scene, vehicles, stood, error);
+  const bool assembled = Assemble(declared, scene, vehicles, drives, stood, error);
   if (!assembled) { std::printf("REFUSED %s\n", error.c_str()); }
   CHECK(assembled, "**THE XML DOOR IS THE SAME DOOR**: the scenario declaration assembles through "
                    "Store::Add, Give and Link -- the calls a C++ client makes -- against the one "
@@ -86,8 +88,10 @@ int main(void) {
   CHECK(crowded.Open(1), "a store of one seat is a store");
   outshine::Column<outshine::Vehicle> few;
   CHECK(few.Open(crowded, 1), "with a column to match");
+  outshine::Column<outshine::Drive> fewDrives;
+  CHECK(fewDrives.Open(crowded, 1), "and a drive column beside it");
   Assembled cramped;
-  CHECK(!Assemble(declared, crowded, few, cramped, error),
+  CHECK(!Assemble(declared, crowded, few, fewDrives, cramped, error),
         "a declaration that does not fit is refused at assembly, not truncated");
   const std::string doorText = error;
   (void)crowded.Add(Role::Mind);

@@ -15,10 +15,12 @@ struct Assembled {
   std::vector<Entity> Bodies;
   Entity PlayerBody = kNoEntity;
   Entity PlayerMind = kNoEntity;
+  Entity Nav = kNoEntity;
+  Entity Assignment = kNoEntity;
 };
 
 [[nodiscard]] bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
-                            Assembled &out, std::string &error);
+                            Column<Drive> &drives, Assembled &out, std::string &error);
 
 }
 

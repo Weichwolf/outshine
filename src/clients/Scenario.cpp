@@ -24,7 +24,7 @@ struct Element {
 const Element kGrammar[] = {
     {"scenario",
      "world render lighting providers generators compositors assets placements surfaces kinds "
-     "instances regions volumes audio tables events views vehicle player physics clock input state layer",
+     "instances regions volumes audio tables events views vehicle player drive physics clock input state layer",
      "name version epoch decay"},
     {"scenario/layer", "", "id path"},
     {"scenario/world", "", "lat lon radiusM windDeg windMs cloudCover"},
@@ -90,6 +90,7 @@ const Element kGrammar[] = {
     {"scenario/vehicle/brake", "", "peakTorqueNm"},
     {"scenario/vehicle/body", "", "dragCoefficient frontalM2 airDensity"},
     {"scenario/vehicle/seat", "", "at node x y z"},
+    {"scenario/drive", "", "fromLat fromLon toLat toLon zoom"},
     {"scenario/physics", "", "dial"},
     {"scenario/clock", "", "start rate"},
     {"scenario/input", "bind", ""},
@@ -537,6 +538,16 @@ bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &
     into.Played.EyeHeightM = player.Num("eyeHeightM", 1.7);
     into.Played.WalkMs = player.Num("walkMs", 1.4);
     into.Played.RunMs = player.Num("runMs", 4.5);
+  }
+
+  const Xml::Ref drive = root.Child("drive");
+  if (drive.Valid()) {
+    into.Driven.Declared = true;
+    into.Driven.FromLatDeg = drive.Num("fromLat", 0.0);
+    into.Driven.FromLonDeg = drive.Num("fromLon", 0.0);
+    into.Driven.ToLatDeg = drive.Num("toLat", 0.0);
+    into.Driven.ToLonDeg = drive.Num("toLon", 0.0);
+    into.Driven.Zoom = (int)drive.Num("zoom", 0.0);
   }
 
   const Xml::Ref state = root.Child("state");

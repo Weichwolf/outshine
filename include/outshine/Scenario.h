@@ -245,6 +245,15 @@ struct Vehicle {
   double SeatM[3] = {0.0, 0.0, 0.0};
 };
 
+struct Drive {
+  bool Declared = false;
+  double FromLatDeg = 0.0;
+  double FromLonDeg = 0.0;
+  double ToLatDeg = 0.0;
+  double ToLonDeg = 0.0;
+  int Zoom = 0;
+};
+
 struct Player {
   std::string Is;
   std::string Starts;
@@ -297,6 +306,7 @@ struct Scenario {
   std::vector<View> Views;
   std::vector<Vehicle> Vehicles;
   Player Played;
+  Drive Driven;
 
   PhysicsSettings Motion;
   Clock Time;
