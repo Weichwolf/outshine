@@ -58,3 +58,14 @@ is evidence that the path works, and it is not evidence about scale.
 **`OverlayDraw` already instancing is the good news in this item.** The mechanism is not missing from
 the engine, the device or SDL_GPU; it is missing from one call site whose third argument is a literal.
 That is a far smaller distance than *the engine cannot draw a city* would suggest.
+
+---
+
+**Owner ruling (2026-08-22): instancing is automatic, always.** The client never asks for it
+and cannot ask for it: when meshes are identical, outshine instances -- identity is the content
+currency the tree already owns (the store's hash, the part key (kind, params, seed, rung), the
+subject's digest), so the draw path groups placements by mesh identity and issues one draw with
+a real instance count. There is no instancing API at any door; a client that draws the same
+mesh a thousand times has declared a thousand placements and nothing else. This closes the
+question of WHO instances; what remains of this item is the mechanism -- the entity store's
+placement grouping, the per-instance stream, and the cull that feeds it.
