@@ -1,6 +1,7 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
+#include "Units.h"
 #include "Mat4.h"
 #include "Geodesy.h"
 #include <cmath>
@@ -17,7 +18,7 @@ struct CameraBasis {
 
 inline void CameraAxes(float yawDeg, float pitchDeg, float rollDeg, float f[3], float sr[3],
                          float up[3]) {
-  const float RAD = (float)M_PI / 180.f;
+  const float RAD = (float)kPi / 180.f;
   float yaw = yawDeg * RAD, pitch = pitchDeg * RAD, roll = rollDeg * RAD;
 
   f[0] = cosf(pitch) * sinf(yaw);
@@ -37,7 +38,7 @@ inline void CameraAxes(float yawDeg, float pitchDeg, float rollDeg, float f[3], 
 
 inline CameraBasis CameraBasisFrom(float yawDeg, float pitchDeg, float rollDeg, const float eye[3],
                                        float fovDeg, float aspect, float znear, float zfar) {
-  const float RAD = (float)M_PI / 180.f;
+  const float RAD = (float)kPi / 180.f;
   CameraBasis c;
   CameraAxes(yawDeg, pitchDeg, rollDeg, c.f, c.sr, c.up);
 

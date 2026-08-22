@@ -2,6 +2,7 @@
 #define OUTSHINE_CORE_EPHEMERIS_H
 #include <cmath>
 #include "State.h"
+#include "Units.h"
 
 namespace outshine {
 
@@ -11,7 +12,7 @@ namespace outshine {
 constexpr int kEphemerisMinYear = 1901, kEphemerisMaxYear = 2099;
 
 inline void EarthSunPos(double lat, double lon, double utc, float *el, float *az) {
-  double D2R = M_PI / 180.0, jd = utc / 86400.0 + 2440587.5, n = jd - 2451545.0;
+  double D2R = kDeg2Rad, jd = utc / 86400.0 + 2440587.5, n = jd - 2451545.0;
   double L = fmod(280.460 + 0.9856474 * n, 360.0), g = fmod(357.528 + 0.9856003 * n, 360.0) * D2R;
   double lam = (L + 1.915 * sin(g) + 0.020 * sin(2 * g)) * D2R, eps = (23.439 - 0.0000004 * n) * D2R;
   double dec = asin(sin(eps) * sin(lam)), ra = atan2(cos(eps) * sin(lam), cos(lam));
@@ -23,7 +24,7 @@ inline void EarthSunPos(double lat, double lon, double utc, float *el, float *az
 }
 
 inline void EarthMoonPos(double lat, double lon, double utc, float *el, float *az, float *phase) {
-  double D2R = M_PI / 180.0, jd = utc / 86400.0 + 2440587.5;
+  double D2R = kDeg2Rad, jd = utc / 86400.0 + 2440587.5;
   double d = jd - 2451543.5;
 
   double N = fmod(125.1228 - 0.0529538083 * d, 360.0) * D2R;

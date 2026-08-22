@@ -2,7 +2,7 @@
 #define OUTSHINE_WORLD_GROUNDSTACK_H
 
 #include <memory>
-#include <string>
+#include <string_view>
 
 #include "ContentStore.h"
 #include "DeclaredSources.h"
@@ -22,9 +22,8 @@ public:
   GroundStack(const GroundStack &) = delete;
   GroundStack &operator=(const GroundStack &) = delete;
 
-  [[nodiscard]] bool Open(const std::string &cacheDir, const std::string &assetsDir,
-                          double focusLat, double focusLon, Data::Transport &wire,
-                          Sink &say);
+  [[nodiscard]] bool Open(std::string_view cacheDir, std::string_view assetsDir,
+                          double focusLat, double focusLon, Data::Transport &wire, Sink &say);
   void Close(void);
 
   [[nodiscard]] bool Opened(void) const { return Opened_; }

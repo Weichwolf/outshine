@@ -168,7 +168,7 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
         "**AND A RAILWAY IS NOT A ROAD, WHICH WIDTH ALONE NEVER SAID.** The streets layer carries "
         "rail, tram, subway, monorail, funicular, narrow_gauge and light_rail, and a rail ballast "
         "crown is 3.8 m -- wider than the car, so the width test passed them and the router put the "
-        "F31 on the tracks. What a CARRIAGEWAY has is LANES; a railway declares none, and that is "
+        "car on the tracks. What a CARRIAGEWAY has is LANES; a railway declares none, and that is "
         "the test");
   say.Number("ways whose kind declares no maximum grade", (double)reaped.Ungraded, "ways");
   say.Number("ways whose kind declares no lane count", (double)reaped.Unlaned, "ways");
@@ -178,7 +178,9 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   if (!reaped.WithoutLanes.empty()) {
     say.Say(Line("UNLANED KINDS %s", reaped.WithoutLanes.c_str()));
   }
-  say.Claim(reaped.Ways > 0, "and roads a 1.811 m car can fit down are harvested from them");
+  say.Claim(reaped.Ways > 0,
+        Line("and roads a %s m car can fit down are harvested from them",
+             std::to_string(out.Car.WidthM)).c_str());
   say.Claim(reaped.WidestRefusedM < carWidthM || reaped.TooNarrow == 0,
         "**ADMISSIBILITY IS THE VEHICLE'S WIDTH AND NOT A LIST OF TAGS.** Every way this refused is "
         "narrower than the car; every way it took is wider. Nobody wrote down which highway kinds a "
@@ -229,7 +231,7 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   say.Number("the narrowest road on the route", reaped.NarrowestTakenM, "m");
   stood = outshine::Sim::Stand(out.Car, world.GravityMs2, world.AirDensityKgM3);
   if (!stood.Stood) { say.Say(Line("REFUSED %s", stood.Error.c_str())); }
-  say.Claim(stood.Stood, "**AND THE DECLARED F31 STANDS UP AS A RIG.** Every number the drive uses comes "
+  say.Claim(stood.Stood, "**AND THE DECLARED VEHICLE STANDS UP AS A RIG.** Every number the drive uses comes "
                      "from the file, not from a constant beside it");
   if (!stood.Stood) { return false; }
 

@@ -154,7 +154,7 @@ LayerGroups() {
     unit/scenario) printf '%s' "src/core src/scenario" ;;
     unit/generators) printf '%s' "src/core src/generators" ;;
     unit/generators/draw) printf '%s' "src/core src/generators src/generators/draw" ;;
-    unit/ground) printf '%s' "src/corridor src/ground/Wayfinding.cpp" ;;
+    unit/ground) printf '%s' "src/core src/core/io src/corridor src/data src/ground src/ground/tiles" ;;
     unit/render/plan) printf '%s' "src/core src/core/io src/render/plan" ;;
     unit/render/draw) printf '%s' "src/core src/core/io src/render/draw" ;;
     unit/render/stages) printf '%s' "" ;;
@@ -226,11 +226,11 @@ GroupIncludes() {
     src/render/plan) printf '%s' "-Isrc/core -Isrc/render/plan" ;;
     src/render/draw) printf '%s' "-Isrc/core -Isrc/render/draw" ;;
     src/render | src/render/stages | src/render/Readback.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages $(pkg-config --cflags sdl3)" ;;
-    src/clients/GltfStudio.cpp | src/clients/Surfaces.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients $(pkg-config --cflags sdl3)" ;;
-    src/clients/Live.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui $(pkg-config --cflags sdl3)" ;;
+    src/clients/GltfStudio.cpp | src/clients/Surfaces.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients $(pkg-config --cflags sdl3)" ;;
+    src/clients/Live.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui $(pkg-config --cflags sdl3)" ;;
     src/clients/Assembly.cpp) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/clients" ;;
     src/sim) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/corridor -Isrc/data -Isrc/physics -Isrc/pilot -Isrc/scenario -Isrc/sim -Isrc/ground -Isrc/ground/tiles" ;;
-    src/clients/Engine.cpp) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/scenario -Isrc/ui $(pkg-config --cflags sdl3)" ;;
+    src/clients/Engine.cpp) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/scenario -Isrc/ui $(pkg-config --cflags sdl3)" ;;
     src/clients/Sim.cpp | src/clients/LogSinks.cpp | src/clients/StreamTelemetry.cpp | src/clients/EyeTelemetry.cpp | src/clients/CsvTelemetry.cpp | src/clients/Species.cpp | src/clients/RegionForge.cpp | src/clients/SceneWeather.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/scenario -Isrc/ground -Isrc/ground/tiles -Isrc/generators -Isrc/generators/draw -Isrc/corridor -Isrc/clients" ;;
     src/clients/Image.cpp) printf '%s' "-Isrc/clients $(pkg-config --cflags sdl3-image)" ;;
     *) return 1 ;;

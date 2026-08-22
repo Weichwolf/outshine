@@ -7,10 +7,10 @@
 #include <cstdint>
 
 #include "Mercator.h"
+#include "Units.h"
 
 namespace outshine::World {
 
-constexpr double kPi = std::numbers::pi;
 
 inline double ClampD(double v, double lo, double hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
