@@ -42,14 +42,17 @@ Rigged Stand(const Vehicle &declared) {
     out.SeatM[axis] = declared.SeatM[axis];
   }
 
-  double steered = 0.0, driven = 0.0, braked = 0.0;
+  double driven = 0.0, braked = 0.0;
   for (const Contact &one : declared.Contacts) {
-    steered += one.AtM[2] < out.CentreM[2] ? 1.0 : 0.0;
     driven += one.AtM[2] > out.CentreM[2] ? 1.0 : 0.0;
     braked += 1.0;
   }
-  if (!(driven > 0.0)) { driven = braked; }
-  if (!(steered > 0.0)) { steered = 1.0; }
+  if (!(driven > 0.0)) {
+    out.Error = "no contact stands behind the centre of mass, so nothing can be driven -- a "
+                "contact exactly on the centre plane belongs to no axle, and the declaration "
+                "must place its drive axle";
+    return out;
+  }
 
   out.Rig.Count = declared.Contacts.size();
   for (size_t which = 0; which < out.Rig.Count; ++which) {

@@ -7,3 +7,10 @@ Area: sim
 Kill the silent driven = braked fallback and the dead steered computation; decide the
 CoM-plane contact by a declared rule, not by falling through two strict predicates; prove with
 unit cases in the mirror.
+
+---
+
+**Closed.** The silent driven = braked fallback and the dead steered counter are gone; no
+contact behind the centre of mass -- including the degenerate all-on-the-plane declaration --
+is a named refusal. Proving test: unit/sim/ARigRefusesADeclarationItCannotDrive, in the gate's
+119/119.

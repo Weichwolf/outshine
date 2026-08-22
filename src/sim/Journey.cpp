@@ -211,7 +211,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom,
                   "which roads are drivable");
   if (!read) { return false; }
   say.Claim(declared.Vehicles.size() == 1, "declaring one vehicle");
-  if (declared.Vehicles.empty()) { return false; }
+  if (declared.Vehicles.size() != 1) { return false; }
 
   S_->CarWidthM = declared.Vehicles[0].WidthM;
   const double carWidthM = S_->CarWidthM;
