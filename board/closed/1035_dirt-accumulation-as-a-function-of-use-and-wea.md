@@ -6,3 +6,7 @@ Parent: 0164
 **Dirt accumulation as a function of use and weather**
 
 Dirt accumulation as a function of use and weather
+
+---
+
+**Closed, folded into the hull (2026-08-22):** the task lives as a checkbox in 0164; it is refiled as its own item the day work on it begins.
