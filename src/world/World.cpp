@@ -333,7 +333,7 @@ void World::Update(double camLat, double camLon) {
   const double tUpdate = Clock();
   while (camLon > 180.0) camLon -= 360.0;
   while (camLon < -180.0) camLon += 360.0;
-  Pool_->Camera(camLat, camLon);
+  Pool_->Focus(camLat, camLon);
 
   const double tCls = Clock();
   Cls_.Update(*Pool_, camLat, camLon);

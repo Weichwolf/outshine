@@ -65,7 +65,7 @@ public:
   TilePool(const TilePool &) = delete;
   TilePool &operator=(const TilePool &) = delete;
 
-  void Camera(double latDeg, double lonDeg);
+  void Focus(double latDeg, double lonDeg);
 
   [[nodiscard]] Reply Mesh(int z, uint32_t x, uint32_t y, int grid, TileBuild *out);
 
@@ -155,7 +155,7 @@ private:
   std::set<uint64_t> Posted_;
 
   long long Posts_ = 0, Repeats_ = 0;
-  double CameraLatDeg_ = 0.0, CameraLonDeg_ = 0.0;
+  double FocusLatDeg_ = 0.0, FocusLonDeg_ = 0.0;
   bool Stopping_ = false;
   std::vector<std::thread> Threads_;
 };

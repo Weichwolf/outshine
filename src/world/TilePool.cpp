@@ -50,8 +50,8 @@ TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transpo
       OriginLonDeg_(config.OriginLonDeg),
       ByteBudget_(config.ByteBudget),
       DemCacheTiles_(config.DemCacheTiles),
-      CameraLatDeg_(config.OriginLatDeg),
-      CameraLonDeg_(config.OriginLonDeg) {
+      FocusLatDeg_(config.OriginLatDeg),
+      FocusLonDeg_(config.OriginLonDeg) {
   const int n = config.Threads > 0 ? config.Threads : 1;
   ContextBytes_ = std::vector<std::atomic<size_t>>((size_t)n);
   Threads_.reserve((size_t)n);
@@ -86,16 +86,16 @@ TilePool::~TilePool() {
               {"byteCacheEntries", (int)Cache_.size()}, {"evictions", l.Evictions}});
 }
 
-void TilePool::Camera(double latDeg, double lonDeg) {
+void TilePool::Focus(double latDeg, double lonDeg) {
   std::lock_guard<std::mutex> lock(QueueMutex_);
-  CameraLatDeg_ = latDeg;
-  CameraLonDeg_ = lonDeg;
+  FocusLatDeg_ = latDeg;
+  FocusLonDeg_ = lonDeg;
 }
 
 double TilePool::TileDistance(int z, uint32_t x, uint32_t y) const {
   const double n = std::ldexp(1.0, z);
-  const double cx = (CameraLonDeg_ + 180.0) / 360.0 * n;
-  const double lat = CameraLatDeg_ * 3.14159265358979 / 180.0;
+  const double cx = (FocusLonDeg_ + 180.0) / 360.0 * n;
+  const double lat = FocusLatDeg_ * 3.14159265358979 / 180.0;
   const double cy = (1.0 - std::asinh(std::tan(lat)) / 3.14159265358979) * 0.5 * n;
   const double dx = (double)x + 0.5 - cx, dy = (double)y + 0.5 - cy;
   return dx * dx + dy * dy;
