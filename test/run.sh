@@ -436,6 +436,29 @@ if [ "$NAMED" -eq 1 ] && [ -f "test/$SUITE/manifest.json" ]; then
   SUITES=" $SUITE"
 fi
 
+# THE FAST GATE IS THE DEFAULT (board:1601): run.sh without suites runs the regression gate --
+# the unit mirror, the claims, and the door proof -- and EXCLUDES the named-only suites, loudly.
+# The long suites (device corpora, oracle renders, the drive) run only when named: sporadic by
+# rule, never per edit. kFastGateBoundMs is [SET] 90000 ms on this machine, ~2x the measured
+# 115-test baseline of 39.6 s, and the runner itself is the judge -- a slow gate is a red run.
+NAMED_ONLY="harness/render render/outshine/drive render/outshine/frame render/outshine/scenario render/outshine/shader render/outshine/world render/outshine/grown tools"
+FAST_GATE=no
+kFastGateBoundMs=90000
+if [ -z "$SUITES" ]; then
+  FAST_GATE=yes
+  kept=""
+  for candidate in $TESTS; do
+    rel=${candidate#test/}
+    fast=yes
+    for slow in $NAMED_ONLY; do
+      case "$rel" in "$slow"/* | "$slow") fast=no ;; esac
+    done
+    [ "$fast" = yes ] && kept="$kept $candidate"
+  done
+  TESTS=$kept
+  printf 'run.sh: the fast gate -- named-only suites excluded: %s\n' "$NAMED_ONLY"
+fi
+
 if [ -n "$SUITES" ]; then
   selected=""
   for named in $SUITES; do
@@ -838,9 +861,10 @@ done
 endKib=$(SuiteKib)
 
 total=$((passed + failed + timedout + signalled + unbuilt + skipped + unprepared))
+elapsedMs=$(( $(Now) - started ))
 printf '%s tests: %s PASS  %s FAIL  %s TIMEOUT  %s SIGNAL  %s BUILD  %s SKIP  %s UNPREPARED  in %s ms\n' \
   "$total" "$passed" "$failed" "$timedout" "$signalled" "$unbuilt" "$skipped" "$unprepared" \
-  "$(( $(Now) - started ))"
+  "$elapsedMs"
 [ $((criterionMet + criterionRed)) -gt 0 ] &&
   printf 'khronos: criteria %s met of %s   picture bound %s within, %s outside, %s not-enforced of %s\n' \
     "$criterionMet" "$((criterionMet + criterionRed))" \
@@ -867,6 +891,12 @@ printf '%s tests: %s PASS  %s FAIL  %s TIMEOUT  %s SIGNAL  %s BUILD  %s SKIP  %s
   'test corpora: peak %s MB, %s MB after the last prune -- %s cases pruned, %s files and %s MB declined, %s file(s) left standing (each case: %s/*-prune.log)\n' \
   "$((peakKib / 1024))" "$((endKib / 1024))" "$prunedCases" "$prunedFiles" "$((prunedKib / 1024))" \
   "$stayedFiles" "$BUILD/log"
+
+if [ "$FAST_GATE" = yes ] && [ "$elapsedMs" -gt "$kFastGateBoundMs" ]; then
+  printf 'run.sh: THE FAST GATE OVERRAN ITS BOUND -- %s ms over the declared %s ms: a slow test is a finding, exactly like a slow frame (board:1601)\n' \
+    "$elapsedMs" "$kFastGateBoundMs" >&2
+  exit 1
+fi
 
 red=$((failed + timedout + signalled + unbuilt + undeclaredSkips + unprepared))
 [ "$red" -eq 0 ] || exit 1

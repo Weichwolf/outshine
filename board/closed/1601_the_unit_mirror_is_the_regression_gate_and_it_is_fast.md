@@ -32,3 +32,12 @@ lays, plans and rides 1.45 km in ~17 ms, holding lane (0.74 m worst) and plan (0
 with Ride's own braking lookahead; the mirror claim EverySourceLayerHasItsUnitMirror is green
 over the whole tree. The gate measured: 115 tests in 39.6 s. Open: the runner's default set and
 the bounded-wall-time claim.
+
+---
+
+**Closed, all four boxes.** The synthetic drive gate rides 1.45 km in ~17 ms; `test/run.sh`
+without arguments IS the fast gate (118/118 in 43.6 s), excluding the named-only suites loudly
+by a declared list; the runner judges its own pace -- kFastGateBoundMs = 90000, [SET] at ~2x
+the measured 115-test baseline of 39.6 s on this machine, and an overrun is a red run; the long
+driver suites remain the sporadic full proof, run only when named. `make test` therefore runs
+the gate. The mirror claim EverySourceLayerHasItsUnitMirror walks the whole tree green.
