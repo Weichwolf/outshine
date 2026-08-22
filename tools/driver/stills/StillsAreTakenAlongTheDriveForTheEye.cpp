@@ -35,10 +35,13 @@ constexpr double kStepS = 1.0e-3;
 constexpr int kWidePx = 1280;
 constexpr int kHighPx = 720;
 constexpr double kBehindM = 120.0;
-constexpr double kShownM = 900.0;
 constexpr double kRelayAtM = 400.0;
 constexpr double kRibbonStepM = 2.0;
 constexpr double kGroundReachM = 400.0;
+
+constexpr double kShownM = 2.0 * kGroundReachM;
+
+constexpr double kGridAheadM = kGroundReachM - kBehindM;
 constexpr double kGroundStepM = 3.0;
 
 constexpr double kHorizonReachM = 12000.0;
@@ -504,8 +507,14 @@ int main(void) {
         for (int axis = 0; axis < 3; ++axis) {
           groundAtM[axis] = body16[12 + axis] + originM[axis];
         }
-        double aboutNow[3] = {body16[12] + originM[0], body16[13] + originM[1],
-                              body16[14] + originM[2]};
+        double aheadNow[3];
+        {
+          const double aheadBody[3] = {0.0, 0.0, -1.0};
+          outshine::Physics::Turn(journey.Carried().OrientationQ, aheadBody, aheadNow);
+        }
+        double aboutNow[3] = {body16[12] + originM[0] + aheadNow[0] * kGridAheadM,
+                              body16[13] + originM[1],
+                              body16[14] + originM[2] + aheadNow[2] * kGridAheadM};
         Ground under;
         outshine::Gltf::Piece lyingNow;
         lyingNow.NodeName = "ground";
