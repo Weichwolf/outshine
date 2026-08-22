@@ -165,18 +165,20 @@ bool Live::Build(std::string &error) {
     declaration.Exposure =
         Render::Declared<float>((float)(1.0 / (1.2 * std::pow(2.0, ev100))));
   }
-  if (!Render::RenderPlan::Compile(declaration, &Plan_, error)) { return false; }
-  Renderer_->Init(Declared_.SurfaceWidthPx, Declared_.SurfaceHeightPx, Plan_);
-  if (!Renderer_->DeviceUsable()) {
-    error = Renderer_->WhyNot().empty()
-                ? std::string("the device did not come up, so this scenario cannot be stood up")
-                : Renderer_->WhyNot();
-    return false;
-  }
-  if (Declared_.AtlasRgba != nullptr &&
-      !Renderer_->SetOverlayAtlas(Declared_.AtlasRgba, Declared_.AtlasWidthPx,
-                                  Declared_.AtlasHeightPx, error)) {
-    return false;
+  if (Plan_ == nullptr) {
+    if (!Render::RenderPlan::Compile(declaration, &Plan_, error)) { return false; }
+    Renderer_->Init(Declared_.SurfaceWidthPx, Declared_.SurfaceHeightPx, Plan_);
+    if (!Renderer_->DeviceUsable()) {
+      error = Renderer_->WhyNot().empty()
+                  ? std::string("the device did not come up, so this scenario cannot be stood up")
+                  : Renderer_->WhyNot();
+      return false;
+    }
+    if (Declared_.AtlasRgba != nullptr &&
+        !Renderer_->SetOverlayAtlas(Declared_.AtlasRgba, Declared_.AtlasWidthPx,
+                                    Declared_.AtlasHeightPx, error)) {
+      return false;
+    }
   }
   if (Declared_.DrawsSky) {
     Renderer_->SetMedium(Render::Medium{});
