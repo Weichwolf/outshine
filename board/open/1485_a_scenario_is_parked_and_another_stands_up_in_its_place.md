@@ -67,3 +67,15 @@ interior, resumes the exterior and finds it carrying the two kinds it declared. 
 drops the `Live`, which releases the residency by construction -- but nothing bounds how many park,
 nothing evicts, the clock does not resume where it left, and the transition has never been timed.
 
+
+---
+
+Progress (board queue): the bound and the eviction stand. kParkedBound is [SET] 8 in
+Engine.cpp with its derivation beside it -- state is the declaration (~1 KB struct, measured
+as a NOTE in the proof; residency never parks), eight doorways deep covers a building of
+interiors. The ninth park evicts the LEAST RECENTLY LIVE (Bethesda's cell-buffer mechanism,
+on record) and the eviction is PUBLISHED on Carried, so a vanished interior is traceable.
+Proving test: AClientRunsAScenarioInFourLines -- nine rooms through one engine, room 0 gives
+way, its Resume refuses, the trace names it. Remaining: the clock's declared park behaviour
+(freeze or run), the transition MEASURED at p50/p95/p99 in the scenario suite, memory over a
+hundred transitions.

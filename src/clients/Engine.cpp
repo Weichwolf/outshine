@@ -10,6 +10,11 @@
 
 namespace outshine {
 
+inline constexpr size_t kParkedBound = 8; // [SET] state is ~KB per declaration (measured in the
+                                          // four-lines proof); eight doorways deep covers a
+                                          // building of interiors without touching residency
+
+
 struct Engine::State {
   Render::Renderer Device;
   std::unique_ptr<Clients::Live> Standing;
@@ -193,6 +198,16 @@ bool Engine::Park(void) {
       S_->Error = S_->Declared.Named.Name + " is parked already, so parking it twice would leave two";
       return false;
     }
+  }
+  // the parked set states its bound: state is the declaration (KB), not residency (MB) --
+  // measured in the four-lines proof -- and the least recently live gives way, Bethesda's
+  // cell-buffer mechanism; the eviction is published on Carried so a vanished interior is
+  // traceable, never a mystery
+  if (S_->Asleep.size() == kParkedBound) {
+    S_->Carried.push_back("parked scenario '" + S_->Asleep.front().Named.Name +
+                          "' evicted at the declared bound of " + std::to_string(kParkedBound) +
+                          " -- least recently live gives way");
+    S_->Asleep.erase(S_->Asleep.begin());
   }
   S_->Asleep.push_back(S_->Declared);
   S_->Standing.reset();

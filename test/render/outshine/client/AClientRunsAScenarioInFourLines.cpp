@@ -328,6 +328,33 @@ int main(void) {
   CHECK(engine.Parked().size() == 1 && engine.Parked()[0] == "vault 111",
         "and the interior stays parked, so walking back in again is a resume and not a load");
 
+  Note("the state a park keeps, per declaration", (double)sizeof(outshine::Scenario), "B struct");
+  {
+    outshine::Engine doors;
+    outshine::Scenario room = engine.Declared();
+    for (int at = 0; at < 9; ++at) {
+      room.Named.Name = "room " + std::to_string(at);
+      const bool stood = doors.Declare(room);
+      if (!stood) { std::printf("REFUSED %s\n", doors.Error().c_str()); }
+      if (!stood || !doors.Park()) { break; }
+    }
+    CHECK(doors.Parked().size() == 8,
+          "**THE PARKED SET STATES ITS BOUND**: eight doorways deep, declared, never a growth "
+          "nobody stated");
+    CHECK(doors.Parked()[0] == "room 1" && doors.Resume("room 0") == false,
+          "the ninth park evicts the LEAST RECENTLY LIVE -- room 0 gave way, Bethesda's cell "
+          "buffer mechanism, and resuming it is now a refusal");
+    bool published = false;
+    for (const std::string &carried : doors.Carried()) {
+      if (carried.find("room 0") != std::string::npos &&
+          carried.find("evicted") != std::string::npos) {
+        published = true;
+      }
+    }
+    CHECK(published, "and the eviction is PUBLISHED on Carried -- a vanished interior is "
+                     "traceable, never a mystery");
+  }
+
   const struct {
     const char *What;
     const char *Text;
