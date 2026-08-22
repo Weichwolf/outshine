@@ -24,3 +24,7 @@ rather than a fifth one somebody tuned to make it look right.
 
 The first name for this was `Strut`, with a `WheelRadiusM` field in it. Both were wrong the same
 way: a noun from the vehicle appearing in the mechanism.
+
+## Comments
+
+Closed: the body already names its proving test -- src/physics/Contact.h states the six numbers and test/unit/physics/AContactCarriesItsLoadAndSaysWhenItWouldLetGo.cpp proves it; nothing here remained open.

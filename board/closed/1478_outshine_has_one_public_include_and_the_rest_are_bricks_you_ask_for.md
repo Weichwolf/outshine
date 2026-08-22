@@ -105,3 +105,7 @@ same frame count, and asks an empty engine to advance -- which refuses by name.
 - [ ] **`tools/viewer` compiles none of `src/`** -- it still does, and until it stops, the archive is
   exercised by a scratch client rather than by something in the suite
 
+
+## Comments
+
+Closed: include/outshine/ stands as the one public surface (Outshine.h plus named bricks: Scenario, Store, Register, Column) and CLAUDE.md's client rule holds; the build-side enforcement that a client reaches nothing else lives on in board:1582.

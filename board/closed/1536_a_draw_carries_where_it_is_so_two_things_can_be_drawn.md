@@ -37,3 +37,7 @@ one subject and place it nowhere.
 **It is deliberately not started at the end of a long round.** It touches `DrawList`, `SubjectDraw`,
 a shader and that shader's twin, and a renderer left half-changed would take the whole suite --
 1727 tests, 181 khronos criteria -- with it.
+
+## Comments
+
+Closed: Renderer::SetSubjectPlacements places 1..N subjects and a draw stands where its own placement says (commit of 2026-08-21 under board:1543), so road and car are drawn together in the windowed drive.

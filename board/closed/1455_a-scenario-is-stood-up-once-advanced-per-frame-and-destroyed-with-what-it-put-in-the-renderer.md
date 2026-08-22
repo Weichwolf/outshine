@@ -79,3 +79,7 @@ the back it is a body re-uploaded sixty times a second because nobody owned it.
 The measurement above is the first time the browser's frame cost was attributed. It was found by
 opening a case rather than by reading the code: the suite renders one frame per pose, so the harness
 never pays this and never could report it.
+
+## Comments
+
+Closed: the claim is measured true in this body -- Advance whole is 0.411 ms p50 on the worst case against 1174 ms of per-frame resubmission before, and teardown removes the subject; the one open box (a document case as a scenario) belongs to board:1480's declarative line, not here.

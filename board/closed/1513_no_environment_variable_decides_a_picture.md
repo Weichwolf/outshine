@@ -124,3 +124,7 @@ stale log, and this). *The tell was the same both times: a check that went green
       one worker and eight must build the same world, or `FB_TILEWORKERS` is a picture after all and so
       is the machine it runs on
 
+
+## Comments
+
+Closed: FB_TAU and FB_TILEWORKERS have no spelling left anywhere in the tree (grep over src, test, tools finds none); the sole surviving environment read is OUTSHINE_DAGLOG logging, which this item itself ruled harmless.
