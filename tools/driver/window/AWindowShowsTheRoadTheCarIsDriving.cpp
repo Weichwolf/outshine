@@ -311,6 +311,10 @@ int main(void) {
                                  : (size_t)(ms / kBinMs) < kBins ? (size_t)(ms / kBinMs) : kBins;
       ++bin[at];
       ++binned;
+      if (ms > worstMs) {
+        std::printf("WORST %.3f ms at %.3f km, frame %ld, %s\n", ms, rode.ReachedM / 1000.0,
+                    frame, relaidAtFrame == frame ? "relay" : "steady");
+      }
       worstMs = ms > worstMs ? ms : worstMs;
       if (relaidAtFrame == frame) {
         worstRelayMs = ms > worstRelayMs ? ms : worstRelayMs;
