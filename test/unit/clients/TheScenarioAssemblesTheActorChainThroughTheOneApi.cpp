@@ -47,7 +47,7 @@ int main(void) {
   Store scene;
   CHECK(scene.Open(16), "a store opens for the handful the scenario declares");
   outshine::Column<outshine::Vehicle> vehicles;
-  CHECK(vehicles.Open(16), "and a column for the vehicles' numbers beside it");
+  CHECK(vehicles.Open(scene, 16), "and a column for the vehicles' numbers beside it");
   Assembled stood;
   const bool assembled = Assemble(declared, scene, vehicles, stood, error);
   if (!assembled) { std::printf("REFUSED %s\n", error.c_str()); }
@@ -63,7 +63,7 @@ int main(void) {
         "**ITS FUNCTIONS ARE DERIVED FROM THE DECLARATION, NEVER INVENTED**: a turning circle is "
         "steering, torque through a final drive is drive, brake torque is brake -- each tag "
         "stands because a physical quantity stands in the file");
-  const outshine::Vehicle *carried = vehicles.Get(stood.Bodies[0], scene);
+  const outshine::Vehicle *carried = vehicles.Get(stood.Bodies[0]);
   CHECK(carried != nullptr && carried->MassKg == 1610.0 && carried->Contacts.size() == 4,
         "**THE NUMBERS RIDE ON THE ENTITY**: the declaration's mass and its four contacts read "
         "back through the generation-checked handle, so a system that holds the handle holds "
@@ -85,7 +85,7 @@ int main(void) {
   Store crowded;
   CHECK(crowded.Open(1), "a store of one seat is a store");
   outshine::Column<outshine::Vehicle> few;
-  CHECK(few.Open(1), "with a column to match");
+  CHECK(few.Open(crowded, 1), "with a column to match");
   Assembled cramped;
   CHECK(!Assemble(declared, crowded, few, cramped, error),
         "a declaration that does not fit is refused at assembly, not truncated");

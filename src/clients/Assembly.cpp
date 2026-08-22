@@ -20,7 +20,7 @@ bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles, 
       error = into.Error();
       return false;
     }
-    if (!vehicles.Put(body, into, vehicle)) {
+    if (!vehicles.Put(body, vehicle)) {
       error = "the vehicle's numbers found no column seat for '" + vehicle.Name + "'";
       return false;
     }

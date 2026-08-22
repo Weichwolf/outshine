@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 #include "Store.h"
@@ -12,38 +13,51 @@ namespace outshine {
 template <class Value>
 class Column {
 public:
-  [[nodiscard]] bool Open(size_t capacity) {
+  [[nodiscard]] bool Open(const Store &of, size_t capacity) {
     if (capacity == 0) { return false; }
+    Bound_ = &of;
     Values_.assign(capacity, Value{});
     Generations_.assign(capacity, 0);
-    Held_.assign(capacity, false);
+    Held_.assign(capacity, 0);
     return true;
   }
 
-  [[nodiscard]] bool Put(Entity of, const Store &in, const Value &value) {
-    if (!in.Alive(of) || of.Index >= Values_.size()) { return false; }
+  [[nodiscard]] bool Put(Entity of, const Value &value) {
+    if (Bound_ == nullptr || !Bound_->Alive(of) || of.Index >= Values_.size()) { return false; }
     Values_[of.Index] = value;
     Generations_[of.Index] = of.Generation;
-    Held_[of.Index] = true;
+    Held_[of.Index] = 1;
     return true;
   }
 
-  [[nodiscard]] const Value *Get(Entity of, const Store &in) const {
-    if (!in.Alive(of) || of.Index >= Values_.size()) { return nullptr; }
-    if (!Held_[of.Index] || Generations_[of.Index] != of.Generation) { return nullptr; }
+  [[nodiscard]] const Value *Get(Entity of) const {
+    if (Bound_ == nullptr || !Bound_->Alive(of) || of.Index >= Values_.size()) { return nullptr; }
+    if (Held_[of.Index] == 0 || Generations_[of.Index] != of.Generation) { return nullptr; }
     return &Values_[of.Index];
   }
 
   void Drop(Entity of) {
     if (of.Index < Held_.size() && Generations_[of.Index] == of.Generation) {
-      Held_[of.Index] = false;
+      Held_[of.Index] = 0;
+    }
+  }
+
+  template <class Fn>
+  void Each(Fn &&fn) const {
+    if (Bound_ == nullptr) { return; }
+    for (uint32_t at = 0; at < (uint32_t)Values_.size(); ++at) {
+      if (Held_[at] == 0) { continue; }
+      const Entity of{at, Generations_[at]};
+      if (!Bound_->Alive(of)) { continue; }
+      fn(of, Values_[at]);
     }
   }
 
 private:
+  const Store *Bound_ = nullptr;
   std::vector<Value> Values_;
   std::vector<uint32_t> Generations_;
-  std::vector<bool> Held_;
+  std::vector<uint8_t> Held_;
 };
 
 } // namespace outshine

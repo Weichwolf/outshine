@@ -32,3 +32,16 @@ What must be true:
   one with a coinciding generation answers wrongly and quietly)
 
 Costs are proven the tree's way: a unit case that counts touches, not a benchmark.
+
+---
+
+**Closed.** The store keeps its sets at link time: a reverse index (target x relation) as
+intrusive lists through the pair slots, a role list per role, an offer list, and a global list
+per relation -- so Sources, Cast, Pairs, Offering, CopyOf, Instantiate and the removal cascade
+read exactly what they return, and the pool is never searched. Erasure is swap-with-relink, so
+references stay stable and dead pairs vanish with their target instead of tombstoning.
+`Bearing(tag, role)` deliberately walks the role set with Has: the tag hierarchy plus IsA
+inheritance make a flat per-tag index a lie -- the cost is the role set, and that is declared
+here rather than hidden. Column binds to its one store at Open and iterates linearly (`Each`).
+Proving test: `unit/scene/AQueryCostsWhatItReturns` -- two offers among sixty-four cost two
+touches, one mind costs one, the slot name costs its siblings, the cascade costs its subtree.
