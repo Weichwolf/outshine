@@ -6,3 +6,7 @@ Parent: 0139
 **Instanced sheets standing for sixteen quad elements each**
 
 Instanced sheets standing for sixteen quad elements each
+
+---
+
+**Closed, folded into the hull (2026-08-22):** the task lives as a checkbox in 0139; it is refiled as its own item the day work on it begins.
