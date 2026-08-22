@@ -6,3 +6,7 @@ Parent: 0133
 **Xanthoria parietina**
 
 Xanthoria parietina — the yellow lichen on a roof tile and a wayside tree
+
+---
+
+**Closed, folded into the hull (2026-08-22):** the task lives as a checkbox in 0133; it is refiled as its own item the day work on it begins.
