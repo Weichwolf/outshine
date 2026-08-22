@@ -91,34 +91,63 @@ SCENE domain: vehicles, minds, tools, assignments, world objects. Banned by the 
 themselves: stringly-typed capabilities · content that ships a program · god actors ·
 ECS-for-everything · unreserved shared affordances.
 
-## Render plan (IST/SOLL per stage)
+## Render plan (IST — what executes, judged as architecture)
 
 ```mermaid
 flowchart TD
   subgraph compute
     T["mediumTransmittance"] --> M["mediumMultiScatter"] --> R["mediumRadiance"]
-    R --> IR["irradiance"] --> AE["autoExposure"]
   end
   subgraph raster
-    LV["lightVisibility"] --> GEO
+    LV["lightVisibility"] --> SUBJ
     SKY["sky"] --> HDR[("SceneHdr")]
-    SUN["sun"] & MOON["moon"] & STARS["stars"] -.-> HDR
-    GEO["terrain · buildings · water · models"] -.-> HDR
     SUBJ["subjects"] --> HDR
-    GLASS["subjectsTransmissive"] --> CT["compositeTransmission"]
-    AO["ambientOcclusion"]
-    HDR --> TAA["temporalResolve"] --> TONE["tonemap"] --> OV["overlay"] --> P["present"]
+    GLASS["subjectsTransmissive — a cloned stage"] --> CT["compositeTransmission"]
+    HDR --> TAA["temporalResolve — encodes nothing, folded into tonemap"] --> TONE["tonemap"]
+    TONE --> OV["overlay"] --> P["present"]
   end
 
-  classDef built fill:#1f6f3f,stroke:#0d3b21,color:#fff
-  classDef absent fill:#555,stroke:#333,color:#eee,stroke-dasharray:4 3
-  class T,M,R,SKY,LV,SUBJ,GLASS,CT,TAA,TONE,OV,P built
-  class IR,AE,SUN,MOON,STARS,GEO,AO absent
+  classDef sound fill:#1f6f3f,stroke:#0d3b21,color:#fff
+  classDef unsure fill:#8a6d1f,stroke:#4a3a0d,color:#fff
+  classDef wrong fill:#7a2222,stroke:#3d1111,color:#fff
+  class T,M,R,SKY,LV,CT,TONE,OV,P sound
+  class TAA unsure
+  class SUBJ,GLASS wrong
 ```
 
-Green = `Renderer::Executable` returns true and a suite proves it; grey dashed = catalogued,
-refused loudly by name — absent, not wrong. One `Writes` producer per derived resource (`static_assert`); missing contributor =
-picture choice, **published** as `-> neutral`; load/store ops derived from the plan (`Stored()`).
+Green = sound abstraction by current knowledge; amber = form in question; red = provably wrong
+(subjects: six responsibilities, instancing a literal, nothing culls; glass: a full clone of the
+subject stage). One `Writes` producer per derived resource (`static_assert`); missing
+contributor = picture choice, **published** as `-> neutral`; load/store ops derived from the
+plan (`Stored()`).
+
+## Render plan (SOLL — the declared target)
+
+```mermaid
+flowchart TD
+  subgraph compute
+    T2["mediumTransmittance"] --> M2["mediumMultiScatter"] --> R2["mediumRadiance"]
+    R2 --> IR["irradiance"] --> AE["autoExposure"]
+  end
+  subgraph raster
+    LV2["lightVisibility"] --> GEO
+    SKY2["sky"] --> HDR2[("SceneHdr")]
+    SUN["sun"] & MOON["moon"] & STARS["stars"] --> HDR2
+    GEO["terrain · buildings · water · models"] --> HDR2
+    SUBJ2["subjects — resident, culled, instanced"] --> HDR2
+    GLASS2["transmissive draws in the one subject stage"] --> CT2["compositeTransmission"]
+    AO["ambientOcclusion"] --> HDR2
+    HDR2 --> TAA2["temporalResolve"] --> TONE2["tonemap"] --> OV2["overlay"] --> P2["present"]
+  end
+
+  classDef sure fill:#1f6f3f,stroke:#0d3b21,color:#fff
+  classDef likely fill:#8a6d1f,stroke:#4a3a0d,color:#fff
+  class T2,M2,R2,LV2,SKY2,SUBJ2,CT2,TONE2,OV2,P2,GEO,SUN,MOON,STARS,IR sure
+  class AE,AO,TAA2,GLASS2 likely
+```
+
+Green = certain; amber = probable (auto-exposure shape, AO method, TAA's place, and whether
+transmissive draws fold into the subject stage are open design calls).
 
 ## Class structure (IST)
 
