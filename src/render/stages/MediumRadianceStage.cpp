@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "ShaderFile.h"
 #include "ShaderPrelude.h"
 
 namespace outshine::Render {
@@ -19,7 +20,7 @@ struct Pushed {
 
 static_assert(sizeof(Pushed) == sizeof(Medium) + 16, "the push keeps the medium's alignment");
 
-std::string Kernel(void) {
+std::string Kernel(std::string &error) {
   char declared[512];
   std::snprintf(declared, sizeof declared,
                 "constant uint kSkyViewSteps = %uu;\n"
@@ -27,33 +28,13 @@ std::string Kernel(void) {
                 "constant float kMediumGroundLiftKm = %.9g;\n",
                 (unsigned)kSkyViewSteps, (double)kMediumLuminanceSegment,
                 (double)kMediumGroundLiftKm);
-  return std::string(kMslPrelude) + declared + ParticipatingMediumMsl() + R"(
-struct Pushed {
-  Medium declared;
-  float cosSunZenith;
-  float eyeRadiusKm;
-  float2 pad;
-};
-
-kernel void mediumRadianceKernel(uint2 at [[thread_position_in_grid]],
-                                 texture2d<float> transmittance [[texture(0)]],
-                                 texture2d<float> multiScatter [[texture(1)]],
-                                 texture2d<float, access::write> into [[texture(2)]],
-                                 sampler lut [[sampler(0)]],
-                                 constant Pushed &pushed [[buffer(0)]]) {
-  uint2 extent = uint2(into.get_width(), into.get_height());
-  if (at.x >= extent.x || at.y >= extent.y) { return; }
-  float2 uv = (float2(at) + 0.5) / float2(extent);
-  float cosView = 0.0;
-  float lightViewCos = 0.0;
-  skyViewParams(pushed.declared, pushed.eyeRadiusKm, uv.x, uv.y, float(extent.x), float(extent.y),
-                cosView, lightViewCos);
-  float3 luminance = mediumSkyRay(pushed.declared, pushed.eyeRadiusKm, cosView, lightViewCos,
-                                  pushed.cosSunZenith, transmittance, multiScatter, lut,
-                                  kSkyViewSteps, kMediumLuminanceSegment, kMediumGroundLiftKm);
-  into.write(float4(luminance, 1.0), at);
-}
-)";
+  std::string core;
+  std::string body;
+  if (!ParticipatingMediumMsl(core, error) ||
+      !LoadShaderText("src/render/shaders/mediumRadiance.msl", body, error)) {
+    return std::string();
+  }
+  return std::string(kMslPrelude) + declared + core + body;
 }
 
 }
@@ -75,7 +56,8 @@ bool MediumRadianceStage::Configure(const Gpu &gpu, SDL_GPUTexture *transmittanc
   }
   if (Pipe) { return true; }
 
-  const std::string source = KernelSource();
+  const std::string source = KernelSource(error);
+  if (source.empty()) { return false; }
   SDL_GPUComputePipelineCreateInfo wanted{};
   wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
   wanted.code_size = source.size();
@@ -120,10 +102,15 @@ void MediumRadianceStage::Encode(const PassRecording &into) {
   SDL_GPUTextureSamplerBinding bound[2] = {{Transmittance, Lut}, {MultiScatter, Lut}};
   SDL_BindGPUComputeSamplers(into.Dispatch, 0, bound, 2);
   SDL_DispatchGPUCompute(into.Dispatch, (kSkyViewLutWidth + KernelShape.GroupX - 1u) / KernelShape.GroupX,
-                         (kSkyViewLutHeight + KernelShape.GroupX - 1u) / KernelShape.GroupX, 1u);
+                         (kSkyViewLutHeight + KernelShape.GroupY - 1u) / KernelShape.GroupY, 1u);
   Settled_ = true;
 }
 
-std::string MediumRadianceStage::KernelSource(void) { return Kernel(); }
+std::string MediumRadianceStage::KernelSource(void) {
+  std::string ignored;
+  return Kernel(ignored);
+}
+
+std::string MediumRadianceStage::KernelSource(std::string &error) { return Kernel(error); }
 
 }

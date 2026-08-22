@@ -1,0 +1,16 @@
+
+struct VOut { float4 pos [[position]]; };
+vertex VOut vs(uint i [[vertex_id]]) {
+  float2 corner[3] = { float2(-1.0, -1.0), float2(3.0, -1.0), float2(-1.0, 3.0) };
+  VOut o;
+  o.pos = float4(corner[i], 0.0, 1.0);
+  return o;
+}
+fragment float4 fs(VOut in [[stage_in]],
+                   texture2d<float> opaque [[texture(0)]], sampler opaqueSampler [[sampler(0)]],
+                   texture2d<float> glass [[texture(1)]], sampler glassSampler [[sampler(1)]]) {
+  uint2 px = uint2(in.pos.xy);
+  float4 behind = opaque.read(px);
+  float4 front = glass.read(px);
+  return float4(behind.rgb * (1.0 - front.a) + front.rgb, behind.a);
+}

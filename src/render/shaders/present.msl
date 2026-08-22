@@ -1,0 +1,12 @@
+
+struct VOut { float4 pos [[position]]; };
+vertex VOut vs(uint i [[vertex_id]]) {
+  float2 corner[3] = { float2(-1.0, -1.0), float2(3.0, -1.0), float2(-1.0, 3.0) };
+  VOut o;
+  o.pos = float4(corner[i], 0.0, 1.0);
+  return o;
+}
+fragment float4 fs(VOut in [[stage_in]],
+                   texture2d<float> frame [[texture(0)]], sampler frameSampler [[sampler(0)]]) {
+  return frame.read(uint2(in.pos.xy));
+}

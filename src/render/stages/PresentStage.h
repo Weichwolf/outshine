@@ -14,7 +14,8 @@ namespace outshine::Render {
 class PresentStage {
 public:
   [[nodiscard]] static std::string ShaderSource(void);
-  static constexpr DrawShape ShaderShape{0, 0, 1, 0};
+  [[nodiscard]] static std::string ShaderSource(std::string &error);
+  static constexpr DrawShape ShaderShape{.FragmentSamplers = 1};
 
   [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUTexture *frame, SDL_GPUSampler *exact,
                                std::string &error);

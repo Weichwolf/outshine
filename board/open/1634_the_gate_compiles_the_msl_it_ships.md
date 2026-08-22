@@ -58,3 +58,12 @@ Samplers, max `[[buffer(N)]]`+1 == UniformBuffers, max `[[texture(N)]]`+1 == Sam
 ReadOnlyTextures + ReadWriteTextures (SDL's MSL slot order). That proof survives 1647's move
 of the source into files unchanged. The shape's other loose end — GroupY dead at two dispatch
 sites, positional init — is board:1648.
+
+---
+
+Progress (round 2's sharpening repaid): the gate now PARSES the assembled source's own slot
+annotations -- [[texture/buffer/sampler(N)]] maxima -- and refuses a shape that disagrees:
+texture and buffer slots exact (SDL's pair model: sampled + read-only + read-write share the
+texture space), sampler slots at most the declared pairs (two textures may share one
+sampler). The shape is no longer an unproven second declaration. Remaining for close:
+tonemap's optioned source and the subject unit's three parameterised shaders.

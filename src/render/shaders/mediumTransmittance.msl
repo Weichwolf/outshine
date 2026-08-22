@@ -1,0 +1,14 @@
+
+kernel void mediumTransmittanceKernel(uint2 at [[thread_position_in_grid]],
+                                      texture2d<float, access::write> lut [[texture(0)]],
+                                      constant Medium &medium [[buffer(0)]]) {
+  uint2 extent = uint2(lut.get_width(), lut.get_height());
+  if (at.x >= extent.x || at.y >= extent.y) { return; }
+  float2 uv = (float2(at) + 0.5) / float2(extent);
+  float radiusKm = 0.0;
+  float cosZenith = 0.0;
+  mediumTransmittanceParams(medium, uv.x, uv.y, radiusKm, cosZenith);
+  float3 through =
+      mediumTransmittance(medium, radiusKm, cosZenith, kTransmittanceSteps, kMediumSampleSegment);
+  lut.write(float4(through, 1.0), at);
+}

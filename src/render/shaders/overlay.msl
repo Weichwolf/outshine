@@ -1,0 +1,63 @@
+
+struct Frame { float2 targetPx; float encodesSrgb; float pad; };
+
+float3 asLinear(float3 code) {
+  return select(code / 12.92, pow((code + 0.055) / 1.055, 2.4), code > 0.04045);
+}
+
+struct VIn {
+  float4 rect     [[attribute(0)]];
+  float4 uv       [[attribute(1)]];
+  float4 colour   [[attribute(2)]];
+  float4 clip     [[attribute(3)]];
+  float4 shape    [[attribute(4)]];
+};
+
+struct VOut {
+  float4 pos [[position]];
+  float2 uv;
+  float4 colour;
+  float4 clip;
+  float2 px;
+  float2 centre;
+  float2 halfSize;
+  float radius;
+  float hasPatch;
+};
+
+vertex VOut vs(uint vertexId [[vertex_id]], VIn in [[stage_in]], constant Frame &f [[buffer(0)]]) {
+  float2 corner[6] = { float2(0,0), float2(1,0), float2(0,1),
+                       float2(0,1), float2(1,0), float2(1,1) };
+  float2 at = corner[vertexId];
+  float2 px = in.rect.xy + at * in.rect.zw;
+  VOut o;
+  o.pos = float4(px.x / f.targetPx.x * 2.0 - 1.0, 1.0 - px.y / f.targetPx.y * 2.0, 0.0, 1.0);
+  o.uv = mix(in.uv.xy, in.uv.zw, at);
+  o.colour = in.colour;
+  o.clip = in.clip;
+  o.px = px;
+  o.centre = in.rect.xy + in.rect.zw * 0.5;
+  o.halfSize = in.rect.zw * 0.5;
+  o.radius = min(in.shape.x, min(o.halfSize.x, o.halfSize.y));
+  o.colour.a *= in.shape.y;
+  o.colour.rgb = f.encodesSrgb > 0.5 ? asLinear(o.colour.rgb) : o.colour.rgb;
+  o.hasPatch = (in.uv.z > in.uv.x && in.uv.w > in.uv.y) ? 1.0 : 0.0;
+  return o;
+}
+
+fragment float4 fs(VOut in [[stage_in]],
+                   texture2d<float> atlas [[texture(0)]], sampler smooth [[sampler(0)]]) {
+  if (in.px.x < in.clip.x || in.px.x > in.clip.x + in.clip.z ||
+      in.px.y < in.clip.y || in.px.y > in.clip.y + in.clip.w) {
+    discard_fragment();
+  }
+  float4 out = in.colour;
+  if (in.hasPatch > 0.5) { out *= atlas.sample(smooth, in.uv); }
+  if (in.radius > 0.0) {
+    float2 q = abs(in.px - in.centre) - (in.halfSize - in.radius);
+    float d = length(max(q, float2(0.0))) + min(max(q.x, q.y), 0.0) - in.radius;
+    out.a *= saturate(0.5 - d);
+  }
+  if (out.a <= 0.0) { discard_fragment(); }
+  return float4(out.rgb * out.a, out.a);
+}

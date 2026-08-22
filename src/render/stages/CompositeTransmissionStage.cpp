@@ -1,28 +1,11 @@
 #include "CompositeTransmissionStage.h"
 
+#include "ShaderFile.h"
 #include "ShaderPrelude.h"
 
 namespace outshine::Render {
 
 namespace {
-
-const char *kCompositeMsl = R"(
-struct VOut { float4 pos [[position]]; };
-vertex VOut vs(uint i [[vertex_id]]) {
-  float2 corner[3] = { float2(-1.0, -1.0), float2(3.0, -1.0), float2(-1.0, 3.0) };
-  VOut o;
-  o.pos = float4(corner[i], 0.0, 1.0);
-  return o;
-}
-fragment float4 fs(VOut in [[stage_in]],
-                   texture2d<float> opaque [[texture(0)]], sampler opaqueSampler [[sampler(0)]],
-                   texture2d<float> glass [[texture(1)]], sampler glassSampler [[sampler(1)]]) {
-  uint2 px = uint2(in.pos.xy);
-  float4 behind = opaque.read(px);
-  float4 front = glass.read(px);
-  return float4(behind.rgb * (1.0 - front.a) + front.rgb, behind.a);
-}
-)";
 
 constexpr uint32_t kCompositeImages = CompositeTransmissionStage::ShaderShape.FragmentSamplers;
 
@@ -35,7 +18,8 @@ bool CompositeTransmissionStage::Configure(const Gpu &gpu, SDL_GPUTexture *opaqu
   Transmissive = transmissive;
   Exact = exact;
 
-  const std::string source = ShaderSource();
+  const std::string source = ShaderSource(error);
+  if (source.empty()) { return false; }
   SDL_GPUShaderCreateInfo wanted{};
   wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
   wanted.code_size = source.size();
@@ -84,6 +68,15 @@ void CompositeTransmissionStage::Encode(const FrameContext &, const PassRecordin
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }
 
-std::string CompositeTransmissionStage::ShaderSource(void) { return std::string(kMslPrelude) + kCompositeMsl; }
+std::string CompositeTransmissionStage::ShaderSource(void) {
+  std::string ignored;
+  return ShaderSource(ignored);
+}
+
+std::string CompositeTransmissionStage::ShaderSource(std::string &error) {
+  std::string body;
+  if (!LoadShaderText("src/render/shaders/compositeTransmission.msl", body, error)) { return std::string(); }
+  return std::string(kMslPrelude) + body;
+}
 
 }

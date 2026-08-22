@@ -27,3 +27,12 @@ this: `{.Samplers = 2, .ReadWriteTextures = 1, .UniformBuffers = 1, .GroupX = 8,
 Demanded: the y term divides by `GroupY` at both sites, and every ComputeShape/DrawShape
 static takes designated initializers. board:1647's medium slice touches these files — the fix
 rides with it or lands first, it does not wait behind it.
+
+---
+
+Closed: the height axes of the multi-scatter and radiance dispatches divide by GroupY (the
+declared field was dead -- the 1634 sweep's own defect, caught in one round); all seven
+shapes are designated-initializer literals now, so a swapped field no longer compiles
+quietly. Proving test: test/unit/render/EveryAssembledKernelCompilesOnTheDevice.cpp -- the
+slot-parse (below) would catch a shape whose counts drift from the MSL, and the dispatch
+shares the same fields it compiles with. 127/127.

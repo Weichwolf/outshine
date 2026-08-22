@@ -4,88 +4,11 @@
 #include <cstdio>
 
 #include "SceneTargets.h"
+#include "ShaderFile.h"
 #include "ShaderPrelude.h"
 
 namespace outshine::Render {
 namespace {
-
-const char *kSkyMsl = R"(
-struct Pushed {
-  float4 right;
-  float4 up;
-  float4 fwd;
-  float4 worldUp;
-  float4 sunDir;
-  float2 tanHalf;
-  float illuminance;
-  float eyeRadiusKm;
-  float bottomRadiusKm;
-  float topRadiusKm;
-  float2 pad;
-};
-
-struct VOut { float4 pos [[position]]; float2 ndc; };
-vertex VOut vs(uint i [[vertex_id]]) {
-  float2 corner[3] = { float2(-1.0, -1.0), float2(3.0, -1.0), float2(-1.0, 3.0) };
-  VOut o;
-  o.pos = float4(corner[i], 0.0, 1.0);
-  o.ndc = corner[i];
-  return o;
-}
-
-struct SkyOut {
-  float4 colour [[color(0)]];
-  float2 velocity [[color(1)]];
-};
-
-fragment SkyOut fs(VOut in [[stage_in]],
-                   texture2d<float> skyView [[texture(0)]],
-                   sampler lut [[sampler(0)]],
-                   constant Pushed &pushed [[buffer(0)]]) {
-  float3 dir = normalize(pushed.fwd.xyz + in.ndc.x * pushed.tanHalf.x * pushed.right.xyz +
-                         in.ndc.y * pushed.tanHalf.y * pushed.up.xyz);
-  float3 worldUp = pushed.worldUp.xyz;
-  float cosView = dot(dir, worldUp);
-
-  float3 side = cross(worldUp, dir);
-  float sideLength = length(side);
-  float lightViewCos = 1.0;
-  if (sideLength > 1.0e-5) {
-    side = side / sideLength;
-    float3 forward = normalize(cross(side, worldUp));
-    float2 lightOnPlane =
-        normalize(float2(dot(pushed.sunDir.xyz, forward), dot(pushed.sunDir.xyz, side)));
-    lightViewCos = lightOnPlane.x;
-  }
-
-  float radiusKm = pushed.eyeRadiusKm;
-  float toHorizon = sqrt(max(0.0, radiusKm * radiusKm - pushed.bottomRadiusKm * pushed.bottomRadiusKm));
-  float beta = acos(clamp(toHorizon / radiusKm, -1.0, 1.0));
-  float zenithToHorizon = 3.14159265358979 - beta;
-  bool hitsGround = acos(clamp(cosView, -1.0, 1.0)) > zenithToHorizon;
-
-  float widthPx = float(skyView.get_width());
-  float heightPx = float(skyView.get_height());
-  float v;
-  if (!hitsGround) {
-    float coord = acos(clamp(cosView, -1.0, 1.0)) / zenithToHorizon;
-    coord = 1.0 - sqrt(max(0.0, 1.0 - coord));
-    v = coord * 0.5;
-  } else {
-    float coord = (acos(clamp(cosView, -1.0, 1.0)) - zenithToHorizon) / beta;
-    v = sqrt(max(0.0, coord)) * 0.5 + 0.5;
-  }
-  float u = sqrt(max(0.0, -lightViewCos * 0.5 + 0.5));
-  u = (u + 0.5 / widthPx) * (widthPx / (widthPx + 1.0));
-  v = (v + 0.5 / heightPx) * (heightPx / (heightPx + 1.0));
-
-  float3 luminance = skyView.sample(lut, float2(u, v), level(0.0)).rgb * pushed.illuminance;
-  SkyOut out;
-  out.colour = float4(luminance, 1.0);
-  out.velocity = float2(VELOCITY_STATIC, VELOCITY_STATIC);
-  return out;
-}
-)";
 
 }
 
@@ -99,7 +22,8 @@ bool SkyStage::Configure(const Gpu &gpu, SDL_GPUTexture *skyView, SDL_GPUSampler
   }
   if (Pipe) { return true; }
 
-  const std::string source = ShaderSource();
+  const std::string source = ShaderSource(error);
+  if (source.empty()) { return false; }
   SDL_GPUShaderCreateInfo wanted{};
   wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
   wanted.code_size = source.size();
@@ -180,10 +104,17 @@ void SkyStage::Encode(const FrameContext &ctx, const PassRecording &into) {
 }
 
 std::string SkyStage::ShaderSource(void) {
+  std::string ignored;
+  return ShaderSource(ignored);
+}
+
+std::string SkyStage::ShaderSource(std::string &error) {
+  std::string body;
+  if (!LoadShaderText("src/render/shaders/sky.msl", body, error)) { return std::string(); }
   char constants[128];
   std::snprintf(constants, sizeof constants, "#define VELOCITY_STATIC %.9ef\n",
                 (double)kVelocityStatic);
-  return std::string(kMslPrelude) + constants + kSkyMsl;
+  return std::string(kMslPrelude) + constants + body;
 }
 
 }

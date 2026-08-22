@@ -3,13 +3,14 @@
 #include <cstdio>
 #include <cstring>
 
+#include "ShaderFile.h"
 #include "ShaderPrelude.h"
 
 namespace outshine::Render {
 namespace {
 
 
-std::string Kernel(void) {
+std::string Kernel(std::string &error) {
   char declared[512];
   std::snprintf(declared, sizeof declared,
                 "constant uint kMultiScatterSteps = %uu;\n"
@@ -18,24 +19,13 @@ std::string Kernel(void) {
                 "constant float kMediumGroundLiftKm = %.9g;\n",
                 (unsigned)kMultiScatterSteps, (unsigned)kMultiScatterGrid,
                 (double)kMediumLuminanceSegment, (double)kMediumGroundLiftKm);
-  return std::string(kMslPrelude) + declared + ParticipatingMediumMsl() + R"(
-kernel void mediumMultiScatterKernel(uint2 at [[thread_position_in_grid]],
-                                     texture2d<float> transmittance [[texture(0)]],
-                                     texture2d<float, access::write> into [[texture(1)]],
-                                     sampler lut [[sampler(0)]],
-                                     constant Medium &medium [[buffer(0)]]) {
-  uint2 extent = uint2(into.get_width(), into.get_height());
-  if (at.x >= extent.x || at.y >= extent.y) { return; }
-  float2 uv = (float2(at) + 0.5) / float2(extent);
-  float3 luminance;
-  float3 transfer;
-  mediumMultiScatterTexel(medium, uv.x, uv.y, transmittance, lut, kMultiScatterSteps,
-                          kMultiScatterGrid, kMediumLuminanceSegment, kMediumGroundLiftKm,
-                          luminance, transfer);
-  float3 everyOrder = luminance / (1.0 - transfer);
-  into.write(float4(everyOrder, 1.0), at);
-}
-)";
+  std::string core;
+  std::string body;
+  if (!ParticipatingMediumMsl(core, error) ||
+      !LoadShaderText("src/render/shaders/mediumMultiScatter.msl", body, error)) {
+    return std::string();
+  }
+  return std::string(kMslPrelude) + declared + core + body;
 }
 
 }
@@ -54,7 +44,8 @@ bool MediumMultiScatterStage::Configure(const Gpu &gpu, SDL_GPUTexture *transmit
   }
   if (Pipe) { return true; }
 
-  const std::string source = KernelSource();
+  const std::string source = KernelSource(error);
+  if (source.empty()) { return false; }
   SDL_GPUComputePipelineCreateInfo wanted{};
   wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
   wanted.code_size = source.size();
@@ -90,10 +81,15 @@ void MediumMultiScatterStage::Encode(const PassRecording &into) {
   SDL_GPUTextureSamplerBinding bound{Transmittance, Lut};
   SDL_BindGPUComputeSamplers(into.Dispatch, 0, &bound, 1);
   SDL_DispatchGPUCompute(into.Dispatch, (kMultiScatterLutSize + KernelShape.GroupX - 1u) / KernelShape.GroupX,
-                         (kMultiScatterLutSize + KernelShape.GroupX - 1u) / KernelShape.GroupX, 1u);
+                         (kMultiScatterLutSize + KernelShape.GroupY - 1u) / KernelShape.GroupY, 1u);
   Settled_ = true;
 }
 
-std::string MediumMultiScatterStage::KernelSource(void) { return Kernel(); }
+std::string MediumMultiScatterStage::KernelSource(void) {
+  std::string ignored;
+  return Kernel(ignored);
+}
+
+std::string MediumMultiScatterStage::KernelSource(std::string &error) { return Kernel(error); }
 
 }

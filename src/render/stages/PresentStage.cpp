@@ -1,23 +1,10 @@
 #include "PresentStage.h"
 
+#include "ShaderFile.h"
 #include "ShaderPrelude.h"
 
 namespace outshine::Render {
 namespace {
-
-const char *kPresentMsl = R"(
-struct VOut { float4 pos [[position]]; };
-vertex VOut vs(uint i [[vertex_id]]) {
-  float2 corner[3] = { float2(-1.0, -1.0), float2(3.0, -1.0), float2(-1.0, 3.0) };
-  VOut o;
-  o.pos = float4(corner[i], 0.0, 1.0);
-  return o;
-}
-fragment float4 fs(VOut in [[stage_in]],
-                   texture2d<float> frame [[texture(0)]], sampler frameSampler [[sampler(0)]]) {
-  return frame.read(uint2(in.pos.xy));
-}
-)";
 
 }
 
@@ -37,7 +24,8 @@ bool PresentStage::Configure(const Gpu &gpu, SDL_GPUTexture *frame, SDL_GPUSampl
 bool PresentStage::For(const Gpu &gpu, SDL_GPUTextureFormat surfaceFormat, std::string &error) {
   if (Pipe && Built == surfaceFormat) { return true; }
 
-  const std::string source = ShaderSource();
+  const std::string source = ShaderSource(error);
+  if (source.empty()) { return false; }
   SDL_GPUShaderCreateInfo wanted{};
   wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
   wanted.code_size = source.size();
@@ -87,6 +75,15 @@ void PresentStage::Encode(const FrameContext &ctx, const PassRecording &into) {
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }
 
-std::string PresentStage::ShaderSource(void) { return std::string(kMslPrelude) + kPresentMsl; }
+std::string PresentStage::ShaderSource(void) {
+  std::string ignored;
+  return ShaderSource(ignored);
+}
+
+std::string PresentStage::ShaderSource(std::string &error) {
+  std::string body;
+  if (!LoadShaderText("src/render/shaders/present.msl", body, error)) { return std::string(); }
+  return std::string(kMslPrelude) + body;
+}
 
 }
