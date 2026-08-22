@@ -41,14 +41,7 @@ std::string PreparedCar(void) {
   return root + "/outshine-prepared/tools-driver-f31/scene.gltf";
 }
 
-std::string Planted(const char *name) {
-  const char *nest = std::getenv("OUTSHINE_NEST");
-  if (nest != nullptr && *nest != 0) { return std::string(nest) + "/" + name; }
-  const char *const base = std::getenv("TMPDIR");
-  std::string root = base != nullptr ? base : "/tmp";
-  if (!root.empty() && root.back() == '/') { root.pop_back(); }
-  return root + "/outshine-" + std::to_string(getpid()) + "-" + name;
-}
+std::string Planted(const char *name) { return outshine::Test::PlantedPath(name); }
 
 size_t Different(const std::vector<uint8_t> &with, const std::vector<uint8_t> &without) {
   size_t apart = 0;

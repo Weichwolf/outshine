@@ -3,6 +3,10 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
+#include <string>
+
+#include <unistd.h>
 
 namespace outshine::Test {
 
@@ -53,6 +57,17 @@ inline void Note(const char *what, double value, const char *unit) {
 inline void Note(const char *what) { std::printf("NOTE %s\n", what); }
 
 inline void Covers(const char *requirement) { std::printf("COVERS %s\n", requirement); }
+
+// where a test plants an artefact: inside the checkout-keyed nest run.sh exports, or -- run
+// standalone -- under a pid-keyed name in the temp root, so two runners never share a path
+[[nodiscard]] inline std::string PlantedPath(const char *name) {
+  const char *nest = std::getenv("OUTSHINE_NEST");
+  if (nest != nullptr && *nest != 0) { return std::string(nest) + "/" + name; }
+  const char *tmp = std::getenv("TMPDIR");
+  std::string root = (tmp != nullptr && *tmp != 0) ? tmp : "/tmp";
+  if (root.back() == '/') { root.pop_back(); }
+  return root + "/outshine-" + std::to_string(getpid()) + "-" + name;
+}
 
 inline void Unprepared(const char *what) {
   ++Unprepareds;

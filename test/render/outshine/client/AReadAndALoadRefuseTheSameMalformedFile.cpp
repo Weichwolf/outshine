@@ -11,16 +11,7 @@
 namespace {
 
 std::string Planted(const char *name, const char *text) {
-  const char *nest = std::getenv("OUTSHINE_NEST");
-  std::string at;
-  if (nest != nullptr && *nest != 0) {
-    at = std::string(nest) + "/" + name;
-  } else {
-    const char *tmp = std::getenv("TMPDIR");
-    at = (tmp != nullptr ? std::string(tmp) : std::string("/tmp"));
-    if (!at.empty() && at.back() == '/') { at.pop_back(); }
-    at += "/outshine-" + std::to_string(getpid()) + "-" + name;
-  }
+  const std::string at = outshine::Test::PlantedPath(name);
   std::FILE *const file = std::fopen(at.c_str(), "wb");
   if (file == nullptr) { return std::string(); }
   std::fputs(text, file);

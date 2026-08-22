@@ -39,3 +39,7 @@ DESIGN (content-keyed, expensive, read-only here); the class is about writes. It
 screenshot writes moved into the nest. The named-only hosts (frame, scenario) are
 syntax-proven under their own include sets; the full runs are the sporadic proof by rule.
 Gate 129/129 warm.
+
+Strengthened (round 5's note): the five copied helpers converge on ONE --
+outshine::Test::PlantedPath in the harness's Check.h; a sixth planting site cannot invent a
+seventh spelling.
