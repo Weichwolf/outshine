@@ -51,3 +51,11 @@ the class the architecture adjudication marked red for spelling camera/LOD in th
 layer. The commit's claim "the ground layer speaks the diagram's noun" is a quarter-truth
 until the namespace, the guards and the World class's name follow the folder (the latter
 together with its 1595 decomposition, so it is renamed once, not twice).
+
+---
+
+Sharpened (review 2026-08-22, night round): the criticised namespace/folder split now GROWS --
+src/ground/GroundStack.{h,cpp}, born this hour (4a320f2e), adopts `namespace outshine::World`
+and the guard `OUTSHINE_WORLD_GROUNDSTACK_H` inside the folder named ground. Every new file in
+src/ground written before the namespace follows the folder deepens the rename debt; the fix
+must sweep one file more than it would have yesterday.

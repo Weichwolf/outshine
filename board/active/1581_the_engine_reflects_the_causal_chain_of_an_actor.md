@@ -115,3 +115,13 @@ twin ONLY -- no library-internal caller. The slices:
 
 The say-narration stays with AssembleDrive as Sink calls -- it documents engine claims, not
 case prose.
+---
+
+Reviewer note (2026-08-22, night round), so it is not lost when this closes: the decomposition
+table's own row says "the Sink claims stay with the CASES -- systems publish numbers, cases
+judge them". Move 2e slice 2 moved Lay's claims verbatim INTO the free function:
+src/sim/DriveAssembly.cpp carries the cases' judgement texts, including content literals a
+scenario-agnostic system may not spell -- "roads a 1.811 m car can fit down" (line ~183) and
+"**AND THE DECLARED F31 STANDS UP AS A RIG**" (line ~232) name one car's width and one car's
+model inside src/sim. The row remains unpaid: AssembleDrive publishes numbers, the driver
+cases claim.

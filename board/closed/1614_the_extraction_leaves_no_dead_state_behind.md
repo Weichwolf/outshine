@@ -33,3 +33,15 @@ Area: sim
   doubles, twice each, plus `zoom`→`kZoom`) — a two-step rename with no reader in between.
 
 Stays open until both are gone.
+
+---
+
+Closed (review 2026-08-22, night round): every named residue is provably gone at HEAD.
+Journey.{h,cpp} left the tree with move 2(e) (d5b69e60, 90b85f44) and took the dead State
+fields, the 70-field `Laid` struct, the unused `Pilot::Reins`, the empty namespace block and
+the two-step rename with it -- DriveAssembly.cpp:63-67 copies `driveTo->FromLatDeg` into its
+locals in ONE step. Rigging.cpp now partitions with strict inequality everywhere the rule is
+spelled: DrivenShare/SteeredShare (lines 84-85) and the wheelbase axle split (lines 91-97,
+`else if (one.AtM[2] > out.CentreM[2])`) both leave an on-plane contact with no axle, exactly
+as the refusal text (lines 61-64) declares. Task 1618 closed earlier. Proof: fast gate
+122/122 at 90b85f44.

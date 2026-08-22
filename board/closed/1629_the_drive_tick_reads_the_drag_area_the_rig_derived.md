@@ -15,3 +15,12 @@ plan's drag and resists with the declaration's.
 Demanded: DriveTick reads `stood.Envelope.DragArea`; the derivation stands once in Stand. The
 DriveTick twin pins it: a stood rig whose envelope drag area is perturbed must change the
 tick's resistance.
+
+---
+
+Closed (review 2026-08-22, night round): DriveTick.cpp:140 is the ONE read --
+`Physics::Resist(wrench, body, stood.Envelope.DragArea, stood.Envelope.AirDensity)` -- and no
+second derivation from the car remains in the file (grep DragCoefficient over src/sim/DriveTick.cpp:
+empty). The derivation stands once at Stand (Rigging.cpp), pinned by
+AVehicleDeclarationStandsUpAsARig.cpp:112 (Envelope.DragArea == Cd * FrontalM2) and ridden by
+ADriveTickHoldsTheCarToTheDeclaredWorld per task 1632's closing. Task 1632 closed.
