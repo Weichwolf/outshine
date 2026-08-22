@@ -9,7 +9,7 @@
 
 namespace outshine::Render {
 
-struct Medium {
+struct alignas(16) Medium {
   float BottomRadiusKm = 6360.0f;
   float TopRadiusKm = 6460.0f;
   float RayleighScaleHeightKm = 8.0f;
@@ -31,6 +31,9 @@ struct Medium {
 };
 
 static_assert(sizeof(Medium) == 80, "the medium is five float4 rows a device can bind unpadded");
+static_assert(alignof(Medium) == 16,
+              "and the rows start on a 128-bit boundary -- the upload is a vector copy, and the "
+              "declaration costs zero padding (80 = 5 x 16)");
 
 namespace medium_core {
 using ::outshine::Render::Medium;

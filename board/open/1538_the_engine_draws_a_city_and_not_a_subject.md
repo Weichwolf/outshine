@@ -103,3 +103,9 @@ persistent beside it. Mapped here:
 RAGE remains unreconstructable from primary sources (low confidence, noted); Decima is the
 purest shipped form of the ruling -- nobody calls instance(), rules and densities produce the
 batches.
+
+---
+
+Inherited from 1620 (closed): the instance stream this item births ({float3x4 placement,
+tint}) is declared alignas(16) with its static_assert FROM BIRTH -- the alignment audit's
+last population member lands here, not in a later sweep.

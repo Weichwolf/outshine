@@ -26,3 +26,17 @@ against 136 packed), Physics::Wrench (64 against 48), render FrameContext (192 a
 each with the static_assert beside it naming the padding price. Remaining population: Medium's
 float4 rows (verify), DrawList entries, and the 1538 instance stream ({float3x4, tint}) which
 must be born 16-aligned.
+---
+
+Closed -- the audit is complete and each member adjudicated by the rule's own bar (a SIMD
+load exists or is planned, never a blanket):
+
+| type | verdict |
+|---|---|
+| Physics::Body, Physics::Wrench, FrameContext | DECLARED (first slice), padding named |
+| Medium | DECLARED this sitting: alignas(16), zero padding (80 = 5 x 16), the upload is a vector copy; static_assert beside it |
+| DrawItem / DrawBatch / IndexRun | REFUSED by the rule -- uint32 records, no vector load exists or is planned; a blanket alignas would double nothing but cache pressure |
+| 1538 instance stream | inherited into 1538's body: born alignas(16) |
+
+Proving state: the static_asserts ARE the checks (a regressing alignment refuses at compile),
+unit/render 14/14, gate green.
