@@ -41,9 +41,7 @@ using outshine::World::Waypoint;
 namespace {
 
 constexpr double kPatienceS = 900.0;
-constexpr double kResectM = 4.0;
 constexpr double kJoinMs = 20.0;
-constexpr double kFromM = 50.0;
 
 
 void Unit(double v[3]) {
@@ -51,13 +49,6 @@ void Unit(double v[3]) {
   if (length > 0.0) {
     for (int axis = 0; axis < 3; ++axis) { v[axis] /= length; }
   }
-}
-
-double HeadingOf(const outshine::Physics::Body &body) {
-  const double aheadBody[3] = {0.0, 0.0, -1.0};
-  double ahead[3];
-  outshine::Physics::Turn(body.OrientationQ, aheadBody, ahead);
-  return std::atan2(-ahead[2], ahead[0]);
 }
 
 void Lie(outshine::Physics::Body &body, const outshine::Placed &on, const double normalM[3]) {
@@ -117,9 +108,7 @@ struct Journey::State {
   double CarWidthM = 0.0;
   outshine::Sim::Rigged Stood;
   outshine::Sim::Corridor Way;
-  outshine::Physics::Rig Rig;
-  outshine::Physics::Body Body;
-  double AsideRatePerM = 0.0;
+  outshine::Sim::DriveState Drive;
   double HeldAsideM = 0.0;
   bool HaveAside = false;
   double NearM = 0.0;
@@ -141,7 +130,7 @@ void Journey::Close(void) {
   }
 }
 
-const outshine::Physics::Body &Journey::Carried(void) const { return S_->Body; }
+const outshine::Physics::Body &Journey::Carried(void) const { return S_->Drive.Body; }
 outshine::World::GroundStream &Journey::Ground(void) const { return *S_->Ground; }
 
 const outshine::ReferenceLine &Journey::Corridor(void) const { return S_->Way.Line; }
@@ -213,8 +202,8 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom,
   say.Claim(declared.Vehicles.size() == 1, "declaring one vehicle");
   if (declared.Vehicles.size() != 1) { return false; }
 
-  S_->CarWidthM = declared.Vehicles[0].WidthM;
-  const double carWidthM = S_->CarWidthM;
+  S_->Drive.CarWidthM = declared.Vehicles[0].WidthM;
+  const double carWidthM = S_->Drive.CarWidthM;
   say.Number("the width the declaration gives the car", carWidthM, "m");
   say.Claim(carWidthM > 0.0,
         "**THE CAR'S WIDTH IS THE DECLARATION'S**, because every lane judgement stands on it -- "
@@ -377,8 +366,8 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom,
   auto &corridorLaid = S_->Way;
   (void)corridorLaid;
 
-  auto &rig = S_->Rig;
-  auto &body = S_->Body;
+  auto &rig = S_->Drive.Rig;
+  auto &body = S_->Drive.Body;
   rig = stood.Rig;
   body = outshine::Physics::Body();
   body.MassKg = stood.Envelope.MassKg;
@@ -411,180 +400,18 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom,
   reins.LeastReachM = stood.Axles.WheelbaseM;
   reins.HoldWithinM = holdWithinM;
 
-  S_->AsideRatePerM = (0.5 * narrowestLaneM - 0.5 * carWidthM) / (1.0 * stood.Envelope.TopMs());
+  S_->Drive.AsideRatePerM = (0.5 * narrowestLaneM - 0.5 * carWidthM) / (1.0 * stood.Envelope.TopMs());
   
   S_->Ready = true;
   return true;
 }
 
 Ridden Journey::Ride(double dtS, const Taken *taken) {
-  Ridden &out = S_->Tally;
-  out.Found = false;
-  if (!S_->Ready) { return out; }
-  auto &corridor = S_->Way.Line;
-  auto &profile = S_->Way.Profile;
-  auto &declared = S_->Declared;
-  auto &stood = S_->Stood;
-  auto &rig = S_->Rig;
-  auto &body = S_->Body;
-  auto &fineAside = S_->Way.FineAside;
-  auto &fineEdge = S_->Way.FineEdge;
-  auto &laneHalfM = S_->Way.LaneHalfM;
-  const double fineM = S_->Way.FineM;
-  const double spanM = S_->Way.SpanM;
-  outshine::Pilot::Reins reins;
-  reins.SettleS = 1.0;
-  reins.LeastReachM = stood.Axles.WheelbaseM;
-  reins.HoldWithinM = S_->Way.HoldWithinM;
-  const double gravity[3] = {0.0, -9.80665, 0.0};
-  const double dragArea = declared.Vehicles[0].DragCoefficient * declared.Vehicles[0].FrontalM2;
-  out.Found = true;
-
-  const double eastM = body.PositionM[0];
-  const double northM = -body.PositionM[2];
-  const double headingRad = HeadingOf(body);
-  const double windowM = kResectM + 3.0 * S_->LostM;
-  const outshine::Pilot::Placement at = outshine::Pilot::Locate(
-      corridor, eastM, northM, body.PositionM[1], headingRad, S_->NearM, windowM);
-  if (!at.Found) {
-    out.Lost = true;
-    return out;
+  if (!S_->Ready) {
+    S_->Drive.Tally.Found = false;
+    return S_->Drive.Tally;
   }
-  S_->NearM = at.AlongM;
-  S_->LostM = std::fabs(at.OffsetM);
-  out.ReachedM = at.AlongM;
-
-  const double speedMs = std::sqrt(body.VelocityMs[0] * body.VelocityMs[0] +
-                                   body.VelocityMs[2] * body.VelocityMs[2]);
-  out.SpeedMs = speedMs;
-  reins.TightestPerM = outshine::Pilot::TightestPerM(stood.Axles, stood.Envelope, speedMs);
-  {
-    const size_t fine = (size_t)(at.AlongM / fineM);
-    const double wantAsideM = fineAside[fine < fineAside.size() ? fine : fineAside.size() - 1];
-    if (!S_->HaveAside) {
-      S_->HeldAsideM = wantAsideM;
-      S_->HaveAside = true;
-    } else {
-      const double mayMoveM = S_->AsideRatePerM * speedMs * dtS;
-      const double byM = wantAsideM - S_->HeldAsideM;
-      S_->HeldAsideM += std::fabs(byM) <= mayMoveM ? byM : (byM > 0.0 ? mayMoveM : -mayMoveM);
-    }
-    const double roomM = fineEdge[fine < fineEdge.size() ? fine : fineEdge.size() - 1] -
-                         0.5 * S_->CarWidthM - S_->Way.BudgetM;
-    if (roomM > 0.0) {
-      if (S_->HeldAsideM > roomM) { S_->HeldAsideM = roomM; }
-      if (S_->HeldAsideM < -roomM) { S_->HeldAsideM = -roomM; }
-    }
-    reins.AsideM = S_->HeldAsideM;
-  }
-  const double brakingM =
-      speedMs * speedMs / (2.0 * (stood.Envelope.BrakeMs2() > 0.0 ? stood.Envelope.BrakeMs2()
-                                                                  : 1.0));
-  double wantedMs = profile.At(at.AlongM);
-  double needMs2 = 0.0;
-  for (int look = 1; look <= 12; ++look) {
-    const double overM = brakingM * (double)look / 12.0;
-    const double atM = std::fmin(at.AlongM + overM, corridor.LengthM());
-    const double thereMs = profile.At(atM);
-    if (thereMs < speedMs && overM > 0.0) {
-      const double askMs2 = (speedMs * speedMs - thereMs * thereMs) / (2.0 * overM);
-      if (askMs2 > needMs2) { needMs2 = askMs2; }
-    }
-    if (thereMs < wantedMs) { wantedMs = thereMs; }
-  }
-  outshine::Pilot::Demand asked = Hold(corridor, reins, at, speedMs, wantedMs);
-  if (needMs2 > 0.0 && -needMs2 < asked.AlongMs2) { asked.AlongMs2 = -needMs2; }
-  const outshine::Pilot::Steering command =
-      outshine::Pilot::Drive(stood.Axles, stood.Envelope, asked);
-
-  outshine::Physics::Controls controls;
-  controls.SteerRad = command.SteerRad;
-  controls.DriveN = command.DriveN;
-  controls.BrakeN = command.BrakeN;
-  out.MindSteerRad = command.SteerRad;
-  out.WasTaken = taken != nullptr && taken->Has;
-  if (out.WasTaken) {
-    controls.SteerRad = taken->SteerRad;
-    controls.DriveN = taken->Throttle * stood.Envelope.DriveN;
-    controls.BrakeN = taken->Brake * stood.Envelope.BrakeN;
-  }
-
-  outshine::Physics::Footing under[outshine::Physics::kMaxMounts];
-  for (size_t which = 0; which < rig.Count; ++which) {
-    double worldM[3];
-    outshine::Physics::Place(body, rig.Mounts[which].AtM, worldM);
-    const size_t band = (size_t)(at.AlongM / fineM) < fineEdge.size()
-                            ? (size_t)(at.AlongM / fineM)
-                            : fineEdge.size() - 1;
-    const double edgeM = fineEdge[band];
-    const double armEastM = worldM[0] - eastM;
-    const double armNorthM = -worldM[2] - northM;
-    const double armAlongM = std::cos(headingRad) * armEastM + std::sin(headingRad) * armNorthM;
-    const double armAcrossM = -std::sin(headingRad) * armEastM + std::cos(headingRad) * armNorthM;
-    const outshine::Standing on =
-        outshine::StandAt(corridor, at.AlongM + armAlongM, at.OffsetM + armAcrossM, 0.0);
-    under[which].Found = std::fabs(at.OffsetM + armAcrossM) <= edgeM;
-    under[which].HeightM = on.HeightM;
-    under[which].NormalM[0] = on.NormalM[0];
-    under[which].NormalM[1] = on.NormalM[1];
-    under[which].NormalM[2] = -on.NormalM[2];
-  }
-
-  outshine::Physics::Wrench wrench;
-  outshine::Physics::Fall(wrench, body, gravity);
-  outshine::Physics::Resist(wrench, body, dragArea, declared.Vehicles[0].AirDensity);
-  const outshine::Physics::Reading read =
-      outshine::Physics::Bear(rig, body, under, controls, wrench, dtS);
-
-  if (at.AlongM >= kFromM) {
-    const double inLaneM = at.OffsetM - reins.AsideM;
-    if (std::fabs(inLaneM) > std::fabs(out.WorstOffsetM)) {
-      out.WorstOffsetM = inLaneM;
-      out.WorstOffsetAtM = at.AlongM;
-    }
-    out.WorstRatio = std::fmax(out.WorstRatio, read.WorstRatio);
-    out.TopMs = std::fmax(out.TopMs, speedMs);
-    if (read.PastLimit && !out.PastLimit) {
-      out.PastLimit = true;
-      out.BrokeAtM = at.AlongM;
-    }
-    out.PastTravel = out.PastTravel || read.PastTravel;
-    if (read.Airborne > out.MostAirborne) {
-      out.MostAirborne = read.Airborne;
-      out.AirborneAtM = at.AlongM;
-    }
-  }
-
-  if (read.OffTheSurface > 0 && out.LeftTheRoadAtM <= 0.0) {
-    out.LeftTheRoadAtM = at.AlongM;
-    out.LeftByM = at.OffsetM - reins.AsideM;
-    out.LeftAtMs = speedMs;
-    out.LeftPlannedMs = profile.At(at.AlongM);
-    out.LeftCurvature = at.CurvaturePerM;
-    out.LeftRate = at.CurvatureRatePerM;
-    const size_t post = (size_t)(at.AlongM / spanM);
-    out.LeftLaneM = 2.0 * laneHalfM[post < laneHalfM.size() ? post : laneHalfM.size() - 1];
-    const size_t fine = (size_t)(at.AlongM / fineM);
-    out.LeftEdgeM = fineEdge[fine < fineEdge.size() ? fine : fineEdge.size() - 1];
-    out.LeftAsideM = reins.AsideM;
-    out.LeftAcrossM = at.OffsetM;
-  }
-  if (read.OffTheSurface > 0) {
-    out.BrokeAtM = at.AlongM;
-    out.LeftTheRoadAtM = at.AlongM;
-    return out;
-  }
-  if (read.PastLimit || read.Airborne == rig.Count) {
-    out.BrokeAtM = at.AlongM;
-    out.PastLimit = out.PastLimit || read.PastLimit;
-    out.MostAirborne = read.Airborne;
-    return out;
-  }
-  outshine::Physics::Step(body, wrench, dtS);
-  S_->SimulatedS += dtS;
-  out.SimulatedS = S_->SimulatedS;
-  if (at.AlongM >= corridor.LengthM() - 20.0) { out.Arrived = true; }
-  return out;
+  return Sim::DriveTick(S_->Way, S_->Stood, S_->Declared, S_->Drive, dtS, taken);
 }
 
 } // namespace outshine::Sim

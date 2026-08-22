@@ -9,6 +9,7 @@
 #include <outshine/Scenario.h>
 
 #include "Body.h"
+#include "DriveTick.h"
 #include "Sink.h"
 #include "TerrainLoader.h"
 #include "Fit.h"
@@ -96,54 +97,6 @@ struct Laid {
   double CrestHeldMs = 0.0;
   double CrestHeldAtM = 0.0;
   std::string Error;
-};
-
-struct Taken {
-  bool Has = false;
-  double SteerRad = 0.0;
-  double Throttle = 0.0;
-  double Brake = 0.0;
-};
-
-struct Ridden {
-  bool Found = false;
-  bool Arrived = false;
-  bool Lost = false;
-  bool PastTravel = false;
-  bool PastLimit = false;
-  bool OffTheRoad = false;
-  size_t Airborne = 0;
-  double AlongM = 0.0;
-  double SpeedMs = 0.0;
-  double PlannedMs = 0.0;
-  double InLaneM = 0.0;
-  double AsideM = 0.0;
-  double EdgeM = 0.0;
-  double RatioOfHold = 0.0;
-  double CurvaturePerM = 0.0;
-  double CurvatureRatePerM = 0.0;
-  double ReachedM = 0.0;
-  double TopMs = 0.0;
-  double WorstOffsetM = 0.0;
-  double WorstOffsetAtM = 0.0;
-  double WorstRatio = 0.0;
-  size_t MostAirborne = 0;
-  double AirborneAtM = 0.0;
-  double BrokeAtM = 0.0;
-  double LeftTheRoadAtM = 0.0;
-  double LeftByM = 0.0;
-  double LeftAtMs = 0.0;
-  double LeftPlannedMs = 0.0;
-  double LeftCurvature = 0.0;
-  double LeftRate = 0.0;
-  double LeftLaneM = 0.0;
-  double LeftEdgeM = 0.0;
-  double LeftAsideM = 0.0;
-  double LeftAcrossM = 0.0;
-  size_t OffTheSurface = 0;
-  double SimulatedS = 0.0;
-  bool WasTaken = false;
-  double MindSteerRad = 0.0;
 };
 
 class Journey {

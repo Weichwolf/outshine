@@ -511,9 +511,9 @@ int main(void) {
         outshine::Gltf::Piece lyingNow;
         lyingNow.NodeName = "ground";
         lyingNow.Material = 0;
-        const bool laid = Lie(journey, aboutNow, nextRun.OriginM, section, laidFromM, laidToM,
+        const bool lay = Lie(journey, aboutNow, nextRun.OriginM, section, laidFromM, laidToM,
                               centre, under);
-        if (laid) {
+        if (lay) {
           lyingNow.PositionsM =
               outshine::Span<const float>(under.PositionM.data(), under.PositionM.size());
           lyingNow.Normals = outshine::Span<const float>(under.NormalM.data(), under.NormalM.size());
@@ -590,10 +590,10 @@ int main(void) {
         if (under.TryAslM(&aslM)) {
           const double roadAslM =
               journey.Carried().PositionM[1] - declaredCar.CentreOfMassM[1];
-          const double liftM = roadAslM - aslM;
+          const double cutFillM = roadAslM - aslM;
           std::printf("CUTFILL at %.1f km the road stands %+.2f m against raw ground of %.2f m asl\n",
-                      rode.ReachedM / 1000.0, liftM, aslM);
-          standing->SkyEye(liftM + journey.Declared().Views[0].OffsetM[1]);
+                      rode.ReachedM / 1000.0, cutFillM, aslM);
+          standing->SkyEye(cutFillM + journey.Declared().Views[0].OffsetM[1]);
           if (liftM < worstCutM) { worstCutM = liftM; }
           if (liftM > worstFillM) { worstFillM = liftM; }
           liftTotalM += std::fabs(liftM);
