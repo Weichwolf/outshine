@@ -341,6 +341,10 @@ int main(void) {
        "<scenario name=\"t\"><world><provider kind=\"terrain\"/></world></scenario>", "provider"},
       {"an attribute on the root",
        "<scenario naem=\"t\"/>", "naem"},
+      {"an instance naming no kind",
+       "<scenario name=\"t\"><instances><instance x=\"1\"/></instances></scenario>", "of"},
+      {"a provider naming no kind",
+       "<scenario name=\"t\"><providers><provider pin=\"3\"/></providers></scenario>", "kind"},
   };
   size_t refused = 0;
   for (const auto &typo : kTypos) {
@@ -357,7 +361,7 @@ int main(void) {
                 stood ? "STOOD UP" : typed.Error().c_str());
   }
   CHECK(refused == sizeof(kTypos) / sizeof(kTypos[0]),
-        "a scenario that misspells an element or an attribute is REFUSED and the refusal quotes what "
+        "a scenario that misspells an element or an attribute, or omits the one attribute that names what an element IS, is REFUSED and the refusal quotes what "
         "it could not place -- a typo that loads in silence costs an afternoon and leaves a black "
         "frame with nothing to grep for");
 

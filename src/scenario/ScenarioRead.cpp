@@ -19,6 +19,7 @@ struct Element {
   const char *Path;
   const char *Children;
   const char *Attributes;
+  const char *Required = "";
 };
 
 const Element kGrammar[] = {
@@ -26,41 +27,41 @@ const Element kGrammar[] = {
      "world render lighting providers generators compositors assets placements surfaces kinds "
      "instances regions volumes audio tables events views vehicle player drive physics clock input state layer",
      "name version epoch decay"},
-    {"scenario/layer", "", "id path"},
+    {"scenario/layer", "", "id path", "path"},
     {"scenario/world", "", "lat lon radiusM gravityMs2 airDensityKgM3 windDeg windMs cloudCover"},
     {"scenario/render", "output stage",
      "widthPx heightPx fps fill orbitDegPerFrame transfer exposure precision"},
-    {"scenario/render/output", "", "name"},
-    {"scenario/render/stage", "", "name"},
+    {"scenario/render/output", "", "name", "name"},
+    {"scenario/render/stage", "", "name", "name"},
     {"scenario/lighting", "key environment", ""},
     {"scenario/lighting/key", "", "lux elevationDeg bearingDeg"},
     {"scenario/lighting/environment", "", "r g b"},
     {"scenario/providers", "provider", ""},
-    {"scenario/providers/provider", "", "kind pin rank whenAbsent"},
+    {"scenario/providers/provider", "", "kind pin rank whenAbsent", "kind"},
     {"scenario/generators", "generator", ""},
-    {"scenario/generators/generator", "set", "kind"},
+    {"scenario/generators/generator", "set", "kind", "kind"},
     {"scenario/generators/generator/set", "", "name value"},
     {"scenario/compositors", "compositor", ""},
-    {"scenario/compositors/compositor", "", "kind budgetPx on"},
+    {"scenario/compositors/compositor", "", "kind budgetPx on", "kind"},
     {"scenario/assets", "asset", ""},
-    {"scenario/assets/asset", "", "uri digest kind variant"},
+    {"scenario/assets/asset", "", "uri digest kind variant", "uri"},
     {"scenario/placements", "place", ""},
-    {"scenario/placements/place", "", "asset x y z qx qy qz qw scale"},
+    {"scenario/placements/place", "", "asset x y z qx qy qz qw scale", "asset"},
     {"scenario/surfaces", "surface", ""},
     {"scenario/surfaces/surface", "",
-     "document style programme leftFrac topFrac widthFrac heightFrac z"},
+     "document style programme leftFrac topFrac widthFrac heightFrac z", "document"},
     {"scenario/kinds", "kind", ""},
-    {"scenario/kinds/kind", "may has mind", "name inherits asset"},
+    {"scenario/kinds/kind", "may has mind", "name inherits asset", "name"},
     {"scenario/kinds/kind/mind", "", "tier uses programme prompt model meanwhile hz everyS stepBudget tokenBudget latencyBudgetMs temperature seed"},
-    {"scenario/kinds/kind/may", "", "do"},
-    {"scenario/kinds/kind/has", "", "name value"},
+    {"scenario/kinds/kind/may", "", "do", "do"},
+    {"scenario/kinds/kind/has", "", "name value", "name"},
     {"scenario/instances", "instance", ""},
-    {"scenario/instances/instance", "has holds", "of id in x y z qx qy qz qw"},
-    {"scenario/instances/instance/has", "", "name value"},
-    {"scenario/instances/instance/holds", "", "what"},
+    {"scenario/instances/instance", "has holds", "of id in x y z qx qy qz qw", "of"},
+    {"scenario/instances/instance/has", "", "name value", "name"},
+    {"scenario/instances/instance/holds", "", "what", "what"},
     {"scenario/regions", "region door", ""},
     {"scenario/regions/region", "uses", "id kind x y z radiusM streams"},
-    {"scenario/regions/region/uses", "", "what"},
+    {"scenario/regions/region/uses", "", "what", "what"},
     {"scenario/regions/door", "", "id from to x y z"},
     {"scenario/volumes", "volume", ""},
     {"scenario/volumes/volume", "", "id in shape x y z extentX extentY extentZ fires when"},
@@ -69,12 +70,12 @@ const Element kGrammar[] = {
     {"scenario/audio/sound", "", "id uri bus positional loops gainDb falloffM"},
     {"scenario/tables", "table", ""},
     {"scenario/tables/table", "column row", "id"},
-    {"scenario/tables/table/column", "", "name"},
+    {"scenario/tables/table/column", "", "name", "name"},
     {"scenario/tables/table/row", "cell", ""},
     {"scenario/tables/table/row/cell", "", "value"},
     {"scenario/events", "event", ""},
-    {"scenario/events/event", "carries", "name"},
-    {"scenario/events/event/carries", "", "what"},
+    {"scenario/events/event", "carries", "name", "name"},
+    {"scenario/events/event/carries", "", "what", "what"},
     {"scenario/views", "view", ""},
     {"scenario/views/view", "",
      "id follows person offsetX offsetY offsetZ distanceM pitchLimitDeg fovDeg timeScale"},
@@ -96,7 +97,7 @@ const Element kGrammar[] = {
     {"scenario/input", "bind", ""},
     {"scenario/input/bind", "", "event action"},
     {"scenario/state", "persist", ""},
-    {"scenario/state/persist", "", "what"},
+    {"scenario/state/persist", "", "what", "what"},
 };
 
 bool Names(const char *list, const std::string &wanted) {
@@ -133,6 +134,17 @@ bool Grammatical(const Xml::Ref &node, const std::string &path, std::string &err
               (*known->Attributes == 0 ? std::string("none") : std::string(known->Attributes));
       return false;
     }
+  }
+  for (const char *at = known->Required; *at != 0;) {
+    const char *end = at;
+    while (*end != 0 && *end != ' ') { ++end; }
+    const std::string wanted(at, end);
+    if (node.Attr(wanted.c_str()).empty()) {
+      error = "<" + node.Name() + "> declares no '" + wanted +
+              "', and without it the element names nothing";
+      return false;
+    }
+    at = *end == ' ' ? end + 1 : end;
   }
   for (Xml::Ref child = node.First(); child.Valid(); child = child.Next()) {
     const std::string name = child.Name();

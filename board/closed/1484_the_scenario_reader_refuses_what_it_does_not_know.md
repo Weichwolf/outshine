@@ -58,3 +58,15 @@ string that was already in the table.
 **`test/render/outshine/client/AClientRunsAScenarioInFourLines.cpp`** -- the four typos above are
 refused and each refusal is checked to quote the name it could not place.
 
+
+---
+
+Closed -- the parked fourth demand is built without the staleness the parking feared: the
+grammar table gained a REQUIRED column (fourth field, default empty, aggregate rows untouched
+where nothing is required), populated by one rule -- the attribute that names what the element
+IS (of, kind, name, uri, asset, document, what, do, path), never the ones a default serves.
+Twenty rows carry one identity attribute each; Grammatical refuses an absent or empty one
+with "<instance> declares no 'of', and without it the element names nothing". The real
+scenarios (f31, four-lines) pass unchanged -- the population matched what they already spell.
+Proving test: test/render/outshine/client/AClientRunsAScenarioInFourLines.cpp, six refusal
+cases each quoting the name it could not place. 129/129 warm.
