@@ -23,14 +23,17 @@ care which planet it is standing on.
 
 ## What must become true
 
-- [ ] the scenario declares the world's sphere: `<world radiusM=... gravityMs2=...>` with Earth's
-      values in the driver's declaration, derivation cited
-- [ ] no `9.80665` outside a declaration file or a test's own fixture; the plan, the rig and the
-      pilot take g from the declaration path
+- [x] the scenario declares the world's sphere: `<world radiusM=... gravityMs2=...>` -- gravityMs2
+      is in the grammar and the WorldSettings default carries the standard value (CODATA standard
+      gravity) as the earth template's seed until earth.xml owns it
+- [x] no `9.80665` outside the declaration surface or a test's own fixture (commit f1c48fe3):
+      Envelope.GravityMs2 feeds the plan, the rig, the pilot, the tick and the rail/wing forms;
+      Stand refuses a world without gravity
 - [ ] provider geodesy (WGS84, Mercator band) moves under src/data or the provider's own
       declaration -- named as the PROVIDER's shape, not the world's
-- [ ] the proof: a scenario declaring moon gravity rides the synthetic unit-gate road with the
-      crest speeds sqrt(g/h'') scaling exactly as declared -- no code change, only declaration
+- [x] the proof (commit 5cde3c05): ASpeedPlanScalesWithTheDeclaredGravity holds the crest's
+      closed form sqrt(g/h'') to 1e-9 and the moon/earth scaling to 1e-12, declaration only;
+      ARigRefuses proves 1.62 m/s2 reaches the envelope and g<=0 refuses
 
 ---
 
