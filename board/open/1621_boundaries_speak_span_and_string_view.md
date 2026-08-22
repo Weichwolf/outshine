@@ -82,3 +82,8 @@ Cold paths all — this is form, not frame time; but the form is the claim being
 Sharpening repaid: Png moves its message; Mod, Fields and Document Refuse take string_view
 (they only concatenate -- ownership was never used, and lvalue callers paid a dead copy);
 Store, Subject, Emit, ReferenceLine keep value+move where the message truly lands.
+
+Sharpened (review 2026-08-23, round 9): one residue of that repayment -- the TWO-ARG
+overload src/scenario/Fields.h:65 `Refuse(const char *key, const std::string &why)` sits
+directly above the converted one-arg form, concatenates exactly the same way, and kept the
+const-ref. Same verdict, same line of reasoning: string_view.
