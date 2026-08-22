@@ -97,8 +97,6 @@ private:
   bool Woven_ = false;
 };
 
-[[nodiscard]] Route Plan(const Waypoint &from, const Waypoint &to, double sphereRadiusM);
-
 } // namespace outshine::Path
 
 #endif

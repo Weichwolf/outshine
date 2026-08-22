@@ -1,6 +1,5 @@
 #include "Wayfinding.h"
 
-#include "Fit.h"
 
 #include <numbers>
 #include <algorithm>
@@ -316,17 +315,6 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM,
   }
   out.LengthM = alongM;
   out.Found = true;
-  return out;
-}
-
-Route Plan(const Waypoint &from, const Waypoint &to, double sphereRadiusM) {
-  Route out;
-  out.StraightM = ApartM(from.LatDeg, from.LonDeg, to.LatDeg, to.LonDeg, sphereRadiusM);
-  out.Error = "no network is woven over the streamed ways yet, so no route between " +
-              std::to_string(from.LatDeg) + " " + std::to_string(from.LonDeg) + " and " +
-              std::to_string(to.LatDeg) + " " + std::to_string(to.LonDeg) +
-              " can be planned -- Network::Weave and Network::Plan are built and nothing feeds "
-              "them OsmField's ways";
   return out;
 }
 
