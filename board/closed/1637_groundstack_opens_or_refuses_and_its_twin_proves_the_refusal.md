@@ -42,3 +42,13 @@ test-shaped alibi, which is the original defect ("a door whose bool is a constan
 coat. Demanded before this closes: either the seam gains a reachable refusal (an unopenable
 store directory is the honest candidate — ContentStore's ctor currently cannot report one) with
 a twin case that CHECKs `!Open(...)`, or the bool dies and Open says so in its type.
+
+---
+
+Closed (review 2026-08-22 late): all four demands stand in the tree. Open refuses reachably —
+a focus off the Mercator band returns false before anything stands (GroundStack.cpp:14-18,
+kMercatorLatMaxDeg from TileGeodesy), and the registration failure branch Closes (:27-31);
+the twin CHECKs `!Open(89.9, 0.0)` and `!Opened()` (TheGroundStackOpensOrRefuses.cpp:43-47),
+so a constant-true Open now fails the case; the surface numbers carry [SET] origins
+(GroundStack.cpp:35-36); the boundary speaks string_view (GroundStack.h:25). Tasks 1638 and
+1644 are both closed. Proven by test/unit/ground/TheGroundStackOpensOrRefuses.

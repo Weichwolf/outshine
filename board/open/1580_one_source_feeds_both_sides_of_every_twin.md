@@ -17,3 +17,15 @@ would delete the drift class.
 keep the explicit two-language twin and its test discipline, or move to one shared source per
 shader family. Recommendation: shared source for the physics kernels (medium, BRDF), explicit
 twins only where the languages genuinely diverge (texture sampling, storage layout).
+
+---
+
+Sharpened (review 2026-08-22 late): two developments feed the pending decision. 1634 gave
+every runtime-assembled MSL blob a public static (SkyStage::ShaderSource et al.) — the blobs
+now have an API surface, which hardens the embedded-string form just as the argument against
+it grows: 1636's second executor table (softgl) consumes NO MSL, so the physics that must run
+on both backends (medium LUTs from the C++ twins) already proves the shared-core direction.
+Recommendation stands and sharpens: shader source as FILES in the tree (loaded once at
+Configure, hashed into the content store like any asset), shared physics core included from
+both sides; string literals inside .cpp remain the drift-and-blind-edit class the pi sweep
+demonstrated even with the compile gate standing.

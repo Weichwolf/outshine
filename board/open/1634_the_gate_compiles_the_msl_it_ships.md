@@ -21,3 +21,13 @@ public statics and compile on a headless MSL device inside the fast gate (~0.4 s
 EveryAssembledKernelCompilesOnTheDevice. The pi-sweep class refuses in seconds now. Remaining:
 tonemap's optioned source and the subject unit's three shaders (parameterised), the next
 slice.
+---
+
+Sharpened (review 2026-08-22 late): the seven statics are the right seam and the gate
+compiles the exact runtime text. Two residues for the named next slice (tonemap's optioned
+source, the subject unit's three): (a) the test re-spells each pipeline's binding counts
+(EveryAssembledKernelCompilesOnTheDevice.cpp:28-33,50-51) instead of taking them from the
+stage — count drift is silent because MSL compilation does not validate them; if a stage ever
+grows a binding the gate compiles a shape the runtime never uses; (b) the suite sits at
+test/unit/render/kernels/ with no src/render/kernels — fold it into the stages mirror or give
+the shape a name the mirror rule recognises.

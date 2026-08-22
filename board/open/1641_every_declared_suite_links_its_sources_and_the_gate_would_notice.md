@@ -32,3 +32,15 @@ source gains a cheap link truth for every DECLARED suite — at minimum a claim 
 list names a unit its own directory entries already expand to, and that each suite's object set
 is closed over its undefined symbols. A declared suite that cannot build is a lie the trailer
 never gets to print.
+
+---
+
+Sharpened (review 2026-08-22 late): the audit stands (run.sh:406-434) and the two shipped
+shapes are dead, but the claims test overstates itself. EverySuiteListsEachSourceOnce...cpp:24
+asserts the detectors are "negative-controlled against a seeded duplicate and a seeded orphan"
+— no such control exists in the test or in run.sh; the control was manual, once. As written
+the test proves only that the CURRENT tree is clean per the detector, not that the detector
+detects: a broken `uniq -d` or `grep -qx` still prints "AUDIT clean" and the gate stays green.
+Demanded before this closes: the test seeds a duplicate and an orphan (env-injected extra list
+entry, or a copied run.sh with one line patched) and asserts the audit verdict flips for each.
+The link-closure half (object set closed over undefined symbols) also remains open.

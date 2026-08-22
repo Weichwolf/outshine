@@ -23,3 +23,12 @@ in TWO headers where this item allows one: src/core/Units.h:8 and
 src/ground/tiles/TileMath.h:13 both spell `constexpr double kPi = std::numbers::pi;` -- the
 ground layer imports core, so TileMath's copy is a duplicate, not a need. The MSL raw strings
 keep their literals by 6f9f13a6's ruling; that exception belongs to 1634/1580, not here.
+
+---
+
+Closed (review 2026-08-22 late): the sharpened residues are repaid in the tree. `grep -rn
+M_PI src/` returns nothing — Camera.h and Ephemeris.h no longer spell the macro; `kPi` stands
+in exactly one header (src/core/Units.h:8, `= std::numbers::pi`), TileMath.h's duplicate is
+gone; the only remaining digit spellings sit inside the MSL raw strings (ParticipatingMedium.h
+after :375, SkyStage's kernel text), which keep their literals by 6f9f13a6's ruling — that
+exception is 1634/1580's ledger, not this item's.
