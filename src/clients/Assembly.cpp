@@ -2,6 +2,11 @@
 
 namespace outshine {
 
+size_t AssembledCapacity(const Scenario &declared) {
+  return declared.Vehicles.size() + (declared.Played.Is.empty() ? 0u : 1u) +
+         (declared.Driven.Declared ? 2u : 0u);
+}
+
 bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
               Column<Drive> &driven, Assembled &out, std::string &error) {
   out = Assembled{};

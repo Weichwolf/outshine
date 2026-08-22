@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include <outshine/Assembled.h>
 #include <outshine/Scenario.h>
 
 #include "Column.h"
@@ -11,13 +12,7 @@
 
 namespace outshine {
 
-struct Assembled {
-  std::vector<Entity> Bodies;
-  Entity PlayerBody = kNoEntity;
-  Entity PlayerMind = kNoEntity;
-  Entity Nav = kNoEntity;
-  Entity Assignment = kNoEntity;
-};
+[[nodiscard]] size_t AssembledCapacity(const Scenario &declared);
 
 [[nodiscard]] bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
                             Column<Drive> &driven, Assembled &out, std::string &error);

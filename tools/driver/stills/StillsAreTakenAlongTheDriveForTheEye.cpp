@@ -11,7 +11,13 @@
 
 #include "CurlTransport.h"
 #include "Heap.h"
+#include <outshine/Assembled.h>
+#include <outshine/Column.h>
+#include <outshine/Store.h>
+
+#include "Assembly.h"
 #include "Journey.h"
+#include "ScenarioRead.h"
 #include "Live.h"
 #include "PreparedRoot.h"
 #include "TerrainLoader.h"
@@ -19,7 +25,6 @@
 #include "Carriageway.h"
 #include "Ribbon.h"
 
-using outshine::Sim::Between;
 using outshine::Sim::Journey;
 using outshine::Sim::Ridden;
 using outshine::Sim::Sink;
@@ -304,8 +309,38 @@ int main(void) {
   Journey journey;
   outshine::Host::CurlTransport::Config wiring;
   outshine::Host::CurlTransport wire(wiring);
-  const Between between{kMarienplatzLat, kMarienplatzLon, kRathausmarktLat, kRathausmarktLon};
-  const bool laid = journey.Lay(between, "tools/driver/f31.scenario", kZoom, wire,
+  std::string scenarioText;
+  {
+    std::FILE *const file = std::fopen("tools/driver/f31.scenario", "rb");
+    if (file != nullptr) {
+      int one = 0;
+      while ((one = std::fgetc(file)) != EOF) { scenarioText.push_back((char)one); }
+      std::fclose(file);
+    }
+  }
+  outshine::Scenario declared;
+  std::string readError;
+  if (!outshine::ReadScenario(scenarioText.data(), scenarioText.size(), declared, readError)) {
+    std::printf("REFUSED %s\n", readError.c_str());
+    return Report();
+  }
+  declared.Driven.Declared = true;
+  declared.Driven.FromLatDeg = kMarienplatzLat;
+  declared.Driven.FromLonDeg = kMarienplatzLon;
+  declared.Driven.ToLatDeg = kRathausmarktLat;
+  declared.Driven.ToLonDeg = kRathausmarktLon;
+  declared.Driven.Zoom = kZoom;
+  outshine::Store scene;
+  outshine::Column<outshine::Vehicle> vehicles;
+  outshine::Column<outshine::Drive> drives;
+  outshine::Assembled cast;
+  if (!scene.Open(outshine::AssembledCapacity(declared)) || !vehicles.Open(scene) ||
+      !drives.Open(scene) ||
+      !outshine::Assemble(declared, scene, vehicles, drives, cast, readError)) {
+    std::printf("REFUSED %s\n", readError.c_str());
+    return Report();
+  }
+  const bool laid = journey.Lay(scene, cast, vehicles, drives, wire,
       outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, quiet);
   CHECK(laid, "the road is laid, exactly as the drive lays it");
   if (!laid) { return Report(); }
@@ -319,7 +354,7 @@ int main(void) {
     return Report();
   }
 
-  const outshine::Vehicle &declaredCar = journey.Declared().Vehicles[0];
+  const outshine::Vehicle &declaredCar = declared.Vehicles[0];
   const double assetM = declaredCar.AssetWheelbase > 0.0
                             ? declaredCar.WheelbaseM / declaredCar.AssetWheelbase
                             : 1.0;
@@ -577,7 +612,7 @@ int main(void) {
         std::printf("REFUSED carry: %s\n", error.c_str());
         break;
       }
-      outshine::Gltf::Placement where = Seen(journey.Carried(), journey.Declared().Views[person]);
+      outshine::Gltf::Placement where = Seen(journey.Carried(), declared.Views[person]);
       for (int axis = 0; axis < 3; ++axis) { where.EyeM[axis] -= originM[axis]; }
       if (person == 0) {
         double fLat = 0.0, fLon = 0.0, pLat = 1.0, pLon = 1.0;
@@ -593,7 +628,7 @@ int main(void) {
           const double cutFillM = roadAslM - aslM;
           std::printf("CUTFILL at %.1f km the road stands %+.2f m against raw ground of %.2f m asl\n",
                       rode.ReachedM / 1000.0, cutFillM, aslM);
-          standing->SkyEye(cutFillM + journey.Declared().Views[0].OffsetM[1]);
+          standing->SkyEye(cutFillM + declared.Views[0].OffsetM[1]);
           if (liftM < worstCutM) { worstCutM = liftM; }
           if (liftM > worstFillM) { worstFillM = liftM; }
           liftTotalM += std::fabs(liftM);

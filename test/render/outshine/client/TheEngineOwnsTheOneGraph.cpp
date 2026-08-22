@@ -37,6 +37,11 @@ int main(void) {
   CHECK(scene.Error().find("exclusive") != std::string::npos,
         "and the refusal names the trait");
 
+  const outshine::Vehicle *carried = engine.Vehicles().Get(engine.Stood().PlayerBody);
+  CHECK(carried != nullptr && carried->MassKg == 1610.0 && carried->WidthM == 1.811,
+        "**THE COLUMNS ARE THE DOOR'S DATA HALF**: the declaration's numbers read back through "
+        "Engine::Vehicles and the assembled handles -- data access, never a verb");
+
   Covers("I.18 the assembly API has its public entrance: a client that includes nothing but "
          "outshine/ reads, assembles, queries and is refused by the same store the XML door "
          "calls -- one graph, two doors, one checker");

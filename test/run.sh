@@ -90,8 +90,8 @@ LayerIncludes() {
     render/outshine/drive) printf '%s' "-Iinclude -Isrc/corridor -Isrc/physics -Isrc/pilot -Isrc/ground" ;;
     render/outshine/scenario) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui -Itest/harness/shared" ;;
     tools/viewer) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui -Itools/viewer/parts" ;;
-    tools/driver/stills | tools/driver/window) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/clients -Isrc/corridor -Isrc/data -Isrc/gltf -Isrc/physics -Isrc/pilot -Isrc/render -Isrc/render/plan -Isrc/render/draw -Isrc/render/stages -Isrc/scenario -Isrc/ui -Isrc/ground -Isrc/ground/tiles -Itools/host -Isrc/sim" ;;
-    tools/driver) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/corridor -Isrc/data -Isrc/physics -Isrc/pilot -Isrc/gltf -Isrc/scenario -Isrc/ground -Isrc/ground/tiles -Itools/host -Isrc/sim" ;;
+    tools/driver/stills | tools/driver/window) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/clients -Isrc/corridor -Isrc/data -Isrc/gltf -Isrc/physics -Isrc/pilot -Isrc/render -Isrc/render/plan -Isrc/render/draw -Isrc/render/stages -Isrc/scenario -Isrc/ui -Isrc/ground -Isrc/ground/tiles -Itools/host -Isrc/sim" ;;
+    tools/driver) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/clients -Isrc/corridor -Isrc/data -Isrc/physics -Isrc/pilot -Isrc/gltf -Isrc/scenario -Isrc/ground -Isrc/ground/tiles -Itools/host -Isrc/sim" ;;
     *) return 1 ;;
   esac
 }
@@ -162,8 +162,8 @@ LayerGroups() {
     harness/claims) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario | render/outshine/client) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/clients/Engine.cpp src/scenario/ScenarioRead.cpp src/clients/Assembly.cpp" ;;
     render/outshine/shader) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
-    tools/driver/stills | tools/driver/window) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/corridor src/physics src/pilot src/data src/ground/tiles src/ground src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/scenario/ScenarioRead.cpp src/sim" ;;
-    tools/driver) printf '%s' "src/core src/core/io src/gltf src/corridor src/physics src/pilot src/data src/ground/tiles src/ground src/sim src/scenario/ScenarioRead.cpp" ;;
+    tools/driver/stills | tools/driver/window) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/corridor src/physics src/pilot src/data src/ground/tiles src/ground src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/scenario/ScenarioRead.cpp src/sim src/scene src/clients/Assembly.cpp" ;;
+    tools/driver) printf '%s' "src/core src/core/io src/gltf src/corridor src/physics src/pilot src/data src/ground/tiles src/ground src/sim src/scene src/scenario/ScenarioRead.cpp src/clients/Assembly.cpp" ;;
     render/outshine/world) printf '%s' "src/core src/core/io src/data src/scenario src/generators src/generators/draw src/ground/tiles src/ground src/clients/Sim.cpp src/clients/LogSinks.cpp src/clients/StreamTelemetry.cpp src/clients/EyeTelemetry.cpp src/clients/CsvTelemetry.cpp src/clients/Species.cpp src/clients/RegionForge.cpp src/clients/SceneWeather.cpp" ;;
     render/outshine/drive) printf '%s' "src/corridor src/physics src/pilot src/ground/Wayfinding.cpp" ;;
     *) return 1 ;;

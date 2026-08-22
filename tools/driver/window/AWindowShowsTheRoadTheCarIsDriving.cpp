@@ -10,12 +10,17 @@
 #include "CurlTransport.h"
 #include "Heap.h"
 #include "PreparedRoot.h"
+#include <outshine/Assembled.h>
+#include <outshine/Column.h>
+#include <outshine/Store.h>
+
+#include "Assembly.h"
 #include "Journey.h"
+#include "ScenarioRead.h"
 #include "Live.h"
 #include "Renderer.h"
 #include "Ribbon.h"
 
-using outshine::Sim::Between;
 using outshine::Sim::Journey;
 using outshine::Sim::Ridden;
 using outshine::Sim::Sink;
@@ -97,10 +102,40 @@ int main(void) {
 
   Quiet quiet;
   Journey journey;
-  const Between between{kMarienplatzLat, kMarienplatzLon, kRathausmarktLat, kRathausmarktLon};
+  std::string scenarioText;
+  {
+    std::FILE *const file = std::fopen("tools/driver/f31.scenario", "rb");
+    if (file != nullptr) {
+      int one = 0;
+      while ((one = std::fgetc(file)) != EOF) { scenarioText.push_back((char)one); }
+      std::fclose(file);
+    }
+  }
+  outshine::Scenario declared;
+  std::string readError;
+  if (!outshine::ReadScenario(scenarioText.data(), scenarioText.size(), declared, readError)) {
+    std::printf("REFUSED %s\n", readError.c_str());
+    return Report();
+  }
+  declared.Driven.Declared = true;
+  declared.Driven.FromLatDeg = kMarienplatzLat;
+  declared.Driven.FromLonDeg = kMarienplatzLon;
+  declared.Driven.ToLatDeg = kRathausmarktLat;
+  declared.Driven.ToLonDeg = kRathausmarktLon;
+  declared.Driven.Zoom = kZoom;
+  outshine::Store scene;
+  outshine::Column<outshine::Vehicle> vehicles;
+  outshine::Column<outshine::Drive> drives;
+  outshine::Assembled cast;
+  if (!scene.Open(outshine::AssembledCapacity(declared)) || !vehicles.Open(scene) ||
+      !drives.Open(scene) ||
+      !outshine::Assemble(declared, scene, vehicles, drives, cast, readError)) {
+    std::printf("REFUSED %s\n", readError.c_str());
+    return Report();
+  }
   outshine::Host::CurlTransport::Config wiring;
   outshine::Host::CurlTransport wire(wiring);
-  const bool laid = journey.Lay(between, "tools/driver/f31.scenario", kZoom, wire,
+  const bool laid = journey.Lay(scene, cast, vehicles, drives, wire,
       outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, quiet);
   CHECK(laid, "**THE WINDOW LAYS THE ROAD WITH THE SAME CALL THE HEADLESS DRIVER DOES.** One "
               "translation unit, two binaries: the headless one links no renderer at all and this "
@@ -203,18 +238,18 @@ int main(void) {
 
   const long perFrame = (long)(1.0 / kFps / kStepS + 0.5);
   Note("physics steps a frame", (double)perFrame, "steps");
-  Note("views the scenario declares", (double)journey.Declared().Views.size(), "views");
-  CHECK(journey.Declared().Views.size() >= 2,
+  Note("views the scenario declares", (double)declared.Views.size(), "views");
+  CHECK(declared.Views.size() >= 2,
         "**AND THE CAMERA COMES FROM THE DECLARATION.** The scenario names an eyes view in first "
         "person at the seat it measured off the asset, and a chase view in third at a declared "
         "distance -- so where the picture is taken from is content, not a constant in a driver");
-  if (journey.Declared().Views.size() < 2) { return Report(); }
-  Note("the first-person eye above the ground", journey.Declared().Views[0].OffsetM[1], "m");
-  Note("the chase view's distance", journey.Declared().Views[1].DistanceM, "m");
+  if (declared.Views.size() < 2) { return Report(); }
+  Note("the first-person eye above the ground", declared.Views[0].OffsetM[1], "m");
+  Note("the chase view's distance", declared.Views[1].DistanceM, "m");
 
   size_t bound = 0;
   double steerBy = 0.0, throttleBy = 0.0, brakeBy = 0.0;
-  for (const outshine::Binding &binding : journey.Declared().Input) {
+  for (const outshine::Binding &binding : declared.Input) {
     ++bound;
     if (binding.Action == "steer-left") { steerBy = 1.0; }
     if (binding.Action == "throttle") { throttleBy = 1.0; }
@@ -235,7 +270,7 @@ int main(void) {
   const double routeM = journey.LengthM();
   const double handoverFromM = routeM * kHandoverAtShare;
   double handoverForM = 0.0;
-  const double wheelbaseM = journey.Declared().Vehicles[0].WheelbaseM;
+  const double wheelbaseM = declared.Vehicles[0].WheelbaseM;
   std::vector<uint32_t> bin(kBins + 1, 0u);
   long binned = 0;
   const size_t liveBefore = outshine::Heap::LiveBytes();
@@ -297,7 +332,7 @@ int main(void) {
       std::printf("REFUSED %s\n", error.c_str());
       break;
     }
-    const outshine::View &view = journey.Declared().Views[along < 0.5 ? 0 : 1];
+    const outshine::View &view = declared.Views[along < 0.5 ? 0 : 1];
     standing->Eye(Seen(journey.Carried(), view));
 
     const auto began = std::chrono::steady_clock::now();
@@ -354,8 +389,8 @@ int main(void) {
         "**AND THE CAR MOVED WHILE THEY WERE.** The same Ride that carried it 774 km headless is "
         "stepping here, sixteen times a frame, with the camera behind it -- one code path, two "
         "modes");
-  CHECK(journey.Declared().Views[0].Person == "first" &&
-            journey.Declared().Views[1].Person == "third",
+  CHECK(declared.Views[0].Person == "first" &&
+            declared.Views[1].Person == "third",
         "and both persons were used -- the first half of the run from the driver's seat, the second "
         "from behind, both placed by turning the declared offset into the body's own frame");
   Note("where the player took the wheel", tookOverAtM, "m");

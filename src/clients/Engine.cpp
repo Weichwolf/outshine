@@ -66,8 +66,7 @@ Engine::Engine() : S_(std::make_unique<State>()) {}
 
 bool Engine::Assemble() {
   const Scenario &declared = S_->Declared;
-  const size_t named = declared.Vehicles.size() + (declared.Played.Is.empty() ? 0u : 1u) +
-                       (declared.Driven.Declared ? 2u : 0u);
+  const size_t named = AssembledCapacity(declared);
   if (named == 0) {
     S_->Error = "the declaration names nothing to assemble";
     return false;
@@ -83,6 +82,9 @@ bool Engine::Assemble() {
 
 Store &Engine::Scene(void) { return S_->Scene; }
 const Store &Engine::Scene(void) const { return S_->Scene; }
+const Column<Vehicle> &Engine::Vehicles(void) const { return S_->Vehicles; }
+const Column<Drive> &Engine::Drives(void) const { return S_->Drives; }
+const Assembled &Engine::Stood(void) const { return S_->Stood; }
 Engine::~Engine() = default;
 Engine::Engine(Engine &&) noexcept = default;
 Engine &Engine::operator=(Engine &&) noexcept = default;

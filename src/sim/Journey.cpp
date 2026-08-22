@@ -104,7 +104,7 @@ struct Journey::State {
   std::unique_ptr<outshine::Data::SourceSet> Sources;
   std::unique_ptr<outshine::World::TilePool> Pool;
   std::unique_ptr<outshine::World::GroundStream> Ground;
-  outshine::Scenario Declared;
+  outshine::Vehicle Car;
   outshine::Sim::Rigged Stood;
   outshine::Sim::Corridor Way;
   outshine::Sim::DriveState Drive;
@@ -127,7 +127,6 @@ const outshine::Physics::Body &Journey::Carried(void) const { return S_->Drive.B
 outshine::World::GroundStream &Journey::Ground(void) const { return *S_->Ground; }
 
 const outshine::ReferenceLine &Journey::Corridor(void) const { return S_->Way.Line; }
-const outshine::Scenario &Journey::Declared(void) const { return S_->Declared; }
 double Journey::LengthM(void) const { return S_->Way.Line.LengthM(); }
 
 double Journey::ReserveMs2(void) const { return S_->Way.ReserveMs2; }
@@ -143,20 +142,36 @@ namespace {
 
 } // namespace
 
-bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom,
-                  Data::Transport &wire, const Provision &kept, Sink &say) {
+bool Journey::Lay(const Store &scene, const Assembled &cast, const Column<Vehicle> &vehicles,
+                  const Column<Drive> &driven, Data::Transport &wire, const Provision &kept,
+                  Sink &say) {
   say.Claim(!kept.CacheDir.empty() && !kept.AssetsDir.empty(),
         "**THE CALLER PROVISIONS THE JOURNEY**: a cache directory and an assets root arrive as "
         "declarations -- the library owns no path");
   if (kept.CacheDir.empty() || kept.AssetsDir.empty()) { return false; }
-  const double fromLatDeg = between.FromLatDeg;
-  const double fromLonDeg = between.FromLonDeg;
-  const double toLatDeg = between.ToLatDeg;
-  const double toLonDeg = between.ToLonDeg;
+  const outshine::Vehicle *car = vehicles.Get(cast.PlayerBody);
+  say.Claim(car != nullptr,
+        "**THE CAR ARRIVES AS A HANDLE THROUGH THE ONE DOOR**: the assembled body carries its "
+        "declaration in the column, and a journey without one refuses");
+  if (car == nullptr) { return false; }
+  const outshine::Drive *driveTo = driven.Get(cast.Assignment);
+  say.Claim(driveTo != nullptr && scene.TargetOf(cast.PlayerMind, Relation::Assigned) == cast.Assignment,
+        "**AND SO DOES THE ASSIGNMENT**: the mind is Assigned the coordinates this journey "
+        "will lay -- two coordinates and a zoom as column data, not parameters");
+  if (driveTo == nullptr) { return false; }
+  const double fromLatDeg0 = driveTo->FromLatDeg;
+  const double fromLonDeg0 = driveTo->FromLonDeg;
+  const double toLatDeg0 = driveTo->ToLatDeg;
+  const double toLonDeg0 = driveTo->ToLonDeg;
+  const int zoom = driveTo->Zoom;
+  S_->Car = *car;
+  const double fromLatDeg = fromLatDeg0;
+  const double fromLonDeg = fromLonDeg0;
+  const double toLatDeg = toLatDeg0;
+  const double toLonDeg = toLonDeg0;
   const int kZoom = zoom;
 
   auto &corridor = S_->Way.Line;
-  auto &declared = S_->Declared;
   auto &stood = S_->Stood;
   auto &asideM = S_->Way.AsideM;
   auto &narrowestLaneM = S_->Way.NarrowestLaneM;
@@ -178,23 +193,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom,
   say.Number("what a square covering both cities would have cost", (double)(square * square), "tiles");
 
   std::string error;
-  std::FILE *const declaration = std::fopen(scenarioPath, "rb");
-  say.Claim(declaration != nullptr, "the vehicle's own declaration is there to read");
-  std::vector<char> text;
-  if (declaration != nullptr) {
-    int one = 0;
-    while ((one = std::fgetc(declaration)) != EOF) { text.push_back((char)one); }
-    std::fclose(declaration);
-  }
-  const bool read = !text.empty() && outshine::ReadScenario(text.data(), text.size(), declared, error);
-  if (!read && !error.empty()) { say.Say(Line("REFUSED %s", error.c_str())); }
-  say.Claim(read, "and it reads -- BEFORE the route is planned, because the vehicle defines "
-                  "which roads are drivable");
-  if (!read) { return false; }
-  say.Claim(declared.Vehicles.size() == 1, "declaring one vehicle");
-  if (declared.Vehicles.size() != 1) { return false; }
-
-  S_->Drive.CarWidthM = declared.Vehicles[0].WidthM;
+  S_->Drive.CarWidthM = S_->Car.WidthM;
   const double carWidthM = S_->Drive.CarWidthM;
   say.Number("the width the declaration gives the car", carWidthM, "m");
   say.Claim(carWidthM > 0.0,
@@ -318,7 +317,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom,
   say.Number("how far each walk is as a share of the drive",
        (fromAwayM + toAwayM) / straightM, "of it");
 
-  const outshine::Vehicle &turning = declared.Vehicles[0];
+  const outshine::Vehicle &turning = S_->Car;
   const double outerM = turning.TurningCircleM * 0.5;
   const double tightestM =
       std::sqrt(outerM * outerM - turning.WheelbaseM * turning.WheelbaseM);
@@ -345,13 +344,13 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom,
 
 
   say.Number("the narrowest road on the route", reaped.NarrowestTakenM, "m");
-  stood = outshine::Sim::Stand(declared.Vehicles[0]);
+  stood = outshine::Sim::Stand(S_->Car);
   if (!stood.Stood) { say.Say(Line("REFUSED %s", stood.Error.c_str())); }
   say.Claim(stood.Stood, "**AND THE DECLARED F31 STANDS UP AS A RIG.** Every number the drive uses comes "
                      "from the file, not from a constant beside it");
   if (!stood.Stood) { return false; }
 
-  if (!Sim::LayCorridor(route, *S_->Ground, declared, stood, carWidthM, quantumM, tightestM,
+  if (!Sim::LayCorridor(route, *S_->Ground, S_->Car, stood, quantumM, tightestM,
                         middleLat, say, S_->Way, error)) {
     return false;
   }
@@ -362,7 +361,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom,
   body = outshine::Physics::Body();
   body.MassKg = stood.Envelope.MassKg;
   for (int axis = 0; axis < 3; ++axis) {
-    body.InertiaKgM2[axis] = declared.Vehicles[0].InertiaKgM2[axis];
+    body.InertiaKgM2[axis] = S_->Car.InertiaKgM2[axis];
   }
   outshine::Placed start;
   say.Claim(corridor.At(0.0, start), "the corridor answers at its own start");
@@ -396,7 +395,7 @@ Ridden Journey::Ride(double dtS, const Taken *taken) {
     S_->Drive.Tally.Found = false;
     return S_->Drive.Tally;
   }
-  return Sim::DriveTick(S_->Way, S_->Stood, S_->Declared, S_->Drive, dtS, taken);
+  return Sim::DriveTick(S_->Way, S_->Stood, S_->Car, S_->Drive, dtS, taken);
 }
 
 } // namespace outshine::Sim

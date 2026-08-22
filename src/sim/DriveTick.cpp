@@ -23,7 +23,7 @@ double HeadingOf(const outshine::Physics::Body &body) {
 }
 } // namespace
 
-Ridden DriveTick(const Corridor &way, const Rigged &stood, const Scenario &declared,
+Ridden DriveTick(const Corridor &way, const Rigged &stood, const Vehicle &car,
                  DriveState &drive, double dtS, const Taken *taken) {
   Ridden &out = drive.Tally;
   out.Found = false;
@@ -43,7 +43,7 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood, const Scenario &decla
   reins.LeastReachM = stood.Axles.WheelbaseM;
   reins.HoldWithinM = way.HoldWithinM;
   const double gravity[3] = {0.0, -9.80665, 0.0};
-  const double dragArea = declared.Vehicles[0].DragCoefficient * declared.Vehicles[0].FrontalM2;
+  const double dragArea = car.DragCoefficient * car.FrontalM2;
   out.Found = true;
 
   const double eastM = body.PositionM[0];
@@ -138,7 +138,7 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood, const Scenario &decla
 
   outshine::Physics::Wrench wrench;
   outshine::Physics::Fall(wrench, body, gravity);
-  outshine::Physics::Resist(wrench, body, dragArea, declared.Vehicles[0].AirDensity);
+  outshine::Physics::Resist(wrench, body, dragArea, car.AirDensity);
   const outshine::Physics::Reading read =
       outshine::Physics::Bear(rig, body, under, controls, wrench, dtS);
 

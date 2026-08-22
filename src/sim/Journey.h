@@ -6,7 +6,10 @@
 #include <string>
 #include <vector>
 
+#include <outshine/Assembled.h>
+#include <outshine/Column.h>
 #include <outshine/Scenario.h>
+#include <outshine/Store.h>
 
 #include "Body.h"
 #include "DriveTick.h"
@@ -29,12 +32,6 @@ struct Provision {
   std::string AssetsDir;
 };
 
-struct Between {
-  double FromLatDeg = 0.0;
-  double FromLonDeg = 0.0;
-  double ToLatDeg = 0.0;
-  double ToLonDeg = 0.0;
-};
 
 
 class Journey {
@@ -44,7 +41,8 @@ public:
   Journey(const Journey &) = delete;
   Journey &operator=(const Journey &) = delete;
 
-  [[nodiscard]] bool Lay(const Between &between, const char *scenarioPath, int zoom,
+  [[nodiscard]] bool Lay(const Store &scene, const Assembled &cast,
+                         const Column<Vehicle> &vehicles, const Column<Drive> &driven,
                          Data::Transport &wire, const Provision &kept, Sink &say);
   [[nodiscard]] Ridden Ride(double dtS, const Taken *taken = nullptr);
   void Close(void);
@@ -52,7 +50,6 @@ public:
   [[nodiscard]] const Physics::Body &Carried(void) const;
   [[nodiscard]] const ReferenceLine &Corridor(void) const;
   [[nodiscard]] World::GroundStream &Ground(void) const;
-  [[nodiscard]] const Scenario &Declared(void) const;
   [[nodiscard]] double LengthM(void) const;
   [[nodiscard]] double ReserveMs2(void) const;
   void Frame(double &latDeg, double &lonDeg, double &perLatM, double &perLonM) const;

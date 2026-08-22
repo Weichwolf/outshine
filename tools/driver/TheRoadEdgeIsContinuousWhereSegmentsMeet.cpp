@@ -5,10 +5,15 @@
 #include "Check.h"
 
 #include "CurlTransport.h"
+#include <outshine/Assembled.h>
+#include <outshine/Column.h>
+#include <outshine/Store.h>
+
+#include "Assembly.h"
 #include "Journey.h"
+#include "ScenarioRead.h"
 #include "Ribbon.h"
 
-using outshine::Sim::Between;
 using outshine::Sim::Journey;
 using outshine::Sim::Sink;
 using outshine::Ribbon;
@@ -44,8 +49,38 @@ int main(void) {
   Journey journey;
   outshine::Host::CurlTransport::Config wiring;
   outshine::Host::CurlTransport wire(wiring);
-  const Between between{kMarienplatzLat, kMarienplatzLon, kRathausmarktLat, kRathausmarktLon};
-  CHECK(journey.Lay(between, "tools/driver/f31.scenario", kZoom, wire,
+  std::string scenarioText;
+  {
+    std::FILE *const file = std::fopen("tools/driver/f31.scenario", "rb");
+    if (file != nullptr) {
+      int one = 0;
+      while ((one = std::fgetc(file)) != EOF) { scenarioText.push_back((char)one); }
+      std::fclose(file);
+    }
+  }
+  outshine::Scenario declared;
+  std::string readError;
+  if (!outshine::ReadScenario(scenarioText.data(), scenarioText.size(), declared, readError)) {
+    std::printf("REFUSED %s\n", readError.c_str());
+    return Report();
+  }
+  declared.Driven.Declared = true;
+  declared.Driven.FromLatDeg = kMarienplatzLat;
+  declared.Driven.FromLonDeg = kMarienplatzLon;
+  declared.Driven.ToLatDeg = kRathausmarktLat;
+  declared.Driven.ToLonDeg = kRathausmarktLon;
+  declared.Driven.Zoom = kZoom;
+  outshine::Store scene;
+  outshine::Column<outshine::Vehicle> vehicles;
+  outshine::Column<outshine::Drive> drives;
+  outshine::Assembled stood;
+  if (!scene.Open(outshine::AssembledCapacity(declared)) || !vehicles.Open(scene) ||
+      !drives.Open(scene) ||
+      !outshine::Assemble(declared, scene, vehicles, drives, stood, readError)) {
+    std::printf("REFUSED %s\n", readError.c_str());
+    return Report();
+  }
+  CHECK(journey.Lay(scene, stood, vehicles, drives, wire,
       outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, quiet),
         "the route lays, exactly as the drive lays it");
 

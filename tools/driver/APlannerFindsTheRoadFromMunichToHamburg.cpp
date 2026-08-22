@@ -7,9 +7,14 @@
 #include "Check.h"
 
 #include "CurlTransport.h"
-#include "Journey.h"
+#include <outshine/Assembled.h>
+#include <outshine/Column.h>
+#include <outshine/Store.h>
 
-using outshine::Sim::Between;
+#include "Assembly.h"
+#include "Journey.h"
+#include "ScenarioRead.h"
+
 using outshine::Sim::Journey;
 using outshine::Sim::Ridden;
 using outshine::Sim::Sink;
@@ -48,11 +53,41 @@ int main(void) {
 
   Harness harness;
   Journey journey;
-  const Between between{kMarienplatzLat, kMarienplatzLon, kRathausmarktLat, kRathausmarktLon};
+  std::string scenarioText;
+  {
+    std::FILE *const file = std::fopen("tools/driver/f31.scenario", "rb");
+    if (file != nullptr) {
+      int one = 0;
+      while ((one = std::fgetc(file)) != EOF) { scenarioText.push_back((char)one); }
+      std::fclose(file);
+    }
+  }
+  outshine::Scenario declared;
+  std::string readError;
+  if (!outshine::ReadScenario(scenarioText.data(), scenarioText.size(), declared, readError)) {
+    std::printf("REFUSED %s\n", readError.c_str());
+    return Report();
+  }
+  declared.Driven.Declared = true;
+  declared.Driven.FromLatDeg = kMarienplatzLat;
+  declared.Driven.FromLonDeg = kMarienplatzLon;
+  declared.Driven.ToLatDeg = kRathausmarktLat;
+  declared.Driven.ToLonDeg = kRathausmarktLon;
+  declared.Driven.Zoom = kZoom;
+  outshine::Store scene;
+  outshine::Column<outshine::Vehicle> vehicles;
+  outshine::Column<outshine::Drive> drives;
+  outshine::Assembled stood;
+  if (!scene.Open(outshine::AssembledCapacity(declared)) || !vehicles.Open(scene) ||
+      !drives.Open(scene) ||
+      !outshine::Assemble(declared, scene, vehicles, drives, stood, readError)) {
+    std::printf("REFUSED %s\n", readError.c_str());
+    return Report();
+  }
 
   outshine::Host::CurlTransport::Config wiring;
   outshine::Host::CurlTransport wire(wiring);
-  const bool laid = journey.Lay(between, "tools/driver/f31.scenario", kZoom, wire,
+  const bool laid = journey.Lay(scene, stood, vehicles, drives, wire,
       outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, harness);
   CHECK(laid, "**THE ROAD FROM MARIENPLATZ TO RATHAUSMARKT IS LAID.** A route over ways fetched "
               "live, a corridor fitted through them, the real ground under it shaped to each road "

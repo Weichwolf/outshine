@@ -15,10 +15,10 @@ namespace {
 constexpr double kPatienceS = 900.0;
 } // namespace
 
-bool LayCorridor(const World::Route &route, World::GroundStream &ground,
-                 const Scenario &declared, const Rigged &stood, double carWidthM,
-                 double quantumM, double tightestM, double middleLat, Sink &say, Corridor &out,
-                 std::string &error) {
+bool LayCorridor(const World::Route &route, World::GroundStream &ground, const Vehicle &car,
+                 const Rigged &stood, double quantumM, double tightestM, double middleLat,
+                 Sink &say, Corridor &out, std::string &error) {
+  const double carWidthM = car.WidthM;
   auto &corridor = out.Line;
   auto &fitted = out.Fitted;
   auto &profile = out.Profile;
@@ -476,7 +476,7 @@ bool LayCorridor(const World::Route &route, World::GroundStream &ground,
        floorRatio, "x");
   say.Number("so the budget the plan is given", planning.HoldWithinM, "m");
   planning.SettleS = 1.0;
-  planning.CorneringNPerRad = declared.Vehicles[0].CorneringNPerRad;
+  planning.CorneringNPerRad = car.CorneringNPerRad;
   say.Number("what the car leaves either side of itself there", holdWithinM, "m");
   say.Number("the lateral acceleration reserved for holding the line", planning.ReserveMs2, "m/s2");
   say.Number("what is left for the path", planning.HoldingMs2(), "m/s2");
