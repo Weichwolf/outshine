@@ -11,10 +11,6 @@ using outshine::Store;
 using outshine::Tag;
 namespace tags = outshine::tags;
 
-namespace {
-constexpr Tag kOffersRefuel{0x02010000};
-constexpr Tag kOffers{0x02000000};
-} // namespace
 
 int main(void) {
   using namespace outshine::Test;
@@ -28,13 +24,13 @@ int main(void) {
   const Entity second = scene.Add(Role::Mind);
 
   CHECK(!scene.Claim(first, pump), "what advertises nothing cannot be claimed");
-  CHECK(scene.Offer(pump, kOffersRefuel, 1),
+  CHECK(scene.Offer(pump, tags::OffersRefuel, 1),
         "**AN OBJECT ADVERTISES AS DATA**: an activity tag and a seat count, never a script -- "
         "the agent's own runtime is what executes (the Sims shipped the other way and every "
         "object became a program; Smart Objects is the correction)");
 
   Entity found[4];
-  CHECK(scene.Offering(kOffers, found, 4) == 1 && found[0] == pump,
+  CHECK(scene.Offering(tags::Offers, found, 4) == 1 && found[0] == pump,
         "and it is found by the PARENT activity tag, so a search for anything offered uses the "
         "same prefix algebra as capability");
 
@@ -59,10 +55,10 @@ int main(void) {
   CHECK(tenant.Index == pump.Index,
         "the pool hands the dead pump's slot to the next tenant");
   Entity offering[4];
-  CHECK(scene.Offering(kOffers, offering, 4) == 0,
+  CHECK(scene.Offering(tags::Offers, offering, 4) == 0,
         "**A FRESH ENTITY ADVERTISES NOTHING, WHATEVER ITS SLOT HELD BEFORE**: the offer died "
         "with its owner, so the tenant is no accidental fuel pump (board:1588's repro)");
-  CHECK(scene.Offer(tenant, kOffersRefuel, 2),
+  CHECK(scene.Offer(tenant, tags::OffersRefuel, 2),
         "and it may advertise on its own terms, because the seats were reset with the slot");
 
   Covers("II.3 a shared interaction is advertised as data and reserved before it is used: "

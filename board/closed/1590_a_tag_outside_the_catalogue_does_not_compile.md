@@ -26,3 +26,12 @@ What must be true:
 
 The render plan's catalogue is the model in this same tree: unspellable beats refused-at-load,
 and refused-at-load beats accepted-silently -- the store today sits at the third rung.
+
+---
+
+**Closed.** Tag's value constructor is private; only `TagCatalogue` mints, and `namespace tags`
+re-publishes the catalogue's values under the old spelling. The second vocabulary the review
+caught (the test-minted 0x02 family) is now the catalogue's own Offers branch. Proving test:
+`unit/scene/AMisusedTagHasNoSpelling` judges `unit/compile/scene/ATagIsMintedOnlyByTheCatalogue`
+-- a forged tag is refused by the compiler for the declared reason, with the layer's own
+include set.

@@ -41,8 +41,8 @@ int main(void) {
   CHECK(scene.Has(car, tags::Does),
         "and asking for the parent tag finds any function, which is the prefix algebra doing the "
         "work a list of booleans cannot");
-  CHECK(!scene.Has(car, Tag{0x02000000}),
-        "a tag from another branch is not found");
+  CHECK(!scene.Has(car, tags::Offers),
+        "a tag from another branch of the catalogue is not found");
 
   Covers("II.2 a tag is a value from the constexpr catalogue with hierarchical prefix matching, "
          "and capability flows down the IsA chain by query rather than by copy");

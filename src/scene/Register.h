@@ -11,23 +11,44 @@ inline constexpr size_t kRoles = 4;
 
 [[nodiscard]] constexpr uint8_t RoleBit(Role kind) { return (uint8_t)(1u << (uint8_t)kind); }
 
-struct Tag {
-  uint32_t Value = 0;
+class Tag {
+public:
+  constexpr Tag() = default;
 
+  [[nodiscard]] constexpr uint32_t Value() const { return Value_; }
   [[nodiscard]] constexpr bool Within(Tag parent) const {
     uint32_t mask = 0xFFFFFFFFu;
-    for (uint32_t held = parent.Value; held != 0 && (held & 0xFFu) == 0; held >>= 8) { mask <<= 8; }
-    return parent.Value != 0 && (Value & mask) == parent.Value;
+    for (uint32_t held = parent.Value_; held != 0 && (held & 0xFFu) == 0; held >>= 8) {
+      mask <<= 8;
+    }
+    return parent.Value_ != 0 && (Value_ & mask) == parent.Value_;
   }
-  [[nodiscard]] constexpr bool operator==(Tag other) const { return Value == other.Value; }
+  [[nodiscard]] constexpr bool operator==(Tag other) const { return Value_ == other.Value_; }
+
+private:
+  constexpr explicit Tag(uint32_t value) : Value_(value) {}
+  uint32_t Value_ = 0;
+  friend struct TagCatalogue;
+};
+
+struct TagCatalogue {
+  static constexpr Tag Does{0x01000000};
+  static constexpr Tag DoesSteer{0x01010000};
+  static constexpr Tag DoesDrive{0x01020000};
+  static constexpr Tag DoesBrake{0x01030000};
+  static constexpr Tag DoesLamp{0x01040000};
+  static constexpr Tag Offers{0x02000000};
+  static constexpr Tag OffersRefuel{0x02010000};
 };
 
 namespace tags {
-inline constexpr Tag Does{0x01000000};
-inline constexpr Tag DoesSteer{0x01010000};
-inline constexpr Tag DoesDrive{0x01020000};
-inline constexpr Tag DoesBrake{0x01030000};
-inline constexpr Tag DoesLamp{0x01040000};
+inline constexpr Tag Does = TagCatalogue::Does;
+inline constexpr Tag DoesSteer = TagCatalogue::DoesSteer;
+inline constexpr Tag DoesDrive = TagCatalogue::DoesDrive;
+inline constexpr Tag DoesBrake = TagCatalogue::DoesBrake;
+inline constexpr Tag DoesLamp = TagCatalogue::DoesLamp;
+inline constexpr Tag Offers = TagCatalogue::Offers;
+inline constexpr Tag OffersRefuel = TagCatalogue::OffersRefuel;
 } // namespace tags
 
 static_assert(tags::DoesSteer.Within(tags::Does) && !tags::Does.Within(tags::DoesSteer),

@@ -81,7 +81,7 @@ Role Store::RoleOf(Entity of) const {
 bool Store::Give(Entity to, Tag tag) {
   Slot *slot = const_cast<Slot *>(Held(to));
   if (slot == nullptr) { return Refuse("a tag cannot be given to what does not stand"); }
-  if (tag.Value == 0) { return Refuse("the empty tag is not in the catalogue"); }
+  if (tag.Value() == 0) { return Refuse("the empty tag is not in the catalogue"); }
   if (slot->GivenCount == kTagsPerEntity) {
     return Refuse("this entity carries all the tags it can");
   }
@@ -109,11 +109,11 @@ bool Store::Has(Entity of, Tag tag) const {
 bool Store::Offer(Entity at, Tag activity, size_t seats) {
   Slot *slot = const_cast<Slot *>(Held(at));
   if (slot == nullptr) { return Refuse("an offer needs its object standing"); }
-  if (activity.Value == 0) { return Refuse("an offer advertises an activity from the catalogue"); }
+  if (activity.Value() == 0) { return Refuse("an offer advertises an activity from the catalogue"); }
   if (seats == 0 || seats > kSeatsPerOffer) {
     return Refuse("an offer holds between one seat and the pool's few");
   }
-  if (slot->Offers.Value != 0) { return Refuse("this object already advertises, and one object is one offer"); }
+  if (slot->Offers.Value() != 0) { return Refuse("this object already advertises, and one object is one offer"); }
   slot->Offers = activity;
   slot->SeatCount = seats;
   for (size_t seat = 0; seat < seats; ++seat) { slot->Seats[seat] = Taken{}; }
@@ -124,7 +124,7 @@ size_t Store::Offering(Tag activity, Entity into[], size_t room) const {
   size_t found = 0;
   for (size_t at = 0; at < Slots_.size(); ++at) {
     const Slot &slot = Slots_[at];
-    if (!slot.Held || slot.Offers.Value == 0 || !slot.Offers.Within(activity)) { continue; }
+    if (!slot.Held || slot.Offers.Value() == 0 || !slot.Offers.Within(activity)) { continue; }
     if (into != nullptr && found < room) { into[found] = Entity{(uint32_t)at, slot.Generation}; }
     ++found;
   }
@@ -134,7 +134,7 @@ size_t Store::Offering(Tag activity, Entity into[], size_t room) const {
 bool Store::Claim(Entity by, Entity at) {
   Slot *slot = const_cast<Slot *>(Held(at));
   if (Held(by) == nullptr || slot == nullptr) { return Refuse("a claim needs both of its ends standing"); }
-  if (slot->Offers.Value == 0) { return Refuse("this object advertises nothing to claim"); }
+  if (slot->Offers.Value() == 0) { return Refuse("this object advertises nothing to claim"); }
   if (!(SeatOf(by, at) == Seat::Free)) { return Refuse("one claimant holds at most one seat here"); }
   for (size_t seat = 0; seat < slot->SeatCount; ++seat) {
     Taken &taken = slot->Seats[seat];
@@ -199,7 +199,7 @@ bool Store::Link(Entity from, Relation how, Entity to) {
   if (rule.Exclusive && !(TargetOf(from, how) == kNoEntity)) {
     return Refuse(std::string(Named(how)) + " is exclusive, and this source already has its target");
   }
-  if (rule.SourceDoes.Value != 0 && !Has(from, rule.SourceDoes)) {
+  if (rule.SourceDoes.Value() != 0 && !Has(from, rule.SourceDoes)) {
     return Refuse(std::string(Named(how)) + " asks the source to do something, and it does nothing");
   }
   if (rule.Requires != kNoRelation && Targets(from, rule.Requires, nullptr, 0) == 0) {
