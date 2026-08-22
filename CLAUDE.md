@@ -60,6 +60,30 @@ Physics binds to functions, never to the mind; the mind and the player actuate O
 `Journey` folds into `Sim` along this chain (`board:1581`). **A client includes nothing but
 `include/outshine/`** — enforced by the build (`board:1582`).
 
+### The component model (SOLL — reference design, `board:1583`)
+
+Reference: **Flecs** (relationships + traits + script parity), supplemented by GAS tag algebra,
+Smart-Object slots, CARLA's vehicle grammar. Written here, never a dependency.
+
+```mermaid
+flowchart TD
+  XML["scenario XML"] --> API["ONE assembly API — same calls, same refusal text"]
+  CPP["client C++"] --> API
+  API --> STORE["entity store — ids and typed pairs (relation, target), values not pointers"]
+  PRE["prefab / IsA — 'glTF as four-wheel', variants, named slots"] --> STORE
+  STORE --> CAN["CAN — capability tags, constexpr catalogue (typo = compile error)"]
+  STORE --> MAY["MAY — traits ON the relation: Exclusive · OneOf · Acyclic · With → refused at ASSEMBLY; situational = tag set-algebra at runtime"]
+  STORE --> ACT["INTERACTS — world objects advertise slots as data; Free → Claimed → Occupied → Free"]
+```
+
+The XML reader is a serialisation of the assembly API against ONE graph — no second
+representation, no converter (the Unity-baking rot). XML declares what the API can and nothing of
+its own: no conditions, no control flow — behaviour belongs to the mind and the assignment. The
+render plan stays a `constexpr` catalogue (unspellable beats refused-at-load); this graph is the
+SCENE domain: vehicles, minds, tools, assignments, world objects. Banned by the sources
+themselves: stringly-typed capabilities · content that ships a program · god actors ·
+ECS-for-everything · unreserved shared affordances.
+
 ## Render plan (IST/SOLL per stage)
 
 ```mermaid
