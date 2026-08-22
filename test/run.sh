@@ -2,6 +2,7 @@
 
 set -u
 set -m
+AUDIT=0
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT" || exit 2
@@ -54,6 +55,7 @@ while [ $# -gt 0 ]; do
       shift 2
       ;;
     --library) LIBRARY=1; shift ;;
+    --audit) AUDIT=1; shift ;;
     -*) Die "unknown option '$1'" ;;
     *) SUITES="$SUITES ${1%/}"; SUITE=${1%/}; shift; continue ;;
   esac
@@ -396,6 +398,37 @@ BuildGroup src/core/Json.cpp || Die "the prune's reader did not build"
 $CXX test/harness/shared/Prune.cpp $OBJECTS $CXXSTD $OPT $WARN -Itest/harness/shared -Itest/harness/shared/render -Isrc/core -o "$BUILD/prune" ||
   Die "the prune did not build"
 PRUNE_MARKER=$BUILD/prune.marker
+
+if [ "$AUDIT" = 1 ]; then
+  bad=0
+  for suiteDir in $(find test tools -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
+    groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
+    files=""
+    for group in $groups; do
+      if [ -d "$group" ]; then
+        files="$files $(find "$group" -maxdepth 1 -name '*.cpp' | sort)"
+      else
+        files="$files $group"
+      fi
+    done
+    dupes=$(printf '%s\n' $files | sort | uniq -d)
+    if [ -n "$dupes" ]; then
+      printf 'AUDIT %s lists twice: %s\n' "$suiteDir" "$dupes"
+      bad=1
+    fi
+  done
+  covered=$(for suiteDir in $(find test tools -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
+    groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
+    for group in $groups; do
+      if [ -d "$group" ]; then find "$group" -maxdepth 1 -name '*.cpp'; else printf '%s\n' "$group"; fi
+    done
+  done | sort -u)
+  for source in $(find src -name '*.cpp' | sort); do
+    printf '%s\n' "$covered" | grep -qx "$source" || { printf 'AUDIT no suite compiles %s\n' "$source"; bad=1; }
+  done
+  [ "$bad" = 0 ] && printf 'AUDIT clean: every suite lists each source once, every source has a suite\n'
+  exit $bad
+fi
 
 TREES=test
 for named in $SUITES; do
