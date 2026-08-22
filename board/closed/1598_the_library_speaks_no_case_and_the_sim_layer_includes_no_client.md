@@ -44,3 +44,7 @@ with its test in the mirror; the dead struct, the vararg Line (two live callers 
 and the fossil indentation are gone. Proofs: the fast gate 118/118, Munich 38/0, Kyoto 35/0,
 the road edge 7/0 over the final build. The duplicate-symbol lesson is in the runner: a file
 group never sits beside its own directory group.
+
+---
+
+**Sharpened by review (2026-08-22).** Residue of the move: `src/scenario/ScenarioRead.h` still guards itself `OUTSHINE_CLIENTS_SCENARIOREAD_H`; and the file-beside-directory ambiguity survives for `src/sim/Rigging.cpp` vs `src/sim` (same object path, two include sets) — filed as board:1603.
