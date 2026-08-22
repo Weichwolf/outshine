@@ -40,8 +40,8 @@ void Slerp(const double *from, const double *to, double weight, double *out) {
 
 }
 
-bool Track::Build(AnimationPath path, Interpolation how, const std::vector<double> &times,
-                  const std::vector<double> &values, Track &out) {
+bool Track::Build(AnimationPath path, Interpolation how, std::span<const double> times,
+                  std::span<const double> values, Track &out) {
   if (times.empty()) { return false; }
   const size_t perKeyframe = (how == Interpolation::CubicSpline) ? 3u : 1u;
   if (how == Interpolation::CubicSpline && times.size() < 2) { return false; }

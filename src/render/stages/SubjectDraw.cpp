@@ -1,5 +1,6 @@
 #include "SubjectDraw.h"
 
+#include <span>
 #include <new>
 
 #include "Heap.h"
@@ -390,7 +391,7 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
   Slots.push_back(std::move(slot));
 }
 
-bool SubjectDraw::SetMaterials(const std::vector<SubjectMaterial> &materials, std::string &error) {
+bool SubjectDraw::SetMaterials(std::span<const SubjectMaterial> materials, std::string &error) {
 
   Slots.clear();
   Batches.clear();
@@ -622,7 +623,7 @@ bool SubjectDraw::SetPose(const SubjectPose &pose, std::string &error) {
   return HandVisibility(true, error);
 }
 
-bool SubjectDraw::SetLights(const std::vector<SubjectLight> &lights, std::string &error) {
+bool SubjectDraw::SetLights(std::span<const SubjectLight> lights, std::string &error) {
   if (lights.size() > kMaxSubjectLights) {
     error = "the subject declares " + std::to_string(lights.size()) +
             " punctual lights over a list of " + std::to_string(kMaxSubjectLights) +
@@ -630,7 +631,7 @@ bool SubjectDraw::SetLights(const std::vector<SubjectLight> &lights, std::string
             "picture";
     return false;
   }
-  Placed = lights;
+  Placed.assign(lights.begin(), lights.end());
   return true;
 }
 

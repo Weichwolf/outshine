@@ -41,3 +41,15 @@ NOT advanced: 124 `const std::vector<>&` and 144 `const std::string&` boundary r
 (up from 98/76 -- new code outpaces the sweep; the reviewer's mechanical bar catches touched
 files, not new neighbours). Heaviest layers: gltf (25), ground (14+), render (11+). Convert
 layer by layer with judgment -- a stored string wants value+move, not string_view.
+
+---
+
+Survey corrected and the vector half CLEARED (board queue, night): the 124-count was
+dominated by GETTERS returning const& to owned storage -- idiomatic, not this item's target.
+The true taking-boundary population was 11, of which Capacity.h needs the vector by nature
+(capacity() is not a span notion) and two are loop-locals. The seven real parameter sites
+are converted: SubjectDraw::SetMaterials/SetLights, Renderer::SetSubjectMaterials/Lights,
+Track::Build (times, values), Subject's skin joints, RoofSurface::Cover + its EarClip.
+Callers convert implicitly; SetLights keeps its copy via assign. 129/129 warm. Remaining:
+the ~41 const std::string& parameters, each judged (stored strings want value+move, not
+string_view).

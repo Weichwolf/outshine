@@ -1,6 +1,7 @@
 #ifndef GLTF_SUBJECT_H
 #define GLTF_SUBJECT_H
 
+#include <span>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -163,7 +164,7 @@ private:
                                     size_t components, size_t vertices, std::vector<double> &out);
   [[nodiscard]] static Transform JointMatrix(const Skin &skin, size_t joint, const Transform &world);
   [[nodiscard]] bool BlendSkinFor(const Document &document, const Skin &skin,
-                                  const std::vector<Transform> &joints, const Primitive &primitive,
+                                  std::span<const Transform> joints, const Primitive &primitive,
                                   size_t vertices, std::vector<Transform> &out);
 
   [[nodiscard]] bool FlatNormalsFor(Part &part);

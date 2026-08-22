@@ -14,7 +14,7 @@ public:
 
   double HeightAt(const Plan2 &enu) const noexcept;
 
-  void Cover(const std::vector<Plan2> &plan, std::vector<Plan2> &tris) const;
+  void Cover(std::span<const Plan2> plan, std::vector<Plan2> &tris) const;
 
   static std::vector<Plan2> Widened(std::span<const Plan2> ring, double byM);
 

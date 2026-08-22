@@ -1,6 +1,7 @@
 #ifndef SUBJECTDRAW_H
 #define SUBJECTDRAW_H
 
+#include <span>
 #include <array>
 #include <cstdint>
 #include <string>
@@ -63,7 +64,7 @@ public:
     return true;
   }
 
-  [[nodiscard]] bool SetMaterials(const std::vector<SubjectMaterial> &materials,
+  [[nodiscard]] bool SetMaterials(std::span<const SubjectMaterial> materials,
                                   std::string &error);
 
   [[nodiscard]] bool SetMesh(const SubjectMesh &mesh, std::string &error);
@@ -78,7 +79,7 @@ private:
 
 public:
 
-  [[nodiscard]] bool SetLights(const std::vector<SubjectLight> &lights, std::string &error);
+  [[nodiscard]] bool SetLights(std::span<const SubjectLight> lights, std::string &error);
 
   void SetEnvironment(const SubjectEnvironment &environment) { Environment = environment; }
 

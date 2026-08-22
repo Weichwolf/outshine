@@ -1,5 +1,7 @@
 #include "RoofSurface.h"
 
+#include <span>
+
 #include <algorithm>
 #include <cmath>
 
@@ -26,7 +28,7 @@ void PushTri(std::vector<Plan2> &out, const Plan2 &a, const Plan2 &b, const Plan
   out.push_back(c);
 }
 
-void EarClip(const std::vector<Plan2> &ring, std::vector<Plan2> &tris) {
+void EarClip(std::span<const Plan2> ring, std::vector<Plan2> &tris) {
   const size_t n = ring.size();
   if (n < 3) return;
   std::vector<uint32_t> poly(n);
@@ -195,7 +197,7 @@ double RoofSurface::HeightAt(const Plan2 &enu) const noexcept {
   return f * rise;
 }
 
-void RoofSurface::Cover(const std::vector<Plan2> &plan, std::vector<Plan2> &tris) const {
+void RoofSurface::Cover(std::span<const Plan2> plan, std::vector<Plan2> &tris) const {
   const size_t first = tris.size();
   EarClip(plan, tris);
   if (tris.size() == first) return;

@@ -1,6 +1,7 @@
 #ifndef GLTF_TRACK_H
 #define GLTF_TRACK_H
 
+#include <span>
 #include <cstddef>
 #include <vector>
 
@@ -13,8 +14,8 @@ public:
   Track() = default;
 
   [[nodiscard]] static bool Build(AnimationPath path, Interpolation how,
-                                  const std::vector<double> &times,
-                                  const std::vector<double> &values, Track &out);
+                                  std::span<const double> times,
+                                  std::span<const double> values, Track &out);
 
   [[nodiscard]] bool Valid() const { return Curve_.Valid(); }
   size_t Components() const { return Curve_.Components(); }

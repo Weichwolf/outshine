@@ -154,7 +154,7 @@ Transform Subject::JointMatrix(const Skin &skin, size_t joint, const Transform &
 }
 
 bool Subject::BlendSkinFor(const Document &document, const Skin &skin,
-                           const std::vector<Transform> &joints, const Primitive &primitive,
+                           std::span<const Transform> joints, const Primitive &primitive,
                            size_t vertices, std::vector<Transform> &out) {
   std::vector<double> index;
   std::vector<double> weight;

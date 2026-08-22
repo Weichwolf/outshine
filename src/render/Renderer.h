@@ -1,6 +1,7 @@
 #ifndef RENDERER_H
 #define RENDERER_H
 
+#include <span>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -98,12 +99,12 @@ public:
     return Subjects_.SetPose(pose, error) && (!DrawsGlass_ || Glass_.SetPose(pose, error));
   }
 
-  [[nodiscard]] bool SetSubjectMaterials(const std::vector<SubjectMaterial> &materials,
+  [[nodiscard]] bool SetSubjectMaterials(std::span<const SubjectMaterial> materials,
                                          std::string &error) {
     return Subjects_.SetMaterials(materials, error) && (!DrawsGlass_ || Glass_.SetMaterials(materials, error));
   }
 
-  [[nodiscard]] bool SetSubjectLights(const std::vector<SubjectLight> &lights, std::string &error) {
+  [[nodiscard]] bool SetSubjectLights(std::span<const SubjectLight> lights, std::string &error) {
     return Subjects_.SetLights(lights, error) && (!DrawsGlass_ || Glass_.SetLights(lights, error));
   }
 
