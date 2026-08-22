@@ -49,3 +49,31 @@ layer of declaration factories that return a composed Scenario VALUE (Earth's te
 or any sphere from its params), which then walks through the normal Declare/Assemble door. The
 engine core stays scenario-agnostic; convenience is a library citizen with its own folder, not
 a facade verb. The template study (running) decides the file shape.
+
+---
+
+**Learned from the template study (2026-08-22; Cesium, Kopernicus, UE config layers, Godot
+scene inheritance, X-Plane/MSFS scenery stacks, the Rails doctrine).** The decided shape:
+
+1. **Earth lives at `src/assets/scenarios/earth.xml`** (moon.xml beside it) -- declared data in
+   the assets catalogue, referenced by clients and scenarios, never by the engine (Cesium's
+   ion-asset shape: the factory wraps a generic provider with a curated data handle).
+2. **`<world template="earth">` is Godot-style instancing, one level deep**: the scenario
+   INSTANCES the template and carries only deltas. NOT a patch language (ModuleManager is the
+   documented tar pit -- one author per scenario needs none of it), NOT a multi-layer stack
+   (Unreal's eleven layers need their own diagnostics; MSFS and X-Plane cannot even agree on
+   list direction).
+3. **No merger machine -- the parity law twice**: the XML reader walks the template through the
+   assembly API, then the deltas through the same API on top. Setting replaces; REMOVAL IS
+   NAMED (`<atmosphere none/>`, Kopernicus's removeAtmosphere) -- omitting never deletes.
+   Per-field merge semantics are declared: scalars replace, lists (providers, generators) take
+   explicit operators or whole-list replacement, never implicit merging (X-Plane's
+   replace-vs-stack lesson).
+4. **`Scenario Earth()` is a factory returning a declaration** -- no behaviour, no engine verb,
+   living beside the client exactly as Terrain.fromWorldTerrain() lives beside
+   CesiumTerrainProvider; the Moon is the same factory over a different file.
+5. **Contract rules from the pitfalls**: exactly two layers; the EFFECTIVE declaration is
+   queryable field-by-source (the Carried()/WhyNot() family); an override against a field the
+   template no longer carries is a LOUD error at Declare (Godot's silent orphan is the
+   counterexample); and the template must hold 720p60 with zero overrides -- a default that
+   requires overrides is a form, not a default (Rails: substitutions possible, never required).
