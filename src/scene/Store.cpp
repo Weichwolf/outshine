@@ -459,8 +459,8 @@ const Store::Slot *Store::Held(Entity of) const {
   return &slot;
 }
 
-bool Store::Refuse(const std::string &why) {
-  Error_ = why;
+bool Store::Refuse(std::string why) {
+  Error_ = std::move(why);
   return false;
 }
 

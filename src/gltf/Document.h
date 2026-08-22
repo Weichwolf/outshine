@@ -67,7 +67,7 @@ public:
   [[nodiscard]] bool ViewTransform(int cameraNode, Transform &out) const;
 
 private:
-  [[nodiscard]] bool Refuse(const std::string &why);
+  [[nodiscard]] bool Refuse(std::string why);
 
   [[nodiscard]] bool Chain(int node, const Transform *posed, Transform &out) const;
   [[nodiscard]] bool ReadJson(const char *text, size_t length, const uint8_t *binaryChunk,

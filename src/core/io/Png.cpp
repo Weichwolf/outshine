@@ -25,7 +25,7 @@ int Paeth(int left, int above, int corner) {
   return toAbove <= toCorner ? above : corner;
 }
 
-Png Refuse(const std::string &why) {
+Png Refuse(std::string why) {
   Png out;
   out.Error = why;
   return out;

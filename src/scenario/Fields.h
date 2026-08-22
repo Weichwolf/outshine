@@ -65,7 +65,7 @@ public:
     if (Err_.empty()) Err_ = Path_ + "." + key + " " + why;
     return false;
   }
-  [[nodiscard]] bool Refuse(const std::string &why) {
+  [[nodiscard]] bool Refuse(std::string why) {
     if (Err_.empty()) Err_ = Path_ + " " + why;
     return false;
   }

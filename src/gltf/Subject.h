@@ -152,7 +152,7 @@ public:
   double ProjectedAreaPx(const Transform &clip, const Viewport &viewport) const;
 
 private:
-  [[nodiscard]] bool Refuse(const std::string &why);
+  [[nodiscard]] bool Refuse(std::string why);
 
   [[nodiscard]] bool Flatten(const Document &document, const Transform *pose,
                              const double *weights, const VariantSelection &variant);

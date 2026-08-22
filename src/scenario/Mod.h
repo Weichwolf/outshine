@@ -23,7 +23,7 @@ public:
   std::string Ids() const;
 
 private:
-  [[nodiscard]] bool Refuse(const std::string &why);
+  [[nodiscard]] bool Refuse(std::string why);
 
   std::string Name_, Path_, Error_;
   std::vector<Scene> Scenes_;

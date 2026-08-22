@@ -59,3 +59,8 @@ RenderPlan::StageByName, Document::Honours (all compare/hash, nothing stored). 1
 Deferred with grounds: the Script interface (virtual overriders ripple), TilePool keys (the
 map's find would copy anyway without a transparent hash -- convert when the map does), the
 Refuse/store family (value+move is the right form, a separate sitting).
+
+Progress: the Refuse family (13 sites) takes its message by VALUE and moves it into Error_
+where it lands unmodified -- a refusal built from concatenation now moves instead of copying.
+Remaining, each with named grounds: the Script virtual interface (overrider ripple), TilePool
+keys (map lacks a transparent hash), the read-only string params judged site by site.

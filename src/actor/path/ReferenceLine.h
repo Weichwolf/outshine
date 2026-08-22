@@ -76,7 +76,7 @@ private:
     double AlongM = 0.0;
   };
   [[nodiscard]] static Placed Walk(const Placed &from, const Segment &along, double byM);
-  [[nodiscard]] bool Refuse(const std::string &why);
+  [[nodiscard]] bool Refuse(std::string why);
   [[nodiscard]] bool Fasten(std::span<const Knot> through, const char *what, const char *unit,
                             std::vector<Knot> &into, std::string &error);
   static void Read(std::span<const Knot> through, double alongM, double &value, double &rate,

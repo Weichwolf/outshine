@@ -24,8 +24,8 @@ double HeadingAlong(const Segment &along, double byM) {
 
 } // namespace
 
-bool ReferenceLine::Refuse(const std::string &why) {
-  Error_ = why;
+bool ReferenceLine::Refuse(std::string why) {
+  Error_ = std::move(why);
   Laid_.clear();
   Rise_.clear();
   Bank_.clear();

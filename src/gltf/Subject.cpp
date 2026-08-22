@@ -455,8 +455,8 @@ bool Placement::Clip(double viewportAspect, Transform &out) const {
   return true;
 }
 
-bool Subject::Refuse(const std::string &why) {
-  Error_ = why;
+bool Subject::Refuse(std::string why) {
+  Error_ = std::move(why);
   Positions_.clear();
   Uv_.clear();
   Uv1_.clear();

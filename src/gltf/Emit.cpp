@@ -87,8 +87,8 @@ public:
   }
 
 private:
-  [[nodiscard]] bool Refuse(const std::string &why) {
-    Error_ = why;
+  [[nodiscard]] bool Refuse(std::string why) {
+    Error_ = std::move(why);
     return false;
   }
 
