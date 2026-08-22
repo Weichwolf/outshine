@@ -37,3 +37,10 @@ edge-on -- and the tears are the grading grid's 3 m posts sawing across that sam
 carriageway has no visible vertical edge; the shoulder falls away as a bank. The fix candidates:
 sweep the outer edge as the 1:1.5 bank it is (the Section already declares the slope family), or
 snap the verge boundary onto the edge polyline -- either kills the line and the teeth together.
+
+The kerb is gone: the blend zone beside the shoulder started at FORMATION height (road minus the
+0.35 m thickness), so the first visible ground beside every metre of carriageway sat a kerb's
+drop below the deck -- the sun-averted face of that step was the systemic ink line, and the 3 m
+posts sawing across it were the teeth. The blend starts at DECK height now, and km 17.3's framed
+edge shows the teeth collapsed to a soft moire and the ink to a faint residue. What remains is
+the 3 m grid against the 2 m edge polyline -- this item's original statement, now the whole of it.

@@ -122,13 +122,14 @@ bool Lie(const Journey &journey, const double aboutM[3], const double originM[3]
       const double nearestM = std::sqrt(dEast * dEast + dNorth * dNorth);
       const double roadM = on.LowestM;
       const double formationM = roadM - section.ThicknessM;
-      const double liftM = formationM - aslM;
+      const double liftM = roadM - aslM;
       const double reachM = keptM + std::fabs(liftM) * kSideSlopeRun;
       if (nearestM <= keptM) {
         aslM = formationM;
       } else if (nearestM < reachM) {
+
         const double part = (nearestM - keptM) / (reachM - keptM);
-        aslM = formationM + (aslM - formationM) * part * part * (3.0 - 2.0 * part);
+        aslM = roadM + (aslM - roadM) * part * part * (3.0 - 2.0 * part);
       }
       heightM[(size_t)row * (size_t)side + (size_t)column] = aslM;
     }
