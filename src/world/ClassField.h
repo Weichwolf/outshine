@@ -11,6 +11,7 @@
 
 #include "ClassBuilder.h"
 #include "OsmField.h"
+#include "TilePool.h"
 #include "TangentFrame.h"
 
 namespace outshine::World {
@@ -22,7 +23,7 @@ public:
   void SetVegetation(const VegetationTemplates *veg) { Veg_ = veg; }
   void Open(double lat, double lon);
 
-  void Update(double camLat, double camLon);
+  void Update(TilePool &tiles, double camLat, double camLon);
 
   std::shared_ptr<const ClassStructure> Read() const {
     std::lock_guard<std::mutex> lk(Mu_);

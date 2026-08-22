@@ -30,7 +30,7 @@ uint32_t OsmField::Intern(std::vector<std::string> &pool,
   return id;
 }
 
-int OsmField::Build(double lat, double lon, int ringTiles) {
+int OsmField::Build(TilePool &tiles, double lat, double lon, int ringTiles) {
   uint32_t cx = 0, cy = 0;
   Pending_ = 0;
 
@@ -51,7 +51,7 @@ int OsmField::Build(double lat, double lon, int ringTiles) {
       if (std::find(Done_.begin(), Done_.end(), key) != Done_.end()) continue;
 
       if (decoded) { Pending_++; continue; }
-      if (!AddTile((int)tx, (int)ty, added)) { Pending_++; continue; }
+      if (!AddTile(tiles, (int)tx, (int)ty, added)) { Pending_++; continue; }
       Done_.push_back(key);
       decoded = true;
     }
@@ -75,10 +75,10 @@ Span<const OsmField::Feature> OsmField::OfTile(int index) const {
   return Span<const Feature>(Features_.data() + t.FirstFeature, t.FeatureCount);
 }
 
-bool OsmField::AddTile(int tx, int ty, int &added) {
+bool OsmField::AddTile(TilePool &tiles, int tx, int ty, int &added) {
   const Data::Request request(Data::DataKind::VectorMap,
                               Data::Address::Tile(Zoom_, (uint32_t)tx, (uint32_t)ty));
-  const TilePool::Reply reply = GroundTiles()->Bytes(request, &Scratch_);
+  const TilePool::Reply reply = tiles.Bytes(request, &Scratch_);
 
   if (reply == TilePool::Reply::Pending || reply == TilePool::Reply::Refused) return false;
 

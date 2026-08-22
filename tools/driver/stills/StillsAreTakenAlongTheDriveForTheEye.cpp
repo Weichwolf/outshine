@@ -107,7 +107,7 @@ bool Lie(const Journey &journey, const double aboutM[3], const double originM[3]
     for (int column = 0; column < side; ++column) {
       const double eastM = aboutM[0] - kGroundReachM + (double)column * kGroundStepM;
       const outshine::GroundSample sample =
-          outshine::World::GroundAt(frameLat + northM / perLatM, frameLon + eastM / perLonM);
+          journey.Ground().At(frameLat + northM / perLatM, frameLon + eastM / perLonM);
       double aslM = 0.0;
       if (!sample.TryAslM(&aslM)) { ++out.Holes; }
 
@@ -195,7 +195,7 @@ bool Lie(const Journey &journey, const double aboutM[3], const double originM[3]
       for (int column = 0; column < farSide; ++column) {
         const double eastM = aboutM[0] - kHorizonReachM + (double)column * kFarStepM;
         const outshine::GroundSample sample =
-            outshine::World::GroundAt(frameLat + northM / perLatM, frameLon + eastM / perLonM);
+            journey.Ground().At(frameLat + northM / perLatM, frameLon + eastM / perLonM);
         double aslM = lastAslM;
         if (sample.TryAslM(&aslM)) { lastAslM = aslM; }
         const double dEastM = eastM - aboutM[0];
@@ -376,7 +376,7 @@ int main(void) {
   const bool lies = Lie(journey, aboutM, originM, section, 0.0, kShownM, centre, ground);
   Note("holes the ground sampling met", (double)ground.Holes, "posts");
   CHECK(lies, "**AND THE GROUND UNDER THE ROAD IS SAMPLED FROM THE FIELD THE WHEELS STAND ON.** "
-              "outshine::World::GroundAt is what the drive already asks for every contact, so the drawn "
+              "the journey's own GroundStream is what the drive already asks for every contact, so the drawn "
               "ground and the driven ground are ONE ground rather than two");
   if (!lies) { return Report(); }
 
@@ -584,7 +584,7 @@ int main(void) {
         const double carEastM = body[12] + originM[0];
         const double carNorthM = -(body[14] + originM[2]);
         const outshine::GroundSample under =
-            outshine::World::GroundAt(fLat + carNorthM / pLat, fLon + carEastM / pLon);
+            journey.Ground().At(fLat + carNorthM / pLat, fLon + carEastM / pLon);
         double aslM = 0.0;
         if (under.TryAslM(&aslM)) {
           const double roadAslM =

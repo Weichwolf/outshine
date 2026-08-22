@@ -137,6 +137,8 @@ namespace outshine::Driver {
 struct Journey::State {
   std::unique_ptr<outshine::Data::ContentStore> Store;
   std::unique_ptr<outshine::Data::SourceSet> Sources;
+  std::unique_ptr<outshine::World::TilePool> Pool;
+  std::unique_ptr<outshine::World::GroundStream> Ground;
   outshine::Scenario Declared;
   outshine::Clients::Rigged Stood;
   outshine::ReferenceLine Corridor;
@@ -168,12 +170,15 @@ Journey::~Journey() { Close(); }
 
 void Journey::Close(void) {
   if (S_ && S_->Opened) {
-    outshine::World::CloseGround();
+    S_->Ground.reset();
+    S_->Pool.reset();
     S_->Opened = false;
   }
 }
 
 const outshine::Physics::Body &Journey::Carried(void) const { return S_->Body; }
+outshine::World::GroundStream &Journey::Ground(void) const { return *S_->Ground; }
+
 const outshine::ReferenceLine &Journey::Corridor(void) const { return S_->Corridor; }
 const outshine::Scenario &Journey::Declared(void) const { return S_->Declared; }
 double Journey::LengthM(void) const { return S_->Corridor.LengthM(); }
@@ -262,12 +267,12 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
   outshine::World::GroundSurface surface;
   surface.Z = 12;
   surface.Grid = 64;
-  const int opened = outshine::World::OpenGround(sources, wire, middleLat, middleLon, surface);
-  say.Claim(opened == 1,
-        "the streamer opens over the declared sources -- and it is a GLOBAL, which is what "
-        "OsmField reaches for. CLAUDE.md gives neither a global nor a singleton a place to live, "
-        "and board:1527 is that finding");
-  if (opened != 1) { return false; }
+  S_->Pool = std::make_unique<outshine::World::TilePool>(
+      outshine::World::GroundPoolConfig(middleLat, middleLon), sources, wire);
+  S_->Ground = std::make_unique<outshine::World::GroundStream>(*S_->Pool, surface);
+  say.Claim(true,
+        "the streamer opens over the declared sources as an OBJECT this journey owns -- the "
+        "global that OsmField once reached for is gone, which was board:1527's finding");
 
   OsmField field(kZoom, OsmLayerNames({OsmLayer::Streets, OsmLayer::StreetPolygons}));
   const auto began = std::chrono::steady_clock::now();
@@ -279,7 +284,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
     const double atLat = fromLatDeg + part * (toLatDeg - fromLatDeg);
     const double atLon = fromLonDeg + part * (toLonDeg - fromLonDeg);
     for (;;) {
-      built += field.Build(atLat, atLon, kCorridorRing);
+      built += field.Build(*S_->Pool, atLat, atLon, kCorridorRing);
       ++passes;
       if (field.PendingTiles() == 0) { break; }
       if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >
@@ -519,7 +524,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
   if (!stood.Stood) { return false; }
 
 
-  const double postM = outshine::World::GroundPostM(middleLat);
+  const double postM = S_->Ground->PostM(middleLat);
   const long posts = (long)std::ceil(fitted.LengthM / postM);
   say.Number("the elevation source's own post spacing here", postM, "m");
   say.Number("stations the corridor is sampled at", (double)(posts + 1), "stations");
@@ -535,7 +540,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
     const double latDeg = frameLat + on.NorthM / perLatM;
     const double lonDeg = frameLon + on.EastM / perLonM;
     for (;;) {
-      const outshine::GroundSample ground = outshine::World::GroundAt(latDeg, lonDeg);
+      const outshine::GroundSample ground = S_->Ground->At(latDeg, lonDeg);
       double aslM = 0.0;
       if (ground.TryAslM(&aslM)) {
         heightM[(size_t)post] = aslM;

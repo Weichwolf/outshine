@@ -3,7 +3,6 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
-#include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <thread>
@@ -31,7 +30,10 @@ constexpr size_t kByteBudget = 64u * 1024u * 1024u;
 
 constexpr int kPoolDemCacheTiles = 16;
 
-std::unique_ptr<TilePool> gPool;
+constexpr int kGroundSlots = 12;
+
+constexpr int kGroundStitchGrids = 5;
+constexpr double kGroundGridBytes = 256.0 * 256.0 * 4.0;
 
 double Clamped01(double v) { return v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v); }
 
@@ -41,123 +43,24 @@ double Wrapped180(double lonDeg) {
   return lonDeg;
 }
 
-int PoolThreads() {
-  unsigned hw = std::thread::hardware_concurrency();
+int DerivedThreads(int workers) {
+  if (workers > 0 && workers <= 32) return workers;
+  const unsigned hw = std::thread::hardware_concurrency();
   int n = hw > 3u ? (int)hw - 2 : 1;
   if (n > kMaxTileThreads) n = kMaxTileThreads;
-
-  if (const char *e = getenv("FB_TILEWORKERS")) {
-    const int w = atoi(e);
-    if (w > 0 && w <= 32) n = w;
-  }
   return n;
 }
 
-constexpr int kGroundSlots = 12;
-
-constexpr int kGroundStitchGrids = 5;
-constexpr double kGroundGridBytes = 256.0 * 256.0 * 4.0;
-
-struct GroundTile {
-  long X = 0, Y = 0;
-  int Nodes = 0;
-  uint32_t Postings = 0;
-  std::vector<float> H;
-  bool Resident = false;
-  bool Hole = false;
-  uint64_t Used = 0;
-};
-
-GroundSurface gSurface{14, 128};
-GroundTile gGround[kGroundSlots];
-uint64_t gGroundClock = 0;
-long gGroundBuilds = 0;
-long gGroundDecodes = 0;
-double gGroundStitchMs = 0.0;
-bool gGroundPending = false;
-
-class OracleTerrain : public TerrainSource {
- public:
-  TerrainBytes Take(int z, uint32_t x, uint32_t y) override {
-    if (!gPool) return TerrainBytes::Wire();
-    gGroundDecodes++;
-    const Data::Request request(Data::DataKind::Elevation, Data::Address::Tile(z, x, y));
-    TilePool::Landing landing;
-    switch (gPool->BytesBlocking(request, &landing)) {
-      case TilePool::Reply::Ready: {
-
-        int az = 0;
-        uint32_t ax = 0, ay = 0;
-        if (!landing.At.TryTile(&az, &ax, &ay)) return TerrainBytes::Wire();
-        return TerrainBytes::From(az, ax, ay, std::move(landing.Bytes));
-      }
-      case TilePool::Reply::Absent: return TerrainBytes::Nothing();
-
-      case TilePool::Reply::Undeclared: return TerrainBytes::Nothing();
-      case TilePool::Reply::Refused: return TerrainBytes::Wire();
-      case TilePool::Reply::Pending: break;
-    }
-    gGroundPending = true;
-    return TerrainBytes::Waiting();
-  }
-};
-
-OracleTerrain gGroundSource;
-std::unique_ptr<TerrainTiles> gGroundTiles;
-
 void FillNodeHeights(const TerrainField &field, uint32_t rowPostings, uint32_t colPostings,
-                     GroundTile *out) {
-  out->H.resize((size_t)out->Nodes * (size_t)out->Nodes);
-  for (int j = 0; j < out->Nodes; j++) {
-    const double fr = PostingFrac(World::ChunkNodePosting(j, rowPostings, out->Nodes), rowPostings);
-    for (int i = 0; i < out->Nodes; i++) {
-      const double fc = PostingFrac(World::ChunkNodePosting(i, colPostings, out->Nodes), colPostings);
-      out->H[(size_t)j * (size_t)out->Nodes + (size_t)i] = field.InterpolatedM(fc, fr);
+                     int nodes, std::vector<float> *out) {
+  out->resize((size_t)nodes * (size_t)nodes);
+  for (int j = 0; j < nodes; j++) {
+    const double fr = PostingFrac(World::ChunkNodePosting(j, rowPostings, nodes), rowPostings);
+    for (int i = 0; i < nodes; i++) {
+      const double fc = PostingFrac(World::ChunkNodePosting(i, colPostings, nodes), colPostings);
+      (*out)[(size_t)j * (size_t)nodes + (size_t)i] = field.InterpolatedM(fc, fr);
     }
   }
-}
-
-const GroundTile *GroundTileAt(long x, long y) {
-  GroundTile *victim = &gGround[0];
-  for (GroundTile &t : gGround) {
-    if (t.Resident && t.X == x && t.Y == y) {
-      t.Used = ++gGroundClock;
-      return t.Hole ? nullptr : &t;
-    }
-    if (t.Used < victim->Used) victim = &t;
-  }
-  if (!gGroundTiles) return nullptr;
-  gGroundPending = false;
-  const std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
-  const TerrainGrid grid = gGroundTiles->StitchedGrid(gSurface.Z, (uint32_t)x, (uint32_t)y);
-  gGroundStitchMs +=
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-  const TerrainField *field = grid.TryField();
-  if (grid.Where() == TerrainGrid::State::Undecodable) {
-
-    Log::Error("world", "ground_grid_failed", {{"z", gSurface.Z}, {"x", (int)x}, {"y", (int)y}});
-  }
-  const uint32_t stride = gGroundTiles->Stride();
-  const uint32_t rowPostings = field ? PostingsPerEdge(field->Rows(), stride) : 0;
-  const uint32_t colPostings = field ? PostingsPerEdge(field->Cols(), stride) : 0;
-  const int gr = field ? World::ChunkNodes(rowPostings, gSurface.Grid) : 0;
-  const int gc = field ? World::ChunkNodes(colPostings, gSurface.Grid) : 0;
-  const bool square = gr >= 2 && gr == gc && rowPostings == colPostings;
-  if (gGroundPending) return nullptr;
-  gGroundBuilds++;
-  victim->X = x;
-  victim->Y = y;
-  victim->Used = ++gGroundClock;
-  victim->Resident = true;
-  victim->Hole = !square;
-  victim->Nodes = square ? gr : 0;
-  victim->Postings = square ? colPostings : 0;
-  if (!square) {
-    victim->H.clear();
-    return nullptr;
-  }
-  FillNodeHeights(*field, rowPostings, colPostings, victim);
-  return victim;
 }
 
 double TileHeightAslM(const float *nodes, int side, uint32_t postings, double fx, double fy) {
@@ -175,84 +78,154 @@ double TileHeightAslM(const float *nodes, int side, uint32_t postings, double fx
   return (double)World::ChunkCellHeight(cell, su, sv);
 }
 
-void GroundOpen(GroundSurface surface) {
-  gSurface = surface;
-
-  TerrainTiles::Config config;
-  config.DemCacheTiles = kGroundStitchGrids;
-  gGroundTiles = std::make_unique<TerrainTiles>(gGroundSource, EnuFrame::At(0.0, 0.0), config);
-}
-
-void GroundClose() {
-  if (gGroundTiles)
-    Log::Debug("world", "ground_oracle",
-        {{"tileBuilds", (int)gGroundBuilds}, {"demDecodes", (int)gGroundDecodes},
-         {"decodesPerBuild", gGroundBuilds ? (double)gGroundDecodes / (double)gGroundBuilds : 0.0},
-         {"stitchMs", gGroundStitchMs},
-         {"stitchMsPerBuild", gGroundBuilds ? gGroundStitchMs / (double)gGroundBuilds : 0.0},
-         {"gridCache", kGroundStitchGrids},
-         {"gridCacheMB", kGroundStitchGrids * kGroundGridBytes / 1048576.0}});
-  gGroundBuilds = 0;
-  gGroundStitchMs = 0.0;
-  gGroundDecodes = 0;
-  gGroundTiles.reset();
-  for (GroundTile &t : gGround) t = GroundTile{};
-  gGroundClock = 0;
-}
-
 }
 
 namespace outshine::World {
 
-int OpenGround(Data::SourceSet &sources, Data::Transport &transport, double lat, double lon,
-                   GroundSurface surface) {
-  TilePool::Config config;
-  config.OriginLatDeg = lat;
-  config.OriginLonDeg = lon;
-  config.Threads = PoolThreads();
-  config.ByteBudget = kByteBudget;
-  config.DemCacheTiles = kPoolDemCacheTiles;
-  gPool = std::make_unique<TilePool>(config, sources, transport);
-  GroundOpen(surface);
-  return 1;
+struct Tile {
+  long X = 0, Y = 0;
+  int Nodes = 0;
+  uint32_t Postings = 0;
+  std::vector<float> H;
+  bool Resident = false;
+  bool Hole = false;
+  uint64_t Used = 0;
+};
+
+struct GroundStream::Held {
+  class Oracle : public TerrainSource {
+   public:
+    explicit Oracle(Held &held) : Held_(held) {}
+    TerrainBytes Take(int z, uint32_t x, uint32_t y) override {
+      Held_.Decodes++;
+      const Data::Request request(Data::DataKind::Elevation, Data::Address::Tile(z, x, y));
+      TilePool::Landing landing;
+      switch (Held_.Pool.BytesBlocking(request, &landing)) {
+        case TilePool::Reply::Ready: {
+          int az = 0;
+          uint32_t ax = 0, ay = 0;
+          if (!landing.At.TryTile(&az, &ax, &ay)) return TerrainBytes::Wire();
+          return TerrainBytes::From(az, ax, ay, std::move(landing.Bytes));
+        }
+        case TilePool::Reply::Absent: return TerrainBytes::Nothing();
+        case TilePool::Reply::Undeclared: return TerrainBytes::Nothing();
+        case TilePool::Reply::Refused: return TerrainBytes::Wire();
+        case TilePool::Reply::Pending: break;
+      }
+      Held_.Pending = true;
+      return TerrainBytes::Waiting();
+    }
+
+   private:
+    Held &Held_;
+  };
+
+  explicit Held(TilePool &pool) : Pool(pool), Source(*this) {
+    TerrainTiles::Config config;
+    config.DemCacheTiles = kGroundStitchGrids;
+    Stitched = std::make_unique<TerrainTiles>(Source, EnuFrame::At(0.0, 0.0), config);
+  }
+
+  TilePool &Pool;
+  Oracle Source;
+  std::unique_ptr<TerrainTiles> Stitched;
+  Tile Ground[kGroundSlots];
+  uint64_t Clock = 0;
+  long Builds = 0;
+  long Decodes = 0;
+  double StitchMs = 0.0;
+  bool Pending = false;
+};
+
+GroundStream::GroundStream(TilePool &tiles, GroundSurface surface)
+    : Tiles_(tiles), Surface_(surface), Held_(std::make_unique<Held>(tiles)) {}
+
+GroundStream::~GroundStream() {
+  if (Held_ && Held_->Builds > 0) {
+    Log::Debug("world", "ground_oracle",
+               {{"tileBuilds", (int)Held_->Builds},
+                {"demDecodes", (int)Held_->Decodes},
+                {"decodesPerBuild",
+                 Held_->Builds ? (double)Held_->Decodes / (double)Held_->Builds : 0.0},
+                {"stitchMs", Held_->StitchMs},
+                {"stitchMsPerBuild",
+                 Held_->Builds ? Held_->StitchMs / (double)Held_->Builds : 0.0},
+                {"gridCache", kGroundStitchGrids},
+                {"gridCacheMB", kGroundStitchGrids * kGroundGridBytes / 1048576.0}});
+  }
 }
 
-void CloseGround(void) {
-  GroundClose();
-  gPool.reset();
+const Tile *GroundStream::TileAt(long x, long y) const {
+  Held &held = *Held_;
+  Tile *victim = &held.Ground[0];
+  for (Tile &t : held.Ground) {
+    if (t.Resident && t.X == x && t.Y == y) {
+      t.Used = ++held.Clock;
+      return t.Hole ? nullptr : &t;
+    }
+    if (t.Used < victim->Used) victim = &t;
+  }
+  held.Pending = false;
+  const std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
+  const TerrainGrid grid = held.Stitched->StitchedGrid(Surface_.Z, (uint32_t)x, (uint32_t)y);
+  held.StitchMs +=
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+  const TerrainField *field = grid.TryField();
+  if (grid.Where() == TerrainGrid::State::Undecodable) {
+    Log::Error("world", "ground_grid_failed", {{"z", Surface_.Z}, {"x", (int)x}, {"y", (int)y}});
+  }
+  const uint32_t stride = held.Stitched->Stride();
+  const uint32_t rowPostings = field ? PostingsPerEdge(field->Rows(), stride) : 0;
+  const uint32_t colPostings = field ? PostingsPerEdge(field->Cols(), stride) : 0;
+  const int gr = field ? World::ChunkNodes(rowPostings, Surface_.Grid) : 0;
+  const int gc = field ? World::ChunkNodes(colPostings, Surface_.Grid) : 0;
+  const bool square = gr >= 2 && gr == gc && rowPostings == colPostings;
+  if (held.Pending) return nullptr;
+  held.Builds++;
+  victim->X = x;
+  victim->Y = y;
+  victim->Used = ++held.Clock;
+  victim->Resident = true;
+  victim->Hole = !square;
+  victim->Nodes = square ? gr : 0;
+  victim->Postings = square ? colPostings : 0;
+  if (!square) {
+    victim->H.clear();
+    return nullptr;
+  }
+  FillNodeHeights(*field, rowPostings, colPostings, victim->Nodes, &victim->H);
+  return victim;
 }
 
-TilePool *GroundTiles(void) { return gPool.get(); }
-
-double GroundPostM(double latDeg) {
-  return 40075016.686 * std::cos(latDeg * 3.14159265358979 / 180.0) /
-         (double)((long)1 << gSurface.Z) / (double)gSurface.Grid;
-}
-
-GroundSample GroundAt(double lat, double lon) {
+GroundSample GroundStream::At(double lat, double lon) const {
   lon = Wrapped180(lon);
   Geo place;
   place.LatDeg = lat;
   place.LonDeg = lon;
-  const TileFrac f = ToTileFracClamped(place, gSurface.Z);
+  const TileFrac f = ToTileFracClamped(place, Surface_.Z);
   long hx = (long)f.X, hy = (long)f.Y;
-  if (!WrapTile(gSurface.Z, &hx, &hy)) return GroundSample::Missing();
-  gGroundPending = false;
-  const GroundTile *t = GroundTileAt(hx, hy);
-  if (!t) return gGroundPending ? GroundSample::Waiting() : GroundSample::Missing();
+  if (!WrapTile(Surface_.Z, &hx, &hy)) return GroundSample::Missing();
+  Held_->Pending = false;
+  const Tile *t = TileAt(hx, hy);
+  if (!t) return Held_->Pending ? GroundSample::Waiting() : GroundSample::Missing();
   return GroundSample::At(
       TileHeightAslM(t->H.data(), t->Nodes, t->Postings, f.X - (double)hx, f.Y - (double)hy));
 }
 
-GroundBlock GroundBlockAt(int z, long x, long y) {
+double GroundStream::PostM(double latDeg) const {
+  return 40075016.686 * std::cos(latDeg * 3.14159265358979 / 180.0) /
+         (double)((long)1 << Surface_.Z) / (double)Surface_.Grid;
+}
+
+GroundBlock GroundStream::BlockAt(int z, long x, long y) const {
   GroundBlock block;
-  if (z != gSurface.Z) return block;
+  if (z != Surface_.Z) return block;
   long hx = x, hy = y;
   if (!WrapTile(z, &hx, &hy)) return block;
-  gGroundPending = false;
-  const GroundTile *t = GroundTileAt(hx, hy);
+  Held_->Pending = false;
+  const Tile *t = TileAt(hx, hy);
   if (!t) {
-    block.Where_ = gGroundPending ? GroundBlock::State::Pending : GroundBlock::State::Missing;
+    block.Where_ = Held_->Pending ? GroundBlock::State::Pending : GroundBlock::State::Missing;
     return block;
   }
   block.Nodes_ = t->H.data();
@@ -266,7 +239,7 @@ GroundBlock GroundBlockAt(int z, long x, long y) {
 }
 
 void GroundBlock::AslMRow(double latDeg, double lonFromDeg, double lonStepDeg, int count,
-                            double *out) const noexcept {
+                          double *out) const noexcept {
   Geo from;
   from.LatDeg = latDeg;
   from.LonDeg = Wrapped180(lonFromDeg);
@@ -285,13 +258,22 @@ void GroundBlock::AslMRow(double latDeg, double lonFromDeg, double lonStepDeg, i
     out[i] = TileHeightAslM(Nodes_, Side_, Postings_, fx0 + (double)i * fxStep, fy);
 }
 
-FetchedStars FetchStars(uint8_t *dst, int cap) {
-  if (!gPool) return {FetchedStars::State::Complete, 0};
+TilePool::Config GroundPoolConfig(double lat, double lon, int workers) {
+  TilePool::Config config;
+  config.OriginLatDeg = lat;
+  config.OriginLonDeg = lon;
+  config.Threads = DerivedThreads(workers);
+  config.ByteBudget = kByteBudget;
+  config.DemCacheTiles = kPoolDemCacheTiles;
+  return config;
+}
+
+FetchedStars FetchStars(TilePool &tiles, uint8_t *dst, int cap) {
   int off = 0;
   TilePool::Landing band;
   for (uint32_t b = 0; b < Data::StarBands::kBands; b++) {
     const Data::Request request(Data::DataKind::StarCatalogue, Data::Address::Whole(b));
-    const TilePool::Reply reply = gPool->Bytes(request, &band);
+    const TilePool::Reply reply = tiles.Bytes(request, &band);
 
     if (reply == TilePool::Reply::Pending) return {FetchedStars::State::Pending, 0};
     if (reply != TilePool::Reply::Ready || band.Bytes.empty()) break;

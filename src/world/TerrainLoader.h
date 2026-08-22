@@ -2,6 +2,8 @@
 #define TERRAINLOADER_H
 #include <stdint.h>
 
+#include <memory>
+
 #include "GroundSample.h"
 #include "TilePool.h"
 
@@ -14,19 +16,7 @@ namespace outshine::World {
 
 struct GroundSurface { int Z; int Grid; };
 
-int  OpenGround(outshine::Data::SourceSet &sources, outshine::Data::Transport &transport,
-                    double lat, double lon, GroundSurface surface);
-void CloseGround(void);
-
-TilePool *GroundTiles(void);
-
-GroundSample GroundAt(double lat, double lon);
-
-double GroundPostM(double latDeg);
-
-class GroundBlock;
-
-GroundBlock GroundBlockAt(int z, long x, long y);
+class TerrainTiles;
 
 class GroundBlock {
 public:
@@ -38,7 +28,7 @@ public:
                double *out) const noexcept;
 
 private:
-  friend GroundBlock GroundBlockAt(int z, long x, long y);
+  friend class GroundStream;
 
   const float *Nodes_ = nullptr;
   long X_ = 0, Y_ = 0;
@@ -47,13 +37,40 @@ private:
   State Where_ = State::Missing;
 };
 
+class GroundStream {
+public:
+  GroundStream(TilePool &tiles, GroundSurface surface);
+  ~GroundStream();
+  GroundStream(const GroundStream &) = delete;
+  GroundStream &operator=(const GroundStream &) = delete;
+
+  [[nodiscard]] GroundSample At(double lat, double lon) const;
+
+  [[nodiscard]] double PostM(double latDeg) const;
+
+  [[nodiscard]] GroundBlock BlockAt(int z, long x, long y) const;
+
+  [[nodiscard]] TilePool &Tiles() { return Tiles_; }
+
+private:
+  struct Held;
+  friend struct Held;
+
+  const struct Tile *TileAt(long x, long y) const;
+
+  TilePool &Tiles_;
+  GroundSurface Surface_;
+  std::unique_ptr<Held> Held_;
+};
+
+[[nodiscard]] TilePool::Config GroundPoolConfig(double lat, double lon, int workers = 0);
 
 struct FetchedStars {
   enum class State { Pending, Complete };
   State Where;
   int Bytes;
 };
-FetchedStars FetchStars(uint8_t *dst, int cap);
+FetchedStars FetchStars(TilePool &tiles, uint8_t *dst, int cap);
 
 }
 

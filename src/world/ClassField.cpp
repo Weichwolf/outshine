@@ -156,7 +156,7 @@ void ClassField::SubmitDue(double camE, double camN) {
   }
 }
 
-void ClassField::Update(double camLat, double camLon) {
+void ClassField::Update(TilePool &tiles, double camLat, double camLon) {
   if (!Opened_ || !Veg_ || !Veg_->Ready()) return;
 
   if (!Fine_.Field) {
@@ -164,8 +164,8 @@ void ClassField::Update(double camLat, double camLon) {
     Coarse_.Field = std::make_unique<OsmField>(Coarse_.Zoom, Veg_->AreaLayers());
   }
   const double t0 = Clock();
-  Fine_.Field->Build(camLat, camLon, Fine_.TileRadius);
-  Coarse_.Field->Build(camLat, camLon, Coarse_.TileRadius);
+  Fine_.Field->Build(tiles, camLat, camLon, Fine_.TileRadius);
+  Coarse_.Field->Build(tiles, camLat, camLon, Coarse_.TileRadius);
   const double t1 = Clock();
   Ingest(Fine_);
   Ingest(Coarse_);

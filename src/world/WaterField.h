@@ -10,6 +10,7 @@
 #include "Capacity.h"
 #include "Span.h"
 #include "TileRanges.h"
+#include "TerrainLoader.h"
 #include "TileWatermark.h"
 
 namespace outshine::World {
@@ -27,7 +28,8 @@ public:
     float HalfWidthM = 0.0f;
   };
 
-  uint32_t Ingest(const OsmField &field, const VegetationTemplates &veg);
+  uint32_t Ingest(const GroundStream &ground, const OsmField &field,
+                  const VegetationTemplates &veg);
 
   void AnchorAt(const double ecef[3]);
 
@@ -55,7 +57,8 @@ public:
 
 private:
 
-  [[nodiscard]] bool TileGroundResolved(const OsmField &field, size_t from, size_t to, int poly, int line) const;
+  [[nodiscard]] bool TileGroundResolved(const GroundStream &ground, const OsmField &field,
+                                        size_t from, size_t to, int poly, int line) const;
   std::vector<Surface> Surfaces_;
   std::vector<Course> Courses_;
   std::vector<float> Levels_;

@@ -9,6 +9,7 @@
 #include <outshine/Scenario.h>
 
 #include "Body.h"
+#include "TerrainLoader.h"
 #include "Fit.h"
 #include "ReferenceLine.h"
 #include "Rig.h"
@@ -161,6 +162,7 @@ public:
 
   [[nodiscard]] const Physics::Body &Carried(void) const;
   [[nodiscard]] const ReferenceLine &Corridor(void) const;
+  [[nodiscard]] World::GroundStream &Ground(void) const;
   [[nodiscard]] const Scenario &Declared(void) const;
   [[nodiscard]] double LengthM(void) const;
   [[nodiscard]] double ReserveMs2(void) const;

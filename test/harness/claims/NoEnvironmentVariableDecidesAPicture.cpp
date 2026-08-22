@@ -21,11 +21,7 @@ struct Excused {
 const Excused kExcused[] = {
     {"", "src/clients/Env.h is the host boundary that reads the environment, and a boundary that "
          "reads it is what lets nothing else"},
-    {"FB_DAGLOG", "logging, which changes what is printed and never what is drawn"},
-    {"FB_TILEWORKERS",
-     "a PACE and not a picture -- how many threads stream tiles. It is excused only while the "
-     "streamer's result is worker-count independent, which is a claim board:1513 owes a test for, "
-     "and the default beneath it is ALREADY machine-dependent: hardware_concurrency minus two"},
+    {"OUTSHINE_DAGLOG", "logging, which changes what is printed and never what is drawn"},
 };
 
 bool Excuse(const std::string &path, const std::string &named, std::string &why) {

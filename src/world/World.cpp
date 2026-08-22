@@ -45,7 +45,7 @@ World::World(double pixelFocalLength)
     Pass(0), Evicted(0), LastLog(0), Leaves(0), DrawnReady(0), Pending(0), TargetTot(0), TargetRdy(0),
     MeshVram(0) {}
 
-World::~World() { if (Opened) CloseGround(); }
+World::~World() = default;
 
 World::Pools World::HeapPools() const {
   Pools p;
@@ -60,7 +60,7 @@ World::Pools World::HeapPools() const {
   p.Water = Water_.HeapBytes() + CapacityBytes(WaterVerts);
   p.Streets = Streets_.HeapBytes();
   p.Class = Cls_.HeapBytes();
-  if (const TilePool *pool = GroundTiles()) {
+  if (const TilePool *pool = Pool_.get()) {
     p.ByteCache = pool->ByteCacheBytes();
     p.DemCache = pool->DemCacheBytes();
     p.Scheduler = pool->SchedulerBytes();
@@ -74,7 +74,8 @@ bool World::Open(Data::SourceSet &sources, Data::Transport &transport, double la
   Lat0 = lat;
   Lon0 = lon;
   Index_.clear();
-  if (OpenGround(sources, transport, lat, lon, {kMaxZ, kGrid}) == 0) return false;
+  Pool_ = std::make_unique<TilePool>(GroundPoolConfig(lat, lon), sources, transport);
+  Ground_ = std::make_unique<GroundStream>(*Pool_, GroundSurface{kMaxZ, kGrid});
   Cls_.Open(lat, lon);
 
   double origin[3];
@@ -332,21 +333,21 @@ void World::Update(double camLat, double camLon) {
   const double tUpdate = Clock();
   while (camLon > 180.0) camLon -= 360.0;
   while (camLon < -180.0) camLon += 360.0;
-  GroundTiles()->Camera(camLat, camLon);
+  Pool_->Camera(camLat, camLon);
 
   const double tCls = Clock();
-  Cls_.Update(camLat, camLon);
+  Cls_.Update(*Pool_, camLat, camLon);
   ClassMs_ = Clock() - tCls;
 
   const double tBld = Clock();
   BuildingDecodeMs_ = 0.0;
-  Vectors_.Build(camLat, camLon, 1);
+  Vectors_.Build(*Pool_, camLat, camLon, 1);
   const size_t hadWater = Water_.Surfaces().size() + Water_.Courses().size();
-  if (Veg_) Water_.Ingest(Vectors_, *Veg_);
+  if (Veg_) Water_.Ingest(*Ground_, Vectors_, *Veg_);
   if (Veg_) Streets_.Ingest(Vectors_, *Veg_);
   if (Water_.Surfaces().size() + Water_.Courses().size() != hadWater) WaterDirty_ = true;
   CutKerbs();
-  if (Buildings_.Build(Vectors_, Span<const WayLine>(Kerbs_.data(), Kerbs_.size())) > 0 &&
+  if (Buildings_.Build(*Ground_, Vectors_, Span<const WayLine>(Kerbs_.data(), Kerbs_.size())) > 0 &&
       Buildings_.AddedCount() > 0) {
     BuildingVerts = (uint32_t)(Buildings_.Verts().size() / 8);
     BuildingDecodeMs_ = Clock() - tBld;
@@ -384,7 +385,7 @@ void World::AdmitMesh(Node &nd, int &budget) {
   const double tMesh = Clock();
   TileBuild tile;
 
-  switch (GroundTiles()->Mesh(nd.z, (uint32_t)nd.x, (uint32_t)nd.y, kGrid, &tile)) {
+  switch (Pool_->Mesh(nd.z, (uint32_t)nd.x, (uint32_t)nd.y, kGrid, &tile)) {
     case TilePool::Reply::Ready:
       nd.verts = std::move(tile.Verts);
       nd.idx = std::move(tile.Idx);
@@ -502,7 +503,7 @@ void World::Refine(const Eye &eye, double nowMs) {
   if (BuildingDagId != 0) {
     TileBuild ladder;
 
-    const TilePool::Reply built = GroundTiles()->Dag(
+    const TilePool::Reply built = Pool_->Dag(
         BuildingDagId, BuildingSoup.data(), (int)(BuildingSoup.size() / 8), 3, &ladder);
     if (built == TilePool::Reply::Ready) {
       const uint32_t vbase = (uint32_t)(BuildingDagVerts.size() / 8);
@@ -514,7 +515,7 @@ void World::Refine(const Eye &eye, double nowMs) {
         BuildingClusters.push_back(c);
       }
       BuildingSeq_++;
-      if (getenv("FB_DAGLOG")) {
+      if (getenv("OUTSHINE_DAGLOG")) {
         long per[16] = {0};
         int lv = 0;
         for (const DagCluster &c : BuildingClusters) { per[c.Level] += c.Count / 3; if (c.Level > lv) lv = c.Level; }
@@ -552,7 +553,7 @@ void World::Refine(const Eye &eye, double nowMs) {
     if (nd.handle >= 0) Retired_.push_back(nd.handle);
 
     if (nd.Mesh != MeshState::Held)
-      if (TilePool *pool = GroundTiles()) pool->ForgetMesh(nd.z, (uint32_t)nd.x, (uint32_t)nd.y);
+      if (TilePool *pool = Pool_.get()) pool->ForgetMesh(nd.z, (uint32_t)nd.x, (uint32_t)nd.y);
     Index_.erase(Key(nd.z, nd.x, nd.y));
     size_t last = Nodes.size() - 1;
     if (i != last) {

@@ -19,7 +19,8 @@ constexpr double kLiftM = 0.15;
 
 }
 
-bool WaterField::TileGroundResolved(const OsmField &field, size_t from, size_t to, int poly,
+bool WaterField::TileGroundResolved(const GroundStream &ground, const OsmField &field,
+                                    size_t from, size_t to, int poly,
                                     int line) const {
   const std::vector<double> &pts = field.Points();
   const std::vector<OsmField::Feature> &feats = field.Features();
@@ -34,7 +35,7 @@ bool WaterField::TileGroundResolved(const OsmField &field, size_t from, size_t t
       if (isPoly && (!ring.Exterior || ring.Count < 3 || ring.Count > 512)) continue;
       if (isLine && (ring.Count < 2 || ring.Count > 512)) continue;
       for (uint32_t k = 0; k < ring.Count; k++)
-        if (GroundAt(pts[((size_t)ring.First + k) * 2],
+        if (ground.At(pts[((size_t)ring.First + k) * 2],
                              pts[((size_t)ring.First + k) * 2 + 1])
                 .Where() == GroundSample::State::Pending)
           return false;
@@ -49,7 +50,8 @@ void WaterField::AnchorAt(const double ecef[3]) {
   Anchored_ = true;
 }
 
-uint32_t WaterField::Ingest(const OsmField &field, const VegetationTemplates &veg) {
+uint32_t WaterField::Ingest(const GroundStream &ground, const OsmField &field,
+                            const VegetationTemplates &veg) {
   assert(Anchored_);
   const std::vector<OsmField::Feature> &feats = field.Features();
   if (Mark_.Done(feats)) return (uint32_t)Surfaces_.size();
@@ -57,7 +59,7 @@ uint32_t WaterField::Ingest(const OsmField &field, const VegetationTemplates &ve
   const int poly = field.Layer(OsmLayer::WaterPolygons);
   const int line = field.Layer(OsmLayer::WaterLines);
   const TileWatermark::Next next = Mark_.Ask(feats, [&](size_t from, size_t to) {
-    return TileGroundResolved(field, from, to, poly, line);
+    return TileGroundResolved(ground, field, from, to, poly, line);
   });
   if (!next.Found) return (uint32_t)Surfaces_.size();
   Mark_.Take(next.Tile);
@@ -79,7 +81,7 @@ uint32_t WaterField::Ingest(const OsmField &field, const VegetationTemplates &ve
         bool ok = true;
         for (uint32_t k = 0; k < ring.Count; k++) {
           double aslM = 0.0;
-          if (!GroundAt(pts[((size_t)ring.First + k) * 2],
+          if (!ground.At(pts[((size_t)ring.First + k) * 2],
                                 pts[((size_t)ring.First + k) * 2 + 1]).TryAslM(&aslM)) {
             ok = false;
             break;
@@ -110,17 +112,17 @@ uint32_t WaterField::Ingest(const OsmField &field, const VegetationTemplates &ve
       if (!ring.Exterior || ring.Count < 3 || ring.Count > 512) continue;
 
       hs.clear();
-      bool ground = true;
+      bool resolved = true;
       for (uint32_t k = 0; k < ring.Count; k++) {
         double aslM = 0.0;
-        if (!GroundAt(pts[((size_t)ring.First + k) * 2],
+        if (!ground.At(pts[((size_t)ring.First + k) * 2],
                               pts[((size_t)ring.First + k) * 2 + 1]).TryAslM(&aslM)) {
-          ground = false;
+          resolved = false;
           break;
         }
         hs.push_back(aslM);
       }
-      if (!ground) { NoGround_++; continue; }
+      if (!resolved) { NoGround_++; continue; }
 
       std::sort(hs.begin(), hs.end());
       const double level = hs[(size_t)(kLevelPercentile * (double)(hs.size() - 1))];

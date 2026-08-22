@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <vector>
 #include "BuildingField.h"
+#include "TerrainLoader.h"
 #include "StreetField.h"
 #include "WaterField.h"
 #include "ClassField.h"
@@ -34,6 +35,11 @@ public:
 
   void SetWeather(const WeatherProvider *weather) { Weather_ = weather; }
   const WeatherProvider *Weather() const { return Weather_; }
+
+  [[nodiscard]] GroundStream &Ground() { return *Ground_; }
+  [[nodiscard]] const GroundStream &Ground() const { return *Ground_; }
+  [[nodiscard]] TilePool *Tiles() { return Pool_.get(); }
+  [[nodiscard]] const TilePool *Tiles() const { return Pool_.get(); }
 
   [[nodiscard]] bool Open(Data::SourceSet &sources, Data::Transport &transport, double lat,
                           double lon, double viewMeters);
@@ -251,6 +257,8 @@ private:
   int BuildingDagId = 0, BuildingDagSeq = 0;
   uint64_t BuildingSeq_ = 0;
   bool Opened = false;
+  std::unique_ptr<TilePool> Pool_;
+  std::unique_ptr<GroundStream> Ground_;
   double UpdateMs_ = 0.0, RefineMs_ = 0.0;
   double ClassMs_ = 0.0;
   double MeshMs_ = 0.0, BuildingMs_ = 0.0, BuildingDagMs_ = 0.0, BuildingDecodeMs_ = 0.0;

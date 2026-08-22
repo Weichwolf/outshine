@@ -131,14 +131,15 @@ Frontage NearestStreet(const OsmField &field, const OsmField::Ring &ring,
 
 }
 
-GroundSample BuildingField::RingBase(const OsmField &field, const OsmField::Ring &ring,
+GroundSample BuildingField::RingBase(const GroundStream &ground, const OsmField &field,
+                                     const OsmField::Ring &ring,
                                     std::vector<double> *corners) {
   const std::vector<double> &pts = field.Points();
   if (corners) corners->clear();
   if (ring.Count == 0) return GroundSample::Missing();
   double lowest = 1.0e9;
   for (uint32_t k = 0; k < ring.Count; k++) {
-    const GroundSample g = GroundAt(pts[((size_t)ring.First + k) * 2],
+    const GroundSample g = ground.At(pts[((size_t)ring.First + k) * 2],
                                             pts[((size_t)ring.First + k) * 2 + 1]);
     double aslM = 0.0;
     if (!g.TryAslM(&aslM)) return g;
@@ -148,7 +149,8 @@ GroundSample BuildingField::RingBase(const OsmField &field, const OsmField::Ring
   return GroundSample::At(lowest);
 }
 
-bool BuildingField::TileGroundResolved(const OsmField &field, size_t from, size_t to,
+bool BuildingField::TileGroundResolved(const GroundStream &ground, const OsmField &field,
+                                       size_t from, size_t to,
                                        int layer) const {
   const std::vector<OsmField::Feature> &feats = field.Features();
   for (size_t i = from; i < to; i++) {
@@ -157,7 +159,7 @@ bool BuildingField::TileGroundResolved(const OsmField &field, size_t from, size_
     for (uint32_t r = 0; r < f.RingCount; r++) {
       const OsmField::Ring &ring = field.Rings()[f.FirstRing + r];
       if (!ring.Exterior || ring.Count < 3 || ring.Count > 512) continue;
-      if (RingBase(field, ring, nullptr).Where() == GroundSample::State::Pending) return false;
+      if (RingBase(ground, field, ring, nullptr).Where() == GroundSample::State::Pending) return false;
     }
   }
   return true;
@@ -169,7 +171,8 @@ void BuildingField::AnchorAt(const double ecef[3]) {
   Anchored_ = true;
 }
 
-int BuildingField::Build(const OsmField &field, Span<const WayLine> ways) {
+int BuildingField::Build(const GroundStream &ground, const OsmField &field,
+                         Span<const WayLine> ways) {
   assert(Anchored_);
   AddedFirst_ = (uint32_t)Verts_.size();
   AddedCount_ = 0;
@@ -183,7 +186,7 @@ int BuildingField::Build(const OsmField &field, Span<const WayLine> ways) {
   int added = 0;
 
   const TileWatermark::Next next = Mark_.Ask(feats, [&](size_t from, size_t to) {
-    return TileGroundResolved(field, from, to, layer);
+    return TileGroundResolved(ground, field, from, to, layer);
   });
   if (!next.Found) return (int)Prints_.size();
   Mark_.Take(next.Tile);
@@ -198,7 +201,7 @@ int BuildingField::Build(const OsmField &field, Span<const WayLine> ways) {
       if (!ring.Exterior || ring.Count < 3 || ring.Count > 512) continue;
 
       double base = 0.0;
-      if (!RingBase(field, ring, &Corners_).TryAslM(&base)) { NoGround_++; continue; }
+      if (!RingBase(ground, field, ring, &Corners_).TryAslM(&base)) { NoGround_++; continue; }
 
       double standBackM = -1.0;
       const Frontage street = NearestStreet(field, ring, ways, &standBackM);

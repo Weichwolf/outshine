@@ -35,7 +35,7 @@ public:
 
   OsmField(int zoom, const std::vector<std::string> &layers);
 
-  int Build(double lat, double lon, int ringTiles);
+  int Build(TilePool &tiles, double lat, double lon, int ringTiles);
 
   int Zoom() const { return Zoom_; }
 
@@ -74,7 +74,7 @@ private:
 
   uint32_t Intern(std::vector<std::string> &pool, std::unordered_map<std::string, uint32_t> &index,
                   std::string_view s);
-  [[nodiscard]] bool AddTile(int tx, int ty, int &added);
+  [[nodiscard]] bool AddTile(TilePool &tiles, int tx, int ty, int &added);
 
   std::vector<std::string> Layers_;
   std::vector<Feature> Features_;
