@@ -94,3 +94,18 @@ scene inheritance, X-Plane/MSFS scenery stacks, the Rails doctrine).** The decid
    template no longer carries is a LOUD error at Declare (Godot's silent orphan is the
    counterexample); and the template must hold 720p60 with zero overrides -- a default that
    requires overrides is a form, not a default (Rails: substitutions possible, never required).
+
+---
+
+**Sharpened (review 2026-08-22, evening): the geodesy survey has four blind spots.**
+
+- src/sim/Journey.cpp:186 and :268 spell `40075017.0` (Earth's Mercator circumference) inside
+  the SIM layer — tile ground size and coordinate quantum. Same family as slice 3, worse
+  address: not even the ground layer, the drive orchestration.
+- src/ground/TerrainLoader.cpp:215 spells the SAME circumference as `40075016.686` — two
+  spellings of one constant in one tree; whichever declaration ends up owning it, there is one.
+- src/ground/tiles/TileGeodesy.h:30-31 declares `kEarthRadiusM = 6378137.0` AND
+  `kWgs84A = 6378137.0` — one number, two names, in the very file slice 3 moves.
+- the standard-gravity seed is spelled twice: include/outshine/Scenario.h:37 (member default)
+  and src/scenario/ScenarioRead.cpp:164 (`Num("gravityMs2", 9.80665)`). One can drift from the
+  other silently; the seed lives in ONE place until earth.xml takes it.

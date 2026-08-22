@@ -21,3 +21,11 @@ Demanded: `climbLimit = stood.Envelope.DriveN / (stood.Envelope.MassKg * g)` wit
 declaration path (board:1611), and claim texts that speak the computed numbers, not a memory of
 one vehicle on one route. (The g literal itself is board:1611's audit; this item is the vehicle
 constants.)
+
+---
+
+**Closed (review 2026-08-22, evening).** Proof at HEAD (e5a1122): src/sim/CorridorLay.cpp:506
+computes `climbLimit = stood.Envelope.DriveN / (stood.Envelope.MassKg * stood.Envelope.GravityMs2)`
+— every term from the standing rig and the declared world; the F31 literals (400.0, 3.08,
+0.333, 1610.0, 9.80665) and the hardcoded claim populations (23.4 %, 3699/15789) are gone from
+the file. Task 1616 closed with gate 119/119, Munich 40/0, Kyoto 35/0.

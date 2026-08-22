@@ -21,3 +21,15 @@ Area: sim
   lines up declares the rule "a contact exactly on the centre plane belongs to no axle"
   (the refusal text, line 52-55). One predicate, two partitions -- the named rule must hold
   everywhere it is spelled.
+
+---
+
+**Sharpened (review 2026-08-22, evening): the sweep of task 1618 left two items standing.**
+
+- the empty `namespace { } // namespace` block this issue named still sits above `Lay` at
+  src/sim/Journey.cpp:141-145 at HEAD (e5a1122).
+- move 2d added new residue of the same species: Journey.cpp:145-152 copies
+  `driveTo->FromLatDeg` into `fromLatDeg0` and then `fromLatDeg0` into `fromLatDeg` (four
+  doubles, twice each, plus `zoom`→`kZoom`) — a two-step rename with no reader in between.
+
+Stays open until both are gone.
