@@ -7,6 +7,8 @@
 #include <ctime>
 #include <filesystem>
 #include <fstream>
+#include <map>
+#include <thread>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -563,8 +565,47 @@ int main(int, char **argv) {
   const double bound = lit.FloorMs() + twiceLit.FloorMs();
   std::printf("PRICED second-ray=%.3f ms floor-sum=%.3f ms resolved=%s\n", priced, bound,
               priced > bound ? "yes" : "no");
-  CHECK(priced > bound,
-        "the instrument resolves one more shadow ray per fragment above its own floor");
+
+  // quiet is a number the run takes, twice over: the machine's own load average against
+  // half its threads (more runnable work than that and the timers share cores), and this
+  // run's floor against the archive's memory of the same instrument. kBusyFloorInflation is
+  // [SET] 2.0 from the incident that filed the item: the busy run's floor stood at twice
+  // its quiet neighbours while every other arm sat within-floor.
+  double load1 = 0.0;
+  (void)getloadavg(&load1, 1);
+  const double quietBound = 0.5 * (double)std::thread::hardware_concurrency();
+  double archivedBound = 0.0;
+  {
+    std::vector<double> sums;
+    std::map<long long, double> byRun;
+    for (const Record &row : earlier) {
+      if (row.Arm == "fill" || row.Arm == "fill-twice-lit") { byRun[row.Ran] += row.FloorMs; }
+    }
+    for (const auto &sum : byRun) { sums.push_back(sum.second); }
+    std::sort(sums.begin(), sums.end());
+    if (!sums.empty()) { archivedBound = sums[sums.size() / 2]; }
+  }
+  constexpr double kBusyFloorInflation = 2.0;
+  const bool loaded = load1 > quietBound;
+  const bool inflated = archivedBound > 0.0 && bound > kBusyFloorInflation * archivedBound;
+  outshine::Test::Note("load average while measuring", load1, "runnable");
+  outshine::Test::Note("quiet bound, half this machine's threads", quietBound, "runnable");
+  outshine::Test::Note("floor-sum the archive remembers", archivedBound, "ms");
+  if (priced > bound) {
+    CHECK(true, "the instrument resolves one more shadow ray per fragment above its own floor");
+  } else if (loaded || inflated) {
+    outshine::Test::Unprepared(("this measurement could not be TAKEN: the machine was busy under it (" +
+                std::string(loaded ? "load average over the quiet bound" : "") +
+                std::string(loaded && inflated ? ", and " : "") +
+                std::string(inflated ? "the floor stands over twice the archive's memory" : "") +
+                ") -- an unresolved instrument on a busy machine is a different finding from a "
+                "moved cost, and only the second is about the tree")
+                   .c_str());
+    return outshine::Test::Report();
+  } else {
+    CHECK(false, "the instrument resolves one more shadow ray per fragment above its own "
+                 "floor -- and the machine was quiet under it, so this is a MOVED COST");
+  }
 
   CompareWithEarlierRuns(earlier, measured, sources.Digest);
   Archive(sources.Digest, measured);

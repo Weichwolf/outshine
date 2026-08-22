@@ -49,3 +49,24 @@ shadow ray on an arm with `lights=0` and an unanimated subject is not plausible.
 sought first and it was the true one.** Every other timing arm in the same run reported *within-floor*
 against its archive -- geometry -2.2 %, fill -13.2 %, fill-twice-lit +0.2 %, texture +1.1 % -- which is
 itself the signature of a noisy run rather than a moved cost.
+
+---
+
+Closed -- the three demands stand, and the floor was not touched:
+
+- QUIET IS A NUMBER THE RUN TAKES, twice: getloadavg against half this machine's threads
+  (derived from hardware_concurrency, no literal), and the run's floor-sum against the
+  archive's remembered median. Both published as NOTEs on every run.
+- AN UNRESOLVED INSTRUMENT IS DISTINGUISHABLE FROM A MOVED COST: unresolved on a busy
+  machine reports UNPREPARED ("this measurement could not be TAKEN") -- run.sh counts it
+  apart from FAIL; unresolved on a QUIET machine stays the red it always was, now saying
+  "this is a MOVED COST".
+- THE ARCHIVE IS ASKED: the fill + fill-twice-lit floor-sums of every archived run feed a
+  median; kBusyFloorInflation [SET] 2.0 from the filing incident (the busy floor stood at
+  twice its quiet neighbours while every other arm sat within-floor).
+
+Also repaid in the same sitting: the frame and scenario suites had gone UNBUILDABLE at HEAD
+(-Isrc/data missing after GltfStudio grew its Wgs84 include) -- the include grants carry it
+now, frame 4/4 (second-ray 1.852 ms over 0.188 ms floor, load 1.24 under quiet bound 3),
+scenario 6/6. Proving test: TheFrameCostIsPublishedAgainstItsOwnFloor itself -- its verdict
+now names which of the three findings it delivers.
