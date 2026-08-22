@@ -47,7 +47,7 @@ key = `(kind, params, seed, rung)` value, no strings. Degrade on detail, refuse 
 ### The actor chain (SOLL — the owner's causal decomposition, general)
 
 ```mermaid
-flowchart LR
+flowchart TD
   B["BODY — geometry, glTF parts: vehicle · walker · aircraft · door · pump"]
   B --> A["ACTUATORS — the functions a body declares: steer · drive · brake · lamps · walk · open"]
   A --> P["PHYSICS — forces at the contacts; only integration places a body"]
@@ -76,7 +76,7 @@ flowchart TD
   API --> STORE["entity store — ids and typed pairs (relation, target), values not pointers"]
   PRE["prefab / IsA — 'glTF as four-wheel', variants, named slots"] --> STORE
   STORE --> CAN["CAN — capability tags, constexpr catalogue (typo = compile error)"]
-  STORE --> MAY["MAY — traits ON the relation: Exclusive · OneOf · Acyclic · With → refused at ASSEMBLY; situational = tag set-algebra at runtime"]
+  STORE --> MAY["MAY — traits on the relation refuse at ASSEMBLY;<br/>situational permission is tag set-algebra at runtime"]
   STORE --> ACT["INTERACTS — world objects advertise slots as data; Free → Claimed → Occupied → Free"]
 ```
 
@@ -91,7 +91,7 @@ ECS-for-everything · unreserved shared affordances.
 ## Render plan (IST/SOLL per stage)
 
 ```mermaid
-flowchart LR
+flowchart TD
   subgraph compute
     T["mediumTransmittance"] --> M["mediumMultiScatter"] --> R["mediumRadiance"]
     R --> IR["irradiance"] --> AE["autoExposure"]
@@ -155,10 +155,29 @@ nothing culls (`board:1538`); glass is a cloned stage and content change = full 
 (`board:1574`); shading samples no atlas yet (`board:1575`); `SubjectDraw` is six responsibilities
 (`board:1577`).
 
+## Class structure (SOLL — where the tree is going)
+
+```mermaid
+flowchart TD
+  Scenario["Scenario XML"] --> Assembly
+  ClientCode["client C++"] --> Assembly
+  Assembly --> SceneStore["Scene Store — entities · pairs · traits · tags · slots"]
+  SceneStore --> Columns["Columns — vehicle numbers · placements, by handle"]
+  SceneStore --> SimD["Sim — owns the drive: corridor · speed plan · pilot (Journey folded, board:1581)"]
+  SimD --> Pathfinding["Pathfinding tool — walk · drive · fly · rail"]
+  SimD --> Physics["Rig · Body · Contact — forces at the patch"]
+  SimD --> Compositors["Compositors — terrain · ring · cut-fill placement (leave the stills driver, board:1573)"]
+  Compositors --> DrawList --> Registry["stage registry — the executor table (board:1577)"]
+  Registry --> Stages["stages: source · residency · encode split (board:1577)"]
+  Stages --> Frame(["720p60"])
+  Entities["entity store + culling (board:1538)"] -.-> DrawList
+```
+
 ## Public interface (IST)
 
 ```mermaid
 classDiagram
+  direction TB
   class Engine {
     +Read(path) bool
     +Load(path) bool
@@ -202,9 +221,42 @@ classDiagram
   }
   Engine --> Live : owns
   Live --> Renderer : drives
-  Journey --> GroundStream : owns — folds into Sim, board:1581
-  Sim --> GroundStream : owns via World
+  Journey --> GroundStream : owns
+  Sim --> GroundStream : owns
 ```
+
+`Journey` still stands outside the library (folds into `Sim`, `board:1581`); `Live`, `Renderer`,
+`GroundStream` and `Journey` are still reachable by clients — the SOLL below removes them.
+
+## Public interface (SOLL — one door, board:1581/1582/1583)
+
+```mermaid
+classDiagram
+  direction TB
+  class Engine {
+    +Read(path) bool
+    +Declare(scenario) bool
+    +Assemble() bool
+    +Drive(fromLatLon, toLatLon) bool
+    +Possess(body) bool
+    +Release() void
+    +Advance() bool
+    +RenderTo(frame) void
+    +WhyNot() string
+  }
+  class Scenario {
+    +the declaration serialised against one graph
+  }
+  class Entity {
+    +a generation-checked handle
+  }
+  Engine --> Scenario : reads
+  Engine --> Entity : hands out
+```
+
+A client includes `include/outshine/` and nothing else; Live, Renderer, GroundStream and the
+drive fold behind `Engine`. The mind and the player possess the same seam; navigation is a tool
+the assembly hands over.
 
 Headers must read like a good book: `include/outshine/Outshine.h` is the four-line client;
 `src/corridor/Ribbon.h`, `src/world/TerrainLoader.h`, `src/render/plan/RenderCatalogue.h` are the
