@@ -2,6 +2,8 @@
 #define OUTSHINE_REFERENCELINE_H
 
 #include <cstddef>
+#include <initializer_list>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -43,10 +45,20 @@ struct Segment {
 
 class ReferenceLine {
 public:
-  [[nodiscard]] bool Lay(const Placed &from, const std::vector<Segment> &along, std::string &error);
+  [[nodiscard]] bool Lay(const Placed &from, std::span<const Segment> along, std::string &error);
+  [[nodiscard]] bool Lay(const Placed &from, std::initializer_list<Segment> along,
+                         std::string &error) {
+    return Lay(from, std::span<const Segment>(along.begin(), along.size()), error);
+  }
 
-  [[nodiscard]] bool Rise(const std::vector<Knot> &through, std::string &error);
-  [[nodiscard]] bool Bank(const std::vector<Knot> &through, std::string &error);
+  [[nodiscard]] bool Rise(std::span<const Knot> through, std::string &error);
+  [[nodiscard]] bool Rise(std::initializer_list<Knot> through, std::string &error) {
+    return Rise(std::span<const Knot>(through.begin(), through.size()), error);
+  }
+  [[nodiscard]] bool Bank(std::span<const Knot> through, std::string &error);
+  [[nodiscard]] bool Bank(std::initializer_list<Knot> through, std::string &error) {
+    return Bank(std::span<const Knot>(through.begin(), through.size()), error);
+  }
 
   [[nodiscard]] bool At(double alongM, Placed &out) const;
   [[nodiscard]] bool Nearest(double eastM, double northM, double nearM, double windowM,
@@ -65,9 +77,9 @@ private:
   };
   [[nodiscard]] static Placed Walk(const Placed &from, const Segment &along, double byM);
   [[nodiscard]] bool Refuse(const std::string &why);
-  [[nodiscard]] bool Fasten(const std::vector<Knot> &through, const char *what, const char *unit,
+  [[nodiscard]] bool Fasten(std::span<const Knot> through, const char *what, const char *unit,
                             std::vector<Knot> &into, std::string &error);
-  static void Read(const std::vector<Knot> &through, double alongM, double &value, double &rate,
+  static void Read(std::span<const Knot> through, double alongM, double &value, double &rate,
                    double &bend);
 
   std::vector<Held> Laid_;

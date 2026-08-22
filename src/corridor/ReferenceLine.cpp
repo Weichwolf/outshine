@@ -33,7 +33,7 @@ bool ReferenceLine::Refuse(const std::string &why) {
   return false;
 }
 
-bool ReferenceLine::Fasten(const std::vector<Knot> &through, const char *what, const char *unit,
+bool ReferenceLine::Fasten(std::span<const Knot> through, const char *what, const char *unit,
                            std::vector<Knot> &into, std::string &error) {
   into.clear();
   if (Laid_.empty()) {
@@ -65,19 +65,19 @@ bool ReferenceLine::Fasten(const std::vector<Knot> &through, const char *what, c
       return false;
     }
   }
-  into = through;
+  into.assign(through.begin(), through.end());
   return true;
 }
 
-bool ReferenceLine::Rise(const std::vector<Knot> &through, std::string &error) {
+bool ReferenceLine::Rise(std::span<const Knot> through, std::string &error) {
   return Fasten(through, "height", "slope", Rise_, error);
 }
 
-bool ReferenceLine::Bank(const std::vector<Knot> &through, std::string &error) {
+bool ReferenceLine::Bank(std::span<const Knot> through, std::string &error) {
   return Fasten(through, "bank", "rate", Bank_, error);
 }
 
-void ReferenceLine::Read(const std::vector<Knot> &through, double alongM, double &value,
+void ReferenceLine::Read(std::span<const Knot> through, double alongM, double &value,
                          double &rate, double &bend) {
   value = 0.0;
   rate = 0.0;
@@ -153,7 +153,7 @@ Placed ReferenceLine::Walk(const Placed &from, const Segment &along, double byM)
   return out;
 }
 
-bool ReferenceLine::Lay(const Placed &from, const std::vector<Segment> &along, std::string &error) {
+bool ReferenceLine::Lay(const Placed &from, std::span<const Segment> along, std::string &error) {
   Error_.clear();
   Laid_.clear();
   Rise_.clear();
