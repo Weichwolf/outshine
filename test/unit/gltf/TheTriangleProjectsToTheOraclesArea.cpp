@@ -51,7 +51,7 @@ int main() {
 
   const std::string subjectPath = std::string(kCase) + "scene.gltf";
   if (Slurp(subjectPath).empty()) {
-    Unprepared(subjectPath.c_str());
+    Unprepared((subjectPath + " is not prepared -- run test/harness/shared/corpus/prepare.py").c_str());
     return Report();
   }
 

@@ -13,6 +13,7 @@ BUILD=${TMPDIR:-/tmp}
 # nests, a worktree gate cannot sweep this one mid-run, and a collision is unspellable
 NEST=$(printf %s "$ROOT" | shasum -a 256 | cut -c1-12)
 BUILD=${BUILD%/}/outshine-tests.$NEST
+INHERITED_NEST=${OUTSHINE_NEST:-}
 export OUTSHINE_NEST="$BUILD"
 PREPARED=${TMPDIR:-/tmp}
 PREPARED=${PREPARED%/}/outshine-prepared
@@ -39,11 +40,30 @@ KillRunning() {
     kill -TERM -"$runningGroup" 2>/dev/null
   done
   RUNNING_GROUPS=""
+  if [ "${NESTLOCK_MINE:-no}" = yes ]; then
+    rm -rf "$NESTLOCK"
+    NESTLOCK_MINE=no
+  fi
 }
 trap 'KillRunning; exit 130' INT
 trap 'KillRunning; exit 143' TERM
 trap 'KillRunning; exit 129' HUP
 trap 'KillRunning' EXIT
+
+NESTLOCK=$BUILD.lock
+NESTLOCK_MINE=no
+if [ "$INHERITED_NEST" != "$BUILD" ]; then
+  if ! mkdir "$NESTLOCK" 2>/dev/null; then
+    otherPid=$(cat "$NESTLOCK/pid" 2>/dev/null)
+    if [ -n "$otherPid" ] && kill -0 "$otherPid" 2>/dev/null; then
+      Die "another runner (pid $otherPid) holds this checkout's nest -- two gates in one nest read each other's half-written objects, so the second refuses instead of corrupting both"
+    fi
+    rm -rf "$NESTLOCK"
+    mkdir "$NESTLOCK" || Die "the stale nest lock would not clear"
+  fi
+  printf '%s' "$$" > "$NESTLOCK/pid"
+  NESTLOCK_MINE=yes
+fi
 
 SUITE=
 SUITES=
@@ -435,9 +455,9 @@ if [ "$AUDIT" = 1 ]; then
 fi
 
 # every DECLARED suite's object set is closed over its own outshine symbols (board:1641):
-# a sources list that lost a unit refuses here by name, not at a sporadic link. Symbol NAMES
-# do not depend on the include set, so the audit reads the objects the gate already built --
-# no compile, no relink; a source with no object yet is the cold case and says so
+# a sources list that lost a unit refuses here by name, not at a sporadic link. The audit
+# reads the EXACT set-stamped, up-to-date object each declaration names; a missing or stale
+# one is built once per group, a declared source that does not exist refuses as a ghost
 if [ "$AUDITLINK" = 1 ]; then
   bad=0
   auditSuites=$SUITES
@@ -482,19 +502,21 @@ if [ "$AUDITLINK" = 1 ]; then
           stragglers=refused
           break
         fi
-        if [ -f "$OBJDIR/$objName" ]; then
+        if UpToDate "$OBJDIR/$objName" "$unit"; then
           OBJECTS="$OBJECTS $OBJDIR/$objName"
           continue
         fi
         # the declaration names an object the gate has not built (cold, or a fresh include
         # set) -- build the GROUP once so the audit reads exactly what it names
         if [ "$groupBuilt" = no ]; then
+          keptObjects=$OBJECTS
           if ! BuildGroup "$group"; then
             printf 'AUDIT %s does not compile %s under its own declaration\n' "$suiteDir" "$group"
             stragglers=refused
             break
           fi
           groupBuilt=yes
+          OBJECTS=$keptObjects
         fi
         if [ -f "$OBJDIR/$objName" ]; then
           OBJECTS="$OBJECTS $OBJDIR/$objName"

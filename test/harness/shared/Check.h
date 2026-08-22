@@ -71,7 +71,7 @@ inline void Covers(const char *requirement) { std::printf("COVERS %s\n", require
 
 inline void Unprepared(const char *what) {
   ++Unprepareds;
-  std::printf("UNPREPARED %s -- run test/harness/shared/corpus/prepare.py\n", what);
+  std::printf("UNPREPARED %s\n", what);
 }
 
 inline void Skip(const char *why) {

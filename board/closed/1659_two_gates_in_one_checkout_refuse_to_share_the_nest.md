@@ -32,3 +32,15 @@ pid-keyed logs) -- but the lock is one mkdir and makes the whole class unspellab
 proving test extends TheLayeringIsDeclaredOnce or stands beside it: a second run.sh started
 while the lock is held exits with the refusal, and a stale lock (dead pid) is broken with a
 named message, not a hang.
+
+---
+
+Closed: the nest carries a LOCK -- run.sh takes $BUILD.lock by mkdir (atomic), writes its
+pid, and a second runner in the same checkout refuses loudly naming that pid instead of
+corrupting both; a stale lock (dead pid) clears itself; KillRunning releases it on every
+exit path (EXIT/INT/TERM/HUP). Nested invocations -- the claims tests' audits, the control
+copies -- inherit OUTSHINE_NEST and pass through, so the gate's own inner audits keep
+working. Proven live: a planted lock with a live pid refuses ("another runner (pid N) holds
+this checkout's nest"), removal lets the gate run, the nested audit stays clean. Gate
+131/131 warm at 58.9 s. The transient one-FAIL flake seen at 03:30 was this class; it
+cannot be spelled now.

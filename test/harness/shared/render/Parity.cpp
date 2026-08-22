@@ -1073,7 +1073,7 @@ Prepared Prepare(Case &subject, outshine::Render::Renderer &renderer) {
 
   const std::string owed = MissingInputs(subject);
   if (!owed.empty()) {
-    outshine::Test::Unprepared((subject.Directory + " is missing " + owed).c_str());
+    outshine::Test::Unprepared((subject.Directory + " is missing " + owed + " -- run test/harness/shared/corpus/prepare.py").c_str());
     return Prepared::No;
   }
 

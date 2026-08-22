@@ -608,7 +608,12 @@ int main(int, char **argv) {
   }
 
   CompareWithEarlierRuns(earlier, measured, sources.Digest);
-  Archive(sources.Digest, measured);
+  if (loaded || inflated) {
+    std::printf("NOTE this run's floors are NOT archived -- a busy machine's spread would "
+                "poison the median the busy-detector itself reads\n");
+  } else {
+    Archive(sources.Digest, measured);
+  }
 
   return outshine::Test::Report();
 }

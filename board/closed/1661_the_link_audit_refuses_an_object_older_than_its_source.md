@@ -21,3 +21,11 @@ Demanded: the existence check becomes `[ -f ... ] && UpToDate "$OBJDIR/$objName"
 either tells the truth or goes. Minor, same block: after a cold BuildGroup the group's
 objects enter $OBJECTS twice (BuildGroup appends at :290, the loop appends again at
 :486/:500) -- harmless under `nm | sort -u`, but the list should be built once.
+
+---
+
+Closed: the audit asks UpToDate -- an existing but stale object (source or any prerequisite
+newer) is rebuilt through the same straggler path as a missing one, so `--audit-link` after
+a source edit measures the present; the straggler BuildGroup no longer doubles OBJECTS (the
+group build's own list is discarded, the exact per-unit object is appended once); the block
+comment says what the audit does since 1658 instead of what it did before. Gate 131/131.

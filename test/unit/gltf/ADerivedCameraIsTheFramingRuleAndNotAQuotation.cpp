@@ -208,7 +208,7 @@ Answer Judge(const Case &subjectCase) {
   const std::string entry = subject0["entry"].Str("scene.gltf");
   const std::string subjectPath = subjectCase.Directory + "/" + entry;
   if (Slurp(subjectPath).empty()) {
-    outshine::Test::Unprepared(subjectPath.c_str());
+    outshine::Test::Unprepared((subjectPath + " is not prepared -- run test/harness/shared/corpus/prepare.py").c_str());
     return answer;
   }
 

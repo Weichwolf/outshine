@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
   bool found = false;
   const std::string manifestText = ReadFile(prepared + "/manifest.json", found);
   if (!found) {
-    outshine::Test::Unprepared(prepared.c_str());
+    outshine::Test::Unprepared((prepared + " is not prepared -- run test/harness/shared/corpus/prepare.py").c_str());
     return outshine::Test::Report();
   }
   Json manifest;

@@ -25,3 +25,12 @@ gaps remain in the same block:
    what it was given; the corpus callers say prepare.py themselves.
 
 kBusyFloorInflation = [SET] 2.0 with its incident named -- that part stands.
+
+---
+
+Closed: (a) a busy-but-green run does NOT archive -- when load or floor-inflation trips, the
+floors stay out of the archive and a NOTE says why, so the busy-detector's own median cannot
+be poisoned by the runs it should be detecting; (b) Unprepared prints the caller's message
+verbatim -- the prepare.py prescription moved to the callers that actually mean it (the
+corpus tests and scorers name the script themselves; the busy-machine message prescribes
+nothing). Proving state: the frame suite's own verdict paths.
