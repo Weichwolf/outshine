@@ -6,3 +6,7 @@ Parent: 0158
 **Lane subdivision from the width, with the lane count stated**
 
 Lane subdivision from the width, with the lane count stated
+
+---
+
+**Closed, folded into the hull (2026-08-22):** the task lives as a checkbox in 0158; it is refiled as its own item the day work on it begins.
