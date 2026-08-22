@@ -58,7 +58,7 @@ the chain never requires a surface. A scenario declares a SYSTEM of spheres
 (radius, gravity, providers, sky) shaped by height data; travel between them is an actor with
 thrust and a possession relink, and local behaviour — the high jump, the bad driving — emerges
 from the declared gravity through the physics, never from code. Earth ships as a TEMPLATE
-(`src/assets/scenarios/earth.xml`): a scenario instances it (`<world template="earth">`, one
+(src/assets/scenarios/earth.xml, to be): a scenario instances it (`<world template="earth">`, one
 level deep) and overrides by delta — setting replaces, removal is named, omission keeps the
 template's value, an orphaned override refuses loudly, and the reader walks template then
 deltas through the SAME assembly API (no merger). `Scenario Earth()` is the code-side factory
