@@ -24,7 +24,7 @@ flowchart TD
   upstream["upstream — OSM · terrain · imagery · weather · sky"]
   providers["PROVIDERS · src/data"]
   store[("CONTENT STORE — hash = filename")]
-  field["GROUND — height · slope · class · edges · water"]
+  field["GROUND — a sphere with declared gravity, shaped by height data: height · slope · class · edges · water"]
   gen["GENERATORS — one part + capability, from (kind, params, seed, budget)"]
   comp["COMPOSITORS — one draw list: places · culls · quantises · batches"]
   rend["RENDERER — pixels from a declared plan"]
@@ -48,6 +48,9 @@ flowchart TD
 | renderer | any content noun |
 
 Peers never call each other; a part-on-part dependency travels as data through Ground.
+The engine knows no Earth: the world is a declared sphere (radius, gravity) shaped by provider
+height data; sky, sun, moon and stars are scenario declarations -- another planet is another
+scenario and other providers, never other code.
 Budget = screen-space error in px, quantised to a global ladder before it becomes a key;
 key = `(kind, params, seed, rung)` value, no strings. Degrade on detail, refuse on existence.
 
