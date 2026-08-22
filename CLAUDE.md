@@ -203,7 +203,7 @@ flowchart TD
   Ephemeris & RegionForge --> Sim --> Renderer
   Frustum -.-> DrawList
   TilePool --> World["World — quadtree LOD · admission · kerbs"] --> Sim
-  GroundStream --> Journey["Journey — orchestration: declare · stream · harvest · delegate"]
+  GroundStream --> Journey["Journey — orchestration behind the door: handles and columns in, systems delegated"]
   Journey --> CorridorLay["CorridorLay — route + ground → Corridor product"]
   Journey --> DriveTick["DriveTick — (Corridor, Rigged, DriveState) tick"]
   Journey -.-> Sim
@@ -224,9 +224,9 @@ Colours are ARCHITECTURE, adjudicated by an independent review (2026-08-22): gre
 responsibility in the right layer; amber = form in question (fields that tessellate, the getter
 carpet, TAA folded into tonemap, idle values); red = provably wrong — `TilePool` and `World`
 spell camera and LOD inside the ground layer, `SubjectDraw` is six responsibilities, `Sim` and
-`Live` are hand-wired god facades the component model replaces, `Journey` decomposed on 2026-08-22: `LayCorridor` and `DriveTick` are systems by shape with
-verbatim internals (amber until their own unit proofs deepen); Journey is the orchestration
-that remains, folding into the assembly door next. The rot concentrates at the orchestration edges; the middle of the tree is sound.
+`Live` are hand-wired god facades the component model replaces, `Journey` decomposed on 2026-08-22 and consumes the door since move 2(d): the car arrives as a
+handle, the route as assignment data, headless links no renderer. `LayCorridor` and `DriveTick`
+stay amber until their own unit proofs deepen; the name dies with move 2(e). The rot concentrates at the orchestration edges; the middle of the tree is sound.
 
 ## Class structure (TARGET — where the tree is going)
 
