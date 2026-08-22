@@ -9,6 +9,7 @@
 #include <outshine/Scenario.h>
 
 #include "Body.h"
+#include "Sink.h"
 #include "TerrainLoader.h"
 #include "Fit.h"
 #include "ReferenceLine.h"
@@ -21,15 +22,6 @@ class Transport;
 }
 
 namespace outshine::Sim {
-
-class Sink {
-public:
-  virtual ~Sink() = default;
-  virtual void Number(const char *what, double value, const char *unit) = 0;
-  virtual void Claim(bool held, const char *why) = 0;
-  virtual void Near(double got, double want, double within, const char *unit, const char *why) = 0;
-  virtual void Say(const std::string &line) = 0;
-};
 
 struct Provision {
   std::string CacheDir;
