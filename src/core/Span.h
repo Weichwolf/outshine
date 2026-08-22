@@ -30,7 +30,7 @@ public:
   constexpr T *end() const { return Data_ + Size_; }
 
   Span Sub(size_t first, size_t count) const {
-    assert(first + count <= Size_);
+    assert(first <= Size_ && count <= Size_ - first);
     return Span(Data_ + first, count);
   }
 

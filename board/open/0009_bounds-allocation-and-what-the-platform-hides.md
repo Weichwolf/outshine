@@ -26,3 +26,11 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   `float*` grids throughout; `render/stages/` is 19 files that compute every GPU buffer offset and
   extent by hand. (The figure "28 asserts" in circulation is `grep -c 'assert('` and counts the 16
   `static_assert`s; the runtime half is less than half of it.)
+
+---
+
+2026-08-22: the sharp end is repaid -- `Span::Sub` asserts `first <= Size_ && count <= Size_ -
+first` (unwrappable, the item's own prescription), the core suite stands 12/12 over it. What
+keeps this open: the assert-density half. `src/world/terrain` no longer exists (the C-ABI grids
+died with the rewrite), so the surviving subject is `src/render/stages` -- the by-hand GPU
+offset arithmetic still carries almost no runtime assertion.
