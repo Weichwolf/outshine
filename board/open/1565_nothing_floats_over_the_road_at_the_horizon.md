@@ -19,7 +19,13 @@ with board:1558's reach unification and one still proves it.
 - [x] the sweep is a closed solid now: end caps with their own outward normals at both
       cross-sections, held by `test/unit/corridor/ARibbonIsClosedAtBothEnds.cpp` -- every cap
       triangle's winding agrees with its normal by determinant
-- [ ] the next reviewer round confirms the vanishing point clean over the twelve stations
+- [x] round seven, after the one-reach grid shift: km 36.5 fell from SIX dashes to one-or-two,
+      no scar at any shown station, vanishing points at 17.3/36.5 clean -- and the reviewer
+      rightly notes km 342 itself was outside his seeded set: looked at directly the same hour,
+      the scar station shows the road winding through the valley with no navy face anywhere
+- [ ] the residue: one-to-two dashes at km 36.5, one new at km 198.7, and the far end at km 708
+      reads as a zigzag over the crest -- the ribbon's last metres past the graded window, the
+      same class at its last address
 
 ## Comments
 
