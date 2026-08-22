@@ -87,3 +87,5 @@ Sharpened (review 2026-08-23, round 9): one residue of that repayment -- the TWO
 overload src/scenario/Fields.h:65 `Refuse(const char *key, const std::string &why)` sits
 directly above the converted one-arg form, concatenates exactly the same way, and kept the
 const-ref. Same verdict, same line of reasoning: string_view.
+
+Residual repaid: Fields' two-arg Refuse joins its sibling on string_view.

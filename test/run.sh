@@ -71,8 +71,23 @@ if [ "$INHERITED_NEST" != "$BUILD" ]; then
       Die "another runner (pid $otherPid) holds this checkout's nest -- two gates in one nest read each other's half-written objects, so the second refuses instead of corrupting both"
     fi
     claimAttempts=$((claimAttempts + 1))
-    [ "$claimAttempts" -le 3 ] || Die "the nest lock would not settle after three stale breaks"
-    rm -f "$NESTLOCK"
+    [ "$claimAttempts" -le 6 ] || Die "the nest lock at $NESTLOCK would not settle after six breaks -- inspect it by hand"
+    if [ -z "$otherPid" ] && [ "$claimAttempts" -le 3 ]; then
+      # a claim exists but names nobody yet: creation and pid are one write, so this is a
+      # writer mid-flight or a corpse -- give it a beat before treating it as dead
+      sleep 1
+      continue
+    fi
+    # the claim looks dead: STEAL it atomically and inspect what was caught -- a claim that
+    # turned live mid-break is put straight back and refused, never corrupted
+    if mv "$NESTLOCK" "$NESTLOCK.stolen.$$" 2>/dev/null; then
+      stolenPid=$(cat "$NESTLOCK.stolen.$$" 2>/dev/null)
+      if [ -n "$stolenPid" ] && kill -0 "$stolenPid" 2>/dev/null; then
+        mv "$NESTLOCK.stolen.$$" "$NESTLOCK" 2>/dev/null
+        Die "the nest's claim turned live mid-break (pid $stolenPid) -- refusing rather than corrupting two gates"
+      fi
+      rm -f "$NESTLOCK.stolen.$$"
+    fi
   done
 fi
 
@@ -618,8 +633,10 @@ fi
 # THE FAST GATE IS THE DEFAULT (board:1601): run.sh without suites runs the regression gate --
 # the unit mirror, the claims, and the door proof -- and EXCLUDES the named-only suites, loudly.
 # The long suites (device corpora, oracle renders, the drive) run only when named: sporadic by
-# rule, never per edit. kFastGateBoundMs is [SET] 90000 ms on this machine over the WARM
-# population (measured 48.6 s tests + 1.4 s library, 119 tests, 2026-08-22); a COLD run after a
+# rule, never per edit. kFastGateBoundMs is [SET] 90000 ms on this machine over the WARM,
+# OTHERWISE-IDLE population (re-derived 2026-08-23: 55-62 s warm at 133 tests, ~1.5x headroom;
+# a parallel reviewer gate in a worktree inflates both runs toward the bound -- the lock keeps
+# a SECOND gate out of this nest but not off this machine); a COLD run after a
 # flag change rebuilds every set-stamped object and overruns once by design -- its red says
 # 'run again warm', which the overrun message states.
 NAMED_ONLY="harness/render render/outshine/drive render/outshine/frame render/outshine/scenario render/outshine/shader render/outshine/world tools"
@@ -1076,6 +1093,9 @@ printf '%s tests: %s PASS  %s FAIL  %s TIMEOUT  %s SIGNAL  %s BUILD  %s SKIP  %s
   "$((peakKib / 1024))" "$((endKib / 1024))" "$prunedCases" "$prunedFiles" "$((prunedKib / 1024))" \
   "$stayedFiles" "$BUILD/log"
 
+if [ "$FAST_GATE" = yes ] && [ "$elapsedMs" -le "$kFastGateBoundMs" ]; then
+  printf 'run.sh: gate headroom %s ms of %s\n' "$((kFastGateBoundMs - elapsedMs))" "$kFastGateBoundMs"
+fi
 if [ "$FAST_GATE" = yes ] && [ "$elapsedMs" -gt "$kFastGateBoundMs" ]; then
   printf 'run.sh: THE FAST GATE OVERRAN ITS BOUND -- %s ms over the declared %s ms (warm population): a slow test is a finding, exactly like a slow frame. A cold run after a flag change rebuilds every set-stamped object -- run again warm before judging (board:1601)\n' \
     "$elapsedMs" "$kFastGateBoundMs" >&2

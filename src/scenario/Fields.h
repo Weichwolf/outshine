@@ -62,8 +62,8 @@ public:
   }
   std::string Under(const char *key) const { return Path_ + "." + key; }
 
-  [[nodiscard]] bool Refuse(const char *key, const std::string &why) {
-    if (Err_.empty()) Err_ = Path_ + "." + key + " " + why;
+  [[nodiscard]] bool Refuse(const char *key, std::string_view why) {
+    if (Err_.empty()) Err_ = Path_ + "." + key + " " + std::string(why);
     return false;
   }
   [[nodiscard]] bool Refuse(std::string_view why) {

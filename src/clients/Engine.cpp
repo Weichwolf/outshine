@@ -10,9 +10,10 @@
 
 namespace outshine {
 
-inline constexpr size_t kParkedBound = 8; // [SET] state is ~KB per declaration (measured in the
-                                          // four-lines proof); eight doorways deep covers a
-                                          // building of interiors without touching residency
+inline constexpr size_t kParkedBound = 8; // [SET] eight doorways deep covers a building of
+                                          // interiors; the state kept per park is the
+                                          // declaration alone, whose measure the four-lines
+                                          // proof publishes
 
 
 struct Engine::State {
@@ -201,15 +202,16 @@ bool Engine::Park(void) {
       return false;
     }
   }
-  // the parked set states its bound: state is the declaration (KB), not residency (MB) --
-  // measured in the four-lines proof -- and the least recently live gives way, Bethesda's
-  // cell-buffer mechanism; the eviction is published on Carried so a vanished interior is
-  // traceable, never a mystery
-  if (S_->Asleep.size() == kParkedBound) {
-    S_->Carried.push_back("parked scenario '" + S_->Asleep.front().Named.Name +
-                          "' evicted at the declared bound of " + std::to_string(kParkedBound) +
-                          " -- least recently live gives way");
-    S_->Asleep.erase(S_->Asleep.begin());
+  // the parked set states its bound, and reaching it REFUSES: a park is the ONLY copy of
+  // that scenario's state (no savefile stands beneath it -- board:1492 is not built), so
+  // evicting would destroy what nobody chose to discard; "degrade on detail, refuse on
+  // existence" decides this, and the refusal names the least recently live door to clear
+  if (S_->Asleep.size() >= kParkedBound) {
+    S_->Error = "the parked set is full at its declared bound of " +
+                std::to_string(kParkedBound) + " -- resume or discard '" +
+                S_->Asleep.front().Named.Name + "' (the least recently live) before parking " +
+                S_->Declared.Named.Name;
+    return false;
   }
   S_->Asleep.push_back(S_->Declared);
   S_->Standing.reset();

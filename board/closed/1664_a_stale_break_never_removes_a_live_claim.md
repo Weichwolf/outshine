@@ -45,3 +45,13 @@ Minor, same block, on record: `kill -0` (run.sh:70) answers "signallable", not "
 gate" — a recycled pid belonging to any live process of this user turns a stale lock into
 a permanent refusal until someone removes the file by hand. A lock that carries pid AND
 start-time (ps -o lstart= -p) or simply an age bound would keep the break reachable.
+
+---
+
+Closed: the stale break STEALS atomically and inspects what it caught -- mv (atomic rename)
+takes the claim out of play, the stolen content is read at leisure, and a claim that turned
+live mid-break is put straight back and refused loudly ("refusing rather than corrupting two
+gates"); the empty-claim window is a writer mid-flight for three beats before it may be
+treated as a corpse, and the whole dance bounds at six breaks with a by-hand refusal naming
+the path. Both arms live-proven again (dead pid breaks and runs, live pid refuses by name);
+the claims regression test stands over it all. Gate 133/133.

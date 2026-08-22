@@ -42,3 +42,15 @@ room. Three defects in how it did it:
   to drop, loudly), or eviction spills the declaration through the 1493/1492 state door
   once it exists — the choice belongs in 1485's body with its reasoning, and the current
   LRU-drop should not stand as the default merely because it was easy.
+
+---
+
+Closed, and the adjudication FLIPPED on the reviewer's argument: a park is the ONLY copy of
+that scenario's state -- no savefile stands beneath it (board:1492 is not built) -- so
+Bethesda's cell-buffer eviction, which is a cache over a save, does not transfer. "Degrade on
+detail, refuse on existence" decides it: the ninth park REFUSES, naming the least recently
+live door to resume or discard. The self-erasing Carried trace is gone WITH the eviction --
+nothing vanishes, so nothing needs tracing; the bound's derivation stopped citing
+sizeof(Scenario) (which measured no heap and therefore nothing). Proving test: the four-lines
+proof stands nine rooms, sees the ninth refuse naming room 0, resumes it, and parks on --
+nothing was ever lost. 133/133.

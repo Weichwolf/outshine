@@ -27,3 +27,11 @@ in the tree; (b) the gate prints its headroom on every green run (elapsed vs bou
 line) so the creep is a published number, not an archaeology exercise across board
 closures; (c) the two multi-second claims outliers get looked at once — the Exr raw
 proof and the re-grown link audit cost — before the next dozen tests spend the margin.
+
+---
+
+Closed: the bound's derivation is re-[SET] against the present population (55-65 s warm idle
+at 133 tests, ~1.5x headroom, 2026-08-23) with the load condition NAMED -- a parallel
+reviewer gate in a worktree shares the machine even though the lock keeps it out of the
+nest; and every green gate now PUBLISHES its headroom ("gate headroom N ms of 90000"), so
+the creep 1656 caught by accident is a number every run states. First print: 25092 ms.

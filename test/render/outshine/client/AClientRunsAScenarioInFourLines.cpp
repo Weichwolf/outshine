@@ -328,31 +328,26 @@ int main(void) {
   CHECK(engine.Parked().size() == 1 && engine.Parked()[0] == "vault 111",
         "and the interior stays parked, so walking back in again is a resume and not a load");
 
-  Note("the state a park keeps, per declaration", (double)sizeof(outshine::Scenario), "B struct");
   {
     outshine::Engine doors;
     outshine::Scenario room = engine.Declared();
+    size_t stoodUp = 0;
     for (int at = 0; at < 9; ++at) {
       room.Named.Name = "room " + std::to_string(at);
-      const bool stood = doors.Declare(room);
-      if (!stood) { std::printf("REFUSED %s\n", doors.Error().c_str()); }
-      if (!stood || !doors.Park()) { break; }
+      if (!doors.Declare(room)) { break; }
+      ++stoodUp;
+      if (!doors.Park()) { break; }
     }
-    CHECK(doors.Parked().size() == 8,
-          "**THE PARKED SET STATES ITS BOUND**: eight doorways deep, declared, never a growth "
-          "nobody stated");
-    CHECK(doors.Parked()[0] == "room 1" && doors.Resume("room 0") == false,
-          "the ninth park evicts the LEAST RECENTLY LIVE -- room 0 gave way, Bethesda's cell "
-          "buffer mechanism, and resuming it is now a refusal");
-    bool published = false;
-    for (const std::string &carried : doors.Carried()) {
-      if (carried.find("room 0") != std::string::npos &&
-          carried.find("evicted") != std::string::npos) {
-        published = true;
-      }
-    }
-    CHECK(published, "and the eviction is PUBLISHED on Carried -- a vanished interior is "
-                     "traceable, never a mystery");
+    CHECK(stoodUp == 9 && doors.Parked().size() == 8,
+          "**THE PARKED SET STATES ITS BOUND AND REACHING IT REFUSES**: the ninth room stands "
+          "but will not park -- a park is the ONLY copy of that state, and destroying what "
+          "nobody chose to discard is not a cache policy");
+    CHECK(doors.Error().find("room 0") != std::string::npos &&
+              doors.Error().find("least recently live") != std::string::npos,
+          "and the refusal names the least recently live door to clear, so the caller knows "
+          "exactly which to resume or discard");
+    CHECK(doors.Resume("room 0") && doors.Parked().size() == 7,
+          "resuming the named door clears a seat -- nothing was ever lost");
   }
 
   const struct {
