@@ -42,6 +42,11 @@ demanded instead.
      `push_back` inside a tick is a defect.
    - **No embedded shaders or scripts**: shader and script sources live as files in the tree,
      never as string literals inside C++ — an embedded MSL/GLSL/script blob is a defect.
+   - **C++23 is the language level** (one `-std=c++23` in test/run.sh): demand its tools
+     where they are the better form -- `std::mdspan` over hand-rolled index maths on fields,
+     tiles and instance streams; `std::expected` over bool-plus-error-string where a refusal
+     carries its reason; `std::span`/`string_view` as below. A C++17-ism where a 23 form is
+     strictly clearer is a finding.
    - **`std::span` and `std::string_view` at boundaries**: no `const std::vector<T>&` or
      `const std::string&` parameters where a view says what is meant; no owning copies for
      read-only traversal.

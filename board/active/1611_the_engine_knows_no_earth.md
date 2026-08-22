@@ -36,8 +36,8 @@ care which planet it is standing on.
       2. [DONE] Wayfinding's kEarthRadiusM died: ApartM, the free Plan and Network take the
          sphere radius; Journey and LayCorridor pass world.RadiusM; the seed 6371008.8 (IUGG
          mean) lives ONCE in WorldSettings and the reader defaults to the struct
-      3. src/ground/tiles/TileGeodesy.h kWgs84A + Mercator band: the TILE SCHEME's own datum --
-         moves beside the tile source under src/data, named as the tiling's shape
+      3. [DONE] the datum lives with the providers: src/data/Wgs84.h holds kWgs84A/kWgs84F/
+         kMercatorGirthM named as the shipped providers' shape; ground/tiles imports downward
       4. src/core/Geodesy.h GeoToEcef WGS84 a/e2: the height/imagery providers' datum -- moves
          under src/data; consumers (ground fields, generators, clients) take ECEF products or a
          provider handle, never the constants. SURVEY (2026-08-22): the slice is larger than a

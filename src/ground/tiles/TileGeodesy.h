@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "TileMath.h"
+#include "Wgs84.h"
 
 namespace outshine::World {
 
@@ -27,9 +28,9 @@ struct TileFrac {
   double X = 0.0, Y = 0.0;
 };
 
-constexpr double kWgs84A = 6378137.0;
-constexpr double kWgs84F = 1.0 / 298.257223563;
-constexpr double kMercatorGirthM = 2.0 * 3.14159265358979323846 * kWgs84A;
+using Data::kWgs84A;
+using Data::kWgs84F;
+using Data::kMercatorGirthM;
 
 class TileIndex {
  public:
