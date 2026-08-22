@@ -105,18 +105,11 @@ struct Journey::State {
   std::unique_ptr<outshine::World::TilePool> Pool;
   std::unique_ptr<outshine::World::GroundStream> Ground;
   outshine::Scenario Declared;
-  double CarWidthM = 0.0;
   outshine::Sim::Rigged Stood;
   outshine::Sim::Corridor Way;
   outshine::Sim::DriveState Drive;
-  double HeldAsideM = 0.0;
-  bool HaveAside = false;
-  double NearM = 0.0;
-  double LostM = 0.0;
-  double SimulatedS = 0.0;
   bool Opened = false;
   bool Ready = false;
-  Ridden Tally;
 };
 
 Journey::Journey() : S_(std::make_unique<State>()) {}
@@ -167,7 +160,6 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom,
   auto &stood = S_->Stood;
   auto &asideM = S_->Way.AsideM;
   auto &narrowestLaneM = S_->Way.NarrowestLaneM;
-  auto &holdWithinM = S_->Way.HoldWithinM;
 
 
   const double straightM = ApartM(fromLatDeg, fromLonDeg, toLatDeg, toLonDeg);
@@ -363,8 +355,6 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom,
                         middleLat, say, S_->Way, error)) {
     return false;
   }
-  auto &corridorLaid = S_->Way;
-  (void)corridorLaid;
 
   auto &rig = S_->Drive.Rig;
   auto &body = S_->Drive.Body;
@@ -394,11 +384,6 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom,
     outshine::Physics::Turn(body.OrientationQ, aheadBody, ahead);
     for (int axis = 0; axis < 3; ++axis) { body.VelocityMs[axis] = kJoinMs * ahead[axis]; }
   }
-
-  outshine::Pilot::Reins reins;
-  reins.SettleS = 1.0;
-  reins.LeastReachM = stood.Axles.WheelbaseM;
-  reins.HoldWithinM = holdWithinM;
 
   S_->Drive.AsideRatePerM = (0.5 * narrowestLaneM - 0.5 * carWidthM) / (1.0 * stood.Envelope.TopMs());
   

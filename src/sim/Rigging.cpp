@@ -81,7 +81,7 @@ Rigged Stand(const Vehicle &declared) {
     if (one.AtM[2] < out.CentreM[2]) {
       frontZ += one.AtM[2];
       ++front;
-    } else {
+    } else if (one.AtM[2] > out.CentreM[2]) {
       rearZ += one.AtM[2];
       ++rear;
     }

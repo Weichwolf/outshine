@@ -414,8 +414,14 @@ bool LayCorridor(const World::Route &route, World::GroundStream &ground,
         "this count exists to make loud. The grades are RAA, RAL and RASt figures declared beside "
         "the declared vegetation table");
   say.Number("the gentlest grade any road class on this route declares", gentlestLimit * 100.0, "%");
-  say.Number("the steepest the F31's drivetrain could climb from rest", 23.43257, "%");
-  say.Number("the steepest it could hold at its own top speed", 0.15, "%");
+  const double weightN = stood.Envelope.MassKg * 9.80665;
+  const double fromRest = stood.Envelope.DriveN / weightN;
+  const double topMs = stood.Envelope.TopMs();
+  const double dragAtTopN =
+      0.5 * stood.Envelope.AirDensity * stood.Envelope.DragArea * topMs * topMs;
+  say.Number("the steepest the standing rig could climb from rest", fromRest * 100.0, "%");
+  say.Number("the steepest it could hold at its own top speed",
+       (stood.Envelope.DriveN - dragAtTopN) / weightN * 100.0, "%");
   say.Number("where that is", gentlestAtM / 1000.0, "km");
 
   long shaped = 0;
@@ -497,17 +503,16 @@ bool LayCorridor(const World::Route &route, World::GroundStream &ground,
   say.Number("as a percentage", worstGradeM * 100.0, "%");
   say.Number("where that is", worstGradeAtM / 1000.0, "km");
 
-  const double driveN = 400.0 * 3.08 / 0.333;
-  const double climbLimit = driveN / (1610.0 * 9.80665);
-  say.Number("the steepest the F31's drivetrain can climb", climbLimit * 100.0, "%");
-  say.Claim(rose, "**AND THE CORRIDOR RISES WITH THE REAL GROUND UNDER IT.** 8022 heights from the "
+  const double climbLimit = stood.Envelope.DriveN / (stood.Envelope.MassKg * 9.80665);
+  say.Number("the steepest the standing rig's drivetrain can climb", climbLimit * 100.0, "%");
+  say.Claim(rose, "**AND THE CORRIDOR RISES WITH THE REAL GROUND UNDER IT.** Heights from the "
               "declared elevation source, each a knot with its own slope, and one cubic through "
               "them -- the same mechanism the synthetic road used, fed by the world");
   say.Claim(std::fabs(worstGradeM) < climbLimit,
-        "**AND NOTHING ON IT IS STEEPER THAN THE CAR CAN CLIMB.** 23.4 % is what 3699 N against "
-        "15789 N of weight allows; a gradient past that is the drivetrain REFUSING, and on this "
-        "route there is none -- which is the first evidence that the ground under an OSM road is "
-        "reconstructed well enough to drive");
+        "**AND NOTHING ON IT IS STEEPER THAN THE CAR CAN CLIMB.** The limit is the standing "
+        "rig's drive force against its own weight; a gradient past it is the drivetrain "
+        "REFUSING, and on this route there is none -- which is the first evidence that the "
+        "ground under an OSM road is reconstructed well enough to drive");
 
   const double shortestCornerM = 1.5 * tightestM * 0.1;
   const double profileStepM = 0.5 * shortestCornerM;

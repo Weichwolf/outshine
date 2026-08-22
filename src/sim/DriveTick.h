@@ -26,16 +26,7 @@ struct Ridden {
   bool PastTravel = false;
   bool PastLimit = false;
   bool OffTheRoad = false;
-  size_t Airborne = 0;
-  double AlongM = 0.0;
   double SpeedMs = 0.0;
-  double PlannedMs = 0.0;
-  double InLaneM = 0.0;
-  double AsideM = 0.0;
-  double EdgeM = 0.0;
-  double RatioOfHold = 0.0;
-  double CurvaturePerM = 0.0;
-  double CurvatureRatePerM = 0.0;
   double ReachedM = 0.0;
   double TopMs = 0.0;
   double WorstOffsetM = 0.0;

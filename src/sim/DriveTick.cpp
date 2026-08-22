@@ -176,6 +176,7 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood, const Scenario &decla
     out.LeftAcrossM = at.OffsetM;
   }
   if (read.OffTheSurface > 0) {
+    out.OffTheRoad = true;
     out.BrokeAtM = at.AlongM;
     out.LeftTheRoadAtM = at.AlongM;
     return out;
