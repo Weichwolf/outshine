@@ -15,7 +15,7 @@ struct Excused {
 const Excused kExcused[] = {
     {"src/render", "the device layer itself: its unit mirror is the device suite "
                    "render/outshine/shader, where MSL and its C++ twin are one test"},
-    {"src/world/tiles", "folded into unit/world -- the tiles are the world's own plumbing and "
+    {"src/ground/tiles", "folded into unit/world -- the tiles are the world's own plumbing and "
                         "unit/world compiles them in its groups"},
     {"src/core/io", "folded into unit/core -- one layer, two directories by include depth"},
     {"src/assets", "declared data, not code"},

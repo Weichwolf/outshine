@@ -74,7 +74,7 @@ LayerIncludes() {
     unit/scenario) printf '%s' "-Iinclude -Isrc/core -Isrc/scenario" ;;
     unit/generators) printf '%s' "-Isrc/core -Isrc/generators" ;;
     unit/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
-    unit/world) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/corridor -Isrc/data -Isrc/world -Isrc/world/tiles" ;;
+    unit/ground) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/corridor -Isrc/data -Isrc/ground -Isrc/ground/tiles" ;;
     unit/render/plan) printf '%s' "-Isrc/core -Isrc/render/plan" ;;
     unit/render/draw) printf '%s' "-Isrc/core -Isrc/render/draw" ;;
     unit/render/stages) printf '%s' "-Isrc/core -Isrc/render/stages" ;;
@@ -86,12 +86,12 @@ LayerIncludes() {
     render/outshine/frame) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui" ;;
     render/outshine/shader) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render -Isrc/render/draw -Isrc/render/plan -Isrc/render/stages" ;;
     render/outshine/client) printf '%s' "-Iinclude" ;;
-    render/outshine/world) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/scenario -Isrc/generators -Isrc/generators/draw -Isrc/world -Isrc/world/tiles -Isrc/clients -Isrc/corridor -Itools/host" ;;
-    render/outshine/drive) printf '%s' "-Iinclude -Isrc/corridor -Isrc/physics -Isrc/pilot -Isrc/world" ;;
+    render/outshine/world) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/scenario -Isrc/generators -Isrc/generators/draw -Isrc/ground -Isrc/ground/tiles -Isrc/clients -Isrc/corridor -Itools/host" ;;
+    render/outshine/drive) printf '%s' "-Iinclude -Isrc/corridor -Isrc/physics -Isrc/pilot -Isrc/ground" ;;
     render/outshine/scenario) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui -Itest/harness/shared" ;;
     tools/viewer) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui -Itools/viewer/parts" ;;
-    tools/driver/stills | tools/driver/window) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/clients -Isrc/corridor -Isrc/data -Isrc/gltf -Isrc/physics -Isrc/pilot -Isrc/render -Isrc/render/plan -Isrc/render/draw -Isrc/render/stages -Isrc/scenario -Isrc/ui -Isrc/world -Isrc/world/tiles -Itools/host -Isrc/sim" ;;
-    tools/driver) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/corridor -Isrc/data -Isrc/physics -Isrc/pilot -Isrc/gltf -Isrc/scenario -Isrc/world -Isrc/world/tiles -Itools/host -Isrc/sim" ;;
+    tools/driver/stills | tools/driver/window) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/clients -Isrc/corridor -Isrc/data -Isrc/gltf -Isrc/physics -Isrc/pilot -Isrc/render -Isrc/render/plan -Isrc/render/draw -Isrc/render/stages -Isrc/scenario -Isrc/ui -Isrc/ground -Isrc/ground/tiles -Itools/host -Isrc/sim" ;;
+    tools/driver) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/corridor -Isrc/data -Isrc/physics -Isrc/pilot -Isrc/gltf -Isrc/scenario -Isrc/ground -Isrc/ground/tiles -Itools/host -Isrc/sim" ;;
     *) return 1 ;;
   esac
 }
@@ -132,7 +132,7 @@ LayerLink() {
     tools/driver/stills | tools/driver/window) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz -lcurl" ;;
     render/outshine/shader) printf '%s' "$(pkg-config --libs sdl3) -lz" ;;
     unit/clients) printf '%s' "$(pkg-config --libs sdl3-image) -lz" ;;
-    unit/core | unit/world | unit/data | unit/render/plan | unit/render/draw) printf '%s' "-lz" ;;
+    unit/core | unit/ground | unit/data | unit/render/plan | unit/render/draw) printf '%s' "-lz" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -154,7 +154,7 @@ LayerGroups() {
     unit/scenario) printf '%s' "src/core src/scenario" ;;
     unit/generators) printf '%s' "src/core src/generators" ;;
     unit/generators/draw) printf '%s' "src/core src/generators src/generators/draw" ;;
-    unit/world) printf '%s' "src/corridor src/world/Wayfinding.cpp" ;;
+    unit/ground) printf '%s' "src/corridor src/ground/Wayfinding.cpp" ;;
     unit/render/plan) printf '%s' "src/core src/core/io src/render/plan" ;;
     unit/render/draw) printf '%s' "src/core src/core/io src/render/draw" ;;
     unit/render/stages) printf '%s' "" ;;
@@ -162,10 +162,10 @@ LayerGroups() {
     harness/claims) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario | render/outshine/client) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/clients/Engine.cpp src/scenario/ScenarioRead.cpp src/clients/Assembly.cpp" ;;
     render/outshine/shader) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
-    tools/driver/stills | tools/driver/window) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/corridor src/physics src/pilot src/data src/world/tiles src/world src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/scenario/ScenarioRead.cpp src/sim" ;;
-    tools/driver) printf '%s' "src/core src/core/io src/gltf src/corridor src/physics src/pilot src/data src/world/tiles src/world src/sim src/scenario/ScenarioRead.cpp" ;;
-    render/outshine/world) printf '%s' "src/core src/core/io src/data src/scenario src/generators src/generators/draw src/world/tiles src/world src/clients/Sim.cpp src/clients/LogSinks.cpp src/clients/StreamTelemetry.cpp src/clients/EyeTelemetry.cpp src/clients/CsvTelemetry.cpp src/clients/Species.cpp src/clients/RegionForge.cpp src/clients/SceneWeather.cpp" ;;
-    render/outshine/drive) printf '%s' "src/corridor src/physics src/pilot src/world/Wayfinding.cpp" ;;
+    tools/driver/stills | tools/driver/window) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/corridor src/physics src/pilot src/data src/ground/tiles src/ground src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/scenario/ScenarioRead.cpp src/sim" ;;
+    tools/driver) printf '%s' "src/core src/core/io src/gltf src/corridor src/physics src/pilot src/data src/ground/tiles src/ground src/sim src/scenario/ScenarioRead.cpp" ;;
+    render/outshine/world) printf '%s' "src/core src/core/io src/data src/scenario src/generators src/generators/draw src/ground/tiles src/ground src/clients/Sim.cpp src/clients/LogSinks.cpp src/clients/StreamTelemetry.cpp src/clients/EyeTelemetry.cpp src/clients/CsvTelemetry.cpp src/clients/Species.cpp src/clients/RegionForge.cpp src/clients/SceneWeather.cpp" ;;
+    render/outshine/drive) printf '%s' "src/corridor src/physics src/pilot src/ground/Wayfinding.cpp" ;;
     *) return 1 ;;
   esac
 }
@@ -213,10 +213,10 @@ GroupIncludes() {
     src/physics) printf '%s' "-Isrc/physics" ;;
     src/pilot) printf '%s' "-Isrc/corridor -Isrc/pilot" ;;
     src/sim/Rigging.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/corridor -Isrc/physics -Isrc/pilot -Isrc/sim" ;;
-    src/world/Wayfinding.cpp) printf '%s' "-Isrc/corridor -Isrc/world" ;;
-    src/world/RoadHarvest.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/data -Isrc/world -Isrc/world/tiles" ;;
+    src/ground/Wayfinding.cpp) printf '%s' "-Isrc/corridor -Isrc/ground" ;;
+    src/ground/RoadHarvest.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/data -Isrc/ground -Isrc/ground/tiles" ;;
     src/data) printf '%s' "-Isrc/core -Isrc/data" ;;
-    src/world | src/world/tiles) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/corridor -Isrc/data -Isrc/world -Isrc/world/tiles" ;;
+    src/ground | src/ground/tiles) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/corridor -Isrc/data -Isrc/ground -Isrc/ground/tiles" ;;
     src/gltf) printf '%s' "-Isrc/core -Isrc/gltf" ;;
     src/ui) printf '%s' "-Isrc/core -Isrc/ui" ;;
     src/scenario | src/scenario/ScenarioRead.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/scenario" ;;
@@ -228,9 +228,9 @@ GroupIncludes() {
     src/clients/GltfStudio.cpp | src/clients/Surfaces.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients $(pkg-config --cflags sdl3)" ;;
     src/clients/Live.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui $(pkg-config --cflags sdl3)" ;;
     src/clients/Assembly.cpp) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/clients" ;;
-    src/sim) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/corridor -Isrc/data -Isrc/physics -Isrc/pilot -Isrc/scenario -Isrc/sim -Isrc/world -Isrc/world/tiles" ;;
+    src/sim) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/corridor -Isrc/data -Isrc/physics -Isrc/pilot -Isrc/scenario -Isrc/sim -Isrc/ground -Isrc/ground/tiles" ;;
     src/clients/Engine.cpp) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/scenario -Isrc/ui $(pkg-config --cflags sdl3)" ;;
-    src/clients/Sim.cpp | src/clients/LogSinks.cpp | src/clients/StreamTelemetry.cpp | src/clients/EyeTelemetry.cpp | src/clients/CsvTelemetry.cpp | src/clients/Species.cpp | src/clients/RegionForge.cpp | src/clients/SceneWeather.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/scenario -Isrc/world -Isrc/world/tiles -Isrc/generators -Isrc/generators/draw -Isrc/corridor -Isrc/clients" ;;
+    src/clients/Sim.cpp | src/clients/LogSinks.cpp | src/clients/StreamTelemetry.cpp | src/clients/EyeTelemetry.cpp | src/clients/CsvTelemetry.cpp | src/clients/Species.cpp | src/clients/RegionForge.cpp | src/clients/SceneWeather.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/scenario -Isrc/ground -Isrc/ground/tiles -Isrc/generators -Isrc/generators/draw -Isrc/corridor -Isrc/clients" ;;
     src/clients/Image.cpp) printf '%s' "-Isrc/clients $(pkg-config --cflags sdl3-image)" ;;
     *) return 1 ;;
   esac
