@@ -1,6 +1,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <map>
 #include <string>
 
 #include "Check.h"
@@ -27,7 +28,9 @@ class Harness : public Sink {
 public:
   void Number(const char *what, double value, const char *unit) override {
     outshine::Test::Note(what, value, unit);
+    Seen[what] = value;
   }
+  std::map<std::string, double> Seen;
   void Claim(bool held, const char *why) override {
     outshine::Test::Checked(held, "the journey", why, __FILE__, __LINE__);
   }
@@ -56,6 +59,21 @@ int main(void) {
               "numbers reported through a SINK, so the windowed driver runs the identical code and "
               "judges nothing");
   if (!laid) { return Report(); }
+
+  CHECK(harness.Seen["how far each walk is as a share of the drive"] < 0.001,
+        "**AND THE WALK AT EACH END IS NEGLIGIBLE AGAINST THE DRIVE** -- both squares are "
+        "pedestrian zones, the car parks at the carriageway's edge, and the pair of walks stays "
+        "under a thousandth of the route. THIS claim lives in the ROUTE-1 CASE now: the engine "
+        "publishes the number and asserts nothing city-specific (board:1581's neutrality cut)");
+  const double routeKm = journey.LengthM() / 1000.0;
+  Note("the route the case itself checks", routeKm, "km");
+  CHECK(routeKm > 700.0 && routeKm < 900.0,
+        "and its length is what a road between Munich and Hamburg is -- 612 km as the crow "
+        "flies, roughly 775 by motorway");
+  CHECK(std::fabs(harness.Seen["the elevation where the route starts"] - 523.0) < 40.0 &&
+            std::fabs(harness.Seen["the elevation where the route ends"] - 14.0) < 40.0,
+        "**AND THE TWO ENDS ARE WHERE THE CITIES ARE**: Munich near 520 m, Hamburg near 10 -- "
+        "the check that this is the real world, held by the case that names the cities");
 
   const auto began = std::chrono::steady_clock::now();
   Ridden rode;

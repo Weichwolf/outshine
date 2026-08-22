@@ -242,7 +242,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
   const double straightM = ApartM(fromLatDeg, fromLonDeg, toLatDeg, toLonDeg);
   const double middleLat = 0.5 * (fromLatDeg + toLatDeg);
   const double middleLon = 0.5 * (fromLonDeg + toLonDeg);
-  say.Number("Marienplatz to Rathausmarkt as the crow flies", straightM / 1000.0, "km");
+  say.Number("start to destination as the crow flies", straightM / 1000.0, "km");
   say.Number("the zoom the ways are read at", (double)kZoom, "");
   const double tileGroundM =
       40075017.0 * std::cos(middleLat * 3.14159265358979 / 180.0) / (double)(1L << kZoom);
@@ -310,7 +310,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
 
   say.Claim(built > 0 && field.Features().size() > 0,
         "**REAL OSM WAYS ARRIVE OVER THE WIRE AND DECODE.** No fixture, no committed extract: the "
-        "declared upstream source is asked for the tiles between Munich and Hamburg and answers "
+        "declared upstream source is asked for the tiles between start and destination and answers "
         "with vector geometry");
   if (field.Features().empty()) { return false; }
 
@@ -369,17 +369,10 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
   say.Claim(roads.Nearest(Waypoint{fromLatDeg, fromLonDeg}, atFrom, fromAwayM) &&
             roads.Nearest(Waypoint{toLatDeg, toLonDeg}, atTo, toAwayM),
         "both city centres resolve to a node of the network");
-  say.Number("how far Marienplatz is from the nearest road node", fromAwayM, "m");
-  say.Number("how far Rathausmarkt is from the nearest road node", toAwayM, "m");
+  say.Number("how far the start is from the nearest road node", fromAwayM, "m");
+  say.Number("how far the destination is from the nearest road node", toAwayM, "m");
   say.Number("how far each walk is as a share of the drive",
        (fromAwayM + toAwayM) / straightM, "of it");
-  say.Claim(fromAwayM + toAwayM < 0.001 * straightM,
-        "**AND THE WALK AT EACH END IS NEGLIGIBLE AGAINST THE DRIVE.** Both squares are pedestrian "
-        "zones, so the nearest CARRIAGEWAY is a few hundred metres away and the car parks at the "
-        "edge -- 267 m at Marienplatz and 221 m at Rathausmarkt, together under a thousandth of the "
-        "612 km between them. The bound is the route's own length and not a number somebody picked: "
-        "a node 200 km away would give a route shorter than the great circle and still look like "
-        "one");
 
   const double tightestM = 2.810 / std::tan(0.522804742);
   say.Number("the tightest circle the F31 can turn", tightestM, "m");
@@ -403,9 +396,6 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
         "findings rather than a route");
   say.Number("legs in it", (double)route.Legs.size(), "legs");
 
-  say.Claim(route.LengthM / 1000.0 > 700.0 && route.LengthM / 1000.0 < 900.0,
-        "and its length is what a road between these two cities is -- 612 km as the crow flies and "
-        "roughly 775 by motorway, so a route far outside that band went somewhere a car would not");
 
   const double frameLat = route.Legs.front().At.LatDeg;
   const double frameLon = route.Legs.front().At.LonDeg;
@@ -583,10 +573,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
   say.Claim(resolved > 0, "**THE ELEVATION SOURCE ANSWERS ALONG THE WHOLE CORRIDOR.** Real height data, "
                       "streamed for the same route the ways came from");
   say.Claim(holes == 0, "with no hole in it -- a hole is a named refusal and there is none here");
-  say.Claim(std::fabs(heightM.front() - 523.0) < 40.0 && std::fabs(heightM.back() - 14.0) < 40.0,
-        "**AND THE TWO ENDS ARE WHERE THE CITIES ARE.** Munich stands at about 520 m and Hamburg at "
-        "about 10; the source says 523.15 and 14.14, which is the check that this is the real world "
-        "and not a plausible surface");
+  say.Number("the elevation where the route ends", heightM.empty() ? 0.0 : heightM.back(), "m");
 
   outshine::SpeedProfile inPlan;
   say.Claim(inPlan.Over(corridor, stood.Envelope, postM, 0.0, error),
