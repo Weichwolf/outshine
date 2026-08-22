@@ -374,8 +374,27 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
   say.Number("how far each walk is as a share of the drive",
        (fromAwayM + toAwayM) / straightM, "of it");
 
-  const double tightestM = 2.810 / std::tan(0.522804742);
-  say.Number("the tightest circle the F31 can turn", tightestM, "m");
+  std::FILE *const declaration = std::fopen(scenarioPath, "rb");
+  say.Claim(declaration != nullptr, "the vehicle's own declaration is there to read");
+  std::vector<char> text;
+  if (declaration != nullptr) {
+    int one = 0;
+    while ((one = std::fgetc(declaration)) != EOF) { text.push_back((char)one); }
+    std::fclose(declaration);
+  }
+  const bool read = !text.empty() && outshine::ReadScenario(text.data(), text.size(), declared, error);
+  if (!read && !error.empty()) { say.Say(Line("REFUSED %s", error.c_str())); }
+  say.Claim(read, "and it reads -- BEFORE the route is planned, because the vehicle defines "
+                  "which roads are drivable");
+  if (!read) { return false; }
+  say.Claim(declared.Vehicles.size() == 1, "declaring one vehicle");
+  if (declared.Vehicles.empty()) { return false; }
+
+  const outshine::Vehicle &turning = declared.Vehicles[0];
+  const double outerM = turning.TurningCircleM * 0.5;
+  const double tightestM =
+      std::sqrt(outerM * outerM - turning.WheelbaseM * turning.WheelbaseM);
+  say.Number("the tightest centreline circle the declaration implies", tightestM, "m");
   const Route route =
       roads.Plan(Waypoint{fromLatDeg, fromLonDeg}, Waypoint{toLatDeg, toLonDeg}, tightestM,
                  quantumM);
@@ -383,7 +402,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
   if (!route.Found) { say.Say(Line("REFUSED %s", route.Error.c_str())); }
   say.Number("nodes the search settled", (double)route.Reached, "nodes");
   say.Claim(route.Found,
-        "**AND A ROUTE IS FOUND FROM MARIENPLATZ TO RATHAUSMARKT OVER OSM'S OWN WAYS.** Two "
+        "**AND A ROUTE IS FOUND FROM START TO DESTINATION OVER OSM'S OWN WAYS.** Two "
         "coordinates in, a chain of real roads out, nothing stored and nothing hand-placed");
   if (!route.Found) { return false; }
 
@@ -491,21 +510,6 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
         "sharp turns, board:1528");
   say.Number("the speed the tightest radius allows at 0.95 g",
        std::sqrt(0.95 * 9.80665 * fitted.TightestRadiusM) * 3.6, "km/h");
-
-  std::FILE *const declaration = std::fopen("tools/driver/f31.scenario", "rb");
-  say.Claim(declaration != nullptr, "the F31's own declaration is there to read");
-  std::vector<char> text;
-  if (declaration != nullptr) {
-    int one = 0;
-    while ((one = std::fgetc(declaration)) != EOF) { text.push_back((char)one); }
-    std::fclose(declaration);
-  }
-  const bool read = !text.empty() && outshine::ReadScenario(text.data(), text.size(), declared, error);
-  if (!read && !error.empty()) { say.Say(Line("REFUSED %s", error.c_str())); }
-  say.Claim(read, "and it reads");
-  if (!read) { return false; }
-  say.Claim(declared.Vehicles.size() == 1, "declaring one vehicle");
-  if (declared.Vehicles.empty()) { return false; }
 
   stood = outshine::Clients::Stand(declared.Vehicles[0]);
   if (!stood.Stood) { say.Say(Line("REFUSED %s", stood.Error.c_str())); }
