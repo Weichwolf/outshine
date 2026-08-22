@@ -35,3 +35,12 @@ Tags: scope
 The two review crons are aligned with this: the magazine tester (even hours) judges the
 first-person picture of a worldwide test-drive game; the technical reviewer (odd hours) judges
 the tree against RAGE and Unreal -- including whether the driver is still doing engine work.
+
+Technical review round 1 ranked the migration list by how much C++ leaves the tool:
+1. `Lie()` -- terrain meshing + road grading, ~170 lines -> a Ground-side grading pass + a
+   terrain generator kind (the "road travels as data through Ground" rule, executed)
+2. relay pacing / streaming, ~60 lines -> compositor residency + floating origin in world;
+   "it being in a tool is the single loudest statement that the compositor layer is unfinished"
+3. camera rigs (~100 lines) -> a view-rig unit consuming the ALREADY-declared scenario Views
+4. asset registration (~50 lines) -> Rigging.cpp, which exists for exactly this
+5. cut/fill instrumentation (~40 lines) -> the scenario suite, board:1571's instrument family
