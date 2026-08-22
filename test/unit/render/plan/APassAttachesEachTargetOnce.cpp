@@ -204,6 +204,33 @@ int main() {
     }
   }
 
+  {
+    outshine::Render::PlanSpec bare;
+    bare.Outputs = {Resource::FrameTex};
+    bare.Content = {outshine::Render::Stage::Subjects};
+    std::shared_ptr<const RenderPlan> plan;
+    std::string error;
+    CHECK(RenderPlan::Compile(bare, &plan, error), "a plain subjects plan compiles");
+    if (plan) {
+      CHECK(!plan->Stored(Resource::SceneShadingNormal) &&
+                !plan->Stored(Resource::SceneSurfaceIdentity),
+            "**AN ATTACHMENT NOBODY READS AND NOBODY ASKED FOR IS NOT STORED.** The shading "
+            "normal and the surface identity are written by the subjects pass and read by no "
+            "stage of this plan and no declared output -- deriving DONT_CARE for them saves 24 "
+            "bytes per pixel of tile write-back on a TBDR device, per frame, for nothing");
+      CHECK(plan->Stored(Resource::FrameTex) && plan->Stored(Resource::SceneDepth),
+            "while the frame the consumer asked for and the depth the tonemap reads are stored");
+    }
+    outshine::Render::PlanSpec parity = bare;
+    parity.Outputs.push_back(Resource::SceneShadingNormal);
+    std::shared_ptr<const RenderPlan> kept;
+    CHECK(RenderPlan::Compile(parity, &kept, error) && kept &&
+              kept->Stored(Resource::SceneShadingNormal),
+          "**AND ASKING FOR IT IS ENOUGH**: the parity harness declares the normal as an output "
+          "and the derivation keeps it -- the consumer decides what survives the pass, in the "
+          "declaration and nowhere else");
+  }
+
   Covers("I.27 the pass descriptor is the union of its stages' targets, one entry per distinct "
          "resource, and a pass wider than the device floor is refused where the plan is compiled");
   return Report();

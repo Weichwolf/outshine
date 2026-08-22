@@ -57,6 +57,10 @@ public:
     return HeldResource_[static_cast<size_t>(resource)];
   }
 
+  [[nodiscard]] bool Stored(Resource resource) const {
+    return Stored_[static_cast<size_t>(resource)];
+  }
+
   [[nodiscard]] Resource Bound(Resource resource) const {
     return Bound_[static_cast<size_t>(resource)];
   }
@@ -87,6 +91,7 @@ private:
 
   bool HeldStage_[kStageCount] = {};
   bool HeldResource_[kResourceCount] = {};
+  bool Stored_[kResourceCount] = {};
   bool Fused_[kStageCount] = {};
   Resource Bound_[kResourceCount] = {};
   TexelFormat Format_[kResourceCount] = {};

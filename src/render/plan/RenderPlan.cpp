@@ -297,6 +297,30 @@ bool RenderPlan::Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan>
     }
   }
 
+  {
+    size_t attachedInPasses[kResourceCount] = {};
+    for (const Pass &pass : plan->Passes_) {
+      for (const Resource target : pass.Targets) { ++attachedInPasses[(size_t)target]; }
+      if (pass.Depth != kNoEdge) { ++attachedInPasses[(size_t)pass.Depth]; }
+    }
+    for (size_t r = 0; r < kResourceCount; ++r) {
+      const Resource id = static_cast<Resource>(r);
+      if (!plan->HeldResource_[r]) { continue; }
+      bool read = false;
+      for (const Stage held : plan->Order_) {
+        const StageRow &row = Row(held);
+        for (size_t e = 0; e < kMaxEdges && row.Reads[e] != kNoEdge; ++e) {
+          if (plan->Bound(row.Reads[e]) == plan->Bound(id)) { read = true; }
+        }
+      }
+      bool wanted = id == Resource::Surface;
+      for (const Resource asked : spec.Outputs) {
+        if (plan->Bound(asked) == plan->Bound(id)) { wanted = true; }
+      }
+      plan->Stored_[r] = read || wanted || attachedInPasses[r] > 1;
+    }
+  }
+
   plan->SettleFrames_ =
       1 + (plan->HeldStage_[static_cast<size_t>(Stage::TemporalResolve)] ? kTemporalSettleFrames : 0);
 

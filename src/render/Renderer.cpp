@@ -613,7 +613,8 @@ void Renderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
     attachment.load_op =
         Touched_[(size_t)wanted] ? SDL_GPU_LOADOP_LOAD : SDL_GPU_LOADOP_CLEAR;
     Touched_[(size_t)wanted] = true;
-    attachment.store_op = SDL_GPU_STOREOP_STORE;
+    attachment.store_op =
+        Plan_->Stored(wanted) ? SDL_GPU_STOREOP_STORE : SDL_GPU_STOREOP_DONT_CARE;
 
     const bool carriesCoverage = wanted == Resource::SceneHdr || wanted == Resource::SceneComposited ||
                                  wanted == Resource::SceneTransmissive ||
@@ -627,7 +628,8 @@ void Renderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
     depth.texture = Target(declared.Depth);
     depth.load_op = Touched_[(size_t)declared.Depth] ? SDL_GPU_LOADOP_LOAD : SDL_GPU_LOADOP_CLEAR;
     Touched_[(size_t)declared.Depth] = true;
-    depth.store_op = SDL_GPU_STOREOP_STORE;
+    depth.store_op =
+        Plan_->Stored(declared.Depth) ? SDL_GPU_STOREOP_STORE : SDL_GPU_STOREOP_DONT_CARE;
     depth.clear_depth = 0.0f;
     depth.stencil_load_op = SDL_GPU_LOADOP_DONT_CARE;
     depth.stencil_store_op = SDL_GPU_STOREOP_DONT_CARE;
