@@ -31,3 +31,13 @@ Reviewer sharpening (2026-08-22, evening round) -- three residues of this hour's
 - src/core/io/Log.cpp:39-44 (Emit): under an active LogUnitScope every log call still
   allocates the withUnit vector -- 40d99ce's "the allocation is gone" holds only for the
   unit-less path. Prepend the unit field sink-side or on a fixed-capacity buffer.
+
+---
+
+Survey refreshed (board queue, night): the three sharpened residues are repaid at HEAD --
+TileWatermark::Done takes span, all four Log levels carry the span overload, and Emit hands
+the unit as a parameter (no per-call vector under any scope). The tree-wide sweep itself has
+NOT advanced: 124 `const std::vector<>&` and 144 `const std::string&` boundary refs stand
+(up from 98/76 -- new code outpaces the sweep; the reviewer's mechanical bar catches touched
+files, not new neighbours). Heaviest layers: gltf (25), ground (14+), render (11+). Convert
+layer by layer with judgment -- a stored string wants value+move, not string_view.

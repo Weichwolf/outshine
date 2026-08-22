@@ -57,3 +57,17 @@ Proof: render/outshine/shader 42/42 (device vs C++ agreement over the LUT chain)
 128/128 warm at 68.9 s. Remaining slices: the BRDF family twins (MetalRoughBrdf, SheenLobe,
 IridescenceLobe, MicrofacetEnergy generate their MSL from C++ constants -- one source
 already, audit their form), then the content-store hashing when the asset pipeline wants it.
+
+---
+
+Sharpened (review 2026-08-22, round 3): the remaining-slices list undercounts the blob
+census. Beyond the four BRDF generators it names, the subject assembly
+(SubjectDraw.cpp:216-225) still concatenates: kMslPrelude (ShaderPrelude.h:6), kVelocityMsl
+(SceneTargets.h:23), ShadowRayMsl (ShadowRay.h:13), NormalFromMapMsl (NormalFromMap.h:69).
+One of these is live drift, not just form: kVelocityMsl hand-spells `-1.0e4` while
+kVelocityStatic sits one declaration above it as the C++ origin — and SkyStage.cpp already
+shows the correct form (`#define VELOCITY_STATIC %.9ef` interpolated from the constant). Tune
+kVelocityStatic and the sky follows while the subject keeps the old sentinel. The BRDF audit
+slice must cover all eight sites, and the velocity sentinel takes the SkyStage interpolation
+form now, not at the slice's leisure. The pi digits inside the new .msl files are
+board:1651's ledger.
