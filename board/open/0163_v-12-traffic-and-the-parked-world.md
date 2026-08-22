@@ -62,3 +62,18 @@ must be retaken over when § I.21's own line is worked.
 **Cost of the full sweep**: about 858 x 8.17 s of Blender, roughly two hours, so the corpus is built once and cached rather than re-rendered.
 
 **Retention**: after validation both `outshine.raw` and `oracle.raw` are deleted; `oracle.exr` and the two PNGs are kept. About 1.4 MB a case against 25 GB today.
+
+
+---
+
+## Folded children (2026-08-22)
+
+- [ ] Parked vehicles as dressing along a residential street *(was 1015)*
+- [ ] Parking bay occupancy from the street class and the time of day *(was 1016)*
+- [ ] Traffic spawned on street centrelines at a density derived from the road class *(was 1017)*
+- [ ] Lane following and junction rules *(was 1018)*
+- [ ] Traffic light obedience *(was 1019)*
+- [ ] Yield at a pedestrian crossing *(was 1020)*
+- [ ] Headlights on at night, and it is the single most visible night-time element after street lighting *(was 1021)*
+- [ ] Vehicles despawned outside the observer's reach without their *knowledge* becoming observer-dependent *(was 1022)*
+- [ ] Agricultural machinery in a field in season *(was 1023)*
