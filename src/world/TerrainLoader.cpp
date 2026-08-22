@@ -14,7 +14,6 @@
 
 #include "Log.h"
 #include "SourceSet.h"
-#include "StarBands.h"
 #include "TerrainTiles.h"
 #include "TileGeodesy.h"
 
@@ -268,20 +267,5 @@ TilePool::Config GroundPoolConfig(double lat, double lon, int workers) {
   return config;
 }
 
-FetchedStars FetchStars(TilePool &tiles, uint8_t *dst, int cap) {
-  int off = 0;
-  TilePool::Landing band;
-  for (uint32_t b = 0; b < Data::StarBands::kBands; b++) {
-    const Data::Request request(Data::DataKind::StarCatalogue, Data::Address::Whole(b));
-    const TilePool::Reply reply = tiles.Bytes(request, &band);
-
-    if (reply == TilePool::Reply::Pending) return {FetchedStars::State::Pending, 0};
-    if (reply != TilePool::Reply::Ready || band.Bytes.empty()) break;
-    if (off + (int)band.Bytes.size() > cap) break;
-    memcpy(dst + off, band.Bytes.data(), band.Bytes.size());
-    off += (int)band.Bytes.size();
-  }
-  return {FetchedStars::State::Complete, off};
-}
 
 }

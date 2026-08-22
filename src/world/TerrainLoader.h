@@ -65,12 +65,6 @@ private:
 
 [[nodiscard]] TilePool::Config GroundPoolConfig(double lat, double lon, int workers = 0);
 
-struct FetchedStars {
-  enum class State { Pending, Complete };
-  State Where;
-  int Bytes;
-};
-FetchedStars FetchStars(TilePool &tiles, uint8_t *dst, int cap);
 
 }
 
