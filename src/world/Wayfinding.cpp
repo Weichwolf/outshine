@@ -323,7 +323,7 @@ Route Plan(const Waypoint &from, const Waypoint &to) {
               std::to_string(from.LatDeg) + " " + std::to_string(from.LonDeg) + " and " +
               std::to_string(to.LatDeg) + " " + std::to_string(to.LonDeg) +
               " can be planned -- Network::Weave and Network::Plan are built and nothing feeds "
-              "them OsmField's ways. board:1503";
+              "them OsmField's ways";
   return out;
 }
 
