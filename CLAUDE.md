@@ -277,32 +277,35 @@ classDiagram
   direction TB
   class Engine {
     +Read(path) bool
-    +Declare(scenario) bool
+    +Declared() Scenario
     +Assemble() bool
-    +Drive(fromLatLon, toLatLon) bool
-    +Possess(body) bool
-    +Release() void
+    +Scene() Store
     +Advance() bool
     +RenderTo(frame) void
     +WhyNot() string
   }
+  class Store {
+    +Add(role) Entity
+    +Give(entity, tag) bool
+    +Link(from, relation, to) bool
+    +Instantiate(prefab) Entity
+    +Claim, Use, Release
+    +queries over tags and pairs
+  }
   class Scenario {
     +the declaration serialised against one graph
   }
-  class Entity {
-    +a generation-checked handle
-  }
   Engine --> Scenario : reads
-  Engine --> Entity : hands out
+  Engine --> Store : owns the one graph
 ```
 
-A client includes `include/outshine/` and nothing else; Live, Renderer, GroundStream and the
-drive fold behind `Engine`. The mind and the player possess the same seam; navigation is a tool
-the assembly hands over.
-
-Headers must read like a good book: `include/outshine/Outshine.h` is the four-line client;
-`src/corridor/Ribbon.h`, `src/world/TerrainLoader.h`, `src/render/plan/RenderCatalogue.h` are the
-models to match.
+**The engine carries no gameplay verb.** Driving is an assembly, not a method: body `IsA`
+four-wheel, `DrivenBy` mind, mind `Uses` a nav tool, mind `Assigned` a route as data — declared
+in XML or built through `Scene()`, which are the same calls against the same graph. A verb per
+activity on `Engine` would leak the catalogue into the facade and hand XML a graph it cannot
+spell. Possession is the `DrivenBy` relation — the player's mind and the autopilot take the same
+seam, so "take the wheel" is one relink, not an API. A client includes `include/outshine/` and
+nothing else; Live, Renderer, GroundStream and the drive fold behind this door.
 
 ## Tests
 
