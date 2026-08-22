@@ -16,3 +16,9 @@ OUTSHINE_PI for its language before including — is a legitimate non-obvious wh
 ONE line saying that much. The board number, the file inventory of who includes it, and the
 "scalar physics only" narration go; ParticipatingMedium.h:48-54 is the visible proof of the
 contract either way.
+
+---
+
+Closed: the comment names the mechanism, not the item -- "THE ONE SOURCE: compiled as C++ by
+the reference ... appended as MSL text" stands, board:1580 is gone from src/ entirely
+(grep -rn 'board:' src/ is empty). git log carries the provenance, as the rule demands.

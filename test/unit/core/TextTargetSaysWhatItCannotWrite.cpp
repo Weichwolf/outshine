@@ -4,15 +4,19 @@
 #include <cstdio>
 #include <string>
 
+#include <unistd.h>
+
 using namespace outshine;
 
 namespace {
 
 std::string ScratchDir() {
+  const char *nest = getenv("OUTSHINE_NEST");
+  if (nest && *nest) { return std::string(nest) + "/"; }
   const char *tmp = getenv("TMPDIR");
   std::string dir = tmp && *tmp ? tmp : "/tmp";
   if (dir.back() != '/') dir += '/';
-  return dir;
+  return dir + "outshine-" + std::to_string(getpid()) + "-";
 }
 
 std::string ReadBack(const std::string &path) {

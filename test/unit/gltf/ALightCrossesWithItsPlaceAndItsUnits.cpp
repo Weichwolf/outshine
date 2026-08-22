@@ -1,5 +1,8 @@
 #include <cmath>
+#include <filesystem>
 #include <string>
+
+#include <unistd.h>
 
 #include "Check.h"
 
@@ -72,9 +75,13 @@ std::string Written(const std::string &directory, const std::string &name,
 }
 
 std::string Scratch() {
+  const char *nest = std::getenv("OUTSHINE_NEST");
+  if (nest != nullptr && *nest != 0) { return nest; }
   const char *env = std::getenv("TMPDIR");
   std::string directory = env && *env ? env : "/tmp";
   if (directory.back() == '/') { directory.pop_back(); }
+  directory += "/outshine-" + std::to_string(getpid());
+  std::filesystem::create_directories(directory);
   return directory;
 }
 

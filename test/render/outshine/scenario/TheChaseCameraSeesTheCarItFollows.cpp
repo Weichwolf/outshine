@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include <unistd.h>
+
 #include "Check.h"
 
 #include "Live.h"
@@ -37,6 +39,15 @@ std::string PreparedCar(void) {
   std::string root = base != nullptr ? base : "/tmp";
   if (!root.empty() && root.back() == '/') { root.pop_back(); }
   return root + "/outshine-prepared/tools-driver-f31/scene.gltf";
+}
+
+std::string Planted(const char *name) {
+  const char *nest = std::getenv("OUTSHINE_NEST");
+  if (nest != nullptr && *nest != 0) { return std::string(nest) + "/" + name; }
+  const char *const base = std::getenv("TMPDIR");
+  std::string root = base != nullptr ? base : "/tmp";
+  if (!root.empty() && root.back() == '/') { root.pop_back(); }
+  return root + "/outshine-" + std::to_string(getpid()) + "-" + name;
 }
 
 size_t Different(const std::vector<uint8_t> &with, const std::vector<uint8_t> &without) {
@@ -253,11 +264,11 @@ int main(void) {
       size_t ignored = 0;
       (void)placedAt(0.0, out, ignored);
       std::string shotError;
-      if (!standing->Screenshot("/tmp/chase-offset-probe.png", shotError)) {
+      if (!standing->Screenshot(Planted("chase-offset-probe.png").c_str(), shotError)) {
         std::printf("REFUSED %s\n", shotError.c_str());
       }
       (void)placedAt(0.0, origin, ignored);
-      if (!standing->Screenshot("/tmp/chase-origin-probe.png", shotError)) {
+      if (!standing->Screenshot(Planted("chase-origin-probe.png").c_str(), shotError)) {
         std::printf("REFUSED %s\n", shotError.c_str());
       }
     }

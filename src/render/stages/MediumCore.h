@@ -1,7 +1,7 @@
 #ifndef MEDIUMCORE_H
 #define MEDIUMCORE_H
 
-// THE ONE SOURCE (board:1580): compiled as C++ by the reference in ParticipatingMedium.h and
+// THE ONE SOURCE: compiled as C++ by the reference in ParticipatingMedium.h and
 // appended as MSL text by ParticipatingMediumMsl -- the including side defines MEDIUM_CONST,
 // MEDIUM_THREAD and OUTSHINE_PI for its language. Scalar physics only; the vector twins stay
 // explicit where the languages genuinely diverge.

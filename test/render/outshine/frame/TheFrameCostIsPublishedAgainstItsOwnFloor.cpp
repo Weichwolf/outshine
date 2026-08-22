@@ -11,6 +11,8 @@
 #include <string_view>
 #include <vector>
 
+#include <unistd.h>
+
 #include "Check.h"
 
 #include "PreparedRoot.h"
@@ -264,8 +266,11 @@ struct Measured {
 }
 
 std::filesystem::path ArchiveDirectory(void) {
+  const char *nest = std::getenv("OUTSHINE_NEST");
+  if (nest != nullptr && *nest != 0) { return std::filesystem::path(nest) / "outshine-frame"; }
   const char *temp = std::getenv("TMPDIR");
-  return std::filesystem::path(temp && *temp ? temp : "/tmp") / "outshine-frame";
+  return std::filesystem::path(temp && *temp ? temp : "/tmp") /
+         ("outshine-frame." + std::to_string(getpid()));
 }
 
 void WriteStill(outshine::Render::Renderer &renderer, const outshine::Gltf::Subject &subject,

@@ -28,3 +28,14 @@ Demanded: every test artefact plants inside OUTSHINE_NEST (run.sh exports it sin
 a claims test already CHECKs the export before writing — the same form here). Standalone
 invocation without the export refuses or keys the name by pid — a fixed name in the shared
 temp root is unspellable, in tests as in the gate.
+
+---
+
+Closed: all five sites plant inside OUTSHINE_NEST, with a pid-keyed name (or pid-keyed
+directory created on demand) as the standalone fallback -- a fixed name in the shared temp
+root is gone from the tests as from the gate. Adjudicated exception: ChaseCamera's
+PreparedCar READ of ${TMPDIR}/outshine-prepared stays -- the prepared corpus is shared BY
+DESIGN (content-keyed, expensive, read-only here); the class is about writes. Its two
+screenshot writes moved into the nest. The named-only hosts (frame, scenario) are
+syntax-proven under their own include sets; the full runs are the sporadic proof by rule.
+Gate 129/129 warm.
