@@ -42,3 +42,10 @@ scenario selects (`<world template="earth">` or equivalent composition) -- a dec
 any other, overridable field by field, and the Moon flight (1612) needs nothing from it but a
 second template. The rule stands: templates are DATA the catalogue offers; the library still
 compiles no planet.
+
+**And the general form (owner, same day): `Planet(params)` as a convenience FACTORY.** The
+helpers live as their own component BESIDE the generators and the data providers -- a thin
+layer of declaration factories that return a composed Scenario VALUE (Earth's template filled,
+or any sphere from its params), which then walks through the normal Declare/Assemble door. The
+engine core stays scenario-agnostic; convenience is a library citizen with its own folder, not
+a facade verb. The template study (running) decides the file shape.
