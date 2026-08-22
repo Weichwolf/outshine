@@ -45,3 +45,13 @@ paths); here the single truth exists in neither file.
       green at HEAD
 - [ ] a divergence cannot pass silently: either the shared source makes it impossible, or a claims
       test compares the two maps and fails loudly
+
+---
+
+**Closed.** The Makefile lost its private copy of the layering: `make` delegates to
+`test/run.sh --library`, which builds every source under `src/` from the runner's own
+`GroupIncludes`/`GroupToolchain` declarations -- a file arm when one is named, the directory arm
+otherwise, and a source neither names is a loud refusal. `build/liboutshine.a` now carries 138
+objects including corridor, physics and pilot, and `make` is green at HEAD. Proving test:
+`test/harness/claims/TheLayeringIsDeclaredOnce` -- the Makefile spells no `-Isrc` at all, so the
+divergence is unspellable rather than compared.

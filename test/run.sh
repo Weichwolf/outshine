@@ -53,6 +53,7 @@ while [ $# -gt 0 ]; do
       ALLOWED_SKIPS="$ALLOWED_SKIPS $2"
       shift 2
       ;;
+    --library) LIBRARY=1; shift ;;
     -*) Die "unknown option '$1'" ;;
     *) SUITES="$SUITES ${1%/}"; SUITE=${1%/}; shift; continue ;;
   esac
@@ -354,6 +355,34 @@ mkdir -p "$BUILD/obj" "$BUILD/obj-sanitised" "$BUILD/obj-validated" "$BUILD/log"
 SAN=""
 $CXX test/harness/shared/Millis.cpp $CXXSTD $OPT $WARN -o "$BUILD/millis" || Die "the clock did not build"
 Now() { "$BUILD/millis"; }
+
+# THE LIBRARY ENTIRE, from the same declarations the tests build with: every source under src/
+# resolves to a group -- its own file arm when GroupIncludes names it, its directory otherwise --
+# and a source neither names is a refusal, never a guess. The Makefile's `all` target is this call,
+# so there is exactly ONE spelling of what compiles with what in the repository.
+BuildLibrary() {
+  OBJECTS=""
+  libraryGroups=" "
+  for libraryUnit in $(find src -name '*.cpp' | sort); do
+    if GroupIncludes "$libraryUnit" >/dev/null 2>&1; then
+      libraryGroup=$libraryUnit
+    else
+      libraryGroup=$(dirname "$libraryUnit")
+    fi
+    case "$libraryGroups" in *" $libraryGroup "*) continue ;; esac
+    libraryGroups="$libraryGroups$libraryGroup "
+    BuildGroup "$libraryGroup" || Die "the library group $libraryGroup did not build"
+  done
+  mkdir -p build
+  rm -f build/liboutshine.a
+  ar rcs build/liboutshine.a $OBJECTS || Die "the archive did not write"
+  printf -- '-> build/liboutshine.a (%s objects)\n' "$(echo $OBJECTS | wc -w | tr -d ' ')"
+}
+if [ -n "${LIBRARY:-}" ]; then
+  BuildLibrary
+  trap - EXIT
+  exit 0
+fi
 
 OBJECTS=""
 BuildGroup src/core/Json.cpp || Die "the prune's reader did not build"
