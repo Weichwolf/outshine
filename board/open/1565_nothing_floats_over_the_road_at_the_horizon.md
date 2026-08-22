@@ -41,3 +41,8 @@ Round five (stills from BEFORE the cap fix drove): the dashes persist and read d
 horizon line at four-plus stations, and a detached road fragment floats past a mid-frame gap at
 km 198.7 -- consistent with the open-end mechanism plus the shown-vs-graded reach gap. The next
 driven round is the cap fix's verdict.
+
+Round eight halves the residue again and sharpens it: km 36.5's dash is ONE navy face and it is
+WORLD GEOMETRY -- seen lying on the terrain from two independent cameras, a sibling of the dead
+scar. And the km 708 zigzag stays open on the reviewer's own evidence rule: km 728.5 was shown
+clean, which is not km 708.

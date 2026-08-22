@@ -21,3 +21,9 @@ nearest approximation of it.
 ## Comments
 
 Filed from the reviewer's fourth round, ranked second of seven.
+
+Round eight gave the class an address and an alibi: the sawtooth is a dozen navy tears down the
+right edge at km 17.3 -- the worst instance ever captured, by the new framed camera -- while the
+same camera at km 36.5 shows CLEAN edges. Local, not systemic: whatever differs at that station
+(a width transition, a junction harvest, a grading hint reset at the route's first relay) is the
+mechanism.

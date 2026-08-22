@@ -463,16 +463,6 @@ int main(void) {
   std::filesystem::create_directories(into, made);
   std::printf("STILLS INTO %s\n", into.c_str());
 
-  {
-    if (!standing->Advance(error)) { std::printf("REFUSED %s\n", error.c_str()); }
-    const std::string framed = into + "/000-framed-by-the-engine.png";
-    if (standing->Screenshot(framed, error)) {
-      std::printf("STILL %s\n", framed.c_str());
-    } else {
-      std::printf("REFUSED %s\n", error.c_str());
-    }
-  }
-
   double groundAtM[3] = {0.0, 0.0, 0.0};
   double worstCutM = 0.0, worstFillM = 0.0, liftTotalM = 0.0;
   long liftAt = 0;
