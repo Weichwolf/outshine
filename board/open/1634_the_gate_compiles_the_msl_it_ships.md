@@ -43,3 +43,18 @@ drift. The suite moved from the mirror-less unit/render/kernels to unit/render -
 mirror of src/render -- and src/render's excuse left the mirror claim. Proving test:
 test/unit/render/EveryAssembledKernelCompilesOnTheDevice.cpp, 127/127. Remaining for close:
 tonemap's optioned source and the subject unit's three parameterised shaders.
+
+---
+
+Sharpened (review 2026-08-22, round 2): the shape statics are the right seam for Configure and
+the gate — but the suite's claim "neither can drift unseen"
+(EveryAssembledKernelCompilesOnTheDevice.cpp:84-85) is not yet earned. SDL's MSL path does not
+validate the num_* fields against the compiled source (they are binding bookkeeping, and the
+gate's device stands with debug_mode=false), so a shape that misdeclares its counts still
+compiles green and misbinds at runtime: the shape is a SECOND declaration of the MSL's binding
+interface with nothing proving the two agree. Before close, the gate derives the expected
+counts from the stage's own public source and CHECKs the identity: max `[[sampler(N)]]`+1 ==
+Samplers, max `[[buffer(N)]]`+1 == UniformBuffers, max `[[texture(N)]]`+1 == Samplers +
+ReadOnlyTextures + ReadWriteTextures (SDL's MSL slot order). That proof survives 1647's move
+of the source into files unchanged. The shape's other loose end — GroupY dead at two dispatch
+sites, positional init — is board:1648.

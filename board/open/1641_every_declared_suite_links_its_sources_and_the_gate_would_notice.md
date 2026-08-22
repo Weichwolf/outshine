@@ -55,3 +55,13 @@ defect for each. A broken `uniq -d` or `grep -qx` now fails the gate instead of 
 clean. The seeds guard themselves: if the patched line drifts, the seed-took CHECK fails
 loudly. Remaining before close: the link-closure half (each declared suite's object set closed
 over its undefined symbols).
+
+---
+
+Verified + one cost note (review round 2, 2026-08-22): the negative controls are the demanded
+shape — seeded copies with ROOT pinned, self-guarding seed-took CHECKs, both verdicts flip
+with the defect named; PASS in an isolated worktree run. Cost: the claims test now runs the
+audit three times and measures 6873 ms [MEASURED, one cold worktree run] — the heaviest single
+gate member. If the audit reports ALL defects before its verdict, one copy seeded with both
+defects proves both detectors in two audit runs instead of three; worth taking when the warm
+gate nears its 90 s bound. The link-closure half stays the open remainder.
