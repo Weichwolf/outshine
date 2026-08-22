@@ -102,8 +102,8 @@ int main(void) {
 
   {
     Markup nested;
-    std::string why;
-    CHECK(nested.Read("<div class=outer><p><span id=deep></span></p></div>", why),
+    std::string nestedWhy;
+    CHECK(nested.Read("<div class=outer><p><span id=deep></span></p></div>", nestedWhy),
           "the nested document reads");
     Stylesheet reaching;
     reaching.Read(".outer > span { width: 1px }\n.outer span { height: 2px }");
@@ -116,10 +116,10 @@ int main(void) {
     }
     CHECK(deep >= 0, "the grandchild is found");
     if (deep >= 0) {
-      outshine::Ui::Value width, height;
-      CHECK(Ranked(reaching, nested, deep, Property::Width, width) == nullptr,
+      outshine::Ui::Value nestedWidth, nestedHeight;
+      CHECK(Ranked(reaching, nested, deep, Property::Width, nestedWidth) == nullptr,
             "the child combinator does not reach a grandchild");
-      CHECK(Ranked(reaching, nested, deep, Property::Height, height) != nullptr,
+      CHECK(Ranked(reaching, nested, deep, Property::Height, nestedHeight) != nullptr,
             "and the descendant combinator does, which is the whole of what separates them");
     }
   }

@@ -651,7 +651,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
       return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
                     " instances on an accessor this reader cannot decode: " + document.Error());
     }
-    for (const Transform &world : instances) {
+    for (const Transform &placedWorld : instances) {
       for (const Primitive &primitive : document.Meshes()[(size_t)node.Mesh].Primitives) {
         ++primitives;
         Part part;
@@ -694,7 +694,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
                           vertices, skinned)) {
           return false;
         }
-        const VertexPlacement place{world, skinned.empty() ? nullptr : skinned.data()};
+        const VertexPlacement place{placedWorld, skinned.empty() ? nullptr : skinned.data()};
         for (size_t vertex = 0; vertex < vertices; ++vertex) {
           double local[3] = {elements[vertex * 3], elements[vertex * 3 + 1],
                              elements[vertex * 3 + 2]};

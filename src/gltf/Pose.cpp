@@ -56,8 +56,8 @@ bool Pose::Build(const Document &document, Span<const int> animations, Pose &out
     held.WeightFirst = document.MorphWeightsFirst(node);
     held.WeightCount = document.MorphWeightsCount(node);
     for (size_t at = 0; at < held.WeightCount; ++at) {
-      const std::vector<double> &declared = document.Meshes()[(size_t)source.Mesh].Weights;
-      out.RestWeights_.push_back(at < declared.size() ? declared[at] : 0.0);
+      const std::vector<double> &meshWeights = document.Meshes()[(size_t)source.Mesh].Weights;
+      out.RestWeights_.push_back(at < meshWeights.size() ? meshWeights[at] : 0.0);
     }
   }
 

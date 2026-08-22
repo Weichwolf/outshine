@@ -748,26 +748,26 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
   }
 
   double deepest = 0;
-  for (size_t lineAt = 0; lineAt < lines.size(); ++lineAt) {
-    const Line &line = lines[lineAt];
-    double used = gap * (double)(line.Count - 1);
-    for (size_t i = line.From; i < line.From + line.Count; ++i) {
-      used += items[i].Main + items[i].MainMarginStart + items[i].MainMarginEnd;
+  for (size_t lineIndex = 0; lineIndex < lines.size(); ++lineIndex) {
+    const Line &flexLine = lines[lineIndex];
+    double lineUsed = gap * (double)(flexLine.Count - 1);
+    for (size_t i = flexLine.From; i < flexLine.From + flexLine.Count; ++i) {
+      lineUsed += items[i].Main + items[i].MainMarginStart + items[i].MainMarginEnd;
     }
     double cursor = 0, between = gap;
-    const double slack = definiteMain ? mainRoom - used : 0.0;
+    const double slack = definiteMain ? mainRoom - lineUsed : 0.0;
     if (slack > 0) {
       if (justify == kFlexEnd) {
         cursor = slack;
       } else if (justify == kCentre) {
         cursor = slack / 2.0;
-      } else if (justify == kSpaceBetween && line.Count > 1) {
-        between = gap + slack / (double)(line.Count - 1);
+      } else if (justify == kSpaceBetween && flexLine.Count > 1) {
+        between = gap + slack / (double)(flexLine.Count - 1);
       } else if (justify == kSpaceAround) {
-        cursor = slack / (double)(line.Count * 2);
-        between = gap + slack / (double)line.Count;
+        cursor = slack / (double)(flexLine.Count * 2);
+        between = gap + slack / (double)flexLine.Count;
       } else if (justify == kSpaceEvenly) {
-        cursor = slack / (double)(line.Count + 1);
+        cursor = slack / (double)(flexLine.Count + 1);
         between = gap + cursor;
       }
     } else if (justify == kCentre) {
@@ -775,7 +775,7 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
       cursor = slack / 2.0;
     }
 
-    for (size_t i = line.From; i < line.From + line.Count; ++i) {
+    for (size_t i = flexLine.From; i < flexLine.From + flexLine.Count; ++i) {
       Item &one = items[i];
       cursor += one.MainMarginStart;
       const uint32_t self_align = one.Style.Has(Property::AlignSelf)
@@ -783,14 +783,14 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
                                       : align;
       double cross = one.Cross;
       if (!one.CrossDeclared && self_align == kStretch) {
-        cross = line.Cross - one.CrossMarginStart - one.CrossMarginEnd;
+        cross = flexLine.Cross - one.CrossMarginStart - one.CrossMarginEnd;
       }
       double inLine = one.CrossMarginStart;
       if (self_align == kCentre) {
-        inLine = (line.Cross - cross - one.CrossMarginStart - one.CrossMarginEnd) / 2.0 +
+        inLine = (flexLine.Cross - cross - one.CrossMarginStart - one.CrossMarginEnd) / 2.0 +
                  one.CrossMarginStart;
       } else if (self_align == kFlexEnd) {
-        inLine = line.Cross - cross - one.CrossMarginEnd;
+        inLine = flexLine.Cross - cross - one.CrossMarginEnd;
       }
 
       if (self_align == kBaseline && !column) {
@@ -800,10 +800,10 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
                   one.CrossMarginStart);
         inLine = std::fmax(inLine, 0.0);
       }
-      if (wrapping == kWrapReverse) { inLine = line.Cross - inLine - cross; }
-      const double crossAt = line.CrossAt + inLine;
+      if (wrapping == kWrapReverse) { inLine = flexLine.Cross - inLine - cross; }
+      const double crossAt = flexLine.CrossAt + inLine;
 
-      const double mirrorAgainst = definiteMain ? mainRoom : used;
+      const double mirrorAgainst = definiteMain ? mainRoom : lineUsed;
       const double mainAt = mainReversed ? mirrorAgainst - cursor - one.Main : cursor;
       const double x = column ? contentX + crossAt : contentX + mainAt;
       const double y = column ? contentY + mainAt : contentY + crossAt;

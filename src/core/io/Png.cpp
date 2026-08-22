@@ -114,7 +114,7 @@ Png ReadPng(const uint8_t *bytes, size_t length) {
   out.Bytes.assign((size_t)high * stride, 0);
 
   for (uint32_t row = 0; row < high; ++row) {
-    const uint8_t how = raw[(stride + 1) * (size_t)row];
+    const uint8_t filter = raw[(stride + 1) * (size_t)row];
     const uint8_t *in = raw.data() + (stride + 1) * (size_t)row + 1;
     uint8_t *outRow = out.Bytes.data() + stride * (size_t)row;
     const uint8_t *above = row > 0 ? out.Bytes.data() + stride * (size_t)(row - 1) : nullptr;
@@ -124,7 +124,7 @@ Png ReadPng(const uint8_t *bytes, size_t length) {
       const int up = above != nullptr ? above[byte] : 0;
       const int corner = (above != nullptr && byte >= channels) ? above[byte - channels] : 0;
       int value = in[byte];
-      switch (how) {
+      switch (filter) {
         case 0: break;
         case 1: value += left; break;
         case 2: value += up; break;
@@ -132,7 +132,7 @@ Png ReadPng(const uint8_t *bytes, size_t length) {
         case 4: value += Paeth(left, up, corner); break;
         default:
           return Refuse("row " + std::to_string(row) + " declares filter " +
-                        std::to_string((int)how) + ", and PNG has five");
+                        std::to_string((int)filter) + ", and PNG has five");
       }
       outRow[byte] = (uint8_t)(value & 0xff);
     }

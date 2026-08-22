@@ -12,7 +12,7 @@ PREPARED=${TMPDIR:-/tmp}
 PREPARED=${PREPARED%/}/outshine-prepared
 CXX=${CXX:-c++}
 CXXSTD=-std=c++17
-WARN="-Wall -Wextra -Wpedantic -Werror -Wno-unused-parameter"
+WARN="-Wall -Wextra -Wpedantic -Wshadow -Werror -Wno-unused-parameter"
 OPT=-O2
 
 TIMEOUT_S=120
@@ -65,6 +65,7 @@ LayerIncludes() {
     unit/core) printf '%s' "-Isrc/core -Isrc/core/io" ;;
     unit/corridor) printf '%s' "-Isrc/corridor" ;;
     unit/scene) printf '%s' "-Iinclude/outshine" ;;
+    unit/sim) printf '%s' "-Isrc/corridor -Isrc/pilot" ;;
     unit/physics) printf '%s' "-Isrc/physics" ;;
     unit/pilot) printf '%s' "-Isrc/corridor -Isrc/pilot" ;;
     unit/data) printf '%s' "-Isrc/core -Isrc/data" ;;
@@ -142,6 +143,7 @@ LayerGroups() {
     unit/core/io) printf '%s' "src/core src/core/io" ;;
     unit/corridor) printf '%s' "src/corridor" ;;
     unit/scene) printf '%s' "src/scene" ;;
+    unit/sim) printf '%s' "src/corridor src/pilot" ;;
     unit/physics) printf '%s' "src/physics" ;;
     unit/pilot) printf '%s' "src/corridor src/pilot" ;;
     unit/data) printf '%s' "src/core src/core/io src/data" ;;

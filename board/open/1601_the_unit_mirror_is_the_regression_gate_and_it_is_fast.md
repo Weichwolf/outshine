@@ -24,3 +24,11 @@ The bricks below it (corridor, physics, pilot units) are already fast and green.
       machine) -- a slow test is a finding, exactly like a slow frame
 - [ ] the driver suites keep their place as the sporadic full proof: run before a close of
       any drive-touching item, never per edit
+
+---
+
+Progress 2026-08-22: box 1 stands -- unit/sim/ASyntheticRoadIsRiddenToArrivalInMilliseconds
+lays, plans and rides 1.45 km in ~17 ms, holding lane (0.74 m worst) and plan (0.94 m/s worst)
+with Ride's own braking lookahead; the mirror claim EverySourceLayerHasItsUnitMirror is green
+over the whole tree. The gate measured: 115 tests in 39.6 s. Open: the runner's default set and
+the bounded-wall-time claim.

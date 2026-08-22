@@ -173,10 +173,10 @@ int main() {
     bool endpoints = true;
     for (size_t vertex = 0; vertex < 3; ++vertex) {
       for (size_t channel = 0; channel < 4; ++channel) {
-        const double read = subject.Colours()[vertex * 4 + channel];
-        exact = exact && read == expected[vertex][channel];
+        const double sampled = subject.Colours()[vertex * 4 + channel];
+        exact = exact && sampled == expected[vertex][channel];
         if (expected[vertex][channel] == 0.0 || expected[vertex][channel] == 1.0) {
-          endpoints = endpoints && read == expected[vertex][channel];
+          endpoints = endpoints && sampled == expected[vertex][channel];
         }
       }
     }

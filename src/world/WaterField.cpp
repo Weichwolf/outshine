@@ -94,14 +94,14 @@ uint32_t WaterField::Ingest(const GroundStream &ground, const OsmField &field,
           for (size_t k = 1; k < hs.size(); k++) hs[k] = std::min(hs[k], hs[k - 1]);
         else
           for (size_t k = hs.size() - 1; k-- > 0;) hs[k] = std::min(hs[k], hs[k + 1]);
-        Course c{};
-        c.FirstPoint = ring.First;
-        c.PointCount = ring.Count;
-        c.FirstLevel = (uint32_t)Levels_.size();
+        Course course{};
+        course.FirstPoint = ring.First;
+        course.PointCount = ring.Count;
+        course.FirstLevel = (uint32_t)Levels_.size();
         const VegetationTemplates::Rule *rule = veg.Find(field.LayerName((int)f.Layer), field.Str(f, "kind"));
-        c.HalfWidthM = rule && rule->WidthM > 0.0f ? rule->WidthM * 0.5f : 1.0f;
+        course.HalfWidthM = rule && rule->WidthM > 0.0f ? rule->WidthM * 0.5f : 1.0f;
         for (double h : hs) Levels_.push_back((float)h);
-        Courses_.push_back(c);
+        Courses_.push_back(course);
       }
       continue;
     }

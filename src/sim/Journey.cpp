@@ -724,9 +724,9 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom,
     double leftM = 0.0, worstOverM = 0.0;
     for (size_t fine = 1; fine < fineAside.size(); ++fine) {
       leftM = std::fmax(leftM, std::fabs(fineAside[fine] - fineAside[fine - 1]));
-      const double outerM = std::fabs(fineAside[fine]) + 0.5 * carWidthM;
-      if (outerM > fineEdge[fine]) {
-        worstOverM = std::fmax(worstOverM, outerM - fineEdge[fine]);
+      const double asideReachM = std::fabs(fineAside[fine]) + 0.5 * carWidthM;
+      if (asideReachM > fineEdge[fine]) {
+        worstOverM = std::fmax(worstOverM, asideReachM - fineEdge[fine]);
       }
     }
     say.Number("the largest step left after tapering", leftM, "m");

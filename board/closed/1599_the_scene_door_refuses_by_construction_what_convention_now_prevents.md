@@ -30,3 +30,12 @@ style demands construction:
    (`include/outshine/Column.h`) lets the two diverge; a `Put` beyond the column then fails with
    a bare `false` and no refusal text. The store knows its size -- publish it and let the column
    derive, so the mismatch is unrepresentable.
+
+---
+
+**Closed, all four.** The Acyclic-implies-Exclusive static_assert names why the cycle walk may
+follow one target; Give refuses duplicate tags; the Assembly parameter yielded its name; Column
+derives its capacity from its one store; and -Wshadow stands in the one WARN line -- the truly
+clean build surfaced six library shadows (one, Subject.cpp's instance transform, was correct
+only by scoping accident) and two test shadows, all repaired. Proving runs: the full fast gate,
+115/115 in 39.6 s.
