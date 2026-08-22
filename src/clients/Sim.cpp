@@ -139,7 +139,7 @@ bool Sim::LoadTables() {
 
   if (!WorldStage()) return true;
   if (!OpenPool()) return false;
-  SunPos(Stance_.Lat, Stance_.Lon, Clk_, &SunEl_, &SunAz_);
+  EarthSunPos(Stance_.Lat, Stance_.Lon, Clk_, &SunEl_, &SunAz_);
   return true;
 }
 
@@ -457,7 +457,7 @@ Sim::Bring Sim::Open() {
 
   State_.Env.SunElDeg = SunEl_;
   State_.Env.SunAzDeg = SunAz_;
-  MoonPos(Stance_.Lat, Stance_.Lon, Clk_, &State_.Env.MoonElDeg, &State_.Env.MoonAzDeg,
+  EarthMoonPos(Stance_.Lat, Stance_.Lon, Clk_, &State_.Env.MoonElDeg, &State_.Env.MoonAzDeg,
           &State_.Env.MoonPhase);
   State_.Env.CloudCover = (float)(WorldStage() ? WorldStage()->CloudCover : 0.0);
   Look(Stance_);
@@ -476,8 +476,8 @@ Sim::Bring Sim::Open() {
 
 void Sim::SetSkyOffsetS(double s) {
   const double t = Clk_ + s;
-  SunPos(Stance_.Lat, Stance_.Lon, t, &SunEl_, &SunAz_);
-  MoonPos(Stance_.Lat, Stance_.Lon, t, &State_.Env.MoonElDeg, &State_.Env.MoonAzDeg,
+  EarthSunPos(Stance_.Lat, Stance_.Lon, t, &SunEl_, &SunAz_);
+  EarthMoonPos(Stance_.Lat, Stance_.Lon, t, &State_.Env.MoonElDeg, &State_.Env.MoonAzDeg,
           &State_.Env.MoonPhase);
   State_.Env.SunElDeg = SunEl_;
   State_.Env.SunAzDeg = SunAz_;

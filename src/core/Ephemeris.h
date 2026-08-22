@@ -1,13 +1,16 @@
-#ifndef _EPHEMERIS_H
-#define _EPHEMERIS_H
+#ifndef OUTSHINE_CORE_EPHEMERIS_H
+#define OUTSHINE_CORE_EPHEMERIS_H
 #include <cmath>
 #include "State.h"
 
 namespace outshine {
 
+// EARTH's sky from low-precision orbital elements (Meeus / NOAA short series,
+// arcminute class): a scenario that stands on another sphere declares its own.
+
 constexpr int kEphemerisMinYear = 1901, kEphemerisMaxYear = 2099;
 
-inline void SunPos(double lat, double lon, double utc, float *el, float *az) {
+inline void EarthSunPos(double lat, double lon, double utc, float *el, float *az) {
   double D2R = M_PI / 180.0, jd = utc / 86400.0 + 2440587.5, n = jd - 2451545.0;
   double L = fmod(280.460 + 0.9856474 * n, 360.0), g = fmod(357.528 + 0.9856003 * n, 360.0) * D2R;
   double lam = (L + 1.915 * sin(g) + 0.020 * sin(2 * g)) * D2R, eps = (23.439 - 0.0000004 * n) * D2R;
@@ -19,7 +22,7 @@ inline void SunPos(double lat, double lon, double utc, float *el, float *az) {
   *az = (float)(fmod(atan2(-sin(ha), tan(dec) * cos(la) - sin(la) * cos(ha)) / D2R + 360.0, 360.0));
 }
 
-inline void MoonPos(double lat, double lon, double utc, float *el, float *az, float *phase) {
+inline void EarthMoonPos(double lat, double lon, double utc, float *el, float *az, float *phase) {
   double D2R = M_PI / 180.0, jd = utc / 86400.0 + 2440587.5;
   double d = jd - 2451543.5;
 
@@ -64,8 +67,8 @@ struct Solar {
 
 inline Solar SolarAt(double lat, double lon, double utc) {
   Solar s;
-  SunPos(lat, lon, utc, &s.SunElDeg, &s.SunAzDeg);
-  MoonPos(lat, lon, utc, &s.MoonElDeg, &s.MoonAzDeg, &s.MoonPhase);
+  EarthSunPos(lat, lon, utc, &s.SunElDeg, &s.SunAzDeg);
+  EarthMoonPos(lat, lon, utc, &s.MoonElDeg, &s.MoonAzDeg, &s.MoonPhase);
   return s;
 }
 
@@ -83,4 +86,4 @@ inline double DaylightFactor(double sunElDeg) {
 }
 
 }
-#endif
+#endif // OUTSHINE_CORE_EPHEMERIS_H

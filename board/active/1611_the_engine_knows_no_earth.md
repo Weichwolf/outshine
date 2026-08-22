@@ -47,9 +47,11 @@ care which planet it is standing on.
          call GeoToEcef): the real cut is the generator coordinate model -- params arrive in
          METRES in the region frame, the datum stays with the providers. One move, not two
          half-moves; needs its own sitting
-      5. src/clients/GltfStudio.h kStudioAnchorEcefM = {6378137,0,0}: a studio [SET] anchor that
-         happens to equal the WGS84 equator -- renamed as the studio's own declared anchor
-      6. Ephemeris: says it computes EARTH's sky from declared elements (naming/doc slice)
+      5. [DONE] the studio anchor carries its origin: a [SET] stand at equatorial ECEF
+         magnitude, no planet implied
+      6. [DONE] EarthSunPos/EarthMoonPos say whose sky they compute (Meeus/NOAA short
+         series, arcminute class); another sphere declares its own; the reserved-identifier
+         header guard died in the same touch
 - [x] the proof (commit 5cde3c05): ASpeedPlanScalesWithTheDeclaredGravity holds the crest's
       closed form sqrt(g/h'') to 1e-9 and the moon/earth scaling to 1e-12, declaration only;
       ARigRefuses proves 1.62 m/s2 reaches the envelope and g<=0 refuses
