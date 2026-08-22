@@ -21,9 +21,9 @@ public:
 
     bool EyeInBand = true;
 
-    World::TilePool::Ledger Pool;
+    Ground::TilePool::Ledger Pool;
 
-    World::World::Admission Admission;
+    Ground::World::Admission Admission;
   };
 
   void Open(double nowMs) { OpenedMs_ = nowMs; }

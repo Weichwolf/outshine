@@ -8,7 +8,7 @@
 #include <cstdlib>
 #include <limits>
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   Table_.clear();

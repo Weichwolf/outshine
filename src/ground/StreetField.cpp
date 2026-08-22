@@ -1,6 +1,6 @@
 #include "StreetField.h"
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 namespace {
 

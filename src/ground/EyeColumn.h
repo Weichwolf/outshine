@@ -1,7 +1,7 @@
 #ifndef EYECOLUMN_H
 #define EYECOLUMN_H
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 class EyeColumn {
 public:

@@ -6,7 +6,7 @@
 
 #include "Capacity.h"
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 class TileRanges {
 public:

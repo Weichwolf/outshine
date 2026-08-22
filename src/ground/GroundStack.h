@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_GROUNDSTACK_H
-#define OUTSHINE_WORLD_GROUNDSTACK_H
+#ifndef OUTSHINE_GROUND_GROUNDSTACK_H
+#define OUTSHINE_GROUND_GROUNDSTACK_H
 
 #include <memory>
 #include <string_view>
@@ -13,7 +13,7 @@ namespace outshine {
 class Sink;
 }
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 class GroundStack {
 public:

@@ -9,7 +9,7 @@
 #include <cmath>
 #include <cstdlib>
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 namespace {
 

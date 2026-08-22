@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <limits>
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 namespace {
 

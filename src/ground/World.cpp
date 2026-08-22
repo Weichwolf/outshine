@@ -15,7 +15,7 @@
 #include <unordered_map>
 #include <string>
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 static const int kRootZ = 8;
 

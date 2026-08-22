@@ -7,7 +7,7 @@
 #include <cassert>
 #include <cmath>
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 namespace {
 

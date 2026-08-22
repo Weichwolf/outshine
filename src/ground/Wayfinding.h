@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_WAYFINDING_H
-#define OUTSHINE_WORLD_WAYFINDING_H
+#ifndef OUTSHINE_GROUND_WAYFINDING_H
+#define OUTSHINE_GROUND_WAYFINDING_H
 
 #include <cstddef>
 #include <cstdint>
@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 inline constexpr size_t kMaxNetworkPoints = 4000000;
 inline constexpr size_t kMaxRouteLegs = 262144;
@@ -99,6 +99,6 @@ private:
 
 [[nodiscard]] Route Plan(const Waypoint &from, const Waypoint &to, double sphereRadiusM);
 
-} // namespace outshine::World
+} // namespace outshine::Ground
 
 #endif

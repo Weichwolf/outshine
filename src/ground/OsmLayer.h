@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 enum class OsmLayer { Buildings, WaterPolygons, WaterLines, Streets, StreetPolygons };
 

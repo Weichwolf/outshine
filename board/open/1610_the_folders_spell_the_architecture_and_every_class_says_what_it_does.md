@@ -59,3 +59,12 @@ src/ground/GroundStack.{h,cpp}, born this hour (4a320f2e), adopts `namespace out
 and the guard `OUTSHINE_WORLD_GROUNDSTACK_H` inside the folder named ground. Every new file in
 src/ground written before the namespace follows the folder deepens the rename debt; the fix
 must sweep one file more than it would have yesterday.
+
+
+---
+
+The namespace follows the folder (this commit): `outshine::World` became `outshine::Ground`
+across the 60 files that spelled it, the OUTSHINE_WORLD_* guards became OUTSHINE_GROUND_*,
+and the class-World member qualifications survived intact (Ground::World is the red class,
+renamed once with its 1595 decomposition, not twice). Remaining slices: the actor/ folder
+assembly (body/mind/path) and the World class's own death.

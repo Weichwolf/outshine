@@ -13,7 +13,7 @@
 #include "Span.h"
 #include "TilePool.h"
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 class OsmField {
 public:

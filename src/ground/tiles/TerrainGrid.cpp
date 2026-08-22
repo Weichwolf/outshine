@@ -3,7 +3,7 @@
 #include "Log.h"
 #include "Png.h"
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 TerrainGrid TerrainGrid::FromTerrariumPng(const uint8_t *png, size_t len) {
   if (!png || len == 0) return NotHere();

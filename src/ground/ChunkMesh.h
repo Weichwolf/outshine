@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 inline int ChunkBuildEcef(const TerrainMesh &mesh, int z, uint32_t x, uint32_t y, int grid,
                            Chunk *out, double origin_out[3]) {

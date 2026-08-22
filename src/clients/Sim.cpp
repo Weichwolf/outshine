@@ -90,7 +90,7 @@ bool Sim::LoadTables() {
     return false;
   }
 
-  const World::VegetationTemplates::Row *rows = Veg_.Rows();
+  const Ground::VegetationTemplates::Row *rows = Veg_.Rows();
   const size_t nrows = Veg_.TemplateCount();
   std::vector<Generators::GroundTable::Row> table(nrows);
   StandsPerM2_.resize(nrows);
@@ -108,14 +108,14 @@ bool Sim::LoadTables() {
                {{"ring", (double)Ring_.Zoom()}, {"vectors", (double)W_.Vectors().Zoom()}});
     return false;
   }
-  const World::VegetationTemplates::Rule *built =
-      Veg_.Find(World::OsmLayerName(World::OsmLayer::Buildings), "*");
-  const World::VegetationTemplates::Rule *wet =
-      Veg_.Find(World::OsmLayerName(World::OsmLayer::WaterPolygons), "water");
+  const Ground::VegetationTemplates::Rule *built =
+      Veg_.Find(Ground::OsmLayerName(Ground::OsmLayer::Buildings), "*");
+  const Ground::VegetationTemplates::Rule *wet =
+      Veg_.Find(Ground::OsmLayerName(Ground::OsmLayer::WaterPolygons), "water");
   if (!built || !wet) {
     Log::Error("sim", "outline_class_undeclared",
-               {{"layer", std::string(built ? World::OsmLayerName(World::OsmLayer::WaterPolygons)
-                                            : World::OsmLayerName(World::OsmLayer::Buildings))}});
+               {{"layer", std::string(built ? Ground::OsmLayerName(Ground::OsmLayer::WaterPolygons)
+                                            : Ground::OsmLayerName(Ground::OsmLayer::Buildings))}});
     return false;
   }
   BuiltRow_ = built->Tpl;
@@ -191,7 +191,7 @@ std::shared_ptr<const Generators::FeatureField> Sim::Features(
     features.push_back(f);
   };
 
-  for (const World::BuildingField::Footprint &fp : W_.Footprints().OfTile(tile)) {
+  for (const Ground::BuildingField::Footprint &fp : W_.Footprints().OfTile(tile)) {
     Generators::FeatureField::Feature f{};
     f.CoverRow = BuiltRow_;
     f.Kind = Generators::FeatureKind::Structure;
@@ -200,7 +200,7 @@ std::shared_ptr<const Generators::FeatureField> Sim::Features(
     f.Top = Generators::FeatureLevel::At(fp.BaseM + fp.HeightM);
     take(f, fp.FirstPoint, fp.PointCount);
   }
-  for (const World::WaterField::Surface &s : W_.WaterBodies().OfTile(tile)) {
+  for (const Ground::WaterField::Surface &s : W_.WaterBodies().OfTile(tile)) {
     Generators::FeatureField::Feature f{};
     f.CoverRow = WetRow_;
     f.Kind = Generators::FeatureKind::Water;
@@ -208,11 +208,11 @@ std::shared_ptr<const Generators::FeatureField> Sim::Features(
     f.Top = Generators::FeatureLevel::At(s.LevelM);
     take(f, s.FirstPoint, s.PointCount);
   }
-  for (const World::StreetField::Way &w : W_.Ways().OfTile(tile)) {
+  for (const Ground::StreetField::Way &w : W_.Ways().OfTile(tile)) {
     Generators::FeatureField::Feature f{};
     f.CoverRow = w.CoverRow;
     f.Kind = Generators::FeatureKind::Way;
-    f.Form = w.Form == World::StreetField::Shape::Ribbon ? Generators::FeatureForm::Ribbon
+    f.Form = w.Form == Ground::StreetField::Shape::Ribbon ? Generators::FeatureForm::Ribbon
                                                          : Generators::FeatureForm::Area;
     f.HalfWidthM = w.HalfWidthM;
     take(f, w.FirstPoint, w.PointCount);
@@ -228,12 +228,12 @@ Sim::Snapped Sim::Snapshot(const Generators::Region &region, Generators::Ground:
                            SnapshotCost *cost) const {
   const double t0 = MonotonicMs();
   const auto done = [&](Snapped how) { cost->TotalMs = MonotonicMs() - t0; return how; };
-  const outshine::World::GroundBlock block =
+  const outshine::Ground::GroundBlock block =
       W_.Ground().BlockAt(region.Zoom(), region.X(), region.Y());
   switch (block.Where()) {
-    case outshine::World::GroundBlock::State::Pending: return done(Snapped::Waiting);
-    case outshine::World::GroundBlock::State::Missing: return done(Snapped::NoGround);
-    case outshine::World::GroundBlock::State::Resolved: break;
+    case outshine::Ground::GroundBlock::State::Pending: return done(Snapped::Waiting);
+    case outshine::Ground::GroundBlock::State::Missing: return done(Snapped::NoGround);
+    case outshine::Ground::GroundBlock::State::Resolved: break;
   }
 
   const int side = (int)(region.SpanNm() / W_.Ground().PostM(region.AnchorLat()) + 0.5) + 1;

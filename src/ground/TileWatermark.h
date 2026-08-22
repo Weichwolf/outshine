@@ -9,7 +9,7 @@
 #include "Capacity.h"
 #include "OsmField.h"
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 class TileWatermark {
 public:

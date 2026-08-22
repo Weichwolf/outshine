@@ -3,7 +3,7 @@
 #include <string_view>
 #include <vector>
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 Reaped Reap(const OsmField &field, const VegetationTemplates &widths, double vehicleWidthM,
             Network &into) {
@@ -71,4 +71,4 @@ Reaped Reap(const OsmField &field, const VegetationTemplates &widths, double veh
   return out;
 }
 
-} // namespace outshine::World
+} // namespace outshine::Ground

@@ -20,7 +20,7 @@ class SourceSet;
 class Transport;
 }
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 class TerrainTiles;
 

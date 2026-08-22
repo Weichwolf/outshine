@@ -21,16 +21,16 @@
 #include "VegetationTemplates.h"
 #include "Wayfinding.h"
 
-using outshine::World::ApartM;
-using outshine::World::Network;
-using outshine::World::OsmField;
-using outshine::World::OsmLayer;
-using outshine::World::OsmLayerNames;
-using outshine::World::Reap;
-using outshine::World::Reaped;
-using outshine::World::Route;
-using outshine::World::VegetationTemplates;
-using outshine::World::Waypoint;
+using outshine::Ground::ApartM;
+using outshine::Ground::Network;
+using outshine::Ground::OsmField;
+using outshine::Ground::OsmLayer;
+using outshine::Ground::OsmLayerNames;
+using outshine::Ground::Reap;
+using outshine::Ground::Reaped;
+using outshine::Ground::Route;
+using outshine::Ground::VegetationTemplates;
+using outshine::Ground::Waypoint;
 
 namespace outshine::Sim {
 
@@ -41,7 +41,7 @@ constexpr double kJoinMs = 20.0;
 
 bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehicle> &vehicles,
                    const Column<Drive> &driven, const WorldSettings &world,
-                   World::GroundStack &stack, Data::Transport &wire, const Provision &kept,
+                   Ground::GroundStack &stack, Data::Transport &wire, const Provision &kept,
                    Sink &say, DriveProduct &out) {
   say.Claim(!kept.CacheDir.empty() && !kept.AssetsDir.empty(),
         "**THE CALLER PROVISIONS THE JOURNEY**: a cache directory and an assets root arrive as "
@@ -78,7 +78,7 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   say.Number("start to destination as the crow flies", straightM / 1000.0, "km");
   say.Number("the zoom the ways are read at", (double)kZoom, "");
   const double tileGroundM =
-      outshine::World::kMercatorGirthM * std::cos(middleLat * outshine::kPi / 180.0) /
+      outshine::Ground::kMercatorGirthM * std::cos(middleLat * outshine::kPi / 180.0) /
       (double)(1L << kZoom);
   const int kCorridorRing = 2;
   const long steps = (long)std::ceil(straightM / tileGroundM) + 1;
@@ -141,14 +141,14 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
         "with vector geometry");
   if (field.Features().empty()) { return false; }
 
-  outshine::World::GroundMaterials materials;
+  outshine::Ground::GroundMaterials materials;
   say.Claim(materials.Load((kept.AssetsDir + "/world/ground-materials.json").c_str()),
         "the declared ground materials load, because a width table names them");
   VegetationTemplates widths;
   say.Claim(widths.Load((kept.AssetsDir + "/world/vegetation.json").c_str(), materials),
         "the declared widths load, with their RAA, RAL and RASt origins");
 
-  const double quantumM = outshine::World::kMercatorGirthM / ((double)(1L << kZoom) * 4096.0);
+  const double quantumM = outshine::Ground::kMercatorGirthM / ((double)(1L << kZoom) * 4096.0);
   Network roads(1.05 * quantumM, world.RadiusM);
   say.Number("the tile's own coordinate quantisation", quantumM, "m");
   const Reaped reaped = Reap(field, widths, carWidthM, roads);

@@ -9,7 +9,7 @@
 #include "Transport.h"
 
 using outshine::Sink;
-using outshine::World::GroundStack;
+using outshine::Ground::GroundStack;
 
 namespace {
 

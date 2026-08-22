@@ -7,9 +7,9 @@
 
 #include "Wayfinding.h"
 
-using outshine::World::Plan;
-using outshine::World::Route;
-using outshine::World::Waypoint;
+using outshine::Ground::Plan;
+using outshine::Ground::Route;
+using outshine::Ground::Waypoint;
 
 namespace {
 

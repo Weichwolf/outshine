@@ -12,7 +12,7 @@ class SourceSet;
 class Transport;
 }
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 struct GroundSurface { int Z; int Grid; };
 

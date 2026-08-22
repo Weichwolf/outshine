@@ -10,7 +10,7 @@
 #include "AlpineLimit.h"
 #include "GroundMaterials.h"
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 class VegetationTemplates {
 public:

@@ -11,7 +11,7 @@
 #include "TileWatermark.h"
 #include "VegetationTemplates.h"
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 class StreetField {
 public:

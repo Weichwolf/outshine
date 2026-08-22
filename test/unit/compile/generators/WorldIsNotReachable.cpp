@@ -4,6 +4,6 @@
 
 namespace outshine::Generators {
 
-World::World *Forbidden();
+Ground::World *Forbidden();
 
 }

@@ -94,8 +94,8 @@ public:
 
   const EyeTelemetry &Where() const { return Where_; }
 
-  World::World &Scenery() { return W_; }
-  const World::World &Scenery() const { return W_; }
+  Ground::World &Scenery() { return W_; }
+  const Ground::World &Scenery() const { return W_; }
 
   Span<const Populated> Regions() const { return Span<const Populated>(Grown_.data(), Grown_.size()); }
   const Generators::GeneratorSet &Content() const { return Gens_; }
@@ -118,9 +118,9 @@ public:
 
   static constexpr double kReachM = 900.0;
 
-  const World::EyeColumn &EyeColumn() const { return Stand_; }
-  const World::VegetationTemplates &Vegetation() const { return Veg_; }
-  const World::GroundMaterials &Materials() const { return Mats_; }
+  const Ground::EyeColumn &EyeColumn() const { return Stand_; }
+  const Ground::VegetationTemplates &Vegetation() const { return Veg_; }
+  const Ground::GroundMaterials &Materials() const { return Mats_; }
   const Scenario::Scene &Declared() const { return Scene_; }
 
   const Scenario::WorldStage *WorldStage() const { return Scene_.Staged().AsWorld(); }
@@ -138,7 +138,7 @@ public:
   const double *Fwd() const { return Fwd_; }
   const double *Right() const { return Right_; }
   const double *Up() const { return Up_; }
-  World::World::Eye Sight() const { return {Stance_.Lat, Stance_.Lon, Eye_, Fwd_}; }
+  Ground::World::Eye Sight() const { return {Stance_.Lat, Stance_.Lon, Eye_, Fwd_}; }
 
   float SunElDeg() const { return SunEl_; }
   float SunAzDeg() const { return SunAz_; }
@@ -189,10 +189,10 @@ private:
   std::unique_ptr<Data::ContentStore> Content_;
   std::unique_ptr<Data::SourceSet> Sources_;
 
-  World::GroundMaterials Mats_;
-  World::VegetationTemplates Veg_;
-  World::World W_;
-  World::EyeColumn Stand_;
+  Ground::GroundMaterials Mats_;
+  Ground::VegetationTemplates Veg_;
+  Ground::World W_;
+  Ground::EyeColumn Stand_;
 
   Generators::TreeSpecies Species_;
   std::vector<float> StandsPerM2_;

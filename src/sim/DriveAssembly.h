@@ -16,7 +16,7 @@
 namespace outshine::Data {
 class Transport;
 }
-namespace outshine::World {
+namespace outshine::Ground {
 class GroundStack;
 }
 
@@ -37,7 +37,7 @@ struct DriveProduct {
 
 [[nodiscard]] bool AssembleDrive(const Store &scene, const Assembled &cast,
                                  const Column<Vehicle> &vehicles, const Column<Drive> &driven,
-                                 const WorldSettings &world, World::GroundStack &stack,
+                                 const WorldSettings &world, Ground::GroundStack &stack,
                                  Data::Transport &wire, const Provision &kept, Sink &say,
                                  DriveProduct &out);
 

@@ -18,7 +18,7 @@
 
 using outshine::Sim::AssembleDrive;
 using outshine::Sim::DriveProduct;
-using outshine::World::GroundStack;
+using outshine::Ground::GroundStack;
 using outshine::Sim::Ridden;
 using outshine::Sink;
 

@@ -6,7 +6,7 @@
 #include "TileMath.h"
 #include "Wgs84.h"
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 struct Geo {
   double LonDeg = 0.0, LatDeg = 0.0, AltM = 0.0;

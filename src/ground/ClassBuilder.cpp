@@ -9,7 +9,7 @@
 #include "Capacity.h"
 #include "StackProbe.h"
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 namespace {
 

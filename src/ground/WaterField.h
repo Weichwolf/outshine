@@ -13,7 +13,7 @@
 #include "TerrainLoader.h"
 #include "TileWatermark.h"
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 class WaterField {
 public:

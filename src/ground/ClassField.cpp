@@ -9,7 +9,7 @@
 #include <chrono>
 #include <cmath>
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 namespace {
 

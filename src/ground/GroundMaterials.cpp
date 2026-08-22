@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cstdio>
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 int GroundMaterials::Find(const std::string &name) const {
   for (size_t i = 0; i < Mats_.size(); i++)

@@ -4,7 +4,7 @@
 
 #include "Sink.h"
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 bool GroundStack::Open(std::string_view cacheDir, std::string_view assetsDir,
                        double focusLat, double focusLon, Data::Transport &wire, Sink &say) {
@@ -24,12 +24,12 @@ bool GroundStack::Open(std::string_view cacheDir, std::string_view assetsDir,
   }
   say.Number("sources registered", (double)sources.Count(), "sources");
 
-  outshine::World::GroundSurface surface;
+  outshine::Ground::GroundSurface surface;
   surface.Z = 12;   // [SET] the Terrarium pyramid level the drive corridor streams at
   surface.Grid = 64; // [SET] posts per tile edge, the source's own tile granularity
-  Pool_ = std::make_unique<outshine::World::TilePool>(
-      outshine::World::GroundPoolConfig(focusLat, focusLon), sources, wire);
-  Ground_ = std::make_unique<outshine::World::GroundStream>(*Pool_, surface);
+  Pool_ = std::make_unique<outshine::Ground::TilePool>(
+      outshine::Ground::GroundPoolConfig(focusLat, focusLon), sources, wire);
+  Ground_ = std::make_unique<outshine::Ground::GroundStream>(*Pool_, surface);
   Opened_ = true;
   return true;
 }

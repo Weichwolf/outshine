@@ -26,7 +26,7 @@ using outshine::Vehicle;
 using outshine::WorldSettings;
 using outshine::Sim::AssembleDrive;
 using outshine::Sim::DriveProduct;
-using outshine::World::GroundStack;
+using outshine::Ground::GroundStack;
 using outshine::Sim::Provision;
 using outshine::Sink;
 

@@ -15,7 +15,7 @@
 #include "TileRanges.h"
 #include "TileWatermark.h"
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 class BuildingField {
 public:

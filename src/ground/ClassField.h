@@ -14,7 +14,7 @@
 #include "TilePool.h"
 #include "TangentFrame.h"
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 class VegetationTemplates;
 

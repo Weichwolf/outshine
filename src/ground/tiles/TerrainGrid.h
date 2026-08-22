@@ -8,7 +8,7 @@
 #include "TileGeodesy.h"
 #include "TileMath.h"
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 class TerrainField {
  public:

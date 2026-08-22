@@ -18,8 +18,8 @@
 #include "TileGeodesy.h"
 
 using namespace outshine;
-using namespace outshine::World;
-using outshine::World::TilePool;
+using namespace outshine::Ground;
+using outshine::Ground::TilePool;
 
 namespace {
 
@@ -54,9 +54,9 @@ void FillNodeHeights(const TerrainField &field, uint32_t rowPostings, uint32_t c
                      int nodes, std::vector<float> *out) {
   out->resize((size_t)nodes * (size_t)nodes);
   for (int j = 0; j < nodes; j++) {
-    const double fr = PostingFrac(World::ChunkNodePosting(j, rowPostings, nodes), rowPostings);
+    const double fr = PostingFrac(Ground::ChunkNodePosting(j, rowPostings, nodes), rowPostings);
     for (int i = 0; i < nodes; i++) {
-      const double fc = PostingFrac(World::ChunkNodePosting(i, colPostings, nodes), colPostings);
+      const double fc = PostingFrac(Ground::ChunkNodePosting(i, colPostings, nodes), colPostings);
       (*out)[(size_t)j * (size_t)nodes + (size_t)i] = field.InterpolatedM(fc, fr);
     }
   }
@@ -65,21 +65,21 @@ void FillNodeHeights(const TerrainField &field, uint32_t rowPostings, uint32_t c
 double TileHeightAslM(const float *nodes, int side, uint32_t postings, double fx, double fy) {
   const double px = Clamped01(fx) * (double)(postings - 1);
   const double py = Clamped01(fy) * (double)(postings - 1);
-  const int i = World::ChunkNodeCell(px, postings, side);
-  const int j = World::ChunkNodeCell(py, postings, side);
-  const uint32_t c0 = World::ChunkNodePosting(i, postings, side);
-  const uint32_t c1 = World::ChunkNodePosting(i + 1, postings, side);
-  const uint32_t r0 = World::ChunkNodePosting(j, postings, side);
-  const uint32_t r1 = World::ChunkNodePosting(j + 1, postings, side);
+  const int i = Ground::ChunkNodeCell(px, postings, side);
+  const int j = Ground::ChunkNodeCell(py, postings, side);
+  const uint32_t c0 = Ground::ChunkNodePosting(i, postings, side);
+  const uint32_t c1 = Ground::ChunkNodePosting(i + 1, postings, side);
+  const uint32_t r0 = Ground::ChunkNodePosting(j, postings, side);
+  const uint32_t r1 = Ground::ChunkNodePosting(j + 1, postings, side);
   const float su = (float)((px - (double)c0) / (double)(c1 - c0));
   const float sv = (float)((py - (double)r0) / (double)(r1 - r0));
-  const World::ChunkCell cell{nodes, side, j, i};
-  return (double)World::ChunkCellHeight(cell, su, sv);
+  const Ground::ChunkCell cell{nodes, side, j, i};
+  return (double)Ground::ChunkCellHeight(cell, su, sv);
 }
 
 }
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 struct Tile {
   long X = 0, Y = 0;
@@ -176,8 +176,8 @@ const Tile *GroundStream::TileAt(long x, long y) const {
   const uint32_t stride = held.Stitched->Stride();
   const uint32_t rowPostings = field ? PostingsPerEdge(field->Rows(), stride) : 0;
   const uint32_t colPostings = field ? PostingsPerEdge(field->Cols(), stride) : 0;
-  const int gr = field ? World::ChunkNodes(rowPostings, Surface_.Grid) : 0;
-  const int gc = field ? World::ChunkNodes(colPostings, Surface_.Grid) : 0;
+  const int gr = field ? Ground::ChunkNodes(rowPostings, Surface_.Grid) : 0;
+  const int gc = field ? Ground::ChunkNodes(colPostings, Surface_.Grid) : 0;
   const bool square = gr >= 2 && gr == gc && rowPostings == colPostings;
   if (held.Pending) return nullptr;
   held.Builds++;

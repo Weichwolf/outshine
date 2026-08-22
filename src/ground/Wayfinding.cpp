@@ -6,7 +6,7 @@
 #include <cmath>
 #include <queue>
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 namespace {
 
@@ -329,4 +329,4 @@ Route Plan(const Waypoint &from, const Waypoint &to, double sphereRadiusM) {
   return out;
 }
 
-} // namespace outshine::World
+} // namespace outshine::Ground

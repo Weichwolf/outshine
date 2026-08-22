@@ -6,7 +6,7 @@
 #include <string_view>
 #include <vector>
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 class OsmVector {
 public:

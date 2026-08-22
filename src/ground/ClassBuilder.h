@@ -13,7 +13,7 @@
 #include "ClassStructure.h"
 #include "TangentFrame.h"
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 enum class ClassGrain { Fine, Coarse };
 

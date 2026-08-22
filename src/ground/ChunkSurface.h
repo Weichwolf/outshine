@@ -3,7 +3,7 @@
 #include <array>
 #include <stdint.h>
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 inline int ChunkNodes(uint32_t postings, int grid) {
   const int wanted = (grid < 2 ? 2 : grid) + 1;

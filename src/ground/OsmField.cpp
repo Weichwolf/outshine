@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <cstdio>
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 namespace {
 

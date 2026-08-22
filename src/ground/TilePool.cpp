@@ -18,7 +18,7 @@
 #include "TerrainTiles.h"
 #include "Transport.h"
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 namespace {
 

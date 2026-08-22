@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_WORLD_ROADHARVEST_H
-#define OUTSHINE_WORLD_ROADHARVEST_H
+#ifndef OUTSHINE_GROUND_ROADHARVEST_H
+#define OUTSHINE_GROUND_ROADHARVEST_H
 
 #include <cstddef>
 #include <string>
@@ -8,7 +8,7 @@
 #include "VegetationTemplates.h"
 #include "Wayfinding.h"
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 struct Reaped {
   size_t Ways = 0;
@@ -29,6 +29,6 @@ struct Reaped {
 [[nodiscard]] Reaped Reap(const OsmField &field, const VegetationTemplates &widths,
                           double vehicleWidthM, Network &into);
 
-} // namespace outshine::World
+} // namespace outshine::Ground
 
 #endif

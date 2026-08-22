@@ -7,7 +7,7 @@
 #include "TerrainGrid.h"
 #include "TileGeodesy.h"
 
-namespace outshine::World {
+namespace outshine::Ground {
 
 class TerrainBytes {
  public:
