@@ -44,19 +44,23 @@ Peers never call each other; a part-on-part dependency travels as data through G
 Budget = screen-space error in px, quantised to a global ladder before it becomes a key;
 key = `(kind, params, seed, rung)` value, no strings. Degrade on detail, refuse on existence.
 
-### The actor chain (SOLL — the owner's causal decomposition)
+### The actor chain (SOLL — the owner's causal decomposition, general)
 
 ```mermaid
 flowchart LR
-  G["GEOMETRY — glTF parts"] --> F["FUNCTIONS — steer · drive · brake · lamps"]
-  F --> P["PHYSICS — contacts, forces at the patch"]
-  M["INTELLIGENCE"] -->|acts on| F
-  M -->|sees| W["world queries — ground · corridor · sight"]
-  M -->|asks| N["NAVIGATION — two coordinates in, corridor out"]
-  PLAYER["player bindings"] -->|same seam| F
+  B["BODY — geometry, glTF parts: vehicle · walker · aircraft · door · pump"]
+  B --> A["ACTUATORS — the functions a body declares: steer · drive · brake · lamps · walk · open"]
+  A --> P["PHYSICS — forces at the contacts; only integration places a body"]
+  C["CONTROLLER — a mind or the player POSSESSES the seam"] -->|acts on| A
+  C -->|perceives| Q["PERCEPTION — bounded spatial queries: bounds · ground · sight"]
+  C -->|asks| N["PATHFINDING — two coordinates in, corridor out: walk · drive · fly · rail"]
 ```
 
-Physics binds to functions, never to the mind; the mind and the player actuate ONE seam.
+The chain holds for EVERYTHING that moves, with or without a mind: a parked car is a body whose
+seam nobody possesses; a door is a body with one actuator; an NPC differs from the player only
+in who possesses the seam (Unreal's Pawn/Controller possession — the reference). Perception is
+spatial query over bounds, never privileged state; navigation is one pathfinding service with
+modes, handed as a TOOL (`board:1583`); physics binds to actuators, never to the controller.
 `Journey` folds into `Sim` along this chain (`board:1581`). **A client includes nothing but
 `include/outshine/`** — enforced by the build (`board:1582`).
 
