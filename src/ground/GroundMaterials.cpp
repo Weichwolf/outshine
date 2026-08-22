@@ -8,7 +8,7 @@
 
 namespace outshine::Ground {
 
-int GroundMaterials::Find(const std::string &name) const {
+int GroundMaterials::Find(std::string_view name) const {
   for (size_t i = 0; i < Mats_.size(); i++)
     if (Mats_[i].Name == name) return (int)i;
   return -1;

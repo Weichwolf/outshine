@@ -124,7 +124,7 @@ std::string Decimal(float value) {
 
 }
 
-bool RenderPlan::StageByName(const std::string &name, Stage *out) {
+bool RenderPlan::StageByName(std::string_view name, Stage *out) {
   for (size_t s = 0; s < kStageCount; ++s) {
     if (name == kStages[s].Name) {
       *out = static_cast<Stage>(s);

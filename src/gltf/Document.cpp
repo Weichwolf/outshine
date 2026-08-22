@@ -323,7 +323,7 @@ bool ShapeAllowed(const std::string &semantic, const AttributeShape &shape, bool
   return true;
 }
 
-bool Document::Honours(const std::string &extension) {
+bool Document::Honours(std::string_view extension) {
   for (const char *const known : kHonouredExtensions) {
     if (known != nullptr && extension == known) { return true; }
   }

@@ -1,6 +1,7 @@
 #ifndef GLTF_DOCUMENT_H
 #define GLTF_DOCUMENT_H
 
+#include <string_view>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -28,7 +29,7 @@ public:
   const std::string &MinVersion() const { return MinVersion_; }
   const std::vector<std::string> &ExtensionsRequired() const { return Required_; }
 
-  [[nodiscard]] static bool Honours(const std::string &extension);
+  [[nodiscard]] static bool Honours(std::string_view extension);
 
   const std::vector<Accessor> &Accessors() const { return Accessors_; }
   const std::vector<BufferView> &BufferViews() const { return Views_; }

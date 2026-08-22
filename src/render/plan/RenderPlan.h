@@ -1,6 +1,7 @@
 #ifndef RENDERPLAN_H
 #define RENDERPLAN_H
 
+#include <string_view>
 #include <memory>
 #include <string>
 #include <vector>
@@ -50,7 +51,7 @@ public:
   [[nodiscard]] static bool Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan> *out,
                                     std::string &error);
 
-  [[nodiscard]] static bool StageByName(const std::string &name, Stage *out);
+  [[nodiscard]] static bool StageByName(std::string_view name, Stage *out);
 
   [[nodiscard]] bool Holds(Stage stage) const { return HeldStage_[static_cast<size_t>(stage)]; }
   [[nodiscard]] bool Holds(Resource resource) const {

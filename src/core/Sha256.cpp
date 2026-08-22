@@ -78,6 +78,6 @@ std::string Sha256Hex(const void *data, size_t bytes) {
   return out;
 }
 
-std::string Sha256Hex(const std::string &text) { return Sha256Hex(text.data(), text.size()); }
+std::string Sha256Hex(std::string_view text) { return Sha256Hex(text.data(), text.size()); }
 
 }

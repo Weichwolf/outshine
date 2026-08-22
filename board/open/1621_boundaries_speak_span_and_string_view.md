@@ -53,3 +53,9 @@ Track::Build (times, values), Subject's skin joints, RoofSurface::Cover + its Ea
 Callers convert implicitly; SetLights keeps its copy via assign. 129/129 warm. Remaining:
 the ~41 const std::string& parameters, each judged (stored strings want value+move, not
 string_view).
+
+Progress: four judgment-clear string boundaries converted -- Sha256Hex, GroundMaterials::Find,
+RenderPlan::StageByName, Document::Honours (all compare/hash, nothing stored). 129/129 warm.
+Deferred with grounds: the Script interface (virtual overriders ripple), TilePool keys (the
+map's find would copy anyway without a transparent hash -- convert when the map does), the
+Refuse/store family (value+move is the right form, a separate sitting).
