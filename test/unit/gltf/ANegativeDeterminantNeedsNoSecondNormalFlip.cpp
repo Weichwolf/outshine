@@ -124,7 +124,7 @@ int main() {
   using namespace outshine::Test;
 
   if (Slurp(kAsset.c_str()).empty()) {
-    Unprepared(kAsset.c_str());
+    Unprepared((kAsset + " is not prepared -- run test/harness/shared/corpus/prepare.py").c_str());
     return Report();
   }
 

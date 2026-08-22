@@ -20,3 +20,9 @@ test/harness/shared/corpus/prepare.py" (e.g. ADerivedCameraIsTheFramingRule…:2
 TheTriangleProjectsToTheOraclesArea.cpp:54, Parity.cpp:1076).
 
 Demanded: the two callers say what cures them, same words as their siblings.
+
+---
+
+Closed: both callers name the cure themselves -- "is not prepared -- run
+test/harness/shared/corpus/prepare.py" -- like every other corpus caller since the
+Unprepared suffix moved to where it is true.

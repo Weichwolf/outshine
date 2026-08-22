@@ -27,7 +27,7 @@ int Paeth(int left, int above, int corner) {
 
 Png Refuse(std::string why) {
   Png out;
-  out.Error = why;
+  out.Error = std::move(why);
   return out;
 }
 

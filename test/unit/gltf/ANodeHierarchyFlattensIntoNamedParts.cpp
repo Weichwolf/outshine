@@ -27,7 +27,7 @@ int main() {
   using namespace outshine::Test;
 
   if (!Present(kThreeCubes.c_str())) {
-    Unprepared(kThreeCubes.c_str());
+    Unprepared((kThreeCubes + " is not prepared -- run test/harness/shared/corpus/prepare.py").c_str());
     return Report();
   }
 

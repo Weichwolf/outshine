@@ -30,3 +30,16 @@ unspellable. Stale-breaking re-verifies after the break (bounded retry: break, a
 noclobber claim, on failure re-read the pid — never `rm` followed by a blind second claim).
 And the refusal gets its claims test: plant a lock with a live pid → the gate refuses
 naming it; plant a dead pid → the gate breaks it with the named message and runs.
+
+---
+
+Closed, and the demanded regression test immediately earned its keep: the claim and the pid
+are ONE atomic noclobber write (a lock FILE, its content the pid, created under set -C in a
+single step -- no window with an empty claim); a stale break retries under the same
+noclobber so exactly one of two breakers wins, bounded at three attempts. The new claims
+test TheNestRefusesASecondRunner -- an env-stripped child against the gate's own live lock,
+plus the nested passthrough -- went RED on first run and exposed lock bug number FOUR, which
+no review had seen: the release lived in KillRunning, which RunWithTimeout calls after EVERY
+test, so the parent dropped its own lock one test into the gate. The release now lives in
+ReleaseNest, called only from the exit traps. Both arms live-proven (live pid refuses naming
+it, dead pid breaks stale), 16/16 claims, gate green.

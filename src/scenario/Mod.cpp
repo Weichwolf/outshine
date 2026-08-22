@@ -7,8 +7,8 @@
 
 namespace outshine::Scenario {
 
-bool Mod::Refuse(std::string why) {
-  Error_ = Path_ + ": " + why;
+bool Mod::Refuse(std::string_view why) {
+  Error_ = Path_ + ": " + std::string(why);
   Scenes_.clear();
   return false;
 }

@@ -330,8 +330,8 @@ bool Document::Honours(std::string_view extension) {
   return false;
 }
 
-bool Document::Refuse(std::string why) {
-  Error_ = Path_.empty() ? why : Path_ + ": " + why;
+bool Document::Refuse(std::string_view why) {
+  Error_ = Path_.empty() ? std::string(why) : Path_ + ": " + std::string(why);
   return false;
 }
 

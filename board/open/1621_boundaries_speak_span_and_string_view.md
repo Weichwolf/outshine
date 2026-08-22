@@ -78,3 +78,7 @@ Subject, Store — all `Error_ = std::move(why)`). The other four miss the point
   read-only concatenand is this item's own thesis: `std::string_view`. Document's
   empty-Path_ branch may move (`Path_.empty() ? std::move(why) : …`) if it stays by value.
 Cold paths all — this is form, not frame time; but the form is the claim being closed.
+
+Sharpening repaid: Png moves its message; Mod, Fields and Document Refuse take string_view
+(they only concatenate -- ownership was never used, and lvalue callers paid a dead copy);
+Store, Subject, Emit, ReferenceLine keep value+move where the message truly lands.

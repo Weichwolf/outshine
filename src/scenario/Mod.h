@@ -2,6 +2,7 @@
 #define MOD_H
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "Scene.h"
@@ -23,7 +24,7 @@ public:
   std::string Ids() const;
 
 private:
-  [[nodiscard]] bool Refuse(std::string why);
+  [[nodiscard]] bool Refuse(std::string_view why);
 
   std::string Name_, Path_, Error_;
   std::vector<Scene> Scenes_;

@@ -2,6 +2,7 @@
 #define FIELDS_H
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "Json.h"
@@ -65,8 +66,8 @@ public:
     if (Err_.empty()) Err_ = Path_ + "." + key + " " + why;
     return false;
   }
-  [[nodiscard]] bool Refuse(std::string why) {
-    if (Err_.empty()) Err_ = Path_ + " " + why;
+  [[nodiscard]] bool Refuse(std::string_view why) {
+    if (Err_.empty()) Err_ = Path_ + " " + std::string(why);
     return false;
   }
 

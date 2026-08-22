@@ -40,29 +40,40 @@ KillRunning() {
     kill -TERM -"$runningGroup" 2>/dev/null
   done
   RUNNING_GROUPS=""
+}
+
+ReleaseNest() {
   if [ "${NESTLOCK_MINE:-no}" = yes ]; then
-    rm -rf "$NESTLOCK"
+    rm -f "$NESTLOCK"
     NESTLOCK_MINE=no
   fi
 }
-trap 'KillRunning; exit 130' INT
-trap 'KillRunning; exit 143' TERM
-trap 'KillRunning; exit 129' HUP
-trap 'KillRunning' EXIT
+trap 'KillRunning; ReleaseNest; exit 130' INT
+trap 'KillRunning; ReleaseNest; exit 143' TERM
+trap 'KillRunning; ReleaseNest; exit 129' HUP
+trap 'KillRunning; ReleaseNest' EXIT
 
 NESTLOCK=$BUILD.lock
 NESTLOCK_MINE=no
 if [ "$INHERITED_NEST" != "$BUILD" ]; then
-  if ! mkdir "$NESTLOCK" 2>/dev/null; then
-    otherPid=$(cat "$NESTLOCK/pid" 2>/dev/null)
+  # the claim and the identity are ONE atomic step: noclobber-create the lock FILE with the
+  # pid already inside -- no window in which a second runner reads an empty claim. A stale
+  # lock (dead pid) is removed and the claim retried under the same noclobber, so of two
+  # stale-breakers exactly one wins and the other refuses.
+  claimAttempts=0
+  while :; do
+    if (set -C; printf '%s' "$$" > "$NESTLOCK") 2>/dev/null; then
+      NESTLOCK_MINE=yes
+      break
+    fi
+    otherPid=$(cat "$NESTLOCK" 2>/dev/null)
     if [ -n "$otherPid" ] && kill -0 "$otherPid" 2>/dev/null; then
       Die "another runner (pid $otherPid) holds this checkout's nest -- two gates in one nest read each other's half-written objects, so the second refuses instead of corrupting both"
     fi
-    rm -rf "$NESTLOCK"
-    mkdir "$NESTLOCK" || Die "the stale nest lock would not clear"
-  fi
-  printf '%s' "$$" > "$NESTLOCK/pid"
-  NESTLOCK_MINE=yes
+    claimAttempts=$((claimAttempts + 1))
+    [ "$claimAttempts" -le 3 ] || Die "the nest lock would not settle after three stale breaks"
+    rm -f "$NESTLOCK"
+  done
 fi
 
 SUITE=
