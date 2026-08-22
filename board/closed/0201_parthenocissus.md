@@ -7,3 +7,7 @@ Depends: 0468
 **Parthenocissus**
 
 Parthenocissus — Virginia creeper on a wall, and its autumn red is a façade's colour
+
+---
+
+**Closed, folded into the hull (2026-08-22):** the task lives as a checkbox in 0128; it is refiled as its own item the day work on it begins.
