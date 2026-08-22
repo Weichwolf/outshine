@@ -135,12 +135,12 @@ flowchart TD
   Ephemeris & RegionForge --> Sim --> Renderer
   Frustum -.-> DrawList
   Entities -.-> DrawList
-  SceneStore["Scene Store — entities · typed pairs · traits · tags"]
+  Assembly["Assembly — the XML door"] --> SceneStore["Scene Store — entities · typed pairs · traits · tags"]
 
   classDef built fill:#1f6f3f,stroke:#0d3b21,color:#fff
   classDef idle fill:#8a6d1f,stroke:#4a3a0d,color:#fff
   classDef absent fill:#7a2222,stroke:#3d1111,color:#fff,stroke-dasharray:4 3
-  class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,TilePool,GroundStream,OsmField,RoadHarvest,Wayfinding,StreetField,BuildingField,WaterField,Ground,Forest,Buildings,Water,Infrastructure,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,Subject,DrawList,SubjectDraw,Renderer,TonemapStage,PresentStage,Live,Sim,SceneStore,Ephemeris,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,LightVisibilityStage built
+  class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,TilePool,GroundStream,OsmField,RoadHarvest,Wayfinding,StreetField,BuildingField,WaterField,Ground,Forest,Buildings,Water,Infrastructure,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,Subject,DrawList,SubjectDraw,Renderer,TonemapStage,PresentStage,Live,Sim,Assembly,SceneStore,Ephemeris,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,LightVisibilityStage built
   class Frustum,RegionForge idle
   class Entities absent
 ```

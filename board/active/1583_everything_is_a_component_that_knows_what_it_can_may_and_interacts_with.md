@@ -65,3 +65,16 @@ seat) and `unit/scene/ATagIsAValueAndMatchingIsPrefixAlgebra` (capability flows 
 query, not copy). `make` picked the layer up with no Makefile change -- board:1584's one
 declaration at work. Open: prefab subtree instantiation, slots/claim, the XML door through the
 same API, and the fold of the F31 declaration into a prefab.
+
+---
+
+**Learned, slice 3 (the XML door).** `src/clients/Assembly.cpp` walks the parsed scenario and
+calls the SAME store API a C++ client calls -- Add, Give, Link -- against one graph: a vehicle is
+a Body whose function tags are DERIVED from physical quantities in the file (turning circle =
+steer, torque through a final drive = drive, brake torque = brake; no lamp spelled = no lamp
+given); `<player is="f31">` becomes a Mind linked DrivenBy at the seam an autopilot uses. Proving
+test: `unit/clients/TheScenarioAssemblesTheActorChainThroughTheOneApi` -- on the REAL
+`tools/driver/f31.scenario`, with refusal-text parity shown between the doors (one checker).
+Renamed for the neighbourhood: scene's Kind -> Role, Rule -> RelationRule (Scenario.h and
+Style.h already speak those names). Open: prefab subtree instantiation, data components on
+entities (the vehicle's numbers still live only in the declaration), the fold of board:1581.
