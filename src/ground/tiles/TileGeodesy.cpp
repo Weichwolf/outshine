@@ -124,7 +124,7 @@ EnuFrame EnuFrame::At(double originLatDeg, double originLonDeg) {
   if (originLatDeg < -89.9 || originLatDeg > 89.9)
     return EnuFrame(State::OriginTooPolar, originLatDeg, originLonDeg, 0.0, 0.0);
 
-  const double mpd = kPi * kEarthRadiusM / 180.0;
+  const double mpd = kPi * kWgs84A / 180.0;
   return EnuFrame(State::Usable, originLatDeg, originLonDeg, mpd,
                   std::cos(originLatDeg * kDeg2Rad) * mpd);
 }

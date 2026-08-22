@@ -15,13 +15,6 @@ struct CameraBasis {
   float mvp[16];
 };
 
-constexpr float kEarthRadiusM = 6371000.0f;
-
-inline float HorizonDipRad(float altM) {
-  if (altM <= 0.f) return 0.f;
-  return acosf(kEarthRadiusM / (kEarthRadiusM + altM));
-}
-
 inline void CameraAxes(float yawDeg, float pitchDeg, float rollDeg, float f[3], float sr[3],
                          float up[3]) {
   const float RAD = (float)M_PI / 180.f;

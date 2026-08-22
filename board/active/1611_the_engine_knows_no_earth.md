@@ -32,8 +32,7 @@ care which planet it is standing on.
 - [ ] provider geodesy (WGS84, Mercator band) moves under src/data or the provider's own
       declaration -- named as the PROVIDER's shape, not the world's. Survey at f1c48fe3, the
       slices in working order:
-      1. src/core/Camera.h kEarthRadiusM + HorizonDipRad: ZERO callers -- dead, deleted, no
-         successor needed
+      1. [DONE] src/core/Camera.h kEarthRadiusM + HorizonDipRad: zero callers, deleted
       2. src/ground/Wayfinding.h kEarthRadiusM = 6371008.8: the great-circle radius is the
          DECLARED sphere's -- travels in from the world declaration (driver declarations cite
          IUGG mean radius), no constant in the ground layer
@@ -109,3 +108,13 @@ scene inheritance, X-Plane/MSFS scenery stacks, the Rails doctrine).** The decid
 - the standard-gravity seed is spelled twice: include/outshine/Scenario.h:37 (member default)
   and src/scenario/ScenarioRead.cpp:164 (`Num("gravityMs2", 9.80665)`). One can drift from the
   other silently; the seed lives in ONE place until earth.xml takes it.
+
+
+**Sweep (2026-08-22, commit follows the blind-spot sharpening):** the reviewer's four blind
+spots are repaid -- the dead horizon helper is deleted with its 6371000; the Mercator girth is
+ONE derived constant `World::kMercatorGirthM = 2 pi kWgs84A` (TileGeodesy.h, the tiling's own
+datum) consumed by Journey's tile maths and GroundStream::PostM, killing 40075017.0 (twice,
+rounded) and 40075016.686; kEarthRadiusM's duplicate name in TileGeodesy died into kWgs84A;
+the 9.80665/1.2250 seeds are spelled ONCE in WorldSettings -- the reader defaults to the
+struct's own values. Slices 2-6 (Wayfinding radius from the declaration, GeoToEcef under
+src/data, studio anchor naming, Ephemeris naming) remain.

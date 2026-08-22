@@ -161,8 +161,8 @@ void ReadWorld(const Xml::Ref &from, Scenario &into) {
   into.Ground.Lat = from.Num("lat", 0.0);
   into.Ground.Lon = from.Num("lon", 0.0);
   into.Ground.RadiusM = from.Num("radiusM", 0.0);
-  into.Ground.GravityMs2 = from.Num("gravityMs2", 9.80665);
-  into.Ground.AirDensityKgM3 = from.Num("airDensityKgM3", 1.2250);
+  into.Ground.GravityMs2 = from.Num("gravityMs2", into.Ground.GravityMs2);
+  into.Ground.AirDensityKgM3 = from.Num("airDensityKgM3", into.Ground.AirDensityKgM3);
   into.Ground.WindDeg = from.Num("windDeg", 0.0);
   into.Ground.WindMs = from.Num("windMs", 0.0);
   into.Ground.CloudCover = from.Num("cloudCover", 0.0);

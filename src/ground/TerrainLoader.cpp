@@ -212,7 +212,7 @@ GroundSample GroundStream::At(double lat, double lon) const {
 }
 
 double GroundStream::PostM(double latDeg) const {
-  return 40075016.686 * std::cos(latDeg * 3.14159265358979 / 180.0) /
+  return kMercatorGirthM * std::cos(latDeg * kPi / 180.0) /
          (double)((long)1 << Surface_.Z) / (double)Surface_.Grid;
 }
 

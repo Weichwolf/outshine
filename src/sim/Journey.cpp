@@ -8,6 +8,8 @@
 #include "Journey.h"
 
 #include "Carriageway.h"
+#include "Units.h"
+#include "TileGeodesy.h"
 #include "Ribbon.h"
 #include "ContentStore.h"
 #include "Drive.h"
@@ -128,7 +130,8 @@ bool Journey::Lay(const Store &scene, const Assembled &cast, const Column<Vehicl
   say.Number("start to destination as the crow flies", straightM / 1000.0, "km");
   say.Number("the zoom the ways are read at", (double)kZoom, "");
   const double tileGroundM =
-      40075017.0 * std::cos(middleLat * 3.14159265358979 / 180.0) / (double)(1L << kZoom);
+      outshine::World::kMercatorGirthM * std::cos(middleLat * outshine::kPi / 180.0) /
+      (double)(1L << kZoom);
   const int kCorridorRing = 2;
   const long steps = (long)std::ceil(straightM / tileGroundM) + 1;
   const long square = (long)(2 * std::ceil(0.5 * straightM / tileGroundM) + 3);
@@ -210,7 +213,7 @@ bool Journey::Lay(const Store &scene, const Assembled &cast, const Column<Vehicl
   say.Claim(widths.Load((kept.AssetsDir + "/world/vegetation.json").c_str(), materials),
         "the declared widths load, with their RAA, RAL and RASt origins");
 
-  const double quantumM = 40075017.0 / ((double)(1L << kZoom) * 4096.0);
+  const double quantumM = outshine::World::kMercatorGirthM / ((double)(1L << kZoom) * 4096.0);
   Network roads(1.05 * quantumM);
   say.Number("the tile's own coordinate quantisation", quantumM, "m");
   const Reaped reaped = Reap(field, widths, carWidthM, roads);
