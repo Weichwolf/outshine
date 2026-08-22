@@ -6,3 +6,7 @@ Parent: 0171
 **Buoyancy from displaced volume against the core's water level**
 
 Buoyancy from displaced volume against the core's water level
+
+---
+
+**Closed, folded into the hull (2026-08-22):** the task lives as a checkbox in 0171; it is refiled as its own item the day work on it begins.

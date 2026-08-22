@@ -6,3 +6,7 @@ Parent: 0171
 **Wake and bow wave, and they must move the water surface, not sit on it**
 
 Wake and bow wave, and they must move the water surface, not sit on it
+
+---
+
+**Closed, folded into the hull (2026-08-22):** the task lives as a checkbox in 0171; it is refiled as its own item the day work on it begins.
