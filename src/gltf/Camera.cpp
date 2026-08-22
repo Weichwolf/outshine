@@ -1,5 +1,6 @@
 #include "Camera.h"
 
+#include <numbers>
 #include <cmath>
 
 namespace outshine::Gltf {
@@ -9,7 +10,7 @@ bool Camera::Projection(double viewportAspect, Transform &out) const {
 
   if (Kind == CameraKind::Perspective) {
 
-    if (!(viewportAspect > 0) || !(YfovRad > 0) || YfovRad >= 3.14159265358979323846 ||
+    if (!(viewportAspect > 0) || !(YfovRad > 0) || YfovRad >= std::numbers::pi ||
         !(ZNearM > 0)) {
       return false;
     }

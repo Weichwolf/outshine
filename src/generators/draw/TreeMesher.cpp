@@ -1,5 +1,6 @@
 #include "TreeMesher.h"
 
+#include <numbers>
 #include <algorithm>
 #include <cmath>
 
@@ -44,7 +45,7 @@ int TreeMesher::SidesFor(float radius, int declared) const {
   if (PixelGrow_ <= 0.0f || radius <= 0.0f) { return cap; }
   const float c = 1.0f - 0.5f * PixelGrow_ / radius;
   if (c <= -1.0f) { return 3; }
-  const int n = (int)std::ceil(3.14159265f / std::acos(c));
+  const int n = (int)std::ceil(std::numbers::pi_v<float> / std::acos(c));
   if (n < 3) { return 3; }
   return n < cap ? n : cap;
 }

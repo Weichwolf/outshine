@@ -1,6 +1,7 @@
 #ifndef PARTICIPATINGMEDIUM_H
 #define PARTICIPATINGMEDIUM_H
 
+#include <numbers>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -120,7 +121,7 @@ inline void MediumMultiScatterTexel(const Medium &medium, float unitU, float uni
   for (int which = 0; which < kMultiScatterGrid * kMultiScatterGrid; ++which) {
     const float ring = ((float)(which / kMultiScatterGrid) + 0.5f) / (float)kMultiScatterGrid;
     const float around = ((float)(which % kMultiScatterGrid) + 0.5f) / (float)kMultiScatterGrid;
-    const float theta = 2.0f * 3.14159265358979f * ring;
+    const float theta = 2.0f * std::numbers::pi_v<float> * ring;
     const float cosPhi = 1.0f - 2.0f * around;
     const float sinPhi = std::sqrt(std::fmax(0.0f, 1.0f - cosPhi * cosPhi));
     const float dir[3] = {std::cos(theta) * sinPhi, std::sin(theta) * sinPhi, cosPhi};
@@ -151,7 +152,7 @@ inline void MediumMultiScatterTexel(const Medium &medium, float unitU, float uni
       for (int channel = 0; channel < 3; ++channel) {
         const double stepT = std::exp(-(double)extinction[channel] * (double)stride);
         const double source = (double)shadowed * (double)sun[channel] *
-                              (double)scattering[channel] / (4.0 * 3.14159265358979);
+                              (double)scattering[channel] / (4.0 * std::numbers::pi);
         summedL[channel] += throughput[channel] * source * (1.0 - stepT) /
                             (double)extinction[channel];
         summedF[channel] += throughput[channel] * (double)scattering[channel] * (1.0 - stepT) /
@@ -168,11 +169,11 @@ inline void MediumMultiScatterTexel(const Medium &medium, float unitU, float uni
 }
 
 [[nodiscard]] inline float RayleighPhase(float cosTheta) {
-  return 3.0f / (16.0f * 3.14159265358979f) * (1.0f + cosTheta * cosTheta);
+  return 3.0f / (16.0f * std::numbers::pi_v<float>) * (1.0f + cosTheta * cosTheta);
 }
 
 [[nodiscard]] inline float MiePhase(float g, float cosTheta) {
-  const float k = 3.0f / (8.0f * 3.14159265358979f) * (1.0f - g * g) / (2.0f + g * g);
+  const float k = 3.0f / (8.0f * std::numbers::pi_v<float>) * (1.0f - g * g) / (2.0f + g * g);
   return k * (1.0f + cosTheta * cosTheta) /
          std::pow(1.0f + g * g - 2.0f * g * cosTheta, 1.5f);
 }
@@ -193,7 +194,7 @@ inline void SkyViewParams(const Medium &medium, float radiusKm, float unitU, flo
   const float toHorizon =
       std::sqrt(std::fmax(0.0f, radiusKm * radiusKm - medium.BottomRadiusKm * medium.BottomRadiusKm));
   const float beta = std::acos(std::fmin(1.0f, std::fmax(-1.0f, toHorizon / radiusKm)));
-  const float zenithToHorizon = 3.14159265358979f - beta;
+  const float zenithToHorizon = std::numbers::pi_v<float> - beta;
   if (v < 0.5f) {
     float coord = 1.0f - 2.0f * v;
     coord = 1.0f - coord * coord;
@@ -211,7 +212,7 @@ inline void SkyViewUv(const Medium &medium, float radiusKm, bool hitsGround, flo
   const float toHorizon =
       std::sqrt(std::fmax(0.0f, radiusKm * radiusKm - medium.BottomRadiusKm * medium.BottomRadiusKm));
   const float beta = std::acos(std::fmin(1.0f, std::fmax(-1.0f, toHorizon / radiusKm)));
-  const float zenithToHorizon = 3.14159265358979f - beta;
+  const float zenithToHorizon = std::numbers::pi_v<float> - beta;
   if (!hitsGround) {
     float coord = std::acos(std::fmin(1.0f, std::fmax(-1.0f, cosView))) / zenithToHorizon;
     coord = 1.0f - std::sqrt(std::fmax(0.0f, 1.0f - coord));
@@ -288,7 +289,7 @@ inline void MediumSkyRay(const Medium &medium, float radiusKm, float cosView, fl
       for (int channel = 0; channel < 3; ++channel) {
         summed[channel] += throughput[channel] * (double)toSunGround[channel] *
                            (double)cosSunAt * (double)medium.GroundAlbedo[channel] /
-                           3.14159265358979;
+                           std::numbers::pi;
       }
     }
   }
@@ -303,7 +304,7 @@ inline void MediumSkyIrradiance(const Medium &medium, float radiusKm, float cosS
   for (int which = 0; which < kMultiScatterGrid * kMultiScatterGrid; ++which) {
     const float ring = ((float)(which / kMultiScatterGrid) + 0.5f) / (float)kMultiScatterGrid;
     const float around = ((float)(which % kMultiScatterGrid) + 0.5f) / (float)kMultiScatterGrid;
-    const float azimuth = 2.0f * 3.14159265358979f * ring;
+    const float azimuth = 2.0f * std::numbers::pi_v<float> * ring;
 
     const float cosView = std::sqrt(around);
     const float sinView = std::sqrt(std::fmax(0.0f, 1.0f - around));
@@ -316,7 +317,7 @@ inline void MediumSkyIrradiance(const Medium &medium, float radiusKm, float cosS
   }
 
   for (int channel = 0; channel < 3; ++channel) {
-    irradiance[channel] = (float)(summed[channel] * 3.14159265358979 /
+    irradiance[channel] = (float)(summed[channel] * std::numbers::pi /
                                   (double)(kMultiScatterGrid * kMultiScatterGrid));
   }
 }
@@ -465,7 +466,7 @@ static inline void mediumMultiScatterTexel(constant Medium &medium, float unitU,
   for (uint which = 0u; which < grid * grid; which = which + 1u) {
     float ring = (float(which / grid) + 0.5) / float(grid);
     float around = (float(which % grid) + 0.5) / float(grid);
-    float theta = 2.0 * 3.14159265358979 * ring;
+    float theta = 2.0 * std::numbers::pi * ring;
     float cosPhi = 1.0 - 2.0 * around;
     float sinPhi = sqrt(max(0.0, 1.0 - cosPhi * cosPhi));
     float3 dir = float3(cos(theta) * sinPhi, sin(theta) * sinPhi, cosPhi);
@@ -492,7 +493,7 @@ static inline void mediumMultiScatterTexel(constant Medium &medium, float unitU,
                   .rgb;
       }
       float3 stepT = exp(-extinction * stride);
-      float3 source = shadowed * sun * scattering / (4.0 * 3.14159265358979);
+      float3 source = shadowed * sun * scattering / (4.0 * std::numbers::pi);
       summedL += throughput * source * (1.0 - stepT) / extinction;
       summedF += throughput * scattering * (1.0 - stepT) / extinction;
       throughput *= stepT;
@@ -503,11 +504,11 @@ static inline void mediumMultiScatterTexel(constant Medium &medium, float unitU,
 }
 
 static inline float rayleighPhase(float cosTheta) {
-  return 3.0 / (16.0 * 3.14159265358979) * (1.0 + cosTheta * cosTheta);
+  return 3.0 / (16.0 * std::numbers::pi) * (1.0 + cosTheta * cosTheta);
 }
 
 static inline float miePhase(float g, float cosTheta) {
-  float k = 3.0 / (8.0 * 3.14159265358979) * (1.0 - g * g) / (2.0 + g * g);
+  float k = 3.0 / (8.0 * std::numbers::pi) * (1.0 - g * g) / (2.0 + g * g);
   return k * (1.0 + cosTheta * cosTheta) / pow(1.0 + g * g - 2.0 * g * cosTheta, 1.5);
 }
 
@@ -527,7 +528,7 @@ static inline void skyViewParams(constant Medium &medium, float radiusKm, float 
   float toHorizon =
       sqrt(max(0.0, radiusKm * radiusKm - medium.bottomRadiusKm * medium.bottomRadiusKm));
   float beta = acos(clamp(toHorizon / radiusKm, -1.0, 1.0));
-  float zenithToHorizon = 3.14159265358979 - beta;
+  float zenithToHorizon = std::numbers::pi - beta;
   if (v < 0.5) {
     float coord = 1.0 - 2.0 * v;
     coord = 1.0 - coord * coord;
@@ -545,7 +546,7 @@ static inline float2 skyViewUv(constant Medium &medium, float radiusKm, bool hit
   float toHorizon =
       sqrt(max(0.0, radiusKm * radiusKm - medium.bottomRadiusKm * medium.bottomRadiusKm));
   float beta = acos(clamp(toHorizon / radiusKm, -1.0, 1.0));
-  float zenithToHorizon = 3.14159265358979 - beta;
+  float zenithToHorizon = std::numbers::pi - beta;
   float v;
   if (!hitsGround) {
     float coord = acos(clamp(cosView, -1.0, 1.0)) / zenithToHorizon;
@@ -619,7 +620,7 @@ static inline float3 mediumSkyRay(constant Medium &medium, float radiusKm, float
           transmittance.sample(lut, mediumTransmittanceUv(medium, hereKm, cosSunAt), level(0.0))
               .rgb;
       summed += throughput * toSunGround * cosSunAt * float3(medium.groundAlbedo) /
-                3.14159265358979;
+                std::numbers::pi;
     }
   }
   return summed;

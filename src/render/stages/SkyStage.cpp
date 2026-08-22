@@ -1,5 +1,6 @@
 #include "SkyStage.h"
 
+#include <numbers>
 #include <cstdio>
 
 #include "SceneTargets.h"
@@ -60,7 +61,7 @@ fragment SkyOut fs(VOut in [[stage_in]],
   float radiusKm = pushed.eyeRadiusKm;
   float toHorizon = sqrt(max(0.0, radiusKm * radiusKm - pushed.bottomRadiusKm * pushed.bottomRadiusKm));
   float beta = acos(clamp(toHorizon / radiusKm, -1.0, 1.0));
-  float zenithToHorizon = 3.14159265358979 - beta;
+  float zenithToHorizon = std::numbers::pi - beta;
   bool hitsGround = acos(clamp(cosView, -1.0, 1.0)) > zenithToHorizon;
 
   float widthPx = float(skyView.get_width());

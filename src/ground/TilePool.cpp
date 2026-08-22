@@ -1,5 +1,6 @@
 #include "TilePool.h"
 
+#include <numbers>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -95,8 +96,8 @@ void TilePool::Focus(double latDeg, double lonDeg) {
 double TilePool::TileDistance(int z, uint32_t x, uint32_t y) const {
   const double n = std::ldexp(1.0, z);
   const double cx = (FocusLonDeg_ + 180.0) / 360.0 * n;
-  const double lat = FocusLatDeg_ * 3.14159265358979 / 180.0;
-  const double cy = (1.0 - std::asinh(std::tan(lat)) / 3.14159265358979) * 0.5 * n;
+  const double lat = FocusLatDeg_ * std::numbers::pi / 180.0;
+  const double cy = (1.0 - std::asinh(std::tan(lat)) / std::numbers::pi) * 0.5 * n;
   const double dx = (double)x + 0.5 - cx, dy = (double)y + 0.5 - cy;
   return dx * dx + dy * dy;
 }

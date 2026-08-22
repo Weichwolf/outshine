@@ -1,5 +1,6 @@
 #include "Fit.h"
 
+#include <numbers>
 #include <cmath>
 
 namespace outshine {
@@ -123,8 +124,8 @@ Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
       out.SharpestTurnRad = std::fabs(turn);
       out.SharpestTurnAtM = (double)vertex;
     }
-    if (std::fabs(turn) > 0.5 * 3.14159265358979) { ++out.TurnsPastRightAngle; }
-    if (std::fabs(turn) > 0.75 * 3.14159265358979) { ++out.TurnsPastHalfCircle; }
+    if (std::fabs(turn) > 0.5 * std::numbers::pi) { ++out.TurnsPastRightAngle; }
+    if (std::fabs(turn) > 0.75 * std::numbers::pi) { ++out.TurnsPastHalfCircle; }
 
     const double shorter = legM[vertex - 1] < legM[vertex] ? legM[vertex - 1] : legM[vertex];
     const double swing = std::fabs(turn);

@@ -1,6 +1,7 @@
 #ifndef SHEENLOBE_H
 #define SHEENLOBE_H
 
+#include <numbers>
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -8,7 +9,7 @@
 
 namespace outshine::Render {
 
-inline constexpr double kSheenPi = 3.14159265358979323846;
+inline constexpr double kSheenPi = std::numbers::pi;
 
 [[nodiscard]] inline double SheenDistribution(double nh, double roughness) {
   const double alpha = roughness * roughness;

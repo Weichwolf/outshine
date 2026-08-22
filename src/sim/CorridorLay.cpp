@@ -1,5 +1,6 @@
 #include "CorridorLay.h"
 
+#include <numbers>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -66,7 +67,7 @@ bool LayCorridor(const World::Route &route, World::GroundStream &ground, const V
   say.Number("the corridor it laid", fitted.LengthM / 1000.0, "km");
   say.Number("the polyline it came from", route.LengthM / 1000.0, "km");
   say.Number("the tightest radius on it", fitted.TightestRadiusM, "m");
-  say.Number("the sharpest turn it carried", fitted.SharpestTurnRad * 180.0 / 3.14159265358979, "deg");
+  say.Number("the sharpest turn it carried", fitted.SharpestTurnRad * 180.0 / std::numbers::pi, "deg");
   say.Number("at which vertex", fitted.SharpestTurnAtM, "");
   say.Number("turns past a right angle", (double)fitted.TurnsPastRightAngle, "of 2480");
   say.Number("turns past 135 degrees", (double)fitted.TurnsPastHalfCircle, "of 2480");
@@ -80,7 +81,7 @@ bool LayCorridor(const World::Route &route, World::GroundStream &ground, const V
   say.Number("the worst vertex", fitted.WorstVertex, "");
   say.Number("its incoming leg", fitted.WorstLegInM, "m");
   say.Number("its outgoing leg", fitted.WorstLegOutM, "m");
-  say.Number("the turn there", fitted.WorstTurnRad * 180.0 / 3.14159265358979, "deg");
+  say.Number("the turn there", fitted.WorstTurnRad * 180.0 / std::numbers::pi, "deg");
   say.Number("the radius it settled on", fitted.WorstRadiusM, "m");
   say.Number("the station the fit expected it at", fitted.WorstExpectedM, "m");
   say.Number("the station the resection found", fitted.WorstStationM, "m");

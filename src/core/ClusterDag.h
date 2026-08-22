@@ -1,6 +1,7 @@
 #ifndef CLUSTERDAG_H
 #define CLUSTERDAG_H
 
+#include <numbers>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -84,7 +85,7 @@ inline float DagCrossFactor(const float ctr[3], float rad, const double eye[3], 
   const double lo = theta - alpha, hi = theta + alpha;
   const double kHalfPi = 1.5707963267948966;
   if (lo <= kHalfPi && hi >= kHalfPi) return 1.0f;
-  return (float)std::max(std::sin(lo < 0.0 ? 0.0 : lo), std::sin(hi > 3.14159265358979 ? 3.14159265358979 : hi));
+  return (float)std::max(std::sin(lo < 0.0 ? 0.0 : lo), std::sin(hi > std::numbers::pi ? std::numbers::pi : hi));
 }
 
 inline float DagSse(const float ctr[3], float rad, float err, const double eye[3], float fPx,

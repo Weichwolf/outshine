@@ -1,5 +1,6 @@
 #include "TreeFoliage.h"
 
+#include <numbers>
 #include <cmath>
 
 #include "TreeRandom.h"
@@ -40,7 +41,7 @@ void TreeFoliage::Build(const TreeSkeleton &plant, const TreeMesh &shape, const 
   const size_t points = plant.LeafPoints.size();
   const double oneM2 = lamina * (double)ScaleM_ * (double)ScaleM_;
   const double h = (double)species.HeightM();
-  CrownProjM2_ = 0.25 * 3.14159265358979 * (double)(plant.BoxMax.X - plant.BoxMin.X) * h *
+  CrownProjM2_ = 0.25 * std::numbers::pi * (double)(plant.BoxMax.X - plant.BoxMin.X) * h *
                  (double)(plant.BoxMax.Z - plant.BoxMin.Z) * h;
   if (points == 0 || oneM2 <= 0.0) { return; }
   double want = (double)species.Lai() * CrownProjM2_ / oneM2;

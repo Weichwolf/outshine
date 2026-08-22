@@ -1,6 +1,7 @@
 #include "Heap.h"
 #include "Renderer.h"
 
+#include <numbers>
 #include <cmath>
 #include <cstring>
 
@@ -23,7 +24,7 @@ namespace {
 
 void MvpCamRel(float *m, const double R[3], const double Uc[3], const double F[3], double w, double h,
                float fovDeg, float orthoM, float jitterX, float jitterY, float nearM) {
-  const float fov = fovDeg * 3.14159265f / 180.0f, asp = (float)w / (float)h;
+  const float fov = fovDeg * std::numbers::pi_v<float> / 180.0f, asp = (float)w / (float)h;
   const float zn = nearM;
   const float f = 1.0f / std::tan(fov / 2.0f);
   const float v[16] = {(float)R[0], (float)Uc[0], -(float)F[0], 0,
@@ -578,7 +579,7 @@ void Renderer::EncodeLightVisibility(const FrameContext &ctx, const PassRecordin
 
 void Renderer::EncodeSky(const FrameContext &ctx, const PassRecording &into) {
   Picture(true, into);
-  const float tanHalfH = std::tan((float)(FovDeg_ * 3.14159265358979 / 180.0) * 0.5f);
+  const float tanHalfH = std::tan((float)(FovDeg_ * std::numbers::pi / 180.0) * 0.5f);
   const float tanHalfW = tanHalfH * (PictureH() > 0.0 ? (float)(PictureW() / PictureH()) : 1.0f);
   float right[3], up[3], fwd[3];
   for (int axis = 0; axis < 3; ++axis) {

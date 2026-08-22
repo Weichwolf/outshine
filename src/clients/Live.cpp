@@ -1,5 +1,6 @@
 #include "Live.h"
 
+#include <numbers>
 #include <cmath>
 
 #include <cstdio>
@@ -183,8 +184,8 @@ bool Live::Build(std::string &error) {
   if (Declared_.DrawsSky) {
     Renderer_->SetMedium(Render::Medium{});
 
-    const double elevation = Declared_.KeyElevationDeg * 3.14159265358979323846 / 180.0;
-    const double bearing = Declared_.KeyBearingDeg * 3.14159265358979323846 / 180.0;
+    const double elevation = Declared_.KeyElevationDeg * std::numbers::pi / 180.0;
+    const double bearing = Declared_.KeyBearingDeg * std::numbers::pi / 180.0;
     const double toSunGltf[3] = {std::cos(elevation) * std::sin(bearing), std::sin(elevation),
                                  std::cos(elevation) * std::cos(bearing)};
     const double upGltf[3] = {0.0, 1.0, 0.0};
@@ -307,7 +308,7 @@ bool Live::Look(std::string &error) {
   }
   const double centre[3] = {(least[0] + most[0]) * 0.5, (least[1] + most[1]) * 0.5,
                             (least[2] + most[2]) * 0.5};
-  const double turn = Around_ * 3.14159265358979323846 / 180.0;
+  const double turn = Around_ * std::numbers::pi / 180.0;
   const double cosine = std::cos(turn), sine = std::sin(turn);
   const auto spun = [cosine, sine](const double from[3], double out[3]) {
     out[0] = from[0] * cosine + from[2] * sine;
@@ -346,8 +347,8 @@ bool Live::Stand(std::string &error) {
   }
   if (Declared_.KeyLux > 0.0) {
 
-    const double elevation = Declared_.KeyElevationDeg * 3.14159265358979323846 / 180.0;
-    const double bearing = Declared_.KeyBearingDeg * 3.14159265358979323846 / 180.0;
+    const double elevation = Declared_.KeyElevationDeg * std::numbers::pi / 180.0;
+    const double bearing = Declared_.KeyBearingDeg * std::numbers::pi / 180.0;
     PunctualLight key;
     key.Kind = LightKind::Directional;
     key.Intensity = (float)Declared_.KeyLux;
@@ -363,7 +364,7 @@ bool Live::Stand(std::string &error) {
 
     const Render::Medium medium;
     const float cosSun =
-        (float)std::sin(Declared_.KeyElevationDeg * 3.14159265358979323846 / 180.0);
+        (float)std::sin(Declared_.KeyElevationDeg * std::numbers::pi / 180.0);
     const auto toSun = [&](float radiusKm, float cosZenith, float out[3]) {
       Render::MediumTransmittance(medium, radiusKm, cosZenith, Render::kTransmittanceSteps, out);
     };
@@ -382,7 +383,7 @@ bool Live::Stand(std::string &error) {
                                 cosSun, toSun, secondOrder, skylight);
     for (int channel = 0; channel < 3; ++channel) {
       Stood_.Environment.RadianceLinear[channel] +=
-          skylight[channel] / 3.14159265358979f * Declared_.KeyLux;
+          skylight[channel] / std::numbers::pi_v<float> * Declared_.KeyLux;
     }
   }
 

@@ -1,5 +1,6 @@
 #include "Subject.h"
 
+#include <numbers>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -15,7 +16,7 @@ namespace outshine::Gltf {
 
 namespace {
 
-constexpr double kPi = 3.14159265358979323846;
+constexpr double kPi = std::numbers::pi;
 
 void Cross(const double a[3], const double b[3], double out[3]) {
   out[0] = a[1] * b[2] - a[2] * b[1];

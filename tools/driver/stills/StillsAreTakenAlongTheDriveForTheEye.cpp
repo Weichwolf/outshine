@@ -1,3 +1,4 @@
+#include <numbers>
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -293,7 +294,7 @@ outshine::Gltf::Placement Seen(const outshine::Physics::Body &body, const outshi
   }
 
   out.Kind = outshine::Gltf::CameraKind::Perspective;
-  out.YfovRad = view.FovDeg * 3.14159265358979323846 / 180.0;
+  out.YfovRad = view.FovDeg * std::numbers::pi / 180.0;
   out.ZNearM = 0.1;
   out.ZFarM = 4000.0;
   return out;
@@ -696,7 +697,7 @@ int main(void) {
         beauty.Up[1] = beauty.Right[2] * beauty.Forward[0] - beauty.Right[0] * beauty.Forward[2];
         beauty.Up[2] = beauty.Right[0] * beauty.Forward[1] - beauty.Right[1] * beauty.Forward[0];
         beauty.Kind = outshine::Gltf::CameraKind::Perspective;
-        beauty.YfovRad = 42.0 * 3.14159265358979323846 / 180.0;
+        beauty.YfovRad = 42.0 * std::numbers::pi / 180.0;
         beauty.ZNearM = 0.1;
       }
       standing->Eye(beauty);

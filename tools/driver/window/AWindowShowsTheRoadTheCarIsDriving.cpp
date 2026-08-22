@@ -1,3 +1,4 @@
+#include <numbers>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -90,7 +91,7 @@ outshine::Gltf::Placement Seen(const outshine::Physics::Body &body, const outshi
     out.Up[axis] = up[axis];
   }
   out.Kind = outshine::Gltf::CameraKind::Perspective;
-  out.YfovRad = view.FovDeg * 3.14159265358979323846 / 180.0;
+  out.YfovRad = view.FovDeg * std::numbers::pi / 180.0;
   return out;
 }
 

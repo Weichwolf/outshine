@@ -1,5 +1,6 @@
 #include "LeafAngleDistribution.h"
 
+#include <numbers>
 #include <cmath>
 #include <vector>
 
@@ -7,7 +8,7 @@ namespace outshine::Generators {
 
 namespace {
 
-constexpr double kPi = 3.14159265358979323846;
+constexpr double kPi = std::numbers::pi;
 
 }
 

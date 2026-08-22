@@ -2,6 +2,7 @@
 
 #include "Heap.h"
 
+#include <numbers>
 #include <cmath>
 #include <string>
 
@@ -97,7 +98,7 @@ constexpr double kMagnificationAgreement = 1e-12;
     error = "the placement declares no field of view";
     return false;
   }
-  renderer.SetFovDeg(eye.YfovRad * 180.0 / 3.14159265358979323846);
+  renderer.SetFovDeg(eye.YfovRad * 180.0 / std::numbers::pi);
 
   renderer.SetNearM(eye.ZNearM);
   return true;

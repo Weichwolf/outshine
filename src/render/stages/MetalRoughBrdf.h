@@ -1,6 +1,7 @@
 #ifndef METALROUGHBRDF_H
 #define METALROUGHBRDF_H
 
+#include <numbers>
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -9,7 +10,7 @@
 namespace outshine::Render {
 
 constexpr double kDielectricF0 = 0.04;
-constexpr double kBrdfPi = 3.141592653589793;
+constexpr double kBrdfPi = std::numbers::pi;
 
 [[nodiscard]] inline double BrdfDistribution(double nh, double a2) {
   const double denominator = nh * nh * (a2 - 1.0) + 1.0;
