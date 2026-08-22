@@ -1,0 +1,101 @@
+
+struct SOut { float4 pos [[position]]; float2 uv; float2 uv1; float4 colour;
+              float3 emitted [[flat]]; SUBJECT_MOTION_VARYINGS };
+
+#define SUBJECT_EMITTED_ARM(NAME, RUNS, UV, UV1, COLOUR) \
+struct NAME##In { float3 p [[attribute(0)]]; float3 emitted [[attribute(2)]]; \
+                  SUBJECT_PREV_ATTRIBUTE RUNS }; \
+vertex SOut NAME(NAME##In v [[stage_in]], constant S &s [[buffer(0)]]) { \
+  SOut o; \
+  o.pos = s.mvp * float4(v.p + s.anc.xyz, 1.0); \
+  o.uv = UV; \
+  o.uv1 = UV1; \
+  o.colour = COLOUR; \
+  o.emitted = v.emitted; \
+  SUBJECT_SET_MOTION(o, v, s); \
+  return o; \
+}
+
+SUBJECT_EMITTED_ARM(vs, SUBJECT_NO_COLOUR_ATTRIBUTE,
+                    float2(0.0), float2(0.0), SUBJECT_NO_VERTEX_COLOUR)
+SUBJECT_EMITTED_ARM(vsTextured, SUBJECT_UV_ATTRIBUTE,
+                    v.uv, float2(0.0), SUBJECT_NO_VERTEX_COLOUR)
+SUBJECT_EMITTED_ARM(vsTexturedTwo, SUBJECT_UV_ATTRIBUTE SUBJECT_UV1_ATTRIBUTE,
+                    v.uv, v.uv1, SUBJECT_NO_VERTEX_COLOUR)
+SUBJECT_EMITTED_ARM(vsTinted, SUBJECT_COLOUR_ATTRIBUTE,
+                    float2(0.0), float2(0.0), v.colour)
+SUBJECT_EMITTED_ARM(vsTexturedTinted, SUBJECT_UV_ATTRIBUTE SUBJECT_COLOUR_ATTRIBUTE,
+                    v.uv, float2(0.0), v.colour)
+SUBJECT_EMITTED_ARM(vsTexturedTwoTinted,
+                    SUBJECT_UV_ATTRIBUTE SUBJECT_UV1_ATTRIBUTE SUBJECT_COLOUR_ATTRIBUTE,
+                    v.uv, v.uv1, v.colour)
+
+fragment SFrag fs(SOut in [[stage_in]], SUBJECT_SURFACE) {
+  SFrag o;
+  o.col = float4(in.emitted * in.colour.rgb, 1.0);
+  SUBJECT_SET_VELOCITY(o, in);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
+  SUBJECT_NO_SHADING_NORMAL(o);
+  return o;
+}
+
+fragment SFrag fsMasked(SOut in [[stage_in]], SUBJECT_SURFACE) {
+  if (surface.factor * in.colour.a < surface.cut) { discard_fragment(); }
+  SFrag o;
+  o.col = float4(in.emitted * in.colour.rgb, 1.0);
+  SUBJECT_SET_VELOCITY(o, in);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
+  SUBJECT_NO_SHADING_NORMAL(o);
+  return o;
+}
+
+fragment SFrag fsTransmissive(SOut in [[stage_in]], SUBJECT_SURFACE) {
+  SFrag o;
+  o.col = float4(in.emitted * in.colour.rgb +
+                     transmitted(surface, behindMap, in.pos.xy,
+                                 surface.base.rgb * in.colour.rgb),
+                 1.0);
+  SUBJECT_SET_VELOCITY(o, in);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
+  SUBJECT_NO_SHADING_NORMAL(o);
+  return o;
+}
+
+fragment SFrag fsBlended(SOut in [[stage_in]], SUBJECT_SURFACE) {
+  SFrag o;
+  o.col = float4(in.emitted * in.colour.rgb, surface.factor * in.colour.a);
+  SUBJECT_SET_VELOCITY(o, in);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
+  SUBJECT_NO_SHADING_NORMAL(o);
+  return o;
+}
+
+fragment SFrag fsTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
+  SFrag o;
+  o.col = float4(in.emitted * SUBJECT_COLOUR_TAP(SUBJECT_UVS(in)).rgb * in.colour.rgb, 1.0);
+  SUBJECT_SET_VELOCITY(o, in);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
+  SUBJECT_NO_SHADING_NORMAL(o);
+  return o;
+}
+
+fragment SFrag fsMaskedTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
+  float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
+  if (surface.factor * tap.a * in.colour.a < surface.cut) { discard_fragment(); }
+  SFrag o;
+  o.col = float4(in.emitted * tap.rgb * in.colour.rgb, 1.0);
+  SUBJECT_SET_VELOCITY(o, in);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
+  SUBJECT_NO_SHADING_NORMAL(o);
+  return o;
+}
+
+fragment SFrag fsBlendedTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
+  float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
+  SFrag o;
+  o.col = float4(in.emitted * tap.rgb * in.colour.rgb, surface.factor * tap.a * in.colour.a);
+  SUBJECT_SET_VELOCITY(o, in);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
+  SUBJECT_NO_SHADING_NORMAL(o);
+  return o;
+}

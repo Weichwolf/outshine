@@ -1,0 +1,152 @@
+
+struct S { float4x4 mvp; float4 anc; float4x4 prevMvp; float4 prevAnc; float4x4 model; };
+
+struct M { float factor; float cut; float metalness; float roughness;
+           float4 base; packed_float3 emissive; float normalScale; float identity;
+
+           packed_float3 f0;
+
+           float specularWeight;
+
+           float transmission; float thickness; float attenuationDistance;
+           packed_float3 attenuationColour;
+
+           packed_float3 sheenColour; float sheenRoughness;
+
+           float clearcoat; float clearcoatRoughness;
+
+           float anisotropy; float anisotropyRotation;
+
+           float iridescence; float iridescenceIor;
+           float iridescenceThicknessMin; float iridescenceThicknessMax;
+           packed_float3 colourUvU; packed_float3 colourUvV;
+           packed_float3 normalUvU; packed_float3 normalUvV;
+           packed_float3 metalRoughUvU; packed_float3 metalRoughUvV;
+           packed_float3 emissiveUvU; packed_float3 emissiveUvV;
+           packed_float3 specularStrengthUvU; packed_float3 specularStrengthUvV;
+           packed_float3 specularTintUvU; packed_float3 specularTintUvV;
+           float colourUvSecond; float normalUvSecond;
+           float metalRoughUvSecond; float emissiveUvSecond;
+           float specularStrengthUvSecond; float specularTintUvSecond; };
+
+struct Light { float4 tint; float4 place; float4 beam; float4 cone; };
+
+struct Lights { float4 count; float4 environment; Light items[16]; };
+
+#define SUBJECT_SURFACE constant M &surface [[buffer(0)]], constant Lights &lights [[buffer(1)]], \
+    device const BvhNode *bvhNodes [[buffer(2)]], device const BvhTri *bvhTris [[buffer(3)]], \
+    texture2d<float> colourMap [[texture(0)]], sampler colourSampler [[sampler(0)]], \
+    texture2d<float> normalMap [[texture(1)]], sampler normalSampler [[sampler(1)]], \
+    texture2d<float> metalRoughMap [[texture(2)]], sampler metalRoughSampler [[sampler(2)]], \
+    texture2d<float> emissiveMap [[texture(3)]], sampler emissiveSampler [[sampler(3)]], \
+    texture2d<float> specularStrengthMap [[texture(4)]], sampler specularStrengthSampler [[sampler(4)]], \
+    texture2d<float> specularTintMap [[texture(5)]], sampler specularTintSampler [[sampler(5)]], \
+    texture2d<float> behindMap [[texture(6)]], sampler behindSampler [[sampler(6)]]
+
+struct Occluders { device const BvhNode *nodes; device const BvhTri *tris; };
+#define SUBJECT_OCCLUDERS Occluders{bvhNodes, bvhTris}
+
+struct Uvs { float2 first; float2 second; };
+static inline float2 uvBy(packed_float3 u, packed_float3 v, Uvs uv, float second) {
+
+  float3 homogeneous = float3(mix(uv.first, uv.second, second), 1.0);
+  return float2(dot(float3(u), homogeneous), dot(float3(v), homogeneous));
+}
+
+#define SUBJECT_UVS(in) Uvs{(in).uv, (in).uv1}
+#define SUBJECT_COLOUR_TAP(uv) \
+  colourMap.sample(colourSampler, \
+                   uvBy(surface.colourUvU, surface.colourUvV, (uv), surface.colourUvSecond))
+#define SUBJECT_NORMAL_TAP(uv) \
+  normalMap.sample(normalSampler, \
+                   uvBy(surface.normalUvU, surface.normalUvV, (uv), surface.normalUvSecond))
+#define SUBJECT_METALROUGH_TAP(uv) \
+  metalRoughMap.sample(metalRoughSampler, uvBy(surface.metalRoughUvU, surface.metalRoughUvV, (uv), \
+                                               surface.metalRoughUvSecond))
+#define SUBJECT_SPECULAR_STRENGTH_TAP(uv) \
+  specularStrengthMap.sample(specularStrengthSampler, \
+                             uvBy(surface.specularStrengthUvU, surface.specularStrengthUvV, (uv), \
+                                  surface.specularStrengthUvSecond))
+#define SUBJECT_SPECULAR_TINT_TAP(uv) \
+  specularTintMap.sample(specularTintSampler, \
+                         uvBy(surface.specularTintUvU, surface.specularTintUvV, (uv), \
+                              surface.specularTintUvSecond))
+
+#define SUBJECT_SPECULAR_F0(uv) \
+  (float3(surface.f0) * specularStrengthMap.sample(specularStrengthSampler, \
+                            uvBy(surface.specularStrengthUvU, surface.specularStrengthUvV, (uv), \
+                                 surface.specularStrengthUvSecond)).a \
+                      * specularTintMap.sample(specularTintSampler, \
+                            uvBy(surface.specularTintUvU, surface.specularTintUvV, (uv), \
+                                 surface.specularTintUvSecond)).rgb)
+
+#define SUBJECT_SPECULAR_F90(uv) \
+  (surface.specularWeight * specularStrengthMap.sample(specularStrengthSampler, \
+                                uvBy(surface.specularStrengthUvU, surface.specularStrengthUvV, (uv), \
+                                     surface.specularStrengthUvSecond)).a)
+#define SUBJECT_EMISSIVE_TAP(uv) \
+  emissiveMap.sample(emissiveSampler, \
+                     uvBy(surface.emissiveUvU, surface.emissiveUvV, (uv), surface.emissiveUvSecond))
+
+struct SFrag {
+  float4 col [[color(0)]];
+#if SUBJECT_WRITES_VELOCITY
+  float2 vel [[color(1)]];
+#endif
+#if SUBJECT_WRITES_SHADING_NORMAL
+
+  float4 nrm [[color(SUBJECT_NORMAL_COLOUR_INDEX)]];
+#endif
+#if SUBJECT_WRITES_SURFACE_IDENTITY
+  float4 idn [[color(SUBJECT_IDENTITY_COLOUR_INDEX)]];
+#endif
+};
+
+#if SUBJECT_WRITES_VELOCITY
+#define SUBJECT_PREV_ATTRIBUTE float3 prevP [[attribute(5)]];
+#define SUBJECT_MOTION_VARYINGS float4 curClip; float4 prevClip;
+#define SUBJECT_SET_MOTION(o, v, s) \
+  (((o).curClip = (o).pos), \
+   ((o).prevClip = (s).prevMvp * float4((v).prevP + (s).prevAnc.xyz, 1.0)))
+#define SUBJECT_SET_VELOCITY(o, in) \
+  (o).vel = (in).curClip.xy / (in).curClip.w - (in).prevClip.xy / (in).prevClip.w
+#else
+#define SUBJECT_PREV_ATTRIBUTE
+#define SUBJECT_MOTION_VARYINGS
+#define SUBJECT_SET_MOTION(o, v, s) (void)0
+#define SUBJECT_SET_VELOCITY(o, in) (void)0
+#endif
+
+#define SUBJECT_UV_ATTRIBUTE float2 uv [[attribute(1)]];
+#define SUBJECT_UV1_ATTRIBUTE float2 uv1 [[attribute(6)]];
+#define SUBJECT_NORMAL_ATTRIBUTE float3 n [[attribute(3)]];
+#define SUBJECT_TANGENT_ATTRIBUTE float4 t [[attribute(4)]];
+#define SUBJECT_COLOUR_ATTRIBUTE float4 colour [[attribute(7)]];
+#define SUBJECT_NO_COLOUR_ATTRIBUTE
+
+#define SUBJECT_NO_VERTEX_COLOUR float4(1.0)
+
+#if SUBJECT_WRITES_SHADING_NORMAL
+#define SUBJECT_SET_SHADING_NORMAL(o, n, f) (o).nrm = float4((n), select(-1.0, 1.0, (f)))
+#define SUBJECT_NO_SHADING_NORMAL(o) (o).nrm = float4(0.0, 0.0, 0.0, 1.0)
+#else
+#define SUBJECT_SET_SHADING_NORMAL(o, n, f) (void)0
+#define SUBJECT_NO_SHADING_NORMAL(o) (void)0
+#endif
+
+#if SUBJECT_WRITES_SURFACE_IDENTITY
+#define SUBJECT_SET_SURFACE_IDENTITY(o, m) (o).idn = float4((m).identity, 0.0, 0.0, 1.0)
+#else
+#define SUBJECT_SET_SURFACE_IDENTITY(o, m) (void)0
+#endif
+
+static inline float3 transmitted(constant M &surface, texture2d<float> behindMap,
+                                 float2 screen, float3 albedo) {
+  const float3 behind = behindMap.read(uint2(screen)).rgb;
+  float3 medium = float3(1.0);
+  if (surface.thickness > 0.0 && !isinf(surface.attenuationDistance)) {
+    const float3 tint = max(float3(surface.attenuationColour), float3(1e-5));
+    medium = exp(log(tint) * (surface.thickness / surface.attenuationDistance));
+  }
+  return behind * albedo * medium * surface.transmission;
+}

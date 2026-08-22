@@ -21,7 +21,7 @@
 #include "ShadowRay.h"
 #include "SurfaceState.h"
 #include "TriangleBvh.h"
-#include "SubjectShader.h"
+#include "ShaderFile.h"
 
 namespace outshine::Render {
 
@@ -41,60 +41,6 @@ SDL_GPUColorTargetBlendState OverBlend() {
   blend.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
   blend.alpha_blend_op = SDL_GPU_BLENDOP_ADD;
   return blend;
-}
-
-const char *FragmentEntryPoint(SurfaceKind kind, VertexLayout layout) {
-  const bool textured = CarriesUv(layout);
-  if (CarriesTangent(layout)) {
-    switch (kind) {
-      case SurfaceKind::Masked: return "fsMappedMasked";
-      case SurfaceKind::Blended: return "fsMappedBlended";
-      case SurfaceKind::ThinTransmissive:
-      case SurfaceKind::Refractive: return "fsMappedTransmissive";
-      case SurfaceKind::Opaque: break;
-    }
-    return "fsMapped";
-  }
-  if (CarriesNormal(layout)) {
-    switch (kind) {
-      case SurfaceKind::Masked: return textured ? "fsLitMaskedTextured" : "fsLitMasked";
-      case SurfaceKind::Blended: return textured ? "fsLitBlendedTextured" : "fsLitBlended";
-      case SurfaceKind::ThinTransmissive:
-      case SurfaceKind::Refractive: return "fsLitTransmissive";
-      case SurfaceKind::Opaque: break;
-    }
-    return textured ? "fsLitTextured" : "fsLit";
-  }
-  switch (kind) {
-    case SurfaceKind::Masked: return textured ? "fsMaskedTextured" : "fsMasked";
-    case SurfaceKind::Blended: return textured ? "fsBlendedTextured" : "fsBlended";
-    case SurfaceKind::ThinTransmissive:
-    case SurfaceKind::Refractive: return "fsTransmissive";
-    case SurfaceKind::Opaque: break;
-  }
-  return textured ? "fsTextured" : "fs";
-}
-
-const char *VertexEntryPoint(VertexLayout layout) {
-  switch (layout) {
-    case VertexLayout::Position: return "vs";
-    case VertexLayout::PositionUv: return "vsTextured";
-    case VertexLayout::PositionUvUv1: return "vsTexturedTwo";
-    case VertexLayout::PositionNormal: return "vsLit";
-    case VertexLayout::PositionNormalUv: return "vsLitTextured";
-    case VertexLayout::PositionNormalUvUv1: return "vsLitTexturedTwo";
-    case VertexLayout::PositionNormalUvTangent: return "vsMapped";
-    case VertexLayout::PositionNormalUvUv1Tangent: return "vsMappedTwo";
-    case VertexLayout::PositionColour: return "vsTinted";
-    case VertexLayout::PositionUvColour: return "vsTexturedTinted";
-    case VertexLayout::PositionUvUv1Colour: return "vsTexturedTwoTinted";
-    case VertexLayout::PositionNormalColour: return "vsLitTinted";
-    case VertexLayout::PositionNormalUvColour: return "vsLitTexturedTinted";
-    case VertexLayout::PositionNormalUvUv1Colour: return "vsLitTexturedTwoTinted";
-    case VertexLayout::PositionNormalUvTangentColour: return "vsMappedTinted";
-    case VertexLayout::PositionNormalUvUv1TangentColour: return "vsMappedTwoTinted";
-  }
-  return "vs";
 }
 
 const char *KindName(SurfaceKind kind) {
@@ -181,10 +127,6 @@ VertexShape ShapeOf(VertexLayout layout, bool writesVelocity) {
   return shape;
 }
 
-constexpr uint32_t kSubjectFragmentUniforms = 2;
-
-constexpr uint32_t kSubjectStorageBuffers = 2;
-
 SDL_GPUShader *MakeShader(SDL_GPUDevice *device, const std::string &source, const char *entry,
                           SDL_GPUShaderStage stage) {
   const bool fragment = stage == SDL_GPU_SHADERSTAGE_FRAGMENT;
@@ -194,12 +136,106 @@ SDL_GPUShader *MakeShader(SDL_GPUDevice *device, const std::string &source, cons
   wanted.entrypoint = entry;
   wanted.format = SDL_GPU_SHADERFORMAT_MSL;
   wanted.stage = stage;
-  wanted.num_samplers = fragment ? kSubjectImages : 0;
-  wanted.num_storage_buffers = fragment ? kSubjectStorageBuffers : 0;
-  wanted.num_uniform_buffers = fragment ? kSubjectFragmentUniforms : 1;
+  const DrawShape &shape = SubjectDraw::ShaderShape;
+  wanted.num_samplers = fragment ? shape.FragmentSamplers : shape.VertexSamplers;
+  wanted.num_storage_buffers = fragment ? shape.FragmentStorageBuffers : shape.VertexStorageBuffers;
+  wanted.num_uniform_buffers = fragment ? shape.FragmentUniformBuffers : shape.VertexUniformBuffers;
   return SDL_CreateGPUShader(device, &wanted);
 }
 
+}
+
+const char *SubjectDraw::FragmentEntry(SurfaceKind kind, VertexLayout layout) {
+  const bool textured = CarriesUv(layout);
+  if (CarriesTangent(layout)) {
+    switch (kind) {
+      case SurfaceKind::Masked: return "fsMappedMasked";
+      case SurfaceKind::Blended: return "fsMappedBlended";
+      case SurfaceKind::ThinTransmissive:
+      case SurfaceKind::Refractive: return "fsMappedTransmissive";
+      case SurfaceKind::Opaque: break;
+    }
+    return "fsMapped";
+  }
+  if (CarriesNormal(layout)) {
+    switch (kind) {
+      case SurfaceKind::Masked: return textured ? "fsLitMaskedTextured" : "fsLitMasked";
+      case SurfaceKind::Blended: return textured ? "fsLitBlendedTextured" : "fsLitBlended";
+      case SurfaceKind::ThinTransmissive:
+      case SurfaceKind::Refractive: return "fsLitTransmissive";
+      case SurfaceKind::Opaque: break;
+    }
+    return textured ? "fsLitTextured" : "fsLit";
+  }
+  switch (kind) {
+    case SurfaceKind::Masked: return textured ? "fsMaskedTextured" : "fsMasked";
+    case SurfaceKind::Blended: return textured ? "fsBlendedTextured" : "fsBlended";
+    case SurfaceKind::ThinTransmissive:
+    case SurfaceKind::Refractive: return "fsTransmissive";
+    case SurfaceKind::Opaque: break;
+  }
+  return textured ? "fsTextured" : "fs";
+}
+
+const char *SubjectDraw::VertexEntry(VertexLayout layout) {
+  switch (layout) {
+    case VertexLayout::Position: return "vs";
+    case VertexLayout::PositionUv: return "vsTextured";
+    case VertexLayout::PositionUvUv1: return "vsTexturedTwo";
+    case VertexLayout::PositionNormal: return "vsLit";
+    case VertexLayout::PositionNormalUv: return "vsLitTextured";
+    case VertexLayout::PositionNormalUvUv1: return "vsLitTexturedTwo";
+    case VertexLayout::PositionNormalUvTangent: return "vsMapped";
+    case VertexLayout::PositionNormalUvUv1Tangent: return "vsMappedTwo";
+    case VertexLayout::PositionColour: return "vsTinted";
+    case VertexLayout::PositionUvColour: return "vsTexturedTinted";
+    case VertexLayout::PositionUvUv1Colour: return "vsTexturedTwoTinted";
+    case VertexLayout::PositionNormalColour: return "vsLitTinted";
+    case VertexLayout::PositionNormalUvColour: return "vsLitTexturedTinted";
+    case VertexLayout::PositionNormalUvUv1Colour: return "vsLitTexturedTwoTinted";
+    case VertexLayout::PositionNormalUvTangentColour: return "vsMappedTinted";
+    case VertexLayout::PositionNormalUvUv1TangentColour: return "vsMappedTwoTinted";
+  }
+  return "vs";
+}
+
+std::string SubjectDraw::ShaderSource(const SourceOptions &options) {
+  std::string ignored;
+  return ShaderSource(options, ignored);
+}
+
+std::string SubjectDraw::ShaderSource(const SourceOptions &options, std::string &error) {
+  std::string bindings, body, lit, litTextured, mapped;
+  if (!LoadShaderText("src/render/shaders/subjectBindings.msl", bindings, error) ||
+      !LoadShaderText("src/render/shaders/subject.msl", body, error) ||
+      !LoadShaderText("src/render/shaders/subjectLit.msl", lit, error) ||
+      !LoadShaderText("src/render/shaders/subjectLitTextured.msl", litTextured, error) ||
+      !LoadShaderText("src/render/shaders/subjectMapped.msl", mapped, error)) {
+    return std::string();
+  }
+  return std::string(kMslPrelude) + kVelocityMsl + ShadowRayMsl() +
+         "\n#define SUBJECT_WRITES_VELOCITY " + (options.WritesVelocity ? "1" : "0") +
+         "\n#define SUBJECT_WRITES_SHADING_NORMAL " + (options.NormalIndex >= 0 ? "1" : "0") +
+         "\n#define SUBJECT_NORMAL_COLOUR_INDEX " +
+         std::to_string(options.NormalIndex < 0 ? 0 : options.NormalIndex) +
+         "\n#define SUBJECT_WRITES_SURFACE_IDENTITY " + (options.IdentityIndex >= 0 ? "1" : "0") +
+         "\n#define SUBJECT_IDENTITY_COLOUR_INDEX " +
+         std::to_string(options.IdentityIndex < 0 ? 0 : options.IdentityIndex) + "\n" + bindings +
+         body + MetalRoughBrdfMsl() + SheenLobeMsl() + IridescenceLobeMsl() +
+         MicrofacetEnergyMsl() + lit + litTextured + NormalFromMapMsl() + mapped;
+}
+
+std::string SubjectDraw::DepthOnlySource(void) {
+  std::string ignored;
+  return DepthOnlySource(ignored);
+}
+
+std::string SubjectDraw::DepthOnlySource(std::string &error) {
+  std::string body;
+  if (!LoadShaderText("src/render/shaders/subjectDepthOnly.msl", body, error)) {
+    return std::string();
+  }
+  return std::string(kMslPrelude) + body;
 }
 
 bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
@@ -218,19 +254,12 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
   const long normalIndex = attachmentIndex(Resource::SceneShadingNormal);
   const long identityIndex = attachmentIndex(Resource::SceneSurfaceIdentity);
 
-  const std::string source = std::string(kMslPrelude) + kVelocityMsl + ShadowRayMsl() +
-                             "\n#define SUBJECT_WRITES_VELOCITY " + (writesVelocity ? "1" : "0") +
-                             "\n#define SUBJECT_WRITES_SHADING_NORMAL " +
-                             (normalIndex >= 0 ? "1" : "0") +
-                             "\n#define SUBJECT_NORMAL_COLOUR_INDEX " +
-                             std::to_string(normalIndex < 0 ? 0 : normalIndex) +
-                             "\n#define SUBJECT_WRITES_SURFACE_IDENTITY " +
-                             (identityIndex >= 0 ? "1" : "0") +
-                             "\n#define SUBJECT_IDENTITY_COLOUR_INDEX " +
-                             std::to_string(identityIndex < 0 ? 0 : identityIndex) +
-                             "\n" + kSubjectBindingsMsl + kSubjectMsl + MetalRoughBrdfMsl() + SheenLobeMsl() + IridescenceLobeMsl() + MicrofacetEnergyMsl() +
-                             kSubjectLitMsl + kSubjectLitTexturedMsl + NormalFromMapMsl() +
-                             kSubjectMappedMsl;
+  SourceOptions options;
+  options.WritesVelocity = writesVelocity;
+  options.NormalIndex = normalIndex;
+  options.IdentityIndex = identityIndex;
+  const std::string source = ShaderSource(options, error);
+  if (source.empty()) { return false; }
 
   Built = 0;
 
@@ -257,13 +286,13 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
     for (const VertexLayoutRow &row : kVertexLayouts) {
       const VertexLayout layout = row.Layout;
       const VertexShape shape = ShapeOf(layout, WritesVelocity);
-      const OwnedShader vertex(Device, MakeShader(Device, source, VertexEntryPoint(layout),
+      const OwnedShader vertex(Device, MakeShader(Device, source, VertexEntry(layout),
                                                   SDL_GPU_SHADERSTAGE_VERTEX));
-      const OwnedShader fragment(Device, MakeShader(Device, source, FragmentEntryPoint(kind, layout),
+      const OwnedShader fragment(Device, MakeShader(Device, source, FragmentEntry(kind, layout),
                                                    SDL_GPU_SHADERSTAGE_FRAGMENT));
       if (!vertex || !fragment) {
         error = std::string("the subject's shader did not compile at ") +
-                VertexEntryPoint(layout) + "/" + FragmentEntryPoint(kind, layout) + ": " +
+                VertexEntry(layout) + "/" + FragmentEntry(kind, layout) + ": " +
                 SDL_GetError();
         return false;
       }
@@ -292,7 +321,7 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
         SDL_GPUGraphicsPipeline *made = SDL_CreateGPUGraphicsPipeline(Device, &wanted);
         if (!made) {
           error = std::string("the subject's pipeline was refused at ") +
-                  FragmentEntryPoint(kind, layout) + ": " + SDL_GetError();
+                  FragmentEntry(kind, layout) + ": " + SDL_GetError();
           return false;
         }
         Pipelines[PipelineAt(layout, kind, cullsBack)] = OwnedPipeline(Device, made);
@@ -648,18 +677,21 @@ bool SubjectDraw::ConfigureDepthOnly(const Gpu &gpu, std::string &error) {
     error = "the subject unit has no device, so no depth-only pipeline can be built";
     return false;
   }
-  const std::string source = std::string(kMslPrelude) + kDepthOnlyMsl;
+  const std::string source = DepthOnlySource(error);
+  if (source.empty()) { return false; }
   SDL_GPUShaderCreateInfo wanted{};
   wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
   wanted.code_size = source.size();
   wanted.format = SDL_GPU_SHADERFORMAT_MSL;
   wanted.entrypoint = "vsDepth";
   wanted.stage = SDL_GPU_SHADERSTAGE_VERTEX;
-  wanted.num_uniform_buffers = 1u;
+  wanted.num_samplers = DepthOnlyShape.VertexSamplers;
+  wanted.num_uniform_buffers = DepthOnlyShape.VertexUniformBuffers;
   const OwnedShader vertex(device, SDL_CreateGPUShader(device, &wanted));
   wanted.entrypoint = "fsDepth";
   wanted.stage = SDL_GPU_SHADERSTAGE_FRAGMENT;
-  wanted.num_uniform_buffers = 0u;
+  wanted.num_samplers = DepthOnlyShape.FragmentSamplers;
+  wanted.num_uniform_buffers = DepthOnlyShape.FragmentUniformBuffers;
   const OwnedShader fragment(device, SDL_CreateGPUShader(device, &wanted));
   if (!vertex || !fragment) {
     error = std::string("the depth-only shaders were refused: ") + SDL_GetError();

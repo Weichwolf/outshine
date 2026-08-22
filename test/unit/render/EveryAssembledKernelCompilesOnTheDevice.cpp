@@ -1,6 +1,8 @@
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <vector>
 
 #include <unistd.h>
 
@@ -16,8 +18,11 @@
 #include "OverlayDraw.h"
 #include "PresentStage.h"
 #include "SkyStage.h"
+#include "SubjectDraw.h"
+#include "TonemapStage.h"
 
 using namespace outshine::Render;
+using outshine::SurfaceKind;
 
 namespace {
 
@@ -143,6 +148,74 @@ int main(void) {
   CHECK(Both(OverlayDraw::ShaderSource(), OverlayDraw::ShaderShape), "the overlay compiles");
   CHECK(Both(CompositeTransmissionStage::ShaderSource(), CompositeTransmissionStage::ShaderShape), "the transmission composite compiles");
 
+  bool tonemaps = true;
+  for (const Transfer curve : {Transfer::Filmic, Transfer::Linear}) {
+    for (const bool temporal : {false, true}) {
+      DisplayOptions options;
+      options.Curve = curve;
+      options.Temporal = temporal;
+      tonemaps = tonemaps &&
+                 Both(TonemapStage::ShaderSource(options),
+                      temporal ? TonemapStage::TemporalShaderShape : TonemapStage::ShaderShape);
+    }
+  }
+  CHECK(tonemaps,
+        "**EVERY ROW OF TONEMAP'S OPTIONED SOURCE COMPILES IN ITS DECLARED SHAPE** -- both "
+        "transfer curves, with and without the temporal resolve, are the exact sources "
+        "Configure would build");
+
+  bool subjects = true;
+  for (const bool full : {false, true}) {
+    SubjectDraw::SourceOptions options;
+    if (full) {
+      options.WritesVelocity = true;
+      options.NormalIndex = 2;
+      options.IdentityIndex = 3;
+    }
+    const std::string source = SubjectDraw::ShaderSource(options);
+    subjects = subjects &&
+               Slots(source, "sampler") <= SubjectDraw::ShaderShape.FragmentSamplers &&
+               Slots(source, "texture") <= SubjectDraw::ShaderShape.FragmentSamplers &&
+               Slots(source, "buffer") <= SubjectDraw::ShaderShape.FragmentUniformBuffers +
+                                              SubjectDraw::ShaderShape.FragmentStorageBuffers;
+    std::vector<std::string> seen;
+    const auto once = [&](const char *entry, SDL_GPUShaderStage stage, uint32_t samplers,
+                          uint32_t uniforms) {
+      if (std::find(seen.begin(), seen.end(), entry) != seen.end()) { return true; }
+      seen.push_back(entry);
+      return Shader(source, entry, stage, samplers, uniforms);
+    };
+    for (const VertexLayoutRow &row : kVertexLayouts) {
+      subjects = subjects && once(SubjectDraw::VertexEntry(row.Layout),
+                                  SDL_GPU_SHADERSTAGE_VERTEX,
+                                  SubjectDraw::ShaderShape.VertexSamplers,
+                                  SubjectDraw::ShaderShape.VertexUniformBuffers);
+      for (const SurfaceKind kind :
+           {SurfaceKind::Opaque, SurfaceKind::Masked, SurfaceKind::Blended,
+            SurfaceKind::ThinTransmissive, SurfaceKind::Refractive}) {
+        subjects = subjects && once(SubjectDraw::FragmentEntry(kind, row.Layout),
+                                    SDL_GPU_SHADERSTAGE_FRAGMENT,
+                                    SubjectDraw::ShaderShape.FragmentSamplers,
+                                    SubjectDraw::ShaderShape.FragmentUniformBuffers);
+      }
+    }
+  }
+  CHECK(subjects,
+        "**EVERY SUBJECT ENTRY POINT COMPILES FROM THE ASSEMBLED SOURCE IN BOTH ATTACHMENT "
+        "ROWS** -- every vertex layout's vertex shader and every surface kind's fragment "
+        "shader, with and without the velocity/normal/identity attachments, and no slot in "
+        "the text exceeds what the shape declares");
+
+  const std::string depthOnly = SubjectDraw::DepthOnlySource();
+  CHECK(Declares(depthOnly, SubjectDraw::DepthOnlyShape) &&
+            Shader(depthOnly, "vsDepth", SDL_GPU_SHADERSTAGE_VERTEX,
+                   SubjectDraw::DepthOnlyShape.VertexSamplers,
+                   SubjectDraw::DepthOnlyShape.VertexUniformBuffers) &&
+            Shader(depthOnly, "fsDepth", SDL_GPU_SHADERSTAGE_FRAGMENT,
+                   SubjectDraw::DepthOnlyShape.FragmentSamplers,
+                   SubjectDraw::DepthOnlyShape.FragmentUniformBuffers),
+        "and the depth-only pair the shadow pass draws with compiles in its own shape");
+
   SDL_DestroyGPUDevice(Device);
 
   char was[4096];
@@ -156,8 +229,10 @@ int main(void) {
   CHECK(chdir(was) == 0, "and the probe returns home");
 
   Covers("IV.8 every kernel and shader the engine assembles at runtime compiles on the device "
-         "inside the fast gate -- an unbuildable source refuses in seconds, not in a "
-         "five-minute driver run (the 1634 class); tonemap's optioned source and the subject "
-         "unit's three follow in the next slice");
+         "inside the fast gate, in the shape its stage declares, with the source's own slot "
+         "annotations parsed back against that shape -- the medium kernels, sky, present, "
+         "overlay, the transmission composite, every tonemap option row, every subject entry "
+         "point in both attachment rows, and the shadow pass's depth-only pair (the 1634 "
+         "class, complete)");
   return Report();
 }

@@ -18,8 +18,10 @@ struct ComputeShape {
 struct DrawShape {
   uint32_t VertexSamplers = 0;
   uint32_t VertexUniformBuffers = 0;
+  uint32_t VertexStorageBuffers = 0;
   uint32_t FragmentSamplers = 0;
   uint32_t FragmentUniformBuffers = 0;
+  uint32_t FragmentStorageBuffers = 0;
 };
 
 } // namespace outshine::Render

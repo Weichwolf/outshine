@@ -6,12 +6,14 @@
 #include <string>
 #include <vector>
 
+#include "SurfaceState.h"
 #include "TriangleBvh.h"
 
 #include "FrameContext.h"
 #include "Gpu.h"
 #include "GpuOwned.h"
 
+#include "KernelShape.h"
 #include "SubjectResidency.h"
 #include "SubjectTypes.h"
 
@@ -19,6 +21,22 @@ namespace outshine::Render {
 
 class SubjectDraw {
 public:
+  struct SourceOptions {
+    bool WritesVelocity = false;
+    long NormalIndex = -1;
+    long IdentityIndex = -1;
+  };
+  [[nodiscard]] static std::string ShaderSource(const SourceOptions &options);
+  [[nodiscard]] static std::string ShaderSource(const SourceOptions &options, std::string &error);
+  [[nodiscard]] static std::string DepthOnlySource(void);
+  [[nodiscard]] static std::string DepthOnlySource(std::string &error);
+  [[nodiscard]] static const char *VertexEntry(VertexLayout layout);
+  [[nodiscard]] static const char *FragmentEntry(SurfaceKind kind, VertexLayout layout);
+  static constexpr DrawShape ShaderShape{.VertexUniformBuffers = 1,
+                                         .FragmentSamplers = kSubjectImages,
+                                         .FragmentUniformBuffers = kSubjectFragmentUniforms,
+                                         .FragmentStorageBuffers = kSubjectStorageBuffers};
+  static constexpr DrawShape DepthOnlyShape{.VertexUniformBuffers = 1};
 
   [[nodiscard]] bool Configure(const Gpu &gpu, std::string &error);
 

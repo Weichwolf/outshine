@@ -1,96 +1,31 @@
 #include <cstdio>
 #include "TonemapStage.h"
 
+#include "ShaderFile.h"
 #include "ShaderPrelude.h"
 
 namespace outshine::Render {
 
 namespace {
 
-const char *kFullScreenMsl = R"(
-struct VOut { float4 pos [[position]]; };
-vertex VOut vs(uint i [[vertex_id]]) {
-  float2 corner[3] = { float2(-1.0, -1.0), float2(3.0, -1.0), float2(-1.0, 3.0) };
-  VOut o;
-  o.pos = float4(corner[i], 0.0, 1.0);
-  return o;
-}
-fragment float4 fs(VOut in [[stage_in]],
-                   texture2d<float> scene [[texture(0)]], sampler sceneSampler [[sampler(0)]],
-                   depth2d<float> sceneDepth [[texture(1)]], sampler depthSampler [[sampler(1)]]) {
-  uint2 px = uint2(in.pos.xy);
-  return displayed(scene.read(px), sceneDepth.read(px));
-}
-)";
+constexpr uint32_t kTonemapImages = TonemapStage::ShaderShape.FragmentSamplers;
+constexpr uint32_t kTemporalImages = TonemapStage::TemporalShaderShape.FragmentSamplers;
 
-const char *kTemporalFullScreenMsl = R"(
-struct VOut { float4 pos [[position]]; };
-vertex VOut vs(uint i [[vertex_id]]) {
-  float2 corner[3] = { float2(-1.0, -1.0), float2(3.0, -1.0), float2(-1.0, 3.0) };
-  VOut o;
-  o.pos = float4(corner[i], 0.0, 1.0);
-  return o;
 }
 
-struct Resolved {
-  float4 linear [[color(0)]];
-  float4 display [[color(1)]];
-};
+std::string TonemapStage::ShaderSource(const DisplayOptions &options) {
+  std::string ignored;
+  return ShaderSource(options, ignored);
+}
 
-struct Temporal {
-  float2 jitterDelta;
-  float2 texel;
-  float historyHeld;
-  float pad0, pad1, pad2;
-};
-
-fragment Resolved fs(VOut in [[stage_in]],
-                     constant Temporal &u [[buffer(0)]],
-                     texture2d<float> scene [[texture(0)]], sampler sceneSampler [[sampler(0)]],
-                     depth2d<float> sceneDepth [[texture(1)]], sampler depthSampler [[sampler(1)]],
-                     texture2d<float> history [[texture(2)]], sampler smooth [[sampler(2)]],
-                     texture2d<float> velocity [[texture(3)]], sampler velSampler [[sampler(3)]]) {
-  uint2 px = uint2(in.pos.xy);
-  float4 here = scene.read(px);
-
-  float3 lowest = float3(1.0e30);
-  float3 highest = float3(-1.0e30);
-  float3 total = float3(0.0);
-
-  int2 limit = int2(int(scene.get_width()) - 1, int(scene.get_height()) - 1);
-  for (int dy = -1; dy <= 1; ++dy) {
-    for (int dx = -1; dx <= 1; ++dx) {
-      uint2 at = uint2(clamp(int2(px) + int2(dx, dy), int2(0), limit));
-      float3 neighbour = rgbToYCoCg(scene.read(at).rgb);
-      lowest = min(lowest, neighbour);
-      highest = max(highest, neighbour);
-      total += neighbour;
-    }
+std::string TonemapStage::ShaderSource(const DisplayOptions &options, std::string &error) {
+  std::string body;
+  if (!LoadShaderText(options.Temporal ? "src/render/shaders/temporalResolve.msl"
+                                       : "src/render/shaders/tonemap.msl",
+                      body, error)) {
+    return std::string();
   }
-  float3 centre = total * (1.0 / 9.0);
-  float3 extent = max(highest - centre, centre - lowest);
-
-  float2 motion = velocity.read(px).xy - u.jitterDelta * u.texel;
-  float2 uv = (float2(px) + 0.5) * u.texel;
-  float2 was = uv - motion;
-
-  float3 kept = here.rgb;
-  bool inside = was.x >= 0.0 && was.x <= 1.0 && was.y >= 0.0 && was.y <= 1.0;
-  if (inside && u.historyHeld > 0.5) {
-    float3 past = rgbToYCoCg(history.sample(smooth, was).rgb);
-    kept = mix(yCoCgToRgb(clipTowards(past, centre, extent)), here.rgb, kCurrentWeight);
-  }
-
-  Resolved out;
-  out.linear = float4(kept, here.a);
-  out.display = displayed(out.linear, sceneDepth.read(px));
-  return out;
-}
-)";
-
-constexpr uint32_t kTonemapImages = 2;
-constexpr uint32_t kTemporalImages = 4;
-
+  return std::string(kMslPrelude) + DisplayMsl(options) + body;
 }
 
 bool TonemapStage::Configure(const Gpu &gpu, SDL_GPUTexture *scene, SDL_GPUTexture *depth,
@@ -101,19 +36,22 @@ bool TonemapStage::Configure(const Gpu &gpu, SDL_GPUTexture *scene, SDL_GPUTextu
   Exact = exact;
 
   Temporal = options.Temporal;
-  const std::string source = std::string(kMslPrelude) + DisplayMsl(options) +
-                             (options.Temporal ? kTemporalFullScreenMsl : kFullScreenMsl);
+  const std::string source = ShaderSource(options, error);
+  if (source.empty()) { return false; }
   SDL_GPUShaderCreateInfo wanted{};
   wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
   wanted.code_size = source.size();
   wanted.format = SDL_GPU_SHADERFORMAT_MSL;
+  const DrawShape &shape = options.Temporal ? TemporalShaderShape : ShaderShape;
   wanted.entrypoint = "vs";
   wanted.stage = SDL_GPU_SHADERSTAGE_VERTEX;
+  wanted.num_samplers = shape.VertexSamplers;
+  wanted.num_uniform_buffers = shape.VertexUniformBuffers;
   const OwnedShader vertex(gpu.Device, SDL_CreateGPUShader(gpu.Device, &wanted));
   wanted.entrypoint = "fs";
   wanted.stage = SDL_GPU_SHADERSTAGE_FRAGMENT;
-  wanted.num_samplers = options.Temporal ? kTemporalImages : kTonemapImages;
-  wanted.num_uniform_buffers = options.Temporal ? 1u : 0u;
+  wanted.num_samplers = shape.FragmentSamplers;
+  wanted.num_uniform_buffers = shape.FragmentUniformBuffers;
   const OwnedShader fragment(gpu.Device, SDL_CreateGPUShader(gpu.Device, &wanted));
   if (!vertex || !fragment) {
     error = std::string("the display transfer did not compile: ") + SDL_GetError();

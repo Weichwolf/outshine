@@ -67,3 +67,17 @@ texture and buffer slots exact (SDL's pair model: sampled + read-only + read-wri
 texture space), sampler slots at most the declared pairs (two textures may share one
 sampler). The shape is no longer an unproven second declaration. Remaining for close:
 tonemap's optioned source and the subject unit's three parameterised shaders.
+
+---
+
+Closed: the named next slice is in the gate. Tonemap's optioned source compiles in all four
+rows (both transfer curves x temporal on/off) through TonemapStage::ShaderSource(options) and
+its two shapes; the subject unit's assembly is a public seam
+(SubjectDraw::ShaderSource(SourceOptions) with WritesVelocity/NormalIndex/IdentityIndex,
+VertexEntry/FragmentEntry, ShaderShape with storage buffers, DepthOnlySource/DepthOnlyShape)
+and every vertex layout's and surface kind's entry point compiles from the exact assembled
+text in both attachment rows, plus the shadow pass's depth-only pair; the subject's six MSL
+blobs left SubjectShader.h for src/render/shaders/ (the header is deleted), so no inline MSL
+remains outside the C++/MSL twin generators that 1580's shared-core slice owns. Every gated
+shape is proven against the source's own slot annotations. Proving test:
+test/unit/render/EveryAssembledKernelCompilesOnTheDevice.cpp. 127/127 warm at 56.6 s.

@@ -1,0 +1,113 @@
+
+struct MOut { float4 pos [[position]]; float2 uv; float2 uv1; float4 colour; float3 n; float3 p;
+              float3 lp; float4 t; SUBJECT_MOTION_VARYINGS };
+
+#define SUBJECT_MAPPED_ARM(NAME, RUNS, UV1, COLOUR) \
+struct NAME##In { float3 p [[attribute(0)]]; SUBJECT_UV_ATTRIBUTE SUBJECT_NORMAL_ATTRIBUTE \
+                  SUBJECT_TANGENT_ATTRIBUTE SUBJECT_PREV_ATTRIBUTE RUNS }; \
+vertex MOut NAME(NAME##In v [[stage_in]], constant S &s [[buffer(0)]]) { \
+  MOut o; \
+  o.pos = s.mvp * float4(v.p + s.anc.xyz, 1.0); \
+  o.uv = v.uv; \
+  o.uv1 = UV1; \
+  o.colour = COLOUR; \
+  o.n = normalize(s.model[0].xyz * v.n.x + s.model[1].xyz * v.n.y + s.model[2].xyz * v.n.z); \
+  o.p = (s.model * float4(v.p, 1.0)).xyz; \
+  o.lp = v.p; \
+  o.t = float4(normalize(s.model[0].xyz * v.t.x + s.model[1].xyz * v.t.y + \
+                         s.model[2].xyz * v.t.z), \
+               v.t.w); \
+  SUBJECT_SET_MOTION(o, v, s); \
+  return o; \
+}
+
+SUBJECT_MAPPED_ARM(vsMapped, SUBJECT_NO_COLOUR_ATTRIBUTE, float2(0.0), SUBJECT_NO_VERTEX_COLOUR)
+SUBJECT_MAPPED_ARM(vsMappedTwo, SUBJECT_UV1_ATTRIBUTE, v.uv1, SUBJECT_NO_VERTEX_COLOUR)
+SUBJECT_MAPPED_ARM(vsMappedTinted, SUBJECT_COLOUR_ATTRIBUTE, float2(0.0), v.colour)
+SUBJECT_MAPPED_ARM(vsMappedTwoTinted, SUBJECT_UV1_ATTRIBUTE SUBJECT_COLOUR_ATTRIBUTE,
+                   v.uv1, v.colour)
+
+static inline float3 mappedNormal(constant M &surface, texture2d<float> normalMap,
+                                  sampler normalSampler, MOut in, bool front) {
+  float3 tap = SUBJECT_NORMAL_TAP(SUBJECT_UVS(in)).xyz * 2.0 - 1.0;
+  return normalFromMap(in.n, in.t, tap, surface.normalScale, front);
+}
+
+struct Shaded { float3 col; float3 nrm; };
+
+static inline Shaded mappedShade(constant M &surface, constant Lights &lights, Occluders occluders,
+                                 texture2d<float> colourMap, sampler colourSampler,
+                                 texture2d<float> normalMap, sampler normalSampler,
+                                 texture2d<float> metalRoughMap, sampler metalRoughSampler,
+                                 texture2d<float> emissiveMap, sampler emissiveSampler,
+                                 texture2d<float> specularStrengthMap,
+                                 sampler specularStrengthSampler,
+                                 texture2d<float> specularTintMap, sampler specularTintSampler,
+                                 MOut in, bool front) {
+  float4 orm = SUBJECT_METALROUGH_TAP(SUBJECT_UVS(in));
+
+  const float3 specularF0 = SUBJECT_SPECULAR_F0(SUBJECT_UVS(in));
+  float3 albedo = surface.base.rgb * SUBJECT_COLOUR_TAP(SUBJECT_UVS(in)).rgb * in.colour.rgb;
+  const float3 shadingNormal = mappedNormal(surface, normalMap, normalSampler, in, front);
+
+  const float meanResultantLength = SUBJECT_NORMAL_TAP(SUBJECT_UVS(in)).w;
+  return Shaded{shadeRow(surface, lights, occluders, in.lp, shadingNormal, in.p, albedo,
+                         surface.metalness * orm.b,
+                         roughenedBy(surface.roughness * orm.g, meanResultantLength), specularF0,
+                         SUBJECT_SPECULAR_F90(SUBJECT_UVS(in)),
+                         emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
+                         in.t.xyz),
+                shadingNormal};
+}
+
+#define SUBJECT_MAPPED_SHADE mappedShade(surface, lights, SUBJECT_OCCLUDERS, colourMap, \
+    colourSampler, normalMap, normalSampler, metalRoughMap, metalRoughSampler, emissiveMap, \
+    emissiveSampler, specularStrengthMap, specularStrengthSampler, specularTintMap, \
+    specularTintSampler, in, front)
+
+fragment SFrag fsMapped(MOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
+  const Shaded shaded = SUBJECT_MAPPED_SHADE;
+  SFrag o;
+  o.col = float4(shaded.col, 1.0);
+  SUBJECT_SET_VELOCITY(o, in);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
+  SUBJECT_SET_SHADING_NORMAL(o, shaded.nrm, front);
+  return o;
+}
+
+fragment SFrag fsMappedMasked(MOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
+  float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
+  if (surface.factor * tap.a * in.colour.a < surface.cut) { discard_fragment(); }
+  const Shaded shaded = SUBJECT_MAPPED_SHADE;
+  SFrag o;
+  o.col = float4(shaded.col, 1.0);
+  SUBJECT_SET_VELOCITY(o, in);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
+  SUBJECT_SET_SHADING_NORMAL(o, shaded.nrm, front);
+  return o;
+}
+
+fragment SFrag fsMappedTransmissive(MOut in [[stage_in]], bool front [[front_facing]],
+                                    SUBJECT_SURFACE) {
+  float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
+  const Shaded shaded = SUBJECT_MAPPED_SHADE;
+  SFrag o;
+  o.col = float4(shaded.col + transmitted(surface, behindMap, in.pos.xy,
+                                          surface.base.rgb * tap.rgb * in.colour.rgb),
+                 1.0);
+  SUBJECT_SET_VELOCITY(o, in);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
+  SUBJECT_SET_SHADING_NORMAL(o, shaded.nrm, front);
+  return o;
+}
+
+fragment SFrag fsMappedBlended(MOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
+  float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
+  const Shaded shaded = SUBJECT_MAPPED_SHADE;
+  SFrag o;
+  o.col = float4(shaded.col, surface.factor * tap.a * in.colour.a);
+  SUBJECT_SET_VELOCITY(o, in);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
+  SUBJECT_SET_SHADING_NORMAL(o, shaded.nrm, front);
+  return o;
+}

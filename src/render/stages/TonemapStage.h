@@ -6,12 +6,18 @@
 #include "FrameContext.h"
 #include "Gpu.h"
 #include "GpuOwned.h"
+#include "KernelShape.h"
 #include "Resolve.h"
 
 namespace outshine::Render {
 
 class TonemapStage {
 public:
+  [[nodiscard]] static std::string ShaderSource(const DisplayOptions &options);
+  [[nodiscard]] static std::string ShaderSource(const DisplayOptions &options, std::string &error);
+  static constexpr DrawShape ShaderShape{.FragmentSamplers = 2};
+  static constexpr DrawShape TemporalShaderShape{.FragmentSamplers = 4,
+                                                 .FragmentUniformBuffers = 1};
 
   [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUTexture *scene, SDL_GPUTexture *depth,
                                SDL_GPUSampler *exact, SDL_GPUTextureFormat linear,

@@ -1,0 +1,57 @@
+
+static inline float3 emittedAt(constant M &surface, texture2d<float> emissiveMap,
+                               sampler emissiveSampler, Uvs uv) {
+  return surface.emissive * SUBJECT_EMISSIVE_TAP(uv).rgb;
+}
+
+fragment SFrag fsLitTextured(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
+  float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
+  const float3 shadingNormal = facing(in.n, front);
+  SFrag o;
+  o.col = float4(shadeRow(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
+                          surface.base.rgb * tap.rgb * in.colour.rgb,
+                          surface.metalness, surface.roughness, SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
+                          SUBJECT_SPECULAR_F90(SUBJECT_UVS(in)),
+                          emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
+                          float3(0.0)), 1.0);
+  SUBJECT_SET_VELOCITY(o, in);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
+  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
+  return o;
+}
+
+fragment SFrag fsLitMaskedTextured(LOut in [[stage_in]], bool front [[front_facing]],
+                                   SUBJECT_SURFACE) {
+  float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
+  if (surface.factor * tap.a * in.colour.a < surface.cut) { discard_fragment(); }
+  const float3 shadingNormal = facing(in.n, front);
+  SFrag o;
+  o.col = float4(shadeRow(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
+                          surface.base.rgb * tap.rgb * in.colour.rgb,
+                          surface.metalness, surface.roughness, SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
+                          SUBJECT_SPECULAR_F90(SUBJECT_UVS(in)),
+                          emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
+                          float3(0.0)), 1.0);
+  SUBJECT_SET_VELOCITY(o, in);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
+  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
+  return o;
+}
+
+fragment SFrag fsLitBlendedTextured(LOut in [[stage_in]], bool front [[front_facing]],
+                                    SUBJECT_SURFACE) {
+  float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
+  const float3 shadingNormal = facing(in.n, front);
+  SFrag o;
+  o.col = float4(shadeRow(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
+                          surface.base.rgb * tap.rgb * in.colour.rgb,
+                          surface.metalness, surface.roughness, SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
+                          SUBJECT_SPECULAR_F90(SUBJECT_UVS(in)),
+                          emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
+                          float3(0.0)),
+                 surface.factor * tap.a * in.colour.a);
+  SUBJECT_SET_VELOCITY(o, in);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
+  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
+  return o;
+}
