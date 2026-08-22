@@ -57,13 +57,16 @@ flowchart TD
   C["CONTROLLER — a mind or the player POSSESSES the seam"] -->|acts on| A
   C -->|perceives| Q["PERCEPTION — bounded spatial queries: bounds · ground · sight"]
   C -->|asks| N["PATHFINDING — two coordinates in, corridor out: walk · drive · fly · rail"]
+  PR["PRESENCE — field → rails → body; a MEASUREMENT materialises"] -.-> B
 ```
 
 The chain holds for EVERYTHING that moves, with or without a mind: a parked car is a body whose
 seam nobody possesses; a door is a body with one actuator; an NPC differs from the player only
 in who possesses the seam (Unreal's Pawn/Controller possession — the reference). Perception is
 spatial query over bounds, never privileged state; navigation is one pathfinding service with
-modes, handed as a TOOL ; physics binds to actuators, never to the controller.
+modes, handed as a TOOL ; physics binds to actuators, never to the controller. Presence is a
+rung: unmeasured actors are a conserving FIELD, measured ones materialise (rails, then body) —
+every measurement is a declared query, and second-order observation demands one rung less.
 `Journey` folds into `Sim` along this chain. **A client includes nothing but
 `include/outshine/`** — enforced by the build.
 
