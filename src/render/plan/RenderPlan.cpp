@@ -82,7 +82,7 @@ struct Pull {
         Want(row.AliasOf);
         return true;
       case FallbackKind::Neutral:
-
+        Aliases.push_back(std::string(row.Name) + " -> neutral");
         return true;
       case FallbackKind::None:
         Missing(r, row.Kind == ResourceKind::Attachment

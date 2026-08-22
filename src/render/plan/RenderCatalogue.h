@@ -183,7 +183,7 @@ inline constexpr ResourceRow kResources[] = {
     {Resource::Meter, ResourceKind::Derived, FallbackKind::Neutral, kNoEdge, TexelFormat::Handle,
      "meter"},
 
-    {Resource::ShadowAtlas, ResourceKind::Attachment, FallbackKind::None, kNoEdge,
+    {Resource::ShadowAtlas, ResourceKind::Attachment, FallbackKind::Neutral, kNoEdge,
      TexelFormat::Depth32Float, "shadowAtlas"},
     {Resource::SceneHdr, ResourceKind::Attachment, FallbackKind::None, kNoEdge,
      TexelFormat::Rgba16Float, "sceneHdr"},
@@ -261,7 +261,7 @@ inline constexpr StageRow kStages[] = {
      {Resource::SceneHdr, Resource::SceneVelocity, Resource::SceneDepth, kNoEdge}, kNoFusion},
 
     {Stage::Subjects, Provenance::Content, PassKind::Raster, "subjects",
-     {kNoEdge}, {kNoEdge},
+     {Resource::ShadowAtlas, kNoEdge}, {kNoEdge},
      {Resource::SceneHdr, Resource::SceneVelocity, Resource::SceneDepth,
       Resource::SceneShadingNormal, Resource::SceneSurfaceIdentity, kNoEdge}, kNoFusion},
 

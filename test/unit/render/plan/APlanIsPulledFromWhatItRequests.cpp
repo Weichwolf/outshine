@@ -51,7 +51,15 @@ int main() {
             "with no temporal resolve declared, a reader of the linear resolve binds the scene "
             "target it falls back to");
 
-      CHECK(plan->Aliases().size() == 2u, "the plan publishes every alias it applied");
+      size_t bound = 0, neutral = 0;
+      for (const std::string &alias : plan->Aliases()) {
+        if (alias.find("-> neutral") != std::string::npos) { ++neutral; } else { ++bound; }
+      }
+      CHECK(bound == 2u && neutral == 3u,
+            "the plan publishes every alias it applied: two rebindings (composited to hdr, "
+            "linear to composited) and three neutral stand-ins (the meter, the occlusion buffer "
+            "and the shadow atlas) -- a silent neutral was how an unshadowed picture used to be "
+            "indistinguishable from a shadowed one");
       CHECK(plan->SettleFrames() == 1,
             "a plan with no temporal history needs no settle frames beyond the one the device needs "
             "to have submitted something to copy");
@@ -191,12 +199,22 @@ int main() {
     std::shared_ptr<const RenderPlan> plan;
     std::string why;
     const bool compiled = RenderPlan::Compile(spec, &plan, why);
-    CHECK(!compiled, "a lit surface with no shadow map is refused");
-    CHECK(why.find("shadowAtlas") != std::string::npos &&
-              why.find(std::string("render.content.") + Row(Stage::LightVisibility).Name) !=
-                  std::string::npos,
-          "the refusal names the missing resource and the stage that would have supplied it");
-    Note(("missing-producer refusal: " + why).c_str());
+    if (!compiled) { Note(("terrain-without-shadows refusal: " + why).c_str()); }
+    CHECK(compiled,
+          "**A LIT SURFACE WITHOUT A SHADOW CASTER IS A PICTURE, NOT A REFUSAL.** This claim "
+          "once demanded the refusal, and it was wrong as specified: LightVisibility CONTRIBUTES "
+          "the atlas, and CLAUDE.md's own row reads 'a missing contributor is a picture choice'. "
+          "The atlas falls back to NEUTRAL -- nothing is shadowed -- which is exactly what a "
+          "consumer who declared no caster asked to see");
+    bool published = false;
+    if (plan) {
+      for (const std::string &alias : plan->Aliases()) {
+        if (alias.find("shadowAtlas") != std::string::npos) { published = true; }
+      }
+    }
+    CHECK(published,
+          "and the neutral stand-in is PUBLISHED with the compiled plan, so a reader can tell an "
+          "unshadowed picture from a shadowed one without rendering either");
   }
 
   {
