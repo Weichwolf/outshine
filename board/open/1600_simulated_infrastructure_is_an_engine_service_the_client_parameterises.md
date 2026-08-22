@@ -39,3 +39,37 @@ REDengine crowds, SUMO's three demand forms, ambient-zone models), and the docum
 (junction deadlocks, spawn visibility, density calibration).
 
 Depends: 1597
+
+---
+
+**Learned from the reference study (2026-08-22; ZoneGraph/MassTraffic, REDengine, Cities
+Skylines, SUMO, Ubisoft Meta AI/Census, MSFS).** No shipped system exposes density zones plus
+time curves as a documented API -- the poles are MSFS (global scalar x world-data derivation),
+MassTraffic (type mix + tag filters against a baked lane net), SUMO's calibrator (a DECLARED
+MEASURE with vehicle existence as the control variable), and Origins' Meta AI (three simulation
+tiers over virtual bookkeeping). Skylines and Cyberpunk are the counter-models: full emergence
+admits no parameter, and the monolith admits no API.
+
+The minimal reference-true form falls onto this architecture almost seam for seam:
+
+| piece | reference | sits here |
+|---|---|---|
+| lane net derived, never authored | ZoneGraph bake; MSFS from road type/width | OsmField -> RoadHarvest -> Wayfinding -> Carriageway, at runtime instead of a Houdini bake |
+| demand declaration | SUMO flow (period="exp(lambda)") + turn ratios | density per OSM highway class, type mix, seed, optional day-curve multiplier -- ambient traffic is goal-less, so no OD matrix and no global pathfinding (the Skylines trap) |
+| density as a REGULATED measure | SUMO calibrator | the LWR field itself: declared rho(class, t) is the setpoint, materialisation/dissolution at the rungs is the actuator |
+| tiers over bookkeeping truth | Origins Meta AI virtual/bulk/real | the presence ladder: field (LWR accounts) -> rails (time-gap following + SpeedProfile -- MassTraffic's own model, no IDM needed) -> body (Rig promotion near the camera) |
+
+Budget stays engine-side and hard (AC Unity's fixed N per tier): a density declaration changes
+the FIELD, never the frame budget -- degrade on detail, refuse on existence.
+
+Pitfalls, sourced, into the contract: (1) frustum-as-spawn-policy is the documented failure
+(Cyberpunk turn-around, MSFS gate despawns) -- the field never despawns, only representations
+change rungs, with hysteresis; (2) every shipped junction has a deadlock VALVE (SUMO teleports
+after 300 s, CS1 despawns) -- ours is explicit: demotion into the field, never a silent
+teleport, or the declared density lies exactly in the jam; (3) calibration oscillation: the
+control period is much longer than a frame, field accounting continuous, materialisation
+damped; (4) lane choice is running state on the rails rung, never part of a baked path
+(CS1 -> CS2); (5) THE SEAM IS THE DEFECT (MSFS's visible one sits at data->behaviour): every
+promotion/demotion carries a conservation assertion over the accounts. What no reference
+delivers and outshine must contribute: the conservation bookkeeping between rungs -- exactly
+where every studied system leaks.
