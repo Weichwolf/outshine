@@ -91,3 +91,27 @@ are the data half of the graph, not verbs, so the door stays one door. Journey's
 then takes (Store&, the assembled handles, Provision, wire) and consumes the assignment's
 coordinates from the column instead of a Between parameter; the mind possesses the seam that
 DriveTick actuates. Proven when Munich and Kyoto run through Engine with the same numbers.
+
+
+---
+
+**Move 2(e) plan (2026-08-22 evening, survey at 5b5cc642).** Journey's State is already two
+clean halves: the GROUND COLUMN (ContentStore, SourceSet, TilePool, GroundStream -- owned
+infrastructure, opened from Provision + a focus coordinate) and the DRIVE PRODUCT (Vehicle,
+Rigged, Corridor, DriveState -- pure values). Consumers: the five driver cases and the unit
+twin ONLY -- no library-internal caller. The slices:
+
+- (e1) `World::GroundStack` under src/ground: owns store->sources->pool->stream, Open(cacheDir,
+  assetsDir, focusLat, focusLon, wire, say) verbatim from Lay's opening block, Close in
+  reverse; Journey delegates to it first (proof: fast gate + road edge).
+- (e2) `Sim::DriveProduct {Car, Stood, Way, State}` and free
+  `Sim::AssembleDrive(scene, cast, vehicles, driven, world, GroundStack&, wire?, say, product&)`
+  -- Lay's body moves verbatim; Journey::Lay becomes a delegation shell.
+- (e3) the class dies: the six consumers hold {GroundStack, DriveProduct} and call
+  AssembleDrive + DriveTick directly; accessors resolve to product fields; the name Journey
+  leaves the tree; CLAUDE.md's map replaces the amber Journey node with GroundStack (ground
+  column) and AssembleDrive (sim system). Proof: headless three + stills; window stays the
+  named-only long proof.
+
+The say-narration stays with AssembleDrive as Sink calls -- it documents engine claims, not
+case prose.
