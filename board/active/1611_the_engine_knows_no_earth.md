@@ -40,7 +40,13 @@ care which planet it is standing on.
          moves beside the tile source under src/data, named as the tiling's shape
       4. src/core/Geodesy.h GeoToEcef WGS84 a/e2: the height/imagery providers' datum -- moves
          under src/data; consumers (ground fields, generators, clients) take ECEF products or a
-         provider handle, never the constants
+         provider handle, never the constants. SURVEY (2026-08-22): the slice is larger than a
+         file move -- kMPerDeg (Units.h, 111320 [SET], the equirectangular per-degree) is woven
+         through TangentFrame, Region, Forest, the planar family and their tests, and the
+         GENERATOR layer itself speaks lat/lon (Region spans, Forest jitter, BuildingMesh/Shape
+         call GeoToEcef): the real cut is the generator coordinate model -- params arrive in
+         METRES in the region frame, the datum stays with the providers. One move, not two
+         half-moves; needs its own sitting
       5. src/clients/GltfStudio.h kStudioAnchorEcefM = {6378137,0,0}: a studio [SET] anchor that
          happens to equal the WGS84 equator -- renamed as the studio's own declared anchor
       6. Ephemeris: says it computes EARTH's sky from declared elements (naming/doc slice)
