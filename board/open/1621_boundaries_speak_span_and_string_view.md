@@ -13,3 +13,11 @@ the existing tree.
 Survey first (`grep -rn 'const std::vector<.*> &\|const std::string &' src/ include/`),
 convert layer by layer, fast gate green per layer. `[[nodiscard]]`, `explicit`, `noexcept`
 and `constexpr` hygiene ride the same sweep where the touched signature is missing them.
+
+
+---
+
+Enabling move landed: the whole tree builds C++20 (one CXXSTD; gate 122/122 warm in 52 s).
+First conversion: the Fit family (Simplify, Fit, KeepBetween, AwayFromChordM) takes
+std::span<const double> -- callers convert implicitly, zero churn. Survey: 98 vector-ref and
+76 string-ref boundary parameters remain, layer by layer.

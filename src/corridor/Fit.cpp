@@ -18,7 +18,7 @@ double Wrapped(double angleRad) {
 
 namespace {
 
-double AwayFromChordM(const std::vector<double> &points, size_t point, size_t from, size_t to) {
+double AwayFromChordM(std::span<const double> points, size_t point, size_t from, size_t to) {
   const double fromE = points[2 * from], fromN = points[2 * from + 1];
   const double toE = points[2 * to], toN = points[2 * to + 1];
   const double atE = points[2 * point], atN = points[2 * point + 1];
@@ -35,7 +35,7 @@ double AwayFromChordM(const std::vector<double> &points, size_t point, size_t fr
   return std::sqrt(e * e + n * n);
 }
 
-void KeepBetween(const std::vector<double> &points, size_t from, size_t to, double withinM,
+void KeepBetween(std::span<const double> points, size_t from, size_t to, double withinM,
                  std::vector<bool> &keep) {
   if (to <= from + 1) { return; }
   size_t worst = from;
@@ -55,9 +55,9 @@ void KeepBetween(const std::vector<double> &points, size_t from, size_t to, doub
 
 } // namespace
 
-std::vector<double> Simplify(const std::vector<double> &eastNorthM, double withinM) {
+std::vector<double> Simplify(std::span<const double> eastNorthM, double withinM) {
   const size_t points = eastNorthM.size() / 2;
-  if (points < 3 || !(withinM > 0.0)) { return eastNorthM; }
+  if (points < 3 || !(withinM > 0.0)) { return {eastNorthM.begin(), eastNorthM.end()}; }
   std::vector<bool> keep(points, false);
   keep.front() = true;
   keep.back() = true;
@@ -83,7 +83,7 @@ double CornerRadiusM(double turnRad, double shorterLegM, double withinM) {
   return byAccuracy < byRoom ? byAccuracy : byRoom;
 }
 
-Fitted Fit(const std::vector<double> &eastNorthM, double withinM, double tightestM,
+Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
            ReferenceLine &into) {
   Fitted out;
   const size_t points = eastNorthM.size() / 2;

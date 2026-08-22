@@ -2,6 +2,7 @@
 #define OUTSHINE_CORRIDOR_FIT_H
 
 #include <cstddef>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -11,7 +12,7 @@ namespace outshine {
 
 [[nodiscard]] double CornerRadiusM(double turnRad, double shorterLegM, double withinM);
 
-[[nodiscard]] std::vector<double> Simplify(const std::vector<double> &eastNorthM, double withinM);
+[[nodiscard]] std::vector<double> Simplify(std::span<const double> eastNorthM, double withinM);
 
 
 struct Fitted {
@@ -45,7 +46,7 @@ struct Fitted {
   std::string Error;
 };
 
-[[nodiscard]] Fitted Fit(const std::vector<double> &eastNorthM, double withinM,
+[[nodiscard]] Fitted Fit(std::span<const double> eastNorthM, double withinM,
                          double tightestM, ReferenceLine &into);
 
 } // namespace outshine
