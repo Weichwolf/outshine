@@ -1,0 +1,61 @@
+#include <cstdio>
+
+#include "Check.h"
+
+#include "Store.h"
+
+using outshine::Entity;
+using outshine::Kind;
+using outshine::Seat;
+using outshine::Store;
+using outshine::Tag;
+namespace tags = outshine::tags;
+
+namespace {
+constexpr Tag kOffersRefuel{0x02010000};
+constexpr Tag kOffers{0x02000000};
+} // namespace
+
+int main(void) {
+  using namespace outshine::Test;
+  std::setvbuf(stdout, nullptr, _IONBF, 0);
+
+  Store scene;
+  CHECK(scene.Open(16), "a store opens");
+
+  const Entity pump = scene.Add(Kind::Body);
+  const Entity first = scene.Add(Kind::Mind);
+  const Entity second = scene.Add(Kind::Mind);
+
+  CHECK(!scene.Claim(first, pump), "what advertises nothing cannot be claimed");
+  CHECK(scene.Offer(pump, kOffersRefuel, 1),
+        "**AN OBJECT ADVERTISES AS DATA**: an activity tag and a seat count, never a script -- "
+        "the agent's own runtime is what executes (the Sims shipped the other way and every "
+        "object became a program; Smart Objects is the correction)");
+
+  Entity found[4];
+  CHECK(scene.Offering(kOffers, found, 4) == 1 && found[0] == pump,
+        "and it is found by the PARENT activity tag, so a search for anything offered uses the "
+        "same prefix algebra as capability");
+
+  CHECK(scene.Claim(first, pump), "the first mind claims the one seat");
+  CHECK(!scene.Claim(second, pump),
+        "**FIND AND USE ARE SEPARATED BY TRAVEL TIME**, which is why the seat is a reservation: "
+        "the second mind is refused at claim, not surprised at arrival");
+  CHECK(!scene.Use(second, pump), "use stands only on a claim");
+  CHECK(scene.Use(first, pump) && scene.SeatOf(first, pump) == Seat::Occupied,
+        "the claimant uses, and the seat is occupied");
+  CHECK(scene.Release(first, pump) && scene.SeatOf(first, pump) == Seat::Free,
+        "released is free again");
+  CHECK(scene.Claim(second, pump), "and the next claimant takes it");
+
+  scene.Remove(second);
+  CHECK(scene.Claim(first, pump),
+        "**A DEAD CLAIMANT HOLDS NO SEAT**: the generation on its handle died with it, so the "
+        "seat frees itself at the next claim rather than leaking forever");
+
+  Covers("II.3 a shared interaction is advertised as data and reserved before it is used: "
+         "Free -> Claimed -> Occupied -> Free, one seat per claimant, and a dead claimant "
+         "frees its seat by generation");
+  return Report();
+}

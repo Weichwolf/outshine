@@ -22,6 +22,9 @@ struct Entity {
 inline constexpr Entity kNoEntity{0xFFFFFFFFu, 0};
 inline constexpr size_t kPairsPerEntity = 8;
 inline constexpr size_t kTagsPerEntity = 8;
+inline constexpr size_t kSeatsPerOffer = 4;
+
+enum class Seat : uint8_t { Free, Claimed, Occupied };
 
 class Store {
 public:
@@ -35,6 +38,13 @@ public:
   [[nodiscard]] bool Give(Entity to, Tag tag);
   [[nodiscard]] bool Has(Entity of, Tag tag) const;
 
+  [[nodiscard]] bool Offer(Entity at, Tag activity, size_t seats);
+  [[nodiscard]] size_t Offering(Tag activity, Entity into[], size_t room) const;
+  [[nodiscard]] bool Claim(Entity by, Entity at);
+  [[nodiscard]] bool Use(Entity by, Entity at);
+  [[nodiscard]] bool Release(Entity by, Entity at);
+  [[nodiscard]] Seat SeatOf(Entity by, Entity at) const;
+
   [[nodiscard]] bool Link(Entity from, Relation how, Entity to);
   [[nodiscard]] Entity TargetOf(Entity of, Relation how) const;
   [[nodiscard]] size_t Targets(Entity of, Relation how, Entity into[], size_t room) const;
@@ -46,10 +56,17 @@ private:
     Relation How = kNoRelation;
     Entity To = kNoEntity;
   };
+  struct Taken {
+    Entity By = kNoEntity;
+    Seat State = Seat::Free;
+  };
   struct Slot {
     uint32_t Generation = 0;
     bool Held = false;
     Kind Is = Kind::Body;
+    Tag Offers{};
+    size_t SeatCount = 0;
+    Taken Seats[kSeatsPerOffer] = {};
     Tag Given[kTagsPerEntity] = {};
     size_t GivenCount = 0;
     Pair Pairs[kPairsPerEntity] = {};

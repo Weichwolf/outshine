@@ -95,6 +95,82 @@ bool Store::Has(Entity of, Tag tag) const {
   return false;
 }
 
+bool Store::Offer(Entity at, Tag activity, size_t seats) {
+  Slot *slot = const_cast<Slot *>(Held(at));
+  if (slot == nullptr) { return Refuse("an offer needs its object standing"); }
+  if (activity.Value == 0) { return Refuse("an offer advertises an activity from the catalogue"); }
+  if (seats == 0 || seats > kSeatsPerOffer) {
+    return Refuse("an offer holds between one seat and the pool's few");
+  }
+  if (slot->Offers.Value != 0) { return Refuse("this object already advertises, and one object is one offer"); }
+  slot->Offers = activity;
+  slot->SeatCount = seats;
+  for (size_t seat = 0; seat < seats; ++seat) { slot->Seats[seat] = Taken{}; }
+  return true;
+}
+
+size_t Store::Offering(Tag activity, Entity into[], size_t room) const {
+  size_t found = 0;
+  for (size_t at = 0; at < Slots_.size(); ++at) {
+    const Slot &slot = Slots_[at];
+    if (!slot.Held || slot.Offers.Value == 0 || !slot.Offers.Within(activity)) { continue; }
+    if (into != nullptr && found < room) { into[found] = Entity{(uint32_t)at, slot.Generation}; }
+    ++found;
+  }
+  return found;
+}
+
+bool Store::Claim(Entity by, Entity at) {
+  Slot *slot = const_cast<Slot *>(Held(at));
+  if (Held(by) == nullptr || slot == nullptr) { return Refuse("a claim needs both of its ends standing"); }
+  if (slot->Offers.Value == 0) { return Refuse("this object advertises nothing to claim"); }
+  if (!(SeatOf(by, at) == Seat::Free)) { return Refuse("one claimant holds at most one seat here"); }
+  for (size_t seat = 0; seat < slot->SeatCount; ++seat) {
+    Taken &taken = slot->Seats[seat];
+    if (taken.State != Seat::Free && Held(taken.By) == nullptr) { taken = Taken{}; }
+    if (taken.State == Seat::Free) {
+      taken = Taken{by, Seat::Claimed};
+      return true;
+    }
+  }
+  return Refuse("every seat of this offer is claimed or occupied -- come back or go elsewhere");
+}
+
+bool Store::Use(Entity by, Entity at) {
+  Slot *slot = const_cast<Slot *>(Held(at));
+  if (slot == nullptr) { return Refuse("what is used must stand"); }
+  for (size_t seat = 0; seat < slot->SeatCount; ++seat) {
+    Taken &taken = slot->Seats[seat];
+    if (taken.By == by && taken.State == Seat::Claimed) {
+      taken.State = Seat::Occupied;
+      return true;
+    }
+  }
+  return Refuse("use stands only on a claim, and this claimant holds none here");
+}
+
+bool Store::Release(Entity by, Entity at) {
+  Slot *slot = const_cast<Slot *>(Held(at));
+  if (slot == nullptr) { return Refuse("what is released must stand"); }
+  for (size_t seat = 0; seat < slot->SeatCount; ++seat) {
+    Taken &taken = slot->Seats[seat];
+    if (taken.By == by && taken.State != Seat::Free) {
+      taken = Taken{};
+      return true;
+    }
+  }
+  return Refuse("nothing of this claimant's stands here to release");
+}
+
+Seat Store::SeatOf(Entity by, Entity at) const {
+  const Slot *slot = Held(at);
+  if (slot == nullptr) { return Seat::Free; }
+  for (size_t seat = 0; seat < slot->SeatCount; ++seat) {
+    if (slot->Seats[seat].By == by) { return slot->Seats[seat].State; }
+  }
+  return Seat::Free;
+}
+
 bool Store::Link(Entity from, Relation how, Entity to) {
   const Slot *source = Held(from);
   const Slot *target = Held(to);
