@@ -30,7 +30,21 @@ care which planet it is standing on.
       Envelope.GravityMs2 feeds the plan, the rig, the pilot, the tick and the rail/wing forms;
       Stand refuses a world without gravity
 - [ ] provider geodesy (WGS84, Mercator band) moves under src/data or the provider's own
-      declaration -- named as the PROVIDER's shape, not the world's
+      declaration -- named as the PROVIDER's shape, not the world's. Survey at f1c48fe3, the
+      slices in working order:
+      1. src/core/Camera.h kEarthRadiusM + HorizonDipRad: ZERO callers -- dead, deleted, no
+         successor needed
+      2. src/ground/Wayfinding.h kEarthRadiusM = 6371008.8: the great-circle radius is the
+         DECLARED sphere's -- travels in from the world declaration (driver declarations cite
+         IUGG mean radius), no constant in the ground layer
+      3. src/ground/tiles/TileGeodesy.h kWgs84A + Mercator band: the TILE SCHEME's own datum --
+         moves beside the tile source under src/data, named as the tiling's shape
+      4. src/core/Geodesy.h GeoToEcef WGS84 a/e2: the height/imagery providers' datum -- moves
+         under src/data; consumers (ground fields, generators, clients) take ECEF products or a
+         provider handle, never the constants
+      5. src/clients/GltfStudio.h kStudioAnchorEcefM = {6378137,0,0}: a studio [SET] anchor that
+         happens to equal the WGS84 equator -- renamed as the studio's own declared anchor
+      6. Ephemeris: says it computes EARTH's sky from declared elements (naming/doc slice)
 - [x] the proof (commit 5cde3c05): ASpeedPlanScalesWithTheDeclaredGravity holds the crest's
       closed form sqrt(g/h'') to 1e-9 and the moon/earth scaling to 1e-12, declaration only;
       ARigRefuses proves 1.62 m/s2 reaches the envelope and g<=0 refuses
