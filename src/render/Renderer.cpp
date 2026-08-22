@@ -106,39 +106,34 @@ void Renderer::SetCameraBasis(const double eye[3], const double fwd[3], const do
   CameraFull = true;
 }
 
-bool Renderer::Executable(Stage stage) {
-  switch (stage) {
-    case Stage::MediumTransmittance:
-    case Stage::MediumMultiScatter:
-    case Stage::MediumRadiance:
-    case Stage::Sky:
-    case Stage::LightVisibility:
-    case Stage::Subjects:
-    case Stage::Tonemap:
-      return true;
-    case Stage::Overlay:
-    case Stage::Present:
-      return true;
-    case Stage::TemporalResolve:
-      return true;
-    case Stage::SubjectsTransmissive:
-    case Stage::CompositeTransmission:
-      return true;
-    case Stage::Irradiance:
-    case Stage::AutoExposure:
-    case Stage::Sun:
-    case Stage::Moon:
-    case Stage::Stars:
-    case Stage::Terrain:
-    case Stage::Buildings:
-    case Stage::Water:
-    case Stage::Models:
-    case Stage::AmbientOcclusion:
-    case Stage::kCount:
-      return false;
+const Renderer::Executor Renderer::kExecutors[] = {
+    {Stage::MediumTransmittance, &Renderer::ConfigureMediumTransmittance,
+     &Renderer::EncodeMediumTransmittance},
+    {Stage::MediumMultiScatter, &Renderer::ConfigureMediumMultiScatter,
+     &Renderer::EncodeMediumMultiScatter},
+    {Stage::MediumRadiance, &Renderer::ConfigureMediumRadiance, &Renderer::EncodeMediumRadiance},
+    {Stage::LightVisibility, &Renderer::ConfigureLightVisibility,
+     &Renderer::EncodeLightVisibility},
+    {Stage::Sky, &Renderer::ConfigureSky, &Renderer::EncodeSky},
+    {Stage::Subjects, &Renderer::ConfigureSubjects, &Renderer::EncodeSubjects},
+    {Stage::SubjectsTransmissive, &Renderer::ConfigureGlass, &Renderer::EncodeGlass},
+    {Stage::CompositeTransmission, &Renderer::ConfigureCompositeTransmission,
+     &Renderer::EncodeCompositeTransmission},
+    {Stage::TemporalResolve, &Renderer::ConfigureTemporalResolve, nullptr},
+    {Stage::Tonemap, &Renderer::ConfigureTonemap, &Renderer::EncodeTonemap},
+    {Stage::Overlay, &Renderer::ConfigureOverlay, &Renderer::EncodeOverlay},
+    {Stage::Present, &Renderer::ConfigurePresent, &Renderer::EncodePresent},
+};
+const size_t Renderer::kExecutorCount = sizeof kExecutors / sizeof kExecutors[0];
+
+const Renderer::Executor *Renderer::ExecutorOf(Stage stage) {
+  for (size_t at = 0; at < kExecutorCount; ++at) {
+    if (kExecutors[at].Named == stage) { return &kExecutors[at]; }
   }
-  return false;
+  return nullptr;
 }
+
+bool Renderer::Executable(Stage stage) { return ExecutorOf(stage) != nullptr; }
 
 void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> plan) {
   WhyNot_.clear();
@@ -422,62 +417,88 @@ SDL_GPUTexture *Renderer::LinearSource(void) const {
 }
 
 bool Renderer::Configure(Stage stage, std::string &error) {
-  switch (stage) {
-    case Stage::Subjects:
-      if (DrawsGlass_) { Subjects_.GlassIsDrawnElsewhere(); }
-      return Subjects_.Configure(Handles, error);
-    case Stage::SubjectsTransmissive:
-
-      Glass_.SeeThroughTo(HdrTex.Get(), Samp.Get());
-      return Glass_.Configure(Handles, error);
-    case Stage::CompositeTransmission:
-      return CompositeTransmission_.Configure(Handles, HdrTex.Get(), TransmissiveTex.Get(),
-                                              Samp.Get(),
-                                              FormatOf(Plan_->Format(Resource::SceneComposited)),
-                                              error);
-    case Stage::TemporalResolve:
-
-      return true;
-    case Stage::Overlay:
-      return Overlay_.Configure(Handles, Samp.Get(), FormatOf(Plan_->Format(Resource::FrameTex)),
-                                error);
-    case Stage::Present:
-      return Present_.Configure(Handles, FrameTex.Get(), Samp.Get(), error);
-    case Stage::Tonemap:
-      return Tonemap_.Configure(Handles, Target(Plan_->Bound(Resource::SceneComposited)),
-                                DepthTex.Get(), Samp.Get(),
-                                FormatOf(Plan_->Format(Resource::SceneLinear)), Display(), error);
-    case Stage::MediumTransmittance:
-      return MediumTransmittance_.Configure(Handles, TransmittanceLut_.Get(), error);
-    case Stage::MediumMultiScatter:
-      return MultiScatter_.Configure(Handles, TransmittanceLut_.Get(), LutSamp.Get(),
-                                     MultiScatterLut_.Get(), error);
-    case Stage::MediumRadiance:
-      return Radiance_.Configure(Handles, TransmittanceLut_.Get(), MultiScatterLut_.Get(),
-                                 LutSamp.Get(), SkyViewLut_.Get(), error);
-    case Stage::Sky:
-      return Sky_.Configure(Handles, SkyViewLut_.Get(), LutSamp.Get(), error);
-    case Stage::LightVisibility:
-      return Shadow_.Configure(Subjects_, Handles, error);
-    case Stage::Irradiance:
-    case Stage::AutoExposure:
-    case Stage::Sun:
-    case Stage::Moon:
-    case Stage::Stars:
-    case Stage::Terrain:
-    case Stage::Buildings:
-    case Stage::Water:
-    case Stage::Models:
-    case Stage::AmbientOcclusion:
-    case Stage::kCount:
-      error = "this device layer does not execute the stage";
-      return false;
+  const Executor *seat = ExecutorOf(stage);
+  if (seat == nullptr) {
+    error = "this device layer does not execute the stage";
+    return false;
   }
-  error = "this device layer does not execute the stage";
-  return false;
+  return (this->*(seat->Configure))(error);
+}
+
+bool Renderer::ConfigureSubjects(std::string &error) {
+  if (DrawsGlass_) { Subjects_.GlassIsDrawnElsewhere(); }
+  return Subjects_.Configure(Handles, error);
+}
+
+bool Renderer::ConfigureGlass(std::string &error) {
+  Glass_.SeeThroughTo(HdrTex.Get(), Samp.Get());
+  return Glass_.Configure(Handles, error);
+}
+
+bool Renderer::ConfigureCompositeTransmission(std::string &error) {
+  return CompositeTransmission_.Configure(Handles, HdrTex.Get(), TransmissiveTex.Get(), Samp.Get(),
+                                          FormatOf(Plan_->Format(Resource::SceneComposited)),
+                                          error);
+}
+
+bool Renderer::ConfigureTemporalResolve(std::string &error) {
+  (void)error;
+  return true;
+}
+
+bool Renderer::ConfigureOverlay(std::string &error) {
+  return Overlay_.Configure(Handles, Samp.Get(), FormatOf(Plan_->Format(Resource::FrameTex)),
+                            error);
+}
+
+bool Renderer::ConfigurePresent(std::string &error) {
+  return Present_.Configure(Handles, FrameTex.Get(), Samp.Get(), error);
+}
+
+bool Renderer::ConfigureTonemap(std::string &error) {
+  return Tonemap_.Configure(Handles, Target(Plan_->Bound(Resource::SceneComposited)),
+                            DepthTex.Get(), Samp.Get(),
+                            FormatOf(Plan_->Format(Resource::SceneLinear)), Display(), error);
+}
+
+bool Renderer::ConfigureMediumTransmittance(std::string &error) {
+  return MediumTransmittance_.Configure(Handles, TransmittanceLut_.Get(), error);
+}
+
+bool Renderer::ConfigureMediumMultiScatter(std::string &error) {
+  return MultiScatter_.Configure(Handles, TransmittanceLut_.Get(), LutSamp.Get(),
+                                 MultiScatterLut_.Get(), error);
+}
+
+bool Renderer::ConfigureMediumRadiance(std::string &error) {
+  return Radiance_.Configure(Handles, TransmittanceLut_.Get(), MultiScatterLut_.Get(),
+                             LutSamp.Get(), SkyViewLut_.Get(), error);
+}
+
+bool Renderer::ConfigureSky(std::string &error) {
+  return Sky_.Configure(Handles, SkyViewLut_.Get(), LutSamp.Get(), error);
+}
+
+bool Renderer::ConfigureLightVisibility(std::string &error) {
+  return Shadow_.Configure(Subjects_, Handles, error);
+}
+
+void Renderer::Picture(bool picture, const PassRecording &into) {
+  SDL_GPUViewport where{};
+  const Placed rect = PictureRect();
+  where.x = picture ? (float)rect.LeftPx : 0.0f;
+  where.y = picture ? (float)rect.TopPx : 0.0f;
+  where.w = picture ? (float)rect.WidthPx : (float)Width;
+  where.h = picture ? (float)rect.HeightPx : (float)Height;
+  where.min_depth = 0.0f;
+  where.max_depth = 1.0f;
+  if (into.Pass != nullptr) { SDL_SetGPUViewport(into.Pass, &where); }
 }
 
 void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
+  const Executor *seat = ExecutorOf(stage);
+  if (seat == nullptr || seat->Encode == nullptr) { return; }
+
   FrameContext ctx{};
   for (int axis = 0; axis < 3; axis++) { ctx.Eye[axis] = Eye[axis]; }
 
@@ -490,104 +511,83 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
     ctx.PrevMvp16[at] = Submitted ? PrevMvp16[at] : ctx.Mvp16[at];
   }
 
-  const auto within = [&](bool picture) {
-
-    SDL_GPUViewport where{};
-    const Placed rect = PictureRect();
-    where.x = picture ? (float)rect.LeftPx : 0.0f;
-    where.y = picture ? (float)rect.TopPx : 0.0f;
-    where.w = picture ? (float)rect.WidthPx : (float)Width;
-    where.h = picture ? (float)rect.HeightPx : (float)Height;
-    where.min_depth = 0.0f;
-    where.max_depth = 1.0f;
-    if (into.Pass != nullptr) { SDL_SetGPUViewport(into.Pass, &where); }
-  };
-
   const outshine::Heap::Tagged encoding(Row(stage).Name);
-  switch (stage) {
-    case Stage::Subjects:
-      within(true);
-      Subjects_.Encode(ctx, into);
-      return;
-    case Stage::SubjectsTransmissive:
-      within(true);
-      Glass_.Encode(ctx, into);
-      return;
-    case Stage::CompositeTransmission:
-      within(true);
-      CompositeTransmission_.Encode(ctx, into);
-      return;
+  (this->*(seat->Encode))(ctx, into);
+}
 
-    case Stage::TemporalResolve: return;
-    case Stage::Tonemap: {
+void Renderer::EncodeSubjects(const FrameContext &ctx, const PassRecording &into) {
+  Picture(true, into);
+  Subjects_.Encode(ctx, into);
+}
 
-      Tonemap_.Bind(Target(Plan_->Bound(Resource::SceneComposited)));
-      const float delta[2] = {Jitter_[0] - PrevJitter_[0], Jitter_[1] - PrevJitter_[1]};
-      Tonemap_.BindTemporal(LinearTex_[1 - LinearAt_].Get(), VelTex.Get(), Width, Height, delta,
-                            HistoryHeld_);
-      within(true);
-      Tonemap_.Encode(ctx, into);
+void Renderer::EncodeGlass(const FrameContext &ctx, const PassRecording &into) {
+  Picture(true, into);
+  Glass_.Encode(ctx, into);
+}
+
+void Renderer::EncodeCompositeTransmission(const FrameContext &ctx, const PassRecording &into) {
+  Picture(true, into);
+  CompositeTransmission_.Encode(ctx, into);
+}
+
+void Renderer::EncodeTonemap(const FrameContext &ctx, const PassRecording &into) {
+  Tonemap_.Bind(Target(Plan_->Bound(Resource::SceneComposited)));
+  const float delta[2] = {Jitter_[0] - PrevJitter_[0], Jitter_[1] - PrevJitter_[1]};
+  Tonemap_.BindTemporal(LinearTex_[1 - LinearAt_].Get(), VelTex.Get(), Width, Height, delta,
+                        HistoryHeld_);
+  Picture(true, into);
+  Tonemap_.Encode(ctx, into);
+}
+
+void Renderer::EncodeOverlay(const FrameContext &ctx, const PassRecording &into) {
+  Picture(false, into);
+  Overlay_.Bind(Width, Height);
+  Overlay_.Encode(ctx, into);
+}
+
+void Renderer::EncodePresent(const FrameContext &ctx, const PassRecording &into) {
+  {
+    std::string why;
+    if (!Present_.For(Handles, SurfaceFormat(), why)) {
+      Log::Error("render", "present_not_built", {{"msg", why}});
       return;
     }
-
-    case Stage::Overlay:
-      within(false);
-      Overlay_.Bind(Width, Height);
-      Overlay_.Encode(ctx, into);
-      return;
-
-    case Stage::Present:
-
-      {
-        std::string why;
-        if (!Present_.For(Handles, SurfaceFormat(), why)) {
-          Log::Error("render", "present_not_built", {{"msg", why}});
-          return;
-        }
-      }
-      within(false);
-      Present_.Encode(ctx, into);
-      return;
-    case Stage::MediumTransmittance:
-      MediumTransmittance_.Encode(into);
-      return;
-    case Stage::MediumMultiScatter:
-      MultiScatter_.Encode(into);
-      return;
-    case Stage::MediumRadiance:
-      Radiance_.Encode(into);
-      return;
-    case Stage::LightVisibility:
-      Shadow_.Encode(ctx, into);
-      return;
-    case Stage::Sky: {
-      within(true);
-      const float tanHalfH = std::tan((float)(FovDeg * 3.14159265358979 / 180.0) * 0.5f);
-      const float tanHalfW =
-          tanHalfH * (PictureH() > 0.0 ? (float)(PictureW() / PictureH()) : 1.0f);
-      float right[3], up[3], fwd[3];
-      for (int axis = 0; axis < 3; ++axis) {
-        right[axis] = (float)Right[axis];
-        up[axis] = (float)Up[axis];
-        fwd[axis] = (float)Fwd[axis];
-      }
-      Sky_.SetBasis(right, up, fwd, tanHalfW, tanHalfH);
-      Sky_.Encode(ctx, into);
-      return;
-    }
-    case Stage::Irradiance:
-    case Stage::AutoExposure:
-    case Stage::Sun:
-    case Stage::Moon:
-    case Stage::Stars:
-    case Stage::Terrain:
-    case Stage::Buildings:
-    case Stage::Water:
-    case Stage::Models:
-    case Stage::AmbientOcclusion:
-    case Stage::kCount:
-      return;
   }
+  Picture(false, into);
+  Present_.Encode(ctx, into);
+}
+
+void Renderer::EncodeMediumTransmittance(const FrameContext &ctx, const PassRecording &into) {
+  (void)ctx;
+  MediumTransmittance_.Encode(into);
+}
+
+void Renderer::EncodeMediumMultiScatter(const FrameContext &ctx, const PassRecording &into) {
+  (void)ctx;
+  MultiScatter_.Encode(into);
+}
+
+void Renderer::EncodeMediumRadiance(const FrameContext &ctx, const PassRecording &into) {
+  (void)ctx;
+  Radiance_.Encode(into);
+}
+
+void Renderer::EncodeLightVisibility(const FrameContext &ctx, const PassRecording &into) {
+  Shadow_.Encode(ctx, into);
+}
+
+void Renderer::EncodeSky(const FrameContext &ctx, const PassRecording &into) {
+  Picture(true, into);
+  const float tanHalfH = std::tan((float)(FovDeg * 3.14159265358979 / 180.0) * 0.5f);
+  const float tanHalfW = tanHalfH * (PictureH() > 0.0 ? (float)(PictureW() / PictureH()) : 1.0f);
+  float right[3], up[3], fwd[3];
+  for (int axis = 0; axis < 3; ++axis) {
+    right[axis] = (float)Right[axis];
+    up[axis] = (float)Up[axis];
+    fwd[axis] = (float)Fwd[axis];
+  }
+  Sky_.SetBasis(right, up, fwd, tanHalfW, tanHalfH);
+  Sky_.Encode(ctx, into);
 }
 
 static float RadicalInverse(int index, int base) {
