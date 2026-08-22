@@ -34,3 +34,14 @@ funktionsname.*
 The global is why the Munich to Hamburg planner segfaulted on its first run: it built its own
 `TilePool`, `OsmField` asked the global one, and the global was null. The crash was the honest
 outcome; a fallback would have been worse.
+
+---
+
+Closed on tree proof: both demands stand at HEAD, repaid across the GroundStack and path
+moves. The pool is PASSED -- OsmField::Build/AddTile take TilePool& and GroundStack OWNS the
+one pool it hands out (GroundStack.h:30), so two programs stream two regions without
+touching each other; `grep -rn 'fb_' src/ tools/ test/` returns NOTHING -- every fb_ name and
+FbGroundSurface/FbGroundBlock died with the rename rounds. Proving state:
+test/unit/ground/TheGroundStackOpensOrRefuses.cpp holds the ownership door, and the driver's
+Munich planner (tools/driver/APlannerFindsTheRoadFromMunichToHamburg) streams through the
+passed pool daily -- the segfault class this item was filed on cannot be spelled any more.
