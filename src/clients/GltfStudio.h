@@ -36,7 +36,7 @@ struct Studio {
 
   std::vector<Render::SubjectMaterial> Surfaces;
 
-  const Gltf::Subject *Previous = nullptr;
+  const std::vector<double> *PreviousPositionsM = nullptr;
 
   std::vector<outshine::PunctualLight> Lights;
 

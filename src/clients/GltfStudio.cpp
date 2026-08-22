@@ -257,10 +257,10 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
   runs.ColourAt = vertices.size();
   for (const double component : subject.Colours()) { vertices.push_back((float)component); }
   runs.PreviousAt = vertices.size();
-  if (studio.Previous) {
-    for (size_t vertex = 0; vertex < studio.Previous->VertexCount(); ++vertex) {
+  if (studio.PreviousPositionsM) {
+    for (size_t vertex = 0; vertex < studio.PreviousPositionsM->size() / 3; ++vertex) {
       double ecef[3];
-      EcefFromGltf(&studio.Previous->PositionsM()[vertex * 3], ecef);
+      EcefFromGltf(&(*studio.PreviousPositionsM)[vertex * 3], ecef);
       for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
     }
   }
@@ -354,9 +354,9 @@ bool Place(Render::Renderer &renderer, const Studio &studio, StudioScratch &scra
     return false;
   }
   if (!Declared(studio, subject, error)) { return false; }
-  if (studio.Previous && studio.Previous->VertexCount() != subject.VertexCount()) {
+  if (studio.PreviousPositionsM && studio.PreviousPositionsM->size() / 3 != subject.VertexCount()) {
     error = "the studio's previous pose carries " +
-            std::to_string(studio.Previous->VertexCount()) + " vertices and this one carries " +
+            std::to_string(studio.PreviousPositionsM->size() / 3) + " vertices and this one carries " +
             std::to_string(subject.VertexCount()) +
             ", so no vertex has a place it moved from";
     return false;
@@ -387,7 +387,7 @@ bool Place(Render::Renderer &renderer, const Studio &studio, StudioScratch &scra
   mesh.Tangents = subject.HasTangent() ? scratch.Vertices.data() + runs.TangentAt : nullptr;
   mesh.Colours = subject.HasColour() ? scratch.Vertices.data() + runs.ColourAt : nullptr;
   mesh.Emitted = scratch.Vertices.data() + runs.EmittedAt;
-  mesh.PrevVerts = studio.Previous ? scratch.Vertices.data() + runs.PreviousAt : nullptr;
+  mesh.PrevVerts = studio.PreviousPositionsM ? scratch.Vertices.data() + runs.PreviousAt : nullptr;
   mesh.VertexCount = (uint32_t)subject.VertexCount();
   mesh.Indices = scratch.Indices.data();
   mesh.IndexCount = (uint32_t)scratch.Indices.size();
@@ -417,9 +417,9 @@ bool Move(Render::Renderer &renderer, const Studio &studio, StudioScratch &scrat
   }
   const Gltf::Subject &subject = *studio.Geometry;
   if (!Declared(studio, subject, error)) { return false; }
-  if (studio.Previous && studio.Previous->VertexCount() != subject.VertexCount()) {
+  if (studio.PreviousPositionsM && studio.PreviousPositionsM->size() / 3 != subject.VertexCount()) {
     error = "the studio's previous pose carries " +
-            std::to_string(studio.Previous->VertexCount()) + " vertices and this one carries " +
+            std::to_string(studio.PreviousPositionsM->size() / 3) + " vertices and this one carries " +
             std::to_string(subject.VertexCount()) + ", so no vertex has a place it moved from";
     return false;
   }
@@ -435,7 +435,7 @@ bool Move(Render::Renderer &renderer, const Studio &studio, StudioScratch &scrat
   pose.Tangents = subject.HasTangent() ? scratch.Vertices.data() + runs.TangentAt : nullptr;
   pose.Colours = subject.HasColour() ? scratch.Vertices.data() + runs.ColourAt : nullptr;
   pose.Emitted = scratch.Vertices.data() + runs.EmittedAt;
-  pose.PrevVerts = studio.Previous ? scratch.Vertices.data() + runs.PreviousAt : nullptr;
+  pose.PrevVerts = studio.PreviousPositionsM ? scratch.Vertices.data() + runs.PreviousAt : nullptr;
   pose.VertexCount = (uint32_t)subject.VertexCount();
   for (int axis = 0; axis < 3; ++axis) {
     pose.Anchor[axis] = kStudioAnchorEcefM[axis];

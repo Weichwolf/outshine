@@ -15,3 +15,12 @@ other attribute arrays are copied each frame so that nobody looks at them.
 What must be true: the previous pose is a positions buffer, double-buffered by swap -- the copy
 that remains is the one the velocity stream actually reads, and `TookPosing_` says so. One
 animated subject pays megabytes of memcpy per frame today; board:1538's city multiplies it.
+
+---
+
+**Closed.** The previous pose is a positions vector: Live keeps `PreviousPositionsM_` (one
+vector assign per frame, capacity reused), the studio field says what it is, and every consumer
+already read nothing else. Proving tests: the animated scenario suites --
+`AnAnimatedScenarioAdvancesAndAStillOneCostsNothing`, `AnEngineInSteadyStateReturnsToTheSameLiveByteCount`,
+`ALongRunHoldsItsMemoryAndItsPace` -- all green, so the velocity stream still stands and the
+steady state still takes nothing.

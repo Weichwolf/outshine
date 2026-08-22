@@ -1287,7 +1287,7 @@ outshine::Clients::Studio MakeStudio(const Case &subject) {
   outshine::Clients::Studio studio;
   studio.Geometry = &subject.Geometry;
 
-  if (subject.Animated()) { studio.Previous = &subject.PreviousGeometry; }
+  if (subject.Animated()) { studio.PreviousPositionsM = &subject.PreviousGeometry.PositionsM(); }
   studio.Eye = subject.Eye;
   studio.EmittedRadiance = subject.Emitted;
   studio.PartSurface = subject.Surfaces.PartSlot;

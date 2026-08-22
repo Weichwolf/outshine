@@ -224,12 +224,12 @@ bool Live::Pose(int frame, std::string &error) {
   if (Moves_) {
 
     const bool first = Geometry_.VertexCount() == 0;
-    if (!first) { Previous_ = Geometry_; }
+    if (!first) { PreviousPositionsM_ = Geometry_.PositionsM(); }
     Motion_.At((double)frame / Declared_.Fps, Locals_, Weights_);
     if (Geometry_.Build(File_, Span<const Gltf::Transform>(Locals_.data(), Locals_.size()),
                         Span<const double>(Weights_.data(), Weights_.size()),
                         Variant_)) {
-      if (first) { Previous_ = Geometry_; }
+      if (first) { PreviousPositionsM_ = Geometry_.PositionsM(); }
       return true;
     }
   } else if (Geometry_.Build(File_, Variant_)) {
@@ -334,7 +334,7 @@ bool Live::Stand(std::string &error) {
   Stood_.PartPlacement.assign(Geometry_.Parts().size(),
                               {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1});
   Stood_.Geometry = &Geometry_;
-  if (Moves_) { Stood_.Previous = &Previous_; }
+  if (Moves_) { Stood_.PreviousPositionsM = &PreviousPositionsM_; }
   Stood_.EmittedRadiance.assign(Geometry_.Parts().size(), {0.0f, 0.0f, 0.0f});
   Stood_.PartSurface = Table_.PartSlot;
   Stood_.Surfaces = Table_.Slots;

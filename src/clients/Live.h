@@ -140,7 +140,8 @@ private:
   Declaration Declared_;
   std::shared_ptr<const Render::RenderPlan> Plan_;
   Gltf::Document File_;
-  Gltf::Subject Geometry_, Previous_;
+  Gltf::Subject Geometry_;
+  std::vector<double> PreviousPositionsM_;
   Gltf::Placement Eye_;
   bool HaveEye_ = false;
   bool Aimed_ = true;
