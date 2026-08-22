@@ -12,10 +12,13 @@
 #include <outshine/Store.h>
 
 #include "Assembly.h"
-#include "Journey.h"
+#include "DriveAssembly.h"
+#include "GroundStack.h"
 #include "ScenarioRead.h"
 
-using outshine::Sim::Journey;
+using outshine::Sim::AssembleDrive;
+using outshine::Sim::DriveProduct;
+using outshine::World::GroundStack;
 using outshine::Sim::Ridden;
 using outshine::Sink;
 
@@ -52,7 +55,8 @@ int main(void) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
   Harness harness;
-  Journey journey;
+  GroundStack stack;
+  DriveProduct drive;
   std::string scenarioText;
   {
     std::FILE *const file = std::fopen("tools/driver/f31.scenario", "rb");
@@ -87,8 +91,8 @@ int main(void) {
 
   outshine::Host::CurlTransport::Config wiring;
   outshine::Host::CurlTransport wire(wiring);
-  const bool laid = journey.Lay(scene, stood, vehicles, drives, declared.Ground, wire,
-      outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, harness);
+  const bool laid = AssembleDrive(scene, stood, vehicles, drives, declared.Ground, stack, wire,
+      outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, harness, drive);
   CHECK(laid, "**THE ROAD FROM MARIENPLATZ TO RATHAUSMARKT IS LAID.** A route over ways fetched "
               "live, a corridor fitted through them, the real ground under it shaped to each road "
               "class's own grade, and the declared F31 standing on it -- and every one of those "
@@ -101,7 +105,7 @@ int main(void) {
         "pedestrian zones, the car parks at the carriageway's edge, and the pair of walks stays "
         "under a thousandth of the route. THIS claim lives in the ROUTE-1 CASE now: the engine "
         "publishes the number and asserts nothing city-specific (board:1581's neutrality cut)");
-  const double routeKm = journey.LengthM() / 1000.0;
+  const double routeKm = drive.Way.Line.LengthM() / 1000.0;
   Note("the route the case itself checks", routeKm, "km");
   CHECK(routeKm > 700.0 && routeKm < 900.0,
         "and its length is what a road between Munich and Hamburg is -- 612 km as the crow "
@@ -114,14 +118,14 @@ int main(void) {
   const auto began = std::chrono::steady_clock::now();
   Ridden rode;
   for (long step = 0; step < kMostSteps; ++step) {
-    rode = journey.Ride(kStepS);
+    rode = outshine::Sim::DriveTick(drive.Way, drive.Stood, drive.Car, drive.State, kStepS, nullptr);
     if (!rode.Found || rode.Arrived || rode.Lost || rode.PastLimit || rode.OffTheRoad) { break; }
   }
   const double wallS =
       std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
 
   Note("how far the car drove", rode.ReachedM / 1000.0, "km");
-  Note("of a corridor this long", journey.LengthM() / 1000.0, "km");
+  Note("of a corridor this long", drive.Way.Line.LengthM() / 1000.0, "km");
   Note("the fastest it went", rode.TopMs * 3.6, "km/h");
   Note("hours simulated", rode.SimulatedS / 3600.0, "h");
   Note("seconds of wall clock", wallS, "s");
@@ -144,7 +148,7 @@ int main(void) {
         "planned over live OSM ways, a corridor fitted through them, the real ground under it, and "
         "the declared car carried the whole way by four compliant contacts and nothing else");
 
-  journey.Close();
+  stack.Close();
 
   Covers("I.4.5 the F31 drives itself from Marienplatz to Rathausmarkt over ways fetched live from "
          "the declared OSM source and ground from the declared elevation source, on four compliant "

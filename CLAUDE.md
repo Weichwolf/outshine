@@ -89,7 +89,7 @@ rung on two axes (existence · fidelity, thresholds ordered): unmeasured actors 
 FIELD, measured ones materialise (rails, then body) as a PURE EVALUATION of (kind, params, seed,
 rung) — and materialisation is never transitive: minds read the abstract layer, only declared
 instruments collapse it.
-`Journey` folds into `Sim` along this chain. **A client includes nothing but
+The drive is a product of free systems (AssembleDrive · DriveTick), no orchestration class left. **A client includes nothing but
 `include/outshine/`** — enforced by the build.
 
 ### The component model (TARGET — the decided reference design)
@@ -203,11 +203,10 @@ flowchart TD
   Ephemeris & RegionForge --> Sim --> Renderer
   Frustum -.-> DrawList
   TilePool --> World["World — quadtree LOD · admission · kerbs"] --> Sim
-  GroundStack["GroundStack — owns store · sources · pool · stream"] --> Journey["Journey — orchestration behind the door: handles and columns in, systems delegated"]
-  GroundStream --> Journey
-  Journey --> CorridorLay["CorridorLay — route + ground → Corridor product"]
-  Journey --> DriveTick["DriveTick — (Corridor, Rigged, DriveState) tick"]
-  Journey -.-> Sim
+  GroundStack["GroundStack — owns store · sources · pool · stream"] --> DriveAssembly["AssembleDrive — scene handles + ground → DriveProduct"]
+  GroundStream --> DriveAssembly
+  DriveAssembly --> CorridorLay["CorridorLay — route + ground → Corridor product"]
+  DriveAssembly --> DriveTick["DriveTick — (Corridor, Rigged, DriveState) tick"]
   Engine --> Live
   GltfStudio --> Renderer
   Assembly["Assembly — the XML door"] --> SceneStore["Scene Store — entities · typed pairs · traits · tags"]
@@ -218,7 +217,7 @@ flowchart TD
   class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,OsmField,RoadHarvest,Wayfinding,StreetField,Ground,Forest,Buildings,Water,Infrastructure,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,Engine,SceneStore,Assembly,SubjectResidency sound
   class BuildingField,WaterField,Subject,DrawList,Renderer,TonemapStage,LightVisibilityStage,Frustum,Ephemeris,RegionForge,GltfStudio unsure
   class TilePool,World,SubjectDraw,Sim,Live wrong
-  class Journey,CorridorLay,DriveTick unsure
+  class DriveAssembly,CorridorLay,DriveTick unsure
   class GroundStack sound
 ```
 
@@ -226,9 +225,9 @@ Colours are ARCHITECTURE, adjudicated by an independent review (2026-08-22): gre
 responsibility in the right layer; amber = form in question (fields that tessellate, the getter
 carpet, TAA folded into tonemap, idle values); red = provably wrong — `TilePool` and `World`
 spell camera and LOD inside the ground layer, `SubjectDraw` is six responsibilities, `Sim` and
-`Live` are hand-wired god facades the component model replaces, `Journey` decomposed on 2026-08-22 and consumes the door since move 2(d): the car arrives as a
-handle, the route as assignment data, headless links no renderer. `LayCorridor` and `DriveTick`
-stay amber until their own unit proofs deepen; the name dies with move 2(e). The rot concentrates at the orchestration edges; the middle of the tree is sound.
+`Live` are hand-wired god facades the component model replaces, Journey died with move 2(e): the six consumers hold {GroundStack, DriveProduct} and call the
+free systems directly. `LayCorridor`, `AssembleDrive` and `DriveTick` stay amber until their
+own unit proofs deepen. The rot concentrates at the orchestration edges; the middle of the tree is sound.
 
 ## Class structure (TARGET — where the tree is going)
 
@@ -238,7 +237,7 @@ flowchart TD
   ClientCode["client C++"] --> Assembly
   Assembly --> SceneStore["Scene Store — entities · pairs · traits · tags · slots"]
   SceneStore --> Columns["Columns — vehicle numbers · placements, by handle"]
-  SceneStore --> SimD["Sim — owns the drive: corridor · speed plan · pilot, Journey folded"]
+  SceneStore --> SimD["Sim — owns the drive: corridor · speed plan · pilot"]
   SimD --> Pathfinding["Pathfinding tool — walk · drive · fly · rail"]
   SimD --> Physics["Rig · Body · Contact — forces at the patch"]
   SimD --> Compositors["Compositors — terrain · ring · cut-fill placement, leaving the stills driver"]
@@ -294,21 +293,13 @@ classDiagram
     +BlockAt(z, x, y) GroundBlock
     +PostM(latDeg) double
   }
-  class Journey {
-    +Lay(between, scenario, zoom, wire, sink) bool
-    +Ride(dtS, taken) Ridden
-    +Corridor() ReferenceLine
-    +Ground() GroundStream
-    +Carried() Body
-  }
   Engine --> Live : owns
   Live --> Renderer : drives
-  Journey --> GroundStream : owns
   Sim --> GroundStream : owns
 ```
 
-`Journey` still stands outside the library (it folds into `Sim`); `Live`, `Renderer`,
-`GroundStream` and `Journey` are still reachable by clients — the TARGET below removes them.
+`Live`, `Renderer`, `GroundStream` and the drive systems are still reachable by clients —
+the TARGET below removes them.
 The assembly API stands public since 2026-08-22: `include/outshine/{Register,Store,Column}.h`
 are the C++ door, `Engine::Assemble/Scene` own the one graph, proven by a client that includes
 nothing but `outshine/`.

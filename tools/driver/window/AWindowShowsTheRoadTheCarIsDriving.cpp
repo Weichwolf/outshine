@@ -16,13 +16,16 @@
 #include <outshine/Store.h>
 
 #include "Assembly.h"
-#include "Journey.h"
+#include "DriveAssembly.h"
+#include "GroundStack.h"
 #include "ScenarioRead.h"
 #include "Live.h"
 #include "Renderer.h"
 #include "Ribbon.h"
 
-using outshine::Sim::Journey;
+using outshine::Sim::AssembleDrive;
+using outshine::Sim::DriveProduct;
+using outshine::World::GroundStack;
 using outshine::Sim::Ridden;
 using outshine::Sink;
 
@@ -102,7 +105,8 @@ int main(void) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
   Quiet quiet;
-  Journey journey;
+  GroundStack stack;
+  DriveProduct drive;
   std::string scenarioText;
   {
     std::FILE *const file = std::fopen("tools/driver/f31.scenario", "rb");
@@ -136,8 +140,8 @@ int main(void) {
   }
   outshine::Host::CurlTransport::Config wiring;
   outshine::Host::CurlTransport wire(wiring);
-  const bool laid = journey.Lay(scene, cast, vehicles, drives, declared.Ground, wire,
-      outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, quiet);
+  const bool laid = AssembleDrive(scene, cast, vehicles, drives, declared.Ground, stack, wire,
+      outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, quiet, drive);
   CHECK(laid, "**THE WINDOW LAYS THE ROAD WITH THE SAME CALL THE HEADLESS DRIVER DOES.** One "
               "translation unit, two binaries: the headless one links no renderer at all and this "
               "one links the whole of it, and neither knows which it is");
@@ -149,7 +153,7 @@ int main(void) {
   section.ThicknessM = 0.35;
   double laidToM = kShownM;
   const outshine::Ribbon ribbon =
-      Sweep(journey.Corridor(), section, 0.0, laidToM, kRibbonStepM);
+      Sweep(drive.Way.Line, section, 0.0, laidToM, kRibbonStepM);
   if (!ribbon.Woven) { std::printf("REFUSED %s\n", ribbon.Error.c_str()); }
   CHECK(ribbon.Woven, "and the first 400 m of it sweeps into a solid");
   if (!ribbon.Woven) { return Report(); }
@@ -268,7 +272,7 @@ int main(void) {
   long relaid = 0;
   long relaidAtFrame = -1;
   double worstSteadyMs = 0.0, worstRelayMs = 0.0;
-  const double routeM = journey.LengthM();
+  const double routeM = drive.Way.Line.LengthM();
   const double handoverFromM = routeM * kHandoverAtShare;
   double handoverForM = 0.0;
   const double wheelbaseM = declared.Vehicles[0].WheelbaseM;
@@ -295,11 +299,11 @@ int main(void) {
     if (taken.Has) {
       const double v = rode.SpeedMs > 1.0 ? rode.SpeedMs : 1.0;
       taken.SteerRad = rode.MindSteerRad +
-                       steerBy * std::atan(wheelbaseM * journey.ReserveMs2() / (v * v));
+                       steerBy * std::atan(wheelbaseM * drive.Way.ReserveMs2 / (v * v));
     }
     taken.Throttle = throttleBy * 0.35;
     for (long step = 0; step < perFrame; ++step) {
-      rode = journey.Ride(kStepS, &taken);
+      rode = outshine::Sim::DriveTick(drive.Way, drive.Stood, drive.Car, drive.State, kStepS, &taken);
       if (!rode.Found || rode.Arrived || rode.Lost) { break; }
     }
     if (taken.Has && tookOverAtM <= 0.0) {
@@ -311,7 +315,7 @@ int main(void) {
       const double fromM = laidToM;
       laidToM += kShownM;
       const outshine::Ribbon next =
-          Sweep(journey.Corridor(), section, fromM, laidToM, kRibbonStepM);
+          Sweep(drive.Way.Line, section, fromM, laidToM, kRibbonStepM);
       if (next.Woven) {
         piece.PositionsM = outshine::Span<const float>(next.PositionM.data(), next.PositionM.size());
         piece.Normals = outshine::Span<const float>(next.NormalM.data(), next.NormalM.size());
@@ -326,7 +330,7 @@ int main(void) {
       }
     }
     double body[16];
-    Standing(journey.Carried(), body);
+    Standing(drive.State.Body, body);
     double whereBuilt[16];
     for (int at = 0; at < 16; ++at) { whereBuilt[at] = (at % 5) == 0 ? 1.0 : 0.0; }
     if (!standing->Carry(body, whereBuilt, error)) {
@@ -334,7 +338,7 @@ int main(void) {
       break;
     }
     const outshine::View &view = declared.Views[along < 0.5 ? 0 : 1];
-    standing->Eye(Seen(journey.Carried(), view));
+    standing->Eye(Seen(drive.State.Body, view));
 
     const auto began = std::chrono::steady_clock::now();
     if (!standing->Advance(error)) {
@@ -455,7 +459,7 @@ int main(void) {
         "chunk size**, so what is refuted is that a stall appears AT THIS SIZE, and board:1534 "
         "still owns what happens when the chunk carries a town");
 
-  journey.Close();
+  stack.Close();
 
   Covers("I.4.6 the road the car drives is the road the renderer draws: the corridor sweeps into a "
          "solid, becomes a Subject without passing through a file, and stands up at 1280 by 720 "

@@ -17,7 +17,8 @@
 #include <outshine/Store.h>
 
 #include "Assembly.h"
-#include "Journey.h"
+#include "DriveAssembly.h"
+#include "GroundStack.h"
 #include "ScenarioRead.h"
 #include "Live.h"
 #include "PreparedRoot.h"
@@ -26,7 +27,9 @@
 #include "Carriageway.h"
 #include "Ribbon.h"
 
-using outshine::Sim::Journey;
+using outshine::Sim::AssembleDrive;
+using outshine::Sim::DriveProduct;
+using outshine::World::GroundStack;
 using outshine::Sim::Ridden;
 using outshine::Sink;
 
@@ -83,11 +86,12 @@ struct Along {
   double EastM, HeightM, NorthM, LowestM;
 };
 
-bool Lie(const Journey &journey, const double aboutM[3], const double originM[3],
+bool Lie(const GroundStack &stack, const DriveProduct &drive, const double aboutM[3],
+         const double originM[3],
          const outshine::Section &section, double fromM, double toM, std::vector<Along> &centre,
          Ground &out) {
   double frameLat = 0.0, frameLon = 0.0, perLatM = 1.0, perLonM = 1.0;
-  journey.Frame(frameLat, frameLon, perLatM, perLonM);
+  frameLat = drive.Way.FrameLat; frameLon = drive.Way.FrameLon; perLatM = drive.Way.PerLatM; perLonM = drive.Way.PerLonM;
   const int side = (int)(2.0 * kGroundReachM / kGroundStepM) + 1;
   out.PositionM.clear();
   out.NormalM.clear();
@@ -96,10 +100,10 @@ bool Lie(const Journey &journey, const double aboutM[3], const double originM[3]
   centre.clear();
   for (double atM = fromM; atM <= toM; atM += kCentreStepM) {
     outshine::Placed on;
-    if (!journey.Corridor().At(atM, on)) { continue; }
-    const outshine::Standing top = StandAt(journey.Corridor(), atM, 0.0, 0.0);
-    const outshine::Standing left = StandAt(journey.Corridor(), atM, -section.HalfWidthM, 0.0);
-    const outshine::Standing right = StandAt(journey.Corridor(), atM, section.HalfWidthM, 0.0);
+    if (!drive.Way.Line.At(atM, on)) { continue; }
+    const outshine::Standing top = StandAt(drive.Way.Line, atM, 0.0, 0.0);
+    const outshine::Standing left = StandAt(drive.Way.Line, atM, -section.HalfWidthM, 0.0);
+    const outshine::Standing right = StandAt(drive.Way.Line, atM, section.HalfWidthM, 0.0);
     const double lowestM = std::fmin(top.HeightM, std::fmin(left.HeightM, right.HeightM));
     centre.push_back(Along{on.EastM, top.HeightM, on.NorthM, lowestM});
   }
@@ -113,12 +117,12 @@ bool Lie(const Journey &journey, const double aboutM[3], const double originM[3]
     for (int column = 0; column < side; ++column) {
       const double eastM = aboutM[0] - kGroundReachM + (double)column * kGroundStepM;
       const outshine::GroundSample sample =
-          journey.Ground().At(frameLat + northM / perLatM, frameLon + eastM / perLonM);
+          stack.Ground().At(frameLat + northM / perLatM, frameLon + eastM / perLonM);
       double aslM = 0.0;
       if (!sample.TryAslM(&aslM)) { ++out.Holes; }
 
       double alongM = hintM;
-      if (!journey.Corridor().Nearest(eastM, northM, hintM, kHintWindowM, alongM)) {
+      if (!drive.Way.Line.Nearest(eastM, northM, hintM, kHintWindowM, alongM)) {
         alongM = hintM;
       }
       hintM = alongM;
@@ -201,7 +205,7 @@ bool Lie(const Journey &journey, const double aboutM[3], const double originM[3]
       for (int column = 0; column < farSide; ++column) {
         const double eastM = aboutM[0] - kHorizonReachM + (double)column * kFarStepM;
         const outshine::GroundSample sample =
-            journey.Ground().At(frameLat + northM / perLatM, frameLon + eastM / perLonM);
+            stack.Ground().At(frameLat + northM / perLatM, frameLon + eastM / perLonM);
         double aslM = lastAslM;
         if (sample.TryAslM(&aslM)) { lastAslM = aslM; }
         const double dEastM = eastM - aboutM[0];
@@ -307,7 +311,8 @@ int main(void) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
   Quiet quiet;
-  Journey journey;
+  GroundStack stack;
+  DriveProduct drive;
   outshine::Host::CurlTransport::Config wiring;
   outshine::Host::CurlTransport wire(wiring);
   std::string scenarioText;
@@ -341,8 +346,8 @@ int main(void) {
     std::printf("REFUSED %s\n", readError.c_str());
     return Report();
   }
-  const bool laid = journey.Lay(scene, cast, vehicles, drives, declared.Ground, wire,
-      outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, quiet);
+  const bool laid = AssembleDrive(scene, cast, vehicles, drives, declared.Ground, stack, wire,
+      outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, quiet, drive);
   CHECK(laid, "the road is laid, exactly as the drive lays it");
   if (!laid) { return Report(); }
 
@@ -372,7 +377,7 @@ int main(void) {
         "material (board:1511). At 0.015550 m per unit the bounding box draws 4.63 m long, 2.06 m "
         "wide over the mirrors and 1.47 m tall over the antenna -- an F31 is 4.624, 2.03 and 1.44, "
         "so THREE independent dimensions agree and none of them set the scale");
-  const double routeM = journey.LengthM();
+  const double routeM = drive.Way.Line.LengthM();
   Note("the route the stills are taken along", routeM / 1000.0, "km");
 
   std::vector<double> atM;
@@ -395,7 +400,7 @@ int main(void) {
   double laidFromM = 0.0;
   double laidToM = kShownM;
   double roadAt[16];
-  outshine::Ribbon ribbon = Sweep(journey.Corridor(), section, laidFromM, laidToM, kRibbonStepM);
+  outshine::Ribbon ribbon = Sweep(drive.Way.Line, section, laidFromM, laidToM, kRibbonStepM);
   CHECK(ribbon.Woven, "and its first run sweeps into a solid");
   double originM[3] = {ribbon.OriginM[0], ribbon.OriginM[1], ribbon.OriginM[2]};
   for (int at = 0; at < 16; ++at) { roadAt[at] = (at % 5) == 0 ? 1.0 : 0.0; }
@@ -410,7 +415,7 @@ int main(void) {
   Ground ground;
   double aboutM[3] = {ribbon.OriginM[0], ribbon.OriginM[1], ribbon.OriginM[2]};
   std::vector<Along> centre;
-  const bool lies = Lie(journey, aboutM, originM, section, 0.0, kShownM, centre, ground);
+  const bool lies = Lie(stack, drive, aboutM, originM, section, 0.0, kShownM, centre, ground);
   Note("holes the ground sampling met", (double)ground.Holes, "posts");
   CHECK(lies, "**AND THE GROUND UNDER THE ROAD IS SAMPLED FROM THE FIELD THE WHEELS STAND ON.** "
               "the journey's own GroundStream is what the drive already asks for every contact, so the drawn "
@@ -509,12 +514,12 @@ int main(void) {
   long wrote = 0;
   for (long frame = 0; frame < 40000000L && next < atM.size(); ++frame) {
     for (long step = 0; step < 17; ++step) {
-      rode = journey.Ride(kStepS, nullptr);
+      rode = outshine::Sim::DriveTick(drive.Way, drive.Stood, drive.Car, drive.State, kStepS, nullptr);
       if (!rode.Found || rode.Arrived || rode.Lost) { break; }
     }
     if (!rode.Found || rode.Lost) { break; }
     double body16[16];
-    Standing(journey.Carried(), assetM, shiftM, body16);
+    Standing(drive.State.Body, assetM, shiftM, body16);
     for (int axis = 0; axis < 3; ++axis) { body16[12 + axis] -= originM[axis]; }
     const double strayEastM = body16[12] + originM[0] - groundAtM[0];
     const double strayNorthM = body16[14] + originM[2] - groundAtM[2];
@@ -526,7 +531,7 @@ int main(void) {
       laidFromM = rode.ReachedM > kBehindM ? rode.ReachedM - kBehindM : 0.0;
       laidToM = laidFromM + kShownM;
       const outshine::Ribbon nextRun =
-          Sweep(journey.Corridor(), section, laidFromM, laidToM, kRibbonStepM);
+          Sweep(drive.Way.Line, section, laidFromM, laidToM, kRibbonStepM);
       if (nextRun.Woven) {
         piece.PositionsM =
             outshine::Span<const float>(nextRun.PositionM.data(), nextRun.PositionM.size());
@@ -538,7 +543,7 @@ int main(void) {
         double aheadNow[3];
         {
           const double aheadBody[3] = {0.0, 0.0, -1.0};
-          outshine::Physics::Turn(journey.Carried().OrientationQ, aheadBody, aheadNow);
+          outshine::Physics::Turn(drive.State.Body.OrientationQ, aheadBody, aheadNow);
         }
         double aboutNow[3] = {body16[12] + originM[0] + aheadNow[0] * kGridAheadM,
                               body16[13] + originM[1],
@@ -547,7 +552,7 @@ int main(void) {
         outshine::Gltf::Piece lyingNow;
         lyingNow.NodeName = "ground";
         lyingNow.Material = 0;
-        const bool lay = Lie(journey, aboutNow, nextRun.OriginM, section, laidFromM, laidToM,
+        const bool lay = Lie(stack, drive, aboutNow, nextRun.OriginM, section, laidFromM, laidToM,
                               centre, under);
         if (lay) {
           lyingNow.PositionsM =
@@ -561,9 +566,9 @@ int main(void) {
                         outshine::Span<const outshine::Gltf::Piece>(pair, 2)})) {
           {
             outshine::Placed on;
-            const bool found = journey.Corridor().At(rode.ReachedM, on);
+            const bool found = drive.Way.Line.At(rode.ReachedM, on);
             const outshine::Standing deck =
-                StandAt(journey.Corridor(), rode.ReachedM, 0.0, 0.0);
+                StandAt(drive.Way.Line, rode.ReachedM, 0.0, 0.0);
             const double carEastM = body16[12] + originM[0];
             const double carUpM = body16[13] + originM[1];
             const double carNorthM = -(body16[14] + originM[2]);
@@ -594,12 +599,12 @@ int main(void) {
       std::printf("BOUNDS min %.1f %.1f %.1f  max %.1f %.1f %.1f\n", shown.MinM()[0],
                   shown.MinM()[1], shown.MinM()[2], shown.MaxM()[0], shown.MaxM()[1],
                   shown.MaxM()[2]);
-      const outshine::Physics::Body &car = journey.Carried();
+      const outshine::Physics::Body &car = drive.State.Body;
       std::printf("BODY at %.1f %.1f %.1f\n", car.PositionM[0], car.PositionM[1],
                   car.PositionM[2]);
     }
     double body[16];
-    Standing(journey.Carried(), assetM, shiftM, body);
+    Standing(drive.State.Body, assetM, shiftM, body);
     for (int axis = 0; axis < 3; ++axis) { body[12 + axis] -= originM[axis]; }
     for (int person = 0; person < 2; ++person) {
       if (person == 0) {
@@ -613,19 +618,19 @@ int main(void) {
         std::printf("REFUSED carry: %s\n", error.c_str());
         break;
       }
-      outshine::Gltf::Placement where = Seen(journey.Carried(), declared.Views[person]);
+      outshine::Gltf::Placement where = Seen(drive.State.Body, declared.Views[person]);
       for (int axis = 0; axis < 3; ++axis) { where.EyeM[axis] -= originM[axis]; }
       if (person == 0) {
         double fLat = 0.0, fLon = 0.0, pLat = 1.0, pLon = 1.0;
-        journey.Frame(fLat, fLon, pLat, pLon);
+        fLat = drive.Way.FrameLat; fLon = drive.Way.FrameLon; pLat = drive.Way.PerLatM; pLon = drive.Way.PerLonM;
         const double carEastM = body[12] + originM[0];
         const double carNorthM = -(body[14] + originM[2]);
         const outshine::GroundSample under =
-            journey.Ground().At(fLat + carNorthM / pLat, fLon + carEastM / pLon);
+            stack.Ground().At(fLat + carNorthM / pLat, fLon + carEastM / pLon);
         double aslM = 0.0;
         if (under.TryAslM(&aslM)) {
           const double roadAslM =
-              journey.Carried().PositionM[1] - declaredCar.CentreOfMassM[1];
+              drive.State.Body.PositionM[1] - declaredCar.CentreOfMassM[1];
           const double cutFillM = roadAslM - aslM;
           std::printf("CUTFILL at %.1f km the road stands %+.2f m against raw ground of %.2f m asl\n",
                       rode.ReachedM / 1000.0, cutFillM, aslM);
@@ -667,7 +672,7 @@ int main(void) {
       {
         const double aheadBody[3] = {0.0, 0.0, -1.0};
         double aheadCar[3];
-        outshine::Physics::Turn(journey.Carried().OrientationQ, aheadBody, aheadCar);
+        outshine::Physics::Turn(drive.State.Body.OrientationQ, aheadBody, aheadCar);
 
         constexpr double kBeautyBackM = 14.0;
         constexpr double kBeautySideM = 9.0;

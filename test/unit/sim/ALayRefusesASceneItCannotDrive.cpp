@@ -10,7 +10,8 @@
 #include <outshine/Scenario.h>
 #include <outshine/Store.h>
 
-#include "Journey.h"
+#include "DriveAssembly.h"
+#include "GroundStack.h"
 #include "Sink.h"
 #include "Transport.h"
 
@@ -23,7 +24,9 @@ using outshine::Role;
 using outshine::Store;
 using outshine::Vehicle;
 using outshine::WorldSettings;
-using outshine::Sim::Journey;
+using outshine::Sim::AssembleDrive;
+using outshine::Sim::DriveProduct;
+using outshine::World::GroundStack;
 using outshine::Sim::Provision;
 using outshine::Sink;
 
@@ -80,10 +83,11 @@ int main(void) {
 
   Quiet quiet;
   NoWire wire;
-  Journey journey;
+  GroundStack stack;
+  DriveProduct product;
   const WorldSettings world;
-  CHECK(!journey.Lay(scene, cast, vehicles, drives, world, wire,
-                     Provision{"/tmp/outshine-drive-cache", "src/assets"}, quiet),
+  CHECK(!AssembleDrive(scene, cast, vehicles, drives, world, stack, wire,
+                     Provision{"/tmp/outshine-drive-cache", "src/assets"}, quiet, product),
         "**A MIND ASSIGNED ELSEWHERE REFUSES THE LAY INSTEAD OF LOGGING AND DRIVING ANYWAY** -- "
         "the claim and the refusal are one predicate, not a printed claim and a weaker guard");
   CHECK(wire.Asked == 0, "and the refusal happens before the journey asks the world for anything");
@@ -101,12 +105,13 @@ int main(void) {
             held.Link(right.PlayerMind, Relation::Uses, heldNav) &&
             held.Link(right.PlayerMind, Relation::Assigned, right.Assignment),
         "and assembles correctly");
-  Journey second;
-  CHECK(!second.Lay(held, right, heldCars, heldDrives, world, wire, Provision{"", ""}, quiet),
+  GroundStack secondStack;
+  DriveProduct secondProduct;
+  CHECK(!AssembleDrive(held, right, heldCars, heldDrives, world, secondStack, wire, Provision{"", ""}, quiet, secondProduct),
         "an unprovisioned journey refuses at the same head");
   CHECK(wire.Asked == 0, "still without asking the world");
 
-  Covers("II.14 Journey::Lay refuses at its head: an unprovisioned caller, a car without a "
+  Covers("II.14 AssembleDrive refuses at its head: an unprovisioned caller, a car without a "
          "declaration, or a mind whose Assigned pair does not target the cast's assignment "
          "all end the lay before any provider is asked -- refusal at assembly, not a log line");
   return Report();

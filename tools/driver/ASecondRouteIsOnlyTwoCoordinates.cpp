@@ -11,10 +11,13 @@
 #include <outshine/Store.h>
 
 #include "Assembly.h"
-#include "Journey.h"
+#include "DriveAssembly.h"
+#include "GroundStack.h"
 #include "ScenarioRead.h"
 
-using outshine::Sim::Journey;
+using outshine::Sim::AssembleDrive;
+using outshine::Sim::DriveProduct;
+using outshine::World::GroundStack;
 using outshine::Sim::Ridden;
 using outshine::Sink;
 
@@ -49,7 +52,8 @@ int main(void) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
   Harness harness;
-  Journey journey;
+  GroundStack stack;
+  DriveProduct drive;
 
   outshine::Host::CurlTransport::Config wiring;
   outshine::Host::CurlTransport wire(wiring);
@@ -82,7 +86,7 @@ int main(void) {
     std::printf("REFUSED %s\n", readError.c_str());
     return Report();
   }
-  const bool laid = journey.Lay(scene, stood, vehicles, drives, declared.Ground, wire, outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, harness);
+  const bool laid = AssembleDrive(scene, stood, vehicles, drives, declared.Ground, stack, wire, outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, harness, drive);
   CHECK(laid,
         "**A SECOND ROUTE IS ONLY TWO COORDINATES.** Kyoto Station to Osaka Castle -- another "
         "continent, another road network, the same code, the same declaration, and NOTHING "
@@ -94,14 +98,14 @@ int main(void) {
   const auto began = std::chrono::steady_clock::now();
   Ridden rode;
   for (long step = 0; step < kMostSteps; ++step) {
-    rode = journey.Ride(kStepS);
+    rode = outshine::Sim::DriveTick(drive.Way, drive.Stood, drive.Car, drive.State, kStepS, nullptr);
     if (!rode.Found || rode.Arrived || rode.Lost || rode.PastLimit || rode.OffTheRoad) { break; }
   }
   const double wallS =
       std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
 
   Note("how far the car drove", rode.ReachedM / 1000.0, "km");
-  Note("of a corridor this long", journey.LengthM() / 1000.0, "km");
+  Note("of a corridor this long", drive.Way.Line.LengthM() / 1000.0, "km");
   Note("the fastest it went", rode.TopMs * 3.6, "km/h");
   Note("hours simulated", rode.SimulatedS / 3600.0, "h");
   Note("seconds of wall clock", wallS, "s");
@@ -111,7 +115,7 @@ int main(void) {
   CHECK(rode.Found && !rode.Lost && !rode.PastLimit && !rode.OffTheRoad,
         "the drive ended by arriving or by the corridor's own end, never by losing the road, "
         "breaking a contact limit or leaving the lane");
-  CHECK(rode.ReachedM > journey.LengthM() * 0.999,
+  CHECK(rode.ReachedM > drive.Way.Line.LengthM() * 0.999,
         "**AND THE F31 DROVE ITSELF FROM KYOTO TO OSAKA.** The same headless Ride, the same "
         "physics, the same speed plan from the geometry alone -- on ways it had never seen. "
         "Worldwide is a measurement now, not a word in a vision file");

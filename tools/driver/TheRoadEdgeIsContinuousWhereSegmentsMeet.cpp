@@ -10,11 +10,14 @@
 #include <outshine/Store.h>
 
 #include "Assembly.h"
-#include "Journey.h"
+#include "DriveAssembly.h"
+#include "GroundStack.h"
 #include "ScenarioRead.h"
 #include "Ribbon.h"
 
-using outshine::Sim::Journey;
+using outshine::Sim::AssembleDrive;
+using outshine::Sim::DriveProduct;
+using outshine::World::GroundStack;
 using outshine::Sink;
 using outshine::Ribbon;
 using outshine::Section;
@@ -46,7 +49,8 @@ int main(void) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
   Quiet quiet;
-  Journey journey;
+  GroundStack stack;
+  DriveProduct drive;
   outshine::Host::CurlTransport::Config wiring;
   outshine::Host::CurlTransport wire(wiring);
   std::string scenarioText;
@@ -80,8 +84,8 @@ int main(void) {
     std::printf("REFUSED %s\n", readError.c_str());
     return Report();
   }
-  CHECK(journey.Lay(scene, stood, vehicles, drives, declared.Ground, wire,
-      outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, quiet),
+  CHECK(AssembleDrive(scene, stood, vehicles, drives, declared.Ground, stack, wire,
+      outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, quiet, drive),
         "the route lays, exactly as the drive lays it");
 
   Section section;
@@ -89,7 +93,7 @@ int main(void) {
   section.ShoulderM = 2.5;
   section.ThicknessM = 0.35;
   for (const auto &window : kWindows) {
-    const Ribbon swept = Sweep(journey.Corridor(), section, window[0], window[1], kStepM);
+    const Ribbon swept = Sweep(drive.Way.Line, section, window[0], window[1], kStepM);
     if (!swept.Woven) { std::printf("REFUSED %s\n", swept.Error.c_str()); }
     CHECK(swept.Woven, "the window sweeps");
     if (!swept.Woven) { continue; }
