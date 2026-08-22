@@ -25,3 +25,19 @@ Demanded: the two clear rows gain their Required entries, the arguable three get
 verdict each (required or deliberately optional, one line why), and the proving test in
 test/render/outshine/client/AClientRunsAScenarioInFourLines.cpp gains a refusal case per new
 entry.
+
+---
+
+Closed: the two clear rows carry their entries -- audio/sound requires uri (a sound that
+names no source sounds nothing), input/bind requires event AND action (a bind IS the arrow
+between them). The three neighbours, adjudicated on record:
+
+- regions/door: REQUIRED from+to -- a door's identity IS its two ends; one end is a wall.
+- volumes/volume: fires stays OPTIONAL -- a volume is first a named PLACE (instances stand
+  `in` it); firing is one use of a place, not its identity.
+- vehicle: name/asset stay OPTIONAL -- the singleton vehicle element is identified by its
+  position in the scenario, exactly like world, which requires nothing.
+
+Proving test: AClientRunsAScenarioInFourLines gained three refusal rows (sound sans uri,
+bind sans event, door with one end), nine typo cases total, each quoting the missing name.
+Gate 130/130 warm.

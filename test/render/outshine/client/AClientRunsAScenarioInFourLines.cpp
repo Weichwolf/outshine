@@ -345,6 +345,12 @@ int main(void) {
        "<scenario name=\"t\"><instances><instance x=\"1\"/></instances></scenario>", "of"},
       {"a provider naming no kind",
        "<scenario name=\"t\"><providers><provider pin=\"3\"/></providers></scenario>", "kind"},
+      {"a sound naming no uri",
+       "<scenario name=\"t\"><audio><sound id=\"horn\"/></audio></scenario>", "uri"},
+      {"a bind naming no event",
+       "<scenario name=\"t\"><input><bind action=\"steer\"/></input></scenario>", "event"},
+      {"a door with one end",
+       "<scenario name=\"t\"><regions><door from=\"a\"/></regions></scenario>", "to"},
   };
   size_t refused = 0;
   for (const auto &typo : kTypos) {
