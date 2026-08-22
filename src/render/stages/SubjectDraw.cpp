@@ -1538,6 +1538,131 @@ std::array<float, SubjectDraw::kLightFloats> SubjectDraw::PackedLights(
   return packed;
 }
 
+namespace {
+
+const char *kDepthOnlyMsl = R"(
+struct S { float4x4 mvp; };
+struct VIn { float3 p [[attribute(0)]]; };
+struct VOut { float4 pos [[position]]; };
+vertex VOut vsDepth(VIn v [[stage_in]], constant S &s [[buffer(0)]]) {
+  VOut o;
+  o.pos = s.mvp * float4(v.p, 1.0);
+  return o;
+}
+fragment void fsDepth(VOut in [[stage_in]]) {}
+)";
+
+}
+
+bool SubjectDraw::ConfigureDepthOnly(const Gpu &gpu, std::string &error) {
+  if (DepthOnly_) { return true; }
+  SDL_GPUDevice *const device = gpu.Device;
+  if (device == nullptr) {
+    error = "the subject unit has no device, so no depth-only pipeline can be built";
+    return false;
+  }
+  const std::string source = std::string(kMslPrelude) + kDepthOnlyMsl;
+  SDL_GPUShaderCreateInfo wanted{};
+  wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
+  wanted.code_size = source.size();
+  wanted.format = SDL_GPU_SHADERFORMAT_MSL;
+  wanted.entrypoint = "vsDepth";
+  wanted.stage = SDL_GPU_SHADERSTAGE_VERTEX;
+  wanted.num_uniform_buffers = 1u;
+  const OwnedShader vertex(device, SDL_CreateGPUShader(device, &wanted));
+  wanted.entrypoint = "fsDepth";
+  wanted.stage = SDL_GPU_SHADERSTAGE_FRAGMENT;
+  wanted.num_uniform_buffers = 0u;
+  const OwnedShader fragment(device, SDL_CreateGPUShader(device, &wanted));
+  if (!vertex || !fragment) {
+    error = std::string("the depth-only shaders were refused: ") + SDL_GetError();
+    return false;
+  }
+
+  SDL_GPUVertexBufferDescription buffer{};
+  buffer.slot = 0;
+  buffer.pitch = 3 * sizeof(float);
+  buffer.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
+  SDL_GPUVertexAttribute attribute{};
+  attribute.location = 0;
+  attribute.buffer_slot = 0;
+  attribute.format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
+  attribute.offset = 0;
+
+  SDL_GPUGraphicsPipelineCreateInfo pipeline{};
+  pipeline.vertex_shader = vertex.Get();
+  pipeline.fragment_shader = fragment.Get();
+  pipeline.vertex_input_state.vertex_buffer_descriptions = &buffer;
+  pipeline.vertex_input_state.num_vertex_buffers = 1;
+  pipeline.vertex_input_state.vertex_attributes = &attribute;
+  pipeline.vertex_input_state.num_vertex_attributes = 1;
+  pipeline.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+  pipeline.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
+
+  pipeline.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_FRONT;
+  pipeline.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
+  pipeline.depth_stencil_state.enable_depth_test = true;
+  pipeline.depth_stencil_state.enable_depth_write = true;
+  pipeline.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_GREATER;
+  pipeline.target_info.num_color_targets = 0;
+  pipeline.target_info.has_depth_stencil_target = true;
+  pipeline.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
+  SDL_GPUGraphicsPipeline *made = SDL_CreateGPUGraphicsPipeline(device, &pipeline);
+  if (made == nullptr) {
+    error = std::string("the depth-only pipeline was refused: ") + SDL_GetError();
+    return false;
+  }
+  DepthOnly_ = OwnedPipeline(device, made);
+  return true;
+}
+
+void SubjectDraw::EncodeDepthOnly(const double lightFromWorld16[16], const double eye[3],
+                                  int atlasPx, const PassRecording &into) {
+  if (!DepthOnly_ || NIdx == 0 || Batches.empty() || !Vtx || !Idx || into.Pass == nullptr) {
+    return;
+  }
+  SDL_GPUViewport square{};
+  square.w = (float)atlasPx;
+  square.h = (float)atlasPx;
+  square.min_depth = 0.0f;
+  square.max_depth = 1.0f;
+  SDL_SetGPUViewport(into.Pass, &square);
+  SDL_BindGPUGraphicsPipeline(into.Pass, DepthOnly_.Get());
+  SDL_GPUBufferBinding vertices{Vtx.Get(), 0};
+  SDL_BindGPUVertexBuffers(into.Pass, 0, &vertices, 1);
+  SDL_GPUBufferBinding indices{Idx.Get(), 0};
+  SDL_BindGPUIndexBuffer(into.Pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+  float uniform[16];
+  uint32_t standing = ~0u;
+  const auto place = [&](uint32_t slot) {
+    const double *const model =
+        Placed_.empty() ? Model : Placed_.data() + (size_t)slot * 16u;
+    double carried[16];
+    for (int i = 0; i < 16; i++) { carried[i] = model[i]; }
+    for (int axis = 0; axis < 3; ++axis) { carried[12 + axis] += Anchor[axis] - eye[axis]; }
+    double placed[16];
+    for (int row = 0; row < 4; ++row) {
+      for (int column = 0; column < 4; ++column) {
+        double sum = 0.0;
+        for (int over = 0; over < 4; ++over) {
+          sum += lightFromWorld16[over * 4 + row] * carried[column * 4 + over];
+        }
+        placed[column * 4 + row] = sum;
+      }
+    }
+    for (int i = 0; i < 16; i++) { uniform[i] = (float)placed[i]; }
+    SDL_PushGPUVertexUniformData(into.Commands, 0, uniform, sizeof uniform);
+  };
+  for (const DrawBatch &batch : Batches) {
+    if (batch.ModelSlot != standing) {
+      place(batch.ModelSlot);
+      standing = batch.ModelSlot;
+    }
+    SDL_DrawGPUIndexedPrimitives(into.Pass, batch.IndexCount, 1, batch.FirstIndex, 0, 0);
+  }
+}
+
 uint32_t SubjectDraw::DrawCount() const {
   uint32_t drawn = 0;
   for (const DrawBatch &batch : Batches) { drawn += batch.Draws; }

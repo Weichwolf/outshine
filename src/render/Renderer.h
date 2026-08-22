@@ -20,6 +20,7 @@
 #include "stages/CompositeTransmissionStage.h"
 #include "stages/MediumMultiScatterStage.h"
 #include "stages/MediumRadianceStage.h"
+#include "stages/LightVisibilityStage.h"
 #include "stages/SkyStage.h"
 #include "stages/MediumTransmittanceStage.h"
 #include "stages/TonemapStage.h"
@@ -65,6 +66,7 @@ public:
   [[nodiscard]] ReadState ReadPixels(std::vector<uint8_t> &rgba);
 
   [[nodiscard]] ReadState ReadDepth(std::vector<float> &depth);
+  [[nodiscard]] ReadState ReadShadowAtlas(std::vector<float> &depth);
   static constexpr float kNearM = 0.05f;
 
   [[nodiscard]] ReadState ReadSceneLinear(std::vector<float> &rgba);
@@ -111,6 +113,12 @@ public:
     MultiScatter_.Declare(medium);
     Radiance_.Declare(medium, CosSunZenith_, EyeHeightM_);
   }
+
+  void SetShadowFrame(const float toSun[3], const float up[3], double radiusM) {
+    Shadow_.Declare(toSun, up, radiusM);
+  }
+
+  void ShadowCentre(const double centreM[3]) { Shadow_.Frame(centreM); }
 
   void SetSky(const float toSun[3], const float up[3], float illuminanceLux, float eyeHeightM) {
     CosSunZenith_ = toSun[0] * up[0] + toSun[1] * up[1] + toSun[2] * up[2];
@@ -176,6 +184,7 @@ private:
   Gpu Handles;
   OwnedTexture HdrTex, VelTex, DepthTex, FrameTex;
   OwnedTexture TransmittanceLut_, MultiScatterLut_, SkyViewLut_;
+  OwnedTexture ShadowAtlas_;
 
   OwnedTexture TransmissiveTex, CompositedTex;
 
@@ -194,6 +203,7 @@ private:
   MediumMultiScatterStage MultiScatter_;
   MediumRadianceStage Radiance_;
   SkyStage Sky_;
+  LightVisibilityStage Shadow_;
   Medium Medium_;
   float CosSunZenith_ = 1.0f;
   float EyeHeightM_ = 0.0f;

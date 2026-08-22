@@ -157,6 +157,10 @@ public:
 
   void Encode(const FrameContext &ctx, const PassRecording &into);
 
+  [[nodiscard]] bool ConfigureDepthOnly(const Gpu &gpu, std::string &error);
+  void EncodeDepthOnly(const double lightFromWorld16[16], const double eye[3], int atlasPx,
+                       const PassRecording &into);
+
   uint32_t VertexCount() const { return NVerts; }
   long TriangleCount() const { return (long)NIdx / 3; }
 
@@ -256,6 +260,8 @@ private:
     Vertex, Emitted, Normal, Tangent, Uv, Uv1, Colour, Previous, BvhNodes, BvhTriangles, Count
   };
   std::array<uint32_t, (size_t)Stream::Count> Held_{};
+
+  OwnedPipeline DepthOnly_;
 
   static constexpr size_t kStagingRing = 3;
   std::array<OwnedTransfer, kStagingRing> Staging_{};

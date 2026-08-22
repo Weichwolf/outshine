@@ -112,6 +112,7 @@ bool Renderer::Executable(Stage stage) {
     case Stage::MediumMultiScatter:
     case Stage::MediumRadiance:
     case Stage::Sky:
+    case Stage::LightVisibility:
     case Stage::Subjects:
     case Stage::Tonemap:
       return true;
@@ -125,7 +126,6 @@ bool Renderer::Executable(Stage stage) {
       return true;
     case Stage::Irradiance:
     case Stage::AutoExposure:
-    case Stage::LightVisibility:
     case Stage::Sun:
     case Stage::Moon:
     case Stage::Stars:
@@ -313,7 +313,19 @@ void Renderer::Create(Resource resource) {
     case Resource::VegetationTable:
     case Resource::IrradianceBuffer:
     case Resource::Meter:
-    case Resource::ShadowAtlas:
+    case Resource::ShadowAtlas: {
+      SDL_GPUTextureCreateInfo wanted{};
+      wanted.type = SDL_GPU_TEXTURETYPE_2D;
+      wanted.format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
+      wanted.usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
+      wanted.width = (uint32_t)kShadowAtlasPx;
+      wanted.height = (uint32_t)kShadowAtlasPx;
+      wanted.layer_count_or_depth = 1;
+      wanted.num_levels = 1;
+      wanted.sample_count = SDL_GPU_SAMPLECOUNT_1;
+      ShadowAtlas_ = OwnedTexture(Device_.Get(), SDL_CreateGPUTexture(Device_.Get(), &wanted));
+      return;
+    }
     case Resource::AoBuffer:
       return;
 
@@ -346,6 +358,7 @@ SDL_GPUTexture *Renderer::Target(Resource resource) const {
     case Resource::TransmittanceLut: return TransmittanceLut_.Get();
     case Resource::MultiScatterLut: return MultiScatterLut_.Get();
     case Resource::SkyViewLut: return SkyViewLut_.Get();
+    case Resource::ShadowAtlas: return ShadowAtlas_.Get();
     case Resource::LinearSampler:
     case Resource::LutSampler:
     case Resource::AtmosphereUniform:
@@ -353,7 +366,6 @@ SDL_GPUTexture *Renderer::Target(Resource resource) const {
     case Resource::VegetationTable:
     case Resource::IrradianceBuffer:
     case Resource::Meter:
-    case Resource::ShadowAtlas:
     case Resource::AoBuffer:
       return nullptr;
 
@@ -445,9 +457,10 @@ bool Renderer::Configure(Stage stage, std::string &error) {
                                  LutSamp.Get(), SkyViewLut_.Get(), error);
     case Stage::Sky:
       return Sky_.Configure(Handles, SkyViewLut_.Get(), LutSamp.Get(), error);
+    case Stage::LightVisibility:
+      return Shadow_.Configure(Subjects_, Handles, error);
     case Stage::Irradiance:
     case Stage::AutoExposure:
-    case Stage::LightVisibility:
     case Stage::Sun:
     case Stage::Moon:
     case Stage::Stars:
@@ -544,6 +557,9 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
     case Stage::MediumRadiance:
       Radiance_.Encode(into);
       return;
+    case Stage::LightVisibility:
+      Shadow_.Encode(ctx, into);
+      return;
     case Stage::Sky: {
       within(true);
       const float tanHalfH = std::tan((float)(FovDeg * 3.14159265358979 / 180.0) * 0.5f);
@@ -561,7 +577,6 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
     }
     case Stage::Irradiance:
     case Stage::AutoExposure:
-    case Stage::LightVisibility:
     case Stage::Sun:
     case Stage::Moon:
     case Stage::Stars:
@@ -746,6 +761,18 @@ ReadState Renderer::ReadSceneLinear(std::vector<float> &rgba) {
     std::memcpy(&bits, read.Rows() + component * sizeof(uint16_t), sizeof bits);
     rgba[component] = HalfToFloat(bits);
   }
+  return ReadState::Ready;
+}
+
+ReadState Renderer::ReadShadowAtlas(std::vector<float> &depth) {
+  if (!Ready || !ShadowAtlas_) { return ReadState::Failed; }
+  Readback read;
+  if (read.FromTexture(Device_.Get(), ShadowAtlas_.Get(), (uint32_t)kShadowAtlasPx,
+                       (uint32_t)kShadowAtlasPx, 4u) != ReadState::Ready) {
+    return ReadState::Failed;
+  }
+  depth.resize((size_t)kShadowAtlasPx * (size_t)kShadowAtlasPx);
+  std::memcpy(depth.data(), read.Rows(), depth.size() * sizeof(float));
   return ReadState::Ready;
 }
 

@@ -42,13 +42,14 @@ void AsOverlay(const std::vector<Ui::Quad> &from, double offsetX, double offsetY
 }
 
 void DeclarePlan(const Gltf::Document &file, bool moves, bool presents, bool sky,
-                 Render::PlanSpec &declaration) {
+                 bool shadows, Render::PlanSpec &declaration) {
   declaration.Outputs = {Render::Resource::FrameTex};
   if (presents) { declaration.Outputs.push_back(Render::Resource::Surface); }
 
   if (moves) { declaration.Outputs.push_back(Render::Resource::SceneVelocity); }
   declaration.Content = {Render::Stage::Subjects, Render::Stage::Overlay};
   if (sky) { declaration.Content.push_back(Render::Stage::Sky); }
+  if (shadows) { declaration.Content.push_back(Render::Stage::LightVisibility); }
   bool carriesGlass = false;
   for (const Gltf::MaterialRef &material : file.Materials()) {
     const SurfaceKind kind = StateOf(material.Surface).Kind();
@@ -151,7 +152,8 @@ bool Live::Build(std::string &error) {
   }
 
   Render::PlanSpec declaration;
-  DeclarePlan(File_, Moves_, Declared_.Presents, Declared_.DrawsSky, declaration);
+  DeclarePlan(File_, Moves_, Declared_.Presents, Declared_.DrawsSky,
+              Declared_.ShadowRadiusM > 0.0, declaration);
   if (Declared_.Exposure > 0.0) {
     declaration.Exposure = Render::Declared<float>((float)Declared_.Exposure);
   } else if (Declared_.KeyLux > 0.0) {
@@ -192,6 +194,9 @@ bool Live::Build(std::string &error) {
     }
     SkyStands_ = true;
     Renderer_->SetSky(toSun, up, (float)Declared_.KeyLux, 0.0f);
+    if (Declared_.ShadowRadiusM > 0.0) {
+      Renderer_->SetShadowFrame(toSun, up, Declared_.ShadowRadiusM);
+    }
   }
 
   const double eye[3] = {0.0, 0.0, 0.0}, forward[3] = {0.0, 0.0, -1.0};
@@ -504,6 +509,13 @@ bool Live::Carry(const double body[16], const double built[16], std::string &err
     for (int at = 0; at < 16; ++at) { Stood_.PartPlacement[part][at] = from[at]; }
   }
   BoundsPlaced_ = false;
+  {
+    const double centreM[3] = {body[12], body[13], body[14]};
+    double centreEngine[3];
+    EcefFromGltf(centreM, centreEngine);
+    for (int axis = 0; axis < 3; ++axis) { centreEngine[axis] += kStudioAnchorEcefM[axis]; }
+    Renderer_->ShadowCentre(centreEngine);
+  }
   Placements(Stood_, Scratch_.Placements);
   return Renderer_->SetSubjectPlacements(Scratch_.Placements.data(),
                                          Stood_.PartPlacement.size(), error);

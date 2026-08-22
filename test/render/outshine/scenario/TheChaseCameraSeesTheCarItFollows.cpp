@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -133,6 +134,7 @@ int main(void) {
   declaration.KeyElevationDeg = 42.0;
   declaration.KeyBearingDeg = 150.0;
   declaration.DrawsSky = true;
+  declaration.ShadowRadiusM = 60.0;
 
   std::unique_ptr<Live> standing;
   std::string error;
@@ -282,7 +284,37 @@ int main(void) {
           "**AND THE CAR SURVIVES A RESTAND**, which the drive does at every relay");
   }
 
+  {
+    std::vector<float> atlas;
+    CHECK(renderer.ReadShadowAtlas(atlas) == outshine::Render::ReadState::Ready,
+          "the shadow atlas reads back");
+    size_t written = 0;
+    float nearest = 0.0f, median = 0.0f;
+    std::vector<float> sample;
+    for (size_t at = 0; at < atlas.size(); at += 97) { sample.push_back(atlas[at]); }
+    std::sort(sample.begin(), sample.end());
+    if (!sample.empty()) { median = sample[sample.size() / 2]; }
+    for (const float texel : atlas) {
+      if (texel > 0.0f) { ++written; }
+      nearest = std::fmax(nearest, texel);
+    }
+    Note("atlas texels written by the sun's pass", (double)written, "texels");
+    Note("of the atlas", (double)written / (double)atlas.size(), "fraction");
+    Note("the nearest depth the sun sees", nearest, "");
+    Note("the median depth", median, "");
+    CHECK(written > atlas.size() * 9 / 10,
+          "**THE ATLAS HOLDS THE SCENE FROM THE SUN'S SEAT.** A 60 m orthographic frame centred "
+          "on the car over an 800 m ground writes essentially every texel -- an empty atlas is "
+          "what board:1575 opened on, six declared-and-unexecuted stages ago");
+    CHECK(nearest > median + 0.003f,
+          "**AND SOMETHING STANDS PROUD OF THE GROUND IN IT.** The car's roof is 1.44 m above "
+          "the deck; along the 42-degree sun that is at least 0.004 of the atlas's depth range "
+          "(1.44 * cos(48 deg) / 240 m), so the nearest texel (reverse depth, so the LARGEST) must beat the median by more than 0.003 -- a car-shaped dent in the sun's depth field, measured without rendering a "
+          "single shadowed pixel");
+  }
+
   Covers("I.4.6 a picture that carries a subject's parts draws them where the placement puts "
-         "them, measured from the chase offset the scenario declares");
+         "them, measured from the chase offset the scenario declares -- and the sun's own depth "
+         "atlas carries the same scene");
   return Report();
 }

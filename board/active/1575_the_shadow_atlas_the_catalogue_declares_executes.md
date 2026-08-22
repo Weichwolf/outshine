@@ -14,6 +14,11 @@ and caches nothing across frames. `LightVisibility` -> `ShadowAtlas` sit in the 
 What ships: cascaded/atlas maps rendered only when a light or the world under it moves, O(1)
 per pixel (id Tech 7 caches essentially all static shadows). The catalogue already names it.
 
-- [ ] `LightVisibility` renders the atlas; geometry stages sample it
-- [ ] the BVH ray remains for the render suites, selected by the declaration
+- [x] `LightVisibility` renders the atlas: a depth-only pass over the subject residency (empty
+      fragment -- Metal refuses a null one with a segfault, found the loud way), reverse-Z like
+      the scene, the orthographic sun texel-snapped in WORLD space so the camera-relative rebase
+      cannot shimmer it. Proven by readback: 4 194 304 texels written, the depth field structured
+      (nearest 0.774 against median 0.495) -- the atlas holds the scene from the sun's seat
+- [ ] the geometry shading samples the atlas (plan-selected against the BVH ray, which stays for
+      the oracle suites)
 - [ ] the sun's cast shadow lands in the driver's picture (the reviewer's standing finding)
