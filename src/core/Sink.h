@@ -1,10 +1,10 @@
-#ifndef OUTSHINE_SIM_SINK_H
-#define OUTSHINE_SIM_SINK_H
+#ifndef OUTSHINE_CORE_SINK_H
+#define OUTSHINE_CORE_SINK_H
 
 #include <cstddef>
 #include <string>
 
-namespace outshine::Sim {
+namespace outshine {
 
 class Sink {
 public:

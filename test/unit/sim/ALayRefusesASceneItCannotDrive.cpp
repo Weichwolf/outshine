@@ -25,7 +25,7 @@ using outshine::Vehicle;
 using outshine::WorldSettings;
 using outshine::Sim::Journey;
 using outshine::Sim::Provision;
-using outshine::Sim::Sink;
+using outshine::Sink;
 
 namespace {
 

@@ -24,6 +24,7 @@
 #include "RoadHarvest.h"
 #include "SourceSet.h"
 #include "TerrainLoader.h"
+#include "GroundStack.h"
 #include "TilePool.h"
 #include "VegetationTemplates.h"
 #include "Wayfinding.h"
@@ -54,10 +55,7 @@ constexpr double kJoinMs = 20.0;
 namespace outshine::Sim {
 
 struct Journey::State {
-  std::unique_ptr<outshine::Data::ContentStore> Store;
-  std::unique_ptr<outshine::Data::SourceSet> Sources;
-  std::unique_ptr<outshine::World::TilePool> Pool;
-  std::unique_ptr<outshine::World::GroundStream> Ground;
+  outshine::World::GroundStack Stack;
   outshine::Vehicle Car;
   outshine::Sim::Rigged Stood;
   outshine::Sim::Corridor Way;
@@ -71,14 +69,13 @@ Journey::~Journey() { Close(); }
 
 void Journey::Close(void) {
   if (S_ && S_->Opened) {
-    S_->Ground.reset();
-    S_->Pool.reset();
+    S_->Stack.Close();
     S_->Opened = false;
   }
 }
 
 const outshine::Physics::Body &Journey::Carried(void) const { return S_->Drive.Body; }
-outshine::World::GroundStream &Journey::Ground(void) const { return *S_->Ground; }
+outshine::World::GroundStream &Journey::Ground(void) const { return S_->Stack.Ground(); }
 
 const outshine::ReferenceLine &Journey::Corridor(void) const { return S_->Way.Line; }
 double Journey::LengthM(void) const { return S_->Way.Line.LengthM(); }
@@ -149,22 +146,9 @@ bool Journey::Lay(const Store &scene, const Assembled &cast, const Column<Vehicl
         "a vehicle without a declared width cannot be fitted to any road");
   if (!(carWidthM > 0.0)) { return false; }
 
-  outshine::Data::ContentStore::Config keeping;
-  keeping.Directory = kept.CacheDir;
-  S_->Store = std::make_unique<outshine::Data::ContentStore>(keeping);
-  S_->Sources = std::make_unique<outshine::Data::SourceSet>(*S_->Store);
-  outshine::Data::SourceSet &sources = *S_->Sources;
-  say.Claim(outshine::Data::RegisterDeclared(sources, {kept.AssetsDir + "/sky", true}) ==
-            outshine::Data::Registered::Complete,
-        "the declared upstream sources register, ranked and without a clash");
-  say.Number("sources registered", (double)sources.Count(), "sources");
-
-  outshine::World::GroundSurface surface;
-  surface.Z = 12;
-  surface.Grid = 64;
-  S_->Pool = std::make_unique<outshine::World::TilePool>(
-      outshine::World::GroundPoolConfig(middleLat, middleLon), sources, wire);
-  S_->Ground = std::make_unique<outshine::World::GroundStream>(*S_->Pool, surface);
+  if (!S_->Stack.Open(kept.CacheDir, kept.AssetsDir, middleLat, middleLon, wire, say)) {
+    return false;
+  }
 
   OsmField field(kZoom, OsmLayerNames({OsmLayer::Streets, OsmLayer::StreetPolygons}));
   const auto began = std::chrono::steady_clock::now();
@@ -176,7 +160,7 @@ bool Journey::Lay(const Store &scene, const Assembled &cast, const Column<Vehicl
     const double atLat = fromLatDeg + part * (toLatDeg - fromLatDeg);
     const double atLon = fromLonDeg + part * (toLonDeg - fromLonDeg);
     for (;;) {
-      built += field.Build(*S_->Pool, atLat, atLon, kCorridorRing);
+      built += field.Build(S_->Stack.Pool(), atLat, atLon, kCorridorRing);
       ++passes;
       if (field.PendingTiles() == 0) { break; }
       if (std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() >
@@ -298,7 +282,7 @@ bool Journey::Lay(const Store &scene, const Assembled &cast, const Column<Vehicl
                      "from the file, not from a constant beside it");
   if (!stood.Stood) { return false; }
 
-  if (!Sim::LayCorridor(route, *S_->Ground, S_->Car, stood, quantumM, tightestM,
+  if (!Sim::LayCorridor(route, S_->Stack.Ground(), S_->Car, stood, quantumM, tightestM,
                         middleLat, world.RadiusM, say, S_->Way, error)) {
     return false;
   }

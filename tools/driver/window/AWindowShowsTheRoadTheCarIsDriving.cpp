@@ -24,7 +24,7 @@
 
 using outshine::Sim::Journey;
 using outshine::Sim::Ridden;
-using outshine::Sim::Sink;
+using outshine::Sink;
 
 namespace {
 

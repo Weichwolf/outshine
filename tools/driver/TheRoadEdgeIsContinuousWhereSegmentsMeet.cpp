@@ -15,7 +15,7 @@
 #include "Ribbon.h"
 
 using outshine::Sim::Journey;
-using outshine::Sim::Sink;
+using outshine::Sink;
 using outshine::Ribbon;
 using outshine::Section;
 using outshine::Sweep;

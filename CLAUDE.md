@@ -203,7 +203,8 @@ flowchart TD
   Ephemeris & RegionForge --> Sim --> Renderer
   Frustum -.-> DrawList
   TilePool --> World["World — quadtree LOD · admission · kerbs"] --> Sim
-  GroundStream --> Journey["Journey — orchestration behind the door: handles and columns in, systems delegated"]
+  GroundStack["GroundStack — owns store · sources · pool · stream"] --> Journey["Journey — orchestration behind the door: handles and columns in, systems delegated"]
+  GroundStream --> Journey
   Journey --> CorridorLay["CorridorLay — route + ground → Corridor product"]
   Journey --> DriveTick["DriveTick — (Corridor, Rigged, DriveState) tick"]
   Journey -.-> Sim
@@ -218,6 +219,7 @@ flowchart TD
   class BuildingField,WaterField,Subject,DrawList,Renderer,TonemapStage,LightVisibilityStage,Frustum,Ephemeris,RegionForge,GltfStudio unsure
   class TilePool,World,SubjectDraw,Sim,Live wrong
   class Journey,CorridorLay,DriveTick unsure
+  class GroundStack sound
 ```
 
 Colours are ARCHITECTURE, adjudicated by an independent review (2026-08-22): green = right
