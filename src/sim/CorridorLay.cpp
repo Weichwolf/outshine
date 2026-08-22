@@ -417,8 +417,9 @@ bool LayCorridor(const World::Route &route, World::GroundStream &ground, const V
   const double weightN = stood.Envelope.MassKg * stood.Envelope.GravityMs2;
   const double fromRest = stood.Envelope.DriveN / weightN;
   const double topMs = stood.Envelope.TopMs();
-  const double dragAtTopN =
-      0.5 * stood.Envelope.AirDensity * stood.Envelope.DragArea * topMs * topMs;
+  const double dragAtTopN = std::isfinite(topMs)
+      ? 0.5 * stood.Envelope.AirDensity * stood.Envelope.DragArea * topMs * topMs
+      : 0.0;
   say.Number("the steepest the standing rig could climb from rest", fromRest * 100.0, "%");
   say.Number("the steepest it could hold at its own top speed",
        (stood.Envelope.DriveN - dragAtTopN) / weightN * 100.0, "%");

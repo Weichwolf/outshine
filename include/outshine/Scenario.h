@@ -35,6 +35,7 @@ struct WorldSettings {
   double Lon = 0.0;
   double RadiusM = 0.0;
   double GravityMs2 = 9.80665;
+  double AirDensityKgM3 = 1.2250;
   double WindDeg = 0.0;
   double WindMs = 0.0;
   double CloudCover = 0.0;
@@ -242,7 +243,6 @@ struct Vehicle {
   double BrakeTorqueNm = 0.0;
   double DragCoefficient = 0.0;
   double FrontalM2 = 0.0;
-  double AirDensity = 0.0;
   std::string SeatAt;
   double SeatM[3] = {0.0, 0.0, 0.0};
 };

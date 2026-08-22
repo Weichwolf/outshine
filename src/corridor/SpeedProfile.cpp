@@ -21,11 +21,11 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
   }
   if (!(within.Grip > 0.0) || !(within.GravityMs2 > 0.0) || !(within.MassKg > 0.0) ||
       !(within.DriveN > 0.0) || !(within.BrakeN > 0.0) || !(within.DragArea > 0.0) ||
-      !(within.AirDensity > 0.0)) {
+      within.AirDensity < 0.0) {
     error = "an envelope is a vehicle standing in a world and not a set of limits: it declares a "
             "friction coefficient, the world's gravity, a mass, a driving force, a braking force, "
-            "a drag area and an air density, and every acceleration is derived from those -- this "
-            "one leaves at least one at zero";
+            "a drag area and an air density (0 is a vacuum, less is not air) -- this one leaves a "
+            "vehicle term at zero or the air below nothing";
     return false;
   }
   const double lateralMs2 = within.HoldingMs2();

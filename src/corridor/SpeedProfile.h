@@ -2,6 +2,7 @@
 #define OUTSHINE_SPEEDPROFILE_H
 
 #include <cmath>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -35,7 +36,8 @@ struct Envelope {
   }
   [[nodiscard]] double TopMs(void) const {
     const double resistance = 0.5 * AirDensity * DragArea;
-    return resistance > 0.0 ? std::sqrt(DriveN / resistance) : 0.0;
+    return resistance > 0.0 ? std::sqrt(DriveN / resistance)
+                            : std::numeric_limits<double>::infinity();
   }
 };
 

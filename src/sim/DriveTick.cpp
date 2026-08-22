@@ -138,7 +138,7 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood, const Vehicle &car,
 
   outshine::Physics::Wrench wrench;
   outshine::Physics::Fall(wrench, body, gravity);
-  outshine::Physics::Resist(wrench, body, dragArea, car.AirDensity);
+  outshine::Physics::Resist(wrench, body, dragArea, stood.Envelope.AirDensity);
   const outshine::Physics::Reading read =
       outshine::Physics::Bear(rig, body, under, controls, wrench, dtS);
 

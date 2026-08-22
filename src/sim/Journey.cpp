@@ -289,7 +289,7 @@ bool Journey::Lay(const Store &scene, const Assembled &cast, const Column<Vehicl
 
 
   say.Number("the narrowest road on the route", reaped.NarrowestTakenM, "m");
-  stood = outshine::Sim::Stand(S_->Car, world.GravityMs2);
+  stood = outshine::Sim::Stand(S_->Car, world.GravityMs2, world.AirDensityKgM3);
   if (!stood.Stood) { say.Say(Line("REFUSED %s", stood.Error.c_str())); }
   say.Claim(stood.Stood, "**AND THE DECLARED F31 STANDS UP AS A RIG.** Every number the drive uses comes "
                      "from the file, not from a constant beside it");

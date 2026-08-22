@@ -50,7 +50,6 @@ Vehicle Plausible() {
   out.BrakeTorqueNm = 5000.0;
   out.DragCoefficient = 0.3;
   out.FrontalM2 = 2.2;
-  out.AirDensity = 1.225;
   out.CentreOfMassM[1] = 0.5;
   out.InertiaKgM2[0] = 1500.0;
   out.InertiaKgM2[1] = 1800.0;
@@ -132,7 +131,7 @@ int main(void) {
   const Vehicle car = Plausible();
   std::string error;
 
-  const Rigged onEarth = Stand(car, kEarthMs2);
+  const Rigged onEarth = Stand(car, kEarthMs2, 1.225);
   CHECK(onEarth.Stood, "the declaration stands as a rig under the declared 9.80665 m/s2");
   Corridor way;
   const bool laid = Straight(way, onEarth, kEdgeM, error);
@@ -153,10 +152,10 @@ int main(void) {
         "would throw every wheel off the ground within a step, so a grounded arrival IS the "
         "sign's regression net");
 
-  const Rigged onMoon = Stand(car, kMoonMs2);
+  const Rigged onMoon = Stand(car, kMoonMs2, 0.0);
   Corridor moonWay;
   CHECK(Straight(moonWay, onMoon, kEdgeM, error) && onMoon.Stood,
-        "the same corridor plans under a declared 1.62 m/s2");
+        "the same corridor plans under a declared 1.62 m/s2 IN VACUUM -- 0 kg/m3 is legal air");
   DriveState moonDrive;
   CHECK(Seat(moonDrive, moonWay, car, onMoon), "and the same car seats on it");
   const Ridden moon = RideOut(moonWay, onMoon, car, moonDrive);
@@ -165,8 +164,8 @@ int main(void) {
   Note("moon past a contact limit", moon.PastLimit ? 1.0 : 0.0, "flag");
   Note("moon lost the corridor", moon.Lost ? 1.0 : 0.0, "flag");
   CHECK(moon.Arrived && !moon.OffTheRoad,
-        "**A SIXTH OF THE GRAVITY STILL HOLDS THE CAR TO THE ROAD** -- less grip, lower planned "
-        "speeds, the same arrival, and nothing in the tick names a planet");
+        "**A SIXTH OF THE GRAVITY AND NO AIR AT ALL STILL HOLD THE CAR TO THE ROAD** -- less "
+        "grip, no drag, the same arrival, and nothing in the tick names a planet");
 
   Corridor kerb;
   CHECK(Straight(kerb, onEarth, 0.5, error), "a corridor whose edge is inside the car's track lays");

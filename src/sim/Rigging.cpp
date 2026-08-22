@@ -14,9 +14,14 @@ bool Refuse(Rigged &out, const std::string &why) {
 
 } // namespace
 
-Rigged Stand(const Vehicle &declared, double gravityMs2) {
+Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) {
   Rigged out;
 
+  if (airDensityKgM3 < 0.0) {
+    Refuse(out, "a world's air has a density of 0 (vacuum) or more, and this one declares " +
+                    std::to_string(airDensityKgM3) + " kg/m3");
+    return out;
+  }
   if (!(gravityMs2 > 0.0)) {
     Refuse(out, "a rig stands in a declared world, and this world declares a gravity of " +
                     std::to_string(gravityMs2) + " m/s2 -- nothing holds a wheel to the ground");
@@ -119,7 +124,7 @@ Rigged Stand(const Vehicle &declared, double gravityMs2) {
   out.Envelope.DriveN = declared.PeakTorqueNm * declared.FinalDrive / declared.TyreRadiusM;
   out.Envelope.BrakeN = declared.BrakeTorqueNm / declared.TyreRadiusM;
   out.Envelope.DragArea = declared.DragCoefficient * declared.FrontalM2;
-  out.Envelope.AirDensity = declared.AirDensity;
+  out.Envelope.AirDensity = airDensityKgM3;
 
   out.Stood = true;
   return out;

@@ -124,18 +124,19 @@ int main(void) {
         "and the ride frequency it implies is a road car's rather than a race car's -- a number "
         "DERIVED from the mass and the rate rather than declared beside them");
 
+  const double airKgM3 = read.Ground.AirDensityKgM3;
   CHECK(car.Grip > 0.0 && car.DragCoefficient > 0.0 && car.FrontalM2 > 0.0 &&
-            car.AirDensity > 0.0 && car.PeakTorqueNm > 0.0,
+            airKgM3 > 0.0 && car.PeakTorqueNm > 0.0,
         "every quantity the speed profile needs is physical: a friction coefficient, a drag "
-        "COEFFICIENT beside the frontal area it multiplies, an air density and a torque -- never a "
-        "top speed or a lateral limit somebody tuned");
+        "COEFFICIENT beside the frontal area it multiplies, the WORLD's air density and a torque "
+        "-- never a top speed or a lateral limit somebody tuned");
   const double dragAreaM2 = car.DragCoefficient * car.FrontalM2;
   const double driveN = car.PeakTorqueNm * car.FinalDrive / car.TyreRadiusM;
   Note("the drag area those two make", dragAreaM2, "m2");
-  Note("the top speed that implies", std::sqrt(driveN / (0.5 * car.AirDensity * dragAreaM2)) * 3.6,
+  Note("the top speed that implies", std::sqrt(driveN / (0.5 * airKgM3 * dragAreaM2)) * 3.6,
        "km/h");
-  CHECK(std::sqrt(driveN / (0.5 * car.AirDensity * dragAreaM2)) * 3.6 > 200.0 &&
-            std::sqrt(driveN / (0.5 * car.AirDensity * dragAreaM2)) * 3.6 < 280.0,
+  CHECK(std::sqrt(driveN / (0.5 * airKgM3 * dragAreaM2)) * 3.6 > 200.0 &&
+            std::sqrt(driveN / (0.5 * airKgM3 * dragAreaM2)) * 3.6 < 280.0,
         "**AND THE TWO MUST BE MULTIPLIED, WHICH IS WHY THE COEFFICIENT IS NAMED AS ONE.** Read "
         "0.66 as a drag AREA and this car does 344 km/h; read it as the coefficient it is and "
         "multiply by 2.19 m2 and it does 233 -- which is what an F31 does. A name that lies about a "

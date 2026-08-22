@@ -27,7 +27,7 @@ const Element kGrammar[] = {
      "instances regions volumes audio tables events views vehicle player drive physics clock input state layer",
      "name version epoch decay"},
     {"scenario/layer", "", "id path"},
-    {"scenario/world", "", "lat lon radiusM gravityMs2 windDeg windMs cloudCover"},
+    {"scenario/world", "", "lat lon radiusM gravityMs2 airDensityKgM3 windDeg windMs cloudCover"},
     {"scenario/render", "output stage",
      "widthPx heightPx fps fill orbitDegPerFrame transfer exposure precision"},
     {"scenario/render/output", "", "name"},
@@ -88,7 +88,7 @@ const Element kGrammar[] = {
     {"scenario/vehicle/tyre", "", "grip radiusM corneringNPerRad relaxationM"},
     {"scenario/vehicle/drive", "", "peakTorqueNm finalDrive"},
     {"scenario/vehicle/brake", "", "peakTorqueNm"},
-    {"scenario/vehicle/body", "", "dragCoefficient frontalM2 airDensity"},
+    {"scenario/vehicle/body", "", "dragCoefficient frontalM2"},
     {"scenario/vehicle/seat", "", "at node x y z"},
     {"scenario/drive", "", "fromLat fromLon toLat toLon zoom"},
     {"scenario/physics", "", "dial"},
@@ -162,6 +162,7 @@ void ReadWorld(const Xml::Ref &from, Scenario &into) {
   into.Ground.Lon = from.Num("lon", 0.0);
   into.Ground.RadiusM = from.Num("radiusM", 0.0);
   into.Ground.GravityMs2 = from.Num("gravityMs2", 9.80665);
+  into.Ground.AirDensityKgM3 = from.Num("airDensityKgM3", 1.2250);
   into.Ground.WindDeg = from.Num("windDeg", 0.0);
   into.Ground.WindMs = from.Num("windMs", 0.0);
   into.Ground.CloudCover = from.Num("cloudCover", 0.0);
@@ -525,7 +526,6 @@ bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &
     const Xml::Ref body = one.Child("body");
     made.DragCoefficient = body.Num("dragCoefficient", 0.0);
     made.FrontalM2 = body.Num("frontalM2", 0.0);
-    made.AirDensity = body.Num("airDensity", 0.0);
     const Xml::Ref seat = one.Child("seat");
     made.SeatAt = seat.Attr("at");
     ReadVector(seat, "x", "y", "z", made.SeatM, 3);

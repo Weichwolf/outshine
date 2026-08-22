@@ -45,7 +45,7 @@ int main(void) {
   if (read.Vehicles.empty()) { return Report(); }
 
   const Vehicle &declared = read.Vehicles[0];
-  const Rigged stood = Stand(declared, kGravityMs2);
+  const Rigged stood = Stand(declared, kGravityMs2, 1.225);
   if (!stood.Stood) { std::printf("REFUSED %s\n", stood.Error.c_str()); }
   CHECK(stood.Stood,
         "**A DECLARED VEHICLE STANDS UP AS A RIG, AND THIS IS THE ONLY PLACE THAT HAPPENS.** Until "
@@ -129,13 +129,13 @@ int main(void) {
 
   Vehicle broken = declared;
   broken.Contacts.clear();
-  const Rigged nothing = Stand(broken, kGravityMs2);
+  const Rigged nothing = Stand(broken, kGravityMs2, 1.225);
   CHECK(!nothing.Stood, "a vehicle with no contacts is refused rather than floated");
   std::printf("REFUSAL %s\n", nothing.Error.c_str());
 
   Vehicle tight = declared;
   tight.TurningCircleM = 1.0;
-  const Rigged impossible = Stand(tight, kGravityMs2);
+  const Rigged impossible = Stand(tight, kGravityMs2, 1.225);
   CHECK(!impossible.Stood,
         "and a turning circle narrower than the car itself is refused, because a lock derived from "
         "it would be a number the arithmetic invented");
