@@ -10,6 +10,7 @@
 
 using outshine::Layer;
 using outshine::LayerActive;
+using outshine::ApplyLayer;
 using outshine::MergeLayer;
 using outshine::ReadScenario;
 using outshine::Scenario;
@@ -77,14 +78,36 @@ int main(void) {
                town, error),
         "over a base that lit a summer noon");
   trace.clear();
-  CHECK(MergeLayer(town, lit, "winter", trace, error) && town.Lit.Key.Lux == 3000.0,
-        "**THE CANONICAL MOD WORKS**: the winter layer that dims the light replaces the "
-        "lighting wholesale -- no collection is silently swallowed");
+  const char *winter = "<scenario name=\"winter\">"
+                       "<lighting><key lux=\"3000\"/></lighting>"
+                       "<assets><asset uri=\"car.glb\" digest=\"bbb\"/></assets>"
+                       "<audio><sound id=\"wind\" uri=\"wind.ogg\" gainDb=\"-3\"/></audio>"
+                       "<render fps=\"30\"/>"
+                       "<player view=\"chase\"/></scenario>";
+  town.Render.Frame.WidthPx = 1920;
+  town.Render.Declared = true;
+  town.Played.Is = "f31";
+  town.Played.Declared = true;
+  town.Lit.Key.ElevationDeg = 55.0;
+  CHECK(ApplyLayer(town, winter, std::strlen(winter), "winter", trace, error) &&
+            town.Lit.Key.Lux == 3000.0,
+        "**THE CANONICAL MOD WORKS**: the winter layer dims the light and no collection is "
+        "silently swallowed");
+  CHECK(town.Lit.Key.ElevationDeg == 55.0,
+        "**AND OMISSION KEEPS, AT ATTRIBUTE LEVEL**: the mod spelled only lux, so the "
+        "base's sun elevation stands -- the house template rule, not a wholesale nuke");
+  CHECK(town.Render.Frame.WidthPx == 1920 && town.Render.Fps == 30.0,
+        "a render layer declaring only fps keeps the base's 1920 -- no ambient number a "
+        "declaration never spelled can reach the result");
+  CHECK(town.Played.Is == "f31" && town.Played.View == "chase",
+        "and a player layer declaring only the view keeps who the player IS -- nothing "
+        "vanishes wordlessly");
   CHECK(town.Assets.size() == 1 && town.Assets[0].Digest == "bbb",
         "an asset with the same uri and a NEW digest replaces the row -- the uri is the "
         "declared name, the digest is the content pin, and a mod re-pins");
-  CHECK(town.Sounds.size() == 1 && town.Sounds[0].Uri == "wind2.ogg",
-        "and a sound overrides by its id -- every row collection merges by its own identity");
+  CHECK(town.Sounds.size() == 1 && town.Sounds[0].GainDb == -3.0,
+        "and a sound overrides by its URI -- the identity 1655 put in the Required column, "
+        "not the optional id");
 
   Scenario nested;
   CHECK(Parsed("<scenario name=\"deep\"><layer path=\"more.xml\"/></scenario>", nested, error),

@@ -264,6 +264,7 @@ struct Drive {
 };
 
 struct Player {
+  bool Declared = false;
   std::string Is;
   std::string Starts;
   std::string View;

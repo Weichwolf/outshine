@@ -18,3 +18,8 @@ Two words, but they are exactly the misread 1672 was filed to kill: prose that n
 the inverted relation teaches the next caller the wrong arrow. Rename both; grep
 proves zero `Relation`-adjacent `Holds` outside `Instance::Holds`/`<holds what>`
 (the holder-side XML spelling, correct in its own direction, stays).
+
+---
+
+Closed: the two prose remnants speak HeldBy (Assembly's comment, the kind test's CHECK
+text); grep for the old name over src/ and test/ returns only history in board/.

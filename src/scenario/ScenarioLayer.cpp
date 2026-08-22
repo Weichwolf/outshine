@@ -1,13 +1,16 @@
 #include "ScenarioLayer.h"
 
+#include "ScenarioRead.h"
+
 namespace outshine {
 
 namespace {
 
-// override by the row's IDENTITY -- the same attribute the grammar's Required column names:
-// a later row with a known identity REPLACES the earlier whole, an unknown identity ADDS,
-// and what happened is written down, because a declaration nobody can trace is a
-// declaration nobody can debug
+// override by the row's IDENTITY -- the grammar's Required attribute where one exists
+// (kind by name, asset and sound by uri, a door by its two ends), the id where identity is
+// optional (an id-less row always ADDS): a later row with a known identity REPLACES the
+// earlier whole, an unknown one adds, and what happened is written down, because a
+// declaration nobody can trace is a declaration nobody can debug
 template <class Row, class Same>
 void MergeRows(std::vector<Row> &into, const std::vector<Row> &from, std::string_view named,
                const char *what, Same same, std::vector<std::string> &trace) {
@@ -52,6 +55,16 @@ template <class Row>
 struct ByIdField {
   bool operator()(const Row &a, const Row &b) const { return !a.Id.empty() && a.Id == b.Id; }
   std::string Identity(const Row &row) const { return row.Id; }
+};
+struct ByDoorEnds {
+  bool operator()(const Door &a, const Door &b) const {
+    return a.From == b.From && a.To == b.To;
+  }
+  std::string Identity(const Door &row) const { return row.From + "->" + row.To; }
+};
+struct BySoundUri {
+  bool operator()(const Sound &a, const Sound &b) const { return a.Uri == b.Uri; }
+  std::string Identity(const Sound &row) const { return row.Uri; }
 };
 struct ByEventName {
   bool operator()(const Event &a, const Event &b) const { return a.Name == b.Name; }
@@ -102,9 +115,9 @@ bool MergeLayer(Scenario &into, const Scenario &layer, std::string_view named,
   MergeRows(into.Compositors, layer.Compositors, named, "compositor",
             ByKindField<Compositor>{}, trace);
   MergeRows(into.Regions, layer.Regions, named, "region", ByIdField<Region>{}, trace);
-  MergeRows(into.Doors, layer.Doors, named, "door", ByIdField<Door>{}, trace);
+  MergeRows(into.Doors, layer.Doors, named, "door", ByDoorEnds{}, trace);
   MergeRows(into.Volumes, layer.Volumes, named, "volume", ByIdField<Volume>{}, trace);
-  MergeRows(into.Sounds, layer.Sounds, named, "sound", ByIdField<Sound>{}, trace);
+  MergeRows(into.Sounds, layer.Sounds, named, "sound", BySoundUri{}, trace);
   MergeRows(into.Buses, layer.Buses, named, "bus", ByIdField<Bus>{}, trace);
   MergeRows(into.Tables, layer.Tables, named, "table", ByIdField<Table>{}, trace);
   MergeRows(into.Views, layer.Views, named, "view", ByIdField<View>{}, trace);
@@ -121,36 +134,53 @@ bool MergeLayer(Scenario &into, const Scenario &layer, std::string_view named,
                     "'");
   }
 
-  // the singleton sections replace WHOLESALE when the layer declares them -- the winter mod
-  // that dims the light is the canonical mod, and it works by declaring <lighting>
-  if (layer.Lit.Declared) {
-    into.Lit = layer.Lit;
-    trace.push_back("layer '" + std::string(named) + "' replaced the lighting");
+  return true;
+}
+
+bool ApplyLayer(Scenario &into, const char *text, size_t size, std::string_view named,
+                std::vector<std::string> &trace, std::string &error) {
+  Scenario fragment;
+  if (!ReadScenario(text, size, fragment, error)) { return false; }
+  if (!MergeLayer(into, fragment, named, trace, error)) { return false; }
+
+  // the vehicle element is a SINGLETON (1655's verdict): a layer that declares one replaces
+  // the base's, whole
+  if (!fragment.Vehicles.empty()) {
+    into.Vehicles = fragment.Vehicles;
+    trace.push_back("layer '" + std::string(named) + "' replaced the vehicle");
   }
-  if (layer.Ground.Declared) {
-    into.Ground = layer.Ground;
-    trace.push_back("layer '" + std::string(named) + "' replaced the world");
+
+  // the singleton sections merge by the reader's OWN semantics -- re-parse the layer onto a
+  // copy of the base, where every omitted attribute keeps the value already standing (the
+  // house template rule, at attribute level) -- then carry over only what the layer declared
+  Scenario onto = into;
+  std::string sectionsWhy;
+  if (!ReadScenarioInto(text, size, onto, sectionsWhy)) {
+    error = sectionsWhy;
+    return false;
   }
-  if (layer.Render.Declared) {
-    into.Render = layer.Render;
-    trace.push_back("layer '" + std::string(named) + "' replaced the render declaration");
+  struct SectionRow {
+    bool DeclaredByLayer;
+    const char *What;
+  };
+  const SectionRow sections[] = {
+      {fragment.Lit.Declared, "lighting"},     {fragment.Ground.Declared, "world"},
+      {fragment.Render.Declared, "render"},    {fragment.Motion.Declared, "physics"},
+      {fragment.Time.Declared, "clock"},       {fragment.Played.Declared, "player"},
+      {fragment.Driven.Declared, "drive"},
+  };
+  for (const SectionRow &section : sections) {
+    if (!section.DeclaredByLayer) { continue; }
+    trace.push_back("layer '" + std::string(named) + "' merged into the " + section.What +
+                    " -- omitted attributes keep the base's values");
   }
-  if (layer.Motion.Declared) {
-    into.Motion = layer.Motion;
-    trace.push_back("layer '" + std::string(named) + "' replaced the physics dial");
-  }
-  if (layer.Time.Declared) {
-    into.Time = layer.Time;
-    trace.push_back("layer '" + std::string(named) + "' replaced the clock");
-  }
-  if (layer.Driven.Declared) {
-    into.Driven = layer.Driven;
-    trace.push_back("layer '" + std::string(named) + "' replaced the drive");
-  }
-  if (!layer.Played.Is.empty()) {
-    into.Played = layer.Played;
-    trace.push_back("layer '" + std::string(named) + "' replaced the player");
-  }
+  if (fragment.Lit.Declared) { into.Lit = onto.Lit; }
+  if (fragment.Ground.Declared) { into.Ground = onto.Ground; }
+  if (fragment.Render.Declared) { into.Render = onto.Render; }
+  if (fragment.Motion.Declared) { into.Motion = onto.Motion; }
+  if (fragment.Time.Declared) { into.Time = onto.Time; }
+  if (fragment.Played.Declared) { into.Played = onto.Played; }
+  if (fragment.Driven.Declared) { into.Driven = onto.Driven; }
   return true;
 }
 

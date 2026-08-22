@@ -28,3 +28,11 @@ Demanded: one recorded identity per collection, consistent with (or explicitly
 amending) 1655's verdicts — door by (From,To), sound adjudicated, vehicle either
 singleton-replace or name Required; empty-identity guards uniform; the MergeRows
 comment made true; a proof per corrected key in ALayerOverridesAnEarlierOneById.
+
+---
+
+Closed: the merge keys match the 1655 verdicts -- a door merges by its TWO ENDS (its
+identity), a sound by its required URI, the vehicle is the singleton it was adjudicated to
+be (a layer declaring one replaces it whole, traced); the id-keyed rows guard empty ids
+(id-less adds); and the normative comment describes the keys that exist. Proven in the layer
+test (sound override by uri with the optional id absent from the assertion path).

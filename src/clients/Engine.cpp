@@ -69,12 +69,12 @@ std::vector<std::string> Unacted(const Scenario &scenario) {
   note(scenario.Events.size(), "declared events");
   note(scenario.Views.size(), "views");
   note(scenario.Vehicles.size(), "vehicles");
-  if (!scenario.Played.Is.empty()) { carried.push_back("a player"); }
+  if (scenario.Played.Declared) { carried.push_back("a player"); }
   note(scenario.Input.size(), "input bindings");
   note(scenario.State.size(), "persisted values");
   if (scenario.Ground.Declared) { carried.push_back("a world origin"); }
-  if (!scenario.Motion.Dial.empty()) { carried.push_back("a physics dial"); }
-  if (!scenario.Time.Start.empty()) { carried.push_back("a clock"); }
+  if (scenario.Motion.Declared) { carried.push_back("a physics dial"); }
+  if (scenario.Time.Declared) { carried.push_back("a clock"); }
   if (scenario.Assets.size() > 1) {
     carried.push_back(std::to_string(scenario.Assets.size() - 1) + " assets beside the subject");
   }
@@ -189,13 +189,11 @@ bool Engine::ReadInto(std::string_view path, Scenario &out) {
         (!layer.Path.empty() && layer.Path.front() == '/') ? layer.Path : dir + layer.Path;
     std::string fragmentText;
     if (!SlurpFile(at, fragmentText, S_->Error)) { return false; }
-    Scenario fragment;
-    fragment.Render.Frame = S_->Frame;
-    if (!ReadScenario(fragmentText.c_str(), fragmentText.size(), fragment, S_->Error)) {
+    if (!ApplyLayer(out, fragmentText.c_str(), fragmentText.size(), named, S_->LayerTrace,
+                    S_->Error)) {
       S_->Error = at + ": " + S_->Error;
       return false;
     }
-    if (!MergeLayer(out, fragment, named, S_->LayerTrace, S_->Error)) { return false; }
   }
   return true;
 }

@@ -32,3 +32,15 @@ template rule and write the verdict down; whichever wins, a layer fragment is ne
 seeded with ambient engine state (the seed belongs to the BASE read at
 Engine.cpp:171, not to fragments); the proof pins either base-field survival (delta)
 or the documented, traced loss (wholesale) — for lighting AND for render's frame.
+
+---
+
+Closed, adjudicated by the house's own template rule: OMISSION KEEPS, AT ATTRIBUTE LEVEL.
+The singleton sections no longer replace wholesale -- a layer's section re-parses ONTO a
+copy of the base through the reader's own semantics (ReadScenarioInto, the non-resetting
+door), where every singleton attribute now defaults to the value already standing (the
+readers stopped defaulting to zero); only the sections the layer declared carry over. The
+ambient-frame seeding is gone with the fragment seeding itself -- no number a declaration
+never spelled can reach the result. Proving test: ALayerOverridesAnEarlierOneById -- a mod
+spelling only lux keeps the base's elevation 55, only fps keeps 1920 wide, only view keeps
+who the player is. 137/137.

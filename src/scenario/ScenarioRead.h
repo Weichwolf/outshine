@@ -10,6 +10,8 @@ namespace outshine {
 
 [[nodiscard]] bool ReadScenario(const char *text, size_t length, Scenario &into,
                                 std::string &error);
+[[nodiscard]] bool ReadScenarioInto(const char *text, size_t length, Scenario &into,
+                                    std::string &error);
 
 }
 

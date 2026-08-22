@@ -167,7 +167,7 @@ bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
   }
 
   // holding IS placement -- one relation for both spellings -- but it is its OWN relation:
-  // ChildOf is the prefab subtree's bone and cascades on removal, Holds is possession and
+  // ChildOf is the prefab subtree's bone and cascades on removal, HeldBy is possession and
   // frees its contents when the holder goes; the second pass exists so an instance may hold
   // one declared later
   for (const Instance &instance : declared.Instances) {

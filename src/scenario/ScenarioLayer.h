@@ -14,5 +14,9 @@ namespace outshine {
 [[nodiscard]] bool MergeLayer(Scenario &into, const Scenario &layer, std::string_view named,
                               std::vector<std::string> &trace, std::string &error);
 
+[[nodiscard]] bool ApplyLayer(Scenario &into, const char *text, size_t size,
+                              std::string_view named, std::vector<std::string> &trace,
+                              std::string &error);
+
 }
 #endif

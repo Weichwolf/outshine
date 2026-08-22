@@ -25,3 +25,10 @@ Demanded: `Player` gains `bool Declared` set at ScenarioRead.cpp:567 like its fi
 siblings; `MergeLayer` replaces the player on the flag and traces it; `Unacted`
 speaks physics and clock from the flags. Proof: a layer's `<player view=.../>`
 replaces and traces; a rate-only clock lands on Carried.
+
+---
+
+Closed with 1674's cut: the player is a flagged singleton (Played.Declared, set by the
+reader) merged through the same omission-keeps re-parse -- <player view="chase"/> keeps Is
+and changes the view, proven; and Unacted speaks from the Declared flags (player, physics
+dial, clock) instead of from emptiness, so a rate-only clock is a spoken clock.

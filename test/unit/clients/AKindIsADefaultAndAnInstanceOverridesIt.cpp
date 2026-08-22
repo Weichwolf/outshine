@@ -82,7 +82,7 @@ int main(void) {
   const Entity crate = stood.InstanceNamed("crate");
   const Entity spare = stood.InstanceNamed("spare");
   CHECK(scene.TargetOf(cup, Relation::HeldBy) == crate,
-        "**HOLDING IS ONE MECHANISM AND ITS OWN RELATION**: the crate holds the cup by Holds, "
+        "**HOLDING IS ONE MECHANISM AND ITS OWN RELATION**: the crate holds the cup by HeldBy, "
         "never by the subtree's ChildOf -- an inventory and a placement differ by one field, "
         "and instantiating a prefab cannot drag the world's contents with it");
   CHECK(scene.TargetOf(spare, Relation::HeldBy) == crate,

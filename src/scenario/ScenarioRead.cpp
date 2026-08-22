@@ -170,14 +170,14 @@ void ReadVector(const Xml::Ref &from, const char *x, const char *y, const char *
 void ReadWorld(const Xml::Ref &from, Scenario &into) {
   if (!from.Valid()) { return; }
   into.Ground.Declared = true;
-  into.Ground.Lat = from.Num("lat", 0.0);
-  into.Ground.Lon = from.Num("lon", 0.0);
+  into.Ground.Lat = from.Num("lat", into.Ground.Lat);
+  into.Ground.Lon = from.Num("lon", into.Ground.Lon);
   into.Ground.RadiusM = from.Num("radiusM", into.Ground.RadiusM);
   into.Ground.GravityMs2 = from.Num("gravityMs2", into.Ground.GravityMs2);
   into.Ground.AirDensityKgM3 = from.Num("airDensityKgM3", into.Ground.AirDensityKgM3);
-  into.Ground.WindDeg = from.Num("windDeg", 0.0);
-  into.Ground.WindMs = from.Num("windMs", 0.0);
-  into.Ground.CloudCover = from.Num("cloudCover", 0.0);
+  into.Ground.WindDeg = from.Num("windDeg", into.Ground.WindDeg);
+  into.Ground.WindMs = from.Num("windMs", into.Ground.WindMs);
+  into.Ground.CloudCover = from.Num("cloudCover", into.Ground.CloudCover);
 }
 
 void ReadRender(const Xml::Ref &from, Scenario &into) {
@@ -204,21 +204,30 @@ void ReadLighting(const Xml::Ref &from, Scenario &into) {
   into.Lit.Declared = true;
   const Xml::Ref key = from.Child("key");
   if (key.Valid()) {
-    into.Lit.Key.Lux = key.Num("lux", 0.0);
-    into.Lit.Key.ElevationDeg = key.Num("elevationDeg", 0.0);
-    into.Lit.Key.BearingDeg = key.Num("bearingDeg", 0.0);
+    into.Lit.Key.Lux = key.Num("lux", into.Lit.Key.Lux);
+    into.Lit.Key.ElevationDeg = key.Num("elevationDeg", into.Lit.Key.ElevationDeg);
+    into.Lit.Key.BearingDeg = key.Num("bearingDeg", into.Lit.Key.BearingDeg);
   }
   const Xml::Ref environment = from.Child("environment");
   if (environment.Valid()) {
-    into.Lit.Environment[0] = environment.Num("r", 0.0);
-    into.Lit.Environment[1] = environment.Num("g", 0.0);
-    into.Lit.Environment[2] = environment.Num("b", 0.0);
+    into.Lit.Environment[0] = environment.Num("r", into.Lit.Environment[0]);
+    into.Lit.Environment[1] = environment.Num("g", into.Lit.Environment[1]);
+    into.Lit.Environment[2] = environment.Num("b", into.Lit.Environment[2]);
   }
 }
 
 } // namespace
 
+bool ReadScenarioInto(const char *text, size_t length, Scenario &into, std::string &error);
+
 bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &error) {
+  into = Scenario();
+  return ReadScenarioInto(text, length, into, error);
+}
+
+// the non-resetting door: every omitted attribute keeps the value already standing, which
+// is what a layer's re-parse over its base rides on
+bool ReadScenarioInto(const char *text, size_t length, Scenario &into, std::string &error) {
   Xml document;
   if (!document.Parse(text, length)) {
     error = document.Error();
@@ -232,7 +241,6 @@ bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &
 
   if (!Grammatical(root, "scenario", error)) { return false; }
 
-  into = Scenario();
   into.Named.Name = root.Attr("name");
   into.Named.Version = root.Attr("version");
   into.Named.Active = root.Attr("active");
@@ -334,14 +342,14 @@ bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &
   const Xml::Ref physics = root.Child("physics");
   if (physics.Valid()) {
     into.Motion.Declared = true;
-    into.Motion.Dial = physics.Attr("dial");
+    into.Motion.Dial = physics.Attr("dial", into.Motion.Dial.c_str());
   }
 
   const Xml::Ref clock = root.Child("clock");
   if (clock.Valid()) {
     into.Time.Declared = true;
-    into.Time.Start = clock.Attr("start");
-    into.Time.Rate = clock.Num("rate", 1.0);
+    into.Time.Start = clock.Attr("start", into.Time.Start.c_str());
+    into.Time.Rate = clock.Num("rate", into.Time.Rate);
   }
 
   const Xml::Ref input = root.Child("input");
@@ -565,12 +573,13 @@ bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &
 
   const Xml::Ref player = root.Child("player");
   if (player.Valid()) {
-    into.Played.Is = player.Attr("is");
-    into.Played.Starts = player.Attr("starts");
-    into.Played.View = player.Attr("view");
-    into.Played.EyeHeightM = player.Num("eyeHeightM", 1.7);
-    into.Played.WalkMs = player.Num("walkMs", 1.4);
-    into.Played.RunMs = player.Num("runMs", 4.5);
+    into.Played.Declared = true;
+    into.Played.Is = player.Attr("is", into.Played.Is.c_str());
+    into.Played.Starts = player.Attr("starts", into.Played.Starts.c_str());
+    into.Played.View = player.Attr("view", into.Played.View.c_str());
+    into.Played.EyeHeightM = player.Num("eyeHeightM", into.Played.EyeHeightM);
+    into.Played.WalkMs = player.Num("walkMs", into.Played.WalkMs);
+    into.Played.RunMs = player.Num("runMs", into.Played.RunMs);
   }
 
   const Xml::Ref drive = root.Child("drive");
