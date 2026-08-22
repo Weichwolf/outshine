@@ -25,7 +25,7 @@ flowchart TD
   upstream["upstream — OSM · terrain · imagery · weather · sky"]
   providers["PROVIDERS · src/data"]
   store[("CONTENT STORE — hash = filename")]
-  field["GROUND — a sphere with declared gravity, shaped by height data: height · slope · class · edges · water"]
+  field["GROUND — the declared sphere's surface fields: height · slope · class · edges · water; one stack PER sphere, empty fields allowed, absent in free flight"]
   gen["GENERATORS — one part + capability, from (kind, params, seed, budget)"]
   comp["COMPOSITORS — one draw list: places · culls · quantises · batches"]
   rend["RENDERER — pixels from a declared plan"]
@@ -51,7 +51,10 @@ flowchart TD
 | renderer | any content noun |
 
 Peers never call each other; a part-on-part dependency travels as data through Ground.
-**The engine knows no Earth, no Moon, no stars.** A scenario declares a SYSTEM of spheres
+**The engine knows no Earth, no Moon, no stars — and GROUND is no planet either**: it is the
+surface-field stack of whichever sphere is declared, instantiated per sphere, its fields empty
+where the sphere has nothing (lunar water), and absent entirely for an actor in free flight —
+the chain never requires a surface. A scenario declares a SYSTEM of spheres
 (radius, gravity, providers, sky) shaped by height data; travel between them is an actor with
 thrust and a possession relink, and local behaviour — the high jump, the bad driving — emerges
 from the declared gravity through the physics, never from code. Earth ships as a TEMPLATE
