@@ -41,3 +41,19 @@ Grounds: the compile gate catches syntax, not twin drift -- the bounce-term inci
 the class; and 1636's second backend consumes the same physics with no MSL, so the shared
 core has two consumers already. Implementation is sliced: medium family first (1647), the
 gate's public-static door stays the seam.
+
+---
+
+Slice 2 landed (the shared medium core): src/render/stages/MediumCore.h is ONE dialect file
+holding the nine scalar physics functions -- topReach, groundReach, heightAlong,
+transmittanceParams, rayleighPhase, miePhase, subUvsToUnit, unitToSubUvs, skyViewParams --
+compiled as C++ by ParticipatingMedium.h (medium_core wrapper: max/clamp shims, std usings,
+MEDIUM_CONST/THREAD/PI defines) and appended as MSL text by ParticipatingMediumMsl (defines +
+mediumLayout.msl + core + medium.msl). The nine C++ twins are DELETED, their call sites moved
+to the shared names and reference-out signatures; the MSL Medium fields rose to the C++
+spelling (PascalCase). The vector functions (float3 extinction/scatter, the sampling loops,
+the double-accumulating references) stay explicit twins -- genuine language divergence.
+Proof: render/outshine/shader 42/42 (device vs C++ agreement over the LUT chain), fast gate
+128/128 warm at 68.9 s. Remaining slices: the BRDF family twins (MetalRoughBrdf, SheenLobe,
+IridescenceLobe, MicrofacetEnergy generate their MSL from C++ constants -- one source
+already, audit their form), then the content-store hashing when the asset pipeline wants it.

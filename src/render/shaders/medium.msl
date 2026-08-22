@@ -1,53 +1,20 @@
-
-struct Medium {
-  float bottomRadiusKm; float topRadiusKm; float rayleighScaleHeightKm; float mieScaleHeightKm;
-  packed_float3 rayleighScatteringPerKm; float mieScatteringPerKm;
-  packed_float3 ozoneAbsorptionPerKm; float mieExtinctionPerKm;
-  float ozoneCentreKm; float ozoneHalfWidthKm; float miePhaseG; float pad;
-  packed_float3 groundAlbedo; float pad2;
-};
-
-static inline float mediumTopReach(constant Medium &medium, float radiusKm, float cosZenith) {
-  float under = radiusKm * radiusKm * (cosZenith * cosZenith - 1.0) +
-                medium.topRadiusKm * medium.topRadiusKm;
-  if (under < 0.0) { return 0.0; }
-  return max(0.0, -radiusKm * cosZenith + sqrt(under));
-}
-
-static inline float mediumGroundReach(constant Medium &medium, float radiusKm, float cosZenith) {
-  float under = radiusKm * radiusKm * (cosZenith * cosZenith - 1.0) +
-                medium.bottomRadiusKm * medium.bottomRadiusKm;
-  if (under < 0.0) { return -1.0; }
-  float entry = -radiusKm * cosZenith - sqrt(under);
-  return entry >= 0.0 ? entry : -1.0;
-}
-
-static inline float mediumHeightAlong(constant Medium &medium, float radiusKm, float cosZenith,
-                                      float alongKm) {
-  float above = radiusKm - medium.bottomRadiusKm;
-  float raised = above * (radiusKm + medium.bottomRadiusKm) + alongKm * alongKm +
-                 2.0 * radiusKm * alongKm * cosZenith;
-  float sampleKm = sqrt(radiusKm * radiusKm + alongKm * alongKm + 2.0 * radiusKm * alongKm * cosZenith);
-  return raised / (sampleKm + medium.bottomRadiusKm);
-}
-
 static inline float3 mediumExtinctionPerKm(constant Medium &medium, float heightKm) {
-  float rayleigh = exp(-heightKm / medium.rayleighScaleHeightKm);
-  float mie = exp(-heightKm / medium.mieScaleHeightKm);
-  float tent = 1.0 - fabs(heightKm - medium.ozoneCentreKm) / medium.ozoneHalfWidthKm;
+  float rayleigh = exp(-heightKm / medium.RayleighScaleHeightKm);
+  float mie = exp(-heightKm / medium.MieScaleHeightKm);
+  float tent = 1.0 - fabs(heightKm - medium.OzoneCentreKm) / medium.OzoneHalfWidthKm;
   float ozone = clamp(tent, 0.0, 1.0);
-  return rayleigh * float3(medium.rayleighScatteringPerKm) + mie * medium.mieExtinctionPerKm +
-         ozone * float3(medium.ozoneAbsorptionPerKm);
+  return rayleigh * float3(medium.RayleighScatteringPerKm) + mie * medium.MieExtinctionPerKm +
+         ozone * float3(medium.OzoneAbsorptionPerKm);
 }
 
 static inline float2 mediumTransmittanceUv(constant Medium &medium, float radiusKm,
                                            float cosZenith) {
-  float span = sqrt(max(0.0, medium.topRadiusKm * medium.topRadiusKm -
-                             medium.bottomRadiusKm * medium.bottomRadiusKm));
+  float span = sqrt(max(0.0, medium.TopRadiusKm * medium.TopRadiusKm -
+                             medium.BottomRadiusKm * medium.BottomRadiusKm));
   float ground =
-      sqrt(max(0.0, radiusKm * radiusKm - medium.bottomRadiusKm * medium.bottomRadiusKm));
+      sqrt(max(0.0, radiusKm * radiusKm - medium.BottomRadiusKm * medium.BottomRadiusKm));
   float reach = mediumTopReach(medium, radiusKm, cosZenith);
-  float shortest = medium.topRadiusKm - radiusKm;
+  float shortest = medium.TopRadiusKm - radiusKm;
   float longest = ground + span;
   return float2((reach - shortest) / (longest - shortest), ground / span);
 }
@@ -55,28 +22,13 @@ static inline float2 mediumTransmittanceUv(constant Medium &medium, float radius
 static inline void mediumScatterExtinctPerKm(constant Medium &medium, float heightKm,
                                              thread float3 &scattering,
                                              thread float3 &extinction) {
-  float rayleigh = exp(-heightKm / medium.rayleighScaleHeightKm);
-  float mie = exp(-heightKm / medium.mieScaleHeightKm);
-  float tent = 1.0 - fabs(heightKm - medium.ozoneCentreKm) / medium.ozoneHalfWidthKm;
+  float rayleigh = exp(-heightKm / medium.RayleighScaleHeightKm);
+  float mie = exp(-heightKm / medium.MieScaleHeightKm);
+  float tent = 1.0 - fabs(heightKm - medium.OzoneCentreKm) / medium.OzoneHalfWidthKm;
   float ozone = clamp(tent, 0.0, 1.0);
-  scattering = rayleigh * float3(medium.rayleighScatteringPerKm) + mie * medium.mieScatteringPerKm;
-  extinction = rayleigh * float3(medium.rayleighScatteringPerKm) +
-               mie * medium.mieExtinctionPerKm + ozone * float3(medium.ozoneAbsorptionPerKm);
-}
-
-static inline void mediumTransmittanceParams(constant Medium &medium, float u, float v,
-                                             thread float &radiusKm, thread float &cosZenith) {
-  float span = sqrt(max(0.0, medium.topRadiusKm * medium.topRadiusKm -
-                             medium.bottomRadiusKm * medium.bottomRadiusKm));
-  float ground = span * v;
-  radiusKm = sqrt(ground * ground + medium.bottomRadiusKm * medium.bottomRadiusKm);
-  float shortest = medium.topRadiusKm - radiusKm;
-  float longest = ground + span;
-  float reach = shortest + u * (longest - shortest);
-  cosZenith = reach == 0.0 ? 1.0
-                           : (span * span - ground * ground - reach * reach) /
-                                 (2.0 * radiusKm * reach);
-  cosZenith = clamp(cosZenith, -1.0, 1.0);
+  scattering = rayleigh * float3(medium.RayleighScatteringPerKm) + mie * medium.MieScatteringPerKm;
+  extinction = rayleigh * float3(medium.RayleighScatteringPerKm) +
+               mie * medium.MieExtinctionPerKm + ozone * float3(medium.OzoneAbsorptionPerKm);
 }
 
 static inline void mediumMultiScatterTexel(constant Medium &medium, float unitU, float unitV,
@@ -85,8 +37,8 @@ static inline void mediumMultiScatterTexel(constant Medium &medium, float unitU,
                                            thread float3 &luminance, thread float3 &transfer) {
   float cosSun = unitU * 2.0 - 1.0;
   float sinSun = sqrt(max(0.0, 1.0 - cosSun * cosSun));
-  float radiusKm = medium.bottomRadiusKm + liftKm +
-                   unitV * (medium.topRadiusKm - medium.bottomRadiusKm - liftKm);
+  float radiusKm = medium.BottomRadiusKm + liftKm +
+                   unitV * (medium.TopRadiusKm - medium.BottomRadiusKm - liftKm);
   float3 summedL = float3(0.0);
   float3 summedF = float3(0.0);
   for (uint which = 0u; which < grid * grid; which = which + 1u) {
@@ -108,7 +60,7 @@ static inline void mediumMultiScatterTexel(constant Medium &medium, float unitU,
       float3 scattering;
       float3 extinction;
       mediumScatterExtinctPerKm(medium, heightKm, scattering, extinction);
-      float hereKm = heightKm + medium.bottomRadiusKm;
+      float hereKm = heightKm + medium.BottomRadiusKm;
       float sunDot = dir.z * cosSun + dir.x * sinSun;
       float cosSunAt = (radiusKm * cosSun + along * sunDot) / hereKm;
       float shadowed = mediumGroundReach(medium, hereKm - liftKm, cosSunAt) >= 0.0 ? 0.0 : 1.0;
@@ -129,48 +81,10 @@ static inline void mediumMultiScatterTexel(constant Medium &medium, float unitU,
   transfer = summedF / float(grid * grid);
 }
 
-static inline float rayleighPhase(float cosTheta) {
-  return 3.0 / (16.0 * 3.14159265358979) * (1.0 + cosTheta * cosTheta);
-}
-
-static inline float miePhase(float g, float cosTheta) {
-  float k = 3.0 / (8.0 * 3.14159265358979) * (1.0 - g * g) / (2.0 + g * g);
-  return k * (1.0 + cosTheta * cosTheta) / pow(1.0 + g * g - 2.0 * g * cosTheta, 1.5);
-}
-
-static inline float subUvsToUnit(float u, float resolution) {
-  return (u - 0.5 / resolution) * (resolution / (resolution - 1.0));
-}
-
-static inline float unitToSubUvs(float u, float resolution) {
-  return (u + 0.5 / resolution) * (resolution / (resolution + 1.0));
-}
-
-static inline void skyViewParams(constant Medium &medium, float radiusKm, float unitU, float unitV,
-                                 float widthPx, float heightPx, thread float &cosView,
-                                 thread float &lightViewCos) {
-  float u = subUvsToUnit(unitU, widthPx);
-  float v = subUvsToUnit(unitV, heightPx);
-  float toHorizon =
-      sqrt(max(0.0, radiusKm * radiusKm - medium.bottomRadiusKm * medium.bottomRadiusKm));
-  float beta = acos(clamp(toHorizon / radiusKm, -1.0, 1.0));
-  float zenithToHorizon = 3.14159265358979 - beta;
-  if (v < 0.5) {
-    float coord = 1.0 - 2.0 * v;
-    coord = 1.0 - coord * coord;
-    cosView = cos(zenithToHorizon * coord);
-  } else {
-    float coord = v * 2.0 - 1.0;
-    coord *= coord;
-    cosView = cos(zenithToHorizon + beta * coord);
-  }
-  lightViewCos = -(u * u * 2.0 - 1.0);
-}
-
 static inline float2 skyViewUv(constant Medium &medium, float radiusKm, bool hitsGround,
                                float cosView, float lightViewCos, float widthPx, float heightPx) {
   float toHorizon =
-      sqrt(max(0.0, radiusKm * radiusKm - medium.bottomRadiusKm * medium.bottomRadiusKm));
+      sqrt(max(0.0, radiusKm * radiusKm - medium.BottomRadiusKm * medium.BottomRadiusKm));
   float beta = acos(clamp(toHorizon / radiusKm, -1.0, 1.0));
   float zenithToHorizon = 3.14159265358979 - beta;
   float v;
@@ -197,7 +111,7 @@ static inline float3 mediumSkyRay(constant Medium &medium, float radiusKm, float
   float3 sun = float3(sinSun, 0.0, cosSunZenith);
   float cosTheta = dot(dir, sun);
   float phaseRay = rayleighPhase(cosTheta);
-  float phaseMie = miePhase(medium.miePhaseG, cosTheta);
+  float phaseMie = miePhase(medium.MiePhaseG, cosTheta);
 
   float toGround = mediumGroundReach(medium, radiusKm, cosView);
   float toTop = mediumTopReach(medium, radiusKm, cosView);
@@ -209,9 +123,9 @@ static inline float3 mediumSkyRay(constant Medium &medium, float radiusKm, float
   for (uint step = 0u; step < steps; step = step + 1u) {
     float along = stride * (float(step) + segment);
     float heightKm = mediumHeightAlong(medium, radiusKm, cosView, along);
-    float hereKm = heightKm + medium.bottomRadiusKm;
-    float rayleigh = exp(-heightKm / medium.rayleighScaleHeightKm);
-    float mie = exp(-heightKm / medium.mieScaleHeightKm);
+    float hereKm = heightKm + medium.BottomRadiusKm;
+    float rayleigh = exp(-heightKm / medium.RayleighScaleHeightKm);
+    float mie = exp(-heightKm / medium.MieScaleHeightKm);
     float3 extinction = mediumExtinctionPerKm(medium, heightKm);
 
     float cosSunAt = (radiusKm * cosSunZenith + along * cosTheta) / hereKm;
@@ -222,14 +136,14 @@ static inline float3 mediumSkyRay(constant Medium &medium, float radiusKm, float
                   .rgb;
     }
     float2 psiUv = float2(cosSunAt * 0.5 + 0.5,
-                          (hereKm - medium.bottomRadiusKm) /
-                              (medium.topRadiusKm - medium.bottomRadiusKm));
+                          (hereKm - medium.BottomRadiusKm) /
+                              (medium.TopRadiusKm - medium.BottomRadiusKm));
     float psiRes = float(multiScatter.get_width());
     psiUv = float2(unitToSubUvs(psiUv.x, psiRes), unitToSubUvs(psiUv.y, psiRes));
     float3 psi = multiScatter.sample(lut, psiUv, level(0.0)).rgb;
 
-    float3 scatterRay = rayleigh * float3(medium.rayleighScatteringPerKm);
-    float3 scatterMie = float3(mie * medium.mieScatteringPerKm);
+    float3 scatterRay = rayleigh * float3(medium.RayleighScatteringPerKm);
+    float3 scatterMie = float3(mie * medium.MieScatteringPerKm);
     float3 source = shadowed * toSun * (scatterMie * phaseMie + scatterRay * phaseRay) +
                     psi * (scatterRay + scatterMie);
     float3 stepT = exp(-extinction * stride);
@@ -245,7 +159,7 @@ static inline float3 mediumSkyRay(constant Medium &medium, float radiusKm, float
       float3 toSunGround =
           transmittance.sample(lut, mediumTransmittanceUv(medium, hereKm, cosSunAt), level(0.0))
               .rgb;
-      summed += throughput * toSunGround * cosSunAt * float3(medium.groundAlbedo) /
+      summed += throughput * toSunGround * cosSunAt * float3(medium.GroundAlbedo) /
                 3.14159265358979;
     }
   }

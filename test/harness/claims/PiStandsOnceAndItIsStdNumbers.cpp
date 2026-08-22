@@ -1,3 +1,4 @@
+#include <cctype>
 #include <cstdio>
 #include <filesystem>
 #include <string>
@@ -68,7 +69,12 @@ int main(void) {
         spelt.push_back(entry.path().string() + " spells " + needle);
       }
     }
-    if (text.find("M_PI") != std::string::npos) { macro.push_back(entry.path().string()); }
+    for (size_t at = text.find("M_PI"); at != std::string::npos; at = text.find("M_PI", at + 1)) {
+      const char before = at == 0 ? ' ' : text[at - 1];
+      if (std::isalnum((unsigned char)before) || before == '_') { continue; }
+      macro.push_back(entry.path().string());
+      break;
+    }
     for (size_t at = text.find("double kPi ="); at != std::string::npos;
          at = text.find("double kPi =", at + 1)) {
       alias.push_back(entry.path().string());

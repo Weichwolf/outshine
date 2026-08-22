@@ -32,6 +32,35 @@ struct Medium {
 
 static_assert(sizeof(Medium) == 80, "the medium is five float4 rows a device can bind unpadded");
 
+namespace medium_core {
+using ::outshine::Render::Medium;
+inline double max(double a, double b) { return a > b ? a : b; }
+inline double clamp(double x, double lo, double hi) { return x < lo ? lo : (x > hi ? hi : x); }
+using std::acos;
+using std::cos;
+using std::exp;
+using std::fabs;
+using std::pow;
+using std::sqrt;
+#define MEDIUM_CONST const
+#define MEDIUM_THREAD
+#define MEDIUM_PI std::numbers::pi
+#include "MediumCore.h"
+#undef MEDIUM_CONST
+#undef MEDIUM_THREAD
+#undef MEDIUM_PI
+} // namespace medium_core
+
+using medium_core::mediumGroundReach;
+using medium_core::mediumHeightAlong;
+using medium_core::mediumTopReach;
+using medium_core::mediumTransmittanceParams;
+using medium_core::miePhase;
+using medium_core::rayleighPhase;
+using medium_core::skyViewParams;
+using medium_core::subUvsToUnit;
+using medium_core::unitToSubUvs;
+
 inline constexpr uint32_t kTransmittanceLutWidth = 256;
 inline constexpr uint32_t kTransmittanceLutHeight = 64;
 
@@ -54,31 +83,6 @@ inline constexpr uint32_t kSkyViewLutWidth = 192;
 inline constexpr uint32_t kSkyViewLutHeight = 108;
 
 inline constexpr int kSkyViewSteps = 30;
-
-[[nodiscard]] inline float MediumTopReach(const Medium &medium, float radiusKm, float cosZenith) {
-  const float under = radiusKm * radiusKm * (cosZenith * cosZenith - 1.0f) +
-                      medium.TopRadiusKm * medium.TopRadiusKm;
-  if (under < 0.0f) { return 0.0f; }
-  return std::fmax(0.0f, -radiusKm * cosZenith + std::sqrt(under));
-}
-
-[[nodiscard]] inline float MediumGroundReach(const Medium &medium, float radiusKm, float cosZenith) {
-  const float under = radiusKm * radiusKm * (cosZenith * cosZenith - 1.0f) +
-                      medium.BottomRadiusKm * medium.BottomRadiusKm;
-  if (under < 0.0f) { return -1.0f; }
-  const float entry = -radiusKm * cosZenith - std::sqrt(under);
-  return entry >= 0.0f ? entry : -1.0f;
-}
-
-[[nodiscard]] inline float MediumHeightAlong(const Medium &medium, float radiusKm, float cosZenith,
-                                             float alongKm) {
-  const float above = radiusKm - medium.BottomRadiusKm;
-  const float raised = above * (radiusKm + medium.BottomRadiusKm) + alongKm * alongKm +
-                       2.0f * radiusKm * alongKm * cosZenith;
-  const float sampleKm =
-      std::sqrt(radiusKm * radiusKm + alongKm * alongKm + 2.0f * radiusKm * alongKm * cosZenith);
-  return raised / (sampleKm + medium.BottomRadiusKm);
-}
 
 inline void MediumExtinctionPerKm(const Medium &medium, float heightKm, float out[3]) {
   const float rayleigh = std::exp(-heightKm / medium.RayleighScaleHeightKm);
@@ -127,15 +131,15 @@ inline void MediumMultiScatterTexel(const Medium &medium, float unitU, float uni
     const float dir[3] = {std::cos(theta) * sinPhi, std::sin(theta) * sinPhi, cosPhi};
     const float cosView = dir[2];
 
-    const float toGround = MediumGroundReach(medium, radiusKm, cosView);
-    const float toTop = MediumTopReach(medium, radiusKm, cosView);
+    const float toGround = mediumGroundReach(medium, radiusKm, cosView);
+    const float toTop = mediumTopReach(medium, radiusKm, cosView);
     const float span = toGround < 0.0f ? toTop : std::fmin(toTop, toGround);
     const float stride = span / (float)kMultiScatterSteps;
 
     double throughput[3] = {1.0, 1.0, 1.0};
     for (int step = 0; step < kMultiScatterSteps; ++step) {
       const float along = stride * ((float)step + kMediumLuminanceSegment);
-      const float heightKm = MediumHeightAlong(medium, radiusKm, cosView, along);
+      const float heightKm = mediumHeightAlong(medium, radiusKm, cosView, along);
       float scattering[3], extinction[3];
       MediumScatterExtinctPerKm(medium, heightKm, scattering, extinction);
 
@@ -145,7 +149,7 @@ inline void MediumMultiScatterTexel(const Medium &medium, float unitU, float uni
       const float cosSunAt = (radiusKm * cosSun + along * sunDot) / hereKm;
 
       const float shadowed =
-          MediumGroundReach(medium, hereKm - kMediumGroundLiftKm, cosSunAt) >= 0.0f ? 0.0f : 1.0f;
+          mediumGroundReach(medium, hereKm - kMediumGroundLiftKm, cosSunAt) >= 0.0f ? 0.0f : 1.0f;
       float sun[3] = {0.0f, 0.0f, 0.0f};
       if (shadowed > 0.0f) { transmittanceToSun(hereKm, cosSunAt, sun); }
 
@@ -168,45 +172,6 @@ inline void MediumMultiScatterTexel(const Medium &medium, float unitU, float uni
   }
 }
 
-[[nodiscard]] inline float RayleighPhase(float cosTheta) {
-  return 3.0f / (16.0f * std::numbers::pi_v<float>) * (1.0f + cosTheta * cosTheta);
-}
-
-[[nodiscard]] inline float MiePhase(float g, float cosTheta) {
-  const float k = 3.0f / (8.0f * std::numbers::pi_v<float>) * (1.0f - g * g) / (2.0f + g * g);
-  return k * (1.0f + cosTheta * cosTheta) /
-         std::pow(1.0f + g * g - 2.0f * g * cosTheta, 1.5f);
-}
-
-[[nodiscard]] inline float SubUvsToUnit(float u, float resolution) {
-  return (u - 0.5f / resolution) * (resolution / (resolution - 1.0f));
-}
-
-[[nodiscard]] inline float UnitToSubUvs(float u, float resolution) {
-  return (u + 0.5f / resolution) * (resolution / (resolution + 1.0f));
-}
-
-inline void SkyViewParams(const Medium &medium, float radiusKm, float unitU, float unitV,
-                          float *cosView, float *lightViewCos) {
-  const float u = SubUvsToUnit(unitU, (float)kSkyViewLutWidth);
-  const float v = SubUvsToUnit(unitV, (float)kSkyViewLutHeight);
-
-  const float toHorizon =
-      std::sqrt(std::fmax(0.0f, radiusKm * radiusKm - medium.BottomRadiusKm * medium.BottomRadiusKm));
-  const float beta = std::acos(std::fmin(1.0f, std::fmax(-1.0f, toHorizon / radiusKm)));
-  const float zenithToHorizon = std::numbers::pi_v<float> - beta;
-  if (v < 0.5f) {
-    float coord = 1.0f - 2.0f * v;
-    coord = 1.0f - coord * coord;
-    *cosView = std::cos(zenithToHorizon * coord);
-  } else {
-    float coord = v * 2.0f - 1.0f;
-    coord *= coord;
-    *cosView = std::cos(zenithToHorizon + beta * coord);
-  }
-  *lightViewCos = -(u * u * 2.0f - 1.0f);
-}
-
 inline void SkyViewUv(const Medium &medium, float radiusKm, bool hitsGround, float cosView,
                       float lightViewCos, float *u, float *v) {
   const float toHorizon =
@@ -223,8 +188,8 @@ inline void SkyViewUv(const Medium &medium, float radiusKm, bool hitsGround, flo
     *v = std::sqrt(std::fmax(0.0f, coord)) * 0.5f + 0.5f;
   }
   *u = std::sqrt(std::fmax(0.0f, -lightViewCos * 0.5f + 0.5f));
-  *u = UnitToSubUvs(*u, (float)kSkyViewLutWidth);
-  *v = UnitToSubUvs(*v, (float)kSkyViewLutHeight);
+  *u = unitToSubUvs(*u, (float)kSkyViewLutWidth);
+  *v = unitToSubUvs(*v, (float)kSkyViewLutHeight);
 }
 
 template <typename ToSun, typename Psi>
@@ -238,11 +203,11 @@ inline void MediumSkyRay(const Medium &medium, float radiusKm, float cosView, fl
                         cosView};
   const float sun[3] = {sinSun, 0.0f, cosSunZenith};
   const float cosTheta = dir[0] * sun[0] + dir[2] * sun[2];
-  const float phaseRay = RayleighPhase(cosTheta);
-  const float phaseMie = MiePhase(medium.MiePhaseG, cosTheta);
+  const float phaseRay = rayleighPhase(cosTheta);
+  const float phaseMie = miePhase(medium.MiePhaseG, cosTheta);
 
-  const float toGround = MediumGroundReach(medium, radiusKm, cosView);
-  const float toTop = MediumTopReach(medium, radiusKm, cosView);
+  const float toGround = mediumGroundReach(medium, radiusKm, cosView);
+  const float toTop = mediumTopReach(medium, radiusKm, cosView);
   const float span = toGround < 0.0f ? toTop : std::fmin(toTop, toGround);
   const float stride = span / (float)kSkyViewSteps;
 
@@ -250,7 +215,7 @@ inline void MediumSkyRay(const Medium &medium, float radiusKm, float cosView, fl
   double throughput[3] = {1.0, 1.0, 1.0};
   for (int step = 0; step < kSkyViewSteps; ++step) {
     const float along = stride * ((float)step + kMediumLuminanceSegment);
-    const float heightKm = MediumHeightAlong(medium, radiusKm, cosView, along);
+    const float heightKm = mediumHeightAlong(medium, radiusKm, cosView, along);
     const float hereKm = heightKm + medium.BottomRadiusKm;
     const float rayleigh = std::exp(-heightKm / medium.RayleighScaleHeightKm);
     const float mie = std::exp(-heightKm / medium.MieScaleHeightKm);
@@ -260,7 +225,7 @@ inline void MediumSkyRay(const Medium &medium, float radiusKm, float cosView, fl
     const float sunDot = dir[0] * sun[0] + dir[2] * sun[2];
     const float cosSunAt = (radiusKm * cosSunZenith + along * sunDot) / hereKm;
     const float shadowed =
-        MediumGroundReach(medium, hereKm - kMediumGroundLiftKm, cosSunAt) >= 0.0f ? 0.0f : 1.0f;
+        mediumGroundReach(medium, hereKm - kMediumGroundLiftKm, cosSunAt) >= 0.0f ? 0.0f : 1.0f;
     float toSun[3] = {0.0f, 0.0f, 0.0f};
     if (shadowed > 0.0f) { transmittanceToSun(hereKm, cosSunAt, toSun); }
     float psi[3] = {0.0f, 0.0f, 0.0f};
@@ -322,29 +287,13 @@ inline void MediumSkyIrradiance(const Medium &medium, float radiusKm, float cosS
   }
 }
 
-inline void MediumTransmittanceParams(const Medium &medium, float u, float v, float *radiusKm,
-                                      float *cosZenith) {
-  const float span = std::sqrt(std::fmax(0.0f, medium.TopRadiusKm * medium.TopRadiusKm -
-                                                   medium.BottomRadiusKm * medium.BottomRadiusKm));
-  const float ground = span * v;
-  *radiusKm = std::sqrt(ground * ground + medium.BottomRadiusKm * medium.BottomRadiusKm);
-
-  const float shortest = medium.TopRadiusKm - *radiusKm;
-  const float longest = ground + span;
-  const float reach = shortest + u * (longest - shortest);
-  *cosZenith = reach == 0.0f ? 1.0f
-                             : (span * span - ground * ground - reach * reach) /
-                                   (2.0f * *radiusKm * reach);
-  *cosZenith = std::fmin(1.0f, std::fmax(-1.0f, *cosZenith));
-}
-
 inline void MediumTransmittanceUv(const Medium &medium, float radiusKm, float cosZenith, float *u,
                                   float *v) {
   const float span = std::sqrt(std::fmax(0.0f, medium.TopRadiusKm * medium.TopRadiusKm -
                                                    medium.BottomRadiusKm * medium.BottomRadiusKm));
   const float ground =
       std::sqrt(std::fmax(0.0f, radiusKm * radiusKm - medium.BottomRadiusKm * medium.BottomRadiusKm));
-  const float reach = MediumTopReach(medium, radiusKm, cosZenith);
+  const float reach = mediumTopReach(medium, radiusKm, cosZenith);
   const float shortest = medium.TopRadiusKm - radiusKm;
   const float longest = ground + span;
   *u = (reach - shortest) / (longest - shortest);
@@ -353,8 +302,8 @@ inline void MediumTransmittanceUv(const Medium &medium, float radiusKm, float co
 
 inline void MediumTransmittance(const Medium &medium, float radiusKm, float cosZenith, int steps,
                                 float out[3]) {
-  const float toGround = MediumGroundReach(medium, radiusKm, cosZenith);
-  const float toTop = MediumTopReach(medium, radiusKm, cosZenith);
+  const float toGround = mediumGroundReach(medium, radiusKm, cosZenith);
+  const float toTop = mediumTopReach(medium, radiusKm, cosZenith);
   const float span = toGround < 0.0f ? toTop : std::fmin(toTop, toGround);
 
   double depth[3] = {0.0, 0.0, 0.0};
@@ -363,7 +312,7 @@ inline void MediumTransmittance(const Medium &medium, float radiusKm, float cosZ
     const float along = stride * ((float)step + kMediumSampleSegment);
 
     float extinction[3];
-    MediumExtinctionPerKm(medium, MediumHeightAlong(medium, radiusKm, cosZenith, along), extinction);
+    MediumExtinctionPerKm(medium, mediumHeightAlong(medium, radiusKm, cosZenith, along), extinction);
     for (int channel = 0; channel < 3; ++channel) {
       depth[channel] += (double)extinction[channel] * (double)stride;
     }

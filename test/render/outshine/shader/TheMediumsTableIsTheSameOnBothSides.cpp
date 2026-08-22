@@ -20,7 +20,7 @@ using outshine::Render::kTransmittanceLutWidth;
 using outshine::Render::kTransmittanceSteps;
 using outshine::Render::Medium;
 using outshine::Render::MediumTransmittance;
-using outshine::Render::MediumTransmittanceParams;
+using outshine::Render::mediumTransmittanceParams;
 using outshine::Render::MediumTransmittanceStage;
 using outshine::Render::PassRecording;
 using outshine::Render::Readback;
@@ -174,9 +174,9 @@ int main(void) {
       const uint16_t *const texel =
           reinterpret_cast<const uint16_t *>(raw.data()) + ((size_t)y * kTransmittanceLutWidth + x) * 4u;
       float radiusKm = 0.0f, cosZenith = 0.0f;
-      MediumTransmittanceParams(medium, ((float)x + 0.5f) / (float)kTransmittanceLutWidth,
-                                ((float)y + 0.5f) / (float)kTransmittanceLutHeight, &radiusKm,
-                                &cosZenith);
+      mediumTransmittanceParams(medium, ((float)x + 0.5f) / (float)kTransmittanceLutWidth,
+                                ((float)y + 0.5f) / (float)kTransmittanceLutHeight, radiusKm,
+                                cosZenith);
       float here[3];
       MediumTransmittance(medium, radiusKm, cosZenith, kTransmittanceSteps, here);
       alphaLow = std::fmin(alphaLow, (double)FromHalf(texel[3]));
@@ -218,8 +218,8 @@ int main(void) {
   for (uint32_t y = 0; y < kTransmittanceLutHeight; ++y) {
     if (pastByRow[y] == 0) { continue; }
     float radiusKm = 0.0f, cosZenith = 0.0f;
-    MediumTransmittanceParams(medium, 0.5f, ((float)y + 0.5f) / (float)kTransmittanceLutHeight,
-                              &radiusKm, &cosZenith);
+    mediumTransmittanceParams(medium, 0.5f, ((float)y + 0.5f) / (float)kTransmittanceLutHeight,
+                              radiusKm, cosZenith);
     std::printf("NOTE   row %u -- %.3f km up -- carries %zu of them\n", y,
                 (double)radiusKm - (double)medium.BottomRadiusKm, pastByRow[y]);
   }
@@ -242,8 +242,8 @@ int main(void) {
     float zenith[3];
     const uint16_t *const top =
         reinterpret_cast<const uint16_t *>(raw.data()) + (size_t)0u * 4u;
-    MediumTransmittanceParams(medium, 0.5f / (float)kTransmittanceLutWidth,
-                              0.5f / (float)kTransmittanceLutHeight, zenith, zenith + 1);
+    mediumTransmittanceParams(medium, 0.5f / (float)kTransmittanceLutWidth,
+                              0.5f / (float)kTransmittanceLutHeight, zenith[0], zenith[1]);
     (void)zenith;
     for (int channel = 0; channel < 3; ++channel) {
       Note(kChannel[channel], (double)FromHalf(top[channel]), "at the table's first texel");

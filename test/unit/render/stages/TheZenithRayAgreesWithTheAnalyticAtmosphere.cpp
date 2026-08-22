@@ -11,10 +11,10 @@ using outshine::Render::kTransmittanceLutWidth;
 using outshine::Render::kTransmittanceSteps;
 using outshine::Render::Medium;
 using outshine::Render::MediumExtinctionPerKm;
-using outshine::Render::MediumGroundReach;
-using outshine::Render::MediumTopReach;
+using outshine::Render::mediumGroundReach;
+using outshine::Render::mediumTopReach;
 using outshine::Render::MediumTransmittance;
-using outshine::Render::MediumTransmittanceParams;
+using outshine::Render::mediumTransmittanceParams;
 using outshine::Render::MediumTransmittanceUv;
 
 namespace {
@@ -70,11 +70,11 @@ int main(void) {
         "Rayleigh coefficient runs 0.005802 : 0.013558 : 0.033100 per km at 680, 550 and 440 nm, "
         "so the analytic transmittance falls monotonically from red to blue with no code involved");
 
-  CHECK(MediumGroundReach(medium, medium.BottomRadiusKm, 1.0f) < 0.0f ||
-            MediumGroundReach(medium, medium.BottomRadiusKm, 1.0f) == 0.0f,
+  CHECK(mediumGroundReach(medium, medium.BottomRadiusKm, 1.0f) < 0.0f ||
+            mediumGroundReach(medium, medium.BottomRadiusKm, 1.0f) == 0.0f,
         "a ray leaving the ground straight up never meets the ground again ahead of it");
-  Note("how far a zenith ray travels", MediumTopReach(medium, medium.BottomRadiusKm, 1.0f), "km");
-  CHECK_NEAR(MediumTopReach(medium, medium.BottomRadiusKm, 1.0f), 100.0, 1e-3, "km",
+  Note("how far a zenith ray travels", mediumTopReach(medium, medium.BottomRadiusKm, 1.0f), "km");
+  CHECK_NEAR(mediumTopReach(medium, medium.BottomRadiusKm, 1.0f), 100.0, 1e-3, "km",
              "**and it travels exactly the depth of the medium, because it is radial.** That is why "
              "this one ray has an ORACLE the march cannot borrow from: its optical depth is a "
              "closed integral of an exponential, and a spherical geometry contributes nothing to it");
@@ -151,7 +151,7 @@ int main(void) {
         const float u = ((float)x + 0.5f) / (float)kTransmittanceLutWidth;
         const float v = ((float)y + 0.5f) / (float)kTransmittanceLutHeight;
         float radiusKm = 0.0f, cosZenith = 0.0f;
-        MediumTransmittanceParams(medium, u, v, &radiusKm, &cosZenith);
+        mediumTransmittanceParams(medium, u, v, radiusKm, cosZenith);
         float back = 0.0f, backV = 0.0f;
         MediumTransmittanceUv(medium, radiusKm, cosZenith, &back, &backV);
         const double drift = std::fmax(std::fabs((double)back - u), std::fabs((double)backV - v));
@@ -187,11 +187,11 @@ int main(void) {
     float radiusKm = 0.0f, cosZenith = 0.0f;
     const float grazingU = ((float)kTransmittanceLutWidth - 0.5f) / (float)kTransmittanceLutWidth;
     const float lowestV = 0.5f / (float)kTransmittanceLutHeight;
-    MediumTransmittanceParams(medium, grazingU, lowestV, &radiusKm, &cosZenith);
+    mediumTransmittanceParams(medium, grazingU, lowestV, radiusKm, cosZenith);
     MediumTransmittance(medium, radiusKm, cosZenith, kTransmittanceSteps, horizon);
     Note("the lowest texel row sits at", (radiusKm - medium.BottomRadiusKm) * 1000.0, "m above the ground");
     Note("the grazing ray's cos zenith there", cosZenith, "");
-    Note("how far that ray travels", MediumTopReach(medium, radiusKm, cosZenith), "km");
+    Note("how far that ray travels", mediumTopReach(medium, radiusKm, cosZenith), "km");
     Note("blue at the zenith", zenith[2], "transmittance");
     Note("blue along the horizon", horizon[2], "transmittance");
     Note("red along the horizon", horizon[0], "transmittance");
@@ -212,13 +212,13 @@ int main(void) {
           "red and not merely dim");
 
     float tangent[3];
-    MediumTransmittanceParams(medium, 1.0f, 0.0f, &radiusKm, &cosZenith);
+    mediumTransmittanceParams(medium, 1.0f, 0.0f, radiusKm, cosZenith);
     MediumTransmittance(medium, radiusKm, cosZenith, kTransmittanceSteps, tangent);
     Note("blue at the exactly tangent corner", tangent[2], "transmittance");
     Note("how far the tangent ray gets before the ground",
-         MediumGroundReach(medium, radiusKm, cosZenith) * 1000.0, "m");
-    CHECK(tangent[2] > 0.999999f && MediumGroundReach(medium, radiusKm, cosZenith) >= 0.0f &&
-              MediumGroundReach(medium, radiusKm, cosZenith) * 1000.0f < 1.0f,
+         mediumGroundReach(medium, radiusKm, cosZenith) * 1000.0, "m");
+    CHECK(tangent[2] > 0.999999f && mediumGroundReach(medium, radiusKm, cosZenith) >= 0.0f &&
+              mediumGroundReach(medium, radiusKm, cosZenith) * 1000.0f < 1.0f,
           "**AND THE CORNER IS CHECKED RATHER THAN AVOIDED**, because a limit nobody wrote down is "
           "a limit somebody rediscovers. The ground stops the tangent ray at zero metres and the "
           "medium takes nothing from it -- which is arithmetic, not a defect, and the reference "

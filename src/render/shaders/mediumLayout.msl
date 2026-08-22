@@ -1,0 +1,7 @@
+struct Medium {
+  float BottomRadiusKm; float TopRadiusKm; float RayleighScaleHeightKm; float MieScaleHeightKm;
+  packed_float3 RayleighScatteringPerKm; float MieScatteringPerKm;
+  packed_float3 OzoneAbsorptionPerKm; float MieExtinctionPerKm;
+  float OzoneCentreKm; float OzoneHalfWidthKm; float MiePhaseG; float pad;
+  packed_float3 GroundAlbedo; float pad2;
+};

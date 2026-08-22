@@ -12,14 +12,14 @@ using outshine::Render::kSkyViewLutHeight;
 using outshine::Render::kSkyViewLutWidth;
 using outshine::Render::kTransmittanceSteps;
 using outshine::Render::Medium;
-using outshine::Render::MediumGroundReach;
+using outshine::Render::mediumGroundReach;
 using outshine::Render::MediumMultiScatterTexel;
 using outshine::Render::MediumSkyRay;
 using outshine::Render::MediumTransmittance;
-using outshine::Render::SkyViewParams;
+using outshine::Render::skyViewParams;
 using outshine::Render::SkyViewUv;
-using outshine::Render::SubUvsToUnit;
-using outshine::Render::UnitToSubUvs;
+using outshine::Render::subUvsToUnit;
+using outshine::Render::unitToSubUvs;
 
 namespace {
 
@@ -48,8 +48,8 @@ struct Psi {
   void Sample(const Medium &medium, float radiusKm, float cosZenith, float out[3]) const {
     float u = cosZenith * 0.5f + 0.5f;
     float v = (radiusKm - medium.BottomRadiusKm) / (medium.TopRadiusKm - medium.BottomRadiusKm);
-    u = UnitToSubUvs(u, (float)kMultiScatterLutSize);
-    v = UnitToSubUvs(v, (float)kMultiScatterLutSize);
+    u = unitToSubUvs(u, (float)kMultiScatterLutSize);
+    v = unitToSubUvs(v, (float)kMultiScatterLutSize);
     const float x = std::fmin(std::fmax(u * (float)kMultiScatterLutSize - 0.5f, 0.0f),
                               (float)kMultiScatterLutSize - 1.0f);
     const float y = std::fmin(std::fmax(v * (float)kMultiScatterLutSize - 0.5f, 0.0f),
@@ -97,8 +97,8 @@ int main(void) {
         const float u = ((float)x + 0.5f) / (float)kSkyViewLutWidth;
         const float v = ((float)y + 0.5f) / (float)kSkyViewLutHeight;
         float cosView = 0.0f, lightViewCos = 0.0f;
-        SkyViewParams(medium, eyeKm, u, v, &cosView, &lightViewCos);
-        const bool hitsGround = MediumGroundReach(medium, eyeKm, cosView) >= 0.0f;
+        skyViewParams(medium, eyeKm, u, v, (float)kSkyViewLutWidth, (float)kSkyViewLutHeight, cosView, lightViewCos);
+        const bool hitsGround = mediumGroundReach(medium, eyeKm, cosView) >= 0.0f;
         float backU = 0.0f, backV = 0.0f;
         SkyViewUv(medium, eyeKm, hitsGround, cosView, lightViewCos, &backU, &backV);
         worst = std::fmax(worst, std::fmax(std::fabs((double)backU - u),

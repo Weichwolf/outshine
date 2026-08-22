@@ -203,8 +203,8 @@ int main(void) {
   const auto scattered = [&](float radiusKm, float cosZenith, float out[3]) {
     float u = cosZenith * 0.5f + 0.5f;
     float v = (radiusKm - medium.BottomRadiusKm) / (medium.TopRadiusKm - medium.BottomRadiusKm);
-    psiTable.Sample(UnitToSubUvs(u, (float)kMultiScatterLutSize),
-                    UnitToSubUvs(v, (float)kMultiScatterLutSize), out);
+    psiTable.Sample(unitToSubUvs(u, (float)kMultiScatterLutSize),
+                    unitToSubUvs(v, (float)kMultiScatterLutSize), out);
   };
 
   size_t walked = 0;
@@ -223,8 +223,8 @@ int main(void) {
                             ((float)y + 0.5f) / (float)kSkyViewLutHeight + quarterV};
       for (int probe = 0; probe < 3; ++probe) {
         float cosView = 0.0f, lightViewCos = 0.0f;
-        SkyViewParams(medium, eyeKm, ((float)x + 0.5f) / (float)kSkyViewLutWidth, atV[probe],
-                      &cosView, &lightViewCos);
+        skyViewParams(medium, eyeKm, ((float)x + 0.5f) / (float)kSkyViewLutWidth, atV[probe],
+                      (float)kSkyViewLutWidth, (float)kSkyViewLutHeight, cosView, lightViewCos);
         MediumSkyRay(medium, eyeKm, cosView, lightViewCos, cosSun, toSun, scattered,
                      bracket[probe]);
       }
