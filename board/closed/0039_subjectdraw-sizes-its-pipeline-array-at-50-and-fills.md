@@ -37,3 +37,8 @@ compiled rather than where a material table is set.
 Adjudicated 2026-08-22: Configure builds all five surface kinds and the transmissive shaders
 exist; what keeps this open is the glass gating -- the clone stage (board:1574) is the surviving
 half of this item's critique.
+
+
+---
+
+**Closed as superseded (2026-08-22).** Configure builds all five surface kinds; the surviving half -- the glass clone -- is board:1574's subject, and the pipeline-from-draw-keys critique is 0112's.

@@ -18,3 +18,8 @@ Tags: scope
 - [ ] Animation driven by locomotion rather than leading it, for a human
 - [ ] Crowd: pedestrians on the pavement network
 - [ ] Fauna: birds, insects, deer, livestock in a field — the reference's meadow has movement in it
+
+
+---
+
+**Closed as superseded (2026-08-22).** The actor chain and the component store carry the architectural core (mind acts on functions, sees through queries, navigates through a tool); the unique residue -- sensor channels, fauna, crowds -- is refiled as board:1594.

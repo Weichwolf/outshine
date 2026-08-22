@@ -11,3 +11,8 @@ Tags: scope
 - [x] **The refusal names the repair, not only the defect**: the resource that was missing, the stage that reads it, and — when the catalogue holds one — the stage that would have supplied it. The catalogue is `constexpr`, so naming the supplier costs nothing at run time (`render/plan/RenderPlan.cpp:44-56`; `test/outshine/unit/render/plan/APlanIsPulledFromWhatItRequests.cpp` — a lit surface with no shadow map is told `declare render.content.shadowMap`)
 - [x] **No `throw`, no `std::optional`, no bare `bool`**: `[[nodiscard]] bool Compile(const PlanSpec &, RenderPlan *out, std::string &err)`, and on `false` the out-parameter is untouched — the shape the bug tasks in `board/` derived for this tree, where the value that says *no* carries no spendable payload (`render/plan/RenderPlan.h:64-65`; the out-parameter is `std::shared_ptr<const RenderPlan> *`, because the plan is immutable and outlives the compile — `R.21`'s exception, sharing is what a plan is for; `test/outshine/unit/render/plan/APlanIsPulledFromWhatItRequests.cpp` — *"the refused plan left the handle untouched"*)
 - [x] **`RenderPlan` has no public constructor**: it exists only as `Compile`'s output, so *a renderer holding an unvalidated plan* has no spelling. The model is already in the tree — `generators/GroundPatch.cpp:19-20`, private constructor, `Complete` refusing unless every posting resolved (`C.41`, `C.42`). `render/plan/RenderPlan.h:102-103`
+
+
+---
+
+**Closed by the backlog adjudication, tranche 2 (2026-08-22).** The refusals are static where they can be and the render block has its reader: Live builds the PlanSpec and compiles it.

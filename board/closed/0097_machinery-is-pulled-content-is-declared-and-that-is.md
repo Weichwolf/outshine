@@ -9,3 +9,8 @@ Tags: scope
 - [x] **A plan is pulled backwards from its requested outputs**, so a consumer asking for a lit picture cannot omit the transmittance LUT: the LUT is not something the plan forgot, it is something the plan contains by construction. **The impossible plan is therefore largely unspellable rather than refused**, and that is the acceptance test for this whole section (`render/plan/RenderPlan.cpp:11-110`, `Pull` — a backward closure needing no sort, no revisit and no cycle check; `test/outshine/unit/render/plan/APlanIsPulledFromWhatItRequests.cpp` — a declaration naming none of the four atmosphere stages compiles to a plan holding all four)
 - [ ] **No named preset exists in the engine.** *Judged, not recorded:* a preset a scenario asks for is still the consumer choosing and would be admissible — but with machinery pulled it is unnecessary, and a name is a second place the composition lives, which is exactly how `Renderer` aged into sixteen unconditional members. Reuse belongs to the **data**: a scenario may include another scenario
 - [ ] A consumer that wants a variation of a shipped picture **edits a scenario, never an engine preset** — so the diff of a picture change is a diff of declared data and appears in `git log` as one
+
+
+---
+
+**Closed by the backlog adjudication, tranche 2 (2026-08-22).** The plan is pulled backwards (RenderPlan::Pull), the medium chain exists, and no preset spelling survives in render or scenario.

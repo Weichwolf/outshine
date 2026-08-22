@@ -19,3 +19,8 @@ Tags: oracle, perf, instrument
 
 - [ ] **The precondition is non-negotiable and it is what makes this possible now: the oracle must reduce, two seeds bit-identical.** A tail bound against a Monte-Carlo reference is a bound fitted to noise, and it would be fitted case by case, which is the thing forbidden two lines up. **Where Cycles offers no lever the bound is not enforced** — `PointLightIntensityTest` at 256 spp is that case and § I.26.13 already carries it as the one accepted estimator
 - [ ] **And the ordering matters: the reduction is what removes the artefact, the bound is only what makes it impossible to score green.** The black dots go because the oracle reduces (§ I.26.13's *reduce the oracle, never the tolerance*); the bound is the instrument that would have refused to call them a pass. *Stated so no round mistakes the bound for the repair*
+
+
+---
+
+**Closed by the backlog adjudication, tranche 2 (2026-08-22).** The tail is a sum of named BoundTerms -- f32 arithmetic, sub-texel snapping, the oracle's own residuum -- with the estimator arm unenforced by name.

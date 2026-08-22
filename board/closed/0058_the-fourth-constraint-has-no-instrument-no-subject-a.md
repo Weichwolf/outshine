@@ -64,3 +64,8 @@ stripped, so **the instrument was identical everywhere that touches a duration**
 pipeline count is absent from the two historical runs**, and the *30* they are compared against was
 **read from the vertex-layout table rather than measured**. The durations are sound; **the pipeline count
 attached to them is a reconstruction.**
+
+
+---
+
+**Closed by the backlog adjudication, tranche 2 (2026-08-22).** The title is false today: AMovingCameraHoldsTheFrameBudgetOverADeclaredRun and TheFrameCostIsPublishedAgainstItsOwnFloor are instrument, subject and case; the landscape subject travels with the GEO items and the orphaned GPU-span need is refiled as board:1593.

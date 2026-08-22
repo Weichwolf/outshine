@@ -26,3 +26,8 @@ nothing, because the bytes are pinned by per-file SHA-256 either way.
 
 **Right:** `https://download.blender.org/demo/` as one prefix. Fixed when the pavilion and the Sprite
 Fright archive fetch under an unmodified `fetch.py`, and when `licence.py` still refuses `mr_elephant`.
+
+
+---
+
+**Closed as stale (2026-08-22).** The cited fetch.py no longer exists and the preparer enumerates no blender.org paths; the Pavilion need travels with 0077/0078.

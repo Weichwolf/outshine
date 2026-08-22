@@ -9,3 +9,8 @@ Tags: perf, instrument
 - [x] **Two merge rules, stated once and applied by the compiler rather than welded into a shader.** **R1, compute chaining:** consecutive compute stages whose dependency is dispatch-order-visible share one compute pass — already two instances in the tree, five stages in two passes. **R2, raster fusion:** two full-screen raster stages where the second reads only the first's output, and that output is also wanted, become one pass with two attachments (`render/plan/RenderPlan.cpp:202-232`; R2's admissibility is a `constexpr` property of the catalogue — `EveryFusionIsAdjacentAndFed`, `render/plan/RenderCatalogue.h:331-343`; `test/outshine/unit/render/plan/APlanIsPulledFromWhatItRequests.cpp`)
 - [x] **The compiled plan publishes which merges it applied**, so a merge is a measured line in the telemetry and not an invisible property of a fragment shader (`render/plan/RenderPlan.h:99`, `render/Renderer.cpp:172-175` — one `plan_merge` line per merge and one `plan_alias` line per alias at `device_ready`)
 - [ ] **R2's justification must be re-measured before it is relied on.** Its only stated evidence — *taa 4.98 ms and tonemap 5.05 ms against 3.80 ms for everything the engine draws* — cites the deleted architecture document at both of its two sites (`render/Renderer.cpp:786`, `stages/TaaStage.cpp:110`) and that file is deleted, so the number cannot be checked. **Not measurable is not the finding; not yet measured is** — the instrument is the per-pass timer that already exists
+
+
+---
+
+**Closed by the backlog adjudication, tranche 2 (2026-08-22).** The pass count is compiler output inside the digest; the two open boxes named the deleted GpuTimer, whose living need is board:1593.

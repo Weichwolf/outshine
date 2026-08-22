@@ -15,3 +15,8 @@ attachment is the only writer of `frameView` (`render/Renderer.cpp:780-805`, `st
 - [x] **`SceneLinear` declares `FallsBackTo SceneHdr`**, one field in the `constexpr` catalogue, so a picture plan without `TemporalResolve` still reaches the tonemap without a full-screen blit that exists to copy. It earns its place for one named consumer: the TAA-off run that is the deletion question's measurement instrument (`render/Renderer.cpp:576-579`). **The compiled plan publishes every alias it applied** — that record is the difference between a declared identity and a default nobody sees (`render/plan/RenderCatalogue.h:83,159-160`, `render/plan/RenderPlan.cpp:83-87`; `test/outshine/unit/render/plan/APlanIsPulledFromWhatItRequests.cpp` — *"the plan publishes the one alias it applied"*)
 - [ ] *The alternative was considered and is refused with its reason:* a `Role::SceneLinear` slot bound by *last writer wins* reintroduces order-dependence into an order the compiler derives from the graph, and would need a cycle check to be well-founded. One catalogue field plus a published list is cheaper and checkable
 - [ ] **Radiance parity gets its zero point from `SceneLinear` and not from a PNG** — § I.26's rung 3 needs a linear tap, and the tap is this resource
+
+
+---
+
+**Closed by the backlog adjudication, tranche 2 (2026-08-22).** ReadSceneLinear, the SceneLinear resource with its fallback, and the parity tap all stand.

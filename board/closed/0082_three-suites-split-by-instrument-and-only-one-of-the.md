@@ -29,3 +29,8 @@ because two declarative suites look alike and are decided by entirely different 
 - [ ] **The film rung splits in two rather than choosing**, because it genuinely tests two things: the **per-frame difference series against the stored oracle** is a *render* case, and the **discontinuity test plus the frame-time distribution over the same segment** is a *scenario* case. *They share a scene and a camera path and answer different questions, and merging them would produce a verdict nobody can attribute — which is the same objection as a single blended score, one level up*
 - [ ] What stays in the render suite is everything whose failure is *our pixels disagree with Cycles*: the spine's twenty-one rungs, every kind-A format case, and the kind-B technique cases with an oracle counterpart — cascades, SSR, water, decals, volumetrics, motion blur, depth of field, bloom and tonemapping, wet surfaces, hair and cloth as geometry
 - [ ] **Each suite states its own verdict shape once, and they are three different shapes**: render is *every named metric within its own threshold and direction* (§ I.26.10) · scenario is *the frame-time distribution within its declared floor, the run bit-identical across two invocations, residency and memory within declared ceilings* · unit is *the invariant held*. **A suite that borrowed another's verdict shape would be reporting a number that does not decide it**
+
+
+---
+
+**Closed by the backlog adjudication, tranche 2 (2026-08-22).** test/unit mirrors src exactly, test/render splits by vendor and feature, the scenario suite stands, and the placement rule is CLAUDE.md's own decision tree.

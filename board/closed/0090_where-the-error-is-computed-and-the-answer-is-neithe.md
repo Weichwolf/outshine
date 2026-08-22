@@ -12,3 +12,8 @@ Tags: oracle, instrument
 ```
 
 - [ ] **`delta_code` is a real number, not an integer, and that is what makes it a floor rather than a bucket.** Because nothing is quantised, **the output-quantisation term I derived for `filter-bounded` vanishes** — it was `≤ 1 code` of rounding on each side and there is no rounding now. *That tightens `filter-bounded` from ≤ 2 codes to its weight term alone, and it is a consequence rather than a preference: the earlier bound was partly a property of the instrument, and the instrument changed*
+
+
+---
+
+**Closed by the backlog adjudication, tranche 2 (2026-08-22).** DisplayCode transfers unquantised on the f32 tap -- the perceptual axis the item asked for.
