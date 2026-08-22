@@ -403,12 +403,6 @@ if [ -n "${LIBRARY:-}" ]; then
   exit 0
 fi
 
-OBJECTS=""
-BuildGroup src/core/Json.cpp || Die "the prune's reader did not build"
-$CXX test/harness/shared/Prune.cpp $OBJECTS $CXXSTD $OPT $WARN -Itest/harness/shared -Itest/harness/shared/render -Isrc/core -o "$BUILD/prune" ||
-  Die "the prune did not build"
-PRUNE_MARKER=$BUILD/prune.marker
-
 if [ "$AUDIT" = 1 ]; then
   bad=0
   for suiteDir in $(find test tools -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
@@ -441,22 +435,46 @@ if [ "$AUDIT" = 1 ]; then
 fi
 
 # every DECLARED suite's object set is closed over its own outshine symbols (board:1641):
-# a sources list that lost a unit refuses here by name, not at a sporadic link
+# a sources list that lost a unit refuses here by name, not at a sporadic link. Symbol NAMES
+# do not depend on the include set, so the audit reads the objects the gate already built --
+# no compile, no relink; a source with no object yet is the cold case and says so
 if [ "$AUDITLINK" = 1 ]; then
   bad=0
   auditSuites=$SUITES
   [ -n "$auditSuites" ] ||
     auditSuites=$(find test tools -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u)
+  objectIndex=$(ls "$OBJDIR" 2>/dev/null)
   for suiteDir in $auditSuites; do
     groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
     [ -n "$groups" ] || continue
-    OBJECTS=""
-    built=yes
+    suiteUnits=""
     for group in $groups; do
-      BuildGroup "$group" || { built=no; break; }
+      case "$group" in
+        *.cpp) suiteUnits="$suiteUnits $group" ;;
+        *) suiteUnits="$suiteUnits $(find "$group" -maxdepth 1 -name '*.cpp' | sort)" ;;
+      esac
     done
-    if [ "$built" = no ]; then
-      printf 'AUDIT %s does not compile under its own declaration\n' "$suiteDir"
+    resolved=$({ printf 'U %s\n' $suiteUnits; printf 'O %s\n' $objectIndex; } | awk '
+      $1 == "U" { unit=$2; stem=unit; sub(/\.cpp$/, "", stem); gsub(/\//, "-", stem); want[stem]=unit; next }
+      $1 == "O" { name=$2; sub(/\.[0-9]+\.o$/, "", name);
+                  if (name in want && !(name in got)) { got[name]=$2; print "OBJ " $2 } }
+      END { for (stem in want) if (!(stem in got)) print "MISSING " want[stem] }')
+    missing=$(printf '%s\n' "$resolved" | sed -n 's/^MISSING //p')
+    OBJECTS=$(printf '%s\n' "$resolved" | sed -n "s|^OBJ |$OBJDIR/|p" | tr '\n' ' ')
+    stragglers=ok
+    for unit in $missing; do
+      if ! BuildGroup "$unit"; then
+        printf 'AUDIT %s does not compile %s under its own declaration\n' "$suiteDir" "$unit"
+        stragglers=refused
+        break
+      fi
+    done
+    if [ "$stragglers" = refused ]; then
+      bad=1
+      continue
+    fi
+    if [ -z "$OBJECTS" ]; then
+      printf 'AUDIT %s resolved no objects at all -- an empty closure proves nothing\n' "$suiteDir"
       bad=1
       continue
     fi
@@ -471,6 +489,21 @@ if [ "$AUDITLINK" = 1 ]; then
   [ "$bad" = 0 ] && printf 'AUDIT closed: every declared suite resolves its own symbols from its own objects\n'
   exit $bad
 fi
+
+OBJECTS=""
+BuildGroup src/core/Json.cpp || Die "the prune's reader did not build"
+pruneStale=no
+[ -x "$BUILD/prune" ] || pruneStale=yes
+[ "test/harness/shared/Prune.cpp" -nt "$BUILD/prune" ] && pruneStale=yes
+for pruneObject in $OBJECTS; do
+  [ "$pruneObject" -nt "$BUILD/prune" ] && pruneStale=yes
+done
+if [ "$pruneStale" = yes ]; then
+  $CXX test/harness/shared/Prune.cpp $OBJECTS $CXXSTD $OPT $WARN -Itest/harness/shared -Itest/harness/shared/render -Isrc/core -o "$BUILD/prune" ||
+    Die "the prune did not build"
+fi
+PRUNE_MARKER=$BUILD/prune.marker
+
 
 TREES=test
 for named in $SUITES; do

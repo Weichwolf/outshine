@@ -24,3 +24,17 @@ suite, or cache by suite-source hash), or (b) it moves to the named-only set and
 keeps a cheap declaration-consistency check, or (c) the bound is re-measured and re-[SET]
 with its derivation — but not silently ridden over: today every committer sees a red gate
 and learns to ignore it, which kills the bound's whole point.
+
+---
+
+Closed, form (a) with a lesson attached: symbol NAMES do not depend on the include set, so
+the link audit now reads the objects the gate already built -- one ls of the nest indexed
+through one awk per suite, stragglers (sources only a named suite compiles, e.g.
+SceneWeather) built individually, an EMPTY object set refuses rather than proving a vacuous
+closure. The prune binary stopped recompiling on every invocation (staleness-guarded), and
+the audits run before it. Cost: EveryDeclaredSuiteResolvesItsOwnSymbols 20.1 s -> 2.1 s
+[MEASURED warm], the gate 130/130 at 55.7 s against the 90 s bound -- the growth is repaid,
+the bound is not touched. The lesson the negative control taught tonight: the first
+object-index cut passed awk a newline list via -v, awk refused per suite, and the audit
+printed "closed" over an EMPTY closure -- the seeded control was the only thing that saw it.
+A detector without its control is a liar in waiting; the control stays.
