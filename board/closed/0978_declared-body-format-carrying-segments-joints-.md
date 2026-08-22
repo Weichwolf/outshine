@@ -6,3 +6,7 @@ Parent: 0160
 **Declared body format carrying segments, joints, contacts, force sources and medium**
 
 Declared body format carrying segments, joints, contacts, force sources and medium
+
+---
+
+**Closed, folded into the hull (2026-08-22):** the task lives as a checkbox in 0160; it is refiled as its own item the day work on it begins.
