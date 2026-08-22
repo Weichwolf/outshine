@@ -79,3 +79,15 @@ say, out, error)` -- the middle ~500 lines of Lay move verbatim with their publi
 Journey::Lay shrinks to: read declaration, open streaming, harvest+weave+plan (the nav tool),
 call LayCorridor, stand the rig, seed the ride. Then (c) DriveSystem from Ride over the same
 Corridor product. Each step keeps the fast gate and the sporadic driver proof green.
+
+---
+
+**Move 2 (d), the decided shape (2026-08-22).** The driver cases enter through the one door
+with NO new facade verb and NO second scenario file: read the F31 declaration, set `.Driven`
+on the Scenario VALUE in code (building the declaration in C++ IS the C++ door -- the parity
+law's whole point), `Engine::Declare` + `Assemble` size the pool exactly, and the handles come
+from `Scene()`. Engine exposes its columns read-through (`Vehicles()`, `Drives()`) -- columns
+are the data half of the graph, not verbs, so the door stays one door. Journey's orchestration
+then takes (Store&, the assembled handles, Provision, wire) and consumes the assignment's
+coordinates from the column instead of a Between parameter; the mind possesses the seam that
+DriveTick actuates. Proven when Munich and Kyoto run through Engine with the same numbers.
