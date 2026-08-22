@@ -48,9 +48,10 @@ flowchart TD
 | renderer | any content noun |
 
 Peers never call each other; a part-on-part dependency travels as data through Ground.
-The engine knows no Earth: the world is a declared sphere (radius, gravity) shaped by provider
-height data; sky, sun, moon and stars are scenario declarations -- another planet is another
-scenario and other providers, never other code.
+The engine knows no Earth: a scenario declares a SYSTEM of spheres (radius, gravity, providers,
+sky) shaped by height data; travel between them is an actor with thrust and a possession
+relink, and local behaviour -- the high jump, the bad driving -- emerges from the declared
+gravity through the physics, never from code.
 Budget = screen-space error in px, quantised to a global ladder before it becomes a key;
 key = `(kind, params, seed, rung)` value, no strings. Degrade on detail, refuse on existence.
 
