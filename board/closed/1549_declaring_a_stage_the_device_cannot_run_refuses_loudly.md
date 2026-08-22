@@ -81,3 +81,21 @@ sky chain the architecture diagram draws -- Transmittance, MultiScatter, SkyView
 
 **And it explains why `Clients::Sim` is dead code**: it stands up terrain, buildings, water, moon and
 stars, and every one of those stages is on this list.
+
+---
+
+Closed -- the three demands adjudicated at HEAD:
+
+- REFUSES AT PLAN TIME, BY NAME: Renderer::Init walks the compiled order before any frame
+  and sets WhyNot to "does not execute the stage 'sun', which the catalogue offers and the
+  consumer declared". Was built in the sessions since filing; now PROVEN:
+  test/unit/render/ADeclaredStageTheDeviceCannotRunRefusesAtPlanTime.cpp.
+- THE CATALOGUE AND THE DEVICE AGREE, and the test says so: the sky chain this item found
+  missing -- transmittance, multi-scatter, radiance, sky -- stands up WITHOUT a refusal (the
+  item's own work list, worked); a refusal is always a genuinely unbuilt stage.
+- THE NINE: sky's four are BUILT. Sun, moon, stars, terrain, buildings, water, models, AO
+  stay catalogued ON RECORD -- the TARGET diagram builds them (green/probable), and the
+  plan-time refusal makes a catalogued-but-unbuilt stage an honest loud "not yet" rather
+  than the dead path the item feared. Removing them would contradict the decided TARGET.
+
+Gate 131/131 warm.
