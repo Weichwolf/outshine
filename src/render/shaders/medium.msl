@@ -44,7 +44,7 @@ static inline void mediumMultiScatterTexel(constant Medium &medium, float unitU,
   for (uint which = 0u; which < grid * grid; which = which + 1u) {
     float ring = (float(which / grid) + 0.5) / float(grid);
     float around = (float(which % grid) + 0.5) / float(grid);
-    float theta = 2.0 * 3.14159265358979 * ring;
+    float theta = 2.0 * OUTSHINE_PI * ring;
     float cosPhi = 1.0 - 2.0 * around;
     float sinPhi = sqrt(max(0.0, 1.0 - cosPhi * cosPhi));
     float3 dir = float3(cos(theta) * sinPhi, sin(theta) * sinPhi, cosPhi);
@@ -71,7 +71,7 @@ static inline void mediumMultiScatterTexel(constant Medium &medium, float unitU,
                   .rgb;
       }
       float3 stepT = exp(-extinction * stride);
-      float3 source = shadowed * sun * scattering / (4.0 * 3.14159265358979);
+      float3 source = shadowed * sun * scattering / (4.0 * OUTSHINE_PI);
       summedL += throughput * source * (1.0 - stepT) / extinction;
       summedF += throughput * scattering * (1.0 - stepT) / extinction;
       throughput *= stepT;
@@ -86,7 +86,7 @@ static inline float2 skyViewUv(constant Medium &medium, float radiusKm, bool hit
   float toHorizon =
       sqrt(max(0.0, radiusKm * radiusKm - medium.BottomRadiusKm * medium.BottomRadiusKm));
   float beta = acos(clamp(toHorizon / radiusKm, -1.0, 1.0));
-  float zenithToHorizon = 3.14159265358979 - beta;
+  float zenithToHorizon = OUTSHINE_PI - beta;
   float v;
   if (!hitsGround) {
     float coord = acos(clamp(cosView, -1.0, 1.0)) / zenithToHorizon;
@@ -160,7 +160,7 @@ static inline float3 mediumSkyRay(constant Medium &medium, float radiusKm, float
           transmittance.sample(lut, mediumTransmittanceUv(medium, hereKm, cosSunAt), level(0.0))
               .rgb;
       summed += throughput * toSunGround * cosSunAt * float3(medium.GroundAlbedo) /
-                3.14159265358979;
+                OUTSHINE_PI;
     }
   }
   return summed;

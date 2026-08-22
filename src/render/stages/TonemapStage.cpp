@@ -25,7 +25,7 @@ std::string TonemapStage::ShaderSource(const DisplayOptions &options, std::strin
                       body, error)) {
     return std::string();
   }
-  return std::string(kMslPrelude) + DisplayMsl(options) + body;
+  return MslPrelude() + DisplayMsl(options) + body;
 }
 
 bool TonemapStage::Configure(const Gpu &gpu, SDL_GPUTexture *scene, SDL_GPUTexture *depth,

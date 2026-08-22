@@ -44,11 +44,11 @@ using std::pow;
 using std::sqrt;
 #define MEDIUM_CONST const
 #define MEDIUM_THREAD
-#define MEDIUM_PI std::numbers::pi
+#define OUTSHINE_PI std::numbers::pi
 #include "MediumCore.h"
 #undef MEDIUM_CONST
 #undef MEDIUM_THREAD
-#undef MEDIUM_PI
+#undef OUTSHINE_PI
 } // namespace medium_core
 
 using medium_core::mediumGroundReach;

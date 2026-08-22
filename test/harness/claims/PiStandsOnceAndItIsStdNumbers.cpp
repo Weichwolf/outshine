@@ -57,7 +57,7 @@ int main(void) {
   for (const auto &entry : std::filesystem::recursive_directory_iterator("src")) {
     if (!entry.is_regular_file()) { continue; }
     const std::string ext = entry.path().extension().string();
-    if (ext != ".h" && ext != ".cpp") { continue; }
+    if (ext != ".h" && ext != ".cpp" && ext != ".msl") { continue; }
     std::string text;
     CHECK(Slurp(entry.path(), text), "a source the walk found can be read");
     ++files;
@@ -86,7 +86,8 @@ int main(void) {
 
   for (const std::string &one : spelt) { std::printf("NOTE %s\n", one.c_str()); }
   CHECK(spelt.empty(),
-        "**NO PI STANDS AS DIGITS OUTSIDE AN MSL RAW STRING.** Every pi in src/ -- tau, half-pi, "
+        "**NO PI STANDS AS DIGITS OUTSIDE AN MSL RAW STRING.** Every pi in src/, the .msl "
+        "shader files included (board:1651) -- tau, half-pi, "
         "deg2rad, rad2deg, quarter-pi, the golden angle -- derives from std::numbers; a digit "
         "spelling is a second origin for the one constant and it drifts (board:1630)");
 

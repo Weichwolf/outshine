@@ -24,3 +24,13 @@ CLASS, not a wrong picture. Demanded: every pi in src/render/shaders/*.msl deriv
 one injected define (MEDIUM_PI or a shared constants prelude the assemblers prepend, the
 VELOCITY_STATIC form), and the pi claims test extends its walk to .msl files so a digit
 spelling there refuses in the gate.
+
+---
+
+Closed: the prelude is now a function -- MslPrelude() = kMslPrelude + "#define OUTSHINE_PI
+%.17g" from std::numbers -- and every stage assembly consumes it, so every shader file sees
+the ONE injected origin. medium.msl's four digit sites and sky.msl's one derive from
+OUTSHINE_PI; MediumCore.h's dialect macro is the same name (the C++ wrapper defines it from
+std::numbers, MEDIUM_PI is gone -- one name, one origin, two languages). The guard sees the
+class again: PiStandsOnceAndItIsStdNumbers walks .msl files too, and a digit spelling there
+refuses in the gate. Parity 42/42, gate 129/129 warm.

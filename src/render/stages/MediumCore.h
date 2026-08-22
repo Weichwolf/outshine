@@ -3,7 +3,7 @@
 
 // THE ONE SOURCE (board:1580): compiled as C++ by the reference in ParticipatingMedium.h and
 // appended as MSL text by ParticipatingMediumMsl -- the including side defines MEDIUM_CONST,
-// MEDIUM_THREAD and MEDIUM_PI for its language. Scalar physics only; the vector twins stay
+// MEDIUM_THREAD and OUTSHINE_PI for its language. Scalar physics only; the vector twins stay
 // explicit where the languages genuinely diverge.
 
 static inline float mediumTopReach(MEDIUM_CONST Medium &medium, float radiusKm, float cosZenith) {
@@ -46,11 +46,11 @@ static inline void mediumTransmittanceParams(MEDIUM_CONST Medium &medium, float 
 }
 
 static inline float rayleighPhase(float cosTheta) {
-  return 3.0 / (16.0 * MEDIUM_PI) * (1.0 + cosTheta * cosTheta);
+  return 3.0 / (16.0 * OUTSHINE_PI) * (1.0 + cosTheta * cosTheta);
 }
 
 static inline float miePhase(float g, float cosTheta) {
-  float k = 3.0 / (8.0 * MEDIUM_PI) * (1.0 - g * g) / (2.0 + g * g);
+  float k = 3.0 / (8.0 * OUTSHINE_PI) * (1.0 - g * g) / (2.0 + g * g);
   return k * (1.0 + cosTheta * cosTheta) / pow(1.0 + g * g - 2.0 * g * cosTheta, 1.5);
 }
 
@@ -70,7 +70,7 @@ static inline void skyViewParams(MEDIUM_CONST Medium &medium, float radiusKm, fl
   float toHorizon =
       sqrt(max(0.0, radiusKm * radiusKm - medium.BottomRadiusKm * medium.BottomRadiusKm));
   float beta = acos(clamp(toHorizon / radiusKm, -1.0, 1.0));
-  float zenithToHorizon = MEDIUM_PI - beta;
+  float zenithToHorizon = OUTSHINE_PI - beta;
   if (v < 0.5) {
     float coord = 1.0 - 2.0 * v;
     coord = 1.0 - coord * coord;

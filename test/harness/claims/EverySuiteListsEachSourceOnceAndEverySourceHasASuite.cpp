@@ -16,11 +16,12 @@ int Run(const std::string &cmd, std::string &said) {
 
 // A seeded copy pins ROOT to the calling directory (the copy lives in the temp dir, so its
 // own $0 would point the audit at the wrong tree); the detectors are byte-identical.
+// the copy lands inside the checkout-keyed nest run.sh exports (board:1650) -- a fixed
+// name in the shared temp root is a neighbour's to overwrite between write and sh
 std::string Seeded(const std::string &name, const std::string &patch) {
-  const char *tmp = std::getenv("TMPDIR");
-  std::string at = (tmp != nullptr ? std::string(tmp) : std::string("/tmp"));
-  if (!at.empty() && at.back() == '/') { at.pop_back(); }
-  at += "/audit-control-" + name + ".sh";
+  const char *nest = std::getenv("OUTSHINE_NEST");
+  if (nest == nullptr) { return std::string(); }
+  std::string at = std::string(nest) + "/audit-control-" + name + ".sh";
   std::string said;
   (void)Run("sed -e 's|^ROOT=.*|ROOT=\"$PWD\"|' -e '" + patch + "' test/run.sh > " + at, said);
   return at;

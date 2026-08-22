@@ -111,10 +111,7 @@ std::string SkyStage::ShaderSource(void) {
 std::string SkyStage::ShaderSource(std::string &error) {
   std::string body;
   if (!LoadShaderText("src/render/shaders/sky.msl", body, error)) { return std::string(); }
-  char constants[128];
-  std::snprintf(constants, sizeof constants, "#define VELOCITY_STATIC %.9ef\n",
-                (double)kVelocityStatic);
-  return std::string(kMslPrelude) + constants + body;
+  return MslPrelude() + VelocityStaticDefine() + body;
 }
 
 }

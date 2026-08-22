@@ -71,3 +71,10 @@ kVelocityStatic and the sky follows while the subject keeps the old sentinel. Th
 slice must cover all eight sites, and the velocity sentinel takes the SkyStage interpolation
 form now, not at the slice's leisure. The pi digits inside the new .msl files are
 board:1651's ledger.
+
+---
+
+The kVelocityMsl drift is dead (round 3's sharpening): SceneTargets.h holds ONE origin --
+kVelocityStatic and VelocityStaticDefine() -- the blob spells VELOCITY_STATIC, and BOTH
+assemblies (sky, subject) prepend the define. Tuning the sentinel can no longer split the
+two consumers. The eight-site blob census stands as this item's remaining ledger.

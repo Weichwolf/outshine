@@ -1,6 +1,9 @@
 #ifndef SCENETARGETS_H
 #define SCENETARGETS_H
 
+#include <cstdio>
+#include <string>
+
 #include <SDL3/SDL_gpu.h>
 
 namespace outshine::Render {
@@ -21,8 +24,14 @@ inline SDL_GPUColorTargetDescription VelocityTarget(bool writes) {
 }
 
 static const char *kVelocityMsl = R"(
-constant float kVelStatic = -1.0e4;
+constant float kVelStatic = VELOCITY_STATIC;
 )";
+
+[[nodiscard]] inline std::string VelocityStaticDefine(void) {
+  char made[48];
+  std::snprintf(made, sizeof made, "#define VELOCITY_STATIC %.9ef\n", (double)kVelocityStatic);
+  return std::string(made);
+}
 
 }
 #endif

@@ -213,7 +213,7 @@ std::string SubjectDraw::ShaderSource(const SourceOptions &options, std::string 
       !LoadShaderText("src/render/shaders/subjectMapped.msl", mapped, error)) {
     return std::string();
   }
-  return std::string(kMslPrelude) + kVelocityMsl + ShadowRayMsl() +
+  return MslPrelude() + VelocityStaticDefine() + kVelocityMsl + ShadowRayMsl() +
          "\n#define SUBJECT_WRITES_VELOCITY " + (options.WritesVelocity ? "1" : "0") +
          "\n#define SUBJECT_WRITES_SHADING_NORMAL " + (options.NormalIndex >= 0 ? "1" : "0") +
          "\n#define SUBJECT_NORMAL_COLOUR_INDEX " +
@@ -235,7 +235,7 @@ std::string SubjectDraw::DepthOnlySource(std::string &error) {
   if (!LoadShaderText("src/render/shaders/subjectDepthOnly.msl", body, error)) {
     return std::string();
   }
-  return std::string(kMslPrelude) + body;
+  return MslPrelude() + body;
 }
 
 bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {

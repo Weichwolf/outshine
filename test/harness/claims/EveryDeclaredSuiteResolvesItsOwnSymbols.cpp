@@ -30,10 +30,10 @@ int main(void) {
         "(board:1641's world shape). The closure walks every declared suite's object set with "
         "nm and refuses an outshine symbol nothing in the set defines");
 
-  const char *tmp = std::getenv("TMPDIR");
-  std::string at = (tmp != nullptr ? std::string(tmp) : std::string("/tmp"));
-  if (!at.empty() && at.back() == '/') { at.pop_back(); }
-  at += "/audit-link-control.sh";
+  const char *nest = std::getenv("OUTSHINE_NEST");
+  CHECK(nest != nullptr, "run.sh exports the checkout-keyed nest the control writes into");
+  if (nest == nullptr) { return Report(); }
+  const std::string at = std::string(nest) + "/audit-link-control.sh";
   std::string ignored;
   (void)Run("sed -e 's|^ROOT=.*|ROOT=\"$PWD\"|' "
             "-e 's|src/ground src/actor/path/Wayfinding.cpp src/clients/Sim.cpp"

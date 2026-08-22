@@ -13,6 +13,7 @@ BUILD=${TMPDIR:-/tmp}
 # nests, a worktree gate cannot sweep this one mid-run, and a collision is unspellable
 NEST=$(printf %s "$ROOT" | shasum -a 256 | cut -c1-12)
 BUILD=${BUILD%/}/outshine-tests.$NEST
+export OUTSHINE_NEST="$BUILD"
 PREPARED=${TMPDIR:-/tmp}
 PREPARED=${PREPARED%/}/outshine-prepared
 CXX=${CXX:-c++}

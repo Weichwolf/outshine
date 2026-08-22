@@ -22,7 +22,7 @@ std::string Kernel(std::string &error) {
       !LoadShaderText("src/render/shaders/mediumTransmittance.msl", body, error)) {
     return std::string();
   }
-  return std::string(kMslPrelude) + declared + core + body;
+  return MslPrelude() + declared + core + body;
 }
 
 }

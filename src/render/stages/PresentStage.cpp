@@ -83,7 +83,7 @@ std::string PresentStage::ShaderSource(void) {
 std::string PresentStage::ShaderSource(std::string &error) {
   std::string body;
   if (!LoadShaderText("src/render/shaders/present.msl", body, error)) { return std::string(); }
-  return std::string(kMslPrelude) + body;
+  return MslPrelude() + body;
 }
 
 }

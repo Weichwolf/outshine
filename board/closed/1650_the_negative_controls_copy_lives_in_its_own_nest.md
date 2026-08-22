@@ -24,3 +24,12 @@ Demanded: the control copies land inside the checkout-keyed nest. run.sh already
 (`${TMPDIR}/outshine-tests.$(sha256 of $ROOT | 12 hex)`); the claims tests derive the same
 twelve hex from their own cwd, or run.sh exports the nest path to the tests it spawns —
 either way a fixed name in the shared temp root is unspellable.
+
+---
+
+Closed: run.sh exports OUTSHINE_NEST (the one place the formula lives -- no re-derivation),
+and both control writers land their copies inside it; the symbols test CHECKs the export
+exists before writing. A fixed name in the shared temp root is unspellable again. Proving
+tests: the two claims tests themselves -- EverySuiteListsEachSourceOnceAndEverySourceHasASuite
+and EveryDeclaredSuiteResolvesItsOwnSymbols, whose controls now execute only a copy inside
+this checkout's nest. 129/129 warm.

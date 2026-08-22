@@ -211,7 +211,7 @@ std::string OverlayDraw::ShaderSource(void) {
 std::string OverlayDraw::ShaderSource(std::string &error) {
   std::string body;
   if (!LoadShaderText("src/render/shaders/overlay.msl", body, error)) { return std::string(); }
-  return std::string(kMslPrelude) + body;
+  return MslPrelude() + body;
 }
 
 }
