@@ -74,3 +74,14 @@ across the 60 files that spelled it, the OUTSHINE_WORLD_* guards became OUTSHINE
 and the class-World member qualifications survived intact (Ground::World is the red class,
 renamed once with its 1595 decomposition, not twice). Remaining slices: the actor/ folder
 assembly (body/mind/path) and the World class's own death.
+---
+
+Sharpened (review 2026-08-22, path-move round): d3a51ebb established the rule for ground —
+namespace AND guards follow the folder — and the two actor moves of the same hour skipped the
+guard half. src/actor/body/*.h still open with `OUTSHINE_PHYSICS_*` (Body.h:1, Contact.h:1,
+Rig.h:1, Shear.h:1), src/actor/mind/*.h with `OUTSHINE_PILOT_*` (all six), and actor/path is
+three spellings deep: `OUTSHINE_CORRIDOR_FIT_H` (Fit.h:1), `OUTSHINE_CARRIAGEWAY_H`
+(Carriageway.h:1), `OUTSHINE_PATH_WAYFINDING_H` (Wayfinding.h:1). The namespaces Physics and
+Pilot staying is the recorded decision and stands; the guards spell dead FOLDERS, not
+functions, and the ground sweep is the precedent. One pass: OUTSHINE_ACTOR_BODY_*,
+OUTSHINE_ACTOR_MIND_*, OUTSHINE_ACTOR_PATH_*.

@@ -48,3 +48,19 @@ that copying a module out is a mechanical act rather than an archaeology.
 **The instrument is the removal experiment and nothing weaker.** A module compiling against its set
 proves the set is sufficient; only removing a dependency and watching the compile fail proves it is
 necessary.
+
+---
+
+Sharpened (review 2026-08-22, path-move round): the minimality this item certified for
+src/corridor ("`-Isrc/corridor` — yes, its own headers and the standard library") was LOST in
+the c0109aff rename. src/actor/path's declared set is now
+`-Isrc/core -Isrc/core/io -Isrc/data -Isrc/actor/path -Isrc/ground -Isrc/ground/tiles`
+(test/run.sh:211, and :217 gives Wayfinding.cpp `-Isrc/ground`), while the module's quoted
+includes are its own six headers and nothing else (grep over src/actor/path/*.{h,cpp}) — the
+grants are the residue of RoadHarvest's one-commit visit before the linker sent it back to
+ground. Worse than dead weight: the wide set erases the mechanical layering proof — path could
+start reading ground tomorrow and no compile would refuse. The unit suite doubles the debt:
+unit/actor/path compiles `src/core src/core/io src/data src/ground src/ground/tiles` entire
+(run.sh:66,144, plus `-lz` at :135) for eight tests that include only path headers and Check.h.
+Demanded: actor/path's set shrinks back to `-Isrc/actor/path`, the unit group's sources to
+`src/actor/path`, and the shrink-and-fail claim this item demands would have caught it.

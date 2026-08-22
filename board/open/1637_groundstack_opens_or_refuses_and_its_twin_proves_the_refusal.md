@@ -27,3 +27,18 @@ block verbatim -- and the verbatim move carried four defects into a NEW public s
 Demanded: Open refuses on registration failure and on an unopenable store; the two surface
 numbers carry their origin; the boundary takes string_view; test/unit/ground gains the twin
 that fails on today's constant-true.
+
+---
+
+Sharpened (review 2026-08-22): three of four demands are repaid in the tree (Open has a false
+branch that Closes, GroundStack.cpp:21-24; the two surface numbers carry [SET] origins, :28-29;
+the boundary takes string_view, GroundStack.h:25) — but the twin demand said "fails on today's
+constant-true" and test/unit/ground/TheGroundStackOpensOrRefuses.cpp does NOT: every one of its
+Open calls CHECKs true (lines 43, 52, 60); a constant-true Open passes the whole case. And the
+refusal is UNREACHABLE from the seam: Open builds a fresh SourceSet each call and registers one
+fixed declaration, so RegisterDeclared's only failure mode, RankClash
+(src/data/DeclaredSources.cpp:11-19), cannot occur — the false branch is dead code wearing a
+test-shaped alibi, which is the original defect ("a door whose bool is a constant") in a new
+coat. Demanded before this closes: either the seam gains a reachable refusal (an unopenable
+store directory is the honest candidate — ContentStore's ctor currently cannot report one) with
+a twin case that CHECKs `!Open(...)`, or the bool dies and Open says so in its type.
