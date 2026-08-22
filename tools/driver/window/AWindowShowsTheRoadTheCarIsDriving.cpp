@@ -84,6 +84,8 @@ outshine::Gltf::Placement Seen(const outshine::Physics::Body &body, const outshi
     out.Right[axis] = right[axis];
     out.Up[axis] = up[axis];
   }
+  out.Kind = outshine::Gltf::CameraKind::Perspective;
+  out.YfovRad = view.FovDeg * 3.14159265358979323846 / 180.0;
   return out;
 }
 
