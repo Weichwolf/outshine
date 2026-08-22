@@ -14,10 +14,12 @@ What a shipped title does: a far low-detail ring plus aerial perspective, so the
 physically invisible. Both halves already exist here in parts: the ground grid can be ringed
 coarsely, and the sky chain provides the haze colour the far ring fades into.
 
-- [ ] the drawn ground reaches at least the 10 m eye's horizon distance (11.3 km) at some LOD, or
-      aerial perspective hides the rim -- either mechanism, measured by zero black band pixels at
-      the horizon over the twelve stations
-- [ ] the ring's cost is stated beside its reach
+- [x] **ZERO dark horizon pixels over all twelve stations** (2026-08-22, 120 rows sampled per
+      frame), by three mechanisms together: the 12 km far ring (240 m posts), earth curvature on
+      its heights, and Hillaire's ground-albedo bounce filling the sky's ground half past the rim
+- [x] the ring's cost is stated beside its reach: `kHorizonReachM`/`kFarStepM` sit with the grid
+      constants; 10 201 GroundAt samples per relay, and a missing far sample carries the last
+      height rather than sea level
 
 ## Comments
 
@@ -31,3 +33,13 @@ stills, 120 horizon rows sampled per frame: **seven of twelve stations at ZERO d
 the residue is a one-pixel line (463 px at km 61) -- the angular gap between the ring's silhouette
 seen from the 2 m eye and the sky LUT's horizon computed for its 10 m table eye. The remaining
 checkbox closes when the LUT eye height follows the camera.
+
+
+## CLOSED -- and the residue's history is the lesson
+
+Full-width black bands -> one-pixel line (far ring) -> WIDER line (earth curvature, correct but
+exposing more of the unlit LUT ground) -> zero (ground-albedo bounce). Each step was measured over
+the same twelve-station population, and the middle step made the number worse while being
+physically right -- the kind of intermediate a single-number gate would have rejected. The bounce
+is the reference's own term with the albedo the reference sets to zero; grassland's (0.10, 0.13,
+0.07) turns the last black into the earth's own light.
