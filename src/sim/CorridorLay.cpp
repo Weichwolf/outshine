@@ -16,7 +16,7 @@ namespace {
 constexpr double kPatienceS = 900.0;
 } // namespace
 
-bool LayCorridor(const Ground::Route &route, Ground::GroundStream &ground, const Vehicle &car,
+bool LayCorridor(const Path::Route &route, Ground::GroundStream &ground, const Vehicle &car,
                  const Rigged &stood, double quantumM, double tightestM, double middleLat, double sphereRadiusM,
                  Sink &say, Corridor &out, std::string &error) {
   const double carWidthM = car.WidthM;
@@ -37,8 +37,8 @@ bool LayCorridor(const Ground::Route &route, Ground::GroundStream &ground, const
 
   const double frameLat = route.Legs.front().At.LatDeg;
   const double frameLon = route.Legs.front().At.LonDeg;
-  const double perLatM = Ground::ApartM(frameLat, frameLon, frameLat + 1.0, frameLon, sphereRadiusM);
-  const double perLonM = Ground::ApartM(frameLat, frameLon, frameLat, frameLon + 1.0, sphereRadiusM);
+  const double perLatM = Path::ApartM(frameLat, frameLon, frameLat + 1.0, frameLon, sphereRadiusM);
+  const double perLonM = Path::ApartM(frameLat, frameLon, frameLat, frameLon + 1.0, sphereRadiusM);
   out.FrameLat = frameLat;
   out.FrameLon = frameLon;
   out.PerLatM = perLatM;
@@ -102,9 +102,9 @@ bool LayCorridor(const Ground::Route &route, Ground::GroundStream &ground, const
     }
     if (at >= 1 && at + 1 < route.Legs.size()) {
       char legs[96];
-      std::snprintf(legs, sizeof legs, "LEGS in %.2f m  out %.2f m", Ground::ApartM(route.Legs[at - 1].At.LatDeg, route.Legs[at - 1].At.LonDeg,
+      std::snprintf(legs, sizeof legs, "LEGS in %.2f m  out %.2f m", Path::ApartM(route.Legs[at - 1].At.LatDeg, route.Legs[at - 1].At.LonDeg,
                          route.Legs[at].At.LatDeg, route.Legs[at].At.LonDeg, sphereRadiusM),
-                  Ground::ApartM(route.Legs[at].At.LatDeg, route.Legs[at].At.LonDeg,
+                  Path::ApartM(route.Legs[at].At.LatDeg, route.Legs[at].At.LonDeg,
                          route.Legs[at + 1].At.LatDeg, route.Legs[at + 1].At.LonDeg, sphereRadiusM));
       say.Say(legs);
     }

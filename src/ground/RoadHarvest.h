@@ -27,7 +27,7 @@ struct Reaped {
 };
 
 [[nodiscard]] Reaped Reap(const OsmField &field, const VegetationTemplates &widths,
-                          double vehicleWidthM, Network &into);
+                          double vehicleWidthM, Path::Network &into);
 
 } // namespace outshine::Ground
 

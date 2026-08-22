@@ -30,7 +30,7 @@ struct Corridor {
   double FrameLat = 0.0, FrameLon = 0.0, PerLatM = 1.0, PerLonM = 1.0;
 };
 
-[[nodiscard]] bool LayCorridor(const Ground::Route &route, Ground::GroundStream &ground,
+[[nodiscard]] bool LayCorridor(const Path::Route &route, Ground::GroundStream &ground,
                                const Vehicle &car, const Rigged &stood, double quantumM,
                                double tightestM, double middleLat, double sphereRadiusM,
                                Sink &say, Corridor &out, std::string &error);

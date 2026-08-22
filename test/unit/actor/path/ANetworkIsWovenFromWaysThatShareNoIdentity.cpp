@@ -7,12 +7,12 @@
 
 #include "Wayfinding.h"
 
-using outshine::Ground::ApartM;
+using outshine::Path::ApartM;
 
 constexpr double kIuggMeanRadiusM = 6371008.8;
-using outshine::Ground::Network;
-using outshine::Ground::Route;
-using outshine::Ground::Waypoint;
+using outshine::Path::Network;
+using outshine::Path::Route;
+using outshine::Path::Waypoint;
 
 namespace {
 

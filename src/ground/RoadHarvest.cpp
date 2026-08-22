@@ -6,7 +6,7 @@
 namespace outshine::Ground {
 
 Reaped Reap(const OsmField &field, const VegetationTemplates &widths, double vehicleWidthM,
-            Network &into) {
+            Path::Network &into) {
   Reaped out;
   const int streets = field.Layer(OsmLayer::Streets);
   if (streets < 0) { return out; }

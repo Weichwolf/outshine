@@ -21,16 +21,16 @@
 #include "VegetationTemplates.h"
 #include "Wayfinding.h"
 
-using outshine::Ground::ApartM;
-using outshine::Ground::Network;
+using outshine::Path::ApartM;
+using outshine::Path::Network;
 using outshine::Ground::OsmField;
 using outshine::Ground::OsmLayer;
 using outshine::Ground::OsmLayerNames;
 using outshine::Ground::Reap;
 using outshine::Ground::Reaped;
-using outshine::Ground::Route;
+using outshine::Path::Route;
 using outshine::Ground::VegetationTemplates;
-using outshine::Ground::Waypoint;
+using outshine::Path::Waypoint;
 
 namespace outshine::Sim {
 

@@ -37,10 +37,13 @@ with the monolith.
 - [ ] src/world -> src/ground (the diagram's noun, the cleanest cut)
 - [~] src/actor/ assembles: physics -> actor/body DONE, pilot -> actor/mind DONE (git mv +
       the one include truth, unit mirror moved in the same commit, namespaces Physics and
-      Pilot stay -- they state function honestly). OPEN: corridor (+ Wayfinding, RoadHarvest
-      from ground) -> actor/path, which carries a namespace decision (Ground::Network et al
-      must not keep the old layer's name inside actor/path -- the 2x-flagged debt pattern);
-      its own sitting
+      Pilot stay -- they state function honestly). DONE: corridor -> actor/path with the value
+      types staying in plain outshine (the tree's value vocabulary) and Wayfinding carrying
+      namespace outshine::Path (Network, Route, ApartM, Plan -- the pathfinding SERVICE).
+      RoadHarvest went and CAME BACK: the linker exposed that it reads OsmField -- it is the
+      GROUND EDGE (field -> network adapter), so it stays Ground::Reap in src/ground filling a
+      Path::Network. The remaining seam, noted for its own slice: harvest should emit neutral
+      way data and the network should weave FROM data, so ground stops naming a Path type
 - [ ] Journey's name dies when (d)/(e) dissolve its last mixed concern
 
 ---
