@@ -8,7 +8,6 @@
 namespace outshine::Render {
 namespace {
 
-inline constexpr uint32_t kGroupSize = 8;
 
 std::string Kernel(void) {
   char declared[512];
@@ -61,11 +60,12 @@ bool MediumMultiScatterStage::Configure(const Gpu &gpu, SDL_GPUTexture *transmit
   wanted.code_size = source.size();
   wanted.format = SDL_GPU_SHADERFORMAT_MSL;
   wanted.entrypoint = "mediumMultiScatterKernel";
-  wanted.num_samplers = 1u;
-  wanted.num_readwrite_storage_textures = 1u;
-  wanted.num_uniform_buffers = 1u;
-  wanted.threadcount_x = kGroupSize;
-  wanted.threadcount_y = kGroupSize;
+  wanted.num_samplers = KernelShape.Samplers;
+  wanted.num_readonly_storage_textures = KernelShape.ReadOnlyTextures;
+  wanted.num_readwrite_storage_textures = KernelShape.ReadWriteTextures;
+  wanted.num_uniform_buffers = KernelShape.UniformBuffers;
+  wanted.threadcount_x = KernelShape.GroupX;
+  wanted.threadcount_y = KernelShape.GroupY;
   wanted.threadcount_z = 1u;
   SDL_GPUComputePipeline *const made = SDL_CreateGPUComputePipeline(gpu.Device, &wanted);
   if (made == nullptr) {
@@ -89,8 +89,8 @@ void MediumMultiScatterStage::Encode(const PassRecording &into) {
   SDL_BindGPUComputePipeline(into.Dispatch, Pipe.Get());
   SDL_GPUTextureSamplerBinding bound{Transmittance, Lut};
   SDL_BindGPUComputeSamplers(into.Dispatch, 0, &bound, 1);
-  SDL_DispatchGPUCompute(into.Dispatch, (kMultiScatterLutSize + kGroupSize - 1u) / kGroupSize,
-                         (kMultiScatterLutSize + kGroupSize - 1u) / kGroupSize, 1u);
+  SDL_DispatchGPUCompute(into.Dispatch, (kMultiScatterLutSize + KernelShape.GroupX - 1u) / KernelShape.GroupX,
+                         (kMultiScatterLutSize + KernelShape.GroupX - 1u) / KernelShape.GroupX, 1u);
   Settled_ = true;
 }
 

@@ -3,6 +3,8 @@
 
 #include <string>
 
+#include "KernelShape.h"
+
 #include "Gpu.h"
 #include "GpuOwned.h"
 #include "ParticipatingMedium.h"
@@ -12,6 +14,7 @@ namespace outshine::Render {
 class MediumTransmittanceStage {
 public:
   [[nodiscard]] static std::string KernelSource(void);
+  static constexpr ComputeShape KernelShape{0, 0, 1, 1, 8, 8, 1};
   [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUTexture *lut, std::string &error);
 
   void Declare(const Medium &medium);

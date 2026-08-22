@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <string>
 
+#include "KernelShape.h"
+
 #include "FrameContext.h"
 #include "Gpu.h"
 #include "GpuOwned.h"
@@ -23,6 +25,7 @@ inline constexpr size_t kMaxOverlayQuads = 16384;
 class OverlayDraw {
 public:
   [[nodiscard]] static std::string ShaderSource(void);
+  static constexpr DrawShape ShaderShape{0, 1, 1, 0};
 
   [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUSampler *smooth,
                                SDL_GPUTextureFormat targetFormat, std::string &error);

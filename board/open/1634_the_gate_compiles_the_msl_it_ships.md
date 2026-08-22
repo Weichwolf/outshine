@@ -31,3 +31,15 @@ stage — count drift is silent because MSL compilation does not validate them; 
 grows a binding the gate compiles a shape the runtime never uses; (b) the suite sits at
 test/unit/render/kernels/ with no src/render/kernels — fold it into the stages mirror or give
 the shape a name the mirror rule recognises.
+
+---
+
+Residues (a) and (b) repaid (board queue): every gated stage now declares its pipeline SHAPE
+as a public constexpr beside its source -- ComputeShape/DrawShape in
+src/render/stages/KernelShape.h -- and the stage's own Configure builds its create-info from
+those fields (the local kGroup*/kCompositeImages origins fold into or derive from the shape),
+so the gate compiles the exact runtime source in the exact runtime shape and neither can
+drift. The suite moved from the mirror-less unit/render/kernels to unit/render -- the true
+mirror of src/render -- and src/render's excuse left the mirror claim. Proving test:
+test/unit/render/EveryAssembledKernelCompilesOnTheDevice.cpp, 127/127. Remaining for close:
+tonemap's optioned source and the subject unit's three parameterised shaders.

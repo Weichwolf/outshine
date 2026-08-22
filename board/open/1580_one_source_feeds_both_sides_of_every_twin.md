@@ -29,3 +29,15 @@ Recommendation stands and sharpens: shader source as FILES in the tree (loaded o
 Configure, hashed into the content store like any asset), shared physics core included from
 both sides; string literals inside .cpp remain the drift-and-blind-edit class the pi sweep
 demonstrated even with the compile gate standing.
+
+---
+
+DECIDED (2026-08-22, owner delegated the call for this session, on record): the
+recommendation stands as the binding form. Shader source becomes FILES in the tree, loaded
+once at Configure and hashed like any asset; the physics kernels (medium, BRDF) move to ONE
+shared core in the common C-subset, included by the C++ reference and the MSL alike; explicit
+twins remain only where the languages genuinely diverge (texture sampling, storage layout).
+Grounds: the compile gate catches syntax, not twin drift -- the bounce-term incident measured
+the class; and 1636's second backend consumes the same physics with no MSL, so the shared
+core has two consumers already. Implementation is sliced: medium family first (1647), the
+gate's public-static door stays the seam.

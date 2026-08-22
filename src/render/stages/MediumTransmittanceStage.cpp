@@ -8,8 +8,6 @@
 namespace outshine::Render {
 namespace {
 
-inline constexpr uint32_t kGroupWidth = 8;
-inline constexpr uint32_t kGroupHeight = 8;
 
 std::string Kernel(void) {
   char declared[256];
@@ -52,10 +50,12 @@ bool MediumTransmittanceStage::Configure(const Gpu &gpu, SDL_GPUTexture *lut, st
   wanted.code_size = source.size();
   wanted.format = SDL_GPU_SHADERFORMAT_MSL;
   wanted.entrypoint = "mediumTransmittanceKernel";
-  wanted.num_readwrite_storage_textures = 1u;
-  wanted.num_uniform_buffers = 1u;
-  wanted.threadcount_x = kGroupWidth;
-  wanted.threadcount_y = kGroupHeight;
+  wanted.num_samplers = KernelShape.Samplers;
+  wanted.num_readonly_storage_textures = KernelShape.ReadOnlyTextures;
+  wanted.num_readwrite_storage_textures = KernelShape.ReadWriteTextures;
+  wanted.num_uniform_buffers = KernelShape.UniformBuffers;
+  wanted.threadcount_x = KernelShape.GroupX;
+  wanted.threadcount_y = KernelShape.GroupY;
   wanted.threadcount_z = 1u;
   SDL_GPUComputePipeline *const made = SDL_CreateGPUComputePipeline(gpu.Device, &wanted);
   if (made == nullptr) {
@@ -77,8 +77,8 @@ void MediumTransmittanceStage::Encode(const PassRecording &into) {
   if (!Pipe || Settled_ || into.Dispatch == nullptr) { return; }
   SDL_PushGPUComputeUniformData(into.Commands, 0, &Declared_, (uint32_t)sizeof Declared_);
   SDL_BindGPUComputePipeline(into.Dispatch, Pipe.Get());
-  SDL_DispatchGPUCompute(into.Dispatch, (kTransmittanceLutWidth + kGroupWidth - 1u) / kGroupWidth,
-                         (kTransmittanceLutHeight + kGroupHeight - 1u) / kGroupHeight, 1u);
+  SDL_DispatchGPUCompute(into.Dispatch, (kTransmittanceLutWidth + KernelShape.GroupX - 1u) / KernelShape.GroupX,
+                         (kTransmittanceLutHeight + KernelShape.GroupY - 1u) / KernelShape.GroupY, 1u);
   Settled_ = true;
 }
 

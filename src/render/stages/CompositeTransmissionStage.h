@@ -3,6 +3,8 @@
 
 #include <string>
 
+#include "KernelShape.h"
+
 #include "FrameContext.h"
 #include "Gpu.h"
 #include "GpuOwned.h"
@@ -12,6 +14,7 @@ namespace outshine::Render {
 class CompositeTransmissionStage {
 public:
   [[nodiscard]] static std::string ShaderSource(void);
+  static constexpr DrawShape ShaderShape{0, 0, 2, 0};
 
   [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUTexture *opaque, SDL_GPUTexture *transmissive,
                                SDL_GPUSampler *exact, SDL_GPUTextureFormat target,

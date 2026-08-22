@@ -24,7 +24,7 @@ fragment float4 fs(VOut in [[stage_in]],
 }
 )";
 
-constexpr uint32_t kCompositeImages = 2;
+constexpr uint32_t kCompositeImages = CompositeTransmissionStage::ShaderShape.FragmentSamplers;
 
 }
 
@@ -42,10 +42,13 @@ bool CompositeTransmissionStage::Configure(const Gpu &gpu, SDL_GPUTexture *opaqu
   wanted.format = SDL_GPU_SHADERFORMAT_MSL;
   wanted.entrypoint = "vs";
   wanted.stage = SDL_GPU_SHADERSTAGE_VERTEX;
+  wanted.num_samplers = ShaderShape.VertexSamplers;
+  wanted.num_uniform_buffers = ShaderShape.VertexUniformBuffers;
   const OwnedShader vertex(gpu.Device, SDL_CreateGPUShader(gpu.Device, &wanted));
   wanted.entrypoint = "fs";
   wanted.stage = SDL_GPU_SHADERSTAGE_FRAGMENT;
-  wanted.num_samplers = kCompositeImages;
+  wanted.num_samplers = ShaderShape.FragmentSamplers;
+  wanted.num_uniform_buffers = ShaderShape.FragmentUniformBuffers;
   const OwnedShader fragment(gpu.Device, SDL_CreateGPUShader(gpu.Device, &wanted));
   if (!vertex || !fragment) {
     error = std::string("the transmission composite did not compile: ") + SDL_GetError();

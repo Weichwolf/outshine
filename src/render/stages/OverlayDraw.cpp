@@ -91,12 +91,13 @@ bool OverlayDraw::Configure(const Gpu &gpu, SDL_GPUSampler *smooth,
   wanted.format = SDL_GPU_SHADERFORMAT_MSL;
   wanted.entrypoint = "vs";
   wanted.stage = SDL_GPU_SHADERSTAGE_VERTEX;
-  wanted.num_uniform_buffers = 1u;
+  wanted.num_samplers = ShaderShape.VertexSamplers;
+  wanted.num_uniform_buffers = ShaderShape.VertexUniformBuffers;
   const OwnedShader vertex(gpu.Device, SDL_CreateGPUShader(gpu.Device, &wanted));
   wanted.entrypoint = "fs";
   wanted.stage = SDL_GPU_SHADERSTAGE_FRAGMENT;
-  wanted.num_uniform_buffers = 0u;
-  wanted.num_samplers = 1u;
+  wanted.num_samplers = ShaderShape.FragmentSamplers;
+  wanted.num_uniform_buffers = ShaderShape.FragmentUniformBuffers;
   const OwnedShader fragment(gpu.Device, SDL_CreateGPUShader(gpu.Device, &wanted));
   if (!vertex || !fragment) {
     error = std::string("the overlay did not compile: ") + SDL_GetError();

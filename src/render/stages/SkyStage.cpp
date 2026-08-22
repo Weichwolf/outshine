@@ -106,11 +106,13 @@ bool SkyStage::Configure(const Gpu &gpu, SDL_GPUTexture *skyView, SDL_GPUSampler
   wanted.format = SDL_GPU_SHADERFORMAT_MSL;
   wanted.entrypoint = "vs";
   wanted.stage = SDL_GPU_SHADERSTAGE_VERTEX;
+  wanted.num_samplers = ShaderShape.VertexSamplers;
+  wanted.num_uniform_buffers = ShaderShape.VertexUniformBuffers;
   const OwnedShader vertex(gpu.Device, SDL_CreateGPUShader(gpu.Device, &wanted));
   wanted.entrypoint = "fs";
   wanted.stage = SDL_GPU_SHADERSTAGE_FRAGMENT;
-  wanted.num_samplers = 1u;
-  wanted.num_uniform_buffers = 1u;
+  wanted.num_samplers = ShaderShape.FragmentSamplers;
+  wanted.num_uniform_buffers = ShaderShape.FragmentUniformBuffers;
   const OwnedShader fragment(gpu.Device, SDL_CreateGPUShader(gpu.Device, &wanted));
   if (!vertex || !fragment) {
     error = std::string("the sky did not compile: ") + SDL_GetError();

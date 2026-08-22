@@ -9,7 +9,6 @@
 namespace outshine::Render {
 namespace {
 
-inline constexpr uint32_t kGroupSize = 8;
 
 struct Pushed {
   Medium Declared;
@@ -82,11 +81,12 @@ bool MediumRadianceStage::Configure(const Gpu &gpu, SDL_GPUTexture *transmittanc
   wanted.code_size = source.size();
   wanted.format = SDL_GPU_SHADERFORMAT_MSL;
   wanted.entrypoint = "mediumRadianceKernel";
-  wanted.num_samplers = 2u;
-  wanted.num_readwrite_storage_textures = 1u;
-  wanted.num_uniform_buffers = 1u;
-  wanted.threadcount_x = kGroupSize;
-  wanted.threadcount_y = kGroupSize;
+  wanted.num_samplers = KernelShape.Samplers;
+  wanted.num_readonly_storage_textures = KernelShape.ReadOnlyTextures;
+  wanted.num_readwrite_storage_textures = KernelShape.ReadWriteTextures;
+  wanted.num_uniform_buffers = KernelShape.UniformBuffers;
+  wanted.threadcount_x = KernelShape.GroupX;
+  wanted.threadcount_y = KernelShape.GroupY;
   wanted.threadcount_z = 1u;
   SDL_GPUComputePipeline *const made = SDL_CreateGPUComputePipeline(gpu.Device, &wanted);
   if (made == nullptr) {
@@ -119,8 +119,8 @@ void MediumRadianceStage::Encode(const PassRecording &into) {
   SDL_BindGPUComputePipeline(into.Dispatch, Pipe.Get());
   SDL_GPUTextureSamplerBinding bound[2] = {{Transmittance, Lut}, {MultiScatter, Lut}};
   SDL_BindGPUComputeSamplers(into.Dispatch, 0, bound, 2);
-  SDL_DispatchGPUCompute(into.Dispatch, (kSkyViewLutWidth + kGroupSize - 1u) / kGroupSize,
-                         (kSkyViewLutHeight + kGroupSize - 1u) / kGroupSize, 1u);
+  SDL_DispatchGPUCompute(into.Dispatch, (kSkyViewLutWidth + KernelShape.GroupX - 1u) / KernelShape.GroupX,
+                         (kSkyViewLutHeight + KernelShape.GroupX - 1u) / KernelShape.GroupX, 1u);
   Settled_ = true;
 }
 
