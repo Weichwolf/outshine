@@ -56,6 +56,23 @@ int main(void) {
   CHECK(!scene.Relink(car, Relation::Uses, player),
         "relink is the exclusive relation's verb -- a many-target relation refuses it");
 
+  const Entity tool = scene.Add(Role::Tool);
+  const Entity routeA = scene.Add(Role::Assignment);
+  const Entity routeB = scene.Add(Role::Assignment);
+  CHECK(scene.Link(player, Relation::Uses, tool), "the mind takes a tool");
+  CHECK(scene.Link(player, Relation::Assigned, routeA), "an assignment stands on Uses");
+  scene.Remove(tool);
+  CHECK(!scene.Link(autopilot, Relation::Assigned, routeB),
+        "**EVERY RULE TRAVELS THROUGH BOTH VERBS**: a mind without a tool fails Assigned's "
+        "Requires at Link");
+  const std::string linkWhy = scene.Error();
+  CHECK(!scene.Relink(player, Relation::Assigned, routeB),
+        "and refuses the Relink of the held assignment just the same -- two verbs, one truth "
+        "about one rule (board:1646)");
+  CHECK(scene.Error() == linkWhy, "with the SAME refusal text: one checker guards both doors");
+  CHECK(scene.TargetOf(player, Relation::Assigned) == routeA,
+        "and the refused retarget leaves the held assignment standing");
+
   Covers("III.4 possession is the DrivenBy relation and taking the wheel is one relink: an "
          "atomic, rule-checked retarget of the exclusive seat, with the reverse indices moving "
          "in the same step -- the player and the autopilot take the same seam");

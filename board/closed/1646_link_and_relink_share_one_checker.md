@@ -23,3 +23,14 @@ relink verb (803d7ae3) violates it inside a single file:
 Demanded: extract the rule check into one private guard both verbs call (Relink passing the
 held-pair exemption for the Exclusive rule), and a test case where the Requires divergence
 above refuses through BOTH verbs with the same text.
+
+---
+
+Closed: `Store::Permit(how, from, to, retarget)` is the ONE guard — ends standing, TargetRoles,
+SameRole, Exclusive (skipped on retarget: the held pair is the exemption), SourceDoes, Requires,
+Acyclic — and both verbs call it; Relink keeps only its verb-identity refusals (non-exclusive
+relation, empty seat) and the atomic retarget. The inline respellings at Store.cpp:184-228 are
+gone; every rule string stands once. Proving test:
+test/unit/scene/TakingTheWheelIsOneRelink.cpp — the Requires divergence (tool removed, Assigned
+refused) now refuses through BOTH verbs and the test compares the refusal TEXTS for equality.
+127/127 warm.

@@ -95,6 +95,7 @@ private:
 
   [[nodiscard]] const Slot *Held(Entity of) const;
   [[nodiscard]] bool Refuse(const std::string &why);
+  [[nodiscard]] bool Permit(Relation how, Entity from, Entity to, bool retarget);
 
   [[nodiscard]] Pair &At(uint32_t ref) { return Slots_[ref / kPairsPerEntity].Pairs[ref % kPairsPerEntity]; }
   [[nodiscard]] const Pair &At(uint32_t ref) const {
