@@ -140,3 +140,8 @@ opposite of what the round expected to find, and it is what the numbers say: the
 `data-expected-*` has taken what upstream states that way, and everything past it is a pair of
 pictures. `board:1444` is where that goes, and its own measurement — one `mismatch` in 765 reftests of
 `css-flexbox` — says the pairs have to be drawn from `css/` more widely than one directory.
+
+Parked back to open (2026-08-22): not in this session's line of work. The harness run of today
+reads `wpt: 18 held, 144 reduced, 0 unaccounted of 162 (18 attempted, 0 red)` -- the corpus
+fetches, selects and accounts for every case, so several boxes above are likely TRUE but none was
+verified box-by-box this round, and nothing is ticked that was not checked.

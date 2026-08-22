@@ -24,3 +24,7 @@ percentile and no perceptual bound has any business here.
 The harness is built first and every pair fails. **A corpus that arrives after the capability measures
 nothing on the way**, and this tree already knows what that costs: the picture corpus is what drove the
 renderer, not the other way round.
+
+Parked back to open (2026-08-22): not in this session's line of work. Today's run publishes both
+counts side by side (18 held of 162 reachable) with zero red, which speaks to two of the five
+boxes; the mismatch half and the anchored cases were not verified this round.
