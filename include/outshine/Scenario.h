@@ -220,6 +220,7 @@ struct Vehicle {
   std::string Name;
   std::string Asset;
   double MassKg = 0.0;
+  double WidthM = 0.0;
   double WheelbaseM = 0.0;
 
   double AssetWheelbase = 0.0;

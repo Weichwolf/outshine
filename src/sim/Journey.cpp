@@ -39,8 +39,6 @@ using outshine::World::Waypoint;
 
 namespace {
 
-constexpr double kF31WidthM = 1.811;
-
 constexpr double kPatienceS = 900.0;
 constexpr double kResectM = 4.0;
 constexpr double kJoinMs = 20.0;
@@ -115,6 +113,7 @@ struct Journey::State {
   std::unique_ptr<outshine::World::TilePool> Pool;
   std::unique_ptr<outshine::World::GroundStream> Ground;
   outshine::Scenario Declared;
+  double CarWidthM = 0.0;
   outshine::Clients::Rigged Stood;
   outshine::ReferenceLine Corridor;
   outshine::Fitted Fitted;
@@ -220,6 +219,31 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
   say.Number("the ring fetched around each", (double)(2 * kCorridorRing + 1), "tiles across");
   say.Number("what a square covering both cities would have cost", (double)(square * square), "tiles");
 
+  std::string error;
+  std::FILE *const declaration = std::fopen(scenarioPath, "rb");
+  say.Claim(declaration != nullptr, "the vehicle's own declaration is there to read");
+  std::vector<char> text;
+  if (declaration != nullptr) {
+    int one = 0;
+    while ((one = std::fgetc(declaration)) != EOF) { text.push_back((char)one); }
+    std::fclose(declaration);
+  }
+  const bool read = !text.empty() && outshine::ReadScenario(text.data(), text.size(), declared, error);
+  if (!read && !error.empty()) { say.Say(Line("REFUSED %s", error.c_str())); }
+  say.Claim(read, "and it reads -- BEFORE the route is planned, because the vehicle defines "
+                  "which roads are drivable");
+  if (!read) { return false; }
+  say.Claim(declared.Vehicles.size() == 1, "declaring one vehicle");
+  if (declared.Vehicles.empty()) { return false; }
+
+  S_->CarWidthM = declared.Vehicles[0].WidthM;
+  const double carWidthM = S_->CarWidthM;
+  say.Number("the width the declaration gives the car", carWidthM, "m");
+  say.Claim(carWidthM > 0.0,
+        "**THE CAR'S WIDTH IS THE DECLARATION'S**, because every lane judgement stands on it -- "
+        "a vehicle without a declared width cannot be fitted to any road");
+  if (!(carWidthM > 0.0)) { return false; }
+
   outshine::Data::ContentStore::Config keeping;
   keeping.Directory = "/tmp/outshine-drive-cache";
   S_->Store = std::make_unique<outshine::Data::ContentStore>(keeping);
@@ -281,14 +305,13 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
   say.Claim(materials.Load("src/assets/world/ground-materials.json"),
         "the declared ground materials load, because a width table names them");
   VegetationTemplates widths;
-  std::string error;
   say.Claim(widths.Load("src/assets/world/vegetation.json", materials),
         "the declared widths load, with their RAA, RAL and RASt origins");
 
   const double quantumM = 40075017.0 / ((double)(1L << kZoom) * 4096.0);
   Network roads(1.05 * quantumM);
   say.Number("the tile's own coordinate quantisation", quantumM, "m");
-  const Reaped reaped = Reap(field, widths, kF31WidthM, roads);
+  const Reaped reaped = Reap(field, widths, carWidthM, roads);
   say.Number("the snapping distance just above it", roads.SnapM(), "m");
   say.Number("ways a car can fit down", (double)reaped.Ways, "ways");
   say.Number("points in them", (double)reaped.Points, "points");
@@ -316,7 +339,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
     say.Say(Line("UNLANED KINDS %s", reaped.WithoutLanes.c_str()));
   }
   say.Claim(reaped.Ways > 0, "and roads a 1.811 m car can fit down are harvested from them");
-  say.Claim(reaped.WidestRefusedM < kF31WidthM || reaped.TooNarrow == 0,
+  say.Claim(reaped.WidestRefusedM < carWidthM || reaped.TooNarrow == 0,
         "**ADMISSIBILITY IS THE VEHICLE'S WIDTH AND NOT A LIST OF TAGS.** Every way this refused is "
         "narrower than the car; every way it took is wider. Nobody wrote down which highway kinds a "
         "car may use, and traffic law stays unmodelled -- what decides is whether it fits");
@@ -336,22 +359,6 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
   say.Number("how far the destination is from the nearest road node", toAwayM, "m");
   say.Number("how far each walk is as a share of the drive",
        (fromAwayM + toAwayM) / straightM, "of it");
-
-  std::FILE *const declaration = std::fopen(scenarioPath, "rb");
-  say.Claim(declaration != nullptr, "the vehicle's own declaration is there to read");
-  std::vector<char> text;
-  if (declaration != nullptr) {
-    int one = 0;
-    while ((one = std::fgetc(declaration)) != EOF) { text.push_back((char)one); }
-    std::fclose(declaration);
-  }
-  const bool read = !text.empty() && outshine::ReadScenario(text.data(), text.size(), declared, error);
-  if (!read && !error.empty()) { say.Say(Line("REFUSED %s", error.c_str())); }
-  say.Claim(read, "and it reads -- BEFORE the route is planned, because the vehicle defines "
-                  "which roads are drivable");
-  if (!read) { return false; }
-  say.Claim(declared.Vehicles.size() == 1, "declaring one vehicle");
-  if (declared.Vehicles.empty()) { return false; }
 
   const outshine::Vehicle &turning = declared.Vehicles[0];
   const double outerM = turning.TurningCircleM * 0.5;
@@ -620,7 +627,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
   for (const double half : laneHalfM) {
     narrowestLaneHereM = 2.0 * half < narrowestLaneHereM ? 2.0 * half : narrowestLaneHereM;
   }
-  budgetM = 0.5 * narrowestLaneHereM - 0.5 * kF31WidthM;
+  budgetM = 0.5 * narrowestLaneHereM - 0.5 * carWidthM;
 
   fineAside.assign((size_t)(fitted.LengthM / fineM) + 2, 0.0);
   fineEdge.assign(fineAside.size(), 0.0);
@@ -641,7 +648,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
     long insideTight = 0;
     double worstDrivenM = 1.0e9;
     for (size_t fine = 0; fine < roomM.size(); ++fine) {
-      double room = fineEdge[fine] - 0.5 * kF31WidthM - S_->BudgetM;
+      double room = fineEdge[fine] - 0.5 * carWidthM - S_->BudgetM;
       outshine::Placed on;
       if (corridor.At((double)fine * fineM, on) && on.CurvaturePerM != 0.0) {
         const double radiusM = 1.0 / std::fabs(on.CurvaturePerM);
@@ -712,7 +719,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
     double leftM = 0.0, worstOverM = 0.0;
     for (size_t fine = 1; fine < fineAside.size(); ++fine) {
       leftM = std::fmax(leftM, std::fabs(fineAside[fine] - fineAside[fine - 1]));
-      const double outerM = std::fabs(fineAside[fine]) + 0.5 * kF31WidthM;
+      const double outerM = std::fabs(fineAside[fine]) + 0.5 * carWidthM;
       if (outerM > fineEdge[fine]) {
         worstOverM = std::fmax(worstOverM, outerM - fineEdge[fine]);
       }
@@ -732,7 +739,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
   say.Number("the widest lane", widestLaneM, "m");
   say.Number("the furthest the car sits from the centreline", mostAsideM, "m");
   say.Number("what it leaves either side of itself in the narrowest lane",
-       0.5 * narrowestLaneM - 0.5 * kF31WidthM, "m");
+       0.5 * narrowestLaneM - 0.5 * carWidthM, "m");
 
   double narrowestHalfM = 1.0e9, widestHalfM = 0.0;
   for (const double half : halfWidthM) {
@@ -741,8 +748,8 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
   }
   say.Number("the narrowest the carriageway gets", 2.0 * narrowestHalfM, "m");
   say.Number("the widest", 2.0 * widestHalfM, "m");
-  say.Number("the car's own width", kF31WidthM, "m");
-  say.Claim(2.0 * narrowestHalfM > kF31WidthM,
+  say.Number("the car's own width", carWidthM, "m");
+  say.Claim(2.0 * narrowestHalfM > carWidthM,
         "**AND THE CAR FITS ON THE NARROWEST STRETCH OF ITS OWN ROUTE.** The harvest already refused "
         "ways narrower than the car; this says the route it chose kept that true end to end");
 
@@ -812,7 +819,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
   say.Number("stations still being shaped when the passes ran out", (double)shaped, "stations");
 
   outshine::Envelope planning = stood.Envelope;
-  holdWithinM = 0.5 * narrowestLaneM - 0.5 * kF31WidthM;
+  holdWithinM = 0.5 * narrowestLaneM - 0.5 * carWidthM;
   planning.ReserveMs2 = 2.0 * holdWithinM / (1.0 * 1.0);
   S_->ReserveMs2 = planning.ReserveMs2;
   const double floorRatio = 1.409 / 0.477;
@@ -901,7 +908,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
       outshine::Stand(corridor, start.EastM, start.NorthM, 0.0, 0.0, 50.0);
   const double startAsideM = asideM.empty() ? 0.0 : asideM.front();
   say.Number("the fastest the car may move between lane centres",
-       ((0.5 * narrowestLaneM - 0.5 * kF31WidthM) / (1.0 * stood.Envelope.TopMs())) * 1000.0,
+       ((0.5 * narrowestLaneM - 0.5 * carWidthM) / (1.0 * stood.Envelope.TopMs())) * 1000.0,
        "mm per metre");
   body.PositionM[0] = start.EastM - std::sin(start.HeadingRad) * startAsideM;
   body.PositionM[1] = under0.HeightM + stood.CentreM[1];
@@ -921,7 +928,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
   reins.LeastReachM = stood.Axles.WheelbaseM;
   reins.HoldWithinM = holdWithinM;
 
-  S_->AsideRatePerM = (0.5 * narrowestLaneM - 0.5 * kF31WidthM) / (1.0 * stood.Envelope.TopMs());
+  S_->AsideRatePerM = (0.5 * narrowestLaneM - 0.5 * carWidthM) / (1.0 * stood.Envelope.TopMs());
   
   S_->Ready = true;
   return true;
@@ -980,7 +987,7 @@ Ridden Journey::Ride(double dtS, const Taken *taken) {
       S_->HeldAsideM += std::fabs(byM) <= mayMoveM ? byM : (byM > 0.0 ? mayMoveM : -mayMoveM);
     }
     const double roomM = fineEdge[fine < fineEdge.size() ? fine : fineEdge.size() - 1] -
-                         0.5 * kF31WidthM - S_->BudgetM;
+                         0.5 * S_->CarWidthM - S_->BudgetM;
     if (roomM > 0.0) {
       if (S_->HeldAsideM > roomM) { S_->HeldAsideM = roomM; }
       if (S_->HeldAsideM < -roomM) { S_->HeldAsideM = -roomM; }
