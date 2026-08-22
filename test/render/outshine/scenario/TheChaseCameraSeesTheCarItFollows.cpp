@@ -282,6 +282,11 @@ int main(void) {
     Note("pixels the car changes after a restand", (double)darkAfter, "px");
     CHECK(darkAfter > (size_t)(kWidePx * kHighPx) / 100,
           "**AND THE CAR SURVIVES A RESTAND**, which the drive does at every relay");
+    Note("times the asset was read from disk", (double)outshine::Clients::Live::AssetReads(), "reads");
+    CHECK(outshine::Clients::Live::AssetReads() == 1,
+          "**AND THE RELAY TOOK NO DISK**: the glTF was read once at stand-up and never again -- "
+          "a restand rebuilds what changed (the built geometry) and re-reads nothing that did "
+          "not (board:1574), which is RAGE's rule that the frame path takes nothing");
   }
 
   {

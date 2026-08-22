@@ -104,10 +104,12 @@ public:
   [[nodiscard]] Ui::Touched Under(double xPx, double yPx) const;
 
   static size_t TookPosing_, TookSubmitting_, TookAiming_, TookDrawing_;
+  static size_t AssetReads_;
   [[nodiscard]] static size_t TookPosing(void) { return TookPosing_; }
   [[nodiscard]] static size_t TookSubmitting(void) { return TookSubmitting_; }
   [[nodiscard]] static size_t TookAiming(void) { return TookAiming_; }
   [[nodiscard]] static size_t TookDrawing(void) { return TookDrawing_; }
+  [[nodiscard]] static size_t AssetReads(void) { return AssetReads_; }
 
   [[nodiscard]] const Gltf::Subject &Shown(void) const { return Geometry_; }
   [[nodiscard]] size_t CarriedParts(void) const { return Joined_; }
@@ -157,6 +159,7 @@ private:
   std::vector<Laid> Laid_;
   std::vector<Render::OverlayQuad> Quads_;
   bool Moves_ = false;
+  bool FileStands_ = false;
 
   bool Stoodup_ = false;
   size_t Joined_ = 0;

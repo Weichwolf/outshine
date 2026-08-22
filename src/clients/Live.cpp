@@ -99,11 +99,13 @@ bool Live::Build(std::string &error) {
     ResolveDeclaredSurface(Geometry_, Declared_.Surfacing.front(), Table_);
   }
   if (!Declared_.Stands.empty()) {
+    if (!FileStands_) {
     if (!Declared_.Variant.empty()) { Variant_ = Gltf::VariantSelection(Declared_.Variant); }
     if (!File_.ReadFile(Declared_.Stands)) {
       error = File_.Error();
       return false;
     }
+    AssetReads_ += 1;
 
     if (!File_.Animations().empty()) {
       std::vector<int> all((size_t)File_.Animations().size());
@@ -115,6 +117,8 @@ bool Live::Build(std::string &error) {
 
       Frames_ = Moves_ ? (int)(Motion_.EndS() * Declared_.Fps + 0.5) : 1;
       if (Frames_ < 1) { Frames_ = 1; }
+    }
+    FileStands_ = true;
     }
     if (!Pose(0, error)) { return false; }
     ResolveSurfaceTable(File_, Geometry_, true, true, Table_);
@@ -530,6 +534,7 @@ bool Live::Restand(const Gltf::Subject &built, std::string &error) {
 }
 
 size_t Live::TookPosing_ = 0, Live::TookSubmitting_ = 0, Live::TookAiming_ = 0, Live::TookDrawing_ = 0;
+size_t Live::AssetReads_ = 0;
 
 bool Live::Advance(std::string &error) {
   const auto took = [](size_t before) { return Heap::LiveBytes() - before; };
