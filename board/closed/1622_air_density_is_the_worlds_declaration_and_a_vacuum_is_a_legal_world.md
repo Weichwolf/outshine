@@ -26,3 +26,12 @@ vehicle); `Rigging::Stand` takes it with gravity; SpeedProfile accepts rho = 0 a
 top speed as the minimum of the terms that EXIST (drag bound only when resistance > 0); the
 gravity-scaling twin gains a vacuum case proving the plan under rho = 0 is crest- and
 drive-bound. The refusal keeps demanding rho >= 0 declared — it stops demanding an atmosphere.
+
+---
+
+Closed (2026-08-22, reviewer): task 1627 closed in board/closed/. Proof in the tree:
+include/outshine/Scenario.h:38 puts AirDensityKgM3 on the world beside gravity;
+ScenarioRead.cpp:165 reads `world airDensityKgM3`; Rigging.cpp:127 fills the envelope from the
+world; SpeedProfile.h TopMs returns infinity when resistance is 0 and CorridorLay.cpp:420
+guards drag-at-top with isfinite; the DriveTick twin drives the moon leg at 1.62 m/s2 in
+0 kg/m3 to arrival. Gate green (122, one declared expect-fail).

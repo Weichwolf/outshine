@@ -21,3 +21,12 @@ over a synthetic corridor (proving the gravity vector's direction against the de
 OffTheRoad verdict, the arrival) and lay CorridorLay over a synthetic route; test/run.sh:146
 compiles both under the one include truth. 1581 move 2(e) may rename them — the twins move
 with the `git mv`, they do not wait for it.
+
+---
+
+Closed (2026-08-22, reviewer): task 1626 closed in board/closed/. Proof in the tree:
+test/run.sh:146 compiles `src/sim` ENTIRE for unit/sim (DriveTick.cpp and CorridorLay.cpp
+included); test/unit/sim/ADriveTickHoldsTheCarToTheDeclaredWorld.cpp ticks a synthetic
+corridor to arrival under 9.80665 AND 1.62 m/s2 -- the equilibrium seat pins the gravity
+vector's sign -- and proves the OffTheRoad verdict;
+test/unit/sim/ALayRefusesASceneItCannotDrive.cpp covers CorridorLay's entry. Gate green.
