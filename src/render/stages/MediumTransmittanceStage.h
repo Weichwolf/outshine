@@ -11,6 +11,7 @@ namespace outshine::Render {
 
 class MediumTransmittanceStage {
 public:
+  [[nodiscard]] static std::string KernelSource(void);
   [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUTexture *lut, std::string &error);
 
   void Declare(const Medium &medium);

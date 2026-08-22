@@ -55,7 +55,7 @@ bool MediumMultiScatterStage::Configure(const Gpu &gpu, SDL_GPUTexture *transmit
   }
   if (Pipe) { return true; }
 
-  const std::string source = Kernel();
+  const std::string source = KernelSource();
   SDL_GPUComputePipelineCreateInfo wanted{};
   wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
   wanted.code_size = source.size();
@@ -93,5 +93,7 @@ void MediumMultiScatterStage::Encode(const PassRecording &into) {
                          (kMultiScatterLutSize + kGroupSize - 1u) / kGroupSize, 1u);
   Settled_ = true;
 }
+
+std::string MediumMultiScatterStage::KernelSource(void) { return Kernel(); }
 
 }

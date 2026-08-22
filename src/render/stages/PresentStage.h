@@ -11,6 +11,7 @@ namespace outshine::Render {
 
 class PresentStage {
 public:
+  [[nodiscard]] static std::string ShaderSource(void);
 
   [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUTexture *frame, SDL_GPUSampler *exact,
                                std::string &error);

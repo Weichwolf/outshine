@@ -12,6 +12,7 @@ namespace outshine::Render {
 
 class SkyStage {
 public:
+  [[nodiscard]] static std::string ShaderSource(void);
   [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUTexture *skyView, SDL_GPUSampler *lut,
                                std::string &error);
 

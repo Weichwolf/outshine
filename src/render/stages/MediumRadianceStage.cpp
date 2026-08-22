@@ -76,7 +76,7 @@ bool MediumRadianceStage::Configure(const Gpu &gpu, SDL_GPUTexture *transmittanc
   }
   if (Pipe) { return true; }
 
-  const std::string source = Kernel();
+  const std::string source = KernelSource();
   SDL_GPUComputePipelineCreateInfo wanted{};
   wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
   wanted.code_size = source.size();
@@ -123,5 +123,7 @@ void MediumRadianceStage::Encode(const PassRecording &into) {
                          (kSkyViewLutHeight + kGroupSize - 1u) / kGroupSize, 1u);
   Settled_ = true;
 }
+
+std::string MediumRadianceStage::KernelSource(void) { return Kernel(); }
 
 }

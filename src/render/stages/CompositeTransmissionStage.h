@@ -11,6 +11,7 @@ namespace outshine::Render {
 
 class CompositeTransmissionStage {
 public:
+  [[nodiscard]] static std::string ShaderSource(void);
 
   [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUTexture *opaque, SDL_GPUTexture *transmissive,
                                SDL_GPUSampler *exact, SDL_GPUTextureFormat target,

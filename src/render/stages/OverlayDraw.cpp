@@ -84,7 +84,7 @@ bool OverlayDraw::Configure(const Gpu &gpu, SDL_GPUSampler *smooth,
   Encodes = targetFormat == SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB ||
             targetFormat == SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM_SRGB;
 
-  const std::string source = std::string(kMslPrelude) + kOverlayMsl;
+  const std::string source = ShaderSource();
   SDL_GPUShaderCreateInfo wanted{};
   wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
   wanted.code_size = source.size();
@@ -264,5 +264,7 @@ void OverlayDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   SDL_BindGPUFragmentSamplers(into.Pass, 0, &sampled, 1);
   SDL_DrawGPUPrimitives(into.Pass, 6, Count, 0, 0);
 }
+
+std::string OverlayDraw::ShaderSource(void) { return std::string(kMslPrelude) + kOverlayMsl; }
 
 }

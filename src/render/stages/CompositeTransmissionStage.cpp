@@ -35,7 +35,7 @@ bool CompositeTransmissionStage::Configure(const Gpu &gpu, SDL_GPUTexture *opaqu
   Transmissive = transmissive;
   Exact = exact;
 
-  const std::string source = std::string(kMslPrelude) + kCompositeMsl;
+  const std::string source = ShaderSource();
   SDL_GPUShaderCreateInfo wanted{};
   wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
   wanted.code_size = source.size();
@@ -80,5 +80,7 @@ void CompositeTransmissionStage::Encode(const FrameContext &, const PassRecordin
   SDL_BindGPUFragmentSamplers(into.Pass, 0, images, kCompositeImages);
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }
+
+std::string CompositeTransmissionStage::ShaderSource(void) { return std::string(kMslPrelude) + kCompositeMsl; }
 
 }

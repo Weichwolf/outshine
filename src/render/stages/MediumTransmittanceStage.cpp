@@ -46,7 +46,7 @@ bool MediumTransmittanceStage::Configure(const Gpu &gpu, SDL_GPUTexture *lut, st
   }
   if (Pipe) { return true; }
 
-  const std::string source = Kernel();
+  const std::string source = KernelSource();
   SDL_GPUComputePipelineCreateInfo wanted{};
   wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
   wanted.code_size = source.size();
@@ -81,5 +81,7 @@ void MediumTransmittanceStage::Encode(const PassRecording &into) {
                          (kTransmittanceLutHeight + kGroupHeight - 1u) / kGroupHeight, 1u);
   Settled_ = true;
 }
+
+std::string MediumTransmittanceStage::KernelSource(void) { return Kernel(); }
 
 }

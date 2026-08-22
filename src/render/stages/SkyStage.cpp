@@ -99,10 +99,7 @@ bool SkyStage::Configure(const Gpu &gpu, SDL_GPUTexture *skyView, SDL_GPUSampler
   }
   if (Pipe) { return true; }
 
-  char constants[128];
-  std::snprintf(constants, sizeof constants, "#define VELOCITY_STATIC %.9ef\n",
-                (double)kVelocityStatic);
-  const std::string source = std::string(kMslPrelude) + constants + kSkyMsl;
+  const std::string source = ShaderSource();
   SDL_GPUShaderCreateInfo wanted{};
   wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
   wanted.code_size = source.size();
@@ -178,6 +175,13 @@ void SkyStage::Encode(const FrameContext &ctx, const PassRecording &into) {
   SDL_BindGPUFragmentSamplers(into.Pass, 0, &bound, 1);
   SDL_PushGPUFragmentUniformData(into.Commands, 0, &Pushed_, (uint32_t)sizeof Pushed_);
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
+}
+
+std::string SkyStage::ShaderSource(void) {
+  char constants[128];
+  std::snprintf(constants, sizeof constants, "#define VELOCITY_STATIC %.9ef\n",
+                (double)kVelocityStatic);
+  return std::string(kMslPrelude) + constants + kSkyMsl;
 }
 
 }

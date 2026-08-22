@@ -11,3 +11,13 @@ later as a stills refusal ("the medium's transmittance kernel was refused"). A u
 test per stage must assemble the kernel string and compile it (xcrun metal -c, or the device
 pipeline in a headless GPU context) so an unbuildable kernel fails in the gate, not in a
 five-minute driver run. Until then, every edit near a R"( block is a blind edit.
+
+
+---
+
+The gate compiles what the engine assembles (this commit): the three medium kernels, sky,
+present, overlay and the transmission composite build their EXACT runtime source through
+public statics and compile on a headless MSL device inside the fast gate (~0.4 s) --
+EveryAssembledKernelCompilesOnTheDevice. The pi-sweep class refuses in seconds now. Remaining:
+tonemap's optioned source and the subject unit's three shaders (parameterised), the next
+slice.

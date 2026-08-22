@@ -11,6 +11,7 @@ namespace outshine::Render {
 
 class MediumRadianceStage {
 public:
+  [[nodiscard]] static std::string KernelSource(void);
   [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUTexture *transmittance,
                                SDL_GPUTexture *multiScatter, SDL_GPUSampler *lut,
                                SDL_GPUTexture *into, std::string &error);

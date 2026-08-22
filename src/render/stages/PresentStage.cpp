@@ -37,7 +37,7 @@ bool PresentStage::Configure(const Gpu &gpu, SDL_GPUTexture *frame, SDL_GPUSampl
 bool PresentStage::For(const Gpu &gpu, SDL_GPUTextureFormat surfaceFormat, std::string &error) {
   if (Pipe && Built == surfaceFormat) { return true; }
 
-  const std::string source = std::string(kMslPrelude) + kPresentMsl;
+  const std::string source = ShaderSource();
   SDL_GPUShaderCreateInfo wanted{};
   wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
   wanted.code_size = source.size();
@@ -83,5 +83,7 @@ void PresentStage::Encode(const FrameContext &ctx, const PassRecording &into) {
   SDL_BindGPUFragmentSamplers(into.Pass, 0, &bound, 1);
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }
+
+std::string PresentStage::ShaderSource(void) { return std::string(kMslPrelude) + kPresentMsl; }
 
 }
