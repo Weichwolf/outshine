@@ -27,3 +27,13 @@ right edge at km 17.3 -- the worst instance ever captured, by the new framed cam
 same camera at km 36.5 shows CLEAN edges. Local, not systemic: whatever differs at that station
 (a width transition, a junction harvest, a grading hint reset at the route's first relay) is the
 mechanism.
+
+Round nine widens this from a station to the CLASS, with the reviewer's own bet on record: the
+navy hairline along the road's right edge is systemic (km 17.3, 117.4, 342.3, 708.1-framed, and
+as "hood trim" in first person), and "items 1, 4, 7 -- I'd bet they're one bug". The mechanism
+that fits all five frames: the ribbon's 0.35 m VERTICAL flank, sun-averted on a south-lit
+northbound route, carries only skylight and reads as an inked line wherever it faces the camera
+edge-on -- and the tears are the grading grid's 3 m posts sawing across that same flank. A real
+carriageway has no visible vertical edge; the shoulder falls away as a bank. The fix candidates:
+sweep the outer edge as the 1:1.5 bank it is (the Section already declares the slope family), or
+snap the verge boundary onto the edge polyline -- either kills the line and the teeth together.
