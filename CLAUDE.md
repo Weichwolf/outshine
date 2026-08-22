@@ -14,10 +14,10 @@ camera, never a mean.
 - **One world space**; a failure is loud; something is always drawn; delete on the day you replace
 - Artefacts go to the system temp dir, never the tree; `git log` is what was — no journal
 
-**Diagram colours** — IST: green = correct by current knowledge · amber = uncertain · red =
-provably wrong · grey dashed = absent. SOLL: green = certain · amber = probable.
+**Diagram colours** — CURRENT: green = correct by current knowledge · amber = uncertain · red =
+provably wrong · grey dashed = absent. TARGET: green = certain · amber = probable.
 
-## Architecture (SOLL)
+## Architecture (TARGET)
 
 ```mermaid
 flowchart TD
@@ -47,7 +47,7 @@ Peers never call each other; a part-on-part dependency travels as data through G
 Budget = screen-space error in px, quantised to a global ladder before it becomes a key;
 key = `(kind, params, seed, rung)` value, no strings. Degrade on detail, refuse on existence.
 
-### The actor chain (SOLL — the owner's causal decomposition, general)
+### The actor chain (TARGET — the owner's causal decomposition, general)
 
 ```mermaid
 flowchart TD
@@ -72,7 +72,7 @@ instruments collapse it.
 `Journey` folds into `Sim` along this chain. **A client includes nothing but
 `include/outshine/`** — enforced by the build.
 
-### The component model (SOLL — the decided reference design)
+### The component model (TARGET — the decided reference design)
 
 Reference: **Flecs** (relationships + traits + script parity), supplemented by GAS tag algebra,
 Smart-Object slots, CARLA's vehicle grammar. Written here, never a dependency.
@@ -96,7 +96,7 @@ SCENE domain: vehicles, minds, tools, assignments, world objects. Banned by the 
 themselves: stringly-typed capabilities · content that ships a program · god actors ·
 ECS-for-everything · unreserved shared affordances.
 
-## Render plan (IST — what executes, judged as architecture)
+## Render plan (CURRENT — what executes, judged as architecture)
 
 ```mermaid
 flowchart TD
@@ -129,7 +129,7 @@ subject stage). One `Writes` producer per derived resource (`static_assert`); mi
 contributor = picture choice, **published** as `-> neutral`; load/store ops derived from the
 plan (`Stored()`).
 
-## Render plan (SOLL — the declared target)
+## Render plan (TARGET)
 
 ```mermaid
 flowchart TD
@@ -160,7 +160,7 @@ flowchart TD
 Green = certain; amber = probable (auto-exposure shape, AO method, TAA's place, and whether
 transmissive draws fold into the subject stage are open design calls).
 
-## Class structure (IST)
+## Class structure (CURRENT)
 
 ```mermaid
 flowchart TD
@@ -205,7 +205,7 @@ spell camera and LOD inside the ground layer, `SubjectDraw` is six responsibilit
 `Live` are hand-wired god facades the component model replaces, `Journey` folded into `src/sim` on 2026-08-22 and is amber while it decomposes into
 systems. The rot concentrates at the orchestration edges; the middle of the tree is sound.
 
-## Class structure (SOLL — where the tree is going)
+## Class structure (TARGET — where the tree is going)
 
 ```mermaid
 flowchart TD
@@ -228,7 +228,7 @@ flowchart TD
   class Columns,Compositors,Stages,Entities likely
 ```
 
-## Public interface (IST)
+## Public interface (CURRENT)
 
 ```mermaid
 classDiagram
@@ -283,12 +283,12 @@ classDiagram
 ```
 
 `Journey` still stands outside the library (it folds into `Sim`); `Live`, `Renderer`,
-`GroundStream` and `Journey` are still reachable by clients — the SOLL below removes them.
+`GroundStream` and `Journey` are still reachable by clients — the TARGET below removes them.
 The assembly API stands public since 2026-08-22: `include/outshine/{Register,Store,Column}.h`
 are the C++ door, `Engine::Assemble/Scene` own the one graph, proven by a client that includes
 nothing but `outshine/`.
 
-## Public interface (SOLL — one door)
+## Public interface (TARGET — one door)
 
 ```mermaid
 classDiagram

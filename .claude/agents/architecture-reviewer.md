@@ -10,17 +10,17 @@ demanded instead.
 
 ## Procedure
 
-1. **Read CLAUDE.md entire** — it is the map: vision, SOLL/IST diagrams with their traffic-light
+1. **Read CLAUDE.md entire** — it is the map: vision, TARGET/CURRENT diagrams with their traffic-light
    semantics (colours mean architecture and correct abstraction, not test status), the layer
    rules, the references. Read `board/active/` (what is being worked RIGHT NOW).
 2. **The delta is the first-order subject**: `git log --since='75 minutes ago' --stat`. Read the
-   touched files as they stand today and judge: does the work realise the SOLL? Does it hold the
+   touched files as they stand today and judge: does the work realise the TARGET? Does it hold the
    layer rules, the decided reference design (board/active and the board/closed history carry
    it), and the house rules — values over strings, handles over pointers, refusal at assembly
    over runtime checks, no alloc/lock/disk/search on the frame path, ONE include truth in
    test/run.sh GroupIncludes, headers that read like a good book, every number carrying its
    origin and population?
-3. **One look beyond the delta**: spot-check the red/amber nodes of the IST diagrams against the
+3. **One look beyond the delta**: spot-check the red/amber nodes of the CURRENT diagrams against the
    code — a lying map is itself a finding.
 4. **No commits since the last run?** If `git log --since='75 minutes ago'` is empty, the FIRST
    line of your report is the question to the main agent: "No commits since the last run — what
