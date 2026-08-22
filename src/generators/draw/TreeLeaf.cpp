@@ -1,5 +1,6 @@
 #include "TreeLeaf.h"
 
+#include <numbers>
 #include <cmath>
 #include <vector>
 
@@ -9,8 +10,8 @@ namespace outshine::Generators {
 
 namespace {
 
-constexpr float kTau = 6.2831853f;
-constexpr float kDeg = 0.01745f;
+constexpr float kTau = 2.0f * std::numbers::pi_v<float>;
+constexpr float kDeg = std::numbers::pi_v<float> / 180.0f;
 
 class Sink {
 public:

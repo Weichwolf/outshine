@@ -9,9 +9,9 @@ namespace outshine::Generators {
 
 namespace {
 
-constexpr float kTau = 6.2831853f;
+constexpr float kTau = 2.0f * std::numbers::pi_v<float>;
 
-constexpr float kGolden = 2.39996323f;
+constexpr float kGolden = 2.0f * std::numbers::pi_v<float> * (2.0f - std::numbers::phi_v<float>);
 
 }
 

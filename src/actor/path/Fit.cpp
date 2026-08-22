@@ -7,7 +7,7 @@ namespace outshine {
 
 namespace {
 
-constexpr double kTurn = 6.283185307179586;
+constexpr double kTurn = 2.0 * std::numbers::pi;
 
 double Wrapped(double angleRad) {
   while (angleRad > 0.5 * kTurn) { angleRad -= kTurn; }

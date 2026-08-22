@@ -1,5 +1,6 @@
 #include "Document.h"
 
+#include <numbers>
 #include <cstring>
 #include <fstream>
 
@@ -968,10 +969,10 @@ bool Document::ReadLights(const Json &json) {
       const Json::Ref cone = entry["spot"];
       light.Light.InnerConeRad = static_cast<float>(cone["innerConeAngle"].Num(0.0));
       light.Light.OuterConeRad =
-          static_cast<float>(cone["outerConeAngle"].Num(0.7853981633974483));
+          static_cast<float>(cone["outerConeAngle"].Num(0.25 * std::numbers::pi));
       if (!(light.Light.InnerConeRad >= 0.0f) ||
           !(light.Light.InnerConeRad < light.Light.OuterConeRad) ||
-          !(light.Light.OuterConeRad <= 1.5707963267948966f)) {
+          !(light.Light.OuterConeRad <= 0.5f * std::numbers::pi_v<float>)) {
         return Refuse(std::string(kLightsPunctual) + " spot light " + Number(i) +
                       " declares an inner cone that is not below its outer cone inside [0, pi/2]");
       }

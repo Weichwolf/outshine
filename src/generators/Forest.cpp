@@ -1,5 +1,6 @@
 #include "Forest.h"
 
+#include <numbers>
 #include <cmath>
 
 #include "Geodesy.h"
@@ -80,7 +81,7 @@ Forest::Outcome Forest::Consider(const Ground &ground, const Lattice &lattice, C
   out->RadiusM = Stem_.TrunkRadiusM * size;
   out->HeightM = (float)(Stem_.HeightM * (double)size);
   out->MassKg = Stem_.MassKg * size * size * size;
-  out->YawRad = Unit16(place >> 48) * 6.2831853f;
+  out->YawRad = Unit16(place >> 48) * 2.0f * std::numbers::pi_v<float>;
   out->Contact = Stem_.Contact;
   return Outcome::Placed;
 }

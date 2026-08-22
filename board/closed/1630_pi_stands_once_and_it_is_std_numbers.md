@@ -32,3 +32,15 @@ in exactly one header (src/core/Units.h:8, `= std::numbers::pi`), TileMath.h's d
 gone; the only remaining digit spellings sit inside the MSL raw strings (ParticipatingMedium.h
 after :375, SkyStage's kernel text), which keep their literals by 6f9f13a6's ruling — that
 exception is 1634/1580's ledger, not this item's.
+
+---
+
+Deepened (same day, board queue): the closure above proved the letter; the tree still carried
+the FAMILY as digits — kTau ×5 (Forest, TreeLeaf/Grower/Mesher/Foliage), kTurn ×3 (Fit,
+Course, Pilot), kHalfPi (ClusterDag), kDegToRad + two inline deg2rad (Wayfinding),
+PixelFocalLength's deg2rad, pi/4 (PunctualLight, Document) and pi/2 (Document), the golden
+angle 2.39996323 (from phi — std::numbers has phi_v). All now derive from std::numbers; the
+double spellings are value-identical, the float kDeg was a TRUNCATED 0.01745f and now carries
+full precision. Proving test: test/harness/claims/PiStandsOnceAndItIsStdNumbers.cpp — walks
+src/, refuses every pi-family digit outside an MSL raw string, refuses M_PI, and holds the
+alias to one header. 127/127 warm at 50.8 s.

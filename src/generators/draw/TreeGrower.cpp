@@ -1,14 +1,15 @@
 #include "TreeGrower.h"
 
+#include <numbers>
 #include <cmath>
 
 namespace outshine::Generators {
 
 namespace {
 
-constexpr float kTau = 6.2831853f;
-constexpr float kGolden = 2.39996323f;
-constexpr float kDeg = 0.01745f;
+constexpr float kTau = 2.0f * std::numbers::pi_v<float>;
+constexpr float kGolden = 2.0f * std::numbers::pi_v<float> * (2.0f - std::numbers::phi_v<float>);
+constexpr float kDeg = std::numbers::pi_v<float> / 180.0f;
 
 constexpr float kEscapeStop = 1.10f;
 

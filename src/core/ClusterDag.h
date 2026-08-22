@@ -83,7 +83,7 @@ inline float DagCrossFactor(const float ctr[3], float rad, const double eye[3], 
   const double theta = std::acos(cosT < -1.0 ? -1.0 : (cosT > 1.0 ? 1.0 : cosT));
   const double alpha = std::asin((double)rad / d);
   const double lo = theta - alpha, hi = theta + alpha;
-  const double kHalfPi = 1.5707963267948966;
+  const double kHalfPi = 0.5 * std::numbers::pi;
   if (lo <= kHalfPi && hi >= kHalfPi) return 1.0f;
   return (float)std::max(std::sin(lo < 0.0 ? 0.0 : lo), std::sin(hi > std::numbers::pi ? std::numbers::pi : hi));
 }

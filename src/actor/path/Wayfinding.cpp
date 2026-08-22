@@ -2,6 +2,7 @@
 
 #include "Fit.h"
 
+#include <numbers>
 #include <algorithm>
 #include <cmath>
 #include <queue>
@@ -10,7 +11,7 @@ namespace outshine::Path {
 
 namespace {
 
-constexpr double kDegToRad = 0.017453292519943295;
+constexpr double kDegToRad = std::numbers::pi / 180.0;
 
 double MetresPerDegreeLat(double sphereRadiusM) { return sphereRadiusM * kDegToRad; }
 
@@ -237,7 +238,7 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM,
     double backEast = 0.0, backNorth = 0.0;
     if (hasBack) {
       const Node &was = Nodes_[came[node]];
-      backEast = (here.LonDeg - was.LonDeg) * std::cos(here.LatDeg * 0.017453292519943295);
+      backEast = (here.LonDeg - was.LonDeg) * std::cos(here.LatDeg * kDegToRad);
       backNorth = here.LatDeg - was.LatDeg;
     }
     for (size_t which = 0; which < here.EdgeCount; ++which) {
@@ -245,7 +246,7 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM,
       if (hasBack && edge.LengthM > 0.0) {
         const Node &next = Nodes_[edge.To];
         const double onEast =
-            (next.LonDeg - here.LonDeg) * std::cos(here.LatDeg * 0.017453292519943295);
+            (next.LonDeg - here.LonDeg) * std::cos(here.LatDeg * kDegToRad);
         const double onNorth = next.LatDeg - here.LatDeg;
         const double wasLength = std::sqrt(backEast * backEast + backNorth * backNorth);
         const double onLength = std::sqrt(onEast * onEast + onNorth * onNorth);

@@ -10,7 +10,7 @@ namespace outshine::Generators {
 
 namespace {
 
-constexpr float kTau = 6.2831853f;
+constexpr float kTau = 2.0f * std::numbers::pi_v<float>;
 
 TreeVec3 RingDir(const TreeSkeleton::Node &node, float angle) {
   const TreeVec3 b = Normalize(Cross(node.Dir, node.Up));
