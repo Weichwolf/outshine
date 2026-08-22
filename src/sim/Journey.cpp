@@ -114,7 +114,7 @@ struct Journey::State {
   std::unique_ptr<outshine::World::GroundStream> Ground;
   outshine::Scenario Declared;
   double CarWidthM = 0.0;
-  outshine::Clients::Rigged Stood;
+  outshine::Sim::Rigged Stood;
   outshine::ReferenceLine Corridor;
   outshine::Fitted Fitted;
   outshine::SpeedProfile Profile;
@@ -489,7 +489,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom,
   say.Number("the speed the tightest radius allows at 0.95 g",
        std::sqrt(0.95 * 9.80665 * fitted.TightestRadiusM) * 3.6, "km/h");
 
-  stood = outshine::Clients::Stand(declared.Vehicles[0]);
+  stood = outshine::Sim::Stand(declared.Vehicles[0]);
   if (!stood.Stood) { say.Say(Line("REFUSED %s", stood.Error.c_str())); }
   say.Claim(stood.Stood, "**AND THE DECLARED F31 STANDS UP AS A RIG.** Every number the drive uses comes "
                      "from the file, not from a constant beside it");

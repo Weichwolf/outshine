@@ -14,8 +14,8 @@ using outshine::Contact;
 using outshine::ReadScenario;
 using outshine::Scenario;
 using outshine::Vehicle;
-using outshine::Clients::Rigged;
-using outshine::Clients::Stand;
+using outshine::Sim::Rigged;
+using outshine::Sim::Stand;
 
 namespace {
 

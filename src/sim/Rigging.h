@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_CLIENTS_RIGGING_H
-#define OUTSHINE_CLIENTS_RIGGING_H
+#ifndef OUTSHINE_SIM_RIGGING_H
+#define OUTSHINE_SIM_RIGGING_H
 
 #include <string>
 
@@ -9,7 +9,7 @@
 #include "Rig.h"
 #include "SpeedProfile.h"
 
-namespace outshine::Clients {
+namespace outshine::Sim {
 
 struct Rigged {
   bool Stood = false;
@@ -23,6 +23,6 @@ struct Rigged {
 
 [[nodiscard]] Rigged Stand(const Vehicle &declared);
 
-} // namespace outshine::Clients
+} // namespace outshine::Sim
 
 #endif

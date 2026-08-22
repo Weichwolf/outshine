@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-namespace outshine::Clients {
+namespace outshine::Sim {
 
 namespace {
 
@@ -116,4 +116,4 @@ Rigged Stand(const Vehicle &declared) {
   return out;
 }
 
-} // namespace outshine::Clients
+} // namespace outshine::Sim
