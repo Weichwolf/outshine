@@ -46,8 +46,10 @@ int main(void) {
 
   Store scene;
   CHECK(scene.Open(16), "a store opens for the handful the scenario declares");
+  outshine::Column<outshine::Vehicle> vehicles;
+  CHECK(vehicles.Open(16), "and a column for the vehicles' numbers beside it");
   Assembled stood;
-  const bool assembled = Assemble(declared, scene, stood, error);
+  const bool assembled = Assemble(declared, scene, vehicles, stood, error);
   if (!assembled) { std::printf("REFUSED %s\n", error.c_str()); }
   CHECK(assembled, "**THE XML DOOR IS THE SAME DOOR**: the scenario declaration assembles through "
                    "Store::Add, Give and Link -- the calls a C++ client makes -- against the one "
@@ -61,6 +63,11 @@ int main(void) {
         "**ITS FUNCTIONS ARE DERIVED FROM THE DECLARATION, NEVER INVENTED**: a turning circle is "
         "steering, torque through a final drive is drive, brake torque is brake -- each tag "
         "stands because a physical quantity stands in the file");
+  const outshine::Vehicle *carried = vehicles.Get(stood.Bodies[0], scene);
+  CHECK(carried != nullptr && carried->MassKg == 1610.0 && carried->Contacts.size() == 4,
+        "**THE NUMBERS RIDE ON THE ENTITY**: the declaration's mass and its four contacts read "
+        "back through the generation-checked handle, so a system that holds the handle holds "
+        "the data -- no second lookup by name");
   CHECK(!scene.Has(stood.Bodies[0], tags::DoesLamp),
         "and what the file does not declare, the body does not do: no lamp is spelled, so no "
         "lamp tag is given");
@@ -77,8 +84,10 @@ int main(void) {
 
   Store crowded;
   CHECK(crowded.Open(1), "a store of one seat is a store");
+  outshine::Column<outshine::Vehicle> few;
+  CHECK(few.Open(1), "with a column to match");
   Assembled cramped;
-  CHECK(!Assemble(declared, crowded, cramped, error),
+  CHECK(!Assemble(declared, crowded, few, cramped, error),
         "a declaration that does not fit is refused at assembly, not truncated");
   const std::string doorText = error;
   (void)crowded.Add(Role::Mind);

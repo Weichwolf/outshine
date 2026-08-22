@@ -6,6 +6,7 @@
 
 #include <outshine/Scenario.h>
 
+#include "Column.h"
 #include "Store.h"
 
 namespace outshine {
@@ -16,8 +17,8 @@ struct Assembled {
   Entity PlayerMind = kNoEntity;
 };
 
-[[nodiscard]] bool Assemble(const Scenario &declared, Store &into, Assembled &out,
-                            std::string &error);
+[[nodiscard]] bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
+                            Assembled &out, std::string &error);
 
 }
 

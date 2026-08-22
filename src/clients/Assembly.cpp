@@ -2,7 +2,8 @@
 
 namespace outshine {
 
-bool Assemble(const Scenario &declared, Store &into, Assembled &out, std::string &error) {
+bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles, Assembled &out,
+              std::string &error) {
   out = Assembled{};
   for (const Vehicle &vehicle : declared.Vehicles) {
     const Entity body = into.Add(Role::Body);
@@ -17,6 +18,10 @@ bool Assemble(const Scenario &declared, Store &into, Assembled &out, std::string
         (drives && !into.Give(body, tags::DoesDrive)) ||
         (brakes && !into.Give(body, tags::DoesBrake))) {
       error = into.Error();
+      return false;
+    }
+    if (!vehicles.Put(body, into, vehicle)) {
+      error = "the vehicle's numbers found no column seat for '" + vehicle.Name + "'";
       return false;
     }
     out.Bodies.push_back(body);

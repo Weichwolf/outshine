@@ -78,3 +78,13 @@ test: `unit/clients/TheScenarioAssemblesTheActorChainThroughTheOneApi` -- on the
 Renamed for the neighbourhood: scene's Kind -> Role, Rule -> RelationRule (Scenario.h and
 Style.h already speak those names). Open: prefab subtree instantiation, data components on
 entities (the vehicle's numbers still live only in the declaration), the fold of board:1581.
+
+---
+
+**Learned, slice 4 (data columns).** `src/scene/Column.h` -- a typed column keyed by the
+generation-checked handle: dead handles read and write nothing, a reused slot starts empty, so a
+handle is a capability and not an index. Assembly puts the declaration's `Vehicle` onto the body
+entity; a system holding the handle holds the numbers, no lookup by name. Proving tests:
+`unit/scene/AColumnAnswersOnlyTheHandleThatStands`, extended
+`unit/clients/TheScenarioAssemblesTheActorChainThroughTheOneApi` (mass 1610 and four contacts
+read back through the handle). Open: prefab subtree instantiation, the 1581 fold.
