@@ -8,6 +8,7 @@ camera, never a mean.
 - **Modern C++**, `-Wall -Werror -Wpedantic`; `static_assert` and the type system over checkers
 - **SIMD- and optimization-friendly**: contiguous, one-width, pointer-free layouts; fast path on the hot path; batch over per-item; bounded terms on the frame path (no alloc/lock/disk/unbounded block)
 - **Declarative**: scenarios declare, the engine behaves; content = data, engine = verbs; the consumer selects from a `constexpr` catalogue and cannot add to it
+- **Batteries as declarations**: outshine ships convenience components -- generators, providers, world templates and factories (`Planet(params)` → a Scenario value) -- all catalogue citizens the scenario selects; the engine core stays scenario-agnostic
 - **Every number carries its origin** (derived · measured · `[SET]`) with unit and population; no magic numbers; calibration measures, never decides
 - **The code carries no commentary**; work items live in `board/`, code never names them
 - **Cycles is the oracle** for correctness; references are for ambition; the corpus is a driver, not a certificate
