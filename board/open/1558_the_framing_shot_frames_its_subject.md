@@ -31,3 +31,8 @@ is the CORRECT answer -- from 10 m up a ray 0.5 deg under the horizon crosses 1.
 (L = 0.0028 against 0.19 at the horizon, factor 70), and the ground albedo is zero as in the
 reference's Earth. The band disappears when the drawn ground reaches the horizon, which is this
 item's reach defect, not a medium defect.
+
+Round 12 of the drive: the unwritten surround is CLOSED by the sky's ground bounce (the framed
+frame is olive earth-light now, alpha everywhere), and the framing camera rings the PLACED bounds
+-- which now include the 12 km horizon ring, so the tile is a stamp again for a new reason. The
+framing needs a subject rule (the car and its near field), not an everything rule.
