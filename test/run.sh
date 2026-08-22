@@ -11,7 +11,7 @@ BUILD=${BUILD%/}/outshine-tests
 PREPARED=${TMPDIR:-/tmp}
 PREPARED=${PREPARED%/}/outshine-prepared
 CXX=${CXX:-c++}
-CXXSTD=-std=c++20
+CXXSTD=-std=c++23
 WARN="-Wall -Wextra -Wpedantic -Wshadow -Werror -Wno-unused-parameter"
 OPT=-O2
 
@@ -98,12 +98,12 @@ LayerIncludes() {
 
 LayerToolchain() {
   case "$1" in
-    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
-    render/outshine/client) printf '%s' "-std=c++20" ;;
-    render/outshine/drive) printf '%s' "-std=c++20" ;;
-    tools/driver) printf '%s' "-std=c++20" ;;
-    tools/driver/stills | tools/driver/window) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
-    render/outshine/shader) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3)" ;;
+    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    render/outshine/client) printf '%s' "$CXXSTD" ;;
+    render/outshine/drive) printf '%s' "$CXXSTD" ;;
+    tools/driver) printf '%s' "$CXXSTD" ;;
+    tools/driver/stills | tools/driver/window) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    render/outshine/shader) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3)" ;;
     unit/clients) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
   esac
