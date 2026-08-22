@@ -245,26 +245,36 @@ void Live::Eye(const Gltf::Placement &from) {
   Aimed_ = false;
 }
 
-void Live::PlacedBounds(double least[3], double most[3]) {
+bool Live::PlacedBounds(double least[3], double most[3], std::string &error) {
   if (!BoundsPlaced_) {
-    const std::vector<double> &at = Geometry_.PositionsM();
     bool first = true;
-    for (size_t part = 0; part < Geometry_.Parts().size(); ++part) {
-      const Gltf::Part &one = Geometry_.Parts()[part];
-      const std::array<double, 16> identity{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-      const std::array<double, 16> &placed =
-          part < Stood_.PartPlacement.size() ? Stood_.PartPlacement[part] : identity;
-      for (size_t vertex = one.FirstVertex; vertex < one.FirstVertex + one.VertexCount; ++vertex) {
-        const double *const from = at.data() + vertex * 3;
-        for (int axis = 0; axis < 3; ++axis) {
-          const double out = placed[axis] * from[0] + placed[4 + axis] * from[1] +
-                             placed[8 + axis] * from[2] + placed[12 + axis];
-          if (first || out < PlacedLeast_[axis]) { PlacedLeast_[axis] = out; }
-          if (first || out > PlacedMost_[axis]) { PlacedMost_[axis] = out; }
+    const auto fold = [this, &first](void) {
+      const std::vector<double> &at = Geometry_.PositionsM();
+      for (size_t part = 0; part < Geometry_.Parts().size(); ++part) {
+        const Gltf::Part &one = Geometry_.Parts()[part];
+        const std::array<double, 16> identity{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+        const std::array<double, 16> &placed =
+            part < Stood_.PartPlacement.size() ? Stood_.PartPlacement[part] : identity;
+        for (size_t vertex = one.FirstVertex; vertex < one.FirstVertex + one.VertexCount;
+             ++vertex) {
+          const double *const from = at.data() + vertex * 3;
+          for (int axis = 0; axis < 3; ++axis) {
+            const double out = placed[axis] * from[0] + placed[4 + axis] * from[1] +
+                               placed[8 + axis] * from[2] + placed[12 + axis];
+            if (first || out < PlacedLeast_[axis]) { PlacedLeast_[axis] = out; }
+            if (first || out > PlacedMost_[axis]) { PlacedMost_[axis] = out; }
+          }
+          first = false;
         }
-        first = false;
       }
+    };
+    fold();
+    for (int frame = 0; frame < Frames_; ++frame) {
+      if (frame == At_) { continue; }
+      if (!Pose(frame, error)) { return false; }
+      fold();
     }
+    if (Frames_ > 1 && !Pose(At_, error)) { return false; }
     if (first) {
       for (int axis = 0; axis < 3; ++axis) {
         PlacedLeast_[axis] = 0.0;
@@ -277,6 +287,7 @@ void Live::PlacedBounds(double least[3], double most[3]) {
     least[axis] = PlacedLeast_[axis];
     most[axis] = PlacedMost_[axis];
   }
+  return true;
 }
 
 bool Live::Look(std::string &error) {
@@ -287,7 +298,7 @@ bool Live::Look(std::string &error) {
     return Aim(*Renderer_, Geometry_, Stood_.Eye, error, true);
   }
   double least[3], most[3];
-  PlacedBounds(least, most);
+  if (!PlacedBounds(least, most, error)) { return false; }
   if (!Gltf::FramingFor(least, most, framed, Framing())) {
     error = "the subject has no extent, so no camera can be derived from it";
     return false;

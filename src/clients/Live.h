@@ -86,7 +86,7 @@ public:
 
   [[nodiscard]] bool ReadPixels(std::vector<uint8_t> &rgba, std::string &error);
 
-  void PlacedBounds(double least[3], double most[3]);
+  [[nodiscard]] bool PlacedBounds(double least[3], double most[3], std::string &error);
 
   void SkyEye(double aboveGroundM);
 
