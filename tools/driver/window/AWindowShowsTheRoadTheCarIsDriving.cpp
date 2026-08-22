@@ -241,7 +241,13 @@ int main(void) {
   size_t liveAfterFirstChunk = 0;
   Ridden rode;
   long frame = 0;
+  double saidAtM = 0.0;
   for (; frame < kFrameCap; ++frame) {
+    if (rode.ReachedM - saidAtM > 10000.0) {
+      saidAtM = rode.ReachedM;
+      std::printf("DRIVEN %.1f km of %.1f, frame %ld, p-so-far worst %.2f ms\n",
+                  rode.ReachedM / 1000.0, routeM / 1000.0, frame, worstMs);
+    }
     const double along = routeM > 0.0 ? rode.ReachedM / routeM : 0.0;
     outshine::Driver::Taken taken;
     if (rode.ReachedM > handoverFromM && handoverForM <= 0.0) {
