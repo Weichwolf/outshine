@@ -54,7 +54,7 @@ inline constexpr Tag OffersRefuel = TagCatalogue::OffersRefuel;
 static_assert(tags::DoesSteer.Within(tags::Does) && !tags::Does.Within(tags::DoesSteer),
               "a tag is within its parent and never the other way round");
 
-enum class Relation : uint8_t { IsA, ChildOf, DrivenBy, Uses, Assigned, Holds };
+enum class Relation : uint8_t { IsA, ChildOf, DrivenBy, Uses, Assigned, HeldBy };
 inline constexpr size_t kRelations = 6;
 
 inline constexpr Relation kNoRelation = (Relation)0xFF;
@@ -80,7 +80,7 @@ inline constexpr RelationRule kRules[kRelations] = {
     {Relation::DrivenBy, true, false, false, false, RoleBit(Role::Mind), tags::Does, kNoRelation},
     {Relation::Uses, false, false, false, false, RoleBit(Role::Tool), {}, kNoRelation},
     {Relation::Assigned, true, false, false, false, RoleBit(Role::Assignment), {}, Relation::Uses},
-    {Relation::Holds, true, true, false, false, RoleBit(Role::Body), {}, kNoRelation},
+    {Relation::HeldBy, true, true, false, false, RoleBit(Role::Body), {}, kNoRelation},
 };
 
 [[nodiscard]] constexpr const RelationRule &RuleOf(Relation relation) {

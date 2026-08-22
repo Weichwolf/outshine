@@ -81,11 +81,11 @@ int main(void) {
 
   const Entity crate = stood.InstanceNamed("crate");
   const Entity spare = stood.InstanceNamed("spare");
-  CHECK(scene.TargetOf(cup, Relation::Holds) == crate,
+  CHECK(scene.TargetOf(cup, Relation::HeldBy) == crate,
         "**HOLDING IS ONE MECHANISM AND ITS OWN RELATION**: the crate holds the cup by Holds, "
         "never by the subtree's ChildOf -- an inventory and a placement differ by one field, "
         "and instantiating a prefab cannot drag the world's contents with it");
-  CHECK(scene.TargetOf(spare, Relation::Holds) == crate,
+  CHECK(scene.TargetOf(spare, Relation::HeldBy) == crate,
         "and standing IN something is the same relation from the other spelling");
 
   {
@@ -173,7 +173,8 @@ int main(void) {
 
   Covers("III.5 a kind is a default and an instance overrides it: resolved once at stand-up "
          "into an interned-key column, inherits chains in declaration order, holding and "
-         "standing-in are one ChildOf, and every wrong spelling refuses by name "
+         "standing-in are one HeldBy -- possession, never the subtree's ChildOf -- and every "
+         "wrong spelling refuses by name "
          "(board:1487)");
   return Report();
 }

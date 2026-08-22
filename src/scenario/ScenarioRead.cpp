@@ -182,6 +182,7 @@ void ReadWorld(const Xml::Ref &from, Scenario &into) {
 
 void ReadRender(const Xml::Ref &from, Scenario &into) {
   if (!from.Valid()) { return; }
+  into.Render.Declared = true;
   into.Render.Frame.WidthPx = (int)from.Int("widthPx", into.Render.Frame.WidthPx);
   into.Render.Frame.HeightPx = (int)from.Int("heightPx", into.Render.Frame.HeightPx);
   into.Render.Fps = from.Num("fps", into.Render.Fps);
@@ -200,6 +201,7 @@ void ReadRender(const Xml::Ref &from, Scenario &into) {
 
 void ReadLighting(const Xml::Ref &from, Scenario &into) {
   if (!from.Valid()) { return; }
+  into.Lit.Declared = true;
   const Xml::Ref key = from.Child("key");
   if (key.Valid()) {
     into.Lit.Key.Lux = key.Num("lux", 0.0);
@@ -330,10 +332,14 @@ bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &
   }
 
   const Xml::Ref physics = root.Child("physics");
-  if (physics.Valid()) { into.Motion.Dial = physics.Attr("dial"); }
+  if (physics.Valid()) {
+    into.Motion.Declared = true;
+    into.Motion.Dial = physics.Attr("dial");
+  }
 
   const Xml::Ref clock = root.Child("clock");
   if (clock.Valid()) {
+    into.Time.Declared = true;
     into.Time.Start = clock.Attr("start");
     into.Time.Rate = clock.Num("rate", 1.0);
   }

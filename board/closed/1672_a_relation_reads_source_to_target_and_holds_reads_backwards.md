@@ -24,3 +24,10 @@ inventory-in-inventory works because a bag IS a Body, and a region-instance stan
 Body today — widen TargetRoles only when regions become store citizens with a role of
 their own). Rename `Named()` in src/scene/Store.cpp:24, the Assembly comment, and the two
 tests. No behaviour change; the unit proofs pin the direction by name afterwards.
+
+---
+
+Closed: the relation is HeldBy -- source HeldBy target reads the way the arrow points (the
+cup HeldBy the crate), consistent with IsA/ChildOf/DrivenBy/Uses; catalogue, store naming,
+assembly and both proofs renamed; the holder proof's own sentence now says "a parked car is
+HELD BY the standing garage".

@@ -62,6 +62,30 @@ int main(void) {
         "**AND WHAT OVERRODE WHAT IS PUBLISHABLE** -- a declaration nobody can trace is a "
         "declaration nobody can debug");
 
+  Scenario lit;
+  CHECK(Parsed("<scenario name=\"winter\">"
+               "<lighting><key lux=\"3000\" elevationDeg=\"8\"/></lighting>"
+               "<assets><asset uri=\"car.glb\" digest=\"bbb\"/></assets>"
+               "<audio><sound id=\"wind\" uri=\"wind2.ogg\"/></audio></scenario>",
+               lit, error),
+        "a winter layer declaring lighting, a re-pinned asset and a sound parses");
+  Scenario town;
+  CHECK(Parsed("<scenario name=\"town\">"
+               "<lighting><key lux=\"90000\" elevationDeg=\"55\"/></lighting>"
+               "<assets><asset uri=\"car.glb\" digest=\"aaa\"/></assets>"
+               "<audio><sound id=\"wind\" uri=\"wind.ogg\"/></audio></scenario>",
+               town, error),
+        "over a base that lit a summer noon");
+  trace.clear();
+  CHECK(MergeLayer(town, lit, "winter", trace, error) && town.Lit.Key.Lux == 3000.0,
+        "**THE CANONICAL MOD WORKS**: the winter layer that dims the light replaces the "
+        "lighting wholesale -- no collection is silently swallowed");
+  CHECK(town.Assets.size() == 1 && town.Assets[0].Digest == "bbb",
+        "an asset with the same uri and a NEW digest replaces the row -- the uri is the "
+        "declared name, the digest is the content pin, and a mod re-pins");
+  CHECK(town.Sounds.size() == 1 && town.Sounds[0].Uri == "wind2.ogg",
+        "and a sound overrides by its id -- every row collection merges by its own identity");
+
   Scenario nested;
   CHECK(Parsed("<scenario name=\"deep\"><layer path=\"more.xml\"/></scenario>", nested, error),
         "a layer declaring layers parses as XML");

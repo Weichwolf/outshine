@@ -179,7 +179,7 @@ bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
                 "', which nothing declares";
         return false;
       }
-      if (!into.Link(held, Relation::Holds, holder)) {
+      if (!into.Link(held, Relation::HeldBy, holder)) {
         error = into.Error();
         return false;
       }
@@ -192,7 +192,7 @@ bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
         return false;
       }
       const Entity self = out.InstanceNamed(instance.Id);
-      if (!into.Link(self, Relation::Holds, room)) {
+      if (!into.Link(self, Relation::HeldBy, room)) {
         error = into.Error();
         return false;
       }

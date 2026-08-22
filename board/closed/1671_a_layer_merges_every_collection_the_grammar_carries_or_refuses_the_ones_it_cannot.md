@@ -34,3 +34,22 @@ Demand, in order:
 Proving test extends ALayerOverridesAnEarlierOneById: a layer with a sound refuses by
 name; an asset override under the same Uri carries the new Digest; a vehicle override
 replaces by Name.
+
+---
+
+Closed: every collection merges or every declaration is spoken for -- nothing is swallowed:
+
+- ROW COLLECTIONS, each by its own identity: providers/generators/compositors by kind;
+  regions/doors/volumes/sounds/buses/tables/views by id; events by name; surfaces by
+  document; input binds by event; persists by what -- on top of the original four. A
+  placement carries no identity, so a layer's placements ADD, on record in the code and the
+  trace.
+- SINGLETON SECTIONS replace WHOLESALE when the layer declares them (the reader now flags
+  Declared on lighting/render/physics/clock; world and drive carried flags already; the
+  player by its non-empty Is): the winter mod that dims the light -- the canonical mod --
+  replaces <lighting> and the trace says so.
+- Every override, add, placement and section replacement lands on the trace.
+
+Proving test: ALayerOverridesAnEarlierOneById -- the winter layer dims 90000 lux to 3000,
+re-pins car.glb from digest aaa to bbb by uri (the uri is the name, the digest is the pin),
+and overrides a sound by id. 137/137.

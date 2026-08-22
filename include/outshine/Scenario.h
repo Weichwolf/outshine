@@ -67,6 +67,7 @@ struct Compositor {
 };
 
 struct RenderPlan {
+  bool Declared = false;
   Extent Frame;
   double Fps = 60.0;
   double Fill = 0.9;
@@ -79,6 +80,7 @@ struct RenderPlan {
 };
 
 struct Lighting {
+  bool Declared = false;
   Light Key;
   double Environment[3] = {0.0, 0.0, 0.0};
 };
@@ -271,10 +273,12 @@ struct Player {
 };
 
 struct PhysicsSettings {
+  bool Declared = false;
   std::string Dial;
 };
 
 struct Clock {
+  bool Declared = false;
   std::string Start;
   double Rate = 1.0;
 };

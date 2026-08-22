@@ -28,3 +28,10 @@ Two defects in the proofs that closed 1669, both in the delta:
    checks to `Relation::Holds` and left the coverage claim stating the design 1669
    overturned. The Covers register is the claims ledger; a ledger entry describing the
    dead design is a lie the claims audit will repeat.
+
+---
+
+Closed: the vacuous check is a real one -- Link(car, HeldBy, car) alone must refuse (no
+short-circuit alibi), and the two-hop cycle (the bag in the pouch it holds) refuses beside
+it; the Covers lines in both proofs say HeldBy and stopped describing the relation the
+commit had already replaced.
