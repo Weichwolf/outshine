@@ -17,3 +17,12 @@ measured and named per type -- an alignas that doubles a hot array's bytes is a 
 declare, not a default.
 
 Depends: 1538
+
+
+---
+
+First slice landed: Physics::Body (each vector row on a 128-bit boundary, 176 B declared
+against 136 packed), Physics::Wrench (64 against 48), render FrameContext (192 against 176) --
+each with the static_assert beside it naming the padding price. Remaining population: Medium's
+float4 rows (verify), DrawList entries, and the 1538 instance stream ({float3x4, tint}) which
+must be born 16-aligned.

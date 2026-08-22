@@ -5,17 +5,22 @@ namespace outshine::Physics {
 
 struct Body {
   double MassKg = 0.0;
-  double InertiaKgM2[3] = {0.0, 0.0, 0.0};
-  double PositionM[3] = {0.0, 0.0, 0.0};
-  double OrientationQ[4] = {1.0, 0.0, 0.0, 0.0};
-  double VelocityMs[3] = {0.0, 0.0, 0.0};
-  double SpinBodyRadS[3] = {0.0, 0.0, 0.0};
+  alignas(16) double InertiaKgM2[3] = {0.0, 0.0, 0.0};
+  alignas(16) double PositionM[3] = {0.0, 0.0, 0.0};
+  alignas(16) double OrientationQ[4] = {1.0, 0.0, 0.0, 0.0};
+  alignas(16) double VelocityMs[3] = {0.0, 0.0, 0.0};
+  alignas(16) double SpinBodyRadS[3] = {0.0, 0.0, 0.0};
 };
+static_assert(alignof(Body) == 16 && sizeof(Body) == 176,
+              "each vector row of the body starts on a 128-bit boundary; the 40 bytes over the "
+              "packed 136 are the declared price of whole-row NEON loads");
 
 struct Wrench {
-  double ForceN[3] = {0.0, 0.0, 0.0};
-  double TorqueNm[3] = {0.0, 0.0, 0.0};
+  alignas(16) double ForceN[3] = {0.0, 0.0, 0.0};
+  alignas(16) double TorqueNm[3] = {0.0, 0.0, 0.0};
 };
+static_assert(alignof(Wrench) == 16 && sizeof(Wrench) == 64,
+              "force and torque rows start on 128-bit boundaries; 16 bytes over the packed 48");
 
 void Turn(const double orientationQ[4], const double bodyV[3], double worldV[3]);
 void Unturn(const double orientationQ[4], const double worldV[3], double bodyV[3]);

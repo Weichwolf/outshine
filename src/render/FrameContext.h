@@ -5,12 +5,14 @@ namespace outshine::Render {
 
 struct FrameContext {
 
-  double Eye[3];
-  float Mvp16[16];
+  alignas(16) double Eye[3];
+  alignas(16) float Mvp16[16];
 
-  double PrevEye[3];
-  float PrevMvp16[16];
+  alignas(16) double PrevEye[3];
+  alignas(16) float PrevMvp16[16];
 };
+static_assert(alignof(FrameContext) == 16 && sizeof(FrameContext) == 192,
+              "eye and matrix rows start on 128-bit boundaries; 16 bytes over the packed 176");
 
 }
 #endif
