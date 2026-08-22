@@ -17,3 +17,13 @@ src/sim/Rigging.cpp, `Stand`:
 - Contacts exactly AT the CoM plane (`AtM[2] == CentreM[2]`) are neither steered nor driven by
   strict comparisons on both sides — a three-wheeler with a centred axle falls through both
   predicates. Name the tie-break.
+
+---
+
+**Closed (review 2026-08-22).** The silent `driven = braked` fallback is gone -- no contact
+behind the centre of mass is a named refusal whose text also declares the tie-break ("a
+contact exactly on the centre plane belongs to no axle", src/sim/Rigging.cpp:50-56); the dead
+`steered` arithmetic is deleted. Proof: unit/sim/ARigRefusesADeclarationItCannotDrive, green
+this run. Task 1607 closed. Residual (filed as board:1614): the wheelbase averaging at
+Rigging.cpp:78-90 still files an on-plane contact under the rear axle, contradicting the
+declared no-axle rule.

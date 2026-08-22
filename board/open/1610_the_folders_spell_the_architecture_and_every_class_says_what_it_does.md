@@ -39,3 +39,15 @@ with the monolith.
       RoadHarvest from ground) -> actor/path -- decided WITH move 2(d)/(e) so the sim systems
       land in their homes once, not twice
 - [ ] Journey's name dies when (d)/(e) dissolve its last mixed concern
+
+---
+
+**Sharpened (review 2026-08-22).** The src/world -> src/ground mv landed, but only the
+DIRECTORY speaks the diagram's noun -- every spelling inside the layer still says the old one:
+`namespace outshine::World` across all of src/ground (e.g. BuildingField.h:18,
+ClassBuilder.h:16), header guards `OUTSHINE_WORLD_*` (RoadHarvest.h:1, Wayfinding.h:1), and
+`src/ground/World.{h,cpp}` -- a class named World inside a folder named ground, which is also
+the class the architecture adjudication marked red for spelling camera/LOD in the ground
+layer. The commit's claim "the ground layer speaks the diagram's noun" is a quarter-truth
+until the namespace, the guards and the World class's name follow the folder (the latter
+together with its 1595 decomposition, so it is renamed once, not twice).

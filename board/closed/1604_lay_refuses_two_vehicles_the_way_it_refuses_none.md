@@ -3,7 +3,7 @@ Area: sim
 
 **Lay refuses a declaration of two vehicles the way it refuses none**
 
-src/sim/Journey.cpp:213-214:
+src/sim/Journey.cpp:202-203:
 
     say.Claim(declared.Vehicles.size() == 1, "declaring one vehicle");
     if (declared.Vehicles.empty()) { return false; }
@@ -17,3 +17,11 @@ refusal text.
 Residue of the same hour: `src/scenario/ScenarioRead.h:1-2` still guards itself as
 `OUTSHINE_CLIENTS_SCENARIOREAD_H` after the move out of src/clients (board:1598) — the header
 names a layer it no longer lives in.
+
+---
+
+**Closed (review 2026-08-22).** src/sim/Journey.cpp:202-203 now reads
+`say.Claim(declared.Vehicles.size() == 1, ...)` / `if (declared.Vehicles.size() != 1) return
+false;` -- claim and refusal agree. The guard residue is fixed too: ScenarioRead.h guards
+itself as `OUTSHINE_SCENARIO_SCENARIOREAD_H` in its new layer. unit/sim green this run. Task
+1606 closed.

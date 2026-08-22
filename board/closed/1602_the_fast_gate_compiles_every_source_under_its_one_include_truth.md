@@ -36,3 +36,12 @@ Demanded: the gate opens with `BuildLibrary` (incremental — `UpToDate` makes t
 seconds), so EVERY source compiles under its one declared include set on every gate run;
 re-measure the bound over that population and name the warm/cold populations apart; delete the
 dead `NAMED_ONLY` entry; make the Makefile's `test` comment tell the truth.
+
+---
+
+**Closed (review 2026-08-22).** All four demands stand in the tree: the fast gate calls
+`BuildLibrary` before the test clock (test/run.sh:463), so every src/ source compiles under its
+declared set on every gate run; the dead `render/outshine/grown` entry is gone from NAMED_ONLY
+(run.sh:446); the bound's warm/cold populations are named in the runner's own comment with the
+re-measured 48.6 s + 1.4 s over 119 tests (run.sh:442-446); the Makefile's `test` target says
+"run the fast gate" (Makefile:7,24). Task 1608 closed with the cold-red/warm-green proof.

@@ -26,3 +26,12 @@ arm and is benign — same flags — but the same mechanism.)
 Demanded: the object path carries the group (or the compile command joins `UpToDate` the way
 `Fresh` already hashes the link command for binaries), or the file arm dies and Rigging's
 narrowness is proved by a compile-only subject like the ones `unit/compile` already hosts.
+
+---
+
+**Closed (review 2026-08-22).** The object name carries the checksum of the group's include set
+and standard (`setId`, test/run.sh:272-273), so the narrow unit build and the wide library
+build of Rigging.cpp write different artefacts by construction; the sanitised and validated
+arms build into their own OBJDIRs (obj-sanitised, obj-validated), so SAN and EXTRA_DEFINES
+cannot collide with a plain object either. TheLayeringIsDeclaredOnce asserts the mechanism;
+claims suite green this run (12/12 + reporter). Task 1609 closed.
