@@ -1,14 +1,21 @@
 #include "GroundStack.h"
 
+#include <cmath>
 #include <string>
 
 #include "Sink.h"
+#include "TileGeodesy.h"
 
 namespace outshine::Ground {
 
 bool GroundStack::Open(std::string_view cacheDir, std::string_view assetsDir,
                        double focusLat, double focusLon, Data::Transport &wire, Sink &say) {
   Close();
+  const bool onTheBand = std::fabs(focusLat) <= kMercatorLatMaxDeg;
+  say.Claim(onTheBand,
+        "**THE DECLARED FOCUS LIES ON THE TILING'S MERCATOR BAND** -- beyond 85.05 degrees the "
+        "tile pyramid has no rows, so a stack there cannot stand and refuses instead");
+  if (!onTheBand) { return false; }
   outshine::Data::ContentStore::Config keeping;
   keeping.Directory = std::string(cacheDir);
   Store_ = std::make_unique<outshine::Data::ContentStore>(keeping);

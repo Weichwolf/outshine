@@ -39,6 +39,13 @@ int main(void) {
   Quiet quiet;
   NoWire wire;
 
+  GroundStack polar;
+  CHECK(!polar.Open("/tmp/outshine-drive-cache", "src/assets", 89.9, 0.0, wire, quiet),
+        "**A FOCUS OFF THE MERCATOR BAND REFUSES TO STAND** -- beyond 85.05 degrees the tile "
+        "pyramid has no rows; the claim and the return are one verdict, reachable from the "
+        "seam, and the constant-true pass dies here");
+  CHECK(!polar.Opened(), "and nothing stands half-open");
+
   GroundStack elsewhere;
   CHECK(elsewhere.Open("/tmp/outshine-drive-cache", "/nowhere/no-assets", 48.1, 11.5, wire, quiet),
         "**A DECLARATION IS NOT A FETCH**: registering sources against an absent assets root "

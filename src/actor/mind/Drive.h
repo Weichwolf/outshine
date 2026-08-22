@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_PILOT_DRIVE_H
-#define OUTSHINE_PILOT_DRIVE_H
+#ifndef OUTSHINE_ACTOR_MIND_DRIVE_H
+#define OUTSHINE_ACTOR_MIND_DRIVE_H
 
 #include "Pilot.h"
 #include "SpeedProfile.h"

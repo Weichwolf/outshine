@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_PHYSICS_RIG_H
-#define OUTSHINE_PHYSICS_RIG_H
+#ifndef OUTSHINE_ACTOR_BODY_RIG_H
+#define OUTSHINE_ACTOR_BODY_RIG_H
 
 #include <cstddef>
 

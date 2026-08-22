@@ -177,9 +177,9 @@ Told Drove(const ReferenceLine &line, const SpeedProfile &profile, double capMs,
   body.PositionM[2] = -start.NorthM;
   const Standing surface = Stand(line, start.EastM, start.NorthM, kHalfWidthM, 0.0, 10.0);
   const double up[3] = {surface.NormalM[0], surface.NormalM[1], -surface.NormalM[2]};
-  const double aheadM[3] = {std::cos(start.HeadingRad), start.Slope,
-                            -std::sin(start.HeadingRad)};
-  outshine::Physics::Lie(body, aheadM, up);
+  const double seatAheadM[3] = {std::cos(start.HeadingRad), start.Slope,
+                                -std::sin(start.HeadingRad)};
+  outshine::Physics::Lie(body, seatAheadM, up);
   double ahead[3];
   const double aheadBody[3] = {0.0, 0.0, -1.0};
   Turn(body.OrientationQ, aheadBody, ahead);

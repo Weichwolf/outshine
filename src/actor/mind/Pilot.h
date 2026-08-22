@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_PILOT_PILOT_H
-#define OUTSHINE_PILOT_PILOT_H
+#ifndef OUTSHINE_ACTOR_MIND_PILOT_H
+#define OUTSHINE_ACTOR_MIND_PILOT_H
 
 #include "Course.h"
 

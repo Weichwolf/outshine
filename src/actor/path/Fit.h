@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_CORRIDOR_FIT_H
-#define OUTSHINE_CORRIDOR_FIT_H
+#ifndef OUTSHINE_ACTOR_PATH_FIT_H
+#define OUTSHINE_ACTOR_PATH_FIT_H
 
 #include <cstddef>
 #include <span>

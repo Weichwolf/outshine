@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_PILOT_RAIL_H
-#define OUTSHINE_PILOT_RAIL_H
+#ifndef OUTSHINE_ACTOR_MIND_RAIL_H
+#define OUTSHINE_ACTOR_MIND_RAIL_H
 
 #include "Pilot.h"
 #include "SpeedProfile.h"

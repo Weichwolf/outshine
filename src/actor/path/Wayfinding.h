@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_PATH_WAYFINDING_H
-#define OUTSHINE_PATH_WAYFINDING_H
+#ifndef OUTSHINE_ACTOR_PATH_WAYFINDING_H
+#define OUTSHINE_ACTOR_PATH_WAYFINDING_H
 
 #include <cstddef>
 #include <cstdint>

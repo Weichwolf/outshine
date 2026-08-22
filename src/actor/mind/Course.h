@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_PILOT_COURSE_H
-#define OUTSHINE_PILOT_COURSE_H
+#ifndef OUTSHINE_ACTOR_MIND_COURSE_H
+#define OUTSHINE_ACTOR_MIND_COURSE_H
 
 #include "ReferenceLine.h"
 

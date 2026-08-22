@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_REFERENCELINE_H
-#define OUTSHINE_REFERENCELINE_H
+#ifndef OUTSHINE_ACTOR_PATH_REFERENCELINE_H
+#define OUTSHINE_ACTOR_PATH_REFERENCELINE_H
 
 #include <cstddef>
 #include <initializer_list>

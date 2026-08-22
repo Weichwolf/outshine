@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_PHYSICS_BODY_H
-#define OUTSHINE_PHYSICS_BODY_H
+#ifndef OUTSHINE_ACTOR_BODY_BODY_H
+#define OUTSHINE_ACTOR_BODY_BODY_H
 
 namespace outshine::Physics {
 
