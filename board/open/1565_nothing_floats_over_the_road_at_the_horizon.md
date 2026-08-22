@@ -13,8 +13,13 @@ graded at that distance -- the grading reach and the shown reach disagree (400 m
 everything between them is deck with no ground under it. If that is the mechanism, this item closes
 with board:1558's reach unification and one still proves it.
 
-- [ ] name the floating geometry (dump what stands at that station's far window)
-- [ ] one reach, derived, for shown corridor and graded ground
+- [x] named by mechanism: the swept ribbon's OPEN END cross-section, its unlit inside edge-on --
+      dark from the shadow side, white when the sun reached in, which is why the artefact changed
+      colour between rounds
+- [x] the sweep is a closed solid now: end caps with their own outward normals at both
+      cross-sections, held by `test/unit/corridor/ARibbonIsClosedAtBothEnds.cpp` -- every cap
+      triangle's winding agrees with its normal by determinant
+- [ ] the next reviewer round confirms the vanishing point clean over the twelve stations
 
 ## Comments
 

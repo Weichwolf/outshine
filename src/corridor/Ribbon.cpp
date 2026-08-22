@@ -119,6 +119,36 @@ Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM, d
                                        next + edge, next + under + edge, here + under + edge});
   }
 
+  for (const bool atEnd : {false, true}) {
+    const double atM = atEnd ? (fromM + (double)(stations - 1) * stepM > toM
+                                    ? toM
+                                    : fromM + (double)(stations - 1) * stepM)
+                             : fromM;
+    Placed on;
+    if (!along.At(atM, on)) { continue; }
+    const double outward = atEnd ? 1.0 : -1.0;
+    const double aheadE = std::cos(on.HeadingRad) * outward;
+    const double aheadN = std::sin(on.HeadingRad) * outward;
+    const uint32_t base = (uint32_t)(out.PositionM.size() / 3);
+    const uint32_t ring = atEnd ? (uint32_t)((stations - 1) * kRibbonAcross * 2) : 0u;
+    for (size_t which = 0; which < kRibbonAcross * 2; ++which) {
+      const size_t from = ((size_t)ring + which) * 3;
+      Put(out.PositionM, out.PositionM[from], out.PositionM[from + 1], out.PositionM[from + 2]);
+      Put(out.NormalM, aheadE, 0.0, -aheadN);
+      out.AcrossM.push_back(out.AcrossM[(size_t)ring + which]);
+    }
+    const uint32_t under = (uint32_t)kRibbonAcross;
+    for (uint32_t which = 0; which + 1 < (uint32_t)kRibbonAcross; ++which) {
+      const uint32_t topA = base + which, topB = base + which + 1;
+      const uint32_t botA = base + under + which, botB = base + under + which + 1;
+      if (atEnd) {
+        out.Index.insert(out.Index.end(), {topA, botA, topB, topB, botA, botB});
+      } else {
+        out.Index.insert(out.Index.end(), {topA, topB, botA, topB, botB, botA});
+      }
+    }
+  }
+
   for (size_t station = 0; station + 1 < stations; ++station) {
     const double atM = fromM + (double)station * stepM;
     Placed on;

@@ -61,11 +61,15 @@ int main(void) {
   Note("triangles", (double)ribbon.Triangles, "triangles");
   Note("triangles per metre of road", (double)ribbon.Triangles / kLengthM, "per m");
 
-  CHECK(ribbon.Vertices == ribbon.Stations * 8,
-        "with eight vertices a station: four across the top and four under them");
-  CHECK(ribbon.Triangles == (ribbon.Stations - 1) * 16,
+  CHECK(ribbon.Vertices == ribbon.Stations * 8 + 16,
+        "with eight vertices a station -- four across the top and four under them -- plus eight per "
+        "END CAP, duplicated so the caps carry their own outward normals");
+  CHECK(ribbon.Triangles == (ribbon.Stations - 1) * 16 + 12,
         "and sixteen triangles a segment -- three quads on top, three underneath and one down each "
-        "side, which is what closes a solid rather than leaving a sheet with a lining");
+        "side -- plus six per end cap. **This claim once read 'which is what closes a solid' at "
+        "sixteen per segment and NO caps, and it was wrong as specified: a swept tube with open "
+        "ends is not a closed solid, and its unlit inner cross-section is the dark dash "
+        "board:1565's reviewer saw floating at the vanishing point**");
 
   size_t outOfRange = 0;
   for (const uint32_t at : ribbon.Index) {
