@@ -78,3 +78,16 @@ The kVelocityMsl drift is dead (round 3's sharpening): SceneTargets.h holds ONE 
 kVelocityStatic and VelocityStaticDefine() -- the blob spells VELOCITY_STATIC, and BOTH
 assemblies (sky, subject) prepend the define. Tuning the sentinel can no longer split the
 two consumers. The eight-site blob census stands as this item's remaining ledger.
+
+---
+
+Slice 3 (the blob census cleared): the six generator fragments -- shadowRay, metalRoughBrdf,
+sheenLobe, iridescenceLobe, microfacetEnergy, normalFromMap -- moved their MSL bodies to
+src/render/shaders/*.msl, loaded through the one loader with an error-carrying overload
+beside the convenient one; their C++-interpolated constants (BVH bits, lobe tables) stay the
+one origin they already were. SubjectDraw assembles from the loaded fragments and refuses on
+any missing file. Remaining embedded MSL in .h/.cpp: kMslPrelude (the three-line structural
+header the assembler itself owns) and kVelocityMsl (one line, macro-fed since the sentinel
+fix) -- both adjudicated as assembly structure, not drift surface. Parity 42/42, gate
+129/129 warm. Remaining ledger: content-store hashing when the asset pipeline wants it;
+BRDF-family C++ twins stay explicit (double reference, genuine divergence).

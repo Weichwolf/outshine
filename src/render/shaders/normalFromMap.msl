@@ -1,0 +1,10 @@
+
+static inline float3 normalFromMap(float3 vertexNormal, float4 tangent, float3 tap, float scale,
+                                   bool front) {
+  float3 n = normalize(vertexNormal);
+  float3 t = normalize(tangent.xyz - n * dot(n, tangent.xyz));
+  float3 b = cross(n, t) * tangent.w;
+  float3 scaled = float3(tap.xy * scale, tap.z);
+  float3 mapped = normalize(t * scaled.x + b * scaled.y + n * scaled.z);
+  return mapped * select(-1.0, 1.0, front);
+}

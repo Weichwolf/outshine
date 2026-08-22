@@ -5,6 +5,8 @@
 #include <cmath>
 #include <string>
 
+#include "ShaderFile.h"
+
 namespace outshine::Render {
 
 struct Direction {
@@ -65,18 +67,15 @@ struct SurfaceBasis {
   return Normalised(Sum(Sum(along, across), out));
 }
 
-[[nodiscard]] inline std::string NormalFromMapMsl(void) {
-  return R"(
-static inline float3 normalFromMap(float3 vertexNormal, float4 tangent, float3 tap, float scale,
-                                   bool front) {
-  float3 n = normalize(vertexNormal);
-  float3 t = normalize(tangent.xyz - n * dot(n, tangent.xyz));
-  float3 b = cross(n, t) * tangent.w;
-  float3 scaled = float3(tap.xy * scale, tap.z);
-  float3 mapped = normalize(t * scaled.x + b * scaled.y + n * scaled.z);
-  return mapped * select(-1.0, 1.0, front);
+[[nodiscard]] inline std::string NormalFromMapMsl(std::string &error) {
+  std::string body;
+  if (!LoadShaderText("src/render/shaders/normalFromMap.msl", body, error)) { return std::string(); }
+  return body;
 }
-)";
+
+[[nodiscard]] inline std::string NormalFromMapMsl(void) {
+  std::string ignored;
+  return NormalFromMapMsl(ignored);
 }
 
 }

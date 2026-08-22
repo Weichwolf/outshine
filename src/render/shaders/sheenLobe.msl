@@ -1,0 +1,42 @@
+
+static inline float sheenDistribution(float nh, float roughness) {
+  float alpha = roughness * roughness;
+  if (!(alpha > 0.0)) { return 0.0; }
+  float inverse = 1.0 / alpha;
+  float sin2h = 1.0 - nh * nh;
+  if (!(sin2h > 0.0)) { return 0.0; }
+  return (2.0 + inverse) * pow(sin2h, inverse * 0.5) / (2.0 * kPi);
+}
+
+static inline float sheenLambdaFit(float x, float alpha) {
+  float smooth = (1.0 - alpha) * (1.0 - alpha);
+  float a = mix(21.5473, 25.3245, smooth);
+  float b = mix(3.82987, 3.32435, smooth);
+  float c = mix(0.19823, 0.16801, smooth);
+  float d = mix(-1.97760, -1.27393, smooth);
+  float e = mix(-4.32054, -4.85967, smooth);
+  return a / (1.0 + b * pow(x, c)) + d * x + e;
+}
+
+static inline float sheenLambda(float cosTheta, float alpha) {
+  return fabs(cosTheta) < 0.5 ? exp(sheenLambdaFit(cosTheta, alpha))
+                              : exp(2.0 * sheenLambdaFit(0.5, alpha) -
+                                    sheenLambdaFit(1.0 - cosTheta, alpha));
+}
+
+static inline float sheenVisibility(float nl, float nv, float roughness) {
+  float alpha = roughness * roughness;
+  if (!(alpha > 0.0) || !(nl > 0.0) || !(nv > 0.0)) { return 0.0; }
+  return 1.0 / ((1.0 + sheenLambda(nv, alpha) + sheenLambda(nl, alpha)) * (4.0 * nv * nl));
+}
+
+static inline float sheenAlbedo(float nv, float roughness) {
+  int r = clamp(int(roughness * float(kSheenSteps)), 0, kSheenSteps - 1);
+  int v = clamp(int(nv * float(kSheenSteps)), 0, kSheenSteps - 1);
+  return kSheenAlbedo[r * kSheenSteps + v];
+}
+
+static inline float sheenAlbedoScaling(float3 sheenColour, float nv, float roughness) {
+  float strongest = max(max(sheenColour.x, sheenColour.y), sheenColour.z);
+  return 1.0 - strongest * sheenAlbedo(nv, roughness);
+}

@@ -214,7 +214,17 @@ std::string SubjectDraw::ShaderSource(const SourceOptions &options, std::string 
       !LoadShaderText("src/render/shaders/subjectMapped.msl", mapped, error)) {
     return std::string();
   }
-  return MslPrelude() + VelocityStaticDefine() + kVelocityMsl + ShadowRayMsl() +
+  const std::string shadowRay = ShadowRayMsl(error);
+  const std::string brdf = MetalRoughBrdfMsl(error);
+  const std::string sheen = SheenLobeMsl(error);
+  const std::string iridescence = IridescenceLobeMsl(error);
+  const std::string energy = MicrofacetEnergyMsl(error);
+  const std::string normalMap = NormalFromMapMsl(error);
+  if (shadowRay.empty() || brdf.empty() || sheen.empty() || iridescence.empty() ||
+      energy.empty() || normalMap.empty()) {
+    return std::string();
+  }
+  return MslPrelude() + VelocityStaticDefine() + kVelocityMsl + shadowRay +
          "\n#define SUBJECT_WRITES_VELOCITY " + (options.WritesVelocity ? "1" : "0") +
          "\n#define SUBJECT_WRITES_SHADING_NORMAL " + (options.NormalIndex >= 0 ? "1" : "0") +
          "\n#define SUBJECT_NORMAL_COLOUR_INDEX " +
@@ -222,8 +232,7 @@ std::string SubjectDraw::ShaderSource(const SourceOptions &options, std::string 
          "\n#define SUBJECT_WRITES_SURFACE_IDENTITY " + (options.IdentityIndex >= 0 ? "1" : "0") +
          "\n#define SUBJECT_IDENTITY_COLOUR_INDEX " +
          std::to_string(options.IdentityIndex < 0 ? 0 : options.IdentityIndex) + "\n" + bindings +
-         body + MetalRoughBrdfMsl() + SheenLobeMsl() + IridescenceLobeMsl() +
-         MicrofacetEnergyMsl() + lit + litTextured + NormalFromMapMsl() + mapped;
+         body + brdf + sheen + iridescence + energy + lit + litTextured + normalMap + mapped;
 }
 
 std::string SubjectDraw::DepthOnlySource(void) {

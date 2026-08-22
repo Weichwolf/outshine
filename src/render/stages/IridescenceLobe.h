@@ -8,6 +8,8 @@
 #include <cstdio>
 #include <string>
 
+#include "ShaderFile.h"
+
 namespace outshine::Render {
 
 inline constexpr double kOutsideIor = 1.0;
@@ -117,7 +119,9 @@ inline void IridescenceFresnel(double cosTheta1, double thicknessNm, double film
   for (double &v : out) { v = std::fmin(std::fmax(v, 0.0), 1.0); }
 }
 
-[[nodiscard]] inline std::string IridescenceLobeMsl(void) {
+[[nodiscard]] inline std::string IridescenceLobeMsl(std::string &error) {
+  std::string body;
+  if (!LoadShaderText("src/render/shaders/iridescenceLobe.msl", body, error)) { return std::string(); }
   char constants[1024];
   std::snprintf(constants, sizeof constants,
                 "constant float kIriOutsideIor = %.17g;\n"
@@ -140,70 +144,12 @@ inline void IridescenceFresnel(double cosTheta1, double thicknessNm, double film
                 kXyzToRec709[0][0], kXyzToRec709[1][0], kXyzToRec709[2][0],
                 kXyzToRec709[0][1], kXyzToRec709[1][1], kXyzToRec709[2][1],
                 kXyzToRec709[0][2], kXyzToRec709[1][2], kXyzToRec709[2][2]);
-  return std::string(constants) + R"(
-static inline float iridescenceIorToF0(float transmitted, float incident) {
-  float d = (transmitted - incident) / (transmitted + incident);
-  return d * d;
+  return std::string(constants) + body;
 }
 
-static inline float3 iridescenceF0ToIor(float3 f0) {
-  float3 s = sqrt(clamp(f0, 0.0, kIriF0Ceiling));
-  return (1.0 + s) / (1.0 - s);
-}
-
-static inline float iridescenceSchlick(float f0, float cosTheta) {
-  float m = 1.0 - cosTheta;
-  float m2 = m * m;
-  return f0 + (1.0 - f0) * m2 * m2 * m;
-}
-
-static inline float3 iridescenceSchlick3(float3 f0, float cosTheta) {
-  float m = 1.0 - cosTheta;
-  float m2 = m * m;
-  return f0 + (1.0 - f0) * m2 * m2 * m;
-}
-
-static inline float3 iridescenceSensitivity(float opdNm, float3 shift) {
-  float phase = 2.0 * kPi * opdNm * 1.0e-9;
-  float3 xyz = kIriVal * sqrt(2.0 * kPi * kIriVar) * cos(kIriPos * phase + shift) *
-               exp(-phase * phase * kIriVar);
-  xyz.x += kIriValX2 * sqrt(2.0 * kPi * kIriVarX2) * cos(kIriPosX2 * phase + shift.x) *
-           exp(-kIriVarX2 * phase * phase);
-  return kIriXyzToRgb * (xyz / kIriNorm);
-}
-
-static inline float3 iridescenceFresnel(float cosTheta1, float thicknessNm, float filmIor,
-                                        float3 baseF0) {
-  float sinTheta2Sq = (kIriOutsideIor / filmIor) * (kIriOutsideIor / filmIor) *
-                      (1.0 - cosTheta1 * cosTheta1);
-  float cosTheta2Sq = 1.0 - sinTheta2Sq;
-  if (cosTheta2Sq < 0.0) { return float3(1.0); }
-  float cosTheta2 = sqrt(cosTheta2Sq);
-
-  float r12 = iridescenceSchlick(iridescenceIorToF0(filmIor, kIriOutsideIor), cosTheta1);
-  float t121 = 1.0 - r12;
-  float phi12 = filmIor < kIriOutsideIor ? kPi : 0.0;
-  float phi21 = kPi - phi12;
-
-  float3 baseIor = iridescenceF0ToIor(baseF0 + 0.0001);
-  float3 r1 = (baseIor - filmIor) / (baseIor + filmIor);
-  float3 r23 = iridescenceSchlick3(r1 * r1, cosTheta2);
-  float3 phi = float3(phi21) + select(float3(0.0), float3(kPi), baseIor < filmIor);
-
-  float opd = 2.0 * filmIor * thicknessNm * cosTheta2;
-
-  float3 r123 = clamp(r12 * r23, 1.0e-5, 0.9999);
-  float3 r123root = sqrt(r123);
-  float3 rs = t121 * t121 * r23 / (1.0 - r123);
-  float3 f = r12 + rs;
-  float3 cm = rs - t121;
-  for (int m = 1; m <= 2; ++m) {
-    cm *= r123root;
-    f += cm * 2.0 * iridescenceSensitivity(float(m) * opd, float(m) * phi);
-  }
-  return clamp(f, 0.0, 1.0);
-}
-)";
+[[nodiscard]] inline std::string IridescenceLobeMsl(void) {
+  std::string ignored;
+  return IridescenceLobeMsl(ignored);
 }
 
 }
