@@ -31,3 +31,14 @@ care which planet it is standing on.
       declaration -- named as the PROVIDER's shape, not the world's
 - [ ] the proof: a scenario declaring moon gravity rides the synthetic unit-gate road with the
       crest speeds sqrt(g/h'') scaling exactly as declared -- no code change, only declaration
+
+---
+
+**Owner refinement (2026-08-22): Earth ships as a template.** The engine knows no Earth -- but
+outshine MAY ship declaration TEMPLATES in which Earth stands correctly configured: all
+generators, the live providers (OSM, weather), the star catalogue, correct time. Earth is the
+central place for most games, so the template earns its place in `src/assets` as content the
+scenario selects (`<world template="earth">` or equivalent composition) -- a declaration like
+any other, overridable field by field, and the Moon flight (1612) needs nothing from it but a
+second template. The rule stands: templates are DATA the catalogue offers; the library still
+compiles no planet.
