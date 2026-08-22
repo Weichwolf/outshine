@@ -66,3 +66,16 @@ from Lay with Journey delegating; (c) DriveSystem from Ride; (d) Journey shrinks
 assembly recipe -- read scenario, assemble through the door, hand tools, tick; (e) the driver
 cases declare through Engine and the build enforcement of 1582 closes. Each step keeps Munich
 and Kyoto green before the next begins.
+
+---
+
+**Move 2 (b), the concrete cut (2026-08-22).** Journey::State is legible along the seams now:
+streaming (Store/Sources/Pool/Ground), declaration (Declared/CarWidthM/Stood), CORRIDOR
+PRODUCTS (Corridor, Fitted, Profile, RoadM/HalfWidthM/LaneHalfM/AsideM/FineAside/FineEdge,
+FineM/SpanM/NarrowestLaneM/BudgetM/HoldWithinM), ride state (Rig/Body/NearM/LostM/Tally),
+frame anchor. The cut: `src/sim/CorridorLay.{h,cpp}` gains `struct Corridor` carrying exactly
+the corridor products, and `LayCorridor(route, ground, assetsDir tables, carWidthM, envelope,
+say, out, error)` -- the middle ~500 lines of Lay move verbatim with their published numbers;
+Journey::Lay shrinks to: read declaration, open streaming, harvest+weave+plan (the nav tool),
+call LayCorridor, stand the rig, seed the ride. Then (c) DriveSystem from Ride over the same
+Corridor product. Each step keeps the fast gate and the sporadic driver proof green.
