@@ -35,9 +35,12 @@ with the monolith.
 ## Slices
 
 - [ ] src/world -> src/ground (the diagram's noun, the cleanest cut)
-- [ ] src/actor/ assembles: physics -> actor/body, pilot -> actor/mind, corridor (+ Wayfinding,
-      RoadHarvest from ground) -> actor/path -- decided WITH move 2(d)/(e) so the sim systems
-      land in their homes once, not twice
+- [~] src/actor/ assembles: physics -> actor/body DONE, pilot -> actor/mind DONE (git mv +
+      the one include truth, unit mirror moved in the same commit, namespaces Physics and
+      Pilot stay -- they state function honestly). OPEN: corridor (+ Wayfinding, RoadHarvest
+      from ground) -> actor/path, which carries a namespace decision (Ground::Network et al
+      must not keep the old layer's name inside actor/path -- the 2x-flagged debt pattern);
+      its own sitting
 - [ ] Journey's name dies when (d)/(e) dissolve its last mixed concern
 
 ---
