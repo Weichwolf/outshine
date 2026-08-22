@@ -209,7 +209,7 @@ void RoofSurface::Cover(const std::vector<Plan2> &plan, std::vector<Plan2> &tris
   tris.insert(tris.end(), mine.begin(), mine.end());
 }
 
-std::vector<Plan2> RoofSurface::Widened(const std::vector<Plan2> &ring, double byM) {
+std::vector<Plan2> RoofSurface::Widened(std::span<const Plan2> ring, double byM) {
   const size_t n = ring.size();
   if (n < 3 || std::fabs(byM) < 1.0e-3) return {};
   std::vector<Plan2> out;

@@ -2,6 +2,7 @@
 #define ROOFSURFACE_H
 
 #include <vector>
+#include <span>
 
 #include "BuildingShape.h"
 
@@ -15,7 +16,7 @@ public:
 
   void Cover(const std::vector<Plan2> &plan, std::vector<Plan2> &tris) const;
 
-  static std::vector<Plan2> Widened(const std::vector<Plan2> &ring, double byM);
+  static std::vector<Plan2> Widened(std::span<const Plan2> ring, double byM);
 
 private:
   const BuildingShape &Shape_;

@@ -490,7 +490,7 @@ struct Collapse {
 };
 
 inline void SimplifyGroup(const Mesh &m, std::vector<uint32_t> &tri, size_t targetTris,
-                          const std::vector<uint8_t> &sharedPos, Absorb &ab) {
+                          std::span<const uint8_t> sharedPos, Absorb &ab) {
   const size_t n0 = tri.size() / 3;
   if (n0 <= targetTris || n0 == 0) return;
 

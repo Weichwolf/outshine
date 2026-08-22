@@ -3,13 +3,14 @@
 
 #include <cmath>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 namespace outshine::Render {
 
 enum class TexelKind { Value, Direction };
 
-inline uint32_t IndexChannelsOf(const std::vector<float> &texels) {
+inline uint32_t IndexChannelsOf(std::span<const float> texels) {
   uint32_t mask = 0;
   for (uint32_t channel = 0; channel < 4; ++channel) {
     float seen[2] = {0.0f, 0.0f};
@@ -29,7 +30,7 @@ inline uint32_t IndexChannelsOf(const std::vector<float> &texels) {
   return mask;
 }
 
-inline void HalveInPlace(const std::vector<float> &from, uint32_t fromWidth, uint32_t fromHeight,
+inline void HalveInPlace(std::span<const float> from, uint32_t fromWidth, uint32_t fromHeight,
                          std::vector<float> &into, uint32_t &toWidth, uint32_t &toHeight,
                          TexelKind kind, uint32_t indexChannels = 0) {
   toWidth = fromWidth > 1 ? fromWidth / 2u : 1u;
