@@ -356,7 +356,7 @@ stateDiagram-v2
 ```
 
 One file = RFC 822 header + markdown body. Fields: `Type` (feature|task|bug|issue) · `Parent`
-(task→feature only) · `Area` (the tree's layers) · `Tags` · `Depends` · `Regresses` · `Supersedes`.
+(task→feature or task→issue: working a reviewer issue files a task attached to it) · `Area` (the tree's layers) · `Tags` · `Depends` · `Regresses` · `Supersedes`.
 Filename `NNNN_label.md`; number = identity; no State/Id/dates — directory and git are the truth.
 Titles say what WILL BE TRUE. Comments record what was LEARNED (append-only). Commits reference
 `board:NNNN`. `board/active/` mirrors what is being worked on right now — always.
