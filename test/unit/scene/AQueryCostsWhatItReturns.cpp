@@ -79,7 +79,7 @@ int main(void) {
         "Sources answers the reverse index directly: three children, three touches");
 
   Column<Mass> masses;
-  CHECK(masses.Open(scene, 64), "a column binds to its store once");
+  CHECK(masses.Open(scene), "a column binds to its store once");
   CHECK(masses.Put(children[0], Mass{1.0}) && masses.Put(children[2], Mass{3.0}),
         "two masses ride on two children");
   double summed = 0.0;

@@ -57,6 +57,7 @@ public:
   [[nodiscard]] bool Release(Entity by, Entity at);
   [[nodiscard]] Seat SeatOf(Entity by, Entity at) const;
 
+  [[nodiscard]] size_t Capacity() const { return Slots_.size(); }
   [[nodiscard]] const std::string &Error() const { return Error_; }
 
   [[nodiscard]] size_t Touched() const { return Touched_; }

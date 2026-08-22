@@ -106,6 +106,11 @@ bool Store::Give(Entity to, Tag tag) {
   Slot *slot = const_cast<Slot *>(Held(to));
   if (slot == nullptr) { return Refuse("a tag cannot be given to what does not stand"); }
   if (tag.Value() == 0) { return Refuse("the empty tag is not in the catalogue"); }
+  for (size_t at = 0; at < slot->GivenCount; ++at) {
+    if (slot->Given[at] == tag) {
+      return Refuse("this entity already carries that tag, and a duplicate would eat a place");
+    }
+  }
   if (slot->GivenCount == kTagsPerEntity) {
     return Refuse("this entity carries all the tags it can");
   }

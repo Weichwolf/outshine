@@ -20,7 +20,7 @@ struct Assembled {
 };
 
 [[nodiscard]] bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
-                            Column<Drive> &drives, Assembled &out, std::string &error);
+                            Column<Drive> &driven, Assembled &out, std::string &error);
 
 }
 

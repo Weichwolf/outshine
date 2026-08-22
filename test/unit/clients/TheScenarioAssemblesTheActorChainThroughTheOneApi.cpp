@@ -47,9 +47,9 @@ int main(void) {
   Store scene;
   CHECK(scene.Open(16), "a store opens for the handful the scenario declares");
   outshine::Column<outshine::Vehicle> vehicles;
-  CHECK(vehicles.Open(scene, 16), "and a column for the vehicles' numbers beside it");
+  CHECK(vehicles.Open(scene), "and a column for the vehicles' numbers beside it");
   outshine::Column<outshine::Drive> drives;
-  CHECK(drives.Open(scene, 16), "and one for the drives");
+  CHECK(drives.Open(scene), "and one for the drives");
   Assembled stood;
   const bool assembled = Assemble(declared, scene, vehicles, drives, stood, error);
   if (!assembled) { std::printf("REFUSED %s\n", error.c_str()); }
@@ -87,9 +87,9 @@ int main(void) {
   Store crowded;
   CHECK(crowded.Open(1), "a store of one seat is a store");
   outshine::Column<outshine::Vehicle> few;
-  CHECK(few.Open(crowded, 1), "with a column to match");
+  CHECK(few.Open(crowded), "with a column to match");
   outshine::Column<outshine::Drive> fewDrives;
-  CHECK(fewDrives.Open(crowded, 1), "and a drive column beside it");
+  CHECK(fewDrives.Open(crowded), "and a drive column beside it");
   Assembled cramped;
   CHECK(!Assemble(declared, crowded, few, fewDrives, cramped, error),
         "a declaration that does not fit is refused at assembly, not truncated");

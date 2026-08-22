@@ -22,7 +22,7 @@ int main(void) {
   Store scene;
   CHECK(scene.Open(4), "a store opens");
   Column<Payload> weights;
-  CHECK(weights.Open(scene, 4),
+  CHECK(weights.Open(scene),
         "**A COLUMN BINDS TO ITS STORE ONCE** -- not per call, so a coinciding generation in a "
         "stranger store cannot answer wrongly and quietly (board:1591)");
 

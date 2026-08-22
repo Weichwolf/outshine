@@ -13,12 +13,12 @@ namespace outshine {
 template <class Value>
 class Column {
 public:
-  [[nodiscard]] bool Open(const Store &of, size_t capacity) {
-    if (capacity == 0) { return false; }
+  [[nodiscard]] bool Open(const Store &of) {
+    if (of.Capacity() == 0) { return false; }
     Bound_ = &of;
-    Values_.assign(capacity, Value{});
-    Generations_.assign(capacity, 0);
-    Held_.assign(capacity, 0);
+    Values_.assign(of.Capacity(), Value{});
+    Generations_.assign(of.Capacity(), 0);
+    Held_.assign(of.Capacity(), 0);
     return true;
   }
 

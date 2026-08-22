@@ -72,8 +72,8 @@ bool Engine::Assemble() {
     S_->Error = "the declaration names nothing to assemble";
     return false;
   }
-  if (!S_->Scene.Open(named) || !S_->Vehicles.Open(S_->Scene, named) ||
-      !S_->Drives.Open(S_->Scene, named)) {
+  if (!S_->Scene.Open(named) || !S_->Vehicles.Open(S_->Scene) ||
+      !S_->Drives.Open(S_->Scene)) {
     S_->Error = "the scene did not open for the " + std::to_string(named) +
                 " entities the declaration names";
     return false;

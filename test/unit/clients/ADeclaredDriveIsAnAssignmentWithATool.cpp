@@ -47,7 +47,7 @@ int main(void) {
   Store scene;
   outshine::Column<outshine::Vehicle> vehicles;
   outshine::Column<outshine::Drive> drives;
-  CHECK(scene.Open(8) && vehicles.Open(scene, 8) && drives.Open(scene, 8), "the graph opens");
+  CHECK(scene.Open(8) && vehicles.Open(scene) && drives.Open(scene), "the graph opens");
   Assembled stood;
   const bool assembled = Assemble(declared, scene, vehicles, drives, stood, error);
   if (!assembled) { std::printf("REFUSED %s\n", error.c_str()); }
@@ -71,7 +71,7 @@ int main(void) {
   Store lone;
   outshine::Column<outshine::Vehicle> loneV;
   outshine::Column<outshine::Drive> loneD;
-  CHECK(lone.Open(8) && loneV.Open(lone, 8) && loneD.Open(lone, 8), "a second graph opens");
+  CHECK(lone.Open(8) && loneV.Open(lone) && loneD.Open(lone), "a second graph opens");
   Assembled nobody;
   CHECK(!Assemble(mindless, lone, loneV, loneD, nobody, error),
         "**A DRIVE WITHOUT A MIND IS REFUSED AT ASSEMBLY**: somebody must take the assignment, "

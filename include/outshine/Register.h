@@ -96,6 +96,15 @@ constexpr bool EachRuleStandsAtItsOwnRelation() {
 }
 static_assert(EachRuleStandsAtItsOwnRelation(),
               "every relation carries its rule, and no rule allows nothing");
+constexpr bool EveryAcyclicRelationIsExclusive() {
+  for (size_t at = 0; at < kRelations; ++at) {
+    if (kRules[at].Acyclic && !kRules[at].Exclusive) { return false; }
+  }
+  return true;
+}
+static_assert(EveryAcyclicRelationIsExclusive(),
+              "the cycle walk follows one target per hop, so an acyclic relation must be "
+              "exclusive -- widen the walk before you relax this");
 } // namespace scene_register_checked
 
 } // namespace outshine

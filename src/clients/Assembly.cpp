@@ -3,7 +3,7 @@
 namespace outshine {
 
 bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
-              Column<Drive> &drives, Assembled &out, std::string &error) {
+              Column<Drive> &driven, Assembled &out, std::string &error) {
   out = Assembled{};
   for (const Vehicle &vehicle : declared.Vehicles) {
     const Entity body = into.Add(Role::Body);
@@ -51,7 +51,7 @@ bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
     if (!into.Alive(out.Nav) || !into.Alive(out.Assignment) ||
         !into.Link(out.PlayerMind, Relation::Uses, out.Nav) ||
         !into.Link(out.PlayerMind, Relation::Assigned, out.Assignment) ||
-        !drives.Put(out.Assignment, declared.Driven)) {
+        !driven.Put(out.Assignment, declared.Driven)) {
       error = into.Error().empty() ? "the drive's numbers found no column seat" : into.Error();
       return false;
     }
