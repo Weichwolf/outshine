@@ -34,3 +34,13 @@ Found the measured way the same hour: a second route (Kyoto-Osaka) refused becau
 `Journey::Lay` asserts MUNICH constants inside the engine path -- route-1 expectations (612 km
 crow-line, 523 m elevation, Marienplatz walk) living where the causal chain says only mechanism
 may live. board:1582 (clients include only the public interface) is the enforcement half.
+
+---
+
+Learned from the architecture adjudication (2026-08-22): the fold must DECOMPOSE, not attach.
+Welding Journey onto today's Sim grows the god facade the component model exists to replace --
+Sim carries ~50 getters and hand-wired subsystems (src/clients/Sim.h). The fold therefore reads:
+Journey's parts (corridor, speed plan, rig, mind) become entities and columns in the scene
+store, wired by the assembly API; Sim shrinks to the systems that advance that graph. Same
+verdict names TilePool::Camera and World::Refine(Eye) as ground-layer violations of the layer
+table -- the compositor (not yet standing) is where camera, frustum and LOD selection belong.
