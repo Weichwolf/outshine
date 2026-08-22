@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_OUTSHINE_H
 #define OUTSHINE_OUTSHINE_H
 
+#include <string_view>
 #include <memory>
 #include <string>
 #include <vector>
@@ -21,8 +22,8 @@ public:
 
   void RenderTo(Extent frame);
 
-  [[nodiscard]] bool Read(const std::string &path);
-  [[nodiscard]] bool Load(const std::string &path);
+  [[nodiscard]] bool Read(std::string_view path);
+  [[nodiscard]] bool Load(std::string_view path);
   [[nodiscard]] bool Declare(const Scenario &scenario);
 
   [[nodiscard]] const Scenario &Declared(void) const;
@@ -36,7 +37,7 @@ public:
   [[nodiscard]] bool Run();
 
   [[nodiscard]] bool Park();
-  [[nodiscard]] bool Resume(const std::string &name);
+  [[nodiscard]] bool Resume(std::string_view name);
   [[nodiscard]] std::vector<std::string> Parked(void) const;
 
   [[nodiscard]] int At(void) const;

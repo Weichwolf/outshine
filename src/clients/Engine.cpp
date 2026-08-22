@@ -121,10 +121,11 @@ bool Engine::Declare(const Scenario &scenario) {
   return true;
 }
 
-bool Engine::Read(const std::string &path) {
-  std::FILE *const file = std::fopen(path.c_str(), "rb");
+bool Engine::Read(std::string_view path) {
+  const std::string held(path);
+  std::FILE *const file = std::fopen(held.c_str(), "rb");
   if (file == nullptr) {
-    S_->Error = path + ": no scenario at that path";
+    S_->Error = held + ": no scenario at that path";
     return false;
   }
   std::string text;
@@ -136,7 +137,7 @@ bool Engine::Read(const std::string &path) {
   Scenario scenario;
   scenario.Render.Frame = S_->Frame;
   if (!ReadScenario(text.c_str(), text.size(), scenario, S_->Error)) {
-    S_->Error = path + ": " + S_->Error;
+    S_->Error = held + ": " + S_->Error;
     return false;
   }
   S_->Declared = scenario;
@@ -145,10 +146,11 @@ bool Engine::Read(const std::string &path) {
   return true;
 }
 
-bool Engine::Load(const std::string &path) {
-  std::FILE *const file = std::fopen(path.c_str(), "rb");
+bool Engine::Load(std::string_view path) {
+  const std::string held(path);
+  std::FILE *const file = std::fopen(held.c_str(), "rb");
   if (file == nullptr) {
-    S_->Error = path + ": no scenario at that path";
+    S_->Error = held + ": no scenario at that path";
     return false;
   }
   std::string text;
@@ -160,7 +162,7 @@ bool Engine::Load(const std::string &path) {
   Scenario scenario;
   scenario.Render.Frame = S_->Frame;
   if (!ReadScenario(text.c_str(), text.size(), scenario, S_->Error)) {
-    S_->Error = path + ": " + S_->Error;
+    S_->Error = held + ": " + S_->Error;
     return false;
   }
   return Declare(scenario);
@@ -209,14 +211,14 @@ bool Engine::Park(void) {
   return true;
 }
 
-bool Engine::Resume(const std::string &name) {
+bool Engine::Resume(std::string_view name) {
   for (size_t at = 0; at < S_->Asleep.size(); ++at) {
     if (S_->Asleep[at].Named.Name != name) { continue; }
     const Scenario taken = S_->Asleep[at];
     S_->Asleep.erase(S_->Asleep.begin() + (long)at);
     return Declare(taken);
   }
-  S_->Error = name + " is not parked, and resuming what was never parked is not a load";
+  S_->Error = std::string(name) + " is not parked, and resuming what was never parked is not a load";
   return false;
 }
 
