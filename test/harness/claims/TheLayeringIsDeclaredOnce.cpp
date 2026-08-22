@@ -51,6 +51,12 @@ int main(void) {
         "which live in test/run.sh: GroupIncludes is the single spelling of the layering, and "
         "BuildLibrary is the archive built from it");
 
+  CHECK(Sites(runner, ".$setId.o") == 1,
+        "**AND ONE OBJECT PATH IS BUILT BY ONE INCLUDE SET**: the object name carries the "
+        "checksum of its group's includes and standard, so a narrow unit build and the wide "
+        "library build of the same source can never share an artefact -- the path IS the flag "
+        "identity, and UpToDate needs no flag awareness (board:1603)");
+
   Covers("I.27 the layering is declared once: the runner's group declarations are the only "
          "spelling of which source compiles with which includes, and `make` builds the library "
          "entire from them");

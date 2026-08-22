@@ -9,3 +9,10 @@ include string -- so unit/sim's narrow build and the library's wide build of Rig
 never share an artefact, and UpToDate needs no flag awareness because the path IS the flag
 identity. The claims test TheLayeringIsDeclaredOnce gains the assertion that no two groups
 write the same object path with different sets.
+
+---
+
+**Closed.** Every object name carries the checksum of its group's include set and standard --
+the narrow unit build and the wide library build of Rigging.cpp write different artefacts by
+construction, and UpToDate needs no flag awareness because the path is the flag identity.
+TheLayeringIsDeclaredOnce asserts the mechanism; claims 12/12.

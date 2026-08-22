@@ -4,7 +4,7 @@
 # THREE TARGETS AND NO OTHERS (CLAUDE.md): build the engine, run the tests, clean.
 #
 #   make          compile the library entire -> build/liboutshine.a
-#   make test     run every test, one process and one verdict each -> sh test/run.sh
+#   make test     run the fast gate (the regression net); long suites run when named
 #   make clean    remove build artifacts
 #
 # THE LAYERING IS THE BUILD, AND IT IS DECLARED ONCE. test/run.sh's GroupIncludes is the only
@@ -21,7 +21,7 @@ SELF_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 all:             ## compile the library entire -> build/liboutshine.a
 	@cd $(SELF_DIR) && sh test/run.sh --library
 
-test:            ## run every test, one process and one verdict each
+test:            ## run the fast gate; name a suite for the long proofs
 	@cd $(SELF_DIR) && sh test/run.sh
 
 clean:           ## remove build artifacts

@@ -269,7 +269,8 @@ BuildGroup() {
   esac
   for unit in $groupUnits; do
     [ -e "$unit" ] || continue
-    unitObject=$OBJDIR/$(dirname "$unit" | tr / -)-$(basename "$unit" .cpp).o
+    setId=$(printf '%s|%s' "$groupIncludes" "$groupStd" | cksum | cut -d' ' -f1)
+    unitObject=$OBJDIR/$(dirname "$unit" | tr / -)-$(basename "$unit" .cpp).$setId.o
     if ! UpToDate "$unitObject" "$unit"; then
       $CXX "$unit" $groupStd $OPT $WARN $SAN $EXTRA_DEFINES -MMD -MP $groupIncludes -c -o "$unitObject" || return 1
     fi
@@ -438,9 +439,11 @@ fi
 # THE FAST GATE IS THE DEFAULT (board:1601): run.sh without suites runs the regression gate --
 # the unit mirror, the claims, and the door proof -- and EXCLUDES the named-only suites, loudly.
 # The long suites (device corpora, oracle renders, the drive) run only when named: sporadic by
-# rule, never per edit. kFastGateBoundMs is [SET] 90000 ms on this machine, ~2x the measured
-# 115-test baseline of 39.6 s, and the runner itself is the judge -- a slow gate is a red run.
-NAMED_ONLY="harness/render render/outshine/drive render/outshine/frame render/outshine/scenario render/outshine/shader render/outshine/world render/outshine/grown tools"
+# rule, never per edit. kFastGateBoundMs is [SET] 90000 ms on this machine over the WARM
+# population (measured 48.6 s tests + 1.4 s library, 119 tests, 2026-08-22); a COLD run after a
+# flag change rebuilds every set-stamped object and overruns once by design -- its red says
+# 'run again warm', which the overrun message states.
+NAMED_ONLY="harness/render render/outshine/drive render/outshine/frame render/outshine/scenario render/outshine/shader render/outshine/world tools"
 FAST_GATE=no
 kFastGateBoundMs=90000
 if [ -z "$SUITES" ]; then
@@ -456,6 +459,9 @@ if [ -z "$SUITES" ]; then
   done
   TESTS=$kept
   printf 'run.sh: the fast gate -- named-only suites excluded: %s\n' "$NAMED_ONLY"
+  gateLibraryFrom=$(Now)
+  BuildLibrary
+  printf 'run.sh: the gate compiled the library entire in %s ms\n' "$(( $(Now) - gateLibraryFrom ))"
 fi
 
 if [ -n "$SUITES" ]; then
@@ -892,7 +898,7 @@ printf '%s tests: %s PASS  %s FAIL  %s TIMEOUT  %s SIGNAL  %s BUILD  %s SKIP  %s
   "$stayedFiles" "$BUILD/log"
 
 if [ "$FAST_GATE" = yes ] && [ "$elapsedMs" -gt "$kFastGateBoundMs" ]; then
-  printf 'run.sh: THE FAST GATE OVERRAN ITS BOUND -- %s ms over the declared %s ms: a slow test is a finding, exactly like a slow frame (board:1601)\n' \
+  printf 'run.sh: THE FAST GATE OVERRAN ITS BOUND -- %s ms over the declared %s ms (warm population): a slow test is a finding, exactly like a slow frame. A cold run after a flag change rebuilds every set-stamped object -- run again warm before judging (board:1601)\n' \
     "$elapsedMs" "$kFastGateBoundMs" >&2
   exit 1
 fi
