@@ -14,11 +14,11 @@ class CsvTelemetry : public TelemetrySink {
 public:
   explicit CsvTelemetry(const TextTarget &target) : File_(target.File()) {}
 
-  void Header(const std::vector<std::string> &columns) override;
-  void Row(const std::vector<std::string> &fields) override;
+  void Header(std::span<const std::string> columns) override;
+  void Row(std::span<const std::string> fields) override;
 
 private:
-  void WriteRow(const std::vector<std::string> &fields);
+  void WriteRow(std::span<const std::string> fields);
 
   std::FILE *File_;
 };

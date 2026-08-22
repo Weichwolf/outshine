@@ -1,5 +1,6 @@
 #ifndef TELEMETRY_H
 #define TELEMETRY_H
+#include <span>
 #include <string>
 #include <vector>
 
@@ -45,8 +46,8 @@ public:
 class TelemetrySink {
 public:
   virtual ~TelemetrySink() = default;
-  virtual void Header(const std::vector<std::string> &columns) = 0;
-  virtual void Row(const std::vector<std::string> &fields) = 0;
+  virtual void Header(std::span<const std::string> columns) = 0;
+  virtual void Row(std::span<const std::string> fields) = 0;
 };
 
 class TelemetryBus {

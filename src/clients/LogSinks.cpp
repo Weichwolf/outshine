@@ -15,7 +15,7 @@ const char *LevelStr(LogLevel l) {
 }
 
 void TextLogSink::Write(double simTimeS, LogLevel level, const char *tag, const char *event,
-                        const std::vector<LogField> &fields) {
+                        std::span<const LogField> fields) {
   if (!File_) return;
   fprintf(File_, "t=%.1f %s %s %s", simTimeS, LevelStr(level), tag, event);
   for (const auto &fld : fields) {

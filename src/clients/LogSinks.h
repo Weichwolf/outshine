@@ -11,7 +11,7 @@ class TextLogSink : public LogSink {
 public:
   explicit TextLogSink(const TextTarget &target) : File_(target.File()) {}
   void Write(double simTimeS, LogLevel level, const char *tag, const char *event,
-            const std::vector<LogField> &fields) override;
+            std::span<const LogField> fields) override;
 
 private:
   std::FILE *File_;

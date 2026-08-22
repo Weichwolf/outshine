@@ -1,6 +1,7 @@
 #ifndef TILEWATERMARK_H
 #define TILEWATERMARK_H
 
+#include <span>
 #include <algorithm>
 #include <cstdint>
 #include <vector>
@@ -20,7 +21,7 @@ public:
   };
 
   template <typename Consumable>
-  Next Ask(const std::vector<OsmField::Feature> &feats, Consumable consumable) {
+  Next Ask(std::span<const OsmField::Feature> feats, Consumable consumable) {
     Next next;
     size_t at = Mark_;
     while (at < feats.size()) {
@@ -38,7 +39,7 @@ public:
 
   void Take(uint32_t tile) { Ahead_.insert(std::lower_bound(Ahead_.begin(), Ahead_.end(), tile), tile); }
 
-  void Advance(const std::vector<OsmField::Feature> &feats) {
+  void Advance(std::span<const OsmField::Feature> feats) {
     while (Mark_ < feats.size() && Taken(feats[Mark_].Tile)) {
       const uint32_t tile = feats[Mark_].Tile;
       while (Mark_ < feats.size() && feats[Mark_].Tile == tile) Mark_++;

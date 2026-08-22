@@ -186,7 +186,7 @@ struct Browser final : outshine::Script::Host {
 class Spoken final : public outshine::LogSink {
 public:
   void Write(double, outshine::LogLevel level, const char *tag, const char *event,
-             const std::vector<outshine::LogField> &fields) override {
+             std::span<const outshine::LogField> fields) override {
     if (level < outshine::LogLevel::Warn) { return; }
     std::fprintf(stderr, "%s %s", tag, event);
     for (const outshine::LogField &field : fields) {

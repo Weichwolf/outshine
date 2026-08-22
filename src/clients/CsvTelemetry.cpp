@@ -18,7 +18,7 @@ void Append(std::string &out, const std::string &field) {
 
 }
 
-void CsvTelemetry::WriteRow(const std::vector<std::string> &fields) {
+void CsvTelemetry::WriteRow(std::span<const std::string> fields) {
   if (!File_) return;
   std::string line;
   for (size_t i = 0; i < fields.size(); i++) {
@@ -30,8 +30,8 @@ void CsvTelemetry::WriteRow(const std::vector<std::string> &fields) {
   fflush(File_);
 }
 
-void CsvTelemetry::Header(const std::vector<std::string> &columns) { WriteRow(columns); }
+void CsvTelemetry::Header(std::span<const std::string> columns) { WriteRow(columns); }
 
-void CsvTelemetry::Row(const std::vector<std::string> &fields) { WriteRow(fields); }
+void CsvTelemetry::Row(std::span<const std::string> fields) { WriteRow(fields); }
 
 }

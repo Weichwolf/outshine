@@ -27,12 +27,7 @@ void Log::SetUnit(const char *label) {
 }
 
 void Log::Emit(LogLevel level, const char *tag, const char *event,
-                 std::initializer_list<LogField> fields) {
-  Emit(level, tag, event, std::vector<LogField>(fields));
-}
-
-void Log::Emit(LogLevel level, const char *tag, const char *event,
-                 const std::vector<LogField> &fields) {
+                 std::span<const LogField> fields) {
   if (!Sink_ || level < Level_) return;
 
   LogSink *out = ThreadSink_ ? ThreadSink_ : Sink_;

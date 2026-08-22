@@ -1,5 +1,6 @@
 #ifndef LOG_H
 #define LOG_H
+#include <span>
 #include <initializer_list>
 #include <string>
 #include <vector>
@@ -24,7 +25,7 @@ class LogSink {
 public:
   virtual ~LogSink() = default;
   virtual void Write(double simTimeS, LogLevel level, const char *tag, const char *event,
-                     const std::vector<LogField> &fields) = 0;
+                     std::span<const LogField> fields) = 0;
 };
 
 class Log {
@@ -39,27 +40,25 @@ public:
   static void SetThreadSink(LogSink *sink) { ThreadSink_ = sink; }
 
   static void Debug(const char *tag, const char *event, std::initializer_list<LogField> fields = {}) {
-    Emit(LogLevel::Debug, tag, event, fields);
+    Emit(LogLevel::Debug, tag, event, {fields.begin(), fields.size()});
   }
   static void Info(const char *tag, const char *event, std::initializer_list<LogField> fields = {}) {
-    Emit(LogLevel::Info, tag, event, fields);
+    Emit(LogLevel::Info, tag, event, {fields.begin(), fields.size()});
   }
 
-  static void Info(const char *tag, const char *event, const std::vector<LogField> &fields) {
+  static void Info(const char *tag, const char *event, std::span<const LogField> fields) {
     Emit(LogLevel::Info, tag, event, fields);
   }
   static void Warn(const char *tag, const char *event, std::initializer_list<LogField> fields = {}) {
-    Emit(LogLevel::Warn, tag, event, fields);
+    Emit(LogLevel::Warn, tag, event, {fields.begin(), fields.size()});
   }
   static void Error(const char *tag, const char *event, std::initializer_list<LogField> fields = {}) {
-    Emit(LogLevel::Error, tag, event, fields);
+    Emit(LogLevel::Error, tag, event, {fields.begin(), fields.size()});
   }
 
 private:
   static void Emit(LogLevel level, const char *tag, const char *event,
-                   std::initializer_list<LogField> fields);
-  static void Emit(LogLevel level, const char *tag, const char *event,
-                   const std::vector<LogField> &fields);
+                   std::span<const LogField> fields);
 
   static LogSink *Sink_;
   static LogLevel Level_;
