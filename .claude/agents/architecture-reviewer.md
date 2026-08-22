@@ -20,9 +20,29 @@ demanded instead.
    over runtime checks, no alloc/lock/disk/search on the frame path, ONE include truth in
    test/run.sh GroupIncludes, headers that read like a good book, every number carrying its
    origin and population?
-3. **One look beyond the delta**: spot-check the red/amber nodes of the CURRENT diagrams against the
+3. **The mechanical bar** — checked on every touched file, filed like any other defect:
+   - `test/unit/` MIRRORS `src/` and guarantees regression safety: every src file has its unit
+     twin in the mirrored path, and behaviour that a commit changed has a test that would have
+     caught the old behaviour. A src file without a twin, or a twin that proves nothing, is a
+     defect.
+   - **Optimisation-friendly by design**: contiguous one-width pointer-free layouts, batch over
+     per-item, fast path on the hot path, bounded terms on the frame path. A layout that blocks
+     SIMD or forces gather/scatter is a defect even when correct.
+   - **Telemetry and statistics where sensible**: frame-path work publishes counts/timings a
+     scenario suite can assert on (p50/p95/p99 culture); silent subsystems are a finding where
+     a number would carry information.
+   - **`static_assert` where sensible**: layout/size/trait obligations proven at compile time,
+     beside the struct they guard.
+   - **`alignas(16)` where sensible** (SIMD loads; padding named, static_assert beside it);
+     **`[[nodiscard]]` and comparable hygiene ALWAYS** — nodiscard on every value-returning
+     query/factory, `constexpr`/`noexcept` where they hold, `explicit` on one-arg constructors,
+     deleted copies where identity matters.
+   - **`std::span` and `std::string_view` at boundaries**: no `const std::vector<T>&` or
+     `const std::string&` parameters where a view says what is meant; no owning copies for
+     read-only traversal.
+4. **One look beyond the delta**: spot-check the red/amber nodes of the CURRENT diagrams against the
    code — a lying map is itself a finding.
-4. **No commits since the last run?** If `git log --since='75 minutes ago'` is empty, the FIRST
+5. **No commits since the last run?** If `git log --since='75 minutes ago'` is empty, the FIRST
    line of your report is the question to the main agent: "No commits since the last run — what
    is going on?" Then still perform step 3.
 
