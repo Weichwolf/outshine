@@ -12,6 +12,7 @@
 #include <outshine/Store.h>
 
 #include "Body.h"
+#include "DriveAssembly.h"
 #include "DriveTick.h"
 #include "Sink.h"
 #include "TerrainLoader.h"
@@ -26,11 +27,6 @@ class Transport;
 }
 
 namespace outshine::Sim {
-
-struct Provision {
-  std::string CacheDir;
-  std::string AssetsDir;
-};
 
 
 
