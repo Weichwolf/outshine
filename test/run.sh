@@ -176,7 +176,7 @@ LayerGroups() {
     render/outshine/shader) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
     tools/driver/stills | tools/driver/window) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/actor/path src/actor/body src/actor/mind src/data src/ground/tiles src/ground src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/scenario/ScenarioRead.cpp src/sim src/scene src/clients/Assembly.cpp" ;;
     tools/driver) printf '%s' "src/core src/core/io src/gltf src/actor/path src/actor/body src/actor/mind src/data src/ground/tiles src/ground src/sim src/scene src/scenario/ScenarioRead.cpp src/clients/Assembly.cpp" ;;
-    render/outshine/world) printf '%s' "src/core src/core/io src/data src/scenario src/generators src/generators/draw src/ground/tiles src/ground src/actor/path/Wayfinding.cpp src/clients/Sim.cpp src/clients/LogSinks.cpp src/clients/StreamTelemetry.cpp src/clients/EyeTelemetry.cpp src/clients/CsvTelemetry.cpp src/clients/Species.cpp src/clients/RegionForge.cpp src/clients/SceneWeather.cpp" ;;
+    render/outshine/world) printf '%s' "src/core src/core/io src/data src/scenario src/generators src/generators/draw src/ground/tiles src/ground src/actor/path/Wayfinding.cpp src/clients/Sim.cpp src/clients/LogSinks.cpp src/clients/StreamTelemetry.cpp src/clients/EyeTelemetry.cpp src/clients/CsvTelemetry.cpp src/clients/Species.cpp src/clients/RegionForge.cpp" ;;
     render/outshine/drive) printf '%s' "src/actor/path src/actor/body src/actor/mind" ;;
     *) return 1 ;;
   esac
@@ -243,7 +243,7 @@ GroupIncludes() {
     src/clients/Assembly.cpp) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/clients" ;;
     src/sim) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/actor/path -Isrc/data -Isrc/actor/body -Isrc/actor/mind -Isrc/scenario -Isrc/sim -Isrc/ground -Isrc/ground/tiles" ;;
     src/clients/Engine.cpp) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/scenario -Isrc/ui $(pkg-config --cflags sdl3)" ;;
-    src/clients/Sim.cpp | src/clients/LogSinks.cpp | src/clients/StreamTelemetry.cpp | src/clients/EyeTelemetry.cpp | src/clients/CsvTelemetry.cpp | src/clients/Species.cpp | src/clients/RegionForge.cpp | src/clients/SceneWeather.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/scenario -Isrc/ground -Isrc/ground/tiles -Isrc/generators -Isrc/generators/draw -Isrc/actor/path -Isrc/clients" ;;
+    src/clients/Sim.cpp | src/clients/LogSinks.cpp | src/clients/StreamTelemetry.cpp | src/clients/EyeTelemetry.cpp | src/clients/CsvTelemetry.cpp | src/clients/Species.cpp | src/clients/RegionForge.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/scenario -Isrc/ground -Isrc/ground/tiles -Isrc/generators -Isrc/generators/draw -Isrc/actor/path -Isrc/clients" ;;
     src/clients/Image.cpp) printf '%s' "-Isrc/clients $(pkg-config --cflags sdl3-image)" ;;
     *) return 1 ;;
   esac
@@ -443,31 +443,68 @@ if [ "$AUDITLINK" = 1 ]; then
   auditSuites=$SUITES
   [ -n "$auditSuites" ] ||
     auditSuites=$(find test tools -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u)
-  objectIndex=$(ls "$OBJDIR" 2>/dev/null)
   for suiteDir in $auditSuites; do
     groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
     [ -n "$groups" ] || continue
-    suiteUnits=""
+    OBJECTS=""
+    stragglers=ok
     for group in $groups; do
       case "$group" in
-        *.cpp) suiteUnits="$suiteUnits $group" ;;
-        *) suiteUnits="$suiteUnits $(find "$group" -maxdepth 1 -name '*.cpp' | sort)" ;;
+        *.cpp)
+          if [ ! -e "$group" ]; then
+            printf 'AUDIT %s declares %s and no such source exists -- a ghost in the listing\n' "$suiteDir" "$group"
+            stragglers=refused
+            break
+          fi
+          ;;
       esac
-    done
-    resolved=$({ printf 'U %s\n' $suiteUnits; printf 'O %s\n' $objectIndex; } | awk '
-      $1 == "U" { unit=$2; stem=unit; sub(/\.cpp$/, "", stem); gsub(/\//, "-", stem); want[stem]=unit; next }
-      $1 == "O" { name=$2; sub(/\.[0-9]+\.o$/, "", name);
-                  if (name in want && !(name in got)) { got[name]=$2; print "OBJ " $2 } }
-      END { for (stem in want) if (!(stem in got)) print "MISSING " want[stem] }')
-    missing=$(printf '%s\n' "$resolved" | sed -n 's/^MISSING //p')
-    OBJECTS=$(printf '%s\n' "$resolved" | sed -n "s|^OBJ |$OBJDIR/|p" | tr '\n' ' ')
-    stragglers=ok
-    for unit in $missing; do
-      if ! BuildGroup "$unit"; then
-        printf 'AUDIT %s does not compile %s under its own declaration\n' "$suiteDir" "$unit"
+      groupIncludes=$(GroupIncludes "$group") || {
+        printf 'AUDIT %s declares %s and no include set is declared for it\n' "$suiteDir" "$group"
         stragglers=refused
         break
-      fi
+      }
+      groupStd=$(GroupToolchain "$group")
+      setId=$(printf '%s|%s' "$groupIncludes" "$groupStd" | cksum | cut -d' ' -f1)
+      case "$group" in
+        *.cpp) groupUnits=$group ;;
+        *) groupUnits=$(find "$group" -maxdepth 1 -name '*.cpp' | sort) ;;
+      esac
+      pairs=$(printf '%s\n' $groupUnits | awk -v id="$setId" \
+        '{ u=$0; s=u; sub(/\.cpp$/, "", s); gsub(/\//, "-", s); print u " " s "." id ".o" }')
+      groupBuilt=no
+      set -- $pairs
+      while [ $# -ge 2 ]; do
+        unit=$1
+        objName=$2
+        shift 2
+        if [ ! -e "$unit" ]; then
+          printf 'AUDIT %s declares %s and no such source exists -- a ghost in the listing\n' "$suiteDir" "$unit"
+          stragglers=refused
+          break
+        fi
+        if [ -f "$OBJDIR/$objName" ]; then
+          OBJECTS="$OBJECTS $OBJDIR/$objName"
+          continue
+        fi
+        # the declaration names an object the gate has not built (cold, or a fresh include
+        # set) -- build the GROUP once so the audit reads exactly what it names
+        if [ "$groupBuilt" = no ]; then
+          if ! BuildGroup "$group"; then
+            printf 'AUDIT %s does not compile %s under its own declaration\n' "$suiteDir" "$group"
+            stragglers=refused
+            break
+          fi
+          groupBuilt=yes
+        fi
+        if [ -f "$OBJDIR/$objName" ]; then
+          OBJECTS="$OBJECTS $OBJDIR/$objName"
+        else
+          printf 'AUDIT %s built %s and still has no %s\n' "$suiteDir" "$group" "$objName"
+          stragglers=refused
+          break
+        fi
+      done
+      [ "$stragglers" = refused ] && break
     done
     if [ "$stragglers" = refused ]; then
       bad=1

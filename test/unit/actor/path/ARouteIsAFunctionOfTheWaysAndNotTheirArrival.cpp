@@ -19,6 +19,7 @@ constexpr double kDeg = 1.0e-5;
 struct Laid {
   std::vector<double> Points;
   double HalfWidthM;
+  int Lanes;
 };
 
 // a small mesh whose endpoints only JOIN by snapping, so the merge order is exercised:
@@ -30,8 +31,11 @@ std::vector<Laid> Mesh(void) {
       const double lat = 48.0 + (double)row * 800.0 * kDeg;
       const double lon = 11.0 + (double)column * 800.0 * kDeg;
       const double nudge = ((double)((row * 4 + column) % 3) - 1.0) * 1.6e-5;
-      ways.push_back({{lat, lon, lat + 800.0 * kDeg + nudge, lon}, 3.5});
-      ways.push_back({{lat, lon, lat, lon + 800.0 * kDeg - nudge}, 3.5});
+      ways.push_back({{lat, lon, lat + 800.0 * kDeg + nudge, lon}, 3.5, 2});
+      ways.push_back({{lat, lon, lat, lon + 800.0 * kDeg - nudge}, 3.5, 2});
+      if ((row + column) % 2 == 0) {
+        ways.push_back({{lat, lon, lat, lon + 800.0 * kDeg - nudge}, 3.5, 4});
+      }
     }
   }
   return ways;
@@ -42,11 +46,11 @@ Route Planned(const std::vector<Laid> &ways, bool reversed, size_t &nodes) {
   if (reversed) {
     for (size_t at = ways.size(); at > 0; --at) {
       const Laid &way = ways[at - 1];
-      net.Lay(way.Points.data(), way.Points.size() / 2, way.HalfWidthM, 0.1, 2);
+      net.Lay(way.Points.data(), way.Points.size() / 2, way.HalfWidthM, 0.1, way.Lanes);
     }
   } else {
     for (const Laid &way : ways) {
-      net.Lay(way.Points.data(), way.Points.size() / 2, way.HalfWidthM, 0.1, 2);
+      net.Lay(way.Points.data(), way.Points.size() / 2, way.HalfWidthM, 0.1, way.Lanes);
     }
   }
   std::string error;
@@ -80,6 +84,15 @@ int main(void) {
         "the weave merges the same nodes whichever way the tiles arrived");
   CHECK(forward.Legs.size() == backward.Legs.size(),
         "and the plan walks the same chain of legs");
+  bool sameAttributes = forward.Legs.size() == backward.Legs.size();
+  for (size_t at = 0; sameAttributes && at < forward.Legs.size(); ++at) {
+    sameAttributes = forward.Legs[at].Lanes == backward.Legs[at].Lanes &&
+                     forward.Legs[at].HalfWidthM == backward.Legs[at].HalfWidthM;
+  }
+  CHECK(sameAttributes,
+        "**AND THE ATTRIBUTES ARE PART OF THE CONTENT**: geometry-equal ways that differ in "
+        "lanes are ordered by their lanes, so which lane count survives a merge is decided "
+        "by the declaration and never by std::sort's whim over arrival order");
   CHECK(forward.LengthM == backward.LengthM,
         "**A ROUTE OVER THE SAME WAYS IS THE SAME ROUTE, TO THE BIT.** The weave orders the "
         "ways by their content before any node merges, so the scheduler's arrival order -- "

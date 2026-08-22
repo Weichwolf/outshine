@@ -24,3 +24,14 @@ Demanded: the comparator tie-breaks on HalfWidthM, MaxGradient, Lanes after poin
 Count; the refusals move above the canonicalisation block; the proving test
 (test/unit/actor/path/ARouteIsAFunctionOfTheWaysAndNotTheirArrival.cpp) gains the
 coincident-pair case, arrival-swapped, asserting Leg attributes to the bit.
+
+---
+
+Closed: the canonical order compares the WHOLE way -- points, count, then HalfWidthM,
+MaxGradient, Lanes -- so geometry-equal ways that differ in an attribute are ordered by the
+attribute and the merge winner is the declaration's, never std::sort's. The three refusals
+moved BEFORE the sort and the five-array rebuild (refusal before work). Proving test:
+ARouteIsAFunctionOfTheWaysAndNotTheirArrival now lays geometry-equal lane-2/lane-4 twins on
+half the corners and CHECKs Legs' Lanes and HalfWidthM equal across both arrival orders --
+negative-controlled: with the attribute keys removed from the comparator the test goes red.
+10/10 with the drive suite.

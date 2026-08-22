@@ -71,6 +71,21 @@ bool Network::Weave(std::string &error) {
   Cells_.clear();
   Woven_ = false;
 
+  if (Ways_.empty()) {
+    error = "a network is woven from 1..N ways and this one carries none";
+    return false;
+  }
+  if (Points_.size() / 2 > kMaxNetworkPoints) {
+    error = "a network of " + std::to_string(Points_.size() / 2) +
+            " points reaches the bound of " + std::to_string(kMaxNetworkPoints);
+    return false;
+  }
+  if (!(SnapM_ > 0.0)) {
+    error = "a snapping distance is what makes two ways meet, and this network declares " +
+            std::to_string(SnapM_) + " m";
+    return false;
+  }
+
   // the weave is a function of the CONTENT, never of arrival: tiles stream in whatever order
   // the scheduler grants, so the ways are put into one canonical order before any node merges
   {
@@ -85,7 +100,10 @@ bool Network::Weave(std::string &error) {
         const double db = Points_[2 * wb.First + at];
         if (da != db) { return da < db; }
       }
-      return wa.Count < wb.Count;
+      if (wa.Count != wb.Count) { return wa.Count < wb.Count; }
+      if (wa.HalfWidthM != wb.HalfWidthM) { return wa.HalfWidthM < wb.HalfWidthM; }
+      if (wa.MaxGradient != wb.MaxGradient) { return wa.MaxGradient < wb.MaxGradient; }
+      return wa.Lanes < wb.Lanes;
     });
     std::vector<double> points, widths, gradients;
     std::vector<int> lanes;
@@ -115,20 +133,6 @@ bool Network::Weave(std::string &error) {
     Ways_ = std::move(ways);
   }
 
-  if (Ways_.empty()) {
-    error = "a network is woven from 1..N ways and this one carries none";
-    return false;
-  }
-  if (Points_.size() / 2 > kMaxNetworkPoints) {
-    error = "a network of " + std::to_string(Points_.size() / 2) +
-            " points reaches the bound of " + std::to_string(kMaxNetworkPoints);
-    return false;
-  }
-  if (!(SnapM_ > 0.0)) {
-    error = "a snapping distance is what makes two ways meet, and this network declares " +
-            std::to_string(SnapM_) + " m";
-    return false;
-  }
 
   std::vector<size_t> nodeOf(Points_.size() / 2, 0);
   std::unordered_map<int64_t, std::vector<size_t>> byCell;
