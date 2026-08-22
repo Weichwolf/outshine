@@ -170,23 +170,27 @@ flowchart TD
   Live --> Renderer
   Ephemeris & RegionForge --> Sim --> Renderer
   Frustum -.-> DrawList
-  Entities -.-> DrawList
+  TilePool --> World["World — quadtree LOD · admission · kerbs"] --> Sim
+  GroundStream --> Journey["Journey — the drive, living in tools/"]
+  Journey -.-> Sim
+  Engine --> Live
+  GltfStudio --> Renderer
   Assembly["Assembly — the XML door"] --> SceneStore["Scene Store — entities · typed pairs · traits · tags"]
 
-  classDef built fill:#1f6f3f,stroke:#0d3b21,color:#fff
-  classDef idle fill:#8a6d1f,stroke:#4a3a0d,color:#fff
+  classDef sound fill:#1f6f3f,stroke:#0d3b21,color:#fff
+  classDef unsure fill:#8a6d1f,stroke:#4a3a0d,color:#fff
   classDef wrong fill:#7a2222,stroke:#3d1111,color:#fff
-  classDef absent fill:#555,stroke:#333,color:#eee,stroke-dasharray:4 3
-  class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,TilePool,GroundStream,OsmField,RoadHarvest,Wayfinding,StreetField,BuildingField,WaterField,Ground,Forest,Buildings,Water,Infrastructure,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,Subject,DrawList,Renderer,TonemapStage,PresentStage,Live,Sim,Assembly,SceneStore,Ephemeris,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,LightVisibilityStage built
-  class Frustum,RegionForge idle
-  class SubjectDraw wrong
-  class Entities absent
+  class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,OsmField,RoadHarvest,Wayfinding,StreetField,Ground,Forest,Buildings,Water,Infrastructure,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,Engine,SceneStore,Assembly sound
+  class BuildingField,WaterField,Subject,DrawList,Renderer,TonemapStage,LightVisibilityStage,Frustum,Ephemeris,RegionForge,GltfStudio unsure
+  class TilePool,World,SubjectDraw,Sim,Live,Journey wrong
 ```
 
-Green = in a passing suite's source list; amber = compiled, run by nothing; red = carries proven
-defects (`SubjectDraw`: instancing is a literal 1 and nothing culls, glass is a cloned stage,
-shading samples no atlas, six responsibilities in one type — each an open board item); grey
-dashed = the target needs it, not in the tree.
+Colours are ARCHITECTURE, adjudicated by an independent review (2026-08-22): green = right
+responsibility in the right layer; amber = form in question (fields that tessellate, the getter
+carpet, TAA folded into tonemap, idle values); red = provably wrong — `TilePool` and `World`
+spell camera and LOD inside the ground layer, `SubjectDraw` is six responsibilities, `Sim` and
+`Live` are hand-wired god facades the component model replaces, `Journey` is engine work in a
+tool. The rot concentrates at the orchestration edges; the middle of the tree is sound.
 
 ## Class structure (SOLL — where the tree is going)
 
