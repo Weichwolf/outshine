@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <outshine/Scenario.h>
+#include <outshine/Store.h>
 
 namespace outshine {
 
@@ -26,6 +27,10 @@ public:
 
   [[nodiscard]] const Scenario &Declared(void) const;
   [[nodiscard]] const std::vector<std::string> &Carried(void) const;
+
+  [[nodiscard]] bool Assemble();
+  [[nodiscard]] Store &Scene(void);
+  [[nodiscard]] const Store &Scene(void) const;
 
   [[nodiscard]] bool Advance();
   [[nodiscard]] bool Run();

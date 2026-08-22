@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <vector>
 
+#include "Assembly.h"
 #include "Live.h"
 #include "Renderer.h"
 #include "ScenarioRead.h"
@@ -16,6 +17,9 @@ struct Engine::State {
   Scenario Declared;
   std::vector<std::string> Carried;
   std::vector<Scenario> Asleep;
+  Store Scene;
+  Column<Vehicle> Vehicles;
+  Assembled Stood;
   std::string Error;
 };
 
@@ -58,6 +62,25 @@ std::vector<std::string> Unacted(const Scenario &scenario) {
 } // namespace
 
 Engine::Engine() : S_(std::make_unique<State>()) {}
+
+bool Engine::Assemble() {
+  const Scenario &declared = S_->Declared;
+  const size_t named =
+      declared.Vehicles.size() + (declared.Played.Is.empty() ? 0u : 1u);
+  if (named == 0) {
+    S_->Error = "the declaration names nothing to assemble";
+    return false;
+  }
+  if (!S_->Scene.Open(named) || !S_->Vehicles.Open(S_->Scene, named)) {
+    S_->Error = "the scene did not open for the " + std::to_string(named) +
+                " entities the declaration names";
+    return false;
+  }
+  return outshine::Assemble(declared, S_->Scene, S_->Vehicles, S_->Stood, S_->Error);
+}
+
+Store &Engine::Scene(void) { return S_->Scene; }
+const Store &Engine::Scene(void) const { return S_->Scene; }
 Engine::~Engine() = default;
 Engine::Engine(Engine &&) noexcept = default;
 Engine &Engine::operator=(Engine &&) noexcept = default;

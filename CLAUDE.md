@@ -233,6 +233,8 @@ classDiagram
     +Declare(scenario) bool
     +Declared() Scenario
     +Carried() strings
+    +Assemble() bool
+    +Scene() Store
     +Advance() bool
     +Run() bool
     +RenderTo(frame)
@@ -276,6 +278,9 @@ classDiagram
 
 `Journey` still stands outside the library (it folds into `Sim`); `Live`, `Renderer`,
 `GroundStream` and `Journey` are still reachable by clients — the SOLL below removes them.
+The assembly API stands public since 2026-08-22: `include/outshine/{Register,Store,Column}.h`
+are the C++ door, `Engine::Assemble/Scene` own the one graph, proven by a client that includes
+nothing but `outshine/`.
 
 ## Public interface (SOLL — one door)
 
