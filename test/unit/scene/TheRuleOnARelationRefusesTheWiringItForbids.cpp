@@ -7,7 +7,7 @@
 
 using outshine::Entity;
 using outshine::kNoEntity;
-using outshine::Kind;
+using outshine::Role;
 using outshine::Relation;
 using outshine::Store;
 namespace tags = outshine::tags;
@@ -19,11 +19,11 @@ int main(void) {
   Store scene;
   CHECK(scene.Open(64), "a store opens once, sized once, and grows never");
 
-  const Entity car = scene.Add(Kind::Body);
-  const Entity mind = scene.Add(Kind::Mind);
-  const Entity second = scene.Add(Kind::Mind);
-  const Entity nav = scene.Add(Kind::Tool);
-  const Entity route = scene.Add(Kind::Assignment);
+  const Entity car = scene.Add(Role::Body);
+  const Entity mind = scene.Add(Role::Mind);
+  const Entity second = scene.Add(Role::Mind);
+  const Entity nav = scene.Add(Role::Tool);
+  const Entity route = scene.Add(Role::Assignment);
   CHECK(scene.Alive(car) && scene.Alive(mind) && scene.Alive(nav) && scene.Alive(route),
         "what was added stands");
 
@@ -50,9 +50,9 @@ int main(void) {
   CHECK(scene.Link(mind, Relation::Uses, nav) && scene.Link(mind, Relation::Assigned, route),
         "give the mind its navigation and the assignment is taken");
 
-  const Entity a = scene.Add(Kind::Body);
-  const Entity b = scene.Add(Kind::Body);
-  const Entity c = scene.Add(Kind::Body);
+  const Entity a = scene.Add(Role::Body);
+  const Entity b = scene.Add(Role::Body);
+  const Entity c = scene.Add(Role::Body);
   CHECK(scene.Link(a, Relation::ChildOf, b) && scene.Link(b, Relation::ChildOf, c),
         "a hierarchy is pairs of the same relation");
   CHECK(!scene.Link(c, Relation::ChildOf, a),

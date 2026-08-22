@@ -30,10 +30,10 @@ class Store {
 public:
   [[nodiscard]] bool Open(size_t capacity);
 
-  [[nodiscard]] Entity Add(Kind kind);
+  [[nodiscard]] Entity Add(Role kind);
   void Remove(Entity of);
   [[nodiscard]] bool Alive(Entity of) const;
-  [[nodiscard]] Kind KindOf(Entity of) const;
+  [[nodiscard]] Role RoleOf(Entity of) const;
 
   [[nodiscard]] bool Give(Entity to, Tag tag);
   [[nodiscard]] bool Has(Entity of, Tag tag) const;
@@ -63,7 +63,7 @@ private:
   struct Slot {
     uint32_t Generation = 0;
     bool Held = false;
-    Kind Is = Kind::Body;
+    Role Is = Role::Body;
     Tag Offers{};
     size_t SeatCount = 0;
     Taken Seats[kSeatsPerOffer] = {};

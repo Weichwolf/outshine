@@ -4,12 +4,12 @@ namespace outshine {
 
 namespace {
 
-const char *Named(Kind kind) {
+const char *Named(Role kind) {
   switch (kind) {
-    case Kind::Body: return "a body";
-    case Kind::Mind: return "a mind";
-    case Kind::Tool: return "a tool";
-    case Kind::Assignment: return "an assignment";
+    case Role::Body: return "a body";
+    case Role::Mind: return "a mind";
+    case Role::Tool: return "a tool";
+    case Role::Assignment: return "an assignment";
   }
   return "nothing";
 }
@@ -37,7 +37,7 @@ bool Store::Open(size_t capacity) {
   return true;
 }
 
-Entity Store::Add(Kind kind) {
+Entity Store::Add(Role kind) {
   if (Free_.empty()) {
     (void)Refuse("the store is full, and a pool refuses rather than grows");
     return kNoEntity;
@@ -62,9 +62,9 @@ void Store::Remove(Entity of) {
 
 bool Store::Alive(Entity of) const { return Held(of) != nullptr; }
 
-Kind Store::KindOf(Entity of) const {
+Role Store::RoleOf(Entity of) const {
   const Slot *slot = Held(of);
-  return slot == nullptr ? Kind::Body : slot->Is;
+  return slot == nullptr ? Role::Body : slot->Is;
 }
 
 bool Store::Give(Entity to, Tag tag) {
@@ -174,11 +174,11 @@ Seat Store::SeatOf(Entity by, Entity at) const {
 bool Store::Link(Entity from, Relation how, Entity to) {
   const Slot *source = Held(from);
   const Slot *target = Held(to);
-  const Rule &rule = RuleOf(how);
+  const RelationRule &rule = RuleOf(how);
   if (source == nullptr || target == nullptr) {
     return Refuse(std::string(Named(how)) + " needs both of its ends standing");
   }
-  if ((rule.TargetKinds & KindBit(target->Is)) == 0) {
+  if ((rule.TargetRoles & RoleBit(target->Is)) == 0) {
     return Refuse(std::string(Named(how)) + " does not reach " + Named(target->Is));
   }
   if (rule.Exclusive && !(TargetOf(from, how) == kNoEntity)) {

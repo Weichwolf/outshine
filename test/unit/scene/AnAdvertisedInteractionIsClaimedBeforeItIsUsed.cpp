@@ -5,7 +5,7 @@
 #include "Store.h"
 
 using outshine::Entity;
-using outshine::Kind;
+using outshine::Role;
 using outshine::Seat;
 using outshine::Store;
 using outshine::Tag;
@@ -23,9 +23,9 @@ int main(void) {
   Store scene;
   CHECK(scene.Open(16), "a store opens");
 
-  const Entity pump = scene.Add(Kind::Body);
-  const Entity first = scene.Add(Kind::Mind);
-  const Entity second = scene.Add(Kind::Mind);
+  const Entity pump = scene.Add(Role::Body);
+  const Entity first = scene.Add(Role::Mind);
+  const Entity second = scene.Add(Role::Mind);
 
   CHECK(!scene.Claim(first, pump), "what advertises nothing cannot be claimed");
   CHECK(scene.Offer(pump, kOffersRefuel, 1),

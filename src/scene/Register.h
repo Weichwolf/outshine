@@ -6,10 +6,10 @@
 
 namespace outshine {
 
-enum class Kind : uint8_t { Body, Mind, Tool, Assignment };
-inline constexpr size_t kKinds = 4;
+enum class Role : uint8_t { Body, Mind, Tool, Assignment };
+inline constexpr size_t kRoles = 4;
 
-[[nodiscard]] constexpr uint8_t KindBit(Kind kind) { return (uint8_t)(1u << (uint8_t)kind); }
+[[nodiscard]] constexpr uint8_t RoleBit(Role kind) { return (uint8_t)(1u << (uint8_t)kind); }
 
 struct Tag {
   uint32_t Value = 0;
@@ -38,27 +38,27 @@ inline constexpr size_t kRelations = 5;
 
 inline constexpr Relation kNoRelation = (Relation)0xFF;
 
-struct Rule {
+struct RelationRule {
   Relation Named = kNoRelation;
   bool Exclusive = false;
   bool Acyclic = false;
-  uint8_t TargetKinds = 0;
+  uint8_t TargetRoles = 0;
   Tag SourceDoes{};
   Relation Requires = kNoRelation;
 };
 
-inline constexpr Rule kRules[kRelations] = {
-    {Relation::IsA, true, true, KindBit(Kind::Body), {}, kNoRelation},
+inline constexpr RelationRule kRules[kRelations] = {
+    {Relation::IsA, true, true, RoleBit(Role::Body), {}, kNoRelation},
     {Relation::ChildOf, true, true,
-     (uint8_t)(KindBit(Kind::Body) | KindBit(Kind::Mind) | KindBit(Kind::Tool) |
-               KindBit(Kind::Assignment)),
+     (uint8_t)(RoleBit(Role::Body) | RoleBit(Role::Mind) | RoleBit(Role::Tool) |
+               RoleBit(Role::Assignment)),
      {}, kNoRelation},
-    {Relation::DrivenBy, true, false, KindBit(Kind::Mind), tags::Does, kNoRelation},
-    {Relation::Uses, false, false, KindBit(Kind::Tool), {}, kNoRelation},
-    {Relation::Assigned, true, false, KindBit(Kind::Assignment), {}, Relation::Uses},
+    {Relation::DrivenBy, true, false, RoleBit(Role::Mind), tags::Does, kNoRelation},
+    {Relation::Uses, false, false, RoleBit(Role::Tool), {}, kNoRelation},
+    {Relation::Assigned, true, false, RoleBit(Role::Assignment), {}, Relation::Uses},
 };
 
-[[nodiscard]] constexpr const Rule &RuleOf(Relation relation) {
+[[nodiscard]] constexpr const RelationRule &RuleOf(Relation relation) {
   return kRules[(size_t)relation];
 }
 
@@ -66,7 +66,7 @@ namespace scene_register_checked {
 constexpr bool EachRuleStandsAtItsOwnRelation() {
   for (size_t at = 0; at < kRelations; ++at) {
     if ((size_t)kRules[at].Named != at) { return false; }
-    if (kRules[at].TargetKinds == 0) { return false; }
+    if (kRules[at].TargetRoles == 0) { return false; }
   }
   return true;
 }

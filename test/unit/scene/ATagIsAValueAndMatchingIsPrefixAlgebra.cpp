@@ -5,7 +5,7 @@
 #include "Store.h"
 
 using outshine::Entity;
-using outshine::Kind;
+using outshine::Role;
 using outshine::Relation;
 using outshine::Store;
 using outshine::Tag;
@@ -26,13 +26,13 @@ int main(void) {
   Store scene;
   CHECK(scene.Open(8), "a small store is a store");
 
-  const Entity fourWheel = scene.Add(Kind::Body);
+  const Entity fourWheel = scene.Add(Role::Body);
   CHECK(scene.Give(fourWheel, tags::DoesSteer) && scene.Give(fourWheel, tags::DoesDrive) &&
             scene.Give(fourWheel, tags::DoesBrake) && scene.Give(fourWheel, tags::DoesLamp),
         "a prefab body carries the four functions of the actor chain -- steer, drive, brake, "
         "lamps -- as catalogue values, never strings");
 
-  const Entity car = scene.Add(Kind::Body);
+  const Entity car = scene.Add(Role::Body);
   CHECK(scene.Link(car, Relation::IsA, fourWheel),
         "an instance is IsA its prefab, which is one pair");
   CHECK(scene.Has(car, tags::DoesSteer),
