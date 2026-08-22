@@ -48,8 +48,10 @@ int main(void) {
   outshine::Column<outshine::Vehicle> vehicles;
   outshine::Column<outshine::Drive> drives;
   CHECK(scene.Open(8) && vehicles.Open(scene) && drives.Open(scene), "the graph opens");
+  outshine::Column<outshine::Traits> kinds;
+  CHECK(kinds.Open(scene), "and one for the kinds' resolved traits");
   Assembled stood;
-  const bool assembled = Assemble(declared, scene, vehicles, drives, stood, error);
+  const bool assembled = Assemble(declared, scene, vehicles, drives, kinds, stood, error);
   if (!assembled) { std::printf("REFUSED %s\n", error.c_str()); }
   CHECK(assembled, "and assembles through the one API");
 
@@ -71,9 +73,11 @@ int main(void) {
   Store lone;
   outshine::Column<outshine::Vehicle> loneV;
   outshine::Column<outshine::Drive> loneD;
-  CHECK(lone.Open(8) && loneV.Open(lone) && loneD.Open(lone), "a second graph opens");
+  outshine::Column<outshine::Traits> loneK;
+  CHECK(lone.Open(8) && loneV.Open(lone) && loneD.Open(lone) && loneK.Open(lone),
+        "a second graph opens");
   Assembled nobody;
-  CHECK(!Assemble(mindless, lone, loneV, loneD, nobody, error),
+  CHECK(!Assemble(mindless, lone, loneV, loneD, loneK, nobody, error),
         "**A DRIVE WITHOUT A MIND IS REFUSED AT ASSEMBLY**: somebody must take the assignment, "
         "and the refusal says to declare a player");
 

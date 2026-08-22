@@ -77,10 +77,12 @@ int main(void) {
   outshine::Store scene;
   outshine::Column<outshine::Vehicle> vehicles;
   outshine::Column<outshine::Drive> drives;
+  outshine::Column<outshine::Traits> kinds;
   outshine::Assembled stood;
   if (!scene.Open(outshine::AssembledCapacity(declared)) || !vehicles.Open(scene) ||
       !drives.Open(scene) ||
-      !outshine::Assemble(declared, scene, vehicles, drives, stood, readError)) {
+      !kinds.Open(scene) ||
+      !outshine::Assemble(declared, scene, vehicles, drives, kinds, stood, readError)) {
     std::printf("REFUSED %s\n", readError.c_str());
     return Report();
   }

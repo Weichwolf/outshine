@@ -1,0 +1,136 @@
+#include <cstdio>
+#include <string>
+
+#include "Check.h"
+
+#include "Assembly.h"
+#include "ScenarioRead.h"
+
+using outshine::Assembled;
+using outshine::Assemble;
+using outshine::AssembledCapacity;
+using outshine::Column;
+using outshine::Drive;
+using outshine::Entity;
+using outshine::kNoEntity;
+using outshine::ReadScenario;
+using outshine::Relation;
+using outshine::Scenario;
+using outshine::Store;
+using outshine::Traits;
+using outshine::Vehicle;
+namespace tags = outshine::tags;
+
+namespace {
+
+const char *kDeclared = R"(<scenario name="nouns">
+  <kinds>
+    <kind name="vessel"><has name="volumeL" value="0.5"/><has name="massKg" value="0.4"/></kind>
+    <kind name="mug" inherits="vessel"><may do="lamp"/><has name="volumeL" value="0.3"/></kind>
+  </kinds>
+  <instances>
+    <instance of="mug" id="cup"><has name="massKg" value="0.35"/></instance>
+    <instance of="vessel" id="crate"><holds what="cup"/></instance>
+    <instance of="mug" id="spare" in="crate"/>
+  </instances>
+</scenario>)";
+
+bool Stand(const char *text, Scenario &declared, Store &scene, Column<Vehicle> &vehicles,
+           Column<Drive> &drives, Column<Traits> &kinds, Assembled &stood, std::string &error) {
+  if (!ReadScenario(text, std::string(text).size(), declared, error)) { return false; }
+  return scene.Open(AssembledCapacity(declared) + 4) && vehicles.Open(scene) &&
+         drives.Open(scene) && kinds.Open(scene) &&
+         Assemble(declared, scene, vehicles, drives, kinds, stood, error);
+}
+
+} // namespace
+
+int main(void) {
+  using namespace outshine::Test;
+  std::setvbuf(stdout, nullptr, _IONBF, 0);
+
+  std::string error;
+  Scenario declared;
+  Store scene;
+  Column<Vehicle> vehicles;
+  Column<Drive> drives;
+  Column<Traits> kinds;
+  Assembled stood;
+  const bool up = Stand(kDeclared, declared, scene, vehicles, drives, kinds, stood, error);
+  if (!up) { std::printf("REFUSED %s\n", error.c_str()); }
+  CHECK(up, "two kinds and three instances stand through the one assembly door");
+  if (!up) { return Report(); }
+
+  const Entity cup = stood.InstanceNamed("cup");
+  const uint32_t volumeL = stood.TraitKey("volumeL");
+  const uint32_t massKg = stood.TraitKey("massKg");
+  const Traits *held = kinds.Get(cup);
+  CHECK(held != nullptr && volumeL != 0 && massKg != 0, "the cup carries resolved traits");
+  if (held == nullptr) { return Report(); }
+  CHECK(held->Named(volumeL) != nullptr && *held->Named(volumeL) == 0.3,
+        "**AN INSTANCE'S ATTRIBUTES ARE ITS KIND'S, OVERRIDDEN BY ITS OWN, RESOLVED ONCE**: "
+        "the mug's 0.3 L overrode the vessel's 0.5 L at stand-up, and the read walked no "
+        "chain to find it");
+  CHECK(held->Named(massKg) != nullptr && *held->Named(massKg) == 0.35,
+        "and the cup's own 0.35 kg overrode the vessel's 0.4 -- kind default, instance last "
+        "word");
+  CHECK(scene.Has(cup, tags::DoesLamp),
+        "the capability flows down the inherits chain by IsA query, as the component model "
+        "already proves");
+
+  const Entity crate = stood.InstanceNamed("crate");
+  const Entity spare = stood.InstanceNamed("spare");
+  CHECK(scene.TargetOf(cup, Relation::ChildOf) == crate,
+        "**HOLDING IS ONE MECHANISM**: the crate holds the cup by the same ChildOf a subtree "
+        "uses -- an inventory and a placement differ by one field");
+  CHECK(scene.TargetOf(spare, Relation::ChildOf) == crate,
+        "and standing IN something is the same relation from the other spelling");
+
+  {
+    Scenario bad;
+    Store s;
+    Column<Vehicle> v;
+    Column<Drive> d;
+    Column<Traits> k;
+    Assembled a;
+    CHECK(!Stand("<scenario name=\"t\"><kinds><kind name=\"m\" inherits=\"ghost\"/></kinds>"
+                 "</scenario>",
+                 bad, s, v, d, k, a, error) &&
+              error.find("ghost") != std::string::npos,
+          "inheriting what is not declared BEFORE it refuses naming it -- the order is the "
+          "declaration's, and a cycle cannot even be spelled");
+  }
+  {
+    Scenario bad;
+    Store s;
+    Column<Vehicle> v;
+    Column<Drive> d;
+    Column<Traits> k;
+    Assembled a;
+    CHECK(!Stand("<scenario name=\"t\"><kinds><kind name=\"m\"><may do=\"fly\"/></kind>"
+                 "</kinds></scenario>",
+                 bad, s, v, d, k, a, error) &&
+              error.find("fly") != std::string::npos,
+          "a capability the catalogue does not offer refuses naming it");
+  }
+  {
+    Scenario bad;
+    Store s;
+    Column<Vehicle> v;
+    Column<Drive> d;
+    Column<Traits> k;
+    Assembled a;
+    CHECK(!Stand("<scenario name=\"t\"><kinds><kind name=\"m\">"
+                 "<has name=\"h\" value=\"tall\"/></kind></kinds></scenario>",
+                 bad, s, v, d, k, a, error) &&
+              error.find("not a number") != std::string::npos,
+          "**AN ATTRIBUTE IS A VALUE**: 'tall' refuses at assembly, because a tick carries "
+          "no string");
+  }
+
+  Covers("III.5 a kind is a default and an instance overrides it: resolved once at stand-up "
+         "into an interned-key column, inherits chains in declaration order, holding and "
+         "standing-in are one ChildOf, and every wrong spelling refuses by name "
+         "(board:1487)");
+  return Report();
+}

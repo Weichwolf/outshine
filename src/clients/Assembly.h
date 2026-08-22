@@ -5,6 +5,7 @@
 #include <vector>
 
 #include <outshine/Assembled.h>
+#include <outshine/Traits.h>
 #include <outshine/Scenario.h>
 
 #include "Column.h"
@@ -15,7 +16,8 @@ namespace outshine {
 [[nodiscard]] size_t AssembledCapacity(const Scenario &declared);
 
 [[nodiscard]] bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
-                            Column<Drive> &driven, Assembled &out, std::string &error);
+                            Column<Drive> &driven, Column<Traits> &traits, Assembled &out,
+                            std::string &error);
 
 }
 
