@@ -111,4 +111,60 @@ double EnergyJ(const Body &body, const double gravityMs2[3]) {
   return energy;
 }
 
+namespace {
+
+void Unit(double v[3]) {
+  const double length = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+  if (length > 0.0) {
+    for (int axis = 0; axis < 3; ++axis) { v[axis] /= length; }
+  }
+}
+
+} // namespace
+
+void Lie(Body &body, const double aheadM[3], const double upM[3]) {
+  double ahead[3] = {aheadM[0], aheadM[1], aheadM[2]};
+  double up[3] = {upM[0], upM[1], upM[2]};
+  Unit(up);
+  const double along = ahead[0] * up[0] + ahead[1] * up[1] + ahead[2] * up[2];
+  for (int axis = 0; axis < 3; ++axis) { ahead[axis] -= along * up[axis]; }
+  Unit(ahead);
+
+  const double back[3] = {-ahead[0], -ahead[1], -ahead[2]};
+  const double right[3] = {up[1] * back[2] - up[2] * back[1], up[2] * back[0] - up[0] * back[2],
+                           up[0] * back[1] - up[1] * back[0]};
+
+  const double m[3][3] = {{right[0], up[0], back[0]},
+                          {right[1], up[1], back[1]},
+                          {right[2], up[2], back[2]}};
+  const double trace = m[0][0] + m[1][1] + m[2][2];
+  double q[4];
+  if (trace > 0.0) {
+    const double root = std::sqrt(trace + 1.0) * 2.0;
+    q[0] = 0.25 * root;
+    q[1] = (m[2][1] - m[1][2]) / root;
+    q[2] = (m[0][2] - m[2][0]) / root;
+    q[3] = (m[1][0] - m[0][1]) / root;
+  } else if (m[0][0] > m[1][1] && m[0][0] > m[2][2]) {
+    const double root = std::sqrt(1.0 + m[0][0] - m[1][1] - m[2][2]) * 2.0;
+    q[0] = (m[2][1] - m[1][2]) / root;
+    q[1] = 0.25 * root;
+    q[2] = (m[0][1] + m[1][0]) / root;
+    q[3] = (m[0][2] + m[2][0]) / root;
+  } else if (m[1][1] > m[2][2]) {
+    const double root = std::sqrt(1.0 + m[1][1] - m[0][0] - m[2][2]) * 2.0;
+    q[0] = (m[0][2] - m[2][0]) / root;
+    q[1] = (m[0][1] + m[1][0]) / root;
+    q[2] = 0.25 * root;
+    q[3] = (m[1][2] + m[2][1]) / root;
+  } else {
+    const double root = std::sqrt(1.0 + m[2][2] - m[0][0] - m[1][1]) * 2.0;
+    q[0] = (m[1][0] - m[0][1]) / root;
+    q[1] = (m[0][2] + m[2][0]) / root;
+    q[2] = (m[1][2] + m[2][1]) / root;
+    q[3] = 0.25 * root;
+  }
+  for (int part = 0; part < 4; ++part) { body.OrientationQ[part] = q[part]; }
+}
+
 } // namespace outshine::Physics

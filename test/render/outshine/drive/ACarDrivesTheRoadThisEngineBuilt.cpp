@@ -119,57 +119,7 @@ std::vector<Segment> Road() {
           {Curve::Straight, kEnterM, 0.0, 0.0}};
 }
 
-void Unit(double v[3]) {
-  const double length = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-  if (length > 0.0) {
-    for (int axis = 0; axis < 3; ++axis) { v[axis] /= length; }
-  }
-}
 
-void Lie(Body &body, const Placed &on, const double normalM[3]) {
-  double ahead[3] = {std::cos(on.HeadingRad), on.Slope, -std::sin(on.HeadingRad)};
-  double up[3] = {normalM[0], normalM[1], normalM[2]};
-  Unit(up);
-  const double along = ahead[0] * up[0] + ahead[1] * up[1] + ahead[2] * up[2];
-  for (int axis = 0; axis < 3; ++axis) { ahead[axis] -= along * up[axis]; }
-  Unit(ahead);
-
-  const double back[3] = {-ahead[0], -ahead[1], -ahead[2]};
-  const double right[3] = {up[1] * back[2] - up[2] * back[1], up[2] * back[0] - up[0] * back[2],
-                           up[0] * back[1] - up[1] * back[0]};
-
-  const double m[3][3] = {{right[0], up[0], back[0]},
-                          {right[1], up[1], back[1]},
-                          {right[2], up[2], back[2]}};
-  const double trace = m[0][0] + m[1][1] + m[2][2];
-  double q[4];
-  if (trace > 0.0) {
-    const double root = std::sqrt(trace + 1.0) * 2.0;
-    q[0] = 0.25 * root;
-    q[1] = (m[2][1] - m[1][2]) / root;
-    q[2] = (m[0][2] - m[2][0]) / root;
-    q[3] = (m[1][0] - m[0][1]) / root;
-  } else if (m[0][0] > m[1][1] && m[0][0] > m[2][2]) {
-    const double root = std::sqrt(1.0 + m[0][0] - m[1][1] - m[2][2]) * 2.0;
-    q[0] = (m[2][1] - m[1][2]) / root;
-    q[1] = 0.25 * root;
-    q[2] = (m[0][1] + m[1][0]) / root;
-    q[3] = (m[0][2] + m[2][0]) / root;
-  } else if (m[1][1] > m[2][2]) {
-    const double root = std::sqrt(1.0 + m[1][1] - m[0][0] - m[2][2]) * 2.0;
-    q[0] = (m[0][2] - m[2][0]) / root;
-    q[1] = (m[0][1] + m[1][0]) / root;
-    q[2] = 0.25 * root;
-    q[3] = (m[1][2] + m[2][1]) / root;
-  } else {
-    const double root = std::sqrt(1.0 + m[2][2] - m[0][0] - m[1][1]) * 2.0;
-    q[0] = (m[1][0] - m[0][1]) / root;
-    q[1] = (m[0][2] + m[2][0]) / root;
-    q[2] = (m[1][2] + m[2][1]) / root;
-    q[3] = 0.25 * root;
-  }
-  for (int part = 0; part < 4; ++part) { body.OrientationQ[part] = q[part]; }
-}
 
 double HeadingOf(const Body &body) {
   const double aheadBody[3] = {0.0, 0.0, -1.0};
@@ -227,7 +177,9 @@ Told Drove(const ReferenceLine &line, const SpeedProfile &profile, double capMs,
   body.PositionM[2] = -start.NorthM;
   const Standing surface = Stand(line, start.EastM, start.NorthM, kHalfWidthM, 0.0, 10.0);
   const double up[3] = {surface.NormalM[0], surface.NormalM[1], -surface.NormalM[2]};
-  Lie(body, start, up);
+  const double aheadM[3] = {std::cos(start.HeadingRad), start.Slope,
+                            -std::sin(start.HeadingRad)};
+  outshine::Physics::Lie(body, aheadM, up);
   double ahead[3];
   const double aheadBody[3] = {0.0, 0.0, -1.0};
   Turn(body.OrientationQ, aheadBody, ahead);

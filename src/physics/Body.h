@@ -21,6 +21,8 @@ void Turn(const double orientationQ[4], const double bodyV[3], double worldV[3])
 void Unturn(const double orientationQ[4], const double worldV[3], double bodyV[3]);
 
 void Place(const Body &body, const double atBodyM[3], double worldM[3]);
+
+void Lie(Body &body, const double aheadM[3], const double upM[3]);
 void Carry(const Body &body, const double atBodyM[3], double worldMs[3]);
 
 void Push(Wrench &wrench, const Body &body, const double atBodyM[3], const double forceN[3]);

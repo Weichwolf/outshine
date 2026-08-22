@@ -65,7 +65,7 @@ LayerIncludes() {
     unit/core) printf '%s' "-Isrc/core -Isrc/core/io" ;;
     unit/corridor) printf '%s' "-Isrc/corridor" ;;
     unit/scene) printf '%s' "-Iinclude/outshine" ;;
-    unit/sim) printf '%s' "-Iinclude -Isrc/core -Isrc/corridor -Isrc/physics -Isrc/pilot -Isrc/scenario -Isrc/sim" ;;
+    unit/sim) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/corridor -Isrc/data -Isrc/physics -Isrc/pilot -Isrc/scenario -Isrc/sim -Isrc/ground -Isrc/ground/tiles" ;;
     unit/physics) printf '%s' "-Isrc/physics" ;;
     unit/pilot) printf '%s' "-Isrc/corridor -Isrc/pilot" ;;
     unit/data) printf '%s' "-Isrc/core -Isrc/data" ;;
@@ -132,7 +132,7 @@ LayerLink() {
     tools/driver/stills | tools/driver/window) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz -lcurl" ;;
     render/outshine/shader) printf '%s' "$(pkg-config --libs sdl3) -lz" ;;
     unit/clients) printf '%s' "$(pkg-config --libs sdl3-image) -lz" ;;
-    unit/core | unit/ground | unit/data | unit/render/plan | unit/render/draw) printf '%s' "-lz" ;;
+    unit/core | unit/ground | unit/data | unit/render/plan | unit/render/draw | unit/sim) printf '%s' "-lz" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -143,7 +143,7 @@ LayerGroups() {
     unit/core/io) printf '%s' "src/core src/core/io" ;;
     unit/corridor) printf '%s' "src/corridor" ;;
     unit/scene) printf '%s' "src/scene" ;;
-    unit/sim) printf '%s' "src/core src/corridor src/physics src/pilot src/scenario/ScenarioRead.cpp src/sim/Rigging.cpp" ;;
+    unit/sim) printf '%s' "src/core src/core/io src/corridor src/data src/physics src/pilot src/scenario/ScenarioRead.cpp src/sim src/scene src/ground src/ground/tiles" ;;
     unit/physics) printf '%s' "src/physics" ;;
     unit/pilot) printf '%s' "src/corridor src/pilot" ;;
     unit/data) printf '%s' "src/core src/core/io src/data" ;;
@@ -213,6 +213,7 @@ GroupIncludes() {
     src/physics) printf '%s' "-Isrc/physics" ;;
     src/pilot) printf '%s' "-Isrc/corridor -Isrc/pilot" ;;
     src/sim/Rigging.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/corridor -Isrc/physics -Isrc/pilot -Isrc/sim" ;;
+    src/sim/DriveTick.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/corridor -Isrc/data -Isrc/physics -Isrc/pilot -Isrc/scenario -Isrc/sim -Isrc/ground -Isrc/ground/tiles" ;;
     src/ground/Wayfinding.cpp) printf '%s' "-Isrc/corridor -Isrc/ground" ;;
     src/ground/RoadHarvest.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/data -Isrc/ground -Isrc/ground/tiles" ;;
     src/data) printf '%s' "-Isrc/core -Isrc/data" ;;

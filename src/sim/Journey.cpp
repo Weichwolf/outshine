@@ -44,55 +44,7 @@ constexpr double kPatienceS = 900.0;
 constexpr double kJoinMs = 20.0;
 
 
-void Unit(double v[3]) {
-  const double length = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-  if (length > 0.0) {
-    for (int axis = 0; axis < 3; ++axis) { v[axis] /= length; }
-  }
-}
 
-void Lie(outshine::Physics::Body &body, const outshine::Placed &on, const double normalM[3]) {
-  double ahead[3] = {std::cos(on.HeadingRad), on.Slope, -std::sin(on.HeadingRad)};
-  double up[3] = {normalM[0], normalM[1], normalM[2]};
-  Unit(up);
-  const double along = ahead[0] * up[0] + ahead[1] * up[1] + ahead[2] * up[2];
-  for (int axis = 0; axis < 3; ++axis) { ahead[axis] -= along * up[axis]; }
-  Unit(ahead);
-  const double back[3] = {-ahead[0], -ahead[1], -ahead[2]};
-  const double right[3] = {up[1] * back[2] - up[2] * back[1], up[2] * back[0] - up[0] * back[2],
-                           up[0] * back[1] - up[1] * back[0]};
-  const double m[3][3] = {{right[0], up[0], back[0]},
-                          {right[1], up[1], back[1]},
-                          {right[2], up[2], back[2]}};
-  const double trace = m[0][0] + m[1][1] + m[2][2];
-  double q[4];
-  if (trace > 0.0) {
-    const double root = std::sqrt(trace + 1.0) * 2.0;
-    q[0] = 0.25 * root;
-    q[1] = (m[2][1] - m[1][2]) / root;
-    q[2] = (m[0][2] - m[2][0]) / root;
-    q[3] = (m[1][0] - m[0][1]) / root;
-  } else if (m[0][0] > m[1][1] && m[0][0] > m[2][2]) {
-    const double root = std::sqrt(1.0 + m[0][0] - m[1][1] - m[2][2]) * 2.0;
-    q[0] = (m[2][1] - m[1][2]) / root;
-    q[1] = 0.25 * root;
-    q[2] = (m[0][1] + m[1][0]) / root;
-    q[3] = (m[0][2] + m[2][0]) / root;
-  } else if (m[1][1] > m[2][2]) {
-    const double root = std::sqrt(1.0 + m[1][1] - m[0][0] - m[2][2]) * 2.0;
-    q[0] = (m[0][2] - m[2][0]) / root;
-    q[1] = (m[0][1] + m[1][0]) / root;
-    q[2] = 0.25 * root;
-    q[3] = (m[1][2] + m[2][1]) / root;
-  } else {
-    const double root = std::sqrt(1.0 + m[2][2] - m[0][0] - m[1][1]) * 2.0;
-    q[0] = (m[1][0] - m[0][1]) / root;
-    q[1] = (m[0][2] + m[2][0]) / root;
-    q[2] = (m[1][2] + m[2][1]) / root;
-    q[3] = 0.25 * root;
-  }
-  for (int part = 0; part < 4; ++part) { body.OrientationQ[part] = q[part]; }
-}
 
 } // namespace
 
@@ -138,10 +90,6 @@ void Journey::Frame(double &latDeg, double &lonDeg, double &perLatM, double &per
   perLonM = S_->Way.PerLonM;
 }
 
-namespace {
-
-} // namespace
-
 bool Journey::Lay(const Store &scene, const Assembled &cast, const Column<Vehicle> &vehicles,
                   const Column<Drive> &driven, const WorldSettings &world, Data::Transport &wire,
                   const Provision &kept, Sink &say) {
@@ -155,21 +103,18 @@ bool Journey::Lay(const Store &scene, const Assembled &cast, const Column<Vehicl
         "declaration in the column, and a journey without one refuses");
   if (car == nullptr) { return false; }
   const outshine::Drive *driveTo = driven.Get(cast.Assignment);
-  say.Claim(driveTo != nullptr && scene.TargetOf(cast.PlayerMind, Relation::Assigned) == cast.Assignment,
+  const bool assigned =
+      driveTo != nullptr && scene.TargetOf(cast.PlayerMind, Relation::Assigned) == cast.Assignment;
+  say.Claim(assigned,
         "**AND SO DOES THE ASSIGNMENT**: the mind is Assigned the coordinates this journey "
         "will lay -- two coordinates and a zoom as column data, not parameters");
-  if (driveTo == nullptr) { return false; }
-  const double fromLatDeg0 = driveTo->FromLatDeg;
-  const double fromLonDeg0 = driveTo->FromLonDeg;
-  const double toLatDeg0 = driveTo->ToLatDeg;
-  const double toLonDeg0 = driveTo->ToLonDeg;
-  const int zoom = driveTo->Zoom;
+  if (!assigned) { return false; }
+  const double fromLatDeg = driveTo->FromLatDeg;
+  const double fromLonDeg = driveTo->FromLonDeg;
+  const double toLatDeg = driveTo->ToLatDeg;
+  const double toLonDeg = driveTo->ToLonDeg;
+  const int kZoom = driveTo->Zoom;
   S_->Car = *car;
-  const double fromLatDeg = fromLatDeg0;
-  const double fromLonDeg = fromLonDeg0;
-  const double toLatDeg = toLatDeg0;
-  const double toLonDeg = toLonDeg0;
-  const int kZoom = zoom;
 
   auto &corridor = S_->Way.Line;
   auto &stood = S_->Stood;
@@ -377,7 +322,9 @@ bool Journey::Lay(const Store &scene, const Assembled &cast, const Column<Vehicl
   say.Number("how far from the centreline the car starts, in its own lane", startAsideM, "m");
   {
     const double up[3] = {under0.NormalM[0], under0.NormalM[1], -under0.NormalM[2]};
-    Lie(body, start, up);
+    const double aheadM[3] = {std::cos(start.HeadingRad), start.Slope,
+                              -std::sin(start.HeadingRad)};
+    outshine::Physics::Lie(body, aheadM, up);
     const double aheadBody[3] = {0.0, 0.0, -1.0};
     double ahead[3];
     outshine::Physics::Turn(body.OrientationQ, aheadBody, ahead);
