@@ -337,7 +337,8 @@ flowchart TD
   q -->|floor broke / drifted| c["render/outshine/scenario — p50/p95/p99 · determinism · memory"]
 ```
 
-`test/run.sh` is the only runner (one process per test, real verdict, includes per layer = the
+The unit mirror is the REGRESSION GATE and it is fast; the long driver suites are the sporadic
+full proof, run when named, never per edit. `test/run.sh` is the only runner (one process per test, real verdict, includes per layer = the
 build's own sets). `tools/` builds ON the library, runs only by name. Oracle pipeline:
 fetch → generate → patch (both sides) → convert → Cycles → compare (perceptual tail / geometric
 bound, 0.005 px floor); **criteria met** and **cases within bound** published side by side.
