@@ -1,8 +1,0 @@
-Type: task
-Area: generators
-Tags: scope
-Parent: 0135
-
-**Sunflower**
-
-Sunflower
