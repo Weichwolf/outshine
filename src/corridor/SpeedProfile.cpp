@@ -19,11 +19,13 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
             std::to_string(stepM);
     return false;
   }
-  if (!(within.Grip > 0.0) || !(within.MassKg > 0.0) || !(within.DriveN > 0.0) ||
-      !(within.BrakeN > 0.0) || !(within.DragArea > 0.0) || !(within.AirDensity > 0.0)) {
-    error = "an envelope is a vehicle and not a set of limits: it declares a friction coefficient, a "
-            "mass, a driving force, a braking force, a drag area and an air density, and every "
-            "acceleration is derived from those -- this one leaves at least one at zero";
+  if (!(within.Grip > 0.0) || !(within.GravityMs2 > 0.0) || !(within.MassKg > 0.0) ||
+      !(within.DriveN > 0.0) || !(within.BrakeN > 0.0) || !(within.DragArea > 0.0) ||
+      !(within.AirDensity > 0.0)) {
+    error = "an envelope is a vehicle standing in a world and not a set of limits: it declares a "
+            "friction coefficient, the world's gravity, a mass, a driving force, a braking force, "
+            "a drag area and an air density, and every acceleration is derived from those -- this "
+            "one leaves at least one at zero";
     return false;
   }
   const double lateralMs2 = within.HoldingMs2();
