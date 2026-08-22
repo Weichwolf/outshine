@@ -9,9 +9,9 @@ GROUP that built the object is not in the name, and `UpToDate` checks timestamps
 prerequisites, never the flags. Two arms of `GroupIncludes` now claim the same object with
 DIFFERENT include sets:
 
-- `src/sim/Rigging.cpp` (test/run.sh:220): `-Iinclude -Isrc/core -Isrc/corridor -Isrc/physics
+- `src/sim/Rigging.cpp` (test/run.sh:215): `-Iinclude -Isrc/core -Isrc/corridor -Isrc/physics
   -Isrc/pilot -Isrc/sim` — the narrow set `unit/sim` builds with.
-- `src/sim` (test/run.sh:226): the wide set carrying `-Isrc/data -Isrc/world -Isrc/world/tiles
+- `src/sim` (test/run.sh:231): the wide set carrying `-Isrc/data -Isrc/world -Isrc/world/tiles
   -Isrc/core/io` — what `tools/driver*` and `BuildLibrary` build the SAME
   `src-sim-Rigging.o` with (in `BuildLibrary`, find-order means the `src/sim` dir group
   compiles Rigging first and the narrow file arm is then skipped as up-to-date, so the narrow

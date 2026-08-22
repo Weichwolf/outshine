@@ -3,7 +3,7 @@ Area: sim
 
 **Lay refuses a declaration of two vehicles the way it refuses none**
 
-src/sim/Journey.cpp:233-235:
+src/sim/Journey.cpp:213-214:
 
     say.Claim(declared.Vehicles.size() == 1, "declaring one vehicle");
     if (declared.Vehicles.empty()) { return false; }

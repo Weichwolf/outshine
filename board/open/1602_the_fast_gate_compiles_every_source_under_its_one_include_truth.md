@@ -8,7 +8,7 @@ board:1601 made `test/run.sh` without arguments the regression gate — but the 
 compiles what its kept suites' `LayerGroups` name, and those lists leave whole layers dark:
 
 - `src/sim/Journey.cpp` is compiled by NO fast-gate suite (`unit/sim` groups only
-  `src/scenario/ScenarioRead.cpp src/sim/Rigging.cpp`, test/run.sh:148; every group carrying
+  `src/scenario/ScenarioRead.cpp src/sim/Rigging.cpp`, test/run.sh:146; every group carrying
   `src/sim` entire — `tools/driver*` — is named-only). The file this hour's work centred on
   can stop compiling and the gate stays green.
 - `src/world` is proved by ONE of its ~15 units (`unit/world` groups
@@ -23,7 +23,7 @@ Consequences beside the hole:
   DIRECTORY existence (`HoldsTests`), not that the suite's groups cover the layer's sources —
   `unit/world` satisfies it while compiling one file. The claim is satisfiable by a hollow
   mirror.
-- `NAMED_ONLY` (test/run.sh:441) spells `render/outshine/grown`, a suite that does not exist:
+- `NAMED_ONLY` (test/run.sh:443) spells `render/outshine/grown`, a suite that does not exist:
   the harness is `harness/render/outshine/grown`, already excluded by `harness/render`, and
   `test/render/outshine/grown` holds manifests, no `.cpp`. A declared list with a dead entry.
 - `Makefile` still documents `make test` as "run every test" while run.sh's default is now the
