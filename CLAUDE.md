@@ -14,6 +14,9 @@ camera, never a mean.
 - **One world space**; a failure is loud; something is always drawn; delete on the day you replace
 - Artefacts go to the system temp dir, never the tree; `git log` is what was — no journal
 
+**Diagram colours** — IST: green = correct by current knowledge · amber = uncertain · red =
+provably wrong · grey dashed = absent. SOLL: green = certain · amber = probable.
+
 ## Architecture (SOLL)
 
 ```mermaid
@@ -60,11 +63,11 @@ The chain holds for EVERYTHING that moves, with or without a mind: a parked car 
 seam nobody possesses; a door is a body with one actuator; an NPC differs from the player only
 in who possesses the seam (Unreal's Pawn/Controller possession — the reference). Perception is
 spatial query over bounds, never privileged state; navigation is one pathfinding service with
-modes, handed as a TOOL (`board:1583`); physics binds to actuators, never to the controller.
-`Journey` folds into `Sim` along this chain (`board:1581`). **A client includes nothing but
-`include/outshine/`** — enforced by the build (`board:1582`).
+modes, handed as a TOOL ; physics binds to actuators, never to the controller.
+`Journey` folds into `Sim` along this chain. **A client includes nothing but
+`include/outshine/`** — enforced by the build.
 
-### The component model (SOLL — reference design, `board:1583`)
+### The component model (SOLL — the decided reference design)
 
 Reference: **Flecs** (relationships + traits + script parity), supplemented by GAS tag algebra,
 Smart-Object slots, CARLA's vehicle grammar. Written here, never a dependency.
@@ -108,13 +111,13 @@ flowchart TD
   end
 
   classDef built fill:#1f6f3f,stroke:#0d3b21,color:#fff
-  classDef absent fill:#7a2222,stroke:#3d1111,color:#fff,stroke-dasharray:4 3
+  classDef absent fill:#555,stroke:#333,color:#eee,stroke-dasharray:4 3
   class T,M,R,SKY,LV,SUBJ,GLASS,CT,TAA,TONE,OV,P built
   class IR,AE,SUN,MOON,STARS,GEO,AO absent
 ```
 
-Green = `Renderer::Executable` returns true and a suite proves it; red dashed = catalogued, refused
-loudly by name. One `Writes` producer per derived resource (`static_assert`); missing contributor =
+Green = `Renderer::Executable` returns true and a suite proves it; grey dashed = catalogued,
+refused loudly by name — absent, not wrong. One `Writes` producer per derived resource (`static_assert`); missing contributor =
 picture choice, **published** as `-> neutral`; load/store ops derived from the plan (`Stored()`).
 
 ## Class structure (IST)
@@ -143,17 +146,18 @@ flowchart TD
 
   classDef built fill:#1f6f3f,stroke:#0d3b21,color:#fff
   classDef idle fill:#8a6d1f,stroke:#4a3a0d,color:#fff
-  classDef absent fill:#7a2222,stroke:#3d1111,color:#fff,stroke-dasharray:4 3
-  class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,TilePool,GroundStream,OsmField,RoadHarvest,Wayfinding,StreetField,BuildingField,WaterField,Ground,Forest,Buildings,Water,Infrastructure,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,Subject,DrawList,SubjectDraw,Renderer,TonemapStage,PresentStage,Live,Sim,Assembly,SceneStore,Ephemeris,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,LightVisibilityStage built
+  classDef wrong fill:#7a2222,stroke:#3d1111,color:#fff
+  classDef absent fill:#555,stroke:#333,color:#eee,stroke-dasharray:4 3
+  class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,TilePool,GroundStream,OsmField,RoadHarvest,Wayfinding,StreetField,BuildingField,WaterField,Ground,Forest,Buildings,Water,Infrastructure,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,Subject,DrawList,Renderer,TonemapStage,PresentStage,Live,Sim,Assembly,SceneStore,Ephemeris,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,LightVisibilityStage built
   class Frustum,RegionForge idle
+  class SubjectDraw wrong
   class Entities absent
 ```
 
-Green = in a passing suite's source list; amber = compiled, run by nothing; red dashed = target
-needs it, not in the tree. Known departures (each a board item): instancing passes a literal 1 and
-nothing culls (`board:1538`); glass is a cloned stage and content change = full rebuild
-(`board:1574`); shading samples no atlas yet (`board:1575`); `SubjectDraw` is six responsibilities
-(`board:1577`).
+Green = in a passing suite's source list; amber = compiled, run by nothing; red = carries proven
+defects (`SubjectDraw`: instancing is a literal 1 and nothing culls, glass is a cloned stage,
+shading samples no atlas, six responsibilities in one type — each an open board item); grey
+dashed = the target needs it, not in the tree.
 
 ## Class structure (SOLL — where the tree is going)
 
@@ -163,14 +167,19 @@ flowchart TD
   ClientCode["client C++"] --> Assembly
   Assembly --> SceneStore["Scene Store — entities · pairs · traits · tags · slots"]
   SceneStore --> Columns["Columns — vehicle numbers · placements, by handle"]
-  SceneStore --> SimD["Sim — owns the drive: corridor · speed plan · pilot (Journey folded, board:1581)"]
+  SceneStore --> SimD["Sim — owns the drive: corridor · speed plan · pilot, Journey folded"]
   SimD --> Pathfinding["Pathfinding tool — walk · drive · fly · rail"]
   SimD --> Physics["Rig · Body · Contact — forces at the patch"]
-  SimD --> Compositors["Compositors — terrain · ring · cut-fill placement (leave the stills driver, board:1573)"]
-  Compositors --> DrawList --> Registry["stage registry — the executor table (board:1577)"]
-  Registry --> Stages["stages: source · residency · encode split (board:1577)"]
+  SimD --> Compositors["Compositors — terrain · ring · cut-fill placement, leaving the stills driver"]
+  Compositors --> DrawList --> Registry["stage registry — the executor table"]
+  Registry --> Stages["stages: source · residency · encode split"]
   Stages --> Frame(["720p60"])
-  Entities["entity store + culling (board:1538)"] -.-> DrawList
+  Entities["entity store + culling"] -.-> DrawList
+
+  classDef sure fill:#1f6f3f,stroke:#0d3b21,color:#fff
+  classDef likely fill:#8a6d1f,stroke:#4a3a0d,color:#fff
+  class Scenario,ClientCode,Assembly,SceneStore,SimD,Pathfinding,Physics,Registry,DrawList,Frame sure
+  class Columns,Compositors,Stages,Entities likely
 ```
 
 ## Public interface (IST)
@@ -225,10 +234,10 @@ classDiagram
   Sim --> GroundStream : owns
 ```
 
-`Journey` still stands outside the library (folds into `Sim`, `board:1581`); `Live`, `Renderer`,
+`Journey` still stands outside the library (it folds into `Sim`); `Live`, `Renderer`,
 `GroundStream` and `Journey` are still reachable by clients — the SOLL below removes them.
 
-## Public interface (SOLL — one door, board:1581/1582/1583)
+## Public interface (SOLL — one door)
 
 ```mermaid
 classDiagram
@@ -312,7 +321,7 @@ ls board/*/ | grep -o '^[0-9]\{4\}' | sort -n | tail -1   # next id, derived
 |---|---|
 | `src/` | the library entire; `src/assets/` its declared data; no entry point, no test |
 | `test/` | `test/unit/` (mirror), `test/render/` (per vendor), `test/harness/` (scorers + `test/harness/claims/`) |
-| `tools/` | `tools/driver/` (the test-drive game: worldwide A→B, FPV-first, declarative — `board:1573`), `tools/viewer/`, `tools/host/` |
+| `tools/` | `tools/driver/` (the test-drive game: worldwide A→B, FPV-first, declarative), `tools/viewer/`, `tools/host/` |
 | `Makefile` | build · test · clean, nothing else |
 | `board/` | the working system (above) |
 
