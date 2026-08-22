@@ -82,9 +82,6 @@ bool Engine::Assemble() {
 
 Store &Engine::Scene(void) { return S_->Scene; }
 const Store &Engine::Scene(void) const { return S_->Scene; }
-const Column<Vehicle> &Engine::Vehicles(void) const { return S_->Vehicles; }
-const Column<Drive> &Engine::Drives(void) const { return S_->Drives; }
-const Assembled &Engine::Stood(void) const { return S_->Stood; }
 Engine::~Engine() = default;
 Engine::Engine(Engine &&) noexcept = default;
 Engine &Engine::operator=(Engine &&) noexcept = default;

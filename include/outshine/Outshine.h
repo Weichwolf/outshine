@@ -6,8 +6,6 @@
 #include <vector>
 
 #include <outshine/Scenario.h>
-#include <outshine/Assembled.h>
-#include <outshine/Column.h>
 #include <outshine/Store.h>
 
 namespace outshine {
@@ -33,9 +31,6 @@ public:
   [[nodiscard]] bool Assemble();
   [[nodiscard]] Store &Scene(void);
   [[nodiscard]] const Store &Scene(void) const;
-  [[nodiscard]] const Column<Vehicle> &Vehicles(void) const;
-  [[nodiscard]] const Column<Drive> &Drives(void) const;
-  [[nodiscard]] const Assembled &Stood(void) const;
 
   [[nodiscard]] bool Advance();
   [[nodiscard]] bool Run();
