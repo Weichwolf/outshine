@@ -1,19 +1,12 @@
 #include "Pilot.h"
+#include "Angle.h"
 
-#include <numbers>
 #include <cmath>
 
 namespace outshine::Pilot {
 
 namespace {
 
-constexpr double kTurn = 2.0 * std::numbers::pi;
-
-double Wrapped(double angleRad) {
-  while (angleRad > 0.5 * kTurn) { angleRad -= kTurn; }
-  while (angleRad < -0.5 * kTurn) { angleRad += kTurn; }
-  return angleRad;
-}
 
 } // namespace
 
