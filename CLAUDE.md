@@ -96,9 +96,11 @@ ECS-for-everything · unreserved shared affordances.
 ```mermaid
 flowchart TD
   subgraph compute
+    direction TB
     T["mediumTransmittance"] --> M["mediumMultiScatter"] --> R["mediumRadiance"]
   end
   subgraph raster
+    direction TB
     LV["lightVisibility"] --> SUBJ
     SKY["sky"] --> HDR[("SceneHdr")]
     SUBJ["subjects"] --> HDR
@@ -106,6 +108,7 @@ flowchart TD
     HDR --> TAA["temporalResolve — encodes nothing, folded into tonemap"] --> TONE["tonemap"]
     TONE --> OV["overlay"] --> P["present"]
   end
+  R --> SKY
 
   classDef sound fill:#1f6f3f,stroke:#0d3b21,color:#fff
   classDef unsure fill:#8a6d1f,stroke:#4a3a0d,color:#fff
@@ -126,10 +129,12 @@ plan (`Stored()`).
 ```mermaid
 flowchart TD
   subgraph compute
+    direction TB
     T2["mediumTransmittance"] --> M2["mediumMultiScatter"] --> R2["mediumRadiance"]
     R2 --> IR["irradiance"] --> AE["autoExposure"]
   end
   subgraph raster
+    direction TB
     LV2["lightVisibility"] --> GEO
     SKY2["sky"] --> HDR2[("SceneHdr")]
     SUN["sun"] & MOON["moon"] & STARS["stars"] --> HDR2
@@ -139,6 +144,7 @@ flowchart TD
     AO["ambientOcclusion"] --> HDR2
     HDR2 --> TAA2["temporalResolve"] --> TONE2["tonemap"] --> OV2["overlay"] --> P2["present"]
   end
+  R2 --> SKY2
 
   classDef sure fill:#1f6f3f,stroke:#0d3b21,color:#fff
   classDef likely fill:#8a6d1f,stroke:#4a3a0d,color:#fff
