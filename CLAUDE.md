@@ -39,20 +39,28 @@ flowchart TD
   field --> actors -->|placements| comp
   scen -.->|declares| gen & comp & rend
   scen -.->|declares · clocks| actors
+  tmpl[/"WORLD TEMPLATES — earth · moon: shipped declarations in src/assets"/] -.->|instanced, then deltas| scen
 ```
 
 | layer may not spell | |
 |---|---|
+| any of src/ | Earth · Moon · a planet's name or numbers — worlds are declared spheres, templates are assets |
 | Ground | camera · frustum · clock · LOD level · device · sun |
 | generator | camera · neighbour part · draw list · device |
 | compositor | device · pipeline · texture · shader · pass |
 | renderer | any content noun |
 
 Peers never call each other; a part-on-part dependency travels as data through Ground.
-The engine knows no Earth: a scenario declares a SYSTEM of spheres (radius, gravity, providers,
-sky) shaped by height data; travel between them is an actor with thrust and a possession
-relink, and local behaviour -- the high jump, the bad driving -- emerges from the declared
-gravity through the physics, never from code.
+**The engine knows no Earth, no Moon, no stars.** A scenario declares a SYSTEM of spheres
+(radius, gravity, providers, sky) shaped by height data; travel between them is an actor with
+thrust and a possession relink, and local behaviour — the high jump, the bad driving — emerges
+from the declared gravity through the physics, never from code. Earth ships as a TEMPLATE
+(`src/assets/scenarios/earth.xml`): a scenario instances it (`<world template="earth">`, one
+level deep) and overrides by delta — setting replaces, removal is named, omission keeps the
+template's value, an orphaned override refuses loudly, and the reader walks template then
+deltas through the SAME assembly API (no merger). `Scenario Earth()` is the code-side factory
+returning that declaration; the template alone must hold 720p60. CURRENT departs from this —
+g and Earth radii still sit in code — and the audit with its repayment is the board's.
 Budget = screen-space error in px, quantised to a global ladder before it becomes a key;
 key = `(kind, params, seed, rung)` value, no strings. Degrade on detail, refuse on existence.
 
