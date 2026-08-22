@@ -45,3 +45,12 @@ FbGroundSurface/FbGroundBlock died with the rename rounds. Proving state:
 test/unit/ground/TheGroundStackOpensOrRefuses.cpp holds the ownership door, and the driver's
 Munich planner (tools/driver/APlannerFindsTheRoadFromMunichToHamburg) streams through the
 passed pool daily -- the segfault class this item was filed on cannot be spelled any more.
+
+---
+
+Correction (review 2026-08-23): the closing proof over-claims. `grep -rn 'fb_' src/` is not
+empty — src/assets/world/vegetation.json:1322 still says "which is what fb_stream_ground
+delivers" inside a 2026-08-08 measurement provenance string. The substance of the closure
+stands (no code name, no callable, the segfault class is unspellable); the provenance text is
+a historical record of how the measurement was taken and stays as written. The closure's
+grep claim is hereby narrowed to code identifiers.
