@@ -44,3 +44,14 @@ detects: a broken `uniq -d` or `grep -qx` still prints "AUDIT clean" and the gat
 Demanded before this closes: the test seeds a duplicate and an orphan (env-injected extra list
 entry, or a copied run.sh with one line patched) and asserts the audit verdict flips for each.
 The link-closure half (object set closed over undefined symbols) also remains open.
+
+---
+
+Progress (board queue, same day): the negative controls are no longer manual. The claims test
+seeds both defect shapes on EVERY run -- a copy of run.sh in the temp dir with ROOT pinned and
+one declaration line patched (Store.cpp listed beside src/scene; Sim.cpp struck from world's
+closure, the only one that compiles it) -- and asserts the audit verdict flips and names the
+defect for each. A broken `uniq -d` or `grep -qx` now fails the gate instead of printing
+clean. The seeds guard themselves: if the patched line drifts, the seed-took CHECK fails
+loudly. Remaining before close: the link-closure half (each declared suite's object set closed
+over its undefined symbols).
