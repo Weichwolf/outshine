@@ -69,3 +69,37 @@ a real instance count. There is no instancing API at any door; a client that dra
 mesh a thousand times has declared a thousand placements and nothing else. This closes the
 question of WHO instances; what remains of this item is the mechanism -- the entity store's
 placement grouping, the per-instance stream, and the cull that feeds it.
+
+---
+
+**Learned from the reference study (2026-08-22; UE MeshDrawingPipeline, ACU SIGGRAPH 2015,
+Unity SRP/BRG, Metal WWDC19/22, Decima placement, Persson/Wihlidal).** The ruling in one
+shipped sentence (ACU): hash over the non-instanced data, merge by the hash, keep instance data
+persistent beside it. Mapped here:
+
+1. **Identity is already ours.** UE must hash RHI state because identity only exists there; our
+   content key (kind, params, seed, rung) / ModelSlot IS mesh identity before the renderer.
+   Group key = (SurfaceKind, VertexLayout, MaterialSlot, ModelSlot) -- the fields SameState
+   already compares.
+2. **The opaque sort key must lift material+model above depth** (Ericson: opaque
+   material-major, blended depth-major). Today's key is depth-major for everything, so two
+   identical cars at different depths never sort adjacent and no grouping can find them.
+   Blended keeps depth-major and DOES NOT instance -- instancing across depth steps breaks the
+   blend order.
+3. **The instance stream is {placement, tint}.** Tint as instance data keeps the
+   five-colour-F31 in ONE batch (UE: PrimitiveId->GPU-Scene; Unity: instanced properties;
+   the material-property road breaks batches). Everything touching pipeline state stays batch
+   identity; everything per-placement goes in the stream.
+4. **Grouping happens at insert, never per frame** (UE caches at AddToScene; ACU keeps
+   instance data persistent) -- DrawList::Add knows the group key already; Compile sorts
+   groups and writes the stream compactly. Deterministic by value-key, stable tie-break as
+   today.
+5. **The platform boundary is respected**: SDL3_GPU carries instanced draws
+   (num_instances/first_instance + instance-rate stream) -- Apple's own base building block --
+   but neither ICBs nor MultiDrawIndirect, so GPU-driven culling/cluster expansion stays out
+   of scope by construction; and merge-instancing (Persson) only matters when measured draws
+   are wavefront-starved, where the answer is clustering, not drawcall cosmetics.
+
+RAGE remains unreconstructable from primary sources (low confidence, noted); Decima is the
+purest shipped form of the ruling -- nobody calls instance(), rules and densities produce the
+batches.
