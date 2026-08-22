@@ -15,10 +15,10 @@
 #include "Renderer.h"
 #include "Ribbon.h"
 
-using outshine::Driver::Between;
-using outshine::Driver::Journey;
-using outshine::Driver::Ridden;
-using outshine::Driver::Sink;
+using outshine::Sim::Between;
+using outshine::Sim::Journey;
+using outshine::Sim::Ridden;
+using outshine::Sim::Sink;
 
 namespace {
 
@@ -249,7 +249,7 @@ int main(void) {
                   rode.ReachedM / 1000.0, routeM / 1000.0, frame, worstMs);
     }
     const double along = routeM > 0.0 ? rode.ReachedM / routeM : 0.0;
-    outshine::Driver::Taken taken;
+    outshine::Sim::Taken taken;
     if (rode.ReachedM > handoverFromM && handoverForM <= 0.0) {
       handoverForM = kHandoverForS * rode.SpeedMs;
     }

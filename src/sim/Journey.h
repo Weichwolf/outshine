@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_DRIVER_JOURNEY_H
-#define OUTSHINE_DRIVER_JOURNEY_H
+#ifndef OUTSHINE_SIM_JOURNEY_H
+#define OUTSHINE_SIM_JOURNEY_H
 
 #include <cstddef>
 #include <memory>
@@ -20,7 +20,7 @@ namespace outshine::Data {
 class Transport;
 }
 
-namespace outshine::Driver {
+namespace outshine::Sim {
 
 class Sink {
 public:
@@ -173,6 +173,6 @@ private:
   std::unique_ptr<State> S_;
 };
 
-} // namespace outshine::Driver
+} // namespace outshine::Sim
 
 #endif

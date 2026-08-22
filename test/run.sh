@@ -89,8 +89,8 @@ LayerIncludes() {
     render/outshine/drive) printf '%s' "-Iinclude -Isrc/corridor -Isrc/physics -Isrc/pilot -Isrc/world" ;;
     render/outshine/scenario) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui -Itest/harness/shared" ;;
     tools/viewer) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui -Itools/viewer/parts" ;;
-    tools/driver/stills | tools/driver/window) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/clients -Isrc/corridor -Isrc/data -Isrc/gltf -Isrc/physics -Isrc/pilot -Isrc/render -Isrc/render/plan -Isrc/render/draw -Isrc/render/stages -Isrc/ui -Isrc/world -Isrc/world/tiles -Itools/host -Itools/driver/parts" ;;
-    tools/driver) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/clients -Isrc/corridor -Isrc/data -Isrc/physics -Isrc/pilot -Isrc/gltf -Isrc/world -Isrc/world/tiles -Itools/host -Itools/driver/parts" ;;
+    tools/driver/stills | tools/driver/window) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/clients -Isrc/corridor -Isrc/data -Isrc/gltf -Isrc/physics -Isrc/pilot -Isrc/render -Isrc/render/plan -Isrc/render/draw -Isrc/render/stages -Isrc/ui -Isrc/world -Isrc/world/tiles -Itools/host -Isrc/sim" ;;
+    tools/driver) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/clients -Isrc/corridor -Isrc/data -Isrc/physics -Isrc/pilot -Isrc/gltf -Isrc/world -Isrc/world/tiles -Itools/host -Isrc/sim" ;;
     *) return 1 ;;
   esac
 }
@@ -160,8 +160,8 @@ LayerGroups() {
     harness/claims) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario | render/outshine/client) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/clients/Engine.cpp src/clients/Scenario.cpp src/clients/Assembly.cpp" ;;
     render/outshine/shader) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
-    tools/driver/stills | tools/driver/window) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/corridor src/physics src/pilot src/data src/world/tiles src/world src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/clients/Scenario.cpp src/clients/Rigging.cpp" ;;
-    tools/driver) printf '%s' "src/core src/core/io src/gltf src/corridor src/physics src/pilot src/data src/world/tiles src/world src/clients/Scenario.cpp src/clients/Rigging.cpp" ;;
+    tools/driver/stills | tools/driver/window) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/corridor src/physics src/pilot src/data src/world/tiles src/world src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/clients/Scenario.cpp src/clients/Rigging.cpp src/sim" ;;
+    tools/driver) printf '%s' "src/core src/core/io src/gltf src/corridor src/physics src/pilot src/data src/world/tiles src/world src/sim src/clients/Scenario.cpp src/clients/Rigging.cpp" ;;
     render/outshine/world) printf '%s' "src/core src/core/io src/data src/scenario src/generators src/generators/draw src/world/tiles src/world src/clients/Sim.cpp src/clients/LogSinks.cpp src/clients/StreamTelemetry.cpp src/clients/EyeTelemetry.cpp src/clients/CsvTelemetry.cpp src/clients/Species.cpp src/clients/RegionForge.cpp src/clients/SceneWeather.cpp" ;;
     render/outshine/drive) printf '%s' "src/corridor src/physics src/pilot src/world/Wayfinding.cpp" ;;
     *) return 1 ;;
@@ -184,7 +184,6 @@ NotTheHarnesses() {
     harness/shared | harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
     harness/shared/render) printf '%s' "the render scoring instrument, compiled into each corpus's own harness" ;;
     tools/viewer/parts) printf '%s' "the browser's own declaration and its face, compiled into the browser" ;;
-    tools/driver/parts) printf '%s' "the drive itself -- route, corridor, ground and physics -- compiled into every driver, headless or windowed, so both modes are one code path" ;;
     tools/host) printf '%s' "a host's transports, which nothing compiles yet -- board:0069 is where they are spent" ;;
     unit/compile | unit/compile/*) printf '%s' "a compile subject, judged by the layer's own refusal test, never linked" ;;
     harness/render/khronos/glTF/prepare | harness/render/khronos/generator/prepare | harness/render/outshine/grown/prepare | harness/render/wpt/css/prepare | harness/render/test262/js/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;
@@ -198,8 +197,8 @@ LayerExtraSources() {
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "test/harness/shared/render/Parity.cpp" ;;
     tools/viewer) printf '%s' "test/harness/shared/render/Parity.cpp tools/viewer/parts/Chrome.cpp" ;;
     render/outshine/world) printf '%s' "tools/host/CurlTransport.cpp" ;;
-    tools/driver) printf '%s' "tools/host/CurlTransport.cpp tools/driver/parts/Journey.cpp" ;;
-    tools/driver/stills | tools/driver/window) printf '%s' "tools/host/CurlTransport.cpp tools/driver/parts/Journey.cpp" ;;
+    tools/driver) printf '%s' "tools/host/CurlTransport.cpp" ;;
+    tools/driver/stills | tools/driver/window) printf '%s' "tools/host/CurlTransport.cpp" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -228,6 +227,7 @@ GroupIncludes() {
     src/clients/Live.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui $(pkg-config --cflags sdl3)" ;;
     src/clients/Scenario.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/clients" ;;
     src/clients/Assembly.cpp) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/clients" ;;
+    src/sim) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/clients -Isrc/corridor -Isrc/data -Isrc/physics -Isrc/pilot -Isrc/world -Isrc/world/tiles" ;;
     src/clients/Engine.cpp) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui $(pkg-config --cflags sdl3)" ;;
     src/clients/Sim.cpp | src/clients/LogSinks.cpp | src/clients/StreamTelemetry.cpp | src/clients/EyeTelemetry.cpp | src/clients/CsvTelemetry.cpp | src/clients/Species.cpp | src/clients/RegionForge.cpp | src/clients/SceneWeather.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/scenario -Isrc/world -Isrc/world/tiles -Isrc/generators -Isrc/generators/draw -Isrc/corridor -Isrc/clients" ;;
     src/clients/Image.cpp) printf '%s' "-Isrc/clients $(pkg-config --cflags sdl3-image)" ;;

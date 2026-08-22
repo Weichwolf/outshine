@@ -132,7 +132,7 @@ void Lie(outshine::Physics::Body &body, const outshine::Placed &on, const double
 } // namespace
 
 
-namespace outshine::Driver {
+namespace outshine::Sim {
 
 struct Journey::State {
   std::unique_ptr<outshine::Data::ContentStore> Store;
@@ -1131,4 +1131,4 @@ Ridden Journey::Ride(double dtS, const Taken *taken) {
   return out;
 }
 
-} // namespace outshine::Driver
+} // namespace outshine::Sim

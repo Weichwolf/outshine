@@ -8,10 +8,10 @@
 #include "CurlTransport.h"
 #include "Journey.h"
 
-using outshine::Driver::Between;
-using outshine::Driver::Journey;
-using outshine::Driver::Ridden;
-using outshine::Driver::Sink;
+using outshine::Sim::Between;
+using outshine::Sim::Journey;
+using outshine::Sim::Ridden;
+using outshine::Sim::Sink;
 
 namespace {
 
