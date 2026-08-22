@@ -71,3 +71,41 @@ frame · macroscopic traffic models (LWR) for the field's conservation law.
 - [ ] conservation proven: field->rails->field round trip keeps count and flow per tile
 - [ ] the cascade bound holds: an embodied mind's measurement demands at most rails
 - [ ] first consumer: ambient traffic in the driver -- the field everywhere, cars where measured
+
+---
+
+**Learned from the reference study (2026-08-22, primary sources; KSP config, UE docs, re3
+decompile, IEEE 1516/1278.1, LWR/Burghout).** The design above holds, with four sharpenings:
+
+1. **Two axes, not one ladder.** KSP separates EXISTENCE (loaded/unloaded) from FIDELITY
+   (packed/unpacked) with an ordering constraint between the four thresholds -- hysteresis by
+   construction. Our ladder becomes two coupled axes with the constraint pair enforced
+   `static_assert`-style; and the currency stays the ERROR LADDER, never metre tables (KSP's
+   Physics.cfg is the counterexample: a distance table that misorders FLYING unload < pack and
+   deletes wingmen).
+2. **Collapse evaluates, it never creates.** Elite/NMS/Minecraft: the concrete is a pure
+   function of (coordinates, seed) -- our (kind, params, seed, rung) key is already the right
+   shape. Proven breakage modes go into the rules: the GENERATOR VERSION belongs in the key
+   (seeds break per algorithm change), generation holds integer/fixed-point (float
+   non-associativity breaks cross-platform identity), and the collapse may not consult
+   neighbours (order dependence) -- our "no neighbour part" rule, independently rediscovered.
+3. **The field side is real engineering, not hand-waving.** LWR conservation with ONE shared
+   fundamental diagram on both sides of the seam (Burghout: divergent q(rho) makes phantom
+   shocks), emission via flux accumulator carrying the fractional remainder (else vehicles
+   leak), congestion pushing back upstream across the seam (else the boundary is an unphysical
+   sink). Conservation is bookkeeping, not hope.
+4. **Sensors operate on the abstract layer -- materialisation is never transitive.** Sharper
+   than my "one rung down": Dwarf Fortress fights its wars abstractly; UE's cost is objects x
+   viewpoints. An embodied mind's perception READS the field/rails layer; only declared
+   instruments (player, radar) force collapse. And the ANONYMOUS has no per-entity abstract
+   propagation at all -- it is pure field (the GTA model); the costed counterexample is GTA IV's
+   cancelled everyone-has-a-home, killed by bug volume.
+
+Transitions are a named state with EASING (KSP 1.2's physics easing; DIS convergence blending
+instead of snapping; asymmetric on/off-screen hysteresis from GTA; Dwarf Fortress makes the
+abstraction VISIBLE so movement reads as intent, not popping). Star Citizen serves as the
+negative proof: the quanta->NPC promotion is the part that never shipped.
+
+The cross-finding over all seven references: concrete state is everywhere a CACHE of an
+abstract function, valid while divergence is bounded -- and every documented failure is a SEAM
+failure, never a failure of the abstraction itself. The seams get the tests.
