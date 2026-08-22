@@ -22,3 +22,9 @@ per pixel (id Tech 7 caches essentially all static shadows). The catalogue alrea
 - [ ] the geometry shading samples the atlas (plan-selected against the BVH ray, which stays for
       the oracle suites)
 - [ ] the sun's cast shadow lands in the driver's picture (the reviewer's standing finding)
+
+---
+
+Parked: slices 1-2 closed with the atlas proving itself in the chase test; slice 3 (shading
+samples the atlas plan-selected, shadow lands in the driver's picture) waits behind the
+architecture queue -- the review is the work list until it is clean.

@@ -21,3 +21,9 @@ the mechanism. On a TBDR GPU an unnecessary store is pure bandwidth.
 - [ ] measured: frame-time delta over the full windowed drive against today's reference
       population (1 469 414 frames, p50 1.865 / p95 4.525 / p99 6.115 ms, 2026-08-22) -- rides
       with the next complete window run
+
+---
+
+Parked: the derivation stands and is committed; the measurement box (frame-time delta over a
+full windowed drive against the 1 469 414-frame reference) needs a quiet machine and the driver
+is at rest until the architecture review runs clean.
