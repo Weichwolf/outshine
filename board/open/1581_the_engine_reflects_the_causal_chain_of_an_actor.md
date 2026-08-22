@@ -44,3 +44,25 @@ Journey's parts (corridor, speed plan, rig, mind) become entities and columns in
 store, wired by the assembly API; Sim shrinks to the systems that advance that graph. Same
 verdict names TilePool::Camera and World::Refine(Eye) as ground-layer violations of the layer
 table -- the compositor (not yet standing) is where camera, frustum and LOD selection belong.
+
+---
+
+**The decomposition plan (2026-08-22, move 2 after the src/sim fold).** Journey::Lay is one
+function with seven tenants; they become systems over the store graph, each taking (Store&,
+Entity) and columns, none owning another:
+
+| tenant (Lay lines) | becomes | reads | writes |
+|---|---|---|---|
+| sources + tile fetch + OsmField | `RoadNet` service (exists as Wayfinding+RoadHarvest) | wire, tiles | the network |
+| route planning | the NAV TOOL's `Plan` -- mind Uses nav, Assigned carries Between | network, vehicle limits from Column<Vehicle> | Column<Route> on the assignment |
+| corridor fit + widths + elevations + grades | `CorridorSystem` | Route, GroundStream | Column<Corridor> (ReferenceLine + widths) on the assignment |
+| rig stand-up | already `Clients::Stand(Vehicle)` | Column<Vehicle> | Column<Rig> on the body |
+| speed profile | `PlanSystem` | Corridor, Rig envelope | Column<SpeedProfile> on the assignment |
+| pilot + ride tick | `DriveSystem::Tick(dtS)` -- the mind acts on the seam | all of the above via handles | Body state, Ridden telemetry |
+| the Sink claims | stay with the CASES -- systems publish numbers, cases judge them |  |  |
+
+Order of execution: (a) Route+Corridor columns as public types; (b) CorridorSystem extracted
+from Lay with Journey delegating; (c) DriveSystem from Ride; (d) Journey shrinks to an
+assembly recipe -- read scenario, assemble through the door, hand tools, tick; (e) the driver
+cases declare through Engine and the build enforcement of 1582 closes. Each step keeps Munich
+and Kyoto green before the next begins.
