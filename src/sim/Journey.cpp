@@ -179,7 +179,12 @@ std::string Line(const char *shape, const char *one) { return Line(shape, std::s
 
 } // namespace
 
-bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Data::Transport &wire, Sink &say) {
+bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom,
+                  Data::Transport &wire, const Provision &kept, Sink &say) {
+  say.Claim(!kept.CacheDir.empty() && !kept.AssetsDir.empty(),
+        "**THE CALLER PROVISIONS THE JOURNEY**: a cache directory and an assets root arrive as "
+        "declarations -- the library owns no path");
+  if (kept.CacheDir.empty() || kept.AssetsDir.empty()) { return false; }
   const double fromLatDeg = between.FromLatDeg;
   const double fromLonDeg = between.FromLonDeg;
   const double toLatDeg = between.ToLatDeg;
@@ -245,11 +250,11 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
   if (!(carWidthM > 0.0)) { return false; }
 
   outshine::Data::ContentStore::Config keeping;
-  keeping.Directory = "/tmp/outshine-drive-cache";
+  keeping.Directory = kept.CacheDir;
   S_->Store = std::make_unique<outshine::Data::ContentStore>(keeping);
   S_->Sources = std::make_unique<outshine::Data::SourceSet>(*S_->Store);
   outshine::Data::SourceSet &sources = *S_->Sources;
-  say.Claim(outshine::Data::RegisterDeclared(sources, {"src/assets/sky", true}) ==
+  say.Claim(outshine::Data::RegisterDeclared(sources, {kept.AssetsDir + "/sky", true}) ==
             outshine::Data::Registered::Complete,
         "the declared upstream sources register, ranked and without a clash");
   say.Number("sources registered", (double)sources.Count(), "sources");
@@ -302,10 +307,10 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
   if (field.Features().empty()) { return false; }
 
   outshine::World::GroundMaterials materials;
-  say.Claim(materials.Load("src/assets/world/ground-materials.json"),
+  say.Claim(materials.Load((kept.AssetsDir + "/world/ground-materials.json").c_str()),
         "the declared ground materials load, because a width table names them");
   VegetationTemplates widths;
-  say.Claim(widths.Load("src/assets/world/vegetation.json", materials),
+  say.Claim(widths.Load((kept.AssetsDir + "/world/vegetation.json").c_str(), materials),
         "the declared widths load, with their RAA, RAL and RASt origins");
 
   const double quantumM = 40075017.0 / ((double)(1L << kZoom) * 4096.0);
@@ -770,7 +775,7 @@ bool Journey::Lay(const Between &between, const char *scenarioPath, int zoom, Da
         "**AND EVERY KIND ON THE ROUTE DECLARES ITS OWN MAXIMUM GRADE.** A station with none would be "
         "flattened by a shaping that had nothing to shape it to -- silently, which is the failure "
         "this count exists to make loud. The grades are RAA, RAL and RASt figures declared beside "
-        "the widths in src/assets/world/vegetation.json");
+        "the declared vegetation table");
   say.Number("the gentlest grade any road class on this route declares", gentlestLimit * 100.0, "%");
   say.Number("the steepest the F31's drivetrain could climb from rest", 23.43257, "%");
   say.Number("the steepest it could hold at its own top speed", 0.15, "%");

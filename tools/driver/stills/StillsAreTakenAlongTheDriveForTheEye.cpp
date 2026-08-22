@@ -305,7 +305,8 @@ int main(void) {
   outshine::Host::CurlTransport::Config wiring;
   outshine::Host::CurlTransport wire(wiring);
   const Between between{kMarienplatzLat, kMarienplatzLon, kRathausmarktLat, kRathausmarktLon};
-  const bool laid = journey.Lay(between, "tools/driver/f31.scenario", kZoom, wire, quiet);
+  const bool laid = journey.Lay(between, "tools/driver/f31.scenario", kZoom, wire,
+      outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, quiet);
   CHECK(laid, "the road is laid, exactly as the drive lays it");
   if (!laid) { return Report(); }
 

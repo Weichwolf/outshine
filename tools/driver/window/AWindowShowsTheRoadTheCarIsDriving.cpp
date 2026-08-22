@@ -100,7 +100,8 @@ int main(void) {
   const Between between{kMarienplatzLat, kMarienplatzLon, kRathausmarktLat, kRathausmarktLon};
   outshine::Host::CurlTransport::Config wiring;
   outshine::Host::CurlTransport wire(wiring);
-  const bool laid = journey.Lay(between, "tools/driver/f31.scenario", kZoom, wire, quiet);
+  const bool laid = journey.Lay(between, "tools/driver/f31.scenario", kZoom, wire,
+      outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, quiet);
   CHECK(laid, "**THE WINDOW LAYS THE ROAD WITH THE SAME CALL THE HEADLESS DRIVER DOES.** One "
               "translation unit, two binaries: the headless one links no renderer at all and this "
               "one links the whole of it, and neither knows which it is");

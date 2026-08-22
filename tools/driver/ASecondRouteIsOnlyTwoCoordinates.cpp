@@ -49,7 +49,8 @@ int main(void) {
 
   outshine::Host::CurlTransport::Config wiring;
   outshine::Host::CurlTransport wire(wiring);
-  const bool laid = journey.Lay(between, "tools/driver/f31.scenario", kZoom, wire, harness);
+  const bool laid = journey.Lay(between, "tools/driver/f31.scenario", kZoom, wire,
+      outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, harness);
   CHECK(laid,
         "**A SECOND ROUTE IS ONLY TWO COORDINATES.** Kyoto Station to Osaka Castle -- another "
         "continent, another road network, the same code, the same declaration, and NOTHING "

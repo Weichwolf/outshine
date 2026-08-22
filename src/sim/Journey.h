@@ -31,6 +31,11 @@ public:
   virtual void Say(const std::string &line) = 0;
 };
 
+struct Provision {
+  std::string CacheDir;
+  std::string AssetsDir;
+};
+
 struct Between {
   double FromLatDeg = 0.0;
   double FromLonDeg = 0.0;
@@ -156,7 +161,8 @@ public:
   Journey(const Journey &) = delete;
   Journey &operator=(const Journey &) = delete;
 
-  [[nodiscard]] bool Lay(const Between &between, const char *scenarioPath, int zoom, Data::Transport &wire, Sink &say);
+  [[nodiscard]] bool Lay(const Between &between, const char *scenarioPath, int zoom,
+                         Data::Transport &wire, const Provision &kept, Sink &say);
   [[nodiscard]] Ridden Ride(double dtS, const Taken *taken = nullptr);
   void Close(void);
 
