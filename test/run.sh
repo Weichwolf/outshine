@@ -8,7 +8,10 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT" || exit 2
 
 BUILD=${TMPDIR:-/tmp}
-BUILD=${BUILD%/}/outshine-tests
+# the nest carries the checkout identity (board:1649): parallel checkouts get parallel
+# nests, a worktree gate cannot sweep this one mid-run, and a collision is unspellable
+NEST=$(printf %s "$ROOT" | shasum -a 256 | cut -c1-12)
+BUILD=${BUILD%/}/outshine-tests.$NEST
 PREPARED=${TMPDIR:-/tmp}
 PREPARED=${PREPARED%/}/outshine-prepared
 CXX=${CXX:-c++}
