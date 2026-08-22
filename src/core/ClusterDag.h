@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <span>
 #include <cstring>
 #include <cstdlib>
 #include <unordered_map>
@@ -235,7 +236,7 @@ inline void Weld(const float *soup, uint32_t nverts, int stride, int (*classOf)(
   m->NPos = (int)(m->PP.size() / 3);
 }
 
-inline void Partition(const Mesh &m, const std::vector<uint32_t> &tri, int maxTris,
+inline void Partition(const Mesh &m, std::span<const uint32_t> tri, int maxTris,
                       std::vector<uint32_t> *order, std::vector<uint32_t> *starts) {
   const size_t n = tri.size() / 3;
   double lo[3] = {1e300, 1e300, 1e300}, hi[3] = {-1e300, -1e300, -1e300};
@@ -298,8 +299,8 @@ struct DevMesh {
   std::vector<double> T;
   std::vector<uint32_t> Start, Idx;
 
-  void Set(const std::vector<double> &corners, const float up[3]) {
-    T = corners;
+  void Set(std::span<const double> corners, const float up[3]) {
+    T.assign(corners.begin(), corners.end());
     const size_t n = T.size() / 9;
     Vertical = up && (up[0] * up[0] + up[1] * up[1] + up[2] * up[2]) > 1.0e-12f;
     if (Vertical) {
@@ -697,7 +698,7 @@ inline void SimplifyGroup(const Mesh &m, std::vector<uint32_t> &tri, size_t targ
   }
 }
 
-inline void Sphere(const Mesh &m, const std::vector<uint32_t> &tri, size_t first, size_t count,
+inline void Sphere(const Mesh &m, std::span<const uint32_t> tri, size_t first, size_t count,
                    float ctr[3], float *rad) {
   double c[3] = {0, 0, 0};
   size_t n = 0;

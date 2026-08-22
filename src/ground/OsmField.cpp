@@ -17,7 +17,8 @@ uint64_t TileKey(int x, int y) { return ((uint64_t)(uint32_t)x << 32) | (uint32_
 
 }
 
-OsmField::OsmField(int zoom, const std::vector<std::string> &layers) : Layers_(layers), Zoom_(zoom) {}
+OsmField::OsmField(int zoom, std::span<const std::string> layers)
+    : Layers_(layers.begin(), layers.end()), Zoom_(zoom) {}
 
 uint32_t OsmField::Intern(std::vector<std::string> &pool,
                           std::unordered_map<std::string, uint32_t> &index, std::string_view s) {

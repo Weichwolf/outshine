@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <initializer_list>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -33,7 +34,7 @@ public:
     uint32_t FirstFeature = 0, FeatureCount = 0;
   };
 
-  OsmField(int zoom, const std::vector<std::string> &layers);
+  OsmField(int zoom, std::span<const std::string> layers);
 
   int Build(TilePool &tiles, double lat, double lon, int ringTiles);
 
