@@ -19,5 +19,9 @@ The decided shape:
   dependency (house rule); a build without the backend never sees it
 - side value: a deterministic CPU reference backend closes the 1634 class of blindness and
   gives CI pictures without a GPU
+- and the deeper point (owner, same day): ONE backend proves no abstraction -- the second
+  executor table is the PROOF of the registry seam itself, that the plan is genuinely
+  declarative and nothing above the renderer smuggles SDL_GPU assumptions; the softgl build
+  is the standing test that the render column is a column
 
 Depends: 1582
