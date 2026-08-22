@@ -12,3 +12,12 @@ Tags: oracle, khronos
 ---
 
 ## Band II — World
+
+
+---
+
+**Closed by the backlog adjudication, tranche 3 (2026-08-22).** The mapping stands in the tree:
+generated part = render case, composition = scenario case, Khronos criteria untouched, and
+compositor decisions live as unit cases over DrawList -- CLAUDE.md's test decision tree
+codifies exactly this. The exception bullet's missing cull/LOD unit cases are board:1538's
+work, which carries them explicitly.
