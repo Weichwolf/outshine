@@ -37,6 +37,11 @@ demanded instead.
      **`[[nodiscard]]` and comparable hygiene ALWAYS** — nodiscard on every value-returning
      query/factory, `constexpr`/`noexcept` where they hold, `explicit` on one-arg constructors,
      deleted copies where identity matters.
+   - **No allocations on the hot path**: nothing inside the per-frame/per-tick loops may
+     allocate, lock, touch disk, or grow a container — capacity is opened once, up front; a
+     `push_back` inside a tick is a defect.
+   - **No embedded shaders or scripts**: shader and script sources live as files in the tree,
+     never as string literals inside C++ — an embedded MSL/GLSL/script blob is a defect.
    - **`std::span` and `std::string_view` at boundaries**: no `const std::vector<T>&` or
      `const std::string&` parameters where a view says what is meant; no owning copies for
      read-only traversal.
