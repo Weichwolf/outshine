@@ -31,25 +31,6 @@ constexpr SDL_GPUFrontFace kGltfFrontFace = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
 
 constexpr Winding kSubjectWinding = Winding::Trusted;
 
-float LinearFromSrgb8(uint8_t code) {
-  const float encoded = static_cast<float>(code) * (1.0f / 255.0f);
-  if (encoded < 0.04045f) { return encoded * (1.0f / 12.92f); }
-  return std::pow((encoded + 0.055f) * (1.0f / 1.055f), 2.4f);
-}
-
-SDL_GPUSamplerAddressMode AddressOf(SubjectWrap wrap) {
-  switch (wrap) {
-    case SubjectWrap::ClampToEdge: return SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-    case SubjectWrap::MirroredRepeat: return SDL_GPU_SAMPLERADDRESSMODE_MIRRORED_REPEAT;
-    case SubjectWrap::Repeat: return SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
-  }
-  return SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
-}
-
-SDL_GPUFilter FilterOf(SubjectFilter filter) {
-  return filter == SubjectFilter::Nearest ? SDL_GPU_FILTER_NEAREST : SDL_GPU_FILTER_LINEAR;
-}
-
 SDL_GPUColorTargetBlendState OverBlend() {
   SDL_GPUColorTargetBlendState blend{};
   blend.enable_blend = true;
@@ -223,7 +204,8 @@ SDL_GPUShader *MakeShader(SDL_GPUDevice *device, const std::string &source, cons
 
 bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
   Device = gpu.Device;
-  FiltersFloat32 = gpu.FiltersFloat32;
+  Resident_.Device = gpu.Device;
+  Resident_.FiltersFloat32 = gpu.FiltersFloat32;
 
   Colours.clear();
   for (const Resource colour : gpu.SceneColours) { Colours.push_back(colour); }
@@ -326,265 +308,18 @@ size_t SubjectDraw::PipelineAt(VertexLayout layout, SurfaceKind kind, bool culls
   return (static_cast<size_t>(layout) * 2u + (cullsBack ? 1u : 0u)) * kSurfaceKinds + at;
 }
 
-OwnedBuffer SubjectDraw::Fill(SDL_GPUBufferUsageFlags usage, const void *from, uint32_t bytes) {
-  SDL_GPUBufferCreateInfo wantedBuffer{};
-  wantedBuffer.usage = usage;
-  wantedBuffer.size = bytes;
-  OwnedBuffer buffer(Device, SDL_CreateGPUBuffer(Device, &wantedBuffer));
-  if (!buffer) { return buffer; }
-
-  SDL_GPUTransferBufferCreateInfo wantedTransfer{};
-  wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-  wantedTransfer.size = bytes;
-  SDL_GPUTransferBuffer *staging = SDL_CreateGPUTransferBuffer(Device, &wantedTransfer);
-  if (!staging) {
-    buffer.Reset();
-    return buffer;
-  }
-  std::memcpy(SDL_MapGPUTransferBuffer(Device, staging, false), from, bytes);
-  SDL_UnmapGPUTransferBuffer(Device, staging);
-
-  SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device);
-  SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
-  SDL_GPUTransferBufferLocation source{staging, 0};
-  SDL_GPUBufferRegion into{buffer.Get(), 0, bytes};
-  SDL_UploadToGPUBuffer(copy, &source, &into, false);
-  SDL_EndGPUCopyPass(copy);
-  SDL_SubmitGPUCommandBuffer(commands);
-  SDL_ReleaseGPUTransferBuffer(Device, staging);
-  return buffer;
-}
-
-bool SubjectDraw::Cross(Crossing *what, size_t count, bool deferred, std::string &error) {
-  uint32_t total = 0;
-  for (size_t at = 0; at < count; ++at) {
-    Crossing &one = what[at];
-    if (one.Bytes == 0 || one.From == nullptr) {
-      one.Into->Reset();
-      *one.Held = 0;
-      continue;
-    }
-    if (*one.Held != one.Bytes || !*one.Into) {
-      SDL_GPUBufferCreateInfo wanted{};
-      wanted.usage = one.Usage;
-      wanted.size = one.Bytes;
-      *one.Into = OwnedBuffer(Device, SDL_CreateGPUBuffer(Device, &wanted));
-      if (!*one.Into) {
-        *one.Held = 0;
-        error = std::string("a vertex stream found no room on the device: ") + SDL_GetError();
-        return false;
-      }
-      *one.Held = one.Bytes;
-    }
-
-    total = (total + one.Bytes + 15u) & ~15u;
-  }
-  if (total == 0) { return true; }
-
-  if (!deferred) { return Submit(what, count, total, error); }
-  const uint32_t wanted = StagingUsed_ + total;
-  if (StagingBytes_ < wanted || !Staging_[StagingAt_]) {
-    SDL_GPUTransferBufferCreateInfo room{};
-    room.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-    room.size = wanted > StagingBytes_ ? wanted : StagingBytes_;
-    if (wanted > StagingBytes_) { StagingBytes_ = wanted; }
-    for (size_t slot = 0; slot < kStagingRing; ++slot) {
-      Staging_[slot] = OwnedTransfer(Device, SDL_CreateGPUTransferBuffer(Device, &room));
-      if (!Staging_[slot]) {
-        error = std::string("the pose's staging buffer found no room on the device: ") + SDL_GetError();
-        return false;
-      }
-    }
-  }
-
-  auto *const mapped =
-      static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(Device, Staging_[StagingAt_].Get(), false));
-  if (mapped == nullptr) {
-    error = std::string("the pose's staging buffer did not map: ") + SDL_GetError();
-    return false;
-  }
-  uint32_t at = StagingUsed_;
-  for (size_t one = 0; one < count; ++one) {
-    if (what[one].Bytes == 0 || what[one].From == nullptr) { continue; }
-    std::memcpy(mapped + at, what[one].From, what[one].Bytes);
-    at = (at + what[one].Bytes + 15u) & ~15u;
-  }
-  SDL_UnmapGPUTransferBuffer(Device, Staging_[StagingAt_].Get());
-
-  at = StagingUsed_;
-  for (size_t one = 0; one < count; ++one) {
-    if (what[one].Bytes == 0 || what[one].From == nullptr) { continue; }
-    if (StagedCount_ >= kStagedCrossings) {
-      error = "a frame stages more runs than the " + std::to_string(kStagedCrossings) +
-              " this subject declares room for";
-      return false;
-    }
-    Staged_[StagedCount_++] =
-        Staged{what[one].Into->Get(), at, what[one].Bytes, Staging_[StagingAt_].Get()};
-    at = (at + what[one].Bytes + 15u) & ~15u;
-  }
-  StagingUsed_ = at;
-  return true;
-}
-
-bool SubjectDraw::Submit(Crossing *what, size_t count, uint32_t total, std::string &error) {
-  SDL_GPUTransferBufferCreateInfo room{};
-  room.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-  room.size = total;
-  OwnedTransfer once(Device, SDL_CreateGPUTransferBuffer(Device, &room));
-  if (!once) {
-    error = std::string("the topology's staging buffer found no room on the device: ") + SDL_GetError();
-    return false;
-  }
-  auto *const mapped = static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(Device, once.Get(), false));
-  if (mapped == nullptr) {
-    error = std::string("the topology's staging buffer did not map: ") + SDL_GetError();
-    return false;
-  }
-  uint32_t at = 0;
-  for (size_t one = 0; one < count; ++one) {
-    if (what[one].Bytes == 0 || what[one].From == nullptr) { continue; }
-    std::memcpy(mapped + at, what[one].From, what[one].Bytes);
-    at = (at + what[one].Bytes + 15u) & ~15u;
-  }
-  SDL_UnmapGPUTransferBuffer(Device, once.Get());
-
-  SDL_GPUCommandBuffer *const commands = SDL_AcquireGPUCommandBuffer(Device);
-  SDL_GPUCopyPass *const copy = SDL_BeginGPUCopyPass(commands);
-  at = 0;
-  for (size_t one = 0; one < count; ++one) {
-    if (what[one].Bytes == 0 || what[one].From == nullptr) { continue; }
-    const SDL_GPUTransferBufferLocation source{once.Get(), at};
-    const SDL_GPUBufferRegion into{what[one].Into->Get(), 0, what[one].Bytes};
-    SDL_UploadToGPUBuffer(copy, &source, &into, false);
-    at = (at + what[one].Bytes + 15u) & ~15u;
-  }
-  SDL_EndGPUCopyPass(copy);
-  SDL_SubmitGPUCommandBuffer(commands);
-  return true;
-}
-
-void SubjectDraw::FlushCrossings(SDL_GPUCommandBuffer *commands) {
-  if (StagedCount_ == 0 || commands == nullptr) { return; }
-  SDL_GPUCopyPass *const copy = SDL_BeginGPUCopyPass(commands);
-  for (size_t at = 0; at < StagedCount_; ++at) {
-    const SDL_GPUTransferBufferLocation source{Staged_[at].Staging, Staged_[at].From};
-    const SDL_GPUBufferRegion into{Staged_[at].Into, 0, Staged_[at].Bytes};
-    SDL_UploadToGPUBuffer(copy, &source, &into, false);
-  }
-  SDL_EndGPUCopyPass(copy);
-  StagedCount_ = 0;
-  StagingUsed_ = 0;
-  StagingAt_ = (StagingAt_ + 1) % kStagingRing;
-}
-
-constexpr bool kChainIsReadable = false;
-
-SubjectDraw::BoundImage SubjectDraw::Upload(const SubjectTexture &texture, Transfer decode,
-                                            TexelKind kind) {
-  static const uint8_t white[4] = {255, 255, 255, 255};
-  const uint32_t width = texture.Width > 0 ? texture.Width : 1;
-  const uint32_t height = texture.Height > 0 ? texture.Height : 1;
-  const uint8_t *texels = texture.Rgba ? texture.Rgba : white;
-  std::vector<float> linear(static_cast<size_t>(width) * height * 4u, 0.0f);
-  for (size_t texel = 0; texel < linear.size() / 4u; ++texel) {
-    for (size_t channel = 0; channel < 3; ++channel) {
-      const uint8_t code = texels[texel * 4u + channel];
-      linear[texel * 4u + channel] = decode == Transfer::Srgb
-                                         ? LinearFromSrgb8(code)
-                                         : static_cast<float>(code) / 255.0f;
-    }
-    linear[texel * 4u + 3u] = static_cast<float>(texels[texel * 4u + 3u]) / 255.0f;
-  }
-
-  if (kind == TexelKind::Direction) {
-    for (size_t texel = 0; texel < linear.size() / 4u; ++texel) { linear[texel * 4u + 3u] = 1.0f; }
-  }
-
-  BoundImage bound;
-  SDL_GPUTextureCreateInfo wantedTexture{};
-  wantedTexture.type = SDL_GPU_TEXTURETYPE_2D;
-  wantedTexture.format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
-  wantedTexture.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
-  wantedTexture.width = width;
-  wantedTexture.height = height;
-  wantedTexture.layer_count_or_depth = 1;
-
-  uint32_t levels = 1;
-  for (uint32_t extent = width > height ? width : height; extent > 1u; extent /= 2u) { ++levels; }
-
-  if (texture.Mip == SubjectMip::None || !kChainIsReadable) { levels = 1; }
-  wantedTexture.num_levels = levels;
-  wantedTexture.sample_count = SDL_GPU_SAMPLECOUNT_1;
-  bound.Image = OwnedTexture(Device, SDL_CreateGPUTexture(Device, &wantedTexture));
-
-  const uint32_t indexChannels = kind == TexelKind::Direction ? 0u : IndexChannelsOf(linear);
-  std::vector<float> level = linear;
-  uint32_t levelWidth = width, levelHeight = height;
-  for (uint32_t which = 0; which < levels; ++which) {
-    if (which > 0) {
-      std::vector<float> smaller;
-      uint32_t smallerWidth = 0, smallerHeight = 0;
-      HalveInPlace(level, levelWidth, levelHeight, smaller, smallerWidth, smallerHeight, kind,
-                   indexChannels);
-      level.swap(smaller);
-      levelWidth = smallerWidth;
-      levelHeight = smallerHeight;
-    }
-    const uint32_t bytes = levelWidth * levelHeight * 4u * (uint32_t)sizeof(float);
-    SDL_GPUTransferBufferCreateInfo wantedTransfer{};
-    wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-    wantedTransfer.size = bytes;
-    SDL_GPUTransferBuffer *staging = SDL_CreateGPUTransferBuffer(Device, &wantedTransfer);
-    std::memcpy(SDL_MapGPUTransferBuffer(Device, staging, false), level.data(), bytes);
-    SDL_UnmapGPUTransferBuffer(Device, staging);
-    SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device);
-    SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
-    SDL_GPUTextureTransferInfo source{};
-    source.transfer_buffer = staging;
-    source.pixels_per_row = levelWidth;
-    source.rows_per_layer = levelHeight;
-    SDL_GPUTextureRegion into{};
-    into.texture = bound.Image.Get();
-    into.mip_level = which;
-    into.w = levelWidth;
-    into.h = levelHeight;
-    into.d = 1;
-    SDL_UploadToGPUTexture(copy, &source, &into, false);
-    SDL_EndGPUCopyPass(copy);
-    SDL_SubmitGPUCommandBuffer(commands);
-    SDL_ReleaseGPUTransferBuffer(Device, staging);
-  }
-
-  SDL_GPUSamplerCreateInfo wantedSampler{};
-  wantedSampler.address_mode_u = AddressOf(texture.WrapU);
-  wantedSampler.address_mode_v = AddressOf(texture.WrapV);
-  wantedSampler.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-
-  wantedSampler.min_filter = FilterOf(texture.Minify);
-  wantedSampler.mag_filter = FilterOf(texture.Magnify);
-
-  wantedSampler.mipmap_mode = texture.Mip == SubjectMip::Nearest
-                                  ? SDL_GPU_SAMPLERMIPMAPMODE_NEAREST
-                                  : SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
-
-  wantedSampler.max_lod = 1000.0f;
-  bound.Sample = OwnedSampler(Device, SDL_CreateGPUSampler(Device, &wantedSampler));
-  return bound;
-}
-
 void SubjectDraw::BindSurface(const SubjectMaterial &material) {
   SurfaceSlot slot;
   slot.Kind = material.State().Kind();
   slot.CullsBack = CullsBackFaces(material.State(), kSubjectWinding);
   slot.ReadsSecondUv = material.ReadsSecondUv();
-  slot.Colour = Upload(material.Colour, Transfer::Srgb, TexelKind::Value);
-  slot.Normal = Upload(material.Normal, Transfer::Linear, TexelKind::Direction);
-  slot.MetalRough = Upload(material.MetalRough, Transfer::Linear, TexelKind::Value);
-  slot.Emissive = Upload(material.Emissive, Transfer::Srgb, TexelKind::Value);
+  slot.Colour = Resident_.Upload(material.Colour, SubjectResidency::Transfer::Srgb, TexelKind::Value);
+  slot.Normal = Resident_.Upload(material.Normal, SubjectResidency::Transfer::Linear, TexelKind::Direction);
+  slot.MetalRough = Resident_.Upload(material.MetalRough, SubjectResidency::Transfer::Linear, TexelKind::Value);
+  slot.Emissive = Resident_.Upload(material.Emissive, SubjectResidency::Transfer::Srgb, TexelKind::Value);
 
-  slot.SpecularStrength = Upload(material.SpecularStrength, Transfer::Linear, TexelKind::Value);
-  slot.SpecularTint = Upload(material.SpecularTint, Transfer::Srgb, TexelKind::Value);
+  slot.SpecularStrength = Resident_.Upload(material.SpecularStrength, SubjectResidency::Transfer::Linear, TexelKind::Value);
+  slot.SpecularTint = Resident_.Upload(material.SpecularTint, SubjectResidency::Transfer::Srgb, TexelKind::Value);
 
   const Material &row = material.Row;
 
@@ -631,12 +366,12 @@ bool SubjectDraw::SetMaterials(const std::vector<SubjectMaterial> &materials, st
   Slots.clear();
   Batches.clear();
   BatchLayout.clear();
-  NIdx = 0;
+  Resident_.NIdx = 0;
   if (!Device) {
     error = "the subject unit has no device, so no surface can be bound";
     return false;
   }
-  if (!FiltersFloat32) {
+  if (!Resident_.FiltersFloat32) {
     error = "the device did not grant float32-filterable, and this unit's colour image is linear "
             "f32 so that the filter runs on exact linear values";
     return false;
@@ -661,15 +396,14 @@ bool SubjectDraw::SetMaterials(const std::vector<SubjectMaterial> &materials, st
 
 bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
 
-  StagedCount_ = 0;
-  StagingUsed_ = 0;
-  NVerts = mesh.VertexCount;
-  NIdx = mesh.IndexCount;
-  HasUv = mesh.Uv != nullptr;
-  HasUv1 = mesh.Uv1 != nullptr;
-  HasNormal = mesh.Normals != nullptr;
-  HasTangent = mesh.Tangents != nullptr;
-  HasColour = mesh.Colours != nullptr;
+  Resident_.DropStaged();
+  Resident_.NVerts = mesh.VertexCount;
+  Resident_.NIdx = mesh.IndexCount;
+  Resident_.HasUv = mesh.Uv != nullptr;
+  Resident_.HasUv1 = mesh.Uv1 != nullptr;
+  Resident_.HasNormal = mesh.Normals != nullptr;
+  Resident_.HasTangent = mesh.Tangents != nullptr;
+  Resident_.HasColour = mesh.Colours != nullptr;
   Batches.clear();
   BatchLayout.clear();
   for (int axis = 0; axis < 3; ++axis) {
@@ -677,14 +411,14 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
     PrevAnchor[axis] = mesh.PrevAnchor[axis];
   }
   for (int part = 0; part < 16; part++) { Model[part] = mesh.Model[part]; }
-  if (NVerts == 0 || NIdx == 0 || !Device || !mesh.Emitted || !mesh.Verts || !mesh.Indices ||
+  if (Resident_.NVerts == 0 || Resident_.NIdx == 0 || !Device || !mesh.Emitted || !mesh.Verts || !mesh.Indices ||
       !mesh.Draws) {
-    NIdx = 0;
+    Resident_.NIdx = 0;
     return true;
   }
 
   if (mesh.PrevVerts != nullptr && !WritesVelocity) {
-    NIdx = 0;
+    Resident_.NIdx = 0;
     error = "the mesh carries a previous pose and the pass attaches no velocity target, so the run "
             "would reach no shader";
     return false;
@@ -692,23 +426,23 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   for (const DrawBatch &batch : mesh.Draws->Batches()) {
 
     if (batch.MaterialSlot < Slots.size() && Slots[batch.MaterialSlot].ReadsSecondUv &&
-        !(CarriesUv1(batch.Layout) && HasUv1)) {
-      NIdx = 0;
+        !(CarriesUv1(batch.Layout) && Resident_.HasUv1)) {
+      Resident_.NIdx = 0;
       error = "surface slot " + std::to_string(batch.MaterialSlot) +
               " reads an image from the second uv set and the draw wearing it " +
-              (HasUv1 ? "takes a vertex layout that binds no second run"
+              (Resident_.HasUv1 ? "takes a vertex layout that binds no second run"
                       : "has no second uv run at all") +
               ", and the first set is not a substitute for it";
       return false;
     }
     if (batch.MaterialSlot >= Slots.size()) {
-      NIdx = 0;
+      Resident_.NIdx = 0;
       error = "a draw names surface slot " + std::to_string(batch.MaterialSlot) +
               " over a table of " + std::to_string(Slots.size()) + " surfaces";
       return false;
     }
-    if (batch.FirstIndex + batch.IndexCount > NIdx) {
-      NIdx = 0;
+    if (batch.FirstIndex + batch.IndexCount > Resident_.NIdx) {
+      Resident_.NIdx = 0;
       error = "a draw covers indices " + std::to_string(batch.FirstIndex) + " to " +
               std::to_string(batch.FirstIndex + batch.IndexCount) + " over a run of " +
               std::to_string(mesh.IndexCount);
@@ -720,14 +454,14 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   BatchLayout.reserve(Batches.size());
   for (const DrawBatch &batch : Batches) {
     VertexRunsCarried carried;
-    carried.Uv = CarriesUv(batch.Layout) && HasUv;
-    carried.Normal = CarriesNormal(batch.Layout) && HasNormal;
-    carried.Tangent = CarriesTangent(batch.Layout) && carried.Normal && carried.Uv && HasTangent;
-    carried.Uv1 = CarriesUv1(batch.Layout) && carried.Uv && HasUv1;
-    carried.Colour = CarriesColour(batch.Layout) && HasColour;
+    carried.Uv = CarriesUv(batch.Layout) && Resident_.HasUv;
+    carried.Normal = CarriesNormal(batch.Layout) && Resident_.HasNormal;
+    carried.Tangent = CarriesTangent(batch.Layout) && carried.Normal && carried.Uv && Resident_.HasTangent;
+    carried.Uv1 = CarriesUv1(batch.Layout) && carried.Uv && Resident_.HasUv1;
+    carried.Colour = CarriesColour(batch.Layout) && Resident_.HasColour;
     VertexLayout drawn = VertexLayout::Position;
     if (!LayoutOf(carried, drawn)) {
-      NIdx = 0;
+      Resident_.NIdx = 0;
       Batches.clear();
       BatchLayout.clear();
       error = "a draw's runs name no vertex layout this engine builds, and the nearest one is not "
@@ -739,10 +473,10 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
 
   {
     const Heap::Tagged uploading("mesh-upload");
-    Idx = Fill(SDL_GPU_BUFFERUSAGE_INDEX, mesh.Indices, NIdx * (uint32_t)sizeof(uint32_t));
+    Resident_.Idx = Resident_.Fill(SDL_GPU_BUFFERUSAGE_INDEX, mesh.Indices, Resident_.NIdx * (uint32_t)sizeof(uint32_t));
   }
-  if (!Idx) {
-    NIdx = 0;
+  if (!Resident_.Idx) {
+    Resident_.NIdx = 0;
     error = std::string("the subject's index run did not reach the device: ") + SDL_GetError();
     return false;
   }
@@ -751,12 +485,12 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   {
     const Heap::Tagged building("mesh-bvh");
 
-    Visibility_ = TriangleBvh::Over(Span<const float>(mesh.Verts, (size_t)NVerts * 3u),
-                                    Span<const uint32_t>(mesh.Indices, (size_t)NIdx));
+    Visibility_ = TriangleBvh::Over(Span<const float>(mesh.Verts, (size_t)Resident_.NVerts * 3u),
+                                    Span<const uint32_t>(mesh.Indices, (size_t)Resident_.NIdx));
   }
   if (Visibility_.Empty()) {
-    NIdx = 0;
-    error = "the subject's " + std::to_string(NIdx / 3u) +
+    Resident_.NIdx = 0;
+    error = "the subject's " + std::to_string(Resident_.NIdx / 3u) +
             " triangles built no visibility structure, so no light could be occluded by them";
     return false;
   }
@@ -765,33 +499,33 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
 
 bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::string &error) {
   const Heap::Tagged uploading("mesh-upload");
-  const uint32_t positionBytes = NVerts * 3u * (uint32_t)sizeof(float);
-  const uint32_t pairBytes = NVerts * 2u * (uint32_t)sizeof(float);
-  const uint32_t quadBytes = NVerts * 4u * (uint32_t)sizeof(float);
+  const uint32_t positionBytes = Resident_.NVerts * 3u * (uint32_t)sizeof(float);
+  const uint32_t pairBytes = Resident_.NVerts * 2u * (uint32_t)sizeof(float);
+  const uint32_t quadBytes = Resident_.NVerts * 4u * (uint32_t)sizeof(float);
   const float *const previousPose = pose.PrevVerts != nullptr ? pose.PrevVerts : pose.Verts;
   const auto vertex = SDL_GPU_BUFFERUSAGE_VERTEX;
 
-  Crossing streams[] = {
-      {&Vtx, &Held_[(size_t)Stream::Vertex], vertex, pose.Verts, positionBytes},
-      {&Emit, &Held_[(size_t)Stream::Emitted], vertex, pose.Emitted, positionBytes},
-      {&Nrm, &Held_[(size_t)Stream::Normal], vertex, HasNormal ? pose.Normals : nullptr,
-       HasNormal ? positionBytes : 0u},
-      {&Tan, &Held_[(size_t)Stream::Tangent], vertex, HasTangent ? pose.Tangents : nullptr,
-       HasTangent ? quadBytes : 0u},
-      {&Uv, &Held_[(size_t)Stream::Uv], vertex, HasUv ? pose.Uv : nullptr, HasUv ? pairBytes : 0u},
-      {&Uv1, &Held_[(size_t)Stream::Uv1], vertex, HasUv1 ? pose.Uv1 : nullptr,
-       HasUv1 ? pairBytes : 0u},
-      {&Col, &Held_[(size_t)Stream::Colour], vertex, HasColour ? pose.Colours : nullptr,
-       HasColour ? quadBytes : 0u},
-      {&Prev, &Held_[(size_t)Stream::Previous], vertex, WritesVelocity ? previousPose : nullptr,
+  SubjectResidency::Crossing streams[] = {
+      {&Resident_.Vtx, &Resident_.Held[(size_t)SubjectResidency::Stream::Vertex], vertex, pose.Verts, positionBytes},
+      {&Resident_.Emit, &Resident_.Held[(size_t)SubjectResidency::Stream::Emitted], vertex, pose.Emitted, positionBytes},
+      {&Resident_.Nrm, &Resident_.Held[(size_t)SubjectResidency::Stream::Normal], vertex, Resident_.HasNormal ? pose.Normals : nullptr,
+       Resident_.HasNormal ? positionBytes : 0u},
+      {&Resident_.Tan, &Resident_.Held[(size_t)SubjectResidency::Stream::Tangent], vertex, Resident_.HasTangent ? pose.Tangents : nullptr,
+       Resident_.HasTangent ? quadBytes : 0u},
+      {&Resident_.Uv, &Resident_.Held[(size_t)SubjectResidency::Stream::Uv], vertex, Resident_.HasUv ? pose.Uv : nullptr, Resident_.HasUv ? pairBytes : 0u},
+      {&Resident_.Uv1, &Resident_.Held[(size_t)SubjectResidency::Stream::Uv1], vertex, Resident_.HasUv1 ? pose.Uv1 : nullptr,
+       Resident_.HasUv1 ? pairBytes : 0u},
+      {&Resident_.Col, &Resident_.Held[(size_t)SubjectResidency::Stream::Colour], vertex, Resident_.HasColour ? pose.Colours : nullptr,
+       Resident_.HasColour ? quadBytes : 0u},
+      {&Resident_.Prev, &Resident_.Held[(size_t)SubjectResidency::Stream::Previous], vertex, WritesVelocity ? previousPose : nullptr,
        WritesVelocity ? positionBytes : 0u},
   };
-  if (!Cross(streams, sizeof streams / sizeof streams[0], deferred, error)) {
-    NIdx = 0;
+  if (!Resident_.Cross(streams, sizeof streams / sizeof streams[0], deferred, error)) {
+    Resident_.NIdx = 0;
     return false;
   }
-  if (!Vtx || !Emit || (WritesVelocity && !Prev) || (HasColour && !Col)) {
-    NIdx = 0;
+  if (!Resident_.Vtx || !Resident_.Emit || (WritesVelocity && !Resident_.Prev) || (Resident_.HasColour && !Resident_.Col)) {
+    Resident_.NIdx = 0;
     error = std::string("the subject's vertex streams did not reach the device: ") + SDL_GetError();
     return false;
   }
@@ -802,18 +536,18 @@ bool SubjectDraw::HandVisibility(bool deferred, std::string &error) {
   const Heap::Tagged uploading("mesh-upload");
   const auto storage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ;
 
-  Crossing structure[] = {
-      {&BvhNodes, &Held_[(size_t)Stream::BvhNodes], storage, Visibility_.Nodes().Data(),
+  SubjectResidency::Crossing structure[] = {
+      {&Resident_.BvhNodes, &Resident_.Held[(size_t)SubjectResidency::Stream::BvhNodes], storage, Visibility_.Nodes().Data(),
        (uint32_t)Visibility_.Nodes().Bytes()},
-      {&BvhTris, &Held_[(size_t)Stream::BvhTriangles], storage, Visibility_.Triangles().Data(),
+      {&Resident_.BvhTris, &Resident_.Held[(size_t)SubjectResidency::Stream::BvhTriangles], storage, Visibility_.Triangles().Data(),
        (uint32_t)Visibility_.Triangles().Bytes()},
   };
-  if (!Cross(structure, sizeof structure / sizeof structure[0], deferred, error)) {
-    NIdx = 0;
+  if (!Resident_.Cross(structure, sizeof structure / sizeof structure[0], deferred, error)) {
+    Resident_.NIdx = 0;
     return false;
   }
-  if (!BvhNodes || !BvhTris) {
-    NIdx = 0;
+  if (!Resident_.BvhNodes || !Resident_.BvhTris) {
+    Resident_.NIdx = 0;
     error = std::string("the subject's visibility structure did not reach the device: ") +
             SDL_GetError();
     return false;
@@ -830,13 +564,13 @@ bool SubjectDraw::HandVisibility(bool deferred, std::string &error) {
 }
 
 bool SubjectDraw::SetPose(const SubjectPose &pose, std::string &error) {
-  if (NIdx == 0 || Visibility_.Empty()) {
+  if (Resident_.NIdx == 0 || Visibility_.Empty()) {
     error = "a pose arrived before any mesh, and there is no subject for it to be a pose of";
     return false;
   }
-  if (pose.VertexCount != NVerts) {
+  if (pose.VertexCount != Resident_.NVerts) {
     error = "the pose carries " + std::to_string(pose.VertexCount) + " vertices and the subject has " +
-            std::to_string(NVerts) + ", so it is a different body rather than the same one moved";
+            std::to_string(Resident_.NVerts) + ", so it is a different body rather than the same one moved";
     return false;
   }
   if (!pose.Verts || !pose.Emitted) {
@@ -851,7 +585,7 @@ bool SubjectDraw::SetPose(const SubjectPose &pose, std::string &error) {
   if (!HandStreams(pose, true, error)) { return false; }
   {
     const Heap::Tagged refitting("mesh-bvh");
-    if (!Visibility_.Refit(Span<const float>(pose.Verts, (size_t)NVerts * 3u))) {
+    if (!Visibility_.Refit(Span<const float>(pose.Verts, (size_t)Resident_.NVerts * 3u))) {
       error = "the subject's visibility structure did not refit to this pose";
       return false;
     }
@@ -971,7 +705,7 @@ bool SubjectDraw::ConfigureDepthOnly(const Gpu &gpu, std::string &error) {
 
 void SubjectDraw::EncodeDepthOnly(const double lightFromWorld16[16], const double eye[3],
                                   int atlasPx, const PassRecording &into) {
-  if (!DepthOnly_ || NIdx == 0 || Batches.empty() || !Vtx || !Idx || into.Pass == nullptr) {
+  if (!DepthOnly_ || Resident_.NIdx == 0 || Batches.empty() || !Resident_.Vtx || !Resident_.Idx || into.Pass == nullptr) {
     return;
   }
   SDL_GPUViewport square{};
@@ -981,9 +715,9 @@ void SubjectDraw::EncodeDepthOnly(const double lightFromWorld16[16], const doubl
   square.max_depth = 1.0f;
   SDL_SetGPUViewport(into.Pass, &square);
   SDL_BindGPUGraphicsPipeline(into.Pass, DepthOnly_.Get());
-  SDL_GPUBufferBinding vertices{Vtx.Get(), 0};
+  SDL_GPUBufferBinding vertices{Resident_.Vtx.Get(), 0};
   SDL_BindGPUVertexBuffers(into.Pass, 0, &vertices, 1);
-  SDL_GPUBufferBinding indices{Idx.Get(), 0};
+  SDL_GPUBufferBinding indices{Resident_.Idx.Get(), 0};
   SDL_BindGPUIndexBuffer(into.Pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
   float uniform[16];
@@ -1023,7 +757,7 @@ uint32_t SubjectDraw::DrawCount() const {
 }
 
 void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
-  if (NIdx == 0 || Batches.empty() || !Vtx || !Idx || !Emit || !BvhNodes || !BvhTris) { return; }
+  if (Resident_.NIdx == 0 || Batches.empty() || !Resident_.Vtx || !Resident_.Idx || !Resident_.Emit || !Resident_.BvhNodes || !Resident_.BvhTris) { return; }
   float uniform[kUniFloats] = {};
   const auto place = [this, &ctx, &uniform, &into](uint32_t slot) {
     const double *const model =
@@ -1063,10 +797,10 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   SDL_PushGPUFragmentUniformData(into.Commands, 1, lights.data(),
                                  (uint32_t)(lights.size() * sizeof(float)));
 
-  SDL_GPUBufferBinding indices{Idx.Get(), 0};
+  SDL_GPUBufferBinding indices{Resident_.Idx.Get(), 0};
   SDL_BindGPUIndexBuffer(into.Pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
-  SDL_GPUBuffer *const occluders[kSubjectStorageBuffers] = {BvhNodes.Get(), BvhTris.Get()};
+  SDL_GPUBuffer *const occluders[kSubjectStorageBuffers] = {Resident_.BvhNodes.Get(), Resident_.BvhTris.Get()};
   SDL_BindGPUFragmentStorageBuffers(into.Pass, 0, occluders, kSubjectStorageBuffers);
 
   size_t bound = kPipelines;
@@ -1093,14 +827,14 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
 
       SDL_GPUBufferBinding runs[VertexShape::kRuns] = {};
       uint32_t count = 0;
-      runs[count++] = SDL_GPUBufferBinding{Vtx.Get(), 0};
-      if (textured) { runs[count++] = SDL_GPUBufferBinding{Uv.Get(), 0}; }
-      if (secondUv) { runs[count++] = SDL_GPUBufferBinding{Uv1.Get(), 0}; }
-      runs[count++] = SDL_GPUBufferBinding{lit ? Nrm.Get() : Emit.Get(), 0};
-      if (mapped) { runs[count++] = SDL_GPUBufferBinding{Tan.Get(), 0}; }
-      if (tinted) { runs[count++] = SDL_GPUBufferBinding{Col.Get(), 0}; }
+      runs[count++] = SDL_GPUBufferBinding{Resident_.Vtx.Get(), 0};
+      if (textured) { runs[count++] = SDL_GPUBufferBinding{Resident_.Uv.Get(), 0}; }
+      if (secondUv) { runs[count++] = SDL_GPUBufferBinding{Resident_.Uv1.Get(), 0}; }
+      runs[count++] = SDL_GPUBufferBinding{lit ? Resident_.Nrm.Get() : Resident_.Emit.Get(), 0};
+      if (mapped) { runs[count++] = SDL_GPUBufferBinding{Resident_.Tan.Get(), 0}; }
+      if (tinted) { runs[count++] = SDL_GPUBufferBinding{Resident_.Col.Get(), 0}; }
 
-      if (WritesVelocity) { runs[count++] = SDL_GPUBufferBinding{Prev.Get(), 0}; }
+      if (WritesVelocity) { runs[count++] = SDL_GPUBufferBinding{Resident_.Prev.Get(), 0}; }
       SDL_BindGPUVertexBuffers(into.Pass, 0, runs, count);
       bound = wantedPipeline;
     }
