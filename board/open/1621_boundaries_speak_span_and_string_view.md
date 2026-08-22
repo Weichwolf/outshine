@@ -21,3 +21,13 @@ Enabling move landed: the whole tree builds C++20 (one CXXSTD; gate 122/122 warm
 First conversion: the Fit family (Simplify, Fit, KeepBetween, AwayFromChordM) takes
 std::span<const double> -- callers convert implicitly, zero churn. Survey: 98 vector-ref and
 76 string-ref boundary parameters remain, layer by layer.
+---
+
+Reviewer sharpening (2026-08-22, evening round) -- three residues of this hour's own sweep:
+- src/ground/TileWatermark.h:59 `Done(const std::vector<OsmField::Feature> &)` kept the
+  vector ref while Ask and Advance beside it went span -- half-converted class.
+- src/core/io/Log.h: only Info gained a span overload; Debug/Warn/Error still take
+  initializer_list alone, so a caller holding a built field array can only log at Info.
+- src/core/io/Log.cpp:39-44 (Emit): under an active LogUnitScope every log call still
+  allocates the withUnit vector -- 40d99ce's "the allocation is gone" holds only for the
+  unit-less path. Prepend the unit field sink-side or on a fixed-capacity buffer.

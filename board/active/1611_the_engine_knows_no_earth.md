@@ -126,3 +126,10 @@ rounded) and 40075016.686; kEarthRadiusM's duplicate name in TileGeodesy died in
 the 9.80665/1.2250 seeds are spelled ONCE in WorldSettings -- the reader defaults to the
 struct's own values. Slices 2-6 (Wayfinding radius from the declaration, GeoToEcef under
 src/data, studio anchor naming, Ephemeris naming) remain.
+---
+
+Reviewer sharpening (2026-08-22, evening round): the purge commit 0b4acae claims "40075017.0
+(twice) and 40075016.686 are gone" -- provably false at src/ground/World.cpp:31, where
+`static const double kEarthCirc = 40075016.686;` still stands and feeds the tile ground-size
+maths at World.cpp:90, in a file that already includes TileGeodesy.h and therefore has
+kMercatorGirthM in reach. One-line repayment; the commit's claim is corrected here.
