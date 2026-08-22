@@ -178,7 +178,7 @@ flowchart TD
   Ephemeris & RegionForge --> Sim --> Renderer
   Frustum -.-> DrawList
   TilePool --> World["World — quadtree LOD · admission · kerbs"] --> Sim
-  GroundStream --> Journey["Journey — the drive, living in tools/"]
+  GroundStream --> Journey["Journey — the drive in src/sim, one monolith decomposing into systems"]
   Journey -.-> Sim
   Engine --> Live
   GltfStudio --> Renderer
@@ -189,15 +189,16 @@ flowchart TD
   classDef wrong fill:#7a2222,stroke:#3d1111,color:#fff
   class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,OsmField,RoadHarvest,Wayfinding,StreetField,Ground,Forest,Buildings,Water,Infrastructure,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,Engine,SceneStore,Assembly,SubjectResidency sound
   class BuildingField,WaterField,Subject,DrawList,Renderer,TonemapStage,LightVisibilityStage,Frustum,Ephemeris,RegionForge,GltfStudio unsure
-  class TilePool,World,SubjectDraw,Sim,Live,Journey wrong
+  class TilePool,World,SubjectDraw,Sim,Live wrong
+  class Journey unsure
 ```
 
 Colours are ARCHITECTURE, adjudicated by an independent review (2026-08-22): green = right
 responsibility in the right layer; amber = form in question (fields that tessellate, the getter
 carpet, TAA folded into tonemap, idle values); red = provably wrong — `TilePool` and `World`
 spell camera and LOD inside the ground layer, `SubjectDraw` is six responsibilities, `Sim` and
-`Live` are hand-wired god facades the component model replaces, `Journey` is engine work in a
-tool. The rot concentrates at the orchestration edges; the middle of the tree is sound.
+`Live` are hand-wired god facades the component model replaces, `Journey` folded into `src/sim` on 2026-08-22 and is amber while it decomposes into
+systems. The rot concentrates at the orchestration edges; the middle of the tree is sound.
 
 ## Class structure (SOLL — where the tree is going)
 
