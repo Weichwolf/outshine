@@ -9,13 +9,12 @@
 
 namespace outshine::World {
 
-inline constexpr double kEarthRadiusM = 6371008.8;
 inline constexpr size_t kMaxNetworkPoints = 4000000;
 inline constexpr size_t kMaxRouteLegs = 262144;
 inline constexpr double kStartReachM = 250.0;
 
 [[nodiscard]] double ApartM(double fromLatDeg, double fromLonDeg, double toLatDeg,
-                            double toLonDeg);
+                            double toLonDeg, double sphereRadiusM);
 
 struct Waypoint {
   double LatDeg = 0.0;
@@ -43,7 +42,7 @@ struct Route {
 
 class Network {
 public:
-  explicit Network(double snapM) : SnapM_(snapM) {}
+  Network(double snapM, double sphereRadiusM) : SnapM_(snapM), RadiusM_(sphereRadiusM) {}
 
   void Lay(const double *latLonPairs, size_t points, double halfWidthM, double maxGradient,
            int lanes);
@@ -86,6 +85,7 @@ private:
   [[nodiscard]] int64_t CellOf(double latDeg, double lonDeg) const;
 
   double SnapM_ = 0.0;
+  double RadiusM_ = 0.0;
   std::vector<double> Points_;
   std::vector<double> Widths_;
   std::vector<double> Gradients_;
@@ -97,7 +97,7 @@ private:
   bool Woven_ = false;
 };
 
-[[nodiscard]] Route Plan(const Waypoint &from, const Waypoint &to);
+[[nodiscard]] Route Plan(const Waypoint &from, const Waypoint &to, double sphereRadiusM);
 
 } // namespace outshine::World
 

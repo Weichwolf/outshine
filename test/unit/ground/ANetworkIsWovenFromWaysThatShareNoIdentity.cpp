@@ -8,6 +8,8 @@
 #include "Wayfinding.h"
 
 using outshine::World::ApartM;
+
+constexpr double kIuggMeanRadiusM = 6371008.8;
 using outshine::World::Network;
 using outshine::World::Route;
 using outshine::World::Waypoint;
@@ -18,7 +20,7 @@ constexpr double kSnapM = 2.0;
 constexpr double kBlockDeg = 0.01;
 constexpr int kSide = 6;
 
-double MetresPerDegreeLat(void) { return ApartM(0.0, 0.0, 1.0, 0.0); }
+double MetresPerDegreeLat(void) { return ApartM(0.0, 0.0, 1.0, 0.0, kIuggMeanRadiusM); }
 
 } // namespace
 
@@ -32,18 +34,18 @@ int main(void) {
              "a sphere of the WGS84 mean radius, and a route 775 km long that used a flat "
              "approximation would be wrong by kilometres");
   Note("Munich to Hamburg as the crow flies",
-       ApartM(48.1371, 11.5754, 53.5503, 9.9920) / 1000.0, "km");
-  CHECK_NEAR(ApartM(48.1371, 11.5754, 53.5503, 9.9920) / 1000.0, 612.0, 5.0, "km",
+       ApartM(48.1371, 11.5754, 53.5503, 9.9920, kIuggMeanRadiusM) / 1000.0, "km");
+  CHECK_NEAR(ApartM(48.1371, 11.5754, 53.5503, 9.9920, kIuggMeanRadiusM) / 1000.0, 612.0, 5.0, "km",
              "and Marienplatz to Rathausmarkt is 612 km, which is the number every route length in "
              "this case is read against");
 
-  Note("a metre either side of the antimeridian", ApartM(0.0, 179.99999, 0.0, -179.99999), "m");
-  CHECK(ApartM(0.0, 179.99999, 0.0, -179.99999) < 5.0,
+  Note("a metre either side of the antimeridian", ApartM(0.0, 179.99999, 0.0, -179.99999, kIuggMeanRadiusM), "m");
+  CHECK(ApartM(0.0, 179.99999, 0.0, -179.99999, kIuggMeanRadiusM) < 5.0,
         "**AND TWO POINTS EITHER SIDE OF THE 180TH MERIDIAN ARE NEIGHBOURS.** Subtracting the "
         "longitudes gives 360 degrees and 40 000 km; wrapping the difference gives 2 m, which is "
         "what they are. board:1524's antimeridian stratum exists because this is silent when wrong");
 
-  Network grid(kSnapM);
+  Network grid(kSnapM, kIuggMeanRadiusM);
   double lat = 48.0, lon = 11.0;
   for (int row = 0; row < kSide; ++row) {
     std::vector<double> along;
@@ -100,10 +102,11 @@ int main(void) {
   CHECK(across.Found, "and a route is searched from one corner of it to the other");
   if (!across.Found) { return Report(); }
 
-  const double sideM = ApartM(lat, lon, lat + (double)(kSide - 1) * kBlockDeg, lon);
+  const double sideM = ApartM(lat, lon, lat + (double)(kSide - 1) * kBlockDeg, lon,
+                              kIuggMeanRadiusM);
   const double acrossM = ApartM(lat + (double)(kSide - 1) * kBlockDeg, lon,
                                 lat + (double)(kSide - 1) * kBlockDeg,
-                                lon + (double)(kSide - 1) * kBlockDeg);
+                                lon + (double)(kSide - 1) * kBlockDeg, kIuggMeanRadiusM);
   Note("the route it found", across.LengthM, "m");
   Note("what a grid with no diagonal must cost", sideM + acrossM, "m");
   Note("the straight line between the corners", across.StraightM, "m");
@@ -123,7 +126,7 @@ int main(void) {
         "having settled no more nodes than the network holds, which is what makes the heuristic "
         "worth carrying");
 
-  Network island(kSnapM);
+  Network island(kSnapM, kIuggMeanRadiusM);
   const double first[4] = {48.0, 11.0, 48.0, 11.01};
   const double second[4] = {49.0, 12.0, 49.0, 12.01};
   island.Lay(first, 2, 3.5, 0.06, 2);

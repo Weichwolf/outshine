@@ -124,7 +124,7 @@ bool Journey::Lay(const Store &scene, const Assembled &cast, const Column<Vehicl
   auto &narrowestLaneM = S_->Way.NarrowestLaneM;
 
 
-  const double straightM = ApartM(fromLatDeg, fromLonDeg, toLatDeg, toLonDeg);
+  const double straightM = ApartM(fromLatDeg, fromLonDeg, toLatDeg, toLonDeg, world.RadiusM);
   const double middleLat = 0.5 * (fromLatDeg + toLatDeg);
   const double middleLon = 0.5 * (fromLonDeg + toLonDeg);
   say.Number("start to destination as the crow flies", straightM / 1000.0, "km");
@@ -214,7 +214,7 @@ bool Journey::Lay(const Store &scene, const Assembled &cast, const Column<Vehicl
         "the declared widths load, with their RAA, RAL and RASt origins");
 
   const double quantumM = outshine::World::kMercatorGirthM / ((double)(1L << kZoom) * 4096.0);
-  Network roads(1.05 * quantumM);
+  Network roads(1.05 * quantumM, world.RadiusM);
   say.Number("the tile's own coordinate quantisation", quantumM, "m");
   const Reaped reaped = Reap(field, widths, carWidthM, roads);
   say.Number("the snapping distance just above it", roads.SnapM(), "m");
@@ -299,7 +299,7 @@ bool Journey::Lay(const Store &scene, const Assembled &cast, const Column<Vehicl
   if (!stood.Stood) { return false; }
 
   if (!Sim::LayCorridor(route, *S_->Ground, S_->Car, stood, quantumM, tightestM,
-                        middleLat, say, S_->Way, error)) {
+                        middleLat, world.RadiusM, say, S_->Way, error)) {
     return false;
   }
 

@@ -11,16 +11,18 @@ namespace outshine::World {
 namespace {
 
 constexpr double kDegToRad = 0.017453292519943295;
-constexpr double kMetresPerDegreeLat = kEarthRadiusM * kDegToRad;
 
-double MetresPerDegreeLon(double latDeg) {
+double MetresPerDegreeLat(double sphereRadiusM) { return sphereRadiusM * kDegToRad; }
+
+double MetresPerDegreeLon(double latDeg, double sphereRadiusM) {
   const double shrink = std::cos(latDeg * kDegToRad);
-  return kMetresPerDegreeLat * (shrink > 1.0e-6 ? shrink : 1.0e-6);
+  return MetresPerDegreeLat(sphereRadiusM) * (shrink > 1.0e-6 ? shrink : 1.0e-6);
 }
 
 } // namespace
 
-double ApartM(double fromLatDeg, double fromLonDeg, double toLatDeg, double toLonDeg) {
+double ApartM(double fromLatDeg, double fromLonDeg, double toLatDeg, double toLonDeg,
+              double sphereRadiusM) {
   const double fromLat = fromLatDeg * kDegToRad;
   const double toLat = toLatDeg * kDegToRad;
   const double byLat = (toLatDeg - fromLatDeg) * kDegToRad;
@@ -32,7 +34,7 @@ double ApartM(double fromLatDeg, double fromLonDeg, double toLatDeg, double toLo
   const double half = std::sin(0.5 * byLat) * std::sin(0.5 * byLat) +
                       std::cos(fromLat) * std::cos(toLat) * std::sin(0.5 * byLon) *
                           std::sin(0.5 * byLon);
-  return 2.0 * kEarthRadiusM * std::asin(std::sqrt(half < 1.0 ? half : 1.0));
+  return 2.0 * sphereRadiusM * std::asin(std::sqrt(half < 1.0 ? half : 1.0));
 }
 
 void Network::Lay(const double *latLonPairs, size_t points, double halfWidthM,
@@ -56,8 +58,8 @@ void Network::Lay(const double *latLonPairs, size_t points, double halfWidthM,
 }
 
 int64_t Network::CellOf(double latDeg, double lonDeg) const {
-  const double latCell = SnapM_ / kMetresPerDegreeLat;
-  const double lonCell = SnapM_ / MetresPerDegreeLon(latDeg);
+  const double latCell = SnapM_ / MetresPerDegreeLat(RadiusM_);
+  const double lonCell = SnapM_ / MetresPerDegreeLon(latDeg, RadiusM_);
   const int64_t row = (int64_t)std::floor(latDeg / latCell);
   const int64_t column = (int64_t)std::floor(lonDeg / lonCell);
   return (row << 32) ^ (column & 0xffffffffLL);
@@ -91,15 +93,15 @@ bool Network::Weave(std::string &error) {
     const double lonDeg = Points_[2 * point + 1];
 
     size_t found = Nodes_.size();
-    const double latCell = SnapM_ / kMetresPerDegreeLat;
-    const double lonCell = SnapM_ / MetresPerDegreeLon(latDeg);
+    const double latCell = SnapM_ / MetresPerDegreeLat(RadiusM_);
+    const double lonCell = SnapM_ / MetresPerDegreeLon(latDeg, RadiusM_);
     for (int row = -1; row <= 1 && found == Nodes_.size(); ++row) {
       for (int column = -1; column <= 1 && found == Nodes_.size(); ++column) {
         const int64_t key = CellOf(latDeg + (double)row * latCell, lonDeg + (double)column * lonCell);
         const auto seen = byCell.find(key);
         if (seen == byCell.end()) { continue; }
         for (const size_t candidate : seen->second) {
-          if (ApartM(latDeg, lonDeg, Nodes_[candidate].LatDeg, Nodes_[candidate].LonDeg) <= SnapM_) {
+          if (ApartM(latDeg, lonDeg, Nodes_[candidate].LatDeg, Nodes_[candidate].LonDeg, RadiusM_) <= SnapM_) {
             found = candidate;
             break;
           }
@@ -134,7 +136,7 @@ bool Network::Weave(std::string &error) {
       const size_t to = nodeOf[way.First + step];
       if (from == to) { continue; }
       const double lengthM = ApartM(Nodes_[from].LatDeg, Nodes_[from].LonDeg, Nodes_[to].LatDeg,
-                                    Nodes_[to].LonDeg);
+                                    Nodes_[to].LonDeg, RadiusM_);
       outgoing[from].push_back(Edge{to, lengthM});
       outgoing[to].push_back(Edge{from, lengthM});
     }
@@ -162,9 +164,9 @@ size_t Network::JunctionCount(void) const {
 bool Network::Nearest(const Waypoint &to, size_t &node, double &awayM) const {
   if (Nodes_.empty()) { return false; }
   size_t best = 0;
-  double bestAway = ApartM(to.LatDeg, to.LonDeg, Nodes_[0].LatDeg, Nodes_[0].LonDeg);
+  double bestAway = ApartM(to.LatDeg, to.LonDeg, Nodes_[0].LatDeg, Nodes_[0].LonDeg, RadiusM_);
   for (size_t which = 1; which < Nodes_.size(); ++which) {
-    const double away = ApartM(to.LatDeg, to.LonDeg, Nodes_[which].LatDeg, Nodes_[which].LonDeg);
+    const double away = ApartM(to.LatDeg, to.LonDeg, Nodes_[which].LatDeg, Nodes_[which].LonDeg, RadiusM_);
     if (away < bestAway) {
       bestAway = away;
       best = which;
@@ -178,7 +180,7 @@ bool Network::Nearest(const Waypoint &to, size_t &node, double &awayM) const {
 void Network::Within(const Waypoint &of, double reachM, std::vector<size_t> &nodes) const {
   nodes.clear();
   for (size_t which = 0; which < Nodes_.size(); ++which) {
-    if (ApartM(of.LatDeg, of.LonDeg, Nodes_[which].LatDeg, Nodes_[which].LonDeg) <= reachM) {
+    if (ApartM(of.LatDeg, of.LonDeg, Nodes_[which].LatDeg, Nodes_[which].LonDeg, RadiusM_) <= reachM) {
       nodes.push_back(which);
     }
   }
@@ -187,7 +189,7 @@ void Network::Within(const Waypoint &of, double reachM, std::vector<size_t> &nod
 Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM,
                     double withinM) const {
   Route out;
-  out.StraightM = ApartM(from.LatDeg, from.LonDeg, to.LatDeg, to.LonDeg);
+  out.StraightM = ApartM(from.LatDeg, from.LonDeg, to.LatDeg, to.LonDeg, RadiusM_);
   if (!Woven_) {
     out.Error = "a network is planned over only after it is woven";
     return out;
@@ -213,11 +215,11 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM,
   if (nearStart.empty()) { nearStart.push_back(start); }
   out.StartedFrom = nearStart.size();
   for (const size_t seed : nearStart) {
-    const double awayM = ApartM(from.LatDeg, from.LonDeg, Nodes_[seed].LatDeg, Nodes_[seed].LonDeg);
+    const double awayM = ApartM(from.LatDeg, from.LonDeg, Nodes_[seed].LatDeg, Nodes_[seed].LonDeg, RadiusM_);
     if (awayM >= best[seed]) { continue; }
     best[seed] = awayM;
     open.push(Step{awayM + ApartM(Nodes_[seed].LatDeg, Nodes_[seed].LonDeg, Nodes_[finish].LatDeg,
-                                  Nodes_[finish].LonDeg),
+                                  Nodes_[finish].LonDeg, RadiusM_),
                    seed});
   }
 
@@ -270,7 +272,7 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM,
       came[edge.To] = node;
       cameLengthM[edge.To] = edge.LengthM;
       open.push(Step{through + ApartM(Nodes_[edge.To].LatDeg, Nodes_[edge.To].LonDeg,
-                                      Nodes_[finish].LatDeg, Nodes_[finish].LonDeg),
+                                      Nodes_[finish].LatDeg, Nodes_[finish].LonDeg, RadiusM_),
                      edge.To});
     }
   }
@@ -300,7 +302,7 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM,
     const Node &node = Nodes_[back[which]];
     if (which > 0) {
       const Node &was = Nodes_[back[which - 1]];
-      alongM += ApartM(was.LatDeg, was.LonDeg, node.LatDeg, node.LonDeg);
+      alongM += ApartM(was.LatDeg, was.LonDeg, node.LatDeg, node.LonDeg, RadiusM_);
     }
     Leg leg;
     leg.At.LatDeg = node.LatDeg;
@@ -316,9 +318,9 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM,
   return out;
 }
 
-Route Plan(const Waypoint &from, const Waypoint &to) {
+Route Plan(const Waypoint &from, const Waypoint &to, double sphereRadiusM) {
   Route out;
-  out.StraightM = ApartM(from.LatDeg, from.LonDeg, to.LatDeg, to.LonDeg);
+  out.StraightM = ApartM(from.LatDeg, from.LonDeg, to.LatDeg, to.LonDeg, sphereRadiusM);
   out.Error = "no network is woven over the streamed ways yet, so no route between " +
               std::to_string(from.LatDeg) + " " + std::to_string(from.LonDeg) + " and " +
               std::to_string(to.LatDeg) + " " + std::to_string(to.LonDeg) +

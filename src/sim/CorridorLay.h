@@ -32,8 +32,8 @@ struct Corridor {
 
 [[nodiscard]] bool LayCorridor(const World::Route &route, World::GroundStream &ground,
                                const Vehicle &car, const Rigged &stood, double quantumM,
-                               double tightestM, double middleLat, Sink &say, Corridor &out,
-                               std::string &error);
+                               double tightestM, double middleLat, double sphereRadiusM,
+                               Sink &say, Corridor &out, std::string &error);
 
 }
 

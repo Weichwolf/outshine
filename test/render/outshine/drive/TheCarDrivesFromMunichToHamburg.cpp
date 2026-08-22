@@ -36,7 +36,7 @@ int main(void) {
 
   const Waypoint from{kMunichLat, kMunichLon};
   const Waypoint to{kHamburgLat, kHamburgLon};
-  const Route planned = Plan(from, to);
+  const Route planned = Plan(from, to, 6371008.8);
   if (!planned.Found) { std::printf("REFUSED %s\n", planned.Error.c_str()); }
 
   CHECK(planned.Found,

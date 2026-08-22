@@ -33,9 +33,9 @@ care which planet it is standing on.
       declaration -- named as the PROVIDER's shape, not the world's. Survey at f1c48fe3, the
       slices in working order:
       1. [DONE] src/core/Camera.h kEarthRadiusM + HorizonDipRad: zero callers, deleted
-      2. src/ground/Wayfinding.h kEarthRadiusM = 6371008.8: the great-circle radius is the
-         DECLARED sphere's -- travels in from the world declaration (driver declarations cite
-         IUGG mean radius), no constant in the ground layer
+      2. [DONE] Wayfinding's kEarthRadiusM died: ApartM, the free Plan and Network take the
+         sphere radius; Journey and LayCorridor pass world.RadiusM; the seed 6371008.8 (IUGG
+         mean) lives ONCE in WorldSettings and the reader defaults to the struct
       3. src/ground/tiles/TileGeodesy.h kWgs84A + Mercator band: the TILE SCHEME's own datum --
          moves beside the tile source under src/data, named as the tiling's shape
       4. src/core/Geodesy.h GeoToEcef WGS84 a/e2: the height/imagery providers' datum -- moves

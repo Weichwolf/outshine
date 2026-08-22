@@ -33,7 +33,7 @@ struct WorldSettings {
   bool Declared = false;
   double Lat = 0.0;
   double Lon = 0.0;
-  double RadiusM = 0.0;
+  double RadiusM = 6371008.8;
   double GravityMs2 = 9.80665;
   double AirDensityKgM3 = 1.2250;
   double WindDeg = 0.0;
