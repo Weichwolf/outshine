@@ -55,3 +55,13 @@ gates"); the empty-claim window is a writer mid-flight for three beats before it
 treated as a corpse, and the whole dance bounds at six breaks with a by-hand refusal naming
 the path. Both arms live-proven again (dead pid breaks and runs, live pid refuses by name);
 the claims regression test stands over it all. Gate 133/133.
+
+Sharpened (review 2026-08-23, round 10) -- a residual in the give-back path, on record, not
+reopening: run.sh:86 `mv "$NESTLOCK.stolen.$$" "$NESTLOCK"` CLOBBERS. Window: A's claim
+looks dead, B steals it (mv out), C noclobber-creates a fresh live claim in the now-empty
+name, B's inspection finds the stolen pid turned live and gives it back -- over C's claim.
+C and the returned owner then both believe they hold the nest. Three-party race inside a
+sub-second window, probability negligible, but the consequence is the exact corruption the
+lock exists to refuse. The cure this file already names for the sibling window applies:
+give back via `ln` (no-clobber, atomic) and Die differently when the give-back loses the
+name -- the claim it would have restored is dead anyway, C's is live.

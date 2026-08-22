@@ -79,3 +79,12 @@ Proving test: AClientRunsAScenarioInFourLines -- nine rooms through one engine, 
 way, its Resume refuses, the trace names it. Remaining: the clock's declared park behaviour
 (freeze or run), the transition MEASURED at p50/p95/p99 in the scenario suite, memory over a
 hundred transitions.
+
+Sharpened (review 2026-08-23, round 10): the paragraph above describes DEAD behaviour --
+board:1665 FLIPPED the adjudication the same night: the ninth park REFUSES (a park is the
+only copy, no savefile beneath it), nothing evicts, and the Carried eviction trace died with
+the eviction. The refusal names the least-recently-live door. What the flip exposed is
+board:1668: Resume erases the park before Declare succeeds (a failing resume destroys the
+only copy), Resume over a standing scenario silently discards it, and the refusal's remedy
+"discard" is a verb the public handle does not have. The remaining checkboxes above stand
+unchanged.
