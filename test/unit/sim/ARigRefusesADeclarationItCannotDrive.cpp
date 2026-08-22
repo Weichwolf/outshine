@@ -51,13 +51,13 @@ int main(void) {
   using namespace outshine::Test;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-  const Rigged good = Stand(Plausible());
+  const Rigged good = Stand(Plausible(), 9.80665);
   if (!good.Stood) { std::printf("REFUSED %s\n", good.Error.c_str()); }
   CHECK(good.Stood, "a plausible four-contact declaration stands up");
 
   Vehicle noseHeavy = Plausible();
   for (Contact &one : noseHeavy.Contacts) { one.AtM[2] = -1.25; }
-  const Rigged refused = Stand(noseHeavy);
+  const Rigged refused = Stand(noseHeavy, 9.80665);
   CHECK(!refused.Stood,
         "**A VEHICLE WITH NO CONTACT BEHIND THE CENTRE OF MASS REFUSES INSTEAD OF STANDING UP "
         "SILENTLY UNDRIVABLE**: the old fallback set every DrivenShare to zero and said "
@@ -65,9 +65,16 @@ int main(void) {
   CHECK(refused.Error.find("centre of mass") != std::string::npos,
         "and the refusal says why");
 
+  const Rigged onTheMoon = Stand(Plausible(), 1.62);
+  CHECK(onTheMoon.Stood && onTheMoon.Envelope.GravityMs2 == 1.62,
+        "**THE RIG STANDS IN THE DECLARED WORLD'S GRAVITY, NOT IN A CONSTANT'S**: 1.62 m/s2 "
+        "(measured, lunar surface mean) flows into the envelope every limit derives from");
+  CHECK(!Stand(Plausible(), 0.0).Stood,
+        "and a world declaring no gravity refuses -- nothing would hold a wheel to the ground");
+
   Vehicle onThePlane = Plausible();
   for (Contact &one : onThePlane.Contacts) { one.AtM[2] = 0.0; }
-  CHECK(!Stand(onThePlane).Stood,
+  CHECK(!Stand(onThePlane, 9.80665).Stood,
         "contacts exactly on the centre plane belong to no axle, and that degenerate "
         "declaration refuses by the same rule rather than falling through two strict "
         "predicates");

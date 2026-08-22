@@ -143,8 +143,8 @@ namespace {
 } // namespace
 
 bool Journey::Lay(const Store &scene, const Assembled &cast, const Column<Vehicle> &vehicles,
-                  const Column<Drive> &driven, Data::Transport &wire, const Provision &kept,
-                  Sink &say) {
+                  const Column<Drive> &driven, const WorldSettings &world, Data::Transport &wire,
+                  const Provision &kept, Sink &say) {
   say.Claim(!kept.CacheDir.empty() && !kept.AssetsDir.empty(),
         "**THE CALLER PROVISIONS THE JOURNEY**: a cache directory and an assets root arrive as "
         "declarations -- the library owns no path");
@@ -344,7 +344,7 @@ bool Journey::Lay(const Store &scene, const Assembled &cast, const Column<Vehicl
 
 
   say.Number("the narrowest road on the route", reaped.NarrowestTakenM, "m");
-  stood = outshine::Sim::Stand(S_->Car);
+  stood = outshine::Sim::Stand(S_->Car, world.GravityMs2);
   if (!stood.Stood) { say.Say(Line("REFUSED %s", stood.Error.c_str())); }
   say.Claim(stood.Stood, "**AND THE DECLARED F31 STANDS UP AS A RIG.** Every number the drive uses comes "
                      "from the file, not from a constant beside it");

@@ -130,7 +130,7 @@ bool LayCorridor(const World::Route &route, World::GroundStream &ground, const V
         "than the corner, and the small overrun is the first-order construction on the tail of "
         "sharp turns");
   say.Number("the speed the tightest radius allows at 0.95 g",
-       std::sqrt(0.95 * 9.80665 * fitted.TightestRadiusM) * 3.6, "km/h");
+       std::sqrt(0.95 * stood.Envelope.GravityMs2 * fitted.TightestRadiusM) * 3.6, "km/h");
 
 
   const double postM = ground.PostM(middleLat);
@@ -414,7 +414,7 @@ bool LayCorridor(const World::Route &route, World::GroundStream &ground, const V
         "this count exists to make loud. The grades are RAA, RAL and RASt figures declared beside "
         "the declared vegetation table");
   say.Number("the gentlest grade any road class on this route declares", gentlestLimit * 100.0, "%");
-  const double weightN = stood.Envelope.MassKg * 9.80665;
+  const double weightN = stood.Envelope.MassKg * stood.Envelope.GravityMs2;
   const double fromRest = stood.Envelope.DriveN / weightN;
   const double topMs = stood.Envelope.TopMs();
   const double dragAtTopN =
@@ -503,7 +503,7 @@ bool LayCorridor(const World::Route &route, World::GroundStream &ground, const V
   say.Number("as a percentage", worstGradeM * 100.0, "%");
   say.Number("where that is", worstGradeAtM / 1000.0, "km");
 
-  const double climbLimit = stood.Envelope.DriveN / (stood.Envelope.MassKg * 9.80665);
+  const double climbLimit = stood.Envelope.DriveN / (stood.Envelope.MassKg * stood.Envelope.GravityMs2);
   say.Number("the steepest the standing rig's drivetrain can climb", climbLimit * 100.0, "%");
   say.Claim(rose, "**AND THE CORRIDOR RISES WITH THE REAL GROUND UNDER IT.** Heights from the "
               "declared elevation source, each a knot with its own slope, and one cubic through "

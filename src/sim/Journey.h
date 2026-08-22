@@ -43,7 +43,8 @@ public:
 
   [[nodiscard]] bool Lay(const Store &scene, const Assembled &cast,
                          const Column<Vehicle> &vehicles, const Column<Drive> &driven,
-                         Data::Transport &wire, const Provision &kept, Sink &say);
+                         const WorldSettings &world, Data::Transport &wire,
+                         const Provision &kept, Sink &say);
   [[nodiscard]] Ridden Ride(double dtS, const Taken *taken = nullptr);
   void Close(void);
 

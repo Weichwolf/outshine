@@ -340,7 +340,7 @@ int main(void) {
     std::printf("REFUSED %s\n", readError.c_str());
     return Report();
   }
-  const bool laid = journey.Lay(scene, cast, vehicles, drives, wire,
+  const bool laid = journey.Lay(scene, cast, vehicles, drives, declared.Ground, wire,
       outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, quiet);
   CHECK(laid, "the road is laid, exactly as the drive lays it");
   if (!laid) { return Report(); }

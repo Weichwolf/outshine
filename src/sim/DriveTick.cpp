@@ -42,7 +42,7 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood, const Vehicle &car,
   reins.SettleS = 1.0;
   reins.LeastReachM = stood.Axles.WheelbaseM;
   reins.HoldWithinM = way.HoldWithinM;
-  const double gravity[3] = {0.0, -9.80665, 0.0};
+  const double gravity[3] = {0.0, -stood.Envelope.GravityMs2, 0.0};
   const double dragArea = car.DragCoefficient * car.FrontalM2;
   out.Found = true;
 

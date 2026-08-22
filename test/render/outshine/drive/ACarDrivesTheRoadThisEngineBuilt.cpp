@@ -72,6 +72,7 @@ constexpr size_t kCorners = 4;
 
 Envelope F31Envelope(void) {
   Envelope out;
+  out.GravityMs2 = 9.80665;
   out.Grip = kGrip;
   out.MassKg = kMassKg;
   out.DriveN = 400.0 * 3.08 / kTyreRadiusM;

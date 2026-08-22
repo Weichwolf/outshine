@@ -13,9 +13,9 @@ double BankLimitOf(const Wings &of) {
   return limitRad;
 }
 
-double TightestPerM(const Wings &of, double speedMs) {
+double TightestPerM(const Wings &of, double speedMs, double gravityMs2) {
   if (!(speedMs > 0.0)) { return 0.0; }
-  return kGravityMs2 * std::tan(BankLimitOf(of)) / (speedMs * speedMs);
+  return gravityMs2 * std::tan(BankLimitOf(of)) / (speedMs * speedMs);
 }
 
 Attitude Fly(const Wings &of, const Envelope &within, const Demand &asked) {
@@ -23,7 +23,7 @@ Attitude Fly(const Wings &of, const Envelope &within, const Demand &asked) {
   if (!asked.Held) { return out; }
 
   const double speedMs = asked.SpeedMs;
-  out.BankRad = std::atan(speedMs * speedMs * asked.CurvaturePerM / kGravityMs2);
+  out.BankRad = std::atan(speedMs * speedMs * asked.CurvaturePerM / within.GravityMs2);
   const double limitRad = BankLimitOf(of);
   if (out.BankRad > limitRad) { out.BankRad = limitRad; }
   if (out.BankRad < -limitRad) { out.BankRad = -limitRad; }
@@ -34,7 +34,7 @@ Attitude Fly(const Wings &of, const Envelope &within, const Demand &asked) {
   if (out.ClimbRad < -of.ClimbLimitRad) { out.ClimbRad = -of.ClimbLimitRad; }
 
   const double dragN = 0.5 * within.AirDensity * within.DragArea * speedMs * speedMs;
-  const double weightN = within.MassKg * kGravityMs2;
+  const double weightN = within.MassKg * within.GravityMs2;
   out.ThrustN = dragN + weightN * std::sin(out.ClimbRad) + within.MassKg * asked.AlongMs2;
   if (out.ThrustN < 0.0) { out.ThrustN = 0.0; }
   if (within.DriveN > 0.0 && out.ThrustN > within.DriveN) { out.ThrustN = within.DriveN; }

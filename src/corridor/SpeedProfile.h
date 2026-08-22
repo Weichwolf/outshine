@@ -9,10 +9,9 @@
 
 namespace outshine {
 
-inline constexpr double kGravityMs2 = 9.80665;
-
 struct Envelope {
   double Grip = 0.0;
+  double GravityMs2 = 0.0;
   double MassKg = 0.0;
   double DriveN = 0.0;
   double BrakeN = 0.0;
@@ -23,14 +22,14 @@ struct Envelope {
   double SettleS = 0.0;
   double CorneringNPerRad = 0.0;
 
-  [[nodiscard]] double LateralMs2(void) const { return Grip * kGravityMs2; }
+  [[nodiscard]] double LateralMs2(void) const { return Grip * GravityMs2; }
   [[nodiscard]] double HoldingMs2(void) const {
-    const double left = Grip * kGravityMs2 - ReserveMs2;
+    const double left = Grip * GravityMs2 - ReserveMs2;
     return left > 0.0 ? left : 0.0;
   }
   [[nodiscard]] double AccelMs2(void) const { return MassKg > 0.0 ? DriveN / MassKg : 0.0; }
   [[nodiscard]] double BrakeMs2(void) const {
-    const double fromTyres = Grip * kGravityMs2;
+    const double fromTyres = Grip * GravityMs2;
     const double fromBrakes = MassKg > 0.0 ? BrakeN / MassKg : 0.0;
     return fromBrakes < fromTyres ? fromBrakes : fromTyres;
   }

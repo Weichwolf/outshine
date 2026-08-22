@@ -14,9 +14,14 @@ bool Refuse(Rigged &out, const std::string &why) {
 
 } // namespace
 
-Rigged Stand(const Vehicle &declared) {
+Rigged Stand(const Vehicle &declared, double gravityMs2) {
   Rigged out;
 
+  if (!(gravityMs2 > 0.0)) {
+    Refuse(out, "a rig stands in a declared world, and this world declares a gravity of " +
+                    std::to_string(gravityMs2) + " m/s2 -- nothing holds a wheel to the ground");
+    return out;
+  }
   if (!(declared.MassKg > 0.0)) {
     Refuse(out, "a vehicle with no mass cannot be pushed by anything, and every force this engine "
                 "applies divides by it");
@@ -109,6 +114,7 @@ Rigged Stand(const Vehicle &declared) {
       std::atan(out.Axles.WheelbaseM / (0.5 * declared.TurningCircleM - 0.5 * trackM));
 
   out.Envelope.Grip = declared.Grip;
+  out.Envelope.GravityMs2 = gravityMs2;
   out.Envelope.MassKg = declared.MassKg;
   out.Envelope.DriveN = declared.PeakTorqueNm * declared.FinalDrive / declared.TyreRadiusM;
   out.Envelope.BrakeN = declared.BrakeTorqueNm / declared.TyreRadiusM;

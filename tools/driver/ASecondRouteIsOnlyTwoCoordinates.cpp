@@ -82,7 +82,7 @@ int main(void) {
     std::printf("REFUSED %s\n", readError.c_str());
     return Report();
   }
-  const bool laid = journey.Lay(scene, stood, vehicles, drives, wire, outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, harness);
+  const bool laid = journey.Lay(scene, stood, vehicles, drives, declared.Ground, wire, outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, harness);
   CHECK(laid,
         "**A SECOND ROUTE IS ONLY TWO COORDINATES.** Kyoto Station to Osaka Castle -- another "
         "continent, another road network, the same code, the same declaration, and NOTHING "

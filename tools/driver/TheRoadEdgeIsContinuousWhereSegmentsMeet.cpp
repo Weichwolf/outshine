@@ -80,7 +80,7 @@ int main(void) {
     std::printf("REFUSED %s\n", readError.c_str());
     return Report();
   }
-  CHECK(journey.Lay(scene, stood, vehicles, drives, wire,
+  CHECK(journey.Lay(scene, stood, vehicles, drives, declared.Ground, wire,
       outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, quiet),
         "the route lays, exactly as the drive lays it");
 

@@ -135,7 +135,7 @@ int main(void) {
   }
   outshine::Host::CurlTransport::Config wiring;
   outshine::Host::CurlTransport wire(wiring);
-  const bool laid = journey.Lay(scene, cast, vehicles, drives, wire,
+  const bool laid = journey.Lay(scene, cast, vehicles, drives, declared.Ground, wire,
       outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, quiet);
   CHECK(laid, "**THE WINDOW LAYS THE ROAD WITH THE SAME CALL THE HEADLESS DRIVER DOES.** One "
               "translation unit, two binaries: the headless one links no renderer at all and this "

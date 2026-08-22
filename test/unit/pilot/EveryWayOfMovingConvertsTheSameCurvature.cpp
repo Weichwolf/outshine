@@ -25,7 +25,7 @@ using outshine::Pilot::Fly;
 using outshine::Pilot::Gait;
 using outshine::Pilot::Haul;
 using outshine::Pilot::Hold;
-using outshine::Pilot::kGravityMs2;
+constexpr double kGravityMs2 = 9.80665;
 using outshine::Pilot::Locate;
 using outshine::Pilot::OverturningMs2;
 using outshine::Pilot::Placement;
@@ -97,6 +97,7 @@ int main(void) {
 
   Envelope car;
   car.Grip = 0.95;
+  car.GravityMs2 = kGravityMs2;
   car.MassKg = 1610.0;
   car.DriveN = 400.0 * 3.08 / 0.333;
   car.BrakeN = 2200.0 / 0.333;
@@ -130,6 +131,7 @@ int main(void) {
         "limit that pretended otherwise would be a fact about cars leaking into legs");
 
   Envelope aircraft;
+  aircraft.GravityMs2 = kGravityMs2;
   aircraft.MassKg = 1200.0;
   aircraft.DriveN = 4000.0;
   aircraft.DragArea = 0.9;
@@ -145,7 +147,7 @@ int main(void) {
   Note("the bank a 400 m curve would need at 80 m/s",
        std::atan(kFlyMs * kFlyMs * kCurvature / kGravityMs2), "rad");
   Note("the bank this aircraft is allowed", BankLimitOf(wings), "rad");
-  Note("the tightest circle that leaves it at 80 m/s", 1.0 / TightestPerM(wings, kFlyMs), "m");
+  Note("the tightest circle that leaves it at 80 m/s", 1.0 / TightestPerM(wings, kFlyMs, kGravityMs2), "m");
   CHECK_NEAR(leaning.BankRad, BankLimitOf(wings), 1.0e-12, "rad",
              "**AND THE FIRST THING THE AIRCRAFT SAYS ABOUT THE CAR'S CURVE IS THAT IT CANNOT FLY "
              "IT.** 400 m at 80 m/s wants 58 degrees of bank; it has 25, so its tightest circle is "
@@ -197,6 +199,7 @@ int main(void) {
   rails.GaugeM = kGaugeM;
   rails.CentreOfMassM = kRailCentreM;
   Envelope train;
+  train.GravityMs2 = kGravityMs2;
   train.MassKg = 80000.0;
   train.DriveN = 60000.0;
   train.BrakeN = 90000.0;
@@ -209,7 +212,7 @@ int main(void) {
   Note("a TRAIN converts none of it, and reads this instead", haul.UnbalancedMs2, "m/s2");
   Note("what v^2 kappa - g sin(cant) says", unbalanced, "m/s2");
   Note("the cant deficiency it is allowed", kCantDeficiencyMs2, "m/s2");
-  Note("the lateral acceleration that would tip it", OverturningMs2(rails), "m/s2");
+  Note("the lateral acceleration that would tip it", OverturningMs2(rails, kGravityMs2), "m/s2");
 
   CHECK_NEAR(haul.UnbalancedMs2, unbalanced, 1.0e-12, "m/s2",
              "**A TRAIN CANNOT STEER AT ALL, AND THAT IS THE CASE THAT PROVES THE SHAPE.** It "
@@ -232,7 +235,7 @@ int main(void) {
         "**AND THAT SPEED IS DERIVED FROM THE CURVE AND THE CANT, NOT LOOKED UP.** sqrt((a + g "
         "sin(cant)) / kappa) is 91 km/h here, and a route planner that asks the corridor rather "
         "than a table gets the right answer on a curve nobody has ever driven");
-  CHECK_NEAR(OverturningMs2(rails), kGravityMs2 * 0.5 * kGaugeM / kRailCentreM, 1.0e-12, "m/s2",
+  CHECK_NEAR(OverturningMs2(rails, kGravityMs2), kGravityMs2 * 0.5 * kGaugeM / kRailCentreM, 1.0e-12, "m/s2",
              "and the tipping limit is the gauge and the centre of mass, which is a lever and not a "
              "constant");
 

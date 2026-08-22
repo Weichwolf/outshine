@@ -47,6 +47,7 @@ std::vector<Segment> Road() {
 
 Envelope Synthetic() {
   Envelope out;
+  out.GravityMs2 = 9.80665;
   out.Grip = 0.95;
   out.MassKg = 1610.0;
   out.DriveN = 400.0 * 3.08 / 0.333;

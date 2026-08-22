@@ -34,6 +34,7 @@ struct WorldSettings {
   double Lat = 0.0;
   double Lon = 0.0;
   double RadiusM = 0.0;
+  double GravityMs2 = 9.80665;
   double WindDeg = 0.0;
   double WindMs = 0.0;
   double CloudCover = 0.0;

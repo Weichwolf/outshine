@@ -72,14 +72,14 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
     }
     const double climb = here.Slope;
     if (climb > 0.0) {
-      const double left = within.DriveN - within.MassKg * kGravityMs2 * climb;
+      const double left = within.DriveN - within.MassKg * within.GravityMs2 * climb;
       const double resistance = 0.5 * within.AirDensity * within.DragArea;
       const double heldMs = left > 0.0 && resistance > 0.0 ? std::sqrt(left / resistance) : 0.0;
       if (heldMs < Held_[at]) { Held_[at] = heldMs; }
     }
     const double crest = -here.SlopeRatePerM;
     if (crest > 0.0) {
-      const double flying = std::sqrt(kGravityMs2 / crest);
+      const double flying = std::sqrt(within.GravityMs2 / crest);
       if (flying < Held_[at]) {
         Held_[at] = flying;
         ++CrestsBound_;

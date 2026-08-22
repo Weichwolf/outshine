@@ -21,7 +21,7 @@ struct Rigged {
   std::string Error;
 };
 
-[[nodiscard]] Rigged Stand(const Vehicle &declared);
+[[nodiscard]] Rigged Stand(const Vehicle &declared, double gravityMs2);
 
 } // namespace outshine::Sim
 

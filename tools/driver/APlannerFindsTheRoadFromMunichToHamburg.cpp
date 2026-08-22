@@ -87,7 +87,7 @@ int main(void) {
 
   outshine::Host::CurlTransport::Config wiring;
   outshine::Host::CurlTransport wire(wiring);
-  const bool laid = journey.Lay(scene, stood, vehicles, drives, wire,
+  const bool laid = journey.Lay(scene, stood, vehicles, drives, declared.Ground, wire,
       outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, harness);
   CHECK(laid, "**THE ROAD FROM MARIENPLATZ TO RATHAUSMARKT IS LAID.** A route over ways fetched "
               "live, a corridor fitted through them, the real ground under it shaped to each road "

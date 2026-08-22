@@ -4,9 +4,9 @@
 
 namespace outshine::Pilot {
 
-double OverturningMs2(const Rails &on) {
+double OverturningMs2(const Rails &on, double gravityMs2) {
   if (!(on.CentreOfMassM > 0.0) || !(on.GaugeM > 0.0)) { return 0.0; }
-  return kGravityMs2 * 0.5 * on.GaugeM / on.CentreOfMassM;
+  return gravityMs2 * 0.5 * on.GaugeM / on.CentreOfMassM;
 }
 
 Haul Ride(const Rails &on, const Envelope &within, const Demand &asked, const Placement &at,
@@ -14,9 +14,9 @@ Haul Ride(const Rails &on, const Envelope &within, const Demand &asked, const Pl
   Haul out;
   if (!asked.Held) { return out; }
 
-  out.UnbalancedMs2 = speedMs * speedMs * at.CurvaturePerM - kGravityMs2 * std::sin(at.BankRad);
+  out.UnbalancedMs2 = speedMs * speedMs * at.CurvaturePerM - within.GravityMs2 * std::sin(at.BankRad);
   out.PastCant = on.CantDeficiencyMs2 > 0.0 && std::fabs(out.UnbalancedMs2) > on.CantDeficiencyMs2;
-  const double overturning = OverturningMs2(on);
+  const double overturning = OverturningMs2(on, within.GravityMs2);
   out.Overturns = overturning > 0.0 && std::fabs(out.UnbalancedMs2) > overturning;
 
   if (asked.AlongMs2 >= 0.0) {

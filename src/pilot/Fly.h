@@ -20,7 +20,7 @@ struct Attitude {
 };
 
 [[nodiscard]] double BankLimitOf(const Wings &of);
-[[nodiscard]] double TightestPerM(const Wings &of, double speedMs);
+[[nodiscard]] double TightestPerM(const Wings &of, double speedMs, double gravityMs2);
 [[nodiscard]] Attitude Fly(const Wings &of, const Envelope &within, const Demand &asked);
 
 } // namespace outshine::Pilot
