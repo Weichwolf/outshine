@@ -17,6 +17,7 @@
 #include "MediumTransmittanceStage.h"
 #include "OverlayDraw.h"
 #include "PresentStage.h"
+#include "ShaderFile.h"
 #include "SkyStage.h"
 #include "SubjectDraw.h"
 #include "TonemapStage.h"
@@ -227,6 +228,20 @@ int main(void) {
         "sources live as files since 1647, so a process started outside the repository root "
         "gets a refusal that says where the engine looked, never a silent empty kernel");
   CHECK(chdir(was) == 0, "and the probe returns home");
+
+  const char *nest = std::getenv("OUTSHINE_NEST");
+  if (nest != nullptr && *nest != 0) {
+    const std::string hollow = std::string(nest) + "/hollow.msl";
+    std::FILE *const planted = std::fopen(hollow.c_str(), "wb");
+    CHECK(planted != nullptr, "an empty shader file is planted in the nest");
+    if (planted != nullptr) { std::fclose(planted); }
+    std::string emptyWhy;
+    std::string text;
+    CHECK(!LoadShaderText(hollow, text, emptyWhy) &&
+              emptyWhy.find("empty") != std::string::npos,
+          "and the loader refuses it as EMPTY by name -- a zero-byte kernel is a picture "
+          "refusal, never a silent nothing");
+  }
 
   Covers("IV.8 every kernel and shader the engine assembles at runtime compiles on the device "
          "inside the fast gate, in the shape its stage declares, with the source's own slot "

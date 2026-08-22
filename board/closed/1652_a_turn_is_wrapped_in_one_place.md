@@ -11,3 +11,6 @@ outshine::kTurn = 2 pi from std::numbers, outshine::Wrapped), the three copies a
 call sites unchanged by enclosing-namespace lookup. The while-loop form is KEPT deliberately:
 std::remainder differs at the +/- pi boundary and tests are specification -- value identity
 beats fashion. Proving state: unit/actor/path, unit/actor/mind, unit/sim 15/15.
+
+Strengthened (round 4's note): Wrapped is constexpr noexcept -- the one place now carries
+the full hygiene.

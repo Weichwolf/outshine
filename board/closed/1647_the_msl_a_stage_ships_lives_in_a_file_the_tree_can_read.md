@@ -25,3 +25,7 @@ error-carrying overload and Configure refuses on an empty source. Proving test:
 test/unit/render/EveryAssembledKernelCompilesOnTheDevice.cpp -- compiles every assembled
 source on the headless device AND probes the refusal from a foreign cwd, which must name the
 file. 127/127 warm, byte-identity keeps the pixel oracles untouched.
+
+Strengthened (round 3's note): the loader's EMPTY refusal has its probe -- the gate test
+plants a zero-byte file in the nest and the refusal must say "empty" (a zero-byte kernel is
+a picture refusal, never a silent nothing).
