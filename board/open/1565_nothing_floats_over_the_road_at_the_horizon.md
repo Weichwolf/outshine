@@ -30,3 +30,8 @@ stations (36.5, 267.1, 666.2, 708.1) -- the artefact class survived and changed 
 at the corridor ribbon's END at `laidToM`: an open cross-section shows its unlit inside (dark) or
 lit outside (white) depending on the sun side. The mechanism to check first: cap or skirt the ribbon
 ends, or end the lay beyond the visible span.
+
+Round five (stills from BEFORE the cap fix drove): the dashes persist and read dark blue on the
+horizon line at four-plus stations, and a detached road fragment floats past a mid-frame gap at
+km 198.7 -- consistent with the open-end mechanism plus the shown-vs-graded reach gap. The next
+driven round is the cap fix's verdict.

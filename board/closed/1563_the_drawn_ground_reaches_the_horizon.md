@@ -43,3 +43,10 @@ the same twelve-station population, and the middle step made the number worse wh
 physically right -- the kind of intermediate a single-number gate would have rejected. The bounce
 is the reference's own term with the albedo the reference sets to zero; grassland's (0.10, 0.13,
 0.07) turns the last black into the earth's own light.
+
+Round five called a "thin dark band" at km 61.4-third a regression. Measured: the same instrument
+over the THIRD-person population -- which the closing measurement had not covered, a population
+gap the round exposed -- reads zero dark pixels there too, both populations now published. What
+the reviewer sees are the dark-blue dashes of the ribbon's open ends (board:1565, whose cap fix
+had not yet driven when these stills were taken), which sit above this instrument's near-black
+threshold. The claim holds; the population statement was too narrow and is now honest.
