@@ -64,3 +64,17 @@ Progress: the Refuse family (13 sites) takes its message by VALUE and moves it i
 where it lands unmodified -- a refusal built from concatenation now moves instead of copying.
 Remaining, each with named grounds: the Script virtual interface (overrider ripple), TilePool
 keys (map lacks a transparent hash), the read-only string params judged site by site.
+
+Sharpened (review 2026-08-23): the by-value sitting landed the right form in only 5 of 9
+Refusers. Where the message LANDS unmodified, value+move holds (ReferenceLine, Emit,
+Subject, Store — all `Error_ = std::move(why)`). The other four miss the point of the form:
+- src/core/io/Png.cpp:30 takes by value and then COPIES (`out.Error = why;`) — the move was
+  the entire reason for the signature; as written it is one copy WORSE than const-ref for
+  lvalue callers. `std::move(why)`.
+- src/scenario/Mod.cpp:11, src/scenario/Fields.h:68-71, src/gltf/Document.cpp:334 only
+  CONCATENATE the parameter (`Path_ + ": " + why`) — ownership is never taken, so by-value
+  buys nothing and costs lvalue callers (Mod.cpp:28,30 pass the lvalue `err`) a dead copy;
+  Fields.h discards the copy entirely when Err_ is already set. The right form for a
+  read-only concatenand is this item's own thesis: `std::string_view`. Document's
+  empty-Path_ branch may move (`Path_.empty() ? std::move(why) : …`) if it stays by value.
+Cold paths all — this is form, not frame time; but the form is the claim being closed.
