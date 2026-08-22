@@ -22,11 +22,13 @@ struct Identity {
   std::string Version;
   double Epoch = 0.0;
   double Decay = 0.0;
+  std::string Active;
 };
 
 struct Layer {
   std::string Id;
   std::string Path;
+  std::string Set;
 };
 
 struct WorldSettings {

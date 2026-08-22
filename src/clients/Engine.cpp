@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "Assembly.h"
+#include "ScenarioLayer.h"
 #include "Live.h"
 #include "Renderer.h"
 #include "ScenarioRead.h"
@@ -23,6 +24,7 @@ struct Engine::State {
   Scenario Declared;
   std::vector<std::string> Carried;
   std::vector<Scenario> Asleep;
+  std::vector<std::string> LayerTrace;
   Store Scene;
   Column<Vehicle> Vehicles;
   Column<Drive> Drives;
@@ -129,23 +131,57 @@ bool Engine::Declare(const Scenario &scenario) {
   return true;
 }
 
-bool Engine::ReadInto(std::string_view path, Scenario &out) {
-  const std::string held(path);
+namespace {
+
+[[nodiscard]] bool SlurpFile(const std::string &held, std::string &text, std::string &error) {
   std::FILE *const file = std::fopen(held.c_str(), "rb");
   if (file == nullptr) {
-    S_->Error = held + ": no scenario at that path";
+    error = held + ": no scenario at that path";
     return false;
   }
-  std::string text;
+  text.clear();
   char block[4096];
   size_t read = 0;
   while ((read = std::fread(block, 1, sizeof block, file)) > 0) { text.append(block, read); }
   std::fclose(file);
+  return true;
+}
+
+} // namespace
+
+bool Engine::ReadInto(std::string_view path, Scenario &out) {
+  const std::string held(path);
+  std::string text;
+  if (!SlurpFile(held, text, S_->Error)) { return false; }
 
   out.Render.Frame = S_->Frame;
   if (!ReadScenario(text.c_str(), text.size(), out, S_->Error)) {
     S_->Error = held + ": " + S_->Error;
     return false;
+  }
+
+  S_->LayerTrace.clear();
+  if (out.Layers.empty()) { return true; }
+  const size_t cut = held.find_last_of('/');
+  const std::string dir = cut == std::string::npos ? std::string() : held.substr(0, cut + 1);
+  for (const Layer &layer : out.Layers) {
+    const std::string named = layer.Id.empty() ? layer.Path : layer.Id;
+    if (!LayerActive(layer, out.Named.Active)) {
+      S_->LayerTrace.push_back("layer '" + named + "' is inactive -- its set '" + layer.Set +
+                               "' is not selected by active=\"" + out.Named.Active + "\"");
+      continue;
+    }
+    const std::string at =
+        (!layer.Path.empty() && layer.Path.front() == '/') ? layer.Path : dir + layer.Path;
+    std::string fragmentText;
+    if (!SlurpFile(at, fragmentText, S_->Error)) { return false; }
+    Scenario fragment;
+    fragment.Render.Frame = S_->Frame;
+    if (!ReadScenario(fragmentText.c_str(), fragmentText.size(), fragment, S_->Error)) {
+      S_->Error = at + ": " + S_->Error;
+      return false;
+    }
+    if (!MergeLayer(out, fragment, named, S_->LayerTrace, S_->Error)) { return false; }
   }
   return true;
 }
@@ -155,6 +191,7 @@ bool Engine::Read(std::string_view path) {
   if (!ReadInto(path, scenario)) { return false; }
   S_->Declared = scenario;
   S_->Carried = Unacted(scenario);
+  S_->Carried.insert(S_->Carried.end(), S_->LayerTrace.begin(), S_->LayerTrace.end());
   S_->Error.clear();
   return true;
 }
@@ -162,7 +199,9 @@ bool Engine::Read(std::string_view path) {
 bool Engine::Load(std::string_view path) {
   Scenario scenario;
   if (!ReadInto(path, scenario)) { return false; }
-  return Declare(scenario);
+  if (!Declare(scenario)) { return false; }
+  S_->Carried.insert(S_->Carried.end(), S_->LayerTrace.begin(), S_->LayerTrace.end());
+  return true;
 }
 
 const Scenario &Engine::Declared(void) const { return S_->Declared; }

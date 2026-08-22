@@ -1,0 +1,18 @@
+#ifndef SCENARIOLAYER_H
+#define SCENARIOLAYER_H
+
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include <outshine/Scenario.h>
+
+namespace outshine {
+
+[[nodiscard]] bool LayerActive(const Layer &layer, std::string_view active);
+
+[[nodiscard]] bool MergeLayer(Scenario &into, const Scenario &layer, std::string_view named,
+                              std::vector<std::string> &trace, std::string &error);
+
+}
+#endif

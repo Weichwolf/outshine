@@ -26,8 +26,8 @@ const Element kGrammar[] = {
     {"scenario",
      "world render lighting providers generators compositors assets placements surfaces kinds "
      "instances regions volumes audio tables events views vehicle player drive physics clock input state layer",
-     "name version epoch decay"},
-    {"scenario/layer", "", "id path", "path"},
+     "name version epoch decay active"},
+    {"scenario/layer", "", "id path set", "path"},
     {"scenario/world", "", "lat lon radiusM gravityMs2 airDensityKgM3 windDeg windMs cloudCover"},
     {"scenario/render", "output stage",
      "widthPx heightPx fps fill orbitDegPerFrame transfer exposure precision"},
@@ -233,12 +233,13 @@ bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &
   into = Scenario();
   into.Named.Name = root.Attr("name");
   into.Named.Version = root.Attr("version");
+  into.Named.Active = root.Attr("active");
   into.Named.Epoch = root.Num("epoch", 0.0);
   into.Named.Decay = root.Num("decay", 0.0);
 
   for (size_t at = 0; at < root.Count("layer"); ++at) {
     const Xml::Ref one = root.At("layer", at);
-    into.Layers.push_back(Layer{one.Attr("id"), one.Attr("path")});
+    into.Layers.push_back(Layer{one.Attr("id"), one.Attr("path"), one.Attr("set")});
   }
 
   ReadWorld(root.Child("world"), into);
