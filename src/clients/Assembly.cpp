@@ -119,16 +119,31 @@ bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
     // instance's own -- a read never walks the chain
     Traits resolved;
     {
-      Entity chain[8];
+      constexpr size_t kDeepest = 8; // [SET] a kind chain deeper than this is a taxonomy,
+                                     // not a default -- and it refuses rather than silently
+                                     // dropping the root's values
+      Entity chain[kDeepest];
       size_t depth = 0;
-      for (Entity at = prefab; !(at == kNoEntity) && depth < 8; ++depth) {
+      Entity at = prefab;
+      for (; !(at == kNoEntity) && depth < kDeepest; ++depth) {
         chain[depth] = at;
         at = into.TargetOf(at, Relation::IsA);
+      }
+      if (!(at == kNoEntity)) {
+        error = "the kind chain under '" + instance.Of + "' is deeper than " +
+                std::to_string(kDeepest) + ", and a silent cut would lose the root's defaults";
+        return false;
       }
       for (size_t up = depth; up > 0; --up) {
         if (const Traits *held = traits.Get(chain[up - 1])) {
           for (size_t attr = 0; attr < held->Count; ++attr) {
-            (void)resolved.Put(held->Keys[attr], held->Values[attr]);
+            if (!resolved.Put(held->Keys[attr], held->Values[attr])) {
+              error = "the resolved attributes of '" +
+                      (instance.Id.empty() ? instance.Of : instance.Id) +
+                      "' overflow the declared budget of " + std::to_string(Traits::kMost) +
+                      " -- the kind chain's union is too wide";
+              return false;
+            }
           }
         }
       }
@@ -151,8 +166,10 @@ bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
     out.Instances.push_back({instance.Id, stood});
   }
 
-  // holding IS placement: a cup on a table and a cup in a bag are one ChildOf, and the
-  // second pass exists so an instance may hold one declared later
+  // holding IS placement -- one relation for both spellings -- but it is its OWN relation:
+  // ChildOf is the prefab subtree's bone and cascades on removal, Holds is possession and
+  // frees its contents when the holder goes; the second pass exists so an instance may hold
+  // one declared later
   for (const Instance &instance : declared.Instances) {
     const Entity holder = out.InstanceNamed(instance.Id);
     for (const std::string &what : instance.Holds) {
@@ -162,7 +179,7 @@ bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
                 "', which nothing declares";
         return false;
       }
-      if (!into.Link(held, Relation::ChildOf, holder)) {
+      if (!into.Link(held, Relation::Holds, holder)) {
         error = into.Error();
         return false;
       }
@@ -175,7 +192,7 @@ bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
         return false;
       }
       const Entity self = out.InstanceNamed(instance.Id);
-      if (!into.Link(self, Relation::ChildOf, room)) {
+      if (!into.Link(self, Relation::Holds, room)) {
         error = into.Error();
         return false;
       }

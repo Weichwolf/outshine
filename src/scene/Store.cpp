@@ -21,6 +21,7 @@ const char *Named(Relation how) {
     case Relation::DrivenBy: return "DrivenBy";
     case Relation::Uses: return "Uses";
     case Relation::Assigned: return "Assigned";
+    case Relation::Holds: return "Holds";
   }
   return "no relation";
 }

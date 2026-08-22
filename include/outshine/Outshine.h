@@ -6,8 +6,11 @@
 #include <string>
 #include <vector>
 
+#include <outshine/Assembled.h>
+#include <outshine/Column.h>
 #include <outshine/Scenario.h>
 #include <outshine/Store.h>
+#include <outshine/Traits.h>
 
 namespace outshine {
 
@@ -32,12 +35,15 @@ public:
   [[nodiscard]] bool Assemble();
   [[nodiscard]] Store &Scene(void);
   [[nodiscard]] const Store &Scene(void) const;
+  [[nodiscard]] const Assembled &Stood(void) const;
+  [[nodiscard]] const Column<Traits> &Resolved(void) const;
 
   [[nodiscard]] bool Advance();
   [[nodiscard]] bool Run();
 
   [[nodiscard]] bool Park();
   [[nodiscard]] bool Resume(std::string_view name);
+  [[nodiscard]] bool Discard(std::string_view name);
   [[nodiscard]] std::vector<std::string> Parked(void) const;
 
   [[nodiscard]] int At(void) const;

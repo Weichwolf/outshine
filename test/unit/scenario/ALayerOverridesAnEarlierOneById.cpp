@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -16,7 +17,7 @@ using outshine::Scenario;
 namespace {
 
 [[nodiscard]] bool Parsed(const char *text, Scenario &out, std::string &error) {
-  return ReadScenario(text, std::string(text).size(), out, error);
+  return ReadScenario(text, std::strlen(text), out, error);
 }
 
 } // namespace

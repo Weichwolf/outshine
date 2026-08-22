@@ -2,6 +2,7 @@
 #define OUTSHINE_SCENE_STORE_H
 
 #include <cstddef>
+#include <array>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -67,6 +68,13 @@ public:
 private:
   static constexpr uint32_t kNoRef = 0xFFFFFFFFu;
 
+  template <size_t N>
+  [[nodiscard]] static constexpr std::array<uint32_t, N> NoRefs(void) {
+    std::array<uint32_t, N> filled{};
+    filled.fill(kNoRef);
+    return filled;
+  }
+
   struct Taken {
     Entity By = kNoEntity;
     Seat State = Seat::Free;
@@ -88,7 +96,7 @@ private:
     Tag Offers{};
     size_t SeatCount = 0;
     Taken Seats[kSeatsPerOffer] = {};
-    uint32_t InHead[kRelations] = {kNoRef, kNoRef, kNoRef, kNoRef, kNoRef};
+    std::array<uint32_t, kRelations> InHead = NoRefs<kRelations>();
     uint32_t RoleNext = kNoRef, RolePrev = kNoRef;
     uint32_t OfferNext = kNoRef, OfferPrev = kNoRef;
   };
@@ -107,9 +115,9 @@ private:
 
   std::vector<Slot> Slots_;
   std::vector<uint32_t> Free_;
-  uint32_t RoleHead_[kRoles] = {kNoRef, kNoRef, kNoRef, kNoRef};
+  std::array<uint32_t, kRoles> RoleHead_ = NoRefs<kRoles>();
   uint32_t OfferHead_ = kNoRef;
-  uint32_t RelHead_[kRelations] = {kNoRef, kNoRef, kNoRef, kNoRef, kNoRef};
+  std::array<uint32_t, kRelations> RelHead_ = NoRefs<kRelations>();
   std::string Error_;
   mutable size_t Touched_ = 0;
 };

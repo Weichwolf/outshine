@@ -27,3 +27,11 @@ Minor, same file: `AssembledCapacity` (Assembly.cpp:8-14) counts `declared.Insta
 The proving test extends `test/unit/clients/AKindIsADefaultAndAnInstanceOverridesIt.cpp`:
 a chain past the bound refuses by name; a chain whose key union overflows 16 refuses rather
 than resolving short.
+
+---
+
+Closed: the chain deeper than kDeepest [SET] 8 refuses naming the kind and the bound (a
+taxonomy is not a default); a key union past the trait budget refuses at the MERGE naming
+the instance -- no (void), no silent floor. Both proven in
+AKindIsADefaultAndAnInstanceOverridesIt: a nine-deep chain and a 17-key union each refuse by
+name. 136/136.

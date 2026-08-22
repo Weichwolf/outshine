@@ -267,7 +267,7 @@ classDiagram
     +Scene() Store
     +Advance() bool
     +Run() bool
-    +Park() / Resume(name) / Parked()
+    +Park() / Resume(name) / Discard(name) / Parked()
     +RenderTo(frame)
   }
   class Live {

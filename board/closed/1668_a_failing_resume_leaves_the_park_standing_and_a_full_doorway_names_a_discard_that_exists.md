@@ -30,3 +30,11 @@ code around that refusal contradicts its own premise three ways:
 Proving test extends `test/render/outshine/client/AClientRunsAScenarioInFourLines.cpp`:
 a resume whose declare fails leaves the name in `Parked()`; a resume over a standing
 scenario refuses; the discard verb clears the full doorway and the ninth park then stands.
+
+---
+
+Closed: Resume declares FIRST and erases only on success -- a failed stand-up leaves the
+only copy parked; Resume over a STANDING scenario refuses ("Resume stands nothing down");
+and Discard(name) exists as the explicit verb the bound-refusal names, on the public door
+and in CLAUDE.md. The four-lines proof walks all three: refusal over standing, explicit
+discard clears a seat, the ninth room parks -- nothing lost by the engine's own hand.

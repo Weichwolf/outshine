@@ -25,7 +25,8 @@ int main(void) {
   const std::string mod = PlantedPath("winter-mod.scenario");
   CHECK(Planted(mod, "<scenario name=\"winter\">"
                      "<kinds><kind name=\"mug\"><has name=\"volumeL\" value=\"0.7\"/></kind>"
-                     "<kind name=\"lantern\"/></kinds></scenario>") &&
+                     "<kind name=\"lantern\"/></kinds>"
+                     "<instances><instance of=\"mug\" id=\"cup\"/></instances></scenario>") &&
             Planted(base, std::string("<scenario name=\"game\" active=\"winter\">"
                            "<kinds><kind name=\"mug\">"
                            "<has name=\"volumeL\" value=\"0.5\"/></kind></kinds>"
@@ -54,6 +55,15 @@ int main(void) {
   CHECK(traced && skipped,
         "and Carried publishes both what overrode what and which layer the change set left "
         "inactive");
+
+  CHECK(engine.Assemble(), "the layered declaration assembles through the one door");
+  const outshine::Entity cup = engine.Stood().InstanceNamed("cup");
+  const outshine::Traits *held = engine.Resolved().Get(cup);
+  CHECK(held != nullptr &&
+            held->Named(engine.Stood().TraitKey("volumeL")) != nullptr &&
+            *held->Named(engine.Stood().TraitKey("volumeL")) == 0.7,
+        "**AND THE TRAITS READ BACK THROUGH THE SAME DOOR THEY STOOD THROUGH** -- the mod's "
+        "0.7 L, resolved once, reachable from a client that includes nothing but outshine/");
 
   Covers("III.6.1 the layer door is files: a scenario's layers load relative to it, through "
          "the one reader, selected by the declaration's active set, traced on Carried "

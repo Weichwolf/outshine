@@ -205,6 +205,8 @@ bool Engine::Load(std::string_view path) {
 }
 
 const Scenario &Engine::Declared(void) const { return S_->Declared; }
+const Assembled &Engine::Stood(void) const { return S_->Stood; }
+const Column<Traits> &Engine::Resolved(void) const { return S_->Kinds; }
 const std::vector<std::string> &Engine::Carried(void) const { return S_->Carried; }
 
 bool Engine::Advance() {
@@ -259,13 +261,31 @@ bool Engine::Park(void) {
 }
 
 bool Engine::Resume(std::string_view name) {
+  if (S_->Standing) {
+    S_->Error = "a scenario is standing, and Resume stands nothing down -- park it or Discard "
+                "it explicitly first, because state that vanishes on somebody else's call is "
+                "state nobody can reason about";
+    return false;
+  }
   for (size_t at = 0; at < S_->Asleep.size(); ++at) {
     if (S_->Asleep[at].Named.Name != name) { continue; }
-    const Scenario taken = S_->Asleep[at];
+    // the parked copy is the ONLY copy: it leaves the set only after the stand-up succeeds
+    if (!Declare(S_->Asleep[at])) { return false; }
     S_->Asleep.erase(S_->Asleep.begin() + (long)at);
-    return Declare(taken);
+    return true;
   }
   S_->Error = std::string(name) + " is not parked, and resuming what was never parked is not a load";
+  return false;
+}
+
+bool Engine::Discard(std::string_view name) {
+  for (size_t at = 0; at < S_->Asleep.size(); ++at) {
+    if (S_->Asleep[at].Named.Name != name) { continue; }
+    S_->Asleep.erase(S_->Asleep.begin() + (long)at);
+    S_->Error.clear();
+    return true;
+  }
+  S_->Error = std::string(name) + " is not parked, so there is nothing to discard";
   return false;
 }
 

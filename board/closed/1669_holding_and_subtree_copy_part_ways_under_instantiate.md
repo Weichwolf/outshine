@@ -31,3 +31,15 @@ The adjudication this item demands, either way written down: (a) a second relati
 one-relation design is kept and `Instantiate`'s cascade is DEFINED over it (copy-the-room-
 copies-its-contents as the decided semantic, with the removal rule stated for regions), and
 a unit proof in `test/unit/scene/` pins whichever cascade is chosen.
+
+---
+
+Closed, adjudicated: HOLDING IS ITS OWN RELATION. Relation::Holds joins the catalogue
+(exclusive -- one holder; acyclic -- a bag cannot hold itself; NOT owned-by-target --
+removing a holder FREES its contents, destruction is a choice nobody made). ChildOf stays
+the prefab subtree's bone with its cascade. The collision the reviewer proved is gone by
+construction: Instantiate copies ChildOf and never Holds. The five-noref initialiser trap
+this change tripped (a sixth relation head zero-initialised to a VALID ref) died with it --
+the head arrays fill from kNoRef by count, never by a hand-written list. Proving test:
+unit/scene/AHolderKeepsWhatItHoldsAndAPrefabDoesNot -- the second garage holds nothing, the
+car outlives the first. 136/136.

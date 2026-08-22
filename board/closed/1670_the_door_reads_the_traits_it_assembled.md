@@ -23,3 +23,12 @@ Demand: a public read path — `Engine`-side (`Stood()` returning the handles + 
 query by interned key) or `Store`-side — and the door proof reads a resolved value through
 it. Housekeeping in the same cut: `Traits::Named/Put` are `noexcept`, a `static_assert`
 (trivially copyable, size) beside the struct; `Assembled`'s lookups `noexcept`.
+
+---
+
+Closed: the traits READ BACK through the same door they stood through --
+Engine::Stood() (the assembled names) and Engine::Resolved() (the traits column) are on the
+public handle, and the layered-mod proof reads the overridden 0.7 L from a client that
+includes nothing but outshine/. The tools' direct src/ use stands by the tools rule
+("tools/ builds ON the library"); the door proof remains the four-lines client. CLAUDE.md's
+public-interface diagram carries Park/Resume/Discard/Parked.

@@ -60,7 +60,7 @@ public:
   [[nodiscard]] bool Present(const char *key) const {
     return Node_[key].GetKind() != Json::Kind::Invalid;
   }
-  std::string Under(const char *key) const { return Path_ + "." + key; }
+  [[nodiscard]] std::string Under(const char *key) const { return Path_ + "." + key; }
 
   [[nodiscard]] bool Refuse(const char *key, std::string_view why) {
     if (Err_.empty()) Err_ = Path_ + "." + key + " " + std::string(why);

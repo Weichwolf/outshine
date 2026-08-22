@@ -346,8 +346,15 @@ int main(void) {
               doors.Error().find("least recently live") != std::string::npos,
           "and the refusal names the least recently live door to clear, so the caller knows "
           "exactly which to resume or discard");
-    CHECK(doors.Resume("room 0") && doors.Parked().size() == 7,
-          "resuming the named door clears a seat -- nothing was ever lost");
+    CHECK(!doors.Resume("room 0") && doors.Error().find("standing") != std::string::npos,
+          "and Resume over a STANDING scenario refuses -- it stands nothing down, because "
+          "state that vanishes on somebody else's call is state nobody can reason about");
+    CHECK(doors.Discard("room 0") && doors.Parked().size() == 7,
+          "Discard is the explicit verb the refusal names -- the choice to lose state is the "
+          "caller's, spelled out");
+    CHECK(doors.Park() && doors.Parked().size() == 8,
+          "and with a seat cleared the ninth room parks -- nothing was ever lost by the "
+          "engine's own hand");
   }
 
   const struct {
