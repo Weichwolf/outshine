@@ -88,3 +88,14 @@ entity; a system holding the handle holds the numbers, no lookup by name. Provin
 `unit/scene/AColumnAnswersOnlyTheHandleThatStands`, extended
 `unit/clients/TheScenarioAssemblesTheActorChainThroughTheOneApi` (mass 1610 and four contacts
 read back through the handle). Open: prefab subtree instantiation, the 1581 fold.
+
+---
+
+**Learned, slice 5 (prefab subtrees).** `Instantiate(prefab)` is one call: the instance answers
+the prefab's capabilities by IsA query, the subtree is copied with the pair (IsA, prefab-child)
+as the slot name -- no string lookup -- and instances share nothing but the prefab. ChildOf
+gained the owned-by-target trait: removing an instance cascades through its copies instead of
+orphaning them, a rule on the relation rather than a destructor somebody remembered. Proving
+test: `unit/scene/APrefabInstantiatesItsSubtreeAndNamesItsSlots`. What remains before close:
+the 1581 fold (Journey into Sim expressed through this model) -- blocked on the window drive
+finishing, because it needs run.sh edits and a runner is live.

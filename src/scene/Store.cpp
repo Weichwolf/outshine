@@ -58,6 +58,16 @@ void Store::Remove(Entity of) {
   slot->Held = false;
   slot->Generation += 1;
   Free_.push_back(of.Index);
+  for (size_t at = 0; at < Slots_.size(); ++at) {
+    const Slot &owned = Slots_[at];
+    if (!owned.Held) { continue; }
+    for (size_t pair = 0; pair < owned.PairCount; ++pair) {
+      if (owned.Pairs[pair].To == of && RuleOf(owned.Pairs[pair].How).OwnedByTarget) {
+        Remove(Entity{(uint32_t)at, owned.Generation});
+        break;
+      }
+    }
+  }
 }
 
 bool Store::Alive(Entity of) const { return Held(of) != nullptr; }
@@ -234,6 +244,38 @@ size_t Store::Targets(Entity of, Relation how, Entity into[], size_t room) const
     ++found;
   }
   return found;
+}
+
+Entity Store::Instantiate(Entity prefab) {
+  const Slot *base = Held(prefab);
+  if (base == nullptr) {
+    (void)Refuse("only what stands can be instantiated");
+    return kNoEntity;
+  }
+  const Entity instance = Add(base->Is);
+  if (!Alive(instance) || !Link(instance, Relation::IsA, prefab)) { return kNoEntity; }
+  for (size_t at = 0; at < Slots_.size(); ++at) {
+    const Slot &child = Slots_[at];
+    if (!child.Held) { continue; }
+    const Entity childId{(uint32_t)at, child.Generation};
+    if (childId == instance) { continue; }
+    if (!(TargetOf(childId, Relation::ChildOf) == prefab)) { continue; }
+    const Entity copied = Instantiate(childId);
+    if (!Alive(copied) || !Link(copied, Relation::ChildOf, instance)) { return kNoEntity; }
+  }
+  return instance;
+}
+
+Entity Store::CopyOf(Entity instance, Entity prefabChild) const {
+  if (Held(instance) == nullptr) { return kNoEntity; }
+  for (size_t at = 0; at < Slots_.size(); ++at) {
+    const Slot &child = Slots_[at];
+    if (!child.Held) { continue; }
+    const Entity childId{(uint32_t)at, child.Generation};
+    if (!(TargetOf(childId, Relation::ChildOf) == instance)) { continue; }
+    if (TargetOf(childId, Relation::IsA) == prefabChild) { return childId; }
+  }
+  return kNoEntity;
 }
 
 const Store::Slot *Store::Held(Entity of) const {

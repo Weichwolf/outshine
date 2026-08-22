@@ -42,20 +42,21 @@ struct RelationRule {
   Relation Named = kNoRelation;
   bool Exclusive = false;
   bool Acyclic = false;
+  bool OwnedByTarget = false;
   uint8_t TargetRoles = 0;
   Tag SourceDoes{};
   Relation Requires = kNoRelation;
 };
 
 inline constexpr RelationRule kRules[kRelations] = {
-    {Relation::IsA, true, true, RoleBit(Role::Body), {}, kNoRelation},
-    {Relation::ChildOf, true, true,
+    {Relation::IsA, true, true, false, RoleBit(Role::Body), {}, kNoRelation},
+    {Relation::ChildOf, true, true, true,
      (uint8_t)(RoleBit(Role::Body) | RoleBit(Role::Mind) | RoleBit(Role::Tool) |
                RoleBit(Role::Assignment)),
      {}, kNoRelation},
-    {Relation::DrivenBy, true, false, RoleBit(Role::Mind), tags::Does, kNoRelation},
-    {Relation::Uses, false, false, RoleBit(Role::Tool), {}, kNoRelation},
-    {Relation::Assigned, true, false, RoleBit(Role::Assignment), {}, Relation::Uses},
+    {Relation::DrivenBy, true, false, false, RoleBit(Role::Mind), tags::Does, kNoRelation},
+    {Relation::Uses, false, false, false, RoleBit(Role::Tool), {}, kNoRelation},
+    {Relation::Assigned, true, false, false, RoleBit(Role::Assignment), {}, Relation::Uses},
 };
 
 [[nodiscard]] constexpr const RelationRule &RuleOf(Relation relation) {

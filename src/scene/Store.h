@@ -49,6 +49,9 @@ public:
   [[nodiscard]] Entity TargetOf(Entity of, Relation how) const;
   [[nodiscard]] size_t Targets(Entity of, Relation how, Entity into[], size_t room) const;
 
+  [[nodiscard]] Entity Instantiate(Entity prefab);
+  [[nodiscard]] Entity CopyOf(Entity instance, Entity prefabChild) const;
+
   [[nodiscard]] const std::string &Error() const { return Error_; }
 
 private:
