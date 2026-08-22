@@ -31,9 +31,13 @@ flowchart TD
   frame(["720p60 on this device"])
   scen[/"SCENARIOS — camera × clock × world-or-studio"/]
 
+  actors["ACTOR CHAIN — bodies · minds · presence, assembled from the scene store"]
+
   upstream --> providers --> store --> field --> gen
   gen -->|part| store -->|handle| comp -->|draw list| rend --> frame
+  field --> actors -->|placements| comp
   scen -.->|declares| gen & comp & rend
+  scen -.->|declares · clocks| actors
 ```
 
 | layer may not spell | |
