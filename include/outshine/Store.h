@@ -39,6 +39,7 @@ public:
   [[nodiscard]] bool Has(Entity of, Tag tag) const;
 
   [[nodiscard]] bool Link(Entity from, Relation how, Entity to);
+  [[nodiscard]] bool Relink(Entity from, Relation how, Entity to);
   [[nodiscard]] Entity TargetOf(Entity of, Relation how) const;
   [[nodiscard]] size_t Targets(Entity of, Relation how, Entity into[], size_t room) const;
 

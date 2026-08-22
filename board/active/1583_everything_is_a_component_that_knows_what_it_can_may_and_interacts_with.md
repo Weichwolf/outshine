@@ -99,3 +99,14 @@ orphaning them, a rule on the relation rather than a destructor somebody remembe
 test: `unit/scene/APrefabInstantiatesItsSubtreeAndNamesItsSlots`. What remains before close:
 the 1581 fold (Journey into Sim expressed through this model) -- blocked on the window drive
 finishing, because it needs run.sh edits and a runner is live.
+
+
+---
+
+Possession's verb landed (this commit): Store::Relink is the exclusive relation's atomic
+retarget -- something must be held, the same checker that guards Link rules the new target,
+the reverse indices move in the same step, and a refused relink leaves the seat untouched.
+"Take the wheel is one relink" is now a proven sentence:
+test/unit/scene/TakingTheWheelIsOneRelink (13 checks). The XML door has no relink spelling yet
+-- by design: a relink is BEHAVIOUR (a mind's act or an assignment), not a declaration; the
+parity law is untouched.

@@ -181,6 +181,52 @@ void Store::ErasePair(uint32_t slot, size_t pair) {
   holder.PairCount = last;
 }
 
+bool Store::Relink(Entity from, Relation how, Entity to) {
+  const RelationRule &rule = RuleOf(how);
+  if (!rule.Exclusive) {
+    return Refuse(std::string(Named(how)) +
+                  " holds many targets, and relink is the exclusive relation's verb");
+  }
+  const Slot *source = Held(from);
+  const Slot *target = Held(to);
+  if (source == nullptr || target == nullptr) {
+    return Refuse(std::string(Named(how)) + " needs both of its ends standing");
+  }
+  size_t held = kPairsPerEntity;
+  for (size_t at = 0; at < source->PairCount; ++at) {
+    if (source->Pairs[at].How == how) {
+      held = at;
+      break;
+    }
+  }
+  if (held == kPairsPerEntity) {
+    return Refuse(std::string(Named(how)) +
+                  " holds nothing to relink -- taking an empty seat is Link");
+  }
+  if (source->Pairs[held].To == to) { return true; }
+  if ((rule.TargetRoles & RoleBit(target->Is)) == 0) {
+    return Refuse(std::string(Named(how)) + " does not reach " + Named(target->Is));
+  }
+  if (rule.SameRole && source->Is != target->Is) {
+    return Refuse(std::string(Named(how)) + " joins likes: " + Named(source->Is) + " is not " +
+                  Named(target->Is));
+  }
+  if (rule.Acyclic) {
+    Entity walked = to;
+    for (size_t steps = 0; steps < Slots_.size() && !(walked == kNoEntity); ++steps) {
+      if (walked == from) {
+        return Refuse(std::string(Named(how)) + " may not close a loop");
+      }
+      walked = TargetOf(walked, how);
+    }
+  }
+  const uint32_t ref = from.Index * (uint32_t)kPairsPerEntity + (uint32_t)held;
+  UnlinkIn(ref);
+  At(ref).To = to;
+  LinkIn(ref);
+  return true;
+}
+
 bool Store::Link(Entity from, Relation how, Entity to) {
   const Slot *source = Held(from);
   const Slot *target = Held(to);
