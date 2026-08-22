@@ -121,7 +121,7 @@ bool Engine::Declare(const Scenario &scenario) {
   return true;
 }
 
-bool Engine::Read(std::string_view path) {
+bool Engine::ReadInto(std::string_view path, Scenario &out) {
   const std::string held(path);
   std::FILE *const file = std::fopen(held.c_str(), "rb");
   if (file == nullptr) {
@@ -134,12 +134,17 @@ bool Engine::Read(std::string_view path) {
   while ((read = std::fread(block, 1, sizeof block, file)) > 0) { text.append(block, read); }
   std::fclose(file);
 
-  Scenario scenario;
-  scenario.Render.Frame = S_->Frame;
-  if (!ReadScenario(text.c_str(), text.size(), scenario, S_->Error)) {
+  out.Render.Frame = S_->Frame;
+  if (!ReadScenario(text.c_str(), text.size(), out, S_->Error)) {
     S_->Error = held + ": " + S_->Error;
     return false;
   }
+  return true;
+}
+
+bool Engine::Read(std::string_view path) {
+  Scenario scenario;
+  if (!ReadInto(path, scenario)) { return false; }
   S_->Declared = scenario;
   S_->Carried = Unacted(scenario);
   S_->Error.clear();
@@ -147,24 +152,8 @@ bool Engine::Read(std::string_view path) {
 }
 
 bool Engine::Load(std::string_view path) {
-  const std::string held(path);
-  std::FILE *const file = std::fopen(held.c_str(), "rb");
-  if (file == nullptr) {
-    S_->Error = held + ": no scenario at that path";
-    return false;
-  }
-  std::string text;
-  char block[4096];
-  size_t read = 0;
-  while ((read = std::fread(block, 1, sizeof block, file)) > 0) { text.append(block, read); }
-  std::fclose(file);
-
   Scenario scenario;
-  scenario.Render.Frame = S_->Frame;
-  if (!ReadScenario(text.c_str(), text.size(), scenario, S_->Error)) {
-    S_->Error = held + ": " + S_->Error;
-    return false;
-  }
+  if (!ReadInto(path, scenario)) { return false; }
   return Declare(scenario);
 }
 

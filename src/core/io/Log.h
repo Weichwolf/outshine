@@ -24,8 +24,8 @@ struct LogField {
 class LogSink {
 public:
   virtual ~LogSink() = default;
-  virtual void Write(double simTimeS, LogLevel level, const char *tag, const char *event,
-                     std::span<const LogField> fields) = 0;
+  virtual void Write(double simTimeS, LogLevel level, const char *unit, const char *tag,
+                     const char *event, std::span<const LogField> fields) = 0;
 };
 
 class Log {
@@ -42,18 +42,27 @@ public:
   static void Debug(const char *tag, const char *event, std::initializer_list<LogField> fields = {}) {
     Emit(LogLevel::Debug, tag, event, {fields.begin(), fields.size()});
   }
+  static void Debug(const char *tag, const char *event, std::span<const LogField> fields) {
+    Emit(LogLevel::Debug, tag, event, fields);
+  }
   static void Info(const char *tag, const char *event, std::initializer_list<LogField> fields = {}) {
     Emit(LogLevel::Info, tag, event, {fields.begin(), fields.size()});
   }
-
   static void Info(const char *tag, const char *event, std::span<const LogField> fields) {
     Emit(LogLevel::Info, tag, event, fields);
   }
+
   static void Warn(const char *tag, const char *event, std::initializer_list<LogField> fields = {}) {
     Emit(LogLevel::Warn, tag, event, {fields.begin(), fields.size()});
   }
+  static void Warn(const char *tag, const char *event, std::span<const LogField> fields) {
+    Emit(LogLevel::Warn, tag, event, fields);
+  }
   static void Error(const char *tag, const char *event, std::initializer_list<LogField> fields = {}) {
     Emit(LogLevel::Error, tag, event, {fields.begin(), fields.size()});
+  }
+  static void Error(const char *tag, const char *event, std::span<const LogField> fields) {
+    Emit(LogLevel::Error, tag, event, fields);
   }
 
 private:

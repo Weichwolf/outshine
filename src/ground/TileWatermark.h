@@ -47,7 +47,7 @@ public:
     }
   }
 
-  [[nodiscard]] bool Done(const std::vector<OsmField::Feature> &feats) const { return Mark_ >= feats.size(); }
+  [[nodiscard]] bool Done(std::span<const OsmField::Feature> feats) const { return Mark_ >= feats.size(); }
   int Deferrals() const { return Deferrals_; }
   size_t AheadCount() const { return Ahead_.size(); }
   size_t HeapBytes() const { return CapacityBytes(Ahead_); }

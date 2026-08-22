@@ -28,8 +28,6 @@ static const int kMaxZ = 14;
 
 static const int kAnchorZ = 10;
 static const int kGrace = 180;
-static const double kEarthCirc = 40075016.686;
-
 static const double kEdgeTau = 384.0;
 
 static const int kGrid = 128;
@@ -87,7 +85,7 @@ bool World::Open(Data::SourceSet &sources, Data::Transport &transport, double la
 }
 
 double World::SpanM(int z) const {
-  return kEarthCirc * std::cos(Lat0 * kPi / 180.0) / (double)(1L << z);
+  return kMercatorGirthM * std::cos(Lat0 * kPi / 180.0) / (double)(1L << z);
 }
 
 void World::Center(int z, long x, long y, double out[3]) const {

@@ -31,16 +31,7 @@ void Log::Emit(LogLevel level, const char *tag, const char *event,
   if (!Sink_ || level < Level_) return;
 
   LogSink *out = ThreadSink_ ? ThreadSink_ : Sink_;
-  if (!Unit_[0]) {
-    out->Write(TimeS_, level, tag, event, fields);
-    return;
-  }
-
-  std::vector<LogField> withUnit;
-  withUnit.reserve(fields.size() + 1);
-  withUnit.emplace_back("unit", static_cast<const char *>(Unit_));
-  withUnit.insert(withUnit.end(), fields.begin(), fields.end());
-  out->Write(TimeS_, level, tag, event, withUnit);
+  out->Write(TimeS_, level, Unit_[0] ? Unit_ : nullptr, tag, event, fields);
 }
 
 }

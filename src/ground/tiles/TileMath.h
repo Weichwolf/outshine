@@ -2,6 +2,7 @@
 #define TILEMATH_H
 
 #include <cmath>
+#include <numbers>
 #include <cstddef>
 #include <cstdint>
 
@@ -9,7 +10,7 @@
 
 namespace outshine::World {
 
-constexpr double kPi = 3.14159265358979323846;
+constexpr double kPi = std::numbers::pi;
 
 inline double ClampD(double v, double lo, double hi) { return v < lo ? lo : (v > hi ? hi : v); }
 

@@ -251,7 +251,8 @@ bool Reduced(const Case &subject) {
 
 class RunnerLog : public outshine::LogSink {
 public:
-  void Write(double, outshine::LogLevel level, const char *tag, const char *event,
+  void Write(double, outshine::LogLevel level, const char *, const char *tag,
+             const char *event,
              std::span<const outshine::LogField> fields) override {
     if (level < outshine::LogLevel::Info) { return; }
     std::printf("LOG %s %s", tag, event);

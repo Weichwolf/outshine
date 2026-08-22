@@ -47,6 +47,7 @@ public:
 
 private:
   struct State;
+  [[nodiscard]] bool ReadInto(std::string_view path, Scenario &out);
   std::unique_ptr<State> S_;
 };
 

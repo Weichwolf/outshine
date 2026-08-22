@@ -14,10 +14,11 @@ const char *LevelStr(LogLevel l) {
 }
 }
 
-void TextLogSink::Write(double simTimeS, LogLevel level, const char *tag, const char *event,
-                        std::span<const LogField> fields) {
+void TextLogSink::Write(double simTimeS, LogLevel level, const char *unit, const char *tag,
+                        const char *event, std::span<const LogField> fields) {
   if (!File_) return;
   fprintf(File_, "t=%.1f %s %s %s", simTimeS, LevelStr(level), tag, event);
+  if (unit != nullptr) fprintf(File_, " unit=%s", unit);
   for (const auto &fld : fields) {
     if (fld.Value.find(' ') != std::string::npos) fprintf(File_, " %s=\"%s\"", fld.Key, fld.Value.c_str());
     else fprintf(File_, " %s=%s", fld.Key, fld.Value.c_str());

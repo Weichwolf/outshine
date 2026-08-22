@@ -1,11 +1,13 @@
 #ifndef UNITS_H
 #define UNITS_H
 
+#include <numbers>
+
 namespace outshine {
 
-constexpr double kPi = 3.14159265358979323846;
+constexpr double kPi = std::numbers::pi;
 constexpr double kDeg2Rad = kPi / 180.0;
-constexpr double kRad2Deg = 57.29577951308232;
+constexpr double kRad2Deg = 180.0 / kPi;
 
 constexpr double kMPerDeg = 111320.0;
 
@@ -14,7 +16,7 @@ constexpr double kMToFt = 1.0 / kFtToM;
 constexpr double kNmToM = 1852.0;
 constexpr double kMToNm = 1.0 / kNmToM;
 constexpr double kKtToMs = kNmToM / 3600.0;
-constexpr double kMsToKt = 1.9438444924406;
+constexpr double kMsToKt = 1.0 / kKtToMs;
 
 }
 #endif
