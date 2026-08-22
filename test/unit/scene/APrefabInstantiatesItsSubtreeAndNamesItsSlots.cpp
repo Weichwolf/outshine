@@ -64,6 +64,31 @@ int main(void) {
   CHECK(scene.Instantiate(kNoEntity) == kNoEntity && !scene.Error().empty(),
         "instantiating what does not stand is a loud refusal");
 
+  const Entity tool = scene.Add(Role::Tool);
+  CHECK(scene.Link(tool, Relation::ChildOf, fourWheel),
+        "a prefab may carry a child of another role -- a tool under the body");
+  const Entity carWithTool = scene.Instantiate(fourWheel);
+  CHECK(scene.Alive(carWithTool) && scene.Alive(scene.CopyOf(carWithTool, tool)) &&
+            scene.RoleOf(scene.CopyOf(carWithTool, tool)) == Role::Tool,
+        "**ISA JOINS LIKES ACROSS EVERY ROLE**: the tool child copies as a tool, so a prefab is "
+        "not a bodies-only privilege (board:1589's structural half)");
+  const Entity mind = scene.Add(Role::Mind);
+  CHECK(!scene.Link(mind, Relation::IsA, fourWheel),
+        "and a mind is not a body, so IsA across roles is refused by the SameRole trait");
+
+  Store cramped;
+  CHECK(cramped.Open(3), "a store of three seats");
+  const Entity smallPrefab = cramped.Add(Role::Body);
+  const Entity smallChild = cramped.Add(Role::Body);
+  CHECK(cramped.Link(smallChild, Relation::ChildOf, smallPrefab), "a prefab of two stands in it");
+  CHECK(cramped.Instantiate(smallPrefab) == kNoEntity,
+        "an instance of two cannot fit in the one seat left, and the refusal is loud");
+  const Entity lone = cramped.Add(Role::Body);
+  CHECK(cramped.Alive(lone) && cramped.TargetOf(lone, Relation::IsA) == kNoEntity &&
+            cramped.Targets(lone, Relation::ChildOf, nullptr, 0) == 0,
+        "**A REFUSED INSTANTIATION LEAVES NOTHING STANDING**: the one seat is free again and its "
+        "next tenant carries no half-built pair (board:1589's repro, inverted)");
+
   Covers("II.6 a prefab instantiates as one call: the instance answers the prefab's "
          "capabilities by query, its subtree is copied with (IsA, prefab-child) as the slot "
          "name, and instances share nothing but the prefab");

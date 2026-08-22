@@ -54,6 +54,17 @@ int main(void) {
         "**A DEAD CLAIMANT HOLDS NO SEAT**: the generation on its handle died with it, so the "
         "seat frees itself at the next claim rather than leaking forever");
 
+  scene.Remove(pump);
+  const Entity tenant = scene.Add(Role::Body);
+  CHECK(tenant.Index == pump.Index,
+        "the pool hands the dead pump's slot to the next tenant");
+  Entity offering[4];
+  CHECK(scene.Offering(kOffers, offering, 4) == 0,
+        "**A FRESH ENTITY ADVERTISES NOTHING, WHATEVER ITS SLOT HELD BEFORE**: the offer died "
+        "with its owner, so the tenant is no accidental fuel pump (board:1588's repro)");
+  CHECK(scene.Offer(tenant, kOffersRefuel, 2),
+        "and it may advertise on its own terms, because the seats were reset with the slot");
+
   Covers("II.3 a shared interaction is advertised as data and reserved before it is used: "
          "Free -> Claimed -> Occupied -> Free, one seat per claimant, and a dead claimant "
          "frees its seat by generation");

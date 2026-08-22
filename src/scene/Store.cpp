@@ -45,11 +45,12 @@ Entity Store::Add(Role kind) {
   const uint32_t index = Free_.back();
   Free_.pop_back();
   Slot &slot = Slots_[index];
+  const uint32_t generation = slot.Generation;
+  slot = Slot{};
+  slot.Generation = generation;
   slot.Held = true;
   slot.Is = kind;
-  slot.GivenCount = 0;
-  slot.PairCount = 0;
-  return Entity{index, slot.Generation};
+  return Entity{index, generation};
 }
 
 void Store::Remove(Entity of) {
@@ -191,6 +192,10 @@ bool Store::Link(Entity from, Relation how, Entity to) {
   if ((rule.TargetRoles & RoleBit(target->Is)) == 0) {
     return Refuse(std::string(Named(how)) + " does not reach " + Named(target->Is));
   }
+  if (rule.SameRole && source->Is != target->Is) {
+    return Refuse(std::string(Named(how)) + " joins likes: " + Named(source->Is) + " is not " +
+                  Named(target->Is));
+  }
   if (rule.Exclusive && !(TargetOf(from, how) == kNoEntity)) {
     return Refuse(std::string(Named(how)) + " is exclusive, and this source already has its target");
   }
@@ -253,7 +258,11 @@ Entity Store::Instantiate(Entity prefab) {
     return kNoEntity;
   }
   const Entity instance = Add(base->Is);
-  if (!Alive(instance) || !Link(instance, Relation::IsA, prefab)) { return kNoEntity; }
+  if (!Alive(instance)) { return kNoEntity; }
+  if (!Link(instance, Relation::IsA, prefab)) {
+    Remove(instance);
+    return kNoEntity;
+  }
   for (size_t at = 0; at < Slots_.size(); ++at) {
     const Slot &child = Slots_[at];
     if (!child.Held) { continue; }
@@ -261,7 +270,13 @@ Entity Store::Instantiate(Entity prefab) {
     if (childId == instance) { continue; }
     if (!(TargetOf(childId, Relation::ChildOf) == prefab)) { continue; }
     const Entity copied = Instantiate(childId);
-    if (!Alive(copied) || !Link(copied, Relation::ChildOf, instance)) { return kNoEntity; }
+    if (!Alive(copied) || !Link(copied, Relation::ChildOf, instance)) {
+      const std::string why = Error_;
+      if (Alive(copied)) { Remove(copied); }
+      Remove(instance);
+      Error_ = why;
+      return kNoEntity;
+    }
   }
   return instance;
 }

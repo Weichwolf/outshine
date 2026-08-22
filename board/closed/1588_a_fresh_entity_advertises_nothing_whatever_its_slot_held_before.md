@@ -25,3 +25,10 @@ at `Store.cpp:115` speaks a false sentence about an entity that never offered. T
 machine of board:1583 slice 2 is sound; the pool hygiene under it is not. `Add` must hand out a
 slot in its ground state -- given, paired, offered, seated all empty -- and the proving test is
 the reuse cycle `unit/scene` does not yet walk: Offer, Remove, Add, Offer.
+
+---
+
+**Closed.** `Add` resets the whole slot and keeps only the generation, so no field a future slice
+adds can leak by omission -- the fix is structural, not a second checklist. Proving test:
+`unit/scene/AnAdvertisedInteractionIsClaimedBeforeItIsUsed` -- the dead pump's slot goes to a
+tenant that Offering does not report and that may advertise on its own terms.

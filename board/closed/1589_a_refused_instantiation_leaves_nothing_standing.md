@@ -31,3 +31,12 @@ decisions, one knot:
 
 `unit/scene/APrefabInstantiatesItsSubtreeAndNamesItsSlots` proves only the sunny path; the
 refused path is unproven and wrong.
+
+---
+
+**Closed.** Two halves: IsA now reaches every role under a SameRole trait (a tool child copies
+as a tool; a mind IsA a body is refused by the rule, not by an if), and Instantiate rolls back --
+the in-flight copy and the instance are removed on any refusal, the ChildOf cascade cleans the
+rest, and the refusal text survives the cleanup. Proving test:
+`unit/scene/APrefabInstantiatesItsSubtreeAndNamesItsSlots` -- a three-seat store refuses an
+instance of two and its next tenant carries no half-built pair.

@@ -43,20 +43,22 @@ struct RelationRule {
   bool Exclusive = false;
   bool Acyclic = false;
   bool OwnedByTarget = false;
+  bool SameRole = false;
   uint8_t TargetRoles = 0;
   Tag SourceDoes{};
   Relation Requires = kNoRelation;
 };
 
+inline constexpr uint8_t kEveryRole =
+    (uint8_t)(RoleBit(Role::Body) | RoleBit(Role::Mind) | RoleBit(Role::Tool) |
+              RoleBit(Role::Assignment));
+
 inline constexpr RelationRule kRules[kRelations] = {
-    {Relation::IsA, true, true, false, RoleBit(Role::Body), {}, kNoRelation},
-    {Relation::ChildOf, true, true, true,
-     (uint8_t)(RoleBit(Role::Body) | RoleBit(Role::Mind) | RoleBit(Role::Tool) |
-               RoleBit(Role::Assignment)),
-     {}, kNoRelation},
-    {Relation::DrivenBy, true, false, false, RoleBit(Role::Mind), tags::Does, kNoRelation},
-    {Relation::Uses, false, false, false, RoleBit(Role::Tool), {}, kNoRelation},
-    {Relation::Assigned, true, false, false, RoleBit(Role::Assignment), {}, Relation::Uses},
+    {Relation::IsA, true, true, false, true, kEveryRole, {}, kNoRelation},
+    {Relation::ChildOf, true, true, true, false, kEveryRole, {}, kNoRelation},
+    {Relation::DrivenBy, true, false, false, false, RoleBit(Role::Mind), tags::Does, kNoRelation},
+    {Relation::Uses, false, false, false, false, RoleBit(Role::Tool), {}, kNoRelation},
+    {Relation::Assigned, true, false, false, false, RoleBit(Role::Assignment), {}, Relation::Uses},
 };
 
 [[nodiscard]] constexpr const RelationRule &RuleOf(Relation relation) {
