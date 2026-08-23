@@ -26,3 +26,12 @@ Demanded: beside kRules, a `static_assert` in the shape of
 pins `every OwnedByTarget relation is Exclusive` and derives the per-entity
 owner count the reserve multiplies by — so the day the table grows, the bound
 either still holds by proof or the build refuses.
+
+---
+
+Closed -- the theorem is a compile-time fact beside the rules it depends on:
+EveryOwnedRelationIsExclusive() static_asserts (naming the reserve that must widen before
+it is relaxed), kOwnedRelations is derived constexpr from kRules, and Open reserves
+capacity * kOwnedRelations -- a second owned relation now widens the reserve by
+construction and the assert refuses a non-exclusive one. Proven by the build and
+TheRuntimeVerbsBuyNoHeap standing unchanged.

@@ -106,7 +106,29 @@ constexpr bool EveryAcyclicRelationIsExclusive() {
 static_assert(EveryAcyclicRelationIsExclusive(),
               "the cycle walk follows one target per hop, so an acyclic relation must be "
               "exclusive -- widen the walk before you relax this");
+constexpr size_t OwnedRelationCount() {
+  size_t owned = 0;
+  for (size_t at = 0; at < kRelations; ++at) {
+    if (kRules[at].OwnedByTarget) { ++owned; }
+  }
+  return owned;
+}
+constexpr bool EveryOwnedRelationIsExclusive() {
+  for (size_t at = 0; at < kRelations; ++at) {
+    if (kRules[at].OwnedByTarget && !kRules[at].Exclusive) { return false; }
+  }
+  return true;
+}
+static_assert(EveryOwnedRelationIsExclusive(),
+              "the felling stack pushes one entry per owned in-edge, and its reserve is "
+              "capacity x owned-relations ONLY while each entity has at most one owner "
+              "per owned relation -- widen the reserve before you relax this");
 } // namespace scene_register_checked
+
+// the felling stack's bound, anchored where the rules live: an entity is pushed at most
+// once per owned (and therefore exclusive) relation it hangs from
+inline constexpr size_t kOwnedRelations = scene_register_checked::OwnedRelationCount();
+static_assert(kOwnedRelations >= 1, "removal owns at least the ChildOf chain");
 
 } // namespace outshine
 

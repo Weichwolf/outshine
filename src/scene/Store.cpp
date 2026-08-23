@@ -37,7 +37,7 @@ bool Store::Open(size_t capacity) {
   // and a refused relink are tick-path work in a world of thousands, and none of them
   // may buy heap per call
   Felling_.clear();
-  Felling_.reserve(capacity);
+  Felling_.reserve(capacity * kOwnedRelations);
   Raising_.clear();
   Raising_.reserve(capacity);
   ErrorText_.reserve(kMostRefusalBytes);
