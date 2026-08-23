@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <array>
 #include <cstdint>
+#include <initializer_list>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -108,6 +109,7 @@ private:
   // a literal refusal aliases its static text -- the runtime verbs refuse without one byte
   // of allocation, and the two doors still speak the identical words
   [[nodiscard]] bool Refuse(const char *why) noexcept;
+  [[nodiscard]] bool Refuse(std::initializer_list<std::string_view> parts);
   [[nodiscard]] bool Permit(Relation how, Entity from, Entity to, bool retarget);
 
   [[nodiscard]] Pair &At(uint32_t ref) { return Slots_[ref / kPairsPerEntity].Pairs[ref % kPairsPerEntity]; }
@@ -123,6 +125,15 @@ private:
   std::array<uint32_t, kRoles> RoleHead_ = NoRefs<kRoles>();
   uint32_t OfferHead_ = kNoRef;
   std::array<uint32_t, kRelations> RelHead_ = NoRefs<kRelations>();
+  // [SET] the composed-refusal budget: the longest Permit text is under 128 bytes and
+  // the reserve keeps every composition off the heap
+  static constexpr size_t kMostRefusalBytes = 256;
+  struct Standing {
+    Entity Source;
+    Entity Under;
+  };
+  std::vector<Entity> Felling_;
+  std::vector<Standing> Raising_;
   std::string ErrorText_;
   std::string_view Said_;
   mutable size_t Touched_ = 0;

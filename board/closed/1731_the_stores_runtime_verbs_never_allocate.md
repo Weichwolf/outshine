@@ -20,3 +20,13 @@ both right — but the runtime verbs still buy heap on the tick:
 Demanded: member scratch (stack + refusal buffer) opened with the pool; a proof that
 `Remove`, `Instantiate` and a refused `Relink` perform zero allocations after `Open`
 (counting allocator or the harness's sanitiser hook).
+
+---
+
+Closed -- the work stacks are the store's (Felling_/Raising_, reserved to capacity at Open),
+Permit's and Relink's composed refusals write string_view parts into the reserved member
+buffer (kMostRefusalBytes 256 [SET], longest text under 128), and the Instantiate unwind
+stopped copying the refusal because Remove never refuses -- Said_ survives. Proven in
+TheRuntimeVerbsBuyNoHeap: a counting global operator new reads ZERO allocations across an
+Instantiate, a Remove and a refused Relink after Open (negative control: the per-call
+vectors reverted count allocations and go red).

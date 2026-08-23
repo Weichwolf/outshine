@@ -33,6 +33,14 @@ bool Store::Open(size_t capacity) {
   Slots_.assign(capacity, Slot{});
   Free_.clear();
   Free_.reserve(capacity);
+  // the runtime verbs' scratch is the store's, opened once: despawn, prefab evaluation
+  // and a refused relink are tick-path work in a world of thousands, and none of them
+  // may buy heap per call
+  Felling_.clear();
+  Felling_.reserve(capacity);
+  Raising_.clear();
+  Raising_.reserve(capacity);
+  ErrorText_.reserve(kMostRefusalBytes);
   for (size_t at = capacity; at > 0; --at) { Free_.push_back((uint32_t)(at - 1)); }
   for (size_t role = 0; role < kRoles; ++role) { RoleHead_[role] = kNoRef; }
   for (size_t how = 0; how < kRelations; ++how) { RelHead_[how] = kNoRef; }
@@ -66,13 +74,13 @@ void Store::Remove(Entity of) {
   if (Held(of) == nullptr) { return; }
   // an owned chain of any depth fells with an explicit stack -- a 100k-link ChildOf train
   // once tore down by recursion, one frame per link, and the stack is not the pool's bound
-  std::vector<Entity> felling;
-  felling.push_back(of);
-  while (!felling.empty()) {
-    const Entity next = felling.back();
+  Felling_.clear();
+  Felling_.push_back(of);
+  while (!Felling_.empty()) {
+    const Entity next = Felling_.back();
     Slot *held = const_cast<Slot *>(Held(next));
     if (held == nullptr) {
-      felling.pop_back();
+      Felling_.pop_back();
       continue;
     }
     bool deferred = false;
@@ -81,12 +89,12 @@ void Store::Remove(Entity of) {
       for (uint32_t in = held->InHead[how]; in != kNoRef; in = At(in).InNext) {
         ++Touched_;
         const uint32_t source = in / kPairsPerEntity;
-        felling.push_back(Entity{source, Slots_[source].Generation});
+        Felling_.push_back(Entity{source, Slots_[source].Generation});
         deferred = true;
       }
     }
     if (deferred) { continue; }
-    felling.pop_back();
+    Felling_.pop_back();
     Fell(next);
   }
 }
@@ -212,30 +220,30 @@ bool Store::Permit(Relation how, Entity from, Entity to, bool retarget) {
   const Slot *source = Held(from);
   const Slot *target = Held(to);
   if (source == nullptr || target == nullptr) {
-    return Refuse(std::string(Named(how)) + " needs both of its ends standing");
+    return Refuse({Named(how), " needs both of its ends standing"});
   }
   if ((rule.TargetRoles & RoleBit(target->Is)) == 0) {
-    return Refuse(std::string(Named(how)) + " does not reach " + Named(target->Is));
+    return Refuse({Named(how), " does not reach ", Named(target->Is)});
   }
   if (rule.SameRole && source->Is != target->Is) {
-    return Refuse(std::string(Named(how)) + " joins likes: " + Named(source->Is) + " is not " +
-                  Named(target->Is));
+    return Refuse({Named(how), " joins likes: ", Named(source->Is), " is not ",
+                   Named(target->Is)});
   }
   if (rule.Exclusive && !retarget && !(TargetOf(from, how) == kNoEntity)) {
-    return Refuse(std::string(Named(how)) + " is exclusive, and this source already has its target");
+    return Refuse({Named(how), " is exclusive, and this source already has its target"});
   }
   if (rule.SourceDoes.Value() != 0 && !Has(from, rule.SourceDoes)) {
-    return Refuse(std::string(Named(how)) + " asks the source to do something, and it does nothing");
+    return Refuse({Named(how), " asks the source to do something, and it does nothing"});
   }
   if (rule.Requires != kNoRelation && Targets(from, rule.Requires, nullptr, 0) == 0) {
-    return Refuse(std::string(Named(how)) + " stands only on " + Named(rule.Requires) +
-                  ", which this source does not have");
+    return Refuse({Named(how), " stands only on ", Named(rule.Requires),
+                   ", which this source does not have"});
   }
   if (rule.Acyclic) {
     Entity walked = to;
     for (size_t steps = 0; steps < Slots_.size() && !(walked == kNoEntity); ++steps) {
       if (walked == from) {
-        return Refuse(std::string(Named(how)) + " may not close a loop");
+        return Refuse({Named(how), " may not close a loop"});
       }
       walked = TargetOf(walked, how);
     }
@@ -245,8 +253,8 @@ bool Store::Permit(Relation how, Entity from, Entity to, bool retarget) {
 
 bool Store::Relink(Entity from, Relation how, Entity to) {
   if (!RuleOf(how).Exclusive) {
-    return Refuse(std::string(Named(how)) +
-                  " holds many targets, and relink is the exclusive relation's verb");
+    return Refuse({Named(how), " holds many targets, and relink is the exclusive "
+                                "relation's verb"});
   }
   if (!Permit(how, from, to, true)) { return false; }
   const Slot *source = Held(from);
@@ -258,8 +266,7 @@ bool Store::Relink(Entity from, Relation how, Entity to) {
     }
   }
   if (held == kPairsPerEntity) {
-    return Refuse(std::string(Named(how)) +
-                  " holds nothing to relink -- taking an empty seat is Link");
+    return Refuse({Named(how), " holds nothing to relink -- taking an empty seat is Link"});
   }
   if (source->Pairs[held].To == to) { return true; }
   const uint32_t ref = from.Index * (uint32_t)kPairsPerEntity + (uint32_t)held;
@@ -361,21 +368,17 @@ Entity Store::Instantiate(Entity prefab) {
   }
   // a prefab tree of any depth stands up with an explicit work list -- the recursion per
   // child paid one frame per link, the 1712 class, and a failure fells the ONE root
-  struct Standing {
-    Entity Source;
-    Entity Under;
-  };
   const Entity instance = Add(base->Is);
   if (!Alive(instance)) { return kNoEntity; }
   if (!Link(instance, Relation::IsA, prefab)) {
     Remove(instance);
     return kNoEntity;
   }
-  std::vector<Standing> raising;
-  raising.push_back(Standing{prefab, instance});
-  while (!raising.empty()) {
-    const Standing at = raising.back();
-    raising.pop_back();
+  Raising_.clear();
+  Raising_.push_back(Standing{prefab, instance});
+  while (!Raising_.empty()) {
+    const Standing at = Raising_.back();
+    Raising_.pop_back();
     for (uint32_t in = Slots_[at.Source.Index].InHead[(size_t)Relation::ChildOf];
          in != kNoRef;) {
       ++Touched_;
@@ -390,13 +393,12 @@ Entity Store::Instantiate(Entity prefab) {
       const Entity copied = childBase == nullptr ? kNoEntity : Add(childBase->Is);
       if (!Alive(copied) || !Link(copied, Relation::IsA, childId) ||
           !Link(copied, Relation::ChildOf, at.Under)) {
-        const std::string why{Said_};
+        // Remove never refuses, so the refusal that landed in Said_ survives the unwind
         if (Alive(copied)) { Remove(copied); }
         Remove(instance);
-        (void)Refuse(why);
         return kNoEntity;
       }
-      raising.push_back(Standing{childId, copied});
+      Raising_.push_back(Standing{childId, copied});
       in = next;
     }
   }
@@ -515,6 +517,15 @@ bool Store::Refuse(std::string why) {
 
 bool Store::Refuse(const char *why) noexcept {
   Said_ = why;
+  return false;
+}
+
+bool Store::Refuse(std::initializer_list<std::string_view> parts) {
+  // composed into the member buffer the pool opened -- a refused relink on the tick
+  // buys no heap so long as the parts fit the reserved bytes, and they are counted
+  ErrorText_.clear();
+  for (const std::string_view part : parts) { ErrorText_ += part; }
+  Said_ = ErrorText_;
   return false;
 }
 
