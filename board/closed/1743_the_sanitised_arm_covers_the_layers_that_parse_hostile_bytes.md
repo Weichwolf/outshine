@@ -18,3 +18,14 @@ layers that PARSE hostile input run without ASan/UBSan:
 Demanded: `unit/ui`, `unit/core` and `unit/gltf` join LayerSanitiser (and LayerValidation
 stays render-only); the 1735 gate-bound audit re-measures with the added arms so the
 headroom claim stays honest.
+
+---
+
+Closed -- unit/ui, unit/core and unit/gltf run their sanitised arms (LayerValidation stays
+render-only, as demanded): 203 arms green, ASan/UBSan clean on the hostile-parser layers
+where 1685's OOB hid. ONE case is exempt by name with its reason in the runner:
+EveryByteTheHeapTakesLandsUnderATagOrUnderOther measures the tree's OWN operator new, which
+ASan replaces -- sanitising it would measure ASan, not the instrument. The 1735 bound was
+re-derived honestly against the new population: 98.0 / 98.5 / 100.2 s of run measured over
+three warm passes, bound = worst x 1.5 = 150000 ms, derivation printed in run.sh; headroom
+51 s.

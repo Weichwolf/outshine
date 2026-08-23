@@ -165,9 +165,14 @@ LayerToolchain() {
     *) printf '%s' "$CXXSTD" ;;
   esac
 }
+# ONE case is exempt, by name and with its reason: the heap ledger measures the tree's own
+# operator new, and ASan REPLACES that allocator -- sanitising it would measure ASan, not
+# the instrument. The exemption is a case, never a layer (board:1743).
+SANITISER_EXEMPT="unit/core/EveryByteTheHeapTakesLandsUnderATagOrUnderOther"
+
 LayerSanitiser() {
   case "$1" in
-    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/shader) printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
+    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/shader | unit/ui | unit/core | unit/gltf) printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -635,15 +640,16 @@ fi
 # THE FAST GATE IS THE DEFAULT (board:1601): run.sh without suites runs the regression gate --
 # the unit mirror, the claims, and the door proof -- and EXCLUDES the named-only suites, loudly.
 # The long suites (device corpora, oracle renders, the drive) run only when named: sporadic by
-# rule, never per edit. kFastGateBoundMs is [SET] 90000 ms on this machine over the RUN
-# population alone -- the build phases are measured and stand BESIDE the bound (board:1735;
-# re-derived 2026-08-23: ~46 s of run at 153 tests, ~2x headroom), so a cold rebuild after a
-# header edit no longer overruns a bound about tests. A parallel reviewer gate in a worktree
-# still inflates the run toward the bound -- the lock keeps a SECOND gate out of this nest
-# but not off this machine.
+# rule, never per edit. kFastGateBoundMs is MEASURED on this machine over the RUN population
+# alone -- the build phases stand BESIDE the bound (board:1735). Re-derived 2026-08-23 after
+# the hostile-parser layers gained their sanitised arms (board:1743): 98.0 / 98.5 / 100.2 s
+# of run over 203 arms, worst 100.2 -> the bound is that worst measurement times 1.5 for the
+# machine's own weather = 150000 ms. A cold rebuild no longer overruns a bound about tests;
+# a parallel reviewer gate in a worktree still inflates the run toward it -- the lock keeps
+# a SECOND gate out of this nest but not off this machine.
 NAMED_ONLY="harness/render render/outshine/drive render/outshine/frame render/outshine/scenario render/outshine/shader render/outshine/world tools"
 FAST_GATE=no
-kFastGateBoundMs=90000
+kFastGateBoundMs=150000
 if [ -z "$SUITES" ]; then
   FAST_GATE=yes
   kept=""
@@ -981,6 +987,9 @@ for testSource in $TESTS; do
   fi
 
   sanitiser=$(LayerSanitiser "$layer")
+  for exempt in $SANITISER_EXEMPT; do
+    [ "$id" = "$exempt" ] && sanitiser=""
+  done
   if [ -n "$sanitiser" ]; then
     before=$(Now)
     OBJDIR=$BUILD/obj-sanitised
