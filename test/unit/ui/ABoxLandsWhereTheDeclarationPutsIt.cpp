@@ -166,6 +166,31 @@ int main(void) {
     CHECK(missed < 0, "and a point outside every box answers nothing at all");
   }
 
+  {
+    std::string why;
+    Laid baseline;
+    CHECK(baseline.Read("<div style=\"display:flex; flex-wrap:wrap; align-items:baseline; "
+                        "width:85px\">"
+                        "<div id=\"tall\" style=\"font-size:40px\">AA</div>"
+                        "<div id=\"small\" style=\"font-size:10px\">b</div>"
+                        "<div id=\"second\" style=\"font-size:40px\">CC</div>"
+                        "<div id=\"third\" style=\"font-size:10px\">d</div></div>",
+                        nullptr, 400, 300, why),
+          "a WRAPPED baseline-aligned row lays out -- the second line is where the double "
+          "cursor read past the line table (board:1685)");
+    const Box *tall = baseline.WithId("tall");
+    const Box *small = baseline.WithId("small");
+    const Box *second = baseline.WithId("second");
+    const Box *third = baseline.WithId("third");
+    CHECK(tall != nullptr && small != nullptr && small->Y >= tall->Y,
+          "the smaller glyph sits lower so the first line's baselines meet");
+    CHECK(second != nullptr && third != nullptr &&
+              Near(third->Y - second->Y, small->Y - tall->Y),
+          "and the SECOND line's baselines meet by the SAME arithmetic as the first "
+          "first -- the line's own baseline, read at the line's INDEX, never at its pixel "
+          "position (board:1685)");
+  }
+
   Covers("the library measures, wraps and places, and what it answers is where every box "
          "landed in the viewport's own pixels -- judged with no device and no picture");
   return Report();

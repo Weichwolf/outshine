@@ -144,6 +144,26 @@ bool Tokenise(std::string_view text, std::vector<Token> &out, std::string &error
         uint64_t wide = 0;
         const auto hex =
             std::from_chars(text.data() + at + 2, text.data() + text.size(), wide, 16);
+        if (hex.ec == std::errc::result_out_of_range) {
+          // past 64 bits the language's own answer is the precision-losing double --
+          // accumulated explicitly, never a silent zero
+          double wide2 = 0.0;
+          size_t digit = at + 2;
+          while (digit < text.size()) {
+            const char c = text[digit];
+            const int value = (c >= '0' && c <= '9')   ? c - '0'
+                              : (c >= 'a' && c <= 'f') ? c - 'a' + 10
+                              : (c >= 'A' && c <= 'F') ? c - 'A' + 10
+                                                       : -1;
+            if (value < 0) { break; }
+            wide2 = wide2 * 16.0 + (double)value;
+            ++digit;
+          }
+          token.Number = wide2;
+          at = digit;
+          out.push_back(std::move(token));
+          continue;
+        }
         if (hex.ptr != text.data() + at + 2) {
           token.Number = (double)wide;
           at = (size_t)(hex.ptr - text.data());
@@ -153,6 +173,11 @@ bool Tokenise(std::string_view text, std::vector<Token> &out, std::string &error
       }
       const auto scanned =
           std::from_chars(text.data() + at, text.data() + text.size(), token.Number);
+      if (scanned.ec == std::errc::result_out_of_range) {
+        // the standard leaves the value untouched here; the language's answer is infinity,
+        // written explicitly so no library's kindness is load-bearing
+        token.Number = HUGE_VAL;
+      }
       at = (size_t)(scanned.ptr - text.data());
       out.push_back(std::move(token));
       continue;

@@ -26,3 +26,12 @@ Demanded: check `ec` on both scans — hex out-of-range converts through the JS 
 value is a double; parse into a double by positional accumulation or refuse loudly at Read),
 decimal out-of-range pins the ±inf semantics explicitly; unit cases for `0xFF`, `0X10`,
 `0x10000000000000000`, `1e999`, `.5` beside the tokeniser they prove.
+
+---
+
+Closed, and the corpus adjudicated the form: a hex literal past 64 bits reads as the
+LANGUAGE'S own precision-losing double (accumulated explicitly -- never a silent zero, never
+a refusal: the first refusal cut broke 15 BigInt corpus cases, which is the corpus doing its
+job); decimal overflow writes infinity explicitly so no library's kindness is load-bearing;
+both ec paths are read. Proofs: the script unit test (2^64 hex, 1e999, 0xFF) and the full
+test262 corpus 825/825.

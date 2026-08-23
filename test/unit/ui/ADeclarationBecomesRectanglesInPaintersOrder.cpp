@@ -192,5 +192,17 @@ int main(void) {
     }
   }
 
+  {
+    Built two;
+    CHECK(Paint(two, "<div style=\"width:20px;height:10px;background:#ff0000\"></div>"
+                     "<div style=\"width:20px;height:10px;background:#00ff00\"></div>",
+                100, 100),
+          "a fragment of TWO rootless divs paints");
+    CHECK(At(two.Painted, 0, 10, 20, 10) >= 0,
+          "**EVERY ROOTLESS BOX IS PAINTED**: the second top-level div reaches the quads at "
+          "its own place -- what Hit answers for is also what the eye sees, one truth "
+          "(board:1686)");
+  }
+
   return Report();
 }

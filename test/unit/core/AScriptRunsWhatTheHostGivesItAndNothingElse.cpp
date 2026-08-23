@@ -278,5 +278,18 @@ int main(void) {
     CHECK(tick.Named("phase") == nullptr, "and Reset is the explicit door to a clean slate");
   }
 
+  {
+    outshine::Script::Program program;
+    std::string why;
+    CHECK(program.Read("1e999", why) && program.NodeCount() > 0,
+          "a decimal overflow reads as the language's own infinity, written explicitly -- "
+          "no library kindness is load-bearing (board:1688)");
+    CHECK(program.Read("0x10000000000000000", why),
+          "and a hex literal past 64 bits reads as the language's own precision-losing "
+          "double -- 2^64, never a silent zero (board:1688)");
+    CHECK(program.Read("0xFF", why),
+          "while an honest hex literal reads as the number it spells");
+  }
+
   return Report();
 }

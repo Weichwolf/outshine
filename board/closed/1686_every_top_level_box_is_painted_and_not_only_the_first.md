@@ -23,3 +23,9 @@ correct picture, never a silent drop.
 Demanded: Paint walks every parentless box in order (or Layout roots them under one box, in
 ONE place), and a unit case in `test/unit/ui/` with two top-level elements asserting both
 backgrounds appear.
+
+---
+
+Closed: the painter walks EVERY rootless box in box order -- a fragment of two top-level
+divs paints two quads, and what Hit answers for is what the eye sees. Negative-controlled:
+with Walk(0) restored the new proof (the second div's quad at its own place) goes red.

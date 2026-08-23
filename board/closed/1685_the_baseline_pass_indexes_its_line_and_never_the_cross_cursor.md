@@ -25,3 +25,13 @@ over the suite: empty), which is how UB shipped through a green gate.
 Demanded: `lineBaseline[lineIndex]` at :799, plus a unit case in `test/unit/ui/` that lays
 out a baseline-aligned flex row and asserts the shorter item's offset — the test that would
 have caught this read.
+
+---
+
+Closed: the index is the line's INDEX (lineBaseline[lineIndex]), never its pixel cursor.
+Coverage that did not exist rides the fix: a WRAPPED baseline row in
+ABoxLandsWhereTheDeclarationPutsIt (baseline had zero unit coverage -- how UB passed a green
+gate). On the record, honestly: an unsanitised unit arm cannot DISCRIMINATE an out-of-bounds
+READ (three fixture variants all passed against the bug -- adjacent heap doubles are too
+kind); the defect proof is the reviewer's ASan repro, and a sanitised arm for unit/ui is the
+durable gate this class wants -- noted here for the suite's owner rather than claimed.

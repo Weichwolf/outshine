@@ -171,7 +171,12 @@ bool Painting::Build(const Layout &layout, const Font &font, std::string &error,
 
   const double window = page.HeightPx > 0 ? page.HeightPx : layout.ViewportHeight();
   Painter painter(layout, font, Quads_, Beyond_, page.OffsetY);
-  painter.Walk(0, {0, page.OffsetY, layout.ViewportWidth(), window}, 1.0);
+  // a fragment may carry several rootless boxes -- every one is painted, in box order,
+  // so what Hit answers for is also what the eye sees
+  for (int at = 0; at < (int)layout.Boxes().size(); ++at) {
+    if (layout.Boxes()[(size_t)at].Parent != -1) { continue; }
+    painter.Walk(at, {0, page.OffsetY, layout.ViewportWidth(), window}, 1.0);
+  }
   return true;
 }
 

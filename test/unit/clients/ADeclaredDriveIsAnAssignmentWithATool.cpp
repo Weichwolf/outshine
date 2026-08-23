@@ -84,5 +84,23 @@ int main(void) {
   Covers("II.9 a declared drive assembles as the actor chain end to end: mind Uses a nav tool, "
          "mind Assigned an assignment carrying the two coordinates, ordered by the rules and "
          "refused without a mind");
+  {
+    Scenario going = declared;
+    going.Driven.FromLatDeg = going.Driven.ToLatDeg = 48.0;
+    going.Driven.FromLonDeg = going.Driven.ToLonDeg = 11.0;
+    Store s;
+    outshine::Column<outshine::Vehicle> v;
+    outshine::Column<outshine::Drive> d;
+    outshine::Column<outshine::Traits> k;
+    Assembled a;
+    std::string coincideWhy;
+    CHECK(s.Open(8) && v.Open(s) && d.Open(s) && k.Open(s) &&
+              !Assemble(going, s, v, d, k, a, coincideWhy) &&
+              coincideWhy.find("coincide") != std::string::npos,
+          "a drive whose ends coincide refuses at assembly naming the point -- a zoom "
+          "without a base route is a layer over nothing (board:1689 delivering 1684's "
+          "claimed proof)");
+  }
+
   return Report();
 }

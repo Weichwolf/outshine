@@ -24,3 +24,11 @@ would catch the old behaviour returning.
 Demanded: write both tests (coinciding-ends refusal with the coordinate in the message;
 trace assertions for the three new spellings), then append the actual test names to the
 1683/1684 closure notes.
+
+---
+
+Closed: the three claimed-but-absent proofs exist now -- the coincide refusal asserts
+through Assemble (delivering 1684's named proof), the stage-list replacement is asserted ON
+THE TRACE, and an id-less row's "(id-less)" spelling is asserted. Two overclaims in three
+rounds is a pattern; the rule stands sharpened: a closing note names only tests that grep
+can find.

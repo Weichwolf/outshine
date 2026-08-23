@@ -105,6 +105,17 @@ int main(void) {
   CHECK(town.Assets.size() == 1 && town.Assets[0].Digest == "bbb",
         "an asset with the same uri and a NEW digest replaces the row -- the uri is the "
         "declared name, the digest is the content pin, and a mod re-pins");
+  {
+    Scenario anon;
+    CHECK(Parsed("<scenario name=\"anon\">"
+                 "<views><view follows=\"car\"/></views></scenario>",
+                 anon, error),
+          "an id-less row parses");
+    std::vector<std::string> anonTrace;
+    CHECK(MergeLayer(town, anon, "anon", anonTrace, error) && !anonTrace.empty() &&
+              anonTrace[0].find("(id-less)") != std::string::npos,
+          "and it traces as id-less instead of a pair of naked quotes (board:1689)");
+  }
   CHECK(town.Sounds.size() == 1 && town.Sounds[0].GainDb == -3.0,
         "and a sound overrides by its URI -- the identity 1655 put in the Required column, "
         "not the optional id");
@@ -130,6 +141,12 @@ int main(void) {
     CHECK(route.Render.Stages.size() == 1 && route.Render.Stages[0] == "sky",
           "and a redeclared stage list REPLACES -- the declared list is the list, never an "
           "append that draws the sky twice");
+    bool spokeList = false;
+    for (const std::string &row : trace) {
+      if (row.find("replaced the stage list") != std::string::npos) { spokeList = true; }
+    }
+    CHECK(spokeList, "and the trace SAYS the list was replaced -- publishable everywhere the "
+                     "merge acts (board:1689)");
   }
 
   Scenario nested;

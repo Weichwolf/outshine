@@ -796,7 +796,7 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
       if (self_align == kBaseline && !column) {
 
         inLine = one.CrossMarginStart +
-                 (lineBaseline[lineAt] - BaselineOf(one.Node, &style, one.Main) -
+                 (lineBaseline[lineIndex] - BaselineOf(one.Node, &style, one.Main) -
                   one.CrossMarginStart);
         inLine = std::fmax(inLine, 0.0);
       }
