@@ -47,3 +47,17 @@ What will be true:
    a stated multiple of the box count -- a test that would fail today at depth 12.
 3. `Layout::Build` publishes a count a scenario suite can assert on (nodes placed, places
    per node), so a regression to re-walking is a number, not a stopwatch.
+
+---
+
+Closed -- the intrinsic sizes and the baseline of a node under a given available width are
+computed ONCE per Build and cached beside the walk (two tables, because the two questions
+are answered by two walks and a half-filled row would hand a caller a zero it never
+measured; the key is (node, available width) and it is sound because a node has one parent,
+so its inherited style is fixed within one Build). Measured on the item's own ladder
+(nested display:flex; align-items:baseline): sixteen levels lay out in 3.25 ms where the
+item extrapolated twenty-seven minutes, and doubling the depth from eight to sixteen costs
+7.6x where the re-walking form multiplied by 3.99 PER LEVEL. Proven in
+unit/ui/TheLayoutsCostIsBoundedInTheMarkupItIsHanded, which also pins the PICTURE (a
+two-item baseline line lands to the pixel) so a cache that answered something else would go
+red. Negative control: disabling both lookups turns the same test into 2 TIMEOUT.

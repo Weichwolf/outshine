@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <unordered_map>
+#include <cstring>
 
 namespace outshine::Ui {
 
@@ -113,6 +115,27 @@ struct Placer {
   int Depth = 0;
   bool TooDeep = false;
 
+  // the intrinsic sizes and the baseline of a node under a given available width are a
+  // FUNCTION of that pair -- a node has one parent, so its inherited style is fixed within
+  // one Build. Measure and BaselineOf each threw away a full sub-walk and a flex line asked
+  // for both: four walks of every child subtree per level, measured at 3.99 per level
+  // (board:1753). One cache beside the box, the browser form
+  struct Measured {
+    double Width = 0.0;
+    double Height = 0.0;
+  };
+  // two tables, because the two questions are answered by two walks and a half-filled
+  // row would hand a caller a zero it never measured
+  std::unordered_map<uint64_t, Measured> Sizes;
+  std::unordered_map<uint64_t, double> Baselines;
+
+  [[nodiscard]] static uint64_t MemoKey(int node, double availableWidth) {
+    const float rounded = (float)availableWidth;
+    uint32_t bits = 0;
+    std::memcpy(&bits, &rounded, sizeof bits);
+    return ((uint64_t)(uint32_t)node << 32) | (uint64_t)bits;
+  }
+
   struct DepthHeld {
     explicit DepthHeld(Placer &of) : Of(of) { ++Of.Depth; }
     ~DepthHeld() { --Of.Depth; }
@@ -190,6 +213,13 @@ Computed Placer::StyleOf(int node, const Computed *inherited) const {
 
 void Placer::Measure(int node, const Computed *inherited, double availableWidth, double &width,
                      double &height) {
+  const uint64_t key = MemoKey(node, availableWidth);
+  const auto seen = Sizes.find(key);
+  if (seen != Sizes.end()) {
+    width = seen->second.Width;
+    height = seen->second.Height;
+    return;
+  }
   std::vector<Box> scratch;
   std::vector<Box> *held = Out;
   Out = &scratch;
@@ -204,6 +234,8 @@ void Placer::Measure(int node, const Computed *inherited, double availableWidth,
     widest = std::fmax(widest, one.X - scratch[0].X + one.Width);
   }
   if (widest > 0) { width = std::fmin(width, widest); }
+  Sizes.emplace(key, Measured{width, height});
+  if (!scratch.empty()) { Baselines.emplace(key, scratch[0].Baseline); }
 }
 
 double Placer::MinContent(int node, const Computed *inherited, bool ownSize) {
@@ -368,11 +400,15 @@ double Placer::Clamped(double used, const Computed &style, Property least, Prope
 }
 
 double Placer::BaselineOf(int node, const Computed *inherited, double widthRoom) {
+  const uint64_t key = MemoKey(node, widthRoom);
+  const auto seen = Baselines.find(key);
+  if (seen != Baselines.end()) { return seen->second; }
   const size_t before = Out->size();
   Place(node, inherited, 0, 0, widthRoom, 0, -1);
   double baseline = 0;
   if (Out->size() > before) { baseline = (*Out)[before].Baseline; }
   Out->resize(before);
+  Baselines.emplace(key, baseline);
   return baseline;
 }
 
