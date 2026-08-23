@@ -14,3 +14,9 @@ The 1713 refactor left residue in src/actor/path/Fit.cpp:
 
 Demanded: the helpers move into the (one) anonymous namespace, or gain a declaration in the
 header if a twin test wants them by name; the empty namespace dies.
+
+---
+
+Closed -- ShiftShare/TangentShare moved into the one anonymous namespace (internal linkage,
+no leaked symbols, no ODR surface) and the empty husk namespace died. Proven by the build:
+unit/actor/path 12/12 green.

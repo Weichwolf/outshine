@@ -7,10 +7,16 @@ namespace outshine {
 
 namespace {
 
+// derived: a corner is an arc between two half-swing clothoids (board:1528). The
+// clothoid shift is s = R tau^2 / 24 with tau = swing/2 per side, so (R + s) / R =
+// 1 + swing^2 / 96 EXACTLY -- the share the shift adds to every chord term
+[[nodiscard]] double ShiftShare(double swing) { return 1.0 + swing * swing / 96.0; }
 
-} // namespace
-
-namespace {
+// derived: the shifted corner's tangent length per unit radius -- the arc's own
+// (R+s) tan(half) plus the clothoid half-length R * swing / 4 (board:1528)
+[[nodiscard]] double TangentShare(double swing) {
+  return ShiftShare(swing) * std::tan(0.5 * swing) + 0.25 * swing;
+}
 
 double AwayFromChordM(std::span<const double> points, size_t point, size_t from, size_t to) {
   const double fromE = points[2 * from], fromN = points[2 * from + 1];
@@ -74,17 +80,6 @@ std::vector<double> Simplify(std::span<const double> eastNorthM, double withinM)
     out.push_back(eastNorthM[2 * point + 1]);
   }
   return out;
-}
-
-// derived: a corner is an arc between two half-swing clothoids (board:1528). The
-// clothoid shift is s = R tau^2 / 24 with tau = swing/2 per side, so (R + s) / R =
-// 1 + swing^2 / 96 EXACTLY -- the share the shift adds to every chord term
-[[nodiscard]] double ShiftShare(double swing) { return 1.0 + swing * swing / 96.0; }
-
-// derived: the shifted corner's tangent length per unit radius -- the arc's own
-// (R+s) tan(half) plus the clothoid half-length R * swing / 4 (board:1528)
-[[nodiscard]] double TangentShare(double swing) {
-  return ShiftShare(swing) * std::tan(0.5 * swing) + 0.25 * swing;
 }
 
 double CornerRadiusM(double turnRad, double shorterLegM, double withinM) {

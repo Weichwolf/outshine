@@ -41,7 +41,11 @@ Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM, d
     return out;
   }
 
-  const size_t stations = (size_t)((toM - fromM) / stepM) + 1;
+  // an off-grid range takes one MORE station, clamped to toM -- the ribbon reaches the
+  // metre it promises and whatever abuts at toM meets no gap (the 1715 fix, here)
+  const size_t whole = (size_t)((toM - fromM) / stepM);
+  const bool onGrid = fromM + (double)whole * stepM == toM;
+  const size_t stations = whole + (onGrid ? 1 : 2);
   if (stations > kMaxRibbonStations) {
     out.Error = "a ribbon of " + std::to_string(stations) + " stations reaches the bound of " +
                 std::to_string(kMaxRibbonStations);

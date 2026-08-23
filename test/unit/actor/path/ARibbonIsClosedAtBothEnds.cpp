@@ -100,6 +100,22 @@ int main(void) {
         "cull keeps the outside and drops the inside -- the glTF convention, checked by "
         "determinant rather than by eye");
 
+  {
+    // 100..500.7 at step 2: the range is off the grid by 0.7 m, and the surface must
+    // still REACH 500.7 -- a floor-count sweep ended a step short while ToM promised
+    // the metre, so whatever abuts at the end met a gap
+    const Ribbon reaches = Sweep(along, section, 100.0, 500.7, 2.0);
+    CHECK(reaches.Woven, "an off-grid range sweeps");
+    double farM = -1.0e30;
+    for (size_t at = 0; at + 2 < reaches.PositionM.size(); at += 3) {
+      farM = std::fmax(farM, (double)reaches.PositionM[at] + reaches.OriginM[0]);
+    }
+    Note("the farthest surface vertex stands at", farM, "m");
+    CHECK(std::fabs(farM - 500.7) < 1.0e-3,
+          "**THE RIBBON REACHES THE METRE IT PROMISES**: the last vertex row stands at "
+          "500.7 m exactly, one clamped extra station past the grid (board:1723)");
+  }
+
   Covers("I.4.7 the carriageway ribbon is a closed solid: top, soffit, both flanks and both end "
          "caps, each cap wound outward");
   return Report();
