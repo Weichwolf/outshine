@@ -129,3 +129,30 @@ Either way the item is not closed by a walk that requires a green tree to be red
 The title says EVERY NON-GREEN node. The rewrite judges only `wrong`; `unsure` (amber) is
 still unwalked, and CLAUDE.md paints 15 amber nodes in the class-structure diagram alone with
 no citation obligation on any of them.
+
+## Comments
+
+- 2026-08-24 -- **reopened harder was right**: the first repair shipped RED. `regex_search`
+  takes the FIRST `class ... wrong` in CLAUDE.md, which is the render plan's
+  `class SUBJ,GLASS wrong`, not the class diagram's row the justification table was written
+  for. `nodes = 2` against `CHECK(nodes >= 3)`, plus two FOUNDs for table rows that were
+  never meant to exist.
+- Repaired with `sregex_iterator`, so EVERY diagram's reds are walked -- and the walk
+  immediately found what the first attempt had hidden: the render plan's two reds were
+  justified in prose (`subjects: six responsibilities, instancing a literal, nothing culls;
+  glass: a full clone of the subject stage`) with no citation at all. Both now cite code:
+  `SUBJ` names its six entry points at `SubjectDraw.h:30,51,82,86,89,141,147`; `GLASS` names
+  `{Stage::SubjectsTransmissive, …` (RenderCatalogue.h:268) beside `{Stage::Subjects, …`
+  (:263) it clones.
+
+  | | nodes judged | citations |
+  |---|---|---|
+  | before board:1762 | 0 | 0 |
+  | first repair (shipped red) | 2 of 6 | 15 |
+  | now | **6 of 6** | **24** |
+
+- **Proving test**: `test/harness/claims/EveryColourCitesALineThatSaysIt` -- every node any
+  diagram paints red is named in a justification row, and that row cites code by file:line.
+- **Negative control**: the `Sim` row deleted from the table -> `FOUND Sim is painted red and
+  the paragraph does not name it`, claim red. Reverted.
+- Gate 234/234. Amber is still unjudged, which this item does not claim to have fixed.
