@@ -150,3 +150,58 @@ REMAINING, and it is this item's title: Place must be linear in boxes. The fix i
 browser's own shape -- an intrinsic pass that never sub-lays, and one layout pass per node
 per Build -- which is a redesign of Placer, not an edit. Until it lands the engine is
 bounded but not linear, and this item stays open saying so.
+
+---
+
+## The multiplier is located (2026-08-23)
+
+The remaining demand -- `Place` linear in boxes -- was worked and NOT closed. What this hour
+adds is the exact line, measured, and the reason the repair is not defensible from here.
+
+**The doubling is src/ui/Layout.cpp:762**, in the flex cross-sizing pass:
+
+```cpp
+double w = 0, h = 0;
+Measure(one.Node, &style, one.Main, w, h);   // :762  a FULL sub-layout of the subtree
+one.Cross = h;
+```
+
+and ~140 lines later the same node is laid AGAIN, with the same main size:
+
+```cpp
+Place(one.Node, &style, x - …, y - …, contentWidth, contentHeight, self, usedW = one.Main, …);
+```
+
+Two full walks per node, so the walk is `2^depth`. The counter confirms it exactly:
+
+| depth | boxes | places | 2^depth |
+|---|---|---|---|
+| 2 | 3 | 4 | 4 |
+| 4 | 5 | 16 | 16 |
+| 6 | 7 | 64 | 64 |
+| 8 | 9 | 256 | 256 |
+
+The `Sizes` memo hides this whenever the widths repeat (286 of 377 asks hit on `percentage
+width`); a percentage width AND a padding make every level's content width a distinct real
+number, the memo stops hitting, and the exponent is naked.
+
+**Tried and REVERTED this hour**: `BaselineOf` (Layout.cpp:429) is a second sub-layout of the
+same shape, so it was deleted and the flex baseline pass rewritten the browser's way -- lay
+once, read `Box::Baseline` off the placed box, then shift the placed range by the delta. It
+built, `unit/ui` stayed 16/16 -- and the counters did not move: places stayed 106 and 470,
+because `Baselines` is also filled by `Measure` and the cache was already hitting. No gain,
+an unproven `wrap-reverse` sign in new code, so the change was removed rather than kept for
+looking like progress.
+
+**Why the real repair is not defensible from here.** The fix is to fuse :762 with the later
+`Place` -- lay the item ONCE into `Out`, read its height off the placed box, and shift the
+placed range when the line's cross position is known. That is a rewrite of the flex
+cross-sizing and placement passes. The suite that would catch a conformance regression in
+those passes is `harness/render/wpt/css`, and it reports **162 tests: 0 PASS, 162 UNPREPARED**
+-- the corpus needs `test/harness/shared/corpus/prepare.py`, which fetches. `unit/ui` covers
+baseline alignment including wrap and a second line, but it is eight files against a flex
+algorithm; rewriting the core of it with no conformance net in the gate is the blind edit
+this tree's rules refuse.
+
+Filed as its own finding: board:1765 -- the flex core has no conformance net a repair can
+stand on.
