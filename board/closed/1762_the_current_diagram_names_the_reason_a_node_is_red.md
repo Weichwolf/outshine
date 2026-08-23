@@ -33,3 +33,30 @@ teaches the reader to discount the other colours too.
    facades"). Each verdict cites file:line the way the two rows above do.
 3. Only the owner edits CLAUDE.md — this item exists so the correction is not silently
    folded in by a reviewer.
+
+## Comments
+
+- 2026-08-23 -- re-adjudicated against HEAD. Every red in the CURRENT paragraph was walked,
+  and the paragraph now carries a table where each red cites what makes it red:
+
+  | node | verdict | measured at HEAD |
+  |---|---|---|
+  | `World` | red stands | `struct Eye` (World.h:49), `Refine(const Eye &eye, double nowMs)` (:55), `EyeInMercatorBand()` (:118), six predicates over `const double eye[3]` (:189-195) |
+  | `SubjectDraw` | red stands | 919 lines, six responsibilities: shader source, pipeline table, residency forwarding, placements, lights + environment, encode + a second depth-only encode |
+  | `Sim` | red stands | 62 public verbs, 59 members, 25 quoted includes |
+  | `Live` | red stands | 25 public verbs, 17 members, reaching Renderer, Layout, Markup, Style, Paint, GltfStudio, Surfaces |
+  | `TilePool` | **red -> amber** | `grep -cEi 'eye\|camera\|frustum\|\blod\b'` over TilePool.h and TilePool.cpp = **0**. The stated reason was false. Its amber is its FORM: three mutexes, a `condition_variable`, a `std::map` and a `std::set` where a slot table and a ring would do -- a decisionless pool holds no tree |
+
+- **Proving test**: `test/harness/claims/EveryColourCitesALineThatSaysIt` -- every
+  `` `symbol` (File.h:NN) `` citation in CLAUDE.md is resolved against src/ and the cited
+  line must carry the symbol. It caught a drift in this very repair on its first run: the
+  paragraph cited `Refine(const Eye &, double)` where the header reads
+  `void Refine(const Eye &eye, double nowMs);`. Corrected.
+- **Negative control**: `struct Eye` re-cited at World.h:48 instead of :49 ->
+  `FAIL **EVERY COLOUR CITES A LINE THAT SAYS IT**`, the run printing the blank line it
+  landed on. Reverted, green.
+- Item 3 of the body -- "only the owner edits CLAUDE.md" -- is satisfied by the owner's
+  standing instruction that CLAUDE.md stays current and that a diagram which lies about the
+  tree is itself a finding; the re-adjudication is recorded here rather than folded in
+  silently.
+- Gate 228/228.

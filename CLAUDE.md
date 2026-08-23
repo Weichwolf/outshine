@@ -224,18 +224,31 @@ flowchart TD
   classDef wrong fill:#7a2222,stroke:#3d1111,color:#fff
   class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,OsmField,RoadHarvest,Wayfinding,StreetField,Ground,Forest,Buildings,Water,Infrastructure,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,Engine,SceneStore,Assembly,SubjectResidency,Markup,Stylesheet,LayoutUi,Painting,InputMap,InputPump,TriggerField,ViewBook,BusGraph sound
   class BuildingField,WaterField,Subject,DrawList,Renderer,TonemapStage,LightVisibilityStage,Frustum,Ephemeris,RegionForge,GltfStudio unsure
-  class TilePool,World,SubjectDraw,Sim,Live wrong
-  class DriveAssembly,CorridorLay,DriveTick unsure
+  class World,SubjectDraw,Sim,Live wrong
+  class DriveAssembly,CorridorLay,DriveTick,TilePool unsure
   class GroundStack sound
 ```
 
-Colours are ARCHITECTURE, adjudicated by an independent review (2026-08-22): green = right
-responsibility in the right layer; amber = form in question (fields that tessellate, the getter
-carpet, TAA folded into tonemap, idle values); red = provably wrong — `TilePool` and `World`
-spell camera and LOD inside the ground layer, `SubjectDraw` is six responsibilities, `Sim` and
-`Live` are hand-wired god facades the component model replaces, Journey died with move 2(e): the six consumers hold {GroundStack, DriveProduct} and call the
-free systems directly. `LayCorridor`, `AssembleDrive` and `DriveTick` stay amber until their
-own unit proofs deepen. The rot concentrates at the orchestration edges; the middle of the tree is sound.
+Colours are ARCHITECTURE, re-adjudicated against HEAD (2026-08-23, board:1762); every red
+below cites what makes it red, and a colour whose stated reason has gone stale is itself a
+finding. Green = right responsibility in the right layer; amber = form in question.
+
+| red | what makes it red, at HEAD |
+|---|---|
+| `World` | spells camera and LOD inside the ground layer: `struct Eye` (World.h:49), `Refine(const Eye &eye, double nowMs)` (:55), `EyeInMercatorBand()` (:118), and six predicates taking `const double eye[3]` (:189-195) |
+| `SubjectDraw` | six responsibilities in 919 lines: shader-source generation, pipeline table, residency forwarding, placements, lights and environment, encode + a second depth-only encode |
+| `Sim` | 62 public verbs over 59 members and 25 quoted includes — a hand-wired god facade the component model replaces |
+| `Live` | 25 public verbs over 17 members, reaching Renderer, Layout, Markup, Style, Paint, GltfStudio and Surfaces from one class |
+
+`TilePool` moved red → amber: the earlier sentence said it spells camera and LOD, and it does
+not — `grep -cEi 'eye|camera|frustum|\blod\b'` over both its files is 0. It is a
+byte-budgeted LRU work pool keyed on projected error, which is the RAGE reference, not a
+layering breach. Its amber is its FORM: three mutexes, a `condition_variable`, a `std::map`
+and a `std::set` of pointer-chasing nodes where a slot table and a ring would do — a
+decisionless pool holds no tree. `LayCorridor`, `AssembleDrive` and `DriveTick` stay amber
+until their own unit proofs deepen. Journey died with move 2(e): the six consumers hold
+{GroundStack, DriveProduct} and call the free systems directly. The rot concentrates at the
+orchestration edges; the middle of the tree is sound.
 
 ## Class structure (TARGET — where the tree is going)
 
