@@ -57,7 +57,7 @@ int main(void) {
   CHECK(net.Weave(error), "the six ways weave");
 
   const Route legal =
-      net.Plan(Waypoint{s.Lat(), s.Lon()}, Waypoint{t.Lat(), t.Lon()}, 5.0, 10.0);
+      net.Plan(Waypoint{s.Lat(), s.Lon()}, Waypoint{t.Lat(), t.Lon()}, 5.0);
   if (!legal.Found) { std::printf("REFUSED %s\n", legal.Error.c_str()); }
   CHECK(legal.Found,
         "**A TURN REFUSAL BELONGS TO THE APPROACH, NOT THE JUNCTION**: the route exists the "
@@ -72,10 +72,27 @@ int main(void) {
         "only its scope moved");
 
   const Route nimble =
-      net.Plan(Waypoint{s.Lat(), s.Lon()}, Waypoint{t.Lat(), t.Lon()}, 0.0, 10.0);
+      net.Plan(Waypoint{s.Lat(), s.Lon()}, Waypoint{t.Lat(), t.Lon()}, 0.0);
   CHECK(nimble.Found && nimble.LengthM < 2100.0,
         "a vehicle without a turning bound still takes the hairpin -- the detour was the "
         "GEOMETRY'S price, not the planner's habit");
+
+  {
+    // the woven cell index answers the spatial questions -- exactly, at the boundary
+    std::vector<size_t> held;
+    net.Within(Waypoint{s.Lat(), s.Lon()}, 650.0, held);
+    CHECK(held.size() == 2,
+          "**WITHIN READS THE WOVEN INDEX AND MISSES NOTHING AT THE RIM**: 650 m around the "
+          "start holds exactly S and U (600 m) -- M at 1000 m stays out (board:1711)");
+    net.Within(Waypoint{s.Lat(), s.Lon()}, 20000.0, held);
+    CHECK(held.size() == 6, "and a reach past the whole net answers every node once");
+    size_t node = 0;
+    double awayM = 0.0;
+    CHECK(net.Nearest(Waypoint{s.Lat() + 3.0, s.Lon()}, node, awayM) && awayM > 300000.0 &&
+              awayM < 340000.0,
+          "a waypoint three degrees away still finds its nearest node -- the widening "
+          "reaches past the index into the scan instead of walking a million empty rings");
+  }
 
   Covers("I.9.12 the route search walks edge states: a turn refusal is a property of the "
          "arriving and leaving edge pair, a junction sealed by one approach reopens for "

@@ -17,3 +17,12 @@ Either Nearest/Within walk `Cells_` (growing the ring until a hit, the same neig
 walk Weave already does at lines 146-158), or `Cells_` is dead state and goes. Carrying a
 built index that nothing queries is the worst of both: the memory of the fast path, the cost
 of the slow one.
+
+---
+
+Closed -- Within walks the woven Cells_ over the reach box (one slack ring for the
+parallel's narrowing) and falls back to the node scan only when the box would touch more
+cells than exist; Nearest widens quadrupling reaches over Within, capped at the half
+circumference. Proven in ATurnRefusalBelongsToTheApproachNotTheNode: 650 m around the start
+answers exactly {S, U} with U at 600 m on the rim, a whole-net reach answers all six nodes,
+and a waypoint three degrees off still finds its nearest node through the fallback.

@@ -60,7 +60,7 @@ Route Planned(const std::vector<Laid> &ways, bool reversed, size_t &nodes) {
   }
   nodes = net.NodeCount();
   return net.Plan(Waypoint{48.0, 11.0}, Waypoint{48.0 + 2400.0 * kDeg, 11.0 + 2400.0 * kDeg},
-                  0.0, 10.0);
+                  0.0);
 }
 
 } // namespace

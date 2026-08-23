@@ -19,3 +19,10 @@ Either the parameter carries a meaning (a search corridor bound? then it must bo
 search and a test proves a node outside it is never expanded) or it goes from the signature
 and all call sites in one commit, the 1704 way. A parameter that survives two reviews unread
 earns a claims-gate discussion: the tick-product gate (1703) shows the shape.
+
+---
+
+Closed -- the parameter went, the 1704 way: Plan(from, to, tightestM) in header, body and
+every call site (DriveAssembly hands tightestM alone; four unit tests). Proven by the build:
+the gate compiles every caller against the honest signature, unit/actor/path and unit/sim
+green.

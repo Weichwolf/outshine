@@ -55,8 +55,7 @@ public:
   [[nodiscard]] size_t JunctionCount(void) const;
   [[nodiscard]] double SnapM(void) const { return SnapM_; }
 
-  [[nodiscard]] Route Plan(const Waypoint &from, const Waypoint &to, double tightestM,
-                           double withinM) const;
+  [[nodiscard]] Route Plan(const Waypoint &from, const Waypoint &to, double tightestM) const;
   [[nodiscard]] bool Nearest(const Waypoint &to, size_t &node, double &awayM) const;
   void Within(const Waypoint &of, double reachM, std::vector<size_t> &nodes) const;
 

@@ -211,9 +211,17 @@ size_t Network::JunctionCount(void) const {
 
 bool Network::Nearest(const Waypoint &to, size_t &node, double &awayM) const {
   if (Nodes_.empty()) { return false; }
-  size_t best = 0;
-  double bestAway = ApartM(to.LatDeg, to.LonDeg, Nodes_[0].LatDeg, Nodes_[0].LonDeg, RadiusM_);
-  for (size_t which = 1; which < Nodes_.size(); ++which) {
+  // the woven cell index answers in a growing reach; the widening quadruples so a miss
+  // costs a constant factor of the hit that ends it, capped at the half circumference
+  std::vector<size_t> found;
+  for (double reachM = 4.0 * SnapM_; reachM < std::numbers::pi * RadiusM_; reachM *= 4.0) {
+    Within(to, reachM, found);
+    if (!found.empty()) { break; }
+  }
+  if (found.empty()) { Within(to, std::numbers::pi * RadiusM_, found); }
+  size_t best = found.empty() ? 0 : found.front();
+  double bestAway = ApartM(to.LatDeg, to.LonDeg, Nodes_[best].LatDeg, Nodes_[best].LonDeg, RadiusM_);
+  for (const size_t which : found) {
     const double away = ApartM(to.LatDeg, to.LonDeg, Nodes_[which].LatDeg, Nodes_[which].LonDeg, RadiusM_);
     if (away < bestAway) {
       bestAway = away;
@@ -227,15 +235,37 @@ bool Network::Nearest(const Waypoint &to, size_t &node, double &awayM) const {
 
 void Network::Within(const Waypoint &of, double reachM, std::vector<size_t> &nodes) const {
   nodes.clear();
-  for (size_t which = 0; which < Nodes_.size(); ++which) {
-    if (ApartM(of.LatDeg, of.LonDeg, Nodes_[which].LatDeg, Nodes_[which].LonDeg, RadiusM_) <= reachM) {
-      nodes.push_back(which);
+  const double latCell = SnapM_ / MetresPerDegreeLat(RadiusM_);
+  const double lonCell = SnapM_ / MetresPerDegreeLon(of.LatDeg, RadiusM_);
+  // one slack ring: nodes key their cells at their OWN latitude, and the parallel narrows
+  const int64_t across = (int64_t)std::ceil(reachM / SnapM_) + 1;
+  const uint64_t cells = (uint64_t)(2 * across + 1) * (uint64_t)(2 * across + 1);
+  if (Cells_.empty() || cells > Cells_.size()) {
+    // the reach box would touch more cells than exist -- the index cannot beat the scan
+    for (size_t which = 0; which < Nodes_.size(); ++which) {
+      if (ApartM(of.LatDeg, of.LonDeg, Nodes_[which].LatDeg, Nodes_[which].LonDeg, RadiusM_) <= reachM) {
+        nodes.push_back(which);
+      }
+    }
+    return;
+  }
+  for (int64_t row = -across; row <= across; ++row) {
+    for (int64_t column = -across; column <= across; ++column) {
+      const int64_t key = CellOf(of.LatDeg + (double)row * latCell,
+                                 of.LonDeg + (double)column * lonCell);
+      const auto seen = Cells_.find(key);
+      if (seen == Cells_.end()) { continue; }
+      for (const size_t candidate : seen->second) {
+        if (ApartM(of.LatDeg, of.LonDeg, Nodes_[candidate].LatDeg, Nodes_[candidate].LonDeg,
+                   RadiusM_) <= reachM) {
+          nodes.push_back(candidate);
+        }
+      }
     }
   }
 }
 
-Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM,
-                    double withinM) const {
+Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) const {
   Route out;
   out.StraightM = ApartM(from.LatDeg, from.LonDeg, to.LatDeg, to.LonDeg, RadiusM_);
   if (!Woven_) {

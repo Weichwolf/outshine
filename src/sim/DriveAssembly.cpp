@@ -216,8 +216,7 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   const double tightestM = stood.TightestM;
   say.Number("the tightest centreline circle the declaration implies", tightestM, "m");
   const Route route =
-      roads.Plan(Waypoint{fromLatDeg, fromLonDeg}, Waypoint{toLatDeg, toLonDeg}, tightestM,
-                 quantumM);
+      roads.Plan(Waypoint{fromLatDeg, fromLonDeg}, Waypoint{toLatDeg, toLonDeg}, tightestM);
   say.Number("turns the search refused as too sharp for the car", (double)route.TurnsRefused, "turns");
   if (!route.Found) { say.Say(Line("REFUSED %s", route.Error.c_str())); }
   say.Number("nodes the search settled", (double)route.Reached, "nodes");
