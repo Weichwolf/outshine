@@ -28,7 +28,8 @@ bool Unit(double v[3]) {
 Reading Bear(Rig &of, const Body &body, const Footing *under, const Controls &with, Wrench &into,
              double dtS) {
   Reading out;
-  out.Count = of.Count < kMaxMounts ? of.Count : kMaxMounts;
+  // Stand refused any rig past kMaxMounts, so Count is trusted here -- no clamp on the tick
+  out.Count = of.Count;
 
   for (size_t which = 0; which < out.Count; ++which) {
     const Mount &mount = of.Mounts[which];

@@ -55,8 +55,8 @@ struct Reading {
   bool Sliding = false;
 };
 
-Reading Bear(Rig &of, const Body &body, const Footing *under, const Controls &with, Wrench &into,
-             double dtS);
+[[nodiscard]] Reading Bear(Rig &of, const Body &body, const Footing *under, const Controls &with,
+                           Wrench &into, double dtS);
 
 void Resist(Wrench &into, const Body &body, double dragArea, double mediumDensity);
 

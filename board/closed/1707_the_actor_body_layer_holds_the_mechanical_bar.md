@@ -22,3 +22,10 @@ Three residues in src/actor/body, filed together because one sweep repays them:
 Also noted, no filing: Bear silently `continue`s on a degenerate normal (Rig.cpp:44) — if a
 provider can ever hand one, a counter in `Reading` would say so; today CorridorLay's
 normals are unit by construction.
+
+---
+
+Closed -- Bear carries [[nodiscard]] (the compiler is the proof; all three callers already
+take the Reading), the per-tick kMaxMounts clamp died because Stand's refusal is the truth
+(Count trusted, the fast path takes nothing), and the no-driven-contact arm speaks through
+Refuse like its siblings. Proven by the gate: unit/actor + unit/sim green, 21/21.

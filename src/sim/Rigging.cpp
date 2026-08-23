@@ -58,9 +58,9 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
     braked += 1.0;
   }
   if (!(driven > 0.0)) {
-    out.Error = "no contact stands behind the centre of mass, so nothing can be driven -- a "
+    Refuse(out, "no contact stands behind the centre of mass, so nothing can be driven -- a "
                 "contact exactly on the centre plane belongs to no axle, and the declaration "
-                "must place its drive axle";
+                "must place its drive axle");
     return out;
   }
 
