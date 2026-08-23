@@ -217,7 +217,7 @@ LayerGroups() {
     unit/render/draw) printf '%s' "src/core src/core/io src/render/draw" ;;
     unit/render/stages) printf '%s' "" ;;
     unit/render) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
-    unit/clients) printf '%s' "src/core src/actor/path src/actor/body src/actor/mind src/scene src/clients/Image.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/clients/Assembly.cpp" ;;
+    unit/clients) printf '%s' "src/core src/actor/path src/actor/body src/actor/mind src/scene src/clients/Image.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/InputMap.cpp src/clients/Assembly.cpp src/clients/InputPump.cpp" ;;
     harness/claims) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario | render/outshine/client) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/clients/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/clients/Assembly.cpp" ;;
     render/outshine/shader) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
@@ -279,7 +279,7 @@ GroupIncludes() {
     src/ground | src/ground/tiles) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/actor/path -Isrc/data -Isrc/ground -Isrc/ground/tiles" ;;
     src/gltf) printf '%s' "-Isrc/core -Isrc/gltf" ;;
     src/ui) printf '%s' "-Isrc/core -Isrc/ui" ;;
-    src/scenario | src/scenario/ScenarioRead.cpp | src/scenario/ScenarioLayer.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/scenario" ;;
+    src/scenario | src/scenario/ScenarioRead.cpp | src/scenario/ScenarioLayer.cpp | src/scenario/InputMap.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/scenario" ;;
     src/generators) printf '%s' "-Isrc/core -Isrc/generators" ;;
     src/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
     src/render/plan) printf '%s' "-Isrc/core -Isrc/render/plan" ;;
@@ -288,6 +288,7 @@ GroupIncludes() {
     src/clients/GltfStudio.cpp | src/clients/Surfaces.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients $(pkg-config --cflags sdl3)" ;;
     src/clients/Live.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui $(pkg-config --cflags sdl3)" ;;
     src/clients/Assembly.cpp) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/clients" ;;
+    src/clients/InputPump.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/scenario -Isrc/clients $(pkg-config --cflags sdl3)" ;;
     src/sim) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/actor/path -Isrc/data -Isrc/actor/body -Isrc/actor/mind -Isrc/scenario -Isrc/sim -Isrc/ground -Isrc/ground/tiles" ;;
     src/clients/Engine.cpp) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/scenario -Isrc/ui $(pkg-config --cflags sdl3)" ;;
     src/clients/Sim.cpp | src/clients/LogSinks.cpp | src/clients/StreamTelemetry.cpp | src/clients/EyeTelemetry.cpp | src/clients/CsvTelemetry.cpp | src/clients/Species.cpp | src/clients/RegionForge.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/scenario -Isrc/ground -Isrc/ground/tiles -Isrc/generators -Isrc/generators/draw -Isrc/actor/path -Isrc/clients" ;;

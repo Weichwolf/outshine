@@ -50,3 +50,14 @@ gone; ActionOf/KindOf/BoundTo resolve through the interned table. Proven in
 ADeviceEventReachesTheClientAsADeclaredAction (key and stick land on ONE id, unknown event
 has no index, past-catalogue index answers unbound). Remaining: the SDL pump in the window
 host resolving its device events to indices once, and the input-to-photon measurement.
+
+---
+
+Progress -- the SDL pump stands as the one seam: src/clients/InputPump resolves every SDL
+row (keys, mouse buttons and motion, gamepad buttons and axes) to its catalogue index once
+at Open (a catalogue drift refuses to open), and Translate hands the client (action id,
+kind, value) -- keycodes never cross the seam, unbound events and key repeats leave as
+nothing, SDL's -32768..32767 axis lands as -1..1. Proven in
+unit/clients/ADeviceEventLeavesThePumpAsAnActionId (key and stick land on one id; MouseX
+declared and MouseY not, so one motion event fires exactly the bound axis). Remaining: the
+input-to-photon measurement, the frame suite's slice.
