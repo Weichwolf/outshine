@@ -27,7 +27,15 @@ public:
     [[nodiscard]] std::string Key(size_t i) const;
 
     [[nodiscard]] double Num(double def = 0.0) const;
-    [[nodiscard]] int Int(int def = 0) const { return (int)Num((double)def); }
+    // a hostile 1e300 is not an index: outside int's range or not whole, the caller's
+    // default answers -- the raw cast alone was UB
+    [[nodiscard]] int Int(int def = 0) const {
+      const double v = Num((double)def);
+      if (!(v >= -2147483648.0) || !(v <= 2147483647.0) || v != (double)(long long)v) {
+        return def;
+      }
+      return (int)v;
+    }
     [[nodiscard]] bool Bool(bool def = false) const;
     [[nodiscard]] std::string Str(const char *def = "") const;
     [[nodiscard]] bool StrEquals(const char *s) const;

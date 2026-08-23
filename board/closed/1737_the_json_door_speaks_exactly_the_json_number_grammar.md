@@ -35,3 +35,15 @@ sanitised gate layer would go red on the first such twin case. Demand: clamp ins
 philosophy at Document.cpp:400-408), plus twin cases in
 `test/unit/core/AJsonDoorRefusesWhatIsNotJsonAndSurvivesWhatIsHostile.cpp` for both
 defects — the four malformed numbers above and `Int` at 1e300 under the sanitiser.
+
+---
+
+Closed -- the parser scans RFC 8259's number grammar exactly (leading-zero rule, mandatory
+integer part, at-least-one-digit fraction and exponent) and hands from_chars precisely that
+span; a grammatical 1e999 lands at the double's edge instead of refusing; Int() answers the
+caller's default outside int's range or on a fractional value -- the raw cast's UB is gone
+under every one of the 104 gltf call sites. Proven in
+AJsonDoorRefusesWhatIsNotJsonAndSurvivesWhatIsHostile ([01], [1.], [-.5], [01.5] refuse;
+every legal spelling parses; Int at 1e300 and at 1.5 answers the default, 7 still answers 7)
+with the sanitised arm green. Negative control: the pre-fix parser reverted fails exactly
+these arms.

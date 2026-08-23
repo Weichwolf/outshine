@@ -45,6 +45,27 @@ int main(void) {
   CHECK(!Parses("[nan]"), "neither is nan");
   CHECK(Parses("[true, false, null]"), "the three literals parse where the grammar puts them");
 
+  CHECK(!Parses("[01]"),
+        "**THE NUMBER GRAMMAR IS RFC 8259'S, EXACTLY**: a leading zero is not a number "
+        "(board:1737)");
+  CHECK(!Parses("[1.]"), "a fraction demands at least one digit");
+  CHECK(!Parses("[-.5]"), "the integer part is not optional");
+  CHECK(!Parses("[01.5]"), "and the leading-zero rule holds with a fraction behind it");
+  CHECK(Parses("[0.5, -0.5, 0, 1e9, 1E+9, 12e-3]"), "every legal spelling still parses");
+  {
+    Json json;
+    const char *text = R"({"edge": 1e999, "mesh": 1e300, "whole": 7, "half": 1.5})";
+    CHECK(json.Parse(text, std::strlen(text)),
+          "1e999 is grammatical json -- the value lands at the double's edge, not a refusal");
+    CHECK(json.Root()["edge"].Num(0.0) > 1.0e308, "and reads as the edge");
+    CHECK(json.Root()["mesh"].Int(-1) == -1,
+          "**A HOSTILE 1e300 IS NOT AN INDEX**: Int answers the caller's default instead "
+          "of an undefined cast (board:1737)");
+    CHECK(json.Root()["half"].Int(-1) == -1,
+          "a fractional index is malformed and answers the default too");
+    CHECK(json.Root()["whole"].Int(-1) == 7, "a real index still answers");
+  }
+
   {
     Json json;
     const char *text = R"({"byteLength": true, "count": 7})";

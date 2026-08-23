@@ -148,16 +148,44 @@ int32_t Json::ParseValueInside() {
   if (literal("false", 5)) { Nodes_[(size_t)id].K = Kind::Bool; Nodes_[(size_t)id].Num = 0.0; return id; }
   if (literal("null", 4)) { Nodes_[(size_t)id].K = Kind::Null; return id; }
 
-  // the number grammar's own first characters, then a locale-free read -- strtod honoured
-  // the locale's decimal point and swallowed inf, nan and hex, none of which are json
-  if (c != '-' && (c < '0' || c > '9')) return -1;
-  double v = 0.0;
-  const auto scanned = std::from_chars(Text_.c_str() + P_, Text_.c_str() + Text_.size(), v);
-  if (scanned.ec != std::errc()) return -1;
-  P_ = (size_t)(scanned.ptr - Text_.c_str());
-  Nodes_[(size_t)id].K = Kind::Number;
-  Nodes_[(size_t)id].Num = v;
-  return id;
+  // rfc 8259's number grammar, scanned EXACTLY: -?(0|[1-9][0-9]*)(.[0-9]+)?([eE][+-]?[0-9]+)?
+  // -- from_chars alone is laxer (01, 1., -.5 all read) and strtod was laxer still
+  {
+    size_t at = P_;
+    if (at < Text_.size() && Text_[at] == '-') ++at;
+    const size_t whole = at;
+    if (at < Text_.size() && Text_[at] == '0') {
+      ++at;
+    } else {
+      while (at < Text_.size() && Text_[at] >= '0' && Text_[at] <= '9') ++at;
+    }
+    if (at == whole) return -1;
+    if (at < Text_.size() && Text_[at] == '.') {
+      ++at;
+      const size_t fraction = at;
+      while (at < Text_.size() && Text_[at] >= '0' && Text_[at] <= '9') ++at;
+      if (at == fraction) return -1;
+    }
+    if (at < Text_.size() && (Text_[at] == 'e' || Text_[at] == 'E')) {
+      ++at;
+      if (at < Text_.size() && (Text_[at] == '+' || Text_[at] == '-')) ++at;
+      const size_t exponent = at;
+      while (at < Text_.size() && Text_[at] >= '0' && Text_[at] <= '9') ++at;
+      if (at == exponent) return -1;
+    }
+    double v = 0.0;
+    const auto scanned = std::from_chars(Text_.c_str() + P_, Text_.c_str() + at, v);
+    if (scanned.ec == std::errc::result_out_of_range) {
+      // 1e999 overflows the double; json's grammar allows it and the value is the edge
+      v = Text_[P_] == '-' ? -1.7976931348623157e308 : 1.7976931348623157e308;
+    } else if (scanned.ec != std::errc() || scanned.ptr != Text_.c_str() + at) {
+      return -1;
+    }
+    P_ = at;
+    Nodes_[(size_t)id].K = Kind::Number;
+    Nodes_[(size_t)id].Num = v;
+    return id;
+  }
 }
 
 std::string Json::Decode(uint32_t off, uint32_t len, bool escaped) const {
