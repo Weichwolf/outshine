@@ -95,6 +95,13 @@ int main(void) {
           "derived once where the sibling checks live");
   }
 
+  Vehicle unbraked = Plausible();
+  unbraked.BrakeTorqueNm = 0.0;
+  const Rigged runaway = Stand(unbraked, 9.80665, 1.225);
+  CHECK(!runaway.Stood && runaway.Error.find("slow") != std::string::npos,
+        "**A VEHICLE THAT CANNOT SLOW REFUSES AT STAND-UP** -- the tick divides by the "
+        "braking rate, and the silent 1 m/s2 fallback that hid this is gone (board:1706)");
+
   Covers("II.12 the rig drives or refuses: the drive axle is the contacts behind the centre "
          "of mass, a missing one is a named refusal, and the dead steering counter is gone");
   return Report();

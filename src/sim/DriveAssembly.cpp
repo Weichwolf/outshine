@@ -35,7 +35,11 @@ using outshine::Path::Waypoint;
 namespace outshine::Sim {
 
 namespace {
+// [SET] the corridor build's patience, s: a worldwide route needs thousands of tiles
+// over a live wire; 900 s is the measured Munich--Hamburg cold-cache build doubled
 constexpr double kPatienceS = 900.0;
+// [SET] the join speed, m/s: the car enters its corridor rolling (72 km/h) rather than
+// standing, so the first tallied seconds exercise the drive and not the launch
 constexpr double kJoinMs = 20.0;
 } // namespace
 
@@ -80,6 +84,8 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   const double tileGroundM =
       outshine::Ground::kMercatorGirthM * std::cos(middleLat * outshine::kPi / 180.0) /
       (double)(1L << kZoom);
+  // [SET] tiles fetched around each route step: ring 2 is the 5x5 patch -- one tile of
+  // slack past the corridor's widest swing at this zoom, and the admission bound
   const int kCorridorRing = 2;
   const long steps = (long)std::ceil(straightM / tileGroundM) + 1;
   const long square = (long)(2 * std::ceil(0.5 * straightM / tileGroundM) + 3);
@@ -247,6 +253,8 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   outshine::Placed start;
   say.Claim(corridor.At(0.0, start), "the corridor answers at its own start");
   const outshine::Standing under0 =
+      // [SET] 50 m of search: the stand-at node came off the same corridor, so the
+      // nearest laid station is within one node spacing of it
       outshine::Stand(corridor, start.EastM, start.NorthM, 0.0, 0.0, 50.0);
   const double startAsideM = asideM.empty() ? 0.0 : asideM.front();
   say.Number("the fastest the car may move between lane centres",

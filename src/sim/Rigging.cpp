@@ -138,6 +138,13 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
   out.Envelope.DragArea = declared.DragCoefficient * declared.FrontalM2;
   out.Envelope.AirDensity = airDensityKgM3;
 
+  if (!(out.Envelope.BrakeMs2() > 0.0)) {
+    Refuse(out, "a vehicle that cannot slow cannot drive a corridor -- brakes and grip "
+                "together yield " + std::to_string(out.Envelope.BrakeMs2()) +
+                " m/s2, and the tick would divide by it");
+    return out;
+  }
+
   out.Stood = true;
   return out;
 }
