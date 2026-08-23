@@ -139,3 +139,16 @@ callers.
 Progress -- the two young doors converted before callers grew: InputMap::Build and
 TableBook::Build take std::span<const Binding>/std::span<const Table> (unit/scenario green).
 The tree-wide sweep residue stands as surveyed.
+---
+
+Reviewer sharpening (2026-08-23, morning round) -- the hygiene rider is behind in render/:
+- 177 `(void)` parameter lists remain in src/ (`grep -rn '(void)' src/`), nine of them in
+  render/stages alone (MediumTransmittanceStage.h:16,26, PresentStage.cpp:78, SkyStage.cpp:106,
+  ...). Commit daa3485b fixed exactly ONE in Transport.h; the sweep owns the rest.
+- `RenderPlan::Compile(const PlanSpec&, std::shared_ptr<const RenderPlan>*, std::string&)`
+  (src/render/plan/RenderPlan.h:51) is bool-plus-out-pointer-plus-error-string -- the C++23
+  form is `std::expected<std::shared_ptr<const RenderPlan>, std::string>`; same for
+  `StageByName` (an `std::optional<Stage>`).
+- src/render/plan/RenderCatalogue.h:300-320: `Row`, `Names`, `Produces`, `ProducerCount`
+  are value-returning queries used at runtime and carry no `[[nodiscard]]`, while
+  `CarriesSceneRadiance` beside them does.

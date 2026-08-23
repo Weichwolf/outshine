@@ -41,3 +41,13 @@ the bound"), so a bloating build stays visible without crying wolf about tests. 
 comment re-derives honestly: ~46 s of run at 153 tests against the [SET] 90000, ~2x headroom
 restored. Proven by the gate's own print on this run; a cold rebuild after a header edit can
 no longer fail a bound that is about tests.
+---
+
+Reviewer measurement (2026-08-23, morning round, COLD detached worktree, otherwise-idle
+machine): 153/153 PASS, exit 0 -- but `run 89463 ms, builds 83809 ms`, headroom 537 ms of
+90000. The "~46 s run, ~2x headroom" derivation holds only for the WARM nest population;
+a cold worktree's run population is ~2x that and sits 0.6 % under the bound. The next
+handful of tests turns every reviewer-worktree gate red while the nest stays green. Either
+the bound's population is named as warm-nest-only (and the overrun text says so), or the
+bound learns the cold-run population too. Not reopened -- the design (bound holds the run,
+builds beside it) stands; this is the number the next overrun will cite.
