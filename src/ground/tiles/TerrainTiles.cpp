@@ -99,6 +99,10 @@ TerrainGrid TerrainTiles::RawGrid(int z, uint32_t x, uint32_t y) {
     field = grid.TryFieldMutable();
   }
 
+  // a field too small to mesh never leaves this door: the crop arm already gives this
+  // verdict (a crop under 2x2 is NotHere), and the uncropped arm owes the same -- the
+  // stitcher and the mesh both assume a lattice with an inside (board:1755)
+  if (!field->Meshable()) { return TerrainGrid::NotHere(); }
   CacheStore(z, x, y, *field);
   return grid;
 }

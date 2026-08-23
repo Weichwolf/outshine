@@ -174,7 +174,7 @@ SANITISER_EXEMPT="unit/core/EveryByteTheHeapTakesLandsUnderATagOrUnderOther"
 
 LayerSanitiser() {
   case "$1" in
-    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/shader | unit/ui | unit/core | unit/gltf) printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
+    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/shader | unit/ui | unit/core | unit/gltf | unit/data | unit/ground | unit/ground/tiles) printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
     *) printf '%s' "" ;;
   esac
 }

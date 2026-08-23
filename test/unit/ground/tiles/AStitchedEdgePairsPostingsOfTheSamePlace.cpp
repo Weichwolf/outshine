@@ -153,6 +153,38 @@ int main(void) {
           "spacing away (board:1750)");
   }
 
+  {
+    // a stranger's 1x1 PNG: the field decodes, cannot mesh, and must never reach the
+    // stitcher -- PostingFrac(k, 1) once minted 0 * inf and the NaN cast to an unsigned
+    // index, undefined behaviour the sanitised arm now watches (board:1755)
+    class OnePosting : public TerrainSource {
+    public:
+      [[nodiscard]] TerrainBytes Take(int z, uint32_t x, uint32_t y) override {
+        const std::vector<float> one{42.0f};
+        return TerrainBytes::From(z, x, y, outshine::Test::TerrariumPng(1, 1, one));
+      }
+    } tiny;
+    TerrainTiles tiles(tiny, frame, TerrainTiles::Config{});
+    const TerrainGrid grid = tiles.StitchedGrid(12, 4, 8);
+    CHECK(grid.TryField() == nullptr && grid.Where() == TerrainGrid::State::NotHere,
+          "**A FIELD TOO SMALL TO MESH REFUSES BEFORE THE STITCHER READS IT**: a 1x1 "
+          "terrarium tile answers NotHere, the verdict the crop arm already gave "
+          "(board:1755)");
+    const auto mesh = tiles.MeshOf(12, 4, 8);
+    CHECK(mesh.Where() != outshine::Ground::TerrainMesh::State::Built,
+          "and it meshes into nothing rather than into a NaN");
+  }
+  {
+    // the degenerate lattice cannot mint a NaN fraction even if a caller asks
+    outshine::Ground::TerrainField one(1, 1);
+    one.SetM(0, 0, 7.0f);
+    CHECK(one.PostingM(0.0, 0.0) == 7.0f && one.PostingM(1.0, 0.5) == 7.0f,
+          "a one-posting lattice answers its only place at every fraction, never an "
+          "infinity scaled into an index cast");
+    CHECK(outshine::Ground::PostingFrac(0, 1) == 0.0,
+          "and PostingFrac of a single posting is its own place, not 0 * inf");
+  }
+
   Covers("I.27 a stitched edge pairs postings of the same PLACE: the fraction along the "
          "shared edge is the currency, every posting of the finer side is covered, and a "
          "resolution boundary meets within a metre (board:1746)");

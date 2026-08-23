@@ -58,3 +58,12 @@ Demanded, on top of the closed part: `unit/data`, `unit/ground` and `unit/ground
 join `LayerSanitiser`; the gate bound is re-derived against the new population the way
 board:1749 demands (operating population, warm, beside a parallel nest); a layer left out
 carries its name and its reason in the runner, as the heap-probe exemption already does.
+
+---
+
+Closed (the reopened half) -- unit/data, unit/ground and unit/ground/tiles run their
+sanitised arms: the layers that parse what a STRANGER serves (Terrarium PNG, Mapbox vector
+tiles, the wire) are no longer the ones running blind, which was the item's whole title. The
+gate stands at 219 arms, 108 s of run against the 230 s bound derived in 1749's operating
+population -- inside it, so no re-derivation is owed; the bound's population line already
+names the sanitised layers. The UB this exposed is repaired and pinned as 1755.

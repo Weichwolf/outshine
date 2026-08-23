@@ -44,3 +44,14 @@ What will be true:
    guard that returns 0.0), so no future caller mints a NaN fraction.
 3. `test/unit/ground/tiles/` carries the 1x1 and 1xN cases and passes under the sanitised
    arm.
+
+---
+
+Closed -- three cuts, smallest first: PostingFrac answers a single-posting lattice with its
+own place instead of 0 * inf; PostingM never scales by (n-1) == 0; and RawGrid gives an
+unmeshable decoded field the SAME verdict the crop arm already gave (NotHere), so the
+stitcher and the mesh cannot be handed one. Proven in
+AStitchedEdgePairsPostingsOfTheSamePlace: a 1x1 terrarium tile answers NotHere and meshes
+into nothing, and a one-posting field answers 7 m at every fraction. Negative control: with
+all three reverted the SANITISED arm goes red -- which is the point of 1743's reopening,
+because the unsanitised arm passed the same code.
