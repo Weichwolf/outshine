@@ -52,3 +52,16 @@ from all four tiles. Discriminating fixture: one tile served from a DIFFERENT VI
 construction and prove nothing -- that is why the first fixture passed against the defect
 and had to be made honest. Negative controls: no corner pass at all = 150 m of
 disagreement; the corner pass reading self AFTER the edges = 93.75 m; both red.
+
+---
+
+Reviewer note (2026-08-23, round 27) — the repair holds; one sentence beside it does not.
+The rim guard's comment (src/ground/tiles/TerrainTiles.cpp:146-147) says "at the map's rim
+the tile's own posting stands, which is what an unshared corner IS". The tile's own posting
+does NOT stand: `StitchCorner` returns early, but the edge passes (:154-157) have already
+written that corner with `0.5 x (selfRaw + theOneNeighbour)`. The behaviour is CORRECT — a
+rim corner is shared by two tiles, both compute the same average, and the seam closes — but
+the comment describes a third thing that happens nowhere. Verified separately that the
+mutation cannot compound: `RawGrid` returns `TerrainGrid::Holding(TerrainField(*cached))`
+(:65) and `CacheStore` stores the pre-stitch field (:105), so a deferred stitch leaves no
+half-averaged tile in the cache. Fix the sentence or drop it.

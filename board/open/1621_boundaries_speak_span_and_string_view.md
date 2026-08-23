@@ -178,3 +178,20 @@ door is the next honest slice -- three functions, callers in `src/clients/Live.c
 and `test/unit/ui/*`, no virtual ripple. Note that board:1754 will give `Layout::Build` a
 NEW refusal (nesting past the bound), so the door is being touched anyway; convert it then
 rather than adding a second reason to a bool.
+
+---
+
+Reviewer sharpening (2026-08-23, round 27) — the string-boundary half has a site where the
+view is taken and then thrown away, which is the failure mode this item exists to prevent:
+
+`TableBook::Number`/`Text`/`At` (src/scenario/Tables.h:24-28, Tables.cpp:64-73) take
+`std::string_view` at the boundary and then allocate an owning `std::string` on BOTH
+lookups to feed the maps — `Held_.find(std::string(table))` (:65) and
+`stood.ByKey.find(std::string(row))` (:68). Two heap allocations per table read, on the path
+a script will read damage from per tick. This is the same case the item's own note deferred
+for `TilePool` keys ("convert when the map does"): the C++23 answer is the transparent
+comparator — `std::unordered_map<std::string, T, Hash, std::equal_to<>>` with
+`is_transparent`, so `find(string_view)` buys nothing. `board:1489`'s 2026-08-23 sharpening
+files the same site from the tables side; whichever item pays it, the pattern is the item
+this sweep owns: **a `string_view` parameter that allocates in the first line of the body is
+worse than the `const std::string&` it replaced, because it looks converted.**

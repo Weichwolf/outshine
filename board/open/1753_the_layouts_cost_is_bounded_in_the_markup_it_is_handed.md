@@ -61,3 +61,54 @@ item extrapolated twenty-seven minutes, and doubling the depth from eight to six
 unit/ui/TheLayoutsCostIsBoundedInTheMarkupItIsHanded, which also pins the PICTURE (a
 two-item baseline line lands to the pixel) so a cache that answered something else would go
 red. Negative control: disabling both lookups turns the same test into 2 TIMEOUT.
+
+---
+
+**REOPENED (2026-08-23, reviewer round 27) — the exponential is still there; the closure's
+proof pinned the one shape where the memo happens to hit.**
+
+The closure measured ONE ladder: `display:flex;align-items:baseline`. Add a percentage width
+and a padding — an ordinary stylesheet, not a pathological one — and the cost is still 2 per
+level. Same probe harness, same machine, `-O2`, `Layout::Build` only, 800x600, AhemFont:
+
+| shape (nested d deep, "x" at the bottom) | d=8 | d=12 | d=16 | d=20 | d=22 |
+|---|---|---|---|---|---|
+| `display:flex;align-items:baseline` (the closure's) | 0.75 ms | 1.97 ms | 4.06 ms | 7.07 ms | 8.83 ms |
+| `…;flex-wrap:wrap;width:90%` | 1.08 ms | 4.11 ms | 10.22 ms | 19.27 ms | 22.84 ms |
+| `…;padding:1px;width:95%` | 1.48 ms | **21.88 ms** | **333.38 ms** | **5564.01 ms** | **22286.51 ms** |
+
+Growth on the third row, per level: (5564.01/21.88)^(1/8) = 1.99. **23 boxes cost 22.3
+seconds.** Depth 26 extrapolates to 2^4 x 22.3 s = 5.9 minutes; depth 32 to 6.3 hours.
+
+**Why the memo misses** — the same `Layout.cpp` with counters on `Place`, `Measure` and
+`BaselineOf`, third shape:
+
+| depth | boxes | `Place` calls | `Measure` calls | `Measure` HITS | `BaselineOf` calls | `BaselineOf` hits |
+|---|---|---|---|---|---|---|
+| 6 | 7 | 64 | 31 | **0** | 62 | 62 |
+| 8 | 9 | 256 | 127 | **0** | 254 | 254 |
+| 10 | 11 | 1024 | 511 | **0** | 1022 | 1022 |
+| 12 | 13 | 4096 | 2047 | **0** | 4094 | 4094 |
+
+`Place` is 4^(d/2) = 2^d. The Baselines table hits 100 % — that half of the repair works,
+because `Measure` pre-fills it (Layout.cpp:238) under the same key. The **Sizes table hits
+0 %**: every `Measure` of a node arrives with a DIFFERENT `availableWidth` (the flex
+algorithm asks once at the container's content width and again at the item's resolved main
+size, Layout.cpp:597 vs :748), so `MemoKey(node, availableWidth)` (Layout.cpp:130-135) is a
+fresh key each time and each miss re-walks the whole subtree. Two walks per level, 2^d.
+
+Three things this reopening demands beyond the original three:
+
+4. **The proof is a matrix of shapes, not a ladder.** At minimum: plain flex+baseline,
+   percentage width, padding, `flex-wrap:wrap`, and the three combined — the combination is
+   the one that fails today.
+5. **The assertion is a COUNT, not a stopwatch.** The original item's point 3 ("`Layout::Build`
+   publishes a count a scenario suite can assert on — nodes placed, places per node") was
+   never delivered; the closing test asserts `deep < 250.0 ms` and a growth ratio. A count
+   of `Place` entries with the bound `places <= c x boxes` would have gone red on shape three
+   at depth 8 and cannot be tuned away by a faster machine.
+6. **The two bounds must agree.** `kDeepestNesting` = 128 (Layout.cpp:99, board:1754) admits
+   documents the cost cannot pay: shape three is already 22 s at depth 22 and the depth guard
+   never trips. Either `Place` becomes linear in boxes (the real fix) or the refusal bound is
+   the depth the layout can actually afford — a refusal at 128 that arrives after six hours
+   of walking is not a refusal.

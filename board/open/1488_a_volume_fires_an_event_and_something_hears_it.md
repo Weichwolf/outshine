@@ -34,3 +34,21 @@ an unheard event is counted per event. A body probes only when it MOVES, so the 
 term is O(moving bodies x declared doors), never O(instances). Proving test:
 unit/scenario/AVolumeFiresAndSomethingHears.cpp. Remaining: the script host hearing events
 through 1448's capability surface -- the box that waits on that door.
+
+---
+
+Reviewer correction (2026-08-23, round 27) — two clauses of the progress note above do not
+hold, and `board:1759` carries the repair with its measurements:
+
+- "the per-tick term is O(moving bodies x declared doors)" leaves out a third factor. The
+  standing lookup (src/scenario/Triggers.cpp:147-149) scans ALL of `Inside_` — every body's
+  every door — inside the loop over doors, and does not break on the match. Measured at the
+  field's own declared bounds (256 doors, 200 bodies, standings saturated at
+  `kMostStandings` = 4096): **66.68 ms per tick**, four times the 16.67 ms frame; the same
+  configuration with nobody inside a door costs 0.089 ms — a 749x swing with the data.
+- "bounded … overflow counted" holds for the fired ring only. A standing dropped because
+  `Inside_` is full (:151-153) is counted nowhere, and because the body then has no standing
+  it re-enters the same branch next tick: it fires Enter EVERY tick and never fires Exit.
+
+The "firing takes nothing from the allocator" box stands — the counting-allocator proof is
+sound. The cost box does not.
