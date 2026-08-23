@@ -29,3 +29,13 @@ in the catalogue row; Requires() refuses an unbound ask at stand-up. Proving tes
 unit/scenario/ADeviceEventReachesTheClientAsADeclaredAction.cpp. Remaining: the SDL event
 pump wiring in the window host and the input-to-photon MEASUREMENT (the frame suite's
 slice).
+
+---
+
+Sharpened (review 2026-08-23, round 18): before the SDL pump wires in, the runtime shape
+must honour values-over-strings — `InputMap::Row` carries `std::string Event/Action`
+(src/scenario/InputMap.h:29-33) and `ActionOf` (InputMap.cpp:69-74) does a per-device-event
+linear scan of string compares. The catalogue is already constexpr and indexable: Build
+should intern the event to its catalogue index and the action to a small id once at
+stand-up, so the per-event lookup is an integer compare and the client-facing name is
+resolved off the event path. Also: `Build(const std::vector<Binding>&)` → span (1621).

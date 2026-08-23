@@ -128,3 +128,8 @@ Progress: the ui parsers left the locale -- Style's number scan, nth-child and M
 entity codes speak from_chars (with CSS's legal leading '+' consumed explicitly and proven);
 a locale-dependent strtod in a style engine was a correctness hole, not a form nit. WPT CSS
 corpus 162/162 beside the unit proofs.
+
+Sharpened (review 2026-08-23, round 18): the newest boundary regressed the rule on arrival —
+src/scenario/InputMap.h:19 `Build(const std::vector<Binding> &declared, ...)` takes the owning
+container where `std::span<const Binding>` says what is meant. Convert before the door grows
+callers.
