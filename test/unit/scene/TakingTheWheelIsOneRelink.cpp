@@ -65,7 +65,7 @@ int main(void) {
   CHECK(!scene.Link(autopilot, Relation::Assigned, routeB),
         "**EVERY RULE TRAVELS THROUGH BOTH VERBS**: a mind without a tool fails Assigned's "
         "Requires at Link");
-  const std::string linkWhy = scene.Error();
+  const std::string linkWhy{scene.Error()};
   CHECK(!scene.Relink(player, Relation::Assigned, routeB),
         "and refuses the Relink of the held assignment just the same -- two verbs, one truth "
         "about one rule (board:1646)");

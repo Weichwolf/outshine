@@ -37,7 +37,8 @@ bool Store::Open(size_t capacity) {
   for (size_t role = 0; role < kRoles; ++role) { RoleHead_[role] = kNoRef; }
   for (size_t how = 0; how < kRelations; ++how) { RelHead_[how] = kNoRef; }
   OfferHead_ = kNoRef;
-  Error_.clear();
+  Said_ = {};
+  ErrorText_.clear();
   Touched_ = 0;
   return true;
 }
@@ -389,10 +390,10 @@ Entity Store::Instantiate(Entity prefab) {
       const Entity copied = childBase == nullptr ? kNoEntity : Add(childBase->Is);
       if (!Alive(copied) || !Link(copied, Relation::IsA, childId) ||
           !Link(copied, Relation::ChildOf, at.Under)) {
-        const std::string why = Error_;
+        const std::string why{Said_};
         if (Alive(copied)) { Remove(copied); }
         Remove(instance);
-        Error_ = why;
+        (void)Refuse(why);
         return kNoEntity;
       }
       raising.push_back(Standing{childId, copied});
@@ -462,7 +463,9 @@ bool Store::Claim(Entity by, Entity at) {
 
 bool Store::Use(Entity by, Entity at) {
   Slot *slot = const_cast<Slot *>(Held(at));
-  if (slot == nullptr) { return Refuse("what is used must stand"); }
+  if (Held(by) == nullptr || slot == nullptr) {
+    return Refuse("use needs both the claimant and the object standing");
+  }
   for (size_t seat = 0; seat < slot->SeatCount; ++seat) {
     Taken &taken = slot->Seats[seat];
     if (taken.By == by && taken.State == Seat::Claimed) {
@@ -475,7 +478,9 @@ bool Store::Use(Entity by, Entity at) {
 
 bool Store::Release(Entity by, Entity at) {
   Slot *slot = const_cast<Slot *>(Held(at));
-  if (slot == nullptr) { return Refuse("what is released must stand"); }
+  if (Held(by) == nullptr || slot == nullptr) {
+    return Refuse("a release needs both the claimant and the object standing");
+  }
   for (size_t seat = 0; seat < slot->SeatCount; ++seat) {
     Taken &taken = slot->Seats[seat];
     if (taken.By == by && taken.State != Seat::Free) {
@@ -503,7 +508,13 @@ const Store::Slot *Store::Held(Entity of) const {
 }
 
 bool Store::Refuse(std::string why) {
-  Error_ = std::move(why);
+  ErrorText_ = std::move(why);
+  Said_ = ErrorText_;
+  return false;
+}
+
+bool Store::Refuse(const char *why) noexcept {
+  Said_ = why;
   return false;
 }
 

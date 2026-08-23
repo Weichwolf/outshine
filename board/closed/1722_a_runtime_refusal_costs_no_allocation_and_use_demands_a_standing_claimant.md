@@ -22,3 +22,14 @@ static already), `Refuse` stores a view or an index and allocates nothing, and `
 `Release` hold the same standing-claimant bar as `Claim`. The unit mirror proves a full-seat
 refusal leaves the error readable without an allocation on the verb (and a dead claimant
 cannot Use).
+
+---
+
+Closed -- Refuse gained a const char* overload that aliases the literal (Said_ is a
+string_view; the building overload still exists for composed assembly refusals, and every
+literal call site tree-wide became allocation-free with no edit), Store::Error() returns the
+view, and Use/Release hold Claim's standing-claimant bar. Proven in
+AnAdvertisedInteractionIsClaimedBeforeItIsUsed: two identical full-offer refusals alias the
+SAME address (a built string would live somewhere new), a removed claimant's retained handle
+can neither Use nor Release, and the dead claim's seat frees at the next claim. Negative
+control: the pre-fix Store reverted fails exactly this test.

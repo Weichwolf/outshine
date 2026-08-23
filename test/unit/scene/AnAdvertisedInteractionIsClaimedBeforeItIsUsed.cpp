@@ -61,6 +61,32 @@ int main(void) {
   CHECK(scene.Offer(tenant, tags::OffersRefuel, 2),
         "and it may advertise on its own terms, because the seats were reset with the slot");
 
+  {
+    // the runtime verbs refuse WITHOUT an allocation: a full pump refuses every passing
+    // mind every tick, and the refusal aliases its static text -- the same words at the
+    // same address on every ask
+    const Entity third = scene.Add(Role::Mind);
+    const Entity fourth = scene.Add(Role::Mind);
+    const Entity fifth = scene.Add(Role::Mind);
+    CHECK(scene.Claim(third, tenant) && scene.Claim(fourth, tenant),
+          "two minds take the tenant's two seats");
+    CHECK(!scene.Claim(fifth, tenant), "and the third ask meets a full offer");
+    const char *said = scene.Error().data();
+    CHECK(!scene.Claim(fifth, tenant) && scene.Error().data() == said,
+          "**A RUNTIME REFUSAL COSTS NO ALLOCATION**: the second identical refusal aliases "
+          "the SAME static text -- a built string would live somewhere new (board:1722)");
+
+    // and a dead claimant's retained handle moves nothing: Use holds Claim's bar
+    const Entity keptHandle = fourth;
+    scene.Remove(fourth);
+    CHECK(!scene.Use(keptHandle, tenant),
+          "**A DEAD CLAIMANT CANNOT USE**: the retained handle's generation is stale and "
+          "use demands a standing claimant, the bar claim always held (board:1722)");
+    CHECK(!scene.Release(keptHandle, tenant), "nor release");
+    CHECK(scene.Claim(fifth, tenant),
+          "and the dead claim's seat frees at the next claim, as before");
+  }
+
   Covers("II.3 a shared interaction is advertised as data and reserved before it is used: "
          "Free -> Claimed -> Occupied -> Free, one seat per claimant, and a dead claimant "
          "frees its seat by generation");

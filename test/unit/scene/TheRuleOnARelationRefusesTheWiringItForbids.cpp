@@ -31,7 +31,7 @@ int main(void) {
         "**AN INERT BODY TAKES NO DRIVER.** DrivenBy asks its source to DO something -- the rule "
         "carries the tag -- and this car was given no function yet, so the wiring is refused at "
         "assembly rather than discovered dead at runtime");
-  std::printf("NOTE the refusal says: %s\n", scene.Error().c_str());
+  std::printf("NOTE the refusal says: %.*s\n", (int)scene.Error().size(), scene.Error().data());
 
   CHECK(scene.Give(car, tags::DoesSteer) && scene.Give(car, tags::DoesDrive) &&
             scene.Give(car, tags::DoesBrake),

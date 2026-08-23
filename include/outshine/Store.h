@@ -5,6 +5,7 @@
 #include <array>
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "Register.h"
@@ -60,7 +61,7 @@ public:
   [[nodiscard]] Seat SeatOf(Entity by, Entity at) const;
 
   [[nodiscard]] size_t Capacity() const { return Slots_.size(); }
-  [[nodiscard]] const std::string &Error() const { return Error_; }
+  [[nodiscard]] std::string_view Error() const { return Said_; }
 
   [[nodiscard]] size_t Touched() const { return Touched_; }
   void ResetTouched() { Touched_ = 0; }
@@ -104,6 +105,9 @@ private:
 
   [[nodiscard]] const Slot *Held(Entity of) const;
   [[nodiscard]] bool Refuse(std::string why);
+  // a literal refusal aliases its static text -- the runtime verbs refuse without one byte
+  // of allocation, and the two doors still speak the identical words
+  [[nodiscard]] bool Refuse(const char *why) noexcept;
   [[nodiscard]] bool Permit(Relation how, Entity from, Entity to, bool retarget);
 
   [[nodiscard]] Pair &At(uint32_t ref) { return Slots_[ref / kPairsPerEntity].Pairs[ref % kPairsPerEntity]; }
@@ -119,7 +123,8 @@ private:
   std::array<uint32_t, kRoles> RoleHead_ = NoRefs<kRoles>();
   uint32_t OfferHead_ = kNoRef;
   std::array<uint32_t, kRelations> RelHead_ = NoRefs<kRelations>();
-  std::string Error_;
+  std::string ErrorText_;
+  std::string_view Said_;
   mutable size_t Touched_ = 0;
 };
 
