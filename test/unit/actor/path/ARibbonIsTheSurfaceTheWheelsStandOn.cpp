@@ -134,6 +134,10 @@ int main(void) {
   CHECK(!backwards.Woven, "and a ribbon swept backwards is refused rather than reversed");
   std::printf("REFUSAL %s\n", backwards.Error.c_str());
 
+  // the sweep resects each (station, lane edge) ONCE: the underside reads the top's own
+  // standing, proven by the vertex identity this whole file asserts -- and the unread
+  // TopAreaM2 product field left with its dead re-ask loop (board:1717, the 1703 class)
+
   Covers("I.9.13 the corridor sweeps into a solid whose top surface is placed by the same function "
          "the wheels stand on, with a shoulder either side and a soffit a thickness below along the "
          "surface normal");

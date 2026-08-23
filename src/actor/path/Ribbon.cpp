@@ -52,9 +52,12 @@ Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM, d
       -(section.HalfWidthM + section.ShoulderM), -section.HalfWidthM, section.HalfWidthM,
       section.HalfWidthM + section.ShoulderM};
 
-  out.PositionM.reserve(stations * kRibbonAcross * 2 * 3);
-  out.NormalM.reserve(stations * kRibbonAcross * 2 * 3);
-  out.AcrossM.reserve(stations * kRibbonAcross * 2);
+  out.PositionM.reserve((stations + 2) * kRibbonAcross * 2 * 3);
+  out.NormalM.reserve((stations + 2) * kRibbonAcross * 2 * 3);
+  out.AcrossM.reserve((stations + 2) * kRibbonAcross * 2);
+  // derived: per strip 2*(across-1) surface quads + 2 wall quads, 6 indices a quad,
+  // plus two caps of (across-1) quads each
+  out.Index.reserve((stations - 1) * kRibbonAcross * 12 + (kRibbonAcross - 1) * 12);
 
   {
     Placed first;
@@ -77,17 +80,21 @@ Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM, d
     }
     const double left[2] = {-std::sin(on.HeadingRad), std::cos(on.HeadingRad)};
 
+    // one resection per station and lane edge -- the top and the underside read the SAME
+    // standing, so asking twice bought nothing but the second binary search
+    Standing stood[kRibbonAcross];
     for (size_t which = 0; which < kRibbonAcross; ++which) {
-      const Standing surface = StandAt(along, atM > toM ? toM : atM, acrossAt[which], 0.0);
+      stood[which] = StandAt(along, atM > toM ? toM : atM, acrossAt[which], 0.0);
       const double eastM = on.EastM + left[0] * acrossAt[which];
       const double northM = on.NorthM + left[1] * acrossAt[which];
-      Put(out.PositionM, eastM - out.OriginM[0], surface.HeightM - out.OriginM[1],
+      Put(out.PositionM, eastM - out.OriginM[0], stood[which].HeightM - out.OriginM[1],
           -northM - out.OriginM[2]);
-      Put(out.NormalM, surface.NormalM[0], surface.NormalM[1], -surface.NormalM[2]);
+      Put(out.NormalM, stood[which].NormalM[0], stood[which].NormalM[1],
+          -stood[which].NormalM[2]);
       out.AcrossM.push_back((float)acrossAt[which]);
     }
     for (size_t which = 0; which < kRibbonAcross; ++which) {
-      const Standing surface = StandAt(along, atM > toM ? toM : atM, acrossAt[which], 0.0);
+      const Standing &surface = stood[which];
       const double eastM = on.EastM + left[0] * acrossAt[which];
       const double northM = on.NorthM + left[1] * acrossAt[which];
       Put(out.PositionM, eastM - surface.NormalM[0] * section.ThicknessM - out.OriginM[0],
@@ -149,12 +156,6 @@ Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM, d
     }
   }
 
-  for (size_t station = 0; station + 1 < stations; ++station) {
-    const double atM = fromM + (double)station * stepM;
-    Placed on;
-    if (!along.At(atM, on)) { continue; }
-    out.TopAreaM2 += stepM * (acrossAt[kRibbonAcross - 1] - acrossAt[0]);
-  }
 
   out.Stations = stations;
   out.Vertices = out.PositionM.size() / 3;

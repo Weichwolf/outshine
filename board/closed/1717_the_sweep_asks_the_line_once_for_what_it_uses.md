@@ -19,3 +19,12 @@ Tags: hygiene
 
 Also `out.Index` is the one buffer never `reserve`d (lines 106-119, 145-147) while its three
 siblings are (55-57); the count is exactly derivable from stations and kRibbonAcross.
+
+---
+
+Closed -- the sweep resects each (station, lane edge) once (the underside reads the top's
+standing from a per-station array; value identity proven by the existing vertex asserts in
+ARibbonIsTheSurfaceTheWheelsStandOn and ARibbonIsClosedAtBothEnds), the index buffer
+reserves its derived count beside its three siblings, and the dead area loop went further
+than asked: TopAreaM2 had NO reader anywhere -- a 1703-class product field -- so the field
+itself left with its re-ask loop.

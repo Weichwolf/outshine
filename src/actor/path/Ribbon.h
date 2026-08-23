@@ -25,7 +25,6 @@ struct Ribbon {
   size_t Triangles = 0;
   double FromM = 0.0;
   double ToM = 0.0;
-  double TopAreaM2 = 0.0;
 
   double OriginM[3] = {0.0, 0.0, 0.0};
   std::vector<float> PositionM;
