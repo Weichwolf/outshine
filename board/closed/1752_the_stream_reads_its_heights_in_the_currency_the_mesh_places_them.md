@@ -45,3 +45,17 @@ What will be true:
    at the same place. That test fails today at 1.72 m and would have caught the split.
 3. `src/ground/TerrainLoader.cpp` stops being one of the 30 src files no test names
    (see 1757).
+
+---
+
+Closed -- and the SECOND SPELLING is gone, not merely bypassed: TerrainLoader's
+FillNodeHeights reads with PostingM, which left InterpolatedM and TexelIndex with zero
+callers, so both are DELETED (delete on the day you replace). A height grid now has exactly
+one reading and the texel currency is unspellable -- which is why 1750's repair was
+incomplete: it fixed one reader and left the other spelling standing for the next caller to
+pick up. Proven in unit/ground/TheStreamAnswersWhereTheMeshPlaces: a 257-posting ramp field
+filled to chunk nodes and read back at every interior node and all four corners answers the
+ramp AT ITS OWN PLACE (0 m). Negative control: restoring the texel reading inside PostingM
+answers 2.65 m away at 64 nodes -- half a chunk-node spacing, as derived. The layer's own
+posting maths (FillNodeHeights, TileHeightAslM) is nameable in TerrainLoader.h so the unit
+mirror can hold it at all -- the file had no test naming it before this hour.

@@ -14,8 +14,6 @@ namespace outshine::Ground {
 
 inline double ClampD(double v, double lo, double hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
-inline double TexelIndex(double frac, uint32_t n) { return frac * (double)n - 0.5; }
-
 inline float Bilinear(const float *g, uint32_t cols, uint32_t rows, double gx, double gy) {
   if (!g || !cols || !rows) return 0.f;
   gx = ClampD(gx, 0.0, (double)cols - 1.0);

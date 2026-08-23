@@ -27,16 +27,11 @@ class TerrainField {
   float AtM(uint32_t row, uint32_t col) const { return HeightsM_[(size_t)row * Cols_ + col]; }
   void SetM(uint32_t row, uint32_t col, float m) { HeightsM_[(size_t)row * Cols_ + col] = m; }
 
-  // the TEXEL reading: fractions address texel centres (frac * n - 0.5), which is what a
-  // sampler does with an image
-  [[nodiscard]] float InterpolatedM(double fracCol, double fracRow) const {
-    return Bilinear(HeightsM_.data(), Cols_, Rows_, TexelIndex(fracCol, Cols_),
-                    TexelIndex(fracRow, Rows_));
-  }
-
-  // the POSTING reading: fraction 0 is the first posting and fraction 1 the last, the
-  // same currency PostingFrac mints -- a height grid is postings on a lattice, not
-  // texels in a cell, and mixing the two shifts every interior sample by half a spacing
+  // a height grid is POSTINGS on a lattice: fraction 0 is the first posting and fraction
+  // 1 the last, the currency PostingFrac mints and the mesh places vertices in. The texel
+  // reading (frac * n - 0.5, a sampler's cell centres) was the SECOND spelling of this
+  // truth and every one of its callers was reading heights half a spacing from where it
+  // meant -- it is gone, not kept beside this one (board:1750, 1752)
   [[nodiscard]] float PostingM(double fracCol, double fracRow) const {
     return Bilinear(HeightsM_.data(), Cols_, Rows_, fracCol * (double)(Cols_ - 1u),
                     fracRow * (double)(Rows_ - 1u));
