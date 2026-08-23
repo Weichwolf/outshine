@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <cmath>
 #include <cstdio>
 #include <vector>
 
@@ -322,7 +323,14 @@ bool Engine::Restore(std::string_view path) {
     landing.Key = S_->Stood.TraitKey(std::string_view(line).substr(dot + 1, gap - dot - 1));
     const auto scanned =
         std::from_chars(line.data() + gap + 1, line.data() + line.size(), landing.Value);
-    if (landing.Holder == kNoEntity || landing.Key == 0 || scanned.ec != std::errc()) {
+    // the whole tail must read, and only a finite number: Save can write neither a trailing
+    // rune nor an inf, so a line carrying one is an edit and refuses naming itself
+    if (scanned.ec != std::errc() || scanned.ptr != line.data() + line.size() ||
+        !std::isfinite(landing.Value)) {
+      S_->Error = "the save line '" + line + "' does not read as instance.trait value";
+      return false;
+    }
+    if (landing.Holder == kNoEntity || landing.Key == 0) {
       S_->Error = "the save names '" + line.substr(0, gap) +
                   "', which the assembled scene does not hold -- the declaration moved on and "
                   "the save did not";
@@ -343,6 +351,13 @@ bool Engine::Restore(std::string_view path) {
       const Traits *standing = S_->Kinds.Get(landing.Holder);
       rows.emplace_back(landing.Holder, standing == nullptr ? Traits{} : *standing);
       row = &rows.back().second;
+    }
+    // Save refuses to write a value the scene does not hold, and Restore refuses to GRAFT
+    // one -- Put appends an absent key, so the seat is demanded before the value moves
+    if (row->Named(landing.Key) == nullptr) {
+      S_->Error = "the save carries a value for a trait this holder never declared -- the "
+                  "declaration moved on and the save did not, and NOTHING was applied";
+      return false;
     }
     if (!row->Put(landing.Key, landing.Value)) {
       S_->Error = "the saved value found no seat -- the holder already carries its full " +

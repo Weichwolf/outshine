@@ -131,14 +131,40 @@ int main(void) {
     sabotaged += "crate.extra 1\n";
     const std::string trap = Planted("full-sabotaged.save", sabotaged.c_str());
     CHECK(!packed.Restore(trap) &&
-              packed.Error().find("full") != std::string::npos,
-          "a globally interned key with no seat on the FULL holder refuses in the dry run, "
-          "naming the budget");
+              packed.Error().find("never declared") != std::string::npos,
+          "a globally interned key with no seat on the holder refuses in the dry run -- "
+          "Save refuses to write a missing value and Restore refuses to GRAFT one, the "
+          "same voice from the other side (board:1708)");
     const double *held = packed.Resolved().Get(packed.Stood().InstanceNamed("crate"))
                              ->Named(packed.Stood().TraitKey("t01"));
     CHECK(held != nullptr && *held == 0.5,
           "**AND THE LEGAL FIRST LINE DID NOT LAND**: the apply-stage refusal keeps the "
           "whole-or-nothing contract, not just the validation-stage one (board:1702)");
+  }
+
+  {
+    // disk input is a boundary: a tail behind the number and a hand-spelled inf both
+    // refuse, because Save can write neither -- the line is an edit, not a save
+    outshine::Engine picky;
+    CHECK(picky.Read(world) && picky.Assemble(), "the boundary engine stands");
+    const std::string clean = PlantedPath("vault-clean.save");
+    CHECK(picky.Save(clean), "and saves");
+    std::string tailed = Slurp(clean);
+    const size_t five = tailed.find("0.5");
+    CHECK(five != std::string::npos, "the value is in the text");
+    tailed.replace(five, 3, "1.5garbage");
+    CHECK(!picky.Restore(Planted("vault-tailed.save", tailed.c_str())) &&
+              picky.Error().find("garbage") != std::string::npos,
+          "**A VALUE WITH A TAIL REFUSES NAMING THE LINE** -- 1.5garbage never lands as 1.5 "
+          "(board:1708)");
+    std::string poisoned = Slurp(clean);
+    poisoned.replace(poisoned.find("0.5"), 3, "inf");
+    CHECK(!picky.Restore(Planted("vault-inf.save", poisoned.c_str())),
+          "and a hand-spelled inf refuses -- Save writes only finite numbers, so Restore "
+          "accepts only finite numbers");
+    const double *kept = picky.Resolved().Get(picky.Stood().InstanceNamed("cup"))
+                             ->Named(picky.Stood().TraitKey("fillL"));
+    CHECK(kept != nullptr && *kept == 0.5, "and both refusals left the column untouched");
   }
 
   Covers("III.9 what a scenario declared as state survives the process: a save is a "

@@ -21,3 +21,14 @@ same function, and a save file is disk input — the defensive side of the bound
 Proof: a save with a trailing-junk value refuses naming the line; a save naming a pair the
 assembled scene does not hold refuses; both leave the columns untouched (the 1702 fixture
 extends).
+
+---
+
+Closed -- the value must consume its whole tail and be finite (Save writes neither a
+trailing rune nor an inf, so a line carrying one is an edit and refuses naming the line),
+and the dry run demands the SEAT before the value moves: Restore refuses to graft a trait
+the holder never declared, the same voice as Save's missing-value refusal from the other
+side. The budget refusal became unreachable behind the seat check and the proof follows the
+truth. Proven in ASaveIsAFunctionOfTheDeclaration (1.5garbage refuses naming the line, a
+hand-spelled inf refuses, the graft refuses with "never declared", every refusal leaves the
+column at 0.5). Negative control: pre-fix Engine goes 1 FAIL on exactly these arms.
