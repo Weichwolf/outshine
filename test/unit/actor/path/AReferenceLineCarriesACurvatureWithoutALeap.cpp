@@ -5,6 +5,8 @@
 
 #include "Check.h"
 
+#include "Angle.h"
+
 #include "ReferenceLine.h"
 
 using outshine::Curve;
@@ -112,6 +114,28 @@ int main(void) {
   CHECK(!none.Lay(origin, {}, why), "a reference line of no segments is refused");
   CHECK(!none.Lay(origin, {{Curve::Straight, 0.0, 0.0, 0.0}}, why),
         "and so is one whose segment has no length");
+
+  {
+    // the wrap reduces any winding in one floor, and the band boundary keeps 1652's
+    // ruling: pi and -pi pass unchanged, just past them steps by exactly one turn
+    using outshine::Wrapped;
+    using outshine::kTurn;
+    const double pi = 0.5 * kTurn;
+    CHECK(Wrapped(pi) == pi && Wrapped(-pi) == -pi,
+          "**THE BAND BOUNDARY IS UNTOUCHED**: pi stays pi and -pi stays -pi, exactly as "
+          "the step form left them (board:1652, 1714)");
+    CHECK(Wrapped(std::nextafter(pi, 4.0)) == std::nextafter(pi, 4.0) - kTurn,
+          "one ulp past pi steps down by one turn, the step form's own value");
+    const double wound = 1.0e9;
+    const double unwound = Wrapped(wound);
+    CHECK(unwound >= -pi && unwound <= pi && std::fabs(unwound - std::remainder(wound, kTurn)) < 1.0e-6,
+          "**A BILLION RADIANS REDUCES IN ONE FLOOR** -- the while form walked 159 million "
+          "turns for this answer, and the tick pays the same at every winding (board:1714)");
+    const double absurd = Wrapped(1.0e18);
+    CHECK(absurd >= -pi && absurd <= pi,
+          "and 1e18 radians lands in the band before this test's own deadline -- the step "
+          "form would still be subtracting when the runner gave up");
+  }
 
   Covers("I.30 a corridor is a reference line of straights, arcs and spirals: the curvature is "
          "continuous along it by construction, and a transition that would leap has no spelling -- "

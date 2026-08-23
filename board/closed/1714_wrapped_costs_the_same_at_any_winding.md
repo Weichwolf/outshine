@@ -20,3 +20,12 @@ is a VALUE-IDENTICAL bounded form — reduce once by `angle - kTurn * std::floor
 segment entry headings once at Lay so the frame-path input is already small. Proof: a unit
 case feeding Wrapped 1e9 rad returns in O(1) with the same value the loop form gives on the
 ±π boundary cases 1652 protected.
+
+---
+
+Closed -- Wrapped reduces any winding in one floor (guarded so a value already inside the
+band never enters the reduction: pi and -pi pass untouched, 1652's ruling kept), with the
+step form finishing the few-ulp residue. Proven in
+AReferenceLineCarriesACurvatureWithoutALeap: boundary identity at +/-pi and one ulp past,
+1e9 rad within 1e-6 of std::remainder, and 1e18 rad lands in the band before the runner's
+deadline. Negative control: the while-only form reverted SIGNALs on exactly this test.
