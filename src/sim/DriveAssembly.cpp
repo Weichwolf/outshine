@@ -202,10 +202,12 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   say.Number("how far each walk is as a share of the drive",
        (fromAwayM + toAwayM) / straightM, "of it");
 
-  const outshine::Vehicle &turning = out.Car;
-  const double outerM = turning.TurningCircleM * 0.5;
-  const double tightestM =
-      std::sqrt(outerM * outerM - turning.WheelbaseM * turning.WheelbaseM);
+  stood = outshine::Sim::Stand(out.Car, world.GravityMs2, world.AirDensityKgM3);
+  if (!stood.Stood) { say.Say(Line("REFUSED %s", stood.Error.c_str())); }
+  say.Claim(stood.Stood, "**AND THE DECLARED VEHICLE STANDS UP AS A RIG.** Every number the drive uses comes "
+                     "from the file, not from a constant beside it");
+  if (!stood.Stood) { return false; }
+  const double tightestM = stood.TightestM;
   say.Number("the tightest centreline circle the declaration implies", tightestM, "m");
   const Route route =
       roads.Plan(Waypoint{fromLatDeg, fromLonDeg}, Waypoint{toLatDeg, toLonDeg}, tightestM,
@@ -229,12 +231,6 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
 
 
   say.Number("the narrowest road on the route", reaped.NarrowestTakenM, "m");
-  stood = outshine::Sim::Stand(out.Car, world.GravityMs2, world.AirDensityKgM3);
-  if (!stood.Stood) { say.Say(Line("REFUSED %s", stood.Error.c_str())); }
-  say.Claim(stood.Stood, "**AND THE DECLARED VEHICLE STANDS UP AS A RIG.** Every number the drive uses comes "
-                     "from the file, not from a constant beside it");
-  if (!stood.Stood) { return false; }
-
   if (!Sim::LayCorridor(route, stack.Ground(), out.Car, stood, quantumM, tightestM,
                         middleLat, world.RadiusM, say, out.Way, error)) {
     return false;

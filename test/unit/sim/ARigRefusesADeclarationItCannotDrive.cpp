@@ -78,6 +78,23 @@ int main(void) {
         "declaration refuses by the same rule rather than falling through two strict "
         "predicates");
 
+  {
+    // circle 4 m, wheelbase 2.5 m: the half-circle is shorter than the wheelbase and the
+    // implied centreline radius is sqrt of a negative -- this NaN once flowed into the
+    // planner and silently disabled every sharpest-turn admission
+    Vehicle folded = Plausible();
+    folded.TurningCircleM = 4.0;
+    const Rigged bent = Stand(folded, 9.80665, 1.225);
+    CHECK(!bent.Stood,
+          "**A TURNING CIRCLE THE PYTHAGORAS CANNOT TAKE REFUSES BY NAME** -- circle 4 m "
+          "against wheelbase 2.5 m never reaches the planner as NaN (board:1705)");
+    CHECK(bent.Error.find("wheelbase") != std::string::npos,
+          "and the refusal names the wheelbase it lost to");
+    CHECK(good.TightestM > 0.0 && good.TightestM < 0.5 * Plausible().TurningCircleM,
+          "the standing rig carries the tightest centreline radius its geometry implies, "
+          "derived once where the sibling checks live");
+  }
+
   Covers("II.12 the rig drives or refuses: the drive axle is the contacts behind the centre "
          "of mass, a missing one is a named refusal, and the dead steering counter is gone");
   return Report();

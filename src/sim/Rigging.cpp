@@ -118,6 +118,18 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
   out.Axles.SteerLimitRad =
       std::atan(out.Axles.WheelbaseM / (0.5 * declared.TurningCircleM - 0.5 * trackM));
 
+  const double outerM = 0.5 * declared.TurningCircleM;
+  if (!(outerM > out.Axles.WheelbaseM)) {
+    Refuse(out, "the turning circle's half of " + std::to_string(outerM) +
+                    " m is no longer than the wheelbase of " +
+                    std::to_string(out.Axles.WheelbaseM) +
+                    " m -- the rear axle would stand outside its own circle, and the "
+                    "tightest centreline radius that geometry implies is not a number");
+    return out;
+  }
+  out.TightestM =
+      std::sqrt(outerM * outerM - out.Axles.WheelbaseM * out.Axles.WheelbaseM);
+
   out.Envelope.Grip = declared.Grip;
   out.Envelope.GravityMs2 = gravityMs2;
   out.Envelope.MassKg = declared.MassKg;

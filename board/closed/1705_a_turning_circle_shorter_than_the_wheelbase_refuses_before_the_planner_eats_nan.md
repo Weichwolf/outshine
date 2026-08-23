@@ -22,3 +22,12 @@ derivation moves into `Stand` beside its sibling geometry checks so one refusal 
 vehicle's turn geometry. The proof arm lands in
 test/unit/sim/ARigRefusesADeclarationItCannotDrive.cpp (which today only exercises
 TurningCircleM = 11).
+
+---
+
+Closed -- the derivation moved into Stand beside its sibling geometry checks: Rigged carries
+TightestM, a half-circle no longer than the wheelbase refuses naming both, and DriveAssembly
+stands the rig BEFORE the planner so no NaN can reach roads.Plan. Proven in
+ARigRefusesADeclarationItCannotDrive (circle 4 m vs wheelbase 2.5 m refuses naming the
+wheelbase; the standing rig's TightestM is positive and under the half-circle). Negative
+control: the pre-fix tree goes red on this test.

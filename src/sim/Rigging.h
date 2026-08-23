@@ -16,6 +16,7 @@ struct Rigged {
   Physics::Rig Rig;
   Pilot::Axles Axles;
   Envelope Envelope;
+  double TightestM = 0.0;
   double CentreM[3] = {0.0, 0.0, 0.0};
   double SeatM[3] = {0.0, 0.0, 0.0};
   std::string Error;
