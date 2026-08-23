@@ -109,28 +109,38 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
     NoteCrest(here, station, Held_[at]);
   }
 
+  const auto ClampAround = [&](double where, double heldMs) {
+    if (!(heldMs < topMs) || !(where >= 0.0)) { return; }
+    const double reach = where / stepM;
+    const size_t below = (size_t)reach;
+    const size_t above = (double)below == reach ? below : below + 1;
+    for (size_t at = below; at <= above && at < samples; ++at) {
+      if (heldMs < Held_[at]) { Held_[at] = heldMs; }
+    }
+  };
+
   const std::vector<double> seams = along.Seams();
   for (size_t which = 0; which + 1 < seams.size(); ++which) {
     const double from = seams[which];
     const double to = seams[which + 1];
     if (!(to > from)) { continue; }
+    const double centre = 0.5 * (from + to);
     Placed head, middle;
-    if (!along.At(from, head) || !along.At(0.5 * (from + to), middle)) { continue; }
+    if (!along.At(from, head) || !along.At(centre, middle)) { continue; }
     Placed tail = middle;
     tail.CurvaturePerM = 2.0 * middle.CurvaturePerM - head.CurvaturePerM;
     tail.CurvatureRatePerM = 2.0 * middle.CurvatureRatePerM - head.CurvatureRatePerM;
     tail.SlopeRatePerM = 2.0 * middle.SlopeRatePerM - head.SlopeRatePerM;
-    const double bound =
-        std::fmin(HeldAt(head), std::fmin(HeldAt(middle), HeldAt(tail)));
-    const size_t first = (size_t)(from / stepM);
-    const double reach = to / stepM;
-    const size_t last = (size_t)reach == reach ? (size_t)reach : (size_t)reach + 1;
-    for (size_t at = first; at <= last && at < samples; ++at) {
-      if (bound < Held_[at]) { Held_[at] = bound; }
-    }
-    NoteCrest(head, from, bound);
-    NoteCrest(middle, 0.5 * (from + to), bound);
-    NoteCrest(tail, to, bound);
+
+    const double atHead = HeldAt(head);
+    const double atMiddle = HeldAt(middle);
+    const double atTail = HeldAt(tail);
+    ClampAround(from, atHead);
+    ClampAround(centre, atMiddle);
+    ClampAround(to, atTail);
+    NoteCrest(head, from, atHead);
+    NoteCrest(middle, centre, atMiddle);
+    NoteCrest(tail, to, atTail);
   }
 
   const auto gapM = [&](size_t before) {

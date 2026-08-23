@@ -92,11 +92,11 @@ int main(void) {
   // bar is the map's OWN claim -- every node the diagram paints red must appear in the
   // paragraph that justifies the reds, and every justification must cite code.
   const std::regex painted(R"(\n\s*class ([A-Za-z0-9_,]+) wrong\b)");
-  std::smatch reds;
   std::vector<std::string> unjustified;
   size_t nodes = 0;
-  if (std::regex_search(document, reds, painted)) {
-    std::string list = reds[1].str();
+  for (auto red = std::sregex_iterator(document.begin(), document.end(), painted);
+       red != std::sregex_iterator(); ++red) {
+    std::string list = (*red)[1].str();
     size_t from = 0;
     while (from <= list.size()) {
       const size_t comma = list.find(',', from);

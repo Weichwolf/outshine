@@ -116,9 +116,15 @@ rather than approximate for exactly the three quantities it is applied to:
 
 `Slope` is deliberately NOT extrapolated: it is the FIRST derivative of a cubic, so quadratic
 in t, and a linear extrapolation of it would be a guess. It is inherited from the middle
-sample instead, which costs nothing, because slope is continuous across a knot and the
-station walk already sees it. Only the second derivative jumps, and only the jump was
-invisible.
+sample instead.
+
+**That leaves the climb term a POINT statement, and this entry does not pretend otherwise.**
+Slope's extremum can fall strictly between two stations, so the tractive bound at
+`SpeedProfile.cpp:82-88` can still be evaluated where the slope is not worst. It is a
+different KIND of miss from the crest: a crest missed lifts the wheels off the road, a climb
+missed only means the car does not reach a speed the plan allowed. The first is a safety
+bound and is now an interval statement; the second is a performance bound and is still a
+point one. Filed rather than argued away -- board:1773 carries it.
 
 ### A second defect, found by the first
 
@@ -132,9 +138,14 @@ if (alongM >= through.back().AlongM)  { rate = ...; return; }   // bend left at 
 Those guards are for a station OUTSIDE the knots; `<=` and `>=` made them swallow the first
 and last knot too, so a crest at either end of a route was unbounded by construction. Now
 `<` and `>`, with the interval search clamped (`if (low + 1 >= through.size()) { low = through.size() - 2; }`)
-because the search lands on the last knot when asked for the very end -- and read
-`through[low + 1]` past the array. That was an out-of-bounds read on every call at exactly
-`LengthM()`, which the sanitised arm never caught because no case asked for the endpoint.
+because the search lands on the last knot when asked for the very end.
+
+**Corrected 2026-08-24, reviewer round.** An earlier version of this entry claimed the clamp
+fixed a pre-existing out-of-bounds read at `LengthM()`. That is FALSE and the claim is
+withdrawn: before this repair the `>=` guard returned before the search ever ran, so the
+array was never indexed past its end. The clamp is not a bug fix -- it is the guard the
+loosened condition MADE necessary, and writing it up as a discovered defect invented a bug
+to take credit for. A board entry that does that is worse than none.
 
 - **Proving test**: `test/unit/actor/path/ACrestBetweenTwoStationsIsStillACrest`.
 - Both defects were found by ONE test, and neither needed the network.

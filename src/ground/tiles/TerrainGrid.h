@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <mdspan>
 #include <vector>
 
 #include "TileGeodesy.h"
@@ -16,16 +17,22 @@ class TerrainField {
   TerrainField(uint32_t rows, uint32_t cols)
       : HeightsM_((size_t)rows * (size_t)cols, 0.0f), Rows_(rows), Cols_(cols) {}
 
-  uint32_t Rows() const { return Rows_; }
-  uint32_t Cols() const { return Cols_; }
-  bool Meshable() const { return Rows_ >= 2 && Cols_ >= 2; }
-  size_t Bytes() const { return HeightsM_.size() * sizeof(float); }
+  [[nodiscard]] uint32_t Rows() const { return Rows_; }
+  [[nodiscard]] uint32_t Cols() const { return Cols_; }
+  [[nodiscard]] bool Meshable() const { return Rows_ >= 2 && Cols_ >= 2; }
+  [[nodiscard]] size_t Bytes() const { return HeightsM_.size() * sizeof(float); }
 
-  const float *Data() const { return HeightsM_.data(); }
-  float *Data() { return HeightsM_.data(); }
+  [[nodiscard]] const float *Data() const { return HeightsM_.data(); }
+  [[nodiscard]] float *Data() { return HeightsM_.data(); }
 
-  float AtM(uint32_t row, uint32_t col) const { return HeightsM_[(size_t)row * Cols_ + col]; }
-  void SetM(uint32_t row, uint32_t col, float m) { HeightsM_[(size_t)row * Cols_ + col] = m; }
+  using Postings = std::mdspan<float, std::dextents<size_t, 2>>;
+  using ConstPostings = std::mdspan<const float, std::dextents<size_t, 2>>;
+
+  [[nodiscard]] ConstPostings Field() const { return ConstPostings(HeightsM_.data(), Rows_, Cols_); }
+  [[nodiscard]] Postings Field() { return Postings(HeightsM_.data(), Rows_, Cols_); }
+
+  [[nodiscard]] float AtM(uint32_t row, uint32_t col) const { return Field()[row, col]; }
+  void SetM(uint32_t row, uint32_t col, float m) { Field()[row, col] = m; }
 
   [[nodiscard]] float PostingM(double fracCol, double fracRow) const {
     const double gx = Cols_ < 2u ? 0.0 : fracCol * (double)(Cols_ - 1u);

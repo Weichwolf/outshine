@@ -146,9 +146,13 @@ flowchart TD
   class SUBJ,GLASS wrong
 ```
 
-Green = sound abstraction by current knowledge; amber = form in question; red = provably wrong
-(subjects: six responsibilities, instancing a literal, nothing culls; glass: a full clone of the
-subject stage). One `Writes` producer per derived resource (`static_assert`); missing
+Green = sound abstraction by current knowledge; amber = form in question; red = provably wrong,
+and each red cites what makes it so:
+
+| red | what makes it red, at HEAD |
+|---|---|
+| `SUBJ` | one stage carrying six responsibilities -- `ShaderSource(const SourceOptions &options)` (SubjectDraw.h:30), `PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack)` (:147), `FlushCrossings(SDL_GPUCommandBuffer *commands)` (:141), `SetPlacements(const double *models, size_t rows, std::string &error)` (:51), `SetLights(std::span<const SubjectLight> lights, std::string &error)` (:82) and `EncodeDepthOnly(const double lightFromWorld16[16], const double eye[3], int atlasPx,` (:89) beside its one `void Encode(const FrameContext &ctx, const PassRecording &into)` (:86); nothing culls |
+| `GLASS` | `{Stage::SubjectsTransmissive, Provenance::Content, PassKind::Raster, "subjectsTransmissive",` (RenderCatalogue.h:268) is a full clone of `{Stage::Subjects, Provenance::Content, PassKind::Raster, "subjects",` (:263) -- transmissive draws belong in the one subject stage | One `Writes` producer per derived resource (`static_assert`); missing
 contributor = picture choice, **published** as `-> neutral`; load/store ops derived from the
 plan (`Stored()`).
 

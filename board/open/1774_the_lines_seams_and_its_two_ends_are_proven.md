@@ -74,3 +74,26 @@ line and change only when it does.
 2. Each names its negative control and the control is shown red against the pre-b4e9ce04
    form.
 3. `Seams()` allocates its exact capacity once, or hands out a span over a member.
+
+## Comments
+
+- 2026-08-24 -- `ReferenceLine::Seams()` and both ends of `Read` now carry tests.
+- **Proving test**: `test/unit/actor/path/ACrestBetweenTwoStationsIsStillACrest` gained an arm
+  that lays a crest at EACH END of the line and asks the line for its own bend at station 0
+  and at `LengthM()`:
+
+  | | bend answered at station 0 | at the last station |
+  |---|---|---|
+  | `<=` / `>=` guards | **-0 per m** | **-0 per m** |
+  | `<` / `>` guards | 0.48 per m | 0.48 per m |
+
+  and then requires the plan to bound both.
+- `Seams()` is exercised by both `ACrestBetweenTwoStationsIsStillACrest` (five knots, four
+  intervals) and `AStraightRoadIsPlannedAtItsOwnSpeed` (three segments, two rise knots), so
+  the new public API is no longer untested.
+- **Negative control**: the guards restored to `<=` and `>=` -> `FAIL **A LINE ANSWERS ITS
+  OWN BEND AT BOTH ENDS**` printing `-0 per m` at each end, plus a second FAIL on the plan.
+  Reverted.
+- Still open in this item: `ReferenceLine.cpp:126-130` reserves for three of four
+  `push_back`s, so the last assignment reallocates by construction.
+- Gate 234/234.

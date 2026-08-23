@@ -84,3 +84,36 @@ point constraint is enough.
    road is straight and level. Today no test in `test/unit/actor/path/` fails against a 51 %
    over-restriction: `ASpeedPlanScalesWithTheDeclaredGravity` passed through this change
    unmoved. A bound with no upper proof is a bound that will keep tightening.
+
+## Comments
+
+- 2026-08-24 -- repaired. The seam pass stamped the interval's MINIMUM over every station the
+  interval touched. On a road whose first seam interval is a straight kilometre, that carried
+  the bend's limit backwards over all of it. `ClampAround(where, held)` now sets each of the
+  three evaluations at ITS OWN station pair (the two stations straddling that point) and
+  nowhere else; the profile's own backward brake pass carries the bound upstream, which is
+  its job and was always correct.
+- **Measured**, straight 1000 m + spiral 500 m + arc 300 m at 0.01/m, F31 envelope, step 20 m:
+
+  | at 1000 m (straight, level, unbanked) | |
+  |---|---|
+  | before board:1767 | 225.124 km/h (reviewer's measurement) |
+  | the interval stamp | **109.881516 km/h** -- the bend's own limit, 800 m early |
+  | the station clamp | **222.878528 km/h** |
+
+  222.878528 is not a number to be admired: it is EXACTLY what the brake owes. The proving
+  test derives it rather than asserting it, by walking every later station and taking the
+  tightest `sqrt(v^2 + 2 a s)` -- and the two agree to 1e-9.
+- **Proving test**: `test/unit/actor/path/AStraightRoadIsPlannedAtItsOwnSpeed` -- eight checks:
+  the straight is straight by the declaration, the same straight alone allows 541.091 km/h,
+  and the planned speed equals the braking owed to every later limit exactly.
+- **Negative control**: the interval stamp put back -> the straight is planned at
+  **109.881516 km/h**, the bend's own limit, and the claim goes red. Reverted.
+- The rounding the review names (`(size_t)(from / stepM)` truncating out of its own interval)
+  is gone with the stamp: `ClampAround` takes the two stations that STRADDLE a point, floor
+  and ceil of the same value, so no clamp lands outside what it describes.
+- The climb term stays a POINT statement and board:1767 now says so instead of arguing it
+  away: `Slope` is quadratic in t, its extremum can fall between stations, and a missed climb
+  bound costs speed the car never reaches -- it does not lift a wheel. Carried here as the
+  open half of this item.
+- Gate 234/234.

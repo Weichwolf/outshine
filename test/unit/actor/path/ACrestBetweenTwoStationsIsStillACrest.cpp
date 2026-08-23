@@ -92,6 +92,39 @@ int main(void) {
         "that lifts the wheels off the road, and a term sampled at stations is a statement "
         "about the stations -- never about the road between them (board:1767)");
 
+  // board:1774: Read's out-of-range guards used <= and >=, so they swallowed the FIRST and
+  // LAST knot too and answered a bend of zero there. A crest at either end of a route was
+  // unbounded by construction, and no case had ever asked for a bend at 0 or LengthM().
+  {
+    ReferenceLine ends;
+    CHECK(ends.Lay(Placed{}, {{Curve::Straight, kRoadM, 0.0, 0.0}}, error),
+          "a second straight road lays");
+    const std::vector<Knot> atEnds = {{0.0, 0.0, 0.0},
+                                      {kCrestHalfM, -kCrestRiseM, 0.0},
+                                      {kRoadM - kCrestHalfM, -kCrestRiseM, 0.0},
+                                      {kRoadM, 0.0, 0.0}};
+    CHECK(ends.Rise(atEnds, error), "rising into a crest at each END of the line");
+
+    Placed atStart, atFinish;
+    CHECK(ends.At(0.0, atStart) && ends.At(kRoadM, atFinish),
+          "the line places its own first and last metre");
+    Note("the bend the line answers at station 0", -atStart.SlopeRatePerM, "per m");
+    Note("the bend the line answers at the last station", -atFinish.SlopeRatePerM, "per m");
+    CHECK(-atStart.SlopeRatePerM > 0.0 && -atFinish.SlopeRatePerM > 0.0,
+          "**A LINE ANSWERS ITS OWN BEND AT BOTH ENDS**: the guards for a station OUTSIDE "
+          "the knots may not swallow the first and last knot, or a crest at either end of a "
+          "route is unbounded by construction (board:1774)");
+
+    SpeedProfile edged;
+    CHECK(edged.Over(ends, Standing(), kStepM, 0.0, error), "a plan is taken over it");
+    const double flyingAtStart = std::sqrt(kGravityMs2 / -atStart.SlopeRatePerM);
+    const double flyingAtFinish = std::sqrt(kGravityMs2 / -atFinish.SlopeRatePerM);
+    Note("what the plan allows at station 0", edged.At(0.0) * 3.6, "km/h");
+    Note("what it allows at the last station", edged.At(kRoadM) * 3.6, "km/h");
+    CHECK(edged.At(0.0) <= flyingAtStart && edged.At(kRoadM) <= flyingAtFinish,
+          "and the plan bounds both of them");
+  }
+
   Covers("V.8 the speed plan bounds every crest the reference line carries, including the "
          "ones whose elevation knots fall between the plan's own stations (board:1767)");
   return Report();
