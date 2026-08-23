@@ -174,6 +174,7 @@ struct Volume {
   double ExtentM[3] = {0.0, 0.0, 0.0};
   std::string Fires;
   std::string When;
+  double DwellS = 0.0;
 };
 
 struct Sound {

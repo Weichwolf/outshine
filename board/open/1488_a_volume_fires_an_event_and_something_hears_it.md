@@ -20,3 +20,17 @@ volume and the event and never the quest.
   things pays for all of them at every door
 - [ ] **Firing takes nothing from the allocator**, because it is on the frame path
 - [ ] **An event nobody listens to is counted**, so a scenario can see that its trigger reaches nothing
+
+---
+
+Progress -- five of six boxes stand: src/scenario/TriggerField is the mechanism. A volume
+fires on enter, exit or dwell and the engine spells no fourth (refusal names it); a dwell
+demands its declared dwellS (grammar grew the attribute) or refuses as "an enter wearing a
+costume"; a volume firing an undeclared event refuses naming both sides; a listener declares
+its fields at stand-up and a field the event does not carry refuses there, never nulls at
+run time; firing is allocation-free after Build (counting-allocator proof: enter + exit +
+drain = zero) and bounded (kMostDoors/kMostStandings/kMostFired [SET], overflow counted);
+an unheard event is counted per event. A body probes only when it MOVES, so the per-tick
+term is O(moving bodies x declared doors), never O(instances). Proving test:
+unit/scenario/AVolumeFiresAndSomethingHears.cpp. Remaining: the script host hearing events
+through 1448's capability surface -- the box that waits on that door.

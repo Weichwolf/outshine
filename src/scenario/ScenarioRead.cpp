@@ -66,7 +66,7 @@ const Element kGrammar[] = {
     {"scenario/regions/region/uses", "", "what", "what"},
     {"scenario/regions/door", "", "id from to x y z", "from to"},
     {"scenario/volumes", "volume", ""},
-    {"scenario/volumes/volume", "", "id in shape x y z extentX extentY extentZ fires when"},
+    {"scenario/volumes/volume", "", "id in shape x y z extentX extentY extentZ fires when dwellS"},
     {"scenario/audio", "bus sound", ""},
     {"scenario/audio/bus", "", "id into gainDb"},
     {"scenario/audio/sound", "", "id uri bus positional loops gainDb falloffM", "uri"},
@@ -452,6 +452,7 @@ bool ReadScenarioInto(const char *text, size_t length, Scenario &into, std::stri
     made.ExtentM[2] = one.Num("extentZ", 0.0);
     made.Fires = one.Attr("fires");
     made.When = one.Attr("when", "enter");
+    made.DwellS = one.Num("dwellS", 0.0);
     into.Volumes.push_back(made);
   }
 
