@@ -14,3 +14,11 @@ Slate's invalidation-panel lesson: text-node mutation plus dirty-subtree relayou
 - [ ] a text node mutates and only its subtree relays out; the reparse dies
 - [ ] script binds to the tree (events in, node mutation out), still declarative at the seam
 - [ ] the driver's HUD (speed, route) is declared markup, updated at 60 Hz, measured
+
+Sharpened (review 2026-08-23, round 15): the CURRENT class-structure diagram in CLAUDE.md
+does not carry the ui tree at all — Markup → Style → Layout → Paint/Pointer exist in src/ui,
+feed Live's overlay and the WPT harness, and appear on no map. When this feature lands, the
+chain belongs on the diagram; until then the map under-reports a whole subsystem. The round
+also put three concrete defects against the tree it confirms: board:1685 (baseline OOB),
+1686 (only the first top-level box paints), 1687 (greedy selector matching refuses valid
+trees) — the "confirmed architecture" verdict above stands, the implementation does not yet.

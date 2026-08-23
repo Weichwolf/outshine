@@ -110,3 +110,16 @@ string_view end to end -- the number scan moved from strtod to from_chars (the C
 which surfaced that hex literals had only ever parsed by strtod's accident; they parse
 EXPLICITLY now (0x via from_chars base 16), proven by the full test262 corpus that caught
 the drift on first run. WhyOutside uses starts_with; the Value factories are [[nodiscard]].
+
+Sharpened (review 2026-08-23, round 15): the strtod family the Script repayment just buried
+lives on one directory over, in src/ui — and there it is not only a form question. All three
+are locale-dependent or allocate to reach a C string:
+- src/ui/Style.cpp:167-169 (ReadValue): `const std::string held(trimmed)` allocated per
+  value solely to call `std::strtod` — which under a comma-decimal locale reads "1.5px" as 1.
+  from_chars on the view, as Script.cpp now does.
+- src/ui/Style.cpp:488 (ReadCompound): `std::atoi(std::string(inside).c_str())` for
+  nth-child — from_chars on the view, no allocation, and the error is checkable.
+- src/ui/Markup.cpp:51-52 (Resolve): `std::string digits(...)` + `std::strtol` for numeric
+  character references — same move.
+The correctness residue of the Script conversion itself (unchecked `ec`, hex overflow to a
+silent zero) is board:1688, not this item.
