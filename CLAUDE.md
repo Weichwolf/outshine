@@ -236,9 +236,9 @@ finding. Green = right responsibility in the right layer; amber = form in questi
 | red | what makes it red, at HEAD |
 |---|---|
 | `World` | spells camera and LOD inside the ground layer: `struct Eye` (World.h:49), `Refine(const Eye &eye, double nowMs)` (:55), `EyeInMercatorBand()` (:118), and six predicates taking `const double eye[3]` (:189-195) |
-| `SubjectDraw` | six responsibilities in 919 lines: shader-source generation, pipeline table, residency forwarding, placements, lights and environment, encode + a second depth-only encode |
-| `Sim` | 62 public verbs over 59 members and 25 quoted includes — a hand-wired god facade the component model replaces |
-| `Live` | 25 public verbs over 17 members, reaching Renderer, Layout, Markup, Style, Paint, GltfStudio and Surfaces from one class |
+| `SubjectDraw` | six responsibilities in one class: `ShaderSource(const SourceOptions &options)` (SubjectDraw.h:30), `PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack)` (:147), `FlushCrossings(SDL_GPUCommandBuffer *commands)` (:141), `SetPlacements(const double *models, size_t rows, std::string &error)` (:51), `SetLights(std::span<const SubjectLight> lights, std::string &error)` (:82), and `EncodeDepthOnly(const double lightFromWorld16[16], const double eye[3], int atlasPx,` (:89) beside the one `void Encode(const FrameContext &ctx, const PassRecording &into)` (:86) a stage owes |
+| `Sim` | `class Sim {` (Sim.h:37) is a hand-wired god facade the component model replaces: 62 public verbs over 59 members, reached through 25 quoted includes |
+| `Live` | `class Live {` (Live.h:71) reaches the renderer and the layout from one class — `#include "Renderer.h"` (:18) beside `#include "Layout.h"` (:13) — 25 public verbs over 17 members |
 
 `TilePool` moved red → amber: the earlier sentence said it spells camera and LOD, and it does
 not — `grep -cEi 'eye|camera|frustum|\blod\b'` over both its files is 0. It is a

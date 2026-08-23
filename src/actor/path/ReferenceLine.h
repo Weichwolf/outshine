@@ -67,6 +67,8 @@ public:
   [[nodiscard]] size_t SegmentCount() const { return Laid_.size(); }
   [[nodiscard]] size_t RiseKnotCount() const { return Rise_.size(); }
   [[nodiscard]] size_t BankKnotCount() const { return Bank_.size(); }
+  [[nodiscard]] std::vector<double> Seams() const;
+
   [[nodiscard]] const std::string &Error() const { return Error_; }
 
 private:

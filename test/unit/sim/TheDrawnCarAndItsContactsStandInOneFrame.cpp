@@ -100,6 +100,15 @@ int main(void) {
           "placement, and the refusal names the missing dimension");
   }
   {
+    Vehicle unscaled = F31();
+    unscaled.WheelbaseM = 0.0;
+    const Rigged refused = Stand(unscaled, 9.80665, 1.225);
+    CHECK(!refused.Stood && refused.Error.find("wheelbaseM") != std::string::npos,
+          "**THE SCALE DIVIDES BY A DECLARED WHEELBASE, SO IT MUST BE DECLARED**: the "
+          "physics reads the wheelbase off the contacts and would never notice, and a model "
+          "drawn at a scale of zero is a car nobody can see (board:1771)");
+  }
+  {
     Vehicle blind = F31();
     blind.AssetGround = 0.0;
     const Rigged refused = Stand(blind, 9.80665, 1.225);

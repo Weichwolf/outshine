@@ -53,6 +53,13 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
   }
 
   if (!declared.Asset.empty()) {
+    if (!(declared.WheelbaseM > 0.0)) {
+      Refuse(out, "the vehicle '" + declared.Name + "' draws '" + declared.Asset +
+                      "' and declares no wheelbaseM -- the asset's scale is the declared "
+                      "wheelbase over the measured one, and a model drawn at a scale of "
+                      "zero is a car nobody can see standing where the physics says it is");
+      return out;
+    }
     if (!(declared.AssetWheelbase > 0.0)) {
       Refuse(out, "the vehicle '" + declared.Name + "' draws '" + declared.Asset +
                       "' and declares no assetWheelbase -- a model carries no scale, so the "

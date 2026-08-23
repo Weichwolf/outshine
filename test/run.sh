@@ -689,6 +689,7 @@ PRUNE_MARKER=$BUILD/prune.marker
 
 
 TREES=test
+[ -z "$SUITES" ] && TREES="test tools"
 for named in $SUITES; do
   case "$named" in tools | tools/*) TREES="test tools" ;; esac
 done

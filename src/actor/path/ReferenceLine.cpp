@@ -1,5 +1,7 @@
 #include "ReferenceLine.h"
 
+#include <algorithm>
+
 #include <cmath>
 
 namespace outshine {
@@ -83,12 +85,12 @@ void ReferenceLine::Read(std::span<const Knot> through, double alongM, double &v
   rate = 0.0;
   bend = 0.0;
   if (through.empty()) { return; }
-  if (alongM <= through.front().AlongM) {
+  if (through.size() < 2 || alongM < through.front().AlongM) {
     rate = through.front().RatePerM;
     value = through.front().Value + rate * (alongM - through.front().AlongM);
     return;
   }
-  if (alongM >= through.back().AlongM) {
+  if (alongM > through.back().AlongM) {
     rate = through.back().RatePerM;
     value = through.back().Value + rate * (alongM - through.back().AlongM);
     return;
@@ -103,6 +105,7 @@ void ReferenceLine::Read(std::span<const Knot> through, double alongM, double &v
       high = mid - 1;
     }
   }
+  if (low + 1 >= through.size()) { low = through.size() - 2; }
   const Knot &from = through[low];
   const Knot &to = through[low + 1];
   const double span = to.AlongM - from.AlongM;
@@ -116,6 +119,18 @@ void ReferenceLine::Read(std::span<const Knot> through, double alongM, double &v
          (-6.0 * tt + 6.0 * t) / span * to.Value + (3.0 * tt - 2.0 * t) * to.RatePerM;
   bend = (12.0 * t - 6.0) / (span * span) * from.Value + (6.0 * t - 4.0) / span * from.RatePerM +
          (-12.0 * t + 6.0) / (span * span) * to.Value + (6.0 * t - 2.0) / span * to.RatePerM;
+}
+
+std::vector<double> ReferenceLine::Seams() const {
+  std::vector<double> at;
+  at.reserve(Laid_.size() + Rise_.size() + Bank_.size());
+  for (const Held &one : Laid_) { at.push_back(one.AlongM); }
+  for (const Knot &one : Rise_) { at.push_back(one.AlongM); }
+  for (const Knot &one : Bank_) { at.push_back(one.AlongM); }
+  at.push_back(Length_);
+  std::sort(at.begin(), at.end());
+  at.erase(std::unique(at.begin(), at.end()), at.end());
+  return at;
 }
 
 Placed ReferenceLine::Walk(const Placed &from, const Segment &along, double byM) {

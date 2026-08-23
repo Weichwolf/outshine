@@ -75,3 +75,66 @@ side of.
   `test/render/outshine/drive/` as the single proof. That move is worth nothing while the
   drive itself is broken, and it would carry a red case into a second suite. This item comes
   first.
+
+---
+
+## Reproduced without the network, and repaired (2026-08-24)
+
+The crest term was a POINT statement about a rate. `SpeedProfile::Over` sampled at stations
+of `stepM`; elevation knots come from the DEM along the route and owe that step nothing, so a
+crest whose knots fall between two stations was invisible to every station on both sides.
+
+**Reproduced with no network at all** -- `test/unit/actor/path/ACrestBetweenTwoStationsIsStillACrest`:
+a straight 400 m road, a 10 m crest at 205 m, a 20 m step so the stations are 200 and 220 and
+the crest lives entirely between them.
+
+| | before | after |
+|---|---|---|
+| sharpest crest the line carries | 0.48 per m | 0.48 per m |
+| fastest a wheel stays down over it | 16.272 km/h | 16.272 km/h |
+| **what the plan allowed** | **259.960 km/h** | **16.272 km/h** |
+
+A factor of sixteen, and the same shape the live drive showed: a plan of 225.776 km/h where
+the wheels leave at a fraction of it.
+
+### The repair, and the assumption it stands on
+
+`ReferenceLine::Seams()` publishes the stations where the line's second derivative may jump:
+every segment boundary, every rise knot, every bank knot, and the end. `SpeedProfile::Over`
+now bounds each SEAM INTERVAL as well as each station, evaluating the terms at the interval's
+head, middle and tail, and applying the tightest of the three to every station the interval
+touches.
+
+The tail is not sampled -- it is EXTRAPOLATED, `tail = 2 x middle - head`, and that is exact
+rather than approximate for exactly the three quantities it is applied to:
+
+| quantity | why the extrapolation is exact |
+|---|---|
+| `SlopeRatePerM` | the rise is a cubic Hermite, so its second derivative is LINEAR in t: `bend = (12t-6)/span^2 * v0 + (6t-4)/span * m0 + (-12t+6)/span^2 * v1 + (6t-2)/span * m1` (ReferenceLine.cpp:120-122) -- every term linear |
+| `CurvaturePerM` | `EntryCurvature + rate * byM` (ReferenceLine.cpp:124) -- linear in the distance along the segment |
+| `CurvatureRatePerM` | `(ExitCurvature - EntryCurvature) / LengthM` -- constant within a segment |
+
+`Slope` is deliberately NOT extrapolated: it is the FIRST derivative of a cubic, so quadratic
+in t, and a linear extrapolation of it would be a guess. It is inherited from the middle
+sample instead, which costs nothing, because slope is continuous across a knot and the
+station walk already sees it. Only the second derivative jumps, and only the jump was
+invisible.
+
+### A second defect, found by the first
+
+`ReferenceLine::Read` answered a bend of **zero** at both ends of the line:
+
+```cpp
+if (alongM <= through.front().AlongM) { rate = ...; return; }   // bend left at 0
+if (alongM >= through.back().AlongM)  { rate = ...; return; }   // bend left at 0
+```
+
+Those guards are for a station OUTSIDE the knots; `<=` and `>=` made them swallow the first
+and last knot too, so a crest at either end of a route was unbounded by construction. Now
+`<` and `>`, with the interval search clamped (`if (low + 1 >= through.size()) { low = through.size() - 2; }`)
+because the search lands on the last knot when asked for the very end -- and read
+`through[low + 1]` past the array. That was an out-of-bounds read on every call at exactly
+`LengthM()`, which the sanitised arm never caught because no case asked for the endpoint.
+
+- **Proving test**: `test/unit/actor/path/ACrestBetweenTwoStationsIsStillACrest`.
+- Both defects were found by ONE test, and neither needed the network.

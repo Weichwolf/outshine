@@ -1,5 +1,7 @@
 #include "SpeedProfile.h"
 
+#include <vector>
+
 #include <cmath>
 
 namespace outshine {
@@ -45,6 +47,53 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
   StepM_ = stepM;
   LengthM_ = along.LengthM();
 
+  const auto NoteCrest = [&](const Placed &here, double station, double bindingMs) {
+    const double crest = -here.SlopeRatePerM;
+    if (!(crest > 0.0)) { return; }
+    const double flying = std::sqrt(within.GravityMs2 / crest);
+    if (flying > bindingMs) { return; }
+    ++CrestsBound_;
+    if (CrestHeld_ <= 0.0 || flying < CrestHeld_) {
+      CrestHeld_ = flying;
+      CrestHeldAt_ = station;
+    }
+  };
+
+  const auto HeldAt = [&](const Placed &here) {
+    double held = topMs;
+    const double bend = std::fabs(here.CurvaturePerM);
+    if (bend > 0.0) {
+      const double turning = std::sqrt(lateralMs2 / bend);
+      if (turning < held) { held = turning; }
+    }
+    if (bend > 0.0 && within.CorneringNPerRad > 0.0 && within.HoldWithinM > 0.0 &&
+        within.SettleS > 0.0) {
+      const double slipped = std::cbrt(4.0 * within.CorneringNPerRad * within.HoldWithinM /
+                                       (within.MassKg * bend * within.SettleS));
+      if (slipped < held) { held = slipped; }
+    }
+    const double ramp = std::fabs(here.CurvatureRatePerM);
+    if (ramp > 0.0 && within.HoldWithinM > 0.0 && within.SettleS > 0.0) {
+      const double followedMs =
+          std::cbrt(6.0 * within.HoldWithinM /
+                    (ramp * within.SettleS * within.SettleS * within.SettleS));
+      if (followedMs < held) { held = followedMs; }
+    }
+    const double climb = here.Slope;
+    if (climb > 0.0) {
+      const double left = within.DriveN - within.MassKg * within.GravityMs2 * climb;
+      const double resistance = 0.5 * within.AirDensity * within.DragArea;
+      const double heldMs = left > 0.0 && resistance > 0.0 ? std::sqrt(left / resistance) : 0.0;
+      if (heldMs < held) { held = heldMs; }
+    }
+    const double crest = -here.SlopeRatePerM;
+    if (crest > 0.0) {
+      const double flying = std::sqrt(within.GravityMs2 / crest);
+      if (flying < held) { held = flying; }
+    }
+    return held;
+  };
+
   for (size_t at = 0; at < samples; ++at) {
     Placed here;
     const double station = (double)at * stepM > LengthM_ ? LengthM_ : (double)at * stepM;
@@ -56,43 +105,32 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
       return false;
     }
     Curvature_[at] = here.CurvaturePerM;
-    const double bend = std::fabs(here.CurvaturePerM);
-    if (bend > 0.0) {
-      const double held = std::sqrt(lateralMs2 / bend);
-      Held_[at] = held < topMs ? held : topMs;
+    Held_[at] = HeldAt(here);
+    NoteCrest(here, station, Held_[at]);
+  }
+
+  const std::vector<double> seams = along.Seams();
+  for (size_t which = 0; which + 1 < seams.size(); ++which) {
+    const double from = seams[which];
+    const double to = seams[which + 1];
+    if (!(to > from)) { continue; }
+    Placed head, middle;
+    if (!along.At(from, head) || !along.At(0.5 * (from + to), middle)) { continue; }
+    Placed tail = middle;
+    tail.CurvaturePerM = 2.0 * middle.CurvaturePerM - head.CurvaturePerM;
+    tail.CurvatureRatePerM = 2.0 * middle.CurvatureRatePerM - head.CurvatureRatePerM;
+    tail.SlopeRatePerM = 2.0 * middle.SlopeRatePerM - head.SlopeRatePerM;
+    const double bound =
+        std::fmin(HeldAt(head), std::fmin(HeldAt(middle), HeldAt(tail)));
+    const size_t first = (size_t)(from / stepM);
+    const double reach = to / stepM;
+    const size_t last = (size_t)reach == reach ? (size_t)reach : (size_t)reach + 1;
+    for (size_t at = first; at <= last && at < samples; ++at) {
+      if (bound < Held_[at]) { Held_[at] = bound; }
     }
-    if (bend > 0.0 && within.CorneringNPerRad > 0.0 && within.HoldWithinM > 0.0 &&
-        within.SettleS > 0.0) {
-      const double slipped = std::cbrt(4.0 * within.CorneringNPerRad * within.HoldWithinM /
-                                       (within.MassKg * bend * within.SettleS));
-      if (slipped < Held_[at]) { Held_[at] = slipped; }
-    }
-    const double ramp = std::fabs(here.CurvatureRatePerM);
-    if (ramp > 0.0 && within.HoldWithinM > 0.0 && within.SettleS > 0.0) {
-      const double followedMs =
-          std::cbrt(6.0 * within.HoldWithinM /
-                    (ramp * within.SettleS * within.SettleS * within.SettleS));
-      if (followedMs < Held_[at]) { Held_[at] = followedMs; }
-    }
-    const double climb = here.Slope;
-    if (climb > 0.0) {
-      const double left = within.DriveN - within.MassKg * within.GravityMs2 * climb;
-      const double resistance = 0.5 * within.AirDensity * within.DragArea;
-      const double heldMs = left > 0.0 && resistance > 0.0 ? std::sqrt(left / resistance) : 0.0;
-      if (heldMs < Held_[at]) { Held_[at] = heldMs; }
-    }
-    const double crest = -here.SlopeRatePerM;
-    if (crest > 0.0) {
-      const double flying = std::sqrt(within.GravityMs2 / crest);
-      if (flying < Held_[at]) {
-        Held_[at] = flying;
-        ++CrestsBound_;
-        if (CrestHeld_ <= 0.0 || flying < CrestHeld_) {
-          CrestHeld_ = flying;
-          CrestHeldAt_ = station;
-        }
-      }
-    }
+    NoteCrest(head, from, bound);
+    NoteCrest(middle, 0.5 * (from + to), bound);
+    NoteCrest(tail, to, bound);
   }
 
   const auto gapM = [&](size_t before) {

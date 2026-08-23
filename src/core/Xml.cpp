@@ -1,5 +1,7 @@
 #include "Xml.h"
 
+#include <algorithm>
+
 #include <cstdlib>
 #include <cstring>
 
@@ -371,6 +373,8 @@ bool Xml::Parse(const char *text, size_t length) {
 }
 
 Xml::Unread Xml::FirstUnread() const {
+  if (std::ranges::find(Asked_, 0) == Asked_.end()) { return Unread{}; }
+
   std::vector<std::pair<uint32_t, std::string>> walk;
   if (Root_ != 0) { walk.push_back({Root_, Span(Nodes_[Root_].NameOff, Nodes_[Root_].NameLen)}); }
   while (!walk.empty()) {

@@ -88,9 +88,50 @@ int main(void) {
     }
   }
 
+  // board:1768: a threshold fitted to the count that happens to exist judges nothing. The
+  // bar is the map's OWN claim -- every node the diagram paints red must appear in the
+  // paragraph that justifies the reds, and every justification must cite code.
+  const std::regex painted(R"(\n\s*class ([A-Za-z0-9_,]+) wrong\b)");
+  std::smatch reds;
+  std::vector<std::string> unjustified;
+  size_t nodes = 0;
+  if (std::regex_search(document, reds, painted)) {
+    std::string list = reds[1].str();
+    size_t from = 0;
+    while (from <= list.size()) {
+      const size_t comma = list.find(',', from);
+      const std::string node = list.substr(from, comma == std::string::npos ? comma : comma - from);
+      if (!node.empty()) {
+        ++nodes;
+        const size_t row = document.find("| `" + node + "` |");
+        if (row == std::string::npos) {
+          unjustified.push_back(node + " is painted red and the paragraph does not name it");
+        } else {
+          const size_t ends = document.find('\n', row);
+          const std::string says = document.substr(row, ends - row);
+          if (!std::regex_search(says, cited)) {
+            unjustified.push_back(node + " is painted red and its reason cites no file:line");
+          }
+        }
+      }
+      if (comma == std::string::npos) { break; }
+      from = comma + 1;
+    }
+  }
+
   Note("citations judged", (double)citations, "citations");
+  Note("nodes painted red", (double)nodes, "nodes");
   for (const std::string &one : stale) { std::printf("FOUND %s\n", one.c_str()); }
-  CHECK(citations >= 4, "the map cites the code it judges, and this walk found the citations");
+  for (const std::string &one : unjustified) { std::printf("FOUND %s\n", one.c_str()); }
+  CHECK(nodes >= 3, "the diagram paints reds for this walk to judge");
+  CHECK(unjustified.empty(),
+        "**EVERY NON-GREEN NODE CARRIES A CITATION THE CLAIM WALKS**: a node the map paints "
+        "red is named in the paragraph that justifies the reds, and that justification cites "
+        "code by file:line -- a reason made of bare numbers is a reason nothing can check "
+        "(board:1768)");
+  CHECK(citations >= nodes,
+        "and there is at least one citation per red, so the bar follows the map rather than "
+        "the count that happens to exist");
   CHECK(stale.empty(),
         "**EVERY COLOUR CITES A LINE THAT SAYS IT**: a red node names what makes it red at "
         "file:line, and that line still spells it -- a justification that has drifted is "
