@@ -20,3 +20,12 @@ Demanded: both walks carry an explicit work stack (the capacity bound is already
 own), and the unit mirror gets the 1712-style proof — a chain the old recursion could not
 survive, removed and instantiated on a small-stack thread, with the recursive form shown to
 SIGNAL.
+
+---
+
+Closed -- Remove fells owned chains with an explicit stack (a visited entity defers until
+its owned in-edges are gone, then Fell erases the one node), and Instantiate raises a prefab
+tree from a work list, felling the ONE root on any refusal. Proven in
+ADeepChainStandsAndFellsOnABoundedStack: a 16384-link owned ChildOf train assembles, fells,
+and an 8192-part prefab chain instantiates on a 512 KiB thread stack. Negative control: the
+recursive Store reverted SIGNALs on exactly this test.

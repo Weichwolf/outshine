@@ -62,6 +62,35 @@ Entity Store::Add(Role role) {
 }
 
 void Store::Remove(Entity of) {
+  if (Held(of) == nullptr) { return; }
+  // an owned chain of any depth fells with an explicit stack -- a 100k-link ChildOf train
+  // once tore down by recursion, one frame per link, and the stack is not the pool's bound
+  std::vector<Entity> felling;
+  felling.push_back(of);
+  while (!felling.empty()) {
+    const Entity next = felling.back();
+    Slot *held = const_cast<Slot *>(Held(next));
+    if (held == nullptr) {
+      felling.pop_back();
+      continue;
+    }
+    bool deferred = false;
+    for (size_t how = 0; how < kRelations; ++how) {
+      if (!RuleOf((Relation)how).OwnedByTarget) { continue; }
+      for (uint32_t in = held->InHead[how]; in != kNoRef; in = At(in).InNext) {
+        ++Touched_;
+        const uint32_t source = in / kPairsPerEntity;
+        felling.push_back(Entity{source, Slots_[source].Generation});
+        deferred = true;
+      }
+    }
+    if (deferred) { continue; }
+    felling.pop_back();
+    Fell(next);
+  }
+}
+
+void Store::Fell(Entity of) {
   Slot *slot = const_cast<Slot *>(Held(of));
   if (slot == nullptr) { return; }
   const uint32_t index = of.Index;
@@ -69,15 +98,10 @@ void Store::Remove(Entity of) {
   while (slot->PairCount > 0) { ErasePair(index, slot->PairCount - 1); }
 
   for (size_t how = 0; how < kRelations; ++how) {
-    const bool owns = RuleOf((Relation)how).OwnedByTarget;
     for (uint32_t in = slot->InHead[how]; in != kNoRef; in = slot->InHead[how]) {
       ++Touched_;
       const uint32_t source = in / kPairsPerEntity;
-      if (owns) {
-        Remove(Entity{source, Slots_[source].Generation});
-      } else {
-        ErasePair(source, in % kPairsPerEntity);
-      }
+      ErasePair(source, in % kPairsPerEntity);
     }
   }
 
@@ -334,28 +358,46 @@ Entity Store::Instantiate(Entity prefab) {
     (void)Refuse("only what stands can be instantiated");
     return kNoEntity;
   }
+  // a prefab tree of any depth stands up with an explicit work list -- the recursion per
+  // child paid one frame per link, the 1712 class, and a failure fells the ONE root
+  struct Standing {
+    Entity Source;
+    Entity Under;
+  };
   const Entity instance = Add(base->Is);
   if (!Alive(instance)) { return kNoEntity; }
   if (!Link(instance, Relation::IsA, prefab)) {
     Remove(instance);
     return kNoEntity;
   }
-  for (uint32_t in = Slots_[prefab.Index].InHead[(size_t)Relation::ChildOf]; in != kNoRef;) {
-    ++Touched_;
-    const uint32_t source = in / kPairsPerEntity;
-    const uint32_t next = At(in).InNext;
-    const Entity childId{source, Slots_[source].Generation};
-    if (!(childId == instance)) {
-      const Entity copied = Instantiate(childId);
-      if (!Alive(copied) || !Link(copied, Relation::ChildOf, instance)) {
+  std::vector<Standing> raising;
+  raising.push_back(Standing{prefab, instance});
+  while (!raising.empty()) {
+    const Standing at = raising.back();
+    raising.pop_back();
+    for (uint32_t in = Slots_[at.Source.Index].InHead[(size_t)Relation::ChildOf];
+         in != kNoRef;) {
+      ++Touched_;
+      const uint32_t source = in / kPairsPerEntity;
+      const uint32_t next = At(in).InNext;
+      const Entity childId{source, Slots_[source].Generation};
+      if (childId == instance || childId == at.Under) {
+        in = next;
+        continue;
+      }
+      const Slot *childBase = Held(childId);
+      const Entity copied = childBase == nullptr ? kNoEntity : Add(childBase->Is);
+      if (!Alive(copied) || !Link(copied, Relation::IsA, childId) ||
+          !Link(copied, Relation::ChildOf, at.Under)) {
         const std::string why = Error_;
         if (Alive(copied)) { Remove(copied); }
         Remove(instance);
         Error_ = why;
         return kNoEntity;
       }
+      raising.push_back(Standing{childId, copied});
+      in = next;
     }
-    in = next;
   }
   return instance;
 }

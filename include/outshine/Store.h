@@ -66,6 +66,7 @@ public:
   void ResetTouched() { Touched_ = 0; }
 
 private:
+  void Fell(Entity of);
   static constexpr uint32_t kNoRef = 0xFFFFFFFFu;
 
   template <size_t N>
