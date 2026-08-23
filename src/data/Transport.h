@@ -15,14 +15,19 @@ class Wire {
 public:
   enum class State { Working, Answered, Unreachable };
 
-  static Wire Working() { return Wire(State::Working, 0, {}); }
+  static Wire Working() { return Wire(State::Working, 0, {}, 0.0); }
   static Wire Answered(int status, std::vector<uint8_t> body) {
-    return Wire(State::Answered, status, std::move(body));
+    return Wire(State::Answered, status, std::move(body), 0.0);
+  }
+  // a server that says when to come back is believed -- Retry-After in seconds, 0 = unsaid
+  static Wire Answered(int status, std::vector<uint8_t> body, double retryAfterS) {
+    return Wire(State::Answered, status, std::move(body), retryAfterS);
   }
 
-  static Wire Unreachable() { return Wire(State::Unreachable, 0, {}); }
+  static Wire Unreachable() { return Wire(State::Unreachable, 0, {}, 0.0); }
 
   [[nodiscard]] State Where() const noexcept { return Where_; }
+  [[nodiscard]] double RetryAfterS() const noexcept { return RetryAfterS_; }
 
   [[nodiscard]] bool TryTake(int *status, std::vector<uint8_t> *body) {
     if (Where_ != State::Answered) return false;
@@ -32,12 +37,13 @@ public:
   }
 
 private:
-  Wire(State where, int status, std::vector<uint8_t> body)
-      : Where_(where), Status_(status), Body_(std::move(body)) {}
+  Wire(State where, int status, std::vector<uint8_t> body, double retryAfterS)
+      : Where_(where), Status_(status), Body_(std::move(body)), RetryAfterS_(retryAfterS) {}
 
   State Where_;
   int Status_;
   std::vector<uint8_t> Body_;
+  double RetryAfterS_;
 };
 
 class Transport {

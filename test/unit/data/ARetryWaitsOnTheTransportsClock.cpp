@@ -106,6 +106,39 @@ int main() {
           "hammer and never one lost");
   }
 
+  {
+    // the server's own Retry-After outranks the doubling backoff
+    class PatientTransport : public Transport {
+    public:
+      int Begins = 0;
+      double FakeNowMs = 0.0;
+      [[nodiscard]] Ticket Begin(const std::string &url) override {
+        (void)url;
+        ++Begins;
+        return Ticket{(uint64_t)Begins};
+      }
+      [[nodiscard]] Wire Collect(Ticket ticket) override {
+        (void)ticket;
+        if (Begins == 1) { return Wire::Answered(429, {}, 10.0); }
+        return Wire::Answered(200, std::vector<uint8_t>{1});
+      }
+      void Cancel(Ticket ticket) override { (void)ticket; }
+      [[nodiscard]] double NowMs(void) override { return FakeNowMs; }
+    } patient;
+    SourceSet::Query polite =
+        sources.Ask(Request(DataKind::Elevation, Address::Tile(14, 8620, 5405)));
+    (void)sources.Collect(polite, patient);
+    (void)sources.Collect(polite, patient);
+    patient.FakeNowMs = 5000.0;
+    (void)sources.Collect(polite, patient);
+    CHECK(patient.Begins == 1,
+          "**RETRY-AFTER IS BELIEVED**: the server asked for ten seconds and five are not "
+          "enough -- the doubling backoff would already have fired (board:1697)");
+    patient.FakeNowMs = 10500.0;
+    (void)sources.Collect(polite, patient);
+    CHECK(patient.Begins == 2, "and after the asked-for wait the retry goes out");
+  }
+
   Covers("I.23 a retry waits on the transport's clock: scheduled with a doubling backoff, "
          "never re-begun at poll cadence, proven against a faked clock without one sleep "
          "(board:1691, 1692)");

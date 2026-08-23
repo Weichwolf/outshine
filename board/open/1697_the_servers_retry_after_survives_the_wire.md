@@ -17,3 +17,13 @@ Demanded (1691's original wording): `Wire` carries an optional server-declared w
 `CurlTransport` reads the header (seconds and HTTP-date forms); `SourceSet::Collect` lets the
 declared wait override the derived one when it is longer; a fake-transport unit case proves
 the override on the faked clock, sleeping never.
+
+---
+
+Progress -- the pipeline believes the server: Wire carries RetryAfterS (a third Answered
+overload, 0 = unsaid), the source hands it through Fetched::MeantAfter, and SourceSet takes
+the MAX of the server's ask and its own doubling backoff -- a server that says when to come
+back is believed, and never hammered sooner. Proven: a 429 with Retry-After 10 s holds
+through the five-second mark where the backoff alone would have fired, and goes out after
+the asked-for wait. Remaining before close: CurlTransport reads the actual Retry-After
+HEADER off the HTTP response (tools/host) -- the one seam still dropping it.

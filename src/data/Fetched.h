@@ -15,11 +15,17 @@ public:
 
   static Fetched Working() { return Fetched(State::Working, Meaning::Retry, {}); }
   static Fetched Meant(Meaning what) { return Fetched(State::Settled, what, {}); }
+  static Fetched MeantAfter(Meaning what, double retryAfterS) {
+    Fetched made(State::Settled, what, {});
+    made.RetryAfterS_ = retryAfterS;
+    return made;
+  }
   static Fetched Delivered(std::vector<uint8_t> bytes) {
     return Fetched(State::Settled, Meaning::Bytes, std::move(bytes));
   }
 
   [[nodiscard]] State Where() const noexcept { return Where_; }
+  [[nodiscard]] double RetryAfterS() const noexcept { return RetryAfterS_; }
 
   [[nodiscard]] bool TryTake(Meaning *what, std::vector<uint8_t> *bytes) {
     if (Where_ != State::Settled) return false;
@@ -35,6 +41,7 @@ private:
   State Where_;
   Meaning What_;
   std::vector<uint8_t> Bytes_;
+  double RetryAfterS_ = 0.0;
 };
 
 }

@@ -49,7 +49,7 @@ Fetched WebTileSource::Collect(const Address &at, Ticket ticket, Transport &tran
   std::vector<uint8_t> body;
   if (!wire.TryTake(&status, &body)) return Fetched::Meant(Meaning::Refused);
   const Meaning what = Classify(status, body.size());
-  if (what != Meaning::Bytes) return Fetched::Meant(what);
+  if (what != Meaning::Bytes) { return Fetched::MeantAfter(what, wire.RetryAfterS()); }
   return Fetched::Delivered(std::move(body));
 }
 

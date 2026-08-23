@@ -120,9 +120,12 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
           // is a request to go away, not an invitation to hammer at poll cadence; the base
           // and cap are [SET] against public tile servers, jitter is DelayedTransport's job
           query.Ticket_ = Ticket::None;
+          // the server's own Retry-After outranks the doubling backoff when it asks for
+          // MORE patience -- a server that says when to come back is believed
           query.RetryAtMs_ =
               transport.NowMs() +
-              std::fmin(std::ldexp(kRetryBaseMs, query.Attempts_ - 1), kRetryCapMs);
+              std::fmax(answer.RetryAfterS() * 1000.0,
+                        std::fmin(std::ldexp(kRetryBaseMs, query.Attempts_ - 1), kRetryCapMs));
           return Delivery::Waiting();
         }
         [[fallthrough]];
