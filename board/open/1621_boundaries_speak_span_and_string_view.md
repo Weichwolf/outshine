@@ -93,3 +93,14 @@ Residual repaid: Fields' two-arg Refuse joins its sibling on string_view.
 Progress: the Script Host interface and Program::Named speak string_view -- the virtuals,
 the three overrider fixtures and the test262 host followed in one motion; 829/829 with the
 full script corpus.
+
+Sharpened (review 2026-08-23, round 14): the Host/Named conversion landed clean (829/829),
+three residues on the same touched surface:
+- src/core/Script.h:100 `Program::Read(const std::string &text, …)` kept the string ref.
+  The stated deferral ground — virtual overrider ripple — fell with this commit: Read is
+  non-virtual, and Tokenise/Reading ride the same view. string_view through.
+- src/core/Script.cpp:689-691 (WhyOutside): `const std::string row(boundary.Name)` allocates
+  per boundary per call only to prefix-compare; C++23's `name.starts_with(boundary.Name)`
+  is the strictly clearer form and allocates nothing.
+- src/core/Script.h:33-50: Value::OfNumber/OfText/OfRef are value-returning factories
+  without [[nodiscard]] — the mechanical bar puts it on every factory.
