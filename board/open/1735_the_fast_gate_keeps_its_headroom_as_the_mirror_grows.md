@@ -18,3 +18,16 @@ business (measure the split; the runner knows both); (3) suites that grew past t
 runner already holds. A gate that overruns its own bound without a red verdict is a gate
 that measures the past -- if (1) confirms the missing OVERRAN print on cold runs, that is a
 bug in the runner's own claim, filed here.
+
+---
+
+Corrected (same hour): the OVERRAN verdict is NOT missing -- it prints to stderr and exits 1
+(run.sh:1101-1105), and the observing greps filtered it. Which means the cold runs at 94-97 s
+DID fail the gate and the loop's own pipelines masked the exit code -- the observation error
+was the fixer's, not the runner's. What stands of this item: the WARM headroom is shrinking
+monotonically with the mirror (55-62 s at 133 tests when the bound was re-derived, 65-88 s at
+152 now), and candidates (1) and (3) remain: re-derive the bound against the current
+population with the derivation printed, and weigh in-suite parallelism within the
+one-process-per-test rule. Candidate (2) sharpens: the bound's own comment says WARM
+population -- the runner could EXEMPT builds from the measured span (compile time is the
+nest's business) so cold runs stop crying wolf.
