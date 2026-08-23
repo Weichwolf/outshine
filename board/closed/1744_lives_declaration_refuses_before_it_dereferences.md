@@ -17,3 +17,11 @@ Two small notes on src/clients/Live.cpp:
    named constexpr with the derivation.
 
 Proof for (1): a unit case handing Built with empty Surfacing and reading the refusal text.
+
+---
+
+Closed -- Live::Build refuses a built subject with an empty surface list by name ("a body
+without a material cannot be resolved") before any dereference, proven in
+AnAnimatedScenarioAdvancesAndAStillOneCostsNothing's new arm; and the exposure constants
+carry their origin where they stand (ISO 12232 / Frostbite: 2.5 lx-s illuminance-to-EV100,
+1.2 saturation headroom, exposure = 1/(1.2 * 2^EV100)).

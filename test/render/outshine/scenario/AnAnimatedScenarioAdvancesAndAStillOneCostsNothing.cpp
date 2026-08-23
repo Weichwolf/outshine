@@ -196,5 +196,21 @@ int main(void) {
                 animated.P50Ms - kept.P50Ms);
   }
 
+  {
+    // a built subject with an EMPTY surface list refuses by name -- front() on an empty
+    // vector was UB, and a refusal is what the boundary owes (board:1744)
+    outshine::Gltf::Subject bare;
+    outshine::Clients::Declaration naked;
+    naked.SurfaceWidthPx = kSurfaceW;
+    naked.SurfaceHeightPx = kSurfaceH;
+    naked.Built = &bare;
+    naked.Surfacing.clear();
+    std::unique_ptr<outshine::Clients::Live> refused;
+    std::string why;
+    CHECK(!outshine::Clients::Live::Open(renderer, std::move(naked), nullptr, refused, why) &&
+              why.find("no surface") != std::string::npos,
+          "**A BODY WITHOUT A MATERIAL REFUSES INSTEAD OF DEREFERENCING** (board:1744)");
+  }
+
   return Report();
 }

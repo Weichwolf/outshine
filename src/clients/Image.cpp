@@ -42,6 +42,14 @@ bool DecodeImage(const uint8_t *bytes, size_t count, Raster &out) {
   const OwnedSurface decoded(IMG_Load_IO(io, true));
   if (!decoded.Surface) return false;
 
+  // [SET] the device's own max texture dimension, the same bound the PNG door names
+  // (src/core/io/Png.cpp): a 65535-square decode from hostile content is 17 GiB on an
+  // 8 GB device, and the content boundary refuses instead of OOM-killing
+  constexpr int kMaxSide = 16384;
+  if (decoded.Surface->w <= 0 || decoded.Surface->h <= 0 ||
+      decoded.Surface->w > kMaxSide || decoded.Surface->h > kMaxSide) {
+    return false;
+  }
   const OwnedSurface rgba(SDL_ConvertSurface(decoded.Surface, SDL_PIXELFORMAT_RGBA32));
   if (!rgba.Surface) return false;
   if (rgba.Surface->w <= 0 || rgba.Surface->h <= 0) return false;

@@ -14,3 +14,12 @@ files; this is the engine's content boundary and must be defensive.
 Demanded: the same `kMaxSide` bound (one origin, shared or restated with its derivation)
 checked after decode and before the resize, refusal carrying both numbers; a unit twin in
 test/unit/clients that hands a decodable image over the bound and reads the refusal.
+
+---
+
+Closed -- DecodeImage bounds both sides at the device's own 16384 (the PNG door's bound,
+restated with its origin) BEFORE the convert and the engine's own resize follow. Proven in
+unit/clients/ADecodedImageIsBoundedLikeItsSiblingDoor: an 8x8 BMP decodes as itself, a
+17000x1 and a 1x17000 refuse (negative control red). Honest residue: SDL_image's own
+internal allocation for a declared-huge but truncated file happens before this bound can
+see the dims -- the engine's allocations are what this door can and now does bound.
