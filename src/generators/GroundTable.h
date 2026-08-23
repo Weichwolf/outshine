@@ -21,9 +21,9 @@ public:
 
   static std::shared_ptr<const GroundTable> Of(Span<const Row> rows);
 
-  size_t Count() const { return Rows_.size(); }
-  const Row &At(size_t row) const { return Rows_[row]; }
-  size_t HeapBytes() const { return Rows_.capacity() * sizeof(Row); }
+  [[nodiscard]] size_t Count() const { return Rows_.size(); }
+  [[nodiscard]] const Row &At(size_t row) const { return Rows_[row]; }
+  [[nodiscard]] size_t HeapBytes() const { return Rows_.capacity() * sizeof(Row); }
 
 private:
   explicit GroundTable(Span<const Row> rows) : Rows_(rows.begin(), rows.end()) {}

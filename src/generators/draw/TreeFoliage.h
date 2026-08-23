@@ -19,20 +19,20 @@ public:
   void Build(const TreeSkeleton &plant, const TreeMesh &leaf, const TreeSpecies &species,
              int mult = 1);
 
-  const std::vector<float> &Instances() const { return Inst_; }
-  size_t Count() const { return Inst_.size() / kFloats; }
+  [[nodiscard]] const std::vector<float> &Instances() const { return Inst_; }
+  [[nodiscard]] size_t Count() const { return Inst_.size() / kFloats; }
 
-  double PerPoint() const { return PerPoint_; }
-  double CrownProjM2() const { return CrownProjM2_; }
+  [[nodiscard]] double PerPoint() const { return PerPoint_; }
+  [[nodiscard]] double CrownProjM2() const { return CrownProjM2_; }
 
-  float ScaleM() const { return ScaleM_; }
+  [[nodiscard]] float ScaleM() const { return ScaleM_; }
 
-  double LeafAreaM2() const { return AreaM2_; }
-  double OneLeafAreaM2() const { return Count() > 0 ? AreaM2_ / (double)Count() : 0.0; }
+  [[nodiscard]] double LeafAreaM2() const { return AreaM2_; }
+  [[nodiscard]] double OneLeafAreaM2() const { return Count() > 0 ? AreaM2_ / (double)Count() : 0.0; }
 
-  double LaminaAreaLocal() const { return LocalArea_; }
+  [[nodiscard]] double LaminaAreaLocal() const { return LocalArea_; }
 
-  float CardLeafM(int leavesPerCard, size_t cards, double lai, double crownProjM2) const;
+  [[nodiscard]] float CardLeafM(int leavesPerCard, size_t cards, double lai, double crownProjM2) const;
 
 private:
   std::vector<float> Inst_;

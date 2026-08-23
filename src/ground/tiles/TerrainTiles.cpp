@@ -162,7 +162,11 @@ TerrainMesh TerrainTiles::MeshOf(int z, uint32_t x, uint32_t y) {
       case TerrainGrid::State::Decoded: return TerrainMesh::Nothing(TerrainMesh::State::NoTile);
     }
   }
-  return TerrainMesh::Over(*field, TileEnuMap::Over(Frame_, z, x, y, 4096), Config_.Stride);
+  // [SET] the web-mercator tile extent in its own units: 4096 is the vector-tile
+  // convention every source in this tree serves, and the map converts it to metres
+  constexpr uint32_t kTileExtent = 4096;
+  return TerrainMesh::Over(*field, TileEnuMap::Over(Frame_, z, x, y, kTileExtent),
+                           Config_.Stride);
 }
 
 size_t TerrainTiles::HeapBytes() const {

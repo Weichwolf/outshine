@@ -15,9 +15,9 @@ public:
 
   [[nodiscard]] bool Add(Rank rank, const Generator &generator);
 
-  size_t Count() const { return Entries_.size(); }
+  [[nodiscard]] size_t Count() const { return Entries_.size(); }
   [[nodiscard]] Rank RankAt(size_t i) const { return Entries_[i].R; }
-  const Generator &At(size_t i) const { return *Entries_[i].G; }
+  [[nodiscard]] const Generator &At(size_t i) const { return *Entries_[i].G; }
 
   void Occupy(const Ground &ground, Span<Yield> yields) const noexcept;
 

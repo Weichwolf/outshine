@@ -33,9 +33,9 @@ public:
     note.Times++;
   }
 
-  BodyRange Placed() const noexcept { return Range_; }
-  Span<const Note> Notes() const noexcept { return Notes_; }
-  uint32_t Claims(Claim::Outcome why) const noexcept { return Claims_[(size_t)why]; }
+  [[nodiscard]] BodyRange Placed() const noexcept { return Range_; }
+  [[nodiscard]] Span<const Note> Notes() const noexcept { return Notes_; }
+  [[nodiscard]] uint32_t Claims(Claim::Outcome why) const noexcept { return Claims_[(size_t)why]; }
 
 private:
   OccupancySink *Space_;

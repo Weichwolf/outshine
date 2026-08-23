@@ -31,3 +31,20 @@ the bar the rest of the tree already passed (1693 data, 1729 gltf, 1739 stages):
 What will be true: every number in src/generators names its origin beside itself; every
 value-returning query in the layer is [[nodiscard]]; MaterialRow's packing is a named
 struct or named indices with one static_assert on the row width.
+
+---
+
+Closed -- every number the item listed names its origin beside itself: the stool spread,
+roll/lean/whorl/spiral jitters (each stated against the spacing it must not swallow), the
+hedge's slot jitter and run inset, the leaf ring's azimuth jitter, seat and forward tilt,
+the shade-prune inward threshold, the escape-pull ramp (derived: 4.0 IS one over the
+quarter-escape it ramps over), Forest's default stem (measured: European beech at canopy
+age), kCellM (derived: 1/sqrt of the densest declared stand), the 8-sigma headroom (a
+bound a run could plausibly cross is not a bound), and the tile extent. TreePrototype's
+beta-lobe numbers carry their derivation -- the outline is a beta density whose MODE is the
+declared LeafWidest, and the five numbers are that inversion linearised, with the floors
+that keep both exponents above 1. MaterialRow's packing is a named Row enum with a
+static_assert tying its width to the engine's kMaterialRowFloats -- one width, one
+spelling. [[nodiscard]] landed on 107 value-returning queries across the layer's headers.
+Proven by the gate: the generator suites hold their determinism and yield proofs unchanged
+through the renaming, which is what a pure-hygiene repair must show.

@@ -12,7 +12,7 @@ class RoofSurface {
 public:
   explicit RoofSurface(const BuildingShape &shape);
 
-  double HeightAt(const Plan2 &enu) const noexcept;
+  [[nodiscard]] double HeightAt(const Plan2 &enu) const noexcept;
 
   void Cover(std::span<const Plan2> plan, std::vector<Plan2> &tris) const;
 

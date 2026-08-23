@@ -46,26 +46,36 @@ TreeLook TreePrototype::LookOf(const TreeSpecies &sp) {
 }
 
 void TreePrototype::MaterialRow(const TreeLook &look, float out[kMaterialRowFloats]) {
-  const float a = look.LeafWidest * 1.5f + 0.80f;
-  float b = (1.0f - look.LeafWidest) * 1.5f + 0.95f - look.LeafTip * 1.25f;
-  if (b < 0.55f) b = 0.55f;
+  // derived: a blade's outline is the beta density x^(a-1)(1-x)^(b-1) whose MODE sits at
+  // (a-1)/(a+b-2) -- the declared LeafWidest. The two shape numbers are that inversion
+  // linearised over the declared range: the 1.5 slopes carry the mode, the 0.80/0.95
+  // offsets keep both exponents above 1 (a beta with an exponent under 1 has no mode and
+  // spikes at the edge), the 1.25 lets LeafTip sharpen the far shoulder, and 0.55 is the
+  // floor that keeps b there when it does
+  constexpr float kModeSlope = 1.5f;
+  constexpr float kNearFloor = 0.80f;
+  constexpr float kFarFloor = 0.95f;
+  constexpr float kTipSharpen = 1.25f;
+  constexpr float kLeastExponent = 0.55f;
+  const float a = look.LeafWidest * kModeSlope + kNearFloor;
+  float b = (1.0f - look.LeafWidest) * kModeSlope + kFarFloor - look.LeafTip * kTipSharpen;
+  if (b < kLeastExponent) b = kLeastExponent;
   const float peak = std::pow(look.LeafWidest, a) * std::pow(1.0f - look.LeafWidest, b);
-  for (int c = 0; c < 3; c++) out[c] = look.BarkRgb[c];
-  out[3] = look.BarkDark;
-  out[4] = look.BarkFreq;
-  out[5] = look.BarkRidge;
-  out[6] = look.NeedleWidth;
-  out[7] = a;
-  for (int c = 0; c < 3; c++) out[8 + c] = look.LeafRgb[c];
-  out[11] = b;
-  out[12] = look.LeafWidth;
-  out[13] = look.LeafBaseFill;
-  out[14] = look.LeafLobes;
-  out[15] = look.LeafLobeDepth;
-  out[16] = look.LeafSerration;
-  out[17] = peak > 1.0e-6f ? 1.0f / peak : 0.0f;
-  out[18] = 0.0f;
-  out[19] = 0.0f;
+  for (int c = 0; c < 3; c++) out[Row::BarkRgb + c] = look.BarkRgb[c];
+  out[Row::BarkDark] = look.BarkDark;
+  out[Row::BarkFreq] = look.BarkFreq;
+  out[Row::BarkRidge] = look.BarkRidge;
+  out[Row::NeedleWidth] = look.NeedleWidth;
+  out[Row::LeafShapeNear] = a;
+  for (int c = 0; c < 3; c++) out[Row::LeafRgb + c] = look.LeafRgb[c];
+  out[Row::LeafShapeFar] = b;
+  out[Row::LeafWidth] = look.LeafWidth;
+  out[Row::LeafBaseFill] = look.LeafBaseFill;
+  out[Row::LeafLobes] = look.LeafLobes;
+  out[Row::LeafLobeDepth] = look.LeafLobeDepth;
+  out[Row::LeafSerration] = look.LeafSerration;
+  out[Row::LeafPeakInverse] = peak > 1.0e-6f ? 1.0f / peak : 0.0f;
+  for (int c = Row::RowSpare; c < Row::RowFloats; ++c) { out[c] = 0.0f; }
 }
 
 std::optional<TreePrototype> TreePrototype::Grow(const TreeSpecies &sp) {

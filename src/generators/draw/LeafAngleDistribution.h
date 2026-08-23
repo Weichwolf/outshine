@@ -16,19 +16,19 @@ public:
 
   void Measure(const TreeSkeleton &plant);
 
-  size_t Count() const { return Count_; }
+  [[nodiscard]] size_t Count() const { return Count_; }
 
-  float Sampled(int deg) const { return Samples_[(size_t)deg]; }
+  [[nodiscard]] float Sampled(int deg) const { return Samples_[(size_t)deg]; }
 
-  float Fit(float sinEl) const;
+  [[nodiscard]] float Fit(float sinEl) const;
 
-  float G0() const { return G0_; }
-  float G1() const { return G1_; }
-  float Gp() const { return Gp_; }
-  float MaxResidual() const { return MaxResidual_; }
-  float MeanStalkElevationDeg() const { return MeanElevationDeg_; }
+  [[nodiscard]] float G0() const { return G0_; }
+  [[nodiscard]] float G1() const { return G1_; }
+  [[nodiscard]] float Gp() const { return Gp_; }
+  [[nodiscard]] float MaxResidual() const { return MaxResidual_; }
+  [[nodiscard]] float MeanStalkElevationDeg() const { return MeanElevationDeg_; }
 
-  const std::array<float, kTiltBins> &StalkHistogram() const { return Histogram_; }
+  [[nodiscard]] const std::array<float, kTiltBins> &StalkHistogram() const { return Histogram_; }
 
 private:
   std::array<float, kElevations> Samples_{};

@@ -38,7 +38,7 @@ public:
     Lease &operator=(const Lease &) = delete;
     ~Lease();
 
-    OccupancySink &Sink() const { return *Sink_; }
+    [[nodiscard]] OccupancySink &Sink() const { return *Sink_; }
 
   private:
     Lease(RegionPool &pool, size_t slot);
@@ -50,10 +50,10 @@ public:
   };
 
   std::optional<Lease> TryAcquire(const Ground &ground);
-  size_t Free() const;
-  size_t HeapBytes() const { return Bytes_; }
+  [[nodiscard]] size_t Free() const;
+  [[nodiscard]] size_t HeapBytes() const { return Bytes_; }
 
-  size_t SlotBytes() const { return Slots_.empty() ? 0 : Bytes_ / Slots_.size(); }
+  [[nodiscard]] size_t SlotBytes() const { return Slots_.empty() ? 0 : Bytes_ / Slots_.size(); }
 
 private:
   void Release(size_t slot);

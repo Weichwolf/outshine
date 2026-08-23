@@ -20,14 +20,14 @@ public:
 
   explicit Schedule(const Ring &ring);
 
-  int Zoom() const { return Zoom_; }
-  size_t Count() const { return Offsets_.size(); }
+  [[nodiscard]] int Zoom() const { return Zoom_; }
+  [[nodiscard]] size_t Count() const { return Offsets_.size(); }
 
-  std::optional<Region> At(size_t i, double lat, double lon) const;
+  [[nodiscard]] std::optional<Region> At(size_t i, double lat, double lon) const;
 
-  std::optional<Region> Widest(double lat, double lon) const;
+  [[nodiscard]] std::optional<Region> Widest(double lat, double lon) const;
 
-  Region Broadest() const;
+  [[nodiscard]] Region Broadest() const;
 
 private:
   struct Offset {

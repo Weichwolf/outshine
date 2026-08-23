@@ -45,11 +45,11 @@ struct BuildingShape {
 
   [[nodiscard]] bool Valid() const { return Ring.size() >= 3 && AreaM2 > 1.0; }
   [[nodiscard]] bool OnGround() const { return FootM <= 0.0; }
-  double TopM() const { return FootM + EavesM + RiseM; }
+  [[nodiscard]] double TopM() const { return FootM + EavesM + RiseM; }
 
-  Plan2 AxisV() const { return {-AxisU.N, AxisU.E}; }
+  [[nodiscard]] Plan2 AxisV() const { return {-AxisU.N, AxisU.E}; }
   void ToBox(const Plan2 &p, double *u, double *v) const;
-  Plan2 FromBox(double u, double v) const;
+  [[nodiscard]] Plan2 FromBox(double u, double v) const;
 };
 
 struct Massing {

@@ -19,9 +19,9 @@ public:
   std::vector<float> LeafVerts;
   std::vector<uint32_t> LeafIdx;
 
-  size_t BarkVertexCount() const { return BarkVerts.size() / kBarkFloats; }
-  size_t LeafVertexCount() const { return LeafVerts.size() / kLeafFloats; }
-  size_t Bytes() const {
+  [[nodiscard]] size_t BarkVertexCount() const { return BarkVerts.size() / kBarkFloats; }
+  [[nodiscard]] size_t LeafVertexCount() const { return LeafVerts.size() / kLeafFloats; }
+  [[nodiscard]] size_t Bytes() const {
     return BarkVerts.size() * sizeof(float) + BarkIdx.size() * sizeof(uint32_t) +
            LeafVerts.size() * sizeof(float) + LeafIdx.size() * sizeof(uint32_t);
   }

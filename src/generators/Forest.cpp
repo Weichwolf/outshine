@@ -121,7 +121,11 @@ uint32_t Forest::Proposes(double areaM2) const noexcept {
   const double n = areaM2 / cellM2;
   const double mean = n * p;
   const double sd = std::sqrt(n * p * (1.0 - p));
-  return (uint32_t)(mean + 8.0 * sd + 1.0);
+  // [SET] eight sigma of headroom over the binomial mean: the bound must hold for EVERY
+  // seed, and 8 sigma is a chance under 1e-15 per cell -- a bound that a run could
+  // plausibly cross is not a bound
+  constexpr double kSigmaHeadroom = 8.0;
+  return (uint32_t)(mean + kSigmaHeadroom * sd + 1.0);
 }
 
 bool Forest::At(const Ground &ground, double eastM, double northM, Body *out) const noexcept {

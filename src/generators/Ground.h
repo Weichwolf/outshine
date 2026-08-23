@@ -25,25 +25,25 @@ public:
 
   static std::optional<Ground> Of(const Region &region, const Snapshot &snapshot);
 
-  const Region &Where() const noexcept { return Region_; }
-  double HeightAslM(double eastM, double northM) const noexcept {
+  [[nodiscard]] const Region &Where() const noexcept { return Region_; }
+  [[nodiscard]] double HeightAslM(double eastM, double northM) const noexcept {
     return Patch_->HeightAslM(eastM, northM);
   }
-  double SlopeDeg(double eastM, double northM) const noexcept {
+  [[nodiscard]] double SlopeDeg(double eastM, double northM) const noexcept {
     return Patch_->SlopeDeg(eastM, northM);
   }
   void GradientAt(double eastM, double northM, double *dhde, double *dhdn) const noexcept {
     Patch_->GradientAt(eastM, northM, dhde, dhdn);
   }
 
-  Cover CoverAt(double eastM, double northM) const noexcept;
-  const FeatureField &Features() const noexcept { return *Features_; }
-  const GroundTable &Table() const noexcept { return *Table_; }
+  [[nodiscard]] Cover CoverAt(double eastM, double northM) const noexcept;
+  [[nodiscard]] const FeatureField &Features() const noexcept { return *Features_; }
+  [[nodiscard]] const GroundTable &Table() const noexcept { return *Table_; }
 
-  const double *AnchorEcef() const noexcept { return AnchorEcef_; }
+  [[nodiscard]] const double *AnchorEcef() const noexcept { return AnchorEcef_; }
 
-  size_t PatchHeapBytes() const noexcept { return Patch_->HeapBytes(); }
-  size_t FeatureHeapBytes() const noexcept { return Features_->HeapBytes(); }
+  [[nodiscard]] size_t PatchHeapBytes() const noexcept { return Patch_->HeapBytes(); }
+  [[nodiscard]] size_t FeatureHeapBytes() const noexcept { return Features_->HeapBytes(); }
 
 private:
   Ground(const Region &region, const Snapshot &snapshot);

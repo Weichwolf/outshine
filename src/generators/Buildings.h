@@ -11,7 +11,7 @@ public:
   explicit Buildings(ContactMaterial contact);
 
   enum Note { Footprints, Roofless, HighestRoofAglM, kNotes };
-  Span<const char *const> NoteNames() const noexcept override;
+  [[nodiscard]] Span<const char *const> NoteNames() const noexcept override;
 
   void Occupy(const Ground &ground, Yield &yield) const noexcept override;
   [[nodiscard]] bool At(const Ground &ground, double eastM, double northM,

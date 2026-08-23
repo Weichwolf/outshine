@@ -9,21 +9,21 @@ class Region {
 public:
   Region(int zoom, int x, int y);
 
-  int Zoom() const { return Zoom_; }
-  int X() const { return X_; }
-  int Y() const { return Y_; }
+  [[nodiscard]] int Zoom() const { return Zoom_; }
+  [[nodiscard]] int X() const { return X_; }
+  [[nodiscard]] int Y() const { return Y_; }
   [[nodiscard]] bool Is(const Region &other) const {
     return Zoom_ == other.Zoom_ && X_ == other.X_ && Y_ == other.Y_;
   }
 
-  uint64_t Seed() const { return Seed_; }
+  [[nodiscard]] uint64_t Seed() const { return Seed_; }
 
-  uint64_t Seed(uint64_t stream) const;
+  [[nodiscard]] uint64_t Seed(uint64_t stream) const;
 
-  double AnchorLat() const { return AnchorLat_; }
-  double AnchorLon() const { return AnchorLon_; }
-  double SpanEm() const { return SpanEm_; }
-  double SpanNm() const { return SpanNm_; }
+  [[nodiscard]] double AnchorLat() const { return AnchorLat_; }
+  [[nodiscard]] double AnchorLon() const { return AnchorLon_; }
+  [[nodiscard]] double SpanEm() const { return SpanEm_; }
+  [[nodiscard]] double SpanNm() const { return SpanNm_; }
 
   void Enu(double lat, double lon, double *eastM, double *northM) const;
   void Geo(double eastM, double northM, double *lat, double *lon) const;

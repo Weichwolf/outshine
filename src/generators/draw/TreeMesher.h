@@ -29,9 +29,9 @@ private:
 
   int AddVert(TreeVec3 p);
   int AddFace(int a, int b, int c, int d);
-  TreeVec3 FaceCentroid(int fi) const;
+  [[nodiscard]] TreeVec3 FaceCentroid(int fi) const;
 
-  int SidesFor(float radius, int declared) const;
+  [[nodiscard]] int SidesFor(float radius, int declared) const;
 
   void RingsOf(const TreeSkeleton &plant, const TreeSkeleton::Shoot &shoot, int from);
   [[nodiscard]] bool ChordHolds(const TreeSkeleton &plant, int from, int last, int stride) const;
@@ -42,7 +42,7 @@ private:
 
   [[nodiscard]] bool Collar(int face, const TreeSkeleton::Node &anchor,
                             const TreeSkeleton::Node &first, int sides, float room, int *out);
-  float RoomAt(const TreeSkeleton &plant, const TreeSkeleton::Shoot &shoot) const;
+  [[nodiscard]] float RoomAt(const TreeSkeleton &plant, const TreeSkeleton::Shoot &shoot) const;
   void Export(TreeMesh &out);
 
   float PixelGrow_ = 0.0f;

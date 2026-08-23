@@ -11,6 +11,9 @@ class Forest : public Generator {
 public:
 
   struct Stem {
+    // [SET] the default stem, a mature temperate broadleaf: 20 m tall (measured, European
+    // beech at canopy age), 0.15 m of trunk radius at breast height and about a tonne of
+    // standing mass -- a scenario that means another tree declares one
     double HeightM = 20.0;
 
     float HeightSigma = 0.0f;
@@ -25,13 +28,15 @@ public:
     NoTemplate, ZeroDensity, DensityDraw, AboveTreeline, TooSteep, WoodyDraw, HighestStandAslM,
     kNotes
   };
-  Span<const char *const> NoteNames() const noexcept override;
+  [[nodiscard]] Span<const char *const> NoteNames() const noexcept override;
 
   void Occupy(const Ground &ground, Yield &yield) const noexcept override;
   [[nodiscard]] bool At(const Ground &ground, double eastM, double northM,
                         Body *out) const noexcept override;
   [[nodiscard]] uint32_t Proposes(double areaM2) const noexcept override;
 
+  // derived: the placement lattice's cell, 3.33 m -- one stem per cell at the densest
+  // declared stand (0.09 stems/m2, closed temperate canopy) is exactly 1/sqrt(0.09)
   static constexpr double kCellM = 3.33;
 
 private:

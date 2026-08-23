@@ -14,10 +14,10 @@ class TreeGrower {
 public:
   void Grow(const TreeSpecies &species, TreeSkeleton &out);
 
-  int Passes() const { return Passes_; }
-  float DbhErrorRel() const { return DbhErrorRel_; }
+  [[nodiscard]] int Passes() const { return Passes_; }
+  [[nodiscard]] float DbhErrorRel() const { return DbhErrorRel_; }
 
-  float GrowHeight() const { return GrowHeight_; }
+  [[nodiscard]] float GrowHeight() const { return GrowHeight_; }
 
 private:
 
@@ -53,10 +53,10 @@ private:
   void SetCrown(const TreeSpecies &species, float growHeight);
   void SeedLeaders(const TreeSpecies::Growth &g, int bareSteps);
 
-  float Escape(TreeVec3 p) const;
-  TreeVec3 Inward(TreeVec3 p) const;
+  [[nodiscard]] float Escape(TreeVec3 p) const;
+  [[nodiscard]] TreeVec3 Inward(TreeVec3 p) const;
 
-  float RoomInside(TreeVec3 from, TreeVec3 dir, float want) const;
+  [[nodiscard]] float RoomInside(TreeVec3 from, TreeVec3 dir, float want) const;
   [[nodiscard]] RingCap LeaderEnd() const;
   int AddNode(int shoot, TreeVec3 pos, TreeVec3 dir, TreeVec3 up, float radius);
   void GrowOnce(const TreeSpecies::Growth &g, float heightM);
