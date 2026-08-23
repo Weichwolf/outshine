@@ -250,51 +250,82 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM,
     return out;
   }
 
+  // the turn refusal depends on the ARRIVING direction, so the search state is the
+  // directed edge, not the node -- node settling refused legal routes a different
+  // approach would have taken, and judged turns against arrivals the path never used
   const double never = 1.0e300;
-  std::vector<double> best(Nodes_.size(), never);
-  std::vector<size_t> came(Nodes_.size(), Nodes_.size());
-  std::vector<double> cameLengthM(Nodes_.size(), 0.0);
-  std::vector<bool> settled(Nodes_.size(), false);
-
-  using Step = std::pair<double, size_t>;
-  std::priority_queue<Step, std::vector<Step>, std::greater<Step>> open;
+  const size_t edges = Edges_.size();
+  const size_t kNoState = (size_t)-1;
   std::vector<size_t> nearStart;
   Within(from, startAwayM + kStartReachM, nearStart);
   if (nearStart.empty()) { nearStart.push_back(start); }
   out.StartedFrom = nearStart.size();
-  for (const size_t seed : nearStart) {
-    const double awayM = ApartM(from.LatDeg, from.LonDeg, Nodes_[seed].LatDeg, Nodes_[seed].LonDeg, RadiusM_);
-    if (awayM >= best[seed]) { continue; }
-    best[seed] = awayM;
-    open.push(Step{awayM + ApartM(Nodes_[seed].LatDeg, Nodes_[seed].LonDeg, Nodes_[finish].LatDeg,
-                                  Nodes_[finish].LonDeg, RadiusM_),
-                   seed});
+
+  // a state is an edge index, or edges+i for "standing at seed i, arrived by no edge"
+  const size_t states = edges + nearStart.size();
+  std::vector<double> best(states, never);
+  std::vector<size_t> came(states, kNoState);
+  std::vector<bool> settled(states, false);
+  std::vector<size_t> leaves(edges, 0);
+  for (size_t node = 0; node < Nodes_.size(); ++node) {
+    for (size_t which = 0; which < Nodes_[node].EdgeCount; ++which) {
+      leaves[Nodes_[node].FirstEdge + which] = node;
+    }
+  }
+  const auto standsAt = [&](size_t state) {
+    return state < edges ? Edges_[state].To : nearStart[state - edges];
+  };
+  const auto goalM = [&](size_t node) {
+    return ApartM(Nodes_[node].LatDeg, Nodes_[node].LonDeg, Nodes_[finish].LatDeg,
+                  Nodes_[finish].LonDeg, RadiusM_);
+  };
+
+  using Step = std::pair<double, size_t>;
+  std::priority_queue<Step, std::vector<Step>, std::greater<Step>> open;
+  for (size_t which = 0; which < nearStart.size(); ++which) {
+    const size_t seed = nearStart[which];
+    const double awayM =
+        ApartM(from.LatDeg, from.LonDeg, Nodes_[seed].LatDeg, Nodes_[seed].LonDeg, RadiusM_);
+    const size_t state = edges + which;
+    if (awayM >= best[state]) { continue; }
+    best[state] = awayM;
+    open.push(Step{awayM + goalM(seed), state});
   }
 
   size_t reached = 0;
+  std::vector<bool> nodeSeen(Nodes_.size(), false);
+  size_t arrived = kNoState;
   while (!open.empty()) {
-    const size_t node = open.top().second;
+    const size_t state = open.top().second;
     open.pop();
-    if (settled[node]) { continue; }
-    settled[node] = true;
-    ++reached;
-    if (node == finish) { break; }
+    if (settled[state]) { continue; }
+    settled[state] = true;
+    const size_t node = standsAt(state);
+    if (!nodeSeen[node]) {
+      nodeSeen[node] = true;
+      ++reached;
+    }
+    if (node == finish) {
+      arrived = state;
+      break;
+    }
 
     const Node &here = Nodes_[node];
-    const bool hasBack = came[node] != Nodes_.size();
+    const bool hasBack = state < edges;
     double backEast = 0.0, backNorth = 0.0;
     if (hasBack) {
-      const Node &was = Nodes_[came[node]];
+      const Node &was = Nodes_[leaves[state]];
       backEast = (here.LonDeg - was.LonDeg) * std::cos(here.LatDeg * kDegToRad);
       backNorth = here.LatDeg - was.LatDeg;
     }
     for (size_t which = 0; which < here.EdgeCount; ++which) {
-      const Edge &edge = Edges_[here.FirstEdge + which];
+      const size_t next = here.FirstEdge + which;
+      const Edge &edge = Edges_[next];
       if (hasBack && edge.LengthM > 0.0) {
-        const Node &next = Nodes_[edge.To];
+        const Node &there = Nodes_[edge.To];
         const double onEast =
-            (next.LonDeg - here.LonDeg) * std::cos(here.LatDeg * kDegToRad);
-        const double onNorth = next.LatDeg - here.LatDeg;
+            (there.LonDeg - here.LonDeg) * std::cos(here.LatDeg * kDegToRad);
+        const double onNorth = there.LatDeg - here.LatDeg;
         const double wasLength = std::sqrt(backEast * backEast + backNorth * backNorth);
         const double onLength = std::sqrt(onEast * onEast + onNorth * onNorth);
         if (wasLength > 0.0 && onLength > 0.0) {
@@ -305,7 +336,7 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM,
           if (std::tan(half) > 0.0 && tightestM > 0.0 &&
               edge.LengthM > 0.0 && std::fabs(turnRad) > 1.0e-9) {
             const double shorter =
-              edge.LengthM < cameLengthM[node] ? edge.LengthM : cameLengthM[node];
+                edge.LengthM < Edges_[state].LengthM ? edge.LengthM : Edges_[state].LengthM;
             const double room = 0.5 * shorter / std::tan(half);
             if (room < tightestM) {
               ++out.TurnsRefused;
@@ -314,19 +345,16 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM,
           }
         }
       }
-      const double through = best[node] + edge.LengthM;
-      if (through >= best[edge.To]) { continue; }
-      best[edge.To] = through;
-      came[edge.To] = node;
-      cameLengthM[edge.To] = edge.LengthM;
-      open.push(Step{through + ApartM(Nodes_[edge.To].LatDeg, Nodes_[edge.To].LonDeg,
-                                      Nodes_[finish].LatDeg, Nodes_[finish].LonDeg, RadiusM_),
-                     edge.To});
+      const double through = best[state] + edge.LengthM;
+      if (through >= best[next]) { continue; }
+      best[next] = through;
+      came[next] = state;
+      open.push(Step{through + goalM(edge.To), next});
     }
   }
 
   out.Reached = reached;
-  if (!settled[finish]) {
+  if (arrived == kNoState) {
     out.Error = "the network holds both ends but no chain of ways joins them -- " +
                 std::to_string(reached) + " nodes of " + std::to_string(Nodes_.size()) +
                 " were reachable from the start, so this is a network in pieces and not a "
@@ -335,8 +363,8 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM,
   }
 
   std::vector<size_t> back;
-  for (size_t node = finish; node != Nodes_.size(); node = came[node]) {
-    back.push_back(node);
+  for (size_t state = arrived; state != kNoState; state = came[state]) {
+    back.push_back(standsAt(state));
     if (back.size() > kMaxRouteLegs) {
       out.Error = "a route of more than " + std::to_string(kMaxRouteLegs) + " legs";
       return out;
