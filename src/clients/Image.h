@@ -1,5 +1,5 @@
-#ifndef IMAGE_H
-#define IMAGE_H
+#ifndef OUTSHINE_CLIENTS_IMAGE_H
+#define OUTSHINE_CLIENTS_IMAGE_H
 
 #include <cstdint>
 #include <vector>

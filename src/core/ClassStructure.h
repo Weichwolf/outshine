@@ -1,5 +1,5 @@
-#ifndef CLASSSTRUCTURE_H
-#define CLASSSTRUCTURE_H
+#ifndef OUTSHINE_CORE_CLASSSTRUCTURE_H
+#define OUTSHINE_CORE_CLASSSTRUCTURE_H
 
 #include <cstddef>
 #include <cstdint>

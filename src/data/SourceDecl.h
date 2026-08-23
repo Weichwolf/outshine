@@ -1,5 +1,5 @@
-#ifndef SOURCEDECL_H
-#define SOURCEDECL_H
+#ifndef OUTSHINE_DATA_SOURCEDECL_H
+#define OUTSHINE_DATA_SOURCEDECL_H
 
 #include <cstddef>
 #include <cstdint>

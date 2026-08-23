@@ -1,5 +1,5 @@
-#ifndef CAPACITY_H
-#define CAPACITY_H
+#ifndef OUTSHINE_CORE_CAPACITY_H
+#define OUTSHINE_CORE_CAPACITY_H
 
 #include <cstddef>
 #include <vector>

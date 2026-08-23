@@ -1,5 +1,5 @@
-#ifndef TRANSPORT_H
-#define TRANSPORT_H
+#ifndef OUTSHINE_DATA_TRANSPORT_H
+#define OUTSHINE_DATA_TRANSPORT_H
 
 #include <chrono>
 #include <cstdint>

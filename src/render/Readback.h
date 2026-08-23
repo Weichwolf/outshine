@@ -1,5 +1,5 @@
-#ifndef READBACK_H
-#define READBACK_H
+#ifndef OUTSHINE_RENDER_READBACK_H
+#define OUTSHINE_RENDER_READBACK_H
 
 #include <cstdint>
 

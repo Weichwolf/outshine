@@ -1,5 +1,5 @@
-#ifndef DRAWLIST_H
-#define DRAWLIST_H
+#ifndef OUTSHINE_RENDER_DRAW_DRAWLIST_H
+#define OUTSHINE_RENDER_DRAW_DRAWLIST_H
 
 #include <array>
 #include <cstddef>

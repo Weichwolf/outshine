@@ -1,5 +1,5 @@
-#ifndef TILEMATH_H
-#define TILEMATH_H
+#ifndef OUTSHINE_GROUND_TILES_TILEMATH_H
+#define OUTSHINE_GROUND_TILES_TILEMATH_H
 
 #include <cmath>
 #include <numbers>

@@ -1,5 +1,5 @@
-#ifndef GROUNDPATCH_H
-#define GROUNDPATCH_H
+#ifndef OUTSHINE_GENERATORS_GROUNDPATCH_H
+#define OUTSHINE_GENERATORS_GROUNDPATCH_H
 
 #include <cstdint>
 #include <memory>

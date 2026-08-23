@@ -1,5 +1,5 @@
-#ifndef BUILDINGS_H
-#define BUILDINGS_H
+#ifndef OUTSHINE_GENERATORS_BUILDINGS_H
+#define OUTSHINE_GENERATORS_BUILDINGS_H
 
 #include "FeatureField.h"
 #include "Generator.h"

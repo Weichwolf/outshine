@@ -1,5 +1,5 @@
-#ifndef MODELLADDER_H
-#define MODELLADDER_H
+#ifndef OUTSHINE_CORE_MODELLADDER_H
+#define OUTSHINE_CORE_MODELLADDER_H
 
 namespace outshine {
 

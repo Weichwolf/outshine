@@ -1,5 +1,5 @@
-#ifndef PUNCTUALLIGHT_H
-#define PUNCTUALLIGHT_H
+#ifndef OUTSHINE_CORE_PUNCTUALLIGHT_H
+#define OUTSHINE_CORE_PUNCTUALLIGHT_H
 
 #include <numbers>
 

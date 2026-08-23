@@ -1,5 +1,5 @@
-#ifndef EYECOLUMN_H
-#define EYECOLUMN_H
+#ifndef OUTSHINE_GROUND_EYECOLUMN_H
+#define OUTSHINE_GROUND_EYECOLUMN_H
 
 namespace outshine::Ground {
 

@@ -1,5 +1,5 @@
-#ifndef SURFACESTATE_H
-#define SURFACESTATE_H
+#ifndef OUTSHINE_CORE_SURFACESTATE_H
+#define OUTSHINE_CORE_SURFACESTATE_H
 
 #include "Material.h"
 

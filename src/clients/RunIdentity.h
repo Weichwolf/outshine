@@ -1,5 +1,5 @@
-#ifndef RUNIDENTITY_H
-#define RUNIDENTITY_H
+#ifndef OUTSHINE_CLIENTS_RUNIDENTITY_H
+#define OUTSHINE_CLIENTS_RUNIDENTITY_H
 
 #include <string>
 

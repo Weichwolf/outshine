@@ -1,5 +1,5 @@
-#ifndef SHA256_H
-#define SHA256_H
+#ifndef OUTSHINE_CORE_SHA256_H
+#define OUTSHINE_CORE_SHA256_H
 
 #include <string_view>
 #include <cstddef>

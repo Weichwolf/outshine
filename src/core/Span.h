@@ -1,5 +1,5 @@
-#ifndef SPAN_H
-#define SPAN_H
+#ifndef OUTSHINE_CORE_SPAN_H
+#define OUTSHINE_CORE_SPAN_H
 
 #include <cassert>
 #include <cstddef>

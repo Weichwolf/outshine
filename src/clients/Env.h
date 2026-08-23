@@ -1,5 +1,5 @@
-#ifndef ENV_H
-#define ENV_H
+#ifndef OUTSHINE_CLIENTS_ENV_H
+#define OUTSHINE_CLIENTS_ENV_H
 
 #include <cstdlib>
 #include <string>

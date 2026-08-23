@@ -1,5 +1,5 @@
-#ifndef GLTF_TRACK_H
-#define GLTF_TRACK_H
+#ifndef OUTSHINE_GLTF_TRACK_H
+#define OUTSHINE_GLTF_TRACK_H
 
 #include <span>
 #include <cstddef>

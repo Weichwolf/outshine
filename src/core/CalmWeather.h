@@ -1,5 +1,5 @@
-#ifndef CALMWEATHER_H
-#define CALMWEATHER_H
+#ifndef OUTSHINE_CORE_CALMWEATHER_H
+#define OUTSHINE_CORE_CALMWEATHER_H
 #include "WeatherProvider.h"
 
 namespace outshine {

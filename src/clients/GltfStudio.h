@@ -1,5 +1,5 @@
-#ifndef GLTFSTUDIO_H
-#define GLTFSTUDIO_H
+#ifndef OUTSHINE_CLIENTS_GLTFSTUDIO_H
+#define OUTSHINE_CLIENTS_GLTFSTUDIO_H
 
 #include "Wgs84.h"
 #include <array>

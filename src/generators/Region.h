@@ -1,5 +1,5 @@
-#ifndef REGION_H
-#define REGION_H
+#ifndef OUTSHINE_GENERATORS_REGION_H
+#define OUTSHINE_GENERATORS_REGION_H
 
 #include <cstdint>
 

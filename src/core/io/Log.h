@@ -1,5 +1,5 @@
-#ifndef LOG_H
-#define LOG_H
+#ifndef OUTSHINE_CORE_IO_LOG_H
+#define OUTSHINE_CORE_IO_LOG_H
 #include <span>
 #include <initializer_list>
 #include <string>

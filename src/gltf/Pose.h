@@ -1,5 +1,5 @@
-#ifndef GLTF_POSE_H
-#define GLTF_POSE_H
+#ifndef OUTSHINE_GLTF_POSE_H
+#define OUTSHINE_GLTF_POSE_H
 
 #include <memory>
 #include <string>

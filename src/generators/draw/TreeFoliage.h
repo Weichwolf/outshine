@@ -1,5 +1,5 @@
-#ifndef TREEFOLIAGE_H
-#define TREEFOLIAGE_H
+#ifndef OUTSHINE_GENERATORS_DRAW_TREEFOLIAGE_H
+#define OUTSHINE_GENERATORS_DRAW_TREEFOLIAGE_H
 
 #include <cstddef>
 #include <vector>

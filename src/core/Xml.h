@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_XML_H
-#define OUTSHINE_XML_H
+#ifndef OUTSHINE_CORE_XML_H
+#define OUTSHINE_CORE_XML_H
 
 #include <cstddef>
 #include <cstdint>

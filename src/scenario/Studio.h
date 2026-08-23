@@ -1,5 +1,5 @@
-#ifndef STUDIO_H
-#define STUDIO_H
+#ifndef OUTSHINE_SCENARIO_STUDIO_H
+#define OUTSHINE_SCENARIO_STUDIO_H
 
 #include <string>
 #include <variant>

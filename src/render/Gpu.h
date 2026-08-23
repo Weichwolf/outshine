@@ -1,5 +1,5 @@
-#ifndef GPU_H
-#define GPU_H
+#ifndef OUTSHINE_RENDER_GPU_H
+#define OUTSHINE_RENDER_GPU_H
 
 #include <SDL3/SDL_gpu.h>
 

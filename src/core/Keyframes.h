@@ -1,5 +1,5 @@
-#ifndef KEYFRAMES_H
-#define KEYFRAMES_H
+#ifndef OUTSHINE_CORE_KEYFRAMES_H
+#define OUTSHINE_CORE_KEYFRAMES_H
 
 #include <cstddef>
 

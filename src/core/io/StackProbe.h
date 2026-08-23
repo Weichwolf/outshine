@@ -1,5 +1,5 @@
-#ifndef STACKPROBE_H
-#define STACKPROBE_H
+#ifndef OUTSHINE_CORE_IO_STACKPROBE_H
+#define OUTSHINE_CORE_IO_STACKPROBE_H
 
 #include <atomic>
 #include <cstddef>

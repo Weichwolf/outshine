@@ -19,3 +19,13 @@ What will be true: every guard in src/ spells OUTSHINE_<FOLDERS>_<NAME>_H, and a
 test walks src/ and refuses a guard that does not spell its folder — the actor sweep
 proved the mechanics; this closes when the walk is tree-wide and enforced, not repeated
 by hand per layer.
+
+---
+
+Closed -- 199 headers respelt to OUTSHINE_<FOLDERS>_<NAME>_H across all fifteen
+directories (the endif comments followed), and the rule is a WALK now, not a habit:
+harness/claims/EveryGuardSpellsItsFolder derives each header's spelling from its own path,
+refuses any that differs or carries no guard at all, and refuses two headers claiming one
+guard. Negative control: reverting src/generators/Body.h to BODY_H turns the claims test
+FAIL. Gate 206/206, link audit closed -- no translation unit lost its contents in the
+respelling.

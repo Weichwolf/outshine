@@ -1,5 +1,5 @@
-#ifndef FACADEUV_H
-#define FACADEUV_H
+#ifndef OUTSHINE_CORE_FACADEUV_H
+#define OUTSHINE_CORE_FACADEUV_H
 
 namespace outshine {
 

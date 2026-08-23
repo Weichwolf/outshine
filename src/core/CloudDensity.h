@@ -1,5 +1,5 @@
-#ifndef CLOUDDENSITY_H
-#define CLOUDDENSITY_H
+#ifndef OUTSHINE_CORE_CLOUDDENSITY_H
+#define OUTSHINE_CORE_CLOUDDENSITY_H
 
 #include <cstdint>
 #include <cmath>

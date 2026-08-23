@@ -1,5 +1,5 @@
-#ifndef LIVE_H
-#define LIVE_H
+#ifndef OUTSHINE_CLIENTS_LIVE_H
+#define OUTSHINE_CLIENTS_LIVE_H
 
 #include <cstdint>
 #include <memory>

@@ -1,5 +1,5 @@
-#ifndef CONSTANTWINDWEATHER_H
-#define CONSTANTWINDWEATHER_H
+#ifndef OUTSHINE_CORE_CONSTANTWINDWEATHER_H
+#define OUTSHINE_CORE_CONSTANTWINDWEATHER_H
 #include <cmath>
 #include "CalmWeather.h"
 #include "Units.h"

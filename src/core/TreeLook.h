@@ -1,5 +1,5 @@
-#ifndef TREELOOK_H
-#define TREELOOK_H
+#ifndef OUTSHINE_CORE_TREELOOK_H
+#define OUTSHINE_CORE_TREELOOK_H
 
 namespace outshine {
 

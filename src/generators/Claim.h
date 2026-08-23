@@ -1,5 +1,5 @@
-#ifndef CLAIM_H
-#define CLAIM_H
+#ifndef OUTSHINE_GENERATORS_CLAIM_H
+#define OUTSHINE_GENERATORS_CLAIM_H
 
 #include <cstddef>
 #include <optional>

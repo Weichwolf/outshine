@@ -1,5 +1,5 @@
-#ifndef SHEENLOBE_H
-#define SHEENLOBE_H
+#ifndef OUTSHINE_RENDER_STAGES_SHEENLOBE_H
+#define OUTSHINE_RENDER_STAGES_SHEENLOBE_H
 
 #include <numbers>
 #include <array>

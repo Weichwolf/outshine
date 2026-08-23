@@ -1,5 +1,5 @@
-#ifndef CLASSFIELD_H
-#define CLASSFIELD_H
+#ifndef OUTSHINE_GROUND_CLASSFIELD_H
+#define OUTSHINE_GROUND_CLASSFIELD_H
 
 #include <cstdint>
 #include <memory>

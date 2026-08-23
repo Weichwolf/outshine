@@ -1,5 +1,5 @@
-#ifndef ANIMATION_H
-#define ANIMATION_H
+#ifndef OUTSHINE_SCENARIO_ANIMATION_H
+#define OUTSHINE_SCENARIO_ANIMATION_H
 
 #include <string>
 #include <vector>

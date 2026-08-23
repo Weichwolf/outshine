@@ -1,5 +1,5 @@
-#ifndef SKYSTAGE_H
-#define SKYSTAGE_H
+#ifndef OUTSHINE_RENDER_STAGES_SKYSTAGE_H
+#define OUTSHINE_RENDER_STAGES_SKYSTAGE_H
 
 #include <string>
 

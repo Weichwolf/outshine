@@ -1,5 +1,5 @@
-#ifndef RANK_H
-#define RANK_H
+#ifndef OUTSHINE_GENERATORS_RANK_H
+#define OUTSHINE_GENERATORS_RANK_H
 
 #include <cstdint>
 

@@ -1,5 +1,5 @@
-#ifndef WATERFIELD_H
-#define WATERFIELD_H
+#ifndef OUTSHINE_GROUND_WATERFIELD_H
+#define OUTSHINE_GROUND_WATERFIELD_H
 
 #include "OsmField.h"
 #include "VegetationTemplates.h"

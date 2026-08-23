@@ -1,5 +1,5 @@
-#ifndef GROUND_H
-#define GROUND_H
+#ifndef OUTSHINE_GENERATORS_GROUND_H
+#define OUTSHINE_GENERATORS_GROUND_H
 
 #include <memory>
 #include <optional>

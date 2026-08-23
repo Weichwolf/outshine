@@ -1,5 +1,5 @@
-#ifndef STAGE_H
-#define STAGE_H
+#ifndef OUTSHINE_SCENARIO_STAGE_H
+#define OUTSHINE_SCENARIO_STAGE_H
 
 #include <string>
 #include <variant>

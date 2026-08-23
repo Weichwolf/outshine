@@ -1,5 +1,5 @@
-#ifndef SCHEDULE_H
-#define SCHEDULE_H
+#ifndef OUTSHINE_GENERATORS_SCHEDULE_H
+#define OUTSHINE_GENERATORS_SCHEDULE_H
 
 #include <optional>
 #include <vector>

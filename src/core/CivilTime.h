@@ -1,5 +1,5 @@
-#ifndef CIVILTIME_H
-#define CIVILTIME_H
+#ifndef OUTSHINE_CORE_CIVILTIME_H
+#define OUTSHINE_CORE_CIVILTIME_H
 
 #include <cstdint>
 #include <cstdio>

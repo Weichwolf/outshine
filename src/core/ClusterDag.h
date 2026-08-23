@@ -1,5 +1,5 @@
-#ifndef CLUSTERDAG_H
-#define CLUSTERDAG_H
+#ifndef OUTSHINE_CORE_CLUSTERDAG_H
+#define OUTSHINE_CORE_CLUSTERDAG_H
 
 #include <numbers>
 #include <algorithm>

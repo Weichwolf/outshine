@@ -1,5 +1,5 @@
-#ifndef CHUNKVTX_H
-#define CHUNKVTX_H
+#ifndef OUTSHINE_CORE_CHUNKVTX_H
+#define OUTSHINE_CORE_CHUNKVTX_H
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>

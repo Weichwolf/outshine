@@ -1,5 +1,5 @@
-#ifndef _FBSTATE_H
-#define _FBSTATE_H
+#ifndef OUTSHINE_CORE_STATE_H
+#define OUTSHINE_CORE_STATE_H
 #include "AvionicsBlocks.h"
 
 namespace outshine {

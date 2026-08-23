@@ -1,5 +1,5 @@
-#ifndef GROUNDMATERIALS_H
-#define GROUNDMATERIALS_H
+#ifndef OUTSHINE_GROUND_GROUNDMATERIALS_H
+#define OUTSHINE_GROUND_GROUNDMATERIALS_H
 
 #include <string_view>
 #include <cstddef>

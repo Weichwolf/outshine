@@ -1,5 +1,5 @@
-#ifndef TERRAINLOADER_H
-#define TERRAINLOADER_H
+#ifndef OUTSHINE_GROUND_TERRAINLOADER_H
+#define OUTSHINE_GROUND_TERRAINLOADER_H
 #include <stdint.h>
 
 #include <memory>

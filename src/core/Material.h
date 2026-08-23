@@ -1,5 +1,5 @@
-#ifndef MATERIAL_H
-#define MATERIAL_H
+#ifndef OUTSHINE_CORE_MATERIAL_H
+#define OUTSHINE_CORE_MATERIAL_H
 
 #include <limits>
 

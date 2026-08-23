@@ -1,5 +1,5 @@
-#ifndef SHADOWRAY_H
-#define SHADOWRAY_H
+#ifndef OUTSHINE_RENDER_STAGES_SHADOWRAY_H
+#define OUTSHINE_RENDER_STAGES_SHADOWRAY_H
 
 #include <cstdio>
 #include <string>

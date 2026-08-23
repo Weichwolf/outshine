@@ -1,5 +1,5 @@
-#ifndef UI_PAINT_H
-#define UI_PAINT_H
+#ifndef OUTSHINE_UI_PAINT_H
+#define OUTSHINE_UI_PAINT_H
 
 #include <cstddef>
 #include <cstdint>

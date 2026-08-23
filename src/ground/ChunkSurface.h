@@ -1,5 +1,5 @@
-#ifndef CHUNKSURFACE_H
-#define CHUNKSURFACE_H
+#ifndef OUTSHINE_GROUND_CHUNKSURFACE_H
+#define OUTSHINE_GROUND_CHUNKSURFACE_H
 #include <array>
 #include <stdint.h>
 

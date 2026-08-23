@@ -1,5 +1,5 @@
-#ifndef LOGSINKS_H
-#define LOGSINKS_H
+#ifndef OUTSHINE_CLIENTS_LOGSINKS_H
+#define OUTSHINE_CLIENTS_LOGSINKS_H
 #include <cstdio>
 #include <vector>
 #include "Log.h"

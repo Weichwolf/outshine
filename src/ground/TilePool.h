@@ -1,5 +1,5 @@
-#ifndef TILEPOOL_H
-#define TILEPOOL_H
+#ifndef OUTSHINE_GROUND_TILEPOOL_H
+#define OUTSHINE_GROUND_TILEPOOL_H
 
 #include <atomic>
 #include <condition_variable>

@@ -1,5 +1,5 @@
-#ifndef INPUTMAP_H
-#define INPUTMAP_H
+#ifndef OUTSHINE_SCENARIO_INPUTMAP_H
+#define OUTSHINE_SCENARIO_INPUTMAP_H
 
 #include <cstdint>
 #include <string>

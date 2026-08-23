@@ -1,5 +1,5 @@
-#ifndef SPECIES_H
-#define SPECIES_H
+#ifndef OUTSHINE_CLIENTS_SPECIES_H
+#define OUTSHINE_CLIENTS_SPECIES_H
 
 #include "TreeSpecies.h"
 

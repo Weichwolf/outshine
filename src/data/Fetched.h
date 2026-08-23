@@ -1,5 +1,5 @@
-#ifndef FETCHED_H
-#define FETCHED_H
+#ifndef OUTSHINE_DATA_FETCHED_H
+#define OUTSHINE_DATA_FETCHED_H
 
 #include <cstdint>
 #include <utility>

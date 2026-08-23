@@ -1,5 +1,5 @@
-#ifndef SHADERPRELUDE_H
-#define SHADERPRELUDE_H
+#ifndef OUTSHINE_RENDER_STAGES_SHADERPRELUDE_H
+#define OUTSHINE_RENDER_STAGES_SHADERPRELUDE_H
 
 #include <cstdio>
 #include <numbers>

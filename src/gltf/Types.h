@@ -1,5 +1,5 @@
-#ifndef GLTF_TYPES_H
-#define GLTF_TYPES_H
+#ifndef OUTSHINE_GLTF_TYPES_H
+#define OUTSHINE_GLTF_TYPES_H
 
 #include <cstddef>
 #include <cstdint>

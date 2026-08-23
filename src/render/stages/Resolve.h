@@ -1,5 +1,5 @@
-#ifndef RESOLVE_H
-#define RESOLVE_H
+#ifndef OUTSHINE_RENDER_STAGES_RESOLVE_H
+#define OUTSHINE_RENDER_STAGES_RESOLVE_H
 
 #include <string>
 

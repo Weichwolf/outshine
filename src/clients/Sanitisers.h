@@ -1,5 +1,5 @@
-#ifndef SANITISERS_H
-#define SANITISERS_H
+#ifndef OUTSHINE_CLIENTS_SANITISERS_H
+#define OUTSHINE_CLIENTS_SANITISERS_H
 
 namespace outshine::Clients {
 

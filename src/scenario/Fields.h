@@ -1,5 +1,5 @@
-#ifndef FIELDS_H
-#define FIELDS_H
+#ifndef OUTSHINE_SCENARIO_FIELDS_H
+#define OUTSHINE_SCENARIO_FIELDS_H
 
 #include <string>
 #include <string_view>

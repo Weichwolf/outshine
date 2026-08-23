@@ -1,5 +1,5 @@
-#ifndef TREESKELETON_H
-#define TREESKELETON_H
+#ifndef OUTSHINE_GENERATORS_DRAW_TREESKELETON_H
+#define OUTSHINE_GENERATORS_DRAW_TREESKELETON_H
 
 #include <cstdint>
 #include <vector>

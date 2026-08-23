@@ -1,5 +1,5 @@
-#ifndef YIELD_H
-#define YIELD_H
+#ifndef OUTSHINE_GENERATORS_YIELD_H
+#define OUTSHINE_GENERATORS_YIELD_H
 
 #include <cstddef>
 #include <cstdint>

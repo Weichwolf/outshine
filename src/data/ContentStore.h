@@ -1,5 +1,5 @@
-#ifndef CONTENTSTORE_H
-#define CONTENTSTORE_H
+#ifndef OUTSHINE_DATA_CONTENTSTORE_H
+#define OUTSHINE_DATA_CONTENTSTORE_H
 
 #include <atomic>
 #include <cstddef>

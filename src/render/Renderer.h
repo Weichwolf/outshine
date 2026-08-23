@@ -1,5 +1,5 @@
-#ifndef RENDERER_H
-#define RENDERER_H
+#ifndef OUTSHINE_RENDER_RENDERER_H
+#define OUTSHINE_RENDER_RENDERER_H
 
 #include <span>
 #include <cstdint>

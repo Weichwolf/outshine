@@ -1,5 +1,5 @@
-#ifndef RENDERPLAN_H
-#define RENDERPLAN_H
+#ifndef OUTSHINE_RENDER_PLAN_RENDERPLAN_H
+#define OUTSHINE_RENDER_PLAN_RENDERPLAN_H
 
 #include <string_view>
 #include <expected>

@@ -1,5 +1,5 @@
-#ifndef UI_LAYOUT_H
-#define UI_LAYOUT_H
+#ifndef OUTSHINE_UI_LAYOUT_H
+#define OUTSHINE_UI_LAYOUT_H
 
 #include <cstdint>
 #include <string>

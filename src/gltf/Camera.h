@@ -1,5 +1,5 @@
-#ifndef GLTF_CAMERA_H
-#define GLTF_CAMERA_H
+#ifndef OUTSHINE_GLTF_CAMERA_H
+#define OUTSHINE_GLTF_CAMERA_H
 
 #include <string>
 

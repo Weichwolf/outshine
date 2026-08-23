@@ -1,5 +1,5 @@
-#ifndef TREEPROTOTYPE_H
-#define TREEPROTOTYPE_H
+#ifndef OUTSHINE_GENERATORS_DRAW_TREEPROTOTYPE_H
+#define OUTSHINE_GENERATORS_DRAW_TREEPROTOTYPE_H
 
 #include <cstdint>
 #include <optional>

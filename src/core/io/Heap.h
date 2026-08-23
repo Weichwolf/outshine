@@ -1,5 +1,5 @@
-#ifndef HEAP_H
-#define HEAP_H
+#ifndef OUTSHINE_CORE_IO_HEAP_H
+#define OUTSHINE_CORE_IO_HEAP_H
 
 #include <cstddef>
 

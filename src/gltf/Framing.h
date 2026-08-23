@@ -1,5 +1,5 @@
-#ifndef GLTF_FRAMING_H
-#define GLTF_FRAMING_H
+#ifndef OUTSHINE_GLTF_FRAMING_H
+#define OUTSHINE_GLTF_FRAMING_H
 
 namespace outshine::Gltf {
 

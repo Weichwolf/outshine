@@ -1,5 +1,5 @@
-#ifndef GPUOWNED_H
-#define GPUOWNED_H
+#ifndef OUTSHINE_RENDER_GPUOWNED_H
+#define OUTSHINE_RENDER_GPUOWNED_H
 
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_gpu.h>

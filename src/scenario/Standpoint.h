@@ -1,5 +1,5 @@
-#ifndef STANDPOINT_H
-#define STANDPOINT_H
+#ifndef OUTSHINE_SCENARIO_STANDPOINT_H
+#define OUTSHINE_SCENARIO_STANDPOINT_H
 
 #include <optional>
 

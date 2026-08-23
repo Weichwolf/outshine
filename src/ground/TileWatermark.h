@@ -1,5 +1,5 @@
-#ifndef TILEWATERMARK_H
-#define TILEWATERMARK_H
+#ifndef OUTSHINE_GROUND_TILEWATERMARK_H
+#define OUTSHINE_GROUND_TILEWATERMARK_H
 
 #include <span>
 #include <algorithm>

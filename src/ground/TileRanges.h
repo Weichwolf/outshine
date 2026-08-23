@@ -1,5 +1,5 @@
-#ifndef TILERANGES_H
-#define TILERANGES_H
+#ifndef OUTSHINE_GROUND_TILERANGES_H
+#define OUTSHINE_GROUND_TILERANGES_H
 
 #include <cstdint>
 #include <vector>

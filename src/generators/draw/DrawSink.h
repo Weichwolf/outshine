@@ -1,5 +1,5 @@
-#ifndef DRAWSINK_H
-#define DRAWSINK_H
+#ifndef OUTSHINE_GENERATORS_DRAW_DRAWSINK_H
+#define OUTSHINE_GENERATORS_DRAW_DRAWSINK_H
 
 #include "BodyId.h"
 #include "ClusterId.h"

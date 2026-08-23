@@ -1,5 +1,5 @@
-#ifndef ADDRESS_H
-#define ADDRESS_H
+#ifndef OUTSHINE_DATA_ADDRESS_H
+#define OUTSHINE_DATA_ADDRESS_H
 
 #include <cstdint>
 #include <string>

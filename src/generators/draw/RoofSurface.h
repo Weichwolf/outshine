@@ -1,5 +1,5 @@
-#ifndef ROOFSURFACE_H
-#define ROOFSURFACE_H
+#ifndef OUTSHINE_GENERATORS_DRAW_ROOFSURFACE_H
+#define OUTSHINE_GENERATORS_DRAW_ROOFSURFACE_H
 
 #include <vector>
 #include <span>

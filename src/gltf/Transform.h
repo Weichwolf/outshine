@@ -1,5 +1,5 @@
-#ifndef GLTF_TRANSFORM_H
-#define GLTF_TRANSFORM_H
+#ifndef OUTSHINE_GLTF_TRANSFORM_H
+#define OUTSHINE_GLTF_TRANSFORM_H
 
 namespace outshine::Gltf {
 

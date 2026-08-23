@@ -1,5 +1,5 @@
-#ifndef REGIONFORGE_H
-#define REGIONFORGE_H
+#ifndef OUTSHINE_CLIENTS_REGIONFORGE_H
+#define OUTSHINE_CLIENTS_REGIONFORGE_H
 
 #include <condition_variable>
 #include <mutex>

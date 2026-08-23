@@ -1,5 +1,5 @@
-#ifndef WATERDEPTH_H
-#define WATERDEPTH_H
+#ifndef OUTSHINE_CORE_WATERDEPTH_H
+#define OUTSHINE_CORE_WATERDEPTH_H
 
 namespace outshine {
 

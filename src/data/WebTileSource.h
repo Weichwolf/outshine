@@ -1,5 +1,5 @@
-#ifndef WEBTILESOURCE_H
-#define WEBTILESOURCE_H
+#ifndef OUTSHINE_DATA_WEBTILESOURCE_H
+#define OUTSHINE_DATA_WEBTILESOURCE_H
 
 #include <string>
 #include <utility>

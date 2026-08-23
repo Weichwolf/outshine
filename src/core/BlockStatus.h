@@ -1,5 +1,5 @@
-#ifndef BLOCKSTATUS_H
-#define BLOCKSTATUS_H
+#ifndef OUTSHINE_CORE_BLOCKSTATUS_H
+#define OUTSHINE_CORE_BLOCKSTATUS_H
 
 #include <cstdint>
 

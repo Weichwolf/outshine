@@ -1,5 +1,5 @@
-#ifndef GROUNDSAMPLE_H
-#define GROUNDSAMPLE_H
+#ifndef OUTSHINE_CORE_GROUNDSAMPLE_H
+#define OUTSHINE_CORE_GROUNDSAMPLE_H
 
 namespace outshine {
 

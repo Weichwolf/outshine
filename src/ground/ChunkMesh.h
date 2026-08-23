@@ -1,5 +1,5 @@
-#ifndef CHUNKMESH_H
-#define CHUNKMESH_H
+#ifndef OUTSHINE_GROUND_CHUNKMESH_H
+#define OUTSHINE_GROUND_CHUNKMESH_H
 #include "ChunkSurface.h"
 #include "ChunkVtx.h"
 #include "Heap.h"

@@ -1,5 +1,5 @@
-#ifndef UVTRANSFORM_H
-#define UVTRANSFORM_H
+#ifndef OUTSHINE_CORE_UVTRANSFORM_H
+#define OUTSHINE_CORE_UVTRANSFORM_H
 
 #include <cmath>
 #include <cstdint>

@@ -1,5 +1,5 @@
-#ifndef TEXTTARGET_H
-#define TEXTTARGET_H
+#ifndef OUTSHINE_CORE_IO_TEXTTARGET_H
+#define OUTSHINE_CORE_IO_TEXTTARGET_H
 
 #include <cstdio>
 #include <memory>

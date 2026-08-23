@@ -1,5 +1,5 @@
-#ifndef TREELEAF_H
-#define TREELEAF_H
+#ifndef OUTSHINE_GENERATORS_DRAW_TREELEAF_H
+#define OUTSHINE_GENERATORS_DRAW_TREELEAF_H
 
 #include "TreeMesh.h"
 #include "TreeSpecies.h"

@@ -1,5 +1,5 @@
-#ifndef SCENARIOLAYER_H
-#define SCENARIOLAYER_H
+#ifndef OUTSHINE_SCENARIO_SCENARIOLAYER_H
+#define OUTSHINE_SCENARIO_SCENARIOLAYER_H
 
 #include <string>
 #include <string_view>

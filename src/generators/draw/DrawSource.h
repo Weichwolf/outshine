@@ -1,5 +1,5 @@
-#ifndef DRAWSOURCE_H
-#define DRAWSOURCE_H
+#ifndef OUTSHINE_GENERATORS_DRAW_DRAWSOURCE_H
+#define OUTSHINE_GENERATORS_DRAW_DRAWSOURCE_H
 
 #include "Body.h"
 #include "DrawSink.h"

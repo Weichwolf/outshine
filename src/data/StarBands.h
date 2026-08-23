@@ -1,5 +1,5 @@
-#ifndef STARBANDS_H
-#define STARBANDS_H
+#ifndef OUTSHINE_DATA_STARBANDS_H
+#define OUTSHINE_DATA_STARBANDS_H
 
 #include <string>
 

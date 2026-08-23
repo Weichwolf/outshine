@@ -1,5 +1,5 @@
-#ifndef SURFACES_H
-#define SURFACES_H
+#ifndef OUTSHINE_CLIENTS_SURFACES_H
+#define OUTSHINE_CLIENTS_SURFACES_H
 
 #include <cstdint>
 #include <string>

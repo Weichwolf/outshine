@@ -1,5 +1,5 @@
-#ifndef GEODESY_H
-#define GEODESY_H
+#ifndef OUTSHINE_CORE_GEODESY_H
+#define OUTSHINE_CORE_GEODESY_H
 
 #include <cmath>
 #include "Units.h"

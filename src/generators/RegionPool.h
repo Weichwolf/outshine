@@ -1,5 +1,5 @@
-#ifndef REGIONPOOL_H
-#define REGIONPOOL_H
+#ifndef OUTSHINE_GENERATORS_REGIONPOOL_H
+#define OUTSHINE_GENERATORS_REGIONPOOL_H
 
 #include <cstdint>
 #include <memory>

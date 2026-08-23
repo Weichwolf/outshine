@@ -1,5 +1,5 @@
-#ifndef CATMULLROM_H
-#define CATMULLROM_H
+#ifndef OUTSHINE_CORE_CATMULLROM_H
+#define OUTSHINE_CORE_CATMULLROM_H
 
 #include <cstddef>
 

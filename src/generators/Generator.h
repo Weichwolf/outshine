@@ -1,5 +1,5 @@
-#ifndef GENERATOR_H
-#define GENERATOR_H
+#ifndef OUTSHINE_GENERATORS_GENERATOR_H
+#define OUTSHINE_GENERATORS_GENERATOR_H
 
 #include "Body.h"
 #include "Ground.h"

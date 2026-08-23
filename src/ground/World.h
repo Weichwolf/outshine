@@ -1,5 +1,5 @@
-#ifndef WORLD_H
-#define WORLD_H
+#ifndef OUTSHINE_GROUND_WORLD_H
+#define OUTSHINE_GROUND_WORLD_H
 
 #include <cstdint>
 #include <unordered_map>

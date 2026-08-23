@@ -1,5 +1,5 @@
-#ifndef TABLES_H
-#define TABLES_H
+#ifndef OUTSHINE_SCENARIO_TABLES_H
+#define OUTSHINE_SCENARIO_TABLES_H
 
 #include <string>
 #include <string_view>

@@ -1,5 +1,5 @@
-#ifndef TERRAINTILES_H
-#define TERRAINTILES_H
+#ifndef OUTSHINE_GROUND_TILES_TERRAINTILES_H
+#define OUTSHINE_GROUND_TILES_TERRAINTILES_H
 
 #include <cstdint>
 #include <vector>

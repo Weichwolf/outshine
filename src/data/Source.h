@@ -1,5 +1,5 @@
-#ifndef SOURCE_H
-#define SOURCE_H
+#ifndef OUTSHINE_DATA_SOURCE_H
+#define OUTSHINE_DATA_SOURCE_H
 
 #include <cstdint>
 

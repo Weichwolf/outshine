@@ -1,5 +1,5 @@
-#ifndef OSMFIELD_H
-#define OSMFIELD_H
+#ifndef OUTSHINE_GROUND_OSMFIELD_H
+#define OUTSHINE_GROUND_OSMFIELD_H
 
 #include <cstdint>
 #include <initializer_list>

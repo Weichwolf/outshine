@@ -1,5 +1,5 @@
-#ifndef TERRAINGRID_H
-#define TERRAINGRID_H
+#ifndef OUTSHINE_GROUND_TILES_TERRAINGRID_H
+#define OUTSHINE_GROUND_TILES_TERRAINGRID_H
 
 #include <cstddef>
 #include <cstdint>

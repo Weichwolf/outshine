@@ -1,5 +1,5 @@
-#ifndef DECLAREDSOURCES_H
-#define DECLAREDSOURCES_H
+#ifndef OUTSHINE_DATA_DECLAREDSOURCES_H
+#define OUTSHINE_DATA_DECLAREDSOURCES_H
 
 #include <span>
 #include <string>

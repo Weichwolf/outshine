@@ -1,5 +1,5 @@
-#ifndef REQUEST_H
-#define REQUEST_H
+#ifndef OUTSHINE_DATA_REQUEST_H
+#define OUTSHINE_DATA_REQUEST_H
 
 #include <string>
 

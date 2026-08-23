@@ -1,5 +1,5 @@
-#ifndef OSMVECTOR_H
-#define OSMVECTOR_H
+#ifndef OUTSHINE_GROUND_OSMVECTOR_H
+#define OUTSHINE_GROUND_OSMVECTOR_H
 
 #include <cstdint>
 #include <string>

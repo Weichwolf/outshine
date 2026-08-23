@@ -1,5 +1,5 @@
-#ifndef GROWTHFORM_H
-#define GROWTHFORM_H
+#ifndef OUTSHINE_GENERATORS_GROWTHFORM_H
+#define OUTSHINE_GENERATORS_GROWTHFORM_H
 
 #include <cstdint>
 #include <optional>

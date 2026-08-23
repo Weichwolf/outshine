@@ -1,5 +1,5 @@
-#ifndef JSON_H
-#define JSON_H
+#ifndef OUTSHINE_CORE_JSON_H
+#define OUTSHINE_CORE_JSON_H
 
 #include <cstddef>
 #include <cstdint>

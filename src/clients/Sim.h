@@ -1,5 +1,5 @@
-#ifndef SIM_H
-#define SIM_H
+#ifndef OUTSHINE_CLIENTS_SIM_H
+#define OUTSHINE_CLIENTS_SIM_H
 
 #include <memory>
 #include <optional>

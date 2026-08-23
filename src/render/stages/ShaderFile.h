@@ -1,5 +1,5 @@
-#ifndef SHADERFILE_H
-#define SHADERFILE_H
+#ifndef OUTSHINE_RENDER_STAGES_SHADERFILE_H
+#define OUTSHINE_RENDER_STAGES_SHADERFILE_H
 
 #include <string>
 #include <string_view>

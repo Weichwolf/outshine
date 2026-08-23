@@ -1,5 +1,5 @@
-#ifndef BODY_H
-#define BODY_H
+#ifndef OUTSHINE_GENERATORS_BODY_H
+#define OUTSHINE_GENERATORS_BODY_H
 
 #include <cstdint>
 #include <optional>

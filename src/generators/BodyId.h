@@ -1,5 +1,5 @@
-#ifndef BODYID_H
-#define BODYID_H
+#ifndef OUTSHINE_GENERATORS_BODYID_H
+#define OUTSHINE_GENERATORS_BODYID_H
 
 #include <cstdint>
 

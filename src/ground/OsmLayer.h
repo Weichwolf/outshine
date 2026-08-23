@@ -1,5 +1,5 @@
-#ifndef OSMLAYER_H
-#define OSMLAYER_H
+#ifndef OUTSHINE_GROUND_OSMLAYER_H
+#define OUTSHINE_GROUND_OSMLAYER_H
 
 #include <initializer_list>
 #include <string>

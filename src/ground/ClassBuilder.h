@@ -1,5 +1,5 @@
-#ifndef CLASSBUILDER_H
-#define CLASSBUILDER_H
+#ifndef OUTSHINE_GROUND_CLASSBUILDER_H
+#define OUTSHINE_GROUND_CLASSBUILDER_H
 
 #include <atomic>
 #include <condition_variable>

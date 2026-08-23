@@ -1,5 +1,5 @@
-#ifndef SCRIPT_H
-#define SCRIPT_H
+#ifndef OUTSHINE_CORE_SCRIPT_H
+#define OUTSHINE_CORE_SCRIPT_H
 
 #include <cstddef>
 #include <cstdint>

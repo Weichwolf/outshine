@@ -1,5 +1,5 @@
-#ifndef TELEMETRY_H
-#define TELEMETRY_H
+#ifndef OUTSHINE_CORE_IO_TELEMETRY_H
+#define OUTSHINE_CORE_IO_TELEMETRY_H
 #include <span>
 #include <string>
 #include <vector>

@@ -1,5 +1,5 @@
-#ifndef GLTF_SUBJECT_H
-#define GLTF_SUBJECT_H
+#ifndef OUTSHINE_GLTF_SUBJECT_H
+#define OUTSHINE_GLTF_SUBJECT_H
 
 #include <span>
 #include <cstdint>

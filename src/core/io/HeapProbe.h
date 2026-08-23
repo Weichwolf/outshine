@@ -1,5 +1,5 @@
-#ifndef HEAPPROBE_H
-#define HEAPPROBE_H
+#ifndef OUTSHINE_CORE_IO_HEAPPROBE_H
+#define OUTSHINE_CORE_IO_HEAPPROBE_H
 
 #include <cstddef>
 

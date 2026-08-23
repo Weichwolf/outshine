@@ -1,5 +1,5 @@
-#ifndef PIXELFOCALLENGTH_H
-#define PIXELFOCALLENGTH_H
+#ifndef OUTSHINE_CORE_PIXELFOCALLENGTH_H
+#define OUTSHINE_CORE_PIXELFOCALLENGTH_H
 
 #include <numbers>
 #include <cmath>

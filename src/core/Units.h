@@ -1,5 +1,5 @@
-#ifndef UNITS_H
-#define UNITS_H
+#ifndef OUTSHINE_CORE_UNITS_H
+#define OUTSHINE_CORE_UNITS_H
 
 #include <numbers>
 

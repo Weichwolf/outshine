@@ -1,5 +1,5 @@
-#ifndef SUBJECTDRAW_H
-#define SUBJECTDRAW_H
+#ifndef OUTSHINE_RENDER_STAGES_SUBJECTDRAW_H
+#define OUTSHINE_RENDER_STAGES_SUBJECTDRAW_H
 
 #include <span>
 #include <array>

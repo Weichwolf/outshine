@@ -1,5 +1,5 @@
-#ifndef TERRARIUMDEM_H
-#define TERRARIUMDEM_H
+#ifndef OUTSHINE_DATA_TERRARIUMDEM_H
+#define OUTSHINE_DATA_TERRARIUMDEM_H
 
 #include "WebTileSource.h"
 

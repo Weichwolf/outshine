@@ -1,5 +1,5 @@
-#ifndef TRIANGLEBVH_H
-#define TRIANGLEBVH_H
+#ifndef OUTSHINE_CORE_TRIANGLEBVH_H
+#define OUTSHINE_CORE_TRIANGLEBVH_H
 
 #include <cstdint>
 #include <vector>

@@ -1,5 +1,5 @@
-#ifndef FEATURELEVEL_H
-#define FEATURELEVEL_H
+#ifndef OUTSHINE_GENERATORS_FEATURELEVEL_H
+#define OUTSHINE_GENERATORS_FEATURELEVEL_H
 
 namespace outshine::Generators {
 

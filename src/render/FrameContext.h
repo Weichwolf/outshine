@@ -1,5 +1,5 @@
-#ifndef FRAMECONTEXT_H
-#define FRAMECONTEXT_H
+#ifndef OUTSHINE_RENDER_FRAMECONTEXT_H
+#define OUTSHINE_RENDER_FRAMECONTEXT_H
 
 namespace outshine::Render {
 

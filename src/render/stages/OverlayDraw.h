@@ -1,5 +1,5 @@
-#ifndef OVERLAYDRAW_H
-#define OVERLAYDRAW_H
+#ifndef OUTSHINE_RENDER_STAGES_OVERLAYDRAW_H
+#define OUTSHINE_RENDER_STAGES_OVERLAYDRAW_H
 
 #include <cstdint>
 #include <string>

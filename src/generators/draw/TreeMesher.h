@@ -1,5 +1,5 @@
-#ifndef TREEMESHER_H
-#define TREEMESHER_H
+#ifndef OUTSHINE_GENERATORS_DRAW_TREEMESHER_H
+#define OUTSHINE_GENERATORS_DRAW_TREEMESHER_H
 
 #include <cstdint>
 #include <vector>

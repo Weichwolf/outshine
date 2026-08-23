@@ -1,5 +1,5 @@
-#ifndef NORMALFROMMAP_H
-#define NORMALFROMMAP_H
+#ifndef OUTSHINE_RENDER_STAGES_NORMALFROMMAP_H
+#define OUTSHINE_RENDER_STAGES_NORMALFROMMAP_H
 
 #include <array>
 #include <cmath>

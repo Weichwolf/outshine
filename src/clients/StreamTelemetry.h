@@ -1,5 +1,5 @@
-#ifndef STREAMTELEMETRY_H
-#define STREAMTELEMETRY_H
+#ifndef OUTSHINE_CLIENTS_STREAMTELEMETRY_H
+#define OUTSHINE_CLIENTS_STREAMTELEMETRY_H
 
 #include "Telemetry.h"
 #include "TilePool.h"

@@ -1,5 +1,5 @@
-#ifndef CAMERA_H
-#define CAMERA_H
+#ifndef OUTSHINE_CORE_CAMERA_H
+#define OUTSHINE_CORE_CAMERA_H
 
 #include "Units.h"
 #include "Mat4.h"

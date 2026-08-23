@@ -1,5 +1,5 @@
-#ifndef MOD_H
-#define MOD_H
+#ifndef OUTSHINE_SCENARIO_MOD_H
+#define OUTSHINE_SCENARIO_MOD_H
 
 #include <string>
 #include <string_view>

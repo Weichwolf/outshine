@@ -1,5 +1,5 @@
-#ifndef BUILDINGMESH_H
-#define BUILDINGMESH_H
+#ifndef OUTSHINE_GENERATORS_DRAW_BUILDINGMESH_H
+#define OUTSHINE_GENERATORS_DRAW_BUILDINGMESH_H
 
 #include "FacadeUv.h"
 #include "StructureMesher.h"

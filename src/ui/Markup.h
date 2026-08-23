@@ -1,5 +1,5 @@
-#ifndef UI_MARKUP_H
-#define UI_MARKUP_H
+#ifndef OUTSHINE_UI_MARKUP_H
+#define OUTSHINE_UI_MARKUP_H
 
 #include <cstdint>
 #include <string>

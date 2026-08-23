@@ -1,5 +1,5 @@
-#ifndef TANGENTFRAME_H
-#define TANGENTFRAME_H
+#ifndef OUTSHINE_CORE_TANGENTFRAME_H
+#define OUTSHINE_CORE_TANGENTFRAME_H
 
 #include <cmath>
 

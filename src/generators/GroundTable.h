@@ -1,5 +1,5 @@
-#ifndef GROUNDTABLE_H
-#define GROUNDTABLE_H
+#ifndef OUTSHINE_GENERATORS_GROUNDTABLE_H
+#define OUTSHINE_GENERATORS_GROUNDTABLE_H
 
 #include <memory>
 #include <vector>

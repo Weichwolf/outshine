@@ -1,5 +1,5 @@
-#ifndef DRAWSET_H
-#define DRAWSET_H
+#ifndef OUTSHINE_GENERATORS_DRAW_DRAWSET_H
+#define OUTSHINE_GENERATORS_DRAW_DRAWSET_H
 
 #include <vector>
 

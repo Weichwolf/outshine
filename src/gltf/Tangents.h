@@ -1,5 +1,5 @@
-#ifndef GLTF_TANGENTS_H
-#define GLTF_TANGENTS_H
+#ifndef OUTSHINE_GLTF_TANGENTS_H
+#define OUTSHINE_GLTF_TANGENTS_H
 
 #include <cstdint>
 #include <string>

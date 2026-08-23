@@ -1,5 +1,5 @@
-#ifndef COVER_H
-#define COVER_H
+#ifndef OUTSHINE_GENERATORS_COVER_H
+#define OUTSHINE_GENERATORS_COVER_H
 
 #include <cstdint>
 

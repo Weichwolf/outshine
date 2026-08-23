@@ -1,5 +1,5 @@
-#ifndef MERCATOR_H
-#define MERCATOR_H
+#ifndef OUTSHINE_CORE_MERCATOR_H
+#define OUTSHINE_CORE_MERCATOR_H
 
 namespace outshine {
 

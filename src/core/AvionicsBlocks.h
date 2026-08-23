@@ -1,5 +1,5 @@
-#ifndef AVIONICSBLOCKS_H
-#define AVIONICSBLOCKS_H
+#ifndef OUTSHINE_CORE_AVIONICSBLOCKS_H
+#define OUTSHINE_CORE_AVIONICSBLOCKS_H
 
 #include "BlockStatus.h"
 #include <cstdint>

@@ -1,5 +1,5 @@
-#ifndef ALPINELIMIT_H
-#define ALPINELIMIT_H
+#ifndef OUTSHINE_CORE_ALPINELIMIT_H
+#define OUTSHINE_CORE_ALPINELIMIT_H
 
 #include <cmath>
 #include <string>

@@ -1,5 +1,5 @@
-#ifndef SCENEWEATHER_H
-#define SCENEWEATHER_H
+#ifndef OUTSHINE_CLIENTS_SCENEWEATHER_H
+#define OUTSHINE_CLIENTS_SCENEWEATHER_H
 
 #include "ConstantWindWeather.h"
 #include "Stage.h"

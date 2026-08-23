@@ -1,5 +1,5 @@
-#ifndef UI_POINTER_H
-#define UI_POINTER_H
+#ifndef OUTSHINE_UI_POINTER_H
+#define OUTSHINE_UI_POINTER_H
 
 #include <string>
 

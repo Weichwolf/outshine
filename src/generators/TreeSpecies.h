@@ -1,5 +1,5 @@
-#ifndef TREESPECIES_H
-#define TREESPECIES_H
+#ifndef OUTSHINE_GENERATORS_TREESPECIES_H
+#define OUTSHINE_GENERATORS_TREESPECIES_H
 
 #include <cstddef>
 #include <cstdint>

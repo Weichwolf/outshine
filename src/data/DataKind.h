@@ -1,5 +1,5 @@
-#ifndef DATAKIND_H
-#define DATAKIND_H
+#ifndef OUTSHINE_DATA_DATAKIND_H
+#define OUTSHINE_DATA_DATAKIND_H
 
 #include <cstdint>
 

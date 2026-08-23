@@ -1,5 +1,5 @@
-#ifndef DELIVERY_H
-#define DELIVERY_H
+#ifndef OUTSHINE_DATA_DELIVERY_H
+#define OUTSHINE_DATA_DELIVERY_H
 
 #include <string>
 #include <utility>

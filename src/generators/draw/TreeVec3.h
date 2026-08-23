@@ -1,5 +1,5 @@
-#ifndef TREEVEC3_H
-#define TREEVEC3_H
+#ifndef OUTSHINE_GENERATORS_DRAW_TREEVEC3_H
+#define OUTSHINE_GENERATORS_DRAW_TREEVEC3_H
 
 #include <cmath>
 

@@ -1,5 +1,5 @@
-#ifndef MEDIUMCORE_H
-#define MEDIUMCORE_H
+#ifndef OUTSHINE_RENDER_STAGES_MEDIUMCORE_H
+#define OUTSHINE_RENDER_STAGES_MEDIUMCORE_H
 
 // THE ONE SOURCE: compiled as C++ by the reference in ParticipatingMedium.h and
 // appended as MSL text by ParticipatingMediumMsl -- the including side defines MEDIUM_CONST,

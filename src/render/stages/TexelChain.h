@@ -1,5 +1,5 @@
-#ifndef TEXEL_CHAIN_H
-#define TEXEL_CHAIN_H
+#ifndef OUTSHINE_RENDER_STAGES_TEXELCHAIN_H
+#define OUTSHINE_RENDER_STAGES_TEXELCHAIN_H
 
 #include <cmath>
 #include <cstdint>

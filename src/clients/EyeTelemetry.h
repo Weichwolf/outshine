@@ -1,5 +1,5 @@
-#ifndef EYETELEMETRY_H
-#define EYETELEMETRY_H
+#ifndef OUTSHINE_CLIENTS_EYETELEMETRY_H
+#define OUTSHINE_CLIENTS_EYETELEMETRY_H
 
 #include "TangentFrame.h"
 #include "Telemetry.h"

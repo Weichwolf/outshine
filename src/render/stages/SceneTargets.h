@@ -1,5 +1,5 @@
-#ifndef SCENETARGETS_H
-#define SCENETARGETS_H
+#ifndef OUTSHINE_RENDER_STAGES_SCENETARGETS_H
+#define OUTSHINE_RENDER_STAGES_SCENETARGETS_H
 
 #include <cstdio>
 #include <string>

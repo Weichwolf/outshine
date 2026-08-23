@@ -1,5 +1,5 @@
-#ifndef FORESTDRAW_H
-#define FORESTDRAW_H
+#ifndef OUTSHINE_GENERATORS_DRAW_FORESTDRAW_H
+#define OUTSHINE_GENERATORS_DRAW_FORESTDRAW_H
 
 #include "ClusterId.h"
 #include "DrawSource.h"

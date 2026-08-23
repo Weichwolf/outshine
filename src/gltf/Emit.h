@@ -1,5 +1,5 @@
-#ifndef GLTF_EMIT_H
-#define GLTF_EMIT_H
+#ifndef OUTSHINE_GLTF_EMIT_H
+#define OUTSHINE_GLTF_EMIT_H
 
 #include <cstdint>
 #include <string>

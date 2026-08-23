@@ -1,5 +1,5 @@
-#ifndef FEATUREFIELD_H
-#define FEATUREFIELD_H
+#ifndef OUTSHINE_GENERATORS_FEATUREFIELD_H
+#define OUTSHINE_GENERATORS_FEATUREFIELD_H
 
 #include <cstdint>
 #include <memory>

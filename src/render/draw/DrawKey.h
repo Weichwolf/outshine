@@ -1,5 +1,5 @@
-#ifndef DRAWKEY_H
-#define DRAWKEY_H
+#ifndef OUTSHINE_RENDER_DRAW_DRAWKEY_H
+#define OUTSHINE_RENDER_DRAW_DRAWKEY_H
 
 #include <cstdint>
 

@@ -1,5 +1,5 @@
-#ifndef FOREST_H
-#define FOREST_H
+#ifndef OUTSHINE_GENERATORS_FOREST_H
+#define OUTSHINE_GENERATORS_FOREST_H
 
 #include "AlpineLimit.h"
 #include "Generator.h"

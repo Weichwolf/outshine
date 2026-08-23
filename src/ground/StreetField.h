@@ -1,5 +1,5 @@
-#ifndef STREETFIELD_H
-#define STREETFIELD_H
+#ifndef OUTSHINE_GROUND_STREETFIELD_H
+#define OUTSHINE_GROUND_STREETFIELD_H
 
 #include <cstdint>
 #include <vector>

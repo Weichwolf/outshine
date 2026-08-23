@@ -1,5 +1,5 @@
-#ifndef SOURCESET_H
-#define SOURCESET_H
+#ifndef OUTSHINE_DATA_SOURCESET_H
+#define OUTSHINE_DATA_SOURCESET_H
 
 #include <memory>
 #include <mutex>

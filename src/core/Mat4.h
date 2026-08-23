@@ -1,5 +1,5 @@
-#ifndef MAT4_H
-#define MAT4_H
+#ifndef OUTSHINE_CORE_MAT4_H
+#define OUTSHINE_CORE_MAT4_H
 #include <math.h>
 #include <string.h>
 

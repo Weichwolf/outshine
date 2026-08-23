@@ -1,5 +1,5 @@
-#ifndef CSVTELEMETRY_H
-#define CSVTELEMETRY_H
+#ifndef OUTSHINE_CLIENTS_CSVTELEMETRY_H
+#define OUTSHINE_CLIENTS_CSVTELEMETRY_H
 
 #include <cstdio>
 #include <string>
