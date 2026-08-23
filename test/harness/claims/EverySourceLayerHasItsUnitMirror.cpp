@@ -10,23 +10,23 @@ namespace {
 struct Excused {
   const char *Layer;
   const char *Why;
+  const char *Folds; // the suite the excuse names, which MUST hold tests -- or nullptr
 };
 
+// an excuse that points at an empty directory is a lie the gate would otherwise print in
+// green: src/ground/tiles was excused into "unit/world", which has never existed
+// (board:1745). Every folding excuse now names its target and the target is checked.
 const Excused kExcused[] = {
-    {"src/ground/tiles", "folded into unit/world -- the tiles are the world's own plumbing and "
-                        "unit/world compiles them in its groups"},
-    {"src/core/io", "folded into unit/core -- one layer, two directories by include depth"},
-    {"src/assets", "declared data, not code"},
+    {"src/core/io", "folded into unit/core -- one layer, two directories by include depth",
+     "test/unit/core"},
+    {"src/assets", "declared data, not code", nullptr},
 };
 
-bool Excuse(const std::string &layer, std::string &why) {
+const Excused *Excuse(const std::string &layer) {
   for (const Excused &one : kExcused) {
-    if (layer == one.Layer) {
-      why = one.Why;
-      return true;
-    }
+    if (layer == one.Layer) { return &one; }
   }
-  return false;
+  return nullptr;
 }
 
 bool HoldsSources(const std::filesystem::path &dir) {
@@ -53,14 +53,19 @@ int main(void) {
   size_t layers = 0;
   size_t mirrored = 0;
   std::vector<std::string> naked;
+  std::vector<std::string> stale;
   for (const auto &entry : std::filesystem::recursive_directory_iterator("src")) {
     if (!entry.is_directory()) { continue; }
     const std::string layer = entry.path().string();
     if (!HoldsSources(entry.path())) { continue; }
     ++layers;
-    std::string why;
-    if (Excuse(layer, why)) {
-      std::printf("NOTE %s is excused -- %s\n", layer.c_str(), why.c_str());
+    if (const Excused *excused = Excuse(layer)) {
+      std::printf("NOTE %s is excused -- %s\n", layer.c_str(), excused->Why);
+      if (excused->Folds != nullptr && !HoldsTests(excused->Folds)) {
+        stale.push_back(std::string(layer) + " folds into " + excused->Folds +
+                        ", which holds no test");
+        continue;
+      }
       ++mirrored;
       continue;
     }
@@ -77,6 +82,10 @@ int main(void) {
   for (const std::string &layer : naked) {
     std::printf("FOUND %s has no unit mirror and no declared excuse\n", layer.c_str());
   }
+  for (const std::string &lie : stale) { std::printf("FOUND %s\n", lie.c_str()); }
+  CHECK(stale.empty(),
+        "**AN EXCUSE NAMES A SUITE THAT HOLDS TESTS**: a folding excuse pointing at an "
+        "empty or absent directory is a lie this gate would print in green (board:1745)");
   CHECK(layers >= 15, "the walk saw the tree, not a corner of it");
   CHECK(naked.empty(),
         "**EVERY SOURCE LAYER HAS ITS UNIT MIRROR.** unit/ mirrors src/ ALWAYS -- the mirror "

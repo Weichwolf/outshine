@@ -109,18 +109,27 @@ TerrainGrid::State TerrainTiles::StitchEdge(TerrainField &self, int z, uint32_t 
   const TerrainField *n = neighbour.TryField();
   if (!n || !n->Meshable()) return neighbour.Where();
 
+  // the pair is the same PLACE, not the same index: a cropped neighbour carries fewer
+  // postings along the shared edge, and index-by-index paired a fine posting with a
+  // coarse one while min() left the rest of the fine edge unstitched -- the stitcher
+  // made the seam it exists to close. The currency is the fraction along the edge, the
+  // one TerrainMesh::Over already meshes with
   if (side == Side::West || side == Side::East) {
     const uint32_t selfCol = (side == Side::West) ? 0 : self.Cols() - 1;
-    const uint32_t neighbourCol = (side == Side::West) ? n->Cols() - 1 : 0;
-    const uint32_t rows = std::min(self.Rows(), n->Rows());
-    for (uint32_t r = 0; r < rows; r++)
-      self.SetM(r, selfCol, 0.5f * (self.AtM(r, selfCol) + n->AtM(r, neighbourCol)));
+    const double neighbourFrac = (side == Side::West) ? 1.0 : 0.0;
+    for (uint32_t r = 0; r < self.Rows(); r++) {
+      const double along = PostingFrac(r, self.Rows());
+      self.SetM(r, selfCol,
+                0.5f * (self.AtM(r, selfCol) + n->PostingM(neighbourFrac, along)));
+    }
   } else {
     const uint32_t selfRow = (side == Side::North) ? 0 : self.Rows() - 1;
-    const uint32_t neighbourRow = (side == Side::North) ? n->Rows() - 1 : 0;
-    const uint32_t cols = std::min(self.Cols(), n->Cols());
-    for (uint32_t c = 0; c < cols; c++)
-      self.SetM(selfRow, c, 0.5f * (self.AtM(selfRow, c) + n->AtM(neighbourRow, c)));
+    const double neighbourFrac = (side == Side::North) ? 1.0 : 0.0;
+    for (uint32_t c = 0; c < self.Cols(); c++) {
+      const double along = PostingFrac(c, self.Cols());
+      self.SetM(selfRow, c,
+                0.5f * (self.AtM(selfRow, c) + n->PostingM(along, neighbourFrac)));
+    }
   }
   return TerrainGrid::State::Decoded;
 }

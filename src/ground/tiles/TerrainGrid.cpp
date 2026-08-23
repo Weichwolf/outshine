@@ -51,7 +51,9 @@ TerrainMesh TerrainMesh::Over(const TerrainField &field, const TileEnuMap &map, 
 
       mesh.PositionsEnuM_[vi * 3 + 0] = (float)(map.OriginE() + fc * tileWidthE);
       mesh.PositionsEnuM_[vi * 3 + 1] = (float)(map.OriginN() + fr * tileHeightN);
-      mesh.PositionsEnuM_[vi * 3 + 2] = field.InterpolatedM(fc, fr);
+      // the height is read in the SAME currency the position is placed in: posting
+      // fractions on a lattice, never texel centres half a spacing away (board:1750)
+      mesh.PositionsEnuM_[vi * 3 + 2] = field.PostingM(fc, fr);
     }
   }
   return mesh;
