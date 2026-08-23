@@ -23,18 +23,18 @@ struct Envelope {
   double SettleS = 0.0;
   double CorneringNPerRad = 0.0;
 
-  [[nodiscard]] double LateralMs2(void) const { return Grip * GravityMs2; }
-  [[nodiscard]] double HoldingMs2(void) const {
+  [[nodiscard]] double LateralMs2() const { return Grip * GravityMs2; }
+  [[nodiscard]] double HoldingMs2() const {
     const double left = Grip * GravityMs2 - ReserveMs2;
     return left > 0.0 ? left : 0.0;
   }
-  [[nodiscard]] double AccelMs2(void) const { return MassKg > 0.0 ? DriveN / MassKg : 0.0; }
-  [[nodiscard]] double BrakeMs2(void) const {
+  [[nodiscard]] double AccelMs2() const { return MassKg > 0.0 ? DriveN / MassKg : 0.0; }
+  [[nodiscard]] double BrakeMs2() const {
     const double fromTyres = Grip * GravityMs2;
     const double fromBrakes = MassKg > 0.0 ? BrakeN / MassKg : 0.0;
     return fromBrakes < fromTyres ? fromBrakes : fromTyres;
   }
-  [[nodiscard]] double TopMs(void) const {
+  [[nodiscard]] double TopMs() const {
     const double resistance = 0.5 * AirDensity * DragArea;
     return resistance > 0.0 ? std::sqrt(DriveN / resistance)
                             : std::numeric_limits<double>::infinity();
@@ -47,13 +47,13 @@ public:
                           double entryMs, std::string &error);
 
   [[nodiscard]] double At(double alongM) const;
-  [[nodiscard]] double StepM(void) const { return StepM_; }
-  [[nodiscard]] size_t SampleCount(void) const { return Held_.size(); }
+  [[nodiscard]] double StepM() const { return StepM_; }
+  [[nodiscard]] size_t SampleCount() const { return Held_.size(); }
   [[nodiscard]] double SampleAt(size_t which) const { return Held_[which]; }
   [[nodiscard]] double CurvatureAt(size_t which) const { return Curvature_[which]; }
-  [[nodiscard]] double CrestHeldMs(void) const { return CrestHeld_; }
-  [[nodiscard]] double CrestHeldAtM(void) const { return CrestHeldAt_; }
-  [[nodiscard]] size_t CrestsThatBound(void) const { return CrestsBound_; }
+  [[nodiscard]] double CrestHeldMs() const { return CrestHeld_; }
+  [[nodiscard]] double CrestHeldAtM() const { return CrestHeldAt_; }
+  [[nodiscard]] size_t CrestsThatBound() const { return CrestsBound_; }
 
 private:
   std::vector<double> Held_;

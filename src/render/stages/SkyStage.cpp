@@ -103,7 +103,7 @@ void SkyStage::Encode(const FrameContext &ctx, const PassRecording &into) {
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }
 
-std::string SkyStage::ShaderSource(void) {
+std::string SkyStage::ShaderSource() {
   std::string ignored;
   return ShaderSource(ignored);
 }

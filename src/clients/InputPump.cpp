@@ -27,7 +27,7 @@ struct Resolved {
   bool Whole;
 };
 
-[[nodiscard]] const Resolved &Table(void) {
+[[nodiscard]] const Resolved &Table() {
   static const Resolved held = [] {
     Resolved out;
     out.Keys[0] = {SDLK_W, InputMap::EventIndexOf("KeyW")};

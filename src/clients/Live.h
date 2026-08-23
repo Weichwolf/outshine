@@ -97,9 +97,9 @@ public:
 
   void Eye(const Gltf::Placement &from);
 
-  [[nodiscard]] const Gltf::Placement &Aimed(void) const { return Stood_.Eye; }
+  [[nodiscard]] const Gltf::Placement &Aimed() const { return Stood_.Eye; }
 
-  void FrameItself(void) {
+  void FrameItself() {
     HaveEye_ = false;
     Aimed_ = false;
   }
@@ -108,22 +108,22 @@ public:
 
   static size_t TookPosing_, TookSubmitting_, TookAiming_, TookDrawing_;
   static size_t AssetReads_;
-  [[nodiscard]] static size_t TookPosing(void) { return TookPosing_; }
-  [[nodiscard]] static size_t TookSubmitting(void) { return TookSubmitting_; }
-  [[nodiscard]] static size_t TookAiming(void) { return TookAiming_; }
-  [[nodiscard]] static size_t TookDrawing(void) { return TookDrawing_; }
-  [[nodiscard]] static size_t AssetReads(void) { return AssetReads_; }
+  [[nodiscard]] static size_t TookPosing() { return TookPosing_; }
+  [[nodiscard]] static size_t TookSubmitting() { return TookSubmitting_; }
+  [[nodiscard]] static size_t TookAiming() { return TookAiming_; }
+  [[nodiscard]] static size_t TookDrawing() { return TookDrawing_; }
+  [[nodiscard]] static size_t AssetReads() { return AssetReads_; }
 
-  [[nodiscard]] const Gltf::Subject &Shown(void) const { return Geometry_; }
-  [[nodiscard]] size_t CarriedParts(void) const { return Joined_; }
+  [[nodiscard]] const Gltf::Subject &Shown() const { return Geometry_; }
+  [[nodiscard]] size_t CarriedParts() const { return Joined_; }
 
-  [[nodiscard]] int At(void) const { return At_; }
-  [[nodiscard]] int Frames(void) const { return Frames_; }
+  [[nodiscard]] int At() const { return At_; }
+  [[nodiscard]] int Frames() const { return Frames_; }
 
 private:
   Live(Render::Renderer &renderer, Declaration declaration, const Ui::Font *font);
   [[nodiscard]] bool Build(std::string &error);
-  [[nodiscard]] double Framing(void) const;
+  [[nodiscard]] double Framing() const;
   [[nodiscard]] bool Pose(int frame, std::string &error);
   [[nodiscard]] bool Look(std::string &error);
   [[nodiscard]] bool Stand(std::string &error);

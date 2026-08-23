@@ -28,12 +28,12 @@ class Markup {
 public:
   [[nodiscard]] bool Read(std::string_view markup, std::string &error);
 
-  [[nodiscard]] const std::vector<Node> &Nodes(void) const { return Nodes_; }
-  [[nodiscard]] int Root(void) const { return Root_; }
+  [[nodiscard]] const std::vector<Node> &Nodes() const { return Nodes_; }
+  [[nodiscard]] int Root() const { return Root_; }
 
-  [[nodiscard]] const std::string &StyleText(void) const { return Style_; }
+  [[nodiscard]] const std::string &StyleText() const { return Style_; }
 
-  [[nodiscard]] bool CarriesAScript(void) const { return Scripted_; }
+  [[nodiscard]] bool CarriesAScript() const { return Scripted_; }
 
   [[nodiscard]] const std::string *AttributeOf(int node, std::string_view name) const;
 

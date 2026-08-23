@@ -27,7 +27,7 @@ public:
   [[nodiscard]] const std::string *Text(std::string_view table, std::string_view row,
                                         std::string_view column) const;
 
-  [[nodiscard]] size_t TableCount(void) const { return Held_.size(); }
+  [[nodiscard]] size_t TableCount() const { return Held_.size(); }
 
 private:
   struct Cell {

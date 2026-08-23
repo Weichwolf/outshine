@@ -1,5 +1,6 @@
 #include <memory>
 #include <string>
+#include <utility>
 
 #include "Check.h"
 
@@ -32,7 +33,7 @@ int main() {
   {
     std::shared_ptr<const RenderPlan> plan;
     std::string why;
-    const bool compiled = RenderPlan::Compile(CoverageSpec(), &plan, why);
+    const bool compiled = [&] { auto made = RenderPlan::Compile(CoverageSpec()); if (made) { plan = *std::move(made); return true; } why = std::move(made).error(); return false; }();
     CHECK(compiled, "the coverage declaration compiles");
     if (compiled) {
       CHECK(PassesOf(*plan) <= 2,
@@ -71,8 +72,8 @@ int main() {
   {
     std::shared_ptr<const RenderPlan> first, second;
     std::string why;
-    const bool both = RenderPlan::Compile(CoverageSpec(), &first, why) &&
-                      RenderPlan::Compile(CoverageSpec(), &second, why);
+    const bool both = [&] { auto made = RenderPlan::Compile(CoverageSpec()); if (made) { first = *std::move(made); return true; } why = std::move(made).error(); return false; }() &&
+                      [&] { auto made = RenderPlan::Compile(CoverageSpec()); if (made) { second = *std::move(made); return true; } why = std::move(made).error(); return false; }();
     CHECK(both, "one declaration compiles twice");
     if (both) {
       CHECK(first->Digest() == second->Digest(), "two compilations of one declaration agree");
@@ -86,7 +87,7 @@ int main() {
                     Stage::TemporalResolve, Stage::AutoExposure};
     std::shared_ptr<const RenderPlan> plan;
     std::string why;
-    const bool compiled = RenderPlan::Compile(spec, &plan, why);
+    const bool compiled = [&] { auto made = RenderPlan::Compile(spec); if (made) { plan = *std::move(made); return true; } why = std::move(made).error(); return false; }();
     CHECK(compiled, "a declaration that asks for a lit picture compiles");
     if (compiled) {
       CHECK(plan->Holds(Stage::MediumTransmittance) && plan->Holds(Stage::MediumMultiScatter) &&
@@ -111,7 +112,7 @@ int main() {
     spec.Outputs = {Resource::FrameTex};
     std::shared_ptr<const RenderPlan> plan;
     std::string why;
-    const bool compiled = RenderPlan::Compile(spec, &plan, why);
+    const bool compiled = [&] { auto made = RenderPlan::Compile(spec); if (made) { plan = *std::move(made); return true; } why = std::move(made).error(); return false; }();
     CHECK(!compiled, "a picture with no content stage at all is refused rather than rendered black");
     CHECK(why.find("sceneHdr") != std::string::npos && why.find("render.content.") != std::string::npos,
           "the refusal names the attachment nothing draws into and a stage that would supply it");
@@ -125,7 +126,7 @@ int main() {
     spec.Content = {Stage::Subjects, Stage::AmbientOcclusion};
     std::shared_ptr<const RenderPlan> plan;
     std::string why;
-    const bool compiled = RenderPlan::Compile(spec, &plan, why);
+    const bool compiled = [&] { auto made = RenderPlan::Compile(spec); if (made) { plan = *std::move(made); return true; } why = std::move(made).error(); return false; }();
     CHECK(!compiled, "a declared stage nothing reads is refused rather than encoded for nobody");
 
     CHECK(why.find(std::string("render.content.") + Row(Stage::AmbientOcclusion).Name) !=
@@ -141,7 +142,7 @@ int main() {
     spec.Display = outshine::Render::Declared<Transfer>(Transfer::Linear);
     std::shared_ptr<const RenderPlan> plan;
     std::string why;
-    const bool compiled = RenderPlan::Compile(spec, &plan, why);
+    const bool compiled = [&] { auto made = RenderPlan::Compile(spec); if (made) { plan = *std::move(made); return true; } why = std::move(made).error(); return false; }();
     CHECK(!compiled, "an option nothing reads is refused");
     CHECK(why.find("render.display") != std::string::npos,
           "the option refusal names the option's own declaration path");
@@ -151,10 +152,10 @@ int main() {
     std::shared_ptr<const RenderPlan> narrow, wide;
     std::string why;
     PlanSpec spec = CoverageSpec();
-    const bool half = RenderPlan::Compile(spec, &narrow, why);
+    const bool half = [&] { auto made = RenderPlan::Compile(spec); if (made) { narrow = *std::move(made); return true; } why = std::move(made).error(); return false; }();
     spec.Precision = outshine::Render::Declared<outshine::Render::ScenePrecision>(
         outshine::Render::ScenePrecision::Float);
-    const bool full = RenderPlan::Compile(spec, &wide, why);
+    const bool full = [&] { auto made = RenderPlan::Compile(spec); if (made) { wide = *std::move(made); return true; } why = std::move(made).error(); return false; }();
     CHECK(half && full, "the same declaration compiles at both declared precisions");
     if (half && full) {
       CHECK(narrow->Format(Resource::SceneHdr) == outshine::Render::TexelFormat::Rgba16Float &&
@@ -185,7 +186,7 @@ int main() {
         outshine::Render::ScenePrecision::Float);
     std::shared_ptr<const RenderPlan> plan;
     std::string why;
-    const bool compiled = RenderPlan::Compile(spec, &plan, why);
+    const bool compiled = [&] { auto made = RenderPlan::Compile(spec); if (made) { plan = *std::move(made); return true; } why = std::move(made).error(); return false; }();
     CHECK(!compiled, "a declared precision over a plan holding no scene-referred target is refused");
     CHECK(why.find("render.precision") != std::string::npos,
           "the precision refusal names its own declaration path");
@@ -198,7 +199,7 @@ int main() {
     spec.Content = {Stage::Terrain};
     std::shared_ptr<const RenderPlan> plan;
     std::string why;
-    const bool compiled = RenderPlan::Compile(spec, &plan, why);
+    const bool compiled = [&] { auto made = RenderPlan::Compile(spec); if (made) { plan = *std::move(made); return true; } why = std::move(made).error(); return false; }();
     if (!compiled) { Note(("terrain-without-shadows refusal: " + why).c_str()); }
     CHECK(compiled,
           "**A LIT SURFACE WITHOUT A SHADOW CASTER IS A PICTURE, NOT A REFUSAL.** This claim "
@@ -218,10 +219,9 @@ int main() {
   }
 
   {
-    Stage found = Stage::kCount;
-    CHECK(RenderPlan::StageByName("terrain", &found) && found == Stage::Terrain,
+    CHECK(RenderPlan::StageByName("terrain") == Stage::Terrain,
           "a declared stage name resolves to its stage");
-    CHECK(!RenderPlan::StageByName("terrian", &found),
+    CHECK(!RenderPlan::StageByName("terrian").has_value(),
           "an unknown stage name is refused rather than dropped");
   }
 

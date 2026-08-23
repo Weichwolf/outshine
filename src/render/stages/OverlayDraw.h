@@ -24,7 +24,7 @@ inline constexpr size_t kMaxOverlayQuads = 16384;
 
 class OverlayDraw {
 public:
-  [[nodiscard]] static std::string ShaderSource(void);
+  [[nodiscard]] static std::string ShaderSource();
   [[nodiscard]] static std::string ShaderSource(std::string &error);
   static constexpr DrawShape ShaderShape{.VertexUniformBuffers = 1, .FragmentSamplers = 1};
 
@@ -44,7 +44,7 @@ public:
 
   void Encode(const FrameContext &ctx, const PassRecording &into);
 
-  [[nodiscard]] uint32_t Held(void) const { return Count; }
+  [[nodiscard]] uint32_t Held() const { return Count; }
 
 private:
   OwnedPipeline Pipe;

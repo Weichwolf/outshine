@@ -25,7 +25,7 @@ constexpr KnownEvent kEvents[] = {
 constexpr size_t kEventCount = sizeof kEvents / sizeof kEvents[0];
 static_assert(kEventCount < InputMap::kUnbound, "the unbound sentinel must stay outside");
 
-[[nodiscard]] std::string Catalogue(void) {
+[[nodiscard]] std::string Catalogue() {
   std::string all;
   for (const KnownEvent &event : kEvents) {
     if (!all.empty()) { all += ' '; }
@@ -36,7 +36,7 @@ static_assert(kEventCount < InputMap::kUnbound, "the unbound sentinel must stay 
 
 } // namespace
 
-size_t InputMap::Events(void) { return kEventCount; }
+size_t InputMap::Events() { return kEventCount; }
 
 ptrdiff_t InputMap::EventIndexOf(std::string_view event) {
   for (size_t at = 0; at < kEventCount; ++at) {

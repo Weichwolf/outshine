@@ -13,7 +13,7 @@ namespace outshine::Render {
 
 class CompositeTransmissionStage {
 public:
-  [[nodiscard]] static std::string ShaderSource(void);
+  [[nodiscard]] static std::string ShaderSource();
   [[nodiscard]] static std::string ShaderSource(std::string &error);
   static constexpr DrawShape ShaderShape{.FragmentSamplers = 2};
 

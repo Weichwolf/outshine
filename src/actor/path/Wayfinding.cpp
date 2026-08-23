@@ -247,7 +247,7 @@ bool Network::Weave(std::string &error) {
   return true;
 }
 
-size_t Network::JunctionCount(void) const {
+size_t Network::JunctionCount() const {
   size_t junctions = 0;
   for (const Node &node : Nodes_) {
     if (node.EdgeCount > 2) { ++junctions; }

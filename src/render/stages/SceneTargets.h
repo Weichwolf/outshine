@@ -27,7 +27,7 @@ static const char *kVelocityMsl = R"(
 constant float kVelStatic = VELOCITY_STATIC;
 )";
 
-[[nodiscard]] inline std::string VelocityStaticDefine(void) {
+[[nodiscard]] inline std::string VelocityStaticDefine() {
   char made[48];
   std::snprintf(made, sizeof made, "#define VELOCITY_STATIC %.9ef\n", (double)kVelocityStatic);
   return std::string(made);

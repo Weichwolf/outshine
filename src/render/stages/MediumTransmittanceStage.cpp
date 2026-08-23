@@ -77,7 +77,7 @@ void MediumTransmittanceStage::Encode(const PassRecording &into) {
   Settled_ = true;
 }
 
-std::string MediumTransmittanceStage::KernelSource(void) {
+std::string MediumTransmittanceStage::KernelSource() {
   std::string ignored;
   return Kernel(ignored);
 }

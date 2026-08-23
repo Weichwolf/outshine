@@ -106,8 +106,8 @@ bool Engine::Assemble() {
                             S_->Stood, S_->Error);
 }
 
-Store &Engine::Scene(void) { return S_->Scene; }
-const Store &Engine::Scene(void) const { return S_->Scene; }
+Store &Engine::Scene() { return S_->Scene; }
+const Store &Engine::Scene() const { return S_->Scene; }
 Engine::~Engine() = default;
 Engine::Engine(Engine &&) noexcept = default;
 Engine &Engine::operator=(Engine &&) noexcept = default;
@@ -218,8 +218,8 @@ bool Engine::Load(std::string_view path) {
   return true;
 }
 
-const Scenario &Engine::Declared(void) const { return S_->Declared; }
-const Assembled &Engine::Stood(void) const { return S_->Stood; }
+const Scenario &Engine::Declared() const { return S_->Declared; }
+const Assembled &Engine::Stood() const { return S_->Stood; }
 
 // a save is a FUNCTION OF THE DECLARATION: only the <persist what="instance.trait"> rows
 // leave the process, sorted so two saves of one state are one byte sequence; a park keeps a
@@ -374,8 +374,8 @@ bool Engine::Restore(std::string_view path) {
   S_->Error.clear();
   return true;
 }
-const Column<Traits> &Engine::Resolved(void) const { return S_->Kinds; }
-const std::vector<std::string> &Engine::Carried(void) const { return S_->Carried; }
+const Column<Traits> &Engine::Resolved() const { return S_->Kinds; }
+const std::vector<std::string> &Engine::Carried() const { return S_->Carried; }
 
 bool Engine::Advance() {
   if (!S_->Standing) {
@@ -396,7 +396,7 @@ bool Engine::Run() {
   return true;
 }
 
-bool Engine::Park(void) {
+bool Engine::Park() {
   if (!S_->Standing) {
     S_->Error = "no scenario is standing, so there is nothing to park";
     return false;
@@ -457,15 +457,15 @@ bool Engine::Discard(std::string_view name) {
   return false;
 }
 
-std::vector<std::string> Engine::Parked(void) const {
+std::vector<std::string> Engine::Parked() const {
   std::vector<std::string> names;
   for (const Scenario &asleep : S_->Asleep) { names.push_back(asleep.Named.Name); }
   return names;
 }
 
-int Engine::At(void) const { return S_->Standing ? S_->Standing->At() : 0; }
-int Engine::Frames(void) const { return S_->Standing ? S_->Standing->Frames() : 0; }
-bool Engine::Standing(void) const { return S_->Standing != nullptr; }
-const std::string &Engine::Error(void) const { return S_->Error; }
+int Engine::At() const { return S_->Standing ? S_->Standing->At() : 0; }
+int Engine::Frames() const { return S_->Standing ? S_->Standing->Frames() : 0; }
+bool Engine::Standing() const { return S_->Standing != nullptr; }
+const std::string &Engine::Error() const { return S_->Error; }
 
 } // namespace outshine

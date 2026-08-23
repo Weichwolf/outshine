@@ -10,6 +10,7 @@
 #include <map>
 #include <thread>
 #include <string>
+#include <utility>
 #include <string_view>
 #include <vector>
 
@@ -370,7 +371,7 @@ std::shared_ptr<const outshine::Render::RenderPlan> PlanFor(Appearance skin) {
       outshine::Render::ScenePrecision::Float);
   std::shared_ptr<const outshine::Render::RenderPlan> plan;
   std::string why;
-  if (!outshine::Render::RenderPlan::Compile(declaration, &plan, why)) { return nullptr; }
+  if (![&] { auto made = outshine::Render::RenderPlan::Compile(declaration); if (made) { plan = *std::move(made); return true; } why = std::move(made).error(); return false; }()) { return nullptr; }
   return plan;
 }
 
@@ -517,7 +518,7 @@ int main(int, char **argv) {
       outshine::Render::ScenePrecision::Float);
   std::shared_ptr<const outshine::Render::RenderPlan> plan;
   std::string why;
-  CHECK(outshine::Render::RenderPlan::Compile(declaration, &plan, why),
+  CHECK([&] { auto made = outshine::Render::RenderPlan::Compile(declaration); if (made) { plan = *std::move(made); return true; } why = std::move(made).error(); return false; }(),
         "the frame baseline's render declaration compiles");
   if (!plan) { return outshine::Test::Report(); }
 

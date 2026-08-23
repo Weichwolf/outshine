@@ -103,7 +103,7 @@ size_t PathComponents(AnimationPath path) {
   return 0;
 }
 
-Span<const AnimatablePointer> AnimatablePointers(void) {
+Span<const AnimatablePointer> AnimatablePointers() {
   static const AnimatablePointer kPointers[] = {
       {"emissiveFactor", MaterialFactor::Emissive},
       {"pbrMetallicRoughness/baseColorFactor", MaterialFactor::BaseColour},

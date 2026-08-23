@@ -152,3 +152,13 @@ Reviewer sharpening (2026-08-23, morning round) -- the hygiene rider is behind i
 - src/render/plan/RenderCatalogue.h:300-320: `Row`, `Names`, `Produces`, `ProducerCount`
   are value-returning queries used at runtime and carry no `[[nodiscard]]`, while
   `CarriesSceneRadiance` beside them does.
+
+---
+
+Progress (render sharpening repaid): the (void) parameter lists are gone tree-wide (only
+discard-casts and MSL macros remain, which are not the C-ism), RenderCatalogue's
+Row/Names/Produces/ProducerCount carry [[nodiscard]], and RenderPlan speaks C++23 at its
+door: Compile returns std::expected<shared_ptr<const RenderPlan>, std::string>, StageByName
+returns std::optional<Stage> -- ONE public spelling, the out-pointer form died with all 28
+call sites converted (Live.cpp reads the expected directly; the tests wrap it). Gate
+155/155, link audit closed.

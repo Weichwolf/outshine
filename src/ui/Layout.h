@@ -59,7 +59,7 @@ struct Box {
 
   bool Positioned = false;
 
-  [[nodiscard]] double Top(void) const { return Border.Top; }
+  [[nodiscard]] double Top() const { return Border.Top; }
   int Parent = -1;
   std::vector<int> Children;
 
@@ -76,19 +76,19 @@ public:
   [[nodiscard]] bool Build(const Markup &markup, Stylesheet &sheet, double viewportWidth,
                            double viewportHeight, const Font &font, std::string &error);
 
-  [[nodiscard]] const std::vector<Box> &Boxes(void) const { return Boxes_; }
+  [[nodiscard]] const std::vector<Box> &Boxes() const { return Boxes_; }
 
   [[nodiscard]] int Hit(double x, double y) const;
 
-  [[nodiscard]] double ViewportWidth(void) const { return ViewportWidth_; }
-  [[nodiscard]] double ViewportHeight(void) const { return ViewportHeight_; }
+  [[nodiscard]] double ViewportWidth() const { return ViewportWidth_; }
+  [[nodiscard]] double ViewportHeight() const { return ViewportHeight_; }
 
 private:
   std::vector<Box> Boxes_;
   double ViewportWidth_ = 0, ViewportHeight_ = 0;
 };
 
-[[nodiscard]] const char *UserAgentSheet(void);
+[[nodiscard]] const char *UserAgentSheet();
 
 [[nodiscard]] bool ElementIsInTheSubset(std::string_view tag);
 

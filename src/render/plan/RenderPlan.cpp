@@ -124,18 +124,23 @@ std::string Decimal(float value) {
 
 }
 
-bool RenderPlan::StageByName(std::string_view name, Stage *out) {
+std::optional<Stage> RenderPlan::StageByName(std::string_view name) {
   for (size_t s = 0; s < kStageCount; ++s) {
-    if (name == kStages[s].Name) {
-      *out = static_cast<Stage>(s);
-      return true;
-    }
+    if (name == kStages[s].Name) { return static_cast<Stage>(s); }
   }
-  return false;
+  return std::nullopt;
 }
 
-bool RenderPlan::Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan> *out,
-                         std::string &error) {
+std::expected<std::shared_ptr<const RenderPlan>, std::string> RenderPlan::Compile(
+    const PlanSpec &spec) {
+  std::shared_ptr<const RenderPlan> made;
+  std::string error;
+  if (!CompileInto(spec, &made, error)) { return std::unexpected(std::move(error)); }
+  return made;
+}
+
+bool RenderPlan::CompileInto(const PlanSpec &spec, std::shared_ptr<const RenderPlan> *out,
+                             std::string &error) {
   if (spec.Outputs.empty()) {
     error = "render.outputs: a plan that requests no output renders nothing";
     return false;

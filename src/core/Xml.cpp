@@ -29,13 +29,13 @@ bool Xml::Refuse(const std::string &why, size_t at) {
   return false;
 }
 
-std::string Xml::Ref::Name(void) const {
+std::string Xml::Ref::Name() const {
   if (!Valid()) { return std::string(); }
   const Node &node = From_->Nodes_[At_];
   return From_->Span(node.NameOff, node.NameLen);
 }
 
-std::string Xml::Ref::Text(void) const {
+std::string Xml::Ref::Text() const {
   if (!Valid()) { return std::string(); }
   const Node &node = From_->Nodes_[At_];
   return From_->Span(node.TextOff, node.TextLen);
@@ -95,7 +95,7 @@ bool Xml::Ref::Flag(const char *attribute, bool whenAbsent) const {
   return whenAbsent;
 }
 
-size_t Xml::Ref::AttributeCount(void) const {
+size_t Xml::Ref::AttributeCount() const {
   if (!Valid()) { return 0; }
   return From_->Nodes_[At_].Attributes;
 }
@@ -108,12 +108,12 @@ std::string Xml::Ref::AttributeAt(size_t which) const {
   return From_->Span(one.NameOff, one.NameLen);
 }
 
-Xml::Ref Xml::Ref::First(void) const {
+Xml::Ref Xml::Ref::First() const {
   if (!Valid()) { return Ref(); }
   return Ref(From_, From_->Nodes_[At_].FirstChild);
 }
 
-Xml::Ref Xml::Ref::Next(void) const {
+Xml::Ref Xml::Ref::Next() const {
   if (!Valid()) { return Ref(); }
   return Ref(From_, From_->Nodes_[At_].NextSibling);
 }

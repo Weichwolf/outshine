@@ -12,7 +12,7 @@ static const char *kMslPrelude = R"(
 using namespace metal;
 )";
 
-[[nodiscard]] inline std::string MslPrelude(void) {
+[[nodiscard]] inline std::string MslPrelude() {
   char pi[48];
   std::snprintf(pi, sizeof pi, "#define OUTSHINE_PI %.17g\n", std::numbers::pi);
   return std::string(kMslPrelude) + pi;

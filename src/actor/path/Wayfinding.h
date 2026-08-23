@@ -50,12 +50,12 @@ public:
            int lanes);
   [[nodiscard]] bool Weave(std::string &error);
 
-  [[nodiscard]] size_t WayCount(void) const { return Ways_.size(); }
-  [[nodiscard]] size_t PointCount(void) const { return Points_.size() / 2; }
-  [[nodiscard]] size_t NodeCount(void) const { return Nodes_.size(); }
-  [[nodiscard]] size_t EdgeCount(void) const { return Edges_.size(); }
-  [[nodiscard]] size_t JunctionCount(void) const;
-  [[nodiscard]] double SnapM(void) const { return SnapM_; }
+  [[nodiscard]] size_t WayCount() const { return Ways_.size(); }
+  [[nodiscard]] size_t PointCount() const { return Points_.size() / 2; }
+  [[nodiscard]] size_t NodeCount() const { return Nodes_.size(); }
+  [[nodiscard]] size_t EdgeCount() const { return Edges_.size(); }
+  [[nodiscard]] size_t JunctionCount() const;
+  [[nodiscard]] double SnapM() const { return SnapM_; }
 
   [[nodiscard]] Route Plan(const Waypoint &from, const Waypoint &to, double tightestM) const;
   [[nodiscard]] bool Nearest(const Waypoint &to, size_t &node, double &awayM) const;

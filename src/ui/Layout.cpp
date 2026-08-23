@@ -1009,7 +1009,7 @@ std::vector<std::string> ElementsOutsideTheSubset(const Markup &markup) {
   return outside;
 }
 
-const char *UserAgentSheet(void) {
+const char *UserAgentSheet() {
 
   return "html, body, div, p, h1, h2, h3, h4, h5, h6, section, article, header, footer, nav, main,"
          " ul, ol, li, blockquote, figure, form, fieldset, pre { display: block }\n"

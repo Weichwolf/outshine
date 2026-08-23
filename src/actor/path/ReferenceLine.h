@@ -71,11 +71,11 @@ public:
   [[nodiscard]] bool At(double alongM, Placed &out) const;
   [[nodiscard]] bool Nearest(double eastM, double northM, double nearM, double windowM,
                              double &alongM) const;
-  [[nodiscard]] double LengthM(void) const { return Length_; }
-  [[nodiscard]] size_t SegmentCount(void) const { return Laid_.size(); }
-  [[nodiscard]] size_t RiseKnotCount(void) const { return Rise_.size(); }
-  [[nodiscard]] size_t BankKnotCount(void) const { return Bank_.size(); }
-  [[nodiscard]] const std::string &Error(void) const { return Error_; }
+  [[nodiscard]] double LengthM() const { return Length_; }
+  [[nodiscard]] size_t SegmentCount() const { return Laid_.size(); }
+  [[nodiscard]] size_t RiseKnotCount() const { return Rise_.size(); }
+  [[nodiscard]] size_t BankKnotCount() const { return Bank_.size(); }
+  [[nodiscard]] const std::string &Error() const { return Error_; }
 
 private:
   struct Held {

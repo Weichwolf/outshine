@@ -1,6 +1,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
 
 #include "Check.h"
 
@@ -133,7 +134,7 @@ int main() {
     spec.Exposure = outshine::Render::Declared<float>(1.0f);
     std::shared_ptr<const RenderPlan> plan;
     std::string why;
-    const bool compiled = RenderPlan::Compile(spec, &plan, why);
+    const bool compiled = [&] { auto made = RenderPlan::Compile(spec); if (made) { plan = *std::move(made); return true; } why = std::move(made).error(); return false; }();
     CHECK(compiled, "the coverage declaration compiles");
     if (compiled) { JudgePlan(*plan, "coverage plan"); }
   }
@@ -147,7 +148,7 @@ int main() {
                     Stage::AutoExposure};
     std::shared_ptr<const RenderPlan> plan;
     std::string why;
-    const bool compiled = RenderPlan::Compile(spec, &plan, why);
+    const bool compiled = [&] { auto made = RenderPlan::Compile(spec); if (made) { plan = *std::move(made); return true; } why = std::move(made).error(); return false; }();
     CHECK(compiled, "a declaration naming every content stage compiles");
     if (compiled) {
       JudgePlan(*plan, "every-content plan");
@@ -167,8 +168,8 @@ int main() {
 
     std::shared_ptr<const RenderPlan> without, with;
     std::string why;
-    const bool bothCompiled = RenderPlan::Compile(unread, &without, why) &&
-                              RenderPlan::Compile(read, &with, why);
+    const bool bothCompiled = [&] { auto made = RenderPlan::Compile(unread); if (made) { without = *std::move(made); return true; } why = std::move(made).error(); return false; }() &&
+                              [&] { auto made = RenderPlan::Compile(read); if (made) { with = *std::move(made); return true; } why = std::move(made).error(); return false; }();
     CHECK(bothCompiled, "both plans compile: one whose stages read the velocity target and one "
                         "whose stages only draw into it");
     if (bothCompiled) {
@@ -210,7 +211,7 @@ int main() {
     bare.Content = {outshine::Render::Stage::Subjects};
     std::shared_ptr<const RenderPlan> plan;
     std::string error;
-    CHECK(RenderPlan::Compile(bare, &plan, error), "a plain subjects plan compiles");
+    CHECK([&] { auto made = RenderPlan::Compile(bare); if (made) { plan = *std::move(made); return true; } error = std::move(made).error(); return false; }(), "a plain subjects plan compiles");
     if (plan) {
       CHECK(!plan->Stored(Resource::SceneShadingNormal) &&
                 !plan->Stored(Resource::SceneSurfaceIdentity),
@@ -224,7 +225,7 @@ int main() {
     outshine::Render::PlanSpec parity = bare;
     parity.Outputs.push_back(Resource::SceneShadingNormal);
     std::shared_ptr<const RenderPlan> kept;
-    CHECK(RenderPlan::Compile(parity, &kept, error) && kept &&
+    CHECK([&] { auto made = RenderPlan::Compile(parity); if (made) { kept = *std::move(made); return true; } error = std::move(made).error(); return false; }() && kept &&
               kept->Stored(Resource::SceneShadingNormal),
           "**AND ASKING FOR IT IS ENOUGH**: the parity harness declares the normal as an output "
           "and the derivation keeps it -- the consumer decides what survives the pass, in the "

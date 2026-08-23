@@ -25,8 +25,8 @@ public:
 
   void Build(const double eye[3]);
 
-  [[nodiscard]] const double *LightFromWorld(void) const { return LightFromWorld_; }
-  [[nodiscard]] bool Standing(void) const { return Declared_; }
+  [[nodiscard]] const double *LightFromWorld() const { return LightFromWorld_; }
+  [[nodiscard]] bool Standing() const { return Declared_; }
 
 private:
   SubjectDraw *Subjects_ = nullptr;

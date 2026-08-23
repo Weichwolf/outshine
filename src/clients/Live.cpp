@@ -90,7 +90,7 @@ bool Live::Open(Render::Renderer &renderer, Declaration declaration, const Ui::F
   return true;
 }
 
-double Live::Framing(void) const {
+double Live::Framing() const {
   return Declared_.Fill > 0.0 ? Declared_.Fill : Gltf::kFramingFill;
 }
 
@@ -167,7 +167,12 @@ bool Live::Build(std::string &error) {
         Render::Declared<float>((float)(1.0 / (1.2 * std::pow(2.0, ev100))));
   }
   if (Plan_ == nullptr) {
-    if (!Render::RenderPlan::Compile(declaration, &Plan_, error)) { return false; }
+    auto made = Render::RenderPlan::Compile(declaration);
+    if (!made) {
+      error = std::move(made).error();
+      return false;
+    }
+    Plan_ = *std::move(made);
     Renderer_->Init(Declared_.SurfaceWidthPx, Declared_.SurfaceHeightPx, Plan_);
     if (!Renderer_->DeviceUsable()) {
       error = Renderer_->WhyNot().empty()
@@ -251,7 +256,7 @@ void Live::Eye(const Gltf::Placement &from) {
 bool Live::PlacedBounds(double least[3], double most[3], std::string &error) {
   if (!BoundsPlaced_) {
     bool first = true;
-    const auto fold = [this, &first](void) {
+    const auto fold = [this, &first]() {
       const std::vector<double> &at = Geometry_.PositionsM();
       for (size_t part = 0; part < Geometry_.Parts().size(); ++part) {
         const Gltf::Part &one = Geometry_.Parts()[part];

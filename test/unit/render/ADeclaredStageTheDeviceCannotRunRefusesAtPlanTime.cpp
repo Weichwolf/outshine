@@ -1,5 +1,6 @@
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "Check.h"
@@ -35,7 +36,7 @@ int main(void) {
   {
     std::shared_ptr<const RenderPlan> plan;
     std::string why;
-    CHECK(RenderPlan::Compile(Declaring(Stage::Sun), &plan, why),
+    CHECK([&] { auto made = RenderPlan::Compile(Declaring(Stage::Sun)); if (made) { plan = *std::move(made); return true; } why = std::move(made).error(); return false; }(),
           "the catalogue offers the sun, so the declaration compiles -- the refusal belongs "
           "to the device layer, by name, not to a catalogue hole");
     Renderer refused;
@@ -51,7 +52,7 @@ int main(void) {
   {
     std::shared_ptr<const RenderPlan> plan;
     std::string why;
-    CHECK(RenderPlan::Compile(Declaring(Stage::Sky), &plan, why),
+    CHECK([&] { auto made = RenderPlan::Compile(Declaring(Stage::Sky)); if (made) { plan = *std::move(made); return true; } why = std::move(made).error(); return false; }(),
           "and the sky declaration compiles");
     Renderer standing;
     standing.Init(64, 64, plan);

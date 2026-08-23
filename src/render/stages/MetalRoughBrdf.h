@@ -119,7 +119,7 @@ struct BrdfGeometry {
   return std::string(constants) + body;
 }
 
-[[nodiscard]] inline std::string MetalRoughBrdfMsl(void) {
+[[nodiscard]] inline std::string MetalRoughBrdfMsl() {
   std::string ignored;
   return MetalRoughBrdfMsl(ignored);
 }

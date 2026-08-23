@@ -32,14 +32,14 @@ class Renderer {
 public:
 
   void Init(int width, int height, std::shared_ptr<const RenderPlan> plan);
-  [[nodiscard]] const RenderPlan &Plan(void) const { return *Plan_; }
-  [[nodiscard]] bool DeviceUsable(void) const { return Ready_; }
+  [[nodiscard]] const RenderPlan &Plan() const { return *Plan_; }
+  [[nodiscard]] bool DeviceUsable() const { return Ready_; }
 
-  [[nodiscard]] const std::string &WhyNot(void) const { return WhyNot_; }
+  [[nodiscard]] const std::string &WhyNot() const { return WhyNot_; }
 
-  [[nodiscard]] SDL_GPUDevice *Device(void) const { return Device_.Get(); }
+  [[nodiscard]] SDL_GPUDevice *Device() const { return Device_.Get(); }
 
-  [[nodiscard]] SDL_GPUTextureFormat SurfaceFormat(void) const;
+  [[nodiscard]] SDL_GPUTextureFormat SurfaceFormat() const;
 
   void PresentInto(SDL_GPUTexture *surface) { HostSurface_ = surface; }
 
@@ -51,18 +51,18 @@ public:
     RegionAspect_ = aspect;
   }
 
-  void RenderFrame(void);
+  void RenderFrame();
 
-  ~Renderer(void) { WaitForGpu(); }
-  Renderer(void) = default;
+  ~Renderer() { WaitForGpu(); }
+  Renderer() = default;
   Renderer(const Renderer &) = delete;
   Renderer &operator=(const Renderer &) = delete;
 
-  void WaitForGpu(void);
+  void WaitForGpu();
 
   static constexpr int kFramesInFlight = 2;
 
-  [[nodiscard]] int SettleFrames(void) const { return Plan_ ? Plan_->SettleFrames() : 1; }
+  [[nodiscard]] int SettleFrames() const { return Plan_ ? Plan_->SettleFrames() : 1; }
 
   [[nodiscard]] ReadState ReadPixels(std::vector<uint8_t> &rgba);
 
@@ -128,22 +128,22 @@ public:
     Sky_.Declare(Medium_, toSun, up, illuminanceLux, eyeHeightM);
   }
 
-  [[nodiscard]] SDL_GPUTexture *SkyViewTable(void) const { return SkyViewLut_.Get(); }
+  [[nodiscard]] SDL_GPUTexture *SkyViewTable() const { return SkyViewLut_.Get(); }
 
-  [[nodiscard]] SDL_GPUTexture *MultiScatterTable(void) const { return MultiScatterLut_.Get(); }
+  [[nodiscard]] SDL_GPUTexture *MultiScatterTable() const { return MultiScatterLut_.Get(); }
 
-  [[nodiscard]] SDL_GPUTexture *TransmittanceTable(void) const { return TransmittanceLut_.Get(); }
+  [[nodiscard]] SDL_GPUTexture *TransmittanceTable() const { return TransmittanceLut_.Get(); }
 
   void SetSubjectEnvironment(const SubjectEnvironment &environment) {
     Subjects_.SetEnvironment(environment);
     if (DrawsGlass_) { Glass_.SetEnvironment(environment); }
   }
-  [[nodiscard]] uint32_t SubjectBatchCount(void) const { return Subjects_.BatchCount(); }
-  [[nodiscard]] uint32_t SubjectDrawCount(void) const { return Subjects_.DrawCount(); }
+  [[nodiscard]] uint32_t SubjectBatchCount() const { return Subjects_.BatchCount(); }
+  [[nodiscard]] uint32_t SubjectDrawCount() const { return Subjects_.DrawCount(); }
 
-  [[nodiscard]] uint32_t SubjectPipelineCount(void) const { return Subjects_.PipelineCount(); }
+  [[nodiscard]] uint32_t SubjectPipelineCount() const { return Subjects_.PipelineCount(); }
 
-  [[nodiscard]] float ShadowRayNearM(void) const { return Subjects_.ShadowNearM(); }
+  [[nodiscard]] float ShadowRayNearM() const { return Subjects_.ShadowNearM(); }
 
   void SetCameraBasis(const double eye[3], const double fwd[3], const double right[3],
                       const double up[3]);
@@ -152,16 +152,16 @@ public:
   void SetOrthoM(double m) { OrthoM_ = (float)m; }
 
   void SetNearM(double m) { NearM_ = m > 0.0 ? (float)m : NearM_; }
-  [[nodiscard]] float NearMetres(void) const { return NearM_; }
+  [[nodiscard]] float NearMetres() const { return NearM_; }
 
-  void BeginTemporalRun(void);
+  void BeginTemporalRun();
 
-  [[nodiscard]] int SceneW(void) const { return Width_; }
-  [[nodiscard]] int SceneH(void) const { return Height_; }
-  [[nodiscard]] double PictureW(void) const;
-  [[nodiscard]] double PictureH(void) const;
+  [[nodiscard]] int SceneW() const { return Width_; }
+  [[nodiscard]] int SceneH() const { return Height_; }
+  [[nodiscard]] double PictureW() const;
+  [[nodiscard]] double PictureH() const;
 
-  [[nodiscard]] double SceneAspect(void) const {
+  [[nodiscard]] double SceneAspect() const {
     return PictureH() > 0 ? (double)PictureW() / (double)PictureH() : 0.0;
   }
 
@@ -207,9 +207,9 @@ private:
   void EncodePass(SDL_GPUCommandBuffer *commands, size_t pass);
   bool Touched_[kResourceCount] = {};
   [[nodiscard]] SDL_GPUTexture *Target(Resource resource) const;
-  [[nodiscard]] DisplayOptions Display(void) const;
+  [[nodiscard]] DisplayOptions Display() const;
 
-  [[nodiscard]] SDL_GPUTexture *LinearSource(void) const;
+  [[nodiscard]] SDL_GPUTexture *LinearSource() const;
 
   OwnedDevice Device_;
 
@@ -265,7 +265,7 @@ private:
   struct Placed {
     double LeftPx = 0, TopPx = 0, WidthPx = 0, HeightPx = 0;
   };
-  [[nodiscard]] Placed PictureRect(void) const;
+  [[nodiscard]] Placed PictureRect() const;
   double Eye_[3] = {0, 0, 0};
   double Fwd_[3] = {0, 0, 0}, Right_[3] = {0, 0, 0}, Up_[3] = {0, 0, 0};
   float FovDeg_ = 60.0f;

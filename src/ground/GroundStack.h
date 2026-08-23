@@ -26,11 +26,11 @@ public:
   [[nodiscard]] bool Open(std::string_view cacheDir, std::string_view assetsDir,
                           std::span<const Provider> providers, double focusLat,
                           double focusLon, Data::Transport &wire, Sink &say);
-  void Close(void);
+  void Close();
 
-  [[nodiscard]] bool Opened(void) const { return Opened_; }
-  [[nodiscard]] TilePool &Pool(void) const { return *Pool_; }
-  [[nodiscard]] GroundStream &Ground(void) const { return *Ground_; }
+  [[nodiscard]] bool Opened() const { return Opened_; }
+  [[nodiscard]] TilePool &Pool() const { return *Pool_; }
+  [[nodiscard]] GroundStream &Ground() const { return *Ground_; }
 
 private:
   std::unique_ptr<Data::ContentStore> Store_;

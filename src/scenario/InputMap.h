@@ -27,7 +27,7 @@ public:
   [[nodiscard]] bool Requires(std::string_view action, std::string &error) const;
 
   // the catalogue side, static: the pump resolves its device event to an index ONCE
-  [[nodiscard]] static size_t Events(void);
+  [[nodiscard]] static size_t Events();
   [[nodiscard]] static ptrdiff_t EventIndexOf(std::string_view event);
 
   // the event path: index in, action id out, no string touched

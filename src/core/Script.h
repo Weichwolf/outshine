@@ -49,9 +49,9 @@ struct Value {
     return out;
   }
 
-  [[nodiscard]] bool Truth(void) const;
+  [[nodiscard]] bool Truth() const;
 
-  [[nodiscard]] std::string AsText(void) const;
+  [[nodiscard]] std::string AsText() const;
 };
 
 struct Host {
@@ -98,19 +98,19 @@ public:
   Program &operator=(Program &&) noexcept;
 
   [[nodiscard]] bool Read(std::string_view text, std::string &error);
-  [[nodiscard]] bool Held(void) const;
+  [[nodiscard]] bool Held() const;
 
-  [[nodiscard]] size_t NodeCount(void) const;
+  [[nodiscard]] size_t NodeCount() const;
 
   [[nodiscard]] bool Run(Host &host, std::string &error);
 
-  void Reset(void);
+  void Reset();
 
-  [[nodiscard]] size_t Steps(void) const { return Steps_; }
+  [[nodiscard]] size_t Steps() const { return Steps_; }
 
   [[nodiscard]] const Value *Named(std::string_view name) const;
 
-  [[nodiscard]] const std::string &Stopped(void) const { return Stopped_; }
+  [[nodiscard]] const std::string &Stopped() const { return Stopped_; }
 
 private:
   [[nodiscard]] bool Evaluate(size_t node, Host &host, Value &out, std::string &error);

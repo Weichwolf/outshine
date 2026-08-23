@@ -29,7 +29,7 @@ public:
   };
   [[nodiscard]] static std::string ShaderSource(const SourceOptions &options);
   [[nodiscard]] static std::string ShaderSource(const SourceOptions &options, std::string &error);
-  [[nodiscard]] static std::string DepthOnlySource(void);
+  [[nodiscard]] static std::string DepthOnlySource();
   [[nodiscard]] static std::string DepthOnlySource(std::string &error);
   [[nodiscard]] static const char *VertexEntry(VertexLayout layout);
   [[nodiscard]] static const char *FragmentEntry(SurfaceKind kind, VertexLayout layout);

@@ -68,7 +68,7 @@ void CompositeTransmissionStage::Encode(const FrameContext &, const PassRecordin
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }
 
-std::string CompositeTransmissionStage::ShaderSource(void) {
+std::string CompositeTransmissionStage::ShaderSource() {
   std::string ignored;
   return ShaderSource(ignored);
 }

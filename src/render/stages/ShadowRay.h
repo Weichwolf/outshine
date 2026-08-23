@@ -25,7 +25,7 @@ constexpr float kShadowRayNearFraction = 1.0f / 16384.0f;
   return std::string(constants) + body;
 }
 
-[[nodiscard]] inline std::string ShadowRayMsl(void) {
+[[nodiscard]] inline std::string ShadowRayMsl() {
   std::string ignored;
   return ShadowRayMsl(ignored);
 }

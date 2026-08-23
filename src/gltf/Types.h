@@ -211,7 +211,7 @@ struct AnimatablePointer {
   MaterialFactor Factor;
 };
 
-Span<const AnimatablePointer> AnimatablePointers(void);
+Span<const AnimatablePointer> AnimatablePointers();
 
 enum class UndrivenReason : uint8_t {
 

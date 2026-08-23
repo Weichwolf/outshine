@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "Check.h"
@@ -120,7 +121,7 @@ int main(void) {
       outshine::Render::ScenePrecision::Float);
   std::shared_ptr<const outshine::Render::RenderPlan> plan;
   std::string error;
-  CHECK(outshine::Render::RenderPlan::Compile(declaration, &plan, error),
+  CHECK([&] { auto made = outshine::Render::RenderPlan::Compile(declaration); if (made) { plan = *std::move(made); return true; } error = std::move(made).error(); return false; }(),
         "the instrument's render declaration compiles");
   if (!plan) { return Report(); }
 

@@ -147,7 +147,7 @@ inline void IridescenceFresnel(double cosTheta1, double thicknessNm, double film
   return std::string(constants) + body;
 }
 
-[[nodiscard]] inline std::string IridescenceLobeMsl(void) {
+[[nodiscard]] inline std::string IridescenceLobeMsl() {
   std::string ignored;
   return IridescenceLobeMsl(ignored);
 }

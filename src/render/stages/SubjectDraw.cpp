@@ -236,7 +236,7 @@ std::string SubjectDraw::ShaderSource(const SourceOptions &options, std::string 
          body + brdf + sheen + iridescence + energy + lit + litTextured + normalMap + mapped;
 }
 
-std::string SubjectDraw::DepthOnlySource(void) {
+std::string SubjectDraw::DepthOnlySource() {
   std::string ignored;
   return DepthOnlySource(ignored);
 }

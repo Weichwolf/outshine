@@ -49,7 +49,7 @@ struct CloudDeckParams {
   float ErodeFlat = 0.0f;
   float Pad1 = 0.0f;
 
-  float ThicknessM(void) const { return TopM - BaseM; }
+  float ThicknessM() const { return TopM - BaseM; }
 };
 
 struct CloudSky {
@@ -57,7 +57,7 @@ struct CloudSky {
   float VisibilityM = 100000.0f;
 
   double AnchorLatDeg = 0.0, AnchorLonDeg = 0.0;
-  [[nodiscard]] bool Any(void) const { return Deck[0].Cover > 0.0f || Deck[1].Cover > 0.0f || Deck[2].Cover > 0.0f; }
+  [[nodiscard]] bool Any() const { return Deck[0].Cover > 0.0f || Deck[1].Cover > 0.0f || Deck[2].Cover > 0.0f; }
 };
 
 inline float CloudSmooth(float e0, float e1, float x) {

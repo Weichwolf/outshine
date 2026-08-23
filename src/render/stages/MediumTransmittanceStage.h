@@ -13,7 +13,7 @@ namespace outshine::Render {
 
 class MediumTransmittanceStage {
 public:
-  [[nodiscard]] static std::string KernelSource(void);
+  [[nodiscard]] static std::string KernelSource();
   [[nodiscard]] static std::string KernelSource(std::string &error);
   static constexpr ComputeShape KernelShape{
       .ReadWriteTextures = 1, .UniformBuffers = 1, .GroupX = 8, .GroupY = 8};
@@ -23,7 +23,7 @@ public:
 
   void Encode(const PassRecording &into);
 
-  [[nodiscard]] bool Settled(void) const { return Settled_; }
+  [[nodiscard]] bool Settled() const { return Settled_; }
 
 private:
   OwnedComputePipeline Pipe;

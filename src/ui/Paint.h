@@ -38,9 +38,9 @@ public:
   [[nodiscard]] bool Build(const Layout &layout, const Font &font, std::string &error,
                            const Page &page = {});
 
-  [[nodiscard]] const std::vector<Quad> &Quads(void) const { return Quads_; }
+  [[nodiscard]] const std::vector<Quad> &Quads() const { return Quads_; }
 
-  [[nodiscard]] size_t QuadsBeyondTheBound(void) const { return Beyond_; }
+  [[nodiscard]] size_t QuadsBeyondTheBound() const { return Beyond_; }
 
 private:
   std::vector<Quad> Quads_;

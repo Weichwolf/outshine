@@ -373,7 +373,7 @@ SDL_GPUTexture *Renderer::Target(Resource resource) const {
   return nullptr;
 }
 
-DisplayOptions Renderer::Display(void) const {
+DisplayOptions Renderer::Display() const {
   DisplayOptions options;
   options.Exposure = Plan_->Exposure();
   options.Curve = Plan_->Display();
@@ -382,7 +382,7 @@ DisplayOptions Renderer::Display(void) const {
   return options;
 }
 
-Renderer::Placed Renderer::PictureRect(void) const {
+Renderer::Placed Renderer::PictureRect() const {
   Placed out;
   out.LeftPx = 0;
   out.TopPx = 0;
@@ -406,14 +406,14 @@ Renderer::Placed Renderer::PictureRect(void) const {
   return out;
 }
 
-double Renderer::PictureW(void) const { return PictureRect().WidthPx; }
-double Renderer::PictureH(void) const { return PictureRect().HeightPx; }
+double Renderer::PictureW() const { return PictureRect().WidthPx; }
+double Renderer::PictureH() const { return PictureRect().HeightPx; }
 
-SDL_GPUTextureFormat Renderer::SurfaceFormat(void) const {
+SDL_GPUTextureFormat Renderer::SurfaceFormat() const {
   return Plan_ ? FormatOf(Plan_->Format(Resource::Surface)) : SDL_GPU_TEXTUREFORMAT_INVALID;
 }
 
-SDL_GPUTexture *Renderer::LinearSource(void) const {
+SDL_GPUTexture *Renderer::LinearSource() const {
   return Target(Plan_->Bound(Resource::SceneLinear));
 }
 
@@ -660,7 +660,7 @@ void Renderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
   SDL_EndGPURenderPass(into.Pass);
 }
 
-void Renderer::BeginTemporalRun(void) {
+void Renderer::BeginTemporalRun() {
   HistoryStarted_ = false;
   JitterAt_ = 0;
   Jitter_[0] = 0.0f;
@@ -671,7 +671,7 @@ void Renderer::BeginTemporalRun(void) {
   HistoryHeld_ = false;
 }
 
-void Renderer::RenderFrame(void) {
+void Renderer::RenderFrame() {
   if (!Ready_ || !CameraFull_) { return; }
 
   if (Plan_->Holds(Stage::TemporalResolve)) {
@@ -707,7 +707,7 @@ void Renderer::RenderFrame(void) {
   Submitted_ = true;
 }
 
-void Renderer::WaitForGpu(void) {
+void Renderer::WaitForGpu() {
   if (!Ready_) { return; }
   SDL_WaitForGPUIdle(Device_.Get());
 

@@ -85,7 +85,7 @@ void MediumMultiScatterStage::Encode(const PassRecording &into) {
   Settled_ = true;
 }
 
-std::string MediumMultiScatterStage::KernelSource(void) {
+std::string MediumMultiScatterStage::KernelSource() {
   std::string ignored;
   return Kernel(ignored);
 }

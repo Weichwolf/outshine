@@ -8,6 +8,7 @@
 #include <optional>
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "Check.h"
@@ -1108,7 +1109,7 @@ Prepared Prepare(Case &subject, outshine::Render::Renderer &renderer) {
   outshine::Render::PlanSpec declaration;
   DeclarePlan(subject, declaration);
   std::shared_ptr<const outshine::Render::RenderPlan> plan;
-  const bool compiled = outshine::Render::RenderPlan::Compile(declaration, &plan, why);
+  const bool compiled = [&] { auto made = outshine::Render::RenderPlan::Compile(declaration); if (made) { plan = *std::move(made); return true; } why = std::move(made).error(); return false; }();
   CHECK(compiled, "the case's render declaration compiles");
   if (!compiled) {
     Refused(why);
@@ -2345,7 +2346,7 @@ bool ConfiguredCase::Start(outshine::Render::Renderer &renderer, std::string &er
 
   declaration.Outputs.push_back(outshine::Render::Resource::Surface);
   std::shared_ptr<const outshine::Render::RenderPlan> plan;
-  if (!outshine::Render::RenderPlan::Compile(declaration, &plan, error)) { return false; }
+  if (![&] { auto made = outshine::Render::RenderPlan::Compile(declaration); if (made) { plan = *std::move(made); return true; } error = std::move(made).error(); return false; }()) { return false; }
   renderer.Init(surfaceW > 0 ? surfaceW : (int)Held_->Subject.Frame.WidthPx,
                 surfaceH > 0 ? surfaceH : (int)Held_->Subject.Frame.HeightPx, plan);
   if (!renderer.DeviceUsable()) {

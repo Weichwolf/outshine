@@ -7,7 +7,7 @@
 
 namespace outshine::Script {
 
-bool Value::Truth(void) const {
+bool Value::Truth() const {
   switch (What) {
     case Kind::Nothing: return false;
     case Kind::Number: return Number != 0.0;
@@ -17,7 +17,7 @@ bool Value::Truth(void) const {
   return false;
 }
 
-std::string Value::AsText(void) const {
+std::string Value::AsText() const {
   switch (What) {
     case Kind::Nothing: return "";
     case Kind::Text: return Text;
@@ -236,7 +236,7 @@ struct Reading {
   size_t At = 0;
   size_t Depth = 0;
 
-  [[nodiscard]] const Token &Now(void) const { return Tokens[At]; }
+  [[nodiscard]] const Token &Now() const { return Tokens[At]; }
   [[nodiscard]] bool Is(const char *mark) const {
     return Now().What == Word::Mark && Now().Spelling == mark;
   }
@@ -256,18 +256,18 @@ struct Reading {
                                      : "'" + Now().Spelling + "'");
     return false;
   }
-  [[nodiscard]] bool Room(void) {
+  [[nodiscard]] bool Room() {
     if (Nodes.size() < kMaxNodes) { return true; }
     Error = "the script reaches the node bound of " + std::to_string(kMaxNodes);
     return false;
   }
-  [[nodiscard]] bool Deeper(void) {
+  [[nodiscard]] bool Deeper() {
     if (++Depth <= kMaxDepth) { return true; }
     Error = "the script nests past the depth bound of " + std::to_string(kMaxDepth) + " at " +
             Where(Text, Now().At);
     return false;
   }
-  void Shallower(void) { --Depth; }
+  void Shallower() { --Depth; }
   size_t Make(Program::Node node) {
     Nodes.push_back(std::move(node));
     return Nodes.size() - 1;
@@ -837,14 +837,14 @@ const char *WhyOutside(std::string_view name) {
   return nullptr;
 }
 
-void Program::Reset(void) {
+void Program::Reset() {
 
   Names_.clear();
   Held_.clear();
 }
 
-bool Program::Held(void) const { return !Nodes_.empty(); }
-size_t Program::NodeCount(void) const { return Nodes_.size(); }
+bool Program::Held() const { return !Nodes_.empty(); }
+size_t Program::NodeCount() const { return Nodes_.size(); }
 
 const Value *Program::Named(std::string_view name) const {
   for (size_t at = 0; at < Names_.size(); ++at) {

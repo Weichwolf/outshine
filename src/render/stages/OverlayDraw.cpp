@@ -203,7 +203,7 @@ void OverlayDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   SDL_DrawGPUPrimitives(into.Pass, 6, Count, 0, 0);
 }
 
-std::string OverlayDraw::ShaderSource(void) {
+std::string OverlayDraw::ShaderSource() {
   std::string ignored;
   return ShaderSource(ignored);
 }

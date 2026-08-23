@@ -75,7 +75,7 @@ void PresentStage::Encode(const FrameContext &ctx, const PassRecording &into) {
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }
 
-std::string PresentStage::ShaderSource(void) {
+std::string PresentStage::ShaderSource() {
   std::string ignored;
   return ShaderSource(ignored);
 }

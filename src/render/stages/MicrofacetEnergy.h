@@ -115,7 +115,7 @@ inline constexpr int kEnergyViewSteps = 16;
          "constant float kGgxAlbedoAverage[] = { " + average + " };\n" + body;
 }
 
-[[nodiscard]] inline std::string MicrofacetEnergyMsl(void) {
+[[nodiscard]] inline std::string MicrofacetEnergyMsl() {
   std::string ignored;
   return MicrofacetEnergyMsl(ignored);
 }

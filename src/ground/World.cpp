@@ -19,7 +19,7 @@ namespace outshine::Ground {
 
 static const int kRootZ = 8;
 
-static double Clock(void) {
+static double Clock() {
   return std::chrono::duration<double, std::milli>(
              std::chrono::steady_clock::now().time_since_epoch()).count();
 }

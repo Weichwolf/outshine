@@ -2,7 +2,9 @@
 #define RENDERPLAN_H
 
 #include <string_view>
+#include <expected>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -48,10 +50,17 @@ public:
     Resource Depth = kNoEdge;
   };
 
-  [[nodiscard]] static bool Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan> *out,
-                                    std::string &error);
+  // the C++23 doors: a refusal carries its reason, a lookup that may find nothing says so
+  [[nodiscard]] static std::expected<std::shared_ptr<const RenderPlan>, std::string> Compile(
+      const PlanSpec &spec);
+  [[nodiscard]] static std::optional<Stage> StageByName(std::string_view name);
 
-  [[nodiscard]] static bool StageByName(std::string_view name, Stage *out);
+private:
+  [[nodiscard]] static bool CompileInto(const PlanSpec &spec,
+                                        std::shared_ptr<const RenderPlan> *out,
+                                        std::string &error);
+
+public:
 
   [[nodiscard]] bool Holds(Stage stage) const { return HeldStage_[static_cast<size_t>(stage)]; }
   [[nodiscard]] bool Holds(Resource resource) const {

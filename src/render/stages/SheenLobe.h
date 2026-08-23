@@ -94,7 +94,7 @@ inline constexpr int kSheenAlbedoQuadrature = 64;
   return std::string(head) + "constant float kSheenAlbedo[] = { " + table + " };\n" + body;
 }
 
-[[nodiscard]] inline std::string SheenLobeMsl(void) {
+[[nodiscard]] inline std::string SheenLobeMsl() {
   std::string ignored;
   return SheenLobeMsl(ignored);
 }

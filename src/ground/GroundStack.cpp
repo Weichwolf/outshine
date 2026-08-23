@@ -43,7 +43,7 @@ bool GroundStack::Open(std::string_view cacheDir, std::string_view assetsDir,
   return true;
 }
 
-void GroundStack::Close(void) {
+void GroundStack::Close() {
   Ground_.reset();
   Pool_.reset();
   Sources_.reset();

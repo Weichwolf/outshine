@@ -76,10 +76,10 @@ public:
 
   [[nodiscard]] std::vector<Declaration> Inline(std::string_view text);
 
-  [[nodiscard]] const std::vector<Rule> &Rules(void) const { return Rules_; }
-  [[nodiscard]] size_t PropertiesOutsideTheSubset(void) const { return Unheld_; }
-  [[nodiscard]] size_t SelectorsOutsideTheSubset(void) const { return Unselectable_; }
-  [[nodiscard]] const std::vector<std::string> &NamesOutsideTheSubset(void) const { return Names_; }
+  [[nodiscard]] const std::vector<Rule> &Rules() const { return Rules_; }
+  [[nodiscard]] size_t PropertiesOutsideTheSubset() const { return Unheld_; }
+  [[nodiscard]] size_t SelectorsOutsideTheSubset() const { return Unselectable_; }
+  [[nodiscard]] const std::vector<std::string> &NamesOutsideTheSubset() const { return Names_; }
 
 private:
   std::vector<Rule> Rules_;

@@ -73,7 +73,7 @@ struct SurfaceBasis {
   return body;
 }
 
-[[nodiscard]] inline std::string NormalFromMapMsl(void) {
+[[nodiscard]] inline std::string NormalFromMapMsl() {
   std::string ignored;
   return NormalFromMapMsl(ignored);
 }

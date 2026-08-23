@@ -63,7 +63,7 @@ uint32_t Emit(Building &work, uint32_t first, uint32_t count, uint32_t depth) {
     centroidBox.Cover(work.Centroids.data() + (size_t)tri * 3u);
   }
 
-  const auto MakeLeaf = [&](void) {
+  const auto MakeLeaf = [&]() {
     work.Nodes[here].Leaf = (count << kBvhLeafFirstBits) | first;
   };
 

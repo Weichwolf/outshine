@@ -300,21 +300,21 @@ inline constexpr int kTemporalSettleFrames = 128;
 constexpr size_t kResourceCount = static_cast<size_t>(Resource::kCount);
 constexpr size_t kStageCount = static_cast<size_t>(Stage::kCount);
 
-constexpr const ResourceRow &Row(Resource r) { return kResources[static_cast<size_t>(r)]; }
-constexpr const StageRow &Row(Stage s) { return kStages[static_cast<size_t>(s)]; }
+[[nodiscard]] constexpr const ResourceRow &Row(Resource r) { return kResources[static_cast<size_t>(r)]; }
+[[nodiscard]] constexpr const StageRow &Row(Stage s) { return kStages[static_cast<size_t>(s)]; }
 
-constexpr bool Names(const Resource (&edges)[kMaxEdges], Resource wanted) {
+[[nodiscard]] constexpr bool Names(const Resource (&edges)[kMaxEdges], Resource wanted) {
   for (size_t i = 0; i < kMaxEdges && edges[i] != kNoEdge; ++i) {
     if (edges[i] == wanted) { return true; }
   }
   return false;
 }
 
-constexpr bool Produces(Stage s, Resource r) {
+[[nodiscard]] constexpr bool Produces(Stage s, Resource r) {
   return Names(Row(s).Writes, r) || Names(Row(s).Contributes, r);
 }
 
-constexpr size_t ProducerCount(Resource r) {
+[[nodiscard]] constexpr size_t ProducerCount(Resource r) {
   size_t found = 0;
   for (size_t s = 0; s < kStageCount; ++s) {
     if (Produces(static_cast<Stage>(s), r)) { ++found; }
