@@ -67,3 +67,48 @@ so `mdspan` fits only with a fixed per-door stride), `src/gltf/Tangents.cpp:114`
    `std::vector<uint8_t>` or a bitset that can be read — not `std::vector<bool>`.
 4. The proof is a layout test, not a behaviour test: `static_assert` on the extents type
    beside each struct, and a unit case that a column's cells are `stride`-apart in memory.
+
+## Comments
+
+- 2026-08-24, review of 5fb183f0 -- **half of point 2 is delivered, and the half that was the
+  point is not.** `TerrainField` now publishes the view:
+
+  ```cpp
+  using Postings = std::mdspan<float, std::dextents<size_t, 2>>;
+  using ConstPostings = std::mdspan<const float, std::dextents<size_t, 2>>;
+  [[nodiscard]] ConstPostings Field() const { return ConstPostings(HeightsM_.data(), Rows_, Cols_); }
+  [[nodiscard]] float AtM(uint32_t row, uint32_t col) const { return Field()[row, col]; }
+  ```
+  — src/ground/tiles/TerrainGrid.h:28-35
+
+  and the very next method still hands the stride around as three loose arguments, which is
+  the sentence this item was filed on:
+
+  ```cpp
+  return Bilinear(HeightsM_.data(), Cols_, Rows_, gx, gy);
+  ```
+  — src/ground/tiles/TerrainGrid.h:40
+
+  So the accessor got the view and the only CONSUMER of the layout did not. Point 2 reads
+  "and `Bilinear` takes that view instead of `(data, cols, rows)`" and is unmet.
+
+- **Point 4 is untouched.** No `static_assert` stands beside `TerrainField` on the extents
+  type or on `sizeof(float)`-tight packing, and `test/unit/ground/tiles/` holds two cases
+  (`AStitchedEdgePairsPostingsOfTheSamePlace`, `TheTileCacheEvictsTheLeastRecentlyUsed`),
+  neither of which names `Field()`, `Postings` or a stride. A view whose extents nothing
+  proves is a typedef.
+
+- **`[[nodiscard]]` was swept over one of three classes in the file it touched.** The same
+  header, after the sweep:
+
+  ```cpp
+  size_t Bytes() const { return Field_.Bytes(); }                                   // :80
+  uint32_t VertexCount() const { return (uint32_t)(PositionsEnuM_.size() / 3); }     // :103
+  ```
+
+  `TerrainField` got eight `[[nodiscard]]`s; `TerrainGrid::Bytes` and
+  `TerrainMesh::VertexCount` in the same file got none. The house rule is ALWAYS, and a sweep
+  that stops at a class boundary inside one header is a sweep that will have to be run again.
+
+- Point 3 (`TableBook::Stood`, src/scenario/Tables.h:39, still
+  `std::vector<std::vector<Cell>>` + `std::vector<bool>`) is untouched.
