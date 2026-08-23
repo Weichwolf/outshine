@@ -64,3 +64,12 @@ against the cube's 8. The consistent 5-8 % excess is the next term and is not ye
 
 **So the look-ahead time is a real decision and not a constant.** Tracking improves as the CUBE of a
 shorter look-ahead and stability leaves with it. A scenario declares it; the engine's default is 1 s.
+
+**Sharpened (review round 19, 2026-08-23):** the fly conversion divides by
+`within.GravityMs2` unguarded (src/actor/mind/Fly.cpp:26) and `BankLimitOf` leaves
+`cos(BankRad) -> 0` reachable when `LoadFactorLimit <= 1` and `BankLimitRad >= pi/2`
+(Fly.cpp:7-14, LoadFactor at :30 -> inf). Drive got its Stand-time refusal in 1705/1706;
+Fly and Rail have NO assembly gate yet -- today only the unit fixture feeds them sane
+envelopes. The day this feature wires Fly into an assembly, a Stand-style refusal
+(gravity > 0, a bank limit the load factor can carry) must precede the first tick, with the
+1705-shaped negative proof.
