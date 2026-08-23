@@ -39,3 +39,14 @@ linear scan of string compares. The catalogue is already constexpr and indexable
 should intern the event to its catalogue index and the action to a small id once at
 stand-up, so the per-event lookup is an integer compare and the client-facing name is
 resolved off the event path. Also: `Build(const std::vector<Binding>&)` → span (1621).
+
+---
+
+Progress -- the sharpened runtime shape stands: Build interns each event to its catalogue
+index and each action to a small id (dense uint16 table over the catalogue, kUnbound
+sentinel static_asserted outside it); the event path is ActionAt(index) -> id, one integer
+read, and ActionNamed resolves the client-facing name off the path. The string Row list is
+gone; ActionOf/KindOf/BoundTo resolve through the interned table. Proven in
+ADeviceEventReachesTheClientAsADeclaredAction (key and stick land on ONE id, unknown event
+has no index, past-catalogue index answers unbound). Remaining: the SDL pump in the window
+host resolving its device events to indices once, and the input-to-photon measurement.

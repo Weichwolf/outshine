@@ -56,6 +56,24 @@ int main(void) {
         "and a key is a button, from the same one catalogue");
 
   {
+    // the event PATH is integers: the pump resolves its device event to a catalogue index
+    // once, and the per-event lookup touches no string -- the name resolves off the path
+    const ptrdiff_t keyW = InputMap::EventIndexOf("KeyW");
+    const ptrdiff_t stickY = InputMap::EventIndexOf("AxisLeftY");
+    CHECK(keyW >= 0 && stickY >= 0 && keyW != stickY,
+          "**AN EVENT INTERNS TO ITS CATALOGUE INDEX ONCE** -- two events, two indices "
+          "(board:1491)");
+    const uint16_t action = map.ActionAt((size_t)keyW);
+    CHECK(action != InputMap::kUnbound && map.ActionAt((size_t)stickY) == action,
+          "the key and the stick land on ONE action id -- the integer the tick compares");
+    const std::string *named = map.ActionNamed(action);
+    CHECK(named != nullptr && *named == "forward",
+          "and the id resolves to the declared name off the event path");
+    CHECK(InputMap::EventIndexOf("KeyQ") < 0 &&
+              map.ActionAt((size_t)InputMap::Events()) == InputMap::kUnbound,
+          "an unknown event has no index and an index past the catalogue answers unbound");
+  }
+  {
     InputMap bad;
     CHECK(!Stood("<scenario name=\"t\"><input>"
                  "<bind event=\"KeyQ\" action=\"quit\"/></input></scenario>",
