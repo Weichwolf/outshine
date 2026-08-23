@@ -55,3 +55,14 @@ removes an item from *what is ready* for a reason the body can state better.
 **Done when** at least one case reports a non-zero back-facing shaded population, that population is lit
 rather than merely present, and the count is published beside the front-facing one — so that a later
 change to any lit arm's facing branch has a picture that would move.
+
+---
+
+Closed -- route B, as its own instrument: ABackFacingFragmentShadesLit stands a double-sided
+tangentless quad, views it from behind (whole shaded population back-facing: 2704 px, front
+view 0), with the light on the CAMERA'S side so the flipped normal is LIT (radiance 6761
+summed linear, ~93% of the front view's) -- the constraint the body named, met. Both counts
+publish side by side, so a change to any lit arm's facing branch has a picture that moves.
+The Cycles-scored half stays where the body put it: blocked on 1148's back-face convention,
+and the mapped/textured arms' back branches ride the same facing() the case exercises
+(1127's algebra tie covers the basis).
