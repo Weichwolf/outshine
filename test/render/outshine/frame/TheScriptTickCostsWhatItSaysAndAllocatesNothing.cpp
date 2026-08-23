@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "Check.h"
@@ -22,18 +23,18 @@ public:
   double Where = 0, Speed = 12.5, Step = 1.0 / 60.0;
   int Stops = 0;
 
-  [[nodiscard]] S::Value Global(const std::string &name) override {
+  [[nodiscard]] S::Value Global(std::string_view name) override {
     if (name == "self") { return S::Value::OfRef(kSelf); }
     if (name == "dt") { return S::Value::OfNumber(Step); }
     return {};
   }
-  [[nodiscard]] S::Value Member(const S::Value &object, const std::string &name) override {
+  [[nodiscard]] S::Value Member(const S::Value &object, std::string_view name) override {
     if (object.What != S::Kind::Ref || object.Ref != kSelf) { return {}; }
     if (name == "at") { return S::Value::OfNumber(Where); }
     if (name == "speed") { return S::Value::OfNumber(Speed); }
     return {};
   }
-  [[nodiscard]] bool SetMember(const S::Value &object, const std::string &name,
+  [[nodiscard]] bool SetMember(const S::Value &object, std::string_view name,
                                const S::Value &to) override {
     if (object.What != S::Kind::Ref || object.Ref != kSelf) { return false; }
     if (name == "at") {

@@ -687,7 +687,7 @@ const Boundary kBoundaries[] = {
 
 }
 
-const char *WhyOutside(const std::string &name) {
+const char *WhyOutside(std::string_view name) {
   for (const Boundary &boundary : kBoundaries) {
     const std::string row(boundary.Name);
     if (name.size() >= row.size() && name.compare(0, row.size(), row) == 0) { return boundary.Why; }
@@ -704,7 +704,7 @@ void Program::Reset(void) {
 bool Program::Held(void) const { return !Nodes_.empty(); }
 size_t Program::NodeCount(void) const { return Nodes_.size(); }
 
-const Value *Program::Named(const std::string &name) const {
+const Value *Program::Named(std::string_view name) const {
   for (size_t at = 0; at < Names_.size(); ++at) {
     if (Names_[at] == name) { return &Held_[at]; }
   }

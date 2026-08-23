@@ -89,3 +89,7 @@ directly above the converted one-arg form, concatenates exactly the same way, an
 const-ref. Same verdict, same line of reasoning: string_view.
 
 Residual repaid: Fields' two-arg Refuse joins its sibling on string_view.
+
+Progress: the Script Host interface and Program::Named speak string_view -- the virtuals,
+the three overrider fixtures and the test262 host followed in one motion; 829/829 with the
+full script corpus.

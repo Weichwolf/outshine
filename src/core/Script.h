@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace outshine::Script {
@@ -56,16 +57,16 @@ struct Value {
 struct Host {
   virtual ~Host() = default;
 
-  [[nodiscard]] virtual Value Global(const std::string &name) {
+  [[nodiscard]] virtual Value Global(std::string_view name) {
     (void)name;
     return {};
   }
-  [[nodiscard]] virtual Value Member(const Value &object, const std::string &name) {
+  [[nodiscard]] virtual Value Member(const Value &object, std::string_view name) {
     (void)object;
     (void)name;
     return {};
   }
-  [[nodiscard]] virtual bool SetMember(const Value &object, const std::string &name,
+  [[nodiscard]] virtual bool SetMember(const Value &object, std::string_view name,
                                        const Value &to) {
     (void)object;
     (void)name;
@@ -82,7 +83,7 @@ struct Host {
   }
 };
 
-[[nodiscard]] const char *WhyOutside(const std::string &name);
+[[nodiscard]] const char *WhyOutside(std::string_view name);
 
 class Program {
 public:
@@ -107,7 +108,7 @@ public:
 
   [[nodiscard]] size_t Steps(void) const { return Steps_; }
 
-  [[nodiscard]] const Value *Named(const std::string &name) const;
+  [[nodiscard]] const Value *Named(std::string_view name) const;
 
   [[nodiscard]] const std::string &Stopped(void) const { return Stopped_; }
 

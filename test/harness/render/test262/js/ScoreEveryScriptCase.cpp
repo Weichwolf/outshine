@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "Check.h"
@@ -17,22 +18,22 @@ public:
   std::string Unprovided;
   std::string Failed;
 
-  [[nodiscard]] S::Value Global(const std::string &name) override {
+  [[nodiscard]] S::Value Global(std::string_view name) override {
     if (name == "assert") { return S::Value::OfRef(kAssert); }
     if (name == "$ERROR" || name == "$DONOTEVALUATE") { return S::Value::OfRef(kError); }
     if (name == "print") { return S::Value::OfRef(kPrint); }
     if (name == "undefined") { return {}; }
-    if (Unprovided.empty()) { Unprovided = "name:" + name; }
+    if (Unprovided.empty()) { Unprovided = "name:" + std::string(name); }
     return {};
   }
-  [[nodiscard]] S::Value Member(const S::Value &object, const std::string &name) override {
+  [[nodiscard]] S::Value Member(const S::Value &object, std::string_view name) override {
     if (object.What == S::Kind::Ref && object.Ref == kAssert) {
       if (name == "sameValue") { return S::Value::OfRef(kSame); }
       if (name == "notSameValue") { return S::Value::OfRef(kNotSame); }
-      if (Unprovided.empty()) { Unprovided = "name:assert." + name; }
+      if (Unprovided.empty()) { Unprovided = "name:assert." + std::string(name); }
       return {};
     }
-    if (Unprovided.empty()) { Unprovided = "name:" + name; }
+    if (Unprovided.empty()) { Unprovided = "name:" + std::string(name); }
     return {};
   }
   [[nodiscard]] bool Call(const S::Value &callee, const S::Value *args, size_t count,

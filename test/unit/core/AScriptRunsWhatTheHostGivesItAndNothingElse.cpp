@@ -1,6 +1,7 @@
 #include <cmath>
 #include <cstdio>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "Check.h"
@@ -21,11 +22,11 @@ public:
   std::vector<Element> Elements;
   int Calls = 0;
 
-  [[nodiscard]] Value Global(const std::string &name) override {
+  [[nodiscard]] Value Global(std::string_view name) override {
     if (name == "document") { return Value::OfRef(kDocument); }
     return {};
   }
-  [[nodiscard]] Value Member(const Value &object, const std::string &name) override {
+  [[nodiscard]] Value Member(const Value &object, std::string_view name) override {
     if (object.What != Kind::Ref) { return {}; }
     if (object.Ref == kDocument && name == "getElementById") { return Value::OfRef(kLookup); }
     if (object.Ref >= kFirstElement && name == "style") {
@@ -37,7 +38,7 @@ public:
     }
     return {};
   }
-  [[nodiscard]] bool SetMember(const Value &object, const std::string &name,
+  [[nodiscard]] bool SetMember(const Value &object, std::string_view name,
                                const Value &to) override {
     if (object.What != Kind::Ref || object.Ref < kFirstElement + kStyleShift) { return false; }
     const size_t at = (size_t)(object.Ref - kFirstElement - kStyleShift);
@@ -75,7 +76,7 @@ private:
 
 class Adder final : public Host {
 public:
-  [[nodiscard]] Value Global(const std::string &name) override {
+  [[nodiscard]] Value Global(std::string_view name) override {
     return name == "twice" ? Value::OfRef(1) : Value();
   }
   [[nodiscard]] bool Call(const Value &callee, const Value *args, size_t count,
