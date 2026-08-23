@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "Address.h"
@@ -31,8 +32,8 @@ public:
   ContentStore(const ContentStore &) = delete;
   ContentStore &operator=(const ContentStore &) = delete;
 
-  [[nodiscard]] bool TryRead(const std::string &key, std::vector<uint8_t> *out) const;
-  void Keep(const std::string &key, const uint8_t *data, size_t bytes);
+  [[nodiscard]] bool TryRead(std::string_view key, std::vector<uint8_t> *out) const;
+  void Keep(std::string_view key, const uint8_t *data, size_t bytes);
 
   [[nodiscard]] const std::string &Directory() const noexcept { return Directory_; }
   [[nodiscard]] bool Enabled() const noexcept { return Using_ == Use::On; }

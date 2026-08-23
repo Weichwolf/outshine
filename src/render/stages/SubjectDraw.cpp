@@ -128,11 +128,11 @@ VertexShape ShapeOf(VertexLayout layout, bool writesVelocity) {
   return shape;
 }
 
-SDL_GPUShader *MakeShader(SDL_GPUDevice *device, const std::string &source, const char *entry,
+SDL_GPUShader *MakeShader(SDL_GPUDevice *device, std::string_view source, const char *entry,
                           SDL_GPUShaderStage stage) {
   const bool fragment = stage == SDL_GPU_SHADERSTAGE_FRAGMENT;
   SDL_GPUShaderCreateInfo wanted{};
-  wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
+  wanted.code = reinterpret_cast<const Uint8 *>(source.data());
   wanted.code_size = source.size();
   wanted.entrypoint = entry;
   wanted.format = SDL_GPU_SHADERFORMAT_MSL;
@@ -707,7 +707,7 @@ bool SubjectDraw::ConfigureDepthOnly(const Gpu &gpu, std::string &error) {
   const std::string source = DepthOnlySource(error);
   if (source.empty()) { return false; }
   SDL_GPUShaderCreateInfo wanted{};
-  wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
+  wanted.code = reinterpret_cast<const Uint8 *>(source.data());
   wanted.code_size = source.size();
   wanted.format = SDL_GPU_SHADERFORMAT_MSL;
   wanted.entrypoint = "vsDepth";

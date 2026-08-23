@@ -75,9 +75,9 @@ ContentStore::ContentStore(const Config &config)
   }
 }
 
-bool ContentStore::TryRead(const std::string &key, std::vector<uint8_t> *out) const {
+bool ContentStore::TryRead(std::string_view key, std::vector<uint8_t> *out) const {
   if (Using_ != Use::On) return false;
-  const std::string path = Directory_ + "/" + key;
+  const std::string path = Directory_ + "/" + std::string(key);
   std::FILE *f = std::fopen(path.c_str(), "rb");
   if (!f) {
     Misses_.fetch_add(1, std::memory_order_relaxed);
@@ -101,10 +101,10 @@ bool ContentStore::TryRead(const std::string &key, std::vector<uint8_t> *out) co
   return true;
 }
 
-void ContentStore::Keep(const std::string &key, const uint8_t *data, size_t bytes) {
+void ContentStore::Keep(std::string_view key, const uint8_t *data, size_t bytes) {
   if (Using_ != Use::On || bytes == 0) return;
 
-  const std::string temp = Directory_ + "/." + key + "." +
+  const std::string temp = Directory_ + "/." + std::string(key) + "." +
                            std::to_string(TempSerial_.fetch_add(1, std::memory_order_relaxed));
   std::FILE *f = std::fopen(temp.c_str(), "wb");
   if (!f) {
@@ -118,7 +118,7 @@ void ContentStore::Keep(const std::string &key, const uint8_t *data, size_t byte
     WriteFailures_.fetch_add(1, std::memory_order_relaxed);
     return;
   }
-  const std::string path = Directory_ + "/" + key;
+  const std::string path = Directory_ + "/" + std::string(key);
   if (std::rename(temp.c_str(), path.c_str()) != 0) {
     std::remove(temp.c_str());
     WriteFailures_.fetch_add(1, std::memory_order_relaxed);

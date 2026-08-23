@@ -40,7 +40,7 @@ std::string Number(double value) {
 
 std::string Integer(size_t value) { return std::to_string(value); }
 
-std::string Quoted(const std::string &text) {
+std::string Quoted(std::string_view text) {
   std::string out = "\"";
   for (const char raw : text) {
     const unsigned char code = static_cast<unsigned char>(raw);
@@ -302,7 +302,7 @@ private:
   }
 
   // callers hold GlbFits before this runs, so the casts below cannot truncate
-  void Container(const std::string &json, std::vector<uint8_t> &glb) {
+  void Container(std::string_view json, std::vector<uint8_t> &glb) {
     std::vector<uint8_t> text(json.begin(), json.end());
     PadTo4(text, ' ');
     PadTo4(Binary_, 0);

@@ -35,7 +35,7 @@ bool KnownComponent(int raw, ComponentType &out) {
   }
 }
 
-bool KnownElement(const std::string &raw, ElementType &out) {
+bool KnownElement(std::string_view raw, ElementType &out) {
   if (raw == "SCALAR") { out = ElementType::Scalar; return true; }
   if (raw == "VEC2") { out = ElementType::Vec2; return true; }
   if (raw == "VEC3") { out = ElementType::Vec3; return true; }
@@ -96,9 +96,10 @@ double Normalise(double raw, ComponentType component) {
   return raw;
 }
 
-std::string DirectoryOf(const std::string &path) {
+std::string DirectoryOf(std::string_view path) {
   const size_t slash = path.find_last_of('/');
-  return (slash == std::string::npos) ? std::string() : path.substr(0, slash + 1);
+  return slash == std::string_view::npos ? std::string()
+                                         : std::string(path.substr(0, slash + 1));
 }
 
 std::string Number(size_t value) { return std::to_string(value); }
@@ -110,7 +111,7 @@ int HexDigit(char c) {
   return -1;
 }
 
-std::string PercentDecoded(const std::string &uri) {
+std::string PercentDecoded(std::string_view uri) {
   std::string out;
   out.reserve(uri.size());
   for (size_t i = 0; i < uri.size(); ++i) {
@@ -191,14 +192,15 @@ constexpr const char *kUnlit = "KHR_materials_unlit";
 constexpr const char *kMaterialsVariants = "KHR_materials_variants";
 constexpr const char *kTextureTransform = "KHR_texture_transform";
 
-bool ResolveMaterialPointer(const std::string &pointer, AnimationChannel &channel,
+bool ResolveMaterialPointer(std::string_view pointer, AnimationChannel &channel,
                             UndrivenReason &why) {
   std::vector<std::string> segments;
   size_t at = 0;
   while (at <= pointer.size()) {
     const size_t slash = pointer.find('/', at);
-    segments.push_back(pointer.substr(at, slash == std::string::npos ? std::string::npos
-                                                                     : slash - at));
+    segments.emplace_back(pointer.substr(at, slash == std::string_view::npos
+                                                ? std::string_view::npos
+                                                : slash - at));
     if (slash == std::string::npos) { break; }
     at = slash + 1;
   }

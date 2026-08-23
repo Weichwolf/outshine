@@ -195,3 +195,12 @@ comparator — `std::unordered_map<std::string, T, Hash, std::equal_to<>>` with
 files the same site from the tables side; whichever item pays it, the pattern is the item
 this sweep owns: **a `string_view` parameter that allocates in the first line of the body is
 worse than the `const std::string&` it replaced, because it looks converted.**
+
+Progress (gltf, render, data slice): eight more judgment-clear string boundaries take
+string_view -- KnownElement, DirectoryOf, PercentDecoded, ResolveMaterialPointer, Quoted,
+Container (gltf), MakeShader's source (render), ContentStore::TryRead/Keep (data). Each
+compares or scans and stores nothing; the two path joins convert once at the seam, where
+the string is actually built. Suites green (gltf 60/60, data+render+shader 81/81).
+Note from review round 27, to repay next: TableBook took string_view and then ALLOCATES a
+std::string in its first line -- worse than the const& it replaced. A view at the door with
+a copy behind it is the sweep's own failure mode, and that one is 1489's lookup work.
