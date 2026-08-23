@@ -81,6 +81,16 @@ int main() {
   Holds({"a node that is the child of two nodes is refused", "a glTF hierarchy is a forest",
          R"({"asset":{"version":"2.0"},
              "nodes":[{"children":[2]},{"children":[2]},{}]})"});
+  Holds({"a two-node cycle is refused instead of hanging the scene walk",
+         "the chain of parents is a cycle",
+         R"({"asset":{"version":"2.0"},
+             "nodes":[{"children":[1]},{"children":[0]}]})"});
+  Holds({"a self-child is refused by the same rule", "the chain of parents is a cycle",
+         R"({"asset":{"version":"2.0"},"nodes":[{"children":[0]}]})"});
+  Holds({"a scene root that has a parent is refused -- the spec's scene nodes are roots",
+         "scene nodes are root nodes",
+         R"({"asset":{"version":"2.0"},
+             "nodes":[{"children":[1]},{}],"scenes":[{"nodes":[1]}]})"});
   Holds({"a primitive naming an accessor the file does not carry is refused",
          "attribute POSITION names an accessor the file does not carry",
          R"({"asset":{"version":"2.0"},

@@ -21,3 +21,14 @@ Demanded: Document refuses at read — after the parent pass, walk each node to 
 a step counter bounded by `Nodes_.size()` (or count reachable-from-parents), and refuse a
 scene root that has a parent. The unit twin gets the two-node cycle, the self-child and the
 parented scene root, all refused by name; the old reader hangs on the first of them.
+
+---
+
+Closed -- after the parent pass every node walks to its root with a step counter bounded by
+the node count (a cycle never reaches one and refuses naming itself), and a scene root that
+has a parent refuses citing the spec's root-node rule; the Subject walk is safe by
+construction over what the reader stands. Proven in AFileThatCannotMeanAnythingIsRefusedByName:
+the two-node cycle, the self-child and the parented scene root all refuse by name. Negative
+control: the pre-fix reader reverted goes red on exactly these arms (the cycle case FAILs by
+reading instead of hanging only because the walk is never reached in this test; the hang
+itself was the flatten's).

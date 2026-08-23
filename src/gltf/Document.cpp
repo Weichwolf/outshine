@@ -752,6 +752,20 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     }
   }
 
+  // a forest has no cycles and the spec demands none: every node walks to its root in
+  // fewer steps than there are nodes -- a two-node loop or a self-child gives each node
+  // ONE parent and slipped the shared-child refusal, then hung the scene walk
+  for (size_t i = 0; i < Nodes_.size(); ++i) {
+    size_t steps = 0;
+    for (int at = static_cast<int>(i); at >= 0; at = Parent_[static_cast<size_t>(at)]) {
+      if (++steps > Nodes_.size()) {
+        return Refuse("node " + Number(i) +
+                      " never reaches a root, and a glTF hierarchy is a forest -- the "
+                      "chain of parents is a cycle");
+      }
+    }
+  }
+
   const Json::Ref scenes = root["scenes"];
   for (size_t i = 0; i < scenes.Size(); ++i) {
     Scene scene;
@@ -761,6 +775,12 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
       const int node = roots[k].Int(-1);
       if (node < 0 || static_cast<size_t>(node) >= Nodes_.size()) {
         return Refuse("scene " + Number(i) + " names a root node the file does not carry");
+      }
+      if (Parent_[static_cast<size_t>(node)] >= 0) {
+        return Refuse("scene " + Number(i) + " names node " + Number((size_t)node) +
+                      " as a root while node " +
+                      Number((size_t)Parent_[static_cast<size_t>(node)]) +
+                      " carries it as a child -- the spec's scene nodes are root nodes");
       }
       scene.Roots.push_back(node);
     }
