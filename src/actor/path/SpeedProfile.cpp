@@ -37,7 +37,11 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
     return false;
   }
 
-  const size_t samples = (size_t)(along.LengthM() / stepM) + 1u;
+  // a length off the grid takes one MORE station, clamped to the end -- the final
+  // partial step is sampled, so a bend in the last metres bounds the plan there too
+  const size_t whole = (size_t)(along.LengthM() / stepM);
+  const bool onGrid = (double)whole * stepM == along.LengthM();
+  const size_t samples = whole + (onGrid ? 1u : 2u);
   Held_.resize(samples, topMs);
   Curvature_.resize(samples, 0.0);
   StepM_ = stepM;

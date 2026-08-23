@@ -16,3 +16,11 @@ Fix: `samples = (size_t)(L / stepM) + 2` when L is not on the grid (then the cla
 live and the last station is exactly L), or ceil-based counting. Proof: a line of length
 10.5 at step 1 with all its curvature in the last half metre plans a bounded speed there;
 today it plans `topMs`.
+
+---
+
+Closed -- a length off the grid takes one more station, clamped to the end: the final
+partial step is sampled, the clamp is live, the fossil comment gone. Proven in
+ASpeedPlanScalesWithTheDeclaredGravity: 10.5 m at step 1 with all curvature in the last half
+metre plans near sqrt(grip g / kappa) at 10.4 m where the ungridded tail served topMs.
+Negative control: the +1 sampling reverted fails exactly this arm.

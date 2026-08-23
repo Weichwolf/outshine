@@ -84,6 +84,27 @@ int main(void) {
         "a world declaring no gravity refuses the plan instead of planning zero-speed corners");
   CHECK(error.find("gravity") != std::string::npos, "and the refusal says why");
 
+  {
+    // 10.5 m at step 1: the tail (10, 10.5] once fell off the grid, and a bend living
+    // ONLY there planned topMs -- the extra clamped station samples it
+    ReferenceLine short10;
+    CHECK(short10.Lay(Placed{}, {{Curve::Straight, 10.0, 0.0, 0.0},
+                                 {Curve::Spiral, 0.25, 0.0, 0.2},
+                                 {Curve::Arc, 0.25, 0.2, 0.2}},
+                      error),
+          "a line of 10.5 m with all its curvature in the last half metre lays");
+    SpeedProfile tail;
+    CHECK(tail.Over(short10, Standing(kEarthMs2), 1.0, kEntryMs, error),
+          "and the plan lays over it at a step the length is not divisible by");
+    const double heldMs = tail.At(10.4);
+    const double curveHeldMs = std::sqrt(0.95 * kEarthMs2 / 0.2);
+    Note("the tail's planned speed", heldMs, "m/s");
+    CHECK(heldMs < curveHeldMs * 1.2,
+          "**THE FINAL PARTIAL STEP IS SAMPLED**: the bend in the last half metre bounds "
+          "the plan near sqrt(grip g / kappa), where the ungridded tail once served topMs "
+          "(board:1715)");
+  }
+
   Covers("I.9.3 the speed plan derives every gravity-borne bound -- cornering, holding, braking "
          "and the crest's sqrt(g/h'') -- from the world the scenario declares, so the same road "
          "and the same car plan differently on a different sphere with no engine change");
