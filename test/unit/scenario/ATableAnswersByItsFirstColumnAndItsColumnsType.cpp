@@ -1,6 +1,8 @@
 #include <cstdio>
 #include <cstring>
+#include <expected>
 #include <string>
+#include <utility>
 
 #include "Check.h"
 
@@ -13,10 +15,13 @@ using outshine::TableBook;
 
 namespace {
 
-[[nodiscard]] bool Stood(const char *text, TableBook &book, std::string &error) {
+[[nodiscard]] std::expected<TableBook, std::string> Stood(const char *text) {
   Scenario declared;
-  if (!ReadScenario(text, std::strlen(text), declared, error)) { return false; }
-  return book.Build(declared.Tables, error);
+  std::string refusal;
+  if (!ReadScenario(text, std::strlen(text), declared, refusal)) {
+    return std::unexpected(refusal);
+  }
+  return TableBook::Stand(declared.Tables);
 }
 
 } // namespace
@@ -25,19 +30,17 @@ int main(void) {
   using namespace outshine::Test;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-  std::string error;
-  TableBook book;
-  const bool up = Stood(
+  auto stood = Stood(
       "<scenario name=\"balance\"><tables><table id=\"weapons\">"
       "<column name=\"name\"/><column name=\"damage\" type=\"number\"/>"
       "<column name=\"grip\"/>"
       "<row><cell value=\"sword\"/><cell value=\"13\"/><cell value=\"13\"/></row>"
       "<row><cell value=\"bow\"/><cell value=\"7.5\"/><cell value=\"two-handed\"/></row>"
-      "</table></tables></scenario>",
-      book, error);
-  if (!up) { std::printf("REFUSED %s\n", error.c_str()); }
-  CHECK(up, "a declared table stands up once");
-  if (!up) { return Report(); }
+      "</table></tables></scenario>");
+  if (!stood) { std::printf("REFUSED %s\n", stood.error().c_str()); }
+  CHECK(stood.has_value(), "a declared table stands up once");
+  if (!stood) { return Report(); }
+  const TableBook book = *std::move(stood);
 
   const double *damage = book.Number("weapons", "sword", "damage");
   CHECK(damage != nullptr && *damage == 13.0,
@@ -54,31 +57,25 @@ int main(void) {
         "and asking a text column for a number answers nothing rather than a guess");
 
   {
-    TableBook bad;
-    CHECK(!Stood("<scenario name=\"t\"><tables><table id=\"w\">"
+    const auto bad = Stood("<scenario name=\"t\"><tables><table id=\"w\">"
                  "<column name=\"k\"/><column name=\"d\" type=\"number\"/>"
                  "<row><cell value=\"a\"/><cell value=\"tall\"/></row>"
-                 "</table></tables></scenario>",
-                 bad, error) &&
-              error.find("tall") != std::string::npos,
+                 "</table></tables></scenario>");
+    CHECK(!bad && bad.error().find("tall") != std::string::npos,
           "a cell that does not read as its column's number refuses at stand-up, naming the "
           "cell and the column");
   }
   {
-    TableBook bad;
-    CHECK(!Stood("<scenario name=\"t\"><tables><table id=\"w\"><column name=\"k\"/>"
+    const auto bad = Stood("<scenario name=\"t\"><tables><table id=\"w\"><column name=\"k\"/>"
                  "<row><cell value=\"a\"/></row><row><cell value=\"a\"/></row>"
-                 "</table></tables></scenario>",
-                 bad, error) &&
-              error.find("two answers") != std::string::npos,
+                 "</table></tables></scenario>");
+    CHECK(!bad && bad.error().find("two answers") != std::string::npos,
           "two rows under one key refuse -- a lookup with two answers has none");
   }
   {
-    TableBook bad;
-    CHECK(!Stood("<scenario name=\"t\"><tables><table id=\"w\">"
-                 "<column name=\"k\" type=\"maybe\"/></table></tables></scenario>",
-                 bad, error) &&
-              error.find("maybe") != std::string::npos,
+    const auto bad = Stood("<scenario name=\"t\"><tables><table id=\"w\">"
+                 "<column name=\"k\" type=\"maybe\"/></table></tables></scenario>");
+    CHECK(!bad && bad.error().find("maybe") != std::string::npos,
           "and a third cell type does not exist");
   }
 

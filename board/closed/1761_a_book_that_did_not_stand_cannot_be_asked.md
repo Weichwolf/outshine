@@ -43,3 +43,35 @@ pattern actually bites.
 3. A unit case in test/unit/scenario/ proves the refusal carries its reason and that no
    route exists from a refused stand-up to an answer — a compile-refusal case under
    test/unit/compile/scenario/ if the default constructor is the thing being deleted.
+
+## Comments
+
+- 2026-08-23 -- repaired. All three books of the layer took ONE stand-up shape, so the layer
+  has one form and not three:
+
+  | | before | after |
+  |---|---|---|
+  | `ViewBook` | `bool Build(views, error)` | `static std::expected<ViewBook, std::string> Stand(views, starting)` |
+  | `TableBook` | `bool Build(tables, error)` | `static std::expected<TableBook, std::string> Stand(tables)` |
+  | `TriggerField` | `bool Build(volumes, events, error)` | `static std::expected<TriggerField, std::string> Stand(volumes, events)` |
+
+  Every constructor is private, so an unstood book has no spelling at all; the refusal texts
+  are unchanged sentences that now travel as the error and cannot be dropped.
+  `Active()`, `ActiveId()`, `ClockScale()` and `ListensFrom()` are `noexcept` -- after the
+  factory there is nothing left for them to check.
+- **Proving tests**:
+  - `test/unit/compile/scenario/AnUnstoodBookHasNoSpelling` -- `ViewBook`, `TableBook` and
+    `TriggerField` each refuse default construction, judged by
+    `test/unit/scenario/WhatShowsAWorldHasNoSpellingInItsDeclaration`.
+  - `test/unit/compile/scenario/AStandThatRefusedCarriesItsReason` -- dropping the stand-up's
+    verdict is an error, not a warning.
+  - `test/unit/scenario/AViewIsOneOfSeveralAndTimeRunsAtItsRate` and
+    `AVolumeFiresAndSomethingHears` and `ATableAnswersByItsFirstColumnAndItsColumnsType`
+    read the six/three refusal reasons off `stood.error()`.
+- **Negative controls**, both run:
+  - constructors made `public` again -> `FAIL a subject declared REFUSED does not compile`.
+  - `[[nodiscard]]` taken off `ViewBook::Stand` -> the same FAIL on the second subject.
+- Beside the repair, `AVolumeFiresAndSomethingHears` got stricter: the undeclared-event case
+  asserted `error.find("e")`, which the word "declares" satisfies on its own; it now asserts
+  `declares: e`, the actual list the refusal publishes.
+- Gate 226/226.

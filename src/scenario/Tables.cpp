@@ -4,17 +4,17 @@
 
 namespace outshine {
 
-bool TableBook::Build(std::span<const Table> declared, std::string &error) {
-  Held_.clear();
+std::expected<TableBook, std::string> TableBook::Stand(std::span<const Table> declared) {
+  TableBook standing;
   for (const Table &table : declared) {
-    if (Held_.count(table.Id) != 0) {
-      error = "the table '" + table.Id + "' is declared twice, and a number has one home";
-      return false;
+    if (standing.Held_.count(table.Id) != 0) {
+      return std::unexpected("the table '" + table.Id +
+                             "' is declared twice, and a number has one home");
     }
     if (table.Rows.size() > kMostRows) {
-      error = "the table '" + table.Id + "' declares " + std::to_string(table.Rows.size()) +
-              " rows over the bound of " + std::to_string(kMostRows);
-      return false;
+      return std::unexpected("the table '" + table.Id + "' declares " +
+                             std::to_string(table.Rows.size()) + " rows over the bound of " +
+                             std::to_string(kMostRows));
     }
     Stood stood;
     stood.Columns = table.Columns;
@@ -24,9 +24,9 @@ bool TableBook::Build(std::span<const Table> declared, std::string &error) {
     }
     for (const std::vector<std::string> &row : table.Rows) {
       if (row.size() != table.Columns.size()) {
-        error = "the table '" + table.Id + "' has a row of " + std::to_string(row.size()) +
-                " cells under " + std::to_string(table.Columns.size()) + " columns";
-        return false;
+        return std::unexpected("the table '" + table.Id + "' has a row of " +
+                               std::to_string(row.size()) + " cells under " +
+                               std::to_string(table.Columns.size()) + " columns");
       }
       std::vector<Cell> cells;
       cells.reserve(row.size());
@@ -38,26 +38,26 @@ bool TableBook::Build(std::span<const Table> declared, std::string &error) {
               cell.Spelling.data(), cell.Spelling.data() + cell.Spelling.size(), cell.Value);
           if (scanned.ec != std::errc() ||
               scanned.ptr != cell.Spelling.data() + cell.Spelling.size()) {
-            error = "the table '" + table.Id + "' holds '" + cell.Spelling +
-                    "' in the number column '" + stood.Columns[at] +
-                    "' -- a cell is typed by its column, and this one does not read";
-            return false;
+            return std::unexpected(
+                "the table '" + table.Id + "' holds '" + cell.Spelling +
+                "' in the number column '" + stood.Columns[at] +
+                "' -- a cell is typed by its column, and this one does not read");
           }
         }
         cells.push_back(std::move(cell));
       }
       if (!cells.empty()) {
         if (!stood.ByKey.emplace(cells[0].Spelling, stood.Rows.size()).second) {
-          error = "the table '" + table.Id + "' keys two rows by '" + cells[0].Spelling +
-                  "', and a lookup with two answers has none";
-          return false;
+          return std::unexpected("the table '" + table.Id + "' keys two rows by '" +
+                                 cells[0].Spelling +
+                                 "', and a lookup with two answers has none");
         }
       }
       stood.Rows.push_back(std::move(cells));
     }
-    Held_.emplace(table.Id, std::move(stood));
+    standing.Held_.emplace(table.Id, std::move(stood));
   }
-  return true;
+  return standing;
 }
 
 const TableBook::Cell *TableBook::At(std::string_view table, std::string_view row,

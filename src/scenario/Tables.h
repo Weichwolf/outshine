@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_SCENARIO_TABLES_H
 #define OUTSHINE_SCENARIO_TABLES_H
 
+#include <expected>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -15,7 +16,8 @@ class TableBook {
 public:
   static constexpr size_t kMostRows = 4096;
 
-  [[nodiscard]] bool Build(std::span<const Table> declared, std::string &error);
+  [[nodiscard]] static std::expected<TableBook, std::string> Stand(
+      std::span<const Table> declared);
 
   [[nodiscard]] const double *Number(std::string_view table, std::string_view row,
                                      std::string_view column) const;
@@ -25,6 +27,8 @@ public:
   [[nodiscard]] size_t TableCount() const { return Held_.size(); }
 
 private:
+  TableBook() = default;
+
   struct Cell {
     std::string Spelling;
     double Value = 0.0;

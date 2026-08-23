@@ -3,6 +3,8 @@
 #include <cstdlib>
 #include <new>
 #include <cstring>
+#include <expected>
+#include <utility>
 #include <string>
 #include <vector>
 
@@ -30,10 +32,13 @@ void operator delete(void *held, size_t) noexcept { std::free(held); }
 
 namespace {
 
-[[nodiscard]] bool Stood(const char *text, TriggerField &field, std::string &error) {
+[[nodiscard]] std::expected<TriggerField, std::string> Stood(const char *text) {
   Scenario declared;
-  if (!ReadScenario(text, std::strlen(text), declared, error)) { return false; }
-  return field.Build(declared.Volumes, declared.Events, error);
+  std::string refusal;
+  if (!ReadScenario(text, std::strlen(text), declared, refusal)) {
+    return std::unexpected(refusal);
+  }
+  return TriggerField::Stand(declared.Volumes, declared.Events);
 }
 
 } // namespace
@@ -43,8 +48,7 @@ int main(void) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
   std::string error;
-  TriggerField field;
-  const bool up = Stood(
+  auto stood = Stood(
       "<scenario name=\"doors\">"
       "<events><event name=\"crossed\"><carries what=\"body\"/></event>"
       "<event name=\"lingered\"/><event name=\"left\"/></events>"
@@ -55,11 +59,11 @@ int main(void) {
       "fires=\"lingered\" when=\"dwell\" dwellS=\"2\"/>"
       "<volume id=\"door\" shape=\"box\" x=\"10\" y=\"0\" z=\"0\" extentX=\"2\" "
       "extentY=\"2\" extentZ=\"2\" fires=\"left\" when=\"exit\"/>"
-      "</volumes></scenario>",
-      field, error);
-  if (!up) { std::printf("REFUSED %s\n", error.c_str()); }
-  CHECK(up, "three declared doors stand up over three declared events");
-  if (!up) { return Report(); }
+      "</volumes></scenario>");
+  if (!stood) { std::printf("REFUSED %s\n", stood.error().c_str()); }
+  CHECK(stood.has_value(), "three declared doors stand up over three declared events");
+  if (!stood) { return Report(); }
+  TriggerField field = *std::move(stood);
 
   std::vector<std::string_view> reads{"body"};
   CHECK(field.Listen("crossed", reads, error),
@@ -112,21 +116,23 @@ int main(void) {
         "reaches nothing");
 
   {
-    TriggerField bad;
-    CHECK(!Stood("<scenario name=\"t\"><events><event name=\"e\"/></events><volumes>"
-                 "<volume id=\"v\" fires=\"e\" when=\"sometimes\"/></volumes></scenario>",
-                 bad, error) &&
-              error.find("no fourth") != std::string::npos,
+    const auto fourth =
+        Stood("<scenario name=\"t\"><events><event name=\"e\"/></events><volumes>"
+              "<volume id=\"v\" fires=\"e\" when=\"sometimes\"/></volumes></scenario>");
+    CHECK(!fourth && fourth.error().find("no fourth") != std::string::npos,
           "a fourth when does not exist");
-    CHECK(!Stood("<scenario name=\"t\"><events><event name=\"e\"/></events><volumes>"
-                 "<volume id=\"v\" fires=\"boom\" when=\"enter\"/></volumes></scenario>",
-                 bad, error) &&
-              error.find("boom") != std::string::npos && error.find("e") != std::string::npos,
+
+    const auto unheard =
+        Stood("<scenario name=\"t\"><events><event name=\"e\"/></events><volumes>"
+              "<volume id=\"v\" fires=\"boom\" when=\"enter\"/></volumes></scenario>");
+    CHECK(!unheard && unheard.error().find("boom") != std::string::npos &&
+              unheard.error().find("declares: e") != std::string::npos,
           "a volume firing an undeclared event refuses naming it and the list");
-    CHECK(!Stood("<scenario name=\"t\"><events><event name=\"e\"/></events><volumes>"
-                 "<volume id=\"v\" fires=\"e\" when=\"dwell\"/></volumes></scenario>",
-                 bad, error) &&
-              error.find("dwellS") != std::string::npos,
+
+    const auto costume =
+        Stood("<scenario name=\"t\"><events><event name=\"e\"/></events><volumes>"
+              "<volume id=\"v\" fires=\"e\" when=\"dwell\"/></volumes></scenario>");
+    CHECK(!costume && costume.error().find("dwellS") != std::string::npos,
           "a dwell without a duration refuses -- an enter wearing a costume");
   }
 
@@ -141,11 +147,13 @@ int main(void) {
               "fires=\"e\" when=\"enter\"/>";
     }
     many += "</volumes></scenario>";
-    TriggerField crowd;
     Scenario declared;
-    CHECK(ReadScenario(many.c_str(), many.size(), declared, error) &&
-              crowd.Build(declared.Volumes, declared.Events, error),
-          "a scenario of 256 doors stands");
+    CHECK(ReadScenario(many.c_str(), many.size(), declared, error),
+          "a scenario of 256 doors reads");
+    auto raised = TriggerField::Stand(declared.Volumes, declared.Events);
+    CHECK(raised.has_value(), "a scenario of 256 doors stands");
+    if (!raised) { return Report(); }
+    TriggerField crowd = *std::move(raised);
 
     const size_t before = gAllocations;
     const auto from = std::chrono::steady_clock::now();

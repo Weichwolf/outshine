@@ -2,6 +2,7 @@
 #define OUTSHINE_SCENARIO_TRIGGERS_H
 
 #include <cstdint>
+#include <expected>
 #include <string>
 #include <string_view>
 #include <span>
@@ -20,8 +21,8 @@ public:
     uint32_t Body = 0;
   };
 
-  [[nodiscard]] bool Build(std::span<const Volume> volumes, std::span<const Event> events,
-                           std::string &error);
+  [[nodiscard]] static std::expected<TriggerField, std::string> Stand(
+      std::span<const Volume> volumes, std::span<const Event> events);
 
   [[nodiscard]] bool Listen(std::string_view event, std::span<const std::string_view> reads,
                             std::string &error);
@@ -37,6 +38,8 @@ public:
   [[nodiscard]] size_t Unseated() const { return Unseated_; }
 
 private:
+  TriggerField() = default;
+
   struct Door {
     uint16_t Event = 0;
     When Opens = When::Enter;

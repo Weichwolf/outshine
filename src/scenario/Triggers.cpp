@@ -12,28 +12,19 @@ constexpr size_t kMostFired = 256;
 
 }
 
-bool TriggerField::Build(std::span<const Volume> volumes, std::span<const Event> events,
-                         std::string &error) {
-  Doors_.clear();
-  Events_.clear();
-  Carries_.clear();
-  Heard_.clear();
-  Unheard_.clear();
-  InsideDoor_.clear();
-  Ring_.clear();
-  Overflowed_ = 0;
-  Unseated_ = 0;
+std::expected<TriggerField, std::string> TriggerField::Stand(std::span<const Volume> volumes,
+                                                             std::span<const Event> events) {
+  TriggerField standing;
 
   if (volumes.size() > kMostDoors) {
-    error = "the scenario declares " + std::to_string(volumes.size()) +
-            " volumes over the pool's " + std::to_string(kMostDoors);
-    return false;
+    return std::unexpected("the scenario declares " + std::to_string(volumes.size()) +
+                           " volumes over the pool's " + std::to_string(kMostDoors));
   }
   for (const Event &event : events) {
-    Events_.push_back(event.Name);
-    Carries_.emplace_back(event.Carries.begin(), event.Carries.end());
-    Heard_.push_back(0);
-    Unheard_.push_back(0);
+    standing.Events_.push_back(event.Name);
+    standing.Carries_.emplace_back(event.Carries.begin(), event.Carries.end());
+    standing.Heard_.push_back(0);
+    standing.Unheard_.push_back(0);
   }
   for (const Volume &volume : volumes) {
     Door door;
@@ -44,39 +35,36 @@ bool TriggerField::Build(std::span<const Volume> volumes, std::span<const Event>
     } else if (volume.When == "dwell") {
       door.Opens = When::Dwell;
     } else {
-      error = "volume '" + volume.Id + "' fires when '" + volume.When +
-              "', and a volume fires on enter, exit or dwell -- the engine spells no fourth";
-      return false;
+      return std::unexpected("volume '" + volume.Id + "' fires when '" + volume.When +
+                             "', and a volume fires on enter, exit or dwell -- the engine "
+                             "spells no fourth");
     }
     if (volume.Shape == "sphere") {
       door.Sphere = 1;
     } else if (volume.Shape == "box" || volume.Shape.empty()) {
       door.Sphere = 0;
     } else {
-      error = "volume '" + volume.Id + "' is a '" + volume.Shape +
-              "', and a volume is a box or a sphere";
-      return false;
+      return std::unexpected("volume '" + volume.Id + "' is a '" + volume.Shape +
+                             "', and a volume is a box or a sphere");
     }
     if (door.Opens == When::Dwell && !(volume.DwellS > 0.0)) {
-      error = "volume '" + volume.Id +
-              "' fires on dwell and declares no dwellS -- a dwell without a duration is "
-              "an enter wearing a costume";
-      return false;
+      return std::unexpected("volume '" + volume.Id +
+                             "' fires on dwell and declares no dwellS -- a dwell without a "
+                             "duration is an enter wearing a costume");
     }
-    uint16_t named = (uint16_t)Events_.size();
-    for (size_t at = 0; at < Events_.size(); ++at) {
-      if (Events_[at] == volume.Fires) { named = (uint16_t)at; }
+    uint16_t named = (uint16_t)standing.Events_.size();
+    for (size_t at = 0; at < standing.Events_.size(); ++at) {
+      if (standing.Events_[at] == volume.Fires) { named = (uint16_t)at; }
     }
-    if (named == (uint16_t)Events_.size()) {
+    if (named == (uint16_t)standing.Events_.size()) {
       std::string all;
-      for (const std::string &event : Events_) {
+      for (const std::string &event : standing.Events_) {
         if (!all.empty()) { all += ' '; }
         all += event;
       }
-      error = "volume '" + volume.Id + "' fires '" + volume.Fires +
-              "', which no event declares -- the scenario declares: " +
-              (all.empty() ? "nothing" : all);
-      return false;
+      return std::unexpected("volume '" + volume.Id + "' fires '" + volume.Fires +
+                             "', which no event declares -- the scenario declares: " +
+                             (all.empty() ? "nothing" : all));
     }
     door.Event = named;
     for (int axis = 0; axis < 3; ++axis) {
@@ -84,13 +72,15 @@ bool TriggerField::Build(std::span<const Volume> volumes, std::span<const Event>
       door.ExtentM[axis] = volume.ExtentM[axis];
     }
     door.DwellS = volume.DwellS;
-    Doors_.push_back(door);
+    standing.Doors_.push_back(door);
   }
-  InsideDoor_.assign(Doors_.size(), {});
-  for (std::vector<Standing> &seated : InsideDoor_) { seated.reserve(kMostStandings); }
-  Ring_.reserve(kMostFired);
-  Drained_.reserve(kMostFired);
-  return true;
+  standing.InsideDoor_.assign(standing.Doors_.size(), {});
+  for (std::vector<Standing> &seated : standing.InsideDoor_) {
+    seated.reserve(kMostStandings);
+  }
+  standing.Ring_.reserve(kMostFired);
+  standing.Drained_.reserve(kMostFired);
+  return standing;
 }
 
 bool TriggerField::Listen(std::string_view event, std::span<const std::string_view> reads,
