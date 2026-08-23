@@ -26,3 +26,13 @@ Demanded: the validation pass dry-runs onto staged `Traits` copies (one per hold
 across lines so N lines on ONE holder validate against each other), the commit pass then
 writes copies that can no longer refuse; the proof gains a full-holder arm that would have
 caught the half-apply.
+
+---
+
+Closed -- the dry run now puts every landing into a staged copy of its holder's row (copies
+carried across lines, so N lines on one holder validate against each other) and the commit
+writes whole rows afterwards; the no-seat refusal names the budget, the stray indent is gone.
+Proven in ASaveIsAFunctionOfTheDeclaration: a sixteen-trait holder, a tampered legal first
+line (0.9) and an interned-but-seatless second line -- Restore refuses and t01 still reads
+0.5, so the legal line did NOT land. Negative control: the pre-fix Engine goes 1 FAIL on
+exactly this arm.

@@ -330,17 +330,33 @@ bool Engine::Restore(std::string_view path) {
     }
     staged.push_back(landing);
   }
-  // NOTHING mutated until every line validated -- a refused restore leaves the scene as it
-  // stood, never half-applied
+  // NOTHING mutated until every landing has SAT: the dry run puts every line into a staged
+  // copy of its holder's row, copies carried across lines so N lines on one holder validate
+  // against each other -- the commit then writes whole rows that can no longer refuse
+  std::vector<std::pair<Entity, Traits>> rows;
   for (const Landing &landing : staged) {
-    Traits held = S_->Kinds.Get(landing.Holder) == nullptr ? Traits{}
-                                                           : *S_->Kinds.Get(landing.Holder);
-    if (!held.Put(landing.Key, landing.Value) || !S_->Kinds.Put(landing.Holder, held)) {
-      S_->Error = "the saved value found no seat";
+    Traits *row = nullptr;
+    for (auto &held : rows) {
+      if (held.first == landing.Holder) { row = &held.second; }
+    }
+    if (row == nullptr) {
+      const Traits *standing = S_->Kinds.Get(landing.Holder);
+      rows.emplace_back(landing.Holder, standing == nullptr ? Traits{} : *standing);
+      row = &rows.back().second;
+    }
+    if (!row->Put(landing.Key, landing.Value)) {
+      S_->Error = "the saved value found no seat -- the holder already carries its full " +
+                  std::to_string(Traits::kMost) + " traits, and NOTHING was applied";
       return false;
     }
   }
-    S_->Error.clear();
+  for (const auto &held : rows) {
+    if (!S_->Kinds.Put(held.first, held.second)) {
+      S_->Error = "a validated holder died between the dry run and the commit";
+      return false;
+    }
+  }
+  S_->Error.clear();
   return true;
 }
 const Column<Traits> &Engine::Resolved(void) const { return S_->Kinds; }

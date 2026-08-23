@@ -111,6 +111,36 @@ int main(void) {
           "an empty promise");
   }
 
+  {
+    // the APPLY-stage refusal: a full sixteen-trait holder meets a key that IS interned
+    // globally but has no seat on it -- the first (legal, tampered) line must NOT land
+    const std::string fullWorld = Planted(
+        "full.scenario",
+        "<scenario name=\"full\" version=\"1\"><kinds><kind name=\"box\"><has name=\"t01\" value=\"0.5\"/><has name=\"t02\" value=\"0.5\"/><has name=\"t03\" value=\"0.5\"/><has name=\"t04\" value=\"0.5\"/><has name=\"t05\" value=\"0.5\"/><has name=\"t06\" value=\"0.5\"/><has name=\"t07\" value=\"0.5\"/><has name=\"t08\" value=\"0.5\"/><has name=\"t09\" value=\"0.5\"/><has name=\"t10\" value=\"0.5\"/><has name=\"t11\" value=\"0.5\"/><has name=\"t12\" value=\"0.5\"/><has name=\"t13\" value=\"0.5\"/><has name=\"t14\" value=\"0.5\"/><has name=\"t15\" value=\"0.5\"/><has name=\"t16\" value=\"0.5\"/></kind>"
+        "<kind name=\"spare\"><has name=\"extra\" value=\"1\"/></kind></kinds>"
+        "<instances><instance of=\"box\" id=\"crate\"/></instances>"
+        "<state><persist what=\"crate.t01\"/></state></scenario>");
+    outshine::Engine packed;
+    CHECK(packed.Read(fullWorld) && packed.Assemble(), "a sixteen-trait holder stands");
+    const std::string fullSave = PlantedPath("full.save");
+    CHECK(packed.Save(fullSave), "and saves its one declared trait");
+    std::string sabotaged = Slurp(fullSave);
+    const size_t half = sabotaged.find("0.5");
+    CHECK(half != std::string::npos, "the saved value is in the text");
+    sabotaged.replace(half, 3, "0.9");
+    sabotaged += "crate.extra 1\n";
+    const std::string trap = Planted("full-sabotaged.save", sabotaged.c_str());
+    CHECK(!packed.Restore(trap) &&
+              packed.Error().find("full") != std::string::npos,
+          "a globally interned key with no seat on the FULL holder refuses in the dry run, "
+          "naming the budget");
+    const double *held = packed.Resolved().Get(packed.Stood().InstanceNamed("crate"))
+                             ->Named(packed.Stood().TraitKey("t01"));
+    CHECK(held != nullptr && *held == 0.5,
+          "**AND THE LEGAL FIRST LINE DID NOT LAND**: the apply-stage refusal keeps the "
+          "whole-or-nothing contract, not just the validation-stage one (board:1702)");
+  }
+
   Covers("III.9 what a scenario declared as state survives the process: a save is a "
          "deterministic function of the declaration, named and versioned, applied after the "
          "one stand-up route, bounded (board:1492)");
