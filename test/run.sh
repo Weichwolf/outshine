@@ -3,6 +3,7 @@
 set -u
 set -m
 AUDIT=0
+CORPUS=0
 AUDITLINK=0
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -108,6 +109,7 @@ while [ $# -gt 0 ]; do
       ;;
     --library) LIBRARY=1; shift ;;
     --audit) AUDIT=1; shift ;;
+    --corpus) CORPUS=1; shift ;;
     --audit-link) AUDITLINK=1; shift ;;
     -*) Die "unknown option '$1'" ;;
     *) SUITES="$SUITES ${1%/}"; SUITE=${1%/}; shift; continue ;;
@@ -404,6 +406,7 @@ TRAILER_CHECKS=0
 TRAILER_FAILURES=0
 TRAILER_SKIPS=0
 TRAILER_UNPREPARED=0
+FAST_GATE=no
 Number() {
   case "$1" in
     '' | *[!0-9]*) return 1 ;;
@@ -477,6 +480,27 @@ BuildLibrary() {
 if [ -n "${LIBRARY:-}" ]; then
   BuildLibrary
   trap - EXIT
+  exit 0
+fi
+
+WhatNoCorpusJudges() {
+  for family in test/render/*/; do
+    family=${family%/}
+    [ "$family" = test/render/outshine ] && continue
+    declared=$(find "$family" -mindepth 2 -maxdepth 3 -type d 2>/dev/null | wc -l | tr -d ' ')
+    [ "${declared:-0}" -eq 0 ] && continue
+    stem=$(printf '%s' "$family" | tr / -)
+    fetched=$(find "$PREPARED" -maxdepth 2 -type f -path "$PREPARED/$stem-*" \
+      ! -name manifest.json ! -name provenance.json 2>/dev/null | head -1)
+    [ -z "$fetched" ] &&
+      printf 'run.sh: %s declares %s cases and NOT ONE holds a fetched subject -- this trailer says nothing about it, and naming it would not either until test/harness/shared/corpus/prepare.py has run\n' \
+        "$family" "$declared"
+  done
+  return 0
+}
+
+if [ "$CORPUS" = 1 ]; then
+  WhatNoCorpusJudges
   exit 0
 fi
 
@@ -690,6 +714,7 @@ if [ -z "$SUITES" ]; then
     [ "$fast" = yes ] && kept="$kept $candidate"
   done
   TESTS=$kept
+  FAST_GATE=yes
   printf 'run.sh: the fast gate -- named-only suites excluded: %s\n' "$NAMED_ONLY"
   gateLibraryFrom=$(Now)
   BuildLibrary
@@ -755,6 +780,7 @@ prunedKib=0
 stayedFiles=0
 
 PreparedCase() { printf '%s/%s' "$PREPARED" "$(printf '%s' "$1" | tr / -)"; }
+
 
 SuiteKib() {
   set -- $(du -sk "$PREPARED" 2>/dev/null)
@@ -1117,6 +1143,7 @@ elapsedMs=$(( $(Now) - started ))
 printf '%s tests: %s PASS  %s FAIL  %s TIMEOUT  %s SIGNAL  %s BUILD  %s SKIP  %s UNPREPARED  in %s ms\n' \
   "$total" "$passed" "$failed" "$timedout" "$signalled" "$unbuilt" "$skipped" "$unprepared" \
   "$elapsedMs"
+if [ "$FAST_GATE" = yes ]; then WhatNoCorpusJudges; fi
 [ $((criterionMet + criterionRed)) -gt 0 ] &&
   printf 'khronos: criteria %s met of %s   picture bound %s within, %s outside, %s not-enforced of %s\n' \
     "$criterionMet" "$((criterionMet + criterionRed))" \
