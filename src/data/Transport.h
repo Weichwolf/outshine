@@ -1,6 +1,7 @@
 #ifndef TRANSPORT_H
 #define TRANSPORT_H
 
+#include <chrono>
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -47,6 +48,14 @@ public:
 
   [[nodiscard]] virtual Wire Collect(Ticket ticket) = 0;
   virtual void Cancel(Ticket ticket) = 0;
+
+  // the transport IS the outside world, its clock included -- a fake transport fakes time,
+  // so a backoff proof never sleeps
+  [[nodiscard]] virtual double NowMs(void) {
+    return (double)std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::steady_clock::now().time_since_epoch())
+        .count();
+  }
 };
 
 }

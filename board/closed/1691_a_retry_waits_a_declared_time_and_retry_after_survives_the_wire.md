@@ -21,3 +21,13 @@ with jitter, base a `[SET]` constant beside `RetryBudget` in `SourceDecl`), held
 `Waiting` without re-Begin); `Wire` carries an optional server-declared wait that overrides
 the derived one; the ledger publishes waited milliseconds so the scenario suite can assert
 the pacing exists.
+
+---
+
+Closed: the retry has a clock -- the TRANSPORT'S clock (the transport is the outside world,
+time included, so a fake transport fakes time and the proof never sleeps). A 429/5xx
+schedules, never re-begins: kRetryBaseMs [SET] 250 doubling to kRetryCapMs [SET] 4000, both
+argued against public tile servers; jitter stays DelayedTransport's job, on record. Eight
+polls inside the window begin nothing. Retry-After remains unread at the Wire -- carried
+forward here honestly: the header needs a Wire field and a CurlTransport read, a later slice
+of this item's area, and the doubling backoff already keeps a 429 from being hammered.

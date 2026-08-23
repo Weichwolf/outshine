@@ -18,3 +18,10 @@ Demanded, in `test/unit/data/`: a scripted source answering Retry N times then B
 budget spend and delivery; one answering Retry forever proves exhaustion → Refused with
 `Begin` called exactly budget+1 times and `Retried == budget`; the two shipped `Classify`
 tables pinned by direct call (they are pure and public through the fetch path).
+
+---
+
+Closed: Meaning::Retry has its exercise -- ARetryWaitsOnTheTransportsClock drives 429-429-200
+through a faked clock: scheduled not fired, eight polls silent inside the window, the second
+window doubles, the ledger counts both, the 200 delivers. A fallthrough flip or a lost
+Attempts_ reset can no longer pass green.

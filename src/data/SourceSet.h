@@ -45,6 +45,7 @@ public:
     Address At_ = Address::Whole(0);
     Ticket Ticket_ = Ticket::None;
     int Attempts_ = 0;
+    double RetryAtMs_ = 0.0;
   };
 
   [[nodiscard]] Query Ask(const Request &request) const;

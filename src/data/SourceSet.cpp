@@ -1,9 +1,18 @@
+#include <cmath>
 #include "SourceSet.h"
 
 #include <algorithm>
 #include <utility>
 
 namespace outshine::Data {
+
+namespace {
+constexpr double kRetryBaseMs = 250.0;  // [SET] under a poll cadence of tens of ms this is
+                                        // the first real pause a 429/5xx buys
+constexpr double kRetryCapMs = 4000.0;  // [SET] four doublings then hold -- a dead host is
+                                        // the budget's business, not the clock's
+}
+
 
 SourceSet::Registration SourceSet::Add(std::unique_ptr<Source> source) {
   if (!source) return Registration::Unnamed;
@@ -33,6 +42,12 @@ SourceSet::Query SourceSet::Ask(const Request &request) const {
 }
 
 Delivery SourceSet::Collect(Query &query, Transport &transport) {
+  if (query.RetryAtMs_ > 0.0 && query.Current_ != nullptr) {
+    if (transport.NowMs() < query.RetryAtMs_) { return Delivery::Waiting(); }
+    query.RetryAtMs_ = 0.0;
+    query.Ticket_ = query.Current_->Begin(query.At_, transport);
+    return Delivery::Waiting();
+  }
   if (query.Candidates_.empty()) {
     std::lock_guard<std::mutex> lock(LedgerMutex_);
     Ledger_.Undeclared++;
@@ -100,7 +115,13 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
             std::lock_guard<std::mutex> lock(LedgerMutex_);
             Ledger_.Retried++;
           }
-          query.Ticket_ = query.Current_->Begin(query.At_, transport);
+          // the retry waits on the TRANSPORT'S clock, doubling from kRetryBaseMs -- a 429
+          // is a request to go away, not an invitation to hammer at poll cadence; the base
+          // and cap are [SET] against public tile servers, jitter is DelayedTransport's job
+          query.Ticket_ = Ticket::None;
+          query.RetryAtMs_ =
+              transport.NowMs() +
+              std::fmin(kRetryBaseMs * (double)(1 << (query.Attempts_ - 1)), kRetryCapMs);
           return Delivery::Waiting();
         }
         [[fallthrough]];
