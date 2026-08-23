@@ -41,7 +41,7 @@ constexpr KnownEvent kEvents[] = {
 
 } // namespace
 
-bool InputMap::Build(const std::vector<Binding> &declared, std::string &error) {
+bool InputMap::Build(std::span<const Binding> declared, std::string &error) {
   Rows_.clear();
   for (const Binding &binding : declared) {
     const KnownEvent *known = Known(binding.Event);

@@ -3,6 +3,7 @@
 
 #include <string>
 #include <string_view>
+#include <span>
 #include <vector>
 
 #include <outshine/Scenario.h>
@@ -15,7 +16,7 @@ class InputMap {
 public:
   enum class Kind { Button, Axis };
 
-  [[nodiscard]] bool Build(const std::vector<Binding> &declared, std::string &error);
+  [[nodiscard]] bool Build(std::span<const Binding> declared, std::string &error);
 
   // every action the client will ask for is checked at stand-up -- a key that does nothing
   // at run time is the defect this refusal replaces

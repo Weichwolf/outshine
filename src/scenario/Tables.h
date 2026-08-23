@@ -4,6 +4,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <span>
 #include <vector>
 
 #include <outshine/Scenario.h>
@@ -17,7 +18,7 @@ class TableBook {
 public:
   static constexpr size_t kMostRows = 4096; // [SET] a balance table is data, not a database
 
-  [[nodiscard]] bool Build(const std::vector<Table> &declared, std::string &error);
+  [[nodiscard]] bool Build(std::span<const Table> declared, std::string &error);
 
   // a missing row or column answers NOTHING -- a missing damage row and a damage of zero
   // are different facts, so the answer is a pointer and never a default

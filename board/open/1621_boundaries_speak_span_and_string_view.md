@@ -133,3 +133,9 @@ Sharpened (review 2026-08-23, round 18): the newest boundary regressed the rule 
 src/scenario/InputMap.h:19 `Build(const std::vector<Binding> &declared, ...)` takes the owning
 container where `std::span<const Binding>` says what is meant. Convert before the door grows
 callers.
+
+---
+
+Progress -- the two young doors converted before callers grew: InputMap::Build and
+TableBook::Build take std::span<const Binding>/std::span<const Table> (unit/scenario green).
+The tree-wide sweep residue stands as surveyed.

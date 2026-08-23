@@ -4,7 +4,7 @@
 
 namespace outshine {
 
-bool TableBook::Build(const std::vector<Table> &declared, std::string &error) {
+bool TableBook::Build(std::span<const Table> declared, std::string &error) {
   Held_.clear();
   for (const Table &table : declared) {
     if (Held_.count(table.Id) != 0) {
