@@ -92,3 +92,59 @@ Cost: the whole check adds about 5 s to a 170 s gate, against 120 s of headroom.
   layer declares, with exactly the includes the layer declares, so a mismatch between the two
   is the failure.
 - Gate 232/232.
+
+---
+
+## REOPENED (review 2026-08-24) — the check cannot see `tools/`, which is the tree that filed this item
+
+The repair is real for `test/`, and blind to exactly the tree whose breakage is this item's
+title, evidence table and third row ("a signature change in `src/` broke a consumer in
+`tools/`, the change shipped green").
+
+`EverySourceStillCompiles` (test/run.sh:487) iterates `$TESTS_ALL`. `TESTS_ALL` is assigned
+at test/run.sh:756 from `$TESTS`, and `$TESTS` is built at test/run.sh:697 by
+`find $TREES -name '*.cpp'`. `TREES` is:
+
+```sh
+TREES=test                                                  # test/run.sh:691
+for named in $SUITES; do
+  case "$named" in tools | tools/*) TREES="test tools" ;;   # test/run.sh:693
+done
+```
+
+On a fast gate `$SUITES` is EMPTY (that is what makes it the fast gate, test/run.sh:745), so
+the loop body never runs and `TREES` stays `test`. **No file under `tools/` is ever a
+candidate, so none is ever compiled.**
+
+The arithmetic confirms it:
+
+| | count |
+|---|---|
+| `.cpp` under `test/` in a NAMED_ONLY layer | 36 |
+| the check's own report | `39 source(s) … still compile` |
+| `.cpp` under `tools/` | 12 |
+| of those 12, compiled by the check | **0** |
+
+36 named-only test sources plus three declared extra sources make the 39 the closure quotes
+as its proof. Twelve tools sources — including
+`tools/viewer/EveryRenderCaseTheBrowserShowsDrawsSomething.cpp` and
+`tools/viewer/TheBrowserDrawsItselfWithTheEngineItShows.cpp`, the two the same commit
+(99c4d735) repaired BY HAND for the `Script::Host::Global` signature drift — remain outside
+every gate run.
+
+So the negative control proves the check catches a broken `test/` layer. It does not, and
+cannot, prove the case in the body: **repeat the `Global`-style signature change today and
+`tools/` breaks green again.** The closure named a proving test for the half of the defect
+that was easy.
+
+### What will be true (unchanged in intent, sharpened in scope)
+
+1. `TREES` for the compile-only walk is `test tools`, unconditionally — the RUN set stays
+   `test` on a fast gate, the COMPILE set does not. Cheapest form: keep `TESTS` as is and
+   build `TESTS_ALL` from `find test tools`, so every tools source lands in the
+   "gate stood aside from" branch by construction.
+2. The report distinguishes the trees, because a reader must be able to see that `tools/`
+   was judged: `N test source(s) and M tools source(s) the gate did not run still compile`.
+3. The negative control is the item's OWN case, not a substitute: move one `src/` signature
+   the way `board:1621` moved `Script::Host::Global`, without touching `tools/`, and the
+   FAST gate exits 1 naming the tools consumer. Revert.

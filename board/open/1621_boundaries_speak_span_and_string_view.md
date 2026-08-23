@@ -204,3 +204,81 @@ the string is actually built. Suites green (gltf 60/60, data+render+shader 81/81
 Note from review round 27, to repay next: TableBook took string_view and then ALLOCATES a
 std::string in its first line -- worse than the const& it replaced. A view at the door with
 a copy behind it is the sweep's own failure mode, and that one is 1489's lookup work.
+
+---
+
+Sharpened (review 2026-08-24, hourly round) — the hour worked `src/core/Xml` and
+`src/scenario/ScenarioRead` twice (bee4ab74, 44772234) and left the door of both on the
+C-ism. Four residues on the surfaces the hour itself touched, plus the hygiene rider's
+number:
+
+**(a) `Xml::Ref`'s whole door is `const char *`, and the caller pays for it in allocations.**
+`Has`, `Spelt`, `Attr`, `Num`, `Int`, `Flag`, `Child`, `Count`, `At` (src/core/Xml.h:42-56)
+all take `const char *` and `strlen` it (src/core/Xml.cpp:47). `Children(const char *name)`
+has the one honest excuse — `nullptr` means "any" — and can keep it or move to
+`std::optional<std::string_view>`; the other eight have none. The cost is visible one file
+over, in code written THIS hour:
+
+```cpp
+const std::string wanted(at, end);                 // src/scenario/ScenarioRead.cpp:130
+if (!node.Spelt(wanted.c_str())) {                 // src/scenario/ScenarioRead.cpp:131
+```
+
+An owning `std::string` is constructed per required attribute per node solely to reach a
+`const char *` parameter, while the loop already holds the two pointers that ARE the view.
+`Names` beside it (:104) was converted to `string_view` in the same commit; `Spelt` was not.
+
+**(b) `Xml::Ref::Name()` / `Text()` / `Attr()` / `AttributeAt()` return owning `std::string`**
+(src/core/Xml.h:39-50) over bytes the document already owns in `Text_` (src/core/Xml.h:134).
+`Span()` (:129) constructs the copy. Every one of these is a read-only traversal into
+storage that outlives the call — `std::string_view` is the form, and `Grammatical`'s
+`node.Name()` (src/scenario/ScenarioRead.cpp:124,132,141) calls it three times per refusal
+path.
+
+**(c) `Known(const std::string &path)` (src/scenario/ScenarioRead.cpp:114)** — the exact
+signature this item names, in the function the hour rewrote, immediately below the `Names`
+it converted. `std::string_view`; the body is one `==` per row.
+
+**(d) `const char *text, size_t length` as a string parameter** — `ReadScenario`
+(src/scenario/ScenarioRead.h:13) and `ApplyLayer` (src/scenario/ScenarioLayer.cpp:129) spell
+a `string_view` as two arguments. `Xml::Parse(const char*, size_t)` (src/core/Xml.h:120) has
+the same shape and the same answer.
+
+**(e) The `std::expected` half regressed on a door the hour converted.** e014531d turned
+`TriggerField::Stand` into `std::expected<TriggerField, std::string>` and left its neighbour
+on the old form:
+
+```cpp
+[[nodiscard]] static std::expected<TriggerField, std::string> Stand(...);   // Triggers.h:26
+[[nodiscard]] bool Listen(std::string_view event, std::span<const std::string_view> reads,
+                          std::string &error);                             // Triggers.h:29
+```
+
+Two spellings of "refuse with a reason" three lines apart, one of them written this hour.
+`std::expected<void, std::string>`. Tree-wide the `std::string &error` count stands at 232.
+
+**(f) The hygiene rider, with its number.** A crude count of value-returning `const` member
+queries in `src/**/*.h` that carry no `[[nodiscard]]`:
+
+```
+$ grep -rn '^\s*\(const \)\?\(float\|double\|uint[0-9]*_t\|int\|size_t\|bool\) [A-Z][A-Za-z0-9]*([^)]*) const' src/ --include='*.h' | grep -v nodiscard | wc -l
+146
+```
+
+and that regex sees neither `std::string` nor pointer nor struct returns, so 146 is a floor.
+The bar is ALWAYS. The clearest single exhibit, because the file already knows the rule:
+
+```cpp
+uint32_t Rows() const { return Rows_; }                                    // TerrainGrid.h:19
+uint32_t Cols() const { return Cols_; }                                    // :20
+bool Meshable() const { return Rows_ >= 2 && Cols_ >= 2; }                 // :21
+size_t Bytes() const { return HeightsM_.size() * sizeof(float); }          // :22
+const float *Data() const { return HeightsM_.data(); }                     // :24
+float AtM(uint32_t row, uint32_t col) const { ... }                        // :27
+[[nodiscard]] float PostingM(double fracCol, double fracRow) const { ... } // :30
+```
+
+Six without, one with, in seven consecutive lines of src/ground/tiles/TerrainGrid.h. All six
+are also `noexcept` in fact and four are `constexpr`-able. `ViewBook`
+(src/scenario/Views.h:22-28) is what the rest of the tree should look like: every query
+`[[nodiscard]]` and `noexcept`, the factory `std::expected`, every parameter a view.
