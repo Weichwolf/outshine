@@ -177,13 +177,21 @@ bool Network::Weave(std::string &error) {
 
     size_t found = Nodes_.size();
     const int64_t rowHere = RowOf(latDeg);
+    const RowShape mine = ShapeRow(rowHere);
     for (int64_t row = rowHere - 1; row <= rowHere + 1 && found == Nodes_.size(); ++row) {
       const RowShape shape = ShapeRow(row);
+      // derived: a neighbour within one snap sits within lonCell(here) DEGREES of this
+      // point; in the visited row's own columns that is the ratio of the two cell
+      // widths -- the equatorward parallel is longer, so its columns are narrower and
+      // one snap can cross more of them -- plus one for the floor boundary
+      const int64_t reachCols =
+          (int64_t)std::ceil(mine.LonCellDeg / shape.LonCellDeg) + 1;
       const int64_t centre = ColumnIn(shape, lonDeg);
-      const int64_t span = shape.Columns < 3 ? shape.Columns : 3;
+      const int64_t span =
+          shape.Columns < 2 * reachCols + 1 ? shape.Columns : 2 * reachCols + 1;
       for (int64_t step = 0; step < span && found == Nodes_.size(); ++step) {
         const int64_t column =
-            ((centre + step - 1) % shape.Columns + shape.Columns) % shape.Columns;
+            ((centre + step - reachCols) % shape.Columns + shape.Columns) % shape.Columns;
         const auto seen = byCell.find(KeyAt(row, column));
         if (seen == byCell.end()) { continue; }
         for (const size_t candidate : seen->second) {
@@ -289,14 +297,19 @@ void Network::Within(const Waypoint &of, double reachM, std::vector<size_t> &nod
   // the walk enumerates (row, column) KEYS directly, columns modular in each row's own
   // circumference -- each cell is asked once, so no node answers twice
   const int64_t rowHere = RowOf(of.LatDeg);
+  const RowShape mine = ShapeRow(rowHere);
   for (int64_t row = rowHere - across; row <= rowHere + across; ++row) {
     const RowShape shape = ShapeRow(row);
+    // derived: the reach spans across cells of the QUERY row's width; in this row's own
+    // columns that scales by the two rows' cell-width ratio, plus one for the floor
+    const int64_t reachCols =
+        (int64_t)std::ceil((double)across * mine.LonCellDeg / shape.LonCellDeg) + 1;
     const int64_t span =
-        shape.Columns < 2 * across + 1 ? shape.Columns : 2 * across + 1;
+        shape.Columns < 2 * reachCols + 1 ? shape.Columns : 2 * reachCols + 1;
     const int64_t centre = ColumnIn(shape, of.LonDeg);
     for (int64_t step = 0; step < span; ++step) {
       const int64_t column =
-          ((centre + step - across) % shape.Columns + shape.Columns) % shape.Columns;
+          ((centre + step - reachCols) % shape.Columns + shape.Columns) % shape.Columns;
       const auto seen = Cells_.find(KeyAt(row, column));
       if (seen == Cells_.end()) { continue; }
       for (const size_t candidate : seen->second) {

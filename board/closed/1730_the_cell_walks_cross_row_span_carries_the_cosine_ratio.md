@@ -24,3 +24,12 @@ Demanded: the cross-row span is derived from the two rows' own `LonCellDeg` rati
 (`span = ceil(ratio) + 1` per visited row), with the derivation as the number's origin; a
 proof arm places two nodes SnapM apart across a row boundary at the adversarial fraction
 and shows the weld.
+
+---
+
+Closed -- both walks derive the cross-row span from the two rows' own LonCellDeg ratio
+(merge: ceil(here/visited)+1; Within: ceil(across * ratio)+1), with the derivation written
+as the number's origin. Proven in AWayAcrossTheAntimeridianWeavesAndRoutes: two way-ends
+0.98 snaps apart across a row boundary at 89.999N, the equatorward end 0.99 columns before
+its cell edge -- one snap crosses two of the narrower columns, the pair welds to one node
+(negative control: the one-column span reverted answers 4 nodes, a false network-in-pieces).
