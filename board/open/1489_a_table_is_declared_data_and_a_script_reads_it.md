@@ -32,3 +32,15 @@ two answers has none"); kMostRows [SET] 4096. Proving test:
 unit/scenario/ATableAnswersByItsFirstColumnAndItsColumnsType.cpp. Remaining box: reachable
 from a script's and a surface's HOST -- that is board:1448's capability surface, and this
 book is what it will hand out.
+
+---
+
+Review 2026-08-23: two sharpenings before the host door opens. (a) The lookup path
+allocates and scans: `Tables.cpp:65,68` build a `std::string` per query to feed the
+`unordered_map`, and `:70-73` finds the column by linear string compare -- once scripts
+read damage per tick this is alloc-and-search on the tick path. Demand transparent-hash
+heterogeneous lookup (`find(string_view)`) and a column handle resolved once, not per
+read. (b) `Tables.cpp:22` bounds the Types copy by `min(Types, Columns)` -- tolerance for
+a mismatch the one producer (`ScenarioRead.cpp`, one Type pushed per column) can never
+emit; dead tolerance is a second truth, so either refuse the mismatch loudly or make the
+invariant structural (one vector of {name, numeric} in `Table`).
