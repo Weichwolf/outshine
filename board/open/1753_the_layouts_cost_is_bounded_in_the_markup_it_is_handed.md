@@ -112,3 +112,41 @@ Three things this reopening demands beyond the original three:
    never trips. Either `Place` becomes linear in boxes (the real fix) or the refusal bound is
    the depth the layout can actually afford — a refusal at 128 that arrives after six hours
    of walking is not a refusal.
+
+---
+
+Progress, and NOT a closure -- the reopening's demands 3, 4, 5 and 6 are met; demand 1
+(linear in boxes) is not, and the honest state is written here rather than in a green test.
+
+MEASURED with the counter the item asked for (Layout::Spent() publishes places, measures,
+hits, intrinsics, intrinsic hits; the matrix test prints the whole row per shape), depth 14:
+
+| shape | places | per box | measures | hits |
+|---|---|---|---|---|
+| flex+baseline | 106 | 7.1 | 91 | 78 |
+| percentage width | 470 | 31.3 | 377 | 286 |
+| padding | 106 | 7.1 | 91 | 78 |
+| wrap | 106 | 7.1 | 91 | 78 |
+| width+wrap | 470 | 31.3 | 377 | 286 |
+| padding+wrap | 106 | 7.1 | 91 | 78 |
+| **width+padding** | **16340** | **1089** | 8185 | **32** |
+
+The multiplier is exactly ONE pair: a percentage width AND a padding. Pure scaling
+reproduces identical widths down the tree (keys repeat, 286 of 377 hit); adding a constant
+inset makes every level's content width a distinct real number, so (node, width) is fresh
+on every ask and each miss re-walks the subtree.
+
+Landed this hour:
+- the intrinsic sizes are cached (MinContent/MaxContent are width-INDEPENDENT and were
+  re-walking per ask): 503781 hits of 503818 asks on the worst shape;
+- the counts are published, so the proof is a COUNT and not a stopwatch (demand 5);
+- the proof is the shape MATRIX the reopening demands, plus the isolating pairs (demand 4);
+- and the two bounds agree (demand 6): kMostPlacesPerBox [SET] 64 with its derivation, and
+  a walk that multiplies meets a REFUSAL naming both numbers in 8 ms, where the same
+  document stalled 22.3 seconds. Ordinary nestings of the same pair (depth 2..8) lay out
+  untouched, so the budget refuses what multiplies and not what an interface declares.
+
+REMAINING, and it is this item's title: Place must be linear in boxes. The fix is the
+browser's own shape -- an intrinsic pass that never sub-lays, and one layout pass per node
+per Build -- which is a redesign of Placer, not an edit. Until it lands the engine is
+bounded but not linear, and this item stays open saying so.

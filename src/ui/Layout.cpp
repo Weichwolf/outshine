@@ -99,6 +99,14 @@ std::string Collapsed(const std::string &raw) {
 // document a scenario ships and shallower than any stack it may be handed
 inline constexpr int kDeepestNesting = 128;
 
+// [SET] the walk's work budget, in places per box. A layout that walks its tree a constant
+// number of times spends a constant per box; the flex algorithm genuinely needs a handful
+// of passes, and 64 is generous slack over the worst SOUND shape measured (31 per box, a
+// percentage-width ladder at depth 14). Past it the walk is multiplying rather than
+// walking, and the frame path takes a REFUSAL instead of a stall -- a document that costs
+// 22 seconds is not a document this engine lays out (board:1753, 1754's second bound)
+inline constexpr size_t kMostPlacesPerBox = 64;
+
 struct DepthGuard;
 
 struct Placer {
@@ -114,6 +122,17 @@ struct Placer {
   // (512 KiB / 2.0 KiB = 256 frames) -- a deeper markup is a REFUSAL, never a SIGSEGV
   int Depth = 0;
   bool TooDeep = false;
+  // the counts a suite can assert on, published instead of a stopwatch: a bound like
+  // "places <= c x boxes" cannot be tuned away by a faster machine (board:1753)
+  size_t Places = 0;
+  size_t Budget = (size_t)-1;
+  bool TooCostly = false;
+  size_t Measures = 0;
+  size_t MeasureHits = 0;
+  size_t Baselines_ = 0;
+  size_t BaselineHits = 0;
+  size_t Intrinsics = 0;
+  size_t IntrinsicHits = 0;
 
   // the intrinsic sizes and the baseline of a node under a given available width are a
   // FUNCTION of that pair -- a node has one parent, so its inherited style is fixed within
@@ -128,6 +147,8 @@ struct Placer {
   // row would hand a caller a zero it never measured
   std::unordered_map<uint64_t, Measured> Sizes;
   std::unordered_map<uint64_t, double> Baselines;
+  std::unordered_map<uint64_t, double> MinContents;
+  std::unordered_map<int, double> MaxContents;
 
   [[nodiscard]] static uint64_t MemoKey(int node, double availableWidth) {
     const float rounded = (float)availableWidth;
@@ -162,6 +183,8 @@ struct Placer {
                double &height);
 
   double MaxContent(int node, const Computed *inherited);
+  double MaxContentUncached(int node, const Computed *inherited);
+  double MinContentUncached(int node, const Computed *inherited, bool ownSize);
 
   double MinContent(int node, const Computed *inherited, bool ownSize = true);
 
@@ -213,9 +236,11 @@ Computed Placer::StyleOf(int node, const Computed *inherited) const {
 
 void Placer::Measure(int node, const Computed *inherited, double availableWidth, double &width,
                      double &height) {
+  ++Measures;
   const uint64_t key = MemoKey(node, availableWidth);
   const auto seen = Sizes.find(key);
   if (seen != Sizes.end()) {
+    ++MeasureHits;
     width = seen->second.Width;
     height = seen->second.Height;
     return;
@@ -239,6 +264,21 @@ void Placer::Measure(int node, const Computed *inherited, double availableWidth,
 }
 
 double Placer::MinContent(int node, const Computed *inherited, bool ownSize) {
+  // min- and max-content are functions of the node alone -- no available width enters
+  // them -- so they cache perfectly, and each was re-walking its whole subtree per ask
+  ++Intrinsics;
+  const uint64_t key = ((uint64_t)(uint32_t)node << 1) | (ownSize ? 1u : 0u);
+  const auto seen = MinContents.find(key);
+  if (seen != MinContents.end()) {
+    ++IntrinsicHits;
+    return seen->second;
+  }
+  const double answer = MinContentUncached(node, inherited, ownSize);
+  MinContents.emplace(key, answer);
+  return answer;
+}
+
+double Placer::MinContentUncached(int node, const Computed *inherited, bool ownSize) {
   const Node &element = Tree->Nodes()[(size_t)node];
   if (element.Kind == NodeKind::Text) { return 0; }
   const Computed style = StyleOf(node, inherited);
@@ -288,6 +328,18 @@ double Placer::MinContent(int node, const Computed *inherited, bool ownSize) {
 }
 
 double Placer::MaxContent(int node, const Computed *inherited) {
+  ++Intrinsics;
+  const auto seen = MaxContents.find(node);
+  if (seen != MaxContents.end()) {
+    ++IntrinsicHits;
+    return seen->second;
+  }
+  const double answer = MaxContentUncached(node, inherited);
+  MaxContents.emplace(node, answer);
+  return answer;
+}
+
+double Placer::MaxContentUncached(int node, const Computed *inherited) {
   const Node &element = Tree->Nodes()[(size_t)node];
   if (element.Kind == NodeKind::Text) { return 0; }
   const Computed style = StyleOf(node, inherited);
@@ -400,9 +452,13 @@ double Placer::Clamped(double used, const Computed &style, Property least, Prope
 }
 
 double Placer::BaselineOf(int node, const Computed *inherited, double widthRoom) {
+  ++Baselines_;
   const uint64_t key = MemoKey(node, widthRoom);
   const auto seen = Baselines.find(key);
-  if (seen != Baselines.end()) { return seen->second; }
+  if (seen != Baselines.end()) {
+    ++BaselineHits;
+    return seen->second;
+  }
   const size_t before = Out->size();
   Place(node, inherited, 0, 0, widthRoom, 0, -1);
   double baseline = 0;
@@ -905,6 +961,9 @@ double Placer::Children(int node, const Computed &style, int self, double conten
 double Placer::Place(int node, const Computed *inherited, double originX, double originY,
                      double containerWidth, double containerHeight, int parentBox, double usedW,
                      double usedH) {
+  ++Places;
+  if (Places > Budget) { TooCostly = true; }
+  if (TooCostly) { return 0; }
   if (TooDeep) { return 0; }
   if (Depth >= kDeepestNesting) {
     TooDeep = true;
@@ -1104,10 +1163,29 @@ bool Layout::Build(const Markup &markup, Stylesheet &sheet, double viewportWidth
   placer.Face = &font;
   placer.Out = &Boxes_;
 
+  // the budget is the tree's own size times the per-box allowance: a walk that stays
+  // proportional never sees it, and one that multiplies meets it in bounded time
+  size_t elements = 0;
+  for (const Node &one : markup.Nodes()) {
+    if (one.Kind == NodeKind::Element) { ++elements; }
+  }
+  placer.Budget = (elements + 1) * kMostPlacesPerBox;
+
   double y = 0;
   for (const int child : markup.Nodes()[(size_t)markup.Root()].Children) {
     if (markup.Nodes()[(size_t)child].Kind != NodeKind::Element) { continue; }
     y += placer.Place(child, nullptr, 0, y, viewportWidth, viewportHeight, -1);
+  }
+  Spent_ = Work{placer.Places,   placer.Measures,  placer.MeasureHits, placer.Baselines_,
+                placer.BaselineHits, placer.Intrinsics, placer.IntrinsicHits};
+  if (placer.TooCostly) {
+    Boxes_.clear();
+    error = "the declaration costs more than the " + std::to_string(kMostPlacesPerBox) +
+            " placements per box this layout budgets (" + std::to_string(elements) +
+            " elements, " + std::to_string(placer.Places) +
+            " placements spent) -- a shape whose cost multiplies with nesting is refused, "
+            "not walked for minutes";
+    return false;
   }
   if (placer.TooDeep) {
     Boxes_.clear();

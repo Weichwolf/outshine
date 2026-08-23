@@ -80,11 +80,25 @@ public:
 
   [[nodiscard]] int Hit(double x, double y) const;
 
+  // the walk's own counts, published so a suite asserts on a BOUND and not a stopwatch:
+  // places <= c x boxes is a claim a faster machine cannot make true (board:1753)
+  struct Work {
+    size_t Places = 0;
+    size_t Measures = 0;
+    size_t MeasureHits = 0;
+    size_t Baselines = 0;
+    size_t BaselineHits = 0;
+    size_t Intrinsics = 0;
+    size_t IntrinsicHits = 0;
+  };
+  [[nodiscard]] const Work &Spent() const { return Spent_; }
+
   [[nodiscard]] double ViewportWidth() const { return ViewportWidth_; }
   [[nodiscard]] double ViewportHeight() const { return ViewportHeight_; }
 
 private:
   std::vector<Box> Boxes_;
+  Work Spent_;
   double ViewportWidth_ = 0, ViewportHeight_ = 0;
 };
 
