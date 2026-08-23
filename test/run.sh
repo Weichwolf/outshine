@@ -131,6 +131,7 @@ LayerIncludes() {
     unit/generators) printf '%s' "-Isrc/core -Isrc/generators" ;;
     unit/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
     unit/ground) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/actor/path -Isrc/data -Isrc/ground -Isrc/ground/tiles" ;;
+    unit/ground/tiles) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/ground -Isrc/ground/tiles" ;;
     unit/render/plan) printf '%s' "-Isrc/core -Isrc/render/plan" ;;
     unit/render/draw) printf '%s' "-Isrc/core -Isrc/render/draw" ;;
     unit/render/stages) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages $(pkg-config --cflags sdl3)" ;;
@@ -196,7 +197,7 @@ LayerLink() {
     render/outshine/shader) printf '%s' "$(pkg-config --libs sdl3) -lz" ;;
     unit/clients) printf '%s' "$(pkg-config --libs sdl3-image) -lz" ;;
     unit/render | unit/render/stages) printf '%s' "$(pkg-config --libs sdl3) -lz" ;;
-    unit/core | unit/ground | unit/data | unit/render/plan | unit/render/draw | unit/sim | unit/actor/path) printf '%s' "-lz" ;;
+    unit/core | unit/ground | unit/ground/tiles | unit/data | unit/render/plan | unit/render/draw | unit/sim | unit/actor/path) printf '%s' "-lz" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -220,6 +221,7 @@ LayerGroups() {
     unit/generators) printf '%s' "src/core src/generators" ;;
     unit/generators/draw) printf '%s' "src/core src/generators src/generators/draw" ;;
     unit/ground) printf '%s' "src/core src/core/io src/actor/path src/data src/ground src/ground/tiles" ;;
+    unit/ground/tiles) printf '%s' "src/core src/core/io src/ground/tiles" ;;
     unit/render/plan) printf '%s' "src/core src/core/io src/render/plan" ;;
     unit/render/draw) printf '%s' "src/core src/core/io src/render/draw" ;;
     unit/render/stages) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
@@ -312,17 +314,35 @@ GroupToolchain() {
   esac
 }
 
+# freshness is CONTENT, not clock: a checkout, a stash pop or a revert moves an mtime
+# BACKWARDS, and "-nt" then reports a stale object as current -- a green verdict about
+# source nobody compiled (board:1751). The stamp beside each object is the digest of the
+# source and every prerequisite the compiler named.
+SourceStamp() {
+  stampSource=$1
+  stampDeps=$2
+  { printf '%s\n' "$stampSource"
+    cat "$stampSource" 2>/dev/null
+    if [ -f "$stampDeps" ]; then
+      for prerequisite in $(sed -e 's/^[^:]*://' -e 's/\\//g' "$stampDeps"); do
+        [ -e "$prerequisite" ] || return 1
+        printf '%s\n' "$prerequisite"
+        cat "$prerequisite"
+      done
+    fi
+  } | shasum -a 256 | cut -d' ' -f1
+}
+
 UpToDate() {
   objectPath=$1
   sourcePath=$2
   depsPath=${objectPath%.o}.d
+  stampPath=${objectPath%.o}.stamp
   [ -f "$objectPath" ] || return 1
   [ -f "$depsPath" ] || return 1
-  if [ "$sourcePath" -nt "$objectPath" ]; then return 1; fi
-  for prerequisite in $(sed -e 's/^[^:]*://' -e 's/\\//g' "$depsPath"); do
-    [ -e "$prerequisite" ] || return 1
-    if [ "$prerequisite" -nt "$objectPath" ]; then return 1; fi
-  done
+  [ -f "$stampPath" ] || return 1
+  freshStamp=$(SourceStamp "$sourcePath" "$depsPath") || return 1
+  [ "$freshStamp" = "$(cat "$stampPath")" ] || return 1
   return 0
 }
 
@@ -342,6 +362,7 @@ BuildGroup() {
     unitObject=$OBJDIR/$(dirname "$unit" | tr / -)-$(basename "$unit" .cpp).$setId.o
     if ! UpToDate "$unitObject" "$unit"; then
       $CXX "$unit" $groupStd $OPT $WARN $SAN $EXTRA_DEFINES -MMD -MP $groupIncludes -c -o "$unitObject" || return 1
+      SourceStamp "$unit" "${unitObject%.o}.d" >"${unitObject%.o}.stamp"
     fi
     OBJECTS="$OBJECTS $unitObject"
   done
