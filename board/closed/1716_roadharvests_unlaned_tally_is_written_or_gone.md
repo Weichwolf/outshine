@@ -18,3 +18,14 @@ the field goes; the dedup matches whole tokens. `Reap` also swallows `Type != 2`
 per-way and silently returns an empty Reaped when the streets layer is absent
 (line 12) — the counts exist, but the absent-layer arm publishes nothing at all where a
 number would carry information.
+
+---
+
+Closed -- the dead Unlaned/WithoutLanes pair LEFT (a kind without lanes IS NotACarriageway
+by the function's own earlier rule; the unreachable twin condition and its consumer lines
+are gone), the dedup matches whole space-terminated tokens via Ground::Listed, and an absent
+streets layer is a published FACT (Reaped.StreetsAbsent, claimed by the drive assembly so
+all-zero counts cannot pass as an empty layer). Proven in
+unit/ground/ADiagnosticListsWholeKindsOnce ('way' is not listed because 'motorway' is, a
+prefix is no listing, the token lands whole beside its superstring) plus the gate's build
+over the shrunk Reaped.

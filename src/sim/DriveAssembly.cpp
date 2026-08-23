@@ -158,6 +158,9 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   Network roads(1.05 * quantumM, world.RadiusM);
   say.Number("the tile's own coordinate quantisation", quantumM, "m");
   const Reaped reaped = Reap(field, widths, carWidthM, roads);
+  say.Claim(!reaped.StreetsAbsent,
+        "the streets layer is present -- an absent layer and an empty one are different "
+        "facts, and every count below would otherwise be an honest-looking zero");
   say.Number("the snapping distance just above it", roads.SnapM(), "m");
   say.Number("ways a car can fit down", (double)reaped.Ways, "ways");
   say.Number("points in them", (double)reaped.Points, "points");
@@ -177,12 +180,9 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
         "car on the tracks. What a CARRIAGEWAY has is LANES; a railway declares none, and that is "
         "the test");
   say.Number("ways whose kind declares no maximum grade", (double)reaped.Ungraded, "ways");
-  say.Number("ways whose kind declares no lane count", (double)reaped.Unlaned, "ways");
+
   if (!reaped.WithoutGrade.empty()) {
     say.Say(Line("UNGRADED KINDS %s", reaped.WithoutGrade.c_str()));
-  }
-  if (!reaped.WithoutLanes.empty()) {
-    say.Say(Line("UNLANED KINDS %s", reaped.WithoutLanes.c_str()));
   }
   say.Claim(reaped.Ways > 0,
         Line("and roads a %s m car can fit down are harvested from them",

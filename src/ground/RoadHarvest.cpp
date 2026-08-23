@@ -9,7 +9,11 @@ Reaped Reap(const OsmField &field, const VegetationTemplates &widths, double veh
             Path::Network &into) {
   Reaped out;
   const int streets = field.Layer(OsmLayer::Streets);
-  if (streets < 0) { return out; }
+  if (streets < 0) {
+    // an absent layer and an empty one are different facts, and all-zero counts lie
+    out.StreetsAbsent = true;
+    return out;
+  }
 
   std::vector<double> along;
   for (const OsmField::Feature &feature : field.Features()) {
@@ -33,22 +37,14 @@ Reaped Reap(const OsmField &field, const VegetationTemplates &widths, double veh
     const std::string_view kind = field.Str(feature, "kind");
     if (rule->Lanes <= 0) {
       ++out.NotACarriageway;
-      if (out.NotCarriageways.find(kind) == std::string::npos) {
+      if (!Listed(out.NotCarriageways, kind)) {
         out.NotCarriageways += std::string(kind) + " ";
       }
       continue;
     }
     if (!(rule->MaxGradient > 0.0)) {
       ++out.Ungraded;
-      if (out.WithoutGrade.find(kind) == std::string::npos) {
-        out.WithoutGrade += std::string(kind) + " ";
-      }
-    }
-    if (rule->Lanes <= 0) {
-      ++out.Unlaned;
-      if (out.WithoutLanes.find(kind) == std::string::npos) {
-        out.WithoutLanes += std::string(kind) + " ";
-      }
+      if (!Listed(out.WithoutGrade, kind)) { out.WithoutGrade += std::string(kind) + " "; }
     }
     if (!(out.NarrowestTakenM > 0.0) || widthM < out.NarrowestTakenM) {
       out.NarrowestTakenM = widthM;
