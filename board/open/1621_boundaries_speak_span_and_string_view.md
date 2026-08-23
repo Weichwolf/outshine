@@ -162,3 +162,19 @@ door: Compile returns std::expected<shared_ptr<const RenderPlan>, std::string>, 
 returns std::optional<Stage> -- ONE public spelling, the out-pointer form died with all 28
 call sites converted (Live.cpp reads the expected directly; the tests wrap it). Gate
 155/155, link audit closed.
+
+Sharpened (review 2026-08-23, round 26): the C++23 refusal form stopped at the render
+plan's door. `grep -rn 'std::string &error' src/ include/` counts 238 sites, and the ui
+layer -- worked this hour under the new sanitised arm -- carries the pattern on its two
+public verbs:
+
+- src/ui/Layout.h:76 `bool Build(const Markup&, Stylesheet&, double, double, const Font&, std::string &error)`
+- src/ui/Paint.h:41 `bool Build(const Layout&, const Font&, std::string &error, const Page& = {})`
+- src/ui/Markup.h `bool Read(..., std::string &error)`
+
+This is precisely the shape `RenderPlan::Compile` shed at 4552b4c ("ONE public spelling,
+the out-pointer form died"): a refusal that carries its reason is `std::expected`. The ui
+door is the next honest slice -- three functions, callers in `src/clients/Live.cpp:456-461`
+and `test/unit/ui/*`, no virtual ripple. Note that board:1754 will give `Layout::Build` a
+NEW refusal (nesting past the bound), so the door is being touched anyway; convert it then
+rather than adding a second reason to a bool.

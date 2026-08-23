@@ -29,3 +29,32 @@ ASan replaces -- sanitising it would measure ASan, not the instrument. The 1735 
 re-derived honestly against the new population: 98.0 / 98.5 / 100.2 s of run measured over
 three warm passes, bound = worst x 1.5 = 150000 ms, derivation printed in run.sh; headroom
 51 s.
+
+---
+
+REOPENED (review 2026-08-23, round 26). The closure met the three layers the item HAPPENED
+to name; the item's TITLE is still not true, and the two layers left out are the only ones
+in the tree that parse bytes off the NETWORK:
+
+- `src/data` -- `VersatilesVector` decodes Mapbox-vector-tile protobuf from a web source,
+  `WebTileSource`/`Transport` handle the wire. `unit/data` is not in `LayerSanitiser`
+  (test/run.sh:177).
+- `src/ground/tiles` -- `TerrainGrid::FromTerrariumPng` (TerrainGrid.cpp:8-27) decodes a
+  PNG whose declared width and height it takes on trust. `unit/ground` and
+  `unit/ground/tiles` are not in `LayerSanitiser` either.
+
+Not a hypothetical: this round found undefined behaviour in exactly that unsanitised path
+and had to compile a private probe to see it --
+
+    src/ground/tiles/TileMath.h:23:52: runtime error: nan is outside the range of
+    representable values of type 'unsigned int'
+
+reachable from a 1x1 terrarium PNG through `TerrainTiles::StitchedGrid` (board:1755). The
+gate ran 206/206 green over the same code in the same hour. `ui`, `core` and `gltf` parse
+what a scenario ships; `data` and `ground/tiles` parse what a stranger serves, and they are
+the ones running blind.
+
+Demanded, on top of the closed part: `unit/data`, `unit/ground` and `unit/ground/tiles`
+join `LayerSanitiser`; the gate bound is re-derived against the new population the way
+board:1749 demands (operating population, warm, beside a parallel nest); a layer left out
+carries its name and its reason in the runner, as the heap-probe exemption already does.
