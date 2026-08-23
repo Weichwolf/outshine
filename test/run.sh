@@ -635,12 +635,12 @@ fi
 # THE FAST GATE IS THE DEFAULT (board:1601): run.sh without suites runs the regression gate --
 # the unit mirror, the claims, and the door proof -- and EXCLUDES the named-only suites, loudly.
 # The long suites (device corpora, oracle renders, the drive) run only when named: sporadic by
-# rule, never per edit. kFastGateBoundMs is [SET] 90000 ms on this machine over the WARM,
-# OTHERWISE-IDLE population (re-derived 2026-08-23: 55-62 s warm at 133 tests, ~1.5x headroom;
-# a parallel reviewer gate in a worktree inflates both runs toward the bound -- the lock keeps
-# a SECOND gate out of this nest but not off this machine); a COLD run after a
-# flag change rebuilds every set-stamped object and overruns once by design -- its red says
-# 'run again warm', which the overrun message states.
+# rule, never per edit. kFastGateBoundMs is [SET] 90000 ms on this machine over the RUN
+# population alone -- the build phases are measured and stand BESIDE the bound (board:1735;
+# re-derived 2026-08-23: ~46 s of run at 153 tests, ~2x headroom), so a cold rebuild after a
+# header edit no longer overruns a bound about tests. A parallel reviewer gate in a worktree
+# still inflates the run toward the bound -- the lock keeps a SECOND gate out of this nest
+# but not off this machine.
 NAMED_ONLY="harness/render render/outshine/drive render/outshine/frame render/outshine/scenario render/outshine/shader render/outshine/world tools"
 FAST_GATE=no
 kFastGateBoundMs=90000
@@ -682,6 +682,7 @@ if [ -n "$SUITES" ]; then
 fi
 
 started=$(Now)
+builtSpentMs=0
 passed=0
 criterionMet=0
 criterionRed=0
@@ -970,6 +971,7 @@ for testSource in $TESTS; do
     fi
   fi
 
+  builtSpentMs=$(( builtSpentMs + $(Now) - before ))
   if [ "$built" = no ]; then
     failures=0
     skips=0
@@ -999,6 +1001,7 @@ for testSource in $TESTS; do
     fi
     OBJDIR=$BUILD/obj
     SAN=""
+    builtSpentMs=$(( builtSpentMs + $(Now) - before ))
     if [ "$built" = no ]; then
       failures=0
       skips=0
@@ -1029,6 +1032,7 @@ for testSource in $TESTS; do
     fi
     OBJDIR=$BUILD/obj
     EXTRA_DEFINES=""
+    builtSpentMs=$(( builtSpentMs + $(Now) - before ))
     if [ "$built" = no ]; then
       failures=0
       skips=0
@@ -1095,12 +1099,17 @@ printf '%s tests: %s PASS  %s FAIL  %s TIMEOUT  %s SIGNAL  %s BUILD  %s SKIP  %s
   "$((peakKib / 1024))" "$((endKib / 1024))" "$prunedCases" "$prunedFiles" "$((prunedKib / 1024))" \
   "$stayedFiles" "$BUILD/log"
 
-if [ "$FAST_GATE" = yes ] && [ "$elapsedMs" -le "$kFastGateBoundMs" ]; then
-  printf 'run.sh: gate headroom %s ms of %s\n' "$((kFastGateBoundMs - elapsedMs))" "$kFastGateBoundMs"
+# the bound holds the RUN: compiling is the nest's business, and a cold rebuild after a
+# header edit is not a slow test -- the measured span excludes the build phases, which are
+# printed beside it so a bloating build is still visible (board:1735)
+gateRunMs=$(( elapsedMs - builtSpentMs ))
+if [ "$FAST_GATE" = yes ] && [ "$gateRunMs" -le "$kFastGateBoundMs" ]; then
+  printf 'run.sh: gate headroom %s ms of %s (run %s ms, builds %s ms beside the bound)\n' \
+    "$((kFastGateBoundMs - gateRunMs))" "$kFastGateBoundMs" "$gateRunMs" "$builtSpentMs"
 fi
-if [ "$FAST_GATE" = yes ] && [ "$elapsedMs" -gt "$kFastGateBoundMs" ]; then
-  printf 'run.sh: THE FAST GATE OVERRAN ITS BOUND -- %s ms over the declared %s ms (warm population): a slow test is a finding, exactly like a slow frame. A cold run after a flag change rebuilds every set-stamped object -- run again warm before judging (board:1601)\n' \
-    "$elapsedMs" "$kFastGateBoundMs" >&2
+if [ "$FAST_GATE" = yes ] && [ "$gateRunMs" -gt "$kFastGateBoundMs" ]; then
+  printf 'run.sh: THE FAST GATE OVERRAN ITS BOUND -- %s ms of RUN over the declared %s ms (builds %s ms stood beside the bound): a slow test is a finding, exactly like a slow frame (board:1601, 1735)\n' \
+    "$gateRunMs" "$kFastGateBoundMs" "$builtSpentMs" >&2
   exit 1
 fi
 

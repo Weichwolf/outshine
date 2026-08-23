@@ -31,3 +31,13 @@ population with the derivation printed, and weigh in-suite parallelism within th
 one-process-per-test rule. Candidate (2) sharpens: the bound's own comment says WARM
 population -- the runner could EXEMPT builds from the measured span (compile time is the
 nest's business) so cold runs stop crying wolf.
+
+---
+
+Closed -- candidate (2) landed: the run.sh test loop accumulates its three build phases
+(plain, sanitised, validated) into builtSpentMs and the bound judges elapsed MINUS builds;
+headroom and overrun print both numbers side by side ("run 45658 ms, builds 23877 ms beside
+the bound"), so a bloating build stays visible without crying wolf about tests. The bound
+comment re-derives honestly: ~46 s of run at 153 tests against the [SET] 90000, ~2x headroom
+restored. Proven by the gate's own print on this run; a cold rebuild after a header edit can
+no longer fail a bound that is about tests.
