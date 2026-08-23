@@ -37,3 +37,16 @@ What will be true:
    refusal text; today that case kills the runner.
 3. The bound is stated in the header beside the type it guards, with its origin, not
    buried in the .cpp.
+
+---
+
+Closed -- Place carries a declared nesting bound with its derivation beside the type it
+guards (kDeepestNesting [SET] 128: the walk spends ~2.0 KiB of stack a level, measured at
+the crash point of 4100 levels over 8 MiB, and the shallowest thread this engine may run on
+holds 512 KiB -- 128 is that budget quartered), the walk stops at the bound instead of
+descending, and Build REFUSES through the error it already takes, naming the number and
+clearing the boxes so nothing is half-placed. Proven in
+unit/ui/ANestingTheLayoutCannotWalkRefuses: 64 levels lay out, 129 refuse naming 128,
+20000 refuse with the process still standing to answer. Negative control: lifting the bound
+past the stack turns the same test into 2 SIGNAL (plain and sanitised arms) -- which is
+exactly the failure the item reported, now unreachable.

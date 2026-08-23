@@ -91,6 +91,14 @@ std::string Collapsed(const std::string &raw) {
   return out;
 }
 
+// [SET] the nesting bound, derived: Place spends about 2.0 KiB of stack a frame
+// (measured at the crash point, 4100 levels over 8 MiB), and the shallowest thread this
+// engine may run on holds 512 KiB -- 128 levels is that budget quartered, deeper than any
+// document a scenario ships and shallower than any stack it may be handed
+inline constexpr int kDeepestNesting = 128;
+
+struct DepthGuard;
+
 struct Placer {
   const Markup *Tree = nullptr;
   const Stylesheet *Agent = nullptr;
@@ -98,6 +106,20 @@ struct Placer {
   const Font *Face = nullptr;
   double RootEm = 16.0;
   std::vector<Box> *Out = nullptr;
+  // the walk is recursive and the stack is a resource like any other: Place measured at
+  // about 2.0 KiB a frame (crash point 4100 levels over an 8 MiB stack), so kDeepest
+  // stands two orders under what the shallowest thread this engine runs on can hold
+  // (512 KiB / 2.0 KiB = 256 frames) -- a deeper markup is a REFUSAL, never a SIGSEGV
+  int Depth = 0;
+  bool TooDeep = false;
+
+  struct DepthHeld {
+    explicit DepthHeld(Placer &of) : Of(of) { ++Of.Depth; }
+    ~DepthHeld() { --Of.Depth; }
+    DepthHeld(const DepthHeld &) = delete;
+    DepthHeld &operator=(const DepthHeld &) = delete;
+    Placer &Of;
+  };
 
   [[nodiscard]] Computed StyleOf(int node, const Computed *inherited) const;
 
@@ -847,6 +869,12 @@ double Placer::Children(int node, const Computed &style, int self, double conten
 double Placer::Place(int node, const Computed *inherited, double originX, double originY,
                      double containerWidth, double containerHeight, int parentBox, double usedW,
                      double usedH) {
+  if (TooDeep) { return 0; }
+  if (Depth >= kDeepestNesting) {
+    TooDeep = true;
+    return 0;
+  }
+  const DepthHeld held(*this);
   const Node &element = Tree->Nodes()[(size_t)node];
   if (element.Kind == NodeKind::Text) { return 0; }
 
@@ -1044,6 +1072,13 @@ bool Layout::Build(const Markup &markup, Stylesheet &sheet, double viewportWidth
   for (const int child : markup.Nodes()[(size_t)markup.Root()].Children) {
     if (markup.Nodes()[(size_t)child].Kind != NodeKind::Element) { continue; }
     y += placer.Place(child, nullptr, 0, y, viewportWidth, viewportHeight, -1);
+  }
+  if (placer.TooDeep) {
+    Boxes_.clear();
+    error = "the declaration nests deeper than the " + std::to_string(kDeepestNesting) +
+            " levels this layout walks -- the walk spends stack per level and a document "
+            "past the bound is a refusal, never a crash";
+    return false;
   }
   return true;
 }
