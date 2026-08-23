@@ -25,3 +25,15 @@ Demanded: the cell key quantises longitude by a PER-ROW modulus (the row's own l
 every point in a row shares one `lonCell`) and wraps the column count at the row's
 circumference; the lon deltas in Plan's turn test wrap like ApartM's; a unit arm weaves two
 ways meeting at (60°, ±179.9999°) and proves the merge and a route across the line.
+
+---
+
+Closed -- the index lives on the sphere: ShapeRow fixes the column modulus at the ROW'S own
+latitude (every point in a row shares one lonCell), ColumnIn wraps longitude into [-180,180)
+and the column into the row's circumference, the Weave merge and Within enumerate (row,
+column) KEYS directly and modularly, and Plan's turn geometry wraps its lon deltas through
+LonApartDeg the way ApartM does. Proven in AWayAcrossTheAntimeridianWeavesAndRoutes: two
+ways ending 5.6 m apart across the date line at 60N weave to ONE junction (3 nodes, not 4)
+and a route crosses the line over ~2.2 km -- the unwrapped index wove pieces and the
+unwrapped delta judged the straight crossing a hairpin. Negative control: the pre-fix
+Wayfinding reverted fails this test.

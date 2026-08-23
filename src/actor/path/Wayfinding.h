@@ -83,6 +83,15 @@ private:
     double LengthM = 0.0;
   };
 
+  struct RowShape {
+    int64_t Row = 0;
+    double LonCellDeg = 0.0;
+    int64_t Columns = 1;
+  };
+  [[nodiscard]] RowShape ShapeRow(int64_t row) const;
+  [[nodiscard]] int64_t RowOf(double latDeg) const;
+  [[nodiscard]] static int64_t ColumnIn(const RowShape &shape, double lonDeg);
+  [[nodiscard]] static int64_t KeyAt(int64_t row, int64_t column);
   [[nodiscard]] int64_t CellOf(double latDeg, double lonDeg) const;
 
   double SnapM_ = 0.0;
