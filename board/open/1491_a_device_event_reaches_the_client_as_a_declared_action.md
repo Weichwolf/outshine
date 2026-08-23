@@ -17,3 +17,15 @@ gamepad and one for a keyboard are two declarations of one game.
 - [ ] **An axis is not a button**, declared, so a trigger's 0..1 is not a press
 - [ ] **The host surface is one interface** and outshine calls nothing else
 - [ ] **Input to photon is MEASURED**, because `CLAUDE.md` names latency as the feature nobody declares
+
+---
+
+Progress -- five of six boxes stand: src/scenario/InputMap is the one surface. A device
+event maps to a NAMED action (the client never sees a keycode); the event catalogue is
+constexpr and the engine's (a scenario selects, cannot add; a foreign event refuses naming
+the catalogue); 1..N bindings per action (forward answers to KeyW and to the stick); one
+event bound twice refuses ("one press has one meaning"); AN AXIS IS NOT A BUTTON, declared
+in the catalogue row; Requires() refuses an unbound ask at stand-up. Proving test:
+unit/scenario/ADeviceEventReachesTheClientAsADeclaredAction.cpp. Remaining: the SDL event
+pump wiring in the window host and the input-to-photon MEASUREMENT (the frame suite's
+slice).
