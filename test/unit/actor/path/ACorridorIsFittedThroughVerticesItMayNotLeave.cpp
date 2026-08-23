@@ -1,4 +1,5 @@
 #include <cmath>
+#include <pthread.h>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -114,6 +115,38 @@ int main(void) {
         "round, and fitting a 0.18 m radius through it would hide the finding inside a corridor "
         "nobody could drive");
   std::printf("REFUSAL %s\n", cusp.Error.c_str());
+
+  {
+    // a monotone-deviation polyline peels ONE vertex per Douglas-Peucker level, so the
+    // naked recursion's depth was O(points) -- proven on a thread whose stack ([SET]
+    // 512 KiB, an eighth of the main thread's 8 MiB) the old code overflows at this size
+    struct Peeling {
+      std::vector<double> Points;
+      size_t Kept = 0;
+    } peeling;
+    constexpr size_t kVertices = 8192;
+    peeling.Points.reserve(kVertices * 2);
+    for (size_t at = 0; at < kVertices; ++at) {
+      peeling.Points.push_back((double)at);
+      peeling.Points.push_back((at % 2 == 0 ? 1.0 : -1.0) * 0.001 * (double)at);
+    }
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setstacksize(&attr, 512 * 1024);
+    pthread_t worker;
+    const auto run = [](void *held) -> void * {
+      Peeling *inside = (Peeling *)held;
+      inside->Kept = outshine::Simplify(inside->Points, 0.0005).size() / 2;
+      return nullptr;
+    };
+    CHECK(pthread_create(&worker, &attr, run, &peeling) == 0, "the bounded-stack thread starts");
+    pthread_join(worker, nullptr);
+    pthread_attr_destroy(&attr);
+    CHECK(peeling.Kept == kVertices,
+          "**THE SIMPLIFY RETURNS INSTEAD OF FAULTING**: every zigzag vertex is outside the "
+          "tolerance and all are kept, on a stack the peeled recursion could not survive -- "
+          "the term is bounded by the heap, not the call depth (board:1712)");
+  }
 
   Covers("I.9.11 a corridor is fitted through a polyline it may not leave by more than the data's "
          "own accuracy: the corner radius falls out of that bound, every vertex carries a pair of "

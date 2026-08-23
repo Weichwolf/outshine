@@ -29,22 +29,31 @@ double AwayFromChordM(std::span<const double> points, size_t point, size_t from,
   return std::sqrt(e * e + n * n);
 }
 
-void KeepBetween(std::span<const double> points, size_t from, size_t to, double withinM,
-                 std::vector<bool> &keep) {
-  if (to <= from + 1) { return; }
-  size_t worst = from;
-  double worstM = 0.0;
-  for (size_t point = from + 1; point < to; ++point) {
-    const double awayM = AwayFromChordM(points, point, from, to);
-    if (awayM > worstM) {
-      worstM = awayM;
-      worst = point;
+// the standard explicit-stack Douglas-Peucker: a monotone-deviation route once peeled ONE
+// vertex per recursion level, and a quarter-million legs is a stack overflow, not a refusal
+void KeepBetween(std::span<const double> points, size_t wholeFrom, size_t wholeTo,
+                 double withinM, std::vector<bool> &keep) {
+  std::vector<std::pair<size_t, size_t>> spans;
+  spans.reserve(64);
+  spans.emplace_back(wholeFrom, wholeTo);
+  while (!spans.empty()) {
+    const auto [from, to] = spans.back();
+    spans.pop_back();
+    if (to <= from + 1) { continue; }
+    size_t worst = from;
+    double worstM = 0.0;
+    for (size_t point = from + 1; point < to; ++point) {
+      const double awayM = AwayFromChordM(points, point, from, to);
+      if (awayM > worstM) {
+        worstM = awayM;
+        worst = point;
+      }
     }
+    if (worstM <= withinM) { continue; }
+    keep[worst] = true;
+    spans.emplace_back(from, worst);
+    spans.emplace_back(worst, to);
   }
-  if (worstM <= withinM) { return; }
-  keep[worst] = true;
-  KeepBetween(points, from, worst, withinM, keep);
-  KeepBetween(points, worst, to, withinM, keep);
 }
 
 } // namespace
