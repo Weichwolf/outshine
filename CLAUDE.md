@@ -403,6 +403,26 @@ ls board/*/ | grep -o '^[0-9]\{4\}' | sort -n | tail -1   # next id, derived
 | `Makefile` | build · test · clean, nothing else |
 | `board/` | the working system (above) |
 
+## The hourly architect
+
+A cron fires at **:17 every hour** and runs the `architecture-reviewer` agent over the tree:
+it reads this file and the commit delta since the last review, judges the code as a principal
+engineer would (RAGE and Unreal are the benchmark), and files what it finds into `board/`.
+The review NEVER edits src/ — it files, sharpens and REOPENS; the repair is the queue's work.
+
+| | |
+|---|---|
+| what it delivers | delta verdict · findings with file:line · new/changed board items · an explicit defect-free yes/no |
+| where its findings land | `board/open/`, numbered from the next free id, one commit per round |
+| a finding that reappears | reopens the item HARDER, with the measurement that disproves the closure |
+| its gate | run only in its own `git worktree` — the main nest is pid-locked (`test/run.sh`) |
+
+Between reviews the open board is worked continuously: pick the next item, repair it, close
+it with the proving test named in its body and a NEGATIVE CONTROL that shows the test red
+against the defect. A closure that names no such test is not a closure. Done is: the board
+holds no open item and a full round finds nothing — said explicitly — and the round after
+it agrees.
+
 References (fetched, not recalled): C++ Core Guidelines (binding) · Gregory GEA3 · RTR4 · PBR4 ·
 Frostbite PBR/FrameGraph · Nanite (error-driven LOD) · Decima (runtime placement) · id Tech 7
 (hard frame floor) · RAGE (decisionless pools) · SpeedTree (LOD cross-fade). Distance-ratio LOD
