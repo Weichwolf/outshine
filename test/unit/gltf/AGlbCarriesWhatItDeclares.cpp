@@ -5,6 +5,7 @@
 #include "Glb.h"
 
 #include "Document.h"
+#include "Emit.h"
 
 using outshine::Gltf::ComponentType;
 using outshine::Gltf::Document;
@@ -158,6 +159,22 @@ int main() {
 
   Note("vertices", 4.0, "count");
   Note("primitive modes", static_cast<double>(primitives.size()), "count");
+  {
+    // the container's ceiling, proven without four gibibytes of fixture: the bound is a
+    // free function the writer holds before its casts
+    using outshine::Gltf::GlbFits;
+    CHECK(GlbFits(1024, 1024), "a small subject fits");
+    CHECK(!GlbFits(1024, 5ull * 1024 * 1024 * 1024),
+          "**A SUBJECT PAST 4 GiB REFUSES INSTEAD OF EMITTING A HEADER THAT LIES** -- the "
+          "GLB container is 32-bit and the writer holds the cap before the cast "
+          "(board:1728)");
+    CHECK(!GlbFits(0xffffffffu - 20, 8) && !GlbFits(8, 0xffffffffu - 20),
+          "and the rim just under the ceiling accounts for the three headers -- no "
+          "underflow arithmetic passes it");
+    CHECK(!GlbFits(3ull * 1024 * 1024 * 1024, 3ull * 1024 * 1024 * 1024),
+          "two halves that each fit still refuse together");
+  }
+
   Covers("I.26 the reader: containers, buffers, bufferViews, accessors, meshes and primitives");
   return Report();
 }

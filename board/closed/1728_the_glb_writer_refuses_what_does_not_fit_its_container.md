@@ -14,3 +14,11 @@ Tags: boundary, emit
 Demanded: the total and each chunk are checked against `uint32_t` max before the cast; the
 unit twin proves the refusal text without allocating 4 GiB (expose the bound or inject the
 size).
+
+---
+
+Closed -- GlbFits is the exposed bound (padded chunks + the three headers against the
+uint32 ceiling, in the no-underflow form), Run refuses past it naming both byte counts
+before Container's casts run. Proven in AGlbCarriesWhatItDeclares without a 4 GiB fixture:
+5 GiB of geometry refuses, the rim under the ceiling accounts for the headers, two fitting
+halves refuse together.

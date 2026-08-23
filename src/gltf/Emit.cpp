@@ -5,6 +5,15 @@
 
 namespace outshine::Gltf {
 
+bool GlbFits(size_t jsonBytes, size_t binaryBytes) {
+  const size_t jsonPadded = (jsonBytes + 3) & ~size_t{3};
+  const size_t binaryPadded = (binaryBytes + 3) & ~size_t{3};
+  constexpr size_t kCeiling = 0xffffffffu;
+  const size_t heads = 12 + 8 + 8;
+  if (jsonPadded > kCeiling - heads || binaryPadded > kCeiling - heads) { return false; }
+  return jsonPadded <= kCeiling - heads - binaryPadded;
+}
+
 namespace {
 
 constexpr uint32_t kGlbMagic = 0x46546C67;
@@ -82,6 +91,12 @@ public:
     json += Materials();
     json += Parts();
     json += ",\"buffers\":[{\"byteLength\":" + Integer(Binary_.size()) + "}]}";
+    if (!GlbFits(json.size(), Binary_.size())) {
+      return Refuse("the subject needs " + Integer(json.size()) + " bytes of JSON and " +
+                    Integer(Binary_.size()) +
+                    " of geometry, and a GLB container's 32-bit header cannot carry them "
+                    "-- the writer refuses rather than emit a header that lies");
+    }
     Container(json, glb);
     return true;
   }
@@ -286,6 +301,7 @@ private:
     return AccessorCount_++;
   }
 
+  // callers hold GlbFits before this runs, so the casts below cannot truncate
   void Container(const std::string &json, std::vector<uint8_t> &glb) {
     std::vector<uint8_t> text(json.begin(), json.end());
     PadTo4(text, ' ');
