@@ -131,7 +131,7 @@ struct Browser final : outshine::Script::Host {
     }
   }
 
-  [[nodiscard]] outshine::Script::Value Global(const std::string &name) override {
+  [[nodiscard]] outshine::Script::Value Global(std::string_view name) override {
     if (name == "select") { return outshine::Script::Value::OfRef(kSelect); }
     if (name == "suite") { return outshine::Script::Value::OfRef(kSuite); }
     if (name == "scroll") { return outshine::Script::Value::OfRef(kScroll); }
@@ -525,11 +525,11 @@ int main(int argc, char **argv) {
   }
 
   {
-    const std::vector<uint8_t> sheet = View::Sheet();
+    const std::vector<uint8_t> face = View::Sheet();
     size_t ink = 0;
-    for (size_t at = 3; at < sheet.size(); at += 4) { ink += sheet[at] > 0 ? 1 : 0; }
+    for (size_t at = 3; at < face.size(); at += 4) { ink += face[at] > 0 ? 1 : 0; }
     CHECK(ink > 0, "the browser's own face carries ink");
-    CHECK(ink < sheet.size() / 4,
+    CHECK(ink < face.size() / 4,
           "and it is not a filled sheet -- a face whose every texel is ink is Ahem with more steps");
     const Ui::Glyph glyph = browser.Face.Shape(U'A', 16.0);
     CHECK(glyph.Drawn && glyph.WidthPx < glyph.AdvancePx,

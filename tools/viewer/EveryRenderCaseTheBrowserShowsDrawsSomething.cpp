@@ -42,7 +42,7 @@ int main(void) {
   CHECK(!cases.empty(), "the tree declares cases");
 
   outshine::Render::Renderer renderer;
-  const std::vector<uint8_t> sheet = View::Sheet();
+  const std::vector<uint8_t> sheetBytes = View::Sheet();
   View::Showing showing;
   Ui::Markup chromeTree;
   Ui::Stylesheet chromeSheet;
@@ -119,7 +119,7 @@ int main(void) {
               __LINE__);
       continue;
     }
-    if (!renderer.SetOverlayAtlas(sheet.data(), View::AtlasWidth(), View::AtlasHeight(), why)) {
+    if (!renderer.SetOverlayAtlas(sheetBytes.data(), View::AtlasWidth(), View::AtlasHeight(), why)) {
       ++refused;
       Checked(false, "the browser's face is uploaded", (one.Name + ": " + why).c_str(), __FILE__,
               __LINE__);
