@@ -628,15 +628,25 @@ bool SubjectDraw::SetPose(const SubjectPose &pose, std::string &error) {
     PrevAnchor[axis] = pose.PrevAnchor[axis];
   }
   for (int part = 0; part < 16; part++) { Model[part] = pose.Model[part]; }
-  if (!HandStreams(pose, true, error)) { return false; }
+  if (!HandStreams(pose, true, error)) {
+    Resident_.DropStaged();
+    return false;
+  }
   {
     const Heap::Tagged refitting("mesh-bvh");
     if (!Visibility_.Refit(Span<const float>(pose.Verts, (size_t)Resident_.NVerts * 3u))) {
+      // the streams of this pose are already staged; dropping them keeps the flush from
+      // uploading new vertices under the OLD pose's visibility structure
+      Resident_.DropStaged();
       error = "the subject's visibility structure did not refit to this pose";
       return false;
     }
   }
-  return HandVisibility(true, error);
+  if (!HandVisibility(true, error)) {
+    Resident_.DropStaged();
+    return false;
+  }
+  return true;
 }
 
 bool SubjectDraw::SetLights(std::span<const SubjectLight> lights, std::string &error) {

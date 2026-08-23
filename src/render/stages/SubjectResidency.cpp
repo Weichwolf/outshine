@@ -102,9 +102,26 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
   // earlier crossing of this same frame already staged into, and its bytes with it
   const uint32_t wanted = StagingUsed_ + total;
   if (StagingBytes_ < wanted || !Staging_[StagingAt_]) {
-    error = "a frame stages " + std::to_string(wanted) + " bytes over the " +
+    // the refusal leaves NOTHING half-staged: the aborted frame's entries drop, so the
+    // next frame's flush uploads only hands that landed whole
+    DropStaged();
+    error = "this frame's hands stage " + std::to_string(wanted) + " bytes over the " +
             std::to_string(StagingBytes_) +
-            " the residency opened -- the pose outgrew what its own mesh declared";
+            " the residency opened for one full pose -- a second full hand in one frame "
+            "is more than the ring holds";
+    return false;
+  }
+  // the entry budget is checked BEFORE one byte is written, so a refusal cannot leave a
+  // partial append behind
+  size_t landing = 0;
+  for (size_t one = 0; one < count; ++one) {
+    if (what[one].Bytes > 0 && what[one].From != nullptr) { ++landing; }
+  }
+  if (StagedCount_ + landing > kStagedCrossings) {
+    DropStaged();
+    error = "a frame stages " + std::to_string(StagedCount_ + landing) +
+            " runs over the " + std::to_string(kStagedCrossings) +
+            " this subject declares room for";
     return false;
   }
 
@@ -125,11 +142,6 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
   at = StagingUsed_;
   for (size_t one = 0; one < count; ++one) {
     if (what[one].Bytes == 0 || what[one].From == nullptr) { continue; }
-    if (StagedCount_ >= kStagedCrossings) {
-      error = "a frame stages more runs than the " + std::to_string(kStagedCrossings) +
-              " this subject declares room for";
-      return false;
-    }
     Staged_[StagedCount_++] =
         Staged{what[one].Into->Get(), at, what[one].Bytes, Staging_[StagingAt_].Get()};
     at = (at + what[one].Bytes + 15u) & ~15u;

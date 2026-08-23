@@ -34,3 +34,17 @@ the aborted hand dropped (and the refusal text saying what actually happened); t
 constants derive from the SAME population — either the ring holds two hands or the comment
 stops promising one. Proof: a device twin in render/outshine/shader that refuses a second
 oversized hand and shows the NEXT frame's flush uploads exactly and only the intact hand.
+
+---
+
+Closed -- every refusal in Cross drops the aborted frame's staged state BEFORE returning
+(the entry budget is now checked before one byte is written, so a partial append cannot
+exist; the byte refusal drops and says what actually happened: a second full hand is more
+than the ring holds), SetPose's three failure paths (streams, refit, visibility) all
+DropStaged so the next frame's unconditional flush uploads only hands that landed whole --
+whole-or-nothing, which is stronger than keeping the earlier hand and matches how the
+caller retries a pose. The two constants derive from ONE population: the entry budget's
+comment now states it is slack over the byte budget and can never refuse first. Proven on
+the device: AStagedCrossingSurvivesItsNeighbour's new arm stages an altered run, meets the
+refusal, flushes, and reads back the LAST LANDED bytes -- the altered run never rode under
+the refusal (negative control: pre-fix residency fails 3 arms).

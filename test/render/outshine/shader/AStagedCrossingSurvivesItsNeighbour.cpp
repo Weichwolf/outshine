@@ -95,13 +95,28 @@ int main(void) {
 
   OwnedBuffer c;
   uint32_t heldC = 0;
+  std::vector<uint8_t> altered(16, 0x55);
+  SubjectResidency::Crossing again[] = {{&a, &heldA, vertex, altered.data(), 16}};
   SubjectResidency::Crossing over[] = {{&c, &heldC, vertex, third.data(), 48}};
-  (void)residency.Cross(one, 1, true, error);
+  CHECK(residency.Cross(again, 1, true, error), "a new hand stages an altered first run");
   (void)residency.Cross(two, 1, true, error);
   CHECK(!residency.Cross(over, 1, true, error) &&
             error.find("64") != std::string::npos,
         "**A FRAME PAST THE OPENED CAPACITY REFUSES NAMING BOTH NUMBERS** -- never a "
         "regrow that orphans what is already staged (board:1738)");
+
+  // and the refusal aborted the WHOLE frame: the flush uploads nothing, so the buffers
+  // still carry the last landed pose -- new vertices never ride under an old refusal
+  SDL_GPUCommandBuffer *after = SDL_AcquireGPUCommandBuffer(device);
+  residency.FlushCrossings(after);
+  SDL_GPUFence *afterFence = SDL_SubmitGPUCommandBufferAndAcquireFence(after);
+  SDL_WaitForGPUFences(device, true, &afterFence, 1);
+  SDL_ReleaseGPUFence(device, afterFence);
+  const std::vector<uint8_t> kept = ReadBack(device, a.Get(), 16);
+  CHECK(std::memcmp(kept.data(), first.data(), 16) == 0,
+        "**A REFUSED FRAME LEAVES NOTHING HALF-STAGED**: the altered run never lands -- "
+        "the drop is whole-or-nothing, and the next flush uploads only hands that landed "
+        "whole (board:1741)");
 
   }
   SDL_DestroyGPUDevice(device);
