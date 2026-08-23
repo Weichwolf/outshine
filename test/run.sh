@@ -127,6 +127,7 @@ LayerIncludes() {
     unit/gltf) printf '%s' "-Isrc/core -Isrc/gltf" ;;
     unit/ui) printf '%s' "-Isrc/core -Isrc/ui" ;;
     unit/scenario) printf '%s' "-Iinclude -Isrc/core -Isrc/scenario" ;;
+    unit/audio) printf '%s' "-Iinclude -Isrc/core -Isrc/audio -Isrc/scenario" ;;
     unit/generators) printf '%s' "-Isrc/core -Isrc/generators" ;;
     unit/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
     unit/ground) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/actor/path -Isrc/data -Isrc/ground -Isrc/ground/tiles" ;;
@@ -215,6 +216,7 @@ LayerGroups() {
     harness/render/wpt/css) printf '%s' "src/core/Json.cpp src/ui" ;;
     harness/render/test262/js) printf '%s' "src/core/Json.cpp src/core/Script.cpp" ;;
     unit/scenario) printf '%s' "src/core src/scenario" ;;
+    unit/audio) printf '%s' "src/core src/audio src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp" ;;
     unit/generators) printf '%s' "src/core src/generators" ;;
     unit/generators/draw) printf '%s' "src/core src/generators src/generators/draw" ;;
     unit/ground) printf '%s' "src/core src/core/io src/actor/path src/data src/ground src/ground/tiles" ;;
@@ -284,6 +286,7 @@ GroupIncludes() {
     src/ground | src/ground/tiles) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/actor/path -Isrc/data -Isrc/ground -Isrc/ground/tiles" ;;
     src/gltf) printf '%s' "-Isrc/core -Isrc/gltf" ;;
     src/ui) printf '%s' "-Isrc/core -Isrc/ui" ;;
+    src/audio) printf '%s' "-Iinclude -Isrc/core -Isrc/audio" ;;
     src/scenario | src/scenario/ScenarioRead.cpp | src/scenario/ScenarioLayer.cpp | src/scenario/InputMap.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/scenario" ;;
     src/generators) printf '%s' "-Isrc/core -Isrc/generators" ;;
     src/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;

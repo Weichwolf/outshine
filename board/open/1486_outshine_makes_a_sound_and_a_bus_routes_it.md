@@ -32,3 +32,20 @@ the engine knowing what music or dialogue is.
   sound also sounds like when nothing is happening
 - [ ] **The host surface is one interface** -- outshine declares what it needs of an audio device and
   calls nothing else, the way it does for the GPU
+
+---
+
+Progress -- src/audio exists and five of seven boxes stand in Audio::BusGraph: a sound is
+played BY ID and Play answers both ways; a missing sound is a named refusal quoting the
+reason a silence cannot serve; buses route into buses with ONE master (the bus routing into
+nothing, answerable), two masters refuse, a route that never reaches the master refuses as a
+CYCLE naming the bus (a cycle on the audio thread is a hang between two buffers), and a
+sound arrives carrying every bus gain on its route (-6 dB of music = 0.501 linear at the
+master, so ducking is a bus edit and the engine never learns what music is); a positional
+source attenuates by its declared falloff against one listener (1/(1+d/falloff): exactly
+half at the declared metres, no division by zero) and a non-positional one ignores distance;
+a positional source without a falloff refuses. The walk takes NOTHING from the allocator --
+512 voice gains counted at the global operator new, zero. Proving test:
+unit/audio/ABusRoutesIntoABusAndThereIsOneMaster.cpp. Remaining: the host surface (one
+declared interface over SDL_audio, the way the GPU is done) and the mix feeding it real
+samples -- the listener seat already exists as ViewBook::ListensFrom (board:1490).
