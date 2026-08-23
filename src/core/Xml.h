@@ -3,6 +3,9 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
+#include <iterator>
+#include <ranges>
 #include <string>
 #include <vector>
 
@@ -49,6 +52,55 @@ public:
     [[nodiscard]] size_t Count(const char *name) const;
     [[nodiscard]] Ref At(const char *name, size_t which) const;
 
+    class Siblings {
+    public:
+      class Iterator {
+      public:
+        using iterator_concept = std::forward_iterator_tag;
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = Ref;
+        using difference_type = std::ptrdiff_t;
+
+        Iterator() = default;
+        Iterator(const Xml *from, uint32_t at, const char *name)
+            : From_(from), At_(at), Name_(name), Want_(name == nullptr ? 0 : std::strlen(name)) {
+          Settle();
+        }
+
+        [[nodiscard]] Ref operator*() const { return Ref(From_, At_); }
+        Iterator &operator++();
+        Iterator operator++(int) {
+          Iterator was = *this;
+          ++*this;
+          return was;
+        }
+        [[nodiscard]] bool operator==(const Iterator &other) const { return At_ == other.At_; }
+
+      private:
+        void Settle();
+        [[nodiscard]] bool Named() const;
+
+        const Xml *From_ = nullptr;
+        uint32_t At_ = 0;
+        const char *Name_ = nullptr;
+        size_t Want_ = 0;
+      };
+
+      Siblings() = default;
+      Siblings(const Xml *from, uint32_t first, const char *name)
+          : From_(from), First_(first), Name_(name) {}
+
+      [[nodiscard]] Iterator begin() const { return Iterator(From_, First_, Name_); }
+      [[nodiscard]] Iterator end() const { return Iterator(); }
+
+    private:
+      const Xml *From_ = nullptr;
+      uint32_t First_ = 0;
+      const char *Name_ = nullptr;
+    };
+
+    [[nodiscard]] Siblings Children(const char *name = nullptr) const;
+
   private:
     const Xml *From_ = nullptr;
     uint32_t At_ = 0;
@@ -59,6 +111,7 @@ public:
   [[nodiscard]] const std::string &Error() const { return Error_; }
 
   [[nodiscard]] size_t NodeCount() const { return Nodes_.size() ? Nodes_.size() - 1u : 0u; }
+  [[nodiscard]] size_t SiblingSteps() const { return SiblingSteps_; }
 
 private:
   friend class Ref;
@@ -72,7 +125,11 @@ private:
   std::vector<Attribute> Attributes_;
   uint32_t Root_ = 0;
   std::string Error_;
+  mutable size_t SiblingSteps_ = 0;
 };
+
+static_assert(std::ranges::forward_range<Xml::Ref::Siblings>,
+              "a scenario is read by walking children once, and the walk is a range");
 
 }
 

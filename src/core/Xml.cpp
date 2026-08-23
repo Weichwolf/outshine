@@ -115,6 +115,7 @@ Xml::Ref Xml::Ref::First() const {
 
 Xml::Ref Xml::Ref::Next() const {
   if (!Valid()) { return Ref(); }
+  ++From_->SiblingSteps_;
   return Ref(From_, From_->Nodes_[At_].NextSibling);
 }
 
@@ -122,11 +123,39 @@ Xml::Ref Xml::Ref::Child(const char *name) const {
   return At(name, 0);
 }
 
+bool Xml::Ref::Siblings::Iterator::Named() const {
+  if (Name_ == nullptr) { return true; }
+  const Node &node = From_->Nodes_[At_];
+  return node.NameLen == Want_ &&
+         std::memcmp(From_->Text_.data() + node.NameOff, Name_, Want_) == 0;
+}
+
+void Xml::Ref::Siblings::Iterator::Settle() {
+  while (At_ != 0 && !Named()) {
+    ++From_->SiblingSteps_;
+    At_ = From_->Nodes_[At_].NextSibling;
+  }
+}
+
+Xml::Ref::Siblings::Iterator &Xml::Ref::Siblings::Iterator::operator++() {
+  if (At_ == 0) { return *this; }
+  ++From_->SiblingSteps_;
+  At_ = From_->Nodes_[At_].NextSibling;
+  Settle();
+  return *this;
+}
+
+Xml::Ref::Siblings Xml::Ref::Children(const char *name) const {
+  if (!Valid()) { return Siblings(); }
+  return Siblings(From_, From_->Nodes_[At_].FirstChild, name);
+}
+
 size_t Xml::Ref::Count(const char *name) const {
   if (!Valid() || name == nullptr) { return 0; }
   const size_t want = std::strlen(name);
   size_t found = 0;
   for (uint32_t at = From_->Nodes_[At_].FirstChild; at != 0; at = From_->Nodes_[at].NextSibling) {
+    ++From_->SiblingSteps_;
     const Node &node = From_->Nodes_[at];
     if (node.NameLen == want && std::memcmp(From_->Text_.data() + node.NameOff, name, want) == 0) {
       ++found;
@@ -140,6 +169,7 @@ Xml::Ref Xml::Ref::At(const char *name, size_t which) const {
   const size_t want = std::strlen(name);
   size_t seen = 0;
   for (uint32_t at = From_->Nodes_[At_].FirstChild; at != 0; at = From_->Nodes_[at].NextSibling) {
+    ++From_->SiblingSteps_;
     const Node &node = From_->Nodes_[at];
     if (node.NameLen != want || std::memcmp(From_->Text_.data() + node.NameOff, name, want) != 0) {
       continue;
@@ -152,6 +182,7 @@ Xml::Ref Xml::Ref::At(const char *name, size_t which) const {
 
 bool Xml::Parse(const char *text, size_t length) {
   Error_.clear();
+  SiblingSteps_ = 0;
   Nodes_.clear();
   Attributes_.clear();
   Root_ = 0;

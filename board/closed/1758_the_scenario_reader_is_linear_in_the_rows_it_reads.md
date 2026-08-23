@@ -60,3 +60,32 @@ every committed scenario is tiny.
    the cost against a stated multiple of the row count — the same document that takes 1.27 s
    today. A wall-clock assertion alone is weak; publish the count (`Xml` sibling-steps taken)
    and assert on THAT, so the regression is a number and not a stopwatch.
+
+## Comments
+
+- 2026-08-23 -- repaired. `Xml::Ref` gained the range the loop wanted:
+  `parent.Children("instance")` is a `std::ranges::forward_range` over the named siblings
+  (`static_assert` in Xml.h holds it there), and all 36 index loops in `ScenarioRead.cpp`
+  became one pass. The `Count`/`At` pair stays for the singleton lookups; the two existence
+  checks became `Declares(parent, child)`, which stops at the first hit instead of counting
+  to the end. `ReadScenarioInto` gained an overload taking an already-parsed `Xml`, which is
+  also the natural form for reading layer over layer.
+- `Xml` now publishes `SiblingSteps()` -- every step over `NextSibling`, in `Count`, `At`,
+  `Next` and the new iterator -- so the claim is a COUNT and not a stopwatch.
+- **Measured**, 16 000 `<instance>` rows, same machine, one document:
+
+  | | sibling steps | steps per row | wall clock |
+  |---|---|---|---|
+  | index idiom (one collection restored) | 384 040 026 | 24 002.50 | 785.51 ms |
+  | one pass | 32 026 | 2.00 | 9.71 ms |
+
+  81 x fewer wall-clock ms and 12 000 x fewer steps, from ONE collection put back. The
+  per-row term is now a constant: 2.00 steps, one for the grammar walk and one for the read.
+- **Proving test**: `test/unit/scenario/TheReaderIsLinearInTheRowsItReads` -- reads 16 000
+  rows and asserts `steps <= 4 x rows`, the bound stated with its headroom over the measured
+  2.00.
+- **Negative control**: the `instance` loop alone put back to
+  `for (size_t back = 0; back < instances.Count("instance"); ++back)` ->
+  `FAIL **THE READER IS LINEAR IN THE ROWS IT READS**` at 24 002.50 steps per row. Reverted,
+  green again.
+- Gate 227/227.
