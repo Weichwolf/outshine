@@ -69,7 +69,7 @@ Data::Wire CurlTransport::Collect(Data::Ticket ticket) {
   Transfer done = std::move(found->second);
   Transfers_.erase(found);
   if (done.Unreachable) return Data::Wire::Unreachable();
-  return Data::Wire::Answered(done.Status, std::move(done.Body));
+  return Data::Wire::Answered(done.Status, std::move(done.Body), done.RetryAfterS);
 }
 
 void CurlTransport::Cancel(Data::Ticket ticket) {
@@ -111,6 +111,7 @@ void CurlTransport::Work() {
     std::vector<uint8_t> body;
     Sink sink{&body, Config_.MaxBodyBytes};
     long status = 0;
+    curl_off_t retryAfter = 0;
     CURLcode result = CURLE_FAILED_INIT;
     if (handle) {
       curl_easy_reset(handle);
@@ -124,6 +125,8 @@ void CurlTransport::Work() {
       curl_easy_setopt(handle, CURLOPT_USERAGENT, Config_.UserAgent.c_str());
       result = curl_easy_perform(handle);
       if (result == CURLE_OK) curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &status);
+      // curl parses BOTH Retry-After forms (delta-seconds and HTTP-date) into seconds
+      if (result == CURLE_OK) curl_easy_getinfo(handle, CURLINFO_RETRY_AFTER, &retryAfter);
     }
 
     std::lock_guard<std::mutex> lock(Mutex_);
@@ -138,6 +141,7 @@ void CurlTransport::Work() {
       found->second.Unreachable = true;
     } else {
       found->second.Status = (int)status;
+      found->second.RetryAfterS = (double)retryAfter;
       found->second.Body = std::move(body);
     }
   }

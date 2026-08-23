@@ -27,3 +27,13 @@ back is believed, and never hammered sooner. Proven: a 429 with Retry-After 10 s
 through the five-second mark where the backoff alone would have fired, and goes out after
 the asked-for wait. Remaining before close: CurlTransport reads the actual Retry-After
 HEADER off the HTTP response (tools/host) -- the one seam still dropping it.
+
+---
+
+Closed -- the last seam reads the header: CurlTransport asks curl for CURLINFO_RETRY_AFTER
+(curl parses both delta-seconds and HTTP-date into seconds), carries it through Transfer and
+hands it to Wire::Answered's third argument; 0 stays "unsaid". The honoring is proven in
+ARetryWaitsOnTheTransportsClock (a 429 with Retry-After 10 s outwaits the doubling backoff
+and fires after the ask); the header path itself is compiled by every driver suite via
+`test/run.sh --audit-link` and exercised the day a live host says it -- a faked curl would
+prove curl, not this tree.

@@ -44,6 +44,7 @@ private:
     bool Cancelled = false;
     bool Unreachable = false;
     int Status = 0;
+    double RetryAfterS = 0.0;
     std::vector<uint8_t> Body;
   };
 
