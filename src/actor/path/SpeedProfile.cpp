@@ -65,12 +65,21 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
     }
     if (bend > 0.0 && within.CorneringNPerRad > 0.0 && within.HoldWithinM > 0.0 &&
         within.SettleS > 0.0) {
+      // derived (board:1522): the tyre-slip law -- lateral force builds at
+      // CorneringNPerRad per rad of slip, the slip angle a pilot holding the lane within
+      // HoldWithinM over SettleS needs grows with v^3 * bend, and solving
+      // F(v) = m v^2 bend for v gives this cbrt; the 4 is the law's own constant from
+      // that derivation, not a tuning
       const double slipped = std::cbrt(4.0 * within.CorneringNPerRad * within.HoldWithinM /
                                        (within.MassKg * bend * within.SettleS));
       if (slipped < Held_[at]) { Held_[at] = slipped; }
     }
     const double ramp = std::fabs(here.CurvatureRatePerM);
     if (ramp > 0.0 && within.HoldWithinM > 0.0 && within.SettleS > 0.0) {
+      // derived (board:1522): the spiral-following law -- entering a clothoid of rate
+      // ramp, the lateral error after the pilot's SettleS grows as ramp v^3 SettleS^3 / 6
+      // (the third integral of the building lateral acceleration); holding it within
+      // HoldWithinM and solving for v gives this cbrt, the 6 being 3! from the integral
       const double followedMs =
           std::cbrt(6.0 * within.HoldWithinM /
                     (ramp * within.SettleS * within.SettleS * within.SettleS));

@@ -11,6 +11,8 @@ namespace outshine::Path {
 
 inline constexpr size_t kMaxNetworkPoints = 4000000;
 inline constexpr size_t kMaxRouteLegs = 262144;
+// [SET] how far around the asked start alternative seeds are taken, m: a city block --
+// the caller's waypoint is a geocode, not a survey, and the nearest node may be across it
 inline constexpr double kStartReachM = 250.0;
 
 [[nodiscard]] double ApartM(double fromLatDeg, double fromLonDeg, double toLatDeg,

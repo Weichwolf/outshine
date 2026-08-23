@@ -5,6 +5,8 @@
 
 namespace outshine::Pilot {
 
+// [SET] the chord resection's iteration budget: each step closes the remaining chord
+// error superlinearly on the fixture corpus, and twelve holds the worst switchback tried
 inline constexpr int kChordSteps = 12;
 
 struct Placement {

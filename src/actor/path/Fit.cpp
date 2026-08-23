@@ -76,13 +76,23 @@ std::vector<double> Simplify(std::span<const double> eastNorthM, double withinM)
   return out;
 }
 
+// derived: a corner is an arc between two half-swing clothoids (board:1528). The
+// clothoid shift is s = R tau^2 / 24 with tau = swing/2 per side, so (R + s) / R =
+// 1 + swing^2 / 96 EXACTLY -- the share the shift adds to every chord term
+[[nodiscard]] double ShiftShare(double swing) { return 1.0 + swing * swing / 96.0; }
+
+// derived: the shifted corner's tangent length per unit radius -- the arc's own
+// (R+s) tan(half) plus the clothoid half-length R * swing / 4 (board:1528)
+[[nodiscard]] double TangentShare(double swing) {
+  return ShiftShare(swing) * std::tan(0.5 * swing) + 0.25 * swing;
+}
+
 double CornerRadiusM(double turnRad, double shorterLegM, double withinM) {
   const double swing = std::fabs(turnRad);
   const double half = 0.5 * swing;
   if (half < 1.0e-9 || half >= 0.5 * kTurn * 0.5 || !(withinM > 0.0)) { return 0.0; }
-  const double shiftShare = 1.0 + swing * swing / 96.0;
-  const double byAccuracy = withinM / (shiftShare / std::cos(half) - 1.0);
-  const double byRoom = 0.5 * shorterLegM / (shiftShare * std::tan(half) + 0.25 * swing);
+  const double byAccuracy = withinM / (ShiftShare(swing) / std::cos(half) - 1.0);
+  const double byRoom = 0.5 * shorterLegM / TangentShare(swing);
   return byAccuracy < byRoom ? byAccuracy : byRoom;
 }
 
@@ -131,7 +141,6 @@ Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
 
     const double shorter = legM[vertex - 1] < legM[vertex] ? legM[vertex - 1] : legM[vertex];
     const double swing = std::fabs(turn);
-    const double shiftShare = 1.0 + swing * swing / 96.0;
     const double radius = CornerRadiusM(turn, shorter, withinM);
     if (radius < tightestM) {
       ++out.Undrivable;
@@ -142,7 +151,7 @@ Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
       radiusM[vertex] = radius;
       spiralM[vertex] = 0.5 * radius * swing;
       arcM[vertex] = 0.5 * radius * swing;
-      tangentM[vertex] = radius * (shiftShare * std::tan(half) + 0.25 * swing);
+      tangentM[vertex] = radius * TangentShare(swing);
     }
     if (radiusM[vertex] <= 0.0) {
       out.Error = "vertex " + std::to_string(vertex) + " turns " + std::to_string(turn) +
@@ -159,7 +168,11 @@ Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
   }
 
   std::vector<double> atVertexM(points, 0.0);
-  for (int pass = 0; pass < 24; ++pass) {
+  // [SET] the shrink-and-refit budget: each pass only tightens radii, so the fit is
+  // monotone and the bound is a stop against pathology, not a tuning -- the refusal
+  // below names it honestly as the budget it is
+  constexpr int kFitPasses = 24;
+  for (int pass = 0; pass < kFitPasses; ++pass) {
   ++out.Passes;
   out.Straights = 0;
   out.Corners = 0;
@@ -235,8 +248,7 @@ Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
     double predictedM = 0.0;
     if (radiusM[vertex] > 0.0) {
       const double swing = std::fabs(turnRad[vertex]);
-      const double shiftShare = 1.0 + swing * swing / 96.0;
-      predictedM = radiusM[vertex] * (shiftShare / std::cos(0.5 * swing) - 1.0);
+      predictedM = radiusM[vertex] * (ShiftShare(swing) / std::cos(0.5 * swing) - 1.0);
     }
     if (awayM > withinM && predictedM <= withinM) {
       if (awayM - predictedM > out.DriftM) { out.DriftM = awayM - predictedM; }
@@ -245,17 +257,15 @@ Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
     if (awayM > withinM && radiusM[vertex] > 0.0) {
       const double shrink = withinM / awayM;
       const double swing = std::fabs(turnRad[vertex]);
-      const double half = 0.5 * swing;
-      const double shiftShare = 1.0 + swing * swing / 96.0;
       radiusM[vertex] *= shrink;
       spiralM[vertex] = 0.5 * radiusM[vertex] * swing;
       arcM[vertex] = 0.5 * radiusM[vertex] * swing;
-      tangentM[vertex] = radiusM[vertex] * (shiftShare * std::tan(half) + 0.25 * swing);
+      tangentM[vertex] = radiusM[vertex] * TangentShare(swing);
       if (radiusM[vertex] < tightestM) {
         radiusM[vertex] = tightestM;
         spiralM[vertex] = 0.5 * tightestM * swing;
         arcM[vertex] = 0.5 * tightestM * swing;
-        tangentM[vertex] = tightestM * (shiftShare * std::tan(half) + 0.25 * swing);
+        tangentM[vertex] = tightestM * TangentShare(swing);
         ++out.Strained;
         if (awayM > out.StrainedWorstM) { out.StrainedWorstM = awayM; }
         continue;
@@ -272,7 +282,7 @@ Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
   }
 
   out.Error = "corners kept overrunning " + std::to_string(withinM) +
-              " m after twenty-four measured corrections, which is a fit that does not converge rather "
+              " m after its twenty-four correction passes, which is a fit that does not converge rather "
               "than a road";
   return out;
 }

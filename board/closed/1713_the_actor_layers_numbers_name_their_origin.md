@@ -28,3 +28,16 @@ unswept in the same round. Naked numbers standing today:
   body, not beside the code that computes them.
 
 Same bar as 1706: derived · measured · [SET], with unit and population, beside each number.
+
+---
+
+Closed -- every listed number carries its origin beside its declaration: Course's chord
+budget and both thresholds; ReferenceLine's five bounds (kResectionRefinements is now a
+DERIVATION: 24 halvings of the metre bracket = 60 nm; the segment bound cites the route-leg
+bound it mirrors); kStartReachM and the pole clamp; the cbrt laws cite 1522's derivations
+with the 4 and the 3! named. The five 96.0 copies and four tangent formulas are ONE pair of
+named helpers (ShiftShare/TangentShare) carrying the clothoid-shift derivation s = R tau^2/24
+with tau = swing/2 -- exactly swing^2/96 -- so the copies cannot drift. The fit's
+"twenty-four measured corrections" refusal text stopped claiming a measurement nobody
+recorded: it names the budget it is. Value identity held by the existing fit and speed-plan
+proofs (unit/actor/path 10/10, gate green).

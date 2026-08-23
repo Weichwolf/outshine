@@ -68,6 +68,7 @@ Sighting Sight(const ReferenceLine &along, const Placement &from, double chordM,
   for (int narrow = 0; narrow < kChordSteps; ++narrow) {
     if (!along.At(atM, there)) { return out; }
     reachedM = std::sqrt(AwayFrom(Beside(there, asideM), from.EastM, from.NorthM));
+    // [SET] 1 um of chord: far under any wheel's placement noise, cheap to reach
     if (out.AtEnd || std::fabs(reachedM - chordM) < 1.0e-6) { break; }
     double stepM = chordM - reachedM;
     atM += stepM;
@@ -83,6 +84,8 @@ Sighting Sight(const ReferenceLine &along, const Placement &from, double chordM,
   if (!(reachedM > 0.0)) { return out; }
 
   out.Found = true;
+  // [SET] 1 mm declares out-of-reach: three orders above the convergence floor, so a
+  // converged answer can never trip it
   out.OutOfReach = !out.AtEnd && std::fabs(reachedM - chordM) > 1.0e-3;
   out.AlongM = atM;
   out.ChordM = reachedM;

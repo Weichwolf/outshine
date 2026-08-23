@@ -16,6 +16,8 @@ double MetresPerDegreeLat(double sphereRadiusM) { return sphereRadiusM * kDegToR
 
 double MetresPerDegreeLon(double latDeg, double sphereRadiusM) {
   const double shrink = std::cos(latDeg * kDegToRad);
+  // [SET] the pole clamp: within 0.2 m of the pole a parallel has no usable east, and
+  // the clamp keeps the division finite instead of minting infinities
   return MetresPerDegreeLat(sphereRadiusM) * (shrink > 1.0e-6 ? shrink : 1.0e-6);
 }
 
