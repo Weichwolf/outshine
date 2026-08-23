@@ -85,3 +85,11 @@ three spellings deep: `OUTSHINE_CORRIDOR_FIT_H` (Fit.h:1), `OUTSHINE_CARRIAGEWAY
 Pilot staying is the recorded decision and stands; the guards spell dead FOLDERS, not
 functions, and the ground sweep is the precedent. One pass: OUTSHINE_ACTOR_BODY_*,
 OUTSHINE_ACTOR_MIND_*, OUTSHINE_ACTOR_PATH_*.
+
+---
+
+Guard slice verified complete (board queue): the actor sweep landed since the sharpening --
+every src/actor header spells OUTSHINE_ACTOR_{BODY,MIND,PATH}_*, and the one straggler
+(Angle.h, born mid-night as ANGLE_H) joined the rule. grep for the dead spellings
+(OUTSHINE_PHYSICS_/PILOT_/CORRIDOR_/CARRIAGEWAY_/PATH_) over src/ is empty. Remaining before
+close: the World class's own death, renamed once with its 1595 decomposition.

@@ -1,5 +1,5 @@
-#ifndef ANGLE_H
-#define ANGLE_H
+#ifndef OUTSHINE_ACTOR_PATH_ANGLE_H
+#define OUTSHINE_ACTOR_PATH_ANGLE_H
 
 #include <numbers>
 
