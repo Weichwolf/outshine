@@ -42,10 +42,6 @@ struct ByAssetUri {
   bool operator()(const Asset &a, const Asset &b) const { return a.Uri == b.Uri; }
   std::string Identity(const Asset &row) const { return row.Uri; }
 };
-struct ByVehicleName {
-  bool operator()(const Vehicle &a, const Vehicle &b) const { return a.Name == b.Name; }
-  std::string Identity(const Vehicle &row) const { return row.Name; }
-};
 template <class Row>
 struct ByKindField {
   bool operator()(const Row &a, const Row &b) const { return a.Kind == b.Kind; }
@@ -108,7 +104,6 @@ bool MergeLayer(Scenario &into, const Scenario &layer, std::string_view named,
   MergeRows(into.Kinds, layer.Kinds, named, "kind", ByKindName{}, trace);
   MergeRows(into.Instances, layer.Instances, named, "instance", ByInstanceId{}, trace);
   MergeRows(into.Assets, layer.Assets, named, "asset", ByAssetUri{}, trace);
-  MergeRows(into.Vehicles, layer.Vehicles, named, "vehicle", ByVehicleName{}, trace);
   MergeRows(into.Providers, layer.Providers, named, "provider", ByKindField<Provider>{}, trace);
   MergeRows(into.Generators, layer.Generators, named, "generator", ByKindField<Generator>{},
             trace);
@@ -151,8 +146,9 @@ bool ApplyLayer(Scenario &into, const char *text, size_t size, std::string_view 
   }
 
   // the singleton sections merge by the reader's OWN semantics -- re-parse the layer onto a
-  // copy of the base, where every omitted attribute keeps the value already standing (the
-  // house template rule, at attribute level) -- then carry over only what the layer declared
+  // copy of the base, where an omitted ATTRIBUTE keeps the value standing (the house
+  // template rule); the copy's row collections and name come out doubled or replaced and
+  // are DISCARDED -- only the declared sections carry over
   Scenario onto = into;
   std::string sectionsWhy;
   if (!ReadScenarioInto(text, size, onto, sectionsWhy)) {

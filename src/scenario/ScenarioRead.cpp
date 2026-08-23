@@ -1,3 +1,5 @@
+#include "ScenarioRead.h"
+
 #include <outshine/Scenario.h>
 
 #include <cstring>
@@ -183,6 +185,8 @@ void ReadWorld(const Xml::Ref &from, Scenario &into) {
 void ReadRender(const Xml::Ref &from, Scenario &into) {
   if (!from.Valid()) { return; }
   into.Render.Declared = true;
+  if (from.Count("output") > 0) { into.Render.Outputs.clear(); }
+  if (from.Count("stage") > 0) { into.Render.Stages.clear(); }
   into.Render.Frame.WidthPx = (int)from.Int("widthPx", into.Render.Frame.WidthPx);
   into.Render.Frame.HeightPx = (int)from.Int("heightPx", into.Render.Frame.HeightPx);
   into.Render.Fps = from.Num("fps", into.Render.Fps);
@@ -217,8 +221,6 @@ void ReadLighting(const Xml::Ref &from, Scenario &into) {
 }
 
 } // namespace
-
-bool ReadScenarioInto(const char *text, size_t length, Scenario &into, std::string &error);
 
 bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &error) {
   into = Scenario();
@@ -585,11 +587,11 @@ bool ReadScenarioInto(const char *text, size_t length, Scenario &into, std::stri
   const Xml::Ref drive = root.Child("drive");
   if (drive.Valid()) {
     into.Driven.Declared = true;
-    into.Driven.FromLatDeg = drive.Num("fromLat", 0.0);
-    into.Driven.FromLonDeg = drive.Num("fromLon", 0.0);
-    into.Driven.ToLatDeg = drive.Num("toLat", 0.0);
-    into.Driven.ToLonDeg = drive.Num("toLon", 0.0);
-    into.Driven.Zoom = (int)drive.Num("zoom", 0.0);
+    into.Driven.FromLatDeg = drive.Num("fromLat", into.Driven.FromLatDeg);
+    into.Driven.FromLonDeg = drive.Num("fromLon", into.Driven.FromLonDeg);
+    into.Driven.ToLatDeg = drive.Num("toLat", into.Driven.ToLatDeg);
+    into.Driven.ToLonDeg = drive.Num("toLon", into.Driven.ToLonDeg);
+    into.Driven.Zoom = (int)drive.Num("zoom", (double)into.Driven.Zoom);
   }
 
   const Xml::Ref state = root.Child("state");

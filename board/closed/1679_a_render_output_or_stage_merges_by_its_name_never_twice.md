@@ -25,3 +25,9 @@ if removal stays unspellable, that is a decision to write down, not an accident.
 Demanded: identity-aware merge for Outputs/Stages in the door (or in ApplyLayer's section
 carry), plus a unit case in test/unit/scenario/ALayerOverridesAnEarlierOneById.cpp proving
 no duplicate survives.
+
+---
+
+Closed: a render section that redeclares its outputs or stages REPLACES the list -- the
+declared list IS the list (an ordered plan has no meaningful per-name merge), and the sky
+cannot be drawn twice by a mod that names it once. Proven beside the drive keep.

@@ -24,3 +24,9 @@ trace is a declaration nobody can debug, and this trace actively misleads. ByVeh
 Demanded: drop the Vehicles row from the MergeRows table and ByVehicleName with it; the
 singleton replace at 148-151 is the one truth and its trace the one line. Unit case: a
 base vehicle replaced by a layer's produces exactly one vehicle trace entry.
+
+---
+
+Closed: the vehicle walks through the merge ONCE -- the row-merge line and the dead
+ByVehicleName key are deleted; the singleton replace with its trace is the one truth, per
+1655's recorded verdict.

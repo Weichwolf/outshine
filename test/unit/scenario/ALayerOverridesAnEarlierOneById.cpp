@@ -109,6 +109,29 @@ int main(void) {
         "and a sound overrides by its URI -- the identity 1655 put in the Required column, "
         "not the optional id");
 
+  {
+    Scenario route;
+    CHECK(Parsed("<scenario name=\"base\">"
+                 "<render><stage name=\"sky\"/><stage name=\"subjects\"/></render>"
+                 "<drive fromLat=\"48.1\" fromLon=\"11.5\" toLat=\"52.5\" toLon=\"13.4\"/>"
+                 "</scenario>",
+                 route, error),
+          "a base declares a route and a two-stage plan");
+    const char *zoomed = "<scenario name=\"mod\">"
+                         "<drive zoom=\"15\"/>"
+                         "<render><stage name=\"sky\"/></render></scenario>";
+    trace.clear();
+    CHECK(ApplyLayer(route, zoomed, std::strlen(zoomed), "mod", trace, error),
+          "a layer declaring only the zoom and a one-stage plan applies");
+    CHECK(route.Driven.FromLatDeg == 48.1 && route.Driven.ToLatDeg == 52.5 &&
+              route.Driven.Zoom == 15,
+          "**THE DRIVE KEEPS TOO**: zoom-only keeps the route's four coordinates -- no "
+          "silent voyage to the Gulf of Guinea, and the trace stopped lying");
+    CHECK(route.Render.Stages.size() == 1 && route.Render.Stages[0] == "sky",
+          "and a redeclared stage list REPLACES -- the declared list is the list, never an "
+          "append that draws the sky twice");
+  }
+
   Scenario nested;
   CHECK(Parsed("<scenario name=\"deep\"><layer path=\"more.xml\"/></scenario>", nested, error),
         "a layer declaring layers parses as XML");

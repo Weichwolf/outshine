@@ -26,3 +26,10 @@ player/clock/physics do (struct defaults in include/outshine/Scenario.h:257-264 
 0.0, so a fresh read is unchanged), and the unit twin
 test/unit/scenario/ALayerOverridesAnEarlierOneById.cpp gains a partial-drive case that
 would have caught this.
+
+---
+
+Closed: the drive keeps like every other section -- its five attributes default to the
+values standing, so zoom-only keeps the route's four coordinates. Proven: base
+Munich->Berlin route + <drive zoom="15"/> keeps 48.1/52.5 and takes the zoom; the trace's
+"omitted attributes keep the base's values" is true for the last section it lied about.

@@ -27,3 +27,11 @@ Three leftovers of the two-door split:
    never survives. 1674's closure declared ambient frame seeding dead; the corpse still
    reads as if it worked. Declare() already owns the fallback correctly
    (Engine.cpp:122-125). Delete the line.
+
+---
+
+Closed: ScenarioRead.cpp includes its own header (one declaration truth, the unadorned
+forward-declaration is gone); the door comment says what the copy actually does with rows
+(doubled or replaced, then DISCARDED); the fragment's ambient-frame seed was already dead
+and buried -- the base's window seed at ReadInto stays deliberately, because "the frame is
+the consumer's window unless declared" is the base's contract, not a layer's.
