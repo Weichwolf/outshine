@@ -212,11 +212,14 @@ flowchart TD
   GltfStudio --> Renderer
   Assembly["Assembly — the XML door"] --> SceneStore["Scene Store — entities · typed pairs · traits · tags"]
   InputMap["InputMap — declared bindings, interned to ids"] --> InputPump["InputPump — SDL events to (action id, kind, value)"]
+  TriggerField["TriggerField — volumes fire declared events: enter · exit · dwell"]
+  ViewBook["ViewBook — one active view: follows · clock scale · the ear"]
+  BusGraph["BusGraph — the mix: buses into buses, one master, falloff per source"]
 
   classDef sound fill:#1f6f3f,stroke:#0d3b21,color:#fff
   classDef unsure fill:#8a6d1f,stroke:#4a3a0d,color:#fff
   classDef wrong fill:#7a2222,stroke:#3d1111,color:#fff
-  class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,OsmField,RoadHarvest,Wayfinding,StreetField,Ground,Forest,Buildings,Water,Infrastructure,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,Engine,SceneStore,Assembly,SubjectResidency,Markup,Stylesheet,LayoutUi,Painting,InputMap,InputPump sound
+  class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,OsmField,RoadHarvest,Wayfinding,StreetField,Ground,Forest,Buildings,Water,Infrastructure,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,Engine,SceneStore,Assembly,SubjectResidency,Markup,Stylesheet,LayoutUi,Painting,InputMap,InputPump,TriggerField,ViewBook,BusGraph sound
   class BuildingField,WaterField,Subject,DrawList,Renderer,TonemapStage,LightVisibilityStage,Frustum,Ephemeris,RegionForge,GltfStudio unsure
   class TilePool,World,SubjectDraw,Sim,Live wrong
   class DriveAssembly,CorridorLay,DriveTick unsure
