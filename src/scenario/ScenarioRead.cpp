@@ -72,7 +72,7 @@ const Element kGrammar[] = {
     {"scenario/audio/sound", "", "id uri bus positional loops gainDb falloffM", "uri"},
     {"scenario/tables", "table", ""},
     {"scenario/tables/table", "column row", "id"},
-    {"scenario/tables/table/column", "", "name", "name"},
+    {"scenario/tables/table/column", "", "name type", "name"},
     {"scenario/tables/table/row", "cell", ""},
     {"scenario/tables/table/row/cell", "", "value"},
     {"scenario/events", "event", ""},
@@ -480,6 +480,12 @@ bool ReadScenarioInto(const char *text, size_t length, Scenario &into, std::stri
     made.Id = one.Attr("id");
     for (size_t which = 0; which < one.Count("column"); ++which) {
       made.Columns.push_back(one.At("column", which).Attr("name"));
+      const std::string kind = one.At("column", which).Attr("type", "text");
+      if (kind != "text" && kind != "number") {
+        error = "<column> declares type='" + kind + "', and a cell is text or number";
+        return false;
+      }
+      made.Types.push_back(kind == "number");
     }
     for (size_t which = 0; which < one.Count("row"); ++which) {
       const Xml::Ref row = one.At("row", which);

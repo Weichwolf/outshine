@@ -195,6 +195,7 @@ struct Bus {
 struct Table {
   std::string Id;
   std::vector<std::string> Columns;
+  std::vector<bool> Types; // true = number, declared per column, never per spelling
   std::vector<std::vector<std::string>> Rows;
 };
 
