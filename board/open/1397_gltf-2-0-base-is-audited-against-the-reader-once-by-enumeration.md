@@ -32,3 +32,14 @@ must carry, found by reading:
   which is right for `weights` (per-target multiplicity) but LENIENT for
   translation/rotation/scale where the spec demands equality; a T/R/S sampler with 2x the
   outputs passes and the surplus is silently unread.
+
+---
+
+Progress -- the three sharpened spots are repaid: ShapeAllowed's fallthrough now enforces
+the spec's underscore rule (a misspelt standard semantic refuses instead of silently losing
+its meaning), a POSITION accessor without min/max refuses (the bounds the spec requires are
+now demanded, which is their first USE; five unit fixtures that violated the spec gained
+their bounds), and T/R/S channels demand EXACTLY one output per keyframe (times three for
+cubic) -- the weights-only divisibility leniency is gone. All three proven by refusal arms
+in AFileThatCannotMeanAnythingIsRefusedByName. The full property-table enumeration remains
+this item's body of work.

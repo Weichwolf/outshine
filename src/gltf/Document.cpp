@@ -320,7 +320,10 @@ bool ShapeAllowed(const std::string &semantic, const AttributeShape &shape, bool
     return vec4 && ((f32 && !norm) || ((u8 || u16) && norm));
   }
 
-  return true;
+  // the spec's own rule: an application-specific attribute MUST start with an underscore
+  // and may take any shape; anything else here is a misspelt standard semantic, and
+  // carrying it silently loses the mesh's normals without a word
+  return !semantic.empty() && semantic.front() == '_';
 }
 
 bool Document::Honours(std::string_view extension) {
@@ -595,6 +598,15 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
                         attribute.Semantic + " names an accessor the file does not carry");
         }
         const Accessor &carried = Accessors_[static_cast<size_t>(attribute.Accessor)];
+        // the spec REQUIRES min and max on a POSITION accessor -- the declared bounds
+        // are what a consumer sizes against without decoding
+        if (attribute.Semantic == "POSITION" &&
+            (carried.Min.size() != ElementComponents(carried.Element) ||
+             carried.Max.size() != ElementComponents(carried.Element))) {
+          return Refuse("mesh " + Number(i) + " primitive " + Number(p) +
+                        " has a POSITION accessor without the min/max bounds glTF 2.0 "
+                        "requires");
+        }
         const AttributeShape shape{carried.Element, carried.Component, carried.Normalized};
         if (!ShapeAllowed(attribute.Semantic, shape, Quantised_)) {
           return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " attribute " +
@@ -989,6 +1001,21 @@ bool Document::ReadAnimations(const Json &json) {
         return Refuse("animation " + Number(i) + " channel " + Number(c) + " drives '" + path +
                       "', which is " + Number(components) + " components, from an output of " +
                       Number(ElementComponents(values.Element)));
+      }
+      // T/R/S demand EXACTLY one value per keyframe (times three for cubic tangents);
+      // only weights carry a per-target multiplicity, so the divisibility rule that is
+      // right for weights was lenient here and the surplus went silently unread
+      if (channel.Path != AnimationPath::Weights) {
+        const AnimationSampler &driving =
+            animation.Samplers[static_cast<size_t>(channel.Sampler)];
+        const Accessor &grid = Accessors_[static_cast<size_t>(driving.Input)];
+        const size_t perKeyframe = driving.How == Interpolation::CubicSpline ? 3u : 1u;
+        if (values.Count != grid.Count * perKeyframe) {
+          return Refuse("animation " + Number(i) + " channel " + Number(c) + " drives '" +
+                        path + "' with " + Number(values.Count) + " outputs over " +
+                        Number(grid.Count) + " keyframes, and the spec demands exactly " +
+                        Number(grid.Count * perKeyframe));
+        }
       }
       animation.Channels.push_back(channel);
     }

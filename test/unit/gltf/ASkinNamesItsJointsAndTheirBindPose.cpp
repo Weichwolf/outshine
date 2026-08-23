@@ -34,7 +34,8 @@ const char *const kJson = R"({
   "bufferViews": [ { "buffer": 0, "byteOffset": 0, "byteLength": 128 } ],
   "accessors": [
     { "bufferView": 0, "componentType": 5126, "count": 2, "type": "MAT4" },
-    { "bufferView": 0, "componentType": 5126, "count": 1, "type": "VEC3" }
+    { "bufferView": 0, "componentType": 5126, "count": 1, "type": "VEC3",
+      "min": [0, 0, 0], "max": [0, 0, 0] }
   ],
   "skins": [ { "name": "arm", "skeleton": 1, "joints": [1, 2], "inverseBindMatrices": 0 } ]
 })";
@@ -46,7 +47,7 @@ const char *const kNoBind = R"({
   "meshes": [ { "primitives": [ { "attributes": { "POSITION": 0 } } ] } ],
   "buffers": [ { "byteLength": 128 } ],
   "bufferViews": [ { "buffer": 0, "byteOffset": 0, "byteLength": 128 } ],
-  "accessors": [ { "bufferView": 0, "componentType": 5126, "count": 1, "type": "VEC3" } ],
+  "accessors": [ { "bufferView": 0, "componentType": 5126, "count": 1, "type": "VEC3", "min": [0, 0, 0], "max": [0, 0, 0] } ],
   "skins": [ { "joints": [1] } ]
 })";
 
@@ -98,7 +99,7 @@ int main() {
   CHECK(Refuses(R"({"asset":{"version":"2.0"},"nodes":[{"mesh":0,"skin":0}],
         "meshes":[{"primitives":[{"attributes":{"POSITION":0}}]}],
         "buffers":[{"byteLength":128}],"bufferViews":[{"buffer":0,"byteLength":128}],
-        "accessors":[{"bufferView":0,"componentType":5126,"count":1,"type":"VEC3"}],
+        "accessors":[{"bufferView":0,"componentType":5126,"count":1,"type":"VEC3","min":[0,0,0],"max":[1,1,1]}],
         "skins":[{"joints":[]}]})",
                 "names no joint"),
         "a skin with an empty joint list is refused by name");
@@ -106,7 +107,7 @@ int main() {
   CHECK(Refuses(R"({"asset":{"version":"2.0"},"nodes":[{"mesh":0,"skin":0}],
         "meshes":[{"primitives":[{"attributes":{"POSITION":0}}]}],
         "buffers":[{"byteLength":128}],"bufferViews":[{"buffer":0,"byteLength":128}],
-        "accessors":[{"bufferView":0,"componentType":5126,"count":1,"type":"VEC3"}],
+        "accessors":[{"bufferView":0,"componentType":5126,"count":1,"type":"VEC3","min":[0,0,0],"max":[1,1,1]}],
         "skins":[{"joints":[7]}]})",
                 "which the file does not carry"),
         "a joint naming a node the file does not carry is refused by name");
@@ -114,7 +115,7 @@ int main() {
   CHECK(Refuses(R"({"asset":{"version":"2.0"},"nodes":[{"mesh":0,"skin":3}],
         "meshes":[{"primitives":[{"attributes":{"POSITION":0}}]}],
         "buffers":[{"byteLength":128}],"bufferViews":[{"buffer":0,"byteLength":128}],
-        "accessors":[{"bufferView":0,"componentType":5126,"count":1,"type":"VEC3"}],
+        "accessors":[{"bufferView":0,"componentType":5126,"count":1,"type":"VEC3","min":[0,0,0],"max":[1,1,1]}],
         "skins":[{"joints":[0]}]})",
                 "and the file declares"),
         "a node naming a skin the file does not carry is refused by name");
@@ -122,7 +123,7 @@ int main() {
   CHECK(Refuses(R"({"asset":{"version":"2.0"},"nodes":[{"skin":0},{"mesh":0}],
         "meshes":[{"primitives":[{"attributes":{"POSITION":0}}]}],
         "buffers":[{"byteLength":128}],"bufferViews":[{"buffer":0,"byteLength":128}],
-        "accessors":[{"bufferView":0,"componentType":5126,"count":1,"type":"VEC3"}],
+        "accessors":[{"bufferView":0,"componentType":5126,"count":1,"type":"VEC3","min":[0,0,0],"max":[1,1,1]}],
         "skins":[{"joints":[1]}]})",
                 "carries no mesh"),
         "a skin on a node with no mesh is refused, because glTF states a skin deforms the geometry "
@@ -132,7 +133,7 @@ int main() {
         "meshes":[{"primitives":[{"attributes":{"POSITION":1}}]}],
         "buffers":[{"byteLength":128}],"bufferViews":[{"buffer":0,"byteLength":128}],
         "accessors":[{"bufferView":0,"componentType":5126,"count":2,"type":"MAT4"},
-                     {"bufferView":0,"componentType":5126,"count":1,"type":"VEC3"}],
+                     {"bufferView":0,"componentType":5126,"count":1,"type":"VEC3","min":[0,0,0],"max":[1,1,1]}],
         "skins":[{"joints":[1],"inverseBindMatrices":0}]})",
                 "matrices"),
         "one joint against two bind matrices is refused, because the pairing is the record");

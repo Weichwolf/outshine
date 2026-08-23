@@ -40,7 +40,8 @@ const char *kSceneJson = R"({
   ],
   "meshes": [{"primitives": [{"attributes": {"POSITION": 0, "NORMAL": 1}, "indices": 2}]}],
   "accessors": [
-    {"bufferView": 0, "componentType": 5126, "count": 4, "type": "VEC3"},
+    {"bufferView": 0, "componentType": 5126, "count": 4, "type": "VEC3",
+     "min": [-1, -1, 0], "max": [1, 1, 0]},
     {"bufferView": 1, "componentType": 5126, "count": 4, "type": "VEC3"},
     {"bufferView": 2, "componentType": 5123, "count": 6, "type": "SCALAR"}
   ],

@@ -50,7 +50,8 @@ const char *const kJson = R"({
     { "buffer": 0, "byteOffset": 108, "byteLength": 6 }
   ],
   "accessors": [
-    { "bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3" },
+    { "bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3",
+      "min": [0, 0, 0], "max": [1, 1, 0] },
     { "bufferView": 1, "componentType": 5126, "count": 3, "type": "VEC3" },
     { "bufferView": 2, "componentType": 5126, "count": 3, "type": "VEC3" },
     { "bufferView": 3, "componentType": 5123, "count": 3, "type": "SCALAR" }
@@ -116,16 +117,16 @@ int main() {
   CHECK(Refuses(R"({"asset":{"version":"2.0"},"nodes":[{"mesh":0}],
         "meshes":[{"primitives":[{"attributes":{"POSITION":0},"targets":[{"COLOR_0":1}]}]}],
         "buffers":[{"byteLength":114}],"bufferViews":[{"buffer":0,"byteLength":114}],
-        "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},
-                     {"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"}]})",
+        "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3","min":[0,0,0],"max":[1,1,1]},
+                     {"bufferView":0,"componentType":5126,"count":3,"type":"VEC3","min":[0,0,0],"max":[1,1,1]}]})",
                 "POSITION, NORMAL or TANGENT"),
         "a target displacing a semantic glTF does not allow in one is refused by name");
 
   CHECK(Refuses(R"({"asset":{"version":"2.0"},"nodes":[{"mesh":0}],
         "meshes":[{"primitives":[{"attributes":{"POSITION":0},"targets":[{"NORMAL":1}]}]}],
         "buffers":[{"byteLength":114}],"bufferViews":[{"buffer":0,"byteLength":114}],
-        "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},
-                     {"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"}]})",
+        "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3","min":[0,0,0],"max":[1,1,1]},
+                     {"bufferView":0,"componentType":5126,"count":3,"type":"VEC3","min":[0,0,0],"max":[1,1,1]}]})",
                 "the primitive carries none"),
         "a target displacing a semantic the primitive does not carry is refused, because the delta "
         "has nothing to displace");
@@ -134,16 +135,16 @@ int main() {
         "meshes":[{"weights":[1.0],"primitives":[{"attributes":{"POSITION":0},
                    "targets":[{"POSITION":1},{"POSITION":1}]}]}],
         "buffers":[{"byteLength":114}],"bufferViews":[{"buffer":0,"byteLength":114}],
-        "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},
-                     {"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"}]})",
+        "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3","min":[0,0,0],"max":[1,1,1]},
+                     {"bufferView":0,"componentType":5126,"count":3,"type":"VEC3","min":[0,0,0],"max":[1,1,1]}]})",
                 "weights over"),
         "one weight against two targets is refused, because the pairing is positional");
 
   CHECK(Refuses(R"({"asset":{"version":"2.0"},"nodes":[{"mesh":0}],
         "meshes":[{"primitives":[{"attributes":{"POSITION":0},"targets":[{"POSITION":1}]}]}],
         "buffers":[{"byteLength":114}],"bufferViews":[{"buffer":0,"byteLength":114}],
-        "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},
-                     {"bufferView":0,"componentType":5126,"count":2,"type":"VEC3"}]})",
+        "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3","min":[0,0,0],"max":[1,1,1]},
+                     {"bufferView":0,"componentType":5126,"count":2,"type":"VEC3","min":[0,0,0],"max":[1,1,1]}]})",
                 "deltas over"),
         "a target whose accessor is shorter than the base attribute is refused by name");
 
