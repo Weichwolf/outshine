@@ -191,6 +191,16 @@ int main(void) {
           "position (board:1685)");
   }
 
+  {
+    std::string why;
+    Laid plus;
+    CHECK(plus.Read("<div id=\"p\" style=\"width:+50px;height:10px\"></div>", nullptr, 400,
+                    300, why) &&
+              plus.WithId("p") != nullptr && Near(plus.WithId("p")->Width, 50.0),
+          "a css length may carry its legal leading plus -- the number scan owns the sign, "
+          "no locale and no library kindness in the path (board:1621)");
+  }
+
   Covers("the library measures, wraps and places, and what it answers is where every box "
          "landed in the viewport's own pixels -- judged with no device and no picture");
   return Report();

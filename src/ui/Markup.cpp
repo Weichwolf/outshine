@@ -1,3 +1,4 @@
+#include <charconv>
 #include "Markup.h"
 
 #include <algorithm>
@@ -48,8 +49,9 @@ void Resolve(std::string_view raw, std::string &out) {
       out.push_back((char)0xA0);
     } else if (!name.empty() && name[0] == '#') {
       const bool hex = name.size() > 1 && (name[1] == 'x' || name[1] == 'X');
-      const std::string digits(name.substr(hex ? 2 : 1));
-      const long code = std::strtol(digits.c_str(), nullptr, hex ? 16 : 10);
+      const std::string_view digits = name.substr(hex ? 2 : 1);
+      long code = 0;
+      (void)std::from_chars(digits.data(), digits.data() + digits.size(), code, hex ? 16 : 10);
       if (code <= 0 || code > 0x10FFFF) {
         out.push_back('&');
         ++at;

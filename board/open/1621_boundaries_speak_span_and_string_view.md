@@ -123,3 +123,8 @@ are locale-dependent or allocate to reach a C string:
   character references — same move.
 The correctness residue of the Script conversion itself (unchecked `ec`, hex overflow to a
 silent zero) is board:1688, not this item.
+
+Progress: the ui parsers left the locale -- Style's number scan, nth-child and Markup's
+entity codes speak from_chars (with CSS's legal leading '+' consumed explicitly and proven);
+a locale-dependent strtod in a style engine was a correctness hole, not a form nit. WPT CSS
+corpus 162/162 beside the unit proofs.

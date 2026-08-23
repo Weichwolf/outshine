@@ -22,3 +22,9 @@ chain belongs on the diagram; until then the map under-reports a whole subsystem
 also put three concrete defects against the tree it confirms: board:1685 (baseline OOB),
 1686 (only the first top-level box paints), 1687 (greedy selector matching refuses valid
 trees) — the "confirmed architecture" verdict above stands, the implementation does not yet.
+
+---
+
+Map sharpening repaid (round 15's note): the CURRENT class diagram carries the ui chain --
+Markup -> Stylesheet -> Layout -> Painting -> OverlayDraw -> Renderer, green per the round's
+own layering verdict. A map that omits a subsystem lies by omission; it no longer does.

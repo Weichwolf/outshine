@@ -1,3 +1,4 @@
+#include <charconv>
 #include "Style.h"
 
 #include <cstdlib>
@@ -164,10 +165,12 @@ Value ReadValue(std::string_view text) {
   }
   const char first = trimmed.front();
   if ((first >= '0' && first <= '9') || first == '-' || first == '+' || first == '.') {
-    char *stopped = nullptr;
-    const std::string held(trimmed);
-    const double number = std::strtod(held.c_str(), &stopped);
-    const std::string_view suffix = Trim(std::string_view(stopped));
+    // css allows a leading '+', from_chars does not -- consumed here so the sign stays legal
+    const std::string_view digits = trimmed.front() == '+' ? trimmed.substr(1) : trimmed;
+    double number = 0.0;
+    const auto scanned = std::from_chars(digits.data(), digits.data() + digits.size(), number);
+    const std::string_view suffix =
+        Trim(digits.substr((size_t)(scanned.ptr - digits.data())));
     value.Number = number;
     if (suffix.empty()) {
       value.How = Unit::None;
@@ -485,7 +488,8 @@ bool ReadCompound(std::string_view text, Compound &out) {
     for (const char c : inside) {
       if (c < '0' || c > '9') { return false; }
     }
-    out.NthChild = std::atoi(std::string(inside).c_str());
+    out.NthChild = 0;
+    (void)std::from_chars(inside.data(), inside.data() + inside.size(), out.NthChild);
     if (out.NthChild <= 0) { return false; }
     text = text.substr(0, nth);
     if (text.empty()) { return true; }

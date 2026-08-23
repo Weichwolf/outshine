@@ -208,13 +208,14 @@ flowchart TD
   DriveAssembly --> CorridorLay["CorridorLay — route + ground → Corridor product"]
   DriveAssembly --> DriveTick["DriveTick — (Corridor, Rigged, DriveState) tick"]
   Engine --> Live
+  Markup --> Stylesheet --> LayoutUi["Layout"] --> Painting --> OverlayDraw --> Renderer
   GltfStudio --> Renderer
   Assembly["Assembly — the XML door"] --> SceneStore["Scene Store — entities · typed pairs · traits · tags"]
 
   classDef sound fill:#1f6f3f,stroke:#0d3b21,color:#fff
   classDef unsure fill:#8a6d1f,stroke:#4a3a0d,color:#fff
   classDef wrong fill:#7a2222,stroke:#3d1111,color:#fff
-  class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,OsmField,RoadHarvest,Wayfinding,StreetField,Ground,Forest,Buildings,Water,Infrastructure,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,Engine,SceneStore,Assembly,SubjectResidency sound
+  class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,OsmField,RoadHarvest,Wayfinding,StreetField,Ground,Forest,Buildings,Water,Infrastructure,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,Engine,SceneStore,Assembly,SubjectResidency,Markup,Stylesheet,LayoutUi,Painting sound
   class BuildingField,WaterField,Subject,DrawList,Renderer,TonemapStage,LightVisibilityStage,Frustum,Ephemeris,RegionForge,GltfStudio unsure
   class TilePool,World,SubjectDraw,Sim,Live wrong
   class DriveAssembly,CorridorLay,DriveTick unsure
