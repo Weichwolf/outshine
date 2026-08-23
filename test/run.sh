@@ -318,19 +318,16 @@ GroupToolchain() {
 # BACKWARDS, and "-nt" then reports a stale object as current -- a green verdict about
 # source nobody compiled (board:1751). The stamp beside each object is the digest of the
 # source and every prerequisite the compiler named.
+# the stamp is (mtime, size, name) of the source and every prerequisite, gathered in ONE
+# stat call: a backwards mtime DIFFERS from the recorded one, where "-nt" called it current
 SourceStamp() {
   stampSource=$1
   stampDeps=$2
-  { printf '%s\n' "$stampSource"
-    cat "$stampSource" 2>/dev/null
-    if [ -f "$stampDeps" ]; then
-      for prerequisite in $(sed -e 's/^[^:]*://' -e 's/\\//g' "$stampDeps"); do
-        [ -e "$prerequisite" ] || return 1
-        printf '%s\n' "$prerequisite"
-        cat "$prerequisite"
-      done
-    fi
-  } | shasum -a 256 | cut -d' ' -f1
+  stampFiles=$stampSource
+  if [ -f "$stampDeps" ]; then
+    stampFiles="$stampFiles $(sed -e 's/^[^:]*://' -e 's/\\//g' "$stampDeps")"
+  fi
+  stat -f '%m|%z|%N' -- $stampFiles 2>/dev/null || return 1
 }
 
 UpToDate() {

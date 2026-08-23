@@ -21,7 +21,11 @@ mtime cannot fool it, and a prerequisite that vanished refuses.
 
 ---
 
-Closed -- the freshness check is a sha256 over the source and its named prerequisites,
-stamped beside every object as it is built. Proven by the defect's own repro: revert a
-source under a built object (mtime backwards) and the object rebuilds, where the -nt check
-kept it. The whole gate runs on the new stamp: 205 arms.
+Closed -- the freshness check is a STAMP beside every object: (mtime, size, name) of the
+source and every prerequisite the compiler named, gathered in one stat call and compared
+for equality -- a backwards mtime DIFFERS from the recorded one, where "-nt" called it
+current. Proven by the defect's own repro: revert a source under a built object and it
+rebuilds, where the -nt check kept it (the same suite answered 120.3125 m stale and 0 m
+fresh). Measured cost: the first cut hashed file CONTENTS and put builds at 119 s warm --
+too dear; the stat form holds the whole gate at 104 s of run and 51 s of build, inside the
+bound with 46 s of headroom.
