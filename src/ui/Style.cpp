@@ -832,23 +832,25 @@ const char *WhyOutside(std::string_view name) {
   return nullptr;
 }
 
-bool Selects(const Rule &rule, const Markup &markup, int node) {
-  if (rule.Chain.empty()) { return false; }
-
-  if (!Holds(rule.Chain.back(), markup, node)) { return false; }
-  int at = markup.Nodes()[(size_t)node].Parent;
-  size_t wanted = rule.Chain.size() - 1;
-  while (wanted > 0 && at >= 0) {
-    const Reach reach = wanted - 1 < rule.Links.size() ? rule.Links[wanted - 1] : Reach::Descendant;
-    if (Holds(rule.Chain[wanted - 1], markup, at)) {
-      --wanted;
-    } else if (reach == Reach::Child) {
-
-      return false;
-    }
-    at = markup.Nodes()[(size_t)at].Parent;
+// right-to-left with BACKTRACKING: a descendant link may skip a candidate that matched but
+// leads nowhere -- .outer > .mid .leaf must try every .mid above the leaf, not marry the
+// first (CSS's own semantics; the greedy walk refused trees CSS selects)
+bool ChainSelects(const Rule &rule, const Markup &markup, size_t wanted, int node) {
+  if (!Holds(rule.Chain[wanted], markup, node)) { return false; }
+  if (wanted == 0) { return true; }
+  const Reach reach = wanted - 1 < rule.Links.size() ? rule.Links[wanted - 1] : Reach::Descendant;
+  const int parent = markup.Nodes()[(size_t)node].Parent;
+  if (reach == Reach::Child) {
+    return parent >= 0 && ChainSelects(rule, markup, wanted - 1, parent);
   }
-  return wanted == 0;
+  for (int at = parent; at >= 0; at = markup.Nodes()[(size_t)at].Parent) {
+    if (ChainSelects(rule, markup, wanted - 1, at)) { return true; }
+  }
+  return false;
+}
+
+bool Selects(const Rule &rule, const Markup &markup, int node) {
+  return !rule.Chain.empty() && ChainSelects(rule, markup, rule.Chain.size() - 1, node);
 }
 
 }

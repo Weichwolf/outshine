@@ -24,3 +24,11 @@ exercises specificity, not combinator completeness, so the gate holds nothing he
 Demanded: on a failed `Child` link, resume the search for the LAST-consumed compound at the
 next ancestor (standard retry-from-descendant matching — the chain is short, the walk stays
 bounded by tree depth), plus the unit case above as the regression proof.
+
+---
+
+Closed: Selects matches right-to-left WITH BACKTRACKING -- a descendant link tries every
+ancestor candidate instead of marrying the first, so `.outer > .mid .leaf` selects through
+the UPPER .mid when the lower one's parent is not .outer (CSS's own semantics; the recursion
+is bounded by chain length x tree depth, both declared small). Negative-controlled: the
+greedy walk restored, the two-rung proof goes red. WPT CSS corpus 162/162 beside it.

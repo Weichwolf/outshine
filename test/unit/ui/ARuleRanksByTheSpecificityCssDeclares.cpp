@@ -142,5 +142,30 @@ int main(void) {
 
   Covers("the cascade is ranked by CSS specificity over the selector subset the corpus "
          "writes, and everything outside the subset is counted so the corpus selection is derived");
+  {
+    Markup tricky;
+    Stylesheet deep;
+    std::string deepWhy;
+    CHECK(tricky.Read("<div class=\"outer\"><div class=\"mid\"><div>"
+                      "<div class=\"mid\"><div class=\"leaf\"></div></div>"
+                      "</div></div></div>",
+                      deepWhy),
+          "a tree with two .mid rungs parses -- only the UPPER one is a child of .outer");
+    deep.Read(".outer > .mid .leaf { width: 7px; }");
+    int leaf = -1;
+    for (size_t at2 = 0; at2 < tricky.Nodes().size(); ++at2) {
+      const std::string *cls = tricky.AttributeOf((int)at2, "class");
+      if (cls != nullptr && *cls == "leaf") { leaf = (int)at2; }
+    }
+    bool selected = false;
+    for (const Rule &rule : deep.Rules()) {
+      if (Selects(rule, tricky, leaf)) { selected = true; }
+    }
+    CHECK(leaf >= 0 && selected,
+          "**A DESCENDANT LINK BACKTRACKS**: .outer > .mid .leaf selects this leaf through "
+          "the UPPER .mid -- the greedy walk married the lower one and refused a tree CSS "
+          "selects (board:1687)");
+  }
+
   return Report();
 }
