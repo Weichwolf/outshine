@@ -335,8 +335,8 @@ bool Document::Refuse(std::string_view why) {
   return false;
 }
 
-bool Document::ReadFile(const std::string &path) {
-  std::ifstream file(path, std::ios::binary);
+bool Document::ReadFile(std::string_view path) {
+  std::ifstream file(std::string(path), std::ios::binary);
   if (!file) {
     Path_ = path;
     return Refuse("cannot be opened");
@@ -346,7 +346,7 @@ bool Document::ReadFile(const std::string &path) {
   return Read({bytes.data(), bytes.size()}, path);
 }
 
-bool Document::Read(Span<const uint8_t> whole, const std::string &path) {
+bool Document::Read(Span<const uint8_t> whole, std::string_view path) {
   *this = Document();
   Path_ = path;
   if (whole.Empty()) { return Refuse("is empty"); }

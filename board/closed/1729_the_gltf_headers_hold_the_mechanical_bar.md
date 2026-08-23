@@ -19,3 +19,10 @@ this names the gltf instances).
 
 Demanded: nodiscard on every value-returning query in src/gltf headers; string_view at the
 path parameters. Purely mechanical, no behaviour change, the gate proves it compiles.
+
+---
+
+Closed -- every value-returning query in src/gltf/Document.h and Subject.h carries
+[[nodiscard]] (46 and 42 markers respectively), and the two path parameters take
+std::string_view (the file open converts once at the boundary). Purely mechanical, proven
+by the gate and the link audit: every caller compiles against the honest signatures.

@@ -19,40 +19,40 @@ namespace outshine::Gltf {
 class Document {
 public:
 
-  [[nodiscard]] bool Read(Span<const uint8_t> bytes, const std::string &path);
-  [[nodiscard]] bool ReadFile(const std::string &path);
+  [[nodiscard]] bool Read(Span<const uint8_t> bytes, std::string_view path);
+  [[nodiscard]] bool ReadFile(std::string_view path);
 
-  const std::string &Error() const { return Error_; }
-  const std::string &Path() const { return Path_; }
-  const std::string &Version() const { return Version_; }
+  [[nodiscard]] const std::string &Error() const { return Error_; }
+  [[nodiscard]] const std::string &Path() const { return Path_; }
+  [[nodiscard]] const std::string &Version() const { return Version_; }
 
-  const std::string &MinVersion() const { return MinVersion_; }
-  const std::vector<std::string> &ExtensionsRequired() const { return Required_; }
+  [[nodiscard]] const std::string &MinVersion() const { return MinVersion_; }
+  [[nodiscard]] const std::vector<std::string> &ExtensionsRequired() const { return Required_; }
 
   [[nodiscard]] static bool Honours(std::string_view extension);
 
-  const std::vector<Accessor> &Accessors() const { return Accessors_; }
-  const std::vector<BufferView> &BufferViews() const { return Views_; }
-  const std::vector<Mesh> &Meshes() const { return Meshes_; }
-  const std::vector<Node> &Nodes() const { return Nodes_; }
-  const std::vector<Camera> &Cameras() const { return Cameras_; }
-  const std::vector<Scene> &Scenes() const { return Scenes_; }
-  const std::vector<Skin> &Skins() const { return Skins_; }
+  [[nodiscard]] const std::vector<Accessor> &Accessors() const { return Accessors_; }
+  [[nodiscard]] const std::vector<BufferView> &BufferViews() const { return Views_; }
+  [[nodiscard]] const std::vector<Mesh> &Meshes() const { return Meshes_; }
+  [[nodiscard]] const std::vector<Node> &Nodes() const { return Nodes_; }
+  [[nodiscard]] const std::vector<Camera> &Cameras() const { return Cameras_; }
+  [[nodiscard]] const std::vector<Scene> &Scenes() const { return Scenes_; }
+  [[nodiscard]] const std::vector<Skin> &Skins() const { return Skins_; }
 
-  size_t MorphWeightsFirst(size_t node) const { return MorphAt_[node]; }
-  size_t MorphWeightsCount(size_t node) const { return MorphAt_[node + 1] - MorphAt_[node]; }
-  size_t MorphWeightsTotal() const { return MorphAt_.empty() ? 0 : MorphAt_.back(); }
-  const std::vector<MaterialRef> &Materials() const { return Materials_; }
-  const std::vector<Texture> &Textures() const { return Textures_; }
-  const std::vector<Image> &Images() const { return Images_; }
-  const std::vector<Sampler> &Samplers() const { return Samplers_; }
+  [[nodiscard]] size_t MorphWeightsFirst(size_t node) const { return MorphAt_[node]; }
+  [[nodiscard]] size_t MorphWeightsCount(size_t node) const { return MorphAt_[node + 1] - MorphAt_[node]; }
+  [[nodiscard]] size_t MorphWeightsTotal() const { return MorphAt_.empty() ? 0 : MorphAt_.back(); }
+  [[nodiscard]] const std::vector<MaterialRef> &Materials() const { return Materials_; }
+  [[nodiscard]] const std::vector<Texture> &Textures() const { return Textures_; }
+  [[nodiscard]] const std::vector<Image> &Images() const { return Images_; }
+  [[nodiscard]] const std::vector<Sampler> &Samplers() const { return Samplers_; }
 
-  const std::vector<LightRef> &Lights() const { return Lights_; }
+  [[nodiscard]] const std::vector<LightRef> &Lights() const { return Lights_; }
 
-  const std::vector<std::string> &Variants() const { return Variants_; }
+  [[nodiscard]] const std::vector<std::string> &Variants() const { return Variants_; }
 
-  const std::vector<Animation> &Animations() const { return Animations_; }
-  int DefaultScene() const { return DefaultScene_; }
+  [[nodiscard]] const std::vector<Animation> &Animations() const { return Animations_; }
+  [[nodiscard]] int DefaultScene() const { return DefaultScene_; }
 
   [[nodiscard]] bool ImageBytes(int image, std::vector<uint8_t> &out) const;
 

@@ -52,7 +52,7 @@ struct VertexPlacement {
   const Transform &Node;
   const Transform *Skinned = nullptr;
 
-  const Transform &At(size_t vertex) const { return Skinned ? Skinned[vertex] : Node; }
+  [[nodiscard]] const Transform &At(size_t vertex) const { return Skinned ? Skinned[vertex] : Node; }
 };
 
 struct Part {
@@ -107,49 +107,49 @@ public:
 
   [[nodiscard]] bool Append(const Subject &other);
 
-  const std::string &Error() const { return Error_; }
+  [[nodiscard]] const std::string &Error() const { return Error_; }
 
-  const std::vector<double> &PositionsM() const { return Positions_; }
+  [[nodiscard]] const std::vector<double> &PositionsM() const { return Positions_; }
 
-  const std::vector<double> &Uv() const { return Uv_; }
-  bool HasUv() const { return !Uv_.empty(); }
+  [[nodiscard]] const std::vector<double> &Uv() const { return Uv_; }
+  [[nodiscard]] bool HasUv() const { return !Uv_.empty(); }
 
-  const std::vector<double> &Uv1() const { return Uv1_; }
-  bool HasUv1() const { return !Uv1_.empty(); }
+  [[nodiscard]] const std::vector<double> &Uv1() const { return Uv1_; }
+  [[nodiscard]] bool HasUv1() const { return !Uv1_.empty(); }
 
-  const std::vector<double> &Normals() const { return Normals_; }
-  bool HasNormal() const { return !Normals_.empty(); }
+  [[nodiscard]] const std::vector<double> &Normals() const { return Normals_; }
+  [[nodiscard]] bool HasNormal() const { return !Normals_.empty(); }
 
-  const std::vector<double> &Tangents() const { return Tangents_; }
-  bool HasTangent() const { return !Tangents_.empty(); }
+  [[nodiscard]] const std::vector<double> &Tangents() const { return Tangents_; }
+  [[nodiscard]] bool HasTangent() const { return !Tangents_.empty(); }
 
-  const std::vector<double> &Colours() const { return Colours_; }
-  bool HasColour() const { return !Colours_.empty(); }
+  [[nodiscard]] const std::vector<double> &Colours() const { return Colours_; }
+  [[nodiscard]] bool HasColour() const { return !Colours_.empty(); }
 
-  const std::vector<PlacedLight> &Lights() const { return Lights_; }
+  [[nodiscard]] const std::vector<PlacedLight> &Lights() const { return Lights_; }
 
-  const std::vector<Part> &Parts() const { return Parts_; }
+  [[nodiscard]] const std::vector<Part> &Parts() const { return Parts_; }
 
   struct Undrawn {
     size_t Primitives = 0;
     size_t ByMode[7] = {0, 0, 0, 0, 0, 0, 0};
   };
-  const Undrawn &NotDrawn() const { return Undrawn_; }
+  [[nodiscard]] const Undrawn &NotDrawn() const { return Undrawn_; }
 
-  const std::vector<uint32_t> &Indices() const { return Indices_; }
-  size_t VertexCount() const { return Positions_.size() / 3; }
-  size_t TriangleCount() const { return Indices_.size() / 3; }
+  [[nodiscard]] const std::vector<uint32_t> &Indices() const { return Indices_; }
+  [[nodiscard]] size_t VertexCount() const { return Positions_.size() / 3; }
+  [[nodiscard]] size_t TriangleCount() const { return Indices_.size() / 3; }
 
-  const double *MinM() const { return Min_; }
-  const double *MaxM() const { return Max_; }
+  [[nodiscard]] const double *MinM() const { return Min_; }
+  [[nodiscard]] const double *MaxM() const { return Max_; }
 
-  double RadiusM() const;
+  [[nodiscard]] double RadiusM() const;
   void CentreM(double out[3]) const;
 
   [[nodiscard]]
-  bool Frame(Placement &out, double fill = kFramingFill) const;
+  [[nodiscard]] bool Frame(Placement &out, double fill = kFramingFill) const;
 
-  double ProjectedAreaPx(const Transform &clip, const Viewport &viewport) const;
+  [[nodiscard]] double ProjectedAreaPx(const Transform &clip, const Viewport &viewport) const;
 
 private:
   [[nodiscard]] bool Refuse(std::string why);
