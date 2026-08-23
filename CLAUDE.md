@@ -381,7 +381,12 @@ full proof, run when named, never per edit. `test/run.sh` is the only runner (on
 build's own sets). `tools/` builds ON the library, runs only by name. Oracle pipeline:
 fetch → generate → patch (both sides) → convert → Cycles → compare (perceptual tail / geometric
 bound, 0.005 px floor); **criteria met** and **cases within bound** published side by side.
-Read the trailer first — a count without `N tests: … PASS … FAIL` may measure the past.
+Read the trailer first — a count without `N tests: … PASS … FAIL` may measure the past. The
+fast gate also publishes **what it did not judge**: every source it stood aside from is still
+COMPILED (`N source(s) the gate did not run still compile, M do not`, and `M > 0` turns the
+gate red — board:1766), and every declared case family holding no fetched subject is named,
+because a corpus is fetched and a green trailer must not read as coverage it never had
+(board:1765). `test/run.sh --corpus` answers that second question alone.
 The one offline script: `test/harness/shared/corpus/prepare.py`.
 
 ## Board
