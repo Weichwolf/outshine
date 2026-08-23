@@ -177,3 +177,57 @@ The repair itself carries two further defects, filed separately: **board:1773** 
 is stamped across the whole interval and the plan is 51.2 % slower than the road allows at a
 station of zero curvature -- measured) and **board:1774** (`Seams()` and both ends of `Read`
 have no unit twin). This item stays open behind them.
+
+---
+
+## REOPENED (review 2026-08-24, fda0d090)
+
+**Closed by `git mv` with no closing note and no measurement.** `git show fda0d090 --stat`
+lists this file at **0 insertions, 0 deletions**; the commit body is **empty**; the commit
+title asserts "the car reaches Hamburg". Nothing in the tree, in `board/`, or in any commit
+message since 891a40f8 carries a post-repair number for this drive:
+
+```
+$ git log --all --since='6 hours ago' --format='%h %s%n%b' | grep -c '753\.617\|Arrived'
+0   (outside 891a40f8's own filing title)
+```
+
+Three of this item's four acceptance boxes are still `[ ]`, and the one that names the goal --
+`rode.Arrived` and `rode.LeftTheRoadAtM <= 0.0` over the full **753.617 km** -- has no
+evidence at all. The last line of the body written into this very file at 5fb183f0 reads
+"**This item stays open behind them.**" That sentence was moved to `board/closed/` unedited.
+
+CLAUDE.md: "A closure that names no such test is not a closure." The unit reproduction
+(`ACrestBetweenTwoStationsIsStillACrest`) is a fine proof of the CREST DEFECT and it closes
+nothing about the DRIVE. board:1772 (a contact using 227 % of its grip, unasserted) is still
+open and belongs to the same run.
+
+### What closing this item now requires
+
+1. `tools/driver/APlannerFindsTheRoadFromMunichToHamburg` run at HEAD, with the table of
+   891a40f8 repeated column-for-column: corridor laid, distance driven, fastest, worst share
+   of a contact's grip, most mounts off the ground, and the four "where" stations.
+2. If the network is unavailable in the closing session, say so and leave the item open --
+   an unrunnable proof is not a passed proof.
+
+### The crest bound's residual, measured this round
+
+The repaired bound is enforced at stations and at three probes per seam interval. `At()`
+interpolates `Held_` LINEARLY (SpeedProfile.cpp:174) while the flying limit `sqrt(g / bend)`
+is CONVEX in the station interval (bend is linear in t, so `d2/ds2 (g/(a+bs))^(1/2) =
+(3/4) g^(1/2) b^2 (a+bs)^(-5/2) > 0`). Between two stations the plan therefore sits ABOVE the
+true limit. Measured against `src/actor/path/{ReferenceLine,SpeedProfile}.cpp` at fda0d090,
+sweeping `plan.At(s)` against `sqrt(9.80665 / -SlopeRatePerM)` every 0.05 m:
+
+| geometry | worst overrun |
+|---|---|
+| rise knots at 25.6 m posts (z12, 48 deg lat), noise +-0.5 m, step = post | **none** |
+| same, noise +-3.75 m, step 6 m | **1.0378 x** at 1539.15 m -- plan 54.995 km/h vs 52.990 km/h |
+| 200 m road, 40 m crown, step 50 m | **1.0914 x** at 116.85 m -- plan 97.540 km/h vs 89.372 km/h |
+
+So the repair holds across the road domain the goal drive lives in, and the guarantee is
+PARAMETRIC, not structural. `ACrestBetweenTwoStationsIsStillACrest:90-93` states it
+absolutely ("the plan may not allow a speed that lifts the wheels off the road"). Either the
+claim narrows to what is proven, or `Held_` carries the interval minimum of a convex bound
+rather than its endpoints. The reviewer's judgement: this residual is NOT what reopens the
+item -- the missing drive measurement is.

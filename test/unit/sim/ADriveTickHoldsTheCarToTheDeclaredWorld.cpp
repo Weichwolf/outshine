@@ -176,6 +176,42 @@ int main(void) {
         "**A WHEEL PAST THE DECLARED EDGE IS A LOUD VERDICT, NOT A QUIET DRIVE** -- OffTheRoad "
         "reports the station, the offset and the plan the moment the surface ends");
 
+  // board:1772: Rig computed Sliding on every tick and nothing in src/sim read it, so a
+  // drive whose tyres let go reported the same as one whose tyres held. WorstRatio survived
+  // the tick but carried no station, so "2.274 somewhere in 753 km" could not be looked at.
+  {
+    Vehicle greasy = Plausible();
+    greasy.Grip = 0.05;
+    const Rigged onIce = Stand(greasy, kEarthMs2, 1.225);
+    CHECK(onIce.Stood, "a car declaring almost no grip still stands as a rig");
+    Corridor slick;
+    CHECK(Straight(slick, onIce, kEdgeM, error), "and a corridor lays for it");
+    DriveState slipping;
+    CHECK(Seat(slipping, slick, greasy, onIce), "and it seats");
+    const Ridden slid = RideOut(slick, onIce, greasy, slipping);
+
+    Note("the worst share of grip the ride asked for", slid.WorstRatio, "of it");
+    Note("where it asked for it", slid.WorstRatioAtM, "m");
+    Note("where it first slid", slid.SlidFirstAtM, "m");
+    Note("how far it slid", slid.SlidM, "m");
+
+    CHECK(slid.WorstRatio > 1.0,
+          "a car on almost no grip asks for more than the circle can hold");
+    CHECK(slid.Slid && slid.SlidM > 0.0,
+          "**THE DRIVE PUBLISHES THAT IT SLID**: Sliding leaves the tick instead of dying "
+          "inside it, so a ride whose tyres let go no longer reports the same as one whose "
+          "tyres held (board:1772)");
+    CHECK(slid.WorstRatioAtM >= 0.0 && slid.SlidFirstAtM >= 0.0 &&
+              slid.SlidM <= slid.ReachedM,
+          "**AND IT PUBLISHES WHERE**, the way it already publishes where a wheel left the "
+          "road -- a fault without a station cannot be looked at");
+
+    const Ridden gripped = earth;
+    CHECK(!gripped.Slid && gripped.SlidM == 0.0,
+          "while the same corridor on declared grip slides nowhere, so the report is not "
+          "simply always true");
+  }
+
   Covers("II.13 the drive tick is one pure function of (corridor, rig, vehicle, state): it "
          "holds the car to the declared world's gravity, arrives on a synthetic corridor in "
          "the fast gate, and reports the road's end loudly -- the regression net for the "

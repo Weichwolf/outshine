@@ -145,7 +145,17 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
       out.WorstOffsetM = inLaneM;
       out.WorstOffsetAtM = at.AlongM;
     }
-    out.WorstRatio = std::fmax(out.WorstRatio, read.WorstRatio);
+    if (read.WorstRatio > out.WorstRatio) {
+      out.WorstRatio = read.WorstRatio;
+      out.WorstRatioAtM = at.AlongM;
+    }
+    if (read.Sliding) {
+      if (!out.Slid) {
+        out.Slid = true;
+        out.SlidFirstAtM = at.AlongM;
+      }
+      out.SlidM += speedMs * dtS;
+    }
     out.TopMs = std::fmax(out.TopMs, speedMs);
     if (read.PastLimit && !out.PastLimit) {
       out.PastLimit = true;

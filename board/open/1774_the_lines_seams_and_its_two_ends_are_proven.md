@@ -97,3 +97,45 @@ line and change only when it does.
 - Still open in this item: `ReferenceLine.cpp:126-130` reserves for three of four
   `push_back`s, so the last assignment reallocates by construction.
 - Gate 234/234.
+
+---
+
+## REOPENED (review 2026-08-24, fda0d090)
+
+Moved to `board/closed/` at **0 insertions, 0 deletions**, under an empty commit body, with
+its own closing comment ending:
+
+> Still open in this item: `ReferenceLine.cpp:126-130` reserves for three of four
+> `push_back`s, so the last assignment reallocates by construction.
+
+Two of the three "what will be true" points are unmet at HEAD.
+
+**Point 1 -- `Seams()` still has no twin.** The item's own evidence command:
+
+```
+$ grep -rn 'Seams' test/
+(nothing)
+```
+
+Not one line of `test/` names the method. The closing note argues it is "exercised by both
+`ACrestBetweenTwoStationsIsStillACrest` and `AStraightRoadIsPlannedAtItsOwnSpeed`" -- but
+EXERCISED is not ASSERTED, and this item was filed against exactly that substitution: a seam
+that goes missing silently deletes the bound over the interval it would have opened, and both
+of those cases put their features where the surviving seams already are, so both stay green.
+Nothing anywhere asserts that every segment start, every rise knot, every bank knot and
+`LengthM()` appear exactly ONCE and SORTED, nor that a knot coinciding with a segment start
+appears once and not twice, nor that a line with no rise and no bank yields `{0, LengthM()}`.
+
+**Point 3 -- the capacity is still opened one short.**
+
+```cpp
+  at.reserve(Laid_.size() + Rise_.size() + Bank_.size());   // src/actor/path/ReferenceLine.cpp:126
+  ... three loops of push_back ...
+  at.push_back(Length_);                                    // :130 -- the fourth
+```
+
+Four pushes, three counted; the last one reallocates and copies on every call, by
+construction. `+ 1` is the whole fix, and the house rule is capacity opened ONCE.
+
+Point 2 (both ends of `Read`) IS delivered and its negative control is shown -- that half
+stands. The item closes when 1 and 3 stand too.

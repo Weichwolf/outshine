@@ -32,6 +32,10 @@ struct Ridden {
   double WorstOffsetM = 0.0;
   double WorstOffsetAtM = 0.0;
   double WorstRatio = 0.0;
+  double WorstRatioAtM = 0.0;
+  bool Slid = false;
+  double SlidFirstAtM = 0.0;
+  double SlidM = 0.0;
   size_t MostAirborne = 0;
   double AirborneAtM = 0.0;
   double BrokeAtM = 0.0;

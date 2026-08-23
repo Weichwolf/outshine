@@ -99,3 +99,44 @@ Point 3 is delivered. Points 1 and 2 are not, and point 2's own worked example i
 
 The single-arm proof matches the single-line repair. The item stays open on its own points 1
 and 2, and a second arm is owed: no asset, two contacts on one axle, no `wheelbaseM`.
+
+---
+
+## REOPENED (review 2026-08-24, fda0d090)
+
+Moved to `board/closed/` at **0 insertions, 0 deletions** (`git show fda0d090 --stat`), under
+an empty commit body. The paragraph immediately above this one -- written by the same session
+that then closed it -- reads:
+
+> The item stays open on its own points 1 and 2, and a second arm is owed: no asset, two
+> contacts on one axle, no `wheelbaseM`.
+
+Both points verified live at HEAD:
+
+```cpp
+  if (!declared.Asset.empty()) {            // src/sim/Rigging.cpp:55
+    if (!(declared.WheelbaseM > 0.0)) { Refuse(...); return out; }   // :56
+```
+```cpp
+  out.MetresPerAssetUnit = declared.WheelbaseM / declared.AssetWheelbase;   // :83
+```
+```cpp
+  out.Axles.WheelbaseM = front > 0 && rear > 0
+                             ? std::fabs(rearZ / (double)rear - frontZ / (double)front)
+                             : declared.WheelbaseM;                        // :134-136
+  out.Axles.SteerLimitRad =
+      std::atan(out.Axles.WheelbaseM / (0.5 * declared.TurningCircleM - 0.5 * trackM));  // :153-154
+  const double outerM = 0.5 * declared.TurningCircleM;
+  if (!(outerM > out.Axles.WheelbaseM)) { Refuse(...); }                   // :156-157
+```
+
+A vehicle with no asset, no front/rear contact pair and no `wheelbaseM` reaches :136 with
+`WheelbaseM = 0`, gets `SteerLimitRad = atan(0 / x) = 0`, and passes :157 because
+`outerM > 0`. **A rig that cannot steer at all still stands, silently.** That is the exact
+case point 2 was filed for and it is untouched.
+
+Point 1 is untouched too: :83 and :134-136 derive the same dimension from two independent
+declarations and nothing makes them agree.
+
+Closing this needs the two arms the item already names, each with its negative control --
+not a `git mv`.

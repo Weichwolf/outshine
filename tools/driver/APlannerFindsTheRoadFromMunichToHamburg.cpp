@@ -136,6 +136,15 @@ int main(void) {
   Note("worst deviation from the middle of its own lane", rode.WorstOffsetM, "m");
   Note("where that was", rode.WorstOffsetAtM / 1000.0, "km");
   Note("worst share of a contact's grip used", rode.WorstRatio, "of it");
+  Note("where it asked for that", rode.WorstRatioAtM / 1000.0, "km");
+  Note("where a tyre first let go", rode.Slid ? rode.SlidFirstAtM / 1000.0 : -1.0, "km");
+  Note("how far it slid", rode.SlidM / 1000.0, "km");
+  Note("the share of the route it slid over",
+       rode.ReachedM > 0.0 ? rode.SlidM / rode.ReachedM : 0.0, "of it");
+  CHECK(rode.SlidM <= rode.ReachedM && (!rode.Slid || rode.SlidFirstAtM >= 0.0),
+        "**A TYRE THAT LET GO IS REPORTED WITH ITS STATION**, the way a wheel leaving the "
+        "road is -- a worst share of grip with no place to look at is a number nobody can "
+        "act on (board:1772)");
   Note("most mounts off the ground at once", (double)rode.MostAirborne, "of 4");
   Note("where a contact first went past its limit", rode.BrokeAtM / 1000.0, "km");
   Note("where a wheel first left the carriageway", rode.LeftTheRoadAtM / 1000.0, "km");
