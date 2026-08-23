@@ -52,3 +52,12 @@ hold, and `board:1759` carries the repair with its measurements:
 
 The "firing takes nothing from the allocator" box stands — the counting-allocator proof is
 sound. The cost box does not.
+
+---
+
+Corrected (2026-08-23, after review round 27 caught it): the progress note above claimed the
+per-tick term was "O(moving bodies x declared doors)" and that overflow was counted. Neither
+was true when written -- the probe scanned every (body, door) standing inside the door loop
+(66.68 ms a tick at 200 bodies and 256 doors), and a standing the pool could not seat was
+dropped silently, leaving the body firing Enter every tick and never Exit. Both are repaired
+under board:1759 and the claims now hold with a measured proof.

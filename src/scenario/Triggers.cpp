@@ -9,7 +9,10 @@ namespace {
 // [SET] the pool bounds: a scenario's doors are a declared few, the concurrent
 // body-inside-door pairs and the per-drain firings are the frame path's budget
 constexpr size_t kMostDoors = 256;
-constexpr size_t kMostStandings = 4096;
+// [SET] the bodies one door remembers: a door is a place, and more than 256 bodies
+// standing in ONE door at once is a crowd no scenario declares -- the bound is per door
+// now, so the probe's cost is its own door's few and never every pair (board:1759)
+constexpr size_t kMostStandings = 256;
 constexpr size_t kMostFired = 256;
 
 } // namespace
@@ -21,9 +24,10 @@ bool TriggerField::Build(std::span<const Volume> volumes, std::span<const Event>
   Carries_.clear();
   Heard_.clear();
   Unheard_.clear();
-  Inside_.clear();
+  InsideDoor_.clear();
   Ring_.clear();
   Overflowed_ = 0;
+  Unseated_ = 0;
 
   if (volumes.size() > kMostDoors) {
     error = "the scenario declares " + std::to_string(volumes.size()) +
@@ -87,7 +91,8 @@ bool TriggerField::Build(std::span<const Volume> volumes, std::span<const Event>
     door.DwellS = volume.DwellS;
     Doors_.push_back(door);
   }
-  Inside_.reserve(kMostStandings);
+  InsideDoor_.assign(Doors_.size(), {});
+  for (std::vector<Standing> &seated : InsideDoor_) { seated.reserve(kMostStandings); }
   Ring_.reserve(kMostFired);
   Drained_.reserve(kMostFired);
   return true;
@@ -143,28 +148,35 @@ void TriggerField::Probe(uint32_t body, const double atM[3], double nowS) {
   for (uint32_t which = 0; which < (uint32_t)Doors_.size(); ++which) {
     const Door &door = Doors_[which];
     const bool in = Inside(door, atM);
-    size_t standing = Inside_.size();
-    for (size_t at = 0; at < Inside_.size(); ++at) {
-      if (Inside_[at].Body == body && Inside_[at].Door == which) { standing = at; }
-    }
-    if (in && standing == Inside_.size()) {
-      if (Inside_.size() < kMostStandings) {
-        Inside_.push_back(Standing{body, which, nowS, false});
+    std::vector<Standing> &seated = InsideDoor_[which];
+    size_t standing = seated.size();
+    for (size_t at = 0; at < seated.size(); ++at) {
+      if (seated[at].Body == body) {
+        standing = at;
+        break;
       }
+    }
+    if (in && standing == seated.size()) {
+      if (seated.size() >= kMostStandings) {
+        // a body that cannot be seated would fire Enter every tick and never Exit --
+        // counted, and NOT fired, because a door that cannot remember is not a door
+        ++Unseated_;
+        continue;
+      }
+      seated.push_back(Standing{body, which, nowS, false});
       if (door.Opens == When::Enter) { fire(door.Event); }
       continue;
     }
-    if (in && standing < Inside_.size() && door.Opens == When::Dwell &&
-        !Inside_[standing].Dwelt &&
-        nowS - Inside_[standing].SinceS >= door.DwellS) {
-      Inside_[standing].Dwelt = true;
+    if (in && standing < seated.size() && door.Opens == When::Dwell &&
+        !seated[standing].Dwelt && nowS - seated[standing].SinceS >= door.DwellS) {
+      seated[standing].Dwelt = true;
       fire(door.Event);
       continue;
     }
-    if (!in && standing < Inside_.size()) {
+    if (!in && standing < seated.size()) {
       if (door.Opens == When::Exit) { fire(door.Event); }
-      Inside_[standing] = Inside_.back();
-      Inside_.pop_back();
+      seated[standing] = seated.back();
+      seated.pop_back();
     }
   }
 }

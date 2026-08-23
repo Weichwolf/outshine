@@ -42,6 +42,9 @@ public:
   [[nodiscard]] const std::string *EventNamed(uint16_t event) const;
   [[nodiscard]] size_t Unheard(std::string_view event) const;
   [[nodiscard]] size_t Overflowed() const { return Overflowed_; }
+  // a standing the pool could not seat is a body that would fire Enter EVERY tick and
+  // never Exit -- counted, and the count is what a scenario reads to see it
+  [[nodiscard]] size_t Unseated() const { return Unseated_; }
 
 private:
   struct Door {
@@ -58,6 +61,11 @@ private:
     double SinceS = 0.0;
     bool Dwelt = false;
   };
+  // the standings are indexed BY DOOR: a probe once scanned every (body, door) pair inside
+  // the door loop, so one tick cost doors x standings -- 66 ms at this pool's own declared
+  // bounds, four frames for one tick (board:1759). Each door's list is the few bodies
+  // standing in THAT door, and the walk is over those alone
+  std::vector<std::vector<Standing>> InsideDoor_;
 
   [[nodiscard]] bool Inside(const Door &door, const double atM[3]) const;
 
@@ -66,10 +74,10 @@ private:
   std::vector<std::vector<std::string>> Carries_;
   std::vector<uint8_t> Heard_;
   std::vector<size_t> Unheard_;
-  std::vector<Standing> Inside_;
   std::vector<Fired> Ring_;
   std::vector<Fired> Drained_;
   size_t Overflowed_ = 0;
+  size_t Unseated_ = 0;
 };
 
 }

@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <new>
@@ -127,6 +128,45 @@ int main(void) {
                  bad, error) &&
               error.find("dwellS") != std::string::npos,
           "a dwell without a duration refuses -- an enter wearing a costume");
+  }
+
+  {
+    // the probe's cost is its OWN door's few standings, never every (body, door) pair:
+    // 200 bodies inside 256 doors cost 66.68 ms a tick when this was found -- four frames
+    // for one tick, at the pool's own declared bounds (board:1759)
+    std::string many = "<scenario name=\"crowd\"><events><event name=\"e\"/></events><volumes>";
+    for (int at = 0; at < 256; ++at) {
+      many += "<volume id=\"v" + std::to_string(at) + "\" x=\"" + std::to_string(at * 100) +
+              "\" y=\"0\" z=\"0\" extentX=\"50\" extentY=\"50\" extentZ=\"50\" "
+              "fires=\"e\" when=\"enter\"/>";
+    }
+    many += "</volumes></scenario>";
+    TriggerField crowd;
+    Scenario declared;
+    CHECK(ReadScenario(many.c_str(), many.size(), declared, error) &&
+              crowd.Build(declared.Volumes, declared.Events, error),
+          "a scenario of 256 doors stands");
+
+    const size_t before = gAllocations;
+    const auto from = std::chrono::steady_clock::now();
+    for (int tick = 0; tick < 60; ++tick) {
+      for (int body = 0; body < 200; ++body) {
+        const double where[3] = {(double)(body % 128) * 100.0, 0.0, 0.0};
+        crowd.Probe((uint32_t)body, where, (double)tick * 0.016);
+      }
+      (void)crowd.Drain();
+    }
+    const double perTick = std::chrono::duration<double, std::milli>(
+                               std::chrono::steady_clock::now() - from).count() / 60.0;
+    Note("200 bodies inside 256 doors", perTick, "ms per tick");
+    CHECK(perTick < 16.67 / 4.0,
+          "**A TRIGGER PROBE COSTS THE DOORS AND NOT THE STANDINGS**: a quarter of one "
+          "frame for the whole crowd, where the pair scan cost four FRAMES (board:1759)");
+    CHECK(gAllocations == before,
+          "and the crowd's ticks still take nothing from the allocator");
+    CHECK(crowd.Unseated() == 0,
+          "nothing went unseated at this population -- and a body that cannot be seated is "
+          "COUNTED rather than firing Enter every tick and never Exit");
   }
 
   Covers("III.11 a volume fires an event and something hears it: enter, exit and dwell and "

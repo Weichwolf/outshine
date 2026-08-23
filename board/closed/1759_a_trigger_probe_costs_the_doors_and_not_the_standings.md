@@ -72,3 +72,21 @@ number that would show it.
 4. `kMostDoors` / `kMostStandings` / `kMostFired` carry their derivation and population the
    way the tree's other `[SET]` values do; today (:11-14) they carry a sentence and no number,
    and the sentence is what the measurement above contradicts.
+
+---
+
+Closed -- the standings are indexed BY DOOR (one list per door, each reserved at its own
+bound), so a probe walks the few bodies standing in THAT door and breaks on the match; the
+(body, door) pair scan that cost doors x standings is gone. Measured on the item's own
+population, 200 bodies inside 256 doors: 0.18 ms a tick where the pair scan cost 66.68 ms
+-- four frames for one tick at the pool's own declared bounds. kMostStandings is a per-DOOR
+bound now (256, with its derivation: more than that standing in ONE door is a crowd no
+scenario declares). The second half is repaid too: a body the pool cannot seat is COUNTED
+(Unseated()) and does NOT fire -- it would otherwise have fired Enter every tick and never
+Exit, because it had no standing to exit from. Proven in AVolumeFiresAndSomethingHears
+(crowd arm: under a quarter frame, zero allocations, nothing unseated); negative control:
+restoring the pair scan turns exactly that arm red at 9.99 ms.
+
+And 1488's progress note is corrected by this closure: it claimed "O(moving bodies x
+declared doors)" and "overflow counted" when the code did neither. The note was mine and it
+was wrong.
