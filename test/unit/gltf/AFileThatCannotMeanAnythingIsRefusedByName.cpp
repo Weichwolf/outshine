@@ -91,6 +91,22 @@ int main() {
          "scene nodes are root nodes",
          R"({"asset":{"version":"2.0"},
              "nodes":[{"children":[1]},{}],"scenes":[{"nodes":[1]}]})"});
+  Holds({"a count of 1e300 refuses instead of an undefined cast",
+         "not a whole non-negative count",
+         R"({"asset":{"version":"2.0"},"buffers":[{"byteLength":4}],
+             "bufferViews":[{"buffer":0,"byteOffset":0,"byteLength":4}],
+             "accessors":[{"bufferView":0,"componentType":5126,"count":1e300,"type":"SCALAR"}]})",
+         kFourBytes});
+  Holds({"a negative byteOffset refuses instead of truncating to a huge size",
+         "not a whole non-negative count",
+         R"({"asset":{"version":"2.0"},"buffers":[{"byteLength":4}],
+             "bufferViews":[{"buffer":0,"byteOffset":-5,"byteLength":4}]})",
+         kFourBytes});
+  Holds({"a byteStride outside the spec's window refuses by name",
+         "a multiple of 4 in [4, 252]",
+         R"({"asset":{"version":"2.0"},"buffers":[{"byteLength":16}],
+             "bufferViews":[{"buffer":0,"byteOffset":0,"byteLength":16,"byteStride":7}]})",
+         std::vector<uint8_t>(16, 0)});
   Holds({"a primitive naming an accessor the file does not carry is refused",
          "attribute POSITION names an accessor the file does not carry",
          R"({"asset":{"version":"2.0"},

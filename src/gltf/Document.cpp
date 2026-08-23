@@ -392,12 +392,29 @@ bool Document::Read(Span<const uint8_t> whole, const std::string &path) {
   return ReadJson(reinterpret_cast<const char *>(bytes), length, nullptr, 0);
 }
 
+
+// a JSON number becomes a size or refuses: integer-valued, non-negative, under the cap --
+// the raw cast was UB at "count": 1e300 and silently truncated a fraction or a minus
+// [SET] the cap: the GLB container's own uint32 ceiling; nothing in a file this reader
+// accepts can address past it
+constexpr double kMostDeclaredBytes = 4294967295.0;
+[[nodiscard]] bool DeclaredSize(const Json::Ref &ref, size_t &out) {
+  const double raw = ref.Num(0.0);
+  if (!(raw >= 0.0) || raw != std::floor(raw) || raw > kMostDeclaredBytes) { return false; }
+  out = static_cast<size_t>(raw);
+  return true;
+}
+
 bool Document::ResolveBuffers(const Json &json, const uint8_t *binaryChunk, size_t binaryLength) {
   const Json::Ref buffers = json.Root()["buffers"];
   const std::string directory = DirectoryOf(Path_);
   for (size_t i = 0; i < buffers.Size(); ++i) {
     const Json::Ref buffer = buffers[i];
-    const size_t declared = static_cast<size_t>(buffer["byteLength"].Num(0.0));
+    size_t declared = 0;
+    if (!DeclaredSize(buffer["byteLength"], declared)) {
+      return Refuse("buffer " + Number(i) + " declares a byteLength that is not a whole "
+                    "non-negative count under the container's ceiling");
+    }
     const std::string uri = PercentDecoded(buffer["uri"].Str(""));
     std::vector<uint8_t> bytes;
     if (uri.empty()) {
@@ -459,10 +476,19 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
   for (size_t i = 0; i < views.Size(); ++i) {
     const Json::Ref declaration = views[i];
     BufferView view;
-    view.Buffer = static_cast<size_t>(declaration["buffer"].Num(0.0));
-    view.ByteOffset = static_cast<size_t>(declaration["byteOffset"].Num(0.0));
-    view.ByteLength = static_cast<size_t>(declaration["byteLength"].Num(0.0));
-    view.ByteStride = static_cast<size_t>(declaration["byteStride"].Num(0.0));
+    if (!DeclaredSize(declaration["buffer"], view.Buffer) ||
+        !DeclaredSize(declaration["byteOffset"], view.ByteOffset) ||
+        !DeclaredSize(declaration["byteLength"], view.ByteLength) ||
+        !DeclaredSize(declaration["byteStride"], view.ByteStride)) {
+      return Refuse("bufferView " + Number(i) + " declares a size that is not a whole "
+                    "non-negative count under the container's ceiling");
+    }
+    if (declaration["byteStride"].Valid() &&
+        (view.ByteStride < 4 || view.ByteStride > 252 || view.ByteStride % 4 != 0)) {
+      return Refuse("bufferView " + Number(i) + " declares byteStride " +
+                    Number(view.ByteStride) +
+                    ", and the spec holds a stride to a multiple of 4 in [4, 252]");
+    }
     if (view.Buffer >= Buffers_.size()) {
       return Refuse("bufferView " + Number(i) + " names buffer " + Number(view.Buffer) + " of " +
                     Number(Buffers_.size()));
@@ -482,8 +508,11 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     Accessor accessor;
     const Json::Ref view = declaration["bufferView"];
     accessor.View = view.Valid() ? view.Int(-1) : -1;
-    accessor.ByteOffset = static_cast<size_t>(declaration["byteOffset"].Num(0.0));
-    accessor.Count = static_cast<size_t>(declaration["count"].Num(0.0));
+    if (!DeclaredSize(declaration["byteOffset"], accessor.ByteOffset) ||
+        !DeclaredSize(declaration["count"], accessor.Count)) {
+      return Refuse("accessor " + Number(i) + " declares a size that is not a whole "
+                    "non-negative count under the container's ceiling");
+    }
     accessor.Normalized = declaration["normalized"].Bool(false);
     const int rawComponent = declaration["componentType"].Int(0);
     if (!KnownComponent(rawComponent, accessor.Component)) {
@@ -510,17 +539,24 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     const Json::Ref sparse = declaration["sparse"];
     if (sparse.Valid()) {
       accessor.HasSparse = true;
-      accessor.Sparse.Count = static_cast<size_t>(sparse["count"].Num(0.0));
+      if (!DeclaredSize(sparse["count"], accessor.Sparse.Count)) {
+        return Refuse("accessor " + Number(i) + " declares a sparse count that is not a "
+                      "whole non-negative count under the container's ceiling");
+      }
       accessor.Sparse.IndicesBufferView = sparse["indices"]["bufferView"].Int(-1);
-      accessor.Sparse.IndicesByteOffset =
-          static_cast<size_t>(sparse["indices"]["byteOffset"].Num(0.0));
+      if (!DeclaredSize(sparse["indices"]["byteOffset"], accessor.Sparse.IndicesByteOffset)) {
+        return Refuse("accessor " + Number(i) + " declares a sparse index offset that is "
+                      "not a whole non-negative count under the container's ceiling");
+      }
       if (!KnownComponent(sparse["indices"]["componentType"].Int(0),
                           accessor.Sparse.IndicesComponent)) {
         return Refuse("accessor " + Number(i) + " has a sparse index componentType glTF 2.0 does not define");
       }
       accessor.Sparse.ValuesBufferView = sparse["values"]["bufferView"].Int(-1);
-      accessor.Sparse.ValuesByteOffset =
-          static_cast<size_t>(sparse["values"]["byteOffset"].Num(0.0));
+      if (!DeclaredSize(sparse["values"]["byteOffset"], accessor.Sparse.ValuesByteOffset)) {
+        return Refuse("accessor " + Number(i) + " declares a sparse value offset that is "
+                      "not a whole non-negative count under the container's ceiling");
+      }
       if (accessor.Sparse.Count > accessor.Count) {
         return Refuse("accessor " + Number(i) + " overrides " + Number(accessor.Sparse.Count) +
                       " of " + Number(accessor.Count) + " elements");
@@ -1465,11 +1501,20 @@ bool Document::ReadElements(int accessorIndex, std::vector<double> &out) const {
   if (accessor.View >= 0) {
     if (!ViewSpan(accessor.View, span)) { return false; }
     if (accessor.Count > 0) {
-      const size_t last = accessor.ByteOffset + (accessor.Count - 1) * stride + element;
-      if (accessor.ByteOffset > span.Size() || last > span.Size()) { return false; }
+      // the a > limit || b > limit - a form cannot wrap; the sum-then-compare could
+      if (accessor.ByteOffset > span.Size() ||
+          element > span.Size() - accessor.ByteOffset ||
+          (accessor.Count - 1) > (span.Size() - accessor.ByteOffset - element) / stride) {
+        return false;
+      }
     }
   }
 
+  // a viewless accessor is zero-filled by spec; its count is bounded by the same
+  // container ceiling as every declared size, so the fill cannot be asked to exceed it
+  if (accessor.Count > static_cast<size_t>(kMostDeclaredBytes) / (components * sizeof(double))) {
+    return false;
+  }
   out.assign(accessor.Count * components, 0.0);
   if (accessor.View >= 0) {
     for (size_t i = 0; i < accessor.Count; ++i) {
@@ -1510,8 +1555,14 @@ bool Document::ApplySparse(const Accessor &accessor, std::vector<double> &out) c
   Span<const uint8_t> indices, values;
   if (!ViewSpan(sparse.IndicesBufferView, indices)) { return false; }
   if (!ViewSpan(sparse.ValuesBufferView, values)) { return false; }
-  if (sparse.IndicesByteOffset + sparse.Count * indexBytes > indices.Size()) { return false; }
-  if (sparse.ValuesByteOffset + sparse.Count * element > values.Size()) { return false; }
+  if (sparse.IndicesByteOffset > indices.Size() ||
+      sparse.Count > (indices.Size() - sparse.IndicesByteOffset) / indexBytes) {
+    return false;
+  }
+  if (sparse.ValuesByteOffset > values.Size() ||
+      (element > 0 && sparse.Count > (values.Size() - sparse.ValuesByteOffset) / element)) {
+    return false;
+  }
 
   for (size_t k = 0; k < sparse.Count; ++k) {
     const double index =
