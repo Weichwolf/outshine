@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <expected>
 #include <string>
@@ -8,6 +9,21 @@
 
 #include "ScenarioRead.h"
 #include "Tables.h"
+
+namespace {
+size_t gAllocations = 0;
+}
+void *operator new(size_t bytes) {
+  ++gAllocations;
+  void *held = std::malloc(bytes == 0 ? 1 : bytes);
+  if (held == nullptr) { std::abort(); }
+  return held;
+}
+void *operator new[](size_t bytes) { return operator new(bytes); }
+void operator delete(void *held) noexcept { std::free(held); }
+void operator delete[](void *held) noexcept { std::free(held); }
+void operator delete(void *held, size_t) noexcept { std::free(held); }
+void operator delete[](void *held, size_t) noexcept { std::free(held); }
 
 using outshine::ReadScenario;
 using outshine::Scenario;
@@ -77,6 +93,28 @@ int main(void) {
                  "<column name=\"k\" type=\"maybe\"/></table></tables></scenario>");
     CHECK(!bad && bad.error().find("maybe") != std::string::npos,
           "and a third cell type does not exist");
+  }
+
+  // board:1489: every lookup built a std::string from its string_view argument just to
+  // reach an unordered_map keyed by std::string -- two allocations per ask, on a door whose
+  // whole point is that a scenario reads numbers out of declared data.
+  {
+    const size_t before = gAllocations;
+    double sum = 0.0;
+    for (int at = 0; at < 1000; ++at) {
+      const double *asked = book.Number("weapons", "sword", "damage");
+      const std::string *held = book.Text("weapons", "sword", "grip");
+      sum += asked != nullptr ? *asked : 0.0;
+      sum += held != nullptr ? (double)held->size() : 0.0;
+    }
+    const size_t spent = gAllocations - before;
+    Note("lookups made", 2000.0, "lookups");
+    Note("allocations they cost", (double)spent, "allocations");
+    CHECK(sum > 0.0, "the lookups answered");
+    CHECK(spent == 0,
+          "**A LOOKUP BY string_view ALLOCATES NOTHING**: the table is keyed for the type the "
+          "door takes, so asking a declared table for a number costs no heap at all "
+          "(board:1489)");
   }
 
   Covers("III.8 a table is declared data: rows keyed by the first column at stand-up, cells "

@@ -47,13 +47,14 @@ std::expected<TableBook, std::string> TableBook::Stand(std::span<const Table> de
         cells.push_back(std::move(cell));
       }
       if (!cells.empty()) {
-        if (!stood.ByKey.emplace(cells[0].Spelling, stood.Rows.size()).second) {
+        if (!stood.ByKey.emplace(cells[0].Spelling, stood.RowCount).second) {
           return std::unexpected("the table '" + table.Id + "' keys two rows by '" +
                                  cells[0].Spelling +
                                  "', and a lookup with two answers has none");
         }
       }
-      stood.Rows.push_back(std::move(cells));
+      for (Cell &one : cells) { stood.Cells.push_back(std::move(one)); }
+      ++stood.RowCount;
     }
     standing.Held_.emplace(table.Id, std::move(stood));
   }
@@ -62,15 +63,15 @@ std::expected<TableBook, std::string> TableBook::Stand(std::span<const Table> de
 
 const TableBook::Cell *TableBook::At(std::string_view table, std::string_view row,
                                      std::string_view column, bool wantNumber) const {
-  const auto held = Held_.find(std::string(table));
+  const auto held = Held_.find(table);
   if (held == Held_.end()) { return nullptr; }
   const Stood &stood = held->second;
-  const auto keyed = stood.ByKey.find(std::string(row));
+  const auto keyed = stood.ByKey.find(row);
   if (keyed == stood.ByKey.end()) { return nullptr; }
   for (size_t at = 0; at < stood.Columns.size(); ++at) {
     if (stood.Columns[at] != column) { continue; }
     if (stood.Numeric[at] != wantNumber) { return nullptr; }
-    return &stood.Rows[keyed->second][at];
+    return &stood.Rows()[keyed->second, at];
   }
   return nullptr;
 }

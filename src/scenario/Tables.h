@@ -2,6 +2,8 @@
 #define OUTSHINE_SCENARIO_TABLES_H
 
 #include <expected>
+#include <functional>
+#include <mdspan>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -11,6 +13,13 @@
 #include <outshine/Scenario.h>
 
 namespace outshine {
+
+struct ByName {
+  using is_transparent = void;
+  [[nodiscard]] size_t operator()(std::string_view spelling) const {
+    return std::hash<std::string_view>{}(spelling);
+  }
+};
 
 class TableBook {
 public:
@@ -36,12 +45,16 @@ private:
   struct Stood {
     std::vector<std::string> Columns;
     std::vector<bool> Numeric;
-    std::vector<std::vector<Cell>> Rows;
-    std::unordered_map<std::string, size_t> ByKey;
+    std::vector<Cell> Cells;
+    size_t RowCount = 0;
+    std::unordered_map<std::string, size_t, ByName, std::equal_to<>> ByKey;
+
+    using Grid = std::mdspan<const Cell, std::dextents<size_t, 2>>;
+    [[nodiscard]] Grid Rows() const { return Grid(Cells.data(), RowCount, Columns.size()); }
   };
   [[nodiscard]] const Cell *At(std::string_view table, std::string_view row,
                                std::string_view column, bool wantNumber) const;
-  std::unordered_map<std::string, Stood> Held_;
+  std::unordered_map<std::string, Stood, ByName, std::equal_to<>> Held_;
 };
 
 }

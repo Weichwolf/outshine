@@ -100,13 +100,37 @@ int main(void) {
           "placement, and the refusal names the missing dimension");
   }
   {
+    // board:1771, sharpened by the reviewer: requiring wheelbaseM was the WRONG repair --
+    // it enshrined a second spelling of a dimension the contacts already carry. The
+    // contacts are the one the physics reads, so they are the one the scale reads too.
     Vehicle unscaled = F31();
     unscaled.WheelbaseM = 0.0;
-    const Rigged refused = Stand(unscaled, 9.80665, 1.225);
-    CHECK(!refused.Stood && refused.Error.find("wheelbaseM") != std::string::npos,
-          "**THE SCALE DIVIDES BY A DECLARED WHEELBASE, SO IT MUST BE DECLARED**: the "
-          "physics reads the wheelbase off the contacts and would never notice, and a model "
-          "drawn at a scale of zero is a car nobody can see (board:1771)");
+    const Rigged derived = Stand(unscaled, 9.80665, 1.225);
+    CHECK(derived.Stood, "a vehicle that declares no wheelbaseM still stands: its contacts "
+                         "carry the dimension");
+    CHECK_NEAR(derived.Axles.WheelbaseM, 2.810, 1.0e-12, "m",
+               "**ONE DIMENSION HAS ONE SPELLING**: the wheelbase is what the contacts say "
+               "it is, front axle to rear (board:1771)");
+    CHECK_NEAR(derived.MetresPerAssetUnit, 2.810 / 180.71, 1.0e-12, "m/unit",
+               "and the asset's scale divides by THAT, not by a second declaration that "
+               "could disagree with it");
+
+    Vehicle argued = F31();
+    argued.WheelbaseM = 3.5;
+    const Rigged refused = Stand(argued, 9.80665, 1.225);
+    CHECK(!refused.Stood && refused.Error.find("3.5") != std::string::npos &&
+              refused.Error.find("2.81") != std::string::npos,
+          "and a declaration that disagrees with its own contacts REFUSES, naming both "
+          "numbers -- a second spelling is caught, not silently preferred");
+
+    Vehicle oneSided = F31();
+    oneSided.WheelbaseM = 0.0;
+    for (Contact &one : oneSided.Contacts) { one.AtM[2] = std::fabs(one.AtM[2]); }
+    const Rigged cannotTurn = Stand(oneSided, 9.80665, 1.225);
+    CHECK(!cannotTurn.Stood && cannotTurn.Error.find("cannot turn") != std::string::npos,
+          "**AND A RIG WITH NO WHEELBASE AT ALL REFUSES INSTEAD OF STANDING STILL**: every "
+          "contact behind the centre of mass and no declaration leaves atan(0 / r) = 0, a "
+          "steering lock of nothing (board:1771)");
   }
   {
     Vehicle blind = F31();

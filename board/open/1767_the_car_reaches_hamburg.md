@@ -231,3 +231,55 @@ absolutely ("the plan may not allow a speed that lifts the wheels off the road")
 claim narrows to what is proven, or `Held_` carries the interval minimum of a convex bound
 rather than its endpoints. The reviewer's judgement: this residual is NOT what reopens the
 item -- the missing drive measurement is.
+
+---
+
+## The live drive, measured (2026-08-24, after the reviewer's charge)
+
+The reviewer is right: this item was moved to `closed/` without the number its own title
+claims. The measurement existed -- it was in the session's report and not in the body, which
+is exactly the failure this board exists to prevent. Here it is, from
+`./test/run.sh --timeout 560 tools/driver`, live OSM ways, live elevation:
+
+```
+CHECKS 41 FAILURES 0 SKIPPED 0 UNPREPARED 0
+```
+
+| | before board:1767 | after |
+|---|---|---|
+| distance driven | 113.990 km | **753.597 km** of 753.617 |
+| most mounts off the ground at once | 2 of 4 | **0 of 4** |
+| where a wheel first left the carriageway | 113.990 km | **never** |
+| where a contact first went past its limit | 113.990 km | **never** |
+| hours simulated | 0.776 | 6.889 |
+
+`tools/driver` went from 2 PASS / 1 FAIL / 2 TIMEOUT to **4 PASS / 1 TIMEOUT**; the remaining
+timeout is `window/AWindowShowsTheRoadTheCarIsDriving`, which wants a window and timed out
+before this change too.
+
+The default 120 s per-test bound is not enough for the full route -- the drive that ends at
+114 km fits in it and the one that arrives does not. That is a property of the proof, not of
+the car, and it is why this run names `--timeout 560`.
+
+- [x] the station at 113.990 km is measured
+- [x] the profile bounds it, as an INTERVAL statement over the line's seams
+- [x] `rode.Arrived` and `rode.LeftTheRoadAtM <= 0.0` both hold over the full 753.617 km
+- [x] a unit case reproduces the failure WITHOUT the network
+
+## The bound is parametric, not structural (reviewer round)
+
+The reviewer built a probe and swept it, and found the honest limit of this repair:
+`SpeedProfile::At` interpolates `Held_` LINEARLY between stations, while the flying bound
+`sqrt(g / bend)` is CONVEX -- so between two clamped stations the interpolated line sits
+ABOVE the true bound. Measured overshoot:
+
+| shape | overshoot | where |
+|---|---|---|
+| DEM-realistic, +-3.75 m noise, step 6 m | 1.0378 x | 1539.15 m |
+| 200 m road, 40 m crest, step 50 m | 1.0914 x | 116.85 m |
+
+`ACrestBetweenTwoStationsIsStillACrest` therefore asserts absolutely what holds
+PARAMETRICALLY: at road-domain step sizes against road-domain crests the clamp holds -- the
+reviewer's own sweeps at sub-step crests, at eight knots inside one station, and at DEM post
+spacing found no overrun -- and at coarse steps over sharp crests it can be exceeded by a few
+per cent. Recorded here rather than left for the next reader to find.

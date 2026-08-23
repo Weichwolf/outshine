@@ -25,11 +25,10 @@ class TerrainField {
   [[nodiscard]] const float *Data() const { return HeightsM_.data(); }
   [[nodiscard]] float *Data() { return HeightsM_.data(); }
 
-  using Postings = std::mdspan<float, std::dextents<size_t, 2>>;
-  using ConstPostings = std::mdspan<const float, std::dextents<size_t, 2>>;
+  using Writable = std::mdspan<float, std::dextents<size_t, 2>>;
 
-  [[nodiscard]] ConstPostings Field() const { return ConstPostings(HeightsM_.data(), Rows_, Cols_); }
-  [[nodiscard]] Postings Field() { return Postings(HeightsM_.data(), Rows_, Cols_); }
+  [[nodiscard]] Postings Field() const { return Postings(HeightsM_.data(), Rows_, Cols_); }
+  [[nodiscard]] Writable Field() { return Writable(HeightsM_.data(), Rows_, Cols_); }
 
   [[nodiscard]] float AtM(uint32_t row, uint32_t col) const { return Field()[row, col]; }
   void SetM(uint32_t row, uint32_t col, float m) { Field()[row, col] = m; }
@@ -37,7 +36,7 @@ class TerrainField {
   [[nodiscard]] float PostingM(double fracCol, double fracRow) const {
     const double gx = Cols_ < 2u ? 0.0 : fracCol * (double)(Cols_ - 1u);
     const double gy = Rows_ < 2u ? 0.0 : fracRow * (double)(Rows_ - 1u);
-    return Bilinear(HeightsM_.data(), Cols_, Rows_, gx, gy);
+    return Bilinear(Field(), gx, gy);
   }
 
  private:

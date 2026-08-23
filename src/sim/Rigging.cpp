@@ -5,6 +5,10 @@
 namespace outshine::Sim {
 
 namespace {
+constexpr double kContactResolutionM = 0.001;
+}
+
+namespace {
 
 bool Refuse(Rigged &out, const std::string &why) {
   out.Stood = false;
@@ -52,14 +56,39 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
     out.SeatM[axis] = declared.SeatM[axis];
   }
 
-  if (!declared.Asset.empty()) {
-    if (!(declared.WheelbaseM > 0.0)) {
-      Refuse(out, "the vehicle '" + declared.Name + "' draws '" + declared.Asset +
-                      "' and declares no wheelbaseM -- the asset's scale is the declared "
-                      "wheelbase over the measured one, and a model drawn at a scale of "
-                      "zero is a car nobody can see standing where the physics says it is");
-      return out;
+  double frontZ = 0.0, rearZ = 0.0;
+  int front = 0, rear = 0;
+  for (const Contact &one : declared.Contacts) {
+    if (one.AtM[2] < out.CentreM[2]) {
+      frontZ += one.AtM[2];
+      ++front;
+    } else if (one.AtM[2] > out.CentreM[2]) {
+      rearZ += one.AtM[2];
+      ++rear;
     }
+  }
+  out.Axles.WheelbaseM = front > 0 && rear > 0
+                             ? std::fabs(rearZ / (double)rear - frontZ / (double)front)
+                             : declared.WheelbaseM;
+  if (!(out.Axles.WheelbaseM > 0.0)) {
+    Refuse(out, "the vehicle '" + declared.Name +
+                    "' has no wheelbase: its contacts stand on one side of the centre of "
+                    "mass and it declares no wheelbaseM either -- a steering angle is the "
+                    "arctangent of a wheelbase over a radius, and a wheelbase of zero is a "
+                    "rig that cannot turn");
+    return out;
+  }
+  if (declared.WheelbaseM > 0.0 &&
+      std::fabs(declared.WheelbaseM - out.Axles.WheelbaseM) > kContactResolutionM) {
+    Refuse(out, "the vehicle '" + declared.Name + "' declares a wheelbase of " +
+                    std::to_string(declared.WheelbaseM) +
+                    " m while its own contacts stand " + std::to_string(out.Axles.WheelbaseM) +
+                    " m apart -- one dimension has one spelling, and the contacts are the "
+                    "one the physics reads");
+    return out;
+  }
+
+  if (!declared.Asset.empty()) {
     if (!(declared.AssetWheelbase > 0.0)) {
       Refuse(out, "the vehicle '" + declared.Name + "' draws '" + declared.Asset +
                       "' and declares no assetWheelbase -- a model carries no scale, so the "
@@ -80,7 +109,7 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
     standsAt -= declared.TyreRadiusM;
 
     out.StandsAtM = standsAt;
-    out.MetresPerAssetUnit = declared.WheelbaseM / declared.AssetWheelbase;
+    out.MetresPerAssetUnit = out.Axles.WheelbaseM / declared.AssetWheelbase;
     out.ModelShiftM[0] = -declared.AssetCentreX * out.MetresPerAssetUnit;
     out.ModelShiftM[1] =
         standsAt - declared.AssetGround * out.MetresPerAssetUnit - declared.CentreOfMassM[1];
@@ -120,20 +149,6 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
     mount.BrakedShare = 1.0 / braked;
   }
 
-  double frontZ = 0.0, rearZ = 0.0;
-  size_t front = 0, rear = 0;
-  for (const Contact &one : declared.Contacts) {
-    if (one.AtM[2] < out.CentreM[2]) {
-      frontZ += one.AtM[2];
-      ++front;
-    } else if (one.AtM[2] > out.CentreM[2]) {
-      rearZ += one.AtM[2];
-      ++rear;
-    }
-  }
-  out.Axles.WheelbaseM = front > 0 && rear > 0
-                             ? std::fabs(rearZ / (double)rear - frontZ / (double)front)
-                             : declared.WheelbaseM;
   double trackM = declared.TrackM;
   if (!(trackM > 0.0)) {
     double leftX = 0.0, rightX = 0.0;

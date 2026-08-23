@@ -92,6 +92,34 @@ int main(void) {
         "that lifts the wheels off the road, and a term sampled at stations is a statement "
         "about the stations -- never about the road between them (board:1767)");
 
+  // board:1774: Seams() is the line's own statement of where its second derivative may
+  // jump, and the plan bounds every interval between them. It is asserted here directly,
+  // not merely exercised through the profile.
+  {
+    const std::vector<double> seams = line.Seams();
+    std::string spelt;
+    for (const double one : seams) { spelt += std::to_string(one) + " "; }
+    std::printf("NOTE the seams the line publishes: %s\n", spelt.c_str());
+    CHECK(seams.size() == 5,
+          "**A LINE PUBLISHES EVERY STATION ITS SECOND DERIVATIVE MAY JUMP AT**: one segment "
+          "boundary and four rise knots, deduplicated, and the end (board:1774)");
+    CHECK(seams.front() == 0.0 && seams.back() == kRoadM,
+          "the first is the line's start and the last is its end, so no interval is left "
+          "outside the walk");
+    bool climbing = true;
+    for (size_t at = 1; at < seams.size(); ++at) {
+      climbing = climbing && seams[at] > seams[at - 1];
+    }
+    CHECK(climbing, "and they are sorted and unique, so an interval is never empty or backwards");
+    bool knotsAreSeams = true;
+    for (const Knot &one : over) {
+      bool found = false;
+      for (const double at : seams) { found = found || at == one.AlongM; }
+      knotsAreSeams = knotsAreSeams && found;
+    }
+    CHECK(knotsAreSeams, "every rise knot the line was given is one of them");
+  }
+
   // board:1774: Read's out-of-range guards used <= and >=, so they swallowed the FIRST and
   // LAST knot too and answered a bend of zero there. A crest at either end of a route was
   // unbounded by construction, and no case had ever asked for a bend at 0 or LengthM().

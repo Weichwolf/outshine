@@ -112,3 +112,26 @@ so `mdspan` fits only with a fixed per-door stride), `src/gltf/Tangents.cpp:114`
 
 - Point 3 (`TableBook::Stood`, src/scenario/Tables.h:39, still
   `std::vector<std::vector<Cell>>` + `std::vector<bool>`) is untouched.
+
+## Comments
+
+- 2026-08-24 -- point 2 is now paid: `Bilinear` takes the view.
+
+```cpp
+using Postings = std::mdspan<const float, std::dextents<size_t, 2>>;
+static_assert(Postings::rank() == 2,
+              "a field is two extents that travel together, never a pointer beside a stride");
+[[nodiscard]] inline float Bilinear(Postings field, double gx, double gy);
+```
+
+  `TerrainField::AtM/SetM/PostingM` all read through `Field()`; `row * Cols_ + col` is gone
+  from the class, and the only caller of `Bilinear` in the tree hands it the view.
+- **Proving test**: `test/unit/compile/world/AFieldIsNotAPointerBesideAStride` -- the old
+  `Bilinear(data, cols, rows, gx, gy)` spelling does not compile, judged by
+  `unit/ground/AGeneratorHasNoSpellingInTheStreamer`.
+- **Negative control**: the compile subject IS the control -- it is the defect's own
+  spelling, and the suite requires it to be refused for the stated reason.
+- `[[nodiscard]]` was pulled over `TerrainField`'s queries in the same pass. Still open in
+  this item: the other two classes in that file (`:80 Bytes()`, `:103 VertexCount()`), and
+  the extents are not yet `static_assert`ed against the tile edge.
+- Gate 234/234.

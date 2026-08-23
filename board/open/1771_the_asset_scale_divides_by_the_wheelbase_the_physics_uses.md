@@ -140,3 +140,48 @@ declarations and nothing makes them agree.
 
 Closing this needs the two arms the item already names, each with its negative control --
 not a `git mv`.
+
+---
+
+## Repaid, and the first repair was the WRONG one (2026-08-24)
+
+The reviewer verified points 1 and 2 live and was right on both. Worse: the first repair
+made the defect WORSE in principle. It added
+
+```cpp
+if (!declared.Asset.empty()) {
+  if (!(declared.WheelbaseM > 0.0)) { Refuse(...); }
+```
+
+which (a) sat inside the asset branch, so a vehicle with no asset walked past it, and
+(b) ENSHRINED the second spelling instead of removing it: it demanded a declaration of a
+dimension the contacts already carry.
+
+The real repair deletes the second spelling.
+
+| | before | after |
+|---|---|---|
+| where the wheelbase comes from | `declared.WheelbaseM` for the asset scale, contacts for `Axles` -- two truths | the CONTACTS, always |
+| a vehicle with no `wheelbaseM` | scale divides by zero, silently | stands; the contacts carry the dimension |
+| a `wheelbaseM` that disagrees with the contacts | contacts win silently | **refuses, naming both numbers** |
+| every contact behind the centre of mass, no declaration | `atan(0 / r) = 0` -- a rig that cannot steer, standing there looking fine | **refuses** |
+
+The derivation moved above everything that reads it, so `Axles.WheelbaseM` is computed once
+and both the steering lock and the asset scale divide by that one value.
+
+`kContactResolutionM = 0.001` [SET]: the contacts are declared to three decimal places
+(`z="1.405"` in tools/driver/f31.scenario), so a millimetre is the resolution of the
+declaration itself -- not a tolerance chosen to make a case pass.
+
+- **Proving test**: `test/unit/sim/TheDrawnCarAndItsContactsStandInOneFrame` -- the arm now
+  asserts that a vehicle declaring no `wheelbaseM` stands with `Axles.WheelbaseM = 2.810`
+  and `MetresPerAssetUnit = 2.810/180.71`, that `wheelbaseM = 3.5` against those contacts
+  refuses naming both numbers, and that a one-sided contact set with no declaration refuses
+  with "cannot turn".
+- **Negative controls**, both run: the disagreement refusal disabled -> `FAIL and a
+  declaration that disagrees with its own contacts REFUSES`; the zero-wheelbase refusal
+  disabled -> `FAIL **AND A RIG WITH NO WHEELBASE AT ALL REFUSES INSTEAD OF STANDING
+  STILL**`. Both reverted.
+- The earlier test arm demanded the declaration and is REPLACED, not deleted: it was
+  provably mis-specified, because what it demanded is the defect.
+- Gate 234/234.

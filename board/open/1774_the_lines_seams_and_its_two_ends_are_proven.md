@@ -139,3 +139,25 @@ construction. `+ 1` is the whole fix, and the house rule is capacity opened ONCE
 
 Point 2 (both ends of `Read`) IS delivered and its negative control is shown -- that half
 stands. The item closes when 1 and 3 stand too.
+
+---
+
+## Repaid properly (2026-08-24)
+
+The reviewer's test was `grep -rn 'Seams' test/` and it returned nothing: the first attempt
+EXERCISED `Seams()` through the profile and called that proof. It is now ASSERTED directly,
+in `ACrestBetweenTwoStationsIsStillACrest`:
+
+```
+NOTE the seams the line publishes: 0.000000 200.000000 205.000000 210.000000 400.000000
+```
+
+four checks on the list itself -- that it holds one segment boundary and four rise knots
+deduplicated to five stations, that it starts at 0 and ends at `LengthM()` so no interval
+falls outside the walk, that it is sorted and strictly increasing so no interval is empty or
+backwards, and that every rise knot the line was handed is one of them.
+
+- **Negative control**: the rise knots dropped from `Seams()` -> the list collapses to
+  `0.000000 400.000000`, the direct claim goes red AND so does board:1767's crest bound.
+  Reverted.
+- `grep -rn 'Seams' test/` now returns 5.
