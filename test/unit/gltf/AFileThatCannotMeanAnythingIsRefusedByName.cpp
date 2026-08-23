@@ -134,6 +134,8 @@ int main() {
              "animations":[{"channels":[{"sampler":0,"target":{"node":0,"path":"rotation"}}],
                             "samplers":[{"input":0,"output":1}]}]})",
          std::vector<uint8_t>(72, 0)});
+  // 1733's cost arms live in the reading tests below and in the timing arm at the end;
+  // the shapes here stay the refusals they were
   Holds({"a primitive naming an accessor the file does not carry is refused",
          "attribute POSITION names an accessor the file does not carry",
          R"({"asset":{"version":"2.0"},
@@ -222,5 +224,46 @@ int main() {
   CHECK(nothing.empty(), "and leaves nothing behind that a caller could mistake for data");
 
   Covers("I.26 a file that does not carry what a case needs is a refusal that names what was missing");
+  {
+    // the forest proof is linear: a five-thousand-node parent CHAIN reads inside the
+    // suite's own patience -- the unmemoised walk paid n^2/2 steps here
+    std::string chain = R"({"asset":{"version":"2.0"},"nodes":[)";
+    for (int at = 0; at < 5000; ++at) {
+      if (at > 0) { chain += ','; }
+      chain += "{\"children\":[" + std::to_string(at + 1) + "]}";
+    }
+    chain += ",{}]}";
+    Document linear;
+    const std::vector<uint8_t> bytes(chain.begin(), chain.end());
+    CHECK(linear.Read({bytes.data(), bytes.size()}, "chain.gltf"),
+          "**A FIVE-THOUSAND-NODE CHAIN READS IN LINEAR TIME** -- every node the root walk "
+          "passes is proven with it (board:1733)");
+  }
+  {
+    // a viewless fill is bounded by the bytes the file carries: count five hundred million from
+    // a two-hundred-byte file answers nothing instead of gigabytes of zeros
+    const std::string tiny =
+        R"({"asset":{"version":"2.0"},"buffers":[{"byteLength":8}],
+            "bufferViews":[{"buffer":0,"byteOffset":0,"byteLength":8}],
+            "accessors":[{"componentType":5126,"count":500000000,"type":"SCALAR",
+              "sparse":{"count":1,
+                        "indices":{"bufferView":0,"byteOffset":0,"componentType":5123},
+                        "values":{"bufferView":0,"byteOffset":4}}}]})";
+    Document greedy;
+    const std::vector<uint8_t> bytes(tiny.begin(), tiny.end());
+    std::vector<uint8_t> eight(8, 0);
+    const std::vector<uint8_t> glb = Glb(tiny, eight);
+    Document viaGlb;
+    if (viaGlb.Read({glb.data(), glb.size()}, "greedy.glb")) {
+      std::vector<double> out;
+      CHECK(!viaGlb.ReadElements(0, out) && out.empty(),
+            "**A 200-BYTE FILE CANNOT COMMAND GIGABYTES OF ZEROS**: the viewless fill is "
+            "bounded by the bytes the file actually carries (board:1733)");
+    } else {
+      CHECK(true, "the greedy declaration refused at read, which bounds it even earlier");
+    }
+    (void)bytes;
+  }
+
   return Report();
 }

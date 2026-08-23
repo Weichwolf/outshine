@@ -431,7 +431,11 @@ bool Document::ResolveBuffers(const Json &json, const uint8_t *binaryChunk, size
     } else {
       std::ifstream file(directory + uri, std::ios::binary);
       if (!file) { return Refuse("buffer " + Number(i) + " names " + uri + ", which cannot be opened"); }
-      bytes.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+      // at most the declared bytes and one more: a uri naming a hundred-gigabyte file is
+      // refused after declared+1 bytes, not slurped to its end first
+      bytes.resize(declared + 1);
+      file.read(reinterpret_cast<char *>(bytes.data()), (std::streamsize)bytes.size());
+      bytes.resize((size_t)file.gcount());
     }
     if (bytes.size() < declared) {
       return Refuse("buffer " + Number(i) + " declares " + Number(declared) + " bytes and " +
@@ -800,17 +804,26 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     }
   }
 
-  // a forest has no cycles and the spec demands none: every node walks to its root in
-  // fewer steps than there are nodes -- a two-node loop or a self-child gives each node
-  // ONE parent and slipped the shared-child refusal, then hung the scene walk
-  for (size_t i = 0; i < Nodes_.size(); ++i) {
-    size_t steps = 0;
-    for (int at = static_cast<int>(i); at >= 0; at = Parent_[static_cast<size_t>(at)]) {
-      if (++steps > Nodes_.size()) {
-        return Refuse("node " + Number(i) +
-                      " never reaches a root, and a glTF hierarchy is a forest -- the "
-                      "chain of parents is a cycle");
+  // a forest has no cycles and the spec demands none: every node walks to its root --
+  // and every node the walk PASSES is proven with it, so a chained file costs the read
+  // one visit per node, never n^2/2 steps of CPU before the verdict
+  {
+    std::vector<uint8_t> rooted(Nodes_.size(), 0);
+    std::vector<int> walked;
+    for (size_t i = 0; i < Nodes_.size(); ++i) {
+      walked.clear();
+      size_t steps = 0;
+      int at = static_cast<int>(i);
+      while (at >= 0 && rooted[static_cast<size_t>(at)] == 0) {
+        if (++steps > Nodes_.size()) {
+          return Refuse("node " + Number(i) +
+                        " never reaches a root, and a glTF hierarchy is a forest -- the "
+                        "chain of parents is a cycle");
+        }
+        walked.push_back(at);
+        at = Parent_[static_cast<size_t>(at)];
       }
+      for (const int seen : walked) { rooted[static_cast<size_t>(seen)] = 1; }
     }
   }
 
@@ -1537,10 +1550,15 @@ bool Document::ReadElements(int accessorIndex, std::vector<double> &out) const {
     }
   }
 
-  // a viewless accessor is zero-filled by spec; its count is bounded by the same
-  // container ceiling as every declared size, so the fill cannot be asked to exceed it
-  if (accessor.Count > static_cast<size_t>(kMostDeclaredBytes) / (components * sizeof(double))) {
-    return false;
+  // a viewless accessor is zero-filled by spec -- but its BOUND must come from bytes the
+  // file actually carries: without a sparse override the fill answers nothing a view
+  // could not, and with one the count is held to the sparse data's own reach, so a
+  // 200-byte file cannot command gigabytes of zeros
+  if (accessor.View < 0) {
+    if (!accessor.HasSparse) { return false; }
+    size_t carriedBytes = 0;
+    for (const std::vector<uint8_t> &buffer : Buffers_) { carriedBytes += buffer.size(); }
+    if (accessor.Count > carriedBytes) { return false; }
   }
   out.assign(accessor.Count * components, 0.0);
   if (accessor.View >= 0) {

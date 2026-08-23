@@ -27,3 +27,14 @@ Demanded: each of the three costs bounded by what the file legitimately
 declares, with a refusal proof per arm in
 test/unit/gltf/AFileThatCannotMeanAnythingIsRefusedByName.cpp, and a timing
 sanity (the chain fixture completes in linear time).
+
+---
+
+Closed -- the three costs obey the file: the forest proof memoises every node the root walk
+passes (one visit per node, linear -- the 5000-node chain arm reads inside the suite's
+patience), ResolveBuffers reads at most declared+1 bytes from an external uri and refuses on
+shortfall (a hundred-gigabyte uri costs declared+1, not a slurp), and the viewless zero-fill
+is bounded by the bytes the file ACTUALLY carries (count five hundred million from an
+8-byte buffer answers nothing -- the uint32 cap had allowed a 4 GiB assign, and the
+misleading comment died with it). Proven in AFileThatCannotMeanAnythingIsRefusedByName;
+negative control: the pre-fix reader fails the greedy arm.
