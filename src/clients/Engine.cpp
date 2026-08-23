@@ -168,7 +168,6 @@ bool Engine::ReadInto(std::string_view path, Scenario &out) {
   std::string text;
   if (!SlurpFile(held, text, S_->Error)) { return false; }
 
-  out.Render.Frame = S_->Frame;
   if (!ReadScenario(text.c_str(), text.size(), out, S_->Error)) {
     S_->Error = held + ": " + S_->Error;
     return false;

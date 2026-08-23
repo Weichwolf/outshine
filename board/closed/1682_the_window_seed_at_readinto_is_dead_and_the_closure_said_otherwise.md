@@ -22,3 +22,11 @@ adjudication is mechanically false:
 Demanded: delete Engine.cpp:171 (the fallback at Declare is the one truth), and correct
 1681's record — a closure resting on a false mechanical claim is worse than an open bug,
 because the next reader trusts it.
+
+---
+
+Closed, and the record set straight: the seed WAS dead code -- ReadScenario resets before
+any reader could see it, so the 1681 note's "stays deliberately" described a mechanism that
+did not exist. The line is deleted; the window-default contract lives where it always
+actually ran, in Declare's fallback. A closure note that misstates the mechanism is worse
+than the bug it closes -- on the record here.

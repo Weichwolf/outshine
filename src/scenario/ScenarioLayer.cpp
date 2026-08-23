@@ -23,8 +23,9 @@ void MergeRows(std::vector<Row> &into, const std::vector<Row> &from, std::string
       break;
     }
     if (!overrode) { into.push_back(row); }
+    const std::string identity = same.Identity(row);
     trace.push_back("layer '" + std::string(named) + (overrode ? "' overrode " : "' added ") +
-                    what + " '" + same.Identity(row) + "'");
+                    what + (identity.empty() ? " (id-less)" : " '" + identity + "'"));
   }
 }
 
@@ -143,6 +144,14 @@ bool ApplyLayer(Scenario &into, const char *text, size_t size, std::string_view 
   if (!fragment.Vehicles.empty()) {
     into.Vehicles = fragment.Vehicles;
     trace.push_back("layer '" + std::string(named) + "' replaced the vehicle");
+  }
+  if (!fragment.Render.Stages.empty()) {
+    trace.push_back("layer '" + std::string(named) + "' replaced the stage list (" +
+                    std::to_string(fragment.Render.Stages.size()) + " stages -- the declared "
+                    "list is the list)");
+  }
+  if (!fragment.Render.Outputs.empty()) {
+    trace.push_back("layer '" + std::string(named) + "' replaced the output list");
   }
 
   // the singleton sections merge by the reader's OWN semantics -- re-parse the layer onto a

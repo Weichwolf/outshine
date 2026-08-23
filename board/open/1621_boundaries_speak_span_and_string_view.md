@@ -104,3 +104,9 @@ three residues on the same touched surface:
   is the strictly clearer form and allocates nothing.
 - src/core/Script.h:33-50: Value::OfNumber/OfText/OfRef are value-returning factories
   without [[nodiscard]] — the mechanical bar puts it on every factory.
+
+Sharpening repaid, with the corpus as judge: Program::Read and the tokeniser speak
+string_view end to end -- the number scan moved from strtod to from_chars (the C++23 form),
+which surfaced that hex literals had only ever parsed by strtod's accident; they parse
+EXPLICITLY now (0x via from_chars base 16), proven by the full test262 corpus that caught
+the drift on first run. WhyOutside uses starts_with; the Value factories are [[nodiscard]].

@@ -236,6 +236,14 @@ bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
     }
   }
   if (declared.Driven.Declared) {
+    if (declared.Driven.FromLatDeg == declared.Driven.ToLatDeg &&
+        declared.Driven.FromLonDeg == declared.Driven.ToLonDeg) {
+      error = "the drive's ends coincide at (" + std::to_string(declared.Driven.FromLatDeg) +
+              ", " + std::to_string(declared.Driven.FromLonDeg) +
+              "), which declares no route -- a zoom without a base route is a layer over "
+              "nothing";
+      return false;
+    }
     if (!into.Alive(out.PlayerMind)) {
       error = "a drive is declared and no mind stands to take it -- declare a player";
       return false;

@@ -20,3 +20,9 @@ declaration nobody can debug". Two events the merge now performs are not spoken:
 
 Proof: extend ALayerOverridesAnEarlierOneById — a stage-redeclaring layer's trace contains
 "replaced", an id-less instance's trace names its kind.
+
+---
+
+Closed: the stage/output list replacements SPEAK on the trace ("replaced the stage list --
+the declared list is the list"), and an id-less row traces as "(id-less)" instead of a pair
+of naked quotes. 1493's publishable box holds everywhere the merge acts.

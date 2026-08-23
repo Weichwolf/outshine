@@ -1,3 +1,4 @@
+#include <charconv>
 #include "Script.h"
 
 #include <cmath>
@@ -49,7 +50,7 @@ bool Space(char c) {
   return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\v' || c == '\f';
 }
 
-size_t SpaceRun(const std::string &text, size_t at) {
+size_t SpaceRun(std::string_view text, size_t at) {
   if (Space(text[at])) { return 1; }
   static const char *const kWide[] = {"\xC2\xA0", "\xE2\x80\xA8", "\xE2\x80\xA9",
                                       "\xEF\xBB\xBF", "\xE2\x80\x80", "\xE2\x80\x81",
@@ -74,7 +75,7 @@ constexpr const char *kMarks[] = {"++", "--", "==", "!=", "<=", ">=", "&&", "||"
                                   "[",  "]",  ";",  ",",  ".",  "+",  "-", "*", "/", "%",
                                   "<",  ">",  "=",  "!"};
 
-std::string Where(const std::string &text, size_t at) {
+std::string Where(std::string_view text, size_t at) {
   size_t line = 1, column = 1;
   for (size_t i = 0; i < at && i < text.size(); ++i) {
     if (text[i] == '\n') {
@@ -87,7 +88,7 @@ std::string Where(const std::string &text, size_t at) {
   return "line " + std::to_string(line) + " column " + std::to_string(column);
 }
 
-bool Tokenise(const std::string &text, std::vector<Token> &out, std::string &error) {
+bool Tokenise(std::string_view text, std::vector<Token> &out, std::string &error) {
   size_t at = 0;
   while (at < text.size()) {
     if (const size_t run = SpaceRun(text, at)) {
@@ -137,10 +138,22 @@ bool Tokenise(const std::string &text, std::vector<Token> &out, std::string &err
     }
     if ((text[at] >= '0' && text[at] <= '9') ||
         (text[at] == '.' && at + 1 < text.size() && text[at + 1] >= '0' && text[at + 1] <= '9')) {
-      char *stopped = nullptr;
       token.What = Word::Number;
-      token.Number = std::strtod(text.c_str() + at, &stopped);
-      at = (size_t)(stopped - text.c_str());
+      if (text[at] == '0' && at + 1 < text.size() &&
+          (text[at + 1] == 'x' || text[at + 1] == 'X')) {
+        uint64_t wide = 0;
+        const auto hex =
+            std::from_chars(text.data() + at + 2, text.data() + text.size(), wide, 16);
+        if (hex.ptr != text.data() + at + 2) {
+          token.Number = (double)wide;
+          at = (size_t)(hex.ptr - text.data());
+          out.push_back(std::move(token));
+          continue;
+        }
+      }
+      const auto scanned =
+          std::from_chars(text.data() + at, text.data() + text.size(), token.Number);
+      at = (size_t)(scanned.ptr - text.data());
       out.push_back(std::move(token));
       continue;
     }
@@ -193,7 +206,7 @@ struct Program::Node {
 namespace {
 
 struct Reading {
-  const std::string &Text;
+  std::string_view Text;
   const std::vector<Token> &Tokens;
   std::vector<Program::Node> &Nodes;
   std::string &Error;
@@ -565,7 +578,7 @@ bool ReadStatement(Reading &in, size_t &out) {
 
 }
 
-bool Program::Read(const std::string &text, std::string &error) {
+bool Program::Read(std::string_view text, std::string &error) {
   Nodes_.clear();
   Names_.clear();
   Held_.clear();
@@ -689,8 +702,7 @@ const Boundary kBoundaries[] = {
 
 const char *WhyOutside(std::string_view name) {
   for (const Boundary &boundary : kBoundaries) {
-    const std::string row(boundary.Name);
-    if (name.size() >= row.size() && name.compare(0, row.size(), row) == 0) { return boundary.Why; }
+    if (name.starts_with(boundary.Name)) { return boundary.Why; }
   }
   return nullptr;
 }

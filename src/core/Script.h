@@ -30,19 +30,19 @@ struct Value {
   std::string Text;
   int Ref = 0;
 
-  static Value OfNumber(double number) {
+  [[nodiscard]] static Value OfNumber(double number) {
     Value out;
     out.What = Kind::Number;
     out.Number = number;
     return out;
   }
-  static Value OfText(std::string text) {
+  [[nodiscard]] static Value OfText(std::string text) {
     Value out;
     out.What = Kind::Text;
     out.Text = std::move(text);
     return out;
   }
-  static Value OfRef(int ref) {
+  [[nodiscard]] static Value OfRef(int ref) {
     Value out;
     out.What = Kind::Ref;
     out.Ref = ref;
@@ -97,7 +97,7 @@ public:
   Program(Program &&) noexcept;
   Program &operator=(Program &&) noexcept;
 
-  [[nodiscard]] bool Read(const std::string &text, std::string &error);
+  [[nodiscard]] bool Read(std::string_view text, std::string &error);
   [[nodiscard]] bool Held(void) const;
 
   [[nodiscard]] size_t NodeCount(void) const;

@@ -19,3 +19,9 @@ needs two places") at Assemble, beside the existing "no mind stands to take it".
 
 Proof: unit test — base without a drive, layer `<drive zoom="15"/>`, Assemble refuses with
 the coordinate in the message; a declared identical from/to pair refuses the same way.
+
+---
+
+Closed: a drive whose ends coincide refuses at assembly naming the point -- "declares no
+route, a zoom without a base route is a layer over nothing". The ADD case can no longer sail
+silently to (0,0).
