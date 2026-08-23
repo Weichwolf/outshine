@@ -88,3 +88,15 @@ board:1668: Resume erases the park before Declare succeeds (a failing resume des
 only copy), Resume over a standing scenario silently discards it, and the refusal's remedy
 "discard" is a verb the public handle does not have. The remaining checkboxes above stand
 unchanged.
+
+---
+
+Progress -- the transition is MEASURED: AParkedDoorTransitionIsMeasured (scenario suite)
+walks a hundred park/resume transitions through two doors over a prepared subject. Numbers
+on this device: park p50 0.0038 ms / p99 0.0065 ms (bookkeeping, bounded at 50 ms p99),
+resume p50 85.7 / p95 89.4 / p99 91.7 ms (the full stand-up: declare + pipelines), and the
+live byte count settles by the tenth walk with 2.75 KiB worst drift over the last ten --
+a door is not a slow leak. Remaining: the clock's declared park behaviour, which WAITS on
+the clock being consumed at all (Time.Start is read and carried, nothing ticks it yet --
+building freeze/run semantics for an unconsumed clock would be declaration theater; noted
+so the reviewer sees the order).
