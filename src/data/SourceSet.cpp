@@ -1,7 +1,7 @@
-#include <cmath>
 #include "SourceSet.h"
 
 #include <algorithm>
+#include <cmath>
 #include <utility>
 
 namespace outshine::Data {
@@ -89,7 +89,15 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
 
     Meaning what = Meaning::Refused;
     std::vector<uint8_t> bytes;
-    if (!answer.TryTake(&what, &bytes)) return Delivery::Waiting();
+    // a settled answer always takes -- reaching here otherwise is a wiring fault, and a
+    // failure is loud, never a quiet Waiting that polls forever
+    if (!answer.TryTake(&what, &bytes)) {
+      {
+        const std::lock_guard<std::mutex> ledger(LedgerMutex_);
+        ++Ledger_.Refused;
+      }
+      return Delivery::Wire();
+    }
 
     const SourceDecl &decl = query.Current_->Declaration();
     switch (what) {

@@ -57,7 +57,7 @@ public:
 
   // the transport IS the outside world, its clock included -- a fake transport fakes time,
   // so a backoff proof never sleeps
-  [[nodiscard]] virtual double NowMs(void) {
+  [[nodiscard]] virtual double NowMs() {
     return (double)std::chrono::duration_cast<std::chrono::milliseconds>(
                std::chrono::steady_clock::now().time_since_epoch())
         .count();
