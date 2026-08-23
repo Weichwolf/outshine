@@ -49,6 +49,8 @@ struct SubjectResidency {
   [[nodiscard]] OwnedBuffer Fill(SDL_GPUBufferUsageFlags usage, const void *from, uint32_t bytes);
   [[nodiscard]] bool Cross(Crossing *what, size_t count, bool deferred, std::string &error);
   [[nodiscard]] bool Submit(Crossing *what, size_t count, uint32_t total, std::string &error);
+  // the staging ring, sized ONCE at residency establishment from the mesh's own streams
+  [[nodiscard]] bool OpenStaging(uint32_t bytes, std::string &error);
   void FlushCrossings(SDL_GPUCommandBuffer *commands);
   void DropStaged() {
     StagedCount_ = 0;

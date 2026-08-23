@@ -39,3 +39,16 @@ already-staged bytes and patch `Staged_[].Staging`. Null-check both maps.
 `src/render/stages/SubjectResidency.cpp` has NO unit twin (test/unit/render/stages/ holds
 none) — the proving test is the twin: stage two crossings whose second forces the regrow,
 flush, and assert the first crossing's bytes arrived intact.
+
+---
+
+Closed -- the staging ring is opened ONCE at residency establishment (OpenStaging, sized in
+SetMesh from the aligned sum of the mesh's own standing streams -- any deferred frame
+crosses a subset of these), a frame past the capacity REFUSES naming both numbers, and the
+mid-frame regrow that destroyed the transfer an earlier crossing had staged into is gone
+entirely. The destination buffers are grow-only (Held is the standing capacity; a shrinking
+stream reuses its buffer, no device allocation on the tick), and every
+SDL_MapGPUTransferBuffer result is checked before memcpy (Fill, the deferred path, and the
+mip Upload). Proven on the device in AStagedCrossingSurvivesItsNeighbour: two same-frame
+crossings land byte-intact (read back and compared), and the over-capacity frame refuses
+with the opened number in the text -- green plain, sanitised and validated.

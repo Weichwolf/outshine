@@ -48,7 +48,13 @@ OwnedBuffer SubjectResidency::Fill(SDL_GPUBufferUsageFlags usage, const void *fr
     buffer.Reset();
     return buffer;
   }
-  std::memcpy(SDL_MapGPUTransferBuffer(Device, staging, false), from, bytes);
+  void *const mapped = SDL_MapGPUTransferBuffer(Device, staging, false);
+  if (mapped == nullptr) {
+    SDL_ReleaseGPUTransferBuffer(Device, staging);
+    buffer.Reset();
+    return buffer;
+  }
+  std::memcpy(mapped, from, bytes);
   SDL_UnmapGPUTransferBuffer(Device, staging);
 
   SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device);
@@ -71,7 +77,9 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
       *one.Held = 0;
       continue;
     }
-    if (*one.Held != one.Bytes || !*one.Into) {
+    // Held is the standing buffer's CAPACITY: only growth recreates -- a fluctuating
+    // stream shrinking into its buffer buys no device allocation on the tick
+    if (*one.Held < one.Bytes || !*one.Into) {
       SDL_GPUBufferCreateInfo wanted{};
       wanted.usage = one.Usage;
       wanted.size = one.Bytes;
@@ -89,19 +97,15 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
   if (total == 0) { return true; }
 
   if (!deferred) { return Submit(what, count, total, error); }
+  // the staging capacity was opened ONCE at residency establishment; a frame that wants
+  // more refuses naming both numbers -- a mid-frame regrow would destroy the transfer an
+  // earlier crossing of this same frame already staged into, and its bytes with it
   const uint32_t wanted = StagingUsed_ + total;
   if (StagingBytes_ < wanted || !Staging_[StagingAt_]) {
-    SDL_GPUTransferBufferCreateInfo room{};
-    room.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-    room.size = wanted > StagingBytes_ ? wanted : StagingBytes_;
-    if (wanted > StagingBytes_) { StagingBytes_ = wanted; }
-    for (size_t slot = 0; slot < kStagingRing; ++slot) {
-      Staging_[slot] = OwnedTransfer(Device, SDL_CreateGPUTransferBuffer(Device, &room));
-      if (!Staging_[slot]) {
-        error = std::string("the pose's staging buffer found no room on the device: ") + SDL_GetError();
-        return false;
-      }
-    }
+    error = "a frame stages " + std::to_string(wanted) + " bytes over the " +
+            std::to_string(StagingBytes_) +
+            " the residency opened -- the pose outgrew what its own mesh declared";
+    return false;
   }
 
   auto *const mapped =
@@ -168,6 +172,26 @@ bool SubjectResidency::Submit(Crossing *what, size_t count, uint32_t total, std:
   }
   SDL_EndGPUCopyPass(copy);
   SDL_SubmitGPUCommandBuffer(commands);
+  return true;
+}
+
+bool SubjectResidency::OpenStaging(uint32_t bytes, std::string &error) {
+  if (bytes <= StagingBytes_ && Staging_[0]) { return true; }
+  SDL_GPUTransferBufferCreateInfo room{};
+  room.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+  room.size = bytes;
+  for (size_t slot = 0; slot < kStagingRing; ++slot) {
+    Staging_[slot] = OwnedTransfer(Device, SDL_CreateGPUTransferBuffer(Device, &room));
+    if (!Staging_[slot]) {
+      error = std::string("the pose's staging ring found no room on the device: ") +
+              SDL_GetError();
+      return false;
+    }
+  }
+  StagingBytes_ = bytes;
+  StagingUsed_ = 0;
+  StagedCount_ = 0;
+  StagingAt_ = 0;
   return true;
 }
 
@@ -241,7 +265,13 @@ SubjectResidency::BoundImage SubjectResidency::Upload(const SubjectTexture &text
     wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
     wantedTransfer.size = bytes;
     SDL_GPUTransferBuffer *staging = SDL_CreateGPUTransferBuffer(Device, &wantedTransfer);
-    std::memcpy(SDL_MapGPUTransferBuffer(Device, staging, false), level.data(), bytes);
+    void *const mappedLevel = SDL_MapGPUTransferBuffer(Device, staging, false);
+    if (mappedLevel == nullptr) {
+      SDL_ReleaseGPUTransferBuffer(Device, staging);
+      bound.Image.Reset();
+      return bound;
+    }
+    std::memcpy(mappedLevel, level.data(), bytes);
     SDL_UnmapGPUTransferBuffer(Device, staging);
     SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device);
     SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);

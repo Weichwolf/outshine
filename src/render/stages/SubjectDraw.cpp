@@ -534,7 +534,13 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
             " triangles built no visibility structure, so no light could be occluded by them";
     return false;
   }
-  return HandVisibility(false, error);
+  if (!HandVisibility(false, error)) { return false; }
+
+  // the staging ring opens ONCE, here, from the mesh's own standing streams: any deferred
+  // frame crosses a subset of these, so their aligned sum is the ring's honest capacity
+  uint32_t staged = 0;
+  for (const uint32_t held : Resident_.Held) { staged += (held + 15u) & ~15u; }
+  return Resident_.OpenStaging(staged, error);
 }
 
 bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::string &error) {
