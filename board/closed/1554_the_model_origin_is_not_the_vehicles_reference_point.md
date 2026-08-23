@@ -60,3 +60,53 @@ ruled out.** Nine causes were eliminated -- draws submitted, parts present, plac
 derived, surfaces separated, cameras distinct, frames shared, `Restand` faithful, contrast fixed --
 and the answer was in the asset's own bounding box the whole time, unmeasured because nothing had
 asked where the model sits relative to the point it is placed by.
+
+---
+
+## Repaid (2026-08-23)
+
+All three boxes are ticked, and the third is ticked by making the sunk car UNSPELLABLE
+rather than by adding a check beside it.
+
+The offset was already measured and declared -- `assetWheelbase`, `assetGround`,
+`assetCentreX`, `assetCentreZ` on `tools/driver/f31.scenario` -- but the ARITHMETIC that
+turns those numbers into a placement lived in the driver
+(`tools/driver/stills/StillsAreTakenAlongTheDriveForTheEye.cpp:367-373`), where the engine
+could not see it and no unit case could reach it. `Vehicle::AssetGround` had no consumer in
+`src/` at all: read by the scenario reader, used by nobody.
+
+`Sim::Stand` now owns it. `Rigged` carries:
+
+| field | what it is |
+|---|---|
+| `StandsAtM` | the plane the CONTACTS touch: `min(contact.y) - tyreRadius`, never an assumed zero |
+| `MetresPerAssetUnit` | `wheelbaseM / assetWheelbase` -- the model carries no scale, so it is derived from the one dimension measured off the asset (board:1511, 1551) |
+| `ModelShiftM[3]` | the offset from the model's origin to the vehicle's reference point |
+
+and it REFUSES a vehicle that draws an asset without saying what it measures
+(`assetWheelbase`) or where its own ground is (`assetGround` must be negative -- a model's
+lowest point stands below its origin). The driver reads the three numbers instead of
+computing a second copy of them.
+
+**Measured**, F31, all values derived not assumed:
+
+| | |
+|---|---|
+| metres per asset unit | 2.810 / 180.71 = 0.015549775884 |
+| standing plane from the contacts | 0.333 - 0.333 = 0.000 m |
+| lift | 0 - (-60.939 x 0.0155498) - 0.55 = **+0.397588 m** -- exactly the 0.398 m the body was sunk by |
+| lateral shift | -60.104 x 0.0155498 = -0.934604 m |
+| longitudinal shift | -22.847 x 0.0155498 = -0.355266 m |
+
+- **Proving test**: `test/unit/sim/TheDrawnCarAndItsContactsStandInOneFrame` -- twelve checks:
+  the derived scale, the standing plane read off the contacts, the model's lowest point
+  landing EXACTLY on that plane, the three shift components, both refusals, and a vehicle
+  whose hubs sit 0.167 m above the tyre radius, whose drawn body rises with them.
+- **Negative controls**, both run:
+  - the shift computed against 0 instead of `standsAt` -> `FAIL so the drawn body rises with
+    them -- the frame is the contacts', never a constant the engine assumed`.
+  - the `assetGround` refusal disabled -> `FAIL and an asset that does not say where its own
+    ground is refuses too`.
+- Gate 232/232. `test/run.sh tools` stands exactly as it did before this change (2 PASS,
+  1 FAIL, 2 TIMEOUT, 4 BUILD -- all pre-existing, and the four viewer build failures are
+  filed as board:1766).

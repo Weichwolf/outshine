@@ -364,12 +364,9 @@ int main(void) {
   }
 
   const outshine::Vehicle &declaredCar = declared.Vehicles[0];
-  const double assetM = declaredCar.AssetWheelbase > 0.0
-                            ? declaredCar.WheelbaseM / declaredCar.AssetWheelbase
-                            : 1.0;
-  const double shiftM[3] = {-declaredCar.AssetCentreX * assetM,
-                            -declaredCar.AssetGround * assetM - declaredCar.CentreOfMassM[1],
-                            -declaredCar.AssetCentreZ * assetM};
+  const double assetM = drive.Stood.MetresPerAssetUnit;
+  const double shiftM[3] = {drive.Stood.ModelShiftM[0], drive.Stood.ModelShiftM[1],
+                            drive.Stood.ModelShiftM[2]};
   const double liftM = shiftM[1];
   Note("the metres one unit of the asset spans", assetM, "m per unit");
   Note("how far the model must rise so its tyres touch the ground", liftM, "m");

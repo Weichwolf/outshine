@@ -52,6 +52,34 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
     out.SeatM[axis] = declared.SeatM[axis];
   }
 
+  if (!declared.Asset.empty()) {
+    if (!(declared.AssetWheelbase > 0.0)) {
+      Refuse(out, "the vehicle '" + declared.Name + "' draws '" + declared.Asset +
+                      "' and declares no assetWheelbase -- a model carries no scale, so the "
+                      "one dimension it is measured against must be declared beside the "
+                      "dimension it is measured with");
+      return out;
+    }
+    if (!(declared.AssetGround < 0.0)) {
+      Refuse(out, "the vehicle '" + declared.Name + "' draws '" + declared.Asset +
+                      "' and declares assetGround " + std::to_string(declared.AssetGround) +
+                      " -- a model's lowest point stands BELOW its own origin, and without "
+                      "that measurement the body is placed by the wrong point and sinks "
+                      "into the ground it stands on");
+      return out;
+    }
+    double standsAt = declared.Contacts[0].AtM[1];
+    for (const Contact &one : declared.Contacts) { standsAt = std::fmin(standsAt, one.AtM[1]); }
+    standsAt -= declared.TyreRadiusM;
+
+    out.StandsAtM = standsAt;
+    out.MetresPerAssetUnit = declared.WheelbaseM / declared.AssetWheelbase;
+    out.ModelShiftM[0] = -declared.AssetCentreX * out.MetresPerAssetUnit;
+    out.ModelShiftM[1] =
+        standsAt - declared.AssetGround * out.MetresPerAssetUnit - declared.CentreOfMassM[1];
+    out.ModelShiftM[2] = -declared.AssetCentreZ * out.MetresPerAssetUnit;
+  }
+
   double driven = 0.0, braked = 0.0;
   for (const Contact &one : declared.Contacts) {
     driven += one.AtM[2] > out.CentreM[2] ? 1.0 : 0.0;
