@@ -63,7 +63,7 @@ struct DriveState {
   Ridden Tally;
 };
 
-[[nodiscard]] Ridden DriveTick(const Corridor &way, const Rigged &stood, const Vehicle &car,
+[[nodiscard]] Ridden DriveTick(const Corridor &way, const Rigged &stood,
                                DriveState &drive, double dtS, const Taken *taken);
 
 }

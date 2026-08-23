@@ -516,7 +516,7 @@ int main(void) {
   long wrote = 0;
   for (long frame = 0; frame < 40000000L && next < atM.size(); ++frame) {
     for (long step = 0; step < 17; ++step) {
-      rode = outshine::Sim::DriveTick(drive.Way, drive.Stood, drive.Car, drive.State, kStepS, nullptr);
+      rode = outshine::Sim::DriveTick(drive.Way, drive.Stood, drive.State, kStepS, nullptr);
       if (!rode.Found || rode.Arrived || rode.Lost) { break; }
     }
     if (!rode.Found || rode.Lost) { break; }

@@ -116,7 +116,7 @@ bool Seat(DriveState &drive, const Corridor &way, const Vehicle &car, const Rigg
 Ridden RideOut(const Corridor &way, const Rigged &stood, const Vehicle &car, DriveState &drive) {
   Ridden last;
   for (long step = 0; step < 4000; ++step) {
-    last = DriveTick(way, stood, car, drive, kDtS, nullptr);
+    last = DriveTick(way, stood, drive, kDtS, nullptr);
     if (!last.Found || last.Lost || last.OffTheRoad || last.PastLimit || last.Arrived) { break; }
   }
   return last;

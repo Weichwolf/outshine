@@ -305,7 +305,7 @@ int main(void) {
     }
     taken.Throttle = throttleBy * 0.35;
     for (long step = 0; step < perFrame; ++step) {
-      rode = outshine::Sim::DriveTick(drive.Way, drive.Stood, drive.Car, drive.State, kStepS, &taken);
+      rode = outshine::Sim::DriveTick(drive.Way, drive.Stood, drive.State, kStepS, &taken);
       if (!rode.Found || rode.Arrived || rode.Lost) { break; }
     }
     if (taken.Has && tookOverAtM <= 0.0) {

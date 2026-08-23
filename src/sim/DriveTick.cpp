@@ -23,7 +23,7 @@ double HeadingOf(const outshine::Physics::Body &body) {
 }
 } // namespace
 
-Ridden DriveTick(const Corridor &way, const Rigged &stood, const Vehicle &car,
+Ridden DriveTick(const Corridor &way, const Rigged &stood,
                  DriveState &drive, double dtS, const Taken *taken) {
   Ridden &out = drive.Tally;
   out.Found = false;

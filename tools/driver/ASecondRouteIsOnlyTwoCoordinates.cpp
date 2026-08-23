@@ -100,7 +100,7 @@ int main(void) {
   const auto began = std::chrono::steady_clock::now();
   Ridden rode;
   for (long step = 0; step < kMostSteps; ++step) {
-    rode = outshine::Sim::DriveTick(drive.Way, drive.Stood, drive.Car, drive.State, kStepS, nullptr);
+    rode = outshine::Sim::DriveTick(drive.Way, drive.Stood, drive.State, kStepS, nullptr);
     if (!rode.Found || rode.Arrived || rode.Lost || rode.PastLimit || rode.OffTheRoad) { break; }
   }
   const double wallS =
