@@ -225,6 +225,33 @@ int main() {
 
   Covers("I.26 a file that does not carry what a case needs is a refusal that names what was missing");
   {
+    // the declaration cannot buy the allocation: a four-byte .bin beside a gltf declaring
+    // 4294967295 bytes refuses on the MEASURED count -- the resize follows the file, so
+    // this arm returns in milliseconds instead of zero-filling four gigabytes
+    const std::string bin = outshine::Test::PlantedPath("hostile.bin");
+    {
+      std::FILE *const file = std::fopen(bin.c_str(), "wb");
+      CHECK(file != nullptr, "the four-byte bin plants");
+      std::fwrite("abcd", 1, 4, file);
+      std::fclose(file);
+    }
+    const std::string doc = outshine::Test::PlantedPath("hostile.gltf");
+    {
+      std::FILE *const file = std::fopen(doc.c_str(), "wb");
+      const std::string text =
+          std::string(R"({"asset":{"version":"2.0"},"buffers":[{"uri":"hostile.bin",)") +
+          R"("byteLength":4294967295}]})";
+      std::fwrite(text.data(), 1, text.size(), file);
+      std::fclose(file);
+    }
+    Document greedy;
+    CHECK(!greedy.ReadFile(doc) &&
+              greedy.Error().find("4 are present") != std::string::npos,
+          "**A DECLARED byteLength BUYS NO ALLOCATION THE FILE DOES NOT CARRY**: the "
+          "refusal names the four measured bytes, and no gigabytes were zero-filled on "
+          "the way to it (board:1736)");
+  }
+  {
     // the forest proof is linear: a five-thousand-node parent CHAIN reads inside the
     // suite's own patience -- the unmemoised walk paid n^2/2 steps here
     std::string chain = R"({"asset":{"version":"2.0"},"nodes":[)";

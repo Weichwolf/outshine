@@ -39,3 +39,15 @@ large-count viewless-sparse accessor decodes.
 Proving tests: a twin case in `test/unit/gltf/AFileThatCannotMeanAnythingIsRefusedByName.cpp`
 that asserts peak allocation stays under the measured file size (Heap tag), and a case in
 `ASparseAccessorResolves.cpp` for the plain viewless zero accessor.
+
+---
+
+Closed -- (1) the buffer read allocates the SMALLER of both truths: file_size is measured
+first and the resize is min(declared+1, measured), so a four-byte .bin beside a 4 GiB
+declaration refuses on the measured count without one speculative zero (proven by the
+hostile-bin arm returning in milliseconds, refusal naming "4 are present"); (2) the
+viewless accessor follows spec 3.6.2.3 -- no sparse required, zeros decode (the plain
+zero-field twin) -- and the fill's OUTPUT is bounded by kFillOverCarried [SET] 1024 output
+bytes per carried byte with its derivation beside it (the spec's own morph extreme), so
+the legal forty-element viewless-sparse shape decodes while the 500-million-count greedy
+arm still refuses. Negative control: the pre-fix reader fails the new twins.

@@ -2,6 +2,7 @@
 
 #include <numbers>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 
 #include "Json.h"
@@ -429,11 +430,17 @@ bool Document::ResolveBuffers(const Json &json, const uint8_t *binaryChunk, size
 
       return Refuse("buffer " + Number(i) + " is a data: URI, which this reader does not decode");
     } else {
+      std::error_code stat;
+      const auto measured = std::filesystem::file_size(directory + uri, stat);
+      if (stat) { return Refuse("buffer " + Number(i) + " names " + uri + ", which cannot be opened"); }
+      // the allocation is the SMALLER of both truths: the declaration cannot buy bytes
+      // the file does not carry (a 60-byte file declaring 4 GiB once zero-filled 4 GiB
+      // before the refusal), and the file cannot be slurped past declared+1
+      const size_t reading =
+          measured < (uintmax_t)declared + 1 ? (size_t)measured : declared + 1;
       std::ifstream file(directory + uri, std::ios::binary);
       if (!file) { return Refuse("buffer " + Number(i) + " names " + uri + ", which cannot be opened"); }
-      // at most the declared bytes and one more: a uri naming a hundred-gigabyte file is
-      // refused after declared+1 bytes, not slurped to its end first
-      bytes.resize(declared + 1);
+      bytes.resize(reading);
       file.read(reinterpret_cast<char *>(bytes.data()), (std::streamsize)bytes.size());
       bytes.resize((size_t)file.gcount());
     }
@@ -1550,15 +1557,20 @@ bool Document::ReadElements(int accessorIndex, std::vector<double> &out) const {
     }
   }
 
-  // a viewless accessor is zero-filled by spec -- but its BOUND must come from bytes the
-  // file actually carries: without a sparse override the fill answers nothing a view
-  // could not, and with one the count is held to the sparse data's own reach, so a
-  // 200-byte file cannot command gigabytes of zeros
+  // a viewless accessor is zero-filled by spec (3.6.2.3) -- sparse MAY override, none is
+  // required. The fill's OUTPUT is bounded by a named multiple of the bytes the file
+  // carries: kFillOverCarried [SET] 1024, because the spec's own extreme is a morph
+  // target's wide zero field over a one-element override -- a kilobyte file may command
+  // a megabyte of zeros and never the gigabytes a 60-byte declaration once bought
   if (accessor.View < 0) {
-    if (!accessor.HasSparse) { return false; }
+    constexpr size_t kFillOverCarried = 1024;
     size_t carriedBytes = 0;
     for (const std::vector<uint8_t> &buffer : Buffers_) { carriedBytes += buffer.size(); }
-    if (accessor.Count > carriedBytes) { return false; }
+    if (accessor.Count > 0 &&
+        (components == 0 || accessor.Count > (carriedBytes * kFillOverCarried) /
+                                                 (components * sizeof(double)))) {
+      return false;
+    }
   }
   out.assign(accessor.Count * components, 0.0);
   if (accessor.View >= 0) {
