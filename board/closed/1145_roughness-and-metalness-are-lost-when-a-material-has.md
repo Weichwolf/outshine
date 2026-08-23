@@ -38,3 +38,17 @@ pipeline key being `(VertexLayout, SurfaceState)`.
 
 **Done when** a lit textured part reads the metal-rough image its material declares whatever the tangent
 frame says, and a case exists that would have failed before it.
+
+---
+
+Closed -- the metal-rough tap moved to the condition that makes it readable: the three
+lit-textured arms (opaque, masked, blended) sample SUBJECT_METALROUGH_TAP and shade with
+surface.metalness * orm.b and surface.roughness * orm.g; an absent image samples the
+residency's neutral white, so factor-only materials are untouched, and the mapped arm keeps
+its Toksvig term. Proven on the device in
+render/outshine/shader/AMetalRoughImageReadsWithoutATangentFrame: a tangentless quad whose
+image says dielectric rough 0.5 against factors saying metal rough 1 renders 62% apart from
+its factors-only twin -- the arm that ignored the sampler rendered them identically
+(negative control: the pre-fix shader reverted fails all three arms of this test).
+Residue for the board: the lit TRANSMISSIVE arm (fsLitTransmissive) still shades untextured
+even when the material declares images -- the same class, one arm over.

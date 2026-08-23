@@ -4,13 +4,18 @@ static inline float3 emittedAt(constant M &surface, texture2d<float> emissiveMap
   return surface.emissive * SUBJECT_EMISSIVE_TAP(uv).rgb;
 }
 
+// the metal-rough image belongs to TEXTURED AND LIT -- the condition that makes it
+// readable -- not to "has a tangent frame", which is only what the NORMAL map needs; glTF
+// ties the two textures together nowhere, and an absent image samples the neutral white
 fragment SFrag fsLitTextured(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
+  float4 orm = SUBJECT_METALROUGH_TAP(SUBJECT_UVS(in));
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
   o.col = float4(shadeRow(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb * in.colour.rgb,
-                          surface.metalness, surface.roughness, SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
+                          surface.metalness * orm.b, surface.roughness * orm.g,
+                          SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
                           SUBJECT_SPECULAR_F90(SUBJECT_UVS(in)),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
                           float3(0.0)), 1.0);
@@ -23,12 +28,14 @@ fragment SFrag fsLitTextured(LOut in [[stage_in]], bool front [[front_facing]], 
 fragment SFrag fsLitMaskedTextured(LOut in [[stage_in]], bool front [[front_facing]],
                                    SUBJECT_SURFACE) {
   float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
+  float4 orm = SUBJECT_METALROUGH_TAP(SUBJECT_UVS(in));
   if (surface.factor * tap.a * in.colour.a < surface.cut) { discard_fragment(); }
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
   o.col = float4(shadeRow(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb * in.colour.rgb,
-                          surface.metalness, surface.roughness, SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
+                          surface.metalness * orm.b, surface.roughness * orm.g,
+                          SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
                           SUBJECT_SPECULAR_F90(SUBJECT_UVS(in)),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
                           float3(0.0)), 1.0);
@@ -41,11 +48,13 @@ fragment SFrag fsLitMaskedTextured(LOut in [[stage_in]], bool front [[front_faci
 fragment SFrag fsLitBlendedTextured(LOut in [[stage_in]], bool front [[front_facing]],
                                     SUBJECT_SURFACE) {
   float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
+  float4 orm = SUBJECT_METALROUGH_TAP(SUBJECT_UVS(in));
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
   o.col = float4(shadeRow(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb * in.colour.rgb,
-                          surface.metalness, surface.roughness, SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
+                          surface.metalness * orm.b, surface.roughness * orm.g,
+                          SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
                           SUBJECT_SPECULAR_F90(SUBJECT_UVS(in)),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
                           float3(0.0)),
