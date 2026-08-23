@@ -40,3 +40,26 @@ What will be true:
    to 89.999 deg with a stated altitude bound and its derivation.
 2. No closing note again hands a residue to an item that does not name it -- when a
    demand is dropped, the note says DROPPED and why, or it files the successor.
+
+---
+
+Closed -- both behaviours the 1745 item named now have their proofs in the suite that owed
+them, unit/ground/tiles/TheTileCacheEvictsTheLeastRecentlyUsed:
+
+- the LRU: a counting source shows a second stitch of one tile reaches the source NOT ONCE
+  (one stitch touches nine raw tiles -- itself, four edges, four diagonals -- published as
+  a NOTE), a tile touched on the way stays resident through eight stitches elsewhere, and
+  the tile nothing touched is the one that gives way; HeapBytes tracks what is held.
+- the WGS84 round trip: latitude returns within 6.3e-12 degrees and altitude within 7e-7 m
+  from -89.9999999 to 89.9999999, over -400 m, 0 m and 8848 m.
+
+The polar arm's verdict is a MEASUREMENT, not a repair: the conditioned alternative
+(p.Z/slat - N(1-e2)) was written, tried against the standing pxy/clat form at every
+latitude above, and both answer within 7e-7 m -- pxy and clat vanish together, so the ratio
+stays conditioned. The alternative was REMOVED rather than kept beside the original: a
+second spelling for a gain that does not exist is the thing this tree refuses. The comment
+at TileGeodesy.cpp records what was measured so nobody re-suspects it.
+
+And the rule the item's second demand asks for: a closing note that drops a demand says
+DROPPED and why, or files the successor -- this closure names both, which is what 1745's
+did not.

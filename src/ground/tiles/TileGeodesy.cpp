@@ -116,6 +116,11 @@ Geo EcefToGeoWgs84(Ecef p) {
   const double N = a / std::sqrt(1.0 - e2 * slat * slat);
 
   g.LatDeg = kRad2Deg * lat;
+  // MEASURED (board:1757), not assumed: the pxy/clat form was suspected of dividing two
+  // vanishing quantities near the pole, and the conditioned alternative (p.Z/slat -
+  // N(1-e2)) was tried against it -- both round-trip within 7e-7 m at 89.9999999 deg,
+  // because pxy and clat vanish together and the ratio stays conditioned. One form
+  // stands; the second spelling was not kept for a gain that does not exist
   g.AltM = pxy / clat - N;
   return g;
 }
