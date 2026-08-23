@@ -54,10 +54,18 @@ int main(void) {
   CHECK(Parses("[0.5, -0.5, 0, 1e9, 1E+9, 12e-3]"), "every legal spelling still parses");
   {
     Json json;
-    const char *text = R"({"edge": 1e999, "mesh": 1e300, "whole": 7, "half": 1.5})";
+    const char *text = R"({"edge": 1e999, "mesh": 1e300, "whole": 7, "half": 1.5,
+                           "tiny": 1e-999,
+                           "dust": 0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001})";
     CHECK(json.Parse(text, std::strlen(text)),
           "1e999 is grammatical json -- the value lands at the double's edge, not a refusal");
     CHECK(json.Root()["edge"].Num(0.0) > 1.0e308, "and reads as the edge");
+    CHECK(json.Root()["tiny"].Num(-1.0) == 0.0,
+          "**AN UNDERFLOW IS ZERO, NEVER THE FAR EDGE**: a hostile 1e-999 lands at ~0 -- "
+          "the platform reports underflow as out_of_range too, and the one judge in "
+          "DecimalEdge.h decides which edge the exact value rounds to (board:1740)");
+    CHECK(json.Root()["dust"].Num(-1.0) == 0.0,
+          "and fraction-spelled tininess with no exponent judges the same");
     CHECK(json.Root()["mesh"].Int(-1) == -1,
           "**A HOSTILE 1e300 IS NOT AN INDEX**: Int answers the caller's default instead "
           "of an undefined cast (board:1737)");

@@ -1,5 +1,8 @@
-#include <charconv>
 #include "Script.h"
+
+#include <charconv>
+
+#include "DecimalEdge.h"
 
 #include <cmath>
 #include <cstdio>
@@ -785,47 +788,9 @@ const Boundary kBoundaries[] = {
   double value = 0.0;
   const auto scanned = std::from_chars(held.data(), held.data() + held.size(), value);
   if (scanned.ec == std::errc::result_out_of_range) {
-    // ECMA rounds the exact value: an overflow is infinity, an underflow is zero. The
-    // judge is the FIRST SIGNIFICANT DIGIT'S decimal exponent -- leading-zero tininess
-    // and mantissa-borne hugeness both count, not just the written exponent's sign
-    const size_t e = held.find_first_of("eE");
-    const std::string_view digits = held.substr(0, e);
-    const size_t dot = digits.find('.');
-    const std::string_view whole =
-        digits.substr(0, dot == std::string_view::npos ? digits.size() : dot);
-    const std::string_view fraction =
-        dot == std::string_view::npos ? std::string_view() : digits.substr(dot + 1);
-    long long lead = 0;
-    bool found = false;
-    for (size_t at = 0; at < whole.size() && !found; ++at) {
-      if (whole[at] != '0') {
-        lead = (long long)(whole.size() - 1 - at);
-        found = true;
-      }
-    }
-    for (size_t at = 0; at < fraction.size() && !found; ++at) {
-      if (fraction[at] != '0') {
-        lead = -(long long)(at + 1);
-        found = true;
-      }
-    }
-    if (!found) { return sign * 0.0; }
-    long long shift = 0;
-    if (e != std::string_view::npos) {
-      const char *from = held.data() + e + 1;
-      const char *const stop = held.data() + held.size();
-      const bool shrinks = *from == '-';
-      if (*from == '+' || *from == '-') { ++from; }
-      if (std::from_chars(from, stop, shift).ec != std::errc()) {
-        // an exponent past long long dwarfs any spelled significand -- its sign decides
-        return sign * (shrinks ? 0.0 : HUGE_VAL);
-      }
-      if (shrinks) { shift = -shift; }
-      // a near-LLONG_MAX exponent would overflow the sum below -- it already decides alone
-      if (shift > (1LL << 62)) { return sign * HUGE_VAL; }
-      if (shift < -(1LL << 62)) { return sign * 0.0; }
-    }
-    return sign * (lead + shift < 0 ? 0.0 : HUGE_VAL);
+    // ECMA rounds the exact value: an overflow is infinity, an underflow is zero -- the
+    // ONE judge in DecimalEdge.h decides which, shared with the json door (board:1740)
+    return sign * (DecimalEdge(held) == Edge::Zero ? 0.0 : HUGE_VAL);
   }
   return scanned.ec == std::errc() ? sign * value : std::nan("");
 }

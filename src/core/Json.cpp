@@ -1,6 +1,8 @@
 #include "Json.h"
 
 #include <charconv>
+
+#include "DecimalEdge.h"
 #include <cstdlib>
 #include <cstring>
 
@@ -176,8 +178,12 @@ int32_t Json::ParseValueInside() {
     double v = 0.0;
     const auto scanned = std::from_chars(Text_.c_str() + P_, Text_.c_str() + at, v);
     if (scanned.ec == std::errc::result_out_of_range) {
-      // 1e999 overflows the double; json's grammar allows it and the value is the edge
-      v = Text_[P_] == '-' ? -1.7976931348623157e308 : 1.7976931348623157e308;
+      // this platform reports UNDERFLOW as out_of_range too -- the one judge decides
+      // which edge the exact value rounds to (a hostile 1e-999 is ~0, never 1.8e308)
+      const std::string_view span(Text_.c_str() + P_, at - P_);
+      const double magnitude =
+          DecimalEdge(span) == Edge::Zero ? 0.0 : 1.7976931348623157e308;
+      v = Text_[P_] == '-' ? -magnitude : magnitude;
     } else if (scanned.ec != std::errc() || scanned.ptr != Text_.c_str() + at) {
       return -1;
     }

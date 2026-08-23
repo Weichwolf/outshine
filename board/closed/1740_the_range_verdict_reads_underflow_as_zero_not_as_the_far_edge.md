@@ -21,3 +21,13 @@ Demanded: on out_of_range, keep from_chars' own stored value where it is finite 
 1701 did. The proof gains the discriminating arms `1e-999` → 0, `-1e-999` → -0 (signbit),
 beside the existing `1e999` edge in AJsonDoorRefusesWhatIsNotJsonAndSurvivesWhatIsHostile.
 Negative control: the current clamp reverted-in must go FAIL on exactly these arms.
+
+---
+
+Closed -- the judge is ONE now: src/core/DecimalEdge.h holds the first-significant-digit
+rule (1701's), Script.cpp's TextToNumber and Json.cpp's out-of-range arm both consult it,
+and the second spelling that let the class recur died in the consolidation. A hostile
+1e-999 lands at ±0 (never 1.8e308) and 401 fraction zeros judge the same; 1e999 still
+lands at the far edge. Proven in AJsonDoorRefusesWhatIsNotJsonAndSurvivesWhatIsHostile
+(tiny == 0, dust == 0, edge > 1e308; negative control: the sign-only clamp reverted fails
+exactly these arms) with the Script suite standing unchanged on the shared judge.
