@@ -42,14 +42,14 @@ int main(void) {
   CHECK(read, "the declared world reads from the tree");
   if (!read) { return Report(); }
 
-  outshine::Scenario::Mod mod;
+  outshine::SceneLegacy::Mod mod;
   std::string error;
   const bool parsed = mod.Read(text, kMod);
   if (!parsed) { std::printf("REFUSED %s\n", mod.Error().c_str()); }
   CHECK(parsed, "and parses");
   if (!parsed) { return Report(); }
 
-  const outshine::Scenario::Scene *const scene = mod.Find(kScene);
+  const outshine::SceneLegacy::Scene *const scene = mod.Find(kScene);
   CHECK(scene != nullptr, "and the scene it names is in it");
   if (scene == nullptr) { return Report(); }
 
@@ -83,7 +83,7 @@ int main(void) {
         "clock -- this is the first case in the tree that constructs a Sim at all");
   if (brought != Sim::Bring::Open) { return Report(); }
 
-  const outshine::Scenario::WorldStage *const staged = scene->Staged().AsWorld();
+  const outshine::SceneLegacy::WorldStage *const staged = scene->Staged().AsWorld();
   CHECK(staged != nullptr, "the scene stages a world rather than a studio");
   if (staged == nullptr) { return Report(); }
 

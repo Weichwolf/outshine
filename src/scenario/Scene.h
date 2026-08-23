@@ -12,7 +12,7 @@
 #include "Json.h"
 #include "Stage.h"
 
-namespace outshine::Scenario {
+namespace outshine::SceneLegacy {
 
 class Scene {
 public:
@@ -68,7 +68,7 @@ public:
 
   const std::string &Why() const { return Why_; }
 
-  const Scenario::Stage &Staged() const { return *Stage_; }
+  const SceneLegacy::Stage &Staged() const { return *Stage_; }
 
   double FovDeg() const { return FovDeg_; }
 
@@ -97,7 +97,7 @@ private:
   std::string Id_, Why_;
   Kind Kind_ = Kind::Interactive;
 
-  std::optional<Scenario::Stage> Stage_;
+  std::optional<SceneLegacy::Stage> Stage_;
   double FovDeg_ = 0.0;
   double JitterPin_[2] = {0.0, 0.0};
   bool HasJitterPin_ = false;

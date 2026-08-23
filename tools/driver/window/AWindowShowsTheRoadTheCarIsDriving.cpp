@@ -17,6 +17,7 @@
 
 #include "Assembly.h"
 #include "DriveAssembly.h"
+#include "DeclaredSources.h"
 #include "GroundStack.h"
 #include "ScenarioRead.h"
 #include "Live.h"
@@ -143,7 +144,7 @@ int main(void) {
   outshine::Host::CurlTransport::Config wiring;
   outshine::Host::CurlTransport wire(wiring);
   const bool laid = AssembleDrive(scene, cast, vehicles, drives, declared.Ground, stack, wire,
-      outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, quiet, drive);
+      outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets", {outshine::Data::ShippedProviders().begin(), outshine::Data::ShippedProviders().end()}}, quiet, drive);
   CHECK(laid, "**THE WINDOW LAYS THE ROAD WITH THE SAME CALL THE HEADLESS DRIVER DOES.** One "
               "translation unit, two binaries: the headless one links no renderer at all and this "
               "one links the whole of it, and neither knows which it is");

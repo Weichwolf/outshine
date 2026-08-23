@@ -13,6 +13,7 @@
 
 #include "Assembly.h"
 #include "DriveAssembly.h"
+#include "DeclaredSources.h"
 #include "GroundStack.h"
 #include "ScenarioRead.h"
 
@@ -94,7 +95,7 @@ int main(void) {
   outshine::Host::CurlTransport::Config wiring;
   outshine::Host::CurlTransport wire(wiring);
   const bool laid = AssembleDrive(scene, stood, vehicles, drives, declared.Ground, stack, wire,
-      outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, harness, drive);
+      outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets", {outshine::Data::ShippedProviders().begin(), outshine::Data::ShippedProviders().end()}}, harness, drive);
   CHECK(laid, "**THE ROAD FROM MARIENPLATZ TO RATHAUSMARKT IS LAID.** A route over ways fetched "
               "live, a corridor fitted through them, the real ground under it shaped to each road "
               "class's own grade, and the declared F31 standing on it -- and every one of those "

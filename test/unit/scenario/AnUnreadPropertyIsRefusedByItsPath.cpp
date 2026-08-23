@@ -25,7 +25,7 @@ std::string With(const std::string &find, const std::string &replace) {
 }
 
 [[nodiscard]] bool Refused(const std::string &text, const char *naming) {
-  Scenario::Mod mod;
+  SceneLegacy::Mod mod;
   if (mod.Read(text, "t.json")) return false;
   if (mod.Error().find(naming) == std::string::npos) {
     std::printf("       refusal was: %s\n       expected it to name: %s\n", mod.Error().c_str(),
@@ -41,7 +41,7 @@ int main() {
   Covers("I.4 an unknown property is refused with its path");
   Covers("I.4 a parse failure names the byte offset");
 
-  Scenario::Mod ok;
+  SceneLegacy::Mod ok;
   CHECK(ok.Read(kWorld, "t.json"), "the declaration this test varies does load");
 
   CHECK(Refused(With("\"lat\"", "\"latitude\": 52.0, \"lat\""), "stage.world.latitude"),
@@ -59,7 +59,7 @@ int main() {
   CHECK(Refused(With(", \"why\": \"a quarter frame, to keep this test cheap\"", ""), "render.why"),
         "a render size that is not the budget's and states no why is refused");
 
-  Scenario::Mod broken;
+  SceneLegacy::Mod broken;
   CHECK(!broken.Read("{ \"schema\": \"outshine/mod/1\", ", "t.json"),
         "a truncated declaration is refused");
   CHECK(broken.Error().find("byte") != std::string::npos,

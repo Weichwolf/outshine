@@ -61,7 +61,7 @@ public:
   static constexpr Generators::Rank kWayRank{2};
   static constexpr Generators::Rank kTreeRank{3};
 
-  Sim(const Scenario::Scene &scene, const Assets &assets);
+  Sim(const SceneLegacy::Scene &scene, const Assets &assets);
 
   void SetTransport(Data::Transport &transport) { if (!Opened_) Wire_ = &transport; }
   void SetContentStore(const Data::ContentStore::Config &config) { if (!Opened_) Store_ = config; }
@@ -121,10 +121,10 @@ public:
   const Ground::EyeColumn &EyeColumn() const { return Stand_; }
   const Ground::VegetationTemplates &Vegetation() const { return Veg_; }
   const Ground::GroundMaterials &Materials() const { return Mats_; }
-  const Scenario::Scene &Declared() const { return Scene_; }
+  const SceneLegacy::Scene &Declared() const { return Scene_; }
 
-  const Scenario::WorldStage *WorldStage() const { return Scene_.Staged().AsWorld(); }
-  const Scenario::StudioStage *StudioStage() const { return Scene_.Staged().AsStudio(); }
+  const SceneLegacy::WorldStage *WorldStage() const { return Scene_.Staged().AsWorld(); }
+  const SceneLegacy::StudioStage *StudioStage() const { return Scene_.Staged().AsStudio(); }
   const Assets &Files() const { return Assets_; }
   const SceneWeather &Weather() const { return Wind_; }
   const State &SceneState() const { return State_; }
@@ -178,7 +178,7 @@ private:
 
   std::optional<Generators::Ground> GroundAt(double lat, double lon) const;
 
-  Scenario::Scene Scene_;
+  SceneLegacy::Scene Scene_;
   Assets Assets_;
   SceneWeather Wind_;
   Stance Stance_;

@@ -7,7 +7,7 @@
 #include "Standpoint.h"
 #include "Studio.h"
 
-namespace outshine::Scenario {
+namespace outshine::SceneLegacy {
 
 struct WorldStage {
 

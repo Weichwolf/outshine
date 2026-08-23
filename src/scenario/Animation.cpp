@@ -2,7 +2,7 @@
 
 #include "CatmullRom.h"
 
-namespace outshine::Scenario {
+namespace outshine::SceneLegacy {
 namespace {
 
 using Ref = Json::Ref;

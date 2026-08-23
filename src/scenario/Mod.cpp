@@ -5,7 +5,7 @@
 
 #include "Fields.h"
 
-namespace outshine::Scenario {
+namespace outshine::SceneLegacy {
 
 bool Mod::Refuse(std::string_view why) {
   Error_ = Path_ + ": " + std::string(why);

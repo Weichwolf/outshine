@@ -5,7 +5,7 @@
 
 #include "Mercator.h"
 
-namespace outshine::Scenario {
+namespace outshine::SceneLegacy {
 
 class Standpoint {
 public:

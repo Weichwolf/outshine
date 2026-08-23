@@ -47,14 +47,14 @@ Generators::Forest::Stem StemOf(const Generators::TreeSpecies &sp) {
   return stem;
 }
 
-Sim::Stance StanceOf(const Scenario::WorldStage *world) {
-  if (!world) return {Scenario::kAnchorLatDeg, Scenario::kAnchorLonDeg, 0.0, 0.0};
+Sim::Stance StanceOf(const SceneLegacy::WorldStage *world) {
+  if (!world) return {SceneLegacy::kAnchorLatDeg, SceneLegacy::kAnchorLonDeg, 0.0, 0.0};
   return {world->Where.LatDeg(), world->Where.LonDeg(), world->YawDeg, world->PitchDeg};
 }
 
 }
 
-Sim::Sim(const Scenario::Scene &scene, const Assets &assets)
+Sim::Sim(const SceneLegacy::Scene &scene, const Assets &assets)
     : Scene_(scene),
       Assets_(assets),
 
@@ -64,7 +64,7 @@ Sim::Sim(const Scenario::Scene &scene, const Assets &assets)
       Ring_(kRing) {
 
   StackProbe::Enter(StackProbe::Purpose::Frame);
-  if (const Scenario::WorldStage *w = WorldStage()) {
+  if (const SceneLegacy::WorldStage *w = WorldStage()) {
     ViewM_ = w->ViewM;
     OrthoM_ = w->OrthoM;
     WindDeg_ = w->WindFromDeg;
@@ -420,8 +420,9 @@ Sim::Bring Sim::Open() {
     }
     Content_ = std::make_unique<Data::ContentStore>(Store_);
     Sources_ = std::make_unique<Data::SourceSet>(*Content_);
-    if (Data::RegisterDeclared(*Sources_, {Assets_.Stars, true}) != Data::Registered::Complete) {
-      Log::Error("sim", "source_registry_refused", {{"why", std::string("duplicate rank")}});
+    std::string refused;
+    if (!Data::RegisterDeclared(*Sources_, Data::ShippedProviders(), Assets_.Stars, refused)) {
+      Log::Error("sim", "source_registry_refused", {{"why", refused}});
       return Bring::Failed;
     }
     Log::Info("sim", "sources", {{"count", (int)Sources_->Count()},

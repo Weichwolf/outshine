@@ -11,6 +11,7 @@
 #include <outshine/Store.h>
 
 #include "DriveAssembly.h"
+#include "DeclaredSources.h"
 #include "GroundStack.h"
 #include "Sink.h"
 #include "Transport.h"
@@ -87,7 +88,7 @@ int main(void) {
   DriveProduct product;
   const WorldSettings world;
   CHECK(!AssembleDrive(scene, cast, vehicles, drives, world, stack, wire,
-                     Provision{"/tmp/outshine-drive-cache", "src/assets"}, quiet, product),
+                     Provision{"/tmp/outshine-drive-cache", "src/assets", {outshine::Data::ShippedProviders().begin(), outshine::Data::ShippedProviders().end()}}, quiet, product),
         "**A MIND ASSIGNED ELSEWHERE REFUSES THE LAY INSTEAD OF LOGGING AND DRIVING ANYWAY** -- "
         "the claim and the refusal are one predicate, not a printed claim and a weaker guard");
   CHECK(wire.Asked == 0, "and the refusal happens before the journey asks the world for anything");
@@ -107,7 +108,7 @@ int main(void) {
         "and assembles correctly");
   GroundStack secondStack;
   DriveProduct secondProduct;
-  CHECK(!AssembleDrive(held, right, heldCars, heldDrives, world, secondStack, wire, Provision{"", ""}, quiet, secondProduct),
+  CHECK(!AssembleDrive(held, right, heldCars, heldDrives, world, secondStack, wire, Provision{"", "", {}}, quiet, secondProduct),
         "an unprovisioned journey refuses at the same head");
   CHECK(wire.Asked == 0, "still without asking the world");
 

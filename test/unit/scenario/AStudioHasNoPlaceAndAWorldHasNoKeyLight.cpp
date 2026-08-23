@@ -33,7 +33,7 @@ std::string With(const char *text, const std::string &find, const std::string &r
 }
 
 [[nodiscard]] bool Refused(const std::string &text, const char *naming) {
-  Scenario::Mod mod;
+  SceneLegacy::Mod mod;
   if (mod.Read(text, "t.json")) return false;
   if (mod.Error().find(naming) == std::string::npos) {
     std::printf("       refusal was: %s\n       expected it to name: %s\n", mod.Error().c_str(),
@@ -49,14 +49,14 @@ int main() {
   Covers("I.25 Stage as an enumeration with a record per arm");
   Covers("I.25 a Studio scenario has no latitude to declare");
 
-  Scenario::Mod studio;
+  SceneLegacy::Mod studio;
   CHECK(studio.Read(kStudio, "t.json"), "the studio declaration this test varies does load");
   CHECK(studio.Scenes().size() == 1 && studio.Scenes()[0].Staged().AsStudio() != nullptr,
         "and it is on a studio stage");
   CHECK(studio.Scenes()[0].Staged().AsWorld() == nullptr,
         "a studio stage answers no world arm at all");
 
-  Scenario::Mod world;
+  SceneLegacy::Mod world;
   CHECK(world.Read(kWorld, "t.json"), "the world declaration this test varies does load");
   CHECK(world.Scenes()[0].Staged().AsWorld() != nullptr, "and it is on a world stage");
   CHECK(world.Scenes()[0].Staged().AsStudio() == nullptr,

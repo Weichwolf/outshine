@@ -10,7 +10,7 @@ namespace outshine::Clients {
 class SceneWeather : public ConstantWindWeather {
 public:
 
-  explicit SceneWeather(const Scenario::WorldStage *world)
+  explicit SceneWeather(const SceneLegacy::WorldStage *world)
       : ConstantWindWeather(world ? world->WindFromDeg : 0.0,
                             world ? world->WindMs / kKtToMs : 0.0),
         Cover_(world ? world->CloudCover : 0.0) {}

@@ -7,7 +7,7 @@
 
 #include "Json.h"
 
-namespace outshine::Scenario {
+namespace outshine::SceneLegacy {
 
 class Fields {
 public:

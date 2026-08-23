@@ -7,7 +7,7 @@
 
 #include "Scene.h"
 
-namespace outshine::Scenario {
+namespace outshine::SceneLegacy {
 
 class Mod {
 public:

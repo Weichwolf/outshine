@@ -7,7 +7,7 @@
 #include "Json.h"
 #include "Keyframes.h"
 
-namespace outshine::Scenario {
+namespace outshine::SceneLegacy {
 
 class Animation {
 public:

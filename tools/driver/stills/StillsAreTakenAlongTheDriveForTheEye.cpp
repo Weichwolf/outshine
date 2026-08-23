@@ -18,6 +18,7 @@
 
 #include "Assembly.h"
 #include "DriveAssembly.h"
+#include "DeclaredSources.h"
 #include "GroundStack.h"
 #include "ScenarioRead.h"
 #include "Live.h"
@@ -349,7 +350,7 @@ int main(void) {
     return Report();
   }
   const bool laid = AssembleDrive(scene, cast, vehicles, drives, declared.Ground, stack, wire,
-      outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, quiet, drive);
+      outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets", {outshine::Data::ShippedProviders().begin(), outshine::Data::ShippedProviders().end()}}, quiet, drive);
   CHECK(laid, "the road is laid, exactly as the drive lays it");
   if (!laid) { return Report(); }
 

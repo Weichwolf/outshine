@@ -21,3 +21,20 @@ truncation: a rank clash refuses by name.
   weather
 - [ ] **`WithUpstreams` disappears**, because a boolean that means *three particular providers* is a
   name for a list somebody wrote down twice
+
+---
+
+Progress -- all five boxes stand: RegisterDeclared takes the scenario's Provider list
+against the engine's catalogue (terrain, vector, stars); a stranger kind refuses naming it
+and listing the catalogue; two of one kind refuse ("a lookup with two answers has none");
+ZERO providers is a valid declaration (nothing registered, nothing assumed); the shipped
+terrain-vector-stars battery is ShippedProviders(), a convenience every client SELECTS
+explicitly (six driver call sites, Sim, the ground tests); WithUpstreams is gone; the stars
+provider stays file-backed so the proof owes nothing to the weather. Hand-over stays
+SourceSet's counted Ledger.HandedOver. GroundStack::Open and Sim::Provision carry the
+declared list. Collateral repaid: the legacy namespace outshine::Scenario (Scene/Sim world)
+collided with the public struct Scenario the moment data saw the declaration -- renamed to
+outshine::SceneLegacy across its fourteen files, which is the truthful name for the
+CURRENT-red facade it serves. Proving test:
+unit/data/AProviderIsDeclaredAndTheCatalogueRefusesAStranger.cpp. Residue: the ENGINE door
+handing Declared().Providers into its own assembly path once the drive folds behind it.

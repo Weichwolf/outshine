@@ -18,12 +18,12 @@ int main() {
 
   int scenes = 0, world = 0, studio = 0;
   for (const char *name : kMods) {
-    Scenario::Mod mod;
+    SceneLegacy::Mod mod;
     const bool ok = mod.Load(kRoot, name);
     if (!ok) std::printf("       %s\n", mod.Error().c_str());
     CHECK(ok, "the committed declaration loads");
     if (!ok) continue;
-    for (const Scenario::Scene &s : mod.Scenes()) {
+    for (const SceneLegacy::Scene &s : mod.Scenes()) {
       scenes++;
       if (s.Staged().AsWorld()) world++;
       if (s.Staged().AsStudio()) studio++;

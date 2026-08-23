@@ -12,6 +12,7 @@
 
 #include "Assembly.h"
 #include "DriveAssembly.h"
+#include "DeclaredSources.h"
 #include "GroundStack.h"
 #include "ScenarioRead.h"
 
@@ -88,7 +89,7 @@ int main(void) {
     std::printf("REFUSED %s\n", readError.c_str());
     return Report();
   }
-  const bool laid = AssembleDrive(scene, stood, vehicles, drives, declared.Ground, stack, wire, outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, harness, drive);
+  const bool laid = AssembleDrive(scene, stood, vehicles, drives, declared.Ground, stack, wire, outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets", {outshine::Data::ShippedProviders().begin(), outshine::Data::ShippedProviders().end()}}, harness, drive);
   CHECK(laid,
         "**A SECOND ROUTE IS ONLY TWO COORDINATES.** Kyoto Station to Osaka Castle -- another "
         "continent, another road network, the same code, the same declaration, and NOTHING "

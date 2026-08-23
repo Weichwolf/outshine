@@ -40,14 +40,14 @@ int main(void) {
   NoWire wire;
 
   GroundStack polar;
-  CHECK(!polar.Open("/tmp/outshine-drive-cache", "src/assets", 89.9, 0.0, wire, quiet),
+  CHECK(!polar.Open("/tmp/outshine-drive-cache", "src/assets", outshine::Data::ShippedProviders(), 89.9, 0.0, wire, quiet),
         "**A FOCUS OFF THE MERCATOR BAND REFUSES TO STAND** -- beyond 85.05 degrees the tile "
         "pyramid has no rows; the claim and the return are one verdict, reachable from the "
         "seam, and the constant-true pass dies here");
   CHECK(!polar.Opened(), "and nothing stands half-open");
 
   GroundStack elsewhere;
-  CHECK(elsewhere.Open("/tmp/outshine-drive-cache", "/nowhere/no-assets", 48.1, 11.5, wire, quiet),
+  CHECK(elsewhere.Open("/tmp/outshine-drive-cache", "/nowhere/no-assets", outshine::Data::ShippedProviders(), 48.1, 11.5, wire, quiet),
         "**A DECLARATION IS NOT A FETCH**: registering sources against an absent assets root "
         "still opens -- absence answers at read time as uncovered, never at registration "
         "(the data layer's own doctrine, proven by UncoveredIsUndeclared) -- while a real "
@@ -56,7 +56,7 @@ int main(void) {
   elsewhere.Close();
 
   GroundStack stack;
-  CHECK(stack.Open("/tmp/outshine-drive-cache", "src/assets", 48.1, 11.5, wire, quiet),
+  CHECK(stack.Open("/tmp/outshine-drive-cache", "src/assets", outshine::Data::ShippedProviders(), 48.1, 11.5, wire, quiet),
         "the declared assets register and the stack stands: store, sources, pool, stream");
   CHECK(stack.Opened(), "it says so");
   CHECK(stack.Ground().PostM(48.1) > 0.0,
@@ -64,7 +64,7 @@ int main(void) {
         "not merely allocated");
   stack.Close();
   CHECK(!stack.Opened(), "closing stands it down");
-  CHECK(stack.Open("/tmp/outshine-drive-cache", "src/assets", 48.1, 11.5, wire, quiet),
+  CHECK(stack.Open("/tmp/outshine-drive-cache", "src/assets", outshine::Data::ShippedProviders(), 48.1, 11.5, wire, quiet),
         "and it opens again -- the cycle holds");
 
   Covers("II.15 the ground column stands up as one owned stack that opens or refuses loudly: "

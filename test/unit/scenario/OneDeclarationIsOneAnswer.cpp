@@ -47,13 +47,13 @@ const char *kOtherOrder =
 int main() {
   Covers("I.4 the same scenario declared twice in different arrival orders gives the same answer");
 
-  Scenario::Mod a, b;
+  SceneLegacy::Mod a, b;
   CHECK(a.Read(kOneOrder, "a.json"), "the declaration loads in one property order");
   CHECK(b.Read(kOtherOrder, "b.json"), "and in the reverse order, laid out differently");
   if (a.Scenes().size() != 2 || b.Scenes().size() != 2) return Report();
 
-  const Scenario::Scene &wa = a.Scenes()[0], &wb = b.Scenes()[0];
-  const Scenario::WorldStage *pa = wa.Staged().AsWorld(), *pb = wb.Staged().AsWorld();
+  const SceneLegacy::Scene &wa = a.Scenes()[0], &wb = b.Scenes()[0];
+  const SceneLegacy::WorldStage *pa = wa.Staged().AsWorld(), *pb = wb.Staged().AsWorld();
   CHECK(pa && pb, "both read a world stage for the first scene");
   if (!pa || !pb) return Report();
 
@@ -71,8 +71,8 @@ int main() {
   CHECK(wa.SettleFrames() == wb.SettleFrames(), "and so is the temporal history every frame carries");
   CHECK(wa.Exposure().KeyEv == wb.Exposure().KeyEv, "and so is the exposure placement");
 
-  const Scenario::StudioStage *sa = a.Scenes()[1].Staged().AsStudio();
-  const Scenario::StudioStage *sb = b.Scenes()[1].Staged().AsStudio();
+  const SceneLegacy::StudioStage *sa = a.Scenes()[1].Staged().AsStudio();
+  const SceneLegacy::StudioStage *sb = b.Scenes()[1].Staged().AsStudio();
   CHECK(sa && sb, "both read a studio stage for the second scene");
   if (!sa || !sb) return Report();
   CHECK(sa->Ground.MaterialClass == sb->Ground.MaterialClass &&
@@ -80,8 +80,8 @@ int main() {
         "the substrate is the same");
   CHECK(sa->Key.ElevationDeg == sb->Key.ElevationDeg, "and so is the key light");
   CHECK(sa->Behind == sb->Behind, "and so is the backdrop");
-  const auto *ta = std::get_if<Scenario::TreeSubject>(&sa->Stands.What);
-  const auto *tb = std::get_if<Scenario::TreeSubject>(&sb->Stands.What);
+  const auto *ta = std::get_if<SceneLegacy::TreeSubject>(&sa->Stands.What);
+  const auto *tb = std::get_if<SceneLegacy::TreeSubject>(&sb->Stands.What);
   CHECK(ta && tb && ta->Species == tb->Species && ta->LeafMult == tb->LeafMult &&
             ta->HeightM == tb->HeightM && ta->Leaf == tb->Leaf,
         "and so is the subject, generator and every parameter that generator declares");

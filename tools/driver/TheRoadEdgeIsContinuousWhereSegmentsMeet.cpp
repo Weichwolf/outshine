@@ -11,6 +11,7 @@
 
 #include "Assembly.h"
 #include "DriveAssembly.h"
+#include "DeclaredSources.h"
 #include "GroundStack.h"
 #include "ScenarioRead.h"
 #include "Ribbon.h"
@@ -87,7 +88,7 @@ int main(void) {
     return Report();
   }
   CHECK(AssembleDrive(scene, stood, vehicles, drives, declared.Ground, stack, wire,
-      outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets"}, quiet, drive),
+      outshine::Sim::Provision{"/tmp/outshine-drive-cache", "src/assets", {outshine::Data::ShippedProviders().begin(), outshine::Data::ShippedProviders().end()}}, quiet, drive),
         "the route lays, exactly as the drive lays it");
 
   Section section;

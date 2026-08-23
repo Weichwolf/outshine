@@ -103,7 +103,8 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
         "a vehicle without a declared width cannot be fitted to any road");
   if (!(carWidthM > 0.0)) { return false; }
 
-  if (!stack.Open(kept.CacheDir, kept.AssetsDir, middleLat, middleLon, wire, say)) {
+  if (!stack.Open(kept.CacheDir, kept.AssetsDir, kept.Providers, middleLat, middleLon, wire,
+                  say)) {
     return false;
   }
 

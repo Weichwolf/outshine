@@ -123,13 +123,13 @@ LayerIncludes() {
     unit/sim) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/actor/path -Isrc/data -Isrc/actor/body -Isrc/actor/mind -Isrc/scenario -Isrc/sim -Isrc/ground -Isrc/ground/tiles" ;;
     unit/actor/body) printf '%s' "-Isrc/actor/body" ;;
     unit/actor/mind) printf '%s' "-Isrc/actor/path -Isrc/actor/mind" ;;
-    unit/data) printf '%s' "-Isrc/core -Isrc/data" ;;
+    unit/data) printf '%s' "-Iinclude -Isrc/core -Isrc/data" ;;
     unit/gltf) printf '%s' "-Isrc/core -Isrc/gltf" ;;
     unit/ui) printf '%s' "-Isrc/core -Isrc/ui" ;;
     unit/scenario) printf '%s' "-Iinclude -Isrc/core -Isrc/scenario" ;;
     unit/generators) printf '%s' "-Isrc/core -Isrc/generators" ;;
     unit/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
-    unit/ground) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/actor/path -Isrc/data -Isrc/ground -Isrc/ground/tiles" ;;
+    unit/ground) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/actor/path -Isrc/data -Isrc/ground -Isrc/ground/tiles" ;;
     unit/render/plan) printf '%s' "-Isrc/core -Isrc/render/plan" ;;
     unit/render/draw) printf '%s' "-Isrc/core -Isrc/render/draw" ;;
     unit/render/stages) printf '%s' "-Isrc/core -Isrc/render/stages" ;;
@@ -274,9 +274,9 @@ GroupIncludes() {
     src/sim/Rigging.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/actor/path -Isrc/actor/body -Isrc/actor/mind -Isrc/sim" ;;
     src/sim/DriveTick.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/actor/path -Isrc/data -Isrc/actor/body -Isrc/actor/mind -Isrc/scenario -Isrc/sim -Isrc/ground -Isrc/ground/tiles" ;;
     src/actor/path/Wayfinding.cpp) printf '%s' "-Isrc/actor/path" ;;
-    src/ground/RoadHarvest.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/actor/path -Isrc/data -Isrc/ground -Isrc/ground/tiles" ;;
-    src/data) printf '%s' "-Isrc/core -Isrc/data" ;;
-    src/ground | src/ground/tiles) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/actor/path -Isrc/data -Isrc/ground -Isrc/ground/tiles" ;;
+    src/ground/RoadHarvest.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/actor/path -Isrc/data -Isrc/ground -Isrc/ground/tiles" ;;
+    src/data) printf '%s' "-Iinclude -Isrc/core -Isrc/data" ;;
+    src/ground | src/ground/tiles) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/actor/path -Isrc/data -Isrc/ground -Isrc/ground/tiles" ;;
     src/gltf) printf '%s' "-Isrc/core -Isrc/gltf" ;;
     src/ui) printf '%s' "-Isrc/core -Isrc/ui" ;;
     src/scenario | src/scenario/ScenarioRead.cpp | src/scenario/ScenarioLayer.cpp | src/scenario/InputMap.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/scenario" ;;

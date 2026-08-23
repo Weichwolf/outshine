@@ -4,7 +4,7 @@
 #include <string>
 #include <variant>
 
-namespace outshine::Scenario {
+namespace outshine::SceneLegacy {
 
 constexpr double kAnchorLatDeg = 0.0, kAnchorLonDeg = 0.0;
 

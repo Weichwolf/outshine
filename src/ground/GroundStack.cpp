@@ -9,7 +9,8 @@
 namespace outshine::Ground {
 
 bool GroundStack::Open(std::string_view cacheDir, std::string_view assetsDir,
-                       double focusLat, double focusLon, Data::Transport &wire, Sink &say) {
+                       std::span<const Provider> providers, double focusLat,
+                       double focusLon, Data::Transport &wire, Sink &say) {
   Close();
   const bool onTheBand = std::fabs(focusLat) <= kMercatorLatMaxDeg;
   say.Claim(onTheBand,
@@ -21,10 +22,11 @@ bool GroundStack::Open(std::string_view cacheDir, std::string_view assetsDir,
   Store_ = std::make_unique<outshine::Data::ContentStore>(keeping);
   Sources_ = std::make_unique<outshine::Data::SourceSet>(*Store_);
   outshine::Data::SourceSet &sources = *Sources_;
-  const bool registered =
-      outshine::Data::RegisterDeclared(sources, {std::string(assetsDir) + "/sky", true}) ==
-      outshine::Data::Registered::Complete;
-  say.Claim(registered, "the declared upstream sources register, ranked and without a clash");
+  std::string refused;
+  const bool registered = outshine::Data::RegisterDeclared(
+      sources, providers, std::string(assetsDir) + "/sky", refused);
+  if (!registered) { say.Say(Line("REFUSED %s", refused.c_str())); }
+  say.Claim(registered, "the declared providers register, ranked and without a clash");
   if (!registered) {
     Close();
     return false;

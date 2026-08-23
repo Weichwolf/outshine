@@ -2,7 +2,7 @@
 
 #include "CivilTime.h"
 
-namespace outshine::Scenario {
+namespace outshine::SceneLegacy {
 
 bool Scene::Read(const Json::Ref &node, const std::string &path, std::string &err) {
   Fields named(node, path, err);
