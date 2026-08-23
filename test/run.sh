@@ -355,7 +355,10 @@ BuildGroup() {
   esac
   for unit in $groupUnits; do
     [ -e "$unit" ] || continue
-    setId=$(printf '%s|%s' "$groupIncludes" "$groupStd" | cksum | cut -d' ' -f1)
+    # the id carries the WHOLE compile line: includes, std, optimisation and warnings --
+    # editing -O2 or the warning set in this file silently reused objects built with the
+    # old one, and two of five flag groups is not an identity (board:1751)
+    setId=$(printf '%s|%s|%s|%s' "$groupIncludes" "$groupStd" "$OPT" "$WARN" | cksum | cut -d' ' -f1)
     unitObject=$OBJDIR/$(dirname "$unit" | tr / -)-$(basename "$unit" .cpp).$setId.o
     if ! UpToDate "$unitObject" "$unit"; then
       $CXX "$unit" $groupStd $OPT $WARN $SAN $EXTRA_DEFINES -MMD -MP $groupIncludes -c -o "$unitObject" || return 1
@@ -538,7 +541,10 @@ if [ "$AUDITLINK" = 1 ]; then
         break
       }
       groupStd=$(GroupToolchain "$group")
-      setId=$(printf '%s|%s' "$groupIncludes" "$groupStd" | cksum | cut -d' ' -f1)
+      # the id carries the WHOLE compile line: includes, std, optimisation and warnings --
+    # editing -O2 or the warning set in this file silently reused objects built with the
+    # old one, and two of five flag groups is not an identity (board:1751)
+    setId=$(printf '%s|%s|%s|%s' "$groupIncludes" "$groupStd" "$OPT" "$WARN" | cksum | cut -d' ' -f1)
       case "$group" in
         *.cpp) groupUnits=$group ;;
         *) groupUnits=$(find "$group" -maxdepth 1 -name '*.cpp' | sort) ;;
@@ -876,6 +882,24 @@ CountTheTwo() {
   esac
 }
 
+# the BINARY takes the object's own treatment (board:1751): a stamp of (mtime, size, name)
+# over the test source, its extra sources, every prerequisite the linker's .d names and
+# every object linked in -- compared for EQUALITY, because a checkout or a stash pop moves
+# an mtime BACKWARDS and "-nt" then calls a stale binary current. The .cmd file covers the
+# command line; this covers what the command line was fed.
+BinaryStamp() {
+  stampBinary=$1
+  shift
+  stampFiles="$*"
+  if [ -f "$stampBinary.d" ]; then
+    for stampNeed in $(tr '\\' ' ' <"$stampBinary.d" | tr ':' ' ' | tr -s ' \n' ' '); do
+      case "$stampNeed" in *.o|*.cpp|*.h|*.hpp) ;; *) continue ;; esac
+      stampFiles="$stampFiles $stampNeed"
+    done
+  fi
+  stat -f '%m|%z|%N' -- $stampFiles $OBJECTS 2>/dev/null || return 1
+}
+
 Fresh() {
   freshBinary=$1
   freshCommand=$2
@@ -884,19 +908,9 @@ Fresh() {
   [ -f "$freshBinary.cmd" ] || return 1
   [ "$(cat "$freshBinary.cmd")" = "$freshCommand" ] || return 1
   [ -f "$freshBinary.d" ] || return 1
-  for freshSource in "$@"; do
-    [ -f "$freshSource" ] || return 1
-    [ "$freshSource" -nt "$freshBinary" ] && return 1
-  done
-  for freshNeed in $(tr '\\' ' ' <"$freshBinary.d" | tr ':' ' ' | tr -s ' \n' ' '); do
-    case "$freshNeed" in *.o|*.cpp|*.h|*.hpp) ;; *) continue ;; esac
-    [ -f "$freshNeed" ] || return 1
-    [ "$freshNeed" -nt "$freshBinary" ] && return 1
-  done
-  for freshObject in $OBJECTS; do
-    [ -f "$freshObject" ] || return 1
-    [ "$freshObject" -nt "$freshBinary" ] && return 1
-  done
+  [ -f "$freshBinary.stamp" ] || return 1
+  freshStamp=$(BinaryStamp "$freshBinary" "$@") || return 1
+  [ "$freshStamp" = "$(cat "$freshBinary.stamp")" ] || return 1
   return 0
 }
 
@@ -995,7 +1009,7 @@ for testSource in $TESTS; do
   if [ "$built" = yes ]; then
     buildCommand="$CXX $testSource $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $includes $compileDefine $linkage"
     if Fresh "$plainBinary" "$buildCommand" $testSource $(LayerExtraSources "$layer"); then :; else
-      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN -Itest/harness/shared -Itest/harness/shared/render $includes "$compileDefine" $linkage -MMD -MP -MF "$plainBinary.d" -o "$plainBinary" >>"$log" 2>&1 && printf '%s' "$buildCommand" >"$plainBinary.cmd" || built=no
+      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN -Itest/harness/shared -Itest/harness/shared/render $includes "$compileDefine" $linkage -MMD -MP -MF "$plainBinary.d" -o "$plainBinary" >>"$log" 2>&1 && printf '%s' "$buildCommand" >"$plainBinary.cmd" && BinaryStamp "$plainBinary" "$testSource" $(LayerExtraSources "$layer") >"$plainBinary.stamp" || built=no
     fi
   fi
 
@@ -1027,7 +1041,7 @@ for testSource in $TESTS; do
     if [ "$built" = yes ]; then
       buildCommand="$CXX $testSource $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $SAN $includes $compileDefine $linkage"
     if Fresh "$sanitisedBinary" "$buildCommand" $testSource $(LayerExtraSources "$layer"); then :; else
-      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $SAN -Itest/harness/shared -Itest/harness/shared/render $includes "$compileDefine" $linkage -MMD -MP -MF "$sanitisedBinary.d" -o "$sanitisedBinary" >>"$sanitisedLog" 2>&1 && printf '%s' "$buildCommand" >"$sanitisedBinary.cmd" || built=no
+      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $SAN -Itest/harness/shared -Itest/harness/shared/render $includes "$compileDefine" $linkage -MMD -MP -MF "$sanitisedBinary.d" -o "$sanitisedBinary" >>"$sanitisedLog" 2>&1 && printf '%s' "$buildCommand" >"$sanitisedBinary.cmd" && BinaryStamp "$sanitisedBinary" "$testSource" $(LayerExtraSources "$layer") >"$sanitisedBinary.stamp" || built=no
     fi
     fi
     OBJDIR=$BUILD/obj
@@ -1058,7 +1072,7 @@ for testSource in $TESTS; do
     if [ "$built" = yes ]; then
       buildCommand="$CXX $testSource $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $validation $includes $compileDefine $linkage"
     if Fresh "$validatedBinary" "$buildCommand" $testSource $(LayerExtraSources "$layer"); then :; else
-      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $validation -Itest/harness/shared -Itest/harness/shared/render $includes "$compileDefine" $linkage -MMD -MP -MF "$validatedBinary.d" -o "$validatedBinary" >>"$validatedLog" 2>&1 && printf '%s' "$buildCommand" >"$validatedBinary.cmd" || built=no
+      $CXX "$testSource" $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $validation -Itest/harness/shared -Itest/harness/shared/render $includes "$compileDefine" $linkage -MMD -MP -MF "$validatedBinary.d" -o "$validatedBinary" >>"$validatedLog" 2>&1 && printf '%s' "$buildCommand" >"$validatedBinary.cmd" && BinaryStamp "$validatedBinary" "$testSource" $(LayerExtraSources "$layer") >"$validatedBinary.stamp" || built=no
     fi
     fi
     OBJDIR=$BUILD/obj

@@ -64,3 +64,15 @@ separated by OBJDIR (:1017, :1033, :1048, :1064), so the varying flags are cover
 but editing `-O2` or the warning set in run.sh silently reuses objects built with the old
 one. Fold the whole compile line into the id, or state in the runner why only two of five
 flag groups are in it.
+
+---
+
+Closed (the reopened half) -- the BINARY takes the object's treatment: BinaryStamp digests
+(mtime, size, name) over the test source, its extra sources, every prerequisite the link
+.d names and every object linked in; Fresh compares that stamp for equality, and all three
+arms (plain, sanitised, validated) write it beside their .cmd. One mechanism, both levels.
+The secondary hole went with it: setId now carries the WHOLE compile line (includes, std,
+$OPT, $WARN) -- two of five flag groups is not an identity, and editing -O2 in the runner
+silently reused objects built with the old one. Proven by the defect's own repro one level
+up: a test source edited to a FALSE assertion and stamped with a year-2020 mtime relinks
+and goes red, where -nt kept the old binary and would have printed PASS.
