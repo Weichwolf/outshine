@@ -105,6 +105,33 @@ int main(void) {
           "(board:1715)");
   }
 
+  {
+    // the tail is PRICED at its true length: 20.5 m at step 5 leaves a 0.5 m last gap,
+    // and the entry speed at 20 m must be what the declared brake can shed over 0.5 m --
+    // the full-step price promised sqrt(v^2 + 2 b 5) where only 0.5 m exist
+    ReferenceLine bent;
+    CHECK(bent.Lay(Placed{}, {{Curve::Straight, 20.0, 0.0, 0.0},
+                              {Curve::Spiral, 0.25, 0.0, 0.2},
+                              {Curve::Arc, 0.25, 0.2, 0.2}},
+                   error),
+          "a 20.5 m line with its bend behind the partial step lays");
+    SpeedProfile priced;
+    const Envelope earthly = Standing(kEarthMs2);
+    CHECK(priced.Over(bent, earthly, 5.0, kEntryMs, error), "and plans at step 5");
+    const double bendMs = std::sqrt(earthly.Grip * kEarthMs2 / 0.2);
+    const double honestMs = std::sqrt(bendMs * bendMs + 2.0 * earthly.BrakeMs2() * 0.5);
+    Note("the entry speed the plan allows at 20 m", priced.At(20.0), "m/s");
+    Note("what the brake can honestly shed over the real tail", honestMs, "m/s");
+    CHECK(priced.At(20.0) <= honestMs + 1.0e-9,
+          "**THE LAST INTERVAL IS AS LONG AS IT REALLY IS**: the backward pass prices the "
+          "0.5 m tail at 0.5 m -- the full-step price allowed an entry the declared brake "
+          "cannot land (board:1718)");
+    const double justBefore = priced.At(20.5 - 1.0e-9);
+    CHECK(std::fabs(justBefore - priced.At(20.5)) < 1.0e-3,
+          "and At() is continuous at the plan's end -- the tail interpolates over its true "
+          "length, no jump where the tick reads live");
+  }
+
   Covers("I.9.3 the speed plan derives every gravity-borne bound -- cornering, holding, braking "
          "and the crest's sqrt(g/h'') -- from the world the scenario declares, so the same road "
          "and the same car plan differently on a different sphere with no engine change");

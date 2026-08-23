@@ -25,3 +25,13 @@ Demanded: the passes use the interval's true length (all interior gaps `stepM`, 
 `LengthM_ - whole*stepM`), `At()` interpolates the tail over that same length, and the unit
 twin gets an arm where a sharp final bend behind a partial step proves the entry bound with
 the old arithmetic red.
+
+---
+
+Closed -- both passes price every gap at its true length (interior stepM, the last one
+LengthM - whole*stepM via one gapM lambda) and At() interpolates the tail over that same
+length, so the discontinuity at the plan's end is gone where DriveTick reads live. Proven in
+ASpeedPlanScalesWithTheDeclaredGravity: a 20.5 m line at step 5 with the bend behind the
+partial step bounds the 20 m entry at sqrt(v_bend^2 + 2 b 0.5) -- the full-step price
+allowed sqrt(v^2 + 2 b 5) -- and At() is continuous at the end. Negative control: the
+full-step arithmetic reverted fails exactly this arm.

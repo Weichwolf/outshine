@@ -106,14 +106,19 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
     }
   }
 
+  // every interior gap is stepM; the LAST one is as long as it really is -- pricing the
+  // clamped tail at a full step let the backward pass promise a brake no car has
+  const auto gapM = [&](size_t before) {
+    return before + 2 < samples ? stepM : LengthM_ - (double)(samples - 2) * stepM;
+  };
   Held_[0] = entryMs < Held_[0] ? entryMs : Held_[0];
   for (size_t at = 1; at < samples; ++at) {
     const double reached =
-        std::sqrt(Held_[at - 1] * Held_[at - 1] + 2.0 * accelMs2 * stepM);
+        std::sqrt(Held_[at - 1] * Held_[at - 1] + 2.0 * accelMs2 * gapM(at - 1));
     if (reached < Held_[at]) { Held_[at] = reached; }
   }
   for (size_t at = samples - 1; at > 0; --at) {
-    const double allowed = std::sqrt(Held_[at] * Held_[at] + 2.0 * brakeMs2 * stepM);
+    const double allowed = std::sqrt(Held_[at] * Held_[at] + 2.0 * brakeMs2 * gapM(at - 1));
     if (allowed < Held_[at - 1]) { Held_[at - 1] = allowed; }
   }
   return true;
@@ -124,9 +129,14 @@ double SpeedProfile::At(double alongM) const {
   if (!(alongM > 0.0)) { return Held_.front(); }
   if (alongM >= LengthM_) { return Held_.back(); }
   const double where = alongM / StepM_;
-  const size_t low = (size_t)where;
+  size_t low = (size_t)where;
   if (low + 1 >= Held_.size()) { return Held_.back(); }
-  const double part = where - (double)low;
+  double part = where - (double)low;
+  // the tail interpolates over its TRUE length -- a full-step ramp put a jump at the end
+  if (low + 2 == Held_.size()) {
+    const double tailM = LengthM_ - (double)low * StepM_;
+    part = tailM > 0.0 ? (alongM - (double)low * StepM_) / tailM : 1.0;
+  }
   return Held_[low] + part * (Held_[low + 1] - Held_[low]);
 }
 
