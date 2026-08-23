@@ -1,5 +1,7 @@
 #include <outshine/Outshine.h>
 
+#include <algorithm>
+#include <charconv>
 #include <cstdio>
 #include <vector>
 
@@ -217,6 +219,115 @@ bool Engine::Load(std::string_view path) {
 
 const Scenario &Engine::Declared(void) const { return S_->Declared; }
 const Assembled &Engine::Stood(void) const { return S_->Stood; }
+
+// a save is a FUNCTION OF THE DECLARATION: only the <persist what="instance.trait"> rows
+// leave the process, sorted so two saves of one state are one byte sequence; a park keeps a
+// scenario warm, a save survives the machine
+inline constexpr size_t kMostSaveBytes = 1 << 20; // [SET] a declared state is attributes,
+                                                  // not geometry; a megabyte of numbers is
+                                                  // a design smell spoken loudly
+
+bool Engine::Save(std::string_view path) const {
+  if (S_->Declared.State.empty()) {
+    S_->Error = "the scenario declares nothing to persist, so a save would be an empty "
+                "promise -- declare <state><persist what=.../></state> first";
+    return false;
+  }
+  std::vector<std::string> lines;
+  for (const Persisted &row : S_->Declared.State) {
+    const size_t dot = row.What.find('.');
+    if (dot == std::string::npos) {
+      S_->Error = "the persist row '" + row.What +
+                  "' names no instance.trait pair, and a save writes only what a load can "
+                  "put back";
+      return false;
+    }
+    const Entity holder = S_->Stood.InstanceNamed(std::string_view(row.What).substr(0, dot));
+    const uint32_t key = S_->Stood.TraitKey(std::string_view(row.What).substr(dot + 1));
+    const Traits *held = holder == kNoEntity ? nullptr : S_->Kinds.Get(holder);
+    const double *value = held == nullptr || key == 0 ? nullptr : held->Named(key);
+    if (value == nullptr) {
+      S_->Error = "the persist row '" + row.What +
+                  "' names nothing the assembled scene holds -- a save of a missing value "
+                  "would load as a lie";
+      return false;
+    }
+    char line[192];
+    std::snprintf(line, sizeof line, "%s %.17g\n", row.What.c_str(), *value);
+    lines.push_back(line);
+  }
+  std::sort(lines.begin(), lines.end());
+  std::string text = "outshine-save 1 " + S_->Declared.Named.Name + " " +
+                     S_->Declared.Named.Version + "\n";
+  for (const std::string &line : lines) { text += line; }
+  if (text.size() > kMostSaveBytes) {
+    S_->Error = "the save of " + std::to_string(text.size()) + " bytes overflows the bound of " +
+                std::to_string(kMostSaveBytes);
+    return false;
+  }
+  const std::string held(path);
+  std::FILE *const file = std::fopen(held.c_str(), "wb");
+  if (file == nullptr) {
+    S_->Error = held + ": the save file would not open";
+    return false;
+  }
+  std::fwrite(text.data(), 1, text.size(), file);
+  std::fclose(file);
+  S_->Error.clear();
+  return true;
+}
+
+bool Engine::Restore(std::string_view path) {
+  if (!S_->Stood.Instances.size() && S_->Declared.Instances.empty()) {
+    S_->Error = "nothing is assembled, and loading a save is standing the scenario up FIRST "
+                "and then applying the state -- one arrival route";
+    return false;
+  }
+  std::string text;
+  if (!SlurpFile(std::string(path), text, S_->Error)) { return false; }
+  size_t at = text.find('\n');
+  const std::string head = text.substr(0, at == std::string::npos ? text.size() : at);
+  const std::string wanted =
+      "outshine-save 1 " + S_->Declared.Named.Name + " " + S_->Declared.Named.Version;
+  if (head != wanted) {
+    S_->Error = "the save says '" + head + "' and this engine stands '" + wanted +
+                "' -- a save from another scenario or version refuses quoting both";
+    return false;
+  }
+  while (at != std::string::npos && at + 1 < text.size()) {
+    const size_t end = text.find('\n', at + 1);
+    const std::string line =
+        text.substr(at + 1, (end == std::string::npos ? text.size() : end) - at - 1);
+    at = end;
+    if (line.empty()) { continue; }
+    const size_t gap = line.rfind(' ');
+    const size_t dot = line.find('.');
+    if (gap == std::string::npos || dot == std::string::npos || dot > gap) {
+      S_->Error = "the save line '" + line + "' does not read as instance.trait value";
+      return false;
+    }
+    const Entity holder = S_->Stood.InstanceNamed(std::string_view(line).substr(0, dot));
+    const uint32_t key = S_->Stood.TraitKey(std::string_view(line).substr(dot + 1, gap - dot - 1));
+    Traits held = holder == kNoEntity || S_->Kinds.Get(holder) == nullptr
+                      ? Traits{}
+                      : *S_->Kinds.Get(holder);
+    double value = 0.0;
+    const auto scanned =
+        std::from_chars(line.data() + gap + 1, line.data() + line.size(), value);
+    if (holder == kNoEntity || key == 0 || scanned.ec != std::errc()) {
+      S_->Error = "the save names '" + line.substr(0, gap) +
+                  "', which the assembled scene does not hold -- the declaration moved on and "
+                  "the save did not";
+      return false;
+    }
+    if (!held.Put(key, value) || !S_->Kinds.Put(holder, held)) {
+      S_->Error = "the saved value for '" + line.substr(0, gap) + "' found no seat";
+      return false;
+    }
+  }
+  S_->Error.clear();
+  return true;
+}
 const Column<Traits> &Engine::Resolved(void) const { return S_->Kinds; }
 const std::vector<std::string> &Engine::Carried(void) const { return S_->Carried; }
 

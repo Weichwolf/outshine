@@ -44,6 +44,8 @@ public:
   [[nodiscard]] bool Park();
   [[nodiscard]] bool Resume(std::string_view name);
   [[nodiscard]] bool Discard(std::string_view name);
+  [[nodiscard]] bool Save(std::string_view path) const;
+  [[nodiscard]] bool Restore(std::string_view path);
   [[nodiscard]] std::vector<std::string> Parked(void) const;
 
   [[nodiscard]] int At(void) const;

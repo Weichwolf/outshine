@@ -19,3 +19,23 @@ park keeps a scenario warm in memory, a save survives the process and the machin
   path -- one arrival route, which is the rule the compositor already follows for parts
 - [ ] **The size is bounded and the bound is declared**, and reaching it refuses naming what would not
   fit
+
+---
+
+Closed -- the five demands stand:
+
+- ONLY WHAT THE SCENARIO DECLARED persists: Engine::Save walks the <persist what=
+  "instance.trait"> rows against the resolved traits column; a scenario declaring nothing
+  refuses ("an empty promise"); a row naming nothing assembled refuses ("would load as a
+  lie").
+- NAMED AND VERSIONED: line one is "outshine-save 1 <name> <version>"; a foreign save
+  refuses QUOTING BOTH sides.
+- DETERMINISTIC: rows sorted, %.17g -- two saves of one state are one byte sequence, proven
+  by equality.
+- ONE ARRIVAL ROUTE: Restore requires the normal stand-up first and applies through the same
+  traits column (Put by handle); it never stands anything up itself.
+- BOUNDED: kMostSaveBytes [SET] 1 MiB with its reasoning; overflow refuses naming the size.
+
+This also pays 1665's debt: the park bound's refusal now has the savefile beneath it that
+Bethesda's eviction assumed. Proving test:
+test/render/outshine/client/ASaveIsAFunctionOfTheDeclaration.cpp. Gate green.
