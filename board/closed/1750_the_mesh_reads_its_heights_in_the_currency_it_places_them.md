@@ -27,3 +27,11 @@ What will be true: `Over` samples heights with `PostingM`; any caller that means
 says so at the call site; a unit twin (beside AStitchedEdgePairsPostingsOfTheSamePlace)
 proves a linear-ramp field meshes to vertices whose heights equal the ramp AT THEIR OWN
 positions, which the texel reading cannot satisfy.
+
+---
+
+Closed -- TerrainMesh::Over samples heights with PostingM, the same posting currency its
+positions are placed in. Proven in the same suite: a two-way ramp field meshes to interior
+vertices whose height equals the ramp AT THEIR OWN position (0 m error); negative control:
+the texel reading answers 120.3 m at 17 postings over a 900 m ramp -- half a spacing, as
+derived.

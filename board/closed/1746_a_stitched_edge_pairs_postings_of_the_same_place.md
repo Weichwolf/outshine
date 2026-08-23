@@ -24,3 +24,14 @@ the shared edge (the same PostingFrac currency TerrainMesh::Over already uses), 
 of self's edge postings, and a unit test (twin of 1745's suite) proves that a native tile
 beside a cropped one meshes with a closed seam — matching heights at every shared
 fraction, both directions.
+
+---
+
+Closed -- StitchEdge pairs by PLACE: the fraction along the shared edge is the currency,
+the neighbour's edge is read with the posting reader (TerrainField::PostingM, added in the
+same repair because InterpolatedM addresses texel centres -- board:1750), and EVERY posting
+of the finer side is covered, so nothing is left truncated. Proven in
+AStitchedEdgePairsPostingsOfTheSamePlace: a native 17-posting tile beside a 9-posting one
+meets at 0 m across the whole shared edge past the corner margin (the corners belong to two
+seams by design); negative control: the index-paired stitcher answers 187.5 m of gap on the
+same fixture.

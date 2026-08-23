@@ -22,3 +22,14 @@ What will be true:
    cos(lat) with only the exact-pole case guarded at :102).
 2. The claims test refuses an excuse whose named target directory holds no test — a
    stale excuse must go red, not NOTE-green. Today it prints the lie and passes.
+
+---
+
+Closed -- test/unit/ground/tiles exists (AStitchedEdgePairsPostingsOfTheSamePlace pins the
+stitch across a resolution boundary, the crop path that manufactures it, and the mesh's
+height reading), the tiles layer's excuse is GONE from the claims list, and the claims test
+now refuses a stale excuse: every folding excuse names its target suite and a target that
+holds no test goes RED instead of printing the lie in green. Negative control: pointing the
+core/io excuse at test/unit/nowhere turns the claims test FAIL. Residue for the board: the
+LRU eviction and the WGS84 near-pole arm the item also names are pinned by 1611's
+inventory, not by this suite -- named here so nobody reads the suite as complete.
