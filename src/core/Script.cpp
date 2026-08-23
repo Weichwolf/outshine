@@ -145,22 +145,19 @@ bool Tokenise(std::string_view text, std::vector<Token> &out, std::string &error
         const auto hex =
             std::from_chars(text.data() + at + 2, text.data() + text.size(), wide, 16);
         if (hex.ec == std::errc::result_out_of_range) {
-          // past 64 bits the language's own answer is the precision-losing double --
-          // accumulated explicitly, never a silent zero
-          double wide2 = 0.0;
-          size_t digit = at + 2;
-          while (digit < text.size()) {
-            const char c = text[digit];
-            const int value = (c >= '0' && c <= '9')   ? c - '0'
-                              : (c >= 'a' && c <= 'f') ? c - 'a' + 10
-                              : (c >= 'A' && c <= 'F') ? c - 'A' + 10
-                                                       : -1;
-            if (value < 0) { break; }
-            wide2 = wide2 * 16.0 + (double)value;
-            ++digit;
+          // past 64 bits the language's answer is round-to-nearest of the EXACT value --
+          // one hex-float parse over the whole digit run, never a per-digit accumulation
+          // that rounds at every step
+          size_t digitEnd = at + 2;
+          while (digitEnd < text.size() &&
+                 ((text[digitEnd] >= '0' && text[digitEnd] <= '9') ||
+                  (text[digitEnd] >= 'a' && text[digitEnd] <= 'f') ||
+                  (text[digitEnd] >= 'A' && text[digitEnd] <= 'F'))) {
+            ++digitEnd;
           }
-          token.Number = wide2;
-          at = digit;
+          (void)std::from_chars(text.data() + at + 2, text.data() + digitEnd, token.Number,
+                                std::chars_format::hex);
+          at = digitEnd;
           out.push_back(std::move(token));
           continue;
         }
@@ -725,6 +722,39 @@ const Boundary kBoundaries[] = {
 
 }
 
+// ECMA's string ToNumber, locale-free: trim, empty is 0, signed Infinity, 0x hex, a
+// decimal that must consume the WHOLE text -- anything else is NaN, never a prefix guess
+[[nodiscard]] double TextToNumber(const std::string &text) {
+  std::string_view held(text);
+  while (!held.empty() && (held.front() == ' ' || held.front() == '\t' ||
+                           held.front() == '\n' || held.front() == '\r')) {
+    held.remove_prefix(1);
+  }
+  while (!held.empty() && (held.back() == ' ' || held.back() == '\t' ||
+                           held.back() == '\n' || held.back() == '\r')) {
+    held.remove_suffix(1);
+  }
+  if (held.empty()) { return 0.0; }
+  double sign = 1.0;
+  if (held.front() == '+' || held.front() == '-') {
+    sign = held.front() == '-' ? -1.0 : 1.0;
+    held.remove_prefix(1);
+  }
+  if (held == "Infinity") { return sign * HUGE_VAL; }
+  double value = 0.0;
+  if (held.size() > 2 && held[0] == '0' && (held[1] == 'x' || held[1] == 'X')) {
+    if (sign < 0.0) { return std::nan(""); }
+    const auto hex = std::from_chars(held.data() + 2, held.data() + held.size(), value,
+                                     std::chars_format::hex);
+    return hex.ec == std::errc() && hex.ptr == held.data() + held.size() ? value
+                                                                         : std::nan("");
+  }
+  const auto scanned = std::from_chars(held.data(), held.data() + held.size(), value);
+  if (scanned.ptr != held.data() + held.size()) { return std::nan(""); }
+  if (scanned.ec == std::errc::result_out_of_range) { return sign * HUGE_VAL; }
+  return scanned.ec == std::errc() ? sign * value : std::nan("");
+}
+
 const char *WhyOutside(std::string_view name) {
   for (const Boundary &boundary : kBoundaries) {
     if (name.starts_with(boundary.Name)) { return boundary.Why; }
@@ -818,7 +848,7 @@ bool Program::Evaluate(size_t at, Host &host, Value &out, std::string &error) {
 
       out = node.Spelling == "!"  ? Value::OfNumber(inner.Truth() ? 0.0 : 1.0)
             : node.Spelling == "+" ? Value::OfNumber(inner.What == Kind::Text
-                                                         ? std::strtod(inner.Text.c_str(), nullptr)
+                                                         ? TextToNumber(inner.Text)
                                                          : inner.Number)
                                    : Value::OfNumber(-inner.Number);
       return true;

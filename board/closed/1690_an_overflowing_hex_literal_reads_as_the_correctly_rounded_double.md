@@ -22,3 +22,11 @@ on this toolchain: consumes the bare significand, correctly rounded, equal to st
 `p0` answer) and delete the accumulation; a unit case with a literal the stepwise form gets
 wrong (`0x88bc9f5e154b14ba1a36 === 645721313195641255821312.0` in the corrected reading)
 beside the tokeniser it proves.
+
+---
+
+Closed: the overflowing hex literal parses in ONE from_chars hex-float pass over the whole
+digit run -- round-to-nearest of the EXACT value, as ECMA demands; the per-digit
+accumulation is gone. Proven on the reviewer's own measured literal:
+0x88bc9f5e154b14ba1a36 must equal 0x1.11793ebc2a963p+79, the value the accumulation missed
+by one ulp. Corpus 825/825 beside it.

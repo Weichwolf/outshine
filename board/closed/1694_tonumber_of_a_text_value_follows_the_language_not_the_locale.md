@@ -21,3 +21,11 @@ Demanded: one ToNumber routine for text (trim the language's whitespace, empty â
 via from_chars base 16, `Infinity`/`-Infinity` by name, otherwise from_chars over the WHOLE
 remainder with trailing junk â†’ NaN), used at :821 and anywhere a text value meets
 arithmetic; unit cases for the four spellings above beside the evaluator they prove.
+
+---
+
+Closed: string ToNumber is TextToNumber -- locale-free, ECMA-shaped: trim, empty is 0,
+signed Infinity, 0x hex (unsigned only), and a decimal that must consume the WHOLE text or
+answer NaN, never a prefix guess. Proven through the unary plus: "1.5" reads 1.5 under any
+locale, "1.5px" is NaN, "Infinity" is infinity, "" is 0. The corpus gap (no coercion case)
+is closed by the unit proofs riding the script suite.

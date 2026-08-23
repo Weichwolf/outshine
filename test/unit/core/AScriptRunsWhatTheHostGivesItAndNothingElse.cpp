@@ -291,5 +291,31 @@ int main(void) {
           "while an honest hex literal reads as the number it spells");
   }
 
+  {
+    outshine::Script::Program program;
+    std::string why;
+    Empty nobody;
+    const auto plus = [&](const char *text, double &into) {
+      const std::string script = std::string("let coerced = ") + text;
+      if (!program.Read(script, why) || !program.Run(nobody, why)) { return false; }
+      const outshine::Script::Value *held = program.Named("coerced");
+      if (held == nullptr) { return false; }
+      into = held->Number;
+      return true;
+    };
+    double v = 0.0;
+    CHECK(plus("+\"1.5\"", v) && v == 1.5,
+          "string coercion reads the whole decimal, locale-free (board:1694)");
+    CHECK(plus("+\"1.5px\"", v) && std::isnan(v),
+          "a trailing unit makes NaN -- ECMA consumes the WHOLE text, never a prefix guess");
+    CHECK(plus("+\"Infinity\"", v) && v == HUGE_VAL,
+          "and Infinity spells the language's own infinity, not zero");
+    CHECK(plus("+\"\"", v) && v == 0.0, "the empty string is 0, as the language says");
+    CHECK(plus("0x88bc9f5e154b14ba1a36", v) && v == 0x1.11793ebc2a963p+79,
+          "**AN OVERFLOWING HEX LITERAL ROUNDS ONCE, FROM THE EXACT VALUE** -- the per-digit "
+          "accumulation rounded at every step and landed one ulp low on this very literal "
+          "(board:1690)");
+  }
+
   return Report();
 }
