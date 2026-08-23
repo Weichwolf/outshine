@@ -35,3 +35,12 @@ underflow-range as the value from_chars wrote (0), accept only the exact spellin
 scan the hex run with the digits-only grammar and answer overflow with Infinity; the
 tokeniser's overflow branch reads its ec. Each case above lands in
 `AScriptRunsWhatTheHostGivesItAndNothingElse` beside the 1694 checks.
+
+---
+
+Closed: TextToNumber speaks ECMA's own StrDecimalLiteral -- an explicit shape check (one
+sign, digits/point/exponent, nothing else) runs BEFORE from_chars, so "--5" is NaN and never
+plus five, "inf" and hex floats are NaN; underflow and overflow are told apart by the TEXT'S
+own exponent sign (1e-999 is zero, 1e999 is infinity -- no errno convention consulted); the
+tokenizer's giant-hex path writes infinity explicitly on out_of_range instead of trusting a
+library to. Proofs ride the unary plus; corpus 825/825.

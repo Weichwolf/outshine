@@ -22,3 +22,10 @@ loudly. Demanded: numeric domain checks in Parse with the same refusal voice
 (`whorl_spacing >= 1` when `whorl_count > 0`, `trunk_steps >= 1`, `step_len > 0`,
 `0 < taper < 1`, radii > 0), and a unit case per refusal in a `test/unit/generators/`
 twin — the shipped 32 species in `src/assets/world/species/` must all still pass.
+
+---
+
+Closed: TreeSpecies::Parse refuses at assembly what would fault at growth -- whorl_spacing 0
+under a whorl_count names both numbers ("divides by it"), heightless trees and orders past
+the grower's bound refuse alike. Proving test:
+unit/generators/ASpeciesRefusesWhatWouldDivideByZero.cpp.

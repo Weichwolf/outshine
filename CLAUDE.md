@@ -269,6 +269,7 @@ classDiagram
     +Advance() bool
     +Run() bool
     +Park() / Resume(name) / Discard(name) / Parked()
+    +Save(path) / Restore(path)
     +RenderTo(frame)
   }
   class Live {

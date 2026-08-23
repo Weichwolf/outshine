@@ -59,11 +59,33 @@ int main(void) {
     outshine::Engine second;
     CHECK(second.Read(world) && second.Assemble(),
           "**LOADING IS STANDING UP AND THEN APPLYING** -- the same one arrival route");
-    CHECK(second.Restore(save), "the save applies through the same traits column it was "
-                                "read from");
+    // the save is edited to a NON-default value first, so an empty Restore cannot pass
+    std::string tampered = Slurp(save);
+    const size_t five = tampered.find("0.5");
+    CHECK(five != std::string::npos, "the saved value is in the text");
+    tampered.replace(five, 3, "0.75");
+    const std::string edited = Planted("vault-edited.save", tampered.c_str());
+    CHECK(second.Restore(edited), "the edited save applies through the same traits column "
+                                  "it was read from");
     const double *fill = second.Resolved().Get(second.Stood().InstanceNamed("cup"))
                              ->Named(second.Stood().TraitKey("fillL"));
-    CHECK(fill != nullptr && *fill == 0.5, "and the value is back to the bit");
+    CHECK(fill != nullptr && *fill == 0.75,
+          "and the LANDED value differs from the declaration's default -- a Restore that "
+          "does nothing cannot pass this");
+  }
+  {
+    // a save whose LAST line is broken must leave the scene untouched -- never half-applied
+    std::string broken = Slurp(save);
+    broken += "cup.noSuchTrait 9\n";
+    const std::string half = Planted("vault-broken.save", broken.c_str());
+    outshine::Engine untouched;
+    CHECK(untouched.Read(world) && untouched.Assemble() && !untouched.Restore(half),
+          "a save with one bad line refuses");
+    const double *kept = untouched.Resolved().Get(untouched.Stood().InstanceNamed("cup"))
+                             ->Named(untouched.Stood().TraitKey("fillL"));
+    CHECK(kept != nullptr && *kept == 0.5,
+          "**AND NOTHING WAS HALF-APPLIED**: the good first line did not land before the bad "
+          "last line refused -- validation completes before one value moves");
   }
   {
     outshine::Engine wrong;

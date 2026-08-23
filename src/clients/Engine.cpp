@@ -252,9 +252,9 @@ bool Engine::Save(std::string_view path) const {
                   "would load as a lie";
       return false;
     }
-    char line[192];
-    std::snprintf(line, sizeof line, "%s %.17g\n", row.What.c_str(), *value);
-    lines.push_back(line);
+    char digits[64];
+    const auto written = std::to_chars(digits, digits + sizeof digits, *value);
+    lines.push_back(row.What + " " + std::string(digits, written.ptr) + "\n");
   }
   std::sort(lines.begin(), lines.end());
   std::string text = "outshine-save 1 " + S_->Declared.Named.Name + " " +
@@ -271,8 +271,13 @@ bool Engine::Save(std::string_view path) const {
     S_->Error = held + ": the save file would not open";
     return false;
   }
-  std::fwrite(text.data(), 1, text.size(), file);
-  std::fclose(file);
+  const size_t wrote = std::fwrite(text.data(), 1, text.size(), file);
+  const bool closed = std::fclose(file) == 0;
+  if (wrote != text.size() || !closed) {
+    S_->Error = held + ": the save did not reach the disk whole -- a full disk is a refusal, "
+                "never a successful save";
+    return false;
+  }
   S_->Error.clear();
   return true;
 }
@@ -294,6 +299,12 @@ bool Engine::Restore(std::string_view path) {
                 "' -- a save from another scenario or version refuses quoting both";
     return false;
   }
+  struct Landing {
+    Entity Holder = kNoEntity;
+    uint32_t Key = 0;
+    double Value = 0.0;
+  };
+  std::vector<Landing> staged;
   while (at != std::string::npos && at + 1 < text.size()) {
     const size_t end = text.find('\n', at + 1);
     const std::string line =
@@ -306,26 +317,30 @@ bool Engine::Restore(std::string_view path) {
       S_->Error = "the save line '" + line + "' does not read as instance.trait value";
       return false;
     }
-    const Entity holder = S_->Stood.InstanceNamed(std::string_view(line).substr(0, dot));
-    const uint32_t key = S_->Stood.TraitKey(std::string_view(line).substr(dot + 1, gap - dot - 1));
-    Traits held = holder == kNoEntity || S_->Kinds.Get(holder) == nullptr
-                      ? Traits{}
-                      : *S_->Kinds.Get(holder);
-    double value = 0.0;
+    Landing landing;
+    landing.Holder = S_->Stood.InstanceNamed(std::string_view(line).substr(0, dot));
+    landing.Key = S_->Stood.TraitKey(std::string_view(line).substr(dot + 1, gap - dot - 1));
     const auto scanned =
-        std::from_chars(line.data() + gap + 1, line.data() + line.size(), value);
-    if (holder == kNoEntity || key == 0 || scanned.ec != std::errc()) {
+        std::from_chars(line.data() + gap + 1, line.data() + line.size(), landing.Value);
+    if (landing.Holder == kNoEntity || landing.Key == 0 || scanned.ec != std::errc()) {
       S_->Error = "the save names '" + line.substr(0, gap) +
                   "', which the assembled scene does not hold -- the declaration moved on and "
                   "the save did not";
       return false;
     }
-    if (!held.Put(key, value) || !S_->Kinds.Put(holder, held)) {
-      S_->Error = "the saved value for '" + line.substr(0, gap) + "' found no seat";
+    staged.push_back(landing);
+  }
+  // NOTHING mutated until every line validated -- a refused restore leaves the scene as it
+  // stood, never half-applied
+  for (const Landing &landing : staged) {
+    Traits held = S_->Kinds.Get(landing.Holder) == nullptr ? Traits{}
+                                                           : *S_->Kinds.Get(landing.Holder);
+    if (!held.Put(landing.Key, landing.Value) || !S_->Kinds.Put(landing.Holder, held)) {
+      S_->Error = "the saved value found no seat";
       return false;
     }
   }
-  S_->Error.clear();
+    S_->Error.clear();
   return true;
 }
 const Column<Traits> &Engine::Resolved(void) const { return S_->Kinds; }

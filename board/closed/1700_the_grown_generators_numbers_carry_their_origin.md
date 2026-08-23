@@ -25,3 +25,9 @@ Not demanded: prose per line. Demanded: each constant either derives visibly (na
 `[derived]` note with the arithmetic), or wears `[SET]` with what population set it — the
 same standard 1693 applied to `src/data/`, and the grown corpus stays green as the proof
 that marking changed nothing.
+
+---
+
+Closed: the generator constants carry their origins -- sqrt(6) is DERIVED (unit-variance
+scaling of two summed uniforms, written at the site), the leaf albedo and the grower's
+envelope numbers are [SET] with their tuning grounds named. Same bar 1693 set on src/data.

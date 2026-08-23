@@ -9,8 +9,9 @@ namespace outshine::Data {
 namespace {
 constexpr double kRetryBaseMs = 250.0;  // [SET] under a poll cadence of tens of ms this is
                                         // the first real pause a 429/5xx buys
-constexpr double kRetryCapMs = 4000.0;  // [SET] four doublings then hold -- a dead host is
-                                        // the budget's business, not the clock's
+constexpr double kRetryCapMs = 4000.0;  // [SET] the fifth attempt would wait 4000 and the
+                                        // cap holds it there -- a dead host is the
+                                        // budget's business, not the clock's
 }
 
 
@@ -121,7 +122,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
           query.Ticket_ = Ticket::None;
           query.RetryAtMs_ =
               transport.NowMs() +
-              std::fmin(kRetryBaseMs * (double)(1 << (query.Attempts_ - 1)), kRetryCapMs);
+              std::fmin(std::ldexp(kRetryBaseMs, query.Attempts_ - 1), kRetryCapMs);
           return Delivery::Waiting();
         }
         [[fallthrough]];

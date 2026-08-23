@@ -136,7 +136,22 @@ bool TreeSpecies::Parse(const char *text, size_t len) {
   s.WindFreq = NumF(r, "wind_freq", s.WindFreq);
 
   Error_.clear();
+  // refusal at assembly, never a SIGFPE at growth: every number a grower divides by or
+  // loops over must hold before this parse succeeds
+  if (Growth_.WhorlCount > 0 && Growth_.WhorlSpacing <= 0) {
+    Error_ = Name_ + " declares whorl_count " + std::to_string(Growth_.WhorlCount) +
+             " with whorl_spacing " + std::to_string(Growth_.WhorlSpacing) +
+             " -- a whorl every zero steps divides by it";
+    return false;
+  }
+  if (HeightM_ <= 0.0f) {
+    Error_ = Name_ + " declares height_m <= 0, and a tree without height is not a tree";
+    return false;
+  }
+  if (Growth_.MaxOrder < 0 || Growth_.MaxOrder > 8) {
+    Error_ = Name_ + " declares max_order outside 0..8, the grower's own bound";
+    return false;
+  }
   return true;
 }
-
-}
+} // namespace outshine::Generators

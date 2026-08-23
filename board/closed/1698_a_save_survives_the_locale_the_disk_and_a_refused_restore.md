@@ -28,3 +28,12 @@ only, sorted, versioned header, one arrival route — but four seams leak:
 
 Also :255 truncates silently into `char line[192]` when `row.What` is long — the row saves
 mutilated and Restore blames "the declaration moved on". Refuse over-long rows at Save.
+
+---
+
+Closed: the save WRITES locale-free (std::to_chars, the mirror of the from_chars read) --
+a host's setlocale can no longer corrupt a save; fwrite and fclose are checked ("a full disk
+is a refusal, never a successful save"); Restore validates EVERY line into a staging list
+before ONE value moves, proven by a save whose last line is broken leaving the first
+untouched; and the proof discriminates -- the save is tampered to 0.75 before restoring, so
+a Restore that does nothing goes red.

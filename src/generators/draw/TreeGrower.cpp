@@ -11,9 +11,12 @@ constexpr float kTau = 2.0f * std::numbers::pi_v<float>;
 constexpr float kGolden = 2.0f * std::numbers::pi_v<float> * (2.0f - std::numbers::phi_v<float>);
 constexpr float kDeg = std::numbers::pi_v<float> / 180.0f;
 
-constexpr float kEscapeStop = 1.10f;
+constexpr float kEscapeStop = 1.10f; // [SET] a lateral 10% past its envelope stops --
+                                     // where the silhouette starts to fray
 
-constexpr float kBendBack = 0.55f;
+constexpr float kBendBack = 0.55f;   // [SET] the pull toward the envelope: full bend
+                                     // looks topiary, none looks wild -- tuned by eye
+                                     // against the reference silhouettes
 
 constexpr int kMinBranchSteps = 3;
 

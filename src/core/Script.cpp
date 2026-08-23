@@ -155,8 +155,9 @@ bool Tokenise(std::string_view text, std::vector<Token> &out, std::string &error
                   (text[digitEnd] >= 'A' && text[digitEnd] <= 'F'))) {
             ++digitEnd;
           }
-          (void)std::from_chars(text.data() + at + 2, text.data() + digitEnd, token.Number,
-                                std::chars_format::hex);
+          const auto whole = std::from_chars(text.data() + at + 2, text.data() + digitEnd,
+                                             token.Number, std::chars_format::hex);
+          if (whole.ec == std::errc::result_out_of_range) { token.Number = HUGE_VAL; }
           at = digitEnd;
           out.push_back(std::move(token));
           continue;
@@ -724,6 +725,28 @@ const Boundary kBoundaries[] = {
 
 // ECMA's string ToNumber, locale-free: trim, empty is 0, signed Infinity, 0x hex, a
 // decimal that must consume the WHOLE text -- anything else is NaN, never a prefix guess
+[[nodiscard]] bool EcmaDecimalShaped(std::string_view held) {
+  // ECMA's StrDecimalLiteral, after the ONE sign the caller stripped: digits [. digits]
+  // [e [sign] digits] or . digits [...] -- no second sign, no inf, no hex-float
+  size_t at = 0;
+  size_t whole = 0;
+  while (at < held.size() && held[at] >= '0' && held[at] <= '9') { ++at; ++whole; }
+  size_t fraction = 0;
+  if (at < held.size() && held[at] == '.') {
+    ++at;
+    while (at < held.size() && held[at] >= '0' && held[at] <= '9') { ++at; ++fraction; }
+  }
+  if (whole == 0 && fraction == 0) { return false; }
+  if (at < held.size() && (held[at] == 'e' || held[at] == 'E')) {
+    ++at;
+    if (at < held.size() && (held[at] == '+' || held[at] == '-')) { ++at; }
+    size_t exponent = 0;
+    while (at < held.size() && held[at] >= '0' && held[at] <= '9') { ++at; ++exponent; }
+    if (exponent == 0) { return false; }
+  }
+  return at == held.size();
+}
+
 [[nodiscard]] double TextToNumber(const std::string &text) {
   std::string_view held(text);
   while (!held.empty() && (held.front() == ' ' || held.front() == '\t' ||
@@ -741,17 +764,30 @@ const Boundary kBoundaries[] = {
     held.remove_prefix(1);
   }
   if (held == "Infinity") { return sign * HUGE_VAL; }
-  double value = 0.0;
   if (held.size() > 2 && held[0] == '0' && (held[1] == 'x' || held[1] == 'X')) {
     if (sign < 0.0) { return std::nan(""); }
+    for (size_t at = 2; at < held.size(); ++at) {
+      const char c = held[at];
+      const bool digit = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') ||
+                         (c >= 'A' && c <= 'F');
+      if (!digit) { return std::nan(""); }
+    }
+    double value = 0.0;
     const auto hex = std::from_chars(held.data() + 2, held.data() + held.size(), value,
                                      std::chars_format::hex);
-    return hex.ec == std::errc() && hex.ptr == held.data() + held.size() ? value
-                                                                         : std::nan("");
+    if (hex.ec == std::errc::result_out_of_range) { return HUGE_VAL; }
+    return hex.ec == std::errc() ? value : std::nan("");
   }
+  if (!EcmaDecimalShaped(held)) { return std::nan(""); }
+  double value = 0.0;
   const auto scanned = std::from_chars(held.data(), held.data() + held.size(), value);
-  if (scanned.ptr != held.data() + held.size()) { return std::nan(""); }
-  if (scanned.ec == std::errc::result_out_of_range) { return sign * HUGE_VAL; }
+  if (scanned.ec == std::errc::result_out_of_range) {
+    // ECMA rounds the exact value: an overflow is infinity, an UNDERFLOW is zero -- the
+    // text's own exponent says which, no library convention consulted
+    const size_t e = held.find_first_of("eE");
+    const bool tiny = e != std::string_view::npos && e + 1 < held.size() && held[e + 1] == '-';
+    return sign * (tiny ? 0.0 : HUGE_VAL);
+  }
   return scanned.ec == std::errc() ? sign * value : std::nan("");
 }
 

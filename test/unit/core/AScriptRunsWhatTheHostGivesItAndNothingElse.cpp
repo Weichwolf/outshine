@@ -311,6 +311,15 @@ int main(void) {
     CHECK(plus("+\"Infinity\"", v) && v == HUGE_VAL,
           "and Infinity spells the language's own infinity, not zero");
     CHECK(plus("+\"\"", v) && v == 0.0, "the empty string is 0, as the language says");
+    CHECK(plus("+\"--5\"", v) && std::isnan(v),
+          "a second sign is NaN -- never plus five (board:1695)");
+    CHECK(plus("+\"1e-999\"", v) && v == 0.0,
+          "an underflow is ZERO, as ECMA rounds the exact value -- the text's own exponent "
+          "decides, not a library's errno convention");
+    CHECK(plus("+\"inf\"", v) && std::isnan(v),
+          "'inf' is not a number the language knows -- only Infinity is");
+    CHECK(plus("+\"0x1p4\"", v) && std::isnan(v),
+          "and a hex FLOAT is not ECMA's hex integer");
     CHECK(plus("0x88bc9f5e154b14ba1a36", v) && v == 0x1.11793ebc2a963p+79,
           "**AN OVERFLOWING HEX LITERAL ROUNDS ONCE, FROM THE EXACT VALUE** -- the per-digit "
           "accumulation rounded at every step and landed one ulp low on this very literal "

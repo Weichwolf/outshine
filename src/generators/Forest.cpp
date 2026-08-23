@@ -16,6 +16,8 @@ float Unit24(uint64_t bits) { return (float)(bits & 0xFFFFFFu) * (1.0f / 1677721
 float Unit16(uint64_t bits) { return (float)(bits & 0xFFFFu) * (1.0f / 65536.0f); }
 
 float SizeFactor(uint64_t bits, float sigma) {
+  // derived: the sum of two unit uniforms has variance 1/6, so sqrt(6) scales the centred
+  // sum to unit variance before sigma applies
   return 1.0f + sigma * (Unit16(bits) + Unit16(bits >> 16) - 1.0f) * 2.4494897f;
 }
 

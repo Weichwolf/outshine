@@ -84,6 +84,28 @@ int main() {
         "the 200 after two stutters delivers");
   CHECK(sources.Counters().Retried == 2, "and the ledger counted both scheduled retries");
 
+  {
+    // the budget-exhaust arm: a host that never recovers walks 429 through every retry and
+    // lands on the fallthrough -- a flipped fallthrough or a lost Attempts_ reset goes red
+    StutteringTransport dead;
+    dead.FailFirst = 99;
+    SourceSet::Query gone =
+        sources.Ask(Request(DataKind::Elevation, Address::Tile(14, 8620, 5404)));
+    Delivery ended = Delivery::Waiting();
+    for (int poll = 0; poll < 32 && ended.Where() == Delivery::State::Pending; ++poll) {
+      dead.FakeNowMs += 5000.0;
+      ended = sources.Collect(gone, dead);
+    }
+    CHECK(ended.Where() != Delivery::State::Pending &&
+              ended.Where() != Delivery::State::Delivered,
+          "**THE BUDGET EXHAUSTS INTO THE REFUSAL PATH**: a host that never recovers walks "
+          "all four retries and falls through -- the arm the first proof never reached "
+          "(board:1696)");
+    CHECK(dead.Begins == 1 + 4,
+          "and exactly budget-many retries were begun -- one first ask plus four, never a "
+          "hammer and never one lost");
+  }
+
   Covers("I.23 a retry waits on the transport's clock: scheduled with a doubling backoff, "
          "never re-begun at poll cadence, proven against a faked clock without one sleep "
          "(board:1691, 1692)");

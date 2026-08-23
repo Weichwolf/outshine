@@ -27,3 +27,11 @@ Two defects in the shipped backoff ride along:
 
 Demanded: the exhaustion test 1692 specified, the two classify pins, an exponent clamp (or
 assembly refusal) with its own check, and the cap's origin corrected.
+
+---
+
+Closed: the backoff doubles through std::ldexp (no shift UB at any budget), the 4000 ms cap
+is REACHABLE at the fifth attempt and its prose says so; and the budget-exhaust arm exists --
+a never-recovering host walks all four retries into the refusal path with exactly
+budget-many begins counted, so a flipped fallthrough or a lost Attempts_ reset goes red. The
+1692 overclaim is repaid with the arm it claimed.

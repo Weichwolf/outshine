@@ -13,7 +13,9 @@
 namespace outshine::Generators {
 namespace {
 
-const float kLeafBaseLinear[3] = {0.0684f, 0.1072f, 0.0273f};
+const float kLeafBaseLinear[3] = {0.0684f, 0.1072f, 0.0273f}; // [SET] a mid-green leaf
+                                                              // albedo in linear RGB, tuned
+                                                              // against the Cycles oracle
 
 float SrgbToLinear(float v) {
   return v <= 0.04045f ? v / 12.92f : std::pow((v + 0.055f) / 1.055f, 2.4f);
