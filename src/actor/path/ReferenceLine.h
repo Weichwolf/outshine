@@ -9,18 +9,10 @@
 
 namespace outshine {
 
-// [SET] 2^18, the route-leg bound's own size (Wayfinding.h kMaxRouteLegs): a corridor
-// is fitted THROUGH a route, so it can never need more pieces than the route has legs
 inline constexpr size_t kMaxCorridorSegments = 262144;
 inline constexpr size_t kMaxCorridorKnots = 262144;
-// [SET] the coarse resection scan step, m: the locate window is a few metres (DriveTick
-// kResectM), so metre steps keep the per-tick scan to single digits before refining
 inline constexpr double kResectionCoarseM = 1.0;
-// derived: each refinement halves the metre-wide coarse bracket; 24 halvings land at
-// 1 m / 2^24 = 60 nm, past any placement's use, in bounded time
 inline constexpr int kResectionRefinements = 24;
-// [SET] curvature continuity tolerance, 1/m: one part in 1e9 is far under the weave's
-// own snapping noise and catches every real leap
 inline constexpr double kTangentTolerance = 1.0e-9;
 
 enum class Curve : uint8_t { Straight, Arc, Spiral };
@@ -98,6 +90,6 @@ private:
   std::string Error_;
 };
 
-} // namespace outshine
+}
 
 #endif

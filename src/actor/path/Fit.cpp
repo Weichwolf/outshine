@@ -7,13 +7,8 @@ namespace outshine {
 
 namespace {
 
-// derived: a corner is an arc between two half-swing clothoids (board:1528). The
-// clothoid shift is s = R tau^2 / 24 with tau = swing/2 per side, so (R + s) / R =
-// 1 + swing^2 / 96 EXACTLY -- the share the shift adds to every chord term
 [[nodiscard]] double ShiftShare(double swing) { return 1.0 + swing * swing / 96.0; }
 
-// derived: the shifted corner's tangent length per unit radius -- the arc's own
-// (R+s) tan(half) plus the clothoid half-length R * swing / 4 (board:1528)
 [[nodiscard]] double TangentShare(double swing) {
   return ShiftShare(swing) * std::tan(0.5 * swing) + 0.25 * swing;
 }
@@ -35,8 +30,6 @@ double AwayFromChordM(std::span<const double> points, size_t point, size_t from,
   return std::sqrt(e * e + n * n);
 }
 
-// the standard explicit-stack Douglas-Peucker: a monotone-deviation route once peeled ONE
-// vertex per recursion level, and a quarter-million legs is a stack overflow, not a refusal
 void KeepBetween(std::span<const double> points, size_t wholeFrom, size_t wholeTo,
                  double withinM, std::vector<bool> &keep) {
   std::vector<std::pair<size_t, size_t>> spans;
@@ -62,7 +55,7 @@ void KeepBetween(std::span<const double> points, size_t wholeFrom, size_t wholeT
   }
 }
 
-} // namespace
+}
 
 std::vector<double> Simplify(std::span<const double> eastNorthM, double withinM) {
   const size_t points = eastNorthM.size() / 2;
@@ -163,9 +156,6 @@ Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
   }
 
   std::vector<double> atVertexM(points, 0.0);
-  // [SET] the shrink-and-refit budget: each pass only tightens radii, so the fit is
-  // monotone and the bound is a stop against pathology, not a tuning -- the refusal
-  // below names it honestly as the budget it is
   constexpr int kFitPasses = 24;
   for (int pass = 0; pass < kFitPasses; ++pass) {
   ++out.Passes;
@@ -282,4 +272,4 @@ Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
   return out;
 }
 
-} // namespace outshine
+}

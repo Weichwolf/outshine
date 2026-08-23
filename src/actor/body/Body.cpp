@@ -12,7 +12,7 @@ void Cross(const double a[3], const double b[3], double out[3]) {
   out[2] = a[0] * b[1] - a[1] * b[0];
 }
 
-} // namespace
+}
 
 void Turn(const double orientationQ[4], const double bodyV[3], double worldV[3]) {
   const double w = orientationQ[0];
@@ -120,7 +120,7 @@ void Unit(double v[3]) {
   }
 }
 
-} // namespace
+}
 
 void Lie(Body &body, const double aheadM[3], const double upM[3]) {
   double ahead[3] = {aheadM[0], aheadM[1], aheadM[2]};
@@ -167,4 +167,4 @@ void Lie(Body &body, const double aheadM[3], const double upM[3]) {
   for (int part = 0; part < 4; ++part) { body.OrientationQ[part] = q[part]; }
 }
 
-} // namespace outshine::Physics
+}

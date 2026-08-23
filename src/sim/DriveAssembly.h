@@ -25,7 +25,7 @@ namespace outshine::Sim {
 struct Provision {
   std::string CacheDir;
   std::string AssetsDir;
-  std::vector<Provider> Providers; // the scenario's declared upstreams, or a selected battery
+  std::vector<Provider> Providers;
 };
 
 struct DriveProduct {

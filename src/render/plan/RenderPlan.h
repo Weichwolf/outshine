@@ -50,7 +50,6 @@ public:
     Resource Depth = kNoEdge;
   };
 
-  // the C++23 doors: a refusal carries its reason, a lookup that may find nothing says so
   [[nodiscard]] static std::expected<std::shared_ptr<const RenderPlan>, std::string> Compile(
       const PlanSpec &spec);
   [[nodiscard]] static std::optional<Stage> StageByName(std::string_view name);

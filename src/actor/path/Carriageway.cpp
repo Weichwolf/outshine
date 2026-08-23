@@ -30,7 +30,7 @@ Standing Surface(const Placed &on, double alongM, double acrossM, double halfWid
   return out;
 }
 
-} // namespace
+}
 
 Standing Stand(const ReferenceLine &over, double eastM, double northM, double halfWidthM,
                double nearM, double windowM) {
@@ -49,4 +49,4 @@ Standing StandAt(const ReferenceLine &over, double alongM, double acrossM, doubl
   return Surface(on, alongM, acrossM, halfWidthM);
 }
 
-} // namespace outshine
+}

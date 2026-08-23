@@ -20,6 +20,6 @@ struct Steering {
 [[nodiscard]] double TightestPerM(const Axles &of, const Envelope &within, double speedMs);
 [[nodiscard]] Steering Drive(const Axles &of, const Envelope &within, const Demand &asked);
 
-} // namespace outshine::Pilot
+}
 
 #endif

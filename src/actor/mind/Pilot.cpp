@@ -7,8 +7,7 @@ namespace outshine::Pilot {
 
 namespace {
 
-
-} // namespace
+}
 
 double ReachOf(const Reins &with, double speedMs, double curvatureRatePerM) {
   double reachM = with.SettleS * (speedMs > 0.0 ? speedMs : 0.0);
@@ -54,4 +53,4 @@ Demand Hold(const ReferenceLine &along, const Reins &with, const Placement &at, 
   return out;
 }
 
-} // namespace outshine::Pilot
+}

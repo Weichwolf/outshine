@@ -57,7 +57,6 @@ const char *KindName(SurfaceKind kind) {
 
 }
 
-
 namespace {
 
 struct VertexShape {
@@ -536,8 +535,6 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   }
   if (!HandVisibility(false, error)) { return false; }
 
-  // the staging ring opens ONCE, here, from the mesh's own standing streams: any deferred
-  // frame crosses a subset of these, so their aligned sum is the ring's honest capacity
   uint32_t staged = 0;
   for (const uint32_t held : Resident_.Held) { staged += (held + 15u) & ~15u; }
   return Resident_.OpenStaging(staged, error);
@@ -635,8 +632,6 @@ bool SubjectDraw::SetPose(const SubjectPose &pose, std::string &error) {
   {
     const Heap::Tagged refitting("mesh-bvh");
     if (!Visibility_.Refit(Span<const float>(pose.Verts, (size_t)Resident_.NVerts * 3u))) {
-      // the streams of this pose are already staged; dropping them keeps the flush from
-      // uploading new vertices under the OLD pose's visibility structure
       Resident_.DropStaged();
       error = "the subject's visibility structure did not refit to this pose";
       return false;
@@ -693,7 +688,6 @@ std::array<float, SubjectDraw::kLightFloats> SubjectDraw::PackedLights(
 }
 
 namespace {
-
 
 }
 

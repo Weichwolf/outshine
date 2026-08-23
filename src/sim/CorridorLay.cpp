@@ -14,7 +14,7 @@ namespace outshine::Sim {
 
 namespace {
 constexpr double kPatienceS = 900.0;
-} // namespace
+}
 
 bool LayCorridor(const Path::Route &route, Ground::GroundStream &ground, const Vehicle &car,
                  const Rigged &stood, double quantumM, double tightestM, double middleLat, double sphereRadiusM,
@@ -132,7 +132,6 @@ bool LayCorridor(const Path::Route &route, Ground::GroundStream &ground, const V
         "sharp turns");
   say.Number("the speed the tightest radius allows at 0.95 g",
        std::sqrt(0.95 * stood.Envelope.GravityMs2 * fitted.TightestRadiusM) * 3.6, "km/h");
-
 
   const double postM = ground.PostM(middleLat);
   const long posts = (long)std::ceil(fitted.LengthM / postM);
@@ -541,8 +540,7 @@ bool LayCorridor(const Path::Route &route, Ground::GroundStream &ground, const V
   say.Number("where that crest is", profile.CrestHeldAtM() / 1000.0, "km");
   say.Number("the drive time that implies", fitted.LengthM / (meanMs > 0.0 ? meanMs : 1.0) / 3600.0, "h");
 
-
   return true;
 }
 
-} // namespace outshine::Sim
+}

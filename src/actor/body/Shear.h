@@ -26,6 +26,6 @@ struct Shear {
 
 [[nodiscard]] double Relaxed(const Slip &through, double wasRad, double isRad, double rolledM);
 
-} // namespace outshine::Physics
+}
 
 #endif

@@ -19,6 +19,6 @@ struct Standing {
 [[nodiscard]] Standing StandAt(const ReferenceLine &over, double alongM, double acrossM,
                                double halfWidthM);
 
-} // namespace outshine
+}
 
 #endif

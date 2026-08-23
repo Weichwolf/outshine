@@ -37,4 +37,4 @@ double PressedForM(const Contact &contact, double loadN) {
   return contact.TravelM + (loadN - contact.StiffnessNPerM * contact.TravelM) / contact.StopNPerM;
 }
 
-} // namespace outshine::Physics
+}

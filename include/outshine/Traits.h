@@ -6,11 +6,8 @@
 
 namespace outshine {
 
-// an instance's attributes, resolved ONCE at stand-up: the kind chain's defaults overridden
-// by the instance's own, keys interned so a tick sees numbers and never a string
 struct Traits {
-  static constexpr size_t kMost = 16; // [SET] a game noun's attribute budget; the assembly
-                                      // refuses the seventeenth rather than growing
+  static constexpr size_t kMost = 16;
   uint32_t Keys[kMost] = {};
   double Values[kMost] = {};
   size_t Count = 0;

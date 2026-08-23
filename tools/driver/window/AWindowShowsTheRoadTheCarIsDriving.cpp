@@ -99,7 +99,7 @@ outshine::Gltf::Placement Seen(const outshine::Physics::Body &body, const outshi
   return out;
 }
 
-} // namespace
+}
 
 int main(void) {
   using namespace outshine::Test;

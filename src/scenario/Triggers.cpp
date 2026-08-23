@@ -6,16 +6,11 @@ namespace outshine {
 
 namespace {
 
-// [SET] the pool bounds: a scenario's doors are a declared few, the concurrent
-// body-inside-door pairs and the per-drain firings are the frame path's budget
 constexpr size_t kMostDoors = 256;
-// [SET] the bodies one door remembers: a door is a place, and more than 256 bodies
-// standing in ONE door at once is a crowd no scenario declares -- the bound is per door
-// now, so the probe's cost is its own door's few and never every pair (board:1759)
 constexpr size_t kMostStandings = 256;
 constexpr size_t kMostFired = 256;
 
-} // namespace
+}
 
 bool TriggerField::Build(std::span<const Volume> volumes, std::span<const Event> events,
                          std::string &error) {
@@ -158,8 +153,6 @@ void TriggerField::Probe(uint32_t body, const double atM[3], double nowS) {
     }
     if (in && standing == seated.size()) {
       if (seated.size() >= kMostStandings) {
-        // a body that cannot be seated would fire Enter every tick and never Exit --
-        // counted, and NOT fired, because a door that cannot remember is not a door
         ++Unseated_;
         continue;
       }
@@ -198,4 +191,4 @@ size_t TriggerField::Unheard(std::string_view event) const {
   return 0;
 }
 
-} // namespace outshine
+}

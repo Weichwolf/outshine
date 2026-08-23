@@ -32,6 +32,6 @@ struct Demand {
 [[nodiscard]] Demand Hold(const ReferenceLine &along, const Reins &with, const Placement &at,
                           double speedMs, double wantedMs);
 
-} // namespace outshine::Pilot
+}
 
 #endif

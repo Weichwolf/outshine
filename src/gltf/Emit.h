@@ -20,9 +20,6 @@ struct Emission {
 
 [[nodiscard]] bool Emit(const Emission &what, std::vector<uint8_t> &glb, std::string &error);
 
-// the GLB container's 32-bit ceiling: header + two chunk headers + both padded chunks
-// must fit uint32, or the header would lie about its own length -- exposed so the bound
-// is provable without four gibibytes of fixture
 [[nodiscard]] bool GlbFits(size_t jsonBytes, size_t binaryBytes);
 
 }

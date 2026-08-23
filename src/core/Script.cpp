@@ -148,9 +148,6 @@ bool Tokenise(std::string_view text, std::vector<Token> &out, std::string &error
         const auto hex =
             std::from_chars(text.data() + at + 2, text.data() + text.size(), wide, 16);
         if (hex.ec == std::errc::result_out_of_range) {
-          // past 64 bits the language's answer is round-to-nearest of the EXACT value --
-          // one hex-float parse over the whole digit run, never a per-digit accumulation
-          // that rounds at every step
           size_t digitEnd = at + 2;
           while (digitEnd < text.size() &&
                  ((text[digitEnd] >= '0' && text[digitEnd] <= '9') ||
@@ -175,8 +172,6 @@ bool Tokenise(std::string_view text, std::vector<Token> &out, std::string &error
       const auto scanned =
           std::from_chars(text.data() + at, text.data() + text.size(), token.Number);
       if (scanned.ec == std::errc::result_out_of_range) {
-        // the standard leaves the value untouched here; the language's answer is infinity,
-        // written explicitly so no library's kindness is load-bearing
         token.Number = HUGE_VAL;
       }
       at = (size_t)(scanned.ptr - text.data());
@@ -726,11 +721,7 @@ const Boundary kBoundaries[] = {
 
 }
 
-// ECMA's string ToNumber, locale-free: trim, empty is 0, signed Infinity, 0x hex, a
-// decimal that must consume the WHOLE text -- anything else is NaN, never a prefix guess
 [[nodiscard]] bool EcmaDecimalShaped(std::string_view held) {
-  // ECMA's StrDecimalLiteral, after the ONE sign the caller stripped: digits [. digits]
-  // [e [sign] digits] or . digits [...] -- no second sign, no inf, no hex-float
   size_t at = 0;
   size_t whole = 0;
   while (at < held.size() && held[at] >= '0' && held[at] <= '9') { ++at; ++whole; }
@@ -770,7 +761,6 @@ const Boundary kBoundaries[] = {
   }
   if (held == "Infinity") { return sign * HUGE_VAL; }
   if (held.size() > 2 && held[0] == '0' && (held[1] == 'x' || held[1] == 'X')) {
-    // ECMA's NonDecimalIntegerLiteral takes NO sign -- "+0x10" is NaN, not 16
     if (wroteSign) { return std::nan(""); }
     for (size_t at = 2; at < held.size(); ++at) {
       const char c = held[at];
@@ -788,8 +778,6 @@ const Boundary kBoundaries[] = {
   double value = 0.0;
   const auto scanned = std::from_chars(held.data(), held.data() + held.size(), value);
   if (scanned.ec == std::errc::result_out_of_range) {
-    // ECMA rounds the exact value: an overflow is infinity, an underflow is zero -- the
-    // ONE judge in DecimalEdge.h decides which, shared with the json door (board:1740)
     return sign * (DecimalEdge(held) == Edge::Zero ? 0.0 : HUGE_VAL);
   }
   return scanned.ec == std::errc() ? sign * value : std::nan("");

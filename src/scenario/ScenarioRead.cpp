@@ -220,15 +220,13 @@ void ReadLighting(const Xml::Ref &from, Scenario &into) {
   }
 }
 
-} // namespace
+}
 
 bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &error) {
   into = Scenario();
   return ReadScenarioInto(text, length, into, error);
 }
 
-// the non-resetting door: every omitted attribute keeps the value already standing, which
-// is what a layer's re-parse over its base rides on
 bool ReadScenarioInto(const char *text, size_t length, Scenario &into, std::string &error) {
   Xml document;
   if (!document.Parse(text, length)) {
@@ -609,4 +607,4 @@ bool ReadScenarioInto(const char *text, size_t length, Scenario &into, std::stri
   return true;
 }
 
-} // namespace outshine
+}

@@ -6,11 +6,6 @@ namespace outshine {
 
 namespace {
 
-// override by the row's IDENTITY -- the grammar's Required attribute where one exists
-// (kind by name, asset and sound by uri, a door by its two ends), the id where identity is
-// optional (an id-less row always ADDS): a later row with a known identity REPLACES the
-// earlier whole, an unknown one adds, and what happened is written down, because a
-// declaration nobody can trace is a declaration nobody can debug
 template <class Row, class Same>
 void MergeRows(std::vector<Row> &into, const std::vector<Row> &from, std::string_view named,
                const char *what, Same same, std::vector<std::string> &trace) {
@@ -80,7 +75,7 @@ struct ByPersistedWhat {
   std::string Identity(const Persisted &row) const { return row.What; }
 };
 
-} // namespace
+}
 
 bool LayerActive(const Layer &layer, std::string_view active) {
   if (layer.Set.empty()) { return true; }
@@ -122,8 +117,6 @@ bool MergeLayer(Scenario &into, const Scenario &layer, std::string_view named,
   MergeRows(into.Input, layer.Input, named, "bind", ByBindingEvent{}, trace);
   MergeRows(into.State, layer.State, named, "persist", ByPersistedWhat{}, trace);
 
-  // a place carries no identity, so a layer's placements always ADD -- overriding one is
-  // unspellable, and that is written here rather than left to be discovered
   for (const Placement &place : layer.Placements) {
     into.Placements.push_back(place);
     trace.push_back("layer '" + std::string(named) + "' added a placement of '" + place.Asset +
@@ -139,8 +132,6 @@ bool ApplyLayer(Scenario &into, const char *text, size_t size, std::string_view 
   if (!ReadScenario(text, size, fragment, error)) { return false; }
   if (!MergeLayer(into, fragment, named, trace, error)) { return false; }
 
-  // the vehicle element is a SINGLETON (1655's verdict): a layer that declares one replaces
-  // the base's, whole
   if (!fragment.Vehicles.empty()) {
     into.Vehicles = fragment.Vehicles;
     trace.push_back("layer '" + std::string(named) + "' replaced the vehicle");
@@ -154,10 +145,6 @@ bool ApplyLayer(Scenario &into, const char *text, size_t size, std::string_view 
     trace.push_back("layer '" + std::string(named) + "' replaced the output list");
   }
 
-  // the singleton sections merge by the reader's OWN semantics -- re-parse the layer onto a
-  // copy of the base, where an omitted ATTRIBUTE keeps the value standing (the house
-  // template rule); the copy's row collections and name come out doubled or replaced and
-  // are DISCARDED -- only the declared sections carry over
   Scenario onto = into;
   std::string sectionsWhy;
   if (!ReadScenarioInto(text, size, onto, sectionsWhy)) {
@@ -189,4 +176,4 @@ bool ApplyLayer(Scenario &into, const char *text, size_t size, std::string_view 
   return true;
 }
 
-} // namespace outshine
+}

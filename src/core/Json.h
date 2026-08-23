@@ -27,8 +27,6 @@ public:
     [[nodiscard]] std::string Key(size_t i) const;
 
     [[nodiscard]] double Num(double def = 0.0) const;
-    // a hostile 1e300 is not an index: outside int's range or not whole, the caller's
-    // default answers -- the raw cast alone was UB
     [[nodiscard]] int Int(int def = 0) const {
       const double v = Num((double)def);
       if (!(v >= -2147483648.0) || !(v <= 2147483647.0) || v != (double)(long long)v) {
@@ -65,8 +63,6 @@ private:
 
   int32_t ParseValue();
   int32_t ParseValueInside();
-  // [SET] the nesting bound: glTF and every provider manifest sit under ten levels, and
-  // a counter is what keeps a hostile depth bomb a REFUSAL instead of a blown C stack
   static constexpr size_t kMostDepth = 256;
   size_t Depth_ = 0;
   [[nodiscard]] bool ParseString(uint32_t &off, uint32_t &len, bool &escaped);

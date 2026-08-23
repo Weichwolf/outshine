@@ -20,10 +20,8 @@ namespace {
   d.Need = Necessity::Required;
   d.Latency = LatencyClass::Distant;
 
-  d.TypicalPayloadBytes = 80000; // [SET] planning figure for admission: OSM vector tiles
-                                 // run larger than DEM rasters at the same zoom
-  d.RetryBudget = 4;             // [SET] same rule as the DEM: stutters survive, dead hosts
-                                 // do not hold the pool
+  d.TypicalPayloadBytes = 80000;
+  d.RetryBudget = 4;
   return d;
 }
 

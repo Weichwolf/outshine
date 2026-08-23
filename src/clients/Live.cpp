@@ -168,9 +168,6 @@ bool Live::Build(std::string &error) {
   if (Declared_.Exposure > 0.0) {
     declaration.Exposure = Render::Declared<float>((float)Declared_.Exposure);
   } else if (Declared_.KeyLux > 0.0) {
-    // derived (ISO 12232 / Frostbite): EV100 = log2(lux / 2.5), the standard's own
-    // illuminance-to-EV constant, and 1.2 is the saturation-based sensor headroom --
-    // exposure = 1 / (1.2 * 2^EV100)
     const double ev100 = std::log2(Declared_.KeyLux / 2.5);
     declaration.Exposure =
         Render::Declared<float>((float)(1.0 / (1.2 * std::pow(2.0, ev100))));

@@ -30,24 +30,22 @@ public:
 
   static TreeLook LookOf(const TreeSpecies &species);
 
-  // the row's fields, named once: an index-mapped float row whose meanings lived nowhere
-  // is a second spelling of a struct (board:1747)
   enum Row : int {
-    BarkRgb = 0,     // 0..2
+    BarkRgb = 0,
     BarkDark = 3,
     BarkFreq = 4,
     BarkRidge = 5,
     NeedleWidth = 6,
-    LeafShapeNear = 7,  // the beta density's near exponent
-    LeafRgb = 8,        // 8..10
-    LeafShapeFar = 11,  // and its far exponent
+    LeafShapeNear = 7,
+    LeafRgb = 8,
+    LeafShapeFar = 11,
     LeafWidth = 12,
     LeafBaseFill = 13,
     LeafLobes = 14,
     LeafLobeDepth = 15,
     LeafSerration = 16,
     LeafPeakInverse = 17,
-    RowSpare = 18,      // 18..19, zeroed: the row is a fixed width the device binds
+    RowSpare = 18,
     RowFloats = 20,
   };
   static_assert((int)Row::RowFloats == kMaterialRowFloats,

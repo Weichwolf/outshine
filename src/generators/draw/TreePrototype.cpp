@@ -13,9 +13,7 @@
 namespace outshine::Generators {
 namespace {
 
-const float kLeafBaseLinear[3] = {0.0684f, 0.1072f, 0.0273f}; // [SET] a mid-green leaf
-                                                              // albedo in linear RGB, tuned
-                                                              // against the Cycles oracle
+const float kLeafBaseLinear[3] = {0.0684f, 0.1072f, 0.0273f};
 
 float SrgbToLinear(float v) {
   return v <= 0.04045f ? v / 12.92f : std::pow((v + 0.055f) / 1.055f, 2.4f);
@@ -46,12 +44,6 @@ TreeLook TreePrototype::LookOf(const TreeSpecies &sp) {
 }
 
 void TreePrototype::MaterialRow(const TreeLook &look, float out[kMaterialRowFloats]) {
-  // derived: a blade's outline is the beta density x^(a-1)(1-x)^(b-1) whose MODE sits at
-  // (a-1)/(a+b-2) -- the declared LeafWidest. The two shape numbers are that inversion
-  // linearised over the declared range: the 1.5 slopes carry the mode, the 0.80/0.95
-  // offsets keep both exponents above 1 (a beta with an exponent under 1 has no mode and
-  // spikes at the edge), the 1.25 lets LeafTip sharpen the far shoulder, and 0.55 is the
-  // floor that keeps b there when it does
   constexpr float kModeSlope = 1.5f;
   constexpr float kNearFloor = 0.80f;
   constexpr float kFarFloor = 0.95f;

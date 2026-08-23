@@ -4,9 +4,6 @@ static inline float3 emittedAt(constant M &surface, texture2d<float> emissiveMap
   return surface.emissive * SUBJECT_EMISSIVE_TAP(uv).rgb;
 }
 
-// the metal-rough image belongs to TEXTURED AND LIT -- the condition that makes it
-// readable -- not to "has a tangent frame", which is only what the NORMAL map needs; glTF
-// ties the two textures together nowhere, and an absent image samples the neutral white
 fragment SFrag fsLitTextured(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
   float4 orm = SUBJECT_METALROUGH_TAP(SUBJECT_UVS(in));

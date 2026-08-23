@@ -29,4 +29,4 @@ Haul Ride(const Rails &on, const Envelope &within, const Demand &asked, const Pl
   return out;
 }
 
-} // namespace outshine::Pilot
+}

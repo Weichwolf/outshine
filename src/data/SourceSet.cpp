@@ -7,13 +7,9 @@
 namespace outshine::Data {
 
 namespace {
-constexpr double kRetryBaseMs = 250.0;  // [SET] under a poll cadence of tens of ms this is
-                                        // the first real pause a 429/5xx buys
-constexpr double kRetryCapMs = 4000.0;  // [SET] the fifth attempt would wait 4000 and the
-                                        // cap holds it there -- a dead host is the
-                                        // budget's business, not the clock's
+constexpr double kRetryBaseMs = 250.0;
+constexpr double kRetryCapMs = 4000.0;
 }
-
 
 SourceSet::Registration SourceSet::Add(std::unique_ptr<Source> source) {
   if (!source) return Registration::Unnamed;
@@ -89,8 +85,6 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
 
     Meaning what = Meaning::Refused;
     std::vector<uint8_t> bytes;
-    // a settled answer always takes -- reaching here otherwise is a wiring fault, and a
-    // failure is loud, never a quiet Waiting that polls forever
     if (!answer.TryTake(&what, &bytes)) {
       {
         const std::lock_guard<std::mutex> ledger(LedgerMutex_);
@@ -124,12 +118,7 @@ Delivery SourceSet::Collect(Query &query, Transport &transport) {
             std::lock_guard<std::mutex> lock(LedgerMutex_);
             Ledger_.Retried++;
           }
-          // the retry waits on the TRANSPORT'S clock, doubling from kRetryBaseMs -- a 429
-          // is a request to go away, not an invitation to hammer at poll cadence; the base
-          // and cap are [SET] against public tile servers, jitter is DelayedTransport's job
           query.Ticket_ = Ticket::None;
-          // the server's own Retry-After outranks the doubling backoff when it asks for
-          // MORE patience -- a server that says when to come back is believed
           query.RetryAtMs_ =
               transport.NowMs() +
               std::fmax(answer.RetryAfterS() * 1000.0,

@@ -14,11 +14,7 @@
 
 namespace outshine {
 
-inline constexpr size_t kParkedBound = 8; // [SET] eight doorways deep covers a building of
-                                          // interiors; the state kept per park is the
-                                          // declaration alone, whose measure the four-lines
-                                          // proof publishes
-
+inline constexpr size_t kParkedBound = 8;
 
 struct Engine::State {
   Render::Renderer Device;
@@ -85,7 +81,7 @@ std::vector<std::string> Unacted(const Scenario &scenario) {
   return carried;
 }
 
-} // namespace
+}
 
 Engine::Engine() : S_(std::make_unique<State>()) {}
 
@@ -164,7 +160,7 @@ namespace {
   return true;
 }
 
-} // namespace
+}
 
 bool Engine::ReadInto(std::string_view path, Scenario &out) {
   const std::string held(path);
@@ -221,12 +217,7 @@ bool Engine::Load(std::string_view path) {
 const Scenario &Engine::Declared() const { return S_->Declared; }
 const Assembled &Engine::Stood() const { return S_->Stood; }
 
-// a save is a FUNCTION OF THE DECLARATION: only the <persist what="instance.trait"> rows
-// leave the process, sorted so two saves of one state are one byte sequence; a park keeps a
-// scenario warm, a save survives the machine
-inline constexpr size_t kMostSaveBytes = 1 << 20; // [SET] a declared state is attributes,
-                                                  // not geometry; a megabyte of numbers is
-                                                  // a design smell spoken loudly
+inline constexpr size_t kMostSaveBytes = 1 << 20;
 
 bool Engine::Save(std::string_view path) const {
   if (S_->Declared.State.empty()) {
@@ -323,8 +314,6 @@ bool Engine::Restore(std::string_view path) {
     landing.Key = S_->Stood.TraitKey(std::string_view(line).substr(dot + 1, gap - dot - 1));
     const auto scanned =
         std::from_chars(line.data() + gap + 1, line.data() + line.size(), landing.Value);
-    // the whole tail must read, and only a finite number: Save can write neither a trailing
-    // rune nor an inf, so a line carrying one is an edit and refuses naming itself
     if (scanned.ec != std::errc() || scanned.ptr != line.data() + line.size() ||
         !std::isfinite(landing.Value)) {
       S_->Error = "the save line '" + line + "' does not read as instance.trait value";
@@ -338,9 +327,6 @@ bool Engine::Restore(std::string_view path) {
     }
     staged.push_back(landing);
   }
-  // NOTHING mutated until every landing has SAT: the dry run puts every line into a staged
-  // copy of its holder's row, copies carried across lines so N lines on one holder validate
-  // against each other -- the commit then writes whole rows that can no longer refuse
   std::vector<std::pair<Entity, Traits>> rows;
   for (const Landing &landing : staged) {
     Traits *row = nullptr;
@@ -352,8 +338,6 @@ bool Engine::Restore(std::string_view path) {
       rows.emplace_back(landing.Holder, standing == nullptr ? Traits{} : *standing);
       row = &rows.back().second;
     }
-    // Save refuses to write a value the scene does not hold, and Restore refuses to GRAFT
-    // one -- Put appends an absent key, so the seat is demanded before the value moves
     if (row->Named(landing.Key) == nullptr) {
       S_->Error = "the save carries a value for a trait this holder never declared -- the "
                   "declaration moved on and the save did not, and NOTHING was applied";
@@ -411,10 +395,6 @@ bool Engine::Park() {
       return false;
     }
   }
-  // the parked set states its bound, and reaching it REFUSES: a park is the ONLY copy of
-  // that scenario's state (no savefile stands beneath it -- board:1492 is not built), so
-  // evicting would destroy what nobody chose to discard; "degrade on detail, refuse on
-  // existence" decides this, and the refusal names the least recently live door to clear
   if (S_->Asleep.size() >= kParkedBound) {
     S_->Error = "the parked set is full at its declared bound of " +
                 std::to_string(kParkedBound) + " -- resume or discard '" +
@@ -437,7 +417,6 @@ bool Engine::Resume(std::string_view name) {
   }
   for (size_t at = 0; at < S_->Asleep.size(); ++at) {
     if (S_->Asleep[at].Named.Name != name) { continue; }
-    // the parked copy is the ONLY copy: it leaves the set only after the stand-up succeeds
     if (!Declare(S_->Asleep[at])) { return false; }
     S_->Asleep.erase(S_->Asleep.begin() + (long)at);
     return true;
@@ -468,4 +447,4 @@ int Engine::Frames() const { return S_->Standing ? S_->Standing->Frames() : 0; }
 bool Engine::Standing() const { return S_->Standing != nullptr; }
 const std::string &Engine::Error() const { return S_->Error; }
 
-} // namespace outshine
+}

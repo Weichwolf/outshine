@@ -26,8 +26,6 @@ struct Reaped {
   bool StreetsAbsent = false;
 };
 
-// the diagnostic lists are space-terminated tokens: "way" is not yet listed just because
-// "motorway " is -- a substring match under-reports the classes the list exists to name
 [[nodiscard]] inline bool Listed(const std::string &list, std::string_view kind) {
   for (size_t at = list.find(kind); at != std::string::npos; at = list.find(kind, at + 1)) {
     const bool starts = at == 0 || list[at - 1] == ' ';
@@ -40,6 +38,6 @@ struct Reaped {
 [[nodiscard]] Reaped Reap(const OsmField &field, const VegetationTemplates &widths,
                           double vehicleWidthM, Path::Network &into);
 
-} // namespace outshine::Ground
+}
 
 #endif

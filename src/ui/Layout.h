@@ -80,8 +80,6 @@ public:
 
   [[nodiscard]] int Hit(double x, double y) const;
 
-  // the walk's own counts, published so a suite asserts on a BOUND and not a stopwatch:
-  // places <= c x boxes is a claim a faster machine cannot make true (board:1753)
   struct Work {
     size_t Places = 0;
     size_t Measures = 0;

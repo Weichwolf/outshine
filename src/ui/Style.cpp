@@ -165,7 +165,6 @@ Value ReadValue(std::string_view text) {
   }
   const char first = trimmed.front();
   if ((first >= '0' && first <= '9') || first == '-' || first == '+' || first == '.') {
-    // css allows a leading '+', from_chars does not -- consumed here so the sign stays legal
     const std::string_view digits = trimmed.front() == '+' ? trimmed.substr(1) : trimmed;
     double number = 0.0;
     const auto scanned = std::from_chars(digits.data(), digits.data() + digits.size(), number);
@@ -836,9 +835,6 @@ const char *WhyOutside(std::string_view name) {
   return nullptr;
 }
 
-// right-to-left with BACKTRACKING: a descendant link may skip a candidate that matched but
-// leads nowhere -- .outer > .mid .leaf must try every .mid above the leaf, not marry the
-// first (CSS's own semantics; the greedy walk refused trees CSS selects)
 bool ChainSelects(const Rule &rule, const Markup &markup, size_t wanted, int node) {
   if (!Holds(rule.Chain[wanted], markup, node)) { return false; }
   if (wanted == 0) { return true; }

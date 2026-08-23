@@ -6,14 +6,12 @@ namespace outshine::Audio {
 
 namespace {
 
-// [SET] the pool bounds: a scenario's buses are a declared handful and its sounds a
-// declared few hundred -- both stand up once, and the mix walks them without allocating
 constexpr size_t kMostBuses = 64;
 constexpr size_t kMostSounds = 1024;
 
 [[nodiscard]] double Linear(double gainDb) { return std::pow(10.0, gainDb / 20.0); }
 
-} // namespace
+}
 
 int BusGraph::BusNamed(std::string_view id) const {
   for (size_t at = 0; at < Buses_.size(); ++at) {
@@ -78,8 +76,6 @@ bool BusGraph::Build(std::span<const Bus> buses, std::span<const Sound> sounds,
             "leaves it";
     return false;
   }
-  // every bus walks to the master in fewer steps than there are buses -- a cycle never
-  // arrives, and the mix that walks this graph must terminate on the audio thread
   for (size_t at = 0; at < Buses_.size(); ++at) {
     size_t steps = 0;
     for (int walk = (int)at; walk >= 0; walk = Buses_[(size_t)walk].Into) {
@@ -163,11 +159,9 @@ double BusGraph::GainAt(std::string_view id, const double sourceM[3],
       away += gap * gap;
     }
     away = std::sqrt(away);
-    // the declared falloff is the distance at which the source is half as loud: the
-    // inverse law 1/(1 + d/falloff) reaches 0.5 exactly there and never divides by zero
     return gain / (1.0 + away / sound.FalloffM);
   }
   return 0.0;
 }
 
-} // namespace outshine::Audio
+}

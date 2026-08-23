@@ -24,6 +24,6 @@ struct Haul {
 [[nodiscard]] Haul Ride(const Rails &on, const Envelope &within, const Demand &asked,
                         const Placement &at, double speedMs);
 
-} // namespace outshine::Pilot
+}
 
 #endif

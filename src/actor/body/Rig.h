@@ -60,6 +60,6 @@ struct Reading {
 
 void Resist(Wrench &into, const Body &body, double dragArea, double mediumDensity);
 
-} // namespace outshine::Physics
+}
 
 #endif

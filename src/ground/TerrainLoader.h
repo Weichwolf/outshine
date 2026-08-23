@@ -20,8 +20,6 @@ struct GroundSurface { int Z; int Grid; };
 class TerrainField;
 class TerrainTiles;
 
-// the layer's own posting maths, nameable so the unit mirror can hold it: the stream
-// ANSWERS heights in the same posting currency the mesh PLACES vertices in (board:1752)
 void FillNodeHeights(const TerrainField &field, uint32_t rowPostings, uint32_t colPostings,
                      int nodes, std::vector<float> *out);
 [[nodiscard]] double TileHeightAslM(const float *nodes, int side, uint32_t postings,
@@ -73,7 +71,6 @@ private:
 };
 
 [[nodiscard]] TilePool::Config GroundPoolConfig(double lat, double lon, int workers = 0);
-
 
 }
 

@@ -1,6 +1,5 @@
 #include "Wayfinding.h"
 
-
 #include <numbers>
 #include <algorithm>
 #include <cmath>
@@ -16,19 +15,15 @@ double MetresPerDegreeLat(double sphereRadiusM) { return sphereRadiusM * kDegToR
 
 double MetresPerDegreeLon(double latDeg, double sphereRadiusM) {
   const double shrink = std::cos(latDeg * kDegToRad);
-  // [SET] the pole clamp: within 0.2 m of the pole a parallel has no usable east, and
-  // the clamp keeps the division finite instead of minting infinities
   return MetresPerDegreeLat(sphereRadiusM) * (shrink > 1.0e-6 ? shrink : 1.0e-6);
 }
 
-// a longitude difference wraps the way ApartM's does -- an edge across the antimeridian
-// is a fraction of a degree, never three hundred and sixty
 [[nodiscard]] double LonApartDeg(double toDeg, double fromDeg) {
   const double apart = toDeg - fromDeg;
   return apart - 360.0 * std::floor(apart / 360.0 + 0.5);
 }
 
-} // namespace
+}
 
 double ApartM(double fromLatDeg, double fromLonDeg, double toLatDeg, double toLonDeg,
               double sphereRadiusM) {
@@ -66,9 +61,6 @@ void Network::Lay(const double *latLonPairs, size_t points, double halfWidthM,
   Woven_ = false;
 }
 
-// the index lives on the sphere it indexes: a row's OWN latitude fixes the column
-// modulus (every point in the row shares one lonCell), the column wraps at the row's
-// circumference so the antimeridian's two sides are NEIGHBOURS, not half a billion apart
 Network::RowShape Network::ShapeRow(int64_t row) const {
   RowShape shape;
   shape.Row = row;
@@ -121,8 +113,6 @@ bool Network::Weave(std::string &error) {
     return false;
   }
 
-  // the weave is a function of the CONTENT, never of arrival: tiles stream in whatever order
-  // the scheduler grants, so the ways are put into one canonical order before any node merges
   {
     std::vector<size_t> order(Ways_.size());
     for (size_t at = 0; at < order.size(); ++at) { order[at] = at; }
@@ -168,7 +158,6 @@ bool Network::Weave(std::string &error) {
     Ways_ = std::move(ways);
   }
 
-
   std::vector<size_t> nodeOf(Points_.size() / 2, 0);
   std::unordered_map<int64_t, std::vector<size_t>> byCell;
   for (size_t point = 0; point < Points_.size() / 2; ++point) {
@@ -180,10 +169,6 @@ bool Network::Weave(std::string &error) {
     const RowShape mine = ShapeRow(rowHere);
     for (int64_t row = rowHere - 1; row <= rowHere + 1 && found == Nodes_.size(); ++row) {
       const RowShape shape = ShapeRow(row);
-      // derived: a neighbour within one snap sits within lonCell(here) DEGREES of this
-      // point; in the visited row's own columns that is the ratio of the two cell
-      // widths -- the equatorward parallel is longer, so its columns are narrower and
-      // one snap can cross more of them -- plus one for the floor boundary
       const int64_t reachCols =
           (int64_t)std::ceil(mine.LonCellDeg / shape.LonCellDeg) + 1;
       const int64_t centre = ColumnIn(shape, lonDeg);
@@ -257,8 +242,6 @@ size_t Network::JunctionCount() const {
 
 bool Network::Nearest(const Waypoint &to, size_t &node, double &awayM) const {
   if (Nodes_.empty()) { return false; }
-  // the woven cell index answers in a growing reach; the widening quadruples so a miss
-  // costs a constant factor of the hit that ends it, capped at the half circumference
   std::vector<size_t> found;
   for (double reachM = 4.0 * SnapM_; reachM < std::numbers::pi * RadiusM_; reachM *= 4.0) {
     Within(to, reachM, found);
@@ -281,12 +264,9 @@ bool Network::Nearest(const Waypoint &to, size_t &node, double &awayM) const {
 
 void Network::Within(const Waypoint &of, double reachM, std::vector<size_t> &nodes) const {
   nodes.clear();
-  // one slack cell each way: a column is SnapM wide in metres at its OWN row, so the span
-  // in cells is the reach in snaps at every latitude
   const int64_t across = (int64_t)std::ceil(reachM / SnapM_) + 1;
   const uint64_t cells = (uint64_t)(2 * across + 1) * (uint64_t)(2 * across + 1);
   if (Cells_.empty() || cells > Cells_.size()) {
-    // the reach box would touch more cells than exist -- the index cannot beat the scan
     for (size_t which = 0; which < Nodes_.size(); ++which) {
       if (ApartM(of.LatDeg, of.LonDeg, Nodes_[which].LatDeg, Nodes_[which].LonDeg, RadiusM_) <= reachM) {
         nodes.push_back(which);
@@ -294,14 +274,10 @@ void Network::Within(const Waypoint &of, double reachM, std::vector<size_t> &nod
     }
     return;
   }
-  // the walk enumerates (row, column) KEYS directly, columns modular in each row's own
-  // circumference -- each cell is asked once, so no node answers twice
   const int64_t rowHere = RowOf(of.LatDeg);
   const RowShape mine = ShapeRow(rowHere);
   for (int64_t row = rowHere - across; row <= rowHere + across; ++row) {
     const RowShape shape = ShapeRow(row);
-    // derived: the reach spans across cells of the QUERY row's width; in this row's own
-    // columns that scales by the two rows' cell-width ratio, plus one for the floor
     const int64_t reachCols =
         (int64_t)std::ceil((double)across * mine.LonCellDeg / shape.LonCellDeg) + 1;
     const int64_t span =
@@ -337,9 +313,6 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
     return out;
   }
 
-  // the turn refusal depends on the ARRIVING direction, so the search state is the
-  // directed edge, not the node -- node settling refused legal routes a different
-  // approach would have taken, and judged turns against arrivals the path never used
   const double never = 1.0e300;
   const size_t edges = Edges_.size();
   const size_t kNoState = (size_t)-1;
@@ -348,7 +321,6 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
   if (nearStart.empty()) { nearStart.push_back(start); }
   out.StartedFrom = nearStart.size();
 
-  // a state is an edge index, or edges+i for "standing at seed i, arrived by no edge"
   const size_t states = edges + nearStart.size();
   std::vector<double> best(states, never);
   std::vector<size_t> came(states, kNoState);
@@ -481,4 +453,4 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
   return out;
 }
 
-} // namespace outshine::Path
+}

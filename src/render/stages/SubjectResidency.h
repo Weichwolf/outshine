@@ -49,7 +49,6 @@ struct SubjectResidency {
   [[nodiscard]] OwnedBuffer Fill(SDL_GPUBufferUsageFlags usage, const void *from, uint32_t bytes);
   [[nodiscard]] bool Cross(Crossing *what, size_t count, bool deferred, std::string &error);
   [[nodiscard]] bool Submit(Crossing *what, size_t count, uint32_t total, std::string &error);
-  // the staging ring, sized ONCE at residency establishment from the mesh's own streams
   [[nodiscard]] bool OpenStaging(uint32_t bytes, std::string &error);
   void FlushCrossings(SDL_GPUCommandBuffer *commands);
   void DropStaged() {
@@ -60,10 +59,6 @@ struct SubjectResidency {
 
 private:
   static constexpr size_t kStagingRing = 3;
-  // derived: one residency crosses at most 8 vertex streams + 2 BVH runs per frame --
-  // ONE full pose, which is also all the ring's BYTES hold (OpenStaging sums the standing
-  // streams); 32 entries is that population with three-fold slack so the entry budget can
-  // never refuse before the byte budget speaks
   static constexpr size_t kStagedCrossings = 32;
   struct Staged {
     SDL_GPUBuffer *Into = nullptr;

@@ -24,6 +24,6 @@ struct Rigged {
 
 [[nodiscard]] Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3);
 
-} // namespace outshine::Sim
+}
 
 #endif

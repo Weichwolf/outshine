@@ -32,8 +32,6 @@ private:
     Medium Declared;
     float CosSunZenith = 2.0f;
     float EyeHeightM = -1.0f;
-    // explicit tail: the settled-check memcmps this struct, and a padding byte the
-    // compiler owns would turn the comparison into a hope
     float Pad[2] = {0.0f, 0.0f};
   };
   static_assert(sizeof(Standing) == sizeof(Medium) + 4 * sizeof(float),

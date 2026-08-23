@@ -28,6 +28,6 @@ struct Reaction {
 
 [[nodiscard]] double PressedForM(const Contact &contact, double loadN);
 
-} // namespace outshine::Physics
+}
 
 #endif

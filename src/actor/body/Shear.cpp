@@ -40,4 +40,4 @@ double Relaxed(const Slip &through, double wasRad, double isRad, double rolledM)
   return wasRad + (isRad - wasRad) * caught;
 }
 
-} // namespace outshine::Physics
+}

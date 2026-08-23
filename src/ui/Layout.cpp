@@ -93,18 +93,8 @@ std::string Collapsed(const std::string &raw) {
   return out;
 }
 
-// [SET] the nesting bound, derived: Place spends about 2.0 KiB of stack a frame
-// (measured at the crash point, 4100 levels over 8 MiB), and the shallowest thread this
-// engine may run on holds 512 KiB -- 128 levels is that budget quartered, deeper than any
-// document a scenario ships and shallower than any stack it may be handed
 inline constexpr int kDeepestNesting = 128;
 
-// [SET] the walk's work budget, in places per box. A layout that walks its tree a constant
-// number of times spends a constant per box; the flex algorithm genuinely needs a handful
-// of passes, and 64 is generous slack over the worst SOUND shape measured (31 per box, a
-// percentage-width ladder at depth 14). Past it the walk is multiplying rather than
-// walking, and the frame path takes a REFUSAL instead of a stall -- a document that costs
-// 22 seconds is not a document this engine lays out (board:1753, 1754's second bound)
 inline constexpr size_t kMostPlacesPerBox = 64;
 
 struct DepthGuard;
@@ -116,14 +106,8 @@ struct Placer {
   const Font *Face = nullptr;
   double RootEm = 16.0;
   std::vector<Box> *Out = nullptr;
-  // the walk is recursive and the stack is a resource like any other: Place measured at
-  // about 2.0 KiB a frame (crash point 4100 levels over an 8 MiB stack), so kDeepest
-  // stands two orders under what the shallowest thread this engine runs on can hold
-  // (512 KiB / 2.0 KiB = 256 frames) -- a deeper markup is a REFUSAL, never a SIGSEGV
   int Depth = 0;
   bool TooDeep = false;
-  // the counts a suite can assert on, published instead of a stopwatch: a bound like
-  // "places <= c x boxes" cannot be tuned away by a faster machine (board:1753)
   size_t Places = 0;
   size_t Budget = (size_t)-1;
   bool TooCostly = false;
@@ -134,17 +118,10 @@ struct Placer {
   size_t Intrinsics = 0;
   size_t IntrinsicHits = 0;
 
-  // the intrinsic sizes and the baseline of a node under a given available width are a
-  // FUNCTION of that pair -- a node has one parent, so its inherited style is fixed within
-  // one Build. Measure and BaselineOf each threw away a full sub-walk and a flex line asked
-  // for both: four walks of every child subtree per level, measured at 3.99 per level
-  // (board:1753). One cache beside the box, the browser form
   struct Measured {
     double Width = 0.0;
     double Height = 0.0;
   };
-  // two tables, because the two questions are answered by two walks and a half-filled
-  // row would hand a caller a zero it never measured
   std::unordered_map<uint64_t, Measured> Sizes;
   std::unordered_map<uint64_t, double> Baselines;
   std::unordered_map<uint64_t, double> MinContents;
@@ -264,8 +241,6 @@ void Placer::Measure(int node, const Computed *inherited, double availableWidth,
 }
 
 double Placer::MinContent(int node, const Computed *inherited, bool ownSize) {
-  // min- and max-content are functions of the node alone -- no available width enters
-  // them -- so they cache perfectly, and each was re-walking its whole subtree per ask
   ++Intrinsics;
   const uint64_t key = ((uint64_t)(uint32_t)node << 1) | (ownSize ? 1u : 0u);
   const auto seen = MinContents.find(key);
@@ -1163,8 +1138,6 @@ bool Layout::Build(const Markup &markup, Stylesheet &sheet, double viewportWidth
   placer.Face = &font;
   placer.Out = &Boxes_;
 
-  // the budget is the tree's own size times the per-box allowance: a walk that stays
-  // proportional never sees it, and one that multiplies meets it in bounded time
   size_t elements = 0;
   for (const Node &one : markup.Nodes()) {
     if (one.Kind == NodeKind::Element) { ++elements; }

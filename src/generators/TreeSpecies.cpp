@@ -136,8 +136,6 @@ bool TreeSpecies::Parse(const char *text, size_t len) {
   s.WindFreq = NumF(r, "wind_freq", s.WindFreq);
 
   Error_.clear();
-  // refusal at assembly, never a SIGFPE at growth: every number a grower divides by or
-  // loops over must hold before this parse succeeds
   if (Growth_.WhorlCount > 0 && Growth_.WhorlSpacing <= 0) {
     Error_ = Name_ + " declares whorl_count " + std::to_string(Growth_.WhorlCount) +
              " with whorl_spacing " + std::to_string(Growth_.WhorlSpacing) +
@@ -154,4 +152,4 @@ bool TreeSpecies::Parse(const char *text, size_t len) {
   }
   return true;
 }
-} // namespace outshine::Generators
+}

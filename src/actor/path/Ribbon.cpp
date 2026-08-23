@@ -16,7 +16,7 @@ void Put(std::vector<float> &into, double a, double b, double c) {
   into.push_back((float)c);
 }
 
-} // namespace
+}
 
 Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM, double toM,
              double stepM) {
@@ -41,8 +41,6 @@ Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM, d
     return out;
   }
 
-  // an off-grid range takes one MORE station, clamped to toM -- the ribbon reaches the
-  // metre it promises and whatever abuts at toM meets no gap (the 1715 fix, here)
   const size_t whole = (size_t)((toM - fromM) / stepM);
   const bool onGrid = fromM + (double)whole * stepM == toM;
   const size_t stations = whole + (onGrid ? 1 : 2);
@@ -59,8 +57,6 @@ Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM, d
   out.PositionM.reserve((stations + 2) * kRibbonAcross * 2 * 3);
   out.NormalM.reserve((stations + 2) * kRibbonAcross * 2 * 3);
   out.AcrossM.reserve((stations + 2) * kRibbonAcross * 2);
-  // derived: per strip 2*(across-1) surface quads + 2 wall quads, 6 indices a quad,
-  // plus two caps of (across-1) quads each
   out.Index.reserve((stations - 1) * kRibbonAcross * 12 + (kRibbonAcross - 1) * 12);
 
   {
@@ -84,8 +80,6 @@ Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM, d
     }
     const double left[2] = {-std::sin(on.HeadingRad), std::cos(on.HeadingRad)};
 
-    // one resection per station and lane edge -- the top and the underside read the SAME
-    // standing, so asking twice bought nothing but the second binary search
     Standing stood[kRibbonAcross];
     for (size_t which = 0; which < kRibbonAcross; ++which) {
       stood[which] = StandAt(along, atM > toM ? toM : atM, acrossAt[which], 0.0);
@@ -160,7 +154,6 @@ Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM, d
     }
   }
 
-
   out.Stations = stations;
   out.Vertices = out.PositionM.size() / 3;
   out.Triangles = out.Index.size() / 3;
@@ -168,4 +161,4 @@ Ribbon Sweep(const ReferenceLine &along, const Section &section, double fromM, d
   return out;
 }
 
-} // namespace outshine
+}

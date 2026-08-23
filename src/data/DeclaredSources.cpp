@@ -21,7 +21,7 @@ constexpr const char *kKinds[] = {"terrain", "vector", "stars"};
   return all;
 }
 
-} // namespace
+}
 
 bool RegisterDeclared(SourceSet &set, std::span<const Provider> providers,
                       std::string_view starDirectory, std::string &error) {
@@ -61,4 +61,4 @@ std::span<const Provider> ShippedProviders() {
   return shipped;
 }
 
-} // namespace outshine::Data
+}

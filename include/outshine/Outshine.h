@@ -59,6 +59,6 @@ private:
   std::unique_ptr<State> S_;
 };
 
-} // namespace outshine
+}
 
 #endif

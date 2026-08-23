@@ -43,7 +43,7 @@ public:
   void Say(const std::string &) override {}
 };
 
-} // namespace
+}
 
 int main(void) {
   using namespace outshine::Test;

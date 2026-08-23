@@ -323,9 +323,6 @@ bool ShapeAllowed(const std::string &semantic, const AttributeShape &shape, bool
     return vec4 && ((f32 && !norm) || ((u8 || u16) && norm));
   }
 
-  // the spec's own rule: an application-specific attribute MUST start with an underscore
-  // and may take any shape; anything else here is a misspelt standard semantic, and
-  // carrying it silently loses the mesh's normals without a word
   return !semantic.empty() && semantic.front() == '_';
 }
 
@@ -398,11 +395,6 @@ bool Document::Read(Span<const uint8_t> whole, std::string_view path) {
   return ReadJson(reinterpret_cast<const char *>(bytes), length, nullptr, 0);
 }
 
-
-// a JSON number becomes a size or refuses: integer-valued, non-negative, under the cap --
-// the raw cast was UB at "count": 1e300 and silently truncated a fraction or a minus
-// [SET] the cap: the GLB container's own uint32 ceiling; nothing in a file this reader
-// accepts can address past it
 constexpr double kMostDeclaredBytes = 4294967295.0;
 [[nodiscard]] bool DeclaredSize(const Json::Ref &ref, size_t &out) {
   const double raw = ref.Num(0.0);
@@ -435,9 +427,6 @@ bool Document::ResolveBuffers(const Json &json, const uint8_t *binaryChunk, size
       std::error_code stat;
       const auto measured = std::filesystem::file_size(directory + uri, stat);
       if (stat) { return Refuse("buffer " + Number(i) + " names " + uri + ", which cannot be opened"); }
-      // the allocation is the SMALLER of both truths: the declaration cannot buy bytes
-      // the file does not carry (a 60-byte file declaring 4 GiB once zero-filled 4 GiB
-      // before the refusal), and the file cannot be slurped past declared+1
       const size_t reading =
           measured < (uintmax_t)declared + 1 ? (size_t)measured : declared + 1;
       std::ifstream file(directory + uri, std::ios::binary);
@@ -611,8 +600,6 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
                         attribute.Semantic + " names an accessor the file does not carry");
         }
         const Accessor &carried = Accessors_[static_cast<size_t>(attribute.Accessor)];
-        // the spec REQUIRES min and max on a POSITION accessor -- the declared bounds
-        // are what a consumer sizes against without decoding
         if (attribute.Semantic == "POSITION" &&
             (carried.Min.size() != ElementComponents(carried.Element) ||
              carried.Max.size() != ElementComponents(carried.Element))) {
@@ -813,9 +800,6 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     }
   }
 
-  // a forest has no cycles and the spec demands none: every node walks to its root --
-  // and every node the walk PASSES is proven with it, so a chained file costs the read
-  // one visit per node, never n^2/2 steps of CPU before the verdict
   {
     std::vector<uint8_t> rooted(Nodes_.size(), 0);
     std::vector<int> walked;
@@ -1024,9 +1008,6 @@ bool Document::ReadAnimations(const Json &json) {
                       "', which is " + Number(components) + " components, from an output of " +
                       Number(ElementComponents(values.Element)));
       }
-      // T/R/S demand EXACTLY one value per keyframe (times three for cubic tangents);
-      // only weights carry a per-target multiplicity, so the divisibility rule that is
-      // right for weights was lenient here and the surplus went silently unread
       if (channel.Path != AnimationPath::Weights) {
         const AnimationSampler &driving =
             animation.Samplers[static_cast<size_t>(channel.Sampler)];
@@ -1550,7 +1531,6 @@ bool Document::ReadElements(int accessorIndex, std::vector<double> &out) const {
   if (accessor.View >= 0) {
     if (!ViewSpan(accessor.View, span)) { return false; }
     if (accessor.Count > 0) {
-      // the a > limit || b > limit - a form cannot wrap; the sum-then-compare could
       if (accessor.ByteOffset > span.Size() ||
           element > span.Size() - accessor.ByteOffset ||
           (accessor.Count - 1) > (span.Size() - accessor.ByteOffset - element) / stride) {
@@ -1559,11 +1539,6 @@ bool Document::ReadElements(int accessorIndex, std::vector<double> &out) const {
     }
   }
 
-  // a viewless accessor is zero-filled by spec (3.6.2.3) -- sparse MAY override, none is
-  // required. The fill's OUTPUT is bounded by a named multiple of the bytes the file
-  // carries: kFillOverCarried [SET] 1024, because the spec's own extreme is a morph
-  // target's wide zero field over a one-element override -- a kilobyte file may command
-  // a megabyte of zeros and never the gigabytes a 60-byte declaration once bought
   if (accessor.View < 0) {
     constexpr size_t kFillOverCarried = 1024;
     size_t carriedBytes = 0;

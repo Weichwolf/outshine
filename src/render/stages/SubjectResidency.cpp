@@ -29,9 +29,7 @@ SDL_GPUFilter FilterOf(SubjectFilter filter) {
 
 constexpr bool kChainIsReadable = false;
 
-
-
-} // namespace
+}
 
 OwnedBuffer SubjectResidency::Fill(SDL_GPUBufferUsageFlags usage, const void *from, uint32_t bytes) {
   SDL_GPUBufferCreateInfo wantedBuffer{};
@@ -77,8 +75,6 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
       *one.Held = 0;
       continue;
     }
-    // Held is the standing buffer's CAPACITY: only growth recreates -- a fluctuating
-    // stream shrinking into its buffer buys no device allocation on the tick
     if (*one.Held < one.Bytes || !*one.Into) {
       SDL_GPUBufferCreateInfo wanted{};
       wanted.usage = one.Usage;
@@ -97,13 +93,8 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
   if (total == 0) { return true; }
 
   if (!deferred) { return Submit(what, count, total, error); }
-  // the staging capacity was opened ONCE at residency establishment; a frame that wants
-  // more refuses naming both numbers -- a mid-frame regrow would destroy the transfer an
-  // earlier crossing of this same frame already staged into, and its bytes with it
   const uint32_t wanted = StagingUsed_ + total;
   if (StagingBytes_ < wanted || !Staging_[StagingAt_]) {
-    // the refusal leaves NOTHING half-staged: the aborted frame's entries drop, so the
-    // next frame's flush uploads only hands that landed whole
     DropStaged();
     error = "this frame's hands stage " + std::to_string(wanted) + " bytes over the " +
             std::to_string(StagingBytes_) +
@@ -111,8 +102,6 @@ bool SubjectResidency::Cross(Crossing *what, size_t count, bool deferred, std::s
             "is more than the ring holds";
     return false;
   }
-  // the entry budget is checked BEFORE one byte is written, so a refusal cannot leave a
-  // partial append behind
   size_t landing = 0;
   for (size_t one = 0; one < count; ++one) {
     if (what[one].Bytes > 0 && what[one].From != nullptr) { ++landing; }
@@ -320,5 +309,4 @@ SubjectResidency::BoundImage SubjectResidency::Upload(const SubjectTexture &text
   return bound;
 }
 
-
-} // namespace outshine::Render
+}

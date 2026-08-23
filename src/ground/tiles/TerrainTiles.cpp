@@ -99,9 +99,6 @@ TerrainGrid TerrainTiles::RawGrid(int z, uint32_t x, uint32_t y) {
     field = grid.TryFieldMutable();
   }
 
-  // a field too small to mesh never leaves this door: the crop arm already gives this
-  // verdict (a crop under 2x2 is NotHere), and the uncropped arm owes the same -- the
-  // stitcher and the mesh both assume a lattice with an inside (board:1755)
   if (!field->Meshable()) { return TerrainGrid::NotHere(); }
   CacheStore(z, x, y, *field);
   return grid;
@@ -113,11 +110,6 @@ TerrainGrid::State TerrainTiles::StitchEdge(TerrainField &self, int z, uint32_t 
   const TerrainField *n = neighbour.TryField();
   if (!n || !n->Meshable()) return neighbour.Where();
 
-  // the pair is the same PLACE, not the same index: a cropped neighbour carries fewer
-  // postings along the shared edge, and index-by-index paired a fine posting with a
-  // coarse one while min() left the rest of the fine edge unstitched -- the stitcher
-  // made the seam it exists to close. The currency is the fraction along the edge, the
-  // one TerrainMesh::Over already meshes with
   if (side == Side::West || side == Side::East) {
     const uint32_t selfCol = (side == Side::West) ? 0 : self.Cols() - 1;
     const double neighbourFrac = (side == Side::West) ? 1.0 : 0.0;
@@ -143,8 +135,6 @@ TerrainGrid::State TerrainTiles::StitchCorner(TerrainField &self, float selfRawM
   const bool west = corner == Corner::NorthWest || corner == Corner::SouthWest;
   const bool north = corner == Corner::NorthWest || corner == Corner::NorthEast;
   const uint32_t n = 1u << z;
-  // the corner exists only where all three neighbours do -- at the map's rim the tile's
-  // own posting stands, which is what an unshared corner IS
   if ((west && x == 0) || (!west && x + 1 >= n)) { return TerrainGrid::State::Decoded; }
   if ((north && y == 0) || (!north && y + 1 >= n)) { return TerrainGrid::State::Decoded; }
 
@@ -160,15 +150,9 @@ TerrainGrid::State TerrainTiles::StitchCorner(TerrainField &self, float selfRawM
     return Worse(Worse(sideways.Where(), updown.Where()), diagonal.Where());
   }
 
-  // a corner is a POSTING on every tile whatever its resolution -- fraction 0 and 1 land
-  // exactly on the first and last posting -- so the four copies of the shared place need
-  // no interpolation, only the right corner of each field
   const auto cornerOf = [](const TerrainField &f, bool atWest, bool atNorth) {
     return (double)f.AtM(atNorth ? 0u : f.Rows() - 1u, atWest ? 0u : f.Cols() - 1u);
   };
-  // self's own copy is its RAW corner, captured before the edge passes wrote over it --
-  // reading it here would average an already-averaged number and every tile would end
-  // with a different one, which is the defect this pass exists to close
   const double sum = (double)selfRawM + cornerOf(*a, !west, north) +
                      cornerOf(*b, west, !north) + cornerOf(*c, !west, !north);
   self.SetM(north ? 0u : self.Rows() - 1u, west ? 0u : self.Cols() - 1u,
@@ -181,8 +165,6 @@ TerrainGrid TerrainTiles::StitchedGrid(int z, uint32_t x, uint32_t y) {
   TerrainField *field = grid.TryFieldMutable();
   if (!field) return grid;
 
-  // the four raw corners, taken BEFORE any edge pass writes into them: a corner's average
-  // is over four RAW fields, so every tile that shares it computes the same number
   const float rawCorners[4] = {
       field->AtM(0u, 0u), field->AtM(0u, field->Cols() - 1u),
       field->AtM(field->Rows() - 1u, 0u), field->AtM(field->Rows() - 1u, field->Cols() - 1u)};
@@ -193,12 +175,6 @@ TerrainGrid TerrainTiles::StitchedGrid(int z, uint32_t x, uint32_t y) {
   if (x + 1 < n) worst = Worse(worst, StitchEdge(*field, z, x + 1, y, Side::East));
   if (y > 0) worst = Worse(worst, StitchEdge(*field, z, x, y - 1, Side::North));
   if (y + 1 < n) worst = Worse(worst, StitchEdge(*field, z, x, y + 1, Side::South));
-  // a corner belongs to FOUR tiles, and the four edge passes above composed it from two
-  // of them in sequence -- the second pass averaging what the first had just written, the
-  // diagonal never asked. Every tile sharing the corner then kept a different height, one
-  // posting past the seam the edges just closed. The corner is one average over all four
-  // raw fields, computed after the edges and from the SAME four numbers whichever tile
-  // asks (board:1756)
   for (const Corner corner : {Corner::NorthWest, Corner::NorthEast, Corner::SouthWest,
                               Corner::SouthEast}) {
     const bool west = corner == Corner::NorthWest || corner == Corner::SouthWest;
@@ -223,8 +199,6 @@ TerrainMesh TerrainTiles::MeshOf(int z, uint32_t x, uint32_t y) {
       case TerrainGrid::State::Decoded: return TerrainMesh::Nothing(TerrainMesh::State::NoTile);
     }
   }
-  // [SET] the web-mercator tile extent in its own units: 4096 is the vector-tile
-  // convention every source in this tree serves, and the map converts it to metres
   constexpr uint32_t kTileExtent = 4096;
   return TerrainMesh::Over(*field, TileEnuMap::Over(Frame_, z, x, y, kTileExtent),
                            Config_.Stride);

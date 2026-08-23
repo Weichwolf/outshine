@@ -10,7 +10,10 @@ camera, never a mean.
 - **Declarative**: scenarios declare, the engine behaves; content = data, engine = verbs; the consumer selects from a `constexpr` catalogue and cannot add to it
 - **Batteries as declarations**: outshine ships convenience components -- generators, providers, world templates and factories (`Planet(params)` → a Scenario value) -- all catalogue citizens the scenario selects; the engine core stays scenario-agnostic
 - **Every number carries its origin** (derived · measured · `[SET]`) with unit and population; no magic numbers; calibration measures, never decides
-- **The code carries no commentary**; work items live in `board/`, code never names them
+- **The code carries NO comments** — `src/`, `include/`, `tools/` hold no `//`, no block, no
+  TODO, no derivation, no board number: names and structure carry the meaning, a number's
+  origin lives in its board item and its commit, and `test/` is the one place prose may stand
+  because a proof explains what it proves; work items live in `board/`, code never names them
 - **Cycles is the oracle** for correctness; references are for ambition; the corpus is a driver, not a certificate
 - **One world space**; a failure is loud; something is always drawn; delete on the day you replace
 - Artefacts go to the system temp dir, never the tree; `git log` is what was — no journal

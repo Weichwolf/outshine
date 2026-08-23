@@ -9,10 +9,6 @@ namespace outshine {
 
 enum class Edge { Zero, Infinity };
 
-// the ONE judge for a decimal that from_chars reported out of range: the first
-// significant digit's effective decimal exponent decides underflow from overflow --
-// fraction-spelled tininess is zero, mantissa-borne hugeness is infinity, whatever the
-// written exponent's sign says (board:1701, its recurrence 1740)
 [[nodiscard]] inline Edge DecimalEdge(std::string_view number) {
   if (!number.empty() && (number.front() == '+' || number.front() == '-')) {
     number.remove_prefix(1);
@@ -46,11 +42,9 @@ enum class Edge { Zero, Infinity };
     const bool shrinks = *from == '-';
     if (*from == '+' || *from == '-') { ++from; }
     if (std::from_chars(from, stop, shift).ec != std::errc()) {
-      // an exponent past long long dwarfs any spelled significand -- its sign decides
       return shrinks ? Edge::Zero : Edge::Infinity;
     }
     if (shrinks) { shift = -shift; }
-    // a near-LLONG_MAX exponent would overflow the sum below -- it already decides alone
     if (shift > (1LL << 62)) { return Edge::Infinity; }
     if (shift < -(1LL << 62)) { return Edge::Zero; }
   }

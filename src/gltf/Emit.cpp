@@ -301,7 +301,6 @@ private:
     return AccessorCount_++;
   }
 
-  // callers hold GlbFits before this runs, so the casts below cannot truncate
   void Container(std::string_view json, std::vector<uint8_t> &glb) {
     std::vector<uint8_t> text(json.begin(), json.end());
     PadTo4(text, ' ');

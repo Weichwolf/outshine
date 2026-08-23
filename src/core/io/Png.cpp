@@ -9,8 +9,6 @@ namespace outshine::Io {
 namespace {
 
 constexpr uint8_t kSignature[8] = {0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a};
-// [SET] the largest side this engine decodes: 16384 is the device's own max texture
-// dimension, and a PNG wider than what the GPU can hold has no destination here
 constexpr size_t kMaxSide = 16384;
 
 uint32_t Big(const uint8_t *at) {
@@ -33,7 +31,7 @@ Png Refuse(std::string why) {
   return out;
 }
 
-} // namespace
+}
 
 Png ReadPng(const uint8_t *bytes, size_t length) {
   if (bytes == nullptr || length < sizeof(kSignature) + 12) {
@@ -144,4 +142,4 @@ Png ReadPng(const uint8_t *bytes, size_t length) {
   return out;
 }
 
-} // namespace outshine::Io
+}

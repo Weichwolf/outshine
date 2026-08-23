@@ -65,6 +65,6 @@ private:
   size_t CrestsBound_ = 0;
 };
 
-} // namespace outshine
+}
 
 #endif

@@ -17,8 +17,6 @@ class Renderer;
 
 namespace outshine::Clients {
 
-// the studio's own [SET] stand in the one world space -- at equatorial ECEF magnitude so
-// studio content sits where a georeferenced world would put it; no planet is implied
 constexpr double kStudioAnchorEcefM[3] = {Data::kWgs84A, 0.0, 0.0};
 
 void EcefFromGltf(const double gltf[3], double out[3]);

@@ -16,8 +16,6 @@ bool Json::Parse(const char *text, size_t len) {
   Depth_ = 0;
   Ok_ = ParseValue() == 0;
   if (Ok_) {
-    // one document, wholly consumed: "{...} garbage" is not json with a suffix, it is
-    // not json
     Skip();
     Ok_ = P_ == Text_.size();
   }
@@ -54,8 +52,6 @@ bool Json::ParseString(uint32_t &off, uint32_t &len, bool &escaped) {
 int32_t Json::ParseValue() {
   Skip();
   if (P_ >= Text_.size()) return -1;
-  // a counter bounds the depth, not the C stack: a 200k-bracket bomb is a refusal at its
-  // byte, never a segfault behind every careful Refuse the gltf door holds
   if (Depth_ >= kMostDepth) return -1;
   ++Depth_;
   const int32_t id = ParseValueInside();
@@ -78,7 +74,6 @@ int32_t Json::ParseValueInside() {
       Skip();
       if (P_ >= Text_.size()) return -1;
       if (Text_[P_] == close) {
-        // "[1,]" ends on a comma's promise -- the grammar has no trailing comma
         if (afterComma) return -1;
         P_++;
         break;
@@ -106,7 +101,6 @@ int32_t Json::ParseValueInside() {
         afterComma = true;
         continue;
       }
-      // "[1 2]" is two values and no grammar -- a member ends on a comma or the close
       if (Text_[P_] != close) return -1;
       afterComma = false;
     }
@@ -134,7 +128,6 @@ int32_t Json::ParseValueInside() {
     if (Text_.size() - P_ < bytes || std::memcmp(Text_.c_str() + P_, word, bytes) != 0) {
       return false;
     }
-    // "truex" is not true with a suffix -- the literal ends where the grammar ends
     const size_t after = P_ + bytes;
     if (after < Text_.size()) {
       const char next = Text_[after];
@@ -150,8 +143,6 @@ int32_t Json::ParseValueInside() {
   if (literal("false", 5)) { Nodes_[(size_t)id].K = Kind::Bool; Nodes_[(size_t)id].Num = 0.0; return id; }
   if (literal("null", 4)) { Nodes_[(size_t)id].K = Kind::Null; return id; }
 
-  // rfc 8259's number grammar, scanned EXACTLY: -?(0|[1-9][0-9]*)(.[0-9]+)?([eE][+-]?[0-9]+)?
-  // -- from_chars alone is laxer (01, 1., -.5 all read) and strtod was laxer still
   {
     size_t at = P_;
     if (at < Text_.size() && Text_[at] == '-') ++at;
@@ -178,8 +169,6 @@ int32_t Json::ParseValueInside() {
     double v = 0.0;
     const auto scanned = std::from_chars(Text_.c_str() + P_, Text_.c_str() + at, v);
     if (scanned.ec == std::errc::result_out_of_range) {
-      // this platform reports UNDERFLOW as out_of_range too -- the one judge decides
-      // which edge the exact value rounds to (a hostile 1e-999 is ~0, never 1.8e308)
       const std::string_view span(Text_.c_str() + P_, at - P_);
       const double magnitude =
           DecimalEdge(span) == Edge::Zero ? 0.0 : 1.7976931348623157e308;
@@ -213,8 +202,6 @@ std::string Json::Decode(uint32_t off, uint32_t len, bool escaped) const {
         if (i + 4 >= len) break;
         unsigned cp = (unsigned)std::strtoul(Text_.substr(off + i + 1, 4).c_str(), nullptr, 16);
         i += 4;
-        // a surrogate half is not a character: a high half pairs with the \uDC00..DFFF
-        // that follows, and a lone half becomes U+FFFD instead of invalid utf-8
         if (cp >= 0xD800 && cp <= 0xDBFF && i + 6 < len && Text_[off + i + 1] == '\\' &&
             Text_[off + i + 2] == 'u') {
           const unsigned low =
@@ -274,8 +261,6 @@ Json::Ref Json::Ref::operator[](const char *key) const {
 double Json::Ref::Num(double def) const {
   if (!Valid()) return def;
   const Json::Node &n = Doc->Nodes_[(size_t)Node];
-  // a bool is not a number: "byteLength": true reaching a size door as 1.0 is the
-  // interconversion this line refuses
   return n.K == Kind::Number ? n.Num : def;
 }
 

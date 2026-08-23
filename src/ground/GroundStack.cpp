@@ -34,8 +34,8 @@ bool GroundStack::Open(std::string_view cacheDir, std::string_view assetsDir,
   say.Number("sources registered", (double)sources.Count(), "sources");
 
   outshine::Ground::GroundSurface surface;
-  surface.Z = 12;   // [SET] the Terrarium pyramid level the drive corridor streams at
-  surface.Grid = 64; // [SET] posts per tile edge, the source's own tile granularity
+  surface.Z = 12;
+  surface.Grid = 64;
   Pool_ = std::make_unique<outshine::Ground::TilePool>(
       outshine::Ground::GroundPoolConfig(focusLat, focusLon), sources, wire);
   Ground_ = std::make_unique<outshine::Ground::GroundStream>(*Pool_, surface);

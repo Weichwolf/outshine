@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <utility>
 
 #include "Check.h"
 
@@ -29,10 +30,11 @@ int main(void) {
   std::string error;
   CHECK(ReadScenario(text, std::strlen(text), declared, error), "the declaration reads");
 
-  ViewBook book;
-  const bool up = book.Build(declared.Views, declared.Played.View, error);
-  if (!up) { std::printf("REFUSED %s\n", error.c_str()); }
-  CHECK(up, "three declared views stand up");
+  auto stood = ViewBook::Stand(declared.Views, declared.Played.View);
+  if (!stood) { std::printf("REFUSED %s\n", stood.error().c_str()); }
+  CHECK(stood.has_value(), "three declared views stand up");
+  if (!stood) { return Report(); }
+  ViewBook book = *std::move(stood);
   CHECK(book.ActiveId() == "eyes" && book.Count() == 3,
         "**EXACTLY ONE VIEW IS ACTIVE AND WHICH IS ANSWERABLE** -- the player's declared "
         "starting view");
@@ -52,7 +54,6 @@ int main(void) {
   CHECK(!book.Take("drone"), "a view nobody declared cannot be taken");
 
   {
-    ViewBook bad;
     Scenario twice;
     const char *dup =
         "<scenario name=\"t\"><views>"
@@ -60,8 +61,8 @@ int main(void) {
         "<view id=\"a\" follows=\"player\" person=\"third\"/>"
         "</views></scenario>";
     CHECK(ReadScenario(dup, std::strlen(dup), twice, error), "the duplicate reads");
-    CHECK(!bad.Build(twice.Views, "", error) &&
-              error.find("twice") != std::string::npos,
+    const auto duplicate = ViewBook::Stand(twice.Views, "");
+    CHECK(!duplicate && duplicate.error().find("twice") != std::string::npos,
           "a view declared twice refuses -- taking it would be a coin toss");
 
     Scenario still;
@@ -70,8 +71,8 @@ int main(void) {
         "<view id=\"a\" follows=\"player\" person=\"first\" timeScale=\"0\"/>"
         "</views></scenario>";
     CHECK(ReadScenario(frozen, std::strlen(frozen), still, error), "the frozen one reads");
-    CHECK(!bad.Build(still.Views, "", error) &&
-              error.find("timeScale") != std::string::npos,
+    const auto frozenBook = ViewBook::Stand(still.Views, "");
+    CHECK(!frozenBook && frozenBook.error().find("timeScale") != std::string::npos,
           "a timeScale of zero refuses -- a clock runs forward or the scenario is a still");
 
     Scenario lost;
@@ -80,8 +81,8 @@ int main(void) {
         "<view id=\"a\" follows=\"player\" person=\"first\"/></views>"
         "<player is=\"s\" view=\"b\"/></scenario>";
     CHECK(ReadScenario(nowhere, std::strlen(nowhere), lost, error), "the lost one reads");
-    CHECK(!bad.Build(lost.Views, lost.Played.View, error) &&
-              error.find("'b'") != std::string::npos,
+    const auto lostBook = ViewBook::Stand(lost.Views, lost.Played.View);
+    CHECK(!lostBook && lostBook.error().find("'b'") != std::string::npos,
           "a starting view nothing declares refuses naming it");
   }
 

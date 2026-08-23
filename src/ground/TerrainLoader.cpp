@@ -50,7 +50,7 @@ int DerivedThreads(int workers) {
   return n;
 }
 
-} // namespace
+}
 
 namespace outshine::Ground {
 
@@ -61,9 +61,6 @@ void FillNodeHeights(const TerrainField &field, uint32_t rowPostings, uint32_t c
     const double fr = PostingFrac(Ground::ChunkNodePosting(j, rowPostings, nodes), rowPostings);
     for (int i = 0; i < nodes; i++) {
       const double fc = PostingFrac(Ground::ChunkNodePosting(i, colPostings, nodes), colPostings);
-      // the POSTING reading, the same currency PostingFrac just minted -- the mesh places
-      // its vertices in it (board:1750) and the stream must ANSWER in it, or drawn ground
-      // and queried ground stand half a posting apart by construction (board:1752)
       (*out)[(size_t)j * (size_t)nodes + (size_t)i] = field.PostingM(fc, fr);
     }
   }
@@ -269,6 +266,5 @@ TilePool::Config GroundPoolConfig(double lat, double lon, int workers) {
   config.DemCacheTiles = kPoolDemCacheTiles;
   return config;
 }
-
 
 }

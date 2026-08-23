@@ -1,11 +1,6 @@
 #ifndef OUTSHINE_RENDER_STAGES_MEDIUMCORE_H
 #define OUTSHINE_RENDER_STAGES_MEDIUMCORE_H
 
-// THE ONE SOURCE: compiled as C++ by the reference in ParticipatingMedium.h and
-// appended as MSL text by ParticipatingMediumMsl -- the including side defines MEDIUM_CONST,
-// MEDIUM_THREAD and OUTSHINE_PI for its language. Scalar physics only; the vector twins stay
-// explicit where the languages genuinely diverge.
-
 static inline float mediumTopReach(MEDIUM_CONST Medium &medium, float radiusKm, float cosZenith) {
   float under = radiusKm * radiusKm * (cosZenith * cosZenith - 1.0) +
                 medium.TopRadiusKm * medium.TopRadiusKm;

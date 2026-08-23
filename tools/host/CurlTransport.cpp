@@ -125,7 +125,6 @@ void CurlTransport::Work() {
       curl_easy_setopt(handle, CURLOPT_USERAGENT, Config_.UserAgent.c_str());
       result = curl_easy_perform(handle);
       if (result == CURLE_OK) curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &status);
-      // curl parses BOTH Retry-After forms (delta-seconds and HTTP-date) into seconds
       if (result == CURLE_OK) curl_easy_getinfo(handle, CURLINFO_RETRY_AFTER, &retryAfter);
     }
 

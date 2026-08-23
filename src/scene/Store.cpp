@@ -26,16 +26,13 @@ const char *Named(Relation how) {
   return "no relation";
 }
 
-} // namespace
+}
 
 bool Store::Open(size_t capacity) {
   if (capacity == 0) { return Refuse("a store of no entities holds nothing"); }
   Slots_.assign(capacity, Slot{});
   Free_.clear();
   Free_.reserve(capacity);
-  // the runtime verbs' scratch is the store's, opened once: despawn, prefab evaluation
-  // and a refused relink are tick-path work in a world of thousands, and none of them
-  // may buy heap per call
   Felling_.clear();
   Felling_.reserve(capacity * kOwnedRelations);
   Raising_.clear();
@@ -72,8 +69,6 @@ Entity Store::Add(Role role) {
 
 void Store::Remove(Entity of) {
   if (Held(of) == nullptr) { return; }
-  // an owned chain of any depth fells with an explicit stack -- a 100k-link ChildOf train
-  // once tore down by recursion, one frame per link, and the stack is not the pool's bound
   Felling_.clear();
   Felling_.push_back(of);
   while (!Felling_.empty()) {
@@ -366,8 +361,6 @@ Entity Store::Instantiate(Entity prefab) {
     (void)Refuse("only what stands can be instantiated");
     return kNoEntity;
   }
-  // a prefab tree of any depth stands up with an explicit work list -- the recursion per
-  // child paid one frame per link, the 1712 class, and a failure fells the ONE root
   const Entity instance = Add(base->Is);
   if (!Alive(instance)) { return kNoEntity; }
   if (!Link(instance, Relation::IsA, prefab)) {
@@ -393,7 +386,6 @@ Entity Store::Instantiate(Entity prefab) {
       const Entity copied = childBase == nullptr ? kNoEntity : Add(childBase->Is);
       if (!Alive(copied) || !Link(copied, Relation::IsA, childId) ||
           !Link(copied, Relation::ChildOf, at.Under)) {
-        // Remove never refuses, so the refusal that landed in Said_ survives the unwind
         if (Alive(copied)) { Remove(copied); }
         Remove(instance);
         return kNoEntity;
@@ -521,12 +513,10 @@ bool Store::Refuse(const char *why) noexcept {
 }
 
 bool Store::Refuse(std::initializer_list<std::string_view> parts) {
-  // composed into the member buffer the pool opened -- a refused relink on the tick
-  // buys no heap so long as the parts fit the reserved bytes, and they are counted
   ErrorText_.clear();
   for (const std::string_view part : parts) { ErrorText_ += part; }
   Said_ = ErrorText_;
   return false;
 }
 
-} // namespace outshine
+}

@@ -2,50 +2,42 @@
 
 namespace outshine {
 
-bool ViewBook::Build(std::span<const View> declared, std::string_view starting,
-                     std::string &error) {
-  Held_.clear();
-  Active_ = 0;
+std::expected<ViewBook, std::string> ViewBook::Stand(std::span<const View> declared,
+                                                     std::string_view starting) {
+  ViewBook standing;
   if (declared.empty()) {
-    error = "a view book stands on 1..N declared views and this scenario declares none";
-    return false;
+    return std::unexpected("a view book stands on 1..N declared views and this scenario declares none");
   }
   for (const View &view : declared) {
     if (view.Id.empty()) {
-      error = "a view without an id cannot be taken, and a view nobody can take is dead "
-              "weight";
-      return false;
+      return std::unexpected("a view without an id cannot be taken, and a view nobody can take is dead "
+              "weight");
     }
-    for (const View &held : Held_) {
+    for (const View &held : standing.Held_) {
       if (held.Id == view.Id) {
-        error = "the view '" + view.Id + "' is declared twice, and taking it would be a "
-                "coin toss";
-        return false;
+        return std::unexpected("the view '" + view.Id + "' is declared twice, and taking it would be a "
+                "coin toss");
       }
     }
     if (view.Follows.empty()) {
-      error = "view '" + view.Id + "' follows nothing -- a camera the client drives frame "
-              "by frame is the defect this mechanism replaces";
-      return false;
+      return std::unexpected("view '" + view.Id + "' follows nothing -- a camera the client drives frame "
+              "by frame is the defect this mechanism replaces");
     }
     if (view.Person != "first" && view.Person != "third") {
-      error = "view '" + view.Id + "' is '" + view.Person +
-              "'-person, and this engine declares first and third";
-      return false;
+      return std::unexpected("view '" + view.Id + "' is '" + view.Person +
+              "'-person, and this engine declares first and third");
     }
     if (!(view.TimeScale > 0.0)) {
-      error = "view '" + view.Id + "' declares timeScale " + std::to_string(view.TimeScale) +
-              ", and a clock runs forward or the scenario is a still";
-      return false;
+      return std::unexpected("view '" + view.Id + "' declares timeScale " + std::to_string(view.TimeScale) +
+              ", and a clock runs forward or the scenario is a still");
     }
-    Held_.push_back(view);
+    standing.Held_.push_back(view);
   }
-  if (!starting.empty() && !Take(starting)) {
-    error = "the player starts in view '" + std::string(starting) +
-            "', which no view declares";
-    return false;
+  if (!starting.empty() && !standing.Take(starting)) {
+    return std::unexpected("the player starts in view '" + std::string(starting) +
+            "', which no view declares");
   }
-  return true;
+  return standing;
 }
 
 bool ViewBook::Take(std::string_view id) {
@@ -58,4 +50,4 @@ bool ViewBook::Take(std::string_view id) {
   return false;
 }
 
-} // namespace outshine
+}

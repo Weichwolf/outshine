@@ -7,7 +7,6 @@ namespace outshine::Generators {
 
 namespace {
 
-// [SET] the two jitters the growth loop reaches for, named where the loop can see them
 constexpr float kWhorlJitterRad = 0.25f;
 constexpr float kSpiralJitterRad = 0.4f;
 
@@ -15,12 +14,9 @@ constexpr float kTau = 2.0f * std::numbers::pi_v<float>;
 constexpr float kGolden = 2.0f * std::numbers::pi_v<float> * (2.0f - std::numbers::phi_v<float>);
 constexpr float kDeg = std::numbers::pi_v<float> / 180.0f;
 
-constexpr float kEscapeStop = 1.10f; // [SET] a lateral 10% past its envelope stops --
-                                     // where the silhouette starts to fray
+constexpr float kEscapeStop = 1.10f;
 
-constexpr float kBendBack = 0.55f;   // [SET] the pull toward the envelope: full bend
-                                     // looks topiary, none looks wild -- tuned by eye
-                                     // against the reference silhouettes
+constexpr float kBendBack = 0.55f;
 
 constexpr int kMinBranchSteps = 3;
 
@@ -107,9 +103,6 @@ void TreeGrower::SeedLeaders(const TreeSpecies::Growth &g, int bareSteps) {
   const int n = Form_.Leaders < 1 ? 1 : Form_.Leaders;
   const float radius = g.BaseRadius / std::sqrt((float)n);
   const float splay = Form_.LeaderSplayDeg * kDeg;
-  // [SET] the stool spread: multiple leaders rise from a base ring of 0.18 crown
-  // half-widths -- SpeedTree's coppice stool, wide enough to read as separate boles at
-  // ground level and narrow enough that the crowns still merge
   constexpr float kStoolOfCrown = 0.18f;
   const float stool =
       n > 1 && Form_.Arch != Architecture::Hedge ? kStoolOfCrown * CrownHalfWidth_ : 0.0f;
@@ -118,10 +111,6 @@ void TreeGrower::SeedLeaders(const TreeSpecies::Growth &g, int bareSteps) {
   if (steps < 1) { steps = 1; }
 
   for (int i = 0; i < n; ++i) {
-    // [SET] the roll jitter, in radians about the golden-angle spacing: 0.35 rad is a
-    // fifth of the 1.63 rad step, enough to break the lattice and never enough to pair
-    // two leaders; the lean takes 55..100% of the declared splay so no leader stands
-    // fully upright against its declaration
     constexpr float kRollJitterRad = 0.35f;
     constexpr float kLeanLeast = 0.55f;
     const float roll = kGolden * (float)i + Rng_.Signed() * kRollJitterRad;
@@ -134,10 +123,6 @@ void TreeGrower::SeedLeaders(const TreeSpecies::Growth &g, int bareSteps) {
     t.Up = Vec3(0, 0, 1);
     if (Form_.Arch == Architecture::Hedge) {
 
-      // [SET] a hedge's stems stand on an even run: 0.34 of a slot of jitter keeps them
-      // from a comb without letting two touch (a slot is 1/n of the run), 0.94 holds the
-      // outermost stem inside the declared run, and the cross-run scatter is half the
-      // crown so the hedge reads as depth rather than a wall
       constexpr float kSlotJitter = 0.34f;
       constexpr float kRunInset = 0.94f;
       constexpr float kCrossOfCrown = 0.5f;
@@ -169,10 +154,6 @@ void TreeGrower::EmitLeafPoints(TreeVec3 pos, TreeVec3 dir, TreeVec3 up, float r
   TreeVec3 n, b;
   FrameFrom(dir, up, n, b);
   if (count < 1) { count = 1; }
-  // [SET] the leaf ring: an even azimuth with 0.30 rad of jitter (a twentieth of a turn,
-  // enough that a ring never reads as a cog), seated at 0.95 of the shoot radius so the
-  // blade meets the bark, and tilted 0.40 along the shoot -- the outward-and-forward
-  // presentation a canopy shows the sky
   constexpr float kAzimuthJitterRad = 0.30f;
   constexpr float kSeatOfRadius = 0.95f;
   constexpr float kForwardTilt = 0.40f;
@@ -196,9 +177,6 @@ void TreeGrower::SpawnLateral(const Tip &t, const TreeSpecies::Growth &g, int no
     const float rl = std::sqrt(t.Pos.X * t.Pos.X + t.Pos.Z * t.Pos.Z);
     if (rl > 1e-4f) {
       const float dOut = (dir.X * t.Pos.X + dir.Z * t.Pos.Z) / rl;
-      // [SET] shade pruning takes only shoots aiming INWARD: -0.05 of the outward
-      // cosine is a hair past perpendicular, so a branch merely tangential to the crown
-      // survives and only one turning back into its own shade is a candidate
       constexpr float kInwardEnough = -0.05f;
       if (dOut < kInwardEnough && Rng_.Unit() < g.ShadePrune) { return; }
     }
@@ -299,9 +277,6 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
 
       const float escaped = Escape(t.Pos);
       if (escaped > 1.0f) {
-        // derived: the pull ramps to full over the first quarter of an escape (escaped
-        // is the ratio past the crown envelope), so a tip a quarter past its envelope is
-        // already fully turned back -- 4.0 IS one over that quarter
         constexpr float kEscapeToFull = 0.25f;
         const float pull = std::fmin(1.0f, (escaped - 1.0f) / kEscapeToFull) * kBendBack;
         t.Dir = Normalize(t.Dir + Inward(t.Pos) * pull);
@@ -322,17 +297,12 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM) {
         if (g.WhorlCount > 0 && t.Order == 0) {
           if (((s - bareSteps) % g.WhorlSpacing) == 0) {
             for (int wb = 0; wb < g.WhorlCount; ++wb) {
-              // [SET] whorl jitter: a quarter radian off the even spoke, under half the
-              // gap of a four-branch whorl so the ring keeps its count while losing its
-              // symmetry
               SpawnLateral(t, g, last,
                            (float)wb * kTau / (float)g.WhorlCount + Rng_.Signed() * kWhorlJitterRad,
                            s);
             }
           }
         } else if (Rng_.Unit() < g.BranchChance) {
-          // [SET] the spiral's own jitter, a quarter of the golden angle -- the
-          // phyllotaxis stays legible and no two successive laterals stack
           t.Roll += kGolden + Rng_.Signed() * kSpiralJitterRad;
           SpawnLateral(t, g, last, t.Roll, s);
         }

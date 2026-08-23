@@ -12,12 +12,7 @@
 namespace outshine::Sim {
 
 namespace {
-// [SET] the locate window's floor, m; a 60 Hz tick at motorway speed moves 0.55 m
-// (33.3 m/s / 60), so 4 m holds seven ticks of drift before the window must grow
 constexpr double kResectM = 4.0;
-// [SET] the settling reach, m: offset extremes are not tallied before the car has
-// driven clear of its stand-up transient (measured settled within ~2 car lengths;
-// 50 m holds the worst corridor tried, Munich--Hamburg)
 constexpr double kFromM = 50.0;
 
 double HeadingOf(const outshine::Physics::Body &body) {
@@ -26,7 +21,7 @@ double HeadingOf(const outshine::Physics::Body &body) {
   outshine::Physics::Turn(body.OrientationQ, aheadBody, ahead);
   return std::atan2(-ahead[2], ahead[0]);
 }
-} // namespace
+}
 
 Ridden DriveTick(const Corridor &way, const Rigged &stood,
                  DriveState &drive, double dtS, const Taken *taken) {
@@ -34,7 +29,6 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
   out.Found = false;
   auto &corridor = way.Line;
   auto &profile = way.Profile;
-
 
   auto &rig = drive.Rig;
   auto &body = drive.Body;
@@ -44,8 +38,7 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
   const double fineM = way.FineM;
   const double spanM = way.SpanM;
   outshine::Pilot::Reins reins;
-  reins.SettleS = 1.0; // [SET] the pilot closes a speed error over one second -- under
-                       // the ~1 s of a relaxed human throttle, over the tick itself
+  reins.SettleS = 1.0;
   reins.LeastReachM = stood.Axles.WheelbaseM;
   reins.HoldWithinM = way.HoldWithinM;
   const double gravity[3] = {0.0, -stood.Envelope.GravityMs2, 0.0};
@@ -54,8 +47,6 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
   const double eastM = body.PositionM[0];
   const double northM = -body.PositionM[2];
   const double headingRad = HeadingOf(body);
-  // derived: the window re-finds a car that drifted LostM off the line last tick;
-  // three of it covers the drift growing while lost, atop the kResectM floor
   const double windowM = kResectM + 3.0 * drive.LostM;
   const outshine::Pilot::Placement at = outshine::Pilot::Locate(
       corridor, eastM, northM, body.PositionM[1], headingRad, drive.NearM, windowM);
@@ -90,13 +81,9 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
     }
     reins.AsideM = drive.HeldAsideM;
   }
-  // Stand refused any rig that cannot slow, so the divisor is never zero here
   const double brakingM = speedMs * speedMs / (2.0 * stood.Envelope.BrakeMs2());
   double wantedMs = profile.At(at.AlongM);
   double needMs2 = 0.0;
-  // [SET] the braking distance is sampled at twelve points -- fine enough that the
-  // worst missed dip between samples is under a car length at motorway speed
-  // (brakingM ~90 m at 33 m/s and 6 m/s2 -> 7.5 m spacing), cheap enough for the tick
   constexpr int kBrakeLooks = 12;
   for (int look = 1; look <= kBrakeLooks; ++look) {
     const double overM = brakingM * (double)look / (double)kBrakeLooks;
@@ -200,11 +187,9 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
   outshine::Physics::Step(body, wrench, dtS);
   drive.SimulatedS += dtS;
   out.SimulatedS = drive.SimulatedS;
-  // [SET] arrival margin, m: the corridor's last laid metres end on the join node, and
-  // stopping ON it would demand the profile brake to zero exactly at the clip edge
   constexpr double kArrivedWithinM = 20.0;
   if (at.AlongM >= corridor.LengthM() - kArrivedWithinM) { out.Arrived = true; }
   return out;
 }
 
-} // namespace outshine::Sim
+}

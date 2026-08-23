@@ -44,7 +44,7 @@ namespace {
   return true;
 }
 
-} // namespace
+}
 
 bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
               Column<Drive> &driven, Column<Traits> &traits, Assembled &out,
@@ -115,13 +115,9 @@ bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
       error = into.Error();
       return false;
     }
-    // resolved ONCE: the kind chain's defaults (root first, nearer overrides), then the
-    // instance's own -- a read never walks the chain
     Traits resolved;
     {
-      constexpr size_t kDeepest = 8; // [SET] a kind chain deeper than this is a taxonomy,
-                                     // not a default -- and it refuses rather than silently
-                                     // dropping the root's values
+      constexpr size_t kDeepest = 8;
       Entity chain[kDeepest];
       size_t depth = 0;
       Entity at = prefab;
@@ -166,10 +162,6 @@ bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
     out.Instances.push_back({instance.Id, stood});
   }
 
-  // holding IS placement -- one relation for both spellings -- but it is its OWN relation:
-  // ChildOf is the prefab subtree's bone and cascades on removal, HeldBy is possession and
-  // frees its contents when the holder goes; the second pass exists so an instance may hold
-  // one declared later
   for (const Instance &instance : declared.Instances) {
     const Entity holder = out.InstanceNamed(instance.Id);
     for (const std::string &what : instance.Holds) {
@@ -261,4 +253,4 @@ bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
   return true;
 }
 
-} // namespace outshine
+}

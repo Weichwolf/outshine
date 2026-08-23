@@ -49,7 +49,7 @@ inline constexpr Tag DoesBrake = TagCatalogue::DoesBrake;
 inline constexpr Tag DoesLamp = TagCatalogue::DoesLamp;
 inline constexpr Tag Offers = TagCatalogue::Offers;
 inline constexpr Tag OffersRefuel = TagCatalogue::OffersRefuel;
-} // namespace tags
+}
 
 static_assert(tags::DoesSteer.Within(tags::Does) && !tags::Does.Within(tags::DoesSteer),
               "a tag is within its parent and never the other way round");
@@ -123,13 +123,11 @@ static_assert(EveryOwnedRelationIsExclusive(),
               "the felling stack pushes one entry per owned in-edge, and its reserve is "
               "capacity x owned-relations ONLY while each entity has at most one owner "
               "per owned relation -- widen the reserve before you relax this");
-} // namespace scene_register_checked
+}
 
-// the felling stack's bound, anchored where the rules live: an entity is pushed at most
-// once per owned (and therefore exclusive) relation it hangs from
 inline constexpr size_t kOwnedRelations = scene_register_checked::OwnedRelationCount();
 static_assert(kOwnedRelations >= 1, "removal owns at least the ChildOf chain");
 
-} // namespace outshine
+}
 
 #endif

@@ -9,8 +9,6 @@ struct KnownEvent {
   InputMap::Kind What;
 };
 
-// the event catalogue is the engine's, constexpr: a scenario selects from it and cannot
-// add to it, and AN AXIS IS NOT A BUTTON -- a trigger's 0..1 is never a press
 constexpr KnownEvent kEvents[] = {
     {"KeyW", InputMap::Kind::Button},        {"KeyA", InputMap::Kind::Button},
     {"KeyS", InputMap::Kind::Button},        {"KeyD", InputMap::Kind::Button},
@@ -34,7 +32,7 @@ static_assert(kEventCount < InputMap::kUnbound, "the unbound sentinel must stay 
   return all;
 }
 
-} // namespace
+}
 
 size_t InputMap::Events() { return kEventCount; }
 
@@ -115,4 +113,4 @@ size_t InputMap::BoundTo(std::string_view action) const {
   return bound;
 }
 
-} // namespace outshine
+}

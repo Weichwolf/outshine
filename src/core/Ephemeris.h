@@ -6,9 +6,6 @@
 
 namespace outshine {
 
-// EARTH's sky from low-precision orbital elements (Meeus / NOAA short series,
-// arcminute class): a scenario that stands on another sphere declares its own.
-
 constexpr int kEphemerisMinYear = 1901, kEphemerisMaxYear = 2099;
 
 inline void EarthSunPos(double lat, double lon, double utc, float *el, float *az) {
@@ -87,4 +84,4 @@ inline double DaylightFactor(double sunElDeg) {
 }
 
 }
-#endif // OUTSHINE_CORE_EPHEMERIS_H
+#endif

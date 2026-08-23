@@ -21,10 +21,8 @@ namespace {
   d.Need = Necessity::Required;
   d.Latency = LatencyClass::Distant;
 
-  d.TypicalPayloadBytes = 60000; // [SET] a planning figure, not a measurement: terrarium
-                                 // z13 PNGs sit tens of KB; sized for admission budgeting
-  d.RetryBudget = 4;             // [SET] a transient stutter survives, a dead host does not
-                                 // hold the pool hostage
+  d.TypicalPayloadBytes = 60000;
+  d.RetryBudget = 4;
   return d;
 }
 

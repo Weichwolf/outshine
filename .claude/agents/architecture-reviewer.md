@@ -40,6 +40,16 @@ demanded instead.
    - **No allocations on the hot path**: nothing inside the per-frame/per-tick loops may
      allocate, lock, touch disk, or grow a container — capacity is opened once, up front; a
      `push_back` inside a tick is a defect.
+   - **NO COMMENTS IN SOURCE.** Owner directive 2026-08-23, binding and absolute: `src/`,
+     `include/`, `tools/` carry NO explanatory prose. Not a `//` line above a function, not a
+     trailing note, not a block explaining a derivation, not a "why" comment, not a TODO, not a
+     board number. Names and structure carry the meaning; a number's origin belongs in the
+     board item and the commit message, never beside the code. The ONLY text that may stand is
+     what the language requires (`#include` guards, pragmas) and the licence-free file itself.
+     EVERY comment found in a touched file is a defect, filed with its file:line — and a
+     comment introduced by the hour's own work is filed harder, because it was written after
+     the rule. Test sources are the exception the rule allows: `test/` may narrate, since a
+     proof explains what it proves.
    - **No embedded shaders or scripts**: shader and script sources live as files in the tree,
      never as string literals inside C++ — an embedded MSL/GLSL/script blob is a defect.
    - **C++23 is the language level** (one `-std=c++23` in test/run.sh): demand its tools

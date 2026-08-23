@@ -52,7 +52,7 @@ using std::sqrt;
 #undef MEDIUM_CONST
 #undef MEDIUM_THREAD
 #undef OUTSHINE_PI
-} // namespace medium_core
+}
 
 using medium_core::mediumGroundReach;
 using medium_core::mediumHeightAlong;

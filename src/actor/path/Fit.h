@@ -14,7 +14,6 @@ namespace outshine {
 
 [[nodiscard]] std::vector<double> Simplify(std::span<const double> eastNorthM, double withinM);
 
-
 struct Fitted {
   bool Laid = false;
   size_t Vertices = 0;
@@ -49,6 +48,6 @@ struct Fitted {
 [[nodiscard]] Fitted Fit(std::span<const double> eastNorthM, double withinM,
                          double tightestM, ReferenceLine &into);
 
-} // namespace outshine
+}
 
 #endif

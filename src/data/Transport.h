@@ -19,7 +19,6 @@ public:
   static Wire Answered(int status, std::vector<uint8_t> body) {
     return Wire(State::Answered, status, std::move(body), 0.0);
   }
-  // a server that says when to come back is believed -- Retry-After in seconds, 0 = unsaid
   static Wire Answered(int status, std::vector<uint8_t> body, double retryAfterS) {
     return Wire(State::Answered, status, std::move(body), retryAfterS);
   }
@@ -55,8 +54,6 @@ public:
   [[nodiscard]] virtual Wire Collect(Ticket ticket) = 0;
   virtual void Cancel(Ticket ticket) = 0;
 
-  // the transport IS the outside world, its clock included -- a fake transport fakes time,
-  // so a backoff proof never sleeps
   [[nodiscard]] virtual double NowMs() {
     return (double)std::chrono::duration_cast<std::chrono::milliseconds>(
                std::chrono::steady_clock::now().time_since_epoch())

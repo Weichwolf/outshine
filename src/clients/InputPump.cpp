@@ -17,8 +17,6 @@ struct AxisRow {
   ptrdiff_t Event;
 };
 
-// resolved once, lazily, against the engine's own catalogue -- the day a name leaves the
-// catalogue these indices go -1 and the pump refuses to open
 struct Resolved {
   KeyRow Keys[6];
   PadRow Buttons[2];
@@ -57,10 +55,9 @@ struct Resolved {
   return held;
 }
 
-// SDL's axis range is -32768..32767; the declared axis is -1..1
 constexpr float kAxisScale = 1.0f / 32767.0f;
 
-} // namespace
+}
 
 bool InputPump::Open(const InputMap &declared) {
   if (!Table().Whole) { return false; }
@@ -132,4 +129,4 @@ size_t InputPump::Translate(const SDL_Event &event, Fired out[2]) const {
   }
 }
 
-} // namespace outshine::Clients
+}

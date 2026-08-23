@@ -46,7 +46,7 @@ public:
   void Say(const std::string &line) override { std::printf("%s\n", line.c_str()); }
 };
 
-} // namespace
+}
 
 int main(void) {
   using namespace outshine::Test;

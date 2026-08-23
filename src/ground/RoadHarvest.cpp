@@ -10,7 +10,6 @@ Reaped Reap(const OsmField &field, const VegetationTemplates &widths, double veh
   Reaped out;
   const int streets = field.Layer(OsmLayer::Streets);
   if (streets < 0) {
-    // an absent layer and an empty one are different facts, and all-zero counts lie
     out.StreetsAbsent = true;
     return out;
   }
@@ -67,4 +66,4 @@ Reaped Reap(const OsmField &field, const VegetationTemplates &widths, double veh
   return out;
 }
 
-} // namespace outshine::Ground
+}

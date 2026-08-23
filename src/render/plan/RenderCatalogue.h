@@ -292,9 +292,6 @@ inline constexpr StageRow kStages[] = {
      {Resource::Surface, kNoEdge}, kNoFusion},
 };
 
-// derived: the resolve blends at kTemporalBlend 0.1 per frame, so the history's error
-// decays as 0.9^n -- 128 frames put the residual under 0.9^128 ~ 1.4e-6, below one code
-// of a 16-bit channel, which is what "settled" must mean for a picture bound
 inline constexpr int kTemporalSettleFrames = 128;
 
 constexpr size_t kResourceCount = static_cast<size_t>(Resource::kCount);

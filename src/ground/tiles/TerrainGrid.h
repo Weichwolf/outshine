@@ -27,14 +27,7 @@ class TerrainField {
   float AtM(uint32_t row, uint32_t col) const { return HeightsM_[(size_t)row * Cols_ + col]; }
   void SetM(uint32_t row, uint32_t col, float m) { HeightsM_[(size_t)row * Cols_ + col] = m; }
 
-  // a height grid is POSTINGS on a lattice: fraction 0 is the first posting and fraction
-  // 1 the last, the currency PostingFrac mints and the mesh places vertices in. The texel
-  // reading (frac * n - 0.5, a sampler's cell centres) was the SECOND spelling of this
-  // truth and every one of its callers was reading heights half a spacing from where it
-  // meant -- it is gone, not kept beside this one (board:1750, 1752)
   [[nodiscard]] float PostingM(double fracCol, double fracRow) const {
-    // a single posting along an axis IS the answer along it -- never (n-1) == 0 as a
-    // scale, which would carry an infinity into the index cast
     const double gx = Cols_ < 2u ? 0.0 : fracCol * (double)(Cols_ - 1u);
     const double gy = Rows_ < 2u ? 0.0 : fracRow * (double)(Rows_ - 1u);
     return Bilinear(HeightsM_.data(), Cols_, Rows_, gx, gy);
@@ -49,9 +42,6 @@ inline uint32_t PostingsPerEdge(uint32_t sourceEdge, uint32_t stride) {
   return (sourceEdge - 1u) / stride + 1u;
 }
 
-// a lattice of ONE posting has no fractions between its ends: n < 2 would mint 0 * inf,
-// and a NaN fraction casts to an unsigned index -- undefined behaviour a stranger's 1x1
-// PNG could reach (board:1755). The fraction of a degenerate lattice is its only place
 inline double PostingFrac(uint32_t k, uint32_t n) {
   return n < 2u ? 0.0 : (double)k * (1.0 / (double)(n - 1u));
 }
