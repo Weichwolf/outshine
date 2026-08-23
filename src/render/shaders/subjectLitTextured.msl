@@ -64,3 +64,25 @@ fragment SFrag fsLitBlendedTextured(LOut in [[stage_in]], bool front [[front_fac
   SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
   return o;
 }
+
+fragment SFrag fsLitTransmissiveTextured(LOut in [[stage_in]], bool front [[front_facing]],
+                                         SUBJECT_SURFACE) {
+  float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
+  float4 orm = SUBJECT_METALROUGH_TAP(SUBJECT_UVS(in));
+  const float3 shadingNormal = facing(in.n, front);
+  const float3 albedo = surface.base.rgb * tap.rgb * in.colour.rgb;
+  SFrag o;
+  o.col = float4(shadeRow(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
+                          albedo,
+                          surface.metalness * orm.b, surface.roughness * orm.g,
+                          SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
+                          SUBJECT_SPECULAR_F90(SUBJECT_UVS(in)),
+                          emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
+                          float3(0.0)) +
+                     transmitted(surface, behindMap, in.pos.xy, albedo),
+                 1.0);
+  SUBJECT_SET_VELOCITY(o, in);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
+  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
+  return o;
+}

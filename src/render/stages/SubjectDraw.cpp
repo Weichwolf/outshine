@@ -163,7 +163,8 @@ const char *SubjectDraw::FragmentEntry(SurfaceKind kind, VertexLayout layout) {
       case SurfaceKind::Masked: return textured ? "fsLitMaskedTextured" : "fsLitMasked";
       case SurfaceKind::Blended: return textured ? "fsLitBlendedTextured" : "fsLitBlended";
       case SurfaceKind::ThinTransmissive:
-      case SurfaceKind::Refractive: return "fsLitTransmissive";
+      case SurfaceKind::Refractive:
+        return textured ? "fsLitTransmissiveTextured" : "fsLitTransmissive";
       case SurfaceKind::Opaque: break;
     }
     return textured ? "fsLitTextured" : "fsLit";

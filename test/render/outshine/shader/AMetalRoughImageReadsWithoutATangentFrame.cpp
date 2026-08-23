@@ -25,12 +25,16 @@ constexpr uint8_t kOrmTexels[16] = {255, 128, 0, 255, 255, 128, 0, 255,
                                     255, 128, 0, 255, 255, 128, 0, 255};
 
 [[nodiscard]] bool RadianceSum(outshine::Render::Renderer &renderer, bool withImage,
-                               double &sum, std::string &error) {
+                               double &sum, std::string &error, bool glass = false) {
   outshine::Render::SubjectMaterial surface;
   surface.Row.BaseColour[0] = surface.Row.BaseColour[1] = surface.Row.BaseColour[2] = 0.8f;
   surface.Row.BaseColour[3] = 1.0f;
   surface.Row.Metalness = 1.0f;
   surface.Row.Roughness = 1.0f;
+  if (glass) {
+    surface.Row.Metalness = 0.0f;
+    surface.Row.Transmission = 0.9f;
+  }
   if (withImage) {
     surface.MetalRough.Rgba = kOrmTexels;
     surface.MetalRough.Width = 2;
@@ -106,7 +110,9 @@ int main(void) {
   outshine::Render::PlanSpec declaration;
   declaration.Outputs = {outshine::Render::Resource::SceneDepth,
                          outshine::Render::Resource::FrameTex};
-  declaration.Content = {outshine::Render::Stage::Subjects};
+  declaration.Content = {outshine::Render::Stage::Subjects,
+                         outshine::Render::Stage::SubjectsTransmissive,
+                         outshine::Render::Stage::CompositeTransmission};
   declaration.Display =
       outshine::Render::Declared<outshine::Render::Transfer>(outshine::Render::Transfer::Linear);
   declaration.Exposure = outshine::Render::Declared<float>(1.0f);
@@ -144,6 +150,23 @@ int main(void) {
         "THE TANGENT FRAME SAYS**: the image says dielectric rough 0.5 against factors "
         "saying metal rough 1, and the frames differ -- the arm that ignored the sampler "
         "rendered these identically (board:1145)");
+
+  {
+    // the same class one arm over: a TRANSMISSIVE lit textured part without a tangent
+    // frame reads its metal-rough image too (board:1725)
+    double glassWith = 0.0, glassWithout = 0.0;
+    const bool c = RadianceSum(renderer, true, glassWith, error, true);
+    if (!c) { std::printf("REFUSED %s\n", error.c_str()); }
+    const bool d = RadianceSum(renderer, false, glassWithout, error, true);
+    CHECK(c && d && glassWith > 0.0 && glassWithout > 0.0, "both glass frames drew");
+    const double glassApart = std::fabs(glassWith - glassWithout) /
+                              (glassWithout > 0.0 ? glassWithout : 1.0);
+    Note("how far the two glass frames are apart", glassApart, "relative");
+    CHECK(glassApart > 0.05,
+          "**THE LIT TRANSMISSIVE ARM READS THE IMAGES ITS MATERIAL DECLARES**: the "
+          "roughness image moves the glass's shading -- the untextured arm rendered these "
+          "identically (board:1725)");
+  }
 
   Covers("V.6 the metal-rough tap belongs to textured-and-lit, not to has-a-tangent: glTF "
          "ties the two textures together nowhere, and a material with a metal-rough image "

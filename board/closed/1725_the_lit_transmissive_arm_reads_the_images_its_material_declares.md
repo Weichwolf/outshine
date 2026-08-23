@@ -13,3 +13,13 @@ textured-and-lit, and the transmissive shader family needs its textured variant 
 selection collapses textured into the arm the way the opaque family does). The proof shape
 exists: AMetalRoughImageReadsWithoutATangentFrame renders a quad twice and demands the
 frames differ -- a transmissive twin of that fixture discriminates.
+
+---
+
+Closed -- fsLitTransmissiveTextured stands in subjectLitTextured.msl (colour, metal-rough
+and emissive taps plus the transmitted term) and FragmentEntry selects it for a textured
+lit transmissive draw; Configure compiles it into every attachment set (the glass stage's
+own pipelines, 45/45 with validation). Proven on the device in
+AMetalRoughImageReadsWithoutATangentFrame's glass arm: a transmissive tangentless quad
+renders 87% apart from its factors-only twin once the roughness image reads -- the
+untextured arm rendered them identically (negative control red).
