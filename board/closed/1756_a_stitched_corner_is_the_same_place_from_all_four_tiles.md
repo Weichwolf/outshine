@@ -37,3 +37,18 @@ What will be true:
    EVERY posting of the shared edge including the two ends, plus a case that reads the
    same corner from all four tiles and asserts one height. The negative control is the
    step the sequential passes leave today.
+
+---
+
+Closed -- a corner is ONE average over the four RAW fields that share it, computed after
+the edges from the four numbers every one of those tiles sees: StitchCorner takes self's
+corner as it stood BEFORE the edge passes (captured in StitchedGrid) and reads the three
+neighbours raw, so whichever tile asks gets the same height; at the map's rim, where the
+three neighbours do not exist, the tile's own posting stands, which is what an unshared
+corner is. The proof dropped its margin: EVERY posting of the shared edge is now compared,
+corners included (17 of 17 at a 17-vs-9 boundary), and a new arm reads the shared corner
+from all four tiles. Discriminating fixture: one tile served from a DIFFERENT VINTAGE
+(+300 m), because with tiles that sample one world exactly the corners agree by
+construction and prove nothing -- that is why the first fixture passed against the defect
+and had to be made honest. Negative controls: no corner pass at all = 150 m of
+disagreement; the corner pass reading self AFTER the edges = 93.75 m; both red.

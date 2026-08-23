@@ -71,6 +71,7 @@ class TerrainTiles {
 
  private:
   enum class Side { West, East, North, South };
+  enum class Corner { NorthWest, NorthEast, SouthWest, SouthEast };
 
   struct CacheEntry {
     uint64_t Seq = 0;
@@ -81,6 +82,8 @@ class TerrainTiles {
   };
 
   TerrainGrid RawGrid(int z, uint32_t x, uint32_t y);
+  [[nodiscard]] TerrainGrid::State StitchCorner(TerrainField &self, float selfRawM, int z,
+                                                uint32_t x, uint32_t y, Corner corner);
 
   [[nodiscard]] TerrainGrid::State StitchEdge(TerrainField &self, int z, uint32_t nx, uint32_t ny,
                                               Side side);

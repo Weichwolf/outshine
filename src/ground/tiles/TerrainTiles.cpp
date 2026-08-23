@@ -138,10 +138,54 @@ TerrainGrid::State TerrainTiles::StitchEdge(TerrainField &self, int z, uint32_t 
   return TerrainGrid::State::Decoded;
 }
 
+TerrainGrid::State TerrainTiles::StitchCorner(TerrainField &self, float selfRawM, int z,
+                                             uint32_t x, uint32_t y, Corner corner) {
+  const bool west = corner == Corner::NorthWest || corner == Corner::SouthWest;
+  const bool north = corner == Corner::NorthWest || corner == Corner::NorthEast;
+  const uint32_t n = 1u << z;
+  // the corner exists only where all three neighbours do -- at the map's rim the tile's
+  // own posting stands, which is what an unshared corner IS
+  if ((west && x == 0) || (!west && x + 1 >= n)) { return TerrainGrid::State::Decoded; }
+  if ((north && y == 0) || (!north && y + 1 >= n)) { return TerrainGrid::State::Decoded; }
+
+  const uint32_t acrossX = west ? x - 1 : x + 1;
+  const uint32_t acrossY = north ? y - 1 : y + 1;
+  const TerrainGrid sideways = RawGrid(z, acrossX, y);
+  const TerrainGrid updown = RawGrid(z, x, acrossY);
+  const TerrainGrid diagonal = RawGrid(z, acrossX, acrossY);
+  const TerrainField *a = sideways.TryField();
+  const TerrainField *b = updown.TryField();
+  const TerrainField *c = diagonal.TryField();
+  if (!a || !b || !c || !a->Meshable() || !b->Meshable() || !c->Meshable()) {
+    return Worse(Worse(sideways.Where(), updown.Where()), diagonal.Where());
+  }
+
+  // a corner is a POSTING on every tile whatever its resolution -- fraction 0 and 1 land
+  // exactly on the first and last posting -- so the four copies of the shared place need
+  // no interpolation, only the right corner of each field
+  const auto cornerOf = [](const TerrainField &f, bool atWest, bool atNorth) {
+    return (double)f.AtM(atNorth ? 0u : f.Rows() - 1u, atWest ? 0u : f.Cols() - 1u);
+  };
+  // self's own copy is its RAW corner, captured before the edge passes wrote over it --
+  // reading it here would average an already-averaged number and every tile would end
+  // with a different one, which is the defect this pass exists to close
+  const double sum = (double)selfRawM + cornerOf(*a, !west, north) +
+                     cornerOf(*b, west, !north) + cornerOf(*c, !west, !north);
+  self.SetM(north ? 0u : self.Rows() - 1u, west ? 0u : self.Cols() - 1u,
+            (float)(sum * 0.25));
+  return TerrainGrid::State::Decoded;
+}
+
 TerrainGrid TerrainTiles::StitchedGrid(int z, uint32_t x, uint32_t y) {
   TerrainGrid grid = RawGrid(z, x, y);
   TerrainField *field = grid.TryFieldMutable();
   if (!field) return grid;
+
+  // the four raw corners, taken BEFORE any edge pass writes into them: a corner's average
+  // is over four RAW fields, so every tile that shares it computes the same number
+  const float rawCorners[4] = {
+      field->AtM(0u, 0u), field->AtM(0u, field->Cols() - 1u),
+      field->AtM(field->Rows() - 1u, 0u), field->AtM(field->Rows() - 1u, field->Cols() - 1u)};
 
   TerrainGrid::State worst = TerrainGrid::State::Decoded;
   const uint32_t n = 1u << z;
@@ -149,6 +193,19 @@ TerrainGrid TerrainTiles::StitchedGrid(int z, uint32_t x, uint32_t y) {
   if (x + 1 < n) worst = Worse(worst, StitchEdge(*field, z, x + 1, y, Side::East));
   if (y > 0) worst = Worse(worst, StitchEdge(*field, z, x, y - 1, Side::North));
   if (y + 1 < n) worst = Worse(worst, StitchEdge(*field, z, x, y + 1, Side::South));
+  // a corner belongs to FOUR tiles, and the four edge passes above composed it from two
+  // of them in sequence -- the second pass averaging what the first had just written, the
+  // diagonal never asked. Every tile sharing the corner then kept a different height, one
+  // posting past the seam the edges just closed. The corner is one average over all four
+  // raw fields, computed after the edges and from the SAME four numbers whichever tile
+  // asks (board:1756)
+  for (const Corner corner : {Corner::NorthWest, Corner::NorthEast, Corner::SouthWest,
+                              Corner::SouthEast}) {
+    const bool west = corner == Corner::NorthWest || corner == Corner::SouthWest;
+    const bool north = corner == Corner::NorthWest || corner == Corner::NorthEast;
+    worst = Worse(worst, StitchCorner(*field, rawCorners[(west ? 0u : 1u) + (north ? 0u : 2u)],
+                                      z, x, y, corner));
+  }
   if (worst == TerrainGrid::State::Refused) return TerrainGrid::Refused();
   if (worst == TerrainGrid::State::Deferred) return TerrainGrid::Deferred();
   return grid;
