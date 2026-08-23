@@ -19,17 +19,17 @@ public:
 
     [[nodiscard]] bool Valid() const { return Doc && Node >= 0; }
     [[nodiscard]] Kind GetKind() const { return Valid() ? Doc->Nodes_[(size_t)Node].K : Kind::Invalid; }
-    size_t Size() const { return Valid() ? Doc->Nodes_[(size_t)Node].Count : 0; }
+    [[nodiscard]] size_t Size() const { return Valid() ? Doc->Nodes_[(size_t)Node].Count : 0; }
 
-    Ref operator[](size_t i) const;
-    Ref operator[](const char *key) const;
+    [[nodiscard]] Ref operator[](size_t i) const;
+    [[nodiscard]] Ref operator[](const char *key) const;
 
-    std::string Key(size_t i) const;
+    [[nodiscard]] std::string Key(size_t i) const;
 
-    double Num(double def = 0.0) const;
-    int Int(int def = 0) const { return (int)Num((double)def); }
+    [[nodiscard]] double Num(double def = 0.0) const;
+    [[nodiscard]] int Int(int def = 0) const { return (int)Num((double)def); }
     [[nodiscard]] bool Bool(bool def = false) const;
-    std::string Str(const char *def = "") const;
+    [[nodiscard]] std::string Str(const char *def = "") const;
     [[nodiscard]] bool StrEquals(const char *s) const;
 
   private:
@@ -40,8 +40,8 @@ public:
   [[nodiscard]] bool Parse(const char *text, size_t len);
   [[nodiscard]] bool Ok() const { return Ok_; }
 
-  size_t StoppedAt() const { return P_; }
-  Ref Root() const { return Ref(this, Nodes_.empty() ? -1 : 0); }
+  [[nodiscard]] size_t StoppedAt() const { return P_; }
+  [[nodiscard]] Ref Root() const { return Ref(this, Nodes_.empty() ? -1 : 0); }
 
 private:
   friend class Ref;
@@ -56,6 +56,11 @@ private:
   };
 
   int32_t ParseValue();
+  int32_t ParseValueInside();
+  // [SET] the nesting bound: glTF and every provider manifest sit under ten levels, and
+  // a counter is what keeps a hostile depth bomb a REFUSAL instead of a blown C stack
+  static constexpr size_t kMostDepth = 256;
+  size_t Depth_ = 0;
   [[nodiscard]] bool ParseString(uint32_t &off, uint32_t &len, bool &escaped);
   void Skip();
   std::string Decode(uint32_t off, uint32_t len, bool escaped) const;

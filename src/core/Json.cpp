@@ -1,5 +1,6 @@
 #include "Json.h"
 
+#include <charconv>
 #include <cstdlib>
 #include <cstring>
 
@@ -10,7 +11,14 @@ bool Json::Parse(const char *text, size_t len) {
   Nodes_.clear();
   Kids_.clear();
   P_ = 0;
+  Depth_ = 0;
   Ok_ = ParseValue() == 0;
+  if (Ok_) {
+    // one document, wholly consumed: "{...} garbage" is not json with a suffix, it is
+    // not json
+    Skip();
+    Ok_ = P_ == Text_.size();
+  }
   return Ok_;
 }
 
@@ -44,6 +52,16 @@ bool Json::ParseString(uint32_t &off, uint32_t &len, bool &escaped) {
 int32_t Json::ParseValue() {
   Skip();
   if (P_ >= Text_.size()) return -1;
+  // a counter bounds the depth, not the C stack: a 200k-bracket bomb is a refusal at its
+  // byte, never a segfault behind every careful Refuse the gltf door holds
+  if (Depth_ >= kMostDepth) return -1;
+  ++Depth_;
+  const int32_t id = ParseValueInside();
+  --Depth_;
+  return id;
+}
+
+int32_t Json::ParseValueInside() {
   const int32_t id = (int32_t)Nodes_.size();
   Nodes_.emplace_back();
   const char c = Text_[P_];
@@ -53,10 +71,16 @@ int32_t Json::ParseValue() {
     const char close = obj ? '}' : ']';
     P_++;
     std::vector<int32_t> kids;
+    bool afterComma = false;
     for (;;) {
       Skip();
       if (P_ >= Text_.size()) return -1;
-      if (Text_[P_] == close) { P_++; break; }
+      if (Text_[P_] == close) {
+        // "[1,]" ends on a comma's promise -- the grammar has no trailing comma
+        if (afterComma) return -1;
+        P_++;
+        break;
+      }
       uint32_t koff = 0, klen = 0;
       bool kesc = false;
       if (obj) {
@@ -74,7 +98,15 @@ int32_t Json::ParseValue() {
       }
       kids.push_back(kid);
       Skip();
-      if (P_ < Text_.size() && Text_[P_] == ',') { P_++; continue; }
+      if (P_ >= Text_.size()) return -1;
+      if (Text_[P_] == ',') {
+        P_++;
+        afterComma = true;
+        continue;
+      }
+      // "[1 2]" is two values and no grammar -- a member ends on a comma or the close
+      if (Text_[P_] != close) return -1;
+      afterComma = false;
     }
     Node &n = Nodes_[(size_t)id];
     n.K = obj ? Kind::Object : Kind::Array;
@@ -96,14 +128,33 @@ int32_t Json::ParseValue() {
     return id;
   }
 
-  if (!std::strncmp(Text_.c_str() + P_, "true", 4)) { P_ += 4; Nodes_[(size_t)id].K = Kind::Bool; Nodes_[(size_t)id].Num = 1.0; return id; }
-  if (!std::strncmp(Text_.c_str() + P_, "false", 5)) { P_ += 5; Nodes_[(size_t)id].K = Kind::Bool; Nodes_[(size_t)id].Num = 0.0; return id; }
-  if (!std::strncmp(Text_.c_str() + P_, "null", 4)) { P_ += 4; Nodes_[(size_t)id].K = Kind::Null; return id; }
+  const auto literal = [&](const char *word, size_t bytes) {
+    if (Text_.size() - P_ < bytes || std::memcmp(Text_.c_str() + P_, word, bytes) != 0) {
+      return false;
+    }
+    // "truex" is not true with a suffix -- the literal ends where the grammar ends
+    const size_t after = P_ + bytes;
+    if (after < Text_.size()) {
+      const char next = Text_[after];
+      if ((next >= 'a' && next <= 'z') || (next >= 'A' && next <= 'Z') ||
+          (next >= '0' && next <= '9') || next == '_') {
+        return false;
+      }
+    }
+    P_ += bytes;
+    return true;
+  };
+  if (literal("true", 4)) { Nodes_[(size_t)id].K = Kind::Bool; Nodes_[(size_t)id].Num = 1.0; return id; }
+  if (literal("false", 5)) { Nodes_[(size_t)id].K = Kind::Bool; Nodes_[(size_t)id].Num = 0.0; return id; }
+  if (literal("null", 4)) { Nodes_[(size_t)id].K = Kind::Null; return id; }
 
-  char *end = nullptr;
-  const double v = std::strtod(Text_.c_str() + P_, &end);
-  if (!end || end == Text_.c_str() + P_) return -1;
-  P_ = (size_t)(end - Text_.c_str());
+  // the number grammar's own first characters, then a locale-free read -- strtod honoured
+  // the locale's decimal point and swallowed inf, nan and hex, none of which are json
+  if (c != '-' && (c < '0' || c > '9')) return -1;
+  double v = 0.0;
+  const auto scanned = std::from_chars(Text_.c_str() + P_, Text_.c_str() + Text_.size(), v);
+  if (scanned.ec != std::errc()) return -1;
+  P_ = (size_t)(scanned.ptr - Text_.c_str());
   Nodes_[(size_t)id].K = Kind::Number;
   Nodes_[(size_t)id].Num = v;
   return id;
@@ -126,12 +177,26 @@ std::string Json::Decode(uint32_t off, uint32_t len, bool escaped) const {
 
       case 'u': {
         if (i + 4 >= len) break;
-        const unsigned cp = (unsigned)std::strtoul(Text_.substr(off + i + 1, 4).c_str(), nullptr, 16);
+        unsigned cp = (unsigned)std::strtoul(Text_.substr(off + i + 1, 4).c_str(), nullptr, 16);
         i += 4;
+        // a surrogate half is not a character: a high half pairs with the \uDC00..DFFF
+        // that follows, and a lone half becomes U+FFFD instead of invalid utf-8
+        if (cp >= 0xD800 && cp <= 0xDBFF && i + 6 < len && Text_[off + i + 1] == '\\' &&
+            Text_[off + i + 2] == 'u') {
+          const unsigned low =
+              (unsigned)std::strtoul(Text_.substr(off + i + 3, 4).c_str(), nullptr, 16);
+          if (low >= 0xDC00 && low <= 0xDFFF) {
+            cp = 0x10000 + ((cp - 0xD800) << 10) + (low - 0xDC00);
+            i += 6;
+          }
+        }
+        if (cp >= 0xD800 && cp <= 0xDFFF) cp = 0xFFFD;
         if (cp < 0x80) out.push_back((char)cp);
         else if (cp < 0x800) { out.push_back((char)(0xC0 | (cp >> 6))); out.push_back((char)(0x80 | (cp & 0x3F))); }
-        else { out.push_back((char)(0xE0 | (cp >> 12))); out.push_back((char)(0x80 | ((cp >> 6) & 0x3F)));
+        else if (cp < 0x10000) { out.push_back((char)(0xE0 | (cp >> 12))); out.push_back((char)(0x80 | ((cp >> 6) & 0x3F)));
                out.push_back((char)(0x80 | (cp & 0x3F))); }
+        else { out.push_back((char)(0xF0 | (cp >> 18))); out.push_back((char)(0x80 | ((cp >> 12) & 0x3F)));
+               out.push_back((char)(0x80 | ((cp >> 6) & 0x3F))); out.push_back((char)(0x80 | (cp & 0x3F))); }
         break;
       }
       default: out.push_back(e); break;
@@ -175,13 +240,15 @@ Json::Ref Json::Ref::operator[](const char *key) const {
 double Json::Ref::Num(double def) const {
   if (!Valid()) return def;
   const Json::Node &n = Doc->Nodes_[(size_t)Node];
-  return n.K == Kind::Number || n.K == Kind::Bool ? n.Num : def;
+  // a bool is not a number: "byteLength": true reaching a size door as 1.0 is the
+  // interconversion this line refuses
+  return n.K == Kind::Number ? n.Num : def;
 }
 
 bool Json::Ref::Bool(bool def) const {
   if (!Valid()) return def;
   const Json::Node &n = Doc->Nodes_[(size_t)Node];
-  return n.K == Kind::Bool || n.K == Kind::Number ? n.Num != 0.0 : def;
+  return n.K == Kind::Bool ? n.Num != 0.0 : def;
 }
 
 std::string Json::Ref::Str(const char *def) const {

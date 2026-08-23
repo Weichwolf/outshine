@@ -32,3 +32,17 @@ Demanded: an explicit depth bound (a counter, not the C stack, or an iterative
 parse) that REFUSES with the byte position; commas and full-text consumption
 enforced; Number and Bool kept apart at the accessor; a unit twin
 test/unit/core/ that proves the depth refusal, the grammar arms and the decode.
+
+---
+
+Closed -- the depth is a counter ([SET] 256, refusing at its byte; the C stack never
+decides), the grammar is enforced (commas demanded, trailing commas refused, literals end
+where the grammar ends, whole-text consumption in Parse), numbers are read locale-free by
+from_chars behind the grammar's own first-character gate (strtod's locale decimal point,
+inf, nan and hex are gone), a bool is not a number and a number is not a bool at the
+accessors, surrogate pairs decode to one four-byte character and a lone half becomes
+U+FFFD, and the Ref queries carry [[nodiscard]]. The parser has its own twin:
+AJsonDoorRefusesWhatIsNotJsonAndSurvivesWhatIsHostile (depth bomb refused, [1 2 3] refused,
+trailing garbage refused, truex refused, Infinity/nan refused, byteLength:true answers the
+default, U+1F600 whole, hundred legal levels parse). Negative control: the old parser
+reverted SIGNALs on the depth bomb.
