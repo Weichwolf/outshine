@@ -25,6 +25,7 @@ bool Xml::Refuse(const std::string &why, size_t at) {
   Error_ = why + Where(at);
   Nodes_.clear();
   Attributes_.clear();
+  Asked_.clear();
   Root_ = 0;
   return false;
 }
@@ -41,13 +42,33 @@ std::string Xml::Ref::Text() const {
   return From_->Span(node.TextOff, node.TextLen);
 }
 
+uint32_t Xml::Ref::Asking(const char *attribute) const {
+  if (!Valid() || attribute == nullptr) { return kNoAttribute; }
+  const Node &node = From_->Nodes_[At_];
+  const size_t want = std::strlen(attribute);
+  for (uint32_t at = 0; at < node.Attributes; ++at) {
+    const uint32_t which = node.FirstAttribute + at;
+    const Attribute &one = From_->Attributes_[which];
+    if (one.NameLen == want &&
+        std::memcmp(From_->Text_.data() + one.NameOff, attribute, want) == 0) {
+      From_->Asked_[which] = 1;
+      return which;
+    }
+  }
+  return kNoAttribute;
+}
+
 bool Xml::Ref::Has(const char *attribute) const {
+  return Asking(attribute) != kNoAttribute;
+}
+
+bool Xml::Ref::Spelt(const char *attribute) const {
   if (!Valid() || attribute == nullptr) { return false; }
   const Node &node = From_->Nodes_[At_];
   const size_t want = std::strlen(attribute);
   for (uint32_t at = 0; at < node.Attributes; ++at) {
     const Attribute &one = From_->Attributes_[node.FirstAttribute + at];
-    if (one.NameLen == want &&
+    if (one.NameLen == want && one.ValueLen != 0 &&
         std::memcmp(From_->Text_.data() + one.NameOff, attribute, want) == 0) {
       return true;
     }
@@ -56,17 +77,10 @@ bool Xml::Ref::Has(const char *attribute) const {
 }
 
 std::string Xml::Ref::Attr(const char *attribute, const char *whenAbsent) const {
-  if (!Valid() || attribute == nullptr) { return std::string(whenAbsent); }
-  const Node &node = From_->Nodes_[At_];
-  const size_t want = std::strlen(attribute);
-  for (uint32_t at = 0; at < node.Attributes; ++at) {
-    const Attribute &one = From_->Attributes_[node.FirstAttribute + at];
-    if (one.NameLen == want &&
-        std::memcmp(From_->Text_.data() + one.NameOff, attribute, want) == 0) {
-      return From_->Span(one.ValueOff, one.ValueLen);
-    }
-  }
-  return std::string(whenAbsent);
+  const uint32_t which = Asking(attribute);
+  if (which == kNoAttribute) { return std::string(whenAbsent); }
+  const Attribute &one = From_->Attributes_[which];
+  return From_->Span(one.ValueOff, one.ValueLen);
 }
 
 double Xml::Ref::Num(const char *attribute, double whenAbsent) const {
@@ -185,6 +199,7 @@ bool Xml::Parse(const char *text, size_t length) {
   SiblingSteps_ = 0;
   Nodes_.clear();
   Attributes_.clear();
+  Asked_.clear();
   Root_ = 0;
   if (text == nullptr) { return Refuse("there is no document to read", 0); }
 
@@ -351,7 +366,30 @@ bool Xml::Parse(const char *text, size_t length) {
     return Refuse("the element '" + Span(open.NameOff, open.NameLen) + "' is never closed", length);
   }
   if (Root_ == 0) { return Refuse("the document carries no element", length); }
+  Asked_.assign(Attributes_.size(), 0);
   return true;
+}
+
+Xml::Unread Xml::FirstUnread() const {
+  std::vector<std::pair<uint32_t, std::string>> walk;
+  if (Root_ != 0) { walk.push_back({Root_, Span(Nodes_[Root_].NameOff, Nodes_[Root_].NameLen)}); }
+  while (!walk.empty()) {
+    const auto [at, path] = walk.back();
+    walk.pop_back();
+    const Node &node = Nodes_[at];
+    for (uint32_t which = 0; which < node.Attributes; ++which) {
+      const uint32_t index = node.FirstAttribute + which;
+      if (Asked_[index] == 0) {
+        const Attribute &one = Attributes_[index];
+        return Unread{path, Span(one.NameOff, one.NameLen)};
+      }
+    }
+    for (uint32_t child = node.FirstChild; child != 0; child = Nodes_[child].NextSibling) {
+      const Node &under = Nodes_[child];
+      walk.push_back({child, path + "/" + Span(under.NameOff, under.NameLen)});
+    }
+  }
+  return Unread{};
 }
 
 }

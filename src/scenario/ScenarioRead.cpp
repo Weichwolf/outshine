@@ -25,97 +25,88 @@ namespace {
 struct Element {
   const char *Path;
   const char *Children;
-  const char *Attributes;
   const char *Required = "";
 };
 
 const Element kGrammar[] = {
     {"scenario",
      "world render lighting providers generators compositors assets placements surfaces kinds "
-     "instances regions volumes audio tables events views vehicle player drive physics clock input state layer",
-     "name version epoch decay active"},
-    {"scenario/layer", "", "id path set", "path"},
-    {"scenario/world", "", "lat lon radiusM gravityMs2 airDensityKgM3 windDeg windMs cloudCover"},
-    {"scenario/render", "output stage",
-     "widthPx heightPx fps fill orbitDegPerFrame transfer exposure precision"},
-    {"scenario/render/output", "", "name", "name"},
-    {"scenario/render/stage", "", "name", "name"},
-    {"scenario/lighting", "key environment", ""},
-    {"scenario/lighting/key", "", "lux elevationDeg bearingDeg"},
-    {"scenario/lighting/environment", "", "r g b"},
-    {"scenario/providers", "provider", ""},
-    {"scenario/providers/provider", "", "kind pin rank whenAbsent", "kind"},
-    {"scenario/generators", "generator", ""},
-    {"scenario/generators/generator", "set", "kind", "kind"},
-    {"scenario/generators/generator/set", "", "name value"},
-    {"scenario/compositors", "compositor", ""},
-    {"scenario/compositors/compositor", "", "kind budgetPx on", "kind"},
-    {"scenario/assets", "asset", ""},
-    {"scenario/assets/asset", "", "uri digest kind variant animation", "uri"},
-    {"scenario/placements", "place", ""},
-    {"scenario/placements/place", "", "asset x y z qx qy qz qw scale", "asset"},
-    {"scenario/surfaces", "surface", ""},
-    {"scenario/surfaces/surface", "",
-     "document style programme leftFrac topFrac widthFrac heightFrac z", "document"},
-    {"scenario/kinds", "kind", ""},
-    {"scenario/kinds/kind", "may has mind", "name inherits asset", "name"},
-    {"scenario/kinds/kind/mind", "", "tier uses programme prompt model meanwhile hz everyS stepBudget tokenBudget latencyBudgetMs temperature seed"},
-    {"scenario/kinds/kind/may", "", "do", "do"},
-    {"scenario/kinds/kind/has", "", "name value", "name"},
-    {"scenario/instances", "instance", ""},
-    {"scenario/instances/instance", "has holds", "of id in x y z qx qy qz qw", "of"},
-    {"scenario/instances/instance/has", "", "name value", "name"},
-    {"scenario/instances/instance/holds", "", "what", "what"},
-    {"scenario/regions", "region door", ""},
-    {"scenario/regions/region", "uses", "id kind x y z radiusM streams"},
-    {"scenario/regions/region/uses", "", "what", "what"},
-    {"scenario/regions/door", "", "id from to x y z", "from to"},
-    {"scenario/volumes", "volume", ""},
-    {"scenario/volumes/volume", "", "id in shape x y z extentX extentY extentZ fires when dwellS"},
-    {"scenario/audio", "bus sound", ""},
-    {"scenario/audio/bus", "", "id into gainDb"},
-    {"scenario/audio/sound", "", "id uri bus positional loops gainDb falloffM", "uri"},
-    {"scenario/tables", "table", ""},
-    {"scenario/tables/table", "column row", "id"},
-    {"scenario/tables/table/column", "", "name type", "name"},
-    {"scenario/tables/table/row", "cell", ""},
-    {"scenario/tables/table/row/cell", "", "value"},
-    {"scenario/events", "event", ""},
-    {"scenario/events/event", "carries", "name", "name"},
-    {"scenario/events/event/carries", "", "what", "what"},
-    {"scenario/views", "view", ""},
-    {"scenario/views/view", "",
-     "id follows person offsetX offsetY offsetZ distanceM pitchLimitDeg fovDeg timeScale"},
-    {"scenario/player", "", "is starts view eyeHeightM walkMs runMs"},
-    {"scenario/vehicle", "centreOfMass inertia contact tyre drive brake body seat",
-     "name asset massKg widthM wheelbaseM assetWheelbase assetGround assetCentreX assetCentreZ turningCircleM trackM"},
-    {"scenario/vehicle/centreOfMass", "", "x y z"},
-    {"scenario/vehicle/inertia", "", "ixx iyy izz"},
-    {"scenario/vehicle/contact", "",
-     "at node x y z reachM stiffnessNPerM dampingNsPerM travelM stopNPerM limitN"},
-    {"scenario/vehicle/tyre", "", "grip radiusM corneringNPerRad relaxationM"},
-    {"scenario/vehicle/drive", "", "peakTorqueNm finalDrive"},
-    {"scenario/vehicle/brake", "", "peakTorqueNm"},
-    {"scenario/vehicle/body", "", "dragCoefficient frontalM2"},
-    {"scenario/vehicle/seat", "", "at node x y z"},
-    {"scenario/drive", "", "fromLat fromLon toLat toLon zoom"},
-    {"scenario/physics", "", "dial"},
-    {"scenario/clock", "", "start rate"},
-    {"scenario/input", "bind", ""},
-    {"scenario/input/bind", "", "event action", "event action"},
-    {"scenario/state", "persist", ""},
-    {"scenario/state/persist", "", "what", "what"},
+     "instances regions volumes audio tables events views vehicle player drive physics clock "
+     "input state layer"},
+    {"scenario/layer", "", "path"},
+    {"scenario/world", ""},
+    {"scenario/render", "output stage"},
+    {"scenario/render/output", "", "name"},
+    {"scenario/render/stage", "", "name"},
+    {"scenario/lighting", "key environment"},
+    {"scenario/lighting/key", ""},
+    {"scenario/lighting/environment", ""},
+    {"scenario/providers", "provider"},
+    {"scenario/providers/provider", "", "kind"},
+    {"scenario/generators", "generator"},
+    {"scenario/generators/generator", "set", "kind"},
+    {"scenario/generators/generator/set", ""},
+    {"scenario/compositors", "compositor"},
+    {"scenario/compositors/compositor", "", "kind"},
+    {"scenario/assets", "asset"},
+    {"scenario/assets/asset", "", "uri"},
+    {"scenario/placements", "place"},
+    {"scenario/placements/place", "", "asset"},
+    {"scenario/surfaces", "surface"},
+    {"scenario/surfaces/surface", "", "document"},
+    {"scenario/kinds", "kind"},
+    {"scenario/kinds/kind", "may has mind", "name"},
+    {"scenario/kinds/kind/mind", ""},
+    {"scenario/kinds/kind/may", "", "do"},
+    {"scenario/kinds/kind/has", "", "name"},
+    {"scenario/instances", "instance"},
+    {"scenario/instances/instance", "has holds", "of"},
+    {"scenario/instances/instance/has", "", "name"},
+    {"scenario/instances/instance/holds", "", "what"},
+    {"scenario/regions", "region door"},
+    {"scenario/regions/region", "uses"},
+    {"scenario/regions/region/uses", "", "what"},
+    {"scenario/regions/door", "", "from to"},
+    {"scenario/volumes", "volume"},
+    {"scenario/volumes/volume", "", "fires when"},
+    {"scenario/audio", "bus sound"},
+    {"scenario/audio/bus", "", "id"},
+    {"scenario/audio/sound", "", "id uri"},
+    {"scenario/tables", "table"},
+    {"scenario/tables/table", "column row"},
+    {"scenario/tables/table/column", "", "name"},
+    {"scenario/tables/table/row", "cell"},
+    {"scenario/tables/table/row/cell", ""},
+    {"scenario/events", "event"},
+    {"scenario/events/event", "carries", "name"},
+    {"scenario/events/event/carries", "", "what"},
+    {"scenario/views", "view"},
+    {"scenario/views/view", "", "id follows person"},
+    {"scenario/player", ""},
+    {"scenario/vehicle", "centreOfMass inertia contact tyre drive brake body seat"},
+    {"scenario/vehicle/centreOfMass", ""},
+    {"scenario/vehicle/inertia", ""},
+    {"scenario/vehicle/contact", ""},
+    {"scenario/vehicle/tyre", ""},
+    {"scenario/vehicle/drive", ""},
+    {"scenario/vehicle/brake", ""},
+    {"scenario/vehicle/body", ""},
+    {"scenario/vehicle/seat", ""},
+    {"scenario/drive", ""},
+    {"scenario/physics", ""},
+    {"scenario/clock", ""},
+    {"scenario/input", "bind"},
+    {"scenario/input/bind", "", "event action"},
+    {"scenario/state", "persist"},
+    {"scenario/state/persist", "", "what"},
 };
 
-bool Names(const char *list, const std::string &wanted) {
-  const std::string all(list);
-  size_t at = 0;
-  while (at < all.size()) {
-    const size_t stop = all.find(' ', at);
-    const std::string one = all.substr(at, stop == std::string::npos ? std::string::npos : stop - at);
-    if (one == wanted) { return true; }
-    if (stop == std::string::npos) { break; }
-    at = stop + 1;
+bool Names(std::string_view list, std::string_view wanted) {
+  while (!list.empty()) {
+    const size_t stop = list.find(' ');
+    if (list.substr(0, stop) == wanted) { return true; }
+    if (stop == std::string_view::npos) { return false; }
+    list.remove_prefix(stop + 1);
   }
   return false;
 }
@@ -133,20 +124,11 @@ bool Grammatical(const Xml::Ref &node, const std::string &path, std::string &err
     error = "<" + node.Name() + "> is not a child this scenario's grammar declares at " + path;
     return false;
   }
-  for (size_t at = 0; at < node.AttributeCount(); ++at) {
-    const std::string named = node.AttributeAt(at);
-    if (!Names(known->Attributes, named)) {
-      error = "<" + node.Name() + "> carries the attribute '" + named +
-              "', and the ones it may carry are: " +
-              (*known->Attributes == 0 ? std::string("none") : std::string(known->Attributes));
-      return false;
-    }
-  }
   for (const char *at = known->Required; *at != 0;) {
     const char *end = at;
     while (*end != 0 && *end != ' ') { ++end; }
     const std::string wanted(at, end);
-    if (node.Attr(wanted.c_str()).empty()) {
+    if (!node.Spelt(wanted.c_str())) {
       error = "<" + node.Name() + "> declares no '" + wanted +
               "', and without it the element names nothing";
       return false;
@@ -586,6 +568,15 @@ bool ReadScenarioInto(const Xml &document, Scenario &into, std::string &error) {
   const Xml::Ref state = root.Child("state");
   for (const Xml::Ref persist : state.Children("persist")) {
     into.State.push_back(Persisted{persist.Attr("what")});
+  }
+
+  const Xml::Unread unread = document.FirstUnread();
+  if (!unread.Attribute.empty()) {
+    error = "<" + unread.Path.substr(unread.Path.rfind('/') + 1) + "> at " + unread.Path +
+            " carries '" + unread.Attribute +
+            "', and nothing in the engine reads it -- a value that evaporates is a "
+            "declaration the author believes and the engine ignores";
+    return false;
   }
 
   return true;

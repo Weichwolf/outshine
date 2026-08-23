@@ -7,6 +7,7 @@
 #include <iterator>
 #include <ranges>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace outshine {
@@ -14,6 +15,7 @@ namespace outshine {
 inline constexpr size_t kXmlMaxDepth = 64;
 inline constexpr size_t kXmlMaxNodes = 65536;
 inline constexpr size_t kXmlMaxAttributes = 262144;
+inline constexpr uint32_t kNoAttribute = 0xFFFFFFFFu;
 
 class Xml {
 public:
@@ -38,6 +40,7 @@ public:
     [[nodiscard]] std::string Text() const;
 
     [[nodiscard]] bool Has(const char *attribute) const;
+    [[nodiscard]] bool Spelt(const char *attribute) const;
     [[nodiscard]] std::string Attr(const char *attribute, const char *whenAbsent = "") const;
     [[nodiscard]] double Num(const char *attribute, double whenAbsent) const;
     [[nodiscard]] long long Int(const char *attribute, long long whenAbsent) const;
@@ -102,9 +105,17 @@ public:
     [[nodiscard]] Siblings Children(const char *name = nullptr) const;
 
   private:
+    [[nodiscard]] uint32_t Asking(const char *attribute) const;
+
     const Xml *From_ = nullptr;
     uint32_t At_ = 0;
   };
+
+  struct Unread {
+    std::string Path;
+    std::string Attribute;
+  };
+  [[nodiscard]] Unread FirstUnread() const;
 
   [[nodiscard]] bool Parse(const char *text, size_t length);
   [[nodiscard]] Ref Root() const { return Ref(this, Root_); }
@@ -123,6 +134,7 @@ private:
   std::string Text_;
   std::vector<Node> Nodes_;
   std::vector<Attribute> Attributes_;
+  mutable std::vector<uint8_t> Asked_;
   uint32_t Root_ = 0;
   std::string Error_;
   mutable size_t SiblingSteps_ = 0;

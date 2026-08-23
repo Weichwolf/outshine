@@ -55,3 +55,38 @@ The same shape is latent on `scenario/regions/region` (`id` optional in the gram
 4. `Names(const char *list, …)` (:105-116) stops building a `std::string` and a `substr` per
    attribute per element: the lists are compile-time literals and the comparison is a
    `string_view` walk.
+
+## Comments
+
+- 2026-08-23 -- repaired by DELETING one of the two truths rather than tying them together.
+  `Element` lost its `Attributes` column entirely: the reader is now the only truth about
+  what a scenario may spell. `Xml` marks every attribute a lookup asks for (`Asking()`, the
+  one seam `Has`/`Attr`/`Num`/`Int`/`Flag` all go through) and publishes `FirstUnread()`;
+  `ReadScenarioInto` refuses on it, naming the attribute and the path it stands at. An
+  attribute the reader does not ask for cannot exist, so drift one cannot recur -- it is not
+  a table that can go stale, it is a walk.
+- The grammar keeps `Children` (structure, which the reader does not spell) and `Required`
+  (a judgement the reader does not make). `Grammatical` checks `Required` through
+  `Xml::Ref::Spelt`, which deliberately does NOT mark: only the READER's questions count as
+  reading, never the grammar's own inspection.
+- Drift two: `Required` now carries every absence a stand-up refuses --
+  `views/view` gains `id follows person` (all three refused by `ViewBook::Stand`),
+  `volumes/volume` gains `fires when` (both refused by `TriggerField::Stand`),
+  `audio/bus` gains `id` and `audio/sound` gains `id` (refused by `BusGraph::Build`).
+  `tables/table` and `regions/region` were checked and left alone: neither stand-up refuses
+  an absent id, and `ScenarioLayer`'s `ByIdField` gives an id-less region the "always add"
+  semantics `board:1689` proves.
+- Point 4: `Names` takes `std::string_view` and walks the literal -- no `std::string`, no
+  `substr`, per attribute per element.
+- `node` on `<contact>` and `<seat>` is gone with the column that permitted it; no committed
+  document spells it (`grep -rn 'node=' --include=*.xml` = 0).
+- **Proving test**: `test/unit/scenario/TheGrammarAndTheReaderAreOneTruth` -- eleven checks:
+  `node` refused at both elements naming the attribute AND its path, a near-miss `latitude`
+  refused, the clean element read, and the five stand-up absences refused at the door.
+- **Negative controls**, both run:
+  - the `FirstUnread` refusal disabled -> 4 FAILs, the dead attributes loading clean again.
+  - `views/view`'s `Required` emptied -> 3 FAILs, the refusal falling back four layers.
+- `test/unit/scenario/ALayerOverridesAnEarlierOneById` moved its id-less case from `<view>`
+  to `<region>`: with `id` now required on a view, the merge's id-less path needs an element
+  that may legitimately omit one, and `region` is that element by `ByIdField`'s own rule.
+- Gate 229/229.

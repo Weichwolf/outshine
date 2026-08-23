@@ -108,7 +108,7 @@ int main(void) {
   {
     Scenario anon;
     CHECK(Parsed("<scenario name=\"anon\">"
-                 "<views><view follows=\"car\"/></views></scenario>",
+                 "<regions><region kind=\"town\"/></regions></scenario>",
                  anon, error),
           "an id-less row parses");
     std::vector<std::string> anonTrace;
