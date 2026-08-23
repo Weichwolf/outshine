@@ -92,3 +92,41 @@ Demanded now, sharper than before:
    with the three numbers above, so the contract cannot drift back into prose.
 2. `ApplyLayer` parses the layer ONCE. The section merge is explicit per field or generated
    from one description; the full-Scenario copy goes.
+
+---
+
+## Repaid (2026-08-23)
+
+Point 1 was answered by DELETING the door rather than annotating it.
+`ReadScenarioInto(const char *, size_t, ...)` -- the public declaration whose contract was
+false in two of its three clauses -- is gone. What stands is `ReadScenario`, in two forms
+that mean the same thing: over bytes, and over an already-parsed `Xml`. Both reset. There is
+no non-resetting door left for anyone to lean on, so the overclaim has nothing to attach to.
+
+Point 2: `ApplyLayer` parses ONCE. The seven sections moved out of the reader's body into
+`ReadSectionsOnto(root, into)` -- the one place the "an omitted attribute keeps the value
+already standing" rule is written, and it is written as code that reads each attribute with
+the standing value as its default. `ApplyLayer` now parses the layer, reads it into a
+fragment for the row merge, and calls `ReadSectionsOnto` **on the base, in place**. The
+`Scenario onto = into` deep copy and the second parse are deleted.
+
+**Measured**, base of 400 asset rows with URIs past the small-string bound (so a copied row
+IS an allocation and the linear term cannot hide inside SSO):
+
+| | allocations applying a one-attribute layer | per row |
+|---|---|---|
+| two parses + whole-Scenario copy | 818 | 2.045 |
+| one parse, sections in place | 10 | 0.025 |
+
+The cost moved from the BASE to the LAYER: it is now constant in the size of the scenario
+the layer sits on.
+
+- **Proving test**: `test/unit/scenario/ALayerIsReadOnceAndKeepsWhatItOmits` -- pins the
+  three clauses with the three numbers the reopening measured: name/version/active/epoch
+  survive a layer that never mentions them, the asset list does not double, the declared
+  attribute replaces while its neighbour in the same section keeps the base's value; then
+  asserts the allocation count against the row count.
+- **Negative control**: the second parse and the deep copy put back ->
+  `FAIL **A LAYER IS READ ONCE**` at 818 allocations, and `FAIL` on the section clause too.
+  Reverted, green.
+- Gate 230/230.

@@ -128,8 +128,13 @@ bool MergeLayer(Scenario &into, const Scenario &layer, std::string_view named,
 
 bool ApplyLayer(Scenario &into, const char *text, size_t size, std::string_view named,
                 std::vector<std::string> &trace, std::string &error) {
+  Xml document;
+  if (!document.Parse(text, size)) {
+    error = document.Error();
+    return false;
+  }
   Scenario fragment;
-  if (!ReadScenario(text, size, fragment, error)) { return false; }
+  if (!ReadScenario(document, fragment, error)) { return false; }
   if (!MergeLayer(into, fragment, named, trace, error)) { return false; }
 
   if (!fragment.Vehicles.empty()) {
@@ -145,12 +150,6 @@ bool ApplyLayer(Scenario &into, const char *text, size_t size, std::string_view 
     trace.push_back("layer '" + std::string(named) + "' replaced the output list");
   }
 
-  Scenario onto = into;
-  std::string sectionsWhy;
-  if (!ReadScenarioInto(text, size, onto, sectionsWhy)) {
-    error = sectionsWhy;
-    return false;
-  }
   struct SectionRow {
     bool DeclaredByLayer;
     const char *What;
@@ -166,13 +165,7 @@ bool ApplyLayer(Scenario &into, const char *text, size_t size, std::string_view 
     trace.push_back("layer '" + std::string(named) + "' merged into the " + section.What +
                     " -- omitted attributes keep the base's values");
   }
-  if (fragment.Lit.Declared) { into.Lit = onto.Lit; }
-  if (fragment.Ground.Declared) { into.Ground = onto.Ground; }
-  if (fragment.Render.Declared) { into.Render = onto.Render; }
-  if (fragment.Motion.Declared) { into.Motion = onto.Motion; }
-  if (fragment.Time.Declared) { into.Time = onto.Time; }
-  if (fragment.Played.Declared) { into.Played = onto.Played; }
-  if (fragment.Driven.Declared) { into.Driven = onto.Driven; }
+  ReadSectionsOnto(document.Root(), into);
   return true;
 }
 

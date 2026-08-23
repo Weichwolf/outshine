@@ -7,7 +7,7 @@
 #include "ScenarioRead.h"
 #include "Xml.h"
 
-using outshine::ReadScenarioInto;
+using outshine::ReadScenario;
 using outshine::Scenario;
 using outshine::Xml;
 
@@ -33,7 +33,7 @@ struct Reading {
   Scenario declared;
   std::string error;
   const auto from = std::chrono::steady_clock::now();
-  const bool read = ReadScenarioInto(document, declared, error);
+  const bool read = ReadScenario(document, declared, error);
   const double ms =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - from).count();
   if (!read) { std::printf("REFUSED %s\n", error.c_str()); }

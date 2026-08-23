@@ -209,21 +209,57 @@ void ReadLighting(const Xml::Ref &from, Scenario &into) {
 
 }
 
-bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &error) {
-  into = Scenario();
-  return ReadScenarioInto(text, length, into, error);
+void ReadSectionsOnto(const Xml::Ref &root, Scenario &into) {
+  ReadWorld(root.Child("world"), into);
+  ReadRender(root.Child("render"), into);
+  ReadLighting(root.Child("lighting"), into);
+
+  const Xml::Ref physics = root.Child("physics");
+  if (physics.Valid()) {
+    into.Motion.Declared = true;
+    into.Motion.Dial = physics.Attr("dial", into.Motion.Dial.c_str());
+  }
+
+  const Xml::Ref clock = root.Child("clock");
+  if (clock.Valid()) {
+    into.Time.Declared = true;
+    into.Time.Start = clock.Attr("start", into.Time.Start.c_str());
+    into.Time.Rate = clock.Num("rate", into.Time.Rate);
+  }
+
+  const Xml::Ref player = root.Child("player");
+  if (player.Valid()) {
+    into.Played.Declared = true;
+    into.Played.Is = player.Attr("is", into.Played.Is.c_str());
+    into.Played.Starts = player.Attr("starts", into.Played.Starts.c_str());
+    into.Played.View = player.Attr("view", into.Played.View.c_str());
+    into.Played.EyeHeightM = player.Num("eyeHeightM", into.Played.EyeHeightM);
+    into.Played.WalkMs = player.Num("walkMs", into.Played.WalkMs);
+    into.Played.RunMs = player.Num("runMs", into.Played.RunMs);
+  }
+
+  const Xml::Ref drive = root.Child("drive");
+  if (drive.Valid()) {
+    into.Driven.Declared = true;
+    into.Driven.FromLatDeg = drive.Num("fromLat", into.Driven.FromLatDeg);
+    into.Driven.FromLonDeg = drive.Num("fromLon", into.Driven.FromLonDeg);
+    into.Driven.ToLatDeg = drive.Num("toLat", into.Driven.ToLatDeg);
+    into.Driven.ToLonDeg = drive.Num("toLon", into.Driven.ToLonDeg);
+    into.Driven.Zoom = (int)drive.Num("zoom", (double)into.Driven.Zoom);
+  }
 }
 
-bool ReadScenarioInto(const char *text, size_t length, Scenario &into, std::string &error) {
+bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &error) {
   Xml document;
   if (!document.Parse(text, length)) {
     error = document.Error();
     return false;
   }
-  return ReadScenarioInto(document, into, error);
+  return ReadScenario(document, into, error);
 }
 
-bool ReadScenarioInto(const Xml &document, Scenario &into, std::string &error) {
+bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
+  into = Scenario();
   const Xml::Ref root = document.Root();
   if (root.Name() != "scenario") {
     error = "a scenario's root element is <scenario> and this one is <" + root.Name() + ">";
@@ -242,9 +278,7 @@ bool ReadScenarioInto(const Xml &document, Scenario &into, std::string &error) {
     into.Layers.push_back(Layer{one.Attr("id"), one.Attr("path"), one.Attr("set")});
   }
 
-  ReadWorld(root.Child("world"), into);
-  ReadRender(root.Child("render"), into);
-  ReadLighting(root.Child("lighting"), into);
+  ReadSectionsOnto(root, into);
 
   const Xml::Ref providers = root.Child("providers");
   for (const Xml::Ref one : providers.Children("provider")) {
@@ -320,19 +354,6 @@ bool ReadScenarioInto(const Xml &document, Scenario &into, std::string &error) {
     made.HeightFrac = one.Num("heightFrac", 1.0);
     made.Z = (int)one.Int("z", 0);
     into.Surfaces.push_back(made);
-  }
-
-  const Xml::Ref physics = root.Child("physics");
-  if (physics.Valid()) {
-    into.Motion.Declared = true;
-    into.Motion.Dial = physics.Attr("dial", into.Motion.Dial.c_str());
-  }
-
-  const Xml::Ref clock = root.Child("clock");
-  if (clock.Valid()) {
-    into.Time.Declared = true;
-    into.Time.Start = clock.Attr("start", into.Time.Start.c_str());
-    into.Time.Rate = clock.Num("rate", into.Time.Rate);
   }
 
   const Xml::Ref input = root.Child("input");
@@ -542,27 +563,6 @@ bool ReadScenarioInto(const Xml &document, Scenario &into, std::string &error) {
     made.SeatAt = seat.Attr("at");
     ReadVector(seat, "x", "y", "z", made.SeatM, 3);
     into.Vehicles.push_back(made);
-  }
-
-  const Xml::Ref player = root.Child("player");
-  if (player.Valid()) {
-    into.Played.Declared = true;
-    into.Played.Is = player.Attr("is", into.Played.Is.c_str());
-    into.Played.Starts = player.Attr("starts", into.Played.Starts.c_str());
-    into.Played.View = player.Attr("view", into.Played.View.c_str());
-    into.Played.EyeHeightM = player.Num("eyeHeightM", into.Played.EyeHeightM);
-    into.Played.WalkMs = player.Num("walkMs", into.Played.WalkMs);
-    into.Played.RunMs = player.Num("runMs", into.Played.RunMs);
-  }
-
-  const Xml::Ref drive = root.Child("drive");
-  if (drive.Valid()) {
-    into.Driven.Declared = true;
-    into.Driven.FromLatDeg = drive.Num("fromLat", into.Driven.FromLatDeg);
-    into.Driven.FromLonDeg = drive.Num("fromLon", into.Driven.FromLonDeg);
-    into.Driven.ToLatDeg = drive.Num("toLat", into.Driven.ToLatDeg);
-    into.Driven.ToLonDeg = drive.Num("toLon", into.Driven.ToLonDeg);
-    into.Driven.Zoom = (int)drive.Num("zoom", (double)into.Driven.Zoom);
   }
 
   const Xml::Ref state = root.Child("state");
