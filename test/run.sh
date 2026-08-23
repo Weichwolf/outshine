@@ -140,7 +140,7 @@ LayerIncludes() {
     unit/render) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages" ;;
     unit/clients) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/actor/path -Isrc/actor/body -Isrc/actor/mind -Isrc/scenario -Isrc/clients" ;;
     harness/claims) printf '%s' "-Isrc/core" ;;
-    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
+    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/data -Isrc/scene -Isrc/scenario -Isrc/ui -Iinclude -Isrc/clients" ;;
     harness/render/wpt/css) printf '%s' "-Isrc/core -Isrc/ui" ;;
     harness/render/test262/js) printf '%s' "-Isrc/core" ;;
     render/outshine/frame) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/ui" ;;
@@ -407,6 +407,7 @@ TRAILER_FAILURES=0
 TRAILER_SKIPS=0
 TRAILER_UNPREPARED=0
 FAST_GATE=no
+compileBlind=0
 Number() {
   case "$1" in
     '' | *[!0-9]*) return 1 ;;
@@ -482,6 +483,45 @@ if [ -n "${LIBRARY:-}" ]; then
   trap - EXIT
   exit 0
 fi
+
+EverySourceStillCompiles() {
+  compiled=0
+  broken=0
+  seenLayers=""
+  for candidate in $TESTS_ALL; do
+    rel=${candidate#test/}
+    layer=${rel%/*}
+    ran=no
+    for kept in $TESTS; do [ "$kept" = "$candidate" ] && ran=yes; done
+    [ "$ran" = yes ] && continue
+    includes="-Itest/harness/shared -Itest/harness/shared/render $(LayerIncludes "$layer")"
+    toolchain=$(LayerToolchain "$layer")
+    beside=""
+    case " $seenLayers " in
+      *" $layer "*) ;;
+      *)
+        seenLayers="$seenLayers $layer"
+        for extra in $(LayerExtraSources "$layer"); do
+          case "$extra" in *.cpp) beside="$beside $extra" ;; esac
+        done
+        ;;
+    esac
+    for one in "$candidate" $beside; do
+      if said=$($CXX -fsyntax-only $CXXSTD $toolchain $WARN $includes \
+                  -DOUTSHINE_COMPILE="\"$CXX $CXXSTD\"" "$one" 2>&1); then
+        compiled=$((compiled + 1))
+      else
+        broken=$((broken + 1))
+        printf 'run.sh: %s does not COMPILE under %s, and the gate stands aside from RUNNING that suite -- a translation unit nobody compiles is a warning set nobody enforces (board:1766)\n' \
+          "$one" "$layer" >&2
+        printf '%s\n' "$said" | head -4 >&2
+      fi
+    done
+  done
+  printf 'run.sh: %s source(s) the gate did not run still compile, %s do not\n' \
+    "$compiled" "$broken"
+  [ "$broken" -eq 0 ]
+}
 
 WhatNoCorpusJudges() {
   for family in test/render/*/; do
@@ -713,6 +753,7 @@ if [ -z "$SUITES" ]; then
     done
     [ "$fast" = yes ] && kept="$kept $candidate"
   done
+  TESTS_ALL=$TESTS
   TESTS=$kept
   FAST_GATE=yes
   printf 'run.sh: the fast gate -- named-only suites excluded: %s\n' "$NAMED_ONLY"
@@ -1143,7 +1184,10 @@ elapsedMs=$(( $(Now) - started ))
 printf '%s tests: %s PASS  %s FAIL  %s TIMEOUT  %s SIGNAL  %s BUILD  %s SKIP  %s UNPREPARED  in %s ms\n' \
   "$total" "$passed" "$failed" "$timedout" "$signalled" "$unbuilt" "$skipped" "$unprepared" \
   "$elapsedMs"
-if [ "$FAST_GATE" = yes ]; then WhatNoCorpusJudges; fi
+if [ "$FAST_GATE" = yes ]; then
+  EverySourceStillCompiles || compileBlind=1
+  WhatNoCorpusJudges
+fi
 [ $((criterionMet + criterionRed)) -gt 0 ] &&
   printf 'khronos: criteria %s met of %s   picture bound %s within, %s outside, %s not-enforced of %s\n' \
     "$criterionMet" "$((criterionMet + criterionRed))" \
@@ -1185,6 +1229,6 @@ if [ "$FAST_GATE" = yes ] && [ "$gateRunMs" -gt "$kFastGateBoundMs" ]; then
   exit 1
 fi
 
-red=$((failed + timedout + signalled + unbuilt + undeclaredSkips + unprepared))
+red=$((failed + timedout + signalled + unbuilt + undeclaredSkips + unprepared + compileBlind))
 [ "$red" -eq 0 ] || exit 1
 exit 0

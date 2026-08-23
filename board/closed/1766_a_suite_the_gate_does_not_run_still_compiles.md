@@ -49,3 +49,46 @@ fetching; **a compile needs nothing**, so there is no excuse for the second.
   builds 4 of 4. Two still FAIL for want of the khronos GENERATOR corpus, which is a
   different absence (and one those two report as FAIL where they should report UNPREPARED --
   filed separately if it survives the next round).
+
+---
+
+## Repaid (2026-08-23)
+
+`test/run.sh` gained `EverySourceStillCompiles`, run at the end of every fast gate: for each
+source the gate STOOD ASIDE from, it compiles that source AND the extra sources its layer
+declares, with that layer's own includes and toolchain, `-fsyntax-only` under the house
+warning set. A failure prints the source, the layer, and the first four diagnostic lines,
+and it counts toward `red` -- the gate exits 1.
+
+It found three more of the same defect on its first run, in suites nobody had named recently:
+
+```
+test/harness/shared/render/Parity.cpp does not COMPILE under harness/render/khronos/generator
+test/harness/shared/render/Parity.cpp does not COMPILE under harness/render/khronos/glTF
+test/harness/shared/render/Parity.cpp does not COMPILE under harness/render/outshine/grown
+  src/clients/GltfStudio.h:4:10: fatal error: 'Wgs84.h' file not found
+```
+
+`LayerIncludes` for those three named `-Isrc/clients` and compiled `Parity.cpp`, which
+includes `GltfStudio.h`, which includes `Wgs84.h` from `src/data`. Repaired the same way:
+`-Isrc/data -Isrc/scene -Isrc/scenario -Isrc/ui -Iinclude` added.
+`harness/render/khronos/generator` went from `1 BUILD` to `102 tests, 0 BUILD` (all
+UNPREPARED for want of its corpus, which is a different absence and board:1765's subject).
+
+| | before | after |
+|---|---|---|
+| `test/run.sh tools` | 2 PASS 1 FAIL 2 TIMEOUT **4 BUILD** | 2 PASS 1 FAIL 2 TIMEOUT **0 BUILD** |
+| `harness/render/khronos/generator` | **1 BUILD** | 102 UNPREPARED, 0 BUILD |
+| fast gate | silent about all of it | `39 source(s) the gate did not run still compile, 0 do not` |
+
+Cost: the whole check adds about 5 s to a 170 s gate, against 120 s of headroom.
+
+- **Proving test**: the gate itself -- `run.sh: 39 source(s) the gate did not run still
+  compile, 0 do not`, printed on every fast run, and a non-zero count is counted into `red`.
+- **Negative control**: `-Isrc/data` taken back off the khronos/grown include line -> the
+  gate printed the three diagnostics and **exited 1**. Restored, exit 0.
+- Point 3 of the body -- `LayerIncludes` cannot declare a source it does not give the
+  includes for -- is now enforced by construction: the check compiles exactly the sources the
+  layer declares, with exactly the includes the layer declares, so a mismatch between the two
+  is the failure.
+- Gate 232/232.
