@@ -1,4 +1,3 @@
-#include <cstdio>
 #include "TonemapStage.h"
 
 #include "ShaderFile.h"

@@ -85,6 +85,7 @@ void MediumRadianceStage::Declare(const Medium &medium, float cosSunZenith, floa
   wanted.Declared = medium;
   wanted.CosSunZenith = cosSunZenith;
   wanted.EyeHeightM = eyeHeightM;
+  // the memcmp is a fact, not a hope: no padding byte can differ
   if (Settled_ && std::memcmp(&Standing_, &wanted, sizeof wanted) == 0) { return; }
   Standing_ = wanted;
   Settled_ = false;

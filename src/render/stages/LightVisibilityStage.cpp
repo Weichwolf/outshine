@@ -17,7 +17,17 @@ void LightVisibilityStage::Declare(const float toSun[3], const float up[3], doub
     Up_[axis] = (double)up[axis];
   }
   RadiusM_ = radiusM;
-  Declared_ = radiusM > 0.0;
+  // a degenerate basis refuses HERE: a zero sun or an up parallel to it divides the
+  // normalisation by zero and every shadow term goes silently NaN -- a failure is loud
+  double sunLength = 0.0, crossLength = 0.0;
+  double cross[3] = {Up_[1] * ToSun_[2] - Up_[2] * ToSun_[1],
+                     Up_[2] * ToSun_[0] - Up_[0] * ToSun_[2],
+                     Up_[0] * ToSun_[1] - Up_[1] * ToSun_[0]};
+  for (int axis = 0; axis < 3; ++axis) {
+    sunLength += ToSun_[axis] * ToSun_[axis];
+    crossLength += cross[axis] * cross[axis];
+  }
+  Declared_ = radiusM > 0.0 && sunLength > 0.0 && crossLength > 0.0;
 }
 
 void LightVisibilityStage::Frame(const double centreM[3]) {

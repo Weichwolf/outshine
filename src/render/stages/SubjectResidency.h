@@ -60,6 +60,8 @@ struct SubjectResidency {
 
 private:
   static constexpr size_t kStagingRing = 3;
+  // derived: one residency crosses at most 8 vertex streams + 2 BVH runs per frame; 32
+  // is that population with three-fold headroom for a second same-frame hand
   static constexpr size_t kStagedCrossings = 32;
   struct Staged {
     SDL_GPUBuffer *Into = nullptr;

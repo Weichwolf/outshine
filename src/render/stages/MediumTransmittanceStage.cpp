@@ -62,6 +62,7 @@ bool MediumTransmittanceStage::Configure(const Gpu &gpu, SDL_GPUTexture *lut, st
 }
 
 void MediumTransmittanceStage::Declare(const Medium &medium) {
+  // the memcmp is a fact, not a hope: Medium static_asserts 80 = 20 named floats
   if (Settled_ && std::memcmp(&Declared_, &medium, sizeof medium) == 0) { return; }
   Declared_ = medium;
   Settled_ = false;

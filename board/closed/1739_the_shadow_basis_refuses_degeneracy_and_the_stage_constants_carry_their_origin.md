@@ -27,3 +27,14 @@ Four small notes from the render/plan + render/stages pass, bundled like round 2
    difference is only a spurious re-dispatch, but a `static_assert` that the compared
    types have no padding (sizeof == sum of members) beside the memcmp makes the
    settled-check a fact instead of a hope.
+
+---
+
+Closed -- (1) the shadow basis refuses degeneracy at Declare: a zero sun, an up parallel to
+it, or an empty radius leave the stage not Standing, proven in
+unit/render/stages/AShadowBasisRefusesDegeneracy (negative control red; the stages suite
+gained its build set); (2) kTemporalSettleFrames carries its derivation (0.9^128 ~ 1.4e-6,
+under one 16-bit code) and kStagedCrossings its population (8 streams + 2 BVH runs, with
+headroom); (3) TonemapStage's own header stands first and the dead <cstdio> left; (4) the
+settled memcmps are facts: Medium's 80-byte assert already stood, Standing gained explicit
+tail pads with a sizeof assert so no compiler-owned byte enters the comparison.
