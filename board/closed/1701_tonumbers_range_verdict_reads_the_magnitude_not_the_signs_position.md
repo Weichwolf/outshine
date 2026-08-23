@@ -26,3 +26,13 @@ Demanded: the range verdict derives the effective decimal exponent from the digi
 significant digit index vs. the point, plus the parsed exponent) and answers 0 below the
 denormal floor, Infinity above the overflow ceiling; any leading sign before `0x` is NaN.
 The proof gains the three discriminating arms above.
+
+---
+
+Closed -- the verdict now reads the FIRST SIGNIFICANT DIGIT's decimal exponent (leading-zero
+position in whole/fraction plus the written exponent, sum-guarded), so fraction-spelled
+tininess underflows to signed zero and a mantissa-borne overflow is Infinity despite its e-;
+a signed hex literal is NaN on both signs per NonDecimalIntegerLiteral. Proven in
+AScriptRunsWhatTheHostGivesItAndNothingElse (".<350 zeros>1" == 0, "1<400 zeros>e-2" ==
+Infinity, "-.<350 zeros>1" == -0 by signbit, "+0x10"/"-0x10" NaN); negative control: the old
+heuristic reverted goes 1 FAIL on exactly this test.

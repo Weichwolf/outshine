@@ -316,6 +316,25 @@ int main(void) {
     CHECK(plus("+\"1e-999\"", v) && v == 0.0,
           "an underflow is ZERO, as ECMA rounds the exact value -- the text's own exponent "
           "decides, not a library's errno convention");
+    {
+      const std::string dust = std::string("+\".") + std::string(350, '0') + "1\"";
+      CHECK(plus(dust.c_str(), v) && v == 0.0,
+            "**TININESS SPELLED IN FRACTION DIGITS UNDERFLOWS TO ZERO** -- 350 leading "
+            "zeros with no exponent at all; a verdict that reads only 'e-' answers "
+            "Infinity here (board:1701)");
+      const std::string heap = std::string("+\"1") + std::string(400, '0') + "e-2\"";
+      CHECK(plus(heap.c_str(), v) && v == HUGE_VAL,
+            "**A MANTISSA-BORNE OVERFLOW IS INFINITY DESPITE ITS e-**: 1e400 shifted down "
+            "two is still 1e398 -- the first significant digit's exponent judges, not the "
+            "written sign (board:1701)");
+      const std::string sunk = std::string("+\"-.") + std::string(350, '0') + "1\"";
+      CHECK(plus(sunk.c_str(), v) && v == 0.0 && std::signbit(v),
+            "and the signed underflow keeps its sign -- negative zero, as ECMA rounds");
+    }
+    CHECK(plus("+\"+0x10\"", v) && std::isnan(v),
+          "**A SIGNED HEX LITERAL IS NaN**: ECMA's NonDecimalIntegerLiteral takes no sign "
+          "-- '+0x10' is not 16 (board:1701)");
+    CHECK(plus("+\"-0x10\"", v) && std::isnan(v), "and the minus side agrees");
     CHECK(plus("+\"inf\"", v) && std::isnan(v),
           "'inf' is not a number the language knows -- only Infinity is");
     CHECK(plus("+\"0x1p4\"", v) && std::isnan(v),
