@@ -662,15 +662,16 @@ fi
 # the unit mirror, the claims, and the door proof -- and EXCLUDES the named-only suites, loudly.
 # The long suites (device corpora, oracle renders, the drive) run only when named: sporadic by
 # rule, never per edit. kFastGateBoundMs is MEASURED on this machine over the RUN population
-# alone -- the build phases stand BESIDE the bound (board:1735). Re-derived 2026-08-23 after
-# the hostile-parser layers gained their sanitised arms (board:1743): 98.0 / 98.5 / 100.2 s
-# of run over 203 arms, worst 100.2 -> the bound is that worst measurement times 1.5 for the
-# machine's own weather = 150000 ms. A cold rebuild no longer overruns a bound about tests;
-# a parallel reviewer gate in a worktree still inflates the run toward it -- the lock keeps
-# a SECOND gate out of this nest but not off this machine.
+# alone -- the build phases stand BESIDE the bound (board:1735). Re-derived 2026-08-23 over
+# the population the gate ACTUALLY runs in (board:1749): 205 arms including the sanitised
+# hostile-parser layers (board:1743), warm, WITH the hourly reviewer's own worktree gate
+# building beside it -- the concurrent-nest case this tree mandates every hour, not an idle
+# machine. Measured: 100.1 / 104.1 / 153.9 s of run, worst 153.9 -> the bound is that worst
+# measurement times 1.5 for the machine's own weather = 230000 ms. A cold rebuild does not
+# reach it either, because builds stand beside it.
 NAMED_ONLY="harness/render render/outshine/drive render/outshine/frame render/outshine/scenario render/outshine/shader render/outshine/world tools"
 FAST_GATE=no
-kFastGateBoundMs=150000
+kFastGateBoundMs=230000
 if [ -z "$SUITES" ]; then
   FAST_GATE=yes
   kept=""

@@ -21,3 +21,13 @@ case (measure the three passes WITH a parallel build running, or bound per-test 
 against their own recorded baselines so machine weather cancels), and the derivation
 names that population. The bound stays a real bound — the fix is the population, never
 deleting the check.
+
+---
+
+Closed -- the bound derives from the population the gate ACTUALLY runs in: 205 arms
+(sanitised layers included), warm, WITH the hourly reviewer's worktree gate building beside
+it -- the concurrent-nest case this tree mandates every hour, which the old derivation
+excluded while its own comment named it. Measured 100.1 / 104.1 / 153.9 s of run, bound =
+worst x 1.5 = 230000 ms, derivation and population written beside the number in run.sh. The
+check stays a check: the fix was the population, never the bound's existence. The stale arm
+count went with it.
