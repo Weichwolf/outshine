@@ -15,3 +15,10 @@ neither name. Contrast `src/scenario/Tables.h:18`, where the same tree does it r
 
 Demanded: each named constant carries its marker — `[SET]` where it is a choice,
 the measurement population where it was measured, the derivation where it follows.
+
+---
+
+Closed: each of the six carries its marker -- the payload figures and retry budgets are
+[SET] planning decisions with their reasoning (not measurements wearing no name), the 2 GiB
+cache cap is a [SET] dev-machine choice, and the deepest zoom is DERIVED from the 1u << z
+arithmetic beneath it. The provider zoom facts (15/14) already read as provider facts.

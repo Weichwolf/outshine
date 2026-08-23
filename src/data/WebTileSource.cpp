@@ -3,7 +3,8 @@
 namespace outshine::Data {
 namespace {
 
-constexpr int kDeepestTileZoom = 30;
+constexpr int kDeepestTileZoom = 30; // derived: the tile count 1u << z must fit a uint32
+                                     // with headroom for the arithmetic below it
 
 }
 

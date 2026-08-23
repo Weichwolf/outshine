@@ -10,7 +10,9 @@
 namespace outshine::Data {
 namespace {
 
-constexpr size_t kDefaultCapBytes = 2ull << 30;
+constexpr size_t kDefaultCapBytes = 2ull << 30; // [SET] 2 GiB: a content cache on the dev
+                                                // machine, small beside the corpus and big
+                                                // enough that eviction is rare
 
 constexpr const char *kDefaultLeaf = "outshine-content";
 
