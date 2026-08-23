@@ -45,7 +45,6 @@ struct Ridden {
   double LeftEdgeM = 0.0;
   double LeftAsideM = 0.0;
   double LeftAcrossM = 0.0;
-  size_t OffTheSurface = 0;
   double SimulatedS = 0.0;
   bool WasTaken = false;
   double MindSteerRad = 0.0;
