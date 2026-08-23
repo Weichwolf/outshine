@@ -138,3 +138,31 @@ because the search lands on the last knot when asked for the very end -- and rea
 
 - **Proving test**: `test/unit/actor/path/ACrestBetweenTwoStationsIsStillACrest`.
 - Both defects were found by ONE test, and neither needed the network.
+
+---
+
+## Correction to the note above (review 2026-08-24)
+
+The note claims:
+
+> That was an out-of-bounds read on every call at exactly `LengthM()`, which the sanitised arm
+> never caught because no case asked for the endpoint.
+
+That is not what the tree carried. At 891a40f8 the guard read
+
+```cpp
+if (alongM >= through.back().AlongM) { rate = ...; value = ...; return; }
+```
+
+and returned BEFORE the binary search, so `through[low + 1]` was never reached at the
+endpoint. The overrun exists only in the new `>` form; the clamp at ReferenceLine.cpp:108 is
+the guard the NEW code needs, not the repair of a prior defect. What WAS wrong at the two ends
+is the other half of the same paragraph and it is enough: `bend` was left at 0, so a crest
+standing exactly on the first or last knot was invisible. That is the defect; the out-of-bounds
+read is not. A note that invents the bug it fixed makes the next reader trust the wrong line,
+and this board is the only place a number's origin lives.
+
+The repair itself carries two further defects, filed separately: **board:1773** (the seam bound
+is stamped across the whole interval and the plan is 51.2 % slower than the road allows at a
+station of zero curvature -- measured) and **board:1774** (`Seams()` and both ends of `Read`
+have no unit twin). This item stays open behind them.

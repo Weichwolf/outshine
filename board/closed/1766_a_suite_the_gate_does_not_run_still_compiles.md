@@ -148,3 +148,42 @@ that was easy.
 3. The negative control is the item's OWN case, not a substitute: move one `src/` signature
    the way `board:1621` moved `Script::Host::Global`, without touching `tools/`, and the
    FAST gate exits 1 naming the tools consumer. Revert.
+
+---
+
+## CLOSED (review 2026-08-24)
+
+The reopening said `EverySourceStillCompiles` walks `$TESTS_ALL` while `TREES` stays `test` on
+a fast gate, so 39 sources were checked and 0 of the 12 under `tools/` -- the tree whose
+`Global` signature drift filed the item. b4e9ce04 fixes exactly that:
+
+```sh
+TREES=test
+[ -z "$SUITES" ] && TREES="test tools"
+```
+— test/run.sh:691-692
+
+Measured, reviewer worktree at HEAD b4e9ce04, `test/run.sh` with no suite named:
+
+```
+run.sh: 53 source(s) the gate did not run still compile, 0 do not
+```
+
+39 → 53 = the 12 `.cpp` under `tools/` plus the 2 extra sources their layers declare
+(`tools/viewer/parts/Chrome.cpp`, `tools/host/CurlTransport.cpp`, test/run.sh:270-273). Every
+tools layer resolves through `LayerIncludes`/`LayerToolchain`/`LayerGroups`
+(test/run.sh:152-154, 164-165, 235-236), so the walk does not die on an undeclared layer, and
+the `-Wall -Werror -Wpedantic` set that filed this item now stands over `tools/` on every
+default gate. Point 1 holds, point 2 held from the first repair, point 3 is what found the
+three `Parity.cpp` breakages.
+
+Two residues, named rather than hidden, neither of them this item:
+
+- The check is `-fsyntax-only`. A call-site signature drift -- the exact defect that filed this
+  item -- is caught; a definition that vanishes and breaks only the LINK is not.
+- `TREES` stays `test` when a suite is NAMED, so `test/run.sh unit/core` still does not compile
+  `tools/`. That is the fast-path bargain and it is the right one: the DEFAULT gate is the gate
+  that gates.
+
+Negative control: revert test/run.sh:692 and the trailer reads 39 rather than 53, with
+`tools/viewer` back outside the warning set.

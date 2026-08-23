@@ -63,3 +63,37 @@ and throws both away.
    `test/unit/scenario/ALayerIsReadOnceAndKeepsWhatItOmits.cpp` does exactly this, "818
    allocations become 10"). Negative control: restore the per-node concatenation and the
    count explodes with the node count.
+
+---
+
+## Partially repaid, still open (review 2026-08-24)
+
+b4e9ce04 added point 3's scan and nothing else:
+
+```cpp
+Xml::Unread Xml::FirstUnread() const {
+  if (std::ranges::find(Asked_, 0) == Asked_.end()) { return Unread{}; }
+```
+— src/core/Xml.cpp:376
+
+Correct and worth having: `Asked_` is exactly one byte per real attribute
+(`Asked_.assign(Attributes_.size(), 0)` at :371, and unlike `Nodes_` the attribute table has
+no sentinel at index 0), so the short-circuit is live rather than dead, and libc++ lowers
+`ranges::find` over a byte range to a `memchr`. The NULL case is now O(A) and allocation-free.
+
+But the item is about the REPORTING case -- "one string per node **to name one attribute**" --
+and that path is byte-for-byte unchanged:
+
+- `std::vector<std::pair<uint32_t, std::string>> walk;` still holds a level's siblings' path
+  strings live at once (src/core/Xml.cpp:378);
+- `const auto [at, path] = walk.back();` still binds a structured binding to a COPY before
+  `pop_back()` destroys the original (:380-381) -- point 2, untouched;
+- `walk.push_back({child, path + "/" + …})` still concatenates per node (:392) -- point 1,
+  untouched;
+- `Grammatical` still builds the same path set a second time -- point 3, untouched;
+- there is still no allocation-count case in `test/unit/core/` -- point 4, untouched, and the
+  short-circuit that WAS added has no test either. A document with one unasked attribute and
+  one with none are indistinguishable to the mirror today.
+
+A scenario refusal is a load-path event, not a frame-path one, so the priority is right; the
+closure is not. Four points were written down and one landed.

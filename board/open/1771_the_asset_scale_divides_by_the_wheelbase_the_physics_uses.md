@@ -66,3 +66,36 @@ The dimension it is measured with is `wheelbaseM`. Nothing demands it.
    or (once point 1 lands) stand with `MetresPerAssetUnit` equal to the contact-derived
    wheelbase over `assetWheelbase` — never 0. Negative control: restore
    `declared.WheelbaseM` at :76 and the arm goes red.
+
+---
+
+## Half repaid (review 2026-08-24)
+
+b4e9ce04 added the refusal and its arm:
+
+```cpp
+if (!(declared.WheelbaseM > 0.0)) {
+  Refuse(out, "the vehicle '" + declared.Name + "' draws '" + declared.Asset +
+                  "' and declares no wheelbaseM -- ...");
+  return out;
+}
+```
+— src/sim/Rigging.cpp:56-62, proven by
+`test/unit/sim/TheDrawnCarAndItsContactsStandInOneFrame.cpp:102-111`
+
+Point 3 is delivered. Points 1 and 2 are not, and point 2's own worked example is still live:
+
+1. **The two truths still stand.** src/sim/Rigging.cpp:83 divides `declared.WheelbaseM` by
+   `declared.AssetWheelbase` for the model scale; :134-136 derives the SAME dimension from the
+   contacts for the axles. Nothing makes them agree. A declaration whose `wheelbaseM` is 2.5
+   while its contacts sit 2.81 m apart draws a car 11 % short of the one that steers, and both
+   numbers are positive so the new refusal never sees it.
+2. **The refusal sits inside the asset branch.** It is guarded by
+   `if (!declared.Asset.empty())` (:55). A vehicle with NO asset, no front/rear contact pair
+   and no `wheelbaseM` reaches :136 with `out.Axles.WheelbaseM = 0`, then
+   `out.Axles.SteerLimitRad = std::atan(0 / …) = 0` at :153-154, then passes
+   `if (!(outerM > out.Axles.WheelbaseM))` at :157 because `outerM > 0`. A rig that cannot
+   steer at all stands, silently. That is precisely the case point 2 was written for.
+
+The single-arm proof matches the single-line repair. The item stays open on its own points 1
+and 2, and a second arm is owed: no asset, two contacts on one axle, no `wheelbaseM`.
