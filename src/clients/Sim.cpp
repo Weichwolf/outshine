@@ -127,12 +127,15 @@ bool Sim::LoadTables() {
   if (!Gens_.Add(kWaterRank, *Lakes_)) return false;
   if (!Gens_.Add(kWayRank, *Ways_)) return false;
   if (!Assets_.Species.empty()) {
-    if (!ReadSpecies(Assets_.Species.c_str(), &Species_)) {
-      Log::Error("sim", "species_unreadable",
-                 {{"path", Assets_.Species}, {"why", Species_.Error()}});
+    std::string why;
+    if (!ReadSpecies(Assets_.Species.c_str(), Species_, why)) {
+      Log::Error("sim", "species_unreadable", {{"path", Assets_.Species}, {"why", why}});
       return false;
     }
-    Trees_.emplace(StemOf(Species_),
+    std::vector<Generators::Forest::Stem> stems;
+    stems.reserve(Species_.size());
+    for (const Generators::TreeSpecies &one : Species_) { stems.push_back(StemOf(one)); }
+    Trees_.emplace(Span<const Generators::Forest::Stem>(stems.data(), stems.size()),
                    Span<const float>(StandsPerM2_.data(), StandsPerM2_.size()), Veg_.Limit());
     if (!Gens_.Add(kTreeRank, *Trees_)) return false;
   }

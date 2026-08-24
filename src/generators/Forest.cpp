@@ -10,7 +10,7 @@ namespace outshine::Generators {
 
 namespace {
 
-constexpr uint64_t kStreamsPerCell = 3;
+constexpr uint64_t kStreamsPerCell = 4;
 
 float Unit24(uint64_t bits) { return (float)(bits & 0xFFFFFFu) * (1.0f / 16777216.0f); }
 float Unit16(uint64_t bits) { return (float)(bits & 0xFFFFu) * (1.0f / 65536.0f); }
@@ -21,8 +21,12 @@ float SizeFactor(uint64_t bits, float sigma) {
 
 }
 
-Forest::Forest(const Stem &stem, Span<const float> perM2ByRow, const AlpineLimit &limit)
-    : Stem_(stem), PerM2_(perM2ByRow), Limit_(limit) {}
+Forest::Forest(Span<const Stem> stems, Span<const float> perM2ByRow, const AlpineLimit &limit)
+    : PerM2_(perM2ByRow), Limit_(limit) {
+  const size_t held = stems.Size() < kMostSpecies ? stems.Size() : kMostSpecies;
+  Stems_.reserve(held);
+  for (size_t at = 0; at < held; ++at) { Stems_.push_back(stems.Data()[at]); }
+}
 
 Span<const char *const> Forest::NoteNames() const noexcept {
   static const char *const kNames[kNotes] = {"noTemplate",  "zeroDensity", "densityDraw",
@@ -74,15 +78,17 @@ Forest::Outcome Forest::Consider(const Ground &ground, const Lattice &lattice, C
 
   if ((double)Unit24(draw >> 24) >= woody * (1.0 - steep)) return Outcome::WoodyDraw;
 
-  const float size = SizeFactor(region.Seed(index * kStreamsPerCell + 2), Stem_.HeightSigma);
+  if (Stems_.empty()) { return Outcome::NoTemplate; }
+  const Stem &stem = Stems_[(size_t)(region.Seed(index * kStreamsPerCell + 3) % Stems_.size())];
+  const float size = SizeFactor(region.Seed(index * kStreamsPerCell + 2), stem.HeightSigma);
   out->Em = eastM;
   out->Nm = northM;
   out->BaseAslM = aslM;
-  out->RadiusM = Stem_.TrunkRadiusM * size;
-  out->HeightM = (float)(Stem_.HeightM * (double)size);
-  out->MassKg = Stem_.MassKg * size * size * size;
+  out->RadiusM = stem.TrunkRadiusM * size;
+  out->HeightM = (float)(stem.HeightM * (double)size);
+  out->MassKg = stem.MassKg * size * size * size;
   out->YawRad = Unit16(place >> 48) * 2.0f * std::numbers::pi_v<float>;
-  out->Contact = Stem_.Contact;
+  out->Contact = stem.Contact;
   return Outcome::Placed;
 }
 

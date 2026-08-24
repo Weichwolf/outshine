@@ -476,6 +476,44 @@ int main() {
         Grown(wide, *groundA, forest, Span<Yield::Note>(seamNotes.data(), seamNotes.size()));
     const std::vector<Body> east =
         Grown(wide, *groundB, forest, Span<Yield::Note>(seamNotesB.data(), seamNotesB.size()));
+    // board:1541: a world carries the species that grow in it, and that is 0 or 1..N.
+    // src/assets/world/species/ holds 31 of them while the forest took exactly one, so a
+    // world was a stand of a single tree and every check still passed.
+    {
+      Forest::Stem mixed[3];
+      mixed[0].HeightM = 10.0;
+      mixed[0].TrunkRadiusM = 0.10f;
+      mixed[1].HeightM = 20.0;
+      mixed[1].TrunkRadiusM = 0.20f;
+      mixed[2].HeightM = 30.0;
+      mixed[2].TrunkRadiusM = 0.30f;
+      const Forest wood(Span<const Forest::Stem>(mixed, 3), Span<const float>(perM2, 3),
+                        AlpineLimit());
+      CHECK(wood.SpeciesCount() == 3, "a forest declared over three species holds three");
+
+      std::vector<Yield::Note> mixedNotes(Forest::kNotes);
+      const std::vector<Body> stand =
+          Grown(wide, *groundA, wood, Span<Yield::Note>(mixedNotes.data(), mixedNotes.size()));
+      std::map<int, int> byHeight;
+      for (const Body &one : stand) { ++byHeight[(int)(one.HeightM / 5.0f)]; }
+      std::printf("NOTE trees the mixed stand grew = %zu trees\n", stand.size());
+      std::printf("NOTE distinct height bands in it = %zu bands\n", byHeight.size());
+      CHECK(stand.size() > 100, "the mixed stand grew a wood, not a handful");
+      CHECK(byHeight.size() >= 3,
+            "**A WOOD IS 0 OR 1..N SPECIES**: three declared stems put three kinds of tree "
+            "on the ground, so a world is no longer a stand of one (board:1541)");
+
+      const std::vector<Body> again =
+          Grown(wide, *groundA, wood, Span<Yield::Note>(mixedNotes.data(), mixedNotes.size()));
+      bool same = again.size() == stand.size();
+      for (size_t at = 0; at < again.size() && same; ++at) {
+        same = again[at].HeightM == stand[at].HeightM;
+      }
+      CHECK(same,
+            "and which species stands where is a PURE function of the region's own seed -- "
+            "the same ground grows the same wood twice");
+    }
+
     CHECK(a.SpanEm() == b.SpanEm(), "two regions of one Mercator row disagree on their width");
 
     constexpr double kBandM = 100.0;

@@ -1,18 +1,76 @@
 #include "Species.h"
 
+#include <algorithm>
 #include <cstdio>
-#include <string>
+#include <filesystem>
 
 namespace outshine::Clients {
 
+namespace {
+
+[[nodiscard]] bool Slurp(const std::string &path, std::string &into) {
+  FILE *file = fopen(path.c_str(), "rb");
+  if (file == nullptr) { return false; }
+  char block[8192];
+  for (size_t read; (read = fread(block, 1, sizeof block, file)) > 0;) {
+    into.append(block, read);
+  }
+  fclose(file);
+  return !into.empty();
+}
+
+}
+
 bool ReadSpecies(const char *path, Generators::TreeSpecies *out) {
-  FILE *f = fopen(path, "rb");
-  if (!f) return false;
   std::string text;
-  char buf[8192];
-  for (size_t n; (n = fread(buf, 1, sizeof buf, f)) > 0;) text.append(buf, n);
-  fclose(f);
-  return !text.empty() && out->Parse(text.c_str(), text.size());
+  return Slurp(path, text) && out->Parse(text.c_str(), text.size());
+}
+
+bool ReadSpecies(const char *path, std::vector<Generators::TreeSpecies> &out,
+                 std::string &error) {
+  out.clear();
+  if (path == nullptr || *path == 0) {
+    error = "a world's species are read from a path and this one is empty";
+    return false;
+  }
+  std::error_code why;
+  const std::filesystem::path where(path);
+  if (!std::filesystem::is_directory(where, why)) {
+    Generators::TreeSpecies one;
+    if (!ReadSpecies(path, &one)) {
+      error = std::string("the species file '") + path + "' does not read: " +
+              (one.Error().empty() ? "it could not be opened" : one.Error());
+      return false;
+    }
+    out.push_back(std::move(one));
+    return true;
+  }
+
+  std::vector<std::string> named;
+  for (const auto &entry : std::filesystem::directory_iterator(where, why)) {
+    if (why) {
+      error = std::string("the species directory '") + path + "' does not open: " +
+              why.message();
+      return false;
+    }
+    if (entry.path().extension() == ".json") { named.push_back(entry.path().string()); }
+  }
+  std::sort(named.begin(), named.end());
+  if (named.empty()) {
+    error = std::string("the species directory '") + path +
+            "' holds no .json -- a world carries 0 or 1..N species and this is neither";
+    return false;
+  }
+  for (const std::string &one : named) {
+    Generators::TreeSpecies grown;
+    if (!ReadSpecies(one.c_str(), &grown)) {
+      error = "the species file '" + one + "' does not read: " +
+              (grown.Error().empty() ? "it could not be opened" : grown.Error());
+      return false;
+    }
+    out.push_back(std::move(grown));
+  }
+  return true;
 }
 
 }

@@ -108,7 +108,7 @@ public:
   [[nodiscard]] bool RegionBusy() const { return Forge_ && !Forge_->Idle(); }
 
   [[nodiscard]] bool RingStands() const;
-  const Generators::TreeSpecies &Species() const { return Species_; }
+  [[nodiscard]] const std::vector<Generators::TreeSpecies> &Species() const { return Species_; }
   size_t GeneratorHeapBytes() const { return Pool_ ? Pool_->HeapBytes() : 0; }
 
   size_t RegionSlotBytes() const { return Pool_ ? Pool_->SlotBytes() : 0; }
@@ -194,7 +194,7 @@ private:
   Ground::World W_;
   Ground::EyeColumn Stand_;
 
-  Generators::TreeSpecies Species_;
+  std::vector<Generators::TreeSpecies> Species_;
   std::vector<float> StandsPerM2_;
   std::shared_ptr<const Generators::GroundTable> Table_;
   Generators::Schedule Ring_;

@@ -2,6 +2,8 @@
 #define OUTSHINE_GENERATORS_FOREST_H
 
 #include "AlpineLimit.h"
+#include <vector>
+
 #include "Generator.h"
 #include "Span.h"
 
@@ -19,7 +21,11 @@ public:
     ContactMaterial Contact = ContactMaterial{0};
   };
 
-  Forest(const Stem &stem, Span<const float> perM2ByRow, const AlpineLimit &limit);
+  Forest(Span<const Stem> stems, Span<const float> perM2ByRow, const AlpineLimit &limit);
+  Forest(const Stem &stem, Span<const float> perM2ByRow, const AlpineLimit &limit)
+      : Forest(Span<const Stem>(&stem, 1), perM2ByRow, limit) {}
+
+  [[nodiscard]] size_t SpeciesCount() const noexcept { return Stems_.size(); }
 
   enum Note {
     NoTemplate, ZeroDensity, DensityDraw, AboveTreeline, TooSteep, WoodyDraw, HighestStandAslM,
@@ -50,7 +56,9 @@ private:
   [[nodiscard]] Outcome Consider(const Ground &ground, const Lattice &lattice, Cell cell,
                    Body *out) const noexcept;
 
-  Stem Stem_;
+  static constexpr size_t kMostSpecies = 64;
+
+  std::vector<Stem> Stems_;
   Span<const float> PerM2_;
   AlpineLimit Limit_;
 };

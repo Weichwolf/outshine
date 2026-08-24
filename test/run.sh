@@ -138,7 +138,7 @@ LayerIncludes() {
     unit/render/draw) printf '%s' "-Isrc/core -Isrc/render/draw" ;;
     unit/render/stages) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages $(pkg-config --cflags sdl3)" ;;
     unit/render) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages" ;;
-    unit/clients) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/actor/path -Isrc/actor/body -Isrc/actor/mind -Isrc/scenario -Isrc/clients" ;;
+    unit/clients) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/actor/path -Isrc/actor/body -Isrc/actor/mind -Isrc/scenario -Isrc/generators -Isrc/ground -Isrc/data -Isrc/clients" ;;
     harness/claims) printf '%s' "-Isrc/core" ;;
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/data -Isrc/scene -Isrc/scenario -Isrc/ui -Iinclude -Isrc/clients" ;;
     harness/render/wpt/css) printf '%s' "-Isrc/core -Isrc/ui" ;;
@@ -228,7 +228,7 @@ LayerGroups() {
     unit/render/draw) printf '%s' "src/core src/core/io src/render/draw" ;;
     unit/render/stages) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
     unit/render) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
-    unit/clients) printf '%s' "src/core src/actor/path src/actor/body src/actor/mind src/scene src/clients/Image.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/InputMap.cpp src/clients/Assembly.cpp src/clients/InputPump.cpp" ;;
+    unit/clients) printf '%s' "src/core src/actor/path src/actor/body src/actor/mind src/scene src/clients/Image.cpp src/clients/Species.cpp src/generators/TreeSpecies.cpp src/generators/GrowthForm.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/InputMap.cpp src/clients/Assembly.cpp src/clients/InputPump.cpp" ;;
     harness/claims) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario | render/outshine/client) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/clients/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/clients/Assembly.cpp" ;;
     render/outshine/shader) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
@@ -292,7 +292,7 @@ GroupIncludes() {
     src/ui) printf '%s' "-Isrc/core -Isrc/ui" ;;
     src/audio) printf '%s' "-Iinclude -Isrc/core -Isrc/audio" ;;
     src/scenario | src/scenario/ScenarioRead.cpp | src/scenario/ScenarioLayer.cpp | src/scenario/InputMap.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/scenario" ;;
-    src/generators) printf '%s' "-Isrc/core -Isrc/generators" ;;
+    src/generators | src/generators/TreeSpecies.cpp | src/generators/GrowthForm.cpp) printf '%s' "-Isrc/core -Isrc/generators" ;;
     src/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
     src/render/plan) printf '%s' "-Isrc/core -Isrc/render/plan" ;;
     src/render/draw) printf '%s' "-Isrc/core -Isrc/render/draw" ;;
