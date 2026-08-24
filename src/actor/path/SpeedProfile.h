@@ -70,6 +70,7 @@ public:
   [[nodiscard]] double CurvatureAt(size_t which) const noexcept { return Curvature_[which]; }
   [[nodiscard]] double Quantile(double share) const noexcept;
   [[nodiscard]] size_t StationsUnder(double ms) const noexcept;
+  [[nodiscard]] double BinMs() const noexcept { return BinMs_; }
   [[nodiscard]] Standing SlowestBound() const noexcept { return SlowestBound_; }
   [[nodiscard]] static constexpr bool IsGeometry(Held term) noexcept {
     return term == Held::Curvature || term == Held::Slip || term == Held::Ramp ||

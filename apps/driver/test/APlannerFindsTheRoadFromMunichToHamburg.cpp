@@ -193,6 +193,64 @@ int main(void) {
           "count rather than a fit that quietly bent further");
   }
 
+  // board:1785 box 3: "a drive can be planned at 12.158 km/h at km 552.939 and every check
+  // still passes, because the case asserts the FASTEST it went and never the slowest the plan
+  // allowed". The plan carries its own distribution now, so the crawl is a number.
+  {
+    const auto &plan = drive.Way.Profile;
+    const size_t crawling = plan.StationsUnder(30.0 / 3.6);
+    const double crawlShare =
+        plan.SampleCount() > 0 ? (double)crawling / (double)plan.SampleCount() : 0.0;
+    Note("stations the plan holds", (double)plan.SampleCount(), "stations");
+    Note("the speed it plans at p01", plan.Quantile(0.01) * 3.6, "km/h");
+    Note("at p50", plan.Quantile(0.50) * 3.6, "km/h");
+    Note("at p95", plan.Quantile(0.95) * 3.6, "km/h");
+    Note("at p99", plan.Quantile(0.99) * 3.6, "km/h");
+    Note("stations planned under 30 km/h", (double)crawling, "stations");
+    Note("what share of the route that is", crawlShare * 100.0, "%");
+    Note("how much road that is",
+         crawlShare * drive.Way.Line.LengthM() / 1000.0, "km");
+
+    const outshine::SpeedProfile::Standing road = plan.SlowestBound();
+    std::printf("NOTE the slowest station the road itself holds = %.3f km/h at %.3f km by '%s'\n",
+                road.Ms * 3.6, road.AtM / 1000.0,
+                outshine::SpeedProfile::NameOf(road.By));
+
+    const double floorMs = 30.0 / 3.6;
+    const double edgeFrom = std::floor(floorMs / plan.BinMs()) * plan.BinMs();
+    size_t walkedUnder = 0, walkedUnderMedian = 0, inTheEdgeBin = 0;
+    const double median = plan.Quantile(0.50);
+    for (size_t at = 0; at < plan.SampleCount(); ++at) {
+      const double ms = plan.SampleAt(at);
+      walkedUnder += ms < floorMs ? 1u : 0u;
+      walkedUnderMedian += ms < median ? 1u : 0u;
+      inTheEdgeBin += ms >= edgeFrom && ms < edgeFrom + plan.BinMs() ? 1u : 0u;
+    }
+    Note("stations a hand walk finds under 30 km/h", (double)walkedUnder, "stations");
+    Note("stations it finds under the published median", (double)walkedUnderMedian, "stations");
+    Note("stations in the bin 30 km/h falls inside", (double)inTheEdgeBin, "stations");
+    Note("the resolution the histogram works at", plan.BinMs() * 3.6, "km/h");
+    CHECK(crawling <= walkedUnder && walkedUnder - crawling <= inTheEdgeBin,
+          "**AND THE HISTOGRAM COUNTS WHAT THE PLAN HOLDS**: the instrument is judged against "
+          "the plan's own samples, not against itself -- a histogram filled for one station in "
+          "two million reports 232.7 km/h at p01 and 1 station under 30, and both bars below "
+          "would pass it the more comfortably for being wrong (board:1785)");
+    CHECK(walkedUnderMedian * 2 > plan.SampleCount() - plan.SampleCount() / 50 &&
+              walkedUnderMedian * 2 < plan.SampleCount() + plan.SampleCount() / 50,
+          "and half the stations lie under the published median, within the bin width -- a "
+          "quantile that describes another population is not a quantile of this plan");
+
+    CHECK(crawlShare < 0.01,
+          "**AND NO MEANINGFUL PART OF A MOTORWAY ROUTE IS PLANNED AT WALKING PACE**: 8710 of "
+          "2049960 stations -- 3.2 km of road -- planned under 30 km/h while every check "
+          "passed, because the case asserted the fastest the car went and never the slowest "
+          "the plan allowed. The bar is [SET] at one station in a hundred (board:1785, 1784)");
+    CHECK(plan.Quantile(0.01) > 30.0 / 3.6,
+          "**AND THE SLOWEST HUNDREDTH OF THE ROUTE IS STILL A ROAD SPEED** -- a percentile "
+          "over the plan's own stations, so a single hairpin is not a verdict and 3 km of "
+          "them is");
+  }
+
   const double routeKm = drive.Way.Line.LengthM() / 1000.0;
   Note("the route the case itself checks", routeKm, "km");
   CHECK(routeKm > 700.0 && routeKm < 900.0,
