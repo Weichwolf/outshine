@@ -87,3 +87,77 @@ being closed with a refusal that would break every route in the network.
 - [ ] `SpeedProfile`'s crawl on that route is re-measured. board:1784 recorded 8 710 samples
       under 30 km/h over 2.05 million; the number after this repair is what says whether the
       crawl was the fit or the data.
+
+---
+
+## The factor is not 2/3, it is 1/(1 + alpha), and alpha is a choice (2026-08-24)
+
+`Fit` sets the spiral length to `Ls = 0.5 * R * s` (`Fit.cpp:143-144`). Write that as
+`Ls = alpha * R * s`. Then
+
+```
+TangentShare(s) = ShiftShare(s) * tan(s/2) + (alpha/2) * s   ->   s/2 + alpha*s/2   (small s)
+byRoom          = 0.5 * L / TangentShare(s)                  ->   R_true / (1 + alpha)
+```
+
+Computed against the tree's own `CornerRadiusM` at R = 400 m, L = 20 m:
+
+| alpha | measured fitted/true | 1/(1+alpha) |
+|---|---|---|
+| 1.00 | 0.4999 | 0.5000 |
+| **0.50** (the code) | **0.6665** | **0.6667** |
+| 0.25 | 0.7998 | 0.8000 |
+| 0.10 | 0.9088 | 0.9091 |
+| 0.00 | 0.9997 | 1.0000 |
+
+Four digits, five values. The understatement is the clothoid's own tangent contribution, and
+**no value of alpha removes it** -- it only trades transition quality for radius. `alpha = 0`
+recovers the radius exactly and is a pure-arc fit with a curvature leap at every tangent point,
+which `AReferenceLineCarriesACurvatureWithoutALeap` exists to forbid.
+
+## So the repair is not a constant, it is the corner MODEL
+
+`Fit` puts one spiral-arc-spiral at every vertex and returns the curvature to zero between
+them. That is correct for a road corner between two straights and wrong for a polyline
+DESCRIBING a curve: a transition is owed where the curvature changes, not where a digitiser
+placed a point.
+
+Measured on Munich--Hamburg, at HEAD, with the run telemetry landed this round:
+
+```
+NOTE corners the fit needed                          2202 corners
+NOTE runs of same-sign turns among them               873 runs
+NOTE the longest such run                              16 vertices
+NOTE vertices with a same-sign turn on BOTH sides     769 vertices
+```
+
+**769 of 2202 corners (35 %) sit inside a run** with same-sign neighbours on both sides. Those
+are the ones a merged arc lifts from `R_true/1.5` to `R_true * cos(s/2)`. The run ENDS keep
+their transitions and keep the 1.5, correctly: at a curvature reversal two clothoids genuinely
+have to fit in one leg, and where they do not, refusing the radius is right.
+
+Three models, arithmetic done:
+
+| model | what it lays | recovered radius |
+|---|---|---|
+| today: a corner per vertex | spiral-arc-spiral, curvature to zero between | `R/1.5` everywhere |
+| shared tangent apportionment | the leg split by demand instead of in half | still `R/1.5` -- `TangentShare` is on both sides |
+| **one arc per RUN** | transitions only where curvature reverses | `R*cos(s/2)` inside runs, `R/1.5` at reversals |
+
+Only the third moves the number, and it replaces a per-vertex corner table with an alignment
+fitter: runs detected, one radius per run, arcs meeting directly, and the accuracy bound
+`withinM` deciding when a run must split. That is an architectural change to the corner model
+and it belongs in TARGET before it belongs in `Fit.cpp`.
+
+## Parked, with the reason named
+
+- **Landed this round**: the derivation above, the run telemetry that sizes the repair (873
+  runs, 769 sheltered vertices), and the class minimum that makes the consequence visible
+  (`board:1784`).
+- **Not landed**: the merge. The reason is not that it is hard -- it is that `Fit` is the
+  load-bearing function of the drive layer with 21 unit twins and a driver suite behind it, and
+  the change is a model replacement rather than a repair. It goes to TARGET first, then to the
+  queue as its own item with the twins written before the surgery.
+- **Not weakened**: nothing here lowers a bound to make the tree green. `board:1784`'s class
+  minimum COUNTS and does not refuse, precisely because refusing on a radius that is a third
+  low would refuse roads that obey their class.

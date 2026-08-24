@@ -184,3 +184,50 @@ Two consequences:
 The first box stands open, and the reading in the previous section is upheld: the bound is the
 defect. The guard `520f1748` landed against `stood.TightestM` is filed separately as
 **board:1791** -- it cannot fail on a corridor with a corner, and it refuses one without.
+
+---
+
+## The class minimum reaches the fit, and it counts rather than refuses (2026-08-24)
+
+The first box asked for a minimum radius from the way's CLASS. It is landed as data and as an
+instrument. Values are tabulated, not invented:
+
+| source | class | R_min [m] |
+|---|---|---|
+| RAA 2008 (bauformeln.de, reproducing it) | EKA 1A / 1B / 2 / 3 | 900 / **720** / 470 / 280, q_max 6.0 % |
+| RAL 2012 (KIT ISE, *Bemessungsgrundlagen im Strassenwesen*, 04/2013, Abb. 5.2) | EKL 1 / 2 / 3 / 4 | **500 / 400 / 300 / 200**, Ve 110 / 100 / 90 / 70 km/h |
+
+The one judgement is the MAPPING, written into `osmRadiusOrigin`: OSM's five carriageway kinds
+take the standards' classes in order -- `motorway` to the general Autobahn class EKA 1B rather
+than the 900 m Ueberregionalautobahn, because the tag does not distinguish them and a bound must
+not refuse a legal road; `trunk`..`tertiary` to EKL 1..4. Below tertiary is RASt 06 territory
+with nothing fetched, so those kinds carry **no bound at all** -- an absent number stays absent.
+
+Checked against the fahrdynamische Grundgleichung `v^2/(Rg) = f_R + q`: at q = 0.06 the
+tabulated pairs imply f_R of 0.130 / 0.137 / 0.152 / 0.133 and 0.125 for EKA 1B at the RAA's
+130 km/h -- one coefficient within a fifth of itself across two standards and five classes.
+
+The road it travels: `vegetation.json` -> `Rule` -> `Reap` -> `Network::Lay` -> `Way` -> the
+node merge -> `Leg` -> `Simplify`'s kept indices -> a per-vertex bound -> `Fit`. Width merges
+widest, gradient strictest, **radius loosest** -- a junction bends as tightly as the tightest
+road reaching it, and the stricter rule would refuse every motorway exit in the graph.
+
+- **Proving tests**: `test/unit/sim/ACorridorIsLaidOverASyntheticRoute` (a primary zigzag lays
+  45.484 m corners against a class allowing 400 m, while the car's own bound of 4.902 m sees
+  nothing; the class removed -> 0 counted; a straight primary -> bound armed, nothing counted)
+  and `test/unit/actor/path/ANetworkIsWovenFromWaysThatShareNoIdentity` (a leg carries its way's
+  minimum; the node where two classes meet takes the looser; an undeclared way spreads none).
+- **Negative control**, run: the class comparison disabled in `Fit` -> three claims red in the
+  same case.
+
+## Why the box stays open: the instrument is a third low
+
+On the shipped Munich--Hamburg route the count is **947 of 2204 corners under their class
+minimum**, with only **24 turns past a right angle** on the whole route. Sharp geometry cannot
+explain a 43 % rate; `board:1795` can, and does -- the fit lays `R_true/1.5` for any smooth
+curve, so a genuine 400 m primary bend is laid at 267 m and counted as a violation of the class
+it obeys.
+
+**Refusing on that number would refuse correct roads.** The box stays open until board:1795
+makes the radius trustworthy. That is the named reason, and it is a measurement rather than a
+preference.
