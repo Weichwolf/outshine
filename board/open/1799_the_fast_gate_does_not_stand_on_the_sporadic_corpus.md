@@ -42,8 +42,40 @@ bound, which is the sporadic proof wearing the mirror's clothes.
 - [ ] The survey moves to where a survey belongs -- a corpus suite run by name -- and the unit
       mirror keeps a twin that proves the framing RULE against a bounded, named set of subjects
       it can always have.
-- [ ] The fast gate's subjects are ones the gate itself can rebuild inside its own bound, and
+- [x] The fast gate's subjects are ones the gate itself can rebuild inside its own bound, and
       the trailer says how many it rebuilt.
-- [ ] Proving test: the fast gate against a swept corpus finishes inside `kFastGateBoundMs`
+- [x] Proving test: the fast gate against a swept corpus finishes inside `kFastGateBoundMs`
       with 0 UNPREPARED. Negative control: the survey put back into `unit/` -> the bound is
       overrun and the rebuild count is in the hundreds.
+
+## Half repaid, and the open half is the LAYER (2026-08-24)
+
+The gate no longer borrows its greenness. The survey judges what stands and NAMES what does
+not -- `board:1765`'s form, applied to a survey instead of a suite:
+
+```
+NOTE cases the tree declares                  = 172 cases
+NOTE cases whose subject was never fetched    =  47 cases
+240 tests: 240 PASS ... 0 UNPREPARED  in 147930 ms
+run.sh: gate headroom 145916 ms of 230000 (run 84084 ms, builds 63846 ms beside the bound)
+```
+
+125 of 172 judged, 47 named, and the survey is UNPREPARED only if it judged NOTHING. One
+swept directory no longer becomes 160 findings.
+
+**Negative control**, run: the per-subject `Unprepared` put back -> 160 UNPREPARED from this
+one twin, the gate red, and the runner spending minutes per case rebuilding 127 khronos
+subjects -- 19 GB of temp directory before it was stopped.
+
+## What stays open
+
+The twin still surveys a corpus the fast mirror does not own. The coverage it reports is now
+honest, and its LEVEL is whatever the machine happens to hold -- 125 cases tonight, 172 after a
+full preparation, 0 after a sweep. A regression gate whose coverage moves with a temp directory
+is not a regression gate, even when it says so out loud.
+
+- [ ] The full sweep moves to a corpus suite run by name, and the mirror keeps a twin over a
+      bounded set of subjects the gate can always have -- the GROWN cases, which the tree
+      generates rather than fetches.
+- [ ] Proving test: the fast gate's judged-case count is the same number on a swept machine and
+      a warm one. Negative control: the fetched families back in the mirror -> the count moves.
