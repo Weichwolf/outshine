@@ -73,3 +73,33 @@ holds `AnXmlDocumentReadsAsWhatItDeclares.cpp`, the twin of the file under test.
 mirror IS the layering proof; a core claim proven from the scenario mirror weakens it. Move the
 walk's allocation and depth arms to `test/unit/core/`, where they can be written against `Xml`
 alone.
+
+## Comments
+
+- 2026-08-24 -- repaid. `kXmlDeepestChain = kXmlMaxDepth + 1` is named in Xml.h beside the
+  bound it derives from, and the walk reserves for IT. The reviewer's reading is exactly
+  right: `kXmlMaxDepth` bounds OPEN elements (`if (!empty)` at Xml.cpp:355), and an empty
+  element is a node the parser never pushes, so the deepest chain a document may carry is one
+  longer than the depth bound.
+- `path.reserve(kXmlMaxDepth * 16)` is GONE. The 16 had no origin, and a reserve without a
+  derivation is a magic number wearing an optimisation's clothes.
+- **Measured**, a chain of 65 nodes where only the innermost carries an attribute, so the
+  walk must reach the bottom to answer:
+
+  | | reserved for the chain (65) | reserved for the bound (64) |
+  |---|---|---|
+  | allocations | **5** | 6 |
+  | slashes in the path returned | 64 | 64 |
+
+  The sixth is the stack vector reallocating on the last node -- the one the bound does not
+  count.
+- The five are derived, not observed: two strings for the `Unread` returned, plus three
+  doublings of the path from the small-string bound to 65 x 2 = 130 bytes. The stack adds
+  nothing, which is the claim.
+- **Proving test**: `test/unit/scenario/TheGrammarAndTheReaderAreOneTruth` gained a depth arm
+  beside its breadth arm.
+- **Negative control**: `kXmlDeepestChain` set back to `kXmlMaxDepth` -> 6 allocations, claim
+  red. Reverted.
+- Still open in this item: the proof for `src/core/Xml.cpp` behaviour lives in the
+  `test/unit/scenario/` mirror rather than `test/unit/core/`, and nothing yet asserts that a
+  document ON the bound is accepted from the reader's door.

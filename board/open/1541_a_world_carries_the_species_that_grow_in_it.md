@@ -119,3 +119,33 @@ Two more residues from the same commit, both filed separately:
 
 Box 3 (the vegetation table selects) stays open with the reason the commit named, which is the
 right call: a class row with nothing to select from is a feature, not a repair.
+
+---
+
+## Box 2 was not held, and now is (2026-08-24, reviewer round)
+
+The reviewer measured what I only wrote:
+
+```cpp
+for (const auto &entry : std::filesystem::directory_iterator(where, why)) {
+  if (why) { ... return false; }        // dead in exactly the case it was written for
+```
+
+`directory_iterator`'s constructor sets the code AND returns the end iterator, so the body
+never runs. An unreadable directory fell through to the emptiness check and refused with
+*"holds no .json"* -- the wrong cause, which is the same failure as the empty `why=` that
+filed this item in the first place. Box 2 did not hold.
+
+The iterator is constructed BEFORE the loop now and the code is read there:
+
+```
+NOTE the unreadable-directory refusal reads: the species directory
+'/var/folders/.../outshine-species-shut' does not open: Permission denied
+```
+
+- **Proving test**: `test/unit/clients/AWorldReadsTheSpeciesThatGrowInIt` -- a new arm creates
+  a directory, `chmod 000`s it, reads it, restores the permissions and removes it, and
+  requires the refusal to say `does not open`.
+- **Negative control**: the reviewer's -- `chmod 000` on a real directory produced
+  `is_directory` true, zero entries, `why` = "Permission denied", never printed. That
+  measurement IS the control, and the new arm reproduces it as a test.

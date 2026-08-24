@@ -61,3 +61,22 @@ though the struct is copied per cell.
 - [ ] Proving test: a `Forest` handed 65 stems refuses and names both numbers; a `Forest` of
       zero stems publishes a note no unvegetated ground publishes. Negative control: the
       refusal removed -> the claim red.
+
+## Comments
+
+- 2026-08-24 -- repaid. Both halves were silent; both speak now.
+
+| | before | after |
+|---|---|---|
+| 65 stems declared | 64 held, 1 dropped without a word | `SpeciesCount() == 64`, **`SpeciesRefused() == 1`**, both published |
+| a wood of no species | `Outcome::NoTemplate` -- the note bare rock publishes | `Outcome::NoSpecies`, its own note beside `noTemplate` |
+
+- **Measured**: 65 declared, 64 held, 1 refused; a wood of no species grows 0 trees and
+  raises `noSpecies` **198 922** times against `noTemplate` **0**.
+- **Proving test**: `test/unit/generators/SameRegionSamePlacement`, two new checks.
+- **Negative control**: the note collapsed back to `NoTemplate` -> the emptiness claim goes
+  red, because `noSpecies` reads 0 while `noTemplate` reads 198 922 -- the exact telemetry of
+  bare rock, which is the defect.
+- Not repaid here: `kMostSpecies = 64` still has no derivation, and `std::vector<Stem>` is
+  still a pointer chase in a class whose whole body is a cell loop. Both named by the review,
+  both left with that reason.
