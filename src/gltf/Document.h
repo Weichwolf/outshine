@@ -33,6 +33,8 @@ public:
 
   [[nodiscard]] const std::vector<Accessor> &Accessors() const { return Accessors_; }
   [[nodiscard]] const std::vector<BufferView> &BufferViews() const { return Views_; }
+  [[nodiscard]] const std::vector<MetadataPacket> &Metadata() const { return Metadata_; }
+  [[nodiscard]] int MetadataOfAsset() const { return AssetMetadata_; }
   [[nodiscard]] const std::vector<Mesh> &Meshes() const { return Meshes_; }
   [[nodiscard]] const std::vector<Node> &Nodes() const { return Nodes_; }
   [[nodiscard]] const std::vector<Camera> &Cameras() const { return Cameras_; }
@@ -93,6 +95,8 @@ private:
   bool Quantised_ = false;
   std::vector<std::vector<uint8_t>> Buffers_;
   std::vector<BufferView> Views_;
+  std::vector<MetadataPacket> Metadata_;
+  int AssetMetadata_ = -1;
   std::vector<Accessor> Accessors_;
   std::vector<Mesh> Meshes_;
   std::vector<Node> Nodes_;

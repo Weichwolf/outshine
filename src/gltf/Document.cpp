@@ -215,7 +215,8 @@ constexpr const char *const kHonouredExtensions[] = {"KHR_lights_punctual",
                                                      "KHR_materials_specular",
                                                      "KHR_materials_unlit",
                                                      "KHR_materials_variants",
-                                                     "KHR_texture_transform", nullptr};
+                                                     "KHR_texture_transform",
+                                                     "KHR_xmp_json_ld", nullptr};
 
 constexpr const char *kLightsPunctual = "KHR_lights_punctual";
 constexpr const char *kEmissiveStrength = "KHR_materials_emissive_strength";
@@ -529,6 +530,30 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     if (extension == "KHR_mesh_quantization") { Quantised_ = true; }
     if (!Honours(extension)) {
       return Refuse("requires extension '" + extension + "', which this reader does not implement");
+    }
+  }
+
+  {
+    const Json::Ref carried = root["extensions"]["KHR_xmp_json_ld"]["packets"];
+    for (size_t i = 0; i < carried.Size(); ++i) {
+      const Json::Ref packet = carried[i];
+      MetadataPacket held;
+      for (size_t at = 0; at < packet.Size(); ++at) {
+        const std::string key = packet.Key(at);
+        if (key.empty()) { continue; }
+        held.Held.push_back(MetadataProperty{key, packet[key.c_str()].Str("")});
+      }
+      Metadata_.push_back(std::move(held));
+    }
+    const Json::Ref onAsset = root["asset"]["extensions"]["KHR_xmp_json_ld"]["packet"];
+    if (onAsset.Valid()) {
+      const int which = onAsset.Int(-1);
+      if (which < 0 || (size_t)which >= Metadata_.size()) {
+        return Refuse("asset names metadata packet " + Number((size_t)(which < 0 ? 0 : which)) +
+                      " of " + Number(Metadata_.size()) +
+                      " -- a packet index outside the array it indexes is a refusal");
+      }
+      AssetMetadata_ = which;
     }
   }
 

@@ -165,6 +165,22 @@ struct Sampler {
   MipFilter Mip = MipFilter::Linear;
 };
 
+struct MetadataProperty {
+  std::string Key;
+  std::string Value;
+};
+
+struct MetadataPacket {
+  std::vector<MetadataProperty> Held;
+
+  [[nodiscard]] std::string_view Of(std::string_view key) const {
+    for (const MetadataProperty &one : Held) {
+      if (one.Key == key) { return one.Value; }
+    }
+    return {};
+  }
+};
+
 struct Image {
   std::string Name;
   std::string Uri;
