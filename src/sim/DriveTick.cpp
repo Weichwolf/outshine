@@ -62,6 +62,7 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
                                    body.VelocityMs[2] * body.VelocityMs[2]);
   out.SpeedMs = speedMs;
   reins.TightestPerM = outshine::Pilot::TightestPerM(stood.Axles, stood.Envelope, speedMs);
+  double aimStillMovingM = 0.0;
   {
     const size_t fine = (size_t)(at.AlongM / fineM);
     const double wantAsideM = fineAside[fine < fineAside.size() ? fine : fineAside.size() - 1];
@@ -80,6 +81,7 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
       if (drive.HeldAsideM < -roomM) { drive.HeldAsideM = -roomM; }
     }
     reins.AsideM = drive.HeldAsideM;
+    aimStillMovingM = wantAsideM - drive.HeldAsideM;
   }
   const double brakingM = speedMs * speedMs / (2.0 * stood.Envelope.BrakeMs2());
   double wantedMs = profile.At(at.AlongM);
@@ -145,6 +147,24 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
       out.WorstOffsetM = inLaneM;
       out.WorstOffsetAtM = at.AlongM;
     }
+    // board:1767: the station a wheel CROSSES at is the end of an excursion, not its cause. The
+    // entry is where the car first spent half the room its lane leaves it, and what the road
+    // was doing there is the thing worth reading.
+    if (out.StrayedAtM <= 0.0) {
+      const size_t post = (size_t)(at.AlongM / spanM);
+      const double halfRoomM =
+          laneHalfM[post < laneHalfM.size() ? post : laneHalfM.size() - 1] -
+          0.5 * drive.CarWidthM;
+      if (halfRoomM > 0.0 && std::fabs(inLaneM) > 0.5 * halfRoomM) {
+        out.StrayedAtM = at.AlongM;
+        out.StrayedCurvature = at.CurvaturePerM;
+        out.StrayedRate = at.CurvatureRatePerM;
+        out.StrayedAtMs = speedMs;
+        out.StrayedPlannedMs = profile.At(at.AlongM);
+        out.StrayedOffsetM = at.OffsetM;
+        out.StrayedHeadingErrorRad = at.HeadingErrorRad;
+      }
+    }
     if (read.WorstRatio > out.WorstRatio) {
       out.WorstRatio = read.WorstRatio;
       out.WorstRatioAtM = at.AlongM;
@@ -181,6 +201,20 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
     out.LeftEdgeM = fineEdge[fine < fineEdge.size() ? fine : fineEdge.size() - 1];
     out.LeftAsideM = reins.AsideM;
     out.LeftAcrossM = at.OffsetM;
+    out.LeftSteerRad = controls.SteerRad;
+    out.LeftKinematicSteerRad = std::atan(stood.Axles.WheelbaseM * at.CurvaturePerM);
+    double frontSlip = 0.0, rearSlip = 0.0;
+    for (size_t which = 0; which < read.Count && which < 4; ++which) {
+      const double slip = std::fabs(read.SlipRad[which]);
+      double &into = which < 2 ? frontSlip : rearSlip;
+      if (slip > into) { into = slip; }
+    }
+    out.LeftAimStillMovingM = aimStillMovingM;
+    out.LeftHeadingErrorRad = at.HeadingErrorRad;
+    out.LeftBankRad = at.BankRad;
+    out.LeftSlope = at.SlopeAt;
+    out.LeftFrontSlipRad = frontSlip;
+    out.LeftRearSlipRad = rearSlip;
   }
   if (read.OffTheSurface > 0) {
     out.OffTheRoad = true;

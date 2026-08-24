@@ -1,5 +1,6 @@
 #include <chrono>
 #include <cmath>
+#include <numbers>
 #include <cstdio>
 #include <map>
 #include <string>
@@ -187,6 +188,49 @@ int main(void) {
     Note("where the corridor's own edge was", rode.LeftEdgeM, "m");
     Note("what the pilot was aiming for", rode.LeftAsideM, "m");
     Note("where the car actually was", rode.LeftAcrossM, "m");
+    // board:1767's two named measurements: whether the steer COMMAND is wrong, or whether the
+    // car does not follow it.
+    Note("the steer the pilot commanded", rode.LeftSteerRad * 180.0 / std::numbers::pi, "deg");
+    Note("what a kinematic bicycle needs for that curvature",
+         rode.LeftKinematicSteerRad * 180.0 / std::numbers::pi, "deg");
+    Note("the command as a share of it",
+         rode.LeftKinematicSteerRad != 0.0 ? rode.LeftSteerRad / rode.LeftKinematicSteerRad : 0.0,
+         "of it");
+    Note("the worst front slip angle there",
+         rode.LeftFrontSlipRad * 180.0 / std::numbers::pi, "deg");
+    Note("the worst rear slip angle", rode.LeftRearSlipRad * 180.0 / std::numbers::pi, "deg");
+    Note("how far the aim still had to travel", rode.LeftAimStillMovingM, "m");
+    Note("the fastest the aim may move sideways at that speed",
+         drive.State.AsideRatePerM * rode.LeftAtMs, "m/s");
+    Note("how the road was banked there", rode.LeftBankRad * 180.0 / std::numbers::pi, "deg");
+    Note("the sideways gravity that bank puts on the car",
+         9.80665 * std::sin(rode.LeftBankRad), "m/s2");
+    Note("the lateral acceleration the corner itself asks for",
+         rode.LeftAtMs * rode.LeftAtMs * std::fabs(rode.LeftCurvature), "m/s2");
+    Note("the slope there", rode.LeftSlope * 100.0, "%");
+    Note("where the excursion began", rode.StrayedAtM / 1000.0, "km");
+    Note("how far before the crossing that is",
+         (rode.LeftTheRoadAtM - rode.StrayedAtM), "m");
+    Note("how hard the road was turning there", rode.StrayedCurvature, "1/m");
+    Note("the radius that is", rode.StrayedCurvature != 0.0
+                                   ? 1.0 / std::fabs(rode.StrayedCurvature) : 0.0, "m");
+    Note("how fast the turn was tightening there", rode.StrayedRate, "1/m2");
+    Note("how fast it was going there", rode.StrayedAtMs * 3.6, "km/h");
+    Note("what the plan asked for there", rode.StrayedPlannedMs * 3.6, "km/h");
+    Note("the lateral acceleration that corner asked for",
+         rode.StrayedAtMs * rode.StrayedAtMs * std::fabs(rode.StrayedCurvature), "m/s2");
+    Note("the car's offset where the excursion began", rode.StrayedOffsetM, "m");
+    Note("and where it crossed", rode.LeftAcrossM, "m");
+    Note("the offset moved by", rode.LeftAcrossM - rode.StrayedOffsetM, "m");
+    Note("the angle that implies against the path",
+         std::atan2(std::fabs(rode.LeftAcrossM - rode.StrayedOffsetM),
+                    rode.LeftTheRoadAtM - rode.StrayedAtM) * 180.0 / std::numbers::pi, "deg");
+    Note("the heading error where it began",
+         rode.StrayedHeadingErrorRad * 180.0 / std::numbers::pi, "deg");
+    Note("the heading error where it crossed",
+         rode.LeftHeadingErrorRad * 180.0 / std::numbers::pi, "deg");
+    Note("the slip at which this tyre reaches peak force",
+         0.95 * (drive.Car.MassKg * 9.80665 / 4.0) / 55000.0 * 180.0 / std::numbers::pi, "deg");
   }
 
   CHECK(!rode.Lost, "the car never left the corridor's own window");
