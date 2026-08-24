@@ -21,6 +21,24 @@ untidy -- it is where the renderer's own contract went to live.
 | a draw list is one item per part, with `VertexRunsCarried` deciding the layout | `BuildDrawList`, `GltfStudio.cpp:179` |
 | materials, lights and environment go in before placements | `Surface` then `Place`, `GltfStudio.cpp:326,345` |
 
+**Correction to this item's own first reading (2026-08-24).** It said "five incomplete
+declarations", and that is not what they were. Of the six attempts below, only TWO were
+declarations the renderer could have refused:
+
+| attempt | what it really was |
+|---|---|
+| no emitted-radiance run | a CONTRADICTION -- 3 vertices declared, no run handed over. Refusable, and now refused |
+| a count of placements with no table | the same shape. Refusable, and now refused |
+| no lights | a VALID declaration -- unlit is legal, and the depth should still have been written |
+| a 0.02 m triangle at 40 m | valid -- subpixel geometry is geometry |
+| a triangle edge-on to the eye | valid -- a camera may look along a surface |
+| placements absolute rather than anchor-local | a CONVENTION nobody publishes, not a refusable error: both readings are well-formed and only one is meant |
+
+So the item's shape holds and its wording did not: the door's defect is that a valid-looking
+declaration and a contradictory one are indistinguishable to the caller, and the conventions
+that decide between them live in a client helper. Two refusals landed; the convention is what
+box two is for.
+
 **Measured cost of that**: writing `test/render/outshine/frame/ADrawCostsWhatTheSweepSaysItCosts`
 -- a case that wants to hand the renderer ONE TRIANGLE N times and time it -- took five failed
 attempts, each of which the renderer accepted in full:
@@ -66,10 +84,15 @@ IS the library.
 
 ## What will be true
 
-- [ ] The renderer REFUSES an incomplete declaration by name instead of drawing nothing: no
-      camera projection, no lights where the surface needs them, a mesh whose anchor and
-      placements disagree by more than the world can carry, a draw list whose layout no vertex
-      run supplies. Each refusal names what is missing, and `WhyNot()` carries it.
+- [x] The renderer REFUSES a CONTRADICTORY declaration by name instead of drawing nothing --
+      a declaration that names geometry it does not hand over. Landed:
+      `SubjectDraw.cpp:453` (eight shortfalls behind one silent `return true`, split into a
+      legitimate empty-geometry `true` and four named refusals),
+      `SubjectDraw.h:59` (a placement count with no table), and
+      `Renderer.cpp:675` (a frame with no camera basis, which now sets `WhyNot()`).
+      An EMPTY geometry stays legal and still returns true -- the distinction is contradiction,
+      not emptiness. Proving arms in
+      `test/render/outshine/frame/ADrawCostsWhatTheSweepSaysItCosts`.
 - [ ] There is ONE door for handing geometry to the renderer that does not spell glTF, and
       `GltfStudio` is written against it rather than beside it. A case that wants to draw a
       triangle writes a triangle.
