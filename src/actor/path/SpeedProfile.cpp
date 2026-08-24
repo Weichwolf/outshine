@@ -187,10 +187,6 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
     }
   }
 
-  // board:1830: a declared vacuum makes Envelope::TopMs() infinite -- legal since board:1627 --
-  // and every station then falls in bin 0, so the quantiles answer infinity and StationsUnder
-  // answers zero for any speed. The span comes from what the plan HOLDS, which is finite
-  // whatever the air is, because the acceleration sweep bounds it from a finite entry.
   for (size_t at = 0; at < samples; ++at) {
     if (at == 0 || Held_[at] > Fastest_.Ms) {
       Fastest_.Ms = Held_[at];

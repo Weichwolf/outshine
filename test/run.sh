@@ -31,8 +31,10 @@ ALLOWED_SKIPS=""
 EXTRA_DEFINES=""
 validatedRan=no
 
-# a case listed here is a case whose RED is a standing finding, not a licence: run.sh prints
-# "expect-fail inverted" the moment one goes green, which is what forces the entry out again
+# a case listed here is a case whose RED is a standing finding, not a licence. Behaving as
+# declared -- failing exactly the stated number of claims -- turns the verdict PASS and counts
+# toward `inverted`, which the trailer names. Behaving OTHERWISE, including going fully green,
+# prints to stderr and turns the verdict FAIL, which is what forces the entry out again
 EXPECT_FAIL="harness/claims/ExpectFail:1 unit/actor/path/ACurveIsFittedAtTheRadiusItHas:1"
 
 Die() {
@@ -1255,13 +1257,22 @@ for testSource in $TESTS; do
   # case names what must stand built before it runs; the runner does that, and the time lands
   # in the build column where every other compile does.
   warms=${testSource%.cpp}.warms
+  warmed=yes
   if [ -f "$warms" ]; then
     before=$(Now)
     while IFS= read -r warming; do
       [ -n "$warming" ] || continue
-      ( eval "$warming" ) >>"$log" 2>&1 || true
+      ( eval "$warming" ) >>"$log" 2>&1 || warmed=no
     done <"$warms"
     builtSpentMs=$(( builtSpentMs + $(Now) - before ))
+    if [ "$warmed" = no ]; then
+      printf 'run.sh: %s declares a warm-up that did not succeed, so the case would have run without what it names\n' "$id" >&2
+      failures=0
+      skips=0
+      verdict=BUILD
+      Record "$id" "$(( $(Now) - before ))"
+      continue
+    fi
   fi
 
   sanitiser=$(LayerSanitiser "$layer")
@@ -1399,7 +1410,8 @@ done
     "$jsInside" "$jsRed"
 [ "$validatedRan" = yes ] && printf '%s\n' \
   "~validated is an API-CONTRACT arm: it says the pipelines, passes and resources agree with the driver, and NOTHING about whether the picture is right -- that is render/'s domain and its oracle's"
-[ "$inverted" -gt 0 ] && printf 'expect-fail inverted: %s\n' "$EXPECT_FAIL"
+[ "$inverted" -gt 0 ] &&
+  printf 'declared to fail and did, so the verdict stands inverted: %s\n' "$EXPECT_FAIL"
 
 [ "$prunedCases" -gt 0 ] && printf \
   'test corpora: peak %s MB, %s MB after the last prune -- %s cases pruned, %s files and %s MB declined, %s file(s) left standing (each case: %s/*-prune.log)\n' \
