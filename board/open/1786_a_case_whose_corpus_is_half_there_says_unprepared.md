@@ -74,3 +74,31 @@ DESTROYED the good copy that was there, because the `rmtree` runs first.
   frames (board:1571). The drive suite is currently UNRUNNABLE on this machine and says so in
   the language of a broken engine, which is exactly the confusion board:1778 filed about a
   case that cannot finish: green, red and unreachable must not read alike.
+
+## Measured, and it is worse than half-there (2026-08-24)
+
+`test-render-outshine-grown-trs-hierarchy/` after a concurrent review:
+
+```
+0-reference.png  1-outshine.png  manifest.json  oracle.exr  oracle.materialIndex.exr
+oracle.materialIndex.raw  oracle.normal.exr  oracle.normal.raw  oracle.objectIndex.exr
+oracle.objectIndex.raw  oracle.raw  oracle.seed-shift.exr  oracle.seed-shift.raw
+oracle.uv.exr  oracle.uv.raw  provenance.json
+```
+
+Sixteen files present. **`scene.glb` is not one of them** -- every OUTPUT survived and the one
+INPUT was removed. The case reports UNPREPARED, which reads as "never fetched" when the truth
+is "fetched, scored, and then pruned out from under the next reader".
+
+And it is self-sustaining: `PruneCase` removes what the run did not touch, so once a case
+goes UNPREPARED it touches nothing, and the next prune removes whatever is left. A corpus
+loses ground every round it is read by a runner that cannot use it.
+
+| | |
+|---|---|
+| gate before a parallel review | 235 PASS, 0 UNPREPARED |
+| gate after | 231 PASS, 4 UNPREPARED |
+| gate after that, with the prune lock in place | 231 PASS, 4 UNPREPARED -- the lock stops the bleeding, it does not heal it |
+
+`board:1789` carries the sharing defect and its repair. This item carries what the case must
+SAY: a directory holding sixteen artefacts and no subject is not "not prepared".

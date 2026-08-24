@@ -52,7 +52,7 @@ ReleaseNest() {
 trap 'KillRunning; ReleaseNest; exit 130' INT
 trap 'KillRunning; ReleaseNest; exit 143' TERM
 trap 'KillRunning; ReleaseNest; exit 129' HUP
-trap 'KillRunning; ReleaseNest' EXIT
+trap 'KillRunning; ReleaseNest; ReleaseCorpus' EXIT
 
 NESTLOCK=$BUILD.lock
 NESTLOCK_MINE=no
@@ -783,6 +783,32 @@ if [ -n "$SUITES" ]; then
   fi
 fi
 
+CORPUSLOCK=$PREPARED.lock
+CORPUSLOCK_MINE=no
+ClaimCorpus() {
+  [ -d "$PREPARED" ] || return 0
+  if (set -C; printf '%s' "$$" > "$CORPUSLOCK") 2>/dev/null; then
+    CORPUSLOCK_MINE=yes
+    return 0
+  fi
+  corpusHolder=$(cat "$CORPUSLOCK" 2>/dev/null)
+  if [ -n "$corpusHolder" ] && kill -0 "$corpusHolder" 2>/dev/null; then
+    printf 'run.sh: another runner (pid %s) is reading the shared corpus, so this run will NOT prune it -- the corpus is shared between checkouts and pruning it is a delete (board:1789)\n' \
+      "$corpusHolder" >&2
+    return 0
+  fi
+  rm -f "$CORPUSLOCK" 2>/dev/null
+  if (set -C; printf '%s' "$$" > "$CORPUSLOCK") 2>/dev/null; then CORPUSLOCK_MINE=yes; fi
+  return 0
+}
+ReleaseCorpus() {
+  [ "$CORPUSLOCK_MINE" = yes ] && rm -f "$CORPUSLOCK" 2>/dev/null
+  CORPUSLOCK_MINE=no
+  return 0
+}
+
+ClaimCorpus
+
 started=$(Now)
 builtSpentMs=0
 passed=0
@@ -836,7 +862,12 @@ SampleSuite() {
   return 0
 }
 
+# the nest carries a per-checkout identity and the corpus does not, so a second runner in a
+# second checkout shares the 26 GB -- and pruning it is a DELETE. Sharing the bytes is worth
+# keeping; sharing the right to remove them is not, so a runner that does not hold the
+# corpus claim reads and never prunes (board:1789).
 PruneCase() {
+  [ "$CORPUSLOCK_MINE" = yes ] || return 0
   pruneCase=$1
   prunePrepared=$2
   pruneLog=$BUILD/log/$(printf '%s' "${pruneCase#test/}" | tr / -)-prune.log
