@@ -76,7 +76,7 @@ std::string CompositeTransmissionStage::ShaderSource() {
 std::string CompositeTransmissionStage::ShaderSource(std::string &error) {
   std::string body;
   if (!LoadShaderText("src/render/shaders/compositeTransmission.msl", body, error)) { return std::string(); }
-  return MslPrelude() + body;
+  return MslPrelude(error) + body;
 }
 
 }

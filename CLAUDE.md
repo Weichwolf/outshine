@@ -245,8 +245,30 @@ finding. Green = right responsibility in the right layer; amber = form in questi
 | `Sim` | `class Sim {` (Sim.h:37) is a hand-wired god facade the component model replaces: 62 public verbs over 59 members, reached through 25 quoted includes |
 | `Live` | `class Live {` (Live.h:71) reaches the renderer and the layout from one class — `#include "Renderer.h"` (:18) beside `#include "Layout.h"` (:13) — 25 public verbs over 17 members |
 
-`TilePool` moved red → amber: the earlier sentence said it spells camera and LOD, and it does
-not — `grep -cEi 'eye|camera|frustum|\blod\b'` over both its files is 0. It is a
+Amber says the FORM is in question, and every amber below names the line the question stands
+at (board:1777):
+
+| amber | the form in question, at HEAD |
+|---|---|
+| `BuildingField` | `class BuildingField {` (BuildingField.h:20) holds a `struct Footprint` of raw index ranges (`uint32_t FirstPoint = 0, PointCount = 0;`, :24) and takes a mesher by pointer (`void Shapes(const StructureMesher *mesher)`, :32) -- a field that tessellates |
+| `WaterField` | `void Tessellate(const OsmField &field, std::vector<float> &out) const;` (WaterField.h:47) -- the same: a field that meshes rather than one that answers |
+| `Subject` | `class Subject {` (Subject.h:98) carries 42 `[[nodiscard]]` queries over one glTF document -- the getter carpet |
+| `DrawList` | `class DrawList {` (DrawList.h:167) with `struct VertexLayoutRow {` (:49) beside it: the list and the layout table in one header |
+| `Renderer` | `class Renderer {` (Renderer.h:31) publishes 52 `[[nodiscard]]` queries and 16 `const {` getters -- the carpet again, on the frame path |
+| `TonemapStage` | `class TonemapStage {` (TonemapStage.h:14) is where `temporalResolve` folded into, so it carries two picture decisions |
+| `LightVisibilityStage` | `class LightVisibilityStage {` (LightVisibilityStage.h:16) -- one shadow atlas for every light, no cascade selection declared |
+| `Frustum` | `struct Frustum {` (Camera.h:94) sits in core beside the camera, while culling belongs to the compositor |
+| `Ephemeris` | `inline void EarthSunPos(double lat, double lon, double utc, float *el, float *az) {` (Ephemeris.h:11) -- a whole-function header, out-parameters by pointer, and `constexpr int kEphemerisMinYear = 1901, kEphemerisMaxYear = 2099;` (:9) bounding a sphere the engine may not name |
+| `RegionForge` | `class RegionForge {` (RegionForge.h:18) forges regions from a client layer |
+| `GltfStudio` | `struct Studio {` (GltfStudio.h:26) beside `struct StudioScratch {` (:49) -- the studio and its scratch are two spellings of one stand-up |
+| `DriveAssembly` | `[[nodiscard]] bool AssembleDrive(const Store &scene, const Assembled &cast,` (DriveAssembly.h:39) takes nine arguments; a product that needs nine inputs is a product whose shape is not settled |
+| `CorridorLay` | `[[nodiscard]] bool LayCorridor(const Path::Route &route, Ground::GroundStream &ground,` (CorridorLay.h:33) -- same shape, same question |
+| `DriveTick` | `[[nodiscard]] Ridden DriveTick(const Corridor &way, const Rigged &stood,` (DriveTick.h:70) returns 20 fields by value each tick |
+| `TAA` | `{Stage::TemporalResolve, Provenance::Content, PassKind::Raster, "temporalResolve",` (RenderCatalogue.h:278) declares a stage that encodes nothing of its own -- it is folded into tonemap rather than standing as its own resolve |
+| `TilePool` | `class TilePool {` (TilePool.h:35) holds three mutexes, a `std::condition_variable`, a `std::map` and a `std::set` where a slot table and a ring would do -- a decisionless pool holds no tree |
+
+`TilePool` moved red → amber (its row above carries the form now in question): the earlier
+sentence said it spells camera and LOD, and it does not — `grep -cEi 'eye|camera|frustum|\blod\b'` over both its files is 0. It is a
 byte-budgeted LRU work pool keyed on projected error, which is the RAGE reference, not a
 layering breach. Its amber is its FORM: three mutexes, a `condition_variable`, a `std::map`
 and a `std::set` of pointer-chasing nodes where a slot table and a ring would do — a

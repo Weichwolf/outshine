@@ -111,7 +111,7 @@ std::string SkyStage::ShaderSource() {
 std::string SkyStage::ShaderSource(std::string &error) {
   std::string body;
   if (!LoadShaderText("src/render/shaders/sky.msl", body, error)) { return std::string(); }
-  return MslPrelude() + VelocityStaticDefine() + body;
+  return MslPrelude(error) + VelocityStaticDefine() + body;
 }
 
 }

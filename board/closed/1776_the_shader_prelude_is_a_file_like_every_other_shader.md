@@ -46,3 +46,21 @@ render stages.
    asserts it, so the next blob cannot ship green.
 3. Whatever text must stay in C++ (the injected `#define` lines, which are DERIVED numbers
    and belong in code) is `std::string_view`, not `static const char *`.
+
+## Comments
+
+- 2026-08-24 -- both blobs are files now: `src/render/shaders/prelude.msl` and
+  `src/render/shaders/velocityStatic.msl`. `MslPrelude(std::string &error)` and
+  `VelocityStaticMsl(std::string &error)` load them through `LoadShaderText`, the same door
+  every other stage uses, and both `static const char *` at namespace scope are gone with
+  them.
+- Ten call sites took the error sink they already had to hand.
+- **Proving test**: `test/harness/claims/TheSourceCarriesNoCommentary` gained a shader walk:
+  403 sources scanned for a raw string literal carrying `metal_stdlib`, `using namespace
+  metal`, `constant float`, `#version` or `[[stage_in]]`.
+- **Negative control**: `kMslPrelude` put back into `ShaderPrelude.h` ->
+  `FOUND src/render/stages/ShaderPrelude.h:12 embeds a shader`. Reverted.
+- The change broke seven shader-twin sources under `test/render/outshine/shader/`, which
+  spelled `kMslPrelude` directly -- and **board:1766's compile check caught all seven in the
+  same run**, which is exactly what it was built for. They now call a test-local `Prelude()`.
+- Gate 234/234, 53 named-only sources compile, 0 broken.

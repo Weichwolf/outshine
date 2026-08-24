@@ -86,6 +86,42 @@ int main(void) {
     }
   }
 
+  // board:1776: shader and script sources live as FILES in the tree. An embedded blob is a
+  // second home for a language the compiler in this translation unit does not check, and
+  // both survivors were introduced by a closure rather than by the original code.
+  std::vector<std::string> embedded;
+  size_t scanned = 0;
+  for (const char *root : {"src", "include", "tools"}) {
+    for (const auto &entry : std::filesystem::recursive_directory_iterator(root)) {
+      if (!entry.is_regular_file()) { continue; }
+      const std::string suffix = entry.path().extension().string();
+      if (suffix != ".cpp" && suffix != ".h") { continue; }
+      ++scanned;
+      const std::string text = Slurp(entry.path());
+      for (size_t at = text.find("R\"("); at != std::string::npos;
+           at = text.find("R\"(", at + 1)) {
+        const size_t ends = text.find(")\"", at);
+        const std::string blob = text.substr(at, ends == std::string::npos ? 400 : ends - at);
+        const bool shaderish = blob.find("metal_stdlib") != std::string::npos ||
+                               blob.find("using namespace metal") != std::string::npos ||
+                               blob.find("constant float") != std::string::npos ||
+                               blob.find("#version") != std::string::npos ||
+                               blob.find("[[stage_in]]") != std::string::npos;
+        if (shaderish) {
+          size_t line = 1;
+          for (size_t scan = 0; scan < at; ++scan) { line += text[scan] == '\n' ? 1 : 0; }
+          embedded.push_back(entry.path().string() + ":" + std::to_string(line));
+        }
+      }
+    }
+  }
+  Note("sources scanned for an embedded shader", (double)scanned, "files");
+  for (const std::string &one : embedded) { std::printf("FOUND %s embeds a shader\n", one.c_str()); }
+  CHECK(embedded.empty(),
+        "**A SHADER LIVES IN A FILE**: src/, include/ and tools/ hold no MSL or GLSL inside a "
+        "string literal -- an embedded blob is a second home for a language this translation "
+        "unit's compiler never checks (board:1776)");
+
   Note("source files walked", (double)walked, "files");
   for (const std::string &one : narrating) { std::printf("FOUND %s narrates\n", one.c_str()); }
   CHECK(walked >= 300, "the walk saw the tree, not a corner of it");

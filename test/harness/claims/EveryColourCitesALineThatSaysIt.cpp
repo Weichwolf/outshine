@@ -91,7 +91,9 @@ int main(void) {
   // board:1768: a threshold fitted to the count that happens to exist judges nothing. The
   // bar is the map's OWN claim -- every node the diagram paints red must appear in the
   // paragraph that justifies the reds, and every justification must cite code.
-  const std::regex painted(R"(\n\s*class ([A-Za-z0-9_,]+) wrong\b)");
+  // board:1777: amber says the FORM is in question. A question with no line to look at is
+  // an opinion, and an opinion on the map reads like a finding.
+  const std::regex painted(R"(\n\s*class ([A-Za-z0-9_,]+) (?:wrong|unsure)\b)");
   std::vector<std::string> unjustified;
   size_t nodes = 0;
   for (auto red = std::sregex_iterator(document.begin(), document.end(), painted);
@@ -119,16 +121,56 @@ int main(void) {
     }
   }
 
+  // board:1775: the justification table swallowed the render plan's binding invariant into
+  // a phantom third column, because a row that does not end at its own `|` runs into the
+  // paragraph beneath it. A rule a reader cannot parse is a rule that is not there.
+  size_t rows = 0;
+  std::vector<std::string> malformed;
+  {
+    size_t width = 0;
+    size_t from = 0;
+    for (size_t line = document.find('\n'); ; line = document.find('\n', from)) {
+      const std::string said =
+          document.substr(from, line == std::string::npos ? line : line - from);
+      if (!said.empty() && said.front() == '|') {
+        size_t cells = 0;
+        for (const char c : said) { cells += c == '|' ? 1 : 0; }
+        if (said.back() != '|') {
+          malformed.push_back("a table row runs past its last cell: " + said.substr(0, 60));
+        } else if (said.find("---") != std::string::npos) {
+          width = cells;
+        } else if (width > 0 && cells != width) {
+          malformed.push_back("a table row carries " + std::to_string(cells - 1) +
+                              " cells under a header of " + std::to_string(width - 1) + ": " +
+                              said.substr(0, 60));
+        } else {
+          ++rows;
+        }
+      } else if (said.empty()) {
+        width = 0;
+      }
+      if (line == std::string::npos) { break; }
+      from = line + 1;
+    }
+  }
+  Note("table rows walked", (double)rows, "rows");
+  for (const std::string &one : malformed) { std::printf("FOUND %s\n", one.c_str()); }
+  CHECK(rows >= 10, "the map carries tables for this walk to judge");
+  CHECK(malformed.empty(),
+        "**A TABLE ROW ENDS AT ITS OWN CELL**: a row that runs past its last `|` swallows "
+        "the paragraph beneath it into a phantom column, and a rule a reader cannot parse "
+        "is a rule that is not there (board:1775)");
+
   Note("citations judged", (double)citations, "citations");
-  Note("nodes painted red", (double)nodes, "nodes");
+  Note("nodes painted red or amber", (double)nodes, "nodes");
   for (const std::string &one : stale) { std::printf("FOUND %s\n", one.c_str()); }
   for (const std::string &one : unjustified) { std::printf("FOUND %s\n", one.c_str()); }
-  CHECK(nodes >= 3, "the diagram paints reds for this walk to judge");
+  CHECK(nodes >= 20, "the diagram paints reds and ambers for this walk to judge");
   CHECK(unjustified.empty(),
         "**EVERY NON-GREEN NODE CARRIES A CITATION THE CLAIM WALKS**: a node the map paints "
-        "red is named in the paragraph that justifies the reds, and that justification cites "
-        "code by file:line -- a reason made of bare numbers is a reason nothing can check "
-        "(board:1768)");
+        "red OR amber is named in a justification row, and that row cites code by file:line "
+        "-- a reason made of bare numbers is a reason nothing can check, and a question with "
+        "no line to look at is an opinion (board:1768, 1777)");
   CHECK(citations >= nodes,
         "and there is at least one citation per red, so the bar follows the map rather than "
         "the count that happens to exist");

@@ -18,7 +18,14 @@
 using outshine::Render::Direction;
 using outshine::Render::Dot;
 using outshine::Render::Facing;
-using outshine::Render::kMslPrelude;
+using outshine::Render::MslPrelude;
+
+namespace {
+[[nodiscard]] std::string Prelude() {
+  std::string why;
+  return MslPrelude(why);
+}
+} // namespace
 using outshine::Render::NormalFromMap;
 using outshine::Render::NormalFromMapMsl;
 using outshine::Render::Normalised;
@@ -140,7 +147,7 @@ std::string TieShader(const std::string &basis) {
   char stride[128];
   std::snprintf(stride, sizeof stride, "constant uint kIn = %uu;\nconstant uint kOut = %uu;\n",
                 kInputFloats, kOutputFloats);
-  return std::string(kMslPrelude) + basis + std::string(stride) + R"(
+  return Prelude() + basis + std::string(stride) + R"(
 struct Span { uint floats; };
 
 kernel void tie(uint3 id [[thread_position_in_grid]],

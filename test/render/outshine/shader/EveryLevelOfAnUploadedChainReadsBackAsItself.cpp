@@ -14,7 +14,14 @@
 #include "Readback.h"
 #include "ShaderPrelude.h"
 
-using outshine::Render::kMslPrelude;
+using outshine::Render::MslPrelude;
+
+namespace {
+[[nodiscard]] std::string Prelude() {
+  std::string why;
+  return MslPrelude(why);
+}
+} // namespace
 using outshine::Render::Readback;
 using outshine::Render::ReadState;
 
@@ -54,7 +61,7 @@ public:
 };
 
 std::string ChainShader() {
-  return std::string(kMslPrelude) + R"(
+  return Prelude() + R"(
 struct Carried { float4 pos [[position]]; float2 uv; };
 
 vertex Carried across(uint vid [[vertex_id]]) {

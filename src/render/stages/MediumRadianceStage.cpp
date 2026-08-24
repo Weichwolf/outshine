@@ -33,7 +33,7 @@ std::string Kernel(std::string &error) {
       !LoadShaderText("src/render/shaders/mediumRadiance.msl", body, error)) {
     return std::string();
   }
-  return MslPrelude() + declared + core + body;
+  return MslPrelude(error) + declared + core + body;
 }
 
 }

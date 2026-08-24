@@ -15,7 +15,14 @@
 #include "Readback.h"
 #include "ShaderPrelude.h"
 
-using outshine::Render::kMslPrelude;
+using outshine::Render::MslPrelude;
+
+namespace {
+[[nodiscard]] std::string Prelude() {
+  std::string why;
+  return MslPrelude(why);
+}
+} // namespace
 using outshine::Render::Readback;
 using outshine::Render::ReadState;
 using outshine::Test::kSubTexelDivisions;
@@ -54,7 +61,7 @@ public:
 };
 
 std::string ProbeShader() {
-  return std::string(kMslPrelude) + R"(
+  return Prelude() + R"(
 struct Span { uint offsets; uint texels; };
 
 kernel void probe(uint3 id [[thread_position_in_grid]],

@@ -44,3 +44,15 @@ parse is a rule that is not there.
    row that carries more cells than the header declares, so the next hand that edits this
    table cannot ship the same shape green. Today the walk parses `| `Node` |` rows and never
    counts columns, which is why 206/206 passed over a broken document.
+
+## Comments
+
+- 2026-08-24 -- point 1 repaired: the `GLASS` row ends at its own `|` and the `Writes`-producer
+  rule stands whole as its own paragraph.
+- Point 2 repaired where the item asked for it: `EveryColourCitesALineThatSaysIt` now walks
+  EVERY markdown table row in the map, learns each table's width from its `---` header, and
+  refuses a row that runs past its last `|` or carries a different number of cells.
+  **25 rows walked.**
+- **Negative control**: the `GLASS` row rejoined to the paragraph beneath it ->
+  `FOUND a table row runs past its last cell: | `GLASS` | ...`, claim red. Reverted.
+- Gate 234/234.

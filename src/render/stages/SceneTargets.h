@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <string>
 
+#include "ShaderFile.h"
+
 #include <SDL3/SDL_gpu.h>
 
 namespace outshine::Render {
@@ -23,14 +25,18 @@ inline SDL_GPUColorTargetDescription VelocityTarget(bool writes) {
   return target;
 }
 
-static const char *kVelocityMsl = R"(
-constant float kVelStatic = VELOCITY_STATIC;
-)";
-
 [[nodiscard]] inline std::string VelocityStaticDefine() {
   char made[48];
   std::snprintf(made, sizeof made, "#define VELOCITY_STATIC %.9ef\n", (double)kVelocityStatic);
   return std::string(made);
+}
+
+[[nodiscard]] inline std::string VelocityStaticMsl(std::string &error) {
+  std::string held;
+  if (!LoadShaderText("src/render/shaders/velocityStatic.msl", held, error)) {
+    return std::string();
+  }
+  return held;
 }
 
 }

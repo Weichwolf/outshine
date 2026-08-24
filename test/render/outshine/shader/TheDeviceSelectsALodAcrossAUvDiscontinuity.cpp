@@ -14,7 +14,14 @@
 #include "Readback.h"
 #include "ShaderPrelude.h"
 
-using outshine::Render::kMslPrelude;
+using outshine::Render::MslPrelude;
+
+namespace {
+[[nodiscard]] std::string Prelude() {
+  std::string why;
+  return MslPrelude(why);
+}
+} // namespace
 using outshine::Render::Readback;
 using outshine::Render::ReadState;
 
@@ -52,7 +59,7 @@ public:
 };
 
 std::string SeamShader() {
-  return std::string(kMslPrelude) + R"(
+  return Prelude() + R"(
 struct Corners { float4 clip[6]; float4 uv[6]; };
 struct Carried { float4 pos [[position]]; float2 uv; };
 

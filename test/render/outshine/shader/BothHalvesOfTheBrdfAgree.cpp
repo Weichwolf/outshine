@@ -19,7 +19,14 @@
 using outshine::Render::BrdfGeometry;
 using outshine::Render::BrdfTerms;
 using outshine::Render::kBrdfPi;
-using outshine::Render::kMslPrelude;
+using outshine::Render::MslPrelude;
+
+namespace {
+[[nodiscard]] std::string Prelude() {
+  std::string why;
+  return MslPrelude(why);
+}
+} // namespace
 using outshine::Render::MetalRoughBrdf;
 using outshine::Render::MetalRoughBrdfMsl;
 using outshine::Render::Readback;
@@ -158,7 +165,7 @@ std::string TieShader(const std::string &model) {
   char stride[128];
   std::snprintf(stride, sizeof stride, "constant uint kIn = %uu;\nconstant uint kOut = %uu;\n",
                 kInputFloats, kOutputFloats);
-  return std::string(kMslPrelude) + model + std::string(stride) + R"(
+  return Prelude() + model + std::string(stride) + R"(
 struct Span { uint floats; };
 
 kernel void tie(uint3 id [[thread_position_in_grid]],

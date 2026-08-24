@@ -15,7 +15,14 @@
 #include "Readback.h"
 #include "ShaderPrelude.h"
 
-using outshine::Render::kMslPrelude;
+using outshine::Render::MslPrelude;
+
+namespace {
+[[nodiscard]] std::string Prelude() {
+  std::string why;
+  return MslPrelude(why);
+}
+} // namespace
 using outshine::Render::Readback;
 using outshine::Render::ReadState;
 using outshine::Test::InterpolantErrorFor;
@@ -55,7 +62,7 @@ public:
 };
 
 std::string TriangleShader() {
-  return std::string(kMslPrelude) + R"(
+  return Prelude() + R"(
 struct Corners { float4 clip[3]; };
 struct Carried { float4 pos [[position]]; float3 basis; };
 

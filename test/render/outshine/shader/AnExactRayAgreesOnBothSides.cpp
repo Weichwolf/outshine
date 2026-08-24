@@ -18,7 +18,14 @@
 
 using outshine::BvhNode;
 using outshine::BvhTriangle;
-using outshine::Render::kMslPrelude;
+using outshine::Render::MslPrelude;
+
+namespace {
+[[nodiscard]] std::string Prelude() {
+  std::string why;
+  return MslPrelude(why);
+}
+} // namespace
 using outshine::Span;
 using outshine::TriangleBvh;
 using outshine::Render::Readback;
@@ -138,7 +145,7 @@ std::vector<Ray> RaySet(const Soup &soup, uint32_t count) {
 std::string TieShader(const std::string &traversal) {
   char stride[128];
   std::snprintf(stride, sizeof stride, "constant uint kRay = %uu;\n", kRayFloats);
-  return std::string(kMslPrelude) + traversal + std::string(stride) + R"(
+  return Prelude() + traversal + std::string(stride) + R"(
 struct Span { uint rays; };
 
 kernel void tie(uint3 id [[thread_position_in_grid]],

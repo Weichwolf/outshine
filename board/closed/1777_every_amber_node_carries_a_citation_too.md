@@ -45,3 +45,26 @@ itself a finding") cannot be mechanised while half the palette is unwalked.
 - Successor to board:1768, which delivered the red half honestly and named this as the
   remainder rather than pretending otherwise. That is how a half-closure should read -- the
   half that was NOT done gets its own number instead of dying in a comment.
+
+## Comments
+
+- 2026-08-24 -- every amber node in every diagram now carries a citation, and the walk
+  judges amber exactly as it judges red.
+
+  | | nodes judged | citations |
+  |---|---|---|
+  | board:1762 | 0 | 0 |
+  | board:1768 (red only) | 6 | 24 |
+  | now (red AND amber) | **22** | **43** |
+
+- The regex became `class ([A-Za-z0-9_,]+) (?:wrong\|unsure)` and the bar rose from
+  `nodes >= 3` to `nodes >= 20`. Two rows were added that the walk itself demanded:
+  `TAA` (which had a reason but no line) and `TilePool` (whose form was argued in prose
+  beneath the table rather than named in it).
+- Writing the table forced the ambers to be MEASURED rather than remembered: `Subject`
+  carries 42 `[[nodiscard]]` queries, `Renderer` 52 and 16 bare `const {` getters,
+  `AssembleDrive` and `LayCorridor` take nine arguments each, `DriveTick` returns 20 fields
+  by value per tick. Those numbers were not in the map before.
+- **Negative control**: the `Frustum` row deleted -> `FOUND Frustum is painted red and the
+  paragraph does not name it`, claim red. Reverted.
+- Gate 234/234.
