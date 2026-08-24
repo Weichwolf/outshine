@@ -550,6 +550,16 @@ int main() {
                           Span<const float>(perM2, 3), AlpineLimit());
       std::printf("NOTE species declared = %zu, held = %zu, refused = %zu\n", tooMany.size(),
                   capped.SpeciesCount(), capped.SpeciesRefused());
+      // board:1781: kMostSpecies had no origin, and this hour made it PUBLIC so a test could
+      // spell it -- widening the surface of an underived constant. Its origin is the cache:
+      // the table is indexed once per cell of every region, so it stands beside Ground and
+      // Yield rather than behind a pointer.
+      std::printf("NOTE the species table = %zu bytes of the %zu it is allowed\n",
+                  sizeof(Forest::Stem) * Forest::kMostSpecies, Forest::kSpeciesTableBytes);
+      CHECK(sizeof(Forest::Stem) * Forest::kMostSpecies <= Forest::kSpeciesTableBytes,
+            "**THE POOL'S SIZE HAS AN ORIGIN**: the species table is a cache resident, not a "
+            "heap indirection, and the bound is what fits beside the cell loop's own working "
+            "set (board:1781)");
       CHECK(capped.SpeciesCount() == Forest::kMostSpecies && capped.SpeciesRefused() == 1,
             "**A WOOD THAT DECLARES MORE SPECIES THAN THE POOL HOLDS SAYS SO**: the count it "
             "kept and the count it turned away are both published, because a pool that "
