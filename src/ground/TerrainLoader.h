@@ -5,6 +5,7 @@
 #include <memory>
 #include <vector>
 
+#include "GroundQuery.h"
 #include "GroundSample.h"
 #include "TilePool.h"
 
@@ -44,16 +45,16 @@ private:
   State Where_ = State::Missing;
 };
 
-class GroundStream {
+class GroundStream final : public GroundQuery {
 public:
   GroundStream(TilePool &tiles, GroundSurface surface);
   ~GroundStream();
   GroundStream(const GroundStream &) = delete;
   GroundStream &operator=(const GroundStream &) = delete;
 
-  [[nodiscard]] GroundSample At(double lat, double lon) const;
+  [[nodiscard]] GroundSample At(double lat, double lon) const override;
 
-  [[nodiscard]] double PostM(double latDeg) const;
+  [[nodiscard]] double PostM(double latDeg) const override;
 
   [[nodiscard]] GroundBlock BlockAt(int z, long x, long y) const;
 

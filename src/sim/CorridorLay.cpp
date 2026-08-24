@@ -16,7 +16,7 @@ namespace {
 constexpr double kPatienceS = 900.0;
 }
 
-bool LayCorridor(const Path::Route &route, Ground::GroundStream &ground, const Vehicle &car,
+bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehicle &car,
                  const Rigged &stood, double quantumM, double tightestM, double middleLat, double sphereRadiusM,
                  Sink &say, Corridor &out, std::string &error) {
   const double carWidthM = car.WidthM;
