@@ -151,8 +151,29 @@ bool WholeAndOnce(const TriangleBvh &built) {
 int main(void) {
   using namespace outshine::Test;
 
+  // board:1788: the two arms of this case measure different things, and only one of them
+  // needs the full population.
+  //
+  // The PLAIN arm is the agreement proof: every ray the tree answers must agree with the scan
+  // it replaces, and a rare disagreement is found by asking often. 4096 x 4096 = 16.8 million
+  // ray-triangle tests is that population, and it stays.
+  //
+  // The SANITISED arm is a MEMORY proof. ASan and UBSan do not look for disagreement -- they
+  // look for a read past a node, an unaligned load, a signed overflow in an index. Those fire
+  // on the FIRST wrong access, not the millionth. So the TREE stays whole -- it is the
+  // structure being walked, and a smaller one walks fewer paths -- and only the number of
+  // WALKS falls. A first attempt cut the triangles too and the case objected: 1024 triangles
+  // put the occluded share at 50 of 512, under the mixture bar this proof needs, because a
+  // thinner scene is a different scene. The tree is the subject; the ray count is the sample.
   constexpr uint32_t kTriangles = 4096;
+#if defined(__has_feature) && (__has_feature(address_sanitizer) || \
+                               __has_feature(undefined_behavior_sanitizer))
+  constexpr uint32_t kRays = 512;
+#else
   constexpr uint32_t kRays = 4096;
+#endif
+  std::printf("NOTE triangles = %u, rays = %u, tests = %ld\n", kTriangles, kRays,
+              (long)kTriangles * (long)kRays);
   const Soup soup = Grown(kTriangles);
   const TriangleBvh built =
       TriangleBvh::Over(Span<const float>(soup.PositionsM.data(), soup.PositionsM.size()),
@@ -161,6 +182,9 @@ int main(void) {
   CHECK(!built.Empty(), "a soup of triangles builds a structure");
   CHECK(built.Triangles().Size() == kTriangles,
         "the structure holds every triangle it was given, once");
+  CHECK(built.Depth() > 1,
+        "and the population is deep enough to have interior nodes and escapes -- a flat tree "
+        "exercises no walk (board:1788)");
   std::printf("BVH %zu nodes over %zu triangles, depth %u\n", built.Nodes().Size(),
               built.Triangles().Size(), built.Depth());
   CHECK(WholeAndOnce(built),

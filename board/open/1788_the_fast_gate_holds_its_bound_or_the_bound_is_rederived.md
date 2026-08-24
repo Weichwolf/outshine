@@ -59,3 +59,31 @@ is the tests' own cost and not the machine's weather.
   it: his measurement ran beside a 63-minute drive holding the main nest, so it was
   CPU-contaminated. This one is not -- the drive was stopped -- and it overran by more.
   `board:1735` is regressed, not merely at risk.
+
+## The biggest single item, repaid (2026-08-24)
+
+`AnExactRayAgreesWithTheScanItReplaces` carried **23.4 %** of the gate's bound in its
+sanitised arm alone. It is now **2 781 ms** against 50 059.
+
+The split is not "make it smaller". The two arms measure different things:
+
+| arm | what it proves | population |
+|---|---|---|
+| plain | every ray the tree answers agrees with the scan it replaces; a rare disagreement is found by asking often | **4096 triangles x 4096 rays** = 16.8 M, unchanged |
+| sanitised | no read past a node, no unaligned load, no signed overflow in an index -- and those fire on the FIRST wrong access, not the millionth | 4096 triangles x **512 rays** = 2.1 M |
+
+**The tree stays whole in both.** A first attempt cut the triangles to 1024 as well, and the
+case objected: the occluded share fell to 50 of 512, under the mixture bar the agreement
+proof needs, because a thinner scene is a different scene. The tree is the SUBJECT being
+walked; the ray count is the SAMPLE. Only the sample falls.
+
+- **Proving test**: the case itself, which gained `CHECK(built.Depth() > 1, "a flat tree
+  exercises no walk")` so the sanitised population cannot be shrunk into meaninglessness.
+- **Negative controls**, both run:
+  - the sanitised arm given the full 4096 rays -> **22 544 ms**, eight times the cost for a
+    memory proof that was already complete.
+  - the tree cut to 2 triangles -> both arms red, `a flat tree exercises no walk` and `the
+    ray set is genuinely mixed` together.
+- Point 2 of this item holds: neither population was chosen to make the gate green. The
+  plain arm keeps every case it had; the sanitised arm's 512 is the smallest sample that
+  still leaves the occluded share inside the mixture bar the case already enforced.
