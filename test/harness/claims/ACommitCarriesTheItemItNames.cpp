@@ -73,12 +73,12 @@ int main(void) {
       bool spoken = false;
       for (const std::string &say : named) { spoken = spoken || say == one; }
       if (spoken) { continue; }
-      carrying.push_back(Ask("git log -1 --format=%h" + std::string(" ") + commit) +
-                         " touches board item " + one + " and its message names it nowhere");
+      carrying.push_back(commit.substr(0, 8) + " touches board item " + one +
+                         " and its message names it nowhere");
     }
   }
 
-  for (const std::string &one : carrying) { std::printf("FOUND %s", one.c_str()); }
+  for (const std::string &one : carrying) { std::printf("FOUND %s\n", one.c_str()); }
 
   CHECK(carrying.empty(),
         "**A COMMIT CARRIES THE ITEM ITS MESSAGE NAMES**: `git log --grep 'board:NNNN'` is the "

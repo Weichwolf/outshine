@@ -63,3 +63,29 @@ without a path-scoped log.
       nest.
 - [ ] The hourly reviewer's own instruction ("one commit per run over all board changes") is
       compatible with that -- it names its paths.
+
+## The check the item offered to skip is cheap after all (2026-08-25)
+
+The item allowed itself to stand as a record instead of a test -- *"or, cheaper and honest, this
+item stands as the record that it happened"*. It is cheaper than that: the rule is decidable
+from the log alone. A commit's message names board numbers; the commit touches board FILES whose
+names begin with board numbers; every touched number must be named.
+
+`harness/claims/ACommitCarriesTheItemItNames` walks every commit since its own introduction --
+the rule binds from the commit that states it, and the history before that is what it was.
+
+**The control is the incident itself.** Widened to the last 45 commits, the walk finds exactly
+one violation in the tree, and it is this session's:
+
+```
+FOUND 267cf5d8 touches board item 1828 and its message names it nowhere
+FOUND 267cf5d8 touches board item 1829 and its message names it nowhere
+... 1830, 1831, 1832, 1833, 1834
+```
+
+`267cf5d8` says *"board:1826 -- the first box is closed"* and carries the hourly review's seven
+newly filed items, because it was staged with `git add -A board` while that review was filing
+into the same directory. That is the item's own mechanism -- sweeping rather than staging -- and
+it happened again in the hour the item was being worked, which is why the item said it would.
+
+One violation in 45 commits is the measurement; the walk is what keeps it at that.
