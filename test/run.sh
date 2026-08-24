@@ -257,7 +257,7 @@ LayerGroups() {
     unit/render/draw) printf '%s' "src/core src/core/io src/render/draw" ;;
     unit/render/stages) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
     unit/render) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
-    unit/clients) printf '%s' "src/core src/actor/path src/actor/body src/actor/mind src/scene src/clients/Image.cpp src/clients/Species.cpp src/generators/TreeSpecies.cpp src/generators/GrowthForm.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/InputMap.cpp src/clients/Assembly.cpp src/clients/InputPump.cpp" ;;
+    unit/clients) printf '%s' "src/core src/core/io src/actor/path src/actor/body src/actor/mind src/scene src/generators src/clients/Image.cpp src/clients/Species.cpp src/clients/RegionForge.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/InputMap.cpp src/clients/Assembly.cpp src/clients/InputPump.cpp" ;;
     harness/claims) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario | render/outshine/client) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/clients/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/clients/Assembly.cpp" ;;
     render/outshine/shader) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
