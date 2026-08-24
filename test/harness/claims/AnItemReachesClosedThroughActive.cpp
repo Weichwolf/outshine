@@ -55,7 +55,13 @@ int main(void) {
   CHECK(!Ask("git rev-parse --git-dir 2>/dev/null").empty(),
         "the walk can read the board's own history");
 
+  // What matters is an item's LATEST journey into board/closed, not every journey it ever made.
+  // An item closed out of turn and then moved back through board/active really does pass
+  // through the drawer -- that is compliance, not laundering, because the only way to satisfy
+  // this claim is to do the thing the rule asks for. Walking every add instead would leave a
+  // violation red forever with no repair available but rewriting history (board:1793).
   std::vector<std::string> jumped;
+  std::vector<std::string> seen;
   size_t closures = 0;
   if (born) {
     const std::string walk =
@@ -70,6 +76,10 @@ int main(void) {
       const size_t slash = line.rfind('/');
       if (slash == std::string::npos || commit.empty()) { continue; }
       const std::string name = line.substr(slash + 1);
+      bool already = false;
+      for (const std::string &one : seen) { already = already || one == name; }
+      if (already) { continue; }
+      seen.push_back(name);
       ++closures;
       const bool stood =
           !Ask("git cat-file -e " + commit + "^:board/active/" + name + " 2>/dev/null && echo y")

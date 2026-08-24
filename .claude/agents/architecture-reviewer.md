@@ -86,6 +86,10 @@ demanded instead.
   if an existing item covers the defect, name it in the report as SHARPENED (append the
   sharpening to the item), never file anew.
 - Derive numbers: `ls board/*/ | grep -o '^[0-9]\{4\}' | sort -n | tail -1` plus 1.
+- **An item you close takes the door**: `git mv` it to `board/active/` first, then to
+  `board/closed/`. The state machine's middle state is how a second agent learns an item has an
+  owner, and `harness/claims/AnItemReachesClosedThroughActive` walks every arrival in
+  `board/closed/` and names the ones that skipped it.
 - **Close issues**: for every open issue from earlier runs check: (a) do tasks attach to it
   (`grep -l '^Parent: NNNN' board/*/`) and are ALL of them closed? (b) is the criticised state
   provably fixed in the tree? Both yes → append a closing note with the proof and `git mv` to
