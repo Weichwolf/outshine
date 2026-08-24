@@ -179,6 +179,58 @@ int main(void) {
         "file:line, and that line still spells it -- a justification that has drifted is "
         "itself a finding (board:1762)");
 
+  // board:1779: a count standing beside a citation is a claim the walk stepped over, and the
+  // first attempt at this claim matched the SENTENCE rather than parsing the cell -- so a
+  // word changed in the prose broke a check about numbers. The row is parsed now: every
+  // `N `token`` in a justification row is counted in the file that row cites.
+  const std::regex counted(R"((\d+) `([^`]+)`)");
+  size_t recomputed = 0;
+  std::vector<std::string> drifted;
+  {
+    size_t from = 0;
+    for (size_t line = document.find('\n'); ; line = document.find('\n', from)) {
+      const std::string row =
+          document.substr(from, line == std::string::npos ? line : line - from);
+      if (!row.empty() && row.front() == '|' && row.find("---") == std::string::npos) {
+        std::smatch where;
+        std::string in;
+        if (std::regex_search(row, where, cited) && !where[2].str().empty()) {
+          in = where[2].str();
+        }
+        for (auto one = std::sregex_iterator(row.begin(), row.end(), counted);
+             one != std::sregex_iterator(); ++one) {
+          const std::string token = (*one)[2].str();
+          if (in.empty()) { continue; }
+          ++recomputed;
+          const std::filesystem::path source = Resolve(in);
+          if (source.empty()) {
+            drifted.push_back(in + " is counted and no file of that name stands in src/");
+            continue;
+          }
+          const std::string text = Slurp(source);
+          const size_t wanted = (size_t)std::stoul((*one)[1].str());
+          size_t found = 0;
+          for (size_t at = text.find(token); at != std::string::npos;
+               at = text.find(token, at + 1)) {
+            ++found;
+          }
+          if (found != wanted) {
+            drifted.push_back(in + " carries " + std::to_string(found) + " of '" + token +
+                              "' where the map says " + std::to_string(wanted));
+          }
+        }
+      }
+      if (line == std::string::npos) { break; }
+      from = line + 1;
+    }
+  }
+  Note("counts the map states and this walk recomputes", (double)recomputed, "counts");
+  for (const std::string &one : drifted) { std::printf("FOUND %s\n", one.c_str()); }
+  CHECK(recomputed >= 4, "the map states counts for this walk to recompute");
+  CHECK(drifted.empty(),
+        "**A NUMBER IN THE MAP IS RECOMPUTED BY THE WALK**: a count standing beside a "
+        "citation is a claim, and a stale count reads exactly like a fresh one (board:1779)");
+
   Covers("IV.12 every file:line a document cites resolves to a line that carries the symbol "
          "cited, so a stale justification cannot outlive the code it judges (board:1762)");
   return Report();

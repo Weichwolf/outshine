@@ -13,6 +13,7 @@
 namespace outshine {
 
 inline constexpr size_t kXmlMaxDepth = 64;
+inline constexpr size_t kXmlDeepestChain = kXmlMaxDepth + 1;
 inline constexpr size_t kXmlMaxNodes = 65536;
 inline constexpr size_t kXmlMaxAttributes = 262144;
 inline constexpr uint32_t kNoAttribute = 0xFFFFFFFFu;

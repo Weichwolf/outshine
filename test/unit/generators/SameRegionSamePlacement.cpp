@@ -512,6 +512,62 @@ int main() {
       CHECK(same,
             "and which species stands where is a PURE function of the region's own seed -- "
             "the same ground grows the same wood twice");
+
+      // a draw that is pure but BIASED is a wood of one species wearing three names. The
+      // stream is a mix of the region seed, so each stem must take its own third of the
+      // stand: 1/3 of 198922 with the spread a fair draw of that size actually shows.
+      std::map<int, int> byStem;
+      for (const Body &one : stand) { ++byStem[(int)(one.HeightM / 5.0f)]; }
+      double leastShare = 1.0, mostShare = 0.0;
+      for (const auto &[band, count] : byStem) {
+        (void)band;
+        const double share = (double)count / (double)stand.size();
+        leastShare = share < leastShare ? share : leastShare;
+        mostShare = share > mostShare ? share : mostShare;
+      }
+      std::printf("NOTE the smallest species share = %.4f of it\n", leastShare);
+      std::printf("NOTE the largest species share = %.4f of it\n", mostShare);
+      // three standard deviations of a fair binomial draw at n = 198922, p = 1/3 is
+      // 3 * sqrt(p(1-p)/n) = 0.0032, so a fair draw sits inside 1/3 +- 0.0032 essentially
+      // always; the bar is set at ten times that, which no fair draw fails and no stuck
+      // stream passes.
+      const double fair = 1.0 / (double)wood.SpeciesCount();
+      CHECK(leastShare > fair - 0.032 && mostShare < fair + 0.032,
+            "**AND NO SPECIES TAKES MORE OF THE WOOD THAN ITS SHARE**: the draw is a mix of "
+            "the region's seed, so three stems each take a third -- a pure draw that is "
+            "biased is a wood of one species wearing three names (board:1541)");
+    }
+
+    // board:1781: the forest capped at kMostSpecies without a word, and answered a wood of
+    // ZERO species with the same note as ground that carries no cover row -- so a
+    // misconfigured world published exactly the telemetry of bare rock.
+    {
+      std::vector<Forest::Stem> tooMany(Forest::kMostSpecies + 1);
+      for (size_t at = 0; at < tooMany.size(); ++at) {
+        tooMany[at].HeightM = 5.0 + (double)at;
+      }
+      const Forest capped(Span<const Forest::Stem>(tooMany.data(), tooMany.size()),
+                          Span<const float>(perM2, 3), AlpineLimit());
+      std::printf("NOTE species declared = %zu, held = %zu, refused = %zu\n", tooMany.size(),
+                  capped.SpeciesCount(), capped.SpeciesRefused());
+      CHECK(capped.SpeciesCount() == Forest::kMostSpecies && capped.SpeciesRefused() == 1,
+            "**A WOOD THAT DECLARES MORE SPECIES THAN THE POOL HOLDS SAYS SO**: the count it "
+            "kept and the count it turned away are both published, because a pool that "
+            "silently drops a declaration is a pool the author cannot argue with (board:1781)");
+
+      const Forest bare(Span<const Forest::Stem>(nullptr, 0), Span<const float>(perM2, 3),
+                        AlpineLimit());
+      std::vector<Yield::Note> bareNotes(Forest::kNotes);
+      const std::vector<Body> nothing =
+          Grown(wide, *groundA, bare, Span<Yield::Note>(bareNotes.data(), bareNotes.size()));
+      std::printf("NOTE trees a wood of no species grows = %zu\n", nothing.size());
+      std::printf("NOTE its noSpecies note = %lu, its noTemplate note = %lu\n",
+                  (unsigned long)bareNotes[Forest::NoSpecies].Times,
+                  (unsigned long)bareNotes[Forest::NoTemplate].Times);
+      CHECK(nothing.empty(), "a wood of no species grows no tree");
+      CHECK(bareNotes[Forest::NoSpecies].Times > 0,
+            "**AND AN EMPTY WOOD SAYS WHICH EMPTINESS IT IS**: 'noSpecies' is not 'noTemplate' "
+            "-- a misconfigured world may not publish the telemetry of bare rock (board:1781)");
     }
 
     CHECK(a.SpanEm() == b.SpanEm(), "two regions of one Mercator row disagree on their width");

@@ -47,12 +47,12 @@ bool ReadSpecies(const char *path, std::vector<Generators::TreeSpecies> &out,
   }
 
   std::vector<std::string> named;
-  for (const auto &entry : std::filesystem::directory_iterator(where, why)) {
-    if (why) {
-      error = std::string("the species directory '") + path + "' does not open: " +
-              why.message();
-      return false;
-    }
+  const std::filesystem::directory_iterator holds(where, why);
+  if (why) {
+    error = std::string("the species directory '") + path + "' does not open: " + why.message();
+    return false;
+  }
+  for (const auto &entry : holds) {
     if (entry.path().extension() == ".json") { named.push_back(entry.path().string()); }
   }
   std::sort(named.begin(), named.end());

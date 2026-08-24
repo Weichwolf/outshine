@@ -383,9 +383,8 @@ Xml::Unread Xml::FirstUnread() const {
     size_t PathWas = 0;
   };
   std::vector<Standing> walk;
-  walk.reserve(kXmlMaxDepth);
+  walk.reserve(kXmlDeepestChain);
   std::string path;
-  path.reserve(kXmlMaxDepth * 16);
 
   if (Root_ == 0) { return Unread{}; }
   const Node &root = Nodes_[Root_];

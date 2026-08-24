@@ -143,6 +143,47 @@ int main(void) {
           "string per node held all at once (board:1770)");
     CHECK(large <= 4,
           "and that cost is a small constant, not a number that happens to match");
+
+    // board:1782: kXmlMaxDepth bounds OPEN elements -- an empty element is a node the parser
+    // never pushes, so the deepest chain a document may carry is one longer than the depth
+    // bound. The walk's stack is reserved for that chain, and the deepest document the
+    // parser ACCEPTS must be walked without the reserve being exceeded.
+    // only the innermost element carries an attribute, so the walk must reach the bottom of
+    // the chain to answer -- and the answer it builds is the whole path.
+    std::string deep;
+    for (size_t at = 0; at < outshine::kXmlMaxDepth; ++at) { deep += "<n>"; }
+    deep += "<n latitude=\"52\"/>";
+    for (size_t at = 0; at < outshine::kXmlMaxDepth; ++at) { deep += "</n>"; }
+
+    outshine::Xml nested;
+    const bool parsed = nested.Parse(deep.c_str(), deep.size());
+    if (!parsed) { std::printf("REFUSED %s\n", nested.Error().c_str()); }
+    CHECK(parsed, "a document nested to the parser's own bound is accepted");
+    if (parsed) {
+      const size_t before = gAllocations;
+      const outshine::Xml::Unread found = nested.FirstUnread();
+      const size_t spent = gAllocations - before;
+      Note("the deepest chain the parser accepts", (double)outshine::kXmlDeepestChain, "nodes");
+      Note("allocations the walk spends over it", (double)spent, "allocations");
+      size_t steps = 0;
+      for (const char c : found.Path) { steps += c == '/' ? 1 : 0; }
+      Note("slashes in the path the walk built", (double)steps, "steps");
+      CHECK(found.Attribute == "latitude" && steps == outshine::kXmlMaxDepth,
+            "**AND THE WALK ANSWERS AT THE PARSER'S OWN DEPTH**: the deepest document it "
+            "accepts is one the refusal walk can still name an attribute in, with the whole "
+            "chain in the path it hands back (board:1782)");
+      // the walk's own allocations at this depth are countable: two strings for the Unread
+      // it returns, and the path growing from the small-string bound to 65 nodes x 2 chars
+      // = 130 bytes, which is three doublings. The stack vector adds NOTHING, because it is
+      // reserved for the deepest chain -- reserve it for the depth bound instead, which is
+      // one shorter, and it reallocates for a sixth.
+      constexpr size_t kUnreadStrings = 2;
+      constexpr size_t kPathDoublings = 3;
+      CHECK(spent <= kUnreadStrings + kPathDoublings,
+            "and the stack itself allocates NOTHING at that depth -- it is reserved for the "
+            "deepest chain the parser accepts, not for the depth bound that is one shorter "
+            "(board:1782)");
+    }
   }
 
   Covers("III.10 the XML door has ONE truth about attributes -- the reader -- and an "

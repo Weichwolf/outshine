@@ -24,14 +24,15 @@ float SizeFactor(uint64_t bits, float sigma) {
 Forest::Forest(Span<const Stem> stems, Span<const float> perM2ByRow, const AlpineLimit &limit)
     : PerM2_(perM2ByRow), Limit_(limit) {
   const size_t held = stems.Size() < kMostSpecies ? stems.Size() : kMostSpecies;
+  Refused_ = stems.Size() - held;
   Stems_.reserve(held);
   for (size_t at = 0; at < held; ++at) { Stems_.push_back(stems.Data()[at]); }
 }
 
 Span<const char *const> Forest::NoteNames() const noexcept {
-  static const char *const kNames[kNotes] = {"noTemplate",  "zeroDensity", "densityDraw",
-                                             "aboveTreeline", "tooSteep",  "woodyDraw",
-                                             "highestStandAslM"};
+  static const char *const kNames[kNotes] = {
+      "noTemplate", "noSpecies", "zeroDensity",      "densityDraw",
+      "aboveTreeline", "tooSteep", "woodyDraw", "highestStandAslM"};
   return Span<const char *const>(kNames, kNotes);
 }
 
@@ -78,7 +79,7 @@ Forest::Outcome Forest::Consider(const Ground &ground, const Lattice &lattice, C
 
   if ((double)Unit24(draw >> 24) >= woody * (1.0 - steep)) return Outcome::WoodyDraw;
 
-  if (Stems_.empty()) { return Outcome::NoTemplate; }
+  if (Stems_.empty()) { return Outcome::NoSpecies; }
   const Stem &stem = Stems_[(size_t)(region.Seed(index * kStreamsPerCell + 3) % Stems_.size())];
   const float size = SizeFactor(region.Seed(index * kStreamsPerCell + 2), stem.HeightSigma);
   out->Em = eastM;
@@ -100,6 +101,7 @@ void Forest::Occupy(const Ground &ground, Yield &yield) const noexcept {
       const Outcome why = Consider(ground, lattice, Cell{i, j}, &body);
       switch (why) {
         case Outcome::NoTemplate: yield.Count(NoTemplate); continue;
+        case Outcome::NoSpecies: yield.Count(NoSpecies); continue;
         case Outcome::ZeroDensity: yield.Count(ZeroDensity); continue;
         case Outcome::DensityDraw: yield.Count(DensityDraw); continue;
         case Outcome::AboveTreeline: yield.Count(AboveTreeline); continue;

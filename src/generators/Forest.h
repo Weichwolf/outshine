@@ -26,10 +26,13 @@ public:
       : Forest(Span<const Stem>(&stem, 1), perM2ByRow, limit) {}
 
   [[nodiscard]] size_t SpeciesCount() const noexcept { return Stems_.size(); }
+  [[nodiscard]] size_t SpeciesRefused() const noexcept { return Refused_; }
+
+  static constexpr size_t kMostSpecies = 64;
 
   enum Note {
-    NoTemplate, ZeroDensity, DensityDraw, AboveTreeline, TooSteep, WoodyDraw, HighestStandAslM,
-    kNotes
+    NoTemplate, NoSpecies, ZeroDensity, DensityDraw, AboveTreeline, TooSteep, WoodyDraw,
+    HighestStandAslM, kNotes
   };
   [[nodiscard]] Span<const char *const> NoteNames() const noexcept override;
 
@@ -49,16 +52,15 @@ private:
     double Em = kCellM, Nm = kCellM;
   };
 
-  enum class Outcome { Placed, NoTemplate, ZeroDensity, DensityDraw, AboveTreeline, TooSteep,
-                       WoodyDraw };
+  enum class Outcome { Placed, NoTemplate, NoSpecies, ZeroDensity, DensityDraw, AboveTreeline,
+                       TooSteep, WoodyDraw };
 
   static Lattice Of(const Region &region);
   [[nodiscard]] Outcome Consider(const Ground &ground, const Lattice &lattice, Cell cell,
                    Body *out) const noexcept;
 
-  static constexpr size_t kMostSpecies = 64;
-
   std::vector<Stem> Stems_;
+  size_t Refused_ = 0;
   Span<const float> PerM2_;
   AlpineLimit Limit_;
 };

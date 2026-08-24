@@ -63,6 +63,32 @@ int main(void) {
     CHECK(!ReadSpecies("", none, why) && !why.empty(), "and an empty path refuses with a reason");
   }
 
+  // board:1541, sharpened by the reviewer: the error check sat INSIDE the loop body of a
+  // directory_iterator whose constructor sets the code AND returns the end iterator -- so the
+  // body never ran and the check was dead in exactly the case it was written for. An
+  // unreadable directory then refused with "holds no .json", the wrong cause, which is the
+  // same shape as the empty why= that filed this item.
+  {
+    const std::filesystem::path shut =
+        std::filesystem::temp_directory_path() / "outshine-species-shut";
+    std::error_code trouble;
+    std::filesystem::remove_all(shut, trouble);
+    std::filesystem::create_directories(shut, trouble);
+    std::filesystem::permissions(shut, std::filesystem::perms::none, trouble);
+
+    std::vector<TreeSpecies> none;
+    std::string said;
+    const bool opened = ReadSpecies(shut.string().c_str(), none, said);
+    std::filesystem::permissions(shut, std::filesystem::perms::owner_all, trouble);
+    std::filesystem::remove_all(shut, trouble);
+
+    std::printf("NOTE the unreadable-directory refusal reads: %s\n", said.c_str());
+    CHECK(!opened, "an unreadable directory refuses");
+    CHECK(said.find("does not open") != std::string::npos,
+          "**A REFUSAL NAMES THE CAUSE IT ACTUALLY MET**: a directory that cannot be opened "
+          "says so, rather than reporting the emptiness that follows from it (board:1541)");
+  }
+
   Covers("II.14 a world reads the species that grow in it -- 0 or 1..N from a directory or a "
          "file, and every refusal names the path it could not read (board:1541)");
   return Report();

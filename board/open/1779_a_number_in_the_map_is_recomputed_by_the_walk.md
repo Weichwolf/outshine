@@ -80,3 +80,44 @@ regex `(\d+) *`?([^`]+)`?`), do not string-match the sentence.
 Also outstanding: the WIP covers 4 of the 13 numbers. `Sim`'s 62 verbs / 59 members, `Live`'s
 25 / 17, `AssembleDrive` and `LayCorridor`'s nine arguments, `DriveTick`'s 20 fields, and the
 walk's own "42 rows / 43 citations / 22 nodes" Notes are still prose nothing recomputes.
+
+---
+
+## Repaid, after the first attempt shipped RED (2026-08-24)
+
+The reviewer caught the WIP before it was committed, and the way it failed is the item's own
+subject wearing a different coat:
+
+```cpp
+{"16 bare `const {` getters", "Renderer.h", "const {"},   // the claim looked for THIS
+| `Renderer` | ... 52 `[[nodiscard]]` queries and 16 `const {` getters ...   // the map says THIS
+```
+
+Four numbers were hand-checked and all four were right (42/52/16/25, recounted). The SENTENCE
+was not. A check about numbers broke on a word, because `document.find(one.Says)` welded the
+count to a prose sentence -- point 2 of this item asks for CELLS to be parsed, and the first
+attempt matched sentences.
+
+The walk parses cells now: for every justification row it takes the file from that row's own
+citation, then counts every `` `N` `token` `` pair the row states inside that file. No table
+of expected sentences, nothing to keep in step with the prose.
+
+The map met it halfway, which is point 1 of this item working as written: counts are now
+stated as ``52 `[[nodiscard]]` `` and ``25 `#include "` `` -- the thing counted, in backticks,
+where the walk can see it -- instead of "25 quoted includes", which only a human can map to a
+pattern.
+
+| | |
+|---|---|
+| counts the map states | 4 |
+| counts the walk recomputes | **4** |
+| counts the first attempt could see | 4, and it matched them by sentence |
+
+- **Proving test**: `test/harness/claims/EveryColourCitesALineThatSaysIt`.
+- **Negative control**: the reviewer's, and it ran before the commit -- the claim was RED in
+  his worktree at 234 PASS / 1 FAIL, which is why this repair exists. A count changed in the
+  map without the file changing gives the same red.
+- Nine of the thirteen counts named in this item's body were REMOVED from the map rather than
+  made checkable: "62 public verbs", "59 members", "25 public verbs", "17 members", "nine
+  arguments each", "20 fields by value". A number the walk cannot recompute may not stand in
+  the table -- point 3 of this item -- so they went out with the prose that carried them.
