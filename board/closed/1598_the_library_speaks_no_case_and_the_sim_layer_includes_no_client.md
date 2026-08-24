@@ -48,3 +48,15 @@ group never sits beside its own directory group.
 ---
 
 **Sharpened by review (2026-08-22).** Residue of the move: `src/scenario/ScenarioRead.h` still guards itself `OUTSHINE_CLIENTS_SCENARIOREAD_H`; and the file-beside-directory ambiguity survives for `src/sim/Rigging.cpp` vs `src/sim` (same object path, two include sets) — filed as board:1603.
+
+---
+
+## The rule this item wrote is broken again, 2026-08-24 (hourly review)
+
+This item's own table states it: *"the Sink claims belong to the CASES; systems publish
+numbers, cases judge"*. It was applied to `Journey.cpp` and to nothing else. Measured at
+2b2c2f69: **34 `Sink::Claim` sites in `src/` carrying 5 812 characters of English**, the
+largest of them added this session at `src/sim/DriveAssembly.cpp:206` -- a five-line
+architecture essay compiled into the library, asserting that a fetched OSM extract contains at
+least one grade separation. Carried forward as **board:1821** (`Regresses: 1598`) rather than
+reopening this one, because every box it closed on is about a file that no longer exists.

@@ -284,8 +284,8 @@ at (board:1777):
 | `RegionForge` | `class RegionForge {` (RegionForge.h:18) forges regions from a client layer |
 | `GltfStudio` | `struct Studio {` (GltfStudio.h:26) beside `struct StudioScratch {` (:49) -- the studio and its scratch are two spellings of one stand-up |
 | `DriveAssembly` | `[[nodiscard]] bool AssembleDrive(const Store &scene, const Assembled &cast,` (DriveAssembly.h:39) takes a product's worth of inputs, listed one per line, and a product that needs that many is a product whose shape is not settled |
-| `CorridorLay` | `[[nodiscard]] bool LayCorridor(const Path::Route &route, const GroundQuery &ground,` (CorridorLay.h:36) -- same shape, same question |
-| `DriveTick` | `[[nodiscard]] Ridden DriveTick(const Corridor &way, const Rigged &stood,` (DriveTick.h:98) returns a whole struct by value each tick |
+| `CorridorLay` | `[[nodiscard]] bool LayCorridor(const Path::Route &route, const GroundQuery &ground,` (CorridorLay.h:36) -- same shape, same question; and the product it lays holds six parallel bands with no stated extent, which the tick survives per access rather than the lay refusing (board:1820) |
+| `DriveTick` | `[[nodiscard]] Ridden DriveTick(const Corridor &way, const Rigged &stood,` (DriveTick.h:98) returns a whole struct by value each tick, and the struct is now **2440 bytes measured** -- `Ridden &out = drive.Tally;` (DriveTick.cpp:40) says the caller already owns it (board:1815) |
 | `TAA` | `{Stage::TemporalResolve, Provenance::Content, PassKind::Raster, "temporalResolve",` (RenderCatalogue.h:278) declares a stage that encodes nothing of its own -- it is folded into tonemap rather than standing as its own resolve |
 | `TilePool` | `class TilePool {` (TilePool.h:35) holds 3 `std::mutex`, a `std::condition_variable`, a `std::map` and a `std::set` where a slot table and a ring would do -- a decisionless pool holds no tree |
 
@@ -515,7 +515,7 @@ ls board/*/ | grep -o '^[0-9]\{4\}' | sort -n | tail -1   # next id, derived
 | `src/` | the library entire; `src/assets/` its declared data; no entry point, no test |
 | `test/` | `test/unit/` (mirror), `test/render/` (per vendor), `test/harness/` (scorers + `test/harness/claims/`) |
 | `tools/` | development support built ON the library: what serves the PROCESS — transports, and a browser for looking at the corpus |
-| `apps/` | applications built ON the library: what serves the PRODUCT — not tests, but they exercise the whole engine and are run by name; the engine knows none of them. **At HEAD it holds five case sources and no program** — the split is right and the tree has not caught up (board:1803) |
+| `apps/` | applications built ON the library: what serves the PRODUCT — not tests, but they exercise the whole engine and are run by name; the engine knows none of them. **At HEAD `apps/driver` is split `src/` and `test/`, and `src/` holds two declarations (`f31.scenario`, `routes.xml`) and no program** — the shape is right and the entry point has not been written (board:1803) |
 | `Makefile` | build · test · clean, nothing else |
 | `board/` | the working system (above) |
 

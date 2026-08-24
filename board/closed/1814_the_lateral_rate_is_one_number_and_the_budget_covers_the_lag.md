@@ -103,3 +103,18 @@ CHECKS 45 FAILURES 0 SKIPPED 0 UNPREPARED 0 PARTIAL 0
   a 0.7195 m reserve -- 43 % of it. The worst single sample is still 0.8895 m and it no longer
   crosses, because the aim it lags is no longer at the corridor's own edge.
 - Gate 260/260.
+
+---
+
+## Sharpened by the hourly review, 2026-08-24 -- three of the four boxes hold, and one does not
+
+The repair is real and the attribution chain that produced it is the best work on this board.
+Three findings against the closure as written, each filed rather than argued here:
+
+| what | where it goes |
+|---|---|
+| **Box 3 is ticked against a number in its own body.** It reads *"the drive's worst deviation stays inside the reserve"*; the closing measurement four paragraphs below reads *"The worst single sample is still 0.8895 m"* against a 0.7195 m reserve -- **1.24x it**. What the case asserts is `quantile(0.99) < BudgetM` (`apps/driver/test/APlannerFindsTheRoadFromMunichToHamburg.cpp:172`), which is the RIGHT instrument for the reasons `board:1812` gives. The bar is right; the box that claims the worst is bounded is not, and the drive arrives only because the worst deviation and an aim-at-the-clamp do not coincide on this route | **board:1818** |
+| **Box 1 holds in `src/` and not in the mirror.** The three spellings became one and a fourth survives in the twin: `test/unit/sim/ADriveTickHoldsTheCarToTheDeclaredWorld.cpp:112` computes `(kLaneHalfM - 0.5*W) / TopMs()` by hand -- the OLD one-lag formula -- so the fast gate does not move when `kLagsToCover` does. The named negative control is a 1200 s live-network case | **board:1819** |
+| **Box 2's derivation is not what the measurement says.** `kLagsToCover = 2.0` asserts the two lags in series are EQUAL; this item's own numbers put the vehicle's lag at 0.1689 m against a 0.7195 m pursuit lag, a ratio of **0.235**, so the measurement supports 1.235 and 2.0 is a 1.62x margin on top of it. A conservative margin is defensible; calling it structural is not | **board:1817** |
+
+And the literal top speed left behind a dimensional one: `const double reachM = stood.Envelope.TopMs();` (`src/sim/CorridorLay.cpp:327`) assigns **m/s** to a length and publishes it as `"m"` five lines later, because the `1.0 *` that was the pilot's settle second has been deleted rather than named. That second is still spelled at `DriveTick.cpp:52` and `CorridorLay.cpp:526` and nothing ties the three together -- **board:1816**.

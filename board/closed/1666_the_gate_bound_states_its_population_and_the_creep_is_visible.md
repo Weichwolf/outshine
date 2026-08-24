@@ -35,3 +35,20 @@ at 133 tests, ~1.5x headroom, 2026-08-23) with the load condition NAMED -- a par
 reviewer gate in a worktree shares the machine even though the lock keeps it out of the
 nest; and every green gate now PUBLISHES its headroom ("gate headroom N ms of 90000"), so
 the creep 1656 caught by accident is a number every run states. First print: 25092 ms.
+
+---
+
+## Sharpened by the hourly review, 2026-08-24 -- the outlier this item named has crossed the budget
+
+This item tracked `EveryDeclaredSuiteResolvesItsOwnSymbols` at 2.1 s (1656's cure) then 6.3 s,
+warm, and asked that the two multi-second claims be looked at *"before the next dozen tests
+spend the margin"*. Measured now, in the cold worktree the hourly review is REQUIRED to run in:
+
+```
+TIMEOUT harness/claims/EveryDeclaredSuiteResolvesItsOwnSymbols  120390 ms   (0-byte log)
+run.sh: ... MEASURED NOTHING -- it was killed at 120 s before it finished
+```
+
+Same worktree, warm, second run: 28/28 PASS in 89 s. The case spends the per-test budget
+compiling every declared suite before it can measure anything, so the gate's verdict depends on
+whether objects from a previous run happen to be present. Carried forward as **board:1823**.
