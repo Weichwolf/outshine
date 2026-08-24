@@ -56,7 +56,7 @@ int main(void) {
   outshine::Host::CurlTransport wire(wiring);
   std::string scenarioText;
   {
-    std::FILE *const file = std::fopen("apps/driver/f31.scenario", "rb");
+    std::FILE *const file = std::fopen("apps/driver/src/f31.scenario", "rb");
     if (file != nullptr) {
       int one = 0;
       while ((one = std::fgetc(file)) != EOF) { scenarioText.push_back((char)one); }

@@ -25,6 +25,7 @@
 #include "ScenarioRead.h"
 #include "Live.h"
 #include "PreparedRoot.h"
+#include "PreparedSubject.h"
 #include "TerrainLoader.h"
 #include "Renderer.h"
 #include "Carriageway.h"
@@ -320,7 +321,7 @@ int main(void) {
   outshine::Host::CurlTransport wire(wiring);
   std::string scenarioText;
   {
-    std::FILE *const file = std::fopen("apps/driver/f31.scenario", "rb");
+    std::FILE *const file = std::fopen("apps/driver/src/f31.scenario", "rb");
     if (file != nullptr) {
       int one = 0;
       while ((one = std::fgetc(file)) != EOF) { scenarioText.push_back((char)one); }
@@ -356,12 +357,21 @@ int main(void) {
   CHECK(laid, "the road is laid, exactly as the drive lays it");
   if (!laid) { return Report(); }
 
-  const std::string carPath = PreparedRoot() + "/tools-driver-f31/scene.gltf";
-  if (std::FILE *const probe = std::fopen(carPath.c_str(), "rb")) {
-    std::fclose(probe);
-  } else {
-    Unprepared(("the declared F31 is not at " + carPath +
-                " -- prepare.py scenario-assets places it").c_str());
+  const std::string carPath = PreparedRoot() + "/apps-driver-f31/scene.gltf";
+  // board:1786: the gltf is one of seven files this subject needs, and the rest are the buffer
+  // and the textures it names itself. Probing only the gltf let a half-placed asset walk past
+  // this gate and die at a CHECK as a red verdict about the engine.
+  const std::vector<std::string> missing = outshine::Test::WhatIsMissing(carPath);
+  Note("files the declared subject needs",
+       (double)outshine::Test::WhatTheSubjectNeeds(carPath).size(), "files");
+  Note("of them not readable", (double)missing.size(), "files");
+  if (!missing.empty()) {
+    for (const std::string &one : missing) { std::printf("NOTE missing: %s\n", one.c_str()); }
+    Unprepared((missing.front() + " is not in the prepared corpus (" +
+                std::to_string(missing.size()) +
+                " of the subject's files are absent) -- python3 "
+                "test/harness/shared/corpus/prepare.py scenario-assets places them")
+                   .c_str());
     return Report();
   }
 

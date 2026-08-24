@@ -181,8 +181,8 @@ LayerIncludes() {
     render/outshine/drive) printf '%s' "-Iinclude -Isrc/actor/path -Isrc/actor/body -Isrc/actor/mind" ;;
     render/outshine/scenario) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients -Isrc/scenario -Isrc/ui -Itest/harness/shared" ;;
     tools/viewer) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/data -Isrc/clients -Isrc/ui -Iinclude -Itools/viewer/parts" ;;
-    apps/driver/stills | apps/driver/window) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/clients -Isrc/actor/path -Isrc/data -Isrc/gltf -Isrc/actor/body -Isrc/actor/mind -Isrc/render -Isrc/render/plan -Isrc/render/draw -Isrc/render/stages -Isrc/scenario -Isrc/ui -Isrc/ground -Isrc/ground/tiles -Itools/host -Isrc/sim" ;;
-    apps/driver) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/clients -Isrc/actor/path -Isrc/data -Isrc/actor/body -Isrc/actor/mind -Isrc/gltf -Isrc/scenario -Isrc/ground -Isrc/ground/tiles -Itools/host -Isrc/sim" ;;
+    apps/driver/test/stills | apps/driver/test/window) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/clients -Isrc/actor/path -Isrc/data -Isrc/gltf -Isrc/actor/body -Isrc/actor/mind -Isrc/render -Isrc/render/plan -Isrc/render/draw -Isrc/render/stages -Isrc/scenario -Isrc/ui -Isrc/ground -Isrc/ground/tiles -Itools/host -Isrc/sim" ;;
+    apps/driver/test) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/clients -Isrc/actor/path -Isrc/data -Isrc/actor/body -Isrc/actor/mind -Isrc/gltf -Isrc/scenario -Isrc/ground -Isrc/ground/tiles -Itools/host -Isrc/sim" ;;
     *) return 1 ;;
   esac
 }
@@ -192,8 +192,8 @@ LayerToolchain() {
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     render/outshine/client) printf '%s' "$CXXSTD" ;;
     render/outshine/drive) printf '%s' "$CXXSTD" ;;
-    apps/driver) printf '%s' "$CXXSTD" ;;
-    apps/driver/stills | apps/driver/window) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    apps/driver/test) printf '%s' "$CXXSTD" ;;
+    apps/driver/test/stills | apps/driver/test/window) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     render/outshine/shader) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3)" ;;
     unit/clients) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3-image)" ;;
     unit/render | unit/render/stages) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3)" ;;
@@ -225,8 +225,8 @@ LayerLink() {
     harness/claims) printf '%s' "-lz" ;;
     unit/core/io) printf '%s' "-lz" ;;
     render/outshine/world) printf '%s' "-lz -lcurl" ;;
-    apps/driver) printf '%s' "-lz -lcurl" ;;
-    apps/driver/stills | apps/driver/window) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz -lcurl" ;;
+    apps/driver/test) printf '%s' "-lz -lcurl" ;;
+    apps/driver/test/stills | apps/driver/test/window) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz -lcurl" ;;
     render/outshine/shader) printf '%s' "$(pkg-config --libs sdl3) -lz" ;;
     unit/clients) printf '%s' "$(pkg-config --libs sdl3-image) -lz" ;;
     unit/render | unit/render/stages) printf '%s' "$(pkg-config --libs sdl3) -lz" ;;
@@ -263,8 +263,8 @@ LayerGroups() {
     harness/claims) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario | render/outshine/client) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/clients/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/clients/Assembly.cpp" ;;
     render/outshine/shader) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
-    apps/driver/stills | apps/driver/window) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/actor/path src/actor/body src/actor/mind src/data src/ground/tiles src/ground src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/sim src/scene src/clients/Assembly.cpp" ;;
-    apps/driver) printf '%s' "src/core src/core/io src/gltf src/actor/path src/actor/body src/actor/mind src/data src/ground/tiles src/ground src/sim src/scene src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/clients/Assembly.cpp" ;;
+    apps/driver/test/stills | apps/driver/test/window) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/actor/path src/actor/body src/actor/mind src/data src/ground/tiles src/ground src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/sim src/scene src/clients/Assembly.cpp" ;;
+    apps/driver/test) printf '%s' "src/core src/core/io src/gltf src/actor/path src/actor/body src/actor/mind src/data src/ground/tiles src/ground src/sim src/scene src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/clients/Assembly.cpp" ;;
     render/outshine/world) printf '%s' "src/core src/core/io src/data src/scenario src/generators src/generators/draw src/ground/tiles src/ground src/actor/path/Wayfinding.cpp src/clients/Sim.cpp src/clients/LogSinks.cpp src/clients/StreamTelemetry.cpp src/clients/EyeTelemetry.cpp src/clients/CsvTelemetry.cpp src/clients/Species.cpp src/clients/RegionForge.cpp" ;;
     render/outshine/drive) printf '%s' "src/actor/path src/actor/body src/actor/mind" ;;
     *) return 1 ;;
@@ -300,8 +300,8 @@ LayerExtraSources() {
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "test/harness/shared/render/Parity.cpp" ;;
     tools/viewer) printf '%s' "test/harness/shared/render/Parity.cpp tools/viewer/parts/Chrome.cpp" ;;
     render/outshine/world) printf '%s' "tools/host/CurlTransport.cpp" ;;
-    apps/driver) printf '%s' "tools/host/CurlTransport.cpp" ;;
-    apps/driver/stills | apps/driver/window) printf '%s' "tools/host/CurlTransport.cpp" ;;
+    apps/driver/test) printf '%s' "tools/host/CurlTransport.cpp" ;;
+    apps/driver/test/stills | apps/driver/test/window) printf '%s' "tools/host/CurlTransport.cpp" ;;
     *) printf '%s' "" ;;
   esac
 }

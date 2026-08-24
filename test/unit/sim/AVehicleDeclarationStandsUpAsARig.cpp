@@ -27,7 +27,7 @@ int main(void) {
   using namespace outshine::Test;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-  std::FILE *const file = std::fopen("apps/driver/f31.scenario", "rb");
+  std::FILE *const file = std::fopen("apps/driver/src/f31.scenario", "rb");
   CHECK(file != nullptr, "the driver's own scenario file is there to read");
   if (file == nullptr) { return Report(); }
   std::vector<char> text;

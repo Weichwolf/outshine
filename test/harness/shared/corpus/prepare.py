@@ -109,7 +109,7 @@ def main(argv):
 
 SCENARIO_ASSETS = (
     {
-        "leaf": "tools-driver-f31",
+        "leaf": "apps-driver-f31",
         "title": "2014 BMW 3 Series (F31)",
         "author": "DisneyCars (https://sketchfab.com/supercarmodels)",
         "licence": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
@@ -117,7 +117,7 @@ SCENARIO_ASSETS = (
                   "2014-bmw-3-series-f31-71746440f98d48ca9ea41ceeaa3504c7",
         "credit": 'This work is based on "2014 BMW 3 Series (F31)" by DisneyCars, '
                   "licensed under CC-BY-4.0",
-        "declaredBy": "apps/driver/f31.scenario",
+        "declaredBy": "apps/driver/src/f31.scenario",
         "files": {
             "scene.gltf": "c60068fcd0f8c25e73225cd3725a422fca46c00a2a68ca481988a6680cc5fb1d",
             "scene.bin": "be46e9c11f5b7f16a2cc01a3a96b92394bff04ed3742a8974de2f9bc093ba453",
@@ -168,18 +168,40 @@ def _scenario_assets(arguments):
         os.makedirs(destination, exist_ok=True)
         for name in asset["files"]:
             shutil.copyfile(os.path.join(found, name), os.path.join(destination, name))
+        # board:1786: `placed` said nothing about what the carried directories brought, and the
+        # rmtree ran before the source was known to hold anything -- so an empty source
+        # directory replaced a full target with an empty one, and the report still said placed.
+        # Count first, destroy second, and say what was carried.
+        carried = []
         for directory in asset["carries"]:
             source = os.path.join(found, directory)
             if not os.path.isdir(source):
+                carried.append({"directory": directory, "files": 0, "bytes": 0,
+                                "why": "the source has no such directory"})
+                continue
+            files, byteCount = 0, 0
+            for walkRoot, _, walkFiles in os.walk(source):
+                for one in walkFiles:
+                    files += 1
+                    byteCount += os.path.getsize(os.path.join(walkRoot, one))
+            if files == 0:
+                carried.append({"directory": directory, "files": 0, "bytes": 0,
+                                "why": "the source directory is empty, so what stands in the "
+                                       "corpus is left alone rather than replaced by nothing"})
                 continue
             target = os.path.join(destination, directory)
             if os.path.isdir(target):
                 shutil.rmtree(target)
             shutil.copytree(source, target)
+            carried.append({"directory": directory, "files": files, "bytes": byteCount})
         with open(os.path.join(destination, "CREDIT.txt"), "w", encoding="utf-8") as handle:
             handle.write(asset["credit"] + "\n" + asset["source"] + "\n" + asset["licence"] + "\n")
         placed.append({"leaf": asset["leaf"], "from": found, "to": destination,
-                       "declaredBy": asset["declaredBy"]})
+                       "declaredBy": asset["declaredBy"], "carried": carried,
+                       "files": len(asset["files"]) + sum(one["files"] for one in carried),
+                       "bytes": sum(os.path.getsize(os.path.join(destination, name))
+                                    for name in asset["files"]) +
+                                sum(one["bytes"] for one in carried)})
     _emit({"placed": placed, "refused": refused})
     return 0 if not refused else 1
 

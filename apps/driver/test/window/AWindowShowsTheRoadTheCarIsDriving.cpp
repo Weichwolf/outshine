@@ -12,6 +12,7 @@
 #include "CurlTransport.h"
 #include "Heap.h"
 #include "PreparedRoot.h"
+#include "PreparedSubject.h"
 #include <outshine/Assembled.h>
 #include <outshine/Column.h>
 #include <outshine/Store.h>
@@ -111,7 +112,7 @@ int main(void) {
   DriveProduct drive;
   std::string scenarioText;
   {
-    std::FILE *const file = std::fopen("apps/driver/f31.scenario", "rb");
+    std::FILE *const file = std::fopen("apps/driver/src/f31.scenario", "rb");
     if (file != nullptr) {
       int one = 0;
       while ((one = std::fgetc(file)) != EOF) { scenarioText.push_back((char)one); }
@@ -189,16 +190,21 @@ int main(void) {
   declaration.SurfaceWidthPx = kWidePx;
   declaration.SurfaceHeightPx = kHighPx;
   declaration.Fps = kFps;
-  const std::string carPath = outshine::Test::PreparedRoot() + "/tools-driver-f31/scene.gltf";
-  bool carThere = false;
-  if (std::FILE *const probe = std::fopen(carPath.c_str(), "rb")) {
-    std::fclose(probe);
-    carThere = true;
-  }
-  if (!carThere) {
-    Unprepared(("the declared F31 is not in the prepared corpus at " + carPath +
-                " -- python3 test/harness/shared/corpus/prepare.py scenario-assets places it from a "
-                "licensed copy, checked against the digest apps/driver/f31.scenario pins")
+  const std::string carPath = outshine::Test::PreparedRoot() + "/apps-driver-f31/scene.gltf";
+  // board:1786: the gltf is one of six files this subject needs, and the other five are the
+  // textures it names itself. Probing only the gltf let a half-placed asset walk past this
+  // gate and die at a CHECK as a red verdict about the engine.
+  const std::vector<std::string> missing = outshine::Test::WhatIsMissing(carPath);
+  Note("files the declared subject needs",
+       (double)outshine::Test::WhatTheSubjectNeeds(carPath).size(), "files");
+  Note("of them not readable", (double)missing.size(), "files");
+  if (!missing.empty()) {
+    for (const std::string &one : missing) { std::printf("NOTE missing: %s\n", one.c_str()); }
+    Unprepared((missing.front() + " is not in the prepared corpus (" +
+                std::to_string(missing.size()) +
+                " of the subject's files are absent) -- python3 "
+                "test/harness/shared/corpus/prepare.py scenario-assets places them from a "
+                "licensed copy, checked against the digest apps/driver/src/f31.scenario pins")
                    .c_str());
     return Report();
   }

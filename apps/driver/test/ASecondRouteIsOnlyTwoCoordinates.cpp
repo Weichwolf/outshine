@@ -60,7 +60,7 @@ int main(void) {
   outshine::Host::CurlTransport wire(wiring);
   std::string scenarioText;
   {
-    std::FILE *const file = std::fopen("apps/driver/f31.scenario", "rb");
+    std::FILE *const file = std::fopen("apps/driver/src/f31.scenario", "rb");
     CHECK(file != nullptr, "the F31 declaration is there to read");
     if (file == nullptr) {{ return Report(); }}
     int one = 0;

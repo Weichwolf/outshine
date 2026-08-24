@@ -40,7 +40,7 @@ int main(void) {
   std::string text;
   std::string error;
   Scenario declared;
-  CHECK(Slurp("apps/driver/f31.scenario", text) &&
+  CHECK(Slurp("apps/driver/src/f31.scenario", text) &&
             ReadScenario(text.c_str(), text.size(), declared, error),
         "the driver's own scenario reads -- the same file the game declares itself with");
 

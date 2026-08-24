@@ -20,7 +20,7 @@ int main(void) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
   outshine::Engine engine;
-  const bool loaded = engine.Read("apps/driver/f31.scenario");
+  const bool loaded = engine.Read("apps/driver/src/f31.scenario");
   if (!loaded) { std::printf("REFUSED %s\n", engine.Error().c_str()); }
   CHECK(loaded, "the driver's own scenario is read by the engine that will drive it -- this is the "
                 "file, not a fixture that resembles it. **READING IS NOT STANDING UP**: a declaration "

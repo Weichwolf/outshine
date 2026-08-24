@@ -9,7 +9,7 @@ int main(void) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
   outshine::Engine engine;
-  CHECK(engine.Read("apps/driver/f31.scenario"),
+  CHECK(engine.Read("apps/driver/src/f31.scenario"),
         "the driver's declaration reads through the one door");
   CHECK(engine.Assemble(),
         "**AND IT ASSEMBLES THROUGH THE SAME DOOR**: Engine::Assemble walks the declaration "
