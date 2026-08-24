@@ -49,3 +49,37 @@ It has now crossed the budget under the one condition the review is required to 
       case is slow rather than absent.
 - [ ] Proving test: a cold worktree, `test/run.sh harness/claims`, 0 TIMEOUT. Negative control:
       the build folded back into the case -> the cold run times out and the trailer names it.
+
+**Closed on the second box, and the first one is what landed.**
+
+`test/run.sh` gained a `.warms` mechanism (board:1833 corrected its failure handling): a file
+beside a case names what must stand BUILT before it runs, the runner evaluates it, and the time
+lands in the build column where every other compile does.
+
+```
+test/harness/claims/EveryDeclaredSuiteResolvesItsOwnSymbols.warms:
+  sh test/run.sh --audit-link
+```
+
+**Measured in a cold `git worktree`** -- `git worktree add --detach`, its own `$BUILD` under
+`$TMPDIR`, nothing warm:
+
+| | RUN time | of the 120 s budget |
+|---|---|---|
+| with `.warms` | **14.53 s** | 12.1 % |
+| without it | 87.99 s | 73.3 % |
+
+**73.46 s move out of the per-test budget into the build column.**
+
+**The control does not reproduce the item's TIMEOUT, and that is the honest result.** The item
+measured 120 390 ms at 2b2c2f69; the same case without `.warms` on the same cold worktree today
+takes 87.99 s and PASSES. Three things changed between: four dead sources left `src/`, the
+machine's file cache differs, and `--audit-link` itself got faster. So the finding this closure
+can prove is not "it timed out and now does not" -- it is **the ratio to the budget**: a case
+that spends three quarters of its per-test budget compiling is one slower machine away from
+measuring nothing, and it now spends an eighth.
+
+Proving test: a cold worktree, `test/run.sh harness/claims` -> `29 tests: 29 PASS 0 FAIL 0
+TIMEOUT` with `EveryDeclaredSuiteResolvesItsOwnSymbols` at 14.5 s. Negative control, run: the
+`.warms` file removed on a freshly cleared build -> 87.99 s, six times the run time, same
+verdict.
