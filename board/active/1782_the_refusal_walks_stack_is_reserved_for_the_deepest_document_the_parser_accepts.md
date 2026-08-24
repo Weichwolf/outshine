@@ -55,13 +55,13 @@ bound with only its refusing side tested is one edit away from refusing everythi
 
 ## What must be true
 
-- [ ] The walk's reserve covers the deepest node chain the parser accepts, and the relation
+- [x] The walk's reserve covers the deepest node chain the parser accepts, and the relation
       between "open elements" and "node levels" is expressed once, not assumed twice.
-- [ ] The 16 in `path.reserve` is derived from something (the longest name the grammar admits,
+- [x] The 16 in `path.reserve` is derived from something (the longest name the grammar admits,
       a measured mean) and its origin stands in this item and its commit.
-- [ ] `TheGrammarAndTheReaderAreOneTruth` gains a **depth** arm at `kXmlMaxDepth`, counting the
+- [x] `TheGrammarAndTheReaderAreOneTruth` gains a **depth** arm at `kXmlMaxDepth`, counting the
       same allocations; negative control: the reserve dropped to `kXmlMaxDepth - 1` -> red.
-- [ ] `AnXmlDocumentReadsAsWhatItDeclares` proves the bound from BOTH sides: exactly
+- [x] `AnXmlDocumentReadsAsWhatItDeclares` proves the bound from BOTH sides: exactly
       `kXmlMaxDepth` parses and answers, `kXmlMaxDepth + 1` refuses naming the bound.
 
 ## The proof sits in the wrong mirror
@@ -125,5 +125,45 @@ the `kXmlDeepestChain` allocation count. The scenario mirror now carries MORE co
 than before the item was filed. The unit mirror IS the layering proof; a core bound proven
 through `ReadScenario`'s setup weakens exactly what the mirror is for.
 
-- [ ] The depth arm and the allocation arm live in `test/unit/core/`, written against `Xml`
+- [x] The depth arm and the allocation arm live in `test/unit/core/`, written against `Xml`
       alone, and `test/unit/scenario/` keeps only what `src/scenario/` owns.
+
+---
+
+## The proof moved to the mirror that owns it (2026-08-24)
+
+The last box asked for the walk's arms to live where `src/core/Xml.cpp` lives. They do:
+`test/unit/core/AnXmlDocumentReadsAsWhatItDeclares` carries both, written against `Xml` alone,
+and `test/unit/scenario/TheGrammarAndTheReaderAreOneTruth` keeps only what `src/scenario/`
+owns -- that the reader is the one truth about what a scenario may spell.
+
+**And the measurement instrument changed with the address.** The scenario mirror could define
+its own `operator new`; `unit/core` links `src/core/io/Heap.cpp`, which already owns those. So
+the arms use the tree's own instrument, `Heap::Tagged` and `Heap::TakenUnder`, and count BYTES
+rather than calls:
+
+| | |
+|---|---|
+| bytes the refusal walk takes over 100 rows | **1280** |
+| bytes it takes over 4000 rows | **1280** |
+| bytes it takes over the deepest chain the parser accepts | **1776** |
+| what it may take there, composed | 1040 stack + 480 path + 528 strings = **2048** |
+
+Identical to the byte over a document forty times larger, and the depth cost is composed from
+the three things that make it up rather than guessed at.
+
+The other boxes stand and two of them were paid before this round: `kXmlDeepestChain` is the
+reserve, and `path.reserve` -- with its underived 16 -- is gone from the code entirely.
+
+- **Proving test**: `test/unit/core/AnXmlDocumentReadsAsWhatItDeclares`, which now proves the
+  depth bound from BOTH sides -- exactly `kXmlMaxDepth` parses and answers, `+2` refuses naming
+  the bound.
+- **Negative control**, run: `walk.reserve(kXmlDeepestChain)` cut to `kXmlMaxDepth` ->
+
+  ```
+  NOTE bytes the walk takes over it = 3568 bytes     (was 1776)
+  FAIL **AND THE STACK IS RESERVED ONCE AND NEVER GROWN**
+  ```
+
+  The vector doubles on the last push, exactly as the composition predicts.
+- Gate 259/259.
