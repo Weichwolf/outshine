@@ -360,6 +360,56 @@ int main(void) {
           "claim that is true because it never looks (board:1784)");
   }
 
+  // board:1828: Corridor shipped four coarse bands beside the fine Station array, and the
+  // taper wrote only the fine one. AssembleDrive seated the car from the UNTAPERED band while
+  // the first tick aimed at the TAPERED station, so wherever the taper moves station 0 -- a
+  // narrowing inside the first look-ahead, which is exactly what it exists for -- the drive
+  // began with a lateral error nobody declared.
+  {
+    Quiet quiet;
+    FlatGround level(120.0);
+    Corridor narrow;
+    std::string why;
+    Route route = Straight(600.0, 30);
+    for (size_t leg = 0; leg < route.Legs.size(); ++leg) {
+      route.Legs[leg].HalfWidthM = leg < 6 ? 2.6 : 6.5;
+    }
+    const bool laid = LayCorridor(route, level, car, stood, 8.0, stood.TightestM, 52.0,
+                                  6371008.8, quiet, narrow, why);
+    if (!laid) { std::printf("REFUSED %s\n", why.c_str()); }
+    CHECK(laid, "a corridor that starts narrow and widens lays");
+
+    if (laid) {
+      const double atZero = narrow.At(0.0).AsideM;
+      double leadM = 0.0;
+      for (size_t station = 0; station < narrow.Fine.size(); ++station) {
+        const double moved = std::fabs(narrow.Fine[station].AsideM);
+        leadM = moved > leadM ? moved : leadM;
+      }
+      Note("the lane centre the taper holds at station 0", atZero, "m");
+      Note("the furthest it moves anywhere", leadM, "m");
+      Note("stations the corridor carries", (double)narrow.Fine.size(), "stations");
+
+      CHECK(narrow.Laid() && !narrow.Fine.empty(),
+            "and it carries stations rather than bands");
+      CHECK(std::fabs(atZero) > 0.5,
+            "**THE TAPER MOVES STATION 0 ON THIS ROUTE**, which is what makes the rest of this "
+            "block a test and not a tautology: a corridor that narrows inside the first "
+            "look-ahead has its lane centre pulled off the reference line before the drive "
+            "begins (board:1828)");
+      CHECK(leadM > std::fabs(atZero),
+            "and it moves further later, so the band this route exercises is the whole taper "
+            "and not one clamped end");
+      CHECK(std::fabs(narrow.At(0.0).AsideM - narrow.Fine.front().AsideM) < 1.0e-12,
+            "**AND THERE IS ONE LANE CENTRE AT A STATION, NOT TWO**: AssembleDrive seats the car "
+            "from way.At(0.0).AsideM and the first tick aims at the same call. It used to seat "
+            "from an UNTAPERED coarse band the taper never wrote, which on this corridor is "
+            "1.3 m of lateral error before the first tick -- and the structure that allowed it "
+            "is gone rather than corrected: Corridor carries no band parallel to Fine, which "
+            "the compiler now enforces and no runtime check has to (board:1828)");
+    }
+  }
+
   Covers("II.15 LayCorridor is reachable by a unit case: it asks the ground two questions "
          "through a door a synthetic one can answer, so the width tables, the grade walk, "
          "the climb gate and the profile step are in the fast gate (board:1624)");

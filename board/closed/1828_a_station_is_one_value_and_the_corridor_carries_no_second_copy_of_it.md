@@ -98,3 +98,35 @@ apps/driver/test/APlannerFindsTheRoadFromMunichToHamburg.cpp:478   Note("LaneHal
 - 2026-08-24 -- filed by the hourly review against the hour's own work. `board:1820` is
   reopened by this item rather than sharpened, because its closing sentence is a statement
   about the header that the header contradicts one line above the line the closure cites.
+
+**Closed.** `Corridor` carries `Fine` and nothing parallel to it -- `RoadM`, `HalfWidthM`,
+`LaneHalfM` and `AsideM` are locals of `LayCorridor` now and leave no second copy behind. The
+compiler enforces what board:1820 only asserted, and no runtime check has to.
+
+```cpp
+src/sim/CorridorLay.h:31   static_assert(sizeof(Station) == 24, ...);
+src/sim/CorridorLay.h:32   static_assert(std::is_trivially_copyable_v<Station>, ...);
+src/sim/DriveAssembly.cpp:260   const double startAsideM = out.Way.Laid() ? out.Way.At(0.0).AsideM : 0.0;
+```
+
+The seat reads the same call the first tick reads (`DriveTick.cpp:87`). `RoadM` -- written every
+lay over 371 000 posts on the driver's route, read by nothing -- is gone. The twin no longer
+fills a dead band, and `apps/driver` no longer notes the coarse post beside the fine one.
+
+Measured on a 600 m corridor whose first six legs are 2.6 m half-width and the rest 6.5 m:
+
+```
+NOTE the lane centre the taper holds at station 0 = -1.3 m
+NOTE the furthest it moves anywhere               = 2.664 m
+```
+
+**1.3 m** is the lateral error the old seat carried on this corridor, because the taper wrote
+the fine station and the seat read the coarse band.
+
+Proving test: `unit/sim/ACorridorIsLaidOverASyntheticRoute`, the narrowing block. Negative
+control, run: every leg given the same 6.5 m half-width -> the taper moves nothing, station 0
+sits at a constant -3.25 m, and the case goes RED at :402 saying so -- it refuses to stand on a
+corridor where the two spellings could not have disagreed.
+
+The structural half needs no control: a second band cannot be written because there is no second
+band to write.
