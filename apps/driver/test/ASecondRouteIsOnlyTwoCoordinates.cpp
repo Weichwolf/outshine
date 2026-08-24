@@ -99,9 +99,9 @@ int main(void) {
   if (!laid) { return Report(); }
 
   const auto began = std::chrono::steady_clock::now();
-  Ridden rode;
+  const Ridden &rode = drive.State.Tally;
   for (long step = 0; step < kMostSteps; ++step) {
-    rode = outshine::Sim::DriveTick(drive.Way, drive.Stood, drive.State, kStepS, nullptr);
+    (void)outshine::Sim::DriveTick(drive.Way, drive.Stood, drive.State, kStepS, nullptr);
     if (!rode.Found || rode.Arrived || rode.Lost || rode.PastLimit || rode.OffTheRoad) { break; }
   }
   const double wallS =

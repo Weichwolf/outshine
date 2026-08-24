@@ -120,9 +120,9 @@ int main(void) {
         "the check that this is the real world, held by the case that names the cities");
 
   const auto began = std::chrono::steady_clock::now();
-  Ridden rode;
+  const Ridden &rode = drive.State.Tally;
   for (long step = 0; step < kMostSteps; ++step) {
-    rode = outshine::Sim::DriveTick(drive.Way, drive.Stood, drive.State, kStepS, nullptr);
+    (void)outshine::Sim::DriveTick(drive.Way, drive.Stood, drive.State, kStepS, nullptr);
     if (!rode.Found || rode.Arrived || rode.Lost || rode.PastLimit || rode.OffTheRoad) { break; }
   }
   const double wallS =
@@ -132,6 +132,13 @@ int main(void) {
   Note("of a corridor this long", drive.Way.Line.LengthM() / 1000.0, "km");
   Note("the fastest it went", rode.TopMs * 3.6, "km/h");
   Note("hours simulated", rode.SimulatedS / 3600.0, "h");
+  Note("ticks where the station did not advance", (double)rode.Stalls, "ticks");
+  Note("the longest the station stood still", rode.LongestStallS, "s");
+  Note("where that was", rode.LongestStallAtM / 1000.0, "km");
+  CHECK(rode.LongestStallS < 1.0,
+        "**A STATION THAT REPEATS ACROSS TICKS IS A STALL, AND A STALL IS LOUD**: the drive "
+        "advances along its corridor, so a station standing still while the clock runs is "
+        "either a car that stopped or a search that lost the line");
   Note("seconds of wall clock", wallS, "s");
   std::printf("NOTE this drive needs --timeout %ld\n", (long)(2.0 * wallS) + 1);
   Note("how much faster than real time", rode.SimulatedS / (wallS > 0.0 ? wallS : 1.0), "x");
@@ -143,11 +150,11 @@ int main(void) {
     const auto quantile = [&](double share) {
       const long want = (long)(share * (double)rode.OffsetSamples);
       long seen = 0;
-      for (size_t bin = 0; bin < outshine::Sim::Ridden::kOffsetBins; ++bin) {
-        seen += (long)rode.OffsetBin[bin];
-        if (seen >= want) { return ((double)bin + 0.5) * outshine::Sim::Ridden::kOffsetBinM; }
+      for (size_t bin = 0; bin < outshine::Sim::DriveState::kOffsetBins; ++bin) {
+        seen += (long)drive.State.OffsetBin[bin];
+        if (seen >= want) { return ((double)bin + 0.5) * outshine::Sim::DriveState::kOffsetBinM; }
       }
-      return (double)outshine::Sim::Ridden::kOffsetBins * outshine::Sim::Ridden::kOffsetBinM;
+      return (double)outshine::Sim::DriveState::kOffsetBins * outshine::Sim::DriveState::kOffsetBinM;
     };
     Note("stations the deviation was sampled at", (double)rode.OffsetSamples, "samples");
     Note("p50 of the deviation", quantile(0.50), "m");

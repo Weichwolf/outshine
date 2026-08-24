@@ -1,5 +1,7 @@
 #include "CorridorLay.h"
 
+#include "Pilot.h"
+
 #include <numbers>
 #include <chrono>
 #include <cmath>
@@ -324,11 +326,12 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
     fineLaneHalfM[fine] = laneHalfM[band < laneHalfM.size() ? band : laneHalfM.size() - 1];
   }
   {
-    const double reachM = stood.Envelope.TopMs();
+    const double reachM = outshine::Pilot::kSettleS * stood.Envelope.TopMs();
     const double mostPerM = budgetM / (kLagsToCover * reachM);
     out.AsideRatePerM = mostPerM;
-    say.Number("the top speed the declaration implies", reachM * 3.6, "km/h");
-    say.Number("the reach one second of it buys", reachM, "m");
+    say.Number("the top speed the declaration implies", stood.Envelope.TopMs() * 3.6, "km/h");
+    say.Number("the look-ahead time the pilot settles over", outshine::Pilot::kSettleS, "s");
+    say.Number("the reach that buys at top speed", reachM, "m");
     say.Number("the fastest the lane centre may move sideways", mostPerM * 1000.0, "mm per metre");
     say.Number("so a full-budget shift is taken over", budgetM / mostPerM, "m of road");
     const double most = mostPerM * fineM;
@@ -523,7 +526,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   say.Number("what the negative control measured the closed loop to cost over the first-order lag",
        floorRatio, "x");
   say.Number("so the budget the plan is given", planning.HoldWithinM, "m");
-  planning.SettleS = 1.0;
+  planning.SettleS = outshine::Pilot::kSettleS;
   planning.CorneringNPerRad = car.CorneringNPerRad;
   say.Number("what the car leaves either side of itself there", holdWithinM, "m");
   say.Number("the lateral acceleration reserved for holding the line", planning.ReserveMs2, "m/s2");

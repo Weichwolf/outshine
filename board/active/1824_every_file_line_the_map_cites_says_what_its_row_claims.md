@@ -32,9 +32,29 @@ mode a CURRENT diagram exists to prevent.
 
 ## What will be true
 
-- [ ] A claim parses every `` `<quoted code>` (File.h:NN) `` pair out of CLAUDE.md, opens the
+- [x] A claim parses every `` `<quoted code>` (File.h:NN) `` pair out of CLAUDE.md, opens the
       file, and asserts line NN contains the quoted text. A row whose citation has drifted is
       red, named with what the line holds instead.
-- [ ] The claim reports how many citations it checked, so a map that stops carrying them is as
+- [x] The claim reports how many citations it checked, so a map that stops carrying them is as
       visible as one that carries wrong ones.
-- [ ] Negative control: a citation shifted by one line -> red, naming both the row and the line.
+- [x] Negative control: a citation shifted by one line -> red, naming both the row and the line.
+
+## Repaid (2026-08-24)
+
+The walk says where the symbol went. A citation goes stale every time an edit above it inserts a
+line, and the claim reported only THAT it had -- twenty-four citations, hand-corrected twice in
+one session, each time by searching the file by hand for a symbol the claim had already read.
+
+```
+FOUND DriveTick.h:1 is cited for `[[nodiscard]] const Ridden &DriveTick(...`,
+      and that line reads: #ifndef OUTSHINE_SIM_DRIVETICK_H  -- the symbol is on line 108
+```
+
+One more pass over lines already in memory, and a red becomes a one-line mechanical fix. Where
+the symbol is nowhere in the file the message says that instead, because those two are different
+findings: a citation that moved, and a citation whose subject is gone.
+
+- **Proving test**: `harness/claims/EveryColourCitesALineThatSaysIt`, run against a citation
+  moved to line 1 by hand.
+- **Negative control**: the same run without the search -- the message stops at "that line
+  reads", which is the state this item was filed against.

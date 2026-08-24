@@ -531,7 +531,7 @@ int main(void) {
   double groundAtM[3] = {0.0, 0.0, 0.0};
   double worstCutM = 0.0, worstFillM = 0.0, liftTotalM = 0.0;
   long liftAt = 0;
-  Ridden rode;
+  const Ridden &rode = drive.State.Tally;
   size_t next = 0;
   long wrote = 0;
   for (long frame = 0; frame < 40000000L && next < atM.size(); ++frame) {
@@ -544,7 +544,7 @@ int main(void) {
       break;
     }
     for (long step = 0; step < 17; ++step) {
-      rode = outshine::Sim::DriveTick(drive.Way, drive.Stood, drive.State, kStepS, nullptr);
+      (void)outshine::Sim::DriveTick(drive.Way, drive.Stood, drive.State, kStepS, nullptr);
       if (!rode.Found || rode.Arrived || rode.Lost) { break; }
     }
     if (!rode.Found || rode.Lost) { break; }

@@ -83,8 +83,18 @@ int main(void) {
       says = lines[at - 1].find(symbol) != std::string::npos;
     }
     if (!says) {
+      // board:1824: a citation goes stale every time an edit above it inserts a line, and this
+      // walk reported only that it had. Twenty-four citations, hand-corrected twice in one
+      // session. The symbol is still in the file; saying WHERE turns a red into a one-line fix
+      // and costs one more pass over lines already in memory.
+      size_t moved = 0;
+      for (size_t at = 1; at <= lines.size() && moved == 0; ++at) {
+        if (lines[at - 1].find(symbol) != std::string::npos) { moved = at; }
+      }
       stale.push_back(carried + ":" + one[3].str() + " is cited for `" + symbol +
-                      "', and that line reads: " + lines[first - 1]);
+                      "', and that line reads: " + lines[first - 1] +
+                      (moved == 0 ? "  -- and the symbol is nowhere in the file"
+                                  : "  -- the symbol is on line " + std::to_string(moved)));
     }
   }
 

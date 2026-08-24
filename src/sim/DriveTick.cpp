@@ -1,5 +1,7 @@
 #include "DriveTick.h"
 
+#include <type_traits>
+
 #include <vector>
 
 #include <cmath>
@@ -12,6 +14,11 @@
 #include "SpeedProfile.h"
 
 namespace outshine::Sim {
+
+static_assert(sizeof(Ridden) == 424, "sizeof(Ridden)");
+static_assert(std::is_trivially_copyable<Ridden>::value, "a tick answer is a value");
+static_assert(sizeof(DriveState) >= sizeof(Ridden), "the state holds the tally");
+
 
 namespace {
 
@@ -35,7 +42,7 @@ double HeadingOf(const outshine::Physics::Body &body) {
 }
 }
 
-Ridden DriveTick(const Corridor &way, const Rigged &stood,
+const Ridden &DriveTick(const Corridor &way, const Rigged &stood,
                  DriveState &drive, double dtS, const Taken *taken) {
   Ridden &out = drive.Tally;
   out.Found = false;
@@ -49,7 +56,7 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
   auto &laneHalfM = way.FineLaneHalfM;
   const double fineM = way.FineM;
   outshine::Pilot::Reins reins;
-  reins.SettleS = 1.0;
+  reins.SettleS = outshine::Pilot::kSettleS;
   reins.LeastReachM = stood.Axles.WheelbaseM;
   reins.HoldWithinM = way.HoldWithinM;
   const double gravity[3] = {0.0, -stood.Envelope.GravityMs2, 0.0};
@@ -68,6 +75,18 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
   drive.NearM = at.AlongM;
   drive.LostM = std::fabs(at.OffsetM);
   out.ReachedM = at.AlongM;
+  out.Advanced = drive.LastReachedM < 0.0 || at.AlongM > drive.LastReachedM;
+  if (out.Advanced) {
+    drive.StalledForS = 0.0;
+  } else {
+    drive.StalledForS += dtS;
+    ++out.Stalls;
+    if (drive.StalledForS > out.LongestStallS) {
+      out.LongestStallS = drive.StalledForS;
+      out.LongestStallAtM = at.AlongM;
+    }
+  }
+  drive.LastReachedM = at.AlongM;
 
   const double speedMs = std::sqrt(body.VelocityMs[0] * body.VelocityMs[0] +
                                    body.VelocityMs[2] * body.VelocityMs[2]);
@@ -170,8 +189,8 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
       out.AimAtWorstM = reins.AsideM;
     }
     {
-      const size_t bin = (size_t)(std::fabs(inLaneM) / Ridden::kOffsetBinM);
-      ++out.OffsetBin[bin < Ridden::kOffsetBins ? bin : Ridden::kOffsetBins - 1];
+      const size_t bin = (size_t)(std::fabs(inLaneM) / DriveState::kOffsetBinM);
+      ++drive.OffsetBin[bin < DriveState::kOffsetBins ? bin : DriveState::kOffsetBins - 1];
       ++out.OffsetSamples;
     }
     if (out.StrayedAtM <= 0.0) {

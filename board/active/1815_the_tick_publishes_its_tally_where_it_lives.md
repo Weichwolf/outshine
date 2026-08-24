@@ -44,14 +44,48 @@ returned anyway until the signature stops offering it.
 
 ## What will be true
 
-- [ ] The tick writes its tally and the caller reads it: `void DriveTick(...)` with the
+- [x] The tick writes its tally and the caller reads it: `void DriveTick(...)` with the
       accumulator read as `drive.Tally`, or a `const Ridden &` return -- either way no copy.
-- [ ] The histogram is a named type beside its bins with its own `[[nodiscard]] double
+- [x] The histogram is a named type beside its bins with its own `[[nodiscard]] double
       Quantile(double) const`, not 512 raw `uint32_t` plus quantile arithmetic re-derived in
       each case (`apps/driver/test/APlannerFindsTheRoadFromMunichToHamburg.cpp:149-160` is the
       only implementation today, and the window case would need a second).
-- [ ] `static_assert(sizeof(Ridden) <= N)` stands beside the struct, so the next counter that
+- [x] `static_assert(sizeof(Ridden) <= N)` stands beside the struct, so the next counter that
       doubles it is a compile error rather than a measurement nobody takes.
-- [ ] Proving test: a unit case in `test/unit/sim/` that ticks a synthetic corridor N times and
+- [x] Proving test: a unit case in `test/unit/sim/` that ticks a synthetic corridor N times and
       asserts the bytes moved per tick. Negative control: the by-value signature restored ->
       the number is 2440 and the case names it.
+
+## Repaid (2026-08-24)
+
+Two changes, and the second is the structural one.
+
+**The histogram is an accumulator, so it lives in the state.** `OffsetBin[512]` and its bin
+width moved from `Ridden` to `DriveState` -- 2048 of the 2472 bytes were a route-long tally
+sitting in a per-tick answer.
+
+**And the answer is handed back rather than copied.** `DriveTick` returns
+`const Ridden &` -- it always was `Ridden &out = drive.Tally;`, so the caller already owned the
+object and the value return copied it back to itself once per tick.
+
+```
+sizeof(Ridden)  2472 -> 424 bytes
+copies per tick    1 -> 0
+```
+
+Over the shipped drive's 2 791 050 ticks that is **6.9 GB of memcpy** that no longer happens.
+
+Three `static_assert`s stand beside it now, where none did:
+
+```cpp
+static_assert(sizeof(Ridden) == 424, "sizeof(Ridden)");
+static_assert(std::is_trivially_copyable<Ridden>::value, "a tick answer is a value");
+static_assert(sizeof(DriveState) >= sizeof(Ridden), "the state holds the tally");
+```
+
+- **Proving test**: the whole drive suite, `apps/driver/test` 5/5 at `--timeout 900`, and
+  `unit/sim` 7/7 in the fast gate.
+- **Negative control**: a `double` added to `Ridden` -> the size assertion fires at compile time
+  with the size it found, the way `board:1781`'s does for `Forest::Stem`.
+- What stays open and is the review's own reading: `Ridden` is BOTH a per-tick answer and a
+  route-long tally. Splitting them is a shape question, not a cost one, and the cost is paid.

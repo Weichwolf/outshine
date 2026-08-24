@@ -34,9 +34,6 @@ struct Ridden {
   double CalmBeforeWorstAtM = 0.0;
   double AimAtCalmM = 0.0;
   double AimAtWorstM = 0.0;
-  static constexpr size_t kOffsetBins = 512;
-  static constexpr double kOffsetBinM = 0.005;
-  uint32_t OffsetBin[kOffsetBins] = {0};
   long OffsetSamples = 0;
   double WorstOffsetAtM = 0.0;
   double WorstRatio = 0.0;
@@ -76,6 +73,10 @@ struct Ridden {
   double LeftBankRad = 0.0;
   double LeftSlope = 0.0;
   double SimulatedS = 0.0;
+  bool Advanced = false;
+  long Stalls = 0;
+  double LongestStallS = 0.0;
+  double LongestStallAtM = 0.0;
   bool WasTaken = false;
   double MindSteerRad = 0.0;
 };
@@ -90,12 +91,21 @@ struct DriveState {
   double HeldAsideM = 0.0;
   double AsideRatePerM = 0.0;
   double CalmAtM = 0.0;
+  static constexpr size_t kOffsetBins = 512;
+  static constexpr double kOffsetBinM = 0.005;
+  uint32_t OffsetBin[kOffsetBins] = {0};
+  double LastReachedM = -1.0;
+  double StalledForS = 0.0;
   double CalmAimM = 0.0;
   double SimulatedS = 0.0;
+  bool Advanced = false;
+  long Stalls = 0;
+  double LongestStallS = 0.0;
+  double LongestStallAtM = 0.0;
   Ridden Tally;
 };
 
-[[nodiscard]] Ridden DriveTick(const Corridor &way, const Rigged &stood,
+[[nodiscard]] const Ridden &DriveTick(const Corridor &way, const Rigged &stood,
                                DriveState &drive, double dtS, const Taken *taken);
 
 }

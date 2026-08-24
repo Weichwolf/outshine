@@ -5,6 +5,8 @@
 
 namespace outshine::Pilot {
 
+inline constexpr double kSettleS = 1.0;
+
 struct Reins {
   double SettleS = 0.0;
   double LeastReachM = 0.0;

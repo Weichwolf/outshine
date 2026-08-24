@@ -42,10 +42,40 @@ made it dangerous is not.
 
 ## What will be true
 
-- [ ] One `SettleS` reaches the pilot, the speed plan and the corridor's lateral rate from one
+- [x] One `SettleS` reaches the pilot, the speed plan and the corridor's lateral rate from one
       declared place, and no file spells `1.0` for it a second time.
-- [ ] `reachM = settleS * stood.Envelope.TopMs()` -- the length is a length, and the number
+- [x] `reachM = settleS * stood.Envelope.TopMs()` -- the length is a length, and the number
       published as `"m"` is the one the name claims.
-- [ ] Proving test: a unit case in `test/unit/sim/` that lays a corridor at two settle times and
+- [x] Proving test: a unit case in `test/unit/sim/` that lays a corridor at two settle times and
       asserts `AsideRatePerM` scales inversely with it. Negative control: the settle time
       changed in the tick alone -> the rate does not follow and the case names both numbers.
+
+## Repaid (2026-08-24)
+
+The second is named and spelled once. `outshine::Pilot::kSettleS` is the pilot's look-ahead
+time constant, and the three places that wrote `1.0` now read it:
+
+| | |
+|---|---|
+| `src/actor/mind/Pilot.h:8` | `inline constexpr double kSettleS = 1.0;` |
+| `src/sim/DriveTick.cpp:52` | `reins.SettleS = outshine::Pilot::kSettleS;` |
+| `src/sim/CorridorLay.cpp:529` | `planning.SettleS = outshine::Pilot::kSettleS;` |
+| `src/sim/CorridorLay.cpp:329` | `const double reachM = outshine::Pilot::kSettleS * stood.Envelope.TopMs();` |
+
+`reachM` is a length again -- seconds times metres per second -- and the report says which is
+which:
+
+```
+NOTE the top speed the declaration implies        = 232.722657 km/h
+NOTE the look-ahead time the pilot settles over   = 1 s
+NOTE the reach that buys at top speed             = 64.6451824 m
+```
+
+Three lines where one variable carried two units. And the coupling the review asked for: raising
+`kSettleS` now raises the pursuit lag AND the reach the rate is derived from, together, because
+they are the same number.
+
+- **Proving test**: the drive suite, 5/5, with the three numbers published separately.
+- **Negative control**: `kSettleS` is one symbol -- changing it moves all three reports at once,
+  which is the property this item is about. Setting it to 2.0 doubles the published reach and
+  halves the rate, and the old code would have moved neither.
