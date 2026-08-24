@@ -283,3 +283,60 @@ PARAMETRICALLY: at road-domain step sizes against road-domain crests the clamp h
 reviewer's own sweeps at sub-step crests, at eight knots inside one station, and at DEM post
 spacing found no overrun -- and at coarse steps over sharp crests it can be exceeded by a few
 per cent. Recorded here rather than left for the next reader to find.
+
+---
+
+## The fault has an attribution now, and it is not the corner (2026-08-24)
+
+`DriveTick` already recorded eleven things about the moment a wheel leaves the carriageway --
+the lane, the aim, the speed, the plan, the curvature and its rate -- and the case published
+**the station alone**. That is a fault with a place and no attribution, which is the shape
+`board:1772` had. All of it is published now:
+
+```
+NOTE where a wheel first left the carriageway      = 113.990021 km
+NOTE how far from its lane's middle it was         = -0.888419 m
+NOTE the lane it was in                            =  3.750000 m
+NOTE what that lane leaves either side of the car  =  0.969500 m
+NOTE how much of that margin it had spent          =  0.916368 of it
+NOTE how fast it was going                         = 175.906042 km/h
+NOTE what the plan asked for there                 = 211.570813 km/h
+NOTE how hard the road was turning                 = 9.576351e-05 1/m
+NOTE the radius that is                            = 10442.391 m
+NOTE how fast the turn was tightening              = -1.603527e-06 1/m2
+NOTE where the corridor's own edge was             =  3.750000 m
+NOTE what the pilot was aiming for                 = -2.125000 m
+NOTE where the car actually was                    = -3.013419 m
+```
+
+**The road there is straight.** A 10 442 m radius at 176 km/h is 0.72 m/s2 of lateral
+acceleration -- a fourteenth of what the tyres have. The car is going SLOWER than the plan
+allows (176 against 212). Nothing about the corner is hard.
+
+## What it is not: the pursuit law's own lag
+
+The pilot's look-ahead is `SettleS * speed` = 1.0 s x 48.86 m/s = **48.86 m**, and the
+curvature-rate clamp does not bind at a ramp of 1.6e-06/m2. A pure-pursuit controller's
+steady-state offset in a curve is `L^2 / (2R)`:
+
+```
+48.86^2 / (2 * 10442.39) = 0.114 m
+```
+
+**0.114 m of 0.888.** Seven eighths of the deviation is not geometric lag -- the car is not
+where the pilot is steering it to be, on a road that is asking almost nothing of it.
+
+## The next measurement, named
+
+Whether the steer command is wrong or the car does not follow it. Both are answerable at that
+station and neither is answerable from what is published today:
+
+- the steer angle the pilot commanded against the kinematic bicycle's `atan(L * kappa)` for the
+  same curvature -- if they differ, the command is wrong
+- the front slip angle the tyres were actually at -- `board:1573`'s lens measured that this
+  tyre reaches peak force at **3.9 degrees** where a real one needs 6-8, from
+  `corneringNPerRad = 55000` per wheel against a linear `Shear.cpp`, and a car whose front
+  breaks away early runs wide of its aim exactly like this
+
+Parked there rather than guessed at: the attribution above is this round's work, and the two
+measurements are the next round's.

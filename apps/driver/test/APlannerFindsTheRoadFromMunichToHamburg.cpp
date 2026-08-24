@@ -168,6 +168,26 @@ int main(void) {
   Note("most mounts off the ground at once", (double)rode.MostAirborne, "of 4");
   Note("where a contact first went past its limit", rode.BrokeAtM / 1000.0, "km");
   Note("where a wheel first left the carriageway", rode.LeftTheRoadAtM / 1000.0, "km");
+  // board:1767: the tick already knows why -- the lane it was in, how far from its middle, how
+  // fast it was going against what the plan asked for, and how hard the road was turning there.
+  // The case published the station alone, which is a fault with a place and no attribution.
+  if (rode.LeftTheRoadAtM > 0.0) {
+    Note("how far from its lane's middle it was", rode.LeftByM, "m");
+    Note("the lane it was in", rode.LeftLaneM, "m");
+    Note("what that lane leaves either side of the car", 0.5 * (rode.LeftLaneM - drive.Car.WidthM),
+         "m");
+    Note("how much of that margin it had spent", std::fabs(rode.LeftByM) /
+         (0.5 * (rode.LeftLaneM - drive.Car.WidthM)), "of it");
+    Note("how fast it was going", rode.LeftAtMs * 3.6, "km/h");
+    Note("what the plan asked for there", rode.LeftPlannedMs * 3.6, "km/h");
+    Note("how hard the road was turning", rode.LeftCurvature, "1/m");
+    Note("the radius that is", rode.LeftCurvature != 0.0 ? 1.0 / std::fabs(rode.LeftCurvature)
+                                                         : 0.0, "m");
+    Note("how fast the turn was tightening", rode.LeftRate, "1/m2");
+    Note("where the corridor's own edge was", rode.LeftEdgeM, "m");
+    Note("what the pilot was aiming for", rode.LeftAsideM, "m");
+    Note("where the car actually was", rode.LeftAcrossM, "m");
+  }
 
   CHECK(!rode.Lost, "the car never left the corridor's own window");
   CHECK(!rode.PastLimit,
