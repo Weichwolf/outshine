@@ -158,9 +158,16 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
 
   if (at.AlongM >= kFromM) {
     const double inLaneM = at.OffsetM - reins.AsideM;
+    if (std::fabs(inLaneM) < 0.5 * way.BudgetM) {
+      drive.CalmAtM = at.AlongM;
+      drive.CalmAimM = reins.AsideM;
+    }
     if (std::fabs(inLaneM) > std::fabs(out.WorstOffsetM)) {
       out.WorstOffsetM = inLaneM;
       out.WorstOffsetAtM = at.AlongM;
+      out.CalmBeforeWorstAtM = drive.CalmAtM;
+      out.AimAtCalmM = drive.CalmAimM;
+      out.AimAtWorstM = reins.AsideM;
     }
     {
       const size_t bin = (size_t)(std::fabs(inLaneM) / Ridden::kOffsetBinM);

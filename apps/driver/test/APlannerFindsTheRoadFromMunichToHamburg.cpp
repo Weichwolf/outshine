@@ -156,6 +156,11 @@ int main(void) {
     Note("p99 as a share of that reserve", quantile(0.99) / drive.Way.BudgetM, "of it");
     Note("the worst single sample as a share of p99", std::fabs(rode.WorstOffsetM) / quantile(0.99),
          "x");
+    Note("where it was last calm before that worst", rode.CalmBeforeWorstAtM / 1000.0, "km");
+    Note("how far the excursion ran", rode.WorstOffsetAtM - rode.CalmBeforeWorstAtM, "m");
+    Note("the aim where it was calm", rode.AimAtCalmM, "m");
+    Note("the aim at the worst", rode.AimAtWorstM, "m");
+    Note("how far the aim moved between them", rode.AimAtWorstM - rode.AimAtCalmM, "m");
     CHECK(quantile(0.99) < drive.Way.BudgetM,
           "**AND THE LANE THE CORRIDOR RESERVES IS THE LANE THE CAR KEEPS**: budgetM is the "
           "room the corridor holds between the lane centre it aims at and the edge, and a "
