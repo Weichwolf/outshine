@@ -34,14 +34,14 @@ It carries none.
 
 ## What will be true
 
-- [ ] A straight route over flat ground lays with **zero** refused claims. Whatever each of
+- [x] A straight route over flat ground lays with **zero** refused claims. Whatever each of
       the four is really asserting, a road with no corner and no slope is the simplest case
       there is, and a lay that cannot do it cannot be trusted on one that has both.
-- [ ] The drift bound is stated in something a corner-free route has -- per metre, or per
+- [x] The drift bound is stated in something a corner-free route has -- per metre, or per
       corner **when there are corners** -- rather than a product that is zero on a straight.
 - [x] `profile.Over` succeeds or the refusal names why, and `SampleCount() == 0` on a
       1997 m corridor is itself a refusal rather than a number the next reader averages.
-- [ ] The unit twin's pin (`Refused() <= 4`) drops to `== 0`.
+- [x] The unit twin's pin (`Refused() <= 4`) drops to `== 0`.
 
 ## Comments
 
@@ -91,3 +91,46 @@ Two unit fixtures (`TheDrawnCarAndItsContactsStandInOneFrame`, and this item's o
 vehicles with no declared body and stood them up green. They could not have driven: the same
 missing `DragArea` would have refused their speed plans. The new refusal caught both the hour
 it landed.
+
+---
+
+## All four refusals are gone, and two were claims fitted to one drive (2026-08-24)
+
+| claim | was | is |
+|---|---|---|
+| drift | `DriftM < 0.05 * quantumM * Corners` -- **zero bound on a road with no corner** | `DriftPerCornerM < 0.05 * quantumM`, and `Fitted` already carried the rate |
+| corner support | `Strained * 200 < Corners` -- `0 * 200 < 0` is false | `Strained * 200 <= Corners`, true at 0 of 0 |
+| plan-view speed | vacuous on an empty plan | holds, the plan has 5 436 stations |
+| the profile | refused for a zero envelope term | holds, and `Stand` refuses that vehicle now |
+
+Both of the first two were written against the 753 km route -- the drift claim's own prose
+still said *"over 2300 corners"* -- and read as constants of that one drive. A claim stated as
+a TOTAL over corners says something false about a road that has none; the same claim stated as
+a RATE says nothing, which is correct.
+
+```
+NOTE stations in the plan = 5436 stations
+NOTE claims this lay refuses on a straight route = 0 claims
+```
+
+## And the twin corrected me twice more
+
+Its climb arm asserted that ground steeper than the drivetrain must be refused. **Measured, it
+is not, and should not be**: a corridor is cut and filled into the terrain, so ground rising
+at 36 % under legs declaring `maxGradient = 0.06` produces a **6 %** road and the climb gate
+has nothing to refuse. I was wrong about the engine, not the engine about itself.
+
+The arm now asserts what the machine actually does, and the refusal it does owe:
+
+```
+NOTE the steepest gradient the lay built over a 36 % wall = 6 %
+NOTE the steepest gradient a 40 % route builds = -40 %
+NOTE it refused: **AND NOTHING ON IT IS STEEPER THAN THE CAR CAN CLIMB.** ...
+```
+
+A route whose own legs declare 40 % against a rig that pulls 23.97 % IS refused. The wall is
+earthworks; the declared gradient is the road.
+
+- **Proving test**: `test/unit/sim/ACorridorIsLaidOverASyntheticRoute`, now 0 refusals on the
+  straight, 6 % built over a 36 % hillside, and a 40 % route refused.
+- Gate 238/238.

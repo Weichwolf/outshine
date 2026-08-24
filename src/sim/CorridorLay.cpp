@@ -116,12 +116,12 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   if (!fitted.Laid) { return false; }
   say.Number("the tightest radius the fit produced", fitted.TightestRadiusM, "m");
   say.Number("the tightest radius the vehicle can drive", tightestM, "m");
-  say.Claim(fitted.DriftM < 0.05 * quantumM * (double)fitted.Corners,
+  say.Claim(fitted.DriftPerCornerM < 0.05 * quantumM,
         "**AND WHAT IS LEFT IS DRIFT, WHICH NO CORNER CAN CORRECT.** The line is walked corner by "
         "corner and each spiral is integrated by 8-node Gauss-Legendre; the residual accumulates "
-        "laterally over 2300 corners. It is reported as its own term, in millimetres per corner, "
-        "rather than being chased by shrinking corners that were never at fault");
-  say.Claim(fitted.Strained * 200 < fitted.Corners,
+        "laterally, and it is bounded PER CORNER so a road with no corner has nothing to answer "
+        "for -- rather than being chased by shrinking corners that were never at fault");
+  say.Claim(fitted.Strained * 200 <= fitted.Corners,
         "**AND WHERE THE DATA CANNOT SUPPORT A ROAD AT ANY RADIUS THE CAR CAN TURN, THAT CORNER IS "
         "COUNTED AND NOT HIDDEN.** Those are the corners whose vertices the line must leave by more "
         "than the tile's own quantisation to stay drivable at all -- a classified finding with a "

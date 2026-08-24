@@ -53,10 +53,12 @@ private:
 class Quiet final : public Sink {
 public:
   void Number(const char *what, double value, const char *unit) override {
-    (void)what;
-    (void)value;
     (void)unit;
+    Numbers_.push_back(std::string(what) + " = " + std::to_string(value));
+    if (std::string(what).find("steepest gradient") != std::string::npos) { Steepest_ = value; }
   }
+  [[nodiscard]] double Steepest() const { return Steepest_; }
+  [[nodiscard]] const std::vector<std::string> &Numbers() const { return Numbers_; }
   void Claim(bool held, const char *why) override {
     if (!held) {
       ++Refused_;
@@ -77,6 +79,8 @@ public:
 
 private:
   size_t Refused_ = 0;
+  double Steepest_ = 0.0;
+  std::vector<std::string> Numbers_;
   std::vector<std::string> Refusals_;
 };
 
@@ -181,13 +185,18 @@ int main(void) {
     // reached, and they are filed as board:1792 rather than papered over here. Asserting
     // Refused() == 0 today would mean asserting the defect away.
     Note("claims this lay refuses on a straight route", (double)quiet.Refused(), "claims");
-    CHECK(quiet.Refused() <= 4,
-          "and the count of its own refusals is PINNED, so a fifth is a regression and the "
-          "four that stand are board:1792's subject rather than a surprise (board:1624)");
+    CHECK(quiet.Refused() == 0,
+          "**AND A STRAIGHT ROUTE OVER FLAT GROUND REFUSES NOTHING**: the simplest road there "
+          "is -- no corner, no slope -- passes every claim the lay publishes, because a claim "
+          "bounded per corner has nothing to say about a road without one (board:1792)");
   }
 
   {
-    // the climb gate: ground that rises faster than the declared drivetrain can pull.
+    // board:1624, corrected by measurement: a corridor does not FOLLOW the ground, it is cut
+    // and filled into it. Ground rising at 36 % under a route whose legs declare
+    // maxGradient = 0.06 produces a road at 6 %, and the climb gate is right to pass it --
+    // the wall is earthworks, not a slope the car must climb. My first version of this arm
+    // asserted the opposite and was wrong about the engine, not about the engine being wrong.
     FlatGround steep(120.0, 40000.0);
     Quiet quiet;
     Corridor laid;
@@ -195,15 +204,35 @@ int main(void) {
     const Route route = Straight(2000.0, 20);
     const bool ok = LayCorridor(route, steep, car, stood, 8.0, stood.TightestM, 52.0,
                                 6371008.8, quiet, laid, why);
-    std::printf("NOTE over a wall, the lay %s\n", ok ? "succeeded" : "refused");
-    if (!why.empty()) { std::printf("NOTE it said: %s\n", why.c_str()); }
+    Note("the steepest the rig can climb",
+         stood.Envelope.DriveN / (stood.Envelope.MassKg * stood.Envelope.GravityMs2) * 100.0, "%");
+    Note("the steepest gradient the lay built over a 36 % wall", quiet.Steepest() * 100.0, "%");
+    CHECK(ok, "a route over ground far steeper than the car can climb still lays");
+    CHECK_NEAR(quiet.Steepest(), 0.06, 1.0e-9, "m/m",
+               "**AND THE ROAD IS BUILT TO THE GRADIENT ITS LEGS DECLARE, NOT TO THE GROUND'S**: "
+               "the corridor is cut and filled into the terrain, so a 36 % hillside carries a "
+               "6 % road and the climb gate has nothing to refuse (board:1624)");
+  }
+
+  {
+    // and a route whose OWN legs declare a gradient past the drivetrain is the refusal.
+    FlatGround flat(120.0);
+    Quiet quiet;
+    Corridor laid;
+    std::string why;
+    Route route = Straight(2000.0, 20);
+    for (Leg &leg : route.Legs) { leg.MaxGradient = 0.40; }
+    const bool ok = LayCorridor(route, flat, car, stood, 8.0, stood.TightestM, 52.0,
+                                6371008.8, quiet, laid, why);
+    Note("the steepest gradient a 40 % route builds", quiet.Steepest() * 100.0, "%");
+    Note("claims it refused", (double)quiet.Refused(), "claims");
     for (const std::string &one : quiet.Refusals()) {
-      std::printf("NOTE over a wall it refused: %.90s\n", one.c_str());
+      std::printf("NOTE it refused: %.90s\n", one.c_str());
     }
     CHECK(!ok || quiet.Refused() > 0,
-          "**AND GROUND THE DRIVETRAIN CANNOT CLIMB IS A REFUSAL, NOT A CORRIDOR**: a route "
-          "laid over a wall either fails outright or fails a claim it publishes, rather "
-          "than handing back a plan the car cannot follow (board:1624)");
+          "**AND A ROUTE THAT DECLARES A CLIMB PAST THE DRIVETRAIN IS REFUSED**: 40 % against "
+          "a rig that can pull 23.97 % is a road this car cannot drive, and the lay says so "
+          "rather than handing back a plan (board:1624)");
   }
 
   Covers("II.15 LayCorridor is reachable by a unit case: it asks the ground two questions "
