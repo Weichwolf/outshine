@@ -35,6 +35,22 @@ int main(void) {
   // runners in two checkouts share one directory -- and pruning it is a DELETE. Sharing the
   // bytes is worth keeping; sharing the right to remove them is not. A runner that does not
   // hold the corpus claim reads it and never prunes.
+  // board:1796: the corpus is FETCHED and lives in the system temp dir, so a temp cleaner can
+  // take it between two runs. run.sh:59 then claims nothing, correctly -- there is nothing to
+  // prune. This claim's subject is "a runner that prunes holds the claim"; with no corpus no
+  // runner prunes and the statement is vacuously true. The tree already reports an unfetched
+  // corpus in the trailer's UNPREPARED count and in board:1765's named families, and a claim
+  // that also shouted it would be the second spelling of one fact -- the loud one, red for
+  // its environment rather than for its subject (board:1790).
+  const bool corpus = std::filesystem::exists(prepared);
+  std::printf("NOTE a corpus stands on disk: %s\n", corpus ? "yes" : "no");
+  if (!corpus) {
+    Covers("IV.15 the shared corpus is pruned by the runner holding its claim and by no "
+           "other -- vacuous here, because no corpus was fetched for this run to prune "
+           "(board:1789, 1796)");
+    return Report();
+  }
+
   const bool held = std::filesystem::exists(lock);
   std::printf("NOTE the corpus lock stands: %s\n", held ? "yes" : "no");
   CHECK(held,

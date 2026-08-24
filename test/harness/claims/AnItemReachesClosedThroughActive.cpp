@@ -91,7 +91,7 @@ int main(void) {
         "to the closure cannot be satisfied by never opening the drawer -- which is how the "
         "freshness claim beside it stayed green through three violations (board:1793, 1783)");
 
-  Covers("IV.15 every item that arrived under board/closed stood under board/active in the "
+  Covers("IV.16 every item that arrived under board/closed stood under board/active in the "
          "closing commit's parent tree, walked from this proof's own birth commit forward -- "
          "so the gate rewards using the state machine instead of rewarding abstention "
          "(board:1793)");

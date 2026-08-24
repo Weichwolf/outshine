@@ -43,7 +43,23 @@ environment happened to hold.
 
 ## What will be true
 
-- [ ] With no corpus on disk the claim says so and stands; with a corpus it proves exactly what
+- [x] With no corpus on disk the claim says so and stands; with a corpus it proves exactly what
       it proves today.
-- [ ] Proving test: the claim itself, run against an absent `OUTSHINE_PREPARED`. Negative
+- [x] Proving test: the claim itself, run against an absent `OUTSHINE_PREPARED`. Negative
       control: the guard removed -> the three FAILs above return.
+
+## Comments
+
+- 2026-08-24 -- repaid. The claim asks whether a corpus stands on disk before it asks anything
+  about the lock, and with none it covers its point as vacuous and returns.
+- **Proving test**: `test/harness/claims/TheCorpusIsPrunedByOneRunnerOnly` itself, run against
+  the wiped temp dir it was found in: `NOTE a corpus stands on disk: no`, claim green, trailer
+  still `3 UNPREPARED` -- the fact stays reported exactly once, where it belongs.
+- **Negative control**, run: the guard disabled -> 3 FAILs return in the same run.
+
+  ```
+  FAIL harness/claims/TheCorpusIsPrunedByOneRunnerOnly
+  24 tests: 20 PASS  1 FAIL ... 3 UNPREPARED
+  ```
+- Also renumbered `AnItemReachesClosedThroughActive`'s `Covers(` from IV.15 to IV.16: IV.15 is
+  this corpus claim's, and two different subjects under one id is a second spelling.
