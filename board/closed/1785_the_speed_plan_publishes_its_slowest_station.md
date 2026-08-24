@@ -375,3 +375,92 @@ item was filed to end.
 - **The first version of the first control did not work**, and that is the same trap this
   item was reopened for: it asserted `IsGeometry(road.By)`, so moving a term INTO that set
   kept it green -- oracle and defect from one source. It names the term and the station now.
+
+---
+
+## Boxes 3 and 4, and where the red verdict actually belongs (2026-08-24)
+
+**Box 4 -- the missing proof.** The reviewer: *"with entryMs = 0.0 the minimum is station 0 and
+the CHECK_NEAR(slowest.Ms, leastMs) / slowest.By != Free pair holds no matter what the sweeps
+write into Why_[] for stations 1..90. A case at entryMs ABOVE every road limit, so the minimum
+falls in the bend, is the missing proof."* Landed in
+`test/unit/actor/path/AStraightRoadIsPlannedAtItsOwnSpeed`: the same road planned by a car
+arriving at `Envelope::TopMs()`.
+
+```
+NOTE entering at top speed the slowest station = 109.882 km/h at 1500.0 m by 'curvature'
+NOTE the slowest sample that plan holds = 109.881516 km/h
+NOTE where it is = 1500 m        NOTE where the road stops being straight = 1000 m
+```
+
+109.882 km/h is the number the FIRST, wrong closure of this item offered as proof. Then it
+described an array thrown away three sweeps earlier; now it is the minimum of the plan the
+caller receives, at a station that is not station 0.
+
+**What that case does NOT prove, said plainly.** A control that stops the curvature term naming
+itself turns three older arms red and leaves this one green, because `slip` takes over and the
+minimum stays in the bend. A control that silences the seam clamp leaves it green too -- on this
+road the minimum comes from the sampling loop either way. The case closes the degeneracy the
+reviewer named; it is not additionally a control over the sweeps. Whether one can be built at
+all is a real question: every sweep PROPAGATES a bound rather than creating one, except the seam
+clamp, which extrapolates curvature (`tail.CurvaturePerM = 2*middle - head`) and therefore CAN
+go under every sampled station. A fixture where it does is filed separately.
+
+**Box 3 -- the distribution.** `SpeedProfile` carries a 512-bin histogram of its own output,
+filled after the last sweep, and answers `Quantile(share)` and `StationsUnder(ms)`.
+`CorridorLay` reads it instead of walking `SampleAt()` from outside -- the hand-walk this item
+was filed to abolish. Measured on the shipped Munich--Hamburg route:
+
+| | |
+|---|---|
+| p01 | 38.408 km/h |
+| p50 | 144.315 km/h |
+| p95 / p99 | 232.495 km/h (the envelope's own top) |
+| stations under 30 km/h | **8 709 of 2 049 960** |
+| what share that is | **0.4248 %**, 3.2 km of road |
+| the slowest station the ROAD holds | **12.158 km/h** |
+
+The counts reproduce board:1784's independent measurement (8 710 by its own probe, 8 709
+through the histogram's bin edge) and its 12.158 km/h, from the engine's own instrument rather
+than a bespoke tool.
+
+**And the red verdict is NOT written here, on purpose.** Box 3 asks that *"board:1784's 3.2 km
+of sub-30 km/h plan is a red verdict"*. The first bar I wrote was a share -- under one station
+in a hundred -- and 0.4248 % passes it. That is a bar chosen so the finding survives it, which
+is the failure this whole item exists to punish. The honest bar is not a share at all:
+
+```
+12.158 km/h  =>  R = v^2 / (g (f_R + q))  =  1.66 m at f+q = 0.7,  3.88 m at f+q = 0.3
+an EKL 1 class minimum of 500 m allows  sqrt(0.7 * 9.81 * 500) = 211 km/h
+```
+
+A radius between 1.7 and 3.9 m on a long-distance route is not a slow corner, it is geometry no
+road has. The verdict belongs to the class bound, which is board:1784's first box, and that box
+is blocked on board:1795 with a measured reason: the fit lays `R_true/1.5`, so 947 of 2204
+corners count as class violations and refusing on that number would refuse correct roads. The
+ratchet stays here (share under 1 %, p01 above 30 km/h) to catch a regression; the verdict lands
+in 1784 when 1795 makes the radius trustworthy.
+
+- **Proving tests**: `unit/actor/path/AStraightRoadIsPlannedAtItsOwnSpeed` (the top-speed entry
+  arm) and `apps/driver/test/APlannerFindsTheRoadFromMunichToHamburg` (the distribution).
+**Negative control, and the first one did not control.** Filling the histogram for station 0
+only reports `p01 = 232.723 km/h` and `1 station under 30` -- and the first pair of bars I wrote
+(share under 1 %, p01 above 30 km/h) passed it, the more comfortably for being wrong. One-sided
+bars cannot catch an instrument that lies optimistically, which is oracle and defect from one
+source: exactly what this item was reopened twice for.
+
+The case walks `SampleAt()` itself now and requires the published count to match, allowing
+exactly the stations in the bin the floor falls inside -- a histogram cannot be more precise
+than its own bin, and `SpeedProfile::BinMs()` publishes which:
+
+| | |
+|---|---|
+| stations a hand walk finds under 30 km/h | 8 710 |
+| what the histogram counts | 8 709 |
+| stations in the bin 30 km/h falls inside | the difference, exactly |
+| the resolution it works at | 0.4545 km/h |
+| stations under the published median | 1 024 757 of 2 049 960 |
+
+With that bar, the same control turns **both** arms red. Reverted.
+
+**Boxes 3 and 4 closed.** Box 1 and 2 were closed in earlier rounds and stand.
