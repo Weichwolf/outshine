@@ -6,6 +6,8 @@
 
 #include "Check.h"
 
+#include <filesystem>
+
 #include "PreparedRoot.h"
 
 #include "Document.h"
@@ -24,6 +26,15 @@ const std::string kGenerated = outshine::Test::PreparedRoot() + "/test-render-kh
 const std::string kUnmapped = outshine::Test::PreparedRoot() + "/test-render-khronos-glTF-SimpleTexture-simple-texture/";
 
 constexpr double kWorstAngleDeg = 0.01;
+
+// board:1798: a prepared subject that is not on disk is UNPREPARED and never FAILED. The two
+// words mean different things -- UNPREPARED says this run judged nothing here, FAIL says the
+// code is wrong -- and spending the second on the first makes a swept temp directory read as a
+// regression. It also names the path, which is what lets the runner find the case that OWNS
+// the subject and rebuild it (board:1797).
+bool Present(const std::string &path) {
+  return std::filesystem::exists(path);
+}
 
 bool Read(const std::string &directory, const std::string &entry, Document &file, Subject &out) {
   return file.ReadFile(directory + entry) && out.Build(file);
@@ -52,6 +63,17 @@ double Percentile(const std::vector<double> &sorted, double fraction) {
 
 int main() {
   using namespace outshine::Test;
+
+  for (const std::string &needed : {kMirror + "NormalTangentMirrorTest.gltf",
+                                    kGenerated + "NormalTangentTest.gltf",
+                                    kUnmapped + "scene.gltf"}) {
+    if (!Present(needed)) {
+      Unprepared((needed + " is not prepared -- run python3 "
+                           "test/harness/shared/corpus/prepare.py all --manifest <its manifest>")
+                     .c_str());
+      return Report();
+    }
+  }
 
   Document mirrorFile;
   Subject mirror;

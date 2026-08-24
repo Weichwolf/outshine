@@ -839,18 +839,28 @@ builtSpentMs=0
 # prepared directory is the owning manifest's own path with the slashes turned to dashes, and
 # that mapping inverts by walking the manifests the tree declares.
 RebuildOwner() {
-  ownerDir=$(sed -n 's|^UNPREPARED '"$PREPARED"'/\([^/]*\)/.*|\1|p' "$1" | head -1)
-  [ -n "$ownerDir" ] ||
-    ownerDir=$(sed -n 's|^REFUSED '"$PREPARED"'/\([^/]*\)/.*|\1|p' "$1" | head -1)
-  [ -n "$ownerDir" ] || return 1
-  ownerManifest=
-  for candidate in $(find test -name manifest.json); do
-    holder=${candidate%/manifest.json}
-    if [ "$(printf '%s' "$holder" | tr / -)" = "$ownerDir" ]; then ownerManifest=$candidate; break; fi
-  done
-  [ -n "$ownerManifest" ] || return 1
-  RebuildCase "${ownerManifest%/manifest.json}" "$PREPARED/$ownerDir"
-  [ "$REBUILT" = yes ] || return 1
+  ownerMap=$BUILD/log/manifest-owners
+  if [ ! -s "$ownerMap" ]; then
+    find test -name manifest.json -print0 |
+      while IFS= read -r -d '' candidate; do
+        holder=${candidate%/manifest.json}
+        printf '%s\t%s\n' "$(printf '%s' "$holder" | tr / -)" "$holder"
+      done > "$ownerMap"
+  fi
+  ownerNames=$BUILD/log/owners
+  # BSD sed has no \| alternation in a basic regex, so the two words are two expressions.
+  sed -n -e 's|^UNPREPARED '"$PREPARED"'/\([^/]*\)/.*|\1|p' \
+         -e 's|^REFUSED '"$PREPARED"'/\([^/]*\)/.*|\1|p' "$1" | sort -u > "$ownerNames"
+  [ -s "$ownerNames" ] || return 1
+  ownerRebuilt=no
+  while IFS= read -r ownerDir; do
+    [ -n "$(ls -A "$PREPARED/$ownerDir" 2>/dev/null | grep -v '^manifest.json$')" ] && continue
+    holder=$(awk -F'\t' -v want="$ownerDir" '$1 == want { print $2; exit }' "$ownerMap")
+    [ -n "$holder" ] || continue
+    RebuildCase "$holder" "$PREPARED/$ownerDir"
+    [ "$REBUILT" = yes ] && ownerRebuilt=yes
+  done < "$ownerNames"
+  [ "$ownerRebuilt" = yes ] || return 1
   return 0
 }
 
@@ -956,7 +966,6 @@ Judge() {
   judgeId=$1
   judgeBinary=$2
   judgeArgument=$3
-  judgeRetried=${4:-no}
   log=$BUILD/log/$(printf '%s' "$judgeId" | tr / -).log
   marker=$judgeBinary.timeout
   before=$(Now)
@@ -980,7 +989,10 @@ Judge() {
     [ "$status" -eq "$expected" ] ||
       Die "$judgeId reported FAILURES $failures UNPREPARED $unpreparedHere and exited $status, which do not agree: the reporter's answer was discarded, altered, or never returned -- $log"
     if [ "$failures" -gt 0 ] || [ "$unpreparedHere" -gt 0 ]; then
-      if [ "$judgeRetried" != yes ] && RebuildOwner "$log"; then
+      # a case can miss more than one subject, so the retry repeats while a rebuild actually
+      # produces something. It terminates: RebuildCase declines a prepared directory that is
+      # already filled, so no owner is ever rebuilt twice in one case (board:1797).
+      if RebuildOwner "$log"; then
         Judge "$judgeId" "$judgeBinary" "$judgeArgument" yes
         return 0
       fi

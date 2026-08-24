@@ -331,8 +331,16 @@ Answer Judge(const Case &subjectCase) {
 int main() {
   using namespace outshine::Test;
 
+  // board:1798: this twin SURVEYS every prepared khronos and grown case. With none on disk it
+  // has judged nothing, and nothing judged is UNPREPARED -- the word for "no corpus" -- rather
+  // than FAIL, the word for "the code is wrong".
   const std::vector<Case> cases = Cases();
-
+  if (cases.empty()) {
+    Unprepared((kSuite + " holds no prepared khronos or grown case -- run python3 "
+                         "test/harness/shared/corpus/prepare.py all --every-case")
+                   .c_str());
+    return Report();
+  }
   CHECK(!cases.empty(), "the render suite's case directories are found and their manifests read");
 
   int ours = 0, upstreams = 0, byTheRule = 0, elsewhere = 0, theFiles = 0;

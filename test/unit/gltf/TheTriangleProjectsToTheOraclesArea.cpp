@@ -31,11 +31,21 @@ std::string Slurp(const std::string &path) {
 int main() {
   using namespace outshine::Test;
 
+  // board:1798: this twin already says UNPREPARED for the SUBJECT and said FAIL for the
+  // manifest beside it -- the same absence, two words. An absent prepared manifest is the
+  // corpus missing, not the parser broken, and naming its path is what lets the runner rebuild
+  // the case that owns it (board:1797).
   const std::string manifestText = Slurp(std::string(kCase) + "manifest.json");
+  if (manifestText.empty()) {
+    Unprepared((kCase + "manifest.json is not prepared -- run python3 "
+                        "test/harness/shared/corpus/prepare.py all --manifest "
+                        "test/render/khronos/glTF/Triangle/manifest.json")
+                   .c_str());
+    return Report();
+  }
   Json manifest;
-  CHECK(!manifestText.empty() && manifest.Parse(manifestText.c_str(), manifestText.size()),
-        "the case's manifest is present and parses");
-  if (manifestText.empty()) { return Report(); }
+  CHECK(manifest.Parse(manifestText.c_str(), manifestText.size()),
+        "the case's manifest parses");
 
   const Json::Ref declared = manifest.Root()["scene"]["camera"];
   const Json::Ref recipe = manifest.Root()["renders"]["default"];
