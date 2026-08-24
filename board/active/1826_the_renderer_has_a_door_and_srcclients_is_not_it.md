@@ -231,3 +231,32 @@ Two corrections to the measurements above:
 - [ ] Added box: every named refusal `SetMesh` returns has a case under
       `test/unit/render/stages/`, in the fast gate, that reads the reason back. Negative
       control: the refusal replaced by the old `return true` -> red.
+
+## The folder, five files in (2026-08-25)
+
+| file | where it went, and why |
+|---|---|
+| `CsvTelemetry.{h,cpp}` | deleted -- zero includes, and `run.sh` was building it |
+| `RunIdentity.h` | deleted -- zero includes |
+| `Env.h` | deleted -- named as an EXCUSE in a claim, included by nothing |
+| `Sanitisers.h` | deleted -- zero references anywhere |
+| `LogSinks.{h,cpp}` | `src/core/io/` -- it implements `outshine::LogSink` from `Log.h`, so it is the library whatever folder it sat in |
+| `Species.{h,cpp}` | `src/generators/` -- it reads `Generators::TreeSpecies` and hands it back |
+
+27 files to 22, and four of the six were dead.
+
+**What is left divides into two questions, and neither is this item's to answer alone:**
+
+- `Sim`, `Live`, `EyeTelemetry`, `StreamTelemetry`, `SceneWeather`, `RegionForge` -- the last four
+  exist because the first two call them. `Sim` and `Live` are painted RED in CLAUDE.md and have
+  their own items; moving their satellites before they are dissolved is work the dissolution
+  would undo.
+- `GltfStudio`, `Surfaces`, `Image` -- the glTF-to-renderer bridge. `Surfaces.h` includes
+  `Document.h`, `Material.h`, `Subject.h` AND `Renderer.h`, so putting it under `src/gltf/`
+  makes the content layer depend on the renderer and putting it under `src/render/` makes the
+  renderer spell glTF. That is a layering decision, and it is the same one box two of this item
+  is really about: what the ONE door for handing geometry to the renderer looks like.
+- `Engine`, `Assembly`, `InputPump` -- the public door and one engine verb, which move once
+  there is somewhere to move them TO.
+
+So the third box stays open with its remainder named rather than half-done.
