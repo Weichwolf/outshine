@@ -133,7 +133,7 @@ int main(void) {
         "enum reaches the same column the tile was parsed into");
   CHECK(field.Layer("no_such_layer") < 0,
         "and a layer nobody declared resolves to no column rather than to column zero");
-  CHECK(field.Features().empty() && !field.Decoded(kTileX, kTileY),
+  CHECK(field.Features().empty() && !field.Settled(kTileX, kTileY),
         "and a field that has accepted nothing holds nothing and says the tile is not decoded");
 
   const std::vector<uint8_t> tile = AStreetTile(1024, 2048, 512, -256, kExtent);
@@ -199,11 +199,14 @@ int main(void) {
              "linear in the tile fraction and 1024 of 4096 is a quarter");
 
   Note("the field's heap", (double)field.HeapBytes(), "bytes");
-  Note("is the tile decoded", field.Decoded(kTileX, kTileY) ? 1.0 : 0.0, "");
+  Note("is the tile settled", field.Settled(kTileX, kTileY) ? 1.0 : 0.0, "");
   Note("its index", (double)field.TileIndex(kTileX, kTileY), "");
-  CHECK(field.HeapBytes() > 0 && field.Decoded(kTileX, kTileY) &&
+  CHECK(field.HeapBytes() > 0 && field.Settled(kTileX, kTileY) &&
             field.TileIndex(kTileX, kTileY) == 0,
-        "and the tile is now decoded, indexed and paid for in bytes the caller can read");
+        "**AND A TILE THE FIELD ACCEPTED IS BOTH INDEXED AND SETTLED**: the two doors that ask "
+        "whether a tile is in the field read two containers, and before board:1807 only one of "
+        "them was written by the accept path -- a tile with 668 bytes of features in it "
+        "answered no to the other (board:1807)");
   CHECK(field.OfTile(field.TileIndex(kTileX, kTileY)).Size() == 1,
         "and asking the field for that tile's features returns the one it took");
   CHECK(field.TileIndex(kTileX + 1, kTileY) < 0,

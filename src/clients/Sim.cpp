@@ -170,7 +170,7 @@ bool Sim::OpenPool() {
 
 std::shared_ptr<const Generators::FeatureField> Sim::Features(
     const Generators::Region &region) const {
-  if (!W_.Vectors().Decoded(region.X(), region.Y())) return nullptr;
+  if (!W_.Vectors().Settled(region.X(), region.Y())) return nullptr;
   const int tile = W_.Vectors().TileIndex(region.X(), region.Y());
   const std::vector<double> &points = W_.Vectors().Points();
 

@@ -47,7 +47,7 @@ public:
 
   int PendingTiles() const { return Pending_; }
 
-  [[nodiscard]] bool Decoded(int x, int y) const;
+  [[nodiscard]] bool Settled(int x, int y) const;
 
   int TileIndex(int x, int y) const;
 
@@ -78,6 +78,7 @@ private:
   uint32_t Intern(std::vector<std::string> &pool, std::unordered_map<std::string, uint32_t> &index,
                   std::string_view s);
   [[nodiscard]] bool AddTile(TilePool &tiles, int tx, int ty, int &added);
+  void Settle(int x, int y);
 
   std::vector<std::string> Layers_;
   std::vector<Feature> Features_;
@@ -89,7 +90,7 @@ private:
   std::vector<std::string> Strings_;
   std::vector<Value> Values_;
   std::unordered_map<std::string, uint32_t> KeyIndex_, StringIndex_;
-  std::vector<uint64_t> Done_;
+  std::vector<uint64_t> Settled_;
   TilePool::Landing Scratch_;
   int Zoom_;
   int Pending_ = -1;

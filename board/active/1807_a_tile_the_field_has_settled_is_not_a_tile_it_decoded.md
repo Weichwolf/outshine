@@ -43,10 +43,29 @@ which is the one live caller, and it is asking "are there features here" of a se
 
 ## What will be true
 
-- [ ] The settled set is named for what it holds, and the accept path settles what it accepts,
+- [x] The settled set is named for what it holds, and the accept path settles what it accepts,
       so the two doors cannot disagree about the same tile.
-- [ ] Whatever `Sim.cpp:173` actually needs -- decodedness or settledness -- it asks for by
+- [x] Whatever `Sim.cpp:173` actually needs -- decodedness or settledness -- it asks for by
       name, and the choice is recorded.
-- [ ] Proving test: `test/unit/ground/AVectorTileBecomesAFieldTheGroundCanRead` asserts that a
+- [x] Proving test: `test/unit/ground/AVectorTileBecomesAFieldTheGroundCanRead` asserts that a
       tile accepted from bytes is both indexed and settled. Negative control: the settle
       removed from the accept path -> the twin names the disagreement.
+
+## Comments
+
+- 2026-08-24 -- repaid. `Done_` is `Settled_`, `Decoded(x, y)` is `Settled(x, y)`, and the
+  accept path settles what it accepts through one idempotent `Settle(x, y)` that both `Build`
+  and `Accept` call. The two doors cannot disagree about a tile any more.
+- **What `Sim.cpp:173` needed was settledness**, and it now asks for it by name. It guards a
+  region hand-out: *"has this tile been asked for and answered"* is the right question there --
+  a region over a tile that legitimately holds no vector data must not be re-asked forever.
+  Under the old name it read as *"are there features here"*, which is a different question and
+  would have been the wrong guard.
+- **Proving test**: `test/unit/ground/AVectorTileBecomesAFieldTheGroundCanRead` -- a tile
+  accepted from 79 hand-encoded bytes is indexed at 0, settled, and 668 bytes on the heap.
+- **Negative control**, run: `Settle(tx, ty)` removed from `Accept` ->
+
+  ```
+  14 tests: 12 PASS  2 FAIL
+  FAIL **AND A TILE THE FIELD ACCEPTED IS BOTH INDEXED AND SETTLED**
+  ```

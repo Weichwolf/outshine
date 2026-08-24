@@ -49,19 +49,26 @@ int OsmField::Build(TilePool &tiles, double lat, double lon, int ringTiles) {
       const long tx = (long)cx + dx, ty = (long)cy + dy;
       if (tx < 0 || ty < 0 || tx >= n || ty >= n) continue;
       const uint64_t key = TileKey((int)tx, (int)ty);
-      if (std::find(Done_.begin(), Done_.end(), key) != Done_.end()) continue;
+      if (std::find(Settled_.begin(), Settled_.end(), key) != Settled_.end()) continue;
 
       if (decoded) { Pending_++; continue; }
       if (!AddTile(tiles, (int)tx, (int)ty, added)) { Pending_++; continue; }
-      Done_.push_back(key);
+      Settle((int)tx, (int)ty);
       decoded = true;
     }
 
   return added;
 }
 
-bool OsmField::Decoded(int x, int y) const {
-  return std::find(Done_.begin(), Done_.end(), TileKey(x, y)) != Done_.end();
+bool OsmField::Settled(int x, int y) const {
+  return std::find(Settled_.begin(), Settled_.end(), TileKey(x, y)) != Settled_.end();
+}
+
+void OsmField::Settle(int x, int y) {
+  const uint64_t key = TileKey(x, y);
+  if (std::find(Settled_.begin(), Settled_.end(), key) == Settled_.end()) {
+    Settled_.push_back(key);
+  }
 }
 
 int OsmField::TileIndex(int x, int y) const {
@@ -90,6 +97,7 @@ bool OsmField::AddTile(TilePool &tiles, int tx, int ty, int &added) {
 
 int OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
   int added = 0;
+  Settle(tx, ty);
   const int got = (int)vectorTile.size();
 
   const uint32_t tile = (uint32_t)Tiles_.size();
@@ -176,7 +184,7 @@ size_t OsmField::HeapBytes() const {
                        (sizeof(std::string) + sizeof(uint32_t) + 2 * sizeof(void *));
   return CapacityBytes(Features_) + CapacityBytes(Rings_) + CapacityBytes(Points_) +
          CapacityBytes(Tiles_) + CapacityBytes(Tags_) + CapacityBytes(Values_) +
-         CapacityBytes(Done_) + CapacityBytes(Scratch_.Bytes) + CapacityBytes(Keys_) +
+         CapacityBytes(Settled_) + CapacityBytes(Scratch_.Bytes) + CapacityBytes(Keys_) +
          CapacityBytes(Strings_) + CapacityBytes(Layers_) + strings + nodes;
 }
 
