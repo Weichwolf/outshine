@@ -147,6 +147,10 @@ Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
     const double shorter = legM[vertex - 1] < legM[vertex] ? legM[vertex - 1] : legM[vertex];
     const double swing = std::fabs(turn);
     const double radius = CornerRadiusM(turn, shorter, withinM);
+    if (radius > 0.0 && (out.TightestDemandedM <= 0.0 || radius < out.TightestDemandedM)) {
+      out.TightestDemandedM = radius;
+      out.TightestDemandedAtVertex = vertex;
+    }
     if (radius < tightestM) {
       ++out.Undrivable;
       if (out.Undrivable == 1) { out.UndrivableAtM = (double)vertex; }
@@ -238,8 +242,10 @@ Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
   if (out.Undrivable > 0) {
     out.Error = std::to_string(out.Undrivable) +
                 " of these vertices turn too sharply for anything that can only bend to " +
-                std::to_string(tightestM) +
-                " m, the first at index " + std::to_string((long)out.UndrivableAtM) +
+                std::to_string(tightestM) + " m -- the tightest of them demands " +
+                std::to_string(out.TightestDemandedM) + " m at vertex " +
+                std::to_string(out.TightestDemandedAtVertex) +
+                ", the first at index " + std::to_string((long)out.UndrivableAtM) +
                 " -- a corner tighter than the vehicle's own lock is not a road to smooth, it is a "
                 "route that doubles back on itself, and that is a finding about the graph";
     return out;

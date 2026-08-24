@@ -208,6 +208,10 @@ int main(void) {
             "radius is zero when there is no corner at all, and at or above the lock when "
             "there is -- a caller reading it as a plain minimum refuses straight roads "
             "(board:1791)");
+      CHECK((plain.TightestRadiusM > 0.0) == (plain.Corners > 0),
+            "**AND WHICH OF THE TWO IT IS, IS READABLE**: zero radius and 'a corner of zero "
+            "radius' are told apart by the corner COUNT beside it, so nothing has to guess "
+            "what the zero means (board:1791)");
     }
 
     // the vehicle that CANNOT drive it must be told so rather than handed a crawl.
@@ -220,6 +224,25 @@ int main(void) {
           "**AND A VEHICLE THAT CANNOT TURN THAT TIGHTLY IS REFUSED, NOT SERVED**: the same "
           "polyline handed a wider minimum does not quietly lay a corner that vehicle would "
           "have to crawl (board:1784)");
+
+    // board:1791's last box: a REFUSED fit used to publish TightestRadiusM, the minimum over
+    // the DRIVABLE vertices -- which excludes exactly the vertices that caused the refusal. A
+    // reader of that refusal wants the tightest radius the polyline DEMANDED, and now gets it.
+    std::printf("NOTE it laid down to %.4f m and the line demanded %.4f m at vertex %zu\n",
+                tooTight.TightestRadiusM, tooTight.TightestDemandedM,
+                tooTight.TightestDemandedAtVertex);
+    CHECK(tooTight.TightestDemandedM > 0.0 && tooTight.TightestDemandedM < leastRadiusM + 1.0,
+          "**AND THE REFUSAL NAMES THE RADIUS THE LINE ACTUALLY DEMANDED**: the minimum over "
+          "the vertices it COULD drive says nothing about why it refused, because those are "
+          "the vertices that did not cause it -- the demanded radius is under the lock, which "
+          "is the whole reason there is a refusal to read (board:1791)");
+    CHECK(tooTight.Error.find(std::to_string(tooTight.TightestDemandedM)) != std::string::npos,
+          "and the refusal text carries that number, so a reader is not sent to a struct "
+          "field to find out what the sentence is about");
+    CHECK(tooTight.TightestDemandedM <= tooTight.TightestRadiusM ||
+              tooTight.TightestRadiusM == 0.0,
+          "and the demanded radius is never LOOSER than what was laid, because what was laid "
+          "is a subset of what was demanded");
   }
 
   Covers("I.9.11 a corridor is fitted through a polyline it may not leave by more than the data's "

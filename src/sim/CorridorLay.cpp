@@ -80,6 +80,10 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   say.Number("the corridor it laid", fitted.LengthM / 1000.0, "km");
   say.Number("the polyline it came from", route.LengthM / 1000.0, "km");
   say.Number("the tightest radius on it", fitted.TightestRadiusM, "m");
+  say.Number("at which vertex that is", (double)fitted.TightestAtVertex,
+       Line("of %s", std::to_string(fitted.Vertices).c_str()).c_str());
+  say.Number("the tightest radius any vertex DEMANDED, drivable or not", fitted.TightestDemandedM,
+       "m");
   say.Number("vertices whose road class declares a design minimum radius", (double)designed,
        Line("of %s", std::to_string(keptAt.size()).c_str()).c_str());
   size_t declaredLegs = 0;

@@ -27,6 +27,8 @@ struct Fitted {
   double WorstOffsetAtM = 0.0;
   double TightestRadiusM = 0.0;
   size_t TightestAtVertex = 0;
+  double TightestDemandedM = 0.0;
+  size_t TightestDemandedAtVertex = 0;
   double SharpestTurnRad = 0.0;
   double SharpestTurnAtM = 0.0;
   size_t TurnsPastRightAngle = 0;
