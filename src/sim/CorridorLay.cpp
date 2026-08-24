@@ -78,6 +78,12 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   say.Number("the tightest radius on it", fitted.TightestRadiusM, "m");
   say.Number("vertices whose road class declares a design minimum radius", (double)designed,
        Line("of %s", std::to_string(keptAt.size()).c_str()).c_str());
+  size_t declaredLegs = 0;
+  for (const auto &leg : route.Legs) {
+    if (leg.MinRadiusM > 0.0) { ++declaredLegs; }
+  }
+  say.Number("legs of the route whose road class declares one", (double)declaredLegs,
+       Line("of %s", std::to_string(route.Legs.size()).c_str()).c_str());
   say.Number("corners the fit laid tighter than their class allows", (double)fitted.UnderClass,
        "corners");
   if (fitted.UnderClass > 0) {
