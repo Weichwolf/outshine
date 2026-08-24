@@ -536,10 +536,14 @@ bool LayCorridor(const Path::Route &route, Ground::GroundStream &ground, const V
   say.Number("the slowest the profile asks for", slowestMs * 3.6, "km/h");
   say.Number("the fastest", fastestMs * 3.6, "km/h");
   say.Number("the mean", meanMs * 3.6, "km/h");
-  say.Number("stations where a CREST and not a curve set the speed",
-       (double)profile.CrestsThatBound(), "stations");
-  say.Number("the slowest a crest holds it to", profile.CrestHeldMs() * 3.6, "km/h");
-  say.Number("where that crest is", profile.CrestHeldAtM() / 1000.0, "km");
+  for (size_t term = 0; term < (size_t)SpeedProfile::Held::kCount; ++term) {
+    const SpeedProfile::Held which = (SpeedProfile::Held)term;
+    say.Number(SpeedProfile::NameOf(which), (double)profile.BoundBy(which), "stations");
+  }
+  const SpeedProfile::Standing bound = profile.SlowestBound();
+  say.Number("the slowest station the road itself holds", bound.Ms * 3.6, "km/h");
+  say.Number("where that station is", bound.AtM / 1000.0, "km");
+  say.Number(SpeedProfile::NameOf(bound.By), bound.Ms * 3.6, "km/h at that station");
   say.Number("the drive time that implies", fitted.LengthM / (meanMs > 0.0 ? meanMs : 1.0) / 3600.0, "h");
 
   return true;

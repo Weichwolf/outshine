@@ -336,7 +336,42 @@ SampleCount() = 801   CrestsThatBound() = 804   BoundBy(Crest) = 801
 `src/sim/CorridorLay.cpp:545-546`, and `ASpeedPlanScalesWithTheDeclaredGravity.cpp:62` only
 asserts `> 0`.
 
-Open here: a `Slowest()` that excludes the entry station or a callsite that hands a real entry
-speed; `CorridorLay` reading `BoundBy` instead of walking samples; and `CrestsThatBound()`
-either counting one population after the sweeps or being deleted in favour of
-`BoundBy(Held::Crest)`, which already answers it correctly.
+All three are now landed.
+
+## The road's slowest station, and the drive's (2026-08-24)
+
+The split the review's measurement demanded: `entry`, `traction` and `brake` are facts about
+the DRIVE -- how fast it arrived, how hard it can pull, what it must shed for what comes
+next. `curvature`, `slip`, `ramp`, `climb` and `crest` are facts about the ROAD. Only the
+second kind answers *why is this corridor slow here*.
+
+```cpp
+[[nodiscard]] Standing SlowestBound() const noexcept;
+[[nodiscard]] static constexpr bool IsGeometry(Held term) noexcept;
+```
+
+| on straight 1000 m + spiral 500 m + arc 300 m | |
+|---|---|
+| `Slowest()` | 0.000 km/h at 0.0 m, `entry` -- honest, and about the standing start |
+| first attempt at `SlowestBound()` (excluding only `entry` and `free`) | 80.248 km/h at 20.0 m, `traction` -- still the drive, not the road |
+| `SlowestBound()` over the geometric terms | **109.882 km/h at 1500.0 m, `curvature`** -- the arc, where this road is tightest |
+
+`CrestsThatBound()`, `CrestHeldMs()` and `CrestHeldAtM()` are DELETED. They counted before the
+sweeps and over two populations -- 804 stations on an 801-station plan -- and
+`BoundBy(Held::Crest)` answers the same question after the last sweep, over one population,
+inside a tally that sums to `SampleCount()`. Two spellings of one truth, and the wrong one is
+gone rather than corrected.
+
+`CorridorLay` now READS the instrument: it publishes `BoundBy` per term and the slowest
+station the road holds, instead of walking `SampleAt()` from outside -- which is what this
+item was filed to end.
+
+- **Proving tests**: `AStraightRoadIsPlannedAtItsOwnSpeed` (the road's slowest station, named
+  by term and station rather than derived through `IsGeometry`) and
+  `ASpeedPlanScalesWithTheDeclaredGravity` (the tally may not exceed the stations there are).
+- **Negative controls**, both run: `Traction` added to `IsGeometry` -> the claim goes red
+  naming `80.248 km/h at 20.0 m by 'traction'`; the crest count trebled per station -> 2403
+  of 801, red. Both reverted.
+- **The first version of the first control did not work**, and that is the same trap this
+  item was reopened for: it asserted `IsGeometry(road.By)`, so moving a term INTO that set
+  kept it green -- oracle and defect from one source. It names the term and the station now.

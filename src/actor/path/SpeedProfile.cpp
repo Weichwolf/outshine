@@ -21,10 +21,8 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
   Curvature_.clear();
   StepM_ = 0.0;
   LengthM_ = 0.0;
-  CrestHeld_ = 0.0;
-  CrestHeldAt_ = 0.0;
-  CrestsBound_ = 0;
   Slowest_ = Standing{};
+  SlowestBound_ = Standing{};
   Why_.clear();
   for (size_t at = 0; at < (size_t)Held::kCount; ++at) { Bound_[at] = 0; }
 
@@ -59,18 +57,6 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
   Curvature_.resize(samples, 0.0);
   StepM_ = stepM;
   LengthM_ = along.LengthM();
-
-  const auto NoteCrest = [&](const Placed &here, double station, double bindingMs) {
-    const double crest = -here.SlopeRatePerM;
-    if (!(crest > 0.0)) { return; }
-    const double flying = std::sqrt(within.GravityMs2 / crest);
-    if (flying > bindingMs) { return; }
-    ++CrestsBound_;
-    if (CrestHeld_ <= 0.0 || flying < CrestHeld_) {
-      CrestHeld_ = flying;
-      CrestHeldAt_ = station;
-    }
-  };
 
   const auto HeldAt = [&](const Placed &here, Held &by) {
     double held = topMs;
@@ -138,7 +124,6 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
     Held holds = Held::Free;
     Held_[at] = HeldAt(here, holds);
     Why_[at] = holds;
-    NoteCrest(here, station, Held_[at]);
   }
 
   const auto ClampAround = [&](double where, double heldMs, Held by) {
@@ -174,9 +159,6 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
     ClampAround(from, atHead, byHead);
     ClampAround(centre, atMiddle, byMiddle);
     ClampAround(to, atTail, byTail);
-    NoteCrest(head, from, atHead);
-    NoteCrest(middle, centre, atMiddle);
-    NoteCrest(tail, to, atTail);
   }
 
   const auto gapM = [&](size_t before) {
@@ -209,6 +191,12 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
       Slowest_.Ms = Held_[at];
       Slowest_.AtM = station;
       Slowest_.By = Why_[at];
+    }
+    const bool geometric = IsGeometry(Why_[at]);
+    if (geometric && (SlowestBound_.By == Held::Free || Held_[at] < SlowestBound_.Ms)) {
+      SlowestBound_.Ms = Held_[at];
+      SlowestBound_.AtM = station;
+      SlowestBound_.By = Why_[at];
     }
   }
   return true;

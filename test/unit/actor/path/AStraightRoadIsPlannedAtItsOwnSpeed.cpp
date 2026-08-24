@@ -142,6 +142,31 @@ int main(void) {
     CHECK(slowest.By != SpeedProfile::Held::Free,
           "and a station the plan holds below its own top speed is never reported free");
 
+    // board:1785, sharpened: Slowest() is honest and USELESS in production, because both
+    // callsites hand entryMs = 0 and the slowest station is then always the start, held by
+    // 'entry'. The question the item was filed for -- "12.158 km/h at km 552.939, which
+    // physics?" -- needs the slowest station the ROAD holds, not the one the standing start
+    // holds.
+    const SpeedProfile::Standing road = plan.SlowestBound();
+    std::printf("NOTE the slowest station the road holds = %.3f km/h at %.1f m, by '%s'\n",
+                road.Ms * 3.6, road.AtM, SpeedProfile::NameOf(road.By));
+    // named, not derived from IsGeometry: this road is a straight, an easement and an arc,
+    // and the arc is the only thing on it that a ROAD imposes. Asserting through IsGeometry
+    // would let a term move into that set and keep the claim green -- oracle and defect from
+    // one source, which is how the first version of this item shipped wrong.
+    CHECK(road.By == SpeedProfile::Held::Curvature,
+          "**AND THE PLAN NAMES THE SLOWEST STATION THE ROAD ITSELF HOLDS**: entry, traction "
+          "and braking are facts about the DRIVE -- how fast it arrived, how hard it can "
+          "pull, what it must shed for what comes next -- while curvature, slip, ramp, climb "
+          "and crest are facts about the ROAD, and only the second kind answers 'why is this "
+          "corridor slow here' (board:1785)");
+    CHECK_NEAR(road.AtM, kStraightM + kEaseM, 1.0e-9, "m",
+               "at the station where the easement hands over to the arc, which is where this "
+               "road is tightest");
+    CHECK(road.Ms >= slowest.Ms,
+          "and it is at or above the plan's outright minimum, because it is that minimum "
+          "with the driver's own arrival excluded");
+
     size_t counted = 0;
     for (size_t at = 0; at < (size_t)SpeedProfile::Held::kCount; ++at) {
       counted += plan.BoundBy((SpeedProfile::Held)at);

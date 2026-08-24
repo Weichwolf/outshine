@@ -57,10 +57,19 @@ int main(void) {
   const Envelope earth = Standing(kEarthMs2);
   CHECK(onEarth.Over(line, earth, kStepM, kEntryMs, error),
         "the plan lays over it under the declared 9.80665 m/s2");
-  Note("stations the crest bounds under that gravity", (double)onEarth.CrestsThatBound(),
-       "stations");
-  CHECK(onEarth.CrestsThatBound() > 0, "the crest is the binding term, not the engine or the tyres");
-  CHECK_NEAR(onEarth.CrestHeldMs(), std::sqrt(kEarthMs2 / kCrestPerM), 1.0e-9, "m/s",
+  // board:1785: CrestsThatBound() counted BEFORE the three sweeps and over TWO populations
+  // -- the sample loop and three evaluations per seam interval -- so it published 804
+  // "stations" on an 801-station plan. BoundBy(Crest) answers the same question after the
+  // last sweep, over one population, and the tally sums to SampleCount().
+  Note("stations the crest bounds under that gravity",
+       (double)onEarth.BoundBy(SpeedProfile::Held::Crest), "stations");
+  Note("stations in the plan", (double)onEarth.SampleCount(), "stations");
+  CHECK(onEarth.BoundBy(SpeedProfile::Held::Crest) <= onEarth.SampleCount(),
+        "**A TALLY OF STATIONS DOES NOT EXCEED THE STATIONS THERE ARE**: the crest count is "
+        "taken after the sweeps over one population, not before them over two (board:1785)");
+  CHECK(onEarth.BoundBy(SpeedProfile::Held::Crest) > 0,
+        "the crest is the binding term, not the engine or the tyres");
+  CHECK_NEAR(onEarth.SlowestBound().Ms, std::sqrt(kEarthMs2 / kCrestPerM), 1.0e-9, "m/s",
              "**THE CREST SPEED IS sqrt(g / h'') AND NOTHING ELSE** -- the held speed reproduces "
              "the closed form from the declared gravity and the road's own vertical bend");
 
@@ -69,7 +78,8 @@ int main(void) {
   CHECK(onMoon.Over(line, moon, kStepM, kEntryMs, error),
         "the SAME road plans again under a declared 1.62 m/s2 (measured, lunar surface mean) -- "
         "no code changes, only the declaration");
-  CHECK(onMoon.CrestsThatBound() > 0, "the crest binds there too, at a quarter of the speed");
+  CHECK(onMoon.BoundBy(SpeedProfile::Held::Crest) > 0,
+        "the crest binds there too, at a quarter of the speed");
   const double middleM = 0.5 * kRoadM;
   Note("the crest speed on earth", onEarth.At(middleM), "m/s");
   Note("the crest speed on the moon", onMoon.At(middleM), "m/s");

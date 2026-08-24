@@ -66,12 +66,15 @@ public:
   [[nodiscard]] size_t SampleCount() const noexcept { return Held_.size(); }
   [[nodiscard]] double SampleAt(size_t which) const noexcept { return Held_[which]; }
   [[nodiscard]] double CurvatureAt(size_t which) const noexcept { return Curvature_[which]; }
-  [[nodiscard]] double CrestHeldMs() const noexcept { return CrestHeld_; }
-  [[nodiscard]] double CrestHeldAtM() const noexcept { return CrestHeldAt_; }
-  [[nodiscard]] size_t CrestsThatBound() const noexcept { return CrestsBound_; }
+  [[nodiscard]] Standing SlowestBound() const noexcept { return SlowestBound_; }
+  [[nodiscard]] static constexpr bool IsGeometry(Held term) noexcept {
+    return term == Held::Curvature || term == Held::Slip || term == Held::Ramp ||
+           term == Held::Climb || term == Held::Crest;
+  }
 
 private:
   Standing Slowest_;
+  Standing SlowestBound_;
   size_t Bound_[(size_t)Held::kCount] = {};
 
   std::vector<double> Held_;
@@ -79,9 +82,6 @@ private:
   std::vector<double> Curvature_;
   double StepM_ = 0.0;
   double LengthM_ = 0.0;
-  double CrestHeld_ = 0.0;
-  double CrestHeldAt_ = 0.0;
-  size_t CrestsBound_ = 0;
 };
 
 }
