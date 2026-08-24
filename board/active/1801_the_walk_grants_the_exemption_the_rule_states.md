@@ -114,13 +114,45 @@ the list.
 
 ## What must be true
 
-- [ ] The exemption is decided by role, not by content: the walk takes the runner's own case
+- [x] The exemption is decided by role, not by content: the walk takes the runner's own case
       list (or the same enumeration `test/run.sh` performs -- a source that is the case of a
       declared suite), so a library source cannot exempt itself by quoting the harness.
-- [ ] The needle, if one is kept at all, must be something a comment cannot legally contain --
+- [x] The needle, if one is kept at all, must be something a comment cannot legally contain --
       and there is no such string, which is the argument for the role.
-- [ ] Negative control, and it is the one this item now owes: the line above put back into
+- [x] Negative control, and it is the one this item now owes: the line above put back into
       `src/core/Span.h` -> `FOUND src/core/Span.h:45 narrates`, red. The run above is the green
       the repair must turn.
-- [ ] The same hole stands in the `board:` walk beside it (`:141`), which took the identical
+- [x] The same hole stands in the `board:` walk beside it (`:141`), which took the identical
       exemption in the identical form. Both, one repair.
+
+## Repaid by role (2026-08-24)
+
+The reviewer is right and the previous repair was the same construction one notch tighter.
+`Covers("` is spellable in a comment; so is any string chosen after it. **There is no needle a
+comment cannot legally contain**, and that is the argument for not using one.
+
+The runner owns the role:
+
+```sh
+$ test/run.sh --cases        # 232 lines, 0.7 s, before it builds anything
+src/... never appears; test/..., tools/... and apps/... cases do
+```
+
+`--cases` prints `TESTS` where the runner enumerates it -- after the layer walk that decides
+what a case IS, before any suite selection narrows it and before `BuildLibrary`. Both halves of
+the walk now ask that list. A library source cannot join it by quoting the harness; it can only
+join it by becoming a case, which is the thing being exempted.
+
+- **Proving test**: `harness/claims/TheSourceCarriesNoCommentary`, both halves.
+- **Negative controls**, both run, both the reviewer's own:
+
+  ```
+  // this narration mentions Covers("IV.11") and therefore exempts its own file
+  -> FOUND src/core/Span.h:45 narrates                              (was PASS)
+
+  /* board:1234 Covers("IV.11") */
+  -> FOUND src/core/Span.h:21 names a board item
+     FOUND src/core/Span.h:21 narrates                              (was PASS)
+  ```
+
+  The green the reopening measured is red, in both halves, for the same reason.

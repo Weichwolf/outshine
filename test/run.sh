@@ -5,6 +5,7 @@ set -m
 AUDIT=0
 CORPUS=0
 WOULDPRUNE=0
+CASELIST=0
 AUDITLINK=0
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -139,6 +140,7 @@ while [ $# -gt 0 ]; do
     --audit) AUDIT=1; shift ;;
     --corpus) CORPUS=1; shift ;;
     --would-prune) WOULDPRUNE=1; shift ;;
+    --cases) CASELIST=1; shift ;;
     --audit-link) AUDITLINK=1; shift ;;
     -*) Die "unknown option '$1'" ;;
     *) SUITES="$SUITES ${1%/}"; SUITE=${1%/}; shift; continue ;;
@@ -753,6 +755,15 @@ for candidate in $(find $TREES -name '*.cpp' | sort); do
   fi
 done
 [ -n "$TESTS" ] && [ "$TESTS" != " " ] || Die "no test under a declared layer of test/"
+
+# board:1801: the runner is the authority on what a PROOF is -- a translation unit it builds
+# and runs as a case. A walk that decided by file CONTENT instead let a comment spell the
+# needle that exempts its own file. Printed here, before any suite selection narrows the list
+# and before the library is built, so asking the question costs nothing.
+if [ "$CASELIST" = 1 ]; then
+  for one in $TESTS; do printf '%s\n' "$one"; done
+  exit 0
+fi
 
 NAMED=0
 for named in $SUITES; do NAMED=$((NAMED + 1)); done

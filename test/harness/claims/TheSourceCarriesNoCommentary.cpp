@@ -22,6 +22,36 @@ namespace {
 
 // a "//" inside a string literal is data, not prose -- Script.cpp and Style.cpp both hold
 // the two characters as the thing they parse, so the walk reads literals before it judges
+// board:1801, reopened: the exemption was a property of the file's BYTES, and a comment can
+// spell any needle chosen for it -- `// this narration mentions Covers("IV.11") and therefore
+// exempts its own file` in src/core/Span.h turned this claim green, measured. Tightening the
+// needle again is the same construction; there is no string a comment cannot legally contain.
+//
+// The exemption is a property of the file's ROLE, and the runner owns that role: a proof is a
+// translation unit `test/run.sh` builds and RUNS as a case. `run.sh --cases` prints that list
+// before it builds anything, so asking costs a fifth of a second and cannot be spelled by the
+// text it governs.
+[[nodiscard]] std::vector<std::string> TheRunnersOwnCases() {
+  std::vector<std::string> cases;
+  std::FILE *const pipe = popen("sh test/run.sh --cases 2>/dev/null", "r");
+  if (pipe == nullptr) { return cases; }
+  char line[1024];
+  while (std::fgets(line, sizeof line, pipe) != nullptr) {
+    std::string one(line);
+    while (!one.empty() && (one.back() == '\n' || one.back() == ' ')) { one.pop_back(); }
+    if (!one.empty()) { cases.push_back(one); }
+  }
+  pclose(pipe);
+  return cases;
+}
+
+[[nodiscard]] bool IsAProof(const std::vector<std::string> &cases, const std::string &path) {
+  for (const std::string &one : cases) {
+    if (one == path) { return true; }
+  }
+  return false;
+}
+
 [[nodiscard]] int CommentLine(const std::string &text) {
   int line = 1;
   size_t at = 0;
@@ -71,6 +101,12 @@ int main(void) {
   using namespace outshine::Test;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
+  const std::vector<std::string> cases = TheRunnersOwnCases();
+  Note("cases the runner declares", (double)cases.size(), "cases");
+  CHECK(cases.size() > 200,
+        "the runner named its cases -- this walk decides what a proof is by asking it, and a "
+        "list it could not read would exempt everything (board:1801)");
+
   size_t walked = 0;
   std::vector<std::string> narrating;
   for (const char *root : {"src", "include", "tools", "apps"}) {
@@ -79,14 +115,8 @@ int main(void) {
       const std::string suffix = entry.path().extension().string();
       if (suffix != ".cpp" && suffix != ".h" && suffix != ".msl") { continue; }
       ++walked;
-      const std::string source = Slurp(entry.path());
-      // board:1801: the same exemption the board-number walk below grants. CLAUDE.md states
-      // one rule for both halves -- a proof is any source carrying Covers(", wherever it
-      // lives, and every source that does not is bound. The quote is part of the needle: a
-      // narration line that merely spells the word must not exempt the file that carries it,
-      // which is how the first negative control for this repair exempted itself.
-      if (source.find("Covers(\"") != std::string::npos) { continue; }
-      const int line = CommentLine(source);
+      if (IsAProof(cases, entry.path().string())) { continue; }
+      const int line = CommentLine(Slurp(entry.path()));
       if (line > 0) {
         narrating.push_back(entry.path().string() + ":" + std::to_string(line));
       }
@@ -145,7 +175,7 @@ int main(void) {
       const std::string suffix = entry.path().extension().string();
       if (suffix != ".cpp" && suffix != ".h" && suffix != ".msl") { continue; }
       const std::string text = Slurp(entry.path());
-      if (text.find("Covers(\"") != std::string::npos) { continue; }
+      if (IsAProof(cases, entry.path().string())) { continue; }
       for (size_t at = text.find("board:"); at != std::string::npos;
            at = text.find("board:", at + 1)) {
         size_t line = 1;
