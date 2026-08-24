@@ -832,4 +832,79 @@ ReadState Renderer::ReadSurfaceIdentity(std::vector<float> &slot) {
   return ReadState::Ready;
 }
 
+bool Renderer::ShowOn(SDL_Window *window, std::string &error) {
+  if (window == nullptr) {
+    error = "a renderer is shown on a window and this call names none";
+    return false;
+  }
+  if (!Ready_ || Device_.Get() == nullptr) {
+    error = "the renderer has no device to claim a window for: " + WhyNot_;
+    return false;
+  }
+  if (Showing_ == window) { return true; }
+  StopShowing();
+  if (!SDL_ClaimWindowForGPUDevice(Device_.Get(), window)) {
+    error = std::string("the window was refused by the device: ") + SDL_GetError();
+    return false;
+  }
+  Showing_ = window;
+  return true;
+}
+
+void Renderer::StopShowing() {
+  if (Offscreen_ != nullptr) {
+    if (Device_.Get() != nullptr) { SDL_ReleaseGPUTexture(Device_.Get(), Offscreen_); }
+    Offscreen_ = nullptr;
+    HostSurface_ = nullptr;
+  }
+  if (Showing_ == nullptr) { return; }
+  if (Device_.Get() != nullptr) { SDL_ReleaseWindowFromGPUDevice(Device_.Get(), Showing_); }
+  Showing_ = nullptr;
+}
+
+bool Renderer::ShowOffscreen(int widthPx, int heightPx, std::string &error) {
+  if (widthPx <= 0 || heightPx <= 0) {
+    error = "a surface is shown into a positive extent and this call declares " +
+            std::to_string(widthPx) + " by " + std::to_string(heightPx);
+    return false;
+  }
+  if (!Ready_ || Device_.Get() == nullptr) {
+    error = "the renderer has no device to make a surface on: " + WhyNot_;
+    return false;
+  }
+  StopShowing();
+  SDL_GPUTextureCreateInfo wanted{};
+  wanted.type = SDL_GPU_TEXTURETYPE_2D;
+  wanted.format = SurfaceFormat();
+  wanted.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
+  wanted.width = (Uint32)widthPx;
+  wanted.height = (Uint32)heightPx;
+  wanted.layer_count_or_depth = 1;
+  wanted.num_levels = 1;
+  Offscreen_ = SDL_CreateGPUTexture(Device_.Get(), &wanted);
+  if (Offscreen_ == nullptr) {
+    error = std::string("the device refused a surface of that extent: ") + SDL_GetError();
+    return false;
+  }
+  PresentInto(Offscreen_);
+  return true;
+}
+
+Renderer::Shown Renderer::PresentFrame() {
+  Shown shown;
+  if (Showing_ == nullptr || Device_.Get() == nullptr) { return shown; }
+  SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device_.Get());
+  SDL_GPUTexture *surface = nullptr;
+  Uint32 gotW = 0, gotH = 0;
+  if (SDL_WaitAndAcquireGPUSwapchainTexture(commands, Showing_, &surface, &gotW, &gotH) &&
+      surface != nullptr) {
+    shown.WidthPx = (int)gotW;
+    shown.HeightPx = (int)gotH;
+    PresentInto(surface);
+    shown.Drew = true;
+  }
+  SDL_SubmitGPUCommandBuffer(commands);
+  return shown;
+}
+
 }

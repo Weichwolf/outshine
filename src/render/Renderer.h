@@ -37,11 +37,21 @@ public:
 
   [[nodiscard]] const std::string &WhyNot() const { return WhyNot_; }
 
-  [[nodiscard]] SDL_GPUDevice *Device() const { return Device_.Get(); }
+  struct Shown {
+    bool Drew = false;
+    int WidthPx = 0;
+    int HeightPx = 0;
+  };
+
+  [[nodiscard]] bool ShowOn(SDL_Window *window, std::string &error);
+  [[nodiscard]] bool ShowOffscreen(int widthPx, int heightPx, std::string &error);
+  [[nodiscard]] Shown PresentFrame();
+  void StopShowing();
 
   [[nodiscard]] SDL_GPUTextureFormat SurfaceFormat() const;
 
   void PresentInto(SDL_GPUTexture *surface) { HostSurface_ = surface; }
+
 
   void SetPictureRegion(double x, double y, double width, double height, double aspect = 0.0) {
     RegionX_ = x;
@@ -214,6 +224,8 @@ private:
   OwnedDevice Device_;
 
   SDL_GPUTexture *HostSurface_ = nullptr;
+  SDL_Window *Showing_ = nullptr;
+  SDL_GPUTexture *Offscreen_ = nullptr;
   std::shared_ptr<const RenderPlan> Plan_;
   Gpu Handles_;
   OwnedTexture HdrTex_, VelTex_, DepthTex_, FrameTex_;

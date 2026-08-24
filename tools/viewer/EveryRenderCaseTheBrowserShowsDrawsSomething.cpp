@@ -148,24 +148,15 @@ int main(void) {
       }
     }
 
-    SDL_GPUTextureCreateInfo wanted{};
-    wanted.type = SDL_GPU_TEXTURETYPE_2D;
-    wanted.format = renderer.SurfaceFormat();
-    wanted.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
-    wanted.width = (Uint32)kSurfaceW;
-    wanted.height = (Uint32)kSurfaceH;
-    wanted.layer_count_or_depth = 1;
-    wanted.num_levels = 1;
-    SDL_GPUTexture *surface = SDL_CreateGPUTexture(renderer.Device(), &wanted);
-    if (surface == nullptr) {
+    if (!renderer.ShowOffscreen(kSurfaceW, kSurfaceH, why)) {
       ++refused;
-      Checked(false, "the client's own surface is made", one.Name.c_str(), __FILE__, __LINE__);
+      Checked(false, "the surface the client declared is made", (one.Name + ": " + why).c_str(),
+              __FILE__, __LINE__);
       continue;
     }
-    renderer.PresentInto(surface);
 
     if (!held.Draw(renderer, why)) {
-      SDL_ReleaseGPUTexture(renderer.Device(), surface);
+      renderer.StopShowing();
       ++refused;
       Checked(false, "the case the browser shows draws", (one.Name + ": " + why).c_str(), __FILE__,
               __LINE__);
@@ -173,8 +164,7 @@ int main(void) {
     }
     std::vector<uint8_t> rgba;
     const outshine::Render::ReadState read = renderer.ReadPixels(rgba);
-    renderer.PresentInto(nullptr);
-    SDL_ReleaseGPUTexture(renderer.Device(), surface);
+    renderer.StopShowing();
     if (read != outshine::Render::ReadState::Ready) {
       ++refused;
       Checked(false, "the frame comes back off the device", one.Name.c_str(), __FILE__, __LINE__);

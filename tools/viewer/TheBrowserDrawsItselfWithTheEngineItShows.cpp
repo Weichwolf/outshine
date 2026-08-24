@@ -607,8 +607,8 @@ int Windowed(Browser &browser, int frames) {
           browser.Showing.Note = "THE DECLARATION WAS REFUSED";
         }
       }
-      if (live && !SDL_ClaimWindowForGPUDevice(renderer.Device(), window)) {
-        std::printf("the window was refused: %s\n", SDL_GetError());
+      if (live && !renderer.ShowOn(window, error)) {
+        std::printf("the window was refused: %s\n", error.c_str());
         return 1;
       }
       body = browser.Body();
@@ -623,25 +623,17 @@ int Windowed(Browser &browser, int frames) {
     }
     if (!live) { break; }
 
-    SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(renderer.Device());
-    SDL_GPUTexture *surface = nullptr;
-    Uint32 gotW = 0, gotH = 0;
-    if (SDL_WaitAndAcquireGPUSwapchainTexture(commands, window, &surface, &gotW, &gotH) &&
-        surface != nullptr) {
-
-      if ((int)gotW != browser.WidthPx || (int)gotH != browser.HeightPx) {
-        browser.WidthPx = (int)gotW;
-        browser.HeightPx = (int)gotH;
+    const outshine::Render::Renderer::Shown shown = renderer.PresentFrame();
+    if (shown.Drew) {
+      if (shown.WidthPx != browser.WidthPx || shown.HeightPx != browser.HeightPx) {
+        browser.WidthPx = shown.WidthPx;
+        browser.HeightPx = shown.HeightPx;
         restand = true;
       }
-      renderer.PresentInto(surface);
-      SDL_SubmitGPUCommandBuffer(commands);
       const auto began = std::chrono::steady_clock::now();
       if (!live->Advance(error)) { browser.Showing.Note = "REFUSED " + error; }
       advanceMs.push_back(
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
-    } else {
-      SDL_SubmitGPUCommandBuffer(commands);
     }
   }
   renderer.WaitForGpu();
@@ -650,7 +642,7 @@ int Windowed(Browser &browser, int frames) {
     std::printf("advance p50 %.3f p95 %.3f p99 %.3f max %.3f ms over %zu frames\n",
                 advancing.P50Ms, advancing.P95Ms, advancing.P99Ms, advancing.MaxMs, advanceMs.size());
   }
-  SDL_ReleaseWindowFromGPUDevice(renderer.Device(), window);
+  renderer.StopShowing();
   SDL_DestroyWindow(window);
   std::printf("the browser drew %d frame(s) into a window it owns\n", drawn);
   return 0;
