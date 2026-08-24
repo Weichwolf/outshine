@@ -41,14 +41,10 @@ double ApartM(double fromLatDeg, double fromLonDeg, double toLatDeg, double toLo
   return 2.0 * sphereRadiusM * std::asin(std::sqrt(half < 1.0 ? half : 1.0));
 }
 
-void Network::Lay(const double *latLonPairs, size_t points, double halfWidthM,
-                  double maxGradient, int lanes) {
-  Lay(latLonPairs, points, halfWidthM, maxGradient, lanes, 0.0);
-}
-
-void Network::Lay(const double *latLonPairs, size_t points, double halfWidthM,
-                  double maxGradient, int lanes, double minRadiusM) {
-  if (latLonPairs == nullptr || points < 2) { return; }
+void Network::Lay(std::span<const double> latLonPairs, double halfWidthM, double maxGradient,
+                  int lanes, double minRadiusM) {
+  const size_t points = latLonPairs.size() / 2;
+  if (points < 2) { return; }
   Way way;
   way.First = Points_.size() / 2;
   way.Count = points;

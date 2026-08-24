@@ -148,7 +148,7 @@ int main(void) {
         "whether a tile is in the field read two containers, and before board:1807 only one of "
         "them was written by the accept path -- a tile with 668 bytes of features in it "
         "answered no to the other (board:1807)");
-  CHECK(field.OfTile(field.TileIndex(kTileX, kTileY)).Size() == 1,
+  CHECK(field.OfTile(field.TileIndex(kTileX, kTileY)).size() == 1,
         "and asking the field for that tile's features returns the one it took");
   CHECK(field.TileIndex(kTileX + 1, kTileY) < 0,
         "while a tile it never accepted has no index rather than index zero");

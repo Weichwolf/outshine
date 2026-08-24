@@ -1,4 +1,6 @@
 #include "World.h"
+
+#include <span>
 #include "TerrainLoader.h"
 #include "Camera.h"
 #include "Capacity.h"
@@ -339,7 +341,7 @@ void World::Update(double camLat, double camLon) {
 
   const double tBld = Clock();
   BuildingDecodeMs_ = 0.0;
-  Vectors_.Build(*Pool_, camLat, camLon, 1);
+  (void)Vectors_.Build(*Pool_, camLat, camLon, 1);
   const size_t hadWater = Water_.Surfaces().size() + Water_.Courses().size();
   if (Veg_) Water_.Ingest(*Ground_, Vectors_, *Veg_);
   if (Veg_) Streets_.Ingest(Vectors_, *Veg_);
@@ -356,7 +358,7 @@ void World::Update(double camLat, double camLon) {
 }
 
 void World::CutKerbs() {
-  const std::vector<double> &pts = Vectors_.Points();
+  const std::span<const double> pts = Vectors_.Points();
   Kerbs_.clear();
   Kerbs_.reserve(Streets_.Ways().size());
   for (const StreetField::Way &w : Streets_.Ways()) {

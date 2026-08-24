@@ -77,10 +77,10 @@ int OsmField::TileIndex(int x, int y) const {
   return -1;
 }
 
-Span<const OsmField::Feature> OsmField::OfTile(int index) const {
-  if (index < 0 || (size_t)index >= Tiles_.size()) return Span<const Feature>();
+std::span<const OsmField::Feature> OsmField::OfTile(int index) const {
+  if (index < 0 || (size_t)index >= Tiles_.size()) return {};
   const Tile &t = Tiles_[(size_t)index];
-  return Span<const Feature>(Features_.data() + t.FirstFeature, t.FeatureCount);
+  return std::span<const Feature>(Features_.data() + t.FirstFeature, t.FeatureCount);
 }
 
 bool OsmField::AddTile(TilePool &tiles, int tx, int ty, int &added) {

@@ -22,8 +22,8 @@ constexpr double kLiftM = 0.15;
 bool WaterField::TileGroundResolved(const GroundQuery &ground, const OsmField &field,
                                     size_t from, size_t to, int poly,
                                     int line) const {
-  const std::vector<double> &pts = field.Points();
-  const std::vector<OsmField::Feature> &feats = field.Features();
+  const std::span<const double> pts = field.Points();
+  const std::span<const OsmField::Feature> feats = field.Features();
   for (size_t i = from; i < to; i++) {
     const OsmField::Feature &f = feats[i];
     if (field.Num(f, "tunnel", 0.0) > 0.5) continue;
@@ -53,7 +53,7 @@ void WaterField::AnchorAt(const double ecef[3]) {
 uint32_t WaterField::Ingest(const GroundQuery &ground, const OsmField &field,
                             const VegetationTemplates &veg) {
   assert(Anchored_);
-  const std::vector<OsmField::Feature> &feats = field.Features();
+  const std::span<const OsmField::Feature> feats = field.Features();
   if (Mark_.Done(feats)) return (uint32_t)Surfaces_.size();
 
   const int poly = field.Layer(OsmLayer::WaterPolygons);
@@ -65,7 +65,7 @@ uint32_t WaterField::Ingest(const GroundQuery &ground, const OsmField &field,
   Mark_.Take(next.Tile);
   Mark_.Advance(feats);
 
-  const std::vector<double> &pts = field.Points();
+  const std::span<const double> pts = field.Points();
   const uint32_t firstSurface = (uint32_t)Surfaces_.size();
   std::vector<double> hs;
 
@@ -142,7 +142,7 @@ uint32_t WaterField::Ingest(const GroundQuery &ground, const OsmField &field,
 
 void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) const {
   out.clear();
-  const std::vector<double> &ring = field.Points();
+  const std::span<const double> ring = field.Points();
   std::vector<double> p3;
 
   for (const Surface &s : Surfaces_) {

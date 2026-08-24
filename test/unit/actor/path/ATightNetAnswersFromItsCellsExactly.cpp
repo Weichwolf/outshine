@@ -36,7 +36,7 @@ void Grid(Network &net, double lat0) {
       points.push_back(LatOf(lat0, row * kSpacingM));
       points.push_back(LonOf(lat0, column * kSpacingM));
     }
-    net.Lay(points.data(), points.size() / 2, 3.5, 0.1, 2);
+    net.Lay(points, 3.5, 0.1, 2);
   }
 }
 

@@ -1,5 +1,7 @@
 #include "ClassField.h"
 
+#include <span>
+
 #include "Capacity.h"
 #include "Log.h"
 #include "VegetationTemplates.h"
@@ -39,7 +41,7 @@ size_t ClassField::HeapBytes() const {
 void ClassField::Ingest(Tier &t) {
 
   if (t.ArraysLent) return;
-  const std::vector<double> &pts = t.Field->Points();
+  const std::span<const double> pts = t.Field->Points();
   const size_t havePts = pts.size() / 2;
   if (havePts > t.PtsDone) {
     t.Pts.resize(havePts * 2);
@@ -52,7 +54,7 @@ void ClassField::Ingest(Tier &t) {
     t.PtsDone = havePts;
   }
 
-  const std::vector<OsmField::Ring> &rings = t.Field->Rings();
+  const std::span<const OsmField::Ring> rings = t.Field->Rings();
   if (rings.size() > t.RingsDone) {
     t.Rings.resize(rings.size());
     for (size_t i = t.RingsDone; i < rings.size(); i++)
@@ -60,7 +62,7 @@ void ClassField::Ingest(Tier &t) {
     t.RingsDone = rings.size();
   }
 
-  const std::vector<OsmField::Feature> &feats = t.Field->Features();
+  const std::span<const OsmField::Feature> feats = t.Field->Features();
   if (feats.size() <= t.FeatsDone) return;
 
   for (size_t i = t.FeatsDone; i < feats.size(); i++) {
@@ -164,8 +166,8 @@ void ClassField::Update(TilePool &tiles, double camLat, double camLon) {
     Coarse_.Field = std::make_unique<OsmField>(Coarse_.Zoom, Veg_->AreaLayers());
   }
   const double t0 = Clock();
-  Fine_.Field->Build(tiles, camLat, camLon, Fine_.TileRadius);
-  Coarse_.Field->Build(tiles, camLat, camLon, Coarse_.TileRadius);
+  (void)Fine_.Field->Build(tiles, camLat, camLon, Fine_.TileRadius);
+  (void)Coarse_.Field->Build(tiles, camLat, camLon, Coarse_.TileRadius);
   const double t1 = Clock();
   Ingest(Fine_);
   Ingest(Coarse_);

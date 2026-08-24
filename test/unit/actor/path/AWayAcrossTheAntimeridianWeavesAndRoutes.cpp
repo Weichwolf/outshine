@@ -21,7 +21,7 @@ constexpr double kLatDeg = 60.0;
 
 void Lay(Network &net, double fromLon, double toLon) {
   const double points[4] = {kLatDeg, fromLon, kLatDeg, toLon};
-  net.Lay(points, 2, 3.5, 0.1, 2);
+  net.Lay(std::span<const double>(points, 2 * 2), 3.5, 0.1, 2);
 }
 
 } // namespace
@@ -77,8 +77,8 @@ int main(void) {
     // direction where the neighbour's columns are the narrower ones
     const double first[4] = {latB, lonB - 30.0, latB, lonB};
     const double second[4] = {latA, lonA, latA, lonA + 30.0};
-    polar.Lay(first, 2, 3.5, 0.1, 2);
-    polar.Lay(second, 2, 3.5, 0.1, 2);
+    polar.Lay(std::span<const double>(first, 2 * 2), 3.5, 0.1, 2);
+    polar.Lay(std::span<const double>(second, 2 * 2), 3.5, 0.1, 2);
     CHECK(polar.Weave(error), "the polar pair weaves");
     Note("nodes at the adversarial fraction", (double)polar.NodeCount(), "nodes");
     CHECK(polar.NodeCount() == 3,

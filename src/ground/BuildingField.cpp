@@ -45,7 +45,7 @@ int DefaultStoreys(double areaM2, double acrossM, double standBackM, double latD
 }
 
 double RingAreaM2(const OsmField &field, const OsmField::Ring &ring) {
-  const std::vector<double> &pts = field.Points();
+  const std::span<const double> pts = field.Points();
   const double refLat = pts[(size_t)ring.First * 2], refLon = pts[(size_t)ring.First * 2 + 1];
   double a = 0.0;
   for (uint32_t k = 0; k < ring.Count; k++) {
@@ -61,7 +61,7 @@ double RingAreaM2(const OsmField &field, const OsmField::Ring &ring) {
 }
 
 double AcrossM(const OsmField &field, const OsmField::Ring &ring) {
-  const std::vector<double> &pts = field.Points();
+  const std::span<const double> pts = field.Points();
   const double refLat = pts[(size_t)ring.First * 2], refLon = pts[(size_t)ring.First * 2 + 1];
   double e0 = 1e30, e1 = -1e30, n0 = 1e30, n1 = -1e30;
   for (uint32_t k = 0; k < ring.Count; k++) {
@@ -78,7 +78,7 @@ Frontage NearestStreet(const OsmField &field, const OsmField::Ring &ring,
                        Span<const WayLine> ways, double *standBackM) {
   Frontage out;
   *standBackM = -1.0;
-  const std::vector<double> &pts = field.Points();
+  const std::span<const double> pts = field.Points();
   const double refLat = pts[(size_t)ring.First * 2], refLon = pts[(size_t)ring.First * 2 + 1];
   double cE = 0.0, cN = 0.0;
   for (uint32_t k = 0; k < ring.Count; k++) {
@@ -134,7 +134,7 @@ Frontage NearestStreet(const OsmField &field, const OsmField::Ring &ring,
 GroundSample BuildingField::RingBase(const GroundQuery &ground, const OsmField &field,
                                      const OsmField::Ring &ring,
                                     std::vector<double> *corners) {
-  const std::vector<double> &pts = field.Points();
+  const std::span<const double> pts = field.Points();
   if (corners) corners->clear();
   if (ring.Count == 0) return GroundSample::Missing();
   double lowest = 1.0e9;
@@ -152,7 +152,7 @@ GroundSample BuildingField::RingBase(const GroundQuery &ground, const OsmField &
 bool BuildingField::TileGroundResolved(const GroundQuery &ground, const OsmField &field,
                                        size_t from, size_t to,
                                        int layer) const {
-  const std::vector<OsmField::Feature> &feats = field.Features();
+  const std::span<const OsmField::Feature> feats = field.Features();
   for (size_t i = from; i < to; i++) {
     const OsmField::Feature &f = feats[i];
     if (f.Type != 3 || (int)f.Layer != layer) continue;
@@ -177,11 +177,11 @@ int BuildingField::Build(const GroundQuery &ground, const OsmField &field,
   AddedFirst_ = (uint32_t)Verts_.size();
   AddedCount_ = 0;
 
-  const std::vector<OsmField::Feature> &feats = field.Features();
+  const std::span<const OsmField::Feature> feats = field.Features();
   if (Mark_.Done(feats)) return (int)Prints_.size();
 
   const int layer = field.Layer(OsmLayer::Buildings);
-  const std::vector<double> &pts = field.Points();
+  const std::span<const double> pts = field.Points();
   const uint32_t firstPrint = (uint32_t)Prints_.size();
   int added = 0;
 
@@ -247,7 +247,7 @@ int BuildingField::Build(const GroundQuery &ground, const OsmField &field,
 
 void BuildingField::Raise(const OsmField &field, const Footprint &f) {
   if (!Mesher_) return;
-  const std::vector<double> &pts = field.Points();
+  const std::span<const double> pts = field.Points();
   StructurePlan plan;
   plan.RingLatLon = Span<const double>(pts.data() + (size_t)f.FirstPoint * 2, (size_t)f.PointCount * 2);
   plan.BaseAslM = f.BaseM;

@@ -53,7 +53,7 @@ int main(void) {
       along.push_back(lat + (double)row * kBlockDeg);
       along.push_back(lon + (double)column * kBlockDeg);
     }
-    grid.Lay(along.data(), (size_t)kSide, 3.5, 0.06, 2);
+    grid.Lay(std::span<const double>(along.data(), 2 * (size_t)kSide), 3.5, 0.06, 2);
   }
   for (int column = 0; column < kSide; ++column) {
     std::vector<double> down;
@@ -61,7 +61,7 @@ int main(void) {
       down.push_back(lat + (double)row * kBlockDeg);
       down.push_back(lon + (double)column * kBlockDeg);
     }
-    grid.Lay(down.data(), (size_t)kSide, 3.5, 0.06, 2);
+    grid.Lay(std::span<const double>(down.data(), 2 * (size_t)kSide), 3.5, 0.06, 2);
   }
 
   std::string error;
@@ -129,8 +129,8 @@ int main(void) {
   Network island(kSnapM, kIuggMeanRadiusM);
   const double first[4] = {48.0, 11.0, 48.0, 11.01};
   const double second[4] = {49.0, 12.0, 49.0, 12.01};
-  island.Lay(first, 2, 3.5, 0.06, 2);
-  island.Lay(second, 2, 3.5, 0.06, 2);
+  island.Lay(std::span<const double>(first, 2 * 2), 3.5, 0.06, 2);
+  island.Lay(std::span<const double>(second, 2 * 2), 3.5, 0.06, 2);
   CHECK(island.Weave(error), "two ways that never meet still weave");
   const Route broken = island.Plan(Waypoint{48.0, 11.0}, Waypoint{49.0, 12.0}, 0.0);
   CHECK(!broken.Found,
@@ -148,9 +148,9 @@ int main(void) {
   const double wide[6] = {50.0, 10.0, 50.0, 10.01, 50.0, 10.02};
   const double narrow[6] = {50.0, 10.02, 50.0, 10.03, 50.0, 10.04};
   const double none[4] = {50.0, 10.04, 50.0, 10.05};
-  classes.Lay(wide, 3, 4.75, 0.06, 2, 400.0);
-  classes.Lay(narrow, 3, 3.25, 0.08, 2, 200.0);
-  classes.Lay(none, 2, 1.75, 0.12, 1);
+  classes.Lay(std::span<const double>(wide, 3 * 2), 4.75, 0.06, 2, 400.0);
+  classes.Lay(std::span<const double>(narrow, 3 * 2), 3.25, 0.08, 2, 200.0);
+  classes.Lay(std::span<const double>(none, 2 * 2), 1.75, 0.12, 1);
   CHECK(classes.Weave(error), "three ways of three classes weave");
   const Route along = classes.Plan(Waypoint{50.0, 10.0}, Waypoint{50.0, 10.05}, 0.0);
   CHECK(along.Found && along.Legs.size() == 6, "and a route runs the length of all three");
@@ -183,7 +183,7 @@ int main(void) {
       laid.push_back(50.0 + (double)at * 1.0e-5);
       laid.push_back(10.0);
     }
-    measured.Lay(laid.data(), laid.size() / 2, 4.75, 0.06, 2, 400.0);
+    measured.Lay(laid, 4.75, 0.06, 2, 400.0);
     Note("points laid", (double)measured.PointCount(), "points");
     Note("bytes the point stream costs", (double)measured.PointStreamBytes(), "bytes");
     Note("bytes it holds", (double)measured.PointStreamHeldBytes(), "bytes");

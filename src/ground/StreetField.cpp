@@ -9,7 +9,7 @@ constexpr uint32_t kMaxRingPoints = 512;
 }
 
 uint32_t StreetField::Ingest(const OsmField &field, const VegetationTemplates &veg) {
-  const std::vector<OsmField::Feature> &feats = field.Features();
+  const std::span<const OsmField::Feature> feats = field.Features();
   if (Mark_.Done(feats)) return (uint32_t)Ways_.size();
 
   const TileWatermark::Next next = Mark_.Ask(feats, [](size_t, size_t) { return true; });

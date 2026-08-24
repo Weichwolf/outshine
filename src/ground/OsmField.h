@@ -36,37 +36,37 @@ public:
 
   OsmField(int zoom, std::span<const std::string> layers);
 
-  int Build(TilePool &tiles, double lat, double lon, int ringTiles);
+  [[nodiscard]] int Build(TilePool &tiles, double lat, double lon, int ringTiles);
 
-  int Accept(int tx, int ty, std::span<const uint8_t> vectorTile);
+  [[nodiscard]] int Accept(int tx, int ty, std::span<const uint8_t> vectorTile);
 
-  int Zoom() const { return Zoom_; }
+  [[nodiscard]] int Zoom() const { return Zoom_; }
 
-  long MissingLayers() const { return Missing_; }
-  long BadTiles() const { return Bad_; }
+  [[nodiscard]] long MissingLayers() const { return Missing_; }
+  [[nodiscard]] long BadTiles() const { return Bad_; }
 
-  int PendingTiles() const { return Pending_; }
+  [[nodiscard]] int PendingTiles() const { return Pending_; }
 
   [[nodiscard]] bool Settled(int x, int y) const;
 
-  int TileIndex(int x, int y) const;
+  [[nodiscard]] int TileIndex(int x, int y) const;
 
-  Span<const Feature> OfTile(int index) const;
+  [[nodiscard]] std::span<const Feature> OfTile(int index) const;
 
-  const std::vector<Feature> &Features() const { return Features_; }
-  const std::vector<Ring> &Rings() const { return Rings_; }
-  const std::vector<double> &Points() const { return Points_; }
-  const std::vector<Tile> &Tiles() const { return Tiles_; }
+  [[nodiscard]] std::span<const Feature> Features() const { return Features_; }
+  [[nodiscard]] std::span<const Ring> Rings() const { return Rings_; }
+  [[nodiscard]] std::span<const double> Points() const { return Points_; }
+  [[nodiscard]] std::span<const Tile> Tiles() const { return Tiles_; }
 
-  size_t HeapBytes() const;
+  [[nodiscard]] size_t HeapBytes() const;
 
-  int Layer(const char *name) const;
-  int Layer(OsmLayer layer) const { return Layer(OsmLayerName(layer)); }
-  const std::string &LayerName(int i) const { return Layers_[(size_t)i]; }
+  [[nodiscard]] int Layer(const char *name) const;
+  [[nodiscard]] int Layer(OsmLayer layer) const { return Layer(OsmLayerName(layer)); }
+  [[nodiscard]] std::string_view LayerName(int i) const { return Layers_[(size_t)i]; }
 
-  double Num(const Feature &f, const char *key, double def) const;
+  [[nodiscard]] double Num(const Feature &f, const char *key, double def) const;
 
-  std::string_view Str(const Feature &f, const char *key) const;
+  [[nodiscard]] std::string_view Str(const Feature &f, const char *key) const;
 
 private:
   struct Value {

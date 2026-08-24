@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -45,10 +46,8 @@ class Network {
 public:
   Network(double snapM, double sphereRadiusM) : SnapM_(snapM), RadiusM_(sphereRadiusM) {}
 
-  void Lay(const double *latLonPairs, size_t points, double halfWidthM, double maxGradient,
-           int lanes);
-  void Lay(const double *latLonPairs, size_t points, double halfWidthM, double maxGradient,
-           int lanes, double minRadiusM);
+  void Lay(std::span<const double> latLonPairs, double halfWidthM, double maxGradient,
+           int lanes, double minRadiusM = 0.0);
   [[nodiscard]] bool Weave(std::string &error);
 
   [[nodiscard]] size_t WayCount() const { return Ways_.size(); }

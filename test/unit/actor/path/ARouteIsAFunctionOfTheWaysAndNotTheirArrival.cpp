@@ -46,11 +46,11 @@ Route Planned(const std::vector<Laid> &ways, bool reversed, size_t &nodes) {
   if (reversed) {
     for (size_t at = ways.size(); at > 0; --at) {
       const Laid &way = ways[at - 1];
-      net.Lay(way.Points.data(), way.Points.size() / 2, way.HalfWidthM, 0.1, way.Lanes);
+      net.Lay(way.Points, way.HalfWidthM, 0.1, way.Lanes);
     }
   } else {
     for (const Laid &way : ways) {
-      net.Lay(way.Points.data(), way.Points.size() / 2, way.HalfWidthM, 0.1, way.Lanes);
+      net.Lay(way.Points, way.HalfWidthM, 0.1, way.Lanes);
     }
   }
   std::string error;

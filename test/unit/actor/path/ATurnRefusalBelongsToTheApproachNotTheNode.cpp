@@ -30,7 +30,7 @@ struct At {
 
 void Lay(Network &net, At from, At to) {
   const double points[4] = {from.Lat(), from.Lon(), to.Lat(), to.Lon()};
-  net.Lay(points, 2, 3.5, 0.1, 2);
+  net.Lay(std::span<const double>(points, 2 * 2), 3.5, 0.1, 2);
 }
 
 } // namespace
