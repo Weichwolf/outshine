@@ -65,3 +65,65 @@ concurrent prune is the other.
 - 2026-08-24 -- found by reading a gate that went from 0 to 4 UNPREPARED with no glTF change
   in the delta. The tree MANDATES an hourly review in its own worktree; that mandate and this
   shared directory cannot both stand.
+
+---
+
+**SHARPENED by the hourly review, 2026-08-24 — `e069ca92`'s lock was audited and it does not
+close this item.**
+
+The lock serialises **who may delete**. It does not scope **what may be deleted**. Measured by
+extracting `ClaimCorpus` (`test/run.sh:788-806`) verbatim and driving it:
+
+| case | result |
+|---|---|
+| `$PREPARED` absent | `MINE=no` — `test/run.sh:791` returns before claiming, so nothing prunes all run |
+| `$PREPARED` present, no holder | `MINE=yes` |
+| live holder (`kill -0` succeeds) | `REFUSES-TO-PRUNE holder=38894`, `MINE=no` |
+
+The refusal works. The protection does not, and the three gaps are:
+
+### 1. The winner still deletes the loser's subjects
+
+`PruneCase` (`test/run.sh:869-889`) removes from `$PREPARED/<case>` after **this** runner's
+case finishes. With the lock, exactly one runner does that — but it is a shared directory, so
+whichever runner holds the claim deletes the files the other runner has not reached yet. Swap
+the roles in this item's own incident report and it reproduces unchanged: reviewer worktree
+claims first, main gate goes from 0 to 4 UNPREPARED. The lock decided **who gets hurt**, not
+**that nobody does**.
+
+This item's requirement 1 — *"A runner may only prune what IT prepared, or the corpus carries
+the same per-checkout identity the nest does"* — is untouched. `PREPARED` at
+`test/run.sh:19-20` still has no `$NEST` in it, while `BUILD` at `test/run.sh:13-15` does.
+
+### 2. The lock does not even protect its holder
+
+The incident's pruned file was `scene.glb`, an **input**. `board:1786` measures it: sixteen
+outputs survived and the one input was pruned away. A prune that misclassifies an input
+destroys the corpus for the runner that holds the claim too, on its own next case. Until
+`board:1786` is repaid the lock buys nothing at all; with it repaid, gap 1 is what remains.
+
+### 3. Behaviour changed and nothing proves it
+
+`e069ca92` altered the runner's delete semantics and added no claim.
+`test/harness/claims/TheNestRefusesASecondRunner` exists for the nest — this item's own
+requirement 3 names it as the analogue — and there is no
+`TheCorpusRefusesASecondPruner`. `APruneRemovesOnlyWhatItProved` was not extended. A commit
+that changes when files are deleted, with no test that would have gone red before it, is the
+mechanical bar unmet.
+
+Requirement 2 (a case whose subject was removed *under* it says so as a refusal against the
+runner, not as `UNPREPARED` against the corpus) is also unimplemented: `Judge`
+(`test/run.sh:891-925`) still maps any `TRAILER_UNPREPARED > 0` to `UNPREP`, so
+"never fetched" and "deleted while I read it" remain the same word.
+
+### Also
+
+- `ReleaseCorpus` was added to the `EXIT` trap (`test/run.sh:55`) but not to the `INT`/`TERM`/
+  `HUP` traps at `test/run.sh:52-54`. It survives only because those handlers call `exit` and
+  the shell then runs `EXIT`. That is correct today and silently depends on it; the nest's
+  own release is spelled in all four.
+- `test/run.sh:791` — a run that starts before the corpus directory exists never prunes, even
+  after `prepare.py` fills it mid-run. Narrow today (preparation is out of band) and harmless
+  when the corpus is genuinely absent, but the claim is taken once and never retaken.
+
+**Verdict: 1789 stays open.** One of its three requirements is partly met.
