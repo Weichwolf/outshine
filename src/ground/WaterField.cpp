@@ -19,7 +19,7 @@ constexpr double kLiftM = 0.15;
 
 }
 
-bool WaterField::TileGroundResolved(const GroundStream &ground, const OsmField &field,
+bool WaterField::TileGroundResolved(const GroundQuery &ground, const OsmField &field,
                                     size_t from, size_t to, int poly,
                                     int line) const {
   const std::vector<double> &pts = field.Points();
@@ -50,7 +50,7 @@ void WaterField::AnchorAt(const double ecef[3]) {
   Anchored_ = true;
 }
 
-uint32_t WaterField::Ingest(const GroundStream &ground, const OsmField &field,
+uint32_t WaterField::Ingest(const GroundQuery &ground, const OsmField &field,
                             const VegetationTemplates &veg) {
   assert(Anchored_);
   const std::vector<OsmField::Feature> &feats = field.Features();
