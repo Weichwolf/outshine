@@ -108,3 +108,18 @@ Proving test: `unit/actor/path/ANetworkIsWovenFromWaysThatShareNoIdentity`, two 
 **Negative control, run: the area-derived cell size restored -> the case TIMES OUT at 300 s**
 and the runner says it measured nothing. That is the item's own arithmetic arriving: 141 422
 cells across for a flat network, and the marking loops walking every one of them.
+
+---
+
+## Correction, 2026-08-25 (hourly review): the closure's dedup argument does not hold
+
+The sentence *"A crossing is still kept by exactly one bucket, so no pair is double-counted"*
+is reasoning about the grid this repair replaced. A segment is inserted once per SQUARE and
+two of its squares can hash to one BUCKET, so it stands in that bucket twice and the pair is
+enumerated -- and accepted -- once per copy. Measured on one long segment among sixty short
+ones: **one crossing reported nine times**; over a 4 500-fixture family, 396 wrong answers
+where the pre-repair build had 0.
+
+The four requirements of this item stand met. The regression is filed as **`board:1835`**,
+which carries the reproduction and the fix (compare SQUARES at the ownership test, not
+buckets).

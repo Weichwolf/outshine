@@ -260,3 +260,21 @@ Two corrections to the measurements above:
   there is somewhere to move them TO.
 
 So the third box stays open with its remainder named rather than half-done.
+
+## The surface door, reviewed 2026-08-25
+
+The first box under *"The surface goes IN"* is verified and it holds:
+`grep -rn "SDL_ClaimWindowForGPUDevice\|SDL_WaitAndAcquireGPUSwapchainTexture\|SDL_AcquireGPUCommandBuffer\|SDL_CreateGPUTexture" tools/ apps/`
+finds exactly one live call site, `SDL_CreateWindow` in the browser -- the client owns the
+window, which is the Filament/bgfx shape this item argued for. `Renderer::Device()` is gone
+from `src/render/Renderer.h` entirely.
+
+Two defects INSIDE that landed box, filed separately on this item's own precedent:
+
+- **`board:1836`** -- `PresentFrame()` (`src/render/Renderer.cpp:893-907`) returns
+  `Shown{false,0,0}` for four different facts and sets no reason; the command buffer is used
+  unchecked; and `ShowOn`/`ShowOffscreen` are `bool`+`std::string&` where four sibling doors in
+  this tree already return `std::expected`.
+- **`board:1837`** -- none of the four methods is named anywhere under `test/`. Both users are
+  `tools/viewer`, which the fast gate excludes, so the door's four refusals sit outside the
+  regression mirror.

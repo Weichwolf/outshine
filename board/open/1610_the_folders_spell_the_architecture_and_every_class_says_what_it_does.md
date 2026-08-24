@@ -93,3 +93,28 @@ every src/actor header spells OUTSHINE_ACTOR_{BODY,MIND,PATH}_*, and the one str
 (Angle.h, born mid-night as ANGLE_H) joined the rule. grep for the dead spellings
 (OUTSHINE_PHYSICS_/PILOT_/CORRIDOR_/CARRIAGEWAY_/PATH_) over src/ is empty. Remaining before
 close: the World class's own death, renamed once with its 1595 decomposition.
+
+---
+
+## Sharpened by the hourly review, 2026-08-25 -- two moves landed and the mirror did not follow
+
+This item's own rule: *"the unit mirror renames in the same commit (the mirror claim enforces
+it)"*. Two files moved out of `src/clients/` this session and the mirror moved with neither:
+
+| moved | its twin, at HEAD |
+|---|---|
+| `src/clients/Species.{h,cpp}` -> `src/generators/Species.{h,cpp}` (`5d1511be`) | `test/unit/clients/AWorldReadsTheSpeciesThatGrowInIt.cpp` -- and it includes `Forest.h` and `Species.h` and nothing else, so every subject it names now lives in `src/generators/` while the case sits under `test/unit/clients/` |
+| `src/clients/LogSinks.{h,cpp}` -> `src/core/io/LogSinks.{h,cpp}` (`da2aa9c0`) | none. `grep -rln LogSinks test/` finds one file, `test/render/outshine/world/AWorldStandsUpWhereItIsDeclared.cpp`, which uses it as scaffolding and proves nothing about it. `test/unit/core/io/` holds one case and it is the PNG reader |
+
+The mirror claim does not enforce the rule this item states, and that is the second half of the
+finding: `EverySourceLayerHasItsUnitMirror` asks whether a LAYER has a mirror, so a case that
+stays in the wrong folder while its subject moves is invisible to it. `src/generators` has a
+mirror; `test/unit/clients/AWorldReadsTheSpeciesThatGrowInIt.cpp` is still in the wrong one.
+
+- [ ] `AWorldReadsTheSpeciesThatGrowInIt.cpp` moves to `test/unit/generators/`, where its
+      subjects are.
+- [ ] `src/core/io/LogSinks.{h,cpp}` gets a twin under `test/unit/core/io/`, or it is folded
+      into `Log.{h,cpp}` and covered by that layer's case.
+- [ ] The mirror claim is sharpened from per-layer to per-FILE, so a source whose folder moves
+      and whose case does not is red -- which is what this item's rule already demands and
+      nothing measures.
