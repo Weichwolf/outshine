@@ -475,7 +475,10 @@ fast gate also publishes **what it did not judge**: every source it stood aside 
 COMPILED (`N source(s) the gate did not run still compile, M do not`, and `M > 0` turns the
 gate red — board:1766), and every declared case family holding no fetched subject is named,
 because a corpus is fetched and a green trailer must not read as coverage it never had
-(board:1765). `test/run.sh --corpus` answers that second question alone.
+(board:1765). `test/run.sh --corpus` answers that second question alone. A case whose RED is a standing
+finding is declared in `EXPECT_FAIL` with its failure count: the gate keeps its meaning, and
+`run.sh` turns the gate RED the day that case passes with the declaration still in place, so a
+repair cannot land quietly beside a stale expectation.
 The one offline script: `test/harness/shared/corpus/prepare.py`. The corpus lives in the system
 temp dir, so the machine may sweep it: a case whose prepared input is gone is **rebuilt from its
 owning manifest** before it is judged — per owner, found by inverting the prepared-directory
