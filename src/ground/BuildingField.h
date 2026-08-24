@@ -9,7 +9,7 @@
 
 #include "Capacity.h"
 #include "GroundSample.h"
-#include "TerrainLoader.h"
+#include "GroundQuery.h"
 #include "StructureMesher.h"
 #include "Span.h"
 #include "TileRanges.h"
@@ -33,7 +33,7 @@ public:
 
   void AnchorAt(const double ecef[3]);
 
-  int Build(const GroundStream &ground, const OsmField &field, Span<const WayLine> ways);
+  int Build(const GroundQuery &ground, const OsmField &field, Span<const WayLine> ways);
 
   uint32_t AddedFirst() const { return AddedFirst_; }
   uint32_t AddedCount() const { return AddedCount_; }
@@ -57,10 +57,10 @@ public:
 
 private:
 
-  static GroundSample RingBase(const GroundStream &ground, const OsmField &field,
+  static GroundSample RingBase(const GroundQuery &ground, const OsmField &field,
                                const OsmField::Ring &ring,
                                std::vector<double> *corners);
-  [[nodiscard]] bool TileGroundResolved(const GroundStream &ground, const OsmField &field, size_t from, size_t to, int layer) const;
+  [[nodiscard]] bool TileGroundResolved(const GroundQuery &ground, const OsmField &field, size_t from, size_t to, int layer) const;
   void Raise(const OsmField &field, const Footprint &f);
 
   const StructureMesher *Mesher_ = nullptr;

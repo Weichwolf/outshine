@@ -131,7 +131,7 @@ Frontage NearestStreet(const OsmField &field, const OsmField::Ring &ring,
 
 }
 
-GroundSample BuildingField::RingBase(const GroundStream &ground, const OsmField &field,
+GroundSample BuildingField::RingBase(const GroundQuery &ground, const OsmField &field,
                                      const OsmField::Ring &ring,
                                     std::vector<double> *corners) {
   const std::vector<double> &pts = field.Points();
@@ -149,7 +149,7 @@ GroundSample BuildingField::RingBase(const GroundStream &ground, const OsmField 
   return GroundSample::At(lowest);
 }
 
-bool BuildingField::TileGroundResolved(const GroundStream &ground, const OsmField &field,
+bool BuildingField::TileGroundResolved(const GroundQuery &ground, const OsmField &field,
                                        size_t from, size_t to,
                                        int layer) const {
   const std::vector<OsmField::Feature> &feats = field.Features();
@@ -171,7 +171,7 @@ void BuildingField::AnchorAt(const double ecef[3]) {
   Anchored_ = true;
 }
 
-int BuildingField::Build(const GroundStream &ground, const OsmField &field,
+int BuildingField::Build(const GroundQuery &ground, const OsmField &field,
                          Span<const WayLine> ways) {
   assert(Anchored_);
   AddedFirst_ = (uint32_t)Verts_.size();
