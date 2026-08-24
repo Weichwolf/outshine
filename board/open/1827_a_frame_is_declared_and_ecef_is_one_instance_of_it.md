@@ -80,3 +80,36 @@ mesh carries exactly one.
 - 2026-08-24 -- filed from the owner's question. The measurement that makes it urgent rather
   than theoretical: `6378137.0` is in `src/core/`, not in an asset, and no call site can pass a
   different one.
+
+---
+
+## The precision boundary is right in the code and absent from the map (owner, 2026-08-24)
+
+> *"ist claude.md korrekt? 64bit ecs und 32bit kamera zentrischer renderer."*
+
+**The renderer does exactly that**, and it is the reference pattern (Unreal 5 LWC, Outerra,
+Star Citizen):
+
+```cpp
+src/render/stages/SubjectDraw.cpp:841   carried[12+axis] += Anchor[axis] - ctx.Eye[axis];  // double
+src/render/stages/SubjectDraw.cpp:846   sum += ctx.Mvp16[...] * carried[...];              // double
+src/render/stages/SubjectDraw.cpp:854   uniform[i] = (float)placed[i];                     // float here
+```
+
+Double all the way to the camera-relative product, `float` only at the uniform push.
+
+**CLAUDE.md did not say so**, and a load-bearing property that is unwritten is also unproven.
+Landed in the target block this hour.
+
+**The scene half is NOT guaranteed.** `include/outshine/Column.h` and `Store.h` carry no
+precision statement at all -- `Column<T>` is generic, so the precision of a position is a
+property of whatever component a client registers. Nothing refuses a `float` world position.
+
+- [ ] A world position is 64-bit BY CONSTRUCTION: the component that carries one is a declared
+      type the catalogue owns, and a client cannot register a 32-bit stand-in for it. This is
+      the `static_assert`-over-checker rule applied to the one number that cannot survive being
+      wrong.
+- [ ] Proving test: a case that walks every registered component naming a position and asserts
+      its scalar is 64-bit, and a case that measures the error of a point 20 000 km from the
+      anchor through the render path -- with a control that swaps the anchor subtraction to
+      `float` and names the metres it costs.

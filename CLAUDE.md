@@ -6,6 +6,11 @@ camera, never a mean.
 
 - **SDL3 · SDL3_GPU · SDL3_\*** are the only platform surface; **glTF 2.0** the only content surface
 - **C++23**, `-Wall -Werror -Wpedantic`, one `-std` for the whole tree; `static_assert` and the type system over checkers; `std::span`/`std::string_view` at boundaries, `std::mdspan` for field and instance views, `std::expected` where a refusal carries its reason
+- **Precision has ONE boundary and it is the camera**: the scene keeps 64-bit positions and the
+  renderer is camera-relative in 32-bit — `Anchor - Eye` in `double`, the model-view-projection
+  product in `double`, and the cast to `float` only at the uniform push
+  (`src/render/stages/SubjectDraw.cpp:841,846,854`). A `float` that ever holds a world position
+  is a defect; a `double` that reaches a shader is a different one
 - **SIMD- and optimization-friendly**: contiguous, one-width, pointer-free layouts; fast path on the hot path; batch over per-item; bounded terms on the frame path (no alloc/lock/disk/unbounded block)
 - **Declarative**: scenarios declare, the engine behaves; content = data, engine = verbs; the consumer selects from a `constexpr` catalogue and cannot add to it
 - **Batteries as declarations**: outshine ships convenience components -- generators, providers, world templates and factories (`Planet(params)` → a Scenario value) -- all catalogue citizens the scenario selects; the engine core stays scenario-agnostic
