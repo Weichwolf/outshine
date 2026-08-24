@@ -461,7 +461,7 @@ int main(void) {
     Note("the corridor's half width there", rode.LeftHalfWidthM, "m");
     Note("the lane centre that half width and 2 lanes imply", -0.5 * rode.LeftHalfWidthM, "m");
     {
-      const double fineM = drive.Way.FineM, spanM = drive.Way.SpanM;
+      const double fineM = outshine::Sim::Corridor::kFineM, spanM = drive.Way.SpanM;
       const size_t fine = (size_t)(rode.LeftTheRoadAtM / fineM);
       const size_t post = (size_t)(rode.LeftTheRoadAtM / spanM);
       Note("the fine step", fineM, "m");

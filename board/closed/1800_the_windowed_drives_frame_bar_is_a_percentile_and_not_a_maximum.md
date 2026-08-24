@@ -81,3 +81,28 @@ on a frame that laid nothing.
   moves, and the one available here is `kLagsToCover`, whose own negative control
   (`board:1814`) drives the car off the road at km 113.990. **The p99 bar is not yet proven
   falsifiable on its own**, and that is this item's residue.
+
+## The residue is closed: the p99 bar IS falsifiable, and the first control was simply too timid (2026-08-25)
+
+The control that failed to control set `kFps = 200`, a 5 ms budget, against a p99 that landed at
+4.665 ms on that run. It did not fail because a distribution bar cannot be falsified -- it
+failed because 5 ms and 4.665 ms are the same number for this purpose, and a control has to
+clear the measurement by more than the measurement's own spread.
+
+`kFps = 1000` -- a 1 ms budget -- run over the whole route:
+
+```
+NOTE p50 of the frame              = 2.395 ms
+NOTE p95                           = 4.825 ms
+NOTE p99                           = 5.175 ms
+NOTE the budget p99 leaves unspent = -4.175 ms
+FAIL ...:498  **AND p99 IS INSIDE THE 16.67 ms BUDGET OVER THE WHOLE ROUTE.**
+1 tests: 0 PASS  1 FAIL   in 459 832 ms
+```
+
+The claim goes red on the PERCENTILE, and the number beside it says by how much. Reverted to 60.
+
+That closes the item's own residue in its own words -- *"the p99 bar is not yet proven
+falsifiable on its own"* -- without needing `kLagsToCover` to drive the car off the road to do
+it. A distribution bar is falsified by a budget below the distribution, and the control's job is
+to be unambiguous rather than close.
