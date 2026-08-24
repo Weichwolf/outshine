@@ -303,3 +303,25 @@ hour and the hygiene half of this item ("`[[nodiscard]]`, `explicit`, `noexcept`
 it. `Sim::Species()` gained `[[nodiscard]]` in the same edit, which shows the rule was in view.
 
 The `std::string &error` population this item last counted at 232 is 233.
+
+---
+
+**Reviewer sharpening (2026-08-24, :17 round) -- the ground layer's doors were touched all hour
+and the hygiene rider was paid on none of them.**
+
+`board:1806` and `board:1784` rewrote `OsmField`, `Wayfinding` and `Fit`. Three shapes this
+item abolishes were ADDED, not merely left:
+
+| site | what it takes / returns | what it owes |
+|---|---|---|
+| `src/actor/path/Wayfinding.h:48-50` | a NEW overload `Lay(const double *latLonPairs, size_t points, …, double minRadiusM)` | `std::span<const double>`; the two-argument spelling of a view is (d) of the sharpening above, and this door grew a seventh parameter on it rather than converting |
+| `src/ground/OsmField.h:52-58` | `const std::vector<Feature> &Features()`, `Rings()`, `Points()`, `Tiles()` | `std::span<const …>` -- every caller traverses; `OfTile` beside them already returns a view, so the class contradicts itself in six consecutive lines |
+| `src/ground/OsmField.h:41-70` | 17 value-returning members, **one** `[[nodiscard]]` | the bar is ALWAYS. `Accept` (`:41`) is a factory-shaped counter written THIS round without it; `Build`, `Zoom`, `MissingLayers`, `BadTiles`, `PendingTiles`, `TileIndex`, `OfTile`, `HeapBytes`, `Layer` x2, `LayerName`, `Num`, `Str` and the four container getters follow |
+
+`OsmField::OfTile` returns the tree's hand-rolled `Span<T>` (`src/core/Span.h`) rather than
+`std::span`, in a tree whose one `-std` is C++23. `Span.h` is a pre-C++20 shim with a
+`std::enable_if_t` const-conversion constructor; every use of it is a C++17-ism where the
+standard type is strictly clearer, and it crosses the ground/generator boundary in
+`BuildingField::Build(…, Span<const WayLine> ways)` and `WaterField::Surfaces()`. Whether
+`Span` dies tree-wide is a separate sitting; that it is spelled on doors converted THIS round
+is this item's.

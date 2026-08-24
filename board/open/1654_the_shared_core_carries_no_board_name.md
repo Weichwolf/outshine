@@ -147,3 +147,38 @@ line disagree.
       rule is restated to name the roots it actually holds.
 - [ ] Negative control: `board:1654` planted in `tools/driver/f31.scenario`'s nearest `.cpp`
       -> FOUND.
+
+---
+
+## Sharpened (review 2026-08-24, :17 round) — box 1 is false at HEAD, in an asset
+
+The first box is *"`grep -rn 'board:[0-9]' src/ include/` is empty -- the same bar this item was
+closed on"*. Run it now:
+
+```
+$ grep -rn 'board:[0-9]' src/ include/
+src/assets/world/vegetation.json:1332
+```
+
+`osmGradientOrigin` carries `board:1794 corrected three of these numbers`, written by
+`9db62038` this session -- again after the rule, again as a work-item pointer that outlives the
+item. The walk cannot see it: `TheSourceCarriesNoCommentary.cpp:143-146` filters on
+`.cpp`/`.h`/`.msl`, and `src/assets/` is JSON.
+
+There is a real distinction to make here rather than a rule to extend blindly:
+
+| what stands in an asset | verdict |
+|---|---|
+| the NUMBER's origin -- standard, table, row, derivation, `[SET]` | **demanded** by CLAUDE.md, and `vegetation.json`'s origins are the best of it in the tree |
+| the WORK ITEM that changed the number | the drift class this item exists for -- `1794` closes, the sentence stays, and the reader chases a pointer into `board/closed` |
+
+The sentence says everything it needs to without the number: *"three of these read 4.0 / 6.0 /
+7.0 and cited RAL, which prints no such row"*. `git log --grep 'board:1794'` is where the item
+lives.
+
+- [ ] `grep -rn 'board:[0-9]' src/ include/` is empty INCLUDING `src/assets/`.
+- [ ] The `board:` walk covers the declared-data extensions under `src/assets/` (`.json`,
+      `.xml`, `.scenario`) as well as the three source ones, so the next one is caught rather
+      than surveyed a round later.
+- [ ] Negative control: `board:1654` planted in `src/assets/world/ground-materials.json` ->
+      FOUND, with its line.

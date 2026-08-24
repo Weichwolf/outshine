@@ -110,3 +110,37 @@ Recorded rather than attempted: the narrowing is a signature change through
 one. What board:1791 needed from this item -- a case that catches a guard refusing a straight
 road -- now stands in `test/unit/actor/path/ACorridorIsFittedThroughVerticesItMayNotLeave`
 instead, over `Fit` directly, because `Fit` takes spans and needs no world at all.
+
+---
+
+## Closed by the hourly review, 2026-08-24 — the blocker fell and the twin stands
+
+Both boxes of the reopening are paid, and the named blocker with them.
+
+**The door narrowed to the two queries it uses.** `src/core/GroundQuery.h` is a new interface
+carrying exactly `At(lat, lon) -> GroundSample` and `PostM(latDeg) -> double`; `GroundStream`
+is `final : public GroundQuery` (`src/ground/TerrainLoader.h:48`), and the signature this item
+measured as the blocker now reads
+
+```cpp
+[[nodiscard]] bool LayCorridor(const Path::Route &route, const GroundQuery &ground,   // CorridorLay.h:34
+```
+
+`WaterField::Ingest` and `BuildingField::Build` took the same narrowing in the same round
+(`board:1806`), so no unit case in the ground or sim layer needs a `TilePool` any more.
+
+**The twin exists and reaches the body.** `test/unit/sim/ACorridorIsLaidOverASyntheticRoute.cpp`
+(364 lines) builds a hand-made `Path::Route`, a ten-line `FlatGround final : public GroundQuery`
+with a declared slope, and calls `LayCorridor` directly -- the profile step, the class-minimum
+count, the straight-route case `board:1791` named, and the refusal arms. `grep -rn 'LayCorridor'
+test/` is no longer empty, which was this item's own measurement of the defect.
+
+**Its children are closed**: `board:1626` and `board:1792`, both in `board/closed/`.
+
+Gate at `959a0d23`, isolated worktree: `257 tests: 255 PASS 1 FAIL 1 SIGNAL` -- the two
+non-green verdicts are `board:1808` (`board/active/` absent from the tree) and have nothing to
+do with this item; `unit/sim` is green entire.
+
+`CLAUDE.md`'s CURRENT class map is corrected in the same round: `CorridorLay`'s amber no longer
+rests on "until their own unit proofs deepen", which was this item's debt, but on the shape of
+its parameter list, which is `board:1610`'s.

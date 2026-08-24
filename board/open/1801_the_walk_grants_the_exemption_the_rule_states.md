@@ -76,3 +76,51 @@ That is why it survived `board:1654`'s round.
   stated generally there now -- a proof is any source carrying `Covers("`, wherever it lives --
   and the sentence that named a client directory is gone, along with three other mentions.
 - Gate 240/240, 81 643 ms of run.
+
+---
+
+## REOPENED by the hourly review, 2026-08-24 — the needle is still spellable by the text it exempts
+
+The closure's own comment states the failure mode and then leaves it standing one character
+deeper:
+
+> *A narration line must not be able to exempt the file that carries it. Both walks take the
+> quoted form now.*
+
+`Covers("` is as writable inside a comment as `Covers(` was. Measured, isolated worktree at
+`959a0d23`, one line appended to a library header in `src/`:
+
+```cpp
+// src/core/Span.h:45
+// this narration mentions Covers("IV.11") and therefore exempts its own file
+```
+
+```
+PASS    harness/claims/TheSourceCarriesNoCommentary        69 ms
+27 tests: 25 PASS  1 FAIL  0 TIMEOUT  1 SIGNAL
+```
+
+**Green.** A comment in `src/core/` -- not a proof, not under `tools/`, not near a case --
+disables the walk for the whole file, and every other comment in that file with it. The rule
+the owner made binding and absolute is enforced by a substring the forbidden text may contain.
+
+## Why tightening the needle again is the wrong repair
+
+`Covers("`, `Covers(\"`, a regex, a longer literal -- each is the same construction and each is
+spellable in the prose it is meant to exclude. The exemption is currently a property of the
+FILE'S BYTES; it has to be a property of the file's ROLE, and the runner already knows that
+role: a proof is a translation unit `test/run.sh` builds and RUNS as a case, and `TESTS_ALL` is
+the list.
+
+## What must be true
+
+- [ ] The exemption is decided by role, not by content: the walk takes the runner's own case
+      list (or the same enumeration `test/run.sh` performs -- a source that is the case of a
+      declared suite), so a library source cannot exempt itself by quoting the harness.
+- [ ] The needle, if one is kept at all, must be something a comment cannot legally contain --
+      and there is no such string, which is the argument for the role.
+- [ ] Negative control, and it is the one this item now owes: the line above put back into
+      `src/core/Span.h` -> `FOUND src/core/Span.h:45 narrates`, red. The run above is the green
+      the repair must turn.
+- [ ] The same hole stands in the `board:` walk beside it (`:141`), which took the identical
+      exemption in the identical form. Both, one repair.

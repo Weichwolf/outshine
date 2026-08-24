@@ -33,3 +33,33 @@ item, and it is only as true as the messages.
       board item while touching paths no other commit for that item touches -- or, cheaper and
       honest, this item stands as the record that it happened and what it cost.
 - [ ] The two commits above are named here rather than rewritten. History is what was.
+
+---
+
+## It happened again, this hour, to another agent's work in flight (2026-08-24, reviewer round)
+
+`d94d39eb board:1781 active -- its two remaining boxes` carries, besides the `git mv` its
+message describes, the reviewer's REOPENING of two unrelated items:
+
+```
+$ git log --oneline -3 --name-status -- board/open/1801_the_walk_grants_the_exemption_the_rule_states.md
+d94d39eb board:1781 active -- its two remaining boxes
+A	board/open/1801_the_walk_grants_the_exemption_the_rule_states.md
+```
+
+Same for `board/open/1806`. Both were `git mv`-ed out of `board/closed/` by the hourly review
+while `board:1781` was being worked in the same nest; `git mv` stages immediately, so the next
+sweeping commit took them. A reader of `git log --grep 'board:1806'` is not told that the item
+was reopened, and a reader of `d94d39eb` is told about a species table.
+
+This sharpens the item in a direction its first filing did not have: it is **not only about one
+author's staging discipline.** Two agents share one worktree and one index. `git add -A` /
+`git commit -a` in that setting is not sloppiness, it is a race -- whatever the other party has
+staged goes into your commit, under your message, and neither of you can see it afterwards
+without a path-scoped log.
+
+- [ ] The rule is stated as a rule and not as a habit: **every commit stages by explicit path.**
+      `git add -A` and `git commit -a` are the two spellings that cannot be correct in a shared
+      nest.
+- [ ] The hourly reviewer's own instruction ("one commit per run over all board changes") is
+      compatible with that -- it names its paths.

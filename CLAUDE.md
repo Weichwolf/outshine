@@ -197,6 +197,8 @@ flowchart TD
   Transport --> WebTileSource --> ContentStore --> TerrariumDem & VersatilesVector
   TerrariumDem --> GroundStream
   TilePool --> GroundStream & OsmField
+  GroundStream --> GroundQuery["GroundQuery — the two questions: At · PostM"]
+  GroundQuery --> CorridorLay & WaterField & BuildingField
   VersatilesVector --> OsmField --> RoadHarvest --> Wayfinding
   OsmField --> StreetField & BuildingField & WaterField
   GroundStream --> Ground --> Forest & Buildings & Water & Infrastructure
@@ -229,16 +231,24 @@ flowchart TD
   classDef sound fill:#1f6f3f,stroke:#0d3b21,color:#fff
   classDef unsure fill:#8a6d1f,stroke:#4a3a0d,color:#fff
   classDef wrong fill:#7a2222,stroke:#3d1111,color:#fff
-  class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,OsmField,RoadHarvest,Wayfinding,StreetField,Ground,Forest,Buildings,Water,Infrastructure,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,Engine,SceneStore,Assembly,SubjectResidency,Markup,Stylesheet,LayoutUi,Painting,InputMap,InputPump,TriggerField,ViewBook,BusGraph sound
-  class BuildingField,WaterField,Subject,DrawList,Renderer,TonemapStage,LightVisibilityStage,Frustum,Ephemeris,RegionForge,GltfStudio unsure
+  classDef strandedSound fill:#1f6f3f,stroke:#7a2222,stroke-width:3px,stroke-dasharray:6 4,color:#fff
+  classDef strandedUnsure fill:#8a6d1f,stroke:#7a2222,stroke-width:3px,stroke-dasharray:6 4,color:#fff
+  class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,GroundQuery,OsmField,RoadHarvest,Wayfinding,StreetField,Ground,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,Engine,SceneStore,Assembly,SubjectResidency,Markup,Stylesheet,LayoutUi,Painting,InputMap,InputPump,TriggerField,ViewBook,BusGraph sound
+  class BuildingField,WaterField,Subject,DrawList,Renderer,TonemapStage,LightVisibilityStage,Frustum,Ephemeris,GltfStudio unsure
   class World,SubjectDraw,Sim,Live wrong
   class DriveAssembly,CorridorLay,DriveTick,TilePool unsure
+  class Forest,Buildings,Water,Infrastructure strandedSound
+  class RegionForge strandedUnsure
   class GroundStack sound
 ```
 
-Colours are ARCHITECTURE, re-adjudicated against HEAD (2026-08-23, board:1762); every red
-below cites what makes it red, and a colour whose stated reason has gone stale is itself a
-finding. Green = right responsibility in the right layer; amber = form in question.
+Colours are ARCHITECTURE, re-adjudicated against HEAD (2026-08-24); every red below cites what
+makes it red, and a colour whose stated reason has gone stale is itself a finding. Green = right
+responsibility in the right layer; amber = form in question. **A DASHED RED OUTLINE is the
+second axis, added 2026-08-24 (board:1805): the node's FILL says whether its shape is right,
+the outline says whether anything outside `src/` can reach it — a dashed node's only path to a
+client runs through a node this map colours red, so its fill is a judgement about a layer
+nobody calls.** Green and reached is the only state that means the picture gets drawn.
 
 | red | what makes it red, at HEAD |
 |---|---|
@@ -269,13 +279,32 @@ at (board:1777):
 | `TAA` | `{Stage::TemporalResolve, Provenance::Content, PassKind::Raster, "temporalResolve",` (RenderCatalogue.h:278) declares a stage that encodes nothing of its own -- it is folded into tonemap rather than standing as its own resolve |
 | `TilePool` | `class TilePool {` (TilePool.h:35) holds 3 `std::mutex`, a `std::condition_variable`, a `std::map` and a `std::set` where a slot table and a ring would do -- a decisionless pool holds no tree |
 
+Dashed says the node is STRANDED, and every dashed node below names the facade it hangs off
+(board:1805, measured 2026-08-24):
+
+| stranded | its only way to a client, at HEAD |
+|---|---|
+| `Forest` | `src/clients/Sim.{h,cpp}` and nothing else in `src/` |
+| `Buildings` | `Sim.{h,cpp}`, `BuildingField.cpp`, `OsmLayer.h`, `World.{h,cpp}` -- every one of them inside the ground/client pair |
+| `Water` | `Sim.cpp`, `World.h` |
+| `Infrastructure` | `Sim.h` |
+| `RegionForge` | `Sim.h` |
+
+and `Sim` itself: `grep -rln '"Sim.h"' src test tools apps` finds `src/clients/Sim.cpp` and one
+test. 798 lines of facade, no consumer. The world composition path exists, is proven per node
+since board:1806, and nothing walks it -- which is why `apps/driver` builds its terrain, its
+far ring and its road ribbon in 1281 lines of its own C++.
+
 `TilePool` moved red → amber (its row above carries the form now in question): the earlier
 sentence said it spells camera and LOD, and it does not — `grep -cEi 'eye|camera|frustum|\blod\b'` over both its files is 0. It is a
 byte-budgeted LRU work pool keyed on projected error, which is the RAGE reference, not a
 layering breach. Its amber is its FORM, and its row above carries the count: a `condition_variable`, a `std::map`
 and a `std::set` of pointer-chasing nodes where a slot table and a ring would do — a
-decisionless pool holds no tree. `LayCorridor`, `AssembleDrive` and `DriveTick` stay amber
-until their own unit proofs deepen. Journey died with move 2(e): the six consumers hold
+decisionless pool holds no tree. `LayCorridor`'s twin debt is PAID (board:1624 closed
+2026-08-24): its door takes `const GroundQuery &` -- the two questions it asks -- and
+`test/unit/sim/ACorridorIsLaidOverASyntheticRoute` lays 364 lines of route over a ten-line
+synthetic ground, so its amber is now the parameter list alone, as its row says.
+`AssembleDrive` and `DriveTick` keep the older reason. Journey died with move 2(e): the six consumers hold
 {GroundStack, DriveProduct} and call the free systems directly. The rot concentrates at the
 orchestration edges; the middle of the tree is sound.
 
@@ -289,8 +318,12 @@ flowchart TD
   SceneStore --> Columns["Columns — vehicle numbers · placements, by handle"]
   SceneStore --> SimD["Sim — owns the drive: corridor · speed plan · pilot"]
   SimD --> Pathfinding["Pathfinding tool — walk · drive · fly · rail"]
+  Pathfinding --> Alignment["Alignment — one arc per RUN of same-sign turns; a transition only where curvature reverses"]
+  Alignment --> Line["ReferenceLine — the corridor the wheels stand on"]
   SimD --> Physics["Rig · Body · Contact — forces at the patch"]
-  SimD --> Compositors["Compositors — terrain · ring · cut-fill placement"]
+  SimD --> WorldC["World composition — the scenario declares a sphere, the engine composes its fields"]
+  WorldC --> Compositors["Compositors — terrain · ring · cut-fill placement"]
+  Line --> Compositors
   Compositors --> DrawList --> Registry["stage registry — the executor table"]
   Registry --> Stages["stages: source · residency · encode split"]
   Stages --> Frame(["720p60"])
@@ -298,9 +331,26 @@ flowchart TD
 
   classDef sure fill:#1f6f3f,stroke:#0d3b21,color:#fff
   classDef likely fill:#8a6d1f,stroke:#4a3a0d,color:#fff
-  class Scenario,ClientCode,Assembly,SceneStore,SimD,Pathfinding,Physics,Registry,DrawList,Frame sure
-  class Columns,Compositors,Stages,Entities likely
+  class Scenario,ClientCode,Assembly,SceneStore,SimD,Pathfinding,Physics,Registry,DrawList,Frame,WorldC,Line sure
+  class Columns,Compositors,Stages,Entities,Alignment likely
 ```
+
+Two nodes are new (2026-08-24) and each is argued rather than wished:
+
+- **`Alignment` replaces the per-vertex corner table**, and the reason is a measurement, not a
+  preference. `Fit` puts a spiral-arc-spiral at EVERY vertex and returns the curvature to zero
+  between them, so a polyline that describes a curve is laid at `R/(1+alpha)` — `alpha = 0.5` in
+  the code, giving exactly two thirds of the true radius, reproduced to four digits over five
+  values of alpha and at every digitisation density (board:1795). No constant repairs it; a
+  transition is owed where the CURVATURE changes, not where a digitiser put a point. On
+  Munich--Hamburg 769 of 2202 corners (35 %) sit inside a run of same-sign turns and would be
+  lifted from `R/1.5` to `R*cos(s/2)`. It is amber because the split rule at a run's end — when
+  the accuracy bound forces a run apart — is not settled.
+- **`World composition` is the layer board:1805 found missing**, and it is green because the
+  requirement is not in doubt: *scenarios declare, the engine behaves*. A scenario declares the
+  sphere and which surface fields it wants drawn; the engine composes them. That the one client
+  in the tree builds its own terrain and ribbon in C++ is the distance to be repaid, not a
+  reason to lower the target.
 
 ## Public interface (CURRENT)
 
@@ -455,7 +505,7 @@ ls board/*/ | grep -o '^[0-9]\{4\}' | sort -n | tail -1   # next id, derived
 | `src/` | the library entire; `src/assets/` its declared data; no entry point, no test |
 | `test/` | `test/unit/` (mirror), `test/render/` (per vendor), `test/harness/` (scorers + `test/harness/claims/`) |
 | `tools/` | development support built ON the library: what serves the PROCESS — transports, and a browser for looking at the corpus |
-| `apps/` | applications built ON the library: what serves the PRODUCT — not tests, but they exercise the whole engine and are run by name; the engine knows none of them |
+| `apps/` | applications built ON the library: what serves the PRODUCT — not tests, but they exercise the whole engine and are run by name; the engine knows none of them. **At HEAD it holds five case sources and no program** — the split is right and the tree has not caught up (board:1803) |
 | `Makefile` | build · test · clean, nothing else |
 | `board/` | the working system (above) |
 

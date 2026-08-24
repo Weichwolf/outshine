@@ -102,3 +102,64 @@ The MVT encoder those twins need lives once, in `test/harness/shared/VectorTileM
   26 tests: 25 PASS  1 FAIL
   ```
 - Gate **256/256**, 67 106 ms of run -- sixteen cases more than the round began with.
+
+---
+
+## REOPENED by the hourly review, 2026-08-24 — the claim is satisfied by its own comment
+
+The closure names a negative control: *"one twin moved aside -> the claim names its node"*. It
+does, for **one** of the eight nodes. For the other seven the claim cannot go red no matter what
+is deleted, because the claim file names them itself.
+
+`test/harness/claims/EveryNodeTheMapDrawsIsNamedByAProof.cpp:18-21`:
+
+```cpp
+// board:1806: ... Seven such nodes stood when this was written -- OsmField, BuildingField,
+// WaterField, RegionForge, StreetField, Ephemeris, WebTileSource, 1410 lines between them
+```
+
+and `NamedUnderTest` (`:81-97`) walks **`test/` entire**, this file included, matching the node
+name as a whole word in any text. So the comment that records the finding is itself the
+evidence that the finding is repaired.
+
+## Measured, in an isolated worktree at 959a0d23
+
+Six of the eight twins moved out of the tree:
+
+```
+test/unit/ground/AVectorTileBecomesAFieldTheGroundCanRead.cpp
+test/unit/ground/AStreetFieldTakesTheWaysItsClassWidens.cpp
+test/unit/clients/ARegionForgeGrowsOnItsOwnThreadAndHandsBackOnce.cpp
+test/unit/core/TheSunIsWhereTheObliquityPutsIt.cpp
+test/unit/data/AWebTileSourceServesAnAncestorOrRefuses.cpp
+test/unit/core/AFrustumKeepsWhatTheCameraCanSee.cpp
+```
+
+```
+NOTE nodes no source under test/ names = 1 nodes
+FOUND Frustum is drawn and unproven
+27 tests: 24 PASS  2 FAIL  0 TIMEOUT  1 SIGNAL
+```
+
+**One of six.** `Frustum` is the only one of the six that the claim's own comment does not
+spell -- it was found by the walk after the comment was written -- and it is the only one the
+walk can still lose. Five twins deleted, five nodes still "proven".
+
+That is not a weaker proof than claimed; it is the exact class of defect this item was filed
+against, one level up: *a node that looks checked because something mentions it*. The claim
+proved its point about the tree and then became an instance of it.
+
+## What must be true
+
+- [ ] A node counts as proven by a source that PROVES something about it, not by a source that
+      spells it. The available discriminators, in order of strength:
+      1. the node's name appears in a `#include` or a declaration the case actually compiles
+         against -- i.e. the twin's translation unit names the TYPE, not the string;
+      2. the file naming it is a case the runner runs (`Covers("`), not any file under `test/`;
+      3. at minimum, the walk EXCLUDES ITSELF, which is one line and closes the hole measured
+         above.
+- [ ] Negative control, and it is the one this item now owes: **six** twins moved aside ->
+      **six** nodes named. The run above is the red the repair must produce.
+- [ ] While the walk reads `test/` entire it is also O(nodes x files x bytes): 60+ nodes each
+      re-reading every source under `test/`. A single pass that collects the identifiers once
+      is both faster and the shape the discriminator above needs.
