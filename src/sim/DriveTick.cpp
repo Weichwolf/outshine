@@ -20,15 +20,6 @@ static_assert(std::is_trivially_copyable<Ridden>::value, "a tick answer is a val
 static_assert(sizeof(DriveState) >= sizeof(Ridden), "the state holds the tally");
 
 
-namespace {
-
-[[nodiscard]] double At(const std::vector<double> &band, size_t at, double whenEmpty) {
-  if (band.empty()) { return whenEmpty; }
-  return band[at < band.size() ? at : band.size() - 1];
-}
-
-}
-
 
 namespace {
 constexpr double kResectM = 4.0;
@@ -51,10 +42,7 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood,
 
   auto &rig = drive.Rig;
   auto &body = drive.Body;
-  auto &fineAside = way.FineAside;
-  auto &fineEdge = way.FineEdge;
-  auto &laneHalfM = way.FineLaneHalfM;
-  const double fineM = way.FineM;
+  if (!way.Laid()) { return out; }
   outshine::Pilot::Reins reins;
   reins.SettleS = outshine::Pilot::kSettleS;
   reins.LeastReachM = stood.Axles.WheelbaseM;
@@ -96,8 +84,8 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood,
   double wantedAsideM = 0.0;
   double roomHereM = 0.0;
   {
-    const size_t fine = (size_t)(at.AlongM / fineM);
-    const double wantAsideM = At(fineAside, fine, 0.0);
+    const Station &here = way.At(at.AlongM);
+    const double wantAsideM = here.AsideM;
     if (!drive.HaveAside) {
       drive.HeldAsideM = wantAsideM;
       drive.HaveAside = true;
@@ -106,8 +94,7 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood,
       const double byM = wantAsideM - drive.HeldAsideM;
       drive.HeldAsideM += std::fabs(byM) <= mayMoveM ? byM : (byM > 0.0 ? mayMoveM : -mayMoveM);
     }
-    const double roomM = At(fineEdge, fine, 0.0) -
-                         0.5 * drive.CarWidthM - way.BudgetM;
+    const double roomM = here.EdgeM - 0.5 * drive.CarWidthM - way.BudgetM;
     if (roomM > 0.0) {
       if (drive.HeldAsideM > roomM) { drive.HeldAsideM = roomM; }
       if (drive.HeldAsideM < -roomM) { drive.HeldAsideM = -roomM; }
@@ -152,10 +139,7 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood,
   for (size_t which = 0; which < rig.Count; ++which) {
     double worldM[3];
     outshine::Physics::Place(body, rig.Mounts[which].AtM, worldM);
-    const size_t band = (size_t)(at.AlongM / fineM) < fineEdge.size()
-                            ? (size_t)(at.AlongM / fineM)
-                            : fineEdge.size() - 1;
-    const double edgeM = fineEdge[band];
+    const double edgeM = way.At(at.AlongM).EdgeM;
     const double armEastM = worldM[0] - eastM;
     const double armNorthM = -worldM[2] - northM;
     const double armAlongM = std::cos(headingRad) * armEastM + std::sin(headingRad) * armNorthM;
@@ -193,8 +177,8 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood,
       ++drive.OffsetBin[bin < DriveState::kOffsetBins ? bin : DriveState::kOffsetBins - 1];
       ++out.OffsetSamples;
 
-      const double clearM = At(fineEdge, (size_t)(at.AlongM / fineM), 0.0) -
-                            std::fabs(at.OffsetM) - 0.5 * drive.CarWidthM;
+      const double clearM =
+          way.At(at.AlongM).EdgeM - std::fabs(at.OffsetM) - 0.5 * drive.CarWidthM;
       if (out.OffsetSamples == 1 || clearM < out.LeastClearanceM) {
         out.LeastClearanceM = clearM;
         out.LeastClearanceAtM = at.AlongM;
@@ -205,9 +189,7 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood,
                                                           : DriveState::kOffsetBins - 1];
     }
     if (out.StrayedAtM <= 0.0) {
-      const size_t here = (size_t)(at.AlongM / fineM);
-      const double halfRoomM =
-          At(laneHalfM, here, 0.0) - 0.5 * drive.CarWidthM;
+      const double halfRoomM = way.At(at.AlongM).LaneHalfM - 0.5 * drive.CarWidthM;
       if (halfRoomM > 0.0 && std::fabs(inLaneM) > 0.5 * halfRoomM) {
         out.StrayedAtM = at.AlongM;
         out.StrayedCurvature = at.CurvaturePerM;
@@ -248,10 +230,9 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood,
     out.LeftPlannedMs = profile.At(at.AlongM);
     out.LeftCurvature = at.CurvaturePerM;
     out.LeftRate = at.CurvatureRatePerM;
-    const size_t lane = (size_t)(at.AlongM / fineM);
-    out.LeftLaneM = 2.0 * At(laneHalfM, lane, 0.0);
-    const size_t fine = (size_t)(at.AlongM / fineM);
-    out.LeftEdgeM = At(fineEdge, fine, 0.0);
+    const Station &left = way.At(at.AlongM);
+    out.LeftLaneM = 2.0 * left.LaneHalfM;
+    out.LeftEdgeM = left.EdgeM;
     out.LeftAsideM = reins.AsideM;
     out.LeftAcrossM = at.OffsetM;
     out.LeftSteerRad = controls.SteerRad;
@@ -265,7 +246,7 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood,
     out.LeftAimStillMovingM = aimStillMovingM;
     out.LeftWantAsideM = wantedAsideM;
     out.LeftRoomM = roomHereM;
-    out.LeftHalfWidthM = At(fineEdge, (size_t)(at.AlongM / fineM), 0.0);
+    out.LeftHalfWidthM = way.At(at.AlongM).EdgeM;
     out.LeftHeadingErrorRad = at.HeadingErrorRad;
     out.LeftBankRad = at.BankRad;
     out.LeftSlope = at.SlopeAt;

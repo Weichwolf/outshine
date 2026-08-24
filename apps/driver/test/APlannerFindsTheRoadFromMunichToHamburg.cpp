@@ -326,10 +326,10 @@ int main(void) {
       Note("the coarse step", spanM, "m");
       Note("fine index", (double)fine, "");
       Note("coarse index", (double)post, "");
-      if (fine < drive.Way.FineAside.size()) {
-        Note("FineAside there", drive.Way.FineAside[fine], "m");
-        Note("FineLaneHalfM there", drive.Way.FineLaneHalfM[fine], "m");
-        Note("FineEdge there", drive.Way.FineEdge[fine], "m");
+      if (fine < drive.Way.Fine.size()) {
+        Note("the lane centre there", drive.Way.Fine[fine].AsideM, "m");
+        Note("the half lane there", drive.Way.Fine[fine].LaneHalfM, "m");
+        Note("the edge there", drive.Way.Fine[fine].EdgeM, "m");
       }
       if (post < drive.Way.AsideM.size()) {
         Note("AsideM at the coarse post", drive.Way.AsideM[post], "m");

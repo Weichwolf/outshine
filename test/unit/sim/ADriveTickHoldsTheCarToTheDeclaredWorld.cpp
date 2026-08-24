@@ -76,10 +76,12 @@ bool Straight(Corridor &way, const Rigged &stood, double edgeM, std::string &err
   if (!way.Profile.Over(way.Line, stood.Envelope, 0.5, kJoinMs, error)) { return false; }
   way.SpanM = 25.0;
   const size_t posts = (size_t)(kRoadM / way.SpanM) + 2u;
-  const size_t fine = (size_t)(kRoadM / way.FineM) + 2u;
   way.LaneHalfM.assign(posts, kLaneHalfM);
-  way.FineAside.assign(fine, 0.0);
-  way.FineEdge.assign(fine, edgeM);
+  way.Bake(kRoadM);
+  for (auto &station : way.Fine) {
+    station.EdgeM = edgeM;
+    station.LaneHalfM = kLaneHalfM;
+  }
   way.NarrowestLaneM = 2.0 * kLaneHalfM;
   way.BudgetM = 0.2;
   way.HoldWithinM = 0.3;
@@ -88,10 +90,9 @@ bool Straight(Corridor &way, const Rigged &stood, double edgeM, std::string &err
 
 bool Shifting(Corridor &way, const Rigged &stood, double asideM, std::string &error) {
   if (!Straight(way, stood, kEdgeM, error)) { return false; }
-  const size_t fine = way.FineAside.size();
-  const size_t from = fine / 6u;
-  for (size_t at = from; at < fine; ++at) { way.FineAside[at] = asideM; }
-  way.FineLaneHalfM.assign(fine, kLaneHalfM);
+  for (size_t at = way.Fine.size() / 6u; at < way.Fine.size(); ++at) {
+    way.Fine[at].AsideM = asideM;
+  }
   return true;
 }
 
@@ -230,8 +231,8 @@ int main(void) {
     DriveState following;
     const double stepM = 0.75;
     CHECK(Shifting(shifts, onEarth, stepM, error),
-          "a corridor whose lane centre steps sideways lays -- FineAside and FineLaneHalfM "
-          "both filled, which Straight() leaves at zero and empty");
+          "a corridor whose lane centre steps sideways lays -- one Bake, one station type, so "
+          "a band cannot be present in the product and missing from the twin");
     CHECK(Seat(following, shifts, car, onEarth), "the car seats on it");
     const Ridden followed = RideOut(shifts, onEarth, car, following);
 
@@ -257,9 +258,25 @@ int main(void) {
           "measured at 0.869 x the pursuit lag at p99 (apps/driver, board:1817)");
   }
 
+  // board:1820: three parallel bands of doubles that had to be one length by convention, and
+  // a tick that survived a violation with six band.empty() branches on the frame path. One
+  // Station type, one Bake, one clamped index -- and a corridor that was never laid refuses
+  // once at entry instead of returning a default per read.
+  {
+    Corridor unlaid;
+    DriveState nowhere;
+    CHECK(!unlaid.Laid(), "a corridor that no lay has baked says so");
+    const Ridden verdict = DriveTick(unlaid, onEarth, nowhere, kDtS, nullptr);
+    CHECK(!verdict.Found,
+          "**AN UNLAID CORRIDOR IS REFUSED AT ENTRY, NOT SURVIVED PER TICK** -- the fine bands "
+          "are one contiguous Station array with one extent, so 'the same length' is the type "
+          "rather than a convention three assign calls happened to keep");
+  }
+
   Covers("II.13 the drive tick is one pure function of (corridor, rig, vehicle, state): it "
          "holds the car to the declared world's gravity, arrives on a synthetic corridor in "
          "the fast gate, reports the road's end loudly, and follows a lane centre that moves "
-         "-- the regression net for the sign, the seat, the edge and the aside rate");
+         "-- the regression net for the sign, the seat, the edge, the aside rate and the "
+         "refusal of a corridor that was never laid");
   return Report();
 }

@@ -30,9 +30,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   auto &halfWidthM = out.HalfWidthM;
   auto &laneHalfM = out.LaneHalfM;
   auto &asideM = out.AsideM;
-  auto &fineAside = out.FineAside;
-  auto &fineEdge = out.FineEdge;
-  auto &fineLaneHalfM = out.FineLaneHalfM;
+  auto &stations = out.Fine;
   const double fineM = out.FineM;
   auto &spanM = out.SpanM;
   auto &narrowestLaneM = out.NarrowestLaneM;
@@ -309,15 +307,13 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   }
   budgetM = 0.5 * narrowestLaneHereM - 0.5 * carWidthM;
 
-  fineAside.assign((size_t)(fitted.LengthM / fineM) + 2, 0.0);
-  fineEdge.assign(fineAside.size(), 0.0);
-  fineLaneHalfM.assign(fineAside.size(), 0.0);
-  for (size_t fine = 0; fine < fineAside.size(); ++fine) {
-    const size_t post = (size_t)((double)fine * fineM / spanM);
+  out.Bake(fitted.LengthM);
+  for (size_t at = 0; at < stations.size(); ++at) {
+    const size_t post = (size_t)((double)at * fineM / spanM);
     const size_t band = post < asideM.size() ? post : asideM.size() - 1;
-    fineAside[fine] = asideM[band];
-    fineEdge[fine] = halfWidthM[band];
-    fineLaneHalfM[fine] = laneHalfM[band < laneHalfM.size() ? band : laneHalfM.size() - 1];
+    stations[at].AsideM = asideM[band];
+    stations[at].EdgeM = halfWidthM[band];
+    stations[at].LaneHalfM = laneHalfM[band < laneHalfM.size() ? band : laneHalfM.size() - 1];
   }
   {
     const double reachM = outshine::Pilot::kSettleS * stood.Envelope.TopMs();
@@ -330,11 +326,11 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
     say.Number("so a full-budget shift is taken over", budgetM / mostPerM, "m of road");
     const double most = mostPerM * fineM;
 
-    std::vector<double> roomM(fineAside.size(), 0.0);
+    std::vector<double> roomM(stations.size(), 0.0);
     long insideTight = 0;
     double worstDrivenM = 1.0e9;
     for (size_t fine = 0; fine < roomM.size(); ++fine) {
-      double room = fineEdge[fine] - 0.5 * carWidthM - out.BudgetM;
+      double room = stations[fine].EdgeM - 0.5 * carWidthM - out.BudgetM;
       outshine::Placed on;
       if (corridor.At((double)fine * fineM, on) && on.CurvaturePerM != 0.0) {
         const double radiusM = 1.0 / std::fabs(on.CurvaturePerM);
@@ -365,49 +361,49 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
     say.Number("the tracking error the lane centre keeps clear of the edge", budgetM, "m");
     say.Number("the most a narrowing pulled the lane centre in ahead of itself", leadM, "m");
     long led = 0;
-    for (size_t fine = 0; fine < fineAside.size(); ++fine) {
-      if (fineAside[fine] > roomM[fine]) { fineAside[fine] = roomM[fine]; ++led; }
-      if (fineAside[fine] < -roomM[fine]) { fineAside[fine] = -roomM[fine]; ++led; }
+    for (size_t fine = 0; fine < stations.size(); ++fine) {
+      if (stations[fine].AsideM > roomM[fine]) { stations[fine].AsideM = roomM[fine]; ++led; }
+      if (stations[fine].AsideM < -roomM[fine]) { stations[fine].AsideM = -roomM[fine]; ++led; }
     }
     say.Number("stations where a narrowing ahead moved the car in early", (double)led, "stations");
 
     for (int sweep = 0; sweep < 400; ++sweep) {
       long moved = 0;
-      for (size_t fine = 1; fine < fineAside.size(); ++fine) {
-        if (fineAside[fine] > fineAside[fine - 1] + most) {
-          fineAside[fine] = fineAside[fine - 1] + most;
+      for (size_t fine = 1; fine < stations.size(); ++fine) {
+        if (stations[fine].AsideM > stations[fine - 1].AsideM + most) {
+          stations[fine].AsideM = stations[fine - 1].AsideM + most;
           ++moved;
         }
-        if (fineAside[fine] < fineAside[fine - 1] - most) {
-          fineAside[fine] = fineAside[fine - 1] - most;
+        if (stations[fine].AsideM < stations[fine - 1].AsideM - most) {
+          stations[fine].AsideM = stations[fine - 1].AsideM - most;
           ++moved;
         }
       }
-      for (size_t fine = fineAside.size() - 1; fine > 0; --fine) {
-        if (fineAside[fine - 1] > fineAside[fine] + most) {
-          fineAside[fine - 1] = fineAside[fine] + most;
+      for (size_t fine = stations.size() - 1; fine > 0; --fine) {
+        if (stations[fine - 1].AsideM > stations[fine].AsideM + most) {
+          stations[fine - 1].AsideM = stations[fine].AsideM + most;
           ++moved;
         }
-        if (fineAside[fine - 1] < fineAside[fine] - most) {
-          fineAside[fine - 1] = fineAside[fine] - most;
+        if (stations[fine - 1].AsideM < stations[fine].AsideM - most) {
+          stations[fine - 1].AsideM = stations[fine].AsideM - most;
           ++moved;
         }
       }
       if (moved == 0) { break; }
     }
     long clamped = 0;
-    for (size_t fine = 0; fine < fineAside.size(); ++fine) {
-      if (fineAside[fine] > roomM[fine]) { fineAside[fine] = roomM[fine]; ++clamped; }
-      if (fineAside[fine] < -roomM[fine]) { fineAside[fine] = -roomM[fine]; ++clamped; }
+    for (size_t fine = 0; fine < stations.size(); ++fine) {
+      if (stations[fine].AsideM > roomM[fine]) { stations[fine].AsideM = roomM[fine]; ++clamped; }
+      if (stations[fine].AsideM < -roomM[fine]) { stations[fine].AsideM = -roomM[fine]; ++clamped; }
     }
     say.Number("stations where the road edge overruled the taper", (double)clamped, "stations");
 
     double leftM = 0.0, worstOverM = 0.0;
-    for (size_t fine = 1; fine < fineAside.size(); ++fine) {
-      leftM = std::fmax(leftM, std::fabs(fineAside[fine] - fineAside[fine - 1]));
-      const double asideReachM = std::fabs(fineAside[fine]) + 0.5 * carWidthM;
-      if (asideReachM > fineEdge[fine]) {
-        worstOverM = std::fmax(worstOverM, asideReachM - fineEdge[fine]);
+    for (size_t fine = 1; fine < stations.size(); ++fine) {
+      leftM = std::fmax(leftM, std::fabs(stations[fine].AsideM - stations[fine - 1].AsideM));
+      const double asideReachM = std::fabs(stations[fine].AsideM) + 0.5 * carWidthM;
+      if (asideReachM > stations[fine].EdgeM) {
+        worstOverM = std::fmax(worstOverM, asideReachM - stations[fine].EdgeM);
       }
     }
     say.Number("the largest step left after tapering", leftM, "m");
