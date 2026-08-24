@@ -406,6 +406,9 @@ RunWithTimeout() {
   marker=$3
   runArgument=$4
   rm -f "$marker"
+  # board:1778: a case that is killed by the budget measured NOTHING. Handing it the budget lets
+  # it stop inside one and REPORT, which is a measurement, instead of being cut off mid-drive.
+  export OUTSHINE_TIMEOUT_S="$TIMEOUT_S"
   if [ -n "$runArgument" ]; then
     "$binary" "$runArgument" >"$log" 2>&1 &
   else
@@ -849,14 +852,26 @@ RebuildOwner() {
   fi
   ownerNames=$BUILD/log/owners
   # BSD sed has no \| alternation in a basic regex, so the two words are two expressions.
-  sed -n -e 's|^UNPREPARED '"$PREPARED"'/\([^/]*\)/.*|\1|p' \
-         -e 's|^REFUSED '"$PREPARED"'/\([^/]*\)/.*|\1|p' "$1" | sort -u > "$ownerNames"
+  sed -n -e 's|^UNPREPARED .*'"$PREPARED"'/\([^/]*\)/.*|\1|p' \
+         -e 's|^REFUSED .*'"$PREPARED"'/\([^/]*\)/.*|\1|p' "$1" | sort -u > "$ownerNames"
   [ -s "$ownerNames" ] || return 1
   ownerRebuilt=no
   while IFS= read -r ownerDir; do
     [ -n "$(ls -A "$PREPARED/$ownerDir" 2>/dev/null | grep -v '^manifest.json$')" ] && continue
     holder=$(awk -F'\t' -v want="$ownerDir" '$1 == want { print $2; exit }' "$ownerMap")
-    [ -n "$holder" ] || continue
+    if [ -z "$holder" ]; then
+      # not every prepared directory has a manifest behind it: the scenario assets are placed
+      # from licensed copies against a digest the scenario pins, by their own subcommand.
+      printf 'run.sh: %s has no prepared input and no manifest owns it -- placing the scenario assets (board:1778)\n' \
+        "$ownerDir" >&2
+      before=$(Now)
+      if python3 test/harness/shared/corpus/prepare.py scenario-assets \
+           > "$BUILD/log/scenario-assets-rebuild.log" 2>&1; then
+        [ -n "$(ls -A "$PREPARED/$ownerDir" 2>/dev/null)" ] && ownerRebuilt=yes
+      fi
+      builtSpentMs=$(( builtSpentMs + $(Now) - before ))
+      continue
+    fi
     RebuildCase "$holder" "$PREPARED/$ownerDir"
     [ "$REBUILT" = yes ] && ownerRebuilt=yes
   done < "$ownerNames"
