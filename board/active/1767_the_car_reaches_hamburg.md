@@ -340,3 +340,35 @@ station and neither is answerable from what is published today:
 
 Parked there rather than guessed at: the attribution above is this round's work, and the two
 measurements are the next round's.
+
+---
+
+## The car reaches Hamburg (2026-08-24)
+
+```
+NOTE how far the route runs                   = 742.636082 km
+NOTE where a wheel first left the carriageway = 0 km
+NOTE seconds of wall clock                    = 132.777 s
+CHECKS 45 FAILURES 0 SKIPPED 0 UNPREPARED 0 PARTIAL 0
+```
+
+The chain that got there, and every link was a measurement that overturned the one before:
+
+| what was measured | what it ruled out |
+|---|---|
+| the corner at km 113.990: R = 10 442 m, 0.229 m/s2 | not the geometry -- a 43rd of what the tyres have |
+| the tyres: 0.33 deg of a 3.91 deg peak | not sliding |
+| the steer: 2.52x the kinematic bicycle's own | not an under-commanded correction |
+| the pursuit lag: `L^2/(2R)` = 0.114 m of 0.888 | not the pure-pursuit geometry |
+| the aim: settled, 0 m still to travel | **misleading** -- it had ARRIVED, and the car was still catching up |
+| the excursion: 62.93 m long, the aim moving 0.722 m over it | the lane centre moving at its own declared maximum |
+| the rate: `budgetM / reachM` | **the premise** -- the pursuit lag alone spends the whole budget |
+
+The repair is `board:1814`: one lateral rate instead of three, no literal top speed, and a
+budget that covers two lags in series rather than one.
+
+- **Proving test**: this case, `--timeout 1200`, 45 checks and no failure.
+- **Negative control**: `kLagsToCover` back to 1.0 -> the wheel leaves at km 113.990 after 21 s.
+- What this case also gained on the way: eleven numbers about the moment a wheel leaves, the
+  deviation as a distribution rather than a worst sample, and the `--timeout` it needs printed
+  in its own log.

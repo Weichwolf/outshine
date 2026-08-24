@@ -133,6 +133,7 @@ int main(void) {
   Note("the fastest it went", rode.TopMs * 3.6, "km/h");
   Note("hours simulated", rode.SimulatedS / 3600.0, "h");
   Note("seconds of wall clock", wallS, "s");
+  std::printf("NOTE this drive needs --timeout %ld\n", (long)(2.0 * wallS) + 1);
   Note("how much faster than real time", rode.SimulatedS / (wallS > 0.0 ? wallS : 1.0), "x");
   Note("worst deviation from the middle of its own lane", rode.WorstOffsetM, "m");
   // board:1812: the corridor reserves budgetM between the aim and the edge for exactly this

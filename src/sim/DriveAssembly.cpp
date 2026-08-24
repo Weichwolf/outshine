@@ -69,7 +69,6 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   auto &corridor = out.Way.Line;
   auto &stood = out.Stood;
   auto &asideM = out.Way.AsideM;
-  auto &narrowestLaneM = out.Way.NarrowestLaneM;
 
   const double straightM = ApartM(fromLatDeg, fromLonDeg, toLatDeg, toLonDeg, world.RadiusM);
   const double middleLat = 0.5 * (fromLatDeg + toLatDeg);
@@ -269,7 +268,7 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
       outshine::Stand(corridor, start.EastM, start.NorthM, 0.0, 0.0, 50.0);
   const double startAsideM = asideM.empty() ? 0.0 : asideM.front();
   say.Number("the fastest the car may move between lane centres",
-       ((0.5 * narrowestLaneM - 0.5 * carWidthM) / (1.0 * stood.Envelope.TopMs())) * 1000.0,
+       out.Way.AsideRatePerM * 1000.0,
        "mm per metre");
   body.PositionM[0] = start.EastM - std::sin(start.HeadingRad) * startAsideM;
   body.PositionM[1] = under0.HeightM + stood.CentreM[1];
@@ -286,7 +285,7 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
     for (int axis = 0; axis < 3; ++axis) { body.VelocityMs[axis] = kJoinMs * ahead[axis]; }
   }
 
-  out.State.AsideRatePerM = (0.5 * narrowestLaneM - 0.5 * carWidthM) / (1.0 * stood.Envelope.TopMs());
+  out.State.AsideRatePerM = out.Way.AsideRatePerM;
   
   out.Ready = true;
   return true;

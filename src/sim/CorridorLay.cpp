@@ -13,6 +13,13 @@
 namespace outshine::Sim {
 
 namespace {
+
+constexpr double kLagsToCover = 2.0;
+
+}
+
+
+namespace {
 constexpr double kPatienceS = 900.0;
 }
 
@@ -317,10 +324,13 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
     fineLaneHalfM[fine] = laneHalfM[band < laneHalfM.size() ? band : laneHalfM.size() - 1];
   }
   {
-    const double reachM = 1.0 * 232.722657 / 3.6;
-    const double mostPerM = budgetM / reachM;
+    const double reachM = stood.Envelope.TopMs();
+    const double mostPerM = budgetM / (kLagsToCover * reachM);
+    out.AsideRatePerM = mostPerM;
+    say.Number("the top speed the declaration implies", reachM * 3.6, "km/h");
+    say.Number("the reach one second of it buys", reachM, "m");
     say.Number("the fastest the lane centre may move sideways", mostPerM * 1000.0, "mm per metre");
-    say.Number("so a 1.125 m shift is taken over", 1.125 / mostPerM, "m of road");
+    say.Number("so a full-budget shift is taken over", budgetM / mostPerM, "m of road");
     const double most = mostPerM * fineM;
 
     std::vector<double> roomM(fineAside.size(), 0.0);

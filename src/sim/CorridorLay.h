@@ -27,6 +27,7 @@ struct Corridor {
   double SpanM = 0.0;
   double NarrowestLaneM = 0.0;
   double BudgetM = 0.0;
+  double AsideRatePerM = 0.0;
   double HoldWithinM = 0.0;
   double ReserveMs2 = 0.0;
   double FrameLat = 0.0, FrameLon = 0.0, PerLatM = 1.0, PerLonM = 1.0;

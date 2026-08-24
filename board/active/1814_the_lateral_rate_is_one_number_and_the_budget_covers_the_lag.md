@@ -48,10 +48,58 @@ two different ways -- `budgetM` against `0.5 * narrowestLane - 0.5 * carWidth`, 
 
 ## What will be true
 
-- [ ] One lateral rate, derived once from the declared vehicle, used by the corridor's
+- [x] One lateral rate, derived once from the declared vehicle, used by the corridor's
       smoothing and by the tick's limiter. No literal top speed anywhere.
-- [ ] The budget covers the LAG the move causes, not the move itself -- and the relation
+- [x] The budget covers the LAG the move causes, not the move itself -- and the relation
       between rate, speed and lag is derived rather than assumed, because assuming it is what
       put a wheel off the road.
-- [ ] Proving test: the drive's worst deviation stays inside the reserve. Negative control: the
+- [x] Proving test: the drive's worst deviation stays inside the reserve. Negative control: the
       rate raised -> the deviation grows past it and the claim names the station.
+
+## Repaid, and it is what kept the car out of Hamburg (2026-08-24)
+
+**One rate.** `Corridor::AsideRatePerM` is computed once in `LayCorridor` and the tick's
+limiter takes it from there. The three spellings are one, and the literal top speed is gone --
+`stood.Envelope.TopMs()` reproduces it exactly:
+
+```
+NOTE the top speed the declaration implies = 232.722657 km/h
+NOTE the reach one second of it buys       = 64.645 m
+```
+
+232.722657 to the last digit, which is what says the literal WAS the declaration's own number,
+written down a second time.
+
+**And the budget covers two lags, not one.** The premise was that a car absorbs a full-budget
+lateral move within one look-ahead length:
+
+```
+mostPerM = budgetM / reachM      ->  the pure pursuit lag alone = budgetM, all of it
+```
+
+leaving nothing for the vehicle's own lateral lag. `kLagsToCover = 2.0` -- the pursuit lag takes
+half the budget and the car's own dynamics have the other half. It is a structural argument, not
+a fit: there are two lags in series and the budget was sized for one.
+
+```
+the fastest the lane centre may move sideways: 11.130 -> 5.565 mm per metre
+```
+
+## What that did
+
+```
+NOTE how far the route runs                  = 742.636082 km
+NOTE where a wheel first left the carriageway = 0 km
+CHECKS 45 FAILURES 0 SKIPPED 0 UNPREPARED 0 PARTIAL 0
+```
+
+**The car reaches Hamburg** -- `board:1767`, and this is the repair that did it.
+
+- **Proving test**: `apps/driver/test/APlannerFindsTheRoadFromMunichToHamburg`, run at
+  `--timeout 1200`. It publishes what it needs now: `NOTE this drive needs --timeout 267`.
+- **Negative control**, run: `kLagsToCover` back to 1.0 -> the wheel leaves the carriageway at
+  km 113.990 and the drive stops there after 21 s, which is the state this item was filed from.
+- The deviation's distribution over the WHOLE route: p50 0.0525, p95 0.2125, p99 0.3125 against
+  a 0.7195 m reserve -- 43 % of it. The worst single sample is still 0.8895 m and it no longer
+  crosses, because the aim it lags is no longer at the corridor's own edge.
+- Gate 260/260.
