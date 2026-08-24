@@ -58,8 +58,19 @@ void KeepBetween(std::span<const double> points, size_t wholeFrom, size_t wholeT
 }
 
 std::vector<double> Simplify(std::span<const double> eastNorthM, double withinM) {
+  std::vector<size_t> kept;
+  return Simplify(eastNorthM, withinM, kept);
+}
+
+std::vector<double> Simplify(std::span<const double> eastNorthM, double withinM,
+                             std::vector<size_t> &kept) {
   const size_t points = eastNorthM.size() / 2;
-  if (points < 3 || !(withinM > 0.0)) { return {eastNorthM.begin(), eastNorthM.end()}; }
+  kept.clear();
+  kept.reserve(points);
+  if (points < 3 || !(withinM > 0.0)) {
+    for (size_t point = 0; point < points; ++point) { kept.push_back(point); }
+    return {eastNorthM.begin(), eastNorthM.end()};
+  }
   std::vector<bool> keep(points, false);
   keep.front() = true;
   keep.back() = true;
@@ -69,6 +80,7 @@ std::vector<double> Simplify(std::span<const double> eastNorthM, double withinM)
   out.reserve(eastNorthM.size());
   for (size_t point = 0; point < points; ++point) {
     if (!keep[point]) { continue; }
+    kept.push_back(point);
     out.push_back(eastNorthM[2 * point]);
     out.push_back(eastNorthM[2 * point + 1]);
   }
@@ -86,6 +98,11 @@ double CornerRadiusM(double turnRad, double shorterLegM, double withinM) {
 
 Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
            ReferenceLine &into) {
+  return Fit(eastNorthM, withinM, tightestM, std::span<const double>(), into);
+}
+
+Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
+           std::span<const double> classTightestM, ReferenceLine &into) {
   Fitted out;
   const size_t points = eastNorthM.size() / 2;
   out.Vertices = points;
@@ -153,6 +170,16 @@ Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
     if (out.TightestRadiusM <= 0.0 || radiusM[vertex] < out.TightestRadiusM) {
       out.TightestRadiusM = radiusM[vertex];
       out.TightestAtVertex = vertex;
+    }
+    const double classM = vertex < classTightestM.size() ? classTightestM[vertex] : 0.0;
+    if (classM > 0.0 && radiusM[vertex] < classM) {
+      ++out.UnderClass;
+      const double shortfall = radiusM[vertex] / classM;
+      if (out.UnderClass == 1 || shortfall < out.UnderClassRadiusM / out.UnderClassMinimumM) {
+        out.UnderClassAtVertex = vertex;
+        out.UnderClassRadiusM = radiusM[vertex];
+        out.UnderClassMinimumM = classM;
+      }
     }
   }
 

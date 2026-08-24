@@ -139,6 +139,40 @@ int main(void) {
         "gave up -- which is the difference between a data finding and an engine defect");
   std::printf("REFUSAL %s\n", broken.Error.c_str());
 
+  // board:1784: a way's design minimum radius travels the same road as its width and its
+  // gradient, and the node merge has to answer what happens where two classes meet. Width takes
+  // the widest, gradient the strictest -- and radius takes the LOOSEST, because a junction where
+  // a primary meets a service road really does turn as tightly as the service road, and a bound
+  // that refused it would refuse the exit rather than the artefact.
+  Network classes(kSnapM, kIuggMeanRadiusM);
+  const double wide[6] = {50.0, 10.0, 50.0, 10.01, 50.0, 10.02};
+  const double narrow[6] = {50.0, 10.02, 50.0, 10.03, 50.0, 10.04};
+  const double none[4] = {50.0, 10.04, 50.0, 10.05};
+  classes.Lay(wide, 3, 4.75, 0.06, 2, 400.0);
+  classes.Lay(narrow, 3, 3.25, 0.08, 2, 200.0);
+  classes.Lay(none, 2, 1.75, 0.12, 1);
+  CHECK(classes.Weave(error), "three ways of three classes weave");
+  const Route along = classes.Plan(Waypoint{50.0, 10.0}, Waypoint{50.0, 10.05}, 0.0);
+  CHECK(along.Found && along.Legs.size() == 6, "and a route runs the length of all three");
+  if (along.Found && along.Legs.size() == 6) {
+    for (size_t at = 0; at < along.Legs.size(); ++at) {
+      std::printf("NOTE leg %zu carries a class minimum of %.1f m\n", at,
+                  along.Legs[at].MinRadiusM);
+    }
+    CHECK(along.Legs[0].MinRadiusM == 400.0 && along.Legs[1].MinRadiusM == 400.0,
+          "**A LEG CARRIES THE DESIGN MINIMUM RADIUS OF THE WAY IT STANDS ON**: the number "
+          "vegetation.json declares per road class reaches the route, which is the only way the "
+          "fit can ever know that a six-metre corner on a primary is a finding (board:1784)");
+    CHECK(along.Legs[2].MinRadiusM == 200.0,
+          "**AND THE NODE WHERE TWO CLASSES MEET TAKES THE LOOSER OF THEM**: the shared node "
+          "belongs to both ways, and a junction bends as tightly as the tightest road that "
+          "reaches it -- taking the stricter would refuse every motorway exit in the graph");
+    CHECK(along.Legs[4].MinRadiusM == 0.0 && along.Legs[5].MinRadiusM == 0.0,
+          "**AND A WAY WITH NO DECLARED MINIMUM CARRIES NONE, AND SPREADS NONE**: the kinds "
+          "below tertiary have no fetched design radius, so their nodes bound nothing -- an "
+          "absent number stays absent instead of becoming a zero that means 'any corner'");
+  }
+
   Covers("I.4.4 a network is woven from ways that share no identity: points within a declared "
          "snapping distance become one node, ways meet where they cross, and A* over it with a "
          "great-circle heuristic returns the shortest route or names why there is none");

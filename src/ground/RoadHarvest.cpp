@@ -45,6 +45,10 @@ Reaped Reap(const OsmField &field, const VegetationTemplates &widths, double veh
       ++out.Ungraded;
       if (!Listed(out.WithoutGrade, kind)) { out.WithoutGrade += std::string(kind) + " "; }
     }
+    if (!(rule->MinRadiusM > 0.0f)) {
+      ++out.Undesigned;
+      if (!Listed(out.WithoutRadius, kind)) { out.WithoutRadius += std::string(kind) + " "; }
+    }
     if (!(out.NarrowestTakenM > 0.0) || widthM < out.NarrowestTakenM) {
       out.NarrowestTakenM = widthM;
     }
@@ -58,7 +62,8 @@ Reaped Reap(const OsmField &field, const VegetationTemplates &widths, double veh
         along.push_back(field.Points()[2 * ((size_t)ring.First + point)]);
         along.push_back(field.Points()[2 * ((size_t)ring.First + point) + 1]);
       }
-      into.Lay(along.data(), ring.Count, 0.5 * widthM, (double)rule->MaxGradient, rule->Lanes);
+      into.Lay(along.data(), ring.Count, 0.5 * widthM, (double)rule->MaxGradient, rule->Lanes,
+               (double)rule->MinRadiusM);
       ++out.Ways;
       out.Points += ring.Count;
     }

@@ -1,6 +1,7 @@
 #include <cmath>
 #include <cstdio>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "Check.h"
@@ -55,9 +56,16 @@ public:
   void Number(const char *what, double value, const char *unit) override {
     (void)unit;
     Numbers_.push_back(std::string(what) + " = " + std::to_string(value));
+    Held_.emplace_back(what, value);
     if (std::string(what).find("steepest gradient") != std::string::npos) { Steepest_ = value; }
   }
   [[nodiscard]] double Steepest() const { return Steepest_; }
+  [[nodiscard]] double Of(const char *what) const {
+    for (const auto &[said, value] : Held_) {
+      if (said == what) { return value; }
+    }
+    return -1.0;
+  }
   [[nodiscard]] const std::vector<std::string> &Numbers() const { return Numbers_; }
   void Claim(bool held, const char *why) override {
     if (!held) {
@@ -81,6 +89,7 @@ private:
   size_t Refused_ = 0;
   double Steepest_ = 0.0;
   std::vector<std::string> Numbers_;
+  std::vector<std::pair<std::string, double>> Held_;
   std::vector<std::string> Refusals_;
 };
 
@@ -135,6 +144,32 @@ private:
   }
   out.LengthM = metres;
   out.StraightM = metres;
+  out.Reached = out.Legs.size();
+  return out;
+}
+
+// board:1784. A zigzag whose legs declare a road class: the corners it forces are legal for the
+// car and illegal for the class the way claims to be. Legs of `alongM` with `asideM` of sideways
+// throw turn 2*atan(aside/along) at every vertex, and the fit's own byRoom bound puts a radius on
+// that turn which no OSM tag ever asked for.
+[[nodiscard]] Route Zigzag(int steps, double alongM, double asideM, double minRadiusM) {
+  Route out;
+  out.Found = true;
+  const double perLatDeg = 111320.0;
+  const double perLonDeg = 68500.0;
+  for (int at = 0; at <= steps; ++at) {
+    Leg leg;
+    leg.At = Waypoint{52.0 + (double)at * alongM / perLatDeg,
+                      9.0 + (at % 2 == 0 ? asideM : -asideM) / perLonDeg};
+    leg.AlongM = (double)at * alongM;
+    leg.HalfWidthM = 3.5;
+    leg.MaxGradient = 0.06;
+    leg.MinRadiusM = minRadiusM;
+    leg.Lanes = 2;
+    out.Legs.push_back(leg);
+  }
+  out.LengthM = (double)steps * alongM;
+  out.StraightM = out.LengthM;
   out.Reached = out.Legs.size();
   return out;
 }
@@ -233,6 +268,93 @@ int main(void) {
           "**AND A ROUTE THAT DECLARES A CLIMB PAST THE DRIVETRAIN IS REFUSED**: 40 % against "
           "a rig that can pull 23.97 % is a road this car cannot drive, and the lay says so "
           "rather than handing back a plan (board:1624)");
+  }
+
+  {
+    // board:1784, the box that stood open two rounds: a road class carries a design minimum
+    // radius, and the corridor now knows it. RAA 2008 gives EKA 1B 720 m; RAL 2012 gives
+    // EKL 1..4 500/400/300/200 m. 400 m is `primary`. The zigzag below is legal for the car --
+    // its own centreline minimum is under five metres -- and nowhere near legal for a primary.
+    FlatGround flat(120.0);
+    Quiet quiet;
+    Corridor laid;
+    std::string why;
+    const Route route = Zigzag(20, 60.0, 15.0, 400.0);
+    const bool ok = LayCorridor(route, flat, car, stood, 8.0, stood.TightestM, 52.0,
+                                6371008.8, quiet, laid, why);
+    const double declared = quiet.Of("vertices whose road class declares a design minimum radius");
+    const double under = quiet.Of("corners the fit laid tighter than their class allows");
+    Note("vertices carrying a class minimum", declared, "vertices");
+    Note("the tightest radius the fit laid", quiet.Of("the tightest radius on it"), "m");
+    Note("the car's own centreline minimum", stood.TightestM, "m");
+    Note("corners under their class minimum", under, "corners");
+    Note("the worst of them", quiet.Of("the worst of them"), "m");
+    Note("where its class allows", quiet.Of("where its class allows"), "m");
+
+    CHECK(ok, "a zigzag that is legal for the car still lays");
+    CHECK(declared > 0.0,
+          "**THE ROAD CLASS REACHES THE FIT**: minRadiusM travels vegetation.json -> Rule -> "
+          "Reap -> Network::Lay -> Way -> the node merge -> Leg -> the per-vertex bound, and "
+          "the fit is told what class of road it is fitting (board:1784)");
+    CHECK(quiet.Of("the tightest radius on it") > stood.TightestM,
+          "and every corner on it is one the CAR can drive, so the vehicle bound is silent and "
+          "what follows is about the road and not about the rig");
+    CHECK(under > 0.0,
+          "**AND A CORNER NO ROAD OF THAT CLASS WOULD CARRY IS COUNTED**: a primary is designed "
+          "to 400 m and this polyline demands under a hundred, which is a finding about the "
+          "graph rather than a corner to smooth -- the vehicle bound could never see it, "
+          "because a car turns in five metres (board:1784)");
+    CHECK_NEAR(quiet.Of("where its class allows"), 400.0, 1.0e-9, "m",
+               "and the minimum it names is the one the way's own class declares, not a "
+               "constant beside the fit");
+    CHECK(quiet.Of("the worst of them") < 400.0 &&
+              quiet.Of("the worst of them") >= quiet.Of("the tightest radius on it"),
+          "and the worst of them is a radius the fit actually laid");
+  }
+
+  {
+    // the same shape with the class taken off the legs. This is the negative control, standing
+    // in the proof: nothing about the geometry changed, only what the way claims to be.
+    FlatGround flat(120.0);
+    Quiet quiet;
+    Corridor laid;
+    std::string why;
+    const Route route = Zigzag(20, 60.0, 15.0, 0.0);
+    const bool ok = LayCorridor(route, flat, car, stood, 8.0, stood.TightestM, 52.0,
+                                6371008.8, quiet, laid, why);
+    Note("vertices carrying a class minimum, class removed",
+         quiet.Of("vertices whose road class declares a design minimum radius"), "vertices");
+    Note("corners under their class minimum, class removed",
+         quiet.Of("corners the fit laid tighter than their class allows"), "corners");
+    CHECK(ok, "the same zigzag without a class still lays");
+    CHECK(quiet.Of("corners the fit laid tighter than their class allows") == 0.0,
+          "**AND A WAY THAT DECLARES NO CLASS IS BOUNDED BY NOTHING BUT THE CAR**: the kinds "
+          "below tertiary are RASt 06 territory and this tree has fetched no minimum for them, "
+          "so they carry none -- an absent number is absent, never a zero that refuses "
+          "everything (board:1784)");
+  }
+
+  {
+    // and a straight road of the same class: the bound exists and does not fire.
+    FlatGround flat(120.0);
+    Quiet quiet;
+    Corridor laid;
+    std::string why;
+    Route route = Straight(2000.0, 20);
+    for (Leg &leg : route.Legs) { leg.MinRadiusM = 400.0; }
+    const bool ok = LayCorridor(route, flat, car, stood, 8.0, stood.TightestM, 52.0,
+                                6371008.8, quiet, laid, why);
+    Note("vertices carrying a class minimum on the straight",
+         quiet.Of("vertices whose road class declares a design minimum radius"), "vertices");
+    Note("corners under their class minimum on the straight",
+         quiet.Of("corners the fit laid tighter than their class allows"), "corners");
+    CHECK(ok && quiet.Refused() == 0,
+          "a straight primary lays and refuses nothing");
+    CHECK(quiet.Of("vertices whose road class declares a design minimum radius") > 0.0 &&
+              quiet.Of("corners the fit laid tighter than their class allows") == 0.0,
+          "**AND A ROAD THAT OBEYS ITS CLASS IS NOT ACCUSED OF ANYTHING**: the bound is armed "
+          "on every vertex and counts nothing, which is what separates an instrument from a "
+          "claim that is true because it never looks (board:1784)");
   }
 
   Covers("II.15 LayCorridor is reachable by a unit case: it asks the ground two questions "

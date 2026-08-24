@@ -21,7 +21,9 @@ struct Reaped {
   double WidestRefusedM = 0.0;
   size_t NotACarriageway = 0;
   size_t Ungraded = 0;
+  size_t Undesigned = 0;
   std::string WithoutGrade;
+  std::string WithoutRadius;
   std::string NotCarriageways;
   bool StreetsAbsent = false;
 };

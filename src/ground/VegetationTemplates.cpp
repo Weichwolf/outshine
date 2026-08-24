@@ -156,6 +156,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
       rule.Rank = (int)r["rank"].Num(-1.0);
       rule.WidthM = (float)r["widthM"].Num(0.0);
       rule.MaxGradient = (float)r["maxGradient"].Num(0.0);
+      rule.MinRadiusM = (float)r["minRadiusM"].Num(0.0);
       rule.Lanes = (int)r["lanes"].Num(0.0);
       rule.Oneway = r["oneway"].Num(0.0) > 0.5;
       if (rule.Rank < 0) { Error_ = "osm row without rank: " + layer + "/" + kind; return false; }

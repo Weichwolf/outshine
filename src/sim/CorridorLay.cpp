@@ -52,14 +52,23 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   say.Number("metres per degree of latitude in the local frame", perLatM, "m");
   say.Number("metres per degree of longitude there", perLonM, "m");
 
-  const std::vector<double> keptM = outshine::Simplify(eastNorthM, quantumM);
+  std::vector<size_t> keptAt;
+  const std::vector<double> keptM = outshine::Simplify(eastNorthM, quantumM, keptAt);
+  std::vector<double> classTightestM(keptAt.size(), 0.0);
+  size_t designed = 0;
+  for (size_t at = 0; at < keptAt.size(); ++at) {
+    const double mine = route.Legs[keptAt[at]].MinRadiusM;
+    const double before = at > 0 ? route.Legs[keptAt[at - 1]].MinRadiusM : mine;
+    classTightestM[at] = mine <= 0.0 || before <= 0.0 ? 0.0 : (mine < before ? mine : before);
+    if (classTightestM[at] > 0.0) { ++designed; }
+  }
   say.Number("vertices the route offered before simplifying", (double)(eastNorthM.size() / 2),
        "vertices");
   say.Number("vertices left after removing what the data cannot resolve",
        (double)(keptM.size() / 2), "vertices");
   say.Number("the share removed", 1.0 - (double)keptM.size() / (double)eastNorthM.size(), "of them");
 
-    fitted = Fit(keptM, quantumM, tightestM, corridor);
+    fitted = Fit(keptM, quantumM, tightestM, classTightestM, corridor);
   if (!fitted.Laid) { say.Say(Line("REFUSED %s", fitted.Error.c_str())); }
   say.Number("vertices the route offered", (double)fitted.Vertices, "vertices");
   say.Number("corners the fit needed", (double)fitted.Corners, "corners");
@@ -67,6 +76,15 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   say.Number("the corridor it laid", fitted.LengthM / 1000.0, "km");
   say.Number("the polyline it came from", route.LengthM / 1000.0, "km");
   say.Number("the tightest radius on it", fitted.TightestRadiusM, "m");
+  say.Number("vertices whose road class declares a design minimum radius", (double)designed,
+       Line("of %s", std::to_string(keptAt.size()).c_str()).c_str());
+  say.Number("corners the fit laid tighter than their class allows", (double)fitted.UnderClass,
+       "corners");
+  if (fitted.UnderClass > 0) {
+    say.Number("the worst of them", fitted.UnderClassRadiusM, "m");
+    say.Number("where its class allows", fitted.UnderClassMinimumM, "m");
+    say.Number("that vertex", (double)fitted.UnderClassAtVertex, "");
+  }
   say.Number("the sharpest turn it carried", fitted.SharpestTurnRad * 180.0 / std::numbers::pi, "deg");
   say.Number("at which vertex", fitted.SharpestTurnAtM, "");
   say.Number("turns past a right angle", (double)fitted.TurnsPastRightAngle, "of 2480");
