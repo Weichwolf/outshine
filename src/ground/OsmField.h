@@ -38,6 +38,8 @@ public:
 
   int Build(TilePool &tiles, double lat, double lon, int ringTiles);
 
+  int Accept(int tx, int ty, std::span<const uint8_t> vectorTile);
+
   int Zoom() const { return Zoom_; }
 
   long MissingLayers() const { return Missing_; }

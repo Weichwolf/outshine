@@ -84,7 +84,13 @@ bool OsmField::AddTile(TilePool &tiles, int tx, int ty, int &added) {
   if (reply == TilePool::Reply::Pending || reply == TilePool::Reply::Refused) return false;
 
   if (reply == TilePool::Reply::Absent || reply == TilePool::Reply::Undeclared) return true;
-  const int got = (int)Scratch_.Bytes.size();
+  added += Accept(tx, ty, Scratch_.Bytes);
+  return true;
+}
+
+int OsmField::Accept(int tx, int ty, std::span<const uint8_t> vectorTile) {
+  int added = 0;
+  const int got = (int)vectorTile.size();
 
   const uint32_t tile = (uint32_t)Tiles_.size();
   Tiles_.push_back(Tile{Zoom_, tx, ty, (uint32_t)Features_.size(), 0});
@@ -92,7 +98,7 @@ bool OsmField::AddTile(TilePool &tiles, int tx, int ty, int &added) {
   OsmVector mvt;
   for (uint16_t li = 0; li < (uint16_t)Layers_.size(); li++) {
     bool present = false;
-    if (!mvt.Parse(Scratch_.Bytes.data(), (size_t)got, Layers_[li].c_str(), &present)) {
+    if (!mvt.Parse(vectorTile.data(), (size_t)got, Layers_[li].c_str(), &present)) {
       if (present) {
         Bad_++;
         Log::Error("world", "vectile_undecodable", {{"z", Zoom_}, {"x", tx}, {"y", ty},
@@ -157,7 +163,7 @@ bool OsmField::AddTile(TilePool &tiles, int tx, int ty, int &added) {
                                    {"rings", (int)mvt.Rings().size()}});
   }
   Tiles_[tile].FeatureCount = (uint32_t)Features_.size() - Tiles_[tile].FirstFeature;
-  return true;
+  return added;
 }
 
 size_t OsmField::HeapBytes() const {
