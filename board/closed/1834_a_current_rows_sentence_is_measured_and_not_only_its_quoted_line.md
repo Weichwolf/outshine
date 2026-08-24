@@ -73,3 +73,14 @@ stale line number, because the stale line number announces itself.
 - 2026-08-24 -- filed by the hourly review, which is the diagrams' only writer and therefore
   the author of both defects. The mechanism that would have caught them is the one this item
   asks for.
+
+**Both rows corrected.** `CLAUDE.md`'s `CorridorLay` row said the product *"no longer holds
+bands that must agree by convention"* while `CorridorLay.h:42` still declared four of them; it
+now says the product holds no band parallel to its stations, which board:1828 made true rather
+than merely asserted. The `DriveTick` row said `424 bytes measured` where
+`src/sim/DriveTick.cpp:18` asserts 440; it now names the `static_assert` as the measurement
+instead of carrying a hand-copied number beside it.
+
+The item's own reading stands and is the sharper half: `EveryColourCitesALineThatSaysIt` proves
+the CITATION resolves, never that the SENTENCE around it is true. Both rows were green through
+the defect.
