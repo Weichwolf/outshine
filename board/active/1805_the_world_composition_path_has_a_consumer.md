@@ -87,8 +87,45 @@ queue, as a statement that the world gets drawn.
       in its own C++.
 - [ ] `apps/driver` loses its geometry construction to the library, and what stays is the
       declaration plus the loop.
-- [ ] The CURRENT diagram distinguishes a node that is SOUND from a node that is REACHED, or
-      the reached-ness is a separate claim the gate walks.
 - [ ] Proving test: a still from a declared world, taken through the composition path, in which
       buildings and vegetation are present because the scenario asked for them. Negative
       control: the declaration removed -> they are absent and the picture says so.
+
+## What board:1806 settled, and what it did not (2026-08-24)
+
+Six of the path's nodes now have twins that prove something about them --
+`OsmField`, `StreetField`, `WaterField`, `BuildingField`, `RegionForge` and (from the same
+walk) `Frustum`. Three doors narrowed to make that possible, and `OsmField::Accept` in
+particular means the whole ground stack is now reachable from a proof that fetches nothing.
+
+**That answers "is it checked". It does not answer "is it reached".** A layer with twins and no
+consumer is a proven layer nobody calls, which is a smaller defect than an unproven one and
+still a defect. The measurement stands exactly as filed:
+
+```
+$ grep -rln '"Sim.h"' src test tools apps
+src/clients/Sim.cpp
+test/render/outshine/world/AWorldStandsUpWhereItIsDeclared.cpp
+```
+
+## The box the diagram owes
+
+`CLAUDE.md`'s CURRENT class map colours by ARCHITECTURE -- green is "right responsibility in
+the right layer". Nothing in it distinguishes:
+
+| | |
+|---|---|
+| a node that is sound AND reached | `ReferenceLine`, `Rig`, `SkyStage` |
+| a node that is sound and **reached only through a red facade** | `Forest`, `Buildings`, `Water`, `Infrastructure`, `RegionForge` |
+
+Both are green, and a reader -- including this queue for two rounds -- takes green to mean the
+world gets drawn. The map is the architect's to write (owner directive, same session), so the
+form is proposed here rather than applied: a node whose only path to a client runs through a
+node this map colours RED is itself in question, and the map should say which nodes those are.
+
+`harness/claims/EveryNodeTheMapDrawsIsNamedByAProof` is the walk that made this visible and is
+the natural place for the second question to be asked from.
+
+- [x] The CURRENT diagram distinguishes a node that is SOUND from a node that is REACHED, or
+      the reached-ness is a separate claim the gate walks. **Half**: the proof question is a
+      claim now; the reach question is stated above for the map's owner.
