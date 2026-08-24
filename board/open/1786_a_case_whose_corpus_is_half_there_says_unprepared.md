@@ -102,3 +102,54 @@ loses ground every round it is read by a runner that cannot use it.
 
 `board:1789` carries the sharing defect and its repair. This item carries what the case must
 SAY: a directory holding sixteen artefacts and no subject is not "not prepared".
+
+---
+
+## The "loss" was an eviction, and both earlier readings are withdrawn (2026-08-24)
+
+I filed this and `board:1789` calling the pruned inputs a data LOSS. They were not lost. The
+prune log says so on every line it writes:
+
+```
+KEPT     10012  manifest.json    the keep set: the pictures, the declaration, the provenance, the subject
+STAYS    32849  oracle.f0000.exr the store holds no object under key 17f6a834…
+```
+
+`Prune::Examine` (test/harness/shared/Prune.h:139-165) removes a file only when the content
+store vouches for its bytes (`Proof::StoreHoldsTheseBytes`) or when this run's own arms wrote
+it. `$TMPDIR/outshine-content` holds **1 091 objects, 586 MB**. Every pruned subject was
+recoverable, locally, with no network at all.
+
+**Measured**: 21 of 21 `grown` cases had lost `scene.glb`. Nineteen came back with
+
+```sh
+python3 test/harness/shared/corpus/prepare.py all --manifest test/render/outshine/grown/<case>/manifest.json
+```
+
+from the store, no fetch. The remaining two are GENERATED rather than fetched, and their
+preparer would not build -- see below.
+
+So the defect this item names is real but smaller and sharper than I wrote it: **a case whose
+subject sits in the content store reports `UNPREPARED`, which reads as "never fetched", when
+the truth is "evicted, and one local command brings it back"**. Three states wear one word:
+never prepared, prepared and evicted, prepared and destroyed. The runner names the recovery
+in `Prune.cpp:27-32` and the case does not.
+
+`board:1789`'s claim -- that a parallel runner deletes another's data -- is likewise softened:
+it evicts data the store still holds. The prune lock is still right (serialising eviction
+keeps a reader's working set), but it stops an inconvenience, not a loss.
+
+## And the two that would not come back
+
+`test/harness/render/outshine/grown/prepare/grown.py:83` compiled `GrowPart.cpp` with
+**`-std=c++17`** while the tree is C++23. CLAUDE.md: *"one `-std` for the whole tree"*. It
+failed on `std::numbers` (C++20) and `std::span` (C++20):
+
+```
+src/core/PunctualLight.h:18:37: error: no member named 'numbers' in namespace 'std'
+src/gltf/Subject.h:167:35: error: no template named 'span' in namespace 'std'
+```
+
+A second spelling of the tree's own standard, in the one script that rebuilds what the prune
+evicts. Corrected to `-std=c++23`; `beech` and `cube` then regenerated and all 21 cases hold
+their subject again.

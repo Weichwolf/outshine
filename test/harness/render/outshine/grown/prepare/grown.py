@@ -80,7 +80,7 @@ def _built():
     where = os.path.join(tempfile.gettempdir(), "outshine-corpus")
     os.makedirs(where, exist_ok=True)
     binary = os.path.join(where, "GrowPart")
-    command = [compiler, SOURCE, "-std=c++17", "-O2", "-Wall", "-Wextra", "-Wpedantic", "-Werror",
+    command = [compiler, SOURCE, "-std=c++23", "-O2", "-Wall", "-Wextra", "-Wpedantic", "-Werror",
                "-Wno-unused-parameter"]
     command += ["-I" + os.path.join(REPOSITORY, part) for part in INCLUDES]
     command += [LIBRARY, "-o", binary]
