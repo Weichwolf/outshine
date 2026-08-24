@@ -672,7 +672,12 @@ void Renderer::BeginTemporalRun() {
 }
 
 void Renderer::RenderFrame() {
-  if (!Ready_ || !CameraFull_) { return; }
+  if (!Ready_) { return; }
+  if (!CameraFull_) {
+    WhyNot_ = "no camera basis reached this renderer, so a frame has no eye to be seen from -- "
+              "SetCameraBasis takes the eye, forward, right and up the picture is composed about";
+    return;
+  }
 
   if (Plan_->Holds(Stage::TemporalResolve)) {
     PrevJitter_[0] = Jitter_[0];

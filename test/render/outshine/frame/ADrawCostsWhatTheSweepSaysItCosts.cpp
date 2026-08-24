@@ -19,7 +19,8 @@ constexpr int kFrameWidthPx = 1280;
 constexpr int kFrameHeightPx = 720;
 constexpr double kFrameBudgetMs = 1000.0 / 60.0;
 constexpr int kWarmFrames = 24;
-constexpr int kTimedFrames = 160;
+constexpr int kTimedFrames = 100;
+constexpr int kRounds = 3;
 constexpr uint32_t kDraws[] = {1,    2,    4,    8,     16,    32,    64,   128,
                                256,  512,  1024, 2048,  4096,  8192,  12288, 16384};
 constexpr size_t kSteps = sizeof(kDraws) / sizeof(kDraws[0]);
@@ -32,6 +33,7 @@ struct Timed {
   double P50Ms = 0.0;
   double P95Ms = 0.0;
   double P99Ms = 0.0;
+  double SpreadMs = 0.0;
   size_t CoveredPx = 0;
 };
 
@@ -110,6 +112,33 @@ int main(void) {
   CHECK(renderer.DeviceUsable(), "the device came up, so a draw can be timed at all");
   if (!renderer.DeviceUsable()) { return Report(); }
 
+  // board:1826: the renderer used to accept every one of these and draw nothing, with WhyNot()
+  // answering the empty string. A door that cannot say what is missing costs the caller a day.
+  {
+    renderer.RenderFrame();
+    Note("the renderer says why it drew no frame", renderer.WhyNot().empty() ? 0.0 : 1.0, "yes");
+    std::printf("NOTE with no camera it says: '%.120s'\n", renderer.WhyNot().c_str());
+    CHECK(!renderer.WhyNot().empty(),
+          "**A FRAME WITH NO CAMERA IS REFUSED BY NAME**, not by drawing nothing -- the eye is "
+          "what a picture is composed about, and a renderer that stays silent about its absence "
+          "hands the caller a black frame and no reason (board:1826)");
+
+    std::string refused;
+    outshine::Render::SubjectMesh named;
+    named.VertexCount = 3;
+    named.IndexCount = 3;
+    CHECK(!renderer.SetSubjectMesh(named, refused) && !refused.empty(),
+          "**AND A MESH THAT NAMES GEOMETRY IT DOES NOT HAND OVER IS REFUSED BY NAME** -- three "
+          "vertices declared, no position run, no indices, no draw list: eight shortfalls used "
+          "to share one silent 'return true'");
+    std::printf("NOTE an empty declaration says: '%.120s'\n", refused.c_str());
+
+    refused.clear();
+    CHECK(!renderer.SetSubjectPlacements(nullptr, 8, refused) && !refused.empty(),
+          "**AND A PLACEMENT COUNT WITH NO TABLE IS REFUSED BY NAME**, where it used to pass as "
+          "'no placements at all'");
+  }
+
   const float verts[9] = {0.0f, -kSpanM, -kSpanM, 0.0f, kSpanM, -kSpanM, 0.0f, 0.0f, kSpanM};
   const float emitted[9] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
   std::vector<uint32_t> indices;
@@ -147,8 +176,10 @@ int main(void) {
   std::vector<double> placements;
   std::vector<float> depth;
   std::vector<Timed> measured(kSteps);
+  std::vector<std::vector<double>> rounds(kSteps);
   bool everyStepRendered = true;
 
+  for (size_t round = 0; round < (size_t)kRounds && everyStepRendered; ++round) {
   for (size_t step = 0; step < kSteps; ++step) {
     const uint32_t draws = kDraws[step];
     outshine::Render::DrawList list;
@@ -228,11 +259,18 @@ int main(void) {
                             std::chrono::steady_clock::now() - began)
                             .count());
     }
-    measured[step] = Percentiles(samples);
-    measured[step].CoveredPx = CoveredPixels(renderer, depth);
-    std::printf("DRAWS %5u  p50 %8.4f ms  p95 %8.4f ms  p99 %8.4f ms  batches %5zu  lit %zu px\n",
-                draws, measured[step].P50Ms, measured[step].P95Ms, measured[step].P99Ms,
-                list.Batches().size(), measured[step].CoveredPx);
+    const Timed now = Percentiles(samples);
+    rounds[step].push_back(now.P50Ms);
+    if (round + 1 == (size_t)kRounds) {
+      std::vector<double> overRounds = rounds[step];
+      measured[step] = Percentiles(overRounds);
+      measured[step].P50Ms = overRounds[overRounds.size() / 2];
+      measured[step].CoveredPx = CoveredPixels(renderer, depth);
+      measured[step].SpreadMs = overRounds.back() - overRounds.front();
+      std::printf("DRAWS %5u  p50 %8.4f ms  spread %6.4f ms over %d rounds  lit %zu px\n", draws,
+                  measured[step].P50Ms, measured[step].SpreadMs, kRounds,
+                  measured[step].CoveredPx);
+    }
   }
 
   CHECK(everyStepRendered,
@@ -244,6 +282,7 @@ int main(void) {
   // screen. A slope taken over the whole sweep is therefore a slope through a moving fill, which
   // is not what board:1538 asked for. The per-draw term is read where the covered pixel count
   // has STOPPED moving: there the only thing that changed is how many draws carried it.
+  }
   size_t saturatedFrom = kSteps;
   for (size_t step = 1; step < kSteps; ++step) {
     if (measured[step].CoveredPx == measured[step - 1].CoveredPx) {

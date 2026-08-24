@@ -125,19 +125,37 @@ DRAWS  8192  p50 1.5730 ms  p95 2.2895 ms  p99 2.5599 ms   lit 921600 px
 
 | | |
 |---|---|
-| what a draw costs | **0.130 us** |
-| draws whose submission alone spends 16.67 ms | **124 716** |
-| the slope stands on | 5 saturated steps |
+| what a draw costs | **0.13 to 0.23 us** -- see the correction below |
+| draws whose submission alone spends 16.67 ms | **70 000 to 125 000** |
+| the slope stands on | 5 saturated steps, 3 rounds each |
 
 **The slope is read only where the covered pixel count has stopped moving.** Below 2048 draws
 the grid is still growing, so a longer frame is partly more pixels; a slope through a moving
 fill is not a per-draw cost. The case reads back the covered pixel count at every step, requires
 it to grow at all, and requires a saturated tail to exist before it publishes anything.
 
+### The first number published here was a point value and it did not reproduce
+
+`0.130 us` went into this item from one run. The same case measured `0.230` on the next and
+`0.205` on the third. Corrected rather than left standing: the case now runs every step in
+THREE interleaved rounds and takes the median over them, and it publishes the spread per step:
+
+```
+DRAWS  2048  p50 0.7631 ms  spread 0.0023 ms over 3 rounds  lit 921600 px
+DRAWS  8192  p50 1.8191 ms  spread 0.1007 ms over 3 rounds  lit 921600 px
+```
+
+Within a run the spread is under 5.5 %; between runs it is a factor of 1.8. So the honest
+statement is a RANGE and an order of magnitude, not a point: **a draw costs about 0.2 us**, and
+the budget holds tens of thousands of them.
+
+The conclusion below does not depend on which end of that range is true, which is why it stands.
+
 ### What that does to this item's own reasoning
 
 The item argues: *"A thousand cars with no instancing is at least a thousand draws, and a draw
-is not free."* Measured, **a thousand draws is 0.13 ms -- 0.8 % of the frame budget.** On this
+is not free."* Measured, **a thousand draws is 0.13 to 0.23 ms -- around 1 % of the frame budget**, at either
+end of the range. On this
 device, submission is not what stops a thousand cars. The item's instinct was right that the
 number decides the design; the number says the design is not decided by draw calls.
 

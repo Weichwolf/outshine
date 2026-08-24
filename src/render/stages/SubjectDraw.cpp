@@ -462,10 +462,10 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   }
   {
     const char *missing = nullptr;
-    if (!mesh.Verts) { missing = "a position run"; }
-    else if (!mesh.Indices) { missing = "an index run"; }
-    else if (!mesh.Draws) { missing = "a draw list"; }
-    else if (!mesh.Emitted) { missing = "an emitted-radiance run"; }
+    if (!mesh.Verts) { missing = "position run"; }
+    else if (!mesh.Indices) { missing = "index run"; }
+    else if (!mesh.Draws) { missing = "draw list"; }
+    else if (!mesh.Emitted) { missing = "emitted-radiance run"; }
     if (missing != nullptr) {
       Resident_.NIdx = 0;
       error = std::string("the mesh declares ") + std::to_string(Resident_.NVerts) +

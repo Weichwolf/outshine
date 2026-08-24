@@ -49,6 +49,13 @@ public:
   void GlassIsDrawnElsewhere() { GlassDrawnElsewhere_ = true; }
 
   [[nodiscard]] bool SetPlacements(const double *models, size_t rows, std::string &error) {
+    if (models == nullptr && rows > 0) {
+      Placed_.clear();
+      error = "a placement table of " + std::to_string(rows) +
+              " rows arrives with no rows to read -- a count without a table is a declaration "
+              "that names placements it does not hand over";
+      return false;
+    }
     if (models == nullptr || rows == 0) {
       Placed_.clear();
       return true;
