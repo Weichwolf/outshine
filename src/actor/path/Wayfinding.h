@@ -58,6 +58,17 @@ public:
   [[nodiscard]] size_t JunctionCount() const;
   [[nodiscard]] double SnapM() const { return SnapM_; }
 
+  [[nodiscard]] size_t PointStreamBytes() const {
+    return Points_.size() * sizeof(double) + WayOf_.size() * sizeof(uint32_t);
+  }
+  [[nodiscard]] size_t PointStreamHeldBytes() const {
+    return Points_.capacity() * sizeof(double) + WayOf_.capacity() * sizeof(uint32_t);
+  }
+  [[nodiscard]] size_t BytesPerPoint() const {
+    const size_t points = Points_.size() / 2;
+    return points > 0 ? PointStreamBytes() / points : 0;
+  }
+
   [[nodiscard]] Route Plan(const Waypoint &from, const Waypoint &to, double tightestM) const;
   [[nodiscard]] bool Nearest(const Waypoint &to, size_t &node, double &awayM) const;
   void Within(const Waypoint &of, double reachM, std::vector<size_t> &nodes) const;
@@ -100,10 +111,7 @@ private:
   double SnapM_ = 0.0;
   double RadiusM_ = 0.0;
   std::vector<double> Points_;
-  std::vector<double> Widths_;
-  std::vector<double> Gradients_;
-  std::vector<double> Radii_;
-  std::vector<int> Lanes_;
+  std::vector<uint32_t> WayOf_;
   std::vector<Way> Ways_;
   std::vector<Node> Nodes_;
   std::vector<Edge> Edges_;

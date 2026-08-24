@@ -56,14 +56,14 @@ void Network::Lay(const double *latLonPairs, size_t points, double halfWidthM,
   way.MaxGradient = maxGradient;
   way.MinRadiusM = minRadiusM;
   way.Lanes = lanes;
+  const uint32_t mine = (uint32_t)Ways_.size();
   Ways_.push_back(way);
+  Points_.reserve(Points_.size() + 2 * points);
+  WayOf_.reserve(WayOf_.size() + points);
   for (size_t which = 0; which < points; ++which) {
     Points_.push_back(latLonPairs[2 * which]);
     Points_.push_back(latLonPairs[2 * which + 1]);
-    Widths_.push_back(halfWidthM);
-    Gradients_.push_back(maxGradient);
-    Radii_.push_back(minRadiusM);
-    Lanes_.push_back(lanes);
+    WayOf_.push_back(mine);
   }
   Woven_ = false;
 }
@@ -138,34 +138,26 @@ bool Network::Weave(std::string &error) {
       if (wa.MinRadiusM != wb.MinRadiusM) { return wa.MinRadiusM < wb.MinRadiusM; }
       return wa.Lanes < wb.Lanes;
     });
-    std::vector<double> points, widths, gradients, radii;
-    std::vector<int> lanes;
+    std::vector<double> points;
+    std::vector<uint32_t> wayOf;
     std::vector<Way> ways;
     points.reserve(Points_.size());
-    widths.reserve(Widths_.size());
-    gradients.reserve(Gradients_.size());
-    radii.reserve(Radii_.size());
-    lanes.reserve(Lanes_.size());
+    wayOf.reserve(WayOf_.size());
     ways.reserve(Ways_.size());
     for (const size_t which : order) {
       Way moved = Ways_[which];
       const size_t first = moved.First;
       moved.First = points.size() / 2;
+      const uint32_t mine = (uint32_t)ways.size();
       ways.push_back(moved);
       for (size_t at = 0; at < moved.Count; ++at) {
         points.push_back(Points_[2 * (first + at)]);
         points.push_back(Points_[2 * (first + at) + 1]);
-        widths.push_back(Widths_[first + at]);
-        gradients.push_back(Gradients_[first + at]);
-        radii.push_back(Radii_[first + at]);
-        lanes.push_back(Lanes_[first + at]);
+        wayOf.push_back(mine);
       }
     }
     Points_ = std::move(points);
-    Widths_ = std::move(widths);
-    Gradients_ = std::move(gradients);
-    Radii_ = std::move(radii);
-    Lanes_ = std::move(lanes);
+    WayOf_ = std::move(wayOf);
     Ways_ = std::move(ways);
   }
 
@@ -203,23 +195,25 @@ bool Network::Weave(std::string &error) {
       Node made;
       made.LatDeg = latDeg;
       made.LonDeg = lonDeg;
-      made.HalfWidthM = Widths_[point];
-      made.MaxGradient = Gradients_[point];
-      made.MinRadiusM = Radii_[point];
-      made.Lanes = Lanes_[point];
+      const Way &from = Ways_[WayOf_[point]];
+      made.HalfWidthM = from.HalfWidthM;
+      made.MaxGradient = from.MaxGradient;
+      made.MinRadiusM = from.MinRadiusM;
+      made.Lanes = from.Lanes;
       Nodes_.push_back(made);
       byCell[CellOf(latDeg, lonDeg)].push_back(found);
     } else {
-      if (Widths_[point] > Nodes_[found].HalfWidthM) { Nodes_[found].HalfWidthM = Widths_[point]; }
-      if (Nodes_[found].Lanes <= 0) { Nodes_[found].Lanes = Lanes_[point]; }
+      const Way &from = Ways_[WayOf_[point]];
+      if (from.HalfWidthM > Nodes_[found].HalfWidthM) { Nodes_[found].HalfWidthM = from.HalfWidthM; }
+      if (Nodes_[found].Lanes <= 0) { Nodes_[found].Lanes = from.Lanes; }
       if (Nodes_[found].MaxGradient <= 0.0 ||
-          (Gradients_[point] > 0.0 && Gradients_[point] < Nodes_[found].MaxGradient)) {
-        Nodes_[found].MaxGradient = Gradients_[point];
+          (from.MaxGradient > 0.0 && from.MaxGradient < Nodes_[found].MaxGradient)) {
+        Nodes_[found].MaxGradient = from.MaxGradient;
       }
-      if (Radii_[point] <= 0.0 || Nodes_[found].MinRadiusM <= 0.0) {
+      if (from.MinRadiusM <= 0.0 || Nodes_[found].MinRadiusM <= 0.0) {
         Nodes_[found].MinRadiusM = 0.0;
-      } else if (Radii_[point] < Nodes_[found].MinRadiusM) {
-        Nodes_[found].MinRadiusM = Radii_[point];
+      } else if (from.MinRadiusM < Nodes_[found].MinRadiusM) {
+        Nodes_[found].MinRadiusM = from.MinRadiusM;
       }
     }
     nodeOf[point] = found;

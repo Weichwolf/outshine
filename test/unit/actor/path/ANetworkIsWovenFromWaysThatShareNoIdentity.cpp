@@ -173,6 +173,34 @@ int main(void) {
           "absent number stays absent instead of becoming a zero that means 'any corner'");
   }
 
+  // board:1809: the network kept FOUR arrays of way-constant attributes, one entry per POINT,
+  // and this session added a fifth. 44 bytes a point of which 28 were the same four scalars
+  // repeated, when the values already sat on the Way that owns the range. One index instead.
+  {
+    Network measured(kSnapM, kIuggMeanRadiusM);
+    std::vector<double> laid;
+    for (int at = 0; at < 5000; ++at) {
+      laid.push_back(50.0 + (double)at * 1.0e-5);
+      laid.push_back(10.0);
+    }
+    measured.Lay(laid.data(), laid.size() / 2, 4.75, 0.06, 2, 400.0);
+    Note("points laid", (double)measured.PointCount(), "points");
+    Note("bytes the point stream costs", (double)measured.PointStreamBytes(), "bytes");
+    Note("bytes it holds", (double)measured.PointStreamHeldBytes(), "bytes");
+    Note("bytes a point costs", (double)measured.BytesPerPoint(), "bytes");
+    Note("what the growth overshoots by",
+         (double)measured.PointStreamHeldBytes() / (double)measured.PointStreamBytes(), "x");
+    CHECK(measured.PointCount() == 5000, "five thousand points lay");
+    CHECK(measured.BytesPerPoint() <= 24,
+          "**A WAY CARRIES ITS CLASS ONCE, AND NOT ONCE PER POINT**: a point is two doubles "
+          "and one index into the way that owns it -- 20 bytes. Four way-constant scalars "
+          "repeated per point cost 28 more, which was 55 % of the stream, and the values were "
+          "already on the Way (board:1809)");
+    CHECK(measured.PointStreamHeldBytes() == measured.PointStreamBytes(),
+          "and it holds exactly what it costs -- a way declares how many points it lays before "
+          "it lays them, so the stream is reserved rather than doubled into");
+  }
+
   Covers("I.4.4 a network is woven from ways that share no identity: points within a declared "
          "snapping distance become one node, ways meet where they cross, and A* over it with a "
          "great-circle heuristic returns the shortest route or names why there is none");
