@@ -86,7 +86,12 @@ class Manifest:
     def frame_grid(self):
         """Which frames this case is judged at, in order. `[None]` is a still and is the whole
         corpus until now; a declared animation is `0 .. frames - 1`, and every one of them is its
-        own render, its own key and its own product (board:1129)."""
+        own render, its own key and its own product (board:1129). A manifest that declares no
+        scene renders nothing at all -- the fetched families (wpt, test262) are subjects with no
+        oracle behind them -- so its grid is EMPTY rather than one still, and `renders * frames`
+        comes out zero from both sides (board:1797)."""
+        if self.scene is None:
+            return []
         if self.scene.animation is None:
             return [None]
         return list(range(int(self.scene.animation["frames"]["value"])))

@@ -824,6 +824,56 @@ fi
 
 started=$(Now)
 builtSpentMs=0
+
+# board:1797: the corpus lives in the system temp dir, because artefacts never live in the tree,
+# and the machine sweeps that directory -- it took outshine-prepared and outshine-content
+# between two gate runs. A gate that silently loses a third of its subjects is not a gate, so a
+# case whose prepared input is gone is REBUILT before it is judged, from its own manifest and
+# nothing else. Per case, never wholesale: `prepare.py all --every-case` renders the entire
+# oracle ladder, which is 256 MB for a single animation case and hundreds of gigabytes for the
+# tree -- the sporadic full proof's corpus, not this run's. The cost stands beside the bound
+# with the builds, because a rebuild is a build.
+# board:1797: a case can consume ANOTHER case's prepared product -- the glTF unit twins read
+# test-render-outshine-grown-trs-hierarchy/scene.glb -- so the owner of a missing input is not
+# knowable from the case that misses it. It IS knowable from the path the case names: the
+# prepared directory is the owning manifest's own path with the slashes turned to dashes, and
+# that mapping inverts by walking the manifests the tree declares.
+RebuildOwner() {
+  ownerDir=$(sed -n 's|^UNPREPARED '"$PREPARED"'/\([^/]*\)/.*|\1|p' "$1" | head -1)
+  [ -n "$ownerDir" ] ||
+    ownerDir=$(sed -n 's|^REFUSED '"$PREPARED"'/\([^/]*\)/.*|\1|p' "$1" | head -1)
+  [ -n "$ownerDir" ] || return 1
+  ownerManifest=
+  for candidate in $(find test -name manifest.json); do
+    holder=${candidate%/manifest.json}
+    if [ "$(printf '%s' "$holder" | tr / -)" = "$ownerDir" ]; then ownerManifest=$candidate; break; fi
+  done
+  [ -n "$ownerManifest" ] || return 1
+  RebuildCase "${ownerManifest%/manifest.json}" "$PREPARED/$ownerDir"
+  [ "$REBUILT" = yes ] || return 1
+  return 0
+}
+
+RebuildCase() {
+  REBUILT=no
+  [ -f "$1/manifest.json" ] || return 0
+  [ -z "$(ls -A "$2" 2>/dev/null | grep -v '^manifest.json$')" ] || return 0
+  printf 'run.sh: %s has no prepared input -- rebuilding it from its manifest (board:1797)\n' \
+    "${1#test/}" >&2
+  before=$(Now)
+  if python3 test/harness/shared/corpus/prepare.py all --manifest "$1/manifest.json" \
+       > "$BUILD/log/$(printf '%s' "${1#test/}" | tr / -)-rebuild.log" 2>&1; then
+    printf 'run.sh: rebuilt %s in %s ms\n' "${1#test/}" "$(( $(Now) - before ))" >&2
+    REBUILT=yes
+    ClaimCorpus
+  else
+    printf 'run.sh: the rebuild of %s FAILED -- %s\n' "${1#test/}" \
+      "$BUILD/log/$(printf '%s' "${1#test/}" | tr / -)-rebuild.log" >&2
+  fi
+  builtSpentMs=$(( builtSpentMs + $(Now) - before ))
+  return 0
+}
+
 passed=0
 criterionMet=0
 criterionRed=0
@@ -906,6 +956,7 @@ Judge() {
   judgeId=$1
   judgeBinary=$2
   judgeArgument=$3
+  judgeRetried=${4:-no}
   log=$BUILD/log/$(printf '%s' "$judgeId" | tr / -).log
   marker=$judgeBinary.timeout
   before=$(Now)
@@ -928,6 +979,12 @@ Judge() {
     { [ "$failures" -eq 0 ] && [ "$unpreparedHere" -eq 0 ]; } || expected=1
     [ "$status" -eq "$expected" ] ||
       Die "$judgeId reported FAILURES $failures UNPREPARED $unpreparedHere and exited $status, which do not agree: the reporter's answer was discarded, altered, or never returned -- $log"
+    if [ "$failures" -gt 0 ] || [ "$unpreparedHere" -gt 0 ]; then
+      if [ "$judgeRetried" != yes ] && RebuildOwner "$log"; then
+        Judge "$judgeId" "$judgeBinary" "$judgeArgument" yes
+        return 0
+      fi
+    fi
     if [ "$failures" -gt 0 ]; then
       verdict=FAIL
     elif [ "$unpreparedHere" -gt 0 ]; then
@@ -1084,7 +1141,8 @@ Record() {
     BUILD) unbuilt=$((unbuilt + 1)) ;;
     UNPREP)
       unprepared=$((unprepared + 1))
-      printf 'run.sh: %s has no prepared input -- run test/harness/shared/corpus/prepare.py\n' "$recordId" >&2
+      printf 'run.sh: %s has no prepared input and its rebuild did not give it one -- %s\n' \
+        "$recordId" "$BUILD/log/$(printf '%s' "$recordId" | tr / -)-rebuild.log" >&2
       ;;
     SKIP)
       skipped=$((skipped + 1))
@@ -1216,6 +1274,7 @@ for testSource in $TESTS; do
 '; continue; fi
     : >"$PRUNE_MARKER"
     preparedCase=$(PreparedCase "$oneCase")
+    RebuildCase "$oneCase" "$preparedCase"
     JudgeArms "${oneCase#test/}" "$preparedCase"
     SampleSuite
     PruneCase "$oneCase" "$preparedCase"
