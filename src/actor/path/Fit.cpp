@@ -183,6 +183,27 @@ Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
     }
   }
 
+  {
+    size_t run = 0;
+    double before = 0.0;
+    for (size_t vertex = 1; vertex + 1 < points; ++vertex) {
+      const double turn = turnRad[vertex];
+      const bool joins = run > 0 && turn != 0.0 && (turn > 0.0) == (before > 0.0);
+      if (joins) {
+        ++run;
+      } else {
+        if (run >= 3) { out.SheltredVertices += run - 2; }
+        if (run > out.LongestRunVertices) { out.LongestRunVertices = run; }
+        if (run > 0) { ++out.Runs; }
+        run = turn != 0.0 ? 1 : 0;
+      }
+      before = turn;
+    }
+    if (run >= 3) { out.SheltredVertices += run - 2; }
+    if (run > out.LongestRunVertices) { out.LongestRunVertices = run; }
+    if (run > 0) { ++out.Runs; }
+  }
+
   std::vector<double> atVertexM(points, 0.0);
   constexpr int kFitPasses = 24;
   for (int pass = 0; pass < kFitPasses; ++pass) {

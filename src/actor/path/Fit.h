@@ -46,6 +46,9 @@ struct Fitted {
   size_t Passes = 0;
   size_t Undrivable = 0;
   double UndrivableAtM = 0.0;
+  size_t Runs = 0;
+  size_t LongestRunVertices = 0;
+  size_t SheltredVertices = 0;
   size_t UnderClass = 0;
   size_t UnderClassAtVertex = 0;
   double UnderClassRadiusM = 0.0;

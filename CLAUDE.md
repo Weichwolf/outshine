@@ -462,10 +462,21 @@ The review NEVER edits src/ — it files, sharpens and REOPENS; the repair is th
 
 | | |
 |---|---|
-| what it delivers | delta verdict · findings with file:line · new/changed board items · an explicit defect-free yes/no |
+| what it delivers | delta verdict · findings with file:line · new/changed board items · **what moved in CURRENT and in TARGET** · an explicit defect-free yes/no |
 | where its findings land | `board/open/`, numbered from the next free id, one commit per round |
 | a finding that reappears | reopens the item HARDER, with the measurement that disproves the closure |
 | its gate | run only in its own `git worktree` — the main nest is pid-locked (`test/run.sh`) |
+
+**It owns both maps, and the aim is CURRENT = TARGET** — the distance between them is the
+work list, and the review is the only writer of the diagrams in this file:
+
+| | | |
+|---|---|---|
+| **CURRENT** | the tree at HEAD, measured | MUST be corrected when the code moves — a node added, removed, renamed, recoloured, or a `file:line` citation that no longer says what its row claims |
+| **TARGET** | where the tree is going | MAY change on a fetched reference, a measurement, or an owner requirement — argued in the commit, never silent |
+
+No aspirational green; "it turned out harder" never lowers TARGET. A node that reaches its
+target goes green and is named in the report. A gap no board item covers gets one filed.
 
 Between reviews the open board is worked continuously: pick the next item, repair it, close
 it with the proving test named in its body and a NEGATIVE CONTROL that shows the test red

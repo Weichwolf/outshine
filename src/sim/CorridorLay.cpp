@@ -72,6 +72,10 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   if (!fitted.Laid) { say.Say(Line("REFUSED %s", fitted.Error.c_str())); }
   say.Number("vertices the route offered", (double)fitted.Vertices, "vertices");
   say.Number("corners the fit needed", (double)fitted.Corners, "corners");
+  say.Number("runs of same-sign turns among them", (double)fitted.Runs, "runs");
+  say.Number("the longest such run", (double)fitted.LongestRunVertices, "vertices");
+  say.Number("vertices with a same-sign turn on BOTH sides", (double)fitted.SheltredVertices,
+       "vertices");
   say.Number("straights between them", (double)fitted.Straights, "straights");
   say.Number("the corridor it laid", fitted.LengthM / 1000.0, "km");
   say.Number("the polyline it came from", route.LengthM / 1000.0, "km");

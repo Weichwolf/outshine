@@ -62,9 +62,20 @@ demanded instead.
      read-only traversal.
 4. **One look beyond the delta**: spot-check the red/amber nodes of the CURRENT diagrams against the
    code — a lying map is itself a finding.
-5. **No commits since the last run?** If `git log --since='75 minutes ago'` is empty, the FIRST
+5. **Keep CURRENT and TARGET current.** You are the only writer of CLAUDE.md's diagrams. The
+   aim is **CURRENT = TARGET**; the distance between them is the work list.
+
+   | | | |
+   |---|---|---|
+   | **CURRENT** | the tree at HEAD, measured | MUST fix: node added/removed/renamed/recoloured, a `file:line` citation that no longer says what its row claims |
+   | **TARGET** | where the tree is going | MAY change on a fetched reference, a measurement, or an owner requirement — argued in the commit, never silent |
+
+   No aspirational green. "It turned out harder" never lowers TARGET. A node that reached its
+   target goes green and is named in the report. A gap no board item covers gets one filed.
+
+6. **No commits since the last run?** If `git log --since='75 minutes ago'` is empty, the FIRST
    line of your report is the question to the main agent: "No commits since the last run — what
-   is going on?" Then still perform step 3.
+   is going on?" Then still perform steps 3, 4 and 5 — the diagrams can be stale even when nothing was committed.
 
 ## Issue keeping (board/)
 
@@ -86,6 +97,7 @@ demanded instead.
 ## Final report (your last message, written in German, compact)
 
 Total defect count · the three most important defects · what improved since the last run ·
-newly filed issues (number + title) · sharpened items · closed issues (number + proof). The
+newly filed issues (number + title) · sharpened items · closed issues (number + proof) ·
+**what you changed in CURRENT and in TARGET, and how far apart they now are**. The
 report is the work list for the next hour. If you find NO defects, say so explicitly — the next
 round must confirm it.
