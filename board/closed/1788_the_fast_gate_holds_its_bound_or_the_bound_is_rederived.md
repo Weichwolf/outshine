@@ -87,3 +87,29 @@ walked; the ray count is the SAMPLE. Only the sample falls.
 - Point 2 of this item holds: neither population was chosen to make the gate green. The
   plain arm keeps every case it had; the sanitised arm's 512 is the smallest sample that
   still leaves the occluded share inside the mixture bar the case already enforced.
+
+## The bound holds again -- and what the measurement does not contain
+
+```
+235 tests: 231 PASS  0 FAIL  0 TIMEOUT  0 SIGNAL  0 BUILD  0 SKIP  4 UNPREPARED  in 150558 ms
+run.sh: gate headroom 141023 ms of 230000 (run 88977 ms, builds 61581 ms beside the bound)
+```
+
+| | run |
+|---|---|
+| before this repair | **245 503 ms** -- over the 230 000 bound |
+| after | **88 977 ms** -- 141 023 ms of headroom |
+
+**But 88 977 ms does not include four cases.** `unit/gltf/ADerivedCamera...` and
+`unit/gltf/ANodeHierarchy...`, both arms, are UNPREPARED because `board:1789`'s shared corpus
+lost their subject. They cost 52 271 + 11 355 ms when they last ran, so the honest figure is
+
+```
+88 977 + 63 626 = 152 603 ms of 230 000
+```
+
+which still holds, with 77 397 ms of headroom. That arithmetic is the claim, not the 88 977 --
+a bound measured with four cases missing is a bound measured on a smaller tree.
+
+`board:1735` is no longer regressed: this run and the arithmetic above both sit inside the
+bound the tree derived. `board:1789` and `board:1786` carry the corpus loss.
