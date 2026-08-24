@@ -35,6 +35,8 @@ struct Ridden {
   double AimAtCalmM = 0.0;
   double AimAtWorstM = 0.0;
   long OffsetSamples = 0;
+  double LeastClearanceM = 0.0;
+  double LeastClearanceAtM = 0.0;
   double WorstOffsetAtM = 0.0;
   double WorstRatio = 0.0;
   double WorstRatioAtM = 0.0;
@@ -94,6 +96,7 @@ struct DriveState {
   static constexpr size_t kOffsetBins = 512;
   static constexpr double kOffsetBinM = 0.005;
   uint32_t OffsetBin[kOffsetBins] = {0};
+  uint32_t ClearBin[kOffsetBins] = {0};
   double LastReachedM = -1.0;
   double StalledForS = 0.0;
   double CalmAimM = 0.0;

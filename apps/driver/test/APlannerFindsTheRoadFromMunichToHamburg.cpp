@@ -164,6 +164,40 @@ int main(void) {
     Note("p99 as a share of that reserve", quantile(0.99) / drive.Way.BudgetM, "of it");
     Note("the worst single sample as a share of p99", std::fabs(rode.WorstOffsetM) / quantile(0.99),
          "x");
+    // board:1818: the deviation from a lane centre is not what decides whether a wheel leaves
+    // the road. The CLEARANCE to the carriageway edge is, and nothing computed it: the drive
+    // asserted only that no wheel left, which is the event, not the margin that survived it.
+    const auto clearAt = [&](double share) {
+      const long want = (long)(share * (double)rode.OffsetSamples);
+      long seen = 0;
+      for (size_t bin = 0; bin < outshine::Sim::DriveState::kOffsetBins; ++bin) {
+        seen += (long)drive.State.ClearBin[bin];
+        if (seen >= want) {
+          return bin == 0 ? 0.0 : ((double)bin - 0.5) * outshine::Sim::DriveState::kOffsetBinM;
+        }
+      }
+      return (double)outshine::Sim::DriveState::kOffsetBins *
+             outshine::Sim::DriveState::kOffsetBinM;
+    };
+    Note("the least clearance a wheel ever had to the carriageway edge", rode.LeastClearanceM,
+         "m");
+    Note("where that was", rode.LeastClearanceAtM / 1000.0, "km");
+    Note("the clearance at p01", clearAt(0.01), "m");
+    Note("at p05", clearAt(0.05), "m");
+    Note("at p50", clearAt(0.50), "m");
+    CHECK(rode.LeastClearanceM > 0.0,
+          "**AND THE DRIVE PUBLISHES HOW CLOSE A WHEEL CAME, NOT ONLY WHETHER IT LEFT**: the "
+          "clearance to the carriageway edge is what decides, and a drive that asserts only the "
+          "event asserts the one thing that cannot be nearly true -- a route where every wheel "
+          "stayed on by a millimetre reads exactly like one where none came close");
+    Note("the room left at p01 against the deviation spent at p99",
+         quantile(0.99) > 0.0 ? clearAt(0.01) / quantile(0.99) : 0.0, "x");
+    CHECK(clearAt(0.01) > quantile(0.99),
+          "**AND THE ROAD LEAVES MORE ROOM THAN THE CAR ROUTINELY USES**: the bar is a relation "
+          "between two measured distributions and not a constant somebody liked -- the room a "
+          "wheel has at its worst hundredth must exceed the deviation the pilot spends at its "
+          "worst hundredth, or the two tails meet and a wheel leaves on a road nobody would "
+          "call narrow");
     Note("where it was last calm before that worst", rode.CalmBeforeWorstAtM / 1000.0, "km");
     Note("how far the excursion ran", rode.WorstOffsetAtM - rode.CalmBeforeWorstAtM, "m");
     Note("the aim where it was calm", rode.AimAtCalmM, "m");

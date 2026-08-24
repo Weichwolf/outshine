@@ -43,12 +43,59 @@ which is the quantity that decides whether a route survives, and it is unpublish
 
 ## What will be true
 
-- [ ] Every tick computes the wheel-to-edge clearance and folds it into a histogram beside the
+- [x] Every tick computes the wheel-to-edge clearance and folds it into a histogram beside the
       deviation's, so the drive reports p50/p95/p99 AND the minimum of the clearance.
-- [ ] The case asserts the clearance's low tail against a declared floor rather than asserting
+- [x] The case asserts the clearance's low tail against a declared floor rather than asserting
       the binary "did not leave" -- a drive that arrives with 1 mm to spare is not the same
       verdict as one that arrives with 300 mm, and today they print identically.
-- [ ] Proving test: the clearance floor asserted in
+- [x] Proving test: the clearance floor asserted in
       `apps/driver/test/APlannerFindsTheRoadFromMunichToHamburg`. Negative control:
       `kLagsToCover` back to 1.0 -> the minimum clearance goes negative at km 113.990 and the
       case names the station BEFORE the binary check fires.
+
+## Repaid, and the number was worth having (2026-08-24)
+
+Every tick computes `fineEdge - |offset| - 0.5 * carWidth` and folds it into a histogram beside
+the deviation's. The drive publishes it:
+
+```
+NOTE the least clearance a wheel ever had to the carriageway edge = 0.160302 m
+NOTE where that was                                              = 643.525 km
+NOTE the clearance at p01                                        = 0.5475 m
+NOTE at p05                                                      = 0.7175 m
+NOTE at p50                                                      = 1.3175 m
+```
+
+**16 centimetres, at km 643.525** -- and the drive that reported *"no wheel ever left the
+carriageway"* had never said so. The closest point of a 742 km drive is not km 113.990 at all;
+that station was merely the one where the margin ran out under the old rate.
+
+## The bar is a relation between two measured distributions
+
+```
+NOTE the room left at p01 against the deviation spent at p99 = 1.752 x
+```
+
+The room a wheel has at its worst hundredth must exceed the deviation the pilot spends at its
+worst hundredth. Neither side is a constant somebody liked: both are measured on the drive being
+judged, and the statement is that the road leaves more than the car uses. If the two tails meet,
+a wheel leaves on a road nobody would call narrow.
+
+- **Proving test**: `apps/driver/test/APlannerFindsTheRoadFromMunichToHamburg`, 5/5 at
+  `--timeout 900`.
+- **Negative control**, run: `kLagsToCover` back to 1.0 ->
+
+  ```
+  NOTE the least clearance a wheel ever had to the carriageway edge = -0.168919 m
+  FAIL apps/driver/test/APlannerFindsTheRoadFromMunichToHamburg
+  ```
+
+  **-0.169 m** -- and that is exactly the 0.1689 m by which `board:1812` measured the deviation
+  overrunning the reserve. The two arithmetics close on each other, which is what says the
+  clearance is the same defect seen from the other side.
+- **Recorded, not hidden**: the p01-against-p99 relation did NOT go red in that control (3.22x),
+  because a drive that stops at km 114 measures both tails over a seventh of the route. That
+  claim is landed and not yet proven falsifiable, the same residue `board:1800` carries, and
+  the control that would move it is a route where the road is genuinely narrow rather than a
+  car that leaves it early.
+- Gate 260/260.

@@ -15,7 +15,7 @@
 
 namespace outshine::Sim {
 
-static_assert(sizeof(Ridden) == 424, "sizeof(Ridden)");
+static_assert(sizeof(Ridden) == 440, "sizeof(Ridden)");
 static_assert(std::is_trivially_copyable<Ridden>::value, "a tick answer is a value");
 static_assert(sizeof(DriveState) >= sizeof(Ridden), "the state holds the tally");
 
@@ -192,6 +192,17 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood,
       const size_t bin = (size_t)(std::fabs(inLaneM) / DriveState::kOffsetBinM);
       ++drive.OffsetBin[bin < DriveState::kOffsetBins ? bin : DriveState::kOffsetBins - 1];
       ++out.OffsetSamples;
+
+      const double clearM = At(fineEdge, (size_t)(at.AlongM / fineM), 0.0) -
+                            std::fabs(at.OffsetM) - 0.5 * drive.CarWidthM;
+      if (out.OffsetSamples == 1 || clearM < out.LeastClearanceM) {
+        out.LeastClearanceM = clearM;
+        out.LeastClearanceAtM = at.AlongM;
+      }
+      const size_t clearBin =
+          clearM <= 0.0 ? 0 : (size_t)(clearM / DriveState::kOffsetBinM) + 1;
+      ++drive.ClearBin[clearBin < DriveState::kOffsetBins ? clearBin
+                                                          : DriveState::kOffsetBins - 1];
     }
     if (out.StrayedAtM <= 0.0) {
       const size_t here = (size_t)(at.AlongM / fineM);
