@@ -408,6 +408,7 @@ TRAILER_SKIPS=0
 TRAILER_UNPREPARED=0
 FAST_GATE=no
 compileBlind=0
+KILLED_BY_TIME=""
 Number() {
   case "$1" in
     '' | *[!0-9]*) return 1 ;;
@@ -1029,6 +1030,7 @@ Record() {
     FAIL) failed=$((failed + 1)) ;;
     TIMEOUT)
       timedout=$((timedout + 1))
+      KILLED_BY_TIME="$KILLED_BY_TIME $recordId"
       printf 'run.sh: %s was killed after %s s\n' "$recordId" "$TIMEOUT_S" >&2
       ;;
     SIGNAL)
@@ -1189,6 +1191,10 @@ if [ "$FAST_GATE" = yes ]; then
   EverySourceStillCompiles || compileBlind=1
   WhatNoCorpusJudges
 fi
+for killed in $KILLED_BY_TIME; do
+  printf 'run.sh: %s MEASURED NOTHING -- it was killed at %s s before it finished, so its verdict is neither pass nor fail but absent, and a case that cannot finish is a case nobody runs (board:1778)\n' \
+    "$killed" "$TIMEOUT_S" >&2
+done
 [ $((criterionMet + criterionRed)) -gt 0 ] &&
   printf 'khronos: criteria %s met of %s   picture bound %s within, %s outside, %s not-enforced of %s\n' \
     "$criterionMet" "$((criterionMet + criterionRed))" \
