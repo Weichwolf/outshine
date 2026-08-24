@@ -237,18 +237,19 @@ int main(void) {
 
     Note("how far the shifting ride reached", followed.ReachedM, "m");
     Note("the lane centre it was asked to reach", stepM, "m");
-    Note("how much of the step was still unclaimed at the end",
-         std::fabs(followed.LeftAimStillMovingM), "m");
+    Note("how much of the step the aim had not claimed at the end",
+         std::fabs(stepM - following.HeldAsideM), "m");
     Note("its worst offset while claiming it", std::fabs(followed.WorstOffsetM), "m");
     Note("the side budget the corridor declares", shifts.BudgetM, "m");
 
     CHECK(followed.Arrived && !followed.OffTheRoad && !followed.Lost,
           "**A LANE CENTRE THAT MOVES IS STILL DRIVEN TO ARRIVAL** -- the aside rate is a "
           "limit on the aim, not a way to lose the road");
-    CHECK(std::fabs(followed.LeftAimStillMovingM) < 0.01 * stepM,
+    CHECK(std::fabs(stepM - following.HeldAsideM) < 0.01 * stepM,
           "**AND THE STEP IS CLAIMED BEFORE THE ROAD ENDS**: a margin large enough to stretch "
-          "the catch-up past the route would leave the car pinned to the old centre, so this "
-          "is the gate's UPPER bound on kLagMargin -- 8.0 leaves the step unclaimed");
+          "the catch-up past the route leaves the car pinned to the old centre, so this is the "
+          "gate's UPPER bound on kLagMargin -- the aim's own held offset says so, not the "
+          "off-the-road attribution, which is zero on every drive that arrives");
     CHECK(std::fabs(followed.WorstOffsetM) < shifts.BudgetM,
           "**AND THE CAR NEVER LAGS FURTHER THAN THE SIDE BUDGET WHILE CLAIMING IT**: a margin "
           "small enough to yank the aim leaves the car outside the budget it was laid for, so "
