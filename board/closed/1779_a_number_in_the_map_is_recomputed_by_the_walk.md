@@ -196,3 +196,37 @@ The reviewer also names the walk's own blind spot: a number with no citation on 
 skipped silently, and an English number word (`six`, `nine`, `three`) is never matched at all.
 Both are now moot in the map, because no such number stands in it -- but the walk still
 cannot SAY that, and that is what remains open here.
+
+**Closed.** `EveryColourCitesALineThatSaysIt` recomputes every count the map states, and the map
+states only counts it can recompute:
+
+```cpp
+test/harness/claims/EveryColourCitesALineThatSaysIt.cpp:228   drifted.push_back(in + " carries " + std::to_string(found) + " of '" + token + ...
+test/harness/claims/EveryColourCitesALineThatSaysIt.cpp:239   CHECK(recomputed >= 4, "the map states counts for this walk to recompute");
+```
+
+```
+NOTE counts the map states and this walk recomputes = 6 counts
+```
+
+The six are `25 #include "` (Sim), `42 [[nodiscard]]` (Subject), `54 [[nodiscard]]` and
+`15 const {` (Renderer), `9 const double eye[3]` (World), `3 std::mutex` (TilePool) -- each in
+the `N `token`` shape the walk parses, each recomputed from the file the row cites.
+
+The thirteen bare numbers the item listed are gone. `Sim`'s "62 public verbs over 59 members"
+and `Live`'s "25 over 17" were rewritten to name what they count; `AssembleDrive` and
+`LayCorridor` say "a product's worth of inputs, listed one per line" and cite the line;
+`DriveTick`'s "20 fields by value" became `440 bytes, which static_assert(sizeof(Ridden) == 440)
+at DriveTick.cpp:18 is the measurement of` -- a number that names its own assert rather than
+standing beside it.
+
+**The negative control ran twice this session without being staged.** Adding two methods to
+`Renderer` moved `[[nodiscard]]` from 52 to 54 and dropped a `const {`, and the gate went red:
+
+```
+FOUND Renderer.h carries 54 of '[[nodiscard]]' where the map says 52
+FOUND Renderer.h carries 15 of 'const {' where the map says 16
+```
+
+That is exactly the drift the item was filed about, caught by the walk the item asked for,
+against work done an hour earlier. A staged control would have proven less.
