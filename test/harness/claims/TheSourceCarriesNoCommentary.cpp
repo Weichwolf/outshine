@@ -73,7 +73,7 @@ int main(void) {
 
   size_t walked = 0;
   std::vector<std::string> narrating;
-  for (const char *root : {"src", "include", "tools"}) {
+  for (const char *root : {"src", "include", "tools", "apps"}) {
     for (const auto &entry : std::filesystem::recursive_directory_iterator(root)) {
       if (!entry.is_regular_file()) { continue; }
       const std::string suffix = entry.path().extension().string();
@@ -98,7 +98,7 @@ int main(void) {
   // both survivors were introduced by a closure rather than by the original code.
   std::vector<std::string> embedded;
   size_t scanned = 0;
-  for (const char *root : {"src", "include", "tools"}) {
+  for (const char *root : {"src", "include", "tools", "apps"}) {
     for (const auto &entry : std::filesystem::recursive_directory_iterator(root)) {
       if (!entry.is_regular_file()) { continue; }
       const std::string suffix = entry.path().extension().string();
@@ -125,7 +125,7 @@ int main(void) {
   Note("sources scanned for an embedded shader", (double)scanned, "files");
   for (const std::string &one : embedded) { std::printf("FOUND %s embeds a shader\n", one.c_str()); }
   CHECK(embedded.empty(),
-        "**A SHADER LIVES IN A FILE**: src/, include/ and tools/ hold no MSL or GLSL inside a "
+        "**A SHADER LIVES IN A FILE**: src/, include/, tools/ and apps/ hold no MSL or GLSL in a "
         "string literal -- an embedded blob is a second home for a language this translation "
         "unit's compiler never checks (board:1776)");
 
@@ -139,7 +139,7 @@ int main(void) {
   // does not is bound. Nine live citations stood under tools/ while this walk read two roots
   // and claimed three.
   std::vector<std::string> numbered;
-  for (const char *root : {"src", "include", "tools"}) {
+  for (const char *root : {"src", "include", "tools", "apps"}) {
     for (const auto &entry : std::filesystem::recursive_directory_iterator(root)) {
       if (!entry.is_regular_file()) { continue; }
       const std::string suffix = entry.path().extension().string();
@@ -166,12 +166,12 @@ int main(void) {
   for (const std::string &one : narrating) { std::printf("FOUND %s narrates\n", one.c_str()); }
   CHECK(walked >= 300, "the walk saw the tree, not a corner of it");
   CHECK(narrating.empty(),
-        "**THE SOURCE CARRIES NO COMMENTARY**: src/, include/ and tools/ hold no // and no "
-        "/* -- names and structure carry the meaning, a number's origin lives in its board "
+        "**THE SOURCE CARRIES NO COMMENTARY**: src/, include/, tools/ and apps/ hold no // and "
+        "no /* -- names and structure carry the meaning, a number's origin lives in its board "
         "item and its commit, and test/ is the one place prose may stand because a proof "
         "explains what it proves");
 
-  Covers("IV.11 no comment stands in src/, include/ or tools/ -- the rule is a walk, not a "
-         "habit repeated per file (board:1763)");
+  Covers("IV.11 no comment stands in src/, include/, tools/ or apps/ -- the rule is a walk, "
+         "not a habit repeated per file (board:1763)");
   return Report();
 }

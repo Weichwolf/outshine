@@ -60,7 +60,7 @@ int main(void) {
   DriveProduct drive;
   std::string scenarioText;
   {
-    std::FILE *const file = std::fopen("tools/driver/f31.scenario", "rb");
+    std::FILE *const file = std::fopen("apps/driver/f31.scenario", "rb");
     if (file != nullptr) {
       int one = 0;
       while ((one = std::fgetc(file)) != EOF) { scenarioText.push_back((char)one); }

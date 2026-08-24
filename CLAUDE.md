@@ -10,7 +10,7 @@ camera, never a mean.
 - **Declarative**: scenarios declare, the engine behaves; content = data, engine = verbs; the consumer selects from a `constexpr` catalogue and cannot add to it
 - **Batteries as declarations**: outshine ships convenience components -- generators, providers, world templates and factories (`Planet(params)` → a Scenario value) -- all catalogue citizens the scenario selects; the engine core stays scenario-agnostic
 - **Every number carries its origin** (derived · measured · `[SET]`) with unit and population; no magic numbers; calibration measures, never decides
-- **The code carries NO comments** — `src/`, `include/`, `tools/` hold no `//`, no block, no
+- **The code carries NO comments** — `src/`, `include/`, `tools/`, `apps/` hold no `//`, no block, no
   TODO, no derivation, no board number: names and structure carry the meaning, a number's
   origin lives in its board item and its commit, and prose may stand in a PROOF because a proof
   explains what it proves -- a proof being any source that carries `Covers("`, wherever it
@@ -407,7 +407,7 @@ flowchart TD
 
 The unit mirror is the REGRESSION GATE and it is fast; the long device and corpus suites are the
 sporadic full proof, run when named, never per edit. `test/run.sh` is the only runner (one process per test, real verdict, includes per layer = the
-build's own sets). `tools/` builds ON the library, runs only by name. Oracle pipeline:
+build's own sets). `tools/` and `apps/` build ON the library and run only by name. Oracle pipeline:
 fetch → generate → patch (both sides) → convert → Cycles → compare (perceptual tail / geometric
 bound, 0.005 px floor); **criteria met** and **cases within bound** published side by side.
 Read the trailer first — a count without `N tests: … PASS … FAIL` may measure the past. The
@@ -454,7 +454,8 @@ ls board/*/ | grep -o '^[0-9]\{4\}' | sort -n | tail -1   # next id, derived
 |---|---|
 | `src/` | the library entire; `src/assets/` its declared data; no entry point, no test |
 | `test/` | `test/unit/` (mirror), `test/render/` (per vendor), `test/harness/` (scorers + `test/harness/claims/`) |
-| `tools/` | clients built ON the library, each its own directory; they run by name and the engine knows none of them |
+| `tools/` | shared support built ON the library — transports and the like, no entry point of its own |
+| `apps/` | applications built ON the library, each its own directory: not tests, but they exercise the whole engine and are run by name; the engine knows none of them |
 | `Makefile` | build · test · clean, nothing else |
 | `board/` | the working system (above) |
 

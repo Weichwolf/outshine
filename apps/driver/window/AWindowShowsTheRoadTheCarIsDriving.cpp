@@ -111,7 +111,7 @@ int main(void) {
   DriveProduct drive;
   std::string scenarioText;
   {
-    std::FILE *const file = std::fopen("tools/driver/f31.scenario", "rb");
+    std::FILE *const file = std::fopen("apps/driver/f31.scenario", "rb");
     if (file != nullptr) {
       int one = 0;
       while ((one = std::fgetc(file)) != EOF) { scenarioText.push_back((char)one); }
@@ -198,7 +198,7 @@ int main(void) {
   if (!carThere) {
     Unprepared(("the declared F31 is not in the prepared corpus at " + carPath +
                 " -- python3 test/harness/shared/corpus/prepare.py scenario-assets places it from a "
-                "licensed copy, checked against the digest tools/driver/f31.scenario pins")
+                "licensed copy, checked against the digest apps/driver/f31.scenario pins")
                    .c_str());
     return Report();
   }
