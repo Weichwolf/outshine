@@ -4,10 +4,8 @@ namespace outshine::Generators {
 
 Span<const char *const> Infrastructure::NoteNames() const noexcept {
   static constexpr const char *const kNames[kNotes] = {"ways", "widestWayM"};
-  static_assert(kNames[kNotes - 1] != nullptr,
-                "every Note carries a name: aggregate initialisation fills a short list with "
-                "nullptr, so a new Note without a name is a hole in the telemetry and not a "
-                "compiler error");
+  static_assert(EveryNoteNamed(kNames),
+                "every Note carries a name and none of them is empty");
   return Span<const char *const>(kNames, kNotes);
 }
 

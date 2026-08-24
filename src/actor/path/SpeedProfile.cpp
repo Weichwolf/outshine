@@ -6,10 +6,10 @@
 
 namespace outshine {
 
-const char *SpeedProfile::NameOf(Held term) {
+const char *SpeedProfile::NameOf(Held term) noexcept {
   static constexpr const char *const kNames[(size_t)Held::kCount] = {
-      "free", "curvature", "slip", "ramp",  "climb",
-      "crest", "seam",      "entry", "traction", "brake"};
+      "free",  "curvature", "slip",     "ramp",
+      "climb", "crest",     "entry",    "traction", "brake"};
   static_assert(kNames[(size_t)Held::kCount - 1] != nullptr,
                 "every term that can bind the plan carries a name");
   return (size_t)term < (size_t)Held::kCount ? kNames[(size_t)term] : "free";
@@ -72,7 +72,7 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
     }
   };
 
-  const auto HeldAt = [&](const Placed &here, Held *by = nullptr) {
+  const auto HeldAt = [&](const Placed &here, Held &by) {
     double held = topMs;
     Held holds = Held::Free;
     const double bend = std::fabs(here.CurvaturePerM);
@@ -120,7 +120,7 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
         holds = Held::Crest;
       }
     }
-    if (by != nullptr) { *by = holds; }
+    by = holds;
     return held;
   };
 
@@ -136,12 +136,12 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
     }
     Curvature_[at] = here.CurvaturePerM;
     Held holds = Held::Free;
-    Held_[at] = HeldAt(here, &holds);
+    Held_[at] = HeldAt(here, holds);
     Why_[at] = holds;
     NoteCrest(here, station, Held_[at]);
   }
 
-  const auto ClampAround = [&](double where, double heldMs) {
+  const auto ClampAround = [&](double where, double heldMs, Held by) {
     if (!(heldMs < topMs) || !(where >= 0.0)) { return; }
     const double reach = where / stepM;
     const size_t below = (size_t)reach;
@@ -149,7 +149,7 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
     for (size_t at = below; at <= above && at < samples; ++at) {
       if (heldMs < Held_[at]) {
         Held_[at] = heldMs;
-        Why_[at] = Held::Seam;
+        Why_[at] = by;
       }
     }
   };
@@ -167,12 +167,13 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
     tail.CurvatureRatePerM = 2.0 * middle.CurvatureRatePerM - head.CurvatureRatePerM;
     tail.SlopeRatePerM = 2.0 * middle.SlopeRatePerM - head.SlopeRatePerM;
 
-    const double atHead = HeldAt(head);
-    const double atMiddle = HeldAt(middle);
-    const double atTail = HeldAt(tail);
-    ClampAround(from, atHead);
-    ClampAround(centre, atMiddle);
-    ClampAround(to, atTail);
+    Held byHead = Held::Free, byMiddle = Held::Free, byTail = Held::Free;
+    const double atHead = HeldAt(head, byHead);
+    const double atMiddle = HeldAt(middle, byMiddle);
+    const double atTail = HeldAt(tail, byTail);
+    ClampAround(from, atHead, byHead);
+    ClampAround(centre, atMiddle, byMiddle);
+    ClampAround(to, atTail, byTail);
     NoteCrest(head, from, atHead);
     NoteCrest(middle, centre, atMiddle);
     NoteCrest(tail, to, atTail);

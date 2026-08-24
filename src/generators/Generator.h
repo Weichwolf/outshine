@@ -8,6 +8,14 @@
 
 namespace outshine::Generators {
 
+template <size_t N>
+[[nodiscard]] constexpr bool EveryNoteNamed(const char *const (&names)[N]) {
+  for (size_t at = 0; at < N; ++at) {
+    if (names[at] == nullptr || names[at][0] == 0) { return false; }
+  }
+  return true;
+}
+
 class Generator {
 public:
   virtual ~Generator() = default;

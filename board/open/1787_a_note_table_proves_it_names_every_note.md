@@ -100,3 +100,23 @@ Two further notes for whoever closes this:
   diagnostic; the rest is a comment.
 - `src/actor/path/SpeedProfile.cpp:12` copied this pattern **and put `board:1787` in the
   message**. See `board:1654`, reopened this round.
+
+- 2026-08-24 -- box 2 paid. The four asserts now call a shared `constexpr` walk instead of
+  checking one element:
+
+```cpp
+template <size_t N>
+[[nodiscard]] constexpr bool EveryNoteNamed(const char *const (&names)[N]) {
+  for (size_t at = 0; at < N; ++at) {
+    if (names[at] == nullptr || names[at][0] == 0) { return false; }
+  }
+  return true;
+}
+```
+
+  It catches an EMPTY name as well as a missing one, and it lives in `Generator.h` so the
+  four tables cannot drift apart. The three-line derivation that stood in the assert message
+  is gone with it -- board:1654 named that prose as the rule's own form appearing in a string
+  literal.
+- **Negative control**: `"waterSurfaces"` replaced by `""` -> `static assertion failed due to
+  requirement 'EveryNoteNamed(kNames)'`. The tree does not build. Reverted.

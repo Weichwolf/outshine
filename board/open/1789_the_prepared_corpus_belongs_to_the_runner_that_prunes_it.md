@@ -127,3 +127,30 @@ runner, not as `UNPREPARED` against the corpus) is also unimplemented: `Judge`
   when the corpus is genuinely absent, but the claim is taken once and never retaken.
 
 **Verdict: 1789 stays open.** One of its three requirements is partly met.
+
+## Comments
+
+- 2026-08-24 -- the guard is proven and the trap gap is closed.
+- **Proving test**: `test/harness/claims/TheCorpusIsPrunedByOneRunnerOnly`. It carries BOTH
+  directions, because this case runs under a runner that already holds the claim -- so a
+  child asking the question IS the second-runner case:
+
+  | | answer |
+  |---|---|
+  | a child under this runner | `would NOT prune` |
+  | the same child with the claim taken away | `WOULD prune` |
+
+  The control is inside the proof rather than beside it, so it cannot rot.
+- `test/run.sh --would-prune` makes the guard askable without a second full run -- the same
+  shape as `--corpus` (board:1765). The honest experiment, a second runner over a suite that
+  actually prunes, costs more than the fast gate has: the cheapest such suite
+  (`harness/render/outshine/grown`, 21 cases) runs past the 120 s bound when nested, and my
+  first three attempts at this test failed on exactly that -- one measured a MESSAGE rather
+  than a removal, one ran a suite that prunes nothing so its control could never go red, and
+  one timed out and was reported by board:1778's own trailer as having measured nothing.
+- `ReleaseCorpus` now stands in the INT, TERM and HUP traps too, not only EXIT. It held
+  before only because those handlers call `exit`.
+- Still open here: `PREPARED` still carries no `$NEST`, so the claim serialises eviction
+  rather than preventing sharing. board:1786 measured what that costs and found it is an
+  eviction, not a loss -- the store holds the bytes.
+- Gate 237/237.

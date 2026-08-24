@@ -43,8 +43,8 @@ struct Envelope {
 
 class SpeedProfile {
 public:
-  enum class Held : uint8_t { Free, Curvature, Slip, Ramp, Climb, Crest, Seam, Entry,
-                              Traction, Brake, kCount };
+  enum class Held : uint8_t { Free, Curvature, Slip, Ramp, Climb, Crest, Entry, Traction,
+                              Brake, kCount };
 
   struct Standing {
     double Ms = 0.0;
@@ -59,16 +59,16 @@ public:
   [[nodiscard]] size_t BoundBy(Held term) const noexcept {
     return (size_t)term < (size_t)Held::kCount ? Bound_[(size_t)term] : 0;
   }
-  [[nodiscard]] static const char *NameOf(Held term);
+  [[nodiscard]] static const char *NameOf(Held term) noexcept;
 
   [[nodiscard]] double At(double alongM) const;
-  [[nodiscard]] double StepM() const { return StepM_; }
-  [[nodiscard]] size_t SampleCount() const { return Held_.size(); }
-  [[nodiscard]] double SampleAt(size_t which) const { return Held_[which]; }
-  [[nodiscard]] double CurvatureAt(size_t which) const { return Curvature_[which]; }
-  [[nodiscard]] double CrestHeldMs() const { return CrestHeld_; }
-  [[nodiscard]] double CrestHeldAtM() const { return CrestHeldAt_; }
-  [[nodiscard]] size_t CrestsThatBound() const { return CrestsBound_; }
+  [[nodiscard]] double StepM() const noexcept { return StepM_; }
+  [[nodiscard]] size_t SampleCount() const noexcept { return Held_.size(); }
+  [[nodiscard]] double SampleAt(size_t which) const noexcept { return Held_[which]; }
+  [[nodiscard]] double CurvatureAt(size_t which) const noexcept { return Curvature_[which]; }
+  [[nodiscard]] double CrestHeldMs() const noexcept { return CrestHeld_; }
+  [[nodiscard]] double CrestHeldAtM() const noexcept { return CrestHeldAt_; }
+  [[nodiscard]] size_t CrestsThatBound() const noexcept { return CrestsBound_; }
 
 private:
   Standing Slowest_;

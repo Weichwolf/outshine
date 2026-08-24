@@ -4,6 +4,7 @@ set -u
 set -m
 AUDIT=0
 CORPUS=0
+WOULDPRUNE=0
 AUDITLINK=0
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -49,9 +50,9 @@ ReleaseNest() {
     NESTLOCK_MINE=no
   fi
 }
-trap 'KillRunning; ReleaseNest; exit 130' INT
-trap 'KillRunning; ReleaseNest; exit 143' TERM
-trap 'KillRunning; ReleaseNest; exit 129' HUP
+trap 'KillRunning; ReleaseNest; ReleaseCorpus; exit 130' INT
+trap 'KillRunning; ReleaseNest; ReleaseCorpus; exit 143' TERM
+trap 'KillRunning; ReleaseNest; ReleaseCorpus; exit 129' HUP
 CORPUSLOCK=$PREPARED.lock
 CORPUSLOCK_MINE=no
 ClaimCorpus() {
@@ -136,6 +137,7 @@ while [ $# -gt 0 ]; do
     --library) LIBRARY=1; shift ;;
     --audit) AUDIT=1; shift ;;
     --corpus) CORPUS=1; shift ;;
+    --would-prune) WOULDPRUNE=1; shift ;;
     --audit-link) AUDITLINK=1; shift ;;
     -*) Die "unknown option '$1'" ;;
     *) SUITES="$SUITES ${1%/}"; SUITE=${1%/}; shift; continue ;;
@@ -568,6 +570,15 @@ WhatNoCorpusJudges() {
 
 if [ "$CORPUS" = 1 ]; then
   WhatNoCorpusJudges
+  exit 0
+fi
+
+if [ "$WOULDPRUNE" = 1 ]; then
+  if [ "$CORPUSLOCK_MINE" = yes ]; then
+    printf 'run.sh: this runner holds the corpus claim and WOULD prune\n'
+  else
+    printf 'run.sh: this runner does not hold the corpus claim and would NOT prune\n'
+  fi
   exit 0
 fi
 
