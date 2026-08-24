@@ -1106,10 +1106,15 @@ CountTheTwo() {
 # every object linked in -- compared for EQUALITY, because a checkout or a stash pop moves
 # an mtime BACKWARDS and "-nt" then calls a stale binary current. The .cmd file covers the
 # command line; this covers what the command line was fed.
+# board:1811: the case source and its layer's extra sources compile in ONE command with one
+# -MF, so the dependency file describes the LAST translation unit and says nothing about the
+# case itself. Every case includes the harness directly, and a harness change that did not
+# alter the trailer format would have left a stale binary running with the gate trusting it.
+# The harness headers are stamped by name until the build gives each source its own .d.
 BinaryStamp() {
   stampBinary=$1
   shift
-  stampFiles="$*"
+  stampFiles="$* $(ls test/harness/shared/*.h test/harness/shared/render/*.h 2>/dev/null)"
   if [ -f "$stampBinary.d" ]; then
     for stampNeed in $(tr '\\' ' ' <"$stampBinary.d" | tr ':' ' ' | tr -s ' \n' ' '); do
       case "$stampNeed" in *.o|*.cpp|*.h|*.hpp) ;; *) continue ;; esac
