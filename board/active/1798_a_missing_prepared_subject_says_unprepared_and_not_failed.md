@@ -43,7 +43,34 @@ Two consequences, and the second is the one that bites:
 
 ## What will be true
 
-- [ ] Every twin reading a prepared subject guards it and says `UNPREPARED` with the path.
-- [ ] Proving test: `run.sh unit/gltf` against a swept corpus rebuilds every subject it needs
+- [x] Every twin reading a prepared subject guards it and says `UNPREPARED` with the path.
+- [x] Proving test: `run.sh unit/gltf` against a swept corpus rebuilds every subject it needs
       and reports 0 FAIL, 0 UNPREPARED. Negative control: the guard removed from one twin ->
       that twin FAILs and its owner is never rebuilt.
+
+## Comments
+
+- 2026-08-24 -- repaid. Three twins, not two: `TheTriangleProjectsToTheOraclesArea` already
+  said UNPREPARED for its SUBJECT and said FAIL for the manifest beside it -- the same absence,
+  two words, in one file.
+
+  | twin | what it spent FAIL on |
+  |---|---|
+  | `AGeneratedBasisIsTheOneTheExporterWrote` | three prepared glTF subjects, unguarded |
+  | `ADerivedCameraIsTheFramingRuleAndNotAQuotation` | an empty survey |
+  | `TheTriangleProjectsToTheOraclesArea:37` | the case's prepared manifest, while guarding the subject four lines later |
+
+- **Proving test**: `run.sh unit/gltf` against a swept corpus -- **60/60, 0 FAIL, 0 UNPREPARED**,
+  having rebuilt `render/khronos/glTF/NormalTangentMirrorTest`,
+  `render/khronos/glTF/NormalTangentTest`, `render/khronos/glTF/Triangle` and
+  `render/outshine/grown/trs-hierarchy` from the paths the twins named.
+- **Negative control**, run: the `Present` guard disabled in
+  `AGeneratedBasisIsTheOneTheExporterWrote` with its prepared directory removed ->
+
+  ```
+  FAIL unit/gltf/AGeneratedBasisIsTheOneTheExporterWrote
+  60 tests: 58 PASS  2 FAIL ... 0 UNPREPARED
+  ```
+
+  and `NormalTangentMirrorTest` was never rebuilt -- a CHECK names no path, so the runner
+  cannot find the owner. With the guard back: UNPREPARED, owner rebuilt, PASS.

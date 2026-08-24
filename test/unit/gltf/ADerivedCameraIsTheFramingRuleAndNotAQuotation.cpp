@@ -106,6 +106,7 @@ std::vector<Case> Cases() {
 struct Answer {
 
   bool Declined = false;
+  bool Unfetched = false;
   Freedoms Owns = Freedoms::Ours;
   Determination Produced = Determination::Elsewhere;
   bool Judged = false;
@@ -207,8 +208,14 @@ Answer Judge(const Case &subjectCase) {
 
   const std::string entry = subject0["entry"].Str("scene.gltf");
   const std::string subjectPath = subjectCase.Directory + "/" + entry;
+  // board:1799: this twin SURVEYS every case the tree declares, and the corpus behind them is
+  // fetched into the system temp dir by a preparer the fast gate does not run. Saying
+  // UNPREPARED once per absent subject turned one swept directory into 160 findings and made
+  // the gate red for what it did not judge. board:1765 already settled the honest form: judge
+  // what is there, and NAME what is not. A survey that judged nothing is unprepared; a survey
+  // that judged something says how much of the declared corpus stood behind it.
   if (Slurp(subjectPath).empty()) {
-    outshine::Test::Unprepared((subjectPath + " is not prepared -- run test/harness/shared/corpus/prepare.py").c_str());
+    answer.Unfetched = true;
     return answer;
   }
 
@@ -343,9 +350,10 @@ int main() {
   }
   CHECK(!cases.empty(), "the render suite's case directories are found and their manifests read");
 
-  int ours = 0, upstreams = 0, byTheRule = 0, elsewhere = 0, theFiles = 0;
+  int ours = 0, upstreams = 0, byTheRule = 0, elsewhere = 0, theFiles = 0, unfetched = 0;
   for (const Case &subjectCase : cases) {
     const Answer answer = Judge(subjectCase);
+    if (answer.Unfetched) { ++unfetched; }
     if (!answer.Judged) { continue; }
     (answer.Owns == Freedoms::Ours ? ours : upstreams)++;
     switch (answer.Produced) {
@@ -359,6 +367,15 @@ int main() {
             "the four cases the ruling names by hand are owned as it ruled, computed from the "
             "camera's source and the subject's origin together and never from either alone");
     }
+  }
+  Note("cases the tree declares", double(cases.size()), "cases");
+  Note("cases whose subject was never fetched", double(unfetched), "cases");
+  if (ours + upstreams == 0) {
+    Unprepared((kSuite + " holds " + std::to_string(cases.size()) +
+                " declared cases and NOT ONE has a fetched subject -- run python3 "
+                "test/harness/shared/corpus/prepare.py all --every-case")
+                   .c_str());
+    return Report();
   }
   Note("cases whose placement freedoms are ours", double(ours), "cases");
   Note("cases whose placement freedoms are upstream's", double(upstreams), "cases");
