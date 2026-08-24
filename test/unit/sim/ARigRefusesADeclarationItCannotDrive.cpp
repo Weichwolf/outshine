@@ -102,6 +102,30 @@ int main(void) {
         "**A VEHICLE THAT CANNOT SLOW REFUSES AT STAND-UP** -- the tick divides by the "
         "braking rate, and the silent 1 m/s2 fallback that hid this is gone (board:1706)");
 
+  // board:1792: a vehicle with no declared shape produced an Envelope with DragArea = 0, and
+  // Stand accepted it. The refusal came four layers later from SpeedProfile::Over, which laid
+  // ZERO stations over a 1997.756 m corridor -- and every reader downstream averaged an empty
+  // plan. A term the plan divides by belongs to the stand-up that assembles it.
+  {
+    Vehicle shapeless = Plausible();
+    shapeless.DragCoefficient = 0.0;
+    const Rigged shapeRefused = Stand(shapeless, 9.80665, 1.225);
+    if (!shapeRefused.Stood) {
+      std::printf("NOTE the refusal reads: %s\n", shapeRefused.Error.c_str());
+    }
+    CHECK(!shapeRefused.Stood && shapeRefused.Error.find("drag coefficient") != std::string::npos,
+          "**A BODY MOVING THROUGH DECLARED AIR HAS A SHAPE**: a vehicle with no drag "
+          "coefficient or no frontal area refuses at the STAND-UP, where the envelope is "
+          "assembled, not four layers later where a speed plan silently lays no station "
+          "at all (board:1792)");
+
+    Vehicle flat = Plausible();
+    flat.FrontalM2 = 0.0;
+    const Rigged areaRefused = Stand(flat, 9.80665, 1.225);
+    CHECK(!areaRefused.Stood && areaRefused.Error.find("frontal area") != std::string::npos,
+          "and the same holds for the area, because the plan divides by their product");
+  }
+
   Covers("II.12 the rig drives or refuses: the drive axle is the contacts behind the centre "
          "of mass, a missing one is a named refusal, and the dead steering counter is gone");
   return Report();

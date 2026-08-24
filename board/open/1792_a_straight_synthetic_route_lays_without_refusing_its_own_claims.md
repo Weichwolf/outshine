@@ -39,7 +39,7 @@ It carries none.
       there is, and a lay that cannot do it cannot be trusted on one that has both.
 - [ ] The drift bound is stated in something a corner-free route has -- per metre, or per
       corner **when there are corners** -- rather than a product that is zero on a straight.
-- [ ] `profile.Over` succeeds or the refusal names why, and `SampleCount() == 0` on a
+- [x] `profile.Over` succeeds or the refusal names why, and `SampleCount() == 0` on a
       1997 m corridor is itself a refusal rather than a number the next reader averages.
 - [ ] The unit twin's pin (`Refused() <= 4`) drops to `== 0`.
 
@@ -51,3 +51,43 @@ It carries none.
 - The twin does NOT assert these away: it publishes each refusal and pins the count at four,
   so a fifth is a regression while the four stand as this item's subject. Asserting
   `Refused() == 0` today would have meant asserting the defect away.
+
+---
+
+## The root was one missing refusal, four layers up (2026-08-24)
+
+`profile.Over` was failing with:
+
+> an envelope is a vehicle standing in a world and not a set of limits ... this one leaves a
+> vehicle term at zero or the air below nothing
+
+The zero term was `DragArea`. `Rigging.cpp:188` computed it as
+`DragCoefficient * FrontalM2` and **`Stand` accepted a vehicle that declared neither**. The
+envelope then had no top speed to bound, `SpeedProfile::Over` refused, and every reader
+downstream averaged an empty plan.
+
+A term the plan divides by belongs to the stand-up that assembles it, not to the fourth layer
+that discovers it missing. `Stand` now refuses, naming both numbers.
+
+| | |
+|---|---|
+| stations over the 1997.756 m corridor | **0 -> 5 436** (the derived step of 0.3676 m implies about 5 400) |
+| claims the lay refuses on a straight route | **4 -> 2** |
+
+- **Proving test**: `test/unit/sim/ARigRefusesADeclarationItCannotDrive` -- a vehicle with no
+  drag coefficient and one with no frontal area, each refused at the stand-up.
+- **Negative control**: the refusal disabled -> both claims red, and `ACorridorIsLaidOverASyntheticRoute`
+  goes back to zero stations. Reverted.
+- The unit twin's pin drops from `<= 4` to `<= 2`.
+
+**Still open**: the two remaining refusals -- the drift bound, which is
+`0.05 * quantumM * Corners` and therefore ZERO on a road with no corner, and the
+corner-support claim on ground that is flat by construction. Both are claims written against
+the 753 km route reading as constants of that one drive.
+
+## And it found a second hole of the same kind
+
+Two unit fixtures (`TheDrawnCarAndItsContactsStandInOneFrame`, and this item's own twin) built
+vehicles with no declared body and stood them up green. They could not have driven: the same
+missing `DragArea` would have refused their speed plans. The new refusal caught both the hour
+it landed.

@@ -264,7 +264,7 @@ at (board:1777):
 | `RegionForge` | `class RegionForge {` (RegionForge.h:18) forges regions from a client layer |
 | `GltfStudio` | `struct Studio {` (GltfStudio.h:26) beside `struct StudioScratch {` (:49) -- the studio and its scratch are two spellings of one stand-up |
 | `DriveAssembly` | `[[nodiscard]] bool AssembleDrive(const Store &scene, const Assembled &cast,` (DriveAssembly.h:39) takes a product's worth of inputs, listed one per line, and a product that needs that many is a product whose shape is not settled |
-| `CorridorLay` | `[[nodiscard]] bool LayCorridor(const Path::Route &route, Ground::GroundStream &ground,` (CorridorLay.h:33) -- same shape, same question |
+| `CorridorLay` | `[[nodiscard]] bool LayCorridor(const Path::Route &route, const GroundQuery &ground,` (CorridorLay.h:34) -- same shape, same question |
 | `DriveTick` | `[[nodiscard]] Ridden DriveTick(const Corridor &way, const Rigged &stood,` (DriveTick.h:70) returns a whole struct by value each tick |
 | `TAA` | `{Stage::TemporalResolve, Provenance::Content, PassKind::Raster, "temporalResolve",` (RenderCatalogue.h:278) declares a stage that encodes nothing of its own -- it is folded into tonemap rather than standing as its own resolve |
 | `TilePool` | `class TilePool {` (TilePool.h:35) holds 3 `std::mutex`, a `std::condition_variable`, a `std::map` and a `std::set` where a slot table and a ring would do -- a decisionless pool holds no tree |

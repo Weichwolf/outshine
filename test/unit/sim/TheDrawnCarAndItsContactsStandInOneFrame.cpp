@@ -32,6 +32,8 @@ namespace {
   made.PeakTorqueNm = 400.0;
   made.FinalDrive = 3.15;
   made.BrakeTorqueNm = 3000.0;
+  made.DragCoefficient = 0.66;
+  made.FrontalM2 = 2.19;
   const double corners[4][3] = {{-0.774, 0.333, -1.405},
                                 {0.774, 0.333, -1.405},
                                 {-0.774, 0.333, 1.405},

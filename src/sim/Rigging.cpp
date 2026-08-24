@@ -185,6 +185,14 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
   out.Envelope.MassKg = declared.MassKg;
   out.Envelope.DriveN = declared.PeakTorqueNm * declared.FinalDrive / declared.TyreRadiusM;
   out.Envelope.BrakeN = declared.BrakeTorqueNm / declared.TyreRadiusM;
+  if (!(declared.DragCoefficient > 0.0) || !(declared.FrontalM2 > 0.0)) {
+    Refuse(out, "the vehicle '" + declared.Name + "' declares a drag coefficient of " +
+                    std::to_string(declared.DragCoefficient) + " over a frontal area of " +
+                    std::to_string(declared.FrontalM2) +
+                    " m2 -- a body moving through declared air has a shape, and a speed plan "
+                    "solved without one has no top speed to be bounded by");
+    return out;
+  }
   out.Envelope.DragArea = declared.DragCoefficient * declared.FrontalM2;
   out.Envelope.AirDensity = airDensityKgM3;
 

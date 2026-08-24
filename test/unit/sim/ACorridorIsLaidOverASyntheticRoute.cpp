@@ -92,6 +92,8 @@ private:
   made.PeakTorqueNm = 400.0;
   made.FinalDrive = 3.15;
   made.BrakeTorqueNm = 3000.0;
+  made.DragCoefficient = 0.66;
+  made.FrontalM2 = 2.19;
   made.CentreOfMassM[1] = 0.55;
   const double corners[4][3] = {{-0.774, 0.333, -1.405},
                                 {0.774, 0.333, -1.405},
@@ -155,7 +157,7 @@ int main(void) {
     const Route route = Straight(2000.0, 20);
     const bool ok = LayCorridor(route, flat, car, stood, 8.0, stood.TightestM, 52.0,
                                 6371008.8, quiet, laid, why);
-    if (!ok) { std::printf("REFUSED %s\n", why.c_str()); }
+    if (!why.empty()) { std::printf("NOTE the lay's error text: %s\n", why.c_str()); }
     for (const std::string &one : quiet.Refusals()) {
       std::printf("NOTE the lay refused: %.90s\n", one.c_str());
     }
