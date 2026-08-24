@@ -34,8 +34,8 @@ int main(void) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
   const outshine::TextTarget target(outshine::TextStream::Stdout);
-  outshine::Clients::TextLogSink sink(target);
-  const outshine::Clients::LogSinkScope logging(&sink);
+  outshine::TextLogSink sink(target);
+  const outshine::LogSinkScope logging(&sink);
 
   bool read = false;
   const std::string text = Slurp(kMod, read);

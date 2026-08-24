@@ -1,6 +1,6 @@
 #include "LogSinks.h"
 
-namespace outshine::Clients {
+namespace outshine {
 
 namespace {
 const char *LevelStr(LogLevel l) {

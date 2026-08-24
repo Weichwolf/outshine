@@ -1,11 +1,11 @@
-#ifndef OUTSHINE_CLIENTS_LOGSINKS_H
-#define OUTSHINE_CLIENTS_LOGSINKS_H
+#ifndef OUTSHINE_CORE_IO_LOGSINKS_H
+#define OUTSHINE_CORE_IO_LOGSINKS_H
 #include <cstdio>
 #include <vector>
 #include "Log.h"
 #include "TextTarget.h"
 
-namespace outshine::Clients {
+namespace outshine {
 
 class TextLogSink : public LogSink {
 public:
