@@ -87,3 +87,33 @@ same hole: `0` means both "vertex 0" and "no vertex was ever tightest".
   `src/sim/CorridorLay.cpp` has no unit twin (see board:1624, reopened this round), so no
   test in the tree evaluates this guard at all: `unit/actor/path` is 14/14 PASS with the
   defect standing.
+
+## Comments
+
+- 2026-08-24 -- the guard is GONE, which is the honest repair. It could not work in either
+  direction, and the reviewer proved both with a standalone probe I reproduced:
+
+```
+two-point straight     laid=1 TightestRadiusM=0.000000 -> guard REFUSES
+collinear three-point  laid=1 TightestRadiusM=0.000000 -> guard REFUSES
+one bend               laid=1 TightestRadiusM=823.142342 -> guard passes
+```
+
+  `TightestRadiusM` is written only inside the interior-vertex loop
+  (`src/actor/path/Fit.cpp:153-156`), so a route with no corner never enters it and the field
+  stays 0.0. **My guard refused a straight road for having a corner tighter than the car can
+  drive.** And on any route WITH a corner it was tautological: `Fit.cpp:139-143` skips every
+  vertex under `tightestM` and `:186-194` refuses the whole fit, so the property is
+  structural and needs no caller to re-check it.
+- A check that cannot hold and produces false red is worse than no check. Removed rather than
+  patched, because patching it would have kept a caller-side restatement of a guarantee the
+  producer already makes.
+- **Proving test**: `ACorridorIsFittedThroughVerticesItMayNotLeave` gained the three shapes
+  above and asserts the property as it actually is: `TightestRadiusM == 0.0` when there is no
+  corner, `>= tightestM` when there is. A caller reading it as a plain minimum refuses
+  straight roads, and the test says so.
+- **Negative control**: the assertion written as a plain `>= kTightestM` -> the two-point and
+  collinear shapes go red, which is exactly the defect this item names.
+- Not repaid: `TightestRadiusM` still overloads 0.0 as "no corner" and the reviewer's related
+  reading -- that a REFUSED fit publishes the minimum over the DRIVABLE vertices, excluding
+  the ones that caused the refusal -- stands open here.

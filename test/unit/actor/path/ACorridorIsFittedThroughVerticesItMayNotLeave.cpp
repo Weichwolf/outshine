@@ -188,6 +188,28 @@ int main(void) {
           "and the line it lays is one this vehicle can drive -- a corridor tighter than the "
           "steering lock is a refusal, not a corridor");
 
+    // board:1791: a guard in LayCorridor that read this field went in and came straight out
+    // again. TightestRadiusM is written only inside the interior-vertex loop, so a route with
+    // NO corner never enters it and the field stays 0.0 -- the guard then refused a straight
+    // road for having a corner tighter than the car can drive. And on any route WITH a
+    // corner it was tautological: Fit skips every vertex under tightestM and refuses the
+    // whole fit, so the property is structural, not something a caller needs to re-check.
+    for (const std::vector<double> &shape :
+         {std::vector<double>{0.0, 0.0, 1000.0, 0.0},
+          std::vector<double>{0.0, 0.0, 500.0, 0.0, 1000.0, 0.0},
+          std::vector<double>{0.0, 0.0, 500.0, 0.0, 900.0, 120.0}}) {
+      ReferenceLine laid;
+      const Fitted plain = Fit(shape, kWithinM, kTightestM, laid);
+      std::printf("NOTE %zu points: laid %s, tightest %.4f m\n", shape.size() / 2,
+                  plain.Laid ? "yes" : "no", plain.TightestRadiusM);
+      CHECK(plain.Laid, "a road without a corner tighter than the lock lays");
+      CHECK(plain.TightestRadiusM == 0.0 || plain.TightestRadiusM >= kTightestM,
+            "**A FIT EITHER LAYS NO CORNER OR LAYS ONE THE VEHICLE CAN DRIVE**: the tightest "
+            "radius is zero when there is no corner at all, and at or above the lock when "
+            "there is -- a caller reading it as a plain minimum refuses straight roads "
+            "(board:1791)");
+    }
+
     // the vehicle that CANNOT drive it must be told so rather than handed a crawl.
     ReferenceLine unreachable;
     const Fitted tooTight = Fit(wandering, kWithinM, leastRadiusM + 1.0, unreachable);

@@ -19,6 +19,7 @@ INHERITED_NEST=${OUTSHINE_NEST:-}
 export OUTSHINE_NEST="$BUILD"
 PREPARED=${TMPDIR:-/tmp}
 PREPARED=${PREPARED%/}/outshine-prepared
+PREPARED=${OUTSHINE_PREPARED:-$PREPARED}
 CXX=${CXX:-c++}
 CXXSTD=-std=c++23
 WARN="-Wall -Wextra -Wpedantic -Wshadow -Werror -Wno-unused-parameter"

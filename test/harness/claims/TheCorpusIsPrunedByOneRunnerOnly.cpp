@@ -68,19 +68,32 @@ int main(void) {
         "serialised to the holder, so one runner's working set cannot vanish under it while "
         "another scores a case (board:1789)");
 
-  const std::string parked = prepared + ".lock.parked";
+  // board:1789, sharpened: the first version of this control MOVED the live claim aside and
+  // spawned a child in that window. A runner from another checkout taking the claim inside
+  // that window would prune -- the very incident this item exists to prevent, opened by its
+  // own proof. And a kill inside the window left the claim as .lock.parked with none standing.
+  //
+  // The control now uses a claim that is not this tree's: a second corpus directory, with its
+  // own lock, asked the same question through OUTSHINE_PREPARED. Nothing touches the real one.
+  const std::string elsewhere =
+      (std::filesystem::temp_directory_path() / "outshine-prepared-control").string();
   std::error_code why;
-  std::filesystem::rename(lock, parked, why);
+  std::filesystem::create_directories(elsewhere, why);
+  std::filesystem::remove(elsewhere + ".lock", why);
+
   std::string withNoHolder;
-  const int freeVerdict = Run("sh test/run.sh --would-prune 2>&1", withNoHolder);
-  std::filesystem::remove(lock, why);
-  std::filesystem::rename(parked, lock, why);
+  const int freeVerdict =
+      Run("OUTSHINE_PREPARED='" + elsewhere + "' sh test/run.sh --would-prune 2>&1", withNoHolder);
+  std::filesystem::remove_all(elsewhere, why);
+  std::filesystem::remove(elsewhere + ".lock", why);
 
   std::printf("NOTE with no claim standing: %s", withNoHolder.c_str());
   CHECK(freeVerdict == 0 && withNoHolder.find("WOULD prune") != std::string::npos,
-        "and with no claim standing the same runner WOULD prune -- so the decline above is "
-        "the claim's doing and not the runner's habit");
-  CHECK(std::filesystem::exists(lock), "and this run's own claim is put back as it was");
+        "and against a corpus with NO claim standing the same runner WOULD prune -- so the "
+        "decline above is the claim's doing and not the runner's habit");
+  CHECK(std::filesystem::exists(lock),
+        "and this run's own claim was never moved, so the proof cannot open the window it "
+        "exists to close (board:1789)");
 
   Covers("IV.15 the shared corpus is pruned by the runner holding its claim and by no other, "
          "so a second checkout reads the same bytes and removes none of them (board:1789)");

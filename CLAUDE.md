@@ -13,7 +13,9 @@ camera, never a mean.
 - **The code carries NO comments** — `src/`, `include/`, `tools/` hold no `//`, no block, no
   TODO, no derivation, no board number: names and structure carry the meaning, a number's
   origin lives in its board item and its commit, and `test/` is the one place prose may stand
-  because a proof explains what it proves; work items live in `board/`, code never names them
+  because a proof explains what it proves -- and a proof is a source that carries `Covers(`,
+  wherever it lives, so the driver cases under `tools/` are proofs and the library sources
+  beside them are not; work items live in `board/`, code never names them
 - **Cycles is the oracle** for correctness; references are for ambition; the corpus is a driver, not a certificate
 - **One world space**; a failure is loud; something is always drawn; delete on the day you replace
 - Artefacts go to the system temp dir, never the tree; `git log` is what was — no journal

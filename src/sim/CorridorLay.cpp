@@ -116,12 +116,6 @@ bool LayCorridor(const Path::Route &route, Ground::GroundStream &ground, const V
   if (!fitted.Laid) { return false; }
   say.Number("the tightest radius the fit produced", fitted.TightestRadiusM, "m");
   say.Number("the tightest radius the vehicle can drive", tightestM, "m");
-  say.Claim(fitted.TightestRadiusM >= tightestM,
-        "**AND NO CORNER IS TIGHTER THAN THE CAR CAN DRIVE.** A fitted radius under the "
-        "vehicle's own tightest centreline radius is a corridor nothing can follow: the "
-        "speed plan then crawls it at the cornering limit, and a crawl is what a refusal "
-        "looks like when nobody refused");
-  if (fitted.TightestRadiusM < tightestM) { return false; }
   say.Claim(fitted.DriftM < 0.05 * quantumM * (double)fitted.Corners,
         "**AND WHAT IS LEFT IS DRIFT, WHICH NO CORNER CAN CORRECT.** The line is walked corner by "
         "corner and each spiral is integrated by 8-node Gauss-Legendre; the residual accumulates "
