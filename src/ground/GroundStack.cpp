@@ -13,10 +13,12 @@ bool GroundStack::Open(std::string_view cacheDir, std::string_view assetsDir,
                        double focusLon, Data::Transport &wire, Sink &say) {
   Close();
   const bool onTheBand = std::fabs(focusLat) <= kMercatorLatMaxDeg;
-  say.Claim(onTheBand,
-        "**THE DECLARED FOCUS LIES ON THE TILING'S MERCATOR BAND** -- beyond 85.05 degrees the "
-        "tile pyramid has no rows, so a stack there cannot stand and refuses instead");
-  if (!onTheBand) { return false; }
+  say.Number("the focus latitude the stack was asked for", focusLat, "deg");
+  say.Number("the furthest the tiling reaches", kMercatorLatMaxDeg, "deg");
+  if (!onTheBand) {
+    say.Say("REFUSED the focus is off the tiling band");
+    return false;
+  }
   outshine::Data::ContentStore::Config keeping;
   keeping.Directory = std::string(cacheDir);
   Store_ = std::make_unique<outshine::Data::ContentStore>(keeping);
@@ -25,9 +27,8 @@ bool GroundStack::Open(std::string_view cacheDir, std::string_view assetsDir,
   std::string refused;
   const bool registered = outshine::Data::RegisterDeclared(
       sources, providers, std::string(assetsDir) + "/sky", refused);
-  if (!registered) { say.Say(Line("REFUSED %s", refused.c_str())); }
-  say.Claim(registered, "the declared providers register, ranked and without a clash");
   if (!registered) {
+    say.Say(Line("REFUSED %s", refused.c_str()));
     Close();
     return false;
   }

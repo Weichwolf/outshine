@@ -264,10 +264,13 @@ int main(void) {
     for (const std::string &one : quiet.Refusals()) {
       std::printf("NOTE it refused: %.90s\n", one.c_str());
     }
-    CHECK(!ok || quiet.Refused() > 0,
+    Note("the steepest the rig can pull", laid.Made.ClimbLimit * 100.0, "%");
+    Note("the steepest the corridor asks for", std::fabs(laid.Made.WorstGradeM) * 100.0, "%");
+    CHECK(!ok,
           "**AND A ROUTE THAT DECLARES A CLIMB PAST THE DRIVETRAIN IS REFUSED**: 40 % against "
-          "a rig that can pull 23.97 % is a road this car cannot drive, and the lay says so "
-          "rather than handing back a plan (board:1624)");
+          "a rig that can pull 23.97 % is a road this car cannot drive, and the lay returns "
+          "false with the reason rather than handing back a plan and a failed claim beside it "
+          "(board:1624, board:1821)");
   }
 
   {

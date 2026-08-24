@@ -1,3 +1,4 @@
+#include <cstring>
 #include <cstdio>
 #include <filesystem>
 #include <string>
@@ -6,6 +7,9 @@
 #include "Check.h"
 
 namespace {
+
+constexpr size_t kLongestLabel = 100;
+
 
 [[nodiscard]] std::string Slurp(const std::filesystem::path &path) {
   std::FILE *file = std::fopen(path.string().c_str(), "rb");
@@ -191,6 +195,56 @@ int main(void) {
         "**THE SOURCE NAMES NO WORK ITEM**: a number's origin lives in its board item and "
         "its commit -- and that holds inside a string literal too, where the comment walk "
         "cannot see it and a static_assert message can hide one (board:1654)");
+
+  // board:1821: the library both evaluated a criterion and narrated it, and the narration was
+  // compiled into the engine's rodata -- 5812 characters of English across 34 Sink::Claim
+  // sites, one of them spelling "752 km of OSM polyline" inside src/. The owner rule that bans
+  // // in src/ bans this for the same reason; it evaded the comment walk only by being a
+  // string literal. Systems publish numbers, cases judge them.
+  std::vector<std::string> judging;
+  std::vector<std::string> essays;
+  for (const auto &entry : std::filesystem::recursive_directory_iterator("src")) {
+    if (!entry.is_regular_file()) { continue; }
+    const std::string suffix = entry.path().extension().string();
+    if (suffix != ".cpp" && suffix != ".h") { continue; }
+    const std::string text = Slurp(entry.path());
+    for (const char *verb : {".Claim(", ".Near("}) {
+      for (size_t at = text.find(verb); at != std::string::npos;
+           at = text.find(verb, at + 1)) {
+        size_t line = 1;
+        for (size_t scan = 0; scan < at; ++scan) { line += text[scan] == '\n' ? 1 : 0; }
+        judging.push_back(entry.path().string() + ":" + std::to_string(line) + " " + verb);
+      }
+    }
+    for (const char *verb : {"Number(\"", "Say(\""}) {
+      for (size_t at = text.find(verb); at != std::string::npos;
+           at = text.find(verb, at + 1)) {
+        const size_t opens = at + std::strlen(verb);
+        const size_t closes = text.find('"', opens);
+        if (closes == std::string::npos) { continue; }
+        if (closes - opens <= kLongestLabel) { continue; }
+        size_t line = 1;
+        for (size_t scan = 0; scan < at; ++scan) { line += text[scan] == '\n' ? 1 : 0; }
+        essays.push_back(entry.path().string() + ":" + std::to_string(line) + " " +
+                         std::to_string(closes - opens) + " characters");
+      }
+    }
+  }
+  for (const std::string &one : judging) {
+    std::printf("FOUND %s -- the library judges its own output\n", one.c_str());
+  }
+  for (const std::string &one : essays) {
+    std::printf("FOUND %s of label\n", one.c_str());
+  }
+  CHECK(judging.empty(),
+        "**THE LIBRARY PUBLISHES NUMBERS AND THE CASE JUDGES THEM**: no Claim and no Near "
+        "under src/ -- a criterion evaluated inside the engine is a case's judgement made "
+        "where the case cannot see it, and a refusal the library owns is a returned reason, "
+        "not a boolean beside an essay (board:1821)");
+  CHECK(essays.empty(),
+        "**AND A LABEL NAMES A NUMBER RATHER THAN ARGUING FOR IT**: the same rule reached "
+        "through Number and Say would be the same prose in the same rodata, so the label is "
+        "bounded at the longest one the tree needs");
 
   Note("source files walked", (double)walked, "files");
   for (const std::string &one : narrating) { std::printf("FOUND %s narrates\n", one.c_str()); }

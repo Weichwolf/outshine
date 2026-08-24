@@ -109,6 +109,49 @@ int main(void) {
         "pedestrian zones, the car parks at the carriageway's edge, and the pair of walks stays "
         "under a thousandth of the route. THIS claim lives in the ROUTE-1 CASE now: the engine "
         "publishes the number and asserts nothing city-specific (board:1581's neutrality cut)");
+  // board:1821: these judgements stood inside LayCorridor as Sink::Claim, so the library both
+  // evaluated the criterion and narrated it. The lay publishes the counts now and the case
+  // judges them -- which is also the only place they can be judged against a route.
+  {
+    const auto &made = drive.Way.Made;
+    const auto &fit = drive.Way.Fitted;
+    Note("stations the elevation source answered", (double)made.Resolved, "stations");
+    Note("holes in it", (double)made.Holes, "stations");
+    Note("kinds on the route declaring no lane count", (double)made.LanelessKinds, "kinds");
+    Note("kinds declaring no maximum grade", (double)made.GradelessKinds, "kinds");
+    Note("the narrowest half carriageway on the route", made.NarrowestHalfM, "m");
+    Note("the steepest gradient on the corridor", made.WorstGradeM * 100.0, "%");
+    Note("the gradient the rig can still climb", made.ClimbLimit * 100.0, "%");
+    Note("corners the fit had to strain", (double)fit.Strained, "corners");
+    Note("corners in all", (double)fit.Corners, "corners");
+    Note("the drift left per corner", fit.DriftPerCornerM * 1000.0, "mm");
+
+    CHECK(made.Resolved > 0 && made.Holes == 0,
+          "**THE ELEVATION SOURCE ANSWERS ALONG THE WHOLE CORRIDOR** with no hole in it -- real "
+          "height data streamed for the same route the ways came from, and a hole would be a "
+          "named refusal");
+    CHECK(made.LanelessKinds == 0,
+          "**AND EVERY KIND ON THE ROUTE DECLARES HOW MANY LANES IT CARRIES** -- the lane count "
+          "comes from the same cross-sections the widths do, so a car's lane is the width over "
+          "the count and not the whole road");
+    CHECK(made.GradelessKinds == 0,
+          "**AND EVERY KIND DECLARES ITS OWN MAXIMUM GRADE** -- a station with none would be "
+          "flattened by a shaping with nothing to shape it to, silently, which is the failure "
+          "this count exists to make loud");
+    CHECK(2.0 * made.NarrowestHalfM > drive.Car.WidthM,
+          "**AND THE CAR FITS ON THE NARROWEST STRETCH OF ITS OWN ROUTE** -- the harvest refused "
+          "ways narrower than the car, and this says the route it chose kept that true end to "
+          "end");
+    CHECK(made.Rose && std::fabs(made.WorstGradeM) < made.ClimbLimit,
+          "**AND THE CORRIDOR RISES WITH THE REAL GROUND UNDER IT, NOWHERE STEEPER THAN THE CAR "
+          "CAN CLIMB** -- the limit is the standing rig's drive force against its own weight, "
+          "and a gradient past it is the drivetrain refusing");
+    CHECK(fit.Strained * 200 <= fit.Corners,
+          "**AND WHERE THE DATA SUPPORTS NO RADIUS THE CAR CAN TURN, THAT CORNER IS COUNTED AND "
+          "NOT HIDDEN** -- fewer than one in two hundred here, a classified finding with a "
+          "count rather than a fit that quietly bent further");
+  }
+
   const double routeKm = drive.Way.Line.LengthM() / 1000.0;
   Note("the route the case itself checks", routeKm, "km");
   CHECK(routeKm > 700.0 && routeKm < 900.0,

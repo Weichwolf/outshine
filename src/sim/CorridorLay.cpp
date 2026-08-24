@@ -143,29 +143,15 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
       say.Say(legs);
     }
   }
-  say.Claim(fitted.Laid,
-        "**AND THE ROUTE BECOMES A CORRIDOR WITH NO CURVATURE LEAP ANYWHERE ON IT.** 752 km of OSM "
-        "polyline, every interior vertex carrying spiral-arc-spiral, laid by a ReferenceLine that "
-        "REFUSES a leap -- so a step in the lateral force has no spelling on this road");
-  if (!fitted.Laid) { return false; }
+  if (!fitted.Laid) {
+    say.Say("REFUSED the route does not lay as a corridor");
+    return false;
+  }
   say.Number("the tightest radius the fit produced", fitted.TightestRadiusM, "m");
   say.Number("the tightest radius the vehicle can drive", tightestM, "m");
-  say.Claim(fitted.DriftPerCornerM < 0.05 * quantumM,
-        "**AND WHAT IS LEFT IS DRIFT, WHICH NO CORNER CAN CORRECT.** The line is walked corner by "
-        "corner and each spiral is integrated by 8-node Gauss-Legendre; the residual accumulates "
-        "laterally, and it is bounded PER CORNER so a road with no corner has nothing to answer "
-        "for -- rather than being chased by shrinking corners that were never at fault");
-  say.Claim(fitted.Strained * 200 <= fitted.Corners,
-        "**AND WHERE THE DATA CANNOT SUPPORT A ROAD AT ANY RADIUS THE CAR CAN TURN, THAT CORNER IS "
-        "COUNTED AND NOT HIDDEN.** Those are the corners whose vertices the line must leave by more "
-        "than the tile's own quantisation to stay drivable at all -- a classified finding with a "
-        "count, not a fit that quietly bent further. Fewer than one in two hundred here");
+  say.Number("the quantisation the drift is bounded against", quantumM, "m");
   say.Number("how much longer the corridor is than the polyline",
        fitted.LengthM / route.LengthM - 1.0, "of it");
-  say.Claim(fitted.LengthM < 1.05 * route.LengthM,
-        "and within a few per cent of the polyline it was fitted through -- a cut corner is shorter "
-        "than the corner, and the small overrun is the first-order construction on the tail of "
-        "sharp turns");
   say.Number("the speed the tightest radius allows at 0.95 g",
        std::sqrt(0.95 * stood.Envelope.GravityMs2 * fitted.TightestRadiusM) * 3.6, "km/h");
 
@@ -225,14 +211,15 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   say.Number("the elevation where the route starts", heightM.empty() ? 0.0 : heightM.front(), "m");
   say.Number("and where it ends", heightM.empty() ? 0.0 : heightM.back(), "m");
 
-  say.Claim(resolved > 0, "**THE ELEVATION SOURCE ANSWERS ALONG THE WHOLE CORRIDOR.** Real height data, "
-                      "streamed for the same route the ways came from");
-  say.Claim(holes == 0, "with no hole in it -- a hole is a named refusal and there is none here");
+  out.Made.Resolved = resolved;
+  out.Made.Holes = holes;
   say.Number("the elevation where the route ends", heightM.empty() ? 0.0 : heightM.back(), "m");
 
   outshine::SpeedProfile inPlan;
-  say.Claim(inPlan.Over(corridor, stood.Envelope, postM, 0.0, error),
-        "the plan view alone gives a speed at every station, before the ground is consulted");
+  if (!inPlan.Over(corridor, stood.Envelope, postM, 0.0, error)) {
+    say.Say(Line("REFUSED the plan view carries no speed: %s", error.c_str()));
+    return false;
+  }
 
   spanM = fitted.LengthM / (double)posts;
   roadM = heightM;
@@ -284,11 +271,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
     }
   }
   say.Number("stations whose road kind declares no lane count", (double)laneless, "stations");
-  say.Claim(laneless == 0,
-        "**AND EVERY KIND ON THE ROUTE DECLARES HOW MANY LANES IT CARRIES.** The lane count comes from "
-        "the same cross-sections the widths do -- RAA RQ 28 is two 3.75 m running lanes and a 2.5 m "
-        "shoulder per one-way carriageway -- so a car's lane is the width over the count and not the "
-        "whole road");
+  out.Made.LanelessKinds = laneless;
 
   double steppedM = 0.0, steppedAtM = 0.0;
   for (size_t post = 1; post < asideM.size(); ++post) {
@@ -431,9 +414,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   say.Number("the narrowest the carriageway gets", 2.0 * narrowestHalfM, "m");
   say.Number("the widest", 2.0 * widestHalfM, "m");
   say.Number("the car's own width", carWidthM, "m");
-  say.Claim(2.0 * narrowestHalfM > carWidthM,
-        "**AND THE CAR FITS ON THE NARROWEST STRETCH OF ITS OWN ROUTE.** The harvest already refused "
-        "ways narrower than the car; this says the route it chose kept that true end to end");
+  out.Made.NarrowestHalfM = narrowestHalfM;
 
   long undeclared = 0;
   double gentlestLimit = 1.0, gentlestAtM = 0.0;
@@ -448,11 +429,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
     }
   }
   say.Number("stations whose road kind declares no maximum grade", (double)undeclared, "stations");
-  say.Claim(undeclared == 0,
-        "**AND EVERY KIND ON THE ROUTE DECLARES ITS OWN MAXIMUM GRADE.** A station with none would be "
-        "flattened by a shaping that had nothing to shape it to -- silently, which is the failure "
-        "this count exists to make loud. The grades are RAA, RAL and RASt figures declared beside "
-        "the declared vegetation table");
+  out.Made.GradelessKinds = undeclared;
   say.Number("the gentlest grade any road class on this route declares", gentlestLimit * 100.0, "%");
   const double weightN = stood.Envelope.MassKg * stood.Envelope.GravityMs2;
   const double fromRest = stood.Envelope.DriveN / weightN;
@@ -546,22 +523,26 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
 
   const double climbLimit = stood.Envelope.DriveN / (stood.Envelope.MassKg * stood.Envelope.GravityMs2);
   say.Number("the steepest the standing rig's drivetrain can climb", climbLimit * 100.0, "%");
-  say.Claim(rose, "**AND THE CORRIDOR RISES WITH THE REAL GROUND UNDER IT.** Heights from the "
-              "declared elevation source, each a knot with its own slope, and one cubic through "
-              "them -- the same mechanism the synthetic road used, fed by the world");
-  say.Claim(std::fabs(worstGradeM) < climbLimit,
-        "**AND NOTHING ON IT IS STEEPER THAN THE CAR CAN CLIMB.** The limit is the standing "
-        "rig's drive force against its own weight; a gradient past it is the drivetrain "
-        "REFUSING, and on this route there is none -- which is the first evidence that the "
-        "ground under an OSM road is reconstructed well enough to drive");
+  out.Made.Rose = rose;
+  out.Made.WorstGradeM = worstGradeM;
+  out.Made.ClimbLimit = climbLimit;
+  if (!rose) {
+    say.Say(Line("REFUSED the corridor carries no ground: %s", error.c_str()));
+    return false;
+  }
+  if (std::fabs(worstGradeM) >= climbLimit) {
+    say.Say("REFUSED the corridor climbs steeper than the drivetrain can pull");
+    return false;
+  }
 
   const double shortestCornerM = 1.5 * tightestM * 0.1;
   const double profileStepM = 0.5 * shortestCornerM;
   say.Number("the shortest corner the fit can produce", shortestCornerM, "m");
   say.Number("the step the speed profile is sampled at", profileStepM, "m");
-  say.Claim(profile.Over(corridor, planning, profileStepM, 0.0, error),
-        "and a speed profile is solved over the whole corridor from its geometry alone");
-  if (!error.empty()) { say.Say(Line("REFUSED %s", error.c_str())); }
+  if (!profile.Over(corridor, planning, profileStepM, 0.0, error)) {
+    say.Say(Line("REFUSED no speed profile solves over the corridor: %s", error.c_str()));
+    return false;
+  }
 
   double slowestMs = 1.0e9, fastestMs = 0.0, meanMs = 0.0;
   for (size_t sample = 0; sample < profile.SampleCount(); ++sample) {

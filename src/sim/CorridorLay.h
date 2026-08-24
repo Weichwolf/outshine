@@ -24,6 +24,17 @@ struct Station {
   double LaneHalfM = 0.0;
 };
 
+struct Laying {
+  long Resolved = 0;
+  long Holes = 0;
+  long LanelessKinds = 0;
+  long GradelessKinds = 0;
+  double NarrowestHalfM = 0.0;
+  double WorstGradeM = 0.0;
+  double ClimbLimit = 0.0;
+  bool Rose = false;
+};
+
 struct Corridor {
   ReferenceLine Line;
   outshine::Fitted Fitted;
@@ -38,6 +49,7 @@ struct Corridor {
   double HoldWithinM = 0.0;
   double ReserveMs2 = 0.0;
   double FrameLat = 0.0, FrameLon = 0.0, PerLatM = 1.0, PerLonM = 1.0;
+  Laying Made;
 
   void Bake(double lengthM) { Fine.assign((size_t)(lengthM / FineM) + 2u, Station{}); }
 
