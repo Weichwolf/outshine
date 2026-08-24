@@ -117,14 +117,30 @@ int main(void) {
                   plan.BoundBy(term));
     }
 
-    CHECK(slowest.By == SpeedProfile::Held::Curvature,
-          "**THE PLAN NAMES THE TERM THAT HOLDS ITS SLOWEST STATION**: this road's slowest "
-          "point is in the arc, so curvature is what holds it -- not the crest, which was "
-          "the only term the plan could speak of (board:1785)");
-    CHECK_NEAR(slowest.Ms, inTheBendMs, 1.0e-9, "m/s",
-               "and the station it names is the one the plan actually answers slowest at");
-    CHECK(slowest.AtM >= kStraightM,
-          "which is in the bend, not on the straight kilometre before it");
+    // board:1785, reopened: the first version of this arm asserted against the analytically
+    // recomputed cornering limit -- the same source the defect came from -- so it passed
+    // while the published telemetry described a value three sweeps out of date. The plan's
+    // OWN samples are the oracle now: whatever Slowest() says must be the minimum of what
+    // the plan actually answers.
+    double leastMs = plan.SampleAt(0);
+    size_t leastAt = 0;
+    for (size_t at = 1; at < plan.SampleCount(); ++at) {
+      if (plan.SampleAt(at) < leastMs) {
+        leastMs = plan.SampleAt(at);
+        leastAt = at;
+      }
+    }
+    Note("the slowest sample the plan holds", leastMs * 3.6, "km/h");
+    Note("where that sample is", (double)leastAt * plan.StepM(), "m");
+    CHECK_NEAR(slowest.Ms, leastMs, 1.0e-12, "m/s",
+               "**THE PLAN'S SLOWEST STATION IS THE PLAN'S OWN MINIMUM**: the telemetry "
+               "describes the finished plan and not an intermediate one -- Over() lowers "
+               "Held_ three more times after the sampling loop, and a figure taken before "
+               "those sweeps is a figure about a plan that was never used (board:1785)");
+    CHECK_NEAR(slowest.AtM, (double)leastAt * plan.StepM(), 1.0e-9, "m",
+               "and it names the station that minimum stands at");
+    CHECK(slowest.By != SpeedProfile::Held::Free,
+          "and a station the plan holds below its own top speed is never reported free");
 
     size_t counted = 0;
     for (size_t at = 0; at < (size_t)SpeedProfile::Held::kCount; ++at) {
@@ -133,9 +149,20 @@ int main(void) {
     CHECK(counted == plan.SampleCount(),
           "and every station is accounted to exactly one term -- a tally that does not add "
           "up to the plan is a tally of something else");
-    CHECK(plan.BoundBy(SpeedProfile::Held::Free) > 0 &&
-              plan.BoundBy(SpeedProfile::Held::Curvature) > 0,
-          "with both a free stretch and a bound one, so the tally distinguishes them");
+    // and the tally must agree with the plan station by station: a station below topMs is
+    // held by SOMETHING, and one at topMs is free. The old tally counted 52 free stations on
+    // a plan whose every station was below its top speed.
+    size_t belowTop = 0;
+    for (size_t at = 0; at < plan.SampleCount(); ++at) {
+      belowTop += plan.SampleAt(at) < f31.TopMs() ? 1 : 0;
+    }
+    Note("stations the plan holds below its top speed", (double)belowTop, "stations");
+    Note("stations the tally calls free", (double)plan.BoundBy(SpeedProfile::Held::Free),
+         "stations");
+    CHECK(plan.SampleCount() - plan.BoundBy(SpeedProfile::Held::Free) == belowTop,
+          "**AND THE TALLY AGREES WITH THE PLAN STATION BY STATION**: every station below "
+          "the top speed is held by a named term, and every station at it is free -- a tally "
+          "that sums correctly while describing another plan sums nothing (board:1785)");
   }
 
   Covers("V.9 a seam bound stands at the station it binds: the straight before a bend is "

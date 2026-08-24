@@ -170,3 +170,46 @@ defect share a source. Not one assertion in the block compares `Slowest()` to
   away and then reported as `free`.
 - `SpeedProfile.cpp:9-13` — the name table's `static_assert` message spells `board:1787`.
   See `board:1654`, reopened this round.
+
+---
+
+## Reopened correctly, and the closure was wrong (2026-08-24)
+
+The reviewer measured what I published against what the plan holds, and the two are different
+objects. `Over()` lowers `Held_[]` **three more times** after the sampling loop -- the seam
+clamp, the acceleration sweep, the backward brake sweep -- and the telemetry was computed
+before any of them.
+
+| | |
+|---|---|
+| what I published | 30.5226 m/s (109.882 km/h) at 1500.0 m, held by `curvature` |
+| what the plan holds | **0.0000 m/s at 0.0 m**, held by `entry` |
+| stations below `topMs` | **91 of 91** |
+| stations my tally called free | **52** |
+
+**And my own proving test could not catch it**, which is the worse half: it asserted
+`slowest.Ms` against the analytically recomputed cornering limit -- the same source the
+defect came from. Oracle and defect agreed, so the claim was green about a plan that was
+never used. `CHECK(counted == plan.SampleCount())` could never catch it either: `Bound_` was
+incremented once per loop pass, so the sum was right by construction while every entry was
+wrong.
+
+The repair:
+
+- `Why_[]` records, per station, which term last lowered it -- through the sampling loop, the
+  seam clamp, and both sweeps.
+- `Slowest_` and `Bound_` are computed AFTER the last sweep, from `Held_` and `Why_`.
+- Four terms the plan had no name for are named: `Seam`, `Entry`, `Traction`, `Brake`. The
+  reviewer named all four as missing.
+- `BoundBy(Held::kCount)` no longer reads past the array -- `kCount` is publicly spellable.
+
+The test now uses the PLAN as its own oracle:
+
+```cpp
+CHECK_NEAR(slowest.Ms, leastMs, 1.0e-12, "m/s", ...)   // leastMs = min over SampleAt(i)
+CHECK(plan.SampleCount() - plan.BoundBy(Held::Free) == belowTop, ...)
+```
+
+- **Negative control**: the telemetry moved back into the sampling loop -> `109.882 km/h at
+  1500.0 m` and `52` free stations, both claims red. Those are exactly the numbers the first
+  closure offered as proof.

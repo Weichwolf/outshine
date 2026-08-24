@@ -74,3 +74,29 @@ the one it names in its own `Covers` line.
 - 2026-08-24 — the static_assert message is not text the language requires: `static_assert`
   takes a condition alone since C++17. The message is a choice, and a choice inside `src/` is
   subject to the rule.
+
+## Reopened, and the regression came from this session (2026-08-24)
+
+`grep -rn 'board:' src/` was the proof this item closed on. It was FALSE at HEAD:
+
+```cpp
+"every term that can bind the plan carries a name (board:1787)");   // SpeedProfile.cpp:14
+```
+
+A `static_assert` message is prose the compiler carries, and since C++17 the condition alone
+suffices -- so the message is a CHOICE, and a choice in `src/` is under the rule. Written by
+board:1787's own repair, one hour after board:1763 made the rule absolute.
+
+The second half is why nothing caught it: `TheSourceCarriesNoCommentary` deliberately steps
+over string literals, because `Script.cpp` and `Style.cpp` parse `//` and `/*` as data. It
+therefore could not enforce the rule its own `Covers` names, and it was green on the same tree.
+
+The claim now walks `src/` and `include/` for `board:` in ANY text, literal or not.
+
+- **Negative control**: `(board:1787)` put back into the assert message ->
+  `FOUND src/actor/path/SpeedProfile.cpp:14 names a board item`. Reverted.
+- Still open: `tools/driver/` carries seven `board:NNNN` inside CHECK strings. Those files are
+  PROOFS -- they hold `main`, `CHECK` and `Covers` and run under `test/run.sh` -- but they
+  live under `tools/`, which CLAUDE.md names alongside `src/` and `include/`. Either the rule
+  says proofs may cite their item wherever they live, or those seven go. The walk covers
+  `src/` and `include/` only, so it does not pretend to have settled it.

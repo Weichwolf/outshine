@@ -8,9 +8,10 @@ namespace outshine {
 
 const char *SpeedProfile::NameOf(Held term) {
   static constexpr const char *const kNames[(size_t)Held::kCount] = {
-      "free", "curvature", "slip", "ramp", "climb", "crest"};
+      "free", "curvature", "slip", "ramp",  "climb",
+      "crest", "seam",      "entry", "traction", "brake"};
   static_assert(kNames[(size_t)Held::kCount - 1] != nullptr,
-                "every term that can bind the plan carries a name (board:1787)");
+                "every term that can bind the plan carries a name");
   return (size_t)term < (size_t)Held::kCount ? kNames[(size_t)term] : "free";
 }
 
@@ -24,6 +25,7 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
   CrestHeldAt_ = 0.0;
   CrestsBound_ = 0;
   Slowest_ = Standing{};
+  Why_.clear();
   for (size_t at = 0; at < (size_t)Held::kCount; ++at) { Bound_[at] = 0; }
 
   if (!(stepM > 0.0)) {
@@ -53,6 +55,7 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
   const bool onGrid = (double)whole * stepM == along.LengthM();
   const size_t samples = whole + (onGrid ? 1u : 2u);
   Held_.resize(samples, topMs);
+  Why_.assign(samples, Held::Free);
   Curvature_.resize(samples, 0.0);
   StepM_ = stepM;
   LengthM_ = along.LengthM();
@@ -134,12 +137,7 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
     Curvature_[at] = here.CurvaturePerM;
     Held holds = Held::Free;
     Held_[at] = HeldAt(here, &holds);
-    ++Bound_[(size_t)holds];
-    if (Slowest_.By == Held::Free || Held_[at] < Slowest_.Ms) {
-      Slowest_.Ms = Held_[at];
-      Slowest_.AtM = station;
-      Slowest_.By = holds;
-    }
+    Why_[at] = holds;
     NoteCrest(here, station, Held_[at]);
   }
 
@@ -149,7 +147,10 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
     const size_t below = (size_t)reach;
     const size_t above = (double)below == reach ? below : below + 1;
     for (size_t at = below; at <= above && at < samples; ++at) {
-      if (heldMs < Held_[at]) { Held_[at] = heldMs; }
+      if (heldMs < Held_[at]) {
+        Held_[at] = heldMs;
+        Why_[at] = Held::Seam;
+      }
     }
   };
 
@@ -180,15 +181,34 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
   const auto gapM = [&](size_t before) {
     return before + 2 < samples ? stepM : LengthM_ - (double)(samples - 2) * stepM;
   };
-  Held_[0] = entryMs < Held_[0] ? entryMs : Held_[0];
+  if (entryMs < Held_[0]) {
+    Held_[0] = entryMs;
+    Why_[0] = Held::Entry;
+  }
   for (size_t at = 1; at < samples; ++at) {
     const double reached =
         std::sqrt(Held_[at - 1] * Held_[at - 1] + 2.0 * accelMs2 * gapM(at - 1));
-    if (reached < Held_[at]) { Held_[at] = reached; }
+    if (reached < Held_[at]) {
+      Held_[at] = reached;
+      Why_[at] = Held::Traction;
+    }
   }
   for (size_t at = samples - 1; at > 0; --at) {
     const double allowed = std::sqrt(Held_[at] * Held_[at] + 2.0 * brakeMs2 * gapM(at - 1));
-    if (allowed < Held_[at - 1]) { Held_[at - 1] = allowed; }
+    if (allowed < Held_[at - 1]) {
+      Held_[at - 1] = allowed;
+      Why_[at - 1] = Held::Brake;
+    }
+  }
+
+  for (size_t at = 0; at < samples; ++at) {
+    ++Bound_[(size_t)Why_[at]];
+    const double station = (double)at * stepM > LengthM_ ? LengthM_ : (double)at * stepM;
+    if (at == 0 || Held_[at] < Slowest_.Ms) {
+      Slowest_.Ms = Held_[at];
+      Slowest_.AtM = station;
+      Slowest_.By = Why_[at];
+    }
   }
   return true;
 }

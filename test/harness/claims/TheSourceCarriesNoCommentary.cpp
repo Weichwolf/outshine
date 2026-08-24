@@ -122,6 +122,34 @@ int main(void) {
         "string literal -- an embedded blob is a second home for a language this translation "
         "unit's compiler never checks (board:1776)");
 
+  // board:1654, regressed by board:1787's own repair: a static_assert message is prose the
+  // compiler carries, and "(board:1787)" stood in one. The comment walk deliberately steps
+  // over string literals -- so the rule it names in its own Covers could not be enforced by
+  // it. A work item's number lives in the board and in the commit, never in the source, and
+  // that holds for the text inside a literal as much as for a line above a function.
+  std::vector<std::string> numbered;
+  for (const char *root : {"src", "include"}) {
+    for (const auto &entry : std::filesystem::recursive_directory_iterator(root)) {
+      if (!entry.is_regular_file()) { continue; }
+      const std::string suffix = entry.path().extension().string();
+      if (suffix != ".cpp" && suffix != ".h" && suffix != ".msl") { continue; }
+      const std::string text = Slurp(entry.path());
+      for (size_t at = text.find("board:"); at != std::string::npos;
+           at = text.find("board:", at + 1)) {
+        size_t line = 1;
+        for (size_t scan = 0; scan < at; ++scan) { line += text[scan] == '\n' ? 1 : 0; }
+        numbered.push_back(entry.path().string() + ":" + std::to_string(line));
+      }
+    }
+  }
+  for (const std::string &one : numbered) {
+    std::printf("FOUND %s names a board item\n", one.c_str());
+  }
+  CHECK(numbered.empty(),
+        "**THE SOURCE NAMES NO WORK ITEM**: a number's origin lives in its board item and "
+        "its commit -- and that holds inside a string literal too, where the comment walk "
+        "cannot see it and a static_assert message can hide one (board:1654)");
+
   Note("source files walked", (double)walked, "files");
   for (const std::string &one : narrating) { std::printf("FOUND %s narrates\n", one.c_str()); }
   CHECK(walked >= 300, "the walk saw the tree, not a corner of it");
