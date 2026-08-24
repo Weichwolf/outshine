@@ -68,3 +68,45 @@ assembly (`:490-508`), the profile step derivation (`:527-529`) and now the radi
 CLAUDE.md still carries the debt in the CURRENT class diagram (*"`LayCorridor`, `AssembleDrive`
 and `DriveTick` stay amber until their own unit proofs deepen"*), so the map is honest and the
 board was not.
+
+---
+
+## The blocker, measured (2026-08-24)
+
+`LayCorridor` cannot be reached by a unit case today, and the reason is one line of its
+signature:
+
+```cpp
+[[nodiscard]] bool LayCorridor(const Path::Route &route, Ground::GroundStream &ground, ...)
+```
+
+`GroundStream` (`src/ground/TerrainLoader.h:47-71`) is constructed from a `TilePool &` --
+threads, a content store, fetched tiles. `grep -rln 'GroundStream' test/ tools/` finds
+**exactly one** user in the whole tree, `tools/driver/stills/...`, and it needs the network.
+There is no synthetic one, and building one means building a pool.
+
+**And the dependency is far wider than the use.** Everything `LayCorridor` asks of the ground:
+
+```
+$ grep -n 'ground\.' src/sim/CorridorLay.cpp | sed 's/.*ground\.\([A-Za-z]*\).*/\1/' | sort -u
+At
+PostM
+```
+
+Two queries -- `At(lat, lon) -> GroundSample` and `PostM(latDeg) -> double`. It takes a class
+that owns a thread pool to ask two questions that are pure functions of a coordinate.
+
+So the twin this item asks for is blocked on a narrower door, not on test effort: while
+`LayCorridor` spells `GroundStream`, a unit case must bring a tile pool with it, and the fast
+gate cannot. The first box therefore depends on:
+
+- [ ] `LayCorridor` takes the two queries it uses, not the class that happens to hold them --
+      an interface a synthetic ground can satisfy, which is also `local reasoning only` and
+      `minimal public API` applied to a door that currently demands the world to ask about a
+      metre of it.
+
+Recorded rather than attempted: the narrowing is a signature change through
+`DriveAssembly.cpp:232` and the drive suites, and it is the right shape rather than a quick
+one. What board:1791 needed from this item -- a case that catches a guard refusing a straight
+road -- now stands in `test/unit/actor/path/ACorridorIsFittedThroughVerticesItMayNotLeave`
+instead, over `Fit` directly, because `Fit` takes spans and needs no world at all.
