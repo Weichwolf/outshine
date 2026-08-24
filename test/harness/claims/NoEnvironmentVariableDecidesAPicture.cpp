@@ -19,16 +19,10 @@ struct Excused {
 };
 
 const Excused kExcused[] = {
-    {"", "src/clients/Env.h is the host boundary that reads the environment, and a boundary that "
-         "reads it is what lets nothing else"},
     {"OUTSHINE_DAGLOG", "logging, which changes what is printed and never what is drawn"},
 };
 
-bool Excuse(const std::string &path, const std::string &named, std::string &why) {
-  if (path == "src/clients/Env.h") {
-    why = kExcused[0].Why;
-    return true;
-  }
+bool Excuse(const std::string &named, std::string &why) {
   for (const Excused &one : kExcused) {
     if (named == one.Named && named[0] != 0) {
       why = one.Why;
@@ -80,7 +74,7 @@ int main(void) {
         if (reads != std::string::npos) {
           const std::string named = Quoted(line, reads);
           std::string why;
-          if (Excuse(path, named, why)) {
+          if (Excuse(named, why)) {
             std::printf("NOTE %s:%d reads '%s' -- %s\n", path.c_str(), at, named.c_str(),
                         why.c_str());
           } else {
