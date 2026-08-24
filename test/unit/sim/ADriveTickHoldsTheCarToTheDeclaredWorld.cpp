@@ -109,7 +109,8 @@ bool Seat(DriveState &drive, const Corridor &way, const Vehicle &car, const Rigg
   outshine::Physics::Turn(body.OrientationQ, aheadBody, ahead);
   for (int axis = 0; axis < 3; ++axis) { body.VelocityMs[axis] = kJoinMs * ahead[axis]; }
   drive.CarWidthM = car.WidthM;
-  drive.AsideRatePerM = (kLaneHalfM - 0.5 * car.WidthM) / stood.Envelope.TopMs();
+  drive.AsideRatePerM =
+      outshine::Sim::AsideRatePerM(kLaneHalfM - 0.5 * car.WidthM, stood.Envelope.TopMs());
   return true;
 }
 

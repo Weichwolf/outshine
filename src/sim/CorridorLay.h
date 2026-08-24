@@ -9,6 +9,7 @@
 #include "GroundQuery.h"
 
 #include "Fit.h"
+#include "Pilot.h"
 #include "ReferenceLine.h"
 #include "Rigging.h"
 #include "Sink.h"
@@ -32,6 +33,13 @@ struct Corridor {
   double ReserveMs2 = 0.0;
   double FrameLat = 0.0, FrameLon = 0.0, PerLatM = 1.0, PerLonM = 1.0;
 };
+
+inline constexpr double kLagMargin = 2.0;
+
+[[nodiscard]] constexpr double AsideRatePerM(double budgetM, double topMs) {
+  const double reachM = Pilot::kSettleS * topMs;
+  return reachM > 0.0 ? budgetM / (kLagMargin * reachM) : 0.0;
+}
 
 [[nodiscard]] bool LayCorridor(const Path::Route &route, const GroundQuery &ground,
                                const Vehicle &car, const Rigged &stood, double quantumM,

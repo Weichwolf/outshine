@@ -190,6 +190,16 @@ int main(void) {
           "clearance to the carriageway edge is what decides, and a drive that asserts only the "
           "event asserts the one thing that cannot be nearly true -- a route where every wheel "
           "stayed on by a millimetre reads exactly like one where none came close");
+    // board:1817: kLagsToCover is a [SET] margin and the measurement it stands above is the
+    // ratio of the total lateral lag to the pursuit lag alone. Published per route, so the
+    // margin's headroom is a number rather than an argument.
+    const double reachM = outshine::Pilot::kSettleS * drive.Stood.Envelope.TopMs();
+    const double pursuitLagM = drive.Way.AsideRatePerM * reachM;
+    Note("the pursuit lag the lateral rate implies at top speed", pursuitLagM, "m");
+    Note("the worst deviation as a share of it",
+         pursuitLagM > 0.0 ? std::fabs(rode.WorstOffsetM) / pursuitLagM : 0.0, "x");
+    Note("the deviation at p99 as a share of it",
+         pursuitLagM > 0.0 ? quantile(0.99) / pursuitLagM : 0.0, "x");
     Note("the room left at p01 against the deviation spent at p99",
          quantile(0.99) > 0.0 ? clearAt(0.01) / quantile(0.99) : 0.0, "x");
     CHECK(clearAt(0.01) > quantile(0.99),

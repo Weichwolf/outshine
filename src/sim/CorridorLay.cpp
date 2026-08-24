@@ -14,12 +14,6 @@
 
 namespace outshine::Sim {
 
-namespace {
-
-constexpr double kLagsToCover = 2.0;
-
-}
-
 
 namespace {
 constexpr double kPatienceS = 900.0;
@@ -327,7 +321,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   }
   {
     const double reachM = outshine::Pilot::kSettleS * stood.Envelope.TopMs();
-    const double mostPerM = budgetM / (kLagsToCover * reachM);
+    const double mostPerM = AsideRatePerM(budgetM, stood.Envelope.TopMs());
     out.AsideRatePerM = mostPerM;
     say.Number("the top speed the declaration implies", stood.Envelope.TopMs() * 3.6, "km/h");
     say.Number("the look-ahead time the pilot settles over", outshine::Pilot::kSettleS, "s");
