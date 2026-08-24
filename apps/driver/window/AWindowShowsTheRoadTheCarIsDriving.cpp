@@ -305,6 +305,7 @@ int main(void) {
     if (budgetS > 0.0 && spentS >= budgetS) {
       std::printf("SPENT the budget at %.1f km of %.1f after %.1f s, frame %ld\n",
                   rode.ReachedM / 1000.0, routeM / 1000.0, spentS, frame);
+      Partial(routeM > 0.0 ? rode.ReachedM / routeM : 0.0, "the route it was asked to drive");
       break;
     }
     if (rode.ReachedM - saidAtM > 10000.0) {

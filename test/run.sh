@@ -440,6 +440,7 @@ TRAILER_CHECKS=0
 TRAILER_FAILURES=0
 TRAILER_SKIPS=0
 TRAILER_UNPREPARED=0
+TRAILER_PARTIAL=0
 FAST_GATE=no
 compileBlind=0
 KILLED_BY_TIME=""
@@ -456,15 +457,16 @@ ReadTrailer() {
   [ "$trailerCount" -eq 1 ] ||
     Die "$trailerId printed $trailerCount verdict lines and a verdict is exactly one: a test that emits none did not include the reporter, and one that emits two reported twice -- $trailerLog"
   set -- $(grep '^CHECKS ' "$trailerLog")
-  [ $# -eq 8 ] && [ "$1" = CHECKS ] && [ "$3" = FAILURES ] && [ "$5" = SKIPPED ] &&
-    [ "$7" = UNPREPARED ] ||
+  [ $# -eq 10 ] && [ "$1" = CHECKS ] && [ "$3" = FAILURES ] && [ "$5" = SKIPPED ] &&
+    [ "$7" = UNPREPARED ] && [ "$9" = PARTIAL ] ||
     Die "$trailerId printed a verdict line the reporter cannot have written -- $trailerLog"
-  Number "$2" && Number "$4" && Number "$6" && Number "$8" ||
+  Number "$2" && Number "$4" && Number "$6" && Number "$8" && Number "${10}" ||
     Die "$trailerId printed a verdict line whose counts are not numbers -- $trailerLog"
   TRAILER_CHECKS=$2
   TRAILER_FAILURES=$4
   TRAILER_SKIPS=$6
   TRAILER_UNPREPARED=$8
+  TRAILER_PARTIAL=${10}
   return 0
 }
 
@@ -940,6 +942,8 @@ signalled=0
 unbuilt=0
 skipped=0
 unprepared=0
+partialCases=0
+PARTIAL_SAID=""
 undeclaredSkips=0
 inverted=0
 
@@ -1013,6 +1017,10 @@ Judge() {
     failures=$TRAILER_FAILURES
     skips=$TRAILER_SKIPS
     unpreparedHere=$TRAILER_UNPREPARED
+    if [ "$TRAILER_PARTIAL" -gt 0 ]; then
+      partialCases=$((partialCases + 1))
+      PARTIAL_SAID="$PARTIAL_SAID $judgeId"
+    fi
     expected=0
     { [ "$failures" -eq 0 ] && [ "$unpreparedHere" -eq 0 ]; } || expected=1
     [ "$status" -eq "$expected" ] ||
@@ -1335,6 +1343,17 @@ if [ "$FAST_GATE" = yes ]; then
   EverySourceStillCompiles || compileBlind=1
   WhatNoCorpusJudges
 fi
+# board:1810: a case that judged part of its subject may not read as one that judged all of it.
+# The share is in the case's own PARTIAL line and the truncation point moves with the machine,
+# so the trailer carries both the case and the share it reached.
+for said in $PARTIAL_SAID; do
+  partialLog=$BUILD/log/$(printf '%s' "$said" | tr / -).log
+  partialShare=$(sed -n 's/^PARTIAL \([0-9.]*\) .*/\1/p' "$partialLog" | head -1)
+  partialOf=$(sed -n 's/^PARTIAL [0-9.]* //p' "$partialLog" | head -1)
+  printf 'run.sh: %s JUDGED PART OF ITS SUBJECT -- %s of %s, so this trailer says nothing about the rest and a run on another machine will stop somewhere else (board:1810)\n' \
+    "$said" "$partialShare" "$partialOf" >&2
+done
+
 for killed in $KILLED_BY_TIME; do
   printf 'run.sh: %s MEASURED NOTHING -- it was killed at %s s before it finished, so its verdict is neither pass nor fail but absent, and a case that cannot finish is a case nobody runs (board:1778)\n' \
     "$killed" "$TIMEOUT_S" >&2

@@ -530,6 +530,7 @@ int main(void) {
       std::printf("SPENT the budget at %.1f km of %.1f after %.1f s, with %ld of %zu stills "
                   "written\n", rode.ReachedM / 1000.0, routeM / 1000.0, spentS, wrote,
                   atM.size());
+      Partial(routeM > 0.0 ? rode.ReachedM / routeM : 0.0, "the route it was asked to drive");
       break;
     }
     for (long step = 0; step < 17; ++step) {

@@ -32,6 +32,7 @@ inline Tally Checks;
 inline Tally Failures;
 inline Tally Skips;
 inline Tally Unprepareds;
+inline Tally Partials;
 
 inline void Checked(bool held, const char *expression, const char *claim, const char *file,
                     int line) {
@@ -69,6 +70,16 @@ inline void Covers(const char *requirement) { std::printf("COVERS %s\n", require
   return root + "/outshine-" + std::to_string(getpid()) + "-" + name;
 }
 
+// board:1810: a case that stops on its own wall-clock budget (board:1778) reported the
+// truncation in its LOG and returned PASS, so the trailer -- the line CLAUDE.md tells a reader
+// to read FIRST -- could not tell a whole route from a seventh of one. UNPREPARED already means
+// "this run judged nothing here"; PARTIAL is the third member of that family and it carries the
+// share, because the truncation point moves with the machine.
+inline void Partial(double share, const char *ofWhat) {
+  ++Partials;
+  std::printf("PARTIAL %.6f %s\n", share, ofWhat);
+}
+
 inline void Unprepared(const char *what) {
   ++Unprepareds;
   std::printf("UNPREPARED %s\n", what);
@@ -84,8 +95,8 @@ inline void Skip(const char *why) {
     ++Failures;
     std::printf("FAIL no claim was checked\n");
   }
-  std::printf("CHECKS %d FAILURES %d SKIPPED %d UNPREPARED %d\n", Checks.Value(),
-              Failures.Value(), Skips.Value(), Unprepareds.Value());
+  std::printf("CHECKS %d FAILURES %d SKIPPED %d UNPREPARED %d PARTIAL %d\n", Checks.Value(),
+              Failures.Value(), Skips.Value(), Unprepareds.Value(), Partials.Value());
   std::fflush(stdout);
   return (Failures.Value() == 0 && Unprepareds.Value() == 0) ? 0 : 1;
 }
