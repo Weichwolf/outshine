@@ -7,6 +7,8 @@
 
 #include "Check.h"
 
+#include "VectorTileMaker.h"
+
 #include "OsmField.h"
 #include "OsmLayer.h"
 
@@ -33,73 +35,6 @@ namespace {
 //   Feature { uint64 id = 1, packed uint32 tags = 2, GeomType type = 3, packed uint32 geometry = 4 }
 //   Value   { string string_value = 1, double double_value = 3 }
 // Geometry is a stream of command integers (id | count << 3) and zig-zag parameters.
-struct Bytes {
-  std::vector<uint8_t> Out;
-
-  void Varint(uint64_t value) {
-    while (value >= 0x80) {
-      Out.push_back((uint8_t)(value | 0x80));
-      value >>= 7;
-    }
-    Out.push_back((uint8_t)value);
-  }
-  void Key(uint32_t field, uint32_t wire) { Varint(((uint64_t)field << 3) | wire); }
-  void Uint(uint32_t field, uint64_t value) {
-    Key(field, 0);
-    Varint(value);
-  }
-  void Block(uint32_t field, const std::vector<uint8_t> &body) {
-    Key(field, 2);
-    Varint(body.size());
-    Out.insert(Out.end(), body.begin(), body.end());
-  }
-  void Text(uint32_t field, const std::string &value) {
-    Block(field, std::vector<uint8_t>(value.begin(), value.end()));
-  }
-};
-
-[[nodiscard]] uint32_t ZigZag(int32_t value) { return (uint32_t)((value << 1) ^ (value >> 31)); }
-
-[[nodiscard]] std::vector<uint8_t> Packed(const std::vector<uint32_t> &values) {
-  Bytes out;
-  for (const uint32_t one : values) { out.Varint(one); }
-  return out.Out;
-}
-
-// one linestring of two points, tagged kind=residential and lanes=2.
-[[nodiscard]] std::vector<uint8_t> AStreetTile(int32_t firstX, int32_t firstY, int32_t byX,
-                                               int32_t byY, uint32_t extent) {
-  Bytes feature;
-  feature.Uint(1, 7u);
-  feature.Block(2, Packed({0u, 0u, 1u, 1u}));
-  feature.Uint(3, 2u);
-  feature.Block(4, Packed({(1u | (1u << 3)), ZigZag(firstX), ZigZag(firstY),
-                           (2u | (1u << 3)), ZigZag(byX), ZigZag(byY)}));
-
-  Bytes kindValue;
-  kindValue.Text(1, "residential");
-  Bytes lanesValue;
-  lanesValue.Key(3, 1);
-  const double lanes = 2.0;
-  uint64_t asBits = 0;
-  __builtin_memcpy(&asBits, &lanes, sizeof asBits);
-  for (int at = 0; at < 8; ++at) { lanesValue.Out.push_back((uint8_t)(asBits >> (8 * at))); }
-
-  Bytes layer;
-  layer.Text(1, "streets");
-  layer.Block(2, feature.Out);
-  layer.Text(3, "kind");
-  layer.Text(3, "lanes");
-  layer.Block(4, kindValue.Out);
-  layer.Block(4, lanesValue.Out);
-  layer.Uint(5, extent);
-  layer.Uint(15, 2u);
-
-  Bytes tile;
-  tile.Block(3, layer.Out);
-  return tile.Out;
-}
-
 // the tile's own corner, from the standard web-mercator formulas rather than from the code
 // under test -- otherwise the check would be the decoder agreeing with itself.
 struct Corner {
@@ -136,7 +71,13 @@ int main(void) {
   CHECK(field.Features().empty() && !field.Settled(kTileX, kTileY),
         "and a field that has accepted nothing holds nothing and says the tile is not decoded");
 
-  const std::vector<uint8_t> tile = AStreetTile(1024, 2048, 512, -256, kExtent);
+  namespace Mvt = outshine::Test::Mvt;
+  const std::vector<uint8_t> tile = Mvt::Tile({Mvt::Layer(
+      "streets",
+      {Mvt::Shape{Mvt::Geometry::Line,
+                  {1024, 2048, 1536, 1792},
+                  {Mvt::Says("kind", "residential"), Mvt::Counts("lanes", 2.0)}}},
+      kExtent)});
   Note("bytes in the hand-encoded vector tile", (double)tile.size(), "bytes");
 
   const int added = field.Accept(kTileX, kTileY, tile);
