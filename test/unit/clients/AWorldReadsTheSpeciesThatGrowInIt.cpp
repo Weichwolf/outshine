@@ -5,6 +5,7 @@
 
 #include "Check.h"
 
+#include "Forest.h"
 #include "Species.h"
 
 using outshine::Clients::ReadSpecies;
@@ -33,6 +34,23 @@ int main(void) {
   Note("species the reader returned", (double)grown.size(), "species");
   CHECK(grown.size() == onDisk,
         "and it returns EVERY one of them -- 0 or 1..N, never the first that opened");
+
+  // board:1781: Forest holds a FIXED table of stems and refuses what will not fit. The bound
+  // is a declared capacity, not a derivation -- kMostSpecies [SET] = 64, which is twice the
+  // catalogue this tree ships -- and what makes a declared capacity safe is that exceeding it
+  // refuses loudly rather than truncating. What makes it USEFUL is that the tree notices
+  // before an artist does, which is this check: the shipped catalogue must stay clear of it.
+  Note("the species a wood may hold at once", (double)outshine::Generators::Forest::kMostSpecies,
+       "species");
+  Note("the bytes that table costs", (double)outshine::Generators::Forest::kSpeciesTableBytes,
+       "bytes");
+  Note("the headroom the shipped catalogue leaves",
+       (double)outshine::Generators::Forest::kMostSpecies / (double)onDisk, "x");
+  CHECK(onDisk < outshine::Generators::Forest::kMostSpecies,
+        "**AND THE SHIPPED CATALOGUE FITS THE TABLE THAT HOLDS IT**: a wood refuses more "
+        "species than it can hold, and the day the catalogue reaches that bound the gate says "
+        "so here rather than an artist discovering it -- a declared capacity is only safe if "
+        "something watches the distance to it (board:1781)");
 
   {
     std::vector<TreeSpecies> one;

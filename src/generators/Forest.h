@@ -29,7 +29,7 @@ public:
   [[nodiscard]] size_t SpeciesRefused() const noexcept { return Refused_; }
 
   static constexpr size_t kMostSpecies = 64;
-  static constexpr size_t kSpeciesTableBytes = 2048;
+  static constexpr size_t kSpeciesTableBytes = kMostSpecies * sizeof(Stem);
 
   enum Note {
     NoTemplate, NoSpecies, ZeroDensity, DensityDraw, AboveTreeline, TooSteep, WoodyDraw,
