@@ -53,6 +53,15 @@ void Network::Lay(std::span<const double> latLonPairs, double halfWidthM, double
   way.MinRadiusM = minRadiusM;
   way.Lanes = lanes;
   const uint32_t mine = (uint32_t)Ways_.size();
+  way.MinLat = way.MaxLat = latLonPairs[0];
+  way.MinLon = way.MaxLon = latLonPairs[1];
+  for (size_t which = 0; which < points; ++which) {
+    const double lat = latLonPairs[2 * which], lon = latLonPairs[2 * which + 1];
+    way.MinLat = lat < way.MinLat ? lat : way.MinLat;
+    way.MaxLat = lat > way.MaxLat ? lat : way.MaxLat;
+    way.MinLon = lon < way.MinLon ? lon : way.MinLon;
+    way.MaxLon = lon > way.MaxLon ? lon : way.MaxLon;
+  }
   Ways_.push_back(way);
   Points_.reserve(Points_.size() + 2 * points);
   WayOf_.reserve(WayOf_.size() + points);
@@ -237,6 +246,66 @@ bool Network::Weave(std::string &error) {
   Cells_ = std::move(byCell);
   Woven_ = true;
   return true;
+}
+
+namespace {
+
+[[nodiscard]] bool SegmentsMeet(double ax, double ay, double bx, double by, double cx, double cy,
+                                double dx, double dy, double *atX, double *atY) {
+  const double rx = bx - ax, ry = by - ay, sx = dx - cx, sy = dy - cy;
+  const double denominator = rx * sy - ry * sx;
+  if (denominator == 0.0) { return false; }
+  const double along = ((cx - ax) * sy - (cy - ay) * sx) / denominator;
+  const double across = ((cx - ax) * ry - (cy - ay) * rx) / denominator;
+  if (along <= 0.0 || along >= 1.0 || across <= 0.0 || across >= 1.0) { return false; }
+  *atX = ax + along * rx;
+  *atY = ay + along * ry;
+  return true;
+}
+
+}
+
+size_t Network::Crossings(std::vector<Crossing> &into) const {
+  into.clear();
+  if (Ways_.size() < 2) { return 0; }
+
+  std::vector<size_t> order(Ways_.size());
+  for (size_t at = 0; at < order.size(); ++at) { order[at] = at; }
+  std::sort(order.begin(), order.end(), [this](size_t a, size_t b) {
+    return Ways_[a].MinLat < Ways_[b].MinLat;
+  });
+
+  std::vector<size_t> live;
+  for (const size_t which : order) {
+    const Way &mine = Ways_[which];
+    size_t kept = 0;
+    for (size_t at = 0; at < live.size(); ++at) {
+      if (Ways_[live[at]].MaxLat >= mine.MinLat) { live[kept++] = live[at]; }
+    }
+    live.resize(kept);
+
+    for (const size_t other : live) {
+      const Way &theirs = Ways_[other];
+      if (theirs.MaxLon < mine.MinLon || theirs.MinLon > mine.MaxLon) { continue; }
+      for (size_t a = 0; a + 1 < mine.Count; ++a) {
+        const double ax = Points_[2 * (mine.First + a) + 1];
+        const double ay = Points_[2 * (mine.First + a)];
+        const double bx = Points_[2 * (mine.First + a + 1) + 1];
+        const double by = Points_[2 * (mine.First + a + 1)];
+        for (size_t b = 0; b + 1 < theirs.Count; ++b) {
+          const double cx = Points_[2 * (theirs.First + b) + 1];
+          const double cy = Points_[2 * (theirs.First + b)];
+          const double dx = Points_[2 * (theirs.First + b + 1) + 1];
+          const double dy = Points_[2 * (theirs.First + b + 1)];
+          double atX = 0.0, atY = 0.0;
+          if (!SegmentsMeet(ax, ay, bx, by, cx, cy, dx, dy, &atX, &atY)) { continue; }
+          into.push_back(Crossing{(uint32_t)which, (uint32_t)other, atY, atX});
+        }
+      }
+    }
+    live.push_back(which);
+  }
+  return into.size();
 }
 
 size_t Network::JunctionCount() const {

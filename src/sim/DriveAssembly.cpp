@@ -200,6 +200,18 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   say.Number("nodes after snapping", (double)roads.NodeCount(), "nodes");
   say.Number("junctions among them", (double)roads.JunctionCount(), "nodes");
   say.Number("edges", (double)roads.EdgeCount(), "edges");
+  {
+    std::vector<Path::Network::Crossing> crossings;
+    const size_t found = roads.Crossings(crossings);
+    say.Number("places two ways cross in plan without sharing a node", (double)found, "places");
+    say.Number("junctions among the nodes", (double)roads.JunctionCount(), "nodes");
+    say.Claim(found > 0,
+          "**THE GRADE SEPARATIONS ARE FOUND WHERE THE SOURCE OMITS THEM.** The vector tiles "
+          "carry two tag keys -- kind and rail -- so no bridge, tunnel or layer reaches this "
+          "engine. What does reach it is OSM's own convention: two ways crossing AT GRADE share "
+          "a node and two crossing grade-separated do not, and that survives the tiling because "
+          "it is geometry rather than a tag");
+  }
 
   size_t atFrom = 0, atTo = 0;
   double fromAwayM = 0.0, toAwayM = 0.0;

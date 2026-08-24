@@ -78,7 +78,7 @@ a tag would have been.
 
 ## What will be true
 
-- [ ] The network computes plan-view segment crossings that are NOT junctions. Those are the
+- [x] The network computes plan-view segment crossings that are NOT junctions. Those are the
       grade separations the source encodes by omission, and their count is published.
 - [ ] Which of the two ways passes over is decided and the decision is written down -- from the
       classes, the gradients, or a stated rule -- because OSM's `layer` is not available to
@@ -109,3 +109,44 @@ paragraph is where the argument for it starts.
 - [ ] Each of the four plausibilities has a proof that can go red on its own.
 - [ ] Negative control per proof: the reconstruction disabled -> the road is flat through the
       obstacle and the matching claim names it.
+
+---
+
+## The grade separations are found (2026-08-24)
+
+`Network::Crossings` sweeps the ways by latitude with an active set, tests the overlapping pairs
+segment against segment, and reports every place two polylines meet **strictly inside both**
+segments -- so a shared endpoint, which is how OSM writes an at-grade crossing, is not a
+crossing.
+
+Measured on the shipped Munich--Hamburg network:
+
+```
+NOTE ways a car can fit down                                = 28752 ways
+NOTE junctions among the nodes                              = 47167 nodes
+NOTE places two ways cross in plan without sharing a node   = 17472 places
+```
+
+**17 472 grade separations**, against 47 167 at-grade junctions, on one route -- and every one
+of them was invisible to this engine an hour ago. That is the population the reconstruction has
+to build, and it is now a number rather than a guess.
+
+- **Proving test**: `test/unit/actor/path/ANetworkIsWovenFromWaysThatShareNoIdentity` -- three
+  arms: two ways crossing with no shared point give one crossing at 51.000000, 10.000000 and
+  zero junctions; the same two given a shared point give one junction and zero crossings; two
+  parallel ways give neither.
+- **Negative control**, run: the strict-inside test relaxed to `<= 0 || >= 1` ->
+
+  ```
+  NOTE places they cross in plan = 4 places        (the at-grade pair, which should be 0)
+  FAIL **AND ONE THAT SHARES A NODE IS A JUNCTION AND NOT A CROSSING**
+  ```
+
+  A reconstruction built on that would put a bridge over every crossroads.
+- The drive carries the claim too, and it is the honest form: it asserts that grade separations
+  ARE found, because a route across Germany that found none would mean the convention had
+  stopped surviving the tiling.
+- Gate 260/260.
+
+The remaining boxes -- which way passes over, the clearance, the deck, the four proofs -- stand.
+What changed is that they now have an input.

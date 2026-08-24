@@ -55,6 +55,13 @@ public:
   [[nodiscard]] size_t NodeCount() const { return Nodes_.size(); }
   [[nodiscard]] size_t EdgeCount() const { return Edges_.size(); }
   [[nodiscard]] size_t JunctionCount() const;
+
+  struct Crossing {
+    uint32_t OverWay = 0, UnderWay = 0;
+    double LatDeg = 0.0, LonDeg = 0.0;
+  };
+
+  [[nodiscard]] size_t Crossings(std::vector<Crossing> &into) const;
   [[nodiscard]] double SnapM() const { return SnapM_; }
 
   [[nodiscard]] size_t PointStreamBytes() const {
@@ -76,6 +83,7 @@ private:
   struct Way {
     size_t First = 0;
     size_t Count = 0;
+    double MinLat = 0.0, MinLon = 0.0, MaxLat = 0.0, MaxLon = 0.0;
     double HalfWidthM = 0.0;
     double MaxGradient = 0.0;
     double MinRadiusM = 0.0;

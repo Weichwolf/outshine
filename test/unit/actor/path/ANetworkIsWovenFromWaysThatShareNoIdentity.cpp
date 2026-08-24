@@ -201,6 +201,71 @@ int main(void) {
           "it lays them, so the stream is reserved rather than doubled into");
   }
 
+  // board:1813: the vector tiles this engine reads carry two tag keys -- kind and rail -- so
+  // no bridge, tunnel or layer reaches it. What does reach it is OSM's own convention: two ways
+  // crossing AT GRADE share a node, two crossing grade-separated do not. That is geometry, it
+  // survives the tiling, and it is the reconstruction's whole input.
+  {
+    Network overpass(kSnapM, kIuggMeanRadiusM);
+    const double eastWest[4] = {51.0, 9.99, 51.0, 10.01};
+    const double northSouth[4] = {50.99, 10.0, 51.01, 10.0};
+    overpass.Lay(std::span<const double>(eastWest, 4), 4.75, 0.06, 2, 400.0);
+    overpass.Lay(std::span<const double>(northSouth, 4), 3.25, 0.08, 2, 200.0);
+    CHECK(overpass.Weave(error), "two ways that cross without sharing a point weave");
+
+    std::vector<Network::Crossing> crossings;
+    const size_t found = overpass.Crossings(crossings);
+    Note("nodes the two ways make", (double)overpass.NodeCount(), "nodes");
+    Note("junctions among them", (double)overpass.JunctionCount(), "nodes");
+    Note("places they cross in plan", (double)found, "places");
+    if (found > 0) {
+      std::printf("NOTE they cross at %.6f, %.6f\n", crossings[0].LatDeg, crossings[0].LonDeg);
+    }
+    CHECK(found == 1 && overpass.JunctionCount() == 0,
+          "**A CROSSING THAT SHARES NO NODE IS A GRADE SEPARATION**: OSM writes an at-grade "
+          "crossing as a shared node and a bridge as no node at all, so the absence IS the "
+          "information -- and a network that only snaps coincident points cannot see it "
+          "(board:1813)");
+    if (found == 1) {
+      CHECK_NEAR(crossings[0].LatDeg, 51.0, 1.0e-9, "deg",
+                 "and the place it names is where the two polylines actually meet");
+      CHECK_NEAR(crossings[0].LonDeg, 10.0, 1.0e-9, "deg", "in both axes");
+    }
+  }
+
+  {
+    // the same two ways given a shared point are a junction, and nothing crosses.
+    Network atGrade(kSnapM, kIuggMeanRadiusM);
+    const double eastWest[6] = {51.0, 9.99, 51.0, 10.0, 51.0, 10.01};
+    const double northSouth[6] = {50.99, 10.0, 51.0, 10.0, 51.01, 10.0};
+    atGrade.Lay(std::span<const double>(eastWest, 6), 4.75, 0.06, 2, 400.0);
+    atGrade.Lay(std::span<const double>(northSouth, 6), 3.25, 0.08, 2, 200.0);
+    CHECK(atGrade.Weave(error), "the same two ways with a shared point weave");
+    std::vector<Network::Crossing> crossings;
+    const size_t found = atGrade.Crossings(crossings);
+    Note("junctions the shared point makes", (double)atGrade.JunctionCount(), "nodes");
+    Note("places they cross in plan", (double)found, "places");
+    CHECK(atGrade.JunctionCount() == 1 && found == 0,
+          "**AND ONE THAT SHARES A NODE IS A JUNCTION AND NOT A CROSSING**: the two are told "
+          "apart by the source's own convention rather than by a tag it does not carry, and a "
+          "reconstruction that built a bridge here would put one over a crossroads");
+  }
+
+  {
+    // two ways that never meet cross nowhere, so the sweep is not simply counting pairs.
+    Network apart(kSnapM, kIuggMeanRadiusM);
+    const double one[4] = {51.0, 9.99, 51.0, 10.01};
+    const double two[4] = {51.5, 9.99, 51.5, 10.01};
+    apart.Lay(std::span<const double>(one, 4), 4.75, 0.06, 2, 400.0);
+    apart.Lay(std::span<const double>(two, 4), 4.75, 0.06, 2, 400.0);
+    CHECK(apart.Weave(error), "two parallel ways weave");
+    std::vector<Network::Crossing> crossings;
+    Note("places two parallel ways cross", (double)apart.Crossings(crossings), "places");
+    CHECK(apart.Crossings(crossings) == 0,
+          "and two ways that never meet cross nowhere, so the sweep is finding intersections "
+          "rather than counting pairs");
+  }
+
   Covers("I.4.4 a network is woven from ways that share no identity: points within a declared "
          "snapping distance become one node, ways meet where they cross, and A* over it with a "
          "great-circle heuristic returns the shortest route or names why there is none");
