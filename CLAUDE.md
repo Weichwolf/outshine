@@ -454,8 +454,8 @@ ls board/*/ | grep -o '^[0-9]\{4\}' | sort -n | tail -1   # next id, derived
 |---|---|
 | `src/` | the library entire; `src/assets/` its declared data; no entry point, no test |
 | `test/` | `test/unit/` (mirror), `test/render/` (per vendor), `test/harness/` (scorers + `test/harness/claims/`) |
-| `tools/` | shared support built ON the library — transports and the like, no entry point of its own |
-| `apps/` | applications built ON the library, each its own directory: not tests, but they exercise the whole engine and are run by name; the engine knows none of them |
+| `tools/` | development support built ON the library: what serves the PROCESS — transports, and a browser for looking at the corpus |
+| `apps/` | applications built ON the library: what serves the PRODUCT — not tests, but they exercise the whole engine and are run by name; the engine knows none of them |
 | `Makefile` | build · test · clean, nothing else |
 | `board/` | the working system (above) |
 
