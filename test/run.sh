@@ -903,7 +903,7 @@ RebuildCase() {
   REBUILT=no
   [ -f "$1/manifest.json" ] || return 0
   [ -z "$(ls -A "$2" 2>/dev/null | grep -v '^manifest.json$')" ] || return 0
-  printf 'run.sh: %s has no prepared input -- rebuilding it from its manifest (board:1797)\n' \
+  printf 'run.sh: %s WAS prepared and its input is gone -- it carries a manifest, so this is a corpus removed under a reader and not a fetch that never happened; rebuilding (board:1789, 1797)\n' \
     "${1#test/}" >&2
   before=$(Now)
   if python3 test/harness/shared/corpus/prepare.py all --manifest "$1/manifest.json" \

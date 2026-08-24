@@ -216,3 +216,48 @@ never reaches `PruneCase` (`test/run.sh:881-882`). It does **not** hold for a wo
 `harness/claims`, because that suite contains this case, and this case renames the main nest's
 corpus claim aside. Until the box above is paid, **the hourly review must not run
 `harness/claims` while the main nest runs**.
+
+## Requirement 1 is closed, and the guard is driven rather than quoted (2026-08-25)
+
+The corpus stays SHARED -- 26 GB is worth sharing -- and the right to delete from it is scoped
+by who prepared each case:
+
+```sh
+test/run.sh:912   mkdir -p "$2" && printf '%s' "$NEST" > "$2/.prepared-by"
+test/run.sh:987   prunePreparer=$prunePrepared/.prepared-by
+test/run.sh:988   if [ "$(cat "$prunePreparer" 2>/dev/null)" != "$NEST" ]; then notMine=...; return 0; fi
+```
+
+`$NEST` is the same per-checkout identity `$BUILD` already carried at `test/run.sh:17`, which is
+requirement 1 in the item's own words. A case NOBODY claims is left alone too: "first to delete
+owns it" is the same race with a shorter fuse, and an unclaimed case is one `prepare.py` made
+outside any runner, whose readers this runner cannot know. The trailer names what it left:
+
+```
+test corpora: N case(s) left untouched because this nest did not prepare them
+```
+
+Requirement 2's distinction is made where the runner can make it -- a case whose input is gone
+but whose MANIFEST is present was prepared and then removed, and that is a different sentence
+from a fetch that never happened:
+
+```sh
+test/run.sh:906   ... WAS prepared and its input is gone -- it carries a manifest, so this is a
+                  corpus removed under a reader and not a fetch that never happened; rebuilding
+```
+
+Requirement 3 is `harness/claims/TheCorpusRefusesASecondPruner`, which EXTRACTS the guard from
+`run.sh` and drives it against three directories rather than quoting it:
+
+```
+NOTE a case this nest prepared:      PRUNES
+NOTE a case another nest prepared:   LEFT-ALONE
+NOTE a case nobody claims:           LEFT-ALONE
+```
+
+Negative control, run: the guard replaced by `if false` -- the lock-only semantics this item
+was filed against -> all three answer `PRUNES` and two claims go red.
+
+**What stays open is gap 2 of the review's sharpening**, and it is board:1786's, not this
+item's: a prune that misclassifies an INPUT destroys the corpus for the runner holding the claim
+too. The scoping above makes that damage local instead of shared; it does not make it right.
