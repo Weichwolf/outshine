@@ -28,7 +28,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   auto &profile = out.Profile;
   std::vector<double> roadM, halfWidthM, laneHalfM, asideM;
   auto &stations = out.Fine;
-  const double fineM = out.FineM;
+  constexpr double fineM = Corridor::kFineM;
   auto &spanM = out.SpanM;
   auto &narrowestLaneM = out.NarrowestLaneM;
   auto &budgetM = out.BudgetM;

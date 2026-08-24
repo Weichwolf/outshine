@@ -65,3 +65,42 @@ zero-division reaches `At` from an assignment, not from a bug in the lay.
       ticks a `Corridor{}` -- never baked -- under the address sanitiser and asserts the tick
       returns `!Found` without a read. Negative control: `if (!way.Laid())` removed -> ASan
       names the out-of-bounds read at `CorridorLay.h:60`.
+
+**Closed on four of five boxes, with the fifth named.**
+
+```cpp
+src/sim/DriveTick.cpp:87   const Station &here = way.At(at.AlongM);   // once, for the whole tick
+```
+
+Six calls became one. `here` used to live inside the aside block's braces, which is why the
+five readers below it each opened the array again -- including one inside the wheel loop, four
+divisions and four bounds branches per tick for a value already bound.
+
+```cpp
+src/sim/CorridorLay.h:47   static constexpr double kFineM = 2.0;     // not a settable double
+src/sim/CorridorLay.h:60   Fine.assign(lengthM > 0.0 ? ... + 2u : 1u, Station{});
+src/sim/CorridorLay.h:63   [[nodiscard]] bool Laid() const noexcept
+src/sim/CorridorLay.h:65   [[nodiscard]] const Station &At(double alongM) const noexcept
+src/sim/CorridorLay.h:66   const size_t fine = alongM > 0.0 ? (size_t)(alongM / kFineM) : 0u;
+```
+
+`FineM` was a public mutable double read at exactly one site and written at none, so a
+zero-division could reach `At` from an assignment; it is a constant of the type. A `Bake` of no
+length leaves ONE station rather than none, so a corridor the lay produced can always be read.
+`Station`'s `static_assert`s landed with board:1828.
+
+**The fifth box -- an unlaid corridor being unspellable -- stays open**, and the reason is named
+rather than deferred: making it a type property means `Fine` private and `Corridor` constructed
+only through a factory, which changes every filling site in `LayCorridor` and both twins. It is
+the right shape and it is a separate piece of work; `Laid()` plus the entry refusal is a
+convention until then, which is what the item says.
+
+Proving test: `unit/sim/ADriveTickHoldsTheCarToTheDeclaredWorld` -- a station before the start
+is the first, a station past the end is the last, and a `Bake(0.0)` still leaves one to read.
+
+**The negative control did not control, and that is the honest result**: removing the
+`alongM > 0.0` guard leaves the case GREEN, because `(size_t)(-0.5)` is undefined behaviour that
+this platform resolves to 0. The guard's value is that the answer stops depending on which
+platform resolves it -- a claim a test on one platform cannot make red. The six-reads-to-one
+change is likewise not red-able: it is the same answer computed once, and the tree has no
+tick-cost case in the gate to measure it.

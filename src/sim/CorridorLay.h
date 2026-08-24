@@ -44,8 +44,9 @@ struct Corridor {
   ReferenceLine Line;
   outshine::Fitted Fitted;
   SpeedProfile Profile;
+  static constexpr double kFineM = 2.0;
+
   std::vector<Station> Fine;
-  double FineM = 2.0;
   double SpanM = 0.0;
   double NarrowestLaneM = 0.0;
   double BudgetM = 0.0;
@@ -55,19 +56,21 @@ struct Corridor {
   double FrameLat = 0.0, FrameLon = 0.0, PerLatM = 1.0, PerLonM = 1.0;
   Laying Made;
 
-  void Bake(double lengthM) { Fine.assign((size_t)(lengthM / FineM) + 2u, Station{}); }
+  void Bake(double lengthM) {
+    Fine.assign(lengthM > 0.0 ? (size_t)(lengthM / kFineM) + 2u : 1u, Station{});
+  }
 
-  [[nodiscard]] bool Laid() const { return !Fine.empty(); }
+  [[nodiscard]] bool Laid() const noexcept { return !Fine.empty(); }
 
-  [[nodiscard]] const Station &At(double alongM) const {
-    const size_t fine = (size_t)(alongM / FineM);
+  [[nodiscard]] const Station &At(double alongM) const noexcept {
+    const size_t fine = alongM > 0.0 ? (size_t)(alongM / kFineM) : 0u;
     return Fine[fine < Fine.size() ? fine : Fine.size() - 1];
   }
 };
 
 inline constexpr double kLagMargin = 4.0;
 
-[[nodiscard]] constexpr double AsideRatePerM(double budgetM, double topMs) {
+[[nodiscard]] constexpr double AsideRatePerM(double budgetM, double topMs) noexcept {
   const double reachM = Pilot::kSettleS * topMs;
   return reachM > 0.0 ? budgetM / (kLagMargin * reachM) : 0.0;
 }

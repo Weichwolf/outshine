@@ -265,6 +265,20 @@ int main(void) {
     DriveState nowhere;
     CHECK(!unlaid.Laid(), "a corridor that no lay has baked says so");
     const Ridden verdict = DriveTick(unlaid, onEarth, nowhere, kDtS, nullptr);
+    Note("stations an unbaked corridor carries", (double)unlaid.Fine.size(), "stations");
+    Note("what it answers a metre in", unlaid.Laid() ? unlaid.At(1.0).EdgeM : 0.0, "m");
+    Note("what a baked corridor of no length carries",
+         [] { Corridor none; none.Bake(0.0); return (double)none.Fine.size(); }(), "stations");
+    CHECK(&way.At(-1.0) == &way.Fine.front(),
+          "**A STATION BEFORE THE START IS THE FIRST STATION**, not a conversion of a negative "
+          "double to size_t -- which is undefined behaviour and was reachable from any caller "
+          "holding a public product (board:1832)");
+    CHECK(&way.At(1.0e9) == &way.Fine.back(),
+          "and a station past the end is the last one, by the same clamp");
+    CHECK([] { Corridor none; none.Bake(0.0); return none.Laid(); }(),
+          "**AND A BAKE OF NO LENGTH STILL LEAVES A STATION TO READ**, so Laid() is the one "
+          "question and an empty Fine cannot reach At() through a corridor the lay produced "
+          "(board:1832)");
     CHECK(!verdict.Found,
           "**AN UNLAID CORRIDOR IS REFUSED AT ENTRY, NOT SURVIVED PER TICK** -- the fine bands "
           "are one contiguous Station array with one extent, so 'the same length' is the type "
