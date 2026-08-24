@@ -170,7 +170,7 @@ The derivation moved above everything that reads it, so `Axles.WheelbaseM` is co
 and both the steering lock and the asset scale divide by that one value.
 
 `kContactResolutionM = 0.001` [SET]: the contacts are declared to three decimal places
-(`z="1.405"` in tools/driver/f31.scenario), so a millimetre is the resolution of the
+(`z="1.405"` in apps/driver/f31.scenario), so a millimetre is the resolution of the
 declaration itself -- not a tolerance chosen to make a case pass.
 
 - **Proving test**: `test/unit/sim/TheDrawnCarAndItsContactsStandInOneFrame` -- the arm now
@@ -185,3 +185,19 @@ declaration itself -- not a tolerance chosen to make a case pass.
 - The earlier test arm demanded the declaration and is REPLACED, not deleted: it was
   provably mis-specified, because what it demanded is the defect.
 - Gate 234/234.
+
+## Still standing at HEAD (2026-08-24)
+
+Re-checked after the tree moved under it -- `tools/driver` became `apps/driver`, and
+`Rigging.cpp` was reordered so the contacts are read before anything that divides by a
+wheelbase:
+
+```
+src/sim/Rigging.cpp:70   out.Axles.WheelbaseM = front > 0 && rear > 0 ? ... : declared.WheelbaseM;
+src/sim/Rigging.cpp:73   if (!(out.Axles.WheelbaseM > 0.0)) {            <- refuses a rig that cannot steer
+src/sim/Rigging.cpp:82   std::fabs(declared.WheelbaseM - out.Axles.WheelbaseM) > kContactResolutionM
+src/sim/Rigging.cpp:112  out.MetresPerAssetUnit = out.Axles.WheelbaseM / declared.AssetWheelbase;
+```
+
+One truth for one length: the contacts' own, with the declaration refused where it disagrees
+by more than the millimetre the declaration itself is written to. `unit/sim` 7/7.
