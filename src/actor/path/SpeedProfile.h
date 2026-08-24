@@ -43,8 +43,20 @@ struct Envelope {
 
 class SpeedProfile {
 public:
+  enum class Held : uint8_t { Free, Curvature, Slip, Ramp, Climb, Crest, kCount };
+
+  struct Standing {
+    double Ms = 0.0;
+    double AtM = 0.0;
+    Held By = Held::Free;
+  };
+
   [[nodiscard]] bool Over(const ReferenceLine &along, const Envelope &within, double stepM,
                           double entryMs, std::string &error);
+
+  [[nodiscard]] Standing Slowest() const { return Slowest_; }
+  [[nodiscard]] size_t BoundBy(Held term) const { return Bound_[(size_t)term]; }
+  [[nodiscard]] static const char *NameOf(Held term);
 
   [[nodiscard]] double At(double alongM) const;
   [[nodiscard]] double StepM() const { return StepM_; }
@@ -56,6 +68,9 @@ public:
   [[nodiscard]] size_t CrestsThatBound() const { return CrestsBound_; }
 
 private:
+  Standing Slowest_;
+  size_t Bound_[(size_t)Held::kCount] = {};
+
   std::vector<double> Held_;
   std::vector<double> Curvature_;
   double StepM_ = 0.0;

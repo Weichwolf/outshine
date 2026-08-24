@@ -6,6 +6,14 @@
 
 namespace outshine {
 
+const char *SpeedProfile::NameOf(Held term) {
+  static constexpr const char *const kNames[(size_t)Held::kCount] = {
+      "free", "curvature", "slip", "ramp", "climb", "crest"};
+  static_assert(kNames[(size_t)Held::kCount - 1] != nullptr,
+                "every term that can bind the plan carries a name (board:1787)");
+  return (size_t)term < (size_t)Held::kCount ? kNames[(size_t)term] : "free";
+}
+
 bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, double stepM,
                         double entryMs, std::string &error) {
   Held_.clear();
@@ -15,6 +23,8 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
   CrestHeld_ = 0.0;
   CrestHeldAt_ = 0.0;
   CrestsBound_ = 0;
+  Slowest_ = Standing{};
+  for (size_t at = 0; at < (size_t)Held::kCount; ++at) { Bound_[at] = 0; }
 
   if (!(stepM > 0.0)) {
     error = "a speed profile is sampled at a positive step and this one asks for " +
@@ -59,38 +69,55 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
     }
   };
 
-  const auto HeldAt = [&](const Placed &here) {
+  const auto HeldAt = [&](const Placed &here, Held *by = nullptr) {
     double held = topMs;
+    Held holds = Held::Free;
     const double bend = std::fabs(here.CurvaturePerM);
     if (bend > 0.0) {
       const double turning = std::sqrt(lateralMs2 / bend);
-      if (turning < held) { held = turning; }
+      if (turning < held) {
+        held = turning;
+        holds = Held::Curvature;
+      }
     }
     if (bend > 0.0 && within.CorneringNPerRad > 0.0 && within.HoldWithinM > 0.0 &&
         within.SettleS > 0.0) {
       const double slipped = std::cbrt(4.0 * within.CorneringNPerRad * within.HoldWithinM /
                                        (within.MassKg * bend * within.SettleS));
-      if (slipped < held) { held = slipped; }
+      if (slipped < held) {
+        held = slipped;
+        holds = Held::Slip;
+      }
     }
     const double ramp = std::fabs(here.CurvatureRatePerM);
     if (ramp > 0.0 && within.HoldWithinM > 0.0 && within.SettleS > 0.0) {
       const double followedMs =
           std::cbrt(6.0 * within.HoldWithinM /
                     (ramp * within.SettleS * within.SettleS * within.SettleS));
-      if (followedMs < held) { held = followedMs; }
+      if (followedMs < held) {
+        held = followedMs;
+        holds = Held::Ramp;
+      }
     }
     const double climb = here.Slope;
     if (climb > 0.0) {
       const double left = within.DriveN - within.MassKg * within.GravityMs2 * climb;
       const double resistance = 0.5 * within.AirDensity * within.DragArea;
       const double heldMs = left > 0.0 && resistance > 0.0 ? std::sqrt(left / resistance) : 0.0;
-      if (heldMs < held) { held = heldMs; }
+      if (heldMs < held) {
+        held = heldMs;
+        holds = Held::Climb;
+      }
     }
     const double crest = -here.SlopeRatePerM;
     if (crest > 0.0) {
       const double flying = std::sqrt(within.GravityMs2 / crest);
-      if (flying < held) { held = flying; }
+      if (flying < held) {
+        held = flying;
+        holds = Held::Crest;
+      }
     }
+    if (by != nullptr) { *by = holds; }
     return held;
   };
 
@@ -105,7 +132,14 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
       return false;
     }
     Curvature_[at] = here.CurvaturePerM;
-    Held_[at] = HeldAt(here);
+    Held holds = Held::Free;
+    Held_[at] = HeldAt(here, &holds);
+    ++Bound_[(size_t)holds];
+    if (Slowest_.By == Held::Free || Held_[at] < Slowest_.Ms) {
+      Slowest_.Ms = Held_[at];
+      Slowest_.AtM = station;
+      Slowest_.By = holds;
+    }
     NoteCrest(here, station, Held_[at]);
   }
 

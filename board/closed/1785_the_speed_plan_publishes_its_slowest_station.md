@@ -46,3 +46,34 @@ the data is there, the STATEMENT is not, so nothing can regress on it.
 - 2026-08-24, reviewer round -- filed beside board:1784, which is the geometry this instrument
   would have caught. Order matters: the instrument is cheap and the geometry is not, so the
   instrument goes first and the repair is then measurable.
+
+## Comments
+
+- 2026-08-24 -- repaid. `SpeedProfile` publishes which of its five terms holds each station,
+  and which station is slowest:
+
+```cpp
+enum class Held : uint8_t { Free, Curvature, Slip, Ramp, Climb, Crest, kCount };
+struct Standing { double Ms; double AtM; Held By; };
+[[nodiscard]] Standing Slowest() const;
+[[nodiscard]] size_t BoundBy(Held term) const;
+[[nodiscard]] static const char *NameOf(Held term);
+```
+
+  `NameOf` carries board:1787's `static_assert` on its own table, so a sixth term cannot be
+  added without a name.
+- **Measured**, straight 1000 m + spiral 500 m + arc 300 m:
+
+```
+the slowest station = 109.882 km/h at 1500.0 m, held by 'curvature'
+stations held by 'free' = 52, 'curvature' = 39, 'slip' = 0, 'ramp' = 0, 'climb' = 0, 'crest' = 0
+```
+
+  Every station is accounted to exactly one term, and the tally sums to `SampleCount()` --
+  a tally that does not add up to the plan is a tally of something else.
+- **Proving test**: `test/unit/actor/path/AStraightRoadIsPlannedAtItsOwnSpeed`, five checks.
+- **Negative control**: the curvature term stopped naming itself -> the slowest station
+  reports `'free'` at 1800.0 m and two claims go red. Reverted.
+- This is the instrument the reviewer had to build by hand to find board:1784's 5.6 m radius.
+  The plan names it now: a station bound by `curvature` at a speed no vehicle would choose is
+  a corridor defect, and it says so without a probe.

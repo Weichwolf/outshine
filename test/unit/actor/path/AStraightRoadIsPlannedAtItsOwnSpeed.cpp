@@ -104,6 +104,40 @@ int main(void) {
         "and the bend IS slower than the straight, so this is not a plan that lost its "
         "bounds altogether");
 
+  // board:1785: the plan published its crest term and nothing else, so the four other bounds
+  // held the car back without saying so. Finding the corridor's own 5.6 m radius (board:1784)
+  // took a probe built by hand -- the plan should have named it.
+  {
+    const SpeedProfile::Standing slowest = plan.Slowest();
+    std::printf("NOTE the slowest station = %.3f km/h at %.1f m, held by '%s'\n",
+                slowest.Ms * 3.6, slowest.AtM, SpeedProfile::NameOf(slowest.By));
+    for (size_t at = 0; at < (size_t)SpeedProfile::Held::kCount; ++at) {
+      const SpeedProfile::Held term = (SpeedProfile::Held)at;
+      std::printf("NOTE stations held by '%s' = %zu\n", SpeedProfile::NameOf(term),
+                  plan.BoundBy(term));
+    }
+
+    CHECK(slowest.By == SpeedProfile::Held::Curvature,
+          "**THE PLAN NAMES THE TERM THAT HOLDS ITS SLOWEST STATION**: this road's slowest "
+          "point is in the arc, so curvature is what holds it -- not the crest, which was "
+          "the only term the plan could speak of (board:1785)");
+    CHECK_NEAR(slowest.Ms, inTheBendMs, 1.0e-9, "m/s",
+               "and the station it names is the one the plan actually answers slowest at");
+    CHECK(slowest.AtM >= kStraightM,
+          "which is in the bend, not on the straight kilometre before it");
+
+    size_t counted = 0;
+    for (size_t at = 0; at < (size_t)SpeedProfile::Held::kCount; ++at) {
+      counted += plan.BoundBy((SpeedProfile::Held)at);
+    }
+    CHECK(counted == plan.SampleCount(),
+          "and every station is accounted to exactly one term -- a tally that does not add "
+          "up to the plan is a tally of something else");
+    CHECK(plan.BoundBy(SpeedProfile::Held::Free) > 0 &&
+              plan.BoundBy(SpeedProfile::Held::Curvature) > 0,
+          "with both a free stretch and a bound one, so the tally distinguishes them");
+  }
+
   Covers("V.9 a seam bound stands at the station it binds: the straight before a bend is "
          "planned at the speed the brake allows, not at the bend's own limit (board:1773)");
   return Report();
