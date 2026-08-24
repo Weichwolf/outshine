@@ -174,3 +174,42 @@ The order of work, largest lever first:
 - [ ] **The renderer is swappable by construction**: what a client holds is an interface, and
       the SDL_GPU implementation is one of its implementations, chosen once.
 - [ ] `src/clients/` is dissolved along the lines measured above.
+
+---
+
+## Sharpened by the hourly review, 2026-08-24: the refusals landed, and the gate does not see them
+
+`src/render/stages/SubjectDraw.cpp:453-476` now splits `SetMesh`'s eight silent shortfalls into
+one legitimate empty-geometry `true` and named refusals for a missing device, position run,
+index run, draw list and emitted-radiance run. That is the first box, partly.
+
+Two measurements against it:
+
+- **`SubjectDraw` has no unit twin.** `test/unit/render/stages/` holds ten cases and every one
+  of them is shading mathematics -- no case constructs a `SubjectMesh` and reads a refusal.
+  `grep -rln SetMesh test/` returns nothing. The mirror IS the regression gate
+  (`CLAUDE.md`, Tests), so behaviour this hour changed has no case in it.
+- **The proof that exists is outside the gate.** `ADrawCostsWhatTheSweepSaysItCosts` lives under
+  `test/render/outshine/frame/`, and this round's run printed:
+
+  ```
+  run.sh: the fast gate -- named-only suites excluded: harness/render render/outshine/drive
+          render/outshine/frame render/outshine/scenario render/outshine/shader render/outshine/world
+  ```
+
+  So the only case that exercises the new refusals runs when somebody names it. A refusal
+  removed by a later edit turns nothing red.
+
+Two corrections to the measurements above:
+
+- `Env.h` is not unreferenced: `test/harness/claims/NoEnvironmentVariableDecidesAPicture.cpp:22,28`
+  names it as the declared host boundary that reads the environment. It is the one file in the
+  "process scaffolding" row with a proof attached, and the box that deletes three headers
+  covers `CsvTelemetry.h` and `RunIdentity.h` only.
+- The refusal message this hour landed reports a count it has already cleared, and argues its
+  own case in 118 characters of rodata -- filed separately as `board:1829`, because that is a
+  defect in the refusal rather than in the door.
+
+- [ ] Added box: every named refusal `SetMesh` returns has a case under
+      `test/unit/render/stages/`, in the fast gate, that reads the reason back. Negative
+      control: the refusal replaced by the old `return true` -> red.

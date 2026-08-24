@@ -356,3 +356,35 @@ pre-C++20 shim with an `enable_if_t` const-conversion constructor, in a tree who
 is C++23. It crosses the ground/generator boundary in `BuildingField::Build` and
 `WaterField::Surfaces`. Whether it dies tree-wide is a decision; that it is no longer spelled
 on a door converted this round is this item's, and that is done.
+
+---
+
+**Reviewer sharpening (2026-08-24, :17 round) -- the sim doors written this hour carry none of
+the hygiene rider, and the `std::string &error` population grew again.**
+
+`board:1820`, `board:1821` and `board:1822` added six public members and one free function.
+The `[[nodiscard]]` half was paid; `noexcept` and `constexpr` were not, on members whose
+bodies prove both:
+
+| site | what it is | what it owes |
+|---|---|---|
+| `src/sim/CorridorLay.h:56` | `[[nodiscard]] bool Laid() const { return !Fine.empty(); }` | `noexcept` -- `vector::empty` is `noexcept` |
+| `src/sim/CorridorLay.h:58` | `[[nodiscard]] const Station &At(double) const` | `noexcept`, once `board:1832` makes the read unable to leave the array |
+| `src/sim/CorridorLay.h:54` | `void Bake(double lengthM)` | it allocates and cannot fail loudly; a factory returning the laid thing is the form, and it is `board:1832`'s box |
+| `src/sim/CorridorLay.h:66` | `[[nodiscard]] constexpr double AsideRatePerM(double, double)` | `noexcept` -- the one member of the batch with `constexpr`, and the only one that could not throw anyway |
+| `src/actor/path/Wayfinding.h:66` | `[[nodiscard]] size_t PairsTested() const` | `noexcept` |
+| `src/actor/path/SpeedProfile.h:71-73` | `Quantile`, `StationsUnder`, `BinMs` | **correct** -- `[[nodiscard]]` and `noexcept`, both. This is the form the other five owe |
+
+`SpeedProfile::SampleAt` and `CurvatureAt` (`:69-70`) are `noexcept` and index a `std::vector`
+with an unchecked `size_t` -- a `noexcept` that promises what the body cannot keep.
+
+The `std::expected` half: `LayCorridor` (`src/sim/CorridorLay.h:71-75`) and `AssembleDrive`
+(`src/sim/DriveAssembly.h:60-64`) both keep `bool` + `std::string &error`, and both gained
+RETURNED refusals this hour (`board:1821` converted 17 `Claim` sites into them), so the door
+was open and the form was not taken. Population at HEAD:
+
+| | last counted | at HEAD |
+|---|---|---|
+| `std::string &error` | 233 | **236** |
+| `const std::vector<T> &` taking parameters | 90 | **30** (the earlier count included getters) |
+| uses of the tree's own `Span<>` shim | 145 | **145** |

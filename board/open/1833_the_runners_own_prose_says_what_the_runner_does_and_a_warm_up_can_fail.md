@@ -39,10 +39,10 @@ healthy path.
 ## A `.warms` entry cannot fail
 
 ```sh
-test/run.sh:1257     while IFS= read -r warming; do
-test/run.sh:1258       [ -n "$warming" ] || continue
-test/run.sh:1259       ( eval "$warming" ) >>"$log" 2>&1 || true
-test/run.sh:1260     done <"$warms"
+test/run.sh:1260     while IFS= read -r warming; do
+test/run.sh:1261       [ -n "$warming" ] || continue
+test/run.sh:1262       ( eval "$warming" ) >>"$log" 2>&1 || true
+test/run.sh:1263     done <"$warms"
 ```
 
 `|| true` swallows every non-zero exit. A warm-up that breaks -- a renamed flag, a build that
