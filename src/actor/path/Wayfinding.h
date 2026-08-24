@@ -61,10 +61,13 @@ public:
     double LatDeg = 0.0, LonDeg = 0.0;
   };
 
-  [[nodiscard]] size_t Crossings(std::vector<Crossing> &into) const;
+  struct Swept {
+    size_t Found = 0;
+    size_t PairsTested = 0;
+    size_t FullestCell = 0;
+  };
 
-  [[nodiscard]] size_t PairsTested() const noexcept { return PairsTested_; }
-  [[nodiscard]] size_t FullestCell() const noexcept { return Fullest_; }
+  [[nodiscard]] Swept Crossings(std::vector<Crossing> &into) const;
   [[nodiscard]] double SnapM() const { return SnapM_; }
 
   [[nodiscard]] size_t PointStreamBytes() const {
@@ -118,8 +121,6 @@ private:
   [[nodiscard]] static int64_t KeyAt(int64_t row, int64_t column);
   [[nodiscard]] int64_t CellOf(double latDeg, double lonDeg) const;
 
-  mutable size_t PairsTested_ = 0;
-  mutable size_t Fullest_ = 0;
   double SnapM_ = 0.0;
   double RadiusM_ = 0.0;
   std::vector<double> Points_;

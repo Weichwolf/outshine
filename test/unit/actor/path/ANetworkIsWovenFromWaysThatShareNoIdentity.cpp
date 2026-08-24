@@ -214,7 +214,8 @@ int main(void) {
     CHECK(overpass.Weave(error), "two ways that cross without sharing a point weave");
 
     std::vector<Network::Crossing> crossings;
-    const size_t found = overpass.Crossings(crossings);
+    const Network::Swept swept = overpass.Crossings(crossings);
+    const size_t found = swept.Found;
     Note("nodes the two ways make", (double)overpass.NodeCount(), "nodes");
     Note("junctions among them", (double)overpass.JunctionCount(), "nodes");
     Note("places they cross in plan", (double)found, "places");
@@ -242,7 +243,8 @@ int main(void) {
     atGrade.Lay(std::span<const double>(northSouth, 6), 3.25, 0.08, 2, 200.0);
     CHECK(atGrade.Weave(error), "the same two ways with a shared point weave");
     std::vector<Network::Crossing> crossings;
-    const size_t found = atGrade.Crossings(crossings);
+    const Network::Swept swept = atGrade.Crossings(crossings);
+    const size_t found = swept.Found;
     Note("junctions the shared point makes", (double)atGrade.JunctionCount(), "nodes");
     Note("places they cross in plan", (double)found, "places");
     CHECK(atGrade.JunctionCount() == 1 && found == 0,
@@ -260,8 +262,8 @@ int main(void) {
     apart.Lay(std::span<const double>(two, 4), 4.75, 0.06, 2, 400.0);
     CHECK(apart.Weave(error), "two parallel ways weave");
     std::vector<Network::Crossing> crossings;
-    Note("places two parallel ways cross", (double)apart.Crossings(crossings), "places");
-    CHECK(apart.Crossings(crossings) == 0,
+    Note("places two parallel ways cross", (double)apart.Crossings(crossings).Found, "places");
+    CHECK(apart.Crossings(crossings).Found == 0,
           "and two ways that never meet cross nowhere, so the sweep is finding intersections "
           "rather than counting pairs");
   }
@@ -278,7 +280,8 @@ int main(void) {
     seam.Lay(std::span<const double>(northSouth, 4), 3.25, 0.08, 2, 200.0);
     CHECK(seam.Weave(error), "two ways crossing at the antimeridian weave");
     std::vector<Network::Crossing> crossings;
-    const size_t found = seam.Crossings(crossings);
+    const Network::Swept swept = seam.Crossings(crossings);
+    const size_t found = swept.Found;
     Note("places they cross at the seam", (double)found, "places");
     if (found > 0) {
       std::printf("NOTE they cross at %.6f, %.6f\n", crossings[0].LatDeg, crossings[0].LonDeg);
@@ -315,21 +318,22 @@ int main(void) {
     }
     CHECK(sweep.Weave(error), "a grid of long ways weaves");
     std::vector<Network::Crossing> crossings;
-    const size_t found = sweep.Crossings(crossings);
+    const Network::Swept swept = sweep.Crossings(crossings);
+    const size_t found = swept.Found;
     const size_t segments = sweep.PointCount() - 2u * (size_t)kWays;
     Note("ways laid", (double)(2 * kWays), "ways");
     Note("segments among them", (double)segments, "segments");
     Note("crossings found", (double)found, "crossings");
-    Note("segment pairs tested", (double)sweep.PairsTested(), "pairs");
-    Note("the fullest cell", (double)sweep.FullestCell(), "segments");
+    Note("segment pairs tested", (double)swept.PairsTested, "pairs");
+    Note("the fullest cell", (double)swept.FullestCell, "segments");
     Note("pairs tested per crossing found",
-         found > 0 ? (double)sweep.PairsTested() / (double)found : 0.0, "pairs");
+         found > 0 ? (double)swept.PairsTested / (double)found : 0.0, "pairs");
     Note("what testing every pair would have cost",
          (double)segments * (double)segments * 0.5, "pairs");
     CHECK(found == (size_t)(kWays * kWays),
           "**AND A GRID OF LONG WAYS FINDS EVERY ONE OF ITS CROSSINGS** -- 60 by 60 ways "
           "crossing nowhere near a shared node is 3600 grade separations");
-    CHECK(sweep.PairsTested() < segments * 20u,
+    CHECK(swept.PairsTested < segments * 20u,
           "**AND THE SEARCH IS OVER SEGMENTS IN A GRID, NOT OVER WAY BOXES**: a motorway way "
           "carries hundreds of points and a box the length of the country it crosses, so a "
           "way-box prune does nothing for exactly the ways this reconstruction is about -- the "
@@ -353,12 +357,13 @@ int main(void) {
     }
     CHECK(flat.Weave(error), "eight ways at ONE latitude weave -- the bbox has no height at all");
     std::vector<Network::Crossing> crossings;
-    const size_t found = flat.Crossings(crossings);
+    const Network::Swept swept = flat.Crossings(crossings);
+    const size_t found = swept.Found;
     Note("ways at one latitude", 8.0, "ways");
     Note("crossings among them", (double)found, "crossings");
-    Note("pairs tested", (double)flat.PairsTested(), "pairs");
-    Note("the fullest cell", (double)flat.FullestCell(), "segments");
-    CHECK(flat.PairsTested() < 8u * 20u * 20u,
+    Note("pairs tested", (double)swept.PairsTested, "pairs");
+    Note("the fullest cell", (double)swept.FullestCell, "segments");
+    CHECK(swept.PairsTested < 8u * 20u * 20u,
           "**A NETWORK WITH NO EXTENT IN ONE AXIS COSTS WHAT ITS SEGMENTS COST**, not what a "
           "degenerate bounding box divides into: the cell size comes from the segment lengths "
           "the network holds, so a flat network cannot produce a cell table larger than the "
@@ -381,13 +386,14 @@ int main(void) {
     CHECK(clustered.Weave(error),
           "forty ways inside a thousandth of a degree, plus one way five degrees away, weave");
     std::vector<Network::Crossing> crossings;
-    const size_t found = clustered.Crossings(crossings);
+    const Network::Swept swept = clustered.Crossings(crossings);
+    const size_t found = swept.Found;
     const size_t segments = 40u * 20u + 1u;
     Note("segments in the cluster and its outlier", (double)segments, "segments");
     Note("crossings found", (double)found, "crossings");
-    Note("pairs tested", (double)clustered.PairsTested(), "pairs");
-    Note("the fullest cell", (double)clustered.FullestCell(), "segments");
-    CHECK(clustered.FullestCell() < segments,
+    Note("pairs tested", (double)swept.PairsTested, "pairs");
+    Note("the fullest cell", (double)swept.FullestCell, "segments");
+    CHECK(swept.FullestCell < segments,
           "**AND A CLUSTER WITH ONE OUTLIER DOES NOT PUT EVERY SEGMENT IN ONE CELL**: a cell "
           "size scaled to the whole bounding box would, and the pair loop inside that cell is "
           "O(n^2) with nothing saying so -- the fullest cell is published beside the total so a "

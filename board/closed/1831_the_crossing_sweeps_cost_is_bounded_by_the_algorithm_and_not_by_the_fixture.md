@@ -76,3 +76,35 @@ caller wants belongs in the answer, beside `into`, not in the object.
 - 2026-08-24 -- filed by the hourly review. `board:1822`'s repair is the right structure and
   its measurement is real; what it does not establish is that the number is a property of the
   algorithm rather than of the fixture that produced it.
+
+**Closed.** Three changes, and the last one removes the race the item names.
+
+```cpp
+src/actor/path/Wayfinding.cpp:302   const double cellDeg = reachSum > 0.0 ? 2.0 * reachSum / (double)segments : 1.0;
+src/actor/path/Wayfinding.cpp:303   const size_t cells = 2u * segments + 1u;
+src/actor/path/Wayfinding.cpp:311   const uint64_t mixed = (uint64_t)(square.first * 73856093L ^ square.second * 19349663L);
+```
+
+The cell size comes from the mean segment reach, so a network with no extent in one axis cannot
+produce a cell smaller than its own segments. The table is a spatial HASH of `2n+1` buckets, so
+the allocation is a term in the segment count whatever the bounding box is -- the `1.0e-12`
+clamp is gone with the area it guarded. A crossing is still kept by exactly one bucket, so no
+pair is double-counted.
+
+`Network::Swept {Found, PairsTested, FullestCell}` travels out with the crossings.
+`PairsTested_` and `Fullest_` are not members at all now, so two callers on one network cannot
+race, and `Crossings()` is `const` without lying about it.
+
+| fixture | pairs tested | fullest cell |
+|---|---|---|
+| the uniform 60x60 grid, 24 000 segments | **98 954** (was 142 171) | 39 |
+| eight ways at ONE latitude, 160 segments | **19** | 4 |
+| forty ways in 0.0008 deg plus one 5 deg away, 801 segments | **7 108** | **25** |
+
+27.5 pairs per crossing where the area-derived grid managed 39.5, and all 3600 crossings are
+still found with the seam still one.
+
+Proving test: `unit/actor/path/ANetworkIsWovenFromWaysThatShareNoIdentity`, two new fixtures.
+**Negative control, run: the area-derived cell size restored -> the case TIMES OUT at 300 s**
+and the runner says it measured nothing. That is the item's own arithmetic arriving: 141 422
+cells across for a flat network, and the marking loops walking every one of them.

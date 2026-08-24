@@ -265,11 +265,11 @@ namespace {
 
 }
 
-size_t Network::Crossings(std::vector<Crossing> &into) const {
+Network::Swept Network::Crossings(std::vector<Crossing> &into) const {
   into.clear();
-  PairsTested_ = 0;
+  Swept swept;
   const size_t points = Points_.size() / 2;
-  if (Ways_.size() < 2 || points < 4) { return 0; }
+  if (Ways_.size() < 2 || points < 4) { return swept; }
 
   const double aboutLon = Points_[1];
   std::vector<double> lon(points, 0.0);
@@ -288,7 +288,7 @@ size_t Network::Crossings(std::vector<Crossing> &into) const {
 
   size_t segments = 0;
   for (const Way &way : Ways_) { segments += way.Count > 1 ? way.Count - 1 : 0; }
-  if (segments < 2) { return 0; }
+  if (segments < 2) { return swept; }
 
   std::vector<uint32_t> segWay(segments, 0), segAt(segments, 0);
   {
@@ -346,10 +346,9 @@ size_t Network::Crossings(std::vector<Crossing> &into) const {
     overSquares(seg,
                 [&](std::pair<long, long> square) { inCell[filled[bucketOf(square)]++] = (uint32_t)seg; });
   }
-  Fullest_ = 0;
   for (size_t cell = 0; cell < cells; ++cell) {
     const size_t held = holds[cell + 1u] - holds[cell];
-    Fullest_ = held > Fullest_ ? held : Fullest_;
+    swept.FullestCell = held > swept.FullestCell ? held : swept.FullestCell;
   }
 
   for (size_t cell = 0; cell < cells; ++cell) {
@@ -361,7 +360,7 @@ size_t Network::Crossings(std::vector<Crossing> &into) const {
       for (uint32_t two = one + 1u; two < ends; ++two) {
         const size_t theirs = inCell[two];
         if (segWay[mine] == segWay[theirs]) { continue; }
-        ++PairsTested_;
+        ++swept.PairsTested;
         const size_t firstB = segAt[theirs];
         const double cx = lon[firstB], cy = Points_[2 * firstB];
         const double dx = lon[firstB + 1], dy = Points_[2 * firstB + 2];
@@ -375,7 +374,8 @@ size_t Network::Crossings(std::vector<Crossing> &into) const {
       }
     }
   }
-  return into.size();
+  swept.Found = into.size();
+  return swept;
 }
 
 size_t Network::JunctionCount() const {

@@ -197,9 +197,12 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   say.Number("edges", (double)roads.EdgeCount(), "edges");
   {
     std::vector<Path::Network::Crossing> crossings;
-    const size_t found = roads.Crossings(crossings);
+    const Network::Swept swept = roads.Crossings(crossings);
+    const size_t found = swept.Found;
     say.Number("places two ways cross in plan without sharing a node", (double)found, "places");
       out.Found.Crossings = (long)found;
+    say.Number("segment pairs the crossing sweep tested", (double)swept.PairsTested, "pairs");
+    say.Number("segments in the cell that held the most", (double)swept.FullestCell, "segments");
   }
 
   size_t atFrom = 0, atTo = 0;
