@@ -154,3 +154,65 @@ runner, not as `UNPREPARED` against the corpus) is also unimplemented: `Judge`
   rather than preventing sharing. board:1786 measured what that costs and found it is an
   eviction, not a loss -- the store holds the bytes.
 - Gate 237/237.
+
+---
+
+## Reviewer round, 2026-08-24 — the guard is real; its proof opens the hole it forbids
+
+`--would-prune` (`test/run.sh:576-584`) and the `ReleaseCorpus` in all four traps
+(`test/run.sh:52-55`) are verified present and correct. The two-armed control inside one test
+is the right shape.
+
+**But the second arm takes the live claim away:**
+
+```cpp
+const std::string parked = prepared + ".lock.parked";
+std::filesystem::rename(lock, parked, why);            // the HOLDER's claim, mid-run
+const int freeVerdict = Run("sh test/run.sh --would-prune 2>&1", withNoHolder);
+std::filesystem::remove(lock, why);
+std::filesystem::rename(parked, lock, why);
+```
+`test/harness/claims/TheCorpusIsPrunedByOneRunnerOnly.cpp:79-88`
+
+For the duration of a `fork`+`exec` of `run.sh` (a shell start plus argument parsing --
+milliseconds, but unbounded if the machine is loaded), the shared corpus stands **unclaimed
+while a runner is using it**. In that window:
+
+1. any runner starting in another checkout -- the hourly review's worktree is exactly that --
+   succeeds at `ClaimCorpus` (`test/run.sh:58-62`), sets `CORPUSLOCK_MINE=yes`, and **will
+   prune** the corpus out from under the runner whose claim was borrowed. That is the incident
+   this item exists to prevent, manufactured by its own proof;
+2. the child spawned by the test itself claims the lock, then removes it on its `EXIT` trap
+   (`ReleaseCorpus`) -- so between the child's exit and the parent's `rename` back there is a
+   second unclaimed window;
+3. if the test is killed in the window (the 120 s cap, `KillRunning`, a `SIGTERM` to the
+   group), the claim is left at `outshine-prepared.lock.parked` and **no lock stands at all**
+   for the rest of the holder's run, while `ReleaseCorpus` will later `rm -f` a lock that by
+   then belongs to somebody else;
+4. worse, the restore is `remove(lock)` followed by `rename(parked, lock)` -- if a second
+   runner claimed in the window, its claim is silently deleted and replaced by the first
+   runner's pid, and when the second runner exits it removes a lock it does not own.
+
+A test that must un-claim a shared resource to prove the claim works is measuring the right
+thing with the wrong instrument.
+
+### What will be true
+
+- [ ] The control does not touch the live claim. `--would-prune` takes the lock path from the
+      environment (`OUTSHINE_CORPUS_LOCK`, defaulting to today's path), so the negative arm
+      points the child at a lock file **that does not exist** in the scratch dir and gets
+      `WOULD prune` without moving anything real.
+- [ ] Or the claim is a `flock`/`O_EXCL` held open by the process rather than a file whose
+      existence is the claim, so borrowing it is not expressible.
+- [ ] Negative control that stays honest: two children, one pointed at a standing lock, one
+      pointed at an absent one, both in the scratch dir, and `assert` that the real
+      `$TMPDIR/outshine-prepared.lock` is byte-identical before and after the whole case.
+
+### Consequence for the hourly review, answered
+
+The guard holds for a **read-only** review: a reviewer's worktree that never runs
+`test/run.sh` cannot prune. It also holds for a worktree running a non-corpus suite -- `unit/`
+never reaches `PruneCase` (`test/run.sh:881-882`). It does **not** hold for a worktree running
+`harness/claims`, because that suite contains this case, and this case renames the main nest's
+corpus claim aside. Until the box above is paid, **the hourly review must not run
+`harness/claims` while the main nest runs**.

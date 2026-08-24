@@ -110,3 +110,59 @@ Landed:
   REFUSED rather than handed a corner it would crawl.
 - **Negative control**: `out.Undrivable > 0` disabled in `Fit` -> `NOTE a vehicle needing
   7.2873 m: still laid`, and an older claim goes red beside it. Reverted.
+
+---
+
+## Reviewer round, 2026-08-24 — the acquittal is right in mechanism and wrong in its number
+
+The mechanism holds. `Fit` cannot lay a corner tighter than the minimum it is handed, and it
+is structural, not empirical: `src/actor/path/Fit.cpp:139-143` skips any vertex whose radius
+is under `tightestM` and counts it `Undrivable`; `src/actor/path/Fit.cpp:186-194` then refuses
+the whole fit. `radiusM[vertex]` is written on no other path, so `TightestRadiusM >= tightestM`
+on every laid fit. The sweep did not need to measure that -- it follows from the code. Good.
+
+**The number the acquittal argues from is wrong.** The item says:
+
+> *The 5.6 m arc the reviewer measured is LEGAL for the F31, whose own minimum is 5.65 m --
+> barely, and that is the point.*
+
+5.65 m is **half the turning circle**, i.e. the OUTER radius. `Rigging.cpp:170-180` computes
+the centreline minimum from it:
+
+```cpp
+const double outerM = 0.5 * declared.TurningCircleM;               // 11.3 / 2 = 5.65
+out.TightestM = std::sqrt(outerM * outerM - out.Axles.WheelbaseM * out.Axles.WheelbaseM);
+```
+
+`tools/driver/f31.scenario:15` declares `turningCircleM="11.3"` and `wheelbaseM="2.810"`:
+
+```
+TightestM = sqrt(5.65^2 - 2.810^2) = sqrt(31.9225 - 7.8961) = 4.901673 m
+```
+
+So the F31's own minimum is **4.9017 m**, not 5.65 m -- the prose is 15.27 % high and names
+the wrong quantity. The measured arc of `1 / 0.1772 = 5.6433 m` clears it by **15.13 %**. It is
+not "barely legal"; it is comfortably legal, which makes the item's conclusion *stronger*, not
+weaker: nothing about the vehicle was ever going to bound that corner. The item's own sweep
+table already carries the right order of magnitude (`a 4.874 m minimum`) and the prose
+contradicts it two paragraphs later.
+
+Two consequences:
+
+- The reproduction produced **6.2873 m** where the route measured **5.6433 m**. With the real
+  bound at 4.9017 m both are legal, so neither number tests the bound. The reproduction
+  reproduces the *shape* (three sign reversals) and not the *case* -- there is still no
+  fixture in the tree at which the vehicle bound bites, and the sweep's claim that the fit
+  "refuses at 7 m legs" is about a synthetic `kTightestM = 4.874`
+  (`test/unit/actor/path/ACorridorIsFittedThroughVerticesItMayNotLeave.cpp:19`), not about the
+  F31.
+- Every claim message that calls `tightestM` "the tightest radius the vehicle can drive"
+  (`src/sim/CorridorLay.cpp:116`, `src/sim/DriveAssembly.cpp:211`) is correct only if the
+  reader knows it is the CENTRELINE radius of the rear-axle geometry, not the kerb-to-kerb
+  circle the manufacturer prints. That distinction is exactly what this item's first box turns
+  on: a class minimum is a road property in the same units, and confusing outer with
+  centreline once already produced a 15 % error in this item's own reasoning.
+
+The first box stands open, and the reading in the previous section is upheld: the bound is the
+defect. The guard `520f1748` landed against `stood.TightestM` is filed separately as
+**board:1791** -- it cannot fail on a corridor with a corner, and it refuses one without.

@@ -120,3 +120,25 @@ template <size_t N>
   literal.
 - **Negative control**: `"waterSurfaces"` replaced by `""` -> `static assertion failed due to
   requirement 'EveryNoteNamed(kNames)'`. The tree does not build. Reverted.
+
+---
+
+## Closed by the hourly review, 2026-08-24 — all three boxes met, verified in the tree
+
+| box | proof |
+|---|---|
+| 1. table proven against the enum | `kNames[kNotes]` with an aggregate initialiser: longer than the enum is "too many initialisers", shorter leaves a hole, and `EveryNoteNamed` catches the hole. Present in all four. |
+| 2. no name is empty | `src/generators/Generator.h:11-17` -- `constexpr bool EveryNoteNamed(const char *const (&)[N])` walks **every** entry for `nullptr` and for `[0] == 0`; called from `Forest.cpp:35`, `Water.cpp:8`, `Buildings.cpp:17`, `Infrastructure.cpp:7`. |
+| 3. negative control | a name replaced by `""` -> `static assertion failed ... 'EveryNoteNamed(kNames)'`, the translation unit does not compile. |
+
+Verified independently: `grep -rn 'kNames\[kNotes\]' src` returns exactly the four tables and
+`grep -rn EveryNoteNamed src` returns one definition and four call sites -- no fifth table
+drifted away from the guard. `src/clients/RegionForge.cpp:84-93` is the only consumer and it
+declares no table of its own.
+
+The reviewer's second note is also paid: the three-line derivation is gone from the assert
+messages, so the rule's own text no longer stands inside `src/` as a literal. The third note
+(`board:1787` spelled in `SpeedProfile.cpp`'s message) is paid under **board:1654**, which
+stays open for a different reason (its walk skips `tools/`).
+
+No tasks attach to this item (`grep -l '^Parent: 1787' board/*/*.md` -> none).

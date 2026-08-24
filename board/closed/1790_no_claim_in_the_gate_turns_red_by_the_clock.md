@@ -70,3 +70,28 @@ today's claim goes red, the repaired claim stays green.
   40 PASS / 3 UNPREPARED) only because `13c8ac9b` had just committed the single item standing
   in `board/active/`. It reports `1783 … last moved 0 hours ago`. The green is four minutes
   old, not a property of the tree.
+
+---
+
+## Closed by the hourly review, 2026-08-24 — all three requirements met, verified
+
+`test/harness/claims/BoardActiveNamesWhatTheQueueIsWorking.cpp` at `520f1748`:
+
+| requirement | proof |
+|---|---|
+| 1. a relation inside the repository | `:41-44` -- `git log -n 20 --name-only --format= -- board/`; the walk is over ancestors of `HEAD` by construction, and an entry is "in flight" iff a commit in that window names the path `board/active/<file>`. No wall clock is read. |
+| 2. empty `board/active/` is legal | the `CHECK(!standing.empty(), ...)` of `13c8ac9b` is deleted; the loop over `standing` simply does not execute, and `parked.empty()` is true. The terminal state CLAUDE.md defines is now green. |
+| 3. `date +%s` read once or not at all | `grep -n 'date +%s' test/harness/claims/BoardActiveNamesWhatTheQueueIsWorking.cpp` -> nothing. The per-item `popen` pair is gone too: one `Ask` for the whole case. |
+
+`kRecentCommits = 20` carries its derivation in the case's own prose (one to three commits per
+item, ~ten per two review rounds) and is marked `[SET]` in substance. Negative control named in
+`dea2a2ca`: an item never in `active/` placed there -> `FOUND parked`.
+
+One residual, too small to hold the item open and recorded so it is not rediscovered:
+`--name-only` prints the OLD path of a *deleted* file, so a commit that moved an item OUT of
+`board/active/` also matches `board/active/<name>`. That state is self-contradictory (the file
+would not be in `active/` to be found by the directory walk) and cannot arise from the queue's
+own workflow, only from a hand edit after a close.
+
+No tasks attach to this item (`grep -l '^Parent: 1790' board/*/*.md` -> none). The criticised
+state is provably gone from the tree.

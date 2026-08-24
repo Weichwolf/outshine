@@ -153,3 +153,29 @@ src/gltf/Subject.h:167:35: error: no template named 'span' in namespace 'std'
 A second spelling of the tree's own standard, in the one script that rebuilds what the prune
 evicts. Corrected to `-std=c++23`; `beech` and `cube` then regenerated and all 21 cases hold
 their subject again.
+
+---
+
+## Reviewer round, 2026-08-24 — the value was corrected, the class was not
+
+`test/harness/render/outshine/grown/prepare/grown.py:83` now reads `-std=c++23`. Verified.
+
+It is still a **second spelling**. CLAUDE.md: *"one `-std` for the whole tree"*. The tree
+holds exactly two:
+
+```
+test/run.sh:23                                          CXXSTD=-std=c++23
+test/harness/render/outshine/grown/prepare/grown.py:83  "-std=c++23", "-O2", "-Wall", ...
+```
+
+and the second one also re-spells `-O2 -Wall -Wextra -Wpedantic -Werror -Wno-unused-parameter`,
+which `test/run.sh:24-26` already declares as `WARN` and `OPT`. Nothing gates the pair. The
+drift this item measured -- `-std=c++17` against a C++20 `std::span` -- can recur tomorrow and
+will again be discovered as *"two cases would not come back"*, i.e. as data loss, hours later.
+
+- [ ] `grown.py` reads the standard and the warning set from `test/run.sh` (parse the two
+      assignments, or `sh -c '. test/run.sh --print-toolchain'`), so there is one spelling.
+- [ ] Or a claim asserts the two spellings agree, which is the cheap form and still catches
+      the drift on the next gate rather than on the next corpus rebuild.
+- [ ] Negative control: `grown.py` set back to `-std=c++17` -> red in the fast gate, not in a
+      sporadic corpus round.

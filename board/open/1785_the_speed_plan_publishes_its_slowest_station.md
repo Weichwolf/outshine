@@ -213,3 +213,88 @@ CHECK(plan.SampleCount() - plan.BoundBy(Held::Free) == belowTop, ...)
 - **Negative control**: the telemetry moved back into the sampling loop -> `109.882 km/h at
   1500.0 m` and `52` free stations, both claims red. Those are exactly the numbers the first
   closure offered as proof.
+
+---
+
+## Reviewer round, 2026-08-24 — the three sweeps are now honoured, and the item is NOT closable
+
+Verified: `Why_[]` is written in the sampling loop (`src/actor/path/SpeedProfile.cpp:139`), in
+`ClampAround` (`:150-152`), at the entry clamp (`:185-188`), in the forward sweep (`:193`) and
+in the backward sweep (`:200`); `Slowest_`/`Bound_` are derived after all of them (`:204-213`).
+Measured with a standalone probe at `520f1748`, `Slowest()` equals `min_i SampleAt(i)` in every
+case tried, including `entryMs > 0` and a line with seams:
+
+| fixture | entryMs | published | plan minimum | |
+|---|---|---|---|---|
+| straight+spiral+arc, 91 stations | 0.0 | 0.0000 km/h @ 0.0 m `entry` | 0.0000 @ idx 0 | AGREE |
+| the same | 30.0 | 108.0000 km/h @ 0.0 m `entry` | 108.0000 @ idx 0 | AGREE |
+| crested straight, 61 stations | 20.0 | 72.0000 km/h @ 0.0 m `entry` | 72.0000 @ idx 0 | AGREE |
+| the hump of `ASpeedPlanScalesWithTheDeclaredGravity`, 801 stations | 120.0 | 99.0285 m/s @ 41.0 m `crest` | 99.0285 @ idx 82 | AGREE |
+
+**But look at the first column.** Three of four say `entry` at 0.0 m, and both production call
+sites hand `entryMs = 0.0`:
+
+```
+src/sim/CorridorLay.cpp:206   inPlan.Over(corridor, stood.Envelope, postM, 0.0, error)
+src/sim/CorridorLay.cpp:530   profile.Over(corridor, planning, profileStepM, 0.0, error)
+```
+
+A car that starts from rest has its slowest station at 0 m by definition. **For every corridor
+this engine lays, `Slowest()` answers `0.000 km/h at 0.0 m, held by 'entry'`.** It is correct
+and it carries no information. The question this item was filed to answer -- *"12.158 km/h at
+km 552.939, which physics did that"* -- is still unanswerable from the published number.
+
+### 1. The instrument is not consumed
+
+`src/sim/CorridorLay.cpp:534-545` still walks `SampleAt()` by hand for slowest/fastest/mean.
+That hand-walk is the thing this item was filed to abolish (*"Every number above was obtained
+by walking SampleAt() from outside. That is the whole point"*). Neither `Slowest()` nor
+`BoundBy()` is called anywhere outside `test/unit/actor/path/`.
+
+### 2. `CrestsThatBound()` is the same defect, in the same file, untouched
+
+`NoteCrest` is invoked in the sampling loop against `Held_[at]` (`:141`) **and** three times
+per seam interval (`:179-181`) -- both before the entry, traction and brake sweeps. So it
+counts crests binding an array the caller never sees, over a population that is not the
+stations. Measured on the item's own hump fixture:
+
+```
+SampleCount()        = 801
+CrestsThatBound()    = 804      <- 804 "stations" out of 801
+BoundBy(Held::Crest) = 801
+```
+
+`src/sim/CorridorLay.cpp:545-546` publishes that 804 with the unit **"stations"**. Two numbers
+claiming the same thing, from two populations, disagreeing, side by side in one report.
+`test/unit/actor/path/ASpeedPlanScalesWithTheDeclaredGravity.cpp:62` asserts only
+`CrestsThatBound() > 0`, which 804 satisfies and 8040 would satisfy too.
+
+Same for `CrestHeldMs()`/`CrestHeldAtM()`: pre-sweep, published at `CorridorLay.cpp:547-548`.
+
+### 3. Boxes 3 and 4 are still open
+
+*"The drive cases assert a floor and its population: p50/p95/p99 of the plan over the route,
+and the count of stations under a declared floor"* -- nothing in the tree does this, and a
+`Slowest()` that always answers the entry cannot substitute for it. Percentiles over
+`Held_[]`, and a count under a declared floor, are the statement that makes board:1784's
+3.2 km of sub-30 km/h a red verdict.
+
+### 4. What the green test does not prove
+
+`test/unit/actor/path/AStraightRoadIsPlannedAtItsOwnSpeed` passes (14/14 in `unit/actor/path`),
+but its `Slowest()` arm is degenerate: with `entryMs = 0.0` the minimum is station 0 and the
+`CHECK_NEAR(slowest.Ms, leastMs)` / `slowest.By != Free` pair holds no matter what the sweeps
+write into `Why_[]` for stations 1..90. The arm that does carry weight is
+`SampleCount() - BoundBy(Free) == belowTop`. A case at `entryMs` **above** every road limit,
+so the minimum falls in the bend, is the missing proof.
+
+### Hygiene in the same header
+
+- `src/actor/path/SpeedProfile.h:45` -- `uint8_t` unqualified with no `<cstdint>` include; the
+  header compiles on a transitive include.
+- `src/actor/path/SpeedProfile.h:66-67` -- `SampleAt(size_t)` and `CurvatureAt(size_t)` are
+  `noexcept` and index `Held_[which]` / `Curvature_[which]` with no bound. A public query that
+  is `noexcept` and reads out of range is worse than one that is not.
+- `Held::kCount` is still a publicly spellable enumerator of `Held`; `BoundBy` now guards it,
+  `NameOf` guards it, and `Slowest().By` can never be it. It is a table size wearing the
+  type of a physical term.

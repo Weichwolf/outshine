@@ -100,3 +100,50 @@ The claim now walks `src/` and `include/` for `board:` in ANY text, literal or n
   live under `tools/`, which CLAUDE.md names alongside `src/` and `include/`. Either the rule
   says proofs may cite their item wherever they live, or those seven go. The walk covers
   `src/` and `include/` only, so it does not pretend to have settled it.
+
+---
+
+## Reviewer round, 2026-08-24 — the walk was added and it skips one third of the rule
+
+`test/harness/claims/TheSourceCarriesNoCommentary.cpp:130-151` now searches every text,
+literals included, for `board:`. `src/` and `include/` are clean; verified
+(`grep -rn 'board:' src include` -> nothing).
+
+**But the walk's roots are `{"src", "include"}`** (`:131`), while the same file's other two
+walks cover three roots and say so in their own claim text:
+
+```
+:121  "**A SHADER LIVES IN A FILE**: src/, include/ and tools/ hold no MSL or GLSL ..."
+:157  "**THE SOURCE CARRIES NO COMMENTARY**: src/, include/ and tools/ hold no // and no /* ..."
+:161  Covers("IV.11 no comment stands in src/, include/ or tools/ ...")
+```
+
+CLAUDE.md names all three: *"`src/`, `include/`, `tools/` hold no `//`, no block, no TODO, no
+derivation, **no board number**"*. Nine violations stand in `tools/` today:
+
+```
+tools/driver/APlannerFindsTheRoadFromMunichToHamburg.cpp:110   (board:1581's neutrality cut)
+tools/driver/APlannerFindsTheRoadFromMunichToHamburg.cpp:147   (board:1772)
+tools/driver/window/AWindowShowsTheRoadTheCarIsDriving.cpp:181  read back, board:1535
+tools/driver/window/AWindowShowsTheRoadTheCarIsDriving.cpp:233  board:1535 says a generator ...
+tools/driver/window/AWindowShowsTheRoadTheCarIsDriving.cpp:462  board:1534
+tools/driver/TheRoadEdgeIsContinuousWhereSegmentsMeet.cpp:136   board:1568's statement
+tools/driver/stills/StillsAreTakenAlongTheDriveForTheEye.cpp:377 (board:1511)
+tools/driver/ASecondRouteIsOnlyTwoCoordinates.cpp:97            board:1524's hundred
+tools/driver/ASecondRouteIsOnlyTwoCoordinates.cpp:98            board:1573's first box
+```
+
+All nine sit inside claim messages -- the same shape as the `static_assert` message this item
+was reopened for, one directory over.
+
+There is a decision hiding here and it should be made in the open rather than by an omitted
+root: `tools/driver/` holds cases that PROVE things, and CLAUDE.md's exception is granted to
+`test/` because *"a proof explains what it proves"*. Either that exception extends to a driver
+case's claim text -- and then the rule text and the three claim strings must say so -- or it
+does not, and the nine lines go. What may not stand is a walk whose roots and whose `Covers`
+line disagree.
+
+- [ ] The `board:` walk covers the same roots as the comment walk and the shader walk, or the
+      rule is restated to name the roots it actually holds.
+- [ ] Negative control: `board:1654` planted in `tools/driver/f31.scenario`'s nearest `.cpp`
+      -> FOUND.
