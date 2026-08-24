@@ -41,14 +41,14 @@ untracked filesystem state.**
 
 ## What will be true
 
-- [ ] `board/active/` is part of the tree whether or not an item is in flight -- a tracked
+- [x] `board/active/` is part of the tree whether or not an item is in flight -- a tracked
       marker file, the same way any repository keeps a directory that its process requires.
       `board/active/.gitkeep` is the cheap form; a `board/active/README` that states the
       directory's contract is the honest one, and `CLAUDE.md`'s state machine already writes
       that contract.
-- [ ] `EveryPathCitedInADocumentResolves` stays exactly as strict -- it is right, and it caught
+- [x] `EveryPathCitedInADocumentResolves` stays exactly as strict -- it is right, and it caught
       a real hole. Nothing about the claim is relaxed.
-- [ ] Negative control: the marker removed -> the claim names `CLAUDE.md:441` again, which is
+- [x] Negative control: the marker removed -> the claim names `CLAUDE.md:441` again, which is
       the measurement above.
 
 ## Comments
@@ -95,3 +95,30 @@ about the same terminal state.
       crashed, never that a directory was absent.
 - [ ] Negative control for the second box: `board/active` removed with the marker in place ->
       `FAIL` naming the directory, not `SIGNAL`.
+
+## Repaid (2026-08-24)
+
+`board/active/README.md` states the drawer's contract and keeps it in the tree. Not a
+`.gitkeep`: the directory has a contract -- what stands here, who moves it, and that an EMPTY
+drawer is the board's own definition of done -- and a file that states it is worth the same
+byte count as one that says nothing.
+
+**And the second verdict is a verdict again.** The claim read the directory with the throwing
+overload of `directory_iterator`, on a path it does not own, so at `HEAD` it ABORTED. A claim
+that aborts reports neither answer it could have given, which is worse than either. It reads
+with the non-throwing overload now and ASSERTS the drawer is present -- an empty drawer stays a
+legal answer, an absent one does not.
+
+- **Proving test**: `harness/claims/BoardActiveNamesWhatTheQueueIsWorking` and
+  `harness/claims/EveryPathCitedInADocumentResolves`, both green with the drawer tracked.
+- **Negative control**, run: `board/active/` removed entirely ->
+
+  ```
+  NOTE the drawer is not in the tree
+  FAIL **THE DRAWER THE QUEUE USES IS PART OF THE TREE**
+  FAIL harness/claims/EveryPathCitedInADocumentResolves
+  27 tests: 25 PASS  2 FAIL  0 SIGNAL
+  ```
+
+  Two named failures where there was one named failure and one crash. `EveryPathCitedInADocumentResolves`
+  is untouched -- it was right, and it found this.
