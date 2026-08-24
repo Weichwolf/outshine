@@ -104,6 +104,48 @@ std::string DirectoryOf(std::string_view path) {
 
 std::string Number(size_t value) { return std::to_string(value); }
 
+[[nodiscard]] int SixBitsOf(char one) {
+  if (one >= 'A' && one <= 'Z') { return one - 'A'; }
+  if (one >= 'a' && one <= 'z') { return one - 'a' + 26; }
+  if (one >= '0' && one <= '9') { return one - '0' + 52; }
+  if (one == '+') { return 62; }
+  if (one == '/') { return 63; }
+  return -1;
+}
+
+[[nodiscard]] bool Base64Payload(std::string_view uri, std::string_view &payload) {
+  const size_t comma = uri.find(',');
+  if (comma == std::string_view::npos) { return false; }
+  const std::string_view header = uri.substr(0, comma);
+  if (header.size() < 7 || header.substr(header.size() - 7) != ";base64") { return false; }
+  payload = uri.substr(comma + 1);
+  return true;
+}
+
+[[nodiscard]] bool DecodeBase64(std::string_view payload, std::vector<uint8_t> &out) {
+  size_t padding = 0;
+  while (padding < 2 && payload.size() > padding &&
+         payload[payload.size() - 1 - padding] == '=') {
+    ++padding;
+  }
+  const std::string_view body = payload.substr(0, payload.size() - padding);
+  if (body.size() % 4 == 1) { return false; }
+  out.clear();
+  out.reserve(body.size() / 4 * 3 + 3);
+  uint32_t held = 0;
+  int bits = 0;
+  for (const char one : body) {
+    const int six = SixBitsOf(one);
+    if (six < 0) { return false; }
+    held = (held << 6) | (uint32_t)six;
+    bits += 6;
+    if (bits < 8) { continue; }
+    bits -= 8;
+    out.push_back((uint8_t)((held >> bits) & 0xFFu));
+  }
+  return true;
+}
+
 int HexDigit(char c) {
   if (c >= '0' && c <= '9') { return c - '0'; }
   if (c >= 'a' && c <= 'f') { return c - 'a' + 10; }
@@ -421,8 +463,23 @@ bool Document::ResolveBuffers(const Json &json, const uint8_t *binaryChunk, size
       }
       bytes.assign(binaryChunk, binaryChunk + binaryLength);
     } else if (uri.rfind("data:", 0) == 0) {
-
-      return Refuse("buffer " + Number(i) + " is a data: URI, which this reader does not decode");
+      std::string_view payload;
+      if (!Base64Payload(uri, payload)) {
+        return Refuse("buffer " + Number(i) +
+                      " is a data: URI that declares no ;base64 payload, and this reader "
+                      "carries no other encoding");
+      }
+      if (!DecodeBase64(payload, bytes)) {
+        return Refuse("buffer " + Number(i) +
+                      " is a data: URI whose base64 payload holds a character the alphabet "
+                      "does not, or a length no whole byte count can come from");
+      }
+      if (bytes.size() != declared) {
+        return Refuse("buffer " + Number(i) + " declares " + Number(declared) +
+                      " bytes and its data: URI decodes to " + Number(bytes.size()) +
+                      " -- a declared length that disagrees with its payload is a refusal "
+                      "rather than a resize");
+      }
     } else {
       std::error_code stat;
       const auto measured = std::filesystem::file_size(directory + uri, stat);
@@ -1186,7 +1243,29 @@ bool Document::ReadAppearance(const Json &json) {
                     Number(static_cast<size_t>(image.View)) + " of " + Number(Views_.size()));
     }
     if (image.Uri.rfind("data:", 0) == 0) {
-      return Refuse("image " + Number(i) + " is a data: URI, which this reader does not decode");
+      std::string_view payload;
+      if (!Base64Payload(image.Uri, payload)) {
+        return Refuse("image " + Number(i) +
+                      " is a data: URI that declares no ;base64 payload, and this reader "
+                      "carries no other encoding");
+      }
+      std::vector<uint8_t> bytes;
+      if (!DecodeBase64(payload, bytes)) {
+        return Refuse("image " + Number(i) +
+                      " is a data: URI whose base64 payload holds a character the alphabet "
+                      "does not, or a length no whole byte count can come from");
+      }
+      if (bytes.empty()) {
+        return Refuse("image " + Number(i) + " is a data: URI that decodes to no bytes");
+      }
+      BufferView held;
+      held.Buffer = Buffers_.size();
+      held.ByteOffset = 0;
+      held.ByteLength = bytes.size();
+      Buffers_.push_back(std::move(bytes));
+      image.View = (int)Views_.size();
+      Views_.push_back(held);
+      image.Uri.clear();
     }
     Images_.push_back(std::move(image));
   }

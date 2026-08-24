@@ -146,9 +146,20 @@ int main() {
   Holds({"a camera that is neither perspective nor orthographic is refused", "glTF 2.0 has two",
          R"({"asset":{"version":"2.0"},"cameras":[{"type":"panoramic"}]})"});
 
-  Holds({"an embedded data: buffer is refused by name", "data: URI, which this reader does not decode",
+  // board:1396: a data: URI is legal for a buffer and for an image, and a .gltf that embeds its
+  // own bytes is the ordinary shape of a small asset. The reader decodes it now, so what stands
+  // here are the refusals the DECODE owes: an encoding it does not carry, an alphabet it does
+  // not accept, and a declared length that disagrees with what the payload holds.
+  Holds({"a data: buffer in an encoding this reader does not carry is refused", "no ;base64",
          R"({"asset":{"version":"2.0"},
-             "buffers":[{"byteLength":4,"uri":"data:application/octet-stream;base64,AAAAAA=="}]})"});
+             "buffers":[{"byteLength":4,"uri":"data:application/octet-stream,AAAA"}]})"});
+  Holds({"a data: buffer whose payload is outside the alphabet is refused", "the alphabet",
+         R"({"asset":{"version":"2.0"},
+             "buffers":[{"byteLength":3,"uri":"data:application/octet-stream;base64,AA*A"}]})"});
+  Holds({"a data: buffer that decodes to a length it did not declare is refused",
+         "disagrees with its payload",
+         R"({"asset":{"version":"2.0"},
+             "buffers":[{"byteLength":8,"uri":"data:application/octet-stream;base64,AAAAAA=="}]})"});
   Holds({"a .gltf whose external buffer is not beside it is refused", "which cannot be opened",
          R"({"asset":{"version":"2.0"},"buffers":[{"byteLength":4,"uri":"nowhere.bin"}]})",
          {}, false});
