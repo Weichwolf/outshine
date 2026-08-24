@@ -152,7 +152,7 @@
         "perM2": 0.25
       },
       "origins": {
-        "keySrgb": "EMPTY ON PURPOSE \u2014 the OSM raster paints wood and forest with ONE colour (70,105,60), so albedo alone cannot separate needle- from broadleaf. Reachable only once the OSM leaf_type overlay lands; until then mixed_broadleaf wins the bucket.",
+        "keySrgb": "EMPTY ON PURPOSE — the OSM raster paints wood and forest with ONE colour (70,105,60), so albedo alone cannot separate needle- from broadleaf. Reachable only once the OSM leaf_type overlay lands; until then mixed_broadleaf wins the bucket.",
         "trees.perM2": "derived via Reineke, the same line as for mixed_broadleaf. d_g = sqrt(0.62*41^2 + 0.24*40^2 + 0.10*53^2 + 0.04*25^2) = 41.6 cm. SDI_max for spruce 1250 [SET, literature band 1200...1400], managed 60 % of that = 750. N = 750 * (25/41.6)^1.605 = 331/ha = 0.0331/m^2, rounded to 0.033. The previous 0.09 (900/ha) describes a pole-stage density at ~22 m height, not the 35 m stand spruce.json declares.",
         "grass.perM2": "[SET] needle litter suppresses the herb layer; a third of the beech figure",
         "ground.edgeReachM": "[SET] 0.6 m, see edgeModel"
@@ -208,10 +208,10 @@
       "origins": {
         "grass.perM2": "[SET] visual-closure target. A real pasture carries 5 000-20 000 tillers/m^2; that is not drawable, and 800/m^2 is the density at which the near metre reads as closed sward at 1.70 m eye height",
         "grass.heightM": "[SET] grazed/mown pasture, 0.2-0.4 m",
-        "trees.perM2": "[SET] 8 solitary trees per hectare \u2014 the scattered pasture oak",
+        "trees.perM2": "[SET] 8 solitary trees per hectare — the scattered pasture oak",
         "ground.class": "grass_thatch, NOT a soil. Under working grassland the open-soil fraction at eye height is 0 percent, so the previous earth_dry drew a surface that does not occur under a meadow. The felt carries the moss overlay its own class declares (0.15), which is where the botanist's third component enters.",
         "ground.swardClosure": "1.0, derived, and the number is not close to its alternatives. Closure is the fraction of the ground plane hidden by standing foliage, 1 - P0, with the Beer-Lambert gap fraction P0 = exp(-G * LAI / sin(beta)) for view elevation beta. At the cover stage's fade radius - RadiusM = 2.0 m spacing * 48 * 0.5 * 0.92 = 44.16 m, eye 1.70 m - beta = atan(1.70/44.16) = 2.205 deg, and with LAI 3 (Grummet, Spektrum Lexikon der Biologie) and the spherical-distribution G = 0.5, P0 = exp(-38.98) = 1.2e-17. A sward seen almost edge-on hides its own floor completely, so beyond the fade radius the terrain layer IS the sward and its albedo has to be the blades'. WHAT THIS COSTS AND IT IS NOT SMALL: one number serves every view elevation, so the floor's CHROMA stops showing between the blades in the near field too, where the true closure is far below 1 - at 2 m the same formula gives P0 = 0.10. Only the floor's colour is taken; roughness, grain, relief and specular stay the felt's, and they are what the near field still reads. Making closure a function of footM belongs in groundMat (render/stages/TilesStage.cpp) and is not built. G = 0.5 is [SET]: the spherical distribution is the standard default and this sward is erectophile, which raises G at a grazing view, so the error runs toward MORE occlusion, not less.",
-        "forbs.species": "the scene stands on 6 August (mods/demo/mod.json) and every species named here is in flower on that date. Cow parsley (Anthriscus sylvestris) was removed for two independent reasons: its flowering season is April to July (de.wikipedia.org/wiki/Wiesen-Kerbel), so it is over, and it is a hedge- and wayside species rather than a meadow interior. Replacements: wild carrot (Daucus carota), flowering May to September (de.wikipedia.org/wiki/Wilde_M\u00f6hre), and brown knapweed (Centaurea jacea), flowering late May/June to October/November (de.wikipedia.org/wiki/Wiesen-Flockenblume). SEASON IS NOT MODELLED - this list is pinned to the scene's DATE, not to a parameter, and a second scene in April would need a second list.",
+        "forbs.species": "the scene stands on 6 August (mods/demo/mod.json) and every species named here is in flower on that date. Cow parsley (Anthriscus sylvestris) was removed for two independent reasons: its flowering season is April to July (de.wikipedia.org/wiki/Wiesen-Kerbel), so it is over, and it is a hedge- and wayside species rather than a meadow interior. Replacements: wild carrot (Daucus carota), flowering May to September (de.wikipedia.org/wiki/Wilde_Möhre), and brown knapweed (Centaurea jacea), flowering late May/June to October/November (de.wikipedia.org/wiki/Wiesen-Flockenblume). SEASON IS NOT MODELLED - this list is pinned to the scene's DATE, not to a parameter, and a second scene in April would need a second list.",
         "ground.edgeReachM": "[SET] 0.3 m, see edgeModel"
       },
       "osm": [
@@ -412,7 +412,7 @@
         "grass.perM2": "[SET] a cereal stand runs 300-500 ears/m^2, and a stubble carries the SAME count because every ear was one culm; 260 is that order at the drawable end",
         "grass.heightM": "[SET] 0.12 m, STUBBLE. The scene stands on 6 August (mods/demo/scene.json) and winter wheat on Weserbergland loess is threshed by then, so the previous 0.55 m drew a standing half-ripe crop two months out of date. 0.10-0.15 m is the usual combine cutter-bar setting for winter wheat; 0.12 is the middle of it and no measurement of a local field is behind it. The alternative correct state - already grubbed, i.e. bare tilled soil with no stand at all - is not chosen because it would take the row to perM2 0 and delete the field's texture entirely.",
         "grass.dryFraction": "[SET] 0.92. A stubble is dead straw; the remaining 8 percent is the volunteer cereal and the weed flush that germinate within days of the harvest and are green on 6 August.",
-        "grass.heightJitter": "[SET] LOW on purpose \u2014 a sown crop is uniform, a cutter bar more so, and that uniformity is what makes a field read as a field",
+        "grass.heightJitter": "[SET] LOW on purpose — a sown crop is uniform, a cutter bar more so, and that uniformity is what makes a field read as a field",
         "ground.edgeReachM": "[SET] 0.1 m, see edgeModel"
       },
       "osm": [
@@ -511,10 +511,10 @@
         "perM2": 0.4
       },
       "origins": {
-        "grass.perM2": "[SET] between pasture and bare ground \u2014 patchy by construction, which is what heightJitter 0.7 encodes",
+        "grass.perM2": "[SET] between pasture and bare ground — patchy by construction, which is what heightJitter 0.7 encodes",
         "clutter.perM2": "[SET] stones dominate; the highest clutter of any template here",
         "ground.edgeReachM": "[SET] 1.0 m, see edgeModel",
-        "osm.glacier": "A glacier is firn and ice, neither open water nor vegetation \u2014 it sits on `heath` here because that is the only one of the nine templates with sand reflectance and no vegetation-cover assumption. This is a STOPGAP and not a class; it falls as soon as a firn template exists. rank 55 above water_polygons/water, because a glacier lies on top of a lake and not beneath it."
+        "osm.glacier": "A glacier is firn and ice, neither open water nor vegetation — it sits on `heath` here because that is the only one of the nine templates with sand reflectance and no vegetation-cover assumption. This is a STOPGAP and not a class; it falls as soon as a firn template exists. rank 55 above water_polygons/water, because a glacier lies on top of a lake and not beneath it."
       },
       "osm": [
         {
@@ -778,7 +778,7 @@
         "perM2": 0.3
       },
       "origins": {
-        "keySrgb": "residential/commercial/retail LANDUSE, not the buildings themselves \u2014 this is the ground BETWEEN the houses, which is garden and lawn",
+        "keySrgb": "residential/commercial/retail LANDUSE, not the buildings themselves — this is the ground BETWEEN the houses, which is garden and lawn",
         "grass.perM2": "[SET] mown lawn: shorter and denser than pasture",
         "grass.heightM": "[SET] mown, 0.08-0.15 m",
         "trees.perM2": "[SET] 60 street/garden trees per hectare",
@@ -875,8 +875,8 @@
         "perM2": 0.05
       },
       "origins": {
-        "keySrgb": "buildings (128,114,102 \u2014 tiles/src/raster.c:109), every road class from w3_roadstyle, rail, runway/taxiway/apron, industrial and quarry: everything the raster paints that a plant does not grow on",
-        "grass.perM2": "[SET] joint weeds only \u2014 NOT zero, because a perfectly bare surface reads as a rendering hole rather than as pavement",
+        "keySrgb": "buildings (128,114,102 — tiles/src/raster.c:109), every road class from w3_roadstyle, rail, runway/taxiway/apron, industrial and quarry: everything the raster paints that a plant does not grow on",
+        "grass.perM2": "[SET] joint weeds only — NOT zero, because a perfectly bare surface reads as a rendering hole rather than as pavement",
         "grass.heightJitter": "[SET] HIGH: what grows in a pavement joint is whatever got there",
         "ground.edgeReachM": "0.05 m = the construction seam, see edgeModel",
         "osm.runway_busway": "street_polygons/runway is the runway as an AREA and therefore needs no width; rank 72 above service, because a runway covers everything it lies on. streets/busway [SET] 6.5 m = two bus lanes, the same width as tertiary, because a busway is structurally a two-lane carriageway without a verge."
@@ -1066,7 +1066,7 @@
           "kind": "secondary",
           "rank": 85,
           "widthM": 7.5,
-          "maxGradient": 0.07,
+          "maxGradient": 0.065,
           "minRadiusM": 300,
           "lanes": 2,
           "oneway": 0
@@ -1076,7 +1076,7 @@
           "kind": "primary",
           "rank": 86,
           "widthM": 9.5,
-          "maxGradient": 0.06,
+          "maxGradient": 0.055,
           "minRadiusM": 400,
           "lanes": 2,
           "oneway": 0
@@ -1102,7 +1102,7 @@
           "kind": "motorway",
           "rank": 88,
           "widthM": 12.0,
-          "maxGradient": 0.04,
+          "maxGradient": 0.045,
           "minRadiusM": 720,
           "lanes": 2,
           "oneway": 1
@@ -1297,7 +1297,7 @@
         "perM2": 0.2
       },
       "origins": {
-        "keySrgb": "EMPTY ON PURPOSE \u2014 a riparian strip is a BUFFER around the water polygon, not a colour. Reachable once the OSM water overlay can dilate; declared now so the Weser bank has somewhere to go.",
+        "keySrgb": "EMPTY ON PURPOSE — a riparian strip is a BUFFER around the water polygon, not a colour. Reachable once the OSM water overlay can dilate; declared now so the Weser bank has somewhere to go.",
         "trees.species": "[SET] the Weser bank at Hameln",
         "ground.edgeReachM": "[SET] 0.6 m, see edgeModel"
       },
@@ -1306,7 +1306,7 @@
   ],
   "groundClassOrigin": "the template REFERENCES a class of src/assets/world/ground-materials.json and no longer declares a colour: reflectance, roughness, grain, height amplitude and the two detail octaves all come from the material. Assignment [SET], from the albedo report: mixed_broadleaf/conifer_forest -> forest_floor with a leaf/needle litter override, meadow -> grass_thatch (see the template's own ground.class origin), arable/settlement -> earth_dry, heath -> sand, sealed -> asphalt, water -> water, riverbank -> mud. litterClass is omitted where the material's own litter declaration applies.",
   "swardClosureOrigin": "OPTIONAL PER TEMPLATE, default 0, applied by src/world/VegetationTemplates.cpp. It is the fraction of the ground plane hidden by the template's own standing foliage, and it pulls the ROW's ground and litter reflectance toward the aggregate blade colour mix(greenLinear, dryLinear, E[dryness]) - the same blade class and the same expected dryness the ground fragment shades with, read back out of the row, so the terrain and the sward cannot drift apart when the blade class is re-measured. It exists because a soil-coloured terrain under a class whose stand hides its own floor completely puts a chroma step where the aggregate's cover reaches 1. Declared today for meadow alone; arable keeps 0 because open soil between the rows of a stubble is real, and alpine_grassland keeps 0 because its measured LAI leaves 17 percent of a nadir fragment showing the limestone below (see its own ground.swardClosure origin).",
-  "edgeModel": "TWO KINDS OF EDGE, because they are two different things: a BUILT edge is a component and a GROWN edge is a zone. edgeConstructed says which this class has; edgeReachM says how wide. The ordered pair resolves as: if EITHER class is constructed, the transition is the SMALLEST constructed reach of the two \u2014 tarmac ends where it was laid, and a diffuse neighbour cannot widen a seam. If BOTH are grown, it is the LARGER of the two reaches, because the two gradients overlap and the zone is their union, not their intersection. That is why road-against-meadow is 0.05 m and wood-against-meadow is 0.90 m out of one expression. sealed 0.05 m is the only non-[SET] number: a bound carriageway ends at a construction seam or kerb, which German road standards define as an edge and not a zone. settlement 0.15 m [SET]: yards and drives are laid too, but with domestic and not road tolerances. mixed_broadleaf 0.90 / conifer_forest 0.60 [SET] and BRACKETED, not guessed: the upper bracket is the crown drip line (mature beech crown radius ~7 m), the lower the 0.10 m implement cut, and the wind-drift band of shed litter sits an order under the drip line; needle litter is heavier per piece and drifts less, so conifer sits under broadleaf. This is a GROUND-MATERIAL width and not a vegetation one \u2014 the tree line is metres wide, the litter gradient under it is not. arable 0.10 [SET]: a ploughed boundary is cut by the implement and the furrow IS the line, the sharpest grown edge there is. meadow 0.30 [SET]: a mower's overlap band. heath 1.00 [SET]: dwarf-shrub heath thins into sand with no cutting agent at all. water 0.40 / riverbank 0.60 [SET]: the wetted edge moves with the level. Every [SET] value is falsifiable against a photograph and none is defended as measured.",
+  "edgeModel": "TWO KINDS OF EDGE, because they are two different things: a BUILT edge is a component and a GROWN edge is a zone. edgeConstructed says which this class has; edgeReachM says how wide. The ordered pair resolves as: if EITHER class is constructed, the transition is the SMALLEST constructed reach of the two — tarmac ends where it was laid, and a diffuse neighbour cannot widen a seam. If BOTH are grown, it is the LARGER of the two reaches, because the two gradients overlap and the zone is their union, not their intersection. That is why road-against-meadow is 0.05 m and wood-against-meadow is 0.90 m out of one expression. sealed 0.05 m is the only non-[SET] number: a bound carriageway ends at a construction seam or kerb, which German road standards define as an edge and not a zone. settlement 0.15 m [SET]: yards and drives are laid too, but with domestic and not road tolerances. mixed_broadleaf 0.90 / conifer_forest 0.60 [SET] and BRACKETED, not guessed: the upper bracket is the crown drip line (mature beech crown radius ~7 m), the lower the 0.10 m implement cut, and the wind-drift band of shed litter sits an order under the drip line; needle litter is heavier per piece and drifts less, so conifer sits under broadleaf. This is a GROUND-MATERIAL width and not a vegetation one — the tree line is metres wide, the litter gradient under it is not. arable 0.10 [SET]: a ploughed boundary is cut by the implement and the furrow IS the line, the sharpest grown edge there is. meadow 0.30 [SET]: a mower's overlap band. heath 1.00 [SET]: dwarf-shrub heath thins into sand with no cutting agent at all. water 0.40 / riverbank 0.60 [SET]: the wetted edge moves with the level. Every [SET] value is falsifiable against a photograph and none is defended as measured.",
   "alpineLimit": {
     "subject": "WHERE NOTHING GROWS, asked of the DEM and not of OSM. OSM says where the rock is mapped; this says where nothing can stand even though nothing is mapped, and it is the rule every OSM reference implementation carries for the same reason. Two independent limits, because they answer two different questions: the TREELINE gates woody instances and leaves the ground alone (there is closed alpine sward for hundreds of metres above the last tree), and the SLOPE gates both, because a wall carries neither a plant nor a soil.",
     "treelineBaseLatDeg": 47.4,
@@ -1329,7 +1329,7 @@
       "rockTemplate": "[SET] rock_crevice, i.e. limestone. This is the whole regional-lithology assumption of the engine in one line, and it is wrong outside the Calcareous Alps - granite, basalt and sandstone all have their own chromaticity and the engine has no lithology map. Declared as one name so that a mod restates it. No lithology map is built."
     }
   },
-  "osmGradientOrigin": "maxGradient is the maximum LONGITUDINAL grade of a line feature of this kind, as a rise over run, and it is what the road's own vertical alignment is bounded by -- the terrain is cut and filled until the road holds it. German design standards: RAA gives motorways 4.0 % in flat terrain and RAL 4.5 % for trunk roads; RAL rises to 6.0 % (primary), 7.0 % (secondary) and 8.0 % (tertiary) as the design speed falls; RASt 06 allows 10 % in built-up streets and 12 % on service access. Ramps take one step steeper than the road they leave because they are short. Track 15 % and path 20 % are KTBL and FGSV figures for unpaved ways; steps 50 % is a stair and is there so that a kind with no row cannot silently become a road. It is NOT derived from the vehicle: the grade a car can hold at its top speed is 0.15 %, which is not a road, and the grade it can hold from rest is 23.4 %, which is a wall -- the class is what decides, and the vehicle only says whether it can drive what the class built.",
+  "osmGradientOrigin": "maxGradient is the maximum LONGITUDINAL grade of a line feature of this kind, as a rise over run, and it is what the road's own vertical alignment is bounded by -- the terrain is cut and filled until the road holds it. It is NOT derived from the vehicle: the grade a car can hold at its top speed is 0.15 %, which is not a road, and the grade it can hold from rest is 23.4 %, which is a wall -- the class is what decides, and the vehicle only says whether it can drive what the class built. THE FIVE CARRIAGEWAY KINDS TAKE THIS NUMBER AND minRadiusM FROM ONE TABLE ROW EACH, under the single mapping osmRadiusOrigin writes down: motorway is EKA 1B, and trunk, primary, secondary and tertiary are EKL 1 to EKL 4. Fetched: RAA 2008 gives Hoechstlaengsneigung 4.0 % (EKA 1A), 4.5 % (EKA 1B), 4.5 % (EKA 2) and 6.0 % (EKA 3); RAL 2012 gives 4.5 % (EKL 1), 5.5 % (EKL 2), 6.5 % (EKL 3) and 8.0 % (EKL 4), reproduced in KIT ISE, Bemessungsgrundlagen im Strassenwesen -- Teil: Strassenentwurf, 04/2013, Abbildung 5.2. board:1794 corrected three of these numbers. They read 4.0 / 6.0 / 7.0 for motorway, primary and secondary, and cited RAL for the last two -- but RAL prints no 6.0 row and no 7.0 row at all, and motorway's 4.0 named EKA 1A while its radius named EKA 1B. A road described by two numbers from two different table rows is two roads. THE KINDS BELOW TERTIARY ARE NOT VERIFIED AGAINST A FETCHED TABLE and are marked as such rather than given a citation that does not reproduce them: residential and unclassified 10 %, living_street and pedestrian 10 %, service 12 %, cycleway 6 %, footway and track 15 %, path and bridleway 20 %, steps 50 %. RASt 06 is the standard that governs them and it has not been fetched; the figures are of the right order and their origin is open. Steps at 50 % is a stair and is there so that a kind with no row cannot silently become a road.",
   "osmRadiusOrigin": "minRadiusM is the smallest horizontal centreline radius a road of this kind is designed to carry, in metres, and it is a property of the ROAD CLASS and never of the vehicle -- the vehicle's own bound is the rear-axle centreline circle its turning circle and wheelbase imply, which is four to six metres for a car and says nothing about whether a polyline claiming to be a motorway is one. The values are tabulated, not derived: RAA 2008 gives Kurvenmindestradius 900 m (EKA 1A), 720 m (EKA 1B), 470 m (EKA 2) and 280 m (EKA 3) at a Hoechstquerneigung of 6.0 % throughout; RAL 2012 gives 500 m (EKL 1, Ve 110), 400 m (EKL 2, Ve 100), 300 m (EKL 3, Ve 90) and 200 m (EKL 4, Ve 70). The one judgement here is the MAPPING, and it is that OSM's five carriageway kinds take the standards' classes in order: motorway is the general Autobahn class EKA 1B rather than the 900 m Ueberregionalautobahn, because the tag does not distinguish one from the other and a bound must not refuse a road that is legal; trunk, primary, secondary and tertiary take EKL 1 to EKL 4. Below tertiary the kinds are RASt 06 territory, no minimum is tabulated here, and a way of such a kind carries no class bound at all -- the vehicle's own is what is left. The fahrdynamische Grundgleichung v^2/(R*g) = f_R + q (KIT ISE, Bemessungsgrundlagen im Strassenwesen -- Teil: Strassenentwurf, 04/2013, section 4.2) is what makes these numbers checkable rather than a list: at q = 0.06 the tabulated pairs imply a radial Kraftschlussbeiwert f_R of 0.130 (EKL 1), 0.137 (EKL 2), 0.152 (EKL 3), 0.133 (EKL 4) and 0.125 (EKA 1B at the RAA's 130 km/h Richtgeschwindigkeit) -- one coefficient within a fifth of itself across two standards and five classes, which is the consistency check the table has to pass and does.",
   "osmLaneOrigin": "lanes is the number of running lanes ACROSS the whole declared width, and oneway says whether they all run the same way. Both come from the same cross-sections the widths do: RAA RQ 28 is 2 x 3.75 m running lanes plus a 2.5 m hard shoulder per ONE-WAY carriageway, so motorway is 2 lanes oneway in 12.0 m; RAL RQ 11.5 and RQ 9.5 are two-way with 2 x 3.5 m; RASt 06's 6.5 m tertiary and 5.5 m residential are two-way at 3.25 and 2.75 m. A link is one lane because a ramp is. Service, track and everything narrower is a single shared lane. This is what stops a car driving down the centre line: its lane is width / lanes, and its own line is offset from the reference line by (lanes - 1) x laneWidth / 2 toward the driving side."
 }

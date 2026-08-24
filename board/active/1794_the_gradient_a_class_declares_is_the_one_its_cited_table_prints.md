@@ -37,13 +37,52 @@ build 0.5 % of grade the class does not permit.
 
 ## What will be true
 
-- [ ] Each carriageway class declares the gradient its cited table prints, or cites the table
+- [x] Each carriageway class declares the gradient its cited table prints, or cites the table
       that prints what it declares -- checked value by value against a fetched source.
-- [ ] `motorway` 4.0 % and `trunk` 4.5 % are confirmed or corrected against RAA 2008 the same
+- [x] `motorway` 4.0 % and `trunk` 4.5 % are confirmed or corrected against RAA 2008 the same
       way. Fetched (bauformeln.de, reproducing RAA 2008): EKA 1A **4.0**, EKA 1B **4.5**,
       EKA 2 **4.5**, EKA 3 **6.0** -- so both currently stand, and the mapping motorway -> EKA 1A,
       trunk -> EKA 1B is the judgement that needs writing down.
-- [ ] The classes below tertiary (RASt 06 territory: residential 10 %, service 12 %, and the
+- [x] The classes below tertiary (RASt 06 territory: residential 10 %, service 12 %, and the
       unpaved kinds) get the same treatment or are marked as what they are.
-- [ ] Proving test: the origin block's numbers and the rules' numbers are the same numbers,
+- [x] Proving test: the origin block's numbers and the rules' numbers are the same numbers,
       walked -- so a citation cannot drift from what it justifies.
+
+## Repaid, and the repair is one mapping rather than three corrections (2026-08-24)
+
+The three wrong numbers were a symptom. The defect was that the asset described each road with
+numbers from **two different table rows**: `board:1784` had just given every carriageway kind a
+`minRadiusM` under one stated mapping, and the gradients sat on another.
+
+| kind | class | R_min | s_max was | s_max is |
+|---|---|---|---|---|
+| `motorway` | EKA 1B | 720 m | 4.0 % (that is EKA **1A**) | **4.5 %** |
+| `trunk` | EKL 1 | 500 m | 4.5 % | 4.5 % |
+| `primary` | EKL 2 | 400 m | 6.0 % (RAL prints no such row) | **5.5 %** |
+| `secondary` | EKL 3 | 300 m | 7.0 % (RAL prints no such row) | **6.5 %** |
+| `tertiary` | EKL 4 | 200 m | 8.0 % | 8.0 % |
+
+One class per kind, both numbers from its row. A road described by two numbers from two rows is
+two roads.
+
+**And the kinds below tertiary are marked as what they are.** RASt 06 governs them and it has
+not been fetched, so `osmGradientOrigin` now says so in place of a citation that does not
+reproduce them. An unverified number that says it is unverified is worth more than a verified-
+looking one that is not.
+
+- **Proving test**: `test/harness/claims/EveryClassNumberIsPrintedByItsOwnOrigin` -- every
+  gradient and every radius the five carriageway kinds declare must appear, as a figure, in the
+  origin block that justifies it.
+
+  ```
+  NOTE motorway   gradient 0.045 -> "4.5 %" printed   radius 720 -> "720 m" printed
+  NOTE primary    gradient 0.055 -> "5.5 %" printed   radius 400 -> "400 m" printed
+  ```
+- **Negative control**, run: `secondary` put back to 0.07 without touching the prose ->
+
+  ```
+  NOTE secondary  gradient 0.07  -> "7.0 %" ABSENT   radius 300 -> "300 m" printed
+  FOUND secondary declares 7.0 % and its origin block prints no such figure
+  ```
+- Measured on the shipped route: *"the gentlest grade any road class on this route declares"*
+  moved 4.0 % -> 4.5 %, which is the motorway row and nothing else. Gate **257/257**.
