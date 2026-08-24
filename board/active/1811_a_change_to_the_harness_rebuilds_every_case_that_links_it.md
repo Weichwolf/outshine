@@ -46,7 +46,29 @@ passed silently.
 
 ## What will be true
 
-- [ ] A case rebuilds when any header it includes directly changes, `test/harness/shared/` most
+- [x] A case rebuilds when any header it includes directly changes, `test/harness/shared/` most
       of all, since every case in the tree links it.
-- [ ] Proving test: touch a harness header, run a suite, and the case is rebuilt rather than
+- [x] Proving test: touch a harness header, run a suite, and the case is rebuilt rather than
       re-run. Negative control: the stamp's coverage removed -> the stale binary runs again.
+
+## Repaid (2026-08-24)
+
+`BinaryStamp` stamps `test/harness/shared/*.h` and `test/harness/shared/render/*.h` by name.
+Every case in the tree links the harness, and a single `-MF` over a multi-source compile cannot
+describe more than one translation unit -- so until the build gives each source its own
+dependency file, the harness is stamped explicitly and the reason is written where the stamp is
+built.
+
+- **Proving test**: an isolated experiment with a settling run, because a leftover stamp from
+  the fixed build masks the defect:
+
+  | | |
+  |---|---|
+  | harness headers OUT of the stamp, settle, then edit `Check.h` | the case is **not** rebuilt -- the defect |
+  | harness headers IN, settle, then edit `Check.h` | rebuilt |
+
+- What found it: `board:1810` changed the trailer FORMAT, and `ReadTrailer` refused the old
+  line. **A change that altered behaviour without altering the format would have passed
+  silently**, and the gate would have reported a verdict from a binary that no longer matched
+  its source.
+- Gate 259/259.

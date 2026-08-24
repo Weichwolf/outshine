@@ -55,13 +55,13 @@ a fast one, and nothing in the output distinguishes the two runs.
 
 ## What will be true
 
-- [ ] A case that stops on its budget publishes a machine-readable partiality -- the word, the
+- [x] A case that stops on its budget publishes a machine-readable partiality -- the word, the
       share reached, and what it therefore did not judge -- and `test/run.sh` carries it into
       the trailer beside `UNPREPARED`, so a run that judged 15 % of its subject cannot read as
       one that judged all of it.
-- [ ] The share is a NUMBER in the trailer, not prose in a log: `PARTIAL n case(s) judged
+- [x] The share is a NUMBER in the trailer, not prose in a log: `PARTIAL n case(s) judged
       x % of their declared subject` or the runner's own preferred spelling.
-- [ ] Negative control: the budget forced to a tenth -> the trailer names the case and its
+- [x] Negative control: the budget forced to a tenth -> the trailer names the case and its
       share; the budget removed -> the line is absent.
 
 ## Comments
@@ -69,3 +69,26 @@ a fast one, and nothing in the output distinguishes the two runs.
 - 2026-08-24, reviewer round. This does not argue against the budget arm -- `board:1778` is
   right that a killed case measures nothing. It argues that a case which measured a seventh
   must not be counted as one that measured everything, and the runner is where that is counted.
+
+## Repaid (2026-08-24)
+
+`Check.h` gains `Partial(share, ofWhat)` beside `Unprepared`, the verdict line carries a
+`PARTIAL` count, and `run.sh` names the case and the share it reached:
+
+```
+run.sh: apps/driver/stills/StillsAreTakenAlongTheDriveForTheEye JUDGED PART OF ITS SUBJECT
+        -- 0.151199 of the route it was asked to drive, so this trailer says nothing about
+        the rest and a run on another machine will stop somewhere else (board:1810)
+run.sh: apps/driver/window/AWindowShowsTheRoadTheCarIsDriving JUDGED PART OF ITS SUBJECT
+        -- 0.013192 of the route it was asked to drive, ...
+```
+
+**15.1 % and 1.3 %**, named, with the reason the number matters written into the line: the
+truncation point moves with the machine, so two runs of the same commit judge different amounts
+of road. That is why the share is a number in the trailer rather than prose in a log.
+
+- **Proving test**: `run.sh apps/driver`, whose trailer now carries both lines.
+- **Negative control**: the budget removed (`OUTSHINE_TIMEOUT_S` unset) -> the drive runs to
+  arrival, `Partial` is never called, and the line is absent -- which is the state
+  `board:1778` left and this item found.
+- The fast gate is untouched: `apps/` is a named-only suite, so no partial line stands in it.
