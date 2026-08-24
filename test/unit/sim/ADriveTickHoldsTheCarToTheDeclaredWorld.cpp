@@ -86,6 +86,15 @@ bool Straight(Corridor &way, const Rigged &stood, double edgeM, std::string &err
   return true;
 }
 
+bool Shifting(Corridor &way, const Rigged &stood, double asideM, std::string &error) {
+  if (!Straight(way, stood, kEdgeM, error)) { return false; }
+  const size_t fine = way.FineAside.size();
+  const size_t from = fine / 6u;
+  for (size_t at = from; at < fine; ++at) { way.FineAside[at] = asideM; }
+  way.FineLaneHalfM.assign(fine, kLaneHalfM);
+  return true;
+}
+
 bool Seat(DriveState &drive, const Corridor &way, const Vehicle &car, const Rigged &stood) {
   drive = DriveState();
   drive.Rig = stood.Rig;
@@ -213,9 +222,43 @@ int main(void) {
           "simply always true");
   }
 
+  // board:1817,1819: kLagMargin is a [SET] margin, and the fast gate holds it between two
+  // driving facts rather than leaving it free. Straight() moves the lane centre nowhere, so
+  // until this block the rate could be set to anything and no gate case would move.
+  {
+    Corridor shifts;
+    DriveState following;
+    const double stepM = 0.75;
+    CHECK(Shifting(shifts, onEarth, stepM, error),
+          "a corridor whose lane centre steps sideways lays -- FineAside and FineLaneHalfM "
+          "both filled, which Straight() leaves at zero and empty");
+    CHECK(Seat(following, shifts, car, onEarth), "the car seats on it");
+    const Ridden followed = RideOut(shifts, onEarth, car, following);
+
+    Note("how far the shifting ride reached", followed.ReachedM, "m");
+    Note("the lane centre it was asked to reach", stepM, "m");
+    Note("how much of the step was still unclaimed at the end",
+         std::fabs(followed.LeftAimStillMovingM), "m");
+    Note("its worst offset while claiming it", std::fabs(followed.WorstOffsetM), "m");
+    Note("the side budget the corridor declares", shifts.BudgetM, "m");
+
+    CHECK(followed.Arrived && !followed.OffTheRoad && !followed.Lost,
+          "**A LANE CENTRE THAT MOVES IS STILL DRIVEN TO ARRIVAL** -- the aside rate is a "
+          "limit on the aim, not a way to lose the road");
+    CHECK(std::fabs(followed.LeftAimStillMovingM) < 0.01 * stepM,
+          "**AND THE STEP IS CLAIMED BEFORE THE ROAD ENDS**: a margin large enough to stretch "
+          "the catch-up past the route would leave the car pinned to the old centre, so this "
+          "is the gate's UPPER bound on kLagMargin -- 8.0 leaves the step unclaimed");
+    CHECK(std::fabs(followed.WorstOffsetM) < shifts.BudgetM,
+          "**AND THE CAR NEVER LAGS FURTHER THAN THE SIDE BUDGET WHILE CLAIMING IT**: a margin "
+          "small enough to yank the aim leaves the car outside the budget it was laid for, so "
+          "this is the gate's LOWER bound -- the two together pin a [SET] number the drive "
+          "measured at 0.869 x the pursuit lag at p99 (apps/driver, board:1817)");
+  }
+
   Covers("II.13 the drive tick is one pure function of (corridor, rig, vehicle, state): it "
          "holds the car to the declared world's gravity, arrives on a synthetic corridor in "
-         "the fast gate, and reports the road's end loudly -- the regression net for the "
-         "sign, the seat and the edge");
+         "the fast gate, reports the road's end loudly, and follows a lane centre that moves "
+         "-- the regression net for the sign, the seat, the edge and the aside rate");
   return Report();
 }
