@@ -21,7 +21,8 @@ struct Corridor {
   ReferenceLine Line;
   outshine::Fitted Fitted;
   SpeedProfile Profile;
-  std::vector<double> RoadM, HalfWidthM, LaneHalfM, AsideM, FineAside, FineEdge;
+  std::vector<double> RoadM, HalfWidthM, LaneHalfM, AsideM, FineAside, FineEdge,
+      FineLaneHalfM;
   double FineM = 2.0;
   double SpanM = 0.0;
   double NarrowestLaneM = 0.0;

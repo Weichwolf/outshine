@@ -62,6 +62,9 @@ struct Ridden {
   double StrayedOffsetM = 0.0;
   double StrayedHeadingErrorRad = 0.0;
   double LeftHeadingErrorRad = 0.0;
+  double LeftWantAsideM = 0.0;
+  double LeftRoomM = 0.0;
+  double LeftHalfWidthM = 0.0;
   double LeftBankRad = 0.0;
   double LeftSlope = 0.0;
   double SimulatedS = 0.0;

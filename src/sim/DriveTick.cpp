@@ -34,9 +34,8 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
   auto &body = drive.Body;
   auto &fineAside = way.FineAside;
   auto &fineEdge = way.FineEdge;
-  auto &laneHalfM = way.LaneHalfM;
+  auto &laneHalfM = way.FineLaneHalfM;
   const double fineM = way.FineM;
-  const double spanM = way.SpanM;
   outshine::Pilot::Reins reins;
   reins.SettleS = 1.0;
   reins.LeastReachM = stood.Axles.WheelbaseM;
@@ -63,6 +62,8 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
   out.SpeedMs = speedMs;
   reins.TightestPerM = outshine::Pilot::TightestPerM(stood.Axles, stood.Envelope, speedMs);
   double aimStillMovingM = 0.0;
+  double wantedAsideM = 0.0;
+  double roomHereM = 0.0;
   {
     const size_t fine = (size_t)(at.AlongM / fineM);
     const double wantAsideM = fineAside[fine < fineAside.size() ? fine : fineAside.size() - 1];
@@ -82,6 +83,8 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
     }
     reins.AsideM = drive.HeldAsideM;
     aimStillMovingM = wantAsideM - drive.HeldAsideM;
+    wantedAsideM = wantAsideM;
+    roomHereM = roomM;
   }
   const double brakingM = speedMs * speedMs / (2.0 * stood.Envelope.BrakeMs2());
   double wantedMs = profile.At(at.AlongM);
@@ -151,9 +154,9 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
     // entry is where the car first spent half the room its lane leaves it, and what the road
     // was doing there is the thing worth reading.
     if (out.StrayedAtM <= 0.0) {
-      const size_t post = (size_t)(at.AlongM / spanM);
+      const size_t here = (size_t)(at.AlongM / fineM);
       const double halfRoomM =
-          laneHalfM[post < laneHalfM.size() ? post : laneHalfM.size() - 1] -
+          laneHalfM[here < laneHalfM.size() ? here : laneHalfM.size() - 1] -
           0.5 * drive.CarWidthM;
       if (halfRoomM > 0.0 && std::fabs(inLaneM) > 0.5 * halfRoomM) {
         out.StrayedAtM = at.AlongM;
@@ -195,8 +198,8 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
     out.LeftPlannedMs = profile.At(at.AlongM);
     out.LeftCurvature = at.CurvaturePerM;
     out.LeftRate = at.CurvatureRatePerM;
-    const size_t post = (size_t)(at.AlongM / spanM);
-    out.LeftLaneM = 2.0 * laneHalfM[post < laneHalfM.size() ? post : laneHalfM.size() - 1];
+    const size_t lane = (size_t)(at.AlongM / fineM);
+    out.LeftLaneM = 2.0 * laneHalfM[lane < laneHalfM.size() ? lane : laneHalfM.size() - 1];
     const size_t fine = (size_t)(at.AlongM / fineM);
     out.LeftEdgeM = fineEdge[fine < fineEdge.size() ? fine : fineEdge.size() - 1];
     out.LeftAsideM = reins.AsideM;
@@ -210,6 +213,10 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
       if (slip > into) { into = slip; }
     }
     out.LeftAimStillMovingM = aimStillMovingM;
+    out.LeftWantAsideM = wantedAsideM;
+    out.LeftRoomM = roomHereM;
+    out.LeftHalfWidthM = fineEdge[(size_t)(at.AlongM / fineM) < fineEdge.size()
+                                     ? (size_t)(at.AlongM / fineM) : fineEdge.size() - 1];
     out.LeftHeadingErrorRad = at.HeadingErrorRad;
     out.LeftBankRad = at.BankRad;
     out.LeftSlope = at.SlopeAt;

@@ -229,6 +229,29 @@ int main(void) {
          rode.StrayedHeadingErrorRad * 180.0 / std::numbers::pi, "deg");
     Note("the heading error where it crossed",
          rode.LeftHeadingErrorRad * 180.0 / std::numbers::pi, "deg");
+    Note("what the corridor wanted the aim to be", rode.LeftWantAsideM, "m");
+    Note("the room the clamp allowed", rode.LeftRoomM, "m");
+    Note("the corridor's half width there", rode.LeftHalfWidthM, "m");
+    Note("the lane centre that half width and 2 lanes imply", -0.5 * rode.LeftHalfWidthM, "m");
+    {
+      const double fineM = drive.Way.FineM, spanM = drive.Way.SpanM;
+      const size_t fine = (size_t)(rode.LeftTheRoadAtM / fineM);
+      const size_t post = (size_t)(rode.LeftTheRoadAtM / spanM);
+      Note("the fine step", fineM, "m");
+      Note("the coarse step", spanM, "m");
+      Note("fine index", (double)fine, "");
+      Note("coarse index", (double)post, "");
+      if (fine < drive.Way.FineAside.size()) {
+        Note("FineAside there", drive.Way.FineAside[fine], "m");
+        Note("FineLaneHalfM there", drive.Way.FineLaneHalfM[fine], "m");
+        Note("FineEdge there", drive.Way.FineEdge[fine], "m");
+      }
+      if (post < drive.Way.AsideM.size()) {
+        Note("AsideM at the coarse post", drive.Way.AsideM[post], "m");
+        Note("LaneHalfM at the coarse post", drive.Way.LaneHalfM[post], "m");
+        Note("HalfWidthM at the coarse post", drive.Way.HalfWidthM[post], "m");
+      }
+    }
     Note("the slip at which this tyre reaches peak force",
          0.95 * (drive.Car.MassKg * 9.80665 / 4.0) / 55000.0 * 180.0 / std::numbers::pi, "deg");
   }
