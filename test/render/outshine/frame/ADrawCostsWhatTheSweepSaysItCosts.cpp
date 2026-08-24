@@ -18,14 +18,15 @@ namespace {
 constexpr int kFrameWidthPx = 1280;
 constexpr int kFrameHeightPx = 720;
 constexpr double kFrameBudgetMs = 1000.0 / 60.0;
-constexpr int kWarmFrames = 8;
-constexpr int kTimedFrames = 40;
-constexpr uint32_t kDraws[] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096};
+constexpr int kWarmFrames = 24;
+constexpr int kTimedFrames = 160;
+constexpr uint32_t kDraws[] = {1,    2,    4,    8,     16,    32,    64,   128,
+                               256,  512,  1024, 2048,  4096,  8192,  12288, 16384};
 constexpr size_t kSteps = sizeof(kDraws) / sizeof(kDraws[0]);
 
-constexpr float kSpanM = 0.35f;
+constexpr float kSpanM = 4.0f;
 constexpr double kAcrossM = 0.8;
-constexpr double kBackM = 45.0;
+constexpr double kBackM = 20.0;
 
 struct Timed {
   double P50Ms = 0.0;
@@ -65,7 +66,7 @@ void PlaceOnAGrid(uint32_t draws, std::vector<double> &into) {
     model[0] = model[5] = model[10] = model[15] = 1.0;
     const double column = (double)(at % across) - 0.5 * (double)(across - 1u);
     const double row = (double)(at / across) - 0.5 * (double)(across - 1u);
-    model[12] = outshine::Data::kWgs84A;
+    model[12] = 0.0;
     model[13] = column * kAcrossM;
     model[14] = row * kAcrossM;
   }
@@ -110,7 +111,8 @@ int main(void) {
   if (!renderer.DeviceUsable()) { return Report(); }
 
   const float verts[9] = {0.0f, -kSpanM, -kSpanM, 0.0f, kSpanM, -kSpanM, 0.0f, 0.0f, kSpanM};
-  const uint32_t indices[6] = {0, 1, 2, 2, 1, 0};
+  const float emitted[9] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+  std::vector<uint32_t> indices;
 
   outshine::Render::SubjectMaterial surface;
   surface.Row.BaseColour[0] = surface.Row.BaseColour[1] = surface.Row.BaseColour[2] = 0.5f;
@@ -164,7 +166,7 @@ int main(void) {
       item.Order.DepthFraction = 0.5f;
       item.Order.MaterialSlot = 0;
       item.ModelSlot = at;
-      item.SourceFirstIndex = 0;
+      item.SourceFirstIndex = at * 6u;
       item.IndexCount = 6;
       item.Layout = layout;
       if (!list.Add(item, error)) {
@@ -175,13 +177,20 @@ int main(void) {
     if (!everyStepRendered) { break; }
     list.Compile();
 
+    indices.clear();
+    indices.reserve((size_t)draws * 6u);
+    for (uint32_t at = 0; at < draws; ++at) {
+      for (const uint32_t which : {0u, 1u, 2u, 2u, 1u, 0u}) { indices.push_back(which); }
+    }
+
     PlaceOnAGrid(draws, placements);
 
     outshine::Render::SubjectMesh mesh;
     mesh.Verts = verts;
+    mesh.Emitted = emitted;
     mesh.VertexCount = 3;
-    mesh.Indices = indices;
-    mesh.IndexCount = 6;
+    mesh.Indices = indices.data();
+    mesh.IndexCount = (uint32_t)indices.size();
     mesh.Draws = &list;
     mesh.Anchor[0] = outshine::Data::kWgs84A;
     mesh.PrevAnchor[0] = outshine::Data::kWgs84A;
@@ -195,7 +204,17 @@ int main(void) {
     renderer.BeginTemporalRun();
     for (int warm = 0; warm < kWarmFrames; ++warm) { renderer.RenderFrame(); }
     if (step == 0) {
-      std::printf("WHYNOT after the first step: '%s'\n", renderer.WhyNot().c_str());
+      std::vector<float> linear;
+      const bool readLinear =
+          renderer.ReadSceneLinear(linear) == outshine::Render::ReadState::Ready;
+      size_t lit = 0;
+      for (size_t at = 0; readLinear && at + 3 < linear.size(); at += 4) {
+        lit += linear[at] > 0.0f || linear[at + 1] > 0.0f || linear[at + 2] > 0.0f ? 1u : 0u;
+      }
+      std::printf("SEEN batches=%u draws=%u  depth=%zu px  linear=%zu px (read %d)  WHYNOT='%s'\n",
+                  renderer.SubjectBatchCount(), renderer.SubjectDrawCount(),
+                  CoveredPixels(renderer, depth), lit, (int)readLinear,
+                  renderer.WhyNot().c_str());
     }
     renderer.WaitForGpu();
 
@@ -221,34 +240,63 @@ int main(void) {
         "prefix of one");
   if (!everyStepRendered) { return Report(); }
 
-  double sumX = 0.0, sumY = 0.0, sumXX = 0.0, sumXY = 0.0;
-  for (size_t step = 0; step < kSteps; ++step) {
-    const double x = (double)kDraws[step];
-    const double y = measured[step].P50Ms;
-    sumX += x;
-    sumY += y;
-    sumXX += x * x;
-    sumXY += x * y;
+  // The frame's cost is submission AND fill, and the sweep grows both until the grid covers the
+  // screen. A slope taken over the whole sweep is therefore a slope through a moving fill, which
+  // is not what board:1538 asked for. The per-draw term is read where the covered pixel count
+  // has STOPPED moving: there the only thing that changed is how many draws carried it.
+  size_t saturatedFrom = kSteps;
+  for (size_t step = 1; step < kSteps; ++step) {
+    if (measured[step].CoveredPx == measured[step - 1].CoveredPx) {
+      saturatedFrom = step - 1;
+      break;
+    }
   }
-  const double n = (double)kSteps;
-  const double slopeMsPerDraw = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-  const double interceptMs = (sumY - slopeMsPerDraw * sumX) / n;
-  const double perDrawUs = slopeMsPerDraw * 1000.0;
-  const double drawsInABudget =
-      slopeMsPerDraw > 0.0 ? (kFrameBudgetMs - interceptMs) / slopeMsPerDraw : 0.0;
+  const bool sawSaturation = saturatedFrom + 1 < kSteps;
+  double perDrawUs = 0.0;
+  double drawsInABudget = 0.0;
+  double atSaturationMs = 0.0;
+  if (sawSaturation) {
+    // a least-squares slope over EVERY saturated step, not a difference of two: run-to-run
+    // spread on this device is of the same order as the effect between two neighbours
+    double sumX = 0.0, sumY = 0.0, sumXX = 0.0, sumXY = 0.0, points = 0.0;
+    for (size_t step = saturatedFrom; step < kSteps; ++step) {
+      const double x = (double)kDraws[step];
+      const double y = measured[step].P50Ms;
+      sumX += x;
+      sumY += y;
+      sumXX += x * x;
+      sumXY += x * y;
+      points += 1.0;
+    }
+    const double slopeMsPerDraw =
+        points * sumXX - sumX * sumX > 0.0
+            ? (points * sumXY - sumX * sumY) / (points * sumXX - sumX * sumX)
+            : 0.0;
+    perDrawUs = slopeMsPerDraw * 1000.0;
+    Note("saturated steps the slope stands on", points, "steps");
+    const size_t from = saturatedFrom;
+    atSaturationMs = measured[from].P50Ms;
+    drawsInABudget = perDrawUs > 0.0
+                         ? (double)kDraws[from] + (kFrameBudgetMs - atSaturationMs) * 1000.0 / perDrawUs
+                         : 0.0;
+    Note("the draw count the picture stops growing at", (double)kDraws[from], "draws");
+    Note("what the frame costs there", atSaturationMs, "ms");
+  }
 
   Note("what a draw costs on this device", perDrawUs, "us");
-  Note("what a frame costs before the first draw", interceptMs, "ms");
   Note("draws whose SUBMISSION alone spends the frame budget", drawsInABudget, "draws");
   Note("the budget that is measured against", kFrameBudgetMs, "ms");
   Note("p50 at one draw", measured[0].P50Ms, "ms");
   Note("p50 at the sweep's end", measured[kSteps - 1].P50Ms, "ms");
   Note("p99 at the sweep's end", measured[kSteps - 1].P99Ms, "ms");
   Note("how many draws that end is", (double)kDraws[kSteps - 1], "draws");
-
   Note("pixels one draw lights", (double)measured[0].CoveredPx, "px");
   Note("pixels the sweep's end lights", (double)measured[kSteps - 1].CoveredPx, "px");
 
+  CHECK(sawSaturation,
+        "**AND THE SWEEP REACHED A DRAW COUNT WHERE THE PICTURE STOPS GROWING**, which is the "
+        "only place a per-draw cost can be read: below it, a longer frame is partly more "
+        "pixels");
   CHECK(measured[kSteps - 1].CoveredPx > measured[0].CoveredPx,
         "**AND EVERY DRAW OF THE SWEEP REACHED THE PICTURE**: a timing sweep whose draws are "
         "discarded before rasterisation measures the discard and not the draw, so the lit "

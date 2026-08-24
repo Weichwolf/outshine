@@ -450,10 +450,30 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
     PrevAnchor[axis] = mesh.PrevAnchor[axis];
   }
   for (int part = 0; part < 16; part++) { Model[part] = mesh.Model[part]; }
-  if (Resident_.NVerts == 0 || Resident_.NIdx == 0 || !Device || !mesh.Emitted || !mesh.Verts || !mesh.Indices ||
-      !mesh.Draws) {
+  if (Resident_.NVerts == 0 || Resident_.NIdx == 0) {
     Resident_.NIdx = 0;
     return true;
+  }
+  if (!Device) {
+    Resident_.NIdx = 0;
+    error = "the subject stage carries no device, so a mesh of " +
+            std::to_string(Resident_.NVerts) + " vertices has nowhere to become resident";
+    return false;
+  }
+  {
+    const char *missing = nullptr;
+    if (!mesh.Verts) { missing = "a position run"; }
+    else if (!mesh.Indices) { missing = "an index run"; }
+    else if (!mesh.Draws) { missing = "a draw list"; }
+    else if (!mesh.Emitted) { missing = "an emitted-radiance run"; }
+    if (missing != nullptr) {
+      Resident_.NIdx = 0;
+      error = std::string("the mesh declares ") + std::to_string(Resident_.NVerts) +
+              " vertices and " + std::to_string(Resident_.NIdx) + " indices but carries no " +
+              missing + " -- a declaration that names geometry it does not hand over draws "
+              "nothing, and drawing nothing is not what it asked for";
+      return false;
+    }
   }
 
   if (mesh.PrevVerts != nullptr && !WritesVelocity) {
