@@ -75,8 +75,6 @@ bool Straight(Corridor &way, const Rigged &stood, double edgeM, std::string &err
   if (!way.Line.Lay(Placed{}, {{Curve::Straight, kRoadM, 0.0, 0.0}}, error)) { return false; }
   if (!way.Profile.Over(way.Line, stood.Envelope, 0.5, kJoinMs, error)) { return false; }
   way.SpanM = 25.0;
-  const size_t posts = (size_t)(kRoadM / way.SpanM) + 2u;
-  way.LaneHalfM.assign(posts, kLaneHalfM);
   way.Bake(kRoadM);
   for (auto &station : way.Fine) {
     station.EdgeM = edgeM;

@@ -473,11 +473,7 @@ int main(void) {
         Note("the half lane there", drive.Way.Fine[fine].LaneHalfM, "m");
         Note("the edge there", drive.Way.Fine[fine].EdgeM, "m");
       }
-      if (post < drive.Way.AsideM.size()) {
-        Note("AsideM at the coarse post", drive.Way.AsideM[post], "m");
-        Note("LaneHalfM at the coarse post", drive.Way.LaneHalfM[post], "m");
-        Note("HalfWidthM at the coarse post", drive.Way.HalfWidthM[post], "m");
-      }
+
     }
     Note("the slip at which this tyre reaches peak force",
          0.95 * (drive.Car.MassKg * 9.80665 / 4.0) / 55000.0 * 180.0 / std::numbers::pi, "deg");

@@ -2,6 +2,7 @@
 #define OUTSHINE_SIM_CORRIDORLAY_H
 
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include <outshine/Scenario.h>
@@ -24,6 +25,10 @@ struct Station {
   double LaneHalfM = 0.0;
 };
 
+static_assert(sizeof(Station) == 24, "a station is three doubles and nothing beside them");
+static_assert(std::is_trivially_copyable_v<Station>,
+              "a station is copied by the byte on the frame path");
+
 struct Laying {
   long Resolved = 0;
   long Holes = 0;
@@ -39,7 +44,6 @@ struct Corridor {
   ReferenceLine Line;
   outshine::Fitted Fitted;
   SpeedProfile Profile;
-  std::vector<double> RoadM, HalfWidthM, LaneHalfM, AsideM;
   std::vector<Station> Fine;
   double FineM = 2.0;
   double SpanM = 0.0;

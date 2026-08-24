@@ -66,7 +66,6 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
 
   auto &corridor = out.Way.Line;
   auto &stood = out.Stood;
-  auto &asideM = out.Way.AsideM;
 
   const double straightM = ApartM(fromLatDeg, fromLonDeg, toLatDeg, toLonDeg, world.RadiusM);
   const double middleLat = 0.5 * (fromLatDeg + toLatDeg);
@@ -258,7 +257,7 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   }
   const outshine::Standing under0 =
       outshine::Stand(corridor, start.EastM, start.NorthM, 0.0, 0.0, 50.0);
-  const double startAsideM = asideM.empty() ? 0.0 : asideM.front();
+  const double startAsideM = out.Way.Laid() ? out.Way.At(0.0).AsideM : 0.0;
   say.Number("the fastest the car may move between lane centres",
        out.Way.AsideRatePerM * 1000.0,
        "mm per metre");

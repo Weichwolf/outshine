@@ -26,10 +26,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   auto &corridor = out.Line;
   auto &fitted = out.Fitted;
   auto &profile = out.Profile;
-  auto &roadM = out.RoadM;
-  auto &halfWidthM = out.HalfWidthM;
-  auto &laneHalfM = out.LaneHalfM;
-  auto &asideM = out.AsideM;
+  std::vector<double> roadM, halfWidthM, laneHalfM, asideM;
   auto &stations = out.Fine;
   const double fineM = out.FineM;
   auto &spanM = out.SpanM;
