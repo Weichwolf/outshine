@@ -44,9 +44,35 @@ That is why it survived `board:1654`'s round.
 
 ## What will be true
 
-- [ ] The comment walk grants the same exemption the board-number walk does, so the rule the
+- [x] The comment walk grants the same exemption the board-number walk does, so the rule the
       file states is the rule the gate enforces.
-- [ ] A library source under `tools/` -- one with no `Covers(` -- that carries a comment is
+- [x] A library source under `tools/` -- one with no `Covers(` -- that carries a comment is
       still a defect, named.
-- [ ] Proving test: the claim itself. Negative control: a comment put into
+- [x] Proving test: the claim itself. Negative control: a comment put into
       `tools/viewer/parts/Chrome.cpp`, which carries no `Covers(` -> red, named at its line.
+
+## Comments
+
+- 2026-08-24 -- repaid. The comment walk grants the exemption the board-number walk beside it
+  already granted, so the rule the file states is the rule the gate enforces.
+- **The needle carries the quote.** `Covers("` and not `Covers(`. The first negative control
+  for this repair put the line
+
+  ```
+  // a comment in a library source under tools that carries no Covers(
+  ```
+
+  into `tools/viewer/parts/Chrome.cpp` -- and the claim stayed green, because the comment
+  spelled the word that exempts the file. A narration line must not be able to exempt the file
+  that carries it. Both walks take the quoted form now.
+- **Negative control**, run with the tightened needle: a plain narration line in
+  `tools/viewer/parts/Chrome.cpp`, which carries no `Covers("` ->
+
+  ```
+  FOUND tools/viewer/parts/Chrome.cpp:302 narrates
+  25 tests: 24 PASS  1 FAIL
+  ```
+- Owner directive the same session: `CLAUDE.md` may not name a specific client. The rule is
+  stated generally there now -- a proof is any source carrying `Covers("`, wherever it lives --
+  and the sentence that named a client directory is gone, along with three other mentions.
+- Gate 240/240, 81 643 ms of run.

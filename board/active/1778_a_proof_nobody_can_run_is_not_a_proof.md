@@ -50,3 +50,54 @@ simply UNREACHABLE, and the third reads like the first.
 - The partial run is not worthless: at 112.200 km the worst frame was **18.375 ms, steady**
   -- not a relay, so not corridor-laying. That is a real attribution of a real outlier, and it
   came from 560 s rather than 3 800.
+
+## Repaid (2026-08-24)
+
+**The runner hands the case its budget** (`test/run.sh`, `export OUTSHINE_TIMEOUT_S`), and the
+case spends half of it driving and reports. Half is the margin: the drive has to finish AND
+publish inside the budget, and half leaves the report as much room as the drive took.
+
+```
+NOTE the route the scenario asks for                = 753.617 km
+NOTE the wall clock the runner allows this case     = 120 s
+NOTE of it this drive spends before it reports      =  60 s
+SPENT the budget at 10.6 km of 753.6 after 60.0 s, frame 21603
+NOTE what the whole route would cost at that rate   = 4276.479 s
+NOTE in minutes                                     =   71.275 min
+NOTE the whole route needs --timeout 8565; this arm drove 10.6 km of 753.6 and says so
+```
+
+**71.3 minutes, measured rather than estimated**, and the flag that buys it printed in the log.
+That answers point 1 in the only honest way available: a projection needs a rate, a rate needs
+a drive, and the drive publishes both.
+
+**What it did not judge, it names.** Three claims are properties of the whole route -- the
+handover at its middle third, arrival, and p99 over all of it. A bounded arm has reached none
+of them. Asserting them anyway makes the arm red for what it never attempted; skipping them
+silently is the defect `board:1765` exists against. So:
+
+```
+NOT JUDGED the handover at the route's middle third -- the drive stopped at 10.6 km of 753.6
+NOT JUDGED arrival at Rathausmarkt -- same reason
+NOT JUDGED p99 over the WHOLE route; what follows is p99 over 10.6 km of it
+```
+
+Point 3 was already paid before this round: `test/run.sh:1309` prints **MEASURED NOTHING** for
+every case the timeout killed.
+
+## What the budget arm immediately found
+
+Two things nobody had seen, because nobody had ever seen this case reach its own report:
+
+- **board:1800**: the case asserts a MAXIMUM frame time against a budget `CLAUDE.md` declares
+  as p50/p95/p99. Measured: p50 1.725, p95 2.705, p99 4.075, worst single frame **16.698 ms**
+  at 1.401 km -- 0.19 % over, once in 21 603 frames.
+- The scenario's own asset had no owner in the rebuild of `board:1797`:
+  `tools-driver-f31` is placed by `prepare.py scenario-assets`, not by a manifest. `RebuildOwner`
+  falls back to that subcommand when no manifest owns a prepared directory, and the log line it
+  reads had its path in the middle of a sentence rather than at the front -- both fixed here.
+
+- **Proving test**: the case itself, `tools/driver/window/AWindowShowsTheRoadTheCarIsDriving`,
+  which now finishes and reports inside the runner's default 120 s.
+- **Negative control**, run: `OUTSHINE_TIMEOUT_S` unset -> `budgetS` is 0, the loop runs to the
+  frame cap, and the case is killed with no report -- the state this item was filed against.

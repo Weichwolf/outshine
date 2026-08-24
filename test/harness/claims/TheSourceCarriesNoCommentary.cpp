@@ -79,7 +79,14 @@ int main(void) {
       const std::string suffix = entry.path().extension().string();
       if (suffix != ".cpp" && suffix != ".h" && suffix != ".msl") { continue; }
       ++walked;
-      const int line = CommentLine(Slurp(entry.path()));
+      const std::string source = Slurp(entry.path());
+      // board:1801: the same exemption the board-number walk below grants. CLAUDE.md states
+      // one rule for both halves -- a proof is any source carrying Covers(", wherever it
+      // lives, and every source that does not is bound. The quote is part of the needle: a
+      // narration line that merely spells the word must not exempt the file that carries it,
+      // which is how the first negative control for this repair exempted itself.
+      if (source.find("Covers(\"") != std::string::npos) { continue; }
+      const int line = CommentLine(source);
       if (line > 0) {
         narrating.push_back(entry.path().string() + ":" + std::to_string(line));
       }
@@ -128,9 +135,9 @@ int main(void) {
   // it. A work item's number lives in the board and in the commit, never in the source, and
   // that holds for the text inside a literal as much as for a line above a function.
   // the walk covers all three roots its Covers names. A PROOF may cite the item it proves,
-  // wherever it lives -- and a proof is a source carrying Covers(, which is why the driver
-  // cases under tools/ are exempt and the library sources beside them are not. Nine live
-  // citations stood in tools/driver while this walk read two roots and claimed three.
+  // wherever it lives -- and a proof is any source carrying Covers(", while every source that
+  // does not is bound. Nine live citations stood under tools/ while this walk read two roots
+  // and claimed three.
   std::vector<std::string> numbered;
   for (const char *root : {"src", "include", "tools"}) {
     for (const auto &entry : std::filesystem::recursive_directory_iterator(root)) {
@@ -138,7 +145,7 @@ int main(void) {
       const std::string suffix = entry.path().extension().string();
       if (suffix != ".cpp" && suffix != ".h" && suffix != ".msl") { continue; }
       const std::string text = Slurp(entry.path());
-      if (text.find("Covers(") != std::string::npos) { continue; }
+      if (text.find("Covers(\"") != std::string::npos) { continue; }
       for (size_t at = text.find("board:"); at != std::string::npos;
            at = text.find("board:", at + 1)) {
         size_t line = 1;

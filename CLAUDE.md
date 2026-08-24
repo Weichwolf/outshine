@@ -12,10 +12,10 @@ camera, never a mean.
 - **Every number carries its origin** (derived · measured · `[SET]`) with unit and population; no magic numbers; calibration measures, never decides
 - **The code carries NO comments** — `src/`, `include/`, `tools/` hold no `//`, no block, no
   TODO, no derivation, no board number: names and structure carry the meaning, a number's
-  origin lives in its board item and its commit, and `test/` is the one place prose may stand
-  because a proof explains what it proves -- and a proof is a source that carries `Covers(`,
-  wherever it lives, so the driver cases under `tools/` are proofs and the library sources
-  beside them are not; work items live in `board/`, code never names them
+  origin lives in its board item and its commit, and prose may stand in a PROOF because a proof
+  explains what it proves -- a proof being any source that carries `Covers("`, wherever it
+  lives, and every source that does not being bound; work items live in `board/`, code never
+  names them
 - **Cycles is the oracle** for correctness; references are for ambition; the corpus is a driver, not a certificate
 - **One world space**; a failure is loud; something is always drawn; delete on the day you replace
 - Artefacts go to the system temp dir, never the tree; `git log` is what was — no journal
@@ -290,7 +290,7 @@ flowchart TD
   SceneStore --> SimD["Sim — owns the drive: corridor · speed plan · pilot"]
   SimD --> Pathfinding["Pathfinding tool — walk · drive · fly · rail"]
   SimD --> Physics["Rig · Body · Contact — forces at the patch"]
-  SimD --> Compositors["Compositors — terrain · ring · cut-fill placement, leaving the stills driver"]
+  SimD --> Compositors["Compositors — terrain · ring · cut-fill placement"]
   Compositors --> DrawList --> Registry["stage registry — the executor table"]
   Registry --> Stages["stages: source · residency · encode split"]
   Stages --> Frame(["720p60"])
@@ -405,8 +405,8 @@ flowchart TD
   q -->|floor broke / drifted| c["render/outshine/scenario — p50/p95/p99 · determinism · memory"]
 ```
 
-The unit mirror is the REGRESSION GATE and it is fast; the long driver suites are the sporadic
-full proof, run when named, never per edit. `test/run.sh` is the only runner (one process per test, real verdict, includes per layer = the
+The unit mirror is the REGRESSION GATE and it is fast; the long device and corpus suites are the
+sporadic full proof, run when named, never per edit. `test/run.sh` is the only runner (one process per test, real verdict, includes per layer = the
 build's own sets). `tools/` builds ON the library, runs only by name. Oracle pipeline:
 fetch → generate → patch (both sides) → convert → Cycles → compare (perceptual tail / geometric
 bound, 0.005 px floor); **criteria met** and **cases within bound** published side by side.
@@ -454,7 +454,7 @@ ls board/*/ | grep -o '^[0-9]\{4\}' | sort -n | tail -1   # next id, derived
 |---|---|
 | `src/` | the library entire; `src/assets/` its declared data; no entry point, no test |
 | `test/` | `test/unit/` (mirror), `test/render/` (per vendor), `test/harness/` (scorers + `test/harness/claims/`) |
-| `tools/` | `tools/driver/` (the test-drive game: worldwide A→B, FPV-first, declarative), `tools/viewer/`, `tools/host/` |
+| `tools/` | clients built ON the library, each its own directory; they run by name and the engine knows none of them |
 | `Makefile` | build · test · clean, nothing else |
 | `board/` | the working system (above) |
 
