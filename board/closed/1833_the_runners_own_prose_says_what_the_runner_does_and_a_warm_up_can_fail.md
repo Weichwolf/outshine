@@ -72,3 +72,30 @@ test/harness/claims/EveryDeclaredSuiteResolvesItsOwnSymbols.warms:1   sh test/ru
 - [ ] Proving test: `test/harness/claims/` gains a case that runs `run.sh` over a fixture whose
       `.warms` exits non-zero and asserts a non-zero exit naming the case. Negative control:
       `|| true` restored -> green, which is today's behaviour.
+
+**Closed.** Both halves.
+
+The comment at `test/run.sh:34-37` states what the code does: behaving AS DECLARED -- failing
+exactly the stated number of claims -- turns the verdict PASS and counts toward `inverted`;
+behaving otherwise, including going fully green, prints to stderr and turns the verdict FAIL.
+The trailer says the same rather than reading as an alarm:
+
+```
+declared to fail and did, so the verdict stands inverted: harness/claims/ExpectFail:1 ...
+```
+
+`|| true` is gone from the warm-up loop. A warm-up that fails records its case as BUILD and
+names it, which is the only honest verdict: the case would otherwise run without the thing it
+declares it needs.
+
+Proving test: the runner itself. Negative control, run: the `.warms` file for
+`EveryDeclaredSuiteResolvesItsOwnSymbols` replaced with `false` ->
+
+```
+run.sh: harness/claims/EveryDeclaredSuiteResolvesItsOwnSymbols declares a warm-up that did not
+        succeed, so the case would have run without what it names
+BUILD   harness/claims/EveryDeclaredSuiteResolvesItsOwnSymbols   4 ms
+28 tests: 27 PASS  0 FAIL  0 TIMEOUT  0 SIGNAL  1 BUILD
+```
+
+Reverted. Before this commit the same file produced a silent pass.
