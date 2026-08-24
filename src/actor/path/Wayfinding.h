@@ -62,6 +62,8 @@ public:
   };
 
   [[nodiscard]] size_t Crossings(std::vector<Crossing> &into) const;
+
+  [[nodiscard]] size_t PairsTested() const { return PairsTested_; }
   [[nodiscard]] double SnapM() const { return SnapM_; }
 
   [[nodiscard]] size_t PointStreamBytes() const {
@@ -115,6 +117,7 @@ private:
   [[nodiscard]] static int64_t KeyAt(int64_t row, int64_t column);
   [[nodiscard]] int64_t CellOf(double latDeg, double lonDeg) const;
 
+  mutable size_t PairsTested_ = 0;
   double SnapM_ = 0.0;
   double RadiusM_ = 0.0;
   std::vector<double> Points_;

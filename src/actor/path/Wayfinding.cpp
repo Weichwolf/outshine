@@ -267,43 +267,106 @@ namespace {
 
 size_t Network::Crossings(std::vector<Crossing> &into) const {
   into.clear();
-  if (Ways_.size() < 2) { return 0; }
+  PairsTested_ = 0;
+  const size_t points = Points_.size() / 2;
+  if (Ways_.size() < 2 || points < 4) { return 0; }
 
-  std::vector<size_t> order(Ways_.size());
-  for (size_t at = 0; at < order.size(); ++at) { order[at] = at; }
-  std::sort(order.begin(), order.end(), [this](size_t a, size_t b) {
-    return Ways_[a].MinLat < Ways_[b].MinLat;
-  });
+  const double aboutLon = Points_[1];
+  std::vector<double> lon(points, 0.0);
+  double westLon = 1.0e9, eastLon = -1.0e9, southLat = 1.0e9, northLat = -1.0e9;
+  for (size_t at = 0; at < points; ++at) {
+    double away = Points_[2 * at + 1] - aboutLon;
+    while (away > 180.0) { away -= 360.0; }
+    while (away < -180.0) { away += 360.0; }
+    lon[at] = aboutLon + away;
+    westLon = lon[at] < westLon ? lon[at] : westLon;
+    eastLon = lon[at] > eastLon ? lon[at] : eastLon;
+    const double lat = Points_[2 * at];
+    southLat = lat < southLat ? lat : southLat;
+    northLat = lat > northLat ? lat : northLat;
+  }
 
-  std::vector<size_t> live;
-  for (const size_t which : order) {
-    const Way &mine = Ways_[which];
-    size_t kept = 0;
-    for (size_t at = 0; at < live.size(); ++at) {
-      if (Ways_[live[at]].MaxLat >= mine.MinLat) { live[kept++] = live[at]; }
+  size_t segments = 0;
+  for (const Way &way : Ways_) { segments += way.Count > 1 ? way.Count - 1 : 0; }
+  if (segments < 2) { return 0; }
+
+  const double spanLon = eastLon - westLon, spanLat = northLat - southLat;
+  const double cellDeg =
+      std::sqrt(std::fmax(spanLon * spanLat, 1.0e-12) / (double)segments) * 2.0;
+  const size_t across = (size_t)(spanLon / cellDeg) + 1u;
+  const size_t down = (size_t)(spanLat / cellDeg) + 1u;
+  const size_t cells = across * down;
+
+  std::vector<uint32_t> holds(cells + 1u, 0);
+  std::vector<uint32_t> segWay(segments, 0), segAt(segments, 0);
+  size_t made = 0;
+  for (size_t which = 0; which < Ways_.size(); ++which) {
+    const Way &way = Ways_[which];
+    for (size_t a = 0; a + 1 < way.Count; ++a) {
+      segWay[made] = (uint32_t)which;
+      segAt[made] = (uint32_t)(way.First + a);
+      ++made;
     }
-    live.resize(kept);
+  }
 
-    for (const size_t other : live) {
-      const Way &theirs = Ways_[other];
-      if (theirs.MaxLon < mine.MinLon || theirs.MinLon > mine.MaxLon) { continue; }
-      for (size_t a = 0; a + 1 < mine.Count; ++a) {
-        const double ax = Points_[2 * (mine.First + a) + 1];
-        const double ay = Points_[2 * (mine.First + a)];
-        const double bx = Points_[2 * (mine.First + a + 1) + 1];
-        const double by = Points_[2 * (mine.First + a + 1)];
-        for (size_t b = 0; b + 1 < theirs.Count; ++b) {
-          const double cx = Points_[2 * (theirs.First + b) + 1];
-          const double cy = Points_[2 * (theirs.First + b)];
-          const double dx = Points_[2 * (theirs.First + b + 1) + 1];
-          const double dy = Points_[2 * (theirs.First + b + 1)];
-          double atX = 0.0, atY = 0.0;
-          if (!SegmentsMeet(ax, ay, bx, by, cx, cy, dx, dy, &atX, &atY)) { continue; }
-          into.push_back(Crossing{(uint32_t)which, (uint32_t)other, atY, atX});
-        }
+  auto cellOf = [&](double atLon, double atLat) {
+    size_t x = (size_t)((atLon - westLon) / cellDeg);
+    size_t y = (size_t)((atLat - southLat) / cellDeg);
+    x = x < across ? x : across - 1u;
+    y = y < down ? y : down - 1u;
+    return y * across + x;
+  };
+
+  for (size_t seg = 0; seg < segments; ++seg) {
+    const size_t first = segAt[seg];
+    const double lo = std::fmin(lon[first], lon[first + 1]);
+    const double hi = std::fmax(lon[first], lon[first + 1]);
+    const double bottom = std::fmin(Points_[2 * first], Points_[2 * first + 2]);
+    const double top = std::fmax(Points_[2 * first], Points_[2 * first + 2]);
+    const size_t from = cellOf(lo, bottom), to = cellOf(hi, top);
+    for (size_t y = from / across; y <= to / across; ++y) {
+      for (size_t x = from % across; x <= to % across; ++x) { ++holds[y * across + x + 1u]; }
+    }
+  }
+  for (size_t cell = 0; cell < cells; ++cell) { holds[cell + 1u] += holds[cell]; }
+  std::vector<uint32_t> filled(holds.begin(), holds.end() - 1);
+  std::vector<uint32_t> inCell(holds[cells], 0);
+  for (size_t seg = 0; seg < segments; ++seg) {
+    const size_t first = segAt[seg];
+    const double lo = std::fmin(lon[first], lon[first + 1]);
+    const double hi = std::fmax(lon[first], lon[first + 1]);
+    const double bottom = std::fmin(Points_[2 * first], Points_[2 * first + 2]);
+    const double top = std::fmax(Points_[2 * first], Points_[2 * first + 2]);
+    const size_t from = cellOf(lo, bottom), to = cellOf(hi, top);
+    for (size_t y = from / across; y <= to / across; ++y) {
+      for (size_t x = from % across; x <= to % across; ++x) {
+        inCell[filled[y * across + x]++] = (uint32_t)seg;
       }
     }
-    live.push_back(which);
+  }
+
+  for (size_t cell = 0; cell < cells; ++cell) {
+    const uint32_t begins = holds[cell], ends = holds[cell + 1u];
+    for (uint32_t one = begins; one + 1u < ends; ++one) {
+      const size_t mine = inCell[one], firstA = segAt[mine];
+      const double ax = lon[firstA], ay = Points_[2 * firstA];
+      const double bx = lon[firstA + 1], by = Points_[2 * firstA + 2];
+      for (uint32_t two = one + 1u; two < ends; ++two) {
+        const size_t theirs = inCell[two];
+        if (segWay[mine] == segWay[theirs]) { continue; }
+        ++PairsTested_;
+        const size_t firstB = segAt[theirs];
+        const double cx = lon[firstB], cy = Points_[2 * firstB];
+        const double dx = lon[firstB + 1], dy = Points_[2 * firstB + 2];
+        double atX = 0.0, atY = 0.0;
+        if (!SegmentsMeet(ax, ay, bx, by, cx, cy, dx, dy, &atX, &atY)) { continue; }
+        if (cellOf(atX, atY) != cell) { continue; }
+        double back = atX;
+        while (back > 180.0) { back -= 360.0; }
+        while (back < -180.0) { back += 360.0; }
+        into.push_back(Crossing{(uint32_t)segWay[mine], (uint32_t)segWay[theirs], atY, back});
+      }
+    }
   }
   return into.size();
 }

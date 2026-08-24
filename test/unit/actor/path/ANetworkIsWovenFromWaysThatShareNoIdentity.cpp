@@ -266,6 +266,75 @@ int main(void) {
           "rather than counting pairs");
   }
 
+  // board:1822: the sweep pruned by WAY bounding box in raw degrees. A way stepping from
+  // 179.99 to -179.99 gets a box spanning the whole planet, so it is a candidate against every
+  // way there is and the segment carrying the seam is a 360-degree chord that meets most of
+  // them -- while two ways that genuinely cross AT the seam are missed for the same reason.
+  {
+    Network seam(kSnapM, kIuggMeanRadiusM);
+    const double eastWest[4] = {51.0, 179.99, 51.0, -179.99};
+    const double northSouth[4] = {50.99, 180.0, 51.01, 180.0};
+    seam.Lay(std::span<const double>(eastWest, 4), 4.75, 0.06, 2, 400.0);
+    seam.Lay(std::span<const double>(northSouth, 4), 3.25, 0.08, 2, 200.0);
+    CHECK(seam.Weave(error), "two ways crossing at the antimeridian weave");
+    std::vector<Network::Crossing> crossings;
+    const size_t found = seam.Crossings(crossings);
+    Note("places they cross at the seam", (double)found, "places");
+    if (found > 0) {
+      std::printf("NOTE they cross at %.6f, %.6f\n", crossings[0].LatDeg, crossings[0].LonDeg);
+    }
+    CHECK(found == 1,
+          "**A CROSSING AT THE ANTIMERIDIAN IS ONE CROSSING**: the longitudes are unrolled "
+          "about the first point before any geometry runs, so a way that steps over the seam "
+          "is 0.02 degrees long rather than 359.98, and the segment that carries it meets what "
+          "it actually meets (board:1822)");
+    if (found == 1) {
+      CHECK_NEAR(std::fabs(crossings[0].LonDeg), 180.0, 1.0e-6, "deg",
+                 "and the place it names is on the seam, reported back inside [-180, 180]");
+      CHECK_NEAR(crossings[0].LatDeg, 51.0, 1.0e-6, "deg", "at the latitude the ways meet");
+    }
+  }
+
+  {
+    Network sweep(kSnapM, kIuggMeanRadiusM);
+    std::vector<double> running;
+    constexpr int kWays = 60;
+    for (int one = 0; one < kWays; ++one) {
+      running.clear();
+      for (int step = 0; step <= 200; ++step) {
+        running.push_back(51.0 + 0.001 * (double)one);
+        running.push_back(9.9995 + 0.001 * (double)step);
+      }
+      sweep.Lay(running, 4.75, 0.06, 2, 400.0);
+      running.clear();
+      for (int step = 0; step <= 200; ++step) {
+        running.push_back(50.9995 + 0.001 * (double)step);
+        running.push_back(10.0 + 0.001 * (double)one);
+      }
+      sweep.Lay(running, 3.25, 0.08, 2, 200.0);
+    }
+    CHECK(sweep.Weave(error), "a grid of long ways weaves");
+    std::vector<Network::Crossing> crossings;
+    const size_t found = sweep.Crossings(crossings);
+    const size_t segments = sweep.PointCount() - 2u * (size_t)kWays;
+    Note("ways laid", (double)(2 * kWays), "ways");
+    Note("segments among them", (double)segments, "segments");
+    Note("crossings found", (double)found, "crossings");
+    Note("segment pairs tested", (double)sweep.PairsTested(), "pairs");
+    Note("pairs tested per crossing found",
+         found > 0 ? (double)sweep.PairsTested() / (double)found : 0.0, "pairs");
+    Note("what testing every pair would have cost",
+         (double)segments * (double)segments * 0.5, "pairs");
+    CHECK(found == (size_t)(kWays * kWays),
+          "**AND A GRID OF LONG WAYS FINDS EVERY ONE OF ITS CROSSINGS** -- 60 by 60 ways "
+          "crossing nowhere near a shared node is 3600 grade separations");
+    CHECK(sweep.PairsTested() < segments * 20u,
+          "**AND THE SEARCH IS OVER SEGMENTS IN A GRID, NOT OVER WAY BOXES**: a motorway way "
+          "carries hundreds of points and a box the length of the country it crosses, so a "
+          "way-box prune does nothing for exactly the ways this reconstruction is about -- the "
+          "cost per segment is bounded by what shares its cell (board:1822)");
+  }
+
   Covers("I.4.4 a network is woven from ways that share no identity: points within a declared "
          "snapping distance become one node, ways meet where they cross, and A* over it with a "
          "great-circle heuristic returns the shortest route or names why there is none");
