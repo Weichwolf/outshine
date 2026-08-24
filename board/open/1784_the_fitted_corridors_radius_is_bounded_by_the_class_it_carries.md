@@ -80,6 +80,24 @@ NOTE walked: tightest 6.2873 m at 51.50 m, 3 sign reversals over 125.4 m
 
 Three reversals, a radius under seven metres -- the reviewer's route geometry, no OSM needed.
 
+**Correction, 2026-08-24 (reviewer round): the number in this acquittal was wrong.** The
+paragraph below said "the F31, whose own minimum is 5.65 m". 5.65 m is the HALF TURNING
+CIRCLE -- the outer radius. `Rigging.cpp:170-180` derives the centreline from it:
+
+```
+TightestM = sqrt(5.65^2 - 2.810^2) = 4.901673 m
+```
+
+So the vehicle's real minimum is **4.9017 m**, and the measured 5.6433 m arc sits **15.13 %
+above** it -- comfortably legal, not "barely". The conclusion gets stronger and the prose was
+15.27 % off while naming the wrong quantity; this item's own sweep table says `4.874 m` two
+paragraphs earlier and contradicted itself. Withdrawn and corrected rather than quietly
+edited.
+
+**And it means the reproduction proves less than it claimed**: at 6.2873 m against a 4.9017 m
+minimum there is still NO fixture in the tree where the vehicle bound actually bites. That is
+now the first thing the open box needs.
+
 **But the fit is not lying, and that changes what this item is about.** Measured over a sweep
 of zigzags at 30 m down to 3 m leg length, and over the wandering shape above:
 
@@ -90,8 +108,8 @@ of zigzags at 30 m down to 3 m leg length, and over the wandering shape above:
 | `tightestM` handed to `Fit` | `stood.TightestM`, the vehicle's own centreline minimum (`DriveAssembly.cpp:210`) |
 
 So `Fit` never lays a corner tighter than the minimum it is given, and what it reports is
-what the line carries. The 5.6 m arc the reviewer measured is **legal for the F31**, whose
-own minimum is 5.65 m -- barely, and that is the point.
+what the line carries. The 5.6433 m arc the reviewer measured is **legal for the F31**, whose own centreline
+minimum is 4.9017 m.
 
 **The defect is the BOUND, not the fit.** A 6 m radius is a mini-roundabout or a slip road,
 not a route leg: `tightestM` asks "can this vehicle physically turn here", and a corridor

@@ -298,3 +298,45 @@ so the minimum falls in the bend, is the missing proof.
 - `Held::kCount` is still a publicly spellable enumerator of `Held`; `BoundBy` now guards it,
   `NameOf` guards it, and `Slowest().By` can never be it. It is a table size wearing the
   type of a physical term.
+
+---
+
+## Sharpened again: the instrument is correct and unused (2026-08-24)
+
+The reviewer verified `Why_[]` through all three sweeps and `Slowest_`/`Bound_` after the last
+one, across four fixtures including `entryMs > 0` and seams: `Slowest() == min_i SampleAt(i)`
+every time. I measured the same independently.
+
+**And it answers nothing in production, because both callsites pass `entryMs = 0.0`**
+(`src/sim/CorridorLay.cpp:206`, `:530`). At an entry speed of zero the slowest station is the
+start, held by `entry`, on every corridor this engine lays:
+
+| fixture | entryMs | published |
+|---|---|---|
+| straight+spiral+arc | 0.0 | 0.0000 km/h at 0.0 m, `entry` |
+| the same | 30.0 | 108.0000 km/h at 0.0 m, `entry` |
+| crested straight | 20.0 | 72.0000 km/h at 0.0 m, `entry` |
+
+Correct, and information-free. The question this item was filed for -- *12.158 km/h at
+km 552.939, which physics?* -- is still unanswerable, because the one station the plan names
+is the one nobody asked about.
+
+**And `CorridorLay` does not consume the instrument**: `:534-545` still walks `SampleAt()`
+from outside, which is exactly what board:1785 was meant to end.
+
+`CrestsThatBound()` carries a second defect the review measured: it counts BEFORE the sweeps
+and over TWO populations (`NoteCrest` in the sample loop at `SpeedProfile.cpp:141` *and*
+three times per seam interval at `:179-181`). On this item's own hump fixture:
+
+```
+SampleCount() = 801   CrestsThatBound() = 804   BoundBy(Crest) = 801
+```
+
+**804 "stations" out of 801**, published with the unit `"stations"` at
+`src/sim/CorridorLay.cpp:545-546`, and `ASpeedPlanScalesWithTheDeclaredGravity.cpp:62` only
+asserts `> 0`.
+
+Open here: a `Slowest()` that excludes the entry station or a callsite that hands a real entry
+speed; `CorridorLay` reading `BoundBy` instead of walking samples; and `CrestsThatBound()`
+either counting one population after the sweeps or being deleted in favour of
+`BoundBy(Held::Crest)`, which already answers it correctly.
