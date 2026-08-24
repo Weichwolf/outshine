@@ -373,25 +373,44 @@ bool Xml::Parse(const char *text, size_t length) {
 }
 
 Xml::Unread Xml::FirstUnread() const {
-  if (std::ranges::find(Asked_, 0) == Asked_.end()) { return Unread{}; }
+  const auto unasked = std::ranges::find(Asked_, 0);
+  if (unasked == Asked_.end()) { return Unread{}; }
+  const uint32_t wanted = (uint32_t)(unasked - Asked_.begin());
 
-  std::vector<std::pair<uint32_t, std::string>> walk;
-  if (Root_ != 0) { walk.push_back({Root_, Span(Nodes_[Root_].NameOff, Nodes_[Root_].NameLen)}); }
+  struct Standing {
+    uint32_t At = 0;
+    uint32_t Next = 0;
+    size_t PathWas = 0;
+  };
+  std::vector<Standing> walk;
+  walk.reserve(kXmlMaxDepth);
+  std::string path;
+  path.reserve(kXmlMaxDepth * 16);
+
+  if (Root_ == 0) { return Unread{}; }
+  const Node &root = Nodes_[Root_];
+  path.append(Text_.data() + root.NameOff, root.NameLen);
+  walk.push_back(Standing{Root_, root.FirstChild, 0});
+
   while (!walk.empty()) {
-    const auto [at, path] = walk.back();
-    walk.pop_back();
-    const Node &node = Nodes_[at];
-    for (uint32_t which = 0; which < node.Attributes; ++which) {
-      const uint32_t index = node.FirstAttribute + which;
-      if (Asked_[index] == 0) {
-        const Attribute &one = Attributes_[index];
-        return Unread{path, Span(one.NameOff, one.NameLen)};
-      }
+    Standing &here = walk.back();
+    const Node &node = Nodes_[here.At];
+    if (wanted >= node.FirstAttribute && wanted < node.FirstAttribute + node.Attributes) {
+      const Attribute &one = Attributes_[wanted];
+      return Unread{path, Span(one.NameOff, one.NameLen)};
     }
-    for (uint32_t child = node.FirstChild; child != 0; child = Nodes_[child].NextSibling) {
-      const Node &under = Nodes_[child];
-      walk.push_back({child, path + "/" + Span(under.NameOff, under.NameLen)});
+    if (here.Next == 0) {
+      path.resize(here.PathWas);
+      walk.pop_back();
+      continue;
     }
+    const uint32_t child = here.Next;
+    here.Next = Nodes_[child].NextSibling;
+    const Node &under = Nodes_[child];
+    const size_t was = path.size();
+    path.push_back('/');
+    path.append(Text_.data() + under.NameOff, under.NameLen);
+    walk.push_back(Standing{child, under.FirstChild, was});
   }
   return Unread{};
 }

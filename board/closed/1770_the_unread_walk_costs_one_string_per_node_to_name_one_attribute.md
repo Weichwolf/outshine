@@ -97,3 +97,38 @@ and that path is byte-for-byte unchanged:
 
 A scenario refusal is a load-path event, not a frame-path one, so the priority is right; the
 closure is not. Four points were written down and one landed.
+
+---
+
+## Repaid in full (2026-08-24)
+
+Points 1, 2 and 3 are one change: the walk carries ONE path that grows on the way down and
+shrinks on the way back, instead of a `(node, path)` pair per pending node.
+
+| | |
+|---|---|
+| before | `std::vector<std::pair<uint32_t, std::string>>` -- breadth-many strings alive at once, and `const auto [at, path] = walk.back(); walk.pop_back();` copied a string out of the container it then popped |
+| after | `std::vector<Standing>` of `{At, Next, PathWas}` plus one `std::string path`; a child appends `/name`, a return `resize(PathWas)`. No structured binding, no copy, no second walk |
+
+The scan also hands the ANSWER, not just the fact: `ranges::find(Asked_, 0)` gives the
+attribute INDEX, and the descent stops at the node whose `[FirstAttribute, +Attributes)`
+range contains it -- so the walk looks for one number instead of re-testing every attribute
+of every node.
+
+**Measured** (point 4), the dead attribute on the LAST row so a breadth-first walk must pay
+for the whole document before it reaches the answer:
+
+| document | one string per node | one path |
+|---|---|---|
+| 100 instances | 110 allocations | **3** |
+| 4000 instances | 4015 allocations | **3** |
+
+- **Proving test**: `test/unit/scenario/TheGrammarAndTheReaderAreOneTruth` -- parses, lets the
+  reader ask everything it reads, then counts a second `FirstUnread()` in isolation, so the
+  number is the WALK's and not the reader's.
+- **Negative control**: the per-node concatenation restored -> 110 and 4015, both claims red.
+  Reverted.
+- The first attempt at this test measured `ReadScenario` end to end and reported 30.7x growth
+  over a 40x document -- it was measuring the reader, and it PASSED against the defect. It
+  was replaced, not tuned: a control that cannot go red is not a control.
+- Gate 234/234.
