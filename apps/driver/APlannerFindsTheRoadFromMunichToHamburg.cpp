@@ -145,6 +145,26 @@ int main(void) {
         "**A TYRE THAT LET GO IS REPORTED WITH ITS STATION**, the way a wheel leaving the "
         "road is -- a worst share of grip with no place to look at is a number nobody can "
         "act on (board:1772)");
+  // board:1772's second box. A bar on the PEAK ratio is the wrong instrument: a tyre at its
+  // limit in a bend is ordinary driving, and any threshold on the peak is a number fitted to
+  // whichever run produced it. What can be bounded without fitting is the SHAPE of the answer.
+  //
+  // The speed profile reserves lateral acceleration for holding the line, and the pilot spends
+  // it inside the plan. Sliding means the pilot left the plan -- so it may happen, and it may
+  // not be a feature of the route. kSlidShare [SET] = 1/1000 bounds it as VANISHING rather than
+  // appreciable: it is two orders of magnitude above what this route measures, so it constrains
+  // the shape and is not a fit to the measurement. The headroom is published beside it, and a
+  // repair that made sliding routine would spend that headroom before it went red.
+  constexpr double kSlidShare = 0.001;
+  const double slidShare = rode.ReachedM > 0.0 ? rode.SlidM / rode.ReachedM : 0.0;
+  Note("the share of the route a tyre may slide over", kSlidShare, "of it");
+  Note("the headroom that leaves", slidShare > 0.0 ? kSlidShare / slidShare : 0.0, "x");
+  CHECK(slidShare < kSlidShare,
+        "**AND SLIDING IS A VANISHING SHARE OF THE ROUTE, NOT A FEATURE OF IT**: the profile "
+        "reserves lateral acceleration so the pilot can hold the line inside the plan, and a "
+        "drive that spends an appreciable part of its distance past the friction circle is a "
+        "drive whose plan the pilot is not following -- the bound is on the SHAPE of that "
+        "answer, which is why it is not the peak ratio it would be fitted to (board:1772)");
   Note("most mounts off the ground at once", (double)rode.MostAirborne, "of 4");
   Note("where a contact first went past its limit", rode.BrokeAtM / 1000.0, "km");
   Note("where a wheel first left the carriageway", rode.LeftTheRoadAtM / 1000.0, "km");

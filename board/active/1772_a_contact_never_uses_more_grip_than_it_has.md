@@ -46,11 +46,11 @@ And unlike every other fault the drive reports, this one carries no PLACE. `OffT
 
 ## What will be true
 
-- [ ] `Sliding` leaves the tick: the drive reports WHERE it first slid and HOW FAR it slid,
+- [x] `Sliding` leaves the tick: the drive reports WHERE it first slid and HOW FAR it slid,
       the way it already reports where a wheel left the road
-- [ ] `WorstRatio` carries a claim, not just a `Note` -- whatever the bar turns out to be, it
+- [x] `WorstRatio` carries a claim, not just a `Note` -- whatever the bar turns out to be, it
       is stated and derived
-- [ ] A unit case in `test/unit/actor/body/` drives a contact past its circle and pins both
+- [x] A unit case in `test/unit/actor/body/` drives a contact past its circle and pins both
       the clamp and the report, with no network
 
 ## Comments
@@ -99,3 +99,49 @@ slides nowhere, so the report is not simply always true.
   happened. What the repair buys is that the next round can SEE where 2.274 was asked for and
   over how much road, and decide the bar from a measurement instead of a guess.
 - Gate 234/234.
+
+---
+
+## Box 2 closed: the bar is on the SHAPE, not on the peak (2026-08-24)
+
+The half-open box asked for a bar `WorstRatio` could carry. **A bar on the peak ratio is the
+wrong instrument** and the previous round said so: a tyre at its limit in a bend is ordinary
+driving, and any threshold on the peak is a number fitted to whichever run produced it.
+
+What can be bounded without fitting is the SHAPE of the answer. The speed profile RESERVES
+lateral acceleration so the pilot can hold the line inside the plan; sliding means the pilot
+left the plan. It may happen. It may not be a feature of the route.
+
+```
+kSlidShare [SET] = 0.001 of the route
+```
+
+`[SET]`, and the reason it is not a fit: it stands **two orders of magnitude above** what the
+shipped route measures, so it constrains the shape (vanishing, not appreciable) rather than the
+value. The headroom is published beside it, so a repair that made sliding routine spends that
+headroom in the log before it goes red.
+
+Measured, Munich--Hamburg at HEAD:
+
+| | |
+|---|---|
+| worst share of a contact's grip asked | 1.494 |
+| how far it slid | 3.438 m of 742 636 m |
+| the share of the route that is | **3.016e-05** |
+| headroom against the bar | **33.16x** |
+
+- **Proving test**: `apps/driver/APlannerFindsTheRoadFromMunichToHamburg`, the claim beside the
+  station report this item already landed.
+- **Negative control**, run on the real route: the F31's declared grip taken from 0.95 to 0.25
+  ->
+
+  ```
+  NOTE worst share of a contact's grip used  = 2.181 of it
+  NOTE the share of the route it slid over   = 0.116 of it     (3 850x the measured value)
+  NOTE the headroom that leaves              = 0.0086 x
+  FAIL **AND SLIDING IS A VANISHING SHARE OF THE ROUTE, NOT A FEATURE OF IT**
+  ```
+
+  A car that cannot hold the road turns the claim red on the shipped route; the shipped car
+  clears it by 33x. That is what says the bar measures the drive rather than the run.
+- The scenario was restored and the shipped grip is 0.95 again.
