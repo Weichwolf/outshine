@@ -66,3 +66,27 @@ unmeasured. This one is 118 characters of argument after the fact is already sta
       `SubjectDraw` today -- hands `SetMesh` a declaration of N indices with `Indices == nullptr`
       and asserts the returned reason contains `std::to_string(N)`. Negative control: the
       current order restored -> red, showing "0 indices".
+
+**Closed.** All three sites read the DECLARED counts and clear the state afterwards:
+
+```cpp
+src/render/stages/SubjectDraw.cpp:470   std::to_string(mesh.VertexCount) ... std::to_string(mesh.IndexCount)
+src/render/stages/SubjectDraw.cpp:475   Resident_.NIdx = 0;          // after the message, not before
+src/render/stages/SubjectDraw.cpp:551   std::to_string(mesh.IndexCount / 3u)
+```
+
+| | |
+|---|---|
+| before | `the mesh declares 3 vertices and 0 indices but carries no position run` |
+| after | `the mesh declares 3 vertices and 3 indices but carries no position run` |
+
+The first reads as agreement -- zero indices and no index run are consistent -- so the reader
+learns nothing from the sentence that exists to tell them what is wrong.
+
+Proving test: `test/render/outshine/frame/ADrawCostsWhatTheSweepSaysItCosts`, which now asserts
+the refusal contains `3 vertices and 3 indices`. Negative control, run: the message reading
+`Resident_.NIdx` again after the clear -> `0 indices` and the case red at :138.
+
+Worth recording: this defect was in a log line I read myself an hour earlier and did not see.
+The message said `3 vertices and 0 indices` while the case had set `IndexCount = 3` five lines
+above, and I took it as confirmation that the refusal worked.

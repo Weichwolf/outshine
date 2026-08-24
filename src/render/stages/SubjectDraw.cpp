@@ -467,11 +467,11 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
     else if (!mesh.Draws) { missing = "draw list"; }
     else if (!mesh.Emitted) { missing = "emitted-radiance run"; }
     if (missing != nullptr) {
-      Resident_.NIdx = 0;
-      error = std::string("the mesh declares ") + std::to_string(Resident_.NVerts) +
-              " vertices and " + std::to_string(Resident_.NIdx) + " indices but carries no " +
+      error = std::string("the mesh declares ") + std::to_string(mesh.VertexCount) +
+              " vertices and " + std::to_string(mesh.IndexCount) + " indices but carries no " +
               missing + " -- a declaration that names geometry it does not hand over draws "
               "nothing, and drawing nothing is not what it asked for";
+      Resident_.NIdx = 0;
       return false;
     }
   }
@@ -548,9 +548,9 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
                                     Span<const uint32_t>(mesh.Indices, (size_t)Resident_.NIdx));
   }
   if (Visibility_.Empty()) {
-    Resident_.NIdx = 0;
-    error = "the subject's " + std::to_string(Resident_.NIdx / 3u) +
+    error = "the subject's " + std::to_string(mesh.IndexCount / 3u) +
             " triangles built no visibility structure, so no light could be occluded by them";
+    Resident_.NIdx = 0;
     return false;
   }
   if (!HandVisibility(false, error)) { return false; }

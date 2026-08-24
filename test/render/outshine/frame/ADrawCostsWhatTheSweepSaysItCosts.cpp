@@ -132,6 +132,10 @@ int main(void) {
           "vertices declared, no position run, no indices, no draw list: eight shortfalls used "
           "to share one silent 'return true'");
     std::printf("NOTE an empty declaration says: '%.120s'\n", refused.c_str());
+    CHECK(refused.find("3 vertices and 3 indices") != std::string::npos,
+          "**AND THE REFUSAL NAMES THE COUNTS THE CALLER DECLARED**, not the ones it just "
+          "cleared -- a message that reads '0 indices but carries no index run' reads as "
+          "agreement, and the number carrying the information is the declared one (board:1829)");
 
     refused.clear();
     CHECK(!renderer.SetSubjectPlacements(nullptr, 8, refused) && !refused.empty(),
