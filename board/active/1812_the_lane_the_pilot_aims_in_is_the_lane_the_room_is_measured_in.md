@@ -52,7 +52,7 @@ lane that is 0.25 m wider than the one the room is measured in, and 0.25 m is a 
 
 ## What will be true
 
-- [ ] The aim, the corridor edge and the lane half-width are read at ONE station -- one array
+- [x] The aim, the corridor edge and the lane half-width are read at ONE station -- one array
       family at one resolution, or all three baked fine from the same band.
 - [ ] Proving test: a synthetic corridor whose lane width steps, driven across the step, in
       which the aim and the room agree at every station. Negative control: the two indices put
@@ -120,3 +120,44 @@ this station alone**: one drive's worst deviation is one sample, and a budget fi
 the calibration-decides defect this tree forbids. What the next round needs is the deviation's
 DISTRIBUTION over the route -- p50/p95/p99, the way every other number on that page is
 published -- and the item is parked there rather than guessed at.
+
+---
+
+## The distribution, taken (2026-08-24)
+
+Over **2 791 050** stations of the shipped Munich--Hamburg drive:
+
+| | |
+|---|---|
+| p50 of the deviation from the lane centre | **0.0275 m** |
+| p95 | **0.2175 m** |
+| p99 | **0.2675 m** |
+| the reserve the corridor keeps | 0.7195 m |
+| p99 as a share of it | **0.372** |
+| the worst single sample | 0.8884 m, **3.32x its own p99** |
+
+**And that changes the reading a third time.** The pilot is not tracking badly: it spends
+37 % of the reserve at p99 and the reserve has 2.7x of headroom. What crosses the carriageway
+is ONE excursion at 3.3x the drive's own ninety-ninth percentile.
+
+So neither candidate repair is right as stated. The budget is not too small -- it is generous
+almost everywhere. The pilot does not converge too slowly -- it holds 0.0275 m at the median.
+What is left is the outlier itself, and it is `board:1767`'s to name: **what happens at
+km 113.990 that happens nowhere else in 742 kilometres.**
+
+- **Landed**: the deviation is a distribution now, published p50/p95/p99 beside every other
+  number on that page, the way `CLAUDE.md` states the bar -- *never a mean*, and never one
+  sample either.
+- **Proving test**: `apps/driver/test/APlannerFindsTheRoadFromMunichToHamburg` -- p99 must sit
+  inside the reserve the corridor declares.
+- **Negative control**, run: `budgetM` forced to 0.20 m ->
+
+  ```
+  NOTE p99 as a share of that reserve = 1.2875 of it
+  FAIL **AND THE LANE THE CORRIDOR RESERVES IS THE LANE THE CAR KEEPS**
+  ```
+- **Also landed**: the index mismatch this item was filed for. `FineLaneHalfM` is baked from
+  the same band as `FineAside` and `FineEdge`, and the tick reads all three at the fine index,
+  so no two of them can name different stations. That was a real second spelling and it is
+  gone; it was not what happened at km 113.990, and the item says so above rather than taking
+  credit for it.

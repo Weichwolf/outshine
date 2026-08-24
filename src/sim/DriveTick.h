@@ -2,6 +2,7 @@
 #define OUTSHINE_SIM_DRIVETICK_H
 
 #include <cstddef>
+#include <cstdint>
 
 #include <outshine/Scenario.h>
 
@@ -30,6 +31,10 @@ struct Ridden {
   double ReachedM = 0.0;
   double TopMs = 0.0;
   double WorstOffsetM = 0.0;
+  static constexpr size_t kOffsetBins = 512;
+  uint32_t OffsetBin[kOffsetBins] = {0};
+  long OffsetSamples = 0;
+  double OffsetBinM = 0.005;
   double WorstOffsetAtM = 0.0;
   double WorstRatio = 0.0;
   double WorstRatioAtM = 0.0;

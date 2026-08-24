@@ -135,6 +135,34 @@ int main(void) {
   Note("seconds of wall clock", wallS, "s");
   Note("how much faster than real time", rode.SimulatedS / (wallS > 0.0 ? wallS : 1.0), "x");
   Note("worst deviation from the middle of its own lane", rode.WorstOffsetM, "m");
+  // board:1812: the corridor reserves budgetM between the aim and the edge for exactly this
+  // error, and one drive's worst is one sample. The distribution is what a reserve may be
+  // derived from.
+  {
+    const auto quantile = [&](double share) {
+      const long want = (long)(share * (double)rode.OffsetSamples);
+      long seen = 0;
+      for (size_t bin = 0; bin < outshine::Sim::Ridden::kOffsetBins; ++bin) {
+        seen += (long)rode.OffsetBin[bin];
+        if (seen >= want) { return ((double)bin + 0.5) * rode.OffsetBinM; }
+      }
+      return (double)outshine::Sim::Ridden::kOffsetBins * rode.OffsetBinM;
+    };
+    Note("stations the deviation was sampled at", (double)rode.OffsetSamples, "samples");
+    Note("p50 of the deviation", quantile(0.50), "m");
+    Note("p95", quantile(0.95), "m");
+    Note("p99", quantile(0.99), "m");
+    Note("the reserve the corridor keeps for it", drive.Way.BudgetM, "m");
+    Note("p99 as a share of that reserve", quantile(0.99) / drive.Way.BudgetM, "of it");
+    Note("the worst single sample as a share of p99", std::fabs(rode.WorstOffsetM) / quantile(0.99),
+         "x");
+    CHECK(quantile(0.99) < drive.Way.BudgetM,
+          "**AND THE LANE THE CORRIDOR RESERVES IS THE LANE THE CAR KEEPS**: budgetM is the "
+          "room the corridor holds between the lane centre it aims at and the edge, and a "
+          "drive whose p99 spends it has no reserve left for the tail -- the bar is the "
+          "distribution, not the worst sample, because one drive's worst is one sample and a "
+          "reserve fitted to it would be calibration deciding (board:1812)");
+  }
   Note("where that was", rode.WorstOffsetAtM / 1000.0, "km");
   Note("worst share of a contact's grip used", rode.WorstRatio, "of it");
   Note("where it asked for that", rode.WorstRatioAtM / 1000.0, "km");

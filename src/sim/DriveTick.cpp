@@ -150,6 +150,14 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
       out.WorstOffsetM = inLaneM;
       out.WorstOffsetAtM = at.AlongM;
     }
+    // board:1812: one drive's worst deviation is one sample, and a corridor budget fitted to it
+    // is calibration deciding. The DISTRIBUTION is what a budget may be derived from, and it is
+    // published the way every other number on that page is.
+    {
+      const size_t bin = (size_t)(std::fabs(inLaneM) / out.OffsetBinM);
+      ++out.OffsetBin[bin < Ridden::kOffsetBins ? bin : Ridden::kOffsetBins - 1];
+      ++out.OffsetSamples;
+    }
     // board:1767: the station a wheel CROSSES at is the end of an excursion, not its cause. The
     // entry is where the car first spent half the room its lane leaves it, and what the road
     // was doing there is the thing worth reading.
