@@ -306,10 +306,6 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   }
   budgetM = 0.5 * narrowestLaneHereM - 0.5 * carWidthM;
 
-  // board:1812: the aim was baked at floor(fine * fineM / spanM) and the lane half-width was
-  // read back at floor(alongM / spanM). Those differ by one at every post boundary, so at a
-  // width change the pilot aimed in one lane while the room it had was measured in the next.
-  // All three are baked from the SAME band now, and the tick reads all three at the fine index.
   fineAside.assign((size_t)(fitted.LengthM / fineM) + 2, 0.0);
   fineEdge.assign(fineAside.size(), 0.0);
   fineLaneHalfM.assign(fineAside.size(), 0.0);

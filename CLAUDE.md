@@ -16,6 +16,16 @@ camera, never a mean.
   explains what it proves -- a proof being any source that carries `Covers("`, wherever it
   lives, and every source that does not being bound; work items live in `board/`, code never
   names them
+- **Infrastructure built from OSM is PLAUSIBLE and geometrically correct, never necessarily
+  true to the real road**: the data is a source of shape, not a specification to be reproduced,
+  so a corner the graph demands is a finding only where it is implausible or geometrically
+  wrong — never merely because the real road there is built to another class. And OSM does not
+  carry the third dimension: **bridges, ramps, over- and underpasses, tunnels and every other
+  3D course are RECONSTRUCTED**, and what a reconstruction owes is four kinds of plausibility —
+  **geometric** (it closes, it is continuous, it does not intersect itself or what it crosses),
+  **physical** (a vehicle can drive it at the speed the class implies), **static** (it stands:
+  spans, piers and clearances that could carry their own load), **architectural** (it looks
+  like the thing it is). A guess that holds all four is right; one that holds three is a finding
 - **Cycles is the oracle** for correctness; references are for ambition; the corpus is a driver, not a certificate
 - **One world space**; a failure is loud; something is always drawn; delete on the day you replace
 - Artefacts go to the system temp dir, never the tree; `git log` is what was — no journal
@@ -274,8 +284,8 @@ at (board:1777):
 | `RegionForge` | `class RegionForge {` (RegionForge.h:18) forges regions from a client layer |
 | `GltfStudio` | `struct Studio {` (GltfStudio.h:26) beside `struct StudioScratch {` (:49) -- the studio and its scratch are two spellings of one stand-up |
 | `DriveAssembly` | `[[nodiscard]] bool AssembleDrive(const Store &scene, const Assembled &cast,` (DriveAssembly.h:39) takes a product's worth of inputs, listed one per line, and a product that needs that many is a product whose shape is not settled |
-| `CorridorLay` | `[[nodiscard]] bool LayCorridor(const Path::Route &route, const GroundQuery &ground,` (CorridorLay.h:34) -- same shape, same question |
-| `DriveTick` | `[[nodiscard]] Ridden DriveTick(const Corridor &way, const Rigged &stood,` (DriveTick.h:70) returns a whole struct by value each tick |
+| `CorridorLay` | `[[nodiscard]] bool LayCorridor(const Path::Route &route, const GroundQuery &ground,` (CorridorLay.h:35) -- same shape, same question |
+| `DriveTick` | `[[nodiscard]] Ridden DriveTick(const Corridor &way, const Rigged &stood,` (DriveTick.h:93) returns a whole struct by value each tick |
 | `TAA` | `{Stage::TemporalResolve, Provenance::Content, PassKind::Raster, "temporalResolve",` (RenderCatalogue.h:278) declares a stage that encodes nothing of its own -- it is folded into tonemap rather than standing as its own resolve |
 | `TilePool` | `class TilePool {` (TilePool.h:35) holds 3 `std::mutex`, a `std::condition_variable`, a `std::map` and a `std::set` where a slot table and a ring would do -- a decisionless pool holds no tree |
 

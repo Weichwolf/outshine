@@ -36,6 +36,11 @@ std::vector<std::string> FieldsOf(const std::string &header, const std::string &
     std::string line = body.substr(at + 1, end - at - 1);
     const size_t stop = line.find_first_of("=[;");
     if (stop == std::string::npos || line.find("(") != std::string::npos) { continue; }
+    // a `static constexpr` inside a product is a CONSTANT, not a field a tick fills: it has no
+    // writer by construction and it cannot be a silent zero wearing a meaning, because the
+    // meaning is the value. Skipping it is not a relaxation -- it is the difference between a
+    // product's fields and the numbers the product is measured in.
+    if (line.find("static ") != std::string::npos) { continue; }
     size_t last = line.find_last_not_of(" \t", stop == 0 ? 0 : stop - 1);
     if (last == std::string::npos) { continue; }
     size_t first = last;

@@ -1,5 +1,7 @@
 #include "DriveTick.h"
 
+#include <vector>
+
 #include <cmath>
 
 #include "Contact.h"
@@ -10,6 +12,16 @@
 #include "SpeedProfile.h"
 
 namespace outshine::Sim {
+
+namespace {
+
+[[nodiscard]] double At(const std::vector<double> &band, size_t at, double whenEmpty) {
+  if (band.empty()) { return whenEmpty; }
+  return band[at < band.size() ? at : band.size() - 1];
+}
+
+}
+
 
 namespace {
 constexpr double kResectM = 4.0;
@@ -66,7 +78,7 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
   double roomHereM = 0.0;
   {
     const size_t fine = (size_t)(at.AlongM / fineM);
-    const double wantAsideM = fineAside[fine < fineAside.size() ? fine : fineAside.size() - 1];
+    const double wantAsideM = At(fineAside, fine, 0.0);
     if (!drive.HaveAside) {
       drive.HeldAsideM = wantAsideM;
       drive.HaveAside = true;
@@ -75,7 +87,7 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
       const double byM = wantAsideM - drive.HeldAsideM;
       drive.HeldAsideM += std::fabs(byM) <= mayMoveM ? byM : (byM > 0.0 ? mayMoveM : -mayMoveM);
     }
-    const double roomM = fineEdge[fine < fineEdge.size() ? fine : fineEdge.size() - 1] -
+    const double roomM = At(fineEdge, fine, 0.0) -
                          0.5 * drive.CarWidthM - way.BudgetM;
     if (roomM > 0.0) {
       if (drive.HeldAsideM > roomM) { drive.HeldAsideM = roomM; }
@@ -150,22 +162,15 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
       out.WorstOffsetM = inLaneM;
       out.WorstOffsetAtM = at.AlongM;
     }
-    // board:1812: one drive's worst deviation is one sample, and a corridor budget fitted to it
-    // is calibration deciding. The DISTRIBUTION is what a budget may be derived from, and it is
-    // published the way every other number on that page is.
     {
-      const size_t bin = (size_t)(std::fabs(inLaneM) / out.OffsetBinM);
+      const size_t bin = (size_t)(std::fabs(inLaneM) / Ridden::kOffsetBinM);
       ++out.OffsetBin[bin < Ridden::kOffsetBins ? bin : Ridden::kOffsetBins - 1];
       ++out.OffsetSamples;
     }
-    // board:1767: the station a wheel CROSSES at is the end of an excursion, not its cause. The
-    // entry is where the car first spent half the room its lane leaves it, and what the road
-    // was doing there is the thing worth reading.
     if (out.StrayedAtM <= 0.0) {
       const size_t here = (size_t)(at.AlongM / fineM);
       const double halfRoomM =
-          laneHalfM[here < laneHalfM.size() ? here : laneHalfM.size() - 1] -
-          0.5 * drive.CarWidthM;
+          At(laneHalfM, here, 0.0) - 0.5 * drive.CarWidthM;
       if (halfRoomM > 0.0 && std::fabs(inLaneM) > 0.5 * halfRoomM) {
         out.StrayedAtM = at.AlongM;
         out.StrayedCurvature = at.CurvaturePerM;
@@ -207,9 +212,9 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
     out.LeftCurvature = at.CurvaturePerM;
     out.LeftRate = at.CurvatureRatePerM;
     const size_t lane = (size_t)(at.AlongM / fineM);
-    out.LeftLaneM = 2.0 * laneHalfM[lane < laneHalfM.size() ? lane : laneHalfM.size() - 1];
+    out.LeftLaneM = 2.0 * At(laneHalfM, lane, 0.0);
     const size_t fine = (size_t)(at.AlongM / fineM);
-    out.LeftEdgeM = fineEdge[fine < fineEdge.size() ? fine : fineEdge.size() - 1];
+    out.LeftEdgeM = At(fineEdge, fine, 0.0);
     out.LeftAsideM = reins.AsideM;
     out.LeftAcrossM = at.OffsetM;
     out.LeftSteerRad = controls.SteerRad;
@@ -223,8 +228,7 @@ Ridden DriveTick(const Corridor &way, const Rigged &stood,
     out.LeftAimStillMovingM = aimStillMovingM;
     out.LeftWantAsideM = wantedAsideM;
     out.LeftRoomM = roomHereM;
-    out.LeftHalfWidthM = fineEdge[(size_t)(at.AlongM / fineM) < fineEdge.size()
-                                     ? (size_t)(at.AlongM / fineM) : fineEdge.size() - 1];
+    out.LeftHalfWidthM = At(fineEdge, (size_t)(at.AlongM / fineM), 0.0);
     out.LeftHeadingErrorRad = at.HeadingErrorRad;
     out.LeftBankRad = at.BankRad;
     out.LeftSlope = at.SlopeAt;

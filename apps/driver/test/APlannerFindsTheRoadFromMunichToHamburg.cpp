@@ -144,9 +144,9 @@ int main(void) {
       long seen = 0;
       for (size_t bin = 0; bin < outshine::Sim::Ridden::kOffsetBins; ++bin) {
         seen += (long)rode.OffsetBin[bin];
-        if (seen >= want) { return ((double)bin + 0.5) * rode.OffsetBinM; }
+        if (seen >= want) { return ((double)bin + 0.5) * outshine::Sim::Ridden::kOffsetBinM; }
       }
-      return (double)outshine::Sim::Ridden::kOffsetBins * rode.OffsetBinM;
+      return (double)outshine::Sim::Ridden::kOffsetBins * outshine::Sim::Ridden::kOffsetBinM;
     };
     Note("stations the deviation was sampled at", (double)rode.OffsetSamples, "samples");
     Note("p50 of the deviation", quantile(0.50), "m");
