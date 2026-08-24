@@ -45,6 +45,16 @@ Reaped Reap(const OsmField &field, const VegetationTemplates &widths, double veh
       ++out.Ungraded;
       if (!Listed(out.WithoutGrade, kind)) { out.WithoutGrade += std::string(kind) + " "; }
     }
+    const double bridge = field.Num(feature, "bridge", 0.0);
+    const double tunnel = field.Num(feature, "tunnel", 0.0);
+    const double layer = field.Num(feature, "layer", 0.0);
+    out.Bridges += bridge > 0.5 ? 1u : 0u;
+    out.Tunnels += tunnel > 0.5 ? 1u : 0u;
+    if (layer != 0.0) {
+      ++out.Layered;
+      if (layer < out.DeepestLayer) { out.DeepestLayer = layer; }
+      if (layer > out.HighestLayer) { out.HighestLayer = layer; }
+    }
     if (!(rule->MinRadiusM > 0.0f)) {
       ++out.Undesigned;
       if (!Listed(out.WithoutRadius, kind)) { out.WithoutRadius += std::string(kind) + " "; }

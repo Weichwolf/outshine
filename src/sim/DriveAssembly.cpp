@@ -164,6 +164,15 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   say.Number("ways whose kind carries no declared width", (double)reaped.Unclassed, "ways");
 
   say.Number("ways that are not a carriageway at all", (double)reaped.NotACarriageway, "ways");
+  say.Number("ways the data marks as a bridge", (double)reaped.Bridges, "ways");
+  say.Number("ways it marks as a tunnel", (double)reaped.Tunnels, "ways");
+  say.Number("ways that declare a stacking layer", (double)reaped.Layered, "ways");
+  say.Number("the deepest layer any of them names", reaped.DeepestLayer, "");
+  say.Number("the highest", reaped.HighestLayer, "");
+  say.Number("distinct tag keys the vector tiles carry", (double)field.KeyCount(), "keys");
+  for (size_t at = 0; at < field.KeyCount(); ++at) {
+    say.Say(Line("KEY %s", std::string(field.KeyAt(at)).c_str()));
+  }
   if (!reaped.NotCarriageways.empty()) {
     say.Say(Line("NOT CARRIAGEWAYS %s", reaped.NotCarriageways.c_str()));
   }

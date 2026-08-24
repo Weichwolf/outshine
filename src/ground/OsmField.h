@@ -58,6 +58,9 @@ public:
   [[nodiscard]] std::span<const double> Points() const { return Points_; }
   [[nodiscard]] std::span<const Tile> Tiles() const { return Tiles_; }
 
+  [[nodiscard]] size_t KeyCount() const { return Keys_.size(); }
+  [[nodiscard]] std::string_view KeyAt(size_t at) const { return Keys_[at]; }
+
   [[nodiscard]] size_t HeapBytes() const;
 
   [[nodiscard]] int Layer(const char *name) const;

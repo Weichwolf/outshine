@@ -22,6 +22,11 @@ struct Reaped {
   size_t NotACarriageway = 0;
   size_t Ungraded = 0;
   size_t Undesigned = 0;
+  size_t Bridges = 0;
+  size_t Tunnels = 0;
+  size_t Layered = 0;
+  double DeepestLayer = 0.0;
+  double HighestLayer = 0.0;
   std::string WithoutGrade;
   std::string WithoutRadius;
   std::string NotCarriageways;
