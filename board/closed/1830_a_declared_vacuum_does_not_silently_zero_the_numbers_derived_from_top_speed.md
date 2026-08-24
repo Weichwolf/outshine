@@ -93,3 +93,49 @@ that exists to prove the vacuum is legal is the case that hides what the vacuum 
 
 - 2026-08-24 -- filed by the hourly review. The vacuum is not an edge case somebody might
   declare; it is a case this tree ships a proof for and drives in its own fast gate.
+
+**Closed.** Both numbers come from the plan's own samples now.
+
+```cpp
+src/actor/path/SpeedProfile.cpp:195   if (at == 0 || Held_[at] > Fastest_.Ms) { ... }   // after every sweep
+src/actor/path/SpeedProfile.cpp:202   BinMs_ = Fastest_.Ms / (double)kSpeedBins;
+src/sim/CorridorLay.cpp:299           const double fastestMs = inPlan.Fastest().Ms;
+src/sim/CorridorLay.cpp:301           const double mostPerM = AsideRatePerM(budgetM, fastestMs);
+```
+
+`Fastest()` is finite whatever the air is, because the acceleration sweep bounds every station
+from a finite entry. Measured in a declared vacuum on the hump fixture:
+
+| | before | after |
+|---|---|---|
+| the histogram's resolution | **inf** | 0.496 km/h |
+| `Quantile(0.5)` | **inf** | 12.655 km/h |
+| `StationsUnder(fastest)` | **0** | 801 of 801 |
+| the fastest the plan holds | -- | 254.084 km/h |
+
+**And the repair moves a number that was calibrated against the old divisor.** The lane-centre
+rate is larger when it is scaled to the speed the plan HOLDS rather than the speed drag would
+eventually allow, so the margin that covers it is larger. Re-measured on the twin:
+
+| kLagMargin | worst offset while claiming a 0.75 m step | verdict |
+|---|---|---|
+| 2.0 | 0.271 m | red, over the 0.2 m budget |
+| 2.5 | 0.221 m | red |
+| 2.8 | 0.202 m | red, barely |
+| 3.0 | 0.192 m | green, the lower edge |
+| **4.0** | **0.159 m** | green, set here |
+| 5.0 | 0.137 m | green |
+| 6.0 | 0.117 m | red -- 0.054 m of the step never claimed |
+
+The admissible band is **2.9 to under 6**, where board:1817 measured 1.6 to under 4 against the
+old divisor. Set to 4.0, the middle.
+
+On the shipped Munich--Hamburg drive the rate does not change at all, and the reason is worth
+recording: `Fastest()` there is **232.723 km/h**, which IS `TopMs()` -- a motorway route reaches
+the speed drag allows, so the old divisor was accidentally right on the one route that was
+measured. The drive holds: 5/5, least clearance 0.160301873 m, worst deviation 0.878 m (was
+0.890), and the room-at-p01 against deviation-at-p99 relation improves from 1.752 to 1.810.
+
+Proving test: `unit/actor/path/ASpeedPlanScalesWithTheDeclaredGravity`, the vacuum block.
+Negative control, run: `BinMs_` taken from `within.TopMs()` again -> resolution `inf`, p50
+`inf`, `StationsUnder` = 0, three claims red.
