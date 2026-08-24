@@ -25,10 +25,24 @@ int main(void) {
   using namespace outshine::Test;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
+  // board:1808: the throwing overload, on a path this claim does not own. A directory the
+  // repository requires but git cannot carry empty is a directory that vanishes the moment the
+  // queue finishes -- and a claim that ABORTS there reports no verdict at all, which is worse
+  // than either answer it could have given. board/active/README.md keeps the drawer in the
+  // tree; this reads it without a throw either way.
+  std::error_code walking;
   std::vector<std::string> standing;
-  for (const auto &entry : std::filesystem::directory_iterator("board/active")) {
-    if (entry.path().extension() == ".md") { standing.push_back(entry.path().filename().string()); }
+  for (const auto &entry : std::filesystem::directory_iterator("board/active", walking)) {
+    if (entry.path().extension() != ".md") { continue; }
+    if (entry.path().filename() == "README.md") { continue; }
+    standing.push_back(entry.path().filename().string());
   }
+  std::printf("NOTE the drawer %s\n", walking ? "is not in the tree" : "stands");
+  CHECK(!walking,
+        "**THE DRAWER THE QUEUE USES IS PART OF THE TREE**: git carries no empty directory, so "
+        "without a tracked file board/active vanishes the moment the last item closes -- and "
+        "every path that cites it stops resolving in a fresh clone while the nest, holding an "
+        "untracked leftover, disagrees (board:1808)");
   Note("items standing in board/active", (double)standing.size(), "items");
   for (const std::string &one : standing) { std::printf("NOTE active: %s\n", one.c_str()); }
 
