@@ -163,3 +163,46 @@ proved its point about the tree and then became an instance of it.
 - [ ] While the walk reads `test/` entire it is also O(nodes x files x bytes): 60+ nodes each
       re-reading every source under `test/`. A single pass that collects the identifiers once
       is both faster and the shape the discriminator above needs.
+
+---
+
+## Reopened and repaid: the walk found its own comment (2026-08-24)
+
+The reviewer removed six twins from the tree and the claim named **one** node. The other five
+stand in the claim file's OWN comment (`EveryNodeTheMapDrawsIsNamedByAProof.cpp:20-21`), and
+`NamedUnderTest` walked `test/` including itself. A claim that satisfies itself measures
+nothing.
+
+**Naming a class in PROSE is not proving it.** A proof names a class by USING it, so the search
+runs over code with the commentary and the string literals taken out -- which fixes the
+self-reference and every other file's prose in one move. Two refinements the measurement forced:
+
+| what the first strict pass did | why, and what it took |
+|---|---|
+| 13 nodes unproven, `Ephemeris` among them | `#include "Ephemeris.h"` is a string literal and the strongest evidence a proof reaches a file. An `#include` line is kept whole |
+| `BVH`, `LOD`, `XML` unproven | they are words inside node LABELS -- `World["World -- quadtree LOD ..."]`. Only the identifier before the bracket is a node; the label is prose |
+
+With both, 69 nodes and **one** genuinely unproven: `GroundStream`, the terrain streamer every
+ground query in the tree reaches. Its twin is
+`test/unit/ground/AGroundStreamAnswersOrSaysItCannot`:
+
+```
+NOTE corners 100.000 200.000 300.000, centre 250.000
+NOTE the sample says a hole
+NOTE the posting spacing at this latitude = 102.020771 m
+```
+
+the bilinear sample between four postings is their weighted mean and monotone along an edge,
+the pool it reads is focused where the ground is wanted, and **a stream with nothing fetched
+returns a hole rather than a zero** -- it leaves the caller's own variable untouched, so a
+caller ignoring the verdict keeps what it had instead of being handed sea level.
+
+- **Negative control**, the reviewer's own, re-run: six twins moved out of the tree ->
+
+  ```
+  NOTE nodes no source under test/ names = 6 nodes
+  FOUND BuildingField / Ephemeris / OsmField / StreetField / WaterField / WebTileSource
+  ```
+
+  Six removed, six named. The reopening measured one.
+- Gate **259/259**.

@@ -41,7 +41,20 @@ namespace {
   // mermaid draws a node either bare (`Ground --> Forest`) or with a label
   // (`World["World -- quadtree LOD"]`). Both spellings start with a capital and run on in
   // letters and digits; everything else on a line is punctuation, a class directive or prose.
+  // a node's LABEL is prose -- `World["World -- quadtree LOD - admission - kerbs"]` -- and the
+  // words in it are not nodes. Only the identifier is, and it is what stands before the
+  // bracket. Skipping the label is what tells BVH, LOD and XML from a class (board:1806).
   for (size_t at = 0; at < block.size();) {
+    if (block[at] == '[') {
+      const size_t closes = block.find(']', at);
+      at = closes == std::string::npos ? block.size() : closes + 1;
+      continue;
+    }
+    if (block[at] == '"') {
+      const size_t closes = block.find('"', at + 1);
+      at = closes == std::string::npos ? block.size() : closes + 1;
+      continue;
+    }
     if (!(block[at] >= 'A' && block[at] <= 'Z')) {
       ++at;
       continue;
@@ -78,12 +91,65 @@ namespace {
   return false;
 }
 
+// board:1806, reopened: this claim walked every source under test/ INCLUDING ITSELF, and its
+// own comment names five of the eight classes it was written for. Six twins removed from the
+// tree and it reported one unproven node. Naming a class in PROSE is not proving it -- a proof
+// names a class by USING it -- so the search runs over code with the commentary and the string
+// literals taken out. That fixes the self-reference and every other file's prose at once.
+[[nodiscard]] std::string CodeOnly(const std::string &text) {
+  std::string out;
+  out.reserve(text.size());
+  for (size_t at = 0; at < text.size();) {
+    // an #include is CODE, and the strongest evidence a proof reaches a file at all -- it is
+    // kept whole even though the path it names is a string literal.
+    const bool lineStart = at == 0 || text[at - 1] == '\n';
+    if (lineStart && text.compare(at, 8, "#include") == 0) {
+      while (at < text.size() && text[at] != '\n') { out.push_back(text[at++]); }
+      continue;
+    }
+    if (text[at] == '/' && at + 1 < text.size() && text[at + 1] == '/') {
+      while (at < text.size() && text[at] != '\n') { ++at; }
+      continue;
+    }
+    if (text[at] == '/' && at + 1 < text.size() && text[at + 1] == '*') {
+      at += 2;
+      while (at + 1 < text.size() && !(text[at] == '*' && text[at + 1] == '/')) { ++at; }
+      at = at + 2 <= text.size() ? at + 2 : text.size();
+      out.push_back(' ');
+      continue;
+    }
+    if (text[at] == 'R' && at + 1 < text.size() && text[at + 1] == '"') {
+      const size_t opens = text.find('(', at + 2);
+      if (opens != std::string::npos) {
+        const std::string tag = text.substr(at + 2, opens - (at + 2));
+        const size_t closes = text.find(")" + tag + "\"", opens);
+        at = closes == std::string::npos ? text.size() : closes + tag.size() + 2;
+        out.push_back(' ');
+        continue;
+      }
+    }
+    if (text[at] == '"' || text[at] == '\'') {
+      const char quote = text[at];
+      ++at;
+      while (at < text.size() && text[at] != quote) {
+        at += text[at] == '\\' ? 2 : 1;
+      }
+      at = at < text.size() ? at + 1 : at;
+      out.push_back(' ');
+      continue;
+    }
+    out.push_back(text[at]);
+    ++at;
+  }
+  return out;
+}
+
 [[nodiscard]] bool NamedUnderTest(const std::string &node) {
   for (const auto &entry : std::filesystem::recursive_directory_iterator("test")) {
     if (!entry.is_regular_file()) { continue; }
     const std::string suffix = entry.path().extension().string();
     if (suffix != ".cpp" && suffix != ".h") { continue; }
-    const std::string text = Slurp(entry.path().string());
+    const std::string text = CodeOnly(Slurp(entry.path().string()));
     for (size_t at = text.find(node); at != std::string::npos; at = text.find(node, at + 1)) {
       const bool before = at == 0 || !(std::isalnum((unsigned char)text[at - 1]) ||
                                        text[at - 1] == '_');
