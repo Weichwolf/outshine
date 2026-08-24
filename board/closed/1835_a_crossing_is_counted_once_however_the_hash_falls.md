@@ -101,3 +101,35 @@ rather than a uniform one -- 9 collisions out of ~29 squares into 123 buckets.
   reasoning about a grid it had just stopped using. The existing fixtures do not catch it
   because both of them are uniform: the flat one has 160 segments of one length, the clustered
   one 800 of one length plus a single outlier that crosses nothing.
+
+**Closed.** Each entry in the bucket table carries the square it was filed under:
+
+```cpp
+src/actor/path/Wayfinding.cpp:344   std::vector<long> squareX(holds[cells], 0), squareY(holds[cells], 0);
+src/actor/path/Wayfinding.cpp:362   if (squareX[one] != squareX[two] || squareY[one] != squareY[two]) { continue; }
+src/actor/path/Wayfinding.cpp:372   const auto met = squareOf(atX, atY);
+src/actor/path/Wayfinding.cpp:373   if (met.first != squareX[one] || met.second != squareY[one]) { continue; }
+```
+
+A pair whose two entries sit in different squares is skipped BEFORE the intersection test, and a
+crossing is kept only by the square that contains it. That restores what the dense grid gave for
+free, and it is cheaper: pairs that only share a bucket now fall out early.
+
+| | before the regress | with it | after this repair |
+|---|---|---|---|
+| the reviewer's fixture | 1 | **9** | **1** |
+| pairs tested there | -- | 288 | 32 |
+| the 60x60 grid | 3600 in 142 171 pairs | 3600 in 98 954 | 3600 in **86 284** |
+| pairs per crossing | 39.5 | 27.5 | **23.97** |
+
+Proving test: `unit/actor/path/ANetworkIsWovenFromWaysThatShareNoIdentity` -- the reviewer's
+fixture, one long north-south way against sixty short east-west segments. Negative control: the
+bucket comparison restored -> **9 crossings** and the case red, which is the reviewer's number
+arriving.
+
+**And the shipped route did not show it.** Munich--Hamburg reports 17 474 crossings before and
+after, because tile-quantised segments are short and rarely span more than one square; the
+pair count fell from 1 417 749 to 1 118 277 and the answer did not move. That is the second
+defect this session whose only measured route happens to hide it -- board:1830's divisor was
+the first, where `Fastest()` equals `TopMs()` on a motorway. A route that passes is not a
+proof that the term is right, and both were caught by a fixture built to make the term bite.
