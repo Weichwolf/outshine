@@ -167,10 +167,28 @@ a client's name, two god facades already painted red, and three headers nothing 
 
 The order of work, largest lever first:
 
-- [ ] **The surface goes IN.** `Renderer::Device()` leaves the public surface; a client hands
-      over a declared surface (a native window handle, or a texture it owns) and gets back
-      nothing SDL-shaped. `SDL_ClaimWindowForGPUDevice`, `SDL_AcquireGPUCommandBuffer` and
-      `SDL_CreateGPUTexture` have no call sites outside `src/render/`.
+- [x] **The surface goes IN.** A client hands over a window or an extent and gets back pixels:
+
+      ```cpp
+      src/render/Renderer.h:40   [[nodiscard]] bool ShowOn(SDL_Window *window, std::string &error);
+      src/render/Renderer.h:41   [[nodiscard]] bool ShowOffscreen(int widthPx, int heightPx, std::string &error);
+      src/render/Renderer.h:42   [[nodiscard]] Shown PresentFrame();     // {Drew, WidthPx, HeightPx}
+      src/render/Renderer.h:43   void StopShowing();
+      ```
+
+      `SDL_ClaimWindowForGPUDevice`, `SDL_WaitAndAcquireGPUSwapchainTexture` and
+      `SDL_ReleaseWindowFromGPUDevice` have NO call site outside `src/render/` at all, and
+      `renderer.Device()` has none in `tools/`, `apps/` or `test/` except the MSL-versus-C++
+      twins under `test/render/outshine/shader/`, which exist to PROVE the device and are not
+      clients of it. Held by
+      `harness/claims/TheDeviceLeavesTheLibraryOnlyForItsOwnTwins` over 544 sources -- it counts
+      CALLS, so a name in prose (the browser's own no-drawing-instruction list, a scenario
+      case naming the command buffer's 128 bytes in a message) is not a finding.
+
+      Negative control, run: the viewer's `ShowOn` swapped back for
+      `SDL_ClaimWindowForGPUDevice(renderer.Device(), window)` -> `FOUND
+      tools/viewer/TheBrowserDrawsItselfWithTheEngineItShows.cpp:610 calls
+      SDL_ClaimWindowForGPUDevice`, red.
 - [ ] **The renderer is swappable by construction**: what a client holds is an interface, and
       the SDL_GPU implementation is one of its implementations, chosen once.
 - [ ] `src/clients/` is dissolved along the lines measured above.
