@@ -33,7 +33,7 @@ validatedRan=no
 
 # a case listed here is a case whose RED is a standing finding, not a licence: run.sh prints
 # "expect-fail inverted" the moment one goes green, which is what forces the entry out again
-EXPECT_FAIL="harness/claims/ExpectFail:1 unit/actor/path/ACurveIsFittedAtTheRadiusItHas:1"
+EXPECT_FAIL="harness/claims/ExpectFail:1 unit/actor/path/ACurveIsFittedAtTheRadiusItHas:1 render/outshine/frame/ADrawCostsWhatTheSweepSaysItCosts:4"
 
 Die() {
   printf 'run.sh: %s\n' "$*" >&2
