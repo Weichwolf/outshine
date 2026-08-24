@@ -152,6 +152,7 @@ Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
     }
     if (out.TightestRadiusM <= 0.0 || radiusM[vertex] < out.TightestRadiusM) {
       out.TightestRadiusM = radiusM[vertex];
+      out.TightestAtVertex = vertex;
     }
   }
 

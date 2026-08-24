@@ -148,6 +148,58 @@ int main(void) {
           "the term is bounded by the heap, not the call depth (board:1712)");
   }
 
+  // board:1784: on the Munich-Hamburg route the reviewer found a fitted arc of 0.1772/m --
+  // a 5.6 m radius, tighter than the F31's own 5.65 m centreline minimum -- with curvature
+  // reversing three times inside 45 m, and the speed plan then crawled it at 12.158 km/h.
+  // A crawl is what a refusal looks like when nobody refused.
+  {
+    // uneven legs and mixed turn directions reproduce that shape with no network at all.
+    const std::vector<double> wandering = {0.0,  0.0, 40.0, 0.0,  52.0, 9.0,
+                                           64.0, -2.0, 78.0, 7.0, 120.0, 7.0};
+    ReferenceLine wound;
+    const Fitted got = Fit(wandering, kWithinM, kTightestM, wound);
+    std::printf("NOTE the fit laid: %s, tightest %.4f m at vertex %zu\n",
+                got.Laid ? "yes" : "no", got.TightestRadiusM, got.TightestAtVertex);
+    CHECK(got.Laid, "a wandering polyline lays");
+
+    double leastRadiusM = 1.0e9;
+    double tightestAtM = 0.0;
+    int reversals = 0;
+    double was = 0.0;
+    for (double m = 0.0; m <= wound.LengthM(); m += 0.05) {
+      Placed here;
+      if (!wound.At(m, here) || here.CurvaturePerM == 0.0) { continue; }
+      const double radius = 1.0 / std::fabs(here.CurvaturePerM);
+      if (radius < leastRadiusM) {
+        leastRadiusM = radius;
+        tightestAtM = m;
+      }
+      if (was != 0.0 && ((was < 0.0) != (here.CurvaturePerM < 0.0))) { ++reversals; }
+      was = here.CurvaturePerM;
+    }
+    std::printf("NOTE walked: tightest %.4f m at %.2f m, %d sign reversals over %.1f m\n",
+                leastRadiusM, tightestAtM, reversals, wound.LengthM());
+
+    CHECK_NEAR(leastRadiusM, got.TightestRadiusM, 1.0e-9, "m",
+               "**WHAT THE FIT REPORTS IS WHAT THE LINE CARRIES**: the tightest radius it "
+               "names is the tightest radius a walk of the line finds, so the figure the "
+               "corridor is judged on is the figure it will be driven at (board:1784)");
+    CHECK(leastRadiusM >= kTightestM,
+          "and the line it lays is one this vehicle can drive -- a corridor tighter than the "
+          "steering lock is a refusal, not a corridor");
+
+    // the vehicle that CANNOT drive it must be told so rather than handed a crawl.
+    ReferenceLine unreachable;
+    const Fitted tooTight = Fit(wandering, kWithinM, leastRadiusM + 1.0, unreachable);
+    std::printf("NOTE a vehicle needing %.4f m: %s\n", leastRadiusM + 1.0,
+                tooTight.Laid ? "still laid" : "refused");
+    if (!tooTight.Laid) { std::printf("REFUSED %s\n", tooTight.Error.c_str()); }
+    CHECK(!tooTight.Laid,
+          "**AND A VEHICLE THAT CANNOT TURN THAT TIGHTLY IS REFUSED, NOT SERVED**: the same "
+          "polyline handed a wider minimum does not quietly lay a corner that vehicle would "
+          "have to crawl (board:1784)");
+  }
+
   Covers("I.9.11 a corridor is fitted through a polyline it may not leave by more than the data's "
          "own accuracy: the corner radius falls out of that bound, every vertex carries a pair of "
          "spirals so no curvature leap is spellable, and the length is the cut corner's rather than "

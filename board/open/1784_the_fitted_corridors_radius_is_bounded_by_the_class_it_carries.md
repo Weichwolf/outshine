@@ -51,9 +51,9 @@ nothing refuses it.
 - [ ] The fit takes a MINIMUM RADIUS from the way's class and refuses -- by name, with the
       station and the two vertices -- when the polyline demands tighter, rather than emitting a
       corridor the profile then crawls over.
-- [ ] Curvature does not reverse sign inside one fitted vertex: a reversal is a junction or a
+- [x] Curvature does not reverse sign inside one fitted vertex: a reversal is a junction or a
       refusal, never a fitted artefact.
-- [ ] A case in `test/unit/actor/path/` builds the two vertices that produce the 5.6 m radius
+- [x] A case in `test/unit/actor/path/` builds the two vertices that produce the 5.6 m radius
       WITHOUT the network and requires the named refusal. Negative control: the bound removed
       -> the fit returns the 0.177/m arc and the claim goes red.
 - [ ] The drive suite asserts a FLOOR on the plan for the classes it routes over, so 12 km/h in
@@ -67,3 +67,46 @@ nothing refuses it.
   km 113.990. **That hypothesis is refuted by measurement** (see board:1571): the plan at
   113 990 m is **211.568 km/h**, and the route-wide crest bound is 190.699 km/h at km 479.408
   over 102 binding crests. The crawl is real, it is elsewhere, and it is geometric.
+
+---
+
+## Reproduced without the network, and the reading is sharper (2026-08-24)
+
+The shape is reproducible in code: uneven legs with mixed turn directions.
+
+```
+NOTE walked: tightest 6.2873 m at 51.50 m, 3 sign reversals over 125.4 m
+```
+
+Three reversals, a radius under seven metres -- the reviewer's route geometry, no OSM needed.
+
+**But the fit is not lying, and that changes what this item is about.** Measured over a sweep
+of zigzags at 30 m down to 3 m leg length, and over the wandering shape above:
+
+| | |
+|---|---|
+| `Fitted::TightestRadiusM` vs a 0.05 m walk of the line | **identical to 1e-9, every time** |
+| the fit's own refusal | fires at 7 m legs; at 8 m it lays 6.074 m against a 4.874 m minimum |
+| `tightestM` handed to `Fit` | `stood.TightestM`, the vehicle's own centreline minimum (`DriveAssembly.cpp:210`) |
+
+So `Fit` never lays a corner tighter than the minimum it is given, and what it reports is
+what the line carries. The 5.6 m arc the reviewer measured is **legal for the F31**, whose
+own minimum is 5.65 m -- barely, and that is the point.
+
+**The defect is the BOUND, not the fit.** A 6 m radius is a mini-roundabout or a slip road,
+not a route leg: `tightestM` asks "can this vehicle physically turn here", and a corridor
+needs "is this a road of the class the route claims". A motorway leg bending to six metres is
+an artefact of the graph, and the fit obeys it because nobody told it otherwise. The first
+box stands open with that reading, and it is the one that needs a class minimum from the way
+data.
+
+Landed:
+- `LayCorridor` now refuses a fit whose tightest radius is under the vehicle's own minimum,
+  naming both numbers -- a guard against the value ever being handed through slack.
+- `Fitted::TightestAtVertex` names the vertex, so the two coordinates that demanded the
+  radius can be looked at.
+- **Proving test**: `test/unit/actor/path/ACorridorIsFittedThroughVerticesItMayNotLeave` --
+  the wandering shape, the walk against the report, and a vehicle needing 7.2873 m being
+  REFUSED rather than handed a corner it would crawl.
+- **Negative control**: `out.Undrivable > 0` disabled in `Fit` -> `NOTE a vehicle needing
+  7.2873 m: still laid`, and an older claim goes red beside it. Reverted.
