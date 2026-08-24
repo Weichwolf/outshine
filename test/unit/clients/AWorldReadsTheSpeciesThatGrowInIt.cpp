@@ -8,7 +8,7 @@
 #include "Forest.h"
 #include "Species.h"
 
-using outshine::Clients::ReadSpecies;
+using outshine::Generators::ReadSpecies;
 using outshine::Generators::TreeSpecies;
 
 int main(void) {

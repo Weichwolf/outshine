@@ -104,7 +104,7 @@ int main(int argc, char **argv) {
   if (!Read(argc, argv, request, error)) { return Fail(error); }
 
   outshine::Generators::TreeSpecies species;
-  if (!outshine::Clients::ReadSpecies(request.SpeciesPath.c_str(), &species)) {
+  if (!outshine::Generators::ReadSpecies(request.SpeciesPath.c_str(), &species)) {
     return Fail("the species declaration at " + request.SpeciesPath + " does not read: " +
                 species.Error());
   }

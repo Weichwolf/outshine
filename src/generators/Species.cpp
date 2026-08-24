@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <filesystem>
 
-namespace outshine::Clients {
+namespace outshine::Generators {
 
 namespace {
 
@@ -21,12 +21,12 @@ namespace {
 
 }
 
-bool ReadSpecies(const char *path, Generators::TreeSpecies *out) {
+bool ReadSpecies(const char *path, TreeSpecies *out) {
   std::string text;
   return Slurp(path, text) && out->Parse(text.c_str(), text.size());
 }
 
-bool ReadSpecies(const char *path, std::vector<Generators::TreeSpecies> &out,
+bool ReadSpecies(const char *path, std::vector<TreeSpecies> &out,
                  std::string &error) {
   out.clear();
   if (path == nullptr || *path == 0) {
@@ -36,7 +36,7 @@ bool ReadSpecies(const char *path, std::vector<Generators::TreeSpecies> &out,
   std::error_code why;
   const std::filesystem::path where(path);
   if (!std::filesystem::is_directory(where, why)) {
-    Generators::TreeSpecies one;
+    TreeSpecies one;
     if (!ReadSpecies(path, &one)) {
       error = std::string("the species file '") + path + "' does not read: " +
               (one.Error().empty() ? "it could not be opened" : one.Error());
@@ -62,7 +62,7 @@ bool ReadSpecies(const char *path, std::vector<Generators::TreeSpecies> &out,
     return false;
   }
   for (const std::string &one : named) {
-    Generators::TreeSpecies grown;
+    TreeSpecies grown;
     if (!ReadSpecies(one.c_str(), &grown)) {
       error = "the species file '" + one + "' does not read: " +
               (grown.Error().empty() ? "it could not be opened" : grown.Error());
