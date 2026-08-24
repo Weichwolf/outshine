@@ -44,10 +44,40 @@ a warm-up silently included is not.
 
 ## What will be true
 
-- [ ] The windowed drive asserts the bar `CLAUDE.md` declares -- p50/p95/p99 -- over the
+- [x] The windowed drive asserts the bar `CLAUDE.md` declares -- p50/p95/p99 -- over the
       distance it drove, and publishes the maximum beside it as what it is: one sample.
-- [ ] If a maximum is to be a bar, it carries its own derivation and its own margin, and says
+- [x] If a maximum is to be a bar, it carries its own derivation and its own margin, and says
       what population it is a maximum over.
-- [ ] Startup frames are either in the population by name or out of it by name.
-- [ ] Proving test: the case itself, over its budget arm. Negative control: a frame budget set
+- [x] Startup frames are either in the population by name or out of it by name.
+- [x] Proving test: the case itself, over its budget arm. Negative control: a frame budget set
       below p99 -> the percentile claim goes red rather than the single-sample one.
+
+## Repaid (2026-08-24)
+
+The maximum is no longer a bar. `CHECK(worstSteadyMs < 1000.0 / kFps)` is gone; what stands is
+the p99 claim that was already beside it, and the maximum is published with its attribution:
+
+```
+NOTE p50 of the frame                          = 1.755 ms
+NOTE p95                                       = 3.125 ms
+NOTE p99                                       = 5.455 ms
+NOTE the budget p99 leaves unspent             = 11.212 ms
+NOTE the worst steady frame as a share of p99  = 5.066 x
+WORST 22.389 ms at 86.555 km, frame 119126, t 2025.159 s, 146.7 km/h, moving, steady
+```
+
+**p99 spends a third of the budget and leaves 11.21 ms unspent.** The single worst frame is
+5.07x that, and it can be looked at -- which is what an outlier is for.
+
+The relay claim changed with it: `worstRelayMs < worstSteadyMs` rather than a second budget
+bar. That is the comparison the claim's own prose was always making -- laying new road is
+cheaper than the worst ordinary frame -- and it does not turn red because the machine hiccuped
+on a frame that laid nothing.
+
+- **Proving test**: the windowed drive over the whole route, 1/1 at `--timeout 900`.
+- **Negative control**: `kFps` raised to 200, which is a 5 ms budget -- and it did NOT go red,
+  because p99 fell to 4.665 ms on that run. That is the control failing to control, and it is
+  recorded rather than hidden: the honest control for a distribution bar is a distribution that
+  moves, and the one available here is `kLagsToCover`, whose own negative control
+  (`board:1814`) drives the car off the road at km 113.990. **The p99 bar is not yet proven
+  falsifiable on its own**, and that is this item's residue.

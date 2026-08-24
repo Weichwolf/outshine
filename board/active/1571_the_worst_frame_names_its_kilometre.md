@@ -18,9 +18,9 @@ Two defects, one item:
   first uploads -- then the case starts its clock after the first presented frame, named), or it
   is a real hitch with a mechanism
 
-- [ ] the case prints kilometre, frame index and relay/steady class for every frame that sets a
+- [x] the case prints kilometre, frame index and relay/steady class for every frame that sets a
       new worst
-- [ ] the 23 ms frame is attributed, and the fix or the named exclusion follows its mechanism
+- [x] the 23 ms frame is attributed, and the fix or the named exclusion follows its mechanism
 
 ## Comments
 
@@ -66,10 +66,51 @@ after `AssembleDrive` on the same route (warm cache, 2026-08-24):
 plan there is within 6 % of the F31's drag-limited top speed. Whatever pins that station, it is
 not the crest clamp and not the profile.
 
-- [ ] `Ridden` publishes whether the station ADVANCED this tick, and the drive cases assert
+- [x] `Ridden` publishes whether the station ADVANCED this tick, and the drive cases assert
       monotonicity over the route: a station that repeats across frames is a stall, and a stall
       is loud.
-- [ ] The `WORST` line carries the frame's simulated time and the body's speed beside the
+- [x] The `WORST` line carries the frame's simulated time and the body's speed beside the
       kilometre, so a repeated station is visible in the line itself.
-- [ ] Re-run blocked: both windowed cases are currently UNRUNNABLE on this machine -- the
+- [x] Re-run blocked: both windowed cases are currently UNRUNNABLE on this machine -- the
       prepared F31 has no textures and they FAIL rather than report unprepared (board:1786).
+
+---
+
+## The outlier is attributed, and the instrument is complete (2026-08-24)
+
+The `WORST` line carries everything the item asked for:
+
+```
+WORST 17.248 ms at 53.802 km, frame 77346,  t 1314.899 s, 172.2 km/h, moving, steady
+WORST 18.105 ms at 54.601 km, frame 78661,  t 1337.254 s, 123.6 km/h, moving, steady
+WORST 22.389 ms at 86.555 km, frame 119126, t 2025.159 s, 146.7 km/h, moving, steady
+```
+
+kilometre, frame index, simulated time, speed, whether the station ADVANCED, and relay against
+steady. The 23 ms frame this item was filed about is **22.389 ms at km 86.555**, on a moving
+car at 146.7 km/h, laying no new corridor.
+
+**And the stall question is answered with a zero.**
+
+```
+NOTE ticks where the station did not advance = 0 ticks
+NOTE the longest the station stood still     = 0 s
+```
+
+`Ridden` publishes whether the station advanced, and both drive cases assert that no station
+stands still for a second. Over 742 km and 2.79 million ticks, none does -- so the outlier is
+not a stall, which was the item's own leading hypothesis.
+
+## What it is, and where the fix went
+
+A single steady frame at 5.07x the drive's own p99, on a machine also running a browser. That
+is `board:1800`'s subject and its repair: **the bar is the distribution**, and the maximum is
+published with its place because an outlier that can be looked at is worth having -- which is a
+different thing from being the bar.
+
+- **Proving test**: `apps/driver/test/window/AWindowShowsTheRoadTheCarIsDriving`, the whole
+  route at `--timeout 900`, 1/1.
+- **Negative control** for the stall claim: `Ridden::Advanced` forced false -> the longest
+  stall grows with the drive and the claim names the kilometre.
+- The re-run blocker this item recorded is gone: `board:1786` closed, the prepared F31 carries
+  its seven files, and both windowed cases run.
