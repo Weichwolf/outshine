@@ -23,6 +23,7 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
   LengthM_ = 0.0;
   Slowest_ = Standing{};
   SlowestBound_ = Standing{};
+  Fastest_ = Standing{};
   Why_.clear();
   for (size_t at = 0; at < (size_t)Held::kCount; ++at) { Bound_[at] = 0; }
   Bin_.fill(0);
@@ -186,7 +187,18 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
     }
   }
 
-  BinMs_ = within.TopMs() / (double)kSpeedBins;
+  // board:1830: a declared vacuum makes Envelope::TopMs() infinite -- legal since board:1627 --
+  // and every station then falls in bin 0, so the quantiles answer infinity and StationsUnder
+  // answers zero for any speed. The span comes from what the plan HOLDS, which is finite
+  // whatever the air is, because the acceleration sweep bounds it from a finite entry.
+  for (size_t at = 0; at < samples; ++at) {
+    if (at == 0 || Held_[at] > Fastest_.Ms) {
+      Fastest_.Ms = Held_[at];
+      Fastest_.AtM = (double)at * stepM > LengthM_ ? LengthM_ : (double)at * stepM;
+      Fastest_.By = Why_[at];
+    }
+  }
+  BinMs_ = Fastest_.Ms / (double)kSpeedBins;
   for (size_t at = 0; at < samples; ++at) {
     ++Bound_[(size_t)Why_[at]];
     if (BinMs_ > 0.0) {

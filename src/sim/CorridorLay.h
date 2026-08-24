@@ -65,7 +65,7 @@ struct Corridor {
   }
 };
 
-inline constexpr double kLagMargin = 2.0;
+inline constexpr double kLagMargin = 4.0;
 
 [[nodiscard]] constexpr double AsideRatePerM(double budgetM, double topMs) {
   const double reachM = Pilot::kSettleS * topMs;

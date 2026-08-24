@@ -296,12 +296,14 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
     stations[at].LaneHalfM = laneHalfM[band < laneHalfM.size() ? band : laneHalfM.size() - 1];
   }
   {
-    const double reachM = outshine::Pilot::kSettleS * stood.Envelope.TopMs();
-    const double mostPerM = AsideRatePerM(budgetM, stood.Envelope.TopMs());
+    const double fastestMs = inPlan.Fastest().Ms;
+    const double reachM = outshine::Pilot::kSettleS * fastestMs;
+    const double mostPerM = AsideRatePerM(budgetM, fastestMs);
     out.AsideRatePerM = mostPerM;
-    say.Number("the top speed the declaration implies", stood.Envelope.TopMs() * 3.6, "km/h");
+    say.Number("the fastest the plan view holds", fastestMs * 3.6, "km/h");
+    say.Number("the top speed the declaration would allow", stood.Envelope.TopMs() * 3.6, "km/h");
     say.Number("the look-ahead time the pilot settles over", outshine::Pilot::kSettleS, "s");
-    say.Number("the reach that buys at top speed", reachM, "m");
+    say.Number("the reach that buys at the fastest the plan holds", reachM, "m");
     say.Number("the fastest the lane centre may move sideways", mostPerM * 1000.0, "mm per metre");
     say.Number("so a full-budget shift is taken over", budgetM / mostPerM, "m of road");
     const double most = mostPerM * fineM;

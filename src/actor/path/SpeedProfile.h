@@ -58,6 +58,7 @@ public:
                           double entryMs, std::string &error);
 
   [[nodiscard]] Standing Slowest() const noexcept { return Slowest_; }
+  [[nodiscard]] Standing Fastest() const noexcept { return Fastest_; }
   [[nodiscard]] size_t BoundBy(Held term) const noexcept {
     return (size_t)term < (size_t)Held::kCount ? Bound_[(size_t)term] : 0;
   }
@@ -80,6 +81,7 @@ public:
 private:
   Standing Slowest_;
   Standing SlowestBound_;
+  Standing Fastest_;
   size_t Bound_[(size_t)Held::kCount] = {};
 
   static constexpr size_t kSpeedBins = 512;
