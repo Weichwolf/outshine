@@ -61,6 +61,11 @@ int main(void) {
     Note("runs it found", (double)laid.Runs, "runs");
     Note("the longest run", (double)laid.LongestRunVertices, "vertices");
     Note("how far it leaves the polyline", laid.WorstOffsetM, "m");
+    Note("at which vertex", laid.WorstVertex, "of them");
+    Note("whose radius was", laid.WorstRadiusM, "m");
+    Note("the drift it could not correct", laid.DriftM, "m");
+    Note("corners it strained", (double)laid.Strained, "corners");
+    Note("passes it took", (double)laid.Passes, "passes");
     CHECK(laid.Laid, "a true circular arc lays as a corridor");
     worstShare = share < worstShare ? share : worstShare;
     bestShare = share > bestShare ? share : bestShare;
@@ -69,6 +74,13 @@ int main(void) {
   Note("the worst share of the truth over the sweep", worstShare, "of it");
   Note("the best", bestShare, "of it");
 
+  // board:1795: this bar is the REPAIR's bar and the tree does not meet it yet. A run-merge
+  // that gives every same-sign run one radius was built and measured against this case: the
+  // radius went 0.667 -> 0.998 of the truth and the line's worst departure from the polyline
+  // went 0.023 m -> 4.86 m at a 10 m chord, because one radius cannot be tangent to every
+  // chord of an unevenly digitised run, and the leftover can neither stand (a curvature leap)
+  // nor be dropped (the line walks off the polyline). The repair is an alignment fitter, not a
+  // corner table, and it is sized in the item.
   CHECK(worstShare > 0.95,
         "**A POLYLINE THAT DESCRIBES A CIRCLE IS RECONSTRUCTED AS THAT CIRCLE.** The fit puts "
         "one spiral-arc-spiral at every vertex and returns the curvature to zero between them "

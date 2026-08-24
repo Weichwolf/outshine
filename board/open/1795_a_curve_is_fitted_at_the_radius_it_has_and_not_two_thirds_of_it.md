@@ -161,3 +161,74 @@ and it belongs in TARGET before it belongs in `Fit.cpp`.
 - **Not weakened**: nothing here lowers a bound to make the tree green. `board:1784`'s class
   minimum COUNTS and does not refuse, precisely because refusing on a radius that is a third
   low would refuse roads that obey their class.
+
+---
+
+## The run merge is built, measured, and NOT landed -- because it trades one defect for another (2026-08-24)
+
+The repair the open box asks for was implemented in full and measured against a new case,
+`test/unit/actor/path/ACurveIsFittedAtTheRadiusItHas`: a true 400 m circular arc at four chord
+lengths, fitted within 8 m, judged on `Fitted::TightestRadiusM`.
+
+**The radius half works, exactly as the derivation predicted.**
+
+| chord | before | after the merge |
+|---|---|---|
+| 10 m | 266.649 m (0.6666) | **399.969 m (0.9999)** |
+| 20 m | 266.597 m (0.6665) | **399.875 m (0.9997)** |
+| 50 m | 266.232 m (0.6656) | **399.218 m (0.9980)** |
+| 100 m | 264.922 m (0.6623) | 529.846 m (1.3246) |
+
+**And the line stops following the polyline**, which the same case measures:
+
+| chord | worst departure before | after |
+|---|---|---|
+| 10 m | 0.0226 m | **4.860 m** |
+| 20 m | 0.0904 m | **9.748 m** |
+| 50 m | 0.5652 m | **24.578 m** |
+| 100 m | 2.2695 m | 4.274 m |
+
+A factor of 200 at the finest digitisation, against a `withinM` of 8 m. The vertex it departs at
+is the LAST one every time -- vertices 22 of 23, 12 of 13, 6 of 7 -- an endpoint, which carries
+no radius and which no correction pass can reach.
+
+### Why, and it is structural rather than a bug in the attempt
+
+The merge gives every same-sign run ONE radius, arcs meeting directly, spirals only at the run's
+two ends -- `R*cos(s/2)` inside the run, as the item's own table says. That radius must satisfy
+three bounds at once: the accuracy bound at each vertex, `L / (tan(s_k/2) + tan(s_{k+1}/2))` for
+each chord INSIDE the run, and `0.5 L / TangentShare(s)` for the two chords at its ends. The
+binding one is the minimum, and it is therefore SMALLER than what most chords could carry.
+
+A radius smaller than a chord's own tangency leaves a remainder on that chord, and the remainder
+can go nowhere:
+
+- **stand as a straight** -- and the curvature drops to zero between two arcs of the same run,
+  which `ReferenceLine::Lay` refuses by name: *"segment 3 enters at curvature 0.000000 where
+  segment 2 leaves at 0.002500"*. Measured, not predicted.
+- **be dropped** -- and the laid line is shorter than the polyline it reconstructs, chord after
+  chord, so it walks off the end. That is the 4.86 m at 22 vertices above.
+
+Feeding the whole run back through the bound after each correction pass (`HoldRun(first, last,
+cap)` replacing the per-vertex `Shape`) keeps the run consistent and does NOT fix this: the
+remainder is a property of one radius against unevenly spaced tangency demands, not of when the
+radius is chosen.
+
+**So the corner table cannot carry the repair, and the item already said so**: *"it replaces a
+per-vertex corner table with an ALIGNMENT FITTER, and that is an architectural change to the
+corner model."* This round measured what that sentence costs. An alignment fitter does not ask
+each chord for a tangency point; it places the arc's endpoints by projection and lets the arc
+pass the vertices at a bounded distance -- which is why it has no remainder to place.
+
+### What is landed
+
+- `test/unit/actor/path/ACurveIsFittedAtTheRadiusItHas` -- the proving test the second box asks
+  for, with the sweep and the departure measured beside the radius. It is **RED**, and it is
+  declared red in `test/run.sh`'s `EXPECT_FAIL` so the gate keeps its meaning: a standing
+  finding rather than noise, and `run.sh` turns the gate RED the day it goes green with the
+  declaration still in place.
+- The measurement above, which is the thing this round adds: the merge alone is not the repair,
+  with numbers on both sides of the trade.
+
+Boxes 3 and 4 -- re-measuring Munich--Hamburg's under-class count and its crawl -- stay closed
+to work until the fit is trustworthy, which is what they were always waiting for.
