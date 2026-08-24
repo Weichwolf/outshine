@@ -28,11 +28,32 @@ struct Provision {
   std::vector<Provider> Providers;
 };
 
+struct Harvest {
+  long Features = 0;
+  long Ways = 0;
+  long NotACarriageway = 0;
+  long TooNarrow = 0;
+  long Ungraded = 0;
+  long Nodes = 0;
+  long Junctions = 0;
+  long Crossings = 0;
+  long TurnsRefused = 0;
+  double WidestRefusedM = 0.0;
+  double FetchedS = 0.0;
+  double RouteLengthM = 0.0;
+  double StraightM = 0.0;
+  double FromAwayM = 0.0;
+  double ToAwayM = 0.0;
+  bool StreetsAbsent = false;
+  bool RanOutOfPatience = false;
+};
+
 struct DriveProduct {
   Vehicle Car;
   Rigged Stood;
   Corridor Way;
   DriveState State;
+  Harvest Found;
   bool Ready = false;
 };
 

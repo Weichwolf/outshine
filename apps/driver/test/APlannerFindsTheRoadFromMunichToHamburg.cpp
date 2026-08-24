@@ -109,6 +109,47 @@ int main(void) {
         "pedestrian zones, the car parks at the carriageway's edge, and the pair of walks stays "
         "under a thousandth of the route. THIS claim lives in the ROUTE-1 CASE now: the engine "
         "publishes the number and asserts nothing city-specific (board:1581's neutrality cut)");
+  {
+    const auto &found = drive.Found;
+    Note("features the fetched tiles decoded to", (double)found.Features, "features");
+    Note("ways a car can fit down", (double)found.Ways, "ways");
+    Note("ways refused as not a carriageway", (double)found.NotACarriageway, "ways");
+    Note("ways refused as narrower than the car", (double)found.TooNarrow, "ways");
+    Note("the widest way it still refused", found.WidestRefusedM, "m");
+    Note("nodes after snapping", (double)found.Nodes, "nodes");
+    Note("junctions among them", (double)found.Junctions, "nodes");
+    Note("places two ways cross without sharing a node", (double)found.Crossings, "places");
+    Note("seconds spent fetching and decoding", found.FetchedS, "s");
+
+    CHECK(!found.StreetsAbsent,
+          "**THE STREETS LAYER IS PRESENT** -- an absent layer and an empty one are different "
+          "facts, and every count below would otherwise be an honest-looking zero");
+    CHECK(!found.RanOutOfPatience,
+          "and the corridor is fetched inside the patience declared for it");
+    CHECK(found.Features > 0 && found.Ways > 0,
+          "**REAL OSM WAYS ARRIVE OVER THE WIRE, DECODE, AND A CAR FITS DOWN SOME OF THEM** -- "
+          "no fixture and no committed extract: the declared upstream source is asked for the "
+          "tiles between start and destination and answers with vector geometry");
+    CHECK(found.NotACarriageway > 0,
+          "**AND A RAILWAY IS NOT A ROAD, WHICH WIDTH ALONE NEVER SAID** -- a rail ballast crown "
+          "is 3.8 m, wider than the car, so the width test passed them and the router put the "
+          "car on the tracks. What a carriageway has is LANES; a railway declares none");
+    CHECK(found.WidestRefusedM < drive.Car.WidthM || found.TooNarrow == 0,
+          "**ADMISSIBILITY IS THE VEHICLE'S WIDTH AND NOT A LIST OF TAGS** -- every way refused "
+          "is narrower than the car and every way taken is wider; nobody wrote down which "
+          "highway kinds a car may use, and traffic law stays unmodelled");
+    CHECK(found.Crossings > 0,
+          "**THE GRADE SEPARATIONS ARE FOUND WHERE THE SOURCE OMITS THEM** -- the vector tiles "
+          "carry two tag keys, so no bridge, tunnel or layer reaches the engine. What does "
+          "reach it is OSM's own convention: two ways crossing at grade share a node and two "
+          "crossing grade-separated do not, which survives the tiling because it is geometry "
+          "rather than a tag. This is a statement about THIS route's region, which is why it "
+          "is a case's to make (board:1821)");
+    CHECK(found.RouteLengthM > found.StraightM,
+          "**A ROAD CANNOT BE SHORTER THAN THE GREAT CIRCLE** -- if it is, the route did not "
+          "run between the two places asked for, or the network welded roads that do not meet");
+  }
+
   // board:1821: these judgements stood inside LayCorridor as Sink::Claim, so the library both
   // evaluated the criterion and narrated it. The lay publishes the counts now and the case
   // judges them -- which is also the only place they can be judged against a route.

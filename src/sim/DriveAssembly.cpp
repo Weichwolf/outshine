@@ -43,21 +43,19 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
                    const Column<Drive> &driven, const WorldSettings &world,
                    Ground::GroundStack &stack, Data::Transport &wire, const Provision &kept,
                    Sink &say, DriveProduct &out) {
-  say.Claim(!kept.CacheDir.empty() && !kept.AssetsDir.empty(),
-        "**THE CALLER PROVISIONS THE JOURNEY**: a cache directory and an assets root arrive as "
-        "declarations -- the library owns no path");
-  if (kept.CacheDir.empty() || kept.AssetsDir.empty()) { return false; }
+  if (kept.CacheDir.empty() || kept.AssetsDir.empty()) {
+    say.Say("REFUSED no cache directory or assets root was provisioned");
+    return false;
+  }
   const outshine::Vehicle *car = vehicles.Get(cast.PlayerBody);
-  say.Claim(car != nullptr,
-        "**THE CAR ARRIVES AS A HANDLE THROUGH THE ONE DOOR**: the assembled body carries its "
-        "declaration in the column, and a journey without one refuses");
-  if (car == nullptr) { return false; }
+  if (car == nullptr) {
+    say.Say("REFUSED the assembled body carries no vehicle declaration");
+    return false;
+  }
   const outshine::Drive *driveTo = driven.Get(cast.Assignment);
   const bool assigned =
       driveTo != nullptr && scene.TargetOf(cast.PlayerMind, Relation::Assigned) == cast.Assignment;
-  say.Claim(assigned,
-        "**AND SO DOES THE ASSIGNMENT**: the mind is Assigned the coordinates this journey "
-        "will lay -- two coordinates and a zoom as column data, not parameters");
+  if (!assigned) { say.Say("REFUSED the mind carries no assignment"); }
   if (!assigned) { return false; }
   const double fromLatDeg = driveTo->FromLatDeg;
   const double fromLonDeg = driveTo->FromLonDeg;
@@ -90,10 +88,10 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   out.State.CarWidthM = out.Car.WidthM;
   const double carWidthM = out.State.CarWidthM;
   say.Number("the width the declaration gives the car", carWidthM, "m");
-  say.Claim(carWidthM > 0.0,
-        "**THE CAR'S WIDTH IS THE DECLARATION'S**, because every lane judgement stands on it -- "
-        "a vehicle without a declared width cannot be fitted to any road");
-  if (!(carWidthM > 0.0)) { return false; }
+  if (!(carWidthM > 0.0)) {
+    say.Say("REFUSED the vehicle declares no width");
+    return false;
+  }
 
   if (!stack.Open(kept.CacheDir, kept.AssetsDir, kept.Providers, middleLat, middleLon, wire,
                   say)) {
@@ -120,7 +118,7 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
       }
     }
   }
-  say.Claim(!ranOut, "the corridor is fetched inside the patience declared for it");
+  out.Found.RanOutOfPatience = ranOut;
   const double fetchedS =
       std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
 
@@ -132,28 +130,31 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   say.Number("tiles that would not decode", (double)field.BadTiles(), "tiles");
   say.Number("features read", (double)field.Features().size(), "features");
   say.Number("points in them", (double)(field.Points().size() / 2), "points");
+  out.Found.FetchedS = fetchedS;
   say.Number("seconds spent fetching and decoding", fetchedS, "s");
 
-  say.Claim(built > 0 && field.Features().size() > 0,
-        "**REAL OSM WAYS ARRIVE OVER THE WIRE AND DECODE.** No fixture, no committed extract: the "
-        "declared upstream source is asked for the tiles between start and destination and answers "
-        "with vector geometry");
-  if (field.Features().empty()) { return false; }
+  out.Found.Features = (long)field.Features().size();
+  if (field.Features().empty()) {
+    say.Say("REFUSED the fetched tiles decode to no feature");
+    return false;
+  }
 
   outshine::Ground::GroundMaterials materials;
-  say.Claim(materials.Load((kept.AssetsDir + "/world/ground-materials.json").c_str()),
-        "the declared ground materials load, because a width table names them");
+  if (!materials.Load((kept.AssetsDir + "/world/ground-materials.json").c_str())) {
+    say.Say("REFUSED the declared ground materials do not load");
+    return false;
+  }
   VegetationTemplates widths;
-  say.Claim(widths.Load((kept.AssetsDir + "/world/vegetation.json").c_str(), materials),
-        "the declared widths load, with their RAA, RAL and RASt origins");
+  if (!widths.Load((kept.AssetsDir + "/world/vegetation.json").c_str(), materials)) {
+    say.Say("REFUSED the declared width table does not load");
+    return false;
+  }
 
   const double quantumM = outshine::Ground::kMercatorGirthM / ((double)(1L << kZoom) * 4096.0);
   Network roads(1.05 * quantumM, world.RadiusM);
   say.Number("the tile's own coordinate quantisation", quantumM, "m");
   const Reaped reaped = Reap(field, widths, carWidthM, roads);
-  say.Claim(!reaped.StreetsAbsent,
-        "the streets layer is present -- an absent layer and an empty one are different "
-        "facts, and every count below would otherwise be an honest-looking zero");
+  out.Found.StreetsAbsent = reaped.StreetsAbsent;
   say.Number("the snapping distance just above it", roads.SnapM(), "m");
   say.Number("ways a car can fit down", (double)reaped.Ways, "ways");
   say.Number("points in them", (double)reaped.Points, "points");
@@ -175,48 +176,42 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   if (!reaped.NotCarriageways.empty()) {
     say.Say(Line("NOT CARRIAGEWAYS %s", reaped.NotCarriageways.c_str()));
   }
-  say.Claim(reaped.NotACarriageway > 0,
-        "**AND A RAILWAY IS NOT A ROAD, WHICH WIDTH ALONE NEVER SAID.** The streets layer carries "
-        "rail, tram, subway, monorail, funicular, narrow_gauge and light_rail, and a rail ballast "
-        "crown is 3.8 m -- wider than the car, so the width test passed them and the router put the "
-        "car on the tracks. What a CARRIAGEWAY has is LANES; a railway declares none, and that is "
-        "the test");
+  out.Found.NotACarriageway = (long)reaped.NotACarriageway;
   say.Number("ways whose kind declares no maximum grade", (double)reaped.Ungraded, "ways");
 
   if (!reaped.WithoutGrade.empty()) {
     say.Say(Line("UNGRADED KINDS %s", reaped.WithoutGrade.c_str()));
   }
-  say.Claim(reaped.Ways > 0,
-        Line("and roads a %s m car can fit down are harvested from them",
-             std::to_string(out.Car.WidthM)).c_str());
-  say.Claim(reaped.WidestRefusedM < carWidthM || reaped.TooNarrow == 0,
-        "**ADMISSIBILITY IS THE VEHICLE'S WIDTH AND NOT A LIST OF TAGS.** Every way this refused is "
-        "narrower than the car; every way it took is wider. Nobody wrote down which highway kinds a "
-        "car may use, and traffic law stays unmodelled -- what decides is whether it fits");
+  out.Found.Ways = (long)reaped.Ways;
+  out.Found.TooNarrow = (long)reaped.TooNarrow;
+  out.Found.Ungraded = (long)reaped.Ungraded;
+  out.Found.WidestRefusedM = reaped.WidestRefusedM;
 
-  say.Claim(roads.Weave(error), "the ways weave into a network");
-  if (!error.empty()) { say.Say(Line("REFUSED %s", error.c_str())); }
-  say.Number("nodes after snapping", (double)roads.NodeCount(), "nodes");
-  say.Number("junctions among them", (double)roads.JunctionCount(), "nodes");
+  if (!roads.Weave(error)) {
+    say.Say(Line("REFUSED the ways do not weave into a network: %s", error.c_str()));
+    return false;
+  }
+  out.Found.Nodes = (long)roads.NodeCount();
+  out.Found.Junctions = (long)roads.JunctionCount();
+  say.Number("nodes after snapping", (double)out.Found.Nodes, "nodes");
+  say.Number("junctions among them", (double)out.Found.Junctions, "nodes");
   say.Number("edges", (double)roads.EdgeCount(), "edges");
   {
     std::vector<Path::Network::Crossing> crossings;
     const size_t found = roads.Crossings(crossings);
     say.Number("places two ways cross in plan without sharing a node", (double)found, "places");
-    say.Number("junctions among the nodes", (double)roads.JunctionCount(), "nodes");
-    say.Claim(found > 0,
-          "**THE GRADE SEPARATIONS ARE FOUND WHERE THE SOURCE OMITS THEM.** The vector tiles "
-          "carry two tag keys -- kind and rail -- so no bridge, tunnel or layer reaches this "
-          "engine. What does reach it is OSM's own convention: two ways crossing AT GRADE share "
-          "a node and two crossing grade-separated do not, and that survives the tiling because "
-          "it is geometry rather than a tag");
+      out.Found.Crossings = (long)found;
   }
 
   size_t atFrom = 0, atTo = 0;
   double fromAwayM = 0.0, toAwayM = 0.0;
-  say.Claim(roads.Nearest(Waypoint{fromLatDeg, fromLonDeg}, atFrom, fromAwayM) &&
-            roads.Nearest(Waypoint{toLatDeg, toLonDeg}, atTo, toAwayM),
-        "both city centres resolve to a node of the network");
+  if (!roads.Nearest(Waypoint{fromLatDeg, fromLonDeg}, atFrom, fromAwayM) ||
+      !roads.Nearest(Waypoint{toLatDeg, toLonDeg}, atTo, toAwayM)) {
+    say.Say("REFUSED a waypoint resolves to no node of the network");
+    return false;
+  }
+  out.Found.FromAwayM = fromAwayM;
+  out.Found.ToAwayM = toAwayM;
   say.Number("how far the start is from the nearest road node", fromAwayM, "m");
   say.Number("how far the destination is from the nearest road node", toAwayM, "m");
   say.Number("how far each walk is as a share of the drive",
@@ -224,8 +219,6 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
 
   stood = outshine::Sim::Stand(out.Car, world.GravityMs2, world.AirDensityKgM3);
   if (!stood.Stood) { say.Say(Line("REFUSED %s", stood.Error.c_str())); }
-  say.Claim(stood.Stood, "**AND THE DECLARED VEHICLE STANDS UP AS A RIG.** Every number the drive uses comes "
-                     "from the file, not from a constant beside it");
   if (!stood.Stood) { return false; }
   const double tightestM = stood.TightestM;
   say.Number("the tightest centreline circle the declaration implies", tightestM, "m");
@@ -234,18 +227,14 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   say.Number("turns the search refused as too sharp for the car", (double)route.TurnsRefused, "turns");
   if (!route.Found) { say.Say(Line("REFUSED %s", route.Error.c_str())); }
   say.Number("nodes the search settled", (double)route.Reached, "nodes");
-  say.Claim(route.Found,
-        "**AND A ROUTE IS FOUND FROM START TO DESTINATION OVER OSM'S OWN WAYS.** Two "
-        "coordinates in, a chain of real roads out, nothing stored and nothing hand-placed");
   if (!route.Found) { return false; }
+  out.Found.TurnsRefused = (long)route.TurnsRefused;
 
   say.Number("how far the route runs", route.LengthM / 1000.0, "km");
   say.Number("how far the crow flies", route.StraightM / 1000.0, "km");
   say.Number("the detour that is", route.LengthM / route.StraightM, "x");
-  say.Claim(route.LengthM > route.StraightM,
-        "**A ROAD CANNOT BE SHORTER THAN THE GREAT CIRCLE.** If it is, the route did not run between "
-        "the two places asked for, or the network welded roads that do not meet -- and both are "
-        "findings rather than a route");
+  out.Found.RouteLengthM = route.LengthM;
+  out.Found.StraightM = route.StraightM;
   say.Number("legs in it", (double)route.Legs.size(), "legs");
 
   say.Number("the narrowest road on the route", reaped.NarrowestTakenM, "m");
@@ -263,7 +252,10 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
     body.InertiaKgM2[axis] = out.Car.InertiaKgM2[axis];
   }
   outshine::Placed start;
-  say.Claim(corridor.At(0.0, start), "the corridor answers at its own start");
+  if (!corridor.At(0.0, start)) {
+    say.Say("REFUSED the corridor does not answer at its own start");
+    return false;
+  }
   const outshine::Standing under0 =
       outshine::Stand(corridor, start.EastM, start.NorthM, 0.0, 0.0, 50.0);
   const double startAsideM = asideM.empty() ? 0.0 : asideM.front();
