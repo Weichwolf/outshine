@@ -42,3 +42,18 @@ lives in -- names `AsideRatePerM` nowhere at all.
 - [ ] The negative control runs in the fast gate: `kLagsToCover` at 1.0 -> a synthetic corridor
       whose lane centre steps, driven at the declared top speed, puts the deviation past the
       reserve and the unit case names it -- seconds, not twenty minutes, and no network.
+
+**Closed.** `Sim::AsideRatePerM(budgetM, topMs)` is the one spelling; CorridorLay.cpp:330 and
+`ADriveTickHoldsTheCarToTheDeclaredWorld:112` both call it, and the hand-rolled
+`(kLaneHalfM - 0.5 * car.WidthM) / TopMs` is gone -- it omitted both `Pilot::kSettleS` and the
+margin, so it was not a stale copy of the formula, it was a different formula.
+
+Reading the same function was necessary and not sufficient: `Straight()` lays a corridor whose
+`FineAside` is all zero and whose `FineLaneHalfM` is empty, so the lane centre never moves and
+the rate multiplies nothing. `Shifting()` steps the centre 0.75 m at 50 m and fills both bands,
+which is also the first gate case to fill `FineLaneHalfM` at all (board:1820 stands on that).
+
+Proving test: `unit/sim/ADriveTickHoldsTheCarToTheDeclaredWorld`, the shifting-lane block.
+Negative controls, both run: `kLagMargin = 8.0` -> FAIL, 0.466 m of the step unclaimed;
+`kLagMargin = 1.0` -> FAIL, 0.294 m against a 0.2 m budget. Before this commit both values
+were green, which is the defect the item names.
