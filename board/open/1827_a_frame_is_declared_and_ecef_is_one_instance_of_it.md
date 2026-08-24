@@ -98,17 +98,21 @@ src/render/stages/SubjectDraw.cpp:854   uniform[i] = (float)placed[i];          
 
 Double all the way to the camera-relative product, `float` only at the uniform push.
 
-**CLAUDE.md did not say so**, and a load-bearing property that is unwritten is also unproven.
-Landed in the target block this hour.
+**CLAUDE.md did not say so** and now does -- but the owner's correction is the sharper reading:
+*"was der code macht ist die schärfste Schreibung"*. Prose in the map is the weakest form of
+this statement. The code states it exactly once, at one call site, and prevents nothing at the
+next one; a line in CLAUDE.md prevents even less. **The statement belongs in the TYPE**, which
+is this tree's own rule -- `static_assert` and the type system over checkers -- and a world
+position that CAN be 32-bit is the defect, not a world position that HAPPENS to be 64-bit here.
 
 **The scene half is NOT guaranteed.** `include/outshine/Column.h` and `Store.h` carry no
 precision statement at all -- `Column<T>` is generic, so the precision of a position is a
 property of whatever component a client registers. Nothing refuses a `float` world position.
 
-- [ ] A world position is 64-bit BY CONSTRUCTION: the component that carries one is a declared
-      type the catalogue owns, and a client cannot register a 32-bit stand-in for it. This is
-      the `static_assert`-over-checker rule applied to the one number that cannot survive being
-      wrong.
+- [ ] A world position is 64-bit BY CONSTRUCTION -- a declared type the catalogue owns, which a
+      client cannot register a 32-bit stand-in for, and which the render path takes as its input
+      rather than a bare `const double *`. The boundary where it becomes `float` is ONE function
+      taking the eye, so there is no second place to get it right or wrong.
 - [ ] Proving test: a case that walks every registered component naming a position and asserts
       its scalar is 64-bit, and a case that measures the error of a point 20 000 km from the
       anchor through the render path -- with a control that swaps the anchor subtraction to
