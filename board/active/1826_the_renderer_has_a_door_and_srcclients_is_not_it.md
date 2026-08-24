@@ -88,3 +88,66 @@ IS the library.
 - 2026-08-24 -- filed from the owner's reading plus the five measured failures above. The
   failures are not a complaint about difficulty: each one is a declaration the renderer ACCEPTED
   and then silently did nothing with, which is the defect this item is about.
+
+---
+
+## Should `src/clients/` exist at all? Measured against the reference designs (owner, 2026-08-24)
+
+> *"prüfe ob es src/clients/ überhaupt geben sollte. der client deklariert ein surface, übergibt
+> es outshine lib und outshine rendert darein. der renderer ist dabei im prinzip austauschbar.
+> halte dich an referenzdesigns."*
+
+The reference designs agree on one shape, and it is the owner's sentence:
+
+| engine | what the client hands in | what comes back |
+|---|---|---|
+| Filament | a NATIVE window handle to `Engine::createSwapChain(void*)` | `SwapChain*`, opaque; the backend enum is chosen at `Engine::create` and never leaks |
+| bgfx | `PlatformData::nwh`, a native handle, before `bgfx::init` | nothing backend-shaped; `bgfx::frame()` is the whole loop |
+| Ogre | `externalWindowHandle` in the params, or lets Ogre make the window | `RenderWindow*`; `RenderSystem` is swapped by name |
+| Unreal | an `FViewport` the platform layer owns | RHI resources behind `FRHI*` interfaces |
+
+**A native handle goes IN; nothing backend-shaped comes OUT.** That is what makes the renderer
+swappable, and it is the test to apply here.
+
+### Where this tree stands, measured
+
+Good, and better than the folder's name suggests:
+
+```
+tools/viewer/...:553   SDL_CreateWindow(...)                        <- the CLIENT owns the window
+src/clients/Live.cpp   0 occurrences of SDL_                        <- Live is not a platform layer
+include/outshine/*.h   0 occurrences of SDL                         <- the public door is SDL-free
+```
+
+Broken, and it is one seam:
+
+```
+src/render/Renderer.cpp:162          SDL_CreateGPUDevice(...)       <- the LIBRARY owns the device
+tools/viewer/...:610   SDL_ClaimWindowForGPUDevice(renderer.Device(), window)
+tools/viewer/...:626   SDL_AcquireGPUCommandBuffer(renderer.Device())
+tools/viewer/...:653   SDL_ReleaseWindowFromGPUDevice(renderer.Device(), window)
+tools/viewer/Every...:159  SDL_CreateGPUTexture(renderer.Device(), &wanted)
+```
+
+`Renderer::Device()` hands an `SDL_GPUDevice *` OUT of the library, and the client then performs
+swapchain and command-buffer work with it. So the client does not declare a surface and hand it
+over -- it borrows the library's device and writes a piece of the renderer itself. **With that
+seam in place the renderer is not swappable**, because every client is written against SDL_GPU
+whether it wants to be or not.
+
+### So: should `src/clients/` exist?
+
+**No.** A client is `apps/` or `tools/`; everything under `src/` IS the library, and a library
+does not contain its clients. The measurement says the same, file by file: the folder holds a
+public door, process scaffolding that is not engine at all, the renderer's real contract wearing
+a client's name, two god facades already painted red, and three headers nothing includes.
+
+The order of work, largest lever first:
+
+- [ ] **The surface goes IN.** `Renderer::Device()` leaves the public surface; a client hands
+      over a declared surface (a native window handle, or a texture it owns) and gets back
+      nothing SDL-shaped. `SDL_ClaimWindowForGPUDevice`, `SDL_AcquireGPUCommandBuffer` and
+      `SDL_CreateGPUTexture` have no call sites outside `src/render/`.
+- [ ] **The renderer is swappable by construction**: what a client holds is an interface, and
+      the SDL_GPU implementation is one of its implementations, chosen once.
+- [ ] `src/clients/` is dissolved along the lines measured above.
