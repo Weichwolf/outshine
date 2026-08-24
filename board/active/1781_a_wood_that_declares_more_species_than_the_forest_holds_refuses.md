@@ -53,10 +53,10 @@ though the struct is copied per cell.
 
 - [ ] More stems than `kMostSpecies` **refuses at construction**, naming the count it was
       handed and the bound it holds; the refusal reaches `Sim::LoadTables` as a `why`.
-- [ ] `kMostSpecies`' origin is written in this item and in the commit that sets it.
+- [x] `kMostSpecies`' origin is written in this item and in the commit that sets it.
 - [ ] Zero stems is a **distinct** outcome and a distinct note from "the ground carries no
       cover row"; the per-cell `Stems_.empty()` test disappears with it.
-- [ ] `Stems_` is a fixed contiguous array with a count, `static_assert`ed on its size, with
+- [x] `Stems_` is a fixed contiguous array with a count, `static_assert`ed on its size, with
       no allocation behind the generation loop.
 - [ ] Proving test: a `Forest` handed 65 stems refuses and names both numbers; a `Forest` of
       zero stems publishes a note no unvegetated ground publishes. Negative control: the
@@ -104,3 +104,50 @@ size, which is what the open box asks for.
 
 - [ ] `kMostSpecies = 64` carries its derivation in THIS item and its commit before it stays
       public -- or it goes back behind `private:` until it has one.
+
+---
+
+## The last two boxes, closed (2026-08-24)
+
+**The layout box was already paid and unrecorded**: `std::array<Stem, kMostSpecies> Stems_{}`
+with a `Held_` count stands at `Forest.h:64`. What was missing is what makes it hold --
+nothing asserted the layout a per-cell copy depends on. Three do now:
+
+```cpp
+static_assert(sizeof(Forest::Stem) == 24, "sizeof(Forest::Stem)");
+static_assert(std::is_trivially_copyable<Forest::Stem>::value, "a stem is copied per cell");
+static_assert(Forest::kSpeciesTableBytes == 1536, "the species table's bytes");
+```
+
+**And the origin box turned out to hold a contradiction.** `kSpeciesTableBytes = 2048` stood
+beside `kMostSpecies = 64` describing nothing: `sizeof(Stem)` is 24, so the table is **1536**
+bytes. One underived number was wrong about the other, and neither was read by any code.
+
+## Where 64 comes from, written down
+
+**It is a declared CAPACITY and not a derivation, and it stays one.** Every derivation offered
+itself and failed to be honest:
+
+| candidate anchor | why not |
+|---|---|
+| a cache line | the table is 1536 bytes either way; 64 stems is far inside L1 on this device and the number would be arbitrary within it |
+| one page | Apple silicon pages are 16 KB (`getconf PAGESIZE`), which admits 682 stems -- a bound that never fires is not a refusal |
+| the shipped catalogue | 31 files; a bound fitted to what is there today is calibration deciding, which this tree forbids |
+
+So: `kMostSpecies` `[SET]` **= 64**, twice the 31 species the tree ships. What makes a declared
+capacity safe is that exceeding it REFUSES loudly rather than truncating -- which this item
+already landed. What makes it USEFUL is that the tree notices before an artist does.
+
+- **Proving test**: `test/unit/clients/AWorldReadsTheSpeciesThatGrowInIt` -- the shipped
+  catalogue must stay clear of the bound, and the headroom is published:
+
+  ```
+  NOTE species the tree carries                    = 31 files
+  NOTE the species a wood may hold at once         = 64 species
+  NOTE the bytes that table costs                  = 1536 bytes
+  NOTE the headroom the shipped catalogue leaves   = 2.06 x
+  ```
+- **Negative controls**, both run: `kMostSpecies` cut to 31 -> headroom reads `1 x` and the
+  claim goes red; a `double` added to `Stem` -> the layout `static_assert` fires at compile
+  time with the size it found.
+- Gate 257/257.
