@@ -325,3 +325,34 @@ standard type is strictly clearer, and it crosses the ground/generator boundary 
 `BuildingField::Build(…, Span<const WayLine> ways)` and `WaterField::Surfaces()`. Whether
 `Span` dies tree-wide is a separate sitting; that it is spelled on doors converted THIS round
 is this item's.
+
+---
+
+## The sharpening's three sites, paid (2026-08-24)
+
+| site | was | is |
+|---|---|---|
+| `OsmField.h` | 17 value-returning members, **one** `[[nodiscard]]` | **20** of them, every one |
+| `OsmField.h:52-58` | `Features()`, `Rings()`, `Points()`, `Tiles()` returned `const std::vector<T>&` while `OfTile` beside them returned a view -- the class contradicted itself in six consecutive lines | all four are `std::span<const T>`; `LayerName` is `std::string_view` |
+| `OsmField::OfTile` | the tree's pre-C++20 `Span<T>` shim | `std::span<const Feature>` |
+| `Wayfinding.h:48-50` | `Lay` grew a **seventh** parameter on a two-argument view rather than converting | one overload, `std::span<const double>`, `minRadiusM` defaulted |
+
+Two `[[nodiscard]]` returns were being dropped silently -- `ClassField.cpp:167` and
+`World.cpp:342` both called `OsmField::Build` and ignored the count. Both take it deliberately
+now, which is what the attribute is for.
+
+Gate 259/259.
+
+## The sweep's own population, measured at HEAD
+
+| | |
+|---|---|
+| `const std::vector<T> &` at a boundary | **90** |
+| `const std::string &` | **104** |
+| uses of the tree's own `Span<>` shim rather than `std::span` | **145** |
+
+The third row is the reviewer's separate reading and it is worth its own sitting: `Span.h` is a
+pre-C++20 shim with an `enable_if_t` const-conversion constructor, in a tree whose one `-std`
+is C++23. It crosses the ground/generator boundary in `BuildingField::Build` and
+`WaterField::Surfaces`. Whether it dies tree-wide is a decision; that it is no longer spelled
+on a door converted this round is this item's, and that is done.
