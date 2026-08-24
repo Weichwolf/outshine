@@ -321,6 +321,7 @@ int main(void) {
     Note("segments among them", (double)segments, "segments");
     Note("crossings found", (double)found, "crossings");
     Note("segment pairs tested", (double)sweep.PairsTested(), "pairs");
+    Note("the fullest cell", (double)sweep.FullestCell(), "segments");
     Note("pairs tested per crossing found",
          found > 0 ? (double)sweep.PairsTested() / (double)found : 0.0, "pairs");
     Note("what testing every pair would have cost",
@@ -333,6 +334,64 @@ int main(void) {
           "carries hundreds of points and a box the length of the country it crosses, so a "
           "way-box prune does nothing for exactly the ways this reconstruction is about -- the "
           "cost per segment is bounded by what shares its cell (board:1822)");
+  }
+
+  // board:1831: the cell size used to come from the bounding box AREA, so a network with no
+  // extent in latitude -- every way exactly east-west, which is what a fixture lays -- took a
+  // 1.0e-12 clamp and produced 141 422 cells across for two segments, or 7 million over ten
+  // degrees. The size comes from the SEGMENTS now, and the table is a hash of segment count.
+  {
+    Network flat(kSnapM, kIuggMeanRadiusM);
+    std::vector<double> eastward;
+    for (int one = 0; one < 8; ++one) {
+      eastward.clear();
+      for (int step = 0; step <= 20; ++step) {
+        eastward.push_back(51.0);
+        eastward.push_back(10.0 + 0.4 * (double)one + 0.02 * (double)step);
+      }
+      flat.Lay(eastward, 4.75, 0.06, 2, 400.0);
+    }
+    CHECK(flat.Weave(error), "eight ways at ONE latitude weave -- the bbox has no height at all");
+    std::vector<Network::Crossing> crossings;
+    const size_t found = flat.Crossings(crossings);
+    Note("ways at one latitude", 8.0, "ways");
+    Note("crossings among them", (double)found, "crossings");
+    Note("pairs tested", (double)flat.PairsTested(), "pairs");
+    Note("the fullest cell", (double)flat.FullestCell(), "segments");
+    CHECK(flat.PairsTested() < 8u * 20u * 20u,
+          "**A NETWORK WITH NO EXTENT IN ONE AXIS COSTS WHAT ITS SEGMENTS COST**, not what a "
+          "degenerate bounding box divides into: the cell size comes from the segment lengths "
+          "the network holds, so a flat network cannot produce a cell table larger than the "
+          "segments in it (board:1831)");
+  }
+
+  {
+    Network clustered(kSnapM, kIuggMeanRadiusM);
+    std::vector<double> tight;
+    for (int one = 0; one < 40; ++one) {
+      tight.clear();
+      for (int step = 0; step <= 20; ++step) {
+        tight.push_back(51.0 + 0.00002 * (double)one);
+        tight.push_back(10.0 + 0.00005 * (double)step);
+      }
+      clustered.Lay(tight, 4.75, 0.06, 2, 400.0);
+    }
+    const double faraway[4] = {56.0, 15.0, 56.001, 15.001};
+    clustered.Lay(std::span<const double>(faraway, 4), 4.75, 0.06, 2, 400.0);
+    CHECK(clustered.Weave(error),
+          "forty ways inside a thousandth of a degree, plus one way five degrees away, weave");
+    std::vector<Network::Crossing> crossings;
+    const size_t found = clustered.Crossings(crossings);
+    const size_t segments = 40u * 20u + 1u;
+    Note("segments in the cluster and its outlier", (double)segments, "segments");
+    Note("crossings found", (double)found, "crossings");
+    Note("pairs tested", (double)clustered.PairsTested(), "pairs");
+    Note("the fullest cell", (double)clustered.FullestCell(), "segments");
+    CHECK(clustered.FullestCell() < segments,
+          "**AND A CLUSTER WITH ONE OUTLIER DOES NOT PUT EVERY SEGMENT IN ONE CELL**: a cell "
+          "size scaled to the whole bounding box would, and the pair loop inside that cell is "
+          "O(n^2) with nothing saying so -- the fullest cell is published beside the total so a "
+          "clustered network is a number rather than a slow run (board:1831)");
   }
 
   Covers("I.4.4 a network is woven from ways that share no identity: points within a declared "

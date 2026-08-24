@@ -290,59 +290,66 @@ size_t Network::Crossings(std::vector<Crossing> &into) const {
   for (const Way &way : Ways_) { segments += way.Count > 1 ? way.Count - 1 : 0; }
   if (segments < 2) { return 0; }
 
-  const double spanLon = eastLon - westLon, spanLat = northLat - southLat;
-  const double cellDeg =
-      std::sqrt(std::fmax(spanLon * spanLat, 1.0e-12) / (double)segments) * 2.0;
-  const size_t across = (size_t)(spanLon / cellDeg) + 1u;
-  const size_t down = (size_t)(spanLat / cellDeg) + 1u;
-  const size_t cells = across * down;
-
-  std::vector<uint32_t> holds(cells + 1u, 0);
   std::vector<uint32_t> segWay(segments, 0), segAt(segments, 0);
-  size_t made = 0;
-  for (size_t which = 0; which < Ways_.size(); ++which) {
-    const Way &way = Ways_[which];
-    for (size_t a = 0; a + 1 < way.Count; ++a) {
-      segWay[made] = (uint32_t)which;
-      segAt[made] = (uint32_t)(way.First + a);
-      ++made;
+  {
+    size_t made = 0;
+    for (size_t which = 0; which < Ways_.size(); ++which) {
+      const Way &way = Ways_[which];
+      for (size_t a = 0; a + 1 < way.Count; ++a) {
+        segWay[made] = (uint32_t)which;
+        segAt[made] = (uint32_t)(way.First + a);
+        ++made;
+      }
     }
   }
 
-  auto cellOf = [&](double atLon, double atLat) {
-    size_t x = (size_t)((atLon - westLon) / cellDeg);
-    size_t y = (size_t)((atLat - southLat) / cellDeg);
-    x = x < across ? x : across - 1u;
-    y = y < down ? y : down - 1u;
-    return y * across + x;
+  double reachSum = 0.0;
+  for (size_t seg = 0; seg < segments; ++seg) {
+    const size_t first = segAt[seg];
+    const double byLon = std::fabs(lon[first + 1] - lon[first]);
+    const double byLat = std::fabs(Points_[2 * first + 2] - Points_[2 * first]);
+    reachSum += byLon > byLat ? byLon : byLat;
+  }
+  const double cellDeg = reachSum > 0.0 ? 2.0 * reachSum / (double)segments : 1.0;
+  const size_t cells = 2u * segments + 1u;
+
+  std::vector<uint32_t> holds(cells + 1u, 0);
+  const auto squareOf = [&](double atLon, double atLat) {
+    const long x = (long)std::floor((atLon - westLon) / cellDeg);
+    const long y = (long)std::floor((atLat - southLat) / cellDeg);
+    return std::pair<long, long>(x, y);
+  };
+  const auto bucketOf = [&](std::pair<long, long> square) {
+    const uint64_t mixed = (uint64_t)(square.first * 73856093L ^ square.second * 19349663L);
+    return (size_t)(mixed % (uint64_t)cells);
   };
 
-  for (size_t seg = 0; seg < segments; ++seg) {
+  const auto overSquares = [&](size_t seg, auto &&visit) {
     const size_t first = segAt[seg];
     const double lo = std::fmin(lon[first], lon[first + 1]);
     const double hi = std::fmax(lon[first], lon[first + 1]);
     const double bottom = std::fmin(Points_[2 * first], Points_[2 * first + 2]);
     const double top = std::fmax(Points_[2 * first], Points_[2 * first + 2]);
-    const size_t from = cellOf(lo, bottom), to = cellOf(hi, top);
-    for (size_t y = from / across; y <= to / across; ++y) {
-      for (size_t x = from % across; x <= to % across; ++x) { ++holds[y * across + x + 1u]; }
+    const auto from = squareOf(lo, bottom), to = squareOf(hi, top);
+    for (long y = from.second; y <= to.second; ++y) {
+      for (long x = from.first; x <= to.first; ++x) { visit(std::pair<long, long>(x, y)); }
     }
+  };
+
+  for (size_t seg = 0; seg < segments; ++seg) {
+    overSquares(seg, [&](std::pair<long, long> square) { ++holds[bucketOf(square) + 1u]; });
   }
   for (size_t cell = 0; cell < cells; ++cell) { holds[cell + 1u] += holds[cell]; }
   std::vector<uint32_t> filled(holds.begin(), holds.end() - 1);
   std::vector<uint32_t> inCell(holds[cells], 0);
   for (size_t seg = 0; seg < segments; ++seg) {
-    const size_t first = segAt[seg];
-    const double lo = std::fmin(lon[first], lon[first + 1]);
-    const double hi = std::fmax(lon[first], lon[first + 1]);
-    const double bottom = std::fmin(Points_[2 * first], Points_[2 * first + 2]);
-    const double top = std::fmax(Points_[2 * first], Points_[2 * first + 2]);
-    const size_t from = cellOf(lo, bottom), to = cellOf(hi, top);
-    for (size_t y = from / across; y <= to / across; ++y) {
-      for (size_t x = from % across; x <= to % across; ++x) {
-        inCell[filled[y * across + x]++] = (uint32_t)seg;
-      }
-    }
+    overSquares(seg,
+                [&](std::pair<long, long> square) { inCell[filled[bucketOf(square)]++] = (uint32_t)seg; });
+  }
+  Fullest_ = 0;
+  for (size_t cell = 0; cell < cells; ++cell) {
+    const size_t held = holds[cell + 1u] - holds[cell];
+    Fullest_ = held > Fullest_ ? held : Fullest_;
   }
 
   for (size_t cell = 0; cell < cells; ++cell) {
@@ -360,7 +367,7 @@ size_t Network::Crossings(std::vector<Crossing> &into) const {
         const double dx = lon[firstB + 1], dy = Points_[2 * firstB + 2];
         double atX = 0.0, atY = 0.0;
         if (!SegmentsMeet(ax, ay, bx, by, cx, cy, dx, dy, &atX, &atY)) { continue; }
-        if (cellOf(atX, atY) != cell) { continue; }
+        if (bucketOf(squareOf(atX, atY)) != cell) { continue; }
         double back = atX;
         while (back > 180.0) { back -= 360.0; }
         while (back < -180.0) { back += 360.0; }
