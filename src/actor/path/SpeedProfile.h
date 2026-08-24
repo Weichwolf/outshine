@@ -1,7 +1,9 @@
 #ifndef OUTSHINE_ACTOR_PATH_SPEEDPROFILE_H
 #define OUTSHINE_ACTOR_PATH_SPEEDPROFILE_H
 
+#include <array>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <string>
 #include <vector>
@@ -66,6 +68,8 @@ public:
   [[nodiscard]] size_t SampleCount() const noexcept { return Held_.size(); }
   [[nodiscard]] double SampleAt(size_t which) const noexcept { return Held_[which]; }
   [[nodiscard]] double CurvatureAt(size_t which) const noexcept { return Curvature_[which]; }
+  [[nodiscard]] double Quantile(double share) const noexcept;
+  [[nodiscard]] size_t StationsUnder(double ms) const noexcept;
   [[nodiscard]] Standing SlowestBound() const noexcept { return SlowestBound_; }
   [[nodiscard]] static constexpr bool IsGeometry(Held term) noexcept {
     return term == Held::Curvature || term == Held::Slip || term == Held::Ramp ||
@@ -77,6 +81,10 @@ private:
   Standing SlowestBound_;
   size_t Bound_[(size_t)Held::kCount] = {};
 
+  static constexpr size_t kSpeedBins = 512;
+
+  std::array<uint32_t, kSpeedBins> Bin_{};
+  double BinMs_ = 0.0;
   std::vector<double> Held_;
   std::vector<Held> Why_;
   std::vector<double> Curvature_;

@@ -237,6 +237,50 @@ int main(void) {
           "how the car arrived at the straight does not reach it");
   }
 
+  // board:1785, the reviewer's box 4: with entryMs = 0 the minimum is station 0 by
+  // definition, so the Slowest() arm above holds no matter what the three sweeps write into
+  // Why_[] for stations 1..n. Entering ABOVE every limit the road carries puts the minimum in
+  // the bend, where only the sweeps can have put it.
+  {
+    SpeedProfile fast;
+    const Envelope f31Again = Standing();
+    CHECK(fast.Over(line, f31Again, kStepM, f31Again.TopMs(), error),
+          "the same road is planned by a car that arrives at its own top speed");
+    if (!error.empty()) { std::printf("REFUSED %s\n", error.c_str()); }
+
+    double leastMs = fast.SampleAt(0);
+    size_t leastAt = 0;
+    for (size_t at = 1; at < fast.SampleCount(); ++at) {
+      if (fast.SampleAt(at) < leastMs) {
+        leastMs = fast.SampleAt(at);
+        leastAt = at;
+      }
+    }
+    const SpeedProfile::Standing slowest = fast.Slowest();
+    std::printf("NOTE entering at top speed the slowest station = %.3f km/h at %.1f m by '%s'\n",
+                slowest.Ms * 3.6, slowest.AtM, SpeedProfile::NameOf(slowest.By));
+    Note("the slowest sample that plan holds", leastMs * 3.6, "km/h");
+    Note("where it is", (double)leastAt * fast.StepM(), "m");
+    Note("where the road stops being straight", kStraightM, "m");
+
+    CHECK(leastAt > 0,
+          "**A CAR THAT ARRIVES AT SPEED HAS ITS SLOWEST STATION SOMEWHERE ELSE THAN THE "
+          "START** -- at entryMs = 0 the minimum is station 0 whatever the sweeps do, so that "
+          "arm proves nothing about them (board:1785)");
+    CHECK_NEAR(slowest.Ms, leastMs, 1.0e-12, "m/s",
+               "and the published slowest station is that minimum, found after the seam clamp "
+               "and both sweeps rather than inside the sampling loop");
+    CHECK_NEAR(slowest.AtM, (double)leastAt * fast.StepM(), 1.0e-9, "m",
+               "at the station it stands at");
+    CHECK(slowest.AtM >= kStraightM,
+          "**AND IT IS IN THE BEND, WHICH IS WHERE THE ROAD IS SLOW** -- the straight "
+          "kilometre before it is only slow on its approach, and that approach is the "
+          "backward brake sweep the first arm could not see");
+    CHECK(slowest.By != SpeedProfile::Held::Entry &&
+              slowest.By != SpeedProfile::Held::Free,
+          "and the term that holds it is neither the entry it did not use nor free");
+  }
+
   Covers("V.9 a seam bound stands at the station it binds: the straight before a bend is "
          "planned at the speed the brake allows, not at the bend's own limit (board:1773)");
   return Report();

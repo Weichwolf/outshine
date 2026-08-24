@@ -25,6 +25,8 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
   SlowestBound_ = Standing{};
   Why_.clear();
   for (size_t at = 0; at < (size_t)Held::kCount; ++at) { Bound_[at] = 0; }
+  Bin_.fill(0);
+  BinMs_ = 0.0;
 
   if (!(stepM > 0.0)) {
     error = "a speed profile is sampled at a positive step and this one asks for " +
@@ -184,8 +186,13 @@ bool SpeedProfile::Over(const ReferenceLine &along, const Envelope &within, doub
     }
   }
 
+  BinMs_ = within.TopMs() / (double)kSpeedBins;
   for (size_t at = 0; at < samples; ++at) {
     ++Bound_[(size_t)Why_[at]];
+    if (BinMs_ > 0.0) {
+      const size_t bin = (size_t)(Held_[at] / BinMs_);
+      ++Bin_[bin < kSpeedBins ? bin : kSpeedBins - 1];
+    }
     const double station = (double)at * stepM > LengthM_ ? LengthM_ : (double)at * stepM;
     if (at == 0 || Held_[at] < Slowest_.Ms) {
       Slowest_.Ms = Held_[at];
@@ -215,6 +222,25 @@ double SpeedProfile::At(double alongM) const {
     part = tailM > 0.0 ? (alongM - (double)low * StepM_) / tailM : 1.0;
   }
   return Held_[low] + part * (Held_[low + 1] - Held_[low]);
+}
+
+double SpeedProfile::Quantile(double share) const noexcept {
+  if (Held_.empty() || BinMs_ <= 0.0) { return 0.0; }
+  const size_t want = (size_t)(share * (double)Held_.size());
+  size_t seen = 0;
+  for (size_t bin = 0; bin < kSpeedBins; ++bin) {
+    seen += Bin_[bin];
+    if (seen > want) { return ((double)bin + 0.5) * BinMs_; }
+  }
+  return (double)kSpeedBins * BinMs_;
+}
+
+size_t SpeedProfile::StationsUnder(double ms) const noexcept {
+  if (Held_.empty() || BinMs_ <= 0.0) { return 0; }
+  const size_t upTo = (size_t)(ms / BinMs_);
+  size_t under = 0;
+  for (size_t bin = 0; bin < kSpeedBins && bin < upTo; ++bin) { under += Bin_[bin]; }
+  return under;
 }
 
 }

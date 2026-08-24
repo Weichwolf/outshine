@@ -544,17 +544,14 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
     return false;
   }
 
-  double slowestMs = 1.0e9, fastestMs = 0.0, meanMs = 0.0;
-  for (size_t sample = 0; sample < profile.SampleCount(); ++sample) {
-    const double ms = profile.SampleAt(sample);
-    slowestMs = ms < slowestMs ? ms : slowestMs;
-    fastestMs = ms > fastestMs ? ms : fastestMs;
-    meanMs += ms;
-  }
-  if (profile.SampleCount() > 0) { meanMs /= (double)profile.SampleCount(); }
-  say.Number("the slowest the profile asks for", slowestMs * 3.6, "km/h");
-  say.Number("the fastest", fastestMs * 3.6, "km/h");
-  say.Number("the mean", meanMs * 3.6, "km/h");
+  const double meanMs = profile.Quantile(0.5);
+  say.Number("the speed the plan holds at p01", profile.Quantile(0.01) * 3.6, "km/h");
+  say.Number("at p50", meanMs * 3.6, "km/h");
+  say.Number("at p95", profile.Quantile(0.95) * 3.6, "km/h");
+  say.Number("at p99", profile.Quantile(0.99) * 3.6, "km/h");
+  say.Number("stations the plan holds under 30 km/h",
+       (double)profile.StationsUnder(30.0 / 3.6), "stations");
+  say.Number("stations in all", (double)profile.SampleCount(), "stations");
   for (size_t term = 0; term < (size_t)SpeedProfile::Held::kCount; ++term) {
     const SpeedProfile::Held which = (SpeedProfile::Held)term;
     say.Number(SpeedProfile::NameOf(which), (double)profile.BoundBy(which), "stations");

@@ -1248,6 +1248,20 @@ for testSource in $TESTS; do
     continue
   fi
 
+  # board:1823: a case that shells out to a builder spends the per-test budget COMPILING on a
+  # cold tree, and the architect's mandated worktree is always cold. A .warms file beside a
+  # case names what must stand built before it runs; the runner does that, and the time lands
+  # in the build column where every other compile does.
+  warms=${testSource%.cpp}.warms
+  if [ -f "$warms" ]; then
+    before=$(Now)
+    while IFS= read -r warming; do
+      [ -n "$warming" ] || continue
+      ( eval "$warming" ) >>"$log" 2>&1 || true
+    done <"$warms"
+    builtSpentMs=$(( builtSpentMs + $(Now) - before ))
+  fi
+
   sanitiser=$(LayerSanitiser "$layer")
   for exempt in $SANITISER_EXEMPT; do
     [ "$id" = "$exempt" ] && sanitiser=""
