@@ -785,7 +785,7 @@ fi
 # machine. Measured: 100.1 / 104.1 / 153.9 s of run, worst 153.9 -> the bound is that worst
 # measurement times 1.5 for the machine's own weather = 230000 ms. A cold rebuild does not
 # reach it either, because builds stand beside it.
-NAMED_ONLY="harness/render render/outshine/drive render/outshine/frame render/outshine/scenario render/outshine/shader render/outshine/world tools"
+NAMED_ONLY="harness/render render/outshine/drive render/outshine/frame render/outshine/scenario render/outshine/shader render/outshine/world tools apps"
 FAST_GATE=no
 kFastGateBoundMs=230000
 if [ -z "$SUITES" ]; then

@@ -98,7 +98,6 @@ lie inside the frame in **>= 99 % of frames**. If it falls out, the FOV is wrong
 | steering wheel | wheel angle = input x steering ratio, visible, lagging the behaviour by **<= 1 frame** |
 | steering ratio | **absent from `f31.scenario`.** Without it the visible wheel is invented. At 16:1 `[SET]` the lock is 479 deg per side |
 | lock at the road wheel | **29.95 deg** derived, `atan(2.810/(5.65-0.774))`, from `Rigging.cpp:170`, turningCircle 11.3 m, track 1.548 m |
-| hands | rigid geometry on the rim is enough if it turns with the rim. Inverse kinematics is cost without return here |
 | interior mirror | required -- it is the only rearward direction in a view with no external camera |
 | door mirrors | rendered or static, by budget. The criterion is a number: **ms per mirror at 720p**, published against the 16.67 |
 | head motion | neck as spring-damper, travel capped. **The cap must be measured, not set**: a constant-radius corner at a known lateral acceleration, recorded, then compared. Until then 30 mm at 1 g `[SET]`, expressly provisional |
@@ -150,8 +149,7 @@ either decomposes into a row above or it is empty.
 | not | the boundary that prevents it |
 |---|---|
 | a racing game | no lap time, no rivals, no grid, no restart button. There is no state one "starts again" from |
-| an open-world sandbox | every drive has an A and a B from `routes.xml`. Free roaming with no destination is not a mode |
-| a tech demo | shipped, it carries no debug overlay, no wireframe, no free camera. Measurement lives in `test/`, not in the picture |
+| a tech demo in the pejorative sense | it IS a showcase and shows the whole library on purpose -- but shipped it carries no debug overlay, no wireframe and no free camera. Measurement lives in `test/`, not in the picture |
 | a licensed simulator | one model, the F31. Further models are assets, not scope |
 | a second home for engine code | `driver` DECLARES. Every verb it would need is a board item in `src/`, never a `.cpp` under `apps/` |
 | an external-camera experience | the `chase` view in `f31.scenario` belongs to the proof (board:1551, "both persons used"), **not to the game**. It leaves the game scenario as soon as that proof stands elsewhere |
@@ -183,12 +181,74 @@ they are marked as decisions so they can be overruled.
 
 | question | decision | why |
 |---|---|---|
-| manual gearbox with a visible lever, or automatic | **manual, with the lever modelled** | the core of this item is an interior one INHABITS. The lever is the second thing a driver touches, and 1987's shifter was half the appeal. It pulls a clutch into the `<vehicle>` declaration, which is engine work and belongs on the board |
-| oncoming traffic | **in scope, after M8** | Test Drive without traffic is Test Drive without danger, and speed is only a transgression against something. board:1521 already asks what dense traffic needs; it becomes a `driver` milestone once the attract loop holds |
-| can `driver` fail | **yes: a crash ends the drive** | without consequence the speed is not a transgression. No lives and no score -- the drive simply ends, and a new one is declared. That keeps the "no state one starts again from" boundary intact |
+| manual gearbox with a visible lever, or automatic | **manual, with the lever modelled** | the core is an interior one INHABITS. The lever is the second thing a driver touches, and 1987's shifter was half the appeal. It pulls a clutch into the `<vehicle>` declaration, which is engine work and belongs on the board |
+| can `driver` fail | **yes: a crash ends the drive** | without consequence the speed is not a transgression. No lives and no score -- the drive ends and a new one is declared |
 
 ## The first thing to do
 
 **M0.** Nothing in sections 2 or 4 can be measured against an offscreen renderer, and the
 tyre defect in section 4 -- peak force at 3.9 deg of slip where a tyre needs 6-8 -- is the
 first thing a running window would make felt.
+
+---
+
+# Owner correction, 2026-08-24 -- and it overrules the section above
+
+> *"driver ist eine open world sandbox! start und ziel frei wählbar. hände müssen nicht
+> modeliert werden. was fehlt und besonders wichtig ist, ist die grafik der umwelt. strassen,
+> häuser, vegetation. wir wollen alle outshine lib fähigkeiten zeigen. driver ist ein showcase.
+> presets für historisch bedeutsame routen in der routenauswahl und sonst freie suche von start
+> und ziel. wichtig auch andere autos und verkehr. vorerst immer den f31 in verschiedenen
+> farben verwenden. weitere auto modelle wenn alles sonst ok ist. tageszeit realtime, wetter
+> live."*
+
+Three lines of the lens above are **withdrawn**: "not an open-world sandbox" was wrong, "hands"
+is not required, and "a tech demo" needed splitting -- `driver` IS a showcase and shows the
+whole library on purpose; what it must not carry is a debug overlay in the shipped picture.
+
+## What `driver` is, restated
+
+**A showcase for every capability the library has, driven in first person, anywhere on earth.**
+The drive is the frame; the world is the subject. A route is chosen either from a preset of
+historically significant roads or by free search of a start and a destination -- the planet is
+the map, not a list.
+
+| pillar | what it demands | where it stands today |
+|---|---|---|
+| **the world's picture** | roads, buildings, vegetation, drawn well enough that the drive is worth looking at | the weakest pillar and the most important. `Forest`, `Buildings`, `Water`, `Infrastructure` and `Ribbon` exist; nothing has been judged on how it LOOKS at 720p60 from a seat |
+| **free start and destination** | two coordinates anywhere, no curated pair required | `Network::Plan` already takes two waypoints; the presets are a convenience layer over it, never the mechanism |
+| **presets** | historically significant routes, named, in the selection | `routes.xml` already carries layers; they become the preset list |
+| **traffic and other cars** | other vehicles on the same road, driven by the same actor chain | absent. The chain is declared for it (`DrivenBy` a mind, possession as a relink) and nothing instances a second vehicle |
+| **one model, many colours** | the F31 in different colours until everything else holds | a material override per instance, declared -- not a second asset |
+| **time of day, real time** | the sun where it actually is, now | `Ephemeris` exists and the sky stages are green |
+| **weather, live** | the actual weather at the coordinate being driven | absent. A provider in `src/data`, a declaration in the scenario, and the medium stages already take the parameters |
+
+## What this changes in the milestones
+
+M0 stays first -- nothing is measurable without a window. After it the order changes, because
+the owner's weakest pillar is the picture and not the tyre:
+
+| # | what | how one knows it stands |
+|---|---|---|
+| **M0** | a real SDL window with `InputPump` under `apps/driver/` | a key moves the car; input-to-present latency published (p50/p95/p99) |
+| **M1** | **the world looks like somewhere** | a still from the seat on three declared routes shows road, buildings and vegetation together, and each of the three is judged against a photograph of that place rather than against itself |
+| **M2** | free start and destination | two coordinates typed anywhere on earth produce a drive, or a named refusal that says why -- no curated pair |
+| **M3** | presets | the historically significant routes stand in the selection, named, seeded from `routes.xml` |
+| **M4** | time of day, real time | the sun's elevation at the driven coordinate matches an ephemeris to a stated tolerance, published |
+| **M5** | weather, live | a fetched observation for the coordinate reaches the medium, and a refusal is named when the provider is silent |
+| **M6** | traffic | a second vehicle on the same road, driven by a mind through the same seam, one asset recoloured |
+| **M7** | cockpit in frame | 0 near-plane penetrations over a route; A-pillars and dashboard visible; tangent point inside the frame in >= 99 % of `hairpin` frames |
+| **M8** | tyre curve | slip angle at peak force in 6-8 deg; negative control red against today's linear curve |
+| **M9** | attract loop, then the device | an undisturbed hour of self-play, then the same hour on an A18 Pro, p50/p95/p99 published |
+
+**Why the picture moved ahead of the tyre.** A showcase is judged on what it shows. A car that
+breaks away at 3.9 degrees of slip is a defect worth its own item (it has one implicitly in
+section 4), but nobody looks at a drive whose world is untextured boxes. The tyre stays on the
+list because feel is a capability too -- it is no longer the thing that goes first.
+
+## What still holds from the lens
+
+Sections 1 to 4 above stand as written except the three withdrawn lines: the FOV and tangent-point
+criterion, the instrument-readability floor, the camera-stillness bound of one pixel, the
+measurable feel table, and the demo-mode criteria are all owner-independent measurements and
+none of them is affected by the world being open rather than curated.
