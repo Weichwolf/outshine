@@ -142,6 +142,39 @@ int main(void) {
           "length, no jump where the tick reads live");
   }
 
+  // board:1830: Envelope::TopMs() is infinity in a declared vacuum -- legal since board:1627 --
+  // and the histogram's span used to come from it, so every station fell in bin 0, Quantile
+  // answered infinity and StationsUnder answered zero for any speed at all.
+  {
+    Envelope vacuum = Standing(kEarthMs2);
+    vacuum.AirDensity = 0.0;
+    SpeedProfile inVacuum;
+    CHECK(inVacuum.Over(line, vacuum, kStepM, 30.0, error),
+          "a plan is taken in a declared vacuum, which is legal and unbounded by drag");
+    if (!error.empty()) { std::printf("REFUSED %s\n", error.c_str()); }
+
+    const bool topIsInfinite = !(vacuum.TopMs() < 1.0e30);
+    Note("the top speed drag would allow in vacuum", topIsInfinite ? 1.0 : 0.0, "infinite");
+    Note("the fastest the plan actually holds", inVacuum.Fastest().Ms * 3.6, "km/h");
+    Note("the resolution the histogram works at", inVacuum.BinMs() * 3.6, "km/h");
+    Note("what it answers at p50", inVacuum.Quantile(0.5) * 3.6, "km/h");
+    Note("stations it finds under the fastest", (double)inVacuum.StationsUnder(inVacuum.Fastest().Ms), "stations");
+
+    CHECK(topIsInfinite, "and the declaration's own top speed is indeed unbounded there");
+    CHECK(inVacuum.Fastest().Ms < 1.0e30 && inVacuum.Fastest().Ms > 0.0,
+          "**THE PLAN STILL HOLDS A FINITE FASTEST STATION**, because the acceleration sweep "
+          "bounds it from a finite entry however much drag allows");
+    CHECK(inVacuum.BinMs() > 0.0 && inVacuum.BinMs() < 1.0e30,
+          "**AND THE HISTOGRAM'S RESOLUTION COMES FROM WHAT THE PLAN HOLDS, NOT FROM WHAT DRAG "
+          "WOULD ALLOW**: a span taken from an infinite top speed puts every station in bin 0, "
+          "and the quantiles then answer infinity while StationsUnder answers zero for every "
+          "speed there is (board:1830)");
+    CHECK(inVacuum.Quantile(0.5) < 1.0e30,
+          "so a median in vacuum is a speed and not an infinity");
+    CHECK(inVacuum.StationsUnder(inVacuum.Fastest().Ms) > 0,
+          "and stations under the fastest one are counted rather than answered as none");
+  }
+
   Covers("I.9.3 the speed plan derives every gravity-borne bound -- cornering, holding, braking "
          "and the crest's sqrt(g/h'') -- from the world the scenario declares, so the same road "
          "and the same car plan differently on a different sphere with no engine change");
