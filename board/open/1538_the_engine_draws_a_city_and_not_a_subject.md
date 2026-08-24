@@ -37,7 +37,7 @@ batches must also be merged.
 
 ## What must be true
 
-- [ ] **The per-draw cost on this device is measured and published** -- a slope in microseconds per
+- [x] **The per-draw cost on this device is measured and published** -- a slope in microseconds per
       draw over a swept draw count, p50/p95/p99, and the draw count at which submission alone spends
       16.67 ms
 - [ ] **The geometry path instances**: one batch, N transforms, one draw. `DrawBatch::Draws` stops
@@ -109,3 +109,60 @@ batches.
 Inherited from 1620 (closed): the instance stream this item births ({float3x4 placement,
 tint}) is declared alignas(16) with its static_assert FROM BIRTH -- the alignment audit's
 last population member lands here, not in a later sweep.
+
+---
+
+## The first box is answered, and it changes what the rest of this item is about (2026-08-24)
+
+`test/render/outshine/frame/ADrawCostsWhatTheSweepSaysItCosts` -- one triangle, 1 to 16384
+draws, a grid of placements at 1280x720, 160 timed frames per step after 24 warm.
+
+```
+DRAWS  2048  p50 0.6970 ms  p95 0.7310 ms  p99 1.0636 ms   lit 921600 px
+DRAWS  4096  p50 1.0438 ms  p95 1.1125 ms  p99 1.1475 ms   lit 921600 px
+DRAWS  8192  p50 1.5730 ms  p95 2.2895 ms  p99 2.5599 ms   lit 921600 px
+```
+
+| | |
+|---|---|
+| what a draw costs | **0.130 us** |
+| draws whose submission alone spends 16.67 ms | **124 716** |
+| the slope stands on | 5 saturated steps |
+
+**The slope is read only where the covered pixel count has stopped moving.** Below 2048 draws
+the grid is still growing, so a longer frame is partly more pixels; a slope through a moving
+fill is not a per-draw cost. The case reads back the covered pixel count at every step, requires
+it to grow at all, and requires a saturated tail to exist before it publishes anything.
+
+### What that does to this item's own reasoning
+
+The item argues: *"A thousand cars with no instancing is at least a thousand draws, and a draw
+is not free."* Measured, **a thousand draws is 0.13 ms -- 0.8 % of the frame budget.** On this
+device, submission is not what stops a thousand cars. The item's instinct was right that the
+number decides the design; the number says the design is not decided by draw calls.
+
+Two honest limits on that:
+
+- The sweep varies ONE thing. Every draw shares one material, one layout, one pipeline, so it
+  measures a draw with NO state change. A draw that switches pipeline or rebinds a texture costs
+  more, and how much is a second sweep this item still owes.
+- It measures SUBMISSION. Vertex load, overdraw and shading are the frame's other terms, and a
+  thousand cars carry all three.
+
+So the remaining boxes stand, and their justification moves: instancing and batch merging are
+for VERTEX and STATE cost, not for the draw-call count, and the item should not claim otherwise
+again.
+
+- **Proving test**: the case above.
+- **Negative control**, run: the sweep truncated at 1024 draws, so the picture never stops
+  growing -> `what a draw costs = 0 us` and two claims red, rather than a slope published from a
+  moving fill.
+
+### What it cost to write, which is board:1826
+
+Six declarations were handed to the renderer before one drew a pixel, each accepted in full with
+`WhyNot()` empty. Two were conventions written down nowhere: a mesh needs an emitted-radiance
+run even when nothing emits, and placements are LOCAL TO THE ANCHOR because the stage adds
+`Anchor - Eye` itself. `SubjectDraw::SetMesh` had eight shortfalls behind one silent
+`return true`; a mesh that declares N vertices and hands over no run refuses by name now, landed
+with this item.
