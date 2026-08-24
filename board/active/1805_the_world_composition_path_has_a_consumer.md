@@ -35,6 +35,36 @@ buildings, no vegetation, no ground texture, no road markings, no kerbs. And tha
 all -- no sphere, no ground, no sky, no clock, no weather. It declares a render size, one fixed
 light, one asset, one vehicle, two views, a player and five key bindings.
 
+## Sharpened by walking the call graph: the path ends at a dead facade
+
+The six nodes are not merely unreached from outside `src/`. Walked inward, every one of them is
+reached by **exactly one** thing:
+
+| node | what in `src/` names it, other than itself |
+|---|---|
+| `Forest` | `src/clients/Sim.{h,cpp}` |
+| `Buildings` | `Sim.{h,cpp}`, plus `BuildingField.cpp`, `OsmLayer.h`, `World.{h,cpp}` |
+| `WaterField` | `Sim.cpp`, `World.h` |
+| `Infrastructure` | `Sim.h` |
+| `RegionForge` | `Sim.h` |
+
+And `Sim` itself:
+
+```
+$ grep -rln '"Sim.h"' src test tools apps
+src/clients/Sim.cpp
+test/render/outshine/world/AWorldStandsUpWhereItIsDeclared.cpp
+```
+
+**798 lines of facade, included by its own translation unit and one test.** Nothing else in the
+tree. Every real client -- `apps/driver`'s four cases -- reaches `outshine::Sim::AssembleDrive`
+and `DriveTick`, the FREE systems that replaced Journey, and never touches `class Sim`.
+
+So the world composition path is not unused by accident. It hangs off a facade the tree already
+routed around, and the CURRENT diagram's red on `Sim` -- *"a hand-wired god facade the component
+model replaces"* -- understates it: it is a god facade whose only caller is a test written to
+call it.
+
 ## Why this is an architecture finding and not an app backlog item
 
 Three of the tree's own rules are involved, and each is broken in a different direction:
