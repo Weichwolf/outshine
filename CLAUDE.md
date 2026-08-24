@@ -240,10 +240,10 @@ finding. Green = right responsibility in the right layer; amber = form in questi
 
 | red | what makes it red, at HEAD |
 |---|---|
-| `World` | spells camera and LOD inside the ground layer: `struct Eye` (World.h:49), `Refine(const Eye &eye, double nowMs)` (:55), `EyeInMercatorBand()` (:118), and six predicates taking `const double eye[3]` (:189-195) |
+| `World` | spells camera and LOD inside the ground layer: `struct Eye` (World.h:49), `Refine(const Eye &eye, double nowMs)` (:55), `EyeInMercatorBand()` (:118), and 9 `const double eye[3]` (:189-195) |
 | `SubjectDraw` | six responsibilities in one class: `ShaderSource(const SourceOptions &options)` (SubjectDraw.h:30), `PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack)` (:147), `FlushCrossings(SDL_GPUCommandBuffer *commands)` (:141), `SetPlacements(const double *models, size_t rows, std::string &error)` (:51), `SetLights(std::span<const SubjectLight> lights, std::string &error)` (:82), and `EncodeDepthOnly(const double lightFromWorld16[16], const double eye[3], int atlasPx,` (:89) beside the one `void Encode(const FrameContext &ctx, const PassRecording &into)` (:86) a stage owes |
 | `Sim` | `class Sim {` (Sim.h:37) is a hand-wired god facade the component model replaces: a facade reached through 25 `#include "` |
-| `Live` | `class Live {` (Live.h:71) reaches the renderer and the layout from one class — `#include "Renderer.h"` (:18) beside `#include "Layout.h"` (:13) — 25 public verbs over 17 members |
+| `Live` | `class Live {` (Live.h:71) reaches the renderer and the layout from one class — `#include "Renderer.h"` (:18) beside `#include "Layout.h"` (:13) |
 
 Amber says the FORM is in question, and every amber below names the line the question stands
 at (board:1777):
@@ -261,16 +261,16 @@ at (board:1777):
 | `Ephemeris` | `inline void EarthSunPos(double lat, double lon, double utc, float *el, float *az) {` (Ephemeris.h:11) -- a whole-function header, out-parameters by pointer, and `constexpr int kEphemerisMinYear = 1901, kEphemerisMaxYear = 2099;` (:9) bounding a sphere the engine may not name |
 | `RegionForge` | `class RegionForge {` (RegionForge.h:18) forges regions from a client layer |
 | `GltfStudio` | `struct Studio {` (GltfStudio.h:26) beside `struct StudioScratch {` (:49) -- the studio and its scratch are two spellings of one stand-up |
-| `DriveAssembly` | `[[nodiscard]] bool AssembleDrive(const Store &scene, const Assembled &cast,` (DriveAssembly.h:39) takes nine arguments; a product that needs nine inputs is a product whose shape is not settled |
+| `DriveAssembly` | `[[nodiscard]] bool AssembleDrive(const Store &scene, const Assembled &cast,` (DriveAssembly.h:39) takes a product's worth of inputs, listed one per line, and a product that needs that many is a product whose shape is not settled |
 | `CorridorLay` | `[[nodiscard]] bool LayCorridor(const Path::Route &route, Ground::GroundStream &ground,` (CorridorLay.h:33) -- same shape, same question |
-| `DriveTick` | `[[nodiscard]] Ridden DriveTick(const Corridor &way, const Rigged &stood,` (DriveTick.h:70) returns 20 fields by value each tick |
+| `DriveTick` | `[[nodiscard]] Ridden DriveTick(const Corridor &way, const Rigged &stood,` (DriveTick.h:70) returns a whole struct by value each tick |
 | `TAA` | `{Stage::TemporalResolve, Provenance::Content, PassKind::Raster, "temporalResolve",` (RenderCatalogue.h:278) declares a stage that encodes nothing of its own -- it is folded into tonemap rather than standing as its own resolve |
-| `TilePool` | `class TilePool {` (TilePool.h:35) holds three mutexes, a `std::condition_variable`, a `std::map` and a `std::set` where a slot table and a ring would do -- a decisionless pool holds no tree |
+| `TilePool` | `class TilePool {` (TilePool.h:35) holds 3 `std::mutex`, a `std::condition_variable`, a `std::map` and a `std::set` where a slot table and a ring would do -- a decisionless pool holds no tree |
 
 `TilePool` moved red → amber (its row above carries the form now in question): the earlier
 sentence said it spells camera and LOD, and it does not — `grep -cEi 'eye|camera|frustum|\blod\b'` over both its files is 0. It is a
 byte-budgeted LRU work pool keyed on projected error, which is the RAGE reference, not a
-layering breach. Its amber is its FORM: three mutexes, a `condition_variable`, a `std::map`
+layering breach. Its amber is its FORM, and its row above carries the count: a `condition_variable`, a `std::map`
 and a `std::set` of pointer-chasing nodes where a slot table and a ring would do — a
 decisionless pool holds no tree. `LayCorridor`, `AssembleDrive` and `DriveTick` stay amber
 until their own unit proofs deepen. Journey died with move 2(e): the six consumers hold

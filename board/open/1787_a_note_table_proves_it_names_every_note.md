@@ -40,3 +40,31 @@ This is not hypothetical: `a17ed496` inserted `NoSpecies` into `Forest::Note`
 
 - 2026-08-24, reviewer round -- filed against the delta's own edit. The repair is four lines
   and removes a class of silent telemetry corruption from every generator at once.
+
+## Comments
+
+- 2026-08-24 -- repaid in all four generators. `kNames[kNotes]` is `constexpr` now and each
+  table carries:
+
+```cpp
+static_assert(kNames[kNotes - 1] != nullptr,
+              "every Note carries a name: aggregate initialisation fills a short list with "
+              "nullptr, so a new Note without a name is a hole in the telemetry and not a "
+              "compiler error");
+```
+
+  The LAST entry is the exact one aggregate initialisation leaves null when the enum grows
+  and the list does not, so one assertion catches the whole class.
+- **Proving test / negative control are the same thing**, which is what a `static_assert`
+  buys: a `Nameless` note added to `Water.h:16` gives
+
+```
+src/generators/Water.cpp:8:17: error: static assertion failed due to requirement
+'kNames[kNotes - 1] != nullptr': every Note carries a name ...
+note: expression evaluates to 'nullptr != nullptr'
+```
+
+  The tree does not build. Reverted.
+- The reviewer is right that this hour's own `NoSpecies` was added to `Forest`'s table by
+  MEMORY -- nothing would have caught the omission. It is caught now, in `Forest`, `Water`,
+  `Buildings` and `Infrastructure` alike.

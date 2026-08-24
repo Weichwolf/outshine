@@ -3,8 +3,12 @@
 namespace outshine::Generators {
 
 Span<const char *const> Water::NoteNames() const noexcept {
-  static const char *const kNames[kNotes] = {"waterSurfaces", "waterUntested", "levelBelowGround",
+  static constexpr const char *const kNames[kNotes] = {"waterSurfaces", "waterUntested", "levelBelowGround",
                                              "deepestM"};
+  static_assert(kNames[kNotes - 1] != nullptr,
+                "every Note carries a name: aggregate initialisation fills a short list with "
+                "nullptr, so a new Note without a name is a hole in the telemetry and not a "
+                "compiler error");
   return Span<const char *const>(kNames, kNotes);
 }
 

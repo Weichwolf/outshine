@@ -52,6 +52,9 @@ is the tests' own cost and not the machine's weather.
 
 ## Comments
 
+- 2026-08-24 -- filed as 1784 and RENUMBERED to 1788: the reviewer's round issued 1784 for
+  the fitted corridor's radius in the same minute. Two queues drawing from one counter is
+  itself a defect, and board:1783 is where it belongs.
 - 2026-08-24 -- the reviewer flagged the overrun in his round and correctly declined to file
   it: his measurement ran beside a 63-minute drive holding the main nest, so it was
   CPU-contaminated. This one is not -- the drive was stopped -- and it overran by more.

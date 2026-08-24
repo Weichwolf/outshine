@@ -162,3 +162,37 @@ difference between a rule and a habit.
       check that skips it teaches nothing.
 - [ ] Negative control: `62 public verbs` put back into `Sim`'s row -> the claim goes red on
       the word, not just on the count.
+
+## Reopened by the reviewer, and he is right (2026-08-24)
+
+`a17ed496`'s message says nine counts were removed. **The diff removed two.** Five were still
+standing when he looked:
+
+| line | what stood |
+|---|---|
+| CLAUDE.md:243 | "six predicates" |
+| :246 | "25 public verbs over 17 members" |
+| :264 | "nine arguments" |
+| :266 | "20 fields by value" |
+| :268, :273 | "three mutexes", twice |
+
+A commit message that claims work the diff does not do is the same defect as a board entry
+that claims a measurement it does not carry -- board:1767 withdrew one of those this session,
+and this is the next one. The claim is withdrawn and the work is now actually done:
+
+| was | is |
+|---|---|
+| "six predicates taking `const double eye[3]`" | ``9 `const double eye[3]` `` -- and the count was WRONG: World.h carries nine, not six |
+| "25 public verbs over 17 members" | removed; the row's two citations carry it |
+| "nine arguments" | removed; replaced by prose the walk needs no number for |
+| "20 fields by value" | removed; `Ridden` carries 32, so that count was wrong too |
+| "three mutexes" | ``3 `std::mutex` `` -- recomputed by the walk |
+
+**Two of the five numbers were false**, which is precisely the argument for recomputing them:
+"six predicates" against nine, and "20 fields" against 32. Neither was noticed while they sat
+in prose the walk stepped over.
+
+The reviewer also names the walk's own blind spot: a number with no citation on its row is
+skipped silently, and an English number word (`six`, `nine`, `three`) is never matched at all.
+Both are now moot in the map, because no such number stands in it -- but the walk still
+cannot SAY that, and that is what remains open here.

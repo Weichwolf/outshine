@@ -30,9 +30,13 @@ Forest::Forest(Span<const Stem> stems, Span<const float> perM2ByRow, const Alpin
 }
 
 Span<const char *const> Forest::NoteNames() const noexcept {
-  static const char *const kNames[kNotes] = {
+  static constexpr const char *const kNames[kNotes] = {
       "noTemplate", "noSpecies", "zeroDensity",      "densityDraw",
       "aboveTreeline", "tooSteep", "woodyDraw", "highestStandAslM"};
+  static_assert(kNames[kNotes - 1] != nullptr,
+                "every Note carries a name: aggregate initialisation fills a short list with "
+                "nullptr, so a new Note without a name is a hole in the telemetry and not a "
+                "compiler error");
   return Span<const char *const>(kNames, kNotes);
 }
 
