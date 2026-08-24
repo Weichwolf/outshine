@@ -252,3 +252,44 @@ Sections 1 to 4 above stand as written except the three withdrawn lines: the FOV
 criterion, the instrument-readability floor, the camera-stillness bound of one pixel, the
 measurable feel table, and the demo-mode criteria are all owner-independent measurements and
 none of them is affected by the world being open rather than curated.
+
+---
+
+## The picture bar, and it belongs to THIS app (owner, 2026-08-24)
+
+> *"grafisch wollen wir AAA niveau - gran turismo 7 ps4 ist was grafisch auf dem a18 pro
+> erreichbar sein sollte"*
+>
+> *"Gran Turismo 7 on PS4 bezieht sich auf die driver app damit du screenshots vergleichen
+> kannst. outshine lib allgemein ist nicht game spezifisch. hier ist die referenz vor allem
+> unreal und rage engine."*
+
+The bar is **GT7 on PS4, at 720p60 on the A18 Pro**, and it is a bar for `apps/driver` and not
+for the library. outshine's own references stay Unreal and RAGE; an engine has no picture to
+match, an application does. This section was first written into CLAUDE.md and taken back out the
+same hour -- a library that names a game is the same defect as one that names a planet.
+
+The value of a SHIPPED title on KNOWN silicon is that it stops being an adjective and becomes a
+table, and the comparison is by SCREENSHOT: the same corner, the same time of day, side by side.
+
+| row | fetched from the reference | measured in apps/driver |
+|---|---|---|
+| triangles on screen, p50 / p99 | | |
+| draws per frame, p50 / p99 | | board:1538's sweep is the instrument |
+| what a draw costs on this device | -- | board:1538's sweep |
+| materials per vehicle, how many unique | | |
+| lights reaching a frame, how many cast | | |
+| shadow resolution and cascade count | | |
+| texture residency in bytes | | |
+| the frame split: geometry, shading, post | -- | |
+
+GT7 on PS4 is 1080p60 on GCN silicon; this device is a 5-core TBDR part and 720p is 44 % of
+those pixels. Whether that trade is favourable is exactly the claim this item refuses to make
+from memory: **the reference column is FETCHED, not recalled**, each row citing its source, and
+a row nobody can source stays EMPTY rather than being estimated.
+
+- [ ] The reference column is fetched and cited, row by row.
+- [ ] The measured column comes from cases under `apps/driver/test/`, p50/p95/p99 over a moving
+      camera, never a mean.
+- [ ] The screenshots stand side by side: same road class, same weather, same hour.
+- [ ] The largest gap between the columns is what the queue works next, stated as such.

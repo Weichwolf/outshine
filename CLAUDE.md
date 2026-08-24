@@ -4,14 +4,6 @@
 Apple A18 Pro (2P+4E cores, 5 GPU cores, 8 GB, Metal 4), **720p60 held** — p50/p95/p99 over a moving
 camera, never a mean.
 
-**The picture bar is AAA, and it is named rather than adjectival: Gran Turismo 7 on PS4** is what
-should be reachable at 720p60 on this device (owner requirement, 2026-08-24). That is a shipped
-title on known silicon, so it converts into budgets — triangles on screen, draws per frame,
-materials per car, lights, shadow resolution, texture residency — and every one of those budgets
-is a MEASUREMENT this tree owes, not a number to assume. Until a budget is fetched from the
-reference and measured on this device, it is absent, and a picture claim that rests on an absent
-budget is a finding.
-
 - **SDL3 · SDL3_GPU · SDL3_\*** are the only platform surface; **glTF 2.0** the only content surface
 - **C++23**, `-Wall -Werror -Wpedantic`, one `-std` for the whole tree; `static_assert` and the type system over checkers; `std::span`/`std::string_view` at boundaries, `std::mdspan` for field and instance views, `std::expected` where a refusal carries its reason
 - **SIMD- and optimization-friendly**: contiguous, one-width, pointer-free layouts; fast path on the hot path; batch over per-item; bounded terms on the frame path (no alloc/lock/disk/unbounded block)
