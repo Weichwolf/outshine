@@ -909,6 +909,7 @@ RebuildCase() {
   if python3 test/harness/shared/corpus/prepare.py all --manifest "$1/manifest.json" \
        > "$BUILD/log/$(printf '%s' "${1#test/}" | tr / -)-rebuild.log" 2>&1; then
     printf 'run.sh: rebuilt %s in %s ms\n' "${1#test/}" "$(( $(Now) - before ))" >&2
+    mkdir -p "$2" && printf '%s' "$NEST" > "$2/.prepared-by"
     REBUILT=yes
     ClaimCorpus
   else
@@ -954,6 +955,7 @@ inverted=0
 peakKib=0
 endKib=0
 prunedCases=0
+notMine=0
 prunedFiles=0
 prunedKib=0
 stayedFiles=0
@@ -980,6 +982,14 @@ PruneCase() {
   [ "$CORPUSLOCK_MINE" = yes ] || return 0
   pruneCase=$1
   prunePrepared=$2
+  # the corpus is SHARED between checkouts and worth sharing at 26 GB; the right to delete from
+  # it is not. A case carries the nest that prepared it, and only that nest prunes it, so a
+  # second runner reading the same directory cannot lose a subject mid-run (board:1789)
+  prunePreparer=$prunePrepared/.prepared-by
+  if [ "$(cat "$prunePreparer" 2>/dev/null)" != "$NEST" ]; then
+    notMine=$((notMine + 1))
+    return 0
+  fi
   pruneLog=$BUILD/log/$(printf '%s' "${pruneCase#test/}" | tr / -)-prune.log
   if ! pruneSummary=$("$BUILD/prune" "$prunePrepared" "$PRUNE_MARKER" 2>"$pruneLog"); then
     printf 'run.sh: %s was not pruned -- %s\n' "${pruneCase#test/}" "$pruneLog" >&2
@@ -1417,6 +1427,9 @@ done
   'test corpora: peak %s MB, %s MB after the last prune -- %s cases pruned, %s files and %s MB declined, %s file(s) left standing (each case: %s/*-prune.log)\n' \
   "$((peakKib / 1024))" "$((endKib / 1024))" "$prunedCases" "$prunedFiles" "$((prunedKib / 1024))" \
   "$stayedFiles" "$BUILD/log"
+[ "$notMine" -gt 0 ] && printf \
+  'test corpora: %s case(s) left untouched because this nest did not prepare them -- the corpus is shared and the right to delete from it is not (board:1789)\n' \
+  "$notMine"
 
 # the bound holds the RUN: compiling is the nest's business, and a cold rebuild after a
 # header edit is not a slow test -- the measured span excludes the build phases, which are
