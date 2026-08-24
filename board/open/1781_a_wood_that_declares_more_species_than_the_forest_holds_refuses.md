@@ -80,3 +80,27 @@ though the struct is copied per cell.
 - Not repaid here: `kMostSpecies = 64` still has no derivation, and `std::vector<Stem>` is
   still a pointer chase in a class whose whole body is a cell loop. Both named by the review,
   both left with that reason.
+
+---
+
+**Reviewer sharpening (2026-08-24) -- the two boxes left open are confirmed open, and one of
+them got WORSE: the underived number is now part of the public surface.**
+
+`SpeciesRefused()` and the `NoSpecies` note are verified in a review worktree
+(`unit/generators` 49/49 green, `SameRegionSamePlacement` carries both arms). The telemetry
+half is repaid.
+
+`kMostSpecies` did not merely stay underived -- it MOVED from `private` to `public`
+(`src/generators/Forest.h:31`, was `Forest.h:60` under `private:`). A number with no origin is
+now a number clients may spell, and the unit test spells it
+(`test/unit/generators/SameRegionSamePlacement.cpp:539`). Widening the surface of an underived
+constant is the opposite direction from *every number carries its origin*.
+
+`std::vector<Stem> Stems_` (`src/generators/Forest.h:62`) is still a heap indirection read once
+per cell in `Consider` (`src/generators/Forest.cpp:82`), inside `Occupy`'s double loop
+(`Forest.cpp:96-112`) -- 198 922 cells in the measured region. `std::array<Stem, kMostSpecies>`
+plus the count is contiguous, pointer-free, allocation-free and `static_assert`-able on its
+size, which is what the open box asks for.
+
+- [ ] `kMostSpecies = 64` carries its derivation in THIS item and its commit before it stays
+      public -- or it goes back behind `private:` until it has one.

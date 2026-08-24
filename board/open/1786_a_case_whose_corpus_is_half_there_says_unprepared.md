@@ -1,0 +1,76 @@
+Type: bug
+Area: test, tools
+Tags: gate, corpus, unprepared
+
+# A case whose corpus is half there says UNPREPARED
+
+Measured 2026-08-24 in a review worktree, warm nest:
+
+```
+FAIL    tools/driver/stills/StillsAreTakenAlongTheDriveForTheEye
+FAIL    tools/driver/window/AWindowShowsTheRoadTheCarIsDriving
+REFUSED material 'f31_interior2' names image 0, whose bytes could not be read
+```
+
+Both FAIL. Neither is broken. The prepared F31 has **no textures**:
+
+```
+$TMPDIR/outshine-prepared/tools-driver-f31/
+  scene.gltf  484439   (Aug 22 11:18)
+  scene.bin  30928140  (Aug 22 11:18)
+  textures/   EMPTY    (Aug 24 03:35)
+```
+
+while the licensed source it is placed from still holds all five:
+`~/Downloads/2014_bmw_3_series_f31/textures/f31_interior1_baseColor.png` and its siblings.
+
+## Two defects, one shape
+
+**1. The probe asks for one file and the case needs six.**
+`tools/driver/window/AWindowShowsTheRoadTheCarIsDriving.cpp:191-202` opens `scene.gltf`, sets
+`carThere`, and calls `Unprepared()` only if THAT is missing. The textures the gltf names are
+part of the same corpus and are never probed, so a half-placed asset walks past the
+`Unprepared` gate and dies at `CHECK(stood)` (`:233`) as a red verdict about the ENGINE.
+`tools/driver/stills/StillsAreTakenAlongTheDriveForTheEye.cpp:472` is the identical shape.
+
+board:1663 established that an unprepared verdict always names its remedy; board:1765 that a
+case whose corpus is unfetched judges nothing. This is the third face: **a case whose corpus is
+PARTLY there judges the engine on the missing half.**
+
+**2. The preparer reports `placed` without verifying what it carried.**
+`test/harness/shared/corpus/prepare.py:170-177`:
+
+```python
+for directory in asset["carries"]:
+    source = os.path.join(found, directory)
+    if not os.path.isdir(source): continue
+    target = os.path.join(destination, directory)
+    if os.path.isdir(target): shutil.rmtree(target)
+    shutil.copytree(source, target)
+```
+
+`files` are digest-checked one by one (`:158-167`); `carries` is an `rmtree` followed by a
+`copytree` with **no digest, no count and no refusal**. A source directory that is empty, or a
+copy that lands nothing, still reaches `placed.append(...)` and prints success -- and it has
+DESTROYED the good copy that was there, because the `rmtree` runs first.
+
+## What will be true
+
+- [ ] Every file a case's corpus needs is probed before the case runs -- for a glTF asset that
+      is the document AND the images it names -- and one missing file is `Unprepared()` with
+      the remedy, never a `CHECK` failure.
+- [ ] `prepare.py` states what `carries` brought: a file count and a total size in the emitted
+      record, and a refusal when the count is zero. A `placed` that placed nothing is a lie
+      the gate then reports as an engine defect.
+- [ ] The destructive `rmtree` happens only after the source has been proven non-empty, so a
+      failed preparation cannot leave a machine worse than it found it.
+- [ ] Negative control: one texture removed from the prepared directory -> the two driver cases
+      report UNPREPARED naming that file, and the trailer counts it as unprepared rather than
+      failed.
+
+## Comments
+
+- 2026-08-24, reviewer round -- found while trying to reproduce the windowed drive's WORST
+  frames (board:1571). The drive suite is currently UNRUNNABLE on this machine and says so in
+  the language of a broken engine, which is exactly the confusion board:1778 filed about a
+  case that cannot finish: green, red and unreachable must not read alike.

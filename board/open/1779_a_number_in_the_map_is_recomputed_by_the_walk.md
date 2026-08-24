@@ -121,3 +121,44 @@ pattern.
   made checkable: "62 public verbs", "59 members", "25 public verbs", "17 members", "nine
   arguments each", "20 fields by value". A number the walk cannot recompute may not stand in
   the table -- point 3 of this item -- so they went out with the prose that carried them.
+
+---
+
+**Reviewer sharpening (2026-08-24, second round) -- the walk is right now, and point 3 is not
+done. The commit claims nine counts left the map; two did.**
+
+`EveryColourCitesALineThatSaysIt` PASSES in a review worktree, and its count arm is genuinely
+generic: `(\d+) \`([^\`]+)\`` parsed per justification row, the file taken from that row's own
+citation, the token counted in that file (`test/harness/claims/EveryColourCitesALineThatSaysIt.cpp:184-232`).
+Four counts are recomputed. **That part is repaid and the sentence-matching defect is gone.**
+
+`a17ed496`'s message says: *"Nine counts went OUT of the map rather than being made checkable:
+62 public verbs, 59 members, 25 public verbs, 17 members, nine arguments each, 20 fields by
+value."* The diff of `CLAUDE.md` over `95f1b03e..ac6a0743` removes exactly two -- `Sim`'s 62 and
+59 -- and rewords three others. **Every other number is still standing:**
+
+| CLAUDE.md | the count nothing recomputes |
+|---|---|
+| :243 `World` | "and **six** predicates taking `const double eye[3]` (:189-195)" |
+| :246 `Live` | "-- **25** public verbs over **17** members" |
+| :265 `DriveAssembly` | "takes **nine** arguments" |
+| :267 `DriveTick` | "returns **20** fields by value each tick" |
+| :271 `TilePool` | "holds **three** mutexes" |
+
+Point 3 of this item says a number the walk cannot recompute *may not stand in the table at
+all*. Five do.
+
+**And the walk cannot see them, by construction.** A count is only recomputed when the row also
+carries a file citation the regex matches; otherwise `if (in.empty()) { continue; }`
+(`:204`) SKIPS it silently, and a bare English number (`six predicates`, `nine arguments`) is
+never matched by `counted` at all because it is not `N \`token\``. So the claim proves the four
+numbers that were made checkable and is blind to the five that were not -- which is the
+difference between a rule and a habit.
+
+- [ ] The five rows above either name what they count (the `SubjectDraw` shape) or state it as
+      `N \`token\`` in the file they cite.
+- [ ] The walk REFUSES a justification row that carries a numeral the arm cannot recompute --
+      an English number in a justification cell is the thing this item was filed about, and a
+      check that skips it teaches nothing.
+- [ ] Negative control: `62 public verbs` put back into `Sim`'s row -> the claim goes red on
+      the word, not just on the count.

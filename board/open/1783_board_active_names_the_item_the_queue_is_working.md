@@ -37,3 +37,13 @@ how two agents pick the same item.
       `board/active/`, or -- cheaper and enough -- that `board/active/` is non-empty and every
       item in it was touched by a commit in the last N hours. `board:1474` already established
       that the board is machine-readable; this is one more walk over it.
+
+---
+
+**Reviewer sharpening (2026-08-24, second round) -- unchanged at `ac6a0743`, and the evidence
+table extends by two more commits.**
+
+`board/active/` still holds 1581, 1583, 1611. Since this item was filed the queue worked
+`a17ed496` (1779, 1541, 1781, 1782 -- code) and `ac6a0743` (1541, 1781, 1782 -- bodies). None of
+those four items ever stood in `board/active/`; all four were edited in `board/open/`. Two
+rounds, seven items, zero entries. The rule in CLAUDE.md says *always*.

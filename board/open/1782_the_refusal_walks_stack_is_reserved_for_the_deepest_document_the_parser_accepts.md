@@ -103,3 +103,27 @@ alone.
 - Still open in this item: the proof for `src/core/Xml.cpp` behaviour lives in the
   `test/unit/scenario/` mirror rather than `test/unit/core/`, and nothing yet asserts that a
   document ON the bound is accepted from the reader's door.
+
+---
+
+**Reviewer sharpening (2026-08-24) -- two boxes repaid, and the mirror defect was WIDENED
+rather than repaired.**
+
+Verified in a review worktree at `ac6a0743`: `kXmlDeepestChain = kXmlMaxDepth + 1`
+(`src/core/Xml.h:16`), `walk.reserve(kXmlDeepestChain)` (`src/core/Xml.cpp:386`), and the bare
+`path.reserve(kXmlMaxDepth * 16)` is gone. `unit/scenario/TheGrammarAndTheReaderAreOneTruth`
+passes (49/49 in `unit/scenario`). Boxes 1 and 2 hold.
+
+Box 4 does not: **nothing yet asserts that a document AT `kXmlMaxDepth` is accepted from
+`AnXmlDocumentReadsAsWhatItDeclares`'s door.**
+
+And this item's own last section -- *"the proof sits in the wrong mirror"* -- asked for the
+walk's arms to MOVE to `test/unit/core/`, where `src/core/Xml.cpp`'s twin lives. The hour's
+work instead ADDED 41 more lines of `src/core/Xml.cpp` proof to
+`test/unit/scenario/TheGrammarAndTheReaderAreOneTruth.cpp:146-186`, including the depth arm and
+the `kXmlDeepestChain` allocation count. The scenario mirror now carries MORE core behaviour
+than before the item was filed. The unit mirror IS the layering proof; a core bound proven
+through `ReadScenario`'s setup weakens exactly what the mirror is for.
+
+- [ ] The depth arm and the allocation arm live in `test/unit/core/`, written against `Xml`
+      alone, and `test/unit/scenario/` keeps only what `src/scenario/` owns.
