@@ -400,6 +400,45 @@ int main(void) {
           "clustered network is a number rather than a slow run (board:1831)");
   }
 
+  // board:1835: the hash grid's dedup compared the BUCKET a crossing falls in, not the SQUARE.
+  // Two squares that collide in one bucket then accept the same pair once per copy, so a single
+  // crossing is reported as many times as the longer segment's box has squares. The dense grid
+  // could not do this -- its cell index was injective -- so replacing it with a hash replaced a
+  // property nothing was asserting.
+  {
+    Network once(kSnapM, kIuggMeanRadiusM);
+    const double northSouth[4] = {50.85, 10.00005, 51.15, 10.00005};
+    once.Lay(std::span<const double>(northSouth, 4), 4.0, 0.06, 2, 400.0);
+    std::vector<double> eastWest;
+    for (int step = 0; step <= 60; ++step) {
+      eastWest.push_back(51.0);
+      eastWest.push_back(9.99 + 0.02 * (double)step / 60.0);
+    }
+    once.Lay(eastWest, 4.0, 0.06, 2, 400.0);
+    CHECK(once.Weave(error), "one long way crossing sixty short ones weaves");
+
+    std::vector<Network::Crossing> crossings;
+    const Network::Swept swept = once.Crossings(crossings);
+    Note("segments in it", 61.0, "segments");
+    Note("crossings it reports", (double)swept.Found, "crossings");
+    Note("pairs it tested", (double)swept.PairsTested, "pairs");
+    Note("the fullest cell", (double)swept.FullestCell, "segments");
+    for (size_t at = 0; at < crossings.size() && at < 3; ++at) {
+      std::printf("NOTE crossing %zu at %.7f, %.7f\n", at, crossings[at].LatDeg,
+                  crossings[at].LonDeg);
+    }
+
+    CHECK(swept.Found == 1,
+          "**A CROSSING IS COUNTED ONCE**: two ways that meet at one place are one grade "
+          "separation, and a segment whose box spans several squares of a HASH grid lands in "
+          "the same bucket more than once -- so a dedup that compares the bucket accepts the "
+          "same pair once per copy. This fixture reported it NINE times (board:1835)");
+    if (swept.Found == 1) {
+      CHECK_NEAR(crossings.front().LatDeg, 51.0, 1.0e-9, "deg",
+                 "and the one it reports is where the two ways actually meet");
+    }
+  }
+
   Covers("I.4.4 a network is woven from ways that share no identity: points within a declared "
          "snapping distance become one node, ways meet where they cross, and A* over it with a "
          "great-circle heuristic returns the shortest route or names why there is none");

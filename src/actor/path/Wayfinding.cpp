@@ -342,9 +342,14 @@ Network::Swept Network::Crossings(std::vector<Crossing> &into) const {
   for (size_t cell = 0; cell < cells; ++cell) { holds[cell + 1u] += holds[cell]; }
   std::vector<uint32_t> filled(holds.begin(), holds.end() - 1);
   std::vector<uint32_t> inCell(holds[cells], 0);
+  std::vector<long> squareX(holds[cells], 0), squareY(holds[cells], 0);
   for (size_t seg = 0; seg < segments; ++seg) {
-    overSquares(seg,
-                [&](std::pair<long, long> square) { inCell[filled[bucketOf(square)]++] = (uint32_t)seg; });
+    overSquares(seg, [&](std::pair<long, long> square) {
+      const uint32_t at = filled[bucketOf(square)]++;
+      inCell[at] = (uint32_t)seg;
+      squareX[at] = square.first;
+      squareY[at] = square.second;
+    });
   }
   for (size_t cell = 0; cell < cells; ++cell) {
     const size_t held = holds[cell + 1u] - holds[cell];
@@ -360,13 +365,15 @@ Network::Swept Network::Crossings(std::vector<Crossing> &into) const {
       for (uint32_t two = one + 1u; two < ends; ++two) {
         const size_t theirs = inCell[two];
         if (segWay[mine] == segWay[theirs]) { continue; }
+        if (squareX[one] != squareX[two] || squareY[one] != squareY[two]) { continue; }
         ++swept.PairsTested;
         const size_t firstB = segAt[theirs];
         const double cx = lon[firstB], cy = Points_[2 * firstB];
         const double dx = lon[firstB + 1], dy = Points_[2 * firstB + 2];
         double atX = 0.0, atY = 0.0;
         if (!SegmentsMeet(ax, ay, bx, by, cx, cy, dx, dy, &atX, &atY)) { continue; }
-        if (bucketOf(squareOf(atX, atY)) != cell) { continue; }
+        const auto met = squareOf(atX, atY);
+        if (met.first != squareX[one] || met.second != squareY[one]) { continue; }
         double back = atX;
         while (back > 180.0) { back -= 360.0; }
         while (back < -180.0) { back += 360.0; }
