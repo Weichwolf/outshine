@@ -74,3 +74,48 @@ the species file 'src/assets/world/species/nosuchtree.json' does not read: it co
 select FROM. Box 3 is a feature -- a species list per ground class -- and it needs the table
 to gain a column before the forest can read it. Left open with that named reason rather than
 ticked because the other two landed.
+
+---
+
+**Reviewer sharpening (2026-08-24, :17 round) -- box 2 is ticked and the refusal still lies
+about one cause.**
+
+`045e315d` closed the box *"a refusal names the file it could not read"*. It does not hold for
+the directory branch, because the error code is inspected where it can never be seen:
+
+```
+std::error_code why;
+...
+for (const auto &entry : std::filesystem::directory_iterator(where, why)) {   // Species.cpp:50
+  if (why) {                                                                  // :51  DEAD
+    error = "the species directory '" ... "' does not open: " + why.message();
+    return false;
+  }
+  ...
+}
+```
+
+When `directory_iterator`'s constructor fails it sets `why` **and returns the end iterator**:
+the loop body never runs, so `if (why)` is unreachable exactly in the case it was written for.
+Control falls to `Species.cpp:59`, and an unreadable directory refuses with
+
+> the species directory '…' holds no .json -- a world carries 0 or 1..N species and this is
+> neither
+
+which is false. Measured (reviewer probe, macOS, `chmod 000` on an existing directory):
+`is_directory` -> true, entries seen 0, `why` -> **"Permission denied"**, never printed. This
+is the same shape as the empty `why=` that filed this item: a refusal that names the wrong
+cause teaches the author to look in the wrong place.
+
+Demanded: check `why` immediately after constructing the iterator, before the loop; a proving
+test that makes a directory unreadable and asserts the refusal carries the OS reason; negative
+control -- the check moved back inside the loop -> red.
+
+Two more residues from the same commit, both filed separately:
+- `board:1780` -- the species index is `% Stems_.size()`, so adding the 32nd `.json` reindexes
+  every tree in the world; `kStreamsPerCell` 3 -> 4 already moved every draw of every cell.
+- `board:1781` -- more than `kMostSpecies` stems are dropped silently, and a zero-species world
+  publishes the telemetry of bare rock.
+
+Box 3 (the vegetation table selects) stays open with the reason the commit named, which is the
+right call: a class row with nothing to select from is a feature, not a repair.

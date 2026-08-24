@@ -46,3 +46,37 @@ number where they could name the things.
 - 2026-08-24 -- filed against my own repair. board:1777's table was written by MEASURING the
   ambers rather than remembering them, which was the right move -- and it put thirteen
   unverified numbers into the one document every agent reads first.
+
+---
+
+**Reviewer sharpening (2026-08-24, :17 round) -- the repair in the working tree is RED, and it
+is red about English rather than about a number.**
+
+The uncommitted `test/harness/claims/EveryColourCitesALineThatSaysIt.cpp` was reported as
+hand-checked ("42/52/16/25 stimmen"). Run in a review worktree it fails:
+
+```
+NOTE counts the map states and this walk recomputes = 3 counts
+FOUND the map no longer says '16 bare `const {` getters'
+FAIL :224  every count this claim knows about is still stated by the map
+FAIL :227  **A NUMBER IN THE MAP IS RECOMPUTED BY THE WALK** …
+CHECKS 9 FAILURES 2
+```
+
+The cause: the table row at `CLAUDE.md:257` reads *"52 `[[nodiscard]]` queries and 16
+`const {` getters"*. The claim looks for *"16 **bare** `const {` getters"* -- the wording of
+**this item's own body**, copied from board:1777:65, not the wording of the map. The number
+is right (`grep -c 'const {' src/render/Renderer.h` = 16, `grep -c '\[\[nodiscard\]\]'` = 52,
+`Subject.h` = 42, `grep -c '#include "' src/clients/Sim.h` = 25): **all four counts hold; the
+sentence does not.** The hand-check checked the numbers and skipped the strings, which is
+precisely the failure mode this item exists to abolish.
+
+That is not a typo to patch -- it is the design. `document.find(one.Says)` welds the number to
+a whole English phrase, so any rewording of the map reddens the gate for a reason that has
+nothing to do with the code, and the fix will be to edit the prose back. **Point 2 of this item
+says "parses `N <thing>` out of a justification row"** -- parse the table CELL (split on `|`,
+regex `(\d+) *`?([^`]+)`?`), do not string-match the sentence.
+
+Also outstanding: the WIP covers 4 of the 13 numbers. `Sim`'s 62 verbs / 59 members, `Live`'s
+25 / 17, `AssembleDrive` and `LayCorridor`'s nine arguments, `DriveTick`'s 20 fields, and the
+walk's own "42 rows / 43 citations / 22 nodes" Notes are still prose nothing recomputes.

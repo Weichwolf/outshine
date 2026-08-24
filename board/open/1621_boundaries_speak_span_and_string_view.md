@@ -282,3 +282,24 @@ Six without, one with, in seven consecutive lines of src/ground/tiles/TerrainGri
 are also `noexcept` in fact and four are `constexpr`-able. `ViewBook`
 (src/scenario/Views.h:22-28) is what the rest of the tree should look like: every query
 `[[nodiscard]]` and `noexcept`, the factory `std::expected`, every parameter a view.
+
+---
+
+**Reviewer sharpening (2026-08-24, :17 round) -- the sweep lost ground to code written this
+hour.** `045e315d` added four boundaries in the shapes this item abolishes, in a door that did
+not exist before it:
+
+| site | what it takes / returns | what it owes |
+|---|---|---|
+| `src/clients/Species.h:11` | `bool ReadSpecies(const char *, std::vector<TreeSpecies> &, std::string &error)` | `std::expected<std::vector<TreeSpecies>, std::string>` -- a refusal carrying its reason is the exact case the map names |
+| `src/clients/Species.cpp:11` | `Slurp(const std::string &path, std::string &into)` | a NEW `const std::string&` taking boundary; the caller at `:26` has a `const char *` and pays a `std::string` construction to reach it |
+| `src/clients/Species.h:10,11` | `const char *path` | `std::string_view` at the door, `std::string` only where `fopen` needs the NUL |
+| `src/clients/Sim.h:111` | `const std::vector<TreeSpecies> &Species() const` | `std::span<const TreeSpecies>` -- the callers traverse, they do not own |
+
+`Sim.h` also stands at **41** `const {` getters of which **38** carry no `[[nodiscard]]`
+(`grep -c 'const {' src/clients/Sim.h` = 41, minus 3 that have it) -- the file was touched this
+hour and the hygiene half of this item ("`[[nodiscard]]`, `explicit`, `noexcept` and
+`constexpr` ride the same sweep where the touched signature is missing them") was not paid on
+it. `Sim::Species()` gained `[[nodiscard]]` in the same edit, which shows the rule was in view.
+
+The `std::string &error` population this item last counted at 232 is 233.
