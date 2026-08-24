@@ -190,6 +190,53 @@ int main(void) {
           "that sums correctly while describing another plan sums nothing (board:1785)");
   }
 
+  // board:1785's residue, closed here: `entryMs` is a degree of freedom that BOTH callers in
+  // src/ pass as 0.0 -- the corridor is laid once, for the whole route, and the car starts at
+  // Marienplatz from rest, which is correct. A parameter with one value everywhere is a
+  // parameter nobody has ever exercised, and the corridor relay the driver's TARGET asks for
+  // is exactly the caller that will pass it something else.
+  {
+    SpeedProfile rolling;
+    std::string why;
+    CHECK(rolling.Over(line, f31, kStepM, 30.0, why), "the same road plans from a rolling start");
+    SpeedProfile stopped;
+    CHECK(stopped.Over(line, f31, kStepM, 0.0, why), "and from rest, for comparison");
+
+    Note("the plan's first station from rest", stopped.SampleAt(0) * 3.6, "km/h");
+    Note("the plan's first station rolling at 30 m/s", rolling.SampleAt(0) * 3.6, "km/h");
+    CHECK_NEAR(stopped.SampleAt(0), 0.0, 1.0e-12, "m/s",
+               "a plan from rest starts at rest, which is what both callers in src/ ask for "
+               "today");
+    CHECK_NEAR(rolling.SampleAt(0), 30.0, 1.0e-12, "m/s",
+               "**AND A PLAN HANDED A ROLLING START BEGINS AT IT**: the entry speed is the "
+               "only way a corridor laid AHEAD of a moving car can be planned without telling "
+               "it to stop first, and until now no caller passed anything but zero -- so the "
+               "degree of freedom existed and had never been driven (board:1785)");
+
+    // and the difference must fade: a rolling start buys distance, not a different road. Where
+    // the geometry binds, both plans agree.
+    size_t agree = 0, apart = 0;
+    double lastApartM = 0.0;
+    for (size_t at = 0; at < stopped.SampleCount(); ++at) {
+      const double gap = std::fabs(rolling.SampleAt(at) - stopped.SampleAt(at));
+      if (gap < 1.0e-9) {
+        ++agree;
+      } else {
+        ++apart;
+        lastApartM = (double)at * kStepM;
+      }
+    }
+    Note("stations where the two plans agree", (double)agree, "stations");
+    Note("stations where they differ", (double)apart, "stations");
+    Note("the last station they differ at", lastApartM, "m");
+    CHECK(agree > apart,
+          "and the two plans agree over most of the road, because a rolling start changes how "
+          "the first stations are reached and not what the geometry allows");
+    CHECK(lastApartM < kStraightM,
+          "with the difference gone before the bend -- the road decides the bend's speed, and "
+          "how the car arrived at the straight does not reach it");
+  }
+
   Covers("V.9 a seam bound stands at the station it binds: the straight before a bend is "
          "planned at the speed the brake allows, not at the bend's own limit (board:1773)");
   return Report();
