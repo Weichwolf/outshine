@@ -56,15 +56,15 @@ DESTROYED the good copy that was there, because the `rmtree` runs first.
 
 ## What will be true
 
-- [ ] Every file a case's corpus needs is probed before the case runs -- for a glTF asset that
+- [x] Every file a case's corpus needs is probed before the case runs -- for a glTF asset that
       is the document AND the images it names -- and one missing file is `Unprepared()` with
       the remedy, never a `CHECK` failure.
-- [ ] `prepare.py` states what `carries` brought: a file count and a total size in the emitted
+- [x] `prepare.py` states what `carries` brought: a file count and a total size in the emitted
       record, and a refusal when the count is zero. A `placed` that placed nothing is a lie
       the gate then reports as an engine defect.
-- [ ] The destructive `rmtree` happens only after the source has been proven non-empty, so a
+- [x] The destructive `rmtree` happens only after the source has been proven non-empty, so a
       failed preparation cannot leave a machine worse than it found it.
-- [ ] Negative control: one texture removed from the prepared directory -> the two driver cases
+- [x] Negative control: one texture removed from the prepared directory -> the two driver cases
       report UNPREPARED naming that file, and the trailer counts it as unprepared rather than
       failed.
 
@@ -173,9 +173,56 @@ which `test/run.sh:24-26` already declares as `WARN` and `OPT`. Nothing gates th
 drift this item measured -- `-std=c++17` against a C++20 `std::span` -- can recur tomorrow and
 will again be discovered as *"two cases would not come back"*, i.e. as data loss, hours later.
 
-- [ ] `grown.py` reads the standard and the warning set from `test/run.sh` (parse the two
+- [x] `grown.py` reads the standard and the warning set from `test/run.sh` (parse the two
       assignments, or `sh -c '. test/run.sh --print-toolchain'`), so there is one spelling.
-- [ ] Or a claim asserts the two spellings agree, which is the cheap form and still catches
+- [x] Or a claim asserts the two spellings agree, which is the cheap form and still catches
       the drift on the next gate rather than on the next corpus rebuild.
-- [ ] Negative control: `grown.py` set back to `-std=c++17` -> red in the fast gate, not in a
+- [x] Negative control: `grown.py` set back to `-std=c++17` -> red in the fast gate, not in a
       sporadic corpus round.
+
+---
+
+## Both halves repaid (2026-08-24)
+
+**1. What a case probes is the list the ASSET names.** `test/harness/shared/PreparedSubject.h`
+reads the glTF's own `"uri"` fields -- images and buffers alike -- so the probe covers what the
+subject actually needs rather than a list somebody keeps beside it. A `data:` uri carries its
+own bytes and needs no file.
+
+```
+NOTE files the declared subject needs = 7 files
+NOTE of them not readable = 0 files
+```
+
+Seven, where the probe used to ask one.
+
+**2. The preparer counts before it destroys, and says what it carried.**
+
+```json
+{"leaf": "apps-driver-f31", "files": 7, "bytes": 31831104,
+ "carried": [{"directory": "textures", "files": 5, "bytes": 418525}]}
+```
+
+The `rmtree` ran BEFORE the source was known to hold anything, so an empty source directory
+replaced a full target with an empty one and the report still said `placed`. That is exactly
+the state this item was filed from -- an empty `textures/` in the corpus while the licensed
+source held all five.
+
+**3. One toolchain, spelled once.** `harness/claims/OneToolchainIsSpelledOnce` walks `run.sh`'s
+`CXXSTD` and `WARN` against `grown.py`'s compile command. The preparer stood at `-std=c++17` in
+a C++23 tree until a repair to something else happened to look at it, and nothing said so.
+
+- **Negative controls**, both run:
+
+  ```
+  one texture removed from the corpus:
+    NOTE of them not readable = 1 files
+    NOTE missing: .../textures/f31_interior2_baseColor.jpeg
+    UNPREP apps/driver/test/stills/...          (it used to be FAIL, about the engine)
+
+  the licensed source's textures emptied:
+    {"directory": "textures", "files": 0, "why": "the source directory is empty, so what
+     stands in the corpus is left alone rather than replaced by nothing"}
+    the corpus still holds all five
+  ```
+- Gate 260/260.
