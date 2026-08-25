@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "Check.h"
+#include "Shell.h"
 
 namespace {
 
@@ -70,6 +71,15 @@ int main(void) {
   using namespace outshine::Test;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
+  // board:1844: the floor this replaced was `covers > 200` -- a bare number under a count the
+  // walk prints one line earlier, satisfied by 201 of 209 and meaningless the day a case is
+  // deleted. git is the independent witness: it knows every versioned source, the walk knows
+  // every source it opened, and a walk that read a corner of the tree is exactly the walk whose
+  // two counts disagree.
+  const size_t versioned =
+      outshine::Test::Lines(outshine::Test::Ask("git ls-files 'test/*.cpp' 'test/**/*.cpp'"))
+          .size();
+
   std::map<std::string, std::set<std::string>> saying;
   std::map<std::string, std::set<std::string>> proving;
   size_t walked = 0, covers = 0;
@@ -109,7 +119,12 @@ int main(void) {
   Note("numbers carrying more than one sentence", (double)colliding.size(), "numbers");
   for (const std::string &one : colliding) { std::printf("FOUND %s\n", one.c_str()); }
 
-  CHECK(covers > 200, "the walk found this tree's claims, not a corner of them");
+  Note("sources git carries under test/", (double)versioned, "files");
+  CHECK(walked == versioned,
+        "**AND THE WALK READ THE TREE, NOT A CORNER OF IT**: this case judges what it opened, so "
+        "a wrong working directory, a filter that lost a directory or an unversioned source "
+        "smuggled in beside the cases would leave it green over whatever it happened to see. "
+        "git's index is the witness that does not come from the walk (board:1844)");
   CHECK(colliding.empty(),
         "**A CLAIM NUMBER NAMES ONE CLAIM**: the number is how a scorer, a trailer and a reader "
         "tie a case to what it proves, and CLAUDE.md's rule that every number carries its "
