@@ -80,14 +80,14 @@ The distinction the tree needs is three-valued, not two:
 
 ## What will be true
 
-- [ ] The "another nest holds the claim" exit publishes that it judged nothing WITHOUT
+- [x] The "another nest holds the claim" exit publishes that it judged nothing WITHOUT
       reddening the gate -- `Partial(0.0, ...)`, or a fourth verb whose name says "legally
       absent", so `test/run.sh:1458` keeps its meaning.
-- [ ] The "no corpus on disk" exit is decided the same way, deliberately: `board:1796` argued it
+- [x] The "no corpus on disk" exit is decided the same way, deliberately: `board:1796` argued it
       is vacuously true and should not shout, and `4eae57bc` made it red.
-- [ ] The trailer names the case and the reason, the way it names PARTIAL cases today, so a
+- [x] The trailer names the case and the reason, the way it names PARTIAL cases today, so a
       reader of the FIRST line knows IV.15 was not judged this run.
-- [ ] Proving test: a `harness/claims` run in a second checkout while the first holds the corpus
+- [x] Proving test: a `harness/claims` run in a second checkout while the first holds the corpus
       lock exits 0 and its trailer names the unjudged claim. Negative control: `4eae57bc` ->
       `exit=1`, `1 UNPREPARED`, measured above.
 
@@ -140,13 +140,13 @@ with *"no claim was checked"*, which is the opposite verdict from the one intend
 
 ### What will additionally be true
 
-- [ ] `PARTIAL` at share 0 either gets its own sentence in the trailer -- "JUDGED NONE OF ITS
+- [x] `PARTIAL` at share 0 either gets its own sentence in the trailer -- "JUDGED NONE OF ITS
       SUBJECT" -- or a fourth verb carries the legally-absent case, so the register a reader sees
       matches the fact.
-- [ ] The first trailer line carries `%s PARTIAL` beside `%s SKIP` and `%s UNPREPARED`; the count
+- [x] The first trailer line carries `%s PARTIAL` beside `%s SKIP` and `%s UNPREPARED`; the count
       is already computed at `test/run.sh:1042`.
-- [ ] `Report()`'s vacuity guard counts `Partials`, so `Partial(...)` alone is a complete report.
-- [ ] Proving test: `harness/claims` in a second checkout while the first holds the corpus lock
+- [x] `Report()`'s vacuity guard counts `Partials`, so `Partial(...)` alone is a complete report.
+- [x] Proving test: `harness/claims` in a second checkout while the first holds the corpus lock
       -> exit 0 AND the first line names the unjudged case. Negative control: HEAD -> exit 0 with
       the case counted in `N PASS` and the sentence reading "judged part -- 0.000000".
 
@@ -167,5 +167,31 @@ in that one line:
 | `JUDGED PART ... 0.000000` | the sentence contradicts the number it carries |
 | `of of` | `test/run.sh:1401` supplies the `of`, and both call sites at `TheCorpusIsPrunedByOneRunnerOnly.cpp:49` and `:76` supply a second one inside `ofWhat` -- the tree's other two users (`apps/driver/test/stills/StillsAreTakenAlongTheDriveForTheEye.cpp:543`, `apps/driver/test/window/AWindowShowsTheRoadTheCarIsDriving.cpp:314`) pass `"the route it was asked to drive"` with no leading `of`, which is the form the format string expects |
 
-- [ ] The two `Partial(0.0, "of IV.15's own claims, ...")` call sites drop the leading `of`, or the
+- [x] The two `Partial(0.0, "of IV.15's own claims, ...")` call sites drop the leading `of`, or the
       format string stops supplying one -- one of the two, not both.
+
+## The four the review measured are fixed (2026-08-25)
+
+| | before | after |
+|---|---|---|
+| a share of zero | `JUDGED PART OF ITS SUBJECT -- 0.000000` | `JUDGED NONE OF ITS SUBJECT -- 0.000000` |
+| the format string | `... -- 0.000000 of of IV.15's own claims` | `... of IV.15's own claims` |
+| the first trailer line | no PARTIAL column, while `partialCases` was counted | `0 UNPREPARED  1 PARTIAL` |
+| `Check.h`'s vacuum guard | counted Checks, Skips, Unprepareds | counts Partials too |
+
+```
+34 tests: 34 PASS  0 FAIL  0 TIMEOUT  0 SIGNAL  0 BUILD  0 SKIP  0 UNPREPARED  1 PARTIAL
+run.sh: ...TheCorpusIsPrunedByOneRunnerOnly JUDGED NONE OF ITS SUBJECT -- 0.000000 of IV.15's
+        own claims, because another nest held the corpus claim ...
+```
+
+**On whether `Partial(0.0)` dilutes what board:1810 built**: the review's answer is yes, and the
+guard is where that is settled rather than argued. `Partial` was for *"a seventh of the route"*;
+zero is not part of anything. But the family it belongs to is the one that says **how much of
+its subject a run judged**, and zero is a member of that family -- the trailer now says NONE
+rather than PART, and the vacuum guard treats it as a statement rather than as silence. A case
+that says nothing at all is still caught; a case that says "none, and here is why" is not.
+
+Proving test: the runner itself, under a live foreign corpus holder. Negative control, run: the
+guard's `Partials` term removed and a case written that only calls `Partial(0.0)` ->
+`FAIL no claim was checked`, which is the state where an honest partial answer reads as silence.
