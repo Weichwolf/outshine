@@ -20,10 +20,12 @@ The refusal reaches the door as a VALUE — `void Refuse(const std::string &why)
 (src/clients/Engine.cpp:37) — where it used to be prose the door grepped, so the doubled
 `REFUSED REFUSED` is gone with the grep that caused it.
 
-**What the still does not show is a world.** `refused.png` is the car on `fill="0.9"` white: no
-ground, no horizon, no sky, no shadow. The frame survived the refusal; there was nothing in it
-but the subject, because nothing calls the composition path (board:1805). The last box stays
-open until a refused drive shows the world it refused to drive through.
+**What the still does not show is a world, and the background is not the fill either.**
+Measured at 817ea333: `refused.png` and all nine `along*.png` are RGBA with `alpha == 0`
+everywhere the subject is not -- the car occupies 38 k of 921 600 pixels and the other 96 % of
+the frame is transparent, not `fill="0.9"` white. The declared fill
+(`apps/driver/src/f31.scenario:4`) never reaches the picture; what a viewer shows behind the car
+is its own background. No ground, no horizon, no sky, no shadow, and no fill.
 
 ## What will be true
 
@@ -31,6 +33,8 @@ open until a refused drive shows the world it refused to drive through.
       is written.
 - [x] `Engine::Drove()` answers false, and a client asks WHY without parsing prose.
 - [x] No message carries a prefix twice.
+- [ ] The DECLARED fill is what stands behind a subject when nothing else does. A still whose
+      background is `alpha = 0` has drawn nothing, and *something is always drawn*.
 - [ ] Negative control: a route between two disconnected coordinates -> stills are written and
       **they show the world** — ground under the car and a horizon behind it, not a subject on
       the fill colour.

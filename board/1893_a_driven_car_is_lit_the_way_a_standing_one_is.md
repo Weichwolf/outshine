@@ -46,46 +46,48 @@ The vehicle's rotation is NOT it either: `Engine::Rides` builds the matrix colum
 `OrientationQ` in (w, x, y, z) order, which is what `Physics::Body` declares, and each of the
 nine terms matches the standard form.
 
-**A fourth space seam is beside it and may be the same one.** `src/clients/Live.cpp:218-220`
-pins the camera basis at the origin -- `eye = {0,0,0}`, `forward = {0,0,-1}` -- for every
-frame, while `GltfStudio.cpp:322` passes the real position. CLAUDE.md: *precision has ONE
-boundary and it is the camera*, and a renderer that is camera-relative in 32-bit needs the
-camera it is relative TO. A body 116 m along a corridor is shaded from an eye that says it is
-at the origin.
+**MEASURED AT 817ea333, AND IT IS NOT A DRIVEN-VERSUS-STANDING DEFECT.** The shipped route
+still refuses, so the drive was overridden -- `--from 48.13720,11.57560 --to 48.13600,11.58200`,
+`DROVE 1534 frames over 0.282 of 0.302 km, kept 9 still(s)`. Mean luminance over the subject's
+own opaque pixels, with its screen bounding box beside it:
 
-**A FOURTH AND FIFTH CANDIDATE, ruled out by reading rather than by running:**
+| still | opaque px | bbox | mean L |
+|---|---|---|---|
+| along01 | 38473 | x[515,1147] y[636,719] | 15.1 |
+| along05 | 38568 | x[515,1148] y[636,719] | 12.6 |
+| along07 | 37238 | x[510,1133] y[637,719] | 12.8 |
+| along08 | 38024 | x[513,1142] y[636,719] | **45.3** |
+| along09 | 37486 | x[511,1136] y[637,719] | **43.8** |
+| refused.png (studio, no drive) | 87874 | x[366,886] y[266,515] | 46.6 |
 
-- The axis permutation. `PlacedInEcef` (GltfStudio.cpp:19-27) maps glTF (x right, y up,
-  z back) onto the engine's frame with `kAxis = {1,0,2,3}` and `kSign = {1,1,-1,1}`, and the
-  sun goes through the SAME `EcefFromGltf` at Live.cpp:200. Light and geometry are permuted
-  alike, so a mismatch there would tilt the whole studio too.
-- Replacing the node matrix. `Carry` overwrites every part placement rather than composing
-  with what `Place` wrote, which would be a defect for a hierarchical asset -- but the F31's
-  vertices carry their own positions (the picture is a correct car from every angle the chase
-  view takes), so the node matrices it discards are identities.
+**The camera is bolted to the body, so the same triangles cover the same pixels in all nine --
+the bounding box moves by three pixels over the drive and the opaque count by 3 %. The only
+thing that changed between along07 and along08 is the body's heading, and the shading changed
+by a factor of 3.5.** A yaw about the surface's own up cannot change a horizontal roof's
+diffuse term at all: `N.L` is `sin(elevation)` for every heading. That it changes by 3.5x is a
+proof, not a hypothesis -- **the key's up axis and the body's up axis are not the same axis in
+the space the shading happens in**.
 
-- The anchor. `Aim` places the camera through `Anchored()` (+kStudioAnchorEcefM) while
-  `Placements` permutes the part matrices without it -- but `SubjectMesh::Anchor` carries the
-  same anchor (GltfStudio.cpp:396) and the shader offsets by it, so camera and geometry are
-  anchored alike.
-- The lighting setup. Both paths reach it identically: `Live::Build` calls
-  `Surface(*Renderer_, Stood_, ...)` at Live.cpp:226, which is the SAME function
-  `GltfStudio::Show` calls, and `Stand()` fills `Stood_.Lights` and `Stood_.Environment` before
-  it. There is no order difference between the standing and the driven path.
+The two candidate ends of that seam are both citable:
 
-What is left untested and cheap to test next: the shading path's own inputs. The subject is
-lit correctly when `GltfStudio::Show` stands it and wrongly when `Engine::Rides` drives it,
-and the two differ in exactly one thing that is still unmeasured: the studio never calls `Carry`
-at all. Its part placements are what `Place` wrote from the glTF; the drive's are one matrix
-per part, written by `Carry`, carrying a rotation AND the 0.01555 model scale. The next test
-is to hand `Carry` a pure rotation with no scale and a translation of zero -- if the car lights
-up, the shading reads something out of the placement that the normalise in the vertex stage
-does not cover.
+- `src/clients/Live.cpp:195-205` builds the key in the glTF frame and maps it with
+  `EcefFromGltf`, whose up is `out[0] = gltf[1]` -- ECEF +X, the local up at the equator on the
+  prime meridian, where `kStudioAnchorEcefM` puts the studio. The drive stands at 48.14 N.
+- `src/clients/Live.cpp:218-220` pins the camera basis at `eye = {0,0,0}`,
+  `forward = {0,0,-1}` for every frame while `GltfStudio.cpp:322` passes the real position. A
+  renderer that is camera-relative in 32-bit needs the camera it is relative TO.
+
+**The studio frame has the same defect and it was read as correct.** `refused.png` at 817ea333
+is silver on the flanks and BLACK on the roof, the tailgate and the rear quarter -- a horizontal
+roof reading `#000` under a 42-degree 40000 lux key, in the frame this item cited as the one
+that is lit properly. The comparison this item was filed on does not hold; what it measures is
+one asset lit from a direction that is not the declared one, in both frames.
 
 ## What will be true
 
-- [ ] The driven F31 is lit exactly as the standing one is: the same specular on the shoulder,
-      the same roof, the same tail lamp.
+- [ ] The F31 is lit from the direction the scenario declares, standing and driven alike: a
+      horizontal roof under `elevationDeg="42"` reads `sin(42) = 0.669` of the key, and no
+      heading changes it.
 - [ ] The occluder set and the shading position are stated to be in ONE space, and a
       `static_assert` or an assembly-time refusal is what says so — not a comment.
 - [ ] Proving case: the 136 m drive, chase view, mean luminance of the subject's pixels within

@@ -193,8 +193,8 @@ flowchart TD
   classDef wrong fill:#7a2222,stroke:#3d1111,color:#fff
   classDef strandedSound fill:#1f6f3f,stroke:#7a2222,stroke-width:3px,stroke-dasharray:6 4,color:#fff
   classDef strandedUnsure fill:#8a6d1f,stroke:#7a2222,stroke-width:3px,stroke-dasharray:6 4,color:#fff
-  class Unwired,Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,GroundQuery,OsmField,RoadHarvest,Wayfinding,Alignment,StreetField,Ground,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,SceneStore,Assembly,SubjectResidency,Markup,Stylesheet,LayoutUi,Painting,Pointer,InputMap,InputPump,ViewBook,BusGraph,OverlayDraw sound
-  class BuildingField,WaterField,Subject,DrawList,Renderer,TonemapStage,LightVisibilityStage,Frustum,Ephemeris,GltfStudio,Typeface,TriggerField unsure
+  class Unwired,Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,GroundQuery,OsmField,RoadHarvest,Alignment,StreetField,Ground,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,SceneStore,Assembly,SubjectResidency,Markup,Stylesheet,LayoutUi,Painting,Pointer,InputMap,InputPump,ViewBook,BusGraph,OverlayDraw sound
+  class Wayfinding,BuildingField,WaterField,Subject,DrawList,Renderer,TonemapStage,LightVisibilityStage,Frustum,Ephemeris,GltfStudio,Typeface,TriggerField unsure
   class World,SubjectDraw,Sim,Live,Engine wrong
   class DriveAssembly,CorridorLay,DriveTick,TilePool unsure
   class Forest,Buildings,Water,Infrastructure strandedSound
@@ -215,6 +215,7 @@ flowchart TD
 
 | amber | the form in question, at HEAD |
 |---|---|
+| `Wayfinding` | `bool Network::Weave(std::string &error) {` (Wayfinding.cpp:110) welds loose ends onto the edges they end on by reading an index it invalidates as it goes: `byEdgeCell` is built at :243 and never updated, while `unlink(bestFrom, bestTo)` (:321) plus `link(bestFrom, loose)` (:329-330) split the edge it lists, so a second end that ties onto the same segment finds a pair that is gone, removes nothing and links a parallel chord. The tie is measured only by its own printed counts -- 2450 ends, 4193 pieces, 26853 of 45248 joined -- and no case in `test/` names `Weave` (board:1894) |
 | `BuildingField` | `class BuildingField {` (BuildingField.h:20) holds a `struct Footprint` of raw index ranges (`uint32_t FirstPoint = 0, PointCount = 0;`, :24) and takes a mesher by pointer (`void Shapes(const StructureMesher *mesher)`, :32) -- a field that tessellates |
 | `WaterField` | `void Tessellate(const OsmField &field, std::vector<float> &out) const;` (WaterField.h:47) -- the same: a field that meshes rather than one that answers |
 | `Subject` | `class Subject {` (Subject.h:98) carries 42 `[[nodiscard]]` over one glTF document -- the getter carpet |

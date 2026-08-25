@@ -16,24 +16,28 @@ that test went with `test/unit/`. 798 lines with ZERO consumers, and `Forest`, `
 `Water`, `Infrastructure` and `RegionForge` hang off it.
 
 **The consumer exists, it is CALLED, and it refuses.** `Engine::Assemble` calls
-`bool Engine::Compose(void) {` (src/clients/Engine.cpp:265) after it routes; Compose opens the
+`bool Engine::Compose(void) {` (src/clients/Engine.cpp:263) after it routes; Compose opens the
 ground stack and lays the ring through `auto laid = LayPatchwork(S_->Stack.Pool(), over);`
-(:297), giving the asynchronous pool the passes it needs. That is real and it is the movement
+(:301), giving the asynchronous pool the passes it needs. That is real and it is the movement
 this item asked for.
 
-**And no tile has reached a frame, because Compose refuses at :274 for every scenario in the
-tree.** Measured 2026-08-25 at d5a562cd:
+**And no tile has reached a frame, because the branch a drive would reach it by is nailed
+shut.** Measured 2026-08-25 at 817ea333:
 
-```
-grep -rl '<ground' --include=*.scenario .     -> nothing
-the ground did not compose: the scenario declares no sphere, so there is no ground to compose
+```cpp
+const bool overADrive = false;                              // src/clients/Engine.cpp:271
+if (!declared.Ground.Declared && !overADrive) {
+  S_->Error = "the scenario declares neither a sphere nor a drive that laid a corridor, so "
+              "there is nowhere for a ground to be composed";
 ```
 
-The refusal is honest — board:1890 has the seam it names, the ring anchored on
-`Patchwork::OriginEcef` while the vehicle stands on the corridor's origin, and a ground that
-swallows the camera is worse than no ground. But the consequence for this item is unchanged:
-`GroundPatchwork` is still stranded, the product's still is still a car on white, and the way
-out is board:1890's one seam and not another caller.
+`grep -rl '<ground' --include=*.scenario .` finds nothing, so the first half of that refusal is
+true. **The second half is false at the moment it is printed**: the driver's own run prints it
+after `ROUTED the declared drive` and after the corridor reports 823 stations, so a drive DID
+lay a corridor and the sentence denies it. A refusal may name only what it measured — the same
+rule that was applied to the route search this hour (board:1862) — and a literal `false` is not
+a measurement. Either the corridor's frame reaches `Compose` or the constant goes and the
+refusal says *the ring cannot be anchored on a corridor yet*, naming board:1890.
 
 **Six of the nine nodes the cut stranded are back.** `Markup`, `Stylesheet`, `Layout`,
 `Painting`, `Typeface` and `Pointer` draw the viewer's own face — verified this round on
@@ -59,6 +63,8 @@ no shared vertex row, a ribbon edge on a 2 m polyline grading a 3 m post grid.
       before and after.
 - [ ] `apps/driver` calls the composition through the door — one still with a tile in it is the
       whole of the first step, and `Engine::Compose` is already written.
+- [ ] No constant stands where a measurement belongs: `overADrive` is what the corridor answers,
+      and the refusal denies nothing the same run proved.
 - [ ] `Sim` dies with the path it was the only door to.
 - [ ] The nine nodes the cut stranded are reached from the door or deleted: a subsystem whose
       only caller was a test is a subsystem the product does not have. Six are back; `BusGraph`,

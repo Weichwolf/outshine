@@ -11,31 +11,27 @@ inside the frame on a hairpin, an instrument reading trial at +/-5 km/h in <= 0.
 stillness at p99 under one pixel of angular change per frame, input to present at p99 <= 50 ms.
 None is answerable against an offscreen renderer.
 
-**MEASURED 2026-08-25 at d5a562cd: a key reaches an action and NO key moves the car.** The pump
-is wired — `Engine::Handles` translates an SDL key event to at most two (action id, kind, value)
-without allocating (src/clients/Engine.cpp:405-412) — and then the id is un-interned back to a
-`std::string` and handed to
+**The engine no longer names content, and no key still moves the car.** At 35829990
+`Engine::Acts` is gone: `Engine::Handles` translates an SDL key to at most two
+`(action id, kind, value)` without allocating (src/clients/Engine.cpp:419-420) and hands the
+declared action's NAME to `Host::Calls` (:428), where the client decides what it means. The
+engine offers `Takes(view)` and `Views()` (include/Outshine.h:48-49) so a client can act on a
+view without the engine knowing what for, and `apps/viewer` answers `next-view` through them.
 
-```cpp
-bool Engine::Acts(const std::string &named) {
-  if (named != "next-view" || !S_->Views || S_->Views->Count() < 2) { return false; }
-```
-
-(src/clients/Engine.cpp:779). `apps/driver/src/f31.scenario` declares five bindings —
-`throttle`, `brake`, `steer-left`, `steer-right`, `next-view` — and exactly one of them has an
-effect, hard-wired in the ENGINE by its name. Four translate to an id and are dropped.
-
-Two defects in one line: a content-level action named in engine code (*content = data, engine =
-verbs*), and a string compare on the input path after the catalogue already interned the id
-(*values over strings*). The interning is defeated by its own caller.
+What is left is the other half. `apps/driver` offers NO host at all, so
+`if (S_->Offered == nullptr) { return false; }` (:422) drops every key before it is translated,
+and the four bindings `f31.scenario` declares -- `throttle`, `brake`, `steer-left`,
+`steer-right` -- reach nothing. There is also no window to press a key in: the driver runs
+headless.
 
 ## What will be true
 
 - [ ] `apps/driver` opens a real window and drives it with the declared `InputMap` through
       `InputPump` — the same bindings the scenario declares, no second spelling (board:1862).
+- [x] The engine names no action of its own. The pump translates and `Host::Calls` carries the
+      declared name to the client (src/clients/Engine.cpp:428).
 - [ ] A key moves the car. `throttle`, `brake`, `steer-left` and `steer-right` reach the pilot's
-      seat as a driver INPUT that overrides the plan, and `Engine::Acts` dispatches on the
-      interned action ID, never on a spelling.
+      seat as a driver INPUT that overrides the plan, through a host `apps/driver` offers.
 - [ ] The case publishes input-to-present as p50/p95/p99, named as PIPELINE latency rather than
       photon latency, because a photon measurement needs a high-speed camera and the tree has
       none.

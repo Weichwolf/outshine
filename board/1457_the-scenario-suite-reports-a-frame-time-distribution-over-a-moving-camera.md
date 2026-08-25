@@ -13,24 +13,27 @@ one. The suite exists and its verdict is a distribution with its population, its
 device named; determinism is two runs compared picture by picture; memory is read across 600
 frames against a declared ceiling; no sanitiser is in the path.
 
-**A blocker landed this hour and it is one line.** `Renderer::DrawsInto`
-(src/render/Renderer.cpp:959-968) now claims the swapchain with
+**The blocker this item carried is gone, and it left an instrument nobody reads.** At
+35829990 `Renderer::DrawsInto` takes the first present mode the device offers that does not
+queue -- MAILBOX, then IMMEDIATE, then VSYNC -- and refuses by name if it takes none
+(src/render/Renderer.cpp:968-985). `[[nodiscard]] bool Queued() const` (src/render/Renderer.h:81)
+says which it got.
 
-```cpp
-SDL_SetGPUSwapchainParameters(Device_.Get(), presents, wanted, SDL_GPU_PRESENTMODE_VSYNC)
-```
+Two things are wrong with it and both are this item's:
 
-as part of fixing the sRGB transfer (board:1889, closed). VSYNC is not a property of a colour
-space and it is not the plan's to choose: a windowed run clamped to the display's refresh cannot
-report a p50 below the refresh interval, and the p95/p99 it does report measure the compositor's
-queue rather than the engine's frame. The present mode belongs in the render declaration beside
-`fps`, defaulting to whatever the measurement needs, and `SDL_GPU_PRESENTMODE_IMMEDIATE` is what
-a distribution is taken under.
+- **No caller.** `grep -rn 'Queued()' src include apps test` finds the definition and nothing
+  else. A distribution that does not print the mode it was taken under is the state this item
+  was opened to end.
+- **It answers for a swapchain that does not exist.** `SDL_GPUPresentMode Presenting_ =
+  SDL_GPU_PRESENTMODE_VSYNC;` (Renderer.h:235) is the default, and the offscreen path never
+  assigns it, so an offscreen renderer -- every headless run in the tree -- reports `Queued() ==
+  true`. A number that answers where it was never measured is worse than no number.
 
 ## What will be true
 
-- [ ] The present mode is DECLARED. A frame-time distribution is taken with the swapchain in
-      immediate mode, and the declaration says which mode it was taken under.
+- [ ] The present mode is DECLARED beside `fps` rather than chosen by a preference list in the
+      renderer, and the distribution names the mode it was taken under. `Queued()` has a reader
+      or it is deleted, and it refuses to answer where nothing presents.
 
 - [ ] **A run is DECLARED, not written in C++** — a camera path, a frame count, a rate and which
       scenario stands under it.
