@@ -52,9 +52,14 @@ private:
   [[nodiscard]] const Cell &Cell0f(Family family, int sizePx, char32_t code) const;
   [[nodiscard]] bool Packs(int widthPx, int heightPx, int &leftPx, int &topPx) const;
 
+  struct Sized {
+    uint64_t Key = 0;
+    TTF_Font *Set = nullptr;
+  };
+
   std::string Under_;
-  TTF_Font *Sets_[(size_t)Family::kCount] = {};
-  mutable int SizedAt_[(size_t)Family::kCount] = {};
+  std::vector<uint8_t> Faces_[(size_t)Family::kCount];
+  mutable std::vector<Sized> Sets_;
 
   mutable std::vector<Cell> Cells_;
   mutable size_t Held_ = 0;

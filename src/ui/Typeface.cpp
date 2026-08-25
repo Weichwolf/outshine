@@ -92,10 +92,10 @@ Family FamilyOf(uint32_t declared) {
 }
 
 Typeface::~Typeface(void) {
-  for (TTF_Font *&set : Sets_) {
-    if (set != nullptr) { TTF_CloseFont(set); }
-    set = nullptr;
+  for (const Sized &held : Sets_) {
+    if (held.Set != nullptr) { TTF_CloseFont(held.Set); }
   }
+  Sets_.clear();
   if (Started_) { TTF_Quit(); }
 }
 
@@ -109,15 +109,17 @@ bool Typeface::Opens(std::string_view fonts, std::string &error) {
   if (!Under_.empty() && Under_.back() != '/') { Under_.push_back('/'); }
 
   for (size_t at = 0; at < (size_t)Family::kCount; ++at) {
-    if (Sets_[at] != nullptr) { continue; }
+    if (!Faces_[at].empty()) { continue; }
     const std::string path = Under_ + kFiles[at];
-    Sets_[at] = TTF_OpenFont(path.c_str(), 16.0f);
-    if (Sets_[at] == nullptr) {
+    size_t many = 0;
+    void *const held = SDL_LoadFile(path.c_str(), &many);
+    if (held == nullptr || many == 0) {
       error = "the face '" + path + "' did not open: " + SDL_GetError();
+      if (held != nullptr) { SDL_free(held); }
       return false;
     }
-    SizedAt_[at] = 16;
-    ++Opened_;
+    Faces_[at].assign((const uint8_t *)held, (const uint8_t *)held + many);
+    SDL_free(held);
   }
   if (Rgba_.empty()) {
     SheetW_ = kSheetEdge;
@@ -129,13 +131,18 @@ bool Typeface::Opens(std::string_view fonts, std::string &error) {
 }
 
 TTF_Font *Typeface::Set(Family family, int sizePx) const {
-  TTF_Font *const set = Sets_[(size_t)family];
-  if (set == nullptr) { return nullptr; }
-  if (SizedAt_[(size_t)family] != sizePx) {
-    if (!TTF_SetFontSize(set, (float)sizePx)) { return nullptr; }
-    SizedAt_[(size_t)family] = sizePx;
+  const uint64_t key = Keyed(family, sizePx, 0);
+  for (const Sized &held : Sets_) {
+    if (held.Key == key) { return held.Set; }
   }
-  return set;
+  const std::vector<uint8_t> &held = Faces_[(size_t)family];
+  if (held.empty()) { return nullptr; }
+  SDL_IOStream *const from = SDL_IOFromConstMem(held.data(), held.size());
+  if (from == nullptr) { return nullptr; }
+  TTF_Font *const made = TTF_OpenFontIO(from, true, (float)sizePx);
+  Sets_.push_back(Sized{key, made});
+  ++Opened_;
+  return made;
 }
 
 bool Typeface::Packs(int widthPx, int heightPx, int &leftPx, int &topPx) const {
