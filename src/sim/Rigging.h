@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include <outshine/Scenario.h>
+#include <Scenario.h>
 
 #include "Drive.h"
 #include "Rig.h"

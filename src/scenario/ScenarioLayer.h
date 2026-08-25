@@ -5,7 +5,7 @@
 #include <string_view>
 #include <vector>
 
-#include <outshine/Scenario.h>
+#include <Scenario.h>
 
 namespace outshine {
 

@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include <outshine/Scenario.h>
+#include <Scenario.h>
 
 #include "Body.h"
 #include "CorridorLay.h"

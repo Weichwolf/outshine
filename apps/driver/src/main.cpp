@@ -4,7 +4,7 @@
 #include <string>
 #include <string_view>
 
-#include <outshine/Outshine.h>
+#include <Outshine.h>
 
 namespace {
 

@@ -5,7 +5,7 @@
 
 #include "Assembled.h"
 #include "Column.h"
-#include <outshine/Scenario.h>
+#include <Scenario.h>
 #include "Store.h"
 
 #include "CorridorLay.h"

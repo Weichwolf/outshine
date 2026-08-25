@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <string>
 
-#include <outshine/Scenario.h>
+#include <Scenario.h>
 
 #include "Xml.h"
 

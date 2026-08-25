@@ -1,4 +1,4 @@
-#include <outshine/Outshine.h>
+#include <Outshine.h>
 #include "Fetching.h"
 
 #include <algorithm>

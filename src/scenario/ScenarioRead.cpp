@@ -1,6 +1,6 @@
 #include "ScenarioRead.h"
 
-#include <outshine/Scenario.h>
+#include <Scenario.h>
 
 #include <cstring>
 

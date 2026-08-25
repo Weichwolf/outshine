@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include <outshine/Scenario.h>
+#include <Scenario.h>
 
 #include "Document.h"
 #include "GltfStudio.h"

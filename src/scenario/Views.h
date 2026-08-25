@@ -8,7 +8,7 @@
 #include <span>
 #include <vector>
 
-#include <outshine/Scenario.h>
+#include <Scenario.h>
 
 namespace outshine {
 

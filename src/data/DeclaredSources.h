@@ -4,7 +4,7 @@
 #include <span>
 #include <string>
 
-#include <outshine/Scenario.h>
+#include <Scenario.h>
 
 #include "SourceSet.h"
 

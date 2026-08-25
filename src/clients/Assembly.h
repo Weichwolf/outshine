@@ -6,7 +6,7 @@
 
 #include "Assembled.h"
 #include "Traits.h"
-#include <outshine/Scenario.h>
+#include <Scenario.h>
 
 #include "Column.h"
 #include "Store.h"
