@@ -147,13 +147,23 @@ int main(int argc, char **argv) {
               declared.Driven.FromLonDeg, declared.Driven.ToLatDeg, declared.Driven.ToLonDeg,
               asked.WidthPx, asked.HeightPx, asked.Headless ? ", headless" : "");
 
-  if (!engine.Assemble()) {
-    std::printf("REFUSED %s\n", engine.Error().c_str());
-    return 1;
-  }
-  std::printf("%s\n", engine.Drove() ? "ROUTED the declared drive" : "NO DRIVE DECLARED");
+  const bool assembled = engine.Assemble();
+  if (!assembled) { std::printf("REFUSED %s\n", engine.Error().c_str()); }
+  std::printf("%s\n", engine.Drove()   ? "ROUTED the declared drive"
+                       : assembled     ? "NO DRIVE DECLARED"
+                                       : "NO DRIVE -- the picture is what stood without it");
 
   engine.RenderTo(outshine::Extent{asked.WidthPx, asked.HeightPx});
+
+  if (!assembled && !asked.Into.empty()) {
+    char named[512];
+    std::snprintf(named, sizeof named, "%s/refused.png", asked.Into.c_str());
+    if (engine.Capture(named)) {
+      std::printf("KEPT %s -- a failure is loud, and something is always drawn\n", named);
+    }
+    return 1;
+  }
+  if (!assembled) { return 1; }
 
   const double routeM = engine.RouteM();
   long frames = 0;

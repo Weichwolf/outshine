@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Area: sim, actor/path
 Tags: telemetry, measured
 

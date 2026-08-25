@@ -5,16 +5,12 @@
 #include "Check.h"
 #include "Shell.h"
 
-using outshine::Test::Ask;
-using outshine::Test::Lines;
 using outshine::Test::Run;
 
 namespace {
 
-// board:1838: this claim used to carry a COPY of the guard as a string literal -- four lines of
-// sh inside C++, which the tree forbids, and which meant deleting the guard from run.sh left
-// the claim green. It reads PruneCase out of the runner now and calls it, so the two cannot
-// diverge: run.sh is sourced with the surrounding machinery stubbed to nothing.
+// The guard is READ OUT OF run.sh and called, so the two cannot diverge: a copy of it as a
+// string literal here would stay green the day the guard left the runner (board:1838).
 [[nodiscard]] std::string DrivesTheRunnersGuard(const std::string &root, const std::string &where,
                                                 const char *nest) {
   const std::string carved = root + "/guard.sh";
@@ -25,6 +21,12 @@ namespace {
   Run("sh -c '. " + carved + "; prunePrepared=" + where + "; NEST=" + std::string(nest) +
           "; notMine=0; Guard; [ \"$notMine\" -gt 0 ] && printf LEFT-ALONE' 2>/dev/null",
       said);
+  return said;
+}
+
+[[nodiscard]] std::string Marker(const std::string &where) {
+  std::string said;
+  Run("cat " + where + "/.prepared-by 2>/dev/null", said);
   return said;
 }
 
@@ -60,18 +62,46 @@ int main(void) {
         "26 GB peak down over its own run");
   CHECK(theirs == "LEFT-ALONE",
         "**AND IT LEAVES ALONE WHAT ANOTHER NEST PREPARED**: the corpus is one directory for "
-        "every checkout, and the hourly review is MANDATED to run in its own worktree, so a "
+        "every checkout and the hourly review is MANDATED to run in its own worktree, so a "
         "prune scoped only by a lock decides which runner loses its subjects mid-run rather "
-        "than that neither does. Measured once at 4 UNPREPARED on a gate that had 0 an hour "
-        "earlier, with no glTF change in the delta (board:1789)");
+        "than that neither does (board:1789)");
   CHECK(nobodys == "LEFT-ALONE",
         "**AND IT LEAVES ALONE WHAT NOBODY CLAIMS**, because 'first to delete owns it' is the "
-        "same race with a shorter fuse -- an unclaimed case is one prepare.py made outside any "
-        "runner, and the runner that did not make it cannot know who is reading it");
+        "same race with a shorter fuse");
 
   Run("rm -rf " + root, ignored);
 
-  Covers("IV.22 the prepared corpus is shared and the right to delete from it is not: a runner "
-         "prunes the cases it prepared and leaves every other case standing (board:1789)");
+  // The marker the guard above compares against is written by EVERY route into the corpus,
+  // not only by the rebuild: one route that wrote nothing stopped the prune silently
+  // (board:1839).
+  const std::string made = root + "-owner";
+  Run("rm -rf " + made, ignored);
+  Run("OUTSHINE_CORPUS_OWNER=nest-under-test python3 test/harness/shared/corpus/prepare.py "
+      "dry-run --manifest test/render/khronos/glTF/Box/manifest.json --dest " +
+          made + " >/dev/null 2>&1",
+      ignored);
+  const std::string owned = Marker(made);
+  std::printf("NOTE a case prepared under a nest is owned by: '%s'\n", owned.c_str());
+  CHECK(owned == "nest-under-test",
+        "**A CASE PREPARED THROUGH prepare.py CARRIES ITS OWNER**, so the guard above has "
+        "something to compare against and deletes what it fetched rather than nothing at all "
+        "(board:1839)");
+
+  Run("rm -rf " + made, ignored);
+  Run("env -u OUTSHINE_CORPUS_OWNER python3 test/harness/shared/corpus/prepare.py dry-run "
+      "--manifest test/render/khronos/glTF/Box/manifest.json --dest " +
+          made + " >/dev/null 2>&1",
+      ignored);
+  const std::string unowned = Marker(made);
+  std::printf("NOTE a case prepared by no runner is owned by: '%s'\n", unowned.c_str());
+  CHECK(unowned == "no-runner",
+        "**AND ONE PREPARED BY NO RUNNER SAYS SO**: 'nobody claims this' and 'this is mine' are "
+        "different answers, and a marker that is simply absent reads like neither");
+
+  Run("rm -rf " + made, ignored);
+
+  Covers("IV.22 the prepared corpus is shared and the right to delete from it is not: every "
+         "route into the corpus writes an owner, and the runner's guard prunes what this nest "
+         "prepared and leaves every other case standing (board:1789, 1839)");
   return Report();
 }
