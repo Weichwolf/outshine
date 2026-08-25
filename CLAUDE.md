@@ -399,8 +399,17 @@ flowchart LR
   E --> A
 ```
 
-A unit test asserts something that CAN be trivially true -- a reader checks it by eye. Emergence
-is the integration test, and that is `apps/driver`. **A test is a specification only while the
+**`test/unit/` MIRRORS `src/` file for file, under the same name** -- `src/actor/path/Fit.cpp` is
+tested by `test/unit/actor/path/Fit.cpp`, one test per source, testing whatever in it is
+sensibly testable. The mirror IS the coverage measurement (a source without its twin is visible
+by listing, not by reading) and it is the layering proof (the twin links only what its layer
+needs).
+
+A unit test asserts something that CAN be trivially true -- a reader checks it by eye -- and it
+tests ONE unit against a fixture. **No GOD tests**: a case that must link most of `src/` to say
+anything is testing the integration under a unit's name. Emergence is the integration test, and
+outshine has exactly one: `apps/driver`. `Engine` is the door to everything, so it owes no unit
+twin -- what proves it is the product running. **A test is a specification only while the
 architecture under it is right**: one asserting what must be TRUE wins against the code always;
 one asserting how it is DONE today moves with the architecture, and a refactor it blocks is a
 defect in the test.
