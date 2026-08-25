@@ -64,11 +64,23 @@ at the origin.
   vertices carry their own positions (the picture is a correct car from every angle the chase
   view takes), so the node matrices it discards are identities.
 
+- The anchor. `Aim` places the camera through `Anchored()` (+kStudioAnchorEcefM) while
+  `Placements` permutes the part matrices without it -- but `SubjectMesh::Anchor` carries the
+  same anchor (GltfStudio.cpp:396) and the shader offsets by it, so camera and geometry are
+  anchored alike.
+- The lighting setup. Both paths reach it identically: `Live::Build` calls
+  `Surface(*Renderer_, Stood_, ...)` at Live.cpp:226, which is the SAME function
+  `GltfStudio::Show` calls, and `Stand()` fills `Stood_.Lights` and `Stood_.Environment` before
+  it. There is no order difference between the standing and the driven path.
+
 What is left untested and cheap to test next: the shading path's own inputs. The subject is
 lit correctly when `GltfStudio::Show` stands it and wrongly when `Engine::Rides` drives it,
-and the two differ in exactly one thing that has not been isolated -- WHICH of Live's
-`SetSky` / `SetSubjectMaterials` / `SetSubjectPlacements` calls happen in which order relative
-to the first `Carry`.
+and the two differ in exactly one thing that is still unmeasured: the studio never calls `Carry`
+at all. Its part placements are what `Place` wrote from the glTF; the drive's are one matrix
+per part, written by `Carry`, carrying a rotation AND the 0.01555 model scale. The next test
+is to hand `Carry` a pure rotation with no scale and a translation of zero -- if the car lights
+up, the shading reads something out of the placement that the normalise in the vertex stage
+does not cover.
 
 ## What will be true
 
