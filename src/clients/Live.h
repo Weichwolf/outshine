@@ -27,6 +27,7 @@ struct Shows {
   std::string Markup;
 
   std::string Style;
+  std::string Programme;
   double LeftFrac = 0.0, TopFrac = 0.0, WidthFrac = 1.0, HeightFrac = 1.0;
 };
 
@@ -76,6 +77,8 @@ public:
                                  std::string &error);
 
   [[nodiscard]] bool Redeclare(std::vector<Shows> surfaces, std::string &error);
+  [[nodiscard]] bool Touched(double xPx, double yPx, size_t &surface, std::string &action) const;
+  [[nodiscard]] const std::string &ProgrammeOf(size_t surface) const;
 
   [[nodiscard]] bool Restand(const Gltf::Subject &built, std::string &error);
 

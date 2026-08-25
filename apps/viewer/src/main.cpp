@@ -40,6 +40,50 @@ void Usage() {
 
 }
 
+class Browser final : public outshine::Host {
+public:
+  Browser(const std::vector<outshine::Viewer::Listed> &cases, outshine::Viewer::Showing at,
+          bool moved)
+      : Cases_(cases), At_(std::move(at)), Moved_(moved) {}
+
+  [[nodiscard]] outshine::Surface Face(int widthPx, int heightPx) {
+    outshine::Surface face;
+    face.Document = outshine::Viewer::Declaration(Cases_, At_, widthPx, heightPx);
+    face.Style = outshine::Viewer::Style();
+    face.Z = 100;
+    Moved_ = false;
+    return face;
+  }
+
+  [[nodiscard]] bool Calls(std::string_view name, std::span<const outshine::Argument> args) override {
+    if (name == "select" && args.size() == 1 &&
+        args[0].Is == outshine::Argument::Kind::Number) {
+      At_.Selected = (int)args[0].Number;
+      const std::vector<int> shown = outshine::Viewer::Filtered(Cases_, At_);
+      if (At_.Selected >= 0 && At_.Selected < (int)shown.size()) {
+        At_.Note = Cases_[(size_t)shown[(size_t)At_.Selected]].Name;
+      }
+      Moved_ = true;
+      return true;
+    }
+    if (name == "suite" && args.size() == 1 && args[0].Is == outshine::Argument::Kind::Text) {
+      At_.Suite = std::string(args[0].Text);
+      At_.Selected = -1;
+      At_.ScrolledRows = 0;
+      Moved_ = true;
+      return true;
+    }
+    return false;
+  }
+
+  [[nodiscard]] bool Moved() const { return Moved_; }
+
+private:
+  const std::vector<outshine::Viewer::Listed> &Cases_;
+  outshine::Viewer::Showing At_;
+  bool Moved_ = false;
+};
+
 int main(int argc, char **argv) {
   Asked asked;
   for (int at = 1; at < argc; ++at) {
@@ -123,17 +167,12 @@ int main(int argc, char **argv) {
     return 1;
   }
   outshine::Scenario showing = engine.Declared();
-  {
-    const std::vector<outshine::Viewer::Listed> cases =
-        outshine::Viewer::Cases(asked.Cases, asked.Prepared);
-    outshine::Viewer::Showing at;
-    outshine::Surface face;
-    face.Document = outshine::Viewer::Declaration(cases, at, asked.WidthPx, asked.HeightPx);
-    face.Style = outshine::Viewer::Style();
-    face.Z = 100;
-    showing.Surfaces.push_back(face);
-    std::printf("BROWSING %zu case(s) under %s\n", cases.size(), asked.Cases.c_str());
-  }
+  const std::vector<outshine::Viewer::Listed> cases =
+      outshine::Viewer::Cases(asked.Cases, asked.Prepared);
+  Browser browsing{cases, {}, false};
+  showing.Surfaces.push_back(browsing.Face(asked.WidthPx, asked.HeightPx));
+  std::printf("BROWSING %zu case(s) under %s\n", cases.size(), asked.Cases.c_str());
+  engine.Offers(&browsing);
 
   if (!engine.Declare(showing)) {
     std::printf("REFUSED %s\n", engine.Error().c_str());
@@ -151,6 +190,14 @@ int main(int argc, char **argv) {
     ++frames;
     for (SDL_Event event; SDL_PollEvent(&event);) {
       closing = closing || event.type == SDL_EVENT_QUIT;
+      (void)engine.Handles(event);
+    }
+    if (browsing.Moved()) {
+      showing.Surfaces.back() = browsing.Face(asked.WidthPx, asked.HeightPx);
+      if (!engine.Declare(showing)) {
+        std::printf("REFUSED %s\n", engine.Error().c_str());
+        break;
+      }
     }
     if (!asked.Into.empty()) {
       char named[512];

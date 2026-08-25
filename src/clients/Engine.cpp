@@ -10,6 +10,7 @@
 #include "Assembly.h"
 #include "ScenarioLayer.h"
 #include "Live.h"
+#include "Script.h"
 #include "Typeface.h"
 #include "Sink.h"
 #include "DeclaredSources.h"
@@ -79,6 +80,7 @@ struct Engine::State {
   std::unique_ptr<Fetching> Wire;
   size_t GroundTiles = 0;
   Ui::Typeface Face;
+  Host *Offered = nullptr;
   Ground::GroundStack Stack;
   Sim::DriveProduct Drive;
   bool Drove = false;
@@ -295,6 +297,76 @@ bool Engine::Capture(std::string_view path) {
   return S_->Standing->Screenshot(std::string(path), S_->Error);
 }
 
+namespace {
+
+class ToTheClient final : public Script::Host {
+public:
+  explicit ToTheClient(outshine::Host *client) : Client_(client) {}
+
+  [[nodiscard]] Script::Value Global(std::string_view name) override {
+    for (size_t at = 0; at < Named_.size(); ++at) {
+      if (Named_[at] == name) { return Script::Value::OfRef((int)at + 1); }
+    }
+    Named_.emplace_back(name);
+    return Script::Value::OfRef((int)Named_.size());
+  }
+
+  [[nodiscard]] bool Call(const Script::Value &callee, const Script::Value *args, size_t count,
+                          Script::Value &out) override {
+    out = Script::Value();
+    if (Client_ == nullptr || callee.What != Script::Kind::Ref) { return false; }
+    const size_t which = (size_t)callee.Ref - 1;
+    if (callee.Ref <= 0 || which >= Named_.size()) { return false; }
+
+    std::vector<Argument> handed(count);
+    for (size_t at = 0; at < count; ++at) {
+      if (args[at].What == Script::Kind::Text) {
+        handed[at].Is = Argument::Kind::Text;
+        handed[at].Text = args[at].Text;
+      } else {
+        handed[at].Is = Argument::Kind::Number;
+        handed[at].Number = args[at].Number;
+      }
+    }
+    Fired_ = true;
+    return Client_->Calls(Named_[which], handed);
+  }
+
+  [[nodiscard]] bool Fired() const { return Fired_; }
+
+private:
+  outshine::Host *Client_ = nullptr;
+  std::vector<std::string> Named_;
+  bool Fired_ = false;
+};
+
+}
+
+void Engine::Offers(Host *host) { S_->Offered = host; }
+
+bool Engine::Handles(const SDL_Event &event) {
+  if (event.type != SDL_EVENT_MOUSE_BUTTON_DOWN || !S_->Standing) { return false; }
+
+  size_t surface = 0;
+  std::string action;
+  if (!S_->Standing->Touched((double)event.button.x, (double)event.button.y, surface, action)) {
+    return false;
+  }
+  if (S_->Offered == nullptr) {
+    S_->Error = "a surface declares the call '" + action +
+                "' and no host was offered to answer it -- the client calls Offers before it "
+                "hands an event in";
+    return false;
+  }
+
+  Script::Program programme;
+  const std::string text = S_->Standing->ProgrammeOf(surface) + "\n" + action + ";\n";
+  if (!programme.Read(text, S_->Error)) { return false; }
+  ToTheClient answering(S_->Offered);
+  if (!programme.Run(answering, S_->Error)) { return false; }
+  return answering.Fired();
+}
+
 bool Engine::Declare(const Scenario &scenario) {
   if (S_->Frame.WidthPx <= 0 || S_->Frame.HeightPx <= 0) {
     S_->Error =
@@ -333,6 +405,7 @@ bool Engine::Declare(const Scenario &scenario) {
     Clients::Shows shows;
     shows.Markup = surface->Document;
     shows.Style = surface->Style;
+    shows.Programme = surface->Programme;
     shows.LeftFrac = surface->LeftFrac;
     shows.TopFrac = surface->TopFrac;
     shows.WidthFrac = surface->WidthFrac;

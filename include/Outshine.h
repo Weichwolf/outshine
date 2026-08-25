@@ -1,7 +1,9 @@
 #ifndef OUTSHINE_OUTSHINE_H
 #define OUTSHINE_OUTSHINE_H
 
+#include <cstdint>
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -11,6 +13,19 @@
 #include <Scenario.h>
 
 namespace outshine {
+
+struct Argument {
+  enum class Kind : uint8_t { Number, Text };
+  Kind Is = Kind::Number;
+  double Number = 0.0;
+  std::string_view Text;
+};
+
+class Host {
+public:
+  virtual ~Host() = default;
+  [[nodiscard]] virtual bool Calls(std::string_view name, std::span<const Argument> args) = 0;
+};
 
 struct Roots {
   std::string Assets;
@@ -29,6 +44,8 @@ public:
   Engine &operator=(const Engine &) = delete;
 
   [[nodiscard]] bool DrawsInto(SDL_Window *presents);
+  void Offers(Host *host);
+  [[nodiscard]] bool Handles(const SDL_Event &event);
   [[nodiscard]] bool DrawsInto(Extent offscreen);
   void Under(Roots roots);
   [[nodiscard]] bool Drove(void) const;
