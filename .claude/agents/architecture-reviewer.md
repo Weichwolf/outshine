@@ -214,6 +214,12 @@ the main agent: "No commits since the last run — what is going on?" Then still
   board/closed/. Only (b), with no tasks attached → close the same way.
 - **One commit per run** over all board changes: `board:NNNN[,NNNN…] <short title>`, NO
   Co-Authored-By. On an index.lock collision wait briefly and retry.
+- **The subject names EVERY item the commit touches** -- filed, sharpened and closed alike.
+  `git log --grep 'board:NNNN'` is how anyone finds an item's history, and it is only as true as
+  the messages; a round that sharpens four items and names three has hidden one from its own
+  record. A claim walks this and will find it.
+- **An item you WORK -- not merely file -- stands in `board/active/` first.** Filing is not
+  working; the drawer says what has an owner right now.
 - **Your gate runs in its own `git worktree`** — the main nest is pid-locked (`test/run.sh`).
 
 ## Final report (your last message, written in German, compact)

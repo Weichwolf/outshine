@@ -58,3 +58,23 @@ on the whole 775 km.
   Note also, for whoever restores it: that file carried a six-line `//` comment block at its
   head (lines 27-32 of the deleted version). `test/` is the exception the comment rule allows,
   so the block may stand -- but it narrates the ITEM, and this item is where it belongs.
+
+## Closed 2026-08-25 — overtaken, and by the sharper cut
+
+This item asked for a short urban route to REPLACE the country crossing as the regression gate.
+The owner cut deeper the same hour: **`apps/driver` has no tests at all.** Everything the driver
+uses is library, and the library's unit tests cover it — a case that fetches a country, drives
+it and then asserts is an experiment wearing a unit test's clothes.
+
+So both cases are gone, all 2080 lines of `apps/driver/test/`, and what replaces them is the
+product itself: `test/run.sh --drive` builds the driver, drives a declared route and leaves ten
+stills evenly along it, which the hourly architect judges (board:1863, board:1865).
+
+The item's own measurement stands and was worth making: Munich–Hamburg exercised the widest
+radii and the fewest class changes per kilometre in the class table, held the nest lock for
+minutes, and its defect showed as a rate rather than as a corner. A short urban route is the
+better subject — and it is now a `--from`/`--to` on the driver, not a case.
+
+Proving test: none of its own; the case it asked for was written (`434ed886`) and deleted with
+the directory (`38641b13`). What proves the replacement is `test/run.sh --drive` leaving ten
+stills, and board:1865 holding the ledger they are judged against.
