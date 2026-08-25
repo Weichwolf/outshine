@@ -55,19 +55,25 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   const std::vector<double> keptM = outshine::Simplify(eastNorthM, quantumM, keptAt);
   std::vector<double> classTightestM(keptAt.size(), 0.0);
   size_t designed = 0;
+  double roadWithinM = 0.0;
   for (size_t at = 0; at < keptAt.size(); ++at) {
     const double mine = route.Legs[keptAt[at]].MinRadiusM;
     const double before = at > 0 ? route.Legs[keptAt[at - 1]].MinRadiusM : mine;
     classTightestM[at] = mine <= 0.0 || before <= 0.0 ? 0.0 : (mine < before ? mine : before);
     if (classTightestM[at] > 0.0) { ++designed; }
+    const double half = route.Legs[keptAt[at]].HalfWidthM;
+    if (half > roadWithinM) { roadWithinM = half; }
   }
+  if (!(roadWithinM > quantumM)) { roadWithinM = quantumM; }
   say.Number("vertices the route offered before simplifying", (double)(eastNorthM.size() / 2),
        "vertices");
   say.Number("vertices left after removing what the data cannot resolve",
        (double)(keptM.size() / 2), "vertices");
   say.Number("the share removed", 1.0 - (double)keptM.size() / (double)eastNorthM.size(), "of them");
 
-    fitted = Fit(keptM, quantumM, tightestM, classTightestM, corridor);
+  say.Number("how far the built road may leave the polyline, being its own half width",
+             roadWithinM, "m");
+  fitted = Fit(keptM, roadWithinM, tightestM, classTightestM, corridor);
   if (!fitted.Laid) { say.Refuse(Line("%s", fitted.Error.c_str())); }
   say.Number("vertices the route offered", (double)fitted.Vertices, "vertices");
   say.Number("corners the fit needed", (double)fitted.Corners, "corners");
