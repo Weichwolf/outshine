@@ -47,3 +47,26 @@ A control over a suite can only see cases that FAIL when the thing they guard is
 - 2026-08-25 -- filed by the queue against its own closure, found while writing board:1856's
   negative control: the control could not make the new walk red, and the reason was that the
   walk was not walking.
+
+## Closed 2026-08-25 -- and the 68 closures it had stopped judging
+
+With the trim restored, IV.16 reports `the rule binds from 2581854c` and
+`closures inside the window = 68 items` -- all 68 of which it had been reporting as zero, in
+green, since board:1854 landed eleven commits earlier.
+
+Both walks now carry:
+
+```cpp
+CHECK(born || Ask("git ls-files " + self).empty(),
+      "**AND A WALK ANCHORED TO ITS OWN BIRTH FOUND THAT BIRTH**: ...");
+```
+
+Negative control, run: the trim dropped again in `Shell.h` -> both walks report
+`the rule binds from (uncommitted -- nothing yet in window)` and go **RED** at that CHECK,
+where before they went green and silent.
+
+**What this item is really about is the control that missed it.** board:1854's control ran the
+suite with the trim removed and read 34 PASS as evidence. A suite can only control a change that
+makes a case FAIL; a guard whose anchor stops parsing passes faster than before. The lesson is
+in the claim text now: a walk publishes whether it walked, and a versioned proof reporting an
+empty window is red.
