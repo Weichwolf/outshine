@@ -420,10 +420,22 @@ bool Document::Read(Span<const uint8_t> whole, std::string_view path) {
       if (chunkLength > declared - at) {
         return Refuse("has a GLB chunk of " + Number(chunkLength) + " bytes that runs past the file");
       }
-      if (chunkType == kChunkJson && jsonChunk == nullptr) {
+      if (chunkType == kChunkJson) {
+        if (jsonChunk != nullptr) {
+          return Refuse("is a GLB carrying a second JSON chunk, and the container declares "
+                        "exactly one -- a file with two structures has no structure");
+        }
+        if (at != 20) {
+          return Refuse("is a GLB whose JSON chunk is not the first, and the container declares "
+                        "the structure ahead of what it describes");
+        }
         jsonChunk = bytes + at;
         jsonLength = chunkLength;
-      } else if (chunkType == kChunkBinary && binaryChunk == nullptr) {
+      } else if (chunkType == kChunkBinary) {
+        if (binaryChunk != nullptr) {
+          return Refuse("is a GLB carrying a second binary chunk, and the container declares at "
+                        "most one -- a buffer view naming chunk 0 could mean either");
+        }
         binaryChunk = bytes + at;
         binaryLength = chunkLength;
       }
