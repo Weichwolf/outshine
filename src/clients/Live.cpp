@@ -536,7 +536,15 @@ bool Live::Screenshot(const std::string &path, std::string &error) {
   return true;
 }
 
-bool Live::Carry(const double body[16], const double built[16], std::string &error) {
+bool Live::Carry(const double worldFromBodyM[16], const double built[16], std::string &error) {
+  const double perUnit = Declared_.MetresPerUnit > 0.0 ? Declared_.MetresPerUnit : 1.0;
+  double body[16];
+  for (int column = 0; column < 4; ++column) {
+    for (int row = 0; row < 4; ++row) {
+      body[column * 4 + row] =
+          column < 3 ? worldFromBodyM[column * 4 + row] * perUnit : worldFromBodyM[column * 4 + row];
+    }
+  }
   if (Joined_ == 0) {
     error = "nothing joined this picture from a file, so there is no body to carry -- every part "
             "stands where the world put it";

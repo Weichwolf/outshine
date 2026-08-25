@@ -203,6 +203,9 @@ bool Engine::Assemble() {
     S_->Error = say.WhyNot();
     return false;
   }
+  if (S_->Standing && S_->Drive.Stood.MetresPerAssetUnit > 0.0) {
+    S_->Standing->ScaledBy(S_->Drive.Stood.MetresPerAssetUnit);
+  }
   S_->Drove = true;
   if (!Compose()) {
     S_->Measured.push_back("the ground did not compose: " + S_->Error);
@@ -263,8 +266,8 @@ bool Engine::Compose(void) {
   const Scenario &declared = S_->Declared;
   if (!declared.Ground.Declared) {
     S_->Error = "the scenario declares no sphere, so there is no ground to compose -- a drive "
-                "names a place but the ground it lays there does not yet share the space the "
-                "vehicle stands in (board:1890)";
+                "names a place, and the ring laid there is anchored on its own ECEF origin "
+                "rather than the corridor the vehicle stands on (board:1890)";
     return false;
   }
   const double atLat = declared.Ground.Lat;
@@ -303,16 +306,10 @@ bool Engine::Compose(void) {
     return false;
   }
 
-  const double perUnit = S_->Drove ? S_->Drive.Stood.MetresPerAssetUnit : 1.0;
-  std::vector<float> inUnits(laid->PositionM.size());
-  for (size_t at = 0; at < inUnits.size(); ++at) {
-    inUnits[at] = (float)((double)laid->PositionM[at] / (perUnit > 0.0 ? perUnit : 1.0));
-  }
-
   Gltf::Piece ground;
   ground.NodeName = "ground";
   ground.Material = 0;
-  ground.PositionsM = Span<const float>(inUnits.data(), inUnits.size());
+  ground.PositionsM = Span<const float>(laid->PositionM.data(), laid->PositionM.size());
   ground.Normals = Span<const float>(laid->NormalM.data(), laid->NormalM.size());
   ground.Indices = Span<const uint32_t>(laid->Index.data(), laid->Index.size());
 
@@ -758,38 +755,27 @@ bool Engine::Rides(void) {
     bodyFromWorld[9] = 2.0 * (y * z - x * w);
     bodyFromWorld[10] = 1.0 - 2.0 * (x * x + y * y);
   }
-  const double perUnit = S_->Drive.Stood.MetresPerAssetUnit;
-  if (!(perUnit > 0.0)) {
-    S_->Error = "the vehicle declares no model scale, so a pose in metres cannot be placed on "
-                "an asset whose units are its own";
-    return false;
-  }
   const double *const shiftM = S_->Drive.Stood.ModelShiftM;
-  double intoUnits[16];
-  for (int at = 0; at < 16; ++at) { intoUnits[at] = bodyFromWorld[at]; }
   for (int axis = 0; axis < 3; ++axis) {
-    const double alongM = body.PositionM[axis] + bodyFromWorld[0 + axis] * shiftM[0] +
-                          bodyFromWorld[4 + axis] * shiftM[1] + bodyFromWorld[8 + axis] * shiftM[2];
-    intoUnits[12 + axis] = alongM / perUnit;
-    bodyFromWorld[12 + axis] = body.PositionM[axis];
+    bodyFromWorld[12 + axis] = body.PositionM[axis] + bodyFromWorld[0 + axis] * shiftM[0] +
+                               bodyFromWorld[4 + axis] * shiftM[1] +
+                               bodyFromWorld[8 + axis] * shiftM[2];
   }
 
-  if (!S_->Standing->Carry(intoUnits, intoUnits, S_->Error)) { return false; }
+  if (!S_->Standing->Carry(bodyFromWorld, bodyFromWorld, S_->Error)) { return false; }
   if (!S_->Views) { return true; }
 
   const View &seen = S_->Views->Active();
   double at[3];
   for (int axis = 0; axis < 3; ++axis) {
-    const double alongM = body.PositionM[axis] + bodyFromWorld[0 + axis] * seen.OffsetM[0] +
-                          bodyFromWorld[4 + axis] * seen.OffsetM[1] +
-                          bodyFromWorld[8 + axis] * seen.OffsetM[2];
-    at[axis] = alongM / perUnit;
+    at[axis] = body.PositionM[axis] + bodyFromWorld[0 + axis] * seen.OffsetM[0] +
+               bodyFromWorld[4 + axis] * seen.OffsetM[1] + bodyFromWorld[8 + axis] * seen.OffsetM[2];
   }
   const double ahead[3] = {at[0] - bodyFromWorld[8], at[1] - bodyFromWorld[9],
                            at[2] - bodyFromWorld[10]};
   double eye[3] = {at[0], at[1], at[2]};
   if (seen.DistanceM > 0.0) {
-    const double back = seen.DistanceM / perUnit;
+    const double back = seen.DistanceM;
     for (int axis = 0; axis < 3; ++axis) {
       eye[axis] = at[axis] + bodyFromWorld[8 + axis] * back +
                   bodyFromWorld[4 + axis] * back * kChaseRise;

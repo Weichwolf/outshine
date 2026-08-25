@@ -48,6 +48,16 @@ settled -- a ground that swallows the camera is worse than no ground, and shippi
 have been a half answer. `Engine::Compose` keeps its caller in `Assemble` and still lays the
 ground a `<ground>` declares.
 
+**NARROWED, same session.** Two of the four spaces are gone. `Live::Declaration` carries
+`MetresPerUnit` -- glTF is metres BY SPECIFICATION and the F31 asset is not, which is exactly
+what `assetWheelbase` corrects -- and `Live::Carry` takes a placement in WORLD METRES, building
+the model scale into the placement it writes. `Engine::Rides` and the camera work in metres
+throughout; nothing divides by a scale any more.
+
+What remains is ONE seam, and it is the ground's: `LayPatchwork` anchors its ring on
+`Patchwork::OriginEcef` while the drive stands on the corridor's own origin. Composing a ground
+for a drive still swallows the camera, so it stays withdrawn with this reason.
+
 ## What will be true
 
 - [ ] A driven body's placement is expressed in the ONE world space, in metres, as a 64-bit

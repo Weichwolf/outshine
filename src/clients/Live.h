@@ -43,6 +43,8 @@ struct Declaration {
 
   std::string Variant;
 
+  double MetresPerUnit = 1.0;
+
   double Fps = 60.0;
 
   double Fill = 0.0;
@@ -81,7 +83,8 @@ public:
 
   [[nodiscard]] bool Restand(const Gltf::Subject &built, size_t carried, std::string &error);
 
-  [[nodiscard]] bool Carry(const double body[16], const double built[16],
+  void ScaledBy(double metresPerUnit) { Declared_.MetresPerUnit = metresPerUnit; }
+  [[nodiscard]] bool Carry(const double worldFromBodyM[16], const double built[16],
                            std::string &error);
 
   [[nodiscard]] bool Screenshot(const std::string &path, std::string &error);
