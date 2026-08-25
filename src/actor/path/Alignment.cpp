@@ -181,6 +181,7 @@ std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM, double
            (legs[last + 1].TurnRad > 0.0) == leftward) {
       ++last;
     }
+    const size_t runs = last;
 
     Bend bend;
     for (;;) {
@@ -188,6 +189,7 @@ std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM, double
       if (!held) { return std::unexpected(held.error()); }
       if (held->AwayM <= withinM || last == at) {
         bend = *held;
+        out.SplitByAccuracy += last < runs ? 1u : 0u;
         break;
       }
       --last;

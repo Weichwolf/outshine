@@ -104,8 +104,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   say.Number("turns past 135 degrees", (double)fitted.TurnsPastHalfCircle, "of 2480");
   say.Number("vertices too sharp for the car to drive at all", (double)fitted.Undrivable, "vertices");
   say.Number("how far it leaves a vertex at worst", fitted.WorstOffsetM, "m");
-  say.Number("corners the fit had to correct by measuring them", (double)fitted.Corrected, "corners");
-  say.Number("passes it needed", (double)fitted.Passes, "passes");
+  say.Number("bends the accuracy bound had to split", (double)fitted.SplitByAccuracy, "bends");
   say.Number("how far the laid line drifts from the polyline beyond any corner's own doing",
        fitted.DriftM, "m");
   say.Number("per corner that is", fitted.DriftPerCornerM * 1000.0, "mm");
@@ -113,12 +112,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   say.Number("its incoming leg", fitted.WorstLegInM, "m");
   say.Number("its outgoing leg", fitted.WorstLegOutM, "m");
   say.Number("the turn there", fitted.WorstTurnRad * 180.0 / std::numbers::pi, "deg");
-  say.Number("the radius it settled on", fitted.WorstRadiusM, "m");
-  say.Number("the station the fit expected it at", fitted.WorstExpectedM, "m");
   say.Number("the station the resection found", fitted.WorstStationM, "m");
-  say.Number("corners the data cannot support at any drivable radius", (double)fitted.Strained,
-       "corners");
-  say.Number("how far the worst of those leaves its vertex", fitted.StrainedWorstM, "m");
   say.Number("where that happens", fitted.WorstOffsetAtM / 1000.0, "km");
   say.Number("how far it is allowed to", quantumM, "m");
 

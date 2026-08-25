@@ -42,6 +42,7 @@ struct Aligned {
   std::vector<Bend> Bends;
   size_t Runs = 0;
   size_t LongestRunVertices = 0;
+  size_t SplitByAccuracy = 0;
   double TightestRadiusM = 0.0;
   double WorstAwayM = 0.0;
 };

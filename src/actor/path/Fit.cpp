@@ -177,6 +177,7 @@ Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
   out.Corners = aligned->Bends.size();
   out.Runs = aligned->Runs;
   out.LongestRunVertices = aligned->LongestRunVertices;
+  out.SplitByAccuracy = aligned->SplitByAccuracy;
   out.TightestRadiusM = aligned->TightestRadiusM;
   out.TightestDemandedM = aligned->TightestRadiusM;
   out.LengthM = into.LengthM();

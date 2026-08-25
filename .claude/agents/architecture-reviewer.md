@@ -154,6 +154,9 @@ population?
   (`#include` guards, pragmas). EVERY comment found in a touched file is a defect, filed with
   its file:line — and one introduced by the hour's own work is filed harder. `test/` is the
   exception the rule allows: a proof explains what it proves.
+- **A new unit that duplicates an existing capability is a defect**, and the older one being
+  unreachable is what made it look absent. `grep` the tree for the verb before accepting that
+  something had to be written.
 - **No embedded shaders or scripts**: shader and script sources live as files in the tree.
 - **C++23 is the language level**: `std::mdspan` over hand-rolled index maths, `std::expected`
   over bool-plus-error-string where a refusal carries its reason, `std::span`/`string_view` at

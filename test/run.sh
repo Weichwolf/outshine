@@ -230,7 +230,7 @@ LayerValidation() {
 
 LayerLink() {
   case "$1" in
-    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario | render/outshine/client) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz" ;;
+    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario | render/outshine/client) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz -lcurl" ;;
     harness/claims) printf '%s' "-lz" ;;
     unit/core/io) printf '%s' "-lz" ;;
     render/outshine/world) printf '%s' "-lz -lcurl" ;;
@@ -271,7 +271,7 @@ LayerGroups() {
     unit/host) printf '%s' "src/host" ;;
     unit/clients) printf '%s' "src/core src/core/io src/actor/path src/actor/body src/actor/mind src/scene src/generators src/clients/Image.cpp src/clients/RegionForge.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/InputMap.cpp src/clients/Assembly.cpp src/clients/InputPump.cpp" ;;
     harness/claims) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
-    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario | render/outshine/client) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/clients/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/clients/Assembly.cpp" ;;
+    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario | render/outshine/client) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/data src/ground src/ground/tiles src/sim src/actor/path src/actor/body src/actor/mind src/host src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/clients/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/clients/Assembly.cpp" ;;
     render/outshine/shader) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
     apps/driver/src) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/actor/path src/actor/body src/actor/mind src/data src/ground/tiles src/ground src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/sim src/scene src/clients/Assembly.cpp" ;;
     render/outshine/world) printf '%s' "src/core src/core/io src/data src/scenario src/generators src/generators/draw src/ground/tiles src/ground src/actor/path/Wayfinding.cpp src/clients/Sim.cpp src/clients/StreamTelemetry.cpp src/clients/EyeTelemetry.cpp src/clients/RegionForge.cpp" ;;

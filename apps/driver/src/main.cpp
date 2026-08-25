@@ -155,14 +155,18 @@ int main(int argc, char **argv) {
 
   engine.RenderTo(outshine::Extent{asked.WidthPx, asked.HeightPx});
 
-  const long ofFrames = asked.Frames > 0 ? asked.Frames : (long)engine.Frames();
+  const double routeM = engine.RouteM();
   long frames = 0;
   long kept = 0;
   long nextStill = 0;
   while (engine.Advance()) {
     ++frames;
-    const bool wanted = !asked.Into.empty() && asked.Stills > 0 && ofFrames > 0 &&
-                        frames * asked.Stills >= (nextStill + 1) * ofFrames;
+    const double alongM = engine.ReachedM();
+    const bool wanted =
+        !asked.Into.empty() && nextStill < asked.Stills &&
+        (routeM > 0.0 ? alongM * (double)asked.Stills >= (double)(nextStill + 1) * routeM
+                      : (asked.Frames > 0 &&
+                         frames * asked.Stills >= (long)(nextStill + 1) * asked.Frames));
     if (wanted) {
       ++nextStill;
       char named[512];
@@ -179,7 +183,8 @@ int main(int argc, char **argv) {
     std::printf("STOPPED after %ld frames: %s\n", frames, engine.Error().c_str());
     return 1;
   }
-  std::printf("DROVE %ld frames, kept %ld still(s)", frames, kept);
+  std::printf("DROVE %ld frames over %.3f of %.3f km, kept %ld still(s)", frames,
+              engine.ReachedM() / 1000.0, routeM / 1000.0, kept);
   if (!asked.Into.empty()) { std::printf(" into %s", asked.Into.c_str()); }
   std::printf("\n");
   return 0;

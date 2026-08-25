@@ -68,9 +68,8 @@ int main(void) {
     Note("the longest run", (double)laid.LongestRunVertices, "vertices");
     Note("how far it leaves the polyline", laid.WorstOffsetM, "m");
     Note("at which vertex", laid.WorstVertex, "of them");
-    Note("whose radius was", laid.WorstRadiusM, "m");
     Note("the drift it could not correct", laid.DriftM, "m");
-    Note("corners it strained", (double)laid.Strained, "corners");
+    Note("bends the accuracy bound split", (double)laid.SplitByAccuracy, "bends");
     Note("passes it took", (double)laid.Passes, "passes");
     CHECK(laid.Laid, "a true circular arc lays as a corridor");
     worstShare = share < worstShare ? share : worstShare;

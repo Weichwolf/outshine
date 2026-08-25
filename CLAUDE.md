@@ -31,6 +31,9 @@ camera, never a mean.
   **physical** (a vehicle can drive it at the speed the class implies), **static** (it stands:
   spans, piers and clearances that could carry their own load), **architectural** (it looks
   like the thing it is). A guess that holds all four is right; one that holds three is a finding
+- **GREP BEFORE YOU WRITE.** A new type, function or file is preceded by a search for what it
+  would do; a capability that looks absent is usually present and unreachable, and that is the
+  finding
 - **Cycles is the oracle** for correctness; references are for ambition; the corpus is a driver, not a certificate
 - **One world space**; a failure is loud; something is always drawn; delete on the day you replace
 - Artefacts go to the system temp dir, never the tree; `git log` is what was — no journal

@@ -34,6 +34,8 @@ public:
   void Under(Roots roots);
   void Fetches(Data::Transport &wire);
   [[nodiscard]] bool Drove(void) const;
+  [[nodiscard]] double ReachedM(void) const;
+  [[nodiscard]] double RouteM(void) const;
   [[nodiscard]] bool Capture(std::string_view path);
   [[nodiscard]] const Roots &Under(void) const;
 

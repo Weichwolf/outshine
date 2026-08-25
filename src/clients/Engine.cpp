@@ -185,6 +185,12 @@ void Engine::Fetches(Data::Transport &wire) { S_->Wire = &wire; }
 
 bool Engine::Drove(void) const { return S_->Drove; }
 
+double Engine::ReachedM(void) const {
+  return S_->Drove ? S_->Drive.State.Tally.ReachedM : 0.0;
+}
+
+double Engine::RouteM(void) const { return S_->Drove ? S_->Drive.Way.Line.LengthM() : 0.0; }
+
 const Roots &Engine::Under(void) const { return S_->Under; }
 
 bool Engine::Capture(std::string_view path) {
