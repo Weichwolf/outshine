@@ -454,6 +454,15 @@ What a corpus HOLDS decides what it can prove:
 | **SNAPSHOT** | another implementation, frozen | agreement, never correctness |
 | **INPUT** | nothing is supplied | that we survive it |
 
+**A FUZZ CASE IS INPUT GRADE AND DETERMINISTIC.** It proves survival and never correctness. A
+random fuzzer belongs OUTSIDE a gate that must not go silent: it finds a different thing every
+run, so its green means nothing and its red cannot be repeated. A fuzz case in the gate walks a
+FIXED schedule — every mutant a pure function of (seed, position, kind), the same on every
+machine forever — and a long random soak is a separate job whose OUTPUT is a reduced case
+committed here, never a tick. Its two controls are that the schedule produces documents the
+reader REFUSES and documents that still STAND: a reader that accepted everything, or one that
+refused everything, would otherwise pass by silence.
+
 **`test/<vendor>/` is the vendor's word; `test/harness/outshine/` is OUR OWN ORACLE and carries less.**
 A khronos, wpt, test262 or geographiclib case is a SPECIFICATION: it fails and the code is
 wrong, full stop. An `outshine/` case is a law of nature we implemented ourselves — static

@@ -197,6 +197,7 @@ LayerIncludes() {
   case "$1" in
     harness/claims) printf '%s' "-Iinclude -Isrc/core" ;;
     harness/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/core -Isrc/data -Itest/harness/shared" ;;
+    harness/outshine/fuzz) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/gltf -Itest/harness/shared" ;;
     harness/outshine/physics) printf '%s' "-Iinclude -Isrc/core -Isrc/actor/body -Isrc/actor/path -Isrc/actor/mind -Isrc/sim -Itest/harness/shared" ;;
     harness/outshine/door) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/data -Isrc/scene -Isrc/scenario -Isrc/ui -Isrc/host -Isrc/clients -Itest/harness/shared" ;;
     harness/khronos/validator) printf '%s' "-Iinclude -Isrc/core -Itest/harness/shared" ;;
@@ -239,6 +240,7 @@ LayerValidation() {
 
 LayerLink() {
   case "$1" in
+    harness/outshine/fuzz) printf '%s' "-lz" ;;
     harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown | outshine/frame | apps/viewer/src | outshine/scenario | harness/outshine/door | outshine/client) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
     harness/claims) printf '%s' "-lz" ;;
     apps/driver/src) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
@@ -252,6 +254,7 @@ LayerGroups() {
     harness/wpt/css) printf '%s' "src/core/Json.cpp src/ui" ;;
     harness/test262/js) printf '%s' "src/core/Json.cpp src/core/Script.cpp" ;;
     harness/claims) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
+    harness/outshine/fuzz) printf '%s' "src/core src/core/io src/gltf" ;;
     harness/outshine/physics) printf '%s' "src/actor/body src/actor/path src/actor/mind src/sim/Rigging.cpp" ;;
     harness/outshine/door) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/data src/ground src/ground/tiles src/sim src/actor/path src/actor/body src/actor/mind src/host src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/compositor src/clients/Live.cpp src/clients/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/clients/InputPump.cpp src/clients/Assembly.cpp" ;;
     harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown | outshine/frame | apps/viewer/src | outshine/scenario | outshine/client | harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/data src/ground src/ground/tiles src/sim src/actor/path src/actor/body src/actor/mind src/host src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/compositor src/clients/Live.cpp src/clients/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/clients/InputPump.cpp src/clients/Assembly.cpp" ;;
