@@ -1,0 +1,58 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "refuse/gltf/skin-unresolved-ibm",
+  "title": "glTF-Validator skin/unresolved_ibm.gltf -- the validator reports 1 error(s)",
+  "covers": [
+    "gltf-2.0",
+    "khronos-validator:skin/unresolved_ibm.gltf"
+  ],
+  "criterion": {
+    "kind": "validator-report",
+    "says": "an asset Khronos's own validator reports errors on is REFUSED by this reader, and one it reports none on STANDS -- the count is read out of the .report.json that travels with the case",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/skin/unresolved_ibm.gltf.report.json"
+  },
+  "subjects": [
+    {
+      "kind": "gltf",
+      "id": "skin-unresolved-ibm",
+      "name": "skin-unresolved-ibm",
+      "entry": "unresolved_ibm.gltf",
+      "source": {
+        "kind": "khronos-gltf-validator",
+        "commit": "434283be08a668a8fb4e437145630ddbf93b0686",
+        "path": "test/base/data/skin/unresolved_ibm.gltf",
+        "pinnedOn": "2026-08-25",
+        "pinReason": "the tip of glTF-Validator on the day the refusal corpus was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/skin/unresolved_ibm.gltf",
+          "sha256": "51d55d68d26063e050a7b24abbf8c8032e9a743d6ead80f4523328b17260c999",
+          "bytes": 188,
+          "as": "unresolved_ibm.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "Apache-2.0",
+            "holder": "The Khronos Group Inc.",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/LICENSE"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/skin/unresolved_ibm.gltf.report.json",
+          "sha256": "59be2380c294bcb54c36ff5bf40c6895bae940690a83c2eaff22a6a62685fab6",
+          "bytes": 1123,
+          "as": "unresolved_ibm.gltf.report.json",
+          "role": "report",
+          "licence": {
+            "spdx": "Apache-2.0",
+            "holder": "The Khronos Group Inc.",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/LICENSE"
+          }
+        }
+      ]
+    }
+  ]
+}

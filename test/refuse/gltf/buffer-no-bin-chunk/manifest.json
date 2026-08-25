@@ -1,0 +1,58 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "refuse/gltf/buffer-no-bin-chunk",
+  "title": "glTF-Validator buffer/no_bin_chunk.glb -- the validator reports 1 error(s)",
+  "covers": [
+    "gltf-2.0",
+    "khronos-validator:buffer/no_bin_chunk.glb"
+  ],
+  "criterion": {
+    "kind": "validator-report",
+    "says": "an asset Khronos's own validator reports errors on is REFUSED by this reader, and one it reports none on STANDS -- the count is read out of the .report.json that travels with the case",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/buffer/no_bin_chunk.glb.report.json"
+  },
+  "subjects": [
+    {
+      "kind": "gltf",
+      "id": "buffer-no-bin-chunk",
+      "name": "buffer-no-bin-chunk",
+      "entry": "no_bin_chunk.glb",
+      "source": {
+        "kind": "khronos-gltf-validator",
+        "commit": "434283be08a668a8fb4e437145630ddbf93b0686",
+        "path": "test/base/data/buffer/no_bin_chunk.glb",
+        "pinnedOn": "2026-08-25",
+        "pinReason": "the tip of glTF-Validator on the day the refusal corpus was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/buffer/no_bin_chunk.glb",
+          "sha256": "c5173697532e5cb8de161e28beeeca0294df0d6cb3654a983cc62eda1b3dda7a",
+          "bytes": 76,
+          "as": "no_bin_chunk.glb",
+          "role": "gltf",
+          "licence": {
+            "spdx": "Apache-2.0",
+            "holder": "The Khronos Group Inc.",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/LICENSE"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/buffer/no_bin_chunk.glb.report.json",
+          "sha256": "05dbd5a70e469d083d9718a8c1bed6991afd07db502ec6047a498cc36c996e13",
+          "bytes": 1327,
+          "as": "no_bin_chunk.glb.report.json",
+          "role": "report",
+          "licence": {
+            "spdx": "Apache-2.0",
+            "holder": "The Khronos Group Inc.",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/LICENSE"
+          }
+        }
+      ]
+    }
+  ]
+}

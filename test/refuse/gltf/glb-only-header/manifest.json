@@ -1,0 +1,58 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "refuse/gltf/glb-only-header",
+  "title": "glTF-Validator glb/only_header.glb -- the validator reports 1 error(s)",
+  "covers": [
+    "gltf-2.0",
+    "khronos-validator:glb/only_header.glb"
+  ],
+  "criterion": {
+    "kind": "validator-report",
+    "says": "an asset Khronos's own validator reports errors on is REFUSED by this reader, and one it reports none on STANDS -- the count is read out of the .report.json that travels with the case",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/glb/only_header.glb.report.json"
+  },
+  "subjects": [
+    {
+      "kind": "gltf",
+      "id": "glb-only-header",
+      "name": "glb-only-header",
+      "entry": "only_header.glb",
+      "source": {
+        "kind": "khronos-gltf-validator",
+        "commit": "434283be08a668a8fb4e437145630ddbf93b0686",
+        "path": "test/base/data/glb/only_header.glb",
+        "pinnedOn": "2026-08-25",
+        "pinReason": "the tip of glTF-Validator on the day the refusal corpus was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/glb/only_header.glb",
+          "sha256": "54267b825b3110a5cdaba82e19d4a7a89a2fa1fc73f37efa0b56e496120e22f6",
+          "bytes": 12,
+          "as": "only_header.glb",
+          "role": "gltf",
+          "licence": {
+            "spdx": "Apache-2.0",
+            "holder": "The Khronos Group Inc.",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/LICENSE"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/glb/only_header.glb.report.json",
+          "sha256": "de05524cf58b38fb445b33d4ebbbc978a3e9eafdeb3578ba1d38f950ab5ee376",
+          "bytes": 512,
+          "as": "only_header.glb.report.json",
+          "role": "report",
+          "licence": {
+            "spdx": "Apache-2.0",
+            "holder": "The Khronos Group Inc.",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/LICENSE"
+          }
+        }
+      ]
+    }
+  ]
+}

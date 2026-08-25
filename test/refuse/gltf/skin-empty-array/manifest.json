@@ -1,0 +1,58 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "refuse/gltf/skin-empty-array",
+  "title": "glTF-Validator skin/empty_array.gltf -- the validator reports 1 error(s)",
+  "covers": [
+    "gltf-2.0",
+    "khronos-validator:skin/empty_array.gltf"
+  ],
+  "criterion": {
+    "kind": "validator-report",
+    "says": "an asset Khronos's own validator reports errors on is REFUSED by this reader, and one it reports none on STANDS -- the count is read out of the .report.json that travels with the case",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/skin/empty_array.gltf.report.json"
+  },
+  "subjects": [
+    {
+      "kind": "gltf",
+      "id": "skin-empty-array",
+      "name": "skin-empty-array",
+      "entry": "empty_array.gltf",
+      "source": {
+        "kind": "khronos-gltf-validator",
+        "commit": "434283be08a668a8fb4e437145630ddbf93b0686",
+        "path": "test/base/data/skin/empty_array.gltf",
+        "pinnedOn": "2026-08-25",
+        "pinReason": "the tip of glTF-Validator on the day the refusal corpus was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/skin/empty_array.gltf",
+          "sha256": "dd102ec0f0d1ede1c347542512143836a2a7cfdf0051792be58b9332f9eb5d59",
+          "bytes": 66,
+          "as": "empty_array.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "Apache-2.0",
+            "holder": "The Khronos Group Inc.",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/LICENSE"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/skin/empty_array.gltf.report.json",
+          "sha256": "8860cfdee58ab43e730ae742092920463f528b1f1ea93af04795bfbe777eb57e",
+          "bytes": 894,
+          "as": "empty_array.gltf.report.json",
+          "role": "report",
+          "licence": {
+            "spdx": "Apache-2.0",
+            "holder": "The Khronos Group Inc.",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/LICENSE"
+          }
+        }
+      ]
+    }
+  ]
+}

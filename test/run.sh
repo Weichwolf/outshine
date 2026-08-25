@@ -38,7 +38,44 @@ validatedRan=no
 # declared -- failing exactly the stated number of claims -- turns the verdict PASS and counts
 # toward `inverted`, which the trailer names. Behaving OTHERWISE, including going fully green,
 # prints to stderr and turns the verdict FAIL, which is what forces the entry out again
-EXPECT_FAIL="harness/claims/ExpectFail:1"
+# board:1885: the glTF-Validator corpus is scored against Khronos's own report, and 73 of its 263
+# cases are RED with a reason that is not the reader being wrong about the SPEC -- 54 of them
+# refuse with "no default scene to draw" for a fragment glTF 2.0 permits. They are declared here
+# with their count so the day one of them stands, the gate says so.
+EXPECT_FAIL="harness/claims/ExpectFail:1 refuse/gltf/accessor-custom-property:1\
+  refuse/gltf/accessor-data-get-elements-matrix:1\
+  refuse/gltf/accessor-data-get-elements-sparse:1 refuse/gltf/accessor-data-get-elements:1\
+  refuse/gltf/accessor-unknown-type:1 refuse/gltf/accessor-valid:1\
+  refuse/gltf/animation-custom-property:1 refuse/gltf/animation-valid:1\
+  refuse/gltf/asset-2-1-version:1 refuse/gltf/asset-custom-property:1\
+  refuse/gltf/asset-min-version-valid:1 refuse/gltf/asset-valid:1\
+  refuse/gltf/buffer-custom-property:1 refuse/gltf/buffer-data-uri:1\
+  refuse/gltf/buffer-extra-padding:1 refuse/gltf/buffer-non-relative-uri:1\
+  refuse/gltf/buffer-valid-2:1 refuse/gltf/buffer-valid-placeholder:1 refuse/gltf/buffer-valid:1\
+  refuse/gltf/buffer-view-custom-property:1 refuse/gltf/buffer-view-valid:1\
+  refuse/gltf/camera-custom-property:1 refuse/gltf/camera-perspective-yfov:1\
+  refuse/gltf/camera-valid:1 refuse/gltf/glb-extra-data:1 refuse/gltf/glb-two-images:1\
+  refuse/gltf/glb-valid-buffer:1 refuse/gltf/glb-valid:1 refuse/gltf/image-custom-property:1\
+  refuse/gltf/image-data-uri:1 refuse/gltf/image-npot:1 refuse/gltf/image-unrecognized-format:1\
+  refuse/gltf/image-valid-2:1 refuse/gltf/image-valid:1\
+  refuse/gltf/json-integer-written-as-float:1 refuse/gltf/material-alpha-modes:1\
+  refuse/gltf/material-custom-property:1 refuse/gltf/material-empty-object:1\
+  refuse/gltf/material-multiple-extensions:1 refuse/gltf/material-valid:1\
+  refuse/gltf/mesh-custom-property:1 refuse/gltf/mesh-data-index-buffer-degenerate-triangle:1\
+  refuse/gltf/mesh-invalid-tangent:1 refuse/gltf/mesh-primitive-generated-tangent-space:1\
+  refuse/gltf/mesh-primitive-incompatible-mode:1 refuse/gltf/mesh-primitive-no-position:1\
+  refuse/gltf/mesh-valid:1 refuse/gltf/node-custom-property:1 refuse/gltf/node-matrix-default:1\
+  refuse/gltf/node-node-empty:1 refuse/gltf/node-node-skinned-mesh-without-skin:1\
+  refuse/gltf/node-node-weights-override:1 refuse/gltf/node-valid:1\
+  refuse/gltf/root-custom-property-escaped-name:1 refuse/gltf/root-custom-property:1\
+  refuse/gltf/root-extras-non-object:1 refuse/gltf/root-invalid-extension-name:1\
+  refuse/gltf/root-named-objects:1 refuse/gltf/root-unused-objects:1 refuse/gltf/root-valid:1\
+  refuse/gltf/sampler-custom-property:1 refuse/gltf/sampler-empty-object:1\
+  refuse/gltf/sampler-valid:1 refuse/gltf/scene-custom-property:1 refuse/gltf/scene-valid:1\
+  refuse/gltf/skin-custom-property:1 refuse/gltf/skin-ignored-animated-transform:1\
+  refuse/gltf/skin-ignored-local-transform:1 refuse/gltf/skin-ignored-parent-transform:1\
+  refuse/gltf/skin-valid:1 refuse/gltf/texture-custom-property:1\
+  refuse/gltf/texture-empty-object:1 refuse/gltf/texture-valid:1"
 
 Die() {
   printf 'run.sh: %s\n' "$*" >&2
@@ -157,6 +194,7 @@ done
 LayerIncludes() {
   case "$1" in
     harness/claims) printf '%s' "-Iinclude -Isrc/core" ;;
+    harness/refuse/gltf) printf '%s' "-Iinclude -Isrc/core -Itest/harness/shared" ;;
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/data -Isrc/scene -Isrc/scenario -Isrc/ui -Iinclude -Isrc/host -Isrc/clients" ;;
     harness/render/wpt/css) printf '%s' "-Iinclude" ;;
     harness/render/test262/js) printf '%s' "-Iinclude" ;;
@@ -171,6 +209,7 @@ LayerToolchain() {
   case "$1" in
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | apps/viewer/src | render/outshine/scenario) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     apps/driver/src) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    harness/refuse/gltf) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
   esac
 }
@@ -198,6 +237,7 @@ LayerLink() {
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | apps/viewer/src | render/outshine/scenario | render/outshine/client) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
     harness/claims) printf '%s' "-lz" ;;
     apps/driver/src) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
+    harness/refuse/gltf) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -207,7 +247,7 @@ LayerGroups() {
     harness/render/wpt/css) printf '%s' "src/core/Json.cpp src/ui" ;;
     harness/render/test262/js) printf '%s' "src/core/Json.cpp src/core/Script.cpp" ;;
     harness/claims) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
-    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | apps/viewer/src | render/outshine/scenario | render/outshine/client) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/data src/ground src/ground/tiles src/sim src/actor/path src/actor/body src/actor/mind src/host src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/compositor src/clients/Live.cpp src/clients/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/clients/Assembly.cpp" ;;
+    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | apps/viewer/src | render/outshine/scenario | render/outshine/client | harness/refuse/gltf) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/data src/ground src/ground/tiles src/sim src/actor/path src/actor/body src/actor/mind src/host src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/compositor src/clients/Live.cpp src/clients/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/clients/Assembly.cpp" ;;
     apps/driver/src) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/actor/path src/actor/body src/actor/mind src/data src/ground/tiles src/ground src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/sim src/scene src/clients/Assembly.cpp" ;;
     *) return 1 ;;
   esac
@@ -220,6 +260,7 @@ LayerCases() {
     harness/render/outshine/grown) find test/render/outshine/grown -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     harness/render/wpt/css) find test/render/wpt/css -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     harness/render/test262/js) find test/render/test262/js -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
+    harness/refuse/gltf) find test/refuse/gltf -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     *) printf '%s' "" ;;
   esac
 }

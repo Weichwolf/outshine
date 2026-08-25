@@ -33,7 +33,7 @@ def prepared_directory(manifest_path):
     return os.path.join(tempfile.gettempdir(), PREPARED_LEAF, leaf.replace(os.sep, "-"))
 
 CASE_TREES = ("test/render/khronos/glTF", "test/render/khronos/generator", "test/render/outshine/grown",
-              "test/render/wpt/css", "test/render/test262/js")
+              "test/render/wpt/css", "test/render/test262/js", "test/refuse/gltf")
 
 def every_manifest():
     """Every case's declaration, in a stable order so two runs report the same list."""

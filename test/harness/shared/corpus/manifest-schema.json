@@ -302,6 +302,16 @@
             }
           },
           "note": "`oracleRole` AND ITS TWO COMPANIONS SAY WHAT CYCLES CANNOT EXPRESS ABOUT THIS CRITERION AND WHAT THAT COSTS. A role of cannot-express-the-criterion without a limitation, or a limitation with no measurement beside it, is the runner's refusal."
+        },
+        "validator-report": {
+          "note": "A CASE WHOSE ORACLE IS KHRONOS'S OWN VALIDATOR REPORT. The .report.json beside the asset states numErrors for that file, so the verdict is not ours to argue: an asset the validator errors on must be REFUSED here, and one it passes must STAND. The report travels with the case as a fetched file and the runner reads numErrors out of it -- the manifest does not restate the count, because a number spelled twice is a number that drifts.",
+          "required": {
+            "says": "text",
+            "statedAt": "text"
+          },
+          "optional": {
+            "note": "string"
+          }
         }
       },
       "note": "THREE KINDS OF CRITERION AND THE KIND DECIDES THE INSTRUMENT (board:0085). `numeric` -- the asset states a value or a relation and the acceptance is that number on the linear tap. `self-describing` -- the asset renders checkmarks, arrows or markers whose correctness is readable FROM THE PICTURE. `stated-invariant` -- the asset states a relation between two parts of its own render. `limits-probe` -- the asset states it is not expected to render correctly everywhere and has no pass at all."
@@ -563,6 +573,15 @@
         },
         "outshine-generated": {
           "required": {}
+        },
+        "khronos-gltf-validator": {
+          "required": {
+            "commit": "sha1",
+            "path": "text",
+            "pinnedOn": "text",
+            "pinReason": "text"
+          },
+          "note": "THE VALIDATOR'S OWN TEST CORPUS, which is a third Khronos repository and neither the sample assets nor the generator. Its assets are deliberately malformed and carry no per-file metadata, so the licence is the repository's Apache-2.0 and is declared here."
         }
       }
     },
@@ -584,7 +603,8 @@
             "stylesheet",
             "font",
             "script",
-            "harness"
+            "harness",
+            "report"
           ]
         },
         "licence": {

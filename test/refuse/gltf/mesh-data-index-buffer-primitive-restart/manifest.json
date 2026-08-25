@@ -1,0 +1,71 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "refuse/gltf/mesh-data-index-buffer-primitive-restart",
+  "title": "glTF-Validator mesh_data/index_buffer_primitive_restart.gltf -- the validator reports 1 error(s)",
+  "covers": [
+    "gltf-2.0",
+    "khronos-validator:mesh_data/index_buffer_primitive_restart.gltf"
+  ],
+  "criterion": {
+    "kind": "validator-report",
+    "says": "an asset Khronos's own validator reports errors on is REFUSED by this reader, and one it reports none on STANDS -- the count is read out of the .report.json that travels with the case",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/mesh_data/index_buffer_primitive_restart.gltf.report.json"
+  },
+  "subjects": [
+    {
+      "kind": "gltf",
+      "id": "mesh-data-index-buffer-primitive-restart",
+      "name": "mesh-data-index-buffer-primitive-restart",
+      "entry": "index_buffer_primitive_restart.gltf",
+      "source": {
+        "kind": "khronos-gltf-validator",
+        "commit": "434283be08a668a8fb4e437145630ddbf93b0686",
+        "path": "test/base/data/mesh_data/index_buffer_primitive_restart.gltf",
+        "pinnedOn": "2026-08-25",
+        "pinReason": "the tip of glTF-Validator on the day the refusal corpus was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/mesh_data/index_buffer_primitive_restart.gltf",
+          "sha256": "e324b7bab1859e866f970c3d935bd7a82907c3e0aea2ea04588d2422d7345de8",
+          "bytes": 1061,
+          "as": "index_buffer_primitive_restart.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "Apache-2.0",
+            "holder": "The Khronos Group Inc.",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/LICENSE"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/mesh_data/index_buffer_primitive_restart.bin",
+          "sha256": "26a66b061e8f48f39927c312f25293959729eee95978e2892d49d3512a5cc092",
+          "bytes": 3,
+          "as": "index_buffer_primitive_restart.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "Apache-2.0",
+            "holder": "The Khronos Group Inc.",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/LICENSE"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/mesh_data/index_buffer_primitive_restart.gltf.report.json",
+          "sha256": "afeb0a6c9a1cff04a5fd92d0b719456e5ab23169ee9fd96e9a4f05dd6d14f7f4",
+          "bytes": 1495,
+          "as": "index_buffer_primitive_restart.gltf.report.json",
+          "role": "report",
+          "licence": {
+            "spdx": "Apache-2.0",
+            "holder": "The Khronos Group Inc.",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/LICENSE"
+          }
+        }
+      ]
+    }
+  ]
+}

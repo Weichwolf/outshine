@@ -1,0 +1,71 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "refuse/gltf/mesh-data-colors-non-clamped",
+  "title": "glTF-Validator mesh_data/colors_non_clamped.gltf -- the validator reports 2 error(s)",
+  "covers": [
+    "gltf-2.0",
+    "khronos-validator:mesh_data/colors_non_clamped.gltf"
+  ],
+  "criterion": {
+    "kind": "validator-report",
+    "says": "an asset Khronos's own validator reports errors on is REFUSED by this reader, and one it reports none on STANDS -- the count is read out of the .report.json that travels with the case",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/mesh_data/colors_non_clamped.gltf.report.json"
+  },
+  "subjects": [
+    {
+      "kind": "gltf",
+      "id": "mesh-data-colors-non-clamped",
+      "name": "mesh-data-colors-non-clamped",
+      "entry": "colors_non_clamped.gltf",
+      "source": {
+        "kind": "khronos-gltf-validator",
+        "commit": "434283be08a668a8fb4e437145630ddbf93b0686",
+        "path": "test/base/data/mesh_data/colors_non_clamped.gltf",
+        "pinnedOn": "2026-08-25",
+        "pinReason": "the tip of glTF-Validator on the day the refusal corpus was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/mesh_data/colors_non_clamped.gltf",
+          "sha256": "38a4665692dfe2ab833dc35d088ecaf5c77107e092a1fc3bbc3f7cb4d51bc27d",
+          "bytes": 1058,
+          "as": "colors_non_clamped.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "Apache-2.0",
+            "holder": "The Khronos Group Inc.",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/LICENSE"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/mesh_data/colors_non_clamped.bin",
+          "sha256": "9b2b4b54c5928e5896069dcea547b273124529e2736054ec309178639f6eeefc",
+          "bytes": 36,
+          "as": "colors_non_clamped.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "Apache-2.0",
+            "holder": "The Khronos Group Inc.",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/LICENSE"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/mesh_data/colors_non_clamped.gltf.report.json",
+          "sha256": "3dd37e2ac2b4bf392a6c86c54fd49c8e5c5caba3abfd9bf799dba7c9c42f091c",
+          "bytes": 1737,
+          "as": "colors_non_clamped.gltf.report.json",
+          "role": "report",
+          "licence": {
+            "spdx": "Apache-2.0",
+            "holder": "The Khronos Group Inc.",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/LICENSE"
+          }
+        }
+      ]
+    }
+  ]
+}

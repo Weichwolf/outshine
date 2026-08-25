@@ -1,0 +1,71 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "refuse/gltf/animation-data-quaternion-cubic-non-unit-values",
+  "title": "glTF-Validator animation_data/quaternion_cubic_non_unit_values.gltf -- the validator reports 1 error(s)",
+  "covers": [
+    "gltf-2.0",
+    "khronos-validator:animation_data/quaternion_cubic_non_unit_values.gltf"
+  ],
+  "criterion": {
+    "kind": "validator-report",
+    "says": "an asset Khronos's own validator reports errors on is REFUSED by this reader, and one it reports none on STANDS -- the count is read out of the .report.json that travels with the case",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/animation_data/quaternion_cubic_non_unit_values.gltf.report.json"
+  },
+  "subjects": [
+    {
+      "kind": "gltf",
+      "id": "animation-data-quaternion-cubic-non-unit-values",
+      "name": "animation-data-quaternion-cubic-non-unit-values",
+      "entry": "quaternion_cubic_non_unit_values.gltf",
+      "source": {
+        "kind": "khronos-gltf-validator",
+        "commit": "434283be08a668a8fb4e437145630ddbf93b0686",
+        "path": "test/base/data/animation_data/quaternion_cubic_non_unit_values.gltf",
+        "pinnedOn": "2026-08-25",
+        "pinReason": "the tip of glTF-Validator on the day the refusal corpus was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/animation_data/quaternion_cubic_non_unit_values.gltf",
+          "sha256": "b95ad0ec91e0137a052a2721f083bd0599b18ec83c02856f00d97f391e14d5aa",
+          "bytes": 1200,
+          "as": "quaternion_cubic_non_unit_values.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "Apache-2.0",
+            "holder": "The Khronos Group Inc.",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/LICENSE"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/animation_data/quaternion_cubic_non_unit_values.bin",
+          "sha256": "31f7dcb0eb5e7f56763134bbdad2289c8d98a6a13dbd857721669606bbdc3ad8",
+          "bytes": 96,
+          "as": "quaternion_cubic_non_unit_values.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "Apache-2.0",
+            "holder": "The Khronos Group Inc.",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/LICENSE"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/animation_data/quaternion_cubic_non_unit_values.gltf.report.json",
+          "sha256": "74dc319bfa3f0486b1e97c2eacf5a56fe5ff4f3ab779db7c321c1788f4c6c41d",
+          "bytes": 1370,
+          "as": "quaternion_cubic_non_unit_values.gltf.report.json",
+          "role": "report",
+          "licence": {
+            "spdx": "Apache-2.0",
+            "holder": "The Khronos Group Inc.",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/LICENSE"
+          }
+        }
+      ]
+    }
+  ]
+}
