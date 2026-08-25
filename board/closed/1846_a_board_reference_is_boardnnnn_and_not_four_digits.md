@@ -57,12 +57,12 @@ so the day a third one is added the note keeps printing 2.
 
 ## What will be true
 
-- [ ] The predicate is `board:NNNN` again -- including the comma list `board:1836,1837` the old
+- [x] The predicate is `board:NNNN` again -- including the comma list `board:1836,1837` the old
       `NumbersIn(message, "board:")` handled -- or the widening is DECLARED: stated in the
       claim's sentence, argued in an item, and bounded so that a measurement in prose cannot
       stand in for a reference.
-- [ ] `Note("processes the walk spawns", ...)` counts the calls it reports, or goes.
-- [ ] Proving test: the existing walk, plus a fixture message that touches `board/2528` and
+- [x] `Note("processes the walk spawns", ...)` counts the calls it reports, or goes.
+- [x] Proving test: the existing walk, plus a fixture message that touches `board/2528` and
       says only `the corpus is 2528 MB` -> FOUND. Negative control: HEAD -> green, because the
       lax scan cannot tell a size from a reference.
 
@@ -95,7 +95,7 @@ fixture: `NumbersIn` is a file-local helper, the walk runs only over real histor
 under a sentence that still says the old thing -- would land again with the gate green, twice in
 a row now, and the second time nobody would be reviewing the diff of a performance commit.
 
-- [ ] `NumbersIn` (or a named predicate replacing it) has a unit twin that feeds it the four
+- [x] `NumbersIn` (or a named predicate replacing it) has a unit twin that feeds it the four
       forms: `board:1844`, `board:1844,1845`, `board/open/1844_x.md`, and prose carrying `2528`.
       Negative control: `board:1842`'s lax scan -> the fourth case FOUND.
 
@@ -104,3 +104,52 @@ only the FIRST character for a digit and then takes four bytes regardless
 (`ACommitCarriesTheItemItNames.cpp:38-39`), so `board:18` yields the token `"18 a"` and a
 message naming a two- or three-digit item names garbage. The board's numbers are four digits
 today; the helper does not say so and does not check it.
+
+## Closed 2026-08-25 -- the predicate left the case and became a type
+
+Both open boxes are answered by the same move: `NumbersIn` is gone and
+`test/harness/shared/BoardNames.h` stands in its place -- a `constexpr` scanner over
+`std::string_view`, returning NUMBERS in a fixed table rather than four-byte substrings.
+
+```cpp
+inline constexpr std::string_view kMarkers[] = {"board:", "board/open/", "board/closed/",
+                                                "board/active/"};
+[[nodiscard]] constexpr bool DigitsAt(std::string_view text, size_t at) noexcept;
+[[nodiscard]] constexpr Named NamedIn(std::string_view text) noexcept;
+```
+
+`DigitsAt` tests all four digits AND refuses a fifth, which is the second defect this item found:
+the old helper tested `text[from]` alone and then took four bytes, so `board:18 ` yielded the
+token `"18 a"` and `board:18446` yielded `1844` -- an item nobody wrote.
+
+**The twin the item asked for is the compiler.** Seven `static_assert`s in the header carry the
+four forms and the three shapes that must name nothing:
+
+| fed | says |
+|---|---|
+| `board:1844` | one item, 1844 |
+| `board:1836,1837` | two, the comma list a closing pair writes |
+| `board/open/1844_label.md`, `board/closed/…`, `board/active/…` | the path names as unambiguously as the reference |
+| `the corpus is 2528 MB and an hour is 3600 s` | NOTHING -- the lax scan's exact false positives |
+| `board:18 and the rest` | NOTHING -- fewer than four digits after a marker |
+| `board:18446` | NOTHING -- five are not four |
+
+Two runtime CHECKs stand beside them, because a `constexpr` proof over literals cannot see the
+history the walk is handed:
+
+- `unreadable == 0` -- an item file whose directory is not one of the four markers is walked past
+  in SILENCE, and silence is the failure mode this whole item is about.
+- `overflowed == 0` -- the table is 64 wide; a message that overruns it would read as a commit
+  that named fewer items than it did.
+
+Proving test: `test/harness/claims/ACommitCarriesTheItemItNames` (IV.23), 4 CHECKS, 43 commits
+bound. Negative controls, all three run:
+
+| control | result |
+|---|---|
+| the markers reduced to `{""}` -- board:1842's lax scan, any four digits anywhere | **compile error**, `BoardNames.h:75` — `the corpus is 2528 MB and an hour is 3600 s` names an item |
+| `DigitsAt` reduced to `text[at]` is a digit -- the four-byte take behind a one-char test | **compile error**, `BoardNames.h:74` — `board:18 and the rest` names `18 a` |
+| `board/active/` removed from the markers -- a directory the walk cannot read | `FAIL ...:140 AND EVERY BOARD PATH THE WALK IS HANDED IS ONE IT CAN READ` |
+
+The first two are the sharper result: the drift this item was filed against can no longer land
+as a green run, because it can no longer compile.
