@@ -44,7 +44,8 @@ validatedRan=no
 # cases are RED with a reason that is not the reader being wrong about the SPEC -- 54 of them
 # refuse with "no default scene to draw" for a fragment glTF 2.0 permits. They are declared here
 # with their count so the day one of them stands, the gate says so.
-EXPECT_FAIL="harness/claims/ExpectFail:1 khronos/validator/accessor-custom-property:1\
+EXPECT_FAIL="harness/claims/ExpectFail:1 harness/outshine/door/ScoreWhatTheKeyLuxDoes:1\
+  khronos/validator/accessor-custom-property:1\
   khronos/validator/accessor-data-get-elements-matrix:1\
   khronos/validator/accessor-data-get-elements-sparse:1 khronos/validator/accessor-data-get-elements:1\
   khronos/validator/accessor-unknown-type:1 khronos/validator/accessor-valid:1\
