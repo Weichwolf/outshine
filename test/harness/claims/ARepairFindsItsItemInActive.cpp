@@ -67,7 +67,12 @@ int main(void) {
           whole.substr(closes + 1, ends == std::string::npos ? ends : ends - closes - 1);
 
       if (!Touches(files, true)) { continue; }
-      const Board::Named names = Board::NamedIn(message);
+      // The SUBJECT is the assignment; the body explains, and an explanation cites its
+      // neighbours -- "board:1854's control was blind" is a reference, not a claim to be
+      // working on 1854. IV.23 reads the whole message because there every file touched must
+      // be named somewhere; here the question is which item the commit is FOR.
+      const std::string subject = message.substr(0, message.find('\n'));
+      const Board::Named names = Board::NamedIn(subject);
       if (names.Count == 0) { continue; }
       ++repairs;
       for (size_t one = 0; one < names.Count; ++one) {
