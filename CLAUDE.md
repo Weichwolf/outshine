@@ -323,6 +323,37 @@ synthetic ground, so its amber is now the parameter list alone, as its row says.
 {GroundStack, DriveProduct} and call the free systems directly. The rot concentrates at the
 orchestration edges; the middle of the tree is sound.
 
+## The distance to TARGET (measured 2026-08-25, by the hourly review)
+
+Green AND reached is the only state that draws a pixel: a green node whose only path to a client
+runs through a red one is counted separately, because its fill is a judgement about a layer
+nobody calls.
+
+| diagram | green | amber | red | stranded | total | green-and-reached | last measured |
+|---|---|---|---|---|---|---|---|
+| class structure (CURRENT) | 44 | 14 | 4 | 5 | 67 | **44 / 67 = 66 %** | first measurement |
+| render plan (CURRENT) | 9 | 1 | 2 | 0 | 12 | **9 / 12 = 75 %** | first measurement |
+
+The four reds carry the distance: `World` (camera and LOD inside the ground layer), `SubjectDraw`
+(six responsibilities in one stage), `Sim` (a hand-wired god facade with no consumer), `Live`
+(renderer and layout from one class). Five stranded nodes hang off `Sim` alone.
+
+## Driver (the product the engine is judged by)
+
+The bar is Gran Turismo 7 on PS4 at 720p60 on the A18 Pro (board:1573). What the app can show
+today, each row naming what proves it:
+
+| | stands | proven by |
+|---|---|---|
+| a route from two coordinates | yes | `apps/driver/test/APlannerFindsTheRoadFromMunichToHamburg` |
+| a road ribbon the wheels stand on | yes | `apps/driver/test/TheRoadEdgeIsContinuousWhereSegmentsMeet` |
+| stills along the drive | yes | `apps/driver/test/stills/StillsAreTakenAlongTheDriveForTheEye` |
+| a window that shows the drive | yes | `apps/driver/test/window/AWindowShowsTheRoadTheCarIsDriving` |
+| an entry point -- a program a user runs | **NO** | `apps/driver/src/` holds `f31.scenario` and `routes.xml` and no C++ (board:1803) |
+| road markings, guard rails, verge furniture | **NO** | nothing declares them |
+| buildings behind the verge, drawn | declared, not reached | `Buildings` is stranded off `Sim` |
+| culling and instancing | **NO** | board:1538 -- every subject is drawn every frame |
+
 ## Class structure (TARGET — where the tree is going)
 
 ```mermaid
