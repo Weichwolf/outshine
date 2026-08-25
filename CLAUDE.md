@@ -217,7 +217,7 @@ flowchart TD
   VersatilesVector --> OsmField --> RoadHarvest --> Wayfinding
   OsmField --> StreetField & BuildingField & WaterField
   GroundStream --> Ground --> Forest & Buildings & Water & Infrastructure
-  Wayfinding --> ReferenceLine --> Carriageway --> Ribbon
+  Wayfinding --> Alignment["Alignment — one arc per RUN of same-sign turns, the accuracy bound splits it"] --> ReferenceLine --> Carriageway --> Ribbon
   Carriageway --> SpeedProfile --> Pilot --> Walk & Drive & Fly & Rail
   Drive --> Rig --> Body
   Rig --> Contact & Shear
@@ -248,8 +248,8 @@ flowchart TD
   classDef wrong fill:#7a2222,stroke:#3d1111,color:#fff
   classDef strandedSound fill:#1f6f3f,stroke:#7a2222,stroke-width:3px,stroke-dasharray:6 4,color:#fff
   classDef strandedUnsure fill:#8a6d1f,stroke:#7a2222,stroke-width:3px,stroke-dasharray:6 4,color:#fff
-  class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,GroundQuery,OsmField,RoadHarvest,Wayfinding,StreetField,Ground,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,Engine,SceneStore,Assembly,SubjectResidency,Markup,Stylesheet,LayoutUi,Painting,InputMap,InputPump,TriggerField,ViewBook,BusGraph sound
-  class BuildingField,WaterField,Subject,DrawList,Renderer,TonemapStage,LightVisibilityStage,Frustum,Ephemeris,GltfStudio unsure
+  class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,GroundQuery,OsmField,RoadHarvest,Wayfinding,Alignment,StreetField,Ground,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,SceneStore,Assembly,SubjectResidency,Markup,Stylesheet,LayoutUi,Painting,InputMap,InputPump,TriggerField,ViewBook,BusGraph sound
+  class BuildingField,WaterField,Subject,DrawList,Renderer,TonemapStage,LightVisibilityStage,Frustum,Ephemeris,GltfStudio,Engine unsure
   class World,SubjectDraw,Sim,Live wrong
   class DriveAssembly,CorridorLay,DriveTick,TilePool unsure
   class Forest,Buildings,Water,Infrastructure strandedSound
@@ -293,6 +293,7 @@ at (board:1777):
 | `DriveTick` | `[[nodiscard]] const Ridden &DriveTick(const Corridor &way, const Rigged &stood,` (DriveTick.h:111) hands back the accumulator the caller owns -- `Ridden &out = drive.Tally;` (DriveTick.cpp:38). The copy is gone and the struct is 2472 -> **440 bytes, which `static_assert(sizeof(Ridden) == 440)` at DriveTick.cpp:18 is the measurement of**; what stays in question is a product that is both a per-tick answer and a route-long tally (board:1815) |
 | `TAA` | `{Stage::TemporalResolve, Provenance::Content, PassKind::Raster, "temporalResolve",` (RenderCatalogue.h:278) declares a stage that encodes nothing of its own -- it is folded into tonemap rather than standing as its own resolve |
 | `TilePool` | `class TilePool {` (TilePool.h:35) holds 3 `std::mutex`, a `std::condition_variable`, a `std::map` and a `std::set` where a slot table and a ring would do -- a decisionless pool holds no tree |
+| `Engine` | the ONE door swallows half its declaration: `bool Engine::Assemble() {` (Engine.cpp:101) reads the scenario's `Drive Driven` and never reaches the drive -- `grep -rn AssembleDrive src` finds only `DriveAssembly.{h,cpp}` themselves, so every call site of `AssembleDrive` in the tree is a TEST. The driver's own entry point runs Read -> Declare -> Assemble -> RenderTo -> Advance and gets a studio orbit of a car on white. Green on shape, amber because a door that ACCEPTS a declaration it does not execute is a worse door than one that refuses it (2e779901's own words) |
 
 Dashed says the node is STRANDED, and every dashed node below names the facade it hangs off
 (board:1805, measured 2026-08-24):
@@ -329,10 +330,29 @@ Green AND reached is the only state that draws a pixel: a green node whose only 
 runs through a red one is counted separately, because its fill is a judgement about a layer
 nobody calls.
 
-| diagram | green | amber | red | stranded | total | green-and-reached | last measured |
+| diagram | green | amber | red | stranded | total | green-and-reached | last hour |
 |---|---|---|---|---|---|---|---|
-| class structure (CURRENT) | 44 | 14 | 4 | 5 | 67 | **44 / 67 = 66 %** | first measurement |
-| render plan (CURRENT) | 9 | 1 | 2 | 0 | 12 | **9 / 12 = 75 %** | first measurement |
+| class structure (CURRENT) | 44 | 15 | 4 | 5 | 68 | **44 / 68 = 65 %** | 44 / 67 = 66 % |
+| render plan (CURRENT) | 9 | 1 | 2 | 0 | 12 | **9 / 12 = 75 %** | 9 / 12 = 75 % |
+
+**The distance GREW this hour: 66 % -> 65 %.** Two moves, in opposite directions and both
+measured:
+
+| move | why |
+|---|---|
+| `Alignment` ADDED, green and reached | src/actor/path/Alignment.{h,cpp} landed; reached through `Fit`, called at `fitted = Fit(keptM, quantumM, tightestM, classTightestM, corridor);` (CorridorLay.cpp:70). Numerator and denominator both +1, so the share alone would have stood still |
+| `Engine` green -> AMBER | `2e779901` measured what its own entry point does: `Assemble` accepts `Scenario::Driven` and never drives it. The one public door does not reach the drive, and the row above carries the citation |
+
+No red went amber; no amber went green. What the hour bought that the table cannot show is a
+TARGET node reaching its mark: `Alignment` in the class-structure TARGET is now GREEN, because
+the split rule that made it amber is settled and measured -- the accuracy bound ends a run, not
+the sign change, at 1 bend within 40 m, 2 within 8 m, 4 within 1 m, worst departure inside the
+bound every time (`test/unit/actor/path/AnAlignmentIsTheArcTheVerticesDescribe`).
+
+What blocked the rest: `test/run.sh` runs NOTHING at HEAD (board:1860) -- the walk over `apps/`
+takes the driver's new entry point for a test case and dies with exit 2 before the library is
+built -- and the driver's only eye needs 358 s where the gate's clock allows 120 (board:1861).
+An hour whose gate is down cannot turn a node any colour.
 
 The four reds carry the distance: `World` (camera and LOD inside the ground layer), `SubjectDraw`
 (six responsibilities in one stage), `Sim` (a hand-wired god facade with no consumer), `Live`
@@ -347,12 +367,27 @@ today, each row naming what proves it:
 |---|---|---|
 | a route from two coordinates | yes | `apps/driver/test/APlannerFindsTheRoadFromMunichToHamburg` |
 | a road ribbon the wheels stand on | yes | `apps/driver/test/TheRoadEdgeIsContinuousWhereSegmentsMeet` |
-| stills along the drive | yes | `apps/driver/test/stills/StillsAreTakenAlongTheDriveForTheEye` |
+| terrain with real relief under the road | yes | `$TMPDIR/outshine-stills/km0114.5-framed.png` -- rolling hills, an undulating horizon |
+| a car that reads as the car it is | yes | the same still: body, glass, wheels, tail lights, a legible plate |
+| stills along the drive | **written, never judged** | `apps/driver/test/stills/StillsAreTakenAlongTheDriveForTheEye` is killed at the gate's 120 s clock with a 0-byte log (board:1861) |
 | a window that shows the drive | yes | `apps/driver/test/window/AWindowShowsTheRoadTheCarIsDriving` |
-| an entry point -- a program a user runs | **NO** | `apps/driver/src/` holds `f31.scenario` and `routes.xml` and no C++ (board:1803) |
+| an entry point -- a program a user runs | **written, runs nowhere** | `apps/driver/src/main.cpp` exists at 146 lines and links against `include/outshine/` alone; it takes the whole gate down (board:1860) and no working directory satisfies it (board:1859) |
+| the sun's direction readable on the ground | **NO** | `km0114.5-framed.png` -- two hills facing apart carry the same value (board:1567) |
+| the car's shadow on the road | **NO** | `km0721.0-third.png` -- the deck under the car is the deck's own grey (board:1575, box 3) |
+| a road edge without a bite | **NO** | `km0114.5-framed.png` x 900..1160 and `km0016.8-framed.png` x 600..1050 -- sawtooth verge into deck (board:1568) |
+| nothing floating at the horizon | **NO** | `km0114.5-first.png` -- two navy slivers above the terrain silhouette (board:1565) |
 | road markings, guard rails, verge furniture | **NO** | nothing declares them |
+| a second carriageway on a motorway | **NO** | every still shows ONE deck and no central reservation |
+| a ground material with texture | **NO** | every still: one flat albedo for the verge, one for the deck, no detail at any range |
 | buildings behind the verge, drawn | declared, not reached | `Buildings` is stranded off `Sim` |
 | culling and instancing | **NO** | board:1538 -- every subject is drawn every frame |
+
+The gap to the bar, named rather than gestured at: GT7 on PS4 puts a cascaded shadow under the
+car, a grazing-angle specular sheet on the asphalt that carries the sun, lane and edge markings
+with tar seams, a verge with guard rail, poles and vegetation, and aerial perspective that fades
+the far ground into the sky. The stills carry NONE of those five. What they do carry -- a
+correct camera, a sound sky model, a body that reads, terrain that undulates -- is the half of
+the frame the engine already owns.
 
 ## Class structure (TARGET — where the tree is going)
 
@@ -377,21 +412,29 @@ flowchart TD
 
   classDef sure fill:#1f6f3f,stroke:#0d3b21,color:#fff
   classDef likely fill:#8a6d1f,stroke:#4a3a0d,color:#fff
-  class Scenario,ClientCode,Assembly,SceneStore,SimD,Pathfinding,Physics,Registry,DrawList,Frame,WorldC,Line sure
-  class Columns,Compositors,Stages,Entities,Alignment likely
+  class Scenario,ClientCode,Assembly,SceneStore,SimD,Pathfinding,Physics,Registry,DrawList,Frame,WorldC,Line,Alignment sure
+  class Columns,Compositors,Stages,Entities likely
 ```
 
-Two nodes are new (2026-08-24) and each is argued rather than wished:
+Two nodes were new on 2026-08-24 and each is argued rather than wished:
 
 - **`Alignment` replaces the per-vertex corner table**, and the reason is a measurement, not a
-  preference. `Fit` puts a spiral-arc-spiral at EVERY vertex and returns the curvature to zero
-  between them, so a polyline that describes a curve is laid at `R/(1+alpha)` — `alpha = 0.5` in
+  preference. `Fit` put a spiral-arc-spiral at EVERY vertex and returned the curvature to zero
+  between them, so a polyline that describes a curve was laid at `R/(1+alpha)` — `alpha = 0.5` in
   the code, giving exactly two thirds of the true radius, reproduced to four digits over five
-  values of alpha and at every digitisation density (board:1795). No constant repairs it; a
+  values of alpha and at every digitisation density (board:1795). No constant repaired it; a
   transition is owed where the CURVATURE changes, not where a digitiser put a point. On
-  Munich--Hamburg 769 of 2202 corners (35 %) sit inside a run of same-sign turns and would be
-  lifted from `R/1.5` to `R*cos(s/2)`. It is amber because the split rule at a run's end — when
-  the accuracy bound forces a run apart — is not settled.
+  Munich--Hamburg 769 of 2202 corners (35 %) sit inside a run of same-sign turns.
+  **It goes GREEN 2026-08-25**, by the review, and the thing that lifts it is the split rule
+  that made it amber: the ACCURACY BOUND ends a run, not the sign change. A tightening spiral
+  turns one way throughout, so the bound alone says where one arc becomes two — 1 bend within
+  40 m, 2 within 8 m, 4 within 1 m, worst departure inside the bound at every one
+  (`test/unit/actor/path/AnAlignmentIsTheArcTheVerticesDescribe`). A 400 m circle now fits at
+  400.000 m at 10, 20, 50 and 100 m chords where the corner table laid 266.6 m at every one
+  (`test/unit/actor/path/ACurveIsFittedAtTheRadiusItHas`, its `EXPECT_FAIL` declaration removed
+  from test/run.sh:41). The node stands in CURRENT as well, green and reached through
+  `Fit`, called at `fitted = Fit(keptM, quantumM, tightestM, classTightestM, corridor);`
+  (CorridorLay.cpp:70).
 - **`World composition` is the layer board:1805 found missing**, and it is green because the
   requirement is not in doubt: *scenarios declare, the engine behaves*. A scenario declares the
   sphere and which surface fields it wants drawn; the engine composes them. That the one client

@@ -46,3 +46,14 @@ Round eight halves the residue again and sharpens it: km 36.5's dash is ONE navy
 WORLD GEOMETRY -- seen lying on the terrain from two independent cameras, a sibling of the dead
 scar. And the km 708 zigzag stays open on the reviewer's own evidence rule: km 728.5 was shown
 clean, which is not km 708.
+
+- 2026-08-25, hourly review, FRESH still, still there --
+  `$TMPDIR/outshine-stills/km0114.5-first.png` written 07:15 by the review's own worktree run.
+  TWO detached navy slivers stand in the frame at roughly (x 560..660, y 352) and
+  (x 870..925, y 345) in 1280x720, and both sit ABOVE the terrain's silhouette against the sky.
+  The station is km 114.5, which no previous round names: 36.5, 198.7, 708 and 728.5 are the
+  ones in the body above. So the residue is not converging on a handful of known stations -- it
+  appears at a station picked only because the stills case stops there.
+
+  The same frame's third-person (`km0114.5-framed.png`) shows the terrain has real relief here,
+  so the mechanism is not "flat ring, hard horizon": geometry is floating over graded ground.

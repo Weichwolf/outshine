@@ -52,3 +52,10 @@ open INSIDE them (a real gap between deck and verge, not a shading of the step),
 first-person "hood trim" is the car asset's own silhouette shading, no verge's business. Three
 symptoms shared a colour, not a cause. This item's remainder is now precisely km 17.3's local
 seam: the station where the verge mesh fails to reach the deck edge at all.
+
+- 2026-08-25, hourly review, the seam is still there and it is still km 17 --
+  `$TMPDIR/outshine-stills/km0016.8-framed.png` from the 07:07 drive shows the deck/verge
+  boundary as a SAWTOOTH from roughly x=600 to x=1050 in the 1280x720 frame: a run of straight
+  steps, each a few pixels of verge biting into the deck and each about the length the 3 m grid
+  would give against the 2 m edge polyline. This is the item's own remaining statement, measured
+  again two rounds later and unmoved. Nothing in the commit delta since touched the verge.

@@ -28,3 +28,14 @@ per pixel (id Tech 7 caches essentially all static shadows). The catalogue alrea
 Parked: slices 1-2 closed with the atlas proving itself in the chase test; slice 3 (shading
 samples the atlas plan-selected, shadow lands in the driver's picture) waits behind the
 architecture queue -- the review is the work list until it is clean.
+
+- 2026-08-25, SHARPENED by the hourly review, slice 3 measured against the picture --
+  `$TMPDIR/outshine-stills/km0721.0-third.png` (drive of 07:07, Munich--Hamburg) shows the F31
+  standing on the deck under an unmistakably lit sky: the gradient warms toward the horizon, the
+  roof carries a specular sheet, the glass reads. **The road under the car is byte-identical grey
+  to the road ten metres away.** No contact shadow, no cast shadow, no ambient occlusion at the
+  four wheel wells. The car reads as pasted onto the surface rather than standing on it, and that
+  single missing term is the largest gap to the bar in the whole frame -- larger than markings,
+  larger than the verge -- because a shadow is what tells the eye a body is IN the scene.
+  `km0016.8-framed.png` says the same from the third-person seat at a different sun angle.
+  This is the standing finding of checkbox 3, now with its still named.

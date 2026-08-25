@@ -41,3 +41,20 @@ on the whole 775 km.
   keine kurze representative? mit 20 km im urbanen bereich ist doch alles abgedeckt."* The
   answer is that 20 km urban covers the GEOMETRY completely and the SCALE not at all, so the
   two cases split by what they prove rather than one replacing the other.
+
+- 2026-08-25, SHARPENED by the hourly review -- the case this item asks for was WRITTEN and
+  then DELETED without a word. `434ed886` added
+  `apps/driver/test/AShortUrbanRouteCarriesEveryGeometryTheLongOneDoes.cpp`, 155 lines,
+  Marienplatz to Nymphenburg at zoom 14. `38641b13`, six minutes later, removed all 155 lines
+  in a commit whose subject and body speak only of `main.cpp` and board:1859 and never mention
+  the deletion. `find . -iname '*Urban*'` at HEAD finds nothing under `apps/`.
+
+  A proof is not scratch. If the case was wrong, the commit that removes it owes the
+  measurement that says so; if it was merely unfinished, it belonged on a branch or in this
+  item's body, not in a commit that claims to be about an entry point. The first checkbox
+  above is therefore still open and the work that would have closed it exists only in
+  `git show 434ed886:apps/driver/test/AShortUrbanRouteCarriesEveryGeometryTheLongOneDoes.cpp`.
+
+  Note also, for whoever restores it: that file carried a six-line `//` comment block at its
+  head (lines 27-32 of the deleted version). `test/` is the exception the comment rule allows,
+  so the block may stand -- but it narrates the ITEM, and this item is where it belongs.

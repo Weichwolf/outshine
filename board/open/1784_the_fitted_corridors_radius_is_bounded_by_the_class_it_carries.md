@@ -231,3 +231,30 @@ it obeys.
 **Refusing on that number would refuse correct roads.** The box stays open until board:1795
 makes the radius trustworthy. That is the named reason, and it is a measurement rather than a
 preference.
+
+---
+
+## The stated blocker is gone (2026-08-25, hourly review)
+
+The last section closes with the reason the first box stays open:
+
+> *The box stays open until board:1795 makes the radius trustworthy.*
+
+**board:1795's core landed at `b2fbf22d`.** `Fit` hands the geometry to `Align`/`LayAligned`
+(src/actor/path/Alignment.{h,cpp}), a run of same-sign turns becomes ONE arc, and a polyline
+describing a 400 m circle now fits at **400.000 m** at 10, 20, 50 and 100 m chords where the
+corner table laid 266.6 m at every one. The `EXPECT_FAIL` declaration for
+`ACurveIsFittedAtTheRadiusItHas` is gone from test/run.sh:41.
+
+So the number that made refusal unsafe -- 947 of 2204 corners under their class minimum, a
+43 % rate that a systematic `R_true/1.5` explains -- **must be re-measured before anything else
+is decided here.** It is the cheapest measurement on the board that can turn a red into an
+amber, and it decides the shape of the first box:
+
+| what the re-measurement finds | what the first box becomes |
+|---|---|
+| the count collapses to a handful | arm the refusal by name, with station and both vertices, as the box already states |
+| the count stays high | the class mapping or the graph is the defect, and the box is rewritten against that instead |
+
+Until it is taken, this item is asserting a number that a landed repair has probably invalidated,
+and an item arguing from a stale measurement is an item that cannot be closed.
