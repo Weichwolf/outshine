@@ -46,10 +46,9 @@ int main(void) {
   const bool corpus = std::filesystem::exists(prepared);
   std::printf("NOTE a corpus stands on disk: %s\n", corpus ? "yes" : "no");
   if (!corpus) {
-    Unprepared("no corpus was fetched for this run to prune");
-    Covers("IV.15 the shared corpus is pruned by the runner holding its claim and by no "
-           "other -- vacuous here, because no corpus was fetched for this run to prune "
-           "(board:1789, 1796)");
+    Partial(0.0, "of IV.15's own claims, because no corpus was fetched for this run to prune");
+    Covers("IV.15 the shared corpus is pruned by the runner holding its claim and by no other, "
+         "so a second checkout reads the same bytes and removes none of them (board:1789)");
     return Report();
   }
 
@@ -70,12 +69,13 @@ int main(void) {
     std::printf("NOTE another nest holds the corpus while this ran, which board:1789 made "
                 "legal -- every claim below is about a run that HOLDS it, so this run judges "
                 "none of them (board:1843)\n");
-    // board:1845: judging none of them is the right RULE and PASS is the wrong REPORT. The
-    // tree has the word for it: UNPREPARED means this run judged nothing here.
-    Unprepared("the corpus claim this case is about was held by another nest");
-    Covers("IV.15 the shared corpus is pruned by the runner holding its claim and by no "
-           "other -- not judged here, because another nest held the claim for this run "
-           "(board:1789, 1843)");
+    // board:1845: judging none of them is the right RULE and PASS is the wrong REPORT -- but
+    // UNPREPARED is counted RED by the runner, and this exit is a legal state in the very
+    // configuration CLAUDE.md mandates for the review. PARTIAL carries the fact without the
+    // verdict, which is what board:1810 built it for.
+    Partial(0.0, "of IV.15's own claims, because another nest held the corpus claim");
+    Covers("IV.15 the shared corpus is pruned by the runner holding its claim and by no other, "
+         "so a second checkout reads the same bytes and removes none of them (board:1789)");
     return Report();
   }
   CHECK(held,

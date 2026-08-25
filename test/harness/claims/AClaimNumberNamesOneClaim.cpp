@@ -86,7 +86,10 @@ int main(void) {
       const std::string number = whole.substr(0, space);
       if (number.empty() || number.find('.') == std::string::npos) { continue; }
       ++covers;
-      saying[number].insert(whole.substr(space + 1, 60));
+      // board:1844: comparing a 60-character prefix let IV.15 carry three different sentences
+      // that all begin the same way -- the walk printed 0 collisions over the only live one in
+      // the tree. A claim is its WHOLE sentence.
+      saying[number].insert(whole.substr(space + 1));
       proving[number].insert(entry.path().filename().string());
     }
   }

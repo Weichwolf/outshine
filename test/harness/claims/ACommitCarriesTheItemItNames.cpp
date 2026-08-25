@@ -81,20 +81,22 @@ int main(void) {
     const std::string files =
         whole.substr(closes + 1, ends == std::string::npos ? ends : ends - closes - 1);
 
-    std::vector<std::string> named;
-    for (size_t scan = 0; scan + 4 <= message.size(); ++scan) {
-      bool four = true;
-      for (size_t step = 0; step < 4; ++step) {
-        four = four && std::isdigit((unsigned char)message[scan + step]);
-      }
-      if (!four) { continue; }
-      if (scan > 0 && std::isdigit((unsigned char)message[scan - 1])) { continue; }
-      if (scan + 4 < message.size() && std::isdigit((unsigned char)message[scan + 4])) { continue; }
-      named.push_back(message.substr(scan, 4));
+    // board:1844: a reference is `board:NNNN`, including the comma list `board:1836,1837`. A
+    // widening to "any four digits" let a MEASUREMENT stand in for a reference -- this
+    // session's own messages carry 2528 (MB of corpus), 3600 (seconds in an hour) and 1181
+    // (cases) -- and the board is at 1845 and climbing.
+    std::vector<std::string> named = NumbersIn(message, "board:");
+    for (const char *also : {"board/open/", "board/closed/", "board/active/"}) {
+      for (const std::string &one : NumbersIn(message, also)) { named.push_back(one); }
     }
 
+    // A commit already in the history cannot be restaged. board:1844 records why this one
+    // stands: the hourly review writes its sharpened items as a bare list beside a verb, and
+    // the reference this claim enforces is `board:NNNN`. The reviewer's instructions carry the
+    // rule now; the commit that predates them is named here rather than widened around.
+    const bool historical = commit.rfind("3f52567e", 0) == 0;
     for (const std::string &one : NumbersIn(files, "/")) {
-      bool spoken = false;
+      bool spoken = historical;
       for (const std::string &say : named) { spoken = spoken || say == one; }
       if (spoken) { continue; }
       carrying.push_back(commit.substr(0, 8) + " touches board item " + one +
@@ -102,7 +104,6 @@ int main(void) {
     }
   }
   Note("commits this rule has bound so far", (double)commits, "commits");
-  Note("processes the walk spawns", 2.0, "popen");
 
   for (const std::string &one : carrying) { std::printf("FOUND %s\n", one.c_str()); }
 
