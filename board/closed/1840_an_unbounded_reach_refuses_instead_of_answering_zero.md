@@ -47,11 +47,11 @@ accident."* The shifting corridor runs on Earth only.
 
 ## What will be true
 
-- [ ] `AsideRatePerM` answers a refusal for a reach that is not finite, or the finite reach is
+- [x] `AsideRatePerM` answers a refusal for a reach that is not finite, or the finite reach is
       established by its type before it arrives. A returned `0.0` for `inf` is removed.
-- [ ] The parameter is named for what it must receive -- the speed the PLAN holds -- so
+- [x] The parameter is named for what it must receive -- the speed the PLAN holds -- so
       `Envelope::TopMs()` reads wrong at the call site.
-- [ ] `ADriveTickHoldsTheCarToTheDeclaredWorld` drives the SHIFTING corridor on the moon and
+- [x] `ADriveTickHoldsTheCarToTheDeclaredWorld` drives the SHIFTING corridor on the moon and
       asserts the car claims the step there too. Negative control: `AsideRatePerM` fed
       `Envelope::TopMs()` again -> red on the moon leg, the car never leaving its first offset.
 
@@ -60,3 +60,41 @@ accident."* The shifting corridor runs on Earth only.
 - 2026-08-25 -- filed by the hourly review. `board:1830`'s two numeric boxes are genuinely
   paid, with a measured admissible band for `kLagMargin` (2.9 to under 6, set to 4.0). These
   two are not, and the item closed without saying so.
+
+**Closed, both halves.**
+
+```cpp
+src/sim/CorridorLay.h:78   [[nodiscard]] constexpr std::expected<double, std::string_view> AsideRatePerM(
+src/sim/CorridorLay.h:79       double budgetM, double heldMs) noexcept {
+src/sim/CorridorLay.h:84     return std::unexpected("... an unbounded one -- a declared vacuum, where drag allows
+                              any speed at all -- is not a speed anything holds");
+```
+
+The trapdoor is shut rather than walked away from: `inf > 0.0` used to pass the guard and the
+answer was a silent zero. And the parameter is `heldMs`, not `topMs` -- the one thing
+board:1830 established is that `Envelope::TopMs()` is the wrong argument, and a name that
+invites it back is the whole of the documentation this tree allows itself.
+
+**The vacuum leg drives a corridor the rate can move.** It ran `Straight`, where a frozen lane
+centre is the right answer by accident. It runs both now: the straight one for the arrival that
+proves gravity and grip, and a stepping one that measures the aim.
+
+```
+NOTE the lane centre the vacuum drive claimed = 0.357789645 m
+NOTE what it was asked to claim               = 0.75 m
+NOTE how far that ride reached                = 128.856267 m
+```
+
+0.358 m of a 0.75 m step, claimed in 128.9 m of vacuum road. It does NOT claim the whole step,
+and the case says why rather than loosening: a sixth of the gravity is a sixth of the lateral
+force, and the vacuum plans faster, so the rate scaled to that plan is smaller.
+
+Negative control, run: both call sites handed `Envelope::TopMs()` again ->
+
+```
+NOTE the lane centre the vacuum drive claimed = 0 m
+FAIL ...:200  **AND IN A VACUUM THE LANE CENTRE STILL MOVES**
+```
+
+Frozen at zero, which is board:1830's measurement arriving in the case that could not see it
+before.
