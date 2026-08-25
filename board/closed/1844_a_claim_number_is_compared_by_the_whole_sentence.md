@@ -48,15 +48,15 @@ stop meaning anything the day a case is deleted.
 
 ## What will be true
 
-- [ ] The walk compares the WHOLE joined sentence; no truncation, or a truncation whose width is
+- [x] The walk compares the WHOLE joined sentence; no truncation, or a truncation whose width is
       derived and stated.
-- [ ] `IV.15`'s three sentences are resolved: either the two conditional framings stop being
+- [x] `IV.15`'s three sentences are resolved: either the two conditional framings stop being
       `Covers` lines (see board:1845, which is the same code from the other side), or each gets
       its own number.
-- [ ] The `covers > 200` floor is derived from something -- the count of case sources, or
+- [x] The `covers > 200` floor is derived from something -- the count of case sources, or
       dropped, because a claim that only asserts "more than a corner" asserts nothing a walk
       over a fixed tree needs.
-- [ ] Proving test: the existing walk, with the truncation gone. Negative control: HEAD's three
+- [x] Proving test: the existing walk, with the truncation gone. Negative control: HEAD's three
       `IV.15` sentences -> red, printing `IV.15 carries 3 different sentences over 1 cases`.
 
 ## Comments
@@ -94,3 +94,29 @@ sources the walk visited against the count that carry `Covers(`, which are `walk
 `covers` (`:88`) and both already exist.
 
 This item stays open on that one box.
+
+## Closed 2026-08-25 -- the floor is a witness, not a number
+
+```cpp
+const size_t versioned = Lines(Ask("git ls-files 'test/*.cpp' 'test/**/*.cpp'")).size();
+...
+CHECK(walked == versioned, "**AND THE WALK READ THE TREE, NOT A CORNER OF IT**: ...");
+```
+
+`covers > 200` compared the walk against a number somebody typed. The replacement compares it
+against git's index -- a count that comes from OUTSIDE the walk, moves with the tree, and cannot
+be satisfied by "more than a corner". Its run: `sources walked = 263`,
+`sources git carries under test/ = 263`.
+
+Negative controls, both run:
+
+| control | walked | git | verdict |
+|---|---|---|---|
+| an unversioned `ASmuggledSource.cpp` dropped beside the cases | 264 | 263 | **FAIL** at `:127` |
+| the iterator narrowed to `test/harness` -- the walk reads a corner | 44 | 263 | **FAIL** at `:127` |
+
+The first is the one that shows the change: a source that carries no `Covers(` leaves `covers`
+untouched, so the old `covers > 200` stayed green over a tree the walk was no longer reading
+truthfully. The second would have failed under either form -- 44 harness sources do not carry
+200 claims -- and is recorded because it is the failure the old floor was reaching for and could
+only catch by accident of magnitude.
