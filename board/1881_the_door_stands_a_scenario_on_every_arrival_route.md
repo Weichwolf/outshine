@@ -25,7 +25,7 @@ picture.
 
 | call | what it sets | stands a picture |
 |---|---|---|
-| `bool Engine::Read(std::string_view path) {` (src/clients/Engine.cpp:372) | `S_->Declared`, `S_->Carried` | no |
+| `bool Engine::Read(std::string_view path) {` (src/engine/Engine.cpp:372) | `S_->Declared`, `S_->Carried` | no |
 | `Engine::Declare(const Scenario &scenario)` | `S_->Standing` | yes |
 | `bool Engine::Assemble() {` (:139) | the scene store, and the drive | no |
 | `bool Engine::Advance() {` (:535) | `if (!S_->Standing) { ... "no scenario is standing" }` | refuses |
@@ -38,7 +38,7 @@ zero-still result, and it is not the route search: the route search is a differe
 ## What will be true
 
 - [ ] `Read` stands what it read, or `Assemble` does — one arrival route, as the save path
-      already argues in its own refusal at src/clients/Engine.cpp:450.
+      already argues in its own refusal at src/engine/Engine.cpp:450.
 - [ ] `Assemble()` returning true and `Advance()` refusing "nothing is standing" is unspellable:
       the two agree by construction, not by call order.
 - [ ] Proving case: a scenario that declares NO drive is read, assembled, advanced and captured,

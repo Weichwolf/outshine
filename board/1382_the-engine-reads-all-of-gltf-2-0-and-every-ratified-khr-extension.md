@@ -8,7 +8,7 @@ Supersedes: 0106, 1387, 1390, 1391, 1393, 1394, 1397, 1405
 
 glTF is the only content surface, so what the engine may assume about content is the whole
 format. [MEASURED] at the Khronos registry: 20 ratified KHR extensions; `kHonouredExtensions`
-(src/gltf/Document.cpp) names those whose BEHAVIOUR is built, which is the rule this feature
+(src/content/gltf/Document.cpp) names those whose BEHAVIOUR is built, which is the rule this feature
 keeps — generator bakes or renderer implements, never a field that parses and does nothing.
 
 | missing | shape | what it is |

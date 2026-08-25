@@ -28,5 +28,5 @@ it blocks SIMD while being correct.
 - [ ] A refusal that carries a reason is `std::expected`, never bool-plus-string, and never a
       line of prose the caller greps. The ONE door does the last of those today:
       `if (line.rfind("REFUSED", 0) == 0 && Why.empty()) { Why = line; }`
-      (src/clients/Engine.cpp:35) reconstructs the engine's refusal by pattern-matching the text
+      (src/engine/Engine.cpp:35) reconstructs the engine's refusal by pattern-matching the text
       a `Sink` printed for a human, which is why `test/run.sh --drive` says `REFUSED REFUSED`.

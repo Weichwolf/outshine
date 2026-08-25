@@ -13,8 +13,8 @@ Measured at HEAD:
 
 | client | lines | what it should be |
 |---|---|---|
-| `apps/driver/src/main.cpp` | 223 | read a scenario, stand it, step it, keep stills |
-| `apps/viewer/src/main.cpp` | 349 | read a directory, build a scenario, swap the subject on a callback |
+| `apps/driver/src/main.cpp` | 226 | read a scenario, stand it, step it, keep stills |
+| `apps/viewer/src/main.cpp` | 338 | read a directory, build a scenario, swap the subject on a callback |
 
 The viewer's own shape, as the intended flow states it: read the directory, build the html/js,
 build the scenario, attach the first glTF, SDL init, register callbacks, show, replace the glTF

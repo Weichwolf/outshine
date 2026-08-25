@@ -6,82 +6,68 @@ Tags: driver, acceptance, product
 
 # The driver drives at the bar, and the architect signs it off
 
-`apps/driver` is outshine's ONE integration test and simultaneously its product. Everything it uses is
-library, and what the library owes is corpus cases against invariant oracles. Emergence is judged
-HERE, on the picture, by the hourly architect — from what it SAW by RUNNING the programme, never
-from reading the implementation.
+`apps/driver` is outshine's ONE integration test and simultaneously its product. Everything it
+uses is library, and what the library owes is corpus cases against invariant oracles. Emergence is
+judged HERE, on the picture, from what was SEEN by RUNNING the programme.
 
 **The day the driver is a driving simulation at Gran Turismo 7's level in an OSM world and the
 architect accepts it, outshine's integration test has passed.**
 
-## The ledger — rewritten each round from what was SEEN (2026-08-25 19:1x, HEAD c0de1b18)
+## The ledger -- 2026-08-25 22:5x, HEAD a32c4919, own worktree
 
-The command, exactly as the architect's brief prescribes, no arguments beyond the door's:
+The acceptance command, exactly as the brief prescribes:
 
 ```
-make                          -> EXIT 0. liboutshine.a, outshine-driver, outshine-viewer link
+make                                                        -> EXIT 0, both apps link
 build/outshine-driver --headless --into DIR --assets .../apps-driver-f31
-   DRIVING 48.13720,11.57560 -> 48.15000,11.59000, 1280x720, headless
-   ... 80-odd measured lines, every one carrying unit and population ...
-   pieces the graph falls into = 4193 pieces
+   ... 80-odd measured lines, each with unit and population ...
    REFUSED no chain of ways joins the two ends -- 26853 of 45248 joined, 20158 settled
    NO DRIVE -- the picture is what stood without it
-   ZERO stills, no message, exit 1   <- DIR did not exist and nobody made it (board:1903)
-   with `mkdir -p DIR` first: 1 still, refused.png, exit 1
+   ZERO stills, DIR not created, no message, exit 1          <- second round running (board:1903)
 ```
 
-The overridden drive that DOES route: `--from 48.13720,11.57560 --to 48.13600,11.58200` ->
-`DROVE 1534 frames over 0.282 of 0.302 km, kept 9 still(s)`.
-
-**Every number below is byte-identical to the last round's.** Same nine sha256, same nine mean
-luminances to one decimal, same bounding boxes. The picture did not move this hour.
+The overridden drive that routes: `--from 48.13720,11.57560 --to 48.13600,11.58200` ->
+`DROVE 1533 frames over 0.282 of 0.302 km, kept 9 still(s)`.
 
 | question | answer | what proves it |
 |---|---|---|
 | is there a program a user runs? | **yes** | `apps/driver/src/main.cpp`, `-Iinclude` alone |
-| does the gate build it? | **yes** | `make` exits 0, both apps link |
-| does the DECLARED drive leave its stills? | **NO — zero, then one after `mkdir`** | the graph falls into 4193 pieces and the two ends are not both in the largest (board:1862); the missing directory is board:1903 |
-| does an OVERRIDDEN drive? | **nine, not ten; `--stills 1` keeps zero** | the last still needs `alongM >= routeM` and the drive stops at 282 m of 302 m (main.cpp:196-198, board:1903) |
-| do consecutive stills DIFFER? | **yes, and almost nothing in them moves** | nine distinct hashes; the subject's box moves 3 px over 282 m |
-| is there ground under the car? | **NO** | `the ground did not compose: the scenario declares neither a sphere nor a drive that laid a corridor`, printed after 823 corridor stations. `const bool overADrive = false;` (src/clients/Engine.cpp:284) |
-| a horizon behind it? | **NO** | same |
-| a sky above it? | **NO** | `SkyStage` is green in CURRENT and this frame never reaches it |
-| **what IS behind the car?** | **nothing — `alpha = 0`** | 17 055 of 18 849 sampled pixels are fully transparent; `fill="0.9"` has never reached the picture (board:1870). The white is the image viewer |
-| is the car lit? | **NO — a silver flank and a `#000` roof** | mean luminance 15.1 / 14.3 / 13.5 / 12.8 / 12.6 / 12.5 / 12.8 / **45.3** / 43.8 over along01..09, the same triangles on the same pixels. A horizontal roof under `elevationDeg="42"` cannot triple with heading — the key's up and the body's up are two axes (board:1893). Unchanged by this hour's two repairs |
-| does it cast a shadow? | **NO** | no `.scenario` in the tree declares a shadow radius, so `LightVisibility` is never in the plan (board:1575) |
-| does it sit on a surface or float? | **it floats — there is no surface** | |
-| is the camera where the scenario put it? | **the eye is, the CAR is not** | `<view id="eyes">` at `(-0.494, 1.220, 0.003)` IS taken: raising `offsetY` by 2 m empties the frame entirely, and by 50 m gives the same bytes. The car stands ~6 m below and ~12 m from the seat it is declared under (board:1890) |
-| does a key move the car? | **NO, and now the release is gone too** | `apps/driver` offers no `Host`; and `Engine::Handles` filters to `SDL_EVENT_KEY_DOWN` alone (src/clients/Engine.cpp:431), so the pump's release value is dead code and a throttle would latch (board:1803) |
+| does the gate build it? | **yes** | `make` exits 0 |
+| does the DECLARED drive leave its stills? | **NO -- zero, and no directory** | the graph falls into 4193 pieces (board:1862); the missing `mkdir` is board:1903, unfixed for two rounds |
+| does an OVERRIDDEN drive? | **nine of ten** | the tenth needs `alongM >= routeM` (board:1903) |
+| do consecutive stills DIFFER? | **yes, and barely** | nine distinct hashes; 0.5 % of pixels change between consecutive stills, 1.5 % at the corner |
+| **is there any COLOUR in the frame?** | **NO. The picture is BLACK** | exactly two alpha values exist -- 255 on 570 941 px, 102 on 350 659 px -- and `max(R,G,B)` averages **0.45 of 255**, with 0.77 % of pixels above 32. What looked like a silver car in every round before this one was an image viewer compositing the ALPHA channel over its own white page (board:1870, board:1893) |
+| is there ground under the car? | **NO** | `the ground did not compose: ... the ground is APPENDED to the vehicle's own glTF` -- an honest refusal now, after 823 corridor stations. `const bool overADrive = false;` (src/engine/Engine.cpp:283) |
+| a horizon behind it, a sky above it? | **NO** | same. 258 batches drawn, all of them the car |
+| where is the camera? | **in the cabin, and that is NEW this hour** | `eye - mesh = 0.279 m`; the view offset is subtracted from the centre of mass now, and the still shows the A-pillar, the windscreen surround and the near door mirror from within (board:1890) |
+| is the car lit? | **NO** | 99 % of its own pixels below RGB 32 under a 40 000 lux key (board:1893) |
+| does it cast a shadow? | **it casts 258 batches onto nothing** | the shadow radius derives from the subject's extent now (board:1867) and there is no surface to receive it |
+| does it sit on a surface or float? | **it floats -- there is no surface** | |
+| does a key move the car? | **NO** | `apps/driver` offers no `Host` (board:1803) |
 | road markings, guard rails, an oncoming carriageway? | **NO** | nothing declares them |
-| buildings, trees, water beside the road? | **declared, not reached** | `Sim.h` has one consumer, `src/clients/Sim.cpp:1` (board:1805) |
-| what does the picture do at one kilometre it does not do at another? | **it gets brighter at the corner** | the only difference across 282 m is the lighting defect above |
+| buildings, trees, water beside the road? | **declared, not reached** | 37 of 150 sources are linked by no suite, and the generators are most of them (STATE.md) |
+| what does the picture do at one kilometre it does not do at another? | **it gets 4x brighter at the corner, from 0.45 to 1.7 out of 255** | the heading changes and the shading changes with it, which a horizontal surface under a fixed key cannot do (board:1893) |
 
-Against the bar — Gran Turismo 7 on PS4 — nothing on the usual axes can be scored, because
-nothing is drawn beyond one glTF on transparency. What CAN be judged: the body reads as painted
-metal where it is lit at all, the glass reads as glass, the specular follows the shoulder line
-and the tail lamp is the right red. GT7's weakest still has ground, horizon, sky, a shadow and a
-second object; this has one of five, and the one it has is lit from the wrong direction.
+Against the bar -- Gran Turismo 7 on PS4 -- nothing on the usual axes can be scored, because the
+frame carries no colour. GT7's weakest still has ground, horizon, sky, a shadow and a second
+object, all of them lit; this has a cabin interior at RGB 0.
 
 **NICHT ABGENOMMEN.** Between this picture and the bar, in order:
 
-1. the key's up axis and the body's up axis are ONE axis (board:1893). Two candidates were ruled
-   out this hour and the nine luminances did not change by 0.1 — nothing in the picture can be
-   judged until this is fixed
-2. the declared fill stands behind the subject — an `alpha = 0` background has drawn nothing
-   (board:1870)
-3. the shipped scenario ROUTES: 6340 crossings without a shared node (board:1862), and the weld
-   stops reading an index it has invalidated (board:1894)
-4. the car is drawn where the seat is (board:1890) — the eye is right, the mesh is ten metres off
-5. ground, sky and horizon: `overADrive` stops being a literal `false` (board:1890, board:1805)
-6. the acceptance command leaves its stills without a `mkdir`, and keeps N of N (board:1903)
-7. the car's shadow on that ground (board:1575)
-8. road furniture: markings, guard rails, the second carriageway
-9. a key that moves the car, press AND release (board:1803)
-10. draw distance, material response and geometry density measured against a PHOTOGRAPH of the
-    place the still claims to be
+1. the frame carries COLOUR: the clear colour is declared and the car is lit as declared
+   (board:1870, board:1893). Until then no still in this tree can be judged against anything
+2. ground, sky and horizon under the car: `overADrive` stops being a literal, and the three
+   named lines that move 258 batches to 517 land (board:1890)
+3. the shipped scenario ROUTES (board:1862, board:1894)
+4. the acceptance command leaves its stills without a `mkdir`, and keeps N of N (board:1903)
+5. the car's shadow lands on that ground (board:1575)
+6. road furniture: markings, guard rails, the second carriageway
+7. a key that moves the car, press AND release (board:1803)
+8. draw distance, material response and geometry density measured against a PHOTOGRAPH of the
+   place the still claims to be
 
 ## What will be true
 
 - [ ] Every row of the ledger says yes, and the architect writes *ABGENOMMEN* in its report.
 - [ ] Each still is judged against a PHOTOGRAPH of the place it claims to be, not against its
-      own previous version — a picture that agrees only with itself measures nothing.
+      own previous version -- a picture that agrees only with itself measures nothing.

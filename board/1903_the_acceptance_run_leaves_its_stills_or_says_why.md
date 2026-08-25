@@ -12,7 +12,8 @@ The architect's command is fixed and it is the one an owner types:
 build/outshine-driver --headless --into DIR --assets .../apps-driver-f31
 ```
 
-Measured 2026-08-25 at c0de1b18: with `DIR` not already present, the run prints its eighty
+Measured 2026-08-25 at c0de1b18 and AGAIN, unchanged, at a32c4919 -- a second review round
+began with `mkdir`. With `DIR` not already present, the run prints its eighty
 measured lines, prints `NO DRIVE -- the picture is what stood without it`, exits 1 and leaves
 **nothing at all** -- no directory, no file, no message. `engine.Capture(named)` fails because
 nobody created the directory, and `apps/driver/src/main.cpp:171-173` prints only when it
@@ -23,7 +24,7 @@ Two more counting defects in the same loop, both measured on the overridden 302 
 
 | asked | kept | why |
 |---|---|---|
-| `--stills 10` (default) | 9 | the tenth needs `alongM >= routeM` (main.cpp:196-198) and the drive stops at 282 m inside its arrival tolerance |
+| `--stills 10` (default) | 9, at both HEADs | the tenth needs `alongM >= routeM` (main.cpp:196-198) and the drive stops at 282 m inside its arrival tolerance |
 | `--stills 1` | **0** | with `Stills = 1` the only threshold IS the whole route, so one still is no stills |
 
 A programme that keeps `N-1` of `N` stills is counting the wrong ends: ten stills evenly along a

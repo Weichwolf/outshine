@@ -11,7 +11,7 @@ Measured 2026-08-25 at 235e3f47, `test/run.sh` in its own worktree, claims secti
 
 | claim | what it names |
 |---|---|
-| `TheBuildDeclarationAuditsItself` | **FAIL x5** — the audit itself is clean (`150 source(s) reach the archive, 0 do not`); it is the four NEGATIVE CONTROLS that fail, every one of them seeding a string the declaration no longer contains (`src/scene src/scene/Store.cpp`, `Wayfinding.cpp src/clients/Sim.cpp`, `src/ground src/clients/Sim.cpp`). A control written against a frozen listing asserts OUR shape, which is why it broke when the shape moved |
+| `TheBuildDeclarationAuditsItself` | **FAIL x5** — the audit itself is clean (`150 source(s) reach the archive, 0 do not`); it is the four NEGATIVE CONTROLS that fail, every one of them seeding a string the declaration no longer contains (`src/scene src/scene/Store.cpp`, `Wayfinding.cpp src/engine/Sim.cpp`, `src/ground src/engine/Sim.cpp`). A control written against a frozen listing asserts OUR shape, which is why it broke when the shape moved |
 | `TheMapCitesLinesThatSayWhatItClaims` | **FAIL** — 2 drifted citations into `Engine.cpp`, both from this hour's own edits. The review owns the repair and made it |
 | `EveryOracleWasPreparedByThisPreparer` | **FAIL** — board:1886 owns it: six preparer digests over one corpus |
 

@@ -8,7 +8,7 @@ Tags: scope, contract
 One in-memory model, not two: a subject loaded from a file and a subject grown by a generator
 are the SAME type, which makes *the compositor never learns what produced a part* structural
 rather than conventional. The pieces exist — `Gltf::Document` and `Gltf::Subject` are the
-representation, `src/gltf/Emit.h` is the emitter and is held by a fixed point
+representation, `src/content/gltf/Emit.h` is the emitter and is held by a fixed point
 (`Subject(Emit(S)) == S`), and the generators are there — so this is a convergence, not a new
 stack.
 

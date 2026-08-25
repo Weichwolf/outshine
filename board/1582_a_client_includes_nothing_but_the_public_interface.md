@@ -40,7 +40,7 @@ The proof of this item is the first thing that broke.
 
 Three things stand in the way, and they are one motion:
 
-- **the door is a warehouse.** `Engine::State` (src/clients/Engine.cpp) holds the render device,
+- **the door is a warehouse.** `Engine::State` (src/engine/Engine.cpp) holds the render device,
   a `unique_ptr<Clients::Live>`, the frame extent and scenario bookkeeping beside the one part
   that belongs — the graph. Device, Live and Frame dissolve; the door keeps declaration in,
   graph owned, systems advanced, frame out.

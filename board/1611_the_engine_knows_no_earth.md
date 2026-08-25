@@ -11,8 +11,8 @@ gravity and surface through the physics — on a smaller sphere you jump higher 
 and nothing in the library says so, because it follows. Sky, sun, moon and stars are the
 SCENARIO's declarations. Two audits stand open.
 
-**The constants.** `src/core/Geodesy.h:10` hard-wires `const double a = 6378137.0, e2 =
-6.69437999014e-3;` inside `GeoToEcef`, taking no sphere as a parameter; `src/data/Wgs84.h` is a
+**The constants.** `src/base/geo/Geodesy.h:10` hard-wires `const double a = 6378137.0, e2 =
+6.69437999014e-3;` inside `GeoToEcef`, taking no sphere as a parameter; `src/world/data/Wgs84.h` is a
 file named after an Earth datum. Gravity and the sphere radius are declarations now
 (`<world radiusM=... gravityMs2=...>`); provider geodesy — the WGS84 ellipsoid, the Mercator
 band — is the PROVIDER's, and belongs under `src/data` where an Earth DEM declares it the way a
@@ -44,4 +44,4 @@ must hold 720p60.
 - [ ] `GeoToEcef` takes the sphere it is converting for, and the core spells no datum.
 - [ ] `earth.xml` exists, a scenario instances it, and an orphaned override refuses by name.
 - [ ] `Ephemeris` says it computes an EARTH sky from declared elements — the scenario's, not
-      the engine's (src/core/Ephemeris.h:9-11 bounds a sphere the engine may not name).
+      the engine's (src/world/sky/Ephemeris.h:9-11 bounds a sphere the engine may not name).

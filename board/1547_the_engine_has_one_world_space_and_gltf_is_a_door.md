@@ -7,7 +7,7 @@ Tags: scope, layering
 
 Unreal converts Y-up right-handed content into its own world once, at load; RAGE normalises in
 the asset pipeline. **The conversion is a door, not a step in the frame.** Here
-`EcefFromGltf` appears ten times in `src/clients/GltfStudio.cpp` on the RUNTIME path: every
+`EcefFromGltf` appears ten times in `src/engine/GltfStudio.cpp` on the RUNTIME path: every
 vertex, normal, tangent and previous position per upload; every light's direction and position;
 the eye, its forward, its right and its up; and the per-part placements, added the day they
 became the thirteenth thing somebody forgot.

@@ -12,7 +12,7 @@ Tags: guards, measured
 src/host/Fetching.h   guards as CURLTRANSPORT_H      where its folder spells OUTSHINE_HOST_FETCHING_H
 src/scene/Traits.h    guards as OUTSHINE_TRAITS_H    where its folder spells OUTSHINE_SCENE_TRAITS_H
 src/scene/Assembled.h guards as OUTSHINE_ASSEMBLED_H where its folder spells OUTSHINE_SCENE_ASSEMBLED_H
-src/data/Transport.h  guards as OUTSHINE_TRANSPORT_H where its folder spells OUTSHINE_DATA_TRANSPORT_H
+src/world/data/Transport.h  guards as OUTSHINE_TRANSPORT_H where its folder spells OUTSHINE_DATA_TRANSPORT_H
 ```
 
 `src/host/Fetching.h` is the sharp one: `CURLTRANSPORT_H` is the guard of a file that no longer

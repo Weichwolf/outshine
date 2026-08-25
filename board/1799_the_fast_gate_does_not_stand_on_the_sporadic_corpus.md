@@ -20,13 +20,23 @@ proves. There is no ledger of which numbers exist, they are chosen by hand, and 
 use carry two or more UNRELATED sentences (`IV.13`, `IV.14`, `IV.15` each collided the day they
 were written).
 
-**MEASURED 2026-08-25 at 817ea333: the fast gate runs for twenty minutes.** A full run in its
-own worktree: `844 tests: 825 PASS 2 FAIL 0 TIMEOUT 0 SIGNAL 2 BUILD 0 SKIP 15 UNPREPARED
-0 PARTIAL in 1340245 ms`, and `THE FAST GATE OVERRAN ITS BOUND -- 1205550 ms of RUN over the
-declared 230000 ms`. Five times the bound, and the corpus is what fills it: 448 cases pruned,
-7414 MB declined, a peak of 28792 MB. The overrun's own `exit 1` (test/run.sh:1510) returns
-before `red` is computed at :1513, so a run that overruns reports NO verdict on its failures --
-the 2 FAIL and the 15 UNPREPARED above never reached an exit code.
+**MEASURED 2026-08-25 at a32c4919, a full run in its own worktree:**
+
+    862 tests: 845 PASS  0 FAIL  0 TIMEOUT  0 SIGNAL  2 BUILD  0 SKIP  15 UNPREPARED  in 1142019 ms
+    THE FAST GATE OVERRAN ITS BOUND -- 752511 ms of RUN over the declared 230000 ms
+    apps/viewer/src/main.cpp does not BUILD AND ANSWER --help ... 'Face.h' file not found
+    peak 51034 MB, 446 cases pruned, 7414 MB declined
+
+The reds are gone (2 FAIL -> 0) and the run is down from 1205550 ms to 752511 ms -- still **3.3x
+the declared bound**, and the corpus is what fills it. The 2 BUILD are unchanged and one of them
+is the viewer, which the door-only check refuses because `main.cpp` includes `"Face.h"` from a
+sibling directory the door does not carry.
+
+**Nineteen minutes is also why nobody runs it.** Every commit this session reports a SUBSET --
+`harness/outshine N PASS, harness/claims 24 PASS, audits green` -- so the default gate's exit
+code at HEAD is read by the hourly review and by nothing else. The overrun's own `exit 1`
+(test/run.sh:1510) returns before `red` is computed at :1513, so a run that overruns still
+reports no verdict on its failures.
 
 ## What will be true
 

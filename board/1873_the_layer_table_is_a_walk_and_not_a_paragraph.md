@@ -15,8 +15,8 @@ walk cheap and the red meaningful:
 
 | rule | breaches at HEAD |
 |---|---|
-| any of `src/` may not spell Earth · Moon · a planet's name or numbers | `const double a = 6378137.0, e2 = 6.69437999014e-3;` (src/core/Geodesy.h:10) · `constexpr double kWgs84A = 6378137.0;` (src/data/Wgs84.h:8) · `Moon,` (src/render/plan/RenderCatalogue.h:79) |
-| Ground may not spell camera · frustum · clock · LOD level · device · sun | 73 sites, all in `src/ground/World.{h,cpp}` — 59 in the body, 14 in the header |
+| any of `src/` may not spell Earth · Moon · a planet's name or numbers | `const double a = 6378137.0, e2 = 6.69437999014e-3;` (src/base/geo/Geodesy.h:10) · `constexpr double kWgs84A = 6378137.0;` (src/world/data/Wgs84.h:8) · `Moon,` (src/render/plan/RenderCatalogue.h:79) |
+| Ground may not spell camera · frustum · clock · LOD level · device · sun | 73 sites, all in `src/world/ground/World.{h,cpp}` — 59 in the body, 14 in the header |
 | generator may not spell camera · neighbour part · draw list · device | 0 |
 | compositor may not spell device · pipeline · texture · shader · pass | 0 |
 | renderer may not spell any content noun | 7 in `src/render/plan/RenderCatalogue.h`, 1 each in `SubjectDraw.cpp` and `ShaderFile.cpp` |

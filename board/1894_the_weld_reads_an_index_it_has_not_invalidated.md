@@ -6,7 +6,7 @@ Tags: measured, graph, routing
 
 # A loose end welds onto an edge that is still there
 
-`Network::Weave` (src/actor/path/Wayfinding.cpp:110) ties a degree-one node onto the edge it
+`Network::Weave` (src/base/spatial/Wayfinding.cpp:110) ties a degree-one node onto the edge it
 ends ON. The candidate edges come from `byEdgeCell`, built once at :243 over the edge table as
 it stood BEFORE any tie, and the tie then mutates that table:
 

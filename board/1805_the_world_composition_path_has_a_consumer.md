@@ -11,12 +11,12 @@ and colours all of it green — right responsibility, right layer. **Nothing out
 it, and since the cut nothing at all does.**
 
 Measured 2026-08-25 at 235e3f47: `grep -rn '"Sim.h"' src apps test include` finds **one line**,
-`src/clients/Sim.cpp:1`, the facade's own implementation. Last round it found one test as well;
+`src/engine/Sim.cpp:1`, the facade's own implementation. Last round it found one test as well;
 that test went with `test/unit/`. 798 lines with ZERO consumers, and `Forest`, `Buildings`,
 `Water`, `Infrastructure` and `RegionForge` hang off it.
 
 **The consumer exists, it is CALLED, and it refuses.** `Engine::Assemble` calls
-`bool Engine::Compose(void) {` (src/clients/Engine.cpp:263) after it routes; Compose opens the
+`bool Engine::Compose(void) {` (src/engine/Engine.cpp:263) after it routes; Compose opens the
 ground stack and lays the ring through `auto laid = LayPatchwork(S_->Stack.Pool(), over);`
 (:301), giving the asynchronous pool the passes it needs. That is real and it is the movement
 this item asked for.
@@ -25,7 +25,7 @@ this item asked for.
 shut.** Measured 2026-08-25 at 817ea333:
 
 ```cpp
-const bool overADrive = false;                              // src/clients/Engine.cpp:271
+const bool overADrive = false;                              // src/engine/Engine.cpp:271
 if (!declared.Ground.Declared && !overADrive) {
   S_->Error = "the scenario declares neither a sphere nor a drive that laid a corridor, so "
               "there is nowhere for a ground to be composed";

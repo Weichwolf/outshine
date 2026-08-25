@@ -65,7 +65,7 @@ Negative control, the subject folded back into the sameness test so a changed su
 full path: 1 further plan per swap, and both CHECKs fail.
 
 **The diff that decides all of this is hand-written, and the next field added escapes it.**
-`SamePicture` (src/clients/Engine.cpp:514-526) compares 21 members of `Clients::Declaration`
+`SamePicture` (src/engine/Engine.cpp:514-526) compares 21 members of `Clients::Declaration`
 one by one; `SameStand` adds three and `SameShows` seven. Add a member to `Declaration` and
 every one of them keeps saying *the same picture*, so a declaration that CHANGED is reused and
 the defect is a stale frame, silently. `Declaration` is an aggregate of comparable members: a

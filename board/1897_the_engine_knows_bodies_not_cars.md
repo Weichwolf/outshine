@@ -11,7 +11,7 @@ forces, actuators and control. A control command comes from the player through b
 a mind; it activates a force, and only integration places a body. RAGE keeps `CVehicle` in the
 game layer, Unreal keeps wheeled movement in a plugin. outshine's engine core keeps it inline.
 
-Measured at HEAD, `src/clients/Engine.cpp` alone:
+Measured at HEAD, `src/engine/Engine.cpp` alone:
 
 | noun | count | where it bites |
 |---|---|---|

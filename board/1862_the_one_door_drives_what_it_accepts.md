@@ -7,7 +7,7 @@ Supersedes: 1486, 1488, 1489, 1490, 1491, 1494, 1863
 # The one door ADVANCES what it accepts
 
 The drive is through the door: `Engine::Assemble` runs `AssembleDrive` when the scenario declares
-one and refuses by name (src/clients/Engine.cpp:192), `Engine::Advance` ticks it (:715),
+one and refuses by name (src/engine/Engine.cpp:192), `Engine::Advance` ticks it (:715),
 `Engine::Drove()` answers, and the driver links `-Iinclude` alone.
 
 **The route search is the product's first content-level result, and it is STILL a refusal.**

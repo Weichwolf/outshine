@@ -13,7 +13,7 @@ subject has no ladder, a generated part has none, and the car that most needs on
 Terrain is one generator's output among many, and it owns *quantise*, one of the four verbs the
 decomposition gives the compositor. The engine must not know what terrain IS.
 
-The same class holds the second defect: `class TilePool {` (src/ground/TilePool.h:35) keeps 3
+The same class holds the second defect: `class TilePool {` (src/world/ground/TilePool.h:35) keeps 3
 `std::mutex`, a `std::condition_variable`, a `std::map` and a `std::set` of pointer-chasing
 nodes where a slot table and a ring would do — RAGE's reference is a decisionless pool, and a
 decisionless pool holds no tree.

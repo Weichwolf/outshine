@@ -10,9 +10,20 @@ not a layout verb, not a parser class — a client declares a scenario and the e
 
 Everything under `test/` may use `include/` and NOTHING of `src/`.
 
-**Measured 2026-08-25 at c0de1b18: 22 sources under `test/` include a header that resolves into
-`src/`, and SIX of them were written in the last ninety minutes.** The rule is not eroding at
-the edges; it is the default way a case gets written.
+**Measured 2026-08-25 at a32c4919: 13 of the 17 declared suites are granted a `-Isrc/...` path
+by `LayerIncludes` (test/run.sh:210-224). Only `harness/wpt/css`, `harness/test262/js`,
+`apps/driver/src` and `apps/viewer/src` reach the library through `include/` alone.** The rule is
+not eroding at the edges; it is the default way a case gets written, and STATE.md does not print
+the number (board:1907).
+
+**And it costs a closure its proof.** board:1891 was closed on
+`harness/outshine/scenario/ScoreWhenAVolumeFires`, which stands `TriggerField` directly out of
+`src/scenario/Triggers.h`. The oracle is good -- enter is an edge and not a state, with a control
+that tells the two edges apart -- but the DEFECT that was fixed was three lines in
+`src/engine/Engine.cpp` publishing the firing through `Numbers()`, and the case never touches the
+engine. Delete those three lines tomorrow and the case stays green: a guard that does not guard
+the thing it closed. `harness/outshine/door/ScoreWhatTheShadowCasts`, written the same session
+through `include/` alone, is the shape it should have had.
 
 | scorer | what it reaches into | what it actually wants |
 |---|---|---|
@@ -24,7 +35,7 @@ the edges; it is the default way a case gets written.
 | `harness/outshine/fuzz` (2) | `Document.h`, `Subject.h` | read this glTF and tell me whether it was refused, and why |
 
 And `test/run.sh` is where the rule is being paid off: three include sets were added at
-`test/run.sh:200-202` that hand `-Isrc/gltf`, `-Isrc/sim`, `-Isrc/clients` and eleven more
+`test/run.sh:200-202` that hand `-Isrc/content/gltf`, `-Isrc/sim`, `-Isrc/engine` and eleven more
 straight to the new groups. Widening the runner is not reaching through the door; it is
 deciding not to.
 
@@ -49,7 +60,7 @@ bookkeeping, EXR comparison. It may not carry engine internals to get there.
 ## What the measurement already says
 
 A Khronos manifest declares exactly what a scenario declares: a glTF subject, a frame, and a
-CAMERA that is derived from the framing rule the engine itself carries (`src/gltf/Framing.h`) --
+CAMERA that is derived from the framing rule the engine itself carries (`src/content/gltf/Framing.h`) --
 the manifest quotes it so the runner can refuse a mismatch rather than trust one. `RenderPlan`
 holds `Frame` and `Fill`; that is the same rule. **So a Khronos case needs no new grammar: it is
 an asset plus a frame plus a fill.**

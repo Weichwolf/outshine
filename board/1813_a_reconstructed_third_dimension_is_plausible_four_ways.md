@@ -12,8 +12,8 @@ other 3D course are RECONSTRUCTED, and what a reconstruction owes is four kinds 
 spans, piers and clearances that could carry their own load), **architectural** (it looks like
 the thing it is). A guess that holds all four is right; one that holds three is a finding.
 
-At HEAD the tree does none of it: `src/ground/StreetField.cpp:32` counts a tunnel and drops it,
-`src/ground/WaterField.cpp` does the same, and no source reads `bridge`, `layer` or `level` at
+At HEAD the tree does none of it: `src/world/ground/StreetField.cpp:32` counts a tunnel and drops it,
+`src/world/ground/WaterField.cpp` does the same, and no source reads `bridge`, `layer` or `level` at
 all. Every crossing in the world is a road drawn flat through whatever it should have gone over
 or under.
 

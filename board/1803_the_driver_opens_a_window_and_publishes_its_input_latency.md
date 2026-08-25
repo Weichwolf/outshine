@@ -13,21 +13,21 @@ None is answerable against an offscreen renderer.
 
 **The engine no longer names content, and no key still moves the car.** At 35829990
 `Engine::Acts` is gone: `Engine::Handles` translates an SDL key to at most two
-`(action id, kind, value)` without allocating (src/clients/Engine.cpp:419-420) and hands the
+`(action id, kind, value)` without allocating (src/engine/Engine.cpp:419-420) and hands the
 declared action's NAME to `Host::Calls` (:428), where the client decides what it means. The
 engine offers `Takes(view)` and `Views()` (include/Outshine.h:48-49) so a client can act on a
 view without the engine knowing what for, and `apps/viewer` answers `next-view` through them.
 
 What is left is the other half. `apps/driver` offers NO host at all, so
-`if (S_->Offered == nullptr) { return false; }` (src/clients/Engine.cpp:433) drops every key
+`if (S_->Offered == nullptr) { return false; }` (src/engine/Engine.cpp:433) drops every key
 before it is translated, and the four bindings `f31.scenario` declares -- `throttle`, `brake`,
 `steer-left`, `steer-right` -- reach nothing. There is also no window to press a key in: the
 driver runs headless.
 
 **AND THE SEAM HAS LOST ITS RELEASE EDGE.** `if (S_->Pumping && event.type ==
-SDL_EVENT_KEY_DOWN)` (src/clients/Engine.cpp:431) filters to the press alone; the door used to
+SDL_EVENT_KEY_DOWN)` (src/engine/Engine.cpp:431) filters to the press alone; the door used to
 take `KEY_DOWN || KEY_UP`. `InputPump::Translate` still answers a release with value `0.0f`
-(src/clients/InputPump.cpp:87-88) and nothing ever calls it with a release, so that branch is
+(src/engine/InputPump.cpp:87-88) and nothing ever calls it with a release, so that branch is
 dead code and a throttle pressed once is a throttle held for ever. A button is an edge PAIR or
 it is a latch, and no case in the tree presses a key and lets it go.
 
@@ -36,7 +36,7 @@ it is a latch, and no case in the tree presses a key and lets it go.
 - [ ] `apps/driver` opens a real window and drives it with the declared `InputMap` through
       `InputPump` — the same bindings the scenario declares, no second spelling (board:1862).
 - [x] The engine names no action of its own. The pump translates and `Host::Calls` carries the
-      declared name to the client (src/clients/Engine.cpp:428).
+      declared name to the client (src/engine/Engine.cpp:428).
 - [ ] A key moves the car. `throttle`, `brake`, `steer-left` and `steer-right` reach the pilot's
       seat as a driver INPUT that overrides the plan, through a host `apps/driver` offers.
 - [ ] The case publishes input-to-present as p50/p95/p99, named as PIPELINE latency rather than

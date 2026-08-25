@@ -23,7 +23,7 @@ survival only). Most of what graphics calls a test corpus is INPUT.
 | | corpus | what it closes |
 |---|---|---|
 | 1 | glTF-Validator, 372 golden report pairs, Apache-2.0 | glTF is the only content surface. The 151 render cases prove what we do with a CORRECT asset and nothing proves what we do with a broken one — and refusal-with-a-reason is first class here (`std::expected`). Rides on `prepare.py` with no new job kind |
-| 2 | GeographicLib GeodTest + TMcoords, CC0, DOI-pinned | *One world space*. `src/core/Geodesy.h` and `Mercator.h` carry Munich–Hamburg, every tile key and every building placement, and NOTHING proves one function of it. 50-digit reference, so the corpus cannot be the thing that is wrong |
+| 2 | GeographicLib GeodTest + TMcoords, CC0, DOI-pinned | *One world space*. `src/base/geo/Geodesy.h` and `Mercator.h` carry Munich–Hamburg, every tile key and every building placement, and NOTHING proves one function of it. 50-digit reference, so the corpus cannot be the thing that is wrong |
 | 3 | Kider's measured sky via `ebruneton/clear-sky-models`, BSD | Three medium stages are green in CURRENT *and* TARGET with no oracle at all — Cycles models no atmosphere. See the box below |
 
 JTS TestBuilder lost third place to a measurement, not a preference: 129 files of SPEC-grade

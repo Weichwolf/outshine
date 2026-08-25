@@ -14,8 +14,8 @@ Supersedes: 1595
 | the overlay draw | src/render/stages/OverlayDraw.cpp | `SDL_DrawGPUPrimitives(pass, 6, Count, ...)` — the engine already instances, on the other path |
 | the field for it | src/render/draw/DrawList.h | `DrawBatch::Draws` exists and is summed as a STATISTIC only |
 | the cull | nowhere | `World::TargetInViewN` counts tiles for streaming residency, not visible geometry |
-| the selector | src/ground/World.h | `struct Eye` (:49), `Refine(const Eye &eye, double nowMs)` (:55) — the ground layer chooses LOD per eye, which the layer table forbids |
-| the frustum | src/core/Camera.h | `struct Frustum` (:94) sits in core beside the camera and has no consumer |
+| the selector | src/world/ground/World.h | `struct Eye` (:49), `Refine(const Eye &eye, double nowMs)` (:55) — the ground layer chooses LOD per eye, which the layer table forbids |
+| the frustum | src/content/shade/CameraBasis.h | `struct Frustum` (:94) sits in core beside the camera and has no consumer |
 
 A thousand cars with no instancing is at least a thousand draws; a city with no cull draws the
 half of the world behind the camera. Both are architecture written down and not built, and the

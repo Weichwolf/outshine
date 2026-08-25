@@ -88,7 +88,7 @@ So the reach this item names is bigger than "carry a kind", and the order is now
 
    **"NOTHING conformant is refused" is not proven, and one class is provably wrong.**
    `Document::BoundsHold` compares `accessor.Min`/`Max`, read RAW out of the JSON
-   (src/gltf/Document.cpp:653,656), against elements `ReadElements` has already NORMALISED
+   (src/content/gltf/Document.cpp:653,656), against elements `ReadElements` has already NORMALISED
    (`accessor.Normalized ? Normalise(raw, accessor.Component) : raw`). A conformant normalised
    accessor -- `componentType 5121`, `normalized true`, `min [255,255,255]` -- reads back as
    `1.0` and is refused as *carrying an element outside the bounds it declares*. The corpus
