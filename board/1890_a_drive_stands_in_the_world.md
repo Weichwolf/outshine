@@ -225,9 +225,36 @@ the tree.
       after assembly. That part is sound and measured: the door declared 0.0155498 m per asset
       unit at `Declare` time.
 
-      What is NOT explained, and is where the next attempt starts rather than the arithmetic:
-      with `Subject::ScaleTo` called from `Live::Pose` and the door carrying the factor, the
-      subject still spans 1102 units rather than 17 m. Either `Pose` is not the path the first
-      stand takes, or `Live::Shown()` does not return what is drawn. Two guesses, and this item
-      has already cost three wrong guesses today, so the next move is to MEASURE which -- print
-      the span inside `Live::Build` at each branch -- and not to edit.
+      ### MEASURED from inside Live::Build, and the premise of both attempts was WRONG
+
+      Printed at each branch of the first stand:
+
+          DIAG Build:          Built=0x0  Stands='.../scene.gltf'  mpu=1.00000000
+          DIAG after Pose(0):  span 132.728 x 94.267
+          DIAG at Carry:       parts=258 joined=258 span 132.728 x 94.267 x 297.584
+
+      297.584 asset units x 0.0155498 = **4.63 m**, beside 2.06 m of width and 1.47 m of height.
+      That is a 3-series to the centimetre. The geometry stands in asset units, the matrix
+      scales it, and the answer is RIGHT. The "1102 units" that sent both attempts chasing a
+      scale bug was a measurement of a different state, and only two of the three axes were
+      printed the first time.
+
+      So the scale is not the seam and moving it onto the vertices is a refactor, not a fix. It
+      may still be worth doing -- CLAUDE.md asks for it and it removes a per-frame multiply --
+      but nothing about the ground waits on it.
+
+      ### What the ground actually waits on
+
+      `Live::Stand` resets every placement to identity:
+
+          Stood_ = Studio{};
+          Stood_.PartPlacement.assign(Geometry_.Parts().size(), identity);
+
+      and `Composes` calls `Restand` DURING assembly, before any `Carry` has run. So at the
+      moment the camera is derived, the car's 297 asset units and the ground's 8000 metres are
+      compared RAW, with no placement separating them -- and every refusal measured today
+      followed from that one fact.
+
+      The fix is that a restand keeps the placements the parts already had, rather than throwing
+      them away and rebuilding a picture that has never been placed. That is one seam, it is in
+      `Live::Stand`, and it is where the next attempt starts.
