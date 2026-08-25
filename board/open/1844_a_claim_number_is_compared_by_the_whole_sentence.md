@@ -64,3 +64,33 @@ stop meaning anything the day a case is deleted.
 - 2026-08-25 -- filed by the hourly review. `board:1841` is the right instrument built with a
   comparison that cannot see the thing it forbids; the item's own two open boxes (the
   catalogue) would make this unspellable rather than merely detected.
+
+## Sharpened 2026-08-25 -- two boxes done, one standing, and the standing one is the number
+
+`9117e1c9` did the work the first two boxes name, and it did it properly:
+
+```cpp
+test/harness/claims/AClaimNumberNamesOneClaim.cpp:92
+      saying[number].insert(whole.substr(space + 1));
+```
+
+No truncation. `IV.15`'s three sentences became one: `TheCorpusIsPrunedByOneRunnerOnly.cpp:50`,
+`:77` and `:145` now carry the same `Covers` text and the circumstance moved into the `NOTE`
+beside it, which is the resolution this item preferred.
+
+The third box is untouched:
+
+```cpp
+test/harness/claims/AClaimNumberNamesOneClaim.cpp:112
+  CHECK(covers > 200, "the walk found this tree's claims, not a corner of them");
+```
+
+`200` still has no origin. It is a floor under a number the walk itself computes and prints one
+line earlier (`Note("Covers statements found", (double)covers, "claims")`, `:107`), and the two
+values it must separate -- "the walk read the tree" and "the walk read a corner of it" -- are not
+what a bare `200` distinguishes: it is satisfied by 201 claims found where the tree carries 209,
+and it stops meaning anything the day a case is deleted. The derivable form is the count of
+sources the walk visited against the count that carry `Covers(`, which are `walked` (`:79`) and
+`covers` (`:88`) and both already exist.
+
+This item stays open on that one box.

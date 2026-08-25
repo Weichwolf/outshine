@@ -281,7 +281,7 @@ at (board:1777):
 | `WaterField` | `void Tessellate(const OsmField &field, std::vector<float> &out) const;` (WaterField.h:47) -- the same: a field that meshes rather than one that answers |
 | `Subject` | `class Subject {` (Subject.h:98) carries 42 `[[nodiscard]]` over one glTF document -- the getter carpet |
 | `DrawList` | `class DrawList {` (DrawList.h:167) with `struct VertexLayoutRow {` (:49) beside it: the list and the layout table in one header |
-| `Renderer` | `class Renderer {` (Renderer.h:32) publishes 54 `[[nodiscard]]` and 15 `const {` -- the getter carpet, on the frame path |
+| `Renderer` | `class Renderer {` (Renderer.h:34) publishes 54 `[[nodiscard]]` and 15 `const {` -- the getter carpet, on the frame path |
 | `TonemapStage` | `class TonemapStage {` (TonemapStage.h:14) is where `temporalResolve` folded into, so it carries two picture decisions |
 | `LightVisibilityStage` | `class LightVisibilityStage {` (LightVisibilityStage.h:16) -- one shadow atlas for every light, no cascade selection declared |
 | `Frustum` | `struct Frustum {` (Camera.h:94) sits in core beside the camera, while culling belongs to the compositor |
@@ -418,14 +418,15 @@ classDiagram
 
 `Live`, `Renderer`, `GroundStream` and the drive systems are still reachable by clients —
 the TARGET below removes them. What a client hands the renderer is a SURFACE — a window or an
-extent — and what comes back is `std::expected<Shown, std::string>`: no device, no swapchain, no
-command buffer, and `SDL_ClaimWindowForGPUDevice`, `SDL_WaitAndAcquireGPUSwapchainTexture` and
-`SDL_ReleaseWindowFromGPUDevice` have no call site outside `src/render/`
-(`harness/claims/TheDeviceLeavesTheLibraryOnlyForItsOwnTwins`, board:1826). The `Shown` it
-carries still holds the `bool Drew` (Renderer.h:42) the `expected` replaced, and a swapchain
-that legitimately answers no texture — a minimised window, `SDL_gpu.h:4300`: *"This is not an
-error"* — comes back as `std::unexpected` built from a `std::string` on the present path
-(Renderer.cpp:912), which is the door's remaining distance (board:1847).
+extent — and what comes back is
+`std::expected<std::optional<Shown>, std::string_view>` (Renderer.h:50): an ABSENT `Shown` is
+"no image this frame", which a minimised window gives and `SDL_gpu.h:4300` calls *"not an
+error"*, while `std::unexpected` is reserved for the three faults — no surface declared, no
+device, no command buffer — and every one of them is a `string_view` into static text, so the
+present path allocates nothing. `SDL_ClaimWindowForGPUDevice`,
+`SDL_WaitAndAcquireGPUSwapchainTexture` and `SDL_ReleaseWindowFromGPUDevice` have no call site
+outside `src/render/` (`harness/claims/TheDeviceLeavesTheLibraryOnlyForItsOwnTwins`,
+board:1826).
 The assembly API stands public since 2026-08-22: `include/outshine/{Register,Store,Column}.h`
 are the C++ door, `Engine::Assemble/Scene` own the one graph, proven by a client that includes
 nothing but `outshine/`.

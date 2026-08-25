@@ -71,3 +71,36 @@ so the day a third one is added the note keeps printing 2.
 - 2026-08-25 -- filed by the hourly review. `board:1842`'s cost argument is sound and the one-call
   walk should stay; what must not stay is a performance change that rewrites what the guard
   means without saying so.
+
+## Sharpened 2026-08-25 -- the predicate is back, the guard against the next drift is not
+
+`9117e1c9` restored it, and correctly:
+
+```cpp
+test/harness/claims/ACommitCarriesTheItemItNames.cpp:88
+    std::vector<std::string> named = NumbersIn(message, "board:");
+test/harness/claims/ACommitCarriesTheItemItNames.cpp:89
+    for (const char *also : {"board/open/", "board/closed/", "board/active/"}) {
+```
+
+The path spellings are a widening too, and a defensible one: `board/open/1844_...` names an item
+as unambiguously as `board:1844` does. The `Note("processes the walk spawns", 2.0, "popen")` this
+item also named is gone -- the walk publishes `Note("commits this rule has bound so far", ...)`
+(`:106`) instead, which counts something it actually counted.
+
+**The item stays open on its own last box.** Its proving test was to be *"a fixture message that
+touches `board/2528` and says only `the corpus is 2528 MB` -> FOUND"*, and there is no such
+fixture: `NumbersIn` is a file-local helper, the walk runs only over real history, and nothing in
+`test/unit/` mirrors it. So the exact failure this item exists to record -- a predicate rewritten
+under a sentence that still says the old thing -- would land again with the gate green, twice in
+a row now, and the second time nobody would be reviewing the diff of a performance commit.
+
+- [ ] `NumbersIn` (or a named predicate replacing it) has a unit twin that feeds it the four
+      forms: `board:1844`, `board:1844,1845`, `board/open/1844_x.md`, and prose carrying `2528`.
+      Negative control: `board:1842`'s lax scan -> the fourth case FOUND.
+
+A second defect of the same helper, found by reading it and not by the walk: `NumbersIn` tests
+only the FIRST character for a digit and then takes four bytes regardless
+(`ACommitCarriesTheItemItNames.cpp:38-39`), so `board:18` yields the token `"18 a"` and a
+message naming a two- or three-digit item names garbage. The board's numbers are four digits
+today; the helper does not say so and does not check it.

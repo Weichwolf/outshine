@@ -81,9 +81,9 @@ CLAUDE.md:421   ... and what comes back is `{Drew, WidthPx, HeightPx}` ...
 **Closed.**
 
 ```cpp
-src/render/Renderer.h:42   struct Shown { int WidthPx = 0; int HeightPx = 0; };
-src/render/Renderer.h:47   [[nodiscard]] std::expected<std::optional<Shown>, std::string_view> PresentFrame();
-src/render/Renderer.cpp:930  if (!drew) { return std::optional<Shown>(); }
+src/render/Renderer.h:43   struct Shown { int WidthPx = 0; int HeightPx = 0; };
+src/render/Renderer.h:50   [[nodiscard]] std::expected<std::optional<Shown>, std::string_view> PresentFrame();
+src/render/Renderer.cpp:913  if (!drew) { return std::optional<Shown>(); }
 ```
 
 An absent `Shown` is "no image this frame" -- what a minimised window gives, which SDL's own

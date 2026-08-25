@@ -95,3 +95,77 @@ The distinction the tree needs is three-valued, not two:
 
 - 2026-08-25 -- filed by the hourly review, measured in its own run at `ae926bbc`, and reopened
   the same hour against `4eae57bc`, measured again. Both measurements are in this body.
+
+## Sharpened 2026-08-25 -- the repair landed, and the register is now diluted
+
+`9117e1c9` put `Partial(0.0, ...)` on both vacuous exits
+(`test/harness/claims/TheCorpusIsPrunedByOneRunnerOnly.cpp:49`, `:76`). That is one of the two
+options this item's own box allowed, it does exactly what it was asked -- the gate is no longer
+red for a configuration CLAUDE.md mandates -- and it leaves three things standing.
+
+**1. `PARTIAL` now spans two meanings and its trailer sentence contradicts itself at one of
+them.** `board:1810` built PARTIAL for *"a seventh of the route was driven"*, and the trailer
+prints that reading verbatim:
+
+```sh
+test/run.sh:1401  'run.sh: %s JUDGED PART OF ITS SUBJECT -- %s of %s, ...'
+```
+
+At share `0.0` this reads *"JUDGED PART OF ITS SUBJECT -- 0.000000 of IV.15's own claims"*. A
+part of zero is not a part. The three-valued distinction this item's own table demanded still has
+only two registers to sit in, and the second one now carries both "some" and "none".
+
+**2. The FIRST line still counts it as PASS.** This item's third box says a reader of the first
+line must know IV.15 was not judged. The first line is
+
+```sh
+test/run.sh:1388  '%s tests: %s PASS  %s FAIL  ... %s SKIP  %s UNPREPARED  in %s ms'
+```
+
+and it has no PARTIAL column: the case lands in `PASS` and the fact goes out afterwards, on
+stderr. `partialCases` is initialised at `test/run.sh:953` and incremented at `:1042`, so the
+number exists and is not printed where the box asked for it.
+
+**3. The register is load-bearing only by accident.** `Report()` fails a case that checked
+nothing:
+
+```cpp
+test/harness/shared/Check.h:94   if (Checks.Value() == 0 && Skips.Value() == 0 && Unprepareds.Value() == 0) {
+test/harness/shared/Check.h:96     std::printf("FAIL no claim was checked\n");
+```
+
+`Partials` is not in that condition. This case survives it only because of the unrelated
+`CHECK(nest != nullptr, ...)` at `:28`; a case whose sole output is `Partial(0.0, ...)` goes red
+with *"no claim was checked"*, which is the opposite verdict from the one intended.
+
+### What will additionally be true
+
+- [ ] `PARTIAL` at share 0 either gets its own sentence in the trailer -- "JUDGED NONE OF ITS
+      SUBJECT" -- or a fourth verb carries the legally-absent case, so the register a reader sees
+      matches the fact.
+- [ ] The first trailer line carries `%s PARTIAL` beside `%s SKIP` and `%s UNPREPARED`; the count
+      is already computed at `test/run.sh:1042`.
+- [ ] `Report()`'s vacuity guard counts `Partials`, so `Partial(...)` alone is a complete report.
+- [ ] Proving test: `harness/claims` in a second checkout while the first holds the corpus lock
+      -> exit 0 AND the first line names the unjudged case. Negative control: HEAD -> exit 0 with
+      the case counted in `N PASS` and the sentence reading "judged part -- 0.000000".
+
+### Measured, this review's gate at `1c1e6e57`, in the parallel worktree while the main nest held the lock
+
+```
+271 tests: 271 PASS  0 FAIL  0 TIMEOUT  0 SIGNAL  0 BUILD  0 SKIP  0 UNPREPARED  in 502474 ms
+run.sh: harness/claims/TheCorpusIsPrunedByOneRunnerOnly JUDGED PART OF ITS SUBJECT -- 0.000000 of of IV.15's own claims, because another nest held the corpus claim, so this trailer says nothing about the rest and a run on another machine will stop somewhere else (board:1810)
+exit=0
+```
+
+The gate is green in the mandated configuration, which is the repair working. Three facts stand
+in that one line:
+
+| | |
+|---|---|
+| `271 PASS` | the case that judged none of its subject is inside it, and the first line says nothing else |
+| `JUDGED PART ... 0.000000` | the sentence contradicts the number it carries |
+| `of of` | `test/run.sh:1401` supplies the `of`, and both call sites at `TheCorpusIsPrunedByOneRunnerOnly.cpp:49` and `:76` supply a second one inside `ofWhat` -- the tree's other two users (`apps/driver/test/stills/StillsAreTakenAlongTheDriveForTheEye.cpp:543`, `apps/driver/test/window/AWindowShowsTheRoadTheCarIsDriving.cpp:314`) pass `"the route it was asked to drive"` with no leading `of`, which is the form the format string expects |
+
+- [ ] The two `Partial(0.0, "of IV.15's own claims, ...")` call sites drop the leading `of`, or the
+      format string stops supplying one -- one of the two, not both.
