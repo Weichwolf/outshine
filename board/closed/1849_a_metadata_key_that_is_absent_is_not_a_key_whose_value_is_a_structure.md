@@ -51,15 +51,47 @@ reaches a part name, is proven and holds. It is a reader that reports a value it
 
 ## What will be true
 
-- [ ] `MetadataPacket::Of` distinguishes absent from present: `std::expected<std::string_view,
+- [x] `MetadataPacket::Of` distinguishes absent from present: `std::expected<std::string_view,
       ...>` or `std::optional<std::string_view>`, so the two facts are two answers.
-- [ ] A property whose JSON value is not a string is either kept in a form that says what it is,
+- [x] A property whose JSON value is not a string is either kept in a form that says what it is,
       or the packet refuses at load naming the key -- the same rule every other index in this
       reader carries. Silently storing `""` is the one option that must go.
-- [ ] The unit twin asserts BOTH: `Of("@context")` on the existing fixture is not the same
+- [x] The unit twin asserts BOTH: `Of("@context")` on the existing fixture is not the same
       answer as `Of("dc:nothing")`. Negative control: HEAD -> red, because they are equal.
 
 ## Comments
 
 - 2026-08-25 -- filed by the hourly review, judging `board:1395`'s closure. The extension is read,
   the out-of-range packet index refuses, and the frame path spells no name -- three of four.
+
+**Closed.** Three facts, three answers:
+
+```cpp
+src/gltf/Types.h:168   enum class MetadataShape : uint8_t { Text, Structure };
+src/gltf/Types.h:182   [[nodiscard]] std::optional<std::string_view> Of(std::string_view key) const;
+src/gltf/Types.h:191   [[nodiscard]] bool Carries(std::string_view key) const;
+src/gltf/Document.cpp:545   const bool spelled = said.GetKind() == Json::Kind::String || Number || Bool;
+```
+
+| the packet | `Carries` | `Of` |
+|---|---|---|
+| does not hold the key | false | `nullopt` |
+| holds it as a string, number or bool | true | the text |
+| holds it as an object or array | true | `nullopt` |
+
+The reader reports what it READ. A JSON-LD property that is a structure is kept as one and says
+so, rather than being stored as `""` and answered as though it were absent -- which is what the
+fixture's own `@context` did while the claim beside it asserted absence as a feature.
+
+Proving test: `unit/gltf/MetadataIsHeldAndTheFramePathSpellsNoName`, run under the sanitiser:
+
+```
+NOTE the packet carries @context     = 1 yes
+NOTE and Of answers a string for it  = 0 yes
+```
+
+Negative control: every property stored as `MetadataShape::Text` again -> the structure claim
+goes red at :81.
+
+board:1395's core requirement is untouched and still holds: no metadata string reaches a part
+name, and the case still proves it.
