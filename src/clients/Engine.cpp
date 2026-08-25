@@ -3,6 +3,7 @@
 #include "Unwired.h"
 
 #include <algorithm>
+#include <numbers>
 #include <charconv>
 #include <cmath>
 #include <cstdio>
@@ -13,6 +14,7 @@
 #include "Live.h"
 #include "Script.h"
 #include "Typeface.h"
+#include "Views.h"
 #include "Sink.h"
 #include "DeclaredSources.h"
 #include "GroundStack.h"
@@ -98,6 +100,7 @@ struct Engine::State {
   std::unique_ptr<Data::Transport> Wire;
   size_t GroundTiles = 0;
   Ui::Typeface Face;
+  std::optional<ViewBook> Views;
   std::vector<std::string> Measured;
   Host *Offered = nullptr;
   Ground::GroundStack Stack;
@@ -473,6 +476,19 @@ bool Engine::Declare(const Scenario &scenario) {
     return false;
   }
 
+  S_->Views.reset();
+  if (!scenario.Views.empty()) {
+    const std::string_view starting = scenario.Played.View.empty()
+                                          ? std::string_view(scenario.Views.front().Id)
+                                          : std::string_view(scenario.Played.View);
+    auto stood = ViewBook::Stand(scenario.Views, starting);
+    if (!stood) {
+      S_->Error = stood.error();
+      return false;
+    }
+    S_->Views.emplace(std::move(*stood));
+  }
+
   S_->Standing.reset();
   if (!Clients::Live::Open(S_->Device, std::move(declared), &S_->Face, S_->Standing, S_->Error)) {
     S_->Standing.reset();
@@ -701,6 +717,52 @@ const std::vector<std::string> &Engine::Carried() const { return S_->Carried; }
 
 const std::vector<std::string> &Engine::Measured() const { return S_->Measured; }
 
+bool Engine::Rides(void) {
+  const Physics::Body &body = S_->Drive.State.Body;
+  double bodyFromWorld[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  {
+    const double *const q = body.OrientationQ;
+    const double w = q[0], x = q[1], y = q[2], z = q[3];
+    bodyFromWorld[0] = 1.0 - 2.0 * (y * y + z * z);
+    bodyFromWorld[1] = 2.0 * (x * y + z * w);
+    bodyFromWorld[2] = 2.0 * (x * z - y * w);
+    bodyFromWorld[4] = 2.0 * (x * y - z * w);
+    bodyFromWorld[5] = 1.0 - 2.0 * (x * x + z * z);
+    bodyFromWorld[6] = 2.0 * (y * z + x * w);
+    bodyFromWorld[8] = 2.0 * (x * z + y * w);
+    bodyFromWorld[9] = 2.0 * (y * z - x * w);
+    bodyFromWorld[10] = 1.0 - 2.0 * (x * x + y * y);
+  }
+  for (int axis = 0; axis < 3; ++axis) { bodyFromWorld[12 + axis] = body.PositionM[axis]; }
+
+  if (!S_->Standing->Carry(bodyFromWorld, bodyFromWorld, S_->Error)) { return false; }
+  if (!S_->Views) { return true; }
+
+  const View &seen = S_->Views->Active();
+  const double offset[3] = {seen.OffsetM[0], seen.OffsetM[1], seen.OffsetM[2]};
+  double atM[3];
+  for (int axis = 0; axis < 3; ++axis) {
+    atM[axis] = body.PositionM[axis] + bodyFromWorld[0 + axis] * offset[0] +
+                bodyFromWorld[4 + axis] * offset[1] + bodyFromWorld[8 + axis] * offset[2];
+  }
+  const double aheadM[3] = {atM[0] - bodyFromWorld[8], atM[1] - bodyFromWorld[9],
+                            atM[2] - bodyFromWorld[10]};
+  double eyeM[3] = {atM[0], atM[1], atM[2]};
+  if (seen.DistanceM > 0.0) {
+    for (int axis = 0; axis < 3; ++axis) {
+      eyeM[axis] = atM[axis] + bodyFromWorld[8 + axis] * seen.DistanceM +
+                   bodyFromWorld[4 + axis] * seen.DistanceM * 0.35;
+    }
+  }
+  Gltf::Placement from;
+  if (!Gltf::Placement::LookAt(eyeM, seen.DistanceM > 0.0 ? atM : aheadM, 0.0, from)) {
+    return true;
+  }
+  from.YfovRad = (seen.FovDeg > 0.0 ? seen.FovDeg : 55.0) * std::numbers::pi / 180.0;
+  S_->Standing->Eye(from);
+  return true;
+}
+
 bool Engine::Advance() {
   if (!S_->Standing) {
     S_->Error = "no scenario is standing, so there is nothing to advance";
@@ -714,6 +776,7 @@ bool Engine::Advance() {
       return false;
     }
     if (rode.Arrived) { return false; }
+    if (!Rides()) { return false; }
   }
   if (!S_->Standing->Advance(S_->Error)) { return false; }
   return true;

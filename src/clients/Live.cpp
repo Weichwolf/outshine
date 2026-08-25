@@ -163,6 +163,8 @@ bool Live::Build(std::string &error) {
     }
   }
 
+  if (Declared_.Built == nullptr) { Joined_ = Geometry_.Parts().size(); }
+
   Render::PlanSpec declaration;
   DeclarePlan(File_, Moves_, Declared_.DrawsSky,
               Declared_.ShadowRadiusM > 0.0, declaration);
