@@ -357,10 +357,10 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.Document = one.Attr("document");
     made.Style = one.Attr("style");
     made.Programme = one.Attr("programme");
-    made.LeftFrac = one.Num("leftFrac", 0.0);
-    made.TopFrac = one.Num("topFrac", 0.0);
-    made.WidthFrac = one.Num("widthFrac", 1.0);
-    made.HeightFrac = one.Num("heightFrac", 1.0);
+    made.Where.LeftFrac = one.Num("leftFrac", 0.0);
+    made.Where.TopFrac = one.Num("topFrac", 0.0);
+    made.Where.WidthFrac = one.Num("widthFrac", 1.0);
+    made.Where.HeightFrac = one.Num("heightFrac", 1.0);
     made.Z = (int)one.Int("z", 0);
     into.Surfaces.push_back(made);
   }

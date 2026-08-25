@@ -62,6 +62,7 @@ public:
 
   [[nodiscard]] const Scenario &Declared(void) const;
   [[nodiscard]] const std::vector<std::string> &Carried(void) const;
+  [[nodiscard]] const std::vector<std::string> &Measured(void) const;
 
   [[nodiscard]] bool Assemble();
 

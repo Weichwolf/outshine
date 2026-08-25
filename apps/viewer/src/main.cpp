@@ -15,6 +15,7 @@ struct Asked {
   std::string Assets;
   std::string Shipped = "src/assets";
   std::string Cases = "test";
+  std::string Case;
   std::string Into;
   std::string Prepared;
   int WidthPx = 1280;
@@ -33,6 +34,7 @@ void Usage() {
       "  --size WxH       the surface to open (default 1280x720)\n"
       "  --cases DIR      where the case manifests are (default test)\n"
       "  --prepared DIR   where their prepared subjects are\n"
+      "  --case NAME      open with this case selected\n"
       "  --frames N       stop after N frames\n"
       "  --into DIR       keep a still of each frame here\n"
       "  --headless       stand it up without opening a window\n");
@@ -51,7 +53,6 @@ public:
     face.Document = outshine::Viewer::Declaration(Cases_, At_, widthPx, heightPx);
     face.Style = outshine::Viewer::Style();
     face.Z = 100;
-    Moved_ = false;
     return face;
   }
 
@@ -77,6 +78,8 @@ public:
   }
 
   [[nodiscard]] bool Moved() const { return Moved_; }
+
+  void Settled() { Moved_ = false; }
 
   [[nodiscard]] const outshine::Viewer::Listed *Picked() const {
     const std::vector<int> shown = outshine::Viewer::Filtered(Cases_, At_);
@@ -113,6 +116,8 @@ int main(int argc, char **argv) {
       asked.Cases = argv[++at];
     } else if (std::strcmp(said, "--prepared") == 0 && wants) {
       asked.Prepared = argv[++at];
+    } else if (std::strcmp(said, "--case") == 0 && wants) {
+      asked.Case = argv[++at];
     } else if (std::strcmp(said, "--into") == 0 && wants) {
       asked.Into = argv[++at];
     } else if (std::strcmp(said, "--frames") == 0 && wants) {
@@ -178,6 +183,15 @@ int main(int argc, char **argv) {
   const std::vector<outshine::Viewer::Listed> cases =
       outshine::Viewer::Cases(asked.Cases, asked.Prepared);
   Browser browsing{cases, {}, false};
+  if (!asked.Case.empty()) {
+    const std::vector<int> shown = outshine::Viewer::Filtered(cases, outshine::Viewer::Showing{});
+    for (size_t at = 0; at < shown.size(); ++at) {
+      if (cases[(size_t)shown[at]].Name != asked.Case) { continue; }
+      const outshine::Argument picked{outshine::Argument::Kind::Number, (double)at, {}};
+      (void)browsing.Calls("select", std::span<const outshine::Argument>(&picked, 1));
+      break;
+    }
+  }
   std::string shownCase;
   std::printf("BROWSING %zu case(s) under %s\n", cases.size(), asked.Cases.c_str());
   engine.Offers(&browsing);
@@ -232,6 +246,21 @@ int main(int argc, char **argv) {
           stands.Render.Declared = true;
           stands.Render.Frame = outshine::Extent{asked.WidthPx, asked.HeightPx};
           stands.Render.Fill = 0.15;
+          stands.Lit.Declared = true;
+          stands.Lit.Key.Lux = 40000.0;
+          stands.Lit.Key.ElevationDeg = 42.0;
+          stands.Lit.Key.BearingDeg = 150.0;
+          stands.Lit.Environment[0] = 0.20;
+          stands.Lit.Environment[1] = 0.22;
+          stands.Lit.Environment[2] = 0.26;
+          {
+            const outshine::Viewer::Region stage =
+                outshine::Viewer::StageRegion(asked.WidthPx, asked.HeightPx);
+            stands.Render.Picture.LeftFrac = stage.X / (double)asked.WidthPx;
+            stands.Render.Picture.TopFrac = stage.Y / (double)asked.HeightPx;
+            stands.Render.Picture.WidthFrac = stage.Width / (double)asked.WidthPx;
+            stands.Render.Picture.HeightFrac = stage.Height / (double)asked.HeightPx;
+          }
           if (!held.Uri.empty()) {
             outshine::Asset shown;
             shown.Uri = held.Uri;
@@ -242,12 +271,7 @@ int main(int argc, char **argv) {
             page.Document = held.Document;
             page.Style = held.Style;
             page.Programme = held.Programme;
-            const outshine::Viewer::Region stage =
-                outshine::Viewer::StageRegion(asked.WidthPx, asked.HeightPx);
-            page.LeftFrac = stage.X / (double)asked.WidthPx;
-            page.TopFrac = stage.Y / (double)asked.HeightPx;
-            page.WidthFrac = stage.Width / (double)asked.WidthPx;
-            page.HeightFrac = stage.Height / (double)asked.HeightPx;
+            page.Where = stands.Render.Picture;
             stands.Surfaces.push_back(page);
           }
           browsing.Noted(picked->Name);
@@ -260,6 +284,8 @@ int main(int argc, char **argv) {
         std::printf("REFUSED %s\n", engine.Error().c_str());
         break;
       }
+      if (!engine.Assemble()) { browsing.Noted(engine.Error()); }
+      browsing.Settled();
     }
     if (!asked.Into.empty()) {
       char named[512];

@@ -77,7 +77,6 @@ public:
                                  std::string &error);
 
   [[nodiscard]] bool Redeclare(std::vector<Shows> surfaces, std::string &error);
-  [[nodiscard]] bool Touched(double xPx, double yPx, size_t &surface, std::string &action) const;
   [[nodiscard]] const std::string &ProgrammeOf(size_t surface) const;
 
   [[nodiscard]] bool Restand(const Gltf::Subject &built, std::string &error);
@@ -104,7 +103,7 @@ public:
     Aimed_ = false;
   }
 
-  [[nodiscard]] Ui::Touched Under(double xPx, double yPx) const;
+  [[nodiscard]] Ui::Touched Under(double xPx, double yPx, size_t &surface) const;
 
   static size_t TookPosing_, TookSubmitting_, TookAiming_, TookDrawing_;
   static size_t AssetReads_;

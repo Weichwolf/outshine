@@ -28,20 +28,36 @@ namespace {
 
 class Quietly : public Sink {
 public:
-  void Number(const char *, double, const char *) override {}
+  void Number(const char *what, double how, const char *unit) override {
+    std::string held = std::string(what) + " = " + Rounded(how);
+    if (unit != nullptr && unit[0] != '\0') { held += " " + std::string(unit); }
+    Held.push_back(std::move(held));
+  }
   void Claim(bool held, const char *why) override {
+    Held.push_back(std::string(held ? "HELD " : "FAILED ") + why);
     if (!held && Why.empty()) { Why = why; }
   }
-  void Near(double, double, double, const char *, const char *why) override {
+  void Near(double was, double wanted, double within, const char *unit, const char *why) override {
+    Held.push_back(std::string("NEAR ") + Rounded(was) + " of " + Rounded(wanted) + " within " +
+                   Rounded(within) + (unit == nullptr ? "" : std::string(" ") + unit) + ": " + why);
     if (Why.empty()) { Why = why; }
   }
-  void Say(const std::string &) override {}
+  void Say(const std::string &said) override { Held.push_back(said); }
   void Refuse(const std::string &why) override {
+    Held.push_back("REFUSED " + why);
     if (Why.empty()) { Why = why; }
   }
   [[nodiscard]] const std::string &WhyNot() const { return Why; }
 
+  std::vector<std::string> Held;
+
 private:
+  [[nodiscard]] static std::string Rounded(double how) {
+    char held[32];
+    std::snprintf(held, sizeof held, "%.6g", how);
+    return held;
+  }
+
   std::string Why;
 };
 
@@ -80,6 +96,7 @@ struct Engine::State {
   std::unique_ptr<Fetching> Wire;
   size_t GroundTiles = 0;
   Ui::Typeface Face;
+  std::vector<std::string> Measured;
   Host *Offered = nullptr;
   Ground::GroundStack Stack;
   Sim::DriveProduct Drive;
@@ -173,8 +190,11 @@ bool Engine::Assemble() {
   Quietly say;
   const Sim::Provision kept{S_->Under.Cache, S_->Under.Shipped,
                             {Data::ShippedProviders().begin(), Data::ShippedProviders().end()}};
-  if (!Sim::AssembleDrive(S_->Scene, S_->Stood, S_->Vehicles, S_->Drives, declared.Ground,
-                          S_->Stack, *S_->Wire, kept, say, S_->Drive)) {
+  const bool routed = Sim::AssembleDrive(S_->Scene, S_->Stood, S_->Vehicles, S_->Drives,
+                                         declared.Ground, S_->Stack, *S_->Wire, kept, say,
+                                         S_->Drive);
+  S_->Measured = std::move(say.Held);
+  if (!routed) {
     S_->Error = say.WhyNot();
     return false;
   }
@@ -348,10 +368,10 @@ bool Engine::Handles(const SDL_Event &event) {
   if (event.type != SDL_EVENT_MOUSE_BUTTON_DOWN || !S_->Standing) { return false; }
 
   size_t surface = 0;
-  std::string action;
-  if (!S_->Standing->Touched((double)event.button.x, (double)event.button.y, surface, action)) {
-    return false;
-  }
+  const Ui::Touched found =
+      S_->Standing->Under((double)event.button.x, (double)event.button.y, surface);
+  if (!found.Held() || found.Action.empty()) { return false; }
+  const std::string &action = found.Action;
   if (S_->Offered == nullptr) {
     S_->Error = "a surface declares the call '" + action +
                 "' and no host was offered to answer it -- the client calls Offers before it "
@@ -391,6 +411,10 @@ bool Engine::Declare(const Scenario &scenario) {
   declared.Fps = scenario.Render.Fps;
   declared.Fill = scenario.Render.Fill;
   declared.OrbitDegPerFrame = scenario.Render.OrbitDegPerFrame;
+  declared.PictureLeftFrac = scenario.Render.Picture.LeftFrac;
+  declared.PictureTopFrac = scenario.Render.Picture.TopFrac;
+  declared.PictureWidthFrac = scenario.Render.Picture.WidthFrac;
+  declared.PictureHeightFrac = scenario.Render.Picture.HeightFrac;
   declared.KeyLux = scenario.Lit.Key.Lux;
   declared.KeyElevationDeg = scenario.Lit.Key.ElevationDeg;
   declared.KeyBearingDeg = scenario.Lit.Key.BearingDeg;
@@ -406,10 +430,10 @@ bool Engine::Declare(const Scenario &scenario) {
     shows.Markup = surface->Document;
     shows.Style = surface->Style;
     shows.Programme = surface->Programme;
-    shows.LeftFrac = surface->LeftFrac;
-    shows.TopFrac = surface->TopFrac;
-    shows.WidthFrac = surface->WidthFrac;
-    shows.HeightFrac = surface->HeightFrac;
+    shows.LeftFrac = surface->Where.LeftFrac;
+    shows.TopFrac = surface->Where.TopFrac;
+    shows.WidthFrac = surface->Where.WidthFrac;
+    shows.HeightFrac = surface->Where.HeightFrac;
     declared.Surfaces.push_back(std::move(shows));
   }
   if (!declared.Surfaces.empty() && !S_->Face.Opens(S_->Under.Shipped + "/fonts", S_->Error)) {
@@ -641,6 +665,8 @@ bool Engine::Restore(std::string_view path) {
   return true;
 }
 const std::vector<std::string> &Engine::Carried() const { return S_->Carried; }
+
+const std::vector<std::string> &Engine::Measured() const { return S_->Measured; }
 
 bool Engine::Advance() {
   if (!S_->Standing) {

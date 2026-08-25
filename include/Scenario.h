@@ -66,9 +66,18 @@ struct Compositor {
   bool On = true;
 };
 
+struct Patch {
+  double LeftFrac = 0.0, TopFrac = 0.0, WidthFrac = 1.0, HeightFrac = 1.0;
+
+  [[nodiscard]] bool Whole(void) const {
+    return LeftFrac == 0.0 && TopFrac == 0.0 && WidthFrac == 1.0 && HeightFrac == 1.0;
+  }
+};
+
 struct RenderPlan {
   bool Declared = false;
   Extent Frame;
+  Patch Picture;
   double Fps = 60.0;
   double Fill = 0.9;
   double OrbitDegPerFrame = 0.0;
@@ -106,7 +115,7 @@ struct Surface {
   std::string Document;
   std::string Style;
   std::string Programme;
-  double LeftFrac = 0.0, TopFrac = 0.0, WidthFrac = 1.0, HeightFrac = 1.0;
+  Patch Where;
   int Z = 0;
 };
 

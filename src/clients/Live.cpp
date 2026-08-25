@@ -461,19 +461,6 @@ bool Live::Compose(std::string &error) {
   return Renderer_->SetOverlay(Quads_.data(), Quads_.size(), error);
 }
 
-bool Live::Touched(double xPx, double yPx, size_t &surface, std::string &action) const {
-  for (size_t at = Laid_.size(); at-- > 0;) {
-    const Laid &laid = Laid_[at];
-    const Ui::Touched found =
-        Ui::Under(laid.Placed, laid.Tree, xPx - laid.LeftPx, yPx - laid.TopPx);
-    if (!found.Held() || found.Action.empty()) { continue; }
-    surface = at;
-    action = found.Action;
-    return true;
-  }
-  return false;
-}
-
 const std::string &Live::ProgrammeOf(size_t surface) const {
   static const std::string kNone;
   return surface < Declared_.Surfaces.size() ? Declared_.Surfaces[surface].Programme : kNone;
@@ -609,11 +596,14 @@ bool Live::Advance(std::string &error) {
   return true;
 }
 
-Ui::Touched Live::Under(double xPx, double yPx) const {
+Ui::Touched Live::Under(double xPx, double yPx, size_t &surface) const {
   for (size_t at = Laid_.size(); at > 0; --at) {
     const Laid &laid = Laid_[at - 1];
     Ui::Touched found = Ui::Under(laid.Placed, laid.Tree, xPx - laid.LeftPx, yPx - laid.TopPx);
-    if (found.Node >= 0) { return found; }
+    if (found.Node >= 0) {
+      surface = at - 1;
+      return found;
+    }
   }
   return Ui::Touched{};
 }
