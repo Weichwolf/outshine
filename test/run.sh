@@ -161,15 +161,15 @@ LayerIncludes() {
     harness/render/wpt/css) printf '%s' "-Iinclude" ;;
     harness/render/test262/js) printf '%s' "-Iinclude" ;;
     render/outshine/scenario) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/clients -Isrc/scenario -Isrc/ui -Itest/harness/shared" ;;
-    tools/viewer) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/data -Isrc/scene -Isrc/host -Isrc/clients -Isrc/ui -Iinclude -Itools/viewer/parts" ;;
-    apps/driver/src) printf '%s' "-Itools/host -Iinclude -Isrc/core -Isrc/core/io -Isrc/scene -Isrc/host -Isrc/clients -Isrc/actor/path -Isrc/data -Isrc/gltf -Isrc/actor/body -Isrc/actor/mind -Isrc/render -Isrc/render/plan -Isrc/render/draw -Isrc/render/stages -Isrc/scenario -Isrc/ui -Isrc/ground -Isrc/ground/tiles -Isrc/sim" ;;
+    apps/viewer) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/data -Isrc/scene -Isrc/host -Isrc/clients -Isrc/ui -Iinclude -Iapps/viewer/parts" ;;
+    apps/driver/src) printf '%s' "-Iapps/viewer -Iinclude -Isrc/core -Isrc/core/io -Isrc/scene -Isrc/host -Isrc/clients -Isrc/actor/path -Isrc/data -Isrc/gltf -Isrc/actor/body -Isrc/actor/mind -Isrc/render -Isrc/render/plan -Isrc/render/draw -Isrc/render/stages -Isrc/scenario -Isrc/ui -Isrc/ground -Isrc/ground/tiles -Isrc/sim" ;;
     *) return 1 ;;
   esac
 }
 
 LayerToolchain() {
   case "$1" in
-    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | apps/viewer | render/outshine/scenario) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     apps/driver/src) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
   esac
@@ -195,7 +195,7 @@ LayerValidation() {
 
 LayerLink() {
   case "$1" in
-    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario | render/outshine/client) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz -lcurl" ;;
+    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | apps/viewer | render/outshine/scenario | render/outshine/client) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz -lcurl" ;;
     harness/claims) printf '%s' "-lz" ;;
     apps/driver/src) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz -lcurl" ;;
     *) printf '%s' "" ;;
@@ -207,7 +207,7 @@ LayerGroups() {
     harness/render/wpt/css) printf '%s' "src/core/Json.cpp src/ui" ;;
     harness/render/test262/js) printf '%s' "src/core/Json.cpp src/core/Script.cpp" ;;
     harness/claims) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
-    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario | render/outshine/client) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/data src/ground src/ground/tiles src/sim src/actor/path src/actor/body src/actor/mind src/host src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/compositor src/clients/Live.cpp src/clients/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/clients/Assembly.cpp" ;;
+    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | apps/viewer | render/outshine/scenario | render/outshine/client) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/data src/ground src/ground/tiles src/sim src/actor/path src/actor/body src/actor/mind src/host src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/compositor src/clients/Live.cpp src/clients/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/clients/Assembly.cpp" ;;
     apps/driver/src) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/actor/path src/actor/body src/actor/mind src/data src/ground/tiles src/ground src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/sim src/scene src/clients/Assembly.cpp" ;;
     *) return 1 ;;
   esac
@@ -237,9 +237,9 @@ Programs() {
 NotTheHarnesses() {
   case "$1" in
     harness/shared | harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
-    tools/host) printf '%s' "a delaying transport for cases that need a slow wire, compiled into the case that names it" ;;
+    apps/viewer) printf '%s' "a delaying transport for cases that need a slow wire, compiled into the case that names it" ;;
     harness/shared/render) printf '%s' "the render scoring instrument, compiled into each corpus's own harness" ;;
-    tools/viewer/parts) printf '%s' "the browser's own declaration and its face, compiled into the browser" ;;
+    apps/viewer/parts) printf '%s' "the browser's own declaration and its face, compiled into the browser" ;;
     harness/render/khronos/glTF/prepare | harness/render/khronos/generator/prepare | harness/render/outshine/grown/prepare | harness/render/wpt/css/prepare | harness/render/test262/js/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;
     harness/shared/corpus | harness/shared/corpus/*) printf '%s' "the offline preparer's own, compiled and run by test/harness/shared/corpus/prepare.py" ;;
     *) return 1 ;;
@@ -249,7 +249,7 @@ NotTheHarnesses() {
 LayerExtraSources() {
   case "$1" in
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "test/harness/shared/render/Parity.cpp" ;;
-    tools/viewer) printf '%s' "test/harness/shared/render/Parity.cpp tools/viewer/parts/Chrome.cpp" ;;
+    apps/viewer) printf '%s' "test/harness/shared/render/Parity.cpp apps/viewer/parts/Chrome.cpp" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -572,7 +572,7 @@ fi
 
 if [ "$AUDIT" = 1 ]; then
   bad=0
-  for suiteDir in $(find test tools -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
+  for suiteDir in $(find test apps -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
     groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
     files=""
     for group in $groups; do
@@ -588,7 +588,7 @@ if [ "$AUDIT" = 1 ]; then
       bad=1
     fi
   done
-  covered=$(for suiteDir in $(find test tools -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
+  covered=$(for suiteDir in $(find test apps -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
     groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
     for group in $groups; do
       if [ -d "$group" ]; then find "$group" -maxdepth 1 -name '*.cpp'; else printf '%s\n' "$group"; fi
@@ -619,7 +619,7 @@ if [ "$AUDITLINK" = 1 ]; then
   bad=0
   auditSuites=$SUITES
   [ -n "$auditSuites" ] ||
-    auditSuites=$(find test tools -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u)
+    auditSuites=$(find test apps -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u)
   for suiteDir in $auditSuites; do
     groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
     [ -n "$groups" ] || continue
@@ -725,10 +725,9 @@ PRUNE_MARKER=$BUILD/prune.marker
 
 
 TREES=test
-[ -z "$SUITES" ] && TREES="test tools apps"
+[ -z "$SUITES" ] && TREES="test apps"
 for named in $SUITES; do
   case "$named" in
-    tools | tools/*) TREES="test tools" ;;
     apps | apps/*) TREES="test apps" ;;
   esac
 done
@@ -800,7 +799,7 @@ fi
 # default is what is INVARIANT: the established corpora, whose truth does not depend on our
 # design. tools and apps run by name; apps/driver is the integration test and the architect's
 # subject.
-NAMED_ONLY="tools apps"
+NAMED_ONLY="apps"
 FAST_GATE=no
 kFastGateBoundMs=230000
 if [ -z "$SUITES" ]; then
