@@ -283,10 +283,11 @@ bool Engine::State::Composes(void) {
   const bool overADrive = false;
   if (Drove) {
     Error = "a drive stands, and the ground is APPENDED to the driven vehicle's own glTF, so it "
-            "would inherit that placement and that model scale -- measured, an 8 km tile ring "
-            "lands on the car's roof. The ground is a compositor's draw item and until it is one "
-            "this refuses. The declared sphere still carries its atmosphere, its gravity and its "
-            "radius";
+            "inherits that placement and that model scale. Measured: the ring reaches the draw "
+            "list at 517 batches against the vehicle's 258, and it draws as shrapnel across the "
+            "windscreen -- a count is not a picture. The ground is a compositor's draw item with "
+            "its own scale and until it is one this refuses. The declared sphere still carries "
+            "its atmosphere, its gravity and its radius";
     return false;
   }
   if (!declared.Ground.Declared && !overADrive) {
