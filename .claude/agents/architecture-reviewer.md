@@ -38,7 +38,7 @@ A pile of green tests over a product that draws nothing is a failing hour, and y
 
 **CLAUDE.md entire** — vision, TARGET/CURRENT diagrams with their traffic-light semantics
 (colours mean architecture and correct abstraction, not test status), layer rules, references.
-Then `board/active/` (what is being worked RIGHT NOW).
+Then `grep -l '^State: active' board/*.md` (what is being worked RIGHT NOW).
 
 ### 2. Measure the distance, as a number
 
@@ -204,10 +204,11 @@ items wearing one number, re-rank what the distance says matters now, rewrite a 
 has overtaken, and delete a paragraph that is no longer true. A backlog nobody grooms is a list,
 not a plan.
 
-**And you do not grow items by commenting on them.** An item is a living document: its body says
-what is true NOW. A newer measurement replaces the older one it corrects; a round that adds a
-fourth stacked section to an item has failed to maintain it. `git log` already holds what was.
-One line under `## Comments`, dated, only for what was LEARNED and does not belong in the body.
+**GIT IS THE LOGBOOK -- you do not grow items by commenting on them.** An item says what is true
+NOW. A newer measurement replaces the older one it corrects; a round that adds a fourth stacked
+section has failed to maintain the item. Put the derivation, the numbers and the story in your
+COMMIT MESSAGE, which is where anyone looks for what happened, and leave the item short enough
+to read.
 
 **Never duplicate content.** Not a second item for a defect an existing one covers, and not the
 same paragraph in two items -- if two items need the same fact, one owns it and the other names
@@ -215,27 +216,29 @@ its number.
 
 
 
-- **One issue per substantive defect** in board/open/: RFC-822 header (`Type: issue` for
-  architecture decisions, `Type: bug` for concrete defects; `Area`; optional `Tags`), a title
-  that says what WILL BE TRUE, a body with file:line evidence.
+- **One issue per substantive defect**, a file in `board/`: RFC-822 header (`Type:`
+  feature|task|bug|issue, `State:` open|active, `Area`, optional `Tags`/`Parent`), a title that
+  says what WILL BE TRUE, a body with file:line evidence. `board/` is FLAT -- state is an
+  attribute, not a directory.
 - **NO duplicates**: before every filing, `grep -ril '<keyword>' board/` across open AND closed;
   if an existing item covers the defect, name it in the report as SHARPENED (append the
   sharpening to the item), never file anew.
 - Derive numbers: `ls board/*/ | grep -o '^[0-9]\{4\}' | sort -n | tail -1` plus 1.
-- **An item you close takes the door**: `git mv` it to `board/active/` first, then to
-  `board/closed/` (`harness/claims/AnItemReachesClosedThroughActive`).
+- **An item you close takes the door**: set `State: active` and commit, THEN delete the file and
+  commit -- closing is deleting, because git is the logbook
+  (`harness/claims/AnItemReachesClosedThroughActive` walks the deletions).
 - **Close issues**: for every open issue from earlier runs check: (a) do tasks attach to it
   (`grep -l '^Parent: NNNN' board/*/`) and are ALL of them closed? (b) is the criticised state
   provably fixed in the tree? Both yes → append a closing note with the proof and `git mv` to
-  board/closed/. Only (b), with no tasks attached → close the same way.
+  Only (b), with no tasks attached → close the same way.
 - **One commit per run** over all board changes: `board:NNNN[,NNNN…] <short title>`, NO
   Co-Authored-By. On an index.lock collision wait briefly and retry.
 - **The subject names EVERY item the commit touches** -- filed, sharpened and closed alike.
   `git log --grep 'board:NNNN'` is how anyone finds an item's history, and it is only as true as
   the messages; a round that sharpens four items and names three has hidden one from its own
   record. A claim walks this and will find it.
-- **An item you WORK -- not merely file -- stands in `board/active/` first.** Filing is not
-  working; the drawer says what has an owner right now.
+- **An item you WORK -- not merely file -- carries `State: active` first.** Filing is not
+  working; the attribute says what has an owner right now.
 - **Your gate runs in its own `git worktree`** — the main nest is pid-locked (`test/run.sh`).
 
 ## Final report (your last message, written in German, compact)

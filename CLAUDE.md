@@ -342,29 +342,29 @@ classDiagram
 stateDiagram-v2
   [*] --> open : filed (defect found = item, same round)
   open --> active : being worked NOW (groom parent/depends)
-  active --> closed : body names the proving test
+  active --> [*] : the file is DELETED; the commit names the proving test
   active --> open : parked
-  closed --> open : Regresses/Supersedes
 ```
 
-One file = RFC 822 header + markdown body. Fields: `Type` (feature|task|bug|issue) · `Parent`
-(task→feature or task→issue: working a reviewer issue files a task attached to it) · `Area` (the tree's layers) · `Tags` · `Depends` · `Regresses` · `Supersedes`.
-Filename `NNNN_label.md`; number = identity; no State/Id/dates — directory and git are the truth.
-Titles say what WILL BE TRUE. Commits reference `board:NNNN`. `board/active/` mirrors what is
+`board/` is ONE FLAT DIRECTORY. One file = RFC 822 header + markdown body. Fields: `Type`
+(feature|task|bug|issue) · `State` (open|active) · `Parent` · `Area` · `Tags` · `Depends` ·
+`Regresses` · `Supersedes`. Filename `NNNN_label.md`; number = identity; no dates — git is the
+truth. **Closing is DELETING the file**: what it said is in the commit that removed it.
+Titles say what WILL BE TRUE. Commits reference `board:NNNN`. `State: active` marks what is
 being worked on right now — always.
 
-**An item is a LIVING DOCUMENT, not a log.** Its body says what is true and what must become
-true, as of now. A newer measurement REPLACES the older one it corrects; a paragraph the tree
-has overtaken is deleted, not appended after. `git log` is what was — the item is what is. Only
-what was LEARNED and does not belong in the body goes under `## Comments`, one line, dated. An
-item that has grown three stacked rounds of prose needs rewriting, not a fourth.
+**GIT IS THE LOGBOOK. The item is what is true NOW.** A newer measurement REPLACES the older one
+it corrects; a paragraph the tree has overtaken is deleted, not appended after. A closure states
+what became true and names the proving test and its negative control — the derivation, the
+numbers and the story belong in the commit message, which is where anyone looks for what
+happened. An item that has grown three stacked rounds of prose needs rewriting, not a fourth.
 
 ```sh
-ls board/active/                                     # in flight NOW
-grep -l '^Type: bug' board/open/*.md                 # by kind
-grep -l '^Parent: 0007' board/*/*.md                 # a feature's children
-git log --grep 'board:0042'                          # every commit on an item
-ls board/*/ | grep -o '^[0-9]\{4\}' | sort -n | tail -1   # next id, derived
+grep -l '^State: active' board/*.md                  # in flight NOW
+grep -l '^Type: bug' board/*.md                      # by kind
+grep -l '^Parent: 0007' board/*.md                   # a feature's children
+git log --grep 'board:0042'                          # every commit on an item, and its closure
+ls board/*.md | grep -o '[0-9]\{4\}' | sort -n | tail -1  # next id, derived
 ```
 
 ## Setup

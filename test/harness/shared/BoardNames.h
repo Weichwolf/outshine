@@ -8,7 +8,11 @@ namespace outshine::Test::Board {
 inline constexpr size_t kDigits = 4;
 inline constexpr size_t kMostNamed = 64;
 
-inline constexpr std::string_view kMarkers[] = {"board:", "board/"};
+// board/ is flat since board:1866, and these walks read HISTORY: a commit older than that
+// spells board/open/NNNN, so the retired directories stay readable here. They name an item as
+// unambiguously as the flat path does.
+inline constexpr std::string_view kMarkers[] = {"board:", "board/", "board/open/",
+                                                "board/closed/", "board/active/"};
 
 struct Named {
   unsigned Items[kMostNamed] = {};

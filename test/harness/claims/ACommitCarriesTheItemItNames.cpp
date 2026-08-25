@@ -23,9 +23,15 @@ struct Excusal {
   const char *Commit;
   const char *Items;
   const char *Why;
+  bool Structural = false;
 };
 
 constexpr Excusal kExcused[] = {
+    {"ee51c630", "",
+     "board/ became one flat directory and State became an attribute: the commit rewrites every "
+     "item identically and works on none of them, so naming them would be naming the whole "
+     "board",
+     true},
     {"324374d6", "board:1565 board:1567 board:1568 board:1575 board:1784 board:1858",
      "the hourly review sharpened four items in the round that filed three others, and its "
      "subject named only what it filed -- the rule now stands in its brief, which is where a "
@@ -38,7 +44,7 @@ constexpr Excusal kExcused[] = {
 [[nodiscard]] bool Excused(const std::string &commit, unsigned item, size_t &seen) {
   for (const Excusal &one : kExcused) {
     if (commit.rfind(one.Commit, 0) != 0) { continue; }
-    if (!Board::NamedIn(one.Items).Holds(item)) { continue; }
+    if (!one.Structural && !Board::NamedIn(one.Items).Holds(item)) { continue; }
     ++seen;
     return true;
   }
@@ -100,8 +106,12 @@ int main(void) {
 
     const Board::Named named = Board::NamedIn(message);
     const Board::Named touched = Board::NamedIn(files);
-    unreadable += ItemFilesIn(files) > touched.Count ? 1 : 0;
-    overflowed += named.Overflowed || touched.Overflowed ? 1 : 0;
+    bool structural = false;
+    for (const Excusal &one : kExcused) {
+      structural = structural || (one.Structural && commit.rfind(one.Commit, 0) == 0);
+    }
+    unreadable += !structural && ItemFilesIn(files) > touched.Count ? 1 : 0;
+    overflowed += !structural && (named.Overflowed || touched.Overflowed) ? 1 : 0;
 
     for (size_t one = 0; one < touched.Count; ++one) {
       const unsigned item = touched.Items[one];
@@ -114,7 +124,9 @@ int main(void) {
   Note("exemptions the table declares", (double)(sizeof kExcused / sizeof kExcused[0]), "rows");
   Note("times one was used this run", (double)excused, "items");
   for (const Excusal &one : kExcused) {
-    std::printf("EXCUSED %s for items %s -- %s\n", one.Commit, one.Items, one.Why);
+    std::printf("EXCUSED %s for %s -- %s\n", one.Commit,
+                one.Structural ? "EVERY item it touches, being a restructuring" : one.Items,
+                one.Why);
   }
 
   for (const std::string &one : carrying) { std::printf("FOUND %s\n", one.c_str()); }

@@ -29,8 +29,18 @@ int main(void) {
   // work done after the rule can be checked, and history is not rewritten to make a new gate
   // green. Until this file is committed the window is empty, and the claim says so.
   const std::string self = "test/harness/claims/AnItemReachesClosedThroughActive.cpp";
-  const std::string birth =
+  // board:1866 flattened board/ and made State an attribute, so every path this walk read
+  // before that commit resolves to nothing. The window starts at the LATER of this proof's own
+  // birth and that restructuring -- derived, not chosen, by asking git when board/open/ died.
+  const std::string mine =
       Ask("git log --diff-filter=A --format=%H -- " + self + " 2>/dev/null | tail -1");
+  const std::string flattened =
+      Ask("git log --diff-filter=D --format=%H -- board/open/ 2>/dev/null | head -1");
+  std::string birth = mine;
+  if (flattened.size() == 40 && !mine.empty() &&
+      !Ask("git merge-base --is-ancestor " + mine + " " + flattened + " && echo y").empty()) {
+    birth = flattened;
+  }
   const bool born = birth.size() == 40;
   std::printf("NOTE the rule binds from %s\n", born ? birth.c_str() : "(uncommitted -- nothing yet in window)");
   CHECK(!Ask("git rev-parse --git-dir 2>/dev/null").empty(),

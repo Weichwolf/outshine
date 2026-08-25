@@ -52,9 +52,9 @@ int main(void) {
 
   std::vector<std::string> parked;
   for (const std::string &one : standing) {
-    // the PATH must be board//<name>: a file name alone also matches the commit that
+    // the PATH must be board/<name>: a file name alone also matches the commit that
     // moved the item OUT of active, which is the opposite of being in flight.
-    const bool moved = touched.find("board//" + one) != std::string::npos;
+    const bool moved = touched.find("board/" + one) != std::string::npos;
     std::printf("NOTE %s moved by one of the last %d commits: %s\n", one.c_str(),
                 kRecentCommits, moved ? "yes" : "no");
     if (!moved) {
