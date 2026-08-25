@@ -4,7 +4,7 @@
 Apple A18 Pro (2P+4E cores, 5 GPU cores, 8 GB, Metal 4), **720p60 held** — p50/p95/p99 over a moving
 camera, never a mean.
 
-- **SDL3 · SDL3_GPU · SDL3_\*** are the only platform surface; **glTF 2.0** the only content surface
+- **SDL3 is REQUIRED and `include/Outshine.h` says so** by including it: the CLIENT owns the process and calls `SDL_Init`, the library never does. **SDL_GPU is one renderer, not the door** — `SDL_Window` is SDL3's core, so the door stays renderer-neutral. **glTF 2.0** is the only content surface
 - **C++23**, `-Wall -Werror -Wpedantic`, one `-std` for the whole tree; `static_assert` and the type system over checkers; `std::span`/`std::string_view` at boundaries, `std::mdspan` for field and instance views, `std::expected` where a refusal carries its reason
 - **Precision has ONE boundary and it is the camera**: the scene keeps 64-bit positions and the
   renderer is camera-relative in 32-bit — `Anchor - Eye` in `double`, the model-view-projection
@@ -15,7 +15,7 @@ camera, never a mean.
 - **Declarative**: scenarios declare, the engine behaves; content = data, engine = verbs; the consumer selects from a `constexpr` catalogue and cannot add to it
 - **Batteries as declarations**: outshine ships convenience components -- generators, providers, world templates and factories (`Planet(params)` → a Scenario value) -- all catalogue citizens the scenario selects; the engine core stays scenario-agnostic
 - **Every number carries its origin** (derived · measured · `[SET]`) with unit and population; no magic numbers; calibration measures, never decides
-- **The code carries NO comments** — `src/`, `include/`, `tools/`, `apps/` hold no `//`, no block, no
+- **The code carries NO comments** — `src/`, `include/` and `apps/` hold no `//`, no block, no
   TODO, no derivation, no board number: names and structure carry the meaning, a number's
   origin lives in its board item and its commit, and prose may stand in a PROOF because a proof
   explains what it proves -- a proof being any source that carries `Covers("`, wherever it
@@ -378,8 +378,7 @@ ls board/*.md | grep -o '[0-9]\{4\}' | sort -n | tail -1  # next id, derived
 |---|---|
 | `src/` | the library entire; `src/assets/` its declared data; no entry point, no test |
 | `test/` | `test/render/` the established corpora (Khronos · WPT · test262); `test/harness/` their scorers and the board/harness claims. Everything under `test/` reaches the library through `include/` and NOTHING of `src/` |
-| `tools/` | development support built ON the library |
-| `apps/` | applications built ON the library. **`apps/driver` is outshine's ONE integration test and its product**; the hourly architect signs it off |
+| `apps/` | the CLIENTS, built ON the library and each a product: **`apps/driver`** is outshine's one integration test and the architect signs it off; **`apps/viewer`** shows any scenario and becomes a scenario itself, layered over the one it shows (board:1880) |
 | `Makefile` | build · test · clean, nothing else |
 | `board/` | the working system (above) |
 
