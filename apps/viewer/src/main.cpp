@@ -111,7 +111,10 @@ int main(int argc, char **argv) {
   }
   outshine::Engine engine;
   engine.Under(outshine::Roots{asked.Assets, asked.Shipped, "/tmp/outshine-viewer-cache", false});
-  if (!engine.DrawsInto(outshine::Canvas{{asked.WidthPx, asked.HeightPx}, window})) {
+  const bool standing = window != nullptr
+                            ? engine.DrawsInto(window)
+                            : engine.DrawsInto(outshine::Extent{asked.WidthPx, asked.HeightPx});
+  if (!standing) {
     std::printf("REFUSED %s\n", engine.Error().c_str());
     if (window != nullptr) { SDL_DestroyWindow(window); }
     SDL_Quit();

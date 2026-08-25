@@ -128,7 +128,7 @@ int main(int argc, char **argv) {
 
   outshine::Engine engine;
   engine.Under(outshine::Roots{asked.Assets, asked.Shipped, asked.Cache, asked.Offline});
-  if (!engine.DrawsInto(outshine::Canvas{{asked.WidthPx, asked.HeightPx}, nullptr})) {
+  if (!engine.DrawsInto(outshine::Extent{asked.WidthPx, asked.HeightPx})) {
     std::printf("REFUSED %s\n", engine.Error().c_str());
     return 1;
   }

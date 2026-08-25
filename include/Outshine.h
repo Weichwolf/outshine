@@ -28,8 +28,8 @@ public:
   Engine(const Engine &) = delete;
   Engine &operator=(const Engine &) = delete;
 
-  void RenderTo(Extent frame);
-  [[nodiscard]] bool ShowOn(SDL_Window *window);
+  [[nodiscard]] bool DrawsInto(SDL_Window *presents);
+  [[nodiscard]] bool DrawsInto(Extent offscreen);
   void Under(Roots roots);
   [[nodiscard]] bool Drove(void) const;
   [[nodiscard]] double ReachedM(void) const;

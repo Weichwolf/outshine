@@ -182,14 +182,30 @@ Engine::~Engine() = default;
 Engine::Engine(Engine &&) noexcept = default;
 Engine &Engine::operator=(Engine &&) noexcept = default;
 
-bool Engine::DrawsInto(Canvas canvas) {
-  const auto standing =
-      S_->Device.DrawsInto(canvas.Size.WidthPx, canvas.Size.HeightPx, canvas.Presents);
+bool Engine::DrawsInto(SDL_Window *presents) {
+  if (presents == nullptr) {
+    S_->Error = "a window is what DrawsInto presents on, and this one is none -- an engine that "
+                "draws nowhere is declared with an Extent instead";
+    return false;
+  }
+  int widthPx = 0, heightPx = 0;
+  SDL_GetWindowSizeInPixels(presents, &widthPx, &heightPx);
+  const auto standing = S_->Device.DrawsInto(widthPx, heightPx, presents);
   if (!standing) {
     S_->Error = std::string(standing.error());
     return false;
   }
-  S_->Frame = canvas.Size;
+  S_->Frame = Extent{widthPx, heightPx};
+  return true;
+}
+
+bool Engine::DrawsInto(Extent offscreen) {
+  const auto standing = S_->Device.DrawsInto(offscreen.WidthPx, offscreen.HeightPx, nullptr);
+  if (!standing) {
+    S_->Error = std::string(standing.error());
+    return false;
+  }
+  S_->Frame = offscreen;
   return true;
 }
 
