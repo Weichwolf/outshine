@@ -28,6 +28,26 @@ scene keeps 64-bit positions and the renderer is camera-relative in 32-bit. A st
 the equator is a THIRD origin beside the world and the corridor, and the model-unit scale is a
 fourth quantity nobody converts.
 
+**MEASURED FURTHER, same session.** The vehicle half of the chain is CORRECT and the ground
+half is not, and the two were separated by running the drive with the ground composition
+suppressed:
+
+| run | still |
+|---|---|
+| drive, chase view, NO ground | the F31 from 7 m behind and slightly above, exactly what `<view id="chase" distanceM="7.0">` declares |
+| the same, ground composed | black, or an edge of untextured geometry filling the frame |
+
+So `Rides` -> `Carry` -> `Eye` place the car and the camera in one another's space correctly
+once the model scale is applied (`Rigged::MetresPerAssetUnit`, 0.01555 m per unit, which
+`Rigging.cpp:112` has always computed and nothing applied). What misses is the GROUND: it is
+laid about `Patchwork::OriginEcef` in metres, a fourth origin, and dividing its positions by
+the model scale moves it without placing it.
+
+Composing a ground for a scenario that declares only a DRIVE is withdrawn until this is
+settled -- a ground that swallows the camera is worse than no ground, and shipping it would
+have been a half answer. `Engine::Compose` keeps its caller in `Assemble` and still lays the
+ground a `<ground>` declares.
+
 ## What will be true
 
 - [ ] A driven body's placement is expressed in the ONE world space, in metres, as a 64-bit

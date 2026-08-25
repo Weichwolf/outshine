@@ -68,6 +68,7 @@ private:
 constexpr double kTickS = 1.0 / 60.0;
 constexpr double kWheelStepPx = 48.0;
 constexpr double kGroundPatienceS = 30.0;
+constexpr double kChaseRise = 0.35;
 
 [[nodiscard]] std::string Said(double value) {
   char held[32] = {};
@@ -260,14 +261,14 @@ bool Engine::Compose(void) {
     return false;
   }
   const Scenario &declared = S_->Declared;
-  const bool overADrive = !declared.Ground.Declared && declared.Driven.Declared;
-  if (!declared.Ground.Declared && !overADrive) {
-    S_->Error = "the scenario declares neither a sphere nor a drive, so there is no place for a "
-                "ground to be composed at";
+  if (!declared.Ground.Declared) {
+    S_->Error = "the scenario declares no sphere, so there is no ground to compose -- a drive "
+                "names a place but the ground it lays there does not yet share the space the "
+                "vehicle stands in (board:1890)";
     return false;
   }
-  const double atLat = overADrive ? declared.Driven.FromLatDeg : declared.Ground.Lat;
-  const double atLon = overADrive ? declared.Driven.FromLonDeg : declared.Ground.Lon;
+  const double atLat = declared.Ground.Lat;
+  const double atLon = declared.Ground.Lon;
   if (!S_->Wire) {
     if (S_->Under.Offline) {
       S_->Error = "the ground is FETCHED and the engine was declared offline";
@@ -302,10 +303,16 @@ bool Engine::Compose(void) {
     return false;
   }
 
+  const double perUnit = S_->Drove ? S_->Drive.Stood.MetresPerAssetUnit : 1.0;
+  std::vector<float> inUnits(laid->PositionM.size());
+  for (size_t at = 0; at < inUnits.size(); ++at) {
+    inUnits[at] = (float)((double)laid->PositionM[at] / (perUnit > 0.0 ? perUnit : 1.0));
+  }
+
   Gltf::Piece ground;
   ground.NodeName = "ground";
   ground.Material = 0;
-  ground.PositionsM = Span<const float>(laid->PositionM.data(), laid->PositionM.size());
+  ground.PositionsM = Span<const float>(inUnits.data(), inUnits.size());
   ground.Normals = Span<const float>(laid->NormalM.data(), laid->NormalM.size());
   ground.Indices = Span<const uint32_t>(laid->Index.data(), laid->Index.size());
 
@@ -751,29 +758,45 @@ bool Engine::Rides(void) {
     bodyFromWorld[9] = 2.0 * (y * z - x * w);
     bodyFromWorld[10] = 1.0 - 2.0 * (x * x + y * y);
   }
-  for (int axis = 0; axis < 3; ++axis) { bodyFromWorld[12 + axis] = body.PositionM[axis]; }
+  const double perUnit = S_->Drive.Stood.MetresPerAssetUnit;
+  if (!(perUnit > 0.0)) {
+    S_->Error = "the vehicle declares no model scale, so a pose in metres cannot be placed on "
+                "an asset whose units are its own";
+    return false;
+  }
+  const double *const shiftM = S_->Drive.Stood.ModelShiftM;
+  double intoUnits[16];
+  for (int at = 0; at < 16; ++at) { intoUnits[at] = bodyFromWorld[at]; }
+  for (int axis = 0; axis < 3; ++axis) {
+    const double alongM = body.PositionM[axis] + bodyFromWorld[0 + axis] * shiftM[0] +
+                          bodyFromWorld[4 + axis] * shiftM[1] + bodyFromWorld[8 + axis] * shiftM[2];
+    intoUnits[12 + axis] = alongM / perUnit;
+    bodyFromWorld[12 + axis] = body.PositionM[axis];
+  }
 
-  if (!S_->Standing->Carry(bodyFromWorld, bodyFromWorld, S_->Error)) { return false; }
+  if (!S_->Standing->Carry(intoUnits, intoUnits, S_->Error)) { return false; }
   if (!S_->Views) { return true; }
 
   const View &seen = S_->Views->Active();
-  const double offset[3] = {seen.OffsetM[0], seen.OffsetM[1], seen.OffsetM[2]};
-  double atM[3];
+  double at[3];
   for (int axis = 0; axis < 3; ++axis) {
-    atM[axis] = body.PositionM[axis] + bodyFromWorld[0 + axis] * offset[0] +
-                bodyFromWorld[4 + axis] * offset[1] + bodyFromWorld[8 + axis] * offset[2];
+    const double alongM = body.PositionM[axis] + bodyFromWorld[0 + axis] * seen.OffsetM[0] +
+                          bodyFromWorld[4 + axis] * seen.OffsetM[1] +
+                          bodyFromWorld[8 + axis] * seen.OffsetM[2];
+    at[axis] = alongM / perUnit;
   }
-  const double aheadM[3] = {atM[0] - bodyFromWorld[8], atM[1] - bodyFromWorld[9],
-                            atM[2] - bodyFromWorld[10]};
-  double eyeM[3] = {atM[0], atM[1], atM[2]};
+  const double ahead[3] = {at[0] - bodyFromWorld[8], at[1] - bodyFromWorld[9],
+                           at[2] - bodyFromWorld[10]};
+  double eye[3] = {at[0], at[1], at[2]};
   if (seen.DistanceM > 0.0) {
+    const double back = seen.DistanceM / perUnit;
     for (int axis = 0; axis < 3; ++axis) {
-      eyeM[axis] = atM[axis] + bodyFromWorld[8 + axis] * seen.DistanceM +
-                   bodyFromWorld[4 + axis] * seen.DistanceM * 0.35;
+      eye[axis] = at[axis] + bodyFromWorld[8 + axis] * back +
+                  bodyFromWorld[4 + axis] * back * kChaseRise;
     }
   }
   Gltf::Placement from;
-  if (!Gltf::Placement::LookAt(eyeM, seen.DistanceM > 0.0 ? atM : aheadM, 0.0, from)) {
+  if (!Gltf::Placement::LookAt(eye, seen.DistanceM > 0.0 ? at : ahead, 0.0, from)) {
     return true;
   }
   from.YfovRad = (seen.FovDeg > 0.0 ? seen.FovDeg : 55.0) * std::numbers::pi / 180.0;
