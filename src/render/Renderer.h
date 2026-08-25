@@ -77,7 +77,6 @@ public:
   [[nodiscard]] int SettleFrames() const { return Plan_ ? Plan_->SettleFrames() : 1; }
 
   void WantsPixels();
-  [[nodiscard]] bool Presents() const { return Showing_ != nullptr; }
   [[nodiscard]] ReadState ReadPixels(std::vector<uint8_t> &rgba);
 
   [[nodiscard]] ReadState ReadDepth(std::vector<float> &depth);

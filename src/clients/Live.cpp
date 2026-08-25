@@ -42,10 +42,9 @@ void AsOverlay(const std::vector<Ui::Quad> &from, double offsetX, double offsetY
   }
 }
 
-void DeclarePlan(const Gltf::Document &file, bool moves, bool presents, bool sky,
-                 bool shadows, Render::PlanSpec &declaration) {
-  declaration.Outputs = {Render::Resource::FrameTex};
-  if (presents) { declaration.Outputs.push_back(Render::Resource::Surface); }
+void DeclarePlan(const Gltf::Document &file, bool moves, bool sky, bool shadows,
+                 Render::PlanSpec &declaration) {
+  declaration.Outputs = {Render::Resource::FrameTex, Render::Resource::Surface};
 
   if (moves) { declaration.Outputs.push_back(Render::Resource::SceneVelocity); }
   declaration.Content = {Render::Stage::Subjects, Render::Stage::Overlay};
@@ -163,7 +162,7 @@ bool Live::Build(std::string &error) {
   }
 
   Render::PlanSpec declaration;
-  DeclarePlan(File_, Moves_, Renderer_->Presents(), Declared_.DrawsSky,
+  DeclarePlan(File_, Moves_, Declared_.DrawsSky,
               Declared_.ShadowRadiusM > 0.0, declaration);
   if (Declared_.Exposure > 0.0) {
     declaration.Exposure = Render::Declared<float>((float)Declared_.Exposure);

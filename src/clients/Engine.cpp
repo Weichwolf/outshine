@@ -399,10 +399,8 @@ bool Engine::Declare(const Scenario &scenario) {
   }
 
   Clients::Declaration declared;
-  declared.SurfaceWidthPx =
-      scenario.Render.Frame.WidthPx > 0 ? scenario.Render.Frame.WidthPx : S_->Frame.WidthPx;
-  declared.SurfaceHeightPx =
-      scenario.Render.Frame.HeightPx > 0 ? scenario.Render.Frame.HeightPx : S_->Frame.HeightPx;
+  declared.SurfaceWidthPx = S_->Frame.WidthPx;
+  declared.SurfaceHeightPx = S_->Frame.HeightPx;
   declared.Stands = Beneath(S_->Under.Assets, subject->Uri);
   declared.Variant = subject->Variant;
   declared.Animation = subject->Animation;
