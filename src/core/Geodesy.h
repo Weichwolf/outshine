@@ -6,6 +6,80 @@
 
 namespace outshine {
 
+struct Geodesic {
+  double AlongM = 0.0;
+  double FromBearingDeg = 0.0;
+  double ToBearingDeg = 0.0;
+  bool Converged = false;
+};
+
+[[nodiscard]] inline Geodesic GeodesicOn(double fromLatDeg, double fromLonDeg, double toLatDeg,
+                                         double toLonDeg, double semiMajorM, double flattening) {
+  constexpr int kMostTurns = 200;
+  constexpr double kSettledRad = 1.0e-12;
+
+  Geodesic out;
+  const double f = flattening;
+  const double b = semiMajorM * (1.0 - f);
+  const double u1 = std::atan((1.0 - f) * std::tan(fromLatDeg * kDeg2Rad));
+  const double u2 = std::atan((1.0 - f) * std::tan(toLatDeg * kDeg2Rad));
+  double apart = (toLonDeg - fromLonDeg) * kDeg2Rad;
+  while (apart > kPi) { apart -= 2.0 * kPi; }
+  while (apart < -kPi) { apart += 2.0 * kPi; }
+
+  const double sinU1 = std::sin(u1), cosU1 = std::cos(u1);
+  const double sinU2 = std::sin(u2), cosU2 = std::cos(u2);
+
+  double lambda = apart, sinSigma = 0.0, cosSigma = 1.0, sigma = 0.0;
+  double cosSqAlpha = 1.0, cos2SigmaM = 0.0;
+  for (int turn = 0; turn < kMostTurns; ++turn) {
+    const double sinLambda = std::sin(lambda), cosLambda = std::cos(lambda);
+    const double across = cosU2 * sinLambda;
+    const double along = cosU1 * sinU2 - sinU1 * cosU2 * cosLambda;
+    sinSigma = std::sqrt(across * across + along * along);
+    if (sinSigma == 0.0) {
+      out.Converged = true;
+      return out;
+    }
+    cosSigma = sinU1 * sinU2 + cosU1 * cosU2 * cosLambda;
+    sigma = std::atan2(sinSigma, cosSigma);
+    const double sinAlpha = cosU1 * cosU2 * sinLambda / sinSigma;
+    cosSqAlpha = 1.0 - sinAlpha * sinAlpha;
+    cos2SigmaM = cosSqAlpha == 0.0 ? 0.0 : cosSigma - 2.0 * sinU1 * sinU2 / cosSqAlpha;
+    const double c = f / 16.0 * cosSqAlpha * (4.0 + f * (4.0 - 3.0 * cosSqAlpha));
+    const double was = lambda;
+    lambda = apart + (1.0 - c) * f * sinAlpha *
+                         (sigma + c * sinSigma *
+                                      (cos2SigmaM +
+                                       c * cosSigma * (-1.0 + 2.0 * cos2SigmaM * cos2SigmaM)));
+    if (std::fabs(lambda - was) < kSettledRad) {
+      out.Converged = true;
+      break;
+    }
+  }
+
+  if (!out.Converged) { return out; }
+
+  const double uSq = cosSqAlpha * (semiMajorM * semiMajorM - b * b) / (b * b);
+  const double a = 1.0 + uSq / 16384.0 * (4096.0 + uSq * (-768.0 + uSq * (320.0 - 175.0 * uSq)));
+  const double bb = uSq / 1024.0 * (256.0 + uSq * (-128.0 + uSq * (74.0 - 47.0 * uSq)));
+  const double deltaSigma =
+      bb * sinSigma *
+      (cos2SigmaM +
+       bb / 4.0 *
+           (cosSigma * (-1.0 + 2.0 * cos2SigmaM * cos2SigmaM) -
+            bb / 6.0 * cos2SigmaM * (-3.0 + 4.0 * sinSigma * sinSigma) *
+                (-3.0 + 4.0 * cos2SigmaM * cos2SigmaM)));
+  out.AlongM = b * a * (sigma - deltaSigma);
+
+  const double sinLambda = std::sin(lambda), cosLambda = std::cos(lambda);
+  out.FromBearingDeg = std::atan2(cosU2 * sinLambda, cosU1 * sinU2 - sinU1 * cosU2 * cosLambda) /
+                       kDeg2Rad;
+  out.ToBearingDeg = std::atan2(cosU1 * sinLambda, -sinU1 * cosU2 + cosU1 * sinU2 * cosLambda) /
+                     kDeg2Rad;
+  return out;
+}
+
 inline void GeoToEcef(double latDeg, double lonDeg, double altM, double out[3]) {
   const double a = 6378137.0, e2 = 6.69437999014e-3;
   double lat = latDeg * kDeg2Rad, lon = lonDeg * kDeg2Rad;

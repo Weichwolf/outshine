@@ -99,9 +99,15 @@ def fetch_subjects(manifest, store, destination, force=False):
             )
             target = os.path.join(destination, file["as"])
             placed = "kept"
-            if force or not _matches(target, file["sha256"]):
-                store.copy_out(file["sha256"], target)
-                placed = "placed"
+            packed = file.get("unpack")
+            if packed is None:
+                if force or not _matches(target, file["sha256"]):
+                    store.copy_out(file["sha256"], target)
+                    placed = "placed"
+            elif force or not os.path.exists(target):
+                vendor.step(manifest.directory, "fetch").unpack(
+                    packed, store.path(file["sha256"]), target)
+                placed = "unpacked"
             report["files"].append(
                 {"subject": subject.id, "as": file["as"], "bytes": size, "source": how, "destination": placed}
             )

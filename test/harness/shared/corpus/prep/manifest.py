@@ -172,7 +172,7 @@ class _Subject:
                   file=sys.stderr)
         self.source = field["source"]
         self.files = field["files"]
-        self.entry = field["entry"]
+        self.entry = field.get("entry", "")
         self.attributes = field.get("attributes", [])
         self.notes = field.get("notes", "")
         self.patch = field.get("patch")
@@ -192,7 +192,7 @@ class _Subject:
                     expected="a member path exactly when the role is archive-member",
                     observed=repr(file.get("member")),
                 )
-        if self.entry not in [f["as"] for f in self.files]:
+        if self.entry and self.entry not in [f["as"] for f in self.files]:
             raise Refusal(where + ".entry", expected="one of the declared files", observed=self.entry)
 
     def metadata_file(self):

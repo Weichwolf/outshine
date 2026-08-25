@@ -39,6 +39,7 @@ public:
     std::string held = std::string(what) + " = " + Rounded(how);
     if (unit != nullptr && unit[0] != '\0') { held += " " + std::string(unit); }
     Held.push_back(std::move(held));
+    Took.push_back(Measure{what, how, unit == nullptr ? std::string() : std::string(unit)});
   }
   void Claim(bool held, const char *why) override {
     Held.push_back(std::string(held ? "HELD " : "FAILED ") + why);
@@ -57,6 +58,7 @@ public:
   [[nodiscard]] const std::string &WhyNot() const { return Why; }
 
   std::vector<std::string> Held;
+  std::vector<Measure> Took;
 
 private:
   [[nodiscard]] static std::string Rounded(double how) {
@@ -112,6 +114,7 @@ struct Engine::State {
   bool Pumping = false;
   std::optional<TriggerField> Volumes;
   std::vector<std::string> Measured;
+  std::vector<Measure> Numbers;
   Host *Offered = nullptr;
   Ground::GroundStack Stack;
   Sim::DriveProduct Drive;
@@ -173,7 +176,7 @@ bool Engine::Assemble() {
   const size_t named = AssembledCapacity(declared);
   if (named == 0) {
     S_->Drove = false;
-    return true;
+    return Drives();
   }
   if (!S_->Scene.Open(named) || !S_->Vehicles.Open(S_->Scene) ||
       !S_->Drives.Open(S_->Scene) || !S_->Kinds.Open(S_->Scene)) {
@@ -186,6 +189,11 @@ bool Engine::Assemble() {
     return false;
   }
 
+  return Drives();
+}
+
+bool Engine::Drives(void) {
+  const Scenario &declared = S_->Declared;
   S_->Drove = false;
   if (!declared.Driven.Declared) { return true; }
   if (!S_->Wire) {
@@ -202,6 +210,7 @@ bool Engine::Assemble() {
                                          declared.Ground, S_->Stack, *S_->Wire, kept, say,
                                          S_->Drive);
   S_->Measured = std::move(say.Held);
+  S_->Numbers = std::move(say.Took);
   if (!routed) {
     S_->Error = say.WhyNot();
     return false;
@@ -250,15 +259,12 @@ bool Engine::DrawsInto(Extent offscreen) {
 
 void Engine::Under(Roots roots) { S_->Under = std::move(roots); }
 
-bool Engine::Drove(void) const { return S_->Drove; }
-
-double Engine::ReachedM(void) const {
+double Engine::Along(void) const {
   return S_->Drove ? S_->Drive.State.Tally.ReachedM : 0.0;
 }
 
-double Engine::RouteM(void) const { return S_->Drove ? S_->Drive.Way.Line.LengthM() : 0.0; }
+double Engine::Whole(void) const { return S_->Drove ? S_->Drive.Way.Line.LengthM() : 0.0; }
 
-size_t Engine::GroundTiles(void) const { return S_->GroundTiles; }
 
 bool Engine::Compose(void) {
   S_->GroundTiles = 0;
@@ -797,15 +803,7 @@ const std::vector<std::string> &Engine::Carried() const { return S_->Carried; }
 
 const std::vector<std::string> &Engine::Measured() const { return S_->Measured; }
 
-bool Engine::Scrolls(double byPx) {
-  if (!S_->Standing) {
-    S_->Error = "nothing stands, so there is no surface to scroll";
-    return false;
-  }
-  float xPx = 0.0f, yPx = 0.0f;
-  SDL_GetMouseState(&xPx, &yPx);
-  return S_->Standing->Wheeled((double)xPx, (double)yPx, byPx, S_->Error);
-}
+const std::vector<Measure> &Engine::Numbers() const { return S_->Numbers; }
 
 bool Engine::Takes(std::string_view view) {
   if (!S_->Views) {
@@ -854,7 +852,7 @@ bool Engine::Rides(void) {
   const double stillM[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   if (!S_->Standing->Carry(bodyFromWorld, stillM, S_->Error)) { return false; }
   if (S_->Volumes) {
-    S_->Volumes->Probe(0, body.PositionM, (double)At() * kTickS);
+    S_->Volumes->Probe(0, body.PositionM, (double)S_->Standing->At() * kTickS);
     for (const TriggerField::Fired &fired : S_->Volumes->Drain()) {
       S_->Measured.push_back("a volume fired event " + std::to_string(fired.Event) +
                              " for body " + std::to_string(fired.Body));
@@ -906,15 +904,16 @@ bool Engine::Advance() {
   return true;
 }
 
+double Engine::StepS(void) const { return kTickS; }
+
 bool Engine::Run() {
   if (!S_->Standing) {
     S_->Error = "no scenario is standing, so there is nothing to run";
     return false;
   }
-  for (int frame = 0; frame < S_->Standing->Frames(); ++frame) {
-    if (!S_->Standing->Advance(S_->Error)) { return false; }
+  while (Advance()) {
   }
-  return true;
+  return S_->Error.empty();
 }
 
 bool Engine::Park() {
@@ -979,8 +978,6 @@ std::vector<std::string> Engine::Parked() const {
   return names;
 }
 
-int Engine::At() const { return S_->Standing ? S_->Standing->At() : 0; }
-int Engine::Frames() const { return S_->Standing ? S_->Standing->Frames() : 0; }
 bool Engine::Standing() const { return S_->Standing != nullptr; }
 const std::string &Engine::Error() const { return S_->Error; }
 

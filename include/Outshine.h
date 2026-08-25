@@ -27,6 +27,12 @@ public:
   [[nodiscard]] virtual bool Calls(std::string_view name, std::span<const Argument> args) = 0;
 };
 
+struct Measure {
+  std::string What;
+  double How = 0.0;
+  std::string Unit;
+};
+
 struct Roots {
   std::string Assets;
   std::string Shipped;
@@ -46,16 +52,10 @@ public:
   [[nodiscard]] bool DrawsInto(SDL_Window *presents);
   void Offers(Host *host);
   [[nodiscard]] bool Takes(std::string_view view);
-  [[nodiscard]] bool Scrolls(double byPx);
   [[nodiscard]] std::vector<std::string> Views(void) const;
   [[nodiscard]] bool Handles(const SDL_Event &event);
   [[nodiscard]] bool DrawsInto(Extent offscreen);
   void Under(Roots roots);
-  [[nodiscard]] bool Drove(void) const;
-  [[nodiscard]] double ReachedM(void) const;
-  [[nodiscard]] double RouteM(void) const;
-  [[nodiscard]] bool Compose(void);
-  [[nodiscard]] size_t GroundTiles(void) const;
   [[nodiscard]] bool Capture(std::string_view path);
   [[nodiscard]] const Roots &Under(void) const;
 
@@ -67,10 +67,15 @@ public:
   [[nodiscard]] const Scenario &Declared(void) const;
   [[nodiscard]] const std::vector<std::string> &Carried(void) const;
   [[nodiscard]] const std::vector<std::string> &Measured(void) const;
+  [[nodiscard]] const std::vector<Measure> &Numbers(void) const;
 
   [[nodiscard]] bool Assemble();
 
+  [[nodiscard]] double Along(void) const;
+  [[nodiscard]] double Whole(void) const;
+
   [[nodiscard]] bool Advance();
+  [[nodiscard]] double StepS(void) const;
   [[nodiscard]] bool Run();
 
   [[nodiscard]] bool Park();
@@ -80,13 +85,13 @@ public:
   [[nodiscard]] bool Restore(std::string_view path);
   [[nodiscard]] std::vector<std::string> Parked(void) const;
 
-  [[nodiscard]] int At(void) const;
-  [[nodiscard]] int Frames(void) const;
   [[nodiscard]] bool Standing(void) const;
   [[nodiscard]] const std::string &Error(void) const;
 
 private:
   [[nodiscard]] bool Rides(void);
+  [[nodiscard]] bool Compose(void);
+  [[nodiscard]] bool Drives(void);
 
   struct State;
   [[nodiscard]] bool ReadInto(std::string_view path, Scenario &out);

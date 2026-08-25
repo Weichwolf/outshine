@@ -449,6 +449,25 @@
             },
             "notes": "string"
           }
+        },
+        "data": {
+          "required": {
+            "id": "text",
+            "name": "text",
+            "source": {
+              "object": "subject-source"
+            },
+            "files": {
+              "array": {
+                "object": "fetched-file"
+              }
+            },
+            "entry": "text"
+          },
+          "optional": {
+            "notes": "string"
+          },
+          "note": "A SUBJECT THAT IS NOT GEOMETRY. A corpus whose oracle is a table of numbers stands up no asset; the case declares the table and the scenario it feeds."
         }
       }
     },
@@ -582,6 +601,14 @@
             "pinReason": "text"
           },
           "note": "THE VALIDATOR'S OWN TEST CORPUS, which is a third Khronos repository and neither the sample assets nor the generator. Its assets are deliberately malformed and carry no per-file metadata, so the licence is the repository's Apache-2.0 and is declared here."
+        },
+        "geographiclib-testdata": {
+          "required": {
+            "file": "text",
+            "pinnedOn": "text",
+            "pinReason": "text"
+          },
+          "note": "PUBLISHED TEST DATA, not a repository checkout. GeodTest is generated once and released under CC0; there is no commit to pin, so the archive's own digest IS the pin."
         }
       }
     },
@@ -614,7 +641,12 @@
         }
       },
       "optional": {
-        "member": "text"
+        "member": "text",
+        "unpack": {
+          "enum": [
+            "gzip"
+          ]
+        }
       },
       "note": "A file may be covered by more than one grant -- MultiUVTest carries a CC-BY licence and Khronos's non-copyrightable-logo mark -- and the licence check compares the SET declared here against the set upstream's own metadata states, so both are named or the manifest was written from memory."
     },

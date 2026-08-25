@@ -194,6 +194,7 @@ done
 LayerIncludes() {
   case "$1" in
     harness/claims) printf '%s' "-Iinclude -Isrc/core" ;;
+    harness/render/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/core -Isrc/data -Itest/harness/shared" ;;
     harness/render/khronos/validator) printf '%s' "-Iinclude -Isrc/core -Itest/harness/shared" ;;
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/data -Isrc/scene -Isrc/scenario -Isrc/ui -Iinclude -Isrc/host -Isrc/clients" ;;
     harness/render/wpt/css) printf '%s' "-Iinclude" ;;
@@ -209,7 +210,7 @@ LayerToolchain() {
   case "$1" in
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | apps/viewer/src | render/outshine/scenario) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     apps/driver/src) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
-    harness/render/khronos/validator) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    harness/render/geographiclib/geodesic | harness/render/khronos/validator) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
   esac
 }
@@ -237,7 +238,7 @@ LayerLink() {
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | apps/viewer/src | render/outshine/scenario | render/outshine/client) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
     harness/claims) printf '%s' "-lz" ;;
     apps/driver/src) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
-    harness/render/khronos/validator) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
+    harness/render/geographiclib/geodesic | harness/render/khronos/validator) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -247,7 +248,7 @@ LayerGroups() {
     harness/render/wpt/css) printf '%s' "src/core/Json.cpp src/ui" ;;
     harness/render/test262/js) printf '%s' "src/core/Json.cpp src/core/Script.cpp" ;;
     harness/claims) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
-    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | apps/viewer/src | render/outshine/scenario | render/outshine/client | harness/render/khronos/validator) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/data src/ground src/ground/tiles src/sim src/actor/path src/actor/body src/actor/mind src/host src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/compositor src/clients/Live.cpp src/clients/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/clients/InputPump.cpp src/clients/Assembly.cpp" ;;
+    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | apps/viewer/src | render/outshine/scenario | render/outshine/client | harness/render/geographiclib/geodesic | harness/render/khronos/validator) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/data src/ground src/ground/tiles src/sim src/actor/path src/actor/body src/actor/mind src/host src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/compositor src/clients/Live.cpp src/clients/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/clients/InputPump.cpp src/clients/Assembly.cpp" ;;
     apps/driver/src) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/actor/path src/actor/body src/actor/mind src/data src/ground/tiles src/ground src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/clients/InputPump.cpp src/sim src/scene src/clients/Assembly.cpp" ;;
     *) return 1 ;;
   esac
@@ -261,6 +262,7 @@ LayerCases() {
     harness/render/wpt/css) find test/render/wpt/css -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     harness/render/test262/js) find test/render/test262/js -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     harness/render/khronos/validator) find test/render/khronos/validator -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
+    harness/render/geographiclib/geodesic) find test/render/geographiclib/geodesic -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     *) printf '%s' "" ;;
   esac
 }

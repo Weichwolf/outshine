@@ -1,0 +1,45 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "geographiclib/geodesic/geodtest-short",
+  "title": "GeographicLib GeodTest-short -- 10000 geodesics computed in Maxima at 50 digits",
+  "covers": [
+    "one-world-space",
+    "geographiclib:GeodTest"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "the distance between two points on the declared sphere agrees with the geodesic GeographicLib computes on the WGS84 ellipsoid to 50 digits -- a reference carried to far more precision than a double holds, so the corpus can never be the thing that is wrong",
+    "statedAt": "https://geographiclib.sourceforge.io/C++/doc/geodesic.html#testgeod"
+  },
+  "subjects": [
+    {
+      "kind": "data",
+      "id": "geodtest-short",
+      "name": "geodtest-short",
+      "source": {
+        "kind": "geographiclib-testdata",
+        "file": "GeodTest-short.dat.gz",
+        "pinnedOn": "2026-08-25",
+        "pinReason": "GeodTest is generated once and published under CC0; the archive is the published artefact and its digest is the pin"
+      },
+      "files": [
+        {
+          "url": "https://downloads.sourceforge.net/project/geographiclib/testdata/GeodTest-short.dat.gz",
+          "sha256": "31d376e8158f7af26277d887d7a1e7726e14d172db5a848a1730dd4886ab6121",
+          "bytes": 803843,
+          "as": "GeodTest-short.dat",
+          "role": "metadata",
+          "unpack": "gzip",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Charles Karney",
+            "covers": "Everything",
+            "statedAt": "https://geographiclib.sourceforge.io/"
+          }
+        }
+      ],
+      "entry": "GeodTest-short.dat"
+    }
+  ]
+}
