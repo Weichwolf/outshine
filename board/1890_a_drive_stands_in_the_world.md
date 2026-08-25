@@ -218,3 +218,16 @@ the tree.
       So the change is right and it is not four edits. It is: the scale is known at ASSEMBLY,
       before the stand opens, and `ModelShiftM` is stated once in the space it is applied in.
       Withdrawn rather than half-landed, and the four fixes above stand on their own.
+
+      **Tried a second time with the order fixed, and withdrawn again.** The factor IS derivable
+      at `Declare` -- `wheelbaseM / assetWheelbase` is in the scenario, not only in the rig -- so
+      the door can carry it before the stand opens, and it does not need `ScaledBy` pushing it in
+      after assembly. That part is sound and measured: the door declared 0.0155498 m per asset
+      unit at `Declare` time.
+
+      What is NOT explained, and is where the next attempt starts rather than the arithmetic:
+      with `Subject::ScaleTo` called from `Live::Pose` and the door carrying the factor, the
+      subject still spans 1102 units rather than 17 m. Either `Pose` is not the path the first
+      stand takes, or `Live::Shown()` does not return what is drawn. Two guesses, and this item
+      has already cost three wrong guesses today, so the next move is to MEASURE which -- print
+      the span inside `Live::Build` at each branch -- and not to edit.
