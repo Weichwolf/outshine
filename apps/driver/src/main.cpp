@@ -15,7 +15,6 @@ struct Asked {
   double ToLatDeg = 0.0;
   double ToLonDeg = 0.0;
   bool Routed = false;
-  int Zoom = 14;
   int WidthPx = 1280;
   int HeightPx = 720;
   bool Headless = false;
@@ -43,7 +42,6 @@ void Usage() {
       "\n"
       "  --from LAT,LON      where the drive starts\n"
       "  --to LAT,LON        where it ends\n"
-      "  --zoom N            the tile zoom the road is fetched at (default 14)\n"
       "  --scenario PATH     the declaration to read (default apps/driver/src/f31.scenario)\n"
       "  --size WxH          the frame to render (default 1280x720)\n"
       "  --headless          render without opening a window\n"
@@ -69,8 +67,6 @@ void Usage() {
     } else if (said == "--to" && wants) {
       if (!Pair(argv[++at], out.ToLatDeg, out.ToLonDeg)) { return false; }
       out.Routed = true;
-    } else if (said == "--zoom" && wants) {
-      if (!Number(argv[++at], out.Zoom)) { return false; }
     } else if (said == "--scenario" && wants) {
       out.Scenario = argv[++at];
     } else if (said == "--into" && wants) {
@@ -122,17 +118,15 @@ int main(int argc, char **argv) {
     declared.Driven.FromLonDeg = asked.FromLonDeg;
     declared.Driven.ToLatDeg = asked.ToLatDeg;
     declared.Driven.ToLonDeg = asked.ToLonDeg;
-    declared.Driven.Zoom = asked.Zoom;
     if (!engine.Declare(declared)) {
       std::printf("REFUSED %s\n", engine.Error().c_str());
       return 1;
     }
   }
 
-  std::printf("DRIVING %.5f,%.5f -> %.5f,%.5f at zoom %d, %dx%d%s\n",
-              declared.Driven.FromLatDeg, declared.Driven.FromLonDeg, declared.Driven.ToLatDeg,
-              declared.Driven.ToLonDeg, declared.Driven.Zoom, asked.WidthPx, asked.HeightPx,
-              asked.Headless ? ", headless" : "");
+  std::printf("DRIVING %.5f,%.5f -> %.5f,%.5f, %dx%d%s\n", declared.Driven.FromLatDeg,
+              declared.Driven.FromLonDeg, declared.Driven.ToLatDeg, declared.Driven.ToLonDeg,
+              asked.WidthPx, asked.HeightPx, asked.Headless ? ", headless" : "");
 
   if (!engine.Assemble()) {
     std::printf("REFUSED %s\n", engine.Error().c_str());

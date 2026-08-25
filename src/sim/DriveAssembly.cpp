@@ -61,7 +61,6 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   const double fromLonDeg = driveTo->FromLonDeg;
   const double toLatDeg = driveTo->ToLatDeg;
   const double toLonDeg = driveTo->ToLonDeg;
-  const int kZoom = driveTo->Zoom;
   out.Car = *car;
 
   auto &corridor = out.Way.Line;
@@ -71,18 +70,6 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   const double middleLat = 0.5 * (fromLatDeg + toLatDeg);
   const double middleLon = 0.5 * (fromLonDeg + toLonDeg);
   say.Number("start to destination as the crow flies", straightM / 1000.0, "km");
-  say.Number("the zoom the ways are read at", (double)kZoom, "");
-  const double tileGroundM =
-      outshine::Ground::kMercatorGirthM * std::cos(middleLat * outshine::kPi / 180.0) /
-      (double)(1L << kZoom);
-  const int kCorridorRing = 2;
-  const long steps = (long)std::ceil(straightM / tileGroundM) + 1;
-  const long square = (long)(2 * std::ceil(0.5 * straightM / tileGroundM) + 3);
-  say.Number("a tile's ground size at this zoom and latitude", tileGroundM / 1000.0, "km");
-  say.Number("stations along the line the corridor is fetched at", (double)steps, "stations");
-  say.Number("the ring fetched around each", (double)(2 * kCorridorRing + 1), "tiles across");
-  say.Number("what a square covering both cities would have cost", (double)(square * square), "tiles");
-
   std::string error;
   out.State.CarWidthM = out.Car.WidthM;
   const double carWidthM = out.State.CarWidthM;
@@ -96,6 +83,26 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
                   say)) {
     return false;
   }
+
+  const int kZoom = stack.FinestZoomOf(Data::DataKind::VectorMap);
+  if (kZoom <= 0) {
+    say.Say("REFUSED no declared source carries a vector map, so there is no zoom to read the "
+            "ways at");
+    return false;
+  }
+  say.Number("the zoom the ways are read at", (double)kZoom, "");
+
+  const double tileGroundM =
+      outshine::Ground::kMercatorGirthM * std::cos(middleLat * outshine::kPi / 180.0) /
+      (double)(1L << kZoom);
+  const int kCorridorRing = 2;
+  const long steps = (long)std::ceil(straightM / tileGroundM) + 1;
+  const long square = (long)(2 * std::ceil(0.5 * straightM / tileGroundM) + 3);
+  say.Number("a tile's ground size at this zoom and latitude", tileGroundM / 1000.0, "km");
+  say.Number("stations along the line the corridor is fetched at", (double)steps, "stations");
+  say.Number("the ring fetched around each", (double)(2 * kCorridorRing + 1), "tiles across");
+  say.Number("what a square covering both cities would have cost", (double)(square * square),
+             "tiles");
 
   OsmField field(kZoom, OsmLayerNames({OsmLayer::Streets, OsmLayer::StreetPolygons}));
   const auto began = std::chrono::steady_clock::now();

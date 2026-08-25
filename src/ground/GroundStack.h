@@ -8,6 +8,7 @@
 #include "ContentStore.h"
 #include "DeclaredSources.h"
 #include "TerrainLoader.h"
+#include "SourceDecl.h"
 #include "TilePool.h"
 
 namespace outshine {
@@ -31,6 +32,7 @@ public:
   [[nodiscard]] bool Opened() const { return Opened_; }
   [[nodiscard]] TilePool &Pool() const { return *Pool_; }
   [[nodiscard]] GroundStream &Ground() const { return *Ground_; }
+  [[nodiscard]] int FinestZoomOf(Data::DataKind kind) const;
 
 private:
   std::unique_ptr<Data::ContentStore> Store_;

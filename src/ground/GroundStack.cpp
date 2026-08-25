@@ -52,4 +52,15 @@ void GroundStack::Close() {
   Opened_ = false;
 }
 
+int GroundStack::FinestZoomOf(Data::DataKind kind) const {
+  int finest = 0;
+  if (!Sources_) { return finest; }
+  for (size_t at = 0; at < Sources_->Count(); ++at) {
+    const Data::SourceDecl &decl = Sources_->At(at).Declaration();
+    if (decl.Kind != kind) { continue; }
+    finest = decl.MaxZoom > finest ? decl.MaxZoom : finest;
+  }
+  return finest;
+}
+
 }
