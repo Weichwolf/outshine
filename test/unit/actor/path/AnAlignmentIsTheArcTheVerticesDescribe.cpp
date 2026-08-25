@@ -102,6 +102,42 @@ int main(void) {
     }
   }
 
+  {
+    // A spiral: the radius shrinks with every chord, so no one arc holds the whole run within
+    // the bound. The run's curvature never reverses, which is what makes it the case the
+    // accuracy bound must end rather than the sign change.
+    std::vector<double> tightening;
+    double east = 0.0, north = 0.0, heading = 0.0;
+    tightening.push_back(-60.0);
+    tightening.push_back(0.0);
+    for (int step = 0; step < 26; ++step) {
+      tightening.push_back(east);
+      tightening.push_back(north);
+      const double radiusM = 900.0 - 30.0 * (double)step;
+      const double chordM = 30.0;
+      heading += chordM / radiusM;
+      east += chordM * std::cos(heading);
+      north += chordM * std::sin(heading);
+    }
+    tightening.push_back(east + 60.0 * std::cos(heading));
+    tightening.push_back(north + 60.0 * std::sin(heading));
+
+    for (const double boundM : {40.0, 8.0, 1.0}) {
+      const auto aligned = Align(tightening, boundM, kTightestM);
+      if (!aligned) { std::printf("REFUSED %s\n", aligned.error().c_str()); }
+      CHECK(aligned.has_value(), "a tightening spiral aligns");
+      if (!aligned) { continue; }
+      std::printf("NOTE within %.0f m the spiral takes %zu bends, longest run %zu, worst %.4f m\n",
+                  boundM, aligned->Bends.size(), aligned->LongestRunVertices,
+                  aligned->WorstAwayM);
+      CHECK(aligned->WorstAwayM <= boundM + 1.0e-9,
+            "**AND THE ACCURACY BOUND ENDS A RUN THE SIGN CHANGE DOES NOT**: a spiral turns one "
+            "way throughout, so nothing but the bound says where one arc must become two -- and "
+            "a fitter that only splits on reversal would lay one arc through all of it "
+            "(board:1795)");
+    }
+  }
+
   Covers("I.4.8 an alignment is one arc per RUN of same-sign turns, placed by where the "
          "entering and leaving straights meet -- so a polyline describing a circle aligns as "
          "that circle at every digitisation density (board:1795)");

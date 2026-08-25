@@ -38,6 +38,76 @@ struct Turned {
   return worst;
 }
 
+[[nodiscard]] double AwayM(double fromE, double fromN, double toE, double toN) {
+  const double east = toE - fromE, north = toN - fromN;
+  return std::sqrt(east * east + north * north);
+}
+
+[[nodiscard]] std::expected<Bend, std::string> BendOver(std::span<const double> points,
+                                                        std::span<const Turned> legs, size_t at,
+                                                        size_t last, double tightestM) {
+  Bend bend;
+  bend.FirstVertex = at;
+  bend.LastVertex = last;
+  bend.TurnRad = Wrapped(legs[last].HeadingRad - legs[at - 1].HeadingRad);
+
+  const double swing = std::fabs(bend.TurnRad);
+  if (swing < 1.0e-9 || swing > std::numbers::pi - 1.0e-9) {
+    return std::unexpected("vertices " + std::to_string(at) + ".." + std::to_string(last) +
+                           " turn through " + std::to_string(bend.TurnRad) +
+                           " rad, which no single arc between two straights can carry");
+  }
+  if (!Meets(points[2 * (at - 1)], points[2 * (at - 1) + 1], legs[at - 1].HeadingRad,
+             points[2 * (last + 1)], points[2 * (last + 1) + 1], legs[last].HeadingRad,
+             bend.PiEastM, bend.PiNorthM)) {
+    return std::unexpected("the legs entering and leaving vertices " + std::to_string(at) + ".." +
+                           std::to_string(last) + " are parallel and meet nowhere");
+  }
+
+  const double half = 0.5 * swing;
+  const double toCentre = (bend.TurnRad > 0.0 ? 1.0 : -1.0) * (0.5 * std::numbers::pi);
+  const double bisector = legs[at - 1].HeadingRad + 0.5 * bend.TurnRad + toCentre;
+  const auto centreOf = [&](double radiusM, double &centreE, double &centreN) {
+    const double away = radiusM / std::cos(half);
+    centreE = bend.PiEastM + away * std::cos(bisector);
+    centreN = bend.PiNorthM + away * std::sin(bisector);
+  };
+
+  const double intoM = AwayM(bend.PiEastM, bend.PiNorthM, points[2 * (at - 1)],
+                             points[2 * (at - 1) + 1]);
+  const double outOfM = AwayM(bend.PiEastM, bend.PiNorthM, points[2 * (last + 1)],
+                              points[2 * (last + 1) + 1]);
+  const double roomM = intoM < outOfM ? intoM : outOfM;
+  const double byRoom = roomM / std::tan(half);
+  if (!(byRoom > tightestM)) {
+    return std::unexpected("vertices " + std::to_string(at) + ".." + std::to_string(last) +
+                           " leave " + std::to_string(roomM) +
+                           " m of tangent between their straights, which carries no arc wider "
+                           "than " + std::to_string(byRoom) + " m");
+  }
+
+  double low = tightestM, high = byRoom;
+  for (int step = 0; step < 96; ++step) {
+    const double oneThird = low + (high - low) / 3.0;
+    const double twoThirds = high - (high - low) / 3.0;
+    double aE = 0.0, aN = 0.0, bE = 0.0, bN = 0.0;
+    centreOf(oneThird, aE, aN);
+    centreOf(twoThirds, bE, bN);
+    if (FurthestFromArcM(points, at, last, aE, aN, oneThird) <
+        FurthestFromArcM(points, at, last, bE, bN, twoThirds)) {
+      high = twoThirds;
+    } else {
+      low = oneThird;
+    }
+  }
+  bend.RadiusM = 0.5 * (low + high);
+  double centreE = 0.0, centreN = 0.0;
+  centreOf(bend.RadiusM, centreE, centreN);
+  bend.AwayM = FurthestFromArcM(points, at, last, centreE, centreN, bend.RadiusM);
+  bend.TangentM = bend.RadiusM * std::tan(half);
+  return bend;
+}
+
 }
 
 std::expected<Aligned, std::string> Align(std::span<const double> eastNorthM, double withinM,
@@ -78,78 +148,30 @@ std::expected<Aligned, std::string> Align(std::span<const double> eastNorthM, do
       ++last;
     }
 
+    // The accuracy bound is what ends a run short of its curvature reversal: a run no single arc
+    // can hold within `withinM` becomes two bends meeting at the vertex that held them apart,
+    // and walking back one vertex at a time makes the first arc the longest one that fits.
     Bend bend;
-    bend.FirstVertex = at;
-    bend.LastVertex = last;
-    bend.TurnRad = Wrapped(legs[last].HeadingRad - legs[at - 1].HeadingRad);
-    ++out.Runs;
-    const size_t held = last - at + 1u;
-    out.LongestRunVertices = held > out.LongestRunVertices ? held : out.LongestRunVertices;
-
-    const double swing = std::fabs(bend.TurnRad);
-    if (swing < 1.0e-9 || swing > std::numbers::pi - 1.0e-9) {
-      return std::unexpected("vertices " + std::to_string(at) + ".." + std::to_string(last) +
-                             " turn through " + std::to_string(bend.TurnRad) +
-                             " rad, which no single arc between two straights can carry");
-    }
-    if (!Meets(eastNorthM[2 * (at - 1)], eastNorthM[2 * (at - 1) + 1], legs[at - 1].HeadingRad,
-               eastNorthM[2 * (last + 1)], eastNorthM[2 * (last + 1) + 1], legs[last].HeadingRad,
-               bend.PiEastM, bend.PiNorthM)) {
-      return std::unexpected("the legs entering and leaving vertices " + std::to_string(at) +
-                             ".." + std::to_string(last) + " are parallel and meet nowhere");
-    }
-
-    const double half = 0.5 * swing;
-    const double toCentre = (leftward ? 1.0 : -1.0) * (0.5 * std::numbers::pi);
-    const double bisector = legs[at - 1].HeadingRad + 0.5 * bend.TurnRad + toCentre;
-    const auto centreOf = [&](double radiusM, double &centreE, double &centreN) {
-      const double away = radiusM / std::cos(half);
-      centreE = bend.PiEastM + away * std::cos(bisector);
-      centreN = bend.PiNorthM + away * std::sin(bisector);
-    };
-
-    const double intoM =
-        std::sqrt(std::pow(bend.PiEastM - eastNorthM[2 * (at - 1)], 2.0) +
-                  std::pow(bend.PiNorthM - eastNorthM[2 * (at - 1) + 1], 2.0));
-    const double outOfM =
-        std::sqrt(std::pow(bend.PiEastM - eastNorthM[2 * (last + 1)], 2.0) +
-                  std::pow(bend.PiNorthM - eastNorthM[2 * (last + 1) + 1], 2.0));
-    const double roomM = intoM < outOfM ? intoM : outOfM;
-    const double byRoom = roomM / std::tan(half);
-
-    double low = tightestM, high = byRoom;
-    if (!(high > low)) {
-      return std::unexpected("vertices " + std::to_string(at) + ".." + std::to_string(last) +
-                             " leave " + std::to_string(roomM) +
-                             " m of tangent between their straights, which carries no arc "
-                             "wider than " + std::to_string(byRoom) + " m");
-    }
-    for (int step = 0; step < 96; ++step) {
-      const double oneThird = low + (high - low) / 3.0;
-      const double twoThirds = high - (high - low) / 3.0;
-      double aE = 0.0, aN = 0.0, bE = 0.0, bN = 0.0;
-      centreOf(oneThird, aE, aN);
-      centreOf(twoThirds, bE, bN);
-      const double atOne = FurthestFromArcM(eastNorthM, at, last, aE, aN, oneThird);
-      const double atTwo = FurthestFromArcM(eastNorthM, at, last, bE, bN, twoThirds);
-      if (atOne < atTwo) {
-        high = twoThirds;
-      } else {
-        low = oneThird;
+    for (;;) {
+      const auto held = BendOver(eastNorthM, legs, at, last, tightestM);
+      if (!held) { return std::unexpected(held.error()); }
+      if (held->AwayM <= withinM || last == at) {
+        bend = *held;
+        break;
       }
+      --last;
     }
-    bend.RadiusM = 0.5 * (low + high);
-    double centreE = 0.0, centreN = 0.0;
-    centreOf(bend.RadiusM, centreE, centreN);
-    bend.AwayM = FurthestFromArcM(eastNorthM, at, last, centreE, centreN, bend.RadiusM);
-    bend.TangentM = bend.RadiusM * std::tan(half);
 
+    ++out.Runs;
+    const size_t vertices = bend.LastVertex - bend.FirstVertex + 1u;
+    out.LongestRunVertices =
+        vertices > out.LongestRunVertices ? vertices : out.LongestRunVertices;
     out.WorstAwayM = bend.AwayM > out.WorstAwayM ? bend.AwayM : out.WorstAwayM;
     if (out.TightestRadiusM <= 0.0 || bend.RadiusM < out.TightestRadiusM) {
       out.TightestRadiusM = bend.RadiusM;
     }
     out.Bends.push_back(bend);
-    at = last + 1;
+    at = bend.LastVertex + 1u;
   }
 
   return out;
