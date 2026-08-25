@@ -267,7 +267,7 @@ bool Engine::Compose(void) {
   if (!declared.Ground.Declared) {
     S_->Error = "the scenario declares no sphere, so there is no ground to compose -- a drive "
                 "names a place, and the ring laid there is anchored on its own ECEF origin "
-                "rather than the corridor the vehicle stands on (board:1890)";
+                "rather than the corridor the vehicle stands on";
     return false;
   }
   const double atLat = declared.Ground.Lat;

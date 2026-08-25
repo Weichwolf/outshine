@@ -185,7 +185,7 @@ flowchart TD
   Assembly["Assembly — the XML door"] --> SceneStore["Scene Store — entities · typed pairs · traits · tags"]
   InputMap["InputMap — declared bindings, interned to ids"] --> InputPump["InputPump — SDL events to (action id, kind, value)"]
   TriggerField["TriggerField — volumes fire declared events: enter · exit · dwell"]
-  ViewBook["ViewBook — one active view: follows · clock scale · the ear"]
+  ViewBook["ViewBook — one active view: follows · clock scale · the ear"] --> Engine
   BusGraph["BusGraph — the mix: buses into buses, one master, falloff per source"]
 
   classDef sound fill:#1f6f3f,stroke:#0d3b21,color:#fff
@@ -198,7 +198,7 @@ flowchart TD
   class World,SubjectDraw,Sim,Live,Engine wrong
   class DriveAssembly,CorridorLay,DriveTick,TilePool unsure
   class Forest,Buildings,Water,Infrastructure strandedSound
-  class Typeface,Pointer,Markup,Stylesheet,LayoutUi,Painting,InputMap,InputPump,TriggerField,ViewBook,BusGraph strandedSound
+  class InputMap,InputPump,TriggerField,BusGraph strandedSound
   class RegionForge strandedUnsure
   class GroundStack sound
   class GroundPatchwork strandedSound
@@ -210,8 +210,8 @@ flowchart TD
 | `World` | spells camera and LOD inside the ground layer: `struct Eye` (World.h:49), `Refine(const Eye &eye, double nowMs)` (:55), `EyeInMercatorBand()` (:118), and 9 `const double eye[3]` (:189-195) |
 | `SubjectDraw` | six responsibilities in one class: `ShaderSource(const SourceOptions &options)` (SubjectDraw.h:30), `PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack)` (:154), `FlushCrossings(SDL_GPUCommandBuffer *commands)` (:148), `SetPlacements(const double *models, size_t rows, std::string &error)` (:51), `SetLights(std::span<const SubjectLight> lights, std::string &error)` (:89), and `EncodeDepthOnly(const double lightFromWorld16[16], const double eye[3], int atlasPx,` (:96) beside the one `void Encode(const FrameContext &ctx, const PassRecording &into)` (:93) a stage owes |
 | `Sim` | `class Sim {` (Sim.h:37) is a hand-wired god facade the component model replaces, and since the cut it has NO consumer at all: `grep -rn '"Sim.h"' src apps test include` finds one line, `src/clients/Sim.cpp:1`. 798 lines, 25 `#include "`, five green nodes hanging off it |
-| `Live` | `class Live {` (Live.h:69) reaches the renderer and the layout from one class — `#include "Renderer.h"` (:18) beside `#include "Layout.h"` (:13) |
-| `Engine` | `bool Engine::Compose(void) {` (Engine.cpp:247) lays the ground ring through `const auto laid = LayPatchwork(S_->Stack.Pool(), over);` (:280) and **NOTHING in the tree calls it** -- `grep -rn Compose src include apps test` finds only its own definition and its declaration in `include/Outshine.h:54` (board:1805), so the door publishes a verb that lays the world and no picture has ever carried a tile. Views, Input, Volumes, Tables and Sounds are accepted and never advanced (board:1862). `bool Engine::Declare(const Scenario &scenario) {` (:437) refuses without a canvas by name and `bool Engine::Advance() {` (:714) is reached only by a scenario that stands, so both arrival routes are closed |
+| `Live` | `class Live {` (Live.h:71) reaches the renderer and the layout from one class — `#include "Renderer.h"` (:18) beside `#include "Layout.h"` (:13) |
+| `Engine` | `bool Engine::Compose(void) {` (Engine.cpp:260) lays the ground ring through `auto laid = LayPatchwork(S_->Stack.Pool(), over);` (:297) and `Assemble` calls it, but a scenario that declares only a DRIVE is refused by name: the ring is anchored on its own ECEF origin while the vehicle stands on the corridor's, so composing it swallows the camera (board:1890). Input, Volumes, Tables and Sounds are accepted and never advanced; Views are advanced now, through `bool Engine::Rides(void) {` (:742). `bool Engine::Declare(const Scenario &scenario) {` (:452) stands a scenario that declares nothing at all, and `bool Engine::Advance() {` (:793) carries the drive to the picture |
 
 | amber | the form in question, at HEAD |
 |---|---|
@@ -239,11 +239,10 @@ flowchart TD
 | `Water` | `Sim.cpp`, `World.h` |
 | `Infrastructure` | `Sim.h` |
 | `RegionForge` | `Sim.h` |
-| `Markup` `Stylesheet` `LayoutUi` `Painting` `Typeface` `Pointer` | `#include "Layout.h"` (Live.h:13), `#include "Markup.h"` (:14), `#include "Paint.h"` (:15), `#include "Style.h"` (:19), `#include "Typeface.h"` (Engine.cpp:15) -- and the one programme that would show a glyph refuses to paint one: `outshine-viewer --headless --show four-lines.scenario` answers *the layout holds no box, so there is nothing to paint*, windowed and headless alike, so no picture the tree can take carries text or takes a click |
 | `InputMap` `InputPump` | `#include "InputPump.h"` (InputPump.cpp:1) and nothing else in the tree: `Engine.cpp` includes no pump, so no key reaches an action |
-| `TriggerField` `ViewBook` | `src/scenario/Triggers.{h,cpp}` and `src/scenario/Views.{h,cpp}` alone; the door includes neither |
+| `TriggerField` | `src/scenario/Triggers.{h,cpp}` alone; the door includes it nowhere |
 | `BusGraph` | nothing outside its own two files |
-| `GroundPatchwork` | `#include "GroundPatchwork.h"` (Engine.cpp:20) inside `bool Engine::Compose(void) {` (:247), and NOTHING calls `Compose` |
+| `GroundPatchwork` | `#include "GroundPatchwork.h"` (Engine.cpp:23) inside `bool Engine::Compose(void) {` (:260), and NOTHING calls `Compose` |
 
 ## Class structure (TARGET — where the tree is going)
 
