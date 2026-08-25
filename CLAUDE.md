@@ -377,16 +377,21 @@ ls board/*.md | grep -o '[0-9]\{4\}' | sort -n | tail -1  # next id, derived
 | | |
 |---|---|
 | `src/` | the library entire; `src/assets/` its declared data; no entry point, no test |
-| `test/` | `test/unit/` mirrors `src/`; `test/render/` per vendor; `test/harness/` scorers and claims |
+| `test/` | `test/render/` the established corpora (Khronos · WPT · test262); `test/harness/` their scorers and the board/harness claims. Everything under `test/` reaches the library through `include/` and NOTHING of `src/` |
 | `tools/` | development support built ON the library |
 | `apps/` | applications built ON the library. **`apps/driver` is outshine's ONE integration test and its product**; the hourly architect signs it off |
 | `Makefile` | build · test · clean, nothing else |
 | `board/` | the working system (above) |
 
 `make` builds the library and every program under `apps/` into `build/`. `test/run.sh` is the
-only TEST runner and runs nothing else; the fast unit mirror is the regression gate, long device
-and corpus suites run when named. A standing RED is declared in `EXPECT_FAIL` with its count, and
-the gate turns red the day such a case passes with the declaration still in place.
+only TEST runner and runs nothing else; by default it runs the corpora and the claims, while
+`tools` and `apps` run when named. A standing RED is declared in `EXPECT_FAIL` with its count,
+and the gate turns red the day such a case passes with the declaration still in place.
+
+**The front door is two headers**: `include/Outshine.h` and `include/Scenario.h`. outshine loads
+a scenario and runs it — that is the whole of it. A client that needs an assembly view, a
+transport or a parser is a client reaching past the door, and the door is what wants widening,
+never the reach.
 
 ## The order the work is done in
 
@@ -399,17 +404,16 @@ flowchart LR
   E --> A
 ```
 
-**`test/unit/` MIRRORS `src/` file for file, under the same name** -- a source `X.cpp` in layer
-`L` is tested by `X.cpp` in the same layer under `test/unit/`, one test per source, testing
-whatever in it is sensibly testable. The mirror IS the coverage measurement (a source without its twin is visible
-by listing, not by reading) and it is the layering proof (the twin links only what its layer
-needs).
+**Every case is a SCENARIO with an invariant reference.** A corpus case declares what the engine
+should stand up, the engine runs it, and the answer is compared against an oracle whose truth
+does not depend on our design — a Cycles render, a specification's stated result, a measurement
+carried to more digits than we hold. There is no `test/unit/`: 170 cases that asserted the shape
+of a moving architecture were deleted, because a test specifies only if it stands before the code
+AND the unit survives.
 
-A unit test asserts something that CAN be trivially true -- a reader checks it by eye -- and it
-tests ONE unit against a fixture. **No GOD tests**: a case that must link most of `src/` to say
-anything is testing the integration under a unit's name. Emergence is the integration test, and
-outshine has exactly one: `apps/driver`. `Engine` is the door to everything, so it owes no unit
-twin -- what proves it is the product running. **A test is a specification only while the
+**A client that compiles against `include/` and renders proves more than any test suite** — every
+architectural finding of the session that deleted `test/unit/` came from RUNNING `apps/driver`,
+which is outshine's one integration test and its product. **A test is a specification only while the
 architecture under it is right**: one asserting what must be TRUE wins against the code always;
 one asserting how it is DONE today moves with the architecture, and a refactor it blocks is a
 defect in the test.
