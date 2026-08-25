@@ -114,6 +114,7 @@ enum class Reading { Ran, Asked, Wrong };
 }
 
 int main(int argc, char **argv) {
+  std::setvbuf(stdout, nullptr, _IOLBF, 0);
   Asked asked;
   const Reading read = Read(argc, argv, asked);
   if (read != Reading::Ran) {
@@ -174,6 +175,17 @@ int main(int argc, char **argv) {
   if (!assembled) { return 1; }
 
   const double routeM = engine.RouteM();
+  if (routeM <= 0.0 && asked.Frames <= 0) {
+    if (!asked.Into.empty()) {
+      char named[512];
+      std::snprintf(named, sizeof named, "%s/standing.png", asked.Into.c_str());
+      if (engine.Capture(named)) { std::printf("KEPT %s\n", named); }
+    }
+    std::printf(
+        "REFUSED a drive that arrives is what ends this loop and this scenario declares none -- "
+        "declare a <drive> or name --frames N\n");
+    return 1;
+  }
   long frames = 0;
   long kept = 0;
   long nextStill = 0;

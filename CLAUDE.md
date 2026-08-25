@@ -207,8 +207,8 @@ flowchart TD
 | `World` | spells camera and LOD inside the ground layer: `struct Eye` (World.h:49), `Refine(const Eye &eye, double nowMs)` (:55), `EyeInMercatorBand()` (:118), and 9 `const double eye[3]` (:189-195) |
 | `SubjectDraw` | six responsibilities in one class: `ShaderSource(const SourceOptions &options)` (SubjectDraw.h:30), `PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack)` (:154), `FlushCrossings(SDL_GPUCommandBuffer *commands)` (:148), `SetPlacements(const double *models, size_t rows, std::string &error)` (:51), `SetLights(std::span<const SubjectLight> lights, std::string &error)` (:89), and `EncodeDepthOnly(const double lightFromWorld16[16], const double eye[3], int atlasPx,` (:96) beside the one `void Encode(const FrameContext &ctx, const PassRecording &into)` (:93) a stage owes |
 | `Sim` | `class Sim {` (Sim.h:37) is a hand-wired god facade the component model replaces, and since the cut it has NO consumer at all: `grep -rn '"Sim.h"' src apps test include` finds one line, `src/clients/Sim.cpp:1`. 798 lines, 25 `#include "`, five green nodes hanging off it |
-| `Live` | `class Live {` (Live.h:71) reaches the renderer and the layout from one class — `#include "Renderer.h"` (:18) beside `#include "Layout.h"` (:13) |
-| `Engine` | the door has TWO arrival routes and only one stands a picture: `bool Engine::Read(std::string_view path) {` (Engine.cpp:374) sets the declaration and no surface, `bool Engine::Assemble() {` (:140) returns TRUE without one, and `bool Engine::Advance() {` (:537) then refuses by name -- so the shipped scenario run headless leaves ZERO stills (board:1881). `bool Engine::Compose(void) {` (:218) lays the ground ring through `const auto laid = LayPatchwork(S_->Stack.Pool(), over);` (:251) and no programme calls it (board:1805). Views, Input, Volumes, Tables and Sounds are accepted and never advanced (board:1862) |
+| `Live` | `class Live {` (Live.h:68) reaches the renderer and the layout from one class — `#include "Renderer.h"` (:18) beside `#include "Layout.h"` (:13) |
+| `Engine` | `bool Engine::Compose(void) {` (Engine.cpp:226) lays the ground ring through `const auto laid = LayPatchwork(S_->Stack.Pool(), over);` (:259) and no programme calls it (board:1805). Views, Input, Volumes, Tables and Sounds are accepted and never advanced (board:1862). The two arrival routes board:1881 found are CLOSED: the canvas comes first, `bool Engine::Declare(const Scenario &scenario) {` (:298) refuses without one by name, and `bool Engine::Advance() {` (:572) is reached only by a scenario that stands |
 
 | amber | the form in question, at HEAD |
 |---|---|
@@ -216,7 +216,7 @@ flowchart TD
 | `WaterField` | `void Tessellate(const OsmField &field, std::vector<float> &out) const;` (WaterField.h:47) -- the same: a field that meshes rather than one that answers |
 | `Subject` | `class Subject {` (Subject.h:98) carries 42 `[[nodiscard]]` over one glTF document -- the getter carpet |
 | `DrawList` | `class DrawList {` (DrawList.h:167) with `struct VertexLayoutRow {` (:49) beside it: the list and the layout table in one header |
-| `Renderer` | `class Renderer {` (Renderer.h:34) publishes 54 `[[nodiscard]]` and 15 `const {` -- the getter carpet, on the frame path |
+| `Renderer` | `class Renderer {` (Renderer.h:34) publishes 54 `[[nodiscard]]` and 16 `const {` -- the getter carpet, on the frame path |
 | `TonemapStage` | `class TonemapStage {` (TonemapStage.h:14) is where `temporalResolve` folded into, so it carries two picture decisions |
 | `LightVisibilityStage` | `class LightVisibilityStage {` (LightVisibilityStage.h:16) -- one shadow atlas for every light, no cascade selection declared |
 | `Frustum` | `struct Frustum {` (Camera.h:94) sits in core beside the camera, while culling belongs to the compositor |
@@ -240,7 +240,7 @@ flowchart TD
 | `InputMap` `InputPump` | `#include "InputPump.h"` (InputPump.cpp:1) and nothing else in the tree: `Engine.cpp` includes no pump, so no key reaches an action |
 | `TriggerField` `ViewBook` | `src/scenario/Triggers.{h,cpp}` and `src/scenario/Views.{h,cpp}` alone; the door includes neither |
 | `BusGraph` | nothing outside its own two files |
-| `GroundPatchwork` | `#include "GroundPatchwork.h"` (Engine.cpp:17) inside `bool Engine::Compose(void) {` (:218), and no programme calls `Compose` |
+| `GroundPatchwork` | `#include "GroundPatchwork.h"` (Engine.cpp:18) inside `bool Engine::Compose(void) {` (:226), and no programme calls `Compose` |
 
 ## Class structure (TARGET — where the tree is going)
 
