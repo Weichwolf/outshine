@@ -75,7 +75,7 @@ int main(void) {
   for (const double chordM : {10.0, 20.0, 50.0, 100.0}) {
     const std::vector<double> arc = ArcOf(kTrueRadiusM, chordM);
     const auto aligned = Align(arc, kWithinM, kTightestM);
-    if (!aligned) { std::printf("REFUSED %s\n", aligned.error().c_str()); }
+    if (!aligned) { std::printf("REFUSED %s\n", aligned.error().Said.c_str()); }
     CHECK(aligned.has_value(), "a true circular arc aligns");
     if (!aligned) { continue; }
     const double share = aligned->TightestRadiusM / kTrueRadiusM;
@@ -89,7 +89,7 @@ int main(void) {
 
     ReferenceLine line;
     const auto laid = LayAligned(arc, *aligned, line);
-    if (!laid) { std::printf("REFUSED %s\n", laid.error().c_str()); }
+    if (!laid) { std::printf("REFUSED %s\n", laid.error().Said.c_str()); }
     CHECK(laid.has_value(), "and the alignment lays as a reference line");
     if (laid) {
       const double departsM = FurthestFromLineM(line, arc);
@@ -133,7 +133,7 @@ int main(void) {
                                      300.0, 60.0,  400.0, 60.0,  500.0, 20.0,
                                      600.0, 0.0,   700.0, 0.0};
     const auto aligned = Align(ess, kWithinM, kTightestM);
-    if (!aligned) { std::printf("REFUSED %s\n", aligned.error().c_str()); }
+    if (!aligned) { std::printf("REFUSED %s\n", aligned.error().Said.c_str()); }
     CHECK(aligned.has_value(), "an S bend aligns");
     if (aligned) {
       std::printf("NOTE the S carries %zu bends\n", aligned->Bends.size());
@@ -177,7 +177,7 @@ int main(void) {
 
     for (const double boundM : {40.0, 8.0, 1.0}) {
       const auto aligned = Align(tightening, boundM, kTightestM);
-      if (!aligned) { std::printf("REFUSED %s\n", aligned.error().c_str()); }
+      if (!aligned) { std::printf("REFUSED %s\n", aligned.error().Said.c_str()); }
       CHECK(aligned.has_value(), "a tightening spiral aligns");
       if (!aligned) { continue; }
       std::printf("NOTE within %.0f m the spiral takes %zu bends, longest run %zu, worst %.4f m\n",

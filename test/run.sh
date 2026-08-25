@@ -38,7 +38,7 @@ validatedRan=no
 # declared -- failing exactly the stated number of claims -- turns the verdict PASS and counts
 # toward `inverted`, which the trailer names. Behaving OTHERWISE, including going fully green,
 # prints to stderr and turns the verdict FAIL, which is what forces the entry out again
-EXPECT_FAIL="harness/claims/ExpectFail:1 unit/actor/path/ACurveIsFittedAtTheRadiusItHas:1"
+EXPECT_FAIL="harness/claims/ExpectFail:1"
 
 Die() {
   printf 'run.sh: %s\n' "$*" >&2

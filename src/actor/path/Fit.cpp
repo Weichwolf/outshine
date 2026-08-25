@@ -1,7 +1,9 @@
 #include "Fit.h"
+#include "Alignment.h"
 #include "Angle.h"
 
 #include <cmath>
+#include <numbers>
 
 namespace outshine {
 
@@ -126,204 +128,98 @@ Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
     legM[leg] = std::sqrt(east * east + north * north);
     headingRad[leg] = std::atan2(north, east);
   }
-
   std::vector<double> turnRad(points, 0.0);
-  std::vector<double> radiusM(points, 0.0);
-  std::vector<double> spiralM(points, 0.0);
-  std::vector<double> arcM(points, 0.0);
-  std::vector<double> tangentM(points, 0.0);
   for (size_t vertex = 1; vertex + 1 < points; ++vertex) {
     const double turn = Wrapped(headingRad[vertex] - headingRad[vertex - 1]);
     turnRad[vertex] = turn;
-    const double half = std::fabs(0.5 * turn);
-    if (half < 1.0e-9) { continue; }
-    if (std::fabs(turn) > out.SharpestTurnRad) {
-      out.SharpestTurnRad = std::fabs(turn);
+    const double swing = std::fabs(turn);
+    if (swing > out.SharpestTurnRad) {
+      out.SharpestTurnRad = swing;
       out.SharpestTurnAtM = (double)vertex;
     }
-    if (std::fabs(turn) > 0.5 * std::numbers::pi) { ++out.TurnsPastRightAngle; }
-    if (std::fabs(turn) > 0.75 * std::numbers::pi) { ++out.TurnsPastHalfCircle; }
+    if (swing > 0.5 * std::numbers::pi) { ++out.TurnsPastRightAngle; }
+    if (swing > 0.75 * std::numbers::pi) { ++out.TurnsPastHalfCircle; }
+  }
 
-    const double shorter = legM[vertex - 1] < legM[vertex] ? legM[vertex - 1] : legM[vertex];
-    const double swing = std::fabs(turn);
-    const double radius = CornerRadiusM(turn, shorter, withinM);
-    if (radius > 0.0 && (out.TightestDemandedM <= 0.0 || radius < out.TightestDemandedM)) {
-      out.TightestDemandedM = radius;
-      out.TightestDemandedAtVertex = vertex;
-    }
-    if (radius < tightestM) {
-      ++out.Undrivable;
-      if (out.Undrivable == 1) { out.UndrivableAtM = (double)vertex; }
-      continue;
-    }
-    if (radius > 0.0) {
-      radiusM[vertex] = radius;
-      spiralM[vertex] = 0.5 * radius * swing;
-      arcM[vertex] = 0.5 * radius * swing;
-      tangentM[vertex] = radius * TangentShare(swing);
-    }
-    if (radiusM[vertex] <= 0.0) {
-      out.Error = "vertex " + std::to_string(vertex) + " turns " + std::to_string(turn) +
-                  " rad between legs of " + std::to_string(legM[vertex - 1]) + " and " +
-                  std::to_string(legM[vertex]) +
-                  " m, and no corner fits that stays within " + std::to_string(withinM) +
-                  " m of it -- a turn this sharp between legs this short is a REFUSAL and not a "
-                  "corner to invent";
-      return out;
-    }
-    if (out.TightestRadiusM <= 0.0 || radiusM[vertex] < out.TightestRadiusM) {
-      out.TightestRadiusM = radiusM[vertex];
-      out.TightestAtVertex = vertex;
-    }
-    const double classM = vertex < classTightestM.size() ? classTightestM[vertex] : 0.0;
-    if (classM > 0.0 && radiusM[vertex] < classM) {
+  if (points < 3) {
+    Placed from;
+    from.EastM = eastNorthM[0];
+    from.NorthM = eastNorthM[1];
+    from.HeadingRad = headingRad[0];
+    const Segment only{Curve::Straight, legM[0], 0.0, 0.0};
+    if (!into.Lay(from, std::span<const Segment>(&only, 1), out.Error)) { return out; }
+    out.Straights = 1;
+    out.LengthM = into.LengthM();
+    out.Passes = 1;
+    out.Laid = true;
+    return out;
+  }
+
+  const auto aligned = Align(eastNorthM, withinM, tightestM);
+  if (!aligned) {
+    out.Error = aligned.error().Said;
+    out.TightestDemandedM = aligned.error().DemandedM;
+    out.TightestDemandedAtVertex = aligned.error().AtVertex;
+    out.Undrivable = aligned.error().Undrivable;
+    out.UndrivableAtM = (double)aligned.error().AtVertex;
+    return out;
+  }
+  const auto laid = LayAligned(eastNorthM, *aligned, into);
+  if (!laid) {
+    out.Error = laid.error().Said;
+    out.TightestDemandedM = laid.error().DemandedM;
+    out.TightestDemandedAtVertex = laid.error().AtVertex;
+    out.Undrivable = laid.error().Undrivable;
+    return out;
+  }
+
+  out.Passes = 1;
+  out.Corners = aligned->Bends.size();
+  out.Runs = aligned->Runs;
+  out.LongestRunVertices = aligned->LongestRunVertices;
+  out.TightestRadiusM = aligned->TightestRadiusM;
+  out.TightestDemandedM = aligned->TightestRadiusM;
+  out.LengthM = into.LengthM();
+  out.Straights = laid->Straights;
+
+  for (const Bend &bend : aligned->Bends) {
+    const size_t held = bend.LastVertex - bend.FirstVertex + 1u;
+    if (held > 2) { out.SheltredVertices += held - 2; }
+    if (bend.RadiusM <= out.TightestRadiusM) { out.TightestAtVertex = bend.FirstVertex; }
+    for (size_t vertex = bend.FirstVertex; vertex <= bend.LastVertex; ++vertex) {
+      const double classM = vertex < classTightestM.size() ? classTightestM[vertex] : 0.0;
+      if (!(classM > 0.0) || bend.RadiusM >= classM) { continue; }
       ++out.UnderClass;
-      const double shortfall = radiusM[vertex] / classM;
+      const double shortfall = bend.RadiusM / classM;
       if (out.UnderClass == 1 || shortfall < out.UnderClassRadiusM / out.UnderClassMinimumM) {
         out.UnderClassAtVertex = vertex;
-        out.UnderClassRadiusM = radiusM[vertex];
+        out.UnderClassRadiusM = bend.RadiusM;
         out.UnderClassMinimumM = classM;
       }
     }
   }
 
-  {
-    size_t run = 0;
-    double before = 0.0;
-    for (size_t vertex = 1; vertex + 1 < points; ++vertex) {
-      const double turn = turnRad[vertex];
-      const bool joins = run > 0 && turn != 0.0 && (turn > 0.0) == (before > 0.0);
-      if (joins) {
-        ++run;
-      } else {
-        if (run >= 3) { out.SheltredVertices += run - 2; }
-        if (run > out.LongestRunVertices) { out.LongestRunVertices = run; }
-        if (run > 0) { ++out.Runs; }
-        run = turn != 0.0 ? 1 : 0;
-      }
-      before = turn;
-    }
-    if (run >= 3) { out.SheltredVertices += run - 2; }
-    if (run > out.LongestRunVertices) { out.LongestRunVertices = run; }
-    if (run > 0) { ++out.Runs; }
-  }
-
-  std::vector<double> atVertexM(points, 0.0);
-  constexpr int kFitPasses = 24;
-  for (int pass = 0; pass < kFitPasses; ++pass) {
-  ++out.Passes;
-  out.Straights = 0;
-  out.Corners = 0;
-  std::vector<Segment> along;
-  along.reserve(3 * points);
-  double laidM = 0.0;
-  for (size_t leg = 0; leg + 1 < points; ++leg) {
-    const double straightM = legM[leg] - tangentM[leg] - tangentM[leg + 1];
-    if (straightM > 1.0e-6) {
-      along.push_back(Segment{Curve::Straight, straightM, 0.0, 0.0});
-      laidM += straightM;
-      ++out.Straights;
-    }
-    const size_t vertex = leg + 1;
-    atVertexM[vertex] = laidM + spiralM[vertex] + 0.5 * arcM[vertex];
-    if (vertex + 1 >= points || radiusM[vertex] <= 0.0) { continue; }
-    const double curvature = (turnRad[vertex] >= 0.0 ? 1.0 : -1.0) / radiusM[vertex];
-    along.push_back(Segment{Curve::Spiral, spiralM[vertex], 0.0, curvature});
-    along.push_back(Segment{Curve::Arc, arcM[vertex], curvature, curvature});
-    along.push_back(Segment{Curve::Spiral, spiralM[vertex], curvature, 0.0});
-    laidM += 2.0 * spiralM[vertex] + arcM[vertex];
-    ++out.Corners;
-  }
-  if (along.empty()) {
-    out.Error = "every leg was consumed by its corners, so the fit has no length";
-    return out;
-  }
-
-  if (out.Undrivable > 0) {
-    out.Error = std::to_string(out.Undrivable) +
-                " of these vertices turn too sharply for anything that can only bend to " +
-                std::to_string(tightestM) + " m -- the tightest of them demands " +
-                std::to_string(out.TightestDemandedM) + " m at vertex " +
-                std::to_string(out.TightestDemandedAtVertex) +
-                ", the first at index " + std::to_string((long)out.UndrivableAtM) +
-                " -- a corner tighter than the vehicle's own lock is not a road to smooth, it is a "
-                "route that doubles back on itself, and that is a finding about the graph";
-    return out;
-  }
-
-  Placed from;
-  from.EastM = eastNorthM[0];
-  from.NorthM = eastNorthM[1];
-  from.HeadingRad = headingRad[0];
-  if (!into.Lay(from, along, out.Error)) { return out; }
-
-  out.LengthM = into.LengthM();
-  out.WorstOffsetM = 0.0;
-  bool overran = false;
   for (size_t vertex = 0; vertex < points; ++vertex) {
     const double eastM = eastNorthM[2 * vertex];
     const double northM = eastNorthM[2 * vertex + 1];
-    double windowM = 0.0;
-    if (vertex > 0) { windowM += legM[vertex - 1]; }
-    if (vertex + 1 < points) { windowM += legM[vertex]; }
-    if (windowM < 1.0) { windowM = 1.0; }
     double alongM = 0.0;
-    if (!into.Nearest(eastM, northM, atVertexM[vertex], windowM, alongM)) { continue; }
+    if (!into.Nearest(eastM, northM, 0.5 * out.LengthM, out.LengthM, alongM)) { continue; }
     Placed on;
     if (!into.At(alongM, on)) { continue; }
-    const double east = eastM - on.EastM;
-    const double north = northM - on.NorthM;
+    const double east = eastM - on.EastM, north = northM - on.NorthM;
     const double awayM = std::sqrt(east * east + north * north);
-    if (awayM > out.WorstOffsetM) {
-      out.WorstOffsetM = awayM;
-      out.WorstOffsetAtM = alongM;
-      out.WorstVertex = (double)vertex;
-      out.WorstLegInM = vertex > 0 ? legM[vertex - 1] : 0.0;
-      out.WorstLegOutM = vertex + 1 < points ? legM[vertex] : 0.0;
-      out.WorstTurnRad = turnRad[vertex];
-      out.WorstRadiusM = radiusM[vertex];
-      out.WorstStationM = alongM;
-      out.WorstExpectedM = atVertexM[vertex];
-    }
-    double predictedM = 0.0;
-    if (radiusM[vertex] > 0.0) {
-      const double swing = std::fabs(turnRad[vertex]);
-      predictedM = radiusM[vertex] * (ShiftShare(swing) / std::cos(0.5 * swing) - 1.0);
-    }
-    if (awayM > withinM && predictedM <= withinM) {
-      if (awayM - predictedM > out.DriftM) { out.DriftM = awayM - predictedM; }
-      continue;
-    }
-    if (awayM > withinM && radiusM[vertex] > 0.0) {
-      const double shrink = withinM / awayM;
-      const double swing = std::fabs(turnRad[vertex]);
-      radiusM[vertex] *= shrink;
-      spiralM[vertex] = 0.5 * radiusM[vertex] * swing;
-      arcM[vertex] = 0.5 * radiusM[vertex] * swing;
-      tangentM[vertex] = radiusM[vertex] * TangentShare(swing);
-      if (radiusM[vertex] < tightestM) {
-        radiusM[vertex] = tightestM;
-        spiralM[vertex] = 0.5 * tightestM * swing;
-        arcM[vertex] = 0.5 * tightestM * swing;
-        tangentM[vertex] = tightestM * TangentShare(swing);
-        ++out.Strained;
-        if (awayM > out.StrainedWorstM) { out.StrainedWorstM = awayM; }
-        continue;
-      }
-      ++out.Corrected;
-      overran = true;
-    }
+    if (awayM <= out.WorstOffsetM) { continue; }
+    out.WorstOffsetM = awayM;
+    out.WorstOffsetAtM = alongM;
+    out.WorstVertex = (double)vertex;
+    out.WorstLegInM = vertex > 0 ? legM[vertex - 1] : 0.0;
+    out.WorstLegOutM = vertex + 1 < points ? legM[vertex] : 0.0;
+    out.WorstTurnRad = turnRad[vertex];
+    out.WorstStationM = alongM;
   }
-  if (!overran) {
-    out.DriftPerCornerM = out.Corners > 0 ? out.DriftM / (double)out.Corners : 0.0;
-    out.Laid = true;
-    return out;
-  }
-  }
-
-  out.Error = "corners kept overrunning " + std::to_string(withinM) +
-              " m after its twenty-four correction passes, which is a fit that does not converge rather "
-              "than a road";
+  out.DriftM = out.WorstOffsetM > withinM ? out.WorstOffsetM - withinM : 0.0;
+  out.DriftPerCornerM = out.Corners > 0 ? out.DriftM / (double)out.Corners : 0.0;
+  out.Laid = true;
   return out;
 }
 

@@ -51,9 +51,10 @@ constexpr double kSpiralShare = 0.5;
   return std::sqrt(east * east + north * north);
 }
 
-[[nodiscard]] std::expected<Bend, std::string> BendOver(std::span<const double> points,
+[[nodiscard]] std::expected<Bend, Refusal> BendOver(std::span<const double> points,
                                                         std::span<const Turned> legs, size_t at,
-                                                        size_t last, double tightestM) {
+                                                        size_t last, double withinM,
+                                                        double tightestM) {
   Bend bend;
   bend.FirstVertex = at;
   bend.LastVertex = last;
@@ -61,15 +62,15 @@ constexpr double kSpiralShare = 0.5;
 
   const double swing = std::fabs(bend.TurnRad);
   if (swing < 1.0e-9 || swing > std::numbers::pi - 1.0e-9) {
-    return std::unexpected("vertices " + std::to_string(at) + ".." + std::to_string(last) +
+    return std::unexpected(Refusal{"vertices " + std::to_string(at) + ".." + std::to_string(last) +
                            " turn through " + std::to_string(bend.TurnRad) +
-                           " rad, which no single arc between two straights can carry");
+                           " rad, which no single arc between two straights can carry"});
   }
   if (!Meets(points[2 * (at - 1)], points[2 * (at - 1) + 1], legs[at - 1].HeadingRad,
              points[2 * (last + 1)], points[2 * (last + 1) + 1], legs[last].HeadingRad,
              bend.PiEastM, bend.PiNorthM)) {
-    return std::unexpected("the legs entering and leaving vertices " + std::to_string(at) + ".." +
-                           std::to_string(last) + " are parallel and meet nowhere");
+    return std::unexpected(Refusal{"the legs entering and leaving vertices " + std::to_string(at) + ".." +
+                           std::to_string(last) + " are parallel and meet nowhere"});
   }
 
   const double half = 0.5 * swing;
@@ -88,27 +89,44 @@ constexpr double kSpiralShare = 0.5;
   const double roomM = intoM < outOfM ? intoM : outOfM;
   const double byRoom = roomM / TangentShare(swing);
   if (!(byRoom > tightestM)) {
-    return std::unexpected("vertices " + std::to_string(at) + ".." + std::to_string(last) +
-                           " leave " + std::to_string(roomM) +
-                           " m of tangent between their straights, which carries no arc wider "
-                           "than " + std::to_string(byRoom) + " m");
+    return std::unexpected(
+        Refusal{"vertices " + std::to_string(at) + ".." + std::to_string(last) + " leave " +
+                    std::to_string(roomM) +
+                    " m of tangent between their straights, which carries no arc wider than " +
+                    std::to_string(byRoom) + " m",
+                byRoom, at, 1});
   }
 
-  double low = tightestM, high = byRoom;
-  for (int step = 0; step < 96; ++step) {
-    const double oneThird = low + (high - low) / 3.0;
-    const double twoThirds = high - (high - low) / 3.0;
-    double aE = 0.0, aN = 0.0, bE = 0.0, bN = 0.0;
-    centreOf(oneThird, aE, aN);
-    centreOf(twoThirds, bE, bN);
-    if (FurthestFromArcM(points, at, last, aE, aN, oneThird) <
-        FurthestFromArcM(points, at, last, bE, bN, twoThirds)) {
-      high = twoThirds;
-    } else {
-      low = oneThird;
+  if (last == at) {
+    const double byAccuracy = withinM / (ShiftShare(swing) / std::cos(half) - 1.0);
+    bend.RadiusM = byAccuracy < byRoom ? byAccuracy : byRoom;
+  } else {
+    double low = tightestM, high = byRoom;
+    for (int step = 0; step < 96; ++step) {
+      const double oneThird = low + (high - low) / 3.0;
+      const double twoThirds = high - (high - low) / 3.0;
+      double aE = 0.0, aN = 0.0, bE = 0.0, bN = 0.0;
+      centreOf(oneThird, aE, aN);
+      centreOf(twoThirds, bE, bN);
+      if (FurthestFromArcM(points, at, last, aE, aN, oneThird) <
+          FurthestFromArcM(points, at, last, bE, bN, twoThirds)) {
+        high = twoThirds;
+      } else {
+        low = oneThird;
+      }
     }
+    bend.RadiusM = 0.5 * (low + high);
   }
-  bend.RadiusM = 0.5 * (low + high);
+  if (bend.RadiusM < tightestM) {
+    return std::unexpected(Refusal{
+        "vertices " + std::to_string(at) + ".." + std::to_string(last) + " turn through " +
+            std::to_string(bend.TurnRad) + " rad and the widest arc that stays within " +
+            std::to_string(withinM) + " m of them is " + std::to_string(bend.RadiusM) +
+            " m, tighter than the " + std::to_string(tightestM) +
+            " m this vehicle can bend to -- a corner tighter than the lock is a route that "
+            "doubles back on itself, and that is a finding about the graph",
+        bend.RadiusM, at, 1});
+  }
   double centreE = 0.0, centreN = 0.0;
   centreOf(bend.RadiusM, centreE, centreN);
   bend.AwayM = FurthestFromArcM(points, at, last, centreE, centreN, bend.RadiusM);
@@ -126,17 +144,17 @@ constexpr double kSpiralShare = 0.5;
 
 }
 
-std::expected<Aligned, std::string> Align(std::span<const double> eastNorthM, double withinM,
+std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM, double withinM,
                                           double tightestM) {
   const size_t points = eastNorthM.size() / 2;
   if (points < 3) {
-    return std::unexpected("an alignment is fitted through 3..N vertices and this one carries " +
-                           std::to_string(points));
+    return std::unexpected(Refusal{"an alignment is fitted through 3..N vertices and this one carries " +
+                           std::to_string(points)});
   }
   if (!(withinM > 0.0)) {
-    return std::unexpected(
+    return std::unexpected(Refusal{
         "an alignment is bounded by how far it may leave the vertices, and this one declares " +
-        std::to_string(withinM) + " m");
+        std::to_string(withinM) + " m"});
   }
 
   std::vector<Turned> legs(points - 1);
@@ -166,7 +184,7 @@ std::expected<Aligned, std::string> Align(std::span<const double> eastNorthM, do
 
     Bend bend;
     for (;;) {
-      const auto held = BendOver(eastNorthM, legs, at, last, tightestM);
+      const auto held = BendOver(eastNorthM, legs, at, last, withinM, tightestM);
       if (!held) { return std::unexpected(held.error()); }
       if (held->AwayM <= withinM || last == at) {
         bend = *held;
@@ -187,15 +205,66 @@ std::expected<Aligned, std::string> Align(std::span<const double> eastNorthM, do
     at = bend.LastVertex + 1u;
   }
 
+  const auto shrink = [&](Bend &bend, double toM) {
+    const double swing = std::fabs(bend.TurnRad);
+    bend.RadiusM = toM / TangentShare(swing);
+    bend.TangentM = toM;
+    bend.SpiralM = kSpiralShare * bend.RadiusM * swing;
+    bend.ArcM = (1.0 - kSpiralShare) * bend.RadiusM * swing;
+    bend.IntoEastM = bend.PiEastM - toM * std::cos(bend.IntoHeadingRad);
+    bend.IntoNorthM = bend.PiNorthM - toM * std::sin(bend.IntoHeadingRad);
+    bend.OutOfEastM = bend.PiEastM + toM * std::cos(bend.OutOfHeadingRad);
+    bend.OutOfNorthM = bend.PiNorthM + toM * std::sin(bend.OutOfHeadingRad);
+  };
+
+  for (int pass = 0; pass < 8; ++pass) {
+    bool crowded = false;
+    for (size_t one = 0; one + 1 < out.Bends.size(); ++one) {
+      Bend &before = out.Bends[one];
+      Bend &after = out.Bends[one + 1];
+      const double betweenM = AwayM(before.PiEastM, before.PiNorthM, after.PiEastM,
+                                    after.PiNorthM);
+      const double wantedM = before.TangentM + after.TangentM;
+      if (wantedM <= betweenM) { continue; }
+      crowded = true;
+      const double halfM = 0.5 * betweenM;
+      if (before.TangentM <= halfM) {
+        shrink(after, betweenM - before.TangentM);
+      } else if (after.TangentM <= halfM) {
+        shrink(before, betweenM - after.TangentM);
+      } else {
+        shrink(before, halfM);
+        shrink(after, halfM);
+      }
+    }
+    if (!crowded) { break; }
+  }
+
+  out.TightestRadiusM = 0.0;
+  for (const Bend &bend : out.Bends) {
+    if (bend.RadiusM < tightestM) {
+      return std::unexpected(Refusal{
+          "the bend over vertices " + std::to_string(bend.FirstVertex) + ".." +
+              std::to_string(bend.LastVertex) +
+              " shares its straights with its neighbours and what is left carries only " +
+              std::to_string(bend.RadiusM) + " m, tighter than the " +
+              std::to_string(tightestM) + " m this vehicle can bend to",
+          bend.RadiusM, bend.FirstVertex, 1});
+    }
+    if (out.TightestRadiusM <= 0.0 || bend.RadiusM < out.TightestRadiusM) {
+      out.TightestRadiusM = bend.RadiusM;
+    }
+  }
+
   return out;
 }
 
-std::expected<void, std::string> LayAligned(std::span<const double> eastNorthM,
-                                            const Aligned &aligned, ReferenceLine &into) {
+std::expected<Laying, Refusal> LayAligned(std::span<const double> eastNorthM,
+                                              const Aligned &aligned, ReferenceLine &into) {
   const size_t points = eastNorthM.size() / 2;
   if (points < 2) {
-    return std::unexpected("an alignment is laid through 2..N vertices and this one carries " +
-                           std::to_string(points));
+    return std::unexpected(Refusal{"an alignment is laid through 2..N vertices and this one carries " +
+                           std::to_string(points)});
   }
 
   std::vector<Segment> along;
@@ -207,11 +276,12 @@ std::expected<void, std::string> LayAligned(std::span<const double> eastNorthM,
     const double ahead = (bend.IntoEastM - atEast) * std::cos(heading) +
                          (bend.IntoNorthM - atNorth) * std::sin(heading);
     if (ahead < -1.0e-6) {
-      return std::unexpected(
+      return std::unexpected(Refusal{
           "the bend over vertices " + std::to_string(bend.FirstVertex) + ".." +
-          std::to_string(bend.LastVertex) + " begins " + std::to_string(-ahead) +
-          " m behind where the one before it ended -- two arcs whose tangents overlap are one "
-          "alignment the straights cannot separate");
+              std::to_string(bend.LastVertex) + " begins " + std::to_string(-ahead) +
+              " m behind where the one before it ended -- two arcs whose tangents overlap are "
+              "one alignment the straights cannot separate",
+          bend.RadiusM, bend.FirstVertex, 1});
     }
     if (straightM > 1.0e-6) { along.push_back(Segment{Curve::Straight, straightM, 0.0, 0.0}); }
     const double curvature = (bend.TurnRad >= 0.0 ? 1.0 : -1.0) / bend.RadiusM;
@@ -226,8 +296,8 @@ std::expected<void, std::string> LayAligned(std::span<const double> eastNorthM,
       AwayM(atEast, atNorth, eastNorthM[2 * (points - 1)], eastNorthM[2 * (points - 1) + 1]);
   if (lastM > 1.0e-6) { along.push_back(Segment{Curve::Straight, lastM, 0.0, 0.0}); }
   if (along.empty()) {
-    return std::unexpected("every straight was consumed by its bends, so the alignment has no "
-                           "length");
+    return std::unexpected(Refusal{"every straight was consumed by its bends, so the alignment has no "
+                           "length"});
   }
 
   Placed from;
@@ -235,8 +305,11 @@ std::expected<void, std::string> LayAligned(std::span<const double> eastNorthM,
   from.NorthM = eastNorthM[1];
   from.HeadingRad = std::atan2(eastNorthM[3] - eastNorthM[1], eastNorthM[2] - eastNorthM[0]);
   std::string error;
-  if (!into.Lay(from, along, error)) { return std::unexpected(error); }
-  return {};
+  if (!into.Lay(from, along, error)) { return std::unexpected(Refusal{error}); }
+  Laying said;
+  said.LengthM = into.LengthM();
+  for (const Segment &one : along) { said.Straights += one.Shape == Curve::Straight ? 1u : 0u; }
+  return said;
 }
 
 }

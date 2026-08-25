@@ -12,6 +12,13 @@
 
 namespace outshine {
 
+struct Refusal {
+  std::string Said;
+  double DemandedM = 0.0;
+  size_t AtVertex = 0;
+  size_t Undrivable = 0;
+};
+
 struct Bend {
   size_t FirstVertex = 0;
   size_t LastVertex = 0;
@@ -37,16 +44,19 @@ struct Aligned {
   size_t LongestRunVertices = 0;
   double TightestRadiusM = 0.0;
   double WorstAwayM = 0.0;
-  double LengthM = 0.0;
-  size_t Straights = 0;
 };
 
-[[nodiscard]] std::expected<Aligned, std::string> Align(std::span<const double> eastNorthM,
+struct Laying {
+  size_t Straights = 0;
+  double LengthM = 0.0;
+};
+
+[[nodiscard]] std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM,
                                                         double withinM, double tightestM);
 
-[[nodiscard]] std::expected<void, std::string> LayAligned(std::span<const double> eastNorthM,
-                                                          const Aligned &aligned,
-                                                          ReferenceLine &into);
+[[nodiscard]] std::expected<Laying, Refusal> LayAligned(std::span<const double> eastNorthM,
+                                                            const Aligned &aligned,
+                                                            ReferenceLine &into);
 
 }
 
