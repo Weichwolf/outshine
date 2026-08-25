@@ -64,17 +64,17 @@ a packet carrying one twice stores one value twice.
 
 ## What will be true
 
-- [ ] A property whose value is a structure keeps that value -- the packet's JSON text at
+- [x] A property whose value is a structure keeps that value -- the packet's JSON text at
       minimum -- or `KHR_xmp_json_ld` leaves `kHonouredExtensions` and a file requiring it is
       refused by name, the way archived `KHR_xmp` already is.
-- [ ] Every object the spec lets carry a packet pointer reaches one through the reader, or an
+- [x] Every object the spec lets carry a packet pointer reaches one through the reader, or an
       unread carrier is REFUSED rather than ignored.
-- [ ] The property loop reads by index in one pass, with no `std::string` per key.
-- [ ] Proving test: `unit/gltf/MetadataIsHeldAndTheFramePathSpellsNoName` extended with a
+- [x] The property loop reads by index in one pass, with no `std::string` per key.
+- [x] Proving test: `unit/gltf/MetadataIsHeldAndTheFramePathSpellsNoName` extended with a
       fixture in the produced shape (`dc:title` as an `rdf:Alt`) and a packet pointer on a node.
       Negative control: HEAD -> the title reads as carried-but-not-text and the node's packet is
       unreachable.
-- [ ] Measured against the real subject: `khronos/glTF/XmpMetadataRoundedCube` is a declared case
+- [x] Measured against the real subject: `khronos/glTF/XmpMetadataRoundedCube` is a declared case
       whose subject is NOT fetched -- its prepared directory holds `manifest.json` and nothing
       else -- so no run in this tree has ever put a produced XMP packet through this reader.
 
@@ -83,3 +83,61 @@ a packet carrying one twice stores one value twice.
 - 2026-08-25 -- filed by the hourly review, checking `board:1849`'s closure rather than trusting
   its commit message. 1849's repair is right and complete for what 1849 said; this is what it
   made visible.
+
+## Closed 2026-08-25 -- measured against the real packet
+
+The subject was FETCHED (`prepare.py fetch --manifest test/render/khronos/glTF/XmpMetadataRoundedCube/manifest.json`)
+and put through the reader. It settles both design questions the item raised, because Khronos's
+own sample is the produced shape:
+
+```
+packets 2, uses 2, asset packet 0, mesh0 packet 1
+--- packet with 11 properties
+  @context           structure   {"dc": "http://purl.org/dc/elements/1.1/", "rdf": ...}
+  @id                text
+  dc:contributor     structure   {"@set": ["Creator1Name", "Creator2Email@email.com", ...]}
+  dc:coverage        text        Bay Area, California, United States
+  dc:creator         structure   {"@list": ["CreatorName", "CreatorEmail@email.com"]}
+  dc:date            structure   {"@list": ["2019-05-16T19:20:30+01:00"]}
+  dc:description     structure   {"@type": "rdf:Alt", "rdf:_1": {"@language": "en-us", ...}}
+  dc:format          text        model/gltf+json
+  dc:language        structure   {"@set": ["en"]}
+  dc:publisher       structure   {"@set": ["Khronos"]}
+  dc:title           structure   {"@type": "rdf:Alt", "rdf:_1": {"@language": "en-us", ...}}
+```
+
+| | before | after |
+|---|---|---|
+| properties whose value survives | 3 of 11 | **11 of 11** |
+| carriers reaching their packet | asset only | asset **and mesh 0**, which this file uses |
+| second packet | held, pointed at by nothing the reader could see | reached through `MetadataOf(MetadataCarrier::Mesh, 0)` |
+
+**Three repairs.**
+
+1. `Json::Ref::Source()` hands back the node's raw span. `Json::Node` gained `From`/`To`, set in
+   `ParseValue` where the two positions already exist -- the parser holds the text, so the span
+   costs 8 bytes a node and no second pass. A structured value now stores its JSON.
+2. Seven carriers, one loop:
+   ```cpp
+   static constexpr Carrier kCarriers[] = {{"scenes", …}, {"nodes", …}, {"meshes", …},
+                                           {"materials", …}, {"images", …}, {"animations", …}};
+   ```
+   plus `asset`, each refused BY NAME when its index leaves the array
+   (`nodes 0 names metadata packet 9 of 1`). `MetadataUse{Carrier, Which, Packet}` is 12 bytes,
+   trivially copyable, `static_assert`ed.
+3. The property loop reads `packet[at]` instead of re-finding the key it just took. The O(n²)
+   re-lookup is gone, a key spelled twice now stores both values rather than the first twice,
+   and the one `std::string` that remains is MOVED into the property it becomes -- an allocation
+   that lands in the result is not a spare one.
+
+Proving test: `test/unit/gltf/MetadataIsHeldAndTheFramePathSpellsNoName`, whose fixture is now
+the produced shape (`dc:title` an `rdf:Alt`, a second packet pointed at by a node).
+Negative controls, both run:
+
+| control | result |
+|---|---|
+| the structured value dropped again (`std::string()` for the non-text branch) | `FAIL ...:87 AND A STRUCTURED VALUE IS KEPT, NOT DROPPED` |
+| the carrier loop skipped -- asset alone, as before | `FAIL ...:112 AND EVERY OBJECT THE SPEC LETS CARRY A PACKET REACHES ONE` and `:119` |
+
+`Of()` still refuses to answer text for a structured value, so board:1849's distinction survives
+intact; `SourceOf()` is the second question, and the case asserts both.
