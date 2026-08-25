@@ -79,7 +79,7 @@ public:
   [[nodiscard]] bool Redeclare(std::vector<Shows> surfaces, std::string &error);
   [[nodiscard]] const std::string &ProgrammeOf(size_t surface) const;
 
-  [[nodiscard]] bool Restand(const Gltf::Subject &built, std::string &error);
+  [[nodiscard]] bool Restand(const Gltf::Subject &built, size_t carried, std::string &error);
 
   [[nodiscard]] bool Carry(const double body[16], const double built[16],
                            std::string &error);

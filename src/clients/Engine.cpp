@@ -3,6 +3,7 @@
 #include "Unwired.h"
 
 #include <algorithm>
+#include <chrono>
 #include <numbers>
 #include <charconv>
 #include <cmath>
@@ -66,6 +67,7 @@ private:
 
 constexpr double kTickS = 1.0 / 60.0;
 constexpr double kWheelStepPx = 48.0;
+constexpr double kGroundPatienceS = 30.0;
 
 [[nodiscard]] std::string Said(double value) {
   char held[32] = {};
@@ -201,6 +203,10 @@ bool Engine::Assemble() {
     return false;
   }
   S_->Drove = true;
+  if (!Compose()) {
+    S_->Measured.push_back("the ground did not compose: " + S_->Error);
+    S_->Error.clear();
+  }
   return true;
 }
 
@@ -254,10 +260,14 @@ bool Engine::Compose(void) {
     return false;
   }
   const Scenario &declared = S_->Declared;
-  if (!declared.Ground.Declared) {
-    S_->Error = "the scenario declares no sphere, so there is no ground to compose";
+  const bool overADrive = !declared.Ground.Declared && declared.Driven.Declared;
+  if (!declared.Ground.Declared && !overADrive) {
+    S_->Error = "the scenario declares neither a sphere nor a drive, so there is no place for a "
+                "ground to be composed at";
     return false;
   }
+  const double atLat = overADrive ? declared.Driven.FromLatDeg : declared.Ground.Lat;
+  const double atLon = overADrive ? declared.Driven.FromLonDeg : declared.Ground.Lon;
   if (!S_->Wire) {
     if (S_->Under.Offline) {
       S_->Error = "the ground is FETCHED and the engine was declared offline";
@@ -270,17 +280,23 @@ bool Engine::Compose(void) {
   if (!S_->Stack.Opened() &&
       !S_->Stack.Open(S_->Under.Cache, S_->Under.Shipped,
                       {Data::ShippedProviders().begin(), Data::ShippedProviders().end()},
-                      declared.Ground.Lat, declared.Ground.Lon, *S_->Wire, say)) {
+                      atLat, atLon, *S_->Wire, say)) {
     S_->Error = say.WhyNot();
     return false;
   }
 
   Around over;
-  over.LatDeg = declared.Ground.Lat;
-  over.LonDeg = declared.Ground.Lon;
+  over.LatDeg = atLat;
+  over.LonDeg = atLon;
   over.Zoom = S_->Stack.FinestZoomOf(Data::DataKind::Elevation);
   over.Ring = 1;
-  const auto laid = LayPatchwork(S_->Stack.Pool(), over);
+  auto laid = LayPatchwork(S_->Stack.Pool(), over);
+  const auto began = std::chrono::steady_clock::now();
+  while (!laid &&
+         std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() <
+             kGroundPatienceS) {
+    laid = LayPatchwork(S_->Stack.Pool(), over);
+  }
   if (!laid) {
     S_->Error = laid.error();
     return false;
@@ -293,16 +309,18 @@ bool Engine::Compose(void) {
   ground.Normals = Span<const float>(laid->NormalM.data(), laid->NormalM.size());
   ground.Indices = Span<const uint32_t>(laid->Index.data(), laid->Index.size());
 
-  Gltf::Subject world;
-  if (!world.Assemble(Gltf::Assembly{Span<const Gltf::Piece>(&ground, 1)})) {
+  Gltf::Subject laidGround;
+  if (!laidGround.Assemble(Gltf::Assembly{Span<const Gltf::Piece>(&ground, 1)})) {
+    S_->Error = laidGround.Error();
+    return false;
+  }
+  Gltf::Subject world = S_->Standing->Shown();
+  const size_t drivenParts = world.Parts().size();
+  if (!world.Append(laidGround)) {
     S_->Error = world.Error();
     return false;
   }
-  if (!world.Append(S_->Standing->Shown())) {
-    S_->Error = world.Error();
-    return false;
-  }
-  if (!S_->Standing->Restand(world, S_->Error)) { return false; }
+  if (!S_->Standing->Restand(world, drivenParts, S_->Error)) { return false; }
   S_->GroundTiles = laid->Tiles;
   return true;
 }

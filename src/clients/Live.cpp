@@ -563,10 +563,11 @@ bool Live::Carry(const double body[16], const double built[16], std::string &err
                                          Stood_.PartPlacement.size(), error);
 }
 
-bool Live::Restand(const Gltf::Subject &built, std::string &error) {
+bool Live::Restand(const Gltf::Subject &built, size_t carried, std::string &error) {
   Declared_.Built = &built;
   Stoodup_ = false;
   if (!Build(error)) { return false; }
+  Joined_ = carried;
   if (!Stand(error)) { return false; }
   return Submit(error);
 }
