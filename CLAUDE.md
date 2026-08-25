@@ -399,9 +399,9 @@ flowchart LR
   E --> A
 ```
 
-**`test/unit/` MIRRORS `src/` file for file, under the same name** -- `src/actor/path/Fit.cpp` is
-tested by `test/unit/actor/path/Fit.cpp`, one test per source, testing whatever in it is
-sensibly testable. The mirror IS the coverage measurement (a source without its twin is visible
+**`test/unit/` MIRRORS `src/` file for file, under the same name** -- a source `X.cpp` in layer
+`L` is tested by `X.cpp` in the same layer under `test/unit/`, one test per source, testing
+whatever in it is sensibly testable. The mirror IS the coverage measurement (a source without its twin is visible
 by listing, not by reading) and it is the layering proof (the twin links only what its layer
 needs).
 
