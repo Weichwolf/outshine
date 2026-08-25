@@ -398,25 +398,33 @@ never the reach.
 ```mermaid
 flowchart LR
   A["1 · REFACTOR to TARGET"] --> B["2 · GUARDS: static_assert, the type system, refusal at assembly"]
-  B --> C["3 · UNIT TESTS: each trivially true"]
+  B --> C["3 · CORPUS CASES: a scenario against an invariant oracle"]
   C --> D["4 · JUDGE THE DRIVER: the architect signs it off"]
   D --> E["5 · EXTEND"]
   E --> A
 ```
 
-**Every case is a SCENARIO with an invariant reference.** A corpus case declares what the engine
-should stand up, the engine runs it, and the answer is compared against an oracle whose truth
-does not depend on our design — a Cycles render, a specification's stated result, a measurement
-carried to more digits than we hold. There is no `test/unit/`: 170 cases that asserted the shape
-of a moving architecture were deleted, because a test specifies only if it stands before the code
-AND the unit survives.
+**EVERY CASE IS A SCENARIO WITH AN INVARIANT ORACLE.** A case declares what the engine should
+stand up, the engine runs it, and the answer is compared against a reference whose truth does not
+depend on our design. Nothing else is a test here — a case that asserts the shape of our own
+architecture specifies nothing while TARGET moves, and blocks the refactor it should serve.
 
-**A client that compiles against `include/` and renders proves more than any test suite** — every
-architectural finding of the session that deleted `test/unit/` came from RUNNING `apps/driver`,
-which is outshine's one integration test and its product. **A test is a specification only while the
-architecture under it is right**: one asserting what must be TRUE wins against the code always;
-one asserting how it is DONE today moves with the architecture, and a refactor it blocks is a
-defect in the test.
+What a corpus HOLDS decides what it can prove:
+
+| grade | it holds | it proves |
+|---|---|---|
+| **SPEC** | a standards body states the answer | conformance |
+| **TRUTH** | a measurement or computation carried to more digits than we hold | correctness |
+| **SNAPSHOT** | another implementation, frozen | agreement, never correctness |
+| **INPUT** | nothing is supplied | that we survive it |
+
+Effort has two halves and the second one bites: FETCH is a pinned URL and a hash; REACH is priced
+by the two-header door. `test/CORPORA.md` is the survey — which established corpus asserts which
+capability of TARGET, at which grade, and what it costs to reach.
+
+**A client that compiles against `include/` and renders proves more than any suite.**
+`apps/driver` is outshine's one integration test and its product; the hourly architect signs it
+off on a fresh screenshot.
 
 An architecture review lands hourly (cron :17, its own worktree, files but never edits `src/`).
 It owns both maps, measures the distance CURRENT → TARGET, judges the driver on a fresh
