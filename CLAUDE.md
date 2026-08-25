@@ -402,6 +402,7 @@ classDiagram
     +SetMedium(medium) / SetSky(sun, up, lux, eyeM)
     +SetShadowFrame(sun, up, radiusM) / ShadowCentre(m3)
     +SetCameraBasis(eye, fwd, right, up)
+    +ShowOn(window) / ShowOffscreen(w, h) / PresentFrame() / StopShowing()
     +RenderFrame() / ReadPixels()
     +WhyNot() string
   }
@@ -416,7 +417,11 @@ classDiagram
 ```
 
 `Live`, `Renderer`, `GroundStream` and the drive systems are still reachable by clients —
-the TARGET below removes them.
+the TARGET below removes them. What a client hands the renderer is a SURFACE — a window or an
+extent — and what comes back is `{Drew, WidthPx, HeightPx}`: no device, no swapchain, no command
+buffer, and `SDL_ClaimWindowForGPUDevice`, `SDL_WaitAndAcquireGPUSwapchainTexture` and
+`SDL_ReleaseWindowFromGPUDevice` have no call site outside `src/render/`
+(`harness/claims/TheDeviceLeavesTheLibraryOnlyForItsOwnTwins`, board:1826).
 The assembly API stands public since 2026-08-22: `include/outshine/{Register,Store,Column}.h`
 are the C++ door, `Engine::Assemble/Scene` own the one graph, proven by a client that includes
 nothing but `outshine/`.
