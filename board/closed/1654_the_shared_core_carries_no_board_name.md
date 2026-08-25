@@ -182,3 +182,25 @@ lives.
       than surveyed a round later.
 - [ ] Negative control: `board:1654` planted in `src/assets/world/ground-materials.json` ->
       FOUND, with its line.
+
+**Closed, and the reopening was right twice over.** The first closure claimed
+`grep -rn 'board:' src/` was empty; it was empty of C++ and not of the tree.
+
+```
+$ grep -rn 'board:[0-9]' src/ include/
+src/assets/world/vegetation.json:1332   ... board:1794 corrected three of these numbers ...
+$ grep -rn 'board:[0-9]' src/ include/ | wc -l
+0                                    # after
+```
+
+The sentence stays and says what it says -- three numbers were corrected against the fetched
+tables -- without a pointer that outlives the item it points at. An asset carries no comments,
+so the comment walk could never have seen it; what the rule forbids is the DRIFT, and a board
+number in a data field drifts exactly as one above a function does.
+
+`TheSourceCarriesNoCommentary` reads `.json`, `.xml` and `.scenario` beside `.cpp`, `.h` and
+`.msl` now, for board numbers. It does not look for `//` in them, because they carry none.
+
+Proving test: that claim, 1.6 s over the tree. Negative control, run: `board:1794` written back
+into `vegetation.json` -> `FOUND src/assets/world/vegetation.json:1332 names a board item`, red
+at :203.
