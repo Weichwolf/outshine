@@ -31,6 +31,23 @@ bookkeeping, EXR comparison. It may not carry engine internals to get there.
 - [ ] Where a corpus needs something the scenario grammar cannot declare, the GRAMMAR gains it —
       not the door a second verb.
 
+## What the measurement already says
+
+A Khronos manifest declares exactly what a scenario declares: a glTF subject, a frame, and a
+CAMERA that is derived from the framing rule the engine itself carries (`src/gltf/Framing.h`) --
+the manifest quotes it so the runner can refuse a mismatch rather than trust one. `RenderPlan`
+holds `Frame` and `Fill`; that is the same rule. **So a Khronos case needs no new grammar: it is
+an asset plus a frame plus a fill.**
+
+What the door still lacks for it is the PICTURE in the precision the oracle is kept in: the
+oracle is EXR (float) and `Engine::Capture` writes PNG. A client that wants to compare against a
+reference needs the frame as it was computed, not as it was quantised -- which is a real client
+need and not a test convenience.
+
+The other two are further away: test262 wants a scenario that declares a SCRIPT and reports
+whether it threw; WPT wants one that declares a document and a stylesheet and reports the boxes.
+Both are grammar, not door.
+
 ## Comments
 
 - 2026-08-25 — filed after moving Script, Json, Markup, Style and Layout into the public door and
