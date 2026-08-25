@@ -3,6 +3,7 @@
 #include <numbers>
 #include <algorithm>
 #include <cmath>
+#include <type_traits>
 #include <queue>
 
 namespace outshine::Path {
@@ -265,7 +266,20 @@ namespace {
 
 }
 
-Network::Swept Network::Crossings(std::vector<Crossing> &into) const {
+namespace {
+
+struct Filed {
+  uint32_t Square = 0;
+  uint32_t Seg = 0;
+};
+
+static_assert(sizeof(Filed) == 8);
+static_assert(std::is_trivially_copyable_v<Filed>);
+
+}
+
+std::expected<Network::Swept, std::string_view> Network::Crossings(
+    std::vector<Crossing> &into) const {
   into.clear();
   Swept swept;
   const size_t points = Points_.size() / 2;
@@ -313,15 +327,24 @@ Network::Swept Network::Crossings(std::vector<Crossing> &into) const {
   const double cellDeg = reachSum > 0.0 ? 2.0 * reachSum / (double)segments : 1.0;
   const size_t cells = 2u * segments + 1u;
 
+  const uint64_t wide = (uint64_t)std::floor((eastLon - westLon) / cellDeg) + 2u;
+  const uint64_t high = (uint64_t)std::floor((northLat - southLat) / cellDeg) + 2u;
+  if (wide > 0xFFFFFFFFull / high) {
+    return std::unexpected(
+        "the network's extent over its mean segment reach needs more squares than a 32-bit "
+        "square index holds");
+  }
+
   std::vector<uint32_t> holds(cells + 1u, 0);
-  const auto squareOf = [&](double atLon, double atLat) {
-    const long x = (long)std::floor((atLon - westLon) / cellDeg);
-    const long y = (long)std::floor((atLat - southLat) / cellDeg);
-    return std::pair<long, long>(x, y);
+  const auto squareOf = [&](double atLon, double atLat) -> uint32_t {
+    const double fx = std::floor((atLon - westLon) / cellDeg);
+    const double fy = std::floor((atLat - southLat) / cellDeg);
+    const uint64_t x = fx <= 0.0 ? 0u : (uint64_t)fx;
+    const uint64_t y = fy <= 0.0 ? 0u : (uint64_t)fy;
+    return (uint32_t)((y < high ? y : high - 1u) * wide + (x < wide ? x : wide - 1u));
   };
-  const auto bucketOf = [&](std::pair<long, long> square) {
-    const uint64_t mixed = (uint64_t)(square.first * 73856093L ^ square.second * 19349663L);
-    return (size_t)(mixed % (uint64_t)cells);
+  const auto bucketOf = [&](uint32_t square) {
+    return (size_t)(((uint64_t)square * 2654435761ull) % (uint64_t)cells);
   };
 
   const auto overSquares = [&](size_t seg, auto &&visit) {
@@ -330,25 +353,23 @@ Network::Swept Network::Crossings(std::vector<Crossing> &into) const {
     const double hi = std::fmax(lon[first], lon[first + 1]);
     const double bottom = std::fmin(Points_[2 * first], Points_[2 * first + 2]);
     const double top = std::fmax(Points_[2 * first], Points_[2 * first + 2]);
-    const auto from = squareOf(lo, bottom), to = squareOf(hi, top);
-    for (long y = from.second; y <= to.second; ++y) {
-      for (long x = from.first; x <= to.first; ++x) { visit(std::pair<long, long>(x, y)); }
+    const uint32_t from = squareOf(lo, bottom), to = squareOf(hi, top);
+    for (uint32_t y = from / (uint32_t)wide; y <= to / (uint32_t)wide; ++y) {
+      for (uint32_t x = from % (uint32_t)wide; x <= to % (uint32_t)wide; ++x) {
+        visit((uint32_t)(y * wide + x));
+      }
     }
   };
 
   for (size_t seg = 0; seg < segments; ++seg) {
-    overSquares(seg, [&](std::pair<long, long> square) { ++holds[bucketOf(square) + 1u]; });
+    overSquares(seg, [&](uint32_t square) { ++holds[bucketOf(square) + 1u]; });
   }
   for (size_t cell = 0; cell < cells; ++cell) { holds[cell + 1u] += holds[cell]; }
   std::vector<uint32_t> filled(holds.begin(), holds.end() - 1);
-  std::vector<uint32_t> inCell(holds[cells], 0);
-  std::vector<long> squareX(holds[cells], 0), squareY(holds[cells], 0);
+  std::vector<Filed> inCell(holds[cells], Filed{});
   for (size_t seg = 0; seg < segments; ++seg) {
-    overSquares(seg, [&](std::pair<long, long> square) {
-      const uint32_t at = filled[bucketOf(square)]++;
-      inCell[at] = (uint32_t)seg;
-      squareX[at] = square.first;
-      squareY[at] = square.second;
+    overSquares(seg, [&](uint32_t square) {
+      inCell[filled[bucketOf(square)]++] = Filed{square, (uint32_t)seg};
     });
   }
   for (size_t cell = 0; cell < cells; ++cell) {
@@ -359,21 +380,22 @@ Network::Swept Network::Crossings(std::vector<Crossing> &into) const {
   for (size_t cell = 0; cell < cells; ++cell) {
     const uint32_t begins = holds[cell], ends = holds[cell + 1u];
     for (uint32_t one = begins; one + 1u < ends; ++one) {
-      const size_t mine = inCell[one], firstA = segAt[mine];
+      const Filed &ours = inCell[one];
+      const size_t mine = ours.Seg, firstA = segAt[mine];
       const double ax = lon[firstA], ay = Points_[2 * firstA];
       const double bx = lon[firstA + 1], by = Points_[2 * firstA + 2];
       for (uint32_t two = one + 1u; two < ends; ++two) {
-        const size_t theirs = inCell[two];
+        const Filed &yours = inCell[two];
+        const size_t theirs = yours.Seg;
         if (segWay[mine] == segWay[theirs]) { continue; }
-        if (squareX[one] != squareX[two] || squareY[one] != squareY[two]) { continue; }
+        if (ours.Square != yours.Square) { continue; }
         ++swept.PairsTested;
         const size_t firstB = segAt[theirs];
         const double cx = lon[firstB], cy = Points_[2 * firstB];
         const double dx = lon[firstB + 1], dy = Points_[2 * firstB + 2];
         double atX = 0.0, atY = 0.0;
         if (!SegmentsMeet(ax, ay, bx, by, cx, cy, dx, dy, &atX, &atY)) { continue; }
-        const auto met = squareOf(atX, atY);
-        if (met.first != squareX[one] || met.second != squareY[one]) { continue; }
+        if (squareOf(atX, atY) != ours.Square) { continue; }
         double back = atX;
         while (back > 180.0) { back -= 360.0; }
         while (back < -180.0) { back += 360.0; }

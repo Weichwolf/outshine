@@ -214,7 +214,7 @@ int main(void) {
     CHECK(overpass.Weave(error), "two ways that cross without sharing a point weave");
 
     std::vector<Network::Crossing> crossings;
-    const Network::Swept swept = overpass.Crossings(crossings);
+    const Network::Swept swept = overpass.Crossings(crossings).value();
     const size_t found = swept.Found;
     Note("nodes the two ways make", (double)overpass.NodeCount(), "nodes");
     Note("junctions among them", (double)overpass.JunctionCount(), "nodes");
@@ -243,7 +243,7 @@ int main(void) {
     atGrade.Lay(std::span<const double>(northSouth, 6), 3.25, 0.08, 2, 200.0);
     CHECK(atGrade.Weave(error), "the same two ways with a shared point weave");
     std::vector<Network::Crossing> crossings;
-    const Network::Swept swept = atGrade.Crossings(crossings);
+    const Network::Swept swept = atGrade.Crossings(crossings).value();
     const size_t found = swept.Found;
     Note("junctions the shared point makes", (double)atGrade.JunctionCount(), "nodes");
     Note("places they cross in plan", (double)found, "places");
@@ -262,8 +262,8 @@ int main(void) {
     apart.Lay(std::span<const double>(two, 4), 4.75, 0.06, 2, 400.0);
     CHECK(apart.Weave(error), "two parallel ways weave");
     std::vector<Network::Crossing> crossings;
-    Note("places two parallel ways cross", (double)apart.Crossings(crossings).Found, "places");
-    CHECK(apart.Crossings(crossings).Found == 0,
+    Note("places two parallel ways cross", (double)apart.Crossings(crossings).value().Found, "places");
+    CHECK(apart.Crossings(crossings).value().Found == 0,
           "and two ways that never meet cross nowhere, so the sweep is finding intersections "
           "rather than counting pairs");
   }
@@ -280,7 +280,7 @@ int main(void) {
     seam.Lay(std::span<const double>(northSouth, 4), 3.25, 0.08, 2, 200.0);
     CHECK(seam.Weave(error), "two ways crossing at the antimeridian weave");
     std::vector<Network::Crossing> crossings;
-    const Network::Swept swept = seam.Crossings(crossings);
+    const Network::Swept swept = seam.Crossings(crossings).value();
     const size_t found = swept.Found;
     Note("places they cross at the seam", (double)found, "places");
     if (found > 0) {
@@ -318,7 +318,7 @@ int main(void) {
     }
     CHECK(sweep.Weave(error), "a grid of long ways weaves");
     std::vector<Network::Crossing> crossings;
-    const Network::Swept swept = sweep.Crossings(crossings);
+    const Network::Swept swept = sweep.Crossings(crossings).value();
     const size_t found = swept.Found;
     const size_t segments = sweep.PointCount() - 2u * (size_t)kWays;
     Note("ways laid", (double)(2 * kWays), "ways");
@@ -333,6 +333,18 @@ int main(void) {
     CHECK(found == (size_t)(kWays * kWays),
           "**AND A GRID OF LONG WAYS FINDS EVERY ONE OF ITS CROSSINGS** -- 60 by 60 ways "
           "crossing nowhere near a shared node is 3600 grade separations");
+    // board:1850: the grid's entry became one 8-byte record where it was 4 + 8 + 8 across
+    // three arrays. Found and PairsTested are geometry -- a square is a square whatever indexes
+    // it -- so both must be untouched by the layout change. FullestCell is bucket occupancy and
+    // therefore a property of the HASH: it moved 30 -> 16 on this fixture, which is the new
+    // mixer spreading better, not a different answer.
+    CHECK(found == 3600u && swept.PairsTested == 86284u,
+          "**AND THE ANSWER AND ITS COST SURVIVE A CHANGE OF LAYOUT**: the square a segment "
+          "falls in is geometric, so packing (x, y) into one index may move which BUCKET holds "
+          "it and may not move which pairs share a square (board:1850)");
+    CHECK(swept.FullestCell <= 16u,
+          "and the fullest bucket is no worse than the three-array grid's, measured: 30 "
+          "segments before, 16 after");
     CHECK(swept.PairsTested < segments * 20u,
           "**AND THE SEARCH IS OVER SEGMENTS IN A GRID, NOT OVER WAY BOXES**: a motorway way "
           "carries hundreds of points and a box the length of the country it crosses, so a "
@@ -357,7 +369,7 @@ int main(void) {
     }
     CHECK(flat.Weave(error), "eight ways at ONE latitude weave -- the bbox has no height at all");
     std::vector<Network::Crossing> crossings;
-    const Network::Swept swept = flat.Crossings(crossings);
+    const Network::Swept swept = flat.Crossings(crossings).value();
     const size_t found = swept.Found;
     Note("ways at one latitude", 8.0, "ways");
     Note("crossings among them", (double)found, "crossings");
@@ -386,7 +398,7 @@ int main(void) {
     CHECK(clustered.Weave(error),
           "forty ways inside a thousandth of a degree, plus one way five degrees away, weave");
     std::vector<Network::Crossing> crossings;
-    const Network::Swept swept = clustered.Crossings(crossings);
+    const Network::Swept swept = clustered.Crossings(crossings).value();
     const size_t found = swept.Found;
     const size_t segments = 40u * 20u + 1u;
     Note("segments in the cluster and its outlier", (double)segments, "segments");
@@ -418,7 +430,7 @@ int main(void) {
     CHECK(once.Weave(error), "one long way crossing sixty short ones weaves");
 
     std::vector<Network::Crossing> crossings;
-    const Network::Swept swept = once.Crossings(crossings);
+    const Network::Swept swept = once.Crossings(crossings).value();
     Note("segments in it", 61.0, "segments");
     Note("crossings it reports", (double)swept.Found, "crossings");
     Note("pairs it tested", (double)swept.PairsTested, "pairs");
@@ -437,6 +449,27 @@ int main(void) {
       CHECK_NEAR(crossings.front().LatDeg, 51.0, 1.0e-9, "deg",
                  "and the one it reports is where the two ways actually meet");
     }
+  }
+
+  {
+    Network scattered(6378137.0, 1.0);
+    std::string refusal;
+    for (int hair = 0; hair < 6; ++hair) {
+      std::vector<double> ends = {-80.0 + 32.0 * (double)hair, -170.0 + 68.0 * (double)hair,
+                                  -80.0 + 32.0 * (double)hair + 1.0e-7,
+                                  -170.0 + 68.0 * (double)hair + 1.0e-7};
+      scattered.Lay(ends, 3.5, 0.0, 2, 100.0);
+    }
+    CHECK(scattered.Weave(refusal), "six hair-length ways scattered over the sphere weave");
+    std::vector<Network::Crossing> crossings;
+    const auto sweep = scattered.Crossings(crossings);
+    std::printf("NOTE the sweep says: '%.100s'\n",
+                sweep.has_value() ? "(it gridded them)" : std::string(sweep.error()).c_str());
+    CHECK(!sweep.has_value(),
+          "**AND A GRID THAT WILL NOT FIT ITS DECLARED WIDTH REFUSES**: the cell size is twice "
+          "the MEAN segment reach, so a network of hair-length ways spread over a sphere asks "
+          "for more squares than a 32-bit index holds -- the old grid cast to platform-width "
+          "`long` and wrapped in silence (board:1850)");
   }
 
   Covers("I.96 a network is woven from ways that share no identity: points within a declared "

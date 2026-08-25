@@ -197,7 +197,13 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   say.Number("edges", (double)roads.EdgeCount(), "edges");
   {
     std::vector<Path::Network::Crossing> crossings;
-    const Network::Swept swept = roads.Crossings(crossings);
+    const auto sweep = roads.Crossings(crossings);
+    if (!sweep) {
+      say.Say(Line("REFUSED the crossing sweep cannot grid this network: %s",
+                   std::string(sweep.error()).c_str()));
+      return false;
+    }
+    const Network::Swept swept = *sweep;
     const size_t found = swept.Found;
     say.Number("places two ways cross in plan without sharing a node", (double)found, "places");
       out.Found.Crossings = (long)found;

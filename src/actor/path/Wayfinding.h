@@ -3,6 +3,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <expected>
+#include <string_view>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -67,7 +69,8 @@ public:
     size_t FullestCell = 0;
   };
 
-  [[nodiscard]] Swept Crossings(std::vector<Crossing> &into) const;
+  [[nodiscard]] std::expected<Swept, std::string_view> Crossings(
+      std::vector<Crossing> &into) const;
   [[nodiscard]] double SnapM() const { return SnapM_; }
 
   [[nodiscard]] size_t PointStreamBytes() const {
