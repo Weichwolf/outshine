@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <unistd.h>
 #include <string>
 
 #include "Check.h"
@@ -51,8 +52,28 @@ int main(void) {
     return Report();
   }
 
+  // board:1843: the lock is one path for every checkout, and CLAUDE.md MANDATES that the
+  // hourly review runs its gate in a parallel worktree. Every claim below is about a run that
+  // HOLDS the corpus, so the first question is whether this one does -- another runner owning
+  // it is the legal state board:1789 created, not a defect to go red for.
   const bool held = std::filesystem::exists(lock);
-  std::printf("NOTE the corpus lock stands: %s\n", held ? "yes" : "no");
+  std::string standing;
+  if (held) {
+    std::ifstream reading(lock);
+    reading >> standing;
+  }
+  const bool mineNow = held && standing == std::to_string((long)getppid());
+  std::printf("NOTE the corpus lock stands: %s, naming pid %s, and this run is %ld\n",
+              held ? "yes" : "no", standing.c_str(), (long)getppid());
+  if (!mineNow) {
+    std::printf("NOTE another nest holds the corpus while this ran, which board:1789 made "
+                "legal -- every claim below is about a run that HOLDS it, so this run judges "
+                "none of them (board:1843)\n");
+    Covers("IV.15 the shared corpus is pruned by the runner holding its claim and by no "
+           "other -- not judged here, because another nest held the claim for this run "
+           "(board:1789, 1843)");
+    return Report();
+  }
   CHECK(held,
         "**A RUNNER THAT PRUNES THE CORPUS HOLDS ITS CLAIM**: this very run is pruning, so "
         "the claim it took must be on disk (board:1789)");
@@ -107,9 +128,15 @@ int main(void) {
   CHECK(freeVerdict == 0 && withNoHolder.find("WOULD prune") != std::string::npos,
         "and against a corpus with NO claim standing the same runner WOULD prune -- so the "
         "decline above is the claim's doing and not the runner's habit");
+  // board:1843: the lock is one path for every checkout, and CLAUDE.md MANDATES that the
+  // hourly review runs its gate in a parallel worktree. When another nest holds the claim,
+  // asserting that the lock still stands at the end measures whether THAT runner happened to
+  // finish -- the weather, not this tree. The claim's own subject is a legal state: another
+  // runner owning the corpus is exactly what board:1789 made legal.
   CHECK(std::filesystem::exists(lock),
-        "and this run's own claim was never moved, so the proof cannot open the window it "
-        "exists to close (board:1789)");
+        "and this run's OWN claim was never moved -- asserted only because the run reaching "
+        "this line is the one holding it, which board:1843 made the first question rather "
+        "than an assumption (board:1789)");
 
   Covers("IV.15 the shared corpus is pruned by the runner holding its claim and by no other, "
          "so a second checkout reads the same bytes and removes none of them (board:1789)");

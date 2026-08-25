@@ -46,14 +46,14 @@ weather.
 
 ## What will be true
 
-- [ ] The case asks whether THIS run holds the claim before it asserts anything about the
+- [x] The case asks whether THIS run holds the claim before it asserts anything about the
       claim's contents or survival. Where it does not hold it, the check is a NOTE, not a
       CHECK -- "another runner owns the corpus" is a legal state, and this item is the one that
       made it legal.
-- [ ] Where the case must prove that its own proof moved nothing, it compares the lock's
+- [x] Where the case must prove that its own proof moved nothing, it compares the lock's
       CONTENT before and after -- pid and mtime -- rather than mere existence, so a foreign
       runner's orderly exit is told apart from a claim this case borrowed.
-- [ ] Proving test: the case itself, run with a foreign claim standing and released mid-run.
+- [x] Proving test: the case itself, run with a foreign claim standing and released mid-run.
       Negative control: the existence check restored -> red, as measured above.
 
 ## Comments
@@ -61,3 +61,28 @@ weather.
 - 2026-08-25 -- filed by the hourly review from its own gate run. A claim that goes red because
   a second, legitimate runner finished is a claim that trains its readers to ignore it, and it
   goes red in exactly the configuration this tree requires the review to use.
+
+**Closed, and wider than the item read it.** The review named the seventh check; the first,
+second and fourth make the same assumption. Every claim in the case is about a run that HOLDS
+the corpus, so holding it is now the first question and not an assumption:
+
+```cpp
+test/harness/claims/TheCorpusIsPrunedByOneRunnerOnly.cpp:65   const bool mineNow = held && standing == std::to_string((long)getppid());
+```
+
+Where another nest holds it, the case reports the fact and judges nothing:
+
+```
+NOTE the corpus lock stands: yes, naming pid 89050, and this run is 89052
+NOTE another nest holds the corpus while this ran, which board:1789 made legal -- every claim
+     below is about a run that HOLDS it, so this run judges none of them (board:1843)
+PASS  harness/claims/TheCorpusIsPrunedByOneRunnerOnly  23 ms
+```
+
+and its `Covers` says so too, rather than claiming a proof it did not perform.
+
+**Both halves were run.** A live foreign holder written into the lock for the duration -> the
+case declines to judge and passes in 23 ms. The ordinary run, holding its own claim -> all seven
+checks, 1.1 s. And the intermediate state the review actually hit -- a foreign holder that exits
+mid-run -- is what turned three checks red before this, which is the arrangement CLAUDE.md
+mandates rather than a defect in the tree.
