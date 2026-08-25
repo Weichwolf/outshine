@@ -22,6 +22,7 @@ public:
   [[nodiscard]] const View &Active() const noexcept { return Held_[Active_]; }
   [[nodiscard]] std::string_view ActiveId() const noexcept { return Held_[Active_].Id; }
   [[nodiscard]] size_t Count() const noexcept { return Held_.size(); }
+  [[nodiscard]] const View &AtIndex(size_t at) const noexcept { return Held_[at]; }
 
   [[nodiscard]] double ClockScale() const noexcept { return Held_[Active_].TimeScale; }
 

@@ -15,6 +15,7 @@
 #include "Live.h"
 #include "Script.h"
 #include "Typeface.h"
+#include "InputPump.h"
 #include "Views.h"
 #include "Sink.h"
 #include "DeclaredSources.h"
@@ -104,6 +105,9 @@ struct Engine::State {
   size_t GroundTiles = 0;
   Ui::Typeface Face;
   std::optional<ViewBook> Views;
+  InputMap Bound;
+  Clients::InputPump Pump;
+  bool Pumping = false;
   std::vector<std::string> Measured;
   Host *Offered = nullptr;
   Ground::GroundStack Stack;
@@ -396,6 +400,17 @@ bool Engine::Handles(const SDL_Event &event) {
     return S_->Standing->Wheeled((double)xPx, (double)yPx,
                                  -(double)event.wheel.y * kWheelStepPx, S_->Error);
   }
+  if (S_->Pumping && (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP)) {
+    Clients::InputPump::Fired fired[2];
+    const size_t many = S_->Pump.Translate(event, fired);
+    bool acted = false;
+    for (size_t at = 0; at < many; ++at) {
+      const std::string *const named = S_->Bound.ActionNamed(fired[at].Action);
+      if (named == nullptr || fired[at].Value <= 0.0f) { continue; }
+      acted = Acts(*named) || acted;
+    }
+    return acted;
+  }
   if (event.type != SDL_EVENT_MOUSE_BUTTON_DOWN) { return false; }
 
   size_t surface = 0;
@@ -496,6 +511,16 @@ bool Engine::Declare(const Scenario &scenario) {
   }
   if (!declared.Surfaces.empty() && !S_->Face.Opens(S_->Under.Shipped + "/fonts", S_->Error)) {
     return false;
+  }
+
+  S_->Pumping = false;
+  if (!scenario.Input.empty()) {
+    if (!S_->Bound.Build(scenario.Input, S_->Error)) { return false; }
+    if (!S_->Pump.Open(S_->Bound)) {
+      S_->Error = "the declared bindings did not open a pump, so no event could reach an action";
+      return false;
+    }
+    S_->Pumping = true;
   }
 
   S_->Views.reset();
@@ -738,6 +763,16 @@ bool Engine::Restore(std::string_view path) {
 const std::vector<std::string> &Engine::Carried() const { return S_->Carried; }
 
 const std::vector<std::string> &Engine::Measured() const { return S_->Measured; }
+
+bool Engine::Acts(const std::string &named) {
+  if (named != "next-view" || !S_->Views || S_->Views->Count() < 2) { return false; }
+  const std::string_view standing = S_->Views->ActiveId();
+  for (size_t at = 0; at < S_->Views->Count(); ++at) {
+    if (S_->Views->AtIndex(at).Id != standing) { continue; }
+    return S_->Views->Take(S_->Views->AtIndex((at + 1) % S_->Views->Count()).Id);
+  }
+  return false;
+}
 
 bool Engine::Rides(void) {
   const Physics::Body &body = S_->Drive.State.Body;

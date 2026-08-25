@@ -49,11 +49,11 @@
   <drive fromLat="48.13720" fromLon="11.57560" toLat="48.15000" toLon="11.59000"/>
 
   <input>
-    <bind event="key:W" action="throttle"/>
-    <bind event="key:S" action="brake"/>
-    <bind event="key:A" action="steer-left"/>
-    <bind event="key:D" action="steer-right"/>
-    <bind event="key:C" action="next-view"/>
+    <bind event="KeyW" action="throttle"/>
+    <bind event="KeyS" action="brake"/>
+    <bind event="KeyA" action="steer-left"/>
+    <bind event="KeyD" action="steer-right"/>
+    <bind event="Space" action="next-view"/>
   </input>
 
 </scenario>

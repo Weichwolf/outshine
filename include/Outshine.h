@@ -84,6 +84,7 @@ public:
 
 private:
   [[nodiscard]] bool Rides(void);
+  [[nodiscard]] bool Acts(const std::string &named);
   struct State;
   [[nodiscard]] bool ReadInto(std::string_view path, Scenario &out);
   std::unique_ptr<State> S_;
