@@ -162,8 +162,8 @@ bool Engine::Assemble() {
   const Scenario &declared = S_->Declared;
   const size_t named = AssembledCapacity(declared);
   if (named == 0) {
-    S_->Error = "the declaration names nothing to assemble";
-    return false;
+    S_->Drove = false;
+    return true;
   }
   if (!S_->Scene.Open(named) || !S_->Vehicles.Open(S_->Scene) ||
       !S_->Drives.Open(S_->Scene) || !S_->Kinds.Open(S_->Scene)) {
@@ -393,11 +393,6 @@ bool Engine::Declare(const Scenario &scenario) {
     return false;
   }
   const Asset *const subject = scenario.Subject();
-  if (subject == nullptr && scenario.Surfaces.empty()) {
-    S_->Error = "a scenario shows an asset of kind 'gltf' or a surface, and this one declares "
-                "neither -- a declaration with nothing to draw is a picture nobody asked for";
-    return false;
-  }
 
   Clients::Declaration declared;
   declared.SurfaceWidthPx = S_->Frame.WidthPx;

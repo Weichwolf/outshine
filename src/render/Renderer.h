@@ -64,6 +64,7 @@ public:
   }
 
   void RenderFrame();
+  [[nodiscard]] bool Drew() const { return Submitted_; }
 
   ~Renderer() { WaitForGpu(); }
   Renderer() = default;

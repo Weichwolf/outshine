@@ -480,7 +480,7 @@ void Live::SkyEye(double aboveGroundM) {
 }
 
 bool Live::ReadPixels(std::vector<uint8_t> &rgba, std::string &error) {
-  if (Renderer_ == nullptr || !Stoodup_) {
+  if (Renderer_ == nullptr || !Renderer_->Drew()) {
     error = "nothing has been drawn yet, so there is no frame to read";
     return false;
   }
@@ -492,7 +492,7 @@ bool Live::ReadPixels(std::vector<uint8_t> &rgba, std::string &error) {
 }
 
 bool Live::Screenshot(const std::string &path, std::string &error) {
-  if (Renderer_ == nullptr || !Stoodup_) {
+  if (Renderer_ == nullptr || !Renderer_->Drew()) {
     error = "nothing has been drawn yet, so there is no frame to write";
     return false;
   }
