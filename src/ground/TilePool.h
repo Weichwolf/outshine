@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "ClusterDag.h"
+#include "TileMeshes.h"
 #include "Request.h"
 
 namespace outshine::Data {
@@ -24,18 +25,12 @@ namespace outshine::Ground {
 
 class TerrainTiles;
 
-struct TileBuild {
-  std::vector<float> Verts;
-  std::vector<uint32_t> Idx;
-  std::vector<DagCluster> Clusters;
-  double OriginEcef[3] = {0.0, 0.0, 0.0};
-  float ErrM = 0.0f;
-};
+using outshine::TileBuild;
 
-class TilePool {
+class TilePool : public TileMeshes {
 public:
 
-  enum class Reply { Ready, Pending, Absent, Refused, Undeclared };
+  using Reply = TileMeshes::Reply;
 
   struct Ledger {
 
@@ -67,7 +62,7 @@ public:
 
   void Focus(double latDeg, double lonDeg);
 
-  [[nodiscard]] Reply Mesh(int z, uint32_t x, uint32_t y, int grid, TileBuild *out);
+  [[nodiscard]] Reply Mesh(int z, uint32_t x, uint32_t y, int grid, TileBuild *out) override;
 
   [[nodiscard]] Reply Dag(int id, const float *soup, int nverts, int seamAttr, TileBuild *out);
 
