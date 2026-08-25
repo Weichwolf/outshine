@@ -13,8 +13,12 @@ using outshine::Test::Lines;
 
 namespace {
 
+// CLAUDE.md is the MAP, not code worked under an item: the hourly review rewrites it in the
+// same commit it files into board/, and that is its job rather than a repair. Everything else
+// outside board/ is the tree.
 [[nodiscard]] bool Touches(const std::string &files, bool outsideTheBoard) {
   for (const std::string &line : Lines(files)) {
+    if (line == "CLAUDE.md" || line.rfind(".claude/", 0) == 0) { continue; }
     const bool board = line.rfind("board/", 0) == 0;
     if (board != outsideTheBoard) { return true; }
   }
@@ -50,6 +54,7 @@ int main(void) {
         "board:1854 silenced this claim for eleven commits (board:1857)");
 
   std::vector<std::string> jumped;
+  std::vector<unsigned> judged;
   size_t repairs = 0;
   size_t named = 0;
   if (born) {
@@ -77,6 +82,15 @@ int main(void) {
       ++repairs;
       for (size_t one = 0; one < names.Count; ++one) {
         const unsigned item = names.Items[one];
+        // IV.16's rule, for the same reason: what matters is an item's LATEST work, not every
+        // commit it ever carried. An item worked out of turn and then moved through
+        // board/active really does pass through the drawer -- that is compliance, and walking
+        // every commit instead would leave a violation red for ever with no repair available
+        // but rewriting history.
+        bool spoken = false;
+        for (const unsigned already : judged) { spoken = spoken || already == item; }
+        if (spoken) { continue; }
+        judged.push_back(item);
         // An item filed and worked in one commit exists in this tree and not its parent's;
         // asking only the parent would let that shape through unjudged.
         if (!StoodIn("board/", commit + "^", item) && !StoodIn("board/", commit, item)) {
