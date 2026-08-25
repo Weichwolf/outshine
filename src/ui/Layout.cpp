@@ -25,7 +25,6 @@ constexpr uint32_t kSpaceAround = Keyword("space-around");
 constexpr uint32_t kStretch = Keyword("stretch");
 constexpr uint32_t kBorderBox = Keyword("border-box");
 constexpr uint32_t kHidden = Keyword("hidden");
-constexpr uint32_t kAuto = Keyword("auto");
 constexpr uint32_t kScroll = Keyword("scroll");
 constexpr uint32_t kStatic = Keyword("static");
 constexpr uint32_t kPre = Keyword("pre");
@@ -654,8 +653,9 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
     item.Em = itemEm;
 
     if (!item.Style.Has(item.Least) || item.Style.Of(item.Least).How == Unit::Auto) {
-      const uint32_t spilling = item.Style.Word(Property::Overflow, 0);
-      if (spilling != kHidden && spilling != kAuto && spilling != kScroll) {
+      const Value spilling =
+          item.Style.Has(Property::Overflow) ? item.Style.Of(Property::Overflow) : Value{};
+      if (spilling.How != Unit::Auto && spilling.Word != kHidden && spilling.Word != kScroll) {
         if (column) {
           double w = 0, h = 0;
           Measure(child, &style, contentWidth, w, h);
@@ -995,9 +995,9 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
   box.BorderColour = style.Has(Property::BorderColour) ? style.Of(Property::BorderColour).Word : 0;
   box.Radius = len(Property::BorderRadius, containerWidth, 0);
   box.Opacity = style.Has(Property::Opacity) ? style.Of(Property::Opacity).Number : 1.0;
-  const uint32_t spills = style.Word(Property::Overflow, 0);
-  box.Scrolls = spills == kAuto || spills == kScroll;
-  box.Clips = spills == kHidden || box.Scrolls;
+  const Value spills = style.Has(Property::Overflow) ? style.Of(Property::Overflow) : Value{};
+  box.Scrolls = spills.How == Unit::Auto || spills.Word == kScroll;
+  box.Clips = spills.Word == kHidden || box.Scrolls;
   box.Positioned = style.Has(Property::Position) &&
                    style.Word(Property::Position, kStatic) != kStatic;
   box.Colour = style.Has(Property::Colour) ? style.Of(Property::Colour).Word : 0x000000FFu;
