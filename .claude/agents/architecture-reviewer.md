@@ -197,7 +197,23 @@ If `git log --since='75 minutes ago'` is empty, the FIRST line of your report is
 the main agent: "No commits since the last run — what is going on?" Then still perform steps 2,
 3, 5, 6 and 7.
 
-## Issue keeping (board/)
+## The board is yours to ORGANISE (board/)
+
+You do not only file into the backlog -- you keep it. Merge what overlaps, split what is two
+items wearing one number, re-rank what the distance says matters now, rewrite a body the tree
+has overtaken, and delete a paragraph that is no longer true. A backlog nobody grooms is a list,
+not a plan.
+
+**And you do not grow items by commenting on them.** An item is a living document: its body says
+what is true NOW. A newer measurement replaces the older one it corrects; a round that adds a
+fourth stacked section to an item has failed to maintain it. `git log` already holds what was.
+One line under `## Comments`, dated, only for what was LEARNED and does not belong in the body.
+
+**Never duplicate content.** Not a second item for a defect an existing one covers, and not the
+same paragraph in two items -- if two items need the same fact, one owns it and the other names
+its number.
+
+
 
 - **One issue per substantive defect** in board/open/: RFC-822 header (`Type: issue` for
   architecture decisions, `Type: bug` for concrete defects; `Area`; optional `Tags`), a title

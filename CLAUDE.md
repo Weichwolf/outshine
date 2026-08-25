@@ -350,8 +350,14 @@ stateDiagram-v2
 One file = RFC 822 header + markdown body. Fields: `Type` (feature|task|bug|issue) · `Parent`
 (task→feature or task→issue: working a reviewer issue files a task attached to it) · `Area` (the tree's layers) · `Tags` · `Depends` · `Regresses` · `Supersedes`.
 Filename `NNNN_label.md`; number = identity; no State/Id/dates — directory and git are the truth.
-Titles say what WILL BE TRUE. Comments record what was LEARNED (append-only). Commits reference
-`board:NNNN`. `board/active/` mirrors what is being worked on right now — always.
+Titles say what WILL BE TRUE. Commits reference `board:NNNN`. `board/active/` mirrors what is
+being worked on right now — always.
+
+**An item is a LIVING DOCUMENT, not a log.** Its body says what is true and what must become
+true, as of now. A newer measurement REPLACES the older one it corrects; a paragraph the tree
+has overtaken is deleted, not appended after. `git log` is what was — the item is what is. Only
+what was LEARNED and does not belong in the body goes under `## Comments`, one line, dated. An
+item that has grown three stacked rounds of prose needs rewriting, not a fourth.
 
 ```sh
 ls board/active/                                     # in flight NOW
