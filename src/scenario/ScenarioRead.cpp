@@ -26,6 +26,7 @@ struct Element {
   const char *Path;
   const char *Children;
   const char *Required = "";
+  const char *Allowed = "";
 };
 
 const Element kGrammar[] = {
@@ -92,7 +93,7 @@ const Element kGrammar[] = {
     {"scenario/vehicle/brake", ""},
     {"scenario/vehicle/body", ""},
     {"scenario/vehicle/seat", ""},
-    {"scenario/drive", ""},
+    {"scenario/drive", "", "", "fromLat fromLon toLat toLon"},
     {"scenario/physics", ""},
     {"scenario/clock", ""},
     {"scenario/input", "bind"},
@@ -134,6 +135,15 @@ bool Grammatical(const Xml::Ref &node, const std::string &path, std::string &err
       return false;
     }
     at = *end == ' ' ? end + 1 : end;
+  }
+  if (*known->Allowed != 0) {
+    for (size_t at = 0; at < node.AttributeCount(); ++at) {
+      const std::string spelt = node.AttributeAt(at);
+      if (Names(known->Allowed, spelt)) { continue; }
+      error = "<" + node.Name() + "> spells '" + spelt +
+              "', and the attributes it may carry are: " + known->Allowed;
+      return false;
+    }
   }
   for (Xml::Ref child = node.First(); child.Valid(); child = child.Next()) {
     const std::string name = child.Name();
@@ -245,7 +255,6 @@ void ReadSectionsOnto(const Xml::Ref &root, Scenario &into) {
     into.Driven.FromLonDeg = drive.Num("fromLon", into.Driven.FromLonDeg);
     into.Driven.ToLatDeg = drive.Num("toLat", into.Driven.ToLatDeg);
     into.Driven.ToLonDeg = drive.Num("toLon", into.Driven.ToLonDeg);
-    into.Driven.Zoom = (int)drive.Num("zoom", (double)into.Driven.Zoom);
   }
 }
 

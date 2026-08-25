@@ -128,15 +128,18 @@ int main(void) {
                  "</scenario>",
                  route, error),
           "a base declares a route and a two-stage plan");
+    // board:1859: this used to set zoom, a field the drive no longer carries. What it PROVES
+    // is that a layer setting one field keeps the others, and toLon carries that as well as
+    // zoom did -- better, because a coordinate is what a drive is made of.
     const char *zoomed = "<scenario name=\"mod\">"
-                         "<drive zoom=\"15\"/>"
+                         "<drive toLon=\"13.4\"/>"
                          "<render><stage name=\"sky\"/></render></scenario>";
     trace.clear();
     CHECK(ApplyLayer(route, zoomed, std::strlen(zoomed), "mod", trace, error),
-          "a layer declaring only the zoom and a one-stage plan applies");
+          "a layer declaring one coordinate and a one-stage plan applies");
     CHECK(route.Driven.FromLatDeg == 48.1 && route.Driven.ToLatDeg == 52.5 &&
-              route.Driven.Zoom == 15,
-          "**THE DRIVE KEEPS TOO**: zoom-only keeps the route's four coordinates -- no "
+              route.Driven.ToLonDeg == 13.4,
+          "**THE DRIVE KEEPS TOO**: setting one coordinate keeps the other three -- no "
           "silent voyage to the Gulf of Guinea, and the trace stopped lying");
     CHECK(route.Render.Stages.size() == 1 && route.Render.Stages[0] == "sky",
           "and a redeclared stage list REPLACES -- the declared list is the list, never an "

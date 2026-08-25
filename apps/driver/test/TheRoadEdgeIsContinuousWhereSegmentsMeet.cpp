@@ -30,7 +30,6 @@ constexpr double kMarienplatzLat = 48.1371;
 constexpr double kMarienplatzLon = 11.5754;
 constexpr double kRathausmarktLat = 53.5503;
 constexpr double kRathausmarktLon = 9.9920;
-constexpr int kZoom = 10;
 
 constexpr double kWindows[][2] = {{266000.0, 268000.0}, {16800.0, 18800.0}, {707000.0, 709000.0}};
 constexpr double kStepM = 2.0;
@@ -74,7 +73,6 @@ int main(void) {
   declared.Driven.FromLonDeg = kMarienplatzLon;
   declared.Driven.ToLatDeg = kRathausmarktLat;
   declared.Driven.ToLonDeg = kRathausmarktLon;
-  declared.Driven.Zoom = kZoom;
   outshine::Store scene;
   outshine::Column<outshine::Vehicle> vehicles;
   outshine::Column<outshine::Drive> drives;

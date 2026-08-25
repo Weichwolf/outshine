@@ -26,7 +26,7 @@ const char *kDeclared = R"(<?xml version="1.0" encoding="utf-8"?>
     <brake peakTorqueNm="5000"/>
   </vehicle>
   <player is="car"/>
-  <drive fromLat="48.1371" fromLon="11.5754" toLat="53.5503" toLon="9.9920" zoom="10"/>
+  <drive fromLat="48.1371" fromLon="11.5754" toLat="53.5503" toLon="9.9920"/>
 </scenario>
 )";
 
@@ -41,8 +41,12 @@ int main(void) {
   const bool wasRead = ReadScenario(kDeclared, std::char_traits<char>::length(kDeclared), declared, error);
   if (!wasRead) { std::printf("REFUSED %s\n", error.c_str()); }
   CHECK(wasRead, "a scenario declaring a vehicle, a player and a drive reads");
-  CHECK(declared.Driven.Declared && declared.Driven.Zoom == 10,
-        "the drive is two coordinates and a zoom, nothing more");
+  CHECK(declared.Driven.Declared,
+        "**A DRIVE IS TWO COORDINATES AND NOTHING MORE**: the zoom the ways are read at is the "
+        "finest a declared vector source carries, and the engine reads it from the source. A "
+        "scenario that named it was naming a number the system already owned, and could name a "
+        "WRONG one -- a coarser zoom is a coarser quantumM and therefore a looser fit, with "
+        "nothing saying so (board:1859)");
 
   Store scene;
   outshine::Column<outshine::Vehicle> vehicles;
@@ -80,6 +84,23 @@ int main(void) {
   CHECK(!Assemble(mindless, lone, loneV, loneD, loneK, nobody, error),
         "**A DRIVE WITHOUT A MIND IS REFUSED AT ASSEMBLY**: somebody must take the assignment, "
         "and the refusal says to declare a player");
+
+  {
+    const char *const spellsZoom =
+        "<scenario name=\"zoomed\">"
+        "<drive fromLat=\"48.1\" fromLon=\"11.5\" toLat=\"52.5\" toLon=\"13.4\" zoom=\"10\"/>"
+        "</scenario>";
+    Scenario refused;
+    std::string why;
+    const bool read = ReadScenario(spellsZoom, std::char_traits<char>::length(spellsZoom),
+                                   refused, why);
+    std::printf("NOTE a drive that spells zoom says: '%.120s'\n", why.c_str());
+    CHECK(!read && why.find("zoom") != std::string::npos,
+          "**AND A DRIVE THAT SPELLS A ZOOM IS REFUSED BY NAME**: an attribute the grammar does "
+          "not declare used to be read as an absent one and silently defaulted, so a scenario "
+          "could name a number the engine no longer reads and never learn that it was ignored "
+          "-- an orphaned override refuses loudly (board:1859)");
+  }
 
   Covers("II.9 a declared drive assembles as the actor chain end to end: mind Uses a nav tool, "
          "mind Assigned an assignment carrying the two coordinates, ordered by the rules and "

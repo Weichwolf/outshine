@@ -289,6 +289,16 @@ LayerCases() {
   esac
 }
 
+# board:1860: a PROGRAM under apps/ is not a case and not a harness -- it is the thing the
+# library exists for, and it must be BUILT so an entry point cannot break in silence. The gate
+# links it and runs it with --help, which every program answers without touching the world.
+Programs() {
+  case "$1" in
+    apps/driver/src) printf '%s' "the driver's entry point" ;;
+    *) return 1 ;;
+  esac
+}
+
 NotTheHarnesses() {
   case "$1" in
     harness/shared | harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
@@ -567,6 +577,28 @@ EverySourceStillCompiles() {
   [ "$broken" -eq 0 ]
 }
 
+EveryProgramStillLinks() {
+  built=0
+  brokenPrograms=0
+  for one in $PROGRAMS; do
+    layer=$(dirname "$one")
+    if $CXX $CXXSTD $(LayerToolchain "$layer") $WARN -Iinclude -c "$one" -o "$BUILD/program.o" \
+         >"$BUILD/program.log" 2>&1 &&
+       $CXX $CXXSTD "$BUILD/program.o" "$BUILD/liboutshine.a" $(LayerLink "$layer") \
+         -o "$BUILD/program" >>"$BUILD/program.log" 2>&1 &&
+       "$BUILD/program" --help >/dev/null 2>&1; then
+      built=$((built + 1))
+    else
+      brokenPrograms=$((brokenPrograms + 1))
+      printf 'run.sh: %s does not BUILD AND ANSWER --help, and a program nobody links is an entry point that breaks in silence (board:1860)\n' "$one" >&2
+      head -6 "$BUILD/program.log" >&2
+    fi
+  done
+  [ -n "$PROGRAMS" ] &&
+    printf 'run.sh: %s program(s) build and answer --help, %s do not\n' "$built" "$brokenPrograms"
+  [ "$brokenPrograms" -eq 0 ]
+}
+
 WhatNoCorpusJudges() {
   for family in test/render/*/; do
     family=${family%/}
@@ -751,8 +783,13 @@ for named in $SUITES; do
 done
 
 TESTS=""
+PROGRAMS=""
 for candidate in $(find $TREES -name '*.cpp' | sort); do
   candidateLayer=$(dirname "${candidate#test/}")
+  if Programs "$candidateLayer" >/dev/null; then
+    PROGRAMS="$PROGRAMS $candidate"
+    continue
+  fi
   if LayerIncludes "$candidateLayer" >/dev/null; then
     LayerGroups "$candidateLayer" >/dev/null ||
       Die "$candidate is under test/$candidateLayer, which declares an include set but no source groups"
@@ -1390,6 +1427,7 @@ printf '%s tests: %s PASS  %s FAIL  %s TIMEOUT  %s SIGNAL  %s BUILD  %s SKIP  %s
   "$partialCases" "$elapsedMs"
 if [ "$FAST_GATE" = yes ]; then
   EverySourceStillCompiles || compileBlind=1
+  EveryProgramStillLinks || compileBlind=1
   WhatNoCorpusJudges
 fi
 # board:1810: a case that judged part of its subject may not read as one that judged all of it.

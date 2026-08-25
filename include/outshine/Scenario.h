@@ -262,7 +262,6 @@ struct Drive {
   double FromLonDeg = 0.0;
   double ToLatDeg = 0.0;
   double ToLonDeg = 0.0;
-  int Zoom = 0;
 };
 
 struct Player {

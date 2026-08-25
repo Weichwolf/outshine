@@ -28,7 +28,6 @@ constexpr double kKyotoStationLat = 34.9855;
 constexpr double kKyotoStationLon = 135.7581;
 constexpr double kOsakaCastleLat = 34.6873;
 constexpr double kOsakaCastleLon = 135.5262;
-constexpr int kZoom = 10;
 constexpr double kStepS = 1.0e-3;
 constexpr long kMostSteps = 10000000;
 
@@ -76,7 +75,6 @@ int main(void) {
   declared.Driven.FromLonDeg = kKyotoStationLon;
   declared.Driven.ToLatDeg = kOsakaCastleLat;
   declared.Driven.ToLonDeg = kOsakaCastleLon;
-  declared.Driven.Zoom = kZoom;
   outshine::Store scene;
   outshine::Column<outshine::Vehicle> vehicles;
   outshine::Column<outshine::Drive> drives;

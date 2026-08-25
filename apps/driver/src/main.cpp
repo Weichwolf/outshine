@@ -54,18 +54,20 @@ void Usage() {
       "declaration carries is the one that runs.\n");
 }
 
-[[nodiscard]] bool Read(int argc, char **argv, Asked &out) {
+enum class Reading { Ran, Asked, Wrong };
+
+[[nodiscard]] Reading Read(int argc, char **argv, Asked &out) {
   for (int at = 1; at < argc; ++at) {
     const std::string_view said = argv[at];
     const bool wants = at + 1 < argc;
-    if (said == "--help" || said == "-h") { return false; }
+    if (said == "--help" || said == "-h") { return Reading::Asked; }
     if (said == "--headless") {
       out.Headless = true;
     } else if (said == "--from" && wants) {
-      if (!Pair(argv[++at], out.FromLatDeg, out.FromLonDeg)) { return false; }
+      if (!Pair(argv[++at], out.FromLatDeg, out.FromLonDeg)) { return Reading::Wrong; }
       out.Routed = true;
     } else if (said == "--to" && wants) {
-      if (!Pair(argv[++at], out.ToLatDeg, out.ToLonDeg)) { return false; }
+      if (!Pair(argv[++at], out.ToLatDeg, out.ToLonDeg)) { return Reading::Wrong; }
       out.Routed = true;
     } else if (said == "--scenario" && wants) {
       out.Scenario = argv[++at];
@@ -77,31 +79,32 @@ void Usage() {
       out.Shaders = argv[++at];
     } else if (said == "--frames" && wants) {
       int held = 0;
-      if (!Number(argv[++at], held)) { return false; }
+      if (!Number(argv[++at], held)) { return Reading::Wrong; }
       out.Frames = held;
     } else if (said == "--size" && wants) {
       const std::string_view size = argv[++at];
       const size_t by = size.find('x');
       if (by == std::string_view::npos || !Number(size.substr(0, by), out.WidthPx) ||
           !Number(size.substr(by + 1), out.HeightPx)) {
-        return false;
+        return Reading::Wrong;
       }
     } else {
       std::printf("outshine-driver: '%.*s' is not an option it knows\n", (int)said.size(),
                   said.data());
-      return false;
+      return Reading::Wrong;
     }
   }
-  return true;
+  return Reading::Ran;
 }
 
 }
 
 int main(int argc, char **argv) {
   Asked asked;
-  if (!Read(argc, argv, asked)) {
+  const Reading read = Read(argc, argv, asked);
+  if (read != Reading::Ran) {
     Usage();
-    return 2;
+    return read == Reading::Asked ? 0 : 2;
   }
 
   outshine::Engine engine;
