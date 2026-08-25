@@ -55,8 +55,10 @@ int main(int argc, char **argv) {
 
   bool haveReport = false;
   const std::string reportText = Slurp(under + "/" + reported, haveReport);
-  CHECK(haveReport, "the report was prepared beside the asset");
-  if (!haveReport) { return Report(); }
+  if (!haveReport) {
+    Unprepared((under + "/" + reported).c_str());
+    return Report();
+  }
 
   outshine::Json report;
   CHECK(report.Parse(reportText.c_str(), reportText.size()), "Khronos's report parses");

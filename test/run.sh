@@ -4,6 +4,7 @@ set -u
 set -m
 AUDIT=0
 STRANDED=37
+OWNER_MAP_BUILT=no
 CORPUS=0
 WOULDPRUNE=0
 CASELIST=0
@@ -928,9 +929,17 @@ builtSpentMs=0
 # knowable from the case that misses it. It IS knowable from the path the case names: the
 # prepared directory is the owning manifest's own path with the slashes turned to dashes, and
 # that mapping inverts by walking the manifests the tree declares.
+# A case directory holds an INPUT when something other than its own bookkeeping is in it.
+# board:1839's .prepared-by is bookkeeping and so is the manifest: counting either as an input
+# made every pruned case look filled, and the rebuild path never fired for one.
+HoldsInput() {
+  [ -n "$(ls -A "$1" 2>/dev/null | grep -v -e '^manifest.json$' -e '^\.prepared-by$')" ]
+}
+
 RebuildOwner() {
   ownerMap=$BUILD/log/manifest-owners
-  if [ ! -s "$ownerMap" ]; then
+  if [ "$OWNER_MAP_BUILT" != yes ]; then
+    OWNER_MAP_BUILT=yes
     find test -name manifest.json -print0 |
       while IFS= read -r -d '' candidate; do
         holder=${candidate%/manifest.json}
@@ -944,7 +953,7 @@ RebuildOwner() {
   [ -s "$ownerNames" ] || return 1
   ownerRebuilt=no
   while IFS= read -r ownerDir; do
-    [ -n "$(ls -A "$PREPARED/$ownerDir" 2>/dev/null | grep -v '^manifest.json$')" ] && continue
+    HoldsInput "$PREPARED/$ownerDir" && continue
     holder=$(awk -F'\t' -v want="$ownerDir" '$1 == want { print $2; exit }' "$ownerMap")
     if [ -z "$holder" ]; then
       # not every prepared directory has a manifest behind it: the scenario assets are placed
@@ -969,7 +978,7 @@ RebuildOwner() {
 RebuildCase() {
   REBUILT=no
   [ -f "$1/manifest.json" ] || return 0
-  [ -z "$(ls -A "$2" 2>/dev/null | grep -v '^manifest.json$')" ] || return 0
+  HoldsInput "$2" && return 0
   printf 'run.sh: %s WAS prepared and its input is gone -- it carries a manifest, so this is a corpus removed under a reader and not a fetch that never happened; rebuilding (board:1789, 1797)\n' \
     "${1#test/}" >&2
   before=$(Now)

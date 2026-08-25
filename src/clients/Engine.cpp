@@ -119,6 +119,10 @@ struct Engine::State {
   Sim::DriveProduct Drive;
   bool Drove = false;
   std::string Error;
+
+  [[nodiscard]] bool Rides(void);
+  [[nodiscard]] bool Composes(void);
+  [[nodiscard]] bool Routes(void);
 };
 
 namespace {
@@ -175,7 +179,7 @@ bool Engine::Assemble() {
   const size_t named = AssembledCapacity(declared);
   if (named == 0) {
     S_->Drove = false;
-    return Drives();
+    return S_->Routes();
   }
   if (!S_->Scene.Open(named) || !S_->Vehicles.Open(S_->Scene) ||
       !S_->Drives.Open(S_->Scene) || !S_->Kinds.Open(S_->Scene)) {
@@ -188,40 +192,40 @@ bool Engine::Assemble() {
     return false;
   }
 
-  return Drives();
+  return S_->Routes();
 }
 
-bool Engine::Drives(void) {
-  const Scenario &declared = S_->Declared;
-  S_->Drove = false;
+bool Engine::State::Routes(void) {
+  const Scenario &declared = Declared;
+  Drove = false;
   if (!declared.Driven.Declared) { return true; }
-  if (!S_->Wire) {
-    if (S_->Under.Offline) {
-      S_->Wire = std::make_unique<Unwired>();
+  if (!Wire) {
+    if (Under.Offline) {
+      Wire = std::make_unique<Unwired>();
     } else {
-      S_->Wire = std::make_unique<Fetching>(Fetching::Config{});
+      Wire = std::make_unique<Fetching>(Fetching::Config{});
     }
   }
   Quietly say;
-  const Sim::Provision kept{S_->Under.Cache, S_->Under.Shipped,
+  const Sim::Provision kept{Under.Cache, Under.Shipped,
                             {Data::ShippedProviders().begin(), Data::ShippedProviders().end()}};
-  const bool routed = Sim::AssembleDrive(S_->Scene, S_->Stood, S_->Vehicles, S_->Drives,
-                                         declared.Ground, S_->Stack, *S_->Wire, kept, say,
-                                         S_->Drive);
-  S_->Carried.insert(S_->Carried.end(), std::make_move_iterator(say.Held.begin()),
+  const bool routed = Sim::AssembleDrive(Scene, Stood, Vehicles, Drives,
+                                         declared.Ground, Stack, *Wire, kept, say,
+                                         Drive);
+  Carried.insert(Carried.end(), std::make_move_iterator(say.Held.begin()),
                      std::make_move_iterator(say.Held.end()));
-  S_->Numbers = std::move(say.Took);
+  Numbers = std::move(say.Took);
   if (!routed) {
-    S_->Error = say.WhyNot();
+    Error = say.WhyNot();
     return false;
   }
-  if (S_->Standing && S_->Drive.Stood.MetresPerAssetUnit > 0.0) {
-    S_->Standing->ScaledBy(S_->Drive.Stood.MetresPerAssetUnit);
+  if (Standing && Drive.Stood.MetresPerAssetUnit > 0.0) {
+    Standing->ScaledBy(Drive.Stood.MetresPerAssetUnit);
   }
-  S_->Drove = true;
-  if (!Compose()) {
-    S_->Carried.push_back("the ground did not compose: " + S_->Error);
-    S_->Error.clear();
+  Drove = true;
+  if (!Composes()) {
+    Carried.push_back("the ground did not compose: " + Error);
+    Error.clear();
   }
   return true;
 }
@@ -266,53 +270,53 @@ double Engine::Along(void) const {
 double Engine::Whole(void) const { return S_->Drove ? S_->Drive.Way.Line.LengthM() : 0.0; }
 
 
-bool Engine::Compose(void) {
-  S_->GroundTiles = 0;
-  if (!S_->Standing) {
-    S_->Error = "nothing stands to compose a world around";
+bool Engine::State::Composes(void) {
+  GroundTiles = 0;
+  if (!Standing) {
+    Error = "nothing stands to compose a world around";
     return false;
   }
-  const Scenario &declared = S_->Declared;
-  const Sim::Corridor &way = S_->Drive.Way;
+  const Scenario &declared = Declared;
+  const Sim::Corridor &way = Drive.Way;
   const bool overADrive = false;
   if (!declared.Ground.Declared && !overADrive) {
-    S_->Error = "the scenario declares neither a sphere nor a drive that laid a corridor, so "
+    Error = "the scenario declares neither a sphere nor a drive that laid a corridor, so "
                 "there is nowhere for a ground to be composed";
     return false;
   }
   const double atLat = overADrive ? way.FrameLat : declared.Ground.Lat;
   const double atLon = overADrive ? way.FrameLon : declared.Ground.Lon;
-  if (!S_->Wire) {
-    if (S_->Under.Offline) {
-      S_->Error = "the ground is FETCHED and the engine was declared offline";
+  if (!Wire) {
+    if (Under.Offline) {
+      Error = "the ground is FETCHED and the engine was declared offline";
       return false;
     }
-    S_->Wire = std::make_unique<Fetching>(Fetching::Config{});
+    Wire = std::make_unique<Fetching>(Fetching::Config{});
   }
 
   Quietly say;
-  if (!S_->Stack.Opened() &&
-      !S_->Stack.Open(S_->Under.Cache, S_->Under.Shipped,
+  if (!Stack.Opened() &&
+      !Stack.Open(Under.Cache, Under.Shipped,
                       {Data::ShippedProviders().begin(), Data::ShippedProviders().end()},
-                      atLat, atLon, *S_->Wire, say)) {
-    S_->Error = say.WhyNot();
+                      atLat, atLon, *Wire, say)) {
+    Error = say.WhyNot();
     return false;
   }
 
   Around over;
   over.LatDeg = atLat;
   over.LonDeg = atLon;
-  over.Zoom = S_->Stack.FinestZoomOf(Data::DataKind::Elevation);
+  over.Zoom = Stack.FinestZoomOf(Data::DataKind::Elevation);
   over.Ring = 1;
-  auto laid = LayPatchwork(S_->Stack.Pool(), over);
+  auto laid = LayPatchwork(Stack.Pool(), over);
   const auto began = std::chrono::steady_clock::now();
   while (!laid &&
          std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() <
              kGroundPatienceS) {
-    laid = LayPatchwork(S_->Stack.Pool(), over);
+    laid = LayPatchwork(Stack.Pool(), over);
   }
   if (!laid) {
-    S_->Error = laid.error();
+    Error = laid.error();
     return false;
   }
 
@@ -341,17 +345,17 @@ bool Engine::Compose(void) {
 
   Gltf::Subject laidGround;
   if (!laidGround.Assemble(Gltf::Assembly{Span<const Gltf::Piece>(&ground, 1)})) {
-    S_->Error = laidGround.Error();
+    Error = laidGround.Error();
     return false;
   }
-  Gltf::Subject world = S_->Standing->Shown();
+  Gltf::Subject world = Standing->Shown();
   const size_t drivenParts = world.Parts().size();
   if (!world.Append(laidGround)) {
-    S_->Error = world.Error();
+    Error = world.Error();
     return false;
   }
-  if (!S_->Standing->Restand(world, drivenParts, S_->Error)) { return false; }
-  S_->GroundTiles = laid->Tiles;
+  if (!Standing->Restand(world, drivenParts, Error)) { return false; }
+  GroundTiles = laid->Tiles;
   return true;
 }
 
@@ -807,8 +811,8 @@ bool Engine::Takes(std::string_view view) {
   return true;
 }
 
-bool Engine::Rides(void) {
-  const Physics::Body &body = S_->Drive.State.Body;
+bool Engine::State::Rides(void) {
+  const Physics::Body &body = Drive.State.Body;
   double bodyFromWorld[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   {
     const double *const q = body.OrientationQ;
@@ -823,7 +827,7 @@ bool Engine::Rides(void) {
     bodyFromWorld[9] = 2.0 * (y * z - x * w);
     bodyFromWorld[10] = 1.0 - 2.0 * (x * x + y * y);
   }
-  const double *const shiftM = S_->Drive.Stood.ModelShiftM;
+  const double *const shiftM = Drive.Stood.ModelShiftM;
   for (int axis = 0; axis < 3; ++axis) {
     bodyFromWorld[12 + axis] = body.PositionM[axis] + bodyFromWorld[0 + axis] * shiftM[0] +
                                bodyFromWorld[4 + axis] * shiftM[1] +
@@ -831,17 +835,17 @@ bool Engine::Rides(void) {
   }
 
   const double stillM[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-  if (!S_->Standing->Carry(bodyFromWorld, stillM, S_->Error)) { return false; }
-  if (S_->Volumes) {
-    S_->Volumes->Probe(0, body.PositionM, (double)S_->Standing->At() * kTickS);
-    for (const TriggerField::Fired &fired : S_->Volumes->Drain()) {
-      S_->Carried.push_back("a volume fired event " + std::to_string(fired.Event) +
+  if (!Standing->Carry(bodyFromWorld, stillM, Error)) { return false; }
+  if (Volumes) {
+    Volumes->Probe(0, body.PositionM, (double)Standing->At() * kTickS);
+    for (const TriggerField::Fired &fired : Volumes->Drain()) {
+      Carried.push_back("a volume fired event " + std::to_string(fired.Event) +
                              " for body " + std::to_string(fired.Body));
     }
   }
-  if (!S_->Views) { return true; }
+  if (!Views) { return true; }
 
-  const View &seen = S_->Views->Active();
+  const View &seen = Views->Active();
   double at[3];
   for (int axis = 0; axis < 3; ++axis) {
     at[axis] = body.PositionM[axis] + bodyFromWorld[0 + axis] * seen.OffsetM[0] +
@@ -862,7 +866,7 @@ bool Engine::Rides(void) {
     return true;
   }
   from.YfovRad = (seen.FovDeg > 0.0 ? seen.FovDeg : 55.0) * std::numbers::pi / 180.0;
-  S_->Standing->Eye(from);
+  Standing->Eye(from);
   return true;
 }
 
@@ -879,7 +883,7 @@ bool Engine::Advance() {
       return false;
     }
     if (rode.Arrived) { return false; }
-    if (!Rides()) { return false; }
+    if (!S_->Rides()) { return false; }
   }
   if (!S_->Standing->Advance(S_->Error)) { return false; }
   return true;
