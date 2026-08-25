@@ -802,6 +802,14 @@ void Renderer::WantsPixels() { Wanted_ = true; }
 
 ReadState Renderer::ReadPixels(std::vector<uint8_t> &rgba) {
   if (!Ready_) { return ReadState::Failed; }
+  const auto asRgba = [this](std::vector<uint8_t> &held) {
+    const SDL_GPUTextureFormat holds = SurfaceFormat();
+    if (holds != SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM &&
+        holds != SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM_SRGB) {
+      return;
+    }
+    for (size_t at = 0; at + 3 < held.size(); at += 4) { std::swap(held[at], held[at + 2]); }
+  };
   if (Showing_ == nullptr) {
     if (HostSurface_ == nullptr) { return ReadState::Failed; }
     Readback read;
@@ -811,10 +819,12 @@ ReadState Renderer::ReadPixels(std::vector<uint8_t> &rgba) {
     }
     rgba.resize((size_t)Width_ * (size_t)Height_ * 4u);
     std::memcpy(rgba.data(), read.Rows(), rgba.size());
+    asRgba(rgba);
     return ReadState::Ready;
   }
   if (Taken_.size() == (size_t)Width_ * (size_t)Height_ * 4u) {
     rgba = Taken_;
+    asRgba(rgba);
     return ReadState::Ready;
   }
   Wanted_ = true;
@@ -945,6 +955,18 @@ std::expected<void, std::string_view> Renderer::DrawsInto(int widthPx, int heigh
       WhyNot_ = std::string("the window was refused by the device: ") + SDL_GetError();
       return std::unexpected(
           "the window was refused by the device, and WhyNot carries what it said");
+    }
+    if (presents != nullptr) {
+      const SDL_GPUSwapchainComposition wanted = SDL_GPU_SWAPCHAINCOMPOSITION_SDR_LINEAR;
+      if (!SDL_WindowSupportsGPUSwapchainComposition(Device_.Get(), presents, wanted) ||
+          !SDL_SetGPUSwapchainParameters(Device_.Get(), presents, wanted,
+                                         SDL_GPU_PRESENTMODE_VSYNC)) {
+        WhyNot_ = std::string("this window cannot present the transfer the plan declares: ") +
+                  SDL_GetError();
+        return std::unexpected(
+            "the window cannot present the transfer the plan declares, and WhyNot carries what "
+            "the device said");
+      }
     }
     Showing_ = presents;
   }
