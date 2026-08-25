@@ -1385,9 +1385,9 @@ endKib=$(SuiteKib)
 
 total=$((passed + failed + timedout + signalled + unbuilt + skipped + unprepared))
 elapsedMs=$(( $(Now) - started ))
-printf '%s tests: %s PASS  %s FAIL  %s TIMEOUT  %s SIGNAL  %s BUILD  %s SKIP  %s UNPREPARED  in %s ms\n' \
+printf '%s tests: %s PASS  %s FAIL  %s TIMEOUT  %s SIGNAL  %s BUILD  %s SKIP  %s UNPREPARED  %s PARTIAL  in %s ms\n' \
   "$total" "$passed" "$failed" "$timedout" "$signalled" "$unbuilt" "$skipped" "$unprepared" \
-  "$elapsedMs"
+  "$partialCases" "$elapsedMs"
 if [ "$FAST_GATE" = yes ]; then
   EverySourceStillCompiles || compileBlind=1
   WhatNoCorpusJudges
@@ -1399,8 +1399,12 @@ for said in $PARTIAL_SAID; do
   partialLog=$BUILD/log/$(printf '%s' "$said" | tr / -).log
   partialShare=$(sed -n 's/^PARTIAL \([0-9.]*\) .*/\1/p' "$partialLog" | head -1)
   partialOf=$(sed -n 's/^PARTIAL [0-9.]* //p' "$partialLog" | head -1)
-  printf 'run.sh: %s JUDGED PART OF ITS SUBJECT -- %s of %s, so this trailer says nothing about the rest and a run on another machine will stop somewhere else (board:1810)\n' \
-    "$said" "$partialShare" "$partialOf" >&2
+  # board:1845: a share of ZERO is not "part of its subject", it is none of it -- and the two
+  # read differently to anyone counting on the trailer
+  partialWord=PART
+  case "$partialShare" in 0|0.0|0.00*) partialWord=NONE ;; esac
+  printf 'run.sh: %s JUDGED %s OF ITS SUBJECT -- %s of %s, so this trailer says nothing about the rest and a run on another machine will stop somewhere else (board:1810, 1845)\n' \
+    "$said" "$partialWord" "$partialShare" "$partialOf" >&2
 done
 
 for killed in $KILLED_BY_TIME; do

@@ -91,7 +91,11 @@ inline void Skip(const char *why) {
 }
 
 [[nodiscard]] inline int Report() {
-  if (Checks.Value() == 0 && Skips.Value() == 0 && Unprepareds.Value() == 0) {
+  // board:1845: a case that judged NONE of its subject says so with Partial, and that is a
+  // legal answer -- so the vacuum guard counts it beside the other two ways of saying nothing
+  // was judged. Without it a case survives on whatever unrelated CHECK it happened to make.
+  if (Checks.Value() == 0 && Skips.Value() == 0 && Unprepareds.Value() == 0 &&
+      Partials.Value() == 0) {
     ++Failures;
     std::printf("FAIL no claim was checked\n");
   }

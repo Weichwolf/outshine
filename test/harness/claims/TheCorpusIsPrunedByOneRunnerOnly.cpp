@@ -46,7 +46,7 @@ int main(void) {
   const bool corpus = std::filesystem::exists(prepared);
   std::printf("NOTE a corpus stands on disk: %s\n", corpus ? "yes" : "no");
   if (!corpus) {
-    Partial(0.0, "of IV.15's own claims, because no corpus was fetched for this run to prune");
+    Partial(0.0, "IV.15's own claims, because no corpus was fetched for this run to prune");
     Covers("IV.15 the shared corpus is pruned by the runner holding its claim and by no other, "
          "so a second checkout reads the same bytes and removes none of them (board:1789)");
     return Report();
@@ -73,7 +73,7 @@ int main(void) {
     // UNPREPARED is counted RED by the runner, and this exit is a legal state in the very
     // configuration CLAUDE.md mandates for the review. PARTIAL carries the fact without the
     // verdict, which is what board:1810 built it for.
-    Partial(0.0, "of IV.15's own claims, because another nest held the corpus claim");
+    Partial(0.0, "IV.15's own claims, because another nest held the corpus claim");
     Covers("IV.15 the shared corpus is pruned by the runner holding its claim and by no other, "
          "so a second checkout reads the same bytes and removes none of them (board:1789)");
     return Report();
