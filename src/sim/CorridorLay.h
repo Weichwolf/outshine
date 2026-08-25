@@ -1,7 +1,10 @@
 #ifndef OUTSHINE_SIM_CORRIDORLAY_H
 #define OUTSHINE_SIM_CORRIDORLAY_H
 
+#include <expected>
+#include <limits>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <vector>
 
@@ -70,9 +73,18 @@ struct Corridor {
 
 inline constexpr double kLagMargin = 4.0;
 
-[[nodiscard]] constexpr double AsideRatePerM(double budgetM, double topMs) noexcept {
-  const double reachM = Pilot::kSettleS * topMs;
-  return reachM > 0.0 ? budgetM / (kLagMargin * reachM) : 0.0;
+[[nodiscard]] constexpr std::expected<double, std::string_view> AsideRatePerM(
+    double budgetM, double heldMs) noexcept {
+  if (!(heldMs > 0.0)) {
+    return std::unexpected("a lateral rate is scaled to a speed the plan HOLDS, and this one "
+                           "holds none");
+  }
+  if (!(heldMs < std::numeric_limits<double>::infinity())) {
+    return std::unexpected("a lateral rate is scaled to a speed the plan HOLDS, and an "
+                           "unbounded one -- a declared vacuum, where drag allows any speed at "
+                           "all -- is not a speed anything holds");
+  }
+  return budgetM / (kLagMargin * Pilot::kSettleS * heldMs);
 }
 
 [[nodiscard]] bool LayCorridor(const Path::Route &route, const GroundQuery &ground,

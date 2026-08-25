@@ -298,7 +298,12 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   {
     const double fastestMs = inPlan.Fastest().Ms;
     const double reachM = outshine::Pilot::kSettleS * fastestMs;
-    const double mostPerM = AsideRatePerM(budgetM, fastestMs);
+    const auto rate = AsideRatePerM(budgetM, fastestMs);
+    if (!rate) {
+      say.Say(std::string("REFUSED ") + std::string(rate.error()));
+      return false;
+    }
+    const double mostPerM = *rate;
     out.AsideRatePerM = mostPerM;
     say.Number("the fastest the plan view holds", fastestMs * 3.6, "km/h");
     say.Number("the top speed the declaration would allow", stood.Envelope.TopMs() * 3.6, "km/h");

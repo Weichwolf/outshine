@@ -117,8 +117,9 @@ bool Seat(DriveState &drive, const Corridor &way, const Vehicle &car, const Rigg
   outshine::Physics::Turn(body.OrientationQ, aheadBody, ahead);
   for (int axis = 0; axis < 3; ++axis) { body.VelocityMs[axis] = kJoinMs * ahead[axis]; }
   drive.CarWidthM = car.WidthM;
-  drive.AsideRatePerM = outshine::Sim::AsideRatePerM(kLaneHalfM - 0.5 * car.WidthM,
-                                                     way.Profile.Fastest().Ms);
+  const auto rate =
+      outshine::Sim::AsideRatePerM(kLaneHalfM - 0.5 * car.WidthM, way.Profile.Fastest().Ms);
+  drive.AsideRatePerM = rate ? *rate : 0.0;
   return true;
 }
 
@@ -161,6 +162,9 @@ int main(void) {
         "would throw every wheel off the ground within a step, so a grounded arrival IS the "
         "sign's regression net");
 
+  // board:1840: the moon leg used to run the STRAIGHT corridor, where a frozen lane centre is
+  // the right answer by accident -- so the vacuum's effect on the lateral rate was never
+  // exercised by the case that exists to prove a vacuum is legal. It runs the SHIFTING one.
   const Rigged onMoon = Stand(car, kMoonMs2, 0.0);
   Corridor moonWay;
   CHECK(Straight(moonWay, onMoon, kEdgeM, error) && onMoon.Stood,
@@ -175,6 +179,31 @@ int main(void) {
   CHECK(moon.Arrived && !moon.OffTheRoad,
         "**A SIXTH OF THE GRAVITY AND NO AIR AT ALL STILL HOLD THE CAR TO THE ROAD** -- less "
         "grip, no drag, the same arrival, and nothing in the tick names a planet");
+
+  // board:1840: the vacuum leg above runs a STRAIGHT corridor, where a frozen lane centre is
+  // the right answer by accident, so it proves nothing about the rate. This one steps.
+  {
+    Corridor moonSteps;
+    DriveState moonFollowing;
+    CHECK(Shifting(moonSteps, onMoon, 0.75, error),
+          "a corridor whose lane centre STEPS lays in the same vacuum");
+    CHECK(Seat(moonFollowing, moonSteps, car, onMoon), "and the car seats on it");
+    const Ridden stepped = RideOut(moonSteps, onMoon, car, moonFollowing);
+    Note("the lane centre the vacuum drive claimed", moonFollowing.HeldAsideM, "m");
+    Note("what it was asked to claim", 0.75, "m");
+    Note("how far that ride reached", stepped.ReachedM, "m");
+
+    CHECK(moonFollowing.HeldAsideM > 0.1,
+          "**AND IN A VACUUM THE LANE CENTRE STILL MOVES**: the rate is scaled to the speed the "
+          "PLAN holds, finite whatever the air is. Scaled to the speed DRAG would allow it is "
+          "budget/inf = 0, and every aim in the drive freezes -- which a straight corridor "
+          "cannot tell apart from working (board:1830, board:1840)");
+    CHECK(moonFollowing.HeldAsideM < 0.75,
+          "and it does not claim the whole step in the distance it has, because a sixth of the "
+          "gravity is a sixth of the lateral force -- the vacuum plans faster, so the rate "
+          "scaled to that plan is smaller and the aim moves further per metre of road but has "
+          "fewer metres to do it in");
+  }
 
   Corridor kerb;
   CHECK(Straight(kerb, onEarth, 0.5, error), "a corridor whose edge is inside the car's track lays");
