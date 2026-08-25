@@ -2,6 +2,7 @@
 #define OUTSHINE_UI_LAYOUT_H
 
 #include <cstdint>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -68,6 +69,9 @@ struct Box {
   uint32_t Background = 0, BorderColour = 0;
   double Radius = 0, Opacity = 1.0;
   bool Clips = false;
+  bool Scrolls = false;
+  double ScrolledPx = 0.0;
+  double ContentPx = 0.0;
 
   bool Positioned = false;
 
@@ -86,8 +90,22 @@ struct Box {
 class Layout {
 public:
 
+  struct Scrolled {
+    int Node = -1;
+    double Px = 0.0;
+  };
+
   [[nodiscard]] bool Build(const Markup &markup, Stylesheet &sheet, double viewportWidth,
-                           double viewportHeight, const Font &font, std::string &error);
+                           double viewportHeight, const Font &font, std::string &error) {
+    return Build(markup, sheet, viewportWidth, viewportHeight, font, {}, error);
+  }
+
+  [[nodiscard]] bool Build(const Markup &markup, Stylesheet &sheet, double viewportWidth,
+                           double viewportHeight, const Font &font,
+                           std::span<const Scrolled> scrolled, std::string &error);
+
+  [[nodiscard]] int Scroller(double x, double y) const;
+  [[nodiscard]] double ScrollableBy(int node) const;
 
   [[nodiscard]] const std::vector<Box> &Boxes() const { return Boxes_; }
 

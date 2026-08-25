@@ -25,6 +25,8 @@ constexpr uint32_t kSpaceAround = Keyword("space-around");
 constexpr uint32_t kStretch = Keyword("stretch");
 constexpr uint32_t kBorderBox = Keyword("border-box");
 constexpr uint32_t kHidden = Keyword("hidden");
+constexpr uint32_t kAuto = Keyword("auto");
+constexpr uint32_t kScroll = Keyword("scroll");
 constexpr uint32_t kStatic = Keyword("static");
 constexpr uint32_t kPre = Keyword("pre");
 constexpr uint32_t kRight = Keyword("right");
@@ -652,7 +654,8 @@ double Placer::Flex(int node, const Computed &style, int self, double contentX, 
     item.Em = itemEm;
 
     if (!item.Style.Has(item.Least) || item.Style.Of(item.Least).How == Unit::Auto) {
-      if (item.Style.Word(Property::Overflow, 0) != kHidden) {
+      const uint32_t spilling = item.Style.Word(Property::Overflow, 0);
+      if (spilling != kHidden && spilling != kAuto && spilling != kScroll) {
         if (column) {
           double w = 0, h = 0;
           Measure(child, &style, contentWidth, w, h);
@@ -992,7 +995,9 @@ double Placer::Place(int node, const Computed *inherited, double originX, double
   box.BorderColour = style.Has(Property::BorderColour) ? style.Of(Property::BorderColour).Word : 0;
   box.Radius = len(Property::BorderRadius, containerWidth, 0);
   box.Opacity = style.Has(Property::Opacity) ? style.Of(Property::Opacity).Number : 1.0;
-  box.Clips = style.Word(Property::Overflow, 0) == kHidden;
+  const uint32_t spills = style.Word(Property::Overflow, 0);
+  box.Scrolls = spills == kAuto || spills == kScroll;
+  box.Clips = spills == kHidden || box.Scrolls;
   box.Positioned = style.Has(Property::Position) &&
                    style.Word(Property::Position, kStatic) != kStatic;
   box.Colour = style.Has(Property::Colour) ? style.Of(Property::Colour).Word : 0x000000FFu;
@@ -1128,7 +1133,8 @@ const char *UserAgentSheet() {
 }
 
 bool Layout::Build(const Markup &markup, Stylesheet &sheet, double viewportWidth,
-                   double viewportHeight, const Font &font, std::string &error) {
+                   double viewportHeight, const Font &font, std::span<const Scrolled> scrolled,
+                   std::string &error) {
   ViewportWidth_ = viewportWidth;
   ViewportHeight_ = viewportHeight;
   Boxes_.clear();
@@ -1175,7 +1181,56 @@ bool Layout::Build(const Markup &markup, Stylesheet &sheet, double viewportWidth
             "past the bound is a refusal, never a crash";
     return false;
   }
+
+  for (size_t at = 0; at < Boxes_.size(); ++at) {
+    Box &over = Boxes_[at];
+    if (!over.Scrolls) { continue; }
+    double reaches = over.Y;
+    for (const Box &under : Boxes_) {
+      for (int up = under.Parent; up >= 0; up = Boxes_[(size_t)up].Parent) {
+        if ((size_t)up != at) { continue; }
+        reaches = std::fmax(reaches, under.Y + under.Height);
+        break;
+      }
+    }
+    const double room = over.Height - over.Border.Top - over.Border.Bottom;
+    over.ContentPx = reaches - over.Y;
+    const double most = over.ContentPx > room ? over.ContentPx - room : 0.0;
+    double by = 0.0;
+    for (const Scrolled &one : scrolled) {
+      if (one.Node == over.Node) { by = one.Px; }
+    }
+    over.ScrolledPx = by < 0.0 ? 0.0 : (by > most ? most : by);
+    if (over.ScrolledPx <= 0.0) { continue; }
+    for (size_t under = 0; under < Boxes_.size(); ++under) {
+      for (int up = Boxes_[under].Parent; up >= 0; up = Boxes_[(size_t)up].Parent) {
+        if ((size_t)up != at) { continue; }
+        Boxes_[under].Y -= over.ScrolledPx;
+        break;
+      }
+    }
+  }
   return true;
+}
+
+int Layout::Scroller(double x, double y) const {
+  for (size_t at = Boxes_.size(); at-- > 0;) {
+    const Box &box = Boxes_[at];
+    if (!box.Scrolls) { continue; }
+    if (x >= box.X && x < box.X + box.Width && y >= box.Y && y < box.Y + box.Height) {
+      return box.Node;
+    }
+  }
+  return -1;
+}
+
+double Layout::ScrollableBy(int node) const {
+  for (const Box &box : Boxes_) {
+    if (box.Node != node || !box.Scrolls) { continue; }
+    const double room = box.Height - box.Border.Top - box.Border.Bottom;
+    return box.ContentPx > room ? box.ContentPx - room : 0.0;
+  }
+  return 0.0;
 }
 
 int Layout::Hit(double x, double y) const {

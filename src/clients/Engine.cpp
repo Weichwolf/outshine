@@ -63,6 +63,7 @@ private:
 };
 
 constexpr double kTickS = 1.0 / 60.0;
+constexpr double kWheelStepPx = 48.0;
 
 [[nodiscard]] std::string Said(double value) {
   char held[32] = {};
@@ -363,7 +364,14 @@ private:
 void Engine::Offers(Host *host) { S_->Offered = host; }
 
 bool Engine::Handles(const SDL_Event &event) {
-  if (event.type != SDL_EVENT_MOUSE_BUTTON_DOWN || !S_->Standing) { return false; }
+  if (!S_->Standing) { return false; }
+  if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+    float xPx = 0.0f, yPx = 0.0f;
+    SDL_GetMouseState(&xPx, &yPx);
+    return S_->Standing->Wheeled((double)xPx, (double)yPx,
+                                 -(double)event.wheel.y * kWheelStepPx, S_->Error);
+  }
+  if (event.type != SDL_EVENT_MOUSE_BUTTON_DOWN) { return false; }
 
   size_t surface = 0;
   const Ui::Touched found =

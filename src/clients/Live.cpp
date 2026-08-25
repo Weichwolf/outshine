@@ -1,5 +1,7 @@
 #include "Live.h"
 
+#include <algorithm>
+
 #include <numbers>
 #include <cmath>
 
@@ -446,7 +448,10 @@ bool Live::Compose(std::string &error) {
     laid.Sheet.Read(Ui::UserAgentSheet());
     if (!declared.Style.empty()) { laid.Sheet.Read(declared.Style); }
     laid.Sheet.Read(laid.Tree.StyleText());
-    if (!laid.Placed.Build(laid.Tree, laid.Sheet, widthPx, heightPx, *Font_, error)) { return false; }
+    if (!laid.Placed.Build(laid.Tree, laid.Sheet, widthPx, heightPx, *Font_,
+                           std::span<const Ui::Layout::Scrolled>(laid.Scrolled), error)) {
+      return false;
+    }
     if (!laid.Painted.Build(laid.Placed, *Font_, error)) { return false; }
     AsOverlay(laid.Painted.Quads(), laid.LeftPx, laid.TopPx, Quads_);
   }
@@ -592,6 +597,29 @@ bool Live::Advance(std::string &error) {
   const Heap::Tagged drawing("render-frame");
   Renderer_->RenderFrame();
   TookDrawing_ = took(beforeDraw);
+  return true;
+}
+
+bool Live::Wheeled(double xPx, double yPx, double byPx, std::string &error) {
+  for (size_t at = Laid_.size(); at > 0; --at) {
+    Laid &laid = Laid_[at - 1];
+    const double x = xPx - laid.LeftPx, y = yPx - laid.TopPx;
+    const int scroller = laid.Placed.Scroller(x, y);
+    if (scroller < 0) { continue; }
+    const double most = laid.Placed.ScrollableBy(scroller);
+    double *held = nullptr;
+    for (Ui::Layout::Scrolled &one : laid.Scrolled) {
+      if (one.Node == scroller) { held = &one.Px; }
+    }
+    if (held == nullptr) {
+      laid.Scrolled.push_back(Ui::Layout::Scrolled{scroller, 0.0});
+      held = &laid.Scrolled.back().Px;
+    }
+    const double was = *held;
+    *held = std::clamp(*held + byPx, 0.0, most);
+    if (*held == was) { return true; }
+    return Compose(error);
+  }
   return true;
 }
 

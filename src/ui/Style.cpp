@@ -211,7 +211,7 @@ const Vocabulary kVocabularies[] = {
     {Property::Display, {"block", "flex", "inline", "none", "inline-flex", nullptr}},
     {Property::Position, {"static", "relative", nullptr}},
     {Property::BoxSizing, {"content-box", "border-box", nullptr}},
-    {Property::Overflow, {"visible", "hidden", nullptr}},
+    {Property::Overflow, {"visible", "hidden", "auto", "scroll", nullptr}},
     {Property::FlexDirection, {"row", "column", "row-reverse", "column-reverse", nullptr}},
     {Property::FlexWrap, {"nowrap", "wrap", "wrap-reverse", nullptr}},
     {Property::JustifyContent,

@@ -110,7 +110,7 @@ std::string Style(void) {
          "; height: 100%; border-width: 0 1px 0 0; border-color: #232c35 }\n"
          ".head { background: #1a222a; padding: 0.3em 0.6em; box-sizing: border-box; color: #6f8090;"
          " height: " + em(kHeadEm) + "; border-width: 0 0 1px 0; border-color: #232c35 }\n"
-         ".list { flex: 1 1 0%; overflow: hidden }\n"
+         ".list { flex: 1 1 0%; overflow: auto }\n"
          ".row { padding: 0.1em 0.6em; box-sizing: border-box; height: " + em(kRowEm) +
          "; color: #9fb0bf }\n"
          ".row-on { padding: 0.1em 0.6em; box-sizing: border-box; height: " + em(kRowEm) +
@@ -134,7 +134,6 @@ std::string Declaration(const std::vector<Listed> &cases, const Showing &showing
                         int heightPx) {
   const std::vector<int> shown = Filtered(cases, showing);
   const std::vector<std::string> suites = Suites(cases);
-  const int rows = RowsThatFit(heightPx);
   (void)widthPx;
 
   std::string out = "<style>html { font-size: " + std::to_string(RootEmPx(heightPx)) + "px }\n";
@@ -159,19 +158,15 @@ std::string Declaration(const std::vector<Listed> &cases, const Showing &showing
   out += "<div class=cases><div class=head>CASE (" + std::to_string(shown.size()) +
          ")</div>";
 
-  const int from = std::max(0, showing.ScrolledRows);
-  const int upTo = std::min((int)shown.size(), from + rows + 1);
   out += "<div class=list><div>";
-  for (int at = from; at < upTo; ++at) {
+  for (int at = 0; at < (int)shown.size(); ++at) {
     const Listed &one = cases[(size_t)shown[(size_t)at]];
     const char *style = at == showing.Selected ? "row-on" : (one.Ready ? "row" : "row-out");
     out += "<div class=" + std::string(style) + " data-action=\"select(" + std::to_string(at) +
            ")\">" + Quoted(one.Name) + "</div>";
   }
   out += "</div></div><div class=status>" +
-         (shown.empty() ? std::string("NO CASES")
-                        : std::to_string(from + 1) + "-" + std::to_string(upTo) + " OF " +
-                              std::to_string(shown.size())) +
+         (shown.empty() ? std::string("NO CASES") : std::to_string(shown.size()) + " CASES") +
          "</div></div>";
 
   out += "<div class=stage>";
