@@ -65,11 +65,14 @@ it uses is library, and the library's unit tests cover it. So you judge the PROD
 it. One command, and you need to know nothing about how it is built:
 
 ```sh
-test/run.sh --drive
+make                                    # the library and every program under apps/
+build/outshine-driver --headless --into /tmp/shots-$$ \
+  --assets "${TMPDIR:-/tmp}/outshine-prepared/apps-driver-f31"
 ```
 
-It drives what the scenario declares -- `--from LAT,LON --to LAT,LON` overrides it -- prints the
-directory it wrote to, and leaves **ten stills, evenly spaced along the drive**.
+It drives what the scenario declares -- `--from LAT,LON --to LAT,LON` overrides it -- and leaves
+**ten stills, evenly spaced along the drive**, in the directory you name. `test/run.sh` is the
+TEST runner and does not drive anything.
 Read them with the Read tool -- you can see images. Judge them as the owner:
 
 - **Does it look like the thing it is?** A road that reads as a road, a horizon that reads as a

@@ -381,8 +381,9 @@ ls board/*.md | grep -o '[0-9]\{4\}' | sort -n | tail -1  # next id, derived
 | `Makefile` | build · test · clean, nothing else |
 | `board/` | the working system (above) |
 
-`test/run.sh` is the only runner. The fast unit mirror is the regression gate; long device and
-corpus suites run when named. A standing RED is declared in `EXPECT_FAIL` with its count, and
+`make` builds the library and every program under `apps/` into `build/`. `test/run.sh` is the
+only TEST runner and runs nothing else; the fast unit mirror is the regression gate, long device
+and corpus suites run when named. A standing RED is declared in `EXPECT_FAIL` with its count, and
 the gate turns red the day such a case passes with the declaration still in place.
 
 ## The order the work is done in
