@@ -209,6 +209,7 @@ LayerIncludes() {
   case "$1" in
     harness/claims) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators " ;;
     harness/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/data -Itest/harness/shared" ;;
+    harness/outshine/scenario) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/format -Isrc/base/spatial -Isrc/scenario -Itest/harness/shared" ;;
     harness/outshine/content) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/content/gltf -Isrc/content/shade -Itest/harness/shared" ;;
     harness/outshine/geo) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/world/data -Isrc/world/ground -Isrc/world/ground/tiles -Itest/harness/shared" ;;
     harness/outshine/fuzz) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/content/gltf -Itest/harness/shared" ;;
@@ -268,6 +269,7 @@ LayerGroups() {
     harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/ui" ;;
     harness/test262/js) printf '%s' "src/base/format/Json.cpp src/base/format/Script.cpp" ;;
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;
+    harness/outshine/scenario) printf '%s' "src/base/math src/base/format src/base/spatial src/scenario/Triggers.cpp" ;;
     harness/outshine/content) printf '%s' "src/base/math src/base/geo src/base/format src/base/spatial src/base/io src/content/gltf" ;;
     harness/outshine/geo) printf '%s' "src/base/math src/base/geo src/base/format src/base/spatial src/base/io src/world/data src/world/ground/tiles" ;;
     harness/outshine/fuzz) printf '%s' "src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/content/gltf" ;;

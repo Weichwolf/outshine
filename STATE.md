@@ -192,6 +192,7 @@ PROVES -- what src/ provably does, one line each
   physics: a point a declaration measures from the road reaches the body's frame only after its centre of mass is subtracted, so a seat stays inside the
   physics: a tyre's lateral force follows the brush characteristic -- the cornering stiffness at small slip, the friction limit at full breakaway, and a
   pi stands once and it is std::numbers: every pi in src/ derives from std::numbers::pi and the alias lives in one header (board:1630)
+  scenario: a declared volume fires on the transition its declaration names -- enter when a body arrives, exit when it leaves -- and a body that stays f
   the door: a declared binding reports both edges of its button, so a control command can be held and can end
   the door: a section a scenario did not declare decides nothing, and what stands in its place is the engine's own default rather than the zeroes of an 
   the door: a subject casts a shadow over every batch it draws, and a declaration that names no shadow radius gets one derived from the subject's extent

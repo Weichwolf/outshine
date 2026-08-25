@@ -115,6 +115,7 @@ struct Engine::State {
   Ground::GroundStack Stack;
   Sim::DriveProduct Drive;
   bool Drove = false;
+  size_t Fired = 0;
   Clients::Declaration Shown;
   double OwedS = 0.0;
   std::string Error;
@@ -924,6 +925,8 @@ bool Engine::State::Rides(void) {
   if (Volumes) {
     Volumes->Probe(0, body.PositionM, (double)Standing->At() * Declared.Motion.StepS);
     for (const TriggerField::Fired &fired : Volumes->Drain()) {
+      ++Fired;
+      Places("events a declared volume has fired", (double)Fired, "events");
       Carried.push_back("a volume fired event " + std::to_string(fired.Event) +
                              " for body " + std::to_string(fired.Body));
     }
