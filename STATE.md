@@ -190,6 +190,7 @@ PROVES -- what src/ provably does, one line each
   pi stands once and it is std::numbers: every pi in src/ derives from std::numbers::pi and the alias lives in one header (board:1630)
   the door: a declared binding reports both edges of its button, so a control command can be held and can end
   the door: a section a scenario did not declare decides nothing, and what stands in its place is the engine's own default rather than the zeroes of an 
+  the door: a subject casts a shadow over every batch it draws, and a declaration that names no shadow radius gets one derived from the subject's extent
   the door: a subject that changes costs the reading of that subject and nothing else, so a scenario streams its parts rather than being rebuilt around 
   the door: the declared key illuminance sets the fill ratio and nothing else, so the picture is invariant under a common scale of key and environment
   the door: the work a declaration causes is proportional to what it changed, so a scenario can be streamed rather than rebuilt

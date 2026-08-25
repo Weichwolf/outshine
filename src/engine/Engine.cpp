@@ -573,6 +573,7 @@ bool Engine::Declare(const Scenario &scenario) {
     declared.KeyElevationDeg = scenario.Lit.Key.ElevationDeg;
     declared.KeyBearingDeg = scenario.Lit.Key.BearingDeg;
     for (int at = 0; at < 3; ++at) { declared.Environment[at] = scenario.Lit.Environment[at]; }
+    declared.ShadowRadiusM = scenario.Lit.ShadowRadiusM;
   }
 
   std::vector<const Surface *> ordered;
@@ -981,6 +982,9 @@ bool Engine::Advance() {
     if (!S_->Rides()) { return false; }
   }
   if (!S_->Standing->Advance(S_->Error)) { return false; }
+  S_->Places("batches the picture draws", (double)S_->Device.SubjectBatchCount(), "batches");
+  S_->Places("batches the shadow casts",
+             (double)Render::LightVisibilityStage::CastBatches(), "batches");
   return true;
 }
 

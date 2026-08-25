@@ -164,6 +164,16 @@ bool Live::Build(std::string &error) {
   }
 
   if (Declared_.Built == nullptr) { Joined_ = Geometry_.Parts().size(); }
+  if (!(Declared_.ShadowRadiusM > 0.0) && Geometry_.TriangleCount() > 0) {
+    const double *const least = Geometry_.MinM();
+    const double *const most = Geometry_.MaxM();
+    double across = 0.0;
+    for (int axis = 0; axis < 3; ++axis) {
+      const double span = (most[axis] - least[axis]) * Declared_.MetresPerUnit;
+      across += span * span;
+    }
+    Declared_.ShadowRadiusM = 0.5 * std::sqrt(across);
+  }
 
   Render::PlanSpec declaration;
   DeclarePlan(File_, Moves_, Declared_.DrawsSky,

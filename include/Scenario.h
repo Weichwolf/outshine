@@ -92,6 +92,7 @@ struct Lighting {
   bool Declared = false;
   Light Key;
   double Environment[3] = {0.0, 0.0, 0.0};
+  double ShadowRadiusM = 0.0;
 };
 
 enum class AssetAnimation { Play, Ignore, Driven };

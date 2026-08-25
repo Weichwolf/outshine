@@ -29,12 +29,15 @@ public:
   void Build(const double eye[3]);
 
   [[nodiscard]] const double *LightFromWorld() const { return LightFromWorld_; }
+  [[nodiscard]] static size_t CastBatches() { return CastBatches_; }
   [[nodiscard]] bool Standing() const { return Declared_; }
 
 private:
   [[nodiscard]] bool ConfigureDepthOnly(const Gpu &gpu, std::string &error);
   void Cast(const double lightFromWorld16[16], const double eye[3], int atlasPx,
             const PassRecording &into);
+
+  static size_t CastBatches_;
 
   SubjectDraw *Subjects_ = nullptr;
   OwnedPipeline DepthOnly_;

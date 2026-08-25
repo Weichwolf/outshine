@@ -8,6 +8,46 @@ Tags: architecture, stage, measured
 `SubjectDraw` is the largest red on both CURRENT maps. Six responsibilities in one class,
 beside the one `Encode` a stage owes:
 
+## Measured 2026-08-25: the list over-counted and the line count is the real signal
+
+`ShaderSource` is NOT one of SubjectDraw's extra responsibilities. Six of the twelve stages carry
+one -- OverlayDraw, SkyStage, TonemapStage, PresentStage, CompositeTransmissionStage and this one
+-- so a stage owning its shader source is the house style, and an item that counts it as a defect
+counts the house.
+
+What the census does say, over every stage:
+
+| stage | lines | Pipeline | Encode | Set* |
+|---|---|---|---|---|
+| SubjectDraw | **1126** | **5** | **2** | **5** |
+| SubjectResidency | 391 | 0 | 0 | 0 |
+| ParticipatingMedium | 350 | 0 | 0 | 0 |
+| OverlayDraw | 278 | 1 | 2 | 2 |
+| every other stage | 115-171 | 1 | 1 | 0-2 |
+
+Eight times the median stage, three times the largest other one, five pipelines where every other
+drawing stage has one, five setters where the next has two, two encodes where every other has
+one. The size IS the finding and the list was the wrong instrument for it.
+
+## The second encode is gone
+
+`EncodeDepthOnly` was the shadow pass calling back into the colour stage:
+`LightVisibilityStage::Encode` did nothing but `Subjects_->EncodeDepthOnly(...)`. The depth-only
+source, its pipeline and its encode are the SHADOW stage's own now -- 124 lines moved --
+and `SubjectDraw` reads back through four narrow const accessors instead of owning the pass.
+1126 lines -> 1006.
+
+And moving it found what it was hiding: **the shadow cast NOTHING.** `Live::Declaration::
+ShadowRadiusM` was declared, read in two places, and written by nobody -- so it was always zero,
+the plan never declared a shadow stage, and `SetShadowFrame` was never called. Measured through
+the door: 258 batches drawn, 0 cast. A scenario can declare `shadowRadiusM` on its `<lighting>`
+now, and one that does not gets a radius derived from the subject's own extent: 258 drawn, 258
+cast.
+
+Proving test: `harness/outshine/door/ScoreWhatTheShadowCasts` -- the picture draws 1 batch and
+the shadow casts 1, with no radius declared. Negative control: the derivation removed, and the
+shadow casts 0 against 1 drawn.
+
 | responsibility | at HEAD |
 |---|---|
 | shader source | `ShaderSource(const SourceOptions &options)` — SubjectDraw.h:30 |

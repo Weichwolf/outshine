@@ -203,6 +203,7 @@ void ReadRender(const Xml::Ref &from, Scenario &into) {
 void ReadLighting(const Xml::Ref &from, Scenario &into) {
   if (!from.Valid()) { return; }
   into.Lit.Declared = true;
+  into.Lit.ShadowRadiusM = from.Num("shadowRadiusM", 0.0);
   const Xml::Ref key = from.Child("key");
   if (key.Valid()) {
     into.Lit.Key.Lux = key.Num("lux", into.Lit.Key.Lux);

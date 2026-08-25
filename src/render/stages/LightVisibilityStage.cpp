@@ -8,6 +8,8 @@
 
 namespace outshine::Render {
 
+size_t LightVisibilityStage::CastBatches_ = 0;
+
 bool LightVisibilityStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error) {
   Subjects_ = &subjects;
   return ConfigureDepthOnly(gpu, error);
@@ -213,7 +215,9 @@ void LightVisibilityStage::Cast(const double lightFromWorld16[16], const double 
     for (int i = 0; i < 16; i++) { uniform[i] = (float)placed[i]; }
     SDL_PushGPUVertexUniformData(into.Commands, 0, uniform, sizeof uniform);
   };
+  CastBatches_ = 0;
   for (const DrawBatch &batch : Batches) {
+    ++CastBatches_;
     if (batch.ModelSlot != standing) {
       place(batch.ModelSlot);
       standing = batch.ModelSlot;
