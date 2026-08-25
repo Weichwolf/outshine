@@ -184,6 +184,23 @@ Engine &Engine::operator=(Engine &&) noexcept = default;
 
 void Engine::RenderTo(Extent frame) { S_->Frame = frame; }
 
+bool Engine::ShowOn(SDL_Window *window) {
+  if (window == nullptr) {
+    S_->Error = "a surface is a window the client made, and this one is null";
+    return false;
+  }
+  const auto shown = S_->Device.ShowOn(window);
+  if (!shown) {
+    S_->Error = std::string(shown.error());
+    return false;
+  }
+  int width = 0, height = 0;
+  if (SDL_GetWindowSizeInPixels(window, &width, &height)) {
+    S_->Frame = Extent{width, height};
+  }
+  return true;
+}
+
 void Engine::Under(Roots roots) { S_->Under = std::move(roots); }
 
 bool Engine::Drove(void) const { return S_->Drove; }

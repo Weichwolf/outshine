@@ -1,10 +1,12 @@
 #ifndef OUTSHINE_OUTSHINE_H
 #define OUTSHINE_OUTSHINE_H
 
-#include <string_view>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
+
+#include <SDL3/SDL.h>
 
 #include <Scenario.h>
 
@@ -27,6 +29,7 @@ public:
   Engine &operator=(const Engine &) = delete;
 
   void RenderTo(Extent frame);
+  [[nodiscard]] bool ShowOn(SDL_Window *window);
   void Under(Roots roots);
   [[nodiscard]] bool Drove(void) const;
   [[nodiscard]] double ReachedM(void) const;

@@ -67,7 +67,9 @@ enum class Reading { Ran, Asked, Wrong };
     const std::string_view said = argv[at];
     const bool wants = at + 1 < argc;
     if (said == "--help" || said == "-h") { return Reading::Asked; }
-    if (said == "--headless") {
+    if (said == "--offline") {
+      out.Offline = true;
+    } else if (said == "--headless") {
       out.Headless = true;
     } else if (said == "--from" && wants) {
       if (!Pair(argv[++at], out.FromLatDeg, out.FromLonDeg)) { return Reading::Wrong; }

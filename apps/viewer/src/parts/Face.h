@@ -1,5 +1,5 @@
-#ifndef VIEWER_CHROME_H
-#define VIEWER_CHROME_H
+#ifndef VIEWER_FACE_H
+#define VIEWER_FACE_H
 
 #include <cstdint>
 #include <string>

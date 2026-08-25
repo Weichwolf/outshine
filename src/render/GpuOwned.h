@@ -59,10 +59,7 @@ public:
   [[nodiscard]] SDL_GPUDevice *Get() const { return Device_; }
   explicit operator bool() const { return Device_ != nullptr; }
   void Reset() {
-    if (Device_) {
-      SDL_DestroyGPUDevice(Device_);
-      SDL_QuitSubSystem(SDL_INIT_VIDEO);
-    }
+    if (Device_) { SDL_DestroyGPUDevice(Device_); }
     Device_ = nullptr;
   }
 

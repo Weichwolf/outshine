@@ -151,9 +151,11 @@ void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> pla
   }
 
   Ready_ = false;
-  if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
-    Log::Error("render", "no_video", {{"msg", SDL_GetError()}});
-    WhyNot_ = std::string("the video subsystem did not start: ") + SDL_GetError();
+  if (!SDL_WasInit(SDL_INIT_VIDEO)) {
+    Log::Error("render", "no_video", {{"msg", "the client did not initialise SDL video"}});
+    WhyNot_ =
+        "SDL's video subsystem is not running: outshine renders through SDL3 and the CLIENT owns "
+        "the process, so the client calls SDL_Init(SDL_INIT_VIDEO) before it declares a scenario";
     return;
   }
 
