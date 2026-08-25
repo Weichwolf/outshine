@@ -40,55 +40,43 @@ int main(void) {
   using namespace outshine::Test;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-  // board:1786: the corpus preparer compiles a generator against the library with its own
-  // hard-written toolchain, and it stood at -std=c++17 in a C++23 tree until a repair to
-  // something else happened to touch it. The two spellings must agree or the corpus is built by
-  // a compiler the gate never uses -- and nothing said so.
+  // board:1786: the preparer stood at -std=c++17 in a C++23 tree until a repair to something
+  // else happened to touch it. The gate's toolchain has ONE spelling or the corpus is built by
+  // a compiler the gate never uses -- and nothing says so.
   const std::string runner = Slurp("test/run.sh");
-  const std::string grower = Slurp("test/harness/render/outshine/grown/prepare/grown.py");
-  CHECK(!runner.empty() && !grower.empty(), "both spellings of the toolchain are readable");
+  CHECK(!runner.empty(), "the runner, which is the one spelling of the toolchain, is readable");
 
   const size_t stdAt = runner.find("CXXSTD=");
   const size_t warnAt = runner.find("WARN=");
   CHECK(stdAt != std::string::npos && warnAt != std::string::npos,
         "the runner declares a standard and a warning set");
+  if (stdAt == std::string::npos || warnAt == std::string::npos) { return Report(); }
   const std::vector<std::string> runnerFlags =
       Flags(runner.substr(stdAt, runner.find('\n', stdAt) - stdAt) + " " +
             runner.substr(warnAt, runner.find('\n', warnAt) - warnAt));
 
-  const size_t commandAt = grower.find("command = [compiler");
-  CHECK(commandAt != std::string::npos, "the preparer declares a compile command");
-  const std::vector<std::string> growerFlags =
-      Flags(grower.substr(commandAt, grower.find("command +=", commandAt) - commandAt));
-
-  for (const std::string &one : runnerFlags) { std::printf("NOTE the runner: %s\n", one.c_str()); }
-  for (const std::string &one : growerFlags) { std::printf("NOTE the preparer: %s\n", one.c_str()); }
-  Note("flags the runner declares", (double)runnerFlags.size(), "flags");
-  Note("flags the preparer declares", (double)growerFlags.size(), "flags");
-
-  std::vector<std::string> apart;
-  for (const std::string &one : growerFlags) {
-    if (std::find(runnerFlags.begin(), runnerFlags.end(), one) == runnerFlags.end()) {
-      apart.push_back("the preparer spells " + one + " and the runner does not");
+  std::vector<std::string> others;
+  for (const auto &entry : Sources("test")) {
+    if (entry.extension() != ".py" && entry.extension() != ".sh") { continue; }
+    if (entry.string() == "test/run.sh") { continue; }
+    const std::string text = Slurp(entry);
+    for (const char *spelled : {"clang++", "-std=c++", "g++ "}) {
+      if (text.find(spelled) != std::string::npos) {
+        others.push_back(entry.string() + " spells " + spelled);
+      }
     }
   }
-  for (const std::string &one : runnerFlags) {
-    if (one.compare(0, 5, "-std=") != 0) { continue; }
-    if (std::find(growerFlags.begin(), growerFlags.end(), one) == growerFlags.end()) {
-      apart.push_back("the runner spells " + one + " and the preparer does not");
-    }
-  }
-  for (const std::string &one : apart) { std::printf("FOUND %s\n", one.c_str()); }
-
-  CHECK(apart.empty(),
-        "**ONE TOOLCHAIN IS SPELLED ONCE**: the corpus preparer compiles a generator against "
-        "the same library the gate builds, so a standard or a warning it spells differently "
-        "means the corpus is made by a compiler the gate never uses -- and the preparer stood "
-        "at -std=c++17 in a C++23 tree until a repair to something else happened to look "
+  for (const std::string &one : others) { std::printf("FOUND %s\n", one.c_str()); }
+  CHECK(others.empty(),
+        "**ONE TOOLCHAIN IS SPELLED ONCE**: test/run.sh is the only place in test/ that names a "
+        "compiler or a standard, so the corpus cannot be built by a compiler the gate never uses "
         "(board:1786)");
 
-  Covers("IV.20 the corpus preparer's toolchain agrees with the runner's: its standard is the "
-         "runner's standard and every warning it spells is one the runner spells too "
+  for (const std::string &one : runnerFlags) { std::printf("NOTE the runner: %s\n", one.c_str()); }
+  Note("flags the runner declares", (double)runnerFlags.size(), "flags");
+
+  Covers("IV.20 one toolchain is spelled once: test/run.sh is the only place in test/ that names "
+         "a compiler or a standard, so no corpus can be built by a compiler the gate never uses "
          "(board:1786)");
   return Report();
 }

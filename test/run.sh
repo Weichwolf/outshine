@@ -156,13 +156,13 @@ done
 
 LayerIncludes() {
   case "$1" in
-    harness/claims) printf '%s' "-Iinclude" ;;
+    harness/claims) printf '%s' "-Iinclude -Isrc/core" ;;
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/data -Isrc/scene -Isrc/scenario -Isrc/ui -Iinclude -Isrc/host -Isrc/clients" ;;
     harness/render/wpt/css) printf '%s' "-Iinclude" ;;
     harness/render/test262/js) printf '%s' "-Iinclude" ;;
     render/outshine/scenario) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/clients -Isrc/scenario -Isrc/ui -Itest/harness/shared" ;;
     apps/viewer/src) printf '%s' "-Iinclude -Iapps/viewer/src/parts" ;;
-    apps/driver/src) printf '%s' "-Iapps/viewer -Iinclude -Isrc/core -Isrc/core/io -Isrc/scene -Isrc/host -Isrc/clients -Isrc/actor/path -Isrc/data -Isrc/gltf -Isrc/actor/body -Isrc/actor/mind -Isrc/render -Isrc/render/plan -Isrc/render/draw -Isrc/render/stages -Isrc/scenario -Isrc/ui -Isrc/ground -Isrc/ground/tiles -Isrc/sim" ;;
+    apps/driver/src) printf '%s' "-Iinclude" ;;
     *) return 1 ;;
   esac
 }

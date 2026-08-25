@@ -35,14 +35,10 @@ void Usage() {
       "  --prepared DIR   where their prepared subjects are\n"
       "  --frames N       stop after N frames\n"
       "  --into DIR       keep a still of each frame here\n"
-      "  --headless       stand it up without opening a window\n"
-      "\n"
-      "It shows what the scenario declares and nothing of its own. board:1880: its face\n"
-      "becomes a scenario LAYER merged over the one it shows, so a corpus case, a drive and\n"
-      "a studio subject reach it through one path.\n");
+      "  --headless       stand it up without opening a window\n");
 }
 
-} // namespace
+}
 
 int main(int argc, char **argv) {
   Asked asked;

@@ -57,9 +57,10 @@ int main(void) {
         "library build of the same source can never share an artefact -- the path IS the flag "
         "identity, and UpToDate needs no flag awareness (board:1603)");
 
-  CHECK(Sites(runner, "render/outshine/client) printf '%s' \"-Iinclude\" ;;") == 1,
-        "**AND THE DOOR PROOF COMPILES AGAINST THE DOOR ALONE**: the suite whose whole purpose "
-        "is to show that a client needs nothing but include/outshine/ is declared with -Iinclude "
+  CHECK(Sites(runner, "apps/driver/src) printf '%s' \"-Iinclude\" ;;") == 1 &&
+            Sites(runner, "apps/viewer/src) printf '%s' \"-Iinclude -Iapps/viewer/src/parts\" ;;") == 1,
+        "**AND THE DOOR PROOF COMPILES AGAINST THE DOOR ALONE**: the programmes whose whole "
+        "purpose is to show that a client needs nothing but include/ are declared with -Iinclude "
         "and no -Isrc entry, so the proof cannot be retired by widening the set it stands on "
         "(board:1582)");
 

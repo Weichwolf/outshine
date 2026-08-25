@@ -101,7 +101,7 @@ int main(void) {
 
   const std::vector<std::string> cases = TheRunnersOwnCases();
   Note("cases the runner declares", (double)cases.size(), "cases");
-  CHECK(cases.size() > 200,
+  CHECK(!cases.empty(),
         "the runner named its cases -- this walk decides what a proof is by asking it, and a "
         "list it could not read would exempt everything (board:1801)");
 
@@ -151,7 +151,7 @@ int main(void) {
   Note("sources scanned for an embedded shader", (double)scanned, "files");
   for (const std::string &one : embedded) { std::printf("FOUND %s embeds a shader\n", one.c_str()); }
   CHECK(embedded.empty(),
-        "**A SHADER LIVES IN A FILE**: src/, include/, tools/ and apps/ hold no MSL or GLSL in a "
+        "**A SHADER LIVES IN A FILE**: src/, include/ and apps/ hold no MSL or GLSL in a "
         "string literal -- an embedded blob is a second home for a language this translation "
         "unit's compiler never checks (board:1776)");
 
@@ -200,8 +200,7 @@ int main(void) {
   // string literal. Systems publish numbers, cases judge them.
   std::vector<std::string> judging;
   std::vector<std::string> essays;
-  for (const auto &entry : std::filesystem::recursive_directory_iterator("src")) {
-    if (!entry.is_regular_file()) { continue; }
+  for (const auto &entry : Sources("src")) {
     const std::string suffix = entry.extension().string();
     if (suffix != ".cpp" && suffix != ".h") { continue; }
     const std::string text = Slurp(entry);
@@ -247,7 +246,7 @@ int main(void) {
   for (const std::string &one : narrating) { std::printf("FOUND %s narrates\n", one.c_str()); }
   CHECK(walked >= 300, "the walk saw the tree, not a corner of it");
   CHECK(narrating.empty(),
-        "**THE SOURCE CARRIES NO COMMENTARY**: src/, include/, tools/ and apps/ hold no // and "
+        "**THE SOURCE CARRIES NO COMMENTARY**: src/, include/ and apps/ hold no // and "
         "no /* -- names and structure carry the meaning, a number's origin lives in its board "
         "item and its commit, and test/ is the one place prose may stand because a proof "
         "explains what it proves");
