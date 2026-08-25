@@ -258,3 +258,30 @@ the tree.
       The fix is that a restand keeps the placements the parts already had, rather than throwing
       them away and rebuilding a picture that has never been placed. That is one seam, it is in
       `Live::Stand`, and it is where the next attempt starts.
+
+      ### Attempts five and six, both measured, both out of the tree
+
+      **Five: keep the placements through a restand.** Carrying `Stood_.PartPlacement` forward in
+      `Live::Stand` instead of assigning identity moved the near plane from 637 m to 214 m, so it
+      IS part of the answer. Placing the body before composing -- calling `Rides` ahead of
+      `Composes` -- put it back to 624 m, which was a guess and behaved like one. Neither is in
+      the tree: with the ground branch shut the first changes no observable behaviour, and an
+      unprovable change does not land.
+
+      **Six: compose on the first `Advance` rather than in `Assemble`.** This clears the
+      assembly-order refusal entirely -- placements exist, the client's eye is set, and `Composes`
+      reaches `Restand`. What refuses one step further in is precise:
+
+          Restand -> Build -> Look derives a NEW camera, near plane 637.888958 m
+
+      the same number the derived framing produced before, so `Live::Look` took the derived
+      branch and `HaveEye_` was FALSE -- immediately after `Rides` set the eye. `HaveEye_` is
+      written in exactly one place (`Live.cpp:270`) and read in exactly one (`:324`) and is never
+      reset. Either `Rides` returned before its eye block, or the restand is looking at a
+      different `Live`. That is a printf away and it is where the seventh attempt starts.
+
+      Six is also NOT in the tree, and the reason is not that it failed: moving the composition
+      makes its refusal SILENT, because the driver prints its carried lines when assembly ends
+      and the refusal now happens after. A failure that stops being loud is worse than one that
+      stands. Moving the composition means moving where its refusal is read, and that is part of
+      the change rather than a detail after it.
