@@ -6,9 +6,13 @@
 #include "Check.h"
 
 #include "Alignment.h"
+#include "ReferenceLine.h"
 
 using outshine::Align;
 using outshine::Aligned;
+using outshine::LayAligned;
+using outshine::Placed;
+using outshine::ReferenceLine;
 
 namespace {
 
@@ -17,12 +21,18 @@ constexpr double kWithinM = 8.0;
 constexpr double kTightestM = 4.9017;
 constexpr double kSweepRad = 0.5;
 
+// The run-in and run-out are 200 m and not three chords: a transition curve needs tangent
+// length, and at a 10 m chord three of them is 30 m, which cannot carry the spirals a 400 m
+// bend owes. A fixture that varies the digitisation must hold the approach fixed, or it
+// measures two things at once (board:1795).
+constexpr double kApproachM = 200.0;
+
 std::vector<double> ArcOf(double radiusM, double chordM) {
   const double perVertex = 2.0 * std::asin(0.5 * chordM / radiusM);
   const size_t vertices = (size_t)(kSweepRad / perVertex) + 1u;
   std::vector<double> out;
   out.reserve(2 * (vertices + 3));
-  out.push_back(-3.0 * chordM);
+  out.push_back(-kApproachM);
   out.push_back(0.0);
   for (size_t step = 0; step <= vertices; ++step) {
     const double angle = (double)step * perVertex;
@@ -30,9 +40,27 @@ std::vector<double> ArcOf(double radiusM, double chordM) {
     out.push_back(radiusM * (1.0 - std::cos(angle)));
   }
   const double last = (double)vertices * perVertex;
-  out.push_back(radiusM * std::sin(last) + 3.0 * chordM * std::cos(last));
-  out.push_back(radiusM * (1.0 - std::cos(last)) + 3.0 * chordM * std::sin(last));
+  out.push_back(radiusM * std::sin(last) + kApproachM * std::cos(last));
+  out.push_back(radiusM * (1.0 - std::cos(last)) + kApproachM * std::sin(last));
   return out;
+}
+
+[[nodiscard]] double FurthestFromLineM(const ReferenceLine &line,
+                                      std::span<const double> points) {
+  double worst = 0.0;
+  for (size_t at = 0; at < points.size() / 2; ++at) {
+    double alongM = 0.0;
+    if (!line.Nearest(points[2 * at], points[2 * at + 1], 0.5 * line.LengthM(), line.LengthM(),
+                      alongM)) {
+      continue;
+    }
+    Placed on;
+    if (!line.At(alongM, on)) { continue; }
+    const double east = points[2 * at] - on.EastM, north = points[2 * at + 1] - on.NorthM;
+    const double away = std::sqrt(east * east + north * north);
+    worst = away > worst ? away : worst;
+  }
+  return worst;
 }
 
 } // namespace
@@ -58,6 +86,31 @@ int main(void) {
     worstShare = share < worstShare ? share : worstShare;
     bestShare = share > bestShare ? share : bestShare;
     worstAwayM = aligned->WorstAwayM > worstAwayM ? aligned->WorstAwayM : worstAwayM;
+
+    ReferenceLine line;
+    const auto laid = LayAligned(arc, *aligned, line);
+    if (!laid) { std::printf("REFUSED %s\n", laid.error().c_str()); }
+    CHECK(laid.has_value(), "and the alignment lays as a reference line");
+    if (laid) {
+      const double departsM = FurthestFromLineM(line, arc);
+      std::printf("NOTE   laid %.3f m long, furthest from a vertex %.4f m\n", line.LengthM(),
+                  departsM);
+      // The departure is the transition's own shift, p = R * swing^2 / 96 -- 1.04 m for a
+      // 400 m bend through half a radian. It is a property of laying spirals at all, not of
+      // this fitter, and it is what `withinM` exists to bound.
+      const double shiftM = aligned->TightestRadiusM * kSweepRad * kSweepRad / 96.0;
+      std::printf("NOTE   the transition's own shift is %.4f m\n", shiftM);
+      CHECK(std::fabs(departsM - shiftM) < 0.15,
+            "and what it departs by is the SPIRAL SHIFT and nothing else -- a fitter that "
+            "departed by more would be missing the polyline, one that departed by less would "
+            "have no transition");
+      CHECK(departsM < kWithinM,
+            "**AND THE LINE IT LAYS STAYS WITH THE POLYLINE**: the run-merge attempt recovered "
+            "the radius and then walked off the end, because one radius against per-chord "
+            "tangency demands leaves a remainder that can neither stand nor be dropped -- an "
+            "alignment places its arc by the straights' intersection and has no remainder "
+            "(board:1795)");
+    }
     CHECK(aligned->Bends.size() == 1,
           "and the whole sweep is ONE bend, because the curvature never reverses in it");
   }

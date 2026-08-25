@@ -26,6 +26,17 @@ struct Turned {
   return true;
 }
 
+[[nodiscard]] double ShiftShare(double swing) { return 1.0 + swing * swing / 96.0; }
+
+// The spiral takes half the arc's own turn at each end -- Ls = alpha * R * swing with
+// alpha = 0.5 -- so the tangent from the PI grows by the spiral's own contribution. Without a
+// transition the curvature leaps at every tangent point, which ReferenceLine::Lay refuses.
+constexpr double kSpiralShare = 0.5;
+
+[[nodiscard]] double TangentShare(double swing) {
+  return ShiftShare(swing) * std::tan(0.5 * swing) + 0.25 * swing;
+}
+
 [[nodiscard]] double FurthestFromArcM(std::span<const double> points, size_t from, size_t to,
                                       double centreE, double centreN, double radiusM) {
   double worst = 0.0;
@@ -68,6 +79,10 @@ struct Turned {
   const double toCentre = (bend.TurnRad > 0.0 ? 1.0 : -1.0) * (0.5 * std::numbers::pi);
   const double bisector = legs[at - 1].HeadingRad + 0.5 * bend.TurnRad + toCentre;
   const auto centreOf = [&](double radiusM, double &centreE, double &centreN) {
+    // R is measured against the circle the vertices describe, and the spirals then push the
+    // laid arc inward by p = R * swing^2 / 96. Folding p into the centre instead trades the
+    // radius for the offset -- measured, a 400 m arc comes back as 384 m -- and the radius is
+    // what SpeedProfile bounds speed by, while p is what `withinM` is for.
     const double away = radiusM / std::cos(half);
     centreE = bend.PiEastM + away * std::cos(bisector);
     centreN = bend.PiNorthM + away * std::sin(bisector);
@@ -78,7 +93,7 @@ struct Turned {
   const double outOfM = AwayM(bend.PiEastM, bend.PiNorthM, points[2 * (last + 1)],
                               points[2 * (last + 1) + 1]);
   const double roomM = intoM < outOfM ? intoM : outOfM;
-  const double byRoom = roomM / std::tan(half);
+  const double byRoom = roomM / TangentShare(swing);
   if (!(byRoom > tightestM)) {
     return std::unexpected("vertices " + std::to_string(at) + ".." + std::to_string(last) +
                            " leave " + std::to_string(roomM) +
@@ -104,7 +119,15 @@ struct Turned {
   double centreE = 0.0, centreN = 0.0;
   centreOf(bend.RadiusM, centreE, centreN);
   bend.AwayM = FurthestFromArcM(points, at, last, centreE, centreN, bend.RadiusM);
-  bend.TangentM = bend.RadiusM * std::tan(half);
+  bend.TangentM = bend.RadiusM * TangentShare(swing);
+  bend.SpiralM = kSpiralShare * bend.RadiusM * swing;
+  bend.ArcM = (1.0 - kSpiralShare) * bend.RadiusM * swing;
+  bend.IntoHeadingRad = legs[at - 1].HeadingRad;
+  bend.OutOfHeadingRad = legs[last].HeadingRad;
+  bend.IntoEastM = bend.PiEastM - bend.TangentM * std::cos(bend.IntoHeadingRad);
+  bend.IntoNorthM = bend.PiNorthM - bend.TangentM * std::sin(bend.IntoHeadingRad);
+  bend.OutOfEastM = bend.PiEastM + bend.TangentM * std::cos(bend.OutOfHeadingRad);
+  bend.OutOfNorthM = bend.PiNorthM + bend.TangentM * std::sin(bend.OutOfHeadingRad);
   return bend;
 }
 
@@ -175,6 +198,55 @@ std::expected<Aligned, std::string> Align(std::span<const double> eastNorthM, do
   }
 
   return out;
+}
+
+std::expected<void, std::string> LayAligned(std::span<const double> eastNorthM,
+                                            const Aligned &aligned, ReferenceLine &into) {
+  const size_t points = eastNorthM.size() / 2;
+  if (points < 2) {
+    return std::unexpected("an alignment is laid through 2..N vertices and this one carries " +
+                           std::to_string(points));
+  }
+
+  std::vector<Segment> along;
+  along.reserve(4 * aligned.Bends.size() + 2);
+  double atEast = eastNorthM[0], atNorth = eastNorthM[1];
+  double heading = std::atan2(eastNorthM[3] - eastNorthM[1], eastNorthM[2] - eastNorthM[0]);
+  for (const Bend &bend : aligned.Bends) {
+    const double straightM = AwayM(atEast, atNorth, bend.IntoEastM, bend.IntoNorthM);
+    const double ahead = (bend.IntoEastM - atEast) * std::cos(heading) +
+                         (bend.IntoNorthM - atNorth) * std::sin(heading);
+    if (ahead < -1.0e-6) {
+      return std::unexpected(
+          "the bend over vertices " + std::to_string(bend.FirstVertex) + ".." +
+          std::to_string(bend.LastVertex) + " begins " + std::to_string(-ahead) +
+          " m behind where the one before it ended -- two arcs whose tangents overlap are one "
+          "alignment the straights cannot separate");
+    }
+    if (straightM > 1.0e-6) { along.push_back(Segment{Curve::Straight, straightM, 0.0, 0.0}); }
+    const double curvature = (bend.TurnRad >= 0.0 ? 1.0 : -1.0) / bend.RadiusM;
+    along.push_back(Segment{Curve::Spiral, bend.SpiralM, 0.0, curvature});
+    along.push_back(Segment{Curve::Arc, bend.ArcM, curvature, curvature});
+    along.push_back(Segment{Curve::Spiral, bend.SpiralM, curvature, 0.0});
+    atEast = bend.OutOfEastM;
+    atNorth = bend.OutOfNorthM;
+    heading = bend.OutOfHeadingRad;
+  }
+  const double lastM =
+      AwayM(atEast, atNorth, eastNorthM[2 * (points - 1)], eastNorthM[2 * (points - 1) + 1]);
+  if (lastM > 1.0e-6) { along.push_back(Segment{Curve::Straight, lastM, 0.0, 0.0}); }
+  if (along.empty()) {
+    return std::unexpected("every straight was consumed by its bends, so the alignment has no "
+                           "length");
+  }
+
+  Placed from;
+  from.EastM = eastNorthM[0];
+  from.NorthM = eastNorthM[1];
+  from.HeadingRad = std::atan2(eastNorthM[3] - eastNorthM[1], eastNorthM[2] - eastNorthM[0]);
+  std::string error;
+  if (!into.Lay(from, along, error)) { return std::unexpected(error); }
+  return {};
 }
 
 }

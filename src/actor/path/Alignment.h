@@ -8,6 +8,8 @@
 #include <string_view>
 #include <vector>
 
+#include "ReferenceLine.h"
+
 namespace outshine {
 
 struct Bend {
@@ -18,7 +20,15 @@ struct Bend {
   double PiEastM = 0.0;
   double PiNorthM = 0.0;
   double TangentM = 0.0;
+  double SpiralM = 0.0;
+  double ArcM = 0.0;
   double AwayM = 0.0;
+  double IntoEastM = 0.0;
+  double IntoNorthM = 0.0;
+  double OutOfEastM = 0.0;
+  double OutOfNorthM = 0.0;
+  double IntoHeadingRad = 0.0;
+  double OutOfHeadingRad = 0.0;
 };
 
 struct Aligned {
@@ -27,10 +37,16 @@ struct Aligned {
   size_t LongestRunVertices = 0;
   double TightestRadiusM = 0.0;
   double WorstAwayM = 0.0;
+  double LengthM = 0.0;
+  size_t Straights = 0;
 };
 
 [[nodiscard]] std::expected<Aligned, std::string> Align(std::span<const double> eastNorthM,
                                                         double withinM, double tightestM);
+
+[[nodiscard]] std::expected<void, std::string> LayAligned(std::span<const double> eastNorthM,
+                                                          const Aligned &aligned,
+                                                          ReferenceLine &into);
 
 }
 

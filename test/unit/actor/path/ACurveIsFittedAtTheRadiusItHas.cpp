@@ -20,12 +20,18 @@ constexpr double kWithinM = 8.0;
 constexpr double kTightestM = 4.9017;
 constexpr double kSweepRad = 0.5;
 
+// The run-in and run-out are 200 m and not three chords: a transition curve needs tangent
+// length, and at a 10 m chord three of them is 30 m, which cannot carry the spirals a 400 m
+// bend owes. A fixture that varies the digitisation must hold the approach fixed, or it
+// measures two things at once (board:1795).
+constexpr double kApproachM = 200.0;
+
 std::vector<double> ArcOf(double radiusM, double chordM) {
   const double perVertex = 2.0 * std::asin(0.5 * chordM / radiusM);
   const size_t vertices = (size_t)(kSweepRad / perVertex) + 1u;
   std::vector<double> out;
   out.reserve(2 * (vertices + 3));
-  out.push_back(-3.0 * chordM);
+  out.push_back(-kApproachM);
   out.push_back(0.0);
   for (size_t at = 0; at <= vertices; ++at) {
     const double angle = (double)at * perVertex;
@@ -33,8 +39,8 @@ std::vector<double> ArcOf(double radiusM, double chordM) {
     out.push_back(radiusM * (1.0 - std::cos(angle)));
   }
   const double last = (double)vertices * perVertex;
-  out.push_back(radiusM * std::sin(last) + 3.0 * chordM * std::cos(last));
-  out.push_back(radiusM * (1.0 - std::cos(last)) + 3.0 * chordM * std::sin(last));
+  out.push_back(radiusM * std::sin(last) + kApproachM * std::cos(last));
+  out.push_back(radiusM * (1.0 - std::cos(last)) + kApproachM * std::sin(last));
   return out;
 }
 
