@@ -285,7 +285,7 @@ bool Engine::State::Composes(void) {
   const Scenario &declared = Declared;
   const Sim::Corridor &way = Drive.Way;
   const bool overADrive = false;
-  if (!declared.Ground.Declared) {
+  if (!declared.Ground.Declared && !overADrive) {
     Error = Drove && !way.Fine.empty()
                 ? "a drive laid a corridor and a ground could be composed about it, but the "
                   "ground is APPENDED to the vehicle's own glTF and would inherit its placement "

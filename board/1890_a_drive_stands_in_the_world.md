@@ -83,6 +83,40 @@ An 8 km tile ring becomes 125 m of geometry sitting on the car.
 So the fourth box below is not a tidy-up after the third; it is the thing that BLOCKS the third,
 and the order is: the ground becomes a compositor draw item, and only then does `overADrive` go.
 
+### And the frame conversion is wrong, arithmetically
+
+The placement split is NOT the defect and that was worth ruling out: `Live::Carry` gives parts
+below `Joined_` the vehicle's matrix and parts above it the second matrix, `Engine::State::Rides`
+passes identity as the second, and the counts are right -- 258 parts for the vehicle, 259 with the
+ground. The ground part DOES get an identity placement in world metres.
+
+It lands 2712 km away regardless. Measured, with the branch open:
+
+| | east | up | south |
+|---|---|---|---|
+| the ground's first vertex, in the corridor frame | 2 712 490 m | -0.0000082 m | 4 064 380 m |
+| the body | 0.44 m | 524.5 m | -0.89 m |
+
+The arithmetic names the fault exactly. The conversion is
+
+    inFrame.east  = (where.LonDeg - way.FrameLon) * way.PerLonM
+    inFrame.south = -(where.LatDeg - way.FrameLat) * way.PerLatM
+
+Munich is lat 48.14, lon 11.58, and 48.14 - 11.58 = 36.56.
+
+    36.56 * 74202 = 2.71e6   which is the measured east
+    36.56 * 111195 = 4.06e6  which is the measured south
+
+So `where.LonDeg` carried 48.14 and `where.LatDeg` carried 11.58: the Geo the ring converts to
+holds latitude where the corridor reads longitude. `EcefToGeoWgs84` itself is sound --
+`LonDeg = atan2(Y, X)` -- so what is swapped is upstream of it, in the axis order the tile
+builder writes `OriginEcef` and its vertices in. Altitude comes back as 8 micrometres rather
+than 524 m, which is the same fault seen on the third axis.
+
+And a second defect stands beside it: `ground.Material = 0` reuses the vehicle's own first
+material slot, so the ground's surface is painted onto every vehicle part that uses slot 0. In
+the still the car's roof, rear window and boot lid wear the terrain.
+
 The branch is shut again, and the refusal now states the real reason instead of denying what the
 same run proved:
 
