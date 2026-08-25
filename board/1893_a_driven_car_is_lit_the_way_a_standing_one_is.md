@@ -94,3 +94,15 @@ one asset lit from a direction that is not the declared one, in both frames.
       10 % of the same subject in the studio frame under the same `<lighting>`. Negative
       control: move the occluder set into a second space and the mean falls to the ambient
       floor, which is what it is today.
+
+## 2026-08-25: two causes eliminated from the door side
+
+`Renderer_->SetSky(toSun, up, KeyLux, 0)` -- the one call carrying the key's direction to the
+device -- stood inside `if (Declared_.DrawsSky)`, so a scenario declaring `<lighting>` and no sky
+never set the sun. Fixed; only `SetMedium` is under that guard now. This is a candidate for the
+driven/standing difference and has not been re-measured against a drive.
+
+A door-side case now proves the key's direction DOES reach a subject: the same triangle at +42
+deg and at -80 deg elevation renders differently, fourfold apart in the cosine
+(`harness/outshine/door/ScoreWhatTheKeyLuxDoes`). So whatever is wrong with a driven car is not
+that the subject shader ignores its key.

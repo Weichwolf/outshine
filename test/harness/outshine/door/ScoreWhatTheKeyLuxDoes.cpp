@@ -30,6 +30,18 @@ namespace {
 //
 // which is to say KeyLux is not a brightness. It is the reciprocal of the fill ratio, and a
 // declaration that carries both numbers carries one truth twice.
+//
+// The subject is one triangle whose normal is +Z and the key bears 0 degrees, because that is
+// the only arrangement in which the two elevations this case compares are BOTH lit and lit
+// differently:
+//
+//   N.L = cos(elevation) * cos(bearing)
+//
+//   bearing 150 deg:  +42 deg -> -0.644   -80 deg -> -0.150   both facing AWAY, both unlit
+//   bearing   0 deg:  +42 deg -> +0.743   -80 deg -> +0.174   both lit, four times apart
+//
+// A case that compares two unlit pictures of the same subject compares nothing, and this one
+// did until the cosine was worked out rather than assumed.
 constexpr int kFramePx = 64;
 
 constexpr const char *kTriangleBase64 =
@@ -79,7 +91,7 @@ constexpr const char *kTriangleBase64 =
   made.Lit.Declared = true;
   made.Lit.Key.Lux = keyLux;
   made.Lit.Key.ElevationDeg = 42.0;
-  made.Lit.Key.BearingDeg = 150.0;
+  made.Lit.Key.BearingDeg = 0.0;
   for (int at = 0; at < 3; ++at) { made.Lit.Environment[at] = environment; }
   outshine::Asset shown;
   shown.Uri = "subject.gltf";
@@ -131,6 +143,7 @@ int main(void) {
   night.Lit.Key.ElevationDeg = -80.0;
   outshine::Scenario other = Lit(40000.0, 0.20);
   other.Lit.Declared = false;
+  other.Lit.Key.ElevationDeg = -80.0;
   if (!shot(other, "filled", filled) ||
       !shot(Lit(40000.0, 0.20), "plain", plain) ||
       !shot(Lit(80000.0, 0.40), "scaled", scaled) ||
@@ -140,9 +153,10 @@ int main(void) {
     return Report();
   }
 
-  std::printf("THE SAME SUBJECT WITH NO LIGHTING DECLARED: %zu bytes, %s\n", filled.size(),
-              filled == plain ? "IDENTICAL to the lit one -- the declaration changes nothing"
-                              : "different, so a declared light does reach it");
+  std::printf("A KEY MOVED TO -80 DEG WITH Lit.Declared LEFT FALSE: %zu bytes, %s\n",
+              filled.size(),
+              filled == nightly ? "IDENTICAL to the same key DECLARED -- the flag is ignored"
+                                : "different, so the flag is read");
   std::printf("40000 lux with 0.20 fill: %zu bytes\n", plain.size());
   std::printf("80000 lux with 0.40 fill: %zu bytes\n", scaled.size());
   std::printf("  400 lux with 0.20 fill: %zu bytes\n", keyed.size());
@@ -156,8 +170,10 @@ int main(void) {
         "its own reciprocal -- the picture depends on the RATIO alone, and a declaration that "
         "carries both numbers carries one truth twice");
   CHECK(plain != keyed,
-        "and the control is a control: dropping the key a hundredfold DOES change the picture, "
-        "so this case can tell an invariance from a renderer that ignores its lighting entirely");
+        "and the control is a control: dropping the key a HUNDREDFOLD alone DOES change the "
+        "picture, by the same arithmetic -- the key's own contribution is fixed but the "
+        "environment beside it is divided by the key, so a hundredfold smaller key is a "
+        "hundredfold brighter fill");
 
   {
     outshine::Scenario bare = Lit(40000.0, 0.20);
@@ -172,11 +188,16 @@ int main(void) {
   }
 
   CHECK(plain != nightly,
-        "**THE KEY LIGHTS THE SUBJECT FROM WHERE IT IS DECLARED**: a key 80 degrees BELOW the "
-        "horizon and a key 42 degrees above it cannot make the same picture of the same subject. "
-        "The exposure the key compiles to does reach the frame -- a hundredfold drop moves the "
-        "pixels -- but its DIRECTION does not, so the subject is lit by something that has no "
-        "direction at all and no surface of it can turn toward or away from the light");
+        "**THE KEY LIGHTS THE SUBJECT FROM WHERE IT IS DECLARED**: the same subject under the "
+        "same illuminance at +42 deg and at -80 deg differs, because the cosine at those two "
+        "elevations differs fourfold and a surface turns toward or away from its light");
+
+  CHECK(filled != nightly,
+        "**A LIGHTING THAT IS NOT DECLARED DOES NOT LIGHT**: the same key with Lit.Declared left "
+        "false makes the identical picture, so a scenario assembled in code carries lighting it "
+        "never declared. Engine::Declare copies KeyLux, the two angles and the environment "
+        "unconditionally (Engine.cpp:559-562); only the parser writes the flag and only the "
+        "layer merge reads it, so at the door the flag means nothing at all");
 
   Covers("the door: the declared key illuminance sets the fill ratio and nothing else, so the "
          "picture is invariant under a common scale of key and environment");
