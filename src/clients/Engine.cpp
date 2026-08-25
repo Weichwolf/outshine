@@ -1,5 +1,6 @@
 #include <Outshine.h>
 #include "Fetching.h"
+#include "Unwired.h"
 
 #include <algorithm>
 #include <charconv>
@@ -93,7 +94,7 @@ struct Engine::State {
   Column<Traits> Kinds;
   Assembled Stood;
   Roots Under;
-  std::unique_ptr<Fetching> Wire;
+  std::unique_ptr<Data::Transport> Wire;
   size_t GroundTiles = 0;
   Ui::Typeface Face;
   std::vector<std::string> Measured;
@@ -179,13 +180,10 @@ bool Engine::Assemble() {
   if (!declared.Driven.Declared) { return true; }
   if (!S_->Wire) {
     if (S_->Under.Offline) {
-      S_->Error = "the scenario declares a drive from " + Said(declared.Driven.FromLatDeg) +
-                  ", " + Said(declared.Driven.FromLonDeg) +
-                  " and the engine was declared offline -- a route is FETCHED, so this is a "
-                  "declaration it cannot execute";
-      return false;
+      S_->Wire = std::make_unique<Unwired>();
+    } else {
+      S_->Wire = std::make_unique<Fetching>(Fetching::Config{});
     }
-    S_->Wire = std::make_unique<Fetching>(Fetching::Config{});
   }
   Quietly say;
   const Sim::Provision kept{S_->Under.Cache, S_->Under.Shipped,

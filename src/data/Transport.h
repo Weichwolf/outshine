@@ -13,7 +13,7 @@ enum class Ticket : uint64_t { None = 0 };
 
 class Wire {
 public:
-  enum class State { Working, Answered, Unreachable };
+  enum class State { Working, Answered, Unreachable, Never };
 
   static Wire Working() { return Wire(State::Working, 0, {}, 0.0); }
   static Wire Answered(int status, std::vector<uint8_t> body) {
@@ -24,6 +24,8 @@ public:
   }
 
   static Wire Unreachable() { return Wire(State::Unreachable, 0, {}, 0.0); }
+
+  static Wire Never() { return Wire(State::Never, 0, {}, 0.0); }
 
   [[nodiscard]] State Where() const noexcept { return Where_; }
   [[nodiscard]] double RetryAfterS() const noexcept { return RetryAfterS_; }

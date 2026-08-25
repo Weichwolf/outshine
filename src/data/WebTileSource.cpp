@@ -41,6 +41,8 @@ Fetched WebTileSource::Collect(const Address &at, Ticket ticket, Transport &tran
 
     case Wire::State::Unreachable:
       return Fetched::Meant(Meaning::Retry);
+    case Wire::State::Never:
+      return Fetched::Meant(Meaning::Refused);
     case Wire::State::Answered:
       break;
   }
