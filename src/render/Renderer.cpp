@@ -661,11 +661,10 @@ void Renderer::EncodePass(SDL_GPUCommandBuffer *commands, size_t pass) {
     attachment.store_op =
         Plan_->Stored(wanted) ? SDL_GPU_STOREOP_STORE : SDL_GPU_STOREOP_DONT_CARE;
 
-    const bool carriesCoverage = SkyFills_ &&
-                                 (wanted == Resource::SceneHdr ||
-                                  wanted == Resource::SceneComposited ||
-                                  wanted == Resource::SceneTransmissive ||
-                                  wanted == Resource::SceneLinear);
+    const bool carriesCoverage = wanted == Resource::SceneHdr ||
+                                 wanted == Resource::SceneComposited ||
+                                 wanted == Resource::SceneTransmissive ||
+                                 wanted == Resource::SceneLinear;
     attachment.clear_color = wanted == Resource::SceneVelocity
                                  ? SDL_FColor{kVelocityStatic, kVelocityStatic, 0, 0}
                                  : SDL_FColor{0, 0, 0, carriesCoverage ? 0.0f : 1.0f};

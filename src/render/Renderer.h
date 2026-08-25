@@ -93,8 +93,6 @@ public:
 
   [[nodiscard]] ReadState ReadSceneVelocity(std::vector<float> &xy);
 
-  void SkyFills(bool it) { SkyFills_ = it; }
-
   [[nodiscard]] bool SetOverlay(const OverlayQuad *quads, size_t count, std::string &error) {
     return Overlay_.SetQuads(Handles_, quads, count, error);
   }
@@ -186,7 +184,6 @@ public:
 
 
 private:
-  bool SkyFills_ = false;
 
   [[nodiscard]] static bool Executable(Stage stage);
   void Create(Resource resource);

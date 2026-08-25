@@ -10,5 +10,5 @@ fragment float4 fs(VOut in [[stage_in]],
                    texture2d<float> scene [[texture(0)]], sampler sceneSampler [[sampler(0)]],
                    depth2d<float> sceneDepth [[texture(1)]], sampler depthSampler [[sampler(1)]]) {
   uint2 px = uint2(in.pos.xy);
-  return displayed(scene.read(px), sceneDepth.read(px));
+  return float4(displayed(scene.read(px), sceneDepth.read(px)).rgb, 1.0);
 }
