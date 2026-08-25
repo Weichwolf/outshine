@@ -16,6 +16,7 @@
 #include "Script.h"
 #include "Typeface.h"
 #include "InputPump.h"
+#include "Triggers.h"
 #include "Views.h"
 #include "Sink.h"
 #include "DeclaredSources.h"
@@ -108,6 +109,7 @@ struct Engine::State {
   InputMap Bound;
   Clients::InputPump Pump;
   bool Pumping = false;
+  std::optional<TriggerField> Volumes;
   std::vector<std::string> Measured;
   Host *Offered = nullptr;
   Ground::GroundStack Stack;
@@ -150,12 +152,8 @@ std::vector<std::string> Unacted(const Scenario &scenario) {
   note(scenario.Buses.size(), "audio buses");
   note(scenario.Tables.size(), "tables");
   note(scenario.Events.size(), "declared events");
-  note(scenario.Views.size(), "views");
   note(scenario.Vehicles.size(), "vehicles");
-  if (scenario.Played.Declared) { carried.push_back("a player"); }
-  note(scenario.Input.size(), "input bindings");
   note(scenario.State.size(), "persisted values");
-  if (scenario.Ground.Declared) { carried.push_back("a world origin"); }
   if (scenario.Motion.Declared) { carried.push_back("a physics dial"); }
   if (scenario.Time.Declared) { carried.push_back("a clock"); }
   if (scenario.Assets.size() > 1) {
@@ -523,6 +521,16 @@ bool Engine::Declare(const Scenario &scenario) {
     S_->Pumping = true;
   }
 
+  S_->Volumes.reset();
+  if (!scenario.Volumes.empty()) {
+    auto stood = TriggerField::Stand(scenario.Volumes, scenario.Events);
+    if (!stood) {
+      S_->Error = stood.error();
+      return false;
+    }
+    S_->Volumes.emplace(std::move(*stood));
+  }
+
   S_->Views.reset();
   if (!scenario.Views.empty()) {
     const std::string_view starting = scenario.Played.View.empty()
@@ -798,6 +806,13 @@ bool Engine::Rides(void) {
   }
 
   if (!S_->Standing->Carry(bodyFromWorld, bodyFromWorld, S_->Error)) { return false; }
+  if (S_->Volumes) {
+    S_->Volumes->Probe(0, body.PositionM, (double)At() * kTickS);
+    for (const TriggerField::Fired &fired : S_->Volumes->Drain()) {
+      S_->Measured.push_back("a volume fired event " + std::to_string(fired.Event) +
+                             " for body " + std::to_string(fired.Body));
+    }
+  }
   if (!S_->Views) { return true; }
 
   const View &seen = S_->Views->Active();

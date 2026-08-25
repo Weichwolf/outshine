@@ -157,6 +157,7 @@ int main(int argc, char **argv) {
               asked.WidthPx, asked.HeightPx, asked.Headless ? ", headless" : "");
 
   const bool assembled = engine.Assemble();
+  for (const std::string &said : engine.Carried()) { std::printf("  CARRIES %s\n", said.c_str()); }
   for (const std::string &said : engine.Measured()) { std::printf("  %s\n", said.c_str()); }
   if (!assembled) { std::printf("REFUSED %s\n", engine.Error().c_str()); }
   std::printf("%s\n", engine.Drove()   ? "ROUTED the declared drive"
