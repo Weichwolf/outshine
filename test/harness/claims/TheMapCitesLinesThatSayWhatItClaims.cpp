@@ -113,7 +113,7 @@ int main(void) {
   CHECK(lying.empty(),
         "**AND EVERY LINE THE MAP CITES SAYS WHAT THE MAP CLAIMS**: CLAUDE.md's CURRENT tables "
         "argue each colour from a file:line, and a citation that has drifted turns the argument "
-        "into a assertion nobody can check -- the map is the work list, and a work list that "
+        "into an assertion nobody can check -- the map is the work list, and a work list that "
         "lies about the tree is itself a finding (board:1855)");
 
   Covers("IV.34 every file:line CLAUDE.md's CURRENT tables cite exists and carries the text the "
