@@ -28,9 +28,6 @@ struct Turned {
 
 [[nodiscard]] double ShiftShare(double swing) { return 1.0 + swing * swing / 96.0; }
 
-// The spiral takes half the arc's own turn at each end -- Ls = alpha * R * swing with
-// alpha = 0.5 -- so the tangent from the PI grows by the spiral's own contribution. Without a
-// transition the curvature leaps at every tangent point, which ReferenceLine::Lay refuses.
 constexpr double kSpiralShare = 0.5;
 
 [[nodiscard]] double TangentShare(double swing) {
@@ -79,10 +76,6 @@ constexpr double kSpiralShare = 0.5;
   const double toCentre = (bend.TurnRad > 0.0 ? 1.0 : -1.0) * (0.5 * std::numbers::pi);
   const double bisector = legs[at - 1].HeadingRad + 0.5 * bend.TurnRad + toCentre;
   const auto centreOf = [&](double radiusM, double &centreE, double &centreN) {
-    // R is measured against the circle the vertices describe, and the spirals then push the
-    // laid arc inward by p = R * swing^2 / 96. Folding p into the centre instead trades the
-    // radius for the offset -- measured, a 400 m arc comes back as 384 m -- and the radius is
-    // what SpeedProfile bounds speed by, while p is what `withinM` is for.
     const double away = radiusM / std::cos(half);
     centreE = bend.PiEastM + away * std::cos(bisector);
     centreN = bend.PiNorthM + away * std::sin(bisector);
@@ -171,9 +164,6 @@ std::expected<Aligned, std::string> Align(std::span<const double> eastNorthM, do
       ++last;
     }
 
-    // The accuracy bound is what ends a run short of its curvature reversal: a run no single arc
-    // can hold within `withinM` becomes two bends meeting at the vertex that held them apart,
-    // and walking back one vertex at a time makes the first arc the longest one that fits.
     Bend bend;
     for (;;) {
       const auto held = BendOver(eastNorthM, legs, at, last, tightestM);

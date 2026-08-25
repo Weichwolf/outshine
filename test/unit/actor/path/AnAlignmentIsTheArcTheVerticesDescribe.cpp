@@ -191,7 +191,7 @@ int main(void) {
     }
   }
 
-  Covers("I.4.8 an alignment is one arc per RUN of same-sign turns, placed by where the "
+  Covers("I.4.12 an alignment is one arc per RUN of same-sign turns, placed by where the "
          "entering and leaving straights meet -- so a polyline describing a circle aligns as "
          "that circle at every digitisation density (board:1795)");
   return Report();
