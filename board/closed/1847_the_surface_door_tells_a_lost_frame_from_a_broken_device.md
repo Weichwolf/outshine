@@ -57,19 +57,19 @@ CLAUDE.md:421   ... and what comes back is `{Drew, WidthPx, HeightPx}` ...
 
 ## What will be true
 
-- [ ] "No image this frame" is a VALUE, not a refusal: the success type says whether an image
+- [x] "No image this frame" is a VALUE, not a refusal: the success type says whether an image
       was acquired (`std::expected<std::optional<Shown>, ...>`, or a `Shown` whose extent is
       zero, or a named enum), and `std::unexpected` is reserved for the three facts that are
       actually faults -- no surface declared, no device, no command buffer.
-- [ ] Nothing on the present path allocates. The three fault sentences are `std::string_view`
+- [x] Nothing on the present path allocates. The three fault sentences are `std::string_view`
       into static text, the way `Sim::AsideRatePerM` (`src/sim/CorridorLay.h:76`) already does
       it, or the error type is a value the caller resolves.
-- [ ] `Shown::Drew` is gone.
-- [ ] Proving test: extend `test/unit/render/ASurfaceIsDeclaredAndTheRefusalNamesWhatIsMissing`
+- [x] `Shown::Drew` is gone.
+- [x] Proving test: extend `test/unit/render/ASurfaceIsDeclaredAndTheRefusalNamesWhatIsMissing`
       -- it already drives a renderer that never saw a device -- with a claim that the
       "no image" answer is not the same shape as the fault answers. Negative control: HEAD ->
       red, because all four come back as `unexpected`.
-- [ ] CLAUDE.md's interface paragraph names what the door returns at HEAD.
+- [x] CLAUDE.md's interface paragraph names what the door returns at HEAD.
 
 ## Comments
 
@@ -77,3 +77,37 @@ CLAUDE.md:421   ... and what comes back is `{Drew, WidthPx, HeightPx}` ...
   both hold: the refusals are distinct, the case runs in the fast mirror without a GPU, and the
   command buffer is checked. This is the remainder -- a half-converted door keeps the flag it
   replaced and turns a legal frame into an allocation.
+
+**Closed.**
+
+```cpp
+src/render/Renderer.h:42   struct Shown { int WidthPx = 0; int HeightPx = 0; };
+src/render/Renderer.h:47   [[nodiscard]] std::expected<std::optional<Shown>, std::string_view> PresentFrame();
+src/render/Renderer.cpp:930  if (!drew) { return std::optional<Shown>(); }
+```
+
+An absent `Shown` is "no image this frame" -- what a minimised window gives, which SDL's own
+header calls no error. `std::unexpected` is reserved for the three facts that ARE faults: no
+surface declared, no device, no command buffer.
+
+**Nothing on the present path allocates.** Every refusal is a `std::string_view` into static
+text; where a number belongs in the sentence -- the extent a caller declared, what SDL said --
+it goes to `WhyNot()` instead of being built where the caller reads it. `ShowOn` and
+`ShowOffscreen` answer `string_view` too, for the same reason.
+
+`Shown::Drew` is gone: it was `true` on every value the door returned and read by nothing
+outside the function that set it.
+
+The browser tells them apart -- `imageless` frames are reported as *"a minimised window is not
+an error"*, `broken` ones carry the fault sentence.
+
+Proving test: `unit/render/ASurfaceIsDeclaredAndTheRefusalNamesWhatIsMissing`, which holds the
+SHAPE with a `static_assert` rather than a claim that has to run. Negative control: the return
+type changed back to `std::expected<Shown, std::string_view>` ->
+
+```
+error: static assertion failed ...: no image this frame is a VALUE the success type carries,
+and a refusal is reserved for the three facts that are faults
+```
+
+The build fails. CLAUDE.md's interface paragraph carries the new door.
