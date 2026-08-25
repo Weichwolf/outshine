@@ -538,28 +538,54 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     for (size_t i = 0; i < carried.Size(); ++i) {
       const Json::Ref packet = carried[i];
       MetadataPacket held;
+      held.Held.reserve(packet.Size());
       for (size_t at = 0; at < packet.Size(); ++at) {
-        const std::string key = packet.Key(at);
+        std::string key = packet.Key(at);
         if (key.empty()) { continue; }
-        const Json::Ref said = packet[key.c_str()];
+        const Json::Ref said = packet[at];
         const bool spelled = said.GetKind() == Json::Kind::String ||
                              said.GetKind() == Json::Kind::Number ||
                              said.GetKind() == Json::Kind::Bool;
-        held.Held.push_back(MetadataProperty{key, spelled ? said.Str("") : std::string(),
-                                             spelled ? MetadataShape::Text
-                                                     : MetadataShape::Structure});
+        held.Held.push_back(MetadataProperty{
+            std::move(key), spelled ? said.Str("") : std::string(said.Source()),
+            spelled ? MetadataShape::Text : MetadataShape::Structure});
       }
       Metadata_.push_back(std::move(held));
     }
-    const Json::Ref onAsset = root["asset"]["extensions"]["KHR_xmp_json_ld"]["packet"];
-    if (onAsset.Valid()) {
-      const int which = onAsset.Int(-1);
-      if (which < 0 || (size_t)which >= Metadata_.size()) {
-        return Refuse("asset names metadata packet " + Number((size_t)(which < 0 ? 0 : which)) +
-                      " of " + Number(Metadata_.size()) +
+    struct Carrier {
+      const char *Array;
+      MetadataCarrier Kind;
+    };
+    static constexpr Carrier kCarriers[] = {
+        {"scenes", MetadataCarrier::Scene},       {"nodes", MetadataCarrier::Node},
+        {"meshes", MetadataCarrier::Mesh},        {"materials", MetadataCarrier::Material},
+        {"images", MetadataCarrier::Image},       {"animations", MetadataCarrier::Animation},
+    };
+
+    const auto Points = [&](const Json::Ref &at, MetadataCarrier carrier, size_t which,
+                            const char *what) -> bool {
+      const Json::Ref names = at["extensions"]["KHR_xmp_json_ld"]["packet"];
+      if (!names.Valid()) { return true; }
+      const int packet = names.Int(-1);
+      if (packet < 0 || (size_t)packet >= Metadata_.size()) {
+        return Refuse(std::string(what) + " names metadata packet " +
+                      Number((size_t)(packet < 0 ? 0 : packet)) + " of " +
+                      Number(Metadata_.size()) +
                       " -- a packet index outside the array it indexes is a refusal");
       }
-      AssetMetadata_ = which;
+      MetadataUses_.push_back(
+          MetadataUse{carrier, (uint32_t)which, (uint32_t)packet});
+      return true;
+    };
+
+    if (!Points(root["asset"], MetadataCarrier::Asset, 0, "asset")) { return false; }
+    AssetMetadata_ = MetadataOf(MetadataCarrier::Asset, 0);
+    for (const Carrier &carrier : kCarriers) {
+      const Json::Ref held = root[carrier.Array];
+      for (size_t which = 0; which < held.Size(); ++which) {
+        const std::string what = std::string(carrier.Array) + " " + Number(which);
+        if (!Points(held[which], carrier.Kind, which, what.c_str())) { return false; }
+      }
     }
   }
 

@@ -15,6 +15,10 @@ namespace {
 // KHR_xmp_json_ld, fetched from the Khronos registry rather than recalled: packets live at
 // extensions.KHR_xmp_json_ld.packets on the document root, and an object points at one by
 // index through extensions.KHR_xmp_json_ld.packet.
+// The value shapes are the produced ones: dc:title is an rdf:Alt with a language map and
+// dc:creator an rdf:Seq, which is what an XMP packet written by a tool looks like. A bare
+// string for either is legal glTF and proves the reader against the easy half of its own
+// extension (board:1851).
 constexpr const char *kTagged = R"({
   "asset":{"version":"2.0",
            "extensions":{"KHR_xmp_json_ld":{"packet":0}}},
@@ -22,12 +26,14 @@ constexpr const char *kTagged = R"({
   "extensions":{"KHR_xmp_json_ld":{"packets":[
     {"@context":{"dc":"http://purl.org/dc/elements/1.1/"},
      "@id":"",
-     "dc:title":"a cube nobody will ever see the title of",
-     "dc:creator":"the corpus"}
+     "dc:title":{"@type":"rdf:Alt","rdf:_1":{"@language":"en-GB",
+                 "@value":"a cube nobody will ever see the title of"}},
+     "dc:creator":{"@type":"rdf:Seq","rdf:_1":"the corpus"}},
+    {"@id":"","dc:title":"the packet a node points at"}
   ]}},
   "scene":0,
   "scenes":[{"nodes":[0]}],
-  "nodes":[{"mesh":0}],
+  "nodes":[{"mesh":0,"extensions":{"KHR_xmp_json_ld":{"packet":1}}}],
   "meshes":[{"primitives":[{"attributes":{"POSITION":0}}]}],
   "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3",
                 "min":[0.0,0.0,0.0],"max":[1.0,1.0,0.0]}],
@@ -38,6 +44,12 @@ constexpr const char *kTagged = R"({
 constexpr const char *kOutOfRange = R"({
   "asset":{"version":"2.0","extensions":{"KHR_xmp_json_ld":{"packet":3}}},
   "extensions":{"KHR_xmp_json_ld":{"packets":[{"@id":""}]}}
+})";
+
+constexpr const char *kBeyondOnANode = R"({
+  "asset":{"version":"2.0"},
+  "extensions":{"KHR_xmp_json_ld":{"packets":[{"@id":""}]}},
+  "nodes":[{"extensions":{"KHR_xmp_json_ld":{"packet":9}}}]
 })";
 
 [[nodiscard]] bool Reads(const char *text, Document &into) {
@@ -60,12 +72,22 @@ int main(void) {
   Note("packets the document holds", (double)document.Metadata().size(), "packets");
   Note("the packet the asset names", (double)document.MetadataOfAsset(), "index");
 
-  CHECK(document.Metadata().size() == 1 && document.MetadataOfAsset() == 0,
+  CHECK(document.Metadata().size() == 2 && document.MetadataOfAsset() == 0,
         "**METADATA IS HELD WHERE A NAME IS HELD**: the packets array is read at load and the "
         "asset points into it by index, which is what KHR_xmp_json_ld declares (board:1395)");
   const auto &packet = document.Metadata().front();
-  CHECK(packet.Of("dc:title") == "a cube nobody will ever see the title of",
-        "and a property is reachable by its prefixed key, the way the packet spells it");
+  const auto title = packet.SourceOf("dc:title");
+  std::printf("NOTE dc:title reads as '%.120s'\n",
+              title.has_value() ? std::string(*title).c_str() : "(absent)");
+  CHECK(title.has_value() && title->find("rdf:Alt") != std::string::npos &&
+            title->find("a cube nobody will ever see the title of") != std::string::npos,
+        "**AND A STRUCTURED VALUE IS KEPT, NOT DROPPED**: dc:title is an rdf:Alt in every "
+        "produced packet, and a reader that stores an empty string for it holds a key with no "
+        "value -- the extension is on kHonouredExtensions, and honouring it means keeping what "
+        "it carries (board:1851)");
+  CHECK(!packet.Of("dc:title").has_value(),
+        "and Of() still refuses to answer text for it, because it is not text -- the two "
+        "questions stay distinct (board:1849)");
 
   // board:1849: Of() answered "" for a key that is absent AND for one whose value the reader
   // could not keep -- the fixture's own @context is a JSON object -- so a claim about the first
@@ -79,6 +101,22 @@ int main(void) {
         "**AND A KEY WHOSE VALUE IS A STRUCTURE IS PRESENT WITHOUT BEING TEXT**: an XMP "
         "property is a JSON-LD value, and this reader keeps strings -- so 'carried, and not as "
         "text' is a third answer, not the same empty one absence gives (board:1849)");
+
+  using outshine::Gltf::MetadataCarrier;
+  Note("carriers pointing at a packet", (double)document.MetadataUses().size(), "uses");
+  const int onNode = document.MetadataOf(MetadataCarrier::Node, 0);
+  Note("the packet node 0 names", (double)onNode, "index");
+  CHECK(onNode == 1 && document.Metadata()[1].Of("dc:title") == "the packet a node points at",
+        "**AND EVERY OBJECT THE SPEC LETS CARRY A PACKET REACHES ONE**: KHR_xmp_json_ld puts "
+        "the pointer on asset, scene, node, mesh, material, image and animation, and a reader "
+        "that reads the asset alone drops six of the seven in silence (board:1851)");
+
+  Document beyondNode;
+  const bool nodeRefused = !Reads(kBeyondOnANode, beyondNode);
+  std::printf("NOTE a node naming packet 9 says: '%.90s'\n", beyondNode.Error().c_str());
+  CHECK(nodeRefused && beyondNode.Error().find("nodes 0 names metadata packet") != std::string::npos,
+        "and the out-of-range refusal guards every carrier, naming which one -- not only the "
+        "asset pointer that happened to be read first");
 
   Document beyond;
   const bool refused = !Reads(kOutOfRange, beyond);

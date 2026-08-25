@@ -54,8 +54,13 @@ int32_t Json::ParseValue() {
   if (P_ >= Text_.size()) return -1;
   if (Depth_ >= kMostDepth) return -1;
   ++Depth_;
+  const size_t from = P_;
   const int32_t id = ParseValueInside();
   --Depth_;
+  if (id >= 0) {
+    Nodes_[(size_t)id].From = (uint32_t)from;
+    Nodes_[(size_t)id].To = (uint32_t)P_;
+  }
   return id;
 }
 
@@ -231,6 +236,13 @@ Json::Ref Json::Ref::operator[](size_t i) const {
   const Json::Node &n = Doc->Nodes_[(size_t)Node];
   if (i >= n.Count) return Ref();
   return Ref(Doc, Doc->Kids_[n.First + i]);
+}
+
+std::string_view Json::Ref::Source() const {
+  if (!Valid()) return std::string_view();
+  const Json::Node &n = Doc->Nodes_[(size_t)Node];
+  if (n.To <= n.From || n.To > Doc->Text_.size()) return std::string_view();
+  return std::string_view(Doc->Text_).substr(n.From, n.To - n.From);
 }
 
 std::string Json::Ref::Key(size_t i) const {

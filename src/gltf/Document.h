@@ -35,6 +35,13 @@ public:
   [[nodiscard]] const std::vector<BufferView> &BufferViews() const { return Views_; }
   [[nodiscard]] const std::vector<MetadataPacket> &Metadata() const { return Metadata_; }
   [[nodiscard]] int MetadataOfAsset() const { return AssetMetadata_; }
+  [[nodiscard]] const std::vector<MetadataUse> &MetadataUses() const { return MetadataUses_; }
+  [[nodiscard]] int MetadataOf(MetadataCarrier carrier, size_t which) const {
+    for (const MetadataUse &one : MetadataUses_) {
+      if (one.Carrier == carrier && one.Which == which) { return (int)one.Packet; }
+    }
+    return -1;
+  }
   [[nodiscard]] const std::vector<Mesh> &Meshes() const { return Meshes_; }
   [[nodiscard]] const std::vector<Node> &Nodes() const { return Nodes_; }
   [[nodiscard]] const std::vector<Camera> &Cameras() const { return Cameras_; }
@@ -97,6 +104,7 @@ private:
   std::vector<BufferView> Views_;
   std::vector<MetadataPacket> Metadata_;
   int AssetMetadata_ = -1;
+  std::vector<MetadataUse> MetadataUses_;
   std::vector<Accessor> Accessors_;
   std::vector<Mesh> Meshes_;
   std::vector<Node> Nodes_;

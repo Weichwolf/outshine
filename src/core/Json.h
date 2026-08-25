@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace outshine {
@@ -25,6 +26,8 @@ public:
     [[nodiscard]] Ref operator[](const char *key) const;
 
     [[nodiscard]] std::string Key(size_t i) const;
+
+    [[nodiscard]] std::string_view Source() const;
 
     [[nodiscard]] double Num(double def = 0.0) const;
     [[nodiscard]] int Int(int def = 0) const {
@@ -58,6 +61,7 @@ private:
     uint32_t Str = 0, StrLen = 0;
     uint32_t Key = 0, KeyLen = 0;
     uint32_t First = 0, Count = 0;
+    uint32_t From = 0, To = 0;
     bool Escaped = false, KeyEscaped = false;
   };
 

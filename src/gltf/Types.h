@@ -6,6 +6,7 @@
 #include <initializer_list>
 #include <optional>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "Span.h"
@@ -168,6 +169,17 @@ struct Sampler {
 
 enum class MetadataShape : uint8_t { Text, Structure };
 
+enum class MetadataCarrier : uint8_t { Asset, Scene, Node, Mesh, Material, Image, Animation };
+
+struct MetadataUse {
+  MetadataCarrier Carrier = MetadataCarrier::Asset;
+  uint32_t Which = 0;
+  uint32_t Packet = 0;
+};
+
+static_assert(sizeof(MetadataUse) == 12);
+static_assert(std::is_trivially_copyable_v<MetadataUse>);
+
 struct MetadataProperty {
   std::string Key;
   std::string Value;
@@ -181,6 +193,14 @@ struct MetadataPacket {
     for (const MetadataProperty &one : Held) {
       if (one.Key != key) { continue; }
       if (one.Shape != MetadataShape::Text) { return std::nullopt; }
+      return std::string_view(one.Value);
+    }
+    return std::nullopt;
+  }
+
+  [[nodiscard]] std::optional<std::string_view> SourceOf(std::string_view key) const {
+    for (const MetadataProperty &one : Held) {
+      if (one.Key != key) { continue; }
       return std::string_view(one.Value);
     }
     return std::nullopt;
