@@ -385,6 +385,37 @@ bool Engine::Handles(const SDL_Event &event) {
   return answering.Fired();
 }
 
+bool Engine::Shows(const std::vector<Surface> &surfaces) {
+  if (!S_->Standing) {
+    S_->Error = "nothing stands, so there is no picture for a surface to be laid over -- a "
+                "scenario is declared before its surfaces are exchanged";
+    return false;
+  }
+  if (!surfaces.empty() && !S_->Face.Opens(S_->Under.Shipped + "/fonts", S_->Error)) {
+    return false;
+  }
+  std::vector<const Surface *> ordered;
+  ordered.reserve(surfaces.size());
+  for (const Surface &surface : surfaces) { ordered.push_back(&surface); }
+  std::stable_sort(ordered.begin(), ordered.end(),
+                   [](const Surface *a, const Surface *b) { return a->Z < b->Z; });
+  std::vector<Clients::Shows> laid;
+  laid.reserve(ordered.size());
+  for (const Surface *surface : ordered) {
+    Clients::Shows shows;
+    shows.Markup = surface->Document;
+    shows.Style = surface->Style;
+    shows.Programme = surface->Programme;
+    shows.LeftFrac = surface->Where.LeftFrac;
+    shows.TopFrac = surface->Where.TopFrac;
+    shows.WidthFrac = surface->Where.WidthFrac;
+    shows.HeightFrac = surface->Where.HeightFrac;
+    laid.push_back(std::move(shows));
+  }
+  S_->Declared.Surfaces = surfaces;
+  return S_->Standing->Redeclare(std::move(laid), S_->Error);
+}
+
 bool Engine::Declare(const Scenario &scenario) {
   if (S_->Frame.WidthPx <= 0 || S_->Frame.HeightPx <= 0) {
     S_->Error =

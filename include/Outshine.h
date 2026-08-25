@@ -59,6 +59,7 @@ public:
   [[nodiscard]] bool Read(std::string_view path);
   [[nodiscard]] bool Load(std::string_view path);
   [[nodiscard]] bool Declare(const Scenario &scenario);
+  [[nodiscard]] bool Shows(const std::vector<Surface> &surfaces);
 
   [[nodiscard]] const Scenario &Declared(void) const;
   [[nodiscard]] const std::vector<std::string> &Carried(void) const;

@@ -251,7 +251,9 @@ int main(int argc, char **argv) {
     if (browsing.Moved()) {
       const outshine::Viewer::Listed *const picked = browsing.Picked();
       outshine::Scenario stands = showing;
+      bool stood = false;
       if (picked != nullptr && picked->Prepared != shownCase) {
+        stood = true;
         const outshine::Viewer::Stands held = outshine::Viewer::StandOf(*picked);
         if (!held.Why.empty()) {
           browsing.Noted(held.Why);
@@ -287,6 +289,13 @@ int main(int argc, char **argv) {
           browsing.Noted(picked->Name);
           showing = stands;
         }
+      }
+      if (!stood) {
+        std::vector<outshine::Surface> over = showing.Surfaces;
+        over.push_back(browsing.Face(asked.WidthPx, asked.HeightPx));
+        if (!engine.Shows(over)) { std::printf("REFUSED %s\n", engine.Error().c_str()); }
+        browsing.Settled();
+        continue;
       }
       stands = showing;
       stands.Surfaces.push_back(browsing.Face(asked.WidthPx, asked.HeightPx));
