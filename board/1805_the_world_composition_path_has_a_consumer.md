@@ -15,23 +15,32 @@ Measured 2026-08-25 at 235e3f47: `grep -rn '"Sim.h"' src apps test include` find
 that test went with `test/unit/`. 798 lines with ZERO consumers, and `Forest`, `Buildings`,
 `Water`, `Infrastructure` and `RegionForge` hang off it.
 
-**The consumer now EXISTS in the door and NOTHING calls it.** `bool Engine::Compose(void) {`
-(src/clients/Engine.cpp:247) opens the ground stack, lays a 3x3 tile ring through
-`const auto laid = LayPatchwork(S_->Stack.Pool(), over);` (:280) and restands the subject with
-the ground appended. Measured 2026-08-25 at 235e3f47:
-`grep -rn Compose src include apps test --include=*.cpp --include=*.h` finds **six lines and not
-one of them a call**: the definition, its declaration at `include/Outshine.h:54`, and four
-matches of the unrelated `Live::Compose`. So the public door publishes a verb that lays the
-world's ground and no picture this engine has ever taken carries a tile. That is why the
-product's still is a car on white.
+**The consumer exists, it is CALLED, and it refuses.** `Engine::Assemble` calls
+`bool Engine::Compose(void) {` (src/clients/Engine.cpp:265) after it routes; Compose opens the
+ground stack and lays the ring through `auto laid = LayPatchwork(S_->Stack.Pool(), over);`
+(:297), giving the asynchronous pool the passes it needs. That is real and it is the movement
+this item asked for.
 
-The same cut moved NINE more green nodes off the reached side of the map, because their only
-caller was a unit case: `BusGraph` and `InputPump` now have no reference anywhere outside their
-own two files; `InputMap`, `TriggerField` and `ViewBook` reach no further than their own folder
-(`src/clients/Engine.cpp` includes none of `Views.h`, `Triggers.h`, `Tables.h`, `InputPump.h`);
-`Markup`, `Stylesheet`, `Layout` and `Painting` reach the picture only through `Live`, which the
-map colours red. The cut did not break them — it revealed that nothing but a test ever called
-them, which is this item's sentence one layer up.
+**And no tile has reached a frame, because Compose refuses at :274 for every scenario in the
+tree.** Measured 2026-08-25 at d5a562cd:
+
+```
+grep -rl '<ground' --include=*.scenario .     -> nothing
+the ground did not compose: the scenario declares no sphere, so there is no ground to compose
+```
+
+The refusal is honest — board:1890 has the seam it names, the ring anchored on
+`Patchwork::OriginEcef` while the vehicle stands on the corridor's origin, and a ground that
+swallows the camera is worse than no ground. But the consequence for this item is unchanged:
+`GroundPatchwork` is still stranded, the product's still is still a car on white, and the way
+out is board:1890's one seam and not another caller.
+
+**Six of the nine nodes the cut stranded are back.** `Markup`, `Stylesheet`, `Layout`,
+`Painting`, `Typeface` and `Pointer` draw the viewer's own face — verified this round on
+`frame003.png`, three faces at two sizes — and `ViewBook`, `InputMap`, `InputPump` and
+`TriggerField` are stood and advanced by `Engine`. `BusGraph` alone still has no reference
+outside its own two files. What the cut revealed was never a breakage: it was that nothing but
+a test had ever called them, and this hour is what a real caller costs.
 
 That is why the one client that assembles a world picture built its own terrain grid, its own
 far ring and its own road ribbon in its own C++ — and why the pictures it produced carried
@@ -52,6 +61,7 @@ no shared vertex row, a ribbon edge on a 2 m polyline grading a 3 m post grid.
       whole of the first step, and `Engine::Compose` is already written.
 - [ ] `Sim` dies with the path it was the only door to.
 - [ ] The nine nodes the cut stranded are reached from the door or deleted: a subsystem whose
-      only caller was a test is a subsystem the product does not have.
+      only caller was a test is a subsystem the product does not have. Six are back; `BusGraph`,
+      `Forest`, `Buildings`, `Water`, `Infrastructure` and `GroundPatchwork` are not.
 - [ ] Proving test: a still from a declared world taken through the composition path, in which
       each declared field is present and named.

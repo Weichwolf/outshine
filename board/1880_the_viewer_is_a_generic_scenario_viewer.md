@@ -22,25 +22,28 @@ That makes it the sharpest test of board:1879 there is: if the viewer can show a
 WPT case and the driver's own drive without branching on which is which, then a case really is a
 scenario and the door really is two headers.
 
-## What today's build measures (2026-08-25, HEAD 235e3f47, run by the review)
+## What today's build measures (2026-08-25, HEAD d4c8784c, run by the review)
 
-**It builds and it links.** `make` exits 0; `build/outshine-viewer --help` answers with eleven
-options. That is real, and it is what unblocked the gate (board:1869).
-
-**It paints nothing.** Both of these, windowed and headless:
+**It builds, it links and IT PAINTS.**
 
 ```
-build/outshine-viewer --headless --frames 3 --into DIR --show .../four-lines.scenario
+build/outshine-viewer --headless --show apps/driver/src/f31.scenario \
+  --assets .../apps-driver-f31 --frames 3 --into DIR
   BROWSING 1423 case(s) under test
-  REFUSED the layout holds no box, so there is nothing to paint and a painting of
-  nothing would be indistinguishable from one that failed
-  0 stills
+  SHOWING apps/driver/src/f31.scenario at 1280x720, headless
+  SHOWED 3 frame(s)
 ```
 
-So `Typeface`, `Pointer`, `Markup`, `Stylesheet`, `Layout` and `Painting` are green in CURRENT
-and **STRANDED**: six subsystems and not one pixel from any of them anywhere in the tree
-(board:1864). The refusal itself is right -- it is the one that says a blank frame must not pass
-for a drawn one -- but the box it wants is the viewer's own face, which the viewer declares.
+`frame003.png` carries the corpus column ("ALL (1423)", "render/khronos (448)",
+"render/test262 (813)", "render/wpt (162)"), the case list, the selected row in its highlight
+and the status line "1423 CASES" — three faces, two sizes, no character standing in for
+another. `Typeface`, `Pointer`, `Markup`, `Stylesheet`, `Layout` and `Painting` LEAVE STRANDED
+in CURRENT this round, which is the single largest movement on the distance axis since it was
+first measured (board:1864). What the text path still does inside the draw is board:1892.
+
+Last round's measurement — *it paints nothing*, `--show four-lines.scenario` refusing for want
+of a box — was taken on a scenario that declares no surfaces. The refusal was right and the
+conclusion drawn from it was wrong.
 
 **And a refusal without a reason.** `apps/viewer/src/main.cpp:150`:
 
@@ -55,8 +58,9 @@ names itself. `--show` should not be compulsory for a programme whose own face i
 ## What will be true
 
 - [x] `apps/viewer/src/main.cpp` exists and the gate builds it.
-- [ ] It DRAWS: a `--headless --frames N --into DIR` run leaves N stills and consecutive ones
-      differ. At 235e3f47 it leaves zero and refuses for want of a box.
+- [x] It DRAWS: a `--headless --frames N --into DIR` run leaves N stills. At d4c8784c three
+      frames of the driver's scenario carry the browser's face and the F31 beside it.
+- [ ] Consecutive stills DIFFER when the thing shown moves — not yet checked with a moving case.
 - [ ] Every refusal carries its reason. `Usage(); return 2` with nothing said is a silent exit,
       and the browser stands without `--show`.
 - [ ] `apps/viewer` loads any scenario by path and shows it, with `--show PATH` and nothing

@@ -58,6 +58,19 @@ What remains is ONE seam, and it is the ground's: `LayPatchwork` anchors its rin
 `Patchwork::OriginEcef` while the drive stands on the corridor's own origin. Composing a ground
 for a drive still swallows the camera, so it stays withdrawn with this reason.
 
+**SEEN BY THE REVIEW at d4c8784c, and it is a THIRD reading of the same seam.** The 136 m
+Munich drive with the SHIPPED scenario's own `<player view="eyes">` — a FIRST-PERSON eye
+declared at `(-0.494, 1.220, 0.003)`, inside the cabin — keeps eight stills that all look DOWN
+at the car's ROOF from outside and above-left, the body cropped by the bottom edge. Not one of
+them is a view from a seat.
+
+`Engine::Rides` builds the eye correctly in metres (src/clients/Engine.cpp:836-841: the offset
+is carried on the body's own unit basis, `ahead` is one metre along `-Z`), and then hands it to
+`Live::Eye(from)` — while `Live::Carry` has just scaled the body placement's basis by
+`MetresPerUnit` into the studio's model units (src/clients/Live.cpp:539-547). The placement is
+converted and the camera is not, so the two stand in different spaces by a factor of 64.3. The
+same defect as the ground ring, one seam over.
+
 ## What will be true
 
 - [ ] A driven body's placement is expressed in the ONE world space, in metres, as a 64-bit
@@ -68,6 +81,9 @@ for a drive still swallows the camera, so it stays withdrawn with this reason.
       states both) and applied once, where the part placement is built -- never assumed to be 1.
 - [ ] `Live::Carry` takes a placement in world metres. The studio anchor is what a scenario
       WITHOUT a sphere stands on, not a term every placement passes through.
+- [ ] The CAMERA is in the same space as the placement. A first-person view declared inside
+      the cabin renders the cabin; a chase view at `distanceM=7.0` renders the car from seven
+      metres. Today both render the roof from above.
 - [ ] Proving case: the 136 m Munich drive with `--stills 6` keeps six stills in which the
       ROAD is visible and the horizon is where the camera height implies. Negative control:
       feed the pose in corridor-relative metres as model units again and every still is black.

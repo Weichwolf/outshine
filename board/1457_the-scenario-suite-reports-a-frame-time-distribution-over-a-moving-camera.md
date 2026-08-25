@@ -13,7 +13,24 @@ one. The suite exists and its verdict is a distribution with its population, its
 device named; determinism is two runs compared picture by picture; memory is read across 600
 frames against a declared ceiling; no sanitiser is in the path.
 
+**A blocker landed this hour and it is one line.** `Renderer::DrawsInto`
+(src/render/Renderer.cpp:959-968) now claims the swapchain with
+
+```cpp
+SDL_SetGPUSwapchainParameters(Device_.Get(), presents, wanted, SDL_GPU_PRESENTMODE_VSYNC)
+```
+
+as part of fixing the sRGB transfer (board:1889, closed). VSYNC is not a property of a colour
+space and it is not the plan's to choose: a windowed run clamped to the display's refresh cannot
+report a p50 below the refresh interval, and the p95/p99 it does report measure the compositor's
+queue rather than the engine's frame. The present mode belongs in the render declaration beside
+`fps`, defaulting to whatever the measurement needs, and `SDL_GPU_PRESENTMODE_IMMEDIATE` is what
+a distribution is taken under.
+
 ## What will be true
+
+- [ ] The present mode is DECLARED. A frame-time distribution is taken with the swapchain in
+      immediate mode, and the declaration says which mode it was taken under.
 
 - [ ] **A run is DECLARED, not written in C++** — a camera path, a frame count, a rate and which
       scenario stands under it.

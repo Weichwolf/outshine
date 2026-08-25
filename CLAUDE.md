@@ -193,12 +193,12 @@ flowchart TD
   classDef wrong fill:#7a2222,stroke:#3d1111,color:#fff
   classDef strandedSound fill:#1f6f3f,stroke:#7a2222,stroke-width:3px,stroke-dasharray:6 4,color:#fff
   classDef strandedUnsure fill:#8a6d1f,stroke:#7a2222,stroke-width:3px,stroke-dasharray:6 4,color:#fff
-  class Unwired,Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,GroundQuery,OsmField,RoadHarvest,Wayfinding,Alignment,StreetField,Ground,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,SceneStore,Assembly,SubjectResidency,Markup,Stylesheet,LayoutUi,Painting,InputMap,InputPump,TriggerField,ViewBook,BusGraph,OverlayDraw sound
-  class BuildingField,WaterField,Subject,DrawList,Renderer,TonemapStage,LightVisibilityStage,Frustum,Ephemeris,GltfStudio unsure
+  class Unwired,Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,GroundQuery,OsmField,RoadHarvest,Wayfinding,Alignment,StreetField,Ground,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,SceneStore,Assembly,SubjectResidency,Markup,Stylesheet,LayoutUi,Painting,Pointer,InputMap,InputPump,ViewBook,BusGraph,OverlayDraw sound
+  class BuildingField,WaterField,Subject,DrawList,Renderer,TonemapStage,LightVisibilityStage,Frustum,Ephemeris,GltfStudio,Typeface,TriggerField unsure
   class World,SubjectDraw,Sim,Live,Engine wrong
   class DriveAssembly,CorridorLay,DriveTick,TilePool unsure
   class Forest,Buildings,Water,Infrastructure strandedSound
-  class InputMap,InputPump,TriggerField,BusGraph strandedSound
+  class BusGraph strandedSound
   class RegionForge strandedUnsure
   class GroundStack sound
   class GroundPatchwork strandedSound
@@ -211,7 +211,7 @@ flowchart TD
 | `SubjectDraw` | six responsibilities in one class: `ShaderSource(const SourceOptions &options)` (SubjectDraw.h:30), `PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack)` (:154), `FlushCrossings(SDL_GPUCommandBuffer *commands)` (:148), `SetPlacements(const double *models, size_t rows, std::string &error)` (:51), `SetLights(std::span<const SubjectLight> lights, std::string &error)` (:89), and `EncodeDepthOnly(const double lightFromWorld16[16], const double eye[3], int atlasPx,` (:96) beside the one `void Encode(const FrameContext &ctx, const PassRecording &into)` (:93) a stage owes |
 | `Sim` | `class Sim {` (Sim.h:37) is a hand-wired god facade the component model replaces, and since the cut it has NO consumer at all: `grep -rn '"Sim.h"' src apps test include` finds one line, `src/clients/Sim.cpp:1`. 798 lines, 25 `#include "`, five green nodes hanging off it |
 | `Live` | `class Live {` (Live.h:71) reaches the renderer and the layout from one class — `#include "Renderer.h"` (:18) beside `#include "Layout.h"` (:13) |
-| `Engine` | `bool Engine::Compose(void) {` (Engine.cpp:260) lays the ground ring through `auto laid = LayPatchwork(S_->Stack.Pool(), over);` (:297) and `Assemble` calls it, but a scenario that declares only a DRIVE is refused by name: the ring is anchored on its own ECEF origin while the vehicle stands on the corridor's, so composing it swallows the camera (board:1890). Input, Volumes, Tables and Sounds are accepted and never advanced; Views are advanced now, through `bool Engine::Rides(void) {` (:742). `bool Engine::Declare(const Scenario &scenario) {` (:452) stands a scenario that declares nothing at all, and `bool Engine::Advance() {` (:793) carries the drive to the picture |
+| `Engine` | the door decides CONTENT: `bool Engine::Acts(const std::string &named) {` (Engine.cpp:779) is one hard-wired branch, `if (named != "next-view" ...)`, so of the five bindings `f31.scenario` declares exactly ONE has an effect and `throttle`, `brake`, `steer-left`, `steer-right` reach an interned id (:409-411) that is un-interned back to a `std::string` and compared against a literal. `Compose` (:265) lays the ring at :297 and refuses at :274 for every scenario in the tree. Tables and Sounds are accepted and never advanced |
 
 | amber | the form in question, at HEAD |
 |---|---|
@@ -231,7 +231,7 @@ flowchart TD
 | `DriveTick` | `[[nodiscard]] const Ridden &DriveTick(const Corridor &way, const Rigged &stood,` (DriveTick.h:111) hands back the accumulator the caller owns -- `Ridden &out = drive.Tally;` (DriveTick.cpp:38). The copy is gone and the struct is 2472 -> **440 bytes, which `static_assert(sizeof(Ridden) == 440)` at DriveTick.cpp:18 is the measurement of**; what stays in question is a product that is both a per-tick answer and a route-long tally (board:1815) |
 | `TAA` | `{Stage::TemporalResolve, Provenance::Content, PassKind::Raster, "temporalResolve",` (RenderCatalogue.h:278) declares a stage that encodes nothing of its own -- it is folded into tonemap rather than standing as its own resolve |
 | `TilePool` | `class TilePool : public TileMeshes {` (TilePool.h:30) holds 3 `std::mutex`, a `std::condition_variable`, a `std::map` and a `std::set` where a slot table and a ring would do -- a decisionless pool holds no tree |
-
+| 
 | stranded | its only way to a client, at HEAD |
 |---|---|
 | `Forest` | `src/clients/Sim.{h,cpp}` and nothing else in `src/` |
@@ -239,10 +239,8 @@ flowchart TD
 | `Water` | `Sim.cpp`, `World.h` |
 | `Infrastructure` | `Sim.h` |
 | `RegionForge` | `Sim.h` |
-| `InputMap` `InputPump` | `#include "InputPump.h"` (InputPump.cpp:1) and nothing else in the tree: `Engine.cpp` includes no pump, so no key reaches an action |
-| `TriggerField` | `src/scenario/Triggers.{h,cpp}` alone; the door includes it nowhere |
 | `BusGraph` | nothing outside its own two files |
-| `GroundPatchwork` | `#include "GroundPatchwork.h"` (Engine.cpp:23) inside `bool Engine::Compose(void) {` (:260), and NOTHING calls `Compose` |
+| `GroundPatchwork` | `#include "GroundPatchwork.h"` (Engine.cpp:23) inside `bool Engine::Compose(void) {` (:265), which `Assemble` now calls -- and `Compose` refuses first, at `Engine.cpp:274`, for every scenario in the tree: `grep -rl '<ground' --include=*.scenario .` finds NONE, so no tile has ever reached a frame |
 
 ## Class structure (TARGET — where the tree is going)
 

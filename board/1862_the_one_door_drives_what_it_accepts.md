@@ -10,43 +10,51 @@ The drive is through the door: `Engine::Assemble` runs `AssembleDrive` when the 
 one and refuses by name (src/clients/Engine.cpp:192), `Engine::Advance` ticks it (:715),
 `Engine::Drove()` answers, and the driver links `-Iinclude` alone.
 
-**The route search is the product's first content-level result, and it is a refusal.** Measured
-2026-08-25 at 235e3f47 on the SHIPPED scenario -- `apps/driver/src/f31.scenario` now declares its
-own drive, 48.13720,11.57560 -> 48.15000,11.59000, 1.78 km inside Munich:
+**The route search is the product's first content-level result, and it is STILL a refusal.**
+Measured 2026-08-25 at d4c8784c on the SHIPPED scenario, unchanged from last round:
 
 ```
 turns the search refused as too sharp for the car = 34618 turns
 REFUSED the network holds both ends but no chain of ways joins them --
-18374 nodes of 45248 were reachable from the start, so this is a network in pieces
-and not a search that gave up
+18374 nodes of 45248 were reachable from the start
+NO DRIVE -- the picture is what stood without it
 ```
 
-41 % of a dense urban graph reachable from its own start node, over 30 contiguous z14 tiles.
+A 700 m hop up one street (`--from 48.14980,11.58680 --to 48.15600,11.58760`) refuses the same
+way: 16783 of 46025. The endpoints are not the problem; the graph is.
 
-**And the refusal names a cause it did not measure.** `reached` is counted INSIDE the search
-loop (`src/actor/path/Wayfinding.cpp:538-541`), after the turn filter at `:560-576` has already
-refused 34618 turns with `continue`. So the number proves only "unreachable UNDER THIS SEARCH";
-it cannot distinguish a graph in pieces from a filter that cuts it into pieces. The two
-candidates both have evidence: the snap is `0.627022 m` against a tile quantum of `0.597164 m`
-(`src/sim/DriveAssembly.cpp:161,164`), and the same real node quantised in two adjacent tiles'
-local grids can sit up to one full quantum apart per axis -- above the snap -- so every tile
-boundary is a candidate cut; and the turn filter refuses 41 % as many turns as the graph has
-edges. Until the components are counted on the UNFILTERED graph, the sentence "this is a network
-in pieces" is a guess wearing a measurement's clothes.
+**The turn filter is NOT the main cause, and that is now measured rather than argued.** The
+filter at `src/actor/path/Wayfinding.cpp:555-579` refuses a transition when
+`0.5 * shorter / tan(turn/2) < tightestM`, where `tightestM = sqrt((circle/2)^2 - wheelbase^2)`.
+Running the SHIPPED scenario with `turningCircleM` lowered from 11.3 m to 5.65 m drops
+`tightestM` from **4.90 m to 0.29 m**, a factor of 17 — a car that can turn on the spot:
 
-**Five declarations are still accepted and never advanced.** Each stands green in CURRENT and the
-door does nothing with it; since `test/unit/` went, four of them have no caller in the tree at
-all (board:1805):
-
-| declared | it stands | what the door does with it |
+| tightestM | reachable | share |
 |---|---|---|
-| `Views` | `ViewBook` — one active view, clock scale, the ear | `Engine.cpp` includes no `Views.h`; the camera follows nothing |
-| `Input` | `InputMap` + `InputPump` — bindings interned to ids | no SDL pump is wired; `InputPump` has no reference outside its own two files |
-| `Volumes`/`Events` | `TriggerField` — enter · exit · dwell, allocation-free | nothing probes bodies against doors |
-| `Tables` | `TableBook` — rows by first column, typed by column | no host reads one |
-| `Sounds`/`Buses` | `BusGraph` — buses into buses, one master, falloff | no reference outside its own two files |
+| 4.90 m | 18374 / 45248 | 40.61 % |
+| 0.29 m | 22082 / 45248 | 48.80 % |
 
-A declaration the engine ACCEPTS and does not execute is worse than one it refuses.
+**8.19 percentage points.** Everything the turn filter can possibly explain is those eight
+points; the other 51 % of the graph is unreachable for a reason nobody has measured. The snap is
+the remaining candidate and it has evidence: `0.627022 m` against a tile quantum of `0.597164 m`
+(`src/sim/DriveAssembly.cpp:161,164`), while the same real node quantised in two adjacent tiles'
+local grids can sit `sqrt(2) * 0.597 = 0.845 m` apart — above the snap on the diagonal, so every
+tile boundary is a candidate cut. **Count the components on the unfiltered graph before writing
+another line of filter.**
+
+**Of the five declarations the door accepted and never advanced, three now act.**
+
+| declared | it stands | what the door does with it, at d5a562cd |
+|---|---|---|
+| `Views` | `ViewBook` | **advanced** — `Engine::Rides` (Engine.cpp:820-822) takes the active view every tick and the camera follows it |
+| `Input` | `InputMap` + `InputPump` | **one binding of five acts.** The pump translates (`:405-412`), and then `Engine::Acts` (`:779`) is `if (named != "next-view" ...)` — a literal, in the engine. `throttle`, `brake`, `steer-left`, `steer-right` translate to an id, are un-interned back to a `std::string`, compared against that literal and dropped. A key does not move the car (board:1803) |
+| `Volumes`/`Events` | `TriggerField` | **probed and never fires** — board:1891 has the measurement |
+| `Tables` | `TableBook` | no host reads one |
+| `Sounds`/`Buses` | `BusGraph` | no reference outside its own two files |
+
+A declaration the engine ACCEPTS and does not execute is worse than one it refuses. So is an
+action the engine names itself: the effect of `next-view` belongs in the declaration, beside the
+binding, not in a string compare inside the door.
 
 ## What will be true
 
@@ -61,8 +69,9 @@ A declaration the engine ACCEPTS and does not execute is worse than one it refus
 - [ ] Every other row of the table is reached from `src/`, once, through the door — or refused
       by name at assembly.
 - [ ] `apps/driver` with NO arguments writes ten stills of the ROAD and consecutive ones DIFFER.
-      At 235e3f47 it writes one `refused.png`: a car on white, no ground, no sky, no shadow.
-      A 400 m variant gets past the search and is refused by the corridor fit instead
-      (board:1887).
+      At d4c8784c it writes one `refused.png`: a car on white, no ground, no sky, no shadow.
+      The 136 m `--from`/`--to` variant now routes and keeps EIGHT stills, all eight distinct —
+      so the corridor fit is no longer what blocks it (board:1887 closed). The search is.
+- [ ] An ACTION carries its effect in the declaration. `Engine::Acts` names no action of its own.
 - [ ] Negative control: the drive removed from `Assemble` -> the entry point's frame goes back
       to a studio orbit and the case goes red.
