@@ -173,11 +173,17 @@ int main(void) {
   // does not is bound. Nine live citations stood under tools/ while this walk read two roots
   // and claimed three.
   std::vector<std::string> numbered;
+  // board:1654: a shipped ASSET is not code and carries no comments, but a board number in it
+  // drifts exactly as one does -- the item closes, the pointer stays, and the next reader
+  // follows it out of a data field. The walk reads the tree's own data beside its sources.
   for (const char *root : {"src", "include", "tools", "apps"}) {
     for (const auto &entry : std::filesystem::recursive_directory_iterator(root)) {
       if (!entry.is_regular_file()) { continue; }
       const std::string suffix = entry.path().extension().string();
-      if (suffix != ".cpp" && suffix != ".h" && suffix != ".msl") { continue; }
+      if (suffix != ".cpp" && suffix != ".h" && suffix != ".msl" && suffix != ".json" &&
+          suffix != ".xml" && suffix != ".scenario") {
+        continue;
+      }
       const std::string text = Slurp(entry.path());
       if (IsAProof(cases, entry.path().string())) { continue; }
       for (size_t at = text.find("board:"); at != std::string::npos;
