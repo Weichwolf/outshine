@@ -18,7 +18,7 @@ the proof that nothing samples it. **Bandwidth**: 720p60 on five GPU cores with 
 hundreds of building and plant types is texture-bound long before it is triangle-bound, and no
 chain means no locality.
 
-Enabling it is not neutral (board:1126, 1132 absorbed): averaging unit normals shortens them,
+Enabling it is not neutral (the two items it absorbs): averaging unit normals shortens them,
 Toksvig closes 3.2 % of the distance to the oracle because the dominant error is the DIFFUSE
 term — a filtered normal is a different direction, so `N·L` moves at every roughness. The
 candidates that reach it are shade-then-average, a footprint that is not the screen-space quad
