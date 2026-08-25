@@ -556,10 +556,12 @@ bool Engine::Declare(const Scenario &scenario) {
   declared.PictureTopFrac = scenario.Render.Picture.TopFrac;
   declared.PictureWidthFrac = scenario.Render.Picture.WidthFrac;
   declared.PictureHeightFrac = scenario.Render.Picture.HeightFrac;
-  declared.KeyLux = scenario.Lit.Key.Lux;
-  declared.KeyElevationDeg = scenario.Lit.Key.ElevationDeg;
-  declared.KeyBearingDeg = scenario.Lit.Key.BearingDeg;
-  for (int at = 0; at < 3; ++at) { declared.Environment[at] = scenario.Lit.Environment[at]; }
+  if (scenario.Lit.Declared) {
+    declared.KeyLux = scenario.Lit.Key.Lux;
+    declared.KeyElevationDeg = scenario.Lit.Key.ElevationDeg;
+    declared.KeyBearingDeg = scenario.Lit.Key.BearingDeg;
+    for (int at = 0; at < 3; ++at) { declared.Environment[at] = scenario.Lit.Environment[at]; }
+  }
 
   std::vector<const Surface *> ordered;
   ordered.reserve(scenario.Surfaces.size());
