@@ -57,6 +57,7 @@ public:
   [[nodiscard]] size_t PointCount() const { return Points_.size() / 2; }
   [[nodiscard]] size_t NodeCount() const { return Nodes_.size(); }
   [[nodiscard]] size_t EdgeCount() const { return Edges_.size(); }
+  [[nodiscard]] size_t TiedToEdges() const { return Tied_; }
   [[nodiscard]] size_t JunctionCount() const;
 
   struct Crossing {
@@ -135,6 +136,7 @@ private:
   std::vector<Node> Nodes_;
   std::vector<Edge> Edges_;
   std::unordered_map<int64_t, std::vector<size_t>> Cells_;
+  size_t Tied_ = 0;
   bool Woven_ = false;
 };
 

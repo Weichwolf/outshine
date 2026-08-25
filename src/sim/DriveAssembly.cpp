@@ -202,6 +202,7 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   say.Number("nodes after snapping", (double)out.Found.Nodes, "nodes");
   say.Number("junctions among them", (double)out.Found.Junctions, "nodes");
   say.Number("edges", (double)roads.EdgeCount(), "edges");
+  say.Number("loose ends tied onto an edge they end on", (double)roads.TiedToEdges(), "ends");
   {
     std::vector<Path::Network::Crossing> crossings;
     const auto sweep = roads.Crossings(crossings);

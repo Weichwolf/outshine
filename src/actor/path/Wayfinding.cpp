@@ -238,6 +238,72 @@ bool Network::Weave(std::string &error) {
     }
   }
 
+  Tied_ = 0;
+  for (size_t loose = 0; loose < Nodes_.size(); ++loose) {
+    if (outgoing[loose].size() != 1) { continue; }
+    const Node &end = Nodes_[loose];
+    const double reachM = end.HalfWidthM > 0.0 ? end.HalfWidthM : SnapM_;
+    const double perLatM = ApartM(end.LatDeg, end.LonDeg, end.LatDeg + 1.0, end.LonDeg, RadiusM_);
+    const double perLonM = ApartM(end.LatDeg, end.LonDeg, end.LatDeg, end.LonDeg + 1.0, RadiusM_);
+
+    size_t bestFrom = Nodes_.size(), bestTo = Nodes_.size();
+    double bestM = reachM;
+    const int64_t rowHere = RowOf(end.LatDeg);
+    const int64_t rowReach = (int64_t)std::ceil(reachM / SnapM_) + 1;
+    for (int64_t row = rowHere - rowReach; row <= rowHere + rowReach; ++row) {
+      const RowShape shape = ShapeRow(row);
+      const int64_t centre = ColumnIn(shape, end.LonDeg);
+      const int64_t colReach =
+          (int64_t)std::ceil(reachM / (shape.LonCellDeg * perLonM)) + 1;
+      for (int64_t step = -colReach; step <= colReach; ++step) {
+        const int64_t column = ((centre + step) % shape.Columns + shape.Columns) % shape.Columns;
+        const auto seen = byCell.find(KeyAt(row, column));
+        if (seen == byCell.end()) { continue; }
+        for (const size_t near : seen->second) {
+          if (near == loose) { continue; }
+          for (const Edge &edge : outgoing[near]) {
+            if (edge.To == loose || near > edge.To) { continue; }
+            const double ax = (Nodes_[near].LonDeg - end.LonDeg) * perLonM;
+            const double ay = (Nodes_[near].LatDeg - end.LatDeg) * perLatM;
+            const double bx = (Nodes_[edge.To].LonDeg - end.LonDeg) * perLonM;
+            const double by = (Nodes_[edge.To].LatDeg - end.LatDeg) * perLatM;
+            const double dx = bx - ax, dy = by - ay;
+            const double span = dx * dx + dy * dy;
+            double along = span > 0.0 ? -(ax * dx + ay * dy) / span : 0.0;
+            along = along < 0.0 ? 0.0 : (along > 1.0 ? 1.0 : along);
+            const double cx = ax + along * dx, cy = ay + along * dy;
+            const double awayM = std::sqrt(cx * cx + cy * cy);
+            if (awayM >= bestM) { continue; }
+            bestM = awayM;
+            bestFrom = near;
+            bestTo = edge.To;
+          }
+        }
+      }
+    }
+    if (bestFrom == Nodes_.size()) { continue; }
+
+    const auto unlink = [&outgoing](size_t from, size_t to) {
+      std::vector<Edge> &held = outgoing[from];
+      for (size_t at = 0; at < held.size(); ++at) {
+        if (held[at].To != to) { continue; }
+        held.erase(held.begin() + (ptrdiff_t)at);
+        return;
+      }
+    };
+    unlink(bestFrom, bestTo);
+    unlink(bestTo, bestFrom);
+    const auto link = [this, &outgoing](size_t from, size_t to) {
+      const double lengthM = ApartM(Nodes_[from].LatDeg, Nodes_[from].LonDeg, Nodes_[to].LatDeg,
+                                    Nodes_[to].LonDeg, RadiusM_);
+      outgoing[from].push_back(Edge{to, lengthM});
+      outgoing[to].push_back(Edge{from, lengthM});
+    };
+    link(bestFrom, loose);
+    link(loose, bestTo);
+    ++Tied_;
+  }
+
   for (size_t node = 0; node < Nodes_.size(); ++node) {
     Nodes_[node].FirstEdge = Edges_.size();
     Nodes_[node].EdgeCount = outgoing[node].size();
