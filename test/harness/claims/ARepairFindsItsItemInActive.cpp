@@ -24,8 +24,8 @@ namespace {
 [[nodiscard]] bool StoodIn(const std::string &where, const std::string &commit, unsigned item) {
   char number[8] = {};
   std::snprintf(number, sizeof number, "%04u_", item);
-  return !Ask("git ls-tree --name-only " + commit + " " + where + " 2>/dev/null | grep -c '/" +
-              number + "' | grep -v '^0$'")
+  return !Ask("git ls-tree -r --name-only " + commit + " " + where + " 2>/dev/null | grep '/" +
+              number + "'")
               .empty();
 }
 
