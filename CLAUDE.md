@@ -418,10 +418,14 @@ classDiagram
 
 `Live`, `Renderer`, `GroundStream` and the drive systems are still reachable by clients —
 the TARGET below removes them. What a client hands the renderer is a SURFACE — a window or an
-extent — and what comes back is `{Drew, WidthPx, HeightPx}`: no device, no swapchain, no command
-buffer, and `SDL_ClaimWindowForGPUDevice`, `SDL_WaitAndAcquireGPUSwapchainTexture` and
+extent — and what comes back is `std::expected<Shown, std::string>`: no device, no swapchain, no
+command buffer, and `SDL_ClaimWindowForGPUDevice`, `SDL_WaitAndAcquireGPUSwapchainTexture` and
 `SDL_ReleaseWindowFromGPUDevice` have no call site outside `src/render/`
-(`harness/claims/TheDeviceLeavesTheLibraryOnlyForItsOwnTwins`, board:1826).
+(`harness/claims/TheDeviceLeavesTheLibraryOnlyForItsOwnTwins`, board:1826). The `Shown` it
+carries still holds the `bool Drew` (Renderer.h:42) the `expected` replaced, and a swapchain
+that legitimately answers no texture — a minimised window, `SDL_gpu.h:4300`: *"This is not an
+error"* — comes back as `std::unexpected` built from a `std::string` on the present path
+(Renderer.cpp:912), which is the door's remaining distance (board:1847).
 The assembly API stands public since 2026-08-22: `include/outshine/{Register,Store,Column}.h`
 are the C++ door, `Engine::Assemble/Scene` own the one graph, proven by a client that includes
 nothing but `outshine/`.
