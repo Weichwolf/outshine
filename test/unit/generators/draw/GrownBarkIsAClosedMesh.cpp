@@ -251,12 +251,12 @@ void Publish(const Sweep &sweep) {
 }
 
 int main() {
-  outshine::Test::Covers("I.20 Every index in range and no degenerate triangle — the bark mesh, "
+  outshine::Test::Covers("I.32 Every index in range and no degenerate triangle — the bark mesh, "
                          "every declared species");
-  outshine::Test::Covers("I.20 Every normal unit to 1e-4 — the bark mesh, every declared species");
-  outshine::Test::Covers("I.20 Consistent outward winding by the divergence-theorem volume — the "
+  outshine::Test::Covers("I.33 Every normal unit to 1e-4 — the bark mesh, every declared species");
+  outshine::Test::Covers("I.34 Consistent outward winding by the divergence-theorem volume — the "
                          "bark mesh, every declared species");
-  outshine::Test::Covers("I.20 Closed — the bark mesh, every declared species");
+  outshine::Test::Covers("I.35 Closed — the bark mesh, every declared species");
   outshine::Test::Covers("I.20 Delivered normalised at unit height — every declared species");
 
   const std::vector<std::string> species = DeclaredSpecies();

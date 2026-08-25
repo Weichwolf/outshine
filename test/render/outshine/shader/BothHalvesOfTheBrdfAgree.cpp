@@ -386,7 +386,7 @@ int main() {
   }
 
   CHECK(DeviceErrors == 0, "the device reported no error over either dispatch");
-  outshine::Test::Covers("I.26.12 the shading model's two halves: the MSL the fragment shader is "
+  outshine::Test::Covers("I.69 the shading model's two halves: the MSL the fragment shader is "
                          "spliced from evaluates the same arrangement of terms as the C++ the white "
                          "furnace integrates, over a shared sample set, on the device");
   return outshine::Test::Report();

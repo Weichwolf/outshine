@@ -58,7 +58,7 @@ int main(void) {
   CHECK(!stillNothing,
         "and stopping what was never shown is not an error, while presenting after it still is");
 
-  Covers("III.10 the surface door is proven by a case: a client hands in a window or an extent "
+  Covers("III.18 the surface door is proven by a case: a client hands in a window or an extent "
          "and every way that can fail names which one, on a renderer that never saw a device "
          "(board:1836, board:1837)");
   return Report();

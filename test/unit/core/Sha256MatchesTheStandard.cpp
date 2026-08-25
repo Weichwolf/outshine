@@ -6,7 +6,7 @@
 using namespace outshine;
 
 int main() {
-  Test::Covers("I.22 the content store keys a file on a digest a collision must be impossible in");
+  Test::Covers("I.43 the content store keys a file on a digest a collision must be impossible in");
 
   CHECK(Sha256Hex(std::string("")) ==
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",

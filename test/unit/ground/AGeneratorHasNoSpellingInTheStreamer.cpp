@@ -6,6 +6,6 @@ int main() {
   EveryCompileSubjectHolds("test/unit/compile/world");
   NoIncludeClimbsOutOfItsDirectory("src/ground");
   NoIncludeClimbsOutOfItsDirectory("src/ground/tiles");
-  Covers("I.9 world/ streams what is there and names nothing that decides what grows on it");
+  Covers("I.100 world/ streams what is there and names nothing that decides what grows on it");
   return Report();
 }

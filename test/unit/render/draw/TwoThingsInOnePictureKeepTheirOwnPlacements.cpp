@@ -86,7 +86,7 @@ int main(void) {
           "makes the encoder's push-when-it-changes correct rather than nearly correct");
   }
 
-  Covers("I.9.4 a draw carries the placement of the thing it belongs to, and a batch never spans "
+  Covers("I.104 a draw carries the placement of the thing it belongs to, and a batch never spans "
          "two placements -- so one picture can hold a road and a car standing in different places");
   return Report();
 }

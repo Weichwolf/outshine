@@ -175,7 +175,7 @@ int main(void) {
           "and stations under the fastest one are counted rather than answered as none");
   }
 
-  Covers("I.9.3 the speed plan derives every gravity-borne bound -- cornering, holding, braking "
+  Covers("I.103 the speed plan derives every gravity-borne bound -- cornering, holding, braking "
          "and the crest's sqrt(g/h'') -- from the world the scenario declares, so the same road "
          "and the same car plan differently on a different sphere with no engine change");
   return Report();

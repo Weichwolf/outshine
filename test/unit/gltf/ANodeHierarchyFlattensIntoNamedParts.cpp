@@ -70,7 +70,7 @@ int main() {
   Note("vertices covered by parts", (double)next, "vertices");
   Note("vertices in the subject", (double)subject.VertexCount(), "vertices");
 
-  Covers("I.26.13 a subject's mesh-bearing nodes survive the flattening as named parts, which is "
+  Covers("I.70 a subject's mesh-bearing nodes survive the flattening as named parts, which is "
          "what a per-node declaration resolves against");
   return Report();
 }

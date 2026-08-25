@@ -45,7 +45,7 @@ const char *kOtherOrder =
 }
 
 int main() {
-  Covers("I.4 the same scenario declared twice in different arrival orders gives the same answer");
+  Covers("I.95 the same scenario declared twice in different arrival orders gives the same answer");
 
   SceneLegacy::Mod a, b;
   CHECK(a.Read(kOneOrder, "a.json"), "the declaration loads in one property order");

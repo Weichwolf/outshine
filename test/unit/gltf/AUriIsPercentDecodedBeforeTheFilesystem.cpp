@@ -84,7 +84,7 @@ int main() {
 
   std::filesystem::remove_all(directory, failed);
 
-  Covers("I.26.12 khronos:Box With Spaces -- every declared uri resolves to its file, percent "
+  Covers("I.64 khronos:Box With Spaces -- every declared uri resolves to its file, percent "
          "escapes decoded before the string reaches the filesystem");
   return Report();
 }

@@ -116,7 +116,7 @@ int main(void) {
           "500.7 m exactly, one clamped extra station past the grid (board:1723)");
   }
 
-  Covers("I.4.7 the carriageway ribbon is a closed solid: top, soffit, both flanks and both end "
+  Covers("I.99 the carriageway ribbon is a closed solid: top, soffit, both flanks and both end "
          "caps, each cap wound outward");
   return Report();
 }

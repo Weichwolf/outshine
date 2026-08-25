@@ -27,7 +27,7 @@ std::string WorldAt(const char *lat) {
 }
 
 int main() {
-  Covers("I.4 a standpoint the tile scheme cannot carry is refused by name");
+  Covers("I.93 a standpoint the tile scheme cannot carry is refused by name");
 
   CHECK(SceneLegacy::Standpoint::At(0.0, 0.0).has_value(), "the null island is a standpoint");
   CHECK(SceneLegacy::Standpoint::At(85.0511, 9.0).has_value(),

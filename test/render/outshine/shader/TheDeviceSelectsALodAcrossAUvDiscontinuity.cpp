@@ -256,7 +256,7 @@ int main() {
         "no covered pixel selects the top of the chain, which is what a derivative taken across the "
         "seam would produce and what board:1130's proxy reported over Cycles' uv");
 
-  Covers("I.26 the device's own LOD selection across a uv discontinuity, measured rather than "
+  Covers("I.55 the device's own LOD selection across a uv discontinuity, measured rather than "
          "inferred from another renderer's uv");
   return Report();
 }

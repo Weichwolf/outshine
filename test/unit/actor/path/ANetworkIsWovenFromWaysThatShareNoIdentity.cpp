@@ -439,7 +439,7 @@ int main(void) {
     }
   }
 
-  Covers("I.4.4 a network is woven from ways that share no identity: points within a declared "
+  Covers("I.96 a network is woven from ways that share no identity: points within a declared "
          "snapping distance become one node, ways meet where they cross, and A* over it with a "
          "great-circle heuristic returns the shortest route or names why there is none");
   return Report();

@@ -14,7 +14,7 @@ const char *kMods[] = {"ardeche", "badwater", "demo", "preikestolen"};
 }
 
 int main() {
-  Covers("I.4 a scenario is a declared world: stage, clock, weather, what runs");
+  Covers("I.91 a scenario is a declared world: stage, clock, weather, what runs");
 
   int scenes = 0, world = 0, studio = 0;
   for (const char *name : kMods) {

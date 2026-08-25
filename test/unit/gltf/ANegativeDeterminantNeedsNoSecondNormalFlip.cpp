@@ -227,7 +227,7 @@ int main() {
           "never mirrored, so one camera sees both and back-face culling removes neither");
   }
 
-  Covers("I.26.12 khronos:NegativeScaleTest, the normals half: the reader's inverse transpose and "
+  Covers("I.66 khronos:NegativeScaleTest, the normals half: the reader's inverse transpose and "
          "its winding reversal under a negative global determinant already agree, so no second "
          "normal flip is owed -- measured over the pinned asset rather than argued");
   Covers("I.26.14 a negative determinant reverses the winding of a triangle-based primitive "

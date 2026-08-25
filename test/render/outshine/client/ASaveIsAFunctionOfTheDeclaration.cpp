@@ -167,7 +167,7 @@ int main(void) {
     CHECK(kept != nullptr && *kept == 0.5, "and both refusals left the column untouched");
   }
 
-  Covers("III.9 what a scenario declared as state survives the process: a save is a "
+  Covers("III.21 what a scenario declared as state survives the process: a save is a "
          "deterministic function of the declaration, named and versioned, applied after the "
          "one stand-up route, bounded (board:1492)");
   return Report();

@@ -76,7 +76,7 @@ int main(void) {
         "swappable. The exception is the MSL-versus-C++ twins, which exist to prove the device "
         "and are not clients of it (board:1826)");
 
-  Covers("IV.13 the device does not leave the render layer: a client hands in a window or an "
+  Covers("IV.21 the device does not leave the render layer: a client hands in a window or an "
          "extent and gets back pixels, never a handle it must do GPU work with (board:1826)");
   return Report();
 }

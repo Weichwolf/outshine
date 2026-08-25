@@ -109,7 +109,7 @@ int main(void) {
           "what it read and not by a second list beside it (board:1770)");
   }
 
-  Covers("III.10 the XML door has ONE truth about attributes -- the reader -- and an "
+  Covers("III.17 the XML door has ONE truth about attributes -- the reader -- and an "
          "attribute nobody asks for is refused by its path, the way the JSON door already "
          "refuses an unread property; every absence a stand-up refuses is refused at the "
          "grammar instead (board:1760)");

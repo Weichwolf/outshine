@@ -38,8 +38,8 @@ std::string With(const std::string &find, const std::string &replace) {
 }
 
 int main() {
-  Covers("I.4 an unknown property is refused with its path");
-  Covers("I.4 a parse failure names the byte offset");
+  Covers("I.89 an unknown property is refused with its path");
+  Covers("I.94 a parse failure names the byte offset");
 
   SceneLegacy::Mod ok;
   CHECK(ok.Read(kWorld, "t.json"), "the declaration this test varies does load");

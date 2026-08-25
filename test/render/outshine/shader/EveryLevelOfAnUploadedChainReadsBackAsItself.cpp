@@ -277,7 +277,7 @@ int main() {
         "upload's per-level row pitch is right down to the 1x1, and a saturating pixel under a "
         "reachable chain is not this");
 
-  Covers("I.26 every level of an uploaded mip chain reads back as itself, including the small levels "
+  Covers("I.52 every level of an uploaded mip chain reads back as itself, including the small levels "
          "a row pitch would corrupt");
   return Report();
 }

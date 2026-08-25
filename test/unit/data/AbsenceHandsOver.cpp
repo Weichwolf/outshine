@@ -80,9 +80,9 @@ const Request kSomewhere(DataKind::Elevation, Address::Tile(14, 8620, 5403));
 }
 
 int main() {
-  Test::Covers("I.22 an Absent from one source hands over to the next");
-  Test::Covers("I.22 the terminal absence is the exhaustion of the list");
-  Test::Covers("I.22 a duplicate rank within one kind is refused at registration");
+  Test::Covers("I.39 an Absent from one source hands over to the next");
+  Test::Covers("I.40 the terminal absence is the exhaustion of the list");
+  Test::Covers("I.46 a duplicate rank within one kind is refused at registration");
 
   SilentTransport transport;
 

@@ -175,6 +175,6 @@ int main() {
           "two halves that each fit still refuse together");
   }
 
-  Covers("I.26 the reader: containers, buffers, bufferViews, accessors, meshes and primitives");
+  Covers("I.59 the reader: containers, buffers, bufferViews, accessors, meshes and primitives");
   return Report();
 }

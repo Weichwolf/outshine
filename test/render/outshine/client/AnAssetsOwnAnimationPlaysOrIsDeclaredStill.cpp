@@ -113,7 +113,7 @@ int main(void) {
           "a fourth answer does not exist, and the refusal names the three that do");
   }
 
-  Covers("II.9 a scenario declares whether an asset's own animation plays, is ignored, or "
+  Covers("II.21 a scenario declares whether an asset's own animation plays, is ignored, or "
          "is the engine's -- one enumeration, never a fallback, and ignored-by-declaration "
          "is distinguishable from could-not-drive (board:1415)");
   return Report();

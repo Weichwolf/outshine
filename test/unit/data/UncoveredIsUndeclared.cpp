@@ -38,7 +38,7 @@ public:
 }
 
 int main() {
-  Test::Covers("I.22 Covers is the only producer of the right to mint a world fact");
+  Test::Covers("I.42 Covers is the only producer of the right to mint a world fact");
   Test::Covers("I.22 no provider here and no data here are different answers");
 
   ContentStore store(StoreOff());

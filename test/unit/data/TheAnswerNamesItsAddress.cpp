@@ -36,8 +36,8 @@ public:
 }
 
 int main() {
-  Test::Covers("I.22 a Delivery carries which source answered and at which address");
-  Test::Covers("I.22 the zoom bound is the source's declaration about itself and exists once");
+  Test::Covers("I.38 a Delivery carries which source answered and at which address");
+  Test::Covers("I.47 the zoom bound is the source's declaration about itself and exists once");
 
   const TerrariumDem dem;
   const VersatilesVector vector;

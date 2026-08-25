@@ -153,7 +153,7 @@ int main(void) {
           "and the plan bounds both of them");
   }
 
-  Covers("V.8 the speed plan bounds every crest the reference line carries, including the "
+  Covers("V.11 the speed plan bounds every crest the reference line carries, including the "
          "ones whose elevation knots fall between the plan's own stations (board:1767)");
   return Report();
 }

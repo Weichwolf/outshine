@@ -137,7 +137,7 @@ int main() {
         "every path a document of this repository cites into this repository exists, so a tick that "
         "names its file is a claim with something under it");
 
-  Covers("I.20 a document that cites a file names one that is in the tree: every backticked path in "
+  Covers("I.37 a document that cites a file names one that is in the tree: every backticked path in "
          "CLAUDE.md and src/assets/tables/ resolves, or the run is red");
   return Report();
 }

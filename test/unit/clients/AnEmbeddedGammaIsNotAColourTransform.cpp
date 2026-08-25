@@ -153,7 +153,7 @@ int main() {
     CHECK(nothing.Width == 0 && nothing.Rgba.empty(), "a refused decode leaves no raster behind");
   }
 
-  Covers("I.26.12 khronos:TextureEncodingTest -- embedded gamma values and ICC profiles are ignored "
+  Covers("I.67 khronos:TextureEncodingTest -- embedded gamma values and ICC profiles are ignored "
          "as the specification requires, so the colour space of an image is decided by the material "
          "slot that samples it and never by the file");
   return Report();

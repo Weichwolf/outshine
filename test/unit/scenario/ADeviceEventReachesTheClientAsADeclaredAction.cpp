@@ -92,7 +92,7 @@ int main(void) {
           "one event bound to two actions refuses -- one press has one meaning");
   }
 
-  Covers("III.10 a device event reaches the client as a declared action: named actions from "
+  Covers("III.16 a device event reaches the client as a declared action: named actions from "
          "one constexpr event catalogue, 1..N bindings per action, axis distinct from "
          "button, unbound asks refuse at stand-up; the input-to-photon measurement is the "
          "frame suite's later slice (board:1491)");

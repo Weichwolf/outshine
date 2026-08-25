@@ -357,7 +357,7 @@ int main(void) {
         "adjective -- every entity beyond it is a frame this device cannot hold, before a "
         "single pixel is shaded");
 
-  Covers("III.9 the per-draw cost on this device is measured and published -- a slope in "
+  Covers("III.20 the per-draw cost on this device is measured and published -- a slope in "
          "microseconds per draw over a swept draw count, p50/p95/p99 per step, and the draw "
          "count at which submission alone spends the frame budget (board:1538)");
   return Report();

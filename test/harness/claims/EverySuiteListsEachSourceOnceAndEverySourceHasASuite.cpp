@@ -60,7 +60,7 @@ int main(void) {
         "defects -- the audit collects every defect before it judges, so the control costs one "
         "run, not two (board:1641's negative control, no longer manual)");
 
-  Covers("IV.7 the build declaration audits itself in the fast gate: duplicate listings and "
+  Covers("IV.27 the build declaration audits itself in the fast gate: duplicate listings and "
          "orphan sources refuse before any named suite has to discover them at link time, and "
          "both detectors are negative-controlled against a seeded duplicate and a seeded orphan "
          "on every run");

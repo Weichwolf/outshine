@@ -153,7 +153,7 @@ int main(void) {
   CHECK(field.TileIndex(kTileX + 1, kTileY) < 0,
         "while a tile it never accepted has no index rather than index zero");
 
-  Covers("I.4.7 a vector tile becomes a field the ground layer can read: the decode is a pure "
+  Covers("I.98 a vector tile becomes a field the ground layer can read: the decode is a pure "
          "function of the bytes with no pool behind it, tags resolve by name, an absent tag "
          "answers with the caller's default, and every point lands inside the tile it came "
          "from (board:1806)");

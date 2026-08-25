@@ -5,6 +5,6 @@ int main() {
   using namespace outshine::Test;
   EveryCompileSubjectHolds("test/unit/compile/data");
   NoIncludeClimbsOutOfItsDirectory("src/data");
-  Covers("I.22 each upstream is a provider that declares what it covers and knows nothing that consumes it");
+  Covers("I.41 each upstream is a provider that declares what it covers and knows nothing that consumes it");
   return Report();
 }

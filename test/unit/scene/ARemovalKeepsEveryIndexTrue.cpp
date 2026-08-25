@@ -57,7 +57,7 @@ int main(void) {
   CHECK(scene.Alive(tools[1]) && scene.Alive(tools[3]) && scene.Alive(tools[4]),
         "and Uses owns nothing, so the surviving tools stand");
 
-  Covers("II.10 erase-swap-relink keeps every index true: the holder's array, the reverse "
+  Covers("II.16 erase-swap-relink keeps every index true: the holder's array, the reverse "
          "index, and the global relation list agree through removals from middle, front, end, "
          "and the holder itself");
   return Report();

@@ -138,7 +138,7 @@ int main(void) {
   // standing, proven by the vertex identity this whole file asserts -- and the unread
   // TopAreaM2 product field left with its dead re-ask loop (board:1717, the 1703 class)
 
-  Covers("I.9.13 the corridor sweeps into a solid whose top surface is placed by the same function "
+  Covers("I.102 the corridor sweeps into a solid whose top surface is placed by the same function "
          "the wheels stand on, with a shoulder either side and a soffit a thickness below along the "
          "surface normal");
   return Report();

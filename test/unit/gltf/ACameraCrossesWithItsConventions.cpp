@@ -124,6 +124,6 @@ int main() {
   CHECK_NEAR(inView[2], -1.0, 1e-12, "m",
              "a point one metre in front of the camera is at view z = -1: glTF cameras look down -Z");
 
-  Covers("I.26 cameras: perspective and orthographic, with the glTF sign and handedness conventions");
+  Covers("I.51 cameras: perspective and orthographic, with the glTF sign and handedness conventions");
   return Report();
 }

@@ -260,7 +260,7 @@ int main() {
   Note("the declared bit count", (double)kSubTexelPrecisionBits, "bits");
 
   CHECK(DeviceErrors == 0, "the device reported no error over the probe");
-  Covers("I.26.15 the sampler term of the picture bound: how finely this device divides one texel "
+  Covers("I.75 the sampler term of the picture bound: how finely this device divides one texel "
          "span is measured here rather than looked up, and the picture bound derives 255 * "
          "2^-(n+1) from it");
   return Report();

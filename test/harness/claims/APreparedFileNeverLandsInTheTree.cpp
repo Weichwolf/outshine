@@ -51,7 +51,7 @@ int main() {
         "else, and every fetched buffer, image, .blend, .exr and .raw is under the system temp root "
         "where CLAUDE.md puts it");
 
-  Covers("I.26.10 a repository is what is declared and what is built from it: the case trees carry "
+  Covers("I.61 a repository is what is declared and what is built from it: the case trees carry "
          "declarations and never products");
   return Report();
 }

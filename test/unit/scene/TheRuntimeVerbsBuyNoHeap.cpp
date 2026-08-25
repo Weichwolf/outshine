@@ -63,7 +63,7 @@ int main(void) {
         "relink run on the scratch the pool opened -- zero allocations, counted at the "
         "global operator new (board:1731)");
 
-  Covers("IV.9 the store's runtime verbs never allocate: member work stacks reserved at "
+  Covers("IV.30 the store's runtime verbs never allocate: member work stacks reserved at "
          "open, composed refusals written into the reserved buffer, proven by a counting "
          "allocator (board:1731)");
   return Report();

@@ -385,13 +385,13 @@ int main() {
   CHECK(byTheRule > 0,
         "at least one case's camera is measurably the framing rule's own output");
 
-  Covers("I.26.10 the framing rule: bounds from min and max, centre off the extremes, radius, "
+  Covers("I.62 the framing rule: bounds from min and max, centre off the extremes, radius, "
          "azimuth 35 deg, elevation 20 deg, 2*atan(12/50), fill 0.6 -- recomputed from each "
          "subject's own vertices and held against what its manifest declares");
-  Covers("I.26.14 the two determinations of the camera distance are distinguishable per case: which "
+  Covers("I.73 the two determinations of the camera distance are distinguishable per case: which "
          "one produced a camera is measured in metres rather than read off the prose, and the band "
          "between them is empty");
-  Covers("I.26.14 the freedoms `2 + k` counts are the ones we own, computed from the camera's "
+  Covers("I.74 the freedoms `2 + k` counts are the ones we own, computed from the camera's "
          "source and the subject's origin together, because `camera.source` is the same word for "
          "two files upstream authored and two we generate");
   return Report();

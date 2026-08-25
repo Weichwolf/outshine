@@ -154,7 +154,7 @@ int main(void) {
                "constant the engine assumed");
   }
 
-  Covers("V.7 the drawn body and the contacts stand in ONE frame: the engine derives the "
+  Covers("V.10 the drawn body and the contacts stand in ONE frame: the engine derives the "
          "model's shift from the declaration and refuses an asset that does not say where "
          "its own ground is (board:1554)");
   return Report();

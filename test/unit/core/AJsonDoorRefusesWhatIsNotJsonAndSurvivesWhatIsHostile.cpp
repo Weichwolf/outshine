@@ -109,7 +109,7 @@ int main(void) {
     CHECK(Parses(nested), "a hundred legal levels parse under the [SET] bound of 256");
   }
 
-  Covers("I.25 the json door refuses what is not json and survives what is hostile: a "
+  Covers("I.49 the json door refuses what is not json and survives what is hostile: a "
          "counted depth, an enforced grammar, whole-text consumption, kinds kept apart, "
          "surrogate pairs decoded whole -- the parser under the one content surface has "
          "its own twin (board:1732)");

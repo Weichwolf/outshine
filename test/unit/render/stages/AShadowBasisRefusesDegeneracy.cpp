@@ -38,7 +38,7 @@ int main(void) {
     CHECK(!stage.Standing(), "and a radius of nothing frames nothing, as before");
   }
 
-  Covers("V.9 the shadow basis refuses degeneracy at declare: a zero sun, an up parallel "
+  Covers("V.12 the shadow basis refuses degeneracy at declare: a zero sun, an up parallel "
          "to it, or an empty radius never reach the NaN the normalisation would mint "
          "(board:1739)");
   return Report();

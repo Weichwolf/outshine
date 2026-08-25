@@ -132,7 +132,7 @@ int main() {
           "(board:1736)");
   }
 
-  Covers("I.26.6 sparse accessors, with and without a base bufferView, the plain viewless "
+  Covers("I.80 sparse accessors, with and without a base bufferView, the plain viewless "
          "zero field, and the legal large morph shape under the named output bound "
          "(board:1736)");
   return Report();

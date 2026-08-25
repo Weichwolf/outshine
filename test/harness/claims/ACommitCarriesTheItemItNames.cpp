@@ -114,7 +114,7 @@ int main(void) {
         "review files into the same directory is how it happens, measured three times in "
         "board:1802 and once more the hour that item was worked");
 
-  Covers("IV.15 a commit that touches a board item names it: the log is the record and "
+  Covers("IV.23 a commit that touches a board item names it: the log is the record and "
          "git log --grep is only as true as the messages (board:1802)");
   return Report();
 }

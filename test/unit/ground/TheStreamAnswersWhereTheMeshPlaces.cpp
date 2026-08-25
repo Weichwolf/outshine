@@ -75,7 +75,7 @@ int main(void) {
     CHECK(worstCorner < 1.0e-2, "the corners answer their own places too");
   }
 
-  Covers("I.28 the stream answers heights in the currency the mesh places vertices in: a "
+  Covers("I.87 the stream answers heights in the currency the mesh places vertices in: a "
          "ramp field read back at every chunk node and at the corners equals the ramp at "
          "those places (board:1750, 1752)");
   return Report();

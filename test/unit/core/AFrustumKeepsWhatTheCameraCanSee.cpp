@@ -120,7 +120,7 @@ int main(void) {
         "and turning the camera exchanges the two answers, so the frustum is the camera's own "
         "and carries no state of its own between frames");
 
-  Covers("I.2.9 the frustum keeps what the camera can see and drops what it cannot, and it is "
+  Covers("I.31 the frustum keeps what the camera can see and drops what it cannot, and it is "
          "conservative in the one direction that matters: over a sweep of the picture it never "
          "drops a box containing a point the clip volume accepts (board:1806)");
   return Report();

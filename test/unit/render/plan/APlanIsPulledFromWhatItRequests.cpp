@@ -225,7 +225,7 @@ int main() {
           "an unknown stage name is refused rather than dropped");
   }
 
-  Covers("I.27 the declared render plan: machinery is pulled backwards from the requested outputs, "
+  Covers("I.81 the declared render plan: machinery is pulled backwards from the requested outputs, "
          "content is declared, the pass count is an output of the compiler, and the four refusals a "
          "consumer can cause each name their declaration path");
   return Report();

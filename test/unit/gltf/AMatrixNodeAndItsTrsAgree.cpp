@@ -82,6 +82,6 @@ int main() {
   CHECK_NEAR(worst, 0.0, 1e-12, "m",
              "the two spellings place the same vertex in the same place");
   Note("worst disagreement between a matrix node and its TRS twin", worst, "m");
-  Covers("I.26 nodes: hierarchy, TRS and matrix transforms, scenes");
+  Covers("I.53 nodes: hierarchy, TRS and matrix transforms, scenes");
   return Report();
 }

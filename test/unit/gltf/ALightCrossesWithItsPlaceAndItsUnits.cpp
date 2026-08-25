@@ -158,7 +158,7 @@ int main() {
   CHECK(!dangling.ReadFile(danglingPath),
         "a node naming a light index the file does not carry is refused by name");
 
-  Covers("II.8 point and spot lights as a list the core lights from -- the reader half: "
+  Covers("II.20 point and spot lights as a list the core lights from -- the reader half: "
          "KHR_lights_punctual crosses the glTF boundary as an enumeration with its own units, and "
          "the node hierarchy is what places it");
   return Report();

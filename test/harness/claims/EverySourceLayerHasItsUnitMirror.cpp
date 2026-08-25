@@ -92,7 +92,7 @@ int main(void) {
         "is the regression gate (board:1601), so a layer without one is a layer whose breakage "
         "waits for the long suites. An excuse exists only with a named reason beside it");
 
-  Covers("I.28 unit/ mirrors src/ and the mirror is walked, never listed: every source layer "
+  Covers("I.88 unit/ mirrors src/ and the mirror is walked, never listed: every source layer "
          "carries a unit suite or a declared excuse with its reason");
   return Report();
 }

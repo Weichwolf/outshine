@@ -65,7 +65,7 @@ int main(void) {
 
   Run("rm -rf " + root, ignored);
 
-  Covers("IV.16 a case prepared through prepare.py names the nest that prepared it, or names "
+  Covers("IV.24 a case prepared through prepare.py names the nest that prepared it, or names "
          "that no runner did, so the corpus prune has an owner to compare against on every "
          "route into the corpus and not only the rebuild (board:1839)");
   return Report();

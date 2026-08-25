@@ -277,6 +277,6 @@ int main() {
         "one silently winning");
   std::printf("NOTE %s\n", why.c_str());
 
-  Covers("I.26 animations: samplers, channels and the node hierarchy they drive");
+  Covers("I.50 animations: samplers, channels and the node hierarchy they drive");
   return Report();
 }

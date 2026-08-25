@@ -70,7 +70,7 @@ int main(void) {
           "the shipped terrain-vector-stars battery registers when SELECTED");
   }
 
-  Covers("I.26 providers are declared by the scenario rather than compiled in: the "
+  Covers("I.54 providers are declared by the scenario rather than compiled in: the "
          "catalogue stands what is declared, refuses a stranger naming its own kinds, zero "
          "is valid, and WithUpstreams is gone -- the stars provider is file-backed, so the "
          "suite's verdict owes nothing to the weather (board:1494)");

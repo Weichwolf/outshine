@@ -161,7 +161,7 @@ int main() {
 
   Covers("the vertex colour is a free axis over the layout table: sixteen rows, and a "
          "set of runs the table does not carry is refused rather than rounded to the nearest one");
-  Covers("I.27 the draw list is the pass's, not the stage's: it carries the sort key, the batching "
+  Covers("I.82 the draw list is the pass's, not the stage's: it carries the sort key, the batching "
          "and the material state, and the sort key is per draw with Ericson's field order -- "
          "viewport, viewport layer, translucency type, depth, material");
   return Report();

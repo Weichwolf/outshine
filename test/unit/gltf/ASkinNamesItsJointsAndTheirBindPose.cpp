@@ -139,6 +139,6 @@ int main() {
         "one joint against two bind matrices is refused, because the pairing is the record");
 
   Note("joints read", 2.0, "in one skin");
-  Covers("I.26.6 skinning: skins, joints, inverse bind matrices and the node that names them");
+  Covers("I.79 skinning: skins, joints, inverse bind matrices and the node that names them");
   return Report();
 }

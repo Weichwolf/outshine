@@ -46,7 +46,7 @@ std::string With(const char *text, const std::string &find, const std::string &r
 }
 
 int main() {
-  Covers("I.25 Stage as an enumeration with a record per arm");
+  Covers("I.48 Stage as an enumeration with a record per arm");
   Covers("I.25 a Studio scenario has no latitude to declare");
 
   SceneLegacy::Mod studio;

@@ -142,7 +142,7 @@ int main() {
   CHECK(std::fabs(both - one) > 1.0,
         "the two answers are 2 m apart, so this is a discriminator and not a tolerance");
 
-  Covers("I.26.6 skinning: a vertex is placed by the weighted blend of every JOINTS_n set the "
+  Covers("I.77 skinning: a vertex is placed by the weighted blend of every JOINTS_n set the "
          "primitive declares, which glTF permits without bound and no case of the corpus at the pin "
          "carries -- 0 of 34 of the generator's animation models declare more than four influences");
   return Report();

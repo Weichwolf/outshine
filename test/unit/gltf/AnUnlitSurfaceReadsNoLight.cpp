@@ -94,7 +94,7 @@ int main() {
   CHECK(mistyped.Error().find("KHR_materials_unlit") != std::string::npos,
         "and the refusal names the extension it could not read");
 
-  Covers("I.26.12 the reader carries what the file declares and derives nothing: an unlit material "
+  Covers("I.68 the reader carries what the file declares and derives nothing: an unlit material "
          "is the file's own statement that no light enters its appearance");
   return Report();
 }

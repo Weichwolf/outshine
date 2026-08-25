@@ -98,7 +98,7 @@ int main(void) {
         "ways by their content before any node merges, so the scheduler's arrival order -- "
         "the 54 mm over 762 km -- cannot reach the graph");
 
-  Covers("I.4.6 planning is deterministic over content: the woven network and the planned "
+  Covers("I.97 planning is deterministic over content: the woven network and the planned "
          "route are functions of the declared ways, never of tile arrival order");
   return Report();
 }

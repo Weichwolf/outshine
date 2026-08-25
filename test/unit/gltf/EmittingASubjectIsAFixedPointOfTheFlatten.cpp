@@ -292,7 +292,7 @@ int main() {
         "a subject that draws no part is refused rather than written as an empty file");
   CHECK(refusal.find("no part") != std::string::npos, "and the refusal says which");
 
-  Covers("I.28 the emit path: Subject -> Document -> bytes, a serialiser and not a translation, "
+  Covers("I.85 the emit path: Subject -> Document -> bytes, a serialiser and not a translation, "
          "whose acceptance is Subject(Emit(S)) == S over positions, indices, part boundaries, part "
          "materials and tangent provenance");
   return Report();

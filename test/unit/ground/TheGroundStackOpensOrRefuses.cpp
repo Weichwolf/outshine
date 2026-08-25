@@ -67,7 +67,7 @@ int main(void) {
   CHECK(stack.Open("/tmp/outshine-drive-cache", "src/assets", outshine::Data::ShippedProviders(), 48.1, 11.5, wire, quiet),
         "and it opens again -- the cycle holds");
 
-  Covers("II.15 the ground column stands up as one owned stack that opens or refuses loudly: "
+  Covers("II.19 the ground column stands up as one owned stack that opens or refuses loudly: "
          "a failed source registration returns false and closes, the surface constants carry "
          "their origin, and the open/close cycle is proven in the fast gate");
   return Report();

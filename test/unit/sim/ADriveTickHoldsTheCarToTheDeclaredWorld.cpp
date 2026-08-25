@@ -314,7 +314,7 @@ int main(void) {
           "rather than a convention three assign calls happened to keep");
   }
 
-  Covers("II.13 the drive tick is one pure function of (corridor, rig, vehicle, state): it "
+  Covers("II.17 the drive tick is one pure function of (corridor, rig, vehicle, state): it "
          "holds the car to the declared world's gravity, arrives on a synthetic corridor in "
          "the fast gate, reports the road's end loudly, and follows a lane centre that moves "
          "-- the regression net for the sign, the seat, the edge, the aside rate and the "

@@ -57,7 +57,7 @@ int main(void) {
         "library build of the same source can never share an artefact -- the path IS the flag "
         "identity, and UpToDate needs no flag awareness (board:1603)");
 
-  Covers("I.27 the layering is declared once: the runner's group declarations are the only "
+  Covers("I.83 the layering is declared once: the runner's group declarations are the only "
          "spelling of which source compiles with which includes, and `make` builds the library "
          "entire from them");
   return Report();

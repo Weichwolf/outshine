@@ -154,7 +154,7 @@ int main(void) {
         "and outside the years it declares it still returns a number rather than a NaN -- which "
         "is worth knowing, because the bound is documentation and not a refusal (board:1777)");
 
-  Covers("I.28 the solar and lunar position the engine uses is the earth's own: the obliquity "
+  Covers("I.86 the solar and lunar position the engine uses is the earth's own: the obliquity "
          "falls out of a year of noon elevations, polar day and polar night fall out of the "
          "obliquity, every answer is an angle in its range, and the moon runs a full cycle in a "
          "month (board:1806)");

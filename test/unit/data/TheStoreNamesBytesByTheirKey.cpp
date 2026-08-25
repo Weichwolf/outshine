@@ -37,8 +37,8 @@ namespace {
 }
 
 int main() {
-  Test::Covers("I.22 the provider delivers hash and data, and hash is the filename");
-  Test::Covers("I.22 the provider's hash covers its own version");
+  Test::Covers("I.44 the provider delivers hash and data, and hash is the filename");
+  Test::Covers("I.45 the provider's hash covers its own version");
 
   const Address at = Address::Tile(14, 8620, 5403);
   const std::string keyV1 = ContentKey(Declared("terrarium.s3", 1), at);

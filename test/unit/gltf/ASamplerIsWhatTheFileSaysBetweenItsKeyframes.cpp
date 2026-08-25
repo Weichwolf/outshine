@@ -336,13 +336,13 @@ int main() {
     }
   }
 
-  Covers("I.26 the reader carries `animations`: samplers as an input grid, an output run and one of "
+  Covers("I.57 the reader carries `animations`: samplers as an input grid, an output run and one of "
          "three interpolations, channels as a node and one of four paths, every unknown word "
          "refused by name and every shape rule checked against the accessors");
   Covers("I.26.3 the time contract: the animation time of frame n is n/fps DERIVED, it lands on the "
          "sampler's own keyframe inputs exactly, and the accumulator the rule forbids is measured "
          "drifting beside it");
-  Covers("I.26.12 khronos:InterpolationTest, the reader half: nine animations over three paths and "
+  Covers("I.65 khronos:InterpolationTest, the reader half: nine animations over three paths and "
          "three interpolations, STEP showing no intermediate value swept over the whole grid, "
          "LINEAR over a rotation spherical rather than component-wise, and CUBICSPLINE reading "
          "three elements per keyframe");

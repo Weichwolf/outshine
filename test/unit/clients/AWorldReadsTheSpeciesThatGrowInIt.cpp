@@ -107,7 +107,7 @@ int main(void) {
           "says so, rather than reporting the emptiness that follows from it (board:1541)");
   }
 
-  Covers("II.14 a world reads the species that grow in it -- 0 or 1..N from a directory or a "
+  Covers("II.18 a world reads the species that grow in it -- 0 or 1..N from a directory or a "
          "file, and every refusal names the path it could not read (board:1541)");
   return Report();
 }

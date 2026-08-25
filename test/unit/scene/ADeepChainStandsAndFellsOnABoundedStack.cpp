@@ -80,7 +80,7 @@ int main(void) {
         "the same bounded stack -- depth is the pool's business, never the call stack's "
         "(board:1721)");
 
-  Covers("IV.8 the store's teardown and stand-up are bounded terms: owned chains fell and "
+  Covers("IV.29 the store's teardown and stand-up are bounded terms: owned chains fell and "
          "prefab trees raise with explicit work stacks, proven on a thread stack the "
          "recursive forms overflow (board:1721)");
   return Report();

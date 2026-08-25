@@ -149,6 +149,6 @@ int main() {
         "a target whose accessor is shorter than the base attribute is refused by name");
 
   Note("morph targets applied", 2.0, "over 3 vertices");
-  Covers("I.26.6 morph targets: mesh weights, per-target deltas, and the order they apply in");
+  Covers("I.76 morph targets: mesh weights, per-target deltas, and the order they apply in");
   return Report();
 }

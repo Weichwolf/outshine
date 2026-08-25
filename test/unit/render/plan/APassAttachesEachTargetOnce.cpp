@@ -232,7 +232,7 @@ int main() {
           "declaration and nowhere else");
   }
 
-  Covers("I.27 the pass descriptor is the union of its stages' targets, one entry per distinct "
+  Covers("I.84 the pass descriptor is the union of its stages' targets, one entry per distinct "
          "resource, and a pass wider than the device floor is refused where the plan is compiled");
   return Report();
 }

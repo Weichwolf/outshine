@@ -58,7 +58,7 @@ int main() {
   }
 
   Note("attachment sets compiled", (double)compiled, "of 8");
-  Covers("I.26 the subject unit's shader text compiles on a real device, over every attachment set "
+  Covers("I.60 the subject unit's shader text compiles on a real device, over every attachment set "
          "the compiled plan can hand it");
   SDL_DestroyGPUDevice(device);
   SDL_QuitSubSystem(SDL_INIT_VIDEO);

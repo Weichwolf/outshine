@@ -74,7 +74,7 @@ int main(void) {
 
   Run("rm -rf " + root, ignored);
 
-  Covers("IV.14 the prepared corpus is shared and the right to delete from it is not: a runner "
+  Covers("IV.22 the prepared corpus is shared and the right to delete from it is not: a runner "
          "prunes the cases it prepared and leaves every other case standing (board:1789)");
   return Report();
 }

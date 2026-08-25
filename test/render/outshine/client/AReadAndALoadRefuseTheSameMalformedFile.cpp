@@ -47,7 +47,7 @@ int main(void) {
             absent.Error().find("no scenario at that path") != std::string::npos,
         "a missing file refuses by naming the path, not by parsing nothing");
 
-  Covers("I.26.11 the engine reads a scenario file once, in one place: Read and Load share "
+  Covers("I.63 the engine reads a scenario file once, in one place: Read and Load share "
          "ReadInto, proven by identical refusal text on the same malformed file");
   return Report();
 }

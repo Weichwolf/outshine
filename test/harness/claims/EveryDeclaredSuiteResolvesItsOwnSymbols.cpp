@@ -59,7 +59,7 @@ int main(void) {
         "and a declaration naming a source that does not EXIST refuses as a ghost -- the class "
         "SceneWeather.cpp sat in silently until the exact-object audit tripped over it");
 
-  Covers("IV.7 the build declaration audits itself: beyond one listing per source, every "
+  Covers("IV.28 the build declaration audits itself: beyond one listing per source, every "
          "declared suite's object set is closed over its undefined outshine symbols -- read "
          "from the EXACT set-stamped objects the declaration names, ghosts refused -- "
          "negative-controlled against a seeded loss and a seeded ghost on every run "

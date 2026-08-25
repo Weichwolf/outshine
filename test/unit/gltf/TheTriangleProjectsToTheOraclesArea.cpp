@@ -148,7 +148,7 @@ int main() {
     Note("edge margin from every pixel centre", offLattice / scale, "px");
   }
 
-  Covers("I.26 the reader: buffers, bufferViews, accessors, meshes, nodes and the camera, checked "
+  Covers("I.58 the reader: buffers, bufferViews, accessors, meshes, nodes and the camera, checked "
          "against Blender's analytic answer for test/render/khronos/glTF/Triangle/");
   return Report();
 }

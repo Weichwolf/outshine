@@ -60,7 +60,7 @@ int main() {
         "host and everything that runs it is a test, so the citation goes the other way and travels "
         "in the work item that proves it, never here");
 
-  Covers("I.26 the engine is a library: it does not name what runs it, and a claim about it is "
+  Covers("I.56 the engine is a library: it does not name what runs it, and a claim about it is "
          "proven by a test that cites the requirement rather than by a comment that cites the test");
   return Report();
 }

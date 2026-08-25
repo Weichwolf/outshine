@@ -44,7 +44,7 @@ int main(void) {
         "and a NESTED invocation on the inherited nest passes through the lock -- the gate's "
         "own inner audits keep working under the parent's claim");
 
-  Covers("IV.10 one runner per nest: the lock claim and the claimant's identity are one "
+  Covers("IV.26 one runner per nest: the lock claim and the claimant's identity are one "
          "atomic step, a second runner refuses naming the live holder, a stale claim breaks "
          "and exactly one breaker wins, and nested invocations pass through (board:1659, "
          "1662)");

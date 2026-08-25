@@ -94,7 +94,7 @@ int main(void) {
           "reaches past the index into the scan instead of walking a million empty rings");
   }
 
-  Covers("I.9.12 the route search walks edge states: a turn refusal is a property of the "
+  Covers("I.101 the route search walks edge states: a turn refusal is a property of the "
          "arriving and leaving edge pair, a junction sealed by one approach reopens for "
          "another, and the long legal way is found where node settling refused (board:1710)");
   return Report();

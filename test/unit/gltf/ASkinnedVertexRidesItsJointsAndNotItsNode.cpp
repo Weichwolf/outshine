@@ -120,6 +120,6 @@ int main() {
   CHECK_NEAR(at[4], 3.0, 1e-9, "m", "vertex 1's y is x + 2 turned onto +y, not the swapped product's 1");
 
   Note("vertices skinned", 3.0, "over 2 joints");
-  Covers("I.26.6 skinning: linear blend over joint matrices, and the skinned node's transform ignored");
+  Covers("I.78 skinning: linear blend over joint matrices, and the skinned node's transform ignored");
   return Report();
 }

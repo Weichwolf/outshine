@@ -195,7 +195,7 @@ int main(void) {
     }
   }
 
-  Covers("I.4 a scenario is read from XML: elements, attributes, text and the bounds each declares, "
+  Covers("I.92 a scenario is read from XML: elements, attributes, text and the bounds each declares, "
          "and everything outside that subset is a refusal that names itself");
   return Report();
 }

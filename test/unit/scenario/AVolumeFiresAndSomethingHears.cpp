@@ -177,7 +177,7 @@ int main(void) {
           "COUNTED rather than firing Enter every tick and never Exit");
   }
 
-  Covers("III.11 a volume fires an event and something hears it: enter, exit and dwell and "
+  Covers("III.19 a volume fires an event and something hears it: enter, exit and dwell and "
          "no fourth, listeners hold their fields at stand-up, firing is bounded and "
          "allocation-free after build, and an unheard event is counted (board:1488)");
   return Report();
