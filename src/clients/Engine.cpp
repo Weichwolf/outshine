@@ -419,11 +419,13 @@ bool Engine::Handles(const SDL_Event &event) {
   if (S_->Pumping && (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP)) {
     Clients::InputPump::Fired fired[2];
     const size_t many = S_->Pump.Translate(event, fired);
+    if (S_->Offered == nullptr) { return false; }
     bool acted = false;
     for (size_t at = 0; at < many; ++at) {
       const std::string *const named = S_->Bound.ActionNamed(fired[at].Action);
-      if (named == nullptr || fired[at].Value <= 0.0f) { continue; }
-      acted = Acts(*named) || acted;
+      if (named == nullptr) { continue; }
+      const Argument value{Argument::Kind::Number, (double)fired[at].Value, {}};
+      acted = S_->Offered->Calls(*named, std::span<const Argument>(&value, 1)) || acted;
     }
     return acted;
   }
@@ -790,14 +792,25 @@ const std::vector<std::string> &Engine::Carried() const { return S_->Carried; }
 
 const std::vector<std::string> &Engine::Measured() const { return S_->Measured; }
 
-bool Engine::Acts(const std::string &named) {
-  if (named != "next-view" || !S_->Views || S_->Views->Count() < 2) { return false; }
-  const std::string_view standing = S_->Views->ActiveId();
-  for (size_t at = 0; at < S_->Views->Count(); ++at) {
-    if (S_->Views->AtIndex(at).Id != standing) { continue; }
-    return S_->Views->Take(S_->Views->AtIndex((at + 1) % S_->Views->Count()).Id);
+bool Engine::Takes(std::string_view view) {
+  if (!S_->Views) {
+    S_->Error = "the scenario declares no views, so there is none to take";
+    return false;
   }
-  return false;
+  if (!S_->Views->Take(view)) {
+    S_->Error = "the scenario declares no view by that name";
+    return false;
+  }
+  return true;
+}
+
+std::vector<std::string> Engine::Views(void) const {
+  std::vector<std::string> named;
+  if (!S_->Views) { return named; }
+  for (size_t at = 0; at < S_->Views->Count(); ++at) {
+    named.push_back(S_->Views->AtIndex(at).Id);
+  }
+  return named;
 }
 
 bool Engine::Rides(void) {

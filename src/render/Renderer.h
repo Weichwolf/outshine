@@ -78,6 +78,7 @@ public:
   [[nodiscard]] int SettleFrames() const { return Plan_ ? Plan_->SettleFrames() : 1; }
 
   void WantsPixels();
+  [[nodiscard]] bool Queued() const { return Presenting_ == SDL_GPU_PRESENTMODE_VSYNC; }
   [[nodiscard]] ReadState ReadPixels(std::vector<uint8_t> &rgba);
 
   [[nodiscard]] ReadState ReadDepth(std::vector<float> &depth);
@@ -231,6 +232,7 @@ private:
   bool Stands();
   std::expected<void, std::string_view> StandsOffscreen();
 
+  SDL_GPUPresentMode Presenting_ = SDL_GPU_PRESENTMODE_VSYNC;
   SDL_Window *Showing_ = nullptr;
   Shown Shown_;
   bool Wanted_ = false;

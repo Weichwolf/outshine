@@ -958,14 +958,30 @@ std::expected<void, std::string_view> Renderer::DrawsInto(int widthPx, int heigh
     }
     if (presents != nullptr) {
       const SDL_GPUSwapchainComposition wanted = SDL_GPU_SWAPCHAINCOMPOSITION_SDR_LINEAR;
-      if (!SDL_WindowSupportsGPUSwapchainComposition(Device_.Get(), presents, wanted) ||
-          !SDL_SetGPUSwapchainParameters(Device_.Get(), presents, wanted,
-                                         SDL_GPU_PRESENTMODE_VSYNC)) {
+      if (!SDL_WindowSupportsGPUSwapchainComposition(Device_.Get(), presents, wanted)) {
         WhyNot_ = std::string("this window cannot present the transfer the plan declares: ") +
                   SDL_GetError();
         return std::unexpected(
             "the window cannot present the transfer the plan declares, and WhyNot carries what "
             "the device said");
+      }
+      const SDL_GPUPresentMode unqueued[] = {SDL_GPU_PRESENTMODE_MAILBOX,
+                                             SDL_GPU_PRESENTMODE_IMMEDIATE,
+                                             SDL_GPU_PRESENTMODE_VSYNC};
+      bool took = false;
+      for (const SDL_GPUPresentMode mode : unqueued) {
+        if (!SDL_WindowSupportsGPUPresentMode(Device_.Get(), presents, mode)) { continue; }
+        took = SDL_SetGPUSwapchainParameters(Device_.Get(), presents, wanted, mode);
+        if (took) {
+          Presenting_ = mode;
+          break;
+        }
+      }
+      if (!took) {
+        WhyNot_ = std::string("this window took no present mode the device offers: ") +
+                  SDL_GetError();
+        return std::unexpected(
+            "the window took no present mode, and WhyNot carries what the device said");
       }
     }
     Showing_ = presents;

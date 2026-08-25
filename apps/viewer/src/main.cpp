@@ -58,7 +58,15 @@ public:
     return face;
   }
 
+  void Steers(outshine::Engine *engine) { Engine_ = engine; }
+
   [[nodiscard]] bool Calls(std::string_view name, std::span<const outshine::Argument> args) override {
+    if (name == "next-view" && Engine_ != nullptr) {
+      const std::vector<std::string> named = Engine_->Views();
+      if (named.size() < 2) { return false; }
+      Viewing_ = (Viewing_ + 1) % named.size();
+      return Engine_->Takes(named[Viewing_]);
+    }
     if (name == "select" && args.size() == 1 &&
         args[0].Is == outshine::Argument::Kind::Number) {
       At_.Selected = (int)args[0].Number;
@@ -95,6 +103,8 @@ private:
   const std::vector<outshine::Viewer::Listed> &Cases_;
   outshine::Viewer::Showing At_;
   bool Moved_ = false;
+  outshine::Engine *Engine_ = nullptr;
+  size_t Viewing_ = 0;
 };
 
 int main(int argc, char **argv) {
@@ -197,6 +207,7 @@ int main(int argc, char **argv) {
   std::string shownCase;
   std::printf("BROWSING %zu case(s) under %s\n", cases.size(), asked.Cases.c_str());
   engine.Offers(&browsing);
+  browsing.Steers(&engine);
 
   {
     outshine::Scenario stands = showing;
