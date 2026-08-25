@@ -51,8 +51,8 @@ int main(void) {
   size_t closures = 0;
   if (born) {
     const std::string walk =
-        Ask("git log --no-renames --diff-filter=A --name-only --format='@%H' " + birth +
-            "..HEAD -- board/closed/ 2>/dev/null");
+        Ask("git log --no-renames --diff-filter=D --name-only --format='@%H' " + birth +
+            "..HEAD -- board/ 2>/dev/null");
     std::string commit;
     for (const std::string &line : Lines(walk)) {
       if (line[0] == '@') {
@@ -67,14 +67,15 @@ int main(void) {
       if (already) { continue; }
       seen.push_back(name);
       ++closures;
-      const bool stood =
-          !Ask("git cat-file -e " + commit + "^:board/active/" + name + " 2>/dev/null && echo y")
-               .empty();
-      std::printf("NOTE %.9s closed %s -- stood in board/active at its parent: %s\n",
-                  commit.c_str(), name.c_str(), stood ? "yes" : "NO");
+      const std::string was =
+          Ask("git show " + commit + "^:board/" + name +
+              " 2>/dev/null | sed -n 's/^State: //p' | head -1");
+      const bool stood = was == "active";
+      std::printf("NOTE %.9s closed %s -- its State at the parent was '%s'\n", commit.c_str(),
+                  name.c_str(), was.empty() ? "(gone)" : was.c_str());
       if (!stood) {
-        jumped.push_back(name + " was closed by " + commit.substr(0, 9) +
-                         " straight out of board/open -- it never stood in board/active");
+        jumped.push_back(name + " was closed by " + commit.substr(0, 9) + " while its State said '" +
+                         (was.empty() ? std::string("(gone)") : was) + "'");
       }
     }
   }
@@ -82,14 +83,13 @@ int main(void) {
 
   for (const std::string &one : jumped) { std::printf("FOUND %s\n", one.c_str()); }
   CHECK(jumped.empty(),
-        "**AN ITEM REACHES board/closed THROUGH board/active**: the state machine's middle "
-        "state is how a second agent learns an item already has an owner, and a claim anchored "
-        "to the closure cannot be satisfied by never opening the drawer -- which is how the "
-        "freshness claim beside it stayed green through three violations (board:1793, 1783)");
+        "**AN ITEM IS ACTIVE BEFORE IT IS CLOSED**: closing is DELETING the file -- git is the "
+        "logbook -- and the state machine's middle state is how a second agent learns an item "
+        "already has an owner. A claim anchored to the closure cannot be satisfied by never "
+        "setting State: active (board:1793, 1783)");
 
-  Covers("IV.16 every item that arrived under board/closed stood under board/active in the "
-         "closing commit's parent tree, walked from this proof's own birth commit forward -- "
-         "so the gate rewards using the state machine instead of rewarding abstention "
-         "(board:1793)");
+  Covers("IV.16 every item deleted from board/ carried State: active in the deleting commit's "
+         "parent tree, walked from this proof's own birth commit forward -- so the gate rewards "
+         "using the state machine instead of rewarding abstention (board:1793)");
   return Report();
 }

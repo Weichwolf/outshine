@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 
+#include "BoardFiles.h"
 #include "BoardNames.h"
 #include "Check.h"
 #include "Shell.h"
@@ -23,14 +24,6 @@ namespace {
     if (board != outsideTheBoard) { return true; }
   }
   return false;
-}
-
-[[nodiscard]] bool StoodIn(const std::string &where, const std::string &commit, unsigned item) {
-  char number[8] = {};
-  std::snprintf(number, sizeof number, "%04u_", item);
-  return !Ask("git ls-tree -r --name-only " + commit + " " + where + " 2>/dev/null | grep '/" +
-              number + "'")
-              .empty();
 }
 
 } // namespace
@@ -71,7 +64,6 @@ int main(void) {
       const std::string files =
           whole.substr(closes + 1, ends == std::string::npos ? ends : ends - closes - 1);
 
-      if (!Touches(files, true)) { continue; }
       // The SUBJECT is the assignment; the body explains, and an explanation cites its
       // neighbours -- "board:1854's control was blind" is a reference, not a claim to be
       // working on 1854. IV.23 reads the whole message because there every file touched must
@@ -79,7 +71,8 @@ int main(void) {
       const std::string subject = message.substr(0, message.find('\n'));
       const Board::Named names = Board::NamedIn(subject);
       if (names.Count == 0) { continue; }
-      ++repairs;
+      const bool repairing = Touches(files, true);
+      repairs += repairing ? 1u : 0u;
       for (size_t one = 0; one < names.Count; ++one) {
         const unsigned item = names.Items[one];
         // IV.16's rule, for the same reason: what matters is an item's LATEST work, not every
@@ -91,18 +84,23 @@ int main(void) {
         for (const unsigned already : judged) { spoken = spoken || already == item; }
         if (spoken) { continue; }
         judged.push_back(item);
+        // A commit that only moves the item is not a repair, and reaching it first means the
+        // item's latest handling WAS the drawer -- which is compliance, the same way IV.16
+        // reads a re-closure through board/active.
+        if (!repairing) { continue; }
         // An item filed and worked in one commit exists in this tree and not its parent's;
         // asking only the parent would let that shape through unjudged.
-        if (!StoodIn("board/", commit + "^", item) && !StoodIn("board/", commit, item)) {
+        if (Board::StateAt(commit + "^", item).empty() &&
+            Board::StateAt(commit, item).empty()) {
           continue;
         }
         ++named;
-        if (StoodIn("board/active/", commit + "^", item) ||
-            StoodIn("board/active/", commit, item)) {
+        if (Board::StoodIn(commit + "^", item, "active") ||
+            Board::StoodIn(commit, item, "active")) {
           continue;
         }
         jumped.push_back(commit.substr(0, 9) + " repairs code under board:" +
-                         std::to_string(item) + ", which stood outside board/active");
+                         std::to_string(item) + ", whose State was not active");
       }
     }
   }
@@ -112,10 +110,10 @@ int main(void) {
   for (const std::string &one : jumped) { std::printf("FOUND %s\n", one.c_str()); }
 
   CHECK(jumped.empty(),
-        "**A REPAIR FINDS ITS ITEM IN board/active**: CLAUDE.md says board/active mirrors what "
-        "is being worked on RIGHT NOW, and a drawer that fills at closing time answers nobody "
-        "-- IV.16 guards the state machine's exit, and three items were repaired in src/ and "
-        "test/ straight out of board/open before anything guarded its entry (board:1856)");
+        "**A REPAIR FINDS ITS ITEM ACTIVE**: an item's State says what has an owner RIGHT NOW, and "
+        "a state that only reaches 'active' at closing time answers nobody -- IV.16 guards the "
+        "machine's exit, and three items were repaired in src/ and test/ while their State "
+        "still said open before anything guarded its entry (board:1856)");
 
   Covers("IV.33 a commit that changes code under an item's name finds that item in "
          "board/active, in its own tree or its parent's -- the entry to the state machine "

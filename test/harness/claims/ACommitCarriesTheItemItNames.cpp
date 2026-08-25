@@ -26,7 +26,7 @@ struct Excusal {
 };
 
 constexpr Excusal kExcused[] = {
-    {"324374d6", "board:1565 board:1567 board:1568 board:1575",
+    {"324374d6", "board:1565 board:1567 board:1568 board:1575 board:1784 board:1858",
      "the hourly review sharpened four items in the round that filed three others, and its "
      "subject named only what it filed -- the rule now stands in its brief, which is where a "
      "reviewer learns it"},

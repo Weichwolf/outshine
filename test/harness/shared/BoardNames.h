@@ -8,8 +8,7 @@ namespace outshine::Test::Board {
 inline constexpr size_t kDigits = 4;
 inline constexpr size_t kMostNamed = 64;
 
-inline constexpr std::string_view kMarkers[] = {"board:", "board/open/", "board/closed/",
-                                                "board/active/"};
+inline constexpr std::string_view kMarkers[] = {"board:", "board/"};
 
 struct Named {
   unsigned Items[kMostNamed] = {};
@@ -69,9 +68,7 @@ static_assert(NamedIn("board:1844").Count == 1 && NamedIn("board:1844").Items[0]
               "the plain reference");
 static_assert(NamedIn("board:1836,1837").Count == 2 && NamedIn("board:1836,1837").Items[1] == 1837,
               "the comma list one commit message writes when it closes a pair");
-static_assert(NamedIn("board/open/1844_label.md").Holds(1844) &&
-                  NamedIn("board/closed/1845_x.md").Holds(1845) &&
-                  NamedIn("board/active/1846_x.md").Holds(1846),
+static_assert(NamedIn("board/1844_label.md").Holds(1844) && NamedIn("board/1845_x.md").Holds(1845),
               "a path names an item as unambiguously as a reference does");
 static_assert(NamedIn("the corpus is 2528 MB and an hour is 3600 s").Count == 0,
               "prose full of measurements names no item: a four-digit run is a reference only "
@@ -82,7 +79,7 @@ static_assert(NamedIn("board:18 and the rest").Count == 0,
 static_assert(NamedIn("board:18446").Count == 0,
               "and five digits are not four: the board's numbers are four wide, and a helper "
               "that takes the first four of five names an item that was never written");
-static_assert(NamedIn("board:1844 closes what board/open/1845_x.md opened").Count == 2,
+static_assert(NamedIn("board:1844 closes what board/1845_x.md opened").Count == 2,
               "the two spellings in one message");
 
 } // namespace outshine::Test::Board
