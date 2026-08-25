@@ -131,6 +131,8 @@ fi
 
 SUITE=
 SUITES=
+DRIVE=0
+DRIVEARGS=
 while [ $# -gt 0 ]; do
   case "$1" in
     --timeout)
@@ -148,6 +150,7 @@ while [ $# -gt 0 ]; do
     --corpus) CORPUS=1; shift ;;
     --would-prune) WOULDPRUNE=1; shift ;;
     --cases) CASELIST=1; shift ;;
+    --drive) DRIVE=1; shift; DRIVEARGS="$*"; break ;;
     --audit-link) AUDITLINK=1; shift ;;
     -*) Die "unknown option '$1'" ;;
     *) SUITES="$SUITES ${1%/}"; SUITE=${1%/}; shift; continue ;;
@@ -572,6 +575,26 @@ EverySourceStillCompiles() {
   [ "$broken" -eq 0 ]
 }
 
+# board:1863: the architect judges the PRODUCT, and must not have to know how it is built. One
+# door: build the driver, drive the declared route, leave ten stills evenly along it, print
+# where. Everything the command needs is derived here, not passed in.
+Drive() {
+  BuildLibrary || Die "the library does not build, so there is nothing to drive"
+  shots=$(mktemp -d "${TMPDIR:-/tmp}/outshine-drive.XXXXXX")
+  program="$BUILD/outshine-driver"
+  layer=apps/driver/src
+  $CXX $CXXSTD $(LayerToolchain "$layer") $WARN -Iinclude -c apps/driver/src/main.cpp \
+    -o "$BUILD/driver.o" || Die "the driver does not compile"
+  $CXX $CXXSTD "$BUILD/driver.o" build/liboutshine.a $(LayerLink "$layer") -o "$program" ||
+    Die "the driver does not link"
+  assets="${TMPDIR:-/tmp}/outshine-prepared/apps-driver-f31"
+  printf 'run.sh: driving into %s\n' "$shots"
+  "$program" --assets "$assets" --into "$shots" --headless "$@"
+  said=$?
+  printf 'run.sh: %s still(s) in %s\n' "$(ls "$shots" | wc -l | tr -d ' ')" "$shots"
+  return $said
+}
+
 EveryProgramStillLinks() {
   built=0
   brokenPrograms=0
@@ -579,7 +602,7 @@ EveryProgramStillLinks() {
     layer=$(dirname "$one")
     if $CXX $CXXSTD $(LayerToolchain "$layer") $WARN -Iinclude -c "$one" -o "$BUILD/program.o" \
          >"$BUILD/program.log" 2>&1 &&
-       $CXX $CXXSTD "$BUILD/program.o" "$BUILD/liboutshine.a" $(LayerLink "$layer") \
+       $CXX $CXXSTD "$BUILD/program.o" build/liboutshine.a $(LayerLink "$layer") \
          -o "$BUILD/program" >>"$BUILD/program.log" 2>&1 &&
        "$BUILD/program" --help >/dev/null 2>&1; then
       built=$((built + 1))
@@ -776,6 +799,11 @@ for named in $SUITES; do
     apps | apps/*) TREES="test apps" ;;
   esac
 done
+
+if [ "$DRIVE" = 1 ]; then
+  Drive $DRIVEARGS
+  exit $?
+fi
 
 TESTS=""
 PROGRAMS=""

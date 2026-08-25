@@ -19,6 +19,7 @@ struct Asked {
   int HeightPx = 720;
   bool Headless = false;
   long Frames = 0;
+  long Stills = 10;
   std::string Into;
   std::string Assets;
   std::string Shaders = ".";
@@ -46,7 +47,8 @@ void Usage() {
       "  --size WxH          the frame to render (default 1280x720)\n"
       "  --headless          render without opening a window\n"
       "  --frames N          stop after N frames (default: until the drive arrives)\n"
-      "  --into DIR          write stills here\n"
+      "  --into DIR          write stills here -- ten of them, evenly along the drive\n"
+      "  --stills N          how many (default 10)\n"
       "  --assets DIR        where a scenario's asset URIs resolve\n"
       "  --shaders DIR       where the shipped shaders are (default .)\n"
       "\n"
@@ -73,6 +75,10 @@ enum class Reading { Ran, Asked, Wrong };
       out.Scenario = argv[++at];
     } else if (said == "--into" && wants) {
       out.Into = argv[++at];
+    } else if (said == "--stills" && wants) {
+      int held = 0;
+      if (!Number(argv[++at], held)) { return Reading::Wrong; }
+      out.Stills = held;
     } else if (said == "--assets" && wants) {
       out.Assets = argv[++at];
     } else if (said == "--shaders" && wants) {
@@ -138,13 +144,18 @@ int main(int argc, char **argv) {
 
   engine.RenderTo(outshine::Extent{asked.WidthPx, asked.HeightPx});
 
+  const long ofFrames = asked.Frames > 0 ? asked.Frames : (long)engine.Frames();
   long frames = 0;
   long kept = 0;
+  long nextStill = 0;
   while (engine.Advance()) {
     ++frames;
-    if (!asked.Into.empty()) {
+    const bool wanted = !asked.Into.empty() && asked.Stills > 0 && ofFrames > 0 &&
+                        frames * asked.Stills >= (nextStill + 1) * ofFrames;
+    if (wanted) {
+      ++nextStill;
       char named[512];
-      std::snprintf(named, sizeof named, "%s/frame%06ld.png", asked.Into.c_str(), frames);
+      std::snprintf(named, sizeof named, "%s/along%02ld.png", asked.Into.c_str(), nextStill);
       if (!engine.Capture(named)) {
         std::printf("REFUSED %s\n", engine.Error().c_str());
         return 1;
@@ -157,7 +168,7 @@ int main(int argc, char **argv) {
     std::printf("STOPPED after %ld frames: %s\n", frames, engine.Error().c_str());
     return 1;
   }
-  std::printf("DROVE %ld frames, kept %ld", frames, kept);
+  std::printf("DROVE %ld frames, kept %ld still(s)", frames, kept);
   if (!asked.Into.empty()) { std::printf(" into %s", asked.Into.c_str()); }
   std::printf("\n");
   return 0;

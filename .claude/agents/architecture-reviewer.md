@@ -56,34 +56,29 @@ name what blocked it.
 
 ### 3. Look at the product
 
-The driver app is what the engine is judged by, and it has **no tests of its own** -- the owner
-cut them: everything the driver uses is library, and the library's unit tests cover it. So you
-judge the PRODUCT by running it.
+The driver app is what the engine is judged by, and it has **no tests of its own**: everything
+it uses is library, and the library's unit tests cover it. So you judge the PRODUCT by running
+it. One command, and you need to know nothing about how it is built:
 
 ```sh
-sh test/run.sh --library                      # build/liboutshine.a
-c++ -std=c++23 -Iinclude -c apps/driver/src/main.cpp -o /tmp/driver.o &&
-c++ -std=c++23 /tmp/driver.o build/liboutshine.a \
-   $(pkg-config --libs sdl3 sdl3-image) -lz -lcurl -o /tmp/outshine-driver
-mkdir -p /tmp/shots-$$ &&
-/tmp/outshine-driver --assets $TMPDIR/outshine-prepared/apps-driver-f31 \
-   --from 48.1371,11.5754 --to 48.1583,11.5033 --headless --frames 8 --into /tmp/shots-$$
-ls -t /tmp/shots-$$/*.png | head -3
+test/run.sh --drive --from 48.1371,11.5754 --to 48.1583,11.5033
 ```
 
-The gate builds and `--help`-checks the program every fast round (`Programs()` in `test/run.sh`),
-so a broken entry point reaches you as a red gate rather than as a missing screenshot. If the
-run above produces no PNG, that is the round's FIRST finding, filed with what it printed.
-
-Read the newest PNGs with the Read tool — you can see images. Judge them as the owner:
+It prints the directory it wrote to and leaves **ten stills, evenly spaced along the drive**.
+Read them with the Read tool -- you can see images. Judge them as the owner:
 
 - **Does it look like the thing it is?** A road that reads as a road, a horizon that reads as a
   horizon, a car that sits on the surface rather than floating over it.
-- **Against the bar**: Gran Turismo 7 on PS4 is the graphical target for the driver app
-  (board:1573). Name the specific gap -- lighting, material response, geometry density,
-  draw distance, shadow quality -- not "it looks unfinished".
-- **What is missing that a driver needs**: the road markings, the guard rails, the buildings
-  behind the verge, the sky that matches the clock.
+- **Against the bar**: Gran Turismo 7 on PS4 is the graphical target. Name the specific gap --
+  lighting, material response, geometry density, draw distance, shadow quality -- not "it looks
+  unfinished".
+- **What is missing that a driver needs**: road markings, guard rails, the buildings behind the
+  verge, the sky that matches the clock.
+- **Along the drive, not at one point**: ten stills exist so that a defect appearing at one
+  kilometre and not another is visible as such. Say which stills carry a finding.
+
+If the command produces no stills, that is the round's FIRST finding, filed with what it
+printed.
 
 **Sign-off is explicit.** End the screenshot section with one of two sentences and nothing
 between them: *"ABGENOMMEN: der Driver fährt auf der Bar"* or *"NICHT ABGENOMMEN"* followed by
@@ -93,24 +88,19 @@ work for step 5, and the next round checks it off.
 If the stills case cannot run or produces nothing, that is the FIRST finding of the round, filed
 with what it printed. A driver that cannot be looked at is a driver that is not being built.
 
-**You keep the driver's feature ledger, here in this brief** -- CLAUDE.md holds the maps and the
-rules and nothing about one app. Rewrite the table below every round: what STANDS, what is
-DECLARED but not drawn, what is absent, each row naming the case or file that proves it. A
-feature nobody can see is not a feature.
+**You keep the driver's feature ledger, here in this brief** -- CLAUDE.md holds the maps and
+the rules and nothing about one app. Rewrite the table every round from what you SAW and what
+the gate said, never from reading the implementation:
 
-| | stands | proven by |
+| | stands | how you know |
 |---|---|---|
-| an entry point a user runs | yes | `apps/driver/src/main.cpp`, built and `--help`-checked by the gate (board:1860) |
-| it writes frames from any directory | yes | `--assets`, `--into`, `Engine::Under`/`Capture` |
-| a route from two coordinates | library, unproven at the door | `AssembleDrive`; every call site is gone with `apps/driver/test/` -- board:1862 |
-| a road ribbon the wheels stand on | library | `src/actor/path/Ribbon.h:37` |
-| the ground under the corridor | **NOT IN THE LIBRARY** | `Lie()` lived in the deleted test; board:1862 records it verbatim |
-| a body's world matrix, a chase camera | **NOT IN THE LIBRARY** | `Standing()`, `Seen()`, same place, `Seen` written twice and already diverging |
-| the entry point DRIVES what it declares | **NO** | `Engine::Assemble` accepts `Scenario::Driven` and never runs it (board:1862) |
-| shadows, contact or cast | **NO** | the deck under the car is byte-equal to the deck ten metres away |
-| road markings, guard rails, verge furniture, oncoming carriageway | **NO** | nothing declares them |
-| buildings behind the verge, drawn | declared, not reached | `Buildings` is stranded off `Sim` |
-| culling and instancing | **NO** | board:1538 -- every subject is drawn every frame |
+| a program a user runs | yes | the gate builds it and it answers `--help` |
+| ten stills along a declared drive | yes | `test/run.sh --drive` wrote them |
+| the drive actually moves along the route | **NO** | every still is the same picture |
+| ground under the car | **NO** | white background |
+| shadows, contact or cast | **NO** | the deck under the car is the same value as the deck beside it |
+| road markings, guard rails, oncoming carriageway | **NO** | not in any still |
+| buildings, trees, water | **NO** | not in any still |
 
 **And you keep the distance table**, likewise here: green / amber / red / stranded per CURRENT
 diagram, green-and-reached over total, this round against last.
