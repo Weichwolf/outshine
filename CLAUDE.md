@@ -552,7 +552,18 @@ The review NEVER edits src/ — it files, sharpens and REOPENS; the repair is th
 | its gate | run only in its own `git worktree` — the main nest is pid-locked (`test/run.sh`) |
 
 **It owns both maps, and the aim is CURRENT = TARGET** — the distance between them is the
-work list, and the review is the only writer of the diagrams in this file:
+work list. The review is the only JUDGE of the diagrams in this file; who may WRITE one depends
+on whether the change is a measurement or a verdict (board:1855):
+
+| | who writes it | why |
+|---|---|---|
+| a CURRENT node's existence, name, edges; a `file:line`, a count, a measured size | whoever moved the tree, the same session | a node that is gone is not an opinion, and CLAUDE.md must not lie about HEAD between two rounds |
+| a CURRENT node's COLOUR and the row that argues it | the review alone | green/amber/red is a verdict on whether a shape is right, and a repair may not grade its own work |
+| anything in TARGET | the review alone | where the tree is going is not decided by the item in flight |
+
+`harness/claims/TheMapCitesLinesThatSayWhatItClaims` holds the first row to its word: every
+`file:line` the CURRENT tables cite must carry the text quoted beside it.
+
 
 | | | |
 |---|---|---|
