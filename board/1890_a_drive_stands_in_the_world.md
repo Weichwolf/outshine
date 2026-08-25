@@ -285,3 +285,36 @@ the tree.
       and the refusal now happens after. A failure that stops being loud is worse than one that
       stands. Moving the composition means moving where its refusal is read, and that is part of
       the change rather than a detail after it.
+
+      ### Seven: the ground reaches the draw list, and three fixes are named
+
+      `HaveEye_` was a red herring and the printf said so: `Look` runs with `HaveEye_=1` and
+      `parts=517`. The refusal never came from `Look` at all -- `Look` is called only from
+      `Live::Advance`, and this refusal happens during assembly.
+
+      It comes from `Submit` -> `Place`, and there:
+
+          GltfStudio.cpp:372   if (!Aim(renderer, subject, eye, error)) { return false; }
+
+      `Aim`'s fourth parameter is `standsInside` and it defaults to false. `Studio` CARRIES
+      `EyeStandsInside` and `Place` does not pass it. A field carried and not read, which is the
+      same class as `Lit.Declared` (board:1900), `Render.Declared` (board:1901) and
+      `ShadowRadiusM` (board:1867).
+
+      Three fixes, each right on its own and all three needed together:
+
+      1. `Place` passes `studio.EyeStandsInside` to `Aim`
+      2. `Live::Stand` sets `Stood_.EyeStandsInside` and `Stood_.Eye` from `HaveEye_`, because a
+         studio rebuilt from scratch must know whether its eye was declared or derived
+      3. `Rides()` runs before `Composes()`, because a world is composed AROUND a placed body
+
+      With all three the ground reaches the draw list for the first time: **517 batches drawn and
+      517 cast**, 258 of them the car and 259 the ground, where every previous attempt drew 0 or
+      refused. The still gains 4700 opaque pixels and shows no ground plane, so the geometry is
+      submitted and lands somewhere outside the frame -- that is the eighth question.
+
+      None of the three is in the tree. `Live::Eye` is not on the door, so a case that declares an
+      eye and checks the picture is not refused for geometry near it needs a drive, and a drive
+      needs the network. Unprovable changes do not land, twice tonight already. What lands is the
+      measurement: the ground reaches the draw list, and the fix that got it there is three named
+      lines.
