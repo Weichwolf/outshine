@@ -195,3 +195,26 @@ the tree.
       No placement can fix that, because the mixing happens in the buffer. The ground has to be
       its own subject with its own scale, which is what "a compositor's draw item" means and why
       this box is the one the other three wait on.
+
+      ### The obvious fix was tried and WITHDRAWN, and the reason is the order of the stand
+
+      CLAUDE.md already says where the factor belongs -- "glTF is metres by specification;
+      `assetWheelbase / wheelbaseM` corrects a non-conformant asset, **applied once at the
+      stand**" -- and today it is applied in the placement matrix on every frame instead.
+      Moving it onto the vertices was attempted: `Subject::ScaleTo(factor)` scaling `Positions_`
+      once, `Live::Carry` losing its `perUnit`, `Live::ScaledBy` scaling immediately.
+
+      It does not converge in four edits and the reason is the ORDER, not the arithmetic:
+
+      - `Live` is opened during `Declare`, when `MetresPerUnit` is still 1, so the first stand
+        reads and poses unscaled geometry
+      - `ScaledBy` is called later, from `Engine::Routes` after `AssembleDrive`, by which time
+        the picture already stands
+      - `Rigged::ModelShiftM` is computed in metres and applied through a matrix that ALSO
+        scaled, so it has been arriving scaled twice -- roughly 0.0145 m where 0.93 m was meant.
+        Unscaling the matrix makes that shift take effect for the first time, and everything
+        downstream of it moves.
+
+      So the change is right and it is not four edits. It is: the scale is known at ASSEMBLY,
+      before the stand opens, and `ModelShiftM` is stated once in the space it is applied in.
+      Withdrawn rather than half-landed, and the four fixes above stand on their own.
