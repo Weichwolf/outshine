@@ -559,13 +559,6 @@ bool Live::Carry(const double worldFromBodyM[16], const double built[16], std::s
     for (int at = 0; at < 16; ++at) { Stood_.PartPlacement[part][at] = from[at]; }
   }
   BoundsPlaced_ = false;
-  {
-    const double centreM[3] = {body[12], body[13], body[14]};
-    double centreEngine[3];
-    EcefFromGltf(centreM, centreEngine);
-    for (int axis = 0; axis < 3; ++axis) { centreEngine[axis] += kStudioAnchorEcefM[axis]; }
-    Renderer_->ShadowCentre(centreEngine);
-  }
   Placements(Stood_, Scratch_.Placements);
   return Renderer_->SetSubjectPlacements(Scratch_.Placements.data(),
                                          Stood_.PartPlacement.size(), error);

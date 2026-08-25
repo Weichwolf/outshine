@@ -33,6 +33,26 @@ not. That is the difference between the two frames.
 board:1890's closing commit d99dcc4c states the chase drive is *"unchanged in what it draws"*.
 It is not: what it draws is a silhouette, and no still was looked at when that was written.
 
+**THREE HYPOTHESES TESTED AND KILLED, same session.** Each one by running the drive and
+measuring the mean red over the car's own pixels (window x 540..740, y 380..640):
+
+| tried | result |
+|---|---|
+| the shadow centre, which `Live::Carry` computed through `EcefFromGltf` plus `kStudioAnchorEcefM` -- a studio anchor at the equator, for a body standing on a corridor hundreds of metres away | removed. Mean red UNCHANGED at 3.6. The term was wrong and is gone; it was not the cause |
+| the shadow pass itself | it does not run. `Declaration::ShadowRadiusM` is 0 for every scenario the tree stands, so `LightVisibility` is never in the plan and `SetShadowFrame` is never called |
+| the sun's direction | raising `elevationDeg` from 42 to 90 lifts the mean from **3.6 to 9.5**. Light reaches the car and is attenuated by a factor of roughly fifteen; the studio stand-up of the same asset reads above 150 in the same window |
+
+The vehicle's rotation is NOT it either: `Engine::Rides` builds the matrix column-major from
+`OrientationQ` in (w, x, y, z) order, which is what `Physics::Body` declares, and each of the
+nine terms matches the standard form.
+
+**A fourth space seam is beside it and may be the same one.** `src/clients/Live.cpp:218-220`
+pins the camera basis at the origin -- `eye = {0,0,0}`, `forward = {0,0,-1}` -- for every
+frame, while `GltfStudio.cpp:322` passes the real position. CLAUDE.md: *precision has ONE
+boundary and it is the camera*, and a renderer that is camera-relative in 32-bit needs the
+camera it is relative TO. A body 116 m along a corridor is shaded from an eye that says it is
+at the origin.
+
 ## What will be true
 
 - [ ] The driven F31 is lit exactly as the standing one is: the same specular on the shoulder,
