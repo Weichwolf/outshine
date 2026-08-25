@@ -232,3 +232,56 @@ pass the vertices at a bounded distance -- which is why it has no remainder to p
 
 Boxes 3 and 4 -- re-measuring Munich--Hamburg's under-class count and its crawl -- stay closed
 to work until the fit is trustworthy, which is what they were always waiting for.
+
+---
+
+## The alignment fitter is built and the geometry is proven (2026-08-25)
+
+`src/actor/path/Alignment.{h,cpp}` -- the thing the last round said the corner table could not
+carry. It is NOT yet wired into `Fit`; the geometry stands on its own twins first, which is what
+this item asked for.
+
+**How it places an arc, and why that removes the remainder.** The corner table asks each chord
+for a tangency point and has to put the leftover somewhere. An alignment does not: the bend is
+set out the way a road is, from the point where the entering and leaving straights MEET.
+
+```
+PI      = intersection of leg(first-1) and leg(last)
+delta   = total turn across the run
+centre  = PI + (R / cos(delta/2)) along the bisector
+T       = R * tan(delta/2) from the PI, on each straight
+```
+
+`R` is then chosen by ternary search to minimise the furthest the run's vertices sit from that
+circle -- a one-dimensional search over a quantity that is a property of the CURVE, not of the
+room between two consecutive chords.
+
+| chord | corner table | alignment | truth |
+|---|---|---|---|
+| 10 m | 266.649 m (0.6666) | **400.000 m (1.0000)** | 400 m |
+| 20 m | 266.597 m (0.6665) | **400.000 m (1.0000)** | 400 m |
+| 50 m | 266.232 m (0.6656) | **400.000 m (1.0000)** | 400 m |
+| 100 m | 264.922 m (0.6623) | **400.000 m (1.0000)** | 400 m |
+
+and the arc leaves the vertices by **1.1e-13 m** -- the run-merge attempt's 4.86 m came from
+forcing one radius through per-chord tangency demands, which this construction never asks for.
+
+**The accuracy bound ends a run the sign change does not.** A tightening spiral turns one way
+throughout:
+
+| bound | bends | longest run | worst departure |
+|---|---|---|---|
+| 40 m | 1 | 26 vertices | 33.27 m |
+| 8 m | 2 | 18 vertices | 6.91 m |
+| 1 m | 4 | 12 vertices | 0.74 m |
+
+Proving test: `test/unit/actor/path/AnAlignmentIsTheArcTheVerticesDescribe` (I.4.8).
+Negative control, run: the run detection removed so a bend is one vertex -> 21 bends at
+**R = 4.902 m**, the vehicle's own lock, 0.0123 of the truth.
+
+### What is left
+
+- [ ] The segment chain: tangent points, spiral transitions at each bend's ends, and the
+      straight between two bends measured between their tangent points rather than derived from
+      a leg.
+- [ ] `Fit` calls it, and its 21 twins say what changed.
