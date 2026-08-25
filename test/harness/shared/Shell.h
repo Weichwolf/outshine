@@ -15,10 +15,15 @@ inline int Run(const std::string &command, std::string &said) {
   return pclose(pipe);
 }
 
+// A command's answer is what it said, not what it said plus the separator that ended it.
+// board:1857: dropping this trim turned two walks anchored on `Ask(...).size() == 40` into
+// walks over an empty window -- and a guard that stops guarding goes GREEN, so the suite that
+// was supposed to control the change could not see it.
 [[nodiscard]] inline std::string Ask(const std::string &command, int *verdict = nullptr) {
   std::string said;
   const int closed = Run(command, said);
   if (verdict != nullptr) { *verdict = closed; }
+  while (!said.empty() && (said.back() == '\n' || said.back() == ' ')) { said.pop_back(); }
   return said;
 }
 

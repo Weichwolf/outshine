@@ -35,6 +35,11 @@ int main(void) {
   std::printf("NOTE the rule binds from %s\n", born ? birth.c_str() : "(uncommitted -- nothing yet in window)");
   CHECK(!Ask("git rev-parse --git-dir 2>/dev/null").empty(),
         "the walk can read the board's own history");
+  CHECK(born || Ask("git ls-files " + self).empty(),
+        "**AND A WALK ANCHORED TO ITS OWN BIRTH FOUND THAT BIRTH**: this proof is versioned, so "
+        "an empty window means the anchor did not parse, not that there is nothing to judge -- "
+        "and a walk over nothing collides with nothing and reports PASS, which is how "
+        "board:1854 silenced this claim for eleven commits (board:1857)");
 
   // What matters is an item's LATEST journey into board/closed, not every journey it ever made.
   // An item closed out of turn and then moved back through board/active really does pass
