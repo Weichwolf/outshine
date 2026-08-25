@@ -194,6 +194,7 @@ PROVES -- what src/ provably does, one line each
   pi stands once and it is std::numbers: every pi in src/ derives from std::numbers::pi and the alias lives in one header (board:1630)
   scenario: a declared volume fires on the transition its declaration names -- enter when a body arrives, exit when it leaves -- and a body that stays f
   the door: a declared binding reports both edges of its button, so a control command can be held and can end
+  the door: a declared sphere with air is the second light every scene under it receives, so a surface the key cannot reach is dark rather than black, a
   the door: a per-frame count belongs to the stage instance that made it, and two engines in one process do not read each other's numbers
   the door: a section a scenario did not declare decides nothing, and what stands in its place is the engine's own default rather than the zeroes of an 
   the door: a subject casts a shadow over every batch it draws, and a declaration that names no shadow radius gets one derived from the subject's extent

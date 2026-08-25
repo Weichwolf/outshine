@@ -3,39 +3,34 @@ State: open
 Area: render, scenario
 Tags: measured, lighting, units
 
-# `<environment>` carries an illuminance, and the sky that now stands supplies it
+# A studio's ambient carries a unit, and it is the key's
 
-`<key lux="40000">` declares an ILLUMINANCE. `<environment r="0.06" g="0.07" b="0.09">` declares
-a bare triple with no unit at all, and the two are summed after the same exposure divides both.
+**The sphere half of this item is done and measured** -- a declared sphere with air supplies the
+irradiance every surface under it receives (`MediumSkyIrradiance`, reached the day
+`Declared_.DrawsSky` was first written), proven by
+`test/harness/outshine/door/ScoreWhatASkyLightsInShadow.cpp`. What is left is the studio.
 
-## The arithmetic, and it is the whole finding
+A scenario that declares NO sphere has exactly one ambient and it is the typed triple:
 
-    ev100    = log2(40000 / 2.5)
-    Exposure = 1 / (1.2 * 2^ev100)          = 5.208e-05
-    key      = 40000 * Exposure             = 2.0833      -- independent of KeyLux
-    ambient  = 0.06  * Exposure             = 3.125e-06
-    ambient as sRGB                         = 0.80 of 255
+    include/Scenario.h:96   double Environment[3] = {0.0, 0.0, 0.0};
 
-**The declared environment contributes less than one level.** Whatever the key does not reach is
-black by construction, and no value a scenario writes in that attribute can change that unless it
-is written in the key's units -- a real clear sky's diffuse component is of order 1e4 lx, five
-orders of magnitude from 0.06.
+`<key lux="40000">` is an ILLUMINANCE. `<environment r g b>` is a bare triple with no unit, and
+the two are summed after one exposure divides both:
 
-Measured on `apps/driver` at ab25c64f, first-person, 1280x720:
+    Exposure = 2.5 / (1.2 * KeyLux)  = 5.208e-05
+    key      = KeyLux * Exposure     = 2.0833      -- independent of KeyLux
+    ambient  = 0.06   * Exposure     = 3.125e-06   = 0.80 of 255 in sRGB
 
-| region | mean max(RGB) | below RGB 8 |
-|---|---|---|
-| bonnet, key-lit | 105.29 | 24.1 % |
-| sky through the screen | 103.33 | 3.1 % |
-| cabin interior | 34.73 | **29.5 %** |
-| ground through the side glass | 36.09 | 15.2 % |
+So a studio scenario's ambient is off by five orders of magnitude unless its author happens to
+write the number in lux, and nothing in the declaration says to. `apps/driver/src/f31.scenario`
+carried `r="0.06" g="0.07" b="0.09"` and removing it changed the picture by nothing measurable:
+mean max(RGB) 47.19 with, 47.19 without.
 
 ## What will be true
 
-- [ ] The ambient a subject sees is an ILLUMINANCE in the key's own units, or it is not a number
-      a scenario types at all: a sphere with air now stands (board:1870) and its radiance is the
-      irradiance every surface under it receives. TARGET names that stage `irradiance`.
-- [ ] Proving case: a subject under a declared sphere reads a floor ABOVE the key's own shadow
-      side, and the floor tracks the sun's elevation because the sky does. Negative control: the
-      same subject with no sphere declared falls to the engine's own default and the case goes
-      red on the floor it no longer has.
+- [ ] The declared ambient is an ILLUMINANCE, in the same unit as the key, so a studio and a
+      sphere are lit by numbers that can be compared.
+- [ ] Proving case: a studio scenario declaring an ambient equal to its key lights a shaded
+      surface to the same order as a lit one, through `include/` alone. Negative control: the
+      same declaration read as a bare triple falls below one level of 255, which is what it does
+      today.

@@ -5,7 +5,6 @@
   <render widthPx="1280" heightPx="720" fps="60" fill="0.9"/>
   <lighting>
     <key lux="40000" elevationDeg="42" bearingDeg="150"/>
-    <environment r="0.06" g="0.07" b="0.09"/>
   </lighting>
 
   <assets>
