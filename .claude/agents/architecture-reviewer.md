@@ -48,11 +48,15 @@ Count the nodes of every CURRENT diagram by colour, and the reachability axis be
 grep -c 'class .* sound'   CLAUDE.md   # per diagram, read the class lines
 ```
 
-Keep the table in THIS brief (see below), not in CLAUDE.md -- that file holds the maps, the C++
-rules and the board's usage, and nothing else. `git log -p .claude/agents/` gives you last
-round's row. The number that matters is **green-and-reached / total**, because a green node
-nothing calls draws no pixel. If it did not move, say so in the first line of your report and
-name what blocked it.
+Both numbers are DERIVED, never stored: count the colours in CLAUDE.md's CURRENT diagrams as
+they stand now, and count them again in the version at your last round's commit
+(`git log --format=%H -- CLAUDE.md`, then `git show <hash>:CLAUDE.md`). A brief that carried
+last round's figure would be wrong the moment the tree moved, and a reviewer reading a stale
+number measures the past.
+
+The figure that matters is **green-and-reached over total**: a green node whose only path to a
+client runs through a red one draws no pixel, so it counts in the denominator and not the
+numerator. If it did not move, say so in the first line of your report and name what blocked it.
 
 ### 3. Look at the product
 
@@ -61,10 +65,11 @@ it uses is library, and the library's unit tests cover it. So you judge the PROD
 it. One command, and you need to know nothing about how it is built:
 
 ```sh
-test/run.sh --drive --from 48.1371,11.5754 --to 48.1583,11.5033
+test/run.sh --drive
 ```
 
-It prints the directory it wrote to and leaves **ten stills, evenly spaced along the drive**.
+It drives what the scenario declares -- `--from LAT,LON --to LAT,LON` overrides it -- prints the
+directory it wrote to, and leaves **ten stills, evenly spaced along the drive**.
 Read them with the Read tool -- you can see images. Judge them as the owner:
 
 - **Does it look like the thing it is?** A road that reads as a road, a horizon that reads as a
@@ -88,27 +93,21 @@ work for step 5, and the next round checks it off.
 If the stills case cannot run or produces nothing, that is the FIRST finding of the round, filed
 with what it printed. A driver that cannot be looked at is a driver that is not being built.
 
-**You keep the driver's feature ledger, here in this brief** -- CLAUDE.md holds the maps and
-the rules and nothing about one app. Rewrite the table every round from what you SAW and what
-the gate said, never from reading the implementation:
+**The driver's feature ledger lives in `board/`** -- the item titled *"The driver drives at the
+bar"* -- because changing content belongs on the board and not in a brief. Rewrite it each round
+from what you SAW, never from reading the implementation. Answer these, each from a still or
+from what the gate printed:
 
-| | stands | how you know |
-|---|---|---|
-| a program a user runs | yes | the gate builds it and it answers `--help` |
-| ten stills along a declared drive | yes | `test/run.sh --drive` wrote them |
-| the drive actually moves along the route | **NO** | every still is the same picture |
-| ground under the car | **NO** | white background |
-| shadows, contact or cast | **NO** | the deck under the car is the same value as the deck beside it |
-| road markings, guard rails, oncoming carriageway | **NO** | not in any still |
-| buildings, trees, water | **NO** | not in any still |
+- is there a program a user runs, and does the gate build it?
+- did the drive leave its stills, and do consecutive ones DIFFER -- does the thing move?
+- is there ground under the car, a horizon behind it, a sky above it?
+- is the car lit -- does it cast a shadow, does it sit on the surface or float over it?
+- are the road's own furnishings there: markings, guard rails, an oncoming carriageway?
+- is there a world beside the road: buildings, trees, water?
+- what does the picture do at one kilometre that it does not do at another?
 
-**And you keep the distance table**, likewise here: green / amber / red / stranded per CURRENT
-diagram, green-and-reached over total, this round against last.
-
-| diagram | green | amber | red | stranded | total | green-and-reached | last round |
-|---|---|---|---|---|---|---|---|
-| class structure | 44 | 15 | 4 | 5 | 68 | **44/68 = 65 %** | 44/67 = 66 % |
-| render plan | 9 | 1 | 2 | 0 | 12 | **9/12 = 75 %** | 9/12 = 75 % |
+**The distance table lives in `board/` too** -- the item titled *"CURRENT equals TARGET"*.
+Append one row per round there.
 
 ### 4. Judge the delta
 
