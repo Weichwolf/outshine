@@ -47,6 +47,23 @@ which counts `Clients::Live::PlanInits()` over three declarations of one picture
 
 Negative control, the unconditional teardown restored: 1, 1 and 1, and both CHECKs fail.
 
-What is NOT done, and this item stays open for it: a subject that CHANGES still costs a whole
-rebuild, because `Restand` is reached only by the drive path. That is the case the viewer hits
-on every switch, and it is the one that matters.
+The case that matters is closed too: a subject that CHANGES. `Live::Restands(stands, variant,
+animation)` swaps the file behind a standing picture -- the render plan survives because
+`Plan_ == nullptr` already guarded its init and only the teardown was destroying it, and the
+plan is rebuilt only where the new subject needs a different one, which is when it animates and
+the old did not. Proving test: `harness/outshine/door/ScoreWhatASubjectSwapRebuilds`, two
+minimal glTF triangles written into the nest --
+
+  FIRST SUBJECT   read 1 asset(s), initialised 1 plan(s)
+  SWAPPED SUBJECT read 1 further asset(s), initialised 0 further plan(s)
+  SWAPPED BACK    initialised 0 further plan(s)
+
+Three subjects in one picture: 3 reads, 1 plan. The read count is half the measurement -- a swap
+that read nothing would mean the case measures nothing.
+
+Negative control, the subject folded back into the sameness test so a changed subject takes the
+full path: 1 further plan per swap, and both CHECKs fail.
+
+What is NOT done, and this item stays open for it: parts ENTER and LEAVE. Today the picture
+holds one subject and a swap replaces it. A scenario that declares five bodies and drops one
+still has no verb, and the entity store is where that belongs (board:1896, board:1897).

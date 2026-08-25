@@ -79,6 +79,8 @@ public:
                                  std::string &error);
 
   [[nodiscard]] bool Redeclare(std::vector<Shows> surfaces, std::string &error);
+  [[nodiscard]] bool Restands(std::string stands, std::string variant, AssetAnimation animation,
+                             std::string &error);
   [[nodiscard]] const std::string &ProgrammeOf(size_t surface) const;
 
   [[nodiscard]] bool Restand(const Gltf::Subject &built, size_t carried, std::string &error);
@@ -120,6 +122,7 @@ public:
   static size_t TookPosing_, TookSubmitting_, TookAiming_, TookDrawing_;
   static size_t AssetReads_;
   static size_t PlanInits_;
+  bool PlanMoves_ = false;
   [[nodiscard]] static size_t TookPosing() { return TookPosing_; }
   [[nodiscard]] static size_t TookSubmitting() { return TookSubmitting_; }
   [[nodiscard]] static size_t TookAiming() { return TookAiming_; }

@@ -175,6 +175,7 @@ bool Live::Build(std::string &error) {
     declaration.Exposure =
         Render::Declared<float>((float)(1.0 / (1.2 * std::pow(2.0, ev100))));
   }
+  if (Plan_ != nullptr && PlanMoves_ != Moves_) { Plan_ = nullptr; }
   if (Plan_ == nullptr) {
     auto made = Render::RenderPlan::Compile(declaration);
     if (!made) {
@@ -182,6 +183,7 @@ bool Live::Build(std::string &error) {
       return false;
     }
     Plan_ = *std::move(made);
+    PlanMoves_ = Moves_;
     PlanInits_ += 1;
     Renderer_->Init(Declared_.SurfaceWidthPx, Declared_.SurfaceHeightPx, Plan_);
     if (!Renderer_->DeviceUsable()) {
@@ -564,6 +566,22 @@ bool Live::Carry(const double worldFromBodyM[16], const double built[16], std::s
   Placements(Stood_, Scratch_.Placements);
   return Renderer_->SetSubjectPlacements(Scratch_.Placements.data(),
                                          Stood_.PartPlacement.size(), error);
+}
+
+bool Live::Restands(std::string stands, std::string variant, AssetAnimation animation,
+                    std::string &error) {
+  Declared_.Stands = std::move(stands);
+  Declared_.Variant = std::move(variant);
+  Declared_.Animation = animation;
+  Declared_.Built = nullptr;
+  FileStands_ = false;
+  Stoodup_ = false;
+  Moves_ = false;
+  Frames_ = 1;
+  At_ = 0;
+  if (!Build(error)) { return false; }
+  if (!Stand(error)) { return false; }
+  return Submit(error);
 }
 
 bool Live::Restand(const Gltf::Subject &built, size_t carried, std::string &error) {

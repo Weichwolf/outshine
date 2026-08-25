@@ -511,10 +511,10 @@ namespace {
   return true;
 }
 
-[[nodiscard]] bool SameStand(const Clients::Declaration &a, const Clients::Declaration &b) {
-  return a.Animation == b.Animation && a.SurfaceWidthPx == b.SurfaceWidthPx &&
-         a.SurfaceHeightPx == b.SurfaceHeightPx && a.Stands == b.Stands && a.Built == b.Built &&
-         a.Variant == b.Variant && a.MetresPerUnit == b.MetresPerUnit && a.Fps == b.Fps &&
+[[nodiscard]] bool SamePicture(const Clients::Declaration &a, const Clients::Declaration &b) {
+  return a.SurfaceWidthPx == b.SurfaceWidthPx &&
+         a.SurfaceHeightPx == b.SurfaceHeightPx && a.Built == b.Built &&
+         a.MetresPerUnit == b.MetresPerUnit && a.Fps == b.Fps &&
          a.Fill == b.Fill && a.OrbitDegPerFrame == b.OrbitDegPerFrame &&
          a.PictureLeftFrac == b.PictureLeftFrac && a.PictureTopFrac == b.PictureTopFrac &&
          a.PictureWidthFrac == b.PictureWidthFrac && a.PictureHeightFrac == b.PictureHeightFrac &&
@@ -523,6 +523,11 @@ namespace {
          a.Exposure == b.Exposure && a.DrawsSky == b.DrawsSky &&
          a.ShadowRadiusM == b.ShadowRadiusM && a.KeyElevationDeg == b.KeyElevationDeg &&
          a.KeyBearingDeg == b.KeyBearingDeg;
+}
+
+[[nodiscard]] bool SameStand(const Clients::Declaration &a, const Clients::Declaration &b) {
+  return SamePicture(a, b) && a.Stands == b.Stands && a.Variant == b.Variant &&
+         a.Animation == b.Animation;
 }
 
 }
@@ -609,7 +614,12 @@ bool Engine::Declare(const Scenario &scenario) {
     S_->Views.emplace(std::move(*stood));
   }
 
-  if (S_->Standing && SameStand(S_->Shown, declared)) {
+  if (S_->Standing && SamePicture(S_->Shown, declared)) {
+    if (!SameStand(S_->Shown, declared) &&
+        !S_->Standing->Restands(declared.Stands, declared.Variant, declared.Animation,
+                                S_->Error)) {
+      return false;
+    }
     if (!SameSurfaces(S_->Shown.Surfaces, declared.Surfaces) &&
         !S_->Standing->Redeclare(declared.Surfaces, S_->Error)) {
       return false;
