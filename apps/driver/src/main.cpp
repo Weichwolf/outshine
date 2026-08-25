@@ -21,6 +21,8 @@ struct Asked {
   bool Headless = false;
   long Frames = 0;
   std::string Into;
+  std::string Assets;
+  std::string Shaders = ".";
 };
 
 [[nodiscard]] bool Pair(std::string_view said, double &first, double &second) {
@@ -47,6 +49,8 @@ void Usage() {
       "  --headless          render without opening a window\n"
       "  --frames N          stop after N frames (default: until the drive arrives)\n"
       "  --into DIR          write stills here\n"
+      "  --assets DIR        where a scenario's asset URIs resolve\n"
+      "  --shaders DIR       where the shipped shaders are (default .)\n"
       "\n"
       "--from and --to are DELTAS on what the scenario declares: omit them and the drive the\n"
       "declaration carries is the one that runs.\n");
@@ -71,6 +75,10 @@ void Usage() {
       out.Scenario = argv[++at];
     } else if (said == "--into" && wants) {
       out.Into = argv[++at];
+    } else if (said == "--assets" && wants) {
+      out.Assets = argv[++at];
+    } else if (said == "--shaders" && wants) {
+      out.Shaders = argv[++at];
     } else if (said == "--frames" && wants) {
       int held = 0;
       if (!Number(argv[++at], held)) { return false; }
@@ -101,6 +109,7 @@ int main(int argc, char **argv) {
   }
 
   outshine::Engine engine;
+  engine.Under(outshine::Roots{asked.Assets, asked.Shaders});
   if (!engine.Read(asked.Scenario)) {
     std::printf("REFUSED %s\n", engine.Error().c_str());
     return 1;
@@ -133,14 +142,26 @@ int main(int argc, char **argv) {
   engine.RenderTo(outshine::Extent{asked.WidthPx, asked.HeightPx});
 
   long frames = 0;
+  long kept = 0;
   while (engine.Advance()) {
     ++frames;
+    if (!asked.Into.empty()) {
+      char named[512];
+      std::snprintf(named, sizeof named, "%s/frame%06ld.png", asked.Into.c_str(), frames);
+      if (!engine.Capture(named)) {
+        std::printf("REFUSED %s\n", engine.Error().c_str());
+        return 1;
+      }
+      ++kept;
+    }
     if (asked.Frames > 0 && frames >= asked.Frames) { break; }
   }
   if (!engine.Error().empty()) {
     std::printf("STOPPED after %ld frames: %s\n", frames, engine.Error().c_str());
     return 1;
   }
-  std::printf("DROVE %ld frames of %d\n", frames, engine.Frames());
+  std::printf("DROVE %ld frames, kept %ld", frames, kept);
+  if (!asked.Into.empty()) { std::printf(" into %s", asked.Into.c_str()); }
+  std::printf("\n");
   return 0;
 }

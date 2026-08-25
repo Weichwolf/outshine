@@ -14,6 +14,11 @@
 
 namespace outshine {
 
+struct Roots {
+  std::string Assets;
+  std::string Shaders;
+};
+
 class Engine {
 public:
   Engine();
@@ -24,6 +29,9 @@ public:
   Engine &operator=(const Engine &) = delete;
 
   void RenderTo(Extent frame);
+  void Under(Roots roots);
+  [[nodiscard]] bool Capture(std::string_view path);
+  [[nodiscard]] const Roots &Under(void) const;
 
   [[nodiscard]] bool Read(std::string_view path);
   [[nodiscard]] bool Load(std::string_view path);

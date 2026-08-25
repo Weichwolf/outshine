@@ -16,6 +16,18 @@ namespace outshine {
 
 inline constexpr size_t kParkedBound = 8;
 
+namespace {
+
+[[nodiscard]] std::string Beneath(const std::string &under, const std::string &named) {
+  if (under.empty() || named.empty() || named.front() == '/' ||
+      named.find("://") != std::string::npos) {
+    return named;
+  }
+  return under.back() == '/' ? under + named : under + "/" + named;
+}
+
+}
+
 struct Engine::State {
   Render::Renderer Device;
   std::unique_ptr<Clients::Live> Standing;
@@ -29,6 +41,7 @@ struct Engine::State {
   Column<Drive> Drives;
   Column<Traits> Kinds;
   Assembled Stood;
+  Roots Under;
   std::string Error;
 };
 
@@ -110,6 +123,18 @@ Engine &Engine::operator=(Engine &&) noexcept = default;
 
 void Engine::RenderTo(Extent frame) { S_->Frame = frame; }
 
+void Engine::Under(Roots roots) { S_->Under = std::move(roots); }
+
+const Roots &Engine::Under(void) const { return S_->Under; }
+
+bool Engine::Capture(std::string_view path) {
+  if (!S_->Standing) {
+    S_->Error = "nothing stands to be captured -- a scenario is declared before a frame is kept";
+    return false;
+  }
+  return S_->Standing->Screenshot(std::string(path), S_->Error);
+}
+
 bool Engine::Declare(const Scenario &scenario) {
   const Asset *const subject = scenario.Subject();
   if (subject == nullptr) {
@@ -122,7 +147,7 @@ bool Engine::Declare(const Scenario &scenario) {
       scenario.Render.Frame.WidthPx > 0 ? scenario.Render.Frame.WidthPx : S_->Frame.WidthPx;
   declared.SurfaceHeightPx =
       scenario.Render.Frame.HeightPx > 0 ? scenario.Render.Frame.HeightPx : S_->Frame.HeightPx;
-  declared.Stands = subject->Uri;
+  declared.Stands = Beneath(S_->Under.Assets, subject->Uri);
   declared.Variant = subject->Variant;
   declared.Animation = subject->Animation;
   declared.Fps = scenario.Render.Fps;
