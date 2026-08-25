@@ -158,6 +158,8 @@ int main(int argc, char **argv) {
   if (!assembled && !asked.Into.empty()) {
     char named[512];
     std::snprintf(named, sizeof named, "%s/refused.png", asked.Into.c_str());
+    const bool stood = engine.Advance();
+    if (!stood) { std::printf("STILL %s\n", engine.Error().c_str()); }
     if (engine.Capture(named)) {
       std::printf("KEPT %s -- a failure is loud, and something is always drawn\n", named);
     }
