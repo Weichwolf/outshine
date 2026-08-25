@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <vector>
@@ -9,6 +10,8 @@
 #include "Face.h"
 
 namespace {
+
+constexpr int kScrollRows = 3;
 
 struct Asked {
   std::string Scenario;
@@ -80,6 +83,14 @@ public:
   [[nodiscard]] bool Moved() const { return Moved_; }
 
   void Settled() { Moved_ = false; }
+
+  void Scrolls(int rows, int fits) {
+    const int shown = (int)outshine::Viewer::Filtered(Cases_, At_).size();
+    const int last = shown > fits ? shown - fits : 0;
+    const int was = At_.ScrolledRows;
+    At_.ScrolledRows = std::clamp(At_.ScrolledRows + rows, 0, last);
+    Moved_ = Moved_ || At_.ScrolledRows != was;
+  }
 
   [[nodiscard]] const outshine::Viewer::Listed *Picked() const {
     const std::vector<int> shown = outshine::Viewer::Filtered(Cases_, At_);
@@ -230,6 +241,11 @@ int main(int argc, char **argv) {
     ++frames;
     for (SDL_Event event; SDL_PollEvent(&event);) {
       closing = closing || event.type == SDL_EVENT_QUIT;
+      if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+        browsing.Scrolls((int)-event.wheel.y * kScrollRows,
+                         outshine::Viewer::RowsThatFit(asked.HeightPx));
+        continue;
+      }
       (void)engine.Handles(event);
     }
     if (browsing.Moved()) {
