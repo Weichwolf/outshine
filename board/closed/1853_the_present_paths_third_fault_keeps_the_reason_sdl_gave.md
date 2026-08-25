@@ -34,11 +34,11 @@ what it is for.
 
 ## What will be true
 
-- [ ] `PresentFrame`'s command-buffer refusal writes `SDL_GetError()` into `WhyNot_` before it
+- [x] `PresentFrame`'s command-buffer refusal writes `SDL_GetError()` into `WhyNot_` before it
       returns, and its sentence points at it the way `:846` does.
-- [ ] The present path still allocates nothing on the path that returns a value or `nullopt` --
+- [x] The present path still allocates nothing on the path that returns a value or `nullopt` --
       the two outcomes a running frame loop produces.
-- [ ] Proving test: `unit/render/ASurfaceIsDeclaredAndTheRefusalNamesWhatIsMissing` asserts that
+- [x] Proving test: `unit/render/ASurfaceIsDeclaredAndTheRefusalNamesWhatIsMissing` asserts that
       each of the three refusals leaves a `WhyNot()` a caller can read, or states per fault why
       one is not owed. Negative control: HEAD -> the command-buffer arm leaves `WhyNot()`
       unchanged from whatever the last unrelated failure put there, which is worse than empty.
@@ -48,3 +48,27 @@ what it is for.
 - 2026-08-25 -- filed by the hourly review, checking `board:1847`'s closure against its own
   stated rule rather than against its title. The title is met; this sentence of the closure is
   not.
+
+**Closed.**
+
+```cpp
+src/render/Renderer.cpp:900   WhyNot_ = std::string("the device gave no command buffer: ") + SDL_GetError();
+src/render/Renderer.cpp:901   return std::unexpected("the device gave no command buffer, and WhyNot carries what it said");
+```
+
+The rule board:1847's closure stated now holds at all three faults, and it is held by a walk
+rather than by care: `harness/claims/ADeviceFaultKeepsWhatTheDeviceSaid` reads
+`src/render/Renderer.cpp`, finds every `return std::unexpected(` whose sentence names the
+DEVICE, and requires the device's own reason to have been copied within the lines before it.
+
+```
+NOTE refusals the render door carries   = 9 refusals
+NOTE SDL errors it copies into WhyNot   = 7 copies
+```
+
+Negative control, run: the assignment removed again ->
+`FOUND Renderer.cpp:900 refuses with what the DEVICE said and keeps none of it`, red at :84.
+
+The walk found its own first defect immediately: `IV.26` was already taken by
+`TheNestRefusesASecondRunner`, and `AClaimNumberNamesOneClaim` said so before this claim ever
+ran. It carries `IV.31`.
