@@ -13,6 +13,7 @@
 #include "DeclaredSources.h"
 #include "GroundStack.h"
 #include "DriveAssembly.h"
+#include "GroundPatchwork.h"
 #include "Renderer.h"
 #include "ScenarioRead.h"
 
@@ -74,6 +75,7 @@ struct Engine::State {
   Assembled Stood;
   Roots Under;
   Data::Transport *Wire = nullptr;
+  size_t GroundTiles = 0;
   Ground::GroundStack Stack;
   Sim::DriveProduct Drive;
   bool Drove = false;
@@ -191,6 +193,65 @@ double Engine::ReachedM(void) const {
 }
 
 double Engine::RouteM(void) const { return S_->Drove ? S_->Drive.Way.Line.LengthM() : 0.0; }
+
+size_t Engine::GroundTiles(void) const { return S_->GroundTiles; }
+
+bool Engine::Compose(void) {
+  S_->GroundTiles = 0;
+  if (!S_->Standing) {
+    S_->Error = "nothing stands to compose a world around";
+    return false;
+  }
+  const Scenario &declared = S_->Declared;
+  if (!declared.Ground.Declared) {
+    S_->Error = "the scenario declares no sphere, so there is no ground to compose";
+    return false;
+  }
+  if (S_->Wire == nullptr) {
+    S_->Error = "the ground is fetched, and no transport was handed to the engine";
+    return false;
+  }
+
+  Quietly say;
+  if (!S_->Stack.Opened() &&
+      !S_->Stack.Open(S_->Under.Cache, S_->Under.Shipped,
+                      {Data::ShippedProviders().begin(), Data::ShippedProviders().end()},
+                      declared.Ground.Lat, declared.Ground.Lon, *S_->Wire, say)) {
+    S_->Error = say.WhyNot();
+    return false;
+  }
+
+  Around over;
+  over.LatDeg = declared.Ground.Lat;
+  over.LonDeg = declared.Ground.Lon;
+  over.Zoom = S_->Stack.FinestZoomOf(Data::DataKind::Elevation);
+  over.Ring = 1;
+  const auto laid = LayPatchwork(S_->Stack.Pool(), over);
+  if (!laid) {
+    S_->Error = laid.error();
+    return false;
+  }
+
+  Gltf::Piece ground;
+  ground.NodeName = "ground";
+  ground.Material = 0;
+  ground.PositionsM = Span<const float>(laid->PositionM.data(), laid->PositionM.size());
+  ground.Normals = Span<const float>(laid->NormalM.data(), laid->NormalM.size());
+  ground.Indices = Span<const uint32_t>(laid->Index.data(), laid->Index.size());
+
+  Gltf::Subject world;
+  if (!world.Assemble(Gltf::Assembly{Span<const Gltf::Piece>(&ground, 1)})) {
+    S_->Error = world.Error();
+    return false;
+  }
+  if (!world.Append(S_->Standing->Shown())) {
+    S_->Error = world.Error();
+    return false;
+  }
+  if (!S_->Standing->Restand(world, S_->Error)) { return false; }
+  S_->GroundTiles = laid->Tiles;
+  return true;
+}
 
 const Roots &Engine::Under(void) const { return S_->Under; }
 

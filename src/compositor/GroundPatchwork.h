@@ -8,7 +8,7 @@
 
 #include "TileMeshes.h"
 
-namespace outshine::Compositor {
+namespace outshine {
 
 struct Around {
   double LatDeg = 0.0;

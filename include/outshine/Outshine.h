@@ -36,6 +36,8 @@ public:
   [[nodiscard]] bool Drove(void) const;
   [[nodiscard]] double ReachedM(void) const;
   [[nodiscard]] double RouteM(void) const;
+  [[nodiscard]] bool Compose(void);
+  [[nodiscard]] size_t GroundTiles(void) const;
   [[nodiscard]] bool Capture(std::string_view path);
   [[nodiscard]] const Roots &Under(void) const;
 

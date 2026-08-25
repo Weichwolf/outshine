@@ -4,7 +4,7 @@
 
 #include "TileGeodesy.h"
 
-namespace outshine::Compositor {
+namespace outshine {
 
 namespace {
 

@@ -1,7 +1,0 @@
-# A CASE DIRECTORY CARRIES ONLY ITS DECLARATION. Everything else in one is derived and the runner
-# prunes it; the harness that scores this corpus lives under test/harness/ and no source sits among
-# the cases, so this file needs no anchor carving one out.
-*
-!*/
-!.gitignore
-!manifest.json
