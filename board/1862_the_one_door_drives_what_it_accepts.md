@@ -34,9 +34,23 @@ and the one program a user runs reaches them only where somebody walked the wire
 - [ ] Every other row above is reached from `src/`, once, through the door — or refused by name
       at assembly.
 - [ ] `apps/driver --from ... --to ...` writes a still of the ROAD, and two consecutive stills
-      DIFFER because the car moved.
+      DIFFER because the car moved. **Measured 2026-08-25 by the review**: at a9a96a0c the drive
+      wrote 14 840 stills over 11 minutes, 1.4 GB, and all of them hash to the same
+      `d2cd33750477d24f965adc5340f28f8a` — a car on white, no ground, no sky, no shadow. The
+      07:39 run of the queue's own gate produced the same ten bytes-identical files. Nothing in
+      the picture moves and nothing in it is a road.
 - [ ] `test/run.sh --drive` spaces its ten stills by DISTANCE along the route rather than by
-      frame — the same thing only while nothing moves.
+      frame. The cadence is not merely coarse, it is broken: `ofFrames` is
+      `(long)engine.Frames()` (apps/driver/src/main.cpp:158), `Engine::Frames()` hands back
+      `S_->Standing->Frames()` (src/clients/Engine.cpp:540) and `Live` defaults `int Frames_ = 1;`
+      (src/clients/Live.h:170), so `frames * Stills >= (nextStill + 1) * ofFrames` (:165) is true
+      on EVERY frame and the drive keeps one still per frame until it is killed.
+- [ ] The corridor's tile ring joins: at 1af2c00b a 5 km Munich route refuses with *a network in
+      pieces* — 20 576 of 64 334 nodes reachable from the start. That is the first content-level
+      result the product has produced and it is a defect in the ring, not in the search.
+- [ ] The gate is green with the drive in the door. It is not: `8 BUILD` at b7ffe736, seven of
+      them the `render/outshine/client` suite, which stopped linking the day `Engine.cpp` took
+      `Sim::AssembleDrive`, `Sim::DriveTick` and `Data::ShippedProviders` (board:1582).
 - [ ] Three library functions the deleted driver tests held are library code with a unit twin
       each: `Lie` (the ground under the corridor — board:1805), `Standing` (a body's world
       matrix) and `Seen` (the chase eye, which was written twice and already diverging).

@@ -25,4 +25,8 @@ it blocks SIMD while being correct.
 - [ ] The two greps come back empty at every boundary, and a `const vector&` parameter is a
       finding.
 - [ ] Every field, tile and instance stream is viewed through `std::mdspan` over one block.
-- [ ] A refusal that carries a reason is `std::expected`, never bool-plus-string.
+- [ ] A refusal that carries a reason is `std::expected`, never bool-plus-string, and never a
+      line of prose the caller greps. The ONE door does the last of those today:
+      `if (line.rfind("REFUSED", 0) == 0 && Why.empty()) { Why = line; }`
+      (src/clients/Engine.cpp:35) reconstructs the engine's refusal by pattern-matching the text
+      a `Sink` printed for a human, which is why `test/run.sh --drive` says `REFUSED REFUSED`.

@@ -10,6 +10,29 @@ The rule is the owner's and the enforcement is the build's: when the include set
 the breach, the rule needs no reviewer. Today `apps/driver/src` is declared with sixteen
 `-Isrc/...` entries (test/run.sh:194) — the internals wholesale.
 
+**Measured 2026-08-25 at 1af2c00b**: the SOURCE now obeys the rule and the BUILD does not.
+`apps/driver/src/main.cpp` includes `<outshine/Outshine.h>` and `<outshine/Fetching.h>` and
+nothing else, but test/run.sh:194 still opens `-Itools/host` beside the sixteen `-Isrc/...`,
+so the door the driver walked through by hand is one `#include` away from being left open again.
+The rule is kept by a person, which is exactly what this item says it must not be.
+
+**And the door is a warehouse, measured by the gate going red.** At b7ffe736 the fast gate says
+`277 tests: 269 PASS 0 FAIL ... 8 BUILD`, and seven of the eight are the whole
+`test/render/outshine/client` suite — the cases whose entire purpose is to prove a client needs
+nothing but the door. They no longer LINK:
+
+```
+Undefined symbols for architecture arm64:
+  "outshine::Sim::AssembleDrive(...)", referenced from: outshine::Engine::Assemble()
+  "outshine::Sim::DriveTick(...)",     referenced from: outshine::Engine::Advance()
+  "outshine::Data::ShippedProviders()",referenced from: outshine::Engine::Assemble()
+  "outshine::Ground::TilePool::~TilePool()", referenced from: GroundStack::~GroundStack()
+```
+
+4d4981ec gave `Engine.cpp` hard dependencies on `src/sim`, `src/ground` and `src/data`, so every
+client that links the door now links the sim, the ground stack and the provider table with it.
+The proof of this item is the first thing that broke.
+
 Three things stand in the way, and they are one motion:
 
 - **the door is a warehouse.** `Engine::State` (src/clients/Engine.cpp) holds the render device,
