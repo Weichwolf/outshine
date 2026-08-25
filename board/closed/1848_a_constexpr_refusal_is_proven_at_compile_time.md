@@ -42,17 +42,41 @@ writes exactly the zero the item was filed against, in the file that proves the 
 
 ## What will be true
 
-- [ ] Two `static_assert`s beside `AsideRatePerM` in `src/sim/CorridorLay.h`: one that a
+- [x] Two `static_assert`s beside `AsideRatePerM` in `src/sim/CorridorLay.h`: one that a
       zero/negative held speed does not have a value, one that infinity does not, and one that
       a finite speed gives the derived number.
-- [ ] The unit twin asserts the refusal TEXT of both, since the sentences are the door's answer
+- [x] The unit twin asserts the refusal TEXT of both, since the sentences are the door's answer
       and CLAUDE.md asks a refusal to carry its reason.
-- [ ] `test/unit/sim/ADriveTickHoldsTheCarToTheDeclaredWorld.cpp:122` stops folding a refusal to
+- [x] `test/unit/sim/ADriveTickHoldsTheCarToTheDeclaredWorld.cpp:122` stops folding a refusal to
       zero -- it refuses the seat, so a rate that cannot be computed cannot look like a rate of
       nothing.
-- [ ] Negative control: either `if` deleted -> the `static_assert` fails to compile.
+- [x] Negative control: either `if` deleted -> the `static_assert` fails to compile.
 
 ## Comments
 
 - 2026-08-25 -- filed by the hourly review. The repair itself is right and cheap: the error type
   is `std::string_view`, so nothing allocates, and `constexpr`/`noexcept` survived the change.
+
+**Closed.** Five `static_assert`s beside the function, which is what a `constexpr` refusal costs:
+
+```cpp
+src/sim/CorridorLay.h:85   static_assert(!AsideRatePerM(1.0, 0.0).has_value(), ...);
+src/sim/CorridorLay.h:87   static_assert(!AsideRatePerM(1.0, -3.0).has_value(), ...);
+src/sim/CorridorLay.h:89   static_assert(!AsideRatePerM(1.0, std::numeric_limits<double>::infinity()).has_value(), ...);
+src/sim/CorridorLay.h:91   static_assert(AsideRatePerM(0.7195, 30.0).has_value(), ...);
+src/sim/CorridorLay.h:93   static_assert(AsideRatePerM(0.7195, 30.0).value() > 0.0, ...);
+```
+
+All four call sites hand in a finite positive speed, so no runtime path could ever reach those
+branches -- a refusal nothing reaches is a refusal nothing proves, and the tree's rule is
+`static_assert` and the type system over checkers.
+
+Negative control: the infinity refusal deleted ->
+
+```
+src/sim/CorridorLay.h:89:15: error: static assertion failed due to requirement
+  '!AsideRatePerM(1., std::numeric_limits<double>::infinity()).has_value()':
+  a rate scaled to an unbounded speed -- a declared vacuum -- is refused
+```
+
+The build fails. No test had to run.
