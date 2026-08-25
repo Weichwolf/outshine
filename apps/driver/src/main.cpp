@@ -121,6 +121,11 @@ int main(int argc, char **argv) {
     return read == Reading::Asked ? 0 : 2;
   }
 
+  if (!SDL_Init(SDL_INIT_VIDEO)) {
+    std::printf("REFUSED SDL did not start: %s\n", SDL_GetError());
+    return 1;
+  }
+
   outshine::Engine engine;
   engine.Under(outshine::Roots{asked.Assets, asked.Shipped, asked.Cache, asked.Offline});
   if (!engine.Read(asked.Scenario)) {
@@ -135,10 +140,10 @@ int main(int argc, char **argv) {
     declared.Driven.FromLonDeg = asked.FromLonDeg;
     declared.Driven.ToLatDeg = asked.ToLatDeg;
     declared.Driven.ToLonDeg = asked.ToLonDeg;
-    if (!engine.Declare(declared)) {
-      std::printf("REFUSED %s\n", engine.Error().c_str());
-      return 1;
-    }
+  }
+  if (!engine.Declare(declared)) {
+    std::printf("REFUSED %s\n", engine.Error().c_str());
+    return 1;
   }
 
   std::printf("DRIVING %.5f,%.5f -> %.5f,%.5f, %dx%d%s\n", declared.Driven.FromLatDeg,
@@ -193,6 +198,7 @@ int main(int argc, char **argv) {
     std::printf("STOPPED after %ld frames: %s\n", frames, engine.Error().c_str());
     return 1;
   }
+  SDL_Quit();
   std::printf("DROVE %ld frames over %.3f of %.3f km, kept %ld still(s)", frames,
               engine.ReachedM() / 1000.0, routeM / 1000.0, kept);
   if (!asked.Into.empty()) { std::printf(" into %s", asked.Into.c_str()); }
