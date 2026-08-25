@@ -116,7 +116,8 @@ CARPET -- the widest public surfaces
     31 [[nodiscard]] in src/base/format/Xml.h
 
 TWINS -- header names that collide
-  none
+  none -- and --audit-layers REFUSES the day one appears, because both walks on
+    this page resolve an include by its basename alone
 
 STRANDED -- sources no declared suite links, so nothing they hold is proven
   src/audio/BusGraph.cpp
@@ -158,7 +159,6 @@ STRANDED -- sources no declared suite links, so nothing they hold is proven
   src/world/generators/Yield.cpp
 
 PROVES -- what src/ provably does, one line each
-  , while every source that // does not is bound. Nine live citations stood under tools/ while this walk read two roots // and claimed three. std::vecto
   a derived camera is computed where the bounds are, and the rule's constants cannot drift between the engine and the preparer
   gltf-2.0 conformance at the door: an asset Khronos's validator errors on is refused with a reason, and one it passes stands
   gltf-2.0: a camera's near plane lies in front of the eye and its far plane beyond the near one, an orthographic magnification is not zero, and a persp
@@ -168,14 +168,12 @@ PROVES -- what src/ provably does, one line each
   gltf: appending one subject onto another shifts the guest's material names clear of the host's, so a joined buffer set is still two bodies and neither
   I.17 the picture is a function of the declaration and not of the machine: no layer of the engine that decides one reads an environment variable, and t
   I.26.10 a render test is a directory: one runner reads the declaration, renders the subject with no world, scores it against the cached oracle by name
-  I.36 The harness's own red demonstrated by a test that is declared to fail
   I.56 the engine is a library: it does not name what runs it, and a claim about it is proven by a test that cites the requirement rather than by a comm
   I.61 a repository is what is declared and what is built from it: the case trees carry declarations and never products
   I.83 the layering is declared once: the runner's group declarations are the only spelling of which source compiles with which includes, and `make` bui
   INPUT grade: the glTF reader survives a fixed schedule of corrupted documents -- every one either stands or is refused with a reason, and none of them
   IV.10 every include guard in src/ spells its folder and no two collide -- the rule is a walk, not a habit repeated per layer (board:1643, 1748)
   IV.11 no comment stands in src/, include/, tools/ or apps/ -- the rule is a walk, not a habit repeated per file (board:1763)
-  IV.11) and therefore// exempts its own file` in src/base/spatial/Span.h turned this claim green, measured. Tightening the// needle again is the same c
   IV.12 CLAUDE.md is TARGET and argues from the tree: every path it names is present and every line it cites carries the text quoted beside it. STATE.md
   IV.13 the runner publishes, per run, which declared case families hold no fetched subject, so a green trailer is never mistaken for conformance it did
   IV.17 the corpus is planned, and therefore rebuildable, by one command over every manifest in the tree -- including those that declare no scene, whose
@@ -216,6 +214,49 @@ ACCESS -- what stands wider than private
     src/world/generators/draw/DrawSource.h
     src/world/generators/Generator.h
     src/world/ground/StructureMesher.h
+  49 public data member(s) in a class, by file -- an invariant nobody can hold
+      7  src/world/generators/ContactMaterial.h
+      5  src/world/generators/draw/TreeMesh.h
+      4  src/engine/Live.h
+      3  src/world/generators/draw/TreeFoliage.h
+      3  src/world/generators/draw/LeafAngleDistribution.h
+      2  src/world/ground/EyeColumn.h
+      2  src/render/draw/DrawKey.h
+      2  src/content/shade/TangentFrame.h
+      1  src/world/weather/ConstantWindWeather.h
+      1  src/world/ground/tiles/TileGeodesy.h
+      1  src/world/generators/FeatureLevel.h
+      1  src/world/generators/draw/TreeRandom.h
+      1  src/world/generators/Cover.h
+      1  src/world/generators/Claim.h
+      1  src/world/data/StarBands.h
+      1  src/scene/Register.h
+      1  src/scenario/Tables.h
+      1  src/scenario/Scene.h
+      1  src/scenario/InputMap.h
+      1  src/scenario/Fields.h
+      1  src/render/stages/TonemapStage.h
+      1  src/engine/SceneWeather.h
+      1  src/content/gltf/Keyframes.h
+      1  src/base/spatial/Wayfinding.h
+      1  src/base/spatial/Span.h
+      1  src/base/spatial/Sink.h
+      1  src/base/io/StackProbe.h
+      1  src/base/format/Xml.h
+      1  src/audio/BusGraph.h
+
+REDS -- what is declared to fail, and its red is a finding not a licence
+    74 case(s) declared red
+     73  khronos/validator
+      1  harness/claims
+
+DOOR -- suites reaching past include/ into src/, which CLAUDE.md forbids
+  13 of 17 declared suite(s) are granted a -Isrc path (board:1879)
+  reaching the library through include/ alone:
+    harness/wpt/css
+    harness/test262/js
+    apps/viewer/src
+    apps/driver/src
 
 DECIDED -- named constants standing as a bare literal, whose origin is elsewhere
    16  src/world/generators/draw/BuildingShape.cpp

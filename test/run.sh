@@ -756,7 +756,7 @@ if [ "$STATE" = 1 ]; then
       printf '  %-24s %s\n' "$name" "$(find src include -name "$name" | tr '\n' ' ')"
     done
   find src include -name '*.h' | xargs -n1 basename | sort | uniq -d | grep -q . ||
-    printf '  none\n'
+    printf '  none -- and --audit-layers REFUSES the day one appears, because both walks on\n    this page resolve an include by its basename alone\n'
 
   printf '\nSTRANDED -- sources no declared suite links, so nothing they hold is proven\n'
   for suiteDir in $(find test apps -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
@@ -769,8 +769,8 @@ if [ "$STATE" = 1 ]; then
   comm -23 "$BUILD/log/state-carried" "$BUILD/log/state-linked" | sed 's|^|  |'
 
   printf '\nPROVES -- what src/ provably does, one line each\n'
-  for case in $(grep -rl 'Covers(' test --include=*.cpp 2>/dev/null | sort); do
-    awk '/Covers\(/ { holding = 1 }
+  for case in $(grep -rlE '^[ \t]*Covers\("' test --include=*.cpp 2>/dev/null | sort); do
+    awk '/^[ \t]*Covers\("/ { holding = 1 }
          holding { line = line $0 }
          holding && /\);/ { holding = 0
            gsub(/^.*Covers\(/, "", line); gsub(/\);.*$/, "", line)
@@ -782,6 +782,35 @@ if [ "$STATE" = 1 ]; then
     "$(grep -rc '^ *protected:' src --include=*.h 2>/dev/null | awk -F: '{ n += $2 } END { print n + 0 }')"
   printf '  shared machinery -- Source, WebTileSource, TerrariumDem is that shape\n'
   grep -rn '^ *protected:' src --include=*.h 2>/dev/null | sed -E 's|:[0-9]+:.*||' | sort -u | sed 's|^|    |'
+  printf '  %s public data member(s) in a class, by file -- an invariant nobody can hold\n' "$OPENDATA"
+  awk '
+    FNR == 1 { inclass = 0; access = "private" }
+    /^[ \t]*class[ \t]+[A-Za-z_]/ { inclass = 1; access = "private"; next }
+    /^[ \t]*struct[ \t]+[A-Za-z_]/ { inclass = 0; next }
+    inclass == 0 { next }
+    /^[ \t]*public:/ { access = "public"; next }
+    /^[ \t]*(private|protected):/ { access = "private"; next }
+    access == "public" && /^[ \t]+[A-Za-z_][A-Za-z_0-9:<>,& *]*[ \t]+[A-Za-z_][A-Za-z_0-9]*[ \t]*(=|\[|;)/ \
+      && !/\(/ && !/using/ && !/return/ { n[FILENAME]++ }
+    END { for (f in n) printf "%5d  %s\n", n[f], f }' \
+    $(find src -name '*.h' -not -path 'src/assets/*' | sort) | sort -rn | sed 's|^|  |'
+
+  printf '\nREDS -- what is declared to fail, and its red is a finding not a licence\n'
+  printf '%s' "$EXPECT_FAIL" | tr ' ' '\n' | grep . |
+    awk -F: '{ n += ($2 == "" ? 1 : $2); group = $1; sub("/[^/]*$", "", group); g[group]++ }
+             END { printf "  %d case(s) declared red\n", n
+                   for (k in g) printf "%5d  %s\n", g[k], k }' | sort -rn | sed 's|^|  |'
+
+  printf '\nDOOR -- suites reaching past include/ into src/, which CLAUDE.md forbids\n'
+  sed -n '/^LayerIncludes()/,/^}/p' "$0" | grep -E "^ +[a-z].*\) printf" |
+    awk -F') printf' '{ names = $1; reaches = ($2 ~ /-Isrc/)
+                        gsub(/^[ \t]+|[ \t]+$/, "", names)
+                        many = split(names, each, /[ \t]*\|[ \t]*/)
+                        for (at = 1; at <= many; ++at) {
+                          if (reaches) { past++ } else { alone = alone "    " each[at] "\n" }
+                          all++ } }
+                 END { printf "  %d of %d declared suite(s) are granted a -Isrc path (board:1879)\n", past, all
+                       printf "  reaching the library through include/ alone:\n%s", alone }'
 
   printf '\nDECIDED -- named constants standing as a bare literal, whose origin is elsewhere\n'
   grep -rnE '(constexpr|const) +(double|float|int|size_t|unsigned|uint[0-9]+_t|long) +k[A-Z][A-Za-z0-9_]* *= *-?[0-9]' \
@@ -887,6 +916,15 @@ if [ "$AUDIT_LAYERS" = 1 ]; then
   # first path component, and both cycles board:1904 named sat INSIDE one tier. A cycle means
   # neither module can be read, built or replaced without the other, which is one module spelled
   # in two directories.
+  twinned=$(find src include -name '*.h' | xargs -n1 basename | sort | uniq -d)
+  if [ -n "$twinned" ]; then
+    printf 'AUDIT two headers share one basename, and this walk resolves an include by basename\n'
+    printf '%s\n' "$twinned" | while IFS= read -r name; do
+      printf 'AUDIT   %-24s %s\n' "$name" "$(find src include -name "$name" | tr '\n' ' ')"
+    done
+    printf 'AUDIT so a tier crossing between them would go unseen -- one name, one header\n'
+    exit 1
+  fi
   byModule=$BUILD/log/module-of-header
   find src -name '*.h' -not -path 'src/assets/*' |
     sed -e 's|^src/\([^/]*/[^/]*\)/.*/\([^/]*\)$|\2 \1|' \
