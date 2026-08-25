@@ -897,7 +897,10 @@ std::expected<std::optional<Renderer::Shown>, std::string_view> Renderer::Presen
     return std::unexpected("the renderer has no device to present with");
   }
   SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device_.Get());
-  if (commands == nullptr) { return std::unexpected("the device gave no command buffer"); }
+  if (commands == nullptr) {
+    WhyNot_ = std::string("the device gave no command buffer: ") + SDL_GetError();
+    return std::unexpected("the device gave no command buffer, and WhyNot carries what it said");
+  }
   Shown shown;
   bool drew = false;
   SDL_GPUTexture *surface = nullptr;
