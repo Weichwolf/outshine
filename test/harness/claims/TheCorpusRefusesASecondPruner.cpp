@@ -14,13 +14,22 @@ int Run(const std::string &cmd, std::string &said) {
   return pclose(pipe);
 }
 
-// The runner's own guard, extracted verbatim from test/run.sh's PruneCase. Driving it here
-// rather than reading it is what makes this a measurement: a claim that quotes a shell
-// fragment and never runs it proves the quote, not the behaviour.
-constexpr const char *kGuard =
-    "prunePreparer=$1/.prepared-by; NEST=$2; "
-    "if [ \"$(cat \"$prunePreparer\" 2>/dev/null)\" != \"$NEST\" ]; "
-    "then printf LEFT-ALONE; else printf PRUNES; fi";
+// board:1838: this claim used to carry a COPY of the guard as a string literal -- four lines of
+// sh inside C++, which the tree forbids, and which meant deleting the guard from run.sh left
+// the claim green. It reads PruneCase out of the runner now and calls it, so the two cannot
+// diverge: run.sh is sourced with the surrounding machinery stubbed to nothing.
+[[nodiscard]] std::string DrivesTheRunnersGuard(const std::string &root, const std::string &where,
+                                                const char *nest) {
+  const std::string carved = root + "/guard.sh";
+  std::string ignored;
+  Run("{ echo 'Guard() {'; awk '/prunePreparer=/,/^  fi$/' test/run.sh; echo '  printf PRUNES'; "
+      "echo '}'; } > " + carved, ignored);
+  std::string said;
+  Run("sh -c '. " + carved + "; prunePrepared=" + where + "; NEST=" + std::string(nest) +
+          "; notMine=0; Guard; [ \"$notMine\" -gt 0 ] && printf LEFT-ALONE' 2>/dev/null",
+      said);
+  return said;
+}
 
 } // namespace
 
@@ -38,9 +47,7 @@ int main(void) {
   Run("printf bbbbbbbbbbbb > " + root + "/theirs/.prepared-by", ignored);
 
   const auto asks = [&](const char *where, const char *nest) {
-    std::string said;
-    Run("sh -c '" + std::string(kGuard) + "' guard " + root + "/" + where + " " + nest, said);
-    return said;
+    return DrivesTheRunnersGuard(root, root + "/" + where, nest);
   };
 
   const std::string mine = asks("mine", "aaaaaaaaaaaa");
