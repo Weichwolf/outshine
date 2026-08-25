@@ -278,3 +278,24 @@ Two defects INSIDE that landed box, filed separately on this item's own preceden
 - **`board:1837`** -- none of the four methods is named anywhere under `test/`. Both users are
   `tools/viewer`, which the fast gate excludes, so the door's four refusals sit outside the
   regression mirror.
+
+## Back to open, with the remainder named (2026-08-25)
+
+Two of the three boxes are closed and held by claims: the renderer refuses a contradictory
+declaration by name, and the surface goes IN with nothing backend-shaped coming out
+(`harness/claims/TheDeviceLeavesTheLibraryOnlyForItsOwnTwins`,
+`unit/render/ASurfaceIsDeclaredAndTheRefusalNamesWhatIsMissing`).
+
+The third -- dissolving `src/clients/` -- is five files in, and what is left cannot be moved
+until two other questions are answered, which is why this item is not the one holding them:
+
+- `Sim` and `Live` are painted RED in CLAUDE.md and have their own items; `EyeTelemetry`,
+  `StreamTelemetry`, `SceneWeather` and `RegionForge` exist because those two call them, and
+  moving a satellite before its planet is dissolved is work the dissolution undoes.
+- `GltfStudio`, `Surfaces` and `Image` are the glTF-to-renderer bridge, and where they live IS
+  the layering decision: `Surfaces.h` includes `Document.h`, `Material.h`, `Subject.h` AND
+  `Renderer.h`.
+
+It goes back to `board/open/` rather than sitting in `board/active/` while nothing touches it --
+`harness/claims/BoardActiveNamesWhatTheQueueIsWorking` caught exactly that, which is what it is
+for.
