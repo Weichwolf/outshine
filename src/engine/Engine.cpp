@@ -115,6 +115,7 @@ struct Engine::State {
   bool Pumping = false;
   std::optional<TriggerField> Volumes;
   std::vector<Measure> Numbers;
+  size_t Standing_Placed = 0;
   Host *Offered = nullptr;
   Ground::GroundStack Stack;
   Sim::DriveProduct Drive;
@@ -123,6 +124,7 @@ struct Engine::State {
   double OwedS = 0.0;
   std::string Error;
 
+  void Places(const char *what, double how, const char *unit);
   [[nodiscard]] bool Rides(void);
   [[nodiscard]] bool Composes(void);
   [[nodiscard]] bool Routes(void);
@@ -218,6 +220,7 @@ bool Engine::State::Routes(void) {
   Carried.insert(Carried.end(), std::make_move_iterator(say.Held.begin()),
                      std::make_move_iterator(say.Held.end()));
   Numbers = std::move(say.Took);
+  Standing_Placed = Numbers.size();
   if (!routed) {
     Error = say.WhyNot();
     return false;
@@ -876,6 +879,16 @@ bool Engine::Takes(std::string_view view) {
   return true;
 }
 
+void Engine::State::Places(const char *what, double how, const char *unit) {
+  for (size_t at = Standing_Placed; at < Numbers.size(); ++at) {
+    if (Numbers[at].What == what) {
+      Numbers[at].How = how;
+      return;
+    }
+  }
+  Numbers.push_back(Measure{what, how, unit});
+}
+
 bool Engine::State::Rides(void) {
   const Physics::Body &body = Drive.State.Body;
   double bodyFromWorld[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
@@ -901,6 +914,12 @@ bool Engine::State::Rides(void) {
 
   const double stillM[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   if (!Standing->Carry(bodyFromWorld, stillM, Error)) { return false; }
+  Places("the body, east", body.PositionM[0], "m");
+  Places("the body, up", body.PositionM[1], "m");
+  Places("the body, south", body.PositionM[2], "m");
+  Places("the mesh it carries, east", bodyFromWorld[12], "m");
+  Places("the mesh it carries, up", bodyFromWorld[13], "m");
+  Places("the mesh it carries, south", bodyFromWorld[14], "m");
   if (Volumes) {
     Volumes->Probe(0, body.PositionM, (double)Standing->At() * kTickS);
     for (const TriggerField::Fired &fired : Volumes->Drain()) {
@@ -911,10 +930,13 @@ bool Engine::State::Rides(void) {
   if (!Views) { return true; }
 
   const View &seen = Views->Active();
+  const double *const centreM = Drive.Stood.CentreM;
+  const double seatM[3] = {seen.OffsetM[0] - centreM[0], seen.OffsetM[1] - centreM[1],
+                           seen.OffsetM[2] - centreM[2]};
   double at[3];
   for (int axis = 0; axis < 3; ++axis) {
-    at[axis] = body.PositionM[axis] + bodyFromWorld[0 + axis] * seen.OffsetM[0] +
-               bodyFromWorld[4 + axis] * seen.OffsetM[1] + bodyFromWorld[8 + axis] * seen.OffsetM[2];
+    at[axis] = body.PositionM[axis] + bodyFromWorld[0 + axis] * seatM[0] +
+               bodyFromWorld[4 + axis] * seatM[1] + bodyFromWorld[8 + axis] * seatM[2];
   }
   const double ahead[3] = {at[0] - bodyFromWorld[8], at[1] - bodyFromWorld[9],
                            at[2] - bodyFromWorld[10]};
@@ -926,6 +948,9 @@ bool Engine::State::Rides(void) {
                   bodyFromWorld[4 + axis] * back * kChaseRise;
     }
   }
+  Places("the eye, east", eye[0], "m");
+  Places("the eye, up", eye[1], "m");
+  Places("the eye, south", eye[2], "m");
   Gltf::Placement from;
   if (!Gltf::Placement::LookAt(eye, seen.DistanceM > 0.0 ? at : ahead, 0.0, from)) {
     return true;

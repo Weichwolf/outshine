@@ -210,6 +210,9 @@ int main(int argc, char **argv) {
     }
     if (asked.Frames > 0 && frames >= asked.Frames) { break; }
   }
+  for (const outshine::Measure &held : engine.Numbers()) {
+    std::printf("  MEASURES %s = %.6g %s\n", held.What.c_str(), held.How, held.Unit.c_str());
+  }
   if (!engine.Error().empty()) {
     std::printf("STOPPED after %ld frames: %s\n", frames, engine.Error().c_str());
     return 1;

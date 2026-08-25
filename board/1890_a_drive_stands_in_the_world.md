@@ -16,7 +16,39 @@ METRES and builds the model scale (`Rigged::MetresPerAssetUnit`, 0.01555 m per a
 the F31) into the placement it writes, so nothing divides by a scale any more. The factor-64
 mismatch between the camera and the body is gone.
 
-## What is measured at c0de1b18, and it is NOT "the view is not taken"
+## SETTLED 2026-08-25: the eye sits in the cabin, and the offset was 0.55 m
+
+Both earlier readings of the still were wrong, mine and the review's, and they were wrong the
+same way: an inference from a bounding box and a field of view, with the car's lower edge assumed
+to be at the ground. It is not; the car leaves the frame. The arithmetic gave "6 m above and
+10-13 m away" and the truth is 0.55 m.
+
+What settled it was measuring instead of inferring. `Engine::Numbers()` now carries the
+placement, refreshed in place each tick rather than appended, so the value channel answers where
+the body, its mesh and the eye actually are:
+
+  the body, up            524.444 m
+  the mesh it carries, up 524.887 m       -- the corridor runs at 523.9 m
+  the eye, up             525.115 m
+
+`eye - mesh` was 1.00 m, exactly the declared seat. The placement was never wrong.
+
+**The defect: a view offset is DECLARED from the road and was APPLIED from the centre of mass.**
+The declaration measures its vehicle from the ground the wheels stand on -- contacts at 0.333,
+centre of mass at 0.550, seat at 1.220, every one a height above the road. The body's origin IS
+the centre of mass, which is why `Rigging` subtracts `CentreM` from every mount. The view offset
+was not subtracted, so the camera rode 0.550 m too high -- above a roof that stands 1.45 m off
+the road. The still was the car's roof from outside.
+
+With the subtraction the same still shows the A-pillar, the windscreen surround, the roof lining
+and the near door mirror: the cabin from within.
+
+Proving test: `harness/outshine/physics/ScoreWhereASeatIs`, whose oracle is that a seat is inside
+the car -- under the roof, inside the width, between the axles -- in the frame the body actually
+uses. Negative control: the same seat taken RAW into that frame stands 0.32 m ABOVE the roof, and
+the case checks that too, so it cannot pass on either reading.
+
+## What was measured at c0de1b18, and superseded above
 
 Three runs of the 302 m overridden drive, the same command, one number changed in the copied
 scenario:
