@@ -233,7 +233,7 @@ flowchart TD
 | `TAA` | `{Stage::TemporalResolve, Provenance::Content, PassKind::Raster, "temporalResolve",` (RenderCatalogue.h:278) declares a stage that encodes nothing of its own -- it is folded into tonemap rather than standing as its own resolve |
 | `TilePool` | `class TilePool : public TileMeshes {` (TilePool.h:30) holds 3 `std::mutex`, a `std::condition_variable`, a `std::map` and a `std::set` where a slot table and a ring would do -- a decisionless pool holds no tree |
 | `Typeface` | reached and correct on the picture -- three faces at two sizes in the viewer's own frame -- and `[[nodiscard]] Glyph Shape(char32_t code, double sizePx, Family family) const override;` (Typeface.h:30) still rasters lazily from inside the draw: `SDL_Surface *ink = TTF_GetGlyphImage(set, (Uint32)code, &kind);` (Typeface.cpp:192) and `SDL_ConvertSurface(ink, SDL_PIXELFORMAT_RGBA32);` (:200) allocate and free two surfaces per first-sight glyph. The face is read once into memory and each (family, size) opens its own instance over it, so no size flushes a shared cache and no draw touches the disk (board:1892) |
-| `TriggerField` | reached -- `auto stood = TriggerField::Stand(scenario.Volumes, scenario.Events);` (Engine.cpp:551) stands one and `S_->Volumes->Probe(0, body.PositionM, (double)S_->Standing->At() * kTickS);` (:845) probes the driven body every tick -- and NOTHING fires: a box of 1e7 m extent about the origin, which the body cannot be outside of, drains empty, because the volume stands in the scenario's origin and the body in the corridor's (board:1891) |
+| `TriggerField` | reached -- `auto stood = TriggerField::Stand(scenario.Volumes, scenario.Events);` (Engine.cpp:551) stands one and `S_->Volumes->Probe(0, body.PositionM, (double)S_->Standing->At() * kTickS);` (:836) probes the driven body every tick -- and NOTHING fires: a box of 1e7 m extent about the origin, which the body cannot be outside of, drains empty, because the volume stands in the scenario's origin and the body in the corridor's (board:1891) |
 
 | stranded | its only way to a client, at HEAD |
 |---|---|
@@ -280,18 +280,15 @@ classDiagram
   class Engine {
     +DrawsInto(window) / DrawsInto(extent) bool
     +Under(roots) void
-    +Read(path) / Load(path) bool
-    +Declare(scenario) / Shows(surfaces) bool
+    +Read(path) / Declare(scenario) / Shows(surfaces) bool
     +Declared() Scenario
-    +Carried() strings
-    +Measured() strings
+    +Carried() strings / Numbers() Measures
     +Assemble() bool
-    +Compose() bool / GroundTiles() size_t
-    +Advance() / Run() bool
+    +Advance() / Run() bool / StepS() double
+    +Along() / Whole() double
     +Capture(path) bool
-    +At() / Frames() / Standing() / Error()
-    +Offers(host) / Handles(SDL_Event) bool
-    +Drove() / ReachedM() / RouteM()
+    +Standing() / Error()
+    +Offers(host) / Handles(SDL_Event) / Takes(view) bool
     +Park() / Resume(name) / Discard(name) / Parked()
     +Save(path) / Restore(path)
   }
@@ -406,8 +403,10 @@ only TEST runner and runs nothing else; by default it runs the corpora and the c
 `tools` and `apps` run when named. A standing RED is declared in `EXPECT_FAIL` with its count,
 and the gate turns red the day such a case passes with the declaration still in place.
 
-**The front door is two headers**: `include/Outshine.h` and `include/Scenario.h`. outshine loads
-a scenario and runs it — that is the whole of it. A client that needs an assembly view, a
+**The front door is three headers**: `include/Outshine.h` the verbs, `include/Scenario.h` the
+declaration, `include/Event.h` the return channel — `Host`, `Argument`, `Measure`, the shape RAGE
+keeps in `fwEvent` and Unreal in its delegate header, apart from the engine door in both. outshine
+loads a scenario and runs it — that is the whole of it. A client that needs an assembly view, a
 transport or a parser is a client reaching past the door, and the door is what wants widening,
 never the reach.
 
