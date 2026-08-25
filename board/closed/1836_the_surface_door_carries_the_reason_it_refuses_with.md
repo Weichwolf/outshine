@@ -47,19 +47,35 @@ Two more on the same twelve lines:
 
 ## What will be true
 
-- [ ] `PresentFrame` answers a reason. `Shown` carries why it did not draw, or the method
+- [x] `PresentFrame` answers a reason. `Shown` carries why it did not draw, or the method
       returns `std::expected<Shown, std::string>`; four distinct facts get four distinct
       sentences, and "nothing is being shown" is not spelled the same way as "the swapchain
       refused".
-- [ ] The command buffer is checked before it is used, and a refused command buffer is one of
+- [x] The command buffer is checked before it is used, and a refused command buffer is one of
       those sentences.
-- [ ] `ShowOn` and `ShowOffscreen` return `std::expected`, matching the four doors above.
-- [ ] The browser prints or counts a frame that did not reach the surface, so a swapchain that
+- [x] `ShowOn` and `ShowOffscreen` return `std::expected`, matching the four doors above.
+- [x] The browser prints or counts a frame that did not reach the surface, so a swapchain that
       stops answering is a number rather than a stall.
-- [ ] Proving test: see `board:1837` -- the same case reads these reasons back.
+- [x] Proving test: see `board:1837` -- the same case reads these reasons back.
 
 ## Comments
 
 - 2026-08-25 -- filed by the hourly review. Split from `board:1826` on that item's own
   precedent: *"filed separately as board:1829, because that is a defect in the refusal rather
   than in the door."* The door is right; its refusals are not.
+
+**Closed.** `PresentFrame` returns `std::expected<Shown, std::string>` and answers four distinct
+sentences: nothing shown, no device, a command buffer the device refused, a swapchain that gave
+no texture. The command buffer is checked before it is handed anywhere -- CLAUDE.md is defensive
+at system boundaries and this is one.
+
+`ShowOn` and `ShowOffscreen` return `std::expected<void, std::string>`, which is what
+`RenderPlan::Compile`, `TableBook::Stand`, `ViewBook::Stand` and `TriggerField::Stand` already
+spell. The door had landed in the older idiom beside four C++23 twins, on 2026-08-25.
+
+The browser counts what never reached the surface and prints the first reason, so a swapchain
+that stops answering is a number instead of a stall.
+
+Proving test: `unit/render/ASurfaceIsDeclaredAndTheRefusalNamesWhatIsMissing` (board:1837).
+Negative control: `PresentFrame`'s first refusal replaced by `return Shown{}` -- the silence
+this item is about -> two claims red.
