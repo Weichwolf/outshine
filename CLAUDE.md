@@ -445,6 +445,14 @@ What a corpus HOLDS decides what it can prove:
 | **SNAPSHOT** | another implementation, frozen | agreement, never correctness |
 | **INPUT** | nothing is supplied | that we survive it |
 
+**`test/<vendor>/` is the vendor's word; `test/outshine/` is OUR OWN ORACLE and carries less.**
+A khronos, wpt, test262 or geographiclib case is a SPECIFICATION: it fails and the code is
+wrong, full stop. An `outshine/` case is a law of nature we implemented ourselves — static
+equilibrium, a closed form, a conservation — and it fails in TWO ways: the code is wrong, or the
+oracle is. So an `outshine/` case must carry its DERIVATION in prose beside the number, because
+the derivation is the part a reader can check and the number is not. A self-built oracle that
+states only a constant proves nothing but that we agree with ourselves.
+
 Effort has two halves and the second one bites: FETCH is a pinned URL and a hash; REACH is priced
 by the two-header door. `test/CORPORA.md` is the survey — which established corpus asserts which
 capability of TARGET, at which grade, and what it costs to reach.

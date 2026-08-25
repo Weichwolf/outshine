@@ -116,17 +116,34 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
     out.ModelShiftM[2] = -declared.AssetCentreZ * out.MetresPerAssetUnit;
   }
 
-  double driven = 0.0, braked = 0.0;
+  double driven = 0.0, frontMounts = 0.0, rearMounts = 0.0;
+  double frontArmM = 0.0, rearArmM = 0.0;
   for (const Contact &one : declared.Contacts) {
-    driven += one.AtM[2] > out.CentreM[2] ? 1.0 : 0.0;
-    braked += 1.0;
+    const double armM = one.AtM[2] - out.CentreM[2];
+    driven += armM > 0.0 ? 1.0 : 0.0;
+    if (armM < 0.0) {
+      frontMounts += 1.0;
+      frontArmM += -armM;
+    } else if (armM > 0.0) {
+      rearMounts += 1.0;
+      rearArmM += armM;
+    }
   }
+  if (frontMounts > 0.0) { frontArmM /= frontMounts; }
+  if (rearMounts > 0.0) { rearArmM /= rearMounts; }
+  const double axleSpanM = frontArmM + rearArmM;
   if (!(driven > 0.0)) {
     Refuse(out, "no contact stands behind the centre of mass, so nothing can be driven -- a "
                 "contact exactly on the centre plane belongs to no axle, and the declaration "
                 "must place its drive axle");
     return out;
   }
+  if (!(axleSpanM > 0.0) || !(frontMounts > 0.0)) {
+    Refuse(out, "no contact stands ahead of the centre of mass, so the declaration names no "
+                "front axle and the static load it carries cannot be found");
+    return out;
+  }
+  const double frontLoadShare = rearArmM / axleSpanM;
 
   out.Rig.Count = declared.Contacts.size();
   for (size_t which = 0; which < out.Rig.Count; ++which) {
@@ -146,7 +163,9 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
     mount.Sheds.Friction = declared.Grip;
     mount.SteeredShare = one.AtM[2] < out.CentreM[2] ? 1.0 : 0.0;
     mount.DrivenShare = one.AtM[2] > out.CentreM[2] ? 1.0 / driven : 0.0;
-    mount.BrakedShare = 1.0 / braked;
+    const double armM = one.AtM[2] - out.CentreM[2];
+    mount.BrakedShare = armM < 0.0 ? frontLoadShare / frontMounts
+                                   : (1.0 - frontLoadShare) / rearMounts;
   }
 
   double trackM = declared.TrackM;
