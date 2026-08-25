@@ -150,7 +150,8 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  Transport --> WebTileSource --> ContentStore --> TerrariumDem & VersatilesVector
+  Transport --> WebTileSource --> ContentStore
+  Unwired["Unwired — a transport that answers Never, so an offline door refuses instead of retrying"] --> WebTileSource --> TerrariumDem & VersatilesVector
   TerrariumDem --> GroundStream
   TilePool --> GroundStream & OsmField
   GroundStream --> GroundQuery["GroundQuery — the two questions: At · PostM"]
@@ -177,7 +178,9 @@ flowchart TD
   DriveAssembly --> CorridorLay["CorridorLay — route + ground → Corridor product"]
   DriveAssembly --> DriveTick["DriveTick — (Corridor, Rigged, DriveState) tick"]
   Engine --> Live
+  Typeface["Typeface — SDL3_ttf, one raster per (family, size, glyph) into a shelf-packed sheet"] --> LayoutUi
   Markup --> Stylesheet --> LayoutUi["Layout"] --> Painting --> OverlayDraw --> Renderer
+  Pointer["Pointer — a point resolves to the nearest declared action, topmost surface first"] --> Engine
   GltfStudio --> Renderer
   Assembly["Assembly — the XML door"] --> SceneStore["Scene Store — entities · typed pairs · traits · tags"]
   InputMap["InputMap — declared bindings, interned to ids"] --> InputPump["InputPump — SDL events to (action id, kind, value)"]
@@ -190,7 +193,7 @@ flowchart TD
   classDef wrong fill:#7a2222,stroke:#3d1111,color:#fff
   classDef strandedSound fill:#1f6f3f,stroke:#7a2222,stroke-width:3px,stroke-dasharray:6 4,color:#fff
   classDef strandedUnsure fill:#8a6d1f,stroke:#7a2222,stroke-width:3px,stroke-dasharray:6 4,color:#fff
-  class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,GroundQuery,OsmField,RoadHarvest,Wayfinding,Alignment,StreetField,Ground,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,SceneStore,Assembly,SubjectResidency,Markup,Stylesheet,LayoutUi,Painting,InputMap,InputPump,TriggerField,ViewBook,BusGraph,OverlayDraw sound
+  class Typeface,Pointer,Unwired,Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,GroundQuery,OsmField,RoadHarvest,Wayfinding,Alignment,StreetField,Ground,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,SceneStore,Assembly,SubjectResidency,Markup,Stylesheet,LayoutUi,Painting,InputMap,InputPump,TriggerField,ViewBook,BusGraph,OverlayDraw sound
   class BuildingField,WaterField,Subject,DrawList,Renderer,TonemapStage,LightVisibilityStage,Frustum,Ephemeris,GltfStudio unsure
   class World,SubjectDraw,Sim,Live,Engine wrong
   class DriveAssembly,CorridorLay,DriveTick,TilePool unsure
@@ -207,8 +210,8 @@ flowchart TD
 | `World` | spells camera and LOD inside the ground layer: `struct Eye` (World.h:49), `Refine(const Eye &eye, double nowMs)` (:55), `EyeInMercatorBand()` (:118), and 9 `const double eye[3]` (:189-195) |
 | `SubjectDraw` | six responsibilities in one class: `ShaderSource(const SourceOptions &options)` (SubjectDraw.h:30), `PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack)` (:154), `FlushCrossings(SDL_GPUCommandBuffer *commands)` (:148), `SetPlacements(const double *models, size_t rows, std::string &error)` (:51), `SetLights(std::span<const SubjectLight> lights, std::string &error)` (:89), and `EncodeDepthOnly(const double lightFromWorld16[16], const double eye[3], int atlasPx,` (:96) beside the one `void Encode(const FrameContext &ctx, const PassRecording &into)` (:93) a stage owes |
 | `Sim` | `class Sim {` (Sim.h:37) is a hand-wired god facade the component model replaces, and since the cut it has NO consumer at all: `grep -rn '"Sim.h"' src apps test include` finds one line, `src/clients/Sim.cpp:1`. 798 lines, 25 `#include "`, five green nodes hanging off it |
-| `Live` | `class Live {` (Live.h:68) reaches the renderer and the layout from one class — `#include "Renderer.h"` (:18) beside `#include "Layout.h"` (:13) |
-| `Engine` | `bool Engine::Compose(void) {` (Engine.cpp:226) lays the ground ring through `const auto laid = LayPatchwork(S_->Stack.Pool(), over);` (:259) and no programme calls it (board:1805). Views, Input, Volumes, Tables and Sounds are accepted and never advanced (board:1862). The two arrival routes board:1881 found are CLOSED: the canvas comes first, `bool Engine::Declare(const Scenario &scenario) {` (:298) refuses without one by name, and `bool Engine::Advance() {` (:572) is reached only by a scenario that stands |
+| `Live` | `class Live {` (Live.h:69) reaches the renderer and the layout from one class — `#include "Renderer.h"` (:18) beside `#include "Layout.h"` (:13) |
+| `Engine` | `bool Engine::Compose(void) {` (Engine.cpp:246) lays the ground ring through `const auto laid = LayPatchwork(S_->Stack.Pool(), over);` (:279) and no programme calls it (board:1805). Views, Input, Volumes, Tables and Sounds are accepted and never advanced (board:1862). The two arrival routes board:1881 found are CLOSED: the canvas comes first, `bool Engine::Declare(const Scenario &scenario) {` (:388) refuses without one by name, and `bool Engine::Advance() {` (:667) is reached only by a scenario that stands |
 
 | amber | the form in question, at HEAD |
 |---|---|
@@ -240,7 +243,7 @@ flowchart TD
 | `InputMap` `InputPump` | `#include "InputPump.h"` (InputPump.cpp:1) and nothing else in the tree: `Engine.cpp` includes no pump, so no key reaches an action |
 | `TriggerField` `ViewBook` | `src/scenario/Triggers.{h,cpp}` and `src/scenario/Views.{h,cpp}` alone; the door includes neither |
 | `BusGraph` | nothing outside its own two files |
-| `GroundPatchwork` | `#include "GroundPatchwork.h"` (Engine.cpp:18) inside `bool Engine::Compose(void) {` (:226), and no programme calls `Compose` |
+| `GroundPatchwork` | `#include "GroundPatchwork.h"` (Engine.cpp:20) inside `bool Engine::Compose(void) {` (:246), and no programme calls `Compose` |
 
 ## Class structure (TARGET — where the tree is going)
 
@@ -275,18 +278,23 @@ flowchart TD
 classDiagram
   direction TB
   class Engine {
-    +Read(path) bool
-    +Load(path) bool
+    +DrawsInto(window) / DrawsInto(extent) bool
+    +Under(roots) void
+    +Read(path) / Load(path) bool
     +Declare(scenario) bool
     +Declared() Scenario
     +Carried() strings
+    +Measured() strings
     +Assemble() bool
-    +Scene() Store
     +Advance() bool
-    +Run() bool
+    +Capture(path) bool
+    +Offers(host) / Handles(SDL_Event) bool
+    +Drove() / ReachedM() / RouteM()
     +Park() / Resume(name) / Discard(name) / Parked()
     +Save(path) / Restore(path)
-    +RenderTo(frame)
+  }
+  class Host {
+    +Calls(name, args) bool
   }
   class Live {
     +Open(renderer, declaration) bool
@@ -313,6 +321,7 @@ classDiagram
     +BlockAt(z, x, y) GroundBlock
     +PostM(latDeg) double
   }
+  Engine --> Host : calls back into
   Engine --> Live : owns
   Live --> Renderer : drives
   Sim --> GroundStream : owns
@@ -383,7 +392,7 @@ ls board/*.md | grep -o '[0-9]\{4\}' | sort -n | tail -1  # next id, derived
 | | |
 |---|---|
 | `src/` | the library entire; `src/assets/` its declared data; no entry point, no test |
-| `test/` | `test/render/` the established corpora (Khronos · WPT · test262); `test/harness/` their scorers and the board/harness claims. Everything under `test/` reaches the library through `include/` and NOTHING of `src/` |
+| `test/` | `test/render/` the corpora judged as a PICTURE (Khronos · WPT · test262); `test/refuse/` the corpora judged as a REFUSAL (glTF-Validator, 263 cases against Khronos's own report); `test/harness/` their scorers and the board/harness claims. Everything under `test/` reaches the library through `include/` and NOTHING of `src/` |
 | `apps/` | the CLIENTS, built ON the library and each a product: **`apps/driver`** is outshine's one integration test and the architect signs it off; **`apps/viewer`** shows any scenario and becomes a scenario itself, layered over the one it shows (board:1880) |
 | `Makefile` | build · test · clean, nothing else |
 | `board/` | the working system (above) |
