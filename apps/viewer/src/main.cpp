@@ -11,6 +11,8 @@
 
 namespace {
 
+constexpr double kScrollStepPx = 96.0;
+
 
 struct Asked {
   std::string Scenario;
@@ -61,6 +63,10 @@ public:
   void Steers(outshine::Engine *engine) { Engine_ = engine; }
 
   [[nodiscard]] bool Calls(std::string_view name, std::span<const outshine::Argument> args) override {
+    if (name == "scroll-up" || name == "scroll-down") {
+      return Engine_ != nullptr &&
+             Engine_->Scrolls(name == "scroll-down" ? kScrollStepPx : -kScrollStepPx);
+    }
     if (name == "next-view" && Engine_ != nullptr) {
       const std::vector<std::string> named = Engine_->Views();
       if (named.size() < 2) { return false; }

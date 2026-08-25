@@ -416,7 +416,7 @@ bool Engine::Handles(const SDL_Event &event) {
     return S_->Standing->Wheeled((double)xPx, (double)yPx,
                                  -(double)event.wheel.y * kWheelStepPx, S_->Error);
   }
-  if (S_->Pumping && (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP)) {
+  if (S_->Pumping && event.type == SDL_EVENT_KEY_DOWN) {
     Clients::InputPump::Fired fired[2];
     const size_t many = S_->Pump.Translate(event, fired);
     if (S_->Offered == nullptr) { return false; }
@@ -564,9 +564,14 @@ bool Engine::Declare(const Scenario &scenario) {
     S_->Views.emplace(std::move(*stood));
   }
 
+  std::vector<std::vector<Ui::Layout::Scrolled>> wasScrolled;
+  if (S_->Standing) { wasScrolled = S_->Standing->Scrolled(); }
   S_->Standing.reset();
   if (!Clients::Live::Open(S_->Device, std::move(declared), &S_->Face, S_->Standing, S_->Error)) {
     S_->Standing.reset();
+    return false;
+  }
+  if (!wasScrolled.empty() && !S_->Standing->Scrolled(std::move(wasScrolled), S_->Error)) {
     return false;
   }
   S_->Declared = scenario;
@@ -791,6 +796,16 @@ bool Engine::Restore(std::string_view path) {
 const std::vector<std::string> &Engine::Carried() const { return S_->Carried; }
 
 const std::vector<std::string> &Engine::Measured() const { return S_->Measured; }
+
+bool Engine::Scrolls(double byPx) {
+  if (!S_->Standing) {
+    S_->Error = "nothing stands, so there is no surface to scroll";
+    return false;
+  }
+  float xPx = 0.0f, yPx = 0.0f;
+  SDL_GetMouseState(&xPx, &yPx);
+  return S_->Standing->Wheeled((double)xPx, (double)yPx, byPx, S_->Error);
+}
 
 bool Engine::Takes(std::string_view view) {
   if (!S_->Views) {

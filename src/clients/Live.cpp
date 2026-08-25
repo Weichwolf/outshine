@@ -434,6 +434,7 @@ bool Live::Compose(std::string &error) {
   Laid_.clear();
   Quads_.clear();
   Laid_.resize(Declared_.Surfaces.size());
+  Scrolled_.resize(Declared_.Surfaces.size());
   for (size_t at = 0; at < Declared_.Surfaces.size(); ++at) {
     const Shows &declared = Declared_.Surfaces[at];
     Laid &laid = Laid_[at];
@@ -451,7 +452,7 @@ bool Live::Compose(std::string &error) {
     if (!declared.Style.empty()) { laid.Sheet.Read(declared.Style); }
     laid.Sheet.Read(laid.Tree.StyleText());
     if (!laid.Placed.Build(laid.Tree, laid.Sheet, widthPx, heightPx, *Font_,
-                           std::span<const Ui::Layout::Scrolled>(laid.Scrolled), error)) {
+                           std::span<const Ui::Layout::Scrolled>(Scrolled_[at]), error)) {
       return false;
     }
     if (!laid.Painted.Build(laid.Placed, *Font_, error)) { return false; }
@@ -605,19 +606,21 @@ bool Live::Advance(std::string &error) {
 }
 
 bool Live::Wheeled(double xPx, double yPx, double byPx, std::string &error) {
+  Scrolled_.resize(Laid_.size());
   for (size_t at = Laid_.size(); at > 0; --at) {
     Laid &laid = Laid_[at - 1];
     const double x = xPx - laid.LeftPx, y = yPx - laid.TopPx;
     const int scroller = laid.Placed.Scroller(x, y);
     if (scroller < 0) { continue; }
     const double most = laid.Placed.ScrollableBy(scroller);
+    std::vector<Ui::Layout::Scrolled> &kept = Scrolled_[at - 1];
     double *held = nullptr;
-    for (Ui::Layout::Scrolled &one : laid.Scrolled) {
+    for (Ui::Layout::Scrolled &one : kept) {
       if (one.Node == scroller) { held = &one.Px; }
     }
     if (held == nullptr) {
-      laid.Scrolled.push_back(Ui::Layout::Scrolled{scroller, 0.0});
-      held = &laid.Scrolled.back().Px;
+      kept.push_back(Ui::Layout::Scrolled{scroller, 0.0});
+      held = &kept.back().Px;
     }
     const double was = *held;
     *held = std::clamp(*held + byPx, 0.0, most);

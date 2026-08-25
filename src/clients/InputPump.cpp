@@ -18,7 +18,7 @@ struct AxisRow {
 };
 
 struct Resolved {
-  KeyRow Keys[6];
+  KeyRow Keys[12];
   PadRow Buttons[2];
   AxisRow Axes[6];
   ptrdiff_t MouseLeft, MouseRight, MouseX, MouseY;
@@ -34,6 +34,12 @@ struct Resolved {
     out.Keys[3] = {SDLK_D, InputMap::EventIndexOf("KeyD")};
     out.Keys[4] = {SDLK_SPACE, InputMap::EventIndexOf("Space")};
     out.Keys[5] = {SDLK_ESCAPE, InputMap::EventIndexOf("Escape")};
+    out.Keys[6] = {SDLK_UP, InputMap::EventIndexOf("ArrowUp")};
+    out.Keys[7] = {SDLK_DOWN, InputMap::EventIndexOf("ArrowDown")};
+    out.Keys[8] = {SDLK_LEFT, InputMap::EventIndexOf("ArrowLeft")};
+    out.Keys[9] = {SDLK_RIGHT, InputMap::EventIndexOf("ArrowRight")};
+    out.Keys[10] = {SDLK_PAGEUP, InputMap::EventIndexOf("PageUp")};
+    out.Keys[11] = {SDLK_PAGEDOWN, InputMap::EventIndexOf("PageDown")};
     out.Buttons[0] = {SDL_GAMEPAD_BUTTON_SOUTH, InputMap::EventIndexOf("GamepadSouth")};
     out.Buttons[1] = {SDL_GAMEPAD_BUTTON_EAST, InputMap::EventIndexOf("GamepadEast")};
     out.Axes[0] = {SDL_GAMEPAD_AXIS_LEFTX, InputMap::EventIndexOf("AxisLeftX")};

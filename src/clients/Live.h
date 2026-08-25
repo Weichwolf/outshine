@@ -108,6 +108,14 @@ public:
 
   [[nodiscard]] Ui::Touched Under(double xPx, double yPx, size_t &surface) const;
   [[nodiscard]] bool Wheeled(double xPx, double yPx, double byPx, std::string &error);
+  [[nodiscard]] const std::vector<std::vector<Ui::Layout::Scrolled>> &Scrolled() const {
+    return Scrolled_;
+  }
+  [[nodiscard]] bool Scrolled(std::vector<std::vector<Ui::Layout::Scrolled>> kept,
+                              std::string &error) {
+    Scrolled_ = std::move(kept);
+    return Compose(error);
+  }
 
   static size_t TookPosing_, TookSubmitting_, TookAiming_, TookDrawing_;
   static size_t AssetReads_;
@@ -138,7 +146,6 @@ private:
     Ui::Stylesheet Sheet;
     Ui::Layout Placed;
     Ui::Painting Painted;
-    std::vector<Ui::Layout::Scrolled> Scrolled;
     double LeftPx = 0.0, TopPx = 0.0;
   };
 
@@ -166,6 +173,7 @@ private:
   Studio Stood_;
   StudioScratch Scratch_;
   std::vector<Laid> Laid_;
+  std::vector<std::vector<Ui::Layout::Scrolled>> Scrolled_;
   std::vector<Render::OverlayQuad> Quads_;
   bool Moves_ = false;
   bool FileStands_ = false;

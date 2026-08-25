@@ -46,6 +46,7 @@ public:
   [[nodiscard]] bool DrawsInto(SDL_Window *presents);
   void Offers(Host *host);
   [[nodiscard]] bool Takes(std::string_view view);
+  [[nodiscard]] bool Scrolls(double byPx);
   [[nodiscard]] std::vector<std::string> Views(void) const;
   [[nodiscard]] bool Handles(const SDL_Event &event);
   [[nodiscard]] bool DrawsInto(Extent offscreen);
