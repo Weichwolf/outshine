@@ -7,18 +7,18 @@
 
 namespace outshine::Test {
 
-[[nodiscard]] inline std::string Ask(const std::string &command, int *verdict = nullptr) {
-  std::string said;
+inline int Run(const std::string &command, std::string &said) {
   std::FILE *const pipe = popen(command.c_str(), "r");
-  if (pipe == nullptr) {
-    if (verdict != nullptr) { *verdict = -1; }
-    return said;
-  }
+  if (pipe == nullptr) { return -1; }
   char block[4096];
   while (std::fgets(block, sizeof block, pipe) != nullptr) { said += block; }
-  const int closed = pclose(pipe);
+  return pclose(pipe);
+}
+
+[[nodiscard]] inline std::string Ask(const std::string &command, int *verdict = nullptr) {
+  std::string said;
+  const int closed = Run(command, said);
   if (verdict != nullptr) { *verdict = closed; }
-  while (!said.empty() && (said.back() == '\n' || said.back() == ' ')) { said.pop_back(); }
   return said;
 }
 

@@ -5,6 +5,10 @@
 #include <vector>
 
 #include "Check.h"
+#include "Shell.h"
+
+using outshine::Test::Ask;
+using outshine::Test::Lines;
 
 namespace {
 
@@ -36,17 +40,7 @@ constexpr size_t kLongestLabel = 100;
 // before it builds anything, so asking costs a fifth of a second and cannot be spelled by the
 // text it governs.
 [[nodiscard]] std::vector<std::string> TheRunnersOwnCases() {
-  std::vector<std::string> cases;
-  std::FILE *const pipe = popen("sh test/run.sh --cases 2>/dev/null", "r");
-  if (pipe == nullptr) { return cases; }
-  char line[1024];
-  while (std::fgets(line, sizeof line, pipe) != nullptr) {
-    std::string one(line);
-    while (!one.empty() && (one.back() == '\n' || one.back() == ' ')) { one.pop_back(); }
-    if (!one.empty()) { cases.push_back(one); }
-  }
-  pclose(pipe);
-  return cases;
+  return Lines(Ask("sh test/run.sh --cases 2>/dev/null"));
 }
 
 [[nodiscard]] bool IsAProof(const std::vector<std::string> &cases, const std::string &path) {

@@ -6,6 +6,10 @@
 #include "Check.h"
 #include "Shell.h"
 
+using outshine::Test::Ask;
+using outshine::Test::Lines;
+using outshine::Test::Run;
+
 namespace {
 
 [[nodiscard]] size_t Times(const std::string &haystack, const std::string &needle) {

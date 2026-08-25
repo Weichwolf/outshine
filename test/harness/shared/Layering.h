@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "Check.h"
+#include "Shell.h"
 
 #ifndef OUTSHINE_COMPILE
 #error "OUTSHINE_COMPILE is the harness's compile command for this layer; a subject cannot be judged without it"
@@ -47,11 +48,7 @@ inline CompilerAnswer Compile(const std::filesystem::path &subject) {
   const std::string command =
       std::string(OUTSHINE_COMPILE) + " -fsyntax-only '" + subject.string() + "' 2>&1";
   CompilerAnswer answer;
-  std::FILE *const compiler = ::popen(command.c_str(), "r");
-  if (compiler == nullptr) { return {false, "the compiler could not be started"}; }
-  char chunk[4096];
-  while (std::fgets(chunk, sizeof chunk, compiler) != nullptr) { answer.Diagnostics += chunk; }
-  answer.Refused = ::pclose(compiler) != 0;
+  answer.Refused = Run(command, answer.Diagnostics) != 0;
   return answer;
 }
 

@@ -3,16 +3,13 @@
 #include <string>
 
 #include "Check.h"
+#include "Shell.h"
+
+using outshine::Test::Ask;
+using outshine::Test::Lines;
+using outshine::Test::Run;
 
 namespace {
-
-int Run(const std::string &cmd, std::string &said) {
-  std::FILE *const pipe = popen(cmd.c_str(), "r");
-  if (pipe == nullptr) { return -1; }
-  char block[512];
-  while (std::fgets(block, sizeof block, pipe) != nullptr) { said += block; }
-  return pclose(pipe);
-}
 
 } // namespace
 
