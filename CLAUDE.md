@@ -171,6 +171,7 @@ flowchart TD
   Ephemeris & RegionForge --> Sim --> Renderer
   Frustum -.-> DrawList
   TilePool --> World["World — quadtree LOD · admission · kerbs"] --> Sim
+  TilePool --> GroundPatchwork["GroundPatchwork — a ring of meshed tiles, no eye and no ladder"]
   GroundStack["GroundStack — owns store · sources · pool · stream"] --> DriveAssembly["AssembleDrive — scene handles + ground → DriveProduct"]
   GroundStream --> DriveAssembly
   DriveAssembly --> CorridorLay["CorridorLay — route + ground → Corridor product"]
@@ -196,6 +197,7 @@ flowchart TD
   class Forest,Buildings,Water,Infrastructure strandedSound
   class RegionForge strandedUnsure
   class GroundStack sound
+  class GroundPatchwork strandedSound
 ```
 
 
@@ -223,7 +225,7 @@ flowchart TD
 | `CorridorLay` | `[[nodiscard]] bool LayCorridor(const Path::Route &route, const GroundQuery &ground,` (CorridorLay.h:100) -- same shape, same question. The product it lays holds no band parallel to its stations: `std::vector<Station> Fine;` (:52) is one extent and `At(double alongM)` (:68) one clamped index, so an unlaid corridor refuses at the tick's entry instead of returning a default per read (board:1820) |
 | `DriveTick` | `[[nodiscard]] const Ridden &DriveTick(const Corridor &way, const Rigged &stood,` (DriveTick.h:111) hands back the accumulator the caller owns -- `Ridden &out = drive.Tally;` (DriveTick.cpp:38). The copy is gone and the struct is 2472 -> **440 bytes, which `static_assert(sizeof(Ridden) == 440)` at DriveTick.cpp:18 is the measurement of**; what stays in question is a product that is both a per-tick answer and a route-long tally (board:1815) |
 | `TAA` | `{Stage::TemporalResolve, Provenance::Content, PassKind::Raster, "temporalResolve",` (RenderCatalogue.h:278) declares a stage that encodes nothing of its own -- it is folded into tonemap rather than standing as its own resolve |
-| `TilePool` | `class TilePool {` (TilePool.h:35) holds 3 `std::mutex`, a `std::condition_variable`, a `std::map` and a `std::set` where a slot table and a ring would do -- a decisionless pool holds no tree |
+| `TilePool` | `class TilePool : public TileMeshes {` (TilePool.h:30) holds 3 `std::mutex`, a `std::condition_variable`, a `std::map` and a `std::set` where a slot table and a ring would do -- a decisionless pool holds no tree |
 | `Engine` | the door LAYS the drive now -- `bool Engine::Assemble() {` (Engine.cpp:136) reaches `if (!Sim::AssembleDrive(S_->Scene, S_->Stood, S_->Vehicles, S_->Drives, declared.Ground,` (:166), `bool Engine::Advance() {` (:456) ticks it and `bool Engine::Drove(void) const { return S_->Drove; }` (:187) answers. A refusal reaches it as a VALUE -- `  void Refuse(const std::string &why) override {` (:35) -- where it used to grep printed prose, and a route that fails no longer takes the picture with it (board:1870, 1621). Views, Input, Volumes, Tables and Sounds are still accepted and never advanced (board:1862) |
 
 | stranded | its only way to a client, at HEAD |
