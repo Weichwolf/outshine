@@ -159,6 +159,18 @@ int main(void) {
         "and the control is a control: dropping the key a hundredfold DOES change the picture, "
         "so this case can tell an invariance from a renderer that ignores its lighting entirely");
 
+  {
+    outshine::Scenario bare = Lit(40000.0, 0.20);
+    bare.Assets.front().Uri = "bare.gltf";
+    std::string flat = Minimal();
+    const size_t at = flat.find(",\"NORMAL\":1");
+    if (at != std::string::npos) { flat.erase(at, 11); }
+    (void)Wrote(under + "/bare.gltf", flat);
+    const bool stoodBare = engine.Declare(bare);
+    std::printf("A SUBJECT WITH NO NORMAL under the same declared light: %s%s\n",
+                stoodBare ? "STOOD" : "REFUSED -- ", stoodBare ? "" : engine.Error().c_str());
+  }
+
   CHECK(plain != nightly,
         "**THE KEY LIGHTS THE SUBJECT FROM WHERE IT IS DECLARED**: a key 80 degrees BELOW the "
         "horizon and a key 42 degrees above it cannot make the same picture of the same subject. "

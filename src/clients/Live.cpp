@@ -193,8 +193,8 @@ bool Live::Build(std::string &error) {
       return false;
     }
   }
-  if (Declared_.DrawsSky) {
-    Renderer_->SetMedium(Render::Medium{});
+  if (Declared_.KeyLux > 0.0) {
+    if (Declared_.DrawsSky) { Renderer_->SetMedium(Render::Medium{}); }
 
     const double elevation = Declared_.KeyElevationDeg * std::numbers::pi / 180.0;
     const double bearing = Declared_.KeyBearingDeg * std::numbers::pi / 180.0;
@@ -579,9 +579,7 @@ bool Live::Restands(std::string stands, std::string variant, AssetAnimation anim
   Moves_ = false;
   Frames_ = 1;
   At_ = 0;
-  if (!Build(error)) { return false; }
-  if (!Stand(error)) { return false; }
-  return Submit(error);
+  return Build(error);
 }
 
 bool Live::Restand(const Gltf::Subject &built, size_t carried, std::string &error) {

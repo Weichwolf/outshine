@@ -35,6 +35,25 @@ scaling key and environment TOGETHER is exactly invariant -- 40000/0.20 and 8000
 identical. That also says the declaration carries one truth twice: the picture depends on the
 ratio and nothing else.
 
+## What has been eliminated, 2026-08-25
+
+Two causes were found and repaired and NEITHER was this one -- the direction still does not
+reach the picture, and the item stays open for that:
+
+- `Renderer_->SetSky(toSun, up, KeyLux, 0)` -- the one call that carries the key's direction to
+  the device -- stood inside `if (Declared_.DrawsSky)`. A scenario that declares `<lighting>`
+  and no sky never set the sun at all. Only `SetMedium` belongs under that guard, and only it is
+  under it now.
+- `Live::Restands` called `Build`, which already runs `Stand`, `Surface` and `Submit`, and then
+  ran `Stand` and `Submit` AGAIN -- so the second `Stand` rebuilt the studio and no `Surface`
+  followed it, leaving the device holding the lights of the subject that had just been replaced.
+
+What is NOT yet explained: `Live::Stand` pushes the key as a `PunctualLight` with the right
+direction (Live.cpp:361-371) and `Surface` carries it to `SetSubjectLights`
+(GltfStudio.cpp:335), yet a subject stood through the door under a declared light renders the
+same from +42 deg and from -80 deg. The next probe is inside the render path, not at the door:
+whether `SetSubjectLights` reaches the subject shader's uniform at all on this route.
+
 Proving test: `harness/outshine/door/ScoreWhatTheKeyLuxDoes`, standing RED and declared in
 `EXPECT_FAIL` with its count. Negative control: the same case's invariance CHECK, which passes,
 and its hundredfold-drop control, which passes -- so the case can tell a real invariance from a
