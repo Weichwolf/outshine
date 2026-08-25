@@ -63,6 +63,12 @@ which at most 66 are the reader actually reading.
 So the reach this item names is bigger than "carry a kind", and the order is now clear:
 
 1. the reader detects the 124 errors it currently refuses by accident, one class at a time.
+   **124 -> 98 so far**, measured with the blanket lifted: 13 to the accessor bounds and 13 to
+   the empty arrays. glTF 2.0 gives every top-level array `minItems: 1`, and Khronos reports
+   EMPTY_ENTITY on eighteen of its own fixtures for exactly that. `Document::Read` refuses one
+   now and names which. Proving test:
+   `harness/outshine/fuzz/ScoreWhatAnEmptyArrayMeans` -- 13 of 13 refused, 13 of 13 by name, and
+   the same arrays holding one item each still stand.
    **Started: accessor bounds, 124 -> 111.** glTF 2.0 says `accessor.min`/`max` are the ACTUAL
    componentwise extremes of the data, and the reader checked only that a POSITION accessor
    CARRIED them. `Document::BoundsHold` now reads the elements and refuses in both directions --

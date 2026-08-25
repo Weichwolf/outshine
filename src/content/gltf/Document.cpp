@@ -517,6 +517,17 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     return Refuse("declares asset.version '" + Version_ + "', and this reader is glTF 2.0");
   }
 
+  for (const char *named : {"accessors", "animations", "buffers", "bufferViews", "cameras",
+                            "images", "materials", "meshes", "nodes", "samplers", "scenes",
+                            "skins", "textures", "extensionsUsed", "extensionsRequired"}) {
+    const Json::Ref held = root[named];
+    if (held.Valid() && held.GetKind() == Json::Kind::Array && held.Size() == 0) {
+      return Refuse(std::string(named) + " is present and empty, and glTF 2.0 gives every one of "
+                    "its arrays a minimum of one item -- an array that is there says something "
+                    "stands in it");
+    }
+  }
+
   MinVersion_ = root["asset"]["minVersion"].Str("");
   if (!MinVersion_.empty() && MinVersion_.rfind("2.0", 0) != 0) {
     return Refuse("declares asset.minVersion '" + MinVersion_ +
