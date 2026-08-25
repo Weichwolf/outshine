@@ -105,6 +105,8 @@ int64_t Network::CellOf(double latDeg, double lonDeg) const {
   return KeyAt(row, ColumnIn(ShapeRow(row), lonDeg));
 }
 
+constexpr int64_t kMostCellsPerEdge = 64;
+
 bool Network::Weave(std::string &error) {
   Nodes_.clear();
   Edges_.clear();
@@ -238,6 +240,30 @@ bool Network::Weave(std::string &error) {
     }
   }
 
+  std::unordered_map<int64_t, std::vector<std::pair<uint32_t, uint32_t>>> byEdgeCell;
+  for (uint32_t from = 0; from < (uint32_t)Nodes_.size(); ++from) {
+    for (const Edge &edge : outgoing[from]) {
+      if ((uint32_t)edge.To < from) { continue; }
+      const Node &a = Nodes_[from];
+      const Node &b = Nodes_[edge.To];
+      const int64_t firstRow = RowOf(a.LatDeg < b.LatDeg ? a.LatDeg : b.LatDeg);
+      const int64_t lastRow = RowOf(a.LatDeg < b.LatDeg ? b.LatDeg : a.LatDeg);
+      if (lastRow - firstRow > kMostCellsPerEdge) { continue; }
+      for (int64_t row = firstRow; row <= lastRow; ++row) {
+        const RowShape shape = ShapeRow(row);
+        const int64_t one = ColumnIn(shape, a.LonDeg);
+        const int64_t two = ColumnIn(shape, b.LonDeg);
+        const int64_t firstColumn = one < two ? one : two;
+        const int64_t lastColumn = one < two ? two : one;
+        if (lastColumn - firstColumn > kMostCellsPerEdge) { continue; }
+        for (int64_t column = firstColumn; column <= lastColumn; ++column) {
+          byEdgeCell[KeyAt(row, ((column % shape.Columns) + shape.Columns) % shape.Columns)]
+              .push_back({from, (uint32_t)edge.To});
+        }
+      }
+    }
+  }
+
   Tied_ = 0;
   for (size_t loose = 0; loose < Nodes_.size(); ++loose) {
     if (outgoing[loose].size() != 1) { continue; }
@@ -257,16 +283,16 @@ bool Network::Weave(std::string &error) {
           (int64_t)std::ceil(reachM / (shape.LonCellDeg * perLonM)) + 1;
       for (int64_t step = -colReach; step <= colReach; ++step) {
         const int64_t column = ((centre + step) % shape.Columns + shape.Columns) % shape.Columns;
-        const auto seen = byCell.find(KeyAt(row, column));
-        if (seen == byCell.end()) { continue; }
-        for (const size_t near : seen->second) {
-          if (near == loose) { continue; }
-          for (const Edge &edge : outgoing[near]) {
-            if (edge.To == loose || near > edge.To) { continue; }
+        const auto seen = byEdgeCell.find(KeyAt(row, column));
+        if (seen == byEdgeCell.end()) { continue; }
+        for (const auto &held : seen->second) {
+          const size_t near = held.first, over = held.second;
+          if (near == loose || over == loose) { continue; }
+          {
             const double ax = (Nodes_[near].LonDeg - end.LonDeg) * perLonM;
             const double ay = (Nodes_[near].LatDeg - end.LatDeg) * perLatM;
-            const double bx = (Nodes_[edge.To].LonDeg - end.LonDeg) * perLonM;
-            const double by = (Nodes_[edge.To].LatDeg - end.LatDeg) * perLatM;
+            const double bx = (Nodes_[over].LonDeg - end.LonDeg) * perLonM;
+            const double by = (Nodes_[over].LatDeg - end.LatDeg) * perLatM;
             const double dx = bx - ax, dy = by - ay;
             const double span = dx * dx + dy * dy;
             double along = span > 0.0 ? -(ax * dx + ay * dy) / span : 0.0;
@@ -276,7 +302,7 @@ bool Network::Weave(std::string &error) {
             if (awayM >= bestM) { continue; }
             bestM = awayM;
             bestFrom = near;
-            bestTo = edge.To;
+            bestTo = over;
           }
         }
       }
