@@ -404,7 +404,7 @@ ls board/*.md | grep -o '[0-9]\{4\}' | sort -n | tail -1  # next id, derived
 |---|---|
 | `src/` | the library entire; `src/assets/` its declared data; no entry point, no test |
 | `test/` | `test/` the established corpora (Khronos · WPT · test262); `test/khronos/validator/` the 263 glTF-Validator cases, judged as a REFUSAL against Khronos's own report; `test/harness/` their scorers and the board/harness claims. Everything under `test/` reaches the library through `include/` and NOTHING of `src/` |
-| `apps/` | the CLIENTS, built ON the library and each a product: **`apps/driver`** is outshine's one integration test and the architect signs it off; **`apps/viewer`** shows any scenario and becomes a scenario itself, layered over the one it shows (board:1880) |
+| `apps/` | the CLIENTS, built ON the library and each a product. **A client is almost no code, and its LINE COUNT is a measurement of the door**: when a client needs much code, the interface is too complicated and the door is the finding, never the client. At HEAD `apps/driver` is 223 lines and `apps/viewer` 349, and both are too long (board:1898): **`apps/driver`** is outshine's one integration test and the architect signs it off; **`apps/viewer`** shows any scenario and becomes a scenario itself, layered over the one it shows (board:1880) |
 | `Makefile` | build · test · clean, nothing else |
 | `board/` | the working system (above) |
 
