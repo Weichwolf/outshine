@@ -61,26 +61,39 @@ int main(void) {
                       "test/harness/claims/ACommitCarriesTheItemItNames.cpp 2>/dev/null")).back();
 
   const std::string range = born.empty() ? "-1" : born + "..HEAD";
-  const std::vector<std::string> commits = Lines(Ask("git log --format=%H " + range));
-  Note("commits this rule has bound so far", (double)commits.size(), "commits");
+
+  // board:1842: this used to spawn two processes PER COMMIT and the range only grows, so the
+  // fast gate paid a cost that rises with the history for ever. One log call carries the hash,
+  // the message and the board files it touched, separated by bytes no message holds.
+  const std::string whole =
+      Ask("git log --format='%x01%H%x02%B%x03' --name-only " + range + " -- board/ 2>/dev/null");
 
   std::vector<std::string> carrying;
-  for (const std::string &commit : commits) {
-    const std::string message = Ask("git log -1 --format=%B " + commit);
+  size_t commits = 0;
+  for (size_t at = whole.find('\x01'); at != std::string::npos; at = whole.find('\x01', at + 1)) {
+    const size_t opens = whole.find('\x02', at);
+    const size_t closes = whole.find('\x03', opens == std::string::npos ? at : opens);
+    if (opens == std::string::npos || closes == std::string::npos) { break; }
+    ++commits;
+    const std::string commit = whole.substr(at + 1, opens - at - 1);
+    const std::string message = whole.substr(opens + 1, closes - opens - 1);
+    const size_t ends = whole.find('\x01', closes);
+    const std::string files =
+        whole.substr(closes + 1, ends == std::string::npos ? ends : ends - closes - 1);
+
     std::vector<std::string> named;
-    for (size_t at = 0; at + 4 <= message.size(); ++at) {
+    for (size_t scan = 0; scan + 4 <= message.size(); ++scan) {
       bool four = true;
       for (size_t step = 0; step < 4; ++step) {
-        four = four && std::isdigit((unsigned char)message[at + step]);
+        four = four && std::isdigit((unsigned char)message[scan + step]);
       }
       if (!four) { continue; }
-      if (at > 0 && std::isdigit((unsigned char)message[at - 1])) { continue; }
-      if (at + 4 < message.size() && std::isdigit((unsigned char)message[at + 4])) { continue; }
-      named.push_back(message.substr(at, 4));
+      if (scan > 0 && std::isdigit((unsigned char)message[scan - 1])) { continue; }
+      if (scan + 4 < message.size() && std::isdigit((unsigned char)message[scan + 4])) { continue; }
+      named.push_back(message.substr(scan, 4));
     }
-    const std::vector<std::string> touched =
-        NumbersIn(Ask("git show --name-only --format= " + commit + " -- board/"), "/");
-    for (const std::string &one : touched) {
+
+    for (const std::string &one : NumbersIn(files, "/")) {
       bool spoken = false;
       for (const std::string &say : named) { spoken = spoken || say == one; }
       if (spoken) { continue; }
@@ -88,6 +101,8 @@ int main(void) {
                          " and its message names it nowhere");
     }
   }
+  Note("commits this rule has bound so far", (double)commits, "commits");
+  Note("processes the walk spawns", 2.0, "popen");
 
   for (const std::string &one : carrying) { std::printf("FOUND %s\n", one.c_str()); }
 
