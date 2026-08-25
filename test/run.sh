@@ -161,7 +161,7 @@ LayerIncludes() {
     harness/render/wpt/css) printf '%s' "-Iinclude" ;;
     harness/render/test262/js) printf '%s' "-Iinclude" ;;
     render/outshine/scenario) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/clients -Isrc/scenario -Isrc/ui -Itest/harness/shared" ;;
-    apps/viewer/src) printf '%s' "-Itest/harness/shared -Itest/harness/shared/render -Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/data -Isrc/scene -Isrc/host -Isrc/clients -Isrc/ui -Iinclude -Iapps/viewer/src/parts" ;;
+    apps/viewer/src) printf '%s' "-Iinclude" ;;
     apps/driver/src) printf '%s' "-Iapps/viewer -Iinclude -Isrc/core -Isrc/core/io -Isrc/scene -Isrc/host -Isrc/clients -Isrc/actor/path -Isrc/data -Isrc/gltf -Isrc/actor/body -Isrc/actor/mind -Isrc/render -Isrc/render/plan -Isrc/render/draw -Isrc/render/stages -Isrc/scenario -Isrc/ui -Isrc/ground -Isrc/ground/tiles -Isrc/sim" ;;
     *) return 1 ;;
   esac
@@ -249,7 +249,6 @@ NotTheHarnesses() {
 LayerExtraSources() {
   case "$1" in
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "test/harness/shared/render/Parity.cpp" ;;
-    apps/viewer/src) printf '%s' "apps/viewer/src/parts/Face.cpp" ;;
     *) printf '%s' "" ;;
   esac
 }
