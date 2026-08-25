@@ -1855,12 +1855,16 @@ if [ "$FAST_GATE" = yes ] && [ "$gateRunMs" -le "$kFastGateBoundMs" ]; then
   printf 'run.sh: gate headroom %s ms of %s (run %s ms, builds %s ms beside the bound)\n' \
     "$((kFastGateBoundMs - gateRunMs))" "$kFastGateBoundMs" "$gateRunMs" "$builtSpentMs"
 fi
+red=$((failed + timedout + signalled + unbuilt + undeclaredSkips + unprepared + compileBlind))
+
+overran=0
 if [ "$FAST_GATE" = yes ] && [ "$gateRunMs" -gt "$kFastGateBoundMs" ]; then
+  overran=1
   printf 'run.sh: THE FAST GATE OVERRAN ITS BOUND -- %s ms of RUN over the declared %s ms (builds %s ms stood beside the bound): a slow test is a finding, exactly like a slow frame (board:1601, 1735)\n' \
     "$gateRunMs" "$kFastGateBoundMs" "$builtSpentMs" >&2
-  exit 1
+fi
+if [ "$red" -gt 0 ]; then
+  printf 'run.sh: %s case(s) are RED and the verdict is theirs, whatever the clock said\n' "$red" >&2
 fi
 
-red=$((failed + timedout + signalled + unbuilt + undeclaredSkips + unprepared + compileBlind))
-[ "$red" -eq 0 ] || exit 1
-exit 0
+[ "$red" -eq 0 ] && [ "$overran" -eq 0 ]
