@@ -9,12 +9,6 @@ namespace outshine {
 
 namespace {
 
-[[nodiscard]] double ShiftShare(double swing) { return 1.0 + swing * swing / 96.0; }
-
-[[nodiscard]] double TangentShare(double swing) {
-  return ShiftShare(swing) * std::tan(0.5 * swing) + 0.25 * swing;
-}
-
 double AwayFromChordM(std::span<const double> points, size_t point, size_t from, size_t to) {
   const double fromE = points[2 * from], fromN = points[2 * from + 1];
   const double toE = points[2 * to], toN = points[2 * to + 1];
@@ -87,15 +81,6 @@ std::vector<double> Simplify(std::span<const double> eastNorthM, double withinM,
     out.push_back(eastNorthM[2 * point + 1]);
   }
   return out;
-}
-
-double CornerRadiusM(double turnRad, double shorterLegM, double withinM) {
-  const double swing = std::fabs(turnRad);
-  const double half = 0.5 * swing;
-  if (half < 1.0e-9 || half >= 0.5 * kTurn * 0.5 || !(withinM > 0.0)) { return 0.0; }
-  const double byAccuracy = withinM / (ShiftShare(swing) / std::cos(half) - 1.0);
-  const double byRoom = 0.5 * shorterLegM / TangentShare(swing);
-  return byAccuracy < byRoom ? byAccuracy : byRoom;
 }
 
 Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,

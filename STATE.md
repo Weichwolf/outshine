@@ -160,6 +160,7 @@ STRANDED -- sources no declared suite links, so nothing they hold is proven
 
 PROVES -- what src/ provably does, one line each
   a derived camera is computed where the bounds are, and the rule's constants cannot drift between the engine and the preparer
+  a fitted corridor reads the radius the polyline carries and lays the arc length its sweep demands, at every digitisation density, because a circle's r
   gltf-2.0 conformance at the door: an asset Khronos's validator errors on is refused with a reason, and one it passes stands
   gltf-2.0: a camera's near plane lies in front of the eye and its far plane beyond the near one, an orthographic magnification is not zero, and a persp
   gltf-2.0: a GLB carries exactly one JSON chunk, first, and at most one binary chunk, and a second of either is refused rather than ignored

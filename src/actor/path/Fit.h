@@ -10,8 +10,6 @@
 
 namespace outshine {
 
-[[nodiscard]] double CornerRadiusM(double turnRad, double shorterLegM, double withinM);
-
 [[nodiscard]] std::vector<double> Simplify(std::span<const double> eastNorthM, double withinM);
 
 [[nodiscard]] std::vector<double> Simplify(std::span<const double> eastNorthM, double withinM,
