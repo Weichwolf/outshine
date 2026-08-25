@@ -57,8 +57,14 @@ int main(void) {
         "library build of the same source can never share an artefact -- the path IS the flag "
         "identity, and UpToDate needs no flag awareness (board:1603)");
 
+  CHECK(Sites(runner, "render/outshine/client) printf '%s' \"-Iinclude\" ;;") == 1,
+        "**AND THE DOOR PROOF COMPILES AGAINST THE DOOR ALONE**: the suite whose whole purpose "
+        "is to show that a client needs nothing but include/outshine/ is declared with -Iinclude "
+        "and no -Isrc entry, so the proof cannot be retired by widening the set it stands on "
+        "(board:1582)");
+
   Covers("I.83 the layering is declared once: the runner's group declarations are the only "
          "spelling of which source compiles with which includes, and `make` builds the library "
-         "entire from them");
+         "entire from them, and the client suite's set is the public door alone");
   return Report();
 }
