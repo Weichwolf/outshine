@@ -275,10 +275,21 @@ int main(int argc, char **argv) {
       stands = showing;
       stands.Surfaces.push_back(browsing.Face(asked.WidthPx, asked.HeightPx));
       if (!engine.Declare(stands)) {
-        std::printf("REFUSED %s\n", engine.Error().c_str());
-        break;
+        browsing.Noted(engine.Error());
+        shownCase.clear();
+        showing = outshine::Scenario{};
+        showing.Render.Declared = true;
+        showing.Render.Frame = outshine::Extent{asked.WidthPx, asked.HeightPx};
+        showing.Render.Fill = 0.15;
+        outshine::Scenario alone = showing;
+        alone.Surfaces.push_back(browsing.Face(asked.WidthPx, asked.HeightPx));
+        if (!engine.Declare(alone)) {
+          std::printf("STOPPED the browser itself did not stand: %s\n", engine.Error().c_str());
+          break;
+        }
+      } else if (!engine.Assemble()) {
+        browsing.Noted(engine.Error());
       }
-      if (!engine.Assemble()) { browsing.Noted(engine.Error()); }
       browsing.Settled();
     }
     if (!asked.Into.empty()) {

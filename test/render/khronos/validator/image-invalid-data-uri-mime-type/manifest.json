@@ -1,0 +1,58 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "khronos/validator/image-invalid-data-uri-mime-type",
+  "title": "glTF-Validator image/invalid_data_uri_mime_type.gltf -- the validator reports 2 error(s)",
+  "covers": [
+    "gltf-2.0",
+    "khronos-validator:image/invalid_data_uri_mime_type.gltf"
+  ],
+  "criterion": {
+    "kind": "validator-report",
+    "says": "an asset Khronos's own validator reports errors on is REFUSED by this reader, and one it reports none on STANDS -- the count is read out of the .report.json that travels with the case",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/image/invalid_data_uri_mime_type.gltf.report.json"
+  },
+  "subjects": [
+    {
+      "kind": "gltf",
+      "id": "image-invalid-data-uri-mime-type",
+      "name": "image-invalid-data-uri-mime-type",
+      "entry": "invalid_data_uri_mime_type.gltf",
+      "source": {
+        "kind": "khronos-gltf-validator",
+        "commit": "434283be08a668a8fb4e437145630ddbf93b0686",
+        "path": "test/base/data/image/invalid_data_uri_mime_type.gltf",
+        "pinnedOn": "2026-08-25",
+        "pinReason": "the tip of glTF-Validator on the day the refusal corpus was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/image/invalid_data_uri_mime_type.gltf",
+          "sha256": "2910c5a36662e9aa31c5f8dd2bfc39ee5f169e7ed0356dd53af84da3e6cb0df4",
+          "bytes": 423,
+          "as": "invalid_data_uri_mime_type.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "Apache-2.0",
+            "holder": "The Khronos Group Inc.",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/LICENSE"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/image/invalid_data_uri_mime_type.gltf.report.json",
+          "sha256": "8549731b7f9a73e057fe2361fb0c2a6c4518899d49d1d91a856890f46b49bfba",
+          "bytes": 2271,
+          "as": "invalid_data_uri_mime_type.gltf.report.json",
+          "role": "report",
+          "licence": {
+            "spdx": "Apache-2.0",
+            "holder": "The Khronos Group Inc.",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/LICENSE"
+          }
+        }
+      ]
+    }
+  ]
+}

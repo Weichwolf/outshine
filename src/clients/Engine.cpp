@@ -393,17 +393,20 @@ bool Engine::Declare(const Scenario &scenario) {
     return false;
   }
   const Asset *const subject = scenario.Subject();
-  if (subject == nullptr) {
-    S_->Error = "a scenario stands up an asset of kind 'gltf' and this one declares none";
+  if (subject == nullptr && scenario.Surfaces.empty()) {
+    S_->Error = "a scenario shows an asset of kind 'gltf' or a surface, and this one declares "
+                "neither -- a declaration with nothing to draw is a picture nobody asked for";
     return false;
   }
 
   Clients::Declaration declared;
   declared.SurfaceWidthPx = S_->Frame.WidthPx;
   declared.SurfaceHeightPx = S_->Frame.HeightPx;
-  declared.Stands = Beneath(S_->Under.Assets, subject->Uri);
-  declared.Variant = subject->Variant;
-  declared.Animation = subject->Animation;
+  if (subject != nullptr) {
+    declared.Stands = Beneath(S_->Under.Assets, subject->Uri);
+    declared.Variant = subject->Variant;
+    declared.Animation = subject->Animation;
+  }
   declared.Fps = scenario.Render.Fps;
   declared.Fill = scenario.Render.Fill;
   declared.OrbitDegPerFrame = scenario.Render.OrbitDegPerFrame;

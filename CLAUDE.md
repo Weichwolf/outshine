@@ -392,7 +392,7 @@ ls board/*.md | grep -o '[0-9]\{4\}' | sort -n | tail -1  # next id, derived
 | | |
 |---|---|
 | `src/` | the library entire; `src/assets/` its declared data; no entry point, no test |
-| `test/` | `test/render/` the corpora judged as a PICTURE (Khronos · WPT · test262); `test/refuse/` the corpora judged as a REFUSAL (glTF-Validator, 263 cases against Khronos's own report); `test/harness/` their scorers and the board/harness claims. Everything under `test/` reaches the library through `include/` and NOTHING of `src/` |
+| `test/` | `test/render/` the established corpora (Khronos · WPT · test262); `test/render/khronos/validator/` the 263 glTF-Validator cases, judged as a REFUSAL against Khronos's own report; `test/harness/` their scorers and the board/harness claims. Everything under `test/` reaches the library through `include/` and NOTHING of `src/` |
 | `apps/` | the CLIENTS, built ON the library and each a product: **`apps/driver`** is outshine's one integration test and the architect signs it off; **`apps/viewer`** shows any scenario and becomes a scenario itself, layered over the one it shows (board:1880) |
 | `Makefile` | build · test · clean, nothing else |
 | `board/` | the working system (above) |

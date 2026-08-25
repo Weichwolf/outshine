@@ -1,0 +1,71 @@
+{
+  "schema": "outshine/declared-case-manifest",
+  "schemaVersion": 1,
+  "id": "khronos/validator/accessor-data-out-of-range-elements-uint8",
+  "title": "glTF-Validator accessor_data/out_of_range_elements_uint8.gltf -- the validator reports 12 error(s)",
+  "covers": [
+    "gltf-2.0",
+    "khronos-validator:accessor_data/out_of_range_elements_uint8.gltf"
+  ],
+  "criterion": {
+    "kind": "validator-report",
+    "says": "an asset Khronos's own validator reports errors on is REFUSED by this reader, and one it reports none on STANDS -- the count is read out of the .report.json that travels with the case",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/accessor_data/out_of_range_elements_uint8.gltf.report.json"
+  },
+  "subjects": [
+    {
+      "kind": "gltf",
+      "id": "accessor-data-out-of-range-elements-uint8",
+      "name": "accessor-data-out-of-range-elements-uint8",
+      "entry": "out_of_range_elements_uint8.gltf",
+      "source": {
+        "kind": "khronos-gltf-validator",
+        "commit": "434283be08a668a8fb4e437145630ddbf93b0686",
+        "path": "test/base/data/accessor_data/out_of_range_elements_uint8.gltf",
+        "pinnedOn": "2026-08-25",
+        "pinReason": "the tip of glTF-Validator on the day the refusal corpus was declared; a pin is what makes a fetched corpus a measurement rather than a moving target"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/accessor_data/out_of_range_elements_uint8.gltf",
+          "sha256": "841220648c00e461df8bb46898a3de3d4da11aef2a491defefa08fee4c6dc4d1",
+          "bytes": 650,
+          "as": "out_of_range_elements_uint8.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "Apache-2.0",
+            "holder": "The Khronos Group Inc.",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/LICENSE"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/accessor_data/out_of_range_elements_uint8.bin",
+          "sha256": "6a37f18d1cde96e95eebfa5c79be2f0e3ced2fad8b81ef93442152711c535493",
+          "bytes": 6,
+          "as": "out_of_range_elements_uint8.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "Apache-2.0",
+            "holder": "The Khronos Group Inc.",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/LICENSE"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/test/base/data/accessor_data/out_of_range_elements_uint8.gltf.report.json",
+          "sha256": "d9a0cb5a2c2192edc08d28150753b1ee5f71840926fa67cbe552e169fe263bb2",
+          "bytes": 4430,
+          "as": "out_of_range_elements_uint8.gltf.report.json",
+          "role": "report",
+          "licence": {
+            "spdx": "Apache-2.0",
+            "holder": "The Khronos Group Inc.",
+            "covers": "Everything",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Validator/434283be08a668a8fb4e437145630ddbf93b0686/LICENSE"
+          }
+        }
+      ]
+    }
+  ]
+}
