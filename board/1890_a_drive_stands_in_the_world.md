@@ -166,3 +166,32 @@ the tree.
       composes its ground.
 - [ ] The ground is a COMPOSITOR's draw item, not a part appended to the vehicle's glTF.
       `Gltf::Subject world = Shown(); world.Append(ground)` is the shortcut this seam is made of.
+
+      ### Walked to the bottom 2026-08-25, and the bottom is ONE sentence
+
+      The branch was opened again and the ground got four steps further before the seam itself
+      refused. Each step was a real defect, each is fixed, and none of them was the seam:
+
+      1. `Append` copied the guest's material indices unchanged, so the ground's `Material = 0`
+         collided with the vehicle's own first slot and the terrain was painted onto the roof.
+         It shifts them clear now. Proving test:
+         `harness/outshine/content/ScoreWhatAnAppendKeeps`.
+      2. `Bound()` after the append covered the 8 km ring, so the camera framed the ring and the
+         derived shadow radius became kilometres. `Subject::BoundsOf(parts, ...)` gives the
+         bounds of the first N parts and both readers use it.
+      3. `ClearsNearPlane` walked every vertex in the picture. A studio holds one subject and
+         nothing may sit inside its near plane; a WORLD has geometry everywhere, which is this
+         item's own title. It walks the framed parts now.
+      4. `Restand` set `Joined_` AFTER `Build`, so every one of those fixes read zero while the
+         camera was being derived. It is set before.
+
+      What refuses now is the sentence at the bottom: **the vehicle's geometry is in ASSET UNITS
+      and the ground's is in METRES, and `Append` puts them in one vertex buffer.** The two
+      scales are separated per part by the placement matrix -- `perUnit` for the car, identity
+      for the ground -- and the framing runs BEFORE any placement is known, so it measures a car
+      64 times too big beside a ground at true size. The near plane lands at 637 m and the
+      ground's nearest vertex at 624 m, and the refusal is correct.
+
+      No placement can fix that, because the mixing happens in the buffer. The ground has to be
+      its own subject with its own scale, which is what "a compositor's draw item" means and why
+      this box is the one the other three wait on.

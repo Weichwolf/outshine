@@ -140,6 +140,8 @@ public:
   [[nodiscard]] size_t VertexCount() const { return Positions_.size() / 3; }
   [[nodiscard]] size_t TriangleCount() const { return Indices_.size() / 3; }
 
+  void BoundsOf(size_t parts, double least[3], double most[3]) const;
+
   [[nodiscard]] const double *MinM() const { return Min_; }
   [[nodiscard]] const double *MaxM() const { return Max_; }
 

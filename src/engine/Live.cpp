@@ -164,9 +164,10 @@ bool Live::Build(std::string &error) {
   }
 
   if (Declared_.Built == nullptr) { Joined_ = Geometry_.Parts().size(); }
+  if (Carrying_ > 0) { Joined_ = Carrying_; }
   if (!(Declared_.ShadowRadiusM > 0.0) && Geometry_.TriangleCount() > 0) {
-    const double *const least = Geometry_.MinM();
-    const double *const most = Geometry_.MaxM();
+    double least[3], most[3];
+    Geometry_.BoundsOf(Joined_, least, most);
     double across = 0.0;
     for (int axis = 0; axis < 3; ++axis) {
       const double span = (most[axis] - least[axis]) * Declared_.MetresPerUnit;
@@ -275,7 +276,10 @@ bool Live::PlacedBounds(double least[3], double most[3], std::string &error) {
     bool first = true;
     const auto fold = [this, &first]() {
       const std::vector<double> &at = Geometry_.PositionsM();
-      for (size_t part = 0; part < Geometry_.Parts().size(); ++part) {
+      const size_t framed = Joined_ > 0 && Joined_ < Geometry_.Parts().size()
+                                ? Joined_
+                                : Geometry_.Parts().size();
+      for (size_t part = 0; part < framed; ++part) {
         const Gltf::Part &one = Geometry_.Parts()[part];
         const std::array<double, 16> identity{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
         const std::array<double, 16> &placed =
@@ -351,7 +355,7 @@ bool Live::Look(std::string &error) {
   for (int axis = 0; axis < 3; ++axis) { framed.Up[axis] = basis[axis]; }
   Stood_.Eye = framed;
   Stood_.EyeStandsInside = false;
-  return Aim(*Renderer_, Geometry_, Stood_.Eye, error, false);
+  return Aim(*Renderer_, Geometry_, Stood_.Eye, error, false, Joined_);
 }
 
 bool Live::Stand(std::string &error) {
@@ -415,15 +419,14 @@ bool Live::Stand(std::string &error) {
   if (Declared_.Fill > 0.0 || !declared) {
 
     double least[3], most[3];
-    for (int axis = 0; axis < 3; ++axis) {
-      least[axis] = Geometry_.MinM()[axis];
-      most[axis] = Geometry_.MaxM()[axis];
-    }
+    Geometry_.BoundsOf(Joined_, least, most);
     for (int frame = 1; frame < Frames_; ++frame) {
       if (!Pose(frame, error)) { return false; }
+      double posedLeast[3], posedMost[3];
+      Geometry_.BoundsOf(Joined_, posedLeast, posedMost);
       for (int axis = 0; axis < 3; ++axis) {
-        least[axis] = Geometry_.MinM()[axis] < least[axis] ? Geometry_.MinM()[axis] : least[axis];
-        most[axis] = Geometry_.MaxM()[axis] > most[axis] ? Geometry_.MaxM()[axis] : most[axis];
+        least[axis] = posedLeast[axis] < least[axis] ? posedLeast[axis] : least[axis];
+        most[axis] = posedMost[axis] > most[axis] ? posedMost[axis] : most[axis];
       }
     }
     if (Frames_ > 1 && !Pose(0, error)) { return false; }
@@ -595,7 +598,10 @@ bool Live::Restands(std::string stands, std::string variant, AssetAnimation anim
 bool Live::Restand(const Gltf::Subject &built, size_t carried, std::string &error) {
   Declared_.Built = &built;
   Stoodup_ = false;
-  if (!Build(error)) { return false; }
+  Carrying_ = carried;
+  const bool stood = Build(error);
+  Carrying_ = 0;
+  if (!stood) { return false; }
   Joined_ = carried;
   if (!Stand(error)) { return false; }
   return Submit(error);

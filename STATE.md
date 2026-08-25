@@ -98,7 +98,7 @@ TIERS -- src/, and what each may include
 MASS -- the heaviest units, against the median of them all
     1982  content/gltf/Document.h
     1397  ui/Layout.h
-    1322  content/gltf/Subject.h
+    1347  content/gltf/Subject.h
     1319  render/Renderer.h
     1141  base/format/Script.h
     1006  render/stages/SubjectDraw.h
@@ -161,6 +161,7 @@ PROVES -- what src/ provably does, one line each
   a derived camera is computed where the bounds are, and the rule's constants cannot drift between the engine and the preparer
   gltf-2.0 conformance at the door: an asset Khronos's validator errors on is refused with a reason, and one it passes stands
   gltf-2.0: an accessor's declared min and max are the actual componentwise extremes of its data, refused in both directions -- a box around the data an
+  gltf: appending one subject onto another shifts the guest's material names clear of the host's, so a joined buffer set is still two bodies and neither
   I.17 the picture is a function of the declaration and not of the machine: no layer of the engine that decides one reads an environment variable, and t
   I.26.10 a render test is a directory: one runner reads the declaration, renders the subject with no world, scores it against the cached oracle by name
   I.36 The harness's own red demonstrated by a test that is declared to fail

@@ -56,7 +56,7 @@ struct StudioScratch {
 
 [[nodiscard]] bool Aim(Render::Renderer &renderer, const Gltf::Subject &subject,
                        const Gltf::Placement &eye, std::string &error,
-                       bool standsInside = false);
+                       bool standsInside = false, size_t framedParts = 0);
 
 [[nodiscard]] bool Show(Render::Renderer &renderer, const Studio &studio, StudioScratch &scratch,
                         std::string &error);

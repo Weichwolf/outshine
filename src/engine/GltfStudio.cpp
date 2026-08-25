@@ -42,15 +42,22 @@ void Anchored(const double gltf[3], double out[3]) {
 }
 
 [[nodiscard]] bool ClearsNearPlane(const Gltf::Subject &subject, const Gltf::Placement &eye,
-                                   std::string &error) {
+                                   size_t framedParts, std::string &error) {
   const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : (double)Render::Renderer::kNearM;
+  double framedLeast[3], framedMost[3];
+  subject.BoundsOf(framedParts, framedLeast, framedMost);
+  size_t beyond = subject.VertexCount();
+  if (framedParts > 0 && framedParts < subject.Parts().size()) {
+    const Gltf::Part &last = subject.Parts()[framedParts - 1];
+    beyond = last.FirstVertex + last.VertexCount;
+  }
 
   double least = 0.0;
   bool first = true;
   for (int corner = 0; corner < 8; ++corner) {
     double along = 0;
     for (int axis = 0; axis < 3; ++axis) {
-      const double at = (corner & (1 << axis)) != 0 ? subject.MaxM()[axis] : subject.MinM()[axis];
+      const double at = (corner & (1 << axis)) != 0 ? framedMost[axis] : framedLeast[axis];
       along += (at - eye.EyeM[axis]) * eye.Forward[axis];
     }
     if (first || along < least) {
@@ -59,7 +66,7 @@ void Anchored(const double gltf[3], double out[3]) {
     }
   }
   if (!first && least > plane) { return true; }
-  for (size_t vertex = 0; vertex < subject.VertexCount(); ++vertex) {
+  for (size_t vertex = 0; vertex < beyond; ++vertex) {
     double along = 0;
     for (int axis = 0; axis < 3; ++axis) {
       along += (subject.PositionsM()[vertex * 3 + (size_t)axis] - eye.EyeM[axis]) * eye.Forward[axis];
@@ -311,9 +318,9 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
 }
 
 bool Aim(Render::Renderer &renderer, const Gltf::Subject &subject, const Gltf::Placement &eye,
-         std::string &error, bool standsInside) {
+         std::string &error, bool standsInside, size_t framedParts) {
   if (!SetProjection(renderer, eye, error)) { return false; }
-  if (!standsInside && !ClearsNearPlane(subject, eye, error)) { return false; }
+  if (!standsInside && !ClearsNearPlane(subject, eye, framedParts, error)) { return false; }
   double position[3], forward[3], right[3], up[3];
   Anchored(eye.EyeM, position);
   EcefFromGltf(eye.Forward, forward);

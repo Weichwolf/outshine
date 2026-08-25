@@ -1013,14 +1013,37 @@ bool Subject::Append(const Subject &other) {
   for (const uint32_t index : other.Indices_) {
     Indices_.push_back((uint32_t)vertexBase + index);
   }
+  int beyond = 0;
+  for (const Part &part : Parts_) {
+    if (part.Material >= beyond) { beyond = part.Material + 1; }
+  }
   Parts_.reserve(Parts_.size() + other.Parts_.size());
   for (Part part : other.Parts_) {
     part.FirstVertex += vertexBase;
     part.FirstIndex += indexBase;
+    if (part.Material >= 0) { part.Material += beyond; }
     Parts_.push_back(std::move(part));
   }
   Bound();
   return true;
+}
+
+void Subject::BoundsOf(size_t parts, double least[3], double most[3]) const {
+  for (int axis = 0; axis < 3; ++axis) { least[axis] = Min_[axis]; most[axis] = Max_[axis]; }
+  if (parts == 0 || parts >= Parts_.size()) { return; }
+  bool any = false;
+  for (size_t at = 0; at < parts; ++at) {
+    const Part &part = Parts_[at];
+    for (size_t vertex = part.FirstVertex; vertex < part.FirstVertex + part.VertexCount;
+         ++vertex) {
+      for (int axis = 0; axis < 3; ++axis) {
+        const double held = Positions_[vertex * 3 + (size_t)axis];
+        if (!any || held < least[axis]) { least[axis] = held; }
+        if (!any || held > most[axis]) { most[axis] = held; }
+      }
+      any = true;
+    }
+  }
 }
 
 double Subject::RadiusM() const {

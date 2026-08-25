@@ -185,6 +185,7 @@ private:
 
   bool Stoodup_ = false;
   size_t Joined_ = 0;
+  size_t Carrying_ = 0;
   int Frames_ = 1;
   int At_ = 0;
 

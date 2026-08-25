@@ -201,6 +201,7 @@ LayerIncludes() {
   case "$1" in
     harness/claims) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators " ;;
     harness/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/data -Itest/harness/shared" ;;
+    harness/outshine/content) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/content/gltf -Isrc/content/shade -Itest/harness/shared" ;;
     harness/outshine/geo) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/world/data -Isrc/world/ground -Isrc/world/ground/tiles -Itest/harness/shared" ;;
     harness/outshine/fuzz) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/content/gltf -Itest/harness/shared" ;;
     harness/outshine/physics) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/actor/body -Isrc/actor/path -Isrc/actor/mind -Isrc/sim -Itest/harness/shared" ;;
@@ -245,7 +246,7 @@ LayerValidation() {
 
 LayerLink() {
   case "$1" in
-    harness/outshine/fuzz | harness/outshine/geo) printf '%s' "-lz" ;;
+    harness/outshine/fuzz | harness/outshine/geo | harness/outshine/content) printf '%s' "-lz" ;;
     harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown | outshine/frame | apps/viewer/src | outshine/scenario | harness/outshine/door | outshine/client) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
     harness/claims) printf '%s' "-lz" ;;
     apps/driver/src) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
@@ -259,6 +260,7 @@ LayerGroups() {
     harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/ui" ;;
     harness/test262/js) printf '%s' "src/base/format/Json.cpp src/base/format/Script.cpp" ;;
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;
+    harness/outshine/content) printf '%s' "src/base/math src/base/geo src/base/format src/base/spatial src/base/io src/content/gltf" ;;
     harness/outshine/geo) printf '%s' "src/base/math src/base/geo src/base/format src/base/spatial src/base/io src/world/data src/world/ground/tiles" ;;
     harness/outshine/fuzz) printf '%s' "src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/content/gltf" ;;
     harness/outshine/physics) printf '%s' "src/actor/body src/actor/path src/actor/mind src/sim/Rigging.cpp" ;;
