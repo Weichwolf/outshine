@@ -5,7 +5,9 @@
 #include <cstdint>
 #include <memory>
 #include <expected>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <SDL3/SDL_gpu.h>
@@ -39,14 +41,13 @@ public:
   [[nodiscard]] const std::string &WhyNot() const { return WhyNot_; }
 
   struct Shown {
-    bool Drew = false;
     int WidthPx = 0;
     int HeightPx = 0;
   };
 
-  [[nodiscard]] std::expected<void, std::string> ShowOn(SDL_Window *window);
-  [[nodiscard]] std::expected<void, std::string> ShowOffscreen(int widthPx, int heightPx);
-  [[nodiscard]] std::expected<Shown, std::string> PresentFrame();
+  [[nodiscard]] std::expected<void, std::string_view> ShowOn(SDL_Window *window);
+  [[nodiscard]] std::expected<void, std::string_view> ShowOffscreen(int widthPx, int heightPx);
+  [[nodiscard]] std::expected<std::optional<Shown>, std::string_view> PresentFrame();
   void StopShowing();
 
   [[nodiscard]] SDL_GPUTextureFormat SurfaceFormat() const;

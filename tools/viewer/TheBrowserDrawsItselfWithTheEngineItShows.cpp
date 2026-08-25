@@ -549,8 +549,9 @@ int Windowed(Browser &browser, int frames) {
 
   std::unique_ptr<outshine::Clients::Live> live;
   std::string error;
-  int unshown = 0;
-  std::string unshownWhy;
+  int broken = 0;
+  int imageless = 0;
+  std::string brokenWhy;
 
   SDL_Window *window = SDL_CreateWindow("outshine cases", browser.WidthPx, browser.HeightPx,
                                         SDL_WINDOW_RESIZABLE);
@@ -630,10 +631,12 @@ int Windowed(Browser &browser, int frames) {
 
     auto presented = renderer.PresentFrame();
     if (!presented) {
-      ++unshown;
-      if (unshownWhy.empty()) { unshownWhy = std::move(presented).error(); }
+      ++broken;
+      if (brokenWhy.empty()) { brokenWhy = std::string(presented.error()); }
+    } else if (!presented->has_value()) {
+      ++imageless;
     } else {
-      const outshine::Render::Renderer::Shown shown = *presented;
+      const outshine::Render::Renderer::Shown shown = **presented;
       if (shown.WidthPx != browser.WidthPx || shown.HeightPx != browser.HeightPx) {
         browser.WidthPx = shown.WidthPx;
         browser.HeightPx = shown.HeightPx;
@@ -646,8 +649,12 @@ int Windowed(Browser &browser, int frames) {
     }
   }
   renderer.WaitForGpu();
-  if (unshown > 0) {
-    std::printf("%d frame(s) never reached the surface: %s\n", unshown, unshownWhy.c_str());
+  if (imageless > 0) {
+    std::printf("%d frame(s) had no image to draw into -- a minimised window is not an error\n",
+                imageless);
+  }
+  if (broken > 0) {
+    std::printf("%d frame(s) the door refused: %s\n", broken, brokenWhy.c_str());
   }
   if (frames >= 0) {
     const Distribution advancing = Over(advanceMs);

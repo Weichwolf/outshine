@@ -149,7 +149,7 @@ int main(void) {
     }
 
     if (auto standing = renderer.ShowOffscreen(kSurfaceW, kSurfaceH); !standing) {
-      why = std::move(standing).error();
+      why = std::string(standing.error());
       ++refused;
       Checked(false, "the surface the client declared is made", (one.Name + ": " + why).c_str(),
               __FILE__, __LINE__);

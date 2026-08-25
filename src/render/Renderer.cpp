@@ -832,17 +832,18 @@ ReadState Renderer::ReadSurfaceIdentity(std::vector<float> &slot) {
   return ReadState::Ready;
 }
 
-std::expected<void, std::string> Renderer::ShowOn(SDL_Window *window) {
+std::expected<void, std::string_view> Renderer::ShowOn(SDL_Window *window) {
   if (window == nullptr) {
     return std::unexpected("a renderer is shown on a window and this call names none");
   }
   if (!Ready_ || Device_.Get() == nullptr) {
-    return std::unexpected("the renderer has no device to claim a window for: " + WhyNot_);
+    return std::unexpected("the renderer has no device to claim a window for");
   }
   if (Showing_ == window) { return {}; }
   StopShowing();
   if (!SDL_ClaimWindowForGPUDevice(Device_.Get(), window)) {
-    return std::unexpected(std::string("the window was refused by the device: ") + SDL_GetError());
+    WhyNot_ = std::string("the window was refused by the device: ") + SDL_GetError();
+    return std::unexpected("the window was refused by the device, and WhyNot carries what it said");
   }
   Showing_ = window;
   return {};
@@ -859,13 +860,14 @@ void Renderer::StopShowing() {
   Showing_ = nullptr;
 }
 
-std::expected<void, std::string> Renderer::ShowOffscreen(int widthPx, int heightPx) {
+std::expected<void, std::string_view> Renderer::ShowOffscreen(int widthPx, int heightPx) {
   if (widthPx <= 0 || heightPx <= 0) {
-    return std::unexpected("a surface is shown into a positive extent and this call declares " +
-                           std::to_string(widthPx) + " by " + std::to_string(heightPx));
+    WhyNot_ = "a surface is shown into a positive extent and this call declares " +
+              std::to_string(widthPx) + " by " + std::to_string(heightPx);
+    return std::unexpected("a surface is shown into a positive extent and this one is not");
   }
   if (!Ready_ || Device_.Get() == nullptr) {
-    return std::unexpected("the renderer has no device to make a surface on: " + WhyNot_);
+    return std::unexpected("the renderer has no device to make a surface on");
   }
   StopShowing();
   SDL_GPUTextureCreateInfo wanted{};
@@ -878,27 +880,26 @@ std::expected<void, std::string> Renderer::ShowOffscreen(int widthPx, int height
   wanted.num_levels = 1;
   Offscreen_ = SDL_CreateGPUTexture(Device_.Get(), &wanted);
   if (Offscreen_ == nullptr) {
-    return std::unexpected(std::string("the device refused a surface of that extent: ") +
-                           SDL_GetError());
+    WhyNot_ = std::string("the device refused a surface of that extent: ") + SDL_GetError();
+    return std::unexpected("the device refused a surface of that extent");
   }
   PresentInto(Offscreen_);
   return {};
 }
 
-std::expected<Renderer::Shown, std::string> Renderer::PresentFrame() {
+std::expected<std::optional<Renderer::Shown>, std::string_view> Renderer::PresentFrame() {
   if (Showing_ == nullptr) {
     return std::unexpected(
         "no window is being shown on: a frame is presented to a surface the caller declared, "
         "and ShowOn names one");
   }
   if (Device_.Get() == nullptr) {
-    return std::unexpected("the renderer has no device to present with: " + WhyNot_);
+    return std::unexpected("the renderer has no device to present with");
   }
   SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device_.Get());
-  if (commands == nullptr) {
-    return std::unexpected(std::string("the device gave no command buffer: ") + SDL_GetError());
-  }
+  if (commands == nullptr) { return std::unexpected("the device gave no command buffer"); }
   Shown shown;
+  bool drew = false;
   SDL_GPUTexture *surface = nullptr;
   Uint32 gotW = 0, gotH = 0;
   if (SDL_WaitAndAcquireGPUSwapchainTexture(commands, Showing_, &surface, &gotW, &gotH) &&
@@ -906,14 +907,11 @@ std::expected<Renderer::Shown, std::string> Renderer::PresentFrame() {
     shown.WidthPx = (int)gotW;
     shown.HeightPx = (int)gotH;
     PresentInto(surface);
-    shown.Drew = true;
+    drew = true;
   }
   SDL_SubmitGPUCommandBuffer(commands);
-  if (!shown.Drew) {
-    return std::unexpected(std::string("the swapchain answered no texture this frame: ") +
-                           SDL_GetError());
-  }
-  return shown;
+  if (!drew) { return std::optional<Shown>(); }
+  return std::optional<Shown>(shown);
 }
 
 }
