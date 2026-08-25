@@ -57,7 +57,7 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
   }
 
   const Ground::TileFrac at =
-      Ground::ToTileFracClamped(Ground::Geo{over.LatDeg, over.LonDeg}, over.Zoom);
+      Ground::ToTileFracClamped(Ground::Geo{.LonDeg = over.LonDeg, .LatDeg = over.LatDeg}, over.Zoom);
   Patchwork out;
   bool anchored = false;
 

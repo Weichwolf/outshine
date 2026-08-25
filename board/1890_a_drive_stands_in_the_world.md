@@ -107,11 +107,30 @@ Munich is lat 48.14, lon 11.58, and 48.14 - 11.58 = 36.56.
     36.56 * 74202 = 2.71e6   which is the measured east
     36.56 * 111195 = 4.06e6  which is the measured south
 
-So `where.LonDeg` carried 48.14 and `where.LatDeg` carried 11.58: the Geo the ring converts to
-holds latitude where the corridor reads longitude. `EcefToGeoWgs84` itself is sound --
-`LonDeg = atan2(Y, X)` -- so what is swapped is upstream of it, in the axis order the tile
-builder writes `OriginEcef` and its vertices in. Altitude comes back as 8 micrometres rather
-than 524 m, which is the same fault seen on the third axis.
+### FOUND, and it is one line
+
+Two inferences from those numbers were wrong before the third measurement settled it -- the axis
+order of `OriginEcef` was suspected twice and is correct both times. Measured directly:
+
+    the ring's origin ecef      (4.17144e6, 4.65332e6, 1.271e6)
+    Munich's true ecef          (4.178e6,   0.856e6,   4.720e6)
+
+That origin is the ECEF of latitude 11.5, longitude 48.1 -- the pair the other way round. The
+ring was built somewhere in the Indian Ocean off Somalia, the terrain source answered because a
+terrain source answers everywhere, the tiles meshed, and the ground stood 2712 km away at an
+altitude of zero.
+
+    GroundPatchwork.cpp:60   Ground::ToTileFracClamped(Ground::Geo{over.LatDeg, over.LonDeg}, ...)
+    TileGeodesy.h:11         struct Geo { double LonDeg, LatDeg, AltM; };
+
+A positional initialiser that reads correctly and means the opposite. It is a designated
+initialiser now, so the next reader cannot make the same mistake, and `World.cpp:459` was checked
+and is right.
+
+Proving test: `harness/outshine/geo/ScoreTheTileRoundTrip` -- a coordinate turned into a tile and
+back at three zooms in all four quadrants, worst movement 2.8e-14 degrees. Negative control in
+the same case: the identical round trip with the pair swapped lands 357 degrees away, so a
+conversion that reads them in the wrong order cannot pass.
 
 And a second defect stands beside it: `ground.Material = 0` reuses the vehicle's own first
 material slot, so the ground's surface is painted onto every vehicle part that uses slot 0. In
