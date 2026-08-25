@@ -64,6 +64,16 @@ that read nothing would mean the case measures nothing.
 Negative control, the subject folded back into the sameness test so a changed subject takes the
 full path: 1 further plan per swap, and both CHECKs fail.
 
+**The diff that decides all of this is hand-written, and the next field added escapes it.**
+`SamePicture` (src/clients/Engine.cpp:514-526) compares 21 members of `Clients::Declaration`
+one by one; `SameStand` adds three and `SameShows` seven. Add a member to `Declaration` and
+every one of them keeps saying *the same picture*, so a declaration that CHANGED is reused and
+the defect is a stale frame, silently. `Declaration` is an aggregate of comparable members: a
+defaulted `operator==` is the whole of it in C++20, and where a member genuinely must not
+count, the exclusion is spelled once rather than the inclusion twenty-one times. Until then a
+`static_assert(sizeof(Clients::Declaration) == N)` beside the diff is the minimum, so the day a
+field is added the build stops.
+
 What is NOT done, and this item stays open for it: parts ENTER and LEAVE. Today the picture
 holds one subject and a swap replaces it. A scenario that declares five bodies and drops one
 still has no verb, and the entity store is where that belongs (board:1896, board:1897).

@@ -74,3 +74,21 @@ with the padding named. That is the house style working.
 
 - 2026-08-25 — `test/CORPORA.md` landed at `bf41233e` citing this number before the item existed;
   the item is written to the survey rather than the other way round.
+
+## The survey has fallen behind the tree it surveys (measured 2026-08-25, c0de1b18)
+
+`test/CORPORA.md:38` states *Measured 2026-08-25 by `find test/render -name manifest.json`* and
+`test/render/` does not exist -- board:1895 moved the corpora to `test/<vendor>/<suite>/` and the
+survey's own method line still points at the old path.
+
+Worse, the table *What runs today* names four corpora and 1160 cases, and the tree now runs
+seven more suites it does not mention: `harness/outshine/door` (4 cases), `harness/outshine/
+physics` (2), `harness/outshine/fuzz` (2), all written this hour. CLAUDE.md: *a case whose grade
+the survey does not name is a case nobody has priced.* Their grades are not obvious and that is
+exactly why they must be written down -- `ScoreTheWrenchAForceBuilds` is TRUTH (statics), while
+`ScoreWhatASubjectSwapRebuilds` asserts a COST BOUND against our own counters and is neither
+SPEC nor TRUTH nor SNAPSHOT. If the four grades do not have a place for a cost bound, the survey
+gains a fifth and says what it proves.
+
+- [ ] Every suite `test/run.sh` runs has a row in the survey with its grade, including ours.
+- [ ] The survey's method line names a path that exists, and a claim walks it.

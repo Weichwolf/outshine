@@ -62,7 +62,33 @@ which at most 66 are the reader actually reading.
 
 So the reach this item names is bigger than "carry a kind", and the order is now clear:
 
-1. the reader detects the 124 errors it currently refuses by accident, one class at a time
+1. the reader detects the 124 errors it currently refuses by accident, one class at a time.
+   **Started: accessor bounds, 124 -> 111.** glTF 2.0 says `accessor.min`/`max` are the ACTUAL
+   componentwise extremes of the data, and the reader checked only that a POSITION accessor
+   CARRIED them. `Document::BoundsHold` now reads the elements and refuses in both directions --
+   a box around the data and a box inside it -- for every accessor that declares bounds, not
+   only for mesh POSITION. Thirteen of the 124 fall to it. Proving test:
+   `harness/outshine/fuzz/ScoreWhatAnAccessorBoundClaims`.
+
+   **"NOTHING conformant is refused" is not proven, and one class is provably wrong.**
+   `Document::BoundsHold` compares `accessor.Min`/`Max`, read RAW out of the JSON
+   (src/gltf/Document.cpp:653,656), against elements `ReadElements` has already NORMALISED
+   (`accessor.Normalized ? Normalise(raw, accessor.Component) : raw`). A conformant normalised
+   accessor -- `componentType 5121`, `normalized true`, `min [255,255,255]` -- reads back as
+   `1.0` and is refused as *carrying an element outside the bounds it declares*. The corpus
+   does not catch it: of 729 prepared `.gltf`, exactly one case declares a normalised accessor
+   with bounds (`khronos/validator/json-integer-written-as-float`) and it is already in
+   `EXPECT_FAIL`. KHR_mesh_quantization and every meshopt pipeline declare POSITION exactly
+   that way, so this refuses real assets.
+
+   And the check goes GREEN where it cannot look (board:1857): three `return true` escapes --
+   a component-count mismatch, a `ReadElements` that failed, a size that does not match --
+   answer *bounds hold* for an accessor nobody read.
+
+   The case has the same hole: it declares one `componentType 5126` triangle and no normalised
+   accessor at all, so it cannot fail on the class the reader gets wrong. It is also SPEC grade
+   sitting under `fuzz/`, which is INPUT grade -- a case filed where its grade is not what the
+   folder says.
 2. THEN the scene blanket comes off and a conformant fragment stands and draws nothing
 3. and only then does a refusal need to say which kind it is
 

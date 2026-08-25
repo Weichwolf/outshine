@@ -19,10 +19,17 @@ engine offers `Takes(view)` and `Views()` (include/Outshine.h:48-49) so a client
 view without the engine knowing what for, and `apps/viewer` answers `next-view` through them.
 
 What is left is the other half. `apps/driver` offers NO host at all, so
-`if (S_->Offered == nullptr) { return false; }` (:422) drops every key before it is translated,
-and the four bindings `f31.scenario` declares -- `throttle`, `brake`, `steer-left`,
-`steer-right` -- reach nothing. There is also no window to press a key in: the driver runs
-headless.
+`if (S_->Offered == nullptr) { return false; }` (src/clients/Engine.cpp:433) drops every key
+before it is translated, and the four bindings `f31.scenario` declares -- `throttle`, `brake`,
+`steer-left`, `steer-right` -- reach nothing. There is also no window to press a key in: the
+driver runs headless.
+
+**AND THE SEAM HAS LOST ITS RELEASE EDGE.** `if (S_->Pumping && event.type ==
+SDL_EVENT_KEY_DOWN)` (src/clients/Engine.cpp:431) filters to the press alone; the door used to
+take `KEY_DOWN || KEY_UP`. `InputPump::Translate` still answers a release with value `0.0f`
+(src/clients/InputPump.cpp:87-88) and nothing ever calls it with a release, so that branch is
+dead code and a throttle pressed once is a throttle held for ever. A button is an edge PAIR or
+it is a latch, and no case in the tree presses a key and lets it go.
 
 ## What will be true
 
@@ -36,5 +43,7 @@ headless.
       photon latency, because a photon measurement needs a high-speed camera and the tree has
       none.
 - [ ] Frame pacing is published beside it: p99 of `|dt - 16.67 ms|`.
+- [ ] A key that is RELEASED reaches the client with value 0. Proving case: one press and one
+      release through `Engine::Handles` produce two `Host::Calls` for the one action, 1 then 0.
 - [ ] Negative control: the binding removed from the scenario -> the key moves nothing and the
       case says so, rather than the car moving from a hard-wired key.

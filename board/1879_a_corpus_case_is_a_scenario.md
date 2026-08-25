@@ -8,15 +8,30 @@ Tags: corpora, door
 **The front door is: outshine loads a scenario and runs it.** Nothing else. Not a script verb,
 not a layout verb, not a parser class — a client declares a scenario and the engine behaves.
 
-Everything under `test/` may use `include/outshine/` and NOTHING of `src/`. Today the three
-corpus scorers break that rule, and they break it because the door has no way to ask what they
-ask:
+Everything under `test/` may use `include/` and NOTHING of `src/`.
+
+**Measured 2026-08-25 at c0de1b18: 22 sources under `test/` include a header that resolves into
+`src/`, and SIX of them were written in the last ninety minutes.** The rule is not eroding at
+the edges; it is the default way a case gets written.
 
 | scorer | what it reaches into | what it actually wants |
 |---|---|---|
 | `harness/test262/js` | `Script.h`, `program.Run(host, error)` | run this ECMAScript and tell me whether it threw |
 | `harness/wpt/css` | `Markup.h`, `Style.h`, `Layout.h` | lay out this document with this stylesheet and give me the boxes |
 | `harness/khronos/glTF` | half the render tree via `RenderCase.h` | stand this glTF up and render it at this camera |
+| `harness/outshine/door` (2 of 4) | `Live.h`, for `Live::AssetReads()` and `Live::PlanInits()` | the counts the door already carries a channel for: `Engine::Numbers()` returns `Measure` values as of this hour |
+| `harness/outshine/physics` (2) | `Body.h`, `Rig.h`, `Rigging.h` | stand a rig and read the wrench it builds |
+| `harness/outshine/fuzz` (2) | `Document.h`, `Subject.h` | read this glTF and tell me whether it was refused, and why |
+
+And `test/run.sh` is where the rule is being paid off: three include sets were added at
+`test/run.sh:200-202` that hand `-Isrc/gltf`, `-Isrc/sim`, `-Isrc/clients` and eleven more
+straight to the new groups. Widening the runner is not reaching through the door; it is
+deciding not to.
+
+The `door` group is the sharpest of the six, because the door ALREADY has the answer: `Measure`
+in `include/Event.h` and `Engine::Numbers()` are the return channel, filed and built the same
+hour the two cases chose `Live.h` over it. Publishing `assets read` and `plans initialised`
+as measures costs two `Number()` calls and the case stops including `src/`.
 
 `test/harness/shared/` is likewise only for TEST-specific work — manifest reading, prune
 bookkeeping, EXR comparison. It may not carry engine internals to get there.
@@ -47,9 +62,3 @@ need and not a test convenience.
 The other two are further away: test262 wants a scenario that declares a SCRIPT and reports
 whether it threw; WPT wants one that declares a document and a stylesheet and reports the boxes.
 Both are grammar, not door.
-
-## Comments
-
-- 2026-08-25 — filed after moving Script, Json, Markup, Style and Layout into the public door and
-  moving them back: exposing the parsers is the wrong answer. The engine loads a scenario; a
-  client never sees the reader.

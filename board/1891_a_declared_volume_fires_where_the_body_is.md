@@ -32,8 +32,13 @@ ever declared before.
 ## What will be true
 
 - [ ] A volume declared at a place the body passes FIRES, once per crossing, and the fired
-      event reaches something that acts on it. Today it reaches `Measured()`, which is a report
+      event reaches something that acts on it. Today it reaches `Carried()`, which is a report
       and not an actuator.
+- [ ] And it reaches it WITHOUT allocating on the tick path. `Carried.push_back("a volume fired
+      event " + std::to_string(...))` (src/clients/Engine.cpp:907-908) builds a string and grows
+      a vector nobody drains, inside `Engine::State::Rides`, which runs at 60 Hz. It is
+      invisible today only because nothing fires; the hour a volume works, the drive allocates
+      per tick and the vector grows for the length of the route.
 - [ ] The space a volume is declared in is NAMED: the scenario's origin, a region, or the body
       it is attached to (`Volume::In` exists and nothing reads it).
 - [ ] Proving case: a drive through a declared box reports exactly one enter and one exit, at
