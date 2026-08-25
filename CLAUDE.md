@@ -80,6 +80,19 @@ wherever it stands.
 **Diagram colours** — CURRENT: green = correct by current knowledge · amber = uncertain · red =
 provably wrong · grey dashed = absent. TARGET: green = certain · amber = probable.
 
+## CURRENT is `STATE.md` and TARGET is here
+
+**This file carries only what the tree is going TOWARD. What it IS lives in `STATE.md`, which
+every `make` regenerates and no hand writes.** The split is not tidiness: a CURRENT map drawn by
+hand cites file:line, and every edit drifts it, so the map spends its life being corrected
+instead of read. `STATE.md` cannot drift — it carries the door's verbs out of `include/`, the
+module graph out of the includes themselves with any cycle named, the tier table, the heaviest
+units against their median, the widest public surfaces, colliding header names, the sources no
+suite links, every claim a case proves, every standing red and every open item.
+
+So: **a diagram here is an intention and never a description.** When the two disagree the tree is
+what `STATE.md` says, and the distance between them is the work.
+
 ## Architecture (TARGET)
 
 ```mermaid
@@ -124,39 +137,6 @@ flowchart TD
   STORE --> ACT["INTERACTS — world objects advertise slots as data; Free → Claimed → Occupied → Free"]
 ```
 
-## Render plan (CURRENT — what executes, judged as architecture)
-
-```mermaid
-flowchart TD
-  subgraph compute
-    direction TB
-    T["mediumTransmittance"] --> M["mediumMultiScatter"] --> R["mediumRadiance"]
-  end
-  subgraph raster
-    direction TB
-    LV["lightVisibility"] --> SUBJ
-    SKY["sky"] --> HDR[("SceneHdr")]
-    SUBJ["subjects"] --> HDR
-    GLASS["subjectsTransmissive — a cloned stage"] --> CT["compositeTransmission"]
-    HDR --> TAA["temporalResolve — encodes nothing, folded into tonemap"] --> TONE["tonemap"]
-    TONE --> OV["overlay"] --> P["present"]
-  end
-  R --> SKY
-
-  classDef sound fill:#1f6f3f,stroke:#0d3b21,color:#fff
-  classDef unsure fill:#8a6d1f,stroke:#4a3a0d,color:#fff
-  classDef wrong fill:#7a2222,stroke:#3d1111,color:#fff
-  class T,M,R,SKY,LV,CT,TONE,OV,P sound
-  class TAA unsure
-  class SUBJ,GLASS wrong
-```
-
-
-| red | what makes it red, at HEAD |
-|---|---|
-| `SUBJ` | one stage carrying six responsibilities -- `ShaderSource(const SourceOptions &options)` (SubjectDraw.h:30), `PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack)` (:154), `FlushCrossings(SDL_GPUCommandBuffer *commands)` (:148), `SetPlacements(const double *models, size_t rows, std::string &error)` (:51), `SetLights(std::span<const SubjectLight> lights, std::string &error)` (:89) and `EncodeDepthOnly(const double lightFromWorld16[16], const double eye[3], int atlasPx,` (:96) beside its one `void Encode(const FrameContext &ctx, const PassRecording &into)` (:93); nothing culls |
-| `GLASS` | `{Stage::SubjectsTransmissive, Provenance::Content, PassKind::Raster, "subjectsTransmissive",` (RenderCatalogue.h:268) is a full clone of `{Stage::Subjects, Provenance::Content, PassKind::Raster, "subjects",` (:263) -- transmissive draws belong in the one subject stage |
-
 ## Render plan (TARGET)
 
 ```mermaid
@@ -185,105 +165,6 @@ flowchart TD
   class AE,AO,TAA2,GLASS2 likely
 ```
 
-## Class structure (CURRENT)
-
-```mermaid
-flowchart TD
-  Transport --> WebTileSource --> ContentStore
-  Unwired["Unwired — a transport that answers Never, so an offline door refuses instead of retrying"] --> WebTileSource --> TerrariumDem & VersatilesVector
-  TerrariumDem --> GroundStream
-  TilePool --> GroundStream & OsmField
-  GroundStream --> GroundQuery["GroundQuery — the two questions: At · PostM"]
-  GroundQuery --> CorridorLay & WaterField & BuildingField
-  VersatilesVector --> OsmField --> RoadHarvest --> Wayfinding
-  OsmField --> StreetField & BuildingField & WaterField
-  GroundStream --> Ground --> Forest & Buildings & Water & Infrastructure
-  Wayfinding --> Alignment["Alignment — one arc per RUN of same-sign turns, the accuracy bound splits it"] --> ReferenceLine --> Carriageway --> Ribbon
-  Carriageway --> SpeedProfile --> Pilot --> Walk & Drive & Fly & Rail
-  Drive --> Rig --> Body
-  Rig --> Contact & Shear
-  Forest & Buildings & Water & Ribbon & Subject --> DrawList
-  DrawList --> SubjectDraw --> Renderer
-  SubjectResidency["SubjectResidency — buffers · staging · BVH · textures"] --> SubjectDraw
-  MediumTransmittanceStage --> MediumMultiScatterStage --> MediumRadianceStage --> SkyStage --> Renderer
-  LightVisibilityStage --> Renderer --> TonemapStage --> PresentStage
-  Live --> Renderer
-  Ephemeris & RegionForge --> Sim --> Renderer
-  Frustum -.-> DrawList
-  TilePool --> World["World — quadtree LOD · admission · kerbs"] --> Sim
-  TilePool --> GroundPatchwork["GroundPatchwork — a ring of meshed tiles, no eye and no ladder"]
-  GroundStack["GroundStack — owns store · sources · pool · stream"] --> DriveAssembly["AssembleDrive — scene handles + ground → DriveProduct"]
-  GroundStream --> DriveAssembly
-  DriveAssembly --> CorridorLay["CorridorLay — route + ground → Corridor product"]
-  DriveAssembly --> DriveTick["DriveTick — (Corridor, Rigged, DriveState) tick"]
-  Engine --> Live
-  Typeface["Typeface — SDL3_ttf, one raster per (family, size, glyph) into a shelf-packed sheet"] --> LayoutUi
-  Markup --> Stylesheet --> LayoutUi["Layout"] --> Painting --> OverlayDraw --> Renderer
-  Pointer["Pointer — a point resolves to the nearest declared action, topmost surface first"] --> Engine
-  GltfStudio --> Renderer
-  Assembly["Assembly — the XML door"] --> SceneStore["Scene Store — entities · typed pairs · traits · tags"]
-  InputMap["InputMap — declared bindings, interned to ids"] --> InputPump["InputPump — SDL events to (action id, kind, value)"]
-  TriggerField["TriggerField — volumes fire declared events: enter · exit · dwell"]
-  ViewBook["ViewBook — one active view: follows · clock scale · the ear"] --> Engine
-  BusGraph["BusGraph — the mix: buses into buses, one master, falloff per source"]
-
-  classDef sound fill:#1f6f3f,stroke:#0d3b21,color:#fff
-  classDef unsure fill:#8a6d1f,stroke:#4a3a0d,color:#fff
-  classDef wrong fill:#7a2222,stroke:#3d1111,color:#fff
-  classDef strandedSound fill:#1f6f3f,stroke:#7a2222,stroke-width:3px,stroke-dasharray:6 4,color:#fff
-  classDef strandedUnsure fill:#8a6d1f,stroke:#7a2222,stroke-width:3px,stroke-dasharray:6 4,color:#fff
-  class Unwired,Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,GroundQuery,OsmField,RoadHarvest,Alignment,StreetField,Ground,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,SceneStore,Assembly,SubjectResidency,Markup,Stylesheet,LayoutUi,Painting,Pointer,InputMap,InputPump,ViewBook,BusGraph,OverlayDraw sound
-  class Wayfinding,BuildingField,WaterField,Subject,DrawList,Renderer,TonemapStage,LightVisibilityStage,Frustum,Ephemeris,GltfStudio,Typeface,TriggerField unsure
-  class World,SubjectDraw,Sim,Live,Engine wrong
-  class DriveAssembly,CorridorLay,DriveTick,TilePool unsure
-  class Forest,Buildings,Water,Infrastructure strandedSound
-  class BusGraph strandedSound
-  class RegionForge strandedUnsure
-  class GroundStack sound
-  class GroundPatchwork strandedSound
-```
-
-
-| red | what makes it red, at HEAD |
-|---|---|
-| `World` | spells camera and LOD inside the ground layer: `struct Eye` (World.h:49), `Refine(const Eye &eye, double nowMs)` (:55), `EyeInMercatorBand()` (:118), and 9 `const double eye[3]` (:189-195) |
-| `SubjectDraw` | six responsibilities in one class: `ShaderSource(const SourceOptions &options)` (SubjectDraw.h:30), `PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack)` (:154), `FlushCrossings(SDL_GPUCommandBuffer *commands)` (:148), `SetPlacements(const double *models, size_t rows, std::string &error)` (:51), `SetLights(std::span<const SubjectLight> lights, std::string &error)` (:89), and `EncodeDepthOnly(const double lightFromWorld16[16], const double eye[3], int atlasPx,` (:96) beside the one `void Encode(const FrameContext &ctx, const PassRecording &into)` (:93) a stage owes |
-| `Sim` | `class Sim {` (Sim.h:37) is a hand-wired god facade the component model replaces, and since the cut it has NO consumer at all: `grep -rn '"Sim.h"' src apps test include` finds one line, `src/engine/Sim.cpp:1`. 798 lines, 25 `#include "`, five green nodes hanging off it |
-| `Live` | `class Live {` (Live.h:71) reaches the renderer and the layout from one class — `#include "Renderer.h"` (:18) beside `#include "Layout.h"` (:13) |
-| `Engine` | `bool Engine::State::Composes(void) {` (Engine.cpp:279) lays the ring at `auto laid = LayPatchwork(Stack.Pool(), over);` (:322) behind `const bool overADrive = false;` (:287), a branch nailed shut because the ring is anchored on its own ECEF origin and the vehicle on the corridor's (board:1890). Of the five bindings `f31.scenario` declares, `throttle`, `brake`, `steer-left` and `steer-right` reach `Host::Calls` and no client answers them, so no key moves the car. Tables and Sounds are accepted and never advanced |
-
-| amber | the form in question, at HEAD |
-|---|---|
-| `Wayfinding` | `bool Network::Weave(std::string &error) {` (Wayfinding.cpp:110) welds loose ends onto the edges they end on by reading an index it invalidates as it goes: `byEdgeCell` is built at :243 and never updated, while `unlink(bestFrom, bestTo)` (:321) plus `link(bestFrom, loose)` (:329-330) split the edge it lists, so a second end that ties onto the same segment finds a pair that is gone, removes nothing and links a parallel chord. The tie is measured only by its own printed counts -- 2450 ends, 4193 pieces, 26853 of 45248 joined -- and no case in `test/` names `Weave` (board:1894) |
-| `BuildingField` | `class BuildingField {` (BuildingField.h:20) holds a `struct Footprint` of raw index ranges (`uint32_t FirstPoint = 0, PointCount = 0;`, :24) and takes a mesher by pointer (`void Shapes(const StructureMesher *mesher)`, :32) -- a field that tessellates |
-| `WaterField` | `void Tessellate(const OsmField &field, std::vector<float> &out) const;` (WaterField.h:47) -- the same: a field that meshes rather than one that answers |
-| `Subject` | `class Subject {` (Subject.h:98) carries 42 `[[nodiscard]]` over one glTF document -- the getter carpet |
-| `DrawList` | `class DrawList {` (DrawList.h:167) with `struct VertexLayoutRow {` (:49) beside it: the list and the layout table in one header |
-| `Renderer` | `class Renderer {` (Renderer.h:34) publishes 55 `[[nodiscard]]` and 17 `const {` -- the getter carpet, on the frame path |
-| `TonemapStage` | `class TonemapStage {` (TonemapStage.h:14) is where `temporalResolve` folded into, so it carries two picture decisions |
-| `LightVisibilityStage` | `class LightVisibilityStage {` (LightVisibilityStage.h:16) -- one shadow atlas for every light, no cascade selection declared |
-| `Frustum` | `struct Frustum {` (CameraBasis.h:94) sits in `src/content/shade` beside the camera basis, while culling belongs to the compositor |
-| `Ephemeris` | `inline void EarthSunPos(double lat, double lon, double utc, float *el, float *az) {` (Ephemeris.h:11) -- a whole-function header, out-parameters by pointer, and `constexpr int kEphemerisMinYear = 1901, kEphemerisMaxYear = 2099;` (:9) bounding a sphere the engine may not name |
-| `RegionForge` | `class RegionForge {` (RegionForge.h:18) forges regions from a client layer |
-| `GltfStudio` | `struct Studio {` (GltfStudio.h:26) beside `struct StudioScratch {` (:49) -- the studio and its scratch are two spellings of one stand-up |
-| `DriveAssembly` | `[[nodiscard]] bool AssembleDrive(const Store &scene, const Assembled &cast,` (DriveAssembly.h:60) takes a product's worth of inputs, listed one per line, and a product that needs that many is a product whose shape is not settled |
-| `CorridorLay` | `[[nodiscard]] bool LayCorridor(const Path::Route &route, const GroundQuery &ground,` (CorridorLay.h:100) -- same shape, same question. The product it lays holds no band parallel to its stations: `std::vector<Station> Fine;` (:52) is one extent and `At(double alongM)` (:68) one clamped index, so an unlaid corridor refuses at the tick's entry instead of returning a default per read (board:1820) |
-| `DriveTick` | `[[nodiscard]] const Ridden &DriveTick(const Corridor &way, const Rigged &stood,` (DriveTick.h:111) hands back the accumulator the caller owns -- `Ridden &out = drive.Tally;` (DriveTick.cpp:38). The copy is gone and the struct is 2472 -> **440 bytes, which `static_assert(sizeof(Ridden) == 440)` at DriveTick.cpp:18 is the measurement of**; what stays in question is a product that is both a per-tick answer and a route-long tally (board:1815) |
-| `TAA` | `{Stage::TemporalResolve, Provenance::Content, PassKind::Raster, "temporalResolve",` (RenderCatalogue.h:278) declares a stage that encodes nothing of its own -- it is folded into tonemap rather than standing as its own resolve |
-| `TilePool` | `class TilePool : public TileMeshes {` (TilePool.h:30) holds 3 `std::mutex`, a `std::condition_variable`, a `std::map` and a `std::set` where a slot table and a ring would do -- a decisionless pool holds no tree |
-| `Typeface` | reached and correct on the picture -- three faces at two sizes in the viewer's own frame -- and `[[nodiscard]] Glyph Shape(char32_t code, double sizePx, Family family) const override;` (Typeface.h:30) still rasters lazily from inside the draw: `SDL_Surface *ink = TTF_GetGlyphImage(set, (Uint32)code, &kind);` (Typeface.cpp:192) and `SDL_ConvertSurface(ink, SDL_PIXELFORMAT_RGBA32);` (:200) allocate and free two surfaces per first-sight glyph. The face is read once into memory and each (family, size) opens its own instance over it, so no size flushes a shared cache and no draw touches the disk (board:1892) |
-| `TriggerField` | reached -- `auto stood = TriggerField::Stand(scenario.Volumes, scenario.Events);` (Engine.cpp:610) stands one and `Volumes->Probe(0, body.PositionM, (double)Standing->At() * kTickS);` (:929) probes the driven body every tick -- and NOTHING fires: a box of 1e7 m extent about the origin, which the body cannot be outside of, drains empty, because the volume stands in the scenario's origin and the body in the corridor's (board:1891) |
-
-| stranded | its only way to a client, at HEAD |
-|---|---|
-| `Forest` | `src/engine/Sim.{h,cpp}` and nothing else in `src/` |
-| `Buildings` | `Sim.{h,cpp}`, `BuildingField.cpp`, `OsmLayer.h`, `World.{h,cpp}` -- every one of them inside the ground/client pair |
-| `Water` | `Sim.cpp`, `World.h` |
-| `Infrastructure` | `Sim.h` |
-| `RegionForge` | `Sim.h` |
-| `BusGraph` | nothing outside its own two files |
-| `GroundPatchwork` | `#include "GroundPatchwork.h"` (Engine.cpp:25) inside `bool Engine::State::Composes(void) {` (:279), which `Assemble` now calls -- and `const bool overADrive = false;` (:287) shuts the only branch a drive could reach it by, while `grep -rl '<ground' --include=*.scenario .` finds NO scenario in the tree that declares one. No tile has reached a frame |
-
 ## Class structure (TARGET — where the tree is going)
 
 ```mermaid
@@ -309,62 +190,6 @@ flowchart TD
   classDef likely fill:#8a6d1f,stroke:#4a3a0d,color:#fff
   class Scenario,ClientCode,Assembly,SceneStore,SimD,Pathfinding,Physics,Registry,DrawList,Frame,WorldC,Line,Alignment sure
   class Columns,Compositors,Stages,Entities likely
-```
-
-## Public interface (CURRENT)
-
-```mermaid
-classDiagram
-  direction TB
-  class Engine {
-    +DrawsInto(window) / DrawsInto(extent) bool
-    +Under(roots) void
-    +Read(path) / Declare(scenario) / Shows(surfaces) bool
-    +Declared() Scenario
-    +Carried() strings / Numbers() Measures
-    +Assemble() bool
-    +Advance() / Run() bool / StepS() double
-    +Along() / Whole() double
-    +Capture(path) bool
-    +Standing() / Error()
-    +Offers(host) / Handles(SDL_Event) / Takes(view) bool
-    +Park() / Resume(name) / Discard(name) / Parked()
-    +Save(path) / Restore(path)
-  }
-  class Host {
-    +Calls(name, args) bool
-  }
-  class Live {
-    +Open(renderer, declaration) bool
-    +Restand(built) bool
-    +Carry(body16, built16) bool
-    +Eye(placement) / FrameItself()
-    +SkyEye(aboveGroundM)
-    +Advance() bool
-    +Screenshot(path) bool
-    +ReadPixels(rgba) bool
-  }
-  class Renderer {
-    +Init(w, h, plan)
-    +SetSubjectMesh/Pose/Placements/Materials/Lights
-    +SetMedium(medium) / SetSky(sun, up, lux, eyeM)
-    +SetShadowFrame(sun, up, radiusM) / ShadowCentre(m3)
-    +SetCameraBasis(eye, fwd, right, up)
-    +DrawsInto(w, h, window) expected~void, string_view~
-    +Presented() expected~optional Shown, string_view~
-    +PresentInto(surface) / StopShowing() / SetPictureRegion(x, y, w, h, aspect)
-    +RenderFrame() / Drew() / WantsPixels() / ReadPixels()
-    +WhyNot() string
-  }
-  class GroundStream {
-    +At(lat, lon) GroundSample
-    +BlockAt(z, x, y) GroundBlock
-    +PostM(latDeg) double
-  }
-  Engine --> Host : calls back into
-  Engine --> Live : owns
-  Live --> Renderer : drives
-  Sim --> GroundStream : owns
 ```
 
 ## Public interface (TARGET — one door)
@@ -438,7 +263,7 @@ inside one tier, which the tier table alone cannot see. `base/` (math · geo · 
 | `Makefile` | build · test · clean, nothing else |
 | `board/` | the working system (above) |
 
-**Every `make` writes `build/STATE`** -- what the library IS, on one page, generated: the door's verbs
+**Every `make` writes `STATE.md`** -- what the library IS, on one page, generated: the door's verbs
 extracted from `include/`, the tier graph and what each tier may include, every claim a case
 `Covers`, every standing red, every open item, and the counts. There is no RFC for this and the
 nearest established shapes are a `.pyi` stub and a man page's SYNOPSIS -- signatures without

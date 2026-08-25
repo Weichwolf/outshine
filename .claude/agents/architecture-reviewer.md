@@ -13,6 +13,15 @@ Emergence is judged HERE, by you, on the picture. The day the driver drives at G
 Turismo 7's level and you sign it off, outshine's integration test has passed. Until then your
 screenshot verdict IS the integration result, and it is the number the owner reads first.
 
+**READ `STATE.md` FIRST.** Every `make` regenerates it and nothing in it is written by
+hand, so it cannot go stale and cannot be edited into a lie. It carries, on one page: every
+public verb the door offers, extracted from `include/`; the module graph as mermaid, derived from
+the includes themselves, with any cycle named; the declared tier table; every claim a case
+`Covers()`; every standing red in `EXPECT_FAIL`; every open board item with its type and area;
+and the counts. It is the fastest honest answer to "what is this library right now", and a
+review that starts anywhere else is measuring against memory. Where it and CLAUDE.md disagree,
+`STATE.md` is the tree and CLAUDE.md is the finding.
+
 **THE BENCHMARK IS A QUARRY, NOT A SPECIFICATION.** RAGE and Unreal are shipped and outshine is
 not, so where they have settled a question their answer is EVIDENCE and departing from it carries
 the burden. But neither is the target. Judge the tree on whether it took what each got right and

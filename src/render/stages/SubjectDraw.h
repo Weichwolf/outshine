@@ -92,9 +92,12 @@ public:
 
   void Encode(const FrameContext &ctx, const PassRecording &into);
 
-  [[nodiscard]] bool ConfigureDepthOnly(const Gpu &gpu, std::string &error);
-  void EncodeDepthOnly(const double lightFromWorld16[16], const double eye[3], int atlasPx,
-                       const PassRecording &into);
+
+  [[nodiscard]] const SubjectResidency &Resident() const { return Resident_; }
+  [[nodiscard]] const std::vector<DrawBatch> &Drawn() const { return Batches; }
+  [[nodiscard]] const std::vector<double> &Placements() const { return Placed_; }
+  [[nodiscard]] const double *AnchorM() const { return Anchor; }
+  [[nodiscard]] const double *ModelM() const { return Model; }
 
   uint32_t VertexCount() const { return Resident_.NVerts; }
   long TriangleCount() const { return (long)Resident_.NIdx / 3; }

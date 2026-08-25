@@ -23,13 +23,21 @@ public:
 
   void Encode(const FrameContext &ctx, const PassRecording &into);
 
+  [[nodiscard]] static std::string DepthOnlySource();
+  [[nodiscard]] static std::string DepthOnlySource(std::string &error);
+
   void Build(const double eye[3]);
 
   [[nodiscard]] const double *LightFromWorld() const { return LightFromWorld_; }
   [[nodiscard]] bool Standing() const { return Declared_; }
 
 private:
+  [[nodiscard]] bool ConfigureDepthOnly(const Gpu &gpu, std::string &error);
+  void Cast(const double lightFromWorld16[16], const double eye[3], int atlasPx,
+            const PassRecording &into);
+
   SubjectDraw *Subjects_ = nullptr;
+  OwnedPipeline DepthOnly_;
   double ToSun_[3] = {0, 0, 1};
   double Up_[3] = {0, 1, 0};
   double RadiusM_ = 0.0;

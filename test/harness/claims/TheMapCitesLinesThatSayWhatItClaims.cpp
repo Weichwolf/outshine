@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "Check.h"
+#include "Shell.h"
 
 namespace {
 
@@ -172,15 +173,10 @@ int main(void) {
   }
   Note("file:line citations the map carries", (double)citations, "citations");
   for (const std::string &one : lying) { std::printf("FOUND %s\n", one.c_str()); }
-  CHECK(citations >= 30,
-        "the walk read the map's citations rather than a corner of them -- the CURRENT tables "
-        "cite at least one line per non-green node, and a walk finding a handful has stopped "
-        "parsing the shape they are written in");
   CHECK(lying.empty(),
-        "**EVERY LINE THE MAP CITES SAYS WHAT THE MAP CLAIMS**: CLAUDE.md's CURRENT tables argue "
-        "each colour from a file:line, and a citation that has drifted turns the argument into "
-        "an assertion nobody can check -- the map is the work list, and a work list that lies "
-        "about the tree is itself a finding (board:1762, 1855)");
+        "**EVERY LINE THE MAP CITES SAYS WHAT THE MAP CLAIMS**: CLAUDE.md is TARGET now and its "
+        "citations are few, but a citation that has drifted turns an argument into an assertion "
+        "nobody can check (board:1762, 1855)");
 
   std::vector<std::string> absent;
   size_t paths = 0;
@@ -207,107 +203,30 @@ int main(void) {
         "**AND EVERY PATH IT CITES IS IN THE TREE**: a tick that names a file is a claim with "
         "something under it, and a path that has moved reads exactly like one that has not");
 
-  const std::regex cited(R"(`([^`]+)`\s*\((?:([A-Za-z0-9_]+\.(?:h|cpp)))?:(\d+))");
-  const std::regex painted(R"(\n\s*class ([A-Za-z0-9_,]+) (?:wrong|unsure)\b)");
-  std::vector<std::string> unjustified;
-  size_t nodes = 0;
-  for (auto found = std::sregex_iterator(map.begin(), map.end(), painted);
-       found != std::sregex_iterator(); ++found) {
-    const std::string list = (*found)[1].str();
-    for (size_t from = 0; from <= list.size();) {
-      const size_t comma = list.find(',', from);
-      const std::string node =
-          list.substr(from, comma == std::string::npos ? comma : comma - from);
-      if (!node.empty()) {
-        ++nodes;
-        const size_t row = map.find("| `" + node + "` |");
-        if (row == std::string::npos) {
-          unjustified.push_back(node + " is painted non-green and no justification row names it");
-        } else {
-          const std::string says = map.substr(row, map.find('\n', row) - row);
-          if (!std::regex_search(says, cited)) {
-            unjustified.push_back(node + " is painted non-green and its reason cites no file:line");
-          }
-        }
-      }
-      if (comma == std::string::npos) { break; }
-      from = comma + 1;
-    }
-  }
-  Note("nodes painted red or amber", (double)nodes, "nodes");
-  for (const std::string &one : unjustified) { std::printf("FOUND %s\n", one.c_str()); }
-  CHECK(nodes >= 20, "the diagrams paint reds and ambers for this walk to judge");
-  CHECK(unjustified.empty(),
-        "**EVERY NON-GREEN NODE CARRIES A CITATION THE WALK READS**: a node the map paints red "
-        "OR amber is named in a justification row and that row cites code by file:line -- a "
-        "reason made of bare numbers is a reason nothing can check, and a question with no line "
-        "to look at is an opinion (board:1768, 1777)");
 
-  const std::regex counted(R"((\d+) `([^`]+)`)");
-  std::vector<std::string> drifted;
-  size_t recomputed = 0;
-  size_t rows = 0;
-  std::vector<std::string> malformed;
-  size_t width = 0;
-  for (const std::string &row : mapRows) {
-    if (row.empty()) {
-      width = 0;
-      continue;
-    }
-    if (row.front() != '|') { continue; }
-    size_t cells = 0;
-    for (const char one : row) { cells += one == '|' ? 1 : 0; }
-    if (row.back() != '|') {
-      malformed.push_back("a table row runs past its last cell: " + row.substr(0, 60));
-    } else if (row.find("---") != std::string::npos) {
-      width = cells;
-    } else if (width > 0 && cells != width) {
-      malformed.push_back("a table row carries " + std::to_string(cells - 1) +
-                          " cells under a header of " + std::to_string(width - 1) + ": " +
-                          row.substr(0, 60));
-    } else {
-      ++rows;
-    }
-    if (row.find("---") != std::string::npos) { continue; }
-    std::smatch where;
-    if (!std::regex_search(row, where, cited) || where[2].str().empty()) { continue; }
-    const std::vector<std::string> *const held = Held(where[2].str());
-    if (held == nullptr) { continue; }
-    std::string whole;
-    for (const std::string &line : *held) { whole += line + "\n"; }
-    for (auto one = std::sregex_iterator(row.begin(), row.end(), counted);
-         one != std::sregex_iterator(); ++one) {
-      ++recomputed;
-      const std::string token = (*one)[2].str();
-      const size_t wanted = (size_t)std::stoul((*one)[1].str());
-      size_t found = 0;
-      for (size_t at = whole.find(token); at != std::string::npos;
-           at = whole.find(token, at + 1)) {
-        ++found;
-      }
-      if (found != wanted) {
-        drifted.push_back(where[2].str() + " carries " + std::to_string(found) + " of '" + token +
-                          "' where the map says " + std::to_string(wanted));
-      }
-    }
-  }
-  Note("table rows walked", (double)rows, "rows");
-  Note("counts the map states and this walk recomputes", (double)recomputed, "counts");
-  for (const std::string &one : malformed) { std::printf("FOUND %s\n", one.c_str()); }
-  for (const std::string &one : drifted) { std::printf("FOUND %s\n", one.c_str()); }
-  CHECK(rows >= 10, "the map carries tables for this walk to judge");
-  CHECK(malformed.empty(),
-        "**A TABLE ROW ENDS AT ITS OWN CELL**: a row that runs past its last `|` swallows the "
-        "paragraph beneath it into a phantom column, and a rule a reader cannot parse is a rule "
-        "that is not there (board:1775)");
-  CHECK(recomputed >= 4, "the map states counts for this walk to recompute");
-  CHECK(drifted.empty(),
-        "**AND A NUMBER IN THE MAP IS RECOMPUTED BY THE WALK**: a count standing beside a "
-        "citation is a claim, and a stale count reads exactly like a fresh one (board:1779)");
+  // What the tree IS lives in STATE.md, which every `make` regenerates. Its whole worth is that
+  // no hand writes it: a CURRENT map drawn by hand cites file:line and every edit drifts it, so
+  // the map spends its life being corrected instead of read. That worth survives exactly as long
+  // as the committed file is what the generator produces, and this is the walk that says so.
+  std::string generated;
+  const int stated = Run("sh test/run.sh --state 2>/dev/null", generated);
+  CHECK(stated == 0 && !generated.empty(),
+        "the generator answers, so there is something to compare");
+  const std::string committed = Slurp("STATE.md");
+  CHECK(!committed.empty(),
+        "STATE.md stands in the tree, where a reader looks for what outshine is");
+  if (committed.empty() || generated.empty()) { return Report(); }
 
-  Covers("IV.12 CLAUDE.md argues from the tree: every file:line it cites exists and carries the "
-         "text quoted beside it, every path it names is in the tree, every non-green node has a "
-         "justification row that cites code, and every count in such a row is recomputed "
-         "(board:1762, 1768, 1775, 1777, 1779, 1855)");
+  Note("what the generator produced", (double)generated.size(), "bytes");
+  Note("what the tree carries", (double)committed.size(), "bytes");
+  CHECK(committed == generated,
+        "**STATE.md IS WHAT THE GENERATOR PRODUCES**: it is CURRENT, and CURRENT is only worth "
+        "reading while no hand has touched it -- a STATE.md edited by hand, or left behind by a "
+        "build that did not run, is the very drift the generated map exists to end");
+
+  Covers("IV.12 CLAUDE.md is TARGET and argues from the tree: every path it names is present and "
+         "every line it cites carries the text quoted beside it. STATE.md is CURRENT and is byte "
+         "for byte what run.sh --state produces, so the tree's own description cannot drift from "
+         "the tree (board:1762, 1768, 1775, 1777, 1779, 1855)");
   return Report();
 }
