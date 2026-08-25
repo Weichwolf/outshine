@@ -549,13 +549,17 @@ bool Engine::Declare(const Scenario &scenario) {
     declared.Variant = subject->Variant;
     declared.Animation = subject->Animation;
   }
-  declared.Fps = scenario.Render.Fps;
-  declared.Fill = scenario.Render.Fill;
-  declared.OrbitDegPerFrame = scenario.Render.OrbitDegPerFrame;
-  declared.PictureLeftFrac = scenario.Render.Picture.LeftFrac;
-  declared.PictureTopFrac = scenario.Render.Picture.TopFrac;
-  declared.PictureWidthFrac = scenario.Render.Picture.WidthFrac;
-  declared.PictureHeightFrac = scenario.Render.Picture.HeightFrac;
+  const Patch whole;
+  const Patch &picture = scenario.Render.Declared ? scenario.Render.Picture : whole;
+  if (scenario.Render.Declared) {
+    declared.Fps = scenario.Render.Fps;
+    declared.Fill = scenario.Render.Fill;
+    declared.OrbitDegPerFrame = scenario.Render.OrbitDegPerFrame;
+  }
+  declared.PictureLeftFrac = picture.LeftFrac;
+  declared.PictureTopFrac = picture.TopFrac;
+  declared.PictureWidthFrac = picture.WidthFrac;
+  declared.PictureHeightFrac = picture.HeightFrac;
   if (scenario.Lit.Declared) {
     declared.KeyLux = scenario.Lit.Key.Lux;
     declared.KeyElevationDeg = scenario.Lit.Key.ElevationDeg;
