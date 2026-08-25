@@ -23,14 +23,19 @@ struct Excusal {
   const char *Commit;
   const char *Items;
   const char *Why;
-  bool Structural = false;
+  bool Whole = false;
 };
 
 constexpr Excusal kExcused[] = {
     {"ee51c630", "",
-     "board/ became one flat directory and State became an attribute: the commit rewrites every "
-     "item identically and works on none of them, so naming them would be naming the whole "
-     "board",
+     "board/ became one flat directory and State became an attribute: this rewrites every item "
+     "identically and works on none of them, so naming them would be naming the whole board",
+     true},
+    {"4d4981ec", "",
+     "git add -A board while a parallel agent was rewriting the whole backlog -- the exact "
+     "failure this claim's own text predicts. The history is not rewritten because the agent's "
+     "commit after it is honest and would be destroyed with it; the mistake is recorded here "
+     "instead, and the practice that caused it is: never `git add -A board`",
      true},
     {"324374d6", "board:1565 board:1567 board:1568 board:1575 board:1784 board:1858",
      "the hourly review sharpened four items in the round that filed three others, and its "
@@ -44,7 +49,7 @@ constexpr Excusal kExcused[] = {
 [[nodiscard]] bool Excused(const std::string &commit, unsigned item, size_t &seen) {
   for (const Excusal &one : kExcused) {
     if (commit.rfind(one.Commit, 0) != 0) { continue; }
-    if (!one.Structural && !Board::NamedIn(one.Items).Holds(item)) { continue; }
+    if (!one.Whole && !Board::NamedIn(one.Items).Holds(item)) { continue; }
     ++seen;
     return true;
   }
@@ -108,7 +113,7 @@ int main(void) {
     const Board::Named touched = Board::NamedIn(files);
     bool structural = false;
     for (const Excusal &one : kExcused) {
-      structural = structural || (one.Structural && commit.rfind(one.Commit, 0) == 0);
+      structural = structural || (one.Whole && commit.rfind(one.Commit, 0) == 0);
     }
     unreadable += !structural && ItemFilesIn(files) > touched.Count ? 1 : 0;
     overflowed += !structural && (named.Overflowed || touched.Overflowed) ? 1 : 0;
@@ -125,7 +130,7 @@ int main(void) {
   Note("times one was used this run", (double)excused, "items");
   for (const Excusal &one : kExcused) {
     std::printf("EXCUSED %s for %s -- %s\n", one.Commit,
-                one.Structural ? "EVERY item it touches, being a restructuring" : one.Items,
+                one.Whole ? "EVERY item it touches" : one.Items,
                 one.Why);
   }
 

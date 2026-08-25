@@ -179,6 +179,7 @@ LayerIncludes() {
     unit/render/draw) printf '%s' "-Isrc/core -Isrc/render/draw" ;;
     unit/render/stages) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages $(pkg-config --cflags sdl3)" ;;
     unit/render) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages" ;;
+    unit/host) printf '%s' "-Iinclude -Isrc/data" ;;
     unit/clients) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/actor/path -Isrc/actor/body -Isrc/actor/mind -Isrc/scenario -Isrc/generators -Isrc/ground -Isrc/data -Isrc/clients" ;;
     harness/claims) printf '%s' "-Isrc/core" ;;
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/data -Isrc/scene -Isrc/scenario -Isrc/ui -Iinclude -Isrc/clients" ;;
@@ -237,6 +238,7 @@ LayerLink() {
     render/outshine/shader) printf '%s' "$(pkg-config --libs sdl3) -lz" ;;
     unit/clients) printf '%s' "$(pkg-config --libs sdl3-image) -lz" ;;
     unit/render | unit/render/stages) printf '%s' "$(pkg-config --libs sdl3) -lz" ;;
+    unit/host) printf '%s' "-lcurl" ;;
     unit/core | unit/ground | unit/ground/tiles | unit/data | unit/render/plan | unit/render/draw | unit/sim | unit/actor/path) printf '%s' "-lz" ;;
     *) printf '%s' "" ;;
   esac
@@ -266,6 +268,7 @@ LayerGroups() {
     unit/render/draw) printf '%s' "src/core src/core/io src/render/draw" ;;
     unit/render/stages) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
     unit/render) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
+    unit/host) printf '%s' "src/host" ;;
     unit/clients) printf '%s' "src/core src/core/io src/actor/path src/actor/body src/actor/mind src/scene src/generators src/clients/Image.cpp src/clients/RegionForge.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/InputMap.cpp src/clients/Assembly.cpp src/clients/InputPump.cpp" ;;
     harness/claims) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
     harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | tools/viewer | render/outshine/scenario | render/outshine/client) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/clients/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/clients/Assembly.cpp" ;;
@@ -301,6 +304,7 @@ Programs() {
 NotTheHarnesses() {
   case "$1" in
     harness/shared | harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
+    tools/host) printf '%s' "a delaying transport for cases that need a slow wire, compiled into the case that names it" ;;
     harness/shared/render) printf '%s' "the render scoring instrument, compiled into each corpus's own harness" ;;
     tools/viewer/parts) printf '%s' "the browser's own declaration and its face, compiled into the browser" ;;
     unit/compile | unit/compile/*) printf '%s' "a compile subject, judged by the layer's own refusal test, never linked" ;;
