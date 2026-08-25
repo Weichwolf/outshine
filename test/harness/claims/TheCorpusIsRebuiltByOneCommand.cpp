@@ -4,21 +4,9 @@
 #include <string>
 
 #include "Check.h"
+#include "Shell.h"
 
 namespace {
-
-[[nodiscard]] std::string Ask(const std::string &command, int &verdict) {
-  std::string said;
-  std::FILE *const pipe = popen(command.c_str(), "r");
-  if (pipe == nullptr) {
-    verdict = -1;
-    return said;
-  }
-  char block[4096];
-  while (std::fgets(block, sizeof block, pipe) != nullptr) { said += block; }
-  verdict = pclose(pipe);
-  return said;
-}
 
 [[nodiscard]] size_t Times(const std::string &haystack, const std::string &needle) {
   size_t count = 0;
@@ -56,7 +44,7 @@ int main(void) {
       std::filesystem::temp_directory_path().string() + "/outshine-preparer-notices";
   const std::string plan =
       Ask("python3 test/harness/shared/corpus/prepare.py dry-run --every-case 2>" + notices,
-          verdict);
+          &verdict);
   const size_t planned = Times(plan, "\"manifest\":");
   Note("manifests the preparer planned", (double)planned, "manifests");
   std::printf("NOTE the preparer exited %d\n", verdict);

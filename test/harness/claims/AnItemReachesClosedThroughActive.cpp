@@ -4,32 +4,9 @@
 #include <vector>
 
 #include "Check.h"
+#include "Shell.h"
 
 namespace {
-
-[[nodiscard]] std::string Ask(const std::string &command) {
-  std::string said;
-  std::FILE *const pipe = popen(command.c_str(), "r");
-  if (pipe == nullptr) { return said; }
-  char block[512];
-  while (std::fgets(block, sizeof block, pipe) != nullptr) { said += block; }
-  pclose(pipe);
-  while (!said.empty() && (said.back() == '\n' || said.back() == ' ')) { said.pop_back(); }
-  return said;
-}
-
-[[nodiscard]] std::vector<std::string> Lines(const std::string &block) {
-  std::vector<std::string> out;
-  size_t at = 0;
-  while (at <= block.size()) {
-    const size_t stop = block.find('\n', at);
-    const size_t end = stop == std::string::npos ? block.size() : stop;
-    if (end > at) { out.push_back(block.substr(at, end - at)); }
-    if (stop == std::string::npos) { break; }
-    at = stop + 1;
-  }
-  return out;
-}
 
 } // namespace
 

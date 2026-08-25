@@ -5,6 +5,7 @@
 
 #include "BoardNames.h"
 #include "Check.h"
+#include "Shell.h"
 
 namespace Board = outshine::Test::Board;
 
@@ -25,29 +26,6 @@ constexpr Excusal kExcused[] = {
      "the hourly review wrote its sharpened items as a bare list beside a verb, before its "
      "instructions carried the rule that a reference is board:NNNN"},
 };
-
-[[nodiscard]] std::string Ask(const std::string &cmd) {
-  std::string said;
-  std::FILE *const pipe = popen(cmd.c_str(), "r");
-  if (pipe == nullptr) { return said; }
-  char block[4096];
-  while (std::fgets(block, sizeof block, pipe) != nullptr) { said += block; }
-  pclose(pipe);
-  return said;
-}
-
-[[nodiscard]] std::vector<std::string> Lines(const std::string &text) {
-  std::vector<std::string> out;
-  size_t from = 0;
-  while (from < text.size()) {
-    const size_t to = text.find('\n', from);
-    const std::string one = text.substr(from, to == std::string::npos ? to : to - from);
-    if (!one.empty()) { out.push_back(one); }
-    if (to == std::string::npos) { break; }
-    from = to + 1;
-  }
-  return out;
-}
 
 [[nodiscard]] bool Excused(const std::string &commit, unsigned item, size_t &seen) {
   for (const Excusal &one : kExcused) {

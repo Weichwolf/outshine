@@ -5,19 +5,9 @@
 #include <vector>
 
 #include "Check.h"
+#include "Shell.h"
 
 namespace {
-
-[[nodiscard]] std::string Ask(const std::string &command) {
-  std::string said;
-  std::FILE *const pipe = popen(command.c_str(), "r");
-  if (pipe == nullptr) { return said; }
-  char block[512];
-  while (std::fgets(block, sizeof block, pipe) != nullptr) { said += block; }
-  pclose(pipe);
-  while (!said.empty() && (said.back() == '\n' || said.back() == ' ')) { said.pop_back(); }
-  return said;
-}
 
 } // namespace
 
