@@ -204,6 +204,13 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   say.Number("edges", (double)roads.EdgeCount(), "edges");
   say.Number("loose ends tied onto an edge they end on", (double)roads.TiedToEdges(), "ends");
   {
+    const Network::Pieces broken = roads.InPieces();
+    say.Number("pieces the graph falls into", (double)broken.Count, "pieces");
+    say.Number("nodes in the largest", (double)broken.Largest, "nodes");
+    say.Number("pieces holding fewer than four nodes", (double)broken.UnderFour, "pieces");
+    say.Number("nodes stranded in those", (double)broken.InUnderFour, "nodes");
+  }
+  {
     std::vector<Path::Network::Crossing> crossings;
     const auto sweep = roads.Crossings(crossings);
     if (!sweep) {

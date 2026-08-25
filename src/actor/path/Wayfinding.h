@@ -89,6 +89,14 @@ public:
 
   [[nodiscard]] Route Plan(const Waypoint &from, const Waypoint &to, double tightestM) const;
   [[nodiscard]] size_t Reaches(std::span<const size_t> from) const;
+
+  struct Pieces {
+    size_t Count = 0;
+    size_t Largest = 0;
+    size_t UnderFour = 0;
+    size_t InUnderFour = 0;
+  };
+  [[nodiscard]] Pieces InPieces() const;
   [[nodiscard]] bool Nearest(const Waypoint &to, size_t &node, double &awayM) const;
   void Within(const Waypoint &of, double reachM, std::vector<size_t> &nodes) const;
 

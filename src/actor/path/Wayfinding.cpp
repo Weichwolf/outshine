@@ -268,7 +268,7 @@ bool Network::Weave(std::string &error) {
   for (size_t loose = 0; loose < Nodes_.size(); ++loose) {
     if (outgoing[loose].size() != 1) { continue; }
     const Node &end = Nodes_[loose];
-    const double reachM = end.HalfWidthM > 0.0 ? end.HalfWidthM : SnapM_;
+    const double reachM = end.HalfWidthM > 0.0 ? 2.0 * end.HalfWidthM : SnapM_;
     const double perLatM = ApartM(end.LatDeg, end.LonDeg, end.LatDeg + 1.0, end.LonDeg, RadiusM_);
     const double perLonM = ApartM(end.LatDeg, end.LonDeg, end.LatDeg, end.LonDeg + 1.0, RadiusM_);
 
@@ -299,7 +299,8 @@ bool Network::Weave(std::string &error) {
             along = along < 0.0 ? 0.0 : (along > 1.0 ? 1.0 : along);
             const double cx = ax + along * dx, cy = ay + along * dy;
             const double awayM = std::sqrt(cx * cx + cy * cy);
-            if (awayM >= bestM) { continue; }
+            const double touchM = end.HalfWidthM + Nodes_[near].HalfWidthM;
+            if (awayM >= bestM || awayM > touchM) { continue; }
             bestM = awayM;
             bestFrom = near;
             bestTo = over;
@@ -587,6 +588,37 @@ size_t Network::Reaches(std::span<const size_t> from) const {
     }
   }
   return joined;
+}
+
+Network::Pieces Network::InPieces() const {
+  Pieces out;
+  std::vector<uint8_t> seen(Nodes_.size(), 0u);
+  std::vector<size_t> walk;
+  walk.reserve(Nodes_.size());
+  for (size_t from = 0; from < Nodes_.size(); ++from) {
+    if (seen[from] != 0u) { continue; }
+    walk.clear();
+    walk.push_back(from);
+    seen[from] = 1u;
+    size_t held = 1;
+    for (size_t at = 0; at < walk.size(); ++at) {
+      const Node &here = Nodes_[walk[at]];
+      for (size_t which = 0; which < here.EdgeCount; ++which) {
+        const size_t to = Edges_[here.FirstEdge + which].To;
+        if (seen[to] != 0u) { continue; }
+        seen[to] = 1u;
+        ++held;
+        walk.push_back(to);
+      }
+    }
+    ++out.Count;
+    if (held > out.Largest) { out.Largest = held; }
+    if (held < 4) {
+      ++out.UnderFour;
+      out.InUnderFour += held;
+    }
+  }
+  return out;
 }
 
 Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) const {
