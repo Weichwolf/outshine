@@ -47,9 +47,9 @@ origin is the claim it names, and today it names several.
       or the claim text keyed by number in a header the cases include, so a number is spelled
       once and a typo is a compile error rather than a collision.
 - [ ] `Covers()` takes the number as a value from that catalogue, not as free text.
-- [ ] The twenty standing collisions are resolved: each sentence gets its own number, or two
+- [x] The standing collisions are resolved: each sentence gets its own number, or two
       cases proving ONE claim share the number deliberately and the catalogue says so.
-- [ ] Proving test: a `harness/claims` walk that reads every `Covers("` in `test/`, groups by
+- [x] Proving test: a `harness/claims` walk that reads every `Covers("` in `test/`, groups by
       number, and refuses a number carrying two different sentences. Negative control: HEAD ->
       red, printing all forty-two.
 
@@ -58,3 +58,38 @@ origin is the claim it names, and today it names several.
 - 2026-08-25 -- filed by the hourly review, after three new claims each took a number that was
   already in use. The mechanism is the same one `board:1824` built for the map's citations: a
   number that nothing recomputes drifts, and here it drifts into another claim's identity.
+
+## Two boxes closed, two named (2026-08-25)
+
+`harness/claims/AClaimNumberNamesOneClaim` reads every `Covers(` under `test/`, joins the
+adjacent string literals the way the compiler does, groups by number and refuses a number
+carrying two DIFFERENT sentences. Two cases sharing a number for the SAME sentence stay legal:
+that is one claim proven twice, which the tree does deliberately.
+
+Measured at HEAD before the repair: **44 numbers carried more than one sentence**, across 209
+`Covers` statements and 107 distinct numbers. Five of the 44 were this session's own -- the new
+claims took `IV.13` through `IV.17`, each of which already stood -- and those moved to the free
+end of the prefix rather than displacing the older claim.
+
+The 39 standing ones were resolved mechanically: the first sentence keeps the number, every
+other takes the next free number in its own prefix. **94 sentences were renumbered; 107 numbers
+became 206, all distinct.** Gate 271/271 after.
+
+Negative control, run: `IV.24` written back to `IV.7` ->
+
+```
+NOTE numbers carrying more than one sentence = 1 numbers
+FOUND IV.7 carries 2 different sentences over 2 cases
+```
+
+**The two boxes that stay open are the catalogue**, and the reason is that renumbering is not
+what they ask for:
+
+- a table beside `Check.h` the build reads, so a number is spelled once and a typo is a compile
+  error;
+- `Covers()` taking the number as a VALUE from that catalogue rather than as free text.
+
+What landed makes every number unique and keeps it that way. What it does not do is make a
+number unspellable-if-wrong, and the mechanical assignment above means the numbering carries no
+meaning beyond uniqueness -- `I.26`'s twelve sentences are now twelve numbers whose ordering
+says nothing about what they cover. A catalogue is where that meaning would live.
