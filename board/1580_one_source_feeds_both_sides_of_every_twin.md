@@ -1,94 +1,25 @@
 Type: issue
 State: open
 Area: render
-Tags: instrument
+Tags: instrument, decision
 
-**One source feeds both sides of every twin**
+# One source feeds both sides of every twin
 
-The C++/MSL twin idiom carries 300 lines of atmosphere physics twice
-(`ParticipatingMedium.h`: C++ at 57-371, MSL at 373-643) with nothing but review keeping them
-synchronized -- and this session measured the cost: a bounce term landed in the MSL and missed
-the C++ once, caught only by the device-vs-twin probe. The reviewer's verdict: the C++ side
-accumulates in double, so it is a higher-precision REFERENCE rather than a twin, and the
-discipline is right but the duplication is not. Unreal's answer is one source (.ush) included
-from both sides; here a shared core (C-subset with thin per-language wrappers, or generation)
-would delete the drift class.
+Half of this is repaid: shader source lives as files in the tree (src/render/shaders/, 25 of
+them) and no source string is embedded. What stands is the DUPLICATION of physics: the
+atmosphere is written twice — the C++ reference in src/render/stages/ParticipatingMedium.h
+(329 lines, accumulating in double) and the MSL in src/render/shaders/medium.msl — with nothing
+but review keeping them in step. The cost was measured once: a bounce term landed in the MSL,
+missed the C++, and only the device-vs-twin probe caught it.
 
-**The decision** (owner's, because it trades the twin's readability against single-source):
-keep the explicit two-language twin and its test discipline, or move to one shared source per
-shader family. Recommendation: shared source for the physics kernels (medium, BRDF), explicit
-twins only where the languages genuinely diverge (texture sampling, storage layout).
+**The decision is the owner's**, because it trades the twin's readability against one source:
+keep the explicit two-language twin with its test discipline, or share one source per shader
+family. Recommendation: a shared core for the physics kernels (medium, BRDF), explicit twins
+only where the languages genuinely diverge (sampling, storage layout). board:1636's second
+executor table consumes no MSL at all and needs the medium LUTs from the C++ side, which is the
+same argument arriving from the backend.
 
----
+## What will be true
 
-Sharpened (review 2026-08-22 late): two developments feed the pending decision. 1634 gave
-every runtime-assembled MSL blob a public static (SkyStage::ShaderSource et al.) — the blobs
-now have an API surface, which hardens the embedded-string form just as the argument against
-it grows: 1636's second executor table (softgl) consumes NO MSL, so the physics that must run
-on both backends (medium LUTs from the C++ twins) already proves the shared-core direction.
-Recommendation stands and sharpens: shader source as FILES in the tree (loaded once at
-Configure, hashed into the content store like any asset), shared physics core included from
-both sides; string literals inside .cpp remain the drift-and-blind-edit class the pi sweep
-demonstrated even with the compile gate standing.
-
----
-
-DECIDED (2026-08-22, owner delegated the call for this session, on record): the
-recommendation stands as the binding form. Shader source becomes FILES in the tree, loaded
-once at Configure and hashed like any asset; the physics kernels (medium, BRDF) move to ONE
-shared core in the common C-subset, included by the C++ reference and the MSL alike; explicit
-twins remain only where the languages genuinely diverge (texture sampling, storage layout).
-Grounds: the compile gate catches syntax, not twin drift -- the bounce-term incident measured
-the class; and 1636's second backend consumes the same physics with no MSL, so the shared
-core has two consumers already. Implementation is sliced: medium family first (1647), the
-gate's public-static door stays the seam.
-
----
-
-Slice 2 landed (the shared medium core): src/render/stages/MediumCore.h is ONE dialect file
-holding the nine scalar physics functions -- topReach, groundReach, heightAlong,
-transmittanceParams, rayleighPhase, miePhase, subUvsToUnit, unitToSubUvs, skyViewParams --
-compiled as C++ by ParticipatingMedium.h (medium_core wrapper: max/clamp shims, std usings,
-MEDIUM_CONST/THREAD/PI defines) and appended as MSL text by ParticipatingMediumMsl (defines +
-mediumLayout.msl + core + medium.msl). The nine C++ twins are DELETED, their call sites moved
-to the shared names and reference-out signatures; the MSL Medium fields rose to the C++
-spelling (PascalCase). The vector functions (float3 extinction/scatter, the sampling loops,
-the double-accumulating references) stay explicit twins -- genuine language divergence.
-Proof: render/outshine/shader 42/42 (device vs C++ agreement over the LUT chain), fast gate
-128/128 warm at 68.9 s. Remaining slices: the BRDF family twins (MetalRoughBrdf, SheenLobe,
-IridescenceLobe, MicrofacetEnergy generate their MSL from C++ constants -- one source
-already, audit their form), then the content-store hashing when the asset pipeline wants it.
-
----
-
-Sharpened (review 2026-08-22, round 3): the remaining-slices list undercounts the blob
-census. Beyond the four BRDF generators it names, the subject assembly
-(SubjectDraw.cpp:216-225) still concatenates: kMslPrelude (ShaderPrelude.h:6), kVelocityMsl
-(SceneTargets.h:23), ShadowRayMsl (ShadowRay.h:13), NormalFromMapMsl (NormalFromMap.h:69).
-One of these is live drift, not just form: kVelocityMsl hand-spells `-1.0e4` while
-kVelocityStatic sits one declaration above it as the C++ origin — and SkyStage.cpp already
-shows the correct form (`#define VELOCITY_STATIC %.9ef` interpolated from the constant). Tune
-kVelocityStatic and the sky follows while the subject keeps the old sentinel. The BRDF audit
-slice must cover all eight sites, and the velocity sentinel takes the SkyStage interpolation
-form now, not at the slice's leisure. The pi digits inside the new .msl files are
-board:1651's ledger.
-
----
-
-The kVelocityMsl drift is dead (round 3's sharpening): SceneTargets.h holds ONE origin --
-kVelocityStatic and VelocityStaticDefine() -- the blob spells VELOCITY_STATIC, and BOTH
-assemblies (sky, subject) prepend the define. Tuning the sentinel can no longer split the
-two consumers. The eight-site blob census stands as this item's remaining ledger.
-
----
-
-Slice 3 (the blob census cleared): the six generator fragments -- shadowRay, metalRoughBrdf,
-sheenLobe, iridescenceLobe, microfacetEnergy, normalFromMap -- moved their MSL bodies to
-src/render/shaders/*.msl, loaded through the one loader with an error-carrying overload
-beside the convenient one; their C++-interpolated constants (BVH bits, lobe tables) stay the
-one origin they already were. SubjectDraw assembles from the loaded fragments and refuses on
-any missing file. Remaining embedded MSL in .h/.cpp: kMslPrelude (the three-line structural
-header the assembler itself owns) and kVelocityMsl (one line, macro-fed since the sentinel
-fix) -- both adjudicated as assembly structure, not drift surface. Parity 42/42, gate
-129/129 warm. Remaining ledger: content-store hashing when the asset pipeline wants it;
-BRDF-family C++ twins stay explicit (double reference, genuine divergence).
+- [ ] The decision is recorded here with its reason, and the tree carries one shape or the other.
+- [ ] A term that lands on one side and not the other is caught by a case, not by a reader.

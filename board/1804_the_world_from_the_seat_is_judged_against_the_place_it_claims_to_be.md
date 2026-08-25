@@ -1,5 +1,5 @@
 Type: task
-State: open
+State: active
 Parent: 1573
 Area: generators, render
 Tags: driver, picture

@@ -10,7 +10,7 @@
 #include "SourceSet.h"
 #include "TerrainLoader.h"
 #include "TilePool.h"
-#include "Transport.h"
+#include <outshine/Transport.h>
 
 using outshine::GroundSample;
 using outshine::Data::ContentStore;

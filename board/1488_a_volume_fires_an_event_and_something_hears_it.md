@@ -1,5 +1,5 @@
 Type: task
-State: open
+State: active
 Parent: 1480
 Area: world
 Tags: scope

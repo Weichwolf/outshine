@@ -10,13 +10,15 @@
 #include <outshine/Column.h>
 #include <outshine/Scenario.h>
 #include <outshine/Store.h>
+#include <outshine/Transport.h>
 #include <outshine/Traits.h>
 
 namespace outshine {
 
 struct Roots {
   std::string Assets;
-  std::string Shaders;
+  std::string Shipped;
+  std::string Cache;
 };
 
 class Engine {
@@ -30,6 +32,8 @@ public:
 
   void RenderTo(Extent frame);
   void Under(Roots roots);
+  void Fetches(Data::Transport &wire);
+  [[nodiscard]] bool Drove(void) const;
   [[nodiscard]] bool Capture(std::string_view path);
   [[nodiscard]] const Roots &Under(void) const;
 

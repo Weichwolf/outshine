@@ -2,25 +2,26 @@ Type: feature
 State: open
 Area: render
 Tags: perf, scope
+Depends: 1538, 1867
 
-**Parts enter and leave the picture without a rebuild, and glass is a partition, not a clone**
+# Parts enter and leave the picture without a rebuild, and glass is a partition rather than a clone
 
-Technical review round 1 (RAGE/Unreal benchmark), the top structural gap beside board:1538: the
-draw path has no incremental entry point. `SubjectDraw::SetMesh` re-uploads every vertex stream,
-re-uploads indices and rebuilds the full CPU triangle BVH on ANY content change
-(`SubjectDraw.cpp:1298-1400`), and `Live::Restand` does exactly that mid-drive at every 400 m
-relay -- allocation, lock, disk and unbounded block all firing on the frame path at once. When
-the plan holds glass, everything doubles: `Renderer.h:86-107` mirrors every Set* into `Glass_`,
-a complete clone of the stage -- second geometry copy, second BVH, second pipeline set.
+`SubjectDraw::SetMesh` re-uploads every vertex stream, re-uploads the indices and rebuilds the
+whole CPU triangle BVH on ANY content change, and a drive calls it at every relay — allocation,
+lock, disk and an unbounded block firing on the frame path at once. When the plan holds glass
+everything doubles: `Renderer.h` mirrors every `Set*` into a complete clone of the stage, which
+is what `{Stage::SubjectsTransmissive, ...}` (src/render/plan/RenderCatalogue.h:268) declares as
+a second stage in the plan.
 
-What ships: geometry is resident and shared; entities are lightweight instances added and
-removed incrementally (RAGE drawable dictionaries + entity pools; Unreal FPrimitiveSceneInfo
-against a persistent scene). The engine's own ladder diagram -- store, handles, completion queue
--- IS this design; the render path just cannot receive it yet.
+What ships elsewhere: geometry resident and shared, entities added and removed incrementally
+(RAGE drawable dictionaries and entity pools; Unreal's persistent scene). The engine's own
+store-and-handles ladder IS that design; only the render path cannot receive it.
 
-- [ ] parts are added/removed against persistent residency; a relay uploads only what arrived
-- [ ] the BVH refits or rebuilds only the region that changed, off the frame path
-- [ ] `Glass_` dies: transmissive draws become a batch partition over ONE residency
-- [ ] a relay's frame cost is measured before and after, over the windowed drive
+## What will be true
 
-Depends: 1538
+- [ ] Parts are added and removed against persistent residency — a relay uploads only what
+      arrived, and the frame path allocates nothing.
+- [ ] The BVH refits, or rebuilds only the region that changed, off the frame path.
+- [ ] The glass clone dies: transmissive draws are a batch partition over ONE residency, and
+      the cloned catalogue row goes with it.
+- [ ] A relay's frame cost is measured before and after over a declared drive.

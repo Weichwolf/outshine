@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Area: render
 Tags: perf, instrument
 

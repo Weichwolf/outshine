@@ -1,5 +1,5 @@
 Type: issue
-State: open
+State: active
 Area: core, ground, render
 Tags: layering, frame, precision, world
 

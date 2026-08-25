@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Area: clients
 Tags: scope
 

@@ -9,6 +9,10 @@
 #include "Assembly.h"
 #include "ScenarioLayer.h"
 #include "Live.h"
+#include "Sink.h"
+#include "DeclaredSources.h"
+#include "GroundStack.h"
+#include "DriveAssembly.h"
 #include "Renderer.h"
 #include "ScenarioRead.h"
 
@@ -17,6 +21,32 @@ namespace outshine {
 inline constexpr size_t kParkedBound = 8;
 
 namespace {
+
+class Quietly : public Sink {
+public:
+  void Number(const char *, double, const char *) override {}
+  void Claim(bool held, const char *why) override {
+    if (!held && Why.empty()) { Why = why; }
+  }
+  void Near(double, double, double, const char *, const char *why) override {
+    if (Why.empty()) { Why = why; }
+  }
+  void Say(const std::string &line) override {
+    if (line.rfind("REFUSED", 0) == 0 && Why.empty()) { Why = line; }
+  }
+  [[nodiscard]] const std::string &WhyNot() const { return Why; }
+
+private:
+  std::string Why;
+};
+
+constexpr double kTickS = 1.0 / 60.0;
+
+[[nodiscard]] std::string Said(double value) {
+  char held[32] = {};
+  std::snprintf(held, sizeof held, "%.5f", value);
+  return held;
+}
 
 [[nodiscard]] std::string Beneath(const std::string &under, const std::string &named) {
   if (under.empty() || named.empty() || named.front() == '/' ||
@@ -42,6 +72,10 @@ struct Engine::State {
   Column<Traits> Kinds;
   Assembled Stood;
   Roots Under;
+  Data::Transport *Wire = nullptr;
+  Ground::GroundStack Stack;
+  Sim::DriveProduct Drive;
+  bool Drove = false;
   std::string Error;
 };
 
@@ -111,8 +145,30 @@ bool Engine::Assemble() {
                 " entities the declaration names";
     return false;
   }
-  return outshine::Assemble(declared, S_->Scene, S_->Vehicles, S_->Drives, S_->Kinds,
-                            S_->Stood, S_->Error);
+  if (!outshine::Assemble(declared, S_->Scene, S_->Vehicles, S_->Drives, S_->Kinds, S_->Stood,
+                          S_->Error)) {
+    return false;
+  }
+
+  S_->Drove = false;
+  if (!declared.Driven.Declared) { return true; }
+  if (S_->Wire == nullptr) {
+    S_->Error = "the scenario declares a drive from " + Said(declared.Driven.FromLatDeg) +
+                ", " + Said(declared.Driven.FromLonDeg) +
+                " and no transport was handed to the engine -- a route is fetched, and a "
+                "declaration the engine cannot execute is refused rather than ignored";
+    return false;
+  }
+  Quietly say;
+  const Sim::Provision kept{S_->Under.Cache, S_->Under.Shipped,
+                            {Data::ShippedProviders().begin(), Data::ShippedProviders().end()}};
+  if (!Sim::AssembleDrive(S_->Scene, S_->Stood, S_->Vehicles, S_->Drives, declared.Ground,
+                          S_->Stack, *S_->Wire, kept, say, S_->Drive)) {
+    S_->Error = say.WhyNot();
+    return false;
+  }
+  S_->Drove = true;
+  return true;
 }
 
 Store &Engine::Scene() { return S_->Scene; }
@@ -124,6 +180,10 @@ Engine &Engine::operator=(Engine &&) noexcept = default;
 void Engine::RenderTo(Extent frame) { S_->Frame = frame; }
 
 void Engine::Under(Roots roots) { S_->Under = std::move(roots); }
+
+void Engine::Fetches(Data::Transport &wire) { S_->Wire = &wire; }
+
+bool Engine::Drove(void) const { return S_->Drove; }
 
 const Roots &Engine::Under(void) const { return S_->Under; }
 
@@ -390,6 +450,15 @@ bool Engine::Advance() {
   if (!S_->Standing) {
     S_->Error = "no scenario is standing, so there is nothing to advance";
     return false;
+  }
+  if (S_->Drove) {
+    const Sim::Ridden &rode =
+        Sim::DriveTick(S_->Drive.Way, S_->Drive.Stood, S_->Drive.State, kTickS, nullptr);
+    if (!rode.Found || rode.Lost) {
+      S_->Error = "the drive left its corridor at " + Said(rode.ReachedM) + " m";
+      return false;
+    }
+    if (rode.Arrived) { return false; }
   }
   return S_->Standing->Advance(S_->Error);
 }

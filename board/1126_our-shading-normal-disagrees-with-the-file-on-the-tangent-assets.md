@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Area: render
 Depends: 1122, 1130
 Tags: oracle, khronos, instrument

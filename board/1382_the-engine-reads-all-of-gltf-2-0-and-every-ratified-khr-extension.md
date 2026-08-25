@@ -2,54 +2,35 @@ Type: feature
 State: open
 Area: gltf
 Tags: scope, khronos
-Supersedes: 0106
+Supersedes: 0106, 1387, 1390, 1391, 1393, 1394, 1397, 1405
 
-**The engine reads all of glTF 2.0 and every ratified KHR extension**
+# The engine reads all of glTF 2.0 and every ratified KHR extension
 
-**glTF is the backbone and not an implementation detail**, so what the engine may assume about content
-is the whole format -- not the subset one corpus happens to exercise. `0106` listed the extensions a
-particular picture needs and was correct and too narrow: it made the format's coverage a function of
-what was being drawn that month.
+glTF is the only content surface, so what the engine may assume about content is the whole
+format. [MEASURED] at the Khronos registry: 20 ratified KHR extensions; `kHonouredExtensions`
+(src/gltf/Document.cpp) names those whose BEHAVIOUR is built, which is the rule this feature
+keeps — generator bakes or renderer implements, never a field that parses and does nothing.
 
-## The population, counted from the registry rather than remembered
-
-[MEASURED] at the Khronos glTF registry: **20 ratified KHR extensions.** The reader honours **7**:
-`KHR_lights_punctual`, `KHR_materials_emissive_strength`, `KHR_materials_ior`,
-`KHR_materials_specular`, `KHR_materials_unlit`, `KHR_materials_variants`, `KHR_texture_transform`.
-**Thirteen are missing**, and each is one task under this feature.
-
-*In-development and archived extensions are deliberately outside this feature.* An unratified extension
-can still change, and building against a moving specification buys a rewrite; `KHR_materials_pbrSpecularGlossiness`
-and `KHR_xmp` are archived and are their own decision. **They are named here so their absence is a
-choice rather than an oversight.**
-
-## What "implemented" means, and it is the existing rule
-
-`kHonouredExtensions` is the claim, and an extension is added to it **in the round its behaviour is
-built** -- not when its fields parse. That rule already stands in `src/gltf/Document.cpp` and this
-feature does not relax it. **Generator bakes, or renderer implements; there is no third path where a
-field is read and nothing does anything with it.**
-
-**Three shapes and the precedents already exist**, so no task starts from nothing:
-
-| shape | what it does | precedent |
+| missing | shape | what it is |
 |---|---|---|
-| **data** | adds numbers to a material or texture row; composed at the reader; defaults are the consumer's identity, so absence and presence-with-defaults are one computation | `KHR_texture_transform` (`board:1177`) |
-| **selection** | maps something to something else and is resolved away before a draw list exists | `KHR_materials_variants` (`board:1188`) |
-| **structural** | changes what geometry or which nodes exist at all | none yet -- `KHR_mesh_quantization` and `KHR_node_visibility` are the first |
+| `KHR_materials_volume` | data | thickness, attenuation — the inside of a transmissive body; needs transmission |
+| `KHR_materials_dispersion` | data | index of refraction per wavelength; needs volume |
+| `KHR_materials_anisotropy` | data | built and unproven — the lobe stands, `anisotropyTexture` is not read and no corpus case shades one |
+| `KHR_materials_sheen` textures | data | the two factors are honoured, `sheenColorTexture`/`sheenRoughnessTexture` are not; `SheenCloth` is made of them |
+| `KHR_draco_mesh_compression` | structural | decides the dependency question first: a host package or ours. Off the frame path |
+| `KHR_texture_basisu` | structural | KTX2/Basis transcoded to the DEVICE's own compressed format, or it buys nothing |
+| the rest of the thirteen | — | one row each when it is taken |
 
-## What must be true
+Archived and in-development extensions are outside this feature, named so their absence is a
+choice.
 
-- [ ] **Thirteen tasks, one per missing ratified extension**, each closing with behaviour and a test
-- [ ] **`data:` URIs decode**, which is base glTF and the one gap the reader names about the core
-- [ ] **glTF 2.0 base is audited against the reader once**, so a silently-ignored core feature is found
-  by enumeration rather than by an asset
-- [ ] **The honoured list and the registry are compared by a test**, so a newly ratified extension shows
-  up as a red count rather than as nothing
+## What will be true
 
-## Comments
-
-**The oracle does not bound this.** [OWNER] *What Blender cannot do is built in Outshine anyway, and
-correctness is judged directly.* `KHR_node_visibility` is the first case of it: Blender 5.2's importer
-refuses the extension outright, and that decides which INSTRUMENT judges the result, never whether the
-capability is built.
+- [ ] Each row above closes with behaviour and a case, and `kHonouredExtensions` grows only then.
+- [ ] `data:` URIs decode — base glTF, and the one gap the reader names about the core.
+- [ ] **The base is audited once by enumeration**, the specification's property tables against
+      the reader, each DROPPED property becoming its own item. Three found by reading were
+      repaid (`ShapeAllowed`'s fallthrough, POSITION min/max, T/R/S output counts); the walk
+      itself is still owed.
+- [ ] The honoured list and the registry are compared by a case, so a newly ratified extension
+      shows as a red count.

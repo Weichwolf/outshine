@@ -1,5 +1,5 @@
 Type: task
-State: open
+State: active
 Parent: 0056
 Area: render
 Tags: perf

@@ -1,11 +1,11 @@
-#include "CurlTransport.h"
+#include <outshine/Fetching.h>
 
 #include <curl/curl.h>
 
 #include <algorithm>
 #include <utility>
 
-namespace outshine::Host {
+namespace outshine {
 namespace {
 
 constexpr int kDefaultThreads = 8;
@@ -27,7 +27,7 @@ size_t Write(void *data, size_t size, size_t members, void *user) {
 
 }
 
-CurlTransport::CurlTransport(const Config &config) : Config_(config) {
+Fetching::Fetching(const Config &config) : Config_(config) {
 
   curl_global_init(CURL_GLOBAL_DEFAULT);
   int n = Config_.Threads;
@@ -39,7 +39,7 @@ CurlTransport::CurlTransport(const Config &config) : Config_(config) {
   for (int i = 0; i < n; i++) Threads_.emplace_back([this] { Work(); });
 }
 
-CurlTransport::~CurlTransport() {
+Fetching::~Fetching() {
   {
     std::lock_guard<std::mutex> lock(Mutex_);
     Stopping_ = true;
@@ -49,7 +49,7 @@ CurlTransport::~CurlTransport() {
   curl_global_cleanup();
 }
 
-Data::Ticket CurlTransport::Begin(const std::string &url) {
+Data::Ticket Fetching::Begin(const std::string &url) {
   if (url.empty()) return Data::Ticket::None;
   std::lock_guard<std::mutex> lock(Mutex_);
   const uint64_t ticket = NextTicket_++;
@@ -59,7 +59,7 @@ Data::Ticket CurlTransport::Begin(const std::string &url) {
   return (Data::Ticket)ticket;
 }
 
-Data::Wire CurlTransport::Collect(Data::Ticket ticket) {
+Data::Wire Fetching::Collect(Data::Ticket ticket) {
   if (ticket == Data::Ticket::None) return Data::Wire::Unreachable();
   std::lock_guard<std::mutex> lock(Mutex_);
   const auto found = Transfers_.find((uint64_t)ticket);
@@ -72,7 +72,7 @@ Data::Wire CurlTransport::Collect(Data::Ticket ticket) {
   return Data::Wire::Answered(done.Status, std::move(done.Body), done.RetryAfterS);
 }
 
-void CurlTransport::Cancel(Data::Ticket ticket) {
+void Fetching::Cancel(Data::Ticket ticket) {
   if (ticket == Data::Ticket::None) return;
   std::lock_guard<std::mutex> lock(Mutex_);
   const auto found = Transfers_.find((uint64_t)ticket);
@@ -92,7 +92,7 @@ void CurlTransport::Cancel(Data::Ticket ticket) {
   found->second.Cancelled = true;
 }
 
-void CurlTransport::Work() {
+void Fetching::Work() {
   CURL *handle = curl_easy_init();
   for (;;) {
     uint64_t ticket = 0;

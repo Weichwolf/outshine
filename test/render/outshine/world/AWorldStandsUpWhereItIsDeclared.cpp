@@ -4,7 +4,7 @@
 
 #include "Check.h"
 
-#include "CurlTransport.h"
+#include <outshine/Fetching.h>
 #include "LogSinks.h"
 #include "Mod.h"
 #include "Sim.h"
@@ -66,8 +66,8 @@ int main(void) {
                 "table are content, read from src/assets, and the world is a function of them");
   if (!tables) { return Report(); }
 
-  outshine::Host::CurlTransport::Config wiring;
-  outshine::Host::CurlTransport wire(wiring);
+  outshine::Fetching::Config wiring;
+  outshine::Fetching wire(wiring);
   sim.SetTransport(wire);
 
   Sim::Bring brought = Sim::Bring::Waiting;

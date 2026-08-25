@@ -1,5 +1,5 @@
 Type: task
-State: open
+State: active
 Parent: 1785
 Area: actor/path
 Tags: proof, telemetry

@@ -1,5 +1,5 @@
 Type: issue
-State: open
+State: active
 Area: world
 Tags: scope
 

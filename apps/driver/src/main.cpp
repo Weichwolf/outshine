@@ -6,6 +6,8 @@
 
 #include <outshine/Outshine.h>
 
+#include <outshine/Fetching.h>
+
 namespace {
 
 struct Asked {
@@ -22,7 +24,8 @@ struct Asked {
   long Stills = 10;
   std::string Into;
   std::string Assets;
-  std::string Shaders = ".";
+  std::string Shipped = "src/assets";
+  std::string Cache = "/tmp/outshine-drive-cache";
 };
 
 [[nodiscard]] bool Pair(std::string_view said, double &first, double &second) {
@@ -50,7 +53,8 @@ void Usage() {
       "  --into DIR          write stills here -- ten of them, evenly along the drive\n"
       "  --stills N          how many (default 10)\n"
       "  --assets DIR        where a scenario's asset URIs resolve\n"
-      "  --shaders DIR       where the shipped shaders are (default .)\n"
+      "  --shipped DIR       where outshine's own data is (default src/assets)\n"
+      "  --cache DIR         where fetched tiles are kept\n"
       "\n"
       "--from and --to are DELTAS on what the scenario declares: omit them and the drive the\n"
       "declaration carries is the one that runs.\n");
@@ -81,8 +85,10 @@ enum class Reading { Ran, Asked, Wrong };
       out.Stills = held;
     } else if (said == "--assets" && wants) {
       out.Assets = argv[++at];
-    } else if (said == "--shaders" && wants) {
-      out.Shaders = argv[++at];
+    } else if (said == "--shipped" && wants) {
+      out.Shipped = argv[++at];
+    } else if (said == "--cache" && wants) {
+      out.Cache = argv[++at];
     } else if (said == "--frames" && wants) {
       int held = 0;
       if (!Number(argv[++at], held)) { return Reading::Wrong; }
@@ -113,8 +119,12 @@ int main(int argc, char **argv) {
     return read == Reading::Asked ? 0 : 2;
   }
 
+  outshine::Fetching::Config wiring;
+  outshine::Fetching wire(wiring);
+
   outshine::Engine engine;
-  engine.Under(outshine::Roots{asked.Assets, asked.Shaders});
+  engine.Under(outshine::Roots{asked.Assets, asked.Shipped, asked.Cache});
+  engine.Fetches(wire);
   if (!engine.Read(asked.Scenario)) {
     std::printf("REFUSED %s\n", engine.Error().c_str());
     return 1;
@@ -141,6 +151,7 @@ int main(int argc, char **argv) {
     std::printf("REFUSED %s\n", engine.Error().c_str());
     return 1;
   }
+  std::printf("%s\n", engine.Drove() ? "ROUTED the declared drive" : "NO DRIVE DECLARED");
 
   engine.RenderTo(outshine::Extent{asked.WidthPx, asked.HeightPx});
 

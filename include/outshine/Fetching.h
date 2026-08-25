@@ -9,11 +9,11 @@
 #include <thread>
 #include <vector>
 
-#include "Transport.h"
+#include <outshine/Transport.h>
 
-namespace outshine::Host {
+namespace outshine {
 
-class CurlTransport : public Data::Transport {
+class Fetching : public Data::Transport {
 public:
   struct Config {
 
@@ -26,10 +26,10 @@ public:
     size_t MaxBodyBytes = 64u << 20;
   };
 
-  explicit CurlTransport(const Config &config);
-  ~CurlTransport() override;
-  CurlTransport(const CurlTransport &) = delete;
-  CurlTransport &operator=(const CurlTransport &) = delete;
+  explicit Fetching(const Config &config);
+  ~Fetching() override;
+  Fetching(const Fetching &) = delete;
+  Fetching &operator=(const Fetching &) = delete;
 
   [[nodiscard]] Data::Ticket Begin(const std::string &url) override;
   [[nodiscard]] Data::Wire Collect(Data::Ticket ticket) override;

@@ -6,7 +6,7 @@
 #include "Fetched.h"
 #include "Request.h"
 #include "SourceDecl.h"
-#include "Transport.h"
+#include <outshine/Transport.h>
 
 namespace outshine::Data {
 

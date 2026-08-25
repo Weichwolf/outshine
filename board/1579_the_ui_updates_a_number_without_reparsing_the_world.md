@@ -1,31 +1,34 @@
 Type: feature
 State: open
-Area: clients
-Tags: scope
+Area: ui
+Tags: scope, performance, driver
+Supersedes: 1753
 
-**The UI updates a number without reparsing the world, and script reaches the tree**
+# The UI updates a number without reparsing the world, and its layout is bounded
 
-The review confirms the markup/style/layout tree as the right declarative game UI (flexbox,
-specificity, UA sheet, hit-testing, WPT-scored) -- and names the two gaps between it and a HUD
-at 60 Hz: `Live::Compose` re-parses markup and every stylesheet from strings on each
-`Redeclare` (`Live.cpp:401-426`), so a speed readout costs a full reparse per frame; and the
-script half exists (`Script.cpp`, test262-scored) but nothing wires it to the document tree.
-Slate's invalidation-panel lesson: text-node mutation plus dirty-subtree relayout.
+The markup/style/layout tree is the right declarative game UI (flexbox, specificity, UA sheet,
+hit-testing, WPT-scored) and two things stand between it and a HUD at 60 Hz.
 
-- [ ] a text node mutates and only its subtree relays out; the reparse dies
-- [ ] script binds to the tree (events in, node mutation out), still declarative at the seam
-- [ ] the driver's HUD (speed, route) is declared markup, updated at 60 Hz, measured
+**The reparse.** `Live::Compose` re-parses the markup and every stylesheet from strings on each
+redeclare, so a speed readout costs a full reparse per frame.
 
-Sharpened (review 2026-08-23, round 15): the CURRENT class-structure diagram in CLAUDE.md
-does not carry the ui tree at all — Markup → Style → Layout → Paint/Pointer exist in src/ui,
-feed Live's overlay and the WPT harness, and appear on no map. When this feature lands, the
-chain belongs on the diagram; until then the map under-reports a whole subsystem. The round
-also put three concrete defects against the tree it confirms: board:1685 (baseline OOB),
-1686 (only the first top-level box paints), 1687 (greedy selector matching refuses valid
-trees) — the "confirmed architecture" verdict above stands, the implementation does not yet.
+**The layout's cost is exponential in nesting depth, not linear in boxes.** `Placer::Place`
+re-walks each child's whole subtree up to FOUR times before placing it — `Measure`
+(src/ui/Layout.cpp:690), `BaselineOf` (:745), `BaselineOf` again on the same subtree (:799),
+then `Place` (:815) — and nothing memoises: `MinContent` (:187), `MaxContent` (:236),
+`BaselineOf` (:348) and `Measure` (:169) each recompute from scratch. Measured on a baseline-
+aligned flex tree, one text run at the bottom, -O2:
 
----
+| depth | boxes | `Layout::Build` | ratio |
+|---|---|---|---|
+| 8 | 8 | 26.4 ms | 4.11 |
+| 10 | 10 | 375.9 ms | 3.14 |
+| 12 | 12 | 6464.2 ms | 4.07 |
 
-Map sharpening repaid (round 15's note): the CURRENT class diagram carries the ui chain --
-Markup -> Stylesheet -> Layout -> Painting -> OverlayDraw -> Renderer, green per the round's
-own layering verdict. A map that omits a subsystem lies by omission; it no longer does.
+## What will be true
+
+- [ ] A text node mutates and only its subtree relays out; the reparse dies.
+- [ ] Intrinsic sizes and baselines are memoised per node per pass, so the cost is linear in
+      boxes and the ratio above is 1.0 per added level.
+- [ ] Script binds to the tree — events in, node mutation out — still declarative at the seam.
+- [ ] The driver's HUD (speed, route) is declared markup, updated at 60 Hz, MEASURED.

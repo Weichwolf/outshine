@@ -7,7 +7,7 @@
 #include "ContentStore.h"
 #include "SourceSet.h"
 #include "TerrariumDem.h"
-#include "Transport.h"
+#include <outshine/Transport.h>
 
 using namespace outshine;
 using namespace outshine::Data;

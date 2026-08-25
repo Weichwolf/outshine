@@ -16,7 +16,7 @@
 #include "SourceSet.h"
 #include "StackProbe.h"
 #include "TerrainTiles.h"
-#include "Transport.h"
+#include <outshine/Transport.h>
 
 namespace outshine::Ground {
 
