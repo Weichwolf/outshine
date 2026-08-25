@@ -128,6 +128,11 @@ int main(int argc, char **argv) {
 
   outshine::Engine engine;
   engine.Under(outshine::Roots{asked.Assets, asked.Shipped, asked.Cache, asked.Offline});
+  if (!engine.DrawsInto(outshine::Canvas{{asked.WidthPx, asked.HeightPx}, nullptr})) {
+    std::printf("REFUSED %s\n", engine.Error().c_str());
+    return 1;
+  }
+
   if (!engine.Read(asked.Scenario)) {
     std::printf("REFUSED %s\n", engine.Error().c_str());
     return 1;
@@ -155,8 +160,6 @@ int main(int argc, char **argv) {
   std::printf("%s\n", engine.Drove()   ? "ROUTED the declared drive"
                        : assembled     ? "NO DRIVE DECLARED"
                                        : "NO DRIVE -- the picture is what stood without it");
-
-  engine.RenderTo(outshine::Extent{asked.WidthPx, asked.HeightPx});
 
   if (!assembled && !asked.Into.empty()) {
     char named[512];

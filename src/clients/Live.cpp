@@ -163,7 +163,7 @@ bool Live::Build(std::string &error) {
   }
 
   Render::PlanSpec declaration;
-  DeclarePlan(File_, Moves_, Declared_.Presents, Declared_.DrawsSky,
+  DeclarePlan(File_, Moves_, Renderer_->Presents(), Declared_.DrawsSky,
               Declared_.ShadowRadiusM > 0.0, declaration);
   if (Declared_.Exposure > 0.0) {
     declaration.Exposure = Render::Declared<float>((float)Declared_.Exposure);

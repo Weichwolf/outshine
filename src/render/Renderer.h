@@ -45,9 +45,9 @@ public:
     int HeightPx = 0;
   };
 
-  [[nodiscard]] std::expected<void, std::string_view> ShowOn(SDL_Window *window);
-  [[nodiscard]] std::expected<void, std::string_view> ShowOffscreen(int widthPx, int heightPx);
-  [[nodiscard]] std::expected<std::optional<Shown>, std::string_view> PresentFrame();
+  [[nodiscard]] std::expected<void, std::string_view> DrawsInto(int widthPx, int heightPx,
+                                                                SDL_Window *presents);
+  [[nodiscard]] std::expected<std::optional<Shown>, std::string_view> Presented() const;
   void StopShowing();
 
   [[nodiscard]] SDL_GPUTextureFormat SurfaceFormat() const;
@@ -76,6 +76,8 @@ public:
 
   [[nodiscard]] int SettleFrames() const { return Plan_ ? Plan_->SettleFrames() : 1; }
 
+  void WantsPixels();
+  [[nodiscard]] bool Presents() const { return Showing_ != nullptr; }
   [[nodiscard]] ReadState ReadPixels(std::vector<uint8_t> &rgba);
 
   [[nodiscard]] ReadState ReadDepth(std::vector<float> &depth);
@@ -226,7 +228,13 @@ private:
   OwnedDevice Device_;
 
   SDL_GPUTexture *HostSurface_ = nullptr;
+  bool Stands();
+  bool StandsOffscreen();
+
   SDL_Window *Showing_ = nullptr;
+  Shown Shown_;
+  bool Wanted_ = false;
+  std::vector<uint8_t> Taken_;
   SDL_GPUTexture *Offscreen_ = nullptr;
   std::shared_ptr<const RenderPlan> Plan_;
   Gpu Handles_;

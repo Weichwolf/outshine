@@ -182,22 +182,14 @@ Engine::~Engine() = default;
 Engine::Engine(Engine &&) noexcept = default;
 Engine &Engine::operator=(Engine &&) noexcept = default;
 
-void Engine::RenderTo(Extent frame) { S_->Frame = frame; }
-
-bool Engine::ShowOn(SDL_Window *window) {
-  if (window == nullptr) {
-    S_->Error = "a surface is a window the client made, and this one is null";
+bool Engine::DrawsInto(Canvas canvas) {
+  const auto standing =
+      S_->Device.DrawsInto(canvas.Size.WidthPx, canvas.Size.HeightPx, canvas.Presents);
+  if (!standing) {
+    S_->Error = std::string(standing.error());
     return false;
   }
-  const auto shown = S_->Device.ShowOn(window);
-  if (!shown) {
-    S_->Error = std::string(shown.error());
-    return false;
-  }
-  int width = 0, height = 0;
-  if (SDL_GetWindowSizeInPixels(window, &width, &height)) {
-    S_->Frame = Extent{width, height};
-  }
+  S_->Frame = canvas.Size;
   return true;
 }
 
@@ -280,10 +272,18 @@ bool Engine::Capture(std::string_view path) {
     S_->Error = "nothing stands to be captured -- a scenario is declared before a frame is kept";
     return false;
   }
+  S_->Device.WantsPixels();
+  if (!S_->Standing->Advance(S_->Error)) { return false; }
   return S_->Standing->Screenshot(std::string(path), S_->Error);
 }
 
 bool Engine::Declare(const Scenario &scenario) {
+  if (S_->Frame.WidthPx <= 0 || S_->Frame.HeightPx <= 0) {
+    S_->Error =
+        "no canvas stands, so a scenario has nowhere to draw -- the client hands one in through "
+        "DrawsInto before it declares";
+    return false;
+  }
   const Asset *const subject = scenario.Subject();
   if (subject == nullptr) {
     S_->Error = "a scenario stands up an asset of kind 'gltf' and this one declares none";
@@ -546,7 +546,8 @@ bool Engine::Advance() {
     }
     if (rode.Arrived) { return false; }
   }
-  return S_->Standing->Advance(S_->Error);
+  if (!S_->Standing->Advance(S_->Error)) { return false; }
+  return true;
 }
 
 bool Engine::Run() {

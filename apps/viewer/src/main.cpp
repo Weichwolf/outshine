@@ -15,6 +15,7 @@ struct Asked {
   std::string Assets;
   std::string Shipped = "src/assets";
   std::string Cases = "test";
+  std::string Into;
   std::string Prepared;
   int WidthPx = 1280;
   int HeightPx = 720;
@@ -33,6 +34,7 @@ void Usage() {
       "  --cases DIR      where the case manifests are (default test)\n"
       "  --prepared DIR   where their prepared subjects are\n"
       "  --frames N       stop after N frames\n"
+      "  --into DIR       keep a still of each frame here\n"
       "  --headless       stand it up without opening a window\n"
       "\n"
       "It shows what the scenario declares and nothing of its own. board:1880: its face\n"
@@ -63,6 +65,8 @@ int main(int argc, char **argv) {
       asked.Cases = argv[++at];
     } else if (std::strcmp(said, "--prepared") == 0 && wants) {
       asked.Prepared = argv[++at];
+    } else if (std::strcmp(said, "--into") == 0 && wants) {
+      asked.Into = argv[++at];
     } else if (std::strcmp(said, "--frames") == 0 && wants) {
       asked.Frames = std::atol(argv[++at]);
     } else if (std::strcmp(said, "--size") == 0 && wants) {
@@ -96,8 +100,24 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  SDL_Window *window = nullptr;
+  if (asked.Windowed) {
+    window = SDL_CreateWindow("outshine", asked.WidthPx, asked.HeightPx, 0);
+    if (window == nullptr) {
+      std::printf("REFUSED the window did not open: %s\n", SDL_GetError());
+      SDL_Quit();
+      return 1;
+    }
+  }
   outshine::Engine engine;
   engine.Under(outshine::Roots{asked.Assets, asked.Shipped, "/tmp/outshine-viewer-cache", false});
+  if (!engine.DrawsInto(outshine::Canvas{{asked.WidthPx, asked.HeightPx}, window})) {
+    std::printf("REFUSED %s\n", engine.Error().c_str());
+    if (window != nullptr) { SDL_DestroyWindow(window); }
+    SDL_Quit();
+    return 1;
+  }
+
   if (!engine.Read(asked.Scenario)) {
     std::printf("REFUSED %s\n", engine.Error().c_str());
     SDL_Quit();
@@ -123,24 +143,6 @@ int main(int argc, char **argv) {
   }
   if (!engine.Assemble()) { std::printf("REFUSED %s\n", engine.Error().c_str()); }
 
-  SDL_Window *window = nullptr;
-  if (asked.Windowed) {
-    window = SDL_CreateWindow("outshine", asked.WidthPx, asked.HeightPx, 0);
-    if (window == nullptr) {
-      std::printf("REFUSED the window did not open: %s\n", SDL_GetError());
-      SDL_Quit();
-      return 1;
-    }
-    if (!engine.ShowOn(window)) {
-      std::printf("REFUSED %s\n", engine.Error().c_str());
-      SDL_DestroyWindow(window);
-      SDL_Quit();
-      return 1;
-    }
-  } else {
-    engine.RenderTo(outshine::Extent{asked.WidthPx, asked.HeightPx});
-  }
-
   std::printf("SHOWING %s at %dx%d%s\n", asked.Scenario.c_str(), asked.WidthPx, asked.HeightPx,
               asked.Windowed ? "" : ", headless");
 
@@ -151,9 +153,20 @@ int main(int argc, char **argv) {
     for (SDL_Event event; SDL_PollEvent(&event);) {
       closing = closing || event.type == SDL_EVENT_QUIT;
     }
+    if (!asked.Into.empty()) {
+      char named[512];
+      std::snprintf(named, sizeof named, "%s/frame%03ld.png", asked.Into.c_str(), frames);
+      if (!engine.Capture(named)) {
+        std::printf("REFUSED %s\n", engine.Error().c_str());
+        break;
+      }
+    }
     if (asked.Frames > 0 && frames >= asked.Frames) { break; }
   }
 
+  if (!closing) {
+    std::printf("STOPPED after Advance said no: '%s'\n", engine.Error().c_str());
+  }
   std::printf("SHOWED %ld frame(s)\n", frames);
   if (window != nullptr) { SDL_DestroyWindow(window); }
   SDL_Quit();

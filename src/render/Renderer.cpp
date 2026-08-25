@@ -136,6 +136,46 @@ const Renderer::Executor *Renderer::ExecutorOf(Stage stage) {
 
 bool Renderer::Executable(Stage stage) { return ExecutorOf(stage) != nullptr; }
 
+bool Renderer::Stands() {
+  if (Device_) { return true; }
+  if (!SDL_WasInit(SDL_INIT_VIDEO)) {
+    Log::Error("render", "no_video", {{"msg", "the client did not initialise SDL video"}});
+    WhyNot_ =
+        "SDL's video subsystem is not running: outshine renders through SDL3 and the CLIENT owns "
+        "the process, so the client calls SDL_Init(SDL_INIT_VIDEO) before it declares a scenario";
+    return false;
+  }
+  SDL_GPUDevice *device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_MSL, kGpuValidation, nullptr);
+  if (!device) {
+    Log::Error("render", "no_device", {{"msg", SDL_GetError()}});
+    WhyNot_ = std::string("no gpu device: ") + SDL_GetError();
+    return false;
+  }
+  Device_ = OwnedDevice(device);
+  return true;
+}
+
+bool Renderer::StandsOffscreen() {
+  if (Showing_ != nullptr || Offscreen_ != nullptr || Plan_ == nullptr || Width_ <= 0) {
+    return true;
+  }
+  SDL_GPUTextureCreateInfo wanted{};
+  wanted.type = SDL_GPU_TEXTURETYPE_2D;
+  wanted.format = SurfaceFormat();
+  wanted.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
+  wanted.width = (Uint32)Width_;
+  wanted.height = (Uint32)Height_;
+  wanted.layer_count_or_depth = 1;
+  wanted.num_levels = 1;
+  Offscreen_ = SDL_CreateGPUTexture(Device_.Get(), &wanted);
+  if (Offscreen_ == nullptr) {
+    WhyNot_ = std::string("the device refused a canvas of that extent: ") + SDL_GetError();
+    return false;
+  }
+  HostSurface_ = Offscreen_;
+  return true;
+}
+
 void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> plan) {
   WhyNot_.clear();
   Plan_ = std::move(plan);
@@ -151,24 +191,7 @@ void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> pla
   }
 
   Ready_ = false;
-  if (!SDL_WasInit(SDL_INIT_VIDEO)) {
-    Log::Error("render", "no_video", {{"msg", "the client did not initialise SDL video"}});
-    WhyNot_ =
-        "SDL's video subsystem is not running: outshine renders through SDL3 and the CLIENT owns "
-        "the process, so the client calls SDL_Init(SDL_INIT_VIDEO) before it declares a scenario";
-    return;
-  }
-
-  if (!Device_) {
-    SDL_GPUDevice *device =
-        SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_MSL, kGpuValidation, nullptr);
-    if (!device) {
-      Log::Error("render", "no_device", {{"msg", SDL_GetError()}});
-      WhyNot_ = std::string("no gpu device: ") + SDL_GetError();
-      return;
-    }
-    Device_ = OwnedDevice(device);
-  }
+  if (!Stands()) { return; }
 
   SDL_WaitForGPUIdle(Device_.Get());
   SDL_GPUDevice *const device = Device_.Get();
@@ -211,6 +234,7 @@ void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> pla
     WhyNot_ = std::string("the stage '") + Row(stage).Name + "' did not configure: " + why;
     return;
   }
+  if (!StandsOffscreen()) { return; }
   Ready_ = true;
 
   Log::Info("render", "device_ready",
@@ -412,6 +436,9 @@ double Renderer::PictureW() const { return PictureRect().WidthPx; }
 double Renderer::PictureH() const { return PictureRect().HeightPx; }
 
 SDL_GPUTextureFormat Renderer::SurfaceFormat() const {
+  if (Showing_ != nullptr) {
+    return SDL_GetGPUSwapchainTextureFormat(Device_.Get(), Showing_);
+  }
   return Plan_ ? FormatOf(Plan_->Format(Resource::Surface)) : SDL_GPU_TEXTUREFORMAT_INVALID;
 }
 
@@ -695,6 +722,19 @@ void Renderer::RenderFrame() {
   for (bool &touched : Touched_) { touched = false; }
   SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device_.Get());
 
+  SDL_GPUTexture *swapchain = nullptr;
+  if (Showing_ != nullptr) {
+    Uint32 gotW = 0, gotH = 0;
+    if (SDL_WaitAndAcquireGPUSwapchainTexture(commands, Showing_, &swapchain, &gotW, &gotH) &&
+        swapchain != nullptr) {
+      Shown_.WidthPx = (int)gotW;
+      Shown_.HeightPx = (int)gotH;
+      HostSurface_ = swapchain;
+    } else {
+      Log::Error("render", "no_swapchain", {{"msg", SDL_GetError()}});
+    }
+  }
+
   Subjects_.FlushCrossings(commands);
   if (DrawsGlass_) { Glass_.FlushCrossings(commands); }
 
@@ -705,7 +745,40 @@ void Renderer::RenderFrame() {
     SDL_ReleaseGPUFence(Device_.Get(), Landed_[LandedAt_]);
     Landed_[LandedAt_] = nullptr;
   }
+  SDL_GPUTransferBuffer *taking = nullptr;
+  if (Wanted_ && HostSurface_ != nullptr) {
+    SDL_GPUTransferBufferCreateInfo wanted{};
+    wanted.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
+    wanted.size = (Uint32)((size_t)Width_ * (size_t)Height_ * 4u);
+    taking = SDL_CreateGPUTransferBuffer(Device_.Get(), &wanted);
+    if (taking != nullptr) {
+      SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
+      SDL_GPUTextureRegion region{};
+      region.texture = HostSurface_;
+      region.w = (Uint32)Width_;
+      region.h = (Uint32)Height_;
+      region.d = 1;
+      SDL_GPUTextureTransferInfo into{};
+      into.transfer_buffer = taking;
+      into.pixels_per_row = (Uint32)Width_;
+      into.rows_per_layer = (Uint32)Height_;
+      SDL_DownloadFromGPUTexture(copy, &region, &into);
+      SDL_EndGPUCopyPass(copy);
+    }
+  }
+
   Landed_[LandedAt_] = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
+  if (taking != nullptr) {
+    SDL_WaitForGPUFences(Device_.Get(), true, &Landed_[LandedAt_], 1);
+    if (const void *pixels = SDL_MapGPUTransferBuffer(Device_.Get(), taking, false)) {
+      const uint8_t *bytes = (const uint8_t *)pixels;
+      Taken_.assign(bytes, bytes + (size_t)Width_ * (size_t)Height_ * 4u);
+      SDL_UnmapGPUTransferBuffer(Device_.Get(), taking);
+    }
+    SDL_ReleaseGPUTransferBuffer(Device_.Get(), taking);
+    Wanted_ = false;
+  }
+  if (swapchain != nullptr) { HostSurface_ = Offscreen_; }
   LandedAt_ = (LandedAt_ + 1) % kFramesInFlight;
   for (int axis = 0; axis < 3; axis++) { PrevEye_[axis] = Eye_[axis]; }
 
@@ -725,15 +798,16 @@ void Renderer::WaitForGpu() {
   }
 }
 
+void Renderer::WantsPixels() { Wanted_ = true; }
+
 ReadState Renderer::ReadPixels(std::vector<uint8_t> &rgba) {
-  if (!Ready_ || !FrameTex_) { return ReadState::Failed; }
-  Readback read;
-  if (read.FromTexture(Device_.Get(), FrameTex_.Get(), (uint32_t)Width_, (uint32_t)Height_, 4u) !=
-      ReadState::Ready) {
-    return ReadState::Failed;
+  if (!Ready_) { return ReadState::Failed; }
+  if (Taken_.size() == (size_t)Width_ * (size_t)Height_ * 4u) {
+    rgba = Taken_;
+    return ReadState::Ready;
   }
-  rgba.assign(read.Rows(), read.Rows() + (size_t)Width_ * (size_t)Height_ * 4u);
-  return ReadState::Ready;
+  Wanted_ = true;
+  return ReadState::Failed;
 }
 
 ReadState Renderer::ReadDepth(std::vector<float> &depth) {
@@ -834,23 +908,6 @@ ReadState Renderer::ReadSurfaceIdentity(std::vector<float> &slot) {
   return ReadState::Ready;
 }
 
-std::expected<void, std::string_view> Renderer::ShowOn(SDL_Window *window) {
-  if (window == nullptr) {
-    return std::unexpected("a renderer is shown on a window and this call names none");
-  }
-  if (!Ready_ || Device_.Get() == nullptr) {
-    return std::unexpected("the renderer has no device to claim a window for");
-  }
-  if (Showing_ == window) { return {}; }
-  StopShowing();
-  if (!SDL_ClaimWindowForGPUDevice(Device_.Get(), window)) {
-    WhyNot_ = std::string("the window was refused by the device: ") + SDL_GetError();
-    return std::unexpected("the window was refused by the device, and WhyNot carries what it said");
-  }
-  Showing_ = window;
-  return {};
-}
-
 void Renderer::StopShowing() {
   if (Offscreen_ != nullptr) {
     if (Device_.Get() != nullptr) { SDL_ReleaseGPUTexture(Device_.Get(), Offscreen_); }
@@ -862,61 +919,46 @@ void Renderer::StopShowing() {
   Showing_ = nullptr;
 }
 
-std::expected<void, std::string_view> Renderer::ShowOffscreen(int widthPx, int heightPx) {
+std::expected<void, std::string_view> Renderer::DrawsInto(int widthPx, int heightPx,
+                                                          SDL_Window *presents) {
   if (widthPx <= 0 || heightPx <= 0) {
-    WhyNot_ = "a surface is shown into a positive extent and this call declares " +
-              std::to_string(widthPx) + " by " + std::to_string(heightPx);
-    return std::unexpected("a surface is shown into a positive extent and this one is not");
+    return std::unexpected("a canvas has an extent, and this one declares none");
   }
-  if (!Ready_ || Device_.Get() == nullptr) {
-    return std::unexpected("the renderer has no device to make a surface on");
+  if (!Stands()) {
+    return std::unexpected("the renderer has no device to stand a canvas on");
   }
-  StopShowing();
-  SDL_GPUTextureCreateInfo wanted{};
-  wanted.type = SDL_GPU_TEXTURETYPE_2D;
-  wanted.format = SurfaceFormat();
-  wanted.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
-  wanted.width = (Uint32)widthPx;
-  wanted.height = (Uint32)heightPx;
-  wanted.layer_count_or_depth = 1;
-  wanted.num_levels = 1;
-  Offscreen_ = SDL_CreateGPUTexture(Device_.Get(), &wanted);
-  if (Offscreen_ == nullptr) {
-    WhyNot_ = std::string("the device refused a surface of that extent: ") + SDL_GetError();
-    return std::unexpected("the device refused a surface of that extent");
+
+  if (Showing_ != presents) {
+    StopShowing();
+    if (presents != nullptr && !SDL_ClaimWindowForGPUDevice(Device_.Get(), presents)) {
+      WhyNot_ = std::string("the window was refused by the device: ") + SDL_GetError();
+      return std::unexpected(
+          "the window was refused by the device, and WhyNot carries what it said");
+    }
+    Showing_ = presents;
   }
-  PresentInto(Offscreen_);
+
+  if (Offscreen_ != nullptr) {
+    SDL_ReleaseGPUTexture(Device_.Get(), Offscreen_);
+    Offscreen_ = nullptr;
+  }
+  HostSurface_ = nullptr;
+  Width_ = widthPx;
+  Height_ = heightPx;
+  if (!StandsOffscreen()) {
+    return std::unexpected("the device refused a canvas of that extent");
+  }
   return {};
 }
 
-std::expected<std::optional<Renderer::Shown>, std::string_view> Renderer::PresentFrame() {
+std::expected<std::optional<Renderer::Shown>, std::string_view> Renderer::Presented() const {
   if (Showing_ == nullptr) {
     return std::unexpected(
         "no window is being shown on: a frame is presented to a surface the caller declared, "
-        "and ShowOn names one");
+        "and a Canvas names one");
   }
-  if (Device_.Get() == nullptr) {
-    return std::unexpected("the renderer has no device to present with");
-  }
-  SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device_.Get());
-  if (commands == nullptr) {
-    WhyNot_ = std::string("the device gave no command buffer: ") + SDL_GetError();
-    return std::unexpected("the device gave no command buffer, and WhyNot carries what it said");
-  }
-  Shown shown;
-  bool drew = false;
-  SDL_GPUTexture *surface = nullptr;
-  Uint32 gotW = 0, gotH = 0;
-  if (SDL_WaitAndAcquireGPUSwapchainTexture(commands, Showing_, &surface, &gotW, &gotH) &&
-      surface != nullptr) {
-    shown.WidthPx = (int)gotW;
-    shown.HeightPx = (int)gotH;
-    PresentInto(surface);
-    drew = true;
-  }
-  SDL_SubmitGPUCommandBuffer(commands);
-  if (!drew) { return std::optional<Shown>(); }
-  return std::optional<Shown>(shown);
+  if (Shown_.WidthPx == 0) { return std::optional<Shown>(); }
+  return std::optional<Shown>(Shown_);
 }
 
 }

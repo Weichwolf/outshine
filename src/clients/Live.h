@@ -60,7 +60,6 @@ struct Declaration {
   double ShadowRadiusM = 0.0;
   double KeyElevationDeg = 0.0, KeyBearingDeg = 0.0;
 
-  bool Presents = false;
 
   std::vector<Shows> Surfaces;
 
