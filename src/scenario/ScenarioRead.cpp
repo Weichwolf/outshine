@@ -177,6 +177,7 @@ void ReadWorld(const Xml::Ref &from, Scenario &into) {
   into.Ground.WindDeg = from.Num("windDeg", into.Ground.WindDeg);
   into.Ground.WindMs = from.Num("windMs", into.Ground.WindMs);
   into.Ground.CloudCover = from.Num("cloudCover", into.Ground.CloudCover);
+  into.Ground.PatienceS = from.Num("patienceS", into.Ground.PatienceS);
 }
 
 void ReadRender(const Xml::Ref &from, Scenario &into) {
@@ -229,6 +230,9 @@ void ReadSectionsOnto(const Xml::Ref &root, Scenario &into) {
   if (physics.Valid()) {
     into.Motion.Declared = true;
     into.Motion.Dial = physics.Attr("dial", into.Motion.Dial.c_str());
+    into.Motion.StepS = physics.Num("stepS", into.Motion.StepS);
+    into.Motion.MostStepsInArrears =
+        (int)physics.Num("mostStepsInArrears", (double)into.Motion.MostStepsInArrears);
   }
 
   const Xml::Ref clock = root.Child("clock");
@@ -367,6 +371,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
   }
 
   const Xml::Ref input = root.Child("input");
+  if (input.Valid()) { into.WheelStepPx = input.Num("wheelStepPx", into.WheelStepPx); }
   for (const Xml::Ref one : input.Children("bind")) {
     into.Input.push_back(Binding{one.Attr("event"), one.Attr("action")});
   }
@@ -515,6 +520,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.Follows = one.Attr("follows");
     made.Person = one.Attr("person");
     made.DistanceM = one.Num("distanceM", 0.0);
+    made.RisesBy = one.Num("risesBy", made.RisesBy);
     made.PitchLimitDeg = one.Num("pitchLimitDeg", 89.0);
     made.OffsetM[0] = one.Num("offsetX", 0.0);
     made.OffsetM[1] = one.Num("offsetY", 0.0);

@@ -4,8 +4,10 @@ set -u
 set -m
 AUDIT=0
 AUDIT_LAYERS=0
+AUDIT_NUMBERS=0
 STATE=0
 STRANDED=37
+DECIDED=191
 OWNER_MAP_BUILT=no
 CORPUS=0
 WOULDPRUNE=0
@@ -191,6 +193,7 @@ while [ $# -gt 0 ]; do
     --cases) CASELIST=1; shift ;;
     --audit-link) AUDITLINK=1; shift ;;
     --audit-layers) AUDIT_LAYERS=1; shift ;;
+    --audit-numbers) AUDIT_NUMBERS=1; shift ;;
     --state) STATE=1; shift ;;
     -*) Die "unknown option '$1'" ;;
     *) SUITES="$SUITES ${1%/}"; SUITE=${1%/}; shift; continue ;;
@@ -767,12 +770,48 @@ if [ "$STATE" = 1 ]; then
            gsub(/"[ \t]*\n?[ \t]*"/, "", line); gsub(/"/, "", line)
            gsub(/[ \t]+/, " ", line); print line; line = "" }' "$case"
   done | sed -e 's|^ *||' | grep . | sort -u | cut -c1-150 | sed 's|^|  |'
+  printf '\nDECIDED -- named constants standing as a bare literal, whose origin is elsewhere\n'
+  grep -rnE '(constexpr|const) +(double|float|int|size_t|unsigned|uint[0-9]+_t|long) +k[A-Z][A-Za-z0-9_]* *= *-?[0-9]' \
+    src --include=*.h --include=*.cpp 2>/dev/null | grep -v '^src/assets/' |
+    sed -E 's|^([^:]*):[0-9]*:.*(k[A-Z][A-Za-z0-9_]*) *= *([^;,]*).*|\1 \2 \3|' |
+    grep -vE ' -?(0|1|2|4|8|16|32|64|128|256|512|1024|2048|4096)(\.0)?[fu]? *$' |
+    grep -vE ' -?(0\.0|1\.0|0\.5)f? *$' | grep -vE ' 0x' |
+    awk '{ n[$1]++ } END { for (f in n) printf "%5d  %s\n", n[f], f }' | sort -rn | head -10
+
   printf '\nCOUNTS\n'
   printf '  %s source(s) under src/, %s of them linked by no suite\n' \
     "$(find src -name '*.cpp' -not -path 'src/assets/*' | wc -l | tr -d ' ')" "$STRANDED"
   printf '  %s header(s) in %s module(s) over 13 tier(s)\n' \
     "$(find src -name '*.h' -not -path 'src/assets/*' | wc -l | tr -d ' ')" \
     "$(cut -d' ' -f2 "$BUILD/log/module-of-header" | sort -u | wc -l | tr -d ' ')"
+  exit 0
+fi
+
+# EVERY NUMBER CARRIES ITS ORIGIN. A named constant whose value is not 0, 1, a power of two or a
+# half is a DECISION, and a decision that is only a literal has its reason nowhere -- CLAUDE.md
+# asks for derived, measured or [SET] with a unit and a population, and the place that carries it
+# is the constant's board item and the commit that set it. This walk cannot read a reason, so it
+# counts the decisions and refuses when the count moves: what is there is declared, and nothing
+# new joins it silently.
+if [ "$AUDIT_NUMBERS" = 1 ]; then
+  decided=$BUILD/log/decided-numbers
+  mkdir -p "$BUILD/log"
+  grep -rnE '(constexpr|const) +(double|float|int|size_t|unsigned|uint[0-9]+_t|long) +k[A-Z][A-Za-z0-9_]* *= *-?[0-9]' \
+    src --include=*.h --include=*.cpp 2>/dev/null |
+    grep -v '^src/assets/' |
+    sed -E 's|^([^:]*:[0-9]*):.*(k[A-Z][A-Za-z0-9_]*) *= *([^;,]*).*|\1 \2 = \3|' |
+    grep -vE '= *-?(0|1|2|4|8|16|32|64|128|256|512|1024|2048|4096)(\.0)?[fu]? *$' |
+    grep -vE '= *-?(0\.0|1\.0|0\.5)f? *$' |
+    grep -vE '= *0x' | sort > "$decided"
+  many=$(wc -l < "$decided" | tr -d ' ')
+  if [ "$many" != "$DECIDED" ]; then
+    cat "$decided"
+    printf 'AUDIT %s decision(s) stand as a bare literal and the declaration says %s -- every\n' \
+      "$many" "$DECIDED"
+    printf 'AUDIT number carries its origin, and a walk cannot read a reason, so it counts them\n'
+    exit 1
+  fi
+  printf 'AUDIT %s decision(s) stand as a bare literal, as declared\n' "$many"
   exit 0
 fi
 

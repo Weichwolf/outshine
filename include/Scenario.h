@@ -41,6 +41,7 @@ struct WorldSettings {
   double WindDeg = 0.0;
   double WindMs = 0.0;
   double CloudCover = 0.0;
+  double PatienceS = 30.0;
 };
 
 struct Provider {
@@ -221,6 +222,7 @@ struct View {
   std::string Person;
   double OffsetM[3] = {0.0, 0.0, 0.0};
   double DistanceM = 0.0;
+  double RisesBy = 0.35;
   double PitchLimitDeg = 89.0;
   double FovDeg = 0.0;
   double TimeScale = 1.0;
@@ -288,6 +290,8 @@ struct Player {
 struct PhysicsSettings {
   bool Declared = false;
   std::string Dial;
+  double StepS = 1.0 / 60.0;
+  int MostStepsInArrears = 8;
 };
 
 struct Clock {
@@ -335,6 +339,7 @@ struct Scenario {
   PhysicsSettings Motion;
   Clock Time;
   std::vector<Binding> Input;
+  double WheelStepPx = 48.0;
   std::vector<Persisted> State;
 
   [[nodiscard]] const Asset *Subject(void) const;

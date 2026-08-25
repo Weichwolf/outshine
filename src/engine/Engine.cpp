@@ -70,11 +70,6 @@ private:
   std::string Why;
 };
 
-constexpr double kTickS = 1.0 / 60.0;
-constexpr int kMostStepsInArrears = 8;
-constexpr double kWheelStepPx = 48.0;
-constexpr double kGroundPatienceS = 30.0;
-constexpr double kChaseRise = 0.35;
 
 [[nodiscard]] std::string Said(double value) {
   char held[32] = {};
@@ -323,7 +318,7 @@ bool Engine::State::Composes(void) {
   const auto began = std::chrono::steady_clock::now();
   while (!laid &&
          std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() <
-             kGroundPatienceS) {
+             Declared.Ground.PatienceS) {
     laid = LayPatchwork(Stack.Pool(), over);
   }
   if (!laid) {
@@ -434,7 +429,7 @@ bool Engine::Handles(const SDL_Event &event) {
     float xPx = 0.0f, yPx = 0.0f;
     SDL_GetMouseState(&xPx, &yPx);
     return S_->Standing->Wheeled((double)xPx, (double)yPx,
-                                 -(double)event.wheel.y * kWheelStepPx, S_->Error);
+                                 -(double)event.wheel.y * S_->Declared.WheelStepPx, S_->Error);
   }
   if (S_->Pumping && (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP)) {
     Clients::InputPump::Fired fired[2];
@@ -927,7 +922,7 @@ bool Engine::State::Rides(void) {
   Places("the mesh it carries, up", bodyFromWorld[13], "m");
   Places("the mesh it carries, south", bodyFromWorld[14], "m");
   if (Volumes) {
-    Volumes->Probe(0, body.PositionM, (double)Standing->At() * kTickS);
+    Volumes->Probe(0, body.PositionM, (double)Standing->At() * Declared.Motion.StepS);
     for (const TriggerField::Fired &fired : Volumes->Drain()) {
       Carried.push_back("a volume fired event " + std::to_string(fired.Event) +
                              " for body " + std::to_string(fired.Body));
@@ -951,7 +946,7 @@ bool Engine::State::Rides(void) {
     const double back = seen.DistanceM;
     for (int axis = 0; axis < 3; ++axis) {
       eye[axis] = at[axis] + bodyFromWorld[8 + axis] * back +
-                  bodyFromWorld[4 + axis] * back * kChaseRise;
+                  bodyFromWorld[4 + axis] * back * seen.RisesBy;
     }
   }
   Places("the eye, east", eye[0], "m");
@@ -973,7 +968,7 @@ bool Engine::Advance() {
   }
   if (S_->Drove) {
     const Sim::Ridden &rode =
-        Sim::DriveTick(S_->Drive.Way, S_->Drive.Stood, S_->Drive.State, kTickS, nullptr);
+        Sim::DriveTick(S_->Drive.Way, S_->Drive.Stood, S_->Drive.State, S_->Declared.Motion.StepS, nullptr);
     if (!rode.Found || rode.Lost) {
       S_->Error = "the drive left its corridor at " + Said(rode.ReachedM) + " m";
       return false;
@@ -988,17 +983,17 @@ bool Engine::Advance() {
   return true;
 }
 
-double Engine::StepS(void) const { return kTickS; }
+double Engine::StepS(void) const { return S_->Declared.Motion.StepS; }
 
 bool Engine::Advance(double elapsedS) {
   if (elapsedS > 0.0) { S_->OwedS += elapsedS; }
   bool stood = true;
-  for (int step = 0; step < kMostStepsInArrears && S_->OwedS >= kTickS; ++step) {
-    S_->OwedS -= kTickS;
+  for (int step = 0; step < S_->Declared.Motion.MostStepsInArrears && S_->OwedS >= S_->Declared.Motion.StepS; ++step) {
+    S_->OwedS -= S_->Declared.Motion.StepS;
     stood = Advance();
     if (!stood) { break; }
   }
-  if (S_->OwedS > kMostStepsInArrears * kTickS) { S_->OwedS = 0.0; }
+  if (S_->OwedS > S_->Declared.Motion.MostStepsInArrears * S_->Declared.Motion.StepS) { S_->OwedS = 0.0; }
   return stood;
 }
 
