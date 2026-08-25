@@ -1,4 +1,4 @@
-#include <outshine/Fetching.h>
+#include "Fetching.h"
 
 #include <curl/curl.h>
 

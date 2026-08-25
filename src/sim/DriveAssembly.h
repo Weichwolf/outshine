@@ -3,10 +3,10 @@
 
 #include <string>
 
-#include <outshine/Assembled.h>
-#include <outshine/Column.h>
+#include "Assembled.h"
+#include "Column.h"
 #include <outshine/Scenario.h>
-#include <outshine/Store.h>
+#include "Store.h"
 
 #include "CorridorLay.h"
 #include "DriveTick.h"

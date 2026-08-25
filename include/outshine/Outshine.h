@@ -6,12 +6,7 @@
 #include <string>
 #include <vector>
 
-#include <outshine/Assembled.h>
-#include <outshine/Column.h>
 #include <outshine/Scenario.h>
-#include <outshine/Store.h>
-#include <outshine/Transport.h>
-#include <outshine/Traits.h>
 
 namespace outshine {
 
@@ -19,6 +14,7 @@ struct Roots {
   std::string Assets;
   std::string Shipped;
   std::string Cache;
+  bool Offline = false;
 };
 
 class Engine {
@@ -32,7 +28,6 @@ public:
 
   void RenderTo(Extent frame);
   void Under(Roots roots);
-  void Fetches(Data::Transport &wire);
   [[nodiscard]] bool Drove(void) const;
   [[nodiscard]] double ReachedM(void) const;
   [[nodiscard]] double RouteM(void) const;
@@ -49,10 +44,6 @@ public:
   [[nodiscard]] const std::vector<std::string> &Carried(void) const;
 
   [[nodiscard]] bool Assemble();
-  [[nodiscard]] Store &Scene(void);
-  [[nodiscard]] const Store &Scene(void) const;
-  [[nodiscard]] const Assembled &Stood(void) const;
-  [[nodiscard]] const Column<Traits> &Resolved(void) const;
 
   [[nodiscard]] bool Advance();
   [[nodiscard]] bool Run();

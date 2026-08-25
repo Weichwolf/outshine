@@ -4,8 +4,8 @@
 #include <string>
 #include <vector>
 
-#include <outshine/Assembled.h>
-#include <outshine/Traits.h>
+#include "Assembled.h"
+#include "Traits.h"
 #include <outshine/Scenario.h>
 
 #include "Column.h"

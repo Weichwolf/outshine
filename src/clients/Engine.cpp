@@ -1,4 +1,5 @@
 #include <outshine/Outshine.h>
+#include "Fetching.h"
 
 #include <algorithm>
 #include <charconv>
@@ -74,7 +75,7 @@ struct Engine::State {
   Column<Traits> Kinds;
   Assembled Stood;
   Roots Under;
-  Data::Transport *Wire = nullptr;
+  std::unique_ptr<Fetching> Wire;
   size_t GroundTiles = 0;
   Ground::GroundStack Stack;
   Sim::DriveProduct Drive;
@@ -155,12 +156,15 @@ bool Engine::Assemble() {
 
   S_->Drove = false;
   if (!declared.Driven.Declared) { return true; }
-  if (S_->Wire == nullptr) {
-    S_->Error = "the scenario declares a drive from " + Said(declared.Driven.FromLatDeg) +
-                ", " + Said(declared.Driven.FromLonDeg) +
-                " and no transport was handed to the engine -- a route is fetched, and a "
-                "declaration the engine cannot execute is refused rather than ignored";
-    return false;
+  if (!S_->Wire) {
+    if (S_->Under.Offline) {
+      S_->Error = "the scenario declares a drive from " + Said(declared.Driven.FromLatDeg) +
+                  ", " + Said(declared.Driven.FromLonDeg) +
+                  " and the engine was declared offline -- a route is FETCHED, so this is a "
+                  "declaration it cannot execute";
+      return false;
+    }
+    S_->Wire = std::make_unique<Fetching>(Fetching::Config{});
   }
   Quietly say;
   const Sim::Provision kept{S_->Under.Cache, S_->Under.Shipped,
@@ -174,8 +178,6 @@ bool Engine::Assemble() {
   return true;
 }
 
-Store &Engine::Scene() { return S_->Scene; }
-const Store &Engine::Scene() const { return S_->Scene; }
 Engine::~Engine() = default;
 Engine::Engine(Engine &&) noexcept = default;
 Engine &Engine::operator=(Engine &&) noexcept = default;
@@ -183,8 +185,6 @@ Engine &Engine::operator=(Engine &&) noexcept = default;
 void Engine::RenderTo(Extent frame) { S_->Frame = frame; }
 
 void Engine::Under(Roots roots) { S_->Under = std::move(roots); }
-
-void Engine::Fetches(Data::Transport &wire) { S_->Wire = &wire; }
 
 bool Engine::Drove(void) const { return S_->Drove; }
 
@@ -207,9 +207,12 @@ bool Engine::Compose(void) {
     S_->Error = "the scenario declares no sphere, so there is no ground to compose";
     return false;
   }
-  if (S_->Wire == nullptr) {
-    S_->Error = "the ground is fetched, and no transport was handed to the engine";
-    return false;
+  if (!S_->Wire) {
+    if (S_->Under.Offline) {
+      S_->Error = "the ground is FETCHED and the engine was declared offline";
+      return false;
+    }
+    S_->Wire = std::make_unique<Fetching>(Fetching::Config{});
   }
 
   Quietly say;
@@ -368,7 +371,6 @@ bool Engine::Load(std::string_view path) {
 }
 
 const Scenario &Engine::Declared() const { return S_->Declared; }
-const Assembled &Engine::Stood() const { return S_->Stood; }
 
 inline constexpr size_t kMostSaveBytes = 1 << 20;
 
@@ -511,7 +513,6 @@ bool Engine::Restore(std::string_view path) {
   S_->Error.clear();
   return true;
 }
-const Column<Traits> &Engine::Resolved() const { return S_->Kinds; }
 const std::vector<std::string> &Engine::Carried() const { return S_->Carried; }
 
 bool Engine::Advance() {

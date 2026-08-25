@@ -157,12 +157,12 @@ done
 LayerIncludes() {
   case "$1" in
     harness/claims) printf '%s' "-Iinclude" ;;
-    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/data -Isrc/scene -Isrc/scenario -Isrc/ui -Iinclude -Isrc/clients" ;;
+    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/data -Isrc/scene -Isrc/scenario -Isrc/ui -Iinclude -Isrc/host -Isrc/clients" ;;
     harness/render/wpt/css) printf '%s' "-Iinclude" ;;
     harness/render/test262/js) printf '%s' "-Iinclude" ;;
-    render/outshine/scenario) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/clients -Isrc/scenario -Isrc/ui -Itest/harness/shared" ;;
-    tools/viewer) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/data -Isrc/clients -Isrc/ui -Iinclude -Itools/viewer/parts" ;;
-    apps/driver/src) printf '%s' "-Itools/host -Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/clients -Isrc/actor/path -Isrc/data -Isrc/gltf -Isrc/actor/body -Isrc/actor/mind -Isrc/render -Isrc/render/plan -Isrc/render/draw -Isrc/render/stages -Isrc/scenario -Isrc/ui -Isrc/ground -Isrc/ground/tiles -Isrc/sim" ;;
+    render/outshine/scenario) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/clients -Isrc/scenario -Isrc/ui -Itest/harness/shared" ;;
+    tools/viewer) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/data -Isrc/scene -Isrc/host -Isrc/clients -Isrc/ui -Iinclude -Itools/viewer/parts" ;;
+    apps/driver/src) printf '%s' "-Itools/host -Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/scene -Isrc/host -Isrc/clients -Isrc/actor/path -Isrc/data -Isrc/gltf -Isrc/actor/body -Isrc/actor/mind -Isrc/render -Isrc/render/plan -Isrc/render/draw -Isrc/render/stages -Isrc/scenario -Isrc/ui -Isrc/ground -Isrc/ground/tiles -Isrc/sim" ;;
     *) return 1 ;;
   esac
 }
@@ -262,7 +262,7 @@ GroupIncludes() {
     src/actor/body) printf '%s' "-Iinclude -Isrc/actor/body" ;;
     src/actor/mind) printf '%s' "-Iinclude -Isrc/actor/path -Isrc/actor/mind" ;;
     src/sim/Rigging.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/actor/path -Isrc/actor/body -Isrc/actor/mind -Isrc/sim" ;;
-    src/sim/DriveTick.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/actor/path -Isrc/data -Isrc/actor/body -Isrc/actor/mind -Isrc/scenario -Isrc/sim -Isrc/ground -Isrc/ground/tiles" ;;
+    src/sim/DriveTick.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/actor/path -Isrc/data -Isrc/actor/body -Isrc/actor/mind -Isrc/scene -Isrc/scenario -Isrc/sim -Isrc/ground -Isrc/ground/tiles" ;;
     src/actor/path/Wayfinding.cpp) printf '%s' "-Iinclude -Isrc/actor/path" ;;
     src/ground/RoadHarvest.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/actor/path -Isrc/data -Isrc/ground -Isrc/ground/tiles" ;;
     src/data) printf '%s' "-Iinclude -Isrc/core -Isrc/data" ;;
@@ -270,22 +270,22 @@ GroupIncludes() {
     src/gltf) printf '%s' "-Iinclude -Isrc/core -Isrc/gltf" ;;
     src/ui) printf '%s' "-Iinclude -Isrc/core -Isrc/ui" ;;
     src/audio) printf '%s' "-Iinclude -Isrc/core -Isrc/audio" ;;
-    src/scenario | src/scenario/ScenarioRead.cpp | src/scenario/ScenarioLayer.cpp | src/scenario/InputMap.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/scenario" ;;
+    src/scenario | src/scenario/ScenarioRead.cpp | src/scenario/ScenarioLayer.cpp | src/scenario/InputMap.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/scene -Isrc/scenario" ;;
     src/generators | src/generators/TreeSpecies.cpp | src/generators/GrowthForm.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/generators" ;;
     src/generators/draw) printf '%s' "-Iinclude -Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
     src/render/plan) printf '%s' "-Iinclude -Isrc/core -Isrc/render/plan" ;;
     src/render/draw) printf '%s' "-Iinclude -Isrc/core -Isrc/render/draw" ;;
     src/render | src/render/stages | src/render/Readback.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages $(pkg-config --cflags sdl3)" ;;
-    src/clients/GltfStudio.cpp | src/clients/Surfaces.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/clients $(pkg-config --cflags sdl3)" ;;
-    src/clients/Live.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/clients -Isrc/ui $(pkg-config --cflags sdl3)" ;;
-    src/clients/Assembly.cpp) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/clients" ;;
+    src/clients/GltfStudio.cpp | src/clients/Surfaces.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/clients $(pkg-config --cflags sdl3)" ;;
+    src/clients/Live.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/clients -Isrc/ui $(pkg-config --cflags sdl3)" ;;
+    src/clients/Assembly.cpp) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/scene -Isrc/data -Isrc/host -Isrc/clients" ;;
     src/host) printf '%s' "-Iinclude -Isrc/data" ;;
     src/compositor) printf '%s' "-Iinclude -Isrc/core -Isrc/data -Isrc/ground/tiles -Isrc/compositor" ;;
-    src/clients/InputPump.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/scenario -Isrc/clients $(pkg-config --cflags sdl3)" ;;
-    src/sim) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/actor/path -Isrc/data -Isrc/actor/body -Isrc/actor/mind -Isrc/scenario -Isrc/sim -Isrc/ground -Isrc/ground/tiles" ;;
-    src/clients/Engine.cpp) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/clients -Isrc/scenario -Isrc/ui -Isrc/ground -Isrc/ground/tiles -Isrc/sim -Isrc/actor/path -Isrc/actor/body -Isrc/actor/mind -Isrc/scene $(pkg-config --cflags sdl3)" ;;
-    src/clients/Sim.cpp | src/clients/StreamTelemetry.cpp | src/clients/EyeTelemetry.cpp | src/clients/RegionForge.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/scenario -Isrc/ground -Isrc/ground/tiles -Isrc/generators -Isrc/generators/draw -Isrc/actor/path -Isrc/clients" ;;
-    src/clients/Image.cpp) printf '%s' "-Iinclude -Isrc/clients $(pkg-config --cflags sdl3-image)" ;;
+    src/clients/InputPump.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/scenario -Isrc/scene -Isrc/data -Isrc/host -Isrc/clients $(pkg-config --cflags sdl3)" ;;
+    src/sim) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/actor/path -Isrc/data -Isrc/actor/body -Isrc/actor/mind -Isrc/scene -Isrc/scenario -Isrc/sim -Isrc/ground -Isrc/ground/tiles" ;;
+    src/clients/Engine.cpp) printf '%s' "-Iinclude -Iinclude/outshine -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/host -Isrc/clients -Isrc/scenario -Isrc/ui -Isrc/ground -Isrc/ground/tiles -Isrc/sim -Isrc/actor/path -Isrc/actor/body -Isrc/actor/mind -Isrc/scene $(pkg-config --cflags sdl3)" ;;
+    src/clients/Sim.cpp | src/clients/StreamTelemetry.cpp | src/clients/EyeTelemetry.cpp | src/clients/RegionForge.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/scenario -Isrc/ground -Isrc/ground/tiles -Isrc/generators -Isrc/generators/draw -Isrc/actor/path -Isrc/scene -Isrc/host -Isrc/clients" ;;
+    src/clients/Image.cpp) printf '%s' "-Iinclude -Isrc/scene -Isrc/data -Isrc/host -Isrc/clients $(pkg-config --cflags sdl3-image)" ;;
     *) return 1 ;;
   esac
 }

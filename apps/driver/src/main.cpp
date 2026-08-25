@@ -6,8 +6,6 @@
 
 #include <outshine/Outshine.h>
 
-#include <outshine/Fetching.h>
-
 namespace {
 
 struct Asked {
@@ -26,6 +24,7 @@ struct Asked {
   std::string Assets;
   std::string Shipped = "src/assets";
   std::string Cache = "/tmp/outshine-drive-cache";
+  bool Offline = false;
 };
 
 [[nodiscard]] bool Pair(std::string_view said, double &first, double &second) {
@@ -55,6 +54,7 @@ void Usage() {
       "  --assets DIR        where a scenario's asset URIs resolve\n"
       "  --shipped DIR       where outshine's own data is (default src/assets)\n"
       "  --cache DIR         where fetched tiles are kept\n"
+      "  --offline           refuse anything that would have to be fetched\n"
       "\n"
       "--from and --to are DELTAS on what the scenario declares: omit them and the drive the\n"
       "declaration carries is the one that runs.\n");
@@ -119,12 +119,8 @@ int main(int argc, char **argv) {
     return read == Reading::Asked ? 0 : 2;
   }
 
-  outshine::Fetching::Config wiring;
-  outshine::Fetching wire(wiring);
-
   outshine::Engine engine;
-  engine.Under(outshine::Roots{asked.Assets, asked.Shipped, asked.Cache});
-  engine.Fetches(wire);
+  engine.Under(outshine::Roots{asked.Assets, asked.Shipped, asked.Cache, asked.Offline});
   if (!engine.Read(asked.Scenario)) {
     std::printf("REFUSED %s\n", engine.Error().c_str());
     return 1;
