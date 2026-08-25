@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_TRAITS_H
-#define OUTSHINE_TRAITS_H
+#ifndef OUTSHINE_SCENE_TRAITS_H
+#define OUTSHINE_SCENE_TRAITS_H
 
 #include <cstddef>
 #include <cstdint>

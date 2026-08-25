@@ -229,7 +229,7 @@ private:
 
   SDL_GPUTexture *HostSurface_ = nullptr;
   bool Stands();
-  bool StandsOffscreen();
+  std::expected<void, std::string_view> StandsOffscreen();
 
   SDL_Window *Showing_ = nullptr;
   Shown Shown_;

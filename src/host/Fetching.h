@@ -1,5 +1,5 @@
-#ifndef CURLTRANSPORT_H
-#define CURLTRANSPORT_H
+#ifndef OUTSHINE_HOST_FETCHING_H
+#define OUTSHINE_HOST_FETCHING_H
 
 #include <condition_variable>
 #include <cstdint>

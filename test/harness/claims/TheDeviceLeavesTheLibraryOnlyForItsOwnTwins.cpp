@@ -36,16 +36,15 @@ int main(void) {
 
   std::vector<std::string> holding;
   size_t walked = 0;
-  for (const char *root : {"src", "tools", "apps", "test"}) {
-    for (const auto &entry : std::filesystem::recursive_directory_iterator(root)) {
-      if (!entry.is_regular_file()) { continue; }
-      const std::string suffix = entry.path().extension().string();
+  for (const char *root : {"src", "include", "apps", "test"}) {
+    for (const auto &entry : Sources(root)) {
+      const std::string suffix = entry.extension().string();
       if (suffix != ".cpp" && suffix != ".h") { continue; }
-      const std::string path = entry.path().string();
+      const std::string path = entry.string();
       if (path.rfind("src/render/", 0) == 0) { continue; }
       if (ProvesTheDevice(path)) { continue; }
       ++walked;
-      const std::string text = Slurp(entry.path());
+      const std::string text = Slurp(entry);
       for (const char *verb : kDeviceWork) {
         const std::string called = std::string(verb) + "(";
         for (size_t at = text.find(called); at != std::string::npos;

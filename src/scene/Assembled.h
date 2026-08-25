@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_ASSEMBLED_H
-#define OUTSHINE_ASSEMBLED_H
+#ifndef OUTSHINE_SCENE_ASSEMBLED_H
+#define OUTSHINE_SCENE_ASSEMBLED_H
 
 #include <string>
 #include <string_view>

@@ -155,9 +155,9 @@ bool Renderer::Stands() {
   return true;
 }
 
-bool Renderer::StandsOffscreen() {
+std::expected<void, std::string_view> Renderer::StandsOffscreen() {
   if (Showing_ != nullptr || Offscreen_ != nullptr || Plan_ == nullptr || Width_ <= 0) {
-    return true;
+    return {};
   }
   SDL_GPUTextureCreateInfo wanted{};
   wanted.type = SDL_GPU_TEXTURETYPE_2D;
@@ -170,10 +170,10 @@ bool Renderer::StandsOffscreen() {
   Offscreen_ = SDL_CreateGPUTexture(Device_.Get(), &wanted);
   if (Offscreen_ == nullptr) {
     WhyNot_ = std::string("the device refused a canvas of that extent: ") + SDL_GetError();
-    return false;
+    return std::unexpected("the canvas did not stand, and WhyNot carries what the device said");
   }
   HostSurface_ = Offscreen_;
-  return true;
+  return {};
 }
 
 void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> plan) {
@@ -956,9 +956,7 @@ std::expected<void, std::string_view> Renderer::DrawsInto(int widthPx, int heigh
   HostSurface_ = nullptr;
   Width_ = widthPx;
   Height_ = heightPx;
-  if (!StandsOffscreen()) {
-    return std::unexpected("the device refused a canvas of that extent");
-  }
+  if (const auto laid = StandsOffscreen(); !laid) { return std::unexpected(laid.error()); }
   return {};
 }
 

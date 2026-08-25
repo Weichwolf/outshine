@@ -107,16 +107,15 @@ int main(void) {
 
   size_t walked = 0;
   std::vector<std::string> narrating;
-  for (const char *root : {"src", "include", "tools", "apps"}) {
-    for (const auto &entry : std::filesystem::recursive_directory_iterator(root)) {
-      if (!entry.is_regular_file()) { continue; }
-      const std::string suffix = entry.path().extension().string();
+  for (const char *root : {"src", "include", "apps"}) {
+    for (const auto &entry : Sources(root)) {
+      const std::string suffix = entry.extension().string();
       if (suffix != ".cpp" && suffix != ".h" && suffix != ".msl") { continue; }
       ++walked;
-      if (IsAProof(cases, entry.path().string())) { continue; }
-      const int line = CommentLine(Slurp(entry.path()));
+      if (IsAProof(cases, entry.string())) { continue; }
+      const int line = CommentLine(Slurp(entry));
       if (line > 0) {
-        narrating.push_back(entry.path().string() + ":" + std::to_string(line));
+        narrating.push_back(entry.string() + ":" + std::to_string(line));
       }
     }
   }
@@ -126,13 +125,12 @@ int main(void) {
   // both survivors were introduced by a closure rather than by the original code.
   std::vector<std::string> embedded;
   size_t scanned = 0;
-  for (const char *root : {"src", "include", "tools", "apps"}) {
-    for (const auto &entry : std::filesystem::recursive_directory_iterator(root)) {
-      if (!entry.is_regular_file()) { continue; }
-      const std::string suffix = entry.path().extension().string();
+  for (const char *root : {"src", "include", "apps"}) {
+    for (const auto &entry : Sources(root)) {
+      const std::string suffix = entry.extension().string();
       if (suffix != ".cpp" && suffix != ".h") { continue; }
       ++scanned;
-      const std::string text = Slurp(entry.path());
+      const std::string text = Slurp(entry);
       for (size_t at = text.find("R\"("); at != std::string::npos;
            at = text.find("R\"(", at + 1)) {
         const size_t ends = text.find(")\"", at);
@@ -145,7 +143,7 @@ int main(void) {
         if (shaderish) {
           size_t line = 1;
           for (size_t scan = 0; scan < at; ++scan) { line += text[scan] == '\n' ? 1 : 0; }
-          embedded.push_back(entry.path().string() + ":" + std::to_string(line));
+          embedded.push_back(entry.string() + ":" + std::to_string(line));
         }
       }
     }
@@ -170,21 +168,20 @@ int main(void) {
   // board:1654: a shipped ASSET is not code and carries no comments, but a board number in it
   // drifts exactly as one does -- the item closes, the pointer stays, and the next reader
   // follows it out of a data field. The walk reads the tree's own data beside its sources.
-  for (const char *root : {"src", "include", "tools", "apps"}) {
-    for (const auto &entry : std::filesystem::recursive_directory_iterator(root)) {
-      if (!entry.is_regular_file()) { continue; }
-      const std::string suffix = entry.path().extension().string();
+  for (const char *root : {"src", "include", "apps"}) {
+    for (const auto &entry : Sources(root)) {
+      const std::string suffix = entry.extension().string();
       if (suffix != ".cpp" && suffix != ".h" && suffix != ".msl" && suffix != ".json" &&
           suffix != ".xml" && suffix != ".scenario") {
         continue;
       }
-      const std::string text = Slurp(entry.path());
-      if (IsAProof(cases, entry.path().string())) { continue; }
+      const std::string text = Slurp(entry);
+      if (IsAProof(cases, entry.string())) { continue; }
       for (size_t at = text.find("board:"); at != std::string::npos;
            at = text.find("board:", at + 1)) {
         size_t line = 1;
         for (size_t scan = 0; scan < at; ++scan) { line += text[scan] == '\n' ? 1 : 0; }
-        numbered.push_back(entry.path().string() + ":" + std::to_string(line));
+        numbered.push_back(entry.string() + ":" + std::to_string(line));
       }
     }
   }
@@ -205,15 +202,15 @@ int main(void) {
   std::vector<std::string> essays;
   for (const auto &entry : std::filesystem::recursive_directory_iterator("src")) {
     if (!entry.is_regular_file()) { continue; }
-    const std::string suffix = entry.path().extension().string();
+    const std::string suffix = entry.extension().string();
     if (suffix != ".cpp" && suffix != ".h") { continue; }
-    const std::string text = Slurp(entry.path());
+    const std::string text = Slurp(entry);
     for (const char *verb : {".Claim(", ".Near("}) {
       for (size_t at = text.find(verb); at != std::string::npos;
            at = text.find(verb, at + 1)) {
         size_t line = 1;
         for (size_t scan = 0; scan < at; ++scan) { line += text[scan] == '\n' ? 1 : 0; }
-        judging.push_back(entry.path().string() + ":" + std::to_string(line) + " " + verb);
+        judging.push_back(entry.string() + ":" + std::to_string(line) + " " + verb);
       }
     }
     for (const char *verb : {"Number(\"", "Say(\""}) {
@@ -225,7 +222,7 @@ int main(void) {
         if (closes - opens <= kLongestLabel) { continue; }
         size_t line = 1;
         for (size_t scan = 0; scan < at; ++scan) { line += text[scan] == '\n' ? 1 : 0; }
-        essays.push_back(entry.path().string() + ":" + std::to_string(line) + " " +
+        essays.push_back(entry.string() + ":" + std::to_string(line) + " " +
                          std::to_string(closes - opens) + " characters");
       }
     }

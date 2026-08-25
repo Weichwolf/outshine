@@ -3,6 +3,8 @@
 
 #include <cmath>
 #include <cstdio>
+#include <filesystem>
+#include <vector>
 #include <cstdlib>
 #include <string>
 
@@ -88,6 +90,22 @@ inline void Unprepared(const char *what) {
 inline void Skip(const char *why) {
   ++Skips;
   std::printf("SKIP %s\n", why);
+}
+
+[[nodiscard]] inline std::vector<std::filesystem::path> Sources(const char *root) {
+  std::vector<std::filesystem::path> found;
+  std::error_code why;
+  auto walk = std::filesystem::recursive_directory_iterator(root, why);
+  if (why) {
+    ++Failures;
+    std::printf("FAIL the tree '%s' this claim walks is not there: %s\n", root,
+                why.message().c_str());
+    return found;
+  }
+  for (const auto &entry : walk) {
+    if (entry.is_regular_file()) { found.push_back(entry.path()); }
+  }
+  return found;
 }
 
 [[nodiscard]] inline int Report() {
