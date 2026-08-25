@@ -10,6 +10,7 @@
 #include "Assembly.h"
 #include "ScenarioLayer.h"
 #include "Live.h"
+#include "Typeface.h"
 #include "Sink.h"
 #include "DeclaredSources.h"
 #include "GroundStack.h"
@@ -77,6 +78,8 @@ struct Engine::State {
   Roots Under;
   std::unique_ptr<Fetching> Wire;
   size_t GroundTiles = 0;
+  Ui::Typeface Face;
+  std::vector<uint8_t> Sheet;
   Ground::GroundStack Stack;
   Sim::DriveProduct Drive;
   bool Drove = false;
@@ -322,8 +325,30 @@ bool Engine::Declare(const Scenario &scenario) {
   declared.KeyBearingDeg = scenario.Lit.Key.BearingDeg;
   for (int at = 0; at < 3; ++at) { declared.Environment[at] = scenario.Lit.Environment[at]; }
 
+  std::vector<const Surface *> ordered;
+  ordered.reserve(scenario.Surfaces.size());
+  for (const Surface &surface : scenario.Surfaces) { ordered.push_back(&surface); }
+  std::stable_sort(ordered.begin(), ordered.end(),
+                   [](const Surface *a, const Surface *b) { return a->Z < b->Z; });
+  for (const Surface *surface : ordered) {
+    Clients::Shows shows;
+    shows.Markup = surface->Document;
+    shows.Style = surface->Style;
+    shows.LeftFrac = surface->LeftFrac;
+    shows.TopFrac = surface->TopFrac;
+    shows.WidthFrac = surface->WidthFrac;
+    shows.HeightFrac = surface->HeightFrac;
+    declared.Surfaces.push_back(std::move(shows));
+  }
+  if (!declared.Surfaces.empty()) {
+    S_->Sheet = Ui::Sheet();
+    declared.AtlasRgba = S_->Sheet.data();
+    declared.AtlasWidthPx = Ui::AtlasWidth();
+    declared.AtlasHeightPx = Ui::AtlasHeight();
+  }
+
   S_->Standing.reset();
-  if (!Clients::Live::Open(S_->Device, std::move(declared), nullptr, S_->Standing, S_->Error)) {
+  if (!Clients::Live::Open(S_->Device, std::move(declared), &S_->Face, S_->Standing, S_->Error)) {
     S_->Standing.reset();
     return false;
   }
