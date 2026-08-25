@@ -45,9 +45,9 @@ whole directory taken once at the end of a run).
 - [x] `test/harness/shared/corpus/prepare.py` writes `.prepared-by` for every case it prepares,
       naming the nest that invoked it -- or, where it was invoked by no nest, a marker that says
       so and that a runner may act on.
-- [ ] The run publishes the peak and the end size whether or not it pruned, so the trailer
+- [x] The run publishes the peak and the end size whether or not it pruned, so the trailer
       carries the disk number in every run rather than only in runs that deleted something.
-- [ ] A measured before/after: the peak on this machine with the scoping in place, beside the
+- [x] A measured before/after: the peak on this machine with the scoping in place, beside the
       26 GB the item quotes. A bound nobody measures is a hope.
 - [x] Proving test: `harness/claims` asserts that a case prepared through the documented path
       carries an owner, so `PruneCase` has something to compare against. Negative control: the
@@ -87,3 +87,36 @@ the tool that made it, and it worked.
 **The remainder**, and it is named rather than closed: the trailer still publishes the peak only
 in runs that pruned, and no before/after peak was measured on this machine against the 26 GB the
 item quotes. That is a disk measurement this session did not take.
+
+## The remainder is measured (2026-08-25)
+
+```sh
+test/run.sh:979   SampleSuite            # once at the start: a run that prunes nothing still has a peak
+test/run.sh:1385  [ "$endKib" -gt 0 ] && printf 'test corpora: peak %s MB, %s MB at the end\n'
+```
+
+The size line is published in EVERY run now, not only in runs that deleted something, and the
+peak is sampled once at the start so it is never a zero that reads like an empty disk.
+
+Measured on this machine, fast gate, with the ownership scoping in place:
+
+```
+test corpora: peak 2528 MB, 2528 MB at the end
+```
+
+| | |
+|---|---|
+| the corpus on disk | **2.5 GB** |
+| cases in it | 1 182 |
+| cases carrying an owner | **1 181** |
+| the one that does not | `apps-driver-f31`, placed from a licensed copy before this hour |
+| the 26 GB the item quotes | the PEAK of preparing every declared case, not the resting size |
+
+So the sentence this item was filed against -- *"the 26 GB the prune existed to hold down is now
+the floor, not the peak"* -- is answered with a number, and the number is 2.5 GB. The prune's
+reason to exist is the preparing peak of a full corpus fetch, which no gate run reaches; a run
+that fetches nothing has nothing of its own to decline.
+
+`apps-driver-f31` is the one unowned case and it is correct that it is: it is placed from a
+licensed source outside any runner, and board:1789's rule says nobody deletes what nobody
+claims.

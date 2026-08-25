@@ -977,6 +977,10 @@ SampleSuite() {
   return 0
 }
 
+# board:1839: a run that prunes nothing still has a peak, and it is the size the corpus already
+# stood at -- sampled once so the number is never a zero that reads like an empty disk
+SampleSuite
+
 # the nest carries a per-checkout identity and the corpus does not, so a second runner in a
 # second checkout shares the 26 GB -- and pruning it is a DELETE. Sharing the bytes is worth
 # keeping; sharing the right to remove them is not, so a runner that does not hold the
@@ -1426,10 +1430,13 @@ done
 [ "$inverted" -gt 0 ] &&
   printf 'declared to fail and did, so the verdict stands inverted: %s\n' "$EXPECT_FAIL"
 
+# board:1839: the disk number is a bound this tree quotes at 26 GB and measured nowhere, so it
+# is published in EVERY run and not only in runs that deleted something
+[ "$endKib" -gt 0 ] && printf \
+  'test corpora: peak %s MB, %s MB at the end\n' "$((peakKib / 1024))" "$((endKib / 1024))"
 [ "$prunedCases" -gt 0 ] && printf \
-  'test corpora: peak %s MB, %s MB after the last prune -- %s cases pruned, %s files and %s MB declined, %s file(s) left standing (each case: %s/*-prune.log)\n' \
-  "$((peakKib / 1024))" "$((endKib / 1024))" "$prunedCases" "$prunedFiles" "$((prunedKib / 1024))" \
-  "$stayedFiles" "$BUILD/log"
+  'test corpora: %s cases pruned, %s files and %s MB declined, %s file(s) left standing (each case: %s/*-prune.log)\n' \
+  "$prunedCases" "$prunedFiles" "$((prunedKib / 1024))" "$stayedFiles" "$BUILD/log"
 [ "$notMine" -gt 0 ] && printf \
   'test corpora: %s case(s) left untouched because this nest did not prepare them -- the corpus is shared and the right to delete from it is not (board:1789)\n' \
   "$notMine"
