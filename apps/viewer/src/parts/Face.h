@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include <Outshine.h>
+
 
 namespace outshine::Viewer {
 
@@ -50,12 +52,7 @@ struct Stands {
 
 [[nodiscard]] double RootEmPx(int heightPx);
 
-struct Region {
-  double X = 0, Y = 0, Width = 0, Height = 0;
-  [[nodiscard]] bool Held(void) const { return Width > 0 && Height > 0; }
-};
-
-[[nodiscard]] Region StageRegion(int widthPx, int heightPx);
+[[nodiscard]] outshine::Patch StageRegion(int widthPx, int heightPx);
 
 [[nodiscard]] double ColumnsWidth(int widthPx);
 

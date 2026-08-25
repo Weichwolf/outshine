@@ -183,14 +183,13 @@ std::string Declaration(const std::vector<Listed> &cases, const Showing &showing
   return out;
 }
 
-Region StageRegion(int widthPx, int heightPx) {
-
-  Region out;
+outshine::Patch StageRegion(int widthPx, int heightPx) {
+  outshine::Patch out;
   if (widthPx <= 0 || heightPx <= 0) { return out; }
-  out.X = kCorpusShare + kCaseShare;
-  out.Y = kHeadEm * RootEmPx(heightPx) / (double)heightPx;
-  out.Width = 1.0 - out.X;
-  out.Height = 1.0 - out.Y;
+  out.LeftFrac = kCorpusShare + kCaseShare;
+  out.TopFrac = kHeadEm * RootEmPx(heightPx) / (double)heightPx;
+  out.WidthFrac = 1.0 - out.LeftFrac;
+  out.HeightFrac = 1.0 - out.TopFrac;
   return out;
 }
 

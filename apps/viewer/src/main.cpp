@@ -253,14 +253,8 @@ int main(int argc, char **argv) {
           stands.Lit.Environment[0] = 0.20;
           stands.Lit.Environment[1] = 0.22;
           stands.Lit.Environment[2] = 0.26;
-          {
-            const outshine::Viewer::Region stage =
-                outshine::Viewer::StageRegion(asked.WidthPx, asked.HeightPx);
-            stands.Render.Picture.LeftFrac = stage.X / (double)asked.WidthPx;
-            stands.Render.Picture.TopFrac = stage.Y / (double)asked.HeightPx;
-            stands.Render.Picture.WidthFrac = stage.Width / (double)asked.WidthPx;
-            stands.Render.Picture.HeightFrac = stage.Height / (double)asked.HeightPx;
-          }
+          stands.Render.Picture =
+              outshine::Viewer::StageRegion(asked.WidthPx, asked.HeightPx);
           if (!held.Uri.empty()) {
             outshine::Asset shown;
             shown.Uri = held.Uri;
