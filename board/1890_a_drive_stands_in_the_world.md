@@ -318,3 +318,19 @@ the tree.
       needs the network. Unprovable changes do not land, twice tonight already. What lands is the
       measurement: the ground reaches the draw list, and the fix that got it there is three named
       lines.
+
+      ### And one suspicion removed rather than confirmed
+
+      `Place` ignoring `studio.EyeStandsInside` looked like it would refuse a glTF that declares
+      its camera INSIDE its own geometry -- an interior shot, a cockpit view, both of which the
+      format permits without restriction. A case was written for it: the same triangle seen from
+      a camera 4.00 m away and from one 0.01 m away.
+
+      Both STAND, and they still stand with the near-plane check's bounding-box early-out
+      hollowed out, so the walk cannot be reached on that path at all. The case was deleted
+      rather than landed: it asserts something true that no seeded defect makes red, and a case
+      that cannot fail is the one this project already caught itself writing once today.
+
+      So `Place` not passing `EyeStandsInside` is still a field carried and not read, and it is
+      still worth fixing -- but it is NOT what refuses the ground, and this item no longer
+      suspects it.
