@@ -3,6 +3,7 @@
 set -u
 set -m
 AUDIT=0
+STRANDED=37
 CORPUS=0
 WOULDPRUNE=0
 CASELIST=0
@@ -42,40 +43,40 @@ validatedRan=no
 # cases are RED with a reason that is not the reader being wrong about the SPEC -- 54 of them
 # refuse with "no default scene to draw" for a fragment glTF 2.0 permits. They are declared here
 # with their count so the day one of them stands, the gate says so.
-EXPECT_FAIL="harness/claims/ExpectFail:1 render/khronos/validator/accessor-custom-property:1\
-  render/khronos/validator/accessor-data-get-elements-matrix:1\
-  render/khronos/validator/accessor-data-get-elements-sparse:1 render/khronos/validator/accessor-data-get-elements:1\
-  render/khronos/validator/accessor-unknown-type:1 render/khronos/validator/accessor-valid:1\
-  render/khronos/validator/animation-custom-property:1 render/khronos/validator/animation-valid:1\
-  render/khronos/validator/asset-2-1-version:1 render/khronos/validator/asset-custom-property:1\
-  render/khronos/validator/asset-min-version-valid:1 render/khronos/validator/asset-valid:1\
-  render/khronos/validator/buffer-custom-property:1 render/khronos/validator/buffer-data-uri:1\
-  render/khronos/validator/buffer-extra-padding:1 render/khronos/validator/buffer-non-relative-uri:1\
-  render/khronos/validator/buffer-valid-2:1 render/khronos/validator/buffer-valid-placeholder:1 render/khronos/validator/buffer-valid:1\
-  render/khronos/validator/buffer-view-custom-property:1 render/khronos/validator/buffer-view-valid:1\
-  render/khronos/validator/camera-custom-property:1 render/khronos/validator/camera-perspective-yfov:1\
-  render/khronos/validator/camera-valid:1 render/khronos/validator/glb-extra-data:1 render/khronos/validator/glb-two-images:1\
-  render/khronos/validator/glb-valid-buffer:1 render/khronos/validator/glb-valid:1 render/khronos/validator/image-custom-property:1\
-  render/khronos/validator/image-data-uri:1 render/khronos/validator/image-npot:1 render/khronos/validator/image-unrecognized-format:1\
-  render/khronos/validator/image-valid-2:1 render/khronos/validator/image-valid:1\
-  render/khronos/validator/json-integer-written-as-float:1 render/khronos/validator/material-alpha-modes:1\
-  render/khronos/validator/material-custom-property:1 render/khronos/validator/material-empty-object:1\
-  render/khronos/validator/material-multiple-extensions:1 render/khronos/validator/material-valid:1\
-  render/khronos/validator/mesh-custom-property:1 render/khronos/validator/mesh-data-index-buffer-degenerate-triangle:1\
-  render/khronos/validator/mesh-invalid-tangent:1 render/khronos/validator/mesh-primitive-generated-tangent-space:1\
-  render/khronos/validator/mesh-primitive-incompatible-mode:1 render/khronos/validator/mesh-primitive-no-position:1\
-  render/khronos/validator/mesh-valid:1 render/khronos/validator/node-custom-property:1 render/khronos/validator/node-matrix-default:1\
-  render/khronos/validator/node-node-empty:1 render/khronos/validator/node-node-skinned-mesh-without-skin:1\
-  render/khronos/validator/node-node-weights-override:1 render/khronos/validator/node-valid:1\
-  render/khronos/validator/root-custom-property-escaped-name:1 render/khronos/validator/root-custom-property:1\
-  render/khronos/validator/root-extras-non-object:1 render/khronos/validator/root-invalid-extension-name:1\
-  render/khronos/validator/root-named-objects:1 render/khronos/validator/root-unused-objects:1 render/khronos/validator/root-valid:1\
-  render/khronos/validator/sampler-custom-property:1 render/khronos/validator/sampler-empty-object:1\
-  render/khronos/validator/sampler-valid:1 render/khronos/validator/scene-custom-property:1 render/khronos/validator/scene-valid:1\
-  render/khronos/validator/skin-custom-property:1 render/khronos/validator/skin-ignored-animated-transform:1\
-  render/khronos/validator/skin-ignored-local-transform:1 render/khronos/validator/skin-ignored-parent-transform:1\
-  render/khronos/validator/skin-valid:1 render/khronos/validator/texture-custom-property:1\
-  render/khronos/validator/texture-empty-object:1 render/khronos/validator/texture-valid:1"
+EXPECT_FAIL="harness/claims/ExpectFail:1 khronos/validator/accessor-custom-property:1\
+  khronos/validator/accessor-data-get-elements-matrix:1\
+  khronos/validator/accessor-data-get-elements-sparse:1 khronos/validator/accessor-data-get-elements:1\
+  khronos/validator/accessor-unknown-type:1 khronos/validator/accessor-valid:1\
+  khronos/validator/animation-custom-property:1 khronos/validator/animation-valid:1\
+  khronos/validator/asset-2-1-version:1 khronos/validator/asset-custom-property:1\
+  khronos/validator/asset-min-version-valid:1 khronos/validator/asset-valid:1\
+  khronos/validator/buffer-custom-property:1 khronos/validator/buffer-data-uri:1\
+  khronos/validator/buffer-extra-padding:1 khronos/validator/buffer-non-relative-uri:1\
+  khronos/validator/buffer-valid-2:1 khronos/validator/buffer-valid-placeholder:1 khronos/validator/buffer-valid:1\
+  khronos/validator/buffer-view-custom-property:1 khronos/validator/buffer-view-valid:1\
+  khronos/validator/camera-custom-property:1 khronos/validator/camera-perspective-yfov:1\
+  khronos/validator/camera-valid:1 khronos/validator/glb-extra-data:1 khronos/validator/glb-two-images:1\
+  khronos/validator/glb-valid-buffer:1 khronos/validator/glb-valid:1 khronos/validator/image-custom-property:1\
+  khronos/validator/image-data-uri:1 khronos/validator/image-npot:1 khronos/validator/image-unrecognized-format:1\
+  khronos/validator/image-valid-2:1 khronos/validator/image-valid:1\
+  khronos/validator/json-integer-written-as-float:1 khronos/validator/material-alpha-modes:1\
+  khronos/validator/material-custom-property:1 khronos/validator/material-empty-object:1\
+  khronos/validator/material-multiple-extensions:1 khronos/validator/material-valid:1\
+  khronos/validator/mesh-custom-property:1 khronos/validator/mesh-data-index-buffer-degenerate-triangle:1\
+  khronos/validator/mesh-invalid-tangent:1 khronos/validator/mesh-primitive-generated-tangent-space:1\
+  khronos/validator/mesh-primitive-incompatible-mode:1 khronos/validator/mesh-primitive-no-position:1\
+  khronos/validator/mesh-valid:1 khronos/validator/node-custom-property:1 khronos/validator/node-matrix-default:1\
+  khronos/validator/node-node-empty:1 khronos/validator/node-node-skinned-mesh-without-skin:1\
+  khronos/validator/node-node-weights-override:1 khronos/validator/node-valid:1\
+  khronos/validator/root-custom-property-escaped-name:1 khronos/validator/root-custom-property:1\
+  khronos/validator/root-extras-non-object:1 khronos/validator/root-invalid-extension-name:1\
+  khronos/validator/root-named-objects:1 khronos/validator/root-unused-objects:1 khronos/validator/root-valid:1\
+  khronos/validator/sampler-custom-property:1 khronos/validator/sampler-empty-object:1\
+  khronos/validator/sampler-valid:1 khronos/validator/scene-custom-property:1 khronos/validator/scene-valid:1\
+  khronos/validator/skin-custom-property:1 khronos/validator/skin-ignored-animated-transform:1\
+  khronos/validator/skin-ignored-local-transform:1 khronos/validator/skin-ignored-parent-transform:1\
+  khronos/validator/skin-valid:1 khronos/validator/texture-custom-property:1\
+  khronos/validator/texture-empty-object:1 khronos/validator/texture-valid:1"
 
 Die() {
   printf 'run.sh: %s\n' "$*" >&2
@@ -194,12 +195,12 @@ done
 LayerIncludes() {
   case "$1" in
     harness/claims) printf '%s' "-Iinclude -Isrc/core" ;;
-    harness/render/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/core -Isrc/data -Itest/harness/shared" ;;
-    harness/render/khronos/validator) printf '%s' "-Iinclude -Isrc/core -Itest/harness/shared" ;;
-    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/data -Isrc/scene -Isrc/scenario -Isrc/ui -Iinclude -Isrc/host -Isrc/clients" ;;
-    harness/render/wpt/css) printf '%s' "-Iinclude" ;;
-    harness/render/test262/js) printf '%s' "-Iinclude" ;;
-    render/outshine/scenario) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/clients -Isrc/scenario -Isrc/ui -Itest/harness/shared" ;;
+    harness/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/core -Isrc/data -Itest/harness/shared" ;;
+    harness/khronos/validator) printf '%s' "-Iinclude -Isrc/core -Itest/harness/shared" ;;
+    harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/data -Isrc/scene -Isrc/scenario -Isrc/ui -Iinclude -Isrc/host -Isrc/clients" ;;
+    harness/wpt/css) printf '%s' "-Iinclude" ;;
+    harness/test262/js) printf '%s' "-Iinclude" ;;
+    outshine/scenario) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/clients -Isrc/scenario -Isrc/ui -Itest/harness/shared" ;;
     apps/viewer/src) printf '%s' "-Iinclude -Iapps/viewer/src/parts" ;;
     apps/driver/src) printf '%s' "-Iinclude" ;;
     *) return 1 ;;
@@ -208,9 +209,9 @@ LayerIncludes() {
 
 LayerToolchain() {
   case "$1" in
-    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | apps/viewer/src | render/outshine/scenario) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown | outshine/frame | apps/viewer/src | outshine/scenario) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     apps/driver/src) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
-    harness/render/geographiclib/geodesic | harness/render/khronos/validator) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
   esac
 }
@@ -221,34 +222,34 @@ SANITISER_EXEMPT="unit/core/EveryByteTheHeapTakesLandsUnderATagOrUnderOther"
 
 LayerSanitiser() {
   case "$1" in
-    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/shader | unit/ui | unit/core | unit/gltf | unit/data | unit/ground | unit/ground/tiles) printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
+    harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown | outshine/shader | unit/ui | unit/core | unit/gltf | unit/data | unit/ground | unit/ground/tiles) printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
     *) printf '%s' "" ;;
   esac
 }
 
 LayerValidation() {
   case "$1" in
-    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/shader) printf '%s' "-DOUTSHINE_GPU_VALIDATION=1" ;;
+    harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown | outshine/shader) printf '%s' "-DOUTSHINE_GPU_VALIDATION=1" ;;
     *) printf '%s' "" ;;
   esac
 }
 
 LayerLink() {
   case "$1" in
-    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | apps/viewer/src | render/outshine/scenario | render/outshine/client) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
+    harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown | outshine/frame | apps/viewer/src | outshine/scenario | outshine/client) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
     harness/claims) printf '%s' "-lz" ;;
     apps/driver/src) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
-    harness/render/geographiclib/geodesic | harness/render/khronos/validator) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
+    harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
     *) printf '%s' "" ;;
   esac
 }
 
 LayerGroups() {
   case "$1" in
-    harness/render/wpt/css) printf '%s' "src/core/Json.cpp src/ui" ;;
-    harness/render/test262/js) printf '%s' "src/core/Json.cpp src/core/Script.cpp" ;;
+    harness/wpt/css) printf '%s' "src/core/Json.cpp src/ui" ;;
+    harness/test262/js) printf '%s' "src/core/Json.cpp src/core/Script.cpp" ;;
     harness/claims) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
-    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | apps/viewer/src | render/outshine/scenario | render/outshine/client | harness/render/geographiclib/geodesic | harness/render/khronos/validator) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/data src/ground src/ground/tiles src/sim src/actor/path src/actor/body src/actor/mind src/host src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/compositor src/clients/Live.cpp src/clients/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/clients/InputPump.cpp src/clients/Assembly.cpp" ;;
+    harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown | outshine/frame | apps/viewer/src | outshine/scenario | outshine/client | harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/data src/ground src/ground/tiles src/sim src/actor/path src/actor/body src/actor/mind src/host src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/compositor src/clients/Live.cpp src/clients/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/clients/InputPump.cpp src/clients/Assembly.cpp" ;;
     apps/driver/src) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/actor/path src/actor/body src/actor/mind src/data src/ground/tiles src/ground src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/clients/InputPump.cpp src/sim src/scene src/clients/Assembly.cpp" ;;
     *) return 1 ;;
   esac
@@ -256,13 +257,13 @@ LayerGroups() {
 
 LayerCases() {
   case "$1" in
-    harness/render/khronos/glTF) find test/render/khronos/glTF -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
-    harness/render/khronos/generator) find test/render/khronos/generator -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
-    harness/render/outshine/grown) find test/render/outshine/grown -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
-    harness/render/wpt/css) find test/render/wpt/css -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
-    harness/render/test262/js) find test/render/test262/js -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
-    harness/render/khronos/validator) find test/render/khronos/validator -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
-    harness/render/geographiclib/geodesic) find test/render/geographiclib/geodesic -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
+    harness/khronos/glTF) find test/khronos/glTF -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
+    harness/khronos/generator) find test/khronos/generator -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
+    harness/outshine/grown) find test/outshine/grown -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
+    harness/wpt/css) find test/wpt/css -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
+    harness/test262/js) find test/test262/js -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
+    harness/khronos/validator) find test/khronos/validator -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
+    harness/geographiclib/geodesic) find test/geographiclib/geodesic -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -280,10 +281,10 @@ Programs() {
 
 NotTheHarnesses() {
   case "$1" in
-    harness/shared | harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
+    harness/shared | harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
     harness/shared/render) printf '%s' "the render scoring instrument, compiled into each corpus's own harness" ;;
     apps/viewer/src/parts) printf '%s' "the browser's own declaration and its face, compiled into the browser" ;;
-    harness/render/khronos/glTF/prepare | harness/render/khronos/generator/prepare | harness/render/outshine/grown/prepare | harness/render/wpt/css/prepare | harness/render/test262/js/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;
+    harness/khronos/glTF/prepare | harness/khronos/generator/prepare | harness/outshine/grown/prepare | harness/wpt/css/prepare | harness/test262/js/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;
     harness/shared/corpus | harness/shared/corpus/*) printf '%s' "the offline preparer's own, compiled and run by test/harness/shared/corpus/prepare.py" ;;
     *) return 1 ;;
   esac
@@ -292,7 +293,7 @@ NotTheHarnesses() {
 LayerExtraSources() {
   case "$1" in
     apps/viewer/src) printf '%s' "apps/viewer/src/parts/Face.cpp" ;;
-    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown) printf '%s' "test/harness/shared/render/Parity.cpp" ;;
+    harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown) printf '%s' "test/harness/shared/render/Parity.cpp" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -599,9 +600,9 @@ EveryProgramStillLinks() {
 }
 
 WhatNoCorpusJudges() {
-  for family in test/render/*/; do
+  for family in test/*/; do
     family=${family%/}
-    [ "$family" = test/render/outshine ] && continue
+    [ "$family" = test/outshine ] && continue
     declared=$(find "$family" -mindepth 2 -maxdepth 3 -type d 2>/dev/null | wc -l | tr -d ' ')
     [ "${declared:-0}" -eq 0 ] && continue
     stem=$(printf '%s' "$family" | tr / -)
@@ -646,12 +647,23 @@ if [ "$AUDIT" = 1 ]; then
       bad=1
     fi
   done
-  covered=$(for suiteDir in $(find test apps -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
+  for suiteDir in $(find test apps -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
     groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
     for group in $groups; do
       if [ -d "$group" ]; then find "$group" -maxdepth 1 -name '*.cpp'; else printf '%s\n' "$group"; fi
     done
-  done | sort -u)
+  done | sort -u > "$BUILD/audit-linked.txt"
+  find src -name '*.cpp' -not -path 'src/assets/*' | sort > "$BUILD/audit-carried.txt"
+  stranded=$(comm -23 "$BUILD/audit-carried.txt" "$BUILD/audit-linked.txt")
+  strandedCount=$(printf '%s' "$stranded" | grep -c . || true)
+  if [ "$strandedCount" != "$STRANDED" ]; then
+    printf '%s\n' "$stranded" | sed 's|^|AUDIT no suite links |'
+    printf 'AUDIT %s source(s) reach no suite, and the declaration says %s -- a source no suite lists never LINKS, so nothing it holds is ever proven\n' \
+      "$strandedCount" "$STRANDED"
+    bad=1
+  else
+    printf 'AUDIT %s source(s) reach no suite, as declared\n' "$strandedCount"
+  fi
   archived=0
   missing=0
   for source in $(find src -name '*.cpp' -not -path 'src/assets/*' | sort); do
@@ -1149,7 +1161,7 @@ CountTheTwo() {
   criterion=$(sed -n 's/^KHRONOS-CRITERION //p' "$2" | head -1)
   picture=$(sed -n 's/^PICTURE-BOUND //p' "$2" | head -1)
   case "$1" in
-    render/khronos/*)
+    khronos/*)
       case "$criterion" in
         met) criterionMet=$((criterionMet + 1)) ;;
         red) criterionRed=$((criterionRed + 1)) ;;

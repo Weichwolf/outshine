@@ -56,18 +56,18 @@ int main(void) {
   // a green trailer must not be left to assume the flex core was judged against wpt/css.
   size_t families = 0;
   std::vector<std::string> silent;
-  for (const auto &entry : std::filesystem::directory_iterator("test/render")) {
+  for (const auto &entry : std::filesystem::directory_iterator("test")) {
     if (!entry.is_directory()) { continue; }
     const std::string family = entry.path().filename().string();
-    if (family == "outshine") { continue; }
+    if (family == "harness") { continue; }
     ++families;
-    const std::string stem = "test-render-" + family;
+    const std::string stem = "test-" + family;
     const bool fetched = HoldsAFetchedSubject(where, stem);
-    const bool named = said.find("test/render/" + family + " declares") != std::string::npos;
-    std::printf("NOTE test/render/%s: fetched subject %s, named by the runner %s\n",
+    const bool named = said.find("test/" + family + " declares") != std::string::npos;
+    std::printf("NOTE test/%s: fetched subject %s, named by the runner %s\n",
                 family.c_str(), fetched ? "yes" : "no", named ? "yes" : "no");
     if (fetched == named) {
-      silent.push_back("test/render/" + family + (fetched ? " holds subjects and the runner "
+      silent.push_back("test/" + family + (fetched ? " holds subjects and the runner "
                                                            "names it anyway"
                                                          : " holds none and the runner is silent"));
     }

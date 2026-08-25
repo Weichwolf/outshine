@@ -45,11 +45,11 @@ Measured 2026-08-25 by `find test/render -name manifest.json`.
 | test262, expression and statement containers | 813 | SPEC | the expression language means what ECMAScript says |
 | | **1160** | | |
 
-`test/render/outshine/` held 38 grown cases and is gone (86b38d15) — its subjects were ours, so
+`test/outshine/` held 38 grown cases and is gone (86b38d15) — its subjects were ours, so
 only its oracle was invariant. The prepared corpus occupies **20 GB** in the system temp dir.
 
 The shape every new row must match: a pinned commit, a per-file `sha256`, an SPDX licence with the
-holder, and a criterion that says what is being judged — `test/render/khronos/glTF/Triangle/manifest.json`
+holder, and a criterion that says what is being judged — `test/khronos/glTF/Triangle/manifest.json`
 is the worked example.
 
 ---
@@ -137,7 +137,7 @@ It should be rewritten against the door, not reclaimed from a corpus.
 
 | corpus | maintainer | licence | size | fetch | grade | proves | fetch / reach |
 |---|---|---|---|---|---|---|---|
-| glibc `auto-libm-test-out-*` | GNU | LGPL | e.g. `…-sin` is 322,436 B; exact hex-float expected values per rounding mode and format, MPFR-generated | `raw.githubusercontent.com/bminor/glibc/<sha>/math/auto-libm-test-out-<func>` | **TRUTH** | correctly-rounded transcendental results | low / **no claimant**: outshine ships no libm. This bites only at the MSL-vs-C++ shader twin, and that suite was deleted with `test/render/outshine` |
+| glibc `auto-libm-test-out-*` | GNU | LGPL | e.g. `…-sin` is 322,436 B; exact hex-float expected values per rounding mode and format, MPFR-generated | `raw.githubusercontent.com/bminor/glibc/<sha>/math/auto-libm-test-out-<func>` | **TRUTH** | correctly-rounded transcendental results | low / **no claimant**: outshine ships no libm. This bites only at the MSL-vs-C++ shader twin, and that suite was deleted with `test/outshine` |
 | CORE-MATH `.wc` | INRIA | MIT | per-function worst-case lists | `gitlab.inria.fr/core-math/core-math` | TRUTH | hard-to-round inputs for correctly-rounded functions | low / same absent claimant |
 | Berkeley TestFloat 3 | J. Hauser | BSD-3-Clause | no static data — a generator and comparator | pinned commit | TRUTH, live | IEEE-754 arithmetic against SoftFloat | high — build / high |
 | FPBench / FPCore | FPBench | MIT | symbolic expressions | pinned commit | not an I/O corpus | inputs for accuracy-research tools (Herbie, Daisy) | wrong artefact class |

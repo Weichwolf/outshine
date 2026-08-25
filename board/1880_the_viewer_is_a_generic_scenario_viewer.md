@@ -34,8 +34,8 @@ build/outshine-viewer --headless --show apps/driver/src/f31.scenario \
   SHOWED 3 frame(s)
 ```
 
-`frame003.png` carries the corpus column ("ALL (1423)", "render/khronos (448)",
-"render/test262 (813)", "render/wpt (162)"), the case list, the selected row in its highlight
+`frame003.png` carries the corpus column ("ALL (1423)", "khronos (448)",
+"test262 (813)", "wpt (162)"), the case list, the selected row in its highlight
 and the status line "1423 CASES" — three faces, two sizes, no character standing in for
 another. `Typeface`, `Pointer`, `Markup`, `Stylesheet`, `Layout` and `Painting` LEAVE STRANDED
 in CURRENT this round, which is the single largest movement on the distance axis since it was

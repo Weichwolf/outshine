@@ -142,8 +142,8 @@ int main() {
     bool complete = false;
     const std::string current = PreparerDigest(one.Tracked, complete);
     incomplete += complete ? 0u : 1u;
-    if (one.Tracked.rfind("test/render/khronos", 0) == 0) { sawKhronos = current; }
-    if (one.Tracked.rfind("test/render/outshine", 0) == 0) { sawGrown = current; }
+    if (one.Tracked.rfind("test/khronos", 0) == 0) { sawKhronos = current; }
+    if (one.Tracked.rfind("test/outshine", 0) == 0) { sawGrown = current; }
     const bool same = recorded == current;
     CHECK(same, (one.Tracked + " names the preparer that can reach it").c_str());
     if (!same) {

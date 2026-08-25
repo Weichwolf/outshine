@@ -14,9 +14,9 @@ ask:
 
 | scorer | what it reaches into | what it actually wants |
 |---|---|---|
-| `harness/render/test262/js` | `Script.h`, `program.Run(host, error)` | run this ECMAScript and tell me whether it threw |
-| `harness/render/wpt/css` | `Markup.h`, `Style.h`, `Layout.h` | lay out this document with this stylesheet and give me the boxes |
-| `harness/render/khronos/glTF` | half the render tree via `RenderCase.h` | stand this glTF up and render it at this camera |
+| `harness/test262/js` | `Script.h`, `program.Run(host, error)` | run this ECMAScript and tell me whether it threw |
+| `harness/wpt/css` | `Markup.h`, `Style.h`, `Layout.h` | lay out this document with this stylesheet and give me the boxes |
+| `harness/khronos/glTF` | half the render tree via `RenderCase.h` | stand this glTF up and render it at this camera |
 
 `test/harness/shared/` is likewise only for TEST-specific work — manifest reading, prune
 bookkeeping, EXR comparison. It may not carry engine internals to get there.

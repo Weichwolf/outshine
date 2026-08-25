@@ -15,7 +15,7 @@ the breach, the rule needs no reviewer. Today `apps/driver/src` is declared with
 nothing else, but test/run.sh:195 still opens `-Itools/host` beside the sixteen `-Isrc/...`,
 so the door the driver walked through by hand is one `#include` away from being left open again.
 
-The PROOF suite's own set is machine-kept since 2026-08-25: `render/outshine/client) printf '%s'
+The PROOF suite's own set is machine-kept since 2026-08-25: `outshine/client) printf '%s'
 "-Iinclude" ;;` (test/run.sh:190) is asserted by
 `harness/claims/TheLayeringIsDeclaredOnce`, so the case that shows a client needs nothing but
 the door cannot be retired by widening the set it stands on. `apps/` and `tools/` are still
@@ -23,7 +23,7 @@ kept by a person, which is what this item is for.
 
 **And the door is a warehouse, measured by the gate going red.** At b7ffe736 the fast gate says
 `277 tests: 269 PASS 0 FAIL ... 8 BUILD`, and seven of the eight are the whole
-`test/render/outshine/client` suite — the cases whose entire purpose is to prove a client needs
+`test/outshine/client` suite — the cases whose entire purpose is to prove a client needs
 nothing but the door. They no longer LINK:
 
 ```

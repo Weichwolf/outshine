@@ -7,8 +7,8 @@
 
 namespace {
 
-const char *const kCaseTrees[] = {"test/render/khronos/glTF", "test/render/test262/js",
-                                  "test/render/wpt/css"};
+const char *const kCaseTrees[] = {"test/khronos/glTF", "test/test262/js",
+                                  "test/wpt/css"};
 
 bool Declared(const std::filesystem::path &file) {
   const std::string name = file.filename().string();

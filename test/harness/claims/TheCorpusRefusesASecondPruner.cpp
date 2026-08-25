@@ -77,7 +77,7 @@ int main(void) {
   const std::string made = root + "-owner";
   Run("rm -rf " + made, ignored);
   Run("OUTSHINE_CORPUS_OWNER=nest-under-test python3 test/harness/shared/corpus/prepare.py "
-      "dry-run --manifest test/render/khronos/glTF/Box/manifest.json --dest " +
+      "dry-run --manifest test/khronos/glTF/Box/manifest.json --dest " +
           made + " >/dev/null 2>&1",
       ignored);
   const std::string owned = Marker(made);
@@ -89,7 +89,7 @@ int main(void) {
 
   Run("rm -rf " + made, ignored);
   Run("env -u OUTSHINE_CORPUS_OWNER python3 test/harness/shared/corpus/prepare.py dry-run "
-      "--manifest test/render/khronos/glTF/Box/manifest.json --dest " +
+      "--manifest test/khronos/glTF/Box/manifest.json --dest " +
           made + " >/dev/null 2>&1",
       ignored);
   const std::string unowned = Marker(made);

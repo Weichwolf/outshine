@@ -291,6 +291,10 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   say.Number("how far from the centreline the car starts, in its own lane", startAsideM, "m");
   {
     const double up[3] = {under0.NormalM[0], under0.NormalM[1], -under0.NormalM[2]};
+    say.Number("how far the ground normal leans from vertical where the car stands",
+               std::acos(under0.NormalM[1] > 1.0 ? 1.0 : under0.NormalM[1]) * 180.0 /
+                   outshine::kPi,
+               "deg");
     const double aheadM[3] = {std::cos(start.HeadingRad), start.Slope,
                               -std::sin(start.HeadingRad)};
     outshine::Physics::Lie(body, aheadM, up);

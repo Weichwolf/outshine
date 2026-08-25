@@ -11,7 +11,8 @@
 
 namespace {
 
-constexpr double kScrollStepPx = 96.0;
+constexpr int kMostStepsPerFrame = 8;
+
 
 
 struct Asked {
@@ -63,10 +64,6 @@ public:
   void Steers(outshine::Engine *engine) { Engine_ = engine; }
 
   [[nodiscard]] bool Calls(std::string_view name, std::span<const outshine::Argument> args) override {
-    if (name == "scroll-up" || name == "scroll-down") {
-      return Engine_ != nullptr &&
-             Engine_->Scrolls(name == "scroll-down" ? kScrollStepPx : -kScrollStepPx);
-    }
     if (name == "next-view" && Engine_ != nullptr) {
       const std::vector<std::string> named = Engine_->Views();
       if (named.size() < 2) { return false; }
@@ -231,8 +228,22 @@ int main(int argc, char **argv) {
 
   long frames = 0;
   bool closing = false;
+  Uint64 wasNs = SDL_GetTicksNS();
+  double owedS = 0.0;
   while (!closing) {
-    if (!engine.Advance()) {
+    {
+      const Uint64 nowNs = SDL_GetTicksNS();
+      owedS += (double)(nowNs - wasNs) * 1.0e-9;
+      wasNs = nowNs;
+    }
+    bool advanced = true;
+    for (int step = 0; step < kMostStepsPerFrame && owedS >= engine.StepS(); ++step) {
+      owedS -= engine.StepS();
+      advanced = engine.Advance();
+      if (!advanced) { break; }
+    }
+    if (owedS > kMostStepsPerFrame * engine.StepS()) { owedS = 0.0; }
+    if (!advanced) {
       browsing.Noted(engine.Error());
       shownCase.clear();
       showing = outshine::Scenario{};

@@ -21,8 +21,8 @@ printed trailer is the single verdict.
 ## Invocation
 
 ```sh
-python3 test/corpus/prepare.py dry-run --manifest test/render/coverage/triangle/manifest.json
-python3 test/corpus/prepare.py all     --manifest test/render/coverage/triangle/manifest.json
+python3 test/corpus/prepare.py dry-run --manifest test/coverage/triangle/manifest.json
+python3 test/corpus/prepare.py all     --manifest test/coverage/triangle/manifest.json
 ```
 
 `fetch`, `generate`, `patch`, `convert`, `render` and `all` are the jobs; `dry-run` prints what a cold run would cost and
@@ -37,7 +37,7 @@ this repository keeps finding. Stdlib only on our side; `numpy` is used inside B
 ## What a test directory holds
 
 ```
-test/render/<feature>/<case>/
+test/<feature>/<case>/
     manifest.json           tracked -- the only tracked file
     scene.gltf              fetched, or scene.glb produced by the conversion
     0-reference.png         the runner's, RGBA, encoded from oracle.raw
@@ -62,7 +62,7 @@ the comparison. Without it a black subject and no subject are the same three cha
 this corpus at 46 101 pixels of one case.
 
 Everything but `manifest.json` is derived and untracked, under the single tracked
-`test/render/.gitignore`. *Untracked* means not in git, not absent: the products stay in the folder
+`test/.gitignore`. *Untracked* means not in git, not absent: the products stay in the folder
 and regenerate in place, so an incremental run never leaves a directory image-less.
 
 ## The content store

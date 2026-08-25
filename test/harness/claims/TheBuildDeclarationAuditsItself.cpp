@@ -41,18 +41,20 @@ int main(void) {
         "never links the named-only suites (board:1641)");
 
   const std::string doubled =
-      Seeded("listing", "s|\"src/scene\" ;;|\"src/scene src/scene/Store.cpp\" ;;|;"
-                        "s|Wayfinding.cpp src/clients/Sim.cpp src/clients/|Wayfinding.cpp src/clients/|");
+      Seeded("listing", "s|src/sim src/scene src/clients/Assembly.cpp"
+                        "|src/sim src/scene src/scene/Store.cpp src/clients/Assembly.cpp|;"
+                        "s|src/compositor src/clients/Live.cpp|src/clients/Live.cpp|");
   std::string copy;
   (void)Run("cat " + doubled, copy);
   CHECK(copy.find("src/scene src/scene/Store.cpp") != std::string::npos &&
-            copy.find("Wayfinding.cpp src/clients/Sim.cpp") == std::string::npos,
-        "both seeds took -- a duplicate beside src/scene, and one source struck from the only "
-        "closure that compiles it");
+            copy.find("src/compositor src/clients/Live.cpp") == std::string::npos,
+        "both seeds took -- a duplicate beside src/scene, and the compositor struck from the "
+        "only suite that lists it");
   std::string seededSaid;
   const int seededVerdict = Run("sh " + doubled + " --audit 2>&1", seededSaid);
   CHECK(seededVerdict != 0 && seededSaid.find("lists twice") != std::string::npos &&
-            seededSaid.find("no suite compiles") != std::string::npos,
+            seededSaid.find("no suite links src/compositor/") != std::string::npos &&
+            seededSaid.find("reach no suite, and the declaration says") != std::string::npos,
         "**AND BOTH LISTING DETECTORS DETECT**: one dually-seeded copy flips the verdict and "
         "names BOTH defects, because the audit collects every defect before it judges");
 
@@ -66,24 +68,25 @@ int main(void) {
         "refused. The closure walks each declared suite's object set with nm (board:1641)");
 
   const std::string lost =
-      Seeded("link", "s|src/ground src/actor/path/Wayfinding.cpp src/clients/Sim.cpp"
-                     "|src/ground src/clients/Sim.cpp|");
-  (void)Run("cat " + lost, copy);
-  CHECK(copy.find("src/ground src/clients/Sim.cpp") != std::string::npos,
-        "the seed took -- the pathfinder left the world suite's closure in the copy");
+      Seeded("link", "s|src/scenario/Views.cpp src/scenario/InputMap.cpp"
+                     "|src/scenario/InputMap.cpp|g");
+  std::string struck;
+  (void)Run("cat " + lost, struck);
+  CHECK(struck.find("src/scenario/Views.cpp src/scenario/InputMap.cpp") == std::string::npos,
+        "the seed took -- the view book left every suite's closure in the copy");
   std::string missing;
-  const int missingVerdict = Run("sh " + lost + " --audit-link render/outshine/world 2>&1", missing);
+  const int missingVerdict = Run("sh " + lost + " --audit-link 2>&1", missing);
   CHECK(missingVerdict != 0 && missing.find("cannot resolve") != std::string::npos &&
-            missing.find("Network") != std::string::npos,
-        "**AND THE CLOSURE DETECTOR DETECTS**: with the pathfinder struck from the declaration "
+            missing.find("ViewBook") != std::string::npos,
+        "**AND THE CLOSURE DETECTOR DETECTS**: with the view book struck from the declaration "
         "the audit flips and names the very symbol whose silent absence filed the item");
 
   const std::string ghost =
-      Seeded("ghost", "s|src/ground src/actor/path/Wayfinding.cpp"
-                      "|src/ground src/actor/path/NoSuchUnit.cpp src/actor/path/Wayfinding.cpp|");
+      Seeded("ghost", "s|src/clients/InputPump.cpp src/clients/Assembly.cpp"
+                      "|src/clients/NoSuchUnit.cpp src/clients/InputPump.cpp "
+                      "src/clients/Assembly.cpp|g");
   std::string haunted;
-  const int ghostVerdict =
-      Run("sh " + ghost + " --audit-link render/outshine/world 2>&1", haunted);
+  const int ghostVerdict = Run("sh " + ghost + " --audit-link 2>&1", haunted);
   CHECK(ghostVerdict != 0 && haunted.find("ghost in the listing") != std::string::npos &&
             haunted.find("NoSuchUnit.cpp") != std::string::npos,
         "and a declaration naming a source that does not EXIST refuses as a ghost, which is how "
