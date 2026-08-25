@@ -44,18 +44,18 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
                    Ground::GroundStack &stack, Data::Transport &wire, const Provision &kept,
                    Sink &say, DriveProduct &out) {
   if (kept.CacheDir.empty() || kept.AssetsDir.empty()) {
-    say.Say("REFUSED no cache directory or assets root was provisioned");
+    say.Refuse("no cache directory or assets root was provisioned");
     return false;
   }
   const outshine::Vehicle *car = vehicles.Get(cast.PlayerBody);
   if (car == nullptr) {
-    say.Say("REFUSED the assembled body carries no vehicle declaration");
+    say.Refuse("the assembled body carries no vehicle declaration");
     return false;
   }
   const outshine::Drive *driveTo = driven.Get(cast.Assignment);
   const bool assigned =
       driveTo != nullptr && scene.TargetOf(cast.PlayerMind, Relation::Assigned) == cast.Assignment;
-  if (!assigned) { say.Say("REFUSED the mind carries no assignment"); }
+  if (!assigned) { say.Refuse("the mind carries no assignment"); }
   if (!assigned) { return false; }
   const double fromLatDeg = driveTo->FromLatDeg;
   const double fromLonDeg = driveTo->FromLonDeg;
@@ -75,7 +75,7 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   const double carWidthM = out.State.CarWidthM;
   say.Number("the width the declaration gives the car", carWidthM, "m");
   if (!(carWidthM > 0.0)) {
-    say.Say("REFUSED the vehicle declares no width");
+    say.Refuse("the vehicle declares no width");
     return false;
   }
 
@@ -86,8 +86,8 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
 
   const int kZoom = stack.FinestZoomOf(Data::DataKind::VectorMap);
   if (kZoom <= 0) {
-    say.Say("REFUSED no declared source carries a vector map, so there is no zoom to read the "
-            "ways at");
+    say.Refuse("no declared source carries a vector map, so there is no zoom to read the ways "
+               "at");
     return false;
   }
   say.Number("the zoom the ways are read at", (double)kZoom, "");
@@ -141,18 +141,18 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
 
   out.Found.Features = (long)field.Features().size();
   if (field.Features().empty()) {
-    say.Say("REFUSED the fetched tiles decode to no feature");
+    say.Refuse("the fetched tiles decode to no feature");
     return false;
   }
 
   outshine::Ground::GroundMaterials materials;
   if (!materials.Load((kept.AssetsDir + "/world/ground-materials.json").c_str())) {
-    say.Say("REFUSED the declared ground materials do not load");
+    say.Refuse("the declared ground materials do not load");
     return false;
   }
   VegetationTemplates widths;
   if (!widths.Load((kept.AssetsDir + "/world/vegetation.json").c_str(), materials)) {
-    say.Say("REFUSED the declared width table does not load");
+    say.Refuse("the declared width table does not load");
     return false;
   }
 
@@ -194,7 +194,7 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   out.Found.WidestRefusedM = reaped.WidestRefusedM;
 
   if (!roads.Weave(error)) {
-    say.Say(Line("REFUSED the ways do not weave into a network: %s", error.c_str()));
+    say.Refuse(Line("the ways do not weave into a network: %s", error.c_str()));
     return false;
   }
   out.Found.Nodes = (long)roads.NodeCount();
@@ -206,7 +206,7 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
     std::vector<Path::Network::Crossing> crossings;
     const auto sweep = roads.Crossings(crossings);
     if (!sweep) {
-      say.Say(Line("REFUSED the crossing sweep cannot grid this network: %s",
+      say.Refuse(Line("the crossing sweep cannot grid this network: %s",
                    std::string(sweep.error()).c_str()));
       return false;
     }
@@ -222,7 +222,7 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   double fromAwayM = 0.0, toAwayM = 0.0;
   if (!roads.Nearest(Waypoint{fromLatDeg, fromLonDeg}, atFrom, fromAwayM) ||
       !roads.Nearest(Waypoint{toLatDeg, toLonDeg}, atTo, toAwayM)) {
-    say.Say("REFUSED a waypoint resolves to no node of the network");
+    say.Refuse("a waypoint resolves to no node of the network");
     return false;
   }
   out.Found.FromAwayM = fromAwayM;
@@ -233,14 +233,14 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
        (fromAwayM + toAwayM) / straightM, "of it");
 
   stood = outshine::Sim::Stand(out.Car, world.GravityMs2, world.AirDensityKgM3);
-  if (!stood.Stood) { say.Say(Line("REFUSED %s", stood.Error.c_str())); }
+  if (!stood.Stood) { say.Refuse(Line("%s", stood.Error.c_str())); }
   if (!stood.Stood) { return false; }
   const double tightestM = stood.TightestM;
   say.Number("the tightest centreline circle the declaration implies", tightestM, "m");
   const Route route =
       roads.Plan(Waypoint{fromLatDeg, fromLonDeg}, Waypoint{toLatDeg, toLonDeg}, tightestM);
   say.Number("turns the search refused as too sharp for the car", (double)route.TurnsRefused, "turns");
-  if (!route.Found) { say.Say(Line("REFUSED %s", route.Error.c_str())); }
+  if (!route.Found) { say.Refuse(Line("%s", route.Error.c_str())); }
   say.Number("nodes the search settled", (double)route.Reached, "nodes");
   if (!route.Found) { return false; }
   out.Found.TurnsRefused = (long)route.TurnsRefused;
@@ -268,7 +268,7 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   }
   outshine::Placed start;
   if (!corridor.At(0.0, start)) {
-    say.Say("REFUSED the corridor does not answer at its own start");
+    say.Refuse("the corridor does not answer at its own start");
     return false;
   }
   const outshine::Standing under0 =

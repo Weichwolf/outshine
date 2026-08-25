@@ -13,6 +13,7 @@ public:
   virtual void Claim(bool held, const char *why) = 0;
   virtual void Near(double got, double want, double within, const char *unit, const char *why) = 0;
   virtual void Say(const std::string &line) = 0;
+  virtual void Refuse(const std::string &why) { Say("REFUSED " + why); }
 };
 
 inline std::string Line(const char *shape, const std::string &one) {

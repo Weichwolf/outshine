@@ -68,7 +68,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   say.Number("the share removed", 1.0 - (double)keptM.size() / (double)eastNorthM.size(), "of them");
 
     fitted = Fit(keptM, quantumM, tightestM, classTightestM, corridor);
-  if (!fitted.Laid) { say.Say(Line("REFUSED %s", fitted.Error.c_str())); }
+  if (!fitted.Laid) { say.Refuse(Line("%s", fitted.Error.c_str())); }
   say.Number("vertices the route offered", (double)fitted.Vertices, "vertices");
   say.Number("corners the fit needed", (double)fitted.Corners, "corners");
   say.Number("runs of same-sign turns among them", (double)fitted.Runs, "runs");
@@ -116,7 +116,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   say.Number("where that happens", fitted.WorstOffsetAtM / 1000.0, "km");
   say.Number("how far it is allowed to", quantumM, "m");
 
-  if (!fitted.Laid) { say.Say(Line("REFUSED %s", fitted.Error.c_str())); }
+  if (!fitted.Laid) { say.Refuse(Line("%s", fitted.Error.c_str())); }
   if (!fitted.Laid && fitted.Undrivable > 0) {
     const size_t at = (size_t)fitted.UndrivableAtM;
     for (size_t which = at > 1 ? at - 1 : 0; which <= at + 1 && which < route.Legs.size(); ++which) {
@@ -135,7 +135,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
     }
   }
   if (!fitted.Laid) {
-    say.Say("REFUSED the route does not lay as a corridor");
+    say.Refuse("the route does not lay as a corridor");
     return false;
   }
   say.Number("the tightest radius the fit produced", fitted.TightestRadiusM, "m");
@@ -208,7 +208,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
 
   outshine::SpeedProfile inPlan;
   if (!inPlan.Over(corridor, stood.Envelope, postM, 0.0, error)) {
-    say.Say(Line("REFUSED the plan view carries no speed: %s", error.c_str()));
+    say.Refuse(Line("the plan view carries no speed: %s", error.c_str()));
     return false;
   }
 
@@ -294,7 +294,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
     const double reachM = outshine::Pilot::kSettleS * fastestMs;
     const auto rate = AsideRatePerM(budgetM, fastestMs);
     if (!rate) {
-      say.Say(std::string("REFUSED ") + std::string(rate.error()));
+      say.Refuse(std::string(rate.error()));
       return false;
     }
     const double mostPerM = *rate;
@@ -513,7 +513,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
     rise.push_back(outshine::Knot{atM, roadM[post], slope});
   }
   const bool rose = corridor.Rise(rise, error);
-  if (!rose) { say.Say(Line("REFUSED %s", error.c_str())); }
+  if (!rose) { say.Refuse(Line("%s", error.c_str())); }
   say.Number("height knots fastened to the corridor", (double)rise.size(), "knots");
   say.Number("the steepest gradient anywhere on it", worstGradeM, "m/m");
   say.Number("as a percentage", worstGradeM * 100.0, "%");
@@ -525,11 +525,11 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   out.Made.WorstGradeM = worstGradeM;
   out.Made.ClimbLimit = climbLimit;
   if (!rose) {
-    say.Say(Line("REFUSED the corridor carries no ground: %s", error.c_str()));
+    say.Refuse(Line("the corridor carries no ground: %s", error.c_str()));
     return false;
   }
   if (std::fabs(worstGradeM) >= climbLimit) {
-    say.Say("REFUSED the corridor climbs steeper than the drivetrain can pull");
+    say.Refuse("the corridor climbs steeper than the drivetrain can pull");
     return false;
   }
 
@@ -538,7 +538,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   say.Number("the shortest corner the fit can produce", shortestCornerM, "m");
   say.Number("the step the speed profile is sampled at", profileStepM, "m");
   if (!profile.Over(corridor, planning, profileStepM, 0.0, error)) {
-    say.Say(Line("REFUSED no speed profile solves over the corridor: %s", error.c_str()));
+    say.Refuse(Line("no speed profile solves over the corridor: %s", error.c_str()));
     return false;
   }
 

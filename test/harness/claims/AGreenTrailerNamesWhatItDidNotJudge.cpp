@@ -40,7 +40,9 @@ int main(void) {
   if (nest == nullptr) { return Report(); }
 
   const char *tmp = std::getenv("TMPDIR");
-  const std::string prepared = std::string(tmp == nullptr ? "/tmp" : tmp) + "outshine-prepared";
+  std::string root = tmp == nullptr || tmp[0] == '\0' ? "/tmp" : tmp;
+  while (root.size() > 1 && root.back() == '/') { root.pop_back(); }
+  const std::string prepared = root + "/outshine-prepared";
   const std::string where =
       std::filesystem::exists(prepared) ? prepared : std::string("/tmp/outshine-prepared");
 

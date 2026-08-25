@@ -31,8 +31,9 @@ public:
   void Near(double, double, double, const char *, const char *why) override {
     if (Why.empty()) { Why = why; }
   }
-  void Say(const std::string &line) override {
-    if (line.rfind("REFUSED", 0) == 0 && Why.empty()) { Why = line; }
+  void Say(const std::string &) override {}
+  void Refuse(const std::string &why) override {
+    if (Why.empty()) { Why = why; }
   }
   [[nodiscard]] const std::string &WhyNot() const { return Why; }
 
