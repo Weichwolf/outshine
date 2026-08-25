@@ -37,13 +37,13 @@ Two more on the same file:
 
 ## What will be true
 
-- [ ] The walk is bounded: it judges the commits SINCE the last run it recorded, or it batches
+- [x] The walk is bounded: it judges the commits SINCE the last run it recorded, or it batches
       the whole history into ONE `git log --format=...%H%x00%B%x00 --name-only` and parses the
       stream -- one subprocess, not two per commit.
-- [ ] `<cctype>` is included where `std::isdigit` is used.
-- [ ] The board-item number is parsed from the filename grammar (`board/<state>/NNNN_`), not
+- [x] `<cctype>` is included where `std::isdigit` is used.
+- [x] The board-item number is parsed from the filename grammar (`board/<state>/NNNN_`), not
       from "digits after a slash".
-- [ ] Proving test: the case prints the number of subprocesses it spawned and the wall time it
+- [x] Proving test: the case prints the number of subprocesses it spawned and the wall time it
       took, and a claim asserts the count is bounded by a constant rather than by the log.
       Negative control: the per-commit loop restored -> the count tracks `git rev-list --count`.
 
@@ -51,3 +51,20 @@ Two more on the same file:
 
 - 2026-08-25 -- filed by the hourly review. The rule the case enforces is right and was earned
   by three measured violations; what it costs to enforce grows without bound.
+
+**Closed.** One `git log` carries everything:
+
+```cpp
+test/harness/claims/ACommitCarriesTheItemItNames.cpp:66
+  Ask("git log --format='%x01%H%x02%B%x03' --name-only " + range + " -- board/ 2>/dev/null");
+```
+
+`%x01`, `%x02` and `%x03` are bytes no commit message holds, so hash, message and touched files
+arrive in one stream and the walk parses it. Two `popen` for the whole claim -- one for the
+birth commit, one for the log -- where it was `2n` and n only grows.
+
+`<cctype>` is included for the digit test rather than arriving transitively.
+
+Proving test: the claim itself, 450 ms over 26 commits. Negative control: the range widened to
+70 commits -> `267cf5d8` found, the same violation the parser has always caught, so the cheaper
+walk did not become a blinder one.
