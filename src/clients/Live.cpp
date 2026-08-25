@@ -186,11 +186,6 @@ bool Live::Build(std::string &error) {
                   : Renderer_->WhyNot();
       return false;
     }
-    if (Declared_.AtlasRgba != nullptr &&
-        !Renderer_->SetOverlayAtlas(Declared_.AtlasRgba, Declared_.AtlasWidthPx,
-                                    Declared_.AtlasHeightPx, error)) {
-      return false;
-    }
   }
   if (Declared_.DrawsSky) {
     Renderer_->SetMedium(Render::Medium{});
@@ -455,6 +450,13 @@ bool Live::Compose(std::string &error) {
     if (!laid.Placed.Build(laid.Tree, laid.Sheet, widthPx, heightPx, *Font_, error)) { return false; }
     if (!laid.Painted.Build(laid.Placed, *Font_, error)) { return false; }
     AsOverlay(laid.Painted.Quads(), laid.LeftPx, laid.TopPx, Quads_);
+  }
+  if (Font_ != nullptr && Font_->Cut() != Cut_) {
+    Cut_ = Font_->Cut();
+    if (!Renderer_->SetOverlayAtlas(Font_->Sheet(), Font_->SheetWidthPx(), Font_->SheetHeightPx(),
+                                    error)) {
+      return false;
+    }
   }
   return Renderer_->SetOverlay(Quads_.data(), Quads_.size(), error);
 }

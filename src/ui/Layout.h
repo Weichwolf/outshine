@@ -24,22 +24,34 @@ struct Glyph {
   bool Drawn = false;
 };
 
+enum class Family : uint8_t;
+
+[[nodiscard]] Family FamilyOf(uint32_t declared);
+
 struct Font {
   virtual ~Font() = default;
-  [[nodiscard]] virtual FontMetrics At(double sizePx) const = 0;
-  [[nodiscard]] virtual Glyph Shape(char32_t code, double sizePx) const {
+  [[nodiscard]] virtual FontMetrics At(double sizePx, Family family) const = 0;
+  [[nodiscard]] virtual Glyph Shape(char32_t code, double sizePx, Family family) const {
     (void)code;
     (void)sizePx;
+    (void)family;
     return {};
   }
+
+  [[nodiscard]] virtual const uint8_t *Sheet(void) const { return nullptr; }
+  [[nodiscard]] virtual int SheetWidthPx(void) const { return 0; }
+  [[nodiscard]] virtual int SheetHeightPx(void) const { return 0; }
+  [[nodiscard]] virtual uint64_t Cut(void) const { return 0; }
 };
 
 struct AhemFont final : Font {
-  [[nodiscard]] FontMetrics At(double sizePx) const override {
+  [[nodiscard]] FontMetrics At(double sizePx, Family family) const override {
+    (void)family;
     return {sizePx, sizePx * 0.8, sizePx * 0.2};
   }
 
-  [[nodiscard]] Glyph Shape(char32_t code, double sizePx) const override {
+  [[nodiscard]] Glyph Shape(char32_t code, double sizePx, Family family) const override {
+    (void)family;
     if (code == U' ') { return {0, 0, 0, 0, 0, 0, 0, 0, sizePx, false}; }
     return {0.0, 0.0, sizePx, sizePx, 0, 0, 0, 0, sizePx, true};
   }
@@ -67,6 +79,7 @@ struct Box {
 
   std::string Text;
   double FontSize = 0;
+  Family Face = Family{};
   uint32_t Colour = 0;
 };
 

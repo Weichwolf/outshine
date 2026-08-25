@@ -802,6 +802,17 @@ void Renderer::WantsPixels() { Wanted_ = true; }
 
 ReadState Renderer::ReadPixels(std::vector<uint8_t> &rgba) {
   if (!Ready_) { return ReadState::Failed; }
+  if (Showing_ == nullptr) {
+    if (HostSurface_ == nullptr) { return ReadState::Failed; }
+    Readback read;
+    if (read.FromTexture(Device_.Get(), HostSurface_, (uint32_t)Width_, (uint32_t)Height_, 4u) !=
+        ReadState::Ready) {
+      return ReadState::Failed;
+    }
+    rgba.resize((size_t)Width_ * (size_t)Height_ * 4u);
+    std::memcpy(rgba.data(), read.Rows(), rgba.size());
+    return ReadState::Ready;
+  }
   if (Taken_.size() == (size_t)Width_ * (size_t)Height_ * 4u) {
     rgba = Taken_;
     return ReadState::Ready;

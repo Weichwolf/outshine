@@ -168,8 +168,13 @@ struct Placer {
   double BaselineOf(int node, const Computed *inherited, double widthRoom);
   [[nodiscard]] double Clamped(double used, const Computed &style, Property least, Property most,
                                double against, double emPx, double frame = 0.0) const;
-  [[nodiscard]] double Width(const std::string &text, size_t from, size_t to, double emPx) const;
+  [[nodiscard]] double Width(const std::string &text, size_t from, size_t to, double emPx,
+                             Family face) const;
 };
+
+[[nodiscard]] Family FaceOf(const Computed &style) {
+  return FamilyOf(style.Word(Property::FontFamily, 0));
+}
 
 Computed Placer::StyleOf(int node, const Computed *inherited) const {
   Computed out;
@@ -291,7 +296,7 @@ double Placer::MinContentUncached(int node, const Computed *inherited, bool ownS
       while (at < text.size()) {
         const size_t end = text.find(' ', at);
         const size_t stop = end == std::string::npos ? text.size() : end;
-        own = std::fmax(own, Width(text, at, stop, emPx));
+        own = std::fmax(own, Width(text, at, stop, emPx, FaceOf(style)));
         at = stop == text.size() ? stop : stop + 1;
       }
       continue;
@@ -351,7 +356,7 @@ double Placer::MaxContentUncached(int node, const Computed *inherited) {
   for (const int child : element.Children) {
     const Node &node2 = Tree->Nodes()[(size_t)child];
     if (node2.Kind == NodeKind::Text) {
-      own = std::fmax(own, Width(Collapsed(node2.Text), 0, std::string::npos, emPx));
+      own = std::fmax(own, Width(Collapsed(node2.Text), 0, std::string::npos, emPx, FaceOf(style)));
       continue;
     }
     const double child2 = MaxContent(child, &style);
@@ -394,13 +399,14 @@ size_t NextCodePoint(const std::string &text, size_t at, char32_t &code) {
 
 }
 
-double Placer::Width(const std::string &text, size_t from, size_t to, double emPx) const {
-  const FontMetrics metrics = Face->At(emPx);
+double Placer::Width(const std::string &text, size_t from, size_t to, double emPx,
+                     Family face) const {
+  const FontMetrics metrics = Face->At(emPx, face);
   double width = 0;
   for (size_t at = from; at < to && at < text.size();) {
     char32_t code = 0;
     at += NextCodePoint(text, at, code);
-    const Glyph glyph = Face->Shape(code, emPx);
+    const Glyph glyph = Face->Shape(code, emPx, face);
     width += glyph.AdvancePx > 0 ? glyph.AdvancePx : metrics.Advance;
   }
   return width;
@@ -447,7 +453,8 @@ double Placer::Runs(int node, const Computed &style, int self, double contentX, 
                     double contentWidth, double emPx) {
   const double lineFactor = style.Number(Property::LineHeight, 1.2);
   const double lineHeight = lineFactor > 3.0 ? lineFactor : lineFactor * emPx;
-  const FontMetrics metrics = Face->At(emPx);
+  const Family face = FaceOf(style);
+  const FontMetrics metrics = Face->At(emPx, face);
   const bool keepSpace = style.Word(Property::WhiteSpace, 0) == kPre;
   const uint32_t align = style.Word(Property::TextAlign, 0);
   double y = contentY;
@@ -471,7 +478,7 @@ double Placer::Runs(int node, const Computed &style, int self, double contentX, 
         while (cursor < text.size()) {
           char32_t code = 0;
           const size_t step = NextCodePoint(text, cursor, code);
-          const Glyph glyph = Face->Shape(code, emPx);
+          const Glyph glyph = Face->Shape(code, emPx, face);
           const double advance = glyph.AdvancePx > 0 ? glyph.AdvancePx : metrics.Advance;
           if (width + advance > contentWidth && cursor > at) { break; }
           if (code == U' ') { lastSpace = cursor; }
@@ -492,8 +499,9 @@ double Placer::Runs(int node, const Computed &style, int self, double contentX, 
       line.Node = child;
       line.Text = text.substr(at, take);
       line.FontSize = emPx;
+      line.Face = face;
       line.Colour = style.Has(Property::Colour) ? style.Of(Property::Colour).Word : 0x000000FFu;
-      line.Width = Width(line.Text, 0, line.Text.size(), emPx);
+      line.Width = Width(line.Text, 0, line.Text.size(), emPx, face);
       line.Height = lineHeight;
       line.Y = y;
       line.X = contentX;

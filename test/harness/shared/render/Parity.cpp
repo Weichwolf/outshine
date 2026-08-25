@@ -2205,6 +2205,11 @@ FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int
 int ScoreRenderCase(int argc, char **argv) {
   using namespace outshine::Test;
 
+  if (!SDL_Init(SDL_INIT_VIDEO)) {
+    std::printf("REFUSED SDL did not start: %s\n", SDL_GetError());
+    return 1;
+  }
+
   RunnerLog logging;
   outshine::Log::SetSink(&logging);
 

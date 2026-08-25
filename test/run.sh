@@ -195,9 +195,9 @@ LayerValidation() {
 
 LayerLink() {
   case "$1" in
-    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | apps/viewer/src | render/outshine/scenario | render/outshine/client) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz -lcurl" ;;
+    harness/render/khronos/glTF | harness/render/khronos/generator | harness/render/outshine/grown | render/outshine/frame | apps/viewer/src | render/outshine/scenario | render/outshine/client) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
     harness/claims) printf '%s' "-lz" ;;
-    apps/driver/src) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz -lcurl" ;;
+    apps/driver/src) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -268,7 +268,7 @@ GroupIncludes() {
     src/data) printf '%s' "-Iinclude -Isrc/core -Isrc/data" ;;
     src/ground | src/ground/tiles) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/actor/path -Isrc/data -Isrc/ground -Isrc/ground/tiles" ;;
     src/gltf) printf '%s' "-Iinclude -Isrc/core -Isrc/gltf" ;;
-    src/ui) printf '%s' "-Iinclude -Isrc/core -Isrc/ui" ;;
+    src/ui) printf '%s' "-Iinclude -Isrc/core -Isrc/ui $(pkg-config --cflags sdl3-ttf)" ;;
     src/audio) printf '%s' "-Iinclude -Isrc/core -Isrc/audio" ;;
     src/scenario | src/scenario/ScenarioRead.cpp | src/scenario/ScenarioLayer.cpp | src/scenario/InputMap.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/scene -Isrc/scenario" ;;
     src/generators | src/generators/TreeSpecies.cpp | src/generators/GrowthForm.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/generators" ;;

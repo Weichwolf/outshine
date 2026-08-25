@@ -105,14 +105,14 @@ private:
   }
 
   void Glyphs(const Box &run, const Clip &clip, double opacity) {
-    const FontMetrics metrics = Face.At(run.FontSize);
+    const FontMetrics metrics = Face.At(run.FontSize, run.Face);
 
     const double leading = (run.Height - (metrics.Ascent + metrics.Descent)) / 2.0;
     double pen = run.X;
     for (size_t at = 0; at < run.Text.size();) {
       char32_t code = 0;
       at += NextCodePoint(run.Text, at, code);
-      const Glyph glyph = Face.Shape(code, run.FontSize);
+      const Glyph glyph = Face.Shape(code, run.FontSize, run.Face);
       if (glyph.Drawn) {
         Add({pen + glyph.LeftPx, run.Y + leading + glyph.TopPx, glyph.WidthPx, glyph.HeightPx,
              glyph.U0, glyph.V0, glyph.U1, glyph.V1, run.Colour, 0, opacity, clip.X, clip.Y,

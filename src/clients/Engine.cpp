@@ -79,7 +79,6 @@ struct Engine::State {
   std::unique_ptr<Fetching> Wire;
   size_t GroundTiles = 0;
   Ui::Typeface Face;
-  std::vector<uint8_t> Sheet;
   Ground::GroundStack Stack;
   Sim::DriveProduct Drive;
   bool Drove = false;
@@ -340,11 +339,8 @@ bool Engine::Declare(const Scenario &scenario) {
     shows.HeightFrac = surface->HeightFrac;
     declared.Surfaces.push_back(std::move(shows));
   }
-  if (!declared.Surfaces.empty()) {
-    S_->Sheet = Ui::Sheet();
-    declared.AtlasRgba = S_->Sheet.data();
-    declared.AtlasWidthPx = Ui::AtlasWidth();
-    declared.AtlasHeightPx = Ui::AtlasHeight();
+  if (!declared.Surfaces.empty() && !S_->Face.Opens(S_->Under.Shipped + "/fonts", S_->Error)) {
+    return false;
   }
 
   S_->Standing.reset();

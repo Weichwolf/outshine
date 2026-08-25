@@ -63,8 +63,6 @@ struct Declaration {
 
   std::vector<Shows> Surfaces;
 
-  const uint8_t *AtlasRgba = nullptr;
-  int AtlasWidthPx = 0, AtlasHeightPx = 0;
 };
 
 class Live {
@@ -139,6 +137,7 @@ private:
 
   Render::Renderer *Renderer_ = nullptr;
   const Ui::Font *Font_ = nullptr;
+  uint64_t Cut_ = 0;
   Declaration Declared_;
   std::shared_ptr<const Render::RenderPlan> Plan_;
   Gltf::Document File_;
