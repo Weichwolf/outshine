@@ -11,9 +11,9 @@
 namespace outshine::Ui {
 namespace {
 
-constexpr int kSheetEdge = 1024;
-constexpr int kSheetTallest = 4096;
+constexpr int kSheetEdge = 2048;
 constexpr int kPad = 1;
+constexpr size_t kCellSlots = 1u << 14;
 
 struct Named {
   const char *Spelled;
@@ -92,8 +92,10 @@ Family FamilyOf(uint32_t declared) {
 }
 
 Typeface::~Typeface(void) {
-  for (const auto &held : Sets_) { TTF_CloseFont(held.second); }
-  Sets_.clear();
+  for (TTF_Font *&set : Sets_) {
+    if (set != nullptr) { TTF_CloseFont(set); }
+    set = nullptr;
+  }
   if (Started_) { TTF_Quit(); }
 }
 
@@ -107,46 +109,43 @@ bool Typeface::Opens(std::string_view fonts, std::string &error) {
   if (!Under_.empty() && Under_.back() != '/') { Under_.push_back('/'); }
 
   for (size_t at = 0; at < (size_t)Family::kCount; ++at) {
+    if (Sets_[at] != nullptr) { continue; }
     const std::string path = Under_ + kFiles[at];
-    TTF_Font *probe = TTF_OpenFont(path.c_str(), 16.0f);
-    if (probe == nullptr) {
+    Sets_[at] = TTF_OpenFont(path.c_str(), 16.0f);
+    if (Sets_[at] == nullptr) {
       error = "the face '" + path + "' did not open: " + SDL_GetError();
       return false;
     }
-    TTF_CloseFont(probe);
+    SizedAt_[at] = 16;
+    ++Opened_;
+  }
+  if (Rgba_.empty()) {
+    SheetW_ = kSheetEdge;
+    SheetH_ = kSheetEdge;
+    Rgba_.assign((size_t)SheetW_ * (size_t)SheetH_ * 4u, 0u);
+    Cells_.assign(kCellSlots, Cell{});
   }
   return true;
 }
 
 TTF_Font *Typeface::Set(Family family, int sizePx) const {
-  const uint64_t key = Keyed(family, sizePx, 0);
-  const auto held = Sets_.find(key);
-  if (held != Sets_.end()) { return held->second; }
-
-  const std::string path = Under_ + kFiles[(size_t)family];
-  TTF_Font *set = TTF_OpenFont(path.c_str(), (float)sizePx);
-  Sets_.emplace(key, set);
+  TTF_Font *const set = Sets_[(size_t)family];
+  if (set == nullptr) { return nullptr; }
+  if (SizedAt_[(size_t)family] != sizePx) {
+    if (!TTF_SetFontSize(set, (float)sizePx)) { return nullptr; }
+    SizedAt_[(size_t)family] = sizePx;
+  }
   return set;
 }
 
 bool Typeface::Packs(int widthPx, int heightPx, int &leftPx, int &topPx) const {
-  if (Rgba_.empty()) {
-    SheetW_ = kSheetEdge;
-    SheetH_ = kSheetEdge;
-    Rgba_.assign((size_t)SheetW_ * (size_t)SheetH_ * 4u, 0u);
-  }
+  if (Rgba_.empty()) { return false; }
   if (ShelfX_ + widthPx + kPad > SheetW_) {
     ShelfX_ = 0;
     ShelfY_ += ShelfTall_ + kPad;
     ShelfTall_ = 0;
   }
-  if (ShelfY_ + heightPx + kPad > SheetH_) {
-    if (SheetH_ >= kSheetTallest) { return false; }
-    const int taller = std::min(SheetH_ * 2, kSheetTallest);
-    Rgba_.resize((size_t)SheetW_ * (size_t)taller * 4u, 0u);
-    SheetH_ = taller;
-    if (ShelfY_ + heightPx + kPad > SheetH_) { return false; }
-  }
+  if (ShelfY_ + heightPx + kPad > SheetH_) { return false; }
   leftPx = ShelfX_;
   topPx = ShelfY_;
   ShelfX_ += widthPx + kPad;
@@ -155,17 +154,30 @@ bool Typeface::Packs(int widthPx, int heightPx, int &leftPx, int &topPx) const {
 }
 
 const Typeface::Cell &Typeface::Cell0f(Family family, int sizePx, char32_t code) const {
+  static const Cell kNotdef;
+  if (Cells_.empty()) { return kNotdef; }
   const uint64_t key = Keyed(family, sizePx, code);
-  const auto held = Cells_.find(key);
-  if (held != Cells_.end()) { return held->second; }
+  size_t slot = (size_t)(key * 0x9E3779B97F4A7C15ull >> 50) & (kCellSlots - 1u);
+  for (size_t step = 0; step < kCellSlots; ++step) {
+    Cell &held = Cells_[slot];
+    if (held.Held && held.Key == key) { return held; }
+    if (!held.Held) { break; }
+    slot = (slot + 1u) & (kCellSlots - 1u);
+  }
+  if (Cells_[slot].Held) {
+    ++Missed_;
+    return kNotdef;
+  }
 
   Cell cut;
+  cut.Key = key;
+  cut.Held = true;
   TTF_Font *set = Set(family, sizePx);
-  if (set == nullptr) { return Cells_.emplace(key, cut).first->second; }
+  if (set == nullptr) { return Cells_[slot] = cut; }
 
   int minx = 0, maxx = 0, miny = 0, maxy = 0, advance = 0;
   if (!TTF_GetGlyphMetrics(set, (Uint32)code, &minx, &maxx, &miny, &maxy, &advance)) {
-    return Cells_.emplace(key, cut).first->second;
+    return Cells_[slot] = cut;
   }
   cut.AdvancePx = (float)advance;
 
@@ -173,7 +185,7 @@ const Typeface::Cell &Typeface::Cell0f(Family family, int sizePx, char32_t code)
   SDL_Surface *ink = TTF_GetGlyphImage(set, (Uint32)code, &kind);
   if (ink == nullptr || ink->w <= 0 || ink->h <= 0) {
     if (ink != nullptr) { SDL_DestroySurface(ink); }
-    return Cells_.emplace(key, cut).first->second;
+    return Cells_[slot] = cut;
   }
 
   SDL_Surface *rgba = ink->format == SDL_PIXELFORMAT_RGBA32
@@ -199,7 +211,8 @@ const Typeface::Cell &Typeface::Cell0f(Family family, int sizePx, char32_t code)
   }
   if (rgba != nullptr && rgba != ink) { SDL_DestroySurface(rgba); }
   SDL_DestroySurface(ink);
-  return Cells_.emplace(key, cut).first->second;
+  ++Held_;
+  return Cells_[slot] = cut;
 }
 
 FontMetrics Typeface::At(double sizePx, Family family) const {

@@ -2,7 +2,6 @@
 #define OUTSHINE_UI_TYPEFACE_H
 
 #include <cstdint>
-#include <map>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -35,12 +34,18 @@ public:
   [[nodiscard]] int SheetHeightPx(void) const override { return SheetH_; }
   [[nodiscard]] uint64_t Cut(void) const override { return Cut_; }
 
+  [[nodiscard]] uint64_t Opened(void) const { return Opened_; }
+  [[nodiscard]] uint64_t Missed(void) const { return Missed_; }
+  [[nodiscard]] size_t Cells(void) const { return Held_; }
+
 private:
   struct Cell {
+    uint64_t Key = 0;
     float U0 = 0, V0 = 0, U1 = 0, V1 = 0;
     float LeftPx = 0, TopPx = 0, WidthPx = 0, HeightPx = 0;
     float AdvancePx = 0;
     bool Drawn = false;
+    bool Held = false;
   };
 
   [[nodiscard]] TTF_Font *Set(Family family, int sizePx) const;
@@ -48,13 +53,16 @@ private:
   [[nodiscard]] bool Packs(int widthPx, int heightPx, int &leftPx, int &topPx) const;
 
   std::string Under_;
-  mutable std::map<uint64_t, TTF_Font *> Sets_;
-  mutable std::map<uint64_t, Cell> Cells_;
+  TTF_Font *Sets_[(size_t)Family::kCount] = {};
+  mutable int SizedAt_[(size_t)Family::kCount] = {};
+
+  mutable std::vector<Cell> Cells_;
+  mutable size_t Held_ = 0;
 
   mutable std::vector<uint8_t> Rgba_;
-  mutable int SheetW_ = 0, SheetH_ = 0;
+  int SheetW_ = 0, SheetH_ = 0;
   mutable int ShelfX_ = 0, ShelfY_ = 0, ShelfTall_ = 0;
-  mutable uint64_t Cut_ = 0;
+  mutable uint64_t Cut_ = 0, Opened_ = 0, Missed_ = 0;
 
   bool Started_ = false;
 };
