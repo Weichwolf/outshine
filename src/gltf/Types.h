@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -165,19 +166,31 @@ struct Sampler {
   MipFilter Mip = MipFilter::Linear;
 };
 
+enum class MetadataShape : uint8_t { Text, Structure };
+
 struct MetadataProperty {
   std::string Key;
   std::string Value;
+  MetadataShape Shape = MetadataShape::Text;
 };
 
 struct MetadataPacket {
   std::vector<MetadataProperty> Held;
 
-  [[nodiscard]] std::string_view Of(std::string_view key) const {
+  [[nodiscard]] std::optional<std::string_view> Of(std::string_view key) const {
     for (const MetadataProperty &one : Held) {
-      if (one.Key == key) { return one.Value; }
+      if (one.Key != key) { continue; }
+      if (one.Shape != MetadataShape::Text) { return std::nullopt; }
+      return std::string_view(one.Value);
     }
-    return {};
+    return std::nullopt;
+  }
+
+  [[nodiscard]] bool Carries(std::string_view key) const {
+    for (const MetadataProperty &one : Held) {
+      if (one.Key == key) { return true; }
+    }
+    return false;
   }
 };
 

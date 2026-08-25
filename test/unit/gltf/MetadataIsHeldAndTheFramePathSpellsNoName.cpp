@@ -63,11 +63,22 @@ int main(void) {
   CHECK(document.Metadata().size() == 1 && document.MetadataOfAsset() == 0,
         "**METADATA IS HELD WHERE A NAME IS HELD**: the packets array is read at load and the "
         "asset points into it by index, which is what KHR_xmp_json_ld declares (board:1395)");
-  CHECK(document.Metadata().front().Of("dc:title") ==
-            "a cube nobody will ever see the title of",
+  const auto &packet = document.Metadata().front();
+  CHECK(packet.Of("dc:title") == "a cube nobody will ever see the title of",
         "and a property is reachable by its prefixed key, the way the packet spells it");
-  CHECK(document.Metadata().front().Of("dc:nothing").empty(),
-        "and a key the packet does not carry answers empty rather than inventing one");
+
+  // board:1849: Of() answered "" for a key that is absent AND for one whose value the reader
+  // could not keep -- the fixture's own @context is a JSON object -- so a claim about the first
+  // was proven by a predicate that could not tell it from the second.
+  Note("the packet carries @context", packet.Carries("@context") ? 1.0 : 0.0, "yes");
+  Note("and Of answers a string for it", packet.Of("@context").has_value() ? 1.0 : 0.0, "yes");
+  CHECK(!packet.Of("dc:nothing").has_value() && !packet.Carries("dc:nothing"),
+        "**A KEY THE PACKET DOES NOT CARRY IS ABSENT**, and the packet says so rather than "
+        "answering an empty string");
+  CHECK(packet.Carries("@context") && !packet.Of("@context").has_value(),
+        "**AND A KEY WHOSE VALUE IS A STRUCTURE IS PRESENT WITHOUT BEING TEXT**: an XMP "
+        "property is a JSON-LD value, and this reader keeps strings -- so 'carried, and not as "
+        "text' is a third answer, not the same empty one absence gives (board:1849)");
 
   Document beyond;
   const bool refused = !Reads(kOutOfRange, beyond);

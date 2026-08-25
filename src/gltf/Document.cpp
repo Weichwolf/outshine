@@ -541,7 +541,13 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
       for (size_t at = 0; at < packet.Size(); ++at) {
         const std::string key = packet.Key(at);
         if (key.empty()) { continue; }
-        held.Held.push_back(MetadataProperty{key, packet[key.c_str()].Str("")});
+        const Json::Ref said = packet[key.c_str()];
+        const bool spelled = said.GetKind() == Json::Kind::String ||
+                             said.GetKind() == Json::Kind::Number ||
+                             said.GetKind() == Json::Kind::Bool;
+        held.Held.push_back(MetadataProperty{key, spelled ? said.Str("") : std::string(),
+                                             spelled ? MetadataShape::Text
+                                                     : MetadataShape::Structure});
       }
       Metadata_.push_back(std::move(held));
     }
