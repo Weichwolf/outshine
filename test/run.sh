@@ -203,12 +203,12 @@ LayerIncludes() {
     harness/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/data -Itest/harness/shared" ;;
     harness/outshine/fuzz) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/content/gltf -Itest/harness/shared" ;;
     harness/outshine/physics) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/actor/body -Isrc/actor/path -Isrc/actor/mind -Isrc/sim -Itest/harness/shared" ;;
-    harness/outshine/door) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/world/data -Isrc/scene -Isrc/scenario -Isrc/ui -Isrc/host -Isrc/engine -Itest/harness/shared" ;;
+    harness/outshine/door) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/compositor -Isrc/world/data -Isrc/scene -Isrc/scenario -Isrc/ui -Isrc/host -Isrc/engine -Itest/harness/shared" ;;
     harness/khronos/validator) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Itest/harness/shared" ;;
-    harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown) printf '%s' "-Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/world/data -Isrc/scene -Isrc/scenario -Isrc/ui -Iinclude -Isrc/host -Isrc/engine" ;;
+    harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown) printf '%s' "-Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/compositor -Isrc/world/data -Isrc/scene -Isrc/scenario -Isrc/ui -Iinclude -Isrc/host -Isrc/engine" ;;
     harness/wpt/css) printf '%s' "-Iinclude" ;;
     harness/test262/js) printf '%s' "-Iinclude" ;;
-    outshine/scenario) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/data -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/engine -Isrc/scenario -Isrc/ui -Itest/harness/shared" ;;
+    outshine/scenario) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/data -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/engine -Isrc/scenario -Isrc/ui -Itest/harness/shared" ;;
     apps/viewer/src) printf '%s' "-Iinclude -Iapps/viewer/src/parts" ;;
     apps/driver/src) printf '%s' "-Iinclude" ;;
     *) return 1 ;;
@@ -258,11 +258,11 @@ LayerGroups() {
     harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/ui" ;;
     harness/test262/js) printf '%s' "src/base/format/Json.cpp src/base/format/Script.cpp" ;;
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;
-    harness/outshine/fuzz) printf '%s' "src/base/math src/world/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/world/generators/AlpineLimit.cpp src/content/gltf" ;;
+    harness/outshine/fuzz) printf '%s' "src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/content/gltf" ;;
     harness/outshine/physics) printf '%s' "src/actor/body src/actor/path src/actor/mind src/sim/Rigging.cpp" ;;
-    harness/outshine/door) printf '%s' "src/base/math src/world/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/world/generators/AlpineLimit.cpp src/content/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/sim src/actor/path src/actor/body src/actor/mind src/host src/engine/GltfStudio.cpp src/engine/Image.cpp src/engine/Surfaces.cpp src/compositor src/engine/Live.cpp src/engine/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
-    harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown | outshine/frame | apps/viewer/src | outshine/scenario | outshine/client | harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/base/math src/world/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/world/generators/AlpineLimit.cpp src/content/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/sim src/actor/path src/actor/body src/actor/mind src/host src/engine/GltfStudio.cpp src/engine/Image.cpp src/engine/Surfaces.cpp src/compositor src/engine/Live.cpp src/engine/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
-    apps/driver/src) printf '%s' "src/base/math src/world/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/world/generators/AlpineLimit.cpp src/content/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/actor/path src/actor/body src/actor/mind src/world/data src/world/ground/tiles src/world/ground src/engine/GltfStudio.cpp src/engine/Image.cpp src/engine/Surfaces.cpp src/engine/Live.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/sim src/scene src/engine/Assembly.cpp" ;;
+    harness/outshine/door) printf '%s' "src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/content/gltf src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/sim src/actor/path src/actor/body src/actor/mind src/host src/engine/GltfStudio.cpp src/engine/Image.cpp src/engine/Surfaces.cpp src/compositor src/engine/Live.cpp src/engine/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
+    harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown | outshine/frame | apps/viewer/src | outshine/scenario | outshine/client | harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/content/gltf src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/sim src/actor/path src/actor/body src/actor/mind src/host src/engine/GltfStudio.cpp src/engine/Image.cpp src/engine/Surfaces.cpp src/compositor src/engine/Live.cpp src/engine/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
+    apps/driver/src) printf '%s' "src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/content/gltf src/render/plan src/render/draw src/render src/render/device src/render/stages src/ui src/actor/path src/actor/body src/actor/mind src/world/data src/world/ground/tiles src/world/ground src/engine/GltfStudio.cpp src/engine/Image.cpp src/engine/Surfaces.cpp src/engine/Live.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/sim src/scene src/engine/Assembly.cpp" ;;
     *) return 1 ;;
   esac
 }
@@ -312,7 +312,7 @@ LayerExtraSources() {
 
 GroupIncludes() {
   case "$1" in
-    src/world/generators/AlpineLimit.cpp | src/base/math | src/world/geo | src/base/format | src/base/spatial | src/content/shade | src/world/weather | src/world/sky | src/base/io | src/base/format/Sha256.cpp | src/base/format/Json.cpp | src/base/format/Script.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators" ;;
+    src/base/math | src/base/geo | src/base/format | src/base/spatial | src/content/shade | src/world/weather | src/world/sky | src/base/io | src/base/format/Sha256.cpp | src/base/format/Json.cpp | src/base/format/Script.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators" ;;
     src/actor/path) printf '%s' "-Iinclude -Isrc/actor/path" ;;
     src/scene) printf '%s' "" ;;
     src/actor/body) printf '%s' "-Iinclude -Isrc/base/math -Isrc/actor/body" ;;
@@ -331,15 +331,15 @@ GroupIncludes() {
     src/world/generators/draw) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/generators -Isrc/world/generators/draw" ;;
     src/render/plan) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/render/plan" ;;
     src/render/draw) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/render/draw" ;;
-    src/render | src/render/stages | src/render/Readback.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages $(pkg-config --cflags sdl3)" ;;
-    src/engine/GltfStudio.cpp | src/engine/Surfaces.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/data -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/engine $(pkg-config --cflags sdl3)" ;;
-    src/engine/Live.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/data -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/engine -Isrc/ui $(pkg-config --cflags sdl3)" ;;
+    src/render | src/render/device | src/render/stages | src/render/Readback.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages $(pkg-config --cflags sdl3)" ;;
+    src/engine/GltfStudio.cpp | src/engine/Surfaces.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/data -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/engine $(pkg-config --cflags sdl3)" ;;
+    src/engine/Live.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/data -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/engine -Isrc/ui $(pkg-config --cflags sdl3)" ;;
     src/engine/Assembly.cpp) printf '%s' "-Iinclude -Isrc/scene -Isrc/world/data -Isrc/host -Isrc/engine" ;;
     src/host) printf '%s' "-Iinclude -Isrc/world/data" ;;
     src/compositor) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/generators -Isrc/world/ground -Isrc/world/data -Isrc/world/ground/tiles -Isrc/compositor" ;;
     src/engine/InputPump.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/scenario -Isrc/scene -Isrc/world/data -Isrc/host -Isrc/engine $(pkg-config --cflags sdl3)" ;;
     src/sim) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/generators -Isrc/actor/path -Isrc/world/data -Isrc/actor/body -Isrc/actor/mind -Isrc/scene -Isrc/scenario -Isrc/sim -Isrc/world/ground -Isrc/world/ground/tiles" ;;
-    src/engine/Engine.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/generators -Isrc/world/data -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/host -Isrc/engine -Isrc/scenario -Isrc/ui -Isrc/world/ground -Isrc/world/ground/tiles -Isrc/sim -Isrc/actor/path -Isrc/actor/body -Isrc/actor/mind -Isrc/scene $(pkg-config --cflags sdl3)" ;;
+    src/engine/Engine.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/generators -Isrc/world/data -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/compositor -Isrc/host -Isrc/engine -Isrc/scenario -Isrc/ui -Isrc/world/ground -Isrc/world/ground/tiles -Isrc/sim -Isrc/actor/path -Isrc/actor/body -Isrc/actor/mind -Isrc/scene $(pkg-config --cflags sdl3)" ;;
     src/engine/Sim.cpp | src/engine/StreamTelemetry.cpp | src/engine/EyeTelemetry.cpp | src/engine/RegionForge.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/data -Isrc/scenario -Isrc/world/ground -Isrc/world/ground/tiles -Isrc/world/generators -Isrc/world/generators/draw -Isrc/actor/path -Isrc/scene -Isrc/host -Isrc/engine" ;;
     src/engine/Image.cpp) printf '%s' "-Iinclude -Isrc/scene -Isrc/world/data -Isrc/host -Isrc/engine $(pkg-config --cflags sdl3-image)" ;;
     *) return 1 ;;
@@ -348,7 +348,7 @@ GroupIncludes() {
 
 GroupToolchain() {
   case "$1" in
-    src/render | src/render/stages | src/render/Readback.cpp | src/engine/GltfStudio.cpp | src/engine/Surfaces.cpp | src/engine/Live.cpp) LayerToolchain render ;;
+    src/render | src/render/device | src/render/stages | src/render/Readback.cpp | src/engine/GltfStudio.cpp | src/engine/Surfaces.cpp | src/engine/Live.cpp) LayerToolchain render ;;
     *) printf '%s' "$CXXSTD" ;;
   esac
 }
@@ -763,8 +763,37 @@ if [ "$AUDIT_LAYERS" = 1 ]; then
       esac
     done
   done
+  # A tier graph can be acyclic while the modules inside it are not: --audit-layers judges the
+  # first path component, and both cycles board:1904 named sat INSIDE one tier. A cycle means
+  # neither module can be read, built or replaced without the other, which is one module spelled
+  # in two directories.
+  byModule=$BUILD/log/module-of-header
+  find src -name '*.h' -not -path 'src/assets/*' |
+    sed -e 's|^src/\([^/]*/[^/]*\)/.*/\([^/]*\)$|\2 \1|' \
+        -e 's|^src/\([^/]*/[^/]*\)/\([^/]*\.h\)$|\2 \1|' \
+        -e 's|^src/\([^/]*\)/\([^/]*\.h\)$|\2 \1|' | sort -u > "$byModule"
+  for source in $(find src -name '*.cpp' -o -name '*.h' | grep -v '^src/assets/' | sort); do
+    from=$(printf '%s' "$source" |
+      sed -e 's|^src/\([^/]*/[^/]*\)/.*|\1|' -e 's|^src/\([^/]*\)/[^/]*$|\1|')
+    sed -n 's|^#include "\([^"]*\)".*|\1|p' "$source" | sed 's|.*/||' | sort -u |
+      while IFS= read -r head; do
+        to=$(awk -v want="$head" '$1 == want { print $2; exit }' "$byModule")
+        [ -z "$to" ] && continue
+        [ "$to" = "$from" ] && continue
+        printf '%s|%s\n' "$from" "$to"
+      done
+  done | sort -u > "$BUILD/log/module-pairs"
+  cycles=$(awk '{ seen[$0] = 1 }
+    END { for (k in seen) { split(k, e, "|");
+            if ((e[2] "|" e[1]) in seen && e[1] < e[2])
+              printf "AUDIT %s and %s include each other -- a cycle is one module spelled in two directories\n", e[1], e[2] } }' \
+    "$BUILD/log/module-pairs")
+  if [ -n "$cycles" ]; then
+    printf '%s\n' "$cycles"
+    crossed=$((crossed + $(printf '%s\n' "$cycles" | grep -c .)))
+  fi
   if [ "$crossed" = 0 ]; then
-    printf 'AUDIT layered: every source includes only what its tier declares it reaches\n'
+    printf 'AUDIT layered: every source includes only what its tier declares it reaches, and no module includes the module that includes it\n'
     exit 0
   fi
   printf 'AUDIT %s include(s) cross the declared layering\n' "$crossed"
