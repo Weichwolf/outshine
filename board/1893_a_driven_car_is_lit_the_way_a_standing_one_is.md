@@ -53,6 +53,23 @@ boundary and it is the camera*, and a renderer that is camera-relative in 32-bit
 camera it is relative TO. A body 116 m along a corridor is shaded from an eye that says it is
 at the origin.
 
+**A FOURTH AND FIFTH CANDIDATE, ruled out by reading rather than by running:**
+
+- The axis permutation. `PlacedInEcef` (GltfStudio.cpp:19-27) maps glTF (x right, y up,
+  z back) onto the engine's frame with `kAxis = {1,0,2,3}` and `kSign = {1,1,-1,1}`, and the
+  sun goes through the SAME `EcefFromGltf` at Live.cpp:200. Light and geometry are permuted
+  alike, so a mismatch there would tilt the whole studio too.
+- Replacing the node matrix. `Carry` overwrites every part placement rather than composing
+  with what `Place` wrote, which would be a defect for a hierarchical asset -- but the F31's
+  vertices carry their own positions (the picture is a correct car from every angle the chase
+  view takes), so the node matrices it discards are identities.
+
+What is left untested and cheap to test next: the shading path's own inputs. The subject is
+lit correctly when `GltfStudio::Show` stands it and wrongly when `Engine::Rides` drives it,
+and the two differ in exactly one thing that has not been isolated -- WHICH of Live's
+`SetSky` / `SetSubjectMaterials` / `SetSubjectPlacements` calls happen in which order relative
+to the first `Carry`.
+
 ## What will be true
 
 - [ ] The driven F31 is lit exactly as the standing one is: the same specular on the shoulder,
