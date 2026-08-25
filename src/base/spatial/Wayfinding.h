@@ -58,6 +58,7 @@ public:
   [[nodiscard]] size_t NodeCount() const { return Nodes_.size(); }
   [[nodiscard]] size_t EdgeCount() const { return Edges_.size(); }
   [[nodiscard]] size_t TiedToEdges() const { return Tied_; }
+  [[nodiscard]] size_t CellsInTheTieIndex() const { return Unindexed_; }
   [[nodiscard]] size_t JunctionCount() const;
 
   struct Crossing {
@@ -131,13 +132,16 @@ private:
     int64_t Columns = 1;
   };
   [[nodiscard]] RowShape ShapeRow(int64_t row) const;
+  [[nodiscard]] RowShape ShapeRowOver(int64_t row, double cellM) const;
   [[nodiscard]] int64_t RowOf(double latDeg) const;
+  [[nodiscard]] int64_t RowOver(double latDeg, double cellM) const;
   [[nodiscard]] static int64_t ColumnIn(const RowShape &shape, double lonDeg);
   [[nodiscard]] static int64_t KeyAt(int64_t row, int64_t column);
   [[nodiscard]] int64_t CellOf(double latDeg, double lonDeg) const;
 
   double SnapM_ = 0.0;
   double RadiusM_ = 0.0;
+  size_t Unindexed_ = 0;
   std::vector<double> Points_;
   std::vector<uint32_t> WayOf_;
   std::vector<Way> Ways_;

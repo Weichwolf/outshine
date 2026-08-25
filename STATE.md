@@ -103,8 +103,8 @@ MASS -- the heaviest units, against the median of them all
     1323  render/Renderer.h
     1141  base/format/Script.h
     1006  render/stages/SubjectDraw.h
+     989  base/spatial/Wayfinding.h
      955  ui/Style.h
-     943  base/spatial/ClusterDag.h
      108  the median of 241 unit(s)
 
 CARPET -- the widest public surfaces
@@ -206,6 +206,7 @@ PROVES -- what src/ provably does, one line each
   the pass-index mapping is a keyed product of the render and comes back from the store with the bytes it describes, so a cached oracle still names its 
   the runner can read the oracle's EXR directly, so the flat raw beside it is a derived cache rather than an artefact that must survive
   the runner prunes test by test, and a file whose producer cannot be proven stays with the reason its proof failed
+  wayfinding: two loose ends that meet the same segment split it once each, so the road between their junctions is the road, and a route along it does n
 
 ACCESS -- what stands wider than private
   6 protected section(s), and inheritance is right where a stable interface carries

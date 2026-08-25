@@ -203,6 +203,7 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   say.Number("junctions among them", (double)out.Found.Junctions, "nodes");
   say.Number("edges", (double)roads.EdgeCount(), "edges");
   say.Number("loose ends tied onto an edge they end on", (double)roads.TiedToEdges(), "ends");
+  say.Number("cells the tie index holds", (double)roads.CellsInTheTieIndex(), "cells");
   {
     const Network::Pieces broken = roads.InPieces();
     say.Number("pieces the graph falls into", (double)broken.Count, "pieces");
