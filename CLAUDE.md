@@ -437,6 +437,15 @@ ls board/*.md | grep -o '[0-9]\{4\}' | sort -n | tail -1  # next id, derived
 | `Makefile` | build · test · clean, nothing else |
 | `board/` | the working system (above) |
 
+**Every `make` writes `build/STATE`** -- what the library IS, on one page, generated: the door's verbs
+extracted from `include/`, the tier graph and what each tier may include, every claim a case
+`Covers`, every standing red, every open item, and the counts. There is no RFC for this and the
+nearest established shapes are a `.pyi` stub and a man page's SYNOPSIS -- signatures without
+bodies. Those answer what a door OFFERS; this answers what the tree PROVES, which is the half
+that goes stale in prose. Nothing in it is written by hand, so nothing in it can lie about the
+tree. It is an artefact and lives with the build, never in the tree, so it cannot go stale and
+cannot be edited into a lie: 16 kB, 247 lines, one command.
+
 `make` builds the library and every program under `apps/` into `build/`. `test/run.sh` is the
 only TEST runner and runs nothing else; by default it runs the corpora and the claims, while
 `tools` and `apps` run when named. A standing RED is declared in `EXPECT_FAIL` with its count,

@@ -4,6 +4,7 @@ set -u
 set -m
 AUDIT=0
 AUDIT_LAYERS=0
+STATE=0
 STRANDED=37
 OWNER_MAP_BUILT=no
 CORPUS=0
@@ -190,6 +191,7 @@ while [ $# -gt 0 ]; do
     --cases) CASELIST=1; shift ;;
     --audit-link) AUDITLINK=1; shift ;;
     --audit-layers) AUDIT_LAYERS=1; shift ;;
+    --state) STATE=1; shift ;;
     -*) Die "unknown option '$1'" ;;
     *) SUITES="$SUITES ${1%/}"; SUITE=${1%/}; shift; continue ;;
   esac
@@ -662,6 +664,80 @@ LayerReaches() {
     *) return 1 ;;
   esac
 }
+
+# WHAT THE LIBRARY IS, ON ONE PAGE, GENERATED. There is no RFC for this and the nearest
+# established shapes are a .pyi stub and a man page's SYNOPSIS: signatures without bodies. Those
+# answer what the door OFFERS. This answers what the tree PROVES, which is the half that goes
+# stale in prose -- the door's verbs, the tier graph, every claim a case Covers, and every item
+# still open. Nothing here is written by hand, so nothing here can lie about the tree.
+if [ "$STATE" = 1 ]; then
+  printf 'outshine %s\n' "$(git rev-parse --short HEAD 2>/dev/null || printf 'no commit')"
+  printf '\nDOOR -- include/\n'
+  for header in include/*.h; do
+    printf '  %s\n' "${header#include/}"
+    sed -n 's|^  \[\[nodiscard\]\] \(.*\);$|    \1|p; s|^  \(void [A-Z].*\);$|    \1|p' "$header" |
+      sed 's|  *| |g'
+  done
+  modules=$BUILD/log/module-of-header
+  mkdir -p "$BUILD/log"
+  find src -name '*.h' -not -path 'src/assets/*' |
+    sed -e 's|^src/\([^/]*/[^/]*\)/.*/\([^/]*\)$|\2 \1|' \
+        -e 's|^src/\([^/]*/[^/]*\)/\([^/]*\.h\)$|\2 \1|' \
+        -e 's|^src/\([^/]*\)/\([^/]*\.h\)$|\2 \1|' | sort -u > "$modules"
+  printf '\nSHAPE -- module depends on module, from the includes themselves\n\n```mermaid\nflowchart LR\n'
+  for source in $(find src -name '*.cpp' -o -name '*.h' | grep -v '^src/assets/' | sort); do
+    from=$(printf '%s' "$source" |
+      sed -e 's|^src/\([^/]*/[^/]*\)/.*|\1|' -e 's|^src/\([^/]*\)/[^/]*$|\1|')
+    sed -n 's|^#include "\([^"]*\)".*|\1|p' "$source" | sed 's|.*/||' | sort -u |
+      while IFS= read -r head; do
+        to=$(awk -v want="$head" '$1 == want { print $2; exit }' "$modules")
+        [ -z "$to" ] && continue
+        [ "$to" = "$from" ] && continue
+        printf '%s|%s\n' "$from" "$to"
+      done
+  done | sort | uniq -c | sort -rn > "$BUILD/log/module-edges"
+  awk '$1 >= 3' "$BUILD/log/module-edges" |
+    while read -r many edge; do
+      printf '  %s --> |%s| %s\n' "$(printf '%s' "$edge" | cut -d'|' -f1 | tr '/' '_')" "$many" \
+        "$(printf '%s' "$edge" | cut -d'|' -f2 | tr '/' '_')"
+    done
+  printf '```\n'
+  printf '  %s edge(s) drawn, %s thinner than three includes not drawn\n' \
+    "$(awk '$1 >= 3' "$BUILD/log/module-edges" | wc -l | tr -d ' ')" \
+    "$(awk '$1 < 3' "$BUILD/log/module-edges" | wc -l | tr -d ' ')"
+  awk '{ seen[$2] = $1 }
+       END { for (k in seen) { split(k, e, "|"); back = e[2] "|" e[1];
+               if (back in seen && e[1] < e[2])
+                 printf "  CYCLE %s and %s include each other, %s deep and %s back\n",
+                        e[1], e[2], seen[k], seen[back] } }' "$BUILD/log/module-edges"
+
+  printf '\nTIERS -- src/, and what each may include\n'
+  for tier in base content world actor render scene scenario ui audio host compositor sim engine; do
+    reaches=$(LayerReaches "$tier") || continue
+    printf '  %-11s -> %s\n' "$tier" "${reaches:-nothing}"
+  done
+  printf '\nPROVES -- what a case in test/ covers, one line each\n'
+  grep -rho 'Covers("[^"]*"' test --include=*.cpp 2>/dev/null |
+    sed -e 's|^Covers("||' -e 's|"$||' | sort -u | sed 's|^|  |'
+  printf '\nSTANDING RED -- declared in EXPECT_FAIL\n'
+  printf '%s\n' $EXPECT_FAIL | sed 's|^|  |'
+  printf '\nOPEN -- board/\n'
+  for item in board/*.md; do
+    [ -f "$item" ] || continue
+    kind=$(sed -n 's|^Type: ||p' "$item" | head -1)
+    area=$(sed -n 's|^Area: ||p' "$item" | head -1)
+    live=$(sed -n 's|^State: ||p' "$item" | head -1)
+    title=$(sed -n 's|^# ||p' "$item" | head -1)
+    printf '  %s %-7s %-6s %-22s %s\n' "$(basename "$item" | cut -c1-4)" "$kind" "$live" "${area:0:22}" "$title"
+  done
+  printf '\nCOUNTS\n'
+  printf '  %s open item(s), %s of them active\n' "$(ls board/*.md 2>/dev/null | wc -l | tr -d ' ')" \
+    "$(grep -l '^State: active' board/*.md 2>/dev/null | wc -l | tr -d ' ')"
+  printf '  %s source(s) in src/, %s reach no suite\n' \
+    "$(find src -name '*.cpp' -not -path 'src/assets/*' | wc -l | tr -d ' ')" "$STRANDED"
+  printf '  %s case(s) declared under test/\n' "$(find test -name manifest.json | wc -l | tr -d ' ')"
+  exit 0
+fi
 
 if [ "$AUDIT_LAYERS" = 1 ]; then
   owners=$BUILD/log/header-tiers
