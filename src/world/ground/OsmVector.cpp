@@ -112,6 +112,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool 
           else if (vn == 4 && vw == 0) { val = (double)v.Varint(); isNum = true; }
           else if (vn == 5 && vw == 0) { val = (double)v.Varint(); isNum = true; }
           else if (vn == 6 && vw == 0) { val = (double)ZigZag(v.Varint()); isNum = true; }
+          else if (vn == 7 && vw == 0) { val = v.Varint() != 0 ? 1.0 : 0.0; isNum = true; }
           else if (!v.Skip(vw)) break;
         }
         Values_.push_back(val);

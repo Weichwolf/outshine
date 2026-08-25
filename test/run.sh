@@ -271,7 +271,7 @@ LayerGroups() {
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;
     harness/outshine/scenario) printf '%s' "src/base/math src/base/format src/base/spatial src/scenario/Triggers.cpp" ;;
     harness/outshine/content) printf '%s' "src/base/math src/base/geo src/base/format src/base/spatial src/base/io src/content/gltf" ;;
-    harness/outshine/geo) printf '%s' "src/base/math src/base/geo src/base/format src/base/spatial src/base/io src/world/data src/world/ground/tiles" ;;
+    harness/outshine/geo) printf '%s' "src/base/math src/base/geo src/base/format src/base/spatial src/base/io src/world/data src/world/ground/tiles src/world/ground" ;;
     harness/outshine/fuzz) printf '%s' "src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/content/gltf" ;;
     harness/outshine/physics) printf '%s' "src/base/math src/base/geo src/base/spatial src/actor/body src/actor/path src/actor/mind src/sim/Rigging.cpp" ;;
     harness/outshine/door) printf '%s' "src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/content/gltf src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/sim src/actor/path src/actor/body src/actor/mind src/host src/engine/GltfStudio.cpp src/engine/Image.cpp src/engine/Surfaces.cpp src/compositor src/engine/Live.cpp src/engine/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;

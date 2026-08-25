@@ -186,6 +186,7 @@ PROVES -- what src/ provably does, one line each
   IV.27 the build declaration audits itself in the fast gate: every source is listed once and by some suite, every declared suite's object set is closed
   IV.31 a refusal that names the device keeps what the device said: static text reaches the caller and the reason reaches WhyNot, because SDL_GetError()
   IV.7 every field of the tick's public product has a writer in the tick -- the writerless-mirror-field class (1613, 1703) is a claims gate now, not a r
+  mapbox vector tile: all seven Value types decode, and a bool tag reaches its consumer as a number rather than being skipped into the default
   one world space: a coordinate turned into a tile and back is the coordinate it started as, at every zoom and in all four quadrants
   one world space: the distance between two coordinates is the WGS84 geodesic, measured against a 50-digit reference this tree cannot influence
   physics: a body's brake effort is proportioned to the static load each axle carries, derived from where the declaration puts the centre of mass and ne
