@@ -71,8 +71,8 @@ int main(void) {
         "**AND NO SOURCE SPELLS THE POSIX MACRO**: M_PI is not C++ and not this tree's origin "
         "for pi (board:1630)");
 
-  CHECK(alias.size() == 1 && alias[0] == std::filesystem::path("src/core/Units.h").string(),
-        "the kPi alias stands ONCE, in src/core/Units.h -- a second alias is the duplicate this "
+  CHECK(alias.size() == 1 && alias[0] == std::filesystem::path("src/base/math/Units.h").string(),
+        "the kPi alias stands ONCE, in src/base/math/Units.h -- a second alias is the duplicate this "
         "item removed from TileMath.h");
 
   Covers("pi stands once and it is std::numbers: every pi in src/ derives from "

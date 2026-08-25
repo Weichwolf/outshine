@@ -32,7 +32,7 @@ constexpr size_t kLongestLabel = 100;
 // the two characters as the thing they parse, so the walk reads literals before it judges
 // board:1801, reopened: the exemption was a property of the file's BYTES, and a comment can
 // spell any needle chosen for it -- `// this narration mentions Covers("IV.11") and therefore
-// exempts its own file` in src/core/Span.h turned this claim green, measured. Tightening the
+// exempts its own file` in src/base/spatial/Span.h turned this claim green, measured. Tightening the
 // needle again is the same construction; there is no string a comment cannot legally contain.
 //
 // The exemption is a property of the file's ROLE, and the runner owns that role: a proof is a

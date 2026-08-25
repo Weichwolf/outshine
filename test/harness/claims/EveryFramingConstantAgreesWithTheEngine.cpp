@@ -56,7 +56,7 @@ int main() {
   using namespace outshine::Test;
 
   std::string header, preparer;
-  const bool read = Slurp("src/gltf/Framing.h", header) &&
+  const bool read = Slurp("src/content/gltf/Framing.h", header) &&
                     Slurp("test/harness/shared/corpus/prep/in_blender_render.py", preparer);
   CHECK(read, "both statements of the framing rule are in the tree to be compared");
   if (!read) { return Report(); }
@@ -66,7 +66,7 @@ int main() {
     double engine = 0.0, python = 0.0;
     const bool inEngine = NumberAfter(header, constant.InTheEngine, engine);
     const bool inPreparer = NumberAfter(preparer, constant.InThePreparer, python);
-    CHECK(inEngine, (std::string("src/gltf/Framing.h declares ") + constant.InTheEngine).c_str());
+    CHECK(inEngine, (std::string("src/content/gltf/Framing.h declares ") + constant.InTheEngine).c_str());
     CHECK(inPreparer,
           (std::string("the preparer declares ") + constant.InThePreparer).c_str());
     if (!inEngine || !inPreparer) { continue; }

@@ -2,28 +2,13 @@
 
 #include <cmath>
 
+#include "Vec3.h"
+
 namespace outshine::Physics {
 
-namespace {
-
-void Cross(const double a[3], const double b[3], double out[3]) {
-  out[0] = a[1] * b[2] - a[2] * b[1];
-  out[1] = a[2] * b[0] - a[0] * b[2];
-  out[2] = a[0] * b[1] - a[1] * b[0];
-}
-
-double Dot(const double a[3], const double b[3]) {
-  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-}
-
-bool Unit(double v[3]) {
-  const double length = std::sqrt(Dot(v, v));
-  if (!(length > 0.0)) { return false; }
-  for (int axis = 0; axis < 3; ++axis) { v[axis] /= length; }
-  return true;
-}
-
-}
+using outshine::Cross;
+using outshine::Dot;
+using outshine::Normalise;
 
 Reading Bear(Rig &of, const Body &body, const Footing *under, const Controls &with, Wrench &into,
              double dtS) {
@@ -41,7 +26,7 @@ Reading Bear(Rig &of, const Body &body, const Footing *under, const Controls &wi
     }
 
     double normal[3] = {ground.NormalM[0], ground.NormalM[1], ground.NormalM[2]};
-    if (!Unit(normal)) { continue; }
+    if (!Normalise(normal)) { continue; }
 
     double worldM[3], worldMs[3];
     Place(body, mount.AtM, worldM);
@@ -69,10 +54,10 @@ Reading Bear(Rig &of, const Body &body, const Footing *under, const Controls &wi
     Turn(body.OrientationQ, aheadBody, ahead);
     const double onNormal = Dot(ahead, normal);
     for (int axis = 0; axis < 3; ++axis) { ahead[axis] -= onNormal * normal[axis]; }
-    if (!Unit(ahead)) { continue; }
+    if (!Normalise(ahead)) { continue; }
     double across[3];
     Cross(normal, ahead, across);
-    if (!Unit(across)) { continue; }
+    if (!Normalise(across)) { continue; }
 
     const double alongMs = Dot(worldMs, ahead);
     const double acrossMs = Dot(worldMs, across);

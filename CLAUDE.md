@@ -4,6 +4,26 @@
 Apple A18 Pro (2P+4E cores, 5 GPU cores, 8 GB, Metal 4), **720p60 held** — p50/p95/p99 over a moving
 camera, never a mean.
 
+**THE BENCHMARK IS A QUARRY, NOT A SPECIFICATION.** RAGE and Unreal are shipped and outshine is
+not, so where they have settled a question, their answer is EVIDENCE and the burden is on
+departing from it. But neither is the target: the job is to take what each got right, refuse what
+each got wrong, and answer to the tree we are actually building. Where they disagree — RAGE's
+decisionless pools against Unreal's toolable modules — take both if both hold, and say which one
+this tree is following and why. Where they agree and the tree does not, the tree is the finding.
+Where neither has the question, decide it and write down the reason. **The decision is mine to
+make and the reason is what I owe** — a design that cites a benchmark instead of arguing has
+argued nothing.
+
+**And the two quarries are not equally open.** Unreal's source can be read, so a claim about
+`FEngineLoop::Tick`, `Build.cs` dependency declarations, `Public/`/`Private/`, or
+`AddToWorld`/`RemoveFromWorld` stands on the thing itself. RAGE is closed, and what is known of
+`atArray`, `fwPool`, `fwEntity`, `phBound`, `gameSkeleton` or the `rage::`-versus-`C` split comes
+from public reverse engineering — FiveM/CitizenFX headers, modding documentation, Rockstar's own
+conference talks. Broadly corroborated and NOT authoritative. So a rule that leans on RAGE alone
+carries less than one that leans on Unreal alone, and one that leans on a RAGE detail nobody can
+check carries least of all: state the confidence where it matters, and never let a reconstructed
+detail outrank a measurement of THIS tree.
+
 **What an engine IS**: an interactive physics simulation with a focus on graphics — physically as
 accurate as NECESSARY, graphically as good as the FRAME BUDGET allows, temporally DETERMINISTIC.
 Each of those three is a bound, and the middle one is the bound "as good as possible" does not
@@ -228,7 +248,7 @@ flowchart TD
 |---|---|
 | `World` | spells camera and LOD inside the ground layer: `struct Eye` (World.h:49), `Refine(const Eye &eye, double nowMs)` (:55), `EyeInMercatorBand()` (:118), and 9 `const double eye[3]` (:189-195) |
 | `SubjectDraw` | six responsibilities in one class: `ShaderSource(const SourceOptions &options)` (SubjectDraw.h:30), `PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack)` (:154), `FlushCrossings(SDL_GPUCommandBuffer *commands)` (:148), `SetPlacements(const double *models, size_t rows, std::string &error)` (:51), `SetLights(std::span<const SubjectLight> lights, std::string &error)` (:89), and `EncodeDepthOnly(const double lightFromWorld16[16], const double eye[3], int atlasPx,` (:96) beside the one `void Encode(const FrameContext &ctx, const PassRecording &into)` (:93) a stage owes |
-| `Sim` | `class Sim {` (Sim.h:37) is a hand-wired god facade the component model replaces, and since the cut it has NO consumer at all: `grep -rn '"Sim.h"' src apps test include` finds one line, `src/clients/Sim.cpp:1`. 798 lines, 25 `#include "`, five green nodes hanging off it |
+| `Sim` | `class Sim {` (Sim.h:37) is a hand-wired god facade the component model replaces, and since the cut it has NO consumer at all: `grep -rn '"Sim.h"' src apps test include` finds one line, `src/engine/Sim.cpp:1`. 798 lines, 25 `#include "`, five green nodes hanging off it |
 | `Live` | `class Live {` (Live.h:71) reaches the renderer and the layout from one class — `#include "Renderer.h"` (:18) beside `#include "Layout.h"` (:13) |
 | `Engine` | `bool Engine::State::Composes(void) {` (Engine.cpp:276) lays the ring at `auto laid = LayPatchwork(Stack.Pool(), over);` (:314) behind `const bool overADrive = false;` (:284), a branch nailed shut because the ring is anchored on its own ECEF origin and the vehicle on the corridor's (board:1890). Of the five bindings `f31.scenario` declares, `throttle`, `brake`, `steer-left` and `steer-right` reach `Host::Calls` and no client answers them, so no key moves the car. Tables and Sounds are accepted and never advanced |
 
@@ -242,7 +262,7 @@ flowchart TD
 | `Renderer` | `class Renderer {` (Renderer.h:34) publishes 55 `[[nodiscard]]` and 17 `const {` -- the getter carpet, on the frame path |
 | `TonemapStage` | `class TonemapStage {` (TonemapStage.h:14) is where `temporalResolve` folded into, so it carries two picture decisions |
 | `LightVisibilityStage` | `class LightVisibilityStage {` (LightVisibilityStage.h:16) -- one shadow atlas for every light, no cascade selection declared |
-| `Frustum` | `struct Frustum {` (Camera.h:94) sits in core beside the camera, while culling belongs to the compositor |
+| `Frustum` | `struct Frustum {` (CameraBasis.h:94) sits in `src/content/shade` beside the camera basis, while culling belongs to the compositor |
 | `Ephemeris` | `inline void EarthSunPos(double lat, double lon, double utc, float *el, float *az) {` (Ephemeris.h:11) -- a whole-function header, out-parameters by pointer, and `constexpr int kEphemerisMinYear = 1901, kEphemerisMaxYear = 2099;` (:9) bounding a sphere the engine may not name |
 | `RegionForge` | `class RegionForge {` (RegionForge.h:18) forges regions from a client layer |
 | `GltfStudio` | `struct Studio {` (GltfStudio.h:26) beside `struct StudioScratch {` (:49) -- the studio and its scratch are two spellings of one stand-up |
@@ -256,7 +276,7 @@ flowchart TD
 
 | stranded | its only way to a client, at HEAD |
 |---|---|
-| `Forest` | `src/clients/Sim.{h,cpp}` and nothing else in `src/` |
+| `Forest` | `src/engine/Sim.{h,cpp}` and nothing else in `src/` |
 | `Buildings` | `Sim.{h,cpp}`, `BuildingField.cpp`, `OsmLayer.h`, `World.{h,cpp}` -- every one of them inside the ground/client pair |
 | `Water` | `Sim.cpp`, `World.h` |
 | `Infrastructure` | `Sim.h` |
@@ -411,7 +431,7 @@ ls board/*.md | grep -o '[0-9]\{4\}' | sort -n | tail -1  # next id, derived
 
 | | |
 |---|---|
-| `src/` | the library entire; `src/assets/` its declared data; no entry point, no test |
+| `src/` | the library entire; `src/assets/` its declared data; no entry point, no test. **The directory IS the dependency tier and the tier is DECLARED**: `LayerReaches` in `test/run.sh` states what each may include and `--audit-layers` refuses a source that crosses it. `base/` (math · geo · format · spatial · io) reaches nothing; `content/` (gltf · shade) and `actor/` reach base; `world/` (ground · generators · data · sky · weather) reaches base and content; `render/`, `scene/`, `scenario/`, `ui/`, `audio/`, `host/`, `compositor/` and `sim/` reach what their row says; `engine/` reaches all of it and is the door's own implementation, which is why it is not called `clients/` — the clients live in `apps/`. Unreal declares the same thing per module in `Build.cs`; a layering that is only a convention is how a 44-header drawer forms (board:1902) |
 | `test/` | `test/` the established corpora (Khronos · WPT · test262); `test/khronos/validator/` the 263 glTF-Validator cases, judged as a REFUSAL against Khronos's own report; `test/harness/` their scorers and the board/harness claims. Everything under `test/` reaches the library through `include/` and NOTHING of `src/` |
 | `apps/` | the CLIENTS, built ON the library and each a product. **A client is almost no code, and its LINE COUNT is a measurement of the door**: when a client needs much code, the interface is too complicated and the door is the finding, never the client. At HEAD `apps/driver` is 223 lines and `apps/viewer` 349, and both are too long (board:1898): **`apps/driver`** is outshine's one integration test and the architect signs it off; **`apps/viewer`** shows any scenario and becomes a scenario itself, layered over the one it shows (board:1880) |
 | `Makefile` | build · test · clean, nothing else |

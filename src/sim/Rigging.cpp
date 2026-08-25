@@ -161,11 +161,14 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
     mount.Sheds.StiffnessNPerRad = declared.CorneringNPerRad;
     mount.Sheds.RelaxationM = declared.RelaxationM;
     mount.Sheds.Friction = declared.Grip;
+    mount.Sheds.LoadFalloff = declared.LoadFalloff;
+    const double armM = one.AtM[2] - out.CentreM[2];
+    const double staticShare = armM < 0.0 ? frontLoadShare / frontMounts
+                                          : (1.0 - frontLoadShare) / rearMounts;
+    mount.Sheds.FrictionAtLoadN = declared.MassKg * gravityMs2 * staticShare;
     mount.SteeredShare = one.AtM[2] < out.CentreM[2] ? 1.0 : 0.0;
     mount.DrivenShare = one.AtM[2] > out.CentreM[2] ? 1.0 / driven : 0.0;
-    const double armM = one.AtM[2] - out.CentreM[2];
-    mount.BrakedShare = armM < 0.0 ? frontLoadShare / frontMounts
-                                   : (1.0 - frontLoadShare) / rearMounts;
+    mount.BrakedShare = staticShare;
   }
 
   double trackM = declared.TrackM;
@@ -199,7 +202,18 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
   out.TightestM =
       std::sqrt(outerM * outerM - out.Axles.WheelbaseM * out.Axles.WheelbaseM);
 
-  out.Envelope.Grip = declared.Grip;
+  {
+    const double heaviestN =
+        declared.MassKg * gravityMs2 *
+        (frontLoadShare / frontMounts > (1.0 - frontLoadShare) / rearMounts
+             ? frontLoadShare / frontMounts
+             : (1.0 - frontLoadShare) / rearMounts);
+    Physics::Slip planning;
+    planning.Friction = declared.Grip;
+    planning.LoadFalloff = declared.LoadFalloff;
+    planning.FrictionAtLoadN = heaviestN;
+    out.Envelope.Grip = Physics::FrictionAt(planning, heaviestN);
+  }
   out.Envelope.GravityMs2 = gravityMs2;
   out.Envelope.MassKg = declared.MassKg;
   out.Envelope.DriveN = declared.PeakTorqueNm * declared.FinalDrive / declared.TyreRadiusM;

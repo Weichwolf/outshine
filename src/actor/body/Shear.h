@@ -8,6 +8,8 @@ struct Slip {
   double AlongStiffnessN = 0.0;
   double RelaxationM = 0.0;
   double Friction = 0.0;
+  double FrictionAtLoadN = 0.0;
+  double LoadFalloff = 0.0;
 };
 
 struct Shear {
@@ -25,6 +27,10 @@ struct Shear {
                          double askedAlongN);
 
 [[nodiscard]] double Relaxed(const Slip &through, double wasRad, double isRad, double rolledM);
+
+[[nodiscard]] double FrictionAt(const Slip &through, double loadN);
+
+[[nodiscard]] double Brushed(double linearN, double holdN);
 
 }
 

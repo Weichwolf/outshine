@@ -41,13 +41,13 @@ int main(void) {
         "never links the named-only suites (board:1641)");
 
   const std::string doubled =
-      Seeded("listing", "s|src/sim src/scene src/clients/Assembly.cpp"
-                        "|src/sim src/scene src/scene/Store.cpp src/clients/Assembly.cpp|;"
-                        "s|src/compositor src/clients/Live.cpp|src/clients/Live.cpp|");
+      Seeded("listing", "s|src/sim src/scene src/engine/Assembly.cpp"
+                        "|src/sim src/scene src/scene/Store.cpp src/engine/Assembly.cpp|;"
+                        "s|src/compositor src/engine/Live.cpp|src/engine/Live.cpp|");
   std::string copy;
   (void)Run("cat " + doubled, copy);
   CHECK(copy.find("src/scene src/scene/Store.cpp") != std::string::npos &&
-            copy.find("src/compositor src/clients/Live.cpp") == std::string::npos,
+            copy.find("src/compositor src/engine/Live.cpp") == std::string::npos,
         "both seeds took -- a duplicate beside src/scene, and the compositor struck from the "
         "only suite that lists it");
   std::string seededSaid;
@@ -82,9 +82,9 @@ int main(void) {
         "the audit flips and names the very symbol whose silent absence filed the item");
 
   const std::string ghost =
-      Seeded("ghost", "s|src/clients/InputPump.cpp src/clients/Assembly.cpp"
-                      "|src/clients/NoSuchUnit.cpp src/clients/InputPump.cpp "
-                      "src/clients/Assembly.cpp|g");
+      Seeded("ghost", "s|src/engine/InputPump.cpp src/engine/Assembly.cpp"
+                      "|src/engine/NoSuchUnit.cpp src/engine/InputPump.cpp "
+                      "src/engine/Assembly.cpp|g");
   std::string haunted;
   const int ghostVerdict = Run("sh " + ghost + " --audit-link 2>&1", haunted);
   CHECK(ghostVerdict != 0 && haunted.find("ghost in the listing") != std::string::npos &&

@@ -96,7 +96,7 @@ struct Citation {
          span.find("\xE2\x80\xA6") != std::string::npos || span.find("://") != std::string::npos;
 }
 
-// `src/clients/Sim.{h,cpp}` is two paths in one tick, and a walk that resolves it whole
+// `src/engine/Sim.{h,cpp}` is two paths in one tick, and a walk that resolves it whole
 // resolves neither.
 [[nodiscard]] std::vector<std::string> Expanded(const std::string &span) {
   const size_t opens = span.find('{');

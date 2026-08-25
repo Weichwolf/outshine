@@ -559,6 +559,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     }
     const Xml::Ref tyre = one.Child("tyre");
     made.Grip = tyre.Num("grip", 0.0);
+    made.LoadFalloff = tyre.Num("loadFalloff", 0.0);
     made.TyreRadiusM = tyre.Num("radiusM", 0.0);
     made.CorneringNPerRad = tyre.Num("corneringNPerRad", 0.0);
     made.RelaxationM = tyre.Num("relaxationM", 0.0);

@@ -3,6 +3,7 @@
 set -u
 set -m
 AUDIT=0
+AUDIT_LAYERS=0
 STRANDED=37
 OWNER_MAP_BUILT=no
 CORPUS=0
@@ -188,6 +189,7 @@ while [ $# -gt 0 ]; do
     --would-prune) WOULDPRUNE=1; shift ;;
     --cases) CASELIST=1; shift ;;
     --audit-link) AUDITLINK=1; shift ;;
+    --audit-layers) AUDIT_LAYERS=1; shift ;;
     -*) Die "unknown option '$1'" ;;
     *) SUITES="$SUITES ${1%/}"; SUITE=${1%/}; shift; continue ;;
   esac
@@ -195,16 +197,16 @@ done
 
 LayerIncludes() {
   case "$1" in
-    harness/claims) printf '%s' "-Iinclude -Isrc/core" ;;
-    harness/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/core -Isrc/data -Itest/harness/shared" ;;
-    harness/outshine/fuzz) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/gltf -Itest/harness/shared" ;;
-    harness/outshine/physics) printf '%s' "-Iinclude -Isrc/core -Isrc/actor/body -Isrc/actor/path -Isrc/actor/mind -Isrc/sim -Itest/harness/shared" ;;
-    harness/outshine/door) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/data -Isrc/scene -Isrc/scenario -Isrc/ui -Isrc/host -Isrc/clients -Itest/harness/shared" ;;
-    harness/khronos/validator) printf '%s' "-Iinclude -Isrc/core -Itest/harness/shared" ;;
-    harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/data -Isrc/scene -Isrc/scenario -Isrc/ui -Iinclude -Isrc/host -Isrc/clients" ;;
+    harness/claims) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators " ;;
+    harness/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/data -Itest/harness/shared" ;;
+    harness/outshine/fuzz) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/content/gltf -Itest/harness/shared" ;;
+    harness/outshine/physics) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/actor/body -Isrc/actor/path -Isrc/actor/mind -Isrc/sim -Itest/harness/shared" ;;
+    harness/outshine/door) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/world/data -Isrc/scene -Isrc/scenario -Isrc/ui -Isrc/host -Isrc/engine -Itest/harness/shared" ;;
+    harness/khronos/validator) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Itest/harness/shared" ;;
+    harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown) printf '%s' "-Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/world/data -Isrc/scene -Isrc/scenario -Isrc/ui -Iinclude -Isrc/host -Isrc/engine" ;;
     harness/wpt/css) printf '%s' "-Iinclude" ;;
     harness/test262/js) printf '%s' "-Iinclude" ;;
-    outshine/scenario) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/clients -Isrc/scenario -Isrc/ui -Itest/harness/shared" ;;
+    outshine/scenario) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/data -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/engine -Isrc/scenario -Isrc/ui -Itest/harness/shared" ;;
     apps/viewer/src) printf '%s' "-Iinclude -Iapps/viewer/src/parts" ;;
     apps/driver/src) printf '%s' "-Iinclude" ;;
     *) return 1 ;;
@@ -251,14 +253,14 @@ LayerLink() {
 
 LayerGroups() {
   case "$1" in
-    harness/wpt/css) printf '%s' "src/core/Json.cpp src/ui" ;;
-    harness/test262/js) printf '%s' "src/core/Json.cpp src/core/Script.cpp" ;;
-    harness/claims) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
-    harness/outshine/fuzz) printf '%s' "src/core src/core/io src/gltf" ;;
+    harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/ui" ;;
+    harness/test262/js) printf '%s' "src/base/format/Json.cpp src/base/format/Script.cpp" ;;
+    harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;
+    harness/outshine/fuzz) printf '%s' "src/base/math src/world/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/world/generators/AlpineLimit.cpp src/content/gltf" ;;
     harness/outshine/physics) printf '%s' "src/actor/body src/actor/path src/actor/mind src/sim/Rigging.cpp" ;;
-    harness/outshine/door) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/data src/ground src/ground/tiles src/sim src/actor/path src/actor/body src/actor/mind src/host src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/compositor src/clients/Live.cpp src/clients/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/clients/InputPump.cpp src/clients/Assembly.cpp" ;;
-    harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown | outshine/frame | apps/viewer/src | outshine/scenario | outshine/client | harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/data src/ground src/ground/tiles src/sim src/actor/path src/actor/body src/actor/mind src/host src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/compositor src/clients/Live.cpp src/clients/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/clients/InputPump.cpp src/clients/Assembly.cpp" ;;
-    apps/driver/src) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/actor/path src/actor/body src/actor/mind src/data src/ground/tiles src/ground src/clients/GltfStudio.cpp src/clients/Image.cpp src/clients/Surfaces.cpp src/clients/Live.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/clients/InputPump.cpp src/sim src/scene src/clients/Assembly.cpp" ;;
+    harness/outshine/door) printf '%s' "src/base/math src/world/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/world/generators/AlpineLimit.cpp src/content/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/sim src/actor/path src/actor/body src/actor/mind src/host src/engine/GltfStudio.cpp src/engine/Image.cpp src/engine/Surfaces.cpp src/compositor src/engine/Live.cpp src/engine/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
+    harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown | outshine/frame | apps/viewer/src | outshine/scenario | outshine/client | harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/base/math src/world/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/world/generators/AlpineLimit.cpp src/content/gltf src/render/plan src/render/draw src/render src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/sim src/actor/path src/actor/body src/actor/mind src/host src/engine/GltfStudio.cpp src/engine/Image.cpp src/engine/Surfaces.cpp src/compositor src/engine/Live.cpp src/engine/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
+    apps/driver/src) printf '%s' "src/base/math src/world/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/world/generators/AlpineLimit.cpp src/content/gltf src/render/plan src/render/draw src/render src/render/stages src/ui src/actor/path src/actor/body src/actor/mind src/world/data src/world/ground/tiles src/world/ground src/engine/GltfStudio.cpp src/engine/Image.cpp src/engine/Surfaces.cpp src/engine/Live.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/sim src/scene src/engine/Assembly.cpp" ;;
     *) return 1 ;;
   esac
 }
@@ -308,43 +310,43 @@ LayerExtraSources() {
 
 GroupIncludes() {
   case "$1" in
-    src/core | src/core/io | src/core/Sha256.cpp | src/core/Json.cpp | src/core/Script.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io" ;;
+    src/world/generators/AlpineLimit.cpp | src/base/math | src/world/geo | src/base/format | src/base/spatial | src/content/shade | src/world/weather | src/world/sky | src/base/io | src/base/format/Sha256.cpp | src/base/format/Json.cpp | src/base/format/Script.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators" ;;
     src/actor/path) printf '%s' "-Iinclude -Isrc/actor/path" ;;
     src/scene) printf '%s' "" ;;
-    src/actor/body) printf '%s' "-Iinclude -Isrc/actor/body" ;;
+    src/actor/body) printf '%s' "-Iinclude -Isrc/base/math -Isrc/actor/body" ;;
     src/actor/mind) printf '%s' "-Iinclude -Isrc/actor/path -Isrc/actor/mind" ;;
-    src/sim/Rigging.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/actor/path -Isrc/actor/body -Isrc/actor/mind -Isrc/sim" ;;
-    src/sim/DriveTick.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/actor/path -Isrc/data -Isrc/actor/body -Isrc/actor/mind -Isrc/scene -Isrc/scenario -Isrc/sim -Isrc/ground -Isrc/ground/tiles" ;;
+    src/sim/Rigging.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/actor/path -Isrc/actor/body -Isrc/actor/mind -Isrc/sim" ;;
+    src/sim/DriveTick.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/generators -Isrc/actor/path -Isrc/world/data -Isrc/actor/body -Isrc/actor/mind -Isrc/scene -Isrc/scenario -Isrc/sim -Isrc/world/ground -Isrc/world/ground/tiles" ;;
     src/actor/path/Wayfinding.cpp) printf '%s' "-Iinclude -Isrc/actor/path" ;;
-    src/ground/RoadHarvest.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/actor/path -Isrc/data -Isrc/ground -Isrc/ground/tiles" ;;
-    src/data) printf '%s' "-Iinclude -Isrc/core -Isrc/data" ;;
-    src/ground | src/ground/tiles) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/actor/path -Isrc/data -Isrc/ground -Isrc/ground/tiles" ;;
-    src/gltf) printf '%s' "-Iinclude -Isrc/core -Isrc/gltf" ;;
-    src/ui) printf '%s' "-Iinclude -Isrc/core -Isrc/ui $(pkg-config --cflags sdl3-ttf)" ;;
-    src/audio) printf '%s' "-Iinclude -Isrc/core -Isrc/audio" ;;
-    src/scenario | src/scenario/ScenarioRead.cpp | src/scenario/ScenarioLayer.cpp | src/scenario/InputMap.cpp | src/scenario/Views.cpp | src/scenario/Triggers.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/scene -Isrc/scenario" ;;
-    src/generators | src/generators/TreeSpecies.cpp | src/generators/GrowthForm.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/generators" ;;
-    src/generators/draw) printf '%s' "-Iinclude -Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
-    src/render/plan) printf '%s' "-Iinclude -Isrc/core -Isrc/render/plan" ;;
-    src/render/draw) printf '%s' "-Iinclude -Isrc/core -Isrc/render/draw" ;;
-    src/render | src/render/stages | src/render/Readback.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages $(pkg-config --cflags sdl3)" ;;
-    src/clients/GltfStudio.cpp | src/clients/Surfaces.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/clients $(pkg-config --cflags sdl3)" ;;
-    src/clients/Live.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/clients -Isrc/ui $(pkg-config --cflags sdl3)" ;;
-    src/clients/Assembly.cpp) printf '%s' "-Iinclude -Isrc/scene -Isrc/data -Isrc/host -Isrc/clients" ;;
-    src/host) printf '%s' "-Iinclude -Isrc/data" ;;
-    src/compositor) printf '%s' "-Iinclude -Isrc/core -Isrc/data -Isrc/ground/tiles -Isrc/compositor" ;;
-    src/clients/InputPump.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/scenario -Isrc/scene -Isrc/data -Isrc/host -Isrc/clients $(pkg-config --cflags sdl3)" ;;
-    src/sim) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/actor/path -Isrc/data -Isrc/actor/body -Isrc/actor/mind -Isrc/scene -Isrc/scenario -Isrc/sim -Isrc/ground -Isrc/ground/tiles" ;;
-    src/clients/Engine.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/host -Isrc/clients -Isrc/scenario -Isrc/ui -Isrc/ground -Isrc/ground/tiles -Isrc/sim -Isrc/actor/path -Isrc/actor/body -Isrc/actor/mind -Isrc/scene $(pkg-config --cflags sdl3)" ;;
-    src/clients/Sim.cpp | src/clients/StreamTelemetry.cpp | src/clients/EyeTelemetry.cpp | src/clients/RegionForge.cpp) printf '%s' "-Iinclude -Isrc/core -Isrc/core/io -Isrc/data -Isrc/scenario -Isrc/ground -Isrc/ground/tiles -Isrc/generators -Isrc/generators/draw -Isrc/actor/path -Isrc/scene -Isrc/host -Isrc/clients" ;;
-    src/clients/Image.cpp) printf '%s' "-Iinclude -Isrc/scene -Isrc/data -Isrc/host -Isrc/clients $(pkg-config --cflags sdl3-image)" ;;
+    src/world/ground/RoadHarvest.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/generators -Isrc/actor/path -Isrc/world/data -Isrc/world/ground -Isrc/world/ground/tiles" ;;
+    src/world/data) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/data" ;;
+    src/world/ground | src/world/ground/tiles) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/generators -Isrc/actor/path -Isrc/world/data -Isrc/world/ground -Isrc/world/ground/tiles" ;;
+    src/content/gltf) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/content/gltf" ;;
+    src/ui) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/ui $(pkg-config --cflags sdl3-ttf)" ;;
+    src/audio) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/audio" ;;
+    src/scenario | src/scenario/ScenarioRead.cpp | src/scenario/ScenarioLayer.cpp | src/scenario/InputMap.cpp | src/scenario/Views.cpp | src/scenario/Triggers.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/scene -Isrc/scenario" ;;
+    src/world/generators | src/world/generators/TreeSpecies.cpp | src/world/generators/GrowthForm.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/generators" ;;
+    src/world/generators/draw) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/generators -Isrc/world/generators/draw" ;;
+    src/render/plan) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/render/plan" ;;
+    src/render/draw) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/render/draw" ;;
+    src/render | src/render/stages | src/render/Readback.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages $(pkg-config --cflags sdl3)" ;;
+    src/engine/GltfStudio.cpp | src/engine/Surfaces.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/data -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/engine $(pkg-config --cflags sdl3)" ;;
+    src/engine/Live.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/data -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/engine -Isrc/ui $(pkg-config --cflags sdl3)" ;;
+    src/engine/Assembly.cpp) printf '%s' "-Iinclude -Isrc/scene -Isrc/world/data -Isrc/host -Isrc/engine" ;;
+    src/host) printf '%s' "-Iinclude -Isrc/world/data" ;;
+    src/compositor) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/generators -Isrc/world/ground -Isrc/world/data -Isrc/world/ground/tiles -Isrc/compositor" ;;
+    src/engine/InputPump.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/scenario -Isrc/scene -Isrc/world/data -Isrc/host -Isrc/engine $(pkg-config --cflags sdl3)" ;;
+    src/sim) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/generators -Isrc/actor/path -Isrc/world/data -Isrc/actor/body -Isrc/actor/mind -Isrc/scene -Isrc/scenario -Isrc/sim -Isrc/world/ground -Isrc/world/ground/tiles" ;;
+    src/engine/Engine.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/generators -Isrc/world/data -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/compositor -Isrc/host -Isrc/engine -Isrc/scenario -Isrc/ui -Isrc/world/ground -Isrc/world/ground/tiles -Isrc/sim -Isrc/actor/path -Isrc/actor/body -Isrc/actor/mind -Isrc/scene $(pkg-config --cflags sdl3)" ;;
+    src/engine/Sim.cpp | src/engine/StreamTelemetry.cpp | src/engine/EyeTelemetry.cpp | src/engine/RegionForge.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/data -Isrc/scenario -Isrc/world/ground -Isrc/world/ground/tiles -Isrc/world/generators -Isrc/world/generators/draw -Isrc/actor/path -Isrc/scene -Isrc/host -Isrc/engine" ;;
+    src/engine/Image.cpp) printf '%s' "-Iinclude -Isrc/scene -Isrc/world/data -Isrc/host -Isrc/engine $(pkg-config --cflags sdl3-image)" ;;
     *) return 1 ;;
   esac
 }
 
 GroupToolchain() {
   case "$1" in
-    src/render | src/render/stages | src/render/Readback.cpp | src/clients/GltfStudio.cpp | src/clients/Surfaces.cpp | src/clients/Live.cpp) LayerToolchain render ;;
+    src/render | src/render/stages | src/render/Readback.cpp | src/engine/GltfStudio.cpp | src/engine/Surfaces.cpp | src/engine/Live.cpp) LayerToolchain render ;;
     *) printf '%s' "$CXXSTD" ;;
   esac
 }
@@ -637,6 +639,62 @@ if [ "$WOULDPRUNE" = 1 ]; then
   exit 0
 fi
 
+# THE LAYERING IS A DIRECTION AND THE DIRECTION IS DECLARED. Unreal states each module's
+# dependencies in its own Build.cs and the build enforces them; RAGE states them by library and
+# by prefix. Here they are one table, and a source that includes across it refuses. Without this
+# the layering is a convention, and a convention is how src/core became a drawer of 44 headers
+# (board:1902).
+LayerReaches() {
+  case "$1" in
+    base) printf '%s' "" ;;
+    content) printf '%s' "base" ;;
+    world) printf '%s' "base content" ;;
+    actor) printf '%s' "base" ;;
+    render) printf '%s' "base content" ;;
+    scene) printf '%s' "base" ;;
+    scenario) printf '%s' "base content world" ;;
+    ui) printf '%s' "base content" ;;
+    audio) printf '%s' "base" ;;
+    host) printf '%s' "base world" ;;
+    compositor) printf '%s' "base world content" ;;
+    sim) printf '%s' "base world content actor scene" ;;
+    engine) printf '%s' "base content world actor render scene scenario sim ui audio host compositor" ;;
+    *) return 1 ;;
+  esac
+}
+
+if [ "$AUDIT_LAYERS" = 1 ]; then
+  owners=$BUILD/log/header-tiers
+  mkdir -p "$BUILD/log"
+  find src -name '*.h' -not -path 'src/assets/*' |
+    sed -e 's|^src/\([^/]*\)/.*/\([^/]*\)$|\2 \1|' -e 's|^src/\([^/]*\)/\([^/]*\)$|\2 \1|' |
+    sort -u > "$owners"
+  crossed=0
+  for source in $(find src -name '*.cpp' -o -name '*.h' | grep -v '^src/assets/' | sort); do
+    tier=$(printf '%s' "$source" | sed 's|^src/\([^/]*\)/.*|\1|')
+    allowed=$(LayerReaches "$tier") || continue
+    for included in $(sed -n 's|^#include "\([^"]*\)".*|\1|p' "$source" | sed 's|.*/||' | sort -u); do
+      held=$(awk -v want="$included" '$1 == want { print $2; exit }' "$owners")
+      [ -z "$held" ] && continue
+      [ "$held" = "$tier" ] && continue
+      case " $allowed " in
+        *" $held "*) ;;
+        *)
+          printf 'AUDIT %s is in the %s tier and includes %s from %s, which %s does not reach\n' \
+            "$source" "$tier" "$included" "$held" "$tier"
+          crossed=$((crossed + 1))
+          ;;
+      esac
+    done
+  done
+  if [ "$crossed" = 0 ]; then
+    printf 'AUDIT layered: every source includes only what its tier declares it reaches\n'
+    exit 0
+  fi
+  printf 'AUDIT %s include(s) cross the declared layering\n' "$crossed"
+  exit 1
+fi
+
 if [ "$AUDIT" = 1 ]; then
   bad=0
   for suiteDir in $(find test apps -name '*.cpp' | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
@@ -788,7 +846,7 @@ if [ "$AUDITLINK" = 1 ]; then
 fi
 
 OBJECTS=""
-BuildGroup src/core/Json.cpp || Die "the prune's reader did not build"
+BuildGroup src/base/format/Json.cpp || Die "the prune's reader did not build"
 pruneStale=no
 [ -x "$BUILD/prune" ] || pruneStale=yes
 [ "test/harness/shared/Prune.cpp" -nt "$BUILD/prune" ] && pruneStale=yes
@@ -796,7 +854,7 @@ for pruneObject in $OBJECTS; do
   [ "$pruneObject" -nt "$BUILD/prune" ] && pruneStale=yes
 done
 if [ "$pruneStale" = yes ]; then
-  $CXX test/harness/shared/Prune.cpp $OBJECTS $CXXSTD $OPT $WARN -Itest/harness/shared -Itest/harness/shared/render -Isrc/core -o "$BUILD/prune" ||
+  $CXX test/harness/shared/Prune.cpp $OBJECTS $CXXSTD $OPT $WARN -Itest/harness/shared -Itest/harness/shared/render -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -o "$BUILD/prune" ||
     Die "the prune did not build"
 fi
 PRUNE_MARKER=$BUILD/prune.marker

@@ -256,6 +256,7 @@ struct Vehicle {
   double TrackM = 0.0;
   double CorneringNPerRad = 0.0;
   double RelaxationM = 0.0;
+  double LoadFalloff = 0.0;
   double PeakTorqueNm = 0.0;
   double FinalDrive = 0.0;
   double BrakeTorqueNm = 0.0;

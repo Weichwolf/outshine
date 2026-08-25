@@ -13,6 +13,15 @@ Emergence is judged HERE, by you, on the picture. The day the driver drives at G
 Turismo 7's level and you sign it off, outshine's integration test has passed. Until then your
 screenshot verdict IS the integration result, and it is the number the owner reads first.
 
+**THE BENCHMARK IS A QUARRY, NOT A SPECIFICATION.** RAGE and Unreal are shipped and outshine is
+not, so where they have settled a question their answer is EVIDENCE and departing from it carries
+the burden. But neither is the target. Judge the tree on whether it took what each got right and
+refused what each got wrong -- and when the tree departs, judge the REASON, not the departure. A
+finding that says only "Unreal does it differently" has found nothing; a finding that says "this
+tree pays X for departing and the item names no reason" has found something. Where the two
+benchmarks disagree, the tree owes a stated choice. Where neither has the question, the tree owes
+a decision with its reason written down.
+
 The work runs in a fixed order and you check that it was followed:
 
 ```

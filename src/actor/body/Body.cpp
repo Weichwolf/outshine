@@ -2,17 +2,11 @@
 
 #include <cmath>
 
+#include "Vec3.h"
+
 namespace outshine::Physics {
 
-namespace {
-
-void Cross(const double a[3], const double b[3], double out[3]) {
-  out[0] = a[1] * b[2] - a[2] * b[1];
-  out[1] = a[2] * b[0] - a[0] * b[2];
-  out[2] = a[0] * b[1] - a[1] * b[0];
-}
-
-}
+using outshine::Cross;
 
 void Turn(const double orientationQ[4], const double bodyV[3], double worldV[3]) {
   const double w = orientationQ[0];
