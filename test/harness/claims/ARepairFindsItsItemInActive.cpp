@@ -72,7 +72,11 @@ int main(void) {
       ++repairs;
       for (size_t one = 0; one < names.Count; ++one) {
         const unsigned item = names.Items[one];
-        if (!StoodIn("board/", commit + "^", item)) { continue; }
+        // An item filed and worked in one commit exists in this tree and not its parent's;
+        // asking only the parent would let that shape through unjudged.
+        if (!StoodIn("board/", commit + "^", item) && !StoodIn("board/", commit, item)) {
+          continue;
+        }
         ++named;
         if (StoodIn("board/active/", commit + "^", item) ||
             StoodIn("board/active/", commit, item)) {
