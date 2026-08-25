@@ -281,7 +281,7 @@ at (board:1777):
 | `WaterField` | `void Tessellate(const OsmField &field, std::vector<float> &out) const;` (WaterField.h:47) -- the same: a field that meshes rather than one that answers |
 | `Subject` | `class Subject {` (Subject.h:98) carries 42 `[[nodiscard]]` over one glTF document -- the getter carpet |
 | `DrawList` | `class DrawList {` (DrawList.h:167) with `struct VertexLayoutRow {` (:49) beside it: the list and the layout table in one header |
-| `Renderer` | `class Renderer {` (Renderer.h:31) publishes 54 `[[nodiscard]]` and 15 `const {` -- the getter carpet, on the frame path |
+| `Renderer` | `class Renderer {` (Renderer.h:32) publishes 54 `[[nodiscard]]` and 15 `const {` -- the getter carpet, on the frame path |
 | `TonemapStage` | `class TonemapStage {` (TonemapStage.h:14) is where `temporalResolve` folded into, so it carries two picture decisions |
 | `LightVisibilityStage` | `class LightVisibilityStage {` (LightVisibilityStage.h:16) -- one shadow atlas for every light, no cascade selection declared |
 | `Frustum` | `struct Frustum {` (Camera.h:94) sits in core beside the camera, while culling belongs to the compositor |

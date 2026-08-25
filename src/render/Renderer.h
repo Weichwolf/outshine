@@ -4,6 +4,7 @@
 #include <span>
 #include <cstdint>
 #include <memory>
+#include <expected>
 #include <string>
 #include <vector>
 
@@ -43,9 +44,9 @@ public:
     int HeightPx = 0;
   };
 
-  [[nodiscard]] bool ShowOn(SDL_Window *window, std::string &error);
-  [[nodiscard]] bool ShowOffscreen(int widthPx, int heightPx, std::string &error);
-  [[nodiscard]] Shown PresentFrame();
+  [[nodiscard]] std::expected<void, std::string> ShowOn(SDL_Window *window);
+  [[nodiscard]] std::expected<void, std::string> ShowOffscreen(int widthPx, int heightPx);
+  [[nodiscard]] std::expected<Shown, std::string> PresentFrame();
   void StopShowing();
 
   [[nodiscard]] SDL_GPUTextureFormat SurfaceFormat() const;

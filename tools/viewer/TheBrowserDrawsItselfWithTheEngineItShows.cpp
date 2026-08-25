@@ -549,6 +549,8 @@ int Windowed(Browser &browser, int frames) {
 
   std::unique_ptr<outshine::Clients::Live> live;
   std::string error;
+  int unshown = 0;
+  std::string unshownWhy;
 
   SDL_Window *window = SDL_CreateWindow("outshine cases", browser.WidthPx, browser.HeightPx,
                                         SDL_WINDOW_RESIZABLE);
@@ -607,9 +609,12 @@ int Windowed(Browser &browser, int frames) {
           browser.Showing.Note = "THE DECLARATION WAS REFUSED";
         }
       }
-      if (live && !renderer.ShowOn(window, error)) {
-        std::printf("the window was refused: %s\n", error.c_str());
-        return 1;
+      if (live) {
+        auto standing = renderer.ShowOn(window);
+        if (!standing) {
+          std::printf("the window was refused: %s\n", standing.error().c_str());
+          return 1;
+        }
       }
       body = browser.Body();
       restand = false;
@@ -623,8 +628,12 @@ int Windowed(Browser &browser, int frames) {
     }
     if (!live) { break; }
 
-    const outshine::Render::Renderer::Shown shown = renderer.PresentFrame();
-    if (shown.Drew) {
+    auto presented = renderer.PresentFrame();
+    if (!presented) {
+      ++unshown;
+      if (unshownWhy.empty()) { unshownWhy = std::move(presented).error(); }
+    } else {
+      const outshine::Render::Renderer::Shown shown = *presented;
       if (shown.WidthPx != browser.WidthPx || shown.HeightPx != browser.HeightPx) {
         browser.WidthPx = shown.WidthPx;
         browser.HeightPx = shown.HeightPx;
@@ -637,6 +646,9 @@ int Windowed(Browser &browser, int frames) {
     }
   }
   renderer.WaitForGpu();
+  if (unshown > 0) {
+    std::printf("%d frame(s) never reached the surface: %s\n", unshown, unshownWhy.c_str());
+  }
   if (frames >= 0) {
     const Distribution advancing = Over(advanceMs);
     std::printf("advance p50 %.3f p95 %.3f p99 %.3f max %.3f ms over %zu frames\n",
