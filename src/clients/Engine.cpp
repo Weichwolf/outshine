@@ -113,7 +113,6 @@ struct Engine::State {
   Clients::InputPump Pump;
   bool Pumping = false;
   std::optional<TriggerField> Volumes;
-  std::vector<std::string> Measured;
   std::vector<Measure> Numbers;
   Host *Offered = nullptr;
   Ground::GroundStack Stack;
@@ -209,7 +208,8 @@ bool Engine::Drives(void) {
   const bool routed = Sim::AssembleDrive(S_->Scene, S_->Stood, S_->Vehicles, S_->Drives,
                                          declared.Ground, S_->Stack, *S_->Wire, kept, say,
                                          S_->Drive);
-  S_->Measured = std::move(say.Held);
+  S_->Carried.insert(S_->Carried.end(), std::make_move_iterator(say.Held.begin()),
+                     std::make_move_iterator(say.Held.end()));
   S_->Numbers = std::move(say.Took);
   if (!routed) {
     S_->Error = say.WhyNot();
@@ -220,7 +220,7 @@ bool Engine::Drives(void) {
   }
   S_->Drove = true;
   if (!Compose()) {
-    S_->Measured.push_back("the ground did not compose: " + S_->Error);
+    S_->Carried.push_back("the ground did not compose: " + S_->Error);
     S_->Error.clear();
   }
   return true;
@@ -355,7 +355,6 @@ bool Engine::Compose(void) {
   return true;
 }
 
-const Roots &Engine::Under(void) const { return S_->Under; }
 
 bool Engine::Capture(std::string_view path) {
   if (!S_->Standing) {
@@ -648,14 +647,6 @@ bool Engine::Read(std::string_view path) {
   return true;
 }
 
-bool Engine::Load(std::string_view path) {
-  Scenario scenario;
-  if (!ReadInto(path, scenario)) { return false; }
-  if (!Declare(scenario)) { return false; }
-  S_->Carried.insert(S_->Carried.end(), S_->LayerTrace.begin(), S_->LayerTrace.end());
-  return true;
-}
-
 const Scenario &Engine::Declared() const { return S_->Declared; }
 
 inline constexpr size_t kMostSaveBytes = 1 << 20;
@@ -801,7 +792,6 @@ bool Engine::Restore(std::string_view path) {
 }
 const std::vector<std::string> &Engine::Carried() const { return S_->Carried; }
 
-const std::vector<std::string> &Engine::Measured() const { return S_->Measured; }
 
 const std::vector<Measure> &Engine::Numbers() const { return S_->Numbers; }
 
@@ -815,15 +805,6 @@ bool Engine::Takes(std::string_view view) {
     return false;
   }
   return true;
-}
-
-std::vector<std::string> Engine::Views(void) const {
-  std::vector<std::string> named;
-  if (!S_->Views) { return named; }
-  for (size_t at = 0; at < S_->Views->Count(); ++at) {
-    named.push_back(S_->Views->AtIndex(at).Id);
-  }
-  return named;
 }
 
 bool Engine::Rides(void) {
@@ -854,7 +835,7 @@ bool Engine::Rides(void) {
   if (S_->Volumes) {
     S_->Volumes->Probe(0, body.PositionM, (double)S_->Standing->At() * kTickS);
     for (const TriggerField::Fired &fired : S_->Volumes->Drain()) {
-      S_->Measured.push_back("a volume fired event " + std::to_string(fired.Event) +
+      S_->Carried.push_back("a volume fired event " + std::to_string(fired.Event) +
                              " for body " + std::to_string(fired.Body));
     }
   }

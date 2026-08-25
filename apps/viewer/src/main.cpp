@@ -65,10 +65,10 @@ public:
 
   [[nodiscard]] bool Calls(std::string_view name, std::span<const outshine::Argument> args) override {
     if (name == "next-view" && Engine_ != nullptr) {
-      const std::vector<std::string> named = Engine_->Views();
+      const std::vector<outshine::View> &named = Engine_->Declared().Views;
       if (named.size() < 2) { return false; }
       Viewing_ = (Viewing_ + 1) % named.size();
-      return Engine_->Takes(named[Viewing_]);
+      return Engine_->Takes(named[Viewing_].Id);
     }
     if (name == "select" && args.size() == 1 &&
         args[0].Is == outshine::Argument::Kind::Number) {

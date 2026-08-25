@@ -10,28 +10,10 @@
 
 #include <SDL3/SDL.h>
 
+#include <Event.h>
 #include <Scenario.h>
 
 namespace outshine {
-
-struct Argument {
-  enum class Kind : uint8_t { Number, Text };
-  Kind Is = Kind::Number;
-  double Number = 0.0;
-  std::string_view Text;
-};
-
-class Host {
-public:
-  virtual ~Host() = default;
-  [[nodiscard]] virtual bool Calls(std::string_view name, std::span<const Argument> args) = 0;
-};
-
-struct Measure {
-  std::string What;
-  double How = 0.0;
-  std::string Unit;
-};
 
 struct Roots {
   std::string Assets;
@@ -52,21 +34,17 @@ public:
   [[nodiscard]] bool DrawsInto(SDL_Window *presents);
   void Offers(Host *host);
   [[nodiscard]] bool Takes(std::string_view view);
-  [[nodiscard]] std::vector<std::string> Views(void) const;
   [[nodiscard]] bool Handles(const SDL_Event &event);
   [[nodiscard]] bool DrawsInto(Extent offscreen);
   void Under(Roots roots);
   [[nodiscard]] bool Capture(std::string_view path);
-  [[nodiscard]] const Roots &Under(void) const;
 
   [[nodiscard]] bool Read(std::string_view path);
-  [[nodiscard]] bool Load(std::string_view path);
   [[nodiscard]] bool Declare(const Scenario &scenario);
   [[nodiscard]] bool Shows(const std::vector<Surface> &surfaces);
 
   [[nodiscard]] const Scenario &Declared(void) const;
   [[nodiscard]] const std::vector<std::string> &Carried(void) const;
-  [[nodiscard]] const std::vector<std::string> &Measured(void) const;
   [[nodiscard]] const std::vector<Measure> &Numbers(void) const;
 
   [[nodiscard]] bool Assemble();
