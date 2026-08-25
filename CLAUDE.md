@@ -4,25 +4,10 @@
 Apple A18 Pro (2P+4E cores, 5 GPU cores, 8 GB, Metal 4), **720p60 held** — p50/p95/p99 over a moving
 camera, never a mean.
 
-**THE BENCHMARK IS A QUARRY, NOT A SPECIFICATION.** RAGE and Unreal are shipped and outshine is
-not, so where they have settled a question, their answer is EVIDENCE and the burden is on
-departing from it. But neither is the target: the job is to take what each got right, refuse what
-each got wrong, and answer to the tree we are actually building. Where they disagree — RAGE's
-decisionless pools against Unreal's toolable modules — take both if both hold, and say which one
-this tree is following and why. Where they agree and the tree does not, the tree is the finding.
-Where neither has the question, decide it and write down the reason. **The decision is mine to
-make and the reason is what I owe** — a design that cites a benchmark instead of arguing has
-argued nothing.
-
-**And the two quarries are not equally open.** Unreal's source can be read, so a claim about
-`FEngineLoop::Tick`, `Build.cs` dependency declarations, `Public/`/`Private/`, or
-`AddToWorld`/`RemoveFromWorld` stands on the thing itself. RAGE is closed, and what is known of
-`atArray`, `fwPool`, `fwEntity`, `phBound`, `gameSkeleton` or the `rage::`-versus-`C` split comes
-from public reverse engineering — FiveM/CitizenFX headers, modding documentation, Rockstar's own
-conference talks. Broadly corroborated and NOT authoritative. So a rule that leans on RAGE alone
-carries less than one that leans on Unreal alone, and one that leans on a RAGE detail nobody can
-check carries least of all: state the confidence where it matters, and never let a reconstructed
-detail outrank a measurement of THIS tree.
+**THE BENCHMARK IS A QUARRY, NOT A SPECIFICATION.** Where RAGE or Unreal settled a question their
+answer is evidence and departing carries the burden — but the decision is mine and the REASON is
+what I owe. Unreal can be read; RAGE is reconstruction, so it carries less, and neither outranks
+a measurement of THIS tree.
 
 **What an engine IS**: an interactive physics simulation with a focus on graphics — physically as
 accurate as NECESSARY, graphically as good as the FRAME BUDGET allows, temporally DETERMINISTIC.
@@ -41,17 +26,15 @@ wherever it stands.
   product in `double`, and the cast to `float` only at the uniform push
   (`src/render/stages/SubjectDraw.cpp:841,846,854`). A `float` that ever holds a world position
   is a defect; a `double` that reaches a shader is a different one
+- **Private is the DEFAULT and a wider door justifies itself** in the item that widened it. What
+  is private can be changed; a public data member is an invariant nobody can hold. Composition is
+  the usual answer, inheritance the right one where a stable interface carries shared machinery.
+  `--audit-access` counts what stands wider and refuses when the count moves
 - **SIMD- and optimization-friendly**: contiguous, one-width, pointer-free layouts; fast path on the hot path; batch over per-item; bounded terms on the frame path (no alloc/lock/disk/unbounded block)
 - **Declarative**: scenarios declare, the engine behaves; content = data, engine = verbs; the consumer selects from a `constexpr` catalogue and cannot add to it. **A section that is NOT declared decides nothing** — its `Declared` flag is read where the decision is made, and what stands in its place is the engine's own default, never the zeroes of a struct nobody filled in
-- **A SCENARIO IS A STREAM, not a value that is re-declared.** The engine streams from its
-  generators and a scenario arrives the same way: `Declare` seeds, and after that parts enter and
-  leave. Swapping a part must be EASY and FAST — reuse what can be reused, recompute or allocate
-  only what changed. Both benchmarks say it and neither rebuilds a world to change part of one:
-  Unreal streams levels into a persistent world with `AddToWorld`/`RemoveFromWorld`, budgeted and
-  incremental across frames, and spawns and destroys actors against it; RAGE swaps one IMAP group
-  for another through a map change against a streamed map data store, out of decisionless pools.
-  The measurement is a cost bound: the work a declaration causes is proportional to what it
-  CHANGED, never to how big it is
+- **A SCENARIO IS A STREAM, not a value that is re-declared.** `Declare` seeds; after that parts
+  enter and leave. The bound is a cost: the work a declaration causes is proportional to what it
+  CHANGED, never to how big it is. Neither benchmark rebuilds a world to change part of one
 - **Batteries as declarations**: outshine ships convenience components -- generators, providers, world templates and factories (`Planet(params)` → a Scenario value) -- all catalogue citizens the scenario selects; the engine core stays scenario-agnostic
 - **Every number carries its origin** (derived · measured · `[SET]`) with unit and population; no magic numbers; calibration measures, never decides
 - **The code carries NO comments** — `src/`, `include/` and `apps/` hold no `//`, no block, no
@@ -80,17 +63,26 @@ wherever it stands.
 **Diagram colours** — CURRENT: green = correct by current knowledge · amber = uncertain · red =
 provably wrong · grey dashed = absent. TARGET: green = certain · amber = probable.
 
+## Who reads this
+
+**This file is the DEVELOPER's, and it is VISION and TARGET — never a description.** I read it on
+every turn and drive with it: pick the next item, repair it, close it with a proving test and a
+negative control. The architect reviews from OUTSIDE the change, against the same map and its own
+brief in `.claude/agents/`; it files findings and never edits `src/`. I advance, it CORRECTS.
+
+The asymmetry is not tempo but standing: inside the work I can be wrong and measure my way out
+before the hour is over, and I was four times today. A finding the architect files becomes work,
+so it takes nothing on my word — it runs the gate itself and reads the tree, not my account of
+it. **`STATE.md` is CURRENT for both of us**, generated by every `make` and written by no hand.
+
 ## CURRENT is `STATE.md` and TARGET is here
 
 **This file carries only what the tree is going TOWARD. What it IS lives in `STATE.md`, which
-every `make` regenerates and no hand writes.** The split is not tidiness: a CURRENT map drawn by
-hand cites file:line, and every edit drifts it, so the map spends its life being corrected
-instead of read. `STATE.md` cannot drift — it carries the door's verbs out of `include/`, the
-module graph out of the includes themselves with any cycle named, the tier table, the heaviest
-units against their median, the widest public surfaces, colliding header names, the sources no
-suite links, every claim a case proves, every standing red and every open item.
+every `make` regenerates and no hand writes** — the door's verbs, the module graph with any cycle
+named, the tier table, the heaviest units, the widest surfaces, colliding header names, the
+sources no suite links, and every claim a case proves.
 
-So: **a diagram here is an intention and never a description.** When the two disagree the tree is
+**A diagram here is an intention and never a description.** When the two disagree the tree is
 what `STATE.md` says, and the distance between them is the work.
 
 ## Architecture (TARGET)
@@ -263,15 +255,6 @@ inside one tier, which the tier table alone cannot see. `base/` (math · geo · 
 | `Makefile` | build · test · clean, nothing else |
 | `board/` | the working system (above) |
 
-**Every `make` writes `STATE.md`** -- what the library IS, on one page, generated: the door's verbs
-extracted from `include/`, the tier graph and what each tier may include, every claim a case
-`Covers`, every standing red, every open item, and the counts. There is no RFC for this and the
-nearest established shapes are a `.pyi` stub and a man page's SYNOPSIS -- signatures without
-bodies. Those answer what a door OFFERS; this answers what the tree PROVES, which is the half
-that goes stale in prose. Nothing in it is written by hand, so nothing in it can lie about the
-tree. It is an artefact and lives with the build, never in the tree, so it cannot go stale and
-cannot be edited into a lie: 16 kB, 247 lines, one command.
-
 `make` builds the library and every program under `apps/` into `build/`. `test/run.sh` is the
 only TEST runner and runs nothing else; by default it runs the corpora and the claims, while
 `tools` and `apps` run when named. A standing RED is declared in `EXPECT_FAIL` with its count,
@@ -309,14 +292,10 @@ What a corpus HOLDS decides what it can prove:
 | **SNAPSHOT** | another implementation, frozen | agreement, never correctness |
 | **INPUT** | nothing is supplied | that we survive it |
 
-**A FUZZ CASE IS INPUT GRADE AND DETERMINISTIC.** It proves survival and never correctness. A
-random fuzzer belongs OUTSIDE a gate that must not go silent: it finds a different thing every
-run, so its green means nothing and its red cannot be repeated. A fuzz case in the gate walks a
-FIXED schedule — every mutant a pure function of (seed, position, kind), the same on every
-machine forever — and a long random soak is a separate job whose OUTPUT is a reduced case
-committed here, never a tick. Its two controls are that the schedule produces documents the
-reader REFUSES and documents that still STAND: a reader that accepted everything, or one that
-refused everything, would otherwise pass by silence.
+**A FUZZ CASE IS INPUT GRADE AND DETERMINISTIC** — every mutant a pure function of (seed,
+position, kind). A random fuzzer belongs outside a gate that must not go silent; its output is a
+reduced case committed here, never a tick. Its two controls: the schedule must produce documents
+the reader REFUSES and documents that still STAND.
 
 **`test/<vendor>/` is the vendor's word; `test/harness/outshine/` is OUR OWN ORACLE and carries less.**
 A khronos, wpt, test262 or geographiclib case is a SPECIFICATION: it fails and the code is

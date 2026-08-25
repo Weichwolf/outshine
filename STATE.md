@@ -201,17 +201,27 @@ PROVES -- what src/ provably does, one line each
   the runner can read the oracle's EXR directly, so the flat raw beside it is a derived cache rather than an artefact that must survive
   the runner prunes test by test, and a file whose producer cannot be proven stays with the reason its proof failed
 
+ACCESS -- what stands wider than private
+  6 protected section(s), and inheritance is right where a stable interface carries
+  shared machinery -- Source, WebTileSource, TerrariumDem is that shape
+    src/world/data/TerrariumDem.h
+    src/world/data/VersatilesVector.h
+    src/world/data/WebTileSource.h
+    src/world/generators/draw/DrawSource.h
+    src/world/generators/Generator.h
+    src/world/ground/StructureMesher.h
+
 DECIDED -- named constants standing as a bare literal, whose origin is elsewhere
-   18  src/world/generators/draw/TreeGrower.cpp
    16  src/world/generators/draw/BuildingShape.cpp
    14  src/world/generators/draw/BuildingMesh.cpp
-    7  src/render/stages/ParticipatingMedium.h
-    7  src/base/math/Units.h
     6  src/content/gltf/Framing.h
     5  src/world/ground/World.cpp
-    5  src/world/generators/draw/TreePrototype.cpp
-    5  src/render/stages/SubjectDraw.h
+    5  src/render/stages/ParticipatingMedium.h
     5  src/render/stages/IridescenceLobe.h
+    4  src/render/stages/SubjectDraw.h
+    4  src/actor/path/ReferenceLine.h
+    3  src/world/ground/WaterField.cpp
+    3  src/world/ground/TerrainLoader.cpp
 
 COUNTS
   150 source(s) under src/, 37 of them linked by no suite

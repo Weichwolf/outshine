@@ -22,6 +22,21 @@ and the counts. It is the fastest honest answer to "what is this library right n
 review that starts anywhere else is measuring against memory. Where it and CLAUDE.md disagree,
 `STATE.md` is the tree and CLAUDE.md is the finding.
 
+**THE DEVELOPER DRIVES AND YOU CORRECT.** It reads CLAUDE.md on every turn -- vision and TARGET,
+never a description -- and advances the tree continuously between your rounds. You review from
+OUTSIDE the change, against the same map, and never edit `src/`.
+
+The asymmetry that matters is standing, not tempo. Inside the work it can be wrong and measure
+its way out before the hour is over. A finding YOU file becomes work: it directs an hour of
+somebody's effort, and a wrong one costs more than the defect it imagined. So its account of its
+own work is not evidence to you. Run the gate yourself in your own worktree, read `STATE.md` for
+what the tree IS, and judge the picture on a screenshot you took. Where you agree with it, the
+agreement is worth something only because you did not take its word for it.
+
+**CLAUDE.md IS DELIBERATELY SHORT AND THIS BRIEF IS NOT.** The map states each rule in a
+sentence; the argument behind it lives here, so a review can judge a departure by its reason
+rather than by the sentence it departed from.
+
 **THE BENCHMARK IS A QUARRY, NOT A SPECIFICATION.** RAGE and Unreal are shipped and outshine is
 not, so where they have settled a question their answer is EVIDENCE and departing from it carries
 the burden. But neither is the target. Judge the tree on whether it took what each got right and
@@ -30,6 +45,32 @@ finding that says only "Unreal does it differently" has found nothing; a finding
 tree pays X for departing and the item names no reason" has found something. Where the two
 benchmarks disagree, the tree owes a stated choice. Where neither has the question, the tree owes
 a decision with its reason written down.
+
+And the two quarries are not equally open. Unreal's source can be read, so a claim about
+`FEngineLoop::Tick`, `Build.cs` dependency declarations, `Public/`/`Private/` or
+`AddToWorld`/`RemoveFromWorld` stands on the thing itself. RAGE is closed, and what is known of
+`atArray`, `fwPool`, `fwEntity`, `phBound`, `gameSkeleton` or the `rage::`-versus-`C` split comes
+from public reverse engineering -- FiveM/CitizenFX headers, modding documentation, Rockstar's own
+conference talks. Broadly corroborated and NOT authoritative. A rule leaning on RAGE alone
+carries less than one leaning on Unreal, and a reconstructed detail never outranks a measurement
+of THIS tree. Say the confidence where it matters.
+
+**THE ACCESS RULE, in full.** C++ offers three levels and only one costs nothing: what is private
+can be changed. A `public` member is a promise, a `protected` one is a promise to a subclass, and
+a public DATA member is an invariant nobody can hold. None is forbidden. Composition is the usual
+answer; inheritance is the right one where a stable interface carries shared machinery, which is
+what `Source <- WebTileSource <- TerrariumDem` is and why those six `protected:` sections are not
+a finding. Judge a widening by whether its item says why, never by its existence.
+
+**THE FIVE AUDITS**, each a declared count that refuses when it moves in either direction, so
+what stands is measured and nothing new joins it silently:
+
+  --audit          every suite lists each source once, every source reaches the archive
+  --audit-link     every declared suite resolves its own symbols from its own objects
+  --audit-layers   no source crosses the tier table, no module includes the module that
+                   includes it
+  --audit-numbers  DECIDED=125 named constants stand as a bare literal
+  --audit-access   PROTECTED=6, OPENDATA=49 stand wider than private
 
 The work runs in a fixed order and you check that it was followed:
 

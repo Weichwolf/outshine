@@ -5,9 +5,13 @@ set -m
 AUDIT=0
 AUDIT_LAYERS=0
 AUDIT_NUMBERS=0
+AUDIT_ACCESS=0
 STATE=0
 STRANDED=37
-DECIDED=191
+DECIDED=125
+PROTECTED=6
+OPENDATA=49
+INHERITS=0
 OWNER_MAP_BUILT=no
 CORPUS=0
 WOULDPRUNE=0
@@ -194,6 +198,7 @@ while [ $# -gt 0 ]; do
     --audit-link) AUDITLINK=1; shift ;;
     --audit-layers) AUDIT_LAYERS=1; shift ;;
     --audit-numbers) AUDIT_NUMBERS=1; shift ;;
+    --audit-access) AUDIT_ACCESS=1; shift ;;
     --state) STATE=1; shift ;;
     -*) Die "unknown option '$1'" ;;
     *) SUITES="$SUITES ${1%/}"; SUITE=${1%/}; shift; continue ;;
@@ -770,12 +775,19 @@ if [ "$STATE" = 1 ]; then
            gsub(/"[ \t]*\n?[ \t]*"/, "", line); gsub(/"/, "", line)
            gsub(/[ \t]+/, " ", line); print line; line = "" }' "$case"
   done | sed -e 's|^ *||' | grep . | sort -u | cut -c1-150 | sed 's|^|  |'
+  printf '\nACCESS -- what stands wider than private\n'
+  printf '  %s protected section(s), and inheritance is right where a stable interface carries\n' \
+    "$(grep -rc '^ *protected:' src --include=*.h 2>/dev/null | awk -F: '{ n += $2 } END { print n + 0 }')"
+  printf '  shared machinery -- Source, WebTileSource, TerrariumDem is that shape\n'
+  grep -rn '^ *protected:' src --include=*.h 2>/dev/null | sed -E 's|:[0-9]+:.*||' | sort -u | sed 's|^|    |'
+
   printf '\nDECIDED -- named constants standing as a bare literal, whose origin is elsewhere\n'
   grep -rnE '(constexpr|const) +(double|float|int|size_t|unsigned|uint[0-9]+_t|long) +k[A-Z][A-Za-z0-9_]* *= *-?[0-9]' \
     src --include=*.h --include=*.cpp 2>/dev/null | grep -v '^src/assets/' |
     sed -E 's|^([^:]*):[0-9]*:.*(k[A-Z][A-Za-z0-9_]*) *= *([^;,]*).*|\1 \2 \3|' |
     grep -vE ' -?(0|1|2|4|8|16|32|64|128|256|512|1024|2048|4096)(\.0)?[fu]? *$' |
     grep -vE ' -?(0\.0|1\.0|0\.5)f? *$' | grep -vE ' 0x' |
+    grep -vE ' [^ ]*[A-Za-z_][A-Za-z0-9_]*$' |
     awk '{ n[$1]++ } END { for (f in n) printf "%5d  %s\n", n[f], f }' | sort -rn | head -10
 
   printf '\nCOUNTS\n'
@@ -793,6 +805,35 @@ fi
 # is the constant's board item and the commit that set it. This walk cannot read a reason, so it
 # counts the decisions and refuses when the count moves: what is there is declared, and nothing
 # new joins it silently.
+# PRIVATE IS THE DEFAULT AND A WIDER DOOR JUSTIFIES ITSELF. C++ offers three levels and only one
+# of them costs nothing: what is private can be changed. `protected:` exists for inheritance
+# alone, in a tree whose rule is composition over it, and a DATA member left public in a class is
+# an invariant nobody can hold. Neither is forbidden -- the provider hierarchy earns its keep --
+# so this walk counts them, and the gate refuses the day either count moves.
+if [ "$AUDIT_ACCESS" = 1 ]; then
+  shielded=$(grep -rc '^ *protected:' src --include=*.h 2>/dev/null |
+    awk -F: '{ n += $2 } END { print n + 0 }')
+  bare=$(awk '
+    /^[ \t]*class[ \t]+[A-Za-z_]/ { inclass = 1; access = "private"; next }
+    /^[ \t]*struct[ \t]+[A-Za-z_]/ { inclass = 0; next }
+    inclass == 0 { next }
+    /^[ \t]*public:/ { access = "public"; next }
+    /^[ \t]*(private|protected):/ { access = "private"; next }
+    access == "public" && /^[ \t]+[A-Za-z_][A-Za-z_0-9:<>,& *]*[ \t]+[A-Za-z_][A-Za-z_0-9]*[ \t]*(=|\[|;)/ \
+      && !/\(/ && !/using/ && !/return/ { n++ }
+    END { print n + 0 }' $(find src -name '*.h' -not -path 'src/assets/*' | sort))
+  printf 'AUDIT %s protected section(s), %s public data member(s) in a class\n' "$shielded" "$bare"
+  if [ "$shielded" != "$PROTECTED" ] || [ "$bare" != "$OPENDATA" ]; then
+    grep -rn '^ *protected:' src --include=*.h 2>/dev/null
+    printf 'AUDIT the declaration says %s protected and %s public data -- private is the default\n' \
+      "$PROTECTED" "$OPENDATA"
+    printf 'AUDIT and a wider door justifies itself in the item that widened it\n'
+    exit 1
+  fi
+  printf 'AUDIT access as declared: what is wider than private is counted and no wider\n'
+  exit 0
+fi
+
 if [ "$AUDIT_NUMBERS" = 1 ]; then
   decided=$BUILD/log/decided-numbers
   mkdir -p "$BUILD/log"
@@ -802,7 +843,8 @@ if [ "$AUDIT_NUMBERS" = 1 ]; then
     sed -E 's|^([^:]*:[0-9]*):.*(k[A-Z][A-Za-z0-9_]*) *= *([^;,]*).*|\1 \2 = \3|' |
     grep -vE '= *-?(0|1|2|4|8|16|32|64|128|256|512|1024|2048|4096)(\.0)?[fu]? *$' |
     grep -vE '= *-?(0\.0|1\.0|0\.5)f? *$' |
-    grep -vE '= *0x' | sort > "$decided"
+    grep -vE '= *0x' |
+    grep -vE '= *[^;]*[A-Za-z_][A-Za-z0-9_]*' | sort > "$decided"
   many=$(wc -l < "$decided" | tr -d ' ')
   if [ "$many" != "$DECIDED" ]; then
     cat "$decided"
