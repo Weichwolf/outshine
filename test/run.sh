@@ -18,6 +18,9 @@ NEST=$(printf %s "$ROOT" | shasum -a 256 | cut -c1-12)
 BUILD=${BUILD%/}/outshine-tests.$NEST
 INHERITED_NEST=${OUTSHINE_NEST:-}
 export OUTSHINE_NEST="$BUILD"
+# board:1839: prepare.py writes the ownership marker board:1789 scopes deletion by, and it must
+# write the SAME identity run.sh compares against
+export OUTSHINE_CORPUS_OWNER="$NEST"
 PREPARED=${TMPDIR:-/tmp}
 PREPARED=${PREPARED%/}/outshine-prepared
 PREPARED=${OUTSHINE_PREPARED:-$PREPARED}

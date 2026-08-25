@@ -1,3 +1,4 @@
+#include <cctype>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -66,7 +67,17 @@ int main(void) {
   std::vector<std::string> carrying;
   for (const std::string &commit : commits) {
     const std::string message = Ask("git log -1 --format=%B " + commit);
-    const std::vector<std::string> named = NumbersIn(message, "board:");
+    std::vector<std::string> named;
+    for (size_t at = 0; at + 4 <= message.size(); ++at) {
+      bool four = true;
+      for (size_t step = 0; step < 4; ++step) {
+        four = four && std::isdigit((unsigned char)message[at + step]);
+      }
+      if (!four) { continue; }
+      if (at > 0 && std::isdigit((unsigned char)message[at - 1])) { continue; }
+      if (at + 4 < message.size() && std::isdigit((unsigned char)message[at + 4])) { continue; }
+      named.push_back(message.substr(at, 4));
+    }
     const std::vector<std::string> touched =
         NumbersIn(Ask("git show --name-only --format= " + commit + " -- board/"), "/");
     for (const std::string &one : touched) {

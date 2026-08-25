@@ -166,6 +166,7 @@ def _scenario_assets(arguments):
                             "from": found, "files": wrong, "source": asset["source"]})
             continue
         os.makedirs(destination, exist_ok=True)
+        _own(destination)
         for name in asset["files"]:
             shutil.copyfile(os.path.join(found, name), os.path.join(destination, name))
         # board:1786: `placed` said nothing about what the carried directories brought, and the
@@ -263,10 +264,19 @@ def _test262_cases(arguments):
            "tests": len(tests), "cases": len(written), "root": arguments.t262_root})
     return 0
 
+def _own(destination):
+    """board:1789 scopes the right to delete from the shared corpus by who prepared each case,
+    and board:1839 is the other half: a case prepared HERE says so, and one prepared by no
+    runner says THAT, so a runner has something to compare against either way."""
+    nest = os.environ.get("OUTSHINE_CORPUS_OWNER", "")
+    with open(os.path.join(destination, ".prepared-by"), "w") as marker:
+        marker.write(nest if nest else "no-runner")
+
 def _prepare(manifest_path, arguments):
     declared = manifest_module.load(manifest_path)
     destination = arguments.dest or prepared_directory(manifest_path)
     os.makedirs(destination, exist_ok=True)
+    _own(destination)
     if os.path.abspath(destination) != os.path.abspath(declared.directory):
         shutil.copyfile(manifest_path, os.path.join(destination, "manifest.json"))
     store = ContentStore(arguments.store, enabled=not arguments.no_cache)
