@@ -67,6 +67,7 @@ public:
     size_t Found = 0;
     size_t PairsTested = 0;
     size_t FullestCell = 0;
+    size_t PairsPruned = 0;
   };
 
   [[nodiscard]] std::expected<Swept, std::string_view> Crossings(

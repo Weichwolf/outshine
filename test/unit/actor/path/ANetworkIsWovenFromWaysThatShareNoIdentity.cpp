@@ -325,6 +325,7 @@ int main(void) {
     Note("segments among them", (double)segments, "segments");
     Note("crossings found", (double)found, "crossings");
     Note("segment pairs tested", (double)swept.PairsTested, "pairs");
+    Note("pairs the square filter pruned", (double)swept.PairsPruned, "pairs");
     Note("the fullest cell", (double)swept.FullestCell, "segments");
     Note("pairs tested per crossing found",
          found > 0 ? (double)swept.PairsTested / (double)found : 0.0, "pairs");
@@ -412,6 +413,37 @@ int main(void) {
           "clustered network is a number rather than a slow run (board:1831)");
   }
 
+  // board:1850: board:1835's fixture catches a crossing counted once per BUCKET COLLISION, and
+  // a collision is a property of the mixer -- rehashing the grid disarmed it without touching
+  // the rule it guards. This one is hash-free: two long diagonals whose boxes share hundreds of
+  // squares meet in exactly one of them, so a sweep that does not ask WHERE they met reports
+  // the crossing once per shared square whatever the hash does.
+  {
+    Network diagonals(kSnapM, kIuggMeanRadiusM);
+    const double downhill[4] = {50.85, 9.85, 51.15, 10.15};
+    const double uphill[4] = {50.85, 10.15, 51.15, 9.85};
+    diagonals.Lay(std::span<const double>(downhill, 4), 4.0, 0.06, 2, 400.0);
+    diagonals.Lay(std::span<const double>(uphill, 4), 4.0, 0.06, 2, 400.0);
+    std::vector<double> shortOnes;
+    for (int step = 0; step <= 60; ++step) {
+      shortOnes.push_back(50.5);
+      shortOnes.push_back(9.99 + 0.02 * (double)step / 60.0);
+    }
+    diagonals.Lay(shortOnes, 4.0, 0.06, 2, 400.0);
+    CHECK(diagonals.Weave(error), "two long diagonals over sixty short ways weave");
+
+    std::vector<Network::Crossing> crossings;
+    const Network::Swept swept = diagonals.Crossings(crossings).value();
+    Note("crossings the diagonals report", (double)swept.Found, "crossings");
+    Note("pairs tested", (double)swept.PairsTested, "pairs");
+    Note("pairs the square filter pruned", (double)swept.PairsPruned, "pairs");
+    CHECK(swept.Found == 1,
+          "**AND A CROSSING IS COUNTED ONCE WHATEVER THE HASH DOES**: two segments whose boxes "
+          "share many squares meet in exactly ONE of them, so the sweep must ask where the "
+          "meeting fell and not merely that both were filed here -- a dedup resting on bucket "
+          "collisions is disarmed by rehashing the grid (board:1850)");
+  }
+
   // board:1835: the hash grid's dedup compared the BUCKET a crossing falls in, not the SQUARE.
   // Two squares that collide in one bucket then accept the same pair once per copy, so a single
   // crossing is reported as many times as the longer segment's box has squares. The dense grid
@@ -435,6 +467,7 @@ int main(void) {
     Note("crossings it reports", (double)swept.Found, "crossings");
     Note("pairs it tested", (double)swept.PairsTested, "pairs");
     Note("the fullest cell", (double)swept.FullestCell, "segments");
+    Note("pairs the square filter pruned", (double)swept.PairsPruned, "pairs");
     for (size_t at = 0; at < crossings.size() && at < 3; ++at) {
       std::printf("NOTE crossing %zu at %.7f, %.7f\n", at, crossings[at].LatDeg,
                   crossings[at].LonDeg);
