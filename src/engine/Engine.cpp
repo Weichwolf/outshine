@@ -281,14 +281,17 @@ bool Engine::State::Composes(void) {
   const Scenario &declared = Declared;
   const Sim::Corridor &way = Drive.Way;
   const bool overADrive = false;
+  if (Drove) {
+    Error = "a drive stands, and the ground is APPENDED to the driven vehicle's own glTF, so it "
+            "would inherit that placement and that model scale -- measured, an 8 km tile ring "
+            "lands on the car's roof. The ground is a compositor's draw item and until it is one "
+            "this refuses. The declared sphere still carries its atmosphere, its gravity and its "
+            "radius";
+    return false;
+  }
   if (!declared.Ground.Declared && !overADrive) {
-    Error = Drove && !way.Fine.empty()
-                ? "a drive laid a corridor and a ground could be composed about it, but the "
-                  "ground is APPENDED to the vehicle's own glTF and would inherit its placement "
-                  "and its model scale -- measured, an 8 km tile ring lands on the car's roof. "
-                  "The ground is a compositor's draw item and until it is one this refuses"
-                : "the scenario declares neither a sphere nor a drive that laid a corridor, so "
-                  "there is nowhere for a ground to be composed";
+    Error = "the scenario declares neither a sphere nor a drive that laid a corridor, so there "
+            "is nowhere for a ground to be composed";
     return false;
   }
   const double atLat = overADrive ? way.FrameLat : declared.Ground.Lat;
@@ -366,6 +369,16 @@ bool Engine::State::Composes(void) {
   return true;
 }
 
+
+bool Engine::Pixels(std::vector<uint8_t> &rgba) {
+  if (!S_->Standing) {
+    S_->Error = "nothing stands to be read -- a scenario is declared before a frame carries pixels";
+    return false;
+  }
+  S_->Device.WantsPixels();
+  if (!S_->Standing->Advance(S_->Error)) { return false; }
+  return S_->Standing->ReadPixels(rgba, S_->Error);
+}
 
 bool Engine::Capture(std::string_view path) {
   if (!S_->Standing) {
@@ -553,6 +566,7 @@ bool Engine::Declare(const Scenario &scenario) {
     declared.Variant = subject->Variant;
     declared.Animation = subject->Animation;
   }
+  declared.DrawsSky = scenario.Ground.Declared && scenario.Ground.AirDensityKgM3 > 0.0;
   const Patch whole;
   const Patch &picture = scenario.Render.Declared ? scenario.Render.Picture : whole;
   if (scenario.Render.Declared) {

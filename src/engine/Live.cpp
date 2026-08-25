@@ -196,6 +196,7 @@ bool Live::Build(std::string &error) {
     Plan_ = *std::move(made);
     PlanMoves_ = Moves_;
     PlanInits_ += 1;
+    Renderer_->SkyFills(Declared_.DrawsSky);
     Renderer_->Init(Declared_.SurfaceWidthPx, Declared_.SurfaceHeightPx, Plan_);
     if (!Renderer_->DeviceUsable()) {
       error = Renderer_->WhyNot().empty()

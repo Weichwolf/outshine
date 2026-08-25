@@ -11,6 +11,7 @@ DOOR -- include/
  bool DrawsInto(Extent offscreen)
  void Under(Roots roots)
  bool Capture(std::string_view path)
+ bool Pixels(std::vector<uint8_t> &rgba)
  bool Read(std::string_view path)
  bool Declare(const Scenario &scenario)
  bool Shows(const std::vector<Surface> &surfaces)
@@ -99,7 +100,7 @@ MASS -- the heaviest units, against the median of them all
     2020  content/gltf/Document.h
     1397  ui/Layout.h
     1347  content/gltf/Subject.h
-    1319  render/Renderer.h
+    1325  render/Renderer.h
     1141  base/format/Script.h
     1006  render/stages/SubjectDraw.h
      955  ui/Style.h

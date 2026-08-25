@@ -38,6 +38,7 @@ public:
   [[nodiscard]] bool DrawsInto(Extent offscreen);
   void Under(Roots roots);
   [[nodiscard]] bool Capture(std::string_view path);
+  [[nodiscard]] bool Pixels(std::vector<uint8_t> &rgba);
 
   [[nodiscard]] bool Read(std::string_view path);
   [[nodiscard]] bool Declare(const Scenario &scenario);
