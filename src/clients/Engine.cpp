@@ -23,6 +23,7 @@
 #include "GroundStack.h"
 #include "DriveAssembly.h"
 #include "GroundPatchwork.h"
+#include "TileGeodesy.h"
 #include "Renderer.h"
 #include "ScenarioRead.h"
 
@@ -266,14 +267,15 @@ bool Engine::Compose(void) {
     return false;
   }
   const Scenario &declared = S_->Declared;
-  if (!declared.Ground.Declared) {
-    S_->Error = "the scenario declares no sphere, so there is no ground to compose -- a drive "
-                "names a place, and the ring laid there is anchored on its own ECEF origin "
-                "rather than the corridor the vehicle stands on";
+  const Sim::Corridor &way = S_->Drive.Way;
+  const bool overADrive = false;
+  if (!declared.Ground.Declared && !overADrive) {
+    S_->Error = "the scenario declares neither a sphere nor a drive that laid a corridor, so "
+                "there is nowhere for a ground to be composed";
     return false;
   }
-  const double atLat = declared.Ground.Lat;
-  const double atLon = declared.Ground.Lon;
+  const double atLat = overADrive ? way.FrameLat : declared.Ground.Lat;
+  const double atLon = overADrive ? way.FrameLon : declared.Ground.Lon;
   if (!S_->Wire) {
     if (S_->Under.Offline) {
       S_->Error = "the ground is FETCHED and the engine was declared offline";
@@ -308,10 +310,26 @@ bool Engine::Compose(void) {
     return false;
   }
 
+  std::vector<float> inFrame;
+  if (overADrive) {
+    inFrame.resize(laid->PositionM.size());
+    for (size_t at = 0; at + 2 < laid->PositionM.size(); at += 3) {
+      const Ground::Ecef held{laid->OriginEcef[0] + (double)laid->PositionM[at],
+                              laid->OriginEcef[1] + (double)laid->PositionM[at + 1],
+                              laid->OriginEcef[2] + (double)laid->PositionM[at + 2]};
+      const Ground::Geo where = Ground::EcefToGeoWgs84(held);
+      inFrame[at] = (float)((where.LonDeg - way.FrameLon) * way.PerLonM);
+      inFrame[at + 1] = (float)where.AltM;
+      inFrame[at + 2] = (float)(-(where.LatDeg - way.FrameLat) * way.PerLatM);
+    }
+  }
+
   Gltf::Piece ground;
   ground.NodeName = "ground";
   ground.Material = 0;
-  ground.PositionsM = Span<const float>(laid->PositionM.data(), laid->PositionM.size());
+  ground.PositionsM = overADrive
+                          ? Span<const float>(inFrame.data(), inFrame.size())
+                          : Span<const float>(laid->PositionM.data(), laid->PositionM.size());
   ground.Normals = Span<const float>(laid->NormalM.data(), laid->NormalM.size());
   ground.Indices = Span<const uint32_t>(laid->Index.data(), laid->Index.size());
 
@@ -805,7 +823,8 @@ bool Engine::Rides(void) {
                                bodyFromWorld[8 + axis] * shiftM[2];
   }
 
-  if (!S_->Standing->Carry(bodyFromWorld, bodyFromWorld, S_->Error)) { return false; }
+  const double stillM[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  if (!S_->Standing->Carry(bodyFromWorld, stillM, S_->Error)) { return false; }
   if (S_->Volumes) {
     S_->Volumes->Probe(0, body.PositionM, (double)At() * kTickS);
     for (const TriggerField::Fired &fired : S_->Volumes->Drain()) {

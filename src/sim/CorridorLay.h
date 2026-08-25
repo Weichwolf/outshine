@@ -56,7 +56,7 @@ struct Corridor {
   double AsideRatePerM = 0.0;
   double HoldWithinM = 0.0;
   double ReserveMs2 = 0.0;
-  double FrameLat = 0.0, FrameLon = 0.0, PerLatM = 1.0, PerLonM = 1.0;
+  double FrameLat = 0.0, FrameLon = 0.0, PerLatM = 1.0, PerLonM = 1.0, FrameAltM = 0.0;
   Laying Made;
 
   void Bake(double lengthM) {

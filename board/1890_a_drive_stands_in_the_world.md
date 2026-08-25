@@ -71,6 +71,26 @@ is carried on the body's own unit basis, `ahead` is one metre along `-Z`), and t
 converted and the camera is not, so the two stand in different spaces by a factor of 64.3. The
 same defect as the ground ring, one seam over.
 
+**THE SEAM IS LOCATED, same session, and the ground still does not land.** Four measurements,
+each one narrowing it:
+
+| step | what it showed |
+|---|---|
+| pose in metres against an asset in its own units | every still black; fixed by `MetresPerUnit` at the stand |
+| ground in ECEF-relative metres, vehicle in corridor ENU | ground and car in ONE picture for the first time, but the ground reads as wedges |
+| ground converted to the corridor's frame (`Corridor::FrameLat/FrameLon/PerLatM/PerLonM`, which the corridor has always published, plus `FrameAltM` added here) | unchanged -- because `Carry` was handing the GROUND the vehicle's own pose as its `built` matrix, so the ground drove off with the car |
+| ground given the identity placement instead | the ground vanishes entirely |
+
+So the ground's vertices are now in the corridor's frame, in metres, and the placement that
+should leave them there makes them invisible. The remaining unknown is what space the subject's
+part placements are expressed in once `MetresPerUnit` scales the vehicle's -- a ground in metres
+with an identity placement is not in the same space as a model in units with a scaled one, and
+sharing one Subject is what forces the question.
+
+TARGET answers it: the ground is a COMPOSITOR'S draw item, not a part appended to the vehicle's
+glTF. `Gltf::Subject world = Shown(); world.Append(ground)` is the shortcut this seam is made
+of.
+
 ## What will be true
 
 - [ ] A driven body's placement is expressed in the ONE world space, in metres, as a 64-bit

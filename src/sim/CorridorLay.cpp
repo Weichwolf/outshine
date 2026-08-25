@@ -205,7 +205,8 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   say.Number("seconds spent sampling the ground", sampledS, "s");
   say.Number("the lowest the corridor runs", lowestM, "m");
   say.Number("the highest", highestM, "m");
-  say.Number("the elevation where the route starts", heightM.empty() ? 0.0 : heightM.front(), "m");
+  out.FrameAltM = heightM.empty() ? 0.0 : heightM.front();
+  say.Number("the elevation where the route starts", out.FrameAltM, "m");
   say.Number("and where it ends", heightM.empty() ? 0.0 : heightM.back(), "m");
 
   out.Made.Resolved = resolved;
