@@ -56,3 +56,23 @@ are wired together by test files, and the one program a user runs reaches none o
   reviewer's, which is the best kind. The recolour of `Engine` is the review's, and it is what
   turns the hour's distance from 66 % to 65 %: this is a defect that was always there and that
   nobody could see until somebody wrote the program that walks the door.
+
+## What `apps/driver/test/` held, before it was deleted (2026-08-25)
+
+The owner's cut: **the driver has no tests. Everything it uses is library, and the library's
+unit tests cover it.** 2080 lines went. Three functions in them were LIBRARY WORK living in a
+test, and they are what stands between `Engine::Assemble` and a picture of a road:
+
+| what it did | where it lived | what it is |
+|---|---|---|
+| `Lie(stack, drive, aboutM, originM, section, fromM, toM, centre, out)` | `stills/StillsAreTakenAlongTheDriveForTheEye.cpp:92` | lays the GROUND under the corridor -- samples the DEM around the car, meshes it, cuts and fills it to the road. This is board:1805's missing world-composition layer, written once in a test |
+| `Standing(const Physics::Body &, double out[16])` | `window/AWindowShowsTheRoadTheCarIsDriving.cpp:62` | a body's world matrix: orientation quaternion and position into the 16 floats a draw needs |
+| `Seen(const Physics::Body &, const View &) -> Gltf::Placement` | `:74` and `stills:282` | the chase camera -- where the eye sits given the body it follows. Written TWICE, in two files, already diverging |
+
+`Sweep` (the road ribbon) was already library work -- `src/actor/path/Ribbon.h:37`. The other
+three are not, and `Engine` cannot draw a drive until they are.
+
+So this item's scope is exact: `Engine::Assemble` runs `AssembleDrive` when the scenario
+declares a drive, `Engine::Advance` ticks it, and the picture carries the ground, the ribbon and
+the car -- with `Lie`, `Standing` and `Seen` in the library where a unit test can reach each of
+them with an assertion that is trivially true.

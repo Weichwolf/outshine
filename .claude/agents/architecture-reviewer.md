@@ -56,12 +56,24 @@ name what blocked it.
 
 ### 3. Look at the product
 
-The driver app is what the engine is judged by. **Take a fresh screenshot every round:**
+The driver app is what the engine is judged by, and it has **no tests of its own** -- the owner
+cut them: everything the driver uses is library, and the library's unit tests cover it. So you
+judge the PRODUCT by running it.
 
 ```sh
-test/run.sh apps/driver/test/stills          # writes to $TMPDIR/outshine-stills
-ls -t $TMPDIR/outshine-stills/*.png | head -3
+sh test/run.sh --library                      # build/liboutshine.a
+c++ -std=c++23 -Iinclude -c apps/driver/src/main.cpp -o /tmp/driver.o &&
+c++ -std=c++23 /tmp/driver.o build/liboutshine.a \
+   $(pkg-config --libs sdl3 sdl3-image) -lz -lcurl -o /tmp/outshine-driver
+mkdir -p /tmp/shots-$$ &&
+/tmp/outshine-driver --assets $TMPDIR/outshine-prepared/apps-driver-f31 \
+   --from 48.1371,11.5754 --to 48.1583,11.5033 --headless --frames 8 --into /tmp/shots-$$
+ls -t /tmp/shots-$$/*.png | head -3
 ```
+
+The gate builds and `--help`-checks the program every fast round (`Programs()` in `test/run.sh`),
+so a broken entry point reaches you as a red gate rather than as a missing screenshot. If the
+run above produces no PNG, that is the round's FIRST finding, filed with what it printed.
 
 Read the newest PNGs with the Read tool — you can see images. Judge them as the owner:
 
@@ -88,10 +100,12 @@ feature nobody can see is not a feature.
 
 | | stands | proven by |
 |---|---|---|
-| a route from two coordinates | yes | `apps/driver/test/APlannerFindsTheRoadFromMunichToHamburg` |
-| a road ribbon the wheels stand on | yes | `apps/driver/test/TheRoadEdgeIsContinuousWhereSegmentsMeet` |
-| stills along the drive | yes | `apps/driver/test/stills/StillsAreTakenAlongTheDriveForTheEye` |
 | an entry point a user runs | yes | `apps/driver/src/main.cpp`, built and `--help`-checked by the gate (board:1860) |
+| it writes frames from any directory | yes | `--assets`, `--into`, `Engine::Under`/`Capture` |
+| a route from two coordinates | library, unproven at the door | `AssembleDrive`; every call site is gone with `apps/driver/test/` -- board:1862 |
+| a road ribbon the wheels stand on | library | `src/actor/path/Ribbon.h:37` |
+| the ground under the corridor | **NOT IN THE LIBRARY** | `Lie()` lived in the deleted test; board:1862 records it verbatim |
+| a body's world matrix, a chase camera | **NOT IN THE LIBRARY** | `Standing()`, `Seen()`, same place, `Seen` written twice and already diverging |
 | the entry point DRIVES what it declares | **NO** | `Engine::Assemble` accepts `Scenario::Driven` and never runs it (board:1862) |
 | shadows, contact or cast | **NO** | the deck under the car is byte-equal to the deck ten metres away |
 | road markings, guard rails, verge furniture, oncoming carriageway | **NO** | nothing declares them |
