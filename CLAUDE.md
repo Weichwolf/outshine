@@ -61,34 +61,6 @@ flowchart TD
   scen -.->|declares · clocks| actors
   tmpl[/"WORLD TEMPLATES — earth · moon: shipped declarations in src/assets"/] -.->|instanced, then deltas| scen
 ```
-
-| layer may not spell | |
-|---|---|
-| any of src/ | Earth · Moon · a planet's name or numbers — worlds are declared spheres, templates are assets |
-| Ground | camera · frustum · clock · LOD level · device · sun |
-| generator | camera · neighbour part · draw list · device |
-| compositor | device · pipeline · texture · shader · pass |
-| renderer | any content noun |
-
-Peers never call each other; a part-on-part dependency travels as data through Ground.
-**The engine knows no Earth, no Moon, no stars — and GROUND is no planet either**: it is the
-surface-field stack of whichever sphere is declared, instantiated per sphere, its fields empty
-where the sphere has nothing (lunar water), and absent entirely for an actor in free flight —
-the chain never requires a surface. A scenario declares a SYSTEM of spheres
-(radius, gravity, providers, sky) shaped by height data; travel between them is an actor with
-thrust and a possession relink, and local behaviour — the high jump, the bad driving — emerges
-from the declared gravity through the physics, never from code. Earth ships as a TEMPLATE
-(src/assets/scenarios/earth.xml, to be): a scenario instances it (`<world template="earth">`, one
-level deep) and overrides by delta — setting replaces, removal is named, omission keeps the
-template's value, an orphaned override refuses loudly, and the reader walks template then
-deltas through the SAME assembly API (no merger). `Scenario Earth()` is the code-side factory
-returning that declaration; the template alone must hold 720p60. CURRENT departs from this —
-g and Earth radii still sit in code — and the audit with its repayment is the board's.
-Budget = screen-space error in px, quantised to a global ladder before it becomes a key;
-key = `(kind, params, seed, rung)` value, no strings. Degrade on detail, refuse on existence.
-
-### The actor chain (TARGET — the owner's causal decomposition, general)
-
 ```mermaid
 flowchart TD
   B["BODY — geometry, glTF parts: vehicle · walker · aircraft · door · pump"]
@@ -99,24 +71,6 @@ flowchart TD
   C -->|asks| N["PATHFINDING — two coordinates in, corridor out: walk · drive · fly · rail"]
   PR["PRESENCE — field → rails → body; a MEASUREMENT materialises"] -.-> B
 ```
-
-The chain holds for EVERYTHING that moves, with or without a mind: a parked car is a body whose
-seam nobody possesses; a door is a body with one actuator; an NPC differs from the player only
-in who possesses the seam (Unreal's Pawn/Controller possession — the reference). Perception is
-spatial query over bounds, never privileged state; navigation is one pathfinding service with
-modes, handed as a TOOL ; physics binds to actuators, never to the controller. Presence is a
-rung on two axes (existence · fidelity, thresholds ordered): unmeasured actors are a conserving
-FIELD, measured ones materialise (rails, then body) as a PURE EVALUATION of (kind, params, seed,
-rung) — and materialisation is never transitive: minds read the abstract layer, only declared
-instruments collapse it.
-The drive is a product of free systems (AssembleDrive · DriveTick), no orchestration class left. **A client includes nothing but
-`include/outshine/`** — enforced by the build.
-
-### The component model (TARGET — the decided reference design)
-
-Reference: **Flecs** (relationships + traits + script parity), supplemented by GAS tag algebra,
-Smart-Object slots, CARLA's vehicle grammar. Written here, never a dependency.
-
 ```mermaid
 flowchart TD
   XML["scenario XML"] --> API["ONE assembly API — same calls, same refusal text"]
@@ -127,14 +81,6 @@ flowchart TD
   STORE --> MAY["MAY — traits on the relation refuse at ASSEMBLY;<br/>situational permission is tag set-algebra at runtime"]
   STORE --> ACT["INTERACTS — world objects advertise slots as data; Free → Claimed → Occupied → Free"]
 ```
-
-The XML reader is a serialisation of the assembly API against ONE graph — no second
-representation, no converter (the Unity-baking rot). XML declares what the API can and nothing of
-its own: no conditions, no control flow — behaviour belongs to the mind and the assignment. The
-render plan stays a `constexpr` catalogue (unspellable beats refused-at-load); this graph is the
-SCENE domain: vehicles, minds, tools, assignments, world objects. Banned by the sources
-themselves: stringly-typed capabilities · content that ships a program · god actors ·
-ECS-for-everything · unreserved shared affordances.
 
 ## Render plan (CURRENT — what executes, judged as architecture)
 
@@ -163,16 +109,11 @@ flowchart TD
   class SUBJ,GLASS wrong
 ```
 
-Green = sound abstraction by current knowledge; amber = form in question; red = provably wrong,
-and each red cites what makes it so:
 
 | red | what makes it red, at HEAD |
 |---|---|
 | `SUBJ` | one stage carrying six responsibilities -- `ShaderSource(const SourceOptions &options)` (SubjectDraw.h:30), `PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack)` (:154), `FlushCrossings(SDL_GPUCommandBuffer *commands)` (:148), `SetPlacements(const double *models, size_t rows, std::string &error)` (:51), `SetLights(std::span<const SubjectLight> lights, std::string &error)` (:89) and `EncodeDepthOnly(const double lightFromWorld16[16], const double eye[3], int atlasPx,` (:96) beside its one `void Encode(const FrameContext &ctx, const PassRecording &into)` (:93); nothing culls |
 | `GLASS` | `{Stage::SubjectsTransmissive, Provenance::Content, PassKind::Raster, "subjectsTransmissive",` (RenderCatalogue.h:268) is a full clone of `{Stage::Subjects, Provenance::Content, PassKind::Raster, "subjects",` (:263) -- transmissive draws belong in the one subject stage |
-
-One `Writes` producer per derived resource (`static_assert`); missing contributor = picture
-choice, **published** as `-> neutral`; load/store ops derived from the plan (`Stored()`).
 
 ## Render plan (TARGET)
 
@@ -201,9 +142,6 @@ flowchart TD
   class T2,M2,R2,LV2,SKY2,SUBJ2,CT2,TONE2,OV2,P2,GEO,SUN,MOON,STARS,IR sure
   class AE,AO,TAA2,GLASS2 likely
 ```
-
-Green = certain; amber = probable (auto-exposure shape, AO method, TAA's place, and whether
-transmissive draws fold into the subject stage are open design calls).
 
 ## Class structure (CURRENT)
 
@@ -257,13 +195,6 @@ flowchart TD
   class GroundStack sound
 ```
 
-Colours are ARCHITECTURE, re-adjudicated against HEAD (2026-08-24); every red below cites what
-makes it red, and a colour whose stated reason has gone stale is itself a finding. Green = right
-responsibility in the right layer; amber = form in question. **A DASHED RED OUTLINE is the
-second axis, added 2026-08-24 (board:1805): the node's FILL says whether its shape is right,
-the outline says whether anything outside `src/` can reach it — a dashed node's only path to a
-client runs through a node this map colours red, so its fill is a judgement about a layer
-nobody calls.** Green and reached is the only state that means the picture gets drawn.
 
 | red | what makes it red, at HEAD |
 |---|---|
@@ -271,9 +202,6 @@ nobody calls.** Green and reached is the only state that means the picture gets 
 | `SubjectDraw` | six responsibilities in one class: `ShaderSource(const SourceOptions &options)` (SubjectDraw.h:30), `PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack)` (:154), `FlushCrossings(SDL_GPUCommandBuffer *commands)` (:148), `SetPlacements(const double *models, size_t rows, std::string &error)` (:51), `SetLights(std::span<const SubjectLight> lights, std::string &error)` (:89), and `EncodeDepthOnly(const double lightFromWorld16[16], const double eye[3], int atlasPx,` (:96) beside the one `void Encode(const FrameContext &ctx, const PassRecording &into)` (:93) a stage owes |
 | `Sim` | `class Sim {` (Sim.h:37) is a hand-wired god facade the component model replaces: a facade reached through 25 `#include "` |
 | `Live` | `class Live {` (Live.h:71) reaches the renderer and the layout from one class — `#include "Renderer.h"` (:18) beside `#include "Layout.h"` (:13) |
-
-Amber says the FORM is in question, and every amber below names the line the question stands
-at (board:1777):
 
 | amber | the form in question, at HEAD |
 |---|---|
@@ -295,9 +223,6 @@ at (board:1777):
 | `TilePool` | `class TilePool {` (TilePool.h:35) holds 3 `std::mutex`, a `std::condition_variable`, a `std::map` and a `std::set` where a slot table and a ring would do -- a decisionless pool holds no tree |
 | `Engine` | the ONE door swallows half its declaration: `bool Engine::Assemble() {` (Engine.cpp:101) reads the scenario's `Drive Driven` and never reaches the drive -- `grep -rn AssembleDrive src` finds only `DriveAssembly.{h,cpp}` themselves, so every call site of `AssembleDrive` in the tree is a TEST. The driver's own entry point runs Read -> Declare -> Assemble -> RenderTo -> Advance and gets a studio orbit of a car on white. Green on shape, amber because a door that ACCEPTS a declaration it does not execute is a worse door than one that refuses it (2e779901's own words) |
 
-Dashed says the node is STRANDED, and every dashed node below names the facade it hangs off
-(board:1805, measured 2026-08-24):
-
 | stranded | its only way to a client, at HEAD |
 |---|---|
 | `Forest` | `src/clients/Sim.{h,cpp}` and nothing else in `src/` |
@@ -305,89 +230,6 @@ Dashed says the node is STRANDED, and every dashed node below names the facade i
 | `Water` | `Sim.cpp`, `World.h` |
 | `Infrastructure` | `Sim.h` |
 | `RegionForge` | `Sim.h` |
-
-and `Sim` itself: `grep -rln '"Sim.h"' src test tools apps` finds `src/clients/Sim.cpp` and one
-test. 798 lines of facade, no consumer. The world composition path exists, is proven per node
-since board:1806, and nothing walks it -- which is why `apps/driver` builds its terrain, its
-far ring and its road ribbon in 1281 lines of its own C++.
-
-`TilePool` moved red → amber (its row above carries the form now in question): the earlier
-sentence said it spells camera and LOD, and it does not — `grep -cEi 'eye|camera|frustum|\blod\b'` over both its files is 0. It is a
-byte-budgeted LRU work pool keyed on projected error, which is the RAGE reference, not a
-layering breach. Its amber is its FORM, and its row above carries the count: a `condition_variable`, a `std::map`
-and a `std::set` of pointer-chasing nodes where a slot table and a ring would do — a
-decisionless pool holds no tree. `LayCorridor`'s twin debt is PAID (board:1624 closed
-2026-08-24): its door takes `const GroundQuery &` -- the two questions it asks -- and
-`test/unit/sim/ACorridorIsLaidOverASyntheticRoute` lays 364 lines of route over a ten-line
-synthetic ground, so its amber is now the parameter list alone, as its row says.
-`AssembleDrive` and `DriveTick` keep the older reason. Journey died with move 2(e): the six consumers hold
-{GroundStack, DriveProduct} and call the free systems directly. The rot concentrates at the
-orchestration edges; the middle of the tree is sound.
-
-## The distance to TARGET (measured 2026-08-25, by the hourly review)
-
-Green AND reached is the only state that draws a pixel: a green node whose only path to a client
-runs through a red one is counted separately, because its fill is a judgement about a layer
-nobody calls.
-
-| diagram | green | amber | red | stranded | total | green-and-reached | last hour |
-|---|---|---|---|---|---|---|---|
-| class structure (CURRENT) | 44 | 15 | 4 | 5 | 68 | **44 / 68 = 65 %** | 44 / 67 = 66 % |
-| render plan (CURRENT) | 9 | 1 | 2 | 0 | 12 | **9 / 12 = 75 %** | 9 / 12 = 75 % |
-
-**The distance GREW this hour: 66 % -> 65 %.** Two moves, in opposite directions and both
-measured:
-
-| move | why |
-|---|---|
-| `Alignment` ADDED, green and reached | src/actor/path/Alignment.{h,cpp} landed; reached through `Fit`, called at `fitted = Fit(keptM, quantumM, tightestM, classTightestM, corridor);` (CorridorLay.cpp:70). Numerator and denominator both +1, so the share alone would have stood still |
-| `Engine` green -> AMBER | `2e779901` measured what its own entry point does: `Assemble` accepts `Scenario::Driven` and never drives it. The one public door does not reach the drive, and the row above carries the citation |
-
-No red went amber; no amber went green. What the hour bought that the table cannot show is a
-TARGET node reaching its mark: `Alignment` in the class-structure TARGET is now GREEN, because
-the split rule that made it amber is settled and measured -- the accuracy bound ends a run, not
-the sign change, at 1 bend within 40 m, 2 within 8 m, 4 within 1 m, worst departure inside the
-bound every time (`test/unit/actor/path/AnAlignmentIsTheArcTheVerticesDescribe`).
-
-What blocked the rest: `test/run.sh` runs NOTHING at HEAD (board:1860) -- the walk over `apps/`
-takes the driver's new entry point for a test case and dies with exit 2 before the library is
-built -- and the driver's only eye needs 358 s where the gate's clock allows 120 (board:1861).
-An hour whose gate is down cannot turn a node any colour.
-
-The four reds carry the distance: `World` (camera and LOD inside the ground layer), `SubjectDraw`
-(six responsibilities in one stage), `Sim` (a hand-wired god facade with no consumer), `Live`
-(renderer and layout from one class). Five stranded nodes hang off `Sim` alone.
-
-## Driver (the product the engine is judged by)
-
-The bar is Gran Turismo 7 on PS4 at 720p60 on the A18 Pro (board:1573). What the app can show
-today, each row naming what proves it:
-
-| | stands | proven by |
-|---|---|---|
-| a route from two coordinates | yes | `apps/driver/test/APlannerFindsTheRoadFromMunichToHamburg` |
-| a road ribbon the wheels stand on | yes | `apps/driver/test/TheRoadEdgeIsContinuousWhereSegmentsMeet` |
-| terrain with real relief under the road | yes | `$TMPDIR/outshine-stills/km0114.5-framed.png` -- rolling hills, an undulating horizon |
-| a car that reads as the car it is | yes | the same still: body, glass, wheels, tail lights, a legible plate |
-| stills along the drive | **written, never judged** | `apps/driver/test/stills/StillsAreTakenAlongTheDriveForTheEye` is killed at the gate's 120 s clock with a 0-byte log (board:1861) |
-| a window that shows the drive | yes | `apps/driver/test/window/AWindowShowsTheRoadTheCarIsDriving` |
-| an entry point -- a program a user runs | **written, runs nowhere** | `apps/driver/src/main.cpp` exists at 146 lines and links against `include/outshine/` alone; it takes the whole gate down (board:1860) and no working directory satisfies it (board:1859) |
-| the sun's direction readable on the ground | **NO** | `km0114.5-framed.png` -- two hills facing apart carry the same value (board:1567) |
-| the car's shadow on the road | **NO** | `km0721.0-third.png` -- the deck under the car is the deck's own grey (board:1575, box 3) |
-| a road edge without a bite | **NO** | `km0114.5-framed.png` x 900..1160 and `km0016.8-framed.png` x 600..1050 -- sawtooth verge into deck (board:1568) |
-| nothing floating at the horizon | **NO** | `km0114.5-first.png` -- two navy slivers above the terrain silhouette (board:1565) |
-| road markings, guard rails, verge furniture | **NO** | nothing declares them |
-| a second carriageway on a motorway | **NO** | every still shows ONE deck and no central reservation |
-| a ground material with texture | **NO** | every still: one flat albedo for the verge, one for the deck, no detail at any range |
-| buildings behind the verge, drawn | declared, not reached | `Buildings` is stranded off `Sim` |
-| culling and instancing | **NO** | board:1538 -- every subject is drawn every frame |
-
-The gap to the bar, named rather than gestured at: GT7 on PS4 puts a cascaded shadow under the
-car, a grazing-angle specular sheet on the asphalt that carries the sun, lane and edge markings
-with tar seams, a verge with guard rail, poles and vegetation, and aerial perspective that fades
-the far ground into the sky. The stills carry NONE of those five. What they do carry -- a
-correct camera, a sound sky model, a body that reads, terrain that undulates -- is the half of
-the frame the engine already owns.
 
 ## Class structure (TARGET — where the tree is going)
 
@@ -415,31 +257,6 @@ flowchart TD
   class Scenario,ClientCode,Assembly,SceneStore,SimD,Pathfinding,Physics,Registry,DrawList,Frame,WorldC,Line,Alignment sure
   class Columns,Compositors,Stages,Entities likely
 ```
-
-Two nodes were new on 2026-08-24 and each is argued rather than wished:
-
-- **`Alignment` replaces the per-vertex corner table**, and the reason is a measurement, not a
-  preference. `Fit` put a spiral-arc-spiral at EVERY vertex and returned the curvature to zero
-  between them, so a polyline that describes a curve was laid at `R/(1+alpha)` — `alpha = 0.5` in
-  the code, giving exactly two thirds of the true radius, reproduced to four digits over five
-  values of alpha and at every digitisation density (board:1795). No constant repaired it; a
-  transition is owed where the CURVATURE changes, not where a digitiser put a point. On
-  Munich--Hamburg 769 of 2202 corners (35 %) sit inside a run of same-sign turns.
-  **It goes GREEN 2026-08-25**, by the review, and the thing that lifts it is the split rule
-  that made it amber: the ACCURACY BOUND ends a run, not the sign change. A tightening spiral
-  turns one way throughout, so the bound alone says where one arc becomes two — 1 bend within
-  40 m, 2 within 8 m, 4 within 1 m, worst departure inside the bound at every one
-  (`test/unit/actor/path/AnAlignmentIsTheArcTheVerticesDescribe`). A 400 m circle now fits at
-  400.000 m at 10, 20, 50 and 100 m chords where the corner table laid 266.6 m at every one
-  (`test/unit/actor/path/ACurveIsFittedAtTheRadiusItHas`, its `EXPECT_FAIL` declaration removed
-  from test/run.sh:41). The node stands in CURRENT as well, green and reached through
-  `Fit`, called at `fitted = Fit(keptM, quantumM, tightestM, classTightestM, corridor);`
-  (CorridorLay.cpp:70).
-- **`World composition` is the layer board:1805 found missing**, and it is green because the
-  requirement is not in doubt: *scenarios declare, the engine behaves*. A scenario declares the
-  sphere and which surface fields it wants drawn; the engine composes them. That the one client
-  in the tree builds its own terrain and ribbon in C++ is the distance to be repaid, not a
-  reason to lower the target.
 
 ## Public interface (CURRENT)
 
@@ -490,21 +307,6 @@ classDiagram
   Sim --> GroundStream : owns
 ```
 
-`Live`, `Renderer`, `GroundStream` and the drive systems are still reachable by clients —
-the TARGET below removes them. What a client hands the renderer is a SURFACE — a window or an
-extent — and what comes back is
-`std::expected<std::optional<Shown>, std::string_view>` (Renderer.h:50): an ABSENT `Shown` is
-"no image this frame", which a minimised window gives and `SDL_gpu.h:4300` calls *"not an
-error"*, while `std::unexpected` is reserved for the three faults — no surface declared, no
-device, no command buffer — and every one of them is a `string_view` into static text, so the
-present path allocates nothing. `SDL_ClaimWindowForGPUDevice`,
-`SDL_WaitAndAcquireGPUSwapchainTexture` and `SDL_ReleaseWindowFromGPUDevice` have no call site
-outside `src/render/` (`harness/claims/TheDeviceLeavesTheLibraryOnlyForItsOwnTwins`,
-board:1826).
-The assembly API stands public since 2026-08-22: `include/outshine/{Register,Store,Column}.h`
-are the C++ door, `Engine::Assemble/Scene` own the one graph, proven by a client that includes
-nothing but `outshine/`.
-
 ## Public interface (TARGET — one door)
 
 ```mermaid
@@ -533,47 +335,6 @@ classDiagram
   Engine --> Scenario : reads
   Engine --> Store : owns the one graph
 ```
-
-**The engine carries no gameplay verb.** Driving is an assembly, not a method: body `IsA`
-four-wheel, `DrivenBy` mind, mind `Uses` a nav tool, mind `Assigned` a route as data — declared
-in XML or built through `Scene()`, which are the same calls against the same graph. A verb per
-activity on `Engine` would leak the catalogue into the facade and hand XML a graph it cannot
-spell. Possession is the `DrivenBy` relation — the player's mind and the autopilot take the same
-seam, so "take the wheel" is one relink, not an API. A client includes `include/outshine/` and
-nothing else; Live, Renderer, GroundStream and the drive fold behind this door.
-
-## Tests
-
-```mermaid
-flowchart TD
-  q{"what would fail it?"}
-  q -->|wrong computation| u["test/unit — mirrors src/, IS the layering proof"]
-  q -->|wrong pixels vs oracle| r["test/render — Cycles, per-vendor corpora"]
-  q -->|wrong on device| s["render/outshine/shader — MSL vs C++ twin"]
-  q -->|cost moved| f["render/outshine/frame — no sanitiser"]
-  q -->|floor broke / drifted| c["render/outshine/scenario — p50/p95/p99 · determinism · memory"]
-```
-
-The unit mirror is the REGRESSION GATE and it is fast; the long device and corpus suites are the
-sporadic full proof, run when named, never per edit. `test/run.sh` is the only runner (one process per test, real verdict, includes per layer = the
-build's own sets). `tools/` and `apps/` build ON the library and run only by name. Oracle pipeline:
-fetch → generate → patch (both sides) → convert → Cycles → compare (perceptual tail / geometric
-bound, 0.005 px floor); **criteria met** and **cases within bound** published side by side.
-Read the trailer first — a count without `N tests: … PASS … FAIL` may measure the past. The
-fast gate also publishes **what it did not judge**: every source it stood aside from is still
-COMPILED (`N source(s) the gate did not run still compile, M do not`, and `M > 0` turns the
-gate red — board:1766), and every declared case family holding no fetched subject is named,
-because a corpus is fetched and a green trailer must not read as coverage it never had
-(board:1765). `test/run.sh --corpus` answers that second question alone. A case whose RED is a standing
-finding is declared in `EXPECT_FAIL` with its failure count: the gate keeps its meaning, and
-`run.sh` turns the gate RED the day that case passes with the declaration still in place, so a
-repair cannot land quietly beside a stale expectation.
-The one offline script: `test/harness/shared/corpus/prepare.py`. The corpus lives in the system
-temp dir, so the machine may sweep it: a case whose prepared input is gone is **rebuilt from its
-owning manifest** before it is judged — per owner, found by inverting the prepared-directory
-mapping onto the path the failing case names in its log, its cost beside the bound with the
-builds. A missing subject says `UNPREPARED`, never `FAIL`: the first says this run judged
-nothing here, the second says the code is wrong (board:1797, 1798).
 
 ## Board
 
@@ -605,55 +366,33 @@ ls board/*/ | grep -o '^[0-9]\{4\}' | sort -n | tail -1   # next id, derived
 | | |
 |---|---|
 | `src/` | the library entire; `src/assets/` its declared data; no entry point, no test |
-| `test/` | `test/unit/` (mirror), `test/render/` (per vendor), `test/harness/` (scorers + `test/harness/claims/`) |
-| `tools/` | development support built ON the library: what serves the PROCESS — transports, and a browser for looking at the corpus |
-| `apps/` | applications built ON the library: what serves the PRODUCT — not tests, but they exercise the whole engine and are run by name; the engine knows none of them. **At HEAD `apps/driver` is split `src/` and `test/`, and `src/` holds two declarations (`f31.scenario`, `routes.xml`) and no program** — the shape is right and the entry point has not been written (board:1803) |
+| `test/` | `test/unit/` mirrors `src/`; `test/render/` per vendor; `test/harness/` scorers and claims |
+| `tools/` | development support built ON the library |
+| `apps/` | applications built ON the library. **`apps/driver` is outshine's ONE integration test and its product**; the hourly architect signs it off |
 | `Makefile` | build · test · clean, nothing else |
 | `board/` | the working system (above) |
 
-## The hourly architect
+`test/run.sh` is the only runner. The fast unit mirror is the regression gate; long device and
+corpus suites run when named. A standing RED is declared in `EXPECT_FAIL` with its count, and
+the gate turns red the day such a case passes with the declaration still in place.
 
-A cron fires at **:17 every hour** and runs the `architecture-reviewer` agent over the tree:
-it reads this file and the commit delta since the last review, judges the code as a principal
-engineer would (RAGE and Unreal are the benchmark), and files what it finds into `board/`.
-The review NEVER edits src/ — it files, sharpens and REOPENS; the repair is the queue's work.
+## The order the work is done in
 
-| | |
-|---|---|
-| what it delivers | delta verdict · findings with file:line · new/changed board items · **what moved in CURRENT and in TARGET** · an explicit defect-free yes/no |
-| where its findings land | `board/open/`, numbered from the next free id, one commit per round |
-| a finding that reappears | reopens the item HARDER, with the measurement that disproves the closure |
-| its gate | run only in its own `git worktree` — the main nest is pid-locked (`test/run.sh`) |
+```mermaid
+flowchart LR
+  A["1 · REFACTOR to TARGET"] --> B["2 · GUARDS: static_assert, the type system, refusal at assembly"]
+  B --> C["3 · UNIT TESTS: each trivially true"]
+  C --> D["4 · JUDGE THE DRIVER: the architect signs it off"]
+  D --> E["5 · EXTEND"]
+  E --> A
+```
 
-**It owns both maps, and the aim is CURRENT = TARGET** — the distance between them is the
-work list. The review is the only JUDGE of the diagrams in this file; who may WRITE one depends
-on whether the change is a measurement or a verdict (board:1855):
+A unit test asserts something that CAN be trivially true -- a reader checks it by eye. Emergence
+is the integration test, and that is `apps/driver`. **A test is a specification only while the
+architecture under it is right**: one asserting what must be TRUE wins against the code always;
+one asserting how it is DONE today moves with the architecture, and a refactor it blocks is a
+defect in the test.
 
-| | who writes it | why |
-|---|---|---|
-| a CURRENT node's existence, name, edges; a `file:line`, a count, a measured size | whoever moved the tree, the same session | a node that is gone is not an opinion, and CLAUDE.md must not lie about HEAD between two rounds |
-| a CURRENT node's COLOUR and the row that argues it | the review alone | green/amber/red is a verdict on whether a shape is right, and a repair may not grade its own work |
-| anything in TARGET | the review alone | where the tree is going is not decided by the item in flight |
-
-`harness/claims/TheMapCitesLinesThatSayWhatItClaims` holds the first row to its word: every
-`file:line` the CURRENT tables cite must carry the text quoted beside it.
-
-
-| | | |
-|---|---|---|
-| **CURRENT** | the tree at HEAD, measured | MUST be corrected when the code moves — a node added, removed, renamed, recoloured, or a `file:line` citation that no longer says what its row claims |
-| **TARGET** | where the tree is going | MAY change on a fetched reference, a measurement, or an owner requirement — argued in the commit, never silent |
-
-No aspirational green; "it turned out harder" never lowers TARGET. A node that reaches its
-target goes green and is named in the report. A gap no board item covers gets one filed.
-
-Between reviews the open board is worked continuously: pick the next item, repair it, close
-it with the proving test named in its body and a NEGATIVE CONTROL that shows the test red
-against the defect. A closure that names no such test is not a closure. Done is: the board
-holds no open item and a full round finds nothing — said explicitly — and the round after
-it agrees.
-
-References (fetched, not recalled): C++ Core Guidelines (binding) · Gregory GEA3 · RTR4 · PBR4 ·
-Frostbite PBR/FrameGraph · Nanite (error-driven LOD) · Decima (runtime placement) · id Tech 7
-(hard frame floor) · RAGE (decisionless pools) · SpeedTree (LOD cross-fade). Distance-ratio LOD
-selection is refused by construction — one currency: projected error.
+An architecture review lands hourly (cron :17, its own worktree, files but never edits `src/`).
+It owns both maps, measures the distance CURRENT → TARGET, judges the driver on a fresh
+screenshot, and writes the next hour's work order. Its brief is `.claude/agents/`.
