@@ -35,6 +35,17 @@ struct Showing {
 [[nodiscard]] std::string Declaration(const std::vector<Listed> &cases, const Showing &showing,
                                       int widthPx, int heightPx);
 
+struct Stands {
+  std::string Under;
+  std::string Uri;
+  std::string Document;
+  std::string Style;
+  std::string Programme;
+  std::string Why;
+};
+
+[[nodiscard]] Stands StandOf(const Listed &one);
+
 [[nodiscard]] std::string Style(void);
 
 [[nodiscard]] double RootEmPx(int heightPx);

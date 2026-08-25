@@ -244,6 +244,36 @@ std::string LinkedSheets(const std::string &prepared) {
   return out;
 }
 
+Stands StandOf(const Listed &one) {
+  Stands out;
+  out.Under = one.Prepared;
+  const std::string entry = EntryPath(one.Prepared);
+  if (entry.empty()) {
+    out.Why = "no manifest names an entry under " + one.Prepared;
+    return out;
+  }
+  const std::filesystem::path named(entry);
+  const std::string suffix = named.extension().string();
+  if (suffix == ".gltf" || suffix == ".glb") {
+    out.Uri = named.filename().string();
+    return out;
+  }
+
+  bool found = false;
+  const std::string held = EntryOf(one.Prepared, found);
+  if (!found) {
+    out.Why = named.filename().string() + " is named by the manifest and did not open";
+    return out;
+  }
+  if (suffix == ".js") {
+    out.Programme = held;
+    return out;
+  }
+  out.Document = held;
+  out.Style = LinkedSheets(one.Prepared);
+  return out;
+}
+
 std::string Console(const std::string &title, const std::string &source, const std::string &verdict,
                     const char *why, int widthPx, int heightPx) {
   (void)widthPx;

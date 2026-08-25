@@ -78,6 +78,14 @@ public:
 
   [[nodiscard]] bool Moved() const { return Moved_; }
 
+  [[nodiscard]] const outshine::Viewer::Listed *Picked() const {
+    const std::vector<int> shown = outshine::Viewer::Filtered(Cases_, At_);
+    if (At_.Selected < 0 || At_.Selected >= (int)shown.size()) { return nullptr; }
+    return &Cases_[(size_t)shown[(size_t)At_.Selected]];
+  }
+
+  void Noted(std::string said) { At_.Note = std::move(said); }
+
 private:
   const std::vector<outshine::Viewer::Listed> &Cases_;
   outshine::Viewer::Showing At_;
@@ -170,14 +178,18 @@ int main(int argc, char **argv) {
   const std::vector<outshine::Viewer::Listed> cases =
       outshine::Viewer::Cases(asked.Cases, asked.Prepared);
   Browser browsing{cases, {}, false};
-  showing.Surfaces.push_back(browsing.Face(asked.WidthPx, asked.HeightPx));
+  std::string shownCase;
   std::printf("BROWSING %zu case(s) under %s\n", cases.size(), asked.Cases.c_str());
   engine.Offers(&browsing);
 
-  if (!engine.Declare(showing)) {
-    std::printf("REFUSED %s\n", engine.Error().c_str());
-    SDL_Quit();
-    return 1;
+  {
+    outshine::Scenario stands = showing;
+    stands.Surfaces.push_back(browsing.Face(asked.WidthPx, asked.HeightPx));
+    if (!engine.Declare(stands)) {
+      std::printf("REFUSED %s\n", engine.Error().c_str());
+      SDL_Quit();
+      return 1;
+    }
   }
   if (!engine.Assemble()) { std::printf("REFUSED %s\n", engine.Error().c_str()); }
 
@@ -186,15 +198,65 @@ int main(int argc, char **argv) {
 
   long frames = 0;
   bool closing = false;
-  while (!closing && engine.Advance()) {
+  while (!closing) {
+    if (!engine.Advance()) {
+      browsing.Noted(engine.Error());
+      shownCase.clear();
+      showing = outshine::Scenario{};
+      showing.Render.Declared = true;
+      showing.Render.Frame = outshine::Extent{asked.WidthPx, asked.HeightPx};
+      showing.Render.Fill = 0.15;
+      outshine::Scenario alone = showing;
+      alone.Surfaces.push_back(browsing.Face(asked.WidthPx, asked.HeightPx));
+      if (!engine.Declare(alone) || !engine.Advance()) {
+        std::printf("STOPPED the browser itself did not stand: %s\n", engine.Error().c_str());
+        break;
+      }
+    }
     ++frames;
     for (SDL_Event event; SDL_PollEvent(&event);) {
       closing = closing || event.type == SDL_EVENT_QUIT;
       (void)engine.Handles(event);
     }
     if (browsing.Moved()) {
-      showing.Surfaces.back() = browsing.Face(asked.WidthPx, asked.HeightPx);
-      if (!engine.Declare(showing)) {
+      const outshine::Viewer::Listed *const picked = browsing.Picked();
+      outshine::Scenario stands = showing;
+      if (picked != nullptr && picked->Prepared != shownCase) {
+        const outshine::Viewer::Stands held = outshine::Viewer::StandOf(*picked);
+        if (!held.Why.empty()) {
+          browsing.Noted(held.Why);
+        } else {
+          shownCase = picked->Prepared;
+          engine.Under(outshine::Roots{held.Under, asked.Shipped, "/tmp/outshine-viewer-cache", false});
+          stands = outshine::Scenario{};
+          stands.Render.Declared = true;
+          stands.Render.Frame = outshine::Extent{asked.WidthPx, asked.HeightPx};
+          stands.Render.Fill = 0.15;
+          if (!held.Uri.empty()) {
+            outshine::Asset shown;
+            shown.Uri = held.Uri;
+            shown.Kind = "gltf";
+            stands.Assets.push_back(shown);
+          } else {
+            outshine::Surface page;
+            page.Document = held.Document;
+            page.Style = held.Style;
+            page.Programme = held.Programme;
+            const outshine::Viewer::Region stage =
+                outshine::Viewer::StageRegion(asked.WidthPx, asked.HeightPx);
+            page.LeftFrac = stage.X / (double)asked.WidthPx;
+            page.TopFrac = stage.Y / (double)asked.HeightPx;
+            page.WidthFrac = stage.Width / (double)asked.WidthPx;
+            page.HeightFrac = stage.Height / (double)asked.HeightPx;
+            stands.Surfaces.push_back(page);
+          }
+          browsing.Noted(picked->Name);
+          showing = stands;
+        }
+      }
+      stands = showing;
+      stands.Surfaces.push_back(browsing.Face(asked.WidthPx, asked.HeightPx));
+      if (!engine.Declare(stands)) {
         std::printf("REFUSED %s\n", engine.Error().c_str());
         break;
       }
@@ -210,9 +272,6 @@ int main(int argc, char **argv) {
     if (asked.Frames > 0 && frames >= asked.Frames) { break; }
   }
 
-  if (!closing) {
-    std::printf("STOPPED after Advance said no: '%s'\n", engine.Error().c_str());
-  }
   std::printf("SHOWED %ld frame(s)\n", frames);
   if (window != nullptr) { SDL_DestroyWindow(window); }
   SDL_Quit();
