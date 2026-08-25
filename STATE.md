@@ -100,7 +100,7 @@ MASS -- the heaviest units, against the median of them all
     2020  content/gltf/Document.h
     1397  ui/Layout.h
     1347  content/gltf/Subject.h
-    1325  render/Renderer.h
+    1327  render/Renderer.h
     1141  base/format/Script.h
     1006  render/stages/SubjectDraw.h
      955  ui/Style.h
@@ -108,7 +108,7 @@ MASS -- the heaviest units, against the median of them all
      108  the median of 241 unit(s)
 
 CARPET -- the widest public surfaces
-    55 [[nodiscard]] in src/render/Renderer.h
+    56 [[nodiscard]] in src/render/Renderer.h
     51 [[nodiscard]] in src/content/gltf/Document.h
     42 [[nodiscard]] in src/content/gltf/Subject.h
     34 [[nodiscard]] in src/scene/Store.h
@@ -196,6 +196,7 @@ PROVES -- what src/ provably does, one line each
   pi stands once and it is std::numbers: every pi in src/ derives from std::numbers::pi and the alias lives in one header (board:1630)
   scenario: a declared volume fires on the transition its declaration names -- enter when a body arrives, exit when it leaves -- and a body that stays f
   the door: a declared binding reports both edges of its button, so a control command can be held and can end
+  the door: a per-frame count belongs to the stage instance that made it, and two engines in one process do not read each other's numbers
   the door: a section a scenario did not declare decides nothing, and what stands in its place is the engine's own default rather than the zeroes of an 
   the door: a subject casts a shadow over every batch it draws, and a declaration that names no shadow radius gets one derived from the subject's extent
   the door: a subject that changes costs the reading of that subject and nothing else, so a scenario streams its parts rather than being rebuilt around 

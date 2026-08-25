@@ -156,6 +156,8 @@ public:
     if (DrawsGlass_) { Glass_.SetEnvironment(environment); }
   }
   [[nodiscard]] uint32_t SubjectBatchCount() const { return Subjects_.BatchCount(); }
+
+  [[nodiscard]] size_t ShadowCastCount() const { return Shadow_.CastBatches(); }
   [[nodiscard]] uint32_t SubjectDrawCount() const { return Subjects_.DrawCount(); }
 
   [[nodiscard]] uint32_t SubjectPipelineCount() const { return Subjects_.PipelineCount(); }

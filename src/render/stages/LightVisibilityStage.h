@@ -29,7 +29,7 @@ public:
   void Build(const double eye[3]);
 
   [[nodiscard]] const double *LightFromWorld() const { return LightFromWorld_; }
-  [[nodiscard]] static size_t CastBatches() { return CastBatches_; }
+  [[nodiscard]] size_t CastBatches() const { return CastBatches_; }
   [[nodiscard]] bool Standing() const { return Declared_; }
 
 private:
@@ -37,8 +37,7 @@ private:
   void Cast(const double lightFromWorld16[16], const double eye[3], int atlasPx,
             const PassRecording &into);
 
-  static size_t CastBatches_;
-
+  size_t CastBatches_ = 0;
   SubjectDraw *Subjects_ = nullptr;
   OwnedPipeline DepthOnly_;
   double ToSun_[3] = {0, 0, 1};

@@ -996,7 +996,7 @@ bool Engine::Advance() {
   if (!S_->Standing->Advance(S_->Error)) { return false; }
   S_->Places("batches the picture draws", (double)S_->Device.SubjectBatchCount(), "batches");
   S_->Places("batches the shadow casts",
-             (double)Render::LightVisibilityStage::CastBatches(), "batches");
+             (double)S_->Device.ShadowCastCount(), "batches");
   return true;
 }
 

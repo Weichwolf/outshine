@@ -8,7 +8,6 @@
 
 namespace outshine::Render {
 
-size_t LightVisibilityStage::CastBatches_ = 0;
 
 bool LightVisibilityStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error) {
   Subjects_ = &subjects;
