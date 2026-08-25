@@ -285,9 +285,14 @@ bool Engine::State::Composes(void) {
   const Scenario &declared = Declared;
   const Sim::Corridor &way = Drive.Way;
   const bool overADrive = false;
-  if (!declared.Ground.Declared && !overADrive) {
-    Error = "the scenario declares neither a sphere nor a drive that laid a corridor, so "
-                "there is nowhere for a ground to be composed";
+  if (!declared.Ground.Declared) {
+    Error = Drove && !way.Fine.empty()
+                ? "a drive laid a corridor and a ground could be composed about it, but the "
+                  "ground is APPENDED to the vehicle's own glTF and would inherit its placement "
+                  "and its model scale -- measured, an 8 km tile ring lands on the car's roof. "
+                  "The ground is a compositor's draw item and until it is one this refuses"
+                : "the scenario declares neither a sphere nor a drive that laid a corridor, so "
+                  "there is nowhere for a ground to be composed";
     return false;
   }
   const double atLat = overADrive ? way.FrameLat : declared.Ground.Lat;

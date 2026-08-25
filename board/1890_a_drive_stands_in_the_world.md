@@ -69,6 +69,28 @@ and the mesh that is drawn for it, not a scale error.
 point. A first-person view from that point must show the bonnet and the cabin; it shows the
 outside of the car from six metres up.
 
+## MEASURED 2026-08-25: the branch was opened and the ground landed on the roof
+
+`overADrive` was set to `Drove && !Ground.Declared && !way.Fine.empty()` and the ground composed
+without refusing. The still says what happened: the pale ground tile is drawn on the car's ROOF,
+its rear window and its boot lid.
+
+`Engine::State::Composes` ends with `Gltf::Subject world = Standing->Shown(); world.Append(
+laidGround)`. Appending the ground to the VEHICLE's glTF makes it a part of that subject, so it
+inherits the subject's placement AND its model scale -- 0.01555 m per asset unit for the F31.
+An 8 km tile ring becomes 125 m of geometry sitting on the car.
+
+So the fourth box below is not a tidy-up after the third; it is the thing that BLOCKS the third,
+and the order is: the ground becomes a compositor draw item, and only then does `overADrive` go.
+
+The branch is shut again, and the refusal now states the real reason instead of denying what the
+same run proved:
+
+  a drive laid a corridor and a ground could be composed about it, but the ground is APPENDED to
+  the vehicle's own glTF and would inherit its placement and its model scale -- measured, an 8 km
+  tile ring lands on the car's roof. The ground is a compositor's draw item and until it is one
+  this refuses
+
 ## What still blocks the ground
 
 `const bool overADrive = false;` (src/clients/Engine.cpp:284) nails shut the only branch a
