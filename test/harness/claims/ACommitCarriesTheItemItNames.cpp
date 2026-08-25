@@ -3,7 +3,10 @@
 #include <string>
 #include <vector>
 
+#include "BoardNames.h"
 #include "Check.h"
+
+namespace Board = outshine::Test::Board;
 
 namespace {
 
@@ -18,7 +21,7 @@ struct Excusal {
 };
 
 constexpr Excusal kExcused[] = {
-    {"3f52567e", "1610 1826 1831",
+    {"3f52567e", "board:1610 board:1826 board:1831",
      "the hourly review wrote its sharpened items as a bare list beside a verb, before its "
      "instructions carried the rule that a reference is board:NNNN"},
 };
@@ -46,30 +49,28 @@ constexpr Excusal kExcused[] = {
   return out;
 }
 
-[[nodiscard]] bool Excused(const std::string &commit, const std::string &item, size_t &seen) {
+[[nodiscard]] bool Excused(const std::string &commit, unsigned item, size_t &seen) {
   for (const Excusal &one : kExcused) {
     if (commit.rfind(one.Commit, 0) != 0) { continue; }
-    const std::string items = one.Items;
-    if (items.find(item) == std::string::npos) { continue; }
+    if (!Board::NamedIn(one.Items).Holds(item)) { continue; }
     ++seen;
     return true;
   }
   return false;
 }
 
-[[nodiscard]] std::vector<std::string> NumbersIn(const std::string &text, const char *after) {
-  std::vector<std::string> out;
-  const size_t step = std::string(after).size();
-  for (size_t at = text.find(after); at != std::string::npos; at = text.find(after, at + 1)) {
-    size_t from = at + step;
-    while (from + 4 <= text.size() && std::isdigit((unsigned char)text[from])) {
-      out.push_back(text.substr(from, 4));
-      from += 4;
-      if (from < text.size() && text[from] == ',') { ++from; continue; }
-      break;
-    }
+[[nodiscard]] size_t ItemFilesIn(const std::string &files) {
+  size_t items = 0;
+  for (size_t at = 0; at < files.size(); at = files.find('\n', at) + 1) {
+    const size_t ends = files.find('\n', at);
+    const std::string line = files.substr(at, ends == std::string::npos ? ends : ends - at);
+    const size_t slash = line.rfind('/');
+    if (line.rfind("board/", 0) != 0 || slash == std::string::npos) { continue; }
+    items += Board::DigitsAt(line, slash + 1) && line.size() > slash + Board::kDigits + 1 &&
+             line[slash + Board::kDigits + 1] == '_';
+    if (ends == std::string::npos) { break; }
   }
-  return out;
+  return items;
 }
 
 } // namespace
@@ -98,6 +99,8 @@ int main(void) {
   std::vector<std::string> carrying;
   size_t commits = 0;
   size_t excused = 0;
+  size_t unreadable = 0;
+  size_t overflowed = 0;
   for (size_t at = whole.find('\x01'); at != std::string::npos; at = whole.find('\x01', at + 1)) {
     const size_t opens = whole.find('\x02', at);
     const size_t closes = whole.find('\x03', opens == std::string::npos ? at : opens);
@@ -109,21 +112,16 @@ int main(void) {
     const std::string files =
         whole.substr(closes + 1, ends == std::string::npos ? ends : ends - closes - 1);
 
-    // board:1844: a reference is `board:NNNN`, including the comma list `board:1836,1837`. A
-    // widening to "any four digits" let a MEASUREMENT stand in for a reference -- this
-    // session's own messages carry 2528 (MB of corpus), 3600 (seconds in an hour) and 1181
-    // (cases) -- and the board is at 1845 and climbing.
-    std::vector<std::string> named = NumbersIn(message, "board:");
-    for (const char *also : {"board/open/", "board/closed/", "board/active/"}) {
-      for (const std::string &one : NumbersIn(message, also)) { named.push_back(one); }
-    }
+    const Board::Named named = Board::NamedIn(message);
+    const Board::Named touched = Board::NamedIn(files);
+    unreadable += ItemFilesIn(files) > touched.Count ? 1 : 0;
+    overflowed += named.Overflowed || touched.Overflowed ? 1 : 0;
 
-    for (const std::string &one : NumbersIn(files, "/")) {
-      bool spoken = Excused(commit, one, excused);
-      for (const std::string &say : named) { spoken = spoken || say == one; }
-      if (spoken) { continue; }
-      carrying.push_back(commit.substr(0, 8) + " touches board item " + one +
-                         " and its message names it nowhere");
+    for (size_t one = 0; one < touched.Count; ++one) {
+      const unsigned item = touched.Items[one];
+      if (named.Holds(item) || Excused(commit, item, excused)) { continue; }
+      carrying.push_back(commit.substr(0, 8) + " touches board item " +
+                         std::to_string(item) + " and its message names it nowhere");
     }
   }
   Note("commits this rule has bound so far", (double)commits, "commits");
@@ -135,6 +133,15 @@ int main(void) {
 
   for (const std::string &one : carrying) { std::printf("FOUND %s\n", one.c_str()); }
 
+  CHECK(unreadable == 0,
+        "**AND EVERY BOARD PATH THE WALK IS HANDED IS ONE IT CAN READ**: the item numbers come "
+        "from three declared directory spellings, so a file that lands beside them -- "
+        "board/1844_x.md, a fourth directory -- would be walked past in silence rather than "
+        "judged (board:1846)");
+  CHECK(overflowed == 0,
+        "**AND NO COMMIT NAMES MORE ITEMS THAN THE WALK HOLDS**: the reference table is a fixed "
+        "64 wide, and a message or a file list that overruns it would drop references and read "
+        "as a commit that named fewer items than it did (board:1846)");
   CHECK(excused > 0 || commits < 30,
         "**AND EVERY DECLARED EXEMPTION IS STILL REACHED**: the range this walk binds is derived "
         "from its own birth commit, so a rebase or a rename moves it -- an exemption the range "
