@@ -1,5 +1,5 @@
 Type: bug
-State: active
+State: open
 Parent: 1803
 Area: clients
 Tags: driver, paths, shipping
