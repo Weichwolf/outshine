@@ -119,11 +119,13 @@ public:
 
   static size_t TookPosing_, TookSubmitting_, TookAiming_, TookDrawing_;
   static size_t AssetReads_;
+  static size_t PlanInits_;
   [[nodiscard]] static size_t TookPosing() { return TookPosing_; }
   [[nodiscard]] static size_t TookSubmitting() { return TookSubmitting_; }
   [[nodiscard]] static size_t TookAiming() { return TookAiming_; }
   [[nodiscard]] static size_t TookDrawing() { return TookDrawing_; }
   [[nodiscard]] static size_t AssetReads() { return AssetReads_; }
+  [[nodiscard]] static size_t PlanInits() { return PlanInits_; }
 
   [[nodiscard]] const Gltf::Subject &Shown() const { return Geometry_; }
   [[nodiscard]] size_t CarriedParts() const { return Joined_; }

@@ -23,6 +23,15 @@ wherever it stands.
   is a defect; a `double` that reaches a shader is a different one
 - **SIMD- and optimization-friendly**: contiguous, one-width, pointer-free layouts; fast path on the hot path; batch over per-item; bounded terms on the frame path (no alloc/lock/disk/unbounded block)
 - **Declarative**: scenarios declare, the engine behaves; content = data, engine = verbs; the consumer selects from a `constexpr` catalogue and cannot add to it
+- **A SCENARIO IS A STREAM, not a value that is re-declared.** The engine streams from its
+  generators and a scenario arrives the same way: `Declare` seeds, and after that parts enter and
+  leave. Swapping a part must be EASY and FAST — reuse what can be reused, recompute or allocate
+  only what changed. Both benchmarks say it and neither rebuilds a world to change part of one:
+  Unreal streams levels into a persistent world with `AddToWorld`/`RemoveFromWorld`, budgeted and
+  incremental across frames, and spawns and destroys actors against it; RAGE swaps one IMAP group
+  for another through a map change against a streamed map data store, out of decisionless pools.
+  The measurement is a cost bound: the work a declaration causes is proportional to what it
+  CHANGED, never to how big it is
 - **Batteries as declarations**: outshine ships convenience components -- generators, providers, world templates and factories (`Planet(params)` → a Scenario value) -- all catalogue citizens the scenario selects; the engine core stays scenario-agnostic
 - **Every number carries its origin** (derived · measured · `[SET]`) with unit and population; no magic numbers; calibration measures, never decides
 - **The code carries NO comments** — `src/`, `include/` and `apps/` hold no `//`, no block, no
@@ -221,7 +230,7 @@ flowchart TD
 | `SubjectDraw` | six responsibilities in one class: `ShaderSource(const SourceOptions &options)` (SubjectDraw.h:30), `PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack)` (:154), `FlushCrossings(SDL_GPUCommandBuffer *commands)` (:148), `SetPlacements(const double *models, size_t rows, std::string &error)` (:51), `SetLights(std::span<const SubjectLight> lights, std::string &error)` (:89), and `EncodeDepthOnly(const double lightFromWorld16[16], const double eye[3], int atlasPx,` (:96) beside the one `void Encode(const FrameContext &ctx, const PassRecording &into)` (:93) a stage owes |
 | `Sim` | `class Sim {` (Sim.h:37) is a hand-wired god facade the component model replaces, and since the cut it has NO consumer at all: `grep -rn '"Sim.h"' src apps test include` finds one line, `src/clients/Sim.cpp:1`. 798 lines, 25 `#include "`, five green nodes hanging off it |
 | `Live` | `class Live {` (Live.h:71) reaches the renderer and the layout from one class — `#include "Renderer.h"` (:18) beside `#include "Layout.h"` (:13) |
-| `Engine` | `bool Engine::State::Composes(void) {` (Engine.cpp:273) lays the ring at `auto laid = LayPatchwork(Stack.Pool(), over);` (:311) behind `const bool overADrive = false;` (:281), a branch nailed shut because the ring is anchored on its own ECEF origin and the vehicle on the corridor's (board:1890). Of the five bindings `f31.scenario` declares, `throttle`, `brake`, `steer-left` and `steer-right` reach `Host::Calls` and no client answers them, so no key moves the car. Tables and Sounds are accepted and never advanced |
+| `Engine` | `bool Engine::State::Composes(void) {` (Engine.cpp:276) lays the ring at `auto laid = LayPatchwork(Stack.Pool(), over);` (:314) behind `const bool overADrive = false;` (:284), a branch nailed shut because the ring is anchored on its own ECEF origin and the vehicle on the corridor's (board:1890). Of the five bindings `f31.scenario` declares, `throttle`, `brake`, `steer-left` and `steer-right` reach `Host::Calls` and no client answers them, so no key moves the car. Tables and Sounds are accepted and never advanced |
 
 | amber | the form in question, at HEAD |
 |---|---|
@@ -243,7 +252,7 @@ flowchart TD
 | `TAA` | `{Stage::TemporalResolve, Provenance::Content, PassKind::Raster, "temporalResolve",` (RenderCatalogue.h:278) declares a stage that encodes nothing of its own -- it is folded into tonemap rather than standing as its own resolve |
 | `TilePool` | `class TilePool : public TileMeshes {` (TilePool.h:30) holds 3 `std::mutex`, a `std::condition_variable`, a `std::map` and a `std::set` where a slot table and a ring would do -- a decisionless pool holds no tree |
 | `Typeface` | reached and correct on the picture -- three faces at two sizes in the viewer's own frame -- and `[[nodiscard]] Glyph Shape(char32_t code, double sizePx, Family family) const override;` (Typeface.h:30) still rasters lazily from inside the draw: `SDL_Surface *ink = TTF_GetGlyphImage(set, (Uint32)code, &kind);` (Typeface.cpp:192) and `SDL_ConvertSurface(ink, SDL_PIXELFORMAT_RGBA32);` (:200) allocate and free two surfaces per first-sight glyph. The face is read once into memory and each (family, size) opens its own instance over it, so no size flushes a shared cache and no draw touches the disk (board:1892) |
-| `TriggerField` | reached -- `auto stood = TriggerField::Stand(scenario.Volumes, scenario.Events);` (Engine.cpp:555) stands one and `Volumes->Probe(0, body.PositionM, (double)Standing->At() * kTickS);` (:840) probes the driven body every tick -- and NOTHING fires: a box of 1e7 m extent about the origin, which the body cannot be outside of, drains empty, because the volume stands in the scenario's origin and the body in the corridor's (board:1891) |
+| `TriggerField` | reached -- `auto stood = TriggerField::Stand(scenario.Volumes, scenario.Events);` (Engine.cpp:591) stands one and `Volumes->Probe(0, body.PositionM, (double)Standing->At() * kTickS);` (:889) probes the driven body every tick -- and NOTHING fires: a box of 1e7 m extent about the origin, which the body cannot be outside of, drains empty, because the volume stands in the scenario's origin and the body in the corridor's (board:1891) |
 
 | stranded | its only way to a client, at HEAD |
 |---|---|
@@ -253,7 +262,7 @@ flowchart TD
 | `Infrastructure` | `Sim.h` |
 | `RegionForge` | `Sim.h` |
 | `BusGraph` | nothing outside its own two files |
-| `GroundPatchwork` | `#include "GroundPatchwork.h"` (Engine.cpp:25) inside `bool Engine::State::Composes(void) {` (:273), which `Assemble` now calls -- and `const bool overADrive = false;` (:281) shuts the only branch a drive could reach it by, while `grep -rl '<ground' --include=*.scenario .` finds NO scenario in the tree that declares one. No tile has reached a frame |
+| `GroundPatchwork` | `#include "GroundPatchwork.h"` (Engine.cpp:25) inside `bool Engine::State::Composes(void) {` (:276), which `Assemble` now calls -- and `const bool overADrive = false;` (:284) shuts the only branch a drive could reach it by, while `grep -rl '<ground' --include=*.scenario .` finds NO scenario in the tree that declares one. No tile has reached a frame |
 
 ## Class structure (TARGET — where the tree is going)
 
@@ -445,7 +454,7 @@ What a corpus HOLDS decides what it can prove:
 | **SNAPSHOT** | another implementation, frozen | agreement, never correctness |
 | **INPUT** | nothing is supplied | that we survive it |
 
-**`test/<vendor>/` is the vendor's word; `test/outshine/` is OUR OWN ORACLE and carries less.**
+**`test/<vendor>/` is the vendor's word; `test/harness/outshine/` is OUR OWN ORACLE and carries less.**
 A khronos, wpt, test262 or geographiclib case is a SPECIFICATION: it fails and the code is
 wrong, full stop. An `outshine/` case is a law of nature we implemented ourselves — static
 equilibrium, a closed form, a conservation — and it fails in TWO ways: the code is wrong, or the

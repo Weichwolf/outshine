@@ -182,6 +182,7 @@ bool Live::Build(std::string &error) {
       return false;
     }
     Plan_ = *std::move(made);
+    PlanInits_ += 1;
     Renderer_->Init(Declared_.SurfaceWidthPx, Declared_.SurfaceHeightPx, Plan_);
     if (!Renderer_->DeviceUsable()) {
       error = Renderer_->WhyNot().empty()
@@ -576,6 +577,7 @@ bool Live::Restand(const Gltf::Subject &built, size_t carried, std::string &erro
 
 size_t Live::TookPosing_ = 0, Live::TookSubmitting_ = 0, Live::TookAiming_ = 0, Live::TookDrawing_ = 0;
 size_t Live::AssetReads_ = 0;
+size_t Live::PlanInits_ = 0;
 
 bool Live::Advance(std::string &error) {
   const auto took = [](size_t before) { return Heap::LiveBytes() - before; };

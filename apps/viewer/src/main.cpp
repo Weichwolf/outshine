@@ -11,7 +11,6 @@
 
 namespace {
 
-constexpr int kMostStepsPerFrame = 8;
 
 
 
@@ -229,20 +228,10 @@ int main(int argc, char **argv) {
   long frames = 0;
   bool closing = false;
   Uint64 wasNs = SDL_GetTicksNS();
-  double owedS = 0.0;
   while (!closing) {
-    {
-      const Uint64 nowNs = SDL_GetTicksNS();
-      owedS += (double)(nowNs - wasNs) * 1.0e-9;
-      wasNs = nowNs;
-    }
-    bool advanced = true;
-    for (int step = 0; step < kMostStepsPerFrame && owedS >= engine.StepS(); ++step) {
-      owedS -= engine.StepS();
-      advanced = engine.Advance();
-      if (!advanced) { break; }
-    }
-    if (owedS > kMostStepsPerFrame * engine.StepS()) { owedS = 0.0; }
+    const Uint64 nowNs = SDL_GetTicksNS();
+    const bool advanced = engine.Advance((double)(nowNs - wasNs) * 1.0e-9);
+    wasNs = nowNs;
     if (!advanced) {
       browsing.Noted(engine.Error());
       shownCase.clear();

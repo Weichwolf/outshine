@@ -53,6 +53,7 @@ public:
   [[nodiscard]] double Whole(void) const;
 
   [[nodiscard]] bool Advance();
+  [[nodiscard]] bool Advance(double elapsedS);
   [[nodiscard]] double StepS(void) const;
   [[nodiscard]] bool Run();
 

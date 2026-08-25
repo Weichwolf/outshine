@@ -71,6 +71,7 @@ private:
 };
 
 constexpr double kTickS = 1.0 / 60.0;
+constexpr int kMostStepsInArrears = 8;
 constexpr double kWheelStepPx = 48.0;
 constexpr double kGroundPatienceS = 30.0;
 constexpr double kChaseRise = 0.35;
@@ -118,6 +119,8 @@ struct Engine::State {
   Ground::GroundStack Stack;
   Sim::DriveProduct Drive;
   bool Drove = false;
+  Clients::Declaration Shown;
+  double OwedS = 0.0;
   std::string Error;
 
   [[nodiscard]] bool Rides(void);
@@ -491,6 +494,39 @@ bool Engine::Shows(const std::vector<Surface> &surfaces) {
   return S_->Standing->Redeclare(std::move(laid), S_->Error);
 }
 
+namespace {
+
+[[nodiscard]] bool SameShows(const Clients::Shows &a, const Clients::Shows &b) {
+  return a.Markup == b.Markup && a.Style == b.Style && a.Programme == b.Programme &&
+         a.LeftFrac == b.LeftFrac && a.TopFrac == b.TopFrac && a.WidthFrac == b.WidthFrac &&
+         a.HeightFrac == b.HeightFrac;
+}
+
+[[nodiscard]] bool SameSurfaces(const std::vector<Clients::Shows> &a,
+                                const std::vector<Clients::Shows> &b) {
+  if (a.size() != b.size()) { return false; }
+  for (size_t at = 0; at < a.size(); ++at) {
+    if (!SameShows(a[at], b[at])) { return false; }
+  }
+  return true;
+}
+
+[[nodiscard]] bool SameStand(const Clients::Declaration &a, const Clients::Declaration &b) {
+  return a.Animation == b.Animation && a.SurfaceWidthPx == b.SurfaceWidthPx &&
+         a.SurfaceHeightPx == b.SurfaceHeightPx && a.Stands == b.Stands && a.Built == b.Built &&
+         a.Variant == b.Variant && a.MetresPerUnit == b.MetresPerUnit && a.Fps == b.Fps &&
+         a.Fill == b.Fill && a.OrbitDegPerFrame == b.OrbitDegPerFrame &&
+         a.PictureLeftFrac == b.PictureLeftFrac && a.PictureTopFrac == b.PictureTopFrac &&
+         a.PictureWidthFrac == b.PictureWidthFrac && a.PictureHeightFrac == b.PictureHeightFrac &&
+         a.Environment[0] == b.Environment[0] && a.Environment[1] == b.Environment[1] &&
+         a.Environment[2] == b.Environment[2] && a.KeyLux == b.KeyLux &&
+         a.Exposure == b.Exposure && a.DrawsSky == b.DrawsSky &&
+         a.ShadowRadiusM == b.ShadowRadiusM && a.KeyElevationDeg == b.KeyElevationDeg &&
+         a.KeyBearingDeg == b.KeyBearingDeg;
+}
+
+}
+
 bool Engine::Declare(const Scenario &scenario) {
   if (S_->Frame.WidthPx <= 0 || S_->Frame.HeightPx <= 0) {
     S_->Error =
@@ -573,9 +609,22 @@ bool Engine::Declare(const Scenario &scenario) {
     S_->Views.emplace(std::move(*stood));
   }
 
+  if (S_->Standing && SameStand(S_->Shown, declared)) {
+    if (!SameSurfaces(S_->Shown.Surfaces, declared.Surfaces) &&
+        !S_->Standing->Redeclare(declared.Surfaces, S_->Error)) {
+      return false;
+    }
+    S_->Shown = std::move(declared);
+    S_->Declared = scenario;
+    S_->Carried = Unacted(scenario);
+    S_->Error.clear();
+    return true;
+  }
+
   std::vector<std::vector<Ui::Layout::Scrolled>> wasScrolled;
   if (S_->Standing) { wasScrolled = S_->Standing->Scrolled(); }
   S_->Standing.reset();
+  S_->Shown = declared;
   if (!Clients::Live::Open(S_->Device, std::move(declared), &S_->Face, S_->Standing, S_->Error)) {
     S_->Standing.reset();
     return false;
@@ -890,6 +939,18 @@ bool Engine::Advance() {
 }
 
 double Engine::StepS(void) const { return kTickS; }
+
+bool Engine::Advance(double elapsedS) {
+  if (elapsedS > 0.0) { S_->OwedS += elapsedS; }
+  bool stood = true;
+  for (int step = 0; step < kMostStepsInArrears && S_->OwedS >= kTickS; ++step) {
+    S_->OwedS -= kTickS;
+    stood = Advance();
+    if (!stood) { break; }
+  }
+  if (S_->OwedS > kMostStepsInArrears * kTickS) { S_->OwedS = 0.0; }
+  return stood;
+}
 
 bool Engine::Run() {
   if (!S_->Standing) {
