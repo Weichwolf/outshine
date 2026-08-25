@@ -7,6 +7,22 @@
 
 namespace {
 
+// A commit already in the history cannot be restaged. Each row names the commit AND the items
+// whose bare spelling is the defect -- board:1852: an exemption that excuses everything a
+// commit touched is wider than the violation, and one that nobody counts cannot be seen to
+// have died when the range moves past it.
+struct Excusal {
+  const char *Commit;
+  const char *Items;
+  const char *Why;
+};
+
+constexpr Excusal kExcused[] = {
+    {"3f52567e", "1610 1826 1831",
+     "the hourly review wrote its sharpened items as a bare list beside a verb, before its "
+     "instructions carried the rule that a reference is board:NNNN"},
+};
+
 [[nodiscard]] std::string Ask(const std::string &cmd) {
   std::string said;
   std::FILE *const pipe = popen(cmd.c_str(), "r");
@@ -28,6 +44,17 @@ namespace {
     from = to + 1;
   }
   return out;
+}
+
+[[nodiscard]] bool Excused(const std::string &commit, const std::string &item, size_t &seen) {
+  for (const Excusal &one : kExcused) {
+    if (commit.rfind(one.Commit, 0) != 0) { continue; }
+    const std::string items = one.Items;
+    if (items.find(item) == std::string::npos) { continue; }
+    ++seen;
+    return true;
+  }
+  return false;
 }
 
 [[nodiscard]] std::vector<std::string> NumbersIn(const std::string &text, const char *after) {
@@ -70,6 +97,7 @@ int main(void) {
 
   std::vector<std::string> carrying;
   size_t commits = 0;
+  size_t excused = 0;
   for (size_t at = whole.find('\x01'); at != std::string::npos; at = whole.find('\x01', at + 1)) {
     const size_t opens = whole.find('\x02', at);
     const size_t closes = whole.find('\x03', opens == std::string::npos ? at : opens);
@@ -90,13 +118,8 @@ int main(void) {
       for (const std::string &one : NumbersIn(message, also)) { named.push_back(one); }
     }
 
-    // A commit already in the history cannot be restaged. board:1844 records why this one
-    // stands: the hourly review writes its sharpened items as a bare list beside a verb, and
-    // the reference this claim enforces is `board:NNNN`. The reviewer's instructions carry the
-    // rule now; the commit that predates them is named here rather than widened around.
-    const bool historical = commit.rfind("3f52567e", 0) == 0;
     for (const std::string &one : NumbersIn(files, "/")) {
-      bool spoken = historical;
+      bool spoken = Excused(commit, one, excused);
       for (const std::string &say : named) { spoken = spoken || say == one; }
       if (spoken) { continue; }
       carrying.push_back(commit.substr(0, 8) + " touches board item " + one +
@@ -104,9 +127,19 @@ int main(void) {
     }
   }
   Note("commits this rule has bound so far", (double)commits, "commits");
+  Note("exemptions the table declares", (double)(sizeof kExcused / sizeof kExcused[0]), "rows");
+  Note("times one was used this run", (double)excused, "items");
+  for (const Excusal &one : kExcused) {
+    std::printf("EXCUSED %s for items %s -- %s\n", one.Commit, one.Items, one.Why);
+  }
 
   for (const std::string &one : carrying) { std::printf("FOUND %s\n", one.c_str()); }
 
+  CHECK(excused > 0 || commits < 30,
+        "**AND EVERY DECLARED EXEMPTION IS STILL REACHED**: the range this walk binds is derived "
+        "from its own birth commit, so a rebase or a rename moves it -- an exemption the range "
+        "has passed is a dead row that reads as a live one, and nothing would say so "
+        "(board:1852)");
   CHECK(carrying.empty(),
         "**A COMMIT CARRIES THE ITEM ITS MESSAGE NAMES**: `git log --grep 'board:NNNN'` is the "
         "documented way to find every commit on an item, and it is only as true as the "
@@ -116,6 +149,8 @@ int main(void) {
         "board:1802 and once more the hour that item was worked");
 
   Covers("IV.23 a commit that touches a board item names it: the log is the record and "
-         "git log --grep is only as true as the messages (board:1802)");
+         "git log --grep is only as true as the messages (board:1802) -- except the commits "
+         "this file's kExcused table declares, each named beside the items it excuses, counted "
+         "in the notes and refused the day the walked range no longer reaches one (board:1852)");
   return Report();
 }
