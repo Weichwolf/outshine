@@ -129,7 +129,9 @@ population?
   defect. **And a unit test asserts something that CAN be trivially true** -- an arc of radius R
   has curvature 1/R, an empty span has size zero, a refusal names the number it refused on. A
   case that fetches a country, drives it and then asserts is an EXPERIMENT wearing a unit test's
-  clothes; it belongs in the driver, which is the integration test.
+  clothes; it belongs in the driver, which is the integration test. **And no GOD tests**: a unit
+  case whose link set is most of `src/` is testing the integration under a unit's name -- the
+  link set in `test/run.sh`'s LayerGroups is the measurement, and a wide one is the finding.
 - **A test is a specification only while the architecture under it is right.** One that asserts
   what must be TRUE wins against the code always. One that asserts how it is DONE today -- this
   field exists, this class has this method, this app builds its own terrain -- moves WITH the
