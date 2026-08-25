@@ -193,12 +193,12 @@ flowchart TD
   classDef wrong fill:#7a2222,stroke:#3d1111,color:#fff
   classDef strandedSound fill:#1f6f3f,stroke:#7a2222,stroke-width:3px,stroke-dasharray:6 4,color:#fff
   classDef strandedUnsure fill:#8a6d1f,stroke:#7a2222,stroke-width:3px,stroke-dasharray:6 4,color:#fff
-  class Typeface,Pointer,Unwired,Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,GroundQuery,OsmField,RoadHarvest,Wayfinding,Alignment,StreetField,Ground,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,SceneStore,Assembly,SubjectResidency,Markup,Stylesheet,LayoutUi,Painting,InputMap,InputPump,TriggerField,ViewBook,BusGraph,OverlayDraw sound
+  class Unwired,Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,GroundQuery,OsmField,RoadHarvest,Wayfinding,Alignment,StreetField,Ground,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,SceneStore,Assembly,SubjectResidency,Markup,Stylesheet,LayoutUi,Painting,InputMap,InputPump,TriggerField,ViewBook,BusGraph,OverlayDraw sound
   class BuildingField,WaterField,Subject,DrawList,Renderer,TonemapStage,LightVisibilityStage,Frustum,Ephemeris,GltfStudio unsure
   class World,SubjectDraw,Sim,Live,Engine wrong
   class DriveAssembly,CorridorLay,DriveTick,TilePool unsure
   class Forest,Buildings,Water,Infrastructure strandedSound
-  class Markup,Stylesheet,LayoutUi,Painting,InputMap,InputPump,TriggerField,ViewBook,BusGraph strandedSound
+  class Typeface,Pointer,Markup,Stylesheet,LayoutUi,Painting,InputMap,InputPump,TriggerField,ViewBook,BusGraph strandedSound
   class RegionForge strandedUnsure
   class GroundStack sound
   class GroundPatchwork strandedSound
@@ -211,7 +211,7 @@ flowchart TD
 | `SubjectDraw` | six responsibilities in one class: `ShaderSource(const SourceOptions &options)` (SubjectDraw.h:30), `PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack)` (:154), `FlushCrossings(SDL_GPUCommandBuffer *commands)` (:148), `SetPlacements(const double *models, size_t rows, std::string &error)` (:51), `SetLights(std::span<const SubjectLight> lights, std::string &error)` (:89), and `EncodeDepthOnly(const double lightFromWorld16[16], const double eye[3], int atlasPx,` (:96) beside the one `void Encode(const FrameContext &ctx, const PassRecording &into)` (:93) a stage owes |
 | `Sim` | `class Sim {` (Sim.h:37) is a hand-wired god facade the component model replaces, and since the cut it has NO consumer at all: `grep -rn '"Sim.h"' src apps test include` finds one line, `src/clients/Sim.cpp:1`. 798 lines, 25 `#include "`, five green nodes hanging off it |
 | `Live` | `class Live {` (Live.h:69) reaches the renderer and the layout from one class — `#include "Renderer.h"` (:18) beside `#include "Layout.h"` (:13) |
-| `Engine` | `bool Engine::Compose(void) {` (Engine.cpp:246) lays the ground ring through `const auto laid = LayPatchwork(S_->Stack.Pool(), over);` (:279) and no programme calls it (board:1805). Views, Input, Volumes, Tables and Sounds are accepted and never advanced (board:1862). The two arrival routes board:1881 found are CLOSED: the canvas comes first, `bool Engine::Declare(const Scenario &scenario) {` (:388) refuses without one by name, and `bool Engine::Advance() {` (:667) is reached only by a scenario that stands |
+| `Engine` | `bool Engine::Compose(void) {` (Engine.cpp:247) lays the ground ring through `const auto laid = LayPatchwork(S_->Stack.Pool(), over);` (:280) and **NOTHING in the tree calls it** -- `grep -rn Compose src include apps test` finds only its own definition and its declaration in `include/Outshine.h:54` (board:1805), so the door publishes a verb that lays the world and no picture has ever carried a tile. Views, Input, Volumes, Tables and Sounds are accepted and never advanced (board:1862). `bool Engine::Declare(const Scenario &scenario) {` (:437) refuses without a canvas by name and `bool Engine::Advance() {` (:714) is reached only by a scenario that stands, so both arrival routes are closed |
 
 | amber | the form in question, at HEAD |
 |---|---|
@@ -239,11 +239,11 @@ flowchart TD
 | `Water` | `Sim.cpp`, `World.h` |
 | `Infrastructure` | `Sim.h` |
 | `RegionForge` | `Sim.h` |
-| `Markup` `Stylesheet` `LayoutUi` `Painting` | `#include "Layout.h"` (Live.h:13), `#include "Markup.h"` (:14), `#include "Paint.h"` (:15), `#include "Style.h"` (:19) and `src/ui/` -- the overlay reaches the picture only through `Live`, which this map colours red |
+| `Markup` `Stylesheet` `LayoutUi` `Painting` `Typeface` `Pointer` | `#include "Layout.h"` (Live.h:13), `#include "Markup.h"` (:14), `#include "Paint.h"` (:15), `#include "Style.h"` (:19), `#include "Typeface.h"` (Engine.cpp:15) -- and the one programme that would show a glyph refuses to paint one: `outshine-viewer --headless --show four-lines.scenario` answers *the layout holds no box, so there is nothing to paint*, windowed and headless alike, so no picture the tree can take carries text or takes a click |
 | `InputMap` `InputPump` | `#include "InputPump.h"` (InputPump.cpp:1) and nothing else in the tree: `Engine.cpp` includes no pump, so no key reaches an action |
 | `TriggerField` `ViewBook` | `src/scenario/Triggers.{h,cpp}` and `src/scenario/Views.{h,cpp}` alone; the door includes neither |
 | `BusGraph` | nothing outside its own two files |
-| `GroundPatchwork` | `#include "GroundPatchwork.h"` (Engine.cpp:20) inside `bool Engine::Compose(void) {` (:246), and no programme calls `Compose` |
+| `GroundPatchwork` | `#include "GroundPatchwork.h"` (Engine.cpp:20) inside `bool Engine::Compose(void) {` (:247), and NOTHING calls `Compose` |
 
 ## Class structure (TARGET — where the tree is going)
 
@@ -281,13 +281,15 @@ classDiagram
     +DrawsInto(window) / DrawsInto(extent) bool
     +Under(roots) void
     +Read(path) / Load(path) bool
-    +Declare(scenario) bool
+    +Declare(scenario) / Shows(surfaces) bool
     +Declared() Scenario
     +Carried() strings
     +Measured() strings
     +Assemble() bool
-    +Advance() bool
+    +Compose() bool / GroundTiles() size_t
+    +Advance() / Run() bool
     +Capture(path) bool
+    +At() / Frames() / Standing() / Error()
     +Offers(host) / Handles(SDL_Event) bool
     +Drove() / ReachedM() / RouteM()
     +Park() / Resume(name) / Discard(name) / Parked()
@@ -312,8 +314,10 @@ classDiagram
     +SetMedium(medium) / SetSky(sun, up, lux, eyeM)
     +SetShadowFrame(sun, up, radiusM) / ShadowCentre(m3)
     +SetCameraBasis(eye, fwd, right, up)
-    +ShowOn(window) / ShowOffscreen(w, h) / PresentFrame() / StopShowing()
-    +RenderFrame() / ReadPixels()
+    +DrawsInto(w, h, window) expected~void, string_view~
+    +Presented() expected~optional Shown, string_view~
+    +PresentInto(surface) / StopShowing() / SetPictureRegion(x, y, w, h, aspect)
+    +RenderFrame() / Drew() / WantsPixels() / ReadPixels()
     +WhyNot() string
   }
   class GroundStream {

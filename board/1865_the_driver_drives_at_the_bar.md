@@ -14,44 +14,52 @@ from reading the implementation.
 **The day the driver is a driving simulation at Gran Turismo 7's level in an OSM world and the
 architect accepts it, outshine's integration test has passed.**
 
-## The ledger — rewritten each round from what was SEEN (2026-08-25 11:17, HEAD a3ebe3e0)
+## The ledger — rewritten each round from what was SEEN (2026-08-25 13:50, HEAD 235e3f47)
 
-The command, exactly as the architect's brief prescribes:
+The command, exactly as the architect's brief prescribes, no arguments beyond the door's:
 
 ```
-make                          -> EXIT 2, apps/viewer does not compile, but build/outshine-driver was linked first
+make                          -> EXIT 0. build/liboutshine.a (163 objects), build/outshine-driver,
+                                 build/outshine-viewer all link
 build/outshine-driver --headless --into DIR --assets .../apps-driver-f31
-   DRIVING 0.00000,0.00000 -> 0.00000,0.00000, 1280x720, headless
-   NO DRIVE DECLARED
-   STOPPED after 0 frames: no scenario is standing, so there is nothing to advance
-   0 stills
+   DRIVING 48.13720,11.57560 -> 48.15000,11.59000, 1280x720, headless
+   ... 71 measured lines, every one carrying unit and population ...
+   REFUSED the network holds both ends but no chain of ways joins them --
+     18374 nodes of 45248 were reachable from the start
+   NO DRIVE -- the picture is what stood without it
+   KEPT DIR/refused.png
+   1 still
 ```
 
 | question | answer | what proves it |
 |---|---|---|
-| is there a program a user runs? | **yes** | `apps/driver/src/main.cpp`, 199 lines, `-Iinclude` alone, `--help` answers |
-| does the gate build it? | **it builds; the gate does not finish** | `make` and `test/run.sh` both exit 2 on `apps/viewer/EveryCaseTheTreeDeclaresConfigures.cpp:8` (board:1869). `build/outshine-driver` is linked before the failure |
-| did the drive leave its stills? | **NO — zero** | the run above. `Read` + `Assemble` + `Advance` stands no picture (board:1881) |
-| do consecutive stills DIFFER? | **not answerable — there is one image or none** | with `--from 48.137,11.576 --to 48.200,11.600` the route refuses and exactly one `refused.png` is written |
-| is there ground under the car? | **NO** | `refused.png` is a car on white at `fill="0.9"`. `Engine::Compose` would lay a 3x3 tile ring and no programme calls it (board:1805) |
+| is there a program a user runs? | **yes** | `apps/driver/src/main.cpp`, 223 lines, `-Iinclude` alone |
+| does the gate build it? | **YES — this is the hour's real movement** | `make` exits 0 and links both apps. Last round it exited 2 on `apps/viewer` |
+| does the shipped scenario declare the drive? | **yes** | `apps/driver/src/f31.scenario` carries it; the run above took no `--from`/`--to` |
+| did the drive leave its stills? | **NO — one `refused.png`** | the route refuses. Three distinct refusals were reproduced by hand: 1.78 km -> the search (board:1862); 400 m -> the corridor fit at a 91.4-degree junction corner (board:1887); 250 m -> `a corridor is fitted through 2..N vertices and this one carries 1`, start and destination snapping to one node and the message blaming the corridor for it |
+| do consecutive stills DIFFER? | **not answerable — there is one image** | |
+| is there ground under the car? | **NO** | `refused.png` is a car on white. `Engine::Compose` is declared in the public door (`include/Outshine.h:54`), lays the tile ring at `src/clients/Engine.cpp:280`, and `grep -rn Compose src include apps test` finds NO caller anywhere (board:1805) |
 | a horizon behind it? | **NO** | same image |
-| a sky above it? | **NO** | `SkyStage` is green in CURRENT and the driver's frame never reaches it |
-| is the car lit — does it cast a shadow? | **lit, no shadow, no receiver** | the key at `elevationDeg="42"` shades the body: specular along the shoulder line, the glasshouse dark, the wheel arches reading. Nothing receives |
+| a sky above it? | **NO** | `SkyStage` is green in CURRENT and this frame never reaches it |
+| is the car lit — does it cast a shadow? | **lit, no shadow, no receiver** | the key shades the body: specular along the shoulder, the glasshouse dark, the wheel arches and the tail lamp reading. Nothing receives |
 | does it sit on a surface or float? | **it floats — there is no surface** | |
 | road markings, guard rails, an oncoming carriageway? | **NO** | nothing declares them |
 | buildings, trees, water beside the road? | **declared, not reached** | `Sim.h` is included by `src/clients/Sim.cpp` and nothing else (board:1805) |
-| what does the picture do at one kilometre it does not do at another? | **nothing — the drive never starts** | the route refuses: *19406 nodes of 65615 were reachable from the start* |
+| what does the picture do at one kilometre it does not do at another? | **nothing — the drive never starts** | |
 
-What DID improve, and it is real: the refusal now draws. *A failure is loud, and something is
-always drawn* — the engine refuses the route, keeps the frame, and writes a picture of what stood
-without it (board:1870 delivered). The car is a clean, correctly shaded glTF stand-up. That is
-the whole of this hour's visible movement.
+Against the bar — Gran Turismo 7 on PS4 — the gap is not lighting or material response, which
+are the only two things this image can be judged on and which are both defensible: the body
+reads as painted metal, the glass reads as glass, the specular follows the shoulder line. The
+gap is that **there is no scene**. No ground plane, no horizon, no sky, no shadow catcher, no
+second object. GT7's weakest still has all five. Draw distance, geometry density and shadow
+quality cannot be scored at all because nothing is drawn beyond one glTF.
 
 **NICHT ABGENOMMEN.** Between this picture and the bar, in order:
 
-1. a still at all from the shipped scenario — one arrival route through the door (board:1881)
-2. ground, sky and horizon under the car — the driver calls `Engine::Compose` (board:1805)
-3. a tile ring that joins, so the route exists to be driven (board:1862)
+1. a corner that is BUILT rather than reproduced, so a city route lays at all (board:1887)
+2. a graph whose components are counted before they are blamed, so the search finds its end
+   (board:1862)
+3. ground, sky and horizon under the car — the driver calls `Engine::Compose` (board:1805)
 4. ten stills spaced by distance, that DIFFER
 5. the car's shadow on the surface it stands on (board:1575)
 6. road furniture: markings, guard rails, the second carriageway

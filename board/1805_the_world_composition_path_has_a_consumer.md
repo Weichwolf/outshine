@@ -10,17 +10,20 @@ CURRENT draws `Ground -> Forest & Buildings & Water & Infrastructure -> DrawList
 and colours all of it green — right responsibility, right layer. **Nothing outside `src/` walks
 it, and since the cut nothing at all does.**
 
-Measured 2026-08-25 at a3ebe3e0: `grep -rn '"Sim.h"' src apps test include` finds **one line**,
+Measured 2026-08-25 at 235e3f47: `grep -rn '"Sim.h"' src apps test include` finds **one line**,
 `src/clients/Sim.cpp:1`, the facade's own implementation. Last round it found one test as well;
 that test went with `test/unit/`. 798 lines with ZERO consumers, and `Forest`, `Buildings`,
 `Water`, `Infrastructure` and `RegionForge` hang off it.
 
-**The consumer now EXISTS in the door and no programme calls it.** `bool Engine::Compose(void) {`
-(src/clients/Engine.cpp:216) opens the ground stack, lays a 3x3 tile ring through
-`const auto laid = LayPatchwork(S_->Stack.Pool(), over);` (:249) and restands the subject with
-the ground appended (:264-269). `grep -rn Compose apps/` finds nothing: `apps/driver/src/main.cpp`
-never calls it, so no still the product has ever taken carries a tile. That is why the picture is
-still a car on white.
+**The consumer now EXISTS in the door and NOTHING calls it.** `bool Engine::Compose(void) {`
+(src/clients/Engine.cpp:247) opens the ground stack, lays a 3x3 tile ring through
+`const auto laid = LayPatchwork(S_->Stack.Pool(), over);` (:280) and restands the subject with
+the ground appended. Measured 2026-08-25 at 235e3f47:
+`grep -rn Compose src include apps test --include=*.cpp --include=*.h` finds **six lines and not
+one of them a call**: the definition, its declaration at `include/Outshine.h:54`, and four
+matches of the unrelated `Live::Compose`. So the public door publishes a verb that lays the
+world's ground and no picture this engine has ever taken carries a tile. That is why the
+product's still is a car on white.
 
 The same cut moved NINE more green nodes off the reached side of the map, because their only
 caller was a unit case: `BusGraph` and `InputPump` now have no reference anywhere outside their

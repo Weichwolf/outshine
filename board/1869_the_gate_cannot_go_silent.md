@@ -5,22 +5,17 @@ Tags: gate, process, regression
 
 # One bad source fails ONE case, and never the whole gate
 
-**Third occurrence, third shape, measured 2026-08-25 at a3ebe3e0.** `make` and `test/run.sh`
-both exit 2 having run ZERO cases:
+**The symptom is gone; the mechanism is not.** Measured 2026-08-25 at 235e3f47: `make` exits 0,
+links `build/liboutshine.a` (163 objects), `build/outshine-driver` and `build/outshine-viewer`,
+and `test/run.sh` runs its 25 claims and the corpora to a trailer. The one file was repaired.
 
-```
-apps/viewer/EveryCaseTheTreeDeclaresConfigures.cpp:8:10: fatal error: 'Check.h' file not found
-run.sh: apps/viewer/EveryCaseTheTreeDeclaresConfigures.cpp does not build into build/outshine-apps
-```
-
-With that one directory parked the same HEAD runs 582 cases and reports
-`553 PASS 6 FAIL 3 SIGNAL 5 BUILD 15 UNPREPARED` (board:1882). So the gate had a verdict to give
-and gave none, for a source under `apps/` that is on no frame path and in no suite.
-
-The two earlier occurrences were an UNDECLARED layer (`tools/host/DelayedTransport.cpp` at
-1af2c00b) and a NEW entry point (`apps/driver/src/main.cpp`); this one is a source that does not
-COMPILE. All three are the same defect: the gate's build phase treats one file as fatal to the
-run.
+The three occurrences that filed this item were an UNDECLARED layer
+(`tools/host/DelayedTransport.cpp` at 1af2c00b), a NEW entry point (`apps/driver/src/main.cpp`)
+and a source that did not COMPILE (`apps/viewer/EveryCaseTheTreeDeclaresConfigures.cpp:8`, a
+missing `Check.h`). Each time the fix was the file, and each time the gate went silent again the
+next time some other file broke -- because nothing in `test/run.sh` turns an unbuildable source
+into one red LINE instead of an exit. **This item is open until the negative controls below
+exist**; a fourth occurrence is otherwise a matter of when.
 
 **Declaring or fixing the one file is not the fix.** A gate that a single source can silence is a
 gate whose green means nothing, because the run that would have said so never happened. An

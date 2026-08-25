@@ -22,31 +22,44 @@ That makes it the sharpest test of board:1879 there is: if the viewer can show a
 WPT case and the driver's own drive without branching on which is which, then a case really is a
 scenario and the door really is two headers.
 
-## What today's build measures
+## What today's build measures (2026-08-25, HEAD 235e3f47, run by the review)
 
-**At a3ebe3e0 it does not build, and it takes `make` and `test/run.sh` down with it**
-(board:1869): `apps/viewer/EveryCaseTheTreeDeclaresConfigures.cpp:8` includes `"Check.h"`, which
-went with `test/unit/`. Zero cases run. The tree that survives the cut is five sources under
-`apps/viewer/` with no `main.cpp` at all — four of them named like test cases
-(`EveryCaseTheTreeDeclaresConfigures.cpp`, `EveryRenderCaseTheBrowserShowsDrawsSomething.cpp`,
-`TheBrowserDrawsItselfWithTheEngineItShows.cpp`, `TheBrowserSpellsNoDrawingInstruction.cpp`) and
-one pair of parts. **A programme whose whole source is four test cases is not a programme.**
+**It builds and it links.** `make` exits 0; `build/outshine-viewer --help` answers with eleven
+options. That is real, and it is what unblocked the gate (board:1869).
 
-The two defects that survive the move stand at their new paths:
+**It paints nothing.** Both of these, windowed and headless:
 
-| | |
-|---|---|
-| `apps/viewer/parts/Chrome.cpp` | it builds its own UI by CONCATENATING HTML STRINGS in C++ -- `out += "</style><body><div class=frame>"`. Content is data and the engine is verbs; a face assembled by string arithmetic is a face nobody can redeclare, and it is the same defect as an embedded shader |
-| `apps/viewer/EveryCaseTheTreeDeclaresConfigures.cpp:8` and its three neighbours | sources under `apps/` standing on the TEST harness -- corpus vocabulary compiled into a client, which is exactly what a generic viewer may not have |
+```
+build/outshine-viewer --headless --frames 3 --into DIR --show .../four-lines.scenario
+  BROWSING 1423 case(s) under test
+  REFUSED the layout holds no box, so there is nothing to paint and a painting of
+  nothing would be indistinguishable from one that failed
+  0 stills
+```
 
-Neither is a build accident: they are what "generic scenario viewer" costs. The viewer knows
-which corpus a case came from, and it writes its face in C++.
+So `Typeface`, `Pointer`, `Markup`, `Stylesheet`, `Layout` and `Painting` are green in CURRENT
+and **STRANDED**: six subsystems and not one pixel from any of them anywhere in the tree
+(board:1864). The refusal itself is right -- it is the one that says a blank frame must not pass
+for a drawn one -- but the box it wants is the viewer's own face, which the viewer declares.
+
+**And a refusal without a reason.** `apps/viewer/src/main.cpp:150`:
+
+```cpp
+if (asked.Scenario.empty()) { Usage(); return 2; }
+```
+
+Eleven options, `--cases` and `--case` among them, and asking for the case browser alone exits 2
+printing the help with no sentence saying what was wrong. A failure is loud, and loud means it
+names itself. `--show` should not be compulsory for a programme whose own face is a scenario.
 
 ## What will be true
 
-- [ ] `apps/viewer/src/main.cpp` exists and the gate builds it, or the directory is deleted
-      until it does: a half-moved programme that reddens the whole gate is worse than no viewer.
-- [ ] `apps/viewer` loads any scenario by path and shows it, with `--scenario PATH` and nothing
+- [x] `apps/viewer/src/main.cpp` exists and the gate builds it.
+- [ ] It DRAWS: a `--headless --frames N --into DIR` run leaves N stills and consecutive ones
+      differ. At 235e3f47 it leaves zero and refuses for want of a box.
+- [ ] Every refusal carries its reason. `Usage(); return 2` with nothing said is a silent exit,
+      and the browser stands without `--show`.
+- [ ] `apps/viewer` loads any scenario by path and shows it, with `--show PATH` and nothing
       case-specific in its arguments.
 - [ ] Its own chrome is DECLARED -- a markup document the viewer loads, not a string built by
       `+=` in C++ -- and it is declared INSIDE the scenario it shows rather than composited over
@@ -56,7 +69,3 @@ which corpus a case came from, and it writes its face in C++.
 - [ ] Proving test: the viewer shows a corpus case and the driver's drive from the same binary
       with no branch between them.
 
-## Comments
-
-- 2026-08-25 — filed on the owner's instruction when `tools/` was deleted. `tools/host` went with
-  it: `DelayedTransport` had no caller left after the unit cases were removed.
