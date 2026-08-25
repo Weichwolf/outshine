@@ -473,6 +473,30 @@ void Network::Within(const Waypoint &of, double reachM, std::vector<size_t> &nod
   }
 }
 
+size_t Network::Reaches(std::span<const size_t> from) const {
+  std::vector<uint8_t> seen(Nodes_.size(), 0u);
+  std::vector<size_t> walk;
+  walk.reserve(Nodes_.size());
+  size_t joined = 0;
+  for (const size_t one : from) {
+    if (one >= Nodes_.size() || seen[one] != 0u) { continue; }
+    seen[one] = 1u;
+    ++joined;
+    walk.push_back(one);
+  }
+  for (size_t at = 0; at < walk.size(); ++at) {
+    const Node &here = Nodes_[walk[at]];
+    for (size_t which = 0; which < here.EdgeCount; ++which) {
+      const size_t to = Edges_[here.FirstEdge + which].To;
+      if (seen[to] != 0u) { continue; }
+      seen[to] = 1u;
+      ++joined;
+      walk.push_back(to);
+    }
+  }
+  return joined;
+}
+
 Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) const {
   Route out;
   out.StraightM = ApartM(from.LatDeg, from.LonDeg, to.LatDeg, to.LonDeg, RadiusM_);
@@ -589,10 +613,15 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
 
   out.Reached = reached;
   if (arrived == kNoState) {
-    out.Error = "the network holds both ends but no chain of ways joins them -- " +
-                std::to_string(reached) + " nodes of " + std::to_string(Nodes_.size()) +
-                " were reachable from the start, so this is a network in pieces and not a "
-                "search that gave up";
+    const size_t joined = Reaches(std::span<const size_t>(nearStart));
+    out.Component = joined;
+    out.Error =
+        "no chain of ways joins the two ends -- " + std::to_string(joined) + " nodes of " +
+        std::to_string(Nodes_.size()) + " are joined to the start by ANY edge, and the search " +
+        "settled " + std::to_string(reached) +
+        " of those, so what separates the ends is " +
+        (joined + 1 < Nodes_.size() ? std::string("the graph itself")
+                                    : std::string("this search, not the graph"));
     return out;
   }
 

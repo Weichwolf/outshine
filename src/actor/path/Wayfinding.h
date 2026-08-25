@@ -38,6 +38,7 @@ struct Route {
   double LengthM = 0.0;
   double StraightM = 0.0;
   size_t Reached = 0;
+  size_t Component = 0;
   size_t TurnsRefused = 0;
   size_t StartedFrom = 0;
   std::vector<Leg> Legs;
@@ -86,6 +87,7 @@ public:
   }
 
   [[nodiscard]] Route Plan(const Waypoint &from, const Waypoint &to, double tightestM) const;
+  [[nodiscard]] size_t Reaches(std::span<const size_t> from) const;
   [[nodiscard]] bool Nearest(const Waypoint &to, size_t &node, double &awayM) const;
   void Within(const Waypoint &of, double reachM, std::vector<size_t> &nodes) const;
 
