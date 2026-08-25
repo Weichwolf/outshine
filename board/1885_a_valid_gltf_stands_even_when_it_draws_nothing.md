@@ -69,6 +69,16 @@ So the reach this item names is bigger than "carry a kind", and the order is now
    now and names which. Proving test:
    `harness/outshine/fuzz/ScoreWhatAnEmptyArrayMeans` -- 13 of 13 refused, 13 of 13 by name, and
    the same arrays holding one item each still stand.
+
+   **98 -> 95** with a camera that bounds a volume: `znear` in front of the eye, `zfar` beyond
+   `znear`, and an orthographic magnification that is not zero. Proving test:
+   `harness/outshine/fuzz/ScoreWhatACameraBounds`, eight lenses of which three are conformant --
+   including a perspective camera declaring NO far plane, which glTF 2.0 permits and an
+   over-eager reader would refuse.
+
+   **The tail is flat from here.** Of the 95 remaining, no error class covers more than three
+   cases and they spread over some ninety distinct codes. The two big classes are done; what is
+   left is one check per case, and the item's value is now the count rather than the next class.
    **Started: accessor bounds, 124 -> 111.** glTF 2.0 says `accessor.min`/`max` are the ACTUAL
    componentwise extremes of the data, and the reader checked only that a POSITION accessor
    CARRIED them. `Document::BoundsHold` now reads the elements and refuses in both directions --

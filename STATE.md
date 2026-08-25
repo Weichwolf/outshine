@@ -96,7 +96,7 @@ TIERS -- src/, and what each may include
   engine      -> base content world actor render scene scenario sim ui audio host compositor
 
 MASS -- the heaviest units, against the median of them all
-    1993  content/gltf/Document.h
+    2008  content/gltf/Document.h
     1397  ui/Layout.h
     1347  content/gltf/Subject.h
     1319  render/Renderer.h
@@ -160,6 +160,7 @@ PROVES -- what src/ provably does, one line each
   , while every source that // does not is bound. Nine live citations stood under tools/ while this walk read two roots // and claimed three. std::vecto
   a derived camera is computed where the bounds are, and the rule's constants cannot drift between the engine and the preparer
   gltf-2.0 conformance at the door: an asset Khronos's validator errors on is refused with a reason, and one it passes stands
+  gltf-2.0: a camera's near plane lies in front of the eye and its far plane beyond the near one, an orthographic magnification is not zero, and a persp
   gltf-2.0: an accessor's declared min and max are the actual componentwise extremes of its data, refused in both directions -- a box around the data an
   gltf-2.0: an array the schema gives a minimum of one item is refused when it is present and empty, and the refusal names which one
   gltf: appending one subject onto another shifts the guest's material names clear of the host's, so a joined buffer set is still two bodies and neither

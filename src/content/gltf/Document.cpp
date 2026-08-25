@@ -837,6 +837,21 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     } else {
       return Refuse("camera " + Number(i) + " has type '" + kind + "', and glTF 2.0 has two");
     }
+    if (!(camera.ZNearM > 0.0)) {
+      return Refuse("camera " + Number(i) + " declares znear " + Number(camera.ZNearM) +
+                    ", and a near plane at or behind the eye bounds nothing");
+    }
+    if (camera.ZFarM != 0.0 && !(camera.ZFarM > camera.ZNearM)) {
+      return Refuse("camera " + Number(i) + " declares zfar " + Number(camera.ZFarM) +
+                    " against a znear of " + Number(camera.ZNearM) +
+                    ", and a far plane that does not lie beyond the near one encloses no volume");
+    }
+    if (camera.Kind == CameraKind::Orthographic &&
+        (camera.XMagM == 0.0 || camera.YMagM == 0.0)) {
+      return Refuse("camera " + Number(i) + " declares an orthographic magnification of " +
+                    Number(camera.XMagM) + " by " + Number(camera.YMagM) +
+                    ", and a zero magnification collapses the picture to a line");
+    }
     Cameras_.push_back(std::move(camera));
   }
 
