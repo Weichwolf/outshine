@@ -217,8 +217,8 @@ LayerIncludes() {
     harness/outshine/door) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/compositor -Isrc/world/data -Isrc/scene -Isrc/scenario -Isrc/ui -Isrc/host -Isrc/engine -Itest/harness/shared" ;;
     harness/khronos/validator) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Itest/harness/shared" ;;
     harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown) printf '%s' "-Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/compositor -Isrc/world/data -Isrc/scene -Isrc/scenario -Isrc/ui -Iinclude -Isrc/host -Isrc/engine" ;;
-    harness/wpt/css) printf '%s' "-Iinclude" ;;
-    harness/test262/js) printf '%s' "-Iinclude" ;;
+    harness/wpt/css) printf '%s' "-Iinclude -Isrc/base/format -Isrc/base/math -Isrc/base/io -Isrc/base/spatial -Isrc/content/shade -Isrc/content/gltf -Isrc/render/draw -Isrc/ui -Itest/harness/shared" ;;
+    harness/test262/js) printf '%s' "-Iinclude -Isrc/base/format -Itest/harness/shared" ;;
     outshine/scenario) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/data -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/engine -Isrc/scenario -Isrc/ui -Itest/harness/shared" ;;
     apps/viewer/src) printf '%s' "-Iinclude -Iapps/viewer/src/parts" ;;
     apps/driver/src) printf '%s' "-Iinclude" ;;
@@ -228,7 +228,7 @@ LayerIncludes() {
 
 LayerToolchain() {
   case "$1" in
-    harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown | outshine/frame | apps/viewer/src | outshine/scenario | harness/outshine/door) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown | outshine/frame | apps/viewer/src | outshine/scenario | harness/outshine/door | harness/wpt/css) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     apps/driver/src) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
@@ -256,7 +256,7 @@ LayerValidation() {
 LayerLink() {
   case "$1" in
     harness/outshine/fuzz | harness/outshine/geo | harness/outshine/content) printf '%s' "-lz" ;;
-    harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown | outshine/frame | apps/viewer/src | outshine/scenario | harness/outshine/door | outshine/client) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
+    harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown | outshine/frame | apps/viewer/src | outshine/scenario | harness/outshine/door | outshine/client | harness/wpt/css) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
     harness/claims) printf '%s' "-lz" ;;
     apps/driver/src) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;
     harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) $(pkg-config --libs sdl3-ttf) -lz -lcurl" ;;

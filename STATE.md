@@ -255,10 +255,8 @@ REDS -- what is declared to fail, and its red is a finding not a licence
       1  harness/claims
 
 DOOR -- suites reaching past include/ into src/, which CLAUDE.md forbids
-  13 of 17 declared suite(s) are granted a -Isrc path (board:1879)
+  15 of 17 declared suite(s) are granted a -Isrc path (board:1879)
   reaching the library through include/ alone:
-    harness/wpt/css
-    harness/test262/js
     apps/viewer/src
     apps/driver/src
 
