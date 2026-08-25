@@ -211,7 +211,7 @@ flowchart TD
 | `SubjectDraw` | six responsibilities in one class: `ShaderSource(const SourceOptions &options)` (SubjectDraw.h:30), `PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack)` (:154), `FlushCrossings(SDL_GPUCommandBuffer *commands)` (:148), `SetPlacements(const double *models, size_t rows, std::string &error)` (:51), `SetLights(std::span<const SubjectLight> lights, std::string &error)` (:89), and `EncodeDepthOnly(const double lightFromWorld16[16], const double eye[3], int atlasPx,` (:96) beside the one `void Encode(const FrameContext &ctx, const PassRecording &into)` (:93) a stage owes |
 | `Sim` | `class Sim {` (Sim.h:37) is a hand-wired god facade the component model replaces, and since the cut it has NO consumer at all: `grep -rn '"Sim.h"' src apps test include` finds one line, `src/clients/Sim.cpp:1`. 798 lines, 25 `#include "`, five green nodes hanging off it |
 | `Live` | `class Live {` (Live.h:71) reaches the renderer and the layout from one class — `#include "Renderer.h"` (:18) beside `#include "Layout.h"` (:13) |
-| `Engine` | the door decides CONTENT: `bool Engine::Acts(const std::string &named) {` (Engine.cpp:779) is one hard-wired branch, `if (named != "next-view" ...)`, so of the five bindings `f31.scenario` declares exactly ONE has an effect and `throttle`, `brake`, `steer-left`, `steer-right` reach an interned id (:409-411) that is un-interned back to a `std::string` and compared against a literal. `Compose` (:265) lays the ring at :297 and refuses at :274 for every scenario in the tree. Tables and Sounds are accepted and never advanced |
+| `Engine` | the door decides CONTENT: `bool Engine::Acts(const std::string &named) {` (Engine.cpp:793) is one hard-wired branch on the literal `next-view`, so of the five bindings `f31.scenario` declares exactly ONE has an effect and `throttle`, `brake`, `steer-left`, `steer-right` reach an interned id at `Clients::InputPump::Fired fired[2];` (:420) that is un-interned back to a `std::string` and compared against that literal. `bool Engine::Compose(void) {` (:263) lays the ring at `auto laid = LayPatchwork(S_->Stack.Pool(), over);` (:301) behind `const bool overADrive = false;` (:271), a branch nailed shut. Tables and Sounds are accepted and never advanced |
 
 | amber | the form in question, at HEAD |
 |---|---|
@@ -231,7 +231,9 @@ flowchart TD
 | `DriveTick` | `[[nodiscard]] const Ridden &DriveTick(const Corridor &way, const Rigged &stood,` (DriveTick.h:111) hands back the accumulator the caller owns -- `Ridden &out = drive.Tally;` (DriveTick.cpp:38). The copy is gone and the struct is 2472 -> **440 bytes, which `static_assert(sizeof(Ridden) == 440)` at DriveTick.cpp:18 is the measurement of**; what stays in question is a product that is both a per-tick answer and a route-long tally (board:1815) |
 | `TAA` | `{Stage::TemporalResolve, Provenance::Content, PassKind::Raster, "temporalResolve",` (RenderCatalogue.h:278) declares a stage that encodes nothing of its own -- it is folded into tonemap rather than standing as its own resolve |
 | `TilePool` | `class TilePool : public TileMeshes {` (TilePool.h:30) holds 3 `std::mutex`, a `std::condition_variable`, a `std::map` and a `std::set` where a slot table and a ring would do -- a decisionless pool holds no tree |
-| 
+| `Typeface` | reached and correct on the picture -- three faces at two sizes in the viewer's own frame -- but `[[nodiscard]] Glyph Shape(char32_t code, double sizePx, Family family) const override;` (Typeface.h:30) rasters lazily from inside the draw: `SDL_Surface *ink = TTF_GetGlyphImage(set, (Uint32)code, &kind);` (Typeface.cpp:185) and `: SDL_ConvertSurface(ink, SDL_PIXELFORMAT_RGBA32);` (:193) allocate and free two surfaces per first-sight glyph, and `if (!TTF_SetFontSize(set, (float)sizePx)) { return nullptr; }` (:135) flushes the face's own cache whenever two sizes alternate (board:1892) |
+| `TriggerField` | reached -- `auto stood = TriggerField::Stand(scenario.Volumes, scenario.Events);` (Engine.cpp:544) stands one and `S_->Volumes->Probe(0, body.PositionM, (double)At() * kTickS);` (:829) probes the driven body every tick -- and NOTHING fires: a box of 1e7 m extent about the origin, which the body cannot be outside of, drains empty, because the volume stands in the scenario's origin and the body in the corridor's (board:1891) |
+
 | stranded | its only way to a client, at HEAD |
 |---|---|
 | `Forest` | `src/clients/Sim.{h,cpp}` and nothing else in `src/` |
@@ -240,7 +242,7 @@ flowchart TD
 | `Infrastructure` | `Sim.h` |
 | `RegionForge` | `Sim.h` |
 | `BusGraph` | nothing outside its own two files |
-| `GroundPatchwork` | `#include "GroundPatchwork.h"` (Engine.cpp:23) inside `bool Engine::Compose(void) {` (:265), which `Assemble` now calls -- and `Compose` refuses first, at `Engine.cpp:274`, for every scenario in the tree: `grep -rl '<ground' --include=*.scenario .` finds NONE, so no tile has ever reached a frame |
+| `GroundPatchwork` | `#include "GroundPatchwork.h"` (Engine.cpp:25) inside `bool Engine::Compose(void) {` (:263), which `Assemble` now calls -- and `const bool overADrive = false;` (:271) shuts the only branch a drive could reach it by, while `grep -rl '<ground' --include=*.scenario .` finds NO scenario in the tree that declares one. No tile has reached a frame |
 
 ## Class structure (TARGET — where the tree is going)
 

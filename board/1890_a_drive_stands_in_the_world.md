@@ -101,6 +101,10 @@ of.
       states both) and applied once, where the part placement is built -- never assumed to be 1.
 - [ ] `Live::Carry` takes a placement in world metres. The studio anchor is what a scenario
       WITHOUT a sphere stands on, not a term every placement passes through.
+- [ ] No branch in the engine is nailed shut by a constant. `const bool overADrive = false;`
+      (src/clients/Engine.cpp:271) is a measurement scaffold whose reason lives only in commit
+      657b5903 -- the source may carry no comment, so a switch like this is unreadable from the
+      tree and must not outlive the question it was cut for.
 - [ ] The CAMERA is in the same space as the placement. A first-person view declared inside
       the cabin renders the cabin; a chase view at `distanceM=7.0` renders the car from seven
       metres. Today both render the roof from above.
