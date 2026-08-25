@@ -5,32 +5,32 @@ Tags: driver, door, product, measured
 
 # A declaration that refuses does not take the picture with it
 
-`test/run.sh --drive` at 1af2c00b leaves **zero stills**. It prints:
+**Three quarters paid, measured 2026-08-25 at a3ebe3e0.** The same route that left zero stills at
+1af2c00b now leaves a picture:
 
 ```
-DRIVING 48.13700,11.57600 -> 48.18000,11.62000, 1280x720, headless
-REFUSED REFUSED the network holds both ends but no chain of ways joins them -- 20576 nodes of
-64334 were reachable from the start, so this is a network in pieces and not a search that gave up
-run.sh: 0 still(s) in /var/.../outshine-drive.xTDvbz
+build/outshine-driver --headless --from 48.137,11.576 --to 48.200,11.600 --into DIR
+REFUSED the network holds both ends but no chain of ways joins them -- 19406 nodes of 65615
+were reachable from the start, so this is a network in pieces and not a search that gave up
+NO DRIVE -- the picture is what stood without it
+KEPT DIR/refused.png -- a failure is loud, and something is always drawn
 ```
 
-`Engine::Assemble` returns false when `Sim::AssembleDrive` refuses (src/clients/Engine.cpp:165),
-the entry point exits before `RenderTo` (apps/driver/src/main.cpp:152), and nothing is ever
-drawn. CLAUDE.md's rule is *a failure is loud; something is always drawn*: loud and blank are
-not the same answer. The car, the sky and whatever ground stands are unaffected by a route that
-did not join — refusing the DRIVE is right, refusing the FRAME is not.
+The refusal reaches the door as a VALUE — `void Refuse(const std::string &why) override {`
+(src/clients/Engine.cpp:37) — where it used to be prose the door grepped, so the doubled
+`REFUSED REFUSED` is gone with the grep that caused it.
 
-The refusal also names itself twice — `REFUSED REFUSED` — because `Engine::Assemble` stores a
-line that already begins with the word (Engine.cpp:35) and the caller prefixes it again.
-
-Separately and underneath: the corridor's tile ring returns a network in pieces at 20576/64334
-nodes, which is a content defect of the ring and belongs to board:1862.
+**What the still does not show is a world.** `refused.png` is the car on `fill="0.9"` white: no
+ground, no horizon, no sky, no shadow. The frame survived the refusal; there was nothing in it
+but the subject, because nothing calls the composition path (board:1805). The last box stays
+open until a refused drive shows the world it refused to drive through.
 
 ## What will be true
 
-- [ ] A drive that cannot be laid leaves the scenario STANDING: the frame renders, the still is
-      written, and the refusal is published beside the picture rather than instead of it.
-- [ ] `Engine::Drove()` answers false, and a client can ask WHY without parsing prose.
-- [ ] No message carries a prefix twice.
-- [ ] Negative control: a route between two disconnected coordinates -> stills are written, they
-      show the world, and the drive reports its refusal by name.
+- [x] A drive that cannot be laid leaves the scenario STANDING: the frame renders and the still
+      is written.
+- [x] `Engine::Drove()` answers false, and a client asks WHY without parsing prose.
+- [x] No message carries a prefix twice.
+- [ ] Negative control: a route between two disconnected coordinates -> stills are written and
+      **they show the world** — ground under the car and a horizon behind it, not a subject on
+      the fill colour.

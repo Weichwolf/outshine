@@ -31,20 +31,44 @@ expected WKT, dual EPL/EDL — and `grep` over `src/ground` and `src/generators`
 no overlay, no union, no point-in-polygon. A corpus for operations the engine does not perform
 proves nothing.
 
-## The magic number the survey walked into
+## The magic number the survey walked into — the review's verdict
 
 ```
-src/render/stages/ParticipatingMedium.h:18
+src/render/stages/ParticipatingMedium.h:13-30
+  float BottomRadiusKm = 6360.0f;
+  float TopRadiusKm = 6460.0f;
   float RayleighScatteringPerKm[3] = {0.005802f, 0.013558f, 0.033100f};
+  float MieScatteringPerKm = 0.003996f;
+  float OzoneAbsorptionPerKm[3] = {0.000650f, 0.001881f, 0.000085f};
+  float GroundAlbedo[3] = {0.10f, 0.13f, 0.07f};
 ```
 
-`grep` finds those digits in no board item. Under *every number carries its origin* they are
-undeclared constants on the frame path, and they are exactly what corpus 3 would give an origin.
+The survey named one line; the block is fourteen numbers and **two separate defects, of which
+the second is the worse one.**
+
+**One: they are a SNAPSHOT wearing no label.** These are Bruneton's precomputed-atmospheric-
+scattering constants to the digit — Rayleigh 5.802/13.558/33.100 e-6 m^-1, Mie 3.996e-6, ozone
+0.650/1.881/0.085e-6. So an origin exists and the tree does not carry it. Under the survey's own
+grades that makes the sky SNAPSHOT-grade: agreement with one implementation, never correctness.
+Corpus 3 is what turns it into TRUTH, and that is the argument for its rank — not that the
+numbers are wrong.
+
+**Two: `BottomRadiusKm = 6360.0f` is EARTH'S RADIUS inside a render stage.** CLAUDE.md's layer
+table forbids any of `src/` to spell a planet's name or numbers, and a scale height of 8 km, an
+ozone layer centred at 25 km and a ground albedo of 0.10/0.13/0.07 are Earth's atmosphere and
+Earth's ground, declared in a struct the renderer owns. This is board:1611's audit at a site that
+item does not name, and it is filed there rather than here.
+
+What the block gets RIGHT and should not lose in the repair: `struct alignas(16) Medium`, five
+float4 rows, `static_assert(sizeof(Medium) == 80)` and `static_assert(alignof(Medium) == 16)`
+with the padding named. That is the house style working.
 
 ## What will be true
 
 - [ ] The three are fetched, prepared and run, each as a SCENARIO with its oracle.
-- [ ] `RayleighScatteringPerKm` cites where it comes from, or is derived from a corpus that does.
+- [ ] Every one of the fourteen numbers cites where it comes from, or is derived from a corpus
+      that does — and the atmosphere is DECLARED per sphere rather than defaulted in a stage
+      (board:1611).
 
 ## Comments
 

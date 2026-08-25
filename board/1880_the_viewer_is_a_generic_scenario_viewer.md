@@ -24,18 +24,28 @@ scenario and the door really is two headers.
 
 ## What today's build measures
 
-Two defects surfaced the moment the viewer was made a PROGRAMME rather than a case:
+**At a3ebe3e0 it does not build, and it takes `make` and `test/run.sh` down with it**
+(board:1869): `apps/viewer/EveryCaseTheTreeDeclaresConfigures.cpp:8` includes `"Check.h"`, which
+went with `test/unit/`. Zero cases run. The tree that survives the cut is five sources under
+`apps/viewer/` with no `main.cpp` at all — four of them named like test cases
+(`EveryCaseTheTreeDeclaresConfigures.cpp`, `EveryRenderCaseTheBrowserShowsDrawsSomething.cpp`,
+`TheBrowserDrawsItselfWithTheEngineItShows.cpp`, `TheBrowserSpellsNoDrawingInstruction.cpp`) and
+one pair of parts. **A programme whose whole source is four test cases is not a programme.**
+
+The two defects that survive the move stand at their new paths:
 
 | | |
 |---|---|
-| `apps/viewer/src/parts/Chrome.cpp:142` onward | it builds its own UI by CONCATENATING HTML STRINGS in C++ -- `out += "</style><body><div class=frame>"`. Content is data and the engine is verbs; a face assembled by string arithmetic is a face nobody can redeclare, and it is the same defect as an embedded shader |
-| `apps/viewer/src/main.cpp:18` | it includes `RenderCase.h` from `test/harness/shared` -- a programme under `apps/` standing on the TEST harness. That is corpus vocabulary compiled into a client, which is exactly what a generic viewer may not have |
+| `apps/viewer/parts/Chrome.cpp` | it builds its own UI by CONCATENATING HTML STRINGS in C++ -- `out += "</style><body><div class=frame>"`. Content is data and the engine is verbs; a face assembled by string arithmetic is a face nobody can redeclare, and it is the same defect as an embedded shader |
+| `apps/viewer/EveryCaseTheTreeDeclaresConfigures.cpp:8` and its three neighbours | sources under `apps/` standing on the TEST harness -- corpus vocabulary compiled into a client, which is exactly what a generic viewer may not have |
 
 Neither is a build accident: they are what "generic scenario viewer" costs. The viewer knows
 which corpus a case came from, and it writes its face in C++.
 
 ## What will be true
 
+- [ ] `apps/viewer/src/main.cpp` exists and the gate builds it, or the directory is deleted
+      until it does: a half-moved programme that reddens the whole gate is worse than no viewer.
 - [ ] `apps/viewer` loads any scenario by path and shows it, with `--scenario PATH` and nothing
       case-specific in its arguments.
 - [ ] Its own chrome is DECLARED -- a markup document the viewer loads, not a string built by

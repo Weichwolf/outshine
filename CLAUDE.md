@@ -190,11 +190,12 @@ flowchart TD
   classDef wrong fill:#7a2222,stroke:#3d1111,color:#fff
   classDef strandedSound fill:#1f6f3f,stroke:#7a2222,stroke-width:3px,stroke-dasharray:6 4,color:#fff
   classDef strandedUnsure fill:#8a6d1f,stroke:#7a2222,stroke-width:3px,stroke-dasharray:6 4,color:#fff
-  class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,GroundQuery,OsmField,RoadHarvest,Wayfinding,Alignment,StreetField,Ground,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,SceneStore,Assembly,SubjectResidency,Markup,Stylesheet,LayoutUi,Painting,InputMap,InputPump,TriggerField,ViewBook,BusGraph sound
-  class BuildingField,WaterField,Subject,DrawList,Renderer,TonemapStage,LightVisibilityStage,Frustum,Ephemeris,GltfStudio,Engine unsure
-  class World,SubjectDraw,Sim,Live wrong
+  class Transport,WebTileSource,ContentStore,TerrariumDem,VersatilesVector,GroundStream,GroundQuery,OsmField,RoadHarvest,Wayfinding,Alignment,StreetField,Ground,ReferenceLine,Carriageway,Ribbon,SpeedProfile,Pilot,Walk,Drive,Fly,Rail,Rig,Body,Contact,Shear,MediumTransmittanceStage,MediumMultiScatterStage,MediumRadianceStage,SkyStage,PresentStage,SceneStore,Assembly,SubjectResidency,Markup,Stylesheet,LayoutUi,Painting,InputMap,InputPump,TriggerField,ViewBook,BusGraph,OverlayDraw sound
+  class BuildingField,WaterField,Subject,DrawList,Renderer,TonemapStage,LightVisibilityStage,Frustum,Ephemeris,GltfStudio unsure
+  class World,SubjectDraw,Sim,Live,Engine wrong
   class DriveAssembly,CorridorLay,DriveTick,TilePool unsure
   class Forest,Buildings,Water,Infrastructure strandedSound
+  class Markup,Stylesheet,LayoutUi,Painting,InputMap,InputPump,TriggerField,ViewBook,BusGraph strandedSound
   class RegionForge strandedUnsure
   class GroundStack sound
   class GroundPatchwork strandedSound
@@ -205,8 +206,9 @@ flowchart TD
 |---|---|
 | `World` | spells camera and LOD inside the ground layer: `struct Eye` (World.h:49), `Refine(const Eye &eye, double nowMs)` (:55), `EyeInMercatorBand()` (:118), and 9 `const double eye[3]` (:189-195) |
 | `SubjectDraw` | six responsibilities in one class: `ShaderSource(const SourceOptions &options)` (SubjectDraw.h:30), `PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack)` (:154), `FlushCrossings(SDL_GPUCommandBuffer *commands)` (:148), `SetPlacements(const double *models, size_t rows, std::string &error)` (:51), `SetLights(std::span<const SubjectLight> lights, std::string &error)` (:89), and `EncodeDepthOnly(const double lightFromWorld16[16], const double eye[3], int atlasPx,` (:96) beside the one `void Encode(const FrameContext &ctx, const PassRecording &into)` (:93) a stage owes |
-| `Sim` | `class Sim {` (Sim.h:37) is a hand-wired god facade the component model replaces: a facade reached through 25 `#include "` |
+| `Sim` | `class Sim {` (Sim.h:37) is a hand-wired god facade the component model replaces, and since the cut it has NO consumer at all: `grep -rn '"Sim.h"' src apps test include` finds one line, `src/clients/Sim.cpp:1`. 798 lines, 25 `#include "`, five green nodes hanging off it |
 | `Live` | `class Live {` (Live.h:71) reaches the renderer and the layout from one class — `#include "Renderer.h"` (:18) beside `#include "Layout.h"` (:13) |
+| `Engine` | the door has TWO arrival routes and only one stands a picture: `bool Engine::Read(std::string_view path) {` (Engine.cpp:374) sets the declaration and no surface, `bool Engine::Assemble() {` (:140) returns TRUE without one, and `bool Engine::Advance() {` (:537) then refuses by name -- so the shipped scenario run headless leaves ZERO stills (board:1881). `bool Engine::Compose(void) {` (:218) lays the ground ring through `const auto laid = LayPatchwork(S_->Stack.Pool(), over);` (:251) and no programme calls it (board:1805). Views, Input, Volumes, Tables and Sounds are accepted and never advanced (board:1862) |
 
 | amber | the form in question, at HEAD |
 |---|---|
@@ -226,7 +228,6 @@ flowchart TD
 | `DriveTick` | `[[nodiscard]] const Ridden &DriveTick(const Corridor &way, const Rigged &stood,` (DriveTick.h:111) hands back the accumulator the caller owns -- `Ridden &out = drive.Tally;` (DriveTick.cpp:38). The copy is gone and the struct is 2472 -> **440 bytes, which `static_assert(sizeof(Ridden) == 440)` at DriveTick.cpp:18 is the measurement of**; what stays in question is a product that is both a per-tick answer and a route-long tally (board:1815) |
 | `TAA` | `{Stage::TemporalResolve, Provenance::Content, PassKind::Raster, "temporalResolve",` (RenderCatalogue.h:278) declares a stage that encodes nothing of its own -- it is folded into tonemap rather than standing as its own resolve |
 | `TilePool` | `class TilePool : public TileMeshes {` (TilePool.h:30) holds 3 `std::mutex`, a `std::condition_variable`, a `std::map` and a `std::set` where a slot table and a ring would do -- a decisionless pool holds no tree |
-| `Engine` | the door LAYS the drive now -- `bool Engine::Assemble() {` (Engine.cpp:136) reaches `if (!Sim::AssembleDrive(S_->Scene, S_->Stood, S_->Vehicles, S_->Drives, declared.Ground,` (:166), `bool Engine::Advance() {` (:456) ticks it and `bool Engine::Drove(void) const { return S_->Drove; }` (:187) answers. A refusal reaches it as a VALUE -- `  void Refuse(const std::string &why) override {` (:35) -- where it used to grep printed prose, and a route that fails no longer takes the picture with it (board:1870, 1621). Views, Input, Volumes, Tables and Sounds are still accepted and never advanced (board:1862) |
 
 | stranded | its only way to a client, at HEAD |
 |---|---|
@@ -235,6 +236,11 @@ flowchart TD
 | `Water` | `Sim.cpp`, `World.h` |
 | `Infrastructure` | `Sim.h` |
 | `RegionForge` | `Sim.h` |
+| `Markup` `Stylesheet` `LayoutUi` `Painting` | `#include "Layout.h"` (Live.h:13), `#include "Markup.h"` (:14), `#include "Paint.h"` (:15), `#include "Style.h"` (:19) and `src/ui/` -- the overlay reaches the picture only through `Live`, which this map colours red |
+| `InputMap` `InputPump` | `#include "InputPump.h"` (InputPump.cpp:1) and nothing else in the tree: `Engine.cpp` includes no pump, so no key reaches an action |
+| `TriggerField` `ViewBook` | `src/scenario/Triggers.{h,cpp}` and `src/scenario/Views.{h,cpp}` alone; the door includes neither |
+| `BusGraph` | nothing outside its own two files |
+| `GroundPatchwork` | `#include "GroundPatchwork.h"` (Engine.cpp:17) inside `bool Engine::Compose(void) {` (:218), and no programme calls `Compose` |
 
 ## Class structure (TARGET — where the tree is going)
 

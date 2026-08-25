@@ -22,7 +22,8 @@ counted.
 | round | HEAD | class structure | render plan | what moved it |
 |---|---|---|---|---|
 | 2026-08-25 07:17 | b2fbf22d | 44 / 67 = **66 %** | 9 / 12 = **75 %** | first measurement |
-| 2026-08-25 08:17 | 1af2c00b | 44 / 68 = **65 %** | 9 / 12 = **75 %** | `Alignment` entered green and reached (`Fit.cpp:158` calls `Align`, and `Fit` is reached from `CorridorLay` and `DriveAssembly`); `Engine` went green -> amber, because the door that lays the drive also makes a failed route fatal to the frame (board:1870) and recovers its refusal by grepping prose (board:1621). No red retired. **Down one point: the hour spent itself on the board, the gate and the door, and moved no node out of red.** |
+| 2026-08-25 08:17 | 1af2c00b | 44 / 68 = **65 %** | 9 / 12 = **75 %** | `Alignment` entered green and reached; `Engine` green -> amber. No red retired. Down one point: the hour spent itself on the board, the gate and the door. |
+| 2026-08-25 11:17 | a3ebe3e0 | 36 / 70 = **51 %** | 9 / 12 = **75 %** | **Down fourteen points, and the cut is what did it.** `test/unit/` was deleted with 170 cases, and with it the ONLY caller of nine green nodes: `Markup`, `Stylesheet`, `Layout`, `Painting` (reach the picture only through `Live`, red), `InputMap`, `InputPump`, `TriggerField`, `ViewBook`, `BusGraph` (no reference outside their own files). `Sim.h` went from one test + one src file to `src/clients/Sim.cpp:1` alone. `Engine` amber -> RED: `Read` + `Assemble` + `Advance` is the documented flow and it stands no picture (board:1881), so the product's headless run leaves zero stills. `OverlayDraw` was drawn and uncoloured for two rounds and is now green and reached. `GroundPatchwork` entered stranded: `Engine::Compose` lays a tile ring and no programme calls it. **Nothing was broken this hour. What broke was the illusion that a subsystem a test calls is a subsystem the product has.** |
 
 ## The work order
 
@@ -31,13 +32,13 @@ Rewritten each round by the review.
 
 | | item | the node it moves |
 |---|---|---|
-| 1 | board:1870 | the product draws SOMETHING again — the precondition for every screenshot verdict there is |
-| 2 | board:1805 | `Forest`, `Buildings`, `Water`, `Infrastructure` — four green nodes nothing outside `src/` reaches, and `Sim` red dies with the facade |
-| 3 | board:1862 | `Engine` amber -> green; `DriveAssembly`, `CorridorLay`, `DriveTick` reached through the door rather than by tests |
-| 4 | board:1538 | `World` red -> green (the eye leaves the ground layer), `DrawList` and `Frustum` amber -> green, and TARGET's `Compositors` gets its first line |
-| 5 | board:1867 | `SubjectDraw` red -> green and `SUBJ` red -> green — the largest red on both maps |
-| 6 | board:1826 | `Live` red -> green, `GltfStudio` amber -> gone, `src/clients/` dissolved |
-| 7 | board:1869 | the gate stops being silenceable, which is what every other row's proof stands on |
-| 8 | board:1795 | TARGET's `Alignment` amber -> green, and the corridor stops planning 12 km/h on a trunk road |
-| 9 | board:1574 | `GLASS` red -> green, and the frame path stops allocating at every relay |
+| 1 | board:1869 | the gate runs at all — at a3ebe3e0 one non-compiling source under `apps/viewer` makes `make` AND `test/run.sh` exit 2 having judged nothing. Every other row's proof stands on this |
+| 2 | board:1881 | `Engine` red -> amber — one arrival route, so the shipped scenario renders and there is a picture to judge |
+| 3 | board:1805 | `GroundPatchwork` reached (the driver calls `Compose`), then `Forest`, `Buildings`, `Water`, `Infrastructure` — and `Sim` red dies with the facade |
+| 4 | board:1862 | the tile ring joins, so a five-kilometre route exists; then `ViewBook`, `InputMap`, `InputPump`, `TriggerField`, `BusGraph` leave stranded as the door advances what it accepts |
+| 5 | board:1882 | the twelve red claims — three of them ABORT, so the no-comments rule and the device boundary are unguarded right now |
+| 6 | board:1826 | `Live` red -> green, and `Markup`, `Stylesheet`, `Layout`, `Painting` leave stranded with it; `GltfStudio` amber -> gone |
+| 7 | board:1538 | `World` red -> green (the eye leaves the ground layer), `DrawList` and `Frustum` amber -> green |
+| 8 | board:1867 | `SubjectDraw` red -> green and `SUBJ` red -> green — the largest red on both maps |
+| 9 | board:1877 | the sky stops being SNAPSHOT-grade; `MediumRadianceStage` gets an oracle |
 | 10 | board:1575 | `LightVisibilityStage` amber -> green, and the sun lands in the picture |

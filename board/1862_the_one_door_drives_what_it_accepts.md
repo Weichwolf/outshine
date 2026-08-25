@@ -6,53 +6,47 @@ Supersedes: 1486, 1488, 1489, 1490, 1491, 1494, 1863
 
 # The one door ADVANCES what it accepts
 
-The drive is through: `Engine::Assemble` runs `AssembleDrive` when the scenario declares one and
-REFUSES by name when no transport was handed over (src/clients/Engine.cpp:165), `Engine::Advance`
-ticks it (:454), `Engine::Drove()` answers (:186), and the driver links `-Iinclude` alone. It
-fetches 63 104 nodes, weaves them and reports *a network in pieces* — the first content-level
-result the product has produced.
+The drive is through the door: `Engine::Assemble` runs `AssembleDrive` when the scenario declares
+one and refuses by name (src/clients/Engine.cpp:170), `Engine::Advance` ticks it (:541),
+`Engine::Drove()` answers, and the driver links `-Iinclude` alone.
 
-**Five more declarations are still accepted and never advanced.** Each stands green in CURRENT
-because its own unit proves it, and the door does nothing with it:
+**The route search is the product's first content-level result, and it is a refusal.** Measured
+2026-08-25 at a3ebe3e0 over 48.137,11.576 -> 48.200,11.600, five kilometres inside Munich:
+
+```
+REFUSED the network holds both ends but no chain of ways joins them --
+19406 nodes of 65615 were reachable from the start, so this is a network in pieces
+and not a search that gave up
+```
+
+30 % of a dense urban graph reachable from its own start node. The ring does not join, and this
+is a defect in the ring, not in the search — the search says so itself, with the count.
+
+**Five declarations are still accepted and never advanced.** Each stands green in CURRENT and the
+door does nothing with it; since `test/unit/` went, four of them have no caller in the tree at
+all (board:1805):
 
 | declared | it stands | what the door does with it |
 |---|---|---|
-| `Views` | `ViewBook` — one active view, clock scale, the ear | `ClockScale()` never multiplies into `Advance`; the camera follows nothing |
-| `Input` | `InputMap` + `InputPump` — bindings interned to ids | no SDL pump is wired; no key reaches an action |
+| `Views` | `ViewBook` — one active view, clock scale, the ear | `Engine.cpp` includes no `Views.h`; the camera follows nothing |
+| `Input` | `InputMap` + `InputPump` — bindings interned to ids | no SDL pump is wired; `InputPump` has no reference outside its own two files |
 | `Volumes`/`Events` | `TriggerField` — enter · exit · dwell, allocation-free | nothing probes bodies against doors |
 | `Tables` | `TableBook` — rows by first column, typed by column | no host reads one |
-| `Sounds`/`Buses` | `BusGraph` — buses into buses, one master, falloff | the frame hands it no positions |
+| `Sounds`/`Buses` | `BusGraph` — buses into buses, one master, falloff | no reference outside its own two files |
 
-A declaration the engine ACCEPTS and does not execute is worse than one it refuses. This is
-board:1805's defect one layer up: the tree's best subsystems are wired together by test files,
-and the one program a user runs reaches them only where somebody walked the wire by hand.
+A declaration the engine ACCEPTS and does not execute is worse than one it refuses.
 
 ## What will be true
 
-- [x] `Engine::Assemble` lays the DRIVE the scenario declares, or refuses it by name. Silence is
-      the one answer that is not allowed.
-- [ ] Every other row above is reached from `src/`, once, through the door — or refused by name
-      at assembly.
-- [ ] `apps/driver --from ... --to ...` writes a still of the ROAD, and two consecutive stills
-      DIFFER because the car moved. **Measured 2026-08-25 by the review**: at a9a96a0c the drive
-      wrote 14 840 stills over 11 minutes, 1.4 GB, and all of them hash to the same
-      `d2cd33750477d24f965adc5340f28f8a` — a car on white, no ground, no sky, no shadow. The
-      07:39 run of the queue's own gate produced the same ten bytes-identical files. Nothing in
-      the picture moves and nothing in it is a road.
-- [ ] `test/run.sh --drive` spaces its ten stills by DISTANCE along the route rather than by
-      frame. The cadence is not merely coarse, it is broken: `ofFrames` is
-      `(long)engine.Frames()` (apps/driver/src/main.cpp:158), `Engine::Frames()` hands back
-      `S_->Standing->Frames()` (src/clients/Engine.cpp:540) and `Live` defaults `int Frames_ = 1;`
-      (src/clients/Live.h:170), so `frames * Stills >= (nextStill + 1) * ofFrames` (:165) is true
-      on EVERY frame and the drive keeps one still per frame until it is killed.
-- [ ] The corridor's tile ring joins: at 1af2c00b a 5 km Munich route refuses with *a network in
-      pieces* — 20 576 of 64 334 nodes reachable from the start. That is the first content-level
-      result the product has produced and it is a defect in the ring, not in the search.
-- [ ] The gate is green with the drive in the door. It is not: `8 BUILD` at b7ffe736, seven of
-      them the `render/outshine/client` suite, which stopped linking the day `Engine.cpp` took
-      `Sim::AssembleDrive`, `Sim::DriveTick` and `Data::ShippedProviders` (board:1582).
-- [ ] Three library functions the deleted driver tests held are library code with a unit twin
-      each: `Lie` (the ground under the corridor — board:1805), `Standing` (a body's world
-      matrix) and `Seen` (the chase eye, which was written twice and already diverging).
+- [x] `Engine::Assemble` lays the DRIVE the scenario declares, or refuses it by name.
+- [x] The ten stills are spaced by DISTANCE along the route, not by frame:
+      `alongM * Stills >= (nextStill + 1) * routeM` (apps/driver/src/main.cpp:177).
+- [ ] The corridor's tile ring joins, so a five-kilometre urban route exists to be driven. The
+      count above is the measurement to beat.
+- [ ] Every other row of the table is reached from `src/`, once, through the door — or refused
+      by name at assembly.
+- [ ] `apps/driver --from ... --to ...` writes ten stills of the ROAD and consecutive ones
+      DIFFER. At a3ebe3e0 it writes one `refused.png`: a car on white, no ground, no sky, no
+      shadow.
 - [ ] Negative control: the drive removed from `Assemble` -> the entry point's frame goes back
       to a studio orbit and the case goes red.
