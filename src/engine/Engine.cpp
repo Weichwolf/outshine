@@ -129,6 +129,7 @@ struct Engine::State {
   void Places(const char *what, double how, const char *unit);
   void Drew(void);
   [[nodiscard]] bool Rides(void);
+  [[nodiscard]] bool Places(const Physics::Body &body, const double shiftM[3]);
   void Falls(void);
   [[nodiscard]] bool Composes(void);
   [[nodiscard]] bool Routes(void);
@@ -1110,7 +1111,10 @@ void Engine::State::Places(const char *what, double how, const char *unit) {
 }
 
 bool Engine::State::Rides(void) {
-  const Physics::Body &body = Drive.State.Body;
+  return Places(Drive.State.Body, Drive.Stood.ModelShiftM);
+}
+
+bool Engine::State::Places(const Physics::Body &body, const double shiftM[3]) {
   double bodyFromWorld[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   {
     const double *const q = body.OrientationQ;
@@ -1125,7 +1129,6 @@ bool Engine::State::Rides(void) {
     bodyFromWorld[9] = 2.0 * (y * z - x * w);
     bodyFromWorld[10] = 1.0 - 2.0 * (x * x + y * y);
   }
-  const double *const shiftM = Drive.Stood.ModelShiftM;
   for (int axis = 0; axis < 3; ++axis) {
     bodyFromWorld[12 + axis] = body.PositionM[axis] + bodyFromWorld[0 + axis] * shiftM[0] +
                                bodyFromWorld[4 + axis] * shiftM[1] +

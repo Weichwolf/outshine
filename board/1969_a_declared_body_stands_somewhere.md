@@ -34,4 +34,10 @@ without a drive has no start.
 - [x] a declared body carries its own placement: `<at x= y= z= qx= qy= qz= qw=/>` and `Placed`
 - [x] a body with no drive stands, falls under gravity and is placed by integration
       proof: harness/outshine/door/ScoreWhatABodyWithNoRouteDoes
-- [ ] `Engine::State::Rides` places a body it is given rather than reaching into `Drive.State.Body`
+- [x] `Engine::State::Rides` places a body it is GIVEN: it is `Places(body, shiftM)` now, and
+      `Rides()` is the one-line caller that hands it the drive's.
+- [ ] a freestanding body reaches the PICTURE. Calling `Places` for one refuses -- a crate declares
+      no asset, so there is no subject to place, and `Advance` stopped after a single step (the
+      case read 0.08172 m/s, which is exactly one `g dt`). A body reaches the picture only through
+      a subject, and nothing joins a declared body to one: that is this item's first checkbox, the
+      half still open.
