@@ -108,7 +108,7 @@ MASS -- the heaviest units, against the median of them all
     1103  base/spatial/Wayfinding.h
     1042  render/stages/SubjectDraw.h
      955  ui/Style.h
-     107  the median of 244 unit(s)
+     108  the median of 245 unit(s)
 
 CARPET -- the widest public surfaces
     58 [[nodiscard]] in src/render/Renderer.h
@@ -220,5 +220,5 @@ PROGRESS -- counted from board/, where the target lives; a tick names its proof
   streaming        1/15    7%
 
 COUNTS
-  152 source(s) under src/, 20 of them linked by no suite
-  244 header(s) in 28 module(s) over 13 tier(s)
+  153 source(s) under src/, 20 of them linked by no suite
+  245 header(s) in 28 module(s) over 13 tier(s)

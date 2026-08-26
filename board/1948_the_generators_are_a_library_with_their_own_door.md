@@ -25,11 +25,19 @@ project that wants a file rather than a buffer. Owner's correction, and it is th
 
 ## What the tree has today, measured
 
-**No generator produces glTF.** `Generator::Occupy` places BODIES -- `Generators::Body` carries
-`Em`, `Nm`, `BaseAslM`, `RadiusM`, `HeightM`, `MassKg`, `YawRad`, `ContactMaterial` -- and a
-separate `DrawSource::Draw(ground, placed, sink)` meshes them into a `DrawSink`, which is a
-private sink in `src/world/generators/draw/`. Nothing between a generator and a glTF document
-exists.
+**The tier holds THREE mesh shapes and none of them was the value.** Measured:
+
+- `BuildingMesh::Mesh(plan, soup)` fills a `std::vector<float>` at EIGHT floats a vertex --
+  three position, two UV, three normal, the same order `ChunkVtx` uses
+- `TreeMesh` holds `BarkVerts` and `LeafVerts` with their own indices
+- `DrawSink` is the interface that was to carry them and **NOBODY IMPLEMENTS IT**:
+  `grep -rln 'public DrawSink'` over `src/` returns nothing, and `ClusterId` appears in two
+  files. The draw half of the tier has never run.
+
+`Generators::Meshed` is the crossing, as of this session: it de-interleaves a soup into
+`outshine::Geometry`, refuses a soup that is not whole triangles, and carries several parts as
+reaches into one vertex array. What is still missing is a generator CALLING it -- the meshers
+need a plan, and a plan needs the snapshot board:1805 now composes.
 
 **There is no registry a client can reach.** `GeneratorSet::Add(rank, generator)` is the registry
 and it is an `src/` type behind `Clients::Sim`, which one file includes.
@@ -56,8 +64,13 @@ that links no `src/engine` source.
 - [ ] A glTF SERIALISER ships beside the library, taking that representation and writing a
       document. Nothing on the streaming path calls it: the compositor takes the representation,
       and the serialiser is for a caller who wants a file.
-- [ ] `DrawSink` is that representation or is deleted for it -- today it is a private sink in
-      `src/world/generators/draw/` and a foreign caller cannot name it.
+- [x] A generator's mesh crosses into the door's value: `Generators::Meshed` de-interleaves an
+      eight-float soup into `outshine::Geometry`, field by field and part by part.
+      proof: harness/outshine/geo/ScoreWhatAGeneratorHandsBack
+- [ ] `DrawSink` is deleted or implemented -- it is an interface with no implementation and
+      `ClusterId` reaches two files, so the instanced-draw half of the tier is a declaration with
+      nothing behind it.
+- [ ] A GENERATOR calls it: the meshers need a plan, and a plan needs the snapshot.
 - [ ] The registry holds what outshine ships AND what a client registered. The shipped catalogue
       stays closed against a typo; a client's generator enters as a VALUE with a handle, never a
       string. This is the reconciliation with CLAUDE.md's *"the consumer selects from a
