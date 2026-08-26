@@ -4,65 +4,67 @@ Parent: 1573
 Area: apps
 Tags: driver, acceptance, product
 
-# The driver drives at the bar, and the architect signs it off
+# The driver drives at the bar, and the stakeholder signs it off
 
 `apps/driver` is outshine's ONE integration test and simultaneously its product. Everything it
 uses is library, and what the library owes is corpus cases against invariant oracles. Emergence is
 judged HERE, on the picture, from what was SEEN by RUNNING the programme.
 
 **The day the driver is a driving simulation at Gran Turismo 7's level in an OSM world and the
-architect accepts it, outshine's integration test has passed.**
+stakeholder accepts it, outshine's integration test has passed.**
 
-## The ledger -- 2026-08-26 06:3x, HEAD a73c6ca5, own worktree
+## The ledger -- HEAD bb9472db, own worktree, four runs, 32 stills
 
-```
-make                                                -> EXIT 0, both apps link, 164 objects
-build/outshine-driver --headless --into DIR --assets .../apps-driver-f31
-   DROVE 15466 frames over 2.896 of 2.916 km, kept 10 still(s)     <- no mkdir, board:1903 gone
-```
+Two routes chosen to ask different questions, each driven in first person and in chase:
+
+    Ludwigstrasse  48.1420,11.5800 -> 48.1518,11.5820   a boulevard walled on both sides
+    the Isar       48.1310,11.5820 -> 48.1290,11.5930   the route crosses a river
+    build/outshine-driver --headless --every --frames 1200|1800 --stills 8 --into DIR
 
 | question | answer | what proves it |
 |---|---|---|
-| is there a program a user runs? | **yes** | `apps/driver/src/main.cpp`, on the set `LayerIncludes` declares |
-| does the gate build it? | **yes** | `make` exits 0 |
-| does the acceptance command leave its stills? | **YES, ten of ten** | into a directory that did not exist. Three rounds opened with `mkdir`; this one did not |
-| does the DECLARED drive ROUTE? | **yes** | 2.896 of 2.916 km, and the two corridor refusals of the last round are gone (board:1912) |
-| do consecutive stills DIFFER? | **yes** | 17.0 % to 29.4 % of pixels between consecutive stills; none below 17 % |
-| is there a sky? | **yes, a gradient** | (46,74,107) high, (83,97,108) at the horizon; the sun's bearing rotates through the drive |
-| **is there GROUND under the car?** | **NO -- and nine tiles of terrain arrived anyway** | below the horizon, in ALL TEN stills, the frame is (34..35, 42..43, 32..34) -- four counts of variation over 2.9 km, which is the medium's painted `GroundAlbedo`. The 9-tile ring draws as a pale sheet ABOVE the horizon: (11,24,50) then (33,60,107) at x=700 in still 03, gone again by still 05. The terrain is in the SKY (board:1890) |
-| is the car lit? | **yes** | A-pillar, mirror, dashboard and roof all carry shading; the cabin is dark because it is in shadow |
-| does it cast a shadow? | **onto nothing** | 259 shadow batches, no receiving surface |
-| does it sit on a surface or float? | **it floats** | there is no surface |
-| **how bright is the frame?** | **dim, and dimmer than last round** | mean max(RGB) 43.3-49.0 of 255, peak **119-162** against 250 last round -- the specular that carried 250 is gone. `<key lux="40000" elevationDeg="42">` and a scene that reads at a fifth of the range (board:1908) |
-| is there a SUN in the sky? | **NO, in none of the ten** | key elevation 42 deg, bearing 150 deg, no disc at any heading (board:1868) |
-| road markings, guard rails, an oncoming carriageway? | **NO** | nothing declares them |
-| buildings, trees, water beside the road? | **NO** | 37 of 150 sources reach no suite and the generators are 30 of them (STATE.md) |
+| is there a program a user runs? | **yes** | both routes drove and left 8 of 8 stills, into directories that did not exist |
+| do consecutive stills DIFFER? | **yes, and too little** | 2.1 % to 56 %. City chase 05->06: **3.8 %** of pixels over 60 m at 90 km/h. Nothing at a finite distance to have parallax against |
+| is there a sky? | **yes, a gradient** | 149 at the top of the band, 127..131 at the horizon; identical across all 8 stills of a route on which the car turns |
+| is there GROUND under the car? | **yes, and it is one flat painted colour** | a 170x25 px box reads 61..62 in R with no variation. Present, but with no texture, no albedo variation and no normal detail |
+| **is the ground ONE lit surface?** | **NO** | a straight terminator crosses it, 15:1 in two pixels, sweeping across the drive; stills 01..04 of the river route render the whole ground 4 stops under its own sky (board:1932) |
+| **is there a ROAD?** | **NO** | no carriageway, no asphalt distinct from the verge, no centreline, no edge line, no kerb, no oncoming lane. The car drives on the same painted plane as the field (board:1505) |
+| is the car lit? | **badly** | roof (16,30,54) and tailgate (17,32,60) read the SAME, and both a quarter of the grass beside them at (64,79,60). ~3.5 stops adrift, no directional term (board:1934) |
+| **does it cast a contact shadow?** | **NO** | ground under the car (62.4,77.0,56.0) against ground 200 px to the side (63.1,77.9,57.0). **0.7 counts.** 259 shadow batches drawn per frame, atlas least depth 1, most 1 (board:1575) |
+| does it sit on the surface or float? | **it floats** | nothing under it says otherwise |
+| is the glass glass? | **NO** | through the rear window (64.0,78.2,58.1), the ground beside the car (64.0,79.0,59.5). A hole (board:1934) |
+| **is there a world beside the road?** | **NO** | no building on a boulevard walled with them, no tree, no water where the route crosses the Isar, though the reader prints 76 bridge ways (board:1933) |
+| is there a sun? | **judged by consequence: NO** | no disc reachable by any route the driver offers, and neither of its consequences is present -- no highlight on the paint, no cast shadow on the ground (board:1868, 1575) |
+| how bright is the frame? | **peak 130 of 255 first person, 149 chase** | exposure a constant 5.20833e-05 1/(cd/m2) on BOTH routes regardless of content. Nothing in any of 32 stills reaches white |
+| what does the picture do at one km it does not do at another? | **it changes its ground by 15x** | same clock, flat route, 400 m apart |
 | does a key move the car? | **NO** | `apps/driver` offers no `Host` (board:1803) |
-| what does the picture do at one kilometre it does not do at another? | **the ring appears and disappears** | stills 01 and 03 carry the pale sheet at the horizon, 05 and 10 do not. The lower half is the same four counts throughout |
+| can the acceptance command choose the view? | **NO** | `--help` offers no view flag; the declared `chase` view was reachable only by copying the scenario and editing it. Half of every declared still is unlit cabin |
 
-Against the bar -- Gran Turismo 7 on PS4 -- the gap is unchanged in KIND and the tiles now exist
-to close it. GT7's weakest still has a road, a kerb, a verge and a building; this has a car, a
-sky, a flat painted field and a piece of terrain in the wrong place. The material response inside
-the cabin would not embarrass GT7 at this size; everything outside the glass would.
+Two of the five routes chosen refused to lay a corridor: `48.1392,11.5875 -> 48.1368,11.5965`
+(Maximiliansbruecke) with *the bend over vertices 2..2 ... carries only 4.205535 m, tighter than
+the 4.901673 m this vehicle can bend to*, and `48.1400,11.5860 -> 48.1360,11.5975` with *no chain
+of ways joins the two ends* over a graph in which 43 751 of 45 800 nodes reach BOTH ends
+(board:1916).
 
-**NICHT ABGENOMMEN.** Between this picture and the bar, in order:
+Against the bar -- GT7 on PS4 -- the gap is in KIND, not degree. GT7's weakest still has a
+carriageway with paint on it, a kerb, a verge and something standing beside the road. This has a
+car with no shadow on a painted plane with a light-visibility seam across it, under a gradient.
 
-1. the ring stands at the corridor's datum, not the ellipsoid's, so the terrain is UNDER the car
-   instead of over the horizon (board:1890) -- everything below waits on it
-2. the ring carries its own material and its own scale as a compositor draw item, not
-   `Material = 0` on the vehicle's first surface (board:1890)
-3. the frame is exposed to the declared key: 40 klux and elevation 42 deg reading at a fifth of
-   the range is a unit that decides nothing (board:1908, 1868)
-4. the sun is in the sky (board:1868)
-5. the car's shadow lands on that ground (board:1575)
-6. road furniture: markings, guard rails, the second carriageway
-7. a bridge is above what it crosses, not coplanar with it (board:1813)
-8. a key that moves the car, press AND release (board:1803)
-9. draw distance, material response and geometry density measured against a PHOTOGRAPH of the
-   place the still claims to be
+**NICHT ABGENOMMEN.** Between this picture and the bar, in the order it is wanted:
+
+1. a ROAD in the picture: carriageway surface, centreline, edge line, kerb, verge, oncoming
+   carriageway (board:1505, 1499)
+2. something standing beside it: buildings, trees, the water the route crosses (board:1933)
+3. the ground is ONE lit surface -- the terminator goes (board:1932)
+4. a contact shadow under the car (board:1575)
+5. the key reaches the paint, and the glass stops being a hole (board:1934, 1868)
+6. the frame uses its range: an exposure derived from what is in the scene (board:1868, 1908)
+7. a bridge above what it crosses (board:1813)
+8. a view flag and a key that moves the car (board:1803)
+9. each still judged against a PHOTOGRAPH of the place it claims to be
 
 ## What will be true
 
-- [ ] Every row of the ledger says yes, and the architect writes *ABGENOMMEN* in its report.
+- [ ] Every row of the ledger says yes, and the stakeholder writes *ABGENOMMEN* in its report.
 - [ ] Each still is judged against a PHOTOGRAPH of the place it claims to be, not against its
       own previous version -- a picture that agrees only with itself measures nothing.

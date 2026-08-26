@@ -2,58 +2,35 @@ Type: bug
 State: open
 Parent: 1890
 Area: world
-Tags: measured, threading, tiles, door
+Tags: measured, threading, tiles
 
-# A wait for a tile ENDS, and an implementation that cannot wait says so
+# The waiter the drive actually uses is proven by a case, not by inspection
 
-`TilePool::MeshAwaited` waits on a predicate that a legal outcome never satisfies, and the
-interface lets a second implementation inherit the polling it was written to replace.
+**Two of this item's three defects are repaid at HEAD and the third is not.** 873f8f65 announced
+this item closed and never deleted the file; that divergence is board:1933's subject, and what
+follows is the residual only.
 
-## 1. THE WAIT CANNOT END WHEN THE MESH ANSWERS `Pending`
+REPAID. `TilePool::MeshAwaited`'s predicate is now *the tile landed OR the job is no longer
+posted* (`src/world/ground/TilePool.cpp:516-518`), so the `Pending` path that erased `Posted_`
+and notified nobody no longer leaves a caller asleep. `TileMeshes::MeshAwaited` is pure virtual
+(`src/world/ground/TileMeshes.h:29-30`), so no implementation inherits a poll while a caller
+reads a wait.
 
-    src/world/ground/TilePool.cpp:513   const uint64_t key = MeshKey(z, x, y);
-    src/world/ground/TilePool.cpp:516   Landed_.wait(lock, [&] { return Done_.find(key) != Done_.end(); });
+STANDING. **Nothing executes `TilePool::MeshAwaited`.** Every hit in `test/` is a fake:
+`ScoreWhatAPatchworkReads.cpp:81`, `:114` and `:239` are three hand-written `TileMeshes` whose
+`MeshAwaited` answers what the case wants. Those arms prove `LayPatchwork`'s call graph and a
+ring whose tiles never land -- real work -- but the condition variable, the worker's notify on
+the `Pending` path, and the `Posted_`/`Done_` race are held by reading alone. The closing commit
+said so: *"a case that provokes the exact worker race needs thread control the harness does not
+have, and I did not build one."*
 
-Unbounded, no deadline, and the only thing that ever satisfies it is a `Done_` entry. The worker
-writes one on every result EXCEPT the one that matters:
-
-    src/world/ground/TilePool.cpp:455   if (result.State == Reply::Pending) Posted_.erase(job.Key);
-
-`Pending` erases the posting, writes NO `Done_` entry and calls no `notify`. The caller sleeps
-until the process is killed. The path is reachable and named at every step:
-
-    FetchInto  gives up after kPollAttempts = 30000 x 1 ms and returns Pending   (TilePool.cpp:190, 224)
-    PoolTerrain::Take turns that into TerrainBytes::Waiting()                    (TilePool.cpp:284)
-    RunMesh    turns Miss::Wait into Reply::Pending                              (TilePool.cpp:359)
-    Work       erases Posted_ and notifies nobody                                (TilePool.cpp:455)
-
-So a tile whose bytes take longer than 30 s hangs the caller FOREVER instead of coming back as
-one pending tile of nine. That is the failure mode the item this one is parented to was fixed to
-avoid, arriving through the fix. A failure here is meant to be LOUD.
-
-## 2. THE DEFAULT IS A TRAP
-
-    src/world/ground/TileMeshes.h:29   virtual Reply MeshAwaited(...) { return Mesh(...); }
-
-`Around::Awaited = true` means "wait". With this default it means "wait if the implementation
-happens to have implemented waiting" -- a different contract, entered silently. The next
-`TileMeshes` gets board:1914's one-tile-of-nine back with nothing refusing. CLAUDE.md puts the
-type system ahead of a checker: `MeshAwaited` is `= 0` and each implementation states its answer,
-which costs the two that exist one line each.
-
-## 3. WHAT GUARDS IT TODAY GUARDS OUR SHAPE, NOT THE CODE
-
-`test/harness/outshine/geo/ScoreWhatAPatchworkReads.cpp:86` hands `LayPatchwork` a `Twice` whose
-own `MeshAwaited` calls its own `Mesh` twice. The case proves that `LayPatchwork` calls
-`MeshAwaited` when the flag is set -- an assertion about our call graph, not about a tile
-arriving. `TilePool::MeshAwaited`, the code board:1914 changed, is not executed by any case. The
-stride half of that same file is a proper oracle and stands; this half is a mock.
+The thread control is the item. A `TilePool` fed by a transport the case drives -- one that holds
+a request until the case releases it -- makes the worker's timing an INPUT rather than a hope,
+and the same instrument proves board:1932's ceiling.
 
 ## What will be true
 
-- [ ] A wait ends: either the tile lands, or the wait returns the reason it did not, with a bound
-      the caller can read. The `Pending` result reaches the waiter rather than vanishing.
-- [ ] `MeshAwaited` is pure virtual; no implementation inherits a poll while a caller reads a wait.
-- [ ] Proving case: a `TileMeshes` whose worker answers `Pending` forever, awaited -- the call
-      RETURNS with a reason inside a declared bound. Negative control: the unbounded predicate
-      restored, and the case hangs rather than failing, which is why the bound is part of the case.
+- [ ] A case stands a real `TilePool` and awaits a mesh whose bytes the case controls, and the
+      wait ends with the reason, inside a declared bound.
+- [ ] Negative control: the notify removed from the `Pending` path, and the case fails on its
+      bound rather than hanging.

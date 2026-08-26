@@ -32,9 +32,10 @@ how high it is. The projection-plus-evaluation is spelled ONCE, in `ClassField::
 `Sim::At` was rewritten onto it.
 
 `DriveTick` asks it only for a wheel PAST the made surface -- inside the corridor the ribbon is
-the surface and a query per wheel per step would buy nothing. The normal off the made surface is
-a finite difference at the terrain's own post spacing. The asks and the answers are counted and
-published, because a class field that never resolves would otherwise fall back silently.
+the surface and a query per wheel per step would buy nothing. The asks and the answers are
+counted and published, because a class field that never resolves would otherwise fall back
+silently. The normal off the made surface is a finite difference at the terrain's own post
+spacing, which is board:1932's first line: the field holds normals and the sample drops them.
 
 ## What is still wrong
 
@@ -47,8 +48,11 @@ surface it did not lay itself.
 
 - [x] A drive can ask, for a world point, what a wheel would stand on: its height and what it
       grips with.
-- [x] The query is bounded: two lookups and no allocation, and only for a wheel that is off the
-      made surface.
+- [ ] The query is bounded: two lookups and no allocation, and only for a wheel that is off the
+      made surface. **This tick was wrong when it was written.** The off-made query costs THREE
+      `At()` calls, not two -- the extra pair build a finite-difference normal -- and each one
+      reaches `TilePool::FetchInto`, which sleeps up to 30 s, allocates, and takes a mutex on the
+      way. Measured and cited in board:1932, which owns the repair.
 - [x] It is ONE query. `ClassField::ClassAt` is the single spelling and `Sim::At` uses it.
 - [ ] It answers for MADE ground a drive did not lay: `Infrastructure::MadeAt` reaches the
       contact, so a bridge deck or a car park is a surface like any other.

@@ -27,6 +27,29 @@ with no aerial perspective washing it toward the horizon and no surface under it
 A picture whose ground reads darker than its sky at midday is telling the truth about what it
 drew and a lie about the place.
 
+## Re-measured at bb9472db, 32 stills, four runs -- and the sun is now judged by CONSEQUENCE
+
+The ground half of the paragraph above has moved: a composed ground now stands under the car and
+reads (61,76,60) against a horizon sky band at (127..131), which is within a stop and correct.
+Three things it did not move:
+
+| what | measured | what it should be |
+|---|---|---|
+| frame peak, chase view, 8 stills x 2 routes | **149 of 255** | a midday scene reaches white somewhere |
+| frame peak, first person | **130 of 255** | as above |
+| the exposure applied | **5.20833e-05 1/(cd/m2), IDENTICAL on both routes and every frame** | derived from the scene, so it changes when the scene does |
+
+An exposure that is the same constant on a route whose ground swings by 15x (board:1932) is not
+reading anything. The whole picture lives in the bottom 58 % of the range and nothing is
+overexposed anywhere, which is what a fixed divisor with headroom looks like.
+
+**The sun disc cannot be reached from the product.** At 42 deg elevation it is above the top of
+a 55 deg frame, and `outshine-driver --help` offers no way to point the camera up. So it is
+judged by its two consequences instead, and both are absent: no highlight on the paintwork
+(roof and tailgate read the same to one count, board:1934) and no cast shadow on the ground
+(0.7 counts, board:1575). A sun with neither consequence is not in the scene whatever the sky
+draws.
+
 A driver at dusk is the case that needs all of it — the clock says the sun is at the horizon
 and the picture must agree, which is the first row of the driver's ledger that no engine
 capability answers today.

@@ -18,19 +18,22 @@ HERE**, against the node set the CURRENT class diagram carried at 4ca42c2e, its 
 The figure is `green-and-reached / total`: a green node whose only path to a client runs through a
 red one draws no pixel, so it counts in the denominator and not the numerator.
 
-| colour | at a73c6ca5 |
+| colour | at bb9472db |
 |---|---|
-| **green, reached (47)** | Unwired · Transport · WebTileSource · ContentStore · TerrariumDem · VersatilesVector · GroundStream · GroundQuery · OsmField · RoadHarvest · StreetField · Ground · ReferenceLine · Carriageway · Ribbon · SpeedProfile · Pilot · Walk · Drive · Fly · Rail · Rig · Body · Contact · Shear · MediumTransmittanceStage · MediumMultiScatterStage · MediumRadianceStage · SkyStage · PresentStage · SceneStore · Assembly · SubjectResidency · Markup · Stylesheet · LayoutUi · Painting · Pointer · InputMap · InputPump · ViewBook · OverlayDraw · GroundStack · TriggerField · TonemapStage · Wayfinding · **GroundPatchwork** |
-| **amber (15)** | BuildingField · WaterField · Subject · DrawList · Renderer · LightVisibilityStage · Frustum · Ephemeris · GltfStudio · Typeface · DriveAssembly · CorridorLay · DriveTick · TilePool · RegionForge (stranded) · **Alignment** |
-| **red (5)** | World · SubjectDraw · Sim · Live · Engine |
+| **green, reached (48)** | Unwired · Transport · WebTileSource · ContentStore · TerrariumDem · VersatilesVector · GroundStream · GroundQuery · OsmField · RoadHarvest · StreetField · Ground · ReferenceLine · Carriageway · Ribbon · SpeedProfile · Pilot · Walk · Drive · Fly · Rail · Rig · Body · Contact · Shear · MediumTransmittanceStage · MediumMultiScatterStage · MediumRadianceStage · SkyStage · PresentStage · SceneStore · Assembly · SubjectResidency · Markup · Stylesheet · LayoutUi · Painting · Pointer · InputMap · InputPump · ViewBook · OverlayDraw · GroundStack · TriggerField · TonemapStage · Wayfinding · GroundPatchwork · **Alignment** |
+| **amber (15)** | BuildingField · WaterField · Subject · DrawList · Renderer · LightVisibilityStage · Frustum · Ephemeris · GltfStudio · Typeface · DriveAssembly · CorridorLay · TilePool · RegionForge (stranded) · **Underfoot (new)** |
+| **red (6)** | World · SubjectDraw · Sim · Live · Engine · **DriveTick** |
 | **stranded (5)** | Forest · Buildings · Water · Infrastructure · BusGraph |
 
-**47 / 73 = 64 %, and the two moves cancel.** `GroundPatchwork` leaves stranded: it is linked by
-`ScoreWhatAPatchworkReads`, called by `Engine::State::Composes` and its nine tiles are on screen.
-`Alignment` green -> AMBER: `Align` now minimises the worst DISTANCE from the polyline
-(`Alignment.cpp:158`) and accepts on the worst SHARE of each vertex's own allowance (`:241`) --
-two objectives on one quantity, agreeing only where the allowances are equal, which is the case
-the per-vertex span was added to leave (board:1916).
+**48 / 74 = 65 %.** `Alignment` amber -> GREEN: the ternary search minimises
+`FurthestShareOfArc`, the quantity the acceptance reads (`Alignment.cpp:159-160`), and
+`JunctionKerbM` caps the kerb at the shorter leg (`:197`), so the 215 m licence at 178 degrees is
+gone -- both reasons for last round's downgrade repaid (board:1916, rewritten to its residual).
+`Underfoot` is a NEW node and it enters AMBER, not green: the shape is right and TARGET names it,
+but its contract carries no normal and the tick pays three queries for one. `DriveTick` amber ->
+RED: `beneath.At` reaches `TilePool::FetchInto`, which sleeps `30000 x 1 ms` (`TilePool.cpp:190,
+204,25-26`) -- the physics step can block thirty seconds on an HTTP fetch, and the frame budget is
+16.7 ms (board:1932).
 
 ### A correction to the numerator the a32c4919 row carried
 
@@ -56,23 +59,33 @@ prevent. The 64 % below is measured against 56 %.
 | 22:5x | a32c4919 | **45 / 73 = 62 %** | **8 / 12 = 67 %** | **Up one node and down one stage, and the picture is what moved both.** `TriggerField` amber -> GREEN: measured, a declared volume fires on arrival and not on staying, with an oracle that tells the two edges apart (board:1891 closed). `TonemapStage` amber -> RED: the nine stills carry exactly two alpha values and `max(R,G,B)` averaging **0.45 of 255** -- the frame is BLACK, and every luminance this project has scored since the axis began measured a viewer compositing the alpha over white (board:1870, board:1893). Six commits of board:1890 landed real repairs -- the eye is in the cabin, `Append` shifts materials, the tile round trip is proven -- and **five of the six changed only the board file**. `SubjectDraw` keeps its red with five responsibilities instead of six (board:1867 real progress, node unmoved) |
 | 03:1x | 84115df7 | **47 / 73 = 64 %** | **9 / 12 = 75 %** | **Six nodes, and the picture is what proves five of them.** `TonemapStage` red -> GREEN: the presented frame is opaque at the tonemap and not at the clear, coverage stays on the intermediate where the render corpus reads it (`tonemap.msl:13`), mean max(RGB) 0.45 -> 45 of 255 with alpha 255 on 921 600 px. The four MEDIUM/SKY nodes are REACHED for the first time -- `DrawsSky` derived from `Ground.Declared && AirDensityKgM3 > 0` (`Engine.cpp:570`), a physics fact and not a switch, proven by `ScoreWhatASphereFills` (sun below the horizon -> exactly 0, because T(s,sun)=0 at every s) and `ScoreWhatASkyLightsInShadow` (a surface turned fully away reads 59.5 under a sphere and 0.000 without one). `Wayfinding` amber -> GREEN: the tie index is kept current across edge splits and sized by the BINDING REACH rather than the snap (board:1894), and two ways that cross at grade are one junction while a way that spans is not (board:1911) -- 4193 pieces -> 284, largest component 59 % -> 96.8 %, and the shipped drive ROUTES 2.895 of 2.915 km. `Alignment` holds its green with a real oracle now: a true R = 400 m circle fits to 0.851 % at four digitisation densities against 49.984 % before, in ONE run against nine (board:1795) |
 | 06:3x | **a73c6ca5** | **47 / 73 = 64 %** | **9 / 12 = 75 %** | **FLAT, and it is one node up against one node down.** `GroundPatchwork` stranded -> GREEN AND REACHED: the vertex stride is named once (`kTileVertexFloats`, `TileMeshes.h:11`) and the compositor stopped reading a normal as a position -- 1948 vertices per tile against 5194, 489.8..532.1 m of relief against 746 m; the ring is awaited rather than polled and lands 9 tiles of 9 in 12 s against 1 in 41 s (board:1914). `Alignment` GREEN -> amber, my judgement: the accuracy bound went per vertex and the search that chooses the radius did not follow it (board:1916), and the kerb allowance diverges as the deflection approaches pi -- 43 m at 170 degrees, 215 m at 178. **The picture moved and the axis did not**: nine tiles of terrain arrive, draw, and stand ABOVE the horizon, while the lower half of all ten stills is the four-count painted plane it was last round (board:1890). The acceptance command left ten stills with no `mkdir` for the first time (board:1903 closed) |
+| 14:0x | **bb9472db** | **48 / 74 = 65 %** | **9 / 12 = 75 %** | **ONE node in seven hours and thirty-nine commits, and the order was followed on all three.** `Alignment` amber -> GREEN (board:1916, the only node that moved). `Underfoot` enters the set AMBER and `DriveTick` amber -> RED, which cancel: the seam board:1924 built is the right seam and it put a 30-second sleep, a mutex and two allocations on the physics tick (board:1932). Real work that moved no node: the sun stands in the sky (board:1868), the light frustum stopped standing at the world origin (board:1921 closed), a declaration naming nothing now stands nothing (board:1927, proven at `ScoreWhatTheShadowCasts.cpp:145`), the shaders left the working directory (board:1859), `TheSourceCarriesNoCommentary` moved its exemption from the file's BYTES to its ROLE. **What did not move is what the axis is measuring**: five of the six reds are untouched, and the 30 stranded generator sources are stranded for the ninth round (board:1805) |
 
 ## The work order
 
 Three items, in the order that shrinks the figure fastest, each naming the node it turns green.
 Rewritten each round by the review; the next round checks whether it was followed.
 
-**Last round's order, checked:** #1 (1890) WORKED and it is the round's real content -- the stride
-defect, the double-standing car, the framing over all 1.2 M vertices and the starving poll were
-all found and fixed, and `GroundPatchwork` left stranded because of it. The item is not closed and
-the picture says why. #2 (1874) DONE, and the residual is now the whole of that item: a cited list
-is checked at its first line only. #3 (1867) untouched, third round.
+**Last round's order, checked: all three WORKED and one node moved.** #1 (1890) worked -- the
+ring's normals belong to its own frame, the patchwork carries the tile's normals and UVs, the
+altitude and datum hypotheses were both killed by measurement; `World` unmoved because
+`struct Eye` still sits at `World.h:49`. #2 (1915) worked -- the waiter's predicate ends and
+`MeshAwaited` is pure virtual; `TilePool` unmoved because the real waiter is exercised by no
+case, and the commit ANNOUNCED a closure it did not make (board:1933). #3 (1916) worked and
+**moved the node**.
+
+**RANKED BY WHAT IS BROKEN, NOT BY WHAT IS EASY.** Everything below is at or below OK. Nothing
+that merely raises a working thing toward PERFECT enters until they stand -- which means
+board:1867 (`SubjectDraw` red, the render plan's ONLY lever, untouched four rounds) waits a
+fifth, and that is the correct call, not a comfortable one.
 
 | | item | the node it moves |
 |---|---|---|
-| 1 | board:1890 | `World` red -> green and `Sim` behind it. The ring is on screen; what stands between it and terrain under the car is ONE datum question and ONE material. This is the smallest remaining step to the largest picture change the tree can make |
-| 2 | board:1915 | `TilePool` amber -> green. `MeshAwaited` waits on a predicate a `Pending` mesh never satisfies (`TilePool.cpp:455` against `:516`) -- an unbounded hang on the path board:1914 just made the default. Cheap, and it is a HANG |
-| 3 | board:1916 | `Alignment` amber -> green and `CorridorLay` behind it. The search optimises what the test accepts, and a hairpin gets a finite bound |
+| 1 | board:1805 | `Forest`, `Buildings`, `Water`, `Infrastructure` stranded -> green and reached, and `Sim` red -> deleted. **Four numerator nodes and one red in one item** -- 30 of the 37 stranded sources are these generators, hanging off a facade `grep` finds ONE consumer for. No other item on this board moves four nodes. The seam is the same one board:1924 already cut: a generator's input is the stack the drive opened, not `Ground::World` |
+| 2 | board:1932 | `DriveTick` red -> green and `Underfoot` amber -> green. The physics step can sleep 30 s on a fetch, take a mutex and allocate, and it pays three ground queries for a normal the tile already holds. It landed THIS hour, so it is cheapest to repair now, and it is the difference between a simulation and a slideshow |
+| 3 | board:1925 | `PERCEPTION` from ABSENT to present in TARGET's actor chain. A body's occupied space is a surface no other body can find, so there is no traffic, no avoidance and no second actor -- the half of perception that is not the ground does not exist. Below OK, and it outranks every defect in something that works |
 
-board:1917 is one deletion and is not in the top three: `if (false)` at `Engine.cpp:286` keeps six
-lines of prose in `src/` where the no-comment rule forbids it, and the walk cannot see it.
+Filed and NOT in the order, because they are smaller than the three above:
+board:1933 (a commit says closed and the file stands -- two at HEAD, and the new claim walks only
+the other direction), board:1928 (a subject cannot declare that it casts nothing), board:1916's
+residual (the refusal cites the global allowance where a per-vertex one decided).
