@@ -32,18 +32,22 @@ atmosphere. The ring is on screen only as a thin pale sheet ABOVE the horizon li
 then (33,60,107) at x=700 in still 03, a jagged silhouette cutting the sky and vanishing again
 by still 05. Nine tiles of terrain arrive, draw, and stand where the sky is.
 
-**The height is the whole of it.** The ring's vertices carry `where.AltM`, geodetic altitude
-above the WGS84 ELLIPSOID, straight into the corridor frame's `up`:
+**The height is NOT it, and the measurement says so.** At the vertex nearest the frame origin
+the ring stands at **522.23 m** against a body at **524.444 m** -- 2.2 m, which is a ride height
+and a DEM's resolution, not a datum. The geoid hypothesis is dead: an undulation of 47 m would
+show as 47 m. What stands above the horizon is the ring's FAR edge, 532 m against 522 m near,
+rising 10 m over 800 m: +0.7 degrees above a 1.2 m eye, which is what terrain does.
 
-    src/engine/Engine.cpp:340   inFrame[at + 1] = (float)where.AltM;
+**The surface is what is left.** `Live::Restand` now hands the composed ground the medium's own
+`GroundAlbedo`, so the drawn ground and the sky's painted ground name ONE colour instead of a
+mid-grey `Material{}` sheet. What it still lacks is a surface with identity: no slope response,
+nothing that tells road from field, and no use of the ground colour table the world already
+carries (`VegetationTemplates::Row::Ground`, reached at `src/engine/Sim.cpp:98`).
 
-while the body stands at 513.528 m in the same axis. Those two agree only if the corridor frame's
-origin is the ellipsoid. At Munich the geoid undulation is about +47.6 m (EGM96), which is the
-order of the gap and the first thing to measure -- *confidence: likely, not established.* The
-frame's own datum has to be stated and both sides converted to it, once.
-
-**And the surface has no identity.** `ground.Material = 0` takes the subject's first surface,
-which is the car's. No albedo, no slope response, nothing that tells road from field.
+Measured through the windscreen after: the ring reads (78, 94, 109) at 2 to 5 km, the painted
+ground below it (34, 42, 32), the sky above (45, 73, 108). The ring is bluish because it IS
+bluish -- the atmosphere veils it, which is aerial perspective and correct. The painted ground is
+not veiled at any distance, and the seam between them is board:1918.
 
 ## The mechanism, corrected -- the headline was wrong twice
 
