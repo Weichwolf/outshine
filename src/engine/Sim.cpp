@@ -539,12 +539,9 @@ Sim::Place Sim::At(double lat, double lon) const {
   Place p;
   p.GroundResolved = W_.Ground().At(lat, lon).TryAslM(&p.GroundAslM);
 
-  const std::shared_ptr<const ClassStructure> cls = W_.Classes().Read();
-  if (cls) {
-    double e = 0.0, n = 0.0;
-    W_.Classes().Project(lat, lon, &e, &n);
+  {
     int runnerUp = -1;
-    p.Class = cls->Evaluate(e, n, &p.ClassEdgeM, &runnerUp);
+    p.Class = W_.Classes().ClassAt(lat, lon, &p.ClassEdgeM, &runnerUp);
   }
 
   const std::optional<Generators::Ground> ground = GroundAt(lat, lon);

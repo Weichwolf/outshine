@@ -40,6 +40,7 @@ bool GroundStack::Open(std::string_view cacheDir, std::string_view assetsDir,
   Pool_ = std::make_unique<outshine::Ground::TilePool>(
       outshine::Ground::GroundPoolConfig(focusLat, focusLon), sources, wire);
   Ground_ = std::make_unique<outshine::Ground::GroundStream>(*Pool_, surface);
+  Cls_.Open(focusLat, focusLon);
   Opened_ = true;
   return true;
 }

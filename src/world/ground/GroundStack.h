@@ -9,6 +9,7 @@
 #include "DeclaredSources.h"
 #include "TerrainLoader.h"
 #include "SourceDecl.h"
+#include "ClassField.h"
 #include "TilePool.h"
 
 namespace outshine {
@@ -32,6 +33,11 @@ public:
   [[nodiscard]] bool Opened() const { return Opened_; }
   [[nodiscard]] TilePool &Pool() const { return *Pool_; }
   [[nodiscard]] GroundStream &Ground() const { return *Ground_; }
+  [[nodiscard]] const ClassField &Classes() const { return Cls_; }
+  void SetVegetation(const VegetationTemplates *veg) { Cls_.SetVegetation(veg); }
+  void Restand(double lat, double lon) {
+    if (Pool_) { Cls_.Update(*Pool_, lat, lon); }
+  }
   [[nodiscard]] int FinestZoomOf(Data::DataKind kind) const;
 
 private:
@@ -39,6 +45,7 @@ private:
   std::unique_ptr<Data::SourceSet> Sources_;
   std::unique_ptr<TilePool> Pool_;
   std::unique_ptr<GroundStream> Ground_;
+  ClassField Cls_;
   bool Opened_ = false;
 };
 

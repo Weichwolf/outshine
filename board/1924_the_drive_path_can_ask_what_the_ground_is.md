@@ -22,15 +22,33 @@ a wheel's height and normal from the surface under it -- has nowhere to ask.
 This is the reachability class again: `DrawsSky`, `ShadowRadiusM`, the shadow atlas centre. A
 capability complete, correct and unreachable.
 
+## What stands now
+
+`Sim::Underfoot` is the seam: `At(lat, lon) -> Standing{Known, HeightAslM, Friction}` plus
+`PostM(lat)`. `Sim::GroundUnderfoot` fills it from the stack's height stream and its class field,
+resolving the class through `VegetationTemplates::FrictionOf`. `GroundStack` now carries the
+`ClassField` and opens it at the focus, so the drive path can ask what the ground IS and not only
+how high it is. The projection-plus-evaluation is spelled ONCE, in `ClassField::ClassAt`, and
+`Sim::At` was rewritten onto it.
+
+`DriveTick` asks it only for a wheel PAST the made surface -- inside the corridor the ribbon is
+the surface and a query per wheel per step would buy nothing. The normal off the made surface is
+a finite difference at the terrain's own post spacing. The asks and the answers are counted and
+published, because a class field that never resolves would otherwise fall back silently.
+
+## What is still wrong
+
+The made surface's own height still comes from the ribbon rather than from
+`Infrastructure::MadeAt`, which carries `SurfaceAslM` and `CoverRow`. That is right today because
+the ribbon IS what the corridor made -- but it will not be right once a drive crosses a made
+surface it did not lay itself.
+
 ## What will be true
 
-- [ ] A drive can ask, for a world point: is there made ground here, at what height, and what is
-      the surface -- made or natural -- that a wheel would stand on.
-- [ ] The query is bounded: no allocation, no lock, no disk, no unbounded search, because it runs
-      per wheel per step.
-- [ ] It is ONE query. `Sim::At` already composes height, class, structures, lakes and made
-      ground for the picture; the contact needs a narrower and cheaper cut of the same truth, not
-      a second spelling of it.
-- [ ] Proving case: a drive over a route whose surface changes class reports the change at the
-      wheel, and a point beside the made surface reports the natural class rather than the road's.
-      Negative control: the query answered from the corridor ribbon, and both read the same.
+- [x] A drive can ask, for a world point, what a wheel would stand on: its height and what it
+      grips with.
+- [x] The query is bounded: two lookups and no allocation, and only for a wheel that is off the
+      made surface.
+- [x] It is ONE query. `ClassField::ClassAt` is the single spelling and `Sim::At` uses it.
+- [ ] It answers for MADE ground a drive did not lay: `Infrastructure::MadeAt` reaches the
+      contact, so a bridge deck or a car park is a surface like any other.

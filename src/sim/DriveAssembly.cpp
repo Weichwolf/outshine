@@ -150,11 +150,12 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
     say.Refuse("the declared ground materials do not load");
     return false;
   }
-  VegetationTemplates widths;
+  VegetationTemplates &widths = out.Surfaces;
   if (!widths.Load((kept.AssetsDir + "/world/vegetation.json").c_str(), materials)) {
     say.Refuse("the declared width table does not load");
     return false;
   }
+  stack.SetVegetation(&widths);
 
   const double quantumM = outshine::Ground::kMercatorGirthM / ((double)(1L << kZoom) * 4096.0);
   Network roads(1.05 * quantumM, world.RadiusM);

@@ -21,6 +21,7 @@
 #include "Sink.h"
 #include "DeclaredSources.h"
 #include "GroundStack.h"
+#include "GroundUnderfoot.h"
 #include "DriveAssembly.h"
 #include "GroundPatchwork.h"
 #include "TileGeodesy.h"
@@ -116,6 +117,7 @@ struct Engine::State {
   Host *Offered = nullptr;
   Ground::GroundStack Stack;
   Sim::DriveProduct Drive;
+  std::unique_ptr<Sim::GroundUnderfoot> Surface;
   bool Drove = false;
   size_t Fired = 0;
   Clients::Declaration Shown;
@@ -216,6 +218,9 @@ bool Engine::State::Routes(void) {
   const bool routed = Sim::AssembleDrive(Scene, Stood, Vehicles, Drives,
                                          declared.Ground, Stack, *Wire, kept, say,
                                          Drive);
+  if (routed) {
+    Surface = std::make_unique<Sim::GroundUnderfoot>(Stack, Drive.Surfaces);
+  }
   Carried.insert(Carried.end(), std::make_move_iterator(say.Held.begin()),
                      std::make_move_iterator(say.Held.end()));
   Numbers = std::move(say.Took);
@@ -1043,12 +1048,17 @@ bool Engine::Advance() {
     }
     ++S_->Steps;
     const Sim::Ridden &rode =
-        Sim::DriveTick(S_->Drive.Way, S_->Drive.Stood, S_->Drive.State, S_->Declared.Motion.StepS, nullptr);
+        Sim::DriveTick(S_->Drive.Way, S_->Drive.Stood, *S_->Surface, S_->Drive.State,
+                       S_->Declared.Motion.StepS, nullptr);
     if (!rode.Found || rode.Lost) {
       S_->Error = "the drive left its corridor at " + Said(rode.ReachedM) + " m";
       return false;
     }
-    if (rode.Arrived) { return false; }
+    if (rode.Arrived) {
+      S_->Places("wheel-steps that asked the ground what it is", (double)rode.GroundAsked, "steps");
+      S_->Places("steps it could answer", (double)rode.GroundAnswered, "steps");
+      return false;
+    }
     if (!S_->Rides()) { return false; }
   }
   if (!S_->Standing->Advance(S_->Error)) { return false; }

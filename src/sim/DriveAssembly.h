@@ -12,6 +12,7 @@
 #include "DriveTick.h"
 #include "Rigging.h"
 #include "Sink.h"
+#include "VegetationTemplates.h"
 
 namespace outshine::Data {
 class Transport;
@@ -49,6 +50,7 @@ struct Harvest {
 };
 
 struct DriveProduct {
+  Ground::VegetationTemplates Surfaces;
   Vehicle Car;
   Rigged Stood;
   Corridor Way;

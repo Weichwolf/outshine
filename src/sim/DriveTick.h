@@ -10,6 +10,7 @@
 #include "CorridorLay.h"
 #include "Rig.h"
 #include "Rigging.h"
+#include "Underfoot.h"
 
 namespace outshine::Sim {
 
@@ -81,6 +82,8 @@ struct Ridden {
   double LongestStallAtM = 0.0;
   bool WasTaken = false;
   double MindSteerRad = 0.0;
+  long GroundAsked = 0;
+  long GroundAnswered = 0;
 };
 
 struct DriveState {
@@ -109,7 +112,8 @@ struct DriveState {
 };
 
 [[nodiscard]] const Ridden &DriveTick(const Corridor &way, const Rigged &stood,
-                               DriveState &drive, double dtS, const Taken *taken);
+                               const Underfoot &beneath, DriveState &drive, double dtS,
+                               const Taken *taken);
 
 }
 

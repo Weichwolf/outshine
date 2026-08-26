@@ -49,9 +49,9 @@ flowchart LR
   sim --> |14| actor_path
   render --> |12| render_stages
   world_generators --> |11| base_spatial
+  sim --> |11| world_ground
   engine --> |11| world_ground
   world_ground --> |9| world_data
-  sim --> |8| world_ground
   engine --> |8| scenario
   engine --> |8| base_io
   engine --> |7| content_gltf
@@ -106,7 +106,7 @@ MASS -- the heaviest units, against the median of them all
     1103  base/spatial/Wayfinding.h
     1039  render/stages/SubjectDraw.h
      955  ui/Style.h
-     108  the median of 241 unit(s)
+     107  the median of 243 unit(s)
 
 CARPET -- the widest public surfaces
     57 [[nodiscard]] in src/render/Renderer.h
@@ -179,6 +179,7 @@ ACCESS -- what stands wider than private
       2  src/content/shade/TangentFrame.h
       1  src/world/weather/ConstantWindWeather.h
       1  src/world/ground/tiles/TileGeodesy.h
+      1  src/world/ground/ClassField.h
       1  src/world/generators/FeatureLevel.h
       1  src/world/generators/draw/TreeRandom.h
       1  src/world/generators/Cover.h
@@ -222,5 +223,5 @@ DECIDED -- named constants standing as a bare literal, whose origin is elsewhere
     3  src/world/ground/TerrainLoader.cpp
 
 COUNTS
-  150 source(s) under src/, 37 of them linked by no suite
-  241 header(s) in 28 module(s) over 13 tier(s)
+  151 source(s) under src/, 37 of them linked by no suite
+  243 header(s) in 28 module(s) over 13 tier(s)
