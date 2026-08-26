@@ -4,7 +4,7 @@ Progress: streaming
 Area: generators, door
 Tags: benchmark, target, owner
 
-# The generators are a library with their own door, a registry, and glTF on the way out
+# The generators are a library with their own door, a registry, and a representation on the way out
 
 Owner's target, three parts, and the third is the one that binds:
 
@@ -12,10 +12,16 @@ Owner's target, three parts, and the third is the one that binds:
 2. A CLIENT adds its own to it.
 3. **Another project uses the generators alone, without the engine.**
 
-Part 3 is the constraint the other two follow from. A tier that must stand up in a foreign
-program cannot name the renderer, the scenario, the sim or the engine; its input must be a value
-a foreign caller can fill; and its output must be a format a foreign caller already has a reader
-for. That format is glTF, which CLAUDE.md already names as the tree's only content surface.
+Part 3 is the constraint the other two follow from. A tier that must stand up in a foreign program
+cannot name the renderer, the scenario, the sim or the engine; its input must be a value a foreign
+caller can fill; and its OUTPUT must be a value a foreign caller can hold.
+
+**THE OUTPUT IS THE REPRESENTATION, NOT A FILE.** A generator does not serialise. Serialising
+would force a round trip nobody asked for -- mesh, glTF bytes, parse, mesh -- on the one path
+where a round trip is least affordable, and the compositor consumes the representation directly.
+So the representation itself is the public value, and a glTF SERIALISER ships beside it as an
+optional consumer of that same value: for tooling, for a cache, for inspection, and for a foreign
+project that wants a file rather than a buffer. Owner's correction, and it is the better shape.
 
 ## What the tree has today, measured
 
@@ -38,11 +44,16 @@ that links no `src/engine` source.
 ## What will be true
 
 - [ ] A second public header declares the generator library: the input value, the `Generator`
-      interface, the registry and the glTF output. It names no type from `src/render`,
-      `src/scenario`, `src/sim` or `src/engine`.
-- [ ] A generator's output is a glTF document, so a foreign caller needs no outshine reader to
-      use it and the engine consumes it through the same path as any declared asset -- content
-      store, hash for a name, handle for a reference.
+      interface, the registry, and the OUTPUT REPRESENTATION as a value. It names no type from
+      `src/render`, `src/scenario`, `src/sim` or `src/engine`.
+- [ ] That representation is pointer-free and one-width, so a foreign caller can hold it, copy it
+      and outlive the generator that made it -- CLAUDE.md's layout rule is what makes it usable
+      across a library boundary at all, not only what makes it fast.
+- [ ] A glTF SERIALISER ships beside the library, taking that representation and writing a
+      document. Nothing on the streaming path calls it: the compositor takes the representation,
+      and the serialiser is for a caller who wants a file.
+- [ ] `DrawSink` is that representation or is deleted for it -- today it is a private sink in
+      `src/world/generators/draw/` and a foreign caller cannot name it.
 - [ ] The registry holds what outshine ships AND what a client registered. The shipped catalogue
       stays closed against a typo; a client's generator enters as a VALUE with a handle, never a
       string. This is the reconciliation with CLAUDE.md's *"the consumer selects from a
@@ -53,6 +64,7 @@ that links no `src/engine` source.
       ones are the first such client.
 - [ ] Proving case: a program that links the generator objects and NOTHING of `src/engine`,
       `src/render`, `src/scenario` or `src/sim`, fills the input value by hand, registers a
-      generator of its own beside a shipped one, and reads a glTF document back with both
-      contributions in it. Negative control: the same program with the engine's objects removed
+      generator of its own beside a shipped one, and reads the REPRESENTATION back with both
+      contributions in it -- then, separately, serialises it to a glTF document the tree's own
+      reader accepts. Negative control: the same program with the engine's objects removed
       from the link line today, and it does not link.
