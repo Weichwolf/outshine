@@ -100,6 +100,16 @@ constexpr const char *kQuadBase64 =
   return sum / (double)pixels;
 }
 
+[[nodiscard]] double Peak(const std::vector<uint8_t> &rgba) {
+  double peak = 0.0;
+  for (size_t at = 0; at + 3 < rgba.size(); at += 4) {
+    const int r = rgba[at], g = rgba[at + 1], b = rgba[at + 2];
+    const double most = r > g ? (r > b ? r : b) : (g > b ? g : b);
+    peak = most > peak ? most : peak;
+  }
+  return peak;
+}
+
 [[nodiscard]] outshine::Scenario Under(double elevationDeg, double bearingDeg,
                                        const char *surface) {
   outshine::Scenario made;
@@ -146,12 +156,14 @@ int main(void) {
     return Report();
   }
 
+  double levelPeak = 0.0;
   const auto read = [&](double elevationDeg, double bearingDeg, const char *surface,
                         double &into) {
     const outshine::Scenario stands = Under(elevationDeg, bearingDeg, surface);
     std::vector<uint8_t> rgba;
     if (!engine.Declare(stands) || !engine.Pixels(rgba)) { return false; }
     into = Mean(rgba);
+    levelPeak = Peak(rgba);
     return true;
   };
 
@@ -186,11 +198,49 @@ int main(void) {
   const double uprightSpread = mostUpright - leastUpright;
   const double spread = most - least;
   const double step = total / 4.0 - lower;
+  double atFortyTwo = 0.0;
+  if (!read(42.0, 0.0, "level.gltf", atFortyTwo)) {
+    Unprepared("the level surface would not stand for the value check");
+    return Report();
+  }
+  const double peakAtFortyTwo = levelPeak;
+  std::printf("  elevation 42 deg, level surface      PEAK %7.3f of 255\n", peakAtFortyTwo);
   std::printf("  elevation 21 deg, bearing   0 deg   mean max(RGB) %7.3f\n", lower);
   std::printf("  elevation -80 deg (no key)          mean max(RGB) %7.3f\n", dark);
   std::printf("  spread over four bearings %7.3f     one elevation step %7.3f     ratio %6.3f\n",
               spread, step, step > 0.0 ? spread / step : -1.0);
   std::printf("  the same four bearings over an UPRIGHT surface spread %7.3f\n", uprightSpread);
+
+  // THE CLOSED FORM, AND WHAT IT PINS. An ordering is satisfied by any monotone wrongness: a
+  // chain off by a factor of two passes every check in this case and looks merely dim. This one
+  // states the value.
+  //
+  //   E_perp    40000 lx                      declared. That `lux` is the illuminance on a
+  //                                           surface PERPENDICULAR to the sun and not on a
+  //                                           horizontal one is what this number measures -- the
+  //                                           horizontal reading would put the peak at 208.
+  //   cos(t)    sin(42 deg) = 0.669131        a level surface under a sun at 42 degrees
+  //   L         E*cos(t)*albedo/pi
+  //             = 40000*0.669131*0.8/pi       = 6814.0 cd/m^2      (baseColorFactor 0.8)
+  //   ev100     log2(40000/2.5)               = 13.9658
+  //   exposure  1/(1.2*2^ev100)               = 5.20833e-05        published by the engine
+  //   x         L*exposure                    = 0.354895
+  //   filmic    x(2.51x+0.03)/(x(2.43x+0.59)+0.14) = 0.498562
+  //   display   0.498562^(1/2.2) * 255        = 185.9
+  //
+  // The tolerance is FOUR counts and the reason is stated rather than hidden: the encode's exact
+  // transfer is not pinned here. A pure 2.2 power gives 185.9, the sRGB piecewise curve gives
+  // 187.3, and the measurement sits between them at 186. Which transfer the frame carries is a
+  // separate question; four counts cannot hide a factor of two, which would move this by forty.
+  constexpr double kOwed = 185.9;
+  constexpr double kWithin = 4.0;
+  std::printf("  the closed form owes                %7.3f of 255, measured %7.3f\n", kOwed,
+              peakAtFortyTwo);
+  CHECK(std::fabs(peakAtFortyTwo - kOwed) <= kWithin,
+        "**A LEVEL LAMBERTIAN SURFACE READS WHAT THE CLOSED FORM SAYS**: declared illuminance "
+        "through the declared albedo, the engine's own published exposure and the filmic curve, "
+        "end to end and to within the encode's own transfer. Every other check in this case is "
+        "an ORDERING, and an ordering is satisfied by any monotone wrongness");
 
   CHECK(step > 0.0,
         "**A KEY'S ELEVATION REACHES A HORIZONTAL SURFACE**: sin(42) = 0.669 against "

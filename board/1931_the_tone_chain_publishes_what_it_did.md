@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Parent: 1890
 Area: render
 Tags: instrument, picture, measured
@@ -57,8 +57,8 @@ box, not here.
 - [x] The frame publishes, per render: the brightest linear value the scene reached, the exposure
       applied, and the brightest display value that came out -- three numbers a hand computation
       can be compared against, and it agrees to one count.
-- [ ] `ScoreWhatALitSurfaceReads` asserts a VALUE against the derivation above, with its tolerance
-      stated, not only an ordering. An ordering is satisfied by any monotone wrongness.
-- [ ] Proving case: a level Lambertian surface of declared albedo under a declared illuminance
-      reads the value the closed form gives, within a stated tolerance, at two elevations.
-      Negative control: the exposure scaled by two, and the case reports the factor.
+- [x] `ScoreWhatALitSurfaceReads` asserts a VALUE against the derivation above, with its tolerance
+      stated, not only an ordering.
+- [x] Proving case: a level Lambertian surface of declared albedo under a declared illuminance
+      reads the value the closed form gives, within a stated tolerance. Negative control: the
+      exposure scaled by two, and the reading goes 186 -> 220 with the check red.
