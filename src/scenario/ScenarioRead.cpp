@@ -84,12 +84,11 @@ const Element kGrammar[] = {
     {"scenario/views", "view"},
     {"scenario/views/view", "", "id follows person"},
     {"scenario/player", ""},
-    {"scenario/vehicle", "centreOfMass inertia contact drive brake body seat"},
+    {"scenario/vehicle", "centreOfMass inertia contact actuator body seat"},
     {"scenario/vehicle/centreOfMass", ""},
     {"scenario/vehicle/inertia", ""},
     {"scenario/vehicle/contact", ""},
-    {"scenario/vehicle/drive", ""},
-    {"scenario/vehicle/brake", ""},
+    {"scenario/vehicle/actuator", ""},
     {"scenario/vehicle/body", ""},
     {"scenario/vehicle/seat", ""},
     {"scenario/drive", "", "", "fromLat fromLon toLat toLon"},
@@ -539,7 +538,6 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.AssetGround = one.Num("assetGround", 0.0);
     made.AssetCentreX = one.Num("assetCentreX", 0.0);
     made.AssetCentreZ = one.Num("assetCentreZ", 0.0);
-    made.TurningCircleM = one.Num("turningCircleM", 0.0);
     const Xml::Ref centre = one.Child("centreOfMass");
     made.CentreOfMassM[0] = centre.Num("x", 0.0);
     made.CentreOfMassM[1] = centre.Num("y", 0.0);
@@ -566,9 +564,25 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
       wheel.RelaxationM = touch.Num("relaxationM", 0.0);
       made.Contacts.push_back(wheel);
     }
-    made.PeakTorqueNm = one.Child("drive").Num("peakTorqueNm", 0.0);
-    made.FinalDrive = one.Child("drive").Num("finalDrive", 0.0);
-    made.BrakeTorqueNm = one.Child("brake").Num("peakTorqueNm", 0.0);
+    for (const Xml::Ref acts : one.Children("actuator")) {
+      Actuator does;
+      const std::string named = acts.Attr("does");
+      if (named == "drive") {
+        does.Does = Actuates::Drive;
+      } else if (named == "brake") {
+        does.Does = Actuates::Brake;
+      } else if (named == "steer") {
+        does.Does = Actuates::Steer;
+      } else {
+        error = "a body declares an actuator that does '" + named +
+                "', and drive, brake and steer are the whole catalogue";
+        return false;
+      }
+      does.PeakNm = acts.Num("peakNm", 0.0);
+      does.Ratio = acts.Num("ratio", 1.0);
+      does.CircleM = acts.Num("circleM", 0.0);
+      made.Actuators.push_back(does);
+    }
     const Xml::Ref body = one.Child("body");
     made.DragCoefficient = body.Num("dragCoefficient", 0.0);
     made.FrontalM2 = body.Num("frontalM2", 0.0);

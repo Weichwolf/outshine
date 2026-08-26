@@ -166,17 +166,19 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
     rightX = std::fmax(rightX, one.AtM[0]);
   }
   const double trackM = rightX - leftX;
-  if (!(declared.TurningCircleM > trackM)) {
+  const Actuator *const steers = declared.Can(Actuates::Steer);
+  const double circleM = steers != nullptr ? steers->CircleM : 0.0;
+  if (!(circleM > trackM)) {
     Refuse(out, "a steering lock is what a turning circle MEANS, and this vehicle declares a circle "
-                "of " + std::to_string(declared.TurningCircleM) +
+                "of " + std::to_string(circleM) +
                     " m against a track of " + std::to_string(trackM) +
                     " m -- a circle no wider than the car is not one it can drive");
     return out;
   }
   out.Axles.SteerLimitRad =
-      std::atan(out.Axles.WheelbaseM / (0.5 * declared.TurningCircleM - 0.5 * trackM));
+      std::atan(out.Axles.WheelbaseM / (0.5 * circleM - 0.5 * trackM));
 
-  const double outerM = 0.5 * declared.TurningCircleM;
+  const double outerM = 0.5 * circleM;
   if (!(outerM > out.Axles.WheelbaseM)) {
     Refuse(out, "the turning circle's half of " + std::to_string(outerM) +
                     " m is no longer than the wheelbase of " +
@@ -202,8 +204,13 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
   }
   out.Envelope.GravityMs2 = gravityMs2;
   out.Envelope.MassKg = declared.MassKg;
-  out.Envelope.DriveN = declared.PeakTorqueNm * declared.FinalDrive / declared.Contacts.front().RadiusM;
-  out.Envelope.BrakeN = declared.BrakeTorqueNm / declared.Contacts.front().RadiusM;
+  const Actuator *const drives = declared.Can(Actuates::Drive);
+  const Actuator *const brakes = declared.Can(Actuates::Brake);
+  out.Envelope.DriveN = drives == nullptr ? 0.0
+                                          : drives->PeakNm * drives->Ratio /
+                                                declared.Contacts.front().RadiusM;
+  out.Envelope.BrakeN =
+      brakes == nullptr ? 0.0 : brakes->PeakNm / declared.Contacts.front().RadiusM;
   if (!(declared.DragCoefficient > 0.0) || !(declared.FrontalM2 > 0.0)) {
     Refuse(out, "the vehicle '" + declared.Name + "' declares a drag coefficient of " +
                     std::to_string(declared.DragCoefficient) + " over a frontal area of " +

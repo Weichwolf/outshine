@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_SCENARIO_H
 #define OUTSHINE_SCENARIO_H
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -244,6 +245,15 @@ struct Contact {
   double LimitN = 0.0;
 };
 
+enum class Actuates : uint8_t { Drive, Brake, Steer };
+
+struct Actuator {
+  Actuates Does = Actuates::Drive;
+  double PeakNm = 0.0;
+  double Ratio = 1.0;
+  double CircleM = 0.0;
+};
+
 struct Vehicle {
   std::string Name;
   std::string Asset;
@@ -257,14 +267,18 @@ struct Vehicle {
   double CentreOfMassM[3] = {0.0, 0.0, 0.0};
   double InertiaKgM2[3] = {0.0, 0.0, 0.0};
   std::vector<Contact> Contacts;
-  double TurningCircleM = 0.0;
-  double PeakTorqueNm = 0.0;
-  double FinalDrive = 0.0;
-  double BrakeTorqueNm = 0.0;
+  std::vector<Actuator> Actuators;
   double DragCoefficient = 0.0;
   double FrontalM2 = 0.0;
   std::string SeatAt;
   double SeatM[3] = {0.0, 0.0, 0.0};
+
+  [[nodiscard]] const Actuator *Can(Actuates does) const {
+    for (const Actuator &one : Actuators) {
+      if (one.Does == does) { return &one; }
+    }
+    return nullptr;
+  }
 };
 
 struct Drive {

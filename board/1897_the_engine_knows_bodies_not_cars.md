@@ -28,6 +28,15 @@ declaration did. They are `Contact` fields now and the reader takes them off `<c
 What the move buys is what proves it: a body can carry different rubber front and rear -- a
 staggered set, a space-saver, a worn axle -- which one tyre per vehicle cannot express at all.
 
+**DRIVE, BRAKE AND STEER ARE ACTUATORS NOW, WHICH IS THE WORD TARGET USES.**
+`PeakTorqueNm`, `FinalDrive`, `BrakeTorqueNm` and `TurningCircleM` were fields of a vehicle, and
+`src/engine/Assembly.cpp:200` INFERRED the body's capabilities from whether they were non-zero.
+A capability guessed from a magnitude is wrong at exactly one place -- a body that HAS a drive and
+currently delivers nothing -- and that place has a name: a dead engine, a disconnected motor, a
+drivetrain a scenario means to build up. `std::vector<Actuator>` with a three-name catalogue
+replaces them, the numbers are each actuator's strength, and the reader refuses a fourth name.
+      proof: harness/outshine/physics/ScoreWhatABodyDeclaresItCanDo
+
 **AND THE WORST OF IT IS IN THE DOOR.** `include/Scenario.h` carries `struct Vehicle` with 25
 car-specific fields -- `TyreRadiusM`, `FinalDrive`, `BrakeTorqueNm`, `TurningCircleM`, `TrackM`,
 `CorneringNPerRad`, `AssetWheelbase`. CLAUDE.md's own sentence is unambiguous: *a vehicle noun

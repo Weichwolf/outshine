@@ -197,9 +197,9 @@ bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
       error = into.Error();
       return false;
     }
-    const bool steers = vehicle.TurningCircleM > 0.0;
-    const bool drives = vehicle.PeakTorqueNm > 0.0 && vehicle.FinalDrive > 0.0;
-    const bool brakes = vehicle.BrakeTorqueNm > 0.0;
+    const bool steers = vehicle.Can(Actuates::Steer) != nullptr;
+    const bool drives = vehicle.Can(Actuates::Drive) != nullptr;
+    const bool brakes = vehicle.Can(Actuates::Brake) != nullptr;
     if ((steers && !into.Give(body, tags::DoesSteer)) ||
         (drives && !into.Give(body, tags::DoesDrive)) ||
         (brakes && !into.Give(body, tags::DoesBrake))) {
