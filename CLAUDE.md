@@ -293,8 +293,16 @@ classDiagram
   class Scenario {
     +the declaration serialised against one graph
   }
+  class Geometry {
+    +Part(named, material) int
+    +Positions, Normals, Texture, Tangents, Colours, Triangles
+    +the reader fills one, a generator fills one, a client fills one
+    -storage private: the layout stays free to move
+  }
   Engine --> Scenario : reads
+  Engine --> Geometry : Stands(one)
   Engine --> Store : owns the one graph
+  Geometry --> Store : what a subject is made of
 ```
 
 ## Board
