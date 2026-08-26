@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Parent: 1953
 Depends: 1897
 
@@ -31,6 +31,7 @@ This blocks board:1897's own proving test -- *a body with a thrust actuator and 
 placed by integration, and moves under a control command* -- which cannot be written while a body
 without a drive has no start.
 
-- [ ] a declared body carries its own placement, or an instance carries its body
-- [ ] a body with no drive stands, falls under gravity and is placed by integration
+- [x] a declared body carries its own placement: `<at x= y= z= qx= qy= qz= qw=/>` and `Placed`
+- [x] a body with no drive stands, falls under gravity and is placed by integration
+      proof: harness/outshine/door/ScoreWhatABodyWithNoRouteDoes
 - [ ] `Engine::State::Rides` places a body it is given rather than reaching into `Drive.State.Body`

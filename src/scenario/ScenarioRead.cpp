@@ -84,7 +84,8 @@ const Element kGrammar[] = {
     {"scenario/views", "view"},
     {"scenario/views/view", "", "id follows person"},
     {"scenario/player", ""},
-    {"scenario/body", "centreOfMass inertia contact actuator aero slot"},
+    {"scenario/body", "at centreOfMass inertia contact actuator aero slot"},
+    {"scenario/body/at", ""},
     {"scenario/body/centreOfMass", ""},
     {"scenario/body/inertia", ""},
     {"scenario/body/contact", ""},
@@ -538,6 +539,15 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.AssetGround = one.Num("assetGround", 0.0);
     made.AssetCentreX = one.Num("assetCentreX", 0.0);
     made.AssetCentreZ = one.Num("assetCentreZ", 0.0);
+    if (Declares(one, "at")) {
+      const Xml::Ref where = one.Child("at");
+      made.Placed = true;
+      ReadVector(where, "x", "y", "z", made.AtM, 3);
+      made.FacingXyzw[0] = where.Num("qx", 0.0);
+      made.FacingXyzw[1] = where.Num("qy", 0.0);
+      made.FacingXyzw[2] = where.Num("qz", 0.0);
+      made.FacingXyzw[3] = where.Num("qw", 1.0);
+    }
     const Xml::Ref centre = one.Child("centreOfMass");
     made.CentreOfMassM[0] = centre.Num("x", 0.0);
     made.CentreOfMassM[1] = centre.Num("y", 0.0);

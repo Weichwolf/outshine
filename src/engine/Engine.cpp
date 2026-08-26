@@ -118,6 +118,7 @@ struct Engine::State {
   Ground::GroundStack Stack;
   std::vector<const Generates *> Making;
   Sim::DriveProduct Drive;
+  std::vector<Physics::Body> Freestanding;
   std::unique_ptr<Sim::GroundUnderfoot> Surface;
   bool Drove = false;
   size_t Fired = 0;
@@ -128,6 +129,7 @@ struct Engine::State {
   void Places(const char *what, double how, const char *unit);
   void Drew(void);
   [[nodiscard]] bool Rides(void);
+  void Falls(void);
   [[nodiscard]] bool Composes(void);
   [[nodiscard]] bool Routes(void);
 };
@@ -205,6 +207,21 @@ bool Engine::Assemble() {
 bool Engine::State::Routes(void) {
   const Scenario &declared = Declared;
   Drove = false;
+  Freestanding.clear();
+  for (const Body &stands : declared.Bodies) {
+    if (!stands.Placed) { continue; }
+    Physics::Body held;
+    held.MassKg = stands.MassKg;
+    for (int axis = 0; axis < 3; ++axis) {
+      held.PositionM[axis] = stands.AtM[axis];
+      held.InertiaKgM2[axis] = stands.InertiaKgM2[axis];
+    }
+    held.OrientationQ[0] = stands.FacingXyzw[3];
+    held.OrientationQ[1] = stands.FacingXyzw[0];
+    held.OrientationQ[2] = stands.FacingXyzw[1];
+    held.OrientationQ[3] = stands.FacingXyzw[2];
+    Freestanding.push_back(held);
+  }
   if (!declared.Driven.Declared) { return true; }
   if (!Wire) {
     if (Under.Offline) {
@@ -1192,8 +1209,24 @@ bool Engine::Advance() {
     }
     if (!S_->Rides()) { return false; }
   }
+  S_->Falls();
   if (!S_->Standing->Advance(S_->Error)) { return false; }
   return true;
+}
+
+void Engine::State::Falls(void) {
+  if (Freestanding.empty()) { return; }
+  const double stepS = Declared.Motion.StepS > 0.0 ? Declared.Motion.StepS : 1.0 / 60.0;
+  const double gravityMs2 =
+      Declared.Ground.GravityMs2 > 0.0 ? Declared.Ground.GravityMs2 : 9.80665;
+  for (Physics::Body &held : Freestanding) {
+    Physics::Wrench pulled;
+    pulled.ForceN[1] = -held.MassKg * gravityMs2;
+    Physics::Step(held, pulled, stepS);
+  }
+  Places("bodies standing on no route", (double)Freestanding.size(), "bodies");
+  Places("the first of them, up", Freestanding.front().PositionM[1], "m");
+  Places("and how fast it falls", Freestanding.front().VelocityMs[1], "m/s");
 }
 
 void Engine::State::Drew(void) {
