@@ -195,9 +195,10 @@ int main(int argc, char **argv) {
     const double alongM = engine.Along();
     const bool wanted =
         !asked.Into.empty() && nextStill < asked.Stills &&
-        (routeM > 0.0 ? alongM * (double)asked.Stills >= (double)(nextStill + 1) * routeM
-                      : (asked.Frames > 0 &&
-                         frames * asked.Stills >= (long)(nextStill + 1) * asked.Frames));
+        (routeM > 0.0
+             ? 2.0 * alongM * (double)asked.Stills >= (double)(2 * nextStill + 1) * routeM
+             : (asked.Frames > 0 &&
+                2 * frames * asked.Stills >= (long)(2 * nextStill + 1) * asked.Frames));
     if (wanted) {
       ++nextStill;
       char named[512];

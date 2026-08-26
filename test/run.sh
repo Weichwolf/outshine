@@ -595,7 +595,8 @@ EveryProgramStillLinks() {
   brokenPrograms=0
   for one in $PROGRAMS; do
     layer=$(dirname "$one")
-    if $CXX $CXXSTD $(LayerToolchain "$layer") $WARN -Iinclude -c "$one" -o "$BUILD/program.o" \
+    if $CXX $CXXSTD $(LayerToolchain "$layer") $WARN $(LayerIncludes "$layer") -c "$one" \
+         -o "$BUILD/program.o" \
          >"$BUILD/program.log" 2>&1 &&
        $CXX $CXXSTD "$BUILD/program.o" build/liboutshine.a $(LayerLink "$layer") \
          -o "$BUILD/program" >>"$BUILD/program.log" 2>&1 &&
@@ -607,21 +608,9 @@ EveryProgramStillLinks() {
       head -6 "$BUILD/program.log" >&2
     fi
   done
-  throughTheDoor=0
-  pastTheDoor=""
-  for one in $PROGRAMS; do
-    layer=$(dirname "$one")
-    if $CXX $CXXSTD $(LayerToolchain "$layer") $WARN -Iinclude -I"$layer" -I"$layer/parts" \
-         -fsyntax-only "$one" >/dev/null 2>&1; then
-      throughTheDoor=$((throughTheDoor + 1))
-    else
-      pastTheDoor="$pastTheDoor ${one#apps/}"
-    fi
-  done
   [ -n "$PROGRAMS" ] &&
-    printf 'run.sh: %s program(s) build and answer --help, %s do not; %s compile through the DOOR alone%s\n' \
-      "$built" "$brokenPrograms" "$throughTheDoor" \
-      "$([ -n "$pastTheDoor" ] && printf ' -- past it:%s' "$pastTheDoor")"
+    printf 'run.sh: %s program(s) build and answer --help, %s do not -- each on the include set LayerIncludes declares for it, which is the set make builds with (board:1584)\n' \
+      "$built" "$brokenPrograms"
   [ "$brokenPrograms" -eq 0 ]
 }
 

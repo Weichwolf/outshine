@@ -337,14 +337,14 @@ bool Network::Weave(std::string &error) {
         const int64_t firstColumn = one < two ? one : two;
         const int64_t lastColumn = one < two ? two : one;
         for (int64_t column = firstColumn; column <= lastColumn; ++column) {
-          if (Unindexed_ >= kMaxNetworkPoints) {
+          if (IndexedCells_ >= kMaxNetworkPoints) {
             error = "the tie index would hold more than " + std::to_string(kMaxNetworkPoints) +
                     " cells for " + std::to_string(Nodes_.size()) +
                     " nodes, which is a graph this network cannot weave at a snap of " +
                     std::to_string(SnapM_) + " m";
             return false;
           }
-          ++Unindexed_;
+          ++IndexedCells_;
           byEdgeCell[KeyAt(row, ((column % shape.Columns) + shape.Columns) % shape.Columns)]
               .push_back({from, (uint32_t)edge.To});
         }

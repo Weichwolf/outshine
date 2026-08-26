@@ -24,7 +24,7 @@ wherever it stands.
 - **Precision has ONE boundary and it is the camera**: the scene keeps 64-bit positions and the
   renderer is camera-relative in 32-bit — `Anchor - Eye` in `double`, the model-view-projection
   product in `double`, and the cast to `float` only at the uniform push
-  (`src/render/stages/SubjectDraw.cpp:841,846,854`). A `float` that ever holds a world position
+  (`src/render/stages/SubjectDraw.cpp:731,733,736`). A `float` that ever holds a world position
   is a defect; a `double` that reaches a shader is a different one
 - **Private is the DEFAULT and a wider door justifies itself** in the item that widened it. What
   is private can be changed; a public data member is an invariant nobody can hold. Composition is

@@ -55,9 +55,41 @@ struct Citation {
 
 // `symbol` (File.cpp:123) -- and the continuation form `symbol` (:456), which carries the file
 // from the citation before it on the SAME line, the way a reader of the row does.
+//
+// AND THE BARE FORM `File.cpp:123`, path and lines together inside ONE span. That form was
+// invisible here and VISIBLE to the path walk below, which strips a trailing `:123` before
+// testing existence -- so a citation written that way had its file checked and its LINE never
+// looked at. CLAUDE.md:27 cited `src/render/stages/SubjectDraw.cpp:841,846,854` at a moment when
+// the file held 816 lines, and this case reported `0 citations` and passed. A guard that stops
+// guarding goes GREEN rather than red, which is the failure mode that needs a walk of its own
+// (board:1857, 1874), and this one sat on the precision boundary -- the rule that decides
+// whether a body a thousand kilometres out has a wheelbase.
 [[nodiscard]] std::vector<Citation> CitedBy(const std::string &row) {
   std::vector<Citation> out;
   std::string carried;
+  for (size_t at = row.find('`'); at != std::string::npos; at = row.find('`', at + 1)) {
+    const size_t ends = row.find('`', at + 1);
+    if (ends == std::string::npos) { break; }
+    const std::string span = row.substr(at + 1, ends - at - 1);
+    at = ends;
+    const size_t colon = span.rfind(':');
+    if (colon == std::string::npos || colon + 1 == span.size()) { continue; }
+    const std::string file = span.substr(0, colon);
+    if (file.find('.') == std::string::npos || file.find(' ') != std::string::npos) { continue; }
+    if (file.find('/') == std::string::npos) { continue; }
+    std::string digits;
+    for (size_t step = colon + 1; step < span.size(); ++step) {
+      if (span[step] < '0' || span[step] > '9') { break; }
+      digits += span[step];
+    }
+    if (digits.empty() || digits.size() != span.size() - colon - 1) {
+      const bool listed = !digits.empty() && span[colon + 1 + digits.size()] == ',';
+      if (!listed) { continue; }
+    }
+    const size_t slash = file.rfind('/');
+    const std::string named = slash == std::string::npos ? file : file.substr(slash + 1);
+    out.push_back(Citation{std::string(), named, (size_t)std::stoul(digits)});
+  }
   for (size_t at = row.find("` ("); at != std::string::npos; at = row.find("` (", at + 1)) {
     const size_t opens = row.rfind('`', at - 1);
     const size_t colon = row.find(':', at);

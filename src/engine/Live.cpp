@@ -4,6 +4,7 @@
 
 #include <numbers>
 #include <cmath>
+#include <filesystem>
 
 #include <cstdio>
 #include <vector>
@@ -537,6 +538,11 @@ bool Live::Screenshot(const std::string &path, std::string &error) {
   if (!EncodePng(rgba.data(), Declared_.SurfaceWidthPx, Declared_.SurfaceHeightPx, png)) {
     error = "the frame did not encode as a png";
     return false;
+  }
+  const std::filesystem::path named(path);
+  if (named.has_parent_path()) {
+    std::error_code why;
+    std::filesystem::create_directories(named.parent_path(), why);
   }
   std::FILE *const file = std::fopen(path.c_str(), "wb");
   if (file == nullptr) {

@@ -63,7 +63,7 @@ public:
   [[nodiscard]] size_t TiedToEdges() const { return Tied_; }
   [[nodiscard]] size_t CrossingsJoined() const { return Joined_; }
   [[nodiscard]] size_t CrossingsLeftAlone() const { return LeftAlone_; }
-  [[nodiscard]] size_t CellsInTheTieIndex() const { return Unindexed_; }
+  [[nodiscard]] size_t CellsInTheTieIndex() const { return IndexedCells_; }
   [[nodiscard]] size_t JunctionCount() const;
 
   struct Crossing {
@@ -148,7 +148,7 @@ private:
 
   double SnapM_ = 0.0;
   double RadiusM_ = 0.0;
-  size_t Unindexed_ = 0;
+  size_t IndexedCells_ = 0;
   size_t Joined_ = 0;
   size_t LeftAlone_ = 0;
   std::vector<double> Points_;
