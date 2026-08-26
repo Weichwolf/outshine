@@ -156,8 +156,8 @@ constexpr double kMostClothoidShare = 1.0;
       double aE = 0.0, aN = 0.0, bE = 0.0, bN = 0.0;
       centreOf(oneThird, aE, aN);
       centreOf(twoThirds, bE, bN);
-      if (FurthestFromArcM(points, at, last, aE, aN, oneThird) <
-          FurthestFromArcM(points, at, last, bE, bN, twoThirds)) {
+      if (FurthestShareOfArc(points, at, last, aE, aN, oneThird, withinAtM, withinM) <
+          FurthestShareOfArc(points, at, last, bE, bN, twoThirds, withinAtM, withinM)) {
         high = twoThirds;
       } else {
         low = oneThird;
@@ -192,6 +192,16 @@ constexpr double kMostClothoidShare = 1.0;
   return bend;
 }
 
+}
+
+double JunctionKerbM(double halfAM, double halfBM, double deflectionRad, double shorterLegM) {
+  const double swing = std::fabs(deflectionRad);
+  if (!(swing > 1.0e-9) || swing >= std::numbers::pi - 1.0e-9) { return 0.0; }
+  const double kerbM =
+      std::sqrt(halfAM * halfAM + halfBM * halfBM - 2.0 * halfAM * halfBM * std::cos(swing)) /
+      std::sin(swing);
+  if (!(shorterLegM > 0.0)) { return kerbM; }
+  return kerbM < shorterLegM ? kerbM : shorterLegM;
 }
 
 std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM, double withinM,

@@ -57,6 +57,34 @@ the closed form printed two lines above it, `w/cos(D/2)`. An `outshine/` oracle 
 ourselves and CLAUDE.md asks it to carry its derivation *because the derivation is the part a
 reader can check* -- this one fails that check, and it hides defect 1 from the reader who makes it.
 
+## Two of the three are repaid, and the third has no failing input
+
+**The degeneration prose was inverted, and it is fixed.** `E = w / cos(D/2)` with D the
+DEFLECTION reads, and the case now prints:
+
+    D =   5.7 deg   E =   3.75 m      the half width itself
+    D = 109.7 deg   E =   6.51 m
+    D = 170.0 deg   E =  43.03 m
+    D = 178.0 deg   E = 214.87 m
+
+so it is D -> pi that diverges and D -> 0 that falls to w, the opposite of what both prose
+statements said. The sentence contradicted the closed form two lines above it, which is the one
+thing CLAUDE.md says a reader can check.
+
+**The divergence is capped, and the cap is derived.** An accuracy bound of 215 m makes
+`byAccuracy` effectively infinite, so the radius falls to the tangent room alone and the built
+road stops following the vertices it is fitted through. `JunctionKerbM(halfA, halfB, deflection,
+shorterLeg)` caps at the shorter leg meeting the corner -- past that an arc is replacing the road
+rather than following it -- and the formula now stands once, in `Alignment.h`, rather than inline
+in `CorridorLay`.
+
+**The search now minimises the share the acceptance reads**, and no input in the tree falls
+against the old form. One was built to separate them: a vertex a metre off the circle with a
+loose allowance beside one exactly on it with a tight one. It splits at 348.962 m for a reason
+that is NOT the mismatch -- a metre of radial push on a 20 m chord reverses the sign of the turn,
+so the RUN rule breaks the run before the accuracy rule is consulted. Recorded in the case's own
+prose rather than kept as a green check over an input that cannot fall.
+
 ## What will be true
 
 - [ ] The corner bound is finite at every deflection a road can have, and the number that bounds

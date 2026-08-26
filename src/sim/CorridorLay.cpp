@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cmath>
 
+#include "Alignment.h"
 #include "Angle.h"
 #include <cstdio>
 
@@ -84,9 +85,11 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
     if (!(turn > 1.0e-9) || turn >= std::numbers::pi - 1.0e-9) { continue; }
     const double before = route.Legs[keptAt[at - 1]].HalfWidthM;
     const double other = before > 0.0 ? before : half;
-    const double kerbM = std::sqrt(half * half + other * other - 2.0 * half * other * std::cos(turn)) /
-                         std::sin(turn);
-    if (kerbM > withinAtM[at]) { withinAtM[at] = kerbM; }
+    const double intoM = std::sqrt(eastIn * eastIn + northIn * northIn);
+    const double outOfM = std::sqrt(eastOut * eastOut + northOut * northOut);
+    const double heldM =
+        JunctionKerbM(half, other, turn, intoM < outOfM ? intoM : outOfM);
+    if (heldM > withinAtM[at]) { withinAtM[at] = heldM; }
     if (withinAtM[at] > widestJunctionM) { widestJunctionM = withinAtM[at]; }
   }
   say.Number("the widest a junction lets an arc leave its corner", widestJunctionM, "m");

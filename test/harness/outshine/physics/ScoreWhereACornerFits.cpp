@@ -1,9 +1,11 @@
 #include <cmath>
+#include <numbers>
 #include <cstdio>
 #include <cstdlib>
 #include <vector>
 
 #include "Check.h"
+#include "Alignment.h"
 #include "Fit.h"
 #include "ReferenceLine.h"
 
@@ -23,9 +25,22 @@ namespace {
 //
 // which for equal widths is w / cos(D/2) -- the distance from the intersection point to the inner
 // kerb, and the furthest inside the junction any wheel can be while still on made ground. It
-// takes unequal widths without a second rule and it degenerates correctly at both ends: at
-// D -> 0 it grows without bound, because two nearly parallel roads overlap forever, and at
-// D -> pi it falls to w.
+// takes unequal widths without a second rule, and its two ends are worth reading off the closed
+// form rather than guessed at. D is the DEFLECTION, so a straight road is D = 0 and a hairpin is
+// D -> pi:
+//
+//   D -> 0     cos(D/2) -> 1   ->  E -> w            a corner that is barely a corner is a road
+//   D -> pi    cos(D/2) -> 0   ->  E grows unbounded  two nearly reversed roads overlap forever
+//
+//   D = 109.7 deg   E =   6.51 m        D = 170 deg   E =  43.03 m
+//   D =  57.3 deg   E =   4.27 m        D = 178 deg   E = 214.87 m
+//
+// **The unbounded end is a defect and not a licence.** An accuracy bound of 215 m means the built
+// road bears no relation to the declared one: `byAccuracy` goes effectively infinite and the
+// radius is then set by the tangent room alone, ignoring every vertex the arc is meant to follow.
+// So the kerb is capped by the polyline that carries it -- an arc may not leave a vertex by more
+// than the shorter of the two legs meeting there, because past that it is no longer following
+// the road but replacing it.
 //
 // WHY IT DECIDES WHETHER A CAR CAN DRIVE. A wide arc at a sharp corner cuts FAR from the corner
 // point, and the accuracy bound therefore caps the radius:
@@ -57,8 +72,7 @@ constexpr double kLockM = 4.901673;
 }
 
 [[nodiscard]] double KerbM(double halfM) {
-  return std::sqrt(2.0 * halfM * halfM * (1.0 - std::cos(kDeflectionRad))) /
-         std::sin(kDeflectionRad);
+  return outshine::JunctionKerbM(halfM, halfM, kDeflectionRad, 0.0);
 }
 
 struct Laid {
@@ -110,6 +124,34 @@ int main(void) {
         "and a junction that is genuinely too tight still refuses BY NAME: two 3 m alleys give a "
         "kerb of 2.60 m and an arc of 3.25 m, which this car cannot bend to. A bound that let "
         "everything through would pass the first check and be a licence rather than a rule");
+
+  {
+    const double hairpinRad = 178.0 * std::numbers::pi / 180.0;
+    const double loose = outshine::JunctionKerbM(3.75, 3.75, hairpinRad, 0.0);
+    const double held = outshine::JunctionKerbM(3.75, 3.75, hairpinRad, kLegM);
+    const double gentle = outshine::JunctionKerbM(3.75, 3.75, 0.1, kLegM);
+    std::printf("  a 178 deg hairpin, uncapped %8.2f m   capped by a %.0f m leg %8.2f m\n", loose,
+                kLegM, held);
+    std::printf("  a 5.7 deg bend                                          %8.2f m\n", gentle);
+
+    CHECK(loose > 200.0,
+          "the closed form really does diverge at the hairpin end: two 7.5 m roads deflected 178 "
+          "degrees have inner kerbs that meet 214.87 m from the apex, which is geometry and not "
+          "an error -- so the case is capping something real");
+
+    CHECK(held <= kLegM + 1.0e-9 && held < loose,
+          "**AND AN UNBOUNDED KERB IS A DEFECT, NOT A LICENCE**: a 215 m accuracy bound makes "
+          "byAccuracy effectively infinite, so the radius falls to the tangent room alone and the "
+          "built road stops following the vertices it is fitted through. The kerb is capped by "
+          "the shorter leg meeting the corner, because past that an arc is replacing the road "
+          "rather than following it");
+
+    CHECK(std::fabs(gentle - 3.75) < 0.01,
+          "and the other end reads as the closed form says: at a 5.7 degree bend cos(D/2) is very "
+          "nearly one and the kerb is the half width itself -- a corner that is barely a corner "
+          "is a road. Both ends were written backwards in this file's own derivation until the "
+          "numbers were printed");
+  }
 
   Covers("a corner is bounded by the junction its two carriageways form, whose inner kerb lies "
          "sqrt(wA^2 + wB^2 - 2 wA wB cos D)/sin D from the intersection, so an ordinary city "

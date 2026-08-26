@@ -53,6 +53,9 @@ struct Laying {
   double LengthM = 0.0;
 };
 
+[[nodiscard]] double JunctionKerbM(double halfAM, double halfBM, double deflectionRad,
+                                   double shorterLegM);
+
 [[nodiscard]] std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM,
                                                         double withinM, double tightestM,
                                                         std::span<const double> withinAtM = {});

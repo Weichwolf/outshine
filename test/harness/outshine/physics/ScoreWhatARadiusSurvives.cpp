@@ -122,6 +122,19 @@ int main(void) {
           "answering a question the digitiser asked rather than the one the curvature did");
   }
 
+  // AND THE FIT MINIMISES WHAT IT ACCEPTS -- asserted here in prose because no input in this
+  // file falls against it. The radius is chosen by a ternary search and the run is accepted by an
+  // accuracy test, and those read two different things unless the search reads what the test
+  // reads: the worst SHARE of each vertex's own allowance, not the worst distance. They agree
+  // whenever every vertex carries the same bound, which is every input here and was every input
+  // in the tree before the per-vertex span existed (board:1912, 1916).
+  //
+  // An input was built to separate them -- one vertex a metre off the circle with a loose
+  // allowance, another exactly on it with a tight one -- and it splits the run at 348.962 m for a
+  // reason that is not the mismatch: a metre of radial push on a 20 m chord reverses the sign of
+  // the turn, so the RUN rule breaks it before the accuracy rule is consulted. The case is
+  // recorded rather than kept, because a green check over an input that cannot fall proves the
+  // input and not the rule.
   Covers("a fitted corridor reads the radius the polyline carries and lays the arc length its "
          "sweep demands, at every digitisation density, because a circle's radius is not a "
          "property of how finely it was sampled");
