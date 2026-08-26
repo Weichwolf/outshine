@@ -125,8 +125,18 @@ struct Case {
 
   [[nodiscard]] bool Animated() const { return Frames > 1; }
 
+  // WHETHER A CASE IS A SEQUENCE IS DECLARED, NOT COUNTED. `test/harness/shared/corpus/prep/
+  // manifest.py:95` suffixes every product with its frame when `scene.animation` is present --
+  // `if self.scene.animation is None: return [None]` -- and it does that whether the grid holds
+  // one frame or forty. This reader used to ask `Frames > 1` instead, which is a SECOND spelling
+  // of the same question and disagrees with the first on exactly one input: a declared animation
+  // sampled at a single frame. The preparer wrote `oracle.f0000.exr`, the reader asked for
+  // `oracle.exr`, and both generator cases with `frames: 1` sat UNPREPARED in every gate run --
+  // green nowhere, red in a count nobody could name.
+  bool Sequenced = false;
+
   [[nodiscard]] std::optional<int> ProductFrame(int frame) const {
-    return Animated() ? std::optional<int>(frame) : std::nullopt;
+    return Sequenced ? std::optional<int>(frame) : std::nullopt;
   }
 
   PathContents Path;
@@ -501,6 +511,7 @@ public:
     }
     subject.Fps = fps;
     subject.Frames = (int)frames;
+    subject.Sequenced = true;
 
     if (!root["scene"]["camera"]["source"].StrEquals("manifest") &&
         !root["scene"]["camera"]["source"].StrEquals("derived") &&
