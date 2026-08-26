@@ -21,5 +21,8 @@ the leaf.
 
 - [x] a task owns sub-tasks, yields, and can be abandoned as a subtree
       proof: harness/outshine/physics/ScoreWhatATaskTreeDoes
-- [ ] the existing pilot stands as a leaf under a tree without changing what it computes
+- [x] the existing pilot stands as a leaf under a tree without changing what it computes:
+      `Control::HoldsLane` wraps `Pilot::Hold` and `Sim::DriveTick` runs it through `Step`. The
+      drive reads 10.5115 / 522.756 / 5.31713, the same digits as before the tree existed.
+      Negative control: the leaf computing nothing takes the drive 10.5115 m to 1.27116 m.
 - [ ] a driver that must yield abandons the subtree and resumes, proven by a case over a route

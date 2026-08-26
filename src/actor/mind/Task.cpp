@@ -1,6 +1,6 @@
 #include "Task.h"
 
-namespace outshine::Mind {
+namespace outshine::Control {
 
 Doing Task::Step(double dtS) {
   if (Left_) { return Doing::Abandoned; }

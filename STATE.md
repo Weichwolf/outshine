@@ -143,9 +143,9 @@ flowchart LR
   sim --> |12| world_ground
   render --> |12| render_stages
   world_ground --> |9| world_data
+  sim --> |7| actor_mind
   engine --> |7| content_gltf
   actor_mind --> |7| actor_path
-  sim --> |6| actor_mind
   engine --> |6| ui
   engine --> |6| scenario
   sim --> |5| base_spatial
@@ -204,7 +204,7 @@ The heaviest units, against the median of them all.
 | 1103 | `base/spatial/Wayfinding.h` |
 | 1063 | `render/stages/SubjectDraw.h` |
 | 967 | `engine/Live.h` |
-| **107** | *the median of 240 unit(s)* |
+| **107** | *the median of 241 unit(s)* |
 
 ## Carpet
 
@@ -252,9 +252,10 @@ Sources no declared suite links, so nothing they hold is proven.
 
 What stands wider than private. Private is the default and a wider door justifies itself.
 
-7 protected section(s), and inheritance is right where a stable interface carries
+8 protected section(s), and inheritance is right where a stable interface carries
 shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 
+- `src/actor/mind/HoldLane.h`
 - `src/actor/mind/Task.h`
 - `src/world/data/TerrariumDem.h`
 - `src/world/data/VersatilesVector.h`

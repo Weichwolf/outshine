@@ -34,7 +34,7 @@ namespace {
 // recursion was not.
 constexpr double kStepS = 1.0 / 60.0;
 
-class Counts final : public outshine::Mind::Task {
+class Counts final : public outshine::Control::Task {
 public:
   Counts(std::vector<std::string> &into, std::string named, int forSteps)
       : Into_(into), Named_(std::move(named)), Left_(forSteps) {}
@@ -42,10 +42,10 @@ public:
   void Under(std::unique_ptr<Task> task) { Hands(std::move(task)); }
 
 protected:
-  [[nodiscard]] outshine::Mind::Doing Act(double) override {
+  [[nodiscard]] outshine::Control::Doing Act(double) override {
     Into_.push_back(Named_);
-    if (--Left_ > 0) { return outshine::Mind::Doing::Running; }
-    return outshine::Mind::Doing::Done;
+    if (--Left_ > 0) { return outshine::Control::Doing::Running; }
+    return outshine::Control::Doing::Done;
   }
 
 private:
@@ -66,7 +66,7 @@ private:
 
 int main(void) {
   using namespace outshine::Test;
-  using outshine::Mind::Doing;
+  using outshine::Control::Doing;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
   std::vector<std::string> log;

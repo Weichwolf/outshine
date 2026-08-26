@@ -1,5 +1,7 @@
 #include "DriveTick.h"
 
+#include "HoldLane.h"
+
 #include <type_traits>
 
 #include <vector>
@@ -118,7 +120,16 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood, const Underfoo
     }
     if (thereMs < wantedMs) { wantedMs = thereMs; }
   }
-  outshine::Pilot::Demand asked = Hold(corridor, reins, at, speedMs, wantedMs);
+  outshine::Control::Standing sees;
+  sees.Along = &corridor;
+  sees.With = &reins;
+  sees.At = &at;
+  sees.SpeedMs = speedMs;
+  sees.WantedMs = wantedMs;
+  outshine::Control::HoldsLane keeping;
+  keeping.Sees(sees);
+  (void)keeping.Step(0.0);
+  outshine::Pilot::Demand asked = keeping.Asked();
   if (needMs2 > 0.0 && -needMs2 < asked.AlongMs2) { asked.AlongMs2 = -needMs2; }
   const outshine::Pilot::Steering command =
       outshine::Pilot::Drive(stood.Axles, stood.Envelope, asked);

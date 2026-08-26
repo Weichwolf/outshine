@@ -3,7 +3,7 @@
 
 #include <memory>
 
-namespace outshine::Mind {
+namespace outshine::Control {
 
 enum class Doing : uint8_t { Running, Done, Abandoned };
 
