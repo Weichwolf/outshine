@@ -41,6 +41,25 @@ the same move: its input is the stack's stream and class field, its output is a 
 content store, and the compositor takes the handle. `Sim` is the wrapper that made this look like
 one problem; it is the door that must die, not the generators behind it.
 
+## AND THE STAGES THAT WOULD DRAW THEM ARE EMPTY ROWS
+
+Even with a reachable generator there is nothing to execute. `Stage::Terrain`,
+`Stage::Buildings` and `Stage::Water` stand in the catalogue with their resource edges declared
+-- `RenderCatalogue.h:248`, `:253`, `:256`, each reading `ShadowAtlas`, `IrradianceBuffer` and
+`CascadeUniform`, so by declaration the ground and the buildings RECEIVE shadow. Measured at
+bb9472db:
+
+    grep -rn 'Stage::Terrain|Stage::Buildings|Stage::Water' src --include=*.cpp --include=*.h
+
+finds them ONLY in `RenderCatalogue.h`. No plan names them, no executor implements them, and
+`src/render/shaders/` holds 25 files with no `terrain.msl`, `buildings.msl` or `water.msl` among
+them. Three catalogue rows a scenario can select and nothing can run.
+
+That is why the stakeholder's ledger reads *no building on a boulevard walled with them, no tree,
+no water where the route crosses the Isar* (board:1936) and *does it cast a contact shadow? NO*
+(board:1575) in the same column: the ground the car stands on is not a stage, so there is nothing
+to receive.
+
 ## What will be true
 
 - [ ] A scenario DECLARES which surface fields it wants drawn, and the engine composes them:
@@ -53,5 +72,8 @@ one problem; it is the door that must die, not the generators behind it.
       by the 30 that are generators.
 - [ ] `BusGraph` is reached from the door or deleted: a subsystem whose only caller was a test is
       a subsystem the product does not have.
+- [ ] `Stage::Terrain`, `Stage::Buildings` and `Stage::Water` execute or leave the catalogue: a
+      row a scenario can select and nothing can run is a declaration surface with nothing behind
+      it, and the audit that refuses an unbuilt stage at plan time already exists (board:1549).
 - [ ] Proving test: a still from a declared world in which each declared field is present and
       named, and a scenario case that counts the parts each generator contributed.
