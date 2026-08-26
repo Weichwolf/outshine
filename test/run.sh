@@ -751,6 +751,8 @@ if [ "$STATE" = 1 ]; then
   printf '\n## Door -- `include/`\n'
   for header in include/*.h; do
     printf '\n### `%s`\n\n' "${header#include/}"
+    sed -n 's|^struct \([A-Za-z]*\) {|value: \1|p; s|^class \([A-Za-z]*\) {|type: \1|p' \
+      "$header" | sed 's|^|    |'
     sed -n 's|^  \[\[nodiscard\]\] \(.*\);$|\1|p; s|^  \(void [A-Z].*\);$|\1|p' "$header" |
       sed 's|  *| |g' | sed 's|^|    |'
   done
@@ -834,7 +836,8 @@ if [ "$STATE" = 1 ]; then
   printf '%s protected section(s), and inheritance is right where a stable interface carries\n' \
     "$(grep -rc '^ *protected:' src --include=*.h 2>/dev/null | awk -F: '{ n += $2 } END { print n + 0 }')"
   printf 'shared machinery -- Source, WebTileSource, TerrariumDem is that shape.\n\n'
-  grep -rn '^ *protected:' src --include=*.h 2>/dev/null | sed -E 's|:[0-9]+:.*||' | sort -u | sed 's|^|    |'
+  grep -rn '^ *protected:' src --include=*.h 2>/dev/null | sed -E 's|:[0-9]+:.*||' | sort -u |
+    sed 's|^|- `|; s|$|`|'
   printf '\n%s public data member(s) in a class -- an invariant nobody can hold.\n\n| members | header |\n|---|---|\n' "$OPENDATA"
   awk '
     FNR == 1 { inclass = 0; access = "private" }
@@ -919,7 +922,7 @@ if [ "$STATE" = 1 ]; then
       done >> "$progressTally"
   done
 
-  printf '\n## Progress\n\nNine areas against RAGE and Unreal, counted from `board/` where the target already\nlives. A ticked predicate must NAME ITS PROOF -- a case or an audit flag -- and a tick\nwhose proof this tree does not hold is reported rather than counted.\n\n| area | held | share | |\n|---|---|---|---|\n'
+  printf '\n## Progress\n\nNine areas against RAGE and Unreal, counted from `board/` where the target already\nlives. A ticked predicate must NAME ITS PROOF -- a case or an audit flag -- and a tick\nwhose proof this tree does not hold is reported rather than counted.\n\n| area | held | share | note |\n|---|---|---|---|\n'
   if [ -s "$progressTally" ]; then
     sort "$progressTally" | awk '
       { n[$1 " " $2]++; areas[$1] = 1 }
@@ -935,8 +938,9 @@ if [ "$STATE" = 1 ]; then
           held = n[a " held"] + 0; open = n[a " open"] + 0; bare = n[a " unproven"] + 0
           total = held + open + bare
           if (total == 0) { continue }
-          printf "  %-14s %3d/%-3d %3d%%", a, held, total, int(100.0 * held / total + 0.5)
-          if (bare > 0) { printf "   %d tick(s) name no proof this tree holds", bare }
+          printf "| `%s` | %d/%d | %d%% |", a, held, total, int(100.0 * held / total + 0.5)
+          if (bare > 0) { printf " %d tick(s) name no proof this tree holds |", bare }
+          else { printf " |" }
           printf "\n"
         }
       }'
