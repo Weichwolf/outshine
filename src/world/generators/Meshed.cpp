@@ -48,24 +48,22 @@ bool Meshed::Take(std::string named, int material, const float *soup, size_t flo
 }
 
 Geometry Meshed::Handed() {
-  Handed_.clear();
-  Handed_.reserve(Reaches_.size());
+  Geometry out;
   for (size_t at = 0; at < Reaches_.size(); ++at) {
     const Reach &reach = Reaches_[at];
-    Part part;
-    part.Named = Named_[at];
-    part.Material = reach.Material;
-    part.PositionsM =
-        std::span<const float>(PositionsM_.data() + reach.FirstVertex * 3, reach.VertexCount * 3);
-    part.Uv = std::span<const float>(Uv_.data() + reach.FirstVertex * 2, reach.VertexCount * 2);
-    part.Normals =
-        std::span<const float>(NormalM_.data() + reach.FirstVertex * 3, reach.VertexCount * 3);
-    part.Indices =
-        std::span<const uint32_t>(Index_.data() + reach.FirstIndex, reach.IndexCount);
-    Handed_.push_back(part);
+    const int part = out.Part(Named_[at], reach.Material);
+    (void)out.Positions(part, std::span<const float>(PositionsM_.data() + reach.FirstVertex * 3,
+                                                     reach.VertexCount * 3));
+    (void)out.Texture(part, std::span<const float>(Uv_.data() + reach.FirstVertex * 2,
+                                                   reach.VertexCount * 2));
+    (void)out.Normals(part, std::span<const float>(NormalM_.data() + reach.FirstVertex * 3,
+                                                   reach.VertexCount * 3));
+    std::vector<uint32_t> run(reach.IndexCount);
+    for (size_t step = 0; step < reach.IndexCount; ++step) {
+      run[step] = (uint32_t)(Index_[reach.FirstIndex + step] - reach.FirstVertex);
+    }
+    (void)out.Triangles(part, std::span<const uint32_t>(run.data(), run.size()));
   }
-  Geometry out;
-  out.Parts = std::span<const Part>(Handed_.data(), Handed_.size());
   return out;
 }
 

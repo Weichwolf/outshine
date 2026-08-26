@@ -58,28 +58,28 @@ int main(void) {
   if (!took) { return Report(); }
 
   const outshine::Geometry handed = meshed.Handed();
-  CHECK(handed.Parts.size() == 1 && handed.Parts[0].PositionsM.size() == kVertices * 3 &&
-            handed.Parts[0].Uv.size() == kVertices * 2 &&
-            handed.Parts[0].Normals.size() == kVertices * 3 &&
-            handed.Parts[0].Indices.size() == kVertices,
+  CHECK((size_t)handed.Parts() == 1 && handed.PositionsOf(0).size() == kVertices * 3 &&
+            handed.TextureOf(0).size() == kVertices * 2 &&
+            handed.NormalsOf(0).size() == kVertices * 3 &&
+            handed.TrianglesOf(0).size() == kVertices,
         "and the counts come out at the right arity: three floats a position, two a UV, three a "
         "normal, one index a vertex");
-  if (handed.Parts.empty()) { return Report(); }
+  if (handed.Parts() == 0) { return Report(); }
 
   bool everyFieldLanded = true;
   for (size_t vertex = 0; vertex < kVertices; ++vertex) {
     const float which = (float)vertex;
     everyFieldLanded = everyFieldLanded &&
-                       handed.Parts[0].PositionsM[vertex * 3] == 100.0f + which &&
-                       handed.Parts[0].PositionsM[vertex * 3 + 1] == 200.0f + which &&
-                       handed.Parts[0].PositionsM[vertex * 3 + 2] == 300.0f + which &&
-                       handed.Parts[0].Uv[vertex * 2] == 0.1f * which &&
-                       handed.Parts[0].Uv[vertex * 2 + 1] == 0.2f * which &&
-                       handed.Parts[0].Indices[vertex] == (uint32_t)vertex;
+                       handed.PositionsOf(0)[vertex * 3] == 100.0f + which &&
+                       handed.PositionsOf(0)[vertex * 3 + 1] == 200.0f + which &&
+                       handed.PositionsOf(0)[vertex * 3 + 2] == 300.0f + which &&
+                       handed.TextureOf(0)[vertex * 2] == 0.1f * which &&
+                       handed.TextureOf(0)[vertex * 2 + 1] == 0.2f * which &&
+                       handed.TrianglesOf(0)[vertex] == (uint32_t)vertex;
   }
   std::printf("FIRST POSITION %.1f %.1f %.1f   FIRST UV %.2f %.2f\n",
-              handed.Parts[0].PositionsM[0], handed.Parts[0].PositionsM[1],
-              handed.Parts[0].PositionsM[2], handed.Parts[0].Uv[0], handed.Parts[0].Uv[1]);
+              handed.PositionsOf(0)[0], handed.PositionsOf(0)[1],
+              handed.PositionsOf(0)[2], handed.TextureOf(0)[0], handed.TextureOf(0)[1]);
   CHECK(everyFieldLanded,
         "**EVERY FIELD LANDS IN ITS OWN ARRAY, IN ORDER**: a soup is interleaved and the value is "
         "not, so the crossing is a de-interleave and a stride read one float wide puts a normal "
@@ -107,17 +107,32 @@ int main(void) {
   (void)both.Take("second", 2, soup.data(), kFloats);
   const outshine::Geometry two = both.Handed();
   std::printf("TWO PARTS  indices %u..%u then %u..%u\n",
-              two.Parts.size() > 1 ? two.Parts[0].Indices.front() : 0u,
-              two.Parts.size() > 1 ? two.Parts[0].Indices.back() : 0u,
-              two.Parts.size() > 1 ? two.Parts[1].Indices.front() : 0u,
-              two.Parts.size() > 1 ? two.Parts[1].Indices.back() : 0u);
-  CHECK(two.Parts.size() == 2 && two.Parts[1].Indices.front() == (uint32_t)kVertices,
-        "and a second part's indices continue where the first's ended, because the value carries "
-        "ONE vertex array and a part is a reach into it -- a part that indexed from zero would "
-        "draw the first part's triangles twice");
+              (size_t)two.Parts() > 1 ? two.TrianglesOf(0).front() : 0u,
+              (size_t)two.Parts() > 1 ? two.TrianglesOf(0).back() : 0u,
+              (size_t)two.Parts() > 1 ? two.TrianglesOf(1).front() : 0u,
+              (size_t)two.Parts() > 1 ? two.TrianglesOf(1).back() : 0u);
+  // THIS CHECK ASSERTED THE DEFECT AND HAD TO BE RESPECIFIED, which is the one thing a failing case
+  // is ever allowed to do. It required a second part's indices to CONTINUE where the first's ended,
+  // on the reasoning that the handed value carries one vertex array and a part is a reach into it.
+  //
+  // The reasoning was half right and the half it got wrong is fatal. The value did carry one array
+  // -- but each part also handed out its OWN positions, a sub-span starting at that part's first
+  // vertex. So part 1 offered `kVertices` positions and indices numbered `kVertices .. 2*kVertices`
+  // into them: every index out of range, on a span it was the sole describer of. Nothing caught it
+  // because nothing validated an index against the span beside it.
+  //
+  // A part's indices address that part's positions. That is not our convention -- it is glTF's,
+  // where `indices` addresses the accessor named by the primitive's own `POSITION`, and there is no
+  // reading of the format in which a primitive indexes another primitive's vertices. `Whole()` now
+  // refuses any index at or past the part's vertex count, which is the check whose absence let the
+  // wrong rule stand long enough to be written down here.
+  CHECK((size_t)two.Parts() == 2 && two.TrianglesOf(1).front() == 0u,
+        "and a second part's indices address the SECOND part's positions, from zero: a part hands "
+        "out its own vertices, so an index that continued from the first part's count would point "
+        "past the end of the very span it describes");
 
-  Covers("world: a generator's interleaved soup crosses into the door's geometry value, field by "
-         "field and part by part, and a soup that is not whole triangles is refused rather than "
-         "truncated");
+  Covers("world: a generator's interleaved soup crosses into the door's geometry builder, field by "
+         "field and part by part; a soup that is not whole triangles is refused rather than "
+         "truncated, and each part's indices address that part's own vertices as glTF requires");
   return Report();
 }

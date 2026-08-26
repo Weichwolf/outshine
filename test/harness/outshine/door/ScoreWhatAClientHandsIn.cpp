@@ -147,15 +147,15 @@ int main(void) {
     return Report();
   }
 
-  outshine::Part part;
-  part.Named = "handed";
-  part.Material = 0;
-  part.PositionsM = std::span<const float>(kPositions, 9);
-  part.Normals = std::span<const float>(kNormals, 9);
-  part.Indices = std::span<const uint32_t>(kIndices, 3);
-  const outshine::Part parts[1] = {part};
   outshine::Geometry geometry;
-  geometry.Parts = std::span<const outshine::Part>(parts, 1);
+  const int part = geometry.Part("handed", 0);
+  const bool filled = geometry.Positions(part, std::span<const float>(kPositions, 9)) &&
+                      geometry.Normals(part, std::span<const float>(kNormals, 9)) &&
+                      geometry.Triangles(part, std::span<const uint32_t>(kIndices, 3));
+  if (!filled) {
+    Unprepared("the builder refused the fixture, so there is nothing to hand in");
+    return Report();
+  }
 
   // A REFUSAL FROM THE THING UNDER TEST IS A FAILURE, NOT UNPREPAREDNESS. The first version of
   // this case reported UNPREPARED when `Stands` refused, so the negative control below came back

@@ -75,15 +75,15 @@ int main(void) {
   }
   const double drewEmpty = Measured(engine, "batches the picture draws");
 
-  outshine::Part part;
-  part.Named = "handed";
-  part.Material = 0;
-  part.PositionsM = std::span<const float>(kPositions, 18);
-  part.Normals = std::span<const float>(kNormals, 18);
-  part.Indices = std::span<const uint32_t>(kIndices, 6);
-  const outshine::Part parts[1] = {part};
   outshine::Geometry geometry;
-  geometry.Parts = std::span<const outshine::Part>(parts, 1);
+  const int part = geometry.Part("handed", 0);
+  const bool filled = geometry.Positions(part, std::span<const float>(kPositions, 18)) &&
+                      geometry.Normals(part, std::span<const float>(kNormals, 18)) &&
+                      geometry.Triangles(part, std::span<const uint32_t>(kIndices, 6));
+  if (!filled) {
+    Unprepared("the builder refused the fixture, so there is nothing to hand in");
+    return Report();
+  }
 
   const bool handed = engine.Stands(geometry);
   if (!handed) { std::printf("STANDS REFUSED  %s\n", engine.Error().c_str()); }

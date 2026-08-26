@@ -19,6 +19,13 @@ it ACTIVATES a force, and only integration places a body. RAGE keeps `CVehicle` 
 and Unreal keeps wheeled movement in a plugin; a vehicle noun inside the engine core is a finding
 wherever it stands.
 
+- **THE ENGINE READS ALL OF glTF 2.0 AND ACTS ON ALL OF IT.** Not the subset a scene happens to
+  need -- the format entire, core and every ratified extension, and a feature that is parsed but
+  changes no pixel is not read. This is the one capability in the tree a VENDOR can certify:
+  Khronos ships the sample assets and the validator, so the distance to "all of it" is a number
+  someone else computes. **And it sets the bar for the in-process form**: whatever the reader takes
+  from a FILE, `include/Geometry.h` must be able to carry, or a client's generator is strictly
+  weaker than a file and the interchange claim is false
 - **SDL3 is REQUIRED and `include/Outshine.h` says so** by including it: the CLIENT owns the process and calls `SDL_Init`, the library never does. **SDL_GPU is one renderer, not the door** — `SDL_Window` is SDL3's core, so the door stays renderer-neutral. **glTF 2.0** is the only content surface
 - **C++23**, `-Wall -Werror -Wpedantic`, one `-std` for the whole tree; `static_assert` and the type system over checkers; `std::span`/`std::string_view` at boundaries, `std::mdspan` for field and instance views, `std::expected` where a refusal carries its reason
 - **Precision has ONE boundary and it is the camera**: the scene keeps 64-bit positions and the
@@ -42,7 +49,14 @@ wherever it stands.
 - **A SCENARIO IS A STREAM, not a value that is re-declared.** `Declare` seeds; after that parts
   enter and leave. The bound is a cost: the work a declaration causes is proportional to what it
   CHANGED, never to how big it is. Neither benchmark rebuilds a world to change part of one
-- **Batteries as declarations**: outshine ships convenience components -- generators, providers, world templates and factories (`Planet(params)` → a Scenario value) -- all catalogue citizens the scenario selects; the engine core stays scenario-agnostic
+- **A WORLD TEMPLATE IS A FILE, NOT A VERB.** Earth and moon are scenario XML shipped under
+  `src/assets`, and a scenario reaches one the way it reaches any other -- `Layer{Id, Path, Set}`,
+  already in the declaration -- then states its deltas over it. There is no `Planet(params)` in the
+  engine and there must not be: a factory that returns a Scenario value is engine code doing what a
+  data file does, and it puts a world behind a compiler instead of in front of an editor. Unreal
+  ships template MAPS and RAGE ships map files; neither ships a world constructor
+- **Batteries as declarations**: outshine ships convenience components -- generators and providers
+  -- as catalogue citizens the scenario selects; the engine core stays scenario-agnostic
 - **Every number carries its origin** (derived · measured · `[SET]`) with unit and population; no magic numbers; calibration measures, never decides
 - **The code carries NO comments** — `src/`, `include/` and `apps/` hold no `//`, no block, no
   TODO, no derivation, no board number: names and structure carry the meaning, a number's
@@ -165,7 +179,7 @@ flowchart TD
   scen -.->|declares| gen & comp & rend & ui
   ui -->|overlay| rend
   scen -.->|declares · clocks| actors
-  tmpl[/"WORLD TEMPLATES — earth · moon: shipped declarations in src/assets"/] -.->|instanced, then deltas| scen
+  tmpl[/"WORLD TEMPLATES — earth · moon: scenario XML in src/assets, NOT engine"/] -.->|layered under| scen
 ```
 ```mermaid
 flowchart TD

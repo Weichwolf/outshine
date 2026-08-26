@@ -1,4 +1,5 @@
 #include <Outshine.h>
+#include "GeometryHeld.h"
 #include "Fetching.h"
 #include "Unwired.h"
 
@@ -842,16 +843,17 @@ bool Engine::Stands(const Geometry &geometry) {
                 "before Stands";
     return false;
   }
-  if (geometry.Parts.empty()) {
-    S_->Error = "the geometry carries no part, and a subject of nothing is a refusal rather than "
-                "an empty picture";
+  if (!geometry.Whole()) {
+    S_->Error = "the geometry stands no whole part, and a subject of nothing is a refusal rather "
+                "than an empty picture";
     return false;
   }
+  const Geometry::Held &inside = geometry.Inside();
   std::vector<Gltf::Piece> pieces;
-  pieces.reserve(geometry.Parts.size());
-  for (const Part &one : geometry.Parts) {
+  pieces.reserve(inside.Parts.size());
+  for (const Geometry::Held::Piece &one : inside.Parts) {
     Gltf::Piece piece;
-    piece.NodeName = std::string(one.Named);
+    piece.NodeName = one.Named;
     piece.Material = one.Material;
     piece.PositionsM = Span<const float>(one.PositionsM.data(), one.PositionsM.size());
     piece.Normals = Span<const float>(one.Normals.data(), one.Normals.size());

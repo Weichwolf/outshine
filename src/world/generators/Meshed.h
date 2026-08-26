@@ -35,7 +35,6 @@ private:
   std::vector<float> Uv_;
   std::vector<float> NormalM_;
   std::vector<uint32_t> Index_;
-  std::vector<Part> Handed_;
   std::string Error_;
 };
 
