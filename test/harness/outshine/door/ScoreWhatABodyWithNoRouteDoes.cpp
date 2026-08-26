@@ -35,6 +35,33 @@ constexpr double kStepS = 1.0 / 120.0;
 constexpr int kSteps = 60;
 constexpr double kStartUpM = 500.0;
 
+constexpr const char *kTriangleBase64 =
+    "AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAA"
+    "AAAIA/";
+
+[[nodiscard]] std::string Minimal(void) {
+  return std::string(
+      "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
+      "\"nodes\":[{\"mesh\":0}],"
+      "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},"
+      "\"material\":0}]}],"
+      "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.8,0.8,0.8,1.0]}}],"
+      "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\","
+      "\"min\":[0,0,0],\"max\":[1,1,0]},"
+      "{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"}],"
+      "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
+      "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36}],"
+      "\"buffers\":[{\"byteLength\":72,\"uri\":\"data:application/octet-stream;base64,") +
+      kTriangleBase64 + "\"}]}";
+}
+
+[[nodiscard]] bool Wrote(const std::string &path, const std::string &held) {
+  std::FILE *const file = std::fopen(path.c_str(), "wb");
+  if (file == nullptr) { return false; }
+  const bool whole = std::fwrite(held.data(), 1, held.size(), file) == held.size();
+  return std::fclose(file) == 0 && whole;
+}
+
 [[nodiscard]] double Measured(const outshine::Engine &engine, const char *what) {
   for (const outshine::Measure &held : engine.Numbers()) {
     if (held.What == what) { return held.How; }
@@ -53,8 +80,19 @@ int main(void) {
     return Report();
   }
 
+  const char *nest = std::getenv("OUTSHINE_NEST");
+  if (nest == nullptr || *nest == 0) {
+    Unprepared("this case writes its crate into the runner's nest and was given none");
+    return Report();
+  }
+  const std::string under = nest;
+  if (!Wrote(under + "/crate.gltf", Minimal())) {
+    Unprepared("the crate's mesh could not be written into the nest");
+    return Report();
+  }
+
   outshine::Engine engine;
-  engine.Under(outshine::Roots{".", "src/assets", "/tmp/outshine-door-cache", true});
+  engine.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
   if (!engine.DrawsInto(outshine::Extent{64, 64})) {
     Unprepared("the device stood no canvas");
     return Report();
@@ -70,8 +108,14 @@ int main(void) {
   stands.Ground.GravityMs2 = kGravityMs2;
   stands.Motion.StepS = kStepS;
 
+  outshine::Asset shown;
+  shown.Uri = "crate.gltf";
+  shown.Kind = "gltf";
+  stands.Assets.push_back(shown);
+
   outshine::Body crate;
   crate.Name = "crate";
+  crate.Asset = "crate.gltf";
   crate.MassKg = 40.0;
   crate.InertiaKgM2[0] = 2.0;
   crate.InertiaKgM2[1] = 2.0;
@@ -133,7 +177,15 @@ int main(void) {
         "the one integration started from, and the only difference from the closed form is the "
         "scheme's own");
 
-  Covers("the sim: a body declares where it stands, and one with no route at all is held and "
-         "integrated -- `Physics::Step` was always reachable and had no body to be called for");
+  const double meshUpM = Measured(engine, "the mesh it carries, up");
+  std::printf("AND THE PICTURE CARRIES IT AT up %10.5f m\n", meshUpM);
+  CHECK(std::fabs(meshUpM - upM) < 1.0e-9,
+        "**AND IT REACHES THE PICTURE**: the mesh the frame carries stands where the integrated "
+        "body stands. A body reaches the picture through the SUBJECT it names -- `Body::Asset` "
+        "was always that link and nothing walked it, so a body with no route was integrated and "
+        "never placed, which is a state no renderer can tell from a body that is not there");
+
+  Covers("the sim: a body declares where it stands, and one with no route at all is held, "
+         "integrated and placed in the picture through the asset it names");
   return Report();
 }

@@ -1213,6 +1213,10 @@ bool Engine::Advance() {
     if (!S_->Rides()) { return false; }
   }
   S_->Falls();
+  if (!S_->Drove && !S_->Freestanding.empty() && S_->Standing->Stands()) {
+    const double unshifted[3] = {0.0, 0.0, 0.0};
+    if (!S_->Places(S_->Freestanding.front(), unshifted)) { return false; }
+  }
   if (!S_->Standing->Advance(S_->Error)) { return false; }
   return true;
 }

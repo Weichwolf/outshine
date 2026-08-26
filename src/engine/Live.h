@@ -137,6 +137,7 @@ public:
 
   [[nodiscard]] const Gltf::Subject &Shown() const { return Geometry_; }
   [[nodiscard]] size_t CarriedParts() const { return Joined_; }
+  [[nodiscard]] bool Stands() const { return Stoodup_; }
 
   [[nodiscard]] int At() const { return At_; }
   [[nodiscard]] int Frames() const { return Frames_; }
