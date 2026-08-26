@@ -67,6 +67,25 @@ the reader gains afterwards arrives on both sides at once. That is Unreal's shap
 produces `FMeshDescription` and the renderer builds its proxy FROM it -- and RAGE's, where the tool
 chain produces one `rmcDrawable` and nothing else exists to drift from.
 
+## THE PRECISION QUESTION SETTLES ITSELF, AND IT SETTLES THE MERGE DIRECTION
+
+`Gltf::Subject` stores `std::vector<double>` positions; `Geometry` stores `float`. That looks like
+a conflict to resolve and is not one.
+
+glTF stores `POSITION` as float32 -- component type 5126 -- and this reader does not BAKE node
+transforms into the vertices: each part carries its own placement matrix (`Stood_.PartPlacement`,
+folded in `src/engine/Live.cpp:295`). So the doubles hold exactly the file's float32 values,
+widened. **Twice the memory for no information**, on the largest array in the tree.
+
+The benchmark agrees and for the same reason: Unreal keeps mesh vertices in `FVector3f` and puts
+the precision in the TRANSFORM (`FTransform` under Large World Coordinates), and RAGE does the
+same. CLAUDE.md's own rule is already this sentence -- 64-bit positions in the scene, 32-bit
+camera-relative in the renderer -- and a model-local vertex is neither: it is an offset from its
+own part's origin, and float32 is what it was born as.
+
+So the merge runs one way: `Subject` becomes the reader that FILLS a `Geometry`, and the widening
+disappears with the second representation that needed it.
+
 ## What will be true
 
 - [x] The value is public and names no format: `include/Geometry.h`. It is a BUILDER, not a struct
