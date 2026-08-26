@@ -103,6 +103,8 @@ struct Engine::State {
   Roots Under;
   std::unique_ptr<Data::Transport> Wire;
   size_t GroundTiles = 0;
+  size_t MostSteps = 0;
+  size_t Steps = 0;
   Ui::Typeface Face;
   std::optional<ViewBook> Views;
   InputMap Bound;
@@ -225,6 +227,17 @@ bool Engine::State::Routes(void) {
     Standing->ScaledBy(Drive.Stood.MetresPerAssetUnit);
   }
   Drove = true;
+  {
+    const double slowestMs = Drive.Way.Profile.Quantile(0.01);
+    if (!(slowestMs > 0.0)) {
+      Error = "a hundredth of this speed plan stands still, so the drive has no pace to be "
+              "bounded by and would never arrive -- p01 is " + Said(slowestMs) + " m/s";
+      return false;
+    }
+    const double stepS = Declared.Motion.StepS > 0.0 ? Declared.Motion.StepS : 1.0;
+    MostSteps = (size_t)(Drive.Way.Line.LengthM() / slowestMs / stepS) + 1u;
+    Places("the steps the plan allows at its slowest station", (double)MostSteps, "steps");
+  }
   if (!Composes()) {
     Carried.push_back("the ground did not compose: " + Error);
     Error.clear();
@@ -989,6 +1002,13 @@ bool Engine::Advance() {
     return false;
   }
   if (S_->Drove) {
+    if (S_->Steps >= S_->MostSteps) {
+      S_->Error = "the drive has taken " + Said((double)S_->Steps) +
+                  " steps and its own plan allows " + Said((double)S_->MostSteps) +
+                  " at the slowest station on it, so it is not arriving";
+      return false;
+    }
+    ++S_->Steps;
     const Sim::Ridden &rode =
         Sim::DriveTick(S_->Drive.Way, S_->Drive.Stood, S_->Drive.State, S_->Declared.Motion.StepS, nullptr);
     if (!rode.Found || rode.Lost) {
