@@ -7,7 +7,7 @@ Tags: measured, threading, tiles
 # The waiter the drive actually uses is proven by a case, not by inspection
 
 **Two of this item's three defects are repaid at HEAD and the third is not.** 873f8f65 announced
-this item closed and never deleted the file; that divergence is board:1933's subject, and what
+this item closed and never deleted the file; that divergence is board:1938's subject, and what
 follows is the residual only.
 
 REPAID. `TilePool::MeshAwaited`'s predicate is now *the tile landed OR the job is no longer
@@ -26,7 +26,7 @@ have, and I did not build one."*
 
 The thread control is the item. A `TilePool` fed by a transport the case drives -- one that holds
 a request until the case releases it -- makes the worker's timing an INPUT rather than a hope,
-and the same instrument proves board:1932's ceiling.
+and the same instrument proves board:1937's ceiling.
 
 ## What will be true
 
