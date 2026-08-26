@@ -30,7 +30,17 @@ struct Leg {
   double HalfWidthM = 0.0;
   double MaxGradient = 0.0;
   double MinRadiusM = 0.0;
+  double Friction = 0.0;
   int Lanes = 0;
+};
+
+struct WayClass {
+  double HalfWidthM = 0.0;
+  double MaxGradient = 0.0;
+  double MinRadiusM = 0.0;
+  double Friction = 0.0;
+  int Lanes = 0;
+  bool Spans = false;
 };
 
 struct Route {
@@ -51,8 +61,7 @@ class Network {
 public:
   Network(double snapM, double sphereRadiusM) : SnapM_(snapM), RadiusM_(sphereRadiusM) {}
 
-  void Lay(std::span<const double> latLonPairs, double halfWidthM, double maxGradient,
-           int lanes, double minRadiusM = 0.0, bool spans = false);
+  void Lay(std::span<const double> latLonPairs, const WayClass &of);
   [[nodiscard]] size_t Cross();
   [[nodiscard]] bool Weave(std::string &error);
 
@@ -115,6 +124,7 @@ private:
     double HalfWidthM = 0.0;
     double MaxGradient = 0.0;
     double MinRadiusM = 0.0;
+    double Friction = 0.0;
     int Lanes = 0;
     bool Spans = false;
   };
@@ -126,6 +136,7 @@ private:
     double HalfWidthM = 0.0;
     double MaxGradient = 0.0;
     double MinRadiusM = 0.0;
+    double Friction = 0.0;
     int Lanes = 0;
   };
   struct Edge {

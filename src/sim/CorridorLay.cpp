@@ -29,7 +29,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
   auto &corridor = out.Line;
   auto &fitted = out.Fitted;
   auto &profile = out.Profile;
-  std::vector<double> roadM, halfWidthM, laneHalfM, asideM;
+  std::vector<double> roadM, halfWidthM, laneHalfM, asideM, frictionM;
   auto &stations = out.Fine;
   constexpr double fineM = Corridor::kFineM;
   auto &spanM = out.SpanM;
@@ -264,6 +264,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
     }
   }
   halfWidthM.assign(roadM.size(), 0.0);
+  frictionM.assign(roadM.size(), 0.0);
   {
     size_t leg = 0;
     for (size_t post = 0; post < halfWidthM.size(); ++post) {
@@ -275,6 +276,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
         half = route.Legs[leg + 1].HalfWidthM;
       }
       halfWidthM[post] = half;
+      frictionM[post] = route.Legs[leg].Friction;
     }
   }
   laneHalfM.assign(roadM.size(), 0.0);
@@ -323,6 +325,25 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
     stations[at].AsideM = asideM[band];
     stations[at].EdgeM = halfWidthM[band];
     stations[at].LaneHalfM = laneHalfM[band < laneHalfM.size() ? band : laneHalfM.size() - 1];
+    stations[at].Friction = frictionM[band];
+  }
+  {
+    long gripless = 0;
+    double leastGrip = 1.0e9, mostGrip = 0.0;
+    for (const Station &one : stations) {
+      if (!(one.Friction > 0.0)) { ++gripless; continue; }
+      leastGrip = one.Friction < leastGrip ? one.Friction : leastGrip;
+      mostGrip = one.Friction > mostGrip ? one.Friction : mostGrip;
+    }
+    say.Number("the least grip the route's surface offers", gripless < (long)stations.size() ? leastGrip : 0.0, "x");
+    say.Number("the most", mostGrip, "x");
+    if (gripless > 0) {
+      say.Refuse("the route crosses " + std::to_string(gripless) +
+                 " station(s) whose surface declares no friction, and a wheel cannot stand on a "
+                 "ground that grips with nothing");
+      error = "a station on the route carries no surface friction";
+      return false;
+    }
   }
   {
     const double fastestMs = inPlan.Fastest().Ms;

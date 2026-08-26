@@ -136,6 +136,7 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood,
   }
 
   outshine::Physics::Footing under[outshine::Physics::kMaxMounts];
+  size_t offMade = 0;
   for (size_t which = 0; which < rig.Count; ++which) {
     double worldM[3];
     outshine::Physics::Place(body, rig.Mounts[which].AtM, worldM);
@@ -144,9 +145,12 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood,
     const double armNorthM = -worldM[2] - northM;
     const double armAlongM = std::cos(headingRad) * armEastM + std::sin(headingRad) * armNorthM;
     const double armAcrossM = -std::sin(headingRad) * armEastM + std::cos(headingRad) * armNorthM;
-    const outshine::Standing on =
-        outshine::StandAt(corridor, at.AlongM + armAlongM, at.OffsetM + armAcrossM, 0.0);
-    under[which].Found = std::fabs(at.OffsetM + armAcrossM) <= edgeM;
+    const double acrossM = at.OffsetM + armAcrossM;
+    const outshine::Standing on = outshine::StandAt(corridor, at.AlongM + armAlongM, acrossM, 0.0);
+    const bool onMade = std::fabs(acrossM) <= edgeM;
+    offMade += onMade ? 0u : 1u;
+    under[which].Found = true;
+    under[which].Friction = onMade ? here.Friction : way.AsideFriction;
     under[which].HeightM = on.HeightM;
     under[which].NormalM[0] = on.NormalM[0];
     under[which].NormalM[1] = on.NormalM[1];
@@ -223,7 +227,7 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood,
     }
   }
 
-  if (read.OffTheSurface > 0 && out.LeftTheRoadAtM <= 0.0) {
+  if (offMade > 0 && out.LeftTheRoadAtM <= 0.0) {
     out.LeftTheRoadAtM = at.AlongM;
     out.LeftByM = at.OffsetM - reins.AsideM;
     out.LeftAtMs = speedMs;
@@ -252,11 +256,9 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood,
     out.LeftFrontSlipRad = frontSlip;
     out.LeftRearSlipRad = rearSlip;
   }
-  if (read.OffTheSurface > 0) {
+  if (offMade > 0) {
     out.OffTheRoad = true;
-    out.BrokeAtM = at.AlongM;
     out.LeftTheRoadAtM = at.AlongM;
-    return out;
   }
   if (read.PastLimit || read.Airborne == rig.Count) {
     out.BrokeAtM = at.AlongM;

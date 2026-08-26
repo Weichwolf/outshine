@@ -94,6 +94,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     row->Edge[0] = (float)g["edgeReachM"].Num(0.05);
     row->Edge[1] = (float)g["edgeConstructed"].Num(0.0);
     row->Edge[3] = gm.SlopeMaxDeg;
+    Friction_.push_back(gm.FrictionFactor);
     return true;
   };
 

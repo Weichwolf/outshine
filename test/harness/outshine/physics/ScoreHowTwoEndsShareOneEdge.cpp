@@ -60,9 +60,9 @@ int main(void) {
   const double main_[4] = {48.0, 11.000, 48.0, 11.020};
   const double west[4] = {48.001, 11.005, 48.00001, 11.005};
   const double east[4] = {48.001, 11.015, 48.00001, 11.015};
-  net.Lay(std::span<const double>(main_, 4), 4.0, 0.06, 2);
-  net.Lay(std::span<const double>(west, 4), 3.0, 0.06, 1);
-  net.Lay(std::span<const double>(east, 4), 3.0, 0.06, 1);
+  net.Lay(std::span<const double>(main_, 4), outshine::Path::WayClass{4.0, 0.06, 0.0, 1.0, 2, false});
+  net.Lay(std::span<const double>(west, 4), outshine::Path::WayClass{3.0, 0.06, 0.0, 1.0, 1, false});
+  net.Lay(std::span<const double>(east, 4), outshine::Path::WayClass{3.0, 0.06, 0.0, 1.0, 1, false});
 
   std::string why;
   if (!net.Weave(why)) {

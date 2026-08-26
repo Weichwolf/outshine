@@ -42,18 +42,18 @@ double ApartM(double fromLatDeg, double fromLonDeg, double toLatDeg, double toLo
   return 2.0 * sphereRadiusM * std::asin(std::sqrt(half < 1.0 ? half : 1.0));
 }
 
-void Network::Lay(std::span<const double> latLonPairs, double halfWidthM, double maxGradient,
-                  int lanes, double minRadiusM, bool spans) {
+void Network::Lay(std::span<const double> latLonPairs, const WayClass &of) {
   const size_t points = latLonPairs.size() / 2;
   if (points < 2) { return; }
   Way way;
   way.First = Points_.size() / 2;
   way.Count = points;
-  way.HalfWidthM = halfWidthM;
-  way.MaxGradient = maxGradient;
-  way.MinRadiusM = minRadiusM;
-  way.Lanes = lanes;
-  way.Spans = spans;
+  way.HalfWidthM = of.HalfWidthM;
+  way.MaxGradient = of.MaxGradient;
+  way.MinRadiusM = of.MinRadiusM;
+  way.Friction = of.Friction;
+  way.Lanes = of.Lanes;
+  way.Spans = of.Spans;
   const uint32_t mine = (uint32_t)Ways_.size();
   way.MinLat = way.MaxLat = latLonPairs[0];
   way.MinLon = way.MaxLon = latLonPairs[1];
@@ -281,6 +281,7 @@ bool Network::Weave(std::string &error) {
       made.LonDeg = lonDeg;
       const Way &from = Ways_[WayOf_[point]];
       made.HalfWidthM = from.HalfWidthM;
+      made.Friction = from.Friction;
       made.MaxGradient = from.MaxGradient;
       made.MinRadiusM = from.MinRadiusM;
       made.Lanes = from.Lanes;
@@ -289,6 +290,10 @@ bool Network::Weave(std::string &error) {
     } else {
       const Way &from = Ways_[WayOf_[point]];
       if (from.HalfWidthM > Nodes_[found].HalfWidthM) { Nodes_[found].HalfWidthM = from.HalfWidthM; }
+      if (from.Friction > 0.0 &&
+          (Nodes_[found].Friction <= 0.0 || from.Friction < Nodes_[found].Friction)) {
+        Nodes_[found].Friction = from.Friction;
+      }
       if (Nodes_[found].Lanes <= 0) { Nodes_[found].Lanes = from.Lanes; }
       if (Nodes_[found].MaxGradient <= 0.0 ||
           (from.MaxGradient > 0.0 && from.MaxGradient < Nodes_[found].MaxGradient)) {
@@ -907,6 +912,7 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
     leg.At.LonDeg = node.LonDeg;
     leg.AlongM = alongM;
     leg.HalfWidthM = node.HalfWidthM;
+    leg.Friction = node.Friction;
     leg.MaxGradient = node.MaxGradient;
     leg.MinRadiusM = node.MinRadiusM;
     leg.Lanes = node.Lanes;

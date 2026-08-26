@@ -103,7 +103,7 @@ MASS -- the heaviest units, against the median of them all
     1347  content/gltf/Subject.h
     1328  render/Renderer.h
     1141  base/format/Script.h
-    1086  base/spatial/Wayfinding.h
+    1103  base/spatial/Wayfinding.h
     1039  render/stages/SubjectDraw.h
      955  ui/Style.h
      108  the median of 241 unit(s)
@@ -192,7 +192,6 @@ ACCESS -- what stands wider than private
       1  src/render/stages/TonemapStage.h
       1  src/engine/SceneWeather.h
       1  src/content/gltf/Keyframes.h
-      1  src/base/spatial/Wayfinding.h
       1  src/base/spatial/Span.h
       1  src/base/spatial/Sink.h
       1  src/base/io/StackProbe.h

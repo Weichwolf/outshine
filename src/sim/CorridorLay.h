@@ -26,9 +26,10 @@ struct Station {
   double AsideM = 0.0;
   double EdgeM = 0.0;
   double LaneHalfM = 0.0;
+  double Friction = 0.0;
 };
 
-static_assert(sizeof(Station) == 24, "a station is three doubles and nothing beside them");
+static_assert(sizeof(Station) == 32, "a station is four doubles and nothing beside them");
 static_assert(std::is_trivially_copyable_v<Station>,
               "a station is copied by the byte on the frame path");
 
@@ -57,6 +58,7 @@ struct Corridor {
   double HoldWithinM = 0.0;
   double ReserveMs2 = 0.0;
   double FrameLat = 0.0, FrameLon = 0.0, PerLatM = 1.0, PerLonM = 1.0, FrameAltM = 0.0;
+  double AsideFriction = 0.0;
   Laying Made;
 
   void Bake(double lengthM) {

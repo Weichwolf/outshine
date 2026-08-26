@@ -48,6 +48,9 @@ public:
   size_t RowBytes() const { return Table_.size() * sizeof(Row); }
   [[nodiscard]] bool Ready() const { return !Table_.empty(); }
   size_t TemplateCount() const { return Table_.size(); }
+  [[nodiscard]] float FrictionOf(size_t tpl) const {
+    return tpl < Friction_.size() ? Friction_[tpl] : 0.0f;
+  }
   const std::string &Name(size_t i) const { return Names_[i]; }
   const std::string &Error() const { return Error_; }
 
@@ -65,6 +68,7 @@ public:
 
 private:
   std::vector<Row> Table_;
+  std::vector<float> Friction_;
   std::vector<std::string> Names_;
   std::unordered_map<std::string, Rule> Rules_;
   std::vector<std::string> Layers_, AreaLayers_;

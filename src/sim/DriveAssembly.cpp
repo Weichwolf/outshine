@@ -271,6 +271,15 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
     return false;
   }
 
+  out.Way.AsideFriction = (double)widths.FrictionOf((size_t)widths.UnmappedRow());
+  say.Number("the grip of the ground beside the made surface", out.Way.AsideFriction, "x");
+  if (!(out.Way.AsideFriction > 0.0)) {
+    say.Refuse("the declared templates give unmapped ground no friction, so a wheel that leaves "
+               "the made surface would stand on nothing");
+    error = "unmapped ground carries no surface friction";
+    return false;
+  }
+
   auto &rig = out.State.Rig;
   auto &body = out.State.Body;
   rig = stood.Rig;
