@@ -36,9 +36,23 @@ namespace {
 // A stride of 3 cannot help but pick them up. What comes back must be the four positions, in
 // order, and nothing else.
 //
+// THE DOUBLE MUST WEAR THE REAL LAYOUT. `ChunkVtx` is `pos[3]; uv[2]; norm[3]` and this case's
+// tile used to hand in the normal FIRST and the UV after it. Nothing noticed, because nothing
+// downstream read either -- `LayPatchwork` copied three floats per vertex and threw the other
+// five away, recomputing normals from the geometry it had just built. So the case written to
+// stop one truth being spelled twice was itself the second spelling.
+//
+// It matters now: the patchwork CARRIES the tile's normals and UVs, because the tile authors
+// them properly -- the DEM's own gradient for the surface and the outward radial for a skirt --
+// and geometry recomputed from a mesh with vertical skirt quads gives those skirts HORIZONTAL
+// normals. Measured on the shipped Munich ring: 7128 of 17532 normals lay sideways, 41 per cent
+// of a surface that leans 1.27 degrees on average and 26 degrees at its steepest.
+//
 // The layout is now named once, in `TileMeshes.h` beside the struct whose layout it is, and every
 // site divides or steps by that name.
 constexpr float kSentinel = 999.0f;
+constexpr float kUvU = 0.5f;
+constexpr float kUvV = 0.25f;
 
 class OneTile final : public outshine::TileMeshes {
 public:
@@ -50,11 +64,11 @@ public:
       out->Verts.push_back(one[0]);
       out->Verts.push_back(one[1]);
       out->Verts.push_back(one[2]);
+      out->Verts.push_back(kUvU);
+      out->Verts.push_back(kUvV);
       out->Verts.push_back(kSentinel);
       out->Verts.push_back(-kSentinel);
       out->Verts.push_back(kSentinel);
-      out->Verts.push_back(0.5f);
-      out->Verts.push_back(0.25f);
     }
     out->Idx = {0, 1, 2, 0, 2, 3};
     out->OriginEcef[0] = 4160000.0;
@@ -163,6 +177,30 @@ int main(void) {
   CHECK(worst < 1.0e-4,
         "and the positions come back as they went in, in order, so the walk reads the array the "
         "struct declares rather than one that happens to be the same length");
+
+  const size_t normals = laid->NormalM.size() / 3;
+  const size_t uvs = laid->Uv.size() / 2;
+  bool normalsAreTheTiles = normals == vertices;
+  for (size_t at = 0; at + 2 < laid->NormalM.size(); at += 3) {
+    normalsAreTheTiles = normalsAreTheTiles && laid->NormalM[at] == kSentinel &&
+                         laid->NormalM[at + 1] == -kSentinel && laid->NormalM[at + 2] == kSentinel;
+  }
+  bool uvsAreTheTiles = uvs == vertices;
+  for (size_t at = 0; at + 1 < laid->Uv.size(); at += 2) {
+    uvsAreTheTiles = uvsAreTheTiles && laid->Uv[at] == kUvU && laid->Uv[at + 1] == kUvV;
+  }
+  std::printf("  normals carried            %zu   uvs carried %zu\n", normals, uvs);
+
+  CHECK(normalsAreTheTiles,
+        "**THE PATCH CARRIES THE TILE'S OWN NORMALS**, unchanged, one per vertex. The tile "
+        "authors them from the DEM's gradient for its surface and from the outward radial for "
+        "its skirt; a patchwork that recomputes them from geometry gives every vertical skirt "
+        "quad a HORIZONTAL normal, and 7128 of the shipped Munich ring's 17532 lay sideways on a "
+        "surface that leans 1.27 degrees on average");
+  CHECK(uvsAreTheTiles,
+        "and it carries the tile's UVs, which is what a ground surface will be sampled through "
+        "-- a patch that drops them cannot be told road from field however good the table behind "
+        "it is");
 
   {
     outshine::Around ring = over;

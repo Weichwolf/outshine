@@ -368,15 +368,68 @@ bool Engine::State::Composes(void) {
     for (size_t at = 0; at + 2 < laid->Index.size(); at += 3) {
       std::swap(laid->Index[at + 1], laid->Index[at + 2]);
     }
-    NormalsFrom(inFrame, laid->Index, laid->NormalM);
+    const double lat = way.FrameLat * std::numbers::pi / 180.0;
+    const double lon = way.FrameLon * std::numbers::pi / 180.0;
+    const double sinLat = std::sin(lat), cosLat = std::cos(lat);
+    const double sinLon = std::sin(lon), cosLon = std::cos(lon);
+    const double east[3] = {-sinLon, cosLon, 0.0};
+    const double north[3] = {-sinLat * cosLon, -sinLat * sinLon, cosLat};
+    const double upward[3] = {cosLat * cosLon, cosLat * sinLon, sinLat};
+    for (size_t at = 0; at + 2 < laid->NormalM.size(); at += 3) {
+      const double held[3] = {(double)laid->NormalM[at], (double)laid->NormalM[at + 1],
+                              (double)laid->NormalM[at + 2]};
+      double alongEast = 0.0, alongUp = 0.0, alongNorth = 0.0;
+      for (int axis = 0; axis < 3; ++axis) {
+        alongEast += east[axis] * held[axis];
+        alongUp += upward[axis] * held[axis];
+        alongNorth += north[axis] * held[axis];
+      }
+      laid->NormalM[at] = (float)alongEast;
+      laid->NormalM[at + 1] = (float)alongUp;
+      laid->NormalM[at + 2] = (float)(-alongNorth);
+    }
   }
   {
-    double up = 0.0;
+    double up = 0.0, down = 0.0, sideways = 0.0, unlengthed = 0.0;
     for (size_t at = 0; at + 2 < laid->NormalM.size(); at += 3) {
-      if ((double)laid->NormalM[at + 1] > 0.5) { up += 1.0; }
+      const double x = laid->NormalM[at], y = laid->NormalM[at + 1], z = laid->NormalM[at + 2];
+      const double length = std::sqrt(x * x + y * y + z * z);
+      if (!(length > 0.5)) { unlengthed += 1.0; continue; }
+      const double upward = y / length;
+      if (upward > 0.5) { up += 1.0; }
+      else if (upward < -0.5) { down += 1.0; }
+      else { sideways += 1.0; }
     }
     Places("the ring's normals that point up", up, "normals");
+    Places("its normals that point DOWN", down, "normals");
+    Places("its normals that lie sideways", sideways, "normals");
+    {
+      double steepest = 0.0, mean = 0.0, counted = 0.0;
+      for (size_t at = 0; at + 2 < laid->NormalM.size(); at += 3) {
+        const double x = laid->NormalM[at], y = laid->NormalM[at + 1], z = laid->NormalM[at + 2];
+        const double length = std::sqrt(x * x + y * y + z * z);
+        if (!(length > 1.0e-6)) { continue; }
+        const double leanDeg = std::acos(std::fmin(1.0, y / length)) * 180.0 / std::numbers::pi;
+        steepest = leanDeg > steepest ? leanDeg : steepest;
+        mean += leanDeg;
+        counted += 1.0;
+      }
+      Places("the steepest the ring's surface leans", steepest, "deg");
+      Places("how far it leans on average", counted > 0.0 ? mean / counted : 0.0, "deg");
+    }
+    Places("its normals with no length at all", unlengthed, "normals");
     Places("its normals in all", (double)(laid->NormalM.size() / 3), "normals");
+    {
+      double least = 1.0e30, most = -1.0e30;
+      const std::vector<float> &held = overADrive ? inFrame : laid->PositionM;
+      for (size_t at = 1; at < held.size(); at += 3) {
+        const double y = (double)held[at];
+        if (y < least) { least = y; }
+        if (y > most) { most = y; }
+      }
+      Places("the ring's lowest vertex", least, "m");
+      Places("its highest", most, "m");
+    }
   }
   Gltf::Piece ground;
   ground.NodeName = "ground";

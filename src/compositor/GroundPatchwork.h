@@ -22,6 +22,7 @@ struct Around {
 struct Patchwork {
   std::vector<float> PositionM;
   std::vector<float> NormalM;
+  std::vector<float> Uv;
   std::vector<uint32_t> Index;
   double OriginEcef[3] = {0.0, 0.0, 0.0};
   size_t Tiles = 0;

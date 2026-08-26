@@ -88,11 +88,16 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
                                built.OriginEcef[1] - out.OriginEcef[1],
                                built.OriginEcef[2] - out.OriginEcef[2]};
       const uint32_t first = (uint32_t)(out.PositionM.size() / 3);
-      for (size_t vertex = 0; vertex + 2 < built.Verts.size();
+      for (size_t vertex = 0; vertex + kTileVertexFloats <= built.Verts.size();
            vertex += kTileVertexFloats) {
         out.PositionM.push_back((float)((double)built.Verts[vertex] + shift[0]));
         out.PositionM.push_back((float)((double)built.Verts[vertex + 1] + shift[1]));
         out.PositionM.push_back((float)((double)built.Verts[vertex + 2] + shift[2]));
+        out.Uv.push_back(built.Verts[vertex + 3]);
+        out.Uv.push_back(built.Verts[vertex + 4]);
+        out.NormalM.push_back(built.Verts[vertex + 5]);
+        out.NormalM.push_back(built.Verts[vertex + 6]);
+        out.NormalM.push_back(built.Verts[vertex + 7]);
       }
       for (const uint32_t one : built.Idx) { out.Index.push_back(first + one); }
       out.WorstErrM = (double)built.ErrM > out.WorstErrM ? (double)built.ErrM : out.WorstErrM;
@@ -108,7 +113,6 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
         " pending, " + std::to_string(out.Absent) + " absent, " + std::to_string(out.Refused) +
         " refused");
   }
-  NormalsFrom(out.PositionM, out.Index, out.NormalM);
   return out;
 }
 
