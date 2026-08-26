@@ -16,8 +16,9 @@ class SkyStage {
 public:
   [[nodiscard]] static std::string ShaderSource();
   [[nodiscard]] static std::string ShaderSource(std::string &error);
-  static constexpr DrawShape ShaderShape{.FragmentSamplers = 1, .FragmentUniformBuffers = 1};
-  [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUTexture *skyView, SDL_GPUSampler *lut,
+  static constexpr DrawShape ShaderShape{.FragmentSamplers = 2, .FragmentUniformBuffers = 1};
+  [[nodiscard]] bool Configure(const Gpu &gpu, SDL_GPUTexture *skyView,
+                               SDL_GPUTexture *transmittance, SDL_GPUSampler *lut,
                                std::string &error);
 
   void Declare(const Medium &medium, const float sunDir[3], const float up[3],
@@ -40,11 +41,14 @@ private:
     float EyeRadiusKm;
     float BottomRadiusKm;
     float TopRadiusKm;
-    float Pad[2];
+    float SunHalfAngleRad;
+    float Pad;
+    Medium Air;
   };
 
   OwnedPipeline Pipe;
   SDL_GPUTexture *SkyView = nullptr;
+  SDL_GPUTexture *Veil = nullptr;
   SDL_GPUSampler *Lut = nullptr;
   Pushed Pushed_{};
   bool Declared_ = false;

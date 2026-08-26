@@ -12,11 +12,12 @@ namespace {
 
 }
 
-bool SkyStage::Configure(const Gpu &gpu, SDL_GPUTexture *skyView, SDL_GPUSampler *lut,
-                         std::string &error) {
+bool SkyStage::Configure(const Gpu &gpu, SDL_GPUTexture *skyView, SDL_GPUTexture *transmittance,
+                         SDL_GPUSampler *lut, std::string &error) {
   SkyView = skyView;
+  Veil = transmittance;
   Lut = lut;
-  if (SkyView == nullptr || Lut == nullptr) {
+  if (SkyView == nullptr || Veil == nullptr || Lut == nullptr) {
     error = "the sky draw needs the sky view table and its sampler, and the plan did not hold both";
     return false;
   }
@@ -78,6 +79,8 @@ void SkyStage::Declare(const Medium &medium, const float sunDir[3], const float 
   Pushed_.EyeRadiusKm =
       medium.BottomRadiusKm + kMediumGroundLiftKm + (eyeHeightM > 0.0f ? eyeHeightM : 0.0f) / 1000.0f;
   Pushed_.BottomRadiusKm = medium.BottomRadiusKm;
+  Pushed_.SunHalfAngleRad = kSunHalfAngleRad;
+  Pushed_.Air = medium;
   Pushed_.TopRadiusKm = medium.TopRadiusKm;
   Declared_ = true;
 }
@@ -97,8 +100,8 @@ void SkyStage::Encode(const FrameContext &ctx, const PassRecording &into) {
   (void)ctx;
   if (!Pipe || !Declared_ || into.Pass == nullptr) { return; }
   SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
-  SDL_GPUTextureSamplerBinding bound{SkyView, Lut};
-  SDL_BindGPUFragmentSamplers(into.Pass, 0, &bound, 1);
+  const SDL_GPUTextureSamplerBinding bound[2] = {{SkyView, Lut}, {Veil, Lut}};
+  SDL_BindGPUFragmentSamplers(into.Pass, 0, bound, 2);
   SDL_PushGPUFragmentUniformData(into.Commands, 0, &Pushed_, (uint32_t)sizeof Pushed_);
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
 }
@@ -109,9 +112,16 @@ std::string SkyStage::ShaderSource() {
 }
 
 std::string SkyStage::ShaderSource(std::string &error) {
+  std::string layout;
+  std::string core;
   std::string body;
-  if (!LoadShaderText("src/render/shaders/sky.msl", body, error)) { return std::string(); }
-  return MslPrelude(error) + VelocityStaticDefine() + body;
+  if (!LoadShaderText("src/render/shaders/mediumLayout.msl", layout, error) ||
+      !LoadShaderText("src/render/stages/MediumCore.h", core, error) ||
+      !LoadShaderText("src/render/shaders/sky.msl", body, error)) {
+    return std::string();
+  }
+  return MslPrelude(error) + VelocityStaticDefine() +
+         "#define MEDIUM_CONST constant\n#define MEDIUM_THREAD thread\n" + layout + core + body;
 }
 
 }

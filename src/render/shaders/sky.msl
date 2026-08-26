@@ -10,7 +10,9 @@ struct Pushed {
   float eyeRadiusKm;
   float bottomRadiusKm;
   float topRadiusKm;
-  float2 pad;
+  float sunHalfAngleRad;
+  float pad;
+  Medium air;
 };
 
 struct VOut { float4 pos [[position]]; float2 ndc; };
@@ -29,6 +31,7 @@ struct SkyOut {
 
 fragment SkyOut fs(VOut in [[stage_in]],
                    texture2d<float> skyView [[texture(0)]],
+                   texture2d<float> veil [[texture(1)]],
                    sampler lut [[sampler(0)]],
                    constant Pushed &pushed [[buffer(0)]]) {
   float3 dir = normalize(pushed.fwd.xyz + in.ndc.x * pushed.tanHalf.x * pushed.right.xyz +
@@ -69,6 +72,22 @@ fragment SkyOut fs(VOut in [[stage_in]],
   v = (v + 0.5 / heightPx) * (heightPx / (heightPx + 1.0));
 
   float3 luminance = skyView.sample(lut, float2(u, v), level(0.0)).rgb * pushed.illuminance;
+
+  float cosToSun = dot(dir, normalize(pushed.sunDir.xyz));
+  if (!hitsGround && cosToSun > cos(pushed.sunHalfAngleRad)) {
+    float reach = mediumTopReach(pushed.air, radiusKm, cosView);
+    float span = sqrt(max(0.0, pushed.topRadiusKm * pushed.topRadiusKm -
+                               pushed.bottomRadiusKm * pushed.bottomRadiusKm));
+    float ground = sqrt(max(0.0, radiusKm * radiusKm -
+                                 pushed.bottomRadiusKm * pushed.bottomRadiusKm));
+    float shortest = pushed.topRadiusKm - radiusKm;
+    float longest = ground + span;
+    float2 uv = float2((reach - shortest) / max(1.0e-6, longest - shortest), ground / max(1.0e-6, span));
+    float3 through = veil.sample(lut, uv, level(0.0)).rgb;
+    float solid = OUTSHINE_PI * pushed.sunHalfAngleRad * pushed.sunHalfAngleRad;
+    luminance += through * (pushed.illuminance / solid);
+  }
+
   SkyOut out;
   out.colour = float4(luminance, 1.0);
   out.velocity = float2(VELOCITY_STATIC, VELOCITY_STATIC);

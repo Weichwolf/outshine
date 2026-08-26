@@ -506,7 +506,8 @@ bool Renderer::ConfigureMediumRadiance(std::string &error) {
 }
 
 bool Renderer::ConfigureSky(std::string &error) {
-  return Sky_.Configure(Handles_, SkyViewLut_.Get(), LutSamp_.Get(), error);
+  return Sky_.Configure(Handles_, SkyViewLut_.Get(), TransmittanceLut_.Get(), LutSamp_.Get(),
+                        error);
 }
 
 bool Renderer::ConfigureLightVisibility(std::string &error) {

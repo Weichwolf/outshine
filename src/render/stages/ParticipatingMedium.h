@@ -81,6 +81,8 @@ inline constexpr float kMediumLuminanceSegment = 0.3f;
 
 inline constexpr float kMediumGroundLiftKm = 0.01f;
 
+inline constexpr float kSunHalfAngleRad = 4.6542e-3f;
+
 inline constexpr uint32_t kSkyViewLutWidth = 192;
 
 inline constexpr uint32_t kSkyViewLutHeight = 108;
