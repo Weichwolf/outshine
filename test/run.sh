@@ -490,6 +490,32 @@ ReadTrailer() {
   return 0
 }
 
+# An ORACLE THAT CANNOT EXIST is a different thing from one nobody rendered, and until this
+# declaration the gate could not say which it was looking at -- both arrived as UNPREPARED, in a
+# count with no name and no expiry. Three cases cannot be prepared with this toolchain at all:
+#
+#   khronos/glTF/CubeVisibility    Blender's glTF importer: "Extension KHR_node_visibility is not
+#   khronos/glTF/LightVisibility   available on this addon version". The oracle half of the case
+#                                  cannot be rendered, so there is nothing to compare against.
+#   khronos/glTF/AnimationPointerUVs  the same importer crashes reading KHR_animation_pointer over
+#                                  KHR_texture_transform: KeyError: 'animations'.
+#
+# Each is named with its arm count, the same shape EXPECT_FAIL uses, so the day the importer
+# grows the extension and a declared case PREPARES, the gate turns red on the stale line rather
+# than going quietly green. board:1923.
+EXPECT_UNPREPARED="khronos/glTF/CubeVisibility:3 khronos/glTF/LightVisibility:3\
+  khronos/glTF/AnimationPointerUVs:3"
+
+DeclaredUnprepared() {
+  for declared in $EXPECT_UNPREPARED; do
+    case "$1" in "${declared%:*}" | "${declared%:*}"~*)
+      return 0
+      ;;
+    esac
+  done
+  return 1
+}
+
 DeclaredFailures() {
   for declared in $EXPECT_FAIL; do
     case "$declared" in "$1":*)
@@ -1355,6 +1381,8 @@ signalled=0
 unbuilt=0
 skipped=0
 unprepared=0
+declaredUnprepared=0
+staleUnprepared=0
 partialCases=0
 PARTIAL_SAID=""
 undeclaredSkips=0
@@ -1607,7 +1635,14 @@ Record() {
   fi
 
   case "$verdict" in
-    PASS) passed=$((passed + 1)) ;;
+    PASS)
+      passed=$((passed + 1))
+      if DeclaredUnprepared "$recordId"; then
+        staleUnprepared=$((staleUnprepared + 1))
+        printf 'run.sh: %s PREPARED and EXPECT_UNPREPARED still names it -- the declaration outlived what it declared, so take it out\n' \
+          "$recordId" >&2
+      fi
+      ;;
     FAIL) failed=$((failed + 1)) ;;
     TIMEOUT)
       timedout=$((timedout + 1))
@@ -1620,9 +1655,15 @@ Record() {
       ;;
     BUILD) unbuilt=$((unbuilt + 1)) ;;
     UNPREP)
-      unprepared=$((unprepared + 1))
-      printf 'run.sh: %s has no prepared input and its rebuild did not give it one -- %s\n' \
-        "$recordId" "$BUILD/log/$(printf '%s' "$recordId" | tr / -)-rebuild.log" >&2
+      if DeclaredUnprepared "$recordId"; then
+        declaredUnprepared=$((declaredUnprepared + 1))
+        printf 'run.sh: %s has no oracle and EXPECT_UNPREPARED says why -- board:1923\n' \
+          "$recordId" >&2
+      else
+        unprepared=$((unprepared + 1))
+        printf 'run.sh: %s has no prepared input and its rebuild did not give it one -- %s\n' \
+          "$recordId" "$BUILD/log/$(printf '%s' "$recordId" | tr / -)-rebuild.log" >&2
+      fi
       ;;
     SKIP)
       skipped=$((skipped + 1))
@@ -1859,13 +1900,17 @@ if [ "$FAST_GATE" = yes ] && [ "$gateRunMs" -le "$kFastGateBoundMs" ]; then
   printf 'run.sh: gate headroom %s ms of %s (run %s ms, builds %s ms beside the bound)\n' \
     "$((kFastGateBoundMs - gateRunMs))" "$kFastGateBoundMs" "$gateRunMs" "$builtSpentMs"
 fi
-red=$((failed + timedout + signalled + unbuilt + undeclaredSkips + unprepared + compileBlind))
+red=$((failed + timedout + signalled + unbuilt + undeclaredSkips + unprepared + compileBlind + staleUnprepared))
 
 overran=0
 if [ "$FAST_GATE" = yes ] && [ "$gateRunMs" -gt "$kFastGateBoundMs" ]; then
   overran=1
   printf 'run.sh: THE FAST GATE OVERRAN ITS BOUND -- %s ms of RUN over the declared %s ms (builds %s ms stood beside the bound): a slow test is a finding, exactly like a slow frame (board:1601, 1735)\n' \
     "$gateRunMs" "$kFastGateBoundMs" "$builtSpentMs" >&2
+fi
+if [ "$declaredUnprepared" -gt 0 ]; then
+  printf 'run.sh: %s arm(s) have no oracle this toolchain can make, declared in EXPECT_UNPREPARED: %s\n' \
+    "$declaredUnprepared" "$EXPECT_UNPREPARED" >&2
 fi
 if [ "$red" -gt 0 ]; then
   printf 'run.sh: %s case(s) are RED and the verdict is theirs, whatever the clock said\n' "$red" >&2
