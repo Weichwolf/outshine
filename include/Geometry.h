@@ -37,10 +37,8 @@ public:
   [[nodiscard]] std::span<const uint32_t> TrianglesOf(int part) const;
   [[nodiscard]] bool Whole() const;
 
-  struct Held;
-  [[nodiscard]] const Held &Inside() const;
-
 private:
+  struct Held;
   std::unique_ptr<Held> Held_;
 };
 

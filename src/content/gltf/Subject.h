@@ -14,6 +14,10 @@
 #include "Transform.h"
 #include "Variant.h"
 
+namespace outshine {
+class Geometry;
+}
+
 namespace outshine::Gltf {
 
 class Document;
@@ -78,23 +82,6 @@ struct PlacedLight {
   outshine::PunctualLight Light;
 };
 
-struct Piece {
-  std::string NodeName;
-  int Material = -1;
-  Span<const float> PositionsM;
-  Span<const float> Normals;
-  Span<const float> Uv;
-  Span<const float> Uv1;
-  Span<const float> Tangents;
-
-  Span<const float> Colours;
-  Span<const uint32_t> Indices;
-};
-
-struct Assembly {
-  Span<const Piece> Pieces;
-};
-
 class Subject {
 public:
 
@@ -103,7 +90,7 @@ public:
   [[nodiscard]] bool Build(const Document &document, Span<const Transform> pose,
                            Span<const double> weights, const VariantSelection &variant = {});
 
-  [[nodiscard]] bool Assemble(const Assembly &what);
+  [[nodiscard]] bool Assemble(const outshine::Geometry &what);
 
   [[nodiscard]] bool Append(const Subject &other);
 

@@ -2,6 +2,8 @@
 #include "Vec3.h"
 #include "Subject.h"
 
+#include <Geometry.h>
+
 #include <numbers>
 #include <algorithm>
 #include <cmath>
@@ -23,15 +25,15 @@ double Length(const double v[3]) {
   return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
 }
 
-[[nodiscard]] bool RunIsStatable(Span<const float> run, size_t vertices, size_t components,
+[[nodiscard]] bool RunIsStatable(std::span<const float> run, size_t vertices, size_t components,
                                  const char *semantic, const std::string &where, std::string &why) {
-  if (run.Empty()) { return true; }
-  if (run.Size() != vertices * components) {
-    why = where + " states " + std::to_string(run.Size() / components) + " " + semantic + " over " +
+  if (run.empty()) { return true; }
+  if (run.size() != vertices * components) {
+    why = where + " states " + std::to_string(run.size() / components) + " " + semantic + " over " +
           std::to_string(vertices) + " vertices";
     return false;
   }
-  for (size_t at = 0; at < run.Size(); ++at) {
+  for (size_t at = 0; at < run.size(); ++at) {
     if (!std::isfinite(run[at])) {
       why = where + " states a " + semantic + " component that is not finite, at " +
             std::to_string(at);
@@ -873,7 +875,7 @@ void Subject::Bound() {
   }
 }
 
-bool Subject::Assemble(const Assembly &what) {
+bool Subject::Assemble(const outshine::Geometry &what) {
   Error_.clear();
   Positions_.clear();
   Uv_.clear();
@@ -884,7 +886,7 @@ bool Subject::Assemble(const Assembly &what) {
   Indices_.clear();
   Parts_.clear();
   Lights_.clear();
-  if (what.Pieces.Empty()) {
+  if (what.Parts() == 0) {
     return Refuse("an assembly of no piece draws nothing, and a subject with no triangle is not one");
   }
 
@@ -893,82 +895,89 @@ bool Subject::Assemble(const Assembly &what) {
   bool anyNormal = false;
   bool anyTangent = false;
   bool anyColour = false;
-  for (size_t index = 0; index < what.Pieces.Size(); ++index) {
-    const Piece &piece = what.Pieces[index];
+  for (size_t index = 0; index < (size_t)what.Parts(); ++index) {
+    const int slot = (int)index;
+    const std::span<const float> pPos = what.PositionsOf(slot);
+    const std::span<const float> pNormals = what.NormalsOf(slot);
+    const std::span<const float> pUv = what.TextureOf(slot, 0);
+    const std::span<const float> pUv1 = what.TextureOf(slot, 1);
+    const std::span<const float> pTangents = what.TangentsOf(slot);
+    const std::span<const float> pColours = what.ColoursOf(slot);
+    const std::span<const uint32_t> pIndices = what.TrianglesOf(slot);
     const std::string where = "assembled piece " + std::to_string(index);
-    if (piece.PositionsM.Empty() || (piece.PositionsM.Size() % 3) != 0) {
-      return Refuse(where + " states " + std::to_string(piece.PositionsM.Size()) +
+    if (pPos.empty() || (pPos.size() % 3) != 0) {
+      return Refuse(where + " states " + std::to_string(pPos.size()) +
                     " position components, which is not a whole run of points");
     }
-    const size_t vertices = piece.PositionsM.Size() / 3;
-    if (piece.Indices.Empty() || (piece.Indices.Size() % 3) != 0) {
-      return Refuse(where + " states " + std::to_string(piece.Indices.Size()) +
+    const size_t vertices = pPos.size() / 3;
+    if (pIndices.empty() || (pIndices.size() % 3) != 0) {
+      return Refuse(where + " states " + std::to_string(pIndices.size()) +
                     " indices, which is not a whole run of triangles");
     }
-    if (piece.Material < -1) {
-      return Refuse(where + " names material " + std::to_string(piece.Material) +
+    if (what.MaterialOf(slot) < -1) {
+      return Refuse(where + " names material " + std::to_string(what.MaterialOf(slot)) +
                     ", and -1 is the only spelling of naming none");
     }
     std::string why;
-    if (!RunIsStatable(piece.PositionsM, vertices, 3, "positions", where, why) ||
-        !RunIsStatable(piece.Normals, vertices, 3, "normals", where, why) ||
-        !RunIsStatable(piece.Uv, vertices, 2, "uv pairs", where, why) ||
-        !RunIsStatable(piece.Uv1, vertices, 2, "second-set uv pairs", where, why) ||
-        !RunIsStatable(piece.Tangents, vertices, 4, "tangents", where, why) ||
-        !RunIsStatable(piece.Colours, vertices, 4, "vertex colours", where, why)) {
+    if (!RunIsStatable(pPos, vertices, 3, "positions", where, why) ||
+        !RunIsStatable(pNormals, vertices, 3, "normals", where, why) ||
+        !RunIsStatable(pUv, vertices, 2, "uv pairs", where, why) ||
+        !RunIsStatable(pUv1, vertices, 2, "second-set uv pairs", where, why) ||
+        !RunIsStatable(pTangents, vertices, 4, "tangents", where, why) ||
+        !RunIsStatable(pColours, vertices, 4, "vertex colours", where, why)) {
       return Refuse(why);
     }
 
-    for (size_t at = 0; at < piece.Colours.Size(); ++at) {
-      if (piece.Colours[at] >= 0.0f && piece.Colours[at] <= 1.0f) { continue; }
+    for (size_t at = 0; at < pColours.size(); ++at) {
+      if (pColours[at] >= 0.0f && pColours[at] <= 1.0f) { continue; }
       return Refuse(where + " states a vertex colour component of " +
-                    std::to_string(piece.Colours[at]) + " at " + std::to_string(at) +
+                    std::to_string(pColours[at]) + " at " + std::to_string(at) +
                     ", and the format requires every component in [0, 1]");
     }
 
     Part part;
-    part.NodeName = piece.NodeName;
-    part.Material = piece.Material;
+    part.NodeName = std::string(what.NameOf(slot));
+    part.Material = what.MaterialOf(slot);
     part.FirstVertex = VertexCount();
     part.FirstIndex = Indices_.size();
     part.VertexCount = vertices;
-    part.IndexCount = piece.Indices.Size();
-    part.HasUv = !piece.Uv.Empty();
-    part.HasUv1 = !piece.Uv1.Empty();
-    part.HasNormal = !piece.Normals.Empty();
-    part.HasColour = !piece.Colours.Empty();
+    part.IndexCount = pIndices.size();
+    part.HasUv = !pUv.empty();
+    part.HasUv1 = !pUv1.empty();
+    part.HasNormal = !pNormals.empty();
+    part.HasColour = !pColours.empty();
 
-    part.Tangent = piece.Tangents.Empty() ? TangentSource::None : TangentSource::Supplied;
+    part.Tangent = pTangents.empty() ? TangentSource::None : TangentSource::Supplied;
     anyUv = anyUv || part.HasUv;
     anyUv1 = anyUv1 || part.HasUv1;
     anyNormal = anyNormal || part.HasNormal;
     anyTangent = anyTangent || part.HasTangent();
     anyColour = anyColour || part.HasColour;
 
-    for (const float component : piece.PositionsM) { Positions_.push_back((double)component); }
+    for (const float component : pPos) { Positions_.push_back((double)component); }
 
     Uv_.resize((Positions_.size() / 3) * 2, 0.0);
     Uv1_.resize((Positions_.size() / 3) * 2, 0.0);
     Normals_.resize(Positions_.size(), 0.0);
     Tangents_.resize((Positions_.size() / 3) * 4, 0.0);
     Colours_.resize((Positions_.size() / 3) * 4, 0.0);
-    for (size_t at = 0; at < piece.Uv.Size(); ++at) {
-      Uv_[part.FirstVertex * 2 + at] = (double)piece.Uv[at];
+    for (size_t at = 0; at < pUv.size(); ++at) {
+      Uv_[part.FirstVertex * 2 + at] = (double)pUv[at];
     }
-    for (size_t at = 0; at < piece.Uv1.Size(); ++at) {
-      Uv1_[part.FirstVertex * 2 + at] = (double)piece.Uv1[at];
+    for (size_t at = 0; at < pUv1.size(); ++at) {
+      Uv1_[part.FirstVertex * 2 + at] = (double)pUv1[at];
     }
-    for (size_t at = 0; at < piece.Normals.Size(); ++at) {
-      Normals_[part.FirstVertex * 3 + at] = (double)piece.Normals[at];
+    for (size_t at = 0; at < pNormals.size(); ++at) {
+      Normals_[part.FirstVertex * 3 + at] = (double)pNormals[at];
     }
-    for (size_t at = 0; at < piece.Tangents.Size(); ++at) {
-      Tangents_[part.FirstVertex * 4 + at] = (double)piece.Tangents[at];
+    for (size_t at = 0; at < pTangents.size(); ++at) {
+      Tangents_[part.FirstVertex * 4 + at] = (double)pTangents[at];
     }
-    for (size_t at = 0; at < piece.Colours.Size(); ++at) {
-      Colours_[part.FirstVertex * 4 + at] = (double)piece.Colours[at];
+    for (size_t at = 0; at < pColours.size(); ++at) {
+      Colours_[part.FirstVertex * 4 + at] = (double)pColours[at];
     }
 
-    for (const uint32_t local : piece.Indices) {
+    for (const uint32_t local : pIndices) {
       if (local >= vertices) {
         return Refuse(where + " addresses vertex " + std::to_string(local) + " of its own " +
                       std::to_string(vertices));

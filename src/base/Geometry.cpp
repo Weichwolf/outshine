@@ -1,4 +1,31 @@
-#include "GeometryHeld.h"
+#include <string>
+#include <vector>
+
+#include <Geometry.h>
+
+namespace outshine {
+
+struct Geometry::Held {
+  struct Piece {
+    std::string Named;
+    int Material;
+    std::vector<float> PositionsM;
+    std::vector<float> Normals;
+    std::vector<float> Uv;
+    std::vector<float> Uv1;
+    std::vector<float> Tangents;
+    std::vector<float> Colours;
+    std::vector<uint32_t> Indices;
+  };
+  std::vector<Piece> Parts;
+
+  [[nodiscard]] const Piece *At(int part) const {
+    return part >= 0 && part < (int)Parts.size() ? &Parts[(size_t)part] : nullptr;
+  }
+};
+
+
+}
 
 namespace outshine {
 
@@ -6,8 +33,6 @@ Geometry::Geometry() : Held_(std::make_unique<Held>()) {}
 Geometry::~Geometry() = default;
 Geometry::Geometry(Geometry &&) noexcept = default;
 Geometry &Geometry::operator=(Geometry &&) noexcept = default;
-
-const Geometry::Held &Geometry::Inside() const { return *Held_; }
 
 int Geometry::Part(std::string_view named, int material) {
   Held_->Parts.push_back(Geometry::Held::Piece{std::string(named), material, {}, {}, {}, {}, {}, {}, {}});
@@ -58,52 +83,44 @@ bool Geometry::Triangles(int part, std::span<const uint32_t> indices) {
 
 int Geometry::Parts() const { return (int)Held_->Parts.size(); }
 
-namespace {
-
-[[nodiscard]] const Geometry::Held::Piece *At(const Geometry::Held &held, int part) {
-  return part >= 0 && part < (int)held.Parts.size() ? &held.Parts[(size_t)part] : nullptr;
-}
-
-}
-
 std::string_view Geometry::NameOf(int part) const {
-  const Held::Piece *piece = At(*Held_, part);
+  const Held::Piece *piece = Held_->At(part);
   return piece != nullptr ? std::string_view(piece->Named) : std::string_view();
 }
 
 int Geometry::MaterialOf(int part) const {
-  const Held::Piece *piece = At(*Held_, part);
+  const Held::Piece *piece = Held_->At(part);
   return piece != nullptr ? piece->Material : -1;
 }
 
 std::span<const float> Geometry::PositionsOf(int part) const {
-  const Held::Piece *piece = At(*Held_, part);
+  const Held::Piece *piece = Held_->At(part);
   return piece != nullptr ? std::span<const float>(piece->PositionsM) : std::span<const float>();
 }
 
 std::span<const float> Geometry::NormalsOf(int part) const {
-  const Held::Piece *piece = At(*Held_, part);
+  const Held::Piece *piece = Held_->At(part);
   return piece != nullptr ? std::span<const float>(piece->Normals) : std::span<const float>();
 }
 
 std::span<const float> Geometry::TextureOf(int part, int set) const {
-  const Held::Piece *piece = At(*Held_, part);
+  const Held::Piece *piece = Held_->At(part);
   if (piece == nullptr || (set != 0 && set != 1)) { return std::span<const float>(); }
   return std::span<const float>(set == 0 ? piece->Uv : piece->Uv1);
 }
 
 std::span<const float> Geometry::TangentsOf(int part) const {
-  const Held::Piece *piece = At(*Held_, part);
+  const Held::Piece *piece = Held_->At(part);
   return piece != nullptr ? std::span<const float>(piece->Tangents) : std::span<const float>();
 }
 
 std::span<const float> Geometry::ColoursOf(int part) const {
-  const Held::Piece *piece = At(*Held_, part);
+  const Held::Piece *piece = Held_->At(part);
   return piece != nullptr ? std::span<const float>(piece->Colours) : std::span<const float>();
 }
 
 std::span<const uint32_t> Geometry::TrianglesOf(int part) const {
-  const Held::Piece *piece = At(*Held_, part);
+  const Held::Piece *piece = Held_->At(part);
   return piece != nullptr ? std::span<const uint32_t>(piece->Indices)
                           : std::span<const uint32_t>();
 }

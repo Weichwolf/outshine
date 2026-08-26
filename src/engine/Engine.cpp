@@ -1,5 +1,4 @@
 #include <Outshine.h>
-#include "GeometryHeld.h"
 #include "Fetching.h"
 #include "Unwired.h"
 
@@ -434,17 +433,19 @@ bool Engine::State::Composes(void) {
       Places("its highest", most, "m");
     }
   }
-  Gltf::Piece ground;
-  ground.NodeName = "ground";
-  ground.Material = 0;
-  ground.PositionsM = overADrive
-                          ? Span<const float>(inFrame.data(), inFrame.size())
-                          : Span<const float>(laid->PositionM.data(), laid->PositionM.size());
-  ground.Normals = Span<const float>(laid->NormalM.data(), laid->NormalM.size());
-  ground.Indices = Span<const uint32_t>(laid->Index.data(), laid->Index.size());
+  Geometry ground;
+  const int ringPart = ground.Part("ground", 0);
+  (void)ground.Positions(ringPart, overADrive
+                                       ? std::span<const float>(inFrame.data(), inFrame.size())
+                                       : std::span<const float>(laid->PositionM.data(),
+                                                                laid->PositionM.size()));
+  (void)ground.Normals(ringPart,
+                       std::span<const float>(laid->NormalM.data(), laid->NormalM.size()));
+  (void)ground.Triangles(ringPart, std::span<const uint32_t>(laid->Index.data(),
+                                                             laid->Index.size()));
 
   Gltf::Subject laidGround;
-  if (!laidGround.Assemble(Gltf::Assembly{Span<const Gltf::Piece>(&ground, 1)})) {
+  if (!laidGround.Assemble(ground)) {
     Error = laidGround.Error();
     return false;
   }
@@ -848,24 +849,8 @@ bool Engine::Stands(const Geometry &geometry) {
                 "than an empty picture";
     return false;
   }
-  const Geometry::Held &inside = geometry.Inside();
-  std::vector<Gltf::Piece> pieces;
-  pieces.reserve(inside.Parts.size());
-  for (const Geometry::Held::Piece &one : inside.Parts) {
-    Gltf::Piece piece;
-    piece.NodeName = one.Named;
-    piece.Material = one.Material;
-    piece.PositionsM = Span<const float>(one.PositionsM.data(), one.PositionsM.size());
-    piece.Normals = Span<const float>(one.Normals.data(), one.Normals.size());
-    piece.Uv = Span<const float>(one.Uv.data(), one.Uv.size());
-    piece.Uv1 = Span<const float>(one.Uv1.data(), one.Uv1.size());
-    piece.Tangents = Span<const float>(one.Tangents.data(), one.Tangents.size());
-    piece.Colours = Span<const float>(one.Colours.data(), one.Colours.size());
-    piece.Indices = Span<const uint32_t>(one.Indices.data(), one.Indices.size());
-    pieces.push_back(std::move(piece));
-  }
   Gltf::Subject handed;
-  if (!handed.Assemble(Gltf::Assembly{Span<const Gltf::Piece>(pieces.data(), pieces.size())})) {
+  if (!handed.Assemble(geometry)) {
     S_->Error = handed.Error();
     return false;
   }
