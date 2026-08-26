@@ -1,5 +1,5 @@
 Type: task
-State: open
+State: active
 Parent: 1953
 Area: architecture
 

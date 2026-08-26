@@ -683,7 +683,7 @@ std::array<float, SubjectDraw::kLightFloats> SubjectDraw::PackedLights(
     entry[3] = light.Kind == LightKind::Directional ? 0.0f
                                                     : (light.Kind == LightKind::Point ? 1.0f : 2.0f);
     for (int axis = 0; axis < 3; ++axis) {
-      entry[4 + axis] = (float)(Placed[at].PositionEcefM[axis] - ctx.Eye[axis]);
+      entry[4 + axis] = (float)(Placed[at].PositionEcefM[axis] + ctx.PreViewTranslation[axis]);
     }
 
     entry[7] = light.RangeM > 0.0f ? 1.0f / light.RangeM : 0.0f;
@@ -719,7 +719,7 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
     double carried[16];
     for (int i = 0; i < 16; i++) { carried[i] = model[i]; }
     if (!Placed_.empty()) {
-      for (int axis = 0; axis < 3; ++axis) { carried[12 + axis] += Anchor[axis] - ctx.Eye[axis]; }
+      for (int axis = 0; axis < 3; ++axis) { carried[12 + axis] += Anchor[axis] + ctx.PreViewTranslation[axis]; }
     }
     double placed[16];
     for (int row = 0; row < 4; ++row) {
@@ -733,13 +733,13 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
     }
     for (int i = 0; i < 16; i++) { uniform[i] = (float)placed[i]; }
     for (int i = 0; i < 3; i++) {
-      uniform[16 + i] = Placed_.empty() ? (float)(Anchor[i] - ctx.Eye[i]) : 0.0f;
+      uniform[16 + i] = Placed_.empty() ? (float)(Anchor[i] + ctx.PreViewTranslation[i]) : 0.0f;
     }
     for (int i = 0; i < 16; i++) { uniform[20 + i] = ctx.PrevMvp16[i]; }
-    for (int i = 0; i < 3; i++) { uniform[36 + i] = (float)(PrevAnchor[i] - ctx.PrevEye[i]); }
+    for (int i = 0; i < 3; i++) { uniform[36 + i] = (float)(PrevAnchor[i] + ctx.PrevPreViewTranslation[i]); }
 
     if (Placed_.empty()) {
-      for (int axis = 0; axis < 3; ++axis) { carried[12 + axis] += Anchor[axis] - ctx.Eye[axis]; }
+      for (int axis = 0; axis < 3; ++axis) { carried[12 + axis] += Anchor[axis] + ctx.PreViewTranslation[axis]; }
     }
     for (int i = 0; i < 16; i++) { uniform[40 + i] = (float)carried[i]; }
     for (int column = 0; column < 4; ++column) {

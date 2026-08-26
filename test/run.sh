@@ -324,41 +324,66 @@ LayerExtraSources() {
     *) printf '%s' "" ;;
   esac
 }
-
-GroupIncludes() {
+# THE LAYERING IS A DIRECTION AND THE DIRECTION IS DECLARED. Unreal states each module's
+# dependencies in its own Build.cs and the build enforces them; RAGE states them by library and
+# by prefix. Here they are one table, and a source that includes across it refuses. Without this
+# the layering is a convention, and a convention is how src/core became a drawer of 44 headers
+# (board:1902).
+LayerReaches() {
   case "$1" in
-    src/base/math | src/base/geo | src/base/format | src/base/spatial | src/content/shade | src/world/weather | src/world/sky | src/base/io | src/base/format/Sha256.cpp | src/base/format/Json.cpp | src/base/format/Script.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators" ;;
-    src/actor/path) printf '%s' "-Iinclude -Isrc/actor/path" ;;
-    src/scene) printf '%s' "" ;;
-    src/actor/body) printf '%s' "-Iinclude -Isrc/base/math -Isrc/actor/body" ;;
-    src/actor/mind) printf '%s' "-Iinclude -Isrc/actor/path -Isrc/actor/mind" ;;
-    src/sim/Rigging.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/actor/path -Isrc/actor/body -Isrc/actor/mind -Isrc/sim" ;;
-    src/sim/DriveTick.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/generators -Isrc/actor/path -Isrc/world/data -Isrc/actor/body -Isrc/actor/mind -Isrc/scene -Isrc/scenario -Isrc/sim -Isrc/world/ground -Isrc/world/ground/tiles" ;;
-    src/actor/path/Wayfinding.cpp) printf '%s' "-Iinclude -Isrc/actor/path" ;;
-    src/world/ground/RoadHarvest.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/generators -Isrc/actor/path -Isrc/world/data -Isrc/world/ground -Isrc/world/ground/tiles" ;;
-    src/world/data) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/data" ;;
-    src/world/ground | src/world/ground/tiles) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/generators -Isrc/actor/path -Isrc/world/data -Isrc/world/ground -Isrc/world/ground/tiles" ;;
-    src/content/gltf) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/content/gltf" ;;
-    src/ui) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/ui $(pkg-config --cflags sdl3-ttf)" ;;
-    src/audio) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/audio" ;;
-    src/scenario | src/scenario/ScenarioRead.cpp | src/scenario/ScenarioLayer.cpp | src/scenario/InputMap.cpp | src/scenario/Views.cpp | src/scenario/Triggers.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/scene -Isrc/scenario" ;;
-    src/world/generators | src/world/generators/TreeSpecies.cpp | src/world/generators/GrowthForm.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/generators -Isrc/world/data" ;;
-    src/world/generators/draw) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/generators -Isrc/world/generators/draw" ;;
-    src/render/plan) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/render/plan" ;;
-    src/render/draw) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/render/draw" ;;
-    src/render | src/render/device | src/render/stages | src/render/Readback.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages $(pkg-config --cflags sdl3)" ;;
-    src/engine/GltfStudio.cpp | src/engine/Surfaces.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/data -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/engine $(pkg-config --cflags sdl3)" ;;
-    src/engine/Live.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/data -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/compositor -Isrc/scene -Isrc/host -Isrc/engine -Isrc/ui $(pkg-config --cflags sdl3)" ;;
-    src/engine/Assembly.cpp) printf '%s' "-Iinclude -Isrc/scene -Isrc/world/data -Isrc/host -Isrc/engine" ;;
-    src/host) printf '%s' "-Iinclude -Isrc/world/data" ;;
-    src/compositor) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/generators -Isrc/world/ground -Isrc/world/data -Isrc/world/ground/tiles -Isrc/compositor" ;;
-    src/engine/InputPump.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/scenario -Isrc/scene -Isrc/world/data -Isrc/host -Isrc/engine $(pkg-config --cflags sdl3)" ;;
-    src/sim) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/generators -Isrc/actor/path -Isrc/world/data -Isrc/actor/body -Isrc/actor/mind -Isrc/scene -Isrc/scenario -Isrc/sim -Isrc/world/ground -Isrc/world/ground/tiles" ;;
-    src/engine/Engine.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/generators -Isrc/world/data -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/compositor -Isrc/host -Isrc/engine -Isrc/scenario -Isrc/ui -Isrc/world/ground -Isrc/world/ground/tiles -Isrc/sim -Isrc/actor/path -Isrc/actor/body -Isrc/actor/mind -Isrc/scene $(pkg-config --cflags sdl3)" ;;
-    src/engine/Sim.cpp | src/engine/StreamTelemetry.cpp | src/engine/EyeTelemetry.cpp | src/engine/RegionForge.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/data -Isrc/scenario -Isrc/world/ground -Isrc/world/ground/tiles -Isrc/world/generators -Isrc/world/generators/draw -Isrc/actor/path -Isrc/scene -Isrc/host -Isrc/engine" ;;
-    src/engine/Image.cpp) printf '%s' "-Iinclude -Isrc/scene -Isrc/world/data -Isrc/host -Isrc/engine $(pkg-config --cflags sdl3-image)" ;;
+    base) printf '%s' "" ;;
+    content) printf '%s' "base" ;;
+    world) printf '%s' "base content" ;;
+    actor) printf '%s' "base" ;;
+    render) printf '%s' "base content" ;;
+    scene) printf '%s' "base" ;;
+    scenario) printf '%s' "base content world" ;;
+    ui) printf '%s' "base content" ;;
+    audio) printf '%s' "base" ;;
+    host) printf '%s' "base world" ;;
+    compositor) printf '%s' "base world content" ;;
+    sim) printf '%s' "base world content actor scene" ;;
+    engine) printf '%s' "base content world actor render scene scenario sim ui audio host compositor" ;;
     *) return 1 ;;
   esac
+}
+
+
+# THE INCLUDE SET IS THE TIER TABLE, DERIVED -- one spelling and not two. `LayerReaches` above
+# states what each tier may reach; a source compiles with `include/`, its OWN tier's directories and
+# the directories of the tiers its row names, and NOTHING else. So a cross-tier include fails at the
+# `#include` with a file and a line, rather than compiling and being reported afterwards by
+# `--audit-layers`. That is what Unreal spends `Build.cs` on: a module that did not declare a
+# dependency cannot FIND the header, and the violation is unspellable rather than reported.
+#
+# This replaced thirty hand-kept arms whose first one bundled `src/base/math` with `content/shade`,
+# `world/weather` and `world/sky` -- so `base/`, which reaches nothing, compiled with content and
+# world on its path (board:1956). `--audit-layers` stays: an include path cannot see a CYCLE between
+# two modules inside ONE tier, which is the case that needs it.
+#
+# SDL3 comes LAST on the path and our own directories first, because a system include directory that
+# carries `png.h` shadows `src/base/io/Png.h` on a case-insensitive filesystem -- which is what the
+# first version of this derivation did, and the compiler said so by name.
+#
+# SDL3 is on EVERY path because the door requires it: `include/Outshine.h` includes SDL3, so any
+# translation unit that reaches the door reaches SDL3, and a per-group SDL arm was a third hand-kept
+# map beside the two this replaced. `src/render/shaders` holds no headers and is left off every path.
+GroupIncludes() {
+  case "$1" in src/*) ;; *) return 1 ;; esac
+  includeTier=$(printf '%s' "$1" | cut -d/ -f2)
+  includeReaches=$(LayerReaches "$includeTier") || return 1
+  includeSet="-Iinclude"
+  for includeFrom in $includeTier $includeReaches; do
+    for includeDir in $(find "src/$includeFrom" -type d | sort); do
+      case "$includeDir" in */shaders) continue ;; esac
+      includeSet="$includeSet -I$includeDir"
+    done
+  done
+  includeSet="$includeSet $(pkg-config --cflags sdl3)"
+  case "$1" in
+    src/engine/Image.cpp | src/engine) includeSet="$includeSet $(pkg-config --cflags sdl3-image)" ;;
+  esac
+  printf '%s' "$includeSet"
 }
 
 GroupToolchain() {
@@ -548,11 +573,7 @@ BuildLibrary() {
   OBJECTS=""
   libraryGroups=" "
   for libraryUnit in $(find src -name '*.cpp' | sort); do
-    if GroupIncludes "$libraryUnit" >/dev/null 2>&1; then
-      libraryGroup=$libraryUnit
-    else
-      libraryGroup=$(dirname "$libraryUnit")
-    fi
+    libraryGroup=$(dirname "$libraryUnit")
     case "$libraryGroups" in *" $libraryGroup "*) continue ;; esac
     libraryGroups="$libraryGroups$libraryGroup "
     BuildGroup "$libraryGroup" || Die "the library group $libraryGroup did not build"
@@ -712,29 +733,6 @@ if [ "$WOULDPRUNE" = 1 ]; then
   exit 0
 fi
 
-# THE LAYERING IS A DIRECTION AND THE DIRECTION IS DECLARED. Unreal states each module's
-# dependencies in its own Build.cs and the build enforces them; RAGE states them by library and
-# by prefix. Here they are one table, and a source that includes across it refuses. Without this
-# the layering is a convention, and a convention is how src/core became a drawer of 44 headers
-# (board:1902).
-LayerReaches() {
-  case "$1" in
-    base) printf '%s' "" ;;
-    content) printf '%s' "base" ;;
-    world) printf '%s' "base content" ;;
-    actor) printf '%s' "base" ;;
-    render) printf '%s' "base content" ;;
-    scene) printf '%s' "base" ;;
-    scenario) printf '%s' "base content world" ;;
-    ui) printf '%s' "base content" ;;
-    audio) printf '%s' "base" ;;
-    host) printf '%s' "base world" ;;
-    compositor) printf '%s' "base world content" ;;
-    sim) printf '%s' "base world content actor scene" ;;
-    engine) printf '%s' "base content world actor render scene scenario sim ui audio host compositor" ;;
-    *) return 1 ;;
-  esac
-}
 
 # WHAT THE LIBRARY IS, ON ONE PAGE, GENERATED. There is no RFC for this and the nearest
 # established shapes are a .pyi stub and a man page's SYNOPSIS: signatures without bodies. Those

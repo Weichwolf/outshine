@@ -31,7 +31,7 @@ void LightVisibilityStage::Declare(const float toSun[3], const float up[3], doub
   Declared_ = radiusM > 0.0 && sunLength > 0.0 && crossLength > 0.0;
 }
 
-void LightVisibilityStage::Build(const double eye[3]) {
+void LightVisibilityStage::Build(const double preView[3]) {
   double forward[3] = {-ToSun_[0], -ToSun_[1], -ToSun_[2]};
   double length = 0.0;
   for (int axis = 0; axis < 3; ++axis) { length += forward[axis] * forward[axis]; }
@@ -72,19 +72,19 @@ void LightVisibilityStage::Build(const double eye[3]) {
       }
     }
   }
-  double eyeLight[3] = {0.0, 0.0, 0.0};
+  double centreLight[3] = {0.0, 0.0, 0.0};
   for (int axis = 0; axis < 3; ++axis) {
-    eyeLight[0] += right[axis] * centre[axis];
-    eyeLight[1] += upward[axis] * centre[axis];
-    eyeLight[2] += forward[axis] * centre[axis];
+    centreLight[0] += right[axis] * centre[axis];
+    centreLight[1] += upward[axis] * centre[axis];
+    centreLight[2] += forward[axis] * centre[axis];
   }
 
-  eyeLight[0] = std::floor(eyeLight[0] / texelM) * texelM;
-  eyeLight[1] = std::floor(eyeLight[1] / texelM) * texelM;
+  centreLight[0] = std::floor(centreLight[0] / texelM) * texelM;
+  centreLight[1] = std::floor(centreLight[1] / texelM) * texelM;
 
   const double depthM = 2.0 * RadiusM_;
-  const double nearAlong = eyeLight[2] - depthM;
-  const double farAlong = eyeLight[2] + depthM;
+  const double nearAlong = centreLight[2] - depthM;
+  const double farAlong = centreLight[2] + depthM;
   for (int i = 0; i < 16; ++i) { LightFromWorld_[i] = 0.0; }
   for (int axis = 0; axis < 3; ++axis) {
     LightFromWorld_[axis * 4 + 0] = right[axis] / RadiusM_;
@@ -92,15 +92,15 @@ void LightVisibilityStage::Build(const double eye[3]) {
 
     LightFromWorld_[axis * 4 + 2] = -forward[axis] / (farAlong - nearAlong);
   }
-  LightFromWorld_[12] = -eyeLight[0] / RadiusM_;
-  LightFromWorld_[13] = -eyeLight[1] / RadiusM_;
+  LightFromWorld_[12] = -centreLight[0] / RadiusM_;
+  LightFromWorld_[13] = -centreLight[1] / RadiusM_;
   LightFromWorld_[14] = farAlong / (farAlong - nearAlong);
   LightFromWorld_[15] = 1.0;
 
   for (int row = 0; row < 3; ++row) {
     double carried = 0.0;
     for (int axis = 0; axis < 3; ++axis) {
-      carried += LightFromWorld_[axis * 4 + row] * eye[axis];
+      carried -= LightFromWorld_[axis * 4 + row] * preView[axis];
     }
     LightFromWorld_[12 + row] += carried;
   }
@@ -108,8 +108,8 @@ void LightVisibilityStage::Build(const double eye[3]) {
 
 void LightVisibilityStage::Encode(const FrameContext &ctx, const PassRecording &into) {
   if (!Declared_ || Subjects_ == nullptr) { return; }
-  Build(ctx.Eye);
-  Cast(LightFromWorld_, ctx.Eye, kShadowAtlasPx, into);
+  Build(ctx.PreViewTranslation);
+  Cast(LightFromWorld_, ctx.PreViewTranslation, kShadowAtlasPx, into);
 }
 
 
@@ -190,7 +190,7 @@ bool LightVisibilityStage::ConfigureDepthOnly(const Gpu &gpu, std::string &error
   DepthOnly_ = OwnedPipeline(device, made);
   return true;
 }
-void LightVisibilityStage::Cast(const double lightFromWorld16[16], const double eye[3],
+void LightVisibilityStage::Cast(const double lightFromWorld16[16], const double preView[3],
                                 int atlasPx, const PassRecording &into) {
   if (Subjects_ == nullptr) { return; }
   const SubjectResidency &Resident_ = Subjects_->Resident();
@@ -220,7 +220,7 @@ void LightVisibilityStage::Cast(const double lightFromWorld16[16], const double 
         Placed_.empty() ? Model : Placed_.data() + (size_t)slot * 16u;
     double carried[16];
     for (int i = 0; i < 16; i++) { carried[i] = model[i]; }
-    for (int axis = 0; axis < 3; ++axis) { carried[12 + axis] += Anchor[axis] - eye[axis]; }
+    for (int axis = 0; axis < 3; ++axis) { carried[12 + axis] += Anchor[axis] + preView[axis]; }
     double placed[16];
     for (int row = 0; row < 4; ++row) {
       for (int column = 0; column < 4; ++column) {

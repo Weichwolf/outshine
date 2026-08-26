@@ -25,7 +25,7 @@ public:
   [[nodiscard]] static std::string DepthOnlySource();
   [[nodiscard]] static std::string DepthOnlySource(std::string &error);
 
-  void Build(const double eye[3]);
+  void Build(const double preView[3]);
 
   [[nodiscard]] const double *LightFromWorld() const { return LightFromWorld_; }
   [[nodiscard]] size_t CastBatches() const { return CastBatches_; }
@@ -37,7 +37,7 @@ public:
 private:
   uint32_t CastsBelow_ = 0xffffffffu;
   [[nodiscard]] bool ConfigureDepthOnly(const Gpu &gpu, std::string &error);
-  void Cast(const double lightFromWorld16[16], const double eye[3], int atlasPx,
+  void Cast(const double lightFromWorld16[16], const double preView[3], int atlasPx,
             const PassRecording &into);
 
   size_t CastBatches_ = 0;

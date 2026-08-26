@@ -31,6 +31,13 @@ wherever it stands.
   the usual answer, inheritance the right one where a stable interface carries shared machinery.
   `--audit-access` counts what stands wider and refuses when the count moves
 - **SIMD- and optimization-friendly**: contiguous, one-width, pointer-free layouts; fast path on the hot path; batch over per-item; bounded terms on the frame path (no alloc/lock/disk/unbounded block)
+- **THE INTERFACE IS A DOCUMENT, and the scenario declares which one.** Markup, style, layout,
+  type and pointer are engine verbs; the panel itself is CONTENT and lives beside the glTF, never
+  in C++. RAGE reaches the same answer through Scaleform and Unreal does not reach it at all --
+  a UMG tree is authored in an editor, which makes it a build artefact rather than declared data.
+  What this choice buys beyond the shape: **the format has a standards body and the standards body
+  ships the corpus**, so WPT and test262 certify this layer from outside, and nothing else in the
+  tree has that
 - **Declarative**: scenarios declare, the engine behaves; content = data, engine = verbs; the consumer selects from a `constexpr` catalogue and cannot add to it. **A section that is NOT declared decides nothing** — its `Declared` flag is read where the decision is made, and what stands in its place is the engine's own default, never the zeroes of a struct nobody filled in
 - **A SCENARIO IS A STREAM, not a value that is re-declared.** `Declare` seeds; after that parts
   enter and leave. The bound is a cost: the work a declaration causes is proportional to what it
@@ -132,6 +139,7 @@ can be read and RAGE is reconstruction, so a RAGE row carries less and says so.
 | **possession** | `AController` possesses a `APawn` | ped/vehicle relationship | **Unreal** | the seam between a mind and a body is the same seam a player plugs into, and that is why one interface serves both |
 | **time** | variable step, physics substeps | fixed step, replay- and network-exact | **RAGE** | "temporally DETERMINISTIC" is not a wish: a fixed simulation step, one fixed order, and INTERPOLATION to the display is the mechanism, and nothing else delivers it |
 | **threading** | `FTaskGraph`, render + RHI threads, workers | `sysTaskManager`, fibers | **both agree** | a task graph with explicit dependencies; 720p60 on four usable cores is not reachable from one thread, and retrofitting threading is a rewrite |
+| **interface** | Slate/UMG: a native widget tree authored in the editor; CEF only for real browsers | **Scaleform GFx**: Flash documents with ActionScript, authored OUTSIDE and rendered by the engine | **RAGE's slot, with a standardised format in it** | a widget tree authored in an editor is not declared CONTENT, and this engine's rule is content = data. HTML/CSS/JS fills Scaleform's slot with a format a standards body maintains -- and that buys the thing neither Scaleform nor Slate has: **WPT and test262 prove the interface layer, so it is the one subsystem in this tree whose correctness someone else certifies** |
 | **content surface** | `.uasset` + Interchange for import | offline tool chain | **neither wholesale** | glTF 2.0 is the only content surface here, which is Interchange's role without Interchange's format; what a client hands ACROSS the door is a handle, never a layout |
 
 ## Architecture (TARGET)
@@ -147,13 +155,15 @@ flowchart TD
   rend["RENDERER — pixels from a declared plan"]
   frame(["720p60 on this device"])
   scen[/"SCENARIOS — camera × clock × world-or-studio"/]
+  ui["INTERFACE — documents: markup · style · layout · type · pointer, script in base; RAGE fills this slot with Scaleform, and a standards body ships this one's corpus"]
 
   actors["ACTOR CHAIN — bodies · minds · presence, assembled from the scene store"]
 
   upstream --> providers --> store --> field --> gen
   gen -->|part| store -->|handle| comp -->|draw list| rend --> frame
   field --> actors -->|placements| comp
-  scen -.->|declares| gen & comp & rend
+  scen -.->|declares| gen & comp & rend & ui
+  ui -->|overlay| rend
   scen -.->|declares · clocks| actors
   tmpl[/"WORLD TEMPLATES — earth · moon: shipped declarations in src/assets"/] -.->|instanced, then deltas| scen
 ```
@@ -376,6 +386,15 @@ What a corpus HOLDS decides what it can prove:
 position, kind). A random fuzzer belongs outside a gate that must not go silent; its output is a
 reduced case committed here, never a tick. Its two controls: the schedule must produce documents
 the reader REFUSES and documents that still STAND.
+
+**ONLY THE VENDOR CORPORA PROVE ANYTHING.** Khronos, WPT, test262 and GeographicLib are where a
+standards body or a computation carried further than ours states the answer, and a case there fails
+because the code is wrong. Everything under `harness/outshine/` is a REGRESSION NET of unknown
+grade: it holds the tree to what the tree already did, which is agreement with ourselves and not
+correctness. **This bites hardest during a refactor.** A restructuring that leaves our own cases
+green has proven that it preserved the previous behaviour -- and if that behaviour was wrong, the
+green is the wrong answer preserved exactly. So a red in an `outshine/` case during a refactor is
+INFORMATION and not automatically a defect, and it is never made green by editing the case.
 
 **`test/<vendor>/` is the vendor's word; `test/harness/outshine/` is OUR OWN ORACLE and carries less.**
 A khronos, wpt, test262 or geographiclib case is a SPECIFICATION: it fails and the code is

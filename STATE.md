@@ -101,44 +101,41 @@ Module depends on module, derived from the includes themselves.
 ```mermaid
 flowchart LR
   render_stages --> |28| render_device
-  world_ground --> |20| base_spatial
-  engine --> |18| world_generators
-  world_ground --> |15| base_io
+  world_ground --> |18| base_spatial
   world_generators --> |15| world_ground
+  world_ground --> |14| base_io
   sim --> |14| actor_path
   world_generators --> |12| base_spatial
   sim --> |12| world_ground
   render --> |12| render_stages
-  engine --> |11| world_ground
   world_ground --> |9| world_data
-  engine --> |8| scenario
-  engine --> |8| base_io
   engine --> |7| content_gltf
   actor_mind --> |7| actor_path
   sim --> |6| actor_mind
   engine --> |6| ui
+  engine --> |6| scenario
   sim --> |5| base_spatial
   sim --> |5| actor_body
   scenario --> |5| base_format
-  engine --> |5| world_data
-  engine --> |5| content_shade
+  engine --> |5| world_generators
   content_gltf --> |5| base_spatial
-  world_ground --> |4| content_shade
-  world_ground --> |4| base_geo
   world_generators --> |4| base_math
   world_generators --> |4| base_geo
   render_stages --> |4| content_shade
   engine --> |4| scene
   engine --> |4| render
   content_gltf --> |4| content_shade
+  world_ground --> |3| content_shade
+  world_ground --> |3| base_geo
   world_ground --> |3| base_format
   sim --> |3| scene
   render --> |3| render_device
   render --> |3| base_io
   render_stages --> |3| base_spatial
+  engine --> |3| base_io
   content_shade --> |3| base_math
 ```
-  37 edge(s) drawn, 41 thinner than three includes not drawn
+  34 edge(s) drawn, 42 thinner than three includes not drawn
 
 ## Tiers
 
@@ -174,7 +171,7 @@ The heaviest units, against the median of them all.
 | 1103 | `base/spatial/Wayfinding.h` |
 | 1042 | `render/stages/SubjectDraw.h` |
 | 955 | `ui/Style.h` |
-| **108** | *the median of 245 unit(s)* |
+| **107** | *the median of 241 unit(s)* |
 
 ## Carpet
 
@@ -201,10 +198,7 @@ Header names that collide.
 Sources no declared suite links, so nothing they hold is proven.
 
   src/audio/BusGraph.cpp
-  src/engine/EyeTelemetry.cpp
   src/engine/RegionForge.cpp
-  src/engine/Sim.cpp
-  src/engine/StreamTelemetry.cpp
   src/scenario/Animation.cpp
   src/scenario/Mod.cpp
   src/scenario/Scene.cpp
@@ -301,13 +295,13 @@ Named constants standing as a bare literal, whose origin is elsewhere.
 | 16 | `src/world/generators/draw/BuildingShape.cpp` |
 | 14 | `src/world/generators/draw/BuildingMesh.cpp` |
 | 6 | `src/content/gltf/Framing.h` |
-| 5 | `src/world/ground/World.cpp` |
 | 5 | `src/render/stages/ParticipatingMedium.h` |
 | 5 | `src/render/stages/IridescenceLobe.h` |
 | 4 | `src/render/stages/SubjectDraw.h` |
 | 4 | `src/actor/path/ReferenceLine.h` |
 | 3 | `src/world/ground/WaterField.cpp` |
 | 3 | `src/world/ground/TerrainLoader.cpp` |
+| 3 | `src/world/ground/BuildingField.cpp` |
 
 ## Progress
 

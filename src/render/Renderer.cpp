@@ -531,12 +531,12 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
   if (seat == nullptr || seat->Encode == nullptr) { return; }
 
   FrameContext ctx{};
-  for (int axis = 0; axis < 3; axis++) { ctx.Eye[axis] = Eye_[axis]; }
+  for (int axis = 0; axis < 3; axis++) { ctx.PreViewTranslation[axis] = -Eye_[axis]; }
 
   MvpCamRel(ctx.Mvp16, Right_, Up_, Fwd_, PictureW(), PictureH(), FovDeg_, OrthoM_, Jitter_[0],
             Jitter_[1], NearM_);
   for (int axis = 0; axis < 3; axis++) {
-    ctx.PrevEye[axis] = Submitted_ ? PrevEye_[axis] : ctx.Eye[axis];
+    ctx.PrevPreViewTranslation[axis] = Submitted_ ? -PrevEye_[axis] : ctx.PreViewTranslation[axis];
   }
   for (int at = 0; at < 16; at++) {
     ctx.PrevMvp16[at] = Submitted_ ? PrevMvp16_[at] : ctx.Mvp16[at];
