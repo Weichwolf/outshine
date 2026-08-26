@@ -67,24 +67,28 @@ the reader gains afterwards arrives on both sides at once. That is Unreal's shap
 produces `FMeshDescription` and the renderer builds its proxy FROM it -- and RAGE's, where the tool
 chain produces one `rmcDrawable` and nothing else exists to drift from.
 
-## THE PRECISION QUESTION SETTLES ITSELF, AND IT SETTLES THE MERGE DIRECTION
+## THE PRECISION QUESTION HAS TWO ANSWERS BECAUSE THERE ARE TWO STAGES
 
-`Gltf::Subject` stores `std::vector<double>` positions; `Geometry` stores `float`. That looks like
-a conflict to resolve and is not one.
+Stated wrongly here first, and the correction is the useful part. The claim was that `Subject`'s
+`double` positions merely widen the file's float32 and carry no information, because the reader
+does not bake node transforms. **It does bake them**: `src/content/gltf/Subject.cpp:694` runs
+`place.At(vertex).Point(local, global)` -- the node's world transform AND the skin -- in double,
+and stores the result. So the doubles are the output of a double-precision chain, not a widening.
 
-glTF stores `POSITION` as float32 -- component type 5126 -- and this reader does not BAKE node
-transforms into the vertices: each part carries its own placement matrix (`Stood_.PartPlacement`,
-folded in `src/engine/Live.cpp:295`). So the doubles hold exactly the file's float32 values,
-widened. **Twice the memory for no information**, on the largest array in the tree.
+With that measured, the two precisions turn out to belong to two different stages:
 
-The benchmark agrees and for the same reason: Unreal keeps mesh vertices in `FVector3f` and puts
-the precision in the TRANSFORM (`FTransform` under Large World Coordinates), and RAGE does the
-same. CLAUDE.md's own rule is already this sentence -- 64-bit positions in the scene, 32-bit
-camera-relative in the renderer -- and a model-local vertex is neither: it is an offset from its
-own part's origin, and float32 is what it was born as.
+| stage | what it holds | precision |
+|---|---|---|
+| **`Geometry`** -- what the file says | source vertices per part, model-local, **plus the node transform that places them** | `float`, which is glTF's own (accessor component type 5126) |
+| **the packing** -- what is drawn | placed and skinned vertices in one array, parts as reaches | `double`, because the chain that produced them runs in double |
 
-So the merge runs one way: `Subject` becomes the reader that FILLS a `Geometry`, and the widening
-disappears with the second representation that needed it.
+Two stages of one truth, which is not the same thing as two truths. Unreal draws the line in the
+same place: `FMeshDescription` holds what was imported, `FStaticMeshRenderData` holds what is
+drawn, and the transform precision lives in `FTransform` rather than in the vertices.
+
+**This makes `Geometry` carry the node hierarchy**, which the table below already lists as absent --
+so the correction removes a row rather than adding one. The merge runs: the reader fills a
+`Geometry` from the file's primitives and transforms, and the placement bake derives the packing.
 
 ## What will be true
 
