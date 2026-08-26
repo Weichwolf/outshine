@@ -47,6 +47,11 @@ offered: an unknown kind is REFUSED BY NAME at declaration, and an offered one r
 makes stands in the picture.
       proof: harness/outshine/door/ScoreWhatAClientsGeneratorMakes
 
+**AND A SCENARIO'S ASSET MAY NAME A GENERATOR RATHER THAN A FILE**: `<asset kind="generated"
+uri="test-slab"/>` stands what the maker makes. That is how a scenario USES the geometry a client
+builds, without a pointer in the declaration -- a pointer cannot be written to XML and read back,
+and a name can. One resolution serves both places a name can appear, and both refuse by that name.
+
 What remains is the SHIPPED half: outshine offers none of its own yet, so today every kind must
 come from the client. The four internal generators (`Forest`, `Buildings`, `Water`,
 `Infrastructure`) implement a DIFFERENT interface -- `Occupy`/`Proposes`/`At`, which scatters

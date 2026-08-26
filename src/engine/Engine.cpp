@@ -671,15 +671,24 @@ void Engine::Offers(const Generates &maker) {
 }
 
 bool Engine::Declare(const Scenario &scenario) {
-  for (const Generator &named : scenario.Generators) {
-    bool offered = false;
+  const auto offers = [this](const std::string &kind) {
     for (const Generates *const stood : S_->Making) {
-      offered = offered || stood->Kind() == named.Kind;
+      if (stood->Kind() == kind) { return true; }
     }
-    if (offered) { continue; }
+    return false;
+  };
+  for (const Generator &named : scenario.Generators) {
+    if (offers(named.Kind)) { continue; }
     S_->Error = "the scenario declares a generator of kind '" + named.Kind +
                 "' and nothing offers that kind -- a declaration nobody can act on is a refusal, "
                 "never a line that is counted and dropped";
+    return false;
+  }
+  for (const Asset &shown : scenario.Assets) {
+    if (shown.Kind != "generated" || offers(shown.Uri)) { continue; }
+    S_->Error = "the scenario stands the generated asset '" + shown.Uri +
+                "' and nothing offers a generator of that kind -- an asset names a generator the "
+                "way a scenario names anything, and a name nobody answers is a refusal";
     return false;
   }
   if (S_->Frame.WidthPx <= 0 || S_->Frame.HeightPx <= 0) {
@@ -806,20 +815,28 @@ bool Engine::Declare(const Scenario &scenario) {
 }
 
 bool Engine::Generated(const Scenario &scenario) {
-  if (scenario.Generators.empty()) { return true; }
+  Ask ask;
+  ask.EastM = scenario.Ground.Lon;
+  ask.NorthM = scenario.Ground.Lat;
+  ask.ExtentM = scenario.Ground.RadiusM;
+
   Geometry made;
-  for (const Generator &named : scenario.Generators) {
+  const auto asked = [&](const std::string &kind) {
     for (const Generates *const stood : S_->Making) {
-      if (stood->Kind() != named.Kind) { continue; }
-      Ask ask;
-      ask.EastM = scenario.Ground.Lon;
-      ask.NorthM = scenario.Ground.Lat;
-      ask.ExtentM = scenario.Ground.RadiusM;
-      if (!stood->Make(ask, made)) {
-        S_->Error = "the generator of kind '" + named.Kind + "' refused to make anything";
-        return false;
-      }
+      if (stood->Kind() != kind) { continue; }
+      if (stood->Make(ask, made)) { return true; }
+      S_->Error = "the generator of kind '" + kind + "' refused to make anything";
+      return false;
     }
+    return true;
+  };
+
+  for (const Asset &shown : scenario.Assets) {
+    if (shown.Kind != "generated") { continue; }
+    if (!asked(shown.Uri)) { return false; }
+  }
+  for (const Generator &named : scenario.Generators) {
+    if (!asked(named.Kind)) { return false; }
   }
   return made.Parts() == 0 || Stands(made);
 }

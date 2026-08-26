@@ -134,8 +134,39 @@ int main(void) {
         "`Generator{Kind, Parameters}` was always shaped for. A pointer in the declaration would "
         "have read the same and could not survive being written to XML and read back");
 
+  outshine::Scenario asAsset;
+  asAsset.Render = stands.Render;
+  asAsset.Lit = stands.Lit;
+  outshine::Asset generated;
+  generated.Uri = "test-slab";
+  generated.Kind = "generated";
+  asAsset.Assets.push_back(generated);
+
+  std::vector<uint8_t> byAsset;
+  const bool stoodAsAsset = engine.Declare(asAsset) && engine.RenderTo(outshine::Extent{}) &&
+                            engine.Pixels(byAsset);
+  const double asAssetGreen = stoodAsAsset ? Green(byAsset) : -1.0;
+
+  outshine::Scenario unknown = asAsset;
+  unknown.Assets.front().Uri = "no-such-maker";
+  const bool refusedAsset = !engine.Declare(unknown);
+  const std::string whyAsset = engine.Error();
+
+  std::printf("AS A GENERATED ASSET         mean green %.2f\n", asAssetGreen);
+  std::printf("NAMING A MAKER NOBODY OFFERS %s\n",
+              refusedAsset ? whyAsset.c_str() : "STOOD ANYWAY");
+
+  CHECK(asAssetGreen > 1.0,
+        "**AND A SCENARIO'S ASSET MAY NAME A GENERATOR INSTEAD OF A FILE**: `<asset "
+        "kind=\"generated\" uri=\"test-slab\"/>` stands what the maker makes, so a scenario "
+        "USES the geometry a client builds without a pointer in the declaration -- a pointer "
+        "cannot be written to XML and read back, and a name can");
+  CHECK(refusedAsset && whyAsset.find("no-such-maker") != std::string::npos,
+        "and an asset naming a maker nobody offers is refused by that name, the same way a "
+        "declared generator is -- one resolution, two places to name it from");
+
   Covers("the door: a scenario's declared generator resolves against what the client offers -- an "
-         "unknown kind is refused by name at declaration, and an offered one runs and reaches the "
-         "picture");
+         "unknown kind is refused by name at declaration, an offered one runs and reaches the "
+         "picture, and an ASSET may name a generator instead of a file");
   return Report();
 }
