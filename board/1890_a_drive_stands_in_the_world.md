@@ -50,6 +50,44 @@ and the refusal now carries this measurement instead of an assertion:
 So the scale mixing is NOT the fourth box behind three easier ones. It is the FIRST box, and the
 three lines are its consequence.
 
+## FOUR CORRECTIONS, measured at 3f50607c, and each one moves the item
+
+**1. The placement chain ALREADY separates the two scales, so the headline mechanism is not the
+mechanism.** `Live::Carry` gives every part before `Joined_` the vehicle's placement multiplied
+by `MetresPerUnit`, and every part at or after it a second matrix:
+
+    src/engine/Live.cpp:583   const double *const from = part < Joined_ ? body : built;
+    src/engine/Engine.cpp:932 const double stillM[16] = {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1};
+                              Standing->Carry(bodyFromWorld, stillM, Error)
+
+`built` is the IDENTITY. A ground appended after the driven parts is placed in metres, unscaled,
+which is exactly what it needs. "The ground inherits the vehicle's model scale" is false at the
+placement level.
+
+**2. `Rides()` runs AFTER `Composes()`, and the item had the order backwards.** `Restand` calls
+`Stand()`, which resets `Stood_.PartPlacement` to identity for every part. A `Carry` before the
+restand is thrown away, so the vehicle stands unplaced beside a ground that is placed -- which is
+what the shrapnel was.
+
+**3. What refuses is the ASSET'S OWN CAMERA, and its near plane is a constant.**
+
+    CARRIES the ground did not compose: vertex 1228279 sits 401.258304 m along the view axis,
+    inside the near plane of 637.888958 m this placement declares
+
+637.888958 is IDENTICAL in every configuration run -- `overADrive` true and false, different
+vertices, different routes. A derived near plane does not do that. It is the subject's own
+declared camera:
+
+    src/content/gltf/Document.cpp:840   camera.ZNearM = lens["znear"].Num(0.0)
+
+in ASSET UNITS: 637.9 x 0.0155 m/unit = 9.9 m. A studio camera's near plane, applied to an eye
+sitting in the cabin. `Aim`'s `standsInside` parameter exists for exactly this and `Place` passes
+its default -- but `Stood_.EyeStandsInside` is set from `HaveEye_`, and at ASSEMBLY time no view
+has been taken yet, so it is false when it matters.
+
+**4. The draw list does reach 517 batches** -- 258 the car, 259 the ground -- and the refusal now
+lands AFTER the geometry rather than before it. The count was never the hard part.
+
 ## What will be true
 
 - [ ] The ground is a COMPOSITOR's draw item with its own scale and its own placement, never a
