@@ -175,6 +175,8 @@ flowchart TD
   Pathfinding --> Alignment["Alignment — one arc per RUN of same-sign turns; a transition only where curvature reverses"]
   Alignment --> Line["ReferenceLine — the corridor the wheels stand on"]
   SimD --> Physics["Rig · Body · Contact — forces at the patch"]
+  Physics --> Underfoot["UNDERFOOT — what a wheel stands on: height · normal · friction, from the world and never from the corridor"]
+  Underfoot --> WorldC
   SimD --> WorldC["World composition — the scenario declares a sphere, the engine composes its fields"]
   WorldC --> Compositors["Compositors — terrain · ring · cut-fill placement"]
   Line --> Compositors
@@ -187,6 +189,7 @@ flowchart TD
   classDef likely fill:#8a6d1f,stroke:#4a3a0d,color:#fff
   class Scenario,ClientCode,Assembly,SceneStore,SimD,Pathfinding,Physics,Registry,DrawList,Frame,WorldC,Line,Alignment sure
   class Columns,Compositors,Stages,Entities likely
+  class Underfoot sure
 ```
 
 ## Public interface (TARGET — one door)
