@@ -38,6 +38,14 @@ wherever it stands.
   the usual answer, inheritance the right one where a stable interface carries shared machinery.
   `--audit-access` counts what stands wider and refuses when the count moves
 - **SIMD- and optimization-friendly**: contiguous, one-width, pointer-free layouts; fast path on the hot path; batch over per-item; bounded terms on the frame path (no alloc/lock/disk/unbounded block)
+- **THE SIMULATION IS MECHANICS AND THE RENDERER IS OPTICS.** Both are branches of physics, and
+  naming them so decides what may appear in either: the simulation speaks of bodies, joints,
+  constraints, wrenches, impulses and integration; the renderer speaks of radiance, irradiance,
+  transmittance, scattering, extinction, albedo and exposure. Neither speaks of cars.
+  **Measured, the renderer already obeys and the simulation does not**: `src/render` carries 390
+  optics terms against 3 subject words, while `src/sim` carries 46 mechanics terms against 96
+  vehicle words -- two to one the wrong way. The reason is plain once seen: optics never met a
+  subject, because light knows no cars, and the simulation was written from one car outwards
 - **AN ENGINE KNOWS LAWS AND NO SUBJECTS.** Its whole vocabulary is the one the laws are written
   in: **body · joint · degree of freedom · drive · constraint · force · contact · integration**.
   A vehicle, a wheel, a tyre, a seat, a door and a walker are SUBJECTS -- assemblies a scenario
