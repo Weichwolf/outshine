@@ -649,6 +649,15 @@ bool Live::Advance(std::string &error) {
     Aimed_ = true;
     TookAiming_ = took(beforeAim);
   }
+  return true;
+}
+
+bool Live::Draw(std::string &error) {
+  if (Renderer_ == nullptr) {
+    error = "no device stands, so there is nothing to draw with";
+    return false;
+  }
+  const auto took = [](size_t before) { return Heap::LiveBytes() - before; };
   const size_t beforeDraw = Heap::LiveBytes();
   const Heap::Tagged drawing("render-frame");
   Renderer_->RenderFrame();

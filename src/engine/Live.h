@@ -100,6 +100,7 @@ public:
   void SkyEye(double aboveGroundM);
 
   [[nodiscard]] bool Advance(std::string &error);
+  [[nodiscard]] bool Draw(std::string &error);
 
   void Eye(const Gltf::Placement &from);
 

@@ -20,6 +20,7 @@ struct Asked {
   bool Headless = false;
   long Frames = 0;
   long Stills = 10;
+  bool Every = false;
   std::string Into;
   std::string Assets;
   std::string Shipped = "src/assets";
@@ -51,6 +52,8 @@ void Usage() {
       "  --frames N          stop after N frames (default: until the drive arrives)\n"
       "  --into DIR          write stills here -- ten of them, evenly along the drive\n"
       "  --stills N          how many (default 10)\n"
+      "  --every             draw EVERY frame, not only the stills -- physics runs a long\n"
+      "                      route fast, graphics runs a short one slowly\n"
       "  --assets DIR        where a scenario's asset URIs resolve\n"
       "  --shipped DIR       where outshine's own data is (default src/assets)\n"
       "  --cache DIR         where fetched tiles are kept\n"
@@ -81,6 +84,8 @@ enum class Reading { Ran, Asked, Wrong };
       out.Scenario = argv[++at];
     } else if (said == "--into" && wants) {
       out.Into = argv[++at];
+    } else if (said == "--every") {
+      out.Every = true;
     } else if (said == "--stills" && wants) {
       int held = 0;
       if (!Number(argv[++at], held)) { return Reading::Wrong; }
@@ -192,13 +197,17 @@ int main(int argc, char **argv) {
   long nextStill = 0;
   while (engine.Advance()) {
     ++frames;
+    if (asked.Every && !engine.RenderTo(outshine::Extent{})) {
+      std::printf("REFUSED %s\n", engine.Error().c_str());
+      return 1;
+    }
     const double alongM = engine.Along();
     const bool wanted =
         !asked.Into.empty() && nextStill < asked.Stills &&
-        (routeM > 0.0
-             ? 2.0 * alongM * (double)asked.Stills >= (double)(2 * nextStill + 1) * routeM
-             : (asked.Frames > 0 &&
-                2 * frames * asked.Stills >= (long)(2 * nextStill + 1) * asked.Frames));
+        (asked.Frames > 0
+             ? 2 * frames * asked.Stills >= (long)(2 * nextStill + 1) * asked.Frames
+             : routeM > 0.0 && 2.0 * alongM * (double)asked.Stills >=
+                                   (double)(2 * nextStill + 1) * routeM);
     if (wanted) {
       ++nextStill;
       char named[512];

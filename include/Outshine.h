@@ -37,6 +37,7 @@ public:
   [[nodiscard]] bool Handles(const SDL_Event &event);
   [[nodiscard]] bool DrawsInto(Extent offscreen);
   void Under(Roots roots);
+  [[nodiscard]] bool RenderTo(Extent frame);
   [[nodiscard]] bool Capture(std::string_view path);
   [[nodiscard]] bool Pixels(std::vector<uint8_t> &rgba);
 

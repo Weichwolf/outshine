@@ -101,7 +101,8 @@ int main(void) {
   shown.Kind = "gltf";
   stands.Assets.push_back(shown);
 
-  if (!engine.Declare(stands) || !engine.Advance()) {
+  if (!engine.Declare(stands) || !engine.Advance() ||
+      !engine.RenderTo(outshine::Extent{})) {
     Unprepared(("the caster did not stand: " + engine.Error()).c_str());
     return Report();
   }

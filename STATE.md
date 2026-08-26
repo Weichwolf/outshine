@@ -10,6 +10,7 @@ DOOR -- include/
  bool Handles(const SDL_Event &event)
  bool DrawsInto(Extent offscreen)
  void Under(Roots roots)
+ bool RenderTo(Extent frame)
  bool Capture(std::string_view path)
  bool Pixels(std::vector<uint8_t> &rgba)
  bool Read(std::string_view path)
@@ -112,7 +113,7 @@ CARPET -- the widest public surfaces
     51 [[nodiscard]] in src/content/gltf/Document.h
     42 [[nodiscard]] in src/content/gltf/Subject.h
     34 [[nodiscard]] in src/scene/Store.h
-    33 [[nodiscard]] in src/engine/Live.h
+    34 [[nodiscard]] in src/engine/Live.h
     31 [[nodiscard]] in src/base/format/Xml.h
 
 TWINS -- header names that collide

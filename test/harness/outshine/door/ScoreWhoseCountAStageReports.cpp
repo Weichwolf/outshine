@@ -130,14 +130,16 @@ int main(void) {
     return Report();
   }
 
-  if (!lit.Declare(Stood("pair.gltf", true)) || !lit.Advance()) {
+  if (!lit.Declare(Stood("pair.gltf", true)) || !lit.Advance() ||
+      !lit.RenderTo(outshine::Extent{})) {
     Unprepared(("the lit engine did not stand: " + lit.Error()).c_str());
     return Report();
   }
   const double litDrew = Measured(lit, "batches the picture draws");
   const double litCast = Measured(lit, "batches the shadow casts");
 
-  if (!unlit.Declare(Stood("lone.gltf", false)) || !unlit.Advance()) {
+  if (!unlit.Declare(Stood("lone.gltf", false)) || !unlit.Advance() ||
+      !unlit.RenderTo(outshine::Extent{})) {
     Unprepared(("the unlit engine did not stand: " + unlit.Error()).c_str());
     return Report();
   }

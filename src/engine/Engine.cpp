@@ -123,6 +123,7 @@ struct Engine::State {
   std::string Error;
 
   void Places(const char *what, double how, const char *unit);
+  void Drew(void);
   [[nodiscard]] bool Rides(void);
   [[nodiscard]] bool Composes(void);
   [[nodiscard]] bool Routes(void);
@@ -388,13 +389,31 @@ bool Engine::State::Composes(void) {
 }
 
 
+bool Engine::RenderTo(Extent frame) {
+  if (!S_->Standing) {
+    S_->Error = "no scenario is standing, so there is nothing to draw";
+    return false;
+  }
+  if (frame.WidthPx > 0 && frame.HeightPx > 0 &&
+      (frame.WidthPx != S_->Frame.WidthPx || frame.HeightPx != S_->Frame.HeightPx)) {
+    S_->Error = "this engine stands on a " + std::to_string(S_->Frame.WidthPx) + "x" +
+                std::to_string(S_->Frame.HeightPx) + " canvas and was asked to draw " +
+                std::to_string(frame.WidthPx) + "x" + std::to_string(frame.HeightPx) +
+                " -- a canvas is declared before a scenario stands on it";
+    return false;
+  }
+  if (!S_->Standing->Draw(S_->Error)) { return false; }
+  S_->Drew();
+  return true;
+}
+
 bool Engine::Pixels(std::vector<uint8_t> &rgba) {
   if (!S_->Standing) {
     S_->Error = "nothing stands to be read -- a scenario is declared before a frame carries pixels";
     return false;
   }
   S_->Device.WantsPixels();
-  if (!S_->Standing->Advance(S_->Error)) { return false; }
+  if (!S_->Standing->Draw(S_->Error)) { return false; }
   return S_->Standing->ReadPixels(rgba, S_->Error);
 }
 
@@ -404,7 +423,7 @@ bool Engine::Capture(std::string_view path) {
     return false;
   }
   S_->Device.WantsPixels();
-  if (!S_->Standing->Advance(S_->Error)) { return false; }
+  if (!S_->Standing->Draw(S_->Error)) { return false; }
   return S_->Standing->Screenshot(std::string(path), S_->Error);
 }
 
@@ -1019,10 +1038,12 @@ bool Engine::Advance() {
     if (!S_->Rides()) { return false; }
   }
   if (!S_->Standing->Advance(S_->Error)) { return false; }
-  S_->Places("batches the picture draws", (double)S_->Device.SubjectBatchCount(), "batches");
-  S_->Places("batches the shadow casts",
-             (double)S_->Device.ShadowCastCount(), "batches");
   return true;
+}
+
+void Engine::State::Drew(void) {
+  Places("batches the picture draws", (double)Device.SubjectBatchCount(), "batches");
+  Places("batches the shadow casts", (double)Device.ShadowCastCount(), "batches");
 }
 
 double Engine::StepS(void) const { return S_->Declared.Motion.StepS; }
