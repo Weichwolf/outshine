@@ -3,7 +3,7 @@ State: open
 Area: core
 Tags: architecture, physics, actor
 Parent: 1953
-Depends: 1896
+Depends: 1896, 1965
 
 # The engine knows bodies, forces and control -- never a car
 
@@ -88,6 +88,14 @@ The order this is done in:
    `how long the corridor is` and `how far along it the body has come`. `apps/driver` reads them
    like any other number and lost nothing.
 4. `Column<Vehicle>` and `Column<Drive>` become columns the drive assembler owns
+
+**THE PROVING TEST WAITS ON board:1965, AND SAYS SO RATHER THAN BEING BUILT AROUND.** Two thirds
+of it stand: board:1969 shows a body with no drive standing, integrated and placed. The last third
+-- *moves under a control command* -- needs a FORCE actuator, and the catalogue is `{Torque,
+Steer}`. Adding a thrust to that catalogue would be building on the model board:1965 replaces: an
+actuator is not a thing beside a joint, it is a constraint with a target and a force limit, and a
+thrust is EFFORT on a free body's translational degree of freedom. Building it twice is what
+board:1953 forbids.
 
 Proving test when it lands: a scenario that declares a body with a thrust actuator and NO drive
 at all stands, is placed by integration, and moves under a control command. Negative control:
