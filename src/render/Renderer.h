@@ -83,6 +83,7 @@ public:
 
   [[nodiscard]] ReadState ReadDepth(std::vector<float> &depth);
   [[nodiscard]] static bool Executable(Stage stage);
+  void CastsBelow(uint32_t slot) { Shadow_.CastsBelow(slot); }
   [[nodiscard]] ReadState ReadShadowAtlas(std::vector<float> &depth);
   static constexpr float kNearM = 0.05f;
 

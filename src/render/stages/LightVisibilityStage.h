@@ -32,7 +32,11 @@ public:
   [[nodiscard]] size_t CastBatches() const { return CastBatches_; }
   [[nodiscard]] bool Standing() const { return Declared_; }
 
+public:
+  void CastsBelow(uint32_t slot) { CastsBelow_ = slot; }
+
 private:
+  uint32_t CastsBelow_ = 0xffffffffu;
   [[nodiscard]] bool ConfigureDepthOnly(const Gpu &gpu, std::string &error);
   void Cast(const double lightFromWorld16[16], const double eye[3], int atlasPx,
             const PassRecording &into);

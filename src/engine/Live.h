@@ -88,6 +88,8 @@ public:
                              std::string &error);
 
   void ScaledBy(double metresPerUnit) { Declared_.MetresPerUnit = metresPerUnit; }
+  [[nodiscard]] double ShadowRadiusStanding() const { return ShadowRadiusStoodM_; }
+  [[nodiscard]] const double *ShadowCentreStanding() const { return ShadowCentreStoodM_; }
   [[nodiscard]] bool Carry(const double worldFromBodyM[16], const double built[16],
                            std::string &error);
 
@@ -162,6 +164,7 @@ private:
   uint64_t Cut_ = 0;
   Declaration Declared_;
   double ShadowRadiusStoodM_ = 0.0;
+  double ShadowCentreStoodM_[3] = {0.0, 0.0, 0.0};
   std::shared_ptr<const Render::RenderPlan> Plan_;
   Gltf::Document File_;
   Gltf::Subject Geometry_;

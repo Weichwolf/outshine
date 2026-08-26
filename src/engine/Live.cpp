@@ -605,6 +605,7 @@ bool Live::Carry(const double worldFromBodyM[16], const double built[16], std::s
     for (int at = 0; at < 16; ++at) { Stood_.PartPlacement[part][at] = from[at]; }
   }
   BoundsPlaced_ = false;
+  Renderer_->CastsBelow((uint32_t)Joined_);
   Placements(Stood_, Scratch_.Placements);
   return Renderer_->SetSubjectPlacements(Scratch_.Placements.data(),
                                          Stood_.PartPlacement.size(), error);
@@ -683,6 +684,7 @@ bool Live::Draw(std::string &error) {
       double centre[3];
       for (int axis = 0; axis < 3; ++axis) { centre[axis] = 0.5 * (least[axis] + most[axis]); }
       Renderer_->ShadowCentre(centre);
+      for (int axis = 0; axis < 3; ++axis) { ShadowCentreStoodM_[axis] = centre[axis]; }
     }
   }
   const auto took = [](size_t before) { return Heap::LiveBytes() - before; };

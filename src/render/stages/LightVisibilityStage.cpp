@@ -221,6 +221,7 @@ void LightVisibilityStage::Cast(const double lightFromWorld16[16], const double 
   };
   CastBatches_ = 0;
   for (const DrawBatch &batch : Batches) {
+    if (batch.ModelSlot >= CastsBelow_) { continue; }
     ++CastBatches_;
     if (batch.ModelSlot != standing) {
       place(batch.ModelSlot);
