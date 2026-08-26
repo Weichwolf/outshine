@@ -12,13 +12,72 @@ namespace {
 // A seeded copy pins ROOT to the calling directory -- the copy lives in the checkout-keyed
 // nest, so a neighbour cannot overwrite it between the write and the sh -- and the detectors
 // are byte-identical to the runner's own.
+//
+// WHERE THE SEED GOES IS READ FROM THE DECLARATION, NEVER QUOTED. Every one of these controls
+// used to name a literal path list -- "src/sim src/scene src/engine/Assembly.cpp" -- copied out
+// of `LayerGroups` on the day it was written. The day somebody reordered that list the sed
+// matched nothing, the copy came back byte-identical to the original, and the control stopped
+// controlling. It did not go red: an unseeded copy passes its own audit, so the claim went
+// GREEN with four detectors nobody had checked.
+//
+// So the sites are DERIVED from `LayerGroups` as it stands at this instant, and every seed is
+// followed by a check that it took. A seed that did not take is reported as a STALE CONTROL by
+// that name, because "the ghost detector did not fire" and "there was no ghost to detect" are
+// different failures and only one of them is about the audit.
 [[nodiscard]] std::string Seeded(const char *name, const std::string &patch) {
   const char *nest = std::getenv("OUTSHINE_NEST");
   if (nest == nullptr) { return std::string(); }
   const std::string at = std::string(nest) + "/audit-control-" + name + ".sh";
   std::string ignored;
-  (void)Run("sed -e 's|^ROOT=.*|ROOT=\"$PWD\"|' -e '" + patch + "' test/run.sh > " + at, ignored);
+  (void)Run("sed -e 's|^ROOT=.*|ROOT=\"$PWD\"|' -e '/^LayerGroups()/,/^}/{" + patch +
+                ";}' test/run.sh > " + at,
+            ignored);
   return at;
+}
+
+[[nodiscard]] std::string OneWord(const std::string &of) {
+  const size_t end = of.find_first_of(" \n\t");
+  return end == std::string::npos ? of : of.substr(0, end);
+}
+
+// A unit named ON ITS OWN whose directory the declaration does NOT also list. Striking one that
+// its directory covers changes nothing -- the glob still finds it -- so a control seeded there
+// watches a closure that never opened.
+[[nodiscard]] std::string OnlyNamedAlone() {
+  std::string said;
+  (void)Run("L=$(sed -n '/^LayerGroups()/,/^}/p' test/run.sh"
+            " | grep -o 'src/[a-zA-Z0-9/._-]*' | sort -u);"
+            " for c in $(printf '%s\\n' \"$L\" | grep '\\.cpp$'); do"
+            " d=$(dirname \"$c\");"
+            " printf '%s\\n' \"$L\" | grep -qx \"$d\" || { printf '%s\\n' \"$c\"; break; };"
+            " done",
+            said);
+  return said;
+}
+
+// The declaration as it stands NOW: every source-group token `LayerGroups` names, one per line.
+[[nodiscard]] std::string Listed(const char *matching) {
+  std::string said;
+  (void)Run(std::string("sed -n '/^LayerGroups()/,/^}/p' test/run.sh"
+                        " | grep -o 'src/[a-zA-Z0-9/._-]*' | sort -u | ") +
+                matching + " | head -1",
+            said);
+  return OneWord(said);
+}
+
+// A copy the seed could not be applied to is EMPTY, and an empty file contains no defect to
+// find -- which is how a control that is not running looks exactly like a control that passed.
+// Every stale-control check asks first whether the copy is still a runner.
+[[nodiscard]] bool StillARunner(const std::string &copy) {
+  return copy.size() > 1000 && copy.find("LayerGroups()") != std::string::npos;
+}
+
+// The seed is applied inside `LayerGroups` and nowhere else, so the check that it took reads
+// the same region. A path also spelled in an include set or an error message is not a listing.
+[[nodiscard]] std::string Declaration(const std::string &of) {
+  std::string said;
+  (void)Run("sed -n '/^LayerGroups()/,/^}/p' " + of, said);
+  return said;
 }
 
 } // namespace
@@ -40,24 +99,33 @@ int main(void) {
         "at all -- both shipped in one week and both were invisible to a gate that compiles but "
         "never links the named-only suites (board:1641)");
 
+  const std::string aDirectory = Listed("grep -v '\\.cpp$'");
+  std::string aUnitSaid;
+  (void)Run("find " + aDirectory + " -maxdepth 1 -name '*.cpp' | sort | head -1", aUnitSaid);
+  const std::string aUnit = OneWord(aUnitSaid);
+  std::printf("SEED SITES  directory %s   unit under it %s\n", aDirectory.c_str(),
+              aUnit.c_str());
+  CHECK(!aDirectory.empty() && !aUnit.empty(),
+        "STALE CONTROL: the declaration names no source directory holding a unit, so there is "
+        "nowhere to seed a duplicate and the controls below would pass on an unseeded copy");
+  if (aDirectory.empty() || aUnit.empty()) { return Report(); }
+
   const std::string doubled =
-      Seeded("listing", "s|src/sim src/scene src/engine/Assembly.cpp"
-                        "|src/sim src/scene src/scene/Store.cpp src/engine/Assembly.cpp|;"
-                        "s|src/compositor src/engine/Live.cpp|src/engine/Live.cpp|;"
-                        "s|src/world/ground src/compositor|src/world/ground|");
+      Seeded("listing", "s|" + aDirectory + "|" + aDirectory + " " + aUnit + "|g");
   std::string copy;
   (void)Run("cat " + doubled, copy);
-  CHECK(copy.find("src/scene src/scene/Store.cpp") != std::string::npos &&
-            copy.find("src/compositor src/engine/Live.cpp") == std::string::npos,
-        "both seeds took -- a duplicate beside src/scene, and the compositor struck from every "
-        "suite that lists it, because a source one suite still links is not stranded");
+  const std::string doubledList = Declaration(doubled);
+  CHECK(StillARunner(copy) && doubledList.find(aDirectory + " " + aUnit) != std::string::npos,
+        "STALE CONTROL: the duplicate seed did not take. A copy identical to the original passes "
+        "its own audit and an EMPTY copy contains no defect to find, so either way the detector "
+        "below would report success having detected nothing");
   std::string seededSaid;
   const int seededVerdict = Run("sh " + doubled + " --audit 2>&1", seededSaid);
   CHECK(seededVerdict != 0 && seededSaid.find("lists twice") != std::string::npos &&
-            seededSaid.find("no suite links src/compositor/") != std::string::npos &&
-            seededSaid.find("reach no suite, and the declaration says") != std::string::npos,
-        "**AND BOTH LISTING DETECTORS DETECT**: one dually-seeded copy flips the verdict and "
-        "names BOTH defects, because the audit collects every defect before it judges");
+            seededSaid.find(aUnit) != std::string::npos,
+        "**THE DUPLICATE DETECTOR DETECTS**: a unit listed beside the directory that already "
+        "holds it links twice, the seeded copy flips the verdict, and the message names the "
+        "very unit that was doubled");
 
   std::string closed;
   const int closedVerdict = Run("sh test/run.sh --audit-link 2>&1", closed);
@@ -68,24 +136,38 @@ int main(void) {
         "sources list that lost a unit stayed invisible until a sporadic five-minute run "
         "refused. The closure walks each declared suite's object set with nm (board:1641)");
 
-  const std::string lost =
-      Seeded("link", "s|src/scenario/Views.cpp src/scenario/InputMap.cpp"
-                     "|src/scenario/InputMap.cpp|g");
+  const std::string aNamedUnit = OneWord(OnlyNamedAlone());
+  std::printf("SEED SITE   unit named on its own %s\n", aNamedUnit.c_str());
+  CHECK(!aNamedUnit.empty(),
+        "STALE CONTROL: the declaration names no source on its own whose directory it does not "
+        "also list, so striking one would leave the glob to find it and the closure would never "
+        "open");
+  if (aNamedUnit.empty()) { return Report(); }
+
+  const std::string lost = Seeded("link", "s| *" + aNamedUnit + "||g");
   std::string struck;
   (void)Run("cat " + lost, struck);
-  CHECK(struck.find("src/scenario/Views.cpp src/scenario/InputMap.cpp") == std::string::npos,
-        "the seed took -- the view book left every suite's closure in the copy");
+  const std::string lostList = Declaration(lost);
+  CHECK(StillARunner(struck) && lostList.find(aNamedUnit) == std::string::npos,
+        "STALE CONTROL: the strike did not take, so the closure detector below would be asked "
+        "to find a hole that was never made");
   std::string missing;
   const int missingVerdict = Run("sh " + lost + " --audit-link 2>&1", missing);
-  CHECK(missingVerdict != 0 && missing.find("cannot resolve") != std::string::npos &&
-            missing.find("ViewBook") != std::string::npos,
-        "**AND THE CLOSURE DETECTOR DETECTS**: with the view book struck from the declaration "
-        "the audit flips and names the very symbol whose silent absence filed the item");
+  CHECK(missingVerdict != 0 && missing.find("cannot resolve") != std::string::npos,
+        "**AND THE CLOSURE DETECTOR DETECTS**: with a unit struck from the declaration the audit "
+        "flips and names a symbol it can no longer resolve -- the silent absence that filed the "
+        "item in the first place");
 
   const std::string ghost =
-      Seeded("ghost", "s|src/engine/InputPump.cpp src/engine/Assembly.cpp"
-                      "|src/engine/NoSuchUnit.cpp src/engine/InputPump.cpp "
-                      "src/engine/Assembly.cpp|g");
+      Seeded("ghost", "s|" + aDirectory + "|" + aDirectory + "/NoSuchUnit.cpp " + aDirectory +
+                          "|g");
+  std::string conjured;
+  (void)Run("cat " + ghost, conjured);
+  const std::string ghostList = Declaration(ghost);
+  CHECK(StillARunner(conjured) &&
+            ghostList.find(aDirectory + "/NoSuchUnit.cpp") != std::string::npos,
+        "STALE CONTROL: the ghost seed did not take, so the refusal below would mean the copy "
+        "was clean and not that ghosts are caught");
   std::string haunted;
   const int ghostVerdict = Run("sh " + ghost + " --audit-link 2>&1", haunted);
   CHECK(ghostVerdict != 0 && haunted.find("ghost in the listing") != std::string::npos &&
