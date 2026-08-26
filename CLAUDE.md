@@ -108,7 +108,7 @@ flowchart TD
   providers["PROVIDERS · src/data"]
   store[("CONTENT STORE — hash = filename")]
   field["GROUND — the declared sphere's surface fields: height · slope · class · edges · water; one stack PER sphere, empty fields allowed, absent in free flight"]
-  gen["GENERATORS — one part + capability, from (kind, params, seed, budget)"]
+  gen["GENERATORS — A LIBRARY OF ITS OWN: one part + capability, from (kind, params, seed, budget); registry of what ships PLUS what a client registered; links without the engine"]
   comp["COMPOSITORS — one draw list: places · culls · quantises · batches"]
   rend["RENDERER — pixels from a declared plan"]
   frame(["720p60 on this device"])
@@ -270,13 +270,23 @@ ls board/*.md | grep -o '[0-9]\{4\}' | sort -n | tail -1  # next id, derived
 inside one tier, which the tier table alone cannot see. `base/` (math · geo · format · spatial · io) reaches nothing; `content/` (gltf · shade) and `actor/` reach base; `world/` (ground · generators · data · sky · weather) reaches base and content; `render/`, `scene/`, `scenario/`, `ui/`, `audio/`, `host/`, `compositor/` and `sim/` reach what their row says; `engine/` reaches all of it and is the door's own implementation, which is why it is not called `clients/` — the clients live in `apps/`. Unreal declares the same thing per module in `Build.cs`; a layering that is only a convention is how a 44-header drawer forms (board:1902) |
 | `test/` | `test/` the established corpora (Khronos · WPT · test262); `test/khronos/validator/` the 263 glTF-Validator cases, judged as a REFUSAL against Khronos's own report; `test/harness/` their scorers and the board/harness claims. Everything under `test/` reaches the library through `include/` and NOTHING of `src/` |
 | `apps/` | the CLIENTS, built ON the library and each a product. **A client is almost no code, and its LINE COUNT is a measurement of the door**: when a client needs much code, the interface is too complicated and the door is the finding, never the client. At HEAD `apps/driver` is 236 lines and `apps/viewer` 338, and both are too long and the driver is GROWING (board:1898): **`apps/driver`** is outshine's one integration test and the stakeholder signs it off; **`apps/viewer`** shows any scenario and becomes a scenario itself, layered over the one it shows (board:1880) |
-| `Makefile` | build · test · clean, nothing else |
+| `Makefile` | build · test · clean, nothing else. `make` writes TWO archives: `liboutshine.a`, and `libgenerators.a` — the generator tier alone, its member list DERIVED from the closure the linker itself computes, never a second list kept by hand |
 | `board/` | the working system (above) |
 
 `make` builds the library and every program under `apps/` into `build/`. `test/run.sh` is the
 only TEST runner and runs nothing else; by default it runs the corpora and the claims, while
 `tools` and `apps` run when named. A standing RED is declared in `EXPECT_FAIL` with its count,
 and the gate turns red the day such a case passes with the declaration still in place.
+
+**THE GENERATORS ARE A LIBRARY WITH THEIR OWN DOOR.** outshine ships a registry — forest,
+buildings, water, infrastructure — a client REGISTERS its own beside them, and another project
+takes the tier alone with none of outshine's program behind it. A generator does not serialise:
+it hands back the INTERNAL REPRESENTATION, and a glTF serialiser ships beside it for a caller who
+wants a file. That representation is the UNIVERSAL interface for exchanging 3D data with
+outshine — a glTF reader fills it, a generator fills it, a foreign program fills it with no file
+anywhere, the compositor consumes it. One value, many producers, many consumers; **glTF is one of
+its file forms and not its identity**. The shipped catalogue stays closed against a typo; a
+client's generator enters as a VALUE with a handle, never a string.
 
 **The front door is three headers**: `include/Outshine.h` the verbs, `include/Scenario.h` the
 declaration, `include/Event.h` the return channel — `Host`, `Argument`, `Measure`, the shape RAGE
