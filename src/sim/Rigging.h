@@ -25,7 +25,7 @@ struct Rigged {
   std::string Error;
 };
 
-[[nodiscard]] Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3);
+[[nodiscard]] Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3);
 
 }
 

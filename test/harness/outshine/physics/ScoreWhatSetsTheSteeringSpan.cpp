@@ -48,8 +48,8 @@ constexpr double kAirDensityKgM3 = 1.225;
   return one;
 }
 
-[[nodiscard]] outshine::Vehicle Spanning(double halfSpanM, double halfTrackM) {
-  outshine::Vehicle made;
+[[nodiscard]] outshine::Body Spanning(double halfSpanM, double halfTrackM) {
+  outshine::Body made;
   made.Name = "spanned";
   made.MassKg = 1610.0;
   made.WidthM = 1.811;
@@ -61,9 +61,9 @@ constexpr double kAirDensityKgM3 = 1.225;
   made.Contacts.push_back(Standing(halfTrackM, -halfSpanM));
   made.Contacts.push_back(Standing(-halfTrackM, halfSpanM));
   made.Contacts.push_back(Standing(halfTrackM, halfSpanM));
-  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Drive, 400.0, 3.08, 0.0});
-  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Brake, 5500.0, 1.0, 0.0});
-  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Steer, 0.0, 1.0, 11.3});
+  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Torque, false, 400.0, 3.08, 0.0});
+  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Torque, true, 5500.0, 1.0, 0.0});
+  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Steer, false, 0.0, 1.0, 11.3});
   made.DragCoefficient = 0.66;
   made.FrontalM2 = 2.19;
   return made;

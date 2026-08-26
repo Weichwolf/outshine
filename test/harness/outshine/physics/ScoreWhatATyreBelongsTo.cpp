@@ -49,8 +49,8 @@ constexpr double kAirDensityKgM3 = 1.225;
   return one;
 }
 
-[[nodiscard]] outshine::Vehicle Wearing(double frontGrip, double rearGrip) {
-  outshine::Vehicle made;
+[[nodiscard]] outshine::Body Wearing(double frontGrip, double rearGrip) {
+  outshine::Body made;
   made.Name = "staggered";
   made.MassKg = 1610.0;
   made.WidthM = 1.811;
@@ -62,9 +62,9 @@ constexpr double kAirDensityKgM3 = 1.225;
   made.Contacts.push_back(Standing(0.774, -1.405, frontGrip, 0.333));
   made.Contacts.push_back(Standing(-0.774, 1.405, rearGrip, 0.333));
   made.Contacts.push_back(Standing(0.774, 1.405, rearGrip, 0.333));
-  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Drive, 400.0, 3.08, 0.0});
-  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Brake, 5500.0, 1.0, 0.0});
-  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Steer, 0.0, 1.0, 11.3});
+  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Torque, false, 400.0, 3.08, 0.0});
+  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Torque, true, 5500.0, 1.0, 0.0});
+  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Steer, false, 0.0, 1.0, 11.3});
   made.DragCoefficient = 0.66;
   made.FrontalM2 = 2.19;
   return made;

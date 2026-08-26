@@ -49,8 +49,8 @@ constexpr double kRoofM = 1.45;
   return one;
 }
 
-[[nodiscard]] outshine::Vehicle F31(void) {
-  outshine::Vehicle made;
+[[nodiscard]] outshine::Body F31(void) {
+  outshine::Body made;
   made.Name = "f31";
   made.MassKg = 1610.0;
   made.WidthM = 1.811;
@@ -62,16 +62,18 @@ constexpr double kRoofM = 1.45;
   made.Contacts.push_back(Standing(0.774, -1.405));
   made.Contacts.push_back(Standing(-0.774, 1.405));
   made.Contacts.push_back(Standing(0.774, 1.405));
-  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Drive, 400.0, 3.08, 0.0});
-  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Brake, 5500.0, 1.0, 0.0});
-  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Steer, 0.0, 1.0, 11.3});
+  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Torque, false, 400.0, 3.08, 0.0});
+  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Torque, true, 5500.0, 1.0, 0.0});
+  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Steer, false, 0.0, 1.0, 11.3});
   made.DragCoefficient = 0.66;
   made.FrontalM2 = 2.19;
-  made.AssetWheelbase = 180.71;
-  made.SeatAt = "driver";
-  made.SeatM[0] = -0.494;
-  made.SeatM[1] = 1.220;
-  made.SeatM[2] = 0.003;
+  made.AssetSpanM = 180.71;
+  outshine::Slot driver;
+  driver.At = "driver";
+  driver.AtM[0] = -0.494;
+  driver.AtM[1] = 1.220;
+  driver.AtM[2] = 0.003;
+  made.Slots.push_back(driver);
   return made;
 }
 
@@ -81,7 +83,7 @@ int main(void) {
   using namespace outshine::Test;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-  const outshine::Vehicle declared = F31();
+  const outshine::Body declared = F31();
   const outshine::Sim::Rigged stood =
       outshine::Sim::Stand(declared, kGravityMs2, kAirDensityKgM3);
   CHECK(stood.Stood, "the declaration stands, so its frames can be compared");
@@ -90,7 +92,7 @@ int main(void) {
   const double halfWidthM = 0.5 * declared.WidthM;
   const double halfLengthM = 0.5 * stood.Axles.WheelbaseM;
 
-  const double asDeclared[3] = {declared.SeatM[0], declared.SeatM[1], declared.SeatM[2]};
+  const double asDeclared[3] = {declared.Slots.front().AtM[0], declared.Slots.front().AtM[1], declared.Slots.front().AtM[2]};
   const double inTheBody[3] = {asDeclared[0] - stood.CentreM[0], asDeclared[1] - stood.CentreM[1],
                                asDeclared[2] - stood.CentreM[2]};
 

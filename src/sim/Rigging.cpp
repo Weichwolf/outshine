@@ -17,7 +17,7 @@ bool Refuse(Rigged &out, const std::string &why) {
 
 }
 
-Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) {
+Rigged Stand(const Body &declared, double gravityMs2, double airDensityKgM3) {
   Rigged out;
 
   if (airDensityKgM3 < 0.0) {
@@ -52,7 +52,7 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
 
   for (int axis = 0; axis < 3; ++axis) {
     out.CentreM[axis] = declared.CentreOfMassM[axis];
-    out.SeatM[axis] = declared.SeatM[axis];
+    out.SeatM[axis] = declared.Slots.empty() ? 0.0 : declared.Slots.front().AtM[axis];
   }
 
   double frontZ = 0.0, rearZ = 0.0;
@@ -78,9 +78,9 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
   }
 
   if (!declared.Asset.empty()) {
-    if (!(declared.AssetWheelbase > 0.0)) {
+    if (!(declared.AssetSpanM > 0.0)) {
       Refuse(out, "the vehicle '" + declared.Name + "' draws '" + declared.Asset +
-                      "' and declares no assetWheelbase -- a model carries no scale, so the "
+                      "' and declares no assetSpanM -- a model carries no scale, so the "
                       "one dimension it is measured against must be declared beside the "
                       "dimension it is measured with");
       return out;
@@ -98,7 +98,7 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
     standsAt -= declared.Contacts.front().RadiusM;
 
     out.StandsAtM = standsAt;
-    out.MetresPerAssetUnit = out.Axles.WheelbaseM / declared.AssetWheelbase;
+    out.MetresPerAssetUnit = out.Axles.WheelbaseM / declared.AssetSpanM;
     out.ModelShiftM[0] = -declared.AssetCentreX * out.MetresPerAssetUnit;
     out.ModelShiftM[1] =
         standsAt - declared.AssetGround * out.MetresPerAssetUnit - declared.CentreOfMassM[1];
@@ -204,8 +204,8 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
   }
   out.Envelope.GravityMs2 = gravityMs2;
   out.Envelope.MassKg = declared.MassKg;
-  const Actuator *const drives = declared.Can(Actuates::Drive);
-  const Actuator *const brakes = declared.Can(Actuates::Brake);
+  const Actuator *const drives = declared.Torques(false);
+  const Actuator *const brakes = declared.Torques(true);
   out.Envelope.DriveN = drives == nullptr ? 0.0
                                           : drives->PeakNm * drives->Ratio /
                                                 declared.Contacts.front().RadiusM;

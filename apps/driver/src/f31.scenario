@@ -12,7 +12,7 @@
            digest="a2b40cb2ab6408d1ec2e5e81f1ff0b14802b59569b3e4bc9375d4eecd6ccecd5"/>
   </assets>
 
-  <vehicle name="f31" asset="scene.gltf" massKg="1610" widthM="1.811" assetWheelbase="2.810" assetGround="-0.333" assetCentreX="0.0" assetCentreZ="0.0">
+  <body name="f31" asset="scene.gltf" massKg="1610" widthM="1.811" assetSpanM="2.810" assetGround="-0.333" assetCentreX="0.0" assetCentreZ="0.0">
     <centreOfMass x="0" y="0.55" z="0"/>
     <inertia ixx="540" iyy="2400" izz="2600"/>
 
@@ -33,13 +33,13 @@
              stopNPerM="450000" limitN="24000"
              grip="0.95" radiusM="0.333" corneringNPerRad="55000" relaxationM="0.4"/>
 
-    <actuator does="drive" peakNm="400" ratio="3.08"/>
-    <actuator does="brake" peakNm="5500"/>
+    <actuator does="torque" peakNm="400" ratio="3.08"/>
+    <actuator does="torque" opposes="1" peakNm="5500"/>
     <actuator does="steer" circleM="11.3"/>
-    <body dragCoefficient="0.66" frontalM2="2.19"/>
+    <aero dragCoefficient="0.66" frontalM2="2.19"/>
 
-    <seat at="driver" x="-0.494" y="1.220" z="0.003"/>
-  </vehicle>
+    <slot at="driver" x="-0.494" y="1.220" z="0.003"/>
+  </body>
 
   <views>
     <view id="eyes" follows="player" person="first"

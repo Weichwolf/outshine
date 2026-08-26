@@ -100,7 +100,7 @@ static_assert(AsideRatePerM(0.7195, 30.0).has_value(),
 static_assert(AsideRatePerM(0.7195, 30.0).value() > 0.0, "which is positive");
 
 [[nodiscard]] bool LayCorridor(const Path::Route &route, const GroundQuery &ground,
-                               const Vehicle &car, const Rigged &stood, double quantumM,
+                               const Body &car, const Rigged &stood, double quantumM,
                                double tightestM, double middleLat, double sphereRadiusM,
                                Sink &say, Corridor &out, std::string &error);
 

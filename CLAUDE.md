@@ -38,6 +38,26 @@ wherever it stands.
   the usual answer, inheritance the right one where a stable interface carries shared machinery.
   `--audit-access` counts what stands wider and refuses when the count moves
 - **SIMD- and optimization-friendly**: contiguous, one-width, pointer-free layouts; fast path on the hot path; batch over per-item; bounded terms on the frame path (no alloc/lock/disk/unbounded block)
+- **AN ENGINE KNOWS LAWS AND NO SUBJECTS.** Its whole vocabulary is the one the laws are written
+  in: **body · joint · degree of freedom · drive · constraint · force · contact · integration**.
+  A vehicle, a wheel, a tyre, a seat, a door and a walker are SUBJECTS -- assemblies a scenario
+  builds out of that vocabulary -- and the engine never names one. Both benchmarks draw exactly
+  this line and neither blurs it: RAGE has `phBound`, `phConstraint`, `phArticulatedBody` and
+  `phInst` in the physics library while `CVehicle`, `CPed` and `CWheel` live in the GAME layer;
+  Unreal has `FBodyInstance`, `FConstraintInstance` and `FPhysicsActorHandle` in the engine while
+  wheeled movement sits in a plugin OUTSIDE the engine module.
+  **There is no actuator in physics.** There are constraints with a target and a force limit, which
+  is what Chaos and PhysX call a joint DRIVE -- position, velocity, force limit -- and a drive is
+  part of the constraint's own statement rather than a thing beside it. A motor and a brake are one
+  drive on one degree of freedom, separated by whether it may add energy; a motor with regenerative
+  braking is that fact made visible. A LEVER is a ratio in the same statement.
+  **`walk` and `open` are CONTROL over time and never actuation** -- a controller commanding joint
+  drives -- and a lamp is an emitter rather than a mechanism. Naming them as actuators would put a
+  behaviour where a degree of freedom belongs, and every body that behaved differently would need a
+  new catalogue entry.
+  **Where outshine ships a convenience -- a raycast-and-spring wheel, a four-contact prefab -- it
+  ships it as a DECLARED ASSEMBLY in the catalogue and never as an engine type.** That is the same
+  model RAGE's `CWheel` and Unreal's Chaos vehicles use, and it belongs where they put it
 - **THE INTERFACE IS A DOCUMENT, and the scenario declares which one.** Markup, style, layout,
   type and pointer are engine verbs; the panel itself is CONTENT and lives beside the glTF, never
   in C++. RAGE reaches the same answer through Scaleform and Unreal does not reach it at all --
@@ -184,9 +204,10 @@ flowchart TD
 ```mermaid
 flowchart TD
   B["BODY — geometry, glTF parts: vehicle · walker · aircraft · door · pump"]
-  B --> A["ACTUATORS — the functions a body declares: steer · drive · brake · lamps · walk · open"]
+  B --> J["JOINTS — the degrees of freedom between two bodies: revolute · prismatic · fixed"]
+  J --> A["ACTUATORS — one per degree of freedom: EFFORT (force/torque, dissipative or not) or MOTION (position/velocity), through a LEVER (ratio)"]
   A --> P["PHYSICS — forces at the contacts; only integration places a body"]
-  C["CONTROLLER — a mind or the player POSSESSES the seam"] -->|acts on| A
+  C["CONTROLLER — a mind or the player POSSESSES the seam; walking and opening are CONTROL over time, never actuators"] -->|acts on| A
   C -->|perceives| Q["PERCEPTION — bounded spatial queries: bounds · ground · sight"]
   C -->|asks| N["PATHFINDING — two coordinates in, corridor out: walk · drive · fly · rail"]
   PR["PRESENCE — field → rails → body; a MEASUREMENT materialises"] -.-> B

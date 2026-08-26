@@ -45,8 +45,8 @@ constexpr double kAirDensityKgM3 = 1.225;
   return one;
 }
 
-[[nodiscard]] outshine::Vehicle Declared(double centreZM, double frontZM, double rearZM) {
-  outshine::Vehicle made;
+[[nodiscard]] outshine::Body Declared(double centreZM, double frontZM, double rearZM) {
+  outshine::Body made;
   made.Name = "two-axle body";
   made.MassKg = kMassKg;
   made.WidthM = 1.811;
@@ -59,12 +59,12 @@ constexpr double kAirDensityKgM3 = 1.225;
   made.Contacts.push_back(Standing(0.774, frontZM));
   made.Contacts.push_back(Standing(-0.774, rearZM));
   made.Contacts.push_back(Standing(0.774, rearZM));
-  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Drive, 400.0, 3.08, 0.0});
-  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Brake, 5500.0, 1.0, 0.0});
-  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Steer, 0.0, 1.0, 11.3});
+  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Torque, false, 400.0, 3.08, 0.0});
+  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Torque, true, 5500.0, 1.0, 0.0});
+  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Steer, false, 0.0, 1.0, 11.3});
   made.DragCoefficient = 0.66;
   made.FrontalM2 = 2.19;
-  made.AssetWheelbase = rearZM - frontZM;
+  made.AssetSpanM = rearZM - frontZM;
   return made;
 }
 
@@ -74,7 +74,7 @@ struct Split {
   double Rear = 0.0;
 };
 
-[[nodiscard]] Split Proportioned(const outshine::Vehicle &declared) {
+[[nodiscard]] Split Proportioned(const outshine::Body &declared) {
   const outshine::Sim::Rigged stood =
       outshine::Sim::Stand(declared, kGravityMs2, kAirDensityKgM3);
   Split out;

@@ -10,7 +10,7 @@ size_t AssembledCapacity(const Scenario &declared) {
     (void)one;
     ++instanced;
   }
-  return declared.Vehicles.size() + (declared.Played.Is.empty() ? 0u : 1u) +
+  return declared.Bodies.size() + (declared.Played.Is.empty() ? 0u : 1u) +
          (declared.Driven.Declared ? 2u : 0u) + declared.Kinds.size() + instanced;
 }
 
@@ -46,7 +46,7 @@ namespace {
 
 }
 
-bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
+bool Assemble(const Scenario &declared, Store &into, Column<Body> &vehicles,
               Column<Drive> &driven, Column<Traits> &traits, Assembled &out,
               std::string &error) {
   out = Assembled{};
@@ -191,15 +191,15 @@ bool Assemble(const Scenario &declared, Store &into, Column<Vehicle> &vehicles,
     }
   }
 
-  for (const Vehicle &vehicle : declared.Vehicles) {
+  for (const Body &vehicle : declared.Bodies) {
     const Entity body = into.Add(Role::Body);
     if (!into.Alive(body)) {
       error = into.Error();
       return false;
     }
     const bool steers = vehicle.Can(Actuates::Steer) != nullptr;
-    const bool drives = vehicle.Can(Actuates::Drive) != nullptr;
-    const bool brakes = vehicle.Can(Actuates::Brake) != nullptr;
+    const bool drives = vehicle.Torques(false) != nullptr;
+    const bool brakes = vehicle.Torques(true) != nullptr;
     if ((steers && !into.Give(body, tags::DoesSteer)) ||
         (drives && !into.Give(body, tags::DoesDrive)) ||
         (brakes && !into.Give(body, tags::DoesBrake))) {

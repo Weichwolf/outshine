@@ -137,8 +137,8 @@ bool ApplyLayer(Scenario &into, const char *text, size_t size, std::string_view 
   if (!ReadScenario(document, fragment, error)) { return false; }
   if (!MergeLayer(into, fragment, named, trace, error)) { return false; }
 
-  if (!fragment.Vehicles.empty()) {
-    into.Vehicles = fragment.Vehicles;
+  if (!fragment.Bodies.empty()) {
+    into.Bodies = fragment.Bodies;
     trace.push_back("layer '" + std::string(named) + "' replaced the vehicle");
   }
   if (!fragment.Render.Stages.empty()) {

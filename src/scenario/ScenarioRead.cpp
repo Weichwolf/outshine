@@ -32,7 +32,7 @@ struct Element {
 const Element kGrammar[] = {
     {"scenario",
      "world render lighting providers generators compositors assets placements surfaces kinds "
-     "instances regions volumes audio tables events views vehicle player drive physics clock "
+     "instances regions volumes audio tables events views body player drive physics clock "
      "input state layer"},
     {"scenario/layer", "", "path"},
     {"scenario/world", ""},
@@ -84,13 +84,13 @@ const Element kGrammar[] = {
     {"scenario/views", "view"},
     {"scenario/views/view", "", "id follows person"},
     {"scenario/player", ""},
-    {"scenario/vehicle", "centreOfMass inertia contact actuator body seat"},
-    {"scenario/vehicle/centreOfMass", ""},
-    {"scenario/vehicle/inertia", ""},
-    {"scenario/vehicle/contact", ""},
-    {"scenario/vehicle/actuator", ""},
-    {"scenario/vehicle/body", ""},
-    {"scenario/vehicle/seat", ""},
+    {"scenario/body", "centreOfMass inertia contact actuator aero slot"},
+    {"scenario/body/centreOfMass", ""},
+    {"scenario/body/inertia", ""},
+    {"scenario/body/contact", ""},
+    {"scenario/body/actuator", ""},
+    {"scenario/body/aero", ""},
+    {"scenario/body/slot", ""},
     {"scenario/drive", "", "", "fromLat fromLon toLat toLon"},
     {"scenario/physics", ""},
     {"scenario/clock", ""},
@@ -528,13 +528,13 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     into.Views.push_back(made);
   }
 
-  for (const Xml::Ref one : root.Children("vehicle")) {
-    Vehicle made;
+  for (const Xml::Ref one : root.Children("body")) {
+    Body made;
     made.Name = one.Attr("name");
     made.Asset = one.Attr("asset");
     made.MassKg = one.Num("massKg", 0.0);
     made.WidthM = one.Num("widthM", 0.0);
-    made.AssetWheelbase = one.Num("assetWheelbase", 0.0);
+    made.AssetSpanM = one.Num("assetSpanM", 0.0);
     made.AssetGround = one.Num("assetGround", 0.0);
     made.AssetCentreX = one.Num("assetCentreX", 0.0);
     made.AssetCentreZ = one.Num("assetCentreZ", 0.0);
@@ -567,15 +567,15 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     for (const Xml::Ref acts : one.Children("actuator")) {
       Actuator does;
       const std::string named = acts.Attr("does");
-      if (named == "drive") {
-        does.Does = Actuates::Drive;
-      } else if (named == "brake") {
-        does.Does = Actuates::Brake;
+      if (named == "torque") {
+        does.Does = Actuates::Torque;
+        does.Opposes = acts.Num("opposes", 0.0) != 0.0;
       } else if (named == "steer") {
         does.Does = Actuates::Steer;
       } else {
         error = "a body declares an actuator that does '" + named +
-                "', and drive, brake and steer are the whole catalogue";
+                "', and torque and steer are the whole catalogue -- a brake is a torque that "
+                "OPPOSES, which is the one physical difference between it and a drive";
         return false;
       }
       does.PeakNm = acts.Num("peakNm", 0.0);
@@ -583,13 +583,16 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
       does.CircleM = acts.Num("circleM", 0.0);
       made.Actuators.push_back(does);
     }
-    const Xml::Ref body = one.Child("body");
-    made.DragCoefficient = body.Num("dragCoefficient", 0.0);
-    made.FrontalM2 = body.Num("frontalM2", 0.0);
-    const Xml::Ref seat = one.Child("seat");
-    made.SeatAt = seat.Attr("at");
-    ReadVector(seat, "x", "y", "z", made.SeatM, 3);
-    into.Vehicles.push_back(made);
+    const Xml::Ref aero = one.Child("aero");
+    made.DragCoefficient = aero.Num("dragCoefficient", 0.0);
+    made.FrontalM2 = aero.Num("frontalM2", 0.0);
+    for (const Xml::Ref where : one.Children("slot")) {
+      Slot advertised;
+      advertised.At = where.Attr("at");
+      ReadVector(where, "x", "y", "z", advertised.AtM, 3);
+      made.Slots.push_back(advertised);
+    }
+    into.Bodies.push_back(made);
   }
 
   const Xml::Ref state = root.Child("state");

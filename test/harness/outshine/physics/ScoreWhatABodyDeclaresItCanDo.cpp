@@ -52,8 +52,8 @@ constexpr double kAirDensityKgM3 = 1.225;
   return one;
 }
 
-[[nodiscard]] outshine::Vehicle Doing(double driveNm) {
-  outshine::Vehicle made;
+[[nodiscard]] outshine::Body Doing(double driveNm) {
+  outshine::Body made;
   made.Name = "declared";
   made.MassKg = 1610.0;
   made.WidthM = 1.811;
@@ -65,9 +65,9 @@ constexpr double kAirDensityKgM3 = 1.225;
   made.Contacts.push_back(Standing(0.774, -1.405));
   made.Contacts.push_back(Standing(-0.774, 1.405));
   made.Contacts.push_back(Standing(0.774, 1.405));
-  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Drive, driveNm, 3.08, 0.0});
-  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Brake, 5500.0, 1.0, 0.0});
-  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Steer, 0.0, 1.0, 11.3});
+  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Torque, false, driveNm, 3.08, 0.0});
+  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Torque, true, 5500.0, 1.0, 0.0});
+  made.Actuators.push_back(outshine::Actuator{outshine::Actuates::Steer, false, 0.0, 1.0, 11.3});
   made.DragCoefficient = 0.66;
   made.FrontalM2 = 2.19;
   return made;
@@ -79,10 +79,10 @@ int main(void) {
   using namespace outshine::Test;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-  const outshine::Vehicle running = Doing(400.0);
-  const outshine::Vehicle stalled = Doing(0.0);
+  const outshine::Body running = Doing(400.0);
+  const outshine::Body stalled = Doing(0.0);
 
-  outshine::Vehicle towed = Doing(400.0);
+  outshine::Body towed = Doing(400.0);
   towed.Actuators.erase(towed.Actuators.begin());
 
   const outshine::Sim::Rigged asRuns =
@@ -97,24 +97,24 @@ int main(void) {
   if (!(asRuns.Stood && asStalls.Stood && asTowed.Stood)) { return Report(); }
 
   std::printf("DECLARES DRIVE 400 Nm   can drive %s   drive force %9.2f N\n",
-              running.Can(outshine::Actuates::Drive) != nullptr ? "yes" : "no ",
+              running.Torques(false) != nullptr ? "yes" : "no ",
               asRuns.Envelope.DriveN);
   std::printf("DECLARES DRIVE   0 Nm   can drive %s   drive force %9.2f N\n",
-              stalled.Can(outshine::Actuates::Drive) != nullptr ? "yes" : "no ",
+              stalled.Torques(false) != nullptr ? "yes" : "no ",
               asStalls.Envelope.DriveN);
   std::printf("DECLARES NO DRIVE       can drive %s   drive force %9.2f N\n",
-              towed.Can(outshine::Actuates::Drive) != nullptr ? "yes" : "no ",
+              towed.Torques(false) != nullptr ? "yes" : "no ",
               asTowed.Envelope.DriveN);
 
   CHECK(asRuns.Envelope.DriveN > 0.0,
         "a body that declares a drive and states a torque produces a force, so the two readings "
         "below are distinctions and not an envelope that is empty for everyone");
-  CHECK(stalled.Can(outshine::Actuates::Drive) != nullptr && asStalls.Envelope.DriveN == 0.0,
+  CHECK(stalled.Torques(false) != nullptr && asStalls.Envelope.DriveN == 0.0,
         "**A BODY CAN HAVE A DRIVE AND PRODUCE NOTHING**: a dead engine is a body WITH a drive "
         "delivering no torque, and the old shape -- `drives = PeakTorqueNm > 0 && FinalDrive > "
         "0` -- called it a body with no drive at all. A capability guessed from a magnitude is "
         "wrong exactly here, and this is the case that separates them");
-  CHECK(towed.Can(outshine::Actuates::Drive) == nullptr && asTowed.Envelope.DriveN == 0.0,
+  CHECK(towed.Torques(false) == nullptr && asTowed.Envelope.DriveN == 0.0,
         "and a body that declares NO drive has none -- a trailer, which is the other half of the "
         "distinction and stands as a rig rather than being refused for lacking an engine");
   CHECK(asRuns.Axles.SteerLimitRad > 0.0 && asRuns.Envelope.BrakeN > 0.0,

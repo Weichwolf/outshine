@@ -51,7 +51,7 @@ struct Harvest {
 
 struct DriveProduct {
   Ground::VegetationTemplates Surfaces;
-  Vehicle Car;
+  Body Car;
   Rigged Stood;
   Corridor Way;
   DriveState State;
@@ -60,7 +60,7 @@ struct DriveProduct {
 };
 
 [[nodiscard]] bool AssembleDrive(const Store &scene, const Assembled &cast,
-                                 const Column<Vehicle> &vehicles, const Column<Drive> &driven,
+                                 const Column<Body> &vehicles, const Column<Drive> &driven,
                                  const WorldSettings &world, Ground::GroundStack &stack,
                                  Data::Transport &wire, const Provision &kept, Sink &say,
                                  DriveProduct &out);

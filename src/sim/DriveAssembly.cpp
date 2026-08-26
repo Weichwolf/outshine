@@ -39,7 +39,7 @@ constexpr double kPatienceS = 900.0;
 constexpr double kJoinMs = 20.0;
 }
 
-bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehicle> &vehicles,
+bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Body> &vehicles,
                    const Column<Drive> &driven, const WorldSettings &world,
                    Ground::GroundStack &stack, Data::Transport &wire, const Provision &kept,
                    Sink &say, DriveProduct &out) {
@@ -47,7 +47,7 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
     say.Refuse("no cache directory or assets root was provisioned");
     return false;
   }
-  const outshine::Vehicle *car = vehicles.Get(cast.PlayerBody);
+  const outshine::Body *car = vehicles.Get(cast.PlayerBody);
   if (car == nullptr) {
     say.Refuse("the assembled body carries no vehicle declaration");
     return false;

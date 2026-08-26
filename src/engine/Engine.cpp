@@ -97,7 +97,7 @@ struct Engine::State {
   std::vector<Scenario> Asleep;
   std::vector<std::string> LayerTrace;
   Store Scene;
-  Column<Vehicle> Vehicles;
+  Column<Body> Bodies;
   Column<Drive> Drives;
   Column<Traits> Kinds;
   Assembled Stood;
@@ -166,7 +166,7 @@ std::vector<std::string> Unacted(const Scenario &scenario) {
   note(scenario.Buses.size(), "audio buses");
   note(scenario.Tables.size(), "tables");
   note(scenario.Events.size(), "declared events");
-  note(scenario.Vehicles.size(), "vehicles");
+  note(scenario.Bodies.size(), "vehicles");
   note(scenario.State.size(), "persisted values");
   if (scenario.Motion.Declared) { carried.push_back("a physics dial"); }
   if (scenario.Time.Declared) { carried.push_back("a clock"); }
@@ -188,13 +188,13 @@ bool Engine::Assemble() {
     S_->Drove = false;
     return S_->Routes();
   }
-  if (!S_->Scene.Open(named) || !S_->Vehicles.Open(S_->Scene) ||
+  if (!S_->Scene.Open(named) || !S_->Bodies.Open(S_->Scene) ||
       !S_->Drives.Open(S_->Scene) || !S_->Kinds.Open(S_->Scene)) {
     S_->Error = "the scene did not open for the " + std::to_string(named) +
                 " entities the declaration names";
     return false;
   }
-  if (!outshine::Assemble(declared, S_->Scene, S_->Vehicles, S_->Drives, S_->Kinds, S_->Stood,
+  if (!outshine::Assemble(declared, S_->Scene, S_->Bodies, S_->Drives, S_->Kinds, S_->Stood,
                           S_->Error)) {
     return false;
   }
@@ -216,7 +216,7 @@ bool Engine::State::Routes(void) {
   Quietly say;
   const Sim::Provision kept{Under.Cache, Under.Shipped,
                             {Data::ShippedProviders().begin(), Data::ShippedProviders().end()}};
-  const bool routed = Sim::AssembleDrive(Scene, Stood, Vehicles, Drives,
+  const bool routed = Sim::AssembleDrive(Scene, Stood, Bodies, Drives,
                                          declared.Ground, Stack, *Wire, kept, say,
                                          Drive);
   if (routed) {

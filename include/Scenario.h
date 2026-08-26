@@ -245,22 +245,28 @@ struct Contact {
   double LimitN = 0.0;
 };
 
-enum class Actuates : uint8_t { Drive, Brake, Steer };
+enum class Actuates : uint8_t { Torque, Steer };
 
 struct Actuator {
-  Actuates Does = Actuates::Drive;
+  Actuates Does = Actuates::Torque;
+  bool Opposes = false;
   double PeakNm = 0.0;
   double Ratio = 1.0;
   double CircleM = 0.0;
 };
 
-struct Vehicle {
+struct Slot {
+  std::string At;
+  double AtM[3] = {0.0, 0.0, 0.0};
+};
+
+struct Body {
   std::string Name;
   std::string Asset;
   double MassKg = 0.0;
   double WidthM = 0.0;
 
-  double AssetWheelbase = 0.0;
+  double AssetSpanM = 0.0;
 
   double AssetGround = 0.0;
   double AssetCentreX = 0.0, AssetCentreZ = 0.0;
@@ -270,12 +276,18 @@ struct Vehicle {
   std::vector<Actuator> Actuators;
   double DragCoefficient = 0.0;
   double FrontalM2 = 0.0;
-  std::string SeatAt;
-  double SeatM[3] = {0.0, 0.0, 0.0};
+  std::vector<Slot> Slots;
 
   [[nodiscard]] const Actuator *Can(Actuates does) const {
     for (const Actuator &one : Actuators) {
       if (one.Does == does) { return &one; }
+    }
+    return nullptr;
+  }
+
+  [[nodiscard]] const Actuator *Torques(bool opposing) const {
+    for (const Actuator &one : Actuators) {
+      if (one.Does == Actuates::Torque && one.Opposes == opposing) { return &one; }
     }
     return nullptr;
   }
@@ -344,7 +356,7 @@ struct Scenario {
   std::vector<Table> Tables;
   std::vector<Event> Events;
   std::vector<View> Views;
-  std::vector<Vehicle> Vehicles;
+  std::vector<Body> Bodies;
   Player Played;
   Drive Driven;
 
