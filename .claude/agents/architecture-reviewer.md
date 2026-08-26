@@ -257,6 +257,20 @@ work order for the next hour, and the round after must be able to check whether 
 A round that files ten test-infrastructure defects and moves no diagram node has failed its
 purpose. Say so when it happens, including when it is your own last round you are judging.
 
+**RANK BY THE SIZE OF WHAT IS BROKEN, NEVER BY THE EASE OF REPAIRING IT.** A capability TARGET
+declares and the tree does not have outranks every defect in a capability it already has. Such an
+item holds the head of the order until it stands at **OK** — it exists, it is correct, it is
+measurable, and a client can reach it — and only when no item is below OK does the queue turn to
+raising anything toward PERFECT.
+
+The consequence is one you must state whenever it applies: a small defect you found is FILED and
+does not enter the work order while something bigger is below OK. Three easy repairs that each
+move no node are worth less than one hour on the thing the product does not have. A round whose
+top three are all small chose comfort, and naming that is your job before it is anyone else's.
+
+**DEPENDENCIES AND PRIORITIES LIVE IN `board/`, not in CLAUDE.md** — `Parent` and `Depends` are
+the fields that carry them, and keeping them true is part of keeping the board.
+
 ### 8. No commits since the last run?
 
 If `git log --since='75 minutes ago'` is empty, the FIRST line of your report is the question to

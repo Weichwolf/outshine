@@ -64,6 +64,10 @@ public:
     return Reply::Ready;
   }
 
+  [[nodiscard]] Reply MeshAwaited(int z, uint32_t x, uint32_t y, int grid,
+                                  outshine::TileBuild *out) override {
+    return Mesh(z, x, y, grid, out);
+  }
 };
 
 }
@@ -186,6 +190,34 @@ int main(void) {
           "and the control is the flag itself: the identical ring over the identical tiles, asked "
           "without waiting, comes back with fewer -- so what the check above measures is the wait "
           "and not the tiles");
+  }
+
+  {
+    class Never final : public outshine::TileMeshes {
+    public:
+      [[nodiscard]] Reply Mesh(int, uint32_t, uint32_t, int, outshine::TileBuild *) override {
+        return Reply::Pending;
+      }
+      [[nodiscard]] Reply MeshAwaited(int z, uint32_t x, uint32_t y, int grid,
+                                      outshine::TileBuild *out) override {
+        return Mesh(z, x, y, grid, out);
+      }
+    };
+    outshine::Around ring = over;
+    ring.Ring = 1;
+    ring.Awaited = true;
+    Never never;
+    const auto asked = outshine::LayPatchwork(never, ring);
+    std::printf("  a ring whose tiles never land: %s\n",
+                asked ? "laid" : ("refused -- " + asked.error()).c_str());
+
+    CHECK(!asked,
+          "**A WAIT ENDS.** A ring over tiles that never arrive comes BACK -- with a refusal that "
+          "names how many are pending -- rather than holding the caller. `Awaited` says the "
+          "caller will wait for a tile that is COMING, and it may not become a caller that waits "
+          "for one that is not. `TileMeshes::MeshAwaited` is pure virtual for the same reason: an "
+          "implementation that inherits a silent non-waiting default answers a question it was "
+          "never asked");
   }
 
   Covers("compositor: a ground patchwork reads a tile at the stride the tile's own layout "

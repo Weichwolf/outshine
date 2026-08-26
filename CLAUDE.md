@@ -314,5 +314,9 @@ capability of TARGET, at which grade, and what it costs to reach.
 off on a fresh screenshot.
 
 An architecture review lands hourly (cron :17, its own worktree, files but never edits `src/`).
+**It is started with its brief and NOTHING else** — no ticket list, no delta, no "check this
+first". A review handed my account of the hour reviews my account; it reads CLAUDE.md, the tree
+and `git log` itself, and its independence is the only thing that makes its findings worth
+having.
 It owns both maps, measures the distance CURRENT → TARGET, judges the driver on a fresh
 screenshot, and writes the next hour's work order. Its brief is `.claude/agents/`.

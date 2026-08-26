@@ -452,7 +452,10 @@ void TilePool::Work(int slot) {
     {
       std::lock_guard<std::mutex> lock(QueueMutex_);
 
-      if (result.State == Reply::Pending) Posted_.erase(job.Key);
+      if (result.State == Reply::Pending) {
+        Posted_.erase(job.Key);
+        Landed_.notify_all();
+      }
 
       else if (Posted_.find(job.Key) != Posted_.end()) {
 
@@ -513,7 +516,9 @@ TilePool::Reply TilePool::MeshAwaited(int z, uint32_t x, uint32_t y, int grid,
   const uint64_t key = MeshKey(z, x, y);
   {
     std::unique_lock<std::mutex> lock(QueueMutex_);
-    Landed_.wait(lock, [&] { return Done_.find(key) != Done_.end(); });
+    Landed_.wait(lock, [&] {
+      return Done_.find(key) != Done_.end() || Posted_.find(key) == Posted_.end();
+    });
   }
   return Mesh(z, x, y, grid, out);
 }
