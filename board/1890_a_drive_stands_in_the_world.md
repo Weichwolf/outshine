@@ -88,6 +88,27 @@ has been taken yet, so it is false when it matters.
 **4. The draw list does reach 517 batches** -- 258 the car, 259 the ground -- and the refusal now
 lands AFTER the geometry rather than before it. The count was never the hard part.
 
+## THE GROUND IS IN THE PICTURE, and two numbers stand between it and terrain
+
+At b0b59b3a the ring is nine tiles of nine (board:1914) and reaches the horizon through the
+windscreen. What it is not yet:
+
+**1. It sits too high.** The ring's vertices carry `where.AltM` -- geodetic altitude above the
+ellipsoid -- straight into the corridor frame's `up`:
+
+    src/engine/Engine.cpp   inFrame[at + 1] = (float)where.AltM;
+
+while the body stands at `body.PositionM[1] = 524.444 m` in the same axis. Those two agree only
+if the corridor frame's origin is the ellipsoid, and the picture says it is not: the terrain
+band crosses the windscreen ABOVE the horizon rather than running under the car.
+
+**2. It is pale and flat.** The composed patch carries one material -- `ground.Material = 0` --
+so it takes the subject's first surface, which is the car's. There is no ground albedo, no slope
+shading beyond the normals, and nothing that distinguishes road from field.
+
+Both are placement and surface questions over geometry that is now correct: 1948 vertices per
+tile at the stride the layout declares, 489.8..532.1 m of relief over 815 m of ground.
+
 ## What will be true
 
 - [ ] The ground is a COMPOSITOR's draw item with its own scale and its own placement, never a
