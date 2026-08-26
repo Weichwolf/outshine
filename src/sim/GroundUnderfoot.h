@@ -1,6 +1,9 @@
 #ifndef OUTSHINE_SIM_GROUNDUNDERFOOT_H
 #define OUTSHINE_SIM_GROUNDUNDERFOOT_H
 
+#include <memory>
+
+#include "ClassStructure.h"
 #include "GroundStack.h"
 #include "Underfoot.h"
 #include "VegetationTemplates.h"
@@ -13,11 +16,12 @@ public:
       : Stack_(stack), Templates_(templates) {}
 
   [[nodiscard]] Standing At(double lat, double lon) const override;
-  [[nodiscard]] double PostM(double lat) const override;
+  void Restand();
 
 private:
   const Ground::GroundStack &Stack_;
   const Ground::VegetationTemplates &Templates_;
+  std::shared_ptr<const ClassStructure> Held_;
 };
 
 }

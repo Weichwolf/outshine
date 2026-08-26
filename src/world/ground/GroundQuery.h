@@ -10,6 +10,7 @@ public:
   virtual ~GroundQuery() = default;
 
   [[nodiscard]] virtual GroundSample At(double lat, double lon) const = 0;
+  [[nodiscard]] virtual GroundSample Resident(double lat, double lon) const = 0;
   [[nodiscard]] virtual double PostM(double latDeg) const = 0;
 };
 

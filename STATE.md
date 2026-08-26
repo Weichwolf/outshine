@@ -47,9 +47,9 @@ flowchart LR
   engine --> |17| world_generators
   world_ground --> |15| base_io
   sim --> |14| actor_path
+  sim --> |12| world_ground
   render --> |12| render_stages
   world_generators --> |11| base_spatial
-  sim --> |11| world_ground
   engine --> |11| world_ground
   world_ground --> |9| world_data
   engine --> |8| scenario

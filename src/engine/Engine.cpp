@@ -219,7 +219,9 @@ bool Engine::State::Routes(void) {
                                          declared.Ground, Stack, *Wire, kept, say,
                                          Drive);
   if (routed) {
+    Stack.Restand(Drive.Way.FrameLat, Drive.Way.FrameLon);
     Surface = std::make_unique<Sim::GroundUnderfoot>(Stack, Drive.Surfaces);
+    Surface->Restand();
   }
   Carried.insert(Carried.end(), std::make_move_iterator(say.Held.begin()),
                      std::make_move_iterator(say.Held.end()));

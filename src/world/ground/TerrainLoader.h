@@ -53,6 +53,7 @@ public:
   GroundStream &operator=(const GroundStream &) = delete;
 
   [[nodiscard]] GroundSample At(double lat, double lon) const override;
+  [[nodiscard]] GroundSample Resident(double lat, double lon) const override;
 
   [[nodiscard]] double PostM(double latDeg) const override;
 
@@ -65,6 +66,7 @@ private:
   friend struct Held;
 
   const struct Tile *TileAt(long x, long y) const;
+  const struct Tile *TileResident(long x, long y) const;
 
   TilePool &Tiles_;
   GroundSurface Surface_;

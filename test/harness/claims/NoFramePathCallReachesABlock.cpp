@@ -1,0 +1,177 @@
+#include <cstdio>
+#include <cstdlib>
+#include <map>
+#include <set>
+#include <string>
+#include <vector>
+
+#include "Check.h"
+#include "Shell.h"
+
+using outshine::Test::Lines;
+using outshine::Test::Run;
+
+namespace {
+
+// THE LINKER'S OWN GRAPH, NOT A GREP. CLAUDE.md bounds the frame path -- no alloc, no lock, no
+// disk, no unbounded block -- and until this claim that bound was a sentence. It was broken in
+// the same session it was quoted: a ground query added to the physics tick reached, four calls
+// down, a poll loop of 30000 attempts at 1 ms, on a budget of 16.7 ms.
+//
+// A grep cannot find that, because no line of the tick mentions sleeping. The graph can.
+// `test/harness/shared/frame/callgraph.sh` reads every object in the archive: `nm -n` gives the
+// text symbols in ADDRESS order, and every relocation `objdump -dr` prints carries the address it
+// sits at, so the enclosing function is the last symbol at or below it. What comes out is what
+// the LINKER resolves, not what a header suggests.
+//
+// WHAT THIS WALK CANNOT SEE, stated because a guard that hides its blind spot is worse than
+// none: a relocation names a direct call. An INDIRECT call through a vtable carries no symbol,
+// so the walk stops at every virtual boundary. The frame path crosses exactly one -- `Underfoot`
+// is virtual so that the sim does not know the world -- and the override the engine installs is
+// therefore named below as a second seed. A seed that matches NOTHING fails this claim by name,
+// because a seed that stopped seeding looks exactly like a path that came up clean.
+struct Seed {
+  const char *Mangled;
+  const char *Why;
+};
+
+constexpr Seed kSeeds[] = {
+    {"Sim9DriveTick", "the physics step: one call integrates one body over one dt"},
+    {"GroundUnderfoot2AtEdd",
+     "the one virtual the step crosses -- the ground query the engine installs behind "
+     "`Sim::Underfoot`, which a relocation graph cannot follow from the call site"},
+};
+
+// Each is forbidden for a reason CLAUDE.md gives, and each is a SUBSTRING of a mangled or C
+// symbol so that every overload and every instantiation is caught by one entry.
+struct Forbidden {
+  const char *Symbol;
+  const char *Why;
+};
+
+constexpr Forbidden kForbidden[] = {
+    {"sleep", "an unbounded block: the step waits on something that is not the step"},
+    {"nanosleep", "the same, one layer down"},
+    {"BytesBlocking", "the tile pool's waiting fetch -- 30000 attempts at 1 ms by declaration"},
+    {"StitchedGrid", "a terrain build, which fetches and allocates"},
+    {"_Znwm", "operator new: an allocation the step cannot bound"},
+    {"_Znam", "operator new[]: the same"},
+    {"_malloc", "the same, reached through C"},
+    {"_fopen", "disk"},
+    {"_pread", "disk"},
+};
+
+[[nodiscard]] std::string Demangled(const std::string &symbol) {
+  std::string said;
+  (void)Run("printf '%s' " + symbol + " | c++filt", said);
+  while (!said.empty() && said.back() == '\n') { said.pop_back(); }
+  return said.empty() ? symbol : said;
+}
+
+}
+
+int main(void) {
+  using namespace outshine::Test;
+  std::setvbuf(stdout, nullptr, _IONBF, 0);
+
+  const char *nest = std::getenv("OUTSHINE_NEST");
+  if (nest == nullptr || *nest == 0) {
+    Unprepared("this claim unpacks the archive into the runner's nest and was given none");
+    return Report();
+  }
+
+  // A STALE ARCHIVE IS THE SAME GREEN AS A CLEAN PATH. This claim judges `build/liboutshine.a`,
+  // and a run that names a suite does not rebuild it -- so an edit that puts a block back on the
+  // frame path leaves the archive untouched and this walk reports the OLD graph, passing. That
+  // happened to the negative control the hour this claim was written.
+  std::string newer;
+  (void)Run("find src include -newer build/liboutshine.a -name '*.cpp' -o -newer "
+            "build/liboutshine.a -name '*.h' 2>/dev/null | head -3",
+            newer);
+  if (!newer.empty()) {
+    std::printf("%s", newer.c_str());
+    Unprepared("a source is newer than build/liboutshine.a, so this walk would judge a graph the "
+               "tree has already left -- run make");
+    return Report();
+  }
+
+  std::string edges;
+  const int walked =
+      Run("sh test/harness/shared/frame/callgraph.sh build/liboutshine.a " + std::string(nest) +
+              "/framewalk 2>/dev/null",
+          edges);
+  CHECK(walked == 0 && !edges.empty(),
+        "the archive walks -- a claim that cannot read the graph it judges is UNPREPARED, never "
+        "green");
+  if (walked != 0 || edges.empty()) { return Report(); }
+
+  std::map<std::string, std::vector<std::string>> calls;
+  size_t edgeCount = 0;
+  for (const std::string &line : Lines(edges)) {
+    const size_t tab = line.find('\t');
+    if (tab == std::string::npos) { continue; }
+    calls[line.substr(0, tab)].push_back(line.substr(tab + 1));
+    ++edgeCount;
+  }
+
+  std::set<std::string> seen;
+  std::vector<std::string> queue;
+  std::vector<size_t> seededBy(sizeof kSeeds / sizeof kSeeds[0], 0);
+  for (size_t which = 0; which < sizeof kSeeds / sizeof kSeeds[0]; ++which) {
+    for (const auto &pair : calls) {
+      if (pair.first.find(kSeeds[which].Mangled) == std::string::npos) { continue; }
+      ++seededBy[which];
+      if (seen.insert(pair.first).second) { queue.push_back(pair.first); }
+    }
+  }
+
+  bool everySeedTook = true;
+  for (size_t which = 0; which < sizeof kSeeds / sizeof kSeeds[0]; ++which) {
+    std::printf("SEED %-24s matched %zu symbol(s) -- %s\n", kSeeds[which].Mangled,
+                seededBy[which], kSeeds[which].Why);
+    everySeedTook = everySeedTook && seededBy[which] > 0;
+  }
+  CHECK(everySeedTook,
+        "STALE SEED: a seed matched nothing in the archive, so the walk below started from fewer "
+        "places than it declares -- and a seed that stopped seeding looks exactly like a path "
+        "that came up clean");
+  if (!everySeedTook) { return Report(); }
+
+  for (size_t at = 0; at < queue.size(); ++at) {
+    const auto found = calls.find(queue[at]);
+    if (found == calls.end()) { continue; }
+    for (const std::string &to : found->second) {
+      if (seen.insert(to).second) { queue.push_back(to); }
+    }
+  }
+
+  std::vector<std::string> blocking;
+  for (const std::string &symbol : seen) {
+    for (const Forbidden &one : kForbidden) {
+      if (symbol.find(one.Symbol) != std::string::npos) {
+        blocking.push_back(std::string(one.Symbol) + "  via  " + Demangled(symbol));
+        break;
+      }
+    }
+  }
+
+  std::printf("EDGES %zu over the archive, REACHABLE from the frame path %zu\n", edgeCount,
+              seen.size());
+  for (const std::string &one : blocking) { std::printf("  BLOCKS  %s\n", one.c_str()); }
+
+  CHECK(seen.size() > queue.size() / 2 && seen.size() > 10,
+        "the walk reached past its own seeds -- a graph that resolves nothing would report no "
+        "block for the same reason an empty one does");
+  CHECK(blocking.empty(),
+        "**NOTHING THE PHYSICS STEP CAN REACH ALLOCATES, LOCKS, TOUCHES DISK OR WAITS**: the "
+        "bound is CLAUDE.md's and it was a sentence until this walk. It was broken in the "
+        "session that quoted it -- a ground query on the tick reached a poll of 30000 attempts "
+        "at 1 ms, four calls down, on a 16.7 ms budget, and no line of the tick mentioned "
+        "sleeping");
+
+  Covers("the frame path: from the physics step and the one virtual it crosses, no symbol the "
+         "LINKER can reach allocates, locks, touches disk or blocks -- walked over the archive's "
+         "own relocations, with the seeds declared and a seed that matches nothing failing by "
+         "name");
+  return Report();
+}

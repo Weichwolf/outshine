@@ -65,11 +65,6 @@ public:
     return out;
   }
 
-  [[nodiscard]] double PostM(double lat) const override {
-    (void)lat;
-    return 30.0;
-  }
-
   [[nodiscard]] long Asked() const { return Asked_; }
 
 private:
@@ -147,6 +142,7 @@ private:
 }
 
 struct Rode {
+  long calls = 0;
   long asked = 0;
   long answered = 0;
   size_t airborne = 0;
@@ -189,6 +185,7 @@ struct Rode {
       break;
     }
   }
+  out.calls = verge.Asked();
   return out;
 }
 
@@ -224,6 +221,14 @@ int main(void) {
         "a car inside the made surface asks the ground nothing: the corridor it was given IS the "
         "surface there, and a query per wheel per step for an answer already in hand is work on "
         "the frame path that buys nothing");
+  std::printf("ON VERGE  the tick REPORTED %ld ask(s) and MADE %ld call(s)\n", aside.asked,
+              aside.calls);
+  CHECK(aside.calls == aside.asked,
+        "**ONE QUERY PER WHEEL PER STEP, AND THE TICK REPORTS EVERY ONE IT MAKES**: the query "
+        "used to answer a height and the caller assembled the normal from TWO more at the post "
+        "spacing, so a step made three calls and published one. Each of the three could block, "
+        "and the counter said nothing. The query answers height, normal and friction together "
+        "now, from one lookup of the tile it already found");
   CHECK(aside.asked > 0 && aside.answered == aside.asked,
         "**A WHEEL PAST THE EDGE ASKS THE GROUND**, and on this world every ask is answered, so "
         "the number below is the ground's word and not a fallback nobody noticed");

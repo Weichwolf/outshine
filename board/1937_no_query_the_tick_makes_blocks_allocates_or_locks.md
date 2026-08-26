@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Area: sim, world
 Tags: measured, frame-path, performance
 Regresses: 1924
@@ -49,12 +49,19 @@ is a multiply by zero standing in source that carries no comments.
 
 ## What will be true
 
-- [ ] `Underfoot::At` answers height, NORMAL and friction in ONE call, from the field's own
-      normals, never from a finite difference the caller assembles.
-- [ ] A query on the tick that would have to fetch answers `Known = false` at once. Blocking
-      belongs to the streaming path that opens the world, never to the step that integrates it.
-- [ ] No lock and no allocation between `DriveTick` entry and exit, held by a case that counts
-      them.
-- [ ] Proving case: a drive whose wheels leave the made surface into a region whose tiles are
-      NOT resident, with a declared per-step ceiling in milliseconds. Negative control: the
-      blocking path restored, and the step overruns the ceiling by three orders of magnitude.
+- [x] `Underfoot::At` answers height, NORMAL and friction in ONE call. The DEM tile carries a
+      height field and no normals, so the finite difference is right -- but it belongs INSIDE the
+      query, where it costs one tile lookup instead of three.
+      proof: harness/outshine/physics/ScoreWhatAWheelFindsOffTheMadeSurface
+- [x] A query on the tick that would have to fetch answers at once. `GroundQuery::Resident` reads
+      the resident cache and returns `Waiting()` on a miss; `At` keeps the fetch for the paths
+      that open the world.
+      proof: harness/claims/NoFramePathCallReachesABlock
+- [x] No lock and no allocation between `DriveTick` entry and exit. The class snapshot is taken
+      ONCE at stand-up, so `ClassAt` on the tick takes the structure it was handed.
+      proof: harness/claims/NoFramePathCallReachesABlock
+- [x] Proving case: the LINKER's own graph rather than a ceiling in milliseconds -- a timing
+      bound would have to be loose enough to survive a loaded machine, and the defect is
+      structural. Negative control: `Resident` swapped back to `At`, and the reachable set goes
+      43 -> 121 naming `StitchedGrid`, `operator new` and `_malloc`.
+      proof: harness/claims/NoFramePathCallReachesABlock

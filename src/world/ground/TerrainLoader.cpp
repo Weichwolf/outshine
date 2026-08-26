@@ -154,6 +154,54 @@ GroundStream::~GroundStream() {
   }
 }
 
+const Tile *GroundStream::TileResident(long x, long y) const {
+  Held &held = *Held_;
+  for (Tile &t : held.Ground) {
+    if (t.Resident && t.X == x && t.Y == y) {
+      t.Used = ++held.Clock;
+      return t.Hole ? nullptr : &t;
+    }
+  }
+  return nullptr;
+}
+
+GroundSample GroundStream::Resident(double lat, double lon) const {
+  lon = Wrapped180(lon);
+  Geo place;
+  place.LatDeg = lat;
+  place.LonDeg = lon;
+  const TileFrac f = ToTileFracClamped(place, Surface_.Z);
+  long hx = (long)f.X, hy = (long)f.Y;
+  if (!WrapTile(Surface_.Z, &hx, &hy)) { return GroundSample::Missing(); }
+  const Tile *t = TileResident(hx, hy);
+  if (!t) { return GroundSample::Waiting(); }
+
+  const double u = f.X - (double)hx, v = f.Y - (double)hy;
+  const double step = t->Postings > 0 ? 1.0 / (double)t->Postings : 0.0;
+  const double here = TileHeightAslM(t->H.data(), t->Nodes, t->Postings, u, v);
+  if (!(step > 0.0)) { return GroundSample::At(here); }
+
+  const auto clamped = [](double at) { return at < 0.0 ? 0.0 : (at > 1.0 ? 1.0 : at); };
+  const double eastAt = clamped(u + step), westAt = clamped(u - step);
+  const double southAt = clamped(v + step), northAt = clamped(v - step);
+  const double spanM = PostM(lat);
+  const double acrossEastM = (eastAt - westAt) * (double)t->Postings * spanM;
+  const double acrossNorthM = (southAt - northAt) * (double)t->Postings * spanM;
+  if (!(acrossEastM > 0.0) || !(acrossNorthM > 0.0)) { return GroundSample::At(here); }
+
+  const double byEast =
+      (TileHeightAslM(t->H.data(), t->Nodes, t->Postings, eastAt, v) -
+       TileHeightAslM(t->H.data(), t->Nodes, t->Postings, westAt, v)) / acrossEastM;
+  const double bySouth =
+      (TileHeightAslM(t->H.data(), t->Nodes, t->Postings, u, southAt) -
+       TileHeightAslM(t->H.data(), t->Nodes, t->Postings, u, northAt)) / acrossNorthM;
+  double normal[3] = {-byEast, 1.0, bySouth};
+  const double length =
+      std::sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+  for (double &axis : normal) { axis /= length; }
+  return GroundSample::At(here, normal);
+}
+
 const Tile *GroundStream::TileAt(long x, long y) const {
   Held &held = *Held_;
   Tile *victim = &held.Ground[0];

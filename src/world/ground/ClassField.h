@@ -37,12 +37,17 @@ public:
   const double *NorthEcef() const { return Frame_.NorthEcef(); }
   void Project(double lat, double lon, double *e, double *n) const { Frame_.Project(lat, lon, e, n); }
 
+  [[nodiscard]] int ClassAt(const ClassStructure &held, double lat, double lon, double *edgeM,
+                            int *runnerUp) const {
+    double e = 0.0, n = 0.0;
+    Project(lat, lon, &e, &n);
+    return held.Evaluate(e, n, edgeM, runnerUp);
+  }
+
   [[nodiscard]] int ClassAt(double lat, double lon, double *edgeM, int *runnerUp) const {
     const std::shared_ptr<const ClassStructure> held = Read();
     if (!held) { return -1; }
-    double e = 0.0, n = 0.0;
-    Project(lat, lon, &e, &n);
-    return held->Evaluate(e, n, edgeM, runnerUp);
+    return ClassAt(*held, lat, lon, edgeM, runnerUp);
   }
 
   void FromEnu(double e, double n, double *lat, double *lon) const { Frame_.Geo(e, n, lat, lon); }

@@ -156,29 +156,17 @@ const Ridden &DriveTick(const Corridor &way, const Rigged &stood, const Underfoo
     under[which].NormalM[1] = on.NormalM[1];
     under[which].NormalM[2] = -on.NormalM[2];
     if (!onMade) {
-      const double atLat = way.FrameLat + (worldM[0] * 0.0 + armNorthM + northM) / way.PerLatM;
-      const double atLon = way.FrameLon + (armEastM + eastM) / way.PerLonM;
+      const double atLat = way.FrameLat - worldM[2] / way.PerLatM;
+      const double atLon = way.FrameLon + worldM[0] / way.PerLonM;
       const Standing ground = beneath.At(atLat, atLon);
       ++out.GroundAsked;
       if (ground.Known) {
         ++out.GroundAnswered;
         under[which].HeightM = ground.HeightAslM;
         under[which].Friction = ground.Friction;
-        const double stepM = beneath.PostM(atLat);
-        const Standing north = beneath.At(atLat + stepM / way.PerLatM, atLon);
-        const Standing east = beneath.At(atLat, atLon + stepM / way.PerLonM);
-        if (north.Known && east.Known) {
-          const double dNorth = north.HeightAslM - ground.HeightAslM;
-          const double dEast = east.HeightAslM - ground.HeightAslM;
-          double normal[3] = {-dEast, stepM, dNorth};
-          const double length =
-              std::sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
-          if (length > 0.0) {
-            under[which].NormalM[0] = normal[0] / length;
-            under[which].NormalM[1] = normal[1] / length;
-            under[which].NormalM[2] = -normal[2] / length;
-          }
-        }
+        under[which].NormalM[0] = ground.NormalM[0];
+        under[which].NormalM[1] = ground.NormalM[1];
+        under[which].NormalM[2] = -ground.NormalM[2];
       }
     }
   }
