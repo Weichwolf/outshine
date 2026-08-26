@@ -9,6 +9,7 @@
 #include "Body.h"
 #include "CorridorLay.h"
 #include "Rig.h"
+#include "HoldLane.h"
 #include "Rigging.h"
 #include "Underfoot.h"
 
@@ -87,6 +88,8 @@ struct Ridden {
 };
 
 struct DriveState {
+  Control::HoldsLane Keeping;
+  size_t Kept = 0;
   Physics::Rig Rig;
   Physics::Body Body;
   double CarWidthM = 0.0;

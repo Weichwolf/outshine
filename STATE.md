@@ -143,7 +143,7 @@ flowchart LR
   sim --> |12| world_ground
   render --> |12| render_stages
   world_ground --> |9| world_data
-  sim --> |7| actor_mind
+  sim --> |8| actor_mind
   engine --> |7| content_gltf
   actor_mind --> |7| actor_path
   engine --> |6| ui

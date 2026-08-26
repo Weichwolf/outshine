@@ -1254,6 +1254,7 @@ bool Engine::Advance() {
   }
   if (S_->Drove) {
     S_->Places("how far along it the body has come", S_->Drive.State.Tally.ReachedM, "m");
+    S_->Places("ticks the one lane task has kept", (double)S_->Drive.State.Kept, "ticks");
   }
   S_->Falls();
   if (!S_->Drove && !S_->Freestanding.empty() && S_->Standing->Stands()) {

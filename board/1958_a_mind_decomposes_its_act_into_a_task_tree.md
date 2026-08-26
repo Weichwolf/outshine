@@ -25,4 +25,11 @@ the leaf.
       `Control::HoldsLane` wraps `Pilot::Hold` and `Sim::DriveTick` runs it through `Step`. The
       drive reads 10.5115 / 522.756 / 5.31713, the same digits as before the tree existed.
       Negative control: the leaf computing nothing takes the drive 10.5115 m to 1.27116 m.
-- [ ] a driver that must yield abandons the subtree and resumes, proven by a case over a route
+- [x] the tree LIVES across ticks, which is what yielding and resuming needs: `DriveState` owns
+      the lane task, `DriveTick` steps the one it holds, and the drive reports 40 ticks over 40
+      frames rather than 40 tasks built and thrown away. The trajectory is unchanged.
+- [ ] a driver that must YIELD abandons the subtree and resumes. The machinery stands and the
+      SITUATION does not: nothing in a corridor-following drive asks it to give way. Inventing one
+      would be building a feature under a refactor that forbids it (board:1953), so this waits for
+      a scenario that declares traffic, a junction or an obstacle -- something with a reason to
+      yield rather than a switch that says to.
