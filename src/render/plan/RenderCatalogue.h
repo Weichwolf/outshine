@@ -261,7 +261,7 @@ inline constexpr StageRow kStages[] = {
      {Resource::SceneHdr, Resource::SceneVelocity, Resource::SceneDepth, kNoEdge}, kNoFusion},
 
     {Stage::Subjects, Provenance::Content, PassKind::Raster, "subjects",
-     {Resource::ShadowAtlas, kNoEdge}, {kNoEdge},
+     {Resource::ShadowAtlas, Resource::LutSampler, kNoEdge}, {kNoEdge},
      {Resource::SceneHdr, Resource::SceneVelocity, Resource::SceneDepth,
       Resource::SceneShadingNormal, Resource::SceneSurfaceIdentity, kNoEdge}, kNoFusion},
 

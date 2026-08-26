@@ -129,7 +129,30 @@ int main(void) {
   std::printf("THE ATLAS HOLDS   depths from %.3f to %.3f, %.0f texel(s) above the clear\n",
               least, most, written);
 
-  CHECK(written > 0.0,
+  const double shadowedOnce = Measured(engine, "frames the subject drew shadowed");
+
+  outshine::Scenario bare = stands;
+  bare.Assets.clear();
+  if (!engine.Declare(bare) || !engine.Advance() || !engine.RenderTo(outshine::Extent{})) {
+    Unprepared(("the bare arm did not stand: " + engine.Error()).c_str());
+    return Report();
+  }
+  const double shadowedAgain = Measured(engine, "frames the subject drew shadowed");
+  std::printf("SHADOWED FRAMES   with a caster %.0f, after a declaration with none %.0f\n",
+              shadowedOnce, shadowedAgain);
+
+  CHECK(shadowedOnce > 0.0,
+        "the caster arm drew shadowed at all, so the count below has something to fail to grow "
+        "from");
+  CHECK(shadowedAgain == shadowedOnce,
+        "**A DECLARATION THAT CASTS NOTHING READS NO ATLAS**: the light stage leaves the plan "
+        "when nothing declares a shadow, so nothing writes the atlas -- and what a plan stops "
+        "writing it must also stop READING. The flag that says a subject is shadowed used to be "
+        "set true by the stage and never set false by anything, so every later frame sampled a "
+        "caster that was no longer there. It cannot outlive a frame now: it is cleared where the "
+        "frame is composed and set only by the stage that ran");
+
+    CHECK(written > 0.0,
         "**THE LIGHT SEES THE CASTER**: some texel of the atlas holds a depth the clear does "
         "not, which is the whole of what a shadow map IS -- a light frustum that misses the "
         "geometry writes an atlas of one value and every receiver reads itself unoccluded");

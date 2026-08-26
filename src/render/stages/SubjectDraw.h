@@ -48,12 +48,15 @@ public:
 
   void GlassIsDrawnElsewhere() { GlassDrawnElsewhere_ = true; }
 
-  void ShadowedBy(SDL_GPUTexture *atlas, SDL_GPUSampler *exact, const double lightFromWorld16[16]) {
+  void ShadowedBy(SDL_GPUTexture *atlas, SDL_GPUSampler *exact, const double *lightFromWorld16) {
     Atlas_ = atlas;
     AtlasSampler_ = exact;
+    Shadowed_ = atlas != nullptr && exact != nullptr && lightFromWorld16 != nullptr;
+    if (!Shadowed_) { return; }
     for (int at = 0; at < 16; ++at) { LightFromWorld_[at] = lightFromWorld16[at]; }
-    Shadowed_ = atlas != nullptr && exact != nullptr;
   }
+
+  void CastsNoShadow() { ShadowedBy(nullptr, nullptr, nullptr); }
 
   [[nodiscard]] bool SetPlacements(const double *models, size_t rows, std::string &error) {
     if (models == nullptr && rows > 0) {

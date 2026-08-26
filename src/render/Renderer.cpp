@@ -722,6 +722,7 @@ void Renderer::RenderFrame() {
     HistoryStarted_ = true;
     LinearAt_ = 1 - LinearAt_;
   }
+  Subjects_.CastsNoShadow();
   for (bool &touched : Touched_) { touched = false; }
   SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device_.Get());
 

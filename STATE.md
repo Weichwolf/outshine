@@ -101,10 +101,10 @@ MASS -- the heaviest units, against the median of them all
     2020  content/gltf/Document.h
     1397  ui/Layout.h
     1347  content/gltf/Subject.h
-    1328  render/Renderer.h
+    1329  render/Renderer.h
     1141  base/format/Script.h
     1103  base/spatial/Wayfinding.h
-    1039  render/stages/SubjectDraw.h
+    1042  render/stages/SubjectDraw.h
      955  ui/Style.h
      107  the median of 243 unit(s)
 
