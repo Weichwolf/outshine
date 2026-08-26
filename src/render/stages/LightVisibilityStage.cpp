@@ -49,6 +49,9 @@ void LightVisibilityStage::Build(const double preView[3]) {
 
   const double texelM = 2.0 * RadiusM_ / (double)kShadowAtlasPx;
   double centre[3] = {0.0, 0.0, 0.0};
+  const auto reported = [this, &centre]() {
+    for (int axis = 0; axis < 3; ++axis) { StoodAtM_[axis] = centre[axis]; }
+  };
   {
     const double *const anchor = Subjects_ != nullptr ? Subjects_->AnchorM() : nullptr;
     double least[3] = {1.0e30, 1.0e30, 1.0e30}, most[3] = {-1.0e30, -1.0e30, -1.0e30};
@@ -83,6 +86,7 @@ void LightVisibilityStage::Build(const double preView[3]) {
   centreLight[1] = std::floor(centreLight[1] / texelM) * texelM;
 
   const double depthM = 2.0 * RadiusM_;
+  reported();
   const double nearAlong = centreLight[2] - depthM;
   const double farAlong = centreLight[2] + depthM;
   for (int i = 0; i < 16; ++i) { LightFromWorld_[i] = 0.0; }

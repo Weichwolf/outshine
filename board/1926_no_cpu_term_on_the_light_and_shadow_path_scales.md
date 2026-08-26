@@ -56,9 +56,11 @@ the mechanism the benchmark uses rather than an outcome.
       folds a bounding volume for each part -- built once over every animation frame, transformed
       by that part's placement on every call. `O(parts * 8)` corners instead of `O(vertices)`, and
       `BoundsPlaced_` is gone, so nothing can go stale. The drive is unchanged.
-      The CORRECTNESS half is unproven and board:1970 says why: nothing that moves also casts, so
-      there is no atlas whose centre could be watched following a caster down.
-- [x] ~~**The shadow centre comes from the resident instance bounds, not from a vertex fold.**~~
+      The centre FOLLOWS a caster that moves, proven now that a body can move without a route:
+      the crate falls a further 3.697924 m between two frames and the frustum descends by
+      3.697924 m. That is `LightVisibilityStage::Build` reading placements every frame, which is
+      board:1951's work rather than this fold's.
+      proof: harness/outshine/door/ScoreWhatABodyWithNoRouteDoes
       `Live::PlacedBounds` walks every vertex and is correct only while `BoundsPlaced_` holds:
       the day a caster MOVES under a still camera the cache is stale and the frustum follows the
       wrong body. Both benchmarks keep a bounding volume per instance in the scene structure and

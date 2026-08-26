@@ -177,6 +177,10 @@ int main(void) {
         "the one integration started from, and the only difference from the closed form is the "
         "scheme's own");
 
+  if (!engine.RenderTo(outshine::Extent{})) {
+    Unprepared(("the crate did not draw: " + engine.Error()).c_str());
+    return Report();
+  }
   const double meshUpM = Measured(engine, "the mesh it carries, up");
   std::printf("AND THE PICTURE CARRIES IT AT up %10.5f m\n", meshUpM);
   CHECK(std::fabs(meshUpM - upM) < 1.0e-9,
@@ -185,18 +189,50 @@ int main(void) {
         "was always that link and nothing walked it, so a body with no route was integrated and "
         "never placed, which is a state no renderer can tell from a body that is not there");
 
-  // THE SHADOW FRUSTUM SHOULD FOLLOW IT DOWN AND CANNOT BE ASKED HERE. A freestanding body casts
-  // nothing -- "batches the shadow casts" reads 0 for this scenario whether or not a shadow radius
-  // is declared -- so there is no atlas whose centre could be compared against the falling crate.
-  // That is board:1970 and it is filed rather than worked around, because a case that asserts a
-  // number nobody computes is worse than no case.
+  // AND THE SHADOW FRUSTUM FOLLOWS IT DOWN, which is the half board:1926 could not prove until a
+  // body could move without a route.
   //
-  // The bounds it would have proven are landed regardless: `Live::PlacedBounds` walked every VERTEX
-  // and cached the answer in `BoundsPlaced_`, so a caster that MOVED under a still camera left its
-  // own shadow behind. It folds a VOLUME PER PART now -- built once over every animation frame,
-  // transformed by that part's placement on each call, `O(parts * 8)` corners instead of
-  // `O(vertices)`, and no cache to go stale. Both benchmarks keep a volume per instance in the
-  // scene structure and fold volumes, never vertices.
+  // WHAT MAKES IT FOLLOW is that `LightVisibilityStage::Build` derives the centre from the
+  // renderer's PLACEMENTS every frame. This case was first written attributing that to a different
+  // change -- the per-part bounds fold in `Live::PlacedBounds` -- and the negative control refused
+  // to confirm it: caching those bounds left the frustum following perfectly, because the light
+  // stage never reads them. `PlacedBounds` frames the CAMERA, and nothing else.
+  //
+  // The attempt was worth its cost anyway. Looking for the consumer found a block in `Live::Draw`
+  // that computed a centre from `PlacedBounds` into an EMPTY body -- the producer left standing
+  // when the consumer moved into the light stage, folding a bounding volume every frame for
+  // nothing.
+  //
+  // THE ORACLE AVOIDS EVERY CONSTANT. The centre is reported in ECEF and the body in a local frame,
+  // so comparing them absolutely would drag in the earth's radius. Comparing two FRAMES does not:
+  // whatever the frames share cancels, and what remains is that the frustum descended exactly as
+  // far as the crate did. A centre that stood still -- which is what the cache produced -- shows up
+  // as a difference of zero against a body that has moved.
+  const double centreFirstM = Measured(engine, "its centre, east");
+  const double upFirstM = Measured(engine, "the first of them, up");
+  for (int step = 0; step < kSteps; ++step) {
+    if (!engine.Advance()) { break; }
+  }
+  if (!engine.RenderTo(outshine::Extent{})) {
+    Unprepared(("the second frame did not draw: " + engine.Error()).c_str());
+    return Report();
+  }
+  const double centreThenM = Measured(engine, "its centre, east");
+  const double upThenM = Measured(engine, "the first of them, up");
+  const double fellM = upThenM - upFirstM;
+  const double followedM = centreThenM - centreFirstM;
+  std::printf("THE CRATE FELL A FURTHER %10.6f m\n", fellM);
+  std::printf("THE FRUSTUM FOLLOWED BY  %10.6f m\n", followedM);
+
+  CHECK(fellM < -1.0,
+        "the crate fell a further metre between the two frames, so the frustum below has "
+        "somewhere to have followed it to");
+  CHECK(std::fabs(followedM - fellM) < 0.01,
+        "**AND THE SHADOW FRUSTUM FOLLOWS A CASTER THAT MOVES**: it descended exactly as far as "
+        "the body did, within a texel of the atlas. The centre was cached from a walk over every "
+        "vertex and never recomputed while the subject stood, so it would have followed by zero "
+        "-- and nothing declared a moving caster until a body could stand without a route, so the "
+        "defect had no scenario to show itself in");
   Covers("the sim: a body declares where it stands, and one with no route at all is held, "
          "integrated and placed in the picture through the asset it names");
   return Report();

@@ -29,6 +29,7 @@ public:
 
   [[nodiscard]] const double *LightFromWorld() const { return LightFromWorld_; }
   [[nodiscard]] size_t CastBatches() const { return CastBatches_; }
+  [[nodiscard]] const double *StoodAtM() const { return StoodAtM_; }
   [[nodiscard]] bool Standing() const { return Declared_; }
 
 public:
@@ -41,6 +42,7 @@ private:
             const PassRecording &into);
 
   size_t CastBatches_ = 0;
+  double StoodAtM_[3] = {0.0, 0.0, 0.0};
   SubjectDraw *Subjects_ = nullptr;
   OwnedPipeline DepthOnly_;
   double ToSun_[3] = {0, 0, 1};

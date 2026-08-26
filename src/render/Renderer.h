@@ -118,6 +118,7 @@ public:
   }
 
   [[nodiscard]] size_t SubjectPlacementsMoved() const { return Subjects_.PlacementsMoved(); }
+  [[nodiscard]] const double *ShadowStoodAtM() const { return Shadow_.StoodAtM(); }
 
   [[nodiscard]] bool SetSubjectPlacements(const double *models, size_t rows, std::string &error) {
     return Subjects_.SetPlacements(models, rows, error) &&

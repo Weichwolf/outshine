@@ -709,14 +709,6 @@ bool Live::Draw(std::string &error) {
     error = "no device stands, so there is nothing to draw with";
     return false;
   }
-  {
-    double least[3], most[3];
-    if (PlacedBounds(least, most, error)) {
-      double centre[3];
-      for (int axis = 0; axis < 3; ++axis) { centre[axis] = 0.5 * (least[axis] + most[axis]); }
-
-    }
-  }
   const auto took = [](size_t before) { return Heap::LiveBytes() - before; };
   const size_t beforeDraw = Heap::LiveBytes();
   const Heap::Tagged drawing("render-frame");
