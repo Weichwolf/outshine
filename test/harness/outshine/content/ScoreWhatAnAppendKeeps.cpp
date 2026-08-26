@@ -1,6 +1,9 @@
 #include <cstdio>
+#include <span>
 #include <string>
 #include <vector>
+
+#include <Geometry.h>
 
 #include "Check.h"
 #include "Subject.h"
@@ -18,17 +21,13 @@ namespace {
 // but a collision of two namespaces.
 constexpr double kUnitM = 1.0;
 
-[[nodiscard]] outshine::Gltf::Piece Facing(const char *named, int material,
-                                           std::vector<float> &positions,
-                                           std::vector<uint32_t> &indices) {
-  positions = {0.0f, 0.0f, 0.0f, (float)kUnitM, 0.0f, 0.0f, 0.0f, (float)kUnitM, 0.0f};
-  indices = {0, 1, 2};
-  outshine::Gltf::Piece one;
-  one.NodeName = named;
-  one.Material = material;
-  one.PositionsM = outshine::Span<const float>(positions.data(), positions.size());
-  one.Indices = outshine::Span<const uint32_t>(indices.data(), indices.size());
-  return one;
+void Facing(outshine::Geometry &into, const char *named, int material) {
+  constexpr float kFace[9] = {0.0f, 0.0f, 0.0f, (float)kUnitM, 0.0f, 0.0f, 0.0f, (float)kUnitM,
+                              0.0f};
+  constexpr uint32_t kRun[3] = {0, 1, 2};
+  const int part = into.Part(named, material);
+  (void)into.Positions(part, std::span<const float>(kFace, 9));
+  (void)into.Triangles(part, std::span<const uint32_t>(kRun, 3));
 }
 
 }
@@ -38,17 +37,18 @@ int main(void) {
   using namespace outshine::Gltf;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-  std::vector<float> hostA, hostB, guestP;
-  std::vector<uint32_t> hostAi, hostBi, guestI;
-  const Piece host[2] = {Facing("body", 0, hostA, hostAi), Facing("glass", 1, hostB, hostBi)};
+  outshine::Geometry host;
+  Facing(host, "body", 0);
+  Facing(host, "glass", 1);
   Subject standing;
-  CHECK(standing.Assemble(Assembly{outshine::Span<const Piece>(host, 2)}),
+  CHECK(standing.Assemble(host),
         "a host of two parts naming materials 0 and 1 stands");
   if (standing.Parts().size() != 2) { return Report(); }
 
-  const Piece guest[1] = {Facing("ground", 0, guestP, guestI)};
+  outshine::Geometry guest;
+  Facing(guest, "ground", 0);
   Subject arriving;
-  CHECK(arriving.Assemble(Assembly{outshine::Span<const Piece>(guest, 1)}),
+  CHECK(arriving.Assemble(guest),
         "a guest of one part naming material 0 stands");
 
   const size_t was = standing.Parts().size();
