@@ -1,5 +1,7 @@
 #include <cstdio>
 #include <string>
+#include <map>
+#include <set>
 #include <vector>
 
 #include "Check.h"
@@ -31,9 +33,20 @@ namespace {
 // detection cannot pair them at any threshold. It fired on `71e5679f` and called a renumber a
 // closure that skipped the door.
 //
-// So a deletion is judged as a closure only when the item SURVIVES NOWHERE: no file in the tree
-// at HEAD carries its title. One that reappears under another number was moved, not closed, and
-// the move is a fact about the board's numbering rather than about its discipline.
+// So a deletion is judged as a closure only when the item SURVIVES NOWHERE, and getting that
+// right took three tries -- each wrong version is recorded because the next reader will reach
+// for the same two:
+//
+//   "its title stands at HEAD"        excuses nothing it should, but a renumbered item closed
+//                                     properly a few hours later leaves no title at HEAD and its
+//                                     earlier MOVE reads as a door-skip again
+//   "its title was added in the window"  excuses EVERYTHING: an item filed and closed in one
+//                                     window has its own title in that set, and six real
+//                                     closures were waved through
+//
+// The distinction is ORDER. A move's add comes AFTER its delete; a file-then-close comes before.
+// So every commit in the window is numbered (git log prints newest first, so a SMALLER index is
+// later), and a deletion is a move only when the title was added at a strictly later commit.
 //
 // THE WINDOW BEGINS WHERE THE RULE BEGAN TO BE ENFORCED, and it finds its own start: the commit
 // that added THIS FILE. Walked over all of history the count is 2579 deletions with 2513 of them
@@ -78,6 +91,45 @@ int main(void) {
         "nothing or all of history, and neither is what the rule says");
   if (born.empty()) { return Report(); }
 
+  // Every title the window FILED, under any number. A deletion whose title is in here was moved.
+  std::string added;
+  (void)Run("git log --diff-filter=A --name-only --format='%h' " + born +
+                "..HEAD -- 'board/*.md' 2>/dev/null",
+            added);
+  std::string ordered;
+  (void)Run("git log --format='%h' " + born + "..HEAD 2>/dev/null", ordered);
+  std::map<std::string, size_t> whenCommitted;
+  {
+    size_t index = 0;
+    for (const std::string &line : Lines(ordered)) {
+      if (!line.empty()) { whenCommitted[line] = index++; }
+    }
+  }
+
+  std::map<std::string, size_t> filedAt;
+  {
+    std::string commit;
+    for (const std::string &line : Lines(added)) {
+      if (line.empty()) { continue; }
+      if (line.compare(0, 6, "board/") != 0) {
+        commit = line;
+        continue;
+      }
+      if (commit.empty()) { continue; }
+      std::string title;
+      (void)Run("git show " + commit + ":" + line + " 2>/dev/null | sed -n 's|^# ||p' | head -1",
+                title);
+      while (!title.empty() && (title.back() == '\n' || title.back() == ' ')) { title.pop_back(); }
+      if (title.empty()) { continue; }
+      const auto placed = whenCommitted.find(commit);
+      if (placed == whenCommitted.end()) { continue; }
+      const auto held = filedAt.find(title);
+      if (held == filedAt.end() || placed->second < held->second) {
+        filedAt[title] = placed->second;
+      }
+    }
+  }
+
   std::string log;
   const int walked = Run("git log --diff-filter=D --name-only --format='%h' " + born +
                              "..HEAD -- 'board/*.md' 2>/dev/null",
@@ -108,9 +160,10 @@ int main(void) {
               titled);
     while (!titled.empty() && (titled.back() == '\n' || titled.back() == ' ')) { titled.pop_back(); }
     if (!titled.empty()) {
-      std::string elsewhere;
-      (void)Run("grep -l -F -x -- '# " + titled + "' board/*.md 2>/dev/null | head -1", elsewhere);
-      if (!elsewhere.empty()) {
+      const auto refiled = filedAt.find(titled);
+      const auto deleted = whenCommitted.find(at);
+      if (refiled != filedAt.end() && deleted != whenCommitted.end() &&
+          refiled->second < deleted->second) {
         ++moved;
         continue;
       }
@@ -131,8 +184,8 @@ int main(void) {
   if (deletions == 0) {
     std::printf("NO CLOSURE IN THE WINDOW YET -- the rule has had nothing to judge\n");
   }
-  std::printf("BOARD DELETIONS in the window %zu, of which %zu were MOVES -- the title stands in "
-              "the tree under another number\n", deletions, moved);
+  std::printf("BOARD DELETIONS in the window %zu, of which %zu were MOVES -- the same title was "
+              "filed again at a LATER commit\n", deletions, moved);
   std::printf("CLOSED THROUGH ACTIVE %zu, skipped the door %zu\n", closed.size(), skipped.size());
   for (const Skipped &one : skipped) {
     std::printf("  %s deleted %s which said '%s'\n", one.Commit.c_str(), one.Item.c_str(),
