@@ -1144,6 +1144,8 @@ bool Engine::Advance() {
 void Engine::State::Drew(void) {
   Places("batches the picture draws", (double)Device.SubjectBatchCount(), "batches");
   Places("batches the shadow casts", (double)Device.ShadowCastCount(), "batches");
+  Places("placement rows the renderer has been sent", (double)Device.SubjectPlacementsMoved(),
+         "rows");
   Places("frames the subject drew shadowed", (double)Device.ShadowedFrames(), "frames");
   {
     std::vector<float> depth;

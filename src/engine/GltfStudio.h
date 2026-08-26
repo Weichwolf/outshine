@@ -54,6 +54,7 @@ struct StudioScratch {
   std::vector<Render::SubjectLight> Lights;
   Render::DrawList Draws;
   std::vector<double> Placements;
+  std::vector<double> Sent;
 };
 
 [[nodiscard]] bool Aim(Render::Renderer &renderer, const Gltf::Subject &subject,

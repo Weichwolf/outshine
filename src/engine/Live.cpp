@@ -1,5 +1,7 @@
 #include "Live.h"
 
+#include <limits>
+
 #include <algorithm>
 
 #include <numbers>
@@ -607,8 +609,23 @@ bool Live::Carry(const double worldFromBodyM[16], const double built[16], std::s
   BoundsPlaced_ = false;
   Renderer_->CastsBelow((uint32_t)Joined_);
   Placements(Stood_, Scratch_.Placements);
-  return Renderer_->SetSubjectPlacements(Scratch_.Placements.data(),
-                                         Stood_.PartPlacement.size(), error);
+  return Carried(Stood_.PartPlacement.size(), error);
+}
+
+bool Live::Carried(size_t rows, std::string &error) {
+  if (!Renderer_->SubjectPlacementRows(rows, error)) { return false; }
+  if (Sent_.size() != rows * 16u) {
+    Sent_.assign(rows * 16u, std::numeric_limits<double>::quiet_NaN());
+  }
+  for (size_t slot = 0; slot < rows; ++slot) {
+    const double *const now = Scratch_.Placements.data() + slot * 16u;
+    bool same = true;
+    for (size_t at = 0; at < 16u && same; ++at) { same = Sent_[slot * 16u + at] == now[at]; }
+    if (same) { continue; }
+    Renderer_->MoveSubjectPlacement(slot, now);
+    for (size_t at = 0; at < 16u; ++at) { Sent_[slot * 16u + at] = now[at]; }
+  }
+  return true;
 }
 
 bool Live::Restands(std::string stands, std::string variant, AssetAnimation animation,

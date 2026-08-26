@@ -58,6 +58,26 @@ public:
 
   void CastsNoShadow() { ShadowedBy(nullptr, nullptr, nullptr); }
 
+  [[nodiscard]] bool PlacementRows(size_t rows, std::string &error) {
+    for (const DrawBatch &batch : Batches) {
+      if ((size_t)batch.ModelSlot < rows) { continue; }
+      error = "a draw names placement slot " + std::to_string(batch.ModelSlot) +
+              " over a table of " + std::to_string(rows) + " placements";
+      Placed_.clear();
+      return false;
+    }
+    Placed_.resize(rows * 16u, 0.0);
+    return true;
+  }
+
+  void MovePlacement(size_t slot, const double model16[16]) {
+    if ((slot + 1) * 16u > Placed_.size()) { return; }
+    for (size_t at = 0; at < 16u; ++at) { Placed_[slot * 16u + at] = model16[at]; }
+    ++Moved_;
+  }
+
+  [[nodiscard]] size_t PlacementsMoved() const { return Moved_; }
+
   [[nodiscard]] bool SetPlacements(const double *models, size_t rows, std::string &error) {
     if (models == nullptr && rows > 0) {
       Placed_.clear();
@@ -202,6 +222,7 @@ private:
   double PrevAnchor[3] = {0, 0, 0};
   double Model[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
   std::vector<double> Placed_;
+  size_t Moved_ = 0;
 
   bool WritesVelocity = false;
 };

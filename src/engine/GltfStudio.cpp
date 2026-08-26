@@ -1,5 +1,7 @@
 #include "GltfStudio.h"
 
+#include <limits>
+
 #include "Heap.h"
 
 #include <numbers>
@@ -25,6 +27,23 @@ void PlacedInEcef(const double gltf[16], double out[16]) {
           kSign[row] * gltf[kAxis[column] * 4 + kAxis[row]] * kSign[column];
     }
   }
+}
+
+[[nodiscard]] bool Carried(Render::Renderer &renderer, StudioScratch &scratch, size_t rows,
+                           std::string &error) {
+  if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
+  if (scratch.Sent.size() != rows * 16u) {
+    scratch.Sent.assign(rows * 16u, std::numeric_limits<double>::quiet_NaN());
+  }
+  for (size_t slot = 0; slot < rows; ++slot) {
+    const double *const now = scratch.Placements.data() + slot * 16u;
+    bool same = true;
+    for (size_t at = 0; at < 16u && same; ++at) { same = scratch.Sent[slot * 16u + at] == now[at]; }
+    if (same) { continue; }
+    renderer.MoveSubjectPlacement(slot, now);
+    for (size_t at = 0; at < 16u; ++at) { scratch.Sent[slot * 16u + at] = now[at]; }
+  }
+  return true;
 }
 
 void Placements(const Studio &studio, std::vector<double> &into) {
@@ -414,11 +433,7 @@ bool Place(Render::Renderer &renderer, const Studio &studio, StudioScratch &scra
   const Heap::Tagged handing("subject-mesh");
   if (!renderer.SetSubjectMesh(mesh, error)) { return false; }
   Placements(studio, scratch.Placements);
-  if (!renderer.SetSubjectPlacements(
-          scratch.Placements.empty() ? nullptr : scratch.Placements.data(),
-          studio.PartPlacement.size(), error)) {
-    return false;
-  }
+  if (!Carried(renderer, scratch, studio.PartPlacement.size(), error)) { return false; }
 
   return true;
 }
@@ -461,9 +476,7 @@ bool Move(Render::Renderer &renderer, const Studio &studio, StudioScratch &scrat
   const Heap::Tagged handing("subject-pose");
   if (!renderer.SetSubjectPose(pose, error)) { return false; }
   Placements(studio, scratch.Placements);
-  return renderer.SetSubjectPlacements(
-      scratch.Placements.empty() ? nullptr : scratch.Placements.data(),
-      studio.PartPlacement.size(), error);
+  return Carried(renderer, scratch, studio.PartPlacement.size(), error);
 }
 
 }

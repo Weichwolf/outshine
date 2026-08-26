@@ -175,11 +175,11 @@ The heaviest units, against the median of them all.
 | 2020 | `content/gltf/Document.h` |
 | 1397 | `ui/Layout.h` |
 | 1343 | `content/gltf/Subject.h` |
-| 1329 | `render/Renderer.h` |
+| 1341 | `render/Renderer.h` |
 | 1141 | `base/format/Script.h` |
 | 1103 | `base/spatial/Wayfinding.h` |
-| 1042 | `render/stages/SubjectDraw.h` |
-| 955 | `ui/Style.h` |
+| 1063 | `render/stages/SubjectDraw.h` |
+| 957 | `engine/Live.h` |
 | **107** | *the median of 241 unit(s)* |
 
 ## Carpet
@@ -188,10 +188,10 @@ The widest public surfaces.
 
 | `[[nodiscard]]` | header |
 |---|---|
-| 58 | `src/render/Renderer.h` |
+| 60 | `src/render/Renderer.h` |
 | 51 | `src/content/gltf/Document.h` |
 | 42 | `src/content/gltf/Subject.h` |
-| 36 | `src/engine/Live.h` |
+| 37 | `src/engine/Live.h` |
 | 34 | `src/scene/Store.h` |
 | 31 | `src/base/format/Xml.h` |
 

@@ -107,6 +107,18 @@ public:
     return Subjects_.SetMesh(mesh, error) && (!DrawsGlass_ || Glass_.SetMesh(mesh, error));
   }
 
+  [[nodiscard]] bool SubjectPlacementRows(size_t rows, std::string &error) {
+    return Subjects_.PlacementRows(rows, error) &&
+           (!DrawsGlass_ || Glass_.PlacementRows(rows, error));
+  }
+
+  void MoveSubjectPlacement(size_t slot, const double model16[16]) {
+    Subjects_.MovePlacement(slot, model16);
+    if (DrawsGlass_) { Glass_.MovePlacement(slot, model16); }
+  }
+
+  [[nodiscard]] size_t SubjectPlacementsMoved() const { return Subjects_.PlacementsMoved(); }
+
   [[nodiscard]] bool SetSubjectPlacements(const double *models, size_t rows, std::string &error) {
     return Subjects_.SetPlacements(models, rows, error) &&
            (!DrawsGlass_ || Glass_.SetPlacements(models, rows, error));

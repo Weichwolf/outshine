@@ -172,6 +172,8 @@ private:
   Gltf::Placement Eye_;
   bool HaveEye_ = false;
   bool Aimed_ = true;
+  [[nodiscard]] bool Carried(size_t rows, std::string &error);
+  std::vector<double> Sent_;
   bool BoundsPlaced_ = false;
   double PlacedLeast_[3] = {0, 0, 0}, PlacedMost_[3] = {0, 0, 0};
   float SkyToSun_[3] = {0, 0, 0};
