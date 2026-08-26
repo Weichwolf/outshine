@@ -1,7 +1,7 @@
 Type: feature
 State: open
 Parent: 1953
-Depends: 1897
+Depends: 1897, 1966
 Area: sim
 
 # The physics speaks in joints and constraints, and knows no subject
