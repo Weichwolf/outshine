@@ -49,6 +49,12 @@ namespace {
 // later), and a deletion is a move only when the same ITEM NUMBER was filed at a strictly later
 // commit.
 //
+// AN ITEM LEAVES IN TWO WAYS. A CLOSURE says a defect was real and is gone, and it names the
+// proving test. A WITHDRAWAL says the defect was never there -- the premise was mine and wrong --
+// and it names what was misread. Both are legitimate exits and both are recorded in the file before
+// it goes, so this claim accepts `State: active` or `State: withdrawn` and refuses `State: open`,
+// which is a file that left without anyone saying which of the two it was.
+//
 // KEYED ON THE NUMBER OR THE TITLE, because an item can move in two ways and each keeps one of them:
 //
 //   RETITLED   the number stays and the title changes -- board:1966, reframed in one commit
@@ -202,7 +208,8 @@ int main(void) {
       continue;
     }
 
-    if (header.find("State: active") != std::string::npos) {
+    if (header.find("State: active") != std::string::npos ||
+        header.find("State: withdrawn") != std::string::npos) {
       closed.push_back(line);
       continue;
     }

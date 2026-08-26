@@ -342,7 +342,18 @@ stateDiagram-v2
   open --> active : being worked NOW (groom parent/depends)
   active --> [*] : the file is DELETED; the commit names the proving test
   active --> open : parked
+  open --> withdrawn : the PREMISE was wrong -- the defect is not there
+  active --> withdrawn : the same, found while working it
+  withdrawn --> [*] : the file is DELETED; the commit says what was misread
 ```
+
+**An item leaves in two ways and they are not the same.** A CLOSURE says a defect was real and is
+gone, and it names the proving test. A WITHDRAWAL says the defect was never there and names what
+was misread instead -- a measure that was absent rather than zero, a number read from the wrong
+frame, a capability that turned out to be reachable. Deleting a withdrawn item as though it had
+been closed loses the more useful half: what the filer believed, and why the tree looked that way.
+Both states are recorded before the file goes, so `AnItemReachesClosedThroughActive` can tell them
+apart.
 
 `board/` is ONE FLAT DIRECTORY. One file = RFC 822 header + markdown body. Fields: `Type`
 (feature|task|bug|issue) · `State` (open|active) · `Parent` · `Area` · `Tags` · `Depends` ·
