@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Parent: 1949
 Area: door, render
 Tags: measured
@@ -37,8 +37,10 @@ the general lesson: a fixture that states a fact about its own bytes states it t
 
 ## What will be true
 
-- [ ] A subject handed in through `Engine::Stands` casts every batch it draws, as a declared
+- [x] A subject handed in through `Engine::Stands` casts every batch it draws, as a declared
       asset does.
-- [ ] Proving case: the same two quads standing once from a file and once through the door, and
-      `batches the shadow casts` agreeing. Negative control: the handed path as it stands, and
-      the count is 0 against the file's.
+      proof: harness/outshine/door/ScoreWhatHandedGeometryCasts
+- [x] Proving case: a subject handed in draws N and casts N, needing no file at all -- the claim
+      is about the door's own producer. Negative control: the plan outliving its declaration
+      again, and the same subject draws 1 and casts 0.
+      proof: harness/outshine/door/ScoreWhatHandedGeometryCasts

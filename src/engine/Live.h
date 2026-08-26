@@ -127,7 +127,7 @@ public:
   static size_t TookPosing_, TookSubmitting_, TookAiming_, TookDrawing_;
   static size_t AssetReads_;
   static size_t PlanInits_;
-  bool PlanMoves_ = false;
+  Render::PlanSpec PlanDeclared_;
   [[nodiscard]] static size_t TookPosing() { return TookPosing_; }
   [[nodiscard]] static size_t TookSubmitting() { return TookSubmitting_; }
   [[nodiscard]] static size_t TookAiming() { return TookAiming_; }

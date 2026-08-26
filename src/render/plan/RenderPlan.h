@@ -22,6 +22,9 @@ public:
   Declared() = default;
   explicit Declared(T value) : Value_(value), Set_(true) {}
   [[nodiscard]] bool IsSet() const { return Set_; }
+  [[nodiscard]] bool operator==(const Declared &other) const {
+    return Set_ == other.Set_ && (!Set_ || Value_ == other.Value_);
+  }
   [[nodiscard]] T Or(T fallback) const { return Set_ ? Value_ : fallback; }
 
 private:
@@ -36,6 +39,11 @@ struct PlanSpec {
   Declared<float> Exposure;
   Declared<Transfer> Display;
   Declared<ScenePrecision> Precision;
+
+  [[nodiscard]] bool operator==(const PlanSpec &other) const {
+    return Outputs == other.Outputs && Content == other.Content && Exposure == other.Exposure &&
+           Display == other.Display && Precision == other.Precision;
+  }
 };
 
 class RenderPlan {

@@ -207,7 +207,7 @@ bool Live::Build(std::string &error) {
     declaration.Exposure =
         Render::Declared<float>((float)(1.0 / (1.2 * std::pow(2.0, ev100))));
   }
-  if (Plan_ != nullptr && PlanMoves_ != Moves_) { Plan_ = nullptr; }
+  if (Plan_ != nullptr && !(PlanDeclared_ == declaration)) { Plan_ = nullptr; }
   if (Plan_ == nullptr) {
     auto made = Render::RenderPlan::Compile(declaration);
     if (!made) {
@@ -215,7 +215,7 @@ bool Live::Build(std::string &error) {
       return false;
     }
     Plan_ = *std::move(made);
-    PlanMoves_ = Moves_;
+    PlanDeclared_ = declaration;
     PlanInits_ += 1;
     Renderer_->Init(Declared_.SurfaceWidthPx, Declared_.SurfaceHeightPx, Plan_);
     if (!Renderer_->DeviceUsable()) {
