@@ -204,7 +204,7 @@ The heaviest units, against the median of them all.
 | 1103 | `base/spatial/Wayfinding.h` |
 | 1063 | `render/stages/SubjectDraw.h` |
 | 967 | `engine/Live.h` |
-| **108** | *the median of 239 unit(s)* |
+| **107** | *the median of 240 unit(s)* |
 
 ## Carpet
 
@@ -252,9 +252,10 @@ Sources no declared suite links, so nothing they hold is proven.
 
 What stands wider than private. Private is the default and a wider door justifies itself.
 
-6 protected section(s), and inheritance is right where a stable interface carries
+7 protected section(s), and inheritance is right where a stable interface carries
 shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 
+- `src/actor/mind/Task.h`
 - `src/world/data/TerrariumDem.h`
 - `src/world/data/VersatilesVector.h`
 - `src/world/data/WebTileSource.h`

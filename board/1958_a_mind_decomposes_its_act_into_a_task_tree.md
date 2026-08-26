@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Parent: 1953
 Area: actor
 
@@ -19,6 +19,7 @@ CURRENT has one pilot that computes a steering angle from a corridor. That is th
 alone with no tree above it, and everything a mind should decide is either absent or hard-coded in
 the leaf.
 
-- [ ] a task owns sub-tasks, yields, and can be abandoned as a subtree
+- [x] a task owns sub-tasks, yields, and can be abandoned as a subtree
+      proof: harness/outshine/physics/ScoreWhatATaskTreeDoes
 - [ ] the existing pilot stands as a leaf under a tree without changing what it computes
 - [ ] a driver that must yield abandons the subtree and resumes, proven by a case over a route
