@@ -59,12 +59,34 @@ silhouette inside it. It asks `lit.z + bias < nearest` now.
 
 against the stakeholder's 0.2 to 0.8 counts for the same measurement.
 
-## Why this is not yet CLOSED
+## Why this is not yet CLOSED, and what two attempts cost
 
 The proving case is not written. It wants one receiver and one caster under one key, differing
-only in whether something stands over the ground, and the natural way to write it -- handing both
-in through `Engine::Stands` -- measures nothing, because geometry handed in does not cast at all
-(board:1952).
+only in whether something stands in front of the other. Two attempts, and the second is the
+informative one because board:1952 removed the first attempt's blocker:
+
+    the wall alone      brightest 163, dimmest DRAWN 163
+    under a caster      brightest 163, dimmest DRAWN 163
+    the light           casts 2 batches, 3 shadowed frames, 1525080 texels written
+
+The atlas is written, the subject is drawn shadowed, and EVERY drawn pixel is the same value in
+both arms. So the receiver never reads a shadowed texel, in a scene where the driver's own ground
+does -- 56 counts apart, measured above.
+
+What differs between the two: on the drive the receiver is the ground ring, which does NOT cast
+(`CastsBelow`), and the caster is the car. Here both parts cast, so the wall writes itself into
+the atlas at its own depth. That is a lead, not a finding.
+
+And a second lead in the same neighbourhood, found by reading rather than measuring, so it is
+recorded as a suspicion: `SubjectDraw.cpp:741` applies `Anchor - ctx.Eye` to the model matrix
+ONLY when `Placed_` is empty, and `LightVisibilityStage::Cast` applies it ALWAYS. The two agree in
+both branches only if a non-empty `Placed_` already carries the shift. Whether it does is exactly
+the question the head box asks -- one declared pre-view translation would make it unaskable.
+
+The fixture cost is itself a finding: standing a two-part scene with a shadow through the door
+took four refusals from the glTF reader on the file route (each correct, listed in board:1952) and
+two full diagnostic rounds on the handed route. A door whose simplest lit scene is that hard to
+stand in a case is a door that is hard to USE.
 
 ## WHAT RAGE AND UNREAL DO, and it is more than the repair
 
