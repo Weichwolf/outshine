@@ -49,6 +49,31 @@ ground below it (34, 42, 32), the sky above (45, 73, 108). The ring is bluish be
 bluish -- the atmosphere veils it, which is aerial perspective and correct. The painted ground is
 not veiled at any distance, and the seam between them is board:1918.
 
+## The picture, re-read, and the headline was wrong a third time
+
+Six stills over 300 frames of the reference route, read at HEAD:
+
+    the elevation where the route starts   522.308 m   (the DEM)
+    the ring's nearest vertex               522.672 m   0.36 m above it -- DEM resolution
+    the body                                522.252 m
+
+**The ring is not in the sky and it is not at the wrong height.** It stands under the car, within
+a third of a metre of the terrain the corridor was laid on. What the still shows below the
+horizon IS the ring, and it reads as a painted plane because it wears the same `GroundAlbedo` the
+painted plane wears and carries nothing else -- no slope response, no class, no texture, no
+markings. The only part of it a reader can SEE is its far edge, where terrain rising 10 m over
+800 m stands against the sky and cuts a dark jagged band.
+
+So "nine tiles arrive, draw, and stand where the sky is" was a misreading of a picture in which
+the ring is almost entirely indistinguishable from what it is drawn over. The count and the
+placement are both right; **the surface is the whole of what is left**, and the box below that
+names it is the one everything now waits on.
+
+Measured in the lower middle of three stills: R 1..65, G 1..80, B 2..90, a spread of 88 counts --
+against the four counts this item recorded for the painted plane last round. The spread is the
+ATMOSPHERE over a smooth surface plus the car, not relief: the gradient runs top to bottom with
+no structure in it anywhere.
+
 ## The mechanism, corrected -- the headline was wrong twice
 
 - `Live::Carry` already gives every part before `Joined_` the vehicle's placement times
@@ -63,8 +88,13 @@ not veiled at any distance, and the seam between them is board:1918.
 
 ## What will be true
 
+- [ ] The ground carries a SURFACE: the class under each point drives its colour and its
+      roughness from `VegetationTemplates::Row::Ground`, slope answers the light, and a made
+      carriageway is told from a field. This is the box everything else waits on, and the drive
+      path can now ask the question -- `ClassField::ClassAt` reaches it through `GroundStack`
+      (board:1924).
 - [ ] The ground is a COMPOSITOR's draw item with its own scale and placement, never a part
-      appended to the vehicle's glTF. This is the box everything else waits on.
+      appended to the vehicle's glTF.
 - [ ] The corridor frame and the tile mesh state ONE datum and both are converted to it, with
       the conversion proven at a coordinate whose undulation is published.
 - [ ] `if (false)` leaves `Engine.cpp:286` (board:1917) and the ring carries a material of its own.
