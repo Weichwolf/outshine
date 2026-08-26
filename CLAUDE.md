@@ -57,7 +57,21 @@ wherever it stands.
   would do; a capability that looks absent is usually present and unreachable, and that is the
   finding
 - **Cycles is the oracle** for correctness; references are for ambition; the corpus is a driver, not a certificate
-- **One world space**; a failure is loud; something is always drawn; delete on the day you replace
+- **ONE WORLD, and everything else is a VIEW of it.** One space is a convention; one WORLD is a
+  holder, and the second holder is what makes two subsystems disagree about the same place.
+  Unreal has one `UWorld` and the renderer takes a SCENE PROXY of it; RAGE streams one map and
+  `fwEntity` lives in that one. A drive, a picture and a generator read the same world through
+  bounded views, never through worlds of their own
+- **ONE PRE-VIEW TRANSLATION PER FRAME, and every matrix reads it.** Precision has one boundary
+  and it is the camera, and this is the same sentence from the matrix side: the frame chooses one
+  origin, and the view, the light and every instance transform are built against THAT one.
+  Unreal names it `FViewMatrices::PreViewTranslation`. A subsystem that subtracts an origin for
+  itself is the defect whoever gets it right, because the next one will get it wrong
+- **The world STREAMS by cell, with its content.** A cell brings its ground, its structures and
+  its actors in and out together; nothing holds the whole of anything. Unreal's World Partition
+  and RAGE's map nodes are the same answer, and it is the answer both engines are built around
+  rather than one they added
+- **A failure is loud; something is always drawn; delete on the day you replace**
 - Artefacts go to the system temp dir, never the tree; `git log` is what was — no journal
 
 **Diagram colours** — CURRENT: green = correct by current knowledge · amber = uncertain · red =
@@ -99,6 +113,26 @@ discovering work is not progress.
 
 **A diagram here is an intention and never a description.** When the two disagree the tree is
 what `STATE.md` says, and the distance between them is the work.
+
+## What the benchmark already settled
+
+**For every question here one of the two already has the correct answer, and TARGET's job is to
+hold the better of the two — not to invent a third.** Where they agree the answer is not in doubt.
+Where they differ the row says which one wins and WHY, and that reason is the part I owe. Unreal
+can be read and RAGE is reconstruction, so a RAGE row carries less and says so.
+
+| question | Unreal | RAGE | TARGET takes | why |
+|---|---|---|---|---|
+| **module boundary** | `Build.cs` names public deps; `Public/`+`Private/`; `*_API` exports | fw/rage libraries, `CGame` above them | **Unreal** | the COMPILER enforces it through include paths — a layering audited after the fact is a convention, and a convention is how a 44-header drawer forms |
+| **scene** | `UWorld` → `FScene` + `FPrimitiveSceneProxy`, fed by DELTAS | `fwEntity` on scene-update lists | **Unreal** | game state and render state are separate objects joined only by an explicit delta; that IS "one world, the rest are views", and it is what lets the renderer keep GPU-side state across frames |
+| **frame path** | `FGPUScene` instances GPU-side, Nanite culls in compute, ONE indirect draw | per-batch draw calls | **Unreal** | no CPU term scales with geometry or lights; this is the half of the render plan a stage graph does not carry |
+| **streaming** | World Partition: cell grid, data layers, **HLOD** | map nodes, IMAP/ITYP, LOD hierarchy | **both agree** | a non-resident cell is represented COARSER, never by nothing — the horizon is the proof and both engines pay for it |
+| **resources** | import → DDC → cooked platform data | **map the bytes, fix the pointers, no parse** | **RAGE** | a load that parses cannot keep up with a camera; zero-parse is what makes cell streaming affordable, and the content store is already hash-addressed for it |
+| **behaviour** | Behavior Tree, blackboard | **`CTask` tree**: a task owns sub-tasks, yields, and is abandoned as a subtree | **RAGE** | for a PHYSICAL actor -- a driver, a walker -- hierarchical tasks decompose the way the act does; a behaviour tree re-decides from the root every tick |
+| **possession** | `AController` possesses a `APawn` | ped/vehicle relationship | **Unreal** | the seam between a mind and a body is the same seam a player plugs into, and that is why one interface serves both |
+| **time** | variable step, physics substeps | fixed step, replay- and network-exact | **RAGE** | "temporally DETERMINISTIC" is not a wish: a fixed simulation step, one fixed order, and INTERPOLATION to the display is the mechanism, and nothing else delivers it |
+| **threading** | `FTaskGraph`, render + RHI threads, workers | `sysTaskManager`, fibers | **both agree** | a task graph with explicit dependencies; 720p60 on four usable cores is not reachable from one thread, and retrofitting threading is a rewrite |
+| **content surface** | `.uasset` + Interchange for import | offline tool chain | **neither wholesale** | glTF 2.0 is the only content surface here, which is Interchange's role without Interchange's format; what a client hands ACROSS the door is a handle, never a layout |
 
 ## Architecture (TARGET)
 
@@ -145,6 +179,14 @@ flowchart TD
 ```
 
 ## Render plan (TARGET)
+
+**THE PLAN IS A GRAPH AND THE FRAME PATH IS GPU-DRIVEN.** The stage graph below is Unreal's RDG
+shape and it is half the answer; the other half is what the CPU spends per pass. Instances live in
+GPU buffers, culling runs in compute, and a pass is ONE indirect draw rather than one call per
+batch (`FGPUScene`). Lights are assigned to clusters by a compute stage and the shading pass reads
+the grid, so a light budget is a GPU allocation and never a constant in a header. The shadow atlas
+carries cascades and the shader picks one. **No CPU term on this path scales with geometry, lights
+or pixels.**
 
 ```mermaid
 flowchart TD
@@ -247,6 +289,14 @@ stateDiagram-v2
 truth. **Closing is DELETING the file**: what it said is in the commit that removed it.
 Titles say what WILL BE TRUE. Commits reference `board:NNNN`. `State: active` marks what is
 being worked on right now — always.
+
+**A REFACTOR TO TARGET BLOCKS THE BOARD.** While one stands `active`, nothing outside it is
+worked — not a feature, not a gap, not a finding either reviewer files. Those are recorded and
+they wait. An item repaired on the architecture that is about to be replaced is work done twice,
+and the second time is the one that counts. The order does not vary: **ask whether TARGET matches
+the best of RAGE and Unreal and repair TARGET first if it does not · rebuild onto TARGET · then
+close the feature gaps.** A refactor toward a target that is short of the benchmark spends the
+effort and arrives somewhere that still has to be left.
 
 **GIT IS THE LOGBOOK. The item is what is true NOW.** A newer measurement REPLACES the older one
 it corrects; a paragraph the tree has overtaken is deleted, not appended after. A closure states

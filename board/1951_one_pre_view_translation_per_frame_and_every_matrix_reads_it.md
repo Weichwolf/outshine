@@ -1,10 +1,10 @@
 Type: bug
 State: open
-Parent: 1575
+Parent: 1953
 Area: render
 Tags: measured, picture, regression
 
-# The shadow frustum and the casters it is built for stand in ONE space
+# One pre-view translation per frame, and every matrix reads it
 
 Measured on the reference drive at HEAD, with the light matrix's own output printed:
 
