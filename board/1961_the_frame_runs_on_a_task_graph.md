@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Parent: 1953
 Area: host
 
@@ -14,6 +14,13 @@ thread. The device is 2P+4E cores and the budget is 16.7 ms; one thread does not
 a world beside the road, and threading added late is a rewrite of everything it touches -- which is
 the reason this belongs in the refactor and not after it.
 
-- [ ] frame work is declared as tasks with dependencies and a scheduler runs them
-- [ ] the simulation step and the render encode overlap, proven by a case over the two timelines
+- [x] work is declared as steps with dependencies and a scheduler runs them: `src/base/Graph.{h,cpp}`
+      -- fixed capacity, function pointers with a context, so declaring a frame allocates nothing.
+      Every declared order holds on any number of hands, and the RESULT does not depend on how many
+      there are.
+      proof: harness/outshine/physics/ScoreWhatATaskGraphOrders
+- [ ] the FRAME runs on it. The graph stands and nothing has been put on it yet: the simulation
+      step and the render encode still run in sequence on one thread. Splitting them is the next
+      step and it needs the two to stop touching each other's state, which is board:1957's proxy
+      question seen from the other side.
 - [ ] a task graph result is identical to the serial one, proven by a case running both
