@@ -77,18 +77,19 @@ struct Citation {
     const std::string file = span.substr(0, colon);
     if (file.find('.') == std::string::npos || file.find(' ') != std::string::npos) { continue; }
     if (file.find('/') == std::string::npos) { continue; }
-    std::string digits;
-    for (size_t step = colon + 1; step < span.size(); ++step) {
-      if (span[step] < '0' || span[step] > '9') { break; }
-      digits += span[step];
-    }
-    if (digits.empty() || digits.size() != span.size() - colon - 1) {
-      const bool listed = !digits.empty() && span[colon + 1 + digits.size()] == ',';
-      if (!listed) { continue; }
-    }
     const size_t slash = file.rfind('/');
     const std::string named = slash == std::string::npos ? file : file.substr(slash + 1);
-    out.push_back(Citation{std::string(), named, (size_t)std::stoul(digits)});
+    std::string digits;
+    for (size_t step = colon + 1; step <= span.size(); ++step) {
+      const char one = step < span.size() ? span[step] : ',';
+      if (one >= '0' && one <= '9') {
+        digits += one;
+        continue;
+      }
+      if (one != ',' || digits.empty()) { break; }
+      out.push_back(Citation{std::string(), named, (size_t)std::stoul(digits)});
+      digits.clear();
+    }
   }
   for (size_t at = row.find("` ("); at != std::string::npos; at = row.find("` (", at + 1)) {
     const size_t opens = row.rfind('`', at - 1);

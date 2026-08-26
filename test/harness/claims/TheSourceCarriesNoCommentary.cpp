@@ -1,4 +1,5 @@
 #include <cstring>
+#include <cctype>
 #include <cstdio>
 #include <filesystem>
 #include <string>
@@ -241,6 +242,40 @@ int main(void) {
         "**AND A LABEL NAMES A NUMBER RATHER THAN ARGUING FOR IT**: the same rule reached "
         "through Number and Say would be the same prose in the same rodata, so the label is "
         "bounded at the longest one the tree needs");
+
+  // AND A BRANCH THAT CANNOT BE TAKEN IS THE SAME DEFECT WEARING C++. A constant-false `if`
+  // holds prose the way a comment does, and it drifts the way a comment does, but the walk above
+  // looks for `//` and `-Wall -Werror` has no opinion about a branch nobody enters. The rule was
+  // not broken, it was gone round -- ten lines of refusal text parked behind `if (false)` in
+  // `Engine::State::Composes` while the branch it explained was being measured (board:1917).
+  //
+  // `do { ... } while (0)` is the exception and it is not a dead branch: it is how a multi-
+  // statement macro becomes one statement, and the `while` there is punctuation. The walk tells
+  // them apart by what stands before the keyword -- a closing brace means the loop had a body
+  // that ran once, which is the idiom, and anything else means a loop nobody enters.
+  std::vector<std::string> nailed;
+  for (const char *root : {"src", "include", "apps"}) {
+    for (const auto &entry : Sources(root)) {
+      const std::string held = Slurp(entry);
+      for (const char *shut : {"if (false)", "if (0)", "if (true)", "if (1)",
+                               "while (false)", "while (0)"}) {
+        for (size_t at = held.find(shut); at != std::string::npos;
+             at = held.find(shut, at + 1)) {
+          size_t before = at;
+          while (before > 0 && std::isspace((unsigned char)held[before - 1])) { --before; }
+          if (before > 0 && held[before - 1] == '}') { continue; }
+          nailed.push_back(entry.string() + " nails a branch shut with " + shut);
+          break;
+        }
+      }
+    }
+  }
+  for (const std::string &one : nailed) { std::printf("FOUND %s\n", one.c_str()); }
+  CHECK(nailed.empty(),
+        "**AND NO BRANCH IS NAILED SHUT BY A CONSTANT**: a branch that cannot be taken carries "
+        "prose the way a comment does and drifts the way a comment does, and the walk above "
+        "cannot see it because it is C++ rather than `//`. What a dead branch says belongs in "
+        "the item and the commit, and what it guards belongs in git");
 
   Note("source files walked", (double)walked, "files");
   for (const std::string &one : narrating) { std::printf("FOUND %s narrates\n", one.c_str()); }

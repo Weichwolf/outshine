@@ -283,15 +283,6 @@ bool Engine::State::Composes(void) {
   const Scenario &declared = Declared;
   const Sim::Corridor &way = Drive.Way;
   const bool overADrive = Drove && !way.Fine.empty();
-  if (false) {
-    Error = "a drive stands, and the ground is APPENDED to the driven vehicle's own glTF, so it "
-            "inherits that placement and that model scale. Measured: the ring reaches the draw "
-            "list at 517 batches against the vehicle's 258, and it draws as shrapnel across the "
-            "windscreen -- a count is not a picture. The ground is a compositor's draw item with "
-            "its own scale and until it is one this refuses. The declared sphere still carries "
-            "its atmosphere, its gravity and its radius";
-    return false;
-  }
   if (!declared.Ground.Declared && !overADrive) {
     Error = "the scenario declares neither a sphere nor a drive that laid a corridor, so there "
             "is nowhere for a ground to be composed";
