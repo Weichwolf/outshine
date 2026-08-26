@@ -363,6 +363,10 @@ bool Engine::State::Composes(void) {
   const size_t drivenParts = Standing->Shown().Parts().size();
   if (!Standing->Restand(laidGround, drivenParts, Error)) { return false; }
   GroundTiles = laid->Tiles;
+  Places("tiles the ring laid", (double)laid->Tiles, "tiles");
+  Places("tiles it is still waiting for", (double)laid->Pending, "tiles");
+  Places("tiles the stack does not hold", (double)laid->Absent, "tiles");
+  Places("tiles it refused", (double)laid->Refused, "tiles");
   return true;
 }
 
