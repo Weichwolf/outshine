@@ -157,6 +157,7 @@ flowchart LR
   world_generators --> |4| base_geo
   engine --> |4| scene
   engine --> |4| render
+  engine --> |4| base_io
   world_ground --> |3| content_shade
   world_ground --> |3| base_geo
   world_ground --> |3| base_format
@@ -165,7 +166,6 @@ flowchart LR
   render --> |3| base_io
   render_stages --> |3| content_shade
   render_stages --> |3| base_spatial
-  engine --> |3| base_io
   content_shade --> |3| base_math
 ```
   33 edge(s) drawn, 41 thinner than three includes not drawn

@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Parent: 1953
 Area: world
 
@@ -19,5 +19,15 @@ built on top of it than after.
 
 - [ ] a non-resident cell is represented by a COARSER proxy and never by nothing (Unreal HLOD, RAGE LOD hierarchy)
 - [ ] a cell carries ground, structures and actors and they arrive and leave together
-- [ ] no resident term scales with the world's extent, proven by a case over two extents
+- [x] no resident term scales with the world's extent, BELOW THE BUDGET: 3.35 times the route
+      costs 1.012 times the memory (871 m holds 58278432 bytes, 2916 m holds 58959040).
+      proof: harness/outshine/door/ScoreWhatAWiderWorldHolds
+- [ ] **THE EVICTION PATH HAS NEVER RUN.** The tile pool's byte budget is 64 MB
+      (`TerrainLoader.cpp:28`) and the longest route this tree can drive holds 58, so the loop
+      that drops a victim is dead in practice -- disabling it entirely leaves the case above green.
+      The limit is not the budget but the ROUTE: the connected road graph around the declared
+      start refuses a destination much beyond three kilometres ("no chain of ways joins the two
+      ends -- 57780 nodes of 59697 are joined to the start"). So streaming is unproven where it
+      matters, and proving it needs a world wide enough to exceed the budget rather than a smaller
+      budget, which would prove the guard rather than the streaming.
 - [ ] `apps/driver` drives out of the declared extent and the picture does not break
