@@ -590,11 +590,26 @@ EverySourceStillCompiles() {
   [ "$broken" -eq 0 ]
 }
 
+# A program that does not link is a red the gate can PRODUCE and could not DECLARE, so its
+# verdict carried a nameless failure every run. `apps/viewer/src/main.cpp` calls
+# `outshine::Viewer::Declaration` and `outshine::Viewer::StageRegion`, which live in
+# `apps/viewer/src/parts/Face.cpp` -- a second translation unit of the client's own, so the
+# client is NOT one entry point over the library and this check says so correctly. board:1898
+# holds the repair: the viewer entire is 706 lines and its shape is about 100. Until it lands
+# the red is declared here by name, and the day the viewer links from its entry point alone the
+# gate turns red on this stale line rather than going quietly green.
+EXPECT_UNLINKED="apps/viewer/src/main.cpp"
+
 EveryProgramStillLinks() {
   built=0
   brokenPrograms=0
+  staleUnlinked=0
   for one in $PROGRAMS; do
     layer=$(dirname "$one")
+    declaredUnlinked=no
+    for named in $EXPECT_UNLINKED; do
+      [ "$named" = "$one" ] && declaredUnlinked=yes
+    done
     if $CXX $CXXSTD $(LayerToolchain "$layer") $WARN $(LayerIncludes "$layer") -c "$one" \
          -o "$BUILD/program.o" \
          >"$BUILD/program.log" 2>&1 &&
@@ -602,16 +617,22 @@ EveryProgramStillLinks() {
          -o "$BUILD/program" >>"$BUILD/program.log" 2>&1 &&
        "$BUILD/program" --help >/dev/null 2>&1; then
       built=$((built + 1))
+      if [ "$declaredUnlinked" = yes ]; then
+        staleUnlinked=$((staleUnlinked + 1))
+        printf 'run.sh: %s LINKS and EXPECT_UNLINKED still names it -- the declaration outlived what it declared, so take it out\n' "$one" >&2
+      fi
+    elif [ "$declaredUnlinked" = yes ]; then
+      printf 'run.sh: %s does not link, and EXPECT_UNLINKED says so -- board:1898\n' "$one" >&2
     else
       brokenPrograms=$((brokenPrograms + 1))
-      printf 'run.sh: %s does not BUILD AND ANSWER --help, and a program nobody links is an entry point that breaks in silence (board:1860)\n' "$one" >&2
+      printf 'run.sh: %s does not BUILD AND ANSWER --help, and a program nobody links is an entry point that breaks in silence -- %s\n' "$one" "$BUILD/program.log" >&2
       head -6 "$BUILD/program.log" >&2
     fi
   done
   [ -n "$PROGRAMS" ] &&
     printf 'run.sh: %s program(s) build and answer --help, %s do not -- each on the include set LayerIncludes declares for it, which is the set make builds with (board:1584)\n' \
       "$built" "$brokenPrograms"
-  [ "$brokenPrograms" -eq 0 ]
+  [ "$brokenPrograms" -eq 0 ] && [ "$staleUnlinked" -eq 0 ]
 }
 
 WhatNoCorpusJudges() {

@@ -83,6 +83,7 @@
       "albedoBroadband": 0.27,
       "visibleBroadbandRatio": 0.593,
       "roughness": 0.9,
+      "peakFriction": 0.35,
       "moisture": 0.05,
       "surface": "particulate",
       "grainSizeM": 0.00065,
@@ -114,7 +115,8 @@
         "moisture": "[SET] free-draining, so it dries within hours of rain; the class exists to be the dry end of the dial.",
         "surface": "[SET] a bed of unbonded quartz grains - the only interfaces are the individual grain faces, and they point everywhere.",
         "grainSizeM": "derived - mean d50 of the four sands measured by Levinson & Akbari 2002: (0.40+0.53+0.98+0.70)/4 = 0.6525 mm.",
-        "slope.plausibleDeg": "[SET] upper bound is the angle of repose of dry loose sand (30-35 deg); above it the surface is scree, not sand."
+        "slope.plausibleDeg": "[SET] upper bound is the angle of repose of dry loose sand (30-35 deg); above it the surface is scree, not sand.",
+        "peakFriction": "[SET] - the midpoint of the published range for loose dry sand; the tyre sinks and the resistance is ploughing rather than shear. Peak longitudinal friction of a passenger-car tyre against this surface, dimensionless, dry unless the class name says otherwise. NO measurement is carried in this tree: the number is the engineering consensus range (dry bituminous 0.8-0.9, unbound aggregate 0.5-0.6, vegetated soil 0.3-0.4, saturated fine soil 0.2-0.3, aquaplaning film 0.1) reduced to its centre, and the class that needs a measurement is the one a drive turns out to be sensitive to."
       }
     },
     {
@@ -127,6 +129,7 @@
       "albedoBroadband": 0.17,
       "visibleBroadbandRatio": 0.566,
       "roughness": 0.92,
+      "peakFriction": 0.6,
       "moisture": 0.05,
       "surface": "particulate",
       "grainSizeM": 0.002,
@@ -160,7 +163,8 @@
         "moisture": "[SET] 0.05, not 0.0: the published 0.17 is a FIELD albedo of real near-dry soil, so the dial must barely act at the declared state or the number would be double-counted.",
         "surface": "[SET] a tilled crumb aggregate, which is the same statement roughness 0.92 already makes ('no coherent facets at all') carried through to the specular.",
         "grainSizeM": "[SET] crumb-structure aggregate of a loam, 1-3 mm.",
-        "slope.plausibleDeg": "[SET] soil creep strips a slope steeper than about 30 deg down to its parent rock."
+        "slope.plausibleDeg": "[SET] soil creep strips a slope steeper than about 30 deg down to its parent rock.",
+        "peakFriction": "[SET] - the midpoint of the published range for a dry compacted earth track. Peak longitudinal friction of a passenger-car tyre against this surface, dimensionless, dry unless the class name says otherwise. NO measurement is carried in this tree: the number is the engineering consensus range (dry bituminous 0.8-0.9, unbound aggregate 0.5-0.6, vegetated soil 0.3-0.4, saturated fine soil 0.2-0.3, aquaplaning film 0.1) reduced to its centre, and the class that needs a measurement is the one a drive turns out to be sensitive to."
       }
     },
     {
@@ -173,6 +177,7 @@
       "albedoBroadband": 0.17,
       "visibleBroadbandRatio": 0.566,
       "roughness": 0.72,
+      "peakFriction": 0.45,
       "moisture": 0.85,
       "surface": "particulate",
       "grainSizeM": 0.004,
@@ -206,7 +211,8 @@
         "moisture": "[SET] 0.85, not 1.0: field capacity, not saturation; saturation is the mud class.",
         "surface": "[SET] the same substance as earth_dry; what makes it glisten is the water film it declares at moisture 0.85, and the formula reads exactly that.",
         "grainSizeM": "[SET] 2x earth_dry - wet crumbs coalesce.",
-        "slope.plausibleDeg": "[SET] saturated soil fails at a lower angle than dry soil."
+        "slope.plausibleDeg": "[SET] saturated soil fails at a lower angle than dry soil.",
+        "peakFriction": "[SET] - the midpoint of the published range for the same earth wetted: the film lubricates and the surface shears. Peak longitudinal friction of a passenger-car tyre against this surface, dimensionless, dry unless the class name says otherwise. NO measurement is carried in this tree: the number is the engineering consensus range (dry bituminous 0.8-0.9, unbound aggregate 0.5-0.6, vegetated soil 0.3-0.4, saturated fine soil 0.2-0.3, aquaplaning film 0.1) reduced to its centre, and the class that needs a measurement is the one a drive turns out to be sensitive to."
       }
     },
     {
@@ -219,6 +225,7 @@
       "albedoBroadband": 0.22,
       "visibleBroadbandRatio": 0.744,
       "roughness": 0.8,
+      "peakFriction": 0.55,
       "moisture": 0.15,
       "surface": "particulate",
       "grainSizeM": 0.016,
@@ -250,7 +257,8 @@
         "moisture": "[SET] free-draining but holds a film in the interstices longer than sand.",
         "surface": "[SET] each pebble IS a coherent solid, but a heap of pebbles is not: their faces lie at random orientations that the shaded macro-normal does not carry.",
         "grainSizeM": "derived - midpoint of the 14-18 mm coarse-aggregate d50 range measured by Levinson & Akbari 2002 -> 0.016 m.",
-        "slope.plausibleDeg": "[SET] angle of repose of rounded gravel, 35-40 deg."
+        "slope.plausibleDeg": "[SET] angle of repose of rounded gravel, 35-40 deg.",
+        "peakFriction": "[SET] - the midpoint of the published range for rounded loose gravel: the top layer shears over the layer beneath it. Peak longitudinal friction of a passenger-car tyre against this surface, dimensionless, dry unless the class name says otherwise. NO measurement is carried in this tree: the number is the engineering consensus range (dry bituminous 0.8-0.9, unbound aggregate 0.5-0.6, vegetated soil 0.3-0.4, saturated fine soil 0.2-0.3, aquaplaning film 0.1) reduced to its centre, and the class that needs a measurement is the one a drive turns out to be sensitive to."
       }
     },
     {
@@ -263,6 +271,7 @@
       "albedoBroadband": 0.18,
       "visibleBroadbandRatio": 0.986,
       "roughness": 0.88,
+      "peakFriction": 0.6,
       "moisture": 0.1,
       "surface": "particulate",
       "grainSizeM": 0.032,
@@ -296,7 +305,8 @@
         "moisture": "[SET] drains faster than gravel because the voids are larger.",
         "surface": "[SET] crushed ballast, the gravel argument with sharper edges.",
         "grainSizeM": "[SET] 0.032 m, taken as 2x the measured 14-18 mm concrete coarse aggregate (Levinson & Akbari 2002). The German grading for track ballast is coarser than concrete aggregate; the factor 2 is a judgement, not a measurement.",
-        "slope.plausibleDeg": "[SET] scree: it EXISTS above 25 deg, which is where soil classes stop - this is the 'scree above, soil below' rule of 4.1 written as a number."
+        "slope.plausibleDeg": "[SET] scree: it EXISTS above 25 deg, which is where soil classes stop - this is the 'scree above, soil below' rule of 4.1 written as a number.",
+        "peakFriction": "[SET] - the midpoint of the published range for an angular unbound base course that interlocks rather than rolls. Peak longitudinal friction of a passenger-car tyre against this surface, dimensionless, dry unless the class name says otherwise. NO measurement is carried in this tree: the number is the engineering consensus range (dry bituminous 0.8-0.9, unbound aggregate 0.5-0.6, vegetated soil 0.3-0.4, saturated fine soil 0.2-0.3, aquaplaning film 0.1) reduced to its centre, and the class that needs a measurement is the one a drive turns out to be sensitive to."
       }
     },
     {
@@ -309,6 +319,7 @@
       "albedoBroadband": 0.3,
       "visibleBroadbandRatio": 0.741,
       "roughness": 0.7,
+      "peakFriction": 0.7,
       "moisture": 0.05,
       "surface": "coherent",
       "grainSizeM": 0.25,
@@ -342,7 +353,8 @@
         "grainSizeM": "[SET] 0.25 m is JOINT AND BEDDING SPACING, not grain - a rock face has no grains at the scale that drives its normal map.",
         "slope.plausibleDeg": "[SET] rock is the only class that survives a vertical face; below 30 deg it is buried under soil.",
         "slope.litterShedAboveDeg": "[SET] low, at 25 deg: 4.1's 'a steep face sheds litter' bites hardest here.",
-        "surface": "[SET] an outcrop is ONE solid body, so the shaded normal really is the normal of an interface - a dry rock face has a sheen and a gravel bed does not."
+        "surface": "[SET] an outcrop is ONE solid body, so the shaded normal really is the normal of an interface - a dry rock face has a sheen and a gravel bed does not.",
+        "peakFriction": "[SET] - the midpoint of the published range for bare competent rock, dry, with the surface irregularity of a natural outcrop. Peak longitudinal friction of a passenger-car tyre against this surface, dimensionless, dry unless the class name says otherwise. NO measurement is carried in this tree: the number is the engineering consensus range (dry bituminous 0.8-0.9, unbound aggregate 0.5-0.6, vegetated soil 0.3-0.4, saturated fine soil 0.2-0.3, aquaplaning film 0.1) reduced to its centre, and the class that needs a measurement is the one a drive turns out to be sensitive to."
       }
     },
     {
@@ -355,6 +367,7 @@
       "albedoBroadband": 0.2857,
       "visibleBroadbandRatio": 1.0,
       "roughness": 0.72,
+      "peakFriction": 0.7,
       "moisture": 0.03,
       "surface": "coherent",
       "grainSizeM": 0.4,
@@ -389,7 +402,8 @@
         "heightAmplitudeM": "derived - grain x the table's own sealed packing factor 0.1 (rock 0.25 -> 0.025), so 0.4 -> 0.04.",
         "slope.plausibleDeg": "[SET] identical to rock and for the identical reason: rock is the only class that survives a vertical face, and below 30 deg it is buried under its own weathering mantle. THIS NUMBER IS NOW READ: it is the slope above which no template's instances stand and above which the ground turns to this class (vegetation.json alpineLimit).",
         "slope.litterShedAboveDeg": "[SET] 25 deg, rock' number - nothing about the shedding changes with the lithology.",
-        "surface": "[SET] an outcrop is ONE solid body; the shaded normal is the normal of an interface."
+        "surface": "[SET] an outcrop is ONE solid body; the shaded normal is the normal of an interface.",
+        "peakFriction": "[SET] - the midpoint of the published range for bare limestone pavement, dry; polishes faster than silicate rock but dry it is a rock surface. Peak longitudinal friction of a passenger-car tyre against this surface, dimensionless, dry unless the class name says otherwise. NO measurement is carried in this tree: the number is the engineering consensus range (dry bituminous 0.8-0.9, unbound aggregate 0.5-0.6, vegetated soil 0.3-0.4, saturated fine soil 0.2-0.3, aquaplaning film 0.1) reduced to its centre, and the class that needs a measurement is the one a drive turns out to be sensitive to."
       }
     },
     {
@@ -402,6 +416,7 @@
       "albedoBroadband": 0.2857,
       "visibleBroadbandRatio": 1.0,
       "roughness": 0.88,
+      "peakFriction": 0.45,
       "moisture": 0.03,
       "surface": "particulate",
       "grainSizeM": 0.064,
@@ -436,7 +451,8 @@
         "detailScaleM": "derived - log-interpolated on grain between the table's own two mineral anchors, crushed_stone (0.032 m grain, 2.2 m coarse) and rock (0.25 m grain, 6.0 m coarse): ln(0.064/0.032)/ln(0.25/0.032) = 0.337, so 2.2 + 0.337 x 3.8 = 3.48, taken as 3.5. Fine = 3.5/6.7 = 0.522.",
         "slope.plausibleDeg": "derived - the lower bound 25 deg is crushed_stone's declared 'scree exists above where soil stops'. The upper bound is the ANGLE OF REPOSE of angular coarse debris, 33...38 deg; 38 deg is its top, because a cone that stands steeper than its repose angle is not a cone any more, it is the wall above it.",
         "slope.litterShedAboveDeg": "[SET] 35 deg - a moving talus surface holds nothing anyway.",
-        "surface": "[SET] a heap of clasts: each plate is coherent, the heap is not."
+        "surface": "[SET] a heap of clasts: each plate is coherent, the heap is not.",
+        "peakFriction": "[SET] - the midpoint of the published range for loose angular fragments on a slope, the shear plane inside the layer. Peak longitudinal friction of a passenger-car tyre against this surface, dimensionless, dry unless the class name says otherwise. NO measurement is carried in this tree: the number is the engineering consensus range (dry bituminous 0.8-0.9, unbound aggregate 0.5-0.6, vegetated soil 0.3-0.4, saturated fine soil 0.2-0.3, aquaplaning film 0.1) reduced to its centre, and the class that needs a measurement is the one a drive turns out to be sensitive to."
       }
     },
     {
@@ -449,6 +465,7 @@
       "albedoBroadband": 0.49,
       "visibleBroadbandRatio": 1.46,
       "roughness": 0.9,
+      "peakFriction": 0.3,
       "moisture": 0.0,
       "surface": "particulate",
       "grainSizeM": 0.001,
@@ -482,7 +499,8 @@
         "heightAmplitudeM": "derived - grain x the table's own PACKED factor 0.25 (sand 0.00065 -> 0.000162), so 0.001 -> 0.00025.",
         "detailScaleM": "[SET] 1.2 m coarse, fine = 1.2/6.7 = 0.179. The relief of a summer glacier surface at the metre is sun cups and ablation hollows, 0.5...2 m across.",
         "slope.plausibleDeg": "[SET] a snow and firn cover does not lie on a face steeper than about 50 deg; steeper ice faces exist and are ice, not firn. The lower bound is 0 - a glacier is flat wherever it wants to be.",
-        "surface": "[SET] particulate: firn is a sintered heap of grains, and with moisture 0 the loader gives it no specular lobe at all, which is the Lambertian scatterer it should be."
+        "surface": "[SET] particulate: firn is a sintered heap of grains, and with moisture 0 the loader gives it no specular lobe at all, which is the Lambertian scatterer it should be.",
+        "peakFriction": "[SET] - the midpoint of the published range for compacted refrozen snow, above glare ice and below a wet road. Peak longitudinal friction of a passenger-car tyre against this surface, dimensionless, dry unless the class name says otherwise. NO measurement is carried in this tree: the number is the engineering consensus range (dry bituminous 0.8-0.9, unbound aggregate 0.5-0.6, vegetated soil 0.3-0.4, saturated fine soil 0.2-0.3, aquaplaning film 0.1) reduced to its centre, and the class that needs a measurement is the one a drive turns out to be sensitive to."
       }
     },
     {
@@ -495,6 +513,7 @@
       "albedoBroadband": 0.148,
       "visibleBroadbandRatio": 0.502,
       "roughness": 0.95,
+      "peakFriction": 0.4,
       "moisture": 0.35,
       "surface": "particulate",
       "grainSizeM": 0.01,
@@ -528,7 +547,8 @@
         "moisture": "[SET] a closed canopy keeps the floor damp for days after rain.",
         "surface": "[SET] humus and loose litter over it; nothing in the profile is continuous.",
         "grainSizeM": "[SET] the 'grain' is a fragment of decayed litter, about 1 cm.",
-        "litter": "0.70 leaf_litter is the DEFAULT only; the vegetation template must override it - 4.1: 'Beech litter under spruce is a defect the botanist will call'."
+        "litter": "0.70 leaf_litter is the DEFAULT only; the vegetation template must override it - 4.1: 'Beech litter under spruce is a defect the botanist will call'.",
+        "peakFriction": "[SET] - the midpoint of the published range for humus over root mat, firmer than loose litter. Peak longitudinal friction of a passenger-car tyre against this surface, dimensionless, dry unless the class name says otherwise. NO measurement is carried in this tree: the number is the engineering consensus range (dry bituminous 0.8-0.9, unbound aggregate 0.5-0.6, vegetated soil 0.3-0.4, saturated fine soil 0.2-0.3, aquaplaning film 0.1) reduced to its centre, and the class that needs a measurement is the one a drive turns out to be sensitive to."
       }
     },
     {
@@ -541,6 +561,7 @@
       "albedoBroadband": 0.2,
       "visibleBroadbandRatio": 0.654,
       "roughness": 0.6,
+      "peakFriction": 0.3,
       "moisture": 0.2,
       "surface": "particulate",
       "grainSizeM": 0.04,
@@ -574,7 +595,8 @@
         "moisture": "[SET] a loose litter layer sheds water to the humus below it.",
         "surface": "[SET] a leaf CUTICLE is a coherent interface and a leaf LITTER is not - the leaves lie at every angle but the shaded one.",
         "grainSizeM": "[SET] the grain is ONE LEAF, 4-8 cm for beech and oak.",
-        "slope.litterShedAboveDeg": "[SET] 25 deg - flat leaves slide off a slope earlier than needles interlock."
+        "slope.litterShedAboveDeg": "[SET] 25 deg - flat leaves slide off a slope earlier than needles interlock.",
+        "peakFriction": "[SET] - the midpoint of the published range for broadleaf litter sliding on itself. Peak longitudinal friction of a passenger-car tyre against this surface, dimensionless, dry unless the class name says otherwise. NO measurement is carried in this tree: the number is the engineering consensus range (dry bituminous 0.8-0.9, unbound aggregate 0.5-0.6, vegetated soil 0.3-0.4, saturated fine soil 0.2-0.3, aquaplaning film 0.1) reduced to its centre, and the class that needs a measurement is the one a drive turns out to be sensitive to."
       }
     },
     {
@@ -587,6 +609,7 @@
       "albedoBroadband": 0.14,
       "visibleBroadbandRatio": 0.514,
       "roughness": 0.65,
+      "peakFriction": 0.3,
       "moisture": 0.15,
       "surface": "particulate",
       "grainSizeM": 0.015,
@@ -619,7 +642,8 @@
         "roughness": "[SET] needle cuticle sheen, but the needles interlock at every angle so the lobe is broader than leaf_litter.",
         "grainSizeM": "[SET] the grain is ONE NEEDLE, 1-2 cm for spruce and pine.",
         "slope.litterShedAboveDeg": "[SET] 32 deg, higher than leaf_litter: interlocked needles form a mat that holds on a steeper face than flat leaves.",
-        "surface": "[SET] a mat of loose needles, the leaf_litter argument at a smaller grain."
+        "surface": "[SET] a mat of loose needles, the leaf_litter argument at a smaller grain.",
+        "peakFriction": "[SET] - the midpoint of the published range for conifer needles, notoriously slick over a firm floor. Peak longitudinal friction of a passenger-car tyre against this surface, dimensionless, dry unless the class name says otherwise. NO measurement is carried in this tree: the number is the engineering consensus range (dry bituminous 0.8-0.9, unbound aggregate 0.5-0.6, vegetated soil 0.3-0.4, saturated fine soil 0.2-0.3, aquaplaning film 0.1) reduced to its centre, and the class that needs a measurement is the one a drive turns out to be sensitive to."
       }
     },
     {
@@ -632,6 +656,7 @@
       "albedoBroadband": 0.2,
       "visibleBroadbandRatio": 0.579,
       "roughness": 0.65,
+      "peakFriction": 0.35,
       "moisture": 0.3,
       "surface": "particulate",
       "grainSizeM": 0.0075,
@@ -671,7 +696,8 @@
         "detailScaleM": "[SET] coarse octave 1.0 m, fine derived as 1.0 / 6.7 = 0.149 (detailScaleModel). Finer than leaf_litter's 1.4 m because a leaf litter drifts into metre-scale patches while a grass felt is laid down by the tussock spacing and the mower's swath, both decimetric; coarser than moss's 0.9 m.",
         "slope.plausibleDeg": "[SET] 0-40 deg. The felt is held by the living tillers rooted through it, so grassland survives a slope that strips a soil class (earth_dry stops at 30) - Weserbergland pasture runs up the full flank of the Kluet.",
         "slope.litterShedAboveDeg": "[SET] 40 deg, the highest of the litter classes: rooted-through felt does not slide, where flat leaves go at 25 and needles at 32.",
-        "litter": "[SET] 0.15 moss, and NOT sourced: no relevé of the bryophyte layer of a fertilised Arrhenatheretum was found in this run. The bracket is this table's own peat, which declares 0.50 moss because a living Sphagnum layer IS the surface of a raised bog; in a fertilised hay meadow the moss layer is present in the sward base and subordinate to it, so the value sits well below that and above zero. The botanist named moss as a component of the felt and this is where it enters."
+        "litter": "[SET] 0.15 moss, and NOT sourced: no relev\u00e9 of the bryophyte layer of a fertilised Arrhenatheretum was found in this run. The bracket is this table's own peat, which declares 0.50 moss because a living Sphagnum layer IS the surface of a raised bog; in a fertilised hay meadow the moss layer is present in the sward base and subordinate to it, so the value sits well below that and above zero. The botanist named moss as a component of the felt and this is where it enters.",
+        "peakFriction": "[SET] - the midpoint of the published range for grass over soil: the blades shear off the root layer. Peak longitudinal friction of a passenger-car tyre against this surface, dimensionless, dry unless the class name says otherwise. NO measurement is carried in this tree: the number is the engineering consensus range (dry bituminous 0.8-0.9, unbound aggregate 0.5-0.6, vegetated soil 0.3-0.4, saturated fine soil 0.2-0.3, aquaplaning film 0.1) reduced to its centre, and the class that needs a measurement is the one a drive turns out to be sensitive to."
       }
     },
     {
@@ -684,6 +710,7 @@
       "albedoBroadband": 0.162,
       "visibleBroadbandRatio": 0.37,
       "roughness": 0.85,
+      "peakFriction": 0.3,
       "moisture": 0.6,
       "surface": "particulate",
       "grainSizeM": 0.005,
@@ -717,7 +744,8 @@
         "moisture": "[SET] moss holds water by construction; that is why it grows where it grows.",
         "surface": "[SET] a cushion of leaflets whose facet orientations decorrelate far below one pixel.",
         "grainSizeM": "[SET] one moss shoot, about 5 mm.",
-        "slope.plausibleDeg": "[SET] moss is the only soft class that clings to a near-vertical rock face - 60 deg."
+        "slope.plausibleDeg": "[SET] moss is the only soft class that clings to a near-vertical rock face - 60 deg.",
+        "peakFriction": "[SET] - the midpoint of the published range for a wet cushion that shears off what is under it. Peak longitudinal friction of a passenger-car tyre against this surface, dimensionless, dry unless the class name says otherwise. NO measurement is carried in this tree: the number is the engineering consensus range (dry bituminous 0.8-0.9, unbound aggregate 0.5-0.6, vegetated soil 0.3-0.4, saturated fine soil 0.2-0.3, aquaplaning film 0.1) reduced to its centre, and the class that needs a measurement is the one a drive turns out to be sensitive to."
       }
     },
     {
@@ -730,6 +758,7 @@
       "albedoBroadband": 0.1,
       "visibleBroadbandRatio": 0.44,
       "roughness": 0.9,
+      "peakFriction": 0.3,
       "moisture": 0.75,
       "surface": "particulate",
       "grainSizeM": 0.003,
@@ -763,7 +792,8 @@
         "surface": "[SET] fibrous peat; a bog shines because it declares moisture 0.75, not because peat is smooth.",
         "grainSizeM": "[SET] amorphous humified organic matter, finer than a soil crumb.",
         "slope.plausibleDeg": "[SET] 8 deg: peat needs standing water, and standing water needs a flat.",
-        "litter": "[SET] 0.50 moss - a living Sphagnum layer over the peat is the normal state of a raised bog."
+        "litter": "[SET] 0.50 moss - a living Sphagnum layer over the peat is the normal state of a raised bog.",
+        "peakFriction": "[SET] - the midpoint of the published range for saturated organic soil, soft and shearing under load. Peak longitudinal friction of a passenger-car tyre against this surface, dimensionless, dry unless the class name says otherwise. NO measurement is carried in this tree: the number is the engineering consensus range (dry bituminous 0.8-0.9, unbound aggregate 0.5-0.6, vegetated soil 0.3-0.4, saturated fine soil 0.2-0.3, aquaplaning film 0.1) reduced to its centre, and the class that needs a measurement is the one a drive turns out to be sensitive to."
       }
     },
     {
@@ -776,6 +806,7 @@
       "albedoBroadband": 0.17,
       "visibleBroadbandRatio": 0.566,
       "roughness": 0.35,
+      "peakFriction": 0.25,
       "moisture": 1.0,
       "surface": "particulate",
       "grainSizeM": 0.0005,
@@ -809,7 +840,8 @@
         "moisture": "1.00 is a STATEMENT, not a missing value - saturation is the definition of the class.",
         "surface": "[SET] a suspension of the same soil - the mirror is the standing water at moisture 1.00, which the formula gives it in full.",
         "grainSizeM": "[SET] silt and clay, below the sand fraction the Levinson & Akbari sands measure (d50 0.40-0.98 mm).",
-        "slope.plausibleDeg": "[SET] 5 deg: saturated fines flow."
+        "slope.plausibleDeg": "[SET] 5 deg: saturated fines flow.",
+        "peakFriction": "[SET] - the midpoint of the published range for saturated fine soil, the classic low-grip natural surface. Peak longitudinal friction of a passenger-car tyre against this surface, dimensionless, dry unless the class name says otherwise. NO measurement is carried in this tree: the number is the engineering consensus range (dry bituminous 0.8-0.9, unbound aggregate 0.5-0.6, vegetated soil 0.3-0.4, saturated fine soil 0.2-0.3, aquaplaning film 0.1) reduced to its centre, and the class that needs a measurement is the one a drive turns out to be sensitive to."
       }
     },
     {
@@ -822,6 +854,7 @@
       "albedoBroadband": 0.12,
       "visibleBroadbandRatio": 0.953,
       "roughness": 0.65,
+      "peakFriction": 0.9,
       "moisture": 0.0,
       "surface": "coherent",
       "grainSizeM": 0.008,
@@ -854,7 +887,8 @@
         "surface": "[SET] bitumen binds the aggregate into one sealed skin; that is what 'sealed' in heightPacking already says.",
         "grainSizeM": "[SET] the exposed chippings that Pon's aging mechanism reveals, about 8 mm.",
         "slope.plausibleDeg": "[SET] 10 deg is about 18 percent gradient - steeper than any public road in the target area.",
-        "litter": "[SET] 0.05 leaf_litter - gutter leaves. Non-zero for the same reason vegetation.json keeps 8 joint weeds per m2 on sealed: a perfectly bare surface reads as a rendering hole."
+        "litter": "[SET] 0.05 leaf_litter - gutter leaves. Non-zero for the same reason vegetation.json keeps 8 joint weeds per m2 on sealed: a perfectly bare surface reads as a rendering hole.",
+        "peakFriction": "[SET] - the midpoint of the published range for a dense-graded bituminous wearing course in good condition, dry. Peak longitudinal friction of a passenger-car tyre against this surface, dimensionless, dry unless the class name says otherwise. NO measurement is carried in this tree: the number is the engineering consensus range (dry bituminous 0.8-0.9, unbound aggregate 0.5-0.6, vegetated soil 0.3-0.4, saturated fine soil 0.2-0.3, aquaplaning film 0.1) reduced to its centre, and the class that needs a measurement is the one a drive turns out to be sensitive to."
       }
     },
     {
@@ -867,6 +901,7 @@
       "albedoBroadband": 0.167,
       "visibleBroadbandRatio": 0.901,
       "roughness": 0.55,
+      "peakFriction": 0.75,
       "moisture": 0.05,
       "surface": "coherent",
       "grainSizeM": 0.1,
@@ -897,7 +932,8 @@
         "roughness": "[SET] the lowest of the dry sealed classes: setts polish under traffic, which is visible as a wet-looking sheen at grazing angles.",
         "grainSizeM": "[SET] 0.10 m is ONE SETT - on a paved surface the joint pattern, not a grain, drives the normal.",
         "litter": "[SET] as asphalt.",
-        "surface": "[SET] cut setts, each a solid face - a wet cobbled street mirrors streetlights, which is only possible on a continuous interface."
+        "surface": "[SET] cut setts, each a solid face - a wet cobbled street mirrors streetlights, which is only possible on a continuous interface.",
+        "peakFriction": "[SET] - the midpoint of the published range for stone setts and clay pavers: the joints break the contact patch and the stone polishes. Peak longitudinal friction of a passenger-car tyre against this surface, dimensionless, dry unless the class name says otherwise. NO measurement is carried in this tree: the number is the engineering consensus range (dry bituminous 0.8-0.9, unbound aggregate 0.5-0.6, vegetated soil 0.3-0.4, saturated fine soil 0.2-0.3, aquaplaning film 0.1) reduced to its centre, and the class that needs a measurement is the one a drive turns out to be sensitive to."
       }
     },
     {
@@ -910,6 +946,7 @@
       "albedoBroadband": 0.24,
       "visibleBroadbandRatio": 0.856,
       "roughness": 0.8,
+      "peakFriction": 0.9,
       "moisture": 0.0,
       "surface": "coherent",
       "grainSizeM": 0.003,
@@ -941,7 +978,8 @@
         "moisture": "0.00 is a STATEMENT, as for asphalt. Note that the same paper measures a mean albedo drop of 0.23 when concrete is WET, which is where moistureModel.kWet comes from.",
         "surface": "[SET] cement paste sets into one continuous skin over the aggregate.",
         "grainSizeM": "[SET] the brush or float texture, about 3 mm.",
-        "litter": "[SET] as asphalt."
+        "litter": "[SET] as asphalt.",
+        "peakFriction": "[SET] - the midpoint of the published range for a broomed or tined portland-cement carriageway, dry. Peak longitudinal friction of a passenger-car tyre against this surface, dimensionless, dry unless the class name says otherwise. NO measurement is carried in this tree: the number is the engineering consensus range (dry bituminous 0.8-0.9, unbound aggregate 0.5-0.6, vegetated soil 0.3-0.4, saturated fine soil 0.2-0.3, aquaplaning film 0.1) reduced to its centre, and the class that needs a measurement is the one a drive turns out to be sensitive to."
       }
     },
     {
@@ -954,6 +992,7 @@
       "albedoBroadband": 0.06,
       "visibleBroadbandRatio": 1.0,
       "roughness": 0.05,
+      "peakFriction": 0.1,
       "moisture": 1.0,
       "surface": "coherent",
       "grainSizeM": 0.0,
@@ -985,8 +1024,18 @@
         "moisture": "1.00 is a STATEMENT. water is the ONE class excluded from moistureModel - see moistureModel.exclusions.",
         "surface": "[SET] the definition of the case.",
         "grainSizeM": "0.0 is a STATEMENT: water has no grain, and therefore no procedural normal from this file.",
-        "slope.plausibleDeg": "[SET] 2 deg - a water surface that is not level is a waterfall."
+        "slope.plausibleDeg": "[SET] 2 deg - a water surface that is not level is a waterfall.",
+        "peakFriction": "[SET] - the midpoint of the published range for a water film thick enough to lift the tread: the aquaplaning limit, not a wet road. Peak longitudinal friction of a passenger-car tyre against this surface, dimensionless, dry unless the class name says otherwise. NO measurement is carried in this tree: the number is the engineering consensus range (dry bituminous 0.8-0.9, unbound aggregate 0.5-0.6, vegetated soil 0.3-0.4, saturated fine soil 0.2-0.3, aquaplaning film 0.1) reduced to its centre, and the class that needs a measurement is the one a drive turns out to be sensitive to."
       }
     }
-  ]
+  ],
+  "frictionModel": {
+    "subject": "What a ground contributes to a tyre. A ground material is declared for the EYE everywhere else in this file; peakFriction is the one field declared for the TYRE.",
+    "formula": "mu(pair) = mu(tyre) * frictionFactor, and frictionFactor = peakFriction / peakFriction(asphalt)",
+    "reference": "asphalt",
+    "whyAFactorAndNotAnAbsolute": "A tyre carries the coefficient it was measured with. Substituting the ground absolute would discard the tyre entirely -- a race slick and a winter tyre would grip a gravel road alike. The factor keeps both: the tyre says how good it is, the ground says how much of that it gets.",
+    "whatItScales": "The PEAK only. mu0*(N/N0)^-k scaled by g is (g*mu0)*(N/N0)^-k, so the load sensitivity of the tyre is untouched and a surface change does not silently change how weight transfer behaves.",
+    "grade": "[SET] throughout. Every peakFriction is a range centre, not a measurement, and each origin says so. This file measures its albedos to four figures and its frictions to none; the asymmetry is real and is the next thing to close.",
+    "whyTheFactorIsNotInThisFile": "It is DERIVED, so declaring it here would be a second spelling of one truth and the two would drift. The file carries peakFriction; the reader divides by the reference class and refuses a file whose reference class is missing."
+  }
 }

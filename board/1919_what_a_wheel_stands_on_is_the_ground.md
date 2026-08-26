@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Parent: 1897
 Area: sim, world, actor
 Tags: measured, physics, architecture

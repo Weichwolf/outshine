@@ -24,6 +24,7 @@ struct Footing {
   bool Found = false;
   double HeightM = 0.0;
   double NormalM[3] = {0.0, 1.0, 0.0};
+  double Friction = 1.0;
 };
 
 struct Controls {

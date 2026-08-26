@@ -15,6 +15,8 @@ public:
     float Albedo[3];
     float VisibleRatio;
     float Roughness;
+    float PeakFriction;
+    float FrictionFactor;
     float Moisture;
     float SpecularScale;
     float GrainSizeM;

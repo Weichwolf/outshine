@@ -37,6 +37,12 @@ bool GroundMaterials::Load(const char *path) {
   const float wetLo = (float)doc.Root()["specularModel"]["edges"][(size_t)0].Num(0.05);
   const float wetHi = (float)doc.Root()["specularModel"]["edges"][(size_t)1].Num(0.85);
 
+  const std::string reference = doc.Root()["frictionModel"]["reference"].Str("");
+  if (reference.empty()) {
+    Error_ = "frictionModel.reference must name the class every friction is relative to";
+    return false;
+  }
+
   const Json::Ref cls = doc.Root()["classes"];
   if (cls.GetKind() != Json::Kind::Array || cls.Size() == 0) {
     Error_ = "no classes array";
@@ -49,6 +55,12 @@ bool GroundMaterials::Load(const char *path) {
     Material m{};
     m.Name = c["name"].Str("?");
     m.Roughness = (float)c["roughness"].Num(0.9);
+    const Json::Ref peak = c["peakFriction"];
+    if (peak.GetKind() != Json::Kind::Number || !(peak.Num(0.0) > 0.0)) {
+      Error_ = "class " + m.Name + ": peakFriction must be a positive number";
+      return false;
+    }
+    m.PeakFriction = (float)peak.Num(0.0);
     m.Moisture = (float)c["moisture"].Num(0.0);
     m.GrainSizeM = (float)c["grainSizeM"].Num(0.002);
     m.HeightAmplitudeM = (float)c["heightAmplitudeM"].Num(0.0005);
@@ -80,6 +92,14 @@ bool GroundMaterials::Load(const char *path) {
     m.LitterClass = -1;
     Mats_.push_back(m);
   }
+  const int stands = Find(reference);
+  if (stands < 0) {
+    Error_ = "frictionModel.reference names '" + reference + "' and no class carries that name";
+    return false;
+  }
+  const float against = Mats_[(size_t)stands].PeakFriction;
+  for (Material &one : Mats_) { one.FrictionFactor = one.PeakFriction / against; }
+
   for (size_t i = 0; i < Mats_.size(); i++)
     if (!litterName[i].empty()) Mats_[i].LitterClass = Find(litterName[i]);
 
