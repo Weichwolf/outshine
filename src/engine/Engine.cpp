@@ -205,6 +205,43 @@ bool Engine::Assemble() {
   return S_->Routes();
 }
 
+namespace {
+
+using Assembler = bool (*)(const Store &, const Assembled &, const Column<Body> &,
+                           const Column<Journey> &, const WorldSettings &, Ground::GroundStack &,
+                           Data::Transport &, const Sim::Provision &, Sink &, Sim::DriveProduct &);
+
+struct Travelling_ {
+  Travels By;
+  const char *Named;
+  Assembler How;
+};
+
+constexpr size_t kTravels = 4;
+
+const Travelling_ kAssemblers[kTravels] = {
+    {Travels::Walk, "foot", nullptr},
+    {Travels::Drive, "road", &Sim::AssembleDrive},
+    {Travels::Fly, "air", nullptr},
+    {Travels::Rail, "rail", nullptr},
+};
+
+[[nodiscard]] Assembler Assembles(Travels by) {
+  for (const Travelling_ &one : kAssemblers) {
+    if (one.By == by) { return one.How; }
+  }
+  return nullptr;
+}
+
+[[nodiscard]] const char *Travelling(Travels by) {
+  for (const Travelling_ &one : kAssemblers) {
+    if (one.By == by) { return one.Named; }
+  }
+  return "an unnamed way";
+}
+
+}
+
 bool Engine::State::Routes(void) {
   const Scenario &declared = Declared;
   Drove = false;
@@ -224,10 +261,11 @@ bool Engine::State::Routes(void) {
     Freestanding.push_back(held);
   }
   if (!declared.Routed.Declared) { return true; }
-  if (declared.Routed.By != Travels::Drive) {
-    Error = "the scenario declares a journey that does not travel by drive, and nothing "
-            "assembles walking, flying or rail yet -- a mode the engine cannot lay a corridor "
-            "for is a refusal, never a journey that quietly does not happen";
+  if (Assembles(declared.Routed.By) == nullptr) {
+    Error = std::string("the scenario declares a journey travelling by ") +
+            Travelling(declared.Routed.By) +
+            ", and nothing assembles that -- a mode the engine cannot lay a corridor for is a "
+            "refusal, never a journey that quietly does not happen";
     return false;
   }
   if (!Wire) {
@@ -240,9 +278,8 @@ bool Engine::State::Routes(void) {
   Quietly say;
   const Sim::Provision kept{Under.Cache, Under.Shipped,
                             {Data::ShippedProviders().begin(), Data::ShippedProviders().end()}};
-  const bool routed = Sim::AssembleDrive(Scene, Stood, Bodies, Drives,
-                                         declared.Ground, Stack, *Wire, kept, say,
-                                         Drive);
+  const bool routed = Assembles(declared.Routed.By)(Scene, Stood, Bodies, Drives, declared.Ground,
+                                                    Stack, *Wire, kept, say, Drive);
   if (routed) {
     Stack.Restand(Drive.Way.FrameLat, Drive.Way.FrameLon);
     Surface = std::make_unique<Sim::GroundUnderfoot>(Stack, Drive.Surfaces);

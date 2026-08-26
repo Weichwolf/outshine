@@ -73,13 +73,15 @@ The order this is done in:
 
 1. `Engine::State::Rides` becomes "place every body that moved" and reads a body pose, not
    `Drive.State.Body`
-2. HALF DONE -- the declaration now names its MODE. `Scenario::Drive` was a route wearing a
+2. DONE -- the declaration names its MODE and a table answers it. `Scenario::Drive` was a route wearing a
    vehicle verb; it is `Journey` with a `Travels` of walk, drive, fly or rail, and the
    pathfinder's own `Route` -- the corridor that comes BACK -- keeps its name, because a declared
    intent and a computed corridor are two things. A mode nothing assembles is REFUSED by name
    instead of standing still and looking like a scenario that declared no journey.
    proof: harness/outshine/door/ScoreWhatCodeCanDeclare
-   What remains: the assembler is still chosen by an `if`, not by a registry a mode indexes.
+   DONE -- the assembler is a TABLE the mode indexes: four rows, one filled, each carrying the
+   name of the way it travels. Adding walking is filling a slot, and `Routes` names the empty one
+   it was asked for rather than testing a boolean.
 3. DONE -- `Along()` and `Whole()` are gone from the door. They were drive-specific verbs that a
    client had to call to learn a route's progress, so the door promised a JOURNEY to anyone who
    read it. They are measures now, on the return channel `include/Event.h` already provides:

@@ -214,9 +214,10 @@ int main(void) {
   // `Travels` now, and the pathfinder's own `Route` -- the corridor that comes BACK -- keeps its
   // name, because a declared intent and a computed corridor are two things.
   //
-  // Only `drive` has an assembler. A scenario that declares a walk used to be indistinguishable
-  // from one that declared nothing: `Routes` tested `Driven.Declared` and nothing else, so the
-  // journey quietly did not happen.
+  // Only `drive` has an assembler, and that is now a TABLE the mode indexes rather than an `if`:
+  // four rows, one filled, each carrying the name of the way it travels. A scenario that declares a
+  // walk used to be indistinguishable from one that declared nothing -- `Routes` tested
+  // `Driven.Declared` and nothing else, so the journey quietly did not happen.
   outshine::Scenario onFoot = fromFile;
   onFoot.Routed.By = outshine::Travels::Walk;
   outshine::Engine walker;
@@ -226,11 +227,11 @@ int main(void) {
   const std::string whyWalk = walker.Error();
   std::printf("DECLARED BY FOOT  %s\n", refusedWalk ? whyWalk.c_str() : "ASSEMBLED ANYWAY");
 
-  CHECK(refusedWalk && whyWalk.find("walking") != std::string::npos,
-        "**A JOURNEY BY A MODE NOTHING ASSEMBLES IS REFUSED**: `drive` is one of walk, drive, fly "
-        "and rail, and only one of the four has an assembler. A declaration the engine cannot act "
-        "on must say so rather than standing still and looking like a scenario that declared no "
-        "journey at all");
+  CHECK(refusedWalk && whyWalk.find("foot") != std::string::npos,
+        "**A JOURNEY BY A MODE NOTHING ASSEMBLES IS REFUSED, BY THAT MODE'S NAME**: the four modes "
+        "index a table of assemblers and three of its four slots are empty, so the engine says "
+        "which way it cannot lay a corridor for. A declaration the engine cannot act on must say "
+        "so rather than standing still and looking like a scenario that declared no journey");
 
   Covers("the door: a scenario built in code declares everything a scenario read from XML can, "
          "proven by two drives from identical declarations landing on the same digits -- and a "
