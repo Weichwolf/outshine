@@ -1059,6 +1059,20 @@ void Engine::State::Drew(void) {
   Places("batches the picture draws", (double)Device.SubjectBatchCount(), "batches");
   Places("batches the shadow casts", (double)Device.ShadowCastCount(), "batches");
   Places("frames the subject drew shadowed", (double)Device.ShadowedFrames(), "frames");
+  {
+    std::vector<float> depth;
+    if (Steps < 2 && Device.ReadShadowAtlas(depth) == Render::ReadState::Ready) {
+      double least = 1.0e30, most = -1.0e30, written = 0.0;
+      for (const float one : depth) {
+        if ((double)one < least) { least = (double)one; }
+        if ((double)one > most) { most = (double)one; }
+        if (one > 0.0f) { written += 1.0; }
+      }
+      Places("the shadow atlas, least depth", least, "");
+      Places("its most", most, "");
+      Places("texels above the clear", written, "texels");
+    }
+  }
 }
 
 double Engine::StepS(void) const { return S_->Declared.Motion.StepS; }

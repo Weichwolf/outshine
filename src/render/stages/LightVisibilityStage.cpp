@@ -52,11 +52,16 @@ void LightVisibilityStage::Build(const double eye[3]) {
                             forward[0] * right[1] - forward[1] * right[0]};
 
   const double texelM = 2.0 * RadiusM_ / (double)kShadowAtlasPx;
+  const double *const anchor = Subjects_ != nullptr ? Subjects_->AnchorM() : nullptr;
+  double centre[3];
+  for (int axis = 0; axis < 3; ++axis) {
+    centre[axis] = CentreM_[axis] + (anchor != nullptr ? anchor[axis] : 0.0);
+  }
   double eyeLight[3] = {0.0, 0.0, 0.0};
   for (int axis = 0; axis < 3; ++axis) {
-    eyeLight[0] += right[axis] * CentreM_[axis];
-    eyeLight[1] += upward[axis] * CentreM_[axis];
-    eyeLight[2] += forward[axis] * CentreM_[axis];
+    eyeLight[0] += right[axis] * centre[axis];
+    eyeLight[1] += upward[axis] * centre[axis];
+    eyeLight[2] += forward[axis] * centre[axis];
   }
 
   eyeLight[0] = std::floor(eyeLight[0] / texelM) * texelM;

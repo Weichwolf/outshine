@@ -123,7 +123,20 @@ int main(void) {
         "carrying no shadow radius produced until an undeclared radius began deriving itself "
         "from the subject's own extent rather than standing at a struct's zero");
 
-  Covers("the door: a subject casts a shadow over every batch it draws, and a declaration that "
+  const double least = Measured(engine, "the shadow atlas, least depth");
+  const double most = Measured(engine, "its most");
+  const double written = Measured(engine, "texels above the clear");
+  std::printf("THE ATLAS HOLDS   depths from %.3f to %.3f, %.0f texel(s) above the clear\n",
+              least, most, written);
+
+  CHECK(written > 0.0,
+        "**THE LIGHT SEES THE CASTER**: some texel of the atlas holds a depth the clear does "
+        "not, which is the whole of what a shadow map IS -- a light frustum that misses the "
+        "geometry writes an atlas of one value and every receiver reads itself unoccluded");
+  CHECK(most > least,
+        "and the atlas is not one value: the caster stands at a depth, the rest of the light's "
+        "view stands at the clear, and a shadow test can tell the two apart");
+    Covers("the door: a subject casts a shadow over every batch it draws, and a declaration that "
          "names no shadow radius gets one derived from the subject's extent rather than none");
   return Report();
 }
