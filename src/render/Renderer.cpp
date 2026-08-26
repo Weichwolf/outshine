@@ -178,6 +178,7 @@ std::expected<void, std::string_view> Renderer::StandsOffscreen() {
 
 void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> plan) {
   WhyNot_.clear();
+  Ready_ = false;
   Plan_ = std::move(plan);
   Width_ = width;
   Height_ = height;
@@ -190,7 +191,6 @@ void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> pla
     return;
   }
 
-  Ready_ = false;
   if (!Stands()) { return; }
 
   SDL_WaitForGPUIdle(Device_.Get());

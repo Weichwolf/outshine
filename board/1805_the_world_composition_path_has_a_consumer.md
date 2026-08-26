@@ -41,6 +41,30 @@ the same move: its input is the stack's stream and class field, its output is a 
 content store, and the compositor takes the handle. `Sim` is the wrapper that made this look like
 one problem; it is the door that must die, not the generators behind it.
 
+## TEN ROWS, NOT THREE, AND THE DEVICE REFUSES THEM RATHER THAN DRAWING NOTHING
+
+This item counted three unbuilt catalogue rows by grepping for three names. Walking the catalogue
+against `Renderer::Executable` counts **ten**:
+
+    irradiance  autoExposure  sun  moon  stars  terrain  buildings  water  models
+    ambientOcclusion
+
+That single line answers several of the stakeholder's ledger entries at once and they are ONE
+finding, not five: no sun disc in the sky and no moon and no stars (board:1868), an exposure that
+is constant on every route and every frame because `autoExposure` never runs (board:1868 again),
+no terrain, no buildings, no water (board:1936).
+
+And the surface is NOT silent. `Renderer::Init` walks the plan's order and refuses the first row
+it cannot seat, by name -- so a consumer that selects one learns at stand-up rather than by
+looking at an empty picture. Which row it names need not be the one asked for: a stage pulls its
+own reads into the plan, and asking for `terrain` is refused at `irradiance`, which terrain's
+`IrradianceBuffer` pulled in.
+
+**That refusal was broken until this session and the case that measured it found the break.**
+`Init` returned early with `WhyNot_` set but left `Ready_` standing from the PREVIOUS plan, so a
+second `Init` with an unseatable plan reported a usable device against the old one. `Ready_` is
+cleared before the walk now.
+
 ## AND THE STAGES THAT WOULD DRAW THEM ARE EMPTY ROWS
 
 Even with a reachable generator there is nothing to execute. `Stage::Terrain`,

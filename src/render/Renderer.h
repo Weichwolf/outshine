@@ -82,6 +82,7 @@ public:
   [[nodiscard]] ReadState ReadPixels(std::vector<uint8_t> &rgba);
 
   [[nodiscard]] ReadState ReadDepth(std::vector<float> &depth);
+  [[nodiscard]] static bool Executable(Stage stage);
   [[nodiscard]] ReadState ReadShadowAtlas(std::vector<float> &depth);
   static constexpr float kNearM = 0.05f;
 
@@ -189,7 +190,6 @@ public:
 
 private:
 
-  [[nodiscard]] static bool Executable(Stage stage);
   void Create(Resource resource);
   [[nodiscard]] bool Configure(Stage stage, std::string &error);
   void EncodeStage(Stage stage, const PassRecording &into);

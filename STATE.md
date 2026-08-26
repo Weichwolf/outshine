@@ -217,7 +217,7 @@ PROGRESS -- counted from board/, where the target lives; a tick names its proof
   layers           4/6    67%
   perception       1/6    17%
   render-plan      0/7     0%
-  streaming        1/15    7%
+  streaming        2/22    9%
 
 COUNTS
   153 source(s) under src/, 20 of them linked by no suite
