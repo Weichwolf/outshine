@@ -18,14 +18,24 @@ HERE**, against the node set the CURRENT class diagram carried at 4ca42c2e, its 
 The figure is `green-and-reached / total`: a green node whose only path to a client runs through a
 red one draws no pixel, so it counts in the denominator and not the numerator.
 
-| colour | at a32c4919 |
+| colour | at 84115df7 |
 |---|---|
-| **green, reached (45)** | Unwired · Transport · WebTileSource · ContentStore · TerrariumDem · VersatilesVector · GroundStream · GroundQuery · OsmField · RoadHarvest · Alignment · StreetField · Ground · ReferenceLine · Carriageway · Ribbon · SpeedProfile · Pilot · Walk · Drive · Fly · Rail · Rig · Body · Contact · Shear · MediumTransmittanceStage · MediumMultiScatterStage · MediumRadianceStage · SkyStage · PresentStage · SceneStore · Assembly · SubjectResidency · Markup · Stylesheet · LayoutUi · Painting · Pointer · InputMap · InputPump · ViewBook · OverlayDraw · GroundStack · **TriggerField** |
-| **amber (16)** | Wayfinding · BuildingField · WaterField · Subject · DrawList · Renderer · LightVisibilityStage · Frustum · Ephemeris · GltfStudio · Typeface · DriveAssembly · CorridorLay · DriveTick · TilePool · RegionForge (stranded) |
-| **red (6)** | World · SubjectDraw · Sim · Live · Engine · **TonemapStage** |
+| **green, reached (47)** | Unwired · Transport · WebTileSource · ContentStore · TerrariumDem · VersatilesVector · GroundStream · GroundQuery · OsmField · RoadHarvest · Alignment · StreetField · Ground · ReferenceLine · Carriageway · Ribbon · SpeedProfile · Pilot · Walk · Drive · Fly · Rail · Rig · Body · Contact · Shear · MediumTransmittanceStage · MediumMultiScatterStage · MediumRadianceStage · SkyStage · PresentStage · SceneStore · Assembly · SubjectResidency · Markup · Stylesheet · LayoutUi · Painting · Pointer · InputMap · InputPump · ViewBook · OverlayDraw · GroundStack · TriggerField · **TonemapStage** · **Wayfinding** |
+| **amber (14)** | BuildingField · WaterField · Subject · DrawList · Renderer · LightVisibilityStage · Frustum · Ephemeris · GltfStudio · Typeface · DriveAssembly · CorridorLay · DriveTick · TilePool · RegionForge (stranded) |
+| **red (5)** | World · SubjectDraw · Sim · Live · Engine |
 | **stranded (6)** | Forest · Buildings · Water · Infrastructure · BusGraph · GroundPatchwork |
 
-**45 / 73 = 62 %.**
+**47 / 73 = 64 %.**
+
+### A correction to last round's numerator, which this review owes
+
+The a32c4919 row counted `MediumTransmittanceStage`, `MediumMultiScatterStage`,
+`MediumRadianceStage` and `SkyStage` as **green AND REACHED**. They were not reached by anything:
+`Declared_.DrawsSky` was written by nobody and constant false for the life of the tree
+(board:1870). Four nodes sat in a numerator whose whole definition is *reachable from a client*.
+The honest figure at a32c4919 was **41 / 73 = 56 %**, not 62 %, and the review that wrote 62 %
+took the diagram's colour for the tree's reachability -- exactly the failure the axis exists to
+prevent. The 64 % below is measured against 56 %.
 
 ## The distance, one row per round
 
@@ -39,17 +49,26 @@ red one draws no pixel, so it counts in the denominator and not the numerator.
 | 15:4x | 817ea333 | 44 / 73 = 60 % | 9 / 12 = 75 % | `Wayfinding` green -> amber: `Weave` reads an index it invalidates (board:1894) |
 | 19:1x | c0de1b18 | 44 / 73 = 60 % | 9 / 12 = 75 % | FLAT; nine stills byte-identical to the round before |
 | 22:5x | a32c4919 | **45 / 73 = 62 %** | **8 / 12 = 67 %** | **Up one node and down one stage, and the picture is what moved both.** `TriggerField` amber -> GREEN: measured, a declared volume fires on arrival and not on staying, with an oracle that tells the two edges apart (board:1891 closed). `TonemapStage` amber -> RED: the nine stills carry exactly two alpha values and `max(R,G,B)` averaging **0.45 of 255** -- the frame is BLACK, and every luminance this project has scored since the axis began measured a viewer compositing the alpha over white (board:1870, board:1893). Six commits of board:1890 landed real repairs -- the eye is in the cabin, `Append` shifts materials, the tile round trip is proven -- and **five of the six changed only the board file**. `SubjectDraw` keeps its red with five responsibilities instead of six (board:1867 real progress, node unmoved) |
+| 03:1x | 84115df7 | **47 / 73 = 64 %** | **9 / 12 = 75 %** | **Six nodes, and the picture is what proves five of them.** `TonemapStage` red -> GREEN: the presented frame is opaque at the tonemap and not at the clear, coverage stays on the intermediate where the render corpus reads it (`tonemap.msl:13`), mean max(RGB) 0.45 -> 45 of 255 with alpha 255 on 921 600 px. The four MEDIUM/SKY nodes are REACHED for the first time -- `DrawsSky` derived from `Ground.Declared && AirDensityKgM3 > 0` (`Engine.cpp:570`), a physics fact and not a switch, proven by `ScoreWhatASphereFills` (sun below the horizon -> exactly 0, because T(s,sun)=0 at every s) and `ScoreWhatASkyLightsInShadow` (a surface turned fully away reads 59.5 under a sphere and 0.000 without one). `Wayfinding` amber -> GREEN: the tie index is kept current across edge splits and sized by the BINDING REACH rather than the snap (board:1894), and two ways that cross at grade are one junction while a way that spans is not (board:1911) -- 4193 pieces -> 284, largest component 59 % -> 96.8 %, and the shipped drive ROUTES 2.895 of 2.915 km. `Alignment` holds its green with a real oracle now: a true R = 400 m circle fits to 0.851 % at four digitisation densities against 49.984 % before, in ONE run against nine (board:1795) |
 
 ## The work order
 
 Three items, in the order that shrinks the figure fastest, each naming the node it turns green.
 Rewritten each round by the review; the next round checks whether it was followed.
 
+**Last round's order, checked:** #1 (1870+1893) DONE and it moved five nodes -- the biggest single
+step the axis has recorded. #2 (1890) was ATTEMPTED and the picture refuted the review's own
+pricing of it: the three lines landed, the count went 258 -> 517 exactly as predicted, and the
+ring drew as shrapnel across the windscreen because the vehicle's asset units were applied to a
+ring measured in metres. **The review priced a scale-space defect as three lines and was wrong;
+the developer measured it and reverted.** That correction is worth more than the item would have
+been. #3 (1867) untouched.
+
 | | item | the node it moves |
 |---|---|---|
-| 1 | board:1870 + board:1893 | `TonemapStage` red -> green and `Renderer` amber -> green. **First, because it is the cheapest and everything else is unmeasurable without it**: a frame at RGB 0.45/255 cannot be judged against a photograph, against GT7, or against its own previous version. Two halves: declare what the frame clears to, and light the subject the way the scenario says |
-| 2 | board:1890 | up to SIX nodes on one item -- `GroundPatchwork` leaves stranded and `Forest`, `Buildings`, `Water`, `Infrastructure` follow, and `Sim`'s red dies with the facade (board:1805). The three named lines that move 258 batches to 517 are measured and out of the tree; the door already publishes what a case for them would assert |
-| 3 | board:1867 | `SubjectDraw` red -> green and `SUBJ` red -> green: two nodes, and the split is mechanical. One responsibility left this hour and five remain |
+| 1 | board:1890 | up to SIX nodes -- `GroundPatchwork` leaves stranded, `Forest`, `Buildings`, `Water` and `Infrastructure` follow, and `Sim`'s red dies with the facade (board:1805). **Now the FIRST box and no longer three lines**: the ground is a compositor draw item with its OWN scale and placement, never a part appended to the vehicle's glTF. Its proving case asserts a count AND a picture, because this hour proved a count alone can be met by nonsense |
+| 2 | board:1874 | no node -- and it is second anyway, because the map is the instrument every other row is measured with. CLAUDE.md's ONE file:line citation points three lines past the end of an 816-line file, and `TheMapCitesLinesThatSayWhatItClaims` is GREEN over **zero citations**. A guard that stopped guarding (board:1857) sitting on the PRECISION boundary is the cheapest large defect in the tree |
+| 3 | board:1867 | `SubjectDraw` red -> green and `SUBJ` red -> green: two nodes, and the split is mechanical. One responsibility left two hours ago and five remain |
 
-board:1862 stays `State: active` and is not in the top three: it has held five rounds and moved
-no node.
+board:1903 is not in the top three and is not optional: one `mkdir` has cost three review rounds
+their acceptance command, which is the tree's only integration test.

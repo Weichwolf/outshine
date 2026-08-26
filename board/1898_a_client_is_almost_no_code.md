@@ -15,6 +15,8 @@ Measured at HEAD:
 |---|---|---|
 | `apps/driver/src/main.cpp` | 226 | read a scenario, stand it, step it, keep stills |
 | `apps/viewer/src/main.cpp` | 338 | read a directory, build a scenario, swap the subject on a callback |
+| `apps/viewer/src/parts/Face.{h,cpp}` | 72 + 296 | -- |
+| **the viewer entire** | **706** | and CLAUDE.md's sentence counts only the 338, which understates the door by a factor of two |
 
 The viewer's own shape, as the intended flow states it: read the directory, build the html/js,
 build the scenario, attach the first glTF, SDL init, register callbacks, show, replace the glTF
