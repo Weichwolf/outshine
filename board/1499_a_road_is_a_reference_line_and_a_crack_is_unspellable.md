@@ -28,13 +28,13 @@ end caps) and every top-surface vertex is placed by the same `StandAt` the physi
 
 - [ ] The mesh is generated per tile and STREAMS: 774 km of road at a useful resolution is not
       one buffer, and the terrain that carries it says the same (board:1505).
-- [ ] Lane markings are on the surface and derived from the same lane count the pilot drives by,
-      so what the eye reads and what the car holds are one declaration.
-- [ ] **The cross-section changes no faster than a vehicle in it can follow.** Measured: a 12 m
-      carriageway narrowing to a 2-lane one moves the lane centre 2.1 m, which at the route's
-      tracking budget of 11.13 mm/m needs 189 m of road — the narrowing arrives sooner and puts
-      two wheels off the carriageway while the car sits 0.023 m from its own lane centre. The
-      taper LEADS the narrowing, and a narrowing no vehicle could follow is a named refusal of
-      the ROUTE, not a crash.
+- [ ] Lane markings are on the surface and derived from the same lane count the way declares, so
+      what the eye reads and what a mind reads are one declaration.
+- [ ] **A carriageway TAPERS where its width changes**, because a road does. A 12 m carriageway
+      meeting a 2-lane one moves the surface edge 2.1 m, and a taper is the geometry that joins
+      them; the length of the taper is the road's, from its class, not from any vehicle's
+      tracking. What a car does about it is the car's business and is decided by what its wheels
+      stand on (board:1919) -- this item owes the SHAPE, and a shape with a step in it is a road
+      nobody built.
 - [ ] The width comes from the way, not from the station grid — today it is sampled onto the
       DEM's 96.53 m posts, so a width change lands up to 96 m from where the way changes.

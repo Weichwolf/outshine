@@ -2,10 +2,16 @@ Type: bug
 State: open
 Parent: 1498
 Area: actor/path
+Depends: 1919
 Tags: instrument, measured
 Supersedes: 1825
 
-# The speed profile leaves room to hold the line
+# The speed profile leaves room for the mind to react
+
+**Reframed under board:1919.** A plan is not a line the car HOLDS -- a car reacts to what is
+under it and around it, and other traffic will be in the way. What the plan owes is not
+adherence but ROOM: a speed at which a mind still has grip left to answer something the plan
+never knew about.
 
 `SpeedProfile` plans to `v = sqrt(a_lat / kappa)` — the speed at which the tyres are exactly at
 their limit — and leaves NOTHING for the tracking error, so the car cannot hold the line it was
