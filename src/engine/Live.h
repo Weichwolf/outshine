@@ -84,6 +84,8 @@ public:
   [[nodiscard]] const std::string &ProgrammeOf(size_t surface) const;
 
   [[nodiscard]] bool Restand(const Gltf::Subject &built, size_t carried, std::string &error);
+  [[nodiscard]] bool Restand(const Gltf::Subject &built, size_t carried, const Material &wearing,
+                             std::string &error);
 
   void ScaledBy(double metresPerUnit) { Declared_.MetresPerUnit = metresPerUnit; }
   [[nodiscard]] bool Carry(const double worldFromBodyM[16], const double built[16],

@@ -605,11 +605,19 @@ bool Live::Restands(std::string stands, std::string variant, AssetAnimation anim
 }
 
 bool Live::Restand(const Gltf::Subject &built, size_t carried, std::string &error) {
+  return Restand(built, carried, Declared_.Surfacing.front(), error);
+}
+
+bool Live::Restand(const Gltf::Subject &built, size_t carried, const Material &wearing,
+                   std::string &error) {
+  const std::vector<Material> wore = std::move(Declared_.Surfacing);
+  Declared_.Surfacing.assign(1u, wearing);
   Declared_.Built = &built;
   Stoodup_ = false;
   Carrying_ = carried;
   const bool stood = Build(error);
   Carrying_ = 0;
+  Declared_.Surfacing = wore;
   if (!stood) { return false; }
   Joined_ = carried;
   if (!Stand(error)) { return false; }

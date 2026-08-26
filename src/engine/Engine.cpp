@@ -333,6 +333,18 @@ bool Engine::State::Composes(void) {
     }
   }
 
+  if (overADrive) {
+    double nearest = 1.0e30, atUp = 0.0;
+    for (size_t at = 0; at + 2 < inFrame.size(); at += 3) {
+      const double east = (double)inFrame[at], south = (double)inFrame[at + 2];
+      const double away = east * east + south * south;
+      if (away >= nearest) { continue; }
+      nearest = away;
+      atUp = (double)inFrame[at + 1];
+    }
+    Places("the ring's nearest vertex to the frame origin", std::sqrt(nearest), "m");
+    Places("and its up", atUp, "m");
+  }
   Gltf::Piece ground;
   ground.NodeName = "ground";
   ground.Material = 0;
@@ -347,8 +359,13 @@ bool Engine::State::Composes(void) {
     Error = laidGround.Error();
     return false;
   }
+  const Render::Medium air;
+  Material wearing;
+  for (int channel = 0; channel < 3; ++channel) {
+    wearing.BaseColour[channel] = air.GroundAlbedo[channel];
+  }
   const size_t drivenParts = Standing->Shown().Parts().size();
-  if (!Standing->Restand(laidGround, drivenParts, Error)) { return false; }
+  if (!Standing->Restand(laidGround, drivenParts, wearing, Error)) { return false; }
   GroundTiles = laid->Tiles;
   Places("tiles the ring laid", (double)laid->Tiles, "tiles");
   Places("tiles it is still waiting for", (double)laid->Pending, "tiles");
