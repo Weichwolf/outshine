@@ -43,9 +43,13 @@ that links no `src/engine` source.
 
 ## What will be true
 
+- [x] The tier LINKS without the engine, and `make` writes `build/libgenerators.a` from the
+      closure the linker itself computes -- 53 objects, 44 `world` and 9 `base`, no member of
+      `engine`, `render`, `scenario`, `sim`, `ui`, `audio` or `host`. A program links that archive
+      alone and runs.
+      proof: harness/claims/TheGeneratorsLinkWithoutTheEngine
 - [ ] A second public header declares the generator library: the input value, the `Generator`
-      interface, the registry, and the OUTPUT REPRESENTATION as a value. It names no type from
-      `src/render`, `src/scenario`, `src/sim` or `src/engine`.
+      interface, the registry, and the OUTPUT REPRESENTATION as a value.
 - [ ] That representation is pointer-free and one-width, so a foreign caller can hold it, copy it
       and outlive the generator that made it -- CLAUDE.md's layout rule is what makes it usable
       across a library boundary at all, not only what makes it fast.

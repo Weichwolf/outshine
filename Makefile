@@ -3,7 +3,9 @@
 #
 # THREE TARGETS AND NO OTHERS (CLAUDE.md): build the engine, run the tests, clean.
 #
-#   make          compile the library entire -> build/liboutshine.a
+#   make          compile the library entire -> build/liboutshine.a, and the generator tier
+#                 on its own -> build/libgenerators.a, whose member list is DERIVED from the
+#                 closure the linker computes rather than kept by a second hand
 #   make test     run the fast gate (the regression net); long suites run when named
 #   make clean    remove build artifacts
 #
@@ -23,7 +25,7 @@ SELF_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 
 .PHONY: all test clean
 
-all:             ## compile the library entire -> build/liboutshine.a, and state it -> STATE.md
+all:             ## compile the library and the generator archive, and state them -> STATE.md
 	@cd $(SELF_DIR) && sh test/run.sh --library
 	@cd $(SELF_DIR) && sh test/run.sh --state > STATE.md
 

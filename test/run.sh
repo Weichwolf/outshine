@@ -309,6 +309,7 @@ NotTheHarnesses() {
   case "$1" in
     harness/shared | harness/khronos/glTF | harness/khronos/generator | harness/outshine/grown) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
     harness/shared/render) printf '%s' "the render scoring instrument, compiled into each corpus's own harness" ;;
+    harness/shared/frame) printf '%s' "the linker's own walks and the program that links the generator archive alone -- a claim compiles it, so the harness does not" ;;
     apps/viewer/src/parts) printf '%s' "the browser's own declaration and its face, compiled into the browser" ;;
     harness/khronos/glTF/prepare | harness/khronos/generator/prepare | harness/outshine/grown/prepare | harness/wpt/css/prepare | harness/test262/js/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;
     harness/shared/corpus | harness/shared/corpus/*) printf '%s' "the offline preparer's own, compiled and run by test/harness/shared/corpus/prepare.py" ;;
@@ -560,6 +561,26 @@ BuildLibrary() {
   rm -f build/liboutshine.a
   ar rcs build/liboutshine.a $OBJECTS || Die "the archive did not write"
   printf -- '-> build/liboutshine.a (%s objects)\n' "$(echo $OBJECTS | wc -w | tr -d ' ')"
+
+  # THE GENERATORS AS THEIR OWN ARCHIVE, and the member list is DERIVED. Owner's target: another
+  # project uses the generators alone. A claim that they WOULD link is weaker than an archive that
+  # does, so `linkreach.sh` computes the closure the linker computes -- every object the generator
+  # objects reach by undefined symbol -- and those members, and only those, are archived again.
+  # A second hand-kept list would drift from the first the day somebody adds an include.
+  reachedGenerators=$(sh test/harness/shared/frame/linkreach.sh build/liboutshine.a \
+                        build/genwalk src-world-generators 2>/dev/null | sed 's|:$||')
+  generatorObjects=""
+  for reached in $reachedGenerators; do
+    for candidate in $OBJECTS; do
+      case "$candidate" in */"$reached") generatorObjects="$generatorObjects $candidate" ;; esac
+    done
+  done
+  if [ -n "$generatorObjects" ]; then
+    rm -f build/libgenerators.a
+    ar rcs build/libgenerators.a $generatorObjects || Die "the generator archive did not write"
+    printf -- '-> build/libgenerators.a (%s objects, closed over the linker'"'"'s own walk)\n' \
+      "$(echo $generatorObjects | wc -w | tr -d ' ')"
+  fi
   for program in $(find apps -name '*.cpp' | sort); do
     layer=$(dirname "$program")
     Programs "$layer" >/dev/null 2>&1 || continue

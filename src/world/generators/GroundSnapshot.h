@@ -18,10 +18,6 @@ namespace outshine::Generators {
 
 enum class Snapped { Taken, Waiting, NoGround };
 
-// WHAT A FEATURE FIELD IS BUILT FROM, as a value. `Sim` owned these three fields and their two
-// cover rows as members, which is why the whole generator tier hung off a class with one
-// consumer. They are each built from a `GroundQuery` and an `OsmField` already; naming them here
-// is what lets anything that opened a ground stack run a generator.
 struct Standing {
   const outshine::Ground::OsmField *Vectors = nullptr;
   const outshine::Ground::BuildingField *Footprints = nullptr;

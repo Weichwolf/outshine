@@ -210,12 +210,12 @@ PROGRESS -- counted from board/, where the target lives; a tick names its proof
   actors           2/7    29%
   client           1/8    13%
   corpus           3/8    38%
-  door             2/8    25%
+  door             2/13   15%
   gpu-driven       1/8    13%
   layers           4/6    67%
   perception       1/6    17%
   render-plan      0/7     0%
-  streaming        0/7     0%
+  streaming        1/15    7%
 
 COUNTS
   152 source(s) under src/, 20 of them linked by no suite
