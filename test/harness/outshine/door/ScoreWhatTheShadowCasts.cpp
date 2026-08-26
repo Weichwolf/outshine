@@ -129,7 +129,34 @@ int main(void) {
   std::printf("THE ATLAS HOLDS   depths from %.3f to %.3f, %.0f texel(s) above the clear\n",
               least, most, written);
 
-  CHECK(written > 0.0,
+  const double shadowedOnce = Measured(engine, "frames the subject drew shadowed");
+
+  outshine::Scenario bare = stands;
+  bare.Assets.clear();
+  if (!engine.Declare(bare) || !engine.Advance() || !engine.RenderTo(outshine::Extent{})) {
+    Unprepared(("the bare arm did not stand: " + engine.Error()).c_str());
+    return Report();
+  }
+  const double drawnBare = Measured(engine, "batches the picture draws");
+  const double shadowedAgain = Measured(engine, "frames the subject drew shadowed");
+  std::printf("DECLARING NOTHING draws %.0f batch(es); shadowed frames %.0f -> %.0f\n",
+              drawnBare, shadowedOnce, shadowedAgain);
+
+  CHECK(drawnBare == 0.0,
+        "**A DECLARATION THAT NAMES NOTHING STANDS NOTHING**: a scenario is a stream and parts "
+        "enter AND LEAVE, so clearing the asset list empties the stage. It used to hand back the "
+        "last subject, because the only way a part left was by being replaced");
+  CHECK(shadowedOnce > 0.0,
+        "the caster arm drew shadowed at all, so the count below has something to fail to grow "
+        "from -- and it only does because the subject stage now DECLARES the sampler it reads "
+        "for the atlas, which the medium stages used to pull in on its behalf");
+  CHECK(shadowedAgain == shadowedOnce,
+        "**AND IT READS NO ATLAS**: with nothing to cast, the light stage leaves the plan and "
+        "nothing writes the atlas -- so nothing may read it either. The flag that says a subject "
+        "is shadowed was set true by the stage and set false by nothing, so every later frame "
+        "sampled a caster that was no longer there. It cannot outlive a frame now");
+
+    CHECK(written > 0.0,
         "**THE LIGHT SEES THE CASTER**: some texel of the atlas holds a depth the clear does "
         "not, which is the whole of what a shadow map IS -- a light frustum that misses the "
         "geometry writes an atlas of one value and every receiver reads itself unoccluded");

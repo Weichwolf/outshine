@@ -33,12 +33,17 @@ sampler, `Shadowed_` stayed false, and shadows switched off in silence. `Stage::
 declares `Resource::LutSampler` among its reads, which is what makes the plan create it.
 Measured: the door's caster arm went from 0 shadowed frames to 1.
 
-**Why the arm that would prove the flag cannot be built yet.** The intended control was a
-re-declaration carrying no asset, expecting no light stage. It does not work, and the reason is a
-different defect: **a declaration naming no asset keeps the previous one standing.** Measured --
-after `bare.Assets.clear()` and a re-`Declare`, `batches the picture draws` is still 1 and the
-shadow radius is still the first arm's 0.7071 m. The engine is self-consistent there: it casts a
-shadow for the subject that is actually standing. board:1927 owns that.
+**Why the arm that would prove the flag cannot be built.** The first attempt was a re-declaration
+carrying no asset: it kept the previous subject standing, which board:1927 owns and which is now
+repaired -- the door case proves it, `DECLARING NOTHING draws 0 batch(es)`. But an EMPTY stage
+proves nothing about the flag: with no batches the subject stage never encodes, so the count
+cannot grow whether the flag is cleared or not. Measured: with `CastsNoShadow()` removed the case
+still passes.
+
+The arm that would prove it needs a subject that DRAWS and does not CAST, and the declaration
+language cannot say that -- `Lit.ShadowRadiusM` only turns shadows on, and a subject with no
+extent is refused before it stands (correctly: no camera can be derived from it). board:1928 owns
+it. Until then the flag repair stands on construction alone and this item says so.
 
 Proving case:  an engine that renders with a caster and then re-renders a declaration carrying
 none reads an atlas with no texel above the clear. Negative control: the plan as it stands, and

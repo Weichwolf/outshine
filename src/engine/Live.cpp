@@ -97,6 +97,25 @@ double Live::Framing() const {
 }
 
 bool Live::Build(std::string &error) {
+  if (Declared_.Built == nullptr && Declared_.Stands.empty()) {
+    Geometry_ = Gltf::Subject();
+    File_ = Gltf::Document();
+    Table_ = SurfaceTable();
+    ShadowRadiusStoodM_ = 0.0;
+    Joined_ = 0;
+    Carrying_ = 0;
+    FileStands_ = false;
+    Stoodup_ = false;
+    Moves_ = false;
+    Frames_ = 1;
+    At_ = 0;
+    BoundsPlaced_ = false;
+    if (Renderer_ != nullptr) {
+      std::string ignored;
+      (void)Renderer_->SetSubjectMesh(Render::SubjectMesh{}, ignored);
+      (void)Renderer_->SetSubjectPlacements(nullptr, 0, ignored);
+    }
+  }
   if (Declared_.Built != nullptr && Declared_.Stands.empty()) {
     if (Declared_.Surfacing.empty()) {
       error = "the declaration carries a built subject and no surface -- a body without a "
