@@ -2,9 +2,18 @@ Type: feature
 State: open
 Area: core
 Tags: architecture, physics, actor
+Parent: 1953
 Depends: 1896
 
 # The engine knows bodies, forces and control -- never a car
+
+**AND THE WORST OF IT IS IN THE DOOR.** `include/Scenario.h` carries `struct Vehicle` with 25
+car-specific fields -- `TyreRadiusM`, `FinalDrive`, `BrakeTorqueNm`, `TurningCircleM`, `TrackM`,
+`CorneringNPerRad`, `AssetWheelbase`. CLAUDE.md's own sentence is unambiguous: *a vehicle noun
+inside the engine core is a finding wherever it stands*, and a public header is the furthest
+inside it can stand, because what is public is what nobody can change later. RAGE keeps `CVehicle`
+in the GAME layer above `fwEntity`; Unreal keeps wheeled movement in a plugin outside the engine
+module. Neither puts a tyre radius in the engine's own interface.
 
 An engine is an interactive physics simulation with a focus on graphics. It knows bodies,
 forces, actuators and control. A control command comes from the player through bindings or from

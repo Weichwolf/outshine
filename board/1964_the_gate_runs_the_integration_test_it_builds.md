@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Parent: 1953
 Depends: 1963
 Area: client

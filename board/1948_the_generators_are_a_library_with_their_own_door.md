@@ -1,5 +1,6 @@
 Type: feature
 State: open
+Parent: 1953
 Progress: streaming
 Area: generators, door
 Tags: benchmark, target, owner
@@ -38,6 +39,22 @@ project that wants a file rather than a buffer. Owner's correction, and it is th
 `outshine::Geometry`, refuses a soup that is not whole triangles, and carries several parts as
 reaches into one vertex array. What is still missing is a generator CALLING it -- the meshers
 need a plan, and a plan needs the snapshot board:1805 now composes.
+
+**AND THE DECLARATION FOR IT ALREADY STANDS, UNREACHED.** `include/Scenario.h` carries
+
+    struct Generator { std::string Kind; std::vector<Setting> Parameters; };
+    std::vector<Generator> Generators;
+
+`ScenarioRead` parses it, `ScenarioLayer` merges it across layers, `Engine` COUNTS it -- and
+nothing resolves `Kind` to anything that runs. A declaration read, merged and counted, then
+dropped: the reachability defect this tree keeps producing, filed here where it belongs.
+
+The shape is already right and must not be replaced by a pointer. **A scenario is a value that is
+written to XML and read back, and a pointer does not survive that; a NAME does.** Unreal
+references an asset by object path resolved through the asset registry, RAGE by name or hash
+resolved through streaming, and neither puts a raw pointer in a map. So a client's own generator
+REGISTERS under a name and the declaration names it -- the client-side capability the owner asked
+for, without the field that would make the declaration unserialisable.
 
 **There is no registry a client can reach.** `GeneratorSet::Add(rank, generator)` is the registry
 and it is an `src/` type behind `Clients::Sim`, which one file includes.
