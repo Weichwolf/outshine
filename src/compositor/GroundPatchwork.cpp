@@ -67,7 +67,8 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
       if (!Ground::WrapTile(over.Zoom, &x, &y)) { continue; }
       TileBuild built;
       const TileMeshes::Reply said =
-          tiles.Mesh(over.Zoom, (uint32_t)x, (uint32_t)y, over.Grid, &built);
+          over.Awaited ? tiles.MeshAwaited(over.Zoom, (uint32_t)x, (uint32_t)y, over.Grid, &built)
+                       : tiles.Mesh(over.Zoom, (uint32_t)x, (uint32_t)y, over.Grid, &built);
       if (said == TileMeshes::Reply::Pending) {
         ++out.Pending;
         continue;

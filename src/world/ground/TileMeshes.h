@@ -25,6 +25,11 @@ public:
   virtual ~TileMeshes() = default;
 
   [[nodiscard]] virtual Reply Mesh(int z, uint32_t x, uint32_t y, int grid, TileBuild *out) = 0;
+
+  [[nodiscard]] virtual Reply MeshAwaited(int z, uint32_t x, uint32_t y, int grid,
+                                          TileBuild *out) {
+    return Mesh(z, x, y, grid, out);
+  }
 };
 
 }

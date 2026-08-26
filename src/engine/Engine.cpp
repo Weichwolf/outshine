@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <thread>
 #include <numbers>
 #include <charconv>
 #include <cmath>
@@ -320,13 +321,8 @@ bool Engine::State::Composes(void) {
   over.LonDeg = atLon;
   over.Zoom = Stack.FinestZoomOf(Data::DataKind::Elevation);
   over.Ring = 1;
+  over.Awaited = true;
   auto laid = LayPatchwork(Stack.Pool(), over);
-  const auto began = std::chrono::steady_clock::now();
-  while (!laid &&
-         std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count() <
-             Declared.Ground.PatienceS) {
-    laid = LayPatchwork(Stack.Pool(), over);
-  }
   if (!laid) {
     Error = laid.error();
     return false;

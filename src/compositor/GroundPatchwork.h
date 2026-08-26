@@ -16,6 +16,7 @@ struct Around {
   int Zoom = 0;
   int Ring = 1;
   int Grid = 33;
+  bool Awaited = false;
 };
 
 struct Patchwork {

@@ -459,6 +459,7 @@ void TilePool::Work(int slot) {
         if (result.State == Reply::Absent || result.State == Reply::Undeclared)
           result.Build = TileBuild{};
         Done_[job.Key] = std::move(result);
+        Landed_.notify_all();
       }
     }
   }
@@ -503,6 +504,18 @@ TilePool::Reply TilePool::Mesh(int z, uint32_t x, uint32_t y, int grid, TileBuil
   const Reply state = Poll(std::move(job), &result);
   if (state == Reply::Ready) *out = std::move(result.Build);
   return state;
+}
+
+TilePool::Reply TilePool::MeshAwaited(int z, uint32_t x, uint32_t y, int grid,
+                                      TileBuild *out) {
+  const Reply asked = Mesh(z, x, y, grid, out);
+  if (asked != Reply::Pending) { return asked; }
+  const uint64_t key = MeshKey(z, x, y);
+  {
+    std::unique_lock<std::mutex> lock(QueueMutex_);
+    Landed_.wait(lock, [&] { return Done_.find(key) != Done_.end(); });
+  }
+  return Mesh(z, x, y, grid, out);
 }
 
 void TilePool::ForgetMesh(int z, uint32_t x, uint32_t y) {

@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <set>
 #include <vector>
 
 #include "Check.h"
@@ -67,6 +68,43 @@ public:
 
 }
 
+// AND A RING IS ASKED FOR IN A WAY THAT LETS IT ARRIVE. `TilePool` meshes on worker threads and
+// answers `Pending` until one finishes, so a caller that polls gets whatever happened to be ready.
+// `Engine::State::Composes` retried only while `LayPatchwork` FAILED -- and a ring with one tile
+// and eight pending is not a failure, so the retry never ran and the composed ground was ONE tile
+// of nine, laid 287..1102 m east of a car standing at 0.
+//
+// Polling harder made it worse: thirty seconds of retrying took the ring from one tile to none,
+// because a spin on `Mesh` starves the workers it is waiting for. A wait that makes the thing it
+// waits for less ready is not a wait.
+//
+// `TileMeshes` now carries `MeshAwaited` beside `Mesh` -- the twin `TilePool::BytesBlocking`
+// already had on the byte path -- and its default is to answer exactly as `Mesh` does, so an
+// implementation that cannot wait is unchanged. `Around::Awaited` says which the caller wants.
+// On the shipped network: 1 tile of 9 in 41 s of polling, 9 of 9 in 12 s of waiting, and the
+// number no longer depends on which thread won.
+class Twice final : public outshine::TileMeshes {
+public:
+  explicit Twice(OneTile &one) : One_(one) {}
+
+  [[nodiscard]] Reply Mesh(int z, uint32_t x, uint32_t y, int grid, outshine::TileBuild *out) override {
+    const uint64_t key = ((uint64_t)x << 32) | y;
+    if (Asked_.insert(key).second) { return Reply::Pending; }
+    return One_.Mesh(z, x, y, grid, out);
+  }
+
+  [[nodiscard]] Reply MeshAwaited(int z, uint32_t x, uint32_t y, int grid,
+                                  outshine::TileBuild *out) override {
+    const Reply first = Mesh(z, x, y, grid, out);
+    if (first != Reply::Pending) { return first; }
+    return Mesh(z, x, y, grid, out);
+  }
+
+private:
+  OneTile &One_;
+  std::set<uint64_t> Asked_;
+};
+
 int main(void) {
   using namespace outshine::Test;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
@@ -122,8 +160,36 @@ int main(void) {
         "and the positions come back as they went in, in order, so the walk reads the array the "
         "struct declares rather than one that happens to be the same length");
 
+  {
+    outshine::Around ring = over;
+    ring.Ring = 1;
+    OneTile source;
+    Twice polled(source);
+    ring.Awaited = false;
+    const auto quick = outshine::LayPatchwork(polled, ring);
+    OneTile other;
+    Twice awaited(other);
+    ring.Awaited = true;
+    const auto whole = outshine::LayPatchwork(awaited, ring);
+    const size_t polledTiles = quick ? quick->Tiles : 0;
+    const size_t awaitedTiles = whole ? whole->Tiles : 0;
+    std::printf("  a 3 by 3 ring, polled once   %zu of 9 tiles\n", polledTiles);
+    std::printf("  the same ring, awaited       %zu of 9 tiles\n", awaitedTiles);
+
+    CHECK(awaitedTiles == 9,
+          "**A RING IS ASKED FOR IN A WAY THAT LETS IT ARRIVE**: the tiles answer Pending once "
+          "each and Ready after, which is what a pool that meshes on worker threads does, and a "
+          "caller that waits gets all nine. On the shipped network this is 1 of 9 against 9 of 9, "
+          "and the polled number depended on which thread won");
+
+    CHECK(polledTiles < awaitedTiles,
+          "and the control is the flag itself: the identical ring over the identical tiles, asked "
+          "without waiting, comes back with fewer -- so what the check above measures is the wait "
+          "and not the tiles");
+  }
+
   Covers("compositor: a ground patchwork reads a tile at the stride the tile's own layout "
          "declares, so a normal never reaches a position and the relief a patch reports is the "
-         "relief the ground has");
+         "relief the ground has, and a ring is asked for in a way that lets every tile of it arrive");
   return Report();
 }

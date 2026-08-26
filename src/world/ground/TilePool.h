@@ -64,6 +64,8 @@ public:
 
   [[nodiscard]] Reply Mesh(int z, uint32_t x, uint32_t y, int grid, TileBuild *out) override;
 
+  [[nodiscard]] Reply MeshAwaited(int z, uint32_t x, uint32_t y, int grid, TileBuild *out) override;
+
   [[nodiscard]] Reply Dag(int id, const float *soup, int nverts, int seamAttr, TileBuild *out);
 
   void ForgetMesh(int z, uint32_t x, uint32_t y);
@@ -145,6 +147,7 @@ private:
 
   mutable std::mutex QueueMutex_;
   std::condition_variable Wake_;
+  std::condition_variable Landed_;
   std::vector<Job> Queue_;
   std::map<uint64_t, Result> Done_;
   std::set<uint64_t> Posted_;
