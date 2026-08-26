@@ -20,6 +20,7 @@ struct Assembled {
   std::vector<std::pair<std::string, Entity>> Prefabs;
   std::vector<std::pair<std::string, Entity>> Instances;
   std::vector<std::string> TraitNames;
+  std::vector<std::string> TagNames;
 
   [[nodiscard]] Entity PrefabNamed(std::string_view name) const {
     for (const auto &row : Prefabs) {

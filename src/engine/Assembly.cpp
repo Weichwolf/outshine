@@ -16,14 +16,6 @@ size_t AssembledCapacity(const Scenario &declared) {
 
 namespace {
 
-[[nodiscard]] bool CapabilityNamed(const std::string &name, Tag &out) {
-  if (name == "steer") { out = tags::DoesSteer; return true; }
-  if (name == "drive") { out = tags::DoesDrive; return true; }
-  if (name == "brake") { out = tags::DoesBrake; return true; }
-  if (name == "lamp") { out = tags::DoesLamp; return true; }
-  return false;
-}
-
 [[nodiscard]] uint32_t Interned(std::vector<std::string> &names, const std::string &name) {
   for (size_t at = 0; at < names.size(); ++at) {
     if (names[at] == name) { return (uint32_t)(at + 1); }
@@ -32,7 +24,7 @@ namespace {
   return (uint32_t)names.size();
 }
 
-[[nodiscard]] bool Numbered(const Attribute &attribute, const std::string &on, double &value,
+[[nodiscard]] bool Numbered(const Setting &attribute, const std::string &on, double &value,
                             std::string &error) {
   char *end = nullptr;
   value = std::strtod(attribute.Value.c_str(), &end);
@@ -75,19 +67,19 @@ bool Assemble(const Scenario &declared, Store &into, Column<Body> &vehicles,
       }
     }
     for (const std::string &capability : kind.Capabilities) {
-      Tag doing = tags::Does;
-      if (!CapabilityNamed(capability, doing)) {
-        error = "the kind '" + kind.Name + "' may '" + capability +
-                "', which the catalogue does not offer";
+      if (capability.empty()) {
+        error = "the kind '" + kind.Name + "' may '', and a capability without a name is a "
+                "declaration that names nothing";
         return false;
       }
+      const Tag doing = TagCatalogue::Under(tags::Does, Interned(out.TagNames, capability));
       if (!into.Give(prefab, doing)) {
         error = into.Error();
         return false;
       }
     }
     Traits given;
-    for (const Attribute &attribute : kind.Attributes) {
+    for (const Setting &attribute : kind.Attributes) {
       double value = 0.0;
       if (!Numbered(attribute, kind.Name, value, error)) { return false; }
       if (!given.Put(Interned(out.TraitNames, attribute.Name), value)) {
@@ -144,7 +136,7 @@ bool Assemble(const Scenario &declared, Store &into, Column<Body> &vehicles,
         }
       }
     }
-    for (const Attribute &attribute : instance.Attributes) {
+    for (const Setting &attribute : instance.Attributes) {
       double value = 0.0;
       if (!Numbered(attribute, instance.Id.empty() ? instance.Of : instance.Id, value, error)) {
         return false;
@@ -197,14 +189,14 @@ bool Assemble(const Scenario &declared, Store &into, Column<Body> &vehicles,
       error = into.Error();
       return false;
     }
-    const bool steers = vehicle.Can(Actuates::Steer) != nullptr;
-    const bool drives = vehicle.Torques(false) != nullptr;
-    const bool brakes = vehicle.Torques(true) != nullptr;
-    if ((steers && !into.Give(body, tags::DoesSteer)) ||
-        (drives && !into.Give(body, tags::DoesDrive)) ||
-        (brakes && !into.Give(body, tags::DoesBrake))) {
-      error = into.Error();
-      return false;
+    for (const Actuator &does : vehicle.Actuators) {
+      const char *const named = does.Does == Actuates::Steer ? "steer"
+                                                             : (does.Opposes ? "torque-opposing"
+                                                                             : "torque");
+      if (!into.Give(body, TagCatalogue::Under(tags::Does, Interned(out.TagNames, named)))) {
+        error = into.Error();
+        return false;
+      }
     }
     if (!vehicles.Put(body, vehicle)) {
       error = "the vehicle's numbers found no column seat for '" + vehicle.Name + "'";

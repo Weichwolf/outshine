@@ -46,7 +46,24 @@ namespace {
 //
 // The distinction is ORDER. A move's add comes AFTER its delete; a file-then-close comes before.
 // So every commit in the window is numbered (git log prints newest first, so a SMALLER index is
-// later), and a deletion is a move only when the title was added at a strictly later commit.
+// later), and a deletion is a move only when the same ITEM NUMBER was filed at a strictly later
+// commit.
+//
+// KEYED ON THE NUMBER OR THE TITLE, because an item can move in two ways and each keeps one of them:
+//
+//   RETITLED   the number stays and the title changes -- board:1966, reframed in one commit
+//   RENUMBERED the title stays and the number changes -- board:1932 became 1937 after a number
+//              collision with the stakeholder's worktree
+//
+// A rule that watched only the title called the first a closure that skipped `active`; a rule that
+// watched only the number called the second one. A genuine closure refiles NEITHER, so watching
+// both excuses exactly the two kinds of move and nothing else.
+//
+// AT THE SAME COMMIT OR LATER, because a rename happens in ONE commit -- git records a delete and an
+// add and nothing distinguishes them by time. That does not reopen the hole the older rule had: a
+// number is identity and never repeats, so a same-commit number match can only be a rename; and a
+// same-commit TITLE match is a renumber, which is the other move. Neither can be a closure, because
+// a closure files nothing.
 //
 // THE WINDOW BEGINS WHERE THE RULE BEGAN TO BE ENFORCED, and it finds its own start: the commit
 // that added THIS FILE. Walked over all of history the count is 2579 deletions with 2513 of them
@@ -74,6 +91,16 @@ struct Skipped {
   std::string Said;
 };
 
+}
+
+[[nodiscard]] std::string Numbered(const std::string &path) {
+  const size_t slash = path.rfind('/');
+  const size_t at = slash == std::string::npos ? 0 : slash + 1;
+  if (path.size() < at + 4) { return std::string(); }
+  for (size_t step = 0; step < 4; ++step) {
+    if (path[at + step] < '0' || path[at + step] > '9') { return std::string(); }
+  }
+  return path.substr(at, 4);
 }
 
 int main(void) {
@@ -116,16 +143,18 @@ int main(void) {
         continue;
       }
       if (commit.empty()) { continue; }
+      const auto placed = whenCommitted.find(commit);
+      if (placed == whenCommitted.end()) { continue; }
       std::string title;
       (void)Run("git show " + commit + ":" + line + " 2>/dev/null | sed -n 's|^# ||p' | head -1",
                 title);
       while (!title.empty() && (title.back() == '\n' || title.back() == ' ')) { title.pop_back(); }
-      if (title.empty()) { continue; }
-      const auto placed = whenCommitted.find(commit);
-      if (placed == whenCommitted.end()) { continue; }
-      const auto held = filedAt.find(title);
-      if (held == filedAt.end() || placed->second < held->second) {
-        filedAt[title] = placed->second;
+      for (const std::string &key : {Numbered(line), title}) {
+        if (key.empty()) { continue; }
+        const auto held = filedAt.find(key);
+        if (held == filedAt.end() || placed->second < held->second) {
+          filedAt[key] = placed->second;
+        }
       }
     }
   }
@@ -156,17 +185,21 @@ int main(void) {
     if (header.empty()) { continue; }
 
     std::string titled;
-    (void)Run("git show " + at + "^:" + line + " 2>/dev/null | sed -n 's|^# ||p' | head -1",
-              titled);
+    (void)Run("git show " + at + "^:" + line + " 2>/dev/null | sed -n 's|^# ||p' | head -1", titled);
     while (!titled.empty() && (titled.back() == '\n' || titled.back() == ' ')) { titled.pop_back(); }
-    if (!titled.empty()) {
-      const auto refiled = filedAt.find(titled);
+    bool wasMoved = false;
+    for (const std::string &key : {Numbered(line), titled}) {
+      if (key.empty()) { continue; }
+      const auto refiled = filedAt.find(key);
       const auto deleted = whenCommitted.find(at);
       if (refiled != filedAt.end() && deleted != whenCommitted.end() &&
-          refiled->second < deleted->second) {
-        ++moved;
-        continue;
+          refiled->second <= deleted->second) {
+        wasMoved = true;
       }
+    }
+    if (wasMoved) {
+      ++moved;
+      continue;
     }
 
     if (header.find("State: active") != std::string::npos) {

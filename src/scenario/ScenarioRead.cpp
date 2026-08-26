@@ -401,7 +401,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
       made.Capabilities.push_back(may.Attr("do"));
     }
     for (const Xml::Ref attribute : one.Children("has")) {
-      made.Attributes.push_back(Attribute{attribute.Attr("name"), attribute.Attr("value")});
+      made.Attributes.push_back(Setting{attribute.Attr("name"), attribute.Attr("value")});
     }
     into.Kinds.push_back(made);
   }
@@ -416,7 +416,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     ReadVector(one, "qx", "qy", "qz", made.RotationXyzw, 3);
     made.RotationXyzw[3] = one.Num("qw", 1.0);
     for (const Xml::Ref attribute : one.Children("has")) {
-      made.Attributes.push_back(Attribute{attribute.Attr("name"), attribute.Attr("value")});
+      made.Attributes.push_back(Setting{attribute.Attr("name"), attribute.Attr("value")});
     }
     for (const Xml::Ref holds : one.Children("holds")) {
       made.Holds.push_back(holds.Attr("what"));

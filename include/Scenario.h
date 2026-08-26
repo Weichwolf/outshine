@@ -122,11 +122,6 @@ struct Surface {
   int Z = 0;
 };
 
-struct Attribute {
-  std::string Name;
-  std::string Value;
-};
-
 struct Mind {
   std::string Tier;
   std::string Uses;
@@ -149,7 +144,7 @@ struct Kind {
   std::string Asset;
   std::vector<Mind> Minds;
   std::vector<std::string> Capabilities;
-  std::vector<Attribute> Attributes;
+  std::vector<Setting> Attributes;
 };
 
 struct Instance {
@@ -158,7 +153,7 @@ struct Instance {
   std::string In;
   double TranslationM[3] = {0.0, 0.0, 0.0};
   double RotationXyzw[4] = {0.0, 0.0, 0.0, 1.0};
-  std::vector<Attribute> Attributes;
+  std::vector<Setting> Attributes;
   std::vector<std::string> Holds;
 };
 

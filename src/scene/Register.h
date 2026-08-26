@@ -33,26 +33,23 @@ private:
 
 struct TagCatalogue {
   static constexpr Tag Does{0x01000000};
-  static constexpr Tag DoesSteer{0x01010000};
-  static constexpr Tag DoesDrive{0x01020000};
-  static constexpr Tag DoesBrake{0x01030000};
-  static constexpr Tag DoesLamp{0x01040000};
   static constexpr Tag Offers{0x02000000};
-  static constexpr Tag OffersRefuel{0x02010000};
+
+  [[nodiscard]] static constexpr Tag Under(Tag family, uint32_t ordinal) {
+    return Tag(family.Value_ | ((ordinal & 0xFFu) << 16));
+  }
 };
 
 namespace tags {
 inline constexpr Tag Does = TagCatalogue::Does;
-inline constexpr Tag DoesSteer = TagCatalogue::DoesSteer;
-inline constexpr Tag DoesDrive = TagCatalogue::DoesDrive;
-inline constexpr Tag DoesBrake = TagCatalogue::DoesBrake;
-inline constexpr Tag DoesLamp = TagCatalogue::DoesLamp;
 inline constexpr Tag Offers = TagCatalogue::Offers;
-inline constexpr Tag OffersRefuel = TagCatalogue::OffersRefuel;
 }
 
-static_assert(tags::DoesSteer.Within(tags::Does) && !tags::Does.Within(tags::DoesSteer),
-              "a tag is within its parent and never the other way round");
+static_assert(TagCatalogue::Under(tags::Does, 1).Within(tags::Does) &&
+                  !tags::Does.Within(TagCatalogue::Under(tags::Does, 1)),
+              "a tag is within its family and never the other way round");
+static_assert(!TagCatalogue::Under(tags::Does, 1).Within(tags::Offers),
+              "and a family holds only its own");
 
 enum class Relation : uint8_t { IsA, ChildOf, DrivenBy, Uses, Assigned, HeldBy };
 inline constexpr size_t kRelations = 6;
