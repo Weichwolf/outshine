@@ -1069,6 +1069,7 @@ void Engine::State::Drew(void) {
   Places("batches the picture draws", (double)Device.SubjectBatchCount(), "batches");
   Places("batches the shadow casts", (double)Device.ShadowCastCount(), "batches");
   Places("frames the subject drew shadowed", (double)Device.ShadowedFrames(), "frames");
+  Places("the shadow radius the picture stood on", Standing->ShadowRadiusStanding(), "m");
   {
     std::vector<float> depth;
     if (Steps < 2 && Device.ReadShadowAtlas(depth) == Render::ReadState::Ready) {

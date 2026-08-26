@@ -88,6 +88,7 @@ public:
                              std::string &error);
 
   void ScaledBy(double metresPerUnit) { Declared_.MetresPerUnit = metresPerUnit; }
+  [[nodiscard]] double ShadowRadiusStanding() const { return Declared_.ShadowRadiusM; }
   [[nodiscard]] bool Carry(const double worldFromBodyM[16], const double built[16],
                            std::string &error);
 
