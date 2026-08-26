@@ -361,7 +361,7 @@ void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
 }
 
 void TilePool::RunDag(const Job &job, Result *out) {
-  const uint32_t nverts = (uint32_t)(job.Soup.size() / 8);
+  const uint32_t nverts = (uint32_t)(job.Soup.size() / kTileVertexFloats);
   if (nverts < 3) {
     out->State = Reply::Absent;
     return;
@@ -523,7 +523,7 @@ TilePool::Reply TilePool::Dag(int id, const float *soup, int nverts, int seamAtt
   job.Key = DagKey(id);
   job.SeamAttr = seamAttr;
 
-  if (!Known(job.Key)) job.Soup.assign(soup, soup + (size_t)nverts * 8);
+  if (!Known(job.Key)) job.Soup.assign(soup, soup + (size_t)nverts * kTileVertexFloats);
   Result result;
   const Reply state = Poll(std::move(job), &result);
   if (state == Reply::Ready) *out = std::move(result.Build);

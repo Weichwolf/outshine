@@ -361,6 +361,9 @@ bool Live::Look(std::string &error) {
 
 bool Live::Stand(std::string &error) {
   Stood_ = Studio{};
+  Stood_.EyeStandsInside = HaveEye_;
+  Stood_.FramedParts = Joined_;
+  if (HaveEye_) { Stood_.Eye = Eye_; }
   Stood_.PartPlacement.assign(Geometry_.Parts().size(),
                               {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1});
   Stood_.Geometry = &Geometry_;

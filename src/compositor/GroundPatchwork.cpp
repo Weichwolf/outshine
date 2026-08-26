@@ -91,7 +91,8 @@ std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Arou
                                built.OriginEcef[1] - out.OriginEcef[1],
                                built.OriginEcef[2] - out.OriginEcef[2]};
       const uint32_t first = (uint32_t)(out.PositionM.size() / 3);
-      for (size_t vertex = 0; vertex + 2 < built.Verts.size(); vertex += 3) {
+      for (size_t vertex = 0; vertex + 2 < built.Verts.size();
+           vertex += kTileVertexFloats) {
         out.PositionM.push_back((float)((double)built.Verts[vertex] + shift[0]));
         out.PositionM.push_back((float)((double)built.Verts[vertex + 1] + shift[1]));
         out.PositionM.push_back((float)((double)built.Verts[vertex + 2] + shift[2]));

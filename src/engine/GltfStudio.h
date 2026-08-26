@@ -29,6 +29,8 @@ struct Studio {
 
   bool EyeStandsInside = false;
 
+  size_t FramedParts = 0;
+
   std::vector<std::array<float, 3>> EmittedRadiance;
 
   std::vector<uint32_t> PartSurface;

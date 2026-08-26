@@ -147,7 +147,7 @@ World::BuildingSurface World::Buildings() const {
   BuildingSurface s;
   if (BuildingDagVerts.empty()) return s;
   s.Verts = BuildingDagVerts.data();
-  s.VertCount = (uint32_t)(BuildingDagVerts.size() / 8);
+  s.VertCount = (uint32_t)(BuildingDagVerts.size() / kTileVertexFloats);
   s.Idx = BuildingDagIdx.data();
   s.IdxCount = (uint32_t)BuildingDagIdx.size();
   s.Clusters = BuildingClusters.data();
@@ -349,7 +349,7 @@ void World::Update(double camLat, double camLon) {
   CutKerbs();
   if (Buildings_.Build(*Ground_, Vectors_, Span<const WayLine>(Kerbs_.data(), Kerbs_.size())) > 0 &&
       Buildings_.AddedCount() > 0) {
-    BuildingVerts = (uint32_t)(Buildings_.Verts().size() / 8);
+    BuildingVerts = (uint32_t)(Buildings_.Verts().size() / kTileVertexFloats);
     BuildingDecodeMs_ = Clock() - tBld;
     FootprintTileEnds_.push_back((uint32_t)Buildings_.Verts().size());
   }
@@ -390,7 +390,7 @@ void World::AdmitMesh(Node &nd, int &budget) {
       nd.verts = std::move(tile.Verts);
       nd.idx = std::move(tile.Idx);
       nd.clusters = std::move(tile.Clusters);
-      nd.nverts = (int)(nd.verts.size() / 8);
+      nd.nverts = (int)(nd.verts.size() / kTileVertexFloats);
       nd.nidx = (int)nd.idx.size();
       nd.err = tile.ErrM;
       for (int c = 0; c < 3; c++) nd.origin[c] = tile.OriginEcef[c];
@@ -504,7 +504,7 @@ void World::Refine(const Eye &eye, double nowMs) {
     TileBuild ladder;
 
     const TilePool::Reply built = Pool_->Dag(
-        BuildingDagId, BuildingSoup.data(), (int)(BuildingSoup.size() / 8), 3, &ladder);
+        BuildingDagId, BuildingSoup.data(), (int)(BuildingSoup.size() / kTileVertexFloats), 3, &ladder);
     if (built == TilePool::Reply::Ready) {
       const uint32_t vbase = (uint32_t)(BuildingDagVerts.size() / 8);
       const uint32_t ibase = (uint32_t)BuildingDagIdx.size();

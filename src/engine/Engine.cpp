@@ -7,7 +7,6 @@
 #include <numbers>
 #include <charconv>
 #include <cmath>
-#include <cstdio>
 #include <vector>
 
 #include "Assembly.h"
@@ -228,6 +227,8 @@ bool Engine::State::Routes(void) {
   if (!Composes()) {
     Carried.push_back("the ground did not compose: " + Error);
     Error.clear();
+  } else if (!Rides()) {
+    return false;
   }
   return true;
 }
@@ -280,8 +281,8 @@ bool Engine::State::Composes(void) {
   }
   const Scenario &declared = Declared;
   const Sim::Corridor &way = Drive.Way;
-  const bool overADrive = false;
-  if (Drove) {
+  const bool overADrive = Drove && !way.Fine.empty();
+  if (false) {
     Error = "a drive stands, and the ground is APPENDED to the driven vehicle's own glTF, so it "
             "inherits that placement and that model scale. Measured: the ring reaches the draw "
             "list at 517 batches against the vehicle's 258, and it draws as shrapnel across the "
@@ -359,13 +360,8 @@ bool Engine::State::Composes(void) {
     Error = laidGround.Error();
     return false;
   }
-  Gltf::Subject world = Standing->Shown();
-  const size_t drivenParts = world.Parts().size();
-  if (!world.Append(laidGround)) {
-    Error = world.Error();
-    return false;
-  }
-  if (!Standing->Restand(world, drivenParts, Error)) { return false; }
+  const size_t drivenParts = Standing->Shown().Parts().size();
+  if (!Standing->Restand(laidGround, drivenParts, Error)) { return false; }
   GroundTiles = laid->Tiles;
   return true;
 }

@@ -8,6 +8,8 @@
 
 namespace outshine {
 
+inline constexpr size_t kTileVertexFloats = 8;
+
 struct TileBuild {
   std::vector<float> Verts;
   std::vector<uint32_t> Idx;

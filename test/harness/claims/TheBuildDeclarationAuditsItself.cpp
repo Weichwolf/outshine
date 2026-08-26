@@ -43,13 +43,14 @@ int main(void) {
   const std::string doubled =
       Seeded("listing", "s|src/sim src/scene src/engine/Assembly.cpp"
                         "|src/sim src/scene src/scene/Store.cpp src/engine/Assembly.cpp|;"
-                        "s|src/compositor src/engine/Live.cpp|src/engine/Live.cpp|");
+                        "s|src/compositor src/engine/Live.cpp|src/engine/Live.cpp|;"
+                        "s|src/world/ground src/compositor|src/world/ground|");
   std::string copy;
   (void)Run("cat " + doubled, copy);
   CHECK(copy.find("src/scene src/scene/Store.cpp") != std::string::npos &&
             copy.find("src/compositor src/engine/Live.cpp") == std::string::npos,
-        "both seeds took -- a duplicate beside src/scene, and the compositor struck from the "
-        "only suite that lists it");
+        "both seeds took -- a duplicate beside src/scene, and the compositor struck from every "
+        "suite that lists it, because a source one suite still links is not stranded");
   std::string seededSaid;
   const int seededVerdict = Run("sh " + doubled + " --audit 2>&1", seededSaid);
   CHECK(seededVerdict != 0 && seededSaid.find("lists twice") != std::string::npos &&

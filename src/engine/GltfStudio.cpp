@@ -42,7 +42,7 @@ void Anchored(const double gltf[3], double out[3]) {
 }
 
 [[nodiscard]] bool ClearsNearPlane(const Gltf::Subject &subject, const Gltf::Placement &eye,
-                                   size_t framedParts, std::string &error) {
+                                   size_t framedParts, bool standsInside, std::string &error) {
   const double plane = eye.ZNearM > 0.0 ? eye.ZNearM : (double)Render::Renderer::kNearM;
   double framedLeast[3], framedMost[3];
   subject.BoundsOf(framedParts, framedLeast, framedMost);
@@ -72,7 +72,9 @@ void Anchored(const double gltf[3], double out[3]) {
       along += (subject.PositionsM()[vertex * 3 + (size_t)axis] - eye.EyeM[axis]) * eye.Forward[axis];
     }
     if (along <= plane) {
-      error = "vertex " + std::to_string(vertex) + " sits " + std::to_string(along) +
+      error = "vertex " + std::to_string(vertex) + " of the " + std::to_string(beyond) +
+              " that " + std::to_string(framedParts) + " framed part(s) of " +
+              std::to_string(subject.Parts().size()) + " carry sits " + std::to_string(along) +
               " m along the view axis, inside the near plane of " + std::to_string(plane) +
               " m this placement declares";
       return false;
@@ -320,7 +322,9 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
 bool Aim(Render::Renderer &renderer, const Gltf::Subject &subject, const Gltf::Placement &eye,
          std::string &error, bool standsInside, size_t framedParts) {
   if (!SetProjection(renderer, eye, error)) { return false; }
-  if (!standsInside && !ClearsNearPlane(subject, eye, framedParts, error)) { return false; }
+  if (!standsInside && !ClearsNearPlane(subject, eye, framedParts, standsInside, error)) {
+    return false;
+  }
   double position[3], forward[3], right[3], up[3];
   Anchored(eye.EyeM, position);
   EcefFromGltf(eye.Forward, forward);
@@ -369,7 +373,9 @@ bool Place(Render::Renderer &renderer, const Studio &studio, StudioScratch &scra
             ", so no vertex has a place it moved from";
     return false;
   }
-  if (!Aim(renderer, subject, eye, error)) { return false; }
+  if (!Aim(renderer, subject, eye, error, studio.EyeStandsInside, studio.FramedParts)) {
+    return false;
+  }
 
   {
     const Heap::Tagged inside("draw-list");
@@ -431,7 +437,10 @@ bool Move(Render::Renderer &renderer, const Studio &studio, StudioScratch &scrat
             std::to_string(subject.VertexCount()) + ", so no vertex has a place it moved from";
     return false;
   }
-  if (!Aim(renderer, subject, studio.Eye, error)) { return false; }
+  if (!Aim(renderer, subject, studio.Eye, error, studio.EyeStandsInside,
+           studio.FramedParts)) {
+    return false;
+  }
 
   const Heap::Tagged packing("vertex-pack");
   const VertexRuns runs = PackVertices(studio, subject, scratch.Vertices);
