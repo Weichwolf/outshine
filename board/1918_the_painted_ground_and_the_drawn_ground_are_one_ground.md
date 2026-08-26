@@ -18,10 +18,36 @@ The ring is CORRECT. Its albedo is the medium's own `GroundAlbedo` and its dista
 so the atmosphere veils it toward the sky's colour — that is aerial perspective and a photograph
 of Munich does the same thing.
 
-**The sky stage's ground does not do it.** It is one flat olive tone at every distance, because it
-is painted as `GroundAlbedo` seen through a transmittance that does not vary with the ground
-point's range. So the two grounds meet at a seam: real terrain fades into the haze, the painted
-plane behind it does not, and the horizon shows the join.
+**The sky stage's ground does not do it.** It is one flat olive tone at every distance, and the
+two grounds meet at a seam: real terrain fades into the haze, the painted plane behind it does
+not, and the horizon shows the join.
+
+## What the stated cause is NOT, read at HEAD
+
+The item said the painted ground is "seen through a transmittance that does not vary with the
+ground point's range". That is wrong and reading the kernel says so:
+
+    src/render/shaders/medium.msl:153-165   if (toGround >= 0.0) { ... summed += throughput *
+                                            toSunGround * cosSunAt * GroundAlbedo / PI; }
+
+`throughput` is the accumulated view-ray transmittance at the point the march reaches the ground,
+and the march runs to `min(toTop, toGround)` (`medium.msl:118`). So the painted ground IS veiled
+by its own range, and whatever makes the seam is somewhere else.
+
+Three candidates remain and each needs a MEASUREMENT at the device, not a reading:
+
+1. **the two grounds are lit differently.** The painted one is `transmittanceToSun * cos * albedo
+   / PI` -- a Lambertian sun term. The composed ring goes through the subject shading path with
+   the key light. Two lighting paths for one surface is enough to make 44 counts on its own.
+2. **the painted ground is at the wrong altitude.** `hitsGround` resolves against
+   `bottomRadiusKm`, sea level, while the terrain the ring draws stands at ~500 m. The range to
+   sea level is longer, so the painted plane should be MORE veiled -- and it is measured LESS
+   veiled, which makes this the wrong sign and probably not the cause.
+3. **the ring gets aerial perspective the painted ground does not, applied twice or by another
+   term.** Ruling this in or out means reading what the ring's own shading does with the medium.
+
+Whichever it is, it is a difference between two SHADING PATHS for one surface, not a missing
+veil, and the repair is likely to be that there is only one path.
 
 ## What will be true
 
