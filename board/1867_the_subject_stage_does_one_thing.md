@@ -61,6 +61,35 @@ shadow casts 0 against 1 drawn.
 `SubjectResidency` already stands green beside it, which proves the split is available and
 was only ever half taken.
 
+## Measured again at b0b59b3a, and two of the four boxes are wrong
+
+`SubjectDraw` is **816 lines** now, from 1126: `EncodeDepthOnly` left with board:1575's shadow
+stage and took 124 lines and the second encode with it. `SubjectDraw.h` is 190 lines with a
+surface a reader can hold.
+
+**The five pipelines are not a defect, and the benchmark says so.** `Configure` builds
+`kVertexLayoutCount * 2 * kSurfaceKinds` up front (SubjectDraw.cpp:324). Building a pipeline
+when a draw first needs it is precisely the PSO hitch Unreal has spent years apologising for;
+RAGE's answer is the same as this one -- pay at stand-up, decide nothing at the hot path. An
+item that counts them as a responsibility counts the house style twice, the way the `ShaderSource`
+row already did before the last correction.
+
+**The transmissive box is refuted** by board:1909: `subjectsTransmissive` reads `SceneHdr` and
+writes `SceneTransmissive`, so it cannot be a batch partition of the pass that produces what it
+reads.
+
+**The unit-twin box names a directory that no longer exists** (`test/unit/render/stages/`) and a
+test shape CLAUDE.md forbids -- a case that asserts the shape of our own architecture specifies
+nothing while TARGET moves.
+
+## What is left, and it has no negative control
+
+An extraction is closed by "the picture is unchanged", and no defect can be restored to make that
+red. So this item cannot be closed the way every other item here is closed, and saying so is
+better than performing a refactor and calling it a repair. What would close it is a DEFECT found
+inside the split -- a field carried and not read, a second spelling, a decision at the hot path --
+and none has been found by two measurements.
+
 ## What will be true
 
 - [ ] The stage encodes and nothing else: source, pipelines, residency and the light table are
