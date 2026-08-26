@@ -26,6 +26,20 @@ write the number in lux, and nothing in the declaration says to. `apps/driver/sr
 carried `r="0.06" g="0.07" b="0.09"` and removing it changed the picture by nothing measurable:
 mean max(RGB) 47.19 with, 47.19 without.
 
+## Measured on the DRIVER at a73c6ca5, which is where it is paid for
+
+`f31.scenario` declares `<key lux="40000" elevationDeg="42">` -- a bright afternoon -- and no
+ambient at all. Across the ten stills of the acceptance drive:
+
+    mean max(RGB)   43.3 .. 49.0 of 255
+    peak            119 .. 162 of 255      (250 one round earlier)
+
+Nothing in a 40 klux scene reaches half the range. `Exposure_` is 1.0 (`RenderPlan.cpp:218`),
+the curve is ACES filmic, and `2.5 / (1.2 * KeyLux)` divides the key back out before it -- so the
+declared illuminance sets the fill RATIO and nothing about the level, and the level that stands
+in its place is not derived from anything. A number with a unit that decides no absolute is the
+same defect as an ambient with no unit; they are one item.
+
 ## What will be true
 
 - [ ] The declared ambient is an ILLUMINANCE, in the same unit as the key, so a studio and a
