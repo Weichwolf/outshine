@@ -23,6 +23,9 @@ tiles, so a gate that runs one either reaches the network or ships a pinned cach
 is the answer the corpora already use -- a URL and a hash -- and it is what makes the run
 deterministic rather than merely possible.
 
-- [ ] the gate runs the drive headless for a bounded number of frames and reads what it measured
+- [x] the gate runs the drive headless for a bounded number of frames and reads what it measured
+      proof: harness/outshine/door/ScoreWhatTheDriveMeasures
 - [ ] the tiles it needs are pinned and hashed, so the run is offline and deterministic
-- [ ] the run fails the gate when the drive refuses, which today it cannot
+- [x] the run fails the gate when the drive refuses -- moving `scene.gltf` aside turns it red
+- [ ] the drive is its own suite rather than a case borrowing the door's, once a program can be
+      one: `NAMED_ONLY="apps"` still answers "no declared suite under apps/driver/src"
