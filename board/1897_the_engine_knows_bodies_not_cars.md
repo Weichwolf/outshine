@@ -7,6 +7,17 @@ Depends: 1896
 
 # The engine knows bodies, forces and control -- never a car
 
+**FIRST TWO FIELDS GONE, AND THEY WERE THE REDUNDANT ONES.** `wheelbaseM` and `trackM` stood in
+`struct Vehicle` beside the four contacts that already fixed them: contacts at z = -1.405 and
++1.405 ARE a 2.810 m wheelbase, contacts at x = +-0.774 ARE a 1.548 m track. `Rigging` derived the
+wheelbase, derived the track when it was not declared, and REFUSED when a declared wheelbase
+disagreed by more than a millimetre -- a guarded second spelling, which is still a second spelling.
+Both are deleted; the derivation is now the only place either number comes from, and the guard went
+with the thing it guarded (the compiler said so by way of an unused `kContactResolutionM`).
+
+The drive is unchanged to the digit: 10.5115 / 522.756 / 5.31713 before and after.
+      proof: harness/outshine/physics/ScoreWhatSetsTheSteeringSpan
+
 **AND THE WORST OF IT IS IN THE DOOR.** `include/Scenario.h` carries `struct Vehicle` with 25
 car-specific fields -- `TyreRadiusM`, `FinalDrive`, `BrakeTorqueNm`, `TurningCircleM`, `TrackM`,
 `CorneringNPerRad`, `AssetWheelbase`. CLAUDE.md's own sentence is unambiguous: *a vehicle noun

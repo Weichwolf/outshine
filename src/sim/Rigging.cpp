@@ -5,7 +5,6 @@
 namespace outshine::Sim {
 
 namespace {
-constexpr double kContactResolutionM = 0.001;
 }
 
 namespace {
@@ -69,22 +68,12 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
   }
   out.Axles.WheelbaseM = front > 0 && rear > 0
                              ? std::fabs(rearZ / (double)rear - frontZ / (double)front)
-                             : declared.WheelbaseM;
+                             : 0.0;
   if (!(out.Axles.WheelbaseM > 0.0)) {
-    Refuse(out, "the vehicle '" + declared.Name +
+    Refuse(out, "the body '" + declared.Name +
                     "' has no wheelbase: its contacts stand on one side of the centre of "
-                    "mass and it declares no wheelbaseM either -- a steering angle is the "
-                    "arctangent of a wheelbase over a radius, and a wheelbase of zero is a "
-                    "rig that cannot turn");
-    return out;
-  }
-  if (declared.WheelbaseM > 0.0 &&
-      std::fabs(declared.WheelbaseM - out.Axles.WheelbaseM) > kContactResolutionM) {
-    Refuse(out, "the vehicle '" + declared.Name + "' declares a wheelbase of " +
-                    std::to_string(declared.WheelbaseM) +
-                    " m while its own contacts stand " + std::to_string(out.Axles.WheelbaseM) +
-                    " m apart -- one dimension has one spelling, and the contacts are the "
-                    "one the physics reads");
+                    "mass, and a steering angle is the arctangent of a span over a radius, "
+                    "so a span of zero is a rig that cannot turn");
     return out;
   }
 
@@ -171,15 +160,12 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
     mount.BrakedShare = staticShare;
   }
 
-  double trackM = declared.TrackM;
-  if (!(trackM > 0.0)) {
-    double leftX = 0.0, rightX = 0.0;
-    for (const Contact &one : declared.Contacts) {
-      leftX = std::fmin(leftX, one.AtM[0]);
-      rightX = std::fmax(rightX, one.AtM[0]);
-    }
-    trackM = rightX - leftX;
+  double leftX = 0.0, rightX = 0.0;
+  for (const Contact &one : declared.Contacts) {
+    leftX = std::fmin(leftX, one.AtM[0]);
+    rightX = std::fmax(rightX, one.AtM[0]);
   }
+  const double trackM = rightX - leftX;
   if (!(declared.TurningCircleM > trackM)) {
     Refuse(out, "a steering lock is what a turning circle MEANS, and this vehicle declares a circle "
                 "of " + std::to_string(declared.TurningCircleM) +

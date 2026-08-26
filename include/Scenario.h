@@ -244,7 +244,6 @@ struct Vehicle {
   std::string Asset;
   double MassKg = 0.0;
   double WidthM = 0.0;
-  double WheelbaseM = 0.0;
 
   double AssetWheelbase = 0.0;
 
@@ -256,7 +255,6 @@ struct Vehicle {
   double Grip = 0.0;
   double TyreRadiusM = 0.0;
   double TurningCircleM = 0.0;
-  double TrackM = 0.0;
   double CorneringNPerRad = 0.0;
   double RelaxationM = 0.0;
   double LoadFalloff = 0.0;

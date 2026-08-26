@@ -50,8 +50,6 @@ constexpr double kRoofM = 1.45;
   made.Name = "f31";
   made.MassKg = 1610.0;
   made.WidthM = 1.811;
-  made.WheelbaseM = 2.810;
-  made.TrackM = 1.548;
   made.CentreOfMassM[1] = 0.55;
   made.InertiaKgM2[0] = 540.0;
   made.InertiaKgM2[1] = 2400.0;
@@ -91,7 +89,7 @@ int main(void) {
   if (!stood.Stood) { return Report(); }
 
   const double halfWidthM = 0.5 * declared.WidthM;
-  const double halfLengthM = 0.5 * declared.WheelbaseM;
+  const double halfLengthM = 0.5 * stood.Axles.WheelbaseM;
 
   const double asDeclared[3] = {declared.SeatM[0], declared.SeatM[1], declared.SeatM[2]};
   const double inTheBody[3] = {asDeclared[0] - stood.CentreM[0], asDeclared[1] - stood.CentreM[1],

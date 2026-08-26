@@ -536,13 +536,11 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.Asset = one.Attr("asset");
     made.MassKg = one.Num("massKg", 0.0);
     made.WidthM = one.Num("widthM", 0.0);
-    made.WheelbaseM = one.Num("wheelbaseM", 0.0);
     made.AssetWheelbase = one.Num("assetWheelbase", 0.0);
     made.AssetGround = one.Num("assetGround", 0.0);
     made.AssetCentreX = one.Num("assetCentreX", 0.0);
     made.AssetCentreZ = one.Num("assetCentreZ", 0.0);
     made.TurningCircleM = one.Num("turningCircleM", 0.0);
-    made.TrackM = one.Num("trackM", 0.0);
     const Xml::Ref centre = one.Child("centreOfMass");
     made.CentreOfMassM[0] = centre.Num("x", 0.0);
     made.CentreOfMassM[1] = centre.Num("y", 0.0);

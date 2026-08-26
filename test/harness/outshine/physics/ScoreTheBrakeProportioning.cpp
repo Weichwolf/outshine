@@ -45,9 +45,7 @@ constexpr double kAirDensityKgM3 = 1.225;
   outshine::Vehicle made;
   made.Name = "two-axle body";
   made.MassKg = kMassKg;
-  made.WheelbaseM = rearZM - frontZM;
   made.WidthM = 1.811;
-  made.TrackM = 1.548;
   made.CentreOfMassM[1] = 0.55;
   made.CentreOfMassM[2] = centreZM;
   made.InertiaKgM2[0] = 540.0;
@@ -67,7 +65,7 @@ constexpr double kAirDensityKgM3 = 1.225;
   made.BrakeTorqueNm = 5500.0;
   made.DragCoefficient = 0.66;
   made.FrontalM2 = 2.19;
-  made.AssetWheelbase = made.WheelbaseM;
+  made.AssetWheelbase = rearZM - frontZM;
   return made;
 }
 
