@@ -9,10 +9,10 @@
 
   <assets>
     <asset uri="scene.gltf" kind="gltf"
-           digest="c60068fcd0f8c25e73225cd3725a422fca46c00a2a68ca481988a6680cc5fb1d"/>
+           digest="a2b40cb2ab6408d1ec2e5e81f1ff0b14802b59569b3e4bc9375d4eecd6ccecd5"/>
   </assets>
 
-  <vehicle name="f31" asset="scene.gltf" massKg="1610" widthM="1.811" wheelbaseM="2.810" assetWheelbase="180.71" assetGround="-60.939" assetCentreX="60.104" assetCentreZ="22.847" turningCircleM="11.3" trackM="1.548">
+  <vehicle name="f31" asset="scene.gltf" massKg="1610" widthM="1.811" wheelbaseM="2.810" assetWheelbase="2.810" assetGround="-0.333" assetCentreX="0.0" assetCentreZ="0.0" turningCircleM="11.3" trackM="1.548">
     <centreOfMass x="0" y="0.55" z="0"/>
     <inertia ixx="540" iyy="2400" izz="2600"/>
 

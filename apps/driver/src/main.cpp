@@ -54,7 +54,7 @@ void Usage() {
       "  --stills N          how many (default 10)\n"
       "  --every             draw EVERY frame, not only the stills -- physics runs a long\n"
       "                      route fast, graphics runs a short one slowly\n"
-      "  --assets DIR        where a scenario's asset URIs resolve\n"
+      "  --assets DIR        where a scenario's asset URIs resolve (default: beside it)\n"
       "  --shipped DIR       where outshine's own data is (default src/assets)\n"
       "  --cache DIR         where fetched tiles are kept\n"
       "  --offline           refuse anything that would have to be fetched\n"
@@ -130,6 +130,11 @@ int main(int argc, char **argv) {
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     std::printf("REFUSED SDL did not start: %s\n", SDL_GetError());
     return 1;
+  }
+
+  if (asked.Assets.empty()) {
+    const size_t cut = asked.Scenario.find_last_of('/');
+    asked.Assets = cut == std::string::npos ? std::string(".") : asked.Scenario.substr(0, cut);
   }
 
   outshine::Engine engine;
