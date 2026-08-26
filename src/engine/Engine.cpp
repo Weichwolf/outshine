@@ -1299,6 +1299,8 @@ void Engine::State::Drew(void) {
       Places("texels above the clear", written, "texels");
       Places("the shadow radius it stood on", Standing->ShadowRadiusStanding(), "m");
     }
+    Places("bytes the frame's drawing left behind", (double)Clients::Live::TookDrawing(),
+           "bytes");
     Places("its centre, east", Standing->ShadowCentreStanding()[0], "m");
     Places("its centre, up", Standing->ShadowCentreStanding()[1], "m");
     if (Steps < 2) {

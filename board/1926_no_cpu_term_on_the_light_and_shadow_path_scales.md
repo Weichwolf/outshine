@@ -67,6 +67,19 @@ the mechanism the benchmark uses rather than an outcome.
       fold the volumes, never the vertices -- so the centre costs O(instances) and updates when
       an instance moves. Until it does, a moving caster is a defect waiting on a scenario that
       declares one.
+**MEASURED FIRST, WHICH CHANGED WHAT IS WORTH BUILDING.** A scenario with many casters did not
+exist until a client's generator could make one; it does now, and the readings are:
+
+    ONE CASTER            1 shadow batch(es), drawing left    128 bytes
+    SIXTY-FOUR CASTERS   64 shadow batch(es), drawing left    128 bytes
+    proof: harness/outshine/door/ScoreWhatManyCastersCost
+
+So the ALLOCATION half of this item already holds and is now guarded: 128 bytes at one caster and
+128 at sixty-four, constant rather than zero, which is what CLAUDE.md's *bounded* asks for. The
+DRAW half is exactly as this item describes -- one draw per batch, tracking the scene one for one --
+and it is measured rather than asserted, so the day `Cast` becomes one indirect draw the case says
+so by that number leaving N behind.
+
 - [ ] Proving case: a scenario with N casters and M lights holds its CPU frame time flat as N
       and M grow, measured p50/p95/p99 over a moving camera. Negative control: the per-batch
       walk restored, and the CPU time tracks N.
