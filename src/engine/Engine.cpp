@@ -98,7 +98,7 @@ struct Engine::State {
   std::vector<std::string> LayerTrace;
   Store Scene;
   Column<Body> Bodies;
-  Column<Drive> Drives;
+  Column<Journey> Drives;
   Column<Traits> Kinds;
   Assembled Stood;
   Roots Under;
@@ -223,7 +223,13 @@ bool Engine::State::Routes(void) {
     held.OrientationQ[3] = stands.FacingXyzw[2];
     Freestanding.push_back(held);
   }
-  if (!declared.Driven.Declared) { return true; }
+  if (!declared.Routed.Declared) { return true; }
+  if (declared.Routed.By != Travels::Drive) {
+    Error = "the scenario declares a journey that does not travel by drive, and nothing "
+            "assembles walking, flying or rail yet -- a mode the engine cannot lay a corridor "
+            "for is a refusal, never a journey that quietly does not happen";
+    return false;
+  }
   if (!Wire) {
     if (Under.Offline) {
       Wire = std::make_unique<Unwired>();

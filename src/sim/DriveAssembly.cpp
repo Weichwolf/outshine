@@ -40,7 +40,7 @@ constexpr double kJoinMs = 20.0;
 }
 
 bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Body> &vehicles,
-                   const Column<Drive> &driven, const WorldSettings &world,
+                   const Column<Journey> &driven, const WorldSettings &world,
                    Ground::GroundStack &stack, Data::Transport &wire, const Provision &kept,
                    Sink &say, DriveProduct &out) {
   if (kept.CacheDir.empty() || kept.AssetsDir.empty()) {
@@ -52,7 +52,7 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Body>
     say.Refuse("the assembled body carries no vehicle declaration");
     return false;
   }
-  const outshine::Drive *driveTo = driven.Get(cast.Assignment);
+  const outshine::Journey *driveTo = driven.Get(cast.Assignment);
   const bool assigned =
       driveTo != nullptr && scene.TargetOf(cast.PlayerMind, Relation::Assigned) == cast.Assignment;
   if (!assigned) { say.Refuse("the mind carries no assignment"); }

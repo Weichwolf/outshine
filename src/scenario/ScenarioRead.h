@@ -13,7 +13,7 @@ namespace outshine {
 [[nodiscard]] bool ReadScenario(const char *text, size_t length, Scenario &into,
                                 std::string &error);
 [[nodiscard]] bool ReadScenario(const Xml &document, Scenario &into, std::string &error);
-void ReadSectionsOnto(const Xml::Ref &root, Scenario &into);
+[[nodiscard]] bool ReadSectionsOnto(const Xml::Ref &root, Scenario &into, std::string &error);
 
 }
 

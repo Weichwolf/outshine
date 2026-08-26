@@ -158,14 +158,18 @@ bool ApplyLayer(Scenario &into, const char *text, size_t size, std::string_view 
       {fragment.Lit.Declared, "lighting"},     {fragment.Ground.Declared, "world"},
       {fragment.Render.Declared, "render"},    {fragment.Motion.Declared, "physics"},
       {fragment.Time.Declared, "clock"},       {fragment.Played.Declared, "player"},
-      {fragment.Driven.Declared, "drive"},
+      {fragment.Routed.Declared, "drive"},
   };
   for (const SectionRow &section : sections) {
     if (!section.DeclaredByLayer) { continue; }
     trace.push_back("layer '" + std::string(named) + "' merged into the " + section.What +
                     " -- omitted attributes keep the base's values");
   }
-  ReadSectionsOnto(document.Root(), into);
+  std::string why;
+  if (!ReadSectionsOnto(document.Root(), into, why)) {
+    error = why;
+    return false;
+  }
   return true;
 }
 

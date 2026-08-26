@@ -16,7 +16,7 @@ namespace outshine {
 [[nodiscard]] size_t AssembledCapacity(const Scenario &declared);
 
 [[nodiscard]] bool Assemble(const Scenario &declared, Store &into, Column<Body> &vehicles,
-                            Column<Drive> &driven, Column<Traits> &traits, Assembled &out,
+                            Column<Journey> &driven, Column<Traits> &traits, Assembled &out,
                             std::string &error);
 
 }

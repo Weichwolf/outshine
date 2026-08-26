@@ -118,11 +118,11 @@ constexpr const char *kScenario = "apps/driver/src/f31.scenario";
   made.Played.Is = "f31";
   made.Played.View = "eyes";
 
-  made.Driven.Declared = true;
-  made.Driven.FromLatDeg = 48.13720;
-  made.Driven.FromLonDeg = 11.57560;
-  made.Driven.ToLatDeg = 48.15500;
-  made.Driven.ToLonDeg = 11.59500;
+  made.Routed.Declared = true;
+  made.Routed.FromLatDeg = 48.13720;
+  made.Routed.FromLonDeg = 11.57560;
+  made.Routed.ToLatDeg = 48.15500;
+  made.Routed.ToLonDeg = 11.59500;
   return made;
 }
 
@@ -208,7 +208,32 @@ int main(void) {
         "to depend on where the declaration came from -- and this is what lets a client declare "
         "its own subject rather than needing an imperative physics API beside the door");
 
+  // A JOURNEY DECLARES ITS MODE, AND A MODE NOTHING ASSEMBLES IS A REFUSAL. TARGET's own diagram
+  // says *PATHFINDING -- two coordinates in, corridor out: walk, drive, fly, rail*, so `drive` is
+  // one MODE of travel and not the noun. `Scenario::Drive` was that noun; it is `Journey` with a
+  // `Travels` now, and the pathfinder's own `Route` -- the corridor that comes BACK -- keeps its
+  // name, because a declared intent and a computed corridor are two things.
+  //
+  // Only `drive` has an assembler. A scenario that declares a walk used to be indistinguishable
+  // from one that declared nothing: `Routes` tested `Driven.Declared` and nothing else, so the
+  // journey quietly did not happen.
+  outshine::Scenario onFoot = fromFile;
+  onFoot.Routed.By = outshine::Travels::Walk;
+  outshine::Engine walker;
+  walker.Under(outshine::Roots{"apps/driver/src", "src/assets", "/tmp/outshine-drive-cache", true});
+  const bool refusedWalk =
+      walker.DrawsInto(outshine::Extent{320, 180}) && walker.Declare(onFoot) && !walker.Assemble();
+  const std::string whyWalk = walker.Error();
+  std::printf("DECLARED BY FOOT  %s\n", refusedWalk ? whyWalk.c_str() : "ASSEMBLED ANYWAY");
+
+  CHECK(refusedWalk && whyWalk.find("walking") != std::string::npos,
+        "**A JOURNEY BY A MODE NOTHING ASSEMBLES IS REFUSED**: `drive` is one of walk, drive, fly "
+        "and rail, and only one of the four has an assembler. A declaration the engine cannot act "
+        "on must say so rather than standing still and looking like a scenario that declared no "
+        "journey at all");
+
   Covers("the door: a scenario built in code declares everything a scenario read from XML can, "
-         "proven by two drives from identical declarations landing on the same digits");
+         "proven by two drives from identical declarations landing on the same digits -- and a "
+         "journey names its mode, so one nothing assembles is refused rather than skipped");
   return Report();
 }

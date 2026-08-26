@@ -220,7 +220,7 @@ void ReadLighting(const Xml::Ref &from, Scenario &into) {
 
 }
 
-void ReadSectionsOnto(const Xml::Ref &root, Scenario &into) {
+[[nodiscard]] bool ReadSectionsOnto(const Xml::Ref &root, Scenario &into, std::string &error) {
   ReadWorld(root.Child("world"), into);
   ReadRender(root.Child("render"), into);
   ReadLighting(root.Child("lighting"), into);
@@ -254,12 +254,27 @@ void ReadSectionsOnto(const Xml::Ref &root, Scenario &into) {
 
   const Xml::Ref drive = root.Child("drive");
   if (drive.Valid()) {
-    into.Driven.Declared = true;
-    into.Driven.FromLatDeg = drive.Num("fromLat", into.Driven.FromLatDeg);
-    into.Driven.FromLonDeg = drive.Num("fromLon", into.Driven.FromLonDeg);
-    into.Driven.ToLatDeg = drive.Num("toLat", into.Driven.ToLatDeg);
-    into.Driven.ToLonDeg = drive.Num("toLon", into.Driven.ToLonDeg);
+    into.Routed.Declared = true;
+    const std::string by = drive.Attr("by");
+    if (by.empty() || by == "drive") {
+      into.Routed.By = Travels::Drive;
+    } else if (by == "walk") {
+      into.Routed.By = Travels::Walk;
+    } else if (by == "fly") {
+      into.Routed.By = Travels::Fly;
+    } else if (by == "rail") {
+      into.Routed.By = Travels::Rail;
+    } else {
+      error = "a journey travels '" + by +
+              "', and walk, drive, fly and rail are the whole catalogue";
+      return false;
+    }
+    into.Routed.FromLatDeg = drive.Num("fromLat", into.Routed.FromLatDeg);
+    into.Routed.FromLonDeg = drive.Num("fromLon", into.Routed.FromLonDeg);
+    into.Routed.ToLatDeg = drive.Num("toLat", into.Routed.ToLatDeg);
+    into.Routed.ToLonDeg = drive.Num("toLon", into.Routed.ToLonDeg);
   }
+  return true;
 }
 
 bool ReadScenario(const char *text, size_t length, Scenario &into, std::string &error) {
@@ -291,7 +306,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     into.Layers.push_back(Layer{one.Attr("id"), one.Attr("path"), one.Attr("set")});
   }
 
-  ReadSectionsOnto(root, into);
+  if (!ReadSectionsOnto(root, into, error)) { return false; }
 
   const Xml::Ref providers = root.Child("providers");
   for (const Xml::Ref one : providers.Children("provider")) {

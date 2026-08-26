@@ -11,7 +11,7 @@ size_t AssembledCapacity(const Scenario &declared) {
     ++instanced;
   }
   return declared.Bodies.size() + (declared.Played.Is.empty() ? 0u : 1u) +
-         (declared.Driven.Declared ? 2u : 0u) + declared.Kinds.size() + instanced;
+         (declared.Routed.Declared ? 2u : 0u) + declared.Kinds.size() + instanced;
 }
 
 namespace {
@@ -39,7 +39,7 @@ namespace {
 }
 
 bool Assemble(const Scenario &declared, Store &into, Column<Body> &vehicles,
-              Column<Drive> &driven, Column<Traits> &traits, Assembled &out,
+              Column<Journey> &driven, Column<Traits> &traits, Assembled &out,
               std::string &error) {
   out = Assembled{};
 
@@ -219,11 +219,11 @@ bool Assemble(const Scenario &declared, Store &into, Column<Body> &vehicles,
       return false;
     }
   }
-  if (declared.Driven.Declared) {
-    if (declared.Driven.FromLatDeg == declared.Driven.ToLatDeg &&
-        declared.Driven.FromLonDeg == declared.Driven.ToLonDeg) {
-      error = "the drive's ends coincide at (" + std::to_string(declared.Driven.FromLatDeg) +
-              ", " + std::to_string(declared.Driven.FromLonDeg) +
+  if (declared.Routed.Declared) {
+    if (declared.Routed.FromLatDeg == declared.Routed.ToLatDeg &&
+        declared.Routed.FromLonDeg == declared.Routed.ToLonDeg) {
+      error = "the drive's ends coincide at (" + std::to_string(declared.Routed.FromLatDeg) +
+              ", " + std::to_string(declared.Routed.FromLonDeg) +
               "), which declares no route -- a zoom without a base route is a layer over "
               "nothing";
       return false;
@@ -237,7 +237,7 @@ bool Assemble(const Scenario &declared, Store &into, Column<Body> &vehicles,
     if (!into.Alive(out.Nav) || !into.Alive(out.Assignment) ||
         !into.Link(out.PlayerMind, Relation::Uses, out.Nav) ||
         !into.Link(out.PlayerMind, Relation::Assigned, out.Assignment) ||
-        !driven.Put(out.Assignment, declared.Driven)) {
+        !driven.Put(out.Assignment, declared.Routed)) {
       error = into.Error().empty() ? "the drive's numbers found no column seat" : into.Error();
       return false;
     }

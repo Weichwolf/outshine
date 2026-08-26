@@ -19,7 +19,7 @@ namespace {
 // WHAT IT CLOSES is a car's assumption wearing an engine's clothes. `Scenario::Body` carried
 // everything about WHAT a body is and nothing about WHERE it is; its first position came from one
 // place, `DriveAssembly.cpp:303`, computed from a route's start. So `Engine::State::Routes`
-// returned early on `if (!declared.Driven.Declared)` and **a body without a journey could not
+// returned early on `if (!declared.Routed.Declared)` and **a body without a journey could not
 // stand**. A crate, a fallen tree, a parked lorry and a swinging door all have a place and no
 // route.
 //

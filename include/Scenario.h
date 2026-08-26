@@ -291,8 +291,11 @@ struct Body {
   }
 };
 
-struct Drive {
+enum class Travels : uint8_t { Walk, Drive, Fly, Rail };
+
+struct Journey {
   bool Declared = false;
+  Travels By = Travels::Drive;
   double FromLatDeg = 0.0;
   double FromLonDeg = 0.0;
   double ToLatDeg = 0.0;
@@ -356,7 +359,7 @@ struct Scenario {
   std::vector<View> Views;
   std::vector<Body> Bodies;
   Player Played;
-  Drive Driven;
+  Journey Routed;
 
   PhysicsSettings Motion;
   Clock Time;

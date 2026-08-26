@@ -158,19 +158,19 @@ int main(int argc, char **argv) {
 
   outshine::Scenario declared = engine.Declared();
   if (asked.Routed) {
-    declared.Driven.Declared = true;
-    declared.Driven.FromLatDeg = asked.FromLatDeg;
-    declared.Driven.FromLonDeg = asked.FromLonDeg;
-    declared.Driven.ToLatDeg = asked.ToLatDeg;
-    declared.Driven.ToLonDeg = asked.ToLonDeg;
+    declared.Routed.Declared = true;
+    declared.Routed.FromLatDeg = asked.FromLatDeg;
+    declared.Routed.FromLonDeg = asked.FromLonDeg;
+    declared.Routed.ToLatDeg = asked.ToLatDeg;
+    declared.Routed.ToLonDeg = asked.ToLonDeg;
   }
   if (!engine.Declare(declared)) {
     std::printf("REFUSED %s\n", engine.Error().c_str());
     return 1;
   }
 
-  std::printf("DRIVING %.5f,%.5f -> %.5f,%.5f, %dx%d%s\n", declared.Driven.FromLatDeg,
-              declared.Driven.FromLonDeg, declared.Driven.ToLatDeg, declared.Driven.ToLonDeg,
+  std::printf("DRIVING %.5f,%.5f -> %.5f,%.5f, %dx%d%s\n", declared.Routed.FromLatDeg,
+              declared.Routed.FromLonDeg, declared.Routed.ToLatDeg, declared.Routed.ToLonDeg,
               asked.WidthPx, asked.HeightPx, asked.Headless ? ", headless" : "");
 
   const bool assembled = engine.Assemble();
