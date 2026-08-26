@@ -158,61 +158,6 @@ STRANDED -- sources no declared suite links, so nothing they hold is proven
   src/world/generators/Water.cpp
   src/world/generators/Yield.cpp
 
-PROVES -- what src/ provably does, one line each
-  a corner is bounded by the junction its two carriageways form, whose inner kerb lies sqrt(wA^2 + wB^2 - 2 wA wB cos D)/sin D from the intersection, so
-  a derived camera is computed where the bounds are, and the rule's constants cannot drift between the engine and the preparer
-  a fitted corridor reads the radius the polyline carries and lays the arc length its sweep demands, at every digitisation density, because a circle's r
-  compositor: a ground patchwork reads a tile at the stride the tile's own layout declares, so a normal never reaches a position and the relief a patch 
-  gltf-2.0 conformance at the door: an asset Khronos's validator errors on is refused with a reason, and one it passes stands
-  gltf-2.0: a camera's near plane lies in front of the eye and its far plane beyond the near one, an orthographic magnification is not zero, and a persp
-  gltf-2.0: a GLB carries exactly one JSON chunk, first, and at most one binary chunk, and a second of either is refused rather than ignored
-  gltf-2.0: an accessor's declared min and max are the actual componentwise extremes of its data, refused in both directions -- a box around the data an
-  gltf-2.0: an array the schema gives a minimum of one item is refused when it is present and empty, and the refusal names which one
-  gltf: appending one subject onto another shifts the guest's material names clear of the host's, so a joined buffer set is still two bodies and neither
-  I.17 the picture is a function of the declaration and not of the machine: no layer of the engine that decides one reads an environment variable, and t
-  I.26.10 a render test is a directory: one runner reads the declaration, renders the subject with no world, scores it against the cached oracle by name
-  I.56 the engine is a library: it does not name what runs it, and a claim about it is proven by a test that cites the requirement rather than by a comm
-  I.61 a repository is what is declared and what is built from it: the case trees carry declarations and never products
-  I.83 the layering is declared once: the runner's group declarations are the only spelling of which source compiles with which includes, and `make` bui
-  INPUT grade: the glTF reader survives a fixed schedule of corrupted documents -- every one either stands or is refused with a reason, and none of them
-  IV.10 every include guard in src/ spells its folder and no two collide -- the rule is a walk, not a habit repeated per layer (board:1643, 1748)
-  IV.11 no comment stands in src/, include/, tools/ or apps/ -- the rule is a walk, not a habit repeated per file (board:1763)
-  IV.12 CLAUDE.md is TARGET and argues from the tree: every path it names is present and every line it cites carries the text quoted beside it. STATE.md
-  IV.13 the runner publishes, per run, which declared case families hold no fetched subject, so a green trailer is never mistaken for conformance it did
-  IV.17 the corpus is planned, and therefore rebuildable, by one command over every manifest in the tree -- including those that declare no scene, whose
-  IV.19 the gradient and the design minimum radius each carriageway class declares are figures its own origin block prints, so a value cannot drift away
-  IV.20 one toolchain is spelled once: test/run.sh is the only place in test/ that names a compiler or a standard, so no corpus can be built by a compil
-  IV.21 the device does not leave the render layer: a client hands in a window or an extent and gets back pixels, never a handle it must do GPU work wit
-  IV.22 the prepared corpus is shared and the right to delete from it is not: every route into the corpus writes an owner, and the runner's guard prunes
-  IV.26 one runner per nest: the lock claim and the claimant's identity are one atomic step, a second runner refuses naming the live holder, a stale cla
-  IV.27 the build declaration audits itself in the fast gate: every source is listed once and by some suite, every declared suite's object set is closed
-  IV.31 a refusal that names the device keeps what the device said: static text reaches the caller and the reason reaches WhyNot, because SDL_GetError()
-  IV.7 every field of the tick's public product has a writer in the tick -- the writerless-mirror-field class (1613, 1703) is a claims gate now, not a r
-  mapbox vector tile: all seven Value types decode, and a bool tag reaches its consumer as a number rather than being skipped into the default
-  one world space: a coordinate turned into a tile and back is the coordinate it started as, at every zoom and in all four quadrants
-  one world space: the distance between two coordinates is the WGS84 geodesic, measured against a 50-digit reference this tree cannot influence
-  physics: a body's brake effort is proportioned to the static load each axle carries, derived from where the declaration puts the centre of mass and ne
-  physics: a force builds the moment its arm demands, so squat under power and dive under the brakes fall out of the integration; and resistance is the 
-  physics: a point a declaration measures from the road reaches the body's frame only after its centre of mass is subtracted, so a seat stays inside the
-  physics: a tyre's lateral force follows the brush characteristic -- the cornering stiffness at small slip, the friction limit at full breakaway, and a
-  pi stands once and it is std::numbers: every pi in src/ derives from std::numbers::pi and the alias lives in one header (board:1630)
-  scenario: a declared volume fires on the transition its declaration names -- enter when a body arrives, exit when it leaves -- and a body that stays f
-  the door: a declared binding reports both edges of its button, so a control command can be held and can end
-  the door: a declared sphere with air is the second light every scene under it receives, so a surface the key cannot reach is dark rather than black, a
-  the door: a frame lands at the path the caller named, and a directory that does not exist yet is made rather than being a reason to lose a picture tha
-  the door: a per-frame count belongs to the stage instance that made it, and two engines in one process do not read each other's numbers
-  the door: a section a scenario did not declare decides nothing, and what stands in its place is the engine's own default rather than the zeroes of an 
-  the door: a subject casts a shadow over every batch it draws, and a declaration that names no shadow radius gets one derived from the subject's extent
-  the door: a subject that changes costs the reading of that subject and nothing else, so a scenario streams its parts rather than being rebuilt around 
-  the door: the declared key illuminance sets the fill ratio and nothing else, so the picture is invariant under a common scale of key and environment
-  the door: the work a declaration causes is proportional to what it changed, so a scenario can be streamed rather than rebuilt
-  the oracle key covers the preparer's own code, so a preparer change invalidates the corpus instead of being found by hashing on a hunch
-  the pass-index mapping is a keyed product of the render and comes back from the store with the bytes it describes, so a cached oracle still names its 
-  the runner can read the oracle's EXR directly, so the flat raw beside it is a derived cache rather than an artefact that must survive
-  the runner prunes test by test, and a file whose producer cannot be proven stays with the reason its proof failed
-  wayfinding: two loose ends that meet the same segment split it once each, so the road between their junctions is the road, and a route along it does n
-  wayfinding: two ways that cross in plan with neither spanning the other are one junction, and a way marked as a bridge or a tunnel crosses over rather
-
 ACCESS -- what stands wider than private
   6 protected section(s), and inheritance is right where a stable interface carries
   shared machinery -- Source, WebTileSource, TerrariumDem is that shape
@@ -258,7 +203,7 @@ REDS -- what is declared to fail, and its red is a finding not a licence
      73  khronos/validator
       1  harness/claims
 
-DOOR -- suites reaching past include/ into src/, which CLAUDE.md forbids
+REACH -- suites reaching past include/ into src/, which CLAUDE.md forbids
   15 of 17 declared suite(s) are granted a -Isrc path (board:1879)
   reaching the library through include/ alone:
     apps/viewer/src
