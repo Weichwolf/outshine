@@ -11,6 +11,7 @@
 #include "EyeTelemetry.h"
 #include "Forest.h"
 #include "GeneratorSet.h"
+#include "GroundSnapshot.h"
 #include "Ground.h"
 #include "GroundMaterials.h"
 #include "GroundTable.h"
@@ -205,6 +206,7 @@ private:
   std::optional<Generators::Infrastructure> Ways_;
 
   int BuiltRow_ = -1, WetRow_ = -1;
+  [[nodiscard]] Generators::Standing Stands() const;
 
   std::optional<Generators::RegionPool> Pool_;
   std::optional<RegionForge> Forge_;

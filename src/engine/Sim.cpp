@@ -170,99 +170,35 @@ bool Sim::OpenPool() {
 
 std::shared_ptr<const Generators::FeatureField> Sim::Features(
     const Generators::Region &region) const {
-  if (!W_.Vectors().Settled(region.X(), region.Y())) return nullptr;
-  const int tile = W_.Vectors().TileIndex(region.X(), region.Y());
-  const std::span<const double> points = W_.Vectors().Points();
-
-  std::vector<Generators::FeatureField::Feature> features;
-  std::vector<Generators::FeatureField::Ring> rings;
-  std::vector<Generators::FeatureField::Vertex> vertices;
-  const auto take = [&](const Generators::FeatureField::Feature &proto, uint32_t firstPoint,
-                        uint32_t count) {
-    const uint32_t least = proto.Form == Generators::FeatureForm::Ribbon ? 2u : 3u;
-    if (count < least) return;
-    Generators::FeatureField::Feature f = proto;
-    f.FirstRing = (uint32_t)rings.size();
-    f.RingCount = 1;
-    rings.push_back({(uint32_t)vertices.size(), count});
-    for (uint32_t k = 0; k < count; k++) {
-      double eastM = 0.0, northM = 0.0;
-      region.Enu(points[((size_t)firstPoint + k) * 2], points[((size_t)firstPoint + k) * 2 + 1],
-                 &eastM, &northM);
-      vertices.push_back({(float)eastM, (float)northM});
-    }
-    features.push_back(f);
-  };
-
-  for (const Ground::BuildingField::Footprint &fp : W_.Footprints().OfTile(tile)) {
-    Generators::FeatureField::Feature f{};
-    f.CoverRow = BuiltRow_;
-    f.Kind = Generators::FeatureKind::Structure;
-    f.Form = Generators::FeatureForm::Area;
-    f.Base = Generators::FeatureLevel::At(fp.BaseM);
-    f.Top = Generators::FeatureLevel::At(fp.BaseM + fp.HeightM);
-    take(f, fp.FirstPoint, fp.PointCount);
-  }
-  for (const Ground::WaterField::Surface &s : W_.WaterBodies().OfTile(tile)) {
-    Generators::FeatureField::Feature f{};
-    f.CoverRow = WetRow_;
-    f.Kind = Generators::FeatureKind::Water;
-    f.Form = Generators::FeatureForm::Area;
-    f.Top = Generators::FeatureLevel::At(s.LevelM);
-    take(f, s.FirstPoint, s.PointCount);
-  }
-  for (const Ground::StreetField::Way &w : W_.Ways().OfTile(tile)) {
-    Generators::FeatureField::Feature f{};
-    f.CoverRow = w.CoverRow;
-    f.Kind = Generators::FeatureKind::Way;
-    f.Form = w.Form == Ground::StreetField::Shape::Ribbon ? Generators::FeatureForm::Ribbon
-                                                         : Generators::FeatureForm::Area;
-    f.HalfWidthM = w.HalfWidthM;
-    take(f, w.FirstPoint, w.PointCount);
-  }
-
-  return Generators::FeatureField::Of(
-      Span<const Generators::FeatureField::Feature>(features.data(), features.size()),
-      Span<const Generators::FeatureField::Ring>(rings.data(), rings.size()),
-      Span<const Generators::FeatureField::Vertex>(vertices.data(), vertices.size()));
+  return Generators::FeaturesOver(region, Stands());
 }
 
 Sim::Snapped Sim::Snapshot(const Generators::Region &region, Generators::Ground::Snapshot *out,
                            SnapshotCost *cost) const {
   const double t0 = MonotonicMs();
-  const auto done = [&](Snapped how) { cost->TotalMs = MonotonicMs() - t0; return how; };
-  const outshine::Ground::GroundBlock block =
-      W_.Ground().BlockAt(region.Zoom(), region.X(), region.Y());
-  switch (block.Where()) {
-    case outshine::Ground::GroundBlock::State::Pending: return done(Snapped::Waiting);
-    case outshine::Ground::GroundBlock::State::Missing: return done(Snapped::NoGround);
-    case outshine::Ground::GroundBlock::State::Resolved: break;
+  const Generators::Snapped how =
+      Generators::SnapshotOver(region, W_.Ground(), W_.Classes(), Stands(), Table_, out);
+  cost->TotalMs = MonotonicMs() - t0;
+  cost->FeatureMs = 0.0;
+  switch (how) {
+    case Generators::Snapped::Taken: return Snapped::Taken;
+    case Generators::Snapped::NoGround: return Snapped::NoGround;
+    case Generators::Snapped::Waiting: break;
   }
-
-  const int side = (int)(region.SpanNm() / W_.Ground().PostM(region.AnchorLat()) + 0.5) + 1;
-  std::vector<Generators::GroundPatch::Posting> postings((size_t)side * (size_t)side);
-  std::vector<double> row((size_t)side);
-  const double stepE = region.SpanEm() / (double)(side - 1);
-  const double stepN = region.SpanNm() / (double)(side - 1);
-  for (int j = 0; j < side; j++) {
-
-    double lat = 0.0, lonFrom = 0.0, latAgain = 0.0, lonNext = 0.0;
-    region.Geo(0.0, (double)j * stepN, &lat, &lonFrom);
-    region.Geo(stepE, (double)j * stepN, &latAgain, &lonNext);
-    block.AslMRow(lat, lonFrom, lonNext - lonFrom, side, row.data());
-    for (int i = 0; i < side; i++)
-      postings[(size_t)j * (size_t)side + (size_t)i].Height = GroundSample::At(row[(size_t)i]);
-  }
-  out->Patch = Generators::GroundPatch::Complete(
-      region, side,
-      Span<const Generators::GroundPatch::Posting>(postings.data(), postings.size()));
-  out->Classes = W_.Classes().Read();
-  const double tFeat = MonotonicMs();
-  out->Features = Features(region);
-  cost->FeatureMs = MonotonicMs() - tFeat;
-  out->Table = Table_;
-  return done(out->Patch && out->Classes && out->Features ? Snapped::Taken : Snapped::Waiting);
+  return Snapped::Waiting;
 }
+
+Generators::Standing Sim::Stands() const {
+  Generators::Standing out;
+  out.Vectors = &W_.Vectors();
+  out.Footprints = &W_.Footprints();
+  out.WaterBodies = &W_.WaterBodies();
+  out.Ways = &W_.Ways();
+  out.BuiltRow = BuiltRow_;
+  out.WetRow = WetRow_;
+  return out;
+}
+
 
 bool Sim::Reached(const Generators::Region &region) const {
   double eastM = 0.0, northM = 0.0;

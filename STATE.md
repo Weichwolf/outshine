@@ -44,19 +44,19 @@ SHAPE -- module depends on module, from the includes themselves
 flowchart LR
   render_stages --> |28| render_device
   world_ground --> |20| base_spatial
-  engine --> |17| world_generators
+  engine --> |18| world_generators
   world_ground --> |15| base_io
+  world_generators --> |15| world_ground
   sim --> |14| actor_path
+  world_generators --> |12| base_spatial
   sim --> |12| world_ground
   render --> |12| render_stages
-  world_generators --> |11| base_spatial
   engine --> |11| world_ground
   world_ground --> |9| world_data
   engine --> |8| scenario
   engine --> |8| base_io
   engine --> |7| content_gltf
   actor_mind --> |7| actor_path
-  world_generators --> |6| world_ground
   sim --> |6| actor_mind
   engine --> |6| ui
   sim --> |5| base_spatial
@@ -106,7 +106,7 @@ MASS -- the heaviest units, against the median of them all
     1103  base/spatial/Wayfinding.h
     1042  render/stages/SubjectDraw.h
      955  ui/Style.h
-     107  the median of 243 unit(s)
+     107  the median of 244 unit(s)
 
 CARPET -- the widest public surfaces
     58 [[nodiscard]] in src/render/Renderer.h
@@ -130,7 +130,6 @@ STRANDED -- sources no declared suite links, so nothing they hold is proven
   src/scenario/Mod.cpp
   src/scenario/Scene.cpp
   src/scenario/Tables.cpp
-  src/world/generators/Buildings.cpp
   src/world/generators/draw/BuildingMesh.cpp
   src/world/generators/draw/BuildingShape.cpp
   src/world/generators/draw/DrawSet.cpp
@@ -142,22 +141,6 @@ STRANDED -- sources no declared suite links, so nothing they hold is proven
   src/world/generators/draw/TreeLeaf.cpp
   src/world/generators/draw/TreeMesher.cpp
   src/world/generators/draw/TreePrototype.cpp
-  src/world/generators/FeatureField.cpp
-  src/world/generators/Forest.cpp
-  src/world/generators/GeneratorSet.cpp
-  src/world/generators/Ground.cpp
-  src/world/generators/GroundPatch.cpp
-  src/world/generators/GroundTable.cpp
-  src/world/generators/GrowthForm.cpp
-  src/world/generators/Infrastructure.cpp
-  src/world/generators/OccupancySink.cpp
-  src/world/generators/Region.cpp
-  src/world/generators/RegionPool.cpp
-  src/world/generators/Schedule.cpp
-  src/world/generators/Species.cpp
-  src/world/generators/TreeSpecies.cpp
-  src/world/generators/Water.cpp
-  src/world/generators/Yield.cpp
 
 ACCESS -- what stands wider than private
   6 protected section(s), and inheritance is right where a stable interface carries
@@ -179,6 +162,7 @@ ACCESS -- what stands wider than private
       2  src/content/shade/TangentFrame.h
       1  src/world/weather/ConstantWindWeather.h
       1  src/world/ground/tiles/TileGeodesy.h
+      1  src/world/ground/TerrainLoader.h
       1  src/world/ground/ClassField.h
       1  src/world/generators/FeatureLevel.h
       1  src/world/generators/draw/TreeRandom.h
@@ -234,5 +218,5 @@ PROGRESS -- counted from board/, where the target lives; a tick names its proof
   streaming        0/7     0%
 
 COUNTS
-  151 source(s) under src/, 37 of them linked by no suite
-  243 header(s) in 28 module(s) over 13 tier(s)
+  152 source(s) under src/, 20 of them linked by no suite
+  244 header(s) in 28 module(s) over 13 tier(s)

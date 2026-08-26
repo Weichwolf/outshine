@@ -35,6 +35,19 @@ public:
   void AslMRow(double latDeg, double lonFromDeg, double lonStepDeg, int count,
                double *out) const noexcept;
 
+  static GroundBlock Over(const float *nodes, int zoom, long x, long y, int side,
+                          uint32_t postings) {
+    GroundBlock out;
+    out.Nodes_ = nodes;
+    out.Zoom_ = zoom;
+    out.X_ = x;
+    out.Y_ = y;
+    out.Side_ = side;
+    out.Postings_ = postings;
+    out.Where_ = nodes != nullptr ? State::Resolved : State::Missing;
+    return out;
+  }
+
 private:
   friend class GroundStream;
 
@@ -54,10 +67,10 @@ public:
 
   [[nodiscard]] GroundSample At(double lat, double lon) const override;
   [[nodiscard]] GroundSample Resident(double lat, double lon) const override;
+  [[nodiscard]] GroundBlock BlockAt(int z, long x, long y) const override;
 
   [[nodiscard]] double PostM(double latDeg) const override;
 
-  [[nodiscard]] GroundBlock BlockAt(int z, long x, long y) const;
 
   [[nodiscard]] TilePool &Tiles() { return Tiles_; }
 

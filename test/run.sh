@@ -7,7 +7,7 @@ AUDIT_LAYERS=0
 AUDIT_NUMBERS=0
 AUDIT_ACCESS=0
 STATE=0
-STRANDED=37
+STRANDED=20
 DECIDED=126
 PROTECTED=6
 OPENDATA=49
@@ -211,7 +211,7 @@ LayerIncludes() {
     harness/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/data -Itest/harness/shared" ;;
     harness/outshine/scenario) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/format -Isrc/base/spatial -Isrc/scenario -Itest/harness/shared" ;;
     harness/outshine/content) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/content/gltf -Isrc/content/shade -Itest/harness/shared" ;;
-    harness/outshine/geo) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/world/data -Isrc/world/ground -Isrc/world/ground/tiles -Isrc/compositor -Isrc/content/gltf -Isrc/content/shade -Itest/harness/shared" ;;
+    harness/outshine/geo) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/world/data -Isrc/world/ground -Isrc/world/ground/tiles -Isrc/compositor -Isrc/content/gltf -Isrc/content/shade -Itest/harness/shared -Isrc/world/generators -Isrc/actor/path" ;;
     harness/outshine/fuzz) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/content/gltf -Itest/harness/shared" ;;
     harness/outshine/physics) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/actor/body -Isrc/actor/path -Isrc/actor/mind -Isrc/sim -Itest/harness/shared" ;;
     harness/outshine/door) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/content/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/compositor -Isrc/world/data -Isrc/scene -Isrc/scenario -Isrc/ui -Isrc/host -Isrc/engine -Itest/harness/shared" ;;
@@ -271,7 +271,7 @@ LayerGroups() {
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;
     harness/outshine/scenario) printf '%s' "src/base/math src/base/format src/base/spatial src/scenario/Triggers.cpp" ;;
     harness/outshine/content) printf '%s' "src/base/math src/base/geo src/base/format src/base/spatial src/base/io src/content/gltf" ;;
-    harness/outshine/geo) printf '%s' "src/base/math src/base/geo src/base/format src/base/spatial src/base/io src/world/data src/world/ground/tiles src/world/ground src/compositor" ;;
+    harness/outshine/geo) printf '%s' "src/base/math src/base/geo src/base/format src/base/spatial src/base/io src/world/data src/world/ground/tiles src/world/ground src/compositor src/world/generators" ;;
     harness/outshine/fuzz) printf '%s' "src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/content/gltf" ;;
     harness/outshine/physics) printf '%s' "src/base/math src/base/geo src/base/spatial src/actor/body src/actor/path src/actor/mind src/sim/Rigging.cpp src/sim/DriveTick.cpp" ;;
     harness/outshine/door) printf '%s' "src/base/math src/base/geo src/base/format src/base/spatial src/content/shade src/world/weather src/world/sky src/base/io src/content/gltf src/render/plan src/render/draw src/render src/render/device src/render/stages src/scene src/ui src/world/data src/world/ground src/world/ground/tiles src/sim src/actor/path src/actor/body src/actor/mind src/host src/engine/GltfStudio.cpp src/engine/Image.cpp src/engine/Surfaces.cpp src/compositor src/engine/Live.cpp src/engine/Engine.cpp src/scenario/ScenarioRead.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp src/engine/InputPump.cpp src/engine/Assembly.cpp" ;;
@@ -341,7 +341,7 @@ GroupIncludes() {
     src/ui) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/ui $(pkg-config --cflags sdl3-ttf)" ;;
     src/audio) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/audio" ;;
     src/scenario | src/scenario/ScenarioRead.cpp | src/scenario/ScenarioLayer.cpp | src/scenario/InputMap.cpp | src/scenario/Views.cpp | src/scenario/Triggers.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/scene -Isrc/scenario" ;;
-    src/world/generators | src/world/generators/TreeSpecies.cpp | src/world/generators/GrowthForm.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/generators" ;;
+    src/world/generators | src/world/generators/TreeSpecies.cpp | src/world/generators/GrowthForm.cpp) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/generators -Isrc/world/data" ;;
     src/world/generators/draw) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/world/generators -Isrc/world/generators/draw" ;;
     src/render/plan) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/render/plan" ;;
     src/render/draw) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/content/gltf -Isrc/world/ground -Isrc/world/generators -Isrc/render/draw" ;;
