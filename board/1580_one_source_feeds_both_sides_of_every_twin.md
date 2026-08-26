@@ -25,7 +25,21 @@ only where the languages genuinely diverge (sampling, storage layout). board:163
 executor table consumes no MSL at all and needs the medium LUTs from the C++ side, which is the
 same argument arriving from the backend.
 
-## Measured at b0b59b3a, and the technique is already in the tree
+## What counts as an embedded shader, because a naive guard gets it wrong
+
+Owner asked whether shaders are still strings in the cpp. The first answer given was NO, from a
+grep for raw string literals -- and it was wrong, because `Resolve.h` uses ordinary ones. Walking
+every C++ source for quoted Metal turns up exactly two files, and only one of them is a defect:
+
+| file | what it emits | verdict |
+|---|---|---|
+| `src/render/stages/IridescenceLobe.h:127-` | a `constant` block: `kIriVal`, `kIriPos`, `kIriVar`, printed from the C++ constants with `%.17g` | **correct, and it stays.** The numbers have ONE spelling, in C++, and the shader is handed them. That is the cure for a twinned constant, not an instance of it |
+| `src/render/stages/Resolve.h:17-56` | function BODIES: `filmic`, `covered`, `rgbToYCoCg`, `yCoCgToRgb`, `clipTowards`, `displayed` | **RED.** About forty lines of Metal a reader cannot open as a shader, and they are the tone curve and the temporal clamp -- the two kernels that decide what a still LOOKS like |
+
+The distinction a guard has to make is CONSTANTS versus CODE. `IridescenceLobe.h` injects values
+into a shader that lives in a file; `Resolve.h` is the shader.
+
+## Measured, and the technique is already in the tree
 
 `MediumCore.h` (81 lines) is compiled TWICE from one source: `ParticipatingMedium.h:51` includes
 it under `#define MEDIUM_CONST const`, and `ParticipatingMediumMsl` concatenates the same file
@@ -57,3 +71,13 @@ shape Unreal uses for its HLSL/C++ math layer.
 
 - [ ] The decision is recorded here with its reason, and the tree carries one shape or the other.
 - [ ] A term that lands on one side and not the other is caught by a case, not by a reader.
+- [ ] `Resolve.h`'s six functions live in a `.msl` file, included where they are needed the way
+      `MediumCore.h` is included twice under a macro. The exposure and the curve choice stay
+      INJECTED as constants, which is what `IridescenceLobe.h` already does correctly.
+- [ ] A claim walks `src/` for quoted shader CODE -- a function body in a string -- and refuses,
+      while letting a generated `constant` block stand. The first answer to the owner's question
+      was wrong because a grep for `R"(` missed ordinary literals, and a guard that makes the
+      same mistake is worth nothing.
+- [ ] Proving case: the tonemap and temporal kernels compile from files and the picture is
+      unchanged -- same mean max(RGB) on the door's sphere before and after. Negative control:
+      the string-built source restored, and the two spellings can drift again.
