@@ -6,6 +6,9 @@
 #include <span>
 #include <string_view>
 
+#include "Material.h"
+#include "PunctualLight.h"
+
 namespace outshine {
 
 class Geometry {
@@ -18,6 +21,10 @@ public:
   Geometry &operator=(const Geometry &) = delete;
 
   int Part(std::string_view named, int material);
+  void Place(int part, const double modelM16[16]);
+
+  int Surface(std::string_view named, const Material &surface);
+  int Lamp(std::string_view named, const PunctualLight &light, const double placedM16[16]);
 
   bool Positions(int part, std::span<const float> metres);
   bool Normals(int part, std::span<const float> unit);
@@ -29,6 +36,16 @@ public:
   [[nodiscard]] int Parts() const;
   [[nodiscard]] std::string_view NameOf(int part) const;
   [[nodiscard]] int MaterialOf(int part) const;
+  [[nodiscard]] const double *PlacementOf(int part) const;
+
+  [[nodiscard]] int Surfaces() const;
+  [[nodiscard]] std::string_view SurfaceNameOf(int surface) const;
+  [[nodiscard]] const Material &SurfaceAt(int surface) const;
+
+  [[nodiscard]] int Lamps() const;
+  [[nodiscard]] std::string_view LampNameOf(int lamp) const;
+  [[nodiscard]] const PunctualLight &LampAt(int lamp) const;
+  [[nodiscard]] const double *LampPlacementOf(int lamp) const;
   [[nodiscard]] std::span<const float> PositionsOf(int part) const;
   [[nodiscard]] std::span<const float> NormalsOf(int part) const;
   [[nodiscard]] std::span<const float> TextureOf(int part, int set = 0) const;

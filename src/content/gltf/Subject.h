@@ -115,6 +115,8 @@ public:
 
   [[nodiscard]] const std::vector<PlacedLight> &Lights() const { return Lights_; }
 
+  [[nodiscard]] const std::vector<Material> &Surfaces() const { return Surfaces_; }
+
   [[nodiscard]] const std::vector<Part> &Parts() const { return Parts_; }
 
   struct Undrawn {
@@ -174,6 +176,7 @@ private:
   std::vector<Part> Parts_;
   Undrawn Undrawn_;
   std::vector<PlacedLight> Lights_;
+  std::vector<Material> Surfaces_;
   double Min_[3] = {0, 0, 0}, Max_[3] = {0, 0, 0};
 };
 

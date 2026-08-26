@@ -536,6 +536,8 @@ bool Subject::Flatten(const Document &document, const Transform *pose, const dou
   Indices_.clear();
   Parts_.clear();
   Lights_.clear();
+  Surfaces_.clear();
+  for (const MaterialRef &declared : document.Materials()) { Surfaces_.push_back(declared.Surface); }
   Undrawn_ = Undrawn();
   bool anyUv = false;
   bool anyUv1 = false;
@@ -886,6 +888,19 @@ bool Subject::Assemble(const outshine::Geometry &what) {
   Indices_.clear();
   Parts_.clear();
   Lights_.clear();
+  Surfaces_.clear();
+  for (int surface = 0; surface < what.Surfaces(); ++surface) {
+    Surfaces_.push_back(what.SurfaceAt(surface));
+  }
+  for (int lamp = 0; lamp < what.Lamps(); ++lamp) {
+    PlacedLight placed;
+    placed.NodeName = std::string(what.LampNameOf(lamp));
+    placed.LightName = placed.NodeName;
+    placed.Light = what.LampAt(lamp);
+    const double *const at = what.LampPlacementOf(lamp);
+    for (int axis = 0; axis < 3; ++axis) { placed.Light.Position[axis] = (float)at[12 + axis]; }
+    Lights_.push_back(std::move(placed));
+  }
   if (what.Parts() == 0) {
     return Refuse("an assembly of no piece draws nothing, and a subject with no triangle is not one");
   }

@@ -108,10 +108,18 @@ so the correction removes a row rather than adding one. The merge runs: the read
 - [ ] **THE glTF READER FILLS IT.** `Gltf::Subject` stops being a second representation and
       becomes the reader OF this one, so what the reader takes and what the builder carries are
       the same list by construction rather than by maintenance.
-- [ ] The builder carries materials, and a handed part renders with the material it names.
+- [x] The builder carries materials, and a handed part renders with the material it names.
+      `outshine::Material` already carried the whole PBR row and all nine `KHR_materials_*` -- it
+      was on the wrong side of the door, in `src/content/shade/`. It is `include/Material.h` now,
+      with `include/PunctualLight.h` beside it, and `Gltf::Subject` HOLDS the surfaces it was
+      assembled with: the reader copies the document's into that list, the builder copies the
+      client's, and the surface table reads the one list rather than asking a file. Textures are
+      not carried yet -- an image needs the file's buffers.
+      proof: harness/outshine/door/ScoreWhatAHandedSurfaceShows
 - [ ] The stored layout changes in one commit and no client recompiles (board:1954 left this
       standing: the layout moved out of the header, and that it can now MOVE is unproven).
-- [ ] The builder carries punctual lights, hierarchy, skins, morph targets and variants.
+- [x] The builder carries punctual lights and a placement per part.
+- [ ] The builder carries hierarchy, skins, morph targets, variants and TEXTURES.
 - [ ] A generator fills the same value (board:1948) -- one value, three producers, proven by a
       case that stands the same geometry each way and compares the pictures.
 - [ ] The glTF SERIALISER writes it back out, so the round trip closes: fill, serialise, read,

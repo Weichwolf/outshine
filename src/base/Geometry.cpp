@@ -16,8 +16,20 @@ struct Geometry::Held {
     std::vector<float> Tangents;
     std::vector<float> Colours;
     std::vector<uint32_t> Indices;
+    double PlacedM[16];
+  };
+  struct Named {
+    std::string Named;
+    Material Surface;
+  };
+  struct Placed {
+    std::string Named;
+    PunctualLight Light;
+    double PlacedM[16];
   };
   std::vector<Piece> Parts;
+  std::vector<Named> Surfaces;
+  std::vector<Placed> Lamps;
 
   [[nodiscard]] const Piece *At(int part) const {
     return part >= 0 && part < (int)Parts.size() ? &Parts[(size_t)part] : nullptr;
@@ -35,7 +47,12 @@ Geometry::Geometry(Geometry &&) noexcept = default;
 Geometry &Geometry::operator=(Geometry &&) noexcept = default;
 
 int Geometry::Part(std::string_view named, int material) {
-  Held_->Parts.push_back(Geometry::Held::Piece{std::string(named), material, {}, {}, {}, {}, {}, {}, {}});
+  Geometry::Held::Piece piece;
+  piece.Named = std::string(named);
+  piece.Material = material;
+  const double still[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  for (size_t at = 0; at < 16u; ++at) { piece.PlacedM[at] = still[at]; }
+  Held_->Parts.push_back(std::move(piece));
   return (int)Held_->Parts.size() - 1;
 }
 
@@ -79,6 +96,64 @@ bool Geometry::Triangles(int part, std::span<const uint32_t> indices) {
   if (part < 0 || part >= (int)Held_->Parts.size() || indices.size() % 3 != 0) { return false; }
   Held_->Parts[(size_t)part].Indices.assign(indices.begin(), indices.end());
   return true;
+}
+
+void Geometry::Place(int part, const double modelM16[16]) {
+  if (part < 0 || part >= (int)Held_->Parts.size()) { return; }
+  for (size_t at = 0; at < 16u; ++at) { Held_->Parts[(size_t)part].PlacedM[at] = modelM16[at]; }
+}
+
+int Geometry::Surface(std::string_view named, const Material &surface) {
+  Held_->Surfaces.push_back(Geometry::Held::Named{std::string(named), surface});
+  return (int)Held_->Surfaces.size() - 1;
+}
+
+int Geometry::Lamp(std::string_view named, const PunctualLight &light, const double placedM16[16]) {
+  Geometry::Held::Placed placed;
+  placed.Named = std::string(named);
+  placed.Light = light;
+  for (size_t at = 0; at < 16u; ++at) { placed.PlacedM[at] = placedM16[at]; }
+  Held_->Lamps.push_back(std::move(placed));
+  return (int)Held_->Lamps.size() - 1;
+}
+
+int Geometry::Surfaces() const { return (int)Held_->Surfaces.size(); }
+
+std::string_view Geometry::SurfaceNameOf(int surface) const {
+  return surface >= 0 && surface < (int)Held_->Surfaces.size()
+             ? std::string_view(Held_->Surfaces[(size_t)surface].Named)
+             : std::string_view();
+}
+
+const Material &Geometry::SurfaceAt(int surface) const {
+  static const Material plain;
+  return surface >= 0 && surface < (int)Held_->Surfaces.size()
+             ? Held_->Surfaces[(size_t)surface].Surface
+             : plain;
+}
+
+int Geometry::Lamps() const { return (int)Held_->Lamps.size(); }
+
+std::string_view Geometry::LampNameOf(int lamp) const {
+  return lamp >= 0 && lamp < (int)Held_->Lamps.size()
+             ? std::string_view(Held_->Lamps[(size_t)lamp].Named)
+             : std::string_view();
+}
+
+const PunctualLight &Geometry::LampAt(int lamp) const {
+  static const PunctualLight dark;
+  return lamp >= 0 && lamp < (int)Held_->Lamps.size() ? Held_->Lamps[(size_t)lamp].Light : dark;
+}
+
+const double *Geometry::LampPlacementOf(int lamp) const {
+  static const double still[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  return lamp >= 0 && lamp < (int)Held_->Lamps.size() ? Held_->Lamps[(size_t)lamp].PlacedM : still;
+}
+
+const double *Geometry::PlacementOf(int part) const {
+  static const double still[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  const Held::Piece *piece = Held_->At(part);
+  return piece != nullptr ? piece->PlacedM : still;
 }
 
 int Geometry::Parts() const { return (int)Held_->Parts.size(); }
