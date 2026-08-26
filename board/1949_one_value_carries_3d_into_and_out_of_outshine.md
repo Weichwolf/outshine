@@ -37,14 +37,18 @@ Three things are wrong with it as it stands:
 
 ## What will be true
 
-- [ ] The value is public: a header under `include/` declares the view a caller fills and the
-      owning form outshine keeps, naming no format.
+- [x] The view is public and names no format: `include/Geometry.h` declares `Part` and
+      `Geometry` out of `std::span` and `std::string_view` alone, so a foreign producer needs no
+      outshine type to fill one.
+      proof: harness/outshine/door/ScoreWhatAClientHandsIn
+- [ ] The OWNING form is public too -- a caller can take one back, not only hand one in.
 - [ ] Its name says what it is, not how it is stored. `Gltf::Subject` becomes the format's READER
       of that value rather than the value itself, and the rename lands in one commit with the
       reason.
-- [ ] A client hands outshine geometry with no file: it fills the view, the engine takes it, and
-      the picture draws it. Proving case: a scenario standing a subject a client built in memory,
-      against the same oracle a read-from-file subject passes.
+- [x] A client hands outshine geometry with no file: `Engine::Stands(const Geometry &)`. The same
+      nine floats reach the same frame through the glTF reader and through the door, 0 of 9216
+      pixels apart.
+      proof: harness/outshine/door/ScoreWhatAClientHandsIn
 - [ ] A generator fills the same value (board:1948), and so does the glTF reader -- one value
       with two producers, proven by a case that stands the same geometry both ways and compares
       the two.

@@ -288,8 +288,10 @@ anywhere, the compositor consumes it. One value, many producers, many consumers;
 its file forms and not its identity**. The shipped catalogue stays closed against a typo; a
 client's generator enters as a VALUE with a handle, never a string.
 
-**The front door is three headers**: `include/Outshine.h` the verbs, `include/Scenario.h` the
-declaration, `include/Event.h` the return channel — `Host`, `Argument`, `Measure`, the shape RAGE
+**The front door is four headers**: `include/Outshine.h` the verbs, `include/Scenario.h` the
+declaration, `include/Event.h` the return channel, `include/Geometry.h` the 3D value anything
+hands in and outshine hands back — `std::span` and `std::string_view` and no outshine type, so a
+foreign producer needs nothing of ours to fill it — `Host`, `Argument`, `Measure`, the shape RAGE
 keeps in `fwEvent` and Unreal in its delegate header, apart from the engine door in both. outshine
 loads a scenario and runs it — that is the whole of it. A client that needs an assembly view, a
 transport or a parser is a client reaching past the door, and the door is what wants widening,

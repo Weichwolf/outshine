@@ -10,6 +10,8 @@
 
 #include <SDL3/SDL.h>
 
+#include "Geometry.h"
+
 #include <Event.h>
 #include <Scenario.h>
 
@@ -42,6 +44,7 @@ public:
   [[nodiscard]] bool Pixels(std::vector<uint8_t> &rgba);
 
   [[nodiscard]] bool Read(std::string_view path);
+  [[nodiscard]] bool Stands(const Geometry &geometry);
   [[nodiscard]] bool Declare(const Scenario &scenario);
   [[nodiscard]] bool Shows(const std::vector<Surface> &surfaces);
 

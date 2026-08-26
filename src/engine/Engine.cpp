@@ -836,6 +836,40 @@ bool Engine::ReadInto(std::string_view path, Scenario &out) {
   return true;
 }
 
+bool Engine::Stands(const Geometry &geometry) {
+  if (!S_->Standing) {
+    S_->Error = "no scenario stands, so there is nothing for geometry to be handed to -- Declare "
+                "before Stands";
+    return false;
+  }
+  if (geometry.Parts.empty()) {
+    S_->Error = "the geometry carries no part, and a subject of nothing is a refusal rather than "
+                "an empty picture";
+    return false;
+  }
+  std::vector<Gltf::Piece> pieces;
+  pieces.reserve(geometry.Parts.size());
+  for (const Part &one : geometry.Parts) {
+    Gltf::Piece piece;
+    piece.NodeName = std::string(one.Named);
+    piece.Material = one.Material;
+    piece.PositionsM = Span<const float>(one.PositionsM.data(), one.PositionsM.size());
+    piece.Normals = Span<const float>(one.Normals.data(), one.Normals.size());
+    piece.Uv = Span<const float>(one.Uv.data(), one.Uv.size());
+    piece.Uv1 = Span<const float>(one.Uv1.data(), one.Uv1.size());
+    piece.Tangents = Span<const float>(one.Tangents.data(), one.Tangents.size());
+    piece.Colours = Span<const float>(one.Colours.data(), one.Colours.size());
+    piece.Indices = Span<const uint32_t>(one.Indices.data(), one.Indices.size());
+    pieces.push_back(std::move(piece));
+  }
+  Gltf::Subject handed;
+  if (!handed.Assemble(Gltf::Assembly{Span<const Gltf::Piece>(pieces.data(), pieces.size())})) {
+    S_->Error = handed.Error();
+    return false;
+  }
+  return S_->Standing->Restand(handed, 0, S_->Error);
+}
+
 bool Engine::Read(std::string_view path) {
   Scenario scenario;
   if (!ReadInto(path, scenario)) { return false; }
