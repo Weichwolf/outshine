@@ -39,7 +39,7 @@ Three things it did not move:
 | frame peak, first person | **130 of 255** | as above |
 | the exposure applied | **5.20833e-05 1/(cd/m2), IDENTICAL on both routes and every frame** | derived from the scene, so it changes when the scene does |
 
-An exposure that is the same constant on a route whose ground swings by 15x (board:1932) is not
+An exposure that is the same constant on a route whose ground swings by 15x (board:1935) is not
 reading anything. The whole picture lives in the bottom 58 % of the range and nothing is
 overexposed anywhere, which is what a fixed divisor with headroom looks like.
 

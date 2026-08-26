@@ -34,7 +34,7 @@ prints `batches the shadow casts = 259` and `the shadow atlas, least depth = 1 /
 259 casters rendered into an atlas that holds one constant, which is the whole story in two
 numbers.
 
-The other end of the same term is board:1932: a straight terminator crosses the ground at 15:1
+The other end of the same term is board:1935: a straight terminator crosses the ground at 15:1
 and darkens the car with it. Something IS producing visibility, and it is not producing it from
 the geometry in the frame.
 

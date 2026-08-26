@@ -27,13 +27,13 @@ Two routes chosen to ask different questions, each driven in first person and in
 | do consecutive stills DIFFER? | **yes, and too little** | 2.1 % to 56 %. City chase 05->06: **3.8 %** of pixels over 60 m at 90 km/h. Nothing at a finite distance to have parallax against |
 | is there a sky? | **yes, a gradient** | 149 at the top of the band, 127..131 at the horizon; identical across all 8 stills of a route on which the car turns |
 | is there GROUND under the car? | **yes, and it is one flat painted colour** | a 170x25 px box reads 61..62 in R with no variation. Present, but with no texture, no albedo variation and no normal detail |
-| **is the ground ONE lit surface?** | **NO** | a straight terminator crosses it, 15:1 in two pixels, sweeping across the drive; stills 01..04 of the river route render the whole ground 4 stops under its own sky (board:1932) |
+| **is the ground ONE lit surface?** | **NO** | a straight terminator crosses it, 15:1 in two pixels, sweeping across the drive; stills 01..04 of the river route render the whole ground 4 stops under its own sky (board:1935) |
 | **is there a ROAD?** | **NO** | no carriageway, no asphalt distinct from the verge, no centreline, no edge line, no kerb, no oncoming lane. The car drives on the same painted plane as the field (board:1505) |
 | is the car lit? | **badly** | roof (16,30,54) and tailgate (17,32,60) read the SAME, and both a quarter of the grass beside them at (64,79,60). ~3.5 stops adrift, no directional term (board:1934) |
 | **does it cast a contact shadow?** | **NO** | ground under the car (62.4,77.0,56.0) against ground 200 px to the side (63.1,77.9,57.0). **0.7 counts.** 259 shadow batches drawn per frame, atlas least depth 1, most 1 (board:1575) |
 | does it sit on the surface or float? | **it floats** | nothing under it says otherwise |
 | is the glass glass? | **NO** | through the rear window (64.0,78.2,58.1), the ground beside the car (64.0,79.0,59.5). A hole (board:1934) |
-| **is there a world beside the road?** | **NO** | no building on a boulevard walled with them, no tree, no water where the route crosses the Isar, though the reader prints 76 bridge ways (board:1933) |
+| **is there a world beside the road?** | **NO** | no building on a boulevard walled with them, no tree, no water where the route crosses the Isar, though the reader prints 76 bridge ways (board:1936) |
 | is there a sun? | **judged by consequence: NO** | no disc reachable by any route the driver offers, and neither of its consequences is present -- no highlight on the paint, no cast shadow on the ground (board:1868, 1575) |
 | how bright is the frame? | **peak 130 of 255 first person, 149 chase** | exposure a constant 5.20833e-05 1/(cd/m2) on BOTH routes regardless of content. Nothing in any of 32 stills reaches white |
 | what does the picture do at one km it does not do at another? | **it changes its ground by 15x** | same clock, flat route, 400 m apart |
@@ -54,8 +54,8 @@ car with no shadow on a painted plane with a light-visibility seam across it, un
 
 1. a ROAD in the picture: carriageway surface, centreline, edge line, kerb, verge, oncoming
    carriageway (board:1505, 1499)
-2. something standing beside it: buildings, trees, the water the route crosses (board:1933)
-3. the ground is ONE lit surface -- the terminator goes (board:1932)
+2. something standing beside it: buildings, trees, the water the route crosses (board:1936)
+3. the ground is ONE lit surface -- the terminator goes (board:1935)
 4. a contact shadow under the car (board:1575)
 5. the key reaches the paint, and the glass stops being a hole (board:1934, 1868)
 6. the frame uses its range: an exposure derived from what is in the scene (board:1868, 1908)

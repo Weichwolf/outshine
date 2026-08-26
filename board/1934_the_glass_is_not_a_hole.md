@@ -30,7 +30,7 @@ The roof and the tailgate read the SAME to one count -- a horizontal panel in fu
 vertical panel in its own shade are indistinguishable -- and both read a quarter of the grass
 next to them. Paint of albedo ~0.6 under a 42 deg sun belongs about 3 times ABOVE that grass,
 so the subject's diffuse response is roughly 3.5 stops adrift and carries no directional term
-at all. board:1932 is the other half of this: the car is inside the dark region there.
+at all. board:1935 is the other half of this: the car is inside the dark region there.
 
 board:1569's white blob is still on the roof of every chase still -- the shark-fin antenna reads
 as a pale unlit teardrop brighter than the paint around it.
