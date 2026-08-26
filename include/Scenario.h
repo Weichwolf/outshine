@@ -230,6 +230,11 @@ struct View {
 
 struct Contact {
   std::string At;
+  double Grip = 0.0;
+  double RadiusM = 0.0;
+  double CorneringNPerRad = 0.0;
+  double RelaxationM = 0.0;
+  double LoadFalloff = 0.0;
   double AtM[3] = {0.0, 0.0, 0.0};
   double ReachM = 0.0;
   double StiffnessNPerM = 0.0;
@@ -252,12 +257,7 @@ struct Vehicle {
   double CentreOfMassM[3] = {0.0, 0.0, 0.0};
   double InertiaKgM2[3] = {0.0, 0.0, 0.0};
   std::vector<Contact> Contacts;
-  double Grip = 0.0;
-  double TyreRadiusM = 0.0;
   double TurningCircleM = 0.0;
-  double CorneringNPerRad = 0.0;
-  double RelaxationM = 0.0;
-  double LoadFalloff = 0.0;
   double PeakTorqueNm = 0.0;
   double FinalDrive = 0.0;
   double BrakeTorqueNm = 0.0;

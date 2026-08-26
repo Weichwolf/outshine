@@ -38,6 +38,10 @@ constexpr double kAirDensityKgM3 = 1.225;
   one.TravelM = 0.18;
   one.StopNPerM = 450000.0;
   one.LimitN = 24000.0;
+  one.Grip = 0.95;
+  one.RadiusM = 0.333;
+  one.CorneringNPerRad = 55000.0;
+  one.RelaxationM = 0.4;
   return one;
 }
 
@@ -55,10 +59,6 @@ constexpr double kAirDensityKgM3 = 1.225;
   made.Contacts.push_back(Standing(0.774, frontZM));
   made.Contacts.push_back(Standing(-0.774, rearZM));
   made.Contacts.push_back(Standing(0.774, rearZM));
-  made.Grip = 0.95;
-  made.TyreRadiusM = 0.333;
-  made.CorneringNPerRad = 55000.0;
-  made.RelaxationM = 0.4;
   made.TurningCircleM = 11.3;
   made.PeakTorqueNm = 400.0;
   made.FinalDrive = 3.08;

@@ -84,11 +84,10 @@ const Element kGrammar[] = {
     {"scenario/views", "view"},
     {"scenario/views/view", "", "id follows person"},
     {"scenario/player", ""},
-    {"scenario/vehicle", "centreOfMass inertia contact tyre drive brake body seat"},
+    {"scenario/vehicle", "centreOfMass inertia contact drive brake body seat"},
     {"scenario/vehicle/centreOfMass", ""},
     {"scenario/vehicle/inertia", ""},
     {"scenario/vehicle/contact", ""},
-    {"scenario/vehicle/tyre", ""},
     {"scenario/vehicle/drive", ""},
     {"scenario/vehicle/brake", ""},
     {"scenario/vehicle/body", ""},
@@ -560,14 +559,13 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
       wheel.TravelM = touch.Num("travelM", 0.0);
       wheel.StopNPerM = touch.Num("stopNPerM", 0.0);
       wheel.LimitN = touch.Num("limitN", 0.0);
+      wheel.Grip = touch.Num("grip", 0.0);
+      wheel.LoadFalloff = touch.Num("loadFalloff", 0.0);
+      wheel.RadiusM = touch.Num("radiusM", 0.0);
+      wheel.CorneringNPerRad = touch.Num("corneringNPerRad", 0.0);
+      wheel.RelaxationM = touch.Num("relaxationM", 0.0);
       made.Contacts.push_back(wheel);
     }
-    const Xml::Ref tyre = one.Child("tyre");
-    made.Grip = tyre.Num("grip", 0.0);
-    made.LoadFalloff = tyre.Num("loadFalloff", 0.0);
-    made.TyreRadiusM = tyre.Num("radiusM", 0.0);
-    made.CorneringNPerRad = tyre.Num("corneringNPerRad", 0.0);
-    made.RelaxationM = tyre.Num("relaxationM", 0.0);
     made.PeakTorqueNm = one.Child("drive").Num("peakTorqueNm", 0.0);
     made.FinalDrive = one.Child("drive").Num("finalDrive", 0.0);
     made.BrakeTorqueNm = one.Child("brake").Num("peakTorqueNm", 0.0);

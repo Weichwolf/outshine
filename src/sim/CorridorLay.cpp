@@ -548,7 +548,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
        floorRatio, "x");
   say.Number("so the budget the plan is given", planning.HoldWithinM, "m");
   planning.SettleS = outshine::Pilot::kSettleS;
-  planning.CorneringNPerRad = car.CorneringNPerRad;
+  planning.CorneringNPerRad = car.Contacts.empty() ? 0.0 : car.Contacts.front().CorneringNPerRad;
   say.Number("what the car leaves either side of itself there", holdWithinM, "m");
   say.Number("the lateral acceleration reserved for holding the line", planning.ReserveMs2, "m/s2");
   say.Number("what is left for the path", planning.HoldingMs2(), "m/s2");

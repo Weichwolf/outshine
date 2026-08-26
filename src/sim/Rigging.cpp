@@ -45,7 +45,7 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
                     " contacts reaches the bound of " + std::to_string(Physics::kMaxMounts));
     return out;
   }
-  if (!(declared.TyreRadiusM > 0.0)) {
+  if (!(declared.Contacts.front().RadiusM > 0.0)) {
     Refuse(out, "a drive torque becomes a force at a radius, and this vehicle declares none");
     return out;
   }
@@ -95,7 +95,7 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
     }
     double standsAt = declared.Contacts[0].AtM[1];
     for (const Contact &one : declared.Contacts) { standsAt = std::fmin(standsAt, one.AtM[1]); }
-    standsAt -= declared.TyreRadiusM;
+    standsAt -= declared.Contacts.front().RadiusM;
 
     out.StandsAtM = standsAt;
     out.MetresPerAssetUnit = out.Axles.WheelbaseM / declared.AssetWheelbase;
@@ -147,10 +147,10 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
     mount.Touches.TravelM = one.TravelM;
     mount.Touches.StopNPerM = one.StopNPerM;
     mount.Touches.LimitN = one.LimitN;
-    mount.Sheds.StiffnessNPerRad = declared.CorneringNPerRad;
-    mount.Sheds.RelaxationM = declared.RelaxationM;
-    mount.Sheds.Friction = declared.Grip;
-    mount.Sheds.LoadFalloff = declared.LoadFalloff;
+    mount.Sheds.StiffnessNPerRad = one.CorneringNPerRad;
+    mount.Sheds.RelaxationM = one.RelaxationM;
+    mount.Sheds.Friction = one.Grip;
+    mount.Sheds.LoadFalloff = one.LoadFalloff;
     const double armM = one.AtM[2] - out.CentreM[2];
     const double staticShare = armM < 0.0 ? frontLoadShare / frontMounts
                                           : (1.0 - frontLoadShare) / rearMounts;
@@ -195,15 +195,15 @@ Rigged Stand(const Vehicle &declared, double gravityMs2, double airDensityKgM3) 
              ? frontLoadShare / frontMounts
              : (1.0 - frontLoadShare) / rearMounts);
     Physics::Slip planning;
-    planning.Friction = declared.Grip;
-    planning.LoadFalloff = declared.LoadFalloff;
+    planning.Friction = declared.Contacts.front().Grip;
+    planning.LoadFalloff = declared.Contacts.front().LoadFalloff;
     planning.FrictionAtLoadN = heaviestN;
     out.Envelope.Grip = Physics::FrictionAt(planning, heaviestN);
   }
   out.Envelope.GravityMs2 = gravityMs2;
   out.Envelope.MassKg = declared.MassKg;
-  out.Envelope.DriveN = declared.PeakTorqueNm * declared.FinalDrive / declared.TyreRadiusM;
-  out.Envelope.BrakeN = declared.BrakeTorqueNm / declared.TyreRadiusM;
+  out.Envelope.DriveN = declared.PeakTorqueNm * declared.FinalDrive / declared.Contacts.front().RadiusM;
+  out.Envelope.BrakeN = declared.BrakeTorqueNm / declared.Contacts.front().RadiusM;
   if (!(declared.DragCoefficient > 0.0) || !(declared.FrontalM2 > 0.0)) {
     Refuse(out, "the vehicle '" + declared.Name + "' declares a drag coefficient of " +
                     std::to_string(declared.DragCoefficient) + " over a frontal area of " +

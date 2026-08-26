@@ -18,6 +18,16 @@ with the thing it guarded (the compiler said so by way of an unused `kContactRes
 The drive is unchanged to the digit: 10.5115 / 522.756 / 5.31713 before and after.
       proof: harness/outshine/physics/ScoreWhatSetsTheSteeringSpan
 
+**THE TYRE MOVED TO THE CONTACT IT BELONGS TO.** `<tyre grip radiusM corneringNPerRad
+relaxationM/>` sat beside `<contact>` and applied to all of them -- a vehicle noun twice over: it
+names a car's part, and it assumes a car's symmetry. `Rigging` already disagreed, copying those
+four numbers into `mount.Sheds` PER MOUNT, so the physics had put them on the contact before the
+declaration did. They are `Contact` fields now and the reader takes them off `<contact>`.
+      proof: harness/outshine/physics/ScoreWhatATyreBelongsTo
+
+What the move buys is what proves it: a body can carry different rubber front and rear -- a
+staggered set, a space-saver, a worn axle -- which one tyre per vehicle cannot express at all.
+
 **AND THE WORST OF IT IS IN THE DOOR.** `include/Scenario.h` carries `struct Vehicle` with 25
 car-specific fields -- `TyreRadiusM`, `FinalDrive`, `BrakeTorqueNm`, `TurningCircleM`, `TrackM`,
 `CorneringNPerRad`, `AssetWheelbase`. CLAUDE.md's own sentence is unambiguous: *a vehicle noun
