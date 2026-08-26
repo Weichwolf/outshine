@@ -52,8 +52,16 @@ uri="test-slab"/>` stands what the maker makes. That is how a scenario USES the 
 builds, without a pointer in the declaration -- a pointer cannot be written to XML and read back,
 and a name can. One resolution serves both places a name can appear, and both refuse by that name.
 
-What remains is the SHIPPED half: outshine offers none of its own yet, so today every kind must
-come from the client. The four internal generators (`Forest`, `Buildings`, `Water`,
+**THE SHIPPED HALF LANDED.** `Generators::Structures` offers itself under `structures`, and
+`Engine::Declare` registers outshine's own makers before it resolves a declaration -- so a scenario
+naming `structures` stands with nothing offered by the client. It builds a footprint, hands it to
+`BuildingMesh`, feeds the soup through `Meshed` and hands back a `Geometry` with its material.
+
+Stranded sources fell from 17 to 6: binding one shipped generator to the registry linked
+`BuildingMesh`, `BuildingShape` and the rest of `generators/draw/`, which had been complete and
+reachable by nobody.
+
+What remains of the shipped half: The four internal generators (`Forest`, `Buildings`, `Water`,
 `Infrastructure`) implement a DIFFERENT interface -- `Occupy`/`Proposes`/`At`, which scatters
 BODIES over ground rather than making geometry -- and the mesh makers under
 `src/world/generators/draw/` are all stranded, reached by no suite. Those two facts are the same

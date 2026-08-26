@@ -165,6 +165,33 @@ int main(void) {
         "and an asset naming a maker nobody offers is refused by that name, the same way a "
         "declared generator is -- one resolution, two places to name it from");
 
+  outshine::Scenario shipped;
+  shipped.Render = stands.Render;
+  shipped.Lit = stands.Lit;
+  outshine::Asset own;
+  own.Uri = "structures";
+  own.Kind = "generated";
+  shipped.Assets.push_back(own);
+
+  std::vector<uint8_t> byShipped;
+  const bool stoodShipped = engine.Declare(shipped) && engine.RenderTo(outshine::Extent{}) &&
+                            engine.Pixels(byShipped);
+  double redOfShipped = 0.0;
+  if (stoodShipped) {
+    const size_t many = byShipped.size() / 4;
+    for (size_t at = 0; at < many; ++at) { redOfShipped += byShipped[at * 4]; }
+    redOfShipped = many == 0 ? 0.0 : redOfShipped / (double)many;
+  }
+  std::printf("OUTSHINE'S OWN 'structures'  %s, mean red %.2f\n",
+              stoodShipped ? "stands with nothing offered" : engine.Error().c_str(), redOfShipped);
+
+  CHECK(stoodShipped && redOfShipped > 1.0,
+        "**AND OUTSHINE SHIPS ONE OF ITS OWN**: a scenario naming `structures` stands without the "
+        "client offering anything, because the engine registers its own makers before it resolves "
+        "a declaration. Until this landed the registry held only what a client handed it, so a "
+        "tree full of mesh makers under `generators/draw/` was reachable by nobody -- every one of "
+        "them stranded, linked by no suite");
+
   Covers("the door: a scenario's declared generator resolves against what the client offers -- an "
          "unknown kind is refused by name at declaration, an offered one runs and reaches the "
          "picture, and an ASSET may name a generator instead of a file");

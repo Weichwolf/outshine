@@ -1,6 +1,7 @@
 #include <Outshine.h>
 #include "Fetching.h"
 #include "HeapProbe.h"
+#include "Structures.h"
 #include "Unwired.h"
 
 #include <algorithm>
@@ -117,6 +118,7 @@ struct Engine::State {
   size_t Standing_Placed = 0;
   Host *Offered = nullptr;
   Ground::GroundStack Stack;
+  Generators::Structures Shipped;
   std::vector<const Generates *> Making;
   Sim::DriveProduct Drive;
   std::vector<Physics::Body> Freestanding;
@@ -722,6 +724,11 @@ namespace {
 
 }
 
+void Engine::Ships(void) {
+  if (!S_->Making.empty()) { return; }
+  S_->Making.push_back(&S_->Shipped);
+}
+
 void Engine::Offers(const Generates &maker) {
   for (const Generates *const stood : S_->Making) {
     if (stood->Kind() == maker.Kind()) { return; }
@@ -730,6 +737,7 @@ void Engine::Offers(const Generates &maker) {
 }
 
 bool Engine::Declare(const Scenario &scenario) {
+  Ships();
   const auto offers = [this](const std::string &kind) {
     for (const Generates *const stood : S_->Making) {
       if (stood->Kind() == kind) { return true; }

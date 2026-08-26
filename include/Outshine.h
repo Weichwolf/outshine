@@ -76,6 +76,7 @@ private:
   struct State;
   [[nodiscard]] bool ReadInto(std::string_view path, Scenario &out);
   [[nodiscard]] bool Generated(const Scenario &scenario);
+  void Ships(void);
   std::unique_ptr<State> S_;
 };
 
