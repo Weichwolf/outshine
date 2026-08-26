@@ -222,6 +222,17 @@ DECIDED -- named constants standing as a bare literal, whose origin is elsewhere
     3  src/world/ground/WaterField.cpp
     3  src/world/ground/TerrainLoader.cpp
 
+PROGRESS -- counted from board/, where the target lives; a tick names its proof
+  actors           2/7    29%
+  client           1/8    13%
+  corpus           3/8    38%
+  door             2/8    25%
+  gpu-driven       1/8    13%
+  layers           4/6    67%
+  perception       1/6    17%
+  render-plan      0/7     0%
+  streaming        0/7     0%
+
 COUNTS
   151 source(s) under src/, 37 of them linked by no suite
   243 header(s) in 28 module(s) over 13 tier(s)

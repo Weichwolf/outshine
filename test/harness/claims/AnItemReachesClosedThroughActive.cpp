@@ -25,6 +25,16 @@ namespace {
 // The walk: for every commit that DELETED a `board/NNNN_*.md`, read the file as it stood in that
 // commit's parent. If its header did not say `State: active`, the item skipped the door.
 //
+// A DELETION IS NOT ALWAYS A CLOSURE, and the first version of this claim said it was. Two
+// reviewers filing into the same number block in the same minute renumber one of them, and a
+// renumber is a delete here and an add there -- in two separate commits, so git's own rename
+// detection cannot pair them at any threshold. It fired on `71e5679f` and called a renumber a
+// closure that skipped the door.
+//
+// So a deletion is judged as a closure only when the item SURVIVES NOWHERE: no file in the tree
+// at HEAD carries its title. One that reappears under another number was moved, not closed, and
+// the move is a fact about the board's numbering rather than about its discipline.
+//
 // THE WINDOW BEGINS WHERE THE RULE BEGAN TO BE ENFORCED, and it finds its own start: the commit
 // that added THIS FILE. Walked over all of history the count is 2579 deletions with 2513 of them
 // straight from `State: open` -- the rule was written down and nothing checked it, so nobody
@@ -80,7 +90,7 @@ int main(void) {
   std::string at;
   std::vector<std::string> closed;
   std::vector<Skipped> skipped;
-  size_t deletions = 0;
+  size_t deletions = 0, moved = 0;
   for (const std::string &line : Lines(log)) {
     if (line.empty()) { continue; }
     if (line.compare(0, 6, "board/") != 0) {
@@ -92,6 +102,20 @@ int main(void) {
     std::string header;
     (void)Run("git show " + at + "^:" + line + " 2>/dev/null | head -12", header);
     if (header.empty()) { continue; }
+
+    std::string titled;
+    (void)Run("git show " + at + "^:" + line + " 2>/dev/null | sed -n 's|^# ||p' | head -1",
+              titled);
+    while (!titled.empty() && (titled.back() == '\n' || titled.back() == ' ')) { titled.pop_back(); }
+    if (!titled.empty()) {
+      std::string elsewhere;
+      (void)Run("grep -l -F -x -- '# " + titled + "' board/*.md 2>/dev/null | head -1", elsewhere);
+      if (!elsewhere.empty()) {
+        ++moved;
+        continue;
+      }
+    }
+
     if (header.find("State: active") != std::string::npos) {
       closed.push_back(line);
       continue;
@@ -107,7 +131,8 @@ int main(void) {
   if (deletions == 0) {
     std::printf("NO CLOSURE IN THE WINDOW YET -- the rule has had nothing to judge\n");
   }
-  std::printf("BOARD DELETIONS in the window %zu\n", deletions);
+  std::printf("BOARD DELETIONS in the window %zu, of which %zu were MOVES -- the title stands in "
+              "the tree under another number\n", deletions, moved);
   std::printf("CLOSED THROUGH ACTIVE %zu, skipped the door %zu\n", closed.size(), skipped.size());
   for (const Skipped &one : skipped) {
     std::printf("  %s deleted %s which said '%s'\n", one.Commit.c_str(), one.Item.c_str(),

@@ -851,6 +851,75 @@ if [ "$STATE" = 1 ]; then
     grep -vE ' [^ ]*[A-Za-z_][A-Za-z0-9_]*$' |
     awk '{ n[$1]++ } END { for (f in n) printf "%5d  %s\n", n[f], f }' | sort -rn | head -10
 
+  # PROGRESS IS COUNTED FROM THE BOARD, because the board is where the target already lives and a
+  # second list would be a second spelling of it. An item declares `Progress: <area>` and its
+  # checkboxes are that area's predicates. A ticked box must NAME ITS PROOF; one that does not,
+  # or whose proof is not in the tree, is reported as an unproven tick and does NOT count as held.
+  #
+  # Predicates state a BEHAVIOUR or a REACHABILITY, never a name. Counting declared class names
+  # would have scored the world generators at 100 per cent while 6528 lines of them sat in the
+  # archive with no path from any declaration -- existence is not the question.
+  #
+  # The denominator is visible and it GROWS: filing a predicate lowers the percentage, because
+  # discovering work is not progress.
+  #
+  # A proof is a CASE (`harness/...`, checked to be a file or a suite directory) or an AUDIT flag
+  # (`--audit-layers`, checked to be an option this runner parses). Both run in the gate and both
+  # refuse; an audit is not a lesser proof for having no `.cpp`.
+  progressTally=$BUILD/log/progress
+  : > "$progressTally"
+  for item in board/*.md; do
+    [ -e "$item" ] || continue
+    slug=$(sed -n 's|^Progress:[ ]*||p' "$item" | head -1)
+    [ -n "$slug" ] || continue
+    awk '
+      function flush() {
+        if (state == "x") { printf "x %s\n", (proof == "" ? "-" : proof) }
+        else if (state == " ") { print "o -" }
+        state = ""
+      }
+      /^- \[.\]/ { flush(); state = substr($0, 4, 1); proof = ""; next }
+      /proof:/ { if (state != "") { line = $0; sub(/^.*proof:[ \t]*/, "", line); proof = line } }
+      END { flush() }
+    ' "$item" |
+      while read -r kind named; do
+        if [ "$kind" = o ]; then
+          printf '%s open\n' "$slug"
+        elif [ "$named" != - ] &&
+             { [ -f "test/$named.cpp" ] || [ -d "test/$named" ] ||
+               { case "$named" in --audit*) grep -q -- "$named)" test/run.sh ;; *) false ;; esac; }; }; then
+          printf '%s held\n' "$slug"
+        else
+          printf '%s unproven\n' "$slug"
+        fi
+      done >> "$progressTally"
+  done
+
+  printf '\nPROGRESS -- counted from board/, where the target lives; a tick names its proof\n'
+  if [ -s "$progressTally" ]; then
+    sort "$progressTally" | awk '
+      { n[$1 " " $2]++; areas[$1] = 1 }
+      END {
+        for (a in areas) { order[++k] = a }
+        for (i = 1; i < k; i++) {
+          for (j = i + 1; j <= k; j++) {
+            if (order[j] < order[i]) { s = order[i]; order[i] = order[j]; order[j] = s }
+          }
+        }
+        for (i = 1; i <= k; i++) {
+          a = order[i]
+          held = n[a " held"] + 0; open = n[a " open"] + 0; bare = n[a " unproven"] + 0
+          total = held + open + bare
+          if (total == 0) { continue }
+          printf "  %-14s %3d/%-3d %3d%%", a, held, total, int(100.0 * held / total + 0.5)
+          if (bare > 0) { printf "   %d tick(s) name no proof this tree holds", bare }
+          printf "\n"
+        }
+      }'
+  else
+    printf '  no item declares a Progress area yet -- the table is EMPTY, not complete\n'
+  fi
+
   printf '\nCOUNTS\n'
   printf '  %s source(s) under src/, %s of them linked by no suite\n' \
     "$(find src -name '*.cpp' -not -path 'src/assets/*' | wc -l | tr -d ' ')" "$STRANDED"
