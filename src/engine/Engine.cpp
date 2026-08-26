@@ -359,6 +359,20 @@ bool Engine::State::Composes(void) {
     Places("the ring's nearest vertex to the frame origin", std::sqrt(nearest), "m");
     Places("and its up", atUp, "m");
   }
+  if (overADrive) {
+    for (size_t at = 0; at + 2 < laid->Index.size(); at += 3) {
+      std::swap(laid->Index[at + 1], laid->Index[at + 2]);
+    }
+    NormalsFrom(inFrame, laid->Index, laid->NormalM);
+  }
+  {
+    double up = 0.0;
+    for (size_t at = 0; at + 2 < laid->NormalM.size(); at += 3) {
+      if ((double)laid->NormalM[at + 1] > 0.5) { up += 1.0; }
+    }
+    Places("the ring's normals that point up", up, "normals");
+    Places("its normals in all", (double)(laid->NormalM.size() / 3), "normals");
+  }
   Gltf::Piece ground;
   ground.NodeName = "ground";
   ground.Material = 0;

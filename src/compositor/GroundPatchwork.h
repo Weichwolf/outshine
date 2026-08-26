@@ -31,6 +31,9 @@ struct Patchwork {
   double WorstErrM = 0.0;
 };
 
+void NormalsFrom(const std::vector<float> &positionM, const std::vector<uint32_t> &index,
+                 std::vector<float> &into);
+
 [[nodiscard]] std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles,
                                                                  const Around &over);
 

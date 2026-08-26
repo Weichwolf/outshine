@@ -6,10 +6,8 @@
 
 namespace outshine {
 
-namespace {
-
-void NormalsFrom(const std::vector<float> &positionM,
-                               const std::vector<uint32_t> &index, std::vector<float> &into) {
+void NormalsFrom(const std::vector<float> &positionM, const std::vector<uint32_t> &index,
+                 std::vector<float> &into) {
   into.assign(positionM.size(), 0.0f);
   for (size_t at = 0; at + 2 < index.size(); at += 3) {
     const uint32_t a = index[at], b = index[at + 1], c = index[at + 2];
@@ -42,8 +40,6 @@ void NormalsFrom(const std::vector<float> &positionM,
     into[at + 1] /= length;
     into[at + 2] /= length;
   }
-}
-
 }
 
 std::expected<Patchwork, std::string> LayPatchwork(TileMeshes &tiles, const Around &over) {
