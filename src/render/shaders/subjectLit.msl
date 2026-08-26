@@ -101,7 +101,7 @@ static inline float3 shadeRow(constant M &surface, constant Lights &lights, Occl
           lit.z >= 0.0 && lit.z <= 1.0) {
         float nearest = shadowMap.sample(shadowSampler, atlasUv, level(0.0)).r;
         float bias = lights.count.w;
-        attenuation = attenuation * (lit.z - bias > nearest ? 0.0 : 1.0);
+        attenuation = attenuation * (lit.z + bias < nearest ? 0.0 : 1.0);
       }
     }
     float nl = dot(n, toward);

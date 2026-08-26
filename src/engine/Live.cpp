@@ -631,6 +631,7 @@ bool Live::Restand(const Gltf::Subject &built, size_t carried, std::string &erro
 
 bool Live::Restand(const Gltf::Subject &built, size_t carried, const Material &wearing,
                    std::string &error) {
+  Aimed_ = false;
   const std::vector<Material> wore = std::move(Declared_.Surfacing);
   Declared_.Surfacing.assign(1u, wearing);
   Declared_.Built = &built;
@@ -683,8 +684,7 @@ bool Live::Draw(std::string &error) {
     if (PlacedBounds(least, most, error)) {
       double centre[3];
       for (int axis = 0; axis < 3; ++axis) { centre[axis] = 0.5 * (least[axis] + most[axis]); }
-      Renderer_->ShadowCentre(centre);
-      for (int axis = 0; axis < 3; ++axis) { ShadowCentreStoodM_[axis] = centre[axis]; }
+
     }
   }
   const auto took = [](size_t before) { return Heap::LiveBytes() - before; };

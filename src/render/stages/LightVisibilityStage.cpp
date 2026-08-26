@@ -31,10 +31,6 @@ void LightVisibilityStage::Declare(const float toSun[3], const float up[3], doub
   Declared_ = radiusM > 0.0 && sunLength > 0.0 && crossLength > 0.0;
 }
 
-void LightVisibilityStage::Frame(const double centreM[3]) {
-  for (int axis = 0; axis < 3; ++axis) { CentreM_[axis] = centreM[axis]; }
-}
-
 void LightVisibilityStage::Build(const double eye[3]) {
   double forward[3] = {-ToSun_[0], -ToSun_[1], -ToSun_[2]};
   double length = 0.0;
@@ -52,10 +48,29 @@ void LightVisibilityStage::Build(const double eye[3]) {
                             forward[0] * right[1] - forward[1] * right[0]};
 
   const double texelM = 2.0 * RadiusM_ / (double)kShadowAtlasPx;
-  const double *const anchor = Subjects_ != nullptr ? Subjects_->AnchorM() : nullptr;
-  double centre[3];
-  for (int axis = 0; axis < 3; ++axis) {
-    centre[axis] = CentreM_[axis] + (anchor != nullptr ? anchor[axis] : 0.0);
+  double centre[3] = {0.0, 0.0, 0.0};
+  {
+    const double *const anchor = Subjects_ != nullptr ? Subjects_->AnchorM() : nullptr;
+    double least[3] = {1.0e30, 1.0e30, 1.0e30}, most[3] = {-1.0e30, -1.0e30, -1.0e30};
+    size_t counted = 0;
+    if (Subjects_ != nullptr) {
+      const std::vector<double> &placed = Subjects_->Placements();
+      const size_t slots = placed.size() / 16u;
+      for (size_t slot = 0; slot < slots && slot < CastsBelow_; ++slot) {
+        const double *const model = placed.data() + slot * 16u;
+        for (int axis = 0; axis < 3; ++axis) {
+          const double at = model[12 + axis];
+          least[axis] = at < least[axis] ? at : least[axis];
+          most[axis] = at > most[axis] ? at : most[axis];
+        }
+        ++counted;
+      }
+    }
+    if (counted > 0) {
+      for (int axis = 0; axis < 3; ++axis) {
+        centre[axis] = 0.5 * (least[axis] + most[axis]) + (anchor != nullptr ? anchor[axis] : 0.0);
+      }
+    }
   }
   double eyeLight[3] = {0.0, 0.0, 0.0};
   for (int axis = 0; axis < 3; ++axis) {

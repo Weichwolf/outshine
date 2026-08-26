@@ -19,7 +19,6 @@ public:
 
   void Declare(const float toSun[3], const float up[3], double radiusM);
 
-  void Frame(const double centreM[3]);
 
   void Encode(const FrameContext &ctx, const PassRecording &into);
 
@@ -47,7 +46,6 @@ private:
   double ToSun_[3] = {0, 0, 1};
   double Up_[3] = {0, 1, 0};
   double RadiusM_ = 0.0;
-  double CentreM_[3] = {0, 0, 0};
   double LightFromWorld_[16] = {};
   bool Declared_ = false;
 };

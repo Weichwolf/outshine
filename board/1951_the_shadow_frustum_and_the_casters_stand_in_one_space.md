@@ -36,6 +36,36 @@ relief span (489.789 m lowest vertex against a car at 522.802 m) which points at
 datum, but that is a lead and not a finding -- the number that will settle it is the light-space
 coordinate of a caster whose world position is independently known.
 
+## REPAIRED, and measured on the drive rather than in a fixture
+
+The two spaces are one. `LightVisibilityStage::Build` centres the frustum on the placements
+`SubjectResidency` already holds, filtered to the casting slots -- the same array `Cast` reads --
+instead of on a value `Live::PlacedBounds` computed separately in world-ASL. `ShadowCentre` and
+`LightVisibilityStage::Frame` are deleted with it: a second source for one number is what the
+defect was.
+
+A second defect, found by looking at the picture once the atlas filled: **the shadow test was
+inverted for reversed-Z.** The atlas clears to 0, which is FARTHEST, and `subjectLit.msl` asked
+`lit.z - bias > nearest`. A texel nothing wrote reads 0, so every unwritten texel came back
+SHADOWED and the frustum's whole footprint was a black rectangle on the ground with the true
+silhouette inside it. It asks `lit.z + bias < nearest` now.
+
+    the shadow atlas, least depth   0.000
+    its most                        0.511894
+    texels above the clear          1165450    of 4194304
+    ground in the car's shadow      R 15.1  G 22.0  B 22.0
+    ground 260 px beside it         R 63.7  G 78.4  B 59.2
+    apart                           56.4 counts
+
+against the stakeholder's 0.2 to 0.8 counts for the same measurement.
+
+## Why this is not yet CLOSED
+
+The proving case is not written. It wants one receiver and one caster under one key, differing
+only in whether something stands over the ground, and the natural way to write it -- handing both
+in through `Engine::Stands` -- measures nothing, because geometry handed in does not cast at all
+(board:1952).
+
 ## What will be true
 
 - [ ] `Live::PlacedBounds`, `SubjectResidency::AnchorM` and `DrawBatch`'s placement translation

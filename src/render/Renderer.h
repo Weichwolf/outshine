@@ -136,8 +136,6 @@ public:
     Shadow_.Declare(toSun, up, radiusM);
   }
 
-  void ShadowCentre(const double centreM[3]) { Shadow_.Frame(centreM); }
-
   void SetSky(const float toSun[3], const float up[3], float illuminanceLux, float eyeHeightM) {
     CosSunZenith_ = toSun[0] * up[0] + toSun[1] * up[1] + toSun[2] * up[2];
     EyeHeightM_ = eyeHeightM;
