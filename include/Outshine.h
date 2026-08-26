@@ -10,6 +10,7 @@
 
 #include <SDL3/SDL.h>
 
+#include "Generate.h"
 #include "Geometry.h"
 
 #include <Event.h>
@@ -35,6 +36,7 @@ public:
 
   [[nodiscard]] bool DrawsInto(SDL_Window *presents);
   void Offers(Host *host);
+  void Offers(const Generates &maker);
   [[nodiscard]] bool Takes(std::string_view view);
   [[nodiscard]] bool Handles(const SDL_Event &event);
   [[nodiscard]] bool DrawsInto(Extent offscreen);
@@ -75,6 +77,7 @@ public:
 private:
   struct State;
   [[nodiscard]] bool ReadInto(std::string_view path, Scenario &out);
+  [[nodiscard]] bool Generated(const Scenario &scenario);
   std::unique_ptr<State> S_;
 };
 

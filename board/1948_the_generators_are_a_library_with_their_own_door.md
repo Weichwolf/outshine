@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Parent: 1953
 Progress: streaming
 Area: generators, door
@@ -39,6 +39,20 @@ project that wants a file rather than a buffer. Owner's correction, and it is th
 `outshine::Geometry`, refuses a soup that is not whole triangles, and carries several parts as
 reaches into one vertex array. What is still missing is a generator CALLING it -- the meshers
 need a plan, and a plan needs the snapshot board:1805 now composes.
+
+**THE DECLARATION IS BOUND NOW, AND HALF THE ITEM WITH IT.** `include/Generate.h` declares
+`Generates` -- a `Kind()` and a `Make(Ask, Geometry &)` -- and `Engine::Offers(const Generates &)`
+registers one. `Declare` resolves every `Scenario::Generators[].Kind` against what has been
+offered: an unknown kind is REFUSED BY NAME at declaration, and an offered one runs and what it
+makes stands in the picture.
+      proof: harness/outshine/door/ScoreWhatAClientsGeneratorMakes
+
+What remains is the SHIPPED half: outshine offers none of its own yet, so today every kind must
+come from the client. The four internal generators (`Forest`, `Buildings`, `Water`,
+`Infrastructure`) implement a DIFFERENT interface -- `Occupy`/`Proposes`/`At`, which scatters
+BODIES over ground rather than making geometry -- and the mesh makers under
+`src/world/generators/draw/` are all stranded, reached by no suite. Those two facts are the same
+fact: nothing binds them to a declaration, so nothing links them.
 
 **AND THE DECLARATION FOR IT ALREADY STANDS, UNREACHED.** `include/Scenario.h` carries
 

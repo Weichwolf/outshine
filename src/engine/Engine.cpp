@@ -116,6 +116,7 @@ struct Engine::State {
   size_t Standing_Placed = 0;
   Host *Offered = nullptr;
   Ground::GroundStack Stack;
+  std::vector<const Generates *> Making;
   Sim::DriveProduct Drive;
   std::unique_ptr<Sim::GroundUnderfoot> Surface;
   bool Drove = false;
@@ -662,7 +663,25 @@ namespace {
 
 }
 
+void Engine::Offers(const Generates &maker) {
+  for (const Generates *const stood : S_->Making) {
+    if (stood->Kind() == maker.Kind()) { return; }
+  }
+  S_->Making.push_back(&maker);
+}
+
 bool Engine::Declare(const Scenario &scenario) {
+  for (const Generator &named : scenario.Generators) {
+    bool offered = false;
+    for (const Generates *const stood : S_->Making) {
+      offered = offered || stood->Kind() == named.Kind;
+    }
+    if (offered) { continue; }
+    S_->Error = "the scenario declares a generator of kind '" + named.Kind +
+                "' and nothing offers that kind -- a declaration nobody can act on is a refusal, "
+                "never a line that is counted and dropped";
+    return false;
+  }
   if (S_->Frame.WidthPx <= 0 || S_->Frame.HeightPx <= 0) {
     S_->Error =
         "no canvas stands, so a scenario has nowhere to draw -- the client hands one in through "
@@ -783,7 +802,26 @@ bool Engine::Declare(const Scenario &scenario) {
   S_->Declared = scenario;
   S_->Carried = Unacted(scenario);
   S_->Error.clear();
-  return true;
+  return Generated(scenario);
+}
+
+bool Engine::Generated(const Scenario &scenario) {
+  if (scenario.Generators.empty()) { return true; }
+  Geometry made;
+  for (const Generator &named : scenario.Generators) {
+    for (const Generates *const stood : S_->Making) {
+      if (stood->Kind() != named.Kind) { continue; }
+      Ask ask;
+      ask.EastM = scenario.Ground.Lon;
+      ask.NorthM = scenario.Ground.Lat;
+      ask.ExtentM = scenario.Ground.RadiusM;
+      if (!stood->Make(ask, made)) {
+        S_->Error = "the generator of kind '" + named.Kind + "' refused to make anything";
+        return false;
+      }
+    }
+  }
+  return made.Parts() == 0 || Stands(made);
 }
 
 namespace {
