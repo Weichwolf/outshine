@@ -111,7 +111,7 @@ bool Live::Build(std::string &error) {
     Moves_ = false;
     Frames_ = 1;
     At_ = 0;
-    BoundsPlaced_ = false;
+    PartBounds_.clear();
     if (Renderer_ != nullptr) {
       std::string ignored;
       (void)Renderer_->SetSubjectMesh(Render::SubjectMesh{}, ignored);
@@ -294,50 +294,63 @@ void Live::Eye(const Gltf::Placement &from) {
   Aimed_ = false;
 }
 
-bool Live::PlacedBounds(double least[3], double most[3], std::string &error) {
-  if (!BoundsPlaced_) {
-    bool first = true;
-    const auto fold = [this, &first]() {
-      const std::vector<double> &at = Geometry_.PositionsM();
-      const size_t framed = Joined_ > 0 && Joined_ < Geometry_.Parts().size()
-                                ? Joined_
-                                : Geometry_.Parts().size();
-      for (size_t part = 0; part < framed; ++part) {
-        const Gltf::Part &one = Geometry_.Parts()[part];
-        const std::array<double, 16> identity{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-        const std::array<double, 16> &placed =
-            part < Stood_.PartPlacement.size() ? Stood_.PartPlacement[part] : identity;
-        for (size_t vertex = one.FirstVertex; vertex < one.FirstVertex + one.VertexCount;
-             ++vertex) {
-          const double *const from = at.data() + vertex * 3;
-          for (int axis = 0; axis < 3; ++axis) {
-            const double out = placed[axis] * from[0] + placed[4 + axis] * from[1] +
-                               placed[8 + axis] * from[2] + placed[12 + axis];
-            if (first || out < PlacedLeast_[axis]) { PlacedLeast_[axis] = out; }
-            if (first || out > PlacedMost_[axis]) { PlacedMost_[axis] = out; }
-          }
-          first = false;
+bool Live::PartVolumes(std::string &error) {
+  if (!PartBounds_.empty()) { return true; }
+  const size_t parts = Geometry_.Parts().size();
+  if (parts == 0) { return true; }
+  PartBounds_.assign(parts, Volume{});
+  const auto fold = [this, parts]() {
+    const std::vector<double> &at = Geometry_.PositionsM();
+    for (size_t part = 0; part < parts; ++part) {
+      const Gltf::Part &one = Geometry_.Parts()[part];
+      Volume &held = PartBounds_[part];
+      for (size_t vertex = one.FirstVertex; vertex < one.FirstVertex + one.VertexCount; ++vertex) {
+        const double *const from = at.data() + vertex * 3;
+        for (int axis = 0; axis < 3; ++axis) {
+          if (held.Empty || from[axis] < held.LeastM[axis]) { held.LeastM[axis] = from[axis]; }
+          if (held.Empty || from[axis] > held.MostM[axis]) { held.MostM[axis] = from[axis]; }
         }
+        held.Empty = false;
       }
-    };
+    }
+  };
+  fold();
+  for (int frame = 0; frame < Frames_; ++frame) {
+    if (frame == At_) { continue; }
+    if (!Pose(frame, error)) { return false; }
     fold();
-    for (int frame = 0; frame < Frames_; ++frame) {
-      if (frame == At_) { continue; }
-      if (!Pose(frame, error)) { return false; }
-      fold();
-    }
-    if (Frames_ > 1 && !Pose(At_, error)) { return false; }
-    if (first) {
+  }
+  if (Frames_ > 1 && !Pose(At_, error)) { return false; }
+  return true;
+}
+
+bool Live::PlacedBounds(double least[3], double most[3], std::string &error) {
+  if (!PartVolumes(error)) { return false; }
+  const size_t framed = Joined_ > 0 && Joined_ < PartBounds_.size() ? Joined_ : PartBounds_.size();
+  bool first = true;
+  double leastM[3] = {0.0, 0.0, 0.0}, mostM[3] = {0.0, 0.0, 0.0};
+  const std::array<double, 16> identity{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  for (size_t part = 0; part < framed; ++part) {
+    const Volume &held = PartBounds_[part];
+    if (held.Empty) { continue; }
+    const std::array<double, 16> &placed =
+        part < Stood_.PartPlacement.size() ? Stood_.PartPlacement[part] : identity;
+    for (int corner = 0; corner < 8; ++corner) {
+      const double from[3] = {(corner & 1) ? held.MostM[0] : held.LeastM[0],
+                              (corner & 2) ? held.MostM[1] : held.LeastM[1],
+                              (corner & 4) ? held.MostM[2] : held.LeastM[2]};
       for (int axis = 0; axis < 3; ++axis) {
-        PlacedLeast_[axis] = 0.0;
-        PlacedMost_[axis] = 0.0;
+        const double out = placed[axis] * from[0] + placed[4 + axis] * from[1] +
+                           placed[8 + axis] * from[2] + placed[12 + axis];
+        if (first || out < leastM[axis]) { leastM[axis] = out; }
+        if (first || out > mostM[axis]) { mostM[axis] = out; }
       }
+      first = false;
     }
-    BoundsPlaced_ = true;
   }
   for (int axis = 0; axis < 3; ++axis) {
-    least[axis] = PlacedLeast_[axis];
-    most[axis] = PlacedMost_[axis];
+    least[axis] = leastM[axis];
+    most[axis] = mostM[axis];
   }
   return true;
 }
@@ -606,7 +619,7 @@ bool Live::Carry(const double worldFromBodyM[16], const double built[16], std::s
     const double *const from = part < Joined_ ? body : built;
     for (int at = 0; at < 16; ++at) { Stood_.PartPlacement[part][at] = from[at]; }
   }
-  BoundsPlaced_ = false;
+  PartBounds_.clear();
   Renderer_->CastsBelow((uint32_t)Joined_);
   Placements(Stood_, Scratch_.Placements);
   return Carried(Stood_.PartPlacement.size(), error);

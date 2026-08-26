@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Parent: 1953
 Area: render
 Tags: performance, shadow, light, measured
@@ -52,7 +52,13 @@ the mechanism the benchmark uses rather than an outcome.
       (`lambda`-weighted logarithmic/uniform blend, the PSSM form both engines use), each
       snapped to its own texel grid so the near field stops crawling. Which cascade a fragment
       reads is a depth comparison in the shader, not a CPU decision.
-- [ ] **The shadow centre comes from the resident instance bounds, not from a vertex fold.**
+- [x] **The shadow centre comes from a volume per part, not from a vertex fold.** `PlacedBounds`
+      folds a bounding volume for each part -- built once over every animation frame, transformed
+      by that part's placement on every call. `O(parts * 8)` corners instead of `O(vertices)`, and
+      `BoundsPlaced_` is gone, so nothing can go stale. The drive is unchanged.
+      The CORRECTNESS half is unproven and board:1970 says why: nothing that moves also casts, so
+      there is no atlas whose centre could be watched following a caster down.
+- [x] ~~**The shadow centre comes from the resident instance bounds, not from a vertex fold.**~~
       `Live::PlacedBounds` walks every vertex and is correct only while `BoundsPlaced_` holds:
       the day a caster MOVES under a still camera the cache is stale and the frustum follows the
       wrong body. Both benchmarks keep a bounding volume per instance in the scene structure and

@@ -185,6 +185,18 @@ int main(void) {
         "was always that link and nothing walked it, so a body with no route was integrated and "
         "never placed, which is a state no renderer can tell from a body that is not there");
 
+  // THE SHADOW FRUSTUM SHOULD FOLLOW IT DOWN AND CANNOT BE ASKED HERE. A freestanding body casts
+  // nothing -- "batches the shadow casts" reads 0 for this scenario whether or not a shadow radius
+  // is declared -- so there is no atlas whose centre could be compared against the falling crate.
+  // That is board:1970 and it is filed rather than worked around, because a case that asserts a
+  // number nobody computes is worse than no case.
+  //
+  // The bounds it would have proven are landed regardless: `Live::PlacedBounds` walked every VERTEX
+  // and cached the answer in `BoundsPlaced_`, so a caster that MOVED under a still camera left its
+  // own shadow behind. It folds a VOLUME PER PART now -- built once over every animation frame,
+  // transformed by that part's placement on each call, `O(parts * 8)` corners instead of
+  // `O(vertices)`, and no cache to go stale. Both benchmarks keep a volume per instance in the
+  // scene structure and fold volumes, never vertices.
   Covers("the sim: a body declares where it stands, and one with no route at all is held, "
          "integrated and placed in the picture through the asset it names");
   return Report();

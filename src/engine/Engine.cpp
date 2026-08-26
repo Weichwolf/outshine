@@ -1298,9 +1298,9 @@ void Engine::State::Drew(void) {
       Places("its most", most, "");
       Places("texels above the clear", written, "texels");
       Places("the shadow radius it stood on", Standing->ShadowRadiusStanding(), "m");
-      Places("its centre, east", Standing->ShadowCentreStanding()[0], "m");
-      Places("its centre, up", Standing->ShadowCentreStanding()[1], "m");
     }
+    Places("its centre, east", Standing->ShadowCentreStanding()[0], "m");
+    Places("its centre, up", Standing->ShadowCentreStanding()[1], "m");
     if (Steps < 2) {
       Places("the exposure the picture applied", (double)Device.ExposureApplied(), "1/(cd/m2)");
       std::vector<float> linear;

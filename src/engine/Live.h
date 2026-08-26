@@ -175,8 +175,13 @@ private:
   bool Aimed_ = true;
   [[nodiscard]] bool Carried(size_t rows, std::string &error);
   std::vector<double> Sent_;
-  bool BoundsPlaced_ = false;
-  double PlacedLeast_[3] = {0, 0, 0}, PlacedMost_[3] = {0, 0, 0};
+  struct Volume {
+    bool Empty = true;
+    double LeastM[3] = {0.0, 0.0, 0.0};
+    double MostM[3] = {0.0, 0.0, 0.0};
+  };
+  std::vector<Volume> PartBounds_;
+  [[nodiscard]] bool PartVolumes(std::string &error);
   float SkyToSun_[3] = {0, 0, 0};
   float SkyUp_[3] = {0, 0, 0};
   bool SkyStands_ = false;
