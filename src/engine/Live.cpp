@@ -166,7 +166,8 @@ bool Live::Build(std::string &error) {
 
   if (Declared_.Built == nullptr) { Joined_ = Geometry_.Parts().size(); }
   if (Carrying_ > 0) { Joined_ = Carrying_; }
-  if (!(Declared_.ShadowRadiusM > 0.0) && Geometry_.TriangleCount() > 0) {
+  ShadowRadiusStoodM_ = Declared_.ShadowRadiusM;
+  if (!(ShadowRadiusStoodM_ > 0.0) && Geometry_.TriangleCount() > 0) {
     double least[3], most[3];
     Geometry_.BoundsOf(Joined_, least, most);
     double across = 0.0;
@@ -174,12 +175,12 @@ bool Live::Build(std::string &error) {
       const double span = (most[axis] - least[axis]) * Declared_.MetresPerUnit;
       across += span * span;
     }
-    Declared_.ShadowRadiusM = 0.5 * std::sqrt(across);
+    ShadowRadiusStoodM_ = 0.5 * std::sqrt(across);
   }
 
   Render::PlanSpec declaration;
   DeclarePlan(File_, Moves_, Declared_.DrawsSky,
-              Declared_.ShadowRadiusM > 0.0, declaration);
+              ShadowRadiusStoodM_ > 0.0, declaration);
   if (Declared_.Exposure > 0.0) {
     declaration.Exposure = Render::Declared<float>((float)Declared_.Exposure);
   } else if (Declared_.KeyLux > 0.0) {
@@ -225,8 +226,8 @@ bool Live::Build(std::string &error) {
     }
     SkyStands_ = true;
     Renderer_->SetSky(toSun, up, (float)Declared_.KeyLux, 0.0f);
-    if (Declared_.ShadowRadiusM > 0.0) {
-      Renderer_->SetShadowFrame(toSun, up, Declared_.ShadowRadiusM);
+    if (ShadowRadiusStoodM_ > 0.0) {
+      Renderer_->SetShadowFrame(toSun, up, ShadowRadiusStoodM_);
     }
   }
 

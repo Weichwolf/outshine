@@ -112,8 +112,8 @@ CARPET -- the widest public surfaces
     57 [[nodiscard]] in src/render/Renderer.h
     51 [[nodiscard]] in src/content/gltf/Document.h
     42 [[nodiscard]] in src/content/gltf/Subject.h
-    35 [[nodiscard]] in src/engine/Live.h
     34 [[nodiscard]] in src/scene/Store.h
+    34 [[nodiscard]] in src/engine/Live.h
     31 [[nodiscard]] in src/base/format/Xml.h
 
 TWINS -- header names that collide

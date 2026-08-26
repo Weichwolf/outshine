@@ -31,11 +31,33 @@ than from a per-batch CPU walk. Neither engine's CPU sees a batch on this path.
 
 ## What will be true
 
-- [ ] The shadow pass draws INDIRECTLY from a resident instance buffer -- the CPU issues one
-      call, not one per batch.
-- [ ] Lights are assigned to clusters or tiles by a compute stage, and the shading pass reads
-      that assignment. `kMaxSubjectLights` stops being the light budget.
-- [ ] The atlas carries cascades, and which cascade a fragment reads is decided in the shader.
+Every row above whose verdict is not "correct, and it stays" has a box here, and every box names
+the mechanism the benchmark uses rather than an outcome.
+
+- [ ] **`Cast` issues ONE indirect draw, not one per batch.** The shadow pass reads the same
+      resident instance buffer the colour pass reads and draws it with
+      `SDL_DrawGPUIndexedPrimitivesIndirect`, with per-instance transforms in a storage buffer
+      the GPU indexes by instance id -- never a `PushGPUVertexUniformData` in a loop. This is
+      Unreal's GPU-driven shadow path (`FGPUScene` + instance culling into indirect args) and
+      the shape RAGE's drawlists take. The CPU cost of the shadow pass becomes O(1).
+- [ ] **Lights are assigned to clusters by a compute stage.** A froxel grid over the view
+      frustum, one compute pass writing a per-cluster light index list, and the shading pass
+      reading its own cluster -- Unreal's clustered deferred (`LightGridInjection`), which
+      replaced its own fixed forward light slots for exactly this reason.
+      `kMaxSubjectLights` stops being the light budget; the grid's list capacity is, and it is a
+      GPU allocation rather than a constant in a header.
+- [ ] **The atlas carries cascades and the shader picks one.** Three or four view-aligned
+      cascades packed into the one atlas, split by a practical distribution
+      (`lambda`-weighted logarithmic/uniform blend, the PSSM form both engines use), each
+      snapped to its own texel grid so the near field stops crawling. Which cascade a fragment
+      reads is a depth comparison in the shader, not a CPU decision.
+- [ ] **The shadow centre comes from the resident instance bounds, not from a vertex fold.**
+      `Live::PlacedBounds` walks every vertex and is correct only while `BoundsPlaced_` holds:
+      the day a caster MOVES under a still camera the cache is stale and the frustum follows the
+      wrong body. Both benchmarks keep a bounding volume per instance in the scene structure and
+      fold the volumes, never the vertices -- so the centre costs O(instances) and updates when
+      an instance moves. Until it does, a moving caster is a defect waiting on a scenario that
+      declares one.
 - [ ] Proving case: a scenario with N casters and M lights holds its CPU frame time flat as N
       and M grow, measured p50/p95/p99 over a moving camera. Negative control: the per-batch
       walk restored, and the CPU time tracks N.
