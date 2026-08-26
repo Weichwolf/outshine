@@ -1135,6 +1135,30 @@ void Engine::State::Drew(void) {
       Places("its most", most, "");
       Places("texels above the clear", written, "texels");
     }
+    if (Steps < 2) {
+      Places("the exposure the picture applied", (double)Device.ExposureApplied(), "1/(cd/m2)");
+      std::vector<float> linear;
+      if (Device.ReadSceneLinear(linear) == Render::ReadState::Ready) {
+        double brightest = 0.0;
+        for (size_t at = 0; at + 3 < linear.size(); at += 4) {
+          for (int channel = 0; channel < 3; ++channel) {
+            brightest = (double)linear[at + channel] > brightest ? (double)linear[at + channel]
+                                                                 : brightest;
+          }
+        }
+        Places("the brightest the scene's linear buffer reached", brightest, "");
+      }
+      std::vector<uint8_t> shown;
+      if (Device.ReadPixels(shown) == Render::ReadState::Ready) {
+        double peak = 0.0;
+        for (size_t at = 0; at + 3 < shown.size(); at += 4) {
+          for (int channel = 0; channel < 3; ++channel) {
+            peak = (double)shown[at + channel] > peak ? (double)shown[at + channel] : peak;
+          }
+        }
+        Places("the brightest the presented frame shows", peak, "of 255");
+      }
+    }
   }
 }
 

@@ -158,6 +158,7 @@ public:
   [[nodiscard]] size_t ShadowCastCount() const { return Shadow_.CastBatches(); }
 
   [[nodiscard]] size_t ShadowedFrames() const { return Subjects_.ShadowedFrames(); }
+  [[nodiscard]] float ExposureApplied() const { return Plan_ ? Plan_->Exposure() : 0.0f; }
 
   [[nodiscard]] uint32_t SubjectDrawCount() const { return Subjects_.DrawCount(); }
 

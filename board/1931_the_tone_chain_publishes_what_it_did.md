@@ -31,11 +31,32 @@ that case asserts only ORDERING (brighter than the next elevation down, dark wit
 a value against a derivation. A tone chain nobody can check by hand is one where a factor of two
 lives forever.
 
+## Measured once the numbers were published, and the suspicion is DEAD
+
+    the exposure the picture applied                5.20833e-05
+    the brightest the scene's linear buffer reached 3326
+    the brightest the presented frame shows         138 of 255
+
+Against the hand computation, end to end:
+
+    exposure   1 / (1.2 * 2^13.966)         = 5.208e-05     agrees exactly
+    x          3326 * 5.208e-05             = 0.1732
+    filmic(x)  x(2.51x+0.03)/(x(2.43x+0.59)+0.14) = 0.2555
+    sRGB       0.2555^(1/2.2) * 255         = 137.3         measured 138
+
+**One count.** The tone chain is correct and the frame is sRGB-encoded, which the arithmetic
+alone could not decide before these three numbers existed.
+
+So the still is dark because the WORLD is dark, not because the chain is: the brightest thing in
+the frame reaches 3326 cd/m^2 and the ground's albedo is 0.10, which under a filmic curve is a
+dim olive whatever the sun does. That is a content finding and it belongs to board:1890's surface
+box, not here.
+
 ## What will be true
 
-- [ ] The frame publishes, per render: the scene luminance the brightest surface reached in
-      cd/m^2, the exposure applied, and the display value that came out -- three numbers a hand
-      computation can be compared against.
+- [x] The frame publishes, per render: the brightest linear value the scene reached, the exposure
+      applied, and the brightest display value that came out -- three numbers a hand computation
+      can be compared against, and it agrees to one count.
 - [ ] `ScoreWhatALitSurfaceReads` asserts a VALUE against the derivation above, with its tolerance
       stated, not only an ordering. An ordering is satisfied by any monotone wrongness.
 - [ ] Proving case: a level Lambertian surface of declared albedo under a declared illuminance
