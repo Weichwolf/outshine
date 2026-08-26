@@ -66,10 +66,31 @@ only in whether something stands over the ground, and the natural way to write i
 in through `Engine::Stands` -- measures nothing, because geometry handed in does not cast at all
 (board:1952).
 
+## WHAT RAGE AND UNREAL DO, and it is more than the repair
+
+Unreal keeps ONE origin per frame -- `FViewMatrices::PreViewTranslation`. It is chosen once and
+applied to EVERY matrix the frame builds: the view, the light, the instance transforms. No
+subsystem translates for itself; the translation is a property of the FRAME. RAGE is
+reconstructed and the shape is the same, camera-relative with one origin a frame.
+
+That is exactly what was missing. `Live::PlacedBounds` worked in world-ASL and
+`LightVisibilityStage::Cast` applied `Anchor - eye` to the placements: two subsystems, each with
+its own translation, agreeing by luck until the ground ring changed the anchor.
+
+The repair below centres the light on the placements the residency already holds, which is
+correct and LOCAL. The benchmark's answer is general and this item now asks for it: one declared
+pre-view translation, read by everything that builds a matrix, so a third subsystem cannot invent
+a fourth space. CLAUDE.md already names the boundary -- *precision has ONE boundary and it is the
+camera* -- and this is the same sentence seen from the matrix side.
+
 ## What will be true
 
-- [ ] `Live::PlacedBounds`, `SubjectResidency::AnchorM` and `DrawBatch`'s placement translation
-      are stated to be in ONE named space, and the light frustum is built in that space.
+- [ ] The frame declares ONE pre-view translation, and every matrix it builds reads that one --
+      view, light and instance alike. Unreal's `PreViewTranslation` is the shape; a subsystem
+      that subtracts an origin for itself is the defect, whoever gets it right.
+- [x] The light frustum is built in the space its casters are in: the stage centres on the
+      placements `SubjectResidency` holds, and `ShadowCentre` and `Frame` are deleted because a
+      second source for one number was the defect.
 - [ ] Proving case: a subject at a known world position casts into an atlas whose written texels
       lie where the closed form puts them, and a caster moved by a known distance moves the
       written region by the corresponding number of texels. Negative control: the anchor added on
