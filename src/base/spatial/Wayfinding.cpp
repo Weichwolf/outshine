@@ -691,6 +691,15 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
   if (nearStart.empty()) { nearStart.push_back(start); }
   out.StartedFrom = nearStart.size();
 
+  std::vector<size_t> nearFinish;
+  const double arriveM = Nodes_[finish].HalfWidthM > 0.0 ? 2.0 * Nodes_[finish].HalfWidthM
+                                                        : SnapM_;
+  Within(to, finishAwayM + arriveM, nearFinish);
+  if (nearFinish.empty()) { nearFinish.push_back(finish); }
+  std::vector<bool> arriving(Nodes_.size(), false);
+  for (const size_t which : nearFinish) { arriving[which] = true; }
+  out.ArrivedAt = nearFinish.size();
+
   const size_t states = edges + nearStart.size();
   std::vector<double> best(states, never);
   std::vector<size_t> came(states, kNoState);
@@ -734,8 +743,9 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
       nodeSeen[node] = true;
       ++reached;
     }
-    if (node == finish) {
+    if (arriving[node]) {
       arrived = state;
+      finish = node;
       break;
     }
 
@@ -785,12 +795,15 @@ Route Network::Plan(const Waypoint &from, const Waypoint &to, double tightestM) 
   out.Reached = reached;
   if (arrived == kNoState) {
     const size_t joined = Reaches(std::span<const size_t>(nearStart));
+    const size_t joinedToEnd = Reaches(std::span<const size_t>(nearFinish));
     out.Component = joined;
+    out.EndComponent = joinedToEnd;
     out.Error =
         "no chain of ways joins the two ends -- " + std::to_string(joined) + " nodes of " +
         std::to_string(Nodes_.size()) + " are joined to the start by ANY edge, and the search " +
         "settled " + std::to_string(reached) +
-        " of those, so what separates the ends is " +
+        " of those, while " + std::to_string(joinedToEnd) +
+        " nodes are joined to the DESTINATION, so what separates the ends is " +
         (joined + 1 < Nodes_.size() ? std::string("the graph itself")
                                     : std::string("this search, not the graph"));
     return out;

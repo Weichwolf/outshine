@@ -103,7 +103,7 @@ MASS -- the heaviest units, against the median of them all
     1323  render/Renderer.h
     1141  base/format/Script.h
     1006  render/stages/SubjectDraw.h
-     989  base/spatial/Wayfinding.h
+    1004  base/spatial/Wayfinding.h
      955  ui/Style.h
      108  the median of 241 unit(s)
 

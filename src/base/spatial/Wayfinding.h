@@ -41,6 +41,8 @@ struct Route {
   size_t Component = 0;
   size_t TurnsRefused = 0;
   size_t StartedFrom = 0;
+  size_t ArrivedAt = 0;
+  size_t EndComponent = 0;
   std::vector<Leg> Legs;
   std::string Error;
 };
