@@ -202,7 +202,7 @@ The heaviest units, against the median of them all.
 | 1342 | `render/Renderer.h` |
 | 1141 | `base/format/Script.h` |
 | 1103 | `base/spatial/Wayfinding.h` |
-| 1063 | `render/stages/SubjectDraw.h` |
+| 1067 | `render/stages/SubjectDraw.h` |
 | 967 | `engine/Live.h` |
 | **107** | *the median of 241 unit(s)* |
 

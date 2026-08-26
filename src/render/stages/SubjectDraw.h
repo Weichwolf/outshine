@@ -59,6 +59,10 @@ public:
   void CastsNoShadow() { ShadowedBy(nullptr, nullptr, nullptr); }
 
   [[nodiscard]] bool PlacementRows(size_t rows, std::string &error) {
+    if (rows == 0) {
+      Placed_.clear();
+      return true;
+    }
     for (const DrawBatch &batch : Batches) {
       if ((size_t)batch.ModelSlot < rows) { continue; }
       error = "a draw names placement slot " + std::to_string(batch.ModelSlot) +
