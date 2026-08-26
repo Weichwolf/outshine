@@ -46,7 +46,7 @@
 
   <player is="f31" view="eyes"/>
 
-  <drive fromLat="48.13720" fromLon="11.57560" toLat="48.15000" toLon="11.59000"/>
+  <drive fromLat="48.13720" fromLon="11.57560" toLat="48.15500" toLon="11.59500"/>
 
   <input>
     <bind event="KeyW" action="throttle"/>
