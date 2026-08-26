@@ -77,10 +77,29 @@ constexpr double kMostClothoidShare = 1.0;
   return std::sqrt(east * east + north * north);
 }
 
+[[nodiscard]] double AllowedAt(std::span<const double> withinAtM, size_t vertex, double withinM) {
+  return vertex < withinAtM.size() && withinAtM[vertex] > 0.0 ? withinAtM[vertex] : withinM;
+}
+
+[[nodiscard]] double FurthestShareOfArc(std::span<const double> points, size_t from, size_t to,
+                                        double centreE, double centreN, double radiusM,
+                                        std::span<const double> withinAtM, double withinM) {
+  double worst = 0.0;
+  for (size_t at = from; at <= to; ++at) {
+    const double east = points[2 * at] - centreE;
+    const double north = points[2 * at + 1] - centreN;
+    const double away = std::fabs(std::sqrt(east * east + north * north) - radiusM);
+    const double share = away / AllowedAt(withinAtM, at, withinM);
+    worst = share > worst ? share : worst;
+  }
+  return worst;
+}
+
 [[nodiscard]] std::expected<Bend, Refusal> BendOver(std::span<const double> points,
                                                         std::span<const Turned> legs, size_t at,
                                                         size_t last, double withinM,
-                                                        double tightestM) {
+                                                        double tightestM,
+                                                        std::span<const double> withinAtM) {
   Bend bend;
   bend.FirstVertex = at;
   bend.LastVertex = last;
@@ -126,7 +145,8 @@ constexpr double kMostClothoidShare = 1.0;
   }
 
   if (last == at) {
-    const double byAccuracy = withinM / (ShiftShare(swing) / std::cos(half) - 1.0);
+    const double byAccuracy =
+        AllowedAt(withinAtM, at, withinM) / (ShiftShare(swing) / std::cos(half) - 1.0);
     bend.RadiusM = byAccuracy < byRoom ? byAccuracy : byRoom;
   } else {
     double low = tightestM, high = byRoom;
@@ -158,6 +178,8 @@ constexpr double kMostClothoidShare = 1.0;
   double centreE = 0.0, centreN = 0.0;
   centreOf(bend.RadiusM, centreE, centreN);
   bend.AwayM = FurthestFromArcM(points, at, last, centreE, centreN, bend.RadiusM);
+  bend.AwayShare =
+      FurthestShareOfArc(points, at, last, centreE, centreN, bend.RadiusM, withinAtM, withinM);
   bend.SpiralM = SpiralInto(bend.RadiusM, swing, roomM, againstAStraight);
   bend.ArcM = bend.RadiusM * swing - bend.SpiralM;
   bend.TangentM = TangentFor(bend.RadiusM, swing, bend.SpiralM);
@@ -173,7 +195,8 @@ constexpr double kMostClothoidShare = 1.0;
 }
 
 std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM, double withinM,
-                                          double tightestM) {
+                                          double tightestM,
+                                          std::span<const double> withinAtM) {
   const size_t points = eastNorthM.size() / 2;
   if (points < 3) {
     return std::unexpected(Refusal{"an alignment is fitted through 3..N vertices and this one carries " +
@@ -213,9 +236,9 @@ std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM, double
 
     Bend bend;
     for (;;) {
-      const auto held = BendOver(eastNorthM, legs, at, last, withinM, tightestM);
+      const auto held = BendOver(eastNorthM, legs, at, last, withinM, tightestM, withinAtM);
       if (!held) { return std::unexpected(held.error()); }
-      if (held->AwayM <= withinM || last == at) {
+      if (held->AwayShare <= 1.0 || last == at) {
         bend = *held;
         out.SplitByAccuracy += last < runs ? 1u : 0u;
         break;

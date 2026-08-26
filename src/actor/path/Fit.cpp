@@ -89,7 +89,8 @@ Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
 }
 
 Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
-           std::span<const double> classTightestM, ReferenceLine &into) {
+           std::span<const double> classTightestM, ReferenceLine &into,
+           std::span<const double> withinAtM) {
   Fitted out;
   const size_t points = eastNorthM.size() / 2;
   out.Vertices = points;
@@ -140,7 +141,7 @@ Fitted Fit(std::span<const double> eastNorthM, double withinM, double tightestM,
     return out;
   }
 
-  const auto aligned = Align(eastNorthM, withinM, tightestM);
+  const auto aligned = Align(eastNorthM, withinM, tightestM, withinAtM);
   if (!aligned) {
     out.Error = aligned.error().Said;
     out.TightestDemandedM = aligned.error().DemandedM;

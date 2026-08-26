@@ -45,7 +45,7 @@ flowchart LR
   world_ground --> |20| base_spatial
   engine --> |17| world_generators
   world_ground --> |15| base_io
-  sim --> |12| actor_path
+  sim --> |13| actor_path
   render --> |12| render_stages
   world_generators --> |11| base_spatial
   engine --> |11| world_ground
@@ -159,6 +159,7 @@ STRANDED -- sources no declared suite links, so nothing they hold is proven
   src/world/generators/Yield.cpp
 
 PROVES -- what src/ provably does, one line each
+  a corner is bounded by the junction its two carriageways form, whose inner kerb lies sqrt(wA^2 + wB^2 - 2 wA wB cos D)/sin D from the intersection, so
   a derived camera is computed where the bounds are, and the rule's constants cannot drift between the engine and the preparer
   a fitted corridor reads the radius the polyline carries and lays the arc length its sweep demands, at every digitisation density, because a circle's r
   compositor: a ground patchwork reads a tile at the stride the tile's own layout declares, so a normal never reaches a position and the relief a patch 

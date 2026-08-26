@@ -30,6 +30,7 @@ struct Bend {
   double SpiralM = 0.0;
   double ArcM = 0.0;
   double AwayM = 0.0;
+  double AwayShare = 0.0;
   double IntoEastM = 0.0;
   double IntoNorthM = 0.0;
   double OutOfEastM = 0.0;
@@ -53,7 +54,8 @@ struct Laying {
 };
 
 [[nodiscard]] std::expected<Aligned, Refusal> Align(std::span<const double> eastNorthM,
-                                                        double withinM, double tightestM);
+                                                        double withinM, double tightestM,
+                                                        std::span<const double> withinAtM = {});
 
 [[nodiscard]] std::expected<Laying, Refusal> LayAligned(std::span<const double> eastNorthM,
                                                             const Aligned &aligned,

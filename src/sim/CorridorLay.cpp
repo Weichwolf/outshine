@@ -5,6 +5,8 @@
 #include <numbers>
 #include <chrono>
 #include <cmath>
+
+#include "Angle.h"
 #include <cstdio>
 
 #include "Carriageway.h"
@@ -65,6 +67,29 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
     if (half > roadWithinM) { roadWithinM = half; }
   }
   if (!(roadWithinM > quantumM)) { roadWithinM = quantumM; }
+
+  std::vector<double> withinAtM(keptAt.size(), 0.0);
+  double widestJunctionM = 0.0;
+  for (size_t at = 0; at < keptAt.size(); ++at) {
+    const double mine = route.Legs[keptAt[at]].HalfWidthM;
+    const double half = mine > 0.0 ? mine : roadWithinM;
+    withinAtM[at] = half;
+    if (at == 0 || at + 1 >= keptAt.size()) { continue; }
+    const double eastIn = keptM[2 * at] - keptM[2 * (at - 1)];
+    const double northIn = keptM[2 * at + 1] - keptM[2 * (at - 1) + 1];
+    const double eastOut = keptM[2 * (at + 1)] - keptM[2 * at];
+    const double northOut = keptM[2 * (at + 1) + 1] - keptM[2 * at + 1];
+    const double turn =
+        std::fabs(outshine::Wrapped(std::atan2(northOut, eastOut) - std::atan2(northIn, eastIn)));
+    if (!(turn > 1.0e-9) || turn >= std::numbers::pi - 1.0e-9) { continue; }
+    const double before = route.Legs[keptAt[at - 1]].HalfWidthM;
+    const double other = before > 0.0 ? before : half;
+    const double kerbM = std::sqrt(half * half + other * other - 2.0 * half * other * std::cos(turn)) /
+                         std::sin(turn);
+    if (kerbM > withinAtM[at]) { withinAtM[at] = kerbM; }
+    if (withinAtM[at] > widestJunctionM) { widestJunctionM = withinAtM[at]; }
+  }
+  say.Number("the widest a junction lets an arc leave its corner", widestJunctionM, "m");
   say.Number("vertices the route offered before simplifying", (double)(eastNorthM.size() / 2),
        "vertices");
   say.Number("vertices left after removing what the data cannot resolve",
@@ -73,7 +98,7 @@ bool LayCorridor(const Path::Route &route, const GroundQuery &ground, const Vehi
 
   say.Number("how far the built road may leave the polyline, being its own half width",
              roadWithinM, "m");
-  fitted = Fit(keptM, roadWithinM, tightestM, classTightestM, corridor);
+  fitted = Fit(keptM, roadWithinM, tightestM, classTightestM, corridor, withinAtM);
   if (!fitted.Laid) { say.Refuse(Line("%s", fitted.Error.c_str())); }
   say.Number("vertices the route offered", (double)fitted.Vertices, "vertices");
   say.Number("corners the fit needed", (double)fitted.Corners, "corners");
