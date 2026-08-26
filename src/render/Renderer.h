@@ -156,6 +156,9 @@ public:
   [[nodiscard]] uint32_t SubjectBatchCount() const { return Subjects_.BatchCount(); }
 
   [[nodiscard]] size_t ShadowCastCount() const { return Shadow_.CastBatches(); }
+
+  [[nodiscard]] size_t ShadowedFrames() const { return Subjects_.ShadowedFrames(); }
+
   [[nodiscard]] uint32_t SubjectDrawCount() const { return Subjects_.DrawCount(); }
 
   [[nodiscard]] uint32_t SubjectPipelineCount() const { return Subjects_.PipelineCount(); }

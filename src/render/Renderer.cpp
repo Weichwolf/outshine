@@ -605,6 +605,7 @@ void Renderer::EncodeMediumRadiance(const FrameContext &ctx, const PassRecording
 
 void Renderer::EncodeLightVisibility(const FrameContext &ctx, const PassRecording &into) {
   Shadow_.Encode(ctx, into);
+  Subjects_.ShadowedBy(ShadowAtlas_.Get(), LutSamp_.Get(), Shadow_.LightFromWorld());
 }
 
 void Renderer::EncodeSky(const FrameContext &ctx, const PassRecording &into) {

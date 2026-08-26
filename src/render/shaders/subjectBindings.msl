@@ -1,5 +1,6 @@
 
-struct S { float4x4 mvp; float4 anc; float4x4 prevMvp; float4 prevAnc; float4x4 model; };
+struct S { float4x4 mvp; float4 anc; float4x4 prevMvp; float4 prevAnc; float4x4 model;
+           float4x4 lightFromModel; };
 
 struct M { float factor; float cut; float metalness; float roughness;
            float4 base; packed_float3 emissive; float normalScale; float identity;
@@ -41,7 +42,8 @@ struct Lights { float4 count; float4 environment; Light items[16]; };
     texture2d<float> emissiveMap [[texture(3)]], sampler emissiveSampler [[sampler(3)]], \
     texture2d<float> specularStrengthMap [[texture(4)]], sampler specularStrengthSampler [[sampler(4)]], \
     texture2d<float> specularTintMap [[texture(5)]], sampler specularTintSampler [[sampler(5)]], \
-    texture2d<float> behindMap [[texture(6)]], sampler behindSampler [[sampler(6)]]
+    texture2d<float> behindMap [[texture(6)]], sampler behindSampler [[sampler(6)]], \
+    texture2d<float> shadowMap [[texture(7)]], sampler shadowSampler [[sampler(7)]]
 
 struct Occluders { device const BvhNode *nodes; device const BvhTri *tris; };
 #define SUBJECT_OCCLUDERS Occluders{bvhNodes, bvhTris}

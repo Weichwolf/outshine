@@ -15,7 +15,7 @@ fragment SFrag fsLitTextured(LOut in [[stage_in]], bool front [[front_facing]], 
                           SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
                           SUBJECT_SPECULAR_F90(SUBJECT_UVS(in)),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
-                          float3(0.0)), 1.0);
+                          float3(0.0), in.ls, shadowMap, shadowSampler), 1.0);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
@@ -35,7 +35,7 @@ fragment SFrag fsLitMaskedTextured(LOut in [[stage_in]], bool front [[front_faci
                           SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
                           SUBJECT_SPECULAR_F90(SUBJECT_UVS(in)),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
-                          float3(0.0)), 1.0);
+                          float3(0.0), in.ls, shadowMap, shadowSampler), 1.0);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
@@ -54,7 +54,7 @@ fragment SFrag fsLitBlendedTextured(LOut in [[stage_in]], bool front [[front_fac
                           SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
                           SUBJECT_SPECULAR_F90(SUBJECT_UVS(in)),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
-                          float3(0.0)),
+                          float3(0.0), in.ls, shadowMap, shadowSampler),
                  surface.factor * tap.a * in.colour.a);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
@@ -75,7 +75,7 @@ fragment SFrag fsLitTransmissiveTextured(LOut in [[stage_in]], bool front [[fron
                           SUBJECT_SPECULAR_F0(SUBJECT_UVS(in)),
                           SUBJECT_SPECULAR_F90(SUBJECT_UVS(in)),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
-                          float3(0.0)) +
+                          float3(0.0), in.ls, shadowMap, shadowSampler) +
                      transmitted(surface, behindMap, in.pos.xy, albedo),
                  1.0);
   SUBJECT_SET_VELOCITY(o, in);

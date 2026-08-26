@@ -101,15 +101,15 @@ MASS -- the heaviest units, against the median of them all
     2020  content/gltf/Document.h
     1397  ui/Layout.h
     1347  content/gltf/Subject.h
-    1324  render/Renderer.h
+    1328  render/Renderer.h
     1141  base/format/Script.h
     1086  base/spatial/Wayfinding.h
-    1006  render/stages/SubjectDraw.h
+    1039  render/stages/SubjectDraw.h
      955  ui/Style.h
      108  the median of 241 unit(s)
 
 CARPET -- the widest public surfaces
-    56 [[nodiscard]] in src/render/Renderer.h
+    57 [[nodiscard]] in src/render/Renderer.h
     51 [[nodiscard]] in src/content/gltf/Document.h
     42 [[nodiscard]] in src/content/gltf/Subject.h
     34 [[nodiscard]] in src/scene/Store.h

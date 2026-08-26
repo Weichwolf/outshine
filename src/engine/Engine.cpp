@@ -1058,6 +1058,7 @@ bool Engine::Advance() {
 void Engine::State::Drew(void) {
   Places("batches the picture draws", (double)Device.SubjectBatchCount(), "batches");
   Places("batches the shadow casts", (double)Device.ShadowCastCount(), "batches");
+  Places("frames the subject drew shadowed", (double)Device.ShadowedFrames(), "frames");
 }
 
 double Engine::StepS(void) const { return S_->Declared.Motion.StepS; }

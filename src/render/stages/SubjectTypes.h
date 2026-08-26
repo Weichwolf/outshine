@@ -22,7 +22,7 @@ struct SubjectEnvironment {
 constexpr size_t kMaxSubjectLights = 16;
 
 constexpr uint32_t kSubjectMaterialImages = 6;
-constexpr uint32_t kSubjectImages = kSubjectMaterialImages + 1;
+constexpr uint32_t kSubjectImages = kSubjectMaterialImages + 2;
 constexpr uint32_t kSubjectFragmentUniforms = 2;
 constexpr uint32_t kSubjectStorageBuffers = 2;
 

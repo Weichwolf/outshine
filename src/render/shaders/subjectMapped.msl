@@ -1,6 +1,6 @@
 
 struct MOut { float4 pos [[position]]; float2 uv; float2 uv1; float4 colour; float3 n; float3 p;
-              float3 lp; float4 t; SUBJECT_MOTION_VARYINGS };
+              float3 lp; float4 t; float4 ls; SUBJECT_MOTION_VARYINGS };
 
 #define SUBJECT_MAPPED_ARM(NAME, RUNS, UV1, COLOUR) \
 struct NAME##In { float3 p [[attribute(0)]]; SUBJECT_UV_ATTRIBUTE SUBJECT_NORMAL_ATTRIBUTE \
@@ -14,6 +14,7 @@ vertex MOut NAME(NAME##In v [[stage_in]], constant S &s [[buffer(0)]]) { \
   o.n = normalize(s.model[0].xyz * v.n.x + s.model[1].xyz * v.n.y + s.model[2].xyz * v.n.z); \
   o.p = (s.model * float4(v.p, 1.0)).xyz; \
   o.lp = v.p; \
+  o.ls = s.lightFromModel * float4(v.p, 1.0); \
   o.t = float4(normalize(s.model[0].xyz * v.t.x + s.model[1].xyz * v.t.y + \
                          s.model[2].xyz * v.t.z), \
                v.t.w); \
@@ -43,6 +44,7 @@ static inline Shaded mappedShade(constant M &surface, constant Lights &lights, O
                                  texture2d<float> specularStrengthMap,
                                  sampler specularStrengthSampler,
                                  texture2d<float> specularTintMap, sampler specularTintSampler,
+                                 texture2d<float> shadowMap, sampler shadowSampler,
                                  MOut in, bool front) {
   float4 orm = SUBJECT_METALROUGH_TAP(SUBJECT_UVS(in));
 
@@ -56,14 +58,14 @@ static inline Shaded mappedShade(constant M &surface, constant Lights &lights, O
                          roughenedBy(surface.roughness * orm.g, meanResultantLength), specularF0,
                          SUBJECT_SPECULAR_F90(SUBJECT_UVS(in)),
                          emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in)),
-                         in.t.xyz),
+                         in.t.xyz, in.ls, shadowMap, shadowSampler),
                 shadingNormal};
 }
 
 #define SUBJECT_MAPPED_SHADE mappedShade(surface, lights, SUBJECT_OCCLUDERS, colourMap, \
     colourSampler, normalMap, normalSampler, metalRoughMap, metalRoughSampler, emissiveMap, \
     emissiveSampler, specularStrengthMap, specularStrengthSampler, specularTintMap, \
-    specularTintSampler, in, front)
+    specularTintSampler, shadowMap, shadowSampler, in, front)
 
 fragment SFrag fsMapped(MOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   const Shaded shaded = SUBJECT_MAPPED_SHADE;

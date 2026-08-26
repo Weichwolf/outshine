@@ -1,6 +1,6 @@
 
 struct LOut { float4 pos [[position]]; float2 uv; float2 uv1; float4 colour; float3 n; float3 p;
-              float3 lp; SUBJECT_MOTION_VARYINGS };
+              float3 lp; float4 ls; SUBJECT_MOTION_VARYINGS };
 
 #define SUBJECT_LIT_ARM(NAME, RUNS, UV, UV1, COLOUR) \
 struct NAME##In { float3 p [[attribute(0)]]; SUBJECT_NORMAL_ATTRIBUTE \
@@ -14,6 +14,7 @@ vertex LOut NAME(NAME##In v [[stage_in]], constant S &s [[buffer(0)]]) { \
   o.n = normalize(s.model[0].xyz * v.n.x + s.model[1].xyz * v.n.y + s.model[2].xyz * v.n.z); \
   o.p = (s.model * float4(v.p, 1.0)).xyz; \
   o.lp = v.p; \
+  o.ls = s.lightFromModel * float4(v.p, 1.0); \
   SUBJECT_SET_MOTION(o, v, s); \
   return o; \
 }
@@ -35,7 +36,8 @@ SUBJECT_LIT_ARM(vsLitTexturedTwoTinted,
 static inline float3 shadeRow(constant M &surface, constant Lights &lights, Occluders occluders,
                               float3 localM, float3 n, float3 p, float3 albedo, float metalness,
                               float roughness, float3 dielectricF0, float dielectricF90,
-                              float3 emitted, float3 tangentDir) {
+                              float3 emitted, float3 tangentDir, float4 lightSpace,
+                              texture2d<float> shadowMap, sampler shadowSampler) {
   float3 sheenColour = float3(surface.sheenColour);
   float sheenRoughness = surface.sheenRoughness;
   float clearcoat = surface.clearcoat;
@@ -92,6 +94,16 @@ static inline float3 shadeRow(constant M &surface, constant Lights &lights, Occl
       attenuation = attenuation *
                     clamp((dot(light.beam.xyz, -toward) - light.cone.x) * light.cone.y, 0.0, 1.0);
     }
+    if (light.tint.w <= 0.5 && lights.count.z > 0.5) {
+      float3 lit = lightSpace.xyz / max(1.0e-6, lightSpace.w);
+      float2 atlasUv = lit.xy * float2(0.5, -0.5) + 0.5;
+      if (atlasUv.x >= 0.0 && atlasUv.x <= 1.0 && atlasUv.y >= 0.0 && atlasUv.y <= 1.0 &&
+          lit.z >= 0.0 && lit.z <= 1.0) {
+        float nearest = shadowMap.sample(shadowSampler, atlasUv, level(0.0)).r;
+        float bias = lights.count.w;
+        attenuation = attenuation * (lit.z - bias > nearest ? 0.0 : 1.0);
+      }
+    }
     float nl = dot(n, toward);
     if (nl <= 0.0 || attenuation <= 0.0) { continue; }
 
@@ -146,10 +158,11 @@ static inline float3 shadeRow(constant M &surface, constant Lights &lights, Occl
 }
 
 static inline float3 shade(constant M &surface, constant Lights &lights, Occluders occluders,
-                           float3 localM, float3 n, float3 p, float3 albedo) {
+                           float3 localM, float3 n, float3 p, float3 albedo, float4 lightSpace,
+                           texture2d<float> shadowMap, sampler shadowSampler) {
   return shadeRow(surface, lights, occluders, localM, n, p, albedo, surface.metalness,
                   surface.roughness, float3(surface.f0), surface.specularWeight,
-                  surface.emissive, float3(0.0));
+                  surface.emissive, float3(0.0), lightSpace, shadowMap, shadowSampler);
 }
 
 static inline float3 facing(float3 n, bool front) {
@@ -160,7 +173,8 @@ fragment SFrag fsLit(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
   o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
-                       surface.base.rgb * in.colour.rgb), 1.0);
+                       surface.base.rgb * in.colour.rgb, in.ls, shadowMap, shadowSampler),
+                 1.0);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
@@ -172,7 +186,8 @@ fragment SFrag fsLitMasked(LOut in [[stage_in]], bool front [[front_facing]], SU
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
   o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
-                       surface.base.rgb * in.colour.rgb), 1.0);
+                       surface.base.rgb * in.colour.rgb, in.ls, shadowMap, shadowSampler),
+                 1.0);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
@@ -183,7 +198,7 @@ fragment SFrag fsLitTransmissive(LOut in [[stage_in]], bool front [[front_facing
   const float3 shadingNormal = facing(in.n, front);
   const float3 albedo = surface.base.rgb * in.colour.rgb;
   SFrag o;
-  o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p, albedo) +
+  o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p, albedo, in.ls, shadowMap, shadowSampler) +
                      transmitted(surface, behindMap, in.pos.xy, albedo),
                  1.0);
   SUBJECT_SET_VELOCITY(o, in);
@@ -196,7 +211,7 @@ fragment SFrag fsLitBlended(LOut in [[stage_in]], bool front [[front_facing]], S
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
   o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
-                       surface.base.rgb * in.colour.rgb),
+                       surface.base.rgb * in.colour.rgb, in.ls, shadowMap, shadowSampler),
                  surface.factor * in.colour.a);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);

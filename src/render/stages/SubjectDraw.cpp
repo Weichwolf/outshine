@@ -4,6 +4,7 @@
 #include <new>
 
 #include "Heap.h"
+#include "LightVisibilityStage.h"
 
 #include <algorithm>
 #include <array>
@@ -668,6 +669,8 @@ std::array<float, SubjectDraw::kLightFloats> SubjectDraw::PackedLights(
   std::array<float, kLightFloats> packed{};
   packed[0] = (float)Placed.size();
   packed[1] = ShadowNearM_;
+  packed[2] = Shadowed_ ? 1.0f : 0.0f;
+  packed[3] = 1.0f / (float)kShadowAtlasPx;
   for (int channel = 0; channel < 3; ++channel) {
     packed[4 + channel] = (float)Environment.RadianceLinear[channel];
   }
@@ -739,11 +742,21 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
       for (int axis = 0; axis < 3; ++axis) { carried[12 + axis] += Anchor[axis] - ctx.Eye[axis]; }
     }
     for (int i = 0; i < 16; i++) { uniform[40 + i] = (float)carried[i]; }
+    for (int column = 0; column < 4; ++column) {
+      for (int row = 0; row < 4; ++row) {
+        double sum = 0.0;
+        for (int over = 0; over < 4; ++over) {
+          sum += LightFromWorld_[over * 4 + row] * carried[column * 4 + over];
+        }
+        uniform[56 + column * 4 + row] = (float)sum;
+      }
+    }
     SDL_PushGPUVertexUniformData(into.Commands, 0, uniform, sizeof uniform);
   };
   place(Batches.empty() ? 0u : Batches.front().ModelSlot);
   uint32_t standing = Batches.empty() ? 0u : Batches.front().ModelSlot;
   const std::array<float, kLightFloats> lights = PackedLights(ctx);
+  ShadowedFrames_ += lights[2] > 0.5f ? 1u : 0u;
   SDL_PushGPUFragmentUniformData(into.Commands, 1, lights.data(),
                                  (uint32_t)(lights.size() * sizeof(float)));
 
@@ -798,7 +811,10 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
           {surface.SpecularTint.Image.Get(), surface.SpecularTint.Sample.Get()},
 
           {Behind != nullptr ? Behind : surface.Colour.Image.Get(),
-           BehindSampler != nullptr ? BehindSampler : surface.Colour.Sample.Get()}};
+           BehindSampler != nullptr ? BehindSampler : surface.Colour.Sample.Get()},
+
+          {Atlas_ != nullptr ? Atlas_ : surface.Colour.Image.Get(),
+           AtlasSampler_ != nullptr ? AtlasSampler_ : surface.Colour.Sample.Get()}};
       SDL_BindGPUFragmentSamplers(into.Pass, 0, images, kSubjectImages);
       SDL_PushGPUFragmentUniformData(into.Commands, 0, surface.Row.data(),
                                      (uint32_t)(surface.Row.size() * sizeof(float)));

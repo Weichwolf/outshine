@@ -48,6 +48,13 @@ public:
 
   void GlassIsDrawnElsewhere() { GlassDrawnElsewhere_ = true; }
 
+  void ShadowedBy(SDL_GPUTexture *atlas, SDL_GPUSampler *exact, const double lightFromWorld16[16]) {
+    Atlas_ = atlas;
+    AtlasSampler_ = exact;
+    for (int at = 0; at < 16; ++at) { LightFromWorld_[at] = lightFromWorld16[at]; }
+    Shadowed_ = atlas != nullptr && exact != nullptr;
+  }
+
   [[nodiscard]] bool SetPlacements(const double *models, size_t rows, std::string &error) {
     if (models == nullptr && rows > 0) {
       Placed_.clear();
@@ -110,7 +117,7 @@ public:
   float ShadowNearM() const { return ShadowNearM_; }
 
 private:
-  static constexpr int kUniFloats = 56;
+  static constexpr int kUniFloats = 72;
 
   static constexpr int kSurfaceScalars = 35;
 
@@ -173,6 +180,16 @@ private:
   std::vector<Resource> Colours;
   SubjectResidency Resident_;
 
+  SDL_GPUTexture *Atlas_ = nullptr;
+  SDL_GPUSampler *AtlasSampler_ = nullptr;
+  double LightFromWorld_[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+  bool Shadowed_ = false;
+  size_t ShadowedFrames_ = 0;
+
+public:
+  [[nodiscard]] size_t ShadowedFrames() const { return ShadowedFrames_; }
+
+private:
   OwnedPipeline DepthOnly_;
 
   float ShadowNearM_ = 0.0f;
