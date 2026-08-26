@@ -43,7 +43,7 @@ double ApartM(double fromLatDeg, double fromLonDeg, double toLatDeg, double toLo
 }
 
 void Network::Lay(std::span<const double> latLonPairs, double halfWidthM, double maxGradient,
-                  int lanes, double minRadiusM) {
+                  int lanes, double minRadiusM, bool spans) {
   const size_t points = latLonPairs.size() / 2;
   if (points < 2) { return; }
   Way way;
@@ -53,6 +53,7 @@ void Network::Lay(std::span<const double> latLonPairs, double halfWidthM, double
   way.MaxGradient = maxGradient;
   way.MinRadiusM = minRadiusM;
   way.Lanes = lanes;
+  way.Spans = spans;
   const uint32_t mine = (uint32_t)Ways_.size();
   way.MinLat = way.MaxLat = latLonPairs[0];
   way.MinLon = way.MaxLon = latLonPairs[1];
@@ -107,6 +108,79 @@ int64_t Network::KeyAt(int64_t row, int64_t column) {
 int64_t Network::CellOf(double latDeg, double lonDeg) const {
   const int64_t row = RowOf(latDeg);
   return KeyAt(row, ColumnIn(ShapeRow(row), lonDeg));
+}
+
+size_t Network::Cross() {
+  Joined_ = 0;
+  LeftAlone_ = 0;
+  std::vector<Crossing> found;
+  const auto swept = Crossings(found);
+  if (!swept) { return 0; }
+
+  struct Cut {
+    uint32_t After = 0;
+    double LatDeg = 0.0, LonDeg = 0.0;
+    double Along = 0.0;
+  };
+  std::vector<std::vector<Cut>> perWay(Ways_.size());
+  for (const Crossing &held : found) {
+    if (Ways_[held.OverWay].Spans || Ways_[held.UnderWay].Spans) {
+      ++LeftAlone_;
+      continue;
+    }
+    ++Joined_;
+    const uint32_t sides[2] = {held.OverAt, held.UnderAt};
+    const uint32_t ways[2] = {held.OverWay, held.UnderWay};
+    for (int side = 0; side < 2; ++side) {
+      const Way &way = Ways_[ways[side]];
+      const uint32_t local = sides[side] - (uint32_t)way.First;
+      const double fromLat = Points_[2 * sides[side]], fromLon = Points_[2 * sides[side] + 1];
+      const double toLat = Points_[2 * sides[side] + 2], toLon = Points_[2 * sides[side] + 3];
+      const double runLat = toLat - fromLat, runLon = LonApartDeg(toLon, fromLon);
+      const double square = runLat * runLat + runLon * runLon;
+      const double along =
+          square > 0.0
+              ? ((held.LatDeg - fromLat) * runLat + LonApartDeg(held.LonDeg, fromLon) * runLon) /
+                    square
+              : 0.0;
+      perWay[ways[side]].push_back(Cut{local, held.LatDeg, held.LonDeg, along});
+    }
+  }
+  if (Joined_ == 0) { return 0; }
+
+  std::vector<double> laid;
+  std::vector<uint32_t> owner;
+  laid.reserve(Points_.size() + 4 * Joined_);
+  owner.reserve(WayOf_.size() + 2 * Joined_);
+  for (size_t which = 0; which < Ways_.size(); ++which) {
+    Way &way = Ways_[which];
+    std::vector<Cut> &cuts = perWay[which];
+    std::sort(cuts.begin(), cuts.end(), [](const Cut &one, const Cut &two) {
+      return one.After != two.After ? one.After < two.After : one.Along < two.Along;
+    });
+    const size_t began = laid.size() / 2;
+    size_t next = 0;
+    for (size_t at = 0; at + 1 < way.Count; ++at) {
+      laid.push_back(Points_[2 * (way.First + at)]);
+      laid.push_back(Points_[2 * (way.First + at) + 1]);
+      owner.push_back((uint32_t)which);
+      while (next < cuts.size() && cuts[next].After == at) {
+        laid.push_back(cuts[next].LatDeg);
+        laid.push_back(cuts[next].LonDeg);
+        owner.push_back((uint32_t)which);
+        ++next;
+      }
+    }
+    laid.push_back(Points_[2 * (way.First + way.Count - 1)]);
+    laid.push_back(Points_[2 * (way.First + way.Count - 1) + 1]);
+    owner.push_back((uint32_t)which);
+    way.First = began;
+    way.Count = laid.size() / 2 - began;
+  }
+  Points_ = std::move(laid);
+  WayOf_ = std::move(owner);
+  Woven_ = false;
+  return Joined_;
 }
 
 bool Network::Weave(std::string &error) {
@@ -539,7 +613,8 @@ std::expected<Network::Swept, std::string_view> Network::Crossings(
         double back = atX;
         while (back > 180.0) { back -= 360.0; }
         while (back < -180.0) { back += 360.0; }
-        into.push_back(Crossing{(uint32_t)segWay[mine], (uint32_t)segWay[theirs], atY, back});
+        into.push_back(Crossing{(uint32_t)segWay[mine], (uint32_t)segWay[theirs], atY, back,
+                                (uint32_t)firstA, (uint32_t)firstB});
       }
     }
   }

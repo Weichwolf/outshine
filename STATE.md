@@ -102,8 +102,8 @@ MASS -- the heaviest units, against the median of them all
     1347  content/gltf/Subject.h
     1323  render/Renderer.h
     1141  base/format/Script.h
+    1086  base/spatial/Wayfinding.h
     1006  render/stages/SubjectDraw.h
-    1004  base/spatial/Wayfinding.h
      955  ui/Style.h
      108  the median of 241 unit(s)
 
@@ -208,6 +208,7 @@ PROVES -- what src/ provably does, one line each
   the runner can read the oracle's EXR directly, so the flat raw beside it is a derived cache rather than an artefact that must survive
   the runner prunes test by test, and a file whose producer cannot be proven stays with the reason its proof failed
   wayfinding: two loose ends that meet the same segment split it once each, so the road between their junctions is the road, and a route along it does n
+  wayfinding: two ways that cross in plan with neither spanning the other are one junction, and a way marked as a bridge or a tunnel crosses over rather
 
 ACCESS -- what stands wider than private
   6 protected section(s), and inheritance is right where a stable interface carries

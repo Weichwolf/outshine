@@ -52,7 +52,8 @@ public:
   Network(double snapM, double sphereRadiusM) : SnapM_(snapM), RadiusM_(sphereRadiusM) {}
 
   void Lay(std::span<const double> latLonPairs, double halfWidthM, double maxGradient,
-           int lanes, double minRadiusM = 0.0);
+           int lanes, double minRadiusM = 0.0, bool spans = false);
+  [[nodiscard]] size_t Cross();
   [[nodiscard]] bool Weave(std::string &error);
 
   [[nodiscard]] size_t WayCount() const { return Ways_.size(); }
@@ -60,12 +61,15 @@ public:
   [[nodiscard]] size_t NodeCount() const { return Nodes_.size(); }
   [[nodiscard]] size_t EdgeCount() const { return Edges_.size(); }
   [[nodiscard]] size_t TiedToEdges() const { return Tied_; }
+  [[nodiscard]] size_t CrossingsJoined() const { return Joined_; }
+  [[nodiscard]] size_t CrossingsLeftAlone() const { return LeftAlone_; }
   [[nodiscard]] size_t CellsInTheTieIndex() const { return Unindexed_; }
   [[nodiscard]] size_t JunctionCount() const;
 
   struct Crossing {
     uint32_t OverWay = 0, UnderWay = 0;
     double LatDeg = 0.0, LonDeg = 0.0;
+    uint32_t OverAt = 0, UnderAt = 0;
   };
 
   struct Swept {
@@ -112,6 +116,7 @@ private:
     double MaxGradient = 0.0;
     double MinRadiusM = 0.0;
     int Lanes = 0;
+    bool Spans = false;
   };
   struct Node {
     double LatDeg = 0.0;
@@ -144,6 +149,8 @@ private:
   double SnapM_ = 0.0;
   double RadiusM_ = 0.0;
   size_t Unindexed_ = 0;
+  size_t Joined_ = 0;
+  size_t LeftAlone_ = 0;
   std::vector<double> Points_;
   std::vector<uint32_t> WayOf_;
   std::vector<Way> Ways_;

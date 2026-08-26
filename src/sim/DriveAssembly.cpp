@@ -193,6 +193,10 @@ bool AssembleDrive(const Store &scene, const Assembled &cast, const Column<Vehic
   out.Found.Ungraded = (long)reaped.Ungraded;
   out.Found.WidestRefusedM = reaped.WidestRefusedM;
 
+  const size_t joined = roads.Cross();
+  say.Number("crossings at grade made into junctions", (double)joined, "crossings");
+  say.Number("crossings left alone because one way spans", (double)roads.CrossingsLeftAlone(),
+             "crossings");
   if (!roads.Weave(error)) {
     say.Refuse(Line("the ways do not weave into a network: %s", error.c_str()));
     return false;

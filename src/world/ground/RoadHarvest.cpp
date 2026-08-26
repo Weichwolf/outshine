@@ -73,7 +73,8 @@ Reaped Reap(const OsmField &field, const VegetationTemplates &widths, double veh
         along.push_back(field.Points()[2 * ((size_t)ring.First + point) + 1]);
       }
       into.Lay(along, 0.5 * widthM, (double)rule->MaxGradient, rule->Lanes,
-               (double)rule->MinRadiusM);
+               (double)rule->MinRadiusM,
+               bridge > 0.5 || tunnel > 0.5);
       ++out.Ways;
       out.Points += ring.Count;
     }
