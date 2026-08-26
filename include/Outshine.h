@@ -56,8 +56,6 @@ public:
 
   [[nodiscard]] bool Assemble();
 
-  [[nodiscard]] double Along(void) const;
-  [[nodiscard]] double Whole(void) const;
 
   [[nodiscard]] bool Advance();
   [[nodiscard]] bool Advance(double elapsedS);

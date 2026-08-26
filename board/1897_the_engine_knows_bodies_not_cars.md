@@ -75,7 +75,11 @@ The order this is done in:
    `Drive.State.Body`
 2. `Sim::AssembleDrive` is reached through a registered assembler chosen by what the scenario
    declares, not by `if (!declared.Driven.Declared) return true;`
-3. `Along()`/`Whole()` go behind `Scene()` (board:1896) and stop being door verbs
+3. DONE -- `Along()` and `Whole()` are gone from the door. They were drive-specific verbs that a
+   client had to call to learn a route's progress, so the door promised a JOURNEY to anyone who
+   read it. They are measures now, on the return channel `include/Event.h` already provides:
+   `how long the corridor is` and `how far along it the body has come`. `apps/driver` reads them
+   like any other number and lost nothing.
 4. `Column<Vehicle>` and `Column<Drive>` become columns the drive assembler owns
 
 Proving test when it lands: a scenario that declares a body with a thrust actuator and NO drive

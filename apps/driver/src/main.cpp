@@ -118,6 +118,13 @@ enum class Reading { Ran, Asked, Wrong };
 
 }
 
+[[nodiscard]] double Measured(const outshine::Engine &engine, const char *what) {
+  for (const outshine::Measure &held : engine.Numbers()) {
+    if (held.What == what) { return held.How; }
+  }
+  return 0.0;
+}
+
 int main(int argc, char **argv) {
   std::setvbuf(stdout, nullptr, _IOLBF, 0);
   Asked asked;
@@ -169,7 +176,7 @@ int main(int argc, char **argv) {
   const bool assembled = engine.Assemble();
   for (const std::string &said : engine.Carried()) { std::printf("  CARRIES %s\n", said.c_str()); }
   if (!assembled) { std::printf("REFUSED %s\n", engine.Error().c_str()); }
-  std::printf("%s\n", engine.Whole() > 0.0 ? "ROUTED the declared drive"
+  std::printf("%s\n", Measured(engine, "how long the corridor is") > 0.0 ? "ROUTED the declared drive"
                        : assembled     ? "NO DRIVE DECLARED"
                                        : "NO DRIVE -- the picture is what stood without it");
 
@@ -185,7 +192,7 @@ int main(int argc, char **argv) {
   }
   if (!assembled) { return 1; }
 
-  const double routeM = engine.Whole();
+  const double routeM = Measured(engine, "how long the corridor is");
   if (routeM <= 0.0 && asked.Frames <= 0) {
     if (!asked.Into.empty()) {
       char named[512];
@@ -206,7 +213,7 @@ int main(int argc, char **argv) {
       std::printf("REFUSED %s\n", engine.Error().c_str());
       return 1;
     }
-    const double alongM = engine.Along();
+    const double alongM = Measured(engine, "how far along it the body has come");
     const bool wanted =
         !asked.Into.empty() && nextStill < asked.Stills &&
         (asked.Frames > 0
@@ -234,7 +241,7 @@ int main(int argc, char **argv) {
   }
   SDL_Quit();
   std::printf("DROVE %ld frames over %.3f of %.3f km, kept %ld still(s)", frames,
-              engine.Along() / 1000.0, routeM / 1000.0, kept);
+              Measured(engine, "how far along it the body has come") / 1000.0, routeM / 1000.0, kept);
   if (!asked.Into.empty()) { std::printf(" into %s", asked.Into.c_str()); }
   std::printf("\n");
   return 0;

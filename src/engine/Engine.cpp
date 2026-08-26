@@ -250,6 +250,8 @@ bool Engine::State::Routes(void) {
     Error = say.WhyNot();
     return false;
   }
+  Places("how long the corridor is", Drive.Way.Line.LengthM(), "m");
+  Places("how far along it the body has come", 0.0, "m");
   if (Standing && Drive.Stood.MetresPerAssetUnit > 0.0) {
     Standing->ScaledBy(Drive.Stood.MetresPerAssetUnit);
   }
@@ -307,11 +309,6 @@ bool Engine::DrawsInto(Extent offscreen) {
 
 void Engine::Under(Roots roots) { S_->Under = std::move(roots); }
 
-double Engine::Along(void) const {
-  return S_->Drove ? S_->Drive.State.Tally.ReachedM : 0.0;
-}
-
-double Engine::Whole(void) const { return S_->Drove ? S_->Drive.Way.Line.LengthM() : 0.0; }
 
 
 bool Engine::State::Composes(void) {
@@ -1211,6 +1208,9 @@ bool Engine::Advance() {
       return false;
     }
     if (!S_->Rides()) { return false; }
+  }
+  if (S_->Drove) {
+    S_->Places("how far along it the body has come", S_->Drive.State.Tally.ReachedM, "m");
   }
   S_->Falls();
   if (!S_->Drove && !S_->Freestanding.empty() && S_->Standing->Stands()) {
