@@ -53,8 +53,29 @@ famous design is not refusing the design.
       carries `uint32_t Draws = 1`, an instance count that nothing ever raises.
       Unreal's answer is `FGPUScene`: the model slot is read PER INSTANCE out of a GPU buffer
       rather than being part of the batch key, so identical meshes merge and `Draws` counts them.
-      That is one change to `SameState` plus a per-instance slot in the shader, and it is the
-      difference between a CPU term that scales with subjects and one that does not.
+
+      **MEASURED, and it is four coupled changes rather than one.** The placement is folded into
+      the MVP on the CPU and pushed as a UNIFORM -- `SDL_PushGPUVertexUniformData` once per
+      ModelSlot change (`SubjectDraw.cpp:715-757`), and the shader reads `s.mvp`
+      (`shaders/subject.msl`). A draw carries one uniform, which is exactly WHY the slot has to be
+      in the batch key: it is not an oversight, it is the consequence of where the matrix lives.
+
+      What has to move, each step measurable on its own:
+
+      1. the uniform carries `viewProj` (constant per pass) instead of a premultiplied `mvp`
+      2. the placements upload as a VERTEX storage buffer -- the tree already uses storage
+         buffers, but only in the fragment stage (`kSubjectStorageBuffers = 2`, BVH nodes and
+         triangles)
+      3. `subject.msl` reads `placements[first_instance + instance_id]` and does the multiply --
+         one edit, because all seven vertex arms come from one macro
+      4. `SameState` drops `ModelSlot`, and the draw becomes
+         `SDL_DrawGPUIndexedPrimitives(pass, IndexCount, batch.Draws, FirstIndex, 0, ModelSlot)`
+         -- the signature already carries the instance count and the first instance, both pinned
+         at 1 and 0 today
+
+      The oracle at the end is board:1574's case unchanged: `two draw 2` becomes `two draw 1`
+      while the picture stays identical, and identical is what `linear_channels_differing_between
+      _renders` already measures.
 - [ ] the shadow pass issues ONE indirect draw from the resident instance buffer, not one
       `PushGPUVertexUniformData` per batch (board:1926)
 - [ ] lights are assigned to clusters or tiles by a compute stage, and `kMaxSubjectLights` stops
