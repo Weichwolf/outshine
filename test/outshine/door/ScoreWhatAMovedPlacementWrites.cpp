@@ -34,10 +34,12 @@
 // row's previous half: with that forced to equal the current transform this case reads the same
 // 0 and 118. The engine bakes node transforms into VERTICES exactly as the harness does, so an
 // animated glTF arrives as moving vertices over a static transform and the velocity comes from
-// `prevP`. The only thing in this tree that moves a PLACEMENT is a BODY, through
-// `Live::Places` -- and a body needs a declared world to stand in, which is why declaring one
-// here produced no freestanding body at all and no motion. That case is board:1998's, and it
-// belongs with a scenario that declares ground.
+// `prevP`. The only thing in this tree that moves a PLACEMENT is a BODY, through `Live::Places`
+// -- and a declared body cannot be measured here either, for a reason worth writing down:
+// `Engine::State::Carries` computes the EYE from the body it carries, so the camera follows the
+// falling body and the relative motion is zero by construction. Measured, with a body declared
+// `Placed` at 0.05 m: 0 moving pixels over three frames. A fixed eye over a moving placement is
+// not declarable through this door, and that is board:1998's next step rather than this case's.
 
 namespace {
 
@@ -97,7 +99,7 @@ constexpr const char *kTrackBase64 = "AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAA
   return -1.0;
 }
 
-[[nodiscard]] outshine::Scenario Naming(const char *uri, bool asABody) {
+[[nodiscard]] outshine::Scenario Naming(const char *uri) {
   outshine::Scenario stands;
   stands.Render.Declared = true;
   stands.Render.Frame = outshine::Extent{kFramePx, kFramePx};
@@ -111,28 +113,18 @@ constexpr const char *kTrackBase64 = "AAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAA
   shown.Uri = uri;
   shown.Kind = "gltf";
   stands.Assets.push_back(shown);
-  if (asABody) {
-    outshine::Body falls;
-    falls.Name = "falls";
-    falls.Asset = uri;
-    falls.MassKg = 1000.0;
-    falls.WidthM = 1.0;
-    falls.AssetSpanM = 1.0;
-    falls.InertiaKgM2[0] = falls.InertiaKgM2[1] = falls.InertiaKgM2[2] = 100.0;
-    stands.Bodies.push_back(falls);
-  }
   return stands;
 }
 
-[[nodiscard]] double MovingPixelsOver(const std::string &under, const char *uri,
-                                      bool asABody, int steps, std::string &why) {
+[[nodiscard]] double MovingPixelsOver(const std::string &under, const char *uri, int steps,
+                                      std::string &why) {
   outshine::Engine engine;
   engine.Under(outshine::Roots{under, "src/assets", "/tmp/outshine-door-cache", true});
   if (!engine.DrawsInto(outshine::Extent{kFramePx, kFramePx})) {
     why = "the device stood no canvas";
     return -1.0;
   }
-  if (!engine.Declare(Naming(uri, asABody)) || !engine.Assemble()) {
+  if (!engine.Declare(Naming(uri)) || !engine.Assemble()) {
     why = engine.Error();
     return -1.0;
   }
@@ -168,12 +160,12 @@ int main(void) {
   }
 
   std::string why;
-  const double still = MovingPixelsOver(under, "stands.gltf", false, 3, why);
+  const double still = MovingPixelsOver(under, "stands.gltf", 3, why);
   if (still < 0.0) {
     Unprepared(("the still subject would not stand: " + why).c_str());
     return Report();
   }
-  const double walked = MovingPixelsOver(under, "walks.gltf", false, 3, why);
+  const double walked = MovingPixelsOver(under, "walks.gltf", 3, why);
   if (walked < 0.0) {
     Unprepared(("the moving subject would not stand: " + why).c_str());
     return Report();
