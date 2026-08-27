@@ -190,8 +190,11 @@ A WITHDRAWAL says the defect was never there and names what was misread. A REMOV
 named no step toward the benchmark. Closing is DELETING the file: what it said is in the commit,
 and `git log` is the logbook.
 
-**Grep `board/` before filing.** A duplicate is worked, never written twice; a defect found while
-working something else becomes an item in the same round, even if it closes in that round too.
+**Grep `board/` AND the history before filing.** The directory holds what is open; `git log` holds
+what was closed, withdrawn and REMOVED — and a removal is a decision that this work does not move
+the engine. Filing it again without seeing that decision overrules it by accident. A duplicate is
+worked, never written twice; a defect found while working something else becomes an item in the
+same round, even if it closes in that round too.
 
 ## What goes wrong
 
