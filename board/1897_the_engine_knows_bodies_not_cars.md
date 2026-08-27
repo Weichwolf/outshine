@@ -16,14 +16,14 @@ Both are deleted; the derivation is now the only place either number comes from,
 with the thing it guarded (the compiler said so by way of an unused `kContactResolutionM`).
 
 The drive is unchanged to the digit: 10.5115 / 522.756 / 5.31713 before and after.
-      proof: harness/outshine/physics/ScoreWhatSetsTheSteeringSpan
+      proof: outshine/physics/ScoreWhatSetsTheSteeringSpan
 
 **THE TYRE MOVED TO THE CONTACT IT BELONGS TO.** `<tyre grip radiusM corneringNPerRad
 relaxationM/>` sat beside `<contact>` and applied to all of them -- a vehicle noun twice over: it
 names a car's part, and it assumes a car's symmetry. `Rigging` already disagreed, copying those
 four numbers into `mount.Sheds` PER MOUNT, so the physics had put them on the contact before the
 declaration did. They are `Contact` fields now and the reader takes them off `<contact>`.
-      proof: harness/outshine/physics/ScoreWhatATyreBelongsTo
+      proof: outshine/physics/ScoreWhatATyreBelongsTo
 
 What the move buys is what proves it: a body can carry different rubber front and rear -- a
 staggered set, a space-saver, a worn axle -- which one tyre per vehicle cannot express at all.
@@ -35,7 +35,7 @@ A capability guessed from a magnitude is wrong at exactly one place -- a body th
 currently delivers nothing -- and that place has a name: a dead engine, a disconnected motor, a
 drivetrain a scenario means to build up. `std::vector<Actuator>` with a three-name catalogue
 replaces them, the numbers are each actuator's strength, and the reader refuses a fourth name.
-      proof: harness/outshine/physics/ScoreWhatABodyDeclaresItCanDo
+      proof: outshine/physics/ScoreWhatABodyDeclaresItCanDo
 
 **AND THE WORST OF IT IS IN THE DOOR.** `include/Scenario.h` carries `struct Vehicle` with 25
 car-specific fields -- `TyreRadiusM`, `FinalDrive`, `BrakeTorqueNm`, `TurningCircleM`, `TrackM`,
@@ -78,7 +78,7 @@ The order this is done in:
    pathfinder's own `Route` -- the corridor that comes BACK -- keeps its name, because a declared
    intent and a computed corridor are two things. A mode nothing assembles is REFUSED by name
    instead of standing still and looking like a scenario that declared no journey.
-   proof: harness/outshine/door/ScoreWhatCodeCanDeclare
+   proof: outshine/door/ScoreWhatCodeCanDeclare
    DONE -- the assembler is a TABLE the mode indexes: four rows, one filled, each carrying the
    name of the way it travels. Adding walking is filling a slot, and `Routes` names the empty one
    it was asked for rather than testing a boolean.

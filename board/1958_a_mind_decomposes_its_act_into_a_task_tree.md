@@ -20,7 +20,7 @@ alone with no tree above it, and everything a mind should decide is either absen
 the leaf.
 
 - [x] a task owns sub-tasks, yields, and can be abandoned as a subtree
-      proof: harness/outshine/physics/ScoreWhatATaskTreeDoes
+      proof: outshine/physics/ScoreWhatATaskTreeDoes
 - [x] the existing pilot stands as a leaf under a tree without changing what it computes:
       `Control::HoldsLane` wraps `Pilot::Hold` and `Sim::DriveTick` runs it through `Step`. The
       drive reads 10.5115 / 522.756 / 5.31713, the same digits as before the tree existed.

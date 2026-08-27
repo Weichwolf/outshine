@@ -96,7 +96,7 @@ so the correction removes a row rather than adding one. The merge runs: the read
       of spans -- publishing `span<const float> PositionsM` froze the vertex layout into the ABI
       and handed out views into the producer's own vectors, valid only while it lived. The storage
       moved to `src/base/GeometryHeld.h` and stays free.
-      proof: harness/outshine/door/ScoreWhatAClientHandsIn
+      proof: outshine/door/ScoreWhatAClientHandsIn
 - [ ] The OWNING form is public too -- a caller can take one back, not only hand one in.
 - [ ] Its name says what it is, not how it is stored. `Gltf::Subject` becomes the format's READER
       of that value rather than the value itself, and the rename lands in one commit with the
@@ -104,7 +104,7 @@ so the correction removes a row rather than adding one. The merge runs: the read
 - [x] A client hands outshine geometry with no file: `Engine::Stands(const Geometry &)`. The same
       nine floats reach the same frame through the glTF reader and through the door, 0 of 9216
       pixels apart.
-      proof: harness/outshine/door/ScoreWhatAClientHandsIn
+      proof: outshine/door/ScoreWhatAClientHandsIn
 **ONE PASS MOVED INTO THE PACKER, WHICH IS THE FIRST STEP OF THE MERGE AND STANDS ON ITS OWN.**
 `FlatNormalsFor` -- the pass that answers a glTF primitive omitting NORMAL by splitting shared
 vertices so each triangle carries its own facing -- ran only on the reader's path. The packer a
@@ -112,7 +112,7 @@ handed value goes through did not call it, so a client's or a generator's geomet
 was REFUSED outright: *the studio declares 1 punctual lights and an environment, and part 0 of node
 'face'...*. `Assemble` runs it now, and a part stating no normals renders identically to one that
 states them.
-      proof: harness/outshine/door/ScoreWhatAHandedSurfaceShows
+      proof: outshine/door/ScoreWhatAHandedSurfaceShows
 
 **AND THE SECOND SPLITTING PASS FOLLOWED IT.** `BuildTangentsFor` did two jobs: read a supplied
 TANGENT accessor (reader work) and GENERATE a basis when a material's normal texture needs one --
@@ -131,7 +131,7 @@ expresses what the reader produced AS a `Geometry`; assembling that gives a seco
 two are identical -- 2 parts, 6 vertices, 6 indices, 1 surface, positions and normals ZERO apart,
 and 0.25 metalness arriving as 0.25.
 
-    proof: harness/outshine/content/ScoreWhatARoundTripKeeps
+    proof: outshine/content/ScoreWhatARoundTripKeeps
 
 That answers the item's own question the cheap way round. Filling the gap table row by row was
 always the wrong repair; so was rewriting 440 lines to find out whether the value could hold what
@@ -168,25 +168,25 @@ starting: a reader that packs two ways is the second spelling this item exists t
       assembling THAT -- so after a read, a subject IS what the one value can carry, and anything
       the value cannot hold is dropped rather than smuggled. 444 Khronos cases pass, which is what
       says nothing is dropped.
-      proof: harness/outshine/content/ScoreWhatARoundTripKeeps
+      proof: outshine/content/ScoreWhatARoundTripKeeps
 
       The emit is redirected: `Build` writes its streams into a `Geometry` per primitive and
       assembles that ONCE. It no longer touches `Positions_`, `Uv_`, `Normals_`, `Tangents_`,
       `Colours_`, `Indices_` or `Parts_` at all -- the reader has stopped knowing the packed
       layout, which was the last of the two spellings. 444 Khronos cases pass.
 - [x] The builder carries materials, and a handed part renders with the material it names.
-      proof: harness/outshine/door/ScoreWhatAHandedSurfaceShows
+      proof: outshine/door/ScoreWhatAHandedSurfaceShows
       `outshine::Material` already carried the whole PBR row and all nine `KHR_materials_*` -- it
       was on the wrong side of the door, in `src/content/shade/`. It is `include/Material.h` now,
       with `include/PunctualLight.h` beside it, and `Gltf::Subject` HOLDS the surfaces it was
       assembled with: the reader copies the document's into that list, the builder copies the
       client's, and the surface table reads the one list rather than asking a file. Textures are
       not carried yet -- an image needs the file's buffers.
-      proof: harness/outshine/door/ScoreWhatAHandedSurfaceShows
+      proof: outshine/door/ScoreWhatAHandedSurfaceShows
 - [ ] The stored layout changes in one commit and no client recompiles (board:1954 left this
       standing: the layout moved out of the header, and that it can now MOVE is unproven).
 - [x] The builder carries punctual lights and a placement per part.
-      proof: harness/outshine/door/ScoreWhatAHandedLampLights
+      proof: outshine/door/ScoreWhatAHandedLampLights
 - [ ] The builder carries hierarchy, skins, morph targets, variants and TEXTURES.
 - [ ] A generator fills the same value (board:1948) -- one value, three producers, proven by a
       case that stands the same geometry each way and compares the pictures.

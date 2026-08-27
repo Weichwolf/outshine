@@ -17,12 +17,12 @@ not eroding at the edges; it is the default way a case gets written, and STATE.m
 the number (board:1907).
 
 **And it costs a closure its proof.** board:1891 was closed on
-`harness/outshine/scenario/ScoreWhenAVolumeFires`, which stands `TriggerField` directly out of
+`outshine/scenario/ScoreWhenAVolumeFires`, which stands `TriggerField` directly out of
 `src/scenario/Triggers.h`. The oracle is good -- enter is an edge and not a state, with a control
 that tells the two edges apart -- but the DEFECT that was fixed was three lines in
 `src/engine/Engine.cpp` publishing the firing through `Numbers()`, and the case never touches the
 engine. Delete those three lines tomorrow and the case stays green: a guard that does not guard
-the thing it closed. `harness/outshine/door/ScoreWhatTheShadowCasts`, written the same session
+the thing it closed. `outshine/door/ScoreWhatTheShadowCasts`, written the same session
 through `include/` alone, is the shape it should have had.
 
 | scorer | what it reaches into | what it actually wants |
@@ -30,9 +30,9 @@ through `include/` alone, is the shape it should have had.
 | `harness/test262/js` | `Script.h`, `program.Run(host, error)` | run this ECMAScript and tell me whether it threw |
 | `harness/wpt/css` | `Markup.h`, `Style.h`, `Layout.h` | lay out this document with this stylesheet and give me the boxes |
 | `harness/khronos/glTF` | half the render tree via `RenderCase.h` | stand this glTF up and render it at this camera |
-| `harness/outshine/door` (2 of 4) | `Live.h`, for `Live::AssetReads()` and `Live::PlanInits()` | the counts the door already carries a channel for: `Engine::Numbers()` returns `Measure` values as of this hour |
-| `harness/outshine/physics` (2) | `Body.h`, `Rig.h`, `Rigging.h` | stand a rig and read the wrench it builds |
-| `harness/outshine/fuzz` (2) | `Document.h`, `Subject.h` | read this glTF and tell me whether it was refused, and why |
+| `outshine/door` (2 of 4) | `Live.h`, for `Live::AssetReads()` and `Live::PlanInits()` | the counts the door already carries a channel for: `Engine::Numbers()` returns `Measure` values as of this hour |
+| `outshine/physics` (2) | `Body.h`, `Rig.h`, `Rigging.h` | stand a rig and read the wrench it builds |
+| `outshine/fuzz` (2) | `Document.h`, `Subject.h` | read this glTF and tell me whether it was refused, and why |
 
 And `test/run.sh` is where the rule is being paid off: three include sets were added at
 `test/run.sh:200-202` that hand `-Isrc/content/gltf`, `-Isrc/sim`, `-Isrc/engine` and eleven more

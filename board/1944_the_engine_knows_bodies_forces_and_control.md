@@ -12,9 +12,9 @@ engine core names `Drive` 29 times and `Vehicle` 6 times in `Engine.cpp` alone.
 
 - [x] what a wheel stands on comes from the ground, not from a corridor: height, normal and
       friction from the surface under it
-      proof: harness/outshine/physics/ScoreWhatAWheelFindsOffTheMadeSurface
+      proof: outshine/physics/ScoreWhatAWheelFindsOffTheMadeSurface
 - [x] a road class carries its surface and that number survives to the contact unchanged
-      proof: harness/outshine/physics/ScoreWhatASurfaceCarriesToAWheel
+      proof: outshine/physics/ScoreWhatASurfaceCarriesToAWheel
 - [ ] a body declares ACTUATORS -- steer, drive, brake, lamps, walk, open -- and a control
       command activates a force rather than setting a state (board:1897)
 - [ ] a drive is ONE assembler among several chosen from the catalogue, and the engine holds the

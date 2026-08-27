@@ -124,9 +124,9 @@ bool Engine::State::Routes(void) {
     Surface = std::make_unique<Sim::GroundUnderfoot>(Stack, Drive.Surfaces);
     Surface->Restand();
   }
-  Carried.insert(Carried.end(), std::make_move_iterator(say.Held.begin()),
-                     std::make_move_iterator(say.Held.end()));
-  Published.Stands(std::move(say.Took));
+  Carried.insert(Carried.end(), std::make_move_iterator(say.Lines().begin()),
+                     std::make_move_iterator(say.Lines().end()));
+  Published.Stands(std::move(say.Numbers()));
   if (!routed) {
     Error = say.WhyNot();
     return false;

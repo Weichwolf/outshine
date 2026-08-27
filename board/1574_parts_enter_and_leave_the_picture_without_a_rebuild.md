@@ -38,7 +38,7 @@ over a rebuild that should not have happened.
 reached neither. The capability was present and unreachable.
 
 `Declare` now diffs the declaration it would hand over against the one that stands and reuses
-what has not changed. Proving test: `harness/outshine/door/ScoreWhatARedeclarationRebuilds`,
+what has not changed. Proving test: `outshine/door/ScoreWhatARedeclarationRebuilds`,
 which counts `Clients::Live::PlanInits()` over three declarations of one picture --
 
   FIRST DECLARATION initialised the plan 1 time(s)
@@ -51,7 +51,7 @@ The case that matters is closed too: a subject that CHANGES. `Live::Restands(sta
 animation)` swaps the file behind a standing picture -- the render plan survives because
 `Plan_ == nullptr` already guarded its init and only the teardown was destroying it, and the
 plan is rebuilt only where the new subject needs a different one, which is when it animates and
-the old did not. Proving test: `harness/outshine/door/ScoreWhatASubjectSwapRebuilds`, two
+the old did not. Proving test: `outshine/door/ScoreWhatASubjectSwapRebuilds`, two
 minimal glTF triangles written into the nest --
 
   FIRST SUBJECT   read 1 asset(s), initialised 1 plan(s)

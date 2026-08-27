@@ -45,7 +45,7 @@ need a plan, and a plan needs the snapshot board:1805 now composes.
 registers one. `Declare` resolves every `Scenario::Generators[].Kind` against what has been
 offered: an unknown kind is REFUSED BY NAME at declaration, and an offered one runs and what it
 makes stands in the picture.
-      proof: harness/outshine/door/ScoreWhatAClientsGeneratorMakes
+      proof: outshine/door/ScoreWhatAClientsGeneratorMakes
 
 **AND A SCENARIO'S ASSET MAY NAME A GENERATOR RATHER THAN A FILE**: `<asset kind="generated"
 uri="test-slab"/>` stands what the maker makes. That is how a scenario USES the geometry a client
@@ -110,7 +110,7 @@ that links no `src/engine` source.
       and the serialiser is for a caller who wants a file.
 - [x] A generator's mesh crosses into the door's value: `Generators::Meshed` de-interleaves an
       eight-float soup into `outshine::Geometry`, field by field and part by part.
-      proof: harness/outshine/geo/ScoreWhatAGeneratorHandsBack
+      proof: outshine/geo/ScoreWhatAGeneratorHandsBack
 - [ ] `DrawSink` is deleted or implemented -- it is an interface with no implementation and
       `ClusterId` reaches two files, so the instanced-draw half of the tier is a declaration with
       nothing behind it.

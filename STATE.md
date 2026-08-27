@@ -260,7 +260,6 @@ shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 | 3 | `src/world/generators/draw/LeafAngleDistribution.h` |
 | 2 | `src/world/ground/EyeColumn.h` |
 | 2 | `src/render/draw/DrawKey.h` |
-| 2 | `src/engine/EngineHeld.h` |
 | 2 | `src/content/shade/TangentFrame.h` |
 | 1 | `src/world/weather/ConstantWindWeather.h` |
 | 1 | `src/world/ground/tiles/TileGeodesy.h` |

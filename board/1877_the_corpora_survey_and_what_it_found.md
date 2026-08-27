@@ -82,8 +82,8 @@ with the padding named. That is the house style working.
 survey's own method line still points at the old path.
 
 Worse, the table *What runs today* names four corpora and 1160 cases, and the tree now runs
-seven more suites it does not mention: `harness/outshine/door` (4 cases), `harness/outshine/
-physics` (2), `harness/outshine/fuzz` (2), all written this hour. CLAUDE.md: *a case whose grade
+seven more suites it does not mention: `outshine/door` (4 cases), `outshine/
+physics` (2), `outshine/fuzz` (2), all written this hour. CLAUDE.md: *a case whose grade
 the survey does not name is a case nobody has priced.* Their grades are not obvious and that is
 exactly why they must be written down -- `ScoreTheWrenchAForceBuilds` is TRUTH (statics), while
 `ScoreWhatASubjectSwapRebuilds` asserts a COST BOUND against our own counters and is neither

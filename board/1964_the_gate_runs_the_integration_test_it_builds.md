@@ -24,7 +24,7 @@ is the answer the corpora already use -- a URL and a hash -- and it is what make
 deterministic rather than merely possible.
 
 - [x] the gate runs the drive headless for a bounded number of frames and reads what it measured
-      proof: harness/outshine/door/ScoreWhatTheDriveMeasures
+      proof: outshine/door/ScoreWhatTheDriveMeasures
 - [ ] the tiles it needs are pinned and hashed, so the run is offline and deterministic
 - [x] the run fails the gate when the drive refuses -- moving `scene.gltf` aside turns it red
 - [ ] the drive is its own suite rather than a case borrowing the door's, once a program can be

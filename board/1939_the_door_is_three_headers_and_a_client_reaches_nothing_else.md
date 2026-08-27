@@ -15,9 +15,9 @@ happens to be open.
 - [ ] the library is reached through `include/` alone -- 15 of 17 declared suites are granted
       a `-Isrc` path today (board:1879); only the two clients hold the rule
 - [x] an undeclared section decides nothing, and the engine's own default stands in its place
-      proof: harness/outshine/door/ScoreWhatAnUndeclaredSectionCarries
+      proof: outshine/door/ScoreWhatAnUndeclaredSectionCarries
 - [x] a declaration that names nothing stands nothing -- parts enter AND leave
-      proof: harness/outshine/door/ScoreWhatTheShadowCasts
+      proof: outshine/door/ScoreWhatTheShadowCasts
 - [ ] every verb the door offers is REACHED by `apps/driver`; a verb no client calls is a verb
       nobody has checked (`Takes`, `Offers` stand uncalled today)
 - [ ] `Along()` and `Whole()` go behind `Scene()` -- a drive's odometer is not a door verb

@@ -398,12 +398,16 @@ ls board/*.md | grep -o '[0-9]\{4\}' | sort -n | tail -1  # next id, derived
 |---|---|
 | `src/` | the library entire; `src/assets/` its declared data; no entry point, no test. **The directory IS the dependency tier and the tier is DECLARED**: `LayerReaches` in `test/run.sh` states what each may include and `--audit-layers` refuses a source that crosses it -- and refuses a CYCLE between two modules
 inside one tier, which the tier table alone cannot see. `base/` (math · geo · format · spatial · io) reaches nothing; `content/` (gltf · shade) and `actor/` reach base; `world/` (ground · generators · data · sky · weather) reaches base and content; `render/`, `scene/`, `scenario/`, `ui/`, `audio/`, `host/`, `compositor/` and `sim/` reach what their row says; `engine/` reaches all of it and is the door's own implementation, which is why it is not called `clients/` — the clients live in `apps/`. Unreal declares the same thing per module in `Build.cs`; a layering that is only a convention is how a 44-header drawer forms (board:1902) |
-| `test/` | `test/` the established corpora (Khronos · WPT · test262); `test/khronos/validator/` the 263 glTF-Validator cases, judged as a REFUSAL against Khronos's own report; `test/harness/` their scorers and the board/harness claims. Everything under `test/` reaches the library through `include/` and NOTHING of `src/` |
+| `test/` | **The vendor's word and ours are kept APART, and the directory says which is which.** `test/khronos/` · `test/wpt/` · `test/test262/` · `test/geographiclib/` are the established corpora, and `test/khronos/validator/` holds the 263 glTF-Validator cases judged as a REFUSAL against Khronos's own report; `test/harness/` is the vendor side's scorers and the board claims; **`test/outshine/` is OURS** -- our own oracles, of unknown grade, which hold the tree to what the tree already did. Everything under `test/` reaches the library through `include/` and NOTHING of `src/` |
 | `apps/` | the CLIENTS, built ON the library and each a product. **A client is almost no code, and its LINE COUNT is a measurement of the door**: when a client needs much code, the interface is too complicated and the door is the finding, never the client. At HEAD `apps/driver` is 236 lines and `apps/viewer` 338, and both are too long and the driver is GROWING (board:1898): **`apps/driver`** is outshine's one integration test and the stakeholder signs it off; **`apps/viewer`** shows any scenario and becomes a scenario itself, layered over the one it shows (board:1880) |
 | `Makefile` | build · test · clean, nothing else. `make` writes TWO archives: `liboutshine.a`, and `libgenerators.a` — the generator tier alone, its member list DERIVED from the closure the linker itself computes, never a second list kept by hand |
 | `board/` | the working system (above) |
 
-`make` builds the library and every program under `apps/` into `build/`. `test/run.sh` is the
+`make` builds the library and every program under `apps/` into `build/`. **`test/gate.sh` is the
+FAST GATE for iteration: about a minute, and it runs nothing itself** -- it names a subset of
+`test/run.sh` plus `make` and one drive of `apps/driver`, so the one test runner stays the one
+test runner. It prints what it does NOT cover, because a gate that hides its own bounds reads as
+coverage. `test/run.sh` is the
 only TEST runner and runs nothing else; by default it runs the corpora and the claims, while
 `tools` and `apps` run when named. A standing RED is declared in `EXPECT_FAIL` with its count,
 and the gate turns red the day such a case passes with the declaration still in place.
@@ -459,14 +463,14 @@ the reader REFUSES and documents that still STAND.
 
 **ONLY THE VENDOR CORPORA PROVE ANYTHING.** Khronos, WPT, test262 and GeographicLib are where a
 standards body or a computation carried further than ours states the answer, and a case there fails
-because the code is wrong. Everything under `harness/outshine/` is a REGRESSION NET of unknown
+because the code is wrong. Everything under `outshine/` is a REGRESSION NET of unknown
 grade: it holds the tree to what the tree already did, which is agreement with ourselves and not
 correctness. **This bites hardest during a refactor.** A restructuring that leaves our own cases
 green has proven that it preserved the previous behaviour -- and if that behaviour was wrong, the
 green is the wrong answer preserved exactly. So a red in an `outshine/` case during a refactor is
 INFORMATION and not automatically a defect, and it is never made green by editing the case.
 
-**`test/<vendor>/` is the vendor's word; `test/harness/outshine/` is OUR OWN ORACLE and carries less.**
+**`test/<vendor>/` is the vendor's word; `test/outshine/` is OUR OWN ORACLE and carries less.**
 A khronos, wpt, test262 or geographiclib case is a SPECIFICATION: it fails and the code is
 wrong, full stop. An `outshine/` case is a law of nature we implemented ourselves — static
 equilibrium, a closed form, a conservation — and it fails in TWO ways: the code is wrong, or the

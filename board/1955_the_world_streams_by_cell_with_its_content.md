@@ -21,7 +21,7 @@ built on top of it than after.
 - [ ] a cell carries ground, structures and actors and they arrive and leave together
 - [x] no resident term scales with the world's extent, BELOW THE BUDGET: 3.35 times the route
       costs 1.012 times the memory (871 m holds 58278432 bytes, 2916 m holds 58959040).
-      proof: harness/outshine/door/ScoreWhatAWiderWorldHolds
+      proof: outshine/door/ScoreWhatAWiderWorldHolds
 - [ ] **THE EVICTION PATH HAS NEVER RUN.** The tile pool's byte budget is 64 MB
       (`TerrainLoader.cpp:28`) and the longest route this tree can drive holds 58, so the loop
       that drops a victim is dead in practice -- disabling it entirely leaves the case above green.

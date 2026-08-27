@@ -66,11 +66,13 @@ public:
     if (Why.empty()) { Why = why; }
   }
   [[nodiscard]] const std::string &WhyNot() const { return Why; }
+  [[nodiscard]] std::vector<std::string> &Lines() { return Held; }
+  [[nodiscard]] std::vector<Measure> &Numbers() { return Took; }
 
+private:
   std::vector<std::string> Held;
   std::vector<Measure> Took;
 
-private:
   [[nodiscard]] static std::string Rounded(double how) {
     char held[32];
     std::snprintf(held, sizeof held, "%.6g", how);

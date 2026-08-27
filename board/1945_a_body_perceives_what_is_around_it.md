@@ -12,7 +12,7 @@ names the seam already -- a controller PERCEIVES through *bounded spatial querie
 ground · sight* -- and only the ground half exists.
 
 - [x] the ground half: a bounded query answers what a point stands on and what it grips with
-      proof: harness/outshine/physics/ScoreWhatAWheelFindsOffTheMadeSurface
+      proof: outshine/physics/ScoreWhatAWheelFindsOffTheMadeSurface
 - [ ] a body's occupied volume is queryable by another body, bounded, with no search over all
       bodies (board:1925)
 - [ ] `Underfoot` composes it: a wheel over a second body's roof stands on the roof (board:1925)

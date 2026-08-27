@@ -16,7 +16,7 @@ outshine issues a uniform push per batch, twice per frame.
 
 - [x] the tone chain is checkable end to end against a closed form, so a factor of two cannot
       hide in it
-      proof: harness/outshine/door/ScoreWhatALitSurfaceReads
+      proof: outshine/door/ScoreWhatALitSurfaceReads
 - [ ] the shadow pass issues ONE indirect draw from the resident instance buffer, not one
       `PushGPUVertexUniformData` per batch (board:1926)
 - [ ] lights are assigned to clusters or tiles by a compute stage, and `kMaxSubjectLights` stops

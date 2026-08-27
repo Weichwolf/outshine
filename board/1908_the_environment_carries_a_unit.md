@@ -8,7 +8,7 @@ Tags: measured, lighting, units
 **The sphere half of this item is done and measured** -- a declared sphere with air supplies the
 irradiance every surface under it receives (`MediumSkyIrradiance`, reached the day
 `Declared_.DrawsSky` was first written), proven by
-`test/harness/outshine/door/ScoreWhatASkyLightsInShadow.cpp`. What is left is the studio.
+`test/outshine/door/ScoreWhatASkyLightsInShadow.cpp`. What is left is the studio.
 
 A scenario that declares NO sphere has exactly one ambient and it is the typed triple:
 

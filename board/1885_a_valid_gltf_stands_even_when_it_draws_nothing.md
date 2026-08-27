@@ -67,12 +67,12 @@ So the reach this item names is bigger than "carry a kind", and the order is now
    the empty arrays. glTF 2.0 gives every top-level array `minItems: 1`, and Khronos reports
    EMPTY_ENTITY on eighteen of its own fixtures for exactly that. `Document::Read` refuses one
    now and names which. Proving test:
-   `harness/outshine/fuzz/ScoreWhatAnEmptyArrayMeans` -- 13 of 13 refused, 13 of 13 by name, and
+   `outshine/fuzz/ScoreWhatAnEmptyArrayMeans` -- 13 of 13 refused, 13 of 13 by name, and
    the same arrays holding one item each still stand.
 
    **98 -> 95** with a camera that bounds a volume: `znear` in front of the eye, `zfar` beyond
    `znear`, and an orthographic magnification that is not zero. Proving test:
-   `harness/outshine/fuzz/ScoreWhatACameraBounds`, eight lenses of which three are conformant --
+   `outshine/fuzz/ScoreWhatACameraBounds`, eight lenses of which three are conformant --
    including a perspective camera declaring NO far plane, which glTF 2.0 permits and an
    over-eager reader would refuse.
 
@@ -84,7 +84,7 @@ So the reach this item names is bigger than "carry a kind", and the order is now
    CARRIED them. `Document::BoundsHold` now reads the elements and refuses in both directions --
    a box around the data and a box inside it -- for every accessor that declares bounds, not
    only for mesh POSITION. Thirteen of the 124 fall to it. Proving test:
-   `harness/outshine/fuzz/ScoreWhatAnAccessorBoundClaims`.
+   `outshine/fuzz/ScoreWhatAnAccessorBoundClaims`.
 
    **"NOTHING conformant is refused" is not proven, and one class is provably wrong.**
    `Document::BoundsHold` compares `accessor.Min`/`Max`, read RAW out of the JSON
@@ -114,7 +114,7 @@ Step 2 also needs `Subject::Bound()` guarded -- it reads `Positions_[0]` with no
 it, which is what the 68 signals were. The guard is NOT in the tree, on purpose: while the scene
 refusal stands the guard cannot be reached, and an unreachable guard is dead code with no test
 behind it. It lands with step 2, proven by the same measurement that needs it.
-`harness/outshine/fuzz/ScoreWhatTheReaderSurvives` finds that crash in 0.3 s the moment the
+`outshine/fuzz/ScoreWhatTheReaderSurvives` finds that crash in 0.3 s the moment the
 refusal comes off, which is what makes step 2 safe to attempt.
 
 The survey (`test/CORPORA.md`) priced this exactly: FETCH low, REACH medium, "our refusal must

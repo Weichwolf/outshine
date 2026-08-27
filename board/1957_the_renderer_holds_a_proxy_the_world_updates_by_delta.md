@@ -36,13 +36,13 @@ caller that knows what it moved. A diff is where the cost goes away; the delta i
 knowledge belongs, and only the second one lets the world stop building the table at all.
 
 - [x] the renderer holds scene state across frames and the world reaches it only through a delta
-      proof: harness/outshine/door/ScoreWhatAMovingSceneResends
+      proof: outshine/door/ScoreWhatAMovingSceneResends
 - [x] a frame that changes nothing issues no scene update
-      proof: harness/outshine/door/ScoreWhatAnUnchangedFrameSends
+      proof: outshine/door/ScoreWhatAnUnchangedFrameSends
 - [x] a frame re-sends what MOVED and not what exists: over a drive, 10 batches are drawn and 9
       rows re-sent -- the ground ring is placed once and drawn every frame. The negative control
       re-sends everything and reads 10 of 10.
-      proof: harness/outshine/door/ScoreWhatAMovingSceneResends
+      proof: outshine/door/ScoreWhatAMovingSceneResends
 - [ ] the DELTA rather than the diff: the caller says what it moved instead of the boundary
       comparing sixteen doubles per row. A diff is where the cost goes away; the delta is where
       the knowledge belongs, and only it lets the world stop building the table at all.

@@ -18,7 +18,7 @@ the reason this belongs in the refactor and not after it.
       -- fixed capacity, function pointers with a context, so declaring a frame allocates nothing.
       Every declared order holds on any number of hands, and the RESULT does not depend on how many
       there are.
-      proof: harness/outshine/physics/ScoreWhatATaskGraphOrders
+      proof: outshine/physics/ScoreWhatATaskGraphOrders
 - [ ] the FRAME runs on it. The graph stands and nothing has been put on it yet: the simulation
       step and the render encode still run in sequence on one thread. Splitting them is the next
       step and it needs the two to stop touching each other's state, which is board:1957's proxy

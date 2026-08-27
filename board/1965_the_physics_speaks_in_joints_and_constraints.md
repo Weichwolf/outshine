@@ -36,7 +36,7 @@ robot are all the same machinery, and none of them is expressible today. A body 
 raycast car cannot be declared at all.
 
 - [x] the prismatic joint the tree already had is NAMED one: `Physics::Prismatic`, `Mount::Strut`.
-      Proof: 16 of 16 in harness/outshine/physics unchanged, and the two vendor cases green
+      Proof: 16 of 16 in outshine/physics unchanged, and the two vendor cases green
 - [ ] a joint declares two bodies, a kind and its degrees of freedom
 - [ ] a drive on a degree of freedom carries a target, a limit and a ratio, and `Actuator` is gone
 - [x] the DOOR stops flattening three things into one: `Contact` was thirteen loose fields and is

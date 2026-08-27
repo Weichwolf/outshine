@@ -44,7 +44,7 @@ the door: 258 batches drawn, 0 cast. A scenario can declare `shadowRadiusM` on i
 now, and one that does not gets a radius derived from the subject's own extent: 258 drawn, 258
 cast.
 
-Proving test: `harness/outshine/door/ScoreWhatTheShadowCasts` -- the picture draws 1 batch and
+Proving test: `outshine/door/ScoreWhatTheShadowCasts` -- the picture draws 1 batch and
 the shadow casts 1, with no radius declared. Negative control: the derivation removed, and the
 shadow casts 0 against 1 drawn.
 

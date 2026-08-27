@@ -81,7 +81,7 @@ built, against a measurement rather than against Unreal's conclusion.
       the crate falls a further 3.697924 m between two frames and the frustum descends by
       3.697924 m. That is `LightVisibilityStage::Build` reading placements every frame, which is
       board:1951's work rather than this fold's.
-      proof: harness/outshine/door/ScoreWhatABodyWithNoRouteDoes
+      proof: outshine/door/ScoreWhatABodyWithNoRouteDoes
       `Live::PlacedBounds` walks every vertex and is correct only while `BoundsPlaced_` holds:
       the day a caster MOVES under a still camera the cache is stale and the frustum follows the
       wrong body. Both benchmarks keep a bounding volume per instance in the scene structure and
@@ -93,7 +93,7 @@ exist until a client's generator could make one; it does now, and the readings a
 
     ONE CASTER            1 shadow batch(es), drawing left    128 bytes
     SIXTY-FOUR CASTERS   64 shadow batch(es), drawing left    128 bytes
-    proof: harness/outshine/door/ScoreWhatManyCastersCost
+    proof: outshine/door/ScoreWhatManyCastersCost
 
 So the ALLOCATION half of this item already holds and is now guarded: 128 bytes at one caster and
 128 at sixty-four, constant rather than zero, which is what CLAUDE.md's *bounded* asks for. The

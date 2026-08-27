@@ -29,4 +29,4 @@ letters. `Rides()` calls the second and reads as though it called the first.
 - [ ] `Places` names one act. The other says what it does
 - [ ] the simulation's seven members are one thing the engine ticks
 - [ ] `Engine::State` holds subsystems and coordinates them, and its member count says so
-- [ ] proof: `apps/driver` drives and keeps its stills, `harness/outshine/door` stays 27 of 27
+- [ ] proof: `apps/driver` drives and keeps its stills, `outshine/door` stays 27 of 27
