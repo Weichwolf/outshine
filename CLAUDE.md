@@ -13,6 +13,36 @@ target without a ceiling cannot be missed.
 by every `make`, written by no hand. Where the two disagree, `STATE.md` is right and the distance
 is the work.
 
+## What done means
+
+Not "it works". The bar is an answer RAGE or Unreal would recognise as their own, or a better one
+I can defend with a measurement of THIS tree. An engine that renders is not the goal — an engine
+whose every structural answer is the best of the two is, because that is the only definition that
+does not drift. Anything I cannot defend that way is a finding I have not filed yet.
+
+The two are not authorities to obey; they are the only two bodies of evidence that exist for these
+questions, and both were paid for over a decade of shipping. Ignoring them is not independence,
+it is choosing to learn something twice.
+
+## Before I write
+
+Three questions, answered IN WRITING before a type, a function or a file exists. The answers land
+in the commit, which is why they cannot be skipped quietly — an empty answer is visible.
+
+1. **What does Unreal do here, and what does RAGE do?** If I cannot name it, I do not understand
+   the problem yet. Where they agree it is settled. Where they differ, the table below says which
+   and why. **If the question is not in the table, I add the row BEFORE the code** — a decision
+   made in a function body is a decision nobody can find again
+2. **Does this already exist here, unreachable?** `grep` first. A complete capability no
+   declaration reaches is the commonest defect in this tree, and writing a second one is the worst
+   outcome available: now there are two, and neither is right
+3. **What measurement will show I was wrong?** Name the case, the audit flag or the number, and
+   what it reads if the change is bad. A change with no such number is a guess wearing a commit
+   message
+
+**A commit that changes structure names the row it serves.** If neither engine answers the
+question, say so and say why the choice is mine — that is a new row, not a private decision.
+
 ## How I decide
 
 For every question below, one of RAGE or Unreal already has the right answer. My job is to hold
@@ -180,8 +210,9 @@ the driver · extend.
 worked. Findings are recorded and they wait. An item repaired on the architecture about to be
 replaced is work done twice, and the second time is the one that counts.
 
-**After every gate run, read `STATE.md` and name what still departs from RAGE and Unreal.** The
-numbers there are the distance; the board is where the answer goes.
+**After every gate run, read `STATE.md` and name what still departs from RAGE and Unreal** — one
+area, one concrete thing they hold that this tree does not. The numbers there are the distance;
+the board is where the answer goes, and `grep` there first so it lands once.
 
 `board/` is ONE FLAT DIRECTORY. One file = RFC 822 header + markdown body. Fields: `Type`
 (feature|task|bug|issue) · `State` (open|active) · `Parent` · `Area` · `Tags` · `Depends` ·

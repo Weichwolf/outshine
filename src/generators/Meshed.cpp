@@ -1,5 +1,7 @@
 #include "Meshed.h"
 
+#include <vector>
+
 namespace outshine::Generators {
 
 bool Meshed::Take(std::string named, int material, const float *soup, size_t floats) {
@@ -19,52 +21,24 @@ bool Meshed::Take(std::string named, int material, const float *soup, size_t flo
     return false;
   }
 
-  Reach reach;
-  reach.FirstVertex = PositionsM_.size() / 3;
-  reach.VertexCount = vertices;
-  reach.FirstIndex = Index_.size();
-  reach.IndexCount = vertices;
-  reach.Material = material;
-
-  PositionsM_.reserve(PositionsM_.size() + vertices * 3);
-  Uv_.reserve(Uv_.size() + vertices * 2);
-  NormalM_.reserve(NormalM_.size() + vertices * 3);
-  Index_.reserve(Index_.size() + vertices);
+  std::vector<float> positionsM(vertices * 3), uv(vertices * 2), normalM(vertices * 3);
+  std::vector<uint32_t> run(vertices);
   for (size_t vertex = 0; vertex < vertices; ++vertex) {
-    const float *at = soup + vertex * kSoupFloatsPerVertex;
-    PositionsM_.push_back(at[0]);
-    PositionsM_.push_back(at[1]);
-    PositionsM_.push_back(at[2]);
-    Uv_.push_back(at[3]);
-    Uv_.push_back(at[4]);
-    NormalM_.push_back(at[5]);
-    NormalM_.push_back(at[6]);
-    NormalM_.push_back(at[7]);
-    Index_.push_back((uint32_t)(reach.FirstVertex + vertex));
+    const float *const at = soup + vertex * kSoupFloatsPerVertex;
+    positionsM[vertex * 3 + 0] = at[0];
+    positionsM[vertex * 3 + 1] = at[1];
+    positionsM[vertex * 3 + 2] = at[2];
+    uv[vertex * 2 + 0] = at[3];
+    uv[vertex * 2 + 1] = at[4];
+    normalM[vertex * 3 + 0] = at[5];
+    normalM[vertex * 3 + 1] = at[6];
+    normalM[vertex * 3 + 2] = at[7];
+    run[vertex] = (uint32_t)vertex;
   }
-  Named_.push_back(std::move(named));
-  Reaches_.push_back(reach);
-  return true;
-}
 
-Geometry Meshed::Handed() {
-  Geometry out;
-  for (size_t at = 0; at < Reaches_.size(); ++at) {
-    const Reach &reach = Reaches_[at];
-    const int part = out.Part(Named_[at], reach.Material);
-    (void)out.Positions(part, std::span<const float>(PositionsM_.data() + reach.FirstVertex * 3,
-                                                     reach.VertexCount * 3));
-    (void)out.Texture(part, std::span<const float>(Uv_.data() + reach.FirstVertex * 2,
-                                                   reach.VertexCount * 2));
-    (void)out.Normals(part, std::span<const float>(NormalM_.data() + reach.FirstVertex * 3,
-                                                   reach.VertexCount * 3));
-    std::vector<uint32_t> run(reach.IndexCount);
-    for (size_t step = 0; step < reach.IndexCount; ++step) {
-      run[step] = (uint32_t)(Index_[reach.FirstIndex + step] - reach.FirstVertex);
-    }
-    (void)out.Triangles(part, std::span<const uint32_t>(run.data(), run.size()));
-  }
-  return out;
+  const int part = Held_.Part(std::move(named), material);
+  return Held_.Positions(part, positionsM) && Held_.Texture(part, uv) &&
+         Held_.Normals(part, normalM) && Held_.Triangles(part, run);
 }
 
 }
