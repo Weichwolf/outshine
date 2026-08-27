@@ -170,7 +170,14 @@ arrives somewhere that still has to be left.
 
 `board/` is ONE FLAT DIRECTORY. One file = RFC 822 header + markdown body; fields `Type` ·
 `State` (open|active) · `Parent` · `Area` · `Tags` · `Depends` · `Supersedes`. Filename
-`NNNN_label.md`; the number is identity; no dates. Titles say what WILL BE TRUE. Commits reference
+`NNNN_label.md`; **the number is identity, so it is issued once and never again** — the next one
+comes from the HISTORY, which remembers every id ever filed, not from the directory, which only
+remembers the ones still standing:
+
+    git log --all --diff-filter=A --name-only --format='' | sed -n 's|^board/\([0-9]*\)_.*|\1|p' \
+      | sort -n | tail -1
+
+No dates. Titles say what WILL BE TRUE. Commits reference
 `board:NNNN`.
 
 **Every item carries the benchmark and the choice** in one line near the top:
