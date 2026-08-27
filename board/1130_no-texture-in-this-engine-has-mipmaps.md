@@ -1,5 +1,5 @@
 Type: bug
-State: active
+State: open
 Area: render
 Tags: perf, oracle
 Supersedes: 1126, 1132

@@ -8,8 +8,8 @@ Tags: reachability, measured
 **Benchmark** — Unreal: a landscape query returns height AND the layer weights at a point, so what the ground IS comes back with how high it is. RAGE: material per polygon under the wheel. **Both agree** — the query answers the surface, not only the altitude.
 
 The capability exists and the drive cannot reach it. `ClassStructure::Evaluate(e, n, *distM,
-*runnerUp)` returns the surface class at an east/north point, and `src/engine/Sim.cpp:547`
-already calls it for the picture. `Generators::Infrastructure::MadeAt` returns a `Made` carrying
+*runnerUp)` returns the surface class at an east/north point, and `Sim::GroundUnderfoot::At`
+(`src/sim/GroundUnderfoot.cpp:15`) calls it for the drive. `Generators::Infrastructure::MadeAt` returns a `Made` carrying
 `CoverRow` and `SurfaceAslM` -- the made surface's material AND its height.
 
 The drive path stands up neither. `Engine::State` holds `Ground::GroundStack`

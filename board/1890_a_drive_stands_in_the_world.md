@@ -44,7 +44,8 @@ rising 10 m over 800 m: +0.7 degrees above a 1.2 m eye, which is what terrain do
 `GroundAlbedo`, so the drawn ground and the sky's painted ground name ONE colour instead of a
 mid-grey `Material{}` sheet. What it still lacks is a surface with identity: no slope response,
 nothing that tells road from field, and no use of the ground colour table the world already
-carries (`VegetationTemplates::Row::Ground`, reached at `src/engine/Sim.cpp:98`).
+carries (`VegetationTemplates::Row::Ground`, reached through `ClassField` since the
+`src/engine/Sim.cpp` split; the line number that stood here died with the file).
 
 Measured through the windscreen after: the ring reads (78, 94, 109) at 2 to 5 km, the painted
 ground below it (34, 42, 32), the sky above (45, 73, 108). The ring is bluish because it IS
