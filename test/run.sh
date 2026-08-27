@@ -792,18 +792,24 @@ if [ "$STATE" = 1 ]; then
     reaches=$(LayerReaches "$tier") || continue
     printf '| `%s` | %s |\n' "$tier" "${reaches:-nothing}"
   done
-  printf '\n## Mass\n\nThe heaviest units, against the median of them all.\n\n| lines | unit |\n|---|---|\n'
-  for header in $(find src -name '*.h' -not -path 'src/assets/*' | sort); do
-    body=${header%.h}.cpp
-    [ -f "$body" ] || body=
-    printf '%s %s\n' "$(cat "$header" $body 2>/dev/null | wc -l | tr -d ' ')" "${header#src/}"
-  done | sort -rn > "$BUILD/log/unit-mass"
-  head -8 "$BUILD/log/unit-mass" | while read -r many unit; do
-    printf '| %s | `%s` |\n' "$many" "$unit"
+  printf '\n## Mass\n\nThe heaviest files. Headers and sources are counted APART, and every source\nis counted -- a `.cpp` with no header of its own used to be invisible here.\n\n| lines | kind | file |\n|---|---|---|\n'
+  : > "$BUILD/log/unit-mass"
+  for one in $(find src -name '*.h' -not -path 'src/assets/*' | sort); do
+    printf '%s h %s\n' "$(wc -l < "$one" | tr -d ' ')" "${one#src/}" >> "$BUILD/log/unit-mass"
   done
-  printf '| **%s** | *the median of %s unit(s)* |\n' \
-    "$(awk '{ n[NR] = $1 } END { print n[int(NR/2)] }' "$BUILD/log/unit-mass")" \
-    "$(wc -l < "$BUILD/log/unit-mass" | tr -d ' ')"
+  for one in $(find src -name '*.cpp' -not -path 'src/assets/*' | sort); do
+    printf '%s cpp %s\n' "$(wc -l < "$one" | tr -d ' ')" "${one#src/}" >> "$BUILD/log/unit-mass"
+  done
+  sort -rn "$BUILD/log/unit-mass" -o "$BUILD/log/unit-mass"
+  head -10 "$BUILD/log/unit-mass" | while read -r many kind one; do
+    printf '| %s | `%s` | `%s` |\n' "$many" "$kind" "$one"
+  done
+  printf '| **%s** | `h` | *the median of %s header(s)* |\n' \
+    "$(awk '$2 == "h" { n[++k] = $1 } END { print n[int(k/2)] }' "$BUILD/log/unit-mass")" \
+    "$(awk '$2 == "h"' "$BUILD/log/unit-mass" | wc -l | tr -d ' ')"
+  printf '| **%s** | `cpp` | *the median of %s source(s)* |\n' \
+    "$(awk '$2 == "cpp" { n[++k] = $1 } END { print n[int(k/2)] }' "$BUILD/log/unit-mass")" \
+    "$(awk '$2 == "cpp"' "$BUILD/log/unit-mass" | wc -l | tr -d ' ')"
 
   printf '\n## Carpet\n\nThe widest public surfaces.\n\n| `[[nodiscard]]` | header |\n|---|---|\n'
   for header in $(find src include -name '*.h' -not -path 'src/assets/*' | sort); do

@@ -192,19 +192,23 @@ What each directory under `src/` may include. `--audit-layers` refuses a crossin
 
 ## Mass
 
-The heaviest units, against the median of them all.
+The heaviest files. Headers and sources are counted APART, and every source
+is counted -- a `.cpp` with no header of its own used to be invisible here.
 
-| lines | unit |
-|---|---|
-| 2020 | `content/gltf/Document.h` |
-| 1453 | `content/gltf/Subject.h` |
-| 1397 | `ui/Layout.h` |
-| 1349 | `render/Renderer.h` |
-| 1141 | `base/format/Script.h` |
-| 1103 | `base/spatial/Wayfinding.h` |
-| 1067 | `render/stages/SubjectDraw.h` |
-| 955 | `ui/Style.h` |
-| **104** | *the median of 238 unit(s)* |
+| lines | kind | file |
+|---|---|---|
+| 1891 | `cpp` | `content/gltf/Document.cpp` |
+| 1439 | `cpp` | `engine/Engine.cpp` |
+| 1261 | `cpp` | `content/gltf/Subject.cpp` |
+| 1256 | `cpp` | `ui/Layout.cpp` |
+| 1015 | `cpp` | `render/Renderer.cpp` |
+| 1013 | `cpp` | `base/format/Script.cpp` |
+| 943 | `h` | `base/spatial/ClusterDag.h` |
+| 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
+| 856 | `cpp` | `ui/Style.cpp` |
+| 832 | `cpp` | `render/stages/SubjectDraw.cpp` |
+| **45** | `h` | *the median of 238 header(s)* |
+| **115** | `cpp` | *the median of 153 source(s)* |
 
 ## Carpet
 
