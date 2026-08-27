@@ -85,7 +85,30 @@ else. An IO task on a compute worker consumes a core, because the slot is held w
 work is happening. That asymmetry is the whole of it, and it holds on two cores as firmly as on
 sixteen.
 
-- [ ] a compute worker never blocks on a socket or a disk -- it is handed the bytes when the
-      IO threads have them, rather than asking for them in a loop
+**HALF BUILT, AND THE MEASUREMENT NAMES THE OTHER HALF.** `TilePool` now has a second pool:
+`Carriers_` serve a `Carrying_` queue that holds only `Rank::Fetch`, so fetch JOBS no longer take
+a compute slot. `Config::Carriers` sizes it (default 2) and `Ledger::FetchOnCompute` counts what
+still slips through.
+
+    fetches that ran on a COMPUTE worker: 1 and 2
+
+Those are not jobs. They are the SYNCHRONOUS reads a mesh job makes while stitching:
+`PoolTerrain::Take` calls `BytesBlocking`, which checks the disk cache and then the network on
+whatever thread asked. **So it is not only network** -- the cache lookup is a disk read on the
+same thread, and the question "where is it read from" is the wrong one. What matters is that the
+caller WAITS.
+
+**And the non-blocking half already exists, unreachable.** `TilePool::Bytes` posts a fetch job
+and returns Pending -- request now, be told later, which is the pattern. Switching `Take` to it
+is ONE LINE and it breaks the wait: the mesh job gives up, nothing re-posts it when the bytes
+land, and `MeshAwaited` returns Pending immediately (measured: *entered the wait: NO*).
+
+The missing piece is completion posting the FOLLOW-ON job -- a dependency between two pieces of
+work, which is `Work::Graph`'s question (board:1961) and not a fourth queue. That is why this
+predicate now depends on it rather than being forced through here.
+
+- [ ] a compute worker never blocks on a socket or a disk: `PoolTerrain::Take` requests through
+      `TilePool::Bytes` and the fetch's completion posts the mesh job that was waiting on it
+      (needs board:1961's graph, so the dependency is real rather than an excuse)
 - [ ] `FetchBlockedMs` on a compute worker reads zero, which is the measurement that would show
       the separation is real rather than declared

@@ -91,7 +91,7 @@ private:
 };
 
 [[nodiscard]] bool Ends(int pollAttempts, bool release, const char *nest, bool *entered,
-                        double *tookS, size_t *asked, std::string &why) {
+                        double *tookS, size_t *asked, long *onCompute, std::string &why) {
   outshine::Data::ContentStore::Config keeping;
   keeping.Directory = std::string(nest) + "/wait-cache";
   outshine::Data::ContentStore store(keeping);
@@ -131,6 +131,7 @@ private:
   const bool ended = returned.load();
   if (ended) { waiter.join(); } else { waiter.detach(); }
   *asked = holding.Asked();
+  *onCompute = pool.Counters().FetchOnCompute;
   return ended;
 }
 
@@ -151,7 +152,8 @@ int main(void) {
   double tookS = 0.0;
   size_t asked = 0;
   std::string why;
-  const bool landed = Ends(0, true, nest, &entered, &tookS, &asked, why);
+  long onCompute = 0;
+  const bool landed = Ends(0, true, nest, &entered, &tookS, &asked, &onCompute, why);
   if (!why.empty()) {
     Unprepared(("the declared sources did not register: " + why).c_str());
     return Report();
@@ -165,7 +167,8 @@ int main(void) {
   bool enteredTwo = false;
   double tookTwoS = 0.0;
   size_t askedTwo = 0;
-  const bool dropped = Ends(3, false, nest, &enteredTwo, &tookTwoS, &askedTwo, why);
+  long onComputeTwo = 0;
+  const bool dropped = Ends(3, false, nest, &enteredTwo, &tookTwoS, &askedTwo, &onComputeTwo, why);
   std::printf("  NEVER answered       ended: %s after %.3f s   %zu ask(s)\n",
               dropped ? "yes" : "NO", tookTwoS, askedTwo);
 
@@ -177,6 +180,15 @@ int main(void) {
         "**A HELD REQUEST RELEASES ITS CALLER WHEN THE ANSWER ARRIVES**: the ordinary path, and "
         "the control for the arm that follows -- a pool that never wakes anybody would fail here "
         "first");
+  // WHAT IS LEFT ON THE COMPUTE WORKERS, REPORTED RATHER THAN ASSERTED. Fetch JOBS run on the
+  // carriers now, so this counts only the synchronous reads a mesh job makes while stitching:
+  // `PoolTerrain::Take` -> `BytesBlocking`, which checks the disk cache and then the network on
+  // whatever thread asked. Turning that into `Bytes` -- request and return Pending -- is one line
+  // and it breaks the wait: the mesh job gives up, nothing re-posts it when the bytes land, and
+  // `MeshAwaited` returns Pending immediately (measured: "entered the wait: NO"). The missing
+  // half is completion posting the follow-on job, which is a dependency between two jobs and
+  // therefore `Work::Graph`'s question rather than a fourth queue.
+  std::printf("  fetches that ran on a COMPUTE worker: %ld and %ld\n", onCompute, onComputeTwo);
   CHECK(dropped,
         "**A WAIT ENDS WHEN THE JOB IS DROPPED, NOT ONLY WHEN THE TILE LANDS**: the transport "
         "never answers, so the worker exhausts its polls and erases the posted job with `Done_` "

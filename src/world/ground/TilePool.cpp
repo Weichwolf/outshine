@@ -26,6 +26,7 @@ constexpr int kPollMs = 1;
 constexpr int kPollAttempts = 30000;
 
 thread_local double tFetchBlockedMs = 0.0;
+thread_local bool tCarries = false;
 
 uint64_t MeshKey(int z, uint32_t x, uint32_t y) {
   return ((uint64_t)1 << 62) | ((uint64_t)(z & 31) << 56)
@@ -52,12 +53,16 @@ TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transpo
       ByteBudget_(config.ByteBudget),
       DemCacheTiles_(config.DemCacheTiles),
       PollAttempts_(config.PollAttempts),
+      CarrierCount_(config.Carriers),
       FocusLatDeg_(config.OriginLatDeg),
       FocusLonDeg_(config.OriginLonDeg) {
   const int n = config.Threads > 0 ? config.Threads : 1;
   ContextBytes_ = std::vector<std::atomic<size_t>>((size_t)n);
   Threads_.reserve((size_t)n);
   for (int i = 0; i < n; i++) Threads_.emplace_back([this, i] { Work(i); });
+  const int carriers = CarrierCount_ > 0 ? CarrierCount_ : 2;
+  Carriers_.reserve((size_t)carriers);
+  for (int i = 0; i < carriers; i++) Carriers_.emplace_back([this] { Carry(); });
   Log::Info("world", "tilepool",
             {{"threads", n}, {"inFlightCap", n}, {"byteBudgetMB", (double)ByteBudget_ / 1048576.0},
              {"demCacheTilesPerThread", DemCacheTiles_}});
@@ -70,6 +75,7 @@ TilePool::~TilePool() {
   }
   Wake_.notify_all();
   for (std::thread &t : Threads_) t.join();
+  for (std::thread &t : Carriers_) t.join();
   const Ledger &l = Ledger_;
   const double meshes = l.MeshTiles > 0 ? (double)l.MeshTiles : 1.0;
   const double fetches = l.Fetches > 0 ? (double)l.Fetches : 1.0;
@@ -82,7 +88,7 @@ TilePool::~TilePool() {
               {"fetchRefused", l.FetchRefused},
               {"fetchGaveUp", l.FetchGaveUp}, {"fetchMs", l.FetchMs},
               {"fetchMsPerGet", l.FetchMs / fetches},
-              {"fetchBlockedMs", l.FetchBlockedMs},
+              {"fetchBlockedMs", l.FetchBlockedMs}, {"fetchOnCompute", (int)l.FetchOnCompute},
               {"retryWaitMs", l.FetchBlockedMs - l.FetchMs}, {"fetchedMB", l.FetchedMB},
               {"byteCacheMB", (double)ByteCacheBytes() / 1048576.0},
               {"byteCacheEntries", (int)Cache_.size()}, {"evictions", l.Evictions}});
@@ -183,6 +189,10 @@ void TilePool::Remember(const std::string &key, const uint8_t *data, size_t len,
 }
 
 TilePool::Reply TilePool::FetchInto(const Data::Request &request, Landing *out) {
+  if (!tCarries) {
+    std::lock_guard<std::mutex> ledger(LedgerMutex_);
+    Ledger_.FetchOnCompute++;
+  }
   const std::string key = request.Key();
   Data::SourceSet::Query query = Sources_.Ask(request);
   Reply reply = Reply::Pending;
@@ -390,6 +400,43 @@ void TilePool::RunDag(const Job &job, Result *out) {
   out->State = Reply::Ready;
 }
 
+void TilePool::Carry(void) {
+  StackProbe::Enter(StackProbe::Purpose::Tile);
+  tCarries = true;
+  Landing scratch;
+  for (;;) {
+    Job job;
+    {
+      std::unique_lock<std::mutex> lock(QueueMutex_);
+      Wake_.wait(lock, [this] { return Stopping_ || !Carrying_.empty(); });
+      if (Stopping_) { break; }
+      job = std::move(Carrying_.front());
+      Carrying_.erase(Carrying_.begin());
+    }
+    Result result;
+    const double blockedBefore = tFetchBlockedMs;
+    const auto t0 = std::chrono::steady_clock::now();
+    result.State = job.Ask ? FetchInto(*job.Ask, &scratch) : Reply::Refused;
+    const double spanMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+    {
+      std::lock_guard<std::mutex> ledger(LedgerMutex_);
+      Ledger_.FetchMs += spanMs;
+      Ledger_.FetchBlockedMs += tFetchBlockedMs - blockedBefore;
+    }
+    {
+      std::lock_guard<std::mutex> lock(QueueMutex_);
+      if (result.State == Reply::Pending) {
+        Posted_.erase(job.Key);
+      } else if (Posted_.find(job.Key) != Posted_.end()) {
+        Done_[job.Key] = std::move(result);
+      }
+      Landed_.notify_all();
+    }
+  }
+
+}
+
 void TilePool::Work(int slot) {
   StackProbe::Enter(StackProbe::Purpose::Tile);
   const EnuFrame frame = EnuFrame::At(OriginLatDeg_, OriginLonDeg_);
@@ -488,9 +535,10 @@ TilePool::Reply TilePool::Poll(Job &&job, Result *out) {
   if (Posted_.insert(job.Key).second) {
     Posts_++;
     if (job.Kind == Rank::Mesh) job.TileDist = TileDistance(job.Z, job.X, job.Y);
-    Queue_.push_back(std::move(job));
+    const bool carries = job.Kind == Rank::Fetch;
+    (carries ? Carrying_ : Queue_).push_back(std::move(job));
     lock.unlock();
-    Wake_.notify_one();
+    Wake_.notify_all();
   } else {
     Repeats_++;
   }

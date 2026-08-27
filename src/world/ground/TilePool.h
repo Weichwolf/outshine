@@ -42,6 +42,7 @@ public:
     long long Posts = 0, Repeats = 0, QueueDepth = 0;
 
     double FetchMs = 0.0, FetchBlockedMs = 0.0, MeshCpuMs = 0.0, DagMs = 0.0;
+    long FetchOnCompute = 0;
     double FetchedMB = 0.0;
   };
   Ledger Counters() const;
@@ -55,6 +56,8 @@ public:
     int DemCacheTiles = 0;
 
     int PollAttempts = 0;
+
+    int Carriers = 0;
   };
 
   TilePool(const Config &config, Data::SourceSet &sources, Data::Transport &transport);
@@ -120,6 +123,7 @@ private:
   };
 
   void Work(int slot);
+  void Carry(void);
   void RunMesh(TerrainTiles &tiles, const Job &job, Result *out);
   void RunDag(const Job &job, Result *out);
   [[nodiscard]] Reply Poll(Job &&job, Result *out);
@@ -137,6 +141,7 @@ private:
   const size_t ByteBudget_;
   const int DemCacheTiles_;
   const int PollAttempts_;
+  const int CarrierCount_;
 
   mutable std::mutex CacheMutex_;
   std::vector<CacheEntry> Cache_;
@@ -152,6 +157,7 @@ private:
   std::condition_variable Wake_;
   std::condition_variable Landed_;
   std::vector<Job> Queue_;
+  std::vector<Job> Carrying_;
   std::map<uint64_t, Result> Done_;
   std::set<uint64_t> Posted_;
 
@@ -159,6 +165,7 @@ private:
   double FocusLatDeg_ = 0.0, FocusLonDeg_ = 0.0;
   bool Stopping_ = false;
   std::vector<std::thread> Threads_;
+  std::vector<std::thread> Carriers_;
 };
 
 }
