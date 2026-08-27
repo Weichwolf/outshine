@@ -223,12 +223,21 @@ struct Sound {
   bool Loops = false;
   double GainDb = 0.0;
   double FalloffM = 0.0;
+  double SendShare = 0.0;
+};
+
+struct Room {
+  bool Declared = false;
+  double SecondsRt60 = 0.0;
+  double Damping = 0.5;
+  double WetShare = 0.0;
 };
 
 struct Bus {
   std::string Id;
   std::string Into;
   double GainDb = 0.0;
+  Room Reverberates;
 };
 
 struct Table {

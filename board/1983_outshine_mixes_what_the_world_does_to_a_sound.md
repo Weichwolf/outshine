@@ -26,6 +26,12 @@ structures to occlude and reflect against.
       cutoff -- Unreal's USoundAttenuation carries exactly that pair -- and the ray that measures
       it is `TriangleBvh::Occludes`, which the shadow path already had.
       proof: outshine/audio
-- [ ] early reflections off the nearest surfaces, and the room they imply
+- [x] a BUS carries the room, and a source SENDS to it -- Schroeder combs and allpasses, with the
+      feedback inverted from the DECLARED RT60. proof: outshine/audio
+- [ ] ray-traced early reflections, which both engines keep OUTSIDE the base engine -- which is the shape both engines use:
+      Unreal's AAudioVolume plus a reverb submix effect, RAGE's environment groups per space.
+      Reflection is a property of the SPACE and not a computation per source, and ray-traced
+      early reflections are a PLUGIN in Unreal (Steam Audio, Resonance) rather than the base
+      engine -- so they are a later item and not this one
 - [ ] the mix is handed to the client the way a frame is -- outshine fills a buffer, the client
       owns the device, because the client owns the process

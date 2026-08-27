@@ -482,7 +482,16 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
 
   const Xml::Ref audio = root.Child("audio");
   for (const Xml::Ref one : audio.Children("bus")) {
-    into.Buses.push_back(Bus{one.Attr("id"), one.Attr("into"), one.Num("gainDb", 0.0)});
+    Bus made;
+    made.Id = one.Attr("id");
+    made.Into = one.Attr("into");
+    made.GainDb = one.Num("gainDb", 0.0);
+    const Xml::Ref room = one.Child("room");
+    made.Reverberates.Declared = room.Num("secondsRt60", 0.0) > 0.0;
+    made.Reverberates.SecondsRt60 = room.Num("secondsRt60", 0.0);
+    made.Reverberates.Damping = room.Num("damping", 0.5);
+    made.Reverberates.WetShare = room.Num("wetShare", 0.0);
+    into.Buses.push_back(made);
   }
   for (const Xml::Ref one : audio.Children("sound")) {
     Sound made;
@@ -507,6 +516,7 @@ bool ReadScenario(const Xml &document, Scenario &into, std::string &error) {
     made.Heard.OuterGain = one.Num("outerGain", 0.0);
     made.Heard.BlockedGain = one.Num("blockedGain", 1.0);
     made.Heard.BlockedHz = one.Num("blockedHz", 0.0);
+    made.SendShare = one.Num("sendShare", 0.0);
     for (const Xml::Ref unit : one.Children("voice")) {
       Voice makes;
       makes.Id = unit.Attr("id");

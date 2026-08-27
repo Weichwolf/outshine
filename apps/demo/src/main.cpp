@@ -68,7 +68,7 @@ constexpr int kMixFrames = 1024;
   blob.AtM[1] = 6.0;
   made.Bodies.push_back(blob);
 
-  made.Buses.push_back(outshine::Bus{"master", "", 0.0});
+  made.Buses.push_back(outshine::Bus{.Id = "master", .Into = "", .GainDb = 0.0});
 
   outshine::Sound hum;
   hum.Id = "hum";

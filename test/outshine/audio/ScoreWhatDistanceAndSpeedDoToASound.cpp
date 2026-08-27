@@ -58,7 +58,7 @@ int main(void) {
   using namespace outshine::Test;
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-  const std::vector<outshine::Bus> buses{outshine::Bus{"master", "", 0.0}};
+  const std::vector<outshine::Bus> buses{outshine::Bus{.Id = "master", .Into = "", .GainDb = 0.0}};
   const int rate = 48000;
 
   for (const auto &[named, by, rolloff, atM, owed] :

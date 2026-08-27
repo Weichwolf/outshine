@@ -12,7 +12,7 @@ whose proof this tree does not hold is reported rather than counted.
 | area | held | share | tickets | note |
 |---|---|---|---|---|
 | `actors` | 2/7 | 29% | [1944](board/1944_the_engine_knows_bodies_forces_and_control.md) | |
-| `audio` | 4/11 | 36% | [1982](board/1982_sound_is_declared_and_a_standards_body_owns_it.md), [1983](board/1983_outshine_mixes_what_the_world_does_to_a_sound.md) | |
+| `audio` | 5/11 | 45% | [1982](board/1982_sound_is_declared_and_a_standards_body_owns_it.md), [1983](board/1983_outshine_mixes_what_the_world_does_to_a_sound.md) | |
 | `client` | 1/11 | 9% | [1947](board/1947_a_client_is_almost_no_code.md), [1984](board/1984_the_demo_is_a_client_that_measures_the_door.md) | |
 | `corpus` | 3/8 | 38% | [1942](board/1942_the_corpus_judges_against_oracles_that_are_not_ours.md) | |
 | `door` | 7/21 | 33% | [1939](board/1939_the_door_is_three_headers_and_a_client_reaches_nothing_else.md), [1949](board/1949_one_value_carries_3d_into_and_out_of_outshine.md) | |
@@ -137,6 +137,7 @@ whose proof this tree does not hold is reported rather than counted.
     value: Emitter
     value: Voice
     value: Sound
+    value: Room
     value: Bus
     value: Table
     value: Event
@@ -268,7 +269,7 @@ The heaviest files. Headers and sources counted apart.
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
 | 832 | `cpp` | `render/stages/SubjectDraw.cpp` |
-| 686 | `cpp` | `scenario/ScenarioRead.cpp` |
+| 696 | `cpp` | `scenario/ScenarioRead.cpp` |
 | **45** | `h` | *the median of 238 header(s)* |
 | **119** | `cpp` | *the median of 158 source(s)* |
 

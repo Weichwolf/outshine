@@ -148,12 +148,26 @@ void Voiced(const Sound &sound, std::vector<Running> &state, double pitch, int r
 
 }
 
+struct Reverberation {
+  std::vector<std::vector<double>> Combs;
+  std::vector<size_t> CombAt;
+  std::vector<double> CombBack;
+  std::vector<double> CombKept;
+  std::vector<std::vector<double>> Passes;
+  std::vector<size_t> PassAt;
+  double Damping = 0.5;
+  double WetShare = 0.0;
+  bool Standing = false;
+};
+
 struct Mixer::Held {
   BusGraph Routing;
   std::vector<Sound> Declared;
   std::vector<std::vector<Running>> State;
   std::vector<double> Scratch;
   std::vector<double> Dulled;
+  std::vector<double> Wet;
+  Reverberation Room;
   size_t Voices = 0;
 };
 
@@ -176,6 +190,30 @@ bool Mixer::Stands(std::span<const Bus> buses, std::span<const Sound> declared, 
   Held_->Declared.assign(declared.begin(), declared.end());
   Held_->State.clear();
   Held_->Dulled.clear();
+  Held_->Room = Reverberation{};
+  for (const Bus &one : buses) {
+    if (!one.Reverberates.Declared || !(one.Reverberates.SecondsRt60 > 0.0)) { continue; }
+    Held_->Room = Reverberation{};
+    Held_->Room.Standing = true;
+    Held_->Room.Damping = one.Reverberates.Damping;
+    Held_->Room.WetShare = one.Reverberates.WetShare;
+    constexpr int kCombs[] = {1116, 1188, 1277, 1356};
+    constexpr int kPasses[] = {556, 441};
+    for (const int held : kCombs) {
+      const size_t taps = (size_t)((double)held * (double)rate / 44100.0);
+      Held_->Room.Combs.emplace_back(taps == 0 ? 1u : taps, 0.0);
+      Held_->Room.CombAt.push_back(0);
+      Held_->Room.CombKept.push_back(0.0);
+      const double delayS = (double)Held_->Room.Combs.back().size() / (double)rate;
+      Held_->Room.CombBack.push_back(std::pow(10.0, -3.0 * delayS / one.Reverberates.SecondsRt60));
+    }
+    for (const int held : kPasses) {
+      const size_t taps = (size_t)((double)held * (double)rate / 44100.0);
+      Held_->Room.Passes.emplace_back(taps == 0 ? 1u : taps, 0.0);
+      Held_->Room.PassAt.push_back(0);
+    }
+    break;
+  }
   Held_->Voices = 0;
   for (const Sound &one : declared) {
     if (one.Graph.empty() && one.Uri.empty() && !one.Streamed) {
@@ -210,6 +248,7 @@ bool Mixer::Fills(std::span<float> stereo, std::span<const Heard> sources, const
   for (float &one : stereo) { one = 0.0f; }
   const size_t frames = stereo.size() / 2;
   Held_->Scratch.assign(frames, 0.0);
+  Held_->Wet.assign(frames, 0.0);
 
   for (size_t at = 0; at < Held_->Declared.size(); ++at) {
     const Sound &sound = Held_->Declared[at];
@@ -218,7 +257,7 @@ bool Mixer::Fills(std::span<float> stereo, std::span<const Heard> sources, const
     for (const Heard &one : sources) {
       if (one.Id == sound.Id && one.Standing) { standing = &one; }
     }
-    if (sound.Heard.Positional && standing == nullptr) { continue; }
+    if (standing == nullptr) { continue; }
 
     double gain = Held_->Routing.GainOf(sound.Id);
     double pitch = 1.0;
@@ -259,6 +298,32 @@ bool Mixer::Fills(std::span<float> stereo, std::span<const Heard> sources, const
       const double one = Held_->Scratch[frame] * gain;
       stereo[frame * 2 + 0] += (float)(one * leftShare);
       stereo[frame * 2 + 1] += (float)(one * rightShare);
+      Held_->Wet[frame] += one * sound.SendShare;
+    }
+  }
+
+  if (Held_->Room.Standing) {
+    Reverberation &room = Held_->Room;
+    for (size_t frame = 0; frame < frames; ++frame) {
+      double wet = 0.0;
+      for (size_t comb = 0; comb < room.Combs.size(); ++comb) {
+        std::vector<double> &ring = room.Combs[comb];
+        const double heard = ring[room.CombAt[comb]];
+        room.CombKept[comb] += (1.0 - room.Damping) * (heard - room.CombKept[comb]);
+        ring[room.CombAt[comb]] = Held_->Wet[frame] + room.CombKept[comb] * room.CombBack[comb];
+        room.CombAt[comb] = (room.CombAt[comb] + 1) % ring.size();
+        wet += heard;
+      }
+      wet /= (double)(room.Combs.empty() ? 1u : room.Combs.size());
+      for (size_t pass = 0; pass < room.Passes.size(); ++pass) {
+        std::vector<double> &ring = room.Passes[pass];
+        const double heard = ring[room.PassAt[pass]];
+        ring[room.PassAt[pass]] = wet + heard * 0.5;
+        wet = heard - wet;
+        room.PassAt[pass] = (room.PassAt[pass] + 1) % ring.size();
+      }
+      stereo[frame * 2 + 0] += (float)(wet * room.WetShare);
+      stereo[frame * 2 + 1] += (float)(wet * room.WetShare);
     }
   }
   return true;

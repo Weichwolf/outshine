@@ -63,7 +63,7 @@ constexpr double kBlockedGain = 0.25;
 
 [[nodiscard]] double Heard(double blocked) {
   outshine::Audio::Mixer mixer;
-  const std::vector<outshine::Bus> buses{outshine::Bus{"master", "", 0.0}};
+  const std::vector<outshine::Bus> buses{outshine::Bus{.Id = "master", .Into = "", .GainDb = 0.0}};
   const std::vector<outshine::Sound> sounds{Behind()};
   std::string why;
   if (!mixer.Stands(buses, sounds, kRate, why)) { return -1.0; }
