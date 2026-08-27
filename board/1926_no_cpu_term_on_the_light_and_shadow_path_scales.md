@@ -35,6 +35,27 @@ than from a per-batch CPU walk. Neither engine's CPU sees a batch on this path.
 Every row above whose verdict is not "correct, and it stays" has a box here, and every box names
 the mechanism the benchmark uses rather than an outcome.
 
+**WHAT IT WOULD BUY, COMPUTED, BEFORE IT IS BUILT.** SDL_GPU carries what the change needs:
+`SDL_DrawGPUIndexedPrimitivesIndirect` with `SDL_GPUIndexedIndirectDrawCommand`, whose
+`first_instance` is exactly where a model slot rides, and the shaders here are hand-written MSL so
+`[[base_instance]]` is available without a cross-compiler in the way. So the obstacle is not the
+API.
+
+The obstacle is that the term does not yet bind. Measured:
+
+    the drive          10 batches per frame
+    the many-caster case   64 batches per frame
+
+A draw call costs on the order of 1 to 5 microseconds of CPU. Sixty-four is about 0.3 ms of a
+16.7 ms budget -- two percent. It binds at a thousand batches, which is 5 ms and a third of the
+frame, and nothing this tree can currently declare comes near that: the widest scene it can stand
+is one subject's parts plus a ground ring.
+
+So this is CORRECT and NOT YET URGENT, on the same reading board:1960 got and for the same reason.
+`ScoreWhatManyCastersCost` already reads the number, so the day a scenario stands a thousand
+casters the case says so by that number tracking the scene into the thousands -- and THEN this is
+built, against a measurement rather than against Unreal's conclusion.
+
 - [ ] **`Cast` issues ONE indirect draw, not one per batch.** The shadow pass reads the same
       resident instance buffer the colour pass reads and draws it with
       `SDL_DrawGPUIndexedPrimitivesIndirect`, with per-instance transforms in a storage buffer
