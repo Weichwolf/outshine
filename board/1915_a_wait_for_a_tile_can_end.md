@@ -1,5 +1,5 @@
 Type: bug
-State: open
+State: active
 Parent: 1890
 Area: world
 Tags: measured, threading, tiles
@@ -26,9 +26,23 @@ the `Pending` path, and the `Posted_`/`Done_` race are held by reading alone. Th
 said so: *"a case that provokes the exact worker race needs thread control the harness does not
 have, and I did not build one."*
 
-The thread control is the item. A `TilePool` fed by a transport the case drives -- one that holds
-a request until the case releases it -- makes the worker's timing an INPUT rather than a hope,
-and the same instrument proves board:1937's ceiling.
+The thread control is the item, and **half of it now exists**.
+`outshine/geo/ScoreWhenAWaitForATileEnds` builds a `TilePool` on a `Holding` transport the case
+drives, runs `MeshAwaited` on its own thread, and measures with a deadline:
+
+    with the transport holding, the call has returned: no -- it is waiting
+    after release, the wait ended: yes after 0.013 s (budget 5.0 s)
+    the transport was asked 242 time(s)
+
+**And the negative control says what it does NOT reach.** Deleting the repaired half of the
+predicate -- `Posted_.find(key) == Posted_.end()` -- leaves the case GREEN. With the transport
+answering `Working` the worker POLLS rather than giving up, so it never takes the Pending branch
+at `TilePool.cpp:455-458` that erases a posted job and notifies with `Done_` empty. After release
+the tile lands through `Done_` like anything else.
+
+So the instrument stands and the residual is narrower and named: a transport that makes the
+WORKER give up, not one that makes it wait. That is a different fake -- one whose `Collect`
+returns `Unreachable` on a schedule the case sets -- and it is what is left of this item.
 
 ## What will be true
 
