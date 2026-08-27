@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_SIM_UNDERFOOT_H
-#define OUTSHINE_SIM_UNDERFOOT_H
+#ifndef OUTSHINE_SIM_SUPPORT_H
+#define OUTSHINE_SIM_SUPPORT_H
 
 namespace outshine::Sim {
 

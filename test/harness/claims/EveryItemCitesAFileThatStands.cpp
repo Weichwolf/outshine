@@ -36,11 +36,16 @@ using outshine::Test::Lines;
 //
 // A declared ceiling is quoted rather than re-derived. That is what it is FOR, and why it has to
 // be right before it is written down.
+//
+// 20 -> 18 when `Sim::Underfoot` became `Sim::Support` and board:1924's two citations followed
+// the files. That is the instrument working: the rename would otherwise have left paths into
+// nothing and nobody would have looked. It also refuses a SILENT fall, which is why this comment
+// exists -- the number cannot move without someone writing down why.
 
 namespace {
 
 // What the board held when this claim was written. It may only fall.
-constexpr size_t kCitationsIntoNothing = 20;
+constexpr size_t kCitationsIntoNothing = 18;
 
 }
 

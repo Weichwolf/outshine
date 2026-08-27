@@ -61,7 +61,7 @@ constexpr Forbidden kSubjects[] = {
     {"Car", 6, "the assembly itself; RAGE's CVehicle lives in the game layer"},
     {"Seat", 16, "RAGE's CSeatManager is game-layer; the law is a claimable SLOT with a state"},
     {"Door", 13, "an assembly of a body and a revolute joint with a drive"},
-    {"Steering", 8, "a lever ratio on a drive, which is what CLAUDE.md calls a LEVER"},
+    {"Steering", 8, "a lever ratio on a drive -- a ratio in the same statement, not a part"},
     {"Brake", 4, "a drive that may not add energy -- the same law as a motor, one sign apart"},
     {"Throttle", 2, "a control command over time, not a part"},
     {"Tyre", 0, "moved onto Contact by board:1897 and must not come back"},
