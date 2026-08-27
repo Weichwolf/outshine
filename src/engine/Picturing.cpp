@@ -190,18 +190,12 @@ bool Engine::State::Stood(void) {
   return Picture.Standing->Restand(Picture.Handed, 0, Error);
 }
 
-bool Engine::Mixes(std::span<float> stereo, int rate) {
-  if (!S_->Session.Mixing) {
-    if (!S_->Session.Sounding.Stands(S_->Session.Declared.Buses, S_->Session.Declared.Sounds, rate,
-                                     S_->Error)) {
-      return false;
-    }
-    S_->Session.Mixing = true;
-  }
-
-  std::vector<Audio::Heard> sources;
-  sources.reserve(S_->Session.Declared.Sounds.size());
-  for (const Sound &declared : S_->Session.Declared.Sounds) {
+void Engine::State::Tells(void) {
+  const unsigned next = (Session.Told.load(std::memory_order_relaxed) + 1u) & 1u;
+  std::vector<Audio::Heard> &sources = Session.Sources[next];
+  sources.clear();
+  sources.reserve(Session.Declared.Sounds.size());
+  for (const Sound &declared : Session.Declared.Sounds) {
     Audio::Heard where;
     where.Id = declared.Id;
     if (declared.On.empty()) {
@@ -210,10 +204,10 @@ bool Engine::Mixes(std::span<float> stereo, int rate) {
       continue;
     }
     const Physics::Rigid *stood = nullptr;
-    if (S_->Ticking.Drove && S_->Session.Declared.Bodies.size() == 1) {
-      stood = &S_->Ticking.Drive.State.Body;
-    } else if (!S_->Ticking.Freestanding.empty()) {
-      stood = &S_->Ticking.Freestanding.front();
+    if (Ticking.Drove && Session.Declared.Bodies.size() == 1) {
+      stood = &Ticking.Drive.State.Body;
+    } else if (!Ticking.Freestanding.empty()) {
+      stood = &Ticking.Freestanding.front();
     }
     if (stood != nullptr) {
       where.Standing = true;
@@ -225,16 +219,31 @@ bool Engine::Mixes(std::span<float> stereo, int rate) {
     sources.push_back(where);
   }
 
-  Audio::Listening ear;
-  if (S_->Picture.Standing) {
-    const Gltf::Viewpoint &eye = S_->Picture.Standing->Aimed();
+  Audio::Listening &ear = Session.Ear[next];
+  ear = Audio::Listening{};
+  if (Picture.Standing) {
+    const Gltf::Viewpoint &eye = Picture.Standing->Aimed();
     for (int axis = 0; axis < 3; ++axis) {
       ear.AtM[axis] = eye.EyeM[axis];
       ear.ForwardXyz[axis] = eye.Forward[axis];
       ear.RightXyz[axis] = eye.Right[axis];
     }
+  }  Session.Told.store(next, std::memory_order_release);
+}
+
+bool Engine::Mixes(std::span<float> stereo, int rate) {
+  if (!S_->Session.Mixing) {
+    if (!S_->Session.Sounding.Stands(S_->Session.Declared.Buses, S_->Session.Declared.Sounds,
+                                     rate, S_->Error)) {
+      return false;
+    }
+    S_->Session.Mixing = true;
+    S_->Tells();
   }
-  return S_->Session.Sounding.Fills(stereo, sources, ear, S_->Error);
+  const unsigned told = S_->Session.Told.load(std::memory_order_acquire);
+  return S_->Session.Sounding.Fills(stereo, S_->Session.Sources[told],
+                                    S_->Session.Ear[told], S_->Error);
+
 }
 
 bool Engine::RenderTo(Extent frame) {

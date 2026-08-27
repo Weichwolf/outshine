@@ -28,6 +28,10 @@ runs as fast as it can, which is what a dedicated server and every offline run a
       proof: outshine/door
 - [ ] the third phase is the mixer's own, not the frame loop's
 - [ ] render runs on its own thread, one frame behind, and the simulation never waits for it
-- [ ] audio runs on its own thread against a deadline the frame rate does not set
+- [x] the mixer reads a SNAPSHOT and never the live world, so it is callable from the device's
+      own thread -- which is where the deadline lives, because the CLIENT owns the process and
+      therefore the device. `Updates()` publishes into one of two buffers and releases an index;
+      `Mixes` acquires it. No lock, and the simulation never waits on a mix.
+      proof: outshine/audio, outshine/door
 - [ ] proof: a headless run of N steps takes measurably less wall time than the same N steps with
       a picture, and the trajectory is IDENTICAL -- same fixed step, same order, same numbers

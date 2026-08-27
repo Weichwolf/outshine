@@ -121,7 +121,11 @@ bool Engine::State::Draws(void) {
   return true;
 }
 
-bool Engine::Advance() { return S_->Updates() && S_->Draws(); }
+bool Engine::Advance() {
+  if (!S_->Updates()) { return false; }
+  S_->Tells();
+  return S_->Draws();
+}
 
 void Engine::State::Falls(void) {
   if (Ticking.Freestanding.empty()) { return; }

@@ -224,6 +224,9 @@ struct Kept {
   std::optional<TableBook> Tabled;
   Audio::Mixer Sounding;
   bool Mixing = false;
+  std::vector<Audio::Heard> Sources[2];
+  Audio::Listening Ear[2];
+  std::atomic<unsigned> Told{0};
 };
 
 struct Players {
@@ -270,6 +273,7 @@ struct Engine::State {
   [[nodiscard]] bool Stood(void);
   [[nodiscard]] bool Updates(void);
   [[nodiscard]] bool Draws(void);
+  void Tells(void);
   [[nodiscard]] bool Routes(void);
 };
 
