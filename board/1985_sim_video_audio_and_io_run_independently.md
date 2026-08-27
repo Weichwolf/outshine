@@ -56,6 +56,22 @@ spends waiting rather than working, and spends it anyway.
 path. What is not separated is the POLL: a pool worker blocks on `Sources_.Collect` in a loop
 rather than being handed the bytes when they arrive.
 
+**WHY FOUR IS THE RIGHT NUMBER, AND IT IS NOT BECAUSE THERE ARE FOUR CORES.** A core count is a
+correspondence, not an argument, and this device has 2P+4E rather than four of anything. The
+argument is that IO is a DIFFERENT KIND OF WORK:
+
+| | bound by | deadline |
+|---|---|---|
+| sim · video · audio | CPU | yes — 16.7 ms, or a mix buffer |
+| IO | latency | none: it takes what it takes |
+
+A thread with a deadline and a thread without one cannot share a queue, because the one without
+will eventually be holding the slot the one with needs. And the cost is asymmetric in our favour:
+**an IO thread that is blocked consumes no core** — it is asleep, holding a context and nothing
+else. An IO task on a compute worker consumes a core, because the slot is held whether or not
+work is happening. That asymmetry is the whole of it, and it holds on two cores as firmly as on
+sixteen.
+
 - [ ] IO has its own thread and a compute worker never blocks on a socket or a disk
 - [ ] `FetchBlockedMs` on a compute worker reads zero, which is the measurement that would show
       the separation is real rather than declared
