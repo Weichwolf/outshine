@@ -46,15 +46,16 @@ struct Studio {
   Render::SubjectEnvironment Environment;
 };
 
-void Placements(const Studio &studio, std::vector<double> &into);
+[[nodiscard]] bool Placed(Render::Renderer &renderer, const Studio &studio, std::string &error);
+
+[[nodiscard]] bool Moved(Render::Renderer &renderer, size_t rows, size_t from, size_t to,
+                         const double ecef[16], std::string &error);
 
 struct StudioScratch {
   std::vector<float> Vertices;
   std::vector<uint32_t> Indices;
   std::vector<Render::SubjectLight> Lights;
   Render::DrawList Draws;
-  std::vector<double> Placements;
-  std::vector<double> Sent;
 };
 
 [[nodiscard]] bool Aim(Render::Renderer &renderer, const Gltf::Subject &subject,

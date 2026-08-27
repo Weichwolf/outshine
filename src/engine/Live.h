@@ -172,8 +172,8 @@ private:
   Gltf::Placement Eye_;
   bool HaveEye_ = false;
   bool Aimed_ = true;
-  [[nodiscard]] bool Carried(size_t rows, std::string &error);
-  std::vector<double> Sent_;
+  std::array<double, 16> SentBody_;
+  std::array<double, 16> SentBuilt_;
   struct Volume {
     bool Empty = true;
     double LeastM[3] = {0.0, 0.0, 0.0};

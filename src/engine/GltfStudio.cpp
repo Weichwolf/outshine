@@ -29,28 +29,22 @@ void PlacedInEcef(const double gltf[16], double out[16]) {
   }
 }
 
-[[nodiscard]] bool Carried(Render::Renderer &renderer, StudioScratch &scratch, size_t rows,
-                           std::string &error) {
+bool Placed(Render::Renderer &renderer, const Studio &studio, std::string &error) {
+  const size_t rows = studio.PartPlacement.size();
   if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
-  if (scratch.Sent.size() != rows * 16u) {
-    scratch.Sent.assign(rows * 16u, std::numeric_limits<double>::quiet_NaN());
-  }
-  for (size_t slot = 0; slot < rows; ++slot) {
-    const double *const now = scratch.Placements.data() + slot * 16u;
-    bool same = true;
-    for (size_t at = 0; at < 16u && same; ++at) { same = scratch.Sent[slot * 16u + at] == now[at]; }
-    if (same) { continue; }
-    renderer.MoveSubjectPlacement(slot, now);
-    for (size_t at = 0; at < 16u; ++at) { scratch.Sent[slot * 16u + at] = now[at]; }
+  double ecef[16];
+  for (size_t part = 0; part < rows; ++part) {
+    PlacedInEcef(studio.PartPlacement[part].data(), ecef);
+    renderer.MoveSubjectPlacement(part, ecef);
   }
   return true;
 }
 
-void Placements(const Studio &studio, std::vector<double> &into) {
-  into.resize(studio.PartPlacement.size() * 16u);
-  for (size_t part = 0; part < studio.PartPlacement.size(); ++part) {
-    PlacedInEcef(studio.PartPlacement[part].data(), into.data() + part * 16u);
-  }
+bool Moved(Render::Renderer &renderer, size_t rows, size_t from, size_t to, const double ecef[16],
+           std::string &error) {
+  if (!renderer.SubjectPlacementRows(rows, error)) { return false; }
+  for (size_t part = from; part < to; ++part) { renderer.MoveSubjectPlacement(part, ecef); }
+  return true;
 }
 
 namespace {
@@ -432,8 +426,7 @@ bool Place(Render::Renderer &renderer, const Studio &studio, StudioScratch &scra
   mesh.Draws = &scratch.Draws;
   const Heap::Tagged handing("subject-mesh");
   if (!renderer.SetSubjectMesh(mesh, error)) { return false; }
-  Placements(studio, scratch.Placements);
-  if (!Carried(renderer, scratch, studio.PartPlacement.size(), error)) { return false; }
+  if (!Placed(renderer, studio, error)) { return false; }
 
   return true;
 }
@@ -475,8 +468,7 @@ bool Move(Render::Renderer &renderer, const Studio &studio, StudioScratch &scrat
   }
   const Heap::Tagged handing("subject-pose");
   if (!renderer.SetSubjectPose(pose, error)) { return false; }
-  Placements(studio, scratch.Placements);
-  return Carried(renderer, scratch, studio.PartPlacement.size(), error);
+  return true;
 }
 
 }

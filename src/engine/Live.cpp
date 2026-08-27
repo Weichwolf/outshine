@@ -401,6 +401,8 @@ bool Live::Stand(std::string &error) {
   if (HaveEye_) { Stood_.Eye = Eye_; }
   Stood_.PartPlacement.assign(Geometry_.Parts().size(),
                               {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1});
+  SentBody_.fill(std::numeric_limits<double>::quiet_NaN());
+  SentBuilt_.fill(std::numeric_limits<double>::quiet_NaN());
   Stood_.Geometry = &Geometry_;
   if (Moves_) { Stood_.PreviousPositionsM = &PreviousPositionsM_; }
   Stood_.EmittedRadiance.assign(Geometry_.Parts().size(), {0.0f, 0.0f, 0.0f});
@@ -611,32 +613,42 @@ bool Live::Carry(const double worldFromBodyM[16], const double built[16], std::s
             "stands where the world put it";
     return false;
   }
-  if (Stood_.PartPlacement.size() != Geometry_.Parts().size()) {
-    Stood_.PartPlacement.assign(Geometry_.Parts().size(),
-                                {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1});
+  const size_t parts = Geometry_.Parts().size();
+  const bool restood = Stood_.PartPlacement.size() != parts;
+  if (restood) {
+    Stood_.PartPlacement.assign(parts, {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1});
   }
-  for (size_t part = 0; part < Stood_.PartPlacement.size(); ++part) {
-    const double *const from = part < Joined_ ? body : built;
-    for (int at = 0; at < 16; ++at) { Stood_.PartPlacement[part][at] = from[at]; }
+  bool bodyMoved = restood, builtMoved = restood;
+  for (int at = 0; at < 16 && !bodyMoved; ++at) { bodyMoved = SentBody_[at] != body[at]; }
+  for (int at = 0; at < 16 && !builtMoved; ++at) { builtMoved = SentBuilt_[at] != built[at]; }
+  if (!bodyMoved && !builtMoved) { return true; }
+
+  const size_t joined = Joined_ < parts ? Joined_ : parts;
+  if (bodyMoved) {
+    for (size_t part = 0; part < joined; ++part) {
+      for (int at = 0; at < 16; ++at) { Stood_.PartPlacement[part][at] = body[at]; }
+    }
+  }
+  if (builtMoved) {
+    for (size_t part = joined; part < parts; ++part) {
+      for (int at = 0; at < 16; ++at) { Stood_.PartPlacement[part][at] = built[at]; }
+    }
   }
   PartBounds_.clear();
   Renderer_->CastsBelow((uint32_t)Joined_);
-  Placements(Stood_, Scratch_.Placements);
-  return Carried(Stood_.PartPlacement.size(), error);
-}
 
-bool Live::Carried(size_t rows, std::string &error) {
-  if (!Renderer_->SubjectPlacementRows(rows, error)) { return false; }
-  if (Sent_.size() != rows * 16u) {
-    Sent_.assign(rows * 16u, std::numeric_limits<double>::quiet_NaN());
+  double ecef[16];
+  if (bodyMoved && joined > 0) {
+    PlacedInEcef(body, ecef);
+    if (!Moved(*Renderer_, parts, 0, joined, ecef, error)) { return false; }
   }
-  for (size_t slot = 0; slot < rows; ++slot) {
-    const double *const now = Scratch_.Placements.data() + slot * 16u;
-    bool same = true;
-    for (size_t at = 0; at < 16u && same; ++at) { same = Sent_[slot * 16u + at] == now[at]; }
-    if (same) { continue; }
-    Renderer_->MoveSubjectPlacement(slot, now);
-    for (size_t at = 0; at < 16u; ++at) { Sent_[slot * 16u + at] = now[at]; }
+  if (builtMoved && joined < parts) {
+    PlacedInEcef(built, ecef);
+    if (!Moved(*Renderer_, parts, joined, parts, ecef, error)) { return false; }
+  }
+  for (int at = 0; at < 16; ++at) {
+    SentBody_[at] = body[at];
+    SentBuilt_[at] = built[at];
   }
   return true;
 }
