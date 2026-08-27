@@ -46,26 +46,18 @@ wherever it stands.
   optics terms against 3 subject words, while `src/sim` carries 46 mechanics terms against 96
   vehicle words -- two to one the wrong way. The reason is plain once seen: optics never met a
   subject, because light knows no cars, and the simulation was written from one car outwards
-- **AN ENGINE KNOWS LAWS AND NO SUBJECTS.** Its whole vocabulary is the one the laws are written
-  in: **body · joint · degree of freedom · drive · constraint · force · contact · integration**.
-  A vehicle, a wheel, a tyre, a seat, a door and a walker are SUBJECTS -- assemblies a scenario
-  builds out of that vocabulary -- and the engine never names one. Both benchmarks draw exactly
-  this line and neither blurs it: RAGE has `phBound`, `phConstraint`, `phArticulatedBody` and
-  `phInst` in the physics library while `CVehicle`, `CPed` and `CWheel` live in the GAME layer;
-  Unreal has `FBodyInstance`, `FConstraintInstance` and `FPhysicsActorHandle` in the engine while
-  wheeled movement sits in a plugin OUTSIDE the engine module.
-  **There is no actuator in physics.** There are constraints with a target and a force limit, which
-  is what Chaos and PhysX call a joint DRIVE -- position, velocity, force limit -- and a drive is
-  part of the constraint's own statement rather than a thing beside it. A motor and a brake are one
-  drive on one degree of freedom, separated by whether it may add energy; a motor with regenerative
-  braking is that fact made visible. A LEVER is a ratio in the same statement.
-  **`walk` and `open` are CONTROL over time and never actuation** -- a controller commanding joint
-  drives -- and a lamp is an emitter rather than a mechanism. Naming them as actuators would put a
-  behaviour where a degree of freedom belongs, and every body that behaved differently would need a
-  new catalogue entry.
-  **Where outshine ships a convenience -- a raycast-and-spring wheel, a four-contact prefab -- it
-  ships it as a DECLARED ASSEMBLY in the catalogue and never as an engine type.** That is the same
-  model RAGE's `CWheel` and Unreal's Chaos vehicles use, and it belongs where they put it
+- **AN ENGINE KNOWS LAWS AND NO SUBJECTS.** Its vocabulary is the laws': **body · joint · degree
+  of freedom · drive · constraint · force · contact · integration**. A vehicle, wheel, tyre, seat,
+  door or walker is a SUBJECT — an assembly a scenario builds from that vocabulary — and the
+  engine never names one. RAGE keeps `phBound`/`phConstraint` in physics and `CVehicle`/`CWheel`
+  in the game layer; Unreal keeps `FBodyInstance`/`FConstraintInstance` in the engine and wheeled
+  movement in a plugin outside it.
+  **There is no actuator in physics** — only a constraint with a target and a force limit, which
+  is what Chaos and PhysX call a joint DRIVE. Motor and brake are ONE drive on one degree of
+  freedom, separated by whether it may add energy; a LEVER is a ratio in the same statement.
+  **`walk` and `open` are CONTROL over time**, a controller commanding drives, never actuation.
+  A convenience outshine ships — a raycast-and-spring wheel — ships as a DECLARED ASSEMBLY in the
+  catalogue and never as an engine type, which is where both benchmarks put theirs
 - **THE INTERFACE IS A DOCUMENT, and the scenario declares which one.** Markup, style, layout,
   type and pointer are engine verbs; the panel itself is CONTENT and lives beside the glTF, never
   in C++. RAGE reaches the same answer through Scaleform and Unreal does not reach it at all --
@@ -73,13 +65,9 @@ wherever it stands.
   What this choice buys beyond the shape: **the format has a standards body and the standards body
   ships the corpus**, so WPT and test262 certify this layer from outside, and nothing else in the
   tree has that
-- **THE DOOR'S IMPLEMENTATION IS A SKELETON OF SUBSYSTEMS, never a struct with members.** Each
-  concern -- the picture, the declaration, the scene, the world, the simulation, the measures --
-  is an object that OWNS its state and answers a small door, and the engine holds those and
-  states the ORDER they run in. Two things follow that a member list cannot give: a concern's
-  state is unreachable from the others, so a defect has an address; and the phase order is
-  DECLARED, so a reader learns it without reading a function body. That is Unreal's subsystem
-  and RAGE's `gameSkeleton`, and neither engine kept its top level any other way
+- **THE DOOR'S IMPLEMENTATION IS A SKELETON OF SUBSYSTEMS**, never a struct of members: each
+  concern OWNS its state behind a small door, and the engine states the ORDER they run in. A
+  defect then has an address, and the phase order is read without reading a body
 - **Declarative**: scenarios declare, the engine behaves; content = data, engine = verbs; the consumer selects from a `constexpr` catalogue and cannot add to it. **A section that is NOT declared decides nothing** — its `Declared` flag is read where the decision is made, and what stands in its place is the engine's own default, never the zeroes of a struct nobody filled in
 - **A SCENARIO IS A STREAM, not a value that is re-declared.** `Declare` seeds; after that parts
   enter and leave. The bound is a cost: the work a declaration causes is proportional to what it
@@ -189,7 +177,7 @@ can be read and RAGE is reconstruction, so a RAGE row carries less and says so.
 | **time** | variable step, physics substeps | fixed step, replay- and network-exact | **RAGE** | "temporally DETERMINISTIC" is not a wish: a fixed simulation step, one fixed order, and INTERPOLATION to the display is the mechanism, and nothing else delivers it |
 | **threading** | `FTaskGraph`, render + RHI threads, workers | `sysTaskManager`, fibers | **both agree** | a task graph with explicit dependencies; 720p60 on four usable cores is not reachable from one thread, and retrofitting threading is a rewrite |
 | **interface** | Slate/UMG: a native widget tree authored in the editor; CEF only for real browsers | **Scaleform GFx**: Flash documents with ActionScript, authored OUTSIDE and rendered by the engine | **RAGE's slot, with a standardised format in it** | a widget tree authored in an editor is not declared CONTENT, and this engine's rule is content = data. HTML/CSS/JS fills Scaleform's slot with a format a standards body maintains -- and that buys the thing neither Scaleform nor Slate has: **WPT and test262 prove the interface layer, so it is the one subsystem in this tree whose correctness someone else certifies** |
-| **engine composition** | `UEngine` is THIN; each concern is a SUBSYSTEM with a declared lifetime -- engine-scoped or world-scoped -- registered and discovered rather than named as a member | **`gameSkeleton`**: a declared list of INIT / UPDATE / SHUTDOWN steps grouped into PHASES, standing above the fw/rage libraries | **both, and for different halves** | Unreal answers WHO OWNS THE STATE and RAGE answers WHEN IT RUNS, and a top-level object needs both answers or it has neither. A struct of 42 members in a 1447-line file has neither: no subsystem owns anything, so every concern can reach every other, and the order is whatever the function bodies happen to do rather than something a reader can see |
+| **engine composition** | thin `UEngine`; each concern a SUBSYSTEM with a declared lifetime | **`gameSkeleton`**: INIT/UPDATE/SHUTDOWN steps in declared PHASES | **both** | they answer different halves — who OWNS the state, and WHEN it runs. A flat struct of members has neither: every concern reaches every other, and the order is whatever the bodies happen to do |
 | **content surface** | `.uasset` + Interchange for import | offline tool chain | **neither wholesale** | glTF 2.0 is the only content surface here, which is Interchange's role without Interchange's format; what a client hands ACROSS the door is a handle, never a layout |
 
 ## Architecture (TARGET)
@@ -398,16 +386,14 @@ ls board/*.md | grep -o '[0-9]\{4\}' | sort -n | tail -1  # next id, derived
 |---|---|
 | `src/` | the library entire; `src/assets/` its declared data; no entry point, no test. **The directory IS the dependency tier and the tier is DECLARED**: `LayerReaches` in `test/run.sh` states what each may include and `--audit-layers` refuses a source that crosses it -- and refuses a CYCLE between two modules
 inside one tier, which the tier table alone cannot see. `base/` (math · geo · format · spatial · io) reaches nothing; `content/` (gltf · shade) and `actor/` reach base; `world/` (ground · generators · data · sky · weather) reaches base and content; `render/`, `scene/`, `scenario/`, `ui/`, `audio/`, `host/`, `compositor/` and `sim/` reach what their row says; `engine/` reaches all of it and is the door's own implementation, which is why it is not called `clients/` — the clients live in `apps/`. Unreal declares the same thing per module in `Build.cs`; a layering that is only a convention is how a 44-header drawer forms (board:1902) |
-| `test/` | **The vendor's word and ours are kept APART, and the directory says which is which.** `test/khronos/` · `test/wpt/` · `test/test262/` · `test/geographiclib/` are the established corpora, and `test/khronos/validator/` holds the 263 glTF-Validator cases judged as a REFUSAL against Khronos's own report; `test/harness/` is the vendor side's scorers and the board claims; **`test/outshine/` is OURS** -- our own oracles, of unknown grade, which hold the tree to what the tree already did. Everything under `test/` reaches the library through `include/` and NOTHING of `src/` |
+| `test/` | **The vendor's word and ours stand apart and the directory says which.** `khronos/` · `wpt/` · `test262/` · `geographiclib/` are the corpora (`khronos/validator/`: 263 cases judged as a REFUSAL against Khronos's report); `harness/` their scorers and the board claims; **`outshine/` is OURS**. Everything under `test/` reaches the library through `include/` and NOTHING of `src/` |
 | `apps/` | the CLIENTS, built ON the library and each a product. **A client is almost no code, and its LINE COUNT is a measurement of the door**: when a client needs much code, the interface is too complicated and the door is the finding, never the client. At HEAD `apps/driver` is 236 lines and `apps/viewer` 338, and both are too long and the driver is GROWING (board:1898): **`apps/driver`** is outshine's one integration test and the stakeholder signs it off; **`apps/viewer`** shows any scenario and becomes a scenario itself, layered over the one it shows (board:1880) |
 | `Makefile` | build · test · clean, nothing else. `make` writes TWO archives: `liboutshine.a`, and `libgenerators.a` — the generator tier alone, its member list DERIVED from the closure the linker itself computes, never a second list kept by hand |
 | `board/` | the working system (above) |
 
-`make` builds the library and every program under `apps/` into `build/`. **`test/gate.sh` is the
-FAST GATE for iteration: about a minute, and it runs nothing itself** -- it names a subset of
-`test/run.sh` plus `make` and one drive of `apps/driver`, so the one test runner stays the one
-test runner. It prints what it does NOT cover, because a gate that hides its own bounds reads as
-coverage. `test/run.sh` is the
+`make` builds the library and every program under `apps/` into `build/`. **`test/gate.sh` is the FAST GATE
+for iteration** — about a minute, naming a subset of `run.sh` plus `make` and one drive; it prints
+what it does NOT cover, because a gate that hides its bounds reads as coverage. `test/run.sh` is the
 only TEST runner and runs nothing else; by default it runs the corpora and the claims, while
 `tools` and `apps` run when named. A standing RED is declared in `EXPECT_FAIL` with its count,
 and the gate turns red the day such a case passes with the declaration still in place.
