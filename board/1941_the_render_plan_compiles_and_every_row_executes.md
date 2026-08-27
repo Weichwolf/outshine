@@ -29,8 +29,14 @@ consumes. The gap is that three declared rows execute NOTHING.
       control: reversing `Order_` lands 2 unfed reads, the first at `present`, and takes 12 of
       the 30 door cases with it.
       proof: outshine/door/ScoreWhatAPlanIsCompiledFrom
-- [ ] `Stage::Terrain`, `Stage::Buildings` and `Stage::Water` EXECUTE -- three rows a scenario
-      can select and no executor runs (board:1805)
+- [x] `Stage::Terrain`, `Stage::Buildings` and `Stage::Water` are GONE, which is the opposite of
+      what this predicate asked for and the right answer. It asked them to EXECUTE; thinking the
+      pipeline backwards says they should not exist. A generator hands back a `Geometry`, one
+      cooker cooks it, and ONE subject pass draws it -- Unreal draws Landscape as a primitive in
+      the base pass and RAGE puts terrain on the same draw list as everything else. Neither has a
+      terrain pass. `Stage::Models` went with them for the same reason. board:1991 carries the
+      cooker half.
+      proof: the door suite and --audit-layers, unchanged by their removal
 - [ ] a resource a plan stops writing is cleared or declared stale, never left standing
       (board:1922). **MEASURED and larger than it looked**: in the minimal plan above, four
       reads land on a resource the plan does not hold at all -- `subjects` reads an unheld
