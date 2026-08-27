@@ -192,13 +192,11 @@ What each directory under `src/` may include. `--audit-layers` refuses a crossin
 
 ## Mass
 
-The heaviest files. Headers and sources are counted APART, and every source
-is counted -- a `.cpp` with no header of its own used to be invisible here.
+The heaviest files. Headers and sources counted apart.
 
 | lines | kind | file |
 |---|---|---|
 | 1891 | `cpp` | `content/gltf/Document.cpp` |
-| 1439 | `cpp` | `engine/Engine.cpp` |
 | 1261 | `cpp` | `content/gltf/Subject.cpp` |
 | 1256 | `cpp` | `ui/Layout.cpp` |
 | 1015 | `cpp` | `render/Renderer.cpp` |
@@ -207,8 +205,9 @@ is counted -- a `.cpp` with no header of its own used to be invisible here.
 | 926 | `cpp` | `base/spatial/Wayfinding.cpp` |
 | 856 | `cpp` | `ui/Style.cpp` |
 | 832 | `cpp` | `render/stages/SubjectDraw.cpp` |
-| **45** | `h` | *the median of 238 header(s)* |
-| **115** | `cpp` | *the median of 153 source(s)* |
+| 641 | `cpp` | `scenario/ScenarioRead.cpp` |
+| **45** | `h` | *the median of 239 header(s)* |
+| **119** | `cpp` | *the median of 157 source(s)* |
 
 ## Carpet
 
@@ -261,6 +260,7 @@ shared machinery -- Source, WebTileSource, TerrariumDem is that shape.
 | 3 | `src/world/generators/draw/LeafAngleDistribution.h` |
 | 2 | `src/world/ground/EyeColumn.h` |
 | 2 | `src/render/draw/DrawKey.h` |
+| 2 | `src/engine/EngineHeld.h` |
 | 2 | `src/content/shade/TangentFrame.h` |
 | 1 | `src/world/weather/ConstantWindWeather.h` |
 | 1 | `src/world/ground/tiles/TileGeodesy.h` |

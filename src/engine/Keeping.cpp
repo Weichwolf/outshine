@@ -1,0 +1,207 @@
+#include "EngineHeld.h"
+
+namespace outshine {
+
+bool Engine::Save(std::string_view path) const {
+  if (S_->Declared.State.empty()) {
+    S_->Error = "the scenario declares nothing to persist, so a save would be an empty "
+                "promise -- declare <state><persist what=.../></state> first";
+    return false;
+  }
+  std::vector<std::string> lines;
+  for (const Persisted &row : S_->Declared.State) {
+    const size_t dot = row.What.find('.');
+    if (dot == std::string::npos) {
+      S_->Error = "the persist row '" + row.What +
+                  "' names no instance.trait pair, and a save writes only what a load can "
+                  "put back";
+      return false;
+    }
+    const Entity holder = S_->Stood.InstanceNamed(std::string_view(row.What).substr(0, dot));
+    const uint32_t key = S_->Stood.TraitKey(std::string_view(row.What).substr(dot + 1));
+    const Traits *held = holder == kNoEntity ? nullptr : S_->Kinds.Get(holder);
+    const double *value = held == nullptr || key == 0 ? nullptr : held->Named(key);
+    if (value == nullptr) {
+      S_->Error = "the persist row '" + row.What +
+                  "' names nothing the assembled scene holds -- a save of a missing value "
+                  "would load as a lie";
+      return false;
+    }
+    char digits[64];
+    const auto written = std::to_chars(digits, digits + sizeof digits, *value);
+    lines.push_back(row.What + " " + std::string(digits, written.ptr) + "\n");
+  }
+  std::sort(lines.begin(), lines.end());
+  std::string text = "outshine-save 1 " + S_->Declared.Named.Name + " " +
+                     S_->Declared.Named.Version + "\n";
+  for (const std::string &line : lines) { text += line; }
+  if (text.size() > kMostSaveBytes) {
+    S_->Error = "the save of " + std::to_string(text.size()) + " bytes overflows the bound of " +
+                std::to_string(kMostSaveBytes);
+    return false;
+  }
+  const std::string held(path);
+  std::FILE *const file = std::fopen(held.c_str(), "wb");
+  if (file == nullptr) {
+    S_->Error = held + ": the save file would not open";
+    return false;
+  }
+  const size_t wrote = std::fwrite(text.data(), 1, text.size(), file);
+  const bool closed = std::fclose(file) == 0;
+  if (wrote != text.size() || !closed) {
+    S_->Error = held + ": the save did not reach the disk whole -- a full disk is a refusal, "
+                "never a successful save";
+    return false;
+  }
+  S_->Error.clear();
+  return true;
+}
+
+bool Engine::Restore(std::string_view path) {
+  if (!S_->Stood.Instances.size() && S_->Declared.Instances.empty()) {
+    S_->Error = "nothing is assembled, and loading a save is standing the scenario up FIRST "
+                "and then applying the state -- one arrival route";
+    return false;
+  }
+  std::string text;
+  if (!SlurpFile(std::string(path), text, S_->Error)) { return false; }
+  size_t at = text.find('\n');
+  const std::string head = text.substr(0, at == std::string::npos ? text.size() : at);
+  const std::string wanted =
+      "outshine-save 1 " + S_->Declared.Named.Name + " " + S_->Declared.Named.Version;
+  if (head != wanted) {
+    S_->Error = "the save says '" + head + "' and this engine stands '" + wanted +
+                "' -- a save from another scenario or version refuses quoting both";
+    return false;
+  }
+  struct Landing {
+    Entity Holder = kNoEntity;
+    uint32_t Key = 0;
+    double Value = 0.0;
+  };
+  std::vector<Landing> staged;
+  while (at != std::string::npos && at + 1 < text.size()) {
+    const size_t end = text.find('\n', at + 1);
+    const std::string line =
+        text.substr(at + 1, (end == std::string::npos ? text.size() : end) - at - 1);
+    at = end;
+    if (line.empty()) { continue; }
+    const size_t gap = line.rfind(' ');
+    const size_t dot = line.find('.');
+    if (gap == std::string::npos || dot == std::string::npos || dot > gap) {
+      S_->Error = "the save line '" + line + "' does not read as instance.trait value";
+      return false;
+    }
+    Landing landing;
+    landing.Holder = S_->Stood.InstanceNamed(std::string_view(line).substr(0, dot));
+    landing.Key = S_->Stood.TraitKey(std::string_view(line).substr(dot + 1, gap - dot - 1));
+    const auto scanned =
+        std::from_chars(line.data() + gap + 1, line.data() + line.size(), landing.Value);
+    if (scanned.ec != std::errc() || scanned.ptr != line.data() + line.size() ||
+        !std::isfinite(landing.Value)) {
+      S_->Error = "the save line '" + line + "' does not read as instance.trait value";
+      return false;
+    }
+    if (landing.Holder == kNoEntity || landing.Key == 0) {
+      S_->Error = "the save names '" + line.substr(0, gap) +
+                  "', which the assembled scene does not hold -- the declaration moved on and "
+                  "the save did not";
+      return false;
+    }
+    staged.push_back(landing);
+  }
+  std::vector<std::pair<Entity, Traits>> rows;
+  for (const Landing &landing : staged) {
+    Traits *row = nullptr;
+    for (auto &held : rows) {
+      if (held.first == landing.Holder) { row = &held.second; }
+    }
+    if (row == nullptr) {
+      const Traits *standing = S_->Kinds.Get(landing.Holder);
+      rows.emplace_back(landing.Holder, standing == nullptr ? Traits{} : *standing);
+      row = &rows.back().second;
+    }
+    if (row->Named(landing.Key) == nullptr) {
+      S_->Error = "the save carries a value for a trait this holder never declared -- the "
+                  "declaration moved on and the save did not, and NOTHING was applied";
+      return false;
+    }
+    if (!row->Put(landing.Key, landing.Value)) {
+      S_->Error = "the saved value found no seat -- the holder already carries its full " +
+                  std::to_string(Traits::kMost) + " traits, and NOTHING was applied";
+      return false;
+    }
+  }
+  for (const auto &held : rows) {
+    if (!S_->Kinds.Put(held.first, held.second)) {
+      S_->Error = "a validated holder died between the dry run and the commit";
+      return false;
+    }
+  }
+  S_->Error.clear();
+  return true;
+}
+
+bool Engine::Park() {
+  if (!S_->Standing) {
+    S_->Error = "no scenario is standing, so there is nothing to park";
+    return false;
+  }
+  if (S_->Declared.Named.Name.empty()) {
+    S_->Error = "a scenario is parked under its name and this one declares none";
+    return false;
+  }
+  for (const Scenario &asleep : S_->Asleep) {
+    if (asleep.Named.Name == S_->Declared.Named.Name) {
+      S_->Error = S_->Declared.Named.Name + " is parked already, so parking it twice would leave two";
+      return false;
+    }
+  }
+  if (S_->Asleep.size() >= kParkedBound) {
+    S_->Error = "the parked set is full at its declared bound of " +
+                std::to_string(kParkedBound) + " -- resume or discard '" +
+                S_->Asleep.front().Named.Name + "' (the least recently live) before parking " +
+                S_->Declared.Named.Name;
+    return false;
+  }
+  S_->Asleep.push_back(S_->Declared);
+  S_->Standing.reset();
+  S_->Error.clear();
+  return true;
+}
+
+bool Engine::Resume(std::string_view name) {
+  if (S_->Standing) {
+    S_->Error = "a scenario is standing, and Resume stands nothing down -- park it or Discard "
+                "it explicitly first, because state that vanishes on somebody else's call is "
+                "state nobody can reason about";
+    return false;
+  }
+  for (size_t at = 0; at < S_->Asleep.size(); ++at) {
+    if (S_->Asleep[at].Named.Name != name) { continue; }
+    if (!Declare(S_->Asleep[at])) { return false; }
+    S_->Asleep.erase(S_->Asleep.begin() + (long)at);
+    return true;
+  }
+  S_->Error = std::string(name) + " is not parked, and resuming what was never parked is not a load";
+  return false;
+}
+
+bool Engine::Discard(std::string_view name) {
+  for (size_t at = 0; at < S_->Asleep.size(); ++at) {
+    if (S_->Asleep[at].Named.Name != name) { continue; }
+    S_->Asleep.erase(S_->Asleep.begin() + (long)at);
+    S_->Error.clear();
+    return true;
+  }
+  S_->Error = std::string(name) + " is not parked, so there is nothing to discard";
+  return false;
+}
+
+std::vector<std::string> Engine::Parked() const {
+  std::vector<std::string> names;
+  for (const Scenario &asleep : S_->Asleep) { names.push_back(asleep.Named.Name); }
+  return names;
+}
+
+}
