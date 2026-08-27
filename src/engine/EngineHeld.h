@@ -265,6 +265,8 @@ struct Engine::State {
   void Falls(void);
   [[nodiscard]] bool Composes(void);
   [[nodiscard]] bool Stood(void);
+  [[nodiscard]] bool Updates(void);
+  [[nodiscard]] bool Draws(void);
   [[nodiscard]] bool Routes(void);
 };
 

@@ -78,43 +78,50 @@ bool Engine::State::Carries(const Physics::Rigid &body, const double shiftM[3]) 
   return true;
 }
 
-bool Engine::Advance() {
-  if (S_->Ticking.Drove) {
-    if (S_->Ticking.Steps >= S_->Ticking.MostSteps) {
-      S_->Error = "the drive has taken " + Said((double)S_->Ticking.Steps) +
-                  " steps and its own plan allows " + Said((double)S_->Ticking.MostSteps) +
+bool Engine::State::Updates(void) {
+
+  if (Ticking.Drove) {
+    if (Ticking.Steps >= Ticking.MostSteps) {
+      Error = "the drive has taken " + Said((double)Ticking.Steps) +
+                  " steps and its own plan allows " + Said((double)Ticking.MostSteps) +
                   " at the slowest station on it, so it is not arriving";
       return false;
     }
-    ++S_->Ticking.Steps;
+    ++Ticking.Steps;
     const Sim::Ridden &rode =
-        Sim::DriveTick(S_->Ticking.Drive.Way, S_->Ticking.Drive.Stood, *S_->Ticking.Surface, S_->Ticking.Drive.State,
-                       S_->Session.Declared.Motion.StepS, nullptr);
+        Sim::DriveTick(Ticking.Drive.Way, Ticking.Drive.Stood, *Ticking.Surface, Ticking.Drive.State,
+                       Session.Declared.Motion.StepS, nullptr);
     if (!rode.Found || rode.Lost) {
-      S_->Error = "the drive left its corridor at " + Said(rode.ReachedM) + " m";
+      Error = "the drive left its corridor at " + Said(rode.ReachedM) + " m";
       return false;
     }
     if (rode.Arrived) {
-      S_->Published.Places("wheel-steps that asked the ground what it is", (double)rode.GroundAsked, "steps");
-      S_->Published.Places("steps it could answer", (double)rode.GroundAnswered, "steps");
+      Published.Places("wheel-steps that asked the ground what it is", (double)rode.GroundAsked, "steps");
+      Published.Places("steps it could answer", (double)rode.GroundAnswered, "steps");
       return false;
     }
-    if (!S_->Rides()) { return false; }
+    if (!Rides()) { return false; }
   }
-  if (S_->Ticking.Drove) {
-    S_->Published.Places("how far along it the body has come", S_->Ticking.Drive.State.Tally.ReachedM, "m");
-    S_->Published.Places("ticks the one lane task has kept", (double)S_->Ticking.Drive.State.Kept, "ticks");
-    S_->Published.Places("bytes the world holds while it drives", (double)HeapProbe::LiveBytes(), "bytes");
+  if (Ticking.Drove) {
+    Published.Places("how far along it the body has come", Ticking.Drive.State.Tally.ReachedM, "m");
+    Published.Places("ticks the one lane task has kept", (double)Ticking.Drive.State.Kept, "ticks");
+    Published.Places("bytes the world holds while it drives", (double)HeapProbe::LiveBytes(), "bytes");
   }
-  S_->Falls();
-  if (!S_->Ticking.Drove && !S_->Ticking.Freestanding.empty() && S_->Picture.Standing &&
-      S_->Picture.Standing->Stands()) {
-    const double unshifted[3] = {0.0, 0.0, 0.0};
-    if (!S_->Carries(S_->Ticking.Freestanding.front(), unshifted)) { return false; }
-  }
-  if (S_->Picture.Standing && !S_->Picture.Standing->Advance(S_->Error)) { return false; }
+  Falls();
   return true;
 }
+
+bool Engine::State::Draws(void) {
+  if (!Ticking.Drove && !Ticking.Freestanding.empty() && Picture.Standing &&
+      Picture.Standing->Stands()) {
+    const double unshifted[3] = {0.0, 0.0, 0.0};
+    if (!Carries(Ticking.Freestanding.front(), unshifted)) { return false; }
+  }
+  if (Picture.Standing && !Picture.Standing->Advance(Error)) { return false; }
+  return true;
+}
+
+bool Engine::Advance() { return S_->Updates() && S_->Draws(); }
 
 void Engine::State::Falls(void) {
   if (Ticking.Freestanding.empty()) { return; }
