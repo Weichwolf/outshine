@@ -56,9 +56,19 @@ because nothing in the corpus moves a rigid subject without also deforming it.
       null, so the resource is aliased away before it is made -- that is the thing to understand
       before the number is published, because publishing one that reads -1 forever is worse than
       publishing none.
-      Until then the corpus proves velocity in both directions -- 354 cases demand at least one
-      moving pixel, 75 demand none, 444/444 pass -- but EVERY one of them animates GEOMETRY, so
-      their velocity comes from per-vertex `prevP` and would pass with the previous row disabled.
-      No case in this tree moves a PLACEMENT and looks at the result.
+      **MEASURED, not inferred**: with `was = now` forced in `HandPlacements`, khronos/glTF is
+      444/444 and `outshine/door/ScoreWhatAMovingSceneResends` reads the same 57600 px and the
+      same 0.695012 ndc. NOTHING in this tree reads the previous placement row. The reason is
+      structural rather than accidental: `harness/shared/render/Parity.cpp` calls `PoseGeometry`
+      and hands the engine BAKED vertices with `prevP`, so even a node-rotation case like
+      `AnimatedCube` reaches the renderer as a static transform over moving vertices. The corpus
+      cannot exercise a placement's previous transform by construction.
+      The row is kept anyway, and the reason is stated rather than assumed: the alternative is
+      `before[i] = model[i]`, which is provably wrong -- a rigid subject that changes place
+      reprojects onto itself and TAA fetches history from where the subject is NOT. Correctness
+      no case covers is still correctness; what is missing is the case, and it has an address:
+      a scenario with a FIXED eye over a subject whose PLACEMENT moves, declared through the door
+      rather than baked by the harness. Then `was = now` drops the moving-pixel count to zero
+      while the picture stays put, and this predicate closes.
 - [ ] a claim counts the callers of the frame's end and refuses when there is more than one, so
       the single caller `RenderFrame` has today is a fact rather than a coincidence
